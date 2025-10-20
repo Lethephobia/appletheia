@@ -1,0 +1,20 @@
+[workspace]
+resolver = "3"
+
+members = [
+    "crates/appletheia",
+    "crates/appletheia-domain",
+    "crates/appletheia-application",
+    "crates/appletheia-infrastructure",
+]
+
+[workspace.package]
+name = "appletheia"
+edition = "2024"
+license = "MIT"
+readme = "README.md"
+authors = ["pbandj082 <pbandj082@gmail.com>"]
+repository = "https://github.com/pbandj082/appletheia"
+description = "The Application Interfaces for Event-Sourcing Architecture"
+keywords = ["appletheia", "ddd", "event-sourcing", "cqrs"]
+categories = ["ddd", "event-sourcing", "cqrs"]
