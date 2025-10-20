@@ -1,14 +1,7 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+pub mod aggregate;
+pub mod event;
+pub mod identifier;
+pub mod repository;
+pub mod snapshot;
+pub mod timestamp;
+pub mod value_object;
