@@ -1,6 +1,7 @@
 [package]
 name = "appletheia"
 version = "0.1.0"
+edition = "2024"
 include = ["src/**", "Cargo.toml", "README.md", "LICENSE"]
 
 [dependencies]
