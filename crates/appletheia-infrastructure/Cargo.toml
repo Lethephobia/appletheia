@@ -3,3 +3,5 @@ name = "appletheia-infrastructure"
 version = "0.1.0"
 
 [dependencies]
+appletheia-domain = { version = "0.1.0", path = "../appletheia-domain" }
+appletheia-application = { version = "0.1.0", path = "../appletheia-application" }
