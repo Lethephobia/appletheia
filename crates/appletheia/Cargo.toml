@@ -8,5 +8,5 @@ include = ["src/**", "Cargo.toml", "README.md", "LICENSE"]
 
 [dependencies]
 appletheia-domain = { version = "0.1.0", path = "../appletheia-domain" }
-appletheia-application = { version = "0.1.0", path = "../appletheia-application" }
-appletheia-infrastructure = { version = "0.1.0", path = "../appletheia-infrastructure" }
+# appletheia-application = { version = "0.1.0", path = "../appletheia-application" }
+# appletheia-infrastructure = { version = "0.1.0", path = "../appletheia-infrastructure" }
