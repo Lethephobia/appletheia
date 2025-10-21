@@ -16,3 +16,8 @@ authors = ["pbandj082 <pbandj082@gmail.com>"]
 repository = "https://github.com/pbandj082/appletheia"
 description = "The Application Interfaces for Event-Sourcing Architecture"
 keywords = ["appletheia", "ddd", "event-sourcing", "cqrs"]
+
+[patch.crates-io]
+appletheia-domain = { path = "crates/appletheia-domain" }
+appletheia-application = { path = "crates/appletheia-application" }
+appletheia-infrastructure = { path = "crates/appletheia-infrastructure" }
