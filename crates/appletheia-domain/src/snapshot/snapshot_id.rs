@@ -3,7 +3,6 @@ use std::{fmt, fmt::Display};
 use uuid::Uuid;
 
 use crate::identifier::Id;
-use crate::value_object::ValueObject;
 
 use super::SnapshotIdError;
 
@@ -19,8 +18,6 @@ impl SnapshotId {
         self.0
     }
 }
-
-impl ValueObject for SnapshotId {}
 
 impl Default for SnapshotId {
     fn default() -> Self {

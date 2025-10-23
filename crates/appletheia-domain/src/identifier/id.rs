@@ -4,8 +4,6 @@ use uuid::{Uuid, Version};
 
 use super::IdError;
 
-use crate::value_object::ValueObject;
-
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
 pub struct Id(Uuid);
 
@@ -18,8 +16,6 @@ impl Id {
         self.0
     }
 }
-
-impl ValueObject for Id {}
 
 impl Default for Id {
     fn default() -> Self {
