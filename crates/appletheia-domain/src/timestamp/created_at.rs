@@ -2,8 +2,6 @@ use std::{fmt, fmt::Display};
 
 use chrono::{DateTime, Utc};
 
-use crate::value_object::ValueObject;
-
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
 pub struct CreatedAt(DateTime<Utc>);
 
@@ -16,8 +14,6 @@ impl CreatedAt {
         self.0
     }
 }
-
-impl ValueObject for CreatedAt {}
 
 impl Default for CreatedAt {
     fn default() -> Self {

@@ -3,7 +3,6 @@ use std::{fmt, fmt::Display};
 use uuid::Uuid;
 
 use crate::identifier::Id;
-use crate::value_object::ValueObject;
 
 use super::EventIdError;
 
@@ -19,8 +18,6 @@ impl EventId {
         self.0
     }
 }
-
-impl ValueObject for EventId {}
 
 impl Default for EventId {
     fn default() -> Self {
