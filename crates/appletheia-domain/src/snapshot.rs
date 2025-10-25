@@ -5,7 +5,7 @@ pub use snapshot_id::SnapshotId;
 pub use snapshot_id_error::SnapshotIdError;
 
 use crate::aggregate::{AggregateState, AggregateVersion};
-use crate::timestamp::CreatedAt;
+use crate::core::CreatedAt;
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct Snapshot<S: AggregateState> {

@@ -1,3 +1,7 @@
-use super::EntityId;
+use std::{fmt::Debug, hash::Hash};
 
-pub trait AggregateId: EntityId {}
+use crate::core::Id;
+
+pub trait AggregateId: Copy + Debug + Eq + Hash + Ord + Send + Sync + 'static {
+    fn value(self) -> Id;
+}

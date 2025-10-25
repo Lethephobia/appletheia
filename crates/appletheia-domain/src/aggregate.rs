@@ -130,7 +130,7 @@ mod tests {
 
     use thiserror::Error;
 
-    use crate::aggregate::{AggregateError, AggregateId, AggregateVersion, EntityId};
+    use crate::aggregate::{AggregateError, AggregateId, AggregateVersion};
     use crate::identifier::Id;
 
     #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
@@ -142,13 +142,11 @@ mod tests {
         }
     }
 
-    impl EntityId for CounterAggregateId {
+    impl AggregateId for CounterAggregateId {
         fn value(self) -> Id {
             self.0
         }
     }
-
-    impl AggregateId for CounterAggregateId {}
 
     impl Display for CounterAggregateId {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
