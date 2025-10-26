@@ -2,7 +2,7 @@ use std::{fmt, fmt::Display};
 
 use uuid::Uuid;
 
-use crate::core::Id;
+use crate::core::{Id, ValueObject};
 
 use super::EventIdError;
 
@@ -24,6 +24,8 @@ impl Default for EventId {
         Self::new()
     }
 }
+
+impl ValueObject for EventId {}
 
 impl TryFrom<Uuid> for EventId {
     type Error = EventIdError;

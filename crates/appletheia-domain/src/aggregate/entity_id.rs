@@ -1,7 +1,7 @@
-use std::{fmt::Debug, hash::Hash};
+use crate::core::{Id, ValueObject};
 
-use crate::core::Id;
-
-pub trait EntityId: Copy + Debug + Eq + Hash + Ord + Send + Sync + 'static {
+pub trait EntityId: Copy + ValueObject {
     fn value(self) -> Id;
 }
+
+impl<T: EntityId> ValueObject for T {}
