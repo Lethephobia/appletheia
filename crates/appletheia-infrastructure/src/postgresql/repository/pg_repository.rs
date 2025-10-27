@@ -1,3 +1,6 @@
+use sqlx::PgPool;
+
+use crate::postgresql::event::PgEventModel;
 use appletheia_domain::{
     Aggregate, AggregateVersion, Event, Repository, RepositoryError, Snapshot,
 };
@@ -5,6 +8,7 @@ use appletheia_domain::{
 use std::marker::PhantomData;
 
 pub struct PgRepository<A: Aggregate> {
+    pool: PgPool,
     _phantom: PhantomData<A>,
 }
 
