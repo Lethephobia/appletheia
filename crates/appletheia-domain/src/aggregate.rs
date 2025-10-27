@@ -32,7 +32,6 @@ pub trait Aggregate: Clone + Debug + Default + Send + Sync + 'static {
     fn set_version(&mut self, version: AggregateVersion);
 
     fn uncommitted_events(&self) -> &[Event<Self::Id, Self::EventPayload>];
-    fn uncommitted_events_mut(&mut self) -> &mut Vec<Event<Self::Id, Self::EventPayload>>;
     fn record_uncommitted_event(&mut self, event: Event<Self::Id, Self::EventPayload>);
 
     fn apply(&mut self, payload: &Self::EventPayload) -> Result<(), Self::Error>;
@@ -45,10 +44,6 @@ pub trait Aggregate: Clone + Debug + Default + Send + Sync + 'static {
         let next_version = self.version().try_next().map_err(AggregateError::Version)?;
         self.set_version(next_version);
         Ok(())
-    }
-
-    fn drain_uncommitted_events(&mut self) -> Vec<Event<Self::Id, Self::EventPayload>> {
-        self.uncommitted_events_mut().drain(..).collect()
     }
 
     fn append_event(&mut self, payload: Self::EventPayload) -> Result<(), Self::Error> {
@@ -108,10 +103,20 @@ pub trait Aggregate: Clone + Debug + Default + Send + Sync + 'static {
         events: I,
         snapshot: Option<Snapshot<Self::State>>,
     ) -> Result<(), Self::Error> {
+        let mut event_iter = events.into_iter();
+
+        let first_event = event_iter.next();
+        if first_event.is_none() && snapshot.is_none() {
+            return Err(AggregateError::NoEvents.into());
+        }
+
         if let Some(snapshot) = snapshot {
             self.restore_snapshot(snapshot)?;
         }
-        for event in events {
+        if let Some(first_event) = first_event {
+            self.replay_event(first_event)?;
+        }
+        for event in event_iter {
             self.replay_event(event)?;
         }
         Ok(())
@@ -298,10 +303,6 @@ mod tests {
             &self.uncommitted_events
         }
 
-        fn uncommitted_events_mut(&mut self) -> &mut Vec<Event<Self::Id, Self::EventPayload>> {
-            &mut self.uncommitted_events
-        }
-
         fn record_uncommitted_event(&mut self, event: Event<Self::Id, Self::EventPayload>) {
             self.uncommitted_events.push(event);
         }
@@ -370,8 +371,6 @@ mod tests {
     fn increment_and_decrement_update_state_and_version() {
         let mut counter = Counter::new();
         counter.create().expect("create should succeed");
-        counter.drain_uncommitted_events();
-
         counter.increment(5).expect("increment should succeed");
         counter.decrement(2).expect("decrement should succeed");
 
@@ -380,9 +379,10 @@ mod tests {
         assert_eq!(counter.version().value(), 3);
 
         let events = counter.uncommitted_events();
-        assert_eq!(events.len(), 2);
-        assert_eq!(events[0].payload(), &CounterEventPayload::Increment(5));
-        assert_eq!(events[1].payload(), &CounterEventPayload::Decrement(2));
+        assert_eq!(events.len(), 3);
+        assert_eq!(events[0].payload(), &CounterEventPayload::Created());
+        assert_eq!(events[1].payload(), &CounterEventPayload::Increment(5));
+        assert_eq!(events[2].payload(), &CounterEventPayload::Decrement(2));
     }
 
     #[test]
@@ -414,28 +414,6 @@ mod tests {
             CounterError::Aggregate(AggregateError::Version(_))
         ));
         assert_eq!(counter.version(), max_version);
-    }
-
-    #[test]
-    fn drain_uncommitted_events_clears_buffer() {
-        let mut counter = Counter::new();
-        let event1 = CounterEvent::new(
-            counter.id,
-            counter.version(),
-            CounterEventPayload::Created(),
-        );
-        let event2 = CounterEvent::new(
-            counter.id,
-            counter.version(),
-            CounterEventPayload::Increment(2),
-        );
-
-        counter.record_uncommitted_event(event1.clone());
-        counter.record_uncommitted_event(event2.clone());
-
-        let drained = counter.drain_uncommitted_events();
-        assert_eq!(drained, vec![event1, event2]);
-        assert!(counter.uncommitted_events().is_empty());
     }
 
     #[test]

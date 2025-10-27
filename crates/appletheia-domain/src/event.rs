@@ -1,11 +1,7 @@
-pub mod event_history_reader;
-pub mod event_history_reader_error;
 pub mod event_id;
 pub mod event_id_error;
 pub mod event_payload;
 
-pub use event_history_reader::EventHistoryReader;
-pub use event_history_reader_error::EventHistoryReaderError;
 pub use event_id::EventId;
 pub use event_id_error::EventIdError;
 pub use event_payload::EventPayload;
