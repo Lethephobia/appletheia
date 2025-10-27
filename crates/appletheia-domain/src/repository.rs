@@ -11,15 +11,9 @@ use crate::aggregate::{Aggregate, AggregateVersion};
 #[allow(async_fn_in_trait)]
 pub trait Repository {
     type AggregateId: AggregateId;
-    type AggregateState: AggregateState<Id = Self::AggregateId>;
-    type EventPayload: EventPayload;
-    type Aggregate: Aggregate<
-            Id = Self::AggregateId,
-            State = Self::AggregateState,
-            EventPayload = Self::EventPayload,
-        >;
+    type Aggregate: Aggregate<Id = Self::AggregateId>;
     type Error: From<RepositoryError<Self::Aggregate>>;
-    type EventHistoryReader: EventHistoryReader<Self::AggregateId, Self::EventPayload, Self::AggregateState>;
+    type EventHistoryReader: EventHistoryReader<Self::Aggregate>;
 
     fn event_history_reader(&self) -> &Self::EventHistoryReader;
 
