@@ -17,11 +17,13 @@ use std::fmt::Debug;
 use crate::event::{Event, EventPayload};
 use crate::snapshot::Snapshot;
 
-pub trait Aggregate: Clone + Debug + Send + Sync + 'static {
+pub trait Aggregate: Clone + Debug + Default + Send + Sync + 'static {
     type Id: AggregateId;
     type State: AggregateState<Id = Self::Id>;
     type EventPayload: EventPayload;
     type Error: From<AggregateError<Self::Id>>;
+
+    const AGGREGATE_TYPE: &'static str;
 
     fn state(&self) -> Option<&Self::State>;
     fn set_state(&mut self, state: Option<Self::State>);
@@ -130,7 +132,7 @@ mod tests {
 
     use thiserror::Error;
 
-    use crate::aggregate::{AggregateError, AggregateId, AggregateVersion, EntityId};
+    use crate::aggregate::{AggregateError, AggregateId, AggregateVersion};
     use crate::identifier::Id;
 
     #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
@@ -142,13 +144,11 @@ mod tests {
         }
     }
 
-    impl EntityId for CounterAggregateId {
+    impl AggregateId for CounterAggregateId {
         fn value(self) -> Id {
             self.0
         }
     }
-
-    impl AggregateId for CounterAggregateId {}
 
     impl Display for CounterAggregateId {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -275,6 +275,8 @@ mod tests {
         type State = CounterState;
         type EventPayload = CounterEventPayload;
         type Error = CounterError;
+
+        const AGGREGATE_TYPE: &'static str = "counter";
 
         fn state(&self) -> Option<&Self::State> {
             self.state.as_ref()

@@ -8,7 +8,7 @@ pub enum AggregateError<A: AggregateId> {
     InvalidAggregateId(A, A),
 
     #[error("aggregate version error: {0}")]
-    Version(#[from] AggregateVersionError),
+    Version(#[source] AggregateVersionError),
 
     #[error("invalid next event version: {0}, expected {1}")]
     InvalidNextEventVersion(AggregateVersion, AggregateVersion),

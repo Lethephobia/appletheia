@@ -2,7 +2,7 @@ use std::{fmt, fmt::Display};
 
 use uuid::Uuid;
 
-use crate::identifier::Id;
+use crate::core::Id;
 
 use super::EventIdError;
 
@@ -54,7 +54,7 @@ impl Display for EventId {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::identifier::IdError;
+    use crate::core::IdError;
     use uuid::{Uuid, Version};
 
     #[test]
