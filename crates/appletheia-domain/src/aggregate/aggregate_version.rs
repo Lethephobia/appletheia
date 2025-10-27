@@ -1,7 +1,5 @@
 use std::{fmt, fmt::Display};
 
-use crate::core::ValueObject;
-
 use super::AggregateVersionError;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
@@ -37,8 +35,6 @@ impl Default for AggregateVersion {
         Self::new()
     }
 }
-
-impl ValueObject for AggregateVersion {}
 
 impl TryFrom<i64> for AggregateVersion {
     type Error = AggregateVersionError;

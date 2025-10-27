@@ -1,13 +1,7 @@
-use crate::aggregate::EntityId;
+use std::{fmt::Debug, hash::Hash};
 
 use crate::core::Id;
 
-pub trait AggregateId: EntityId {
+pub trait AggregateId: Copy + Debug + Eq + Hash + Send + Sync + 'static {
     fn value(self) -> Id;
-}
-
-impl<A: AggregateId> EntityId for A {
-    fn value(self) -> Id {
-        AggregateId::value(self)
-    }
 }

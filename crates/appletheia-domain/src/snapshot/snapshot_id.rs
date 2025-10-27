@@ -2,7 +2,6 @@ use std::{fmt, fmt::Display};
 
 use uuid::Uuid;
 
-use crate::core::ValueObject;
 use crate::identifier::Id;
 
 use super::SnapshotIdError;
@@ -25,8 +24,6 @@ impl Default for SnapshotId {
         Self::new()
     }
 }
-
-impl ValueObject for SnapshotId {}
 
 impl TryFrom<Uuid> for SnapshotId {
     type Error = SnapshotIdError;

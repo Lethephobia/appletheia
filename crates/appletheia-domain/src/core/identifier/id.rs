@@ -3,7 +3,6 @@ use std::{convert::TryFrom, fmt, fmt::Display};
 use uuid::{Uuid, Version};
 
 use super::IdError;
-use crate::core::ValueObject;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
 pub struct Id(Uuid);
@@ -23,8 +22,6 @@ impl Default for Id {
         Self::new()
     }
 }
-
-impl ValueObject for Id {}
 
 impl TryFrom<Uuid> for Id {
     type Error = IdError;
