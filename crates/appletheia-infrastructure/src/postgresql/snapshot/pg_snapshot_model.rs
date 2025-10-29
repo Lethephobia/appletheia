@@ -1,7 +1,8 @@
 pub(crate) struct PgSnapshotModel {
-    aggregate_type: String,
-    aggregate_id: Uuid,
-    aggregate_version: i64,
-    state: serde_json::Value,
-    created_at: DateTime<Utc>,
+    pub(crate) id: Uuid,
+    pub(crate) aggregate_type: String,
+    pub(crate) aggregate_id: Uuid,
+    pub(crate) aggregate_version: i64,
+    pub(crate) state: serde_json::Value,
+    pub(crate) created_at: DateTime<Utc>,
 }

@@ -29,12 +29,24 @@ impl<A: AggregateId, P: EventPayload> Event<A, P> {
         }
     }
 
-    pub fn id(&self) -> EventId {
-        self.id
+    pub fn from_persisted(
+        id: EventId,
+        aggregate_id: A,
+        aggregate_version: AggregateVersion,
+        payload: P,
+        created_at: CreatedAt,
+    ) -> Self {
+        Self {
+            id,
+            aggregate_id,
+            aggregate_version,
+            payload,
+            created_at,
+        }
     }
 
-    pub fn event_type(&self) -> &'static str {
-        self.payload.event_type()
+    pub fn id(&self) -> EventId {
+        self.id
     }
 
     pub fn aggregate_id(&self) -> A {

@@ -1,6 +1,12 @@
-use crate::core::Id;
 use std::{fmt::Debug, hash::Hash};
 
-pub trait EntityId: Copy + Debug + Eq + Hash + Send + Sync + 'static {
+use serde::Serialize;
+use serde::de::DeserializeOwned;
+
+use crate::core::Id;
+
+pub trait EntityId:
+    Copy + Debug + Eq + Hash + Serialize + DeserializeOwned + Send + Sync + 'static
+{
     fn value(self) -> Id;
 }

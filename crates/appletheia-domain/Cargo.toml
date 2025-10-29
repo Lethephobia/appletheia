@@ -11,5 +11,7 @@ keywords = ["appletheia", "ddd", "event-sourcing", "cqrs"]
 
 [dependencies]
 chrono = "0.4.42"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.145"
 thiserror = "2.0.17"
-uuid = { version = "1.18.1", features = ["v7"] }
+uuid = { version = "1.18.1", features = ["serde", "v7"] }

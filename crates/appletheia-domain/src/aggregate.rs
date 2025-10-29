@@ -12,7 +12,7 @@ pub use aggregate_version::AggregateVersion;
 pub use aggregate_version_error::AggregateVersionError;
 pub use entity_id::EntityId;
 
-use std::fmt::Debug;
+use std::{error::Error, fmt::Debug};
 
 use crate::event::{Event, EventPayload};
 use crate::snapshot::Snapshot;
@@ -21,7 +21,7 @@ pub trait Aggregate: Clone + Debug + Default + Send + Sync + 'static {
     type Id: AggregateId;
     type State: AggregateState<Id = Self::Id>;
     type EventPayload: EventPayload;
-    type Error: From<AggregateError<Self::Id>>;
+    type Error: Error + From<AggregateError<Self::Id>> + Send + Sync + 'static;
 
     const AGGREGATE_TYPE: &'static str;
 
@@ -124,7 +124,7 @@ pub trait Aggregate: Clone + Debug + Default + Send + Sync + 'static {
 
     fn to_snapshot(&self) -> Result<Snapshot<Self::State>, Self::Error> {
         self.state()
-            .map(|state| Snapshot::new(self.version(), state.clone()))
+            .map(|state| Snapshot::new(state.id(), self.version(), state.clone()))
             .ok_or(AggregateError::NoState.into())
     }
 }
@@ -135,40 +135,75 @@ mod tests {
 
     use std::{fmt, fmt::Display};
 
+    use serde::{Deserialize, Serialize};
     use thiserror::Error;
+    use uuid::Uuid;
 
     use crate::aggregate::{AggregateError, AggregateId, AggregateVersion};
-    use crate::identifier::Id;
+    use crate::identifier::{Id, IdError};
 
-    #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
-    struct CounterAggregateId(Id);
+    #[derive(Debug, Error)]
+    enum CounterIdError {
+        #[error("id error: {0}")]
+        Id(#[from] IdError),
+    }
 
-    impl CounterAggregateId {
+    #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
+    #[serde(try_from = "Uuid", into = "Uuid")]
+    struct CounterId(Id);
+
+    impl CounterId {
         fn new() -> Self {
             Self(Id::new())
         }
     }
 
-    impl AggregateId for CounterAggregateId {
+    impl AggregateId for CounterId {
+        type Error = CounterIdError;
+
+        fn try_from_uuid(value: Uuid) -> Result<Self, Self::Error> {
+            Ok(Self(Id::try_from(value)?))
+        }
+
         fn value(self) -> Id {
             self.0
         }
     }
 
-    impl Display for CounterAggregateId {
+    impl Display for CounterId {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             write!(f, "{}", self.0)
         }
     }
 
-    #[derive(Clone, Debug, Eq, PartialEq, Hash)]
+    impl From<CounterId> for Uuid {
+        fn from(value: CounterId) -> Self {
+            value.0.value()
+        }
+    }
+
+    impl TryFrom<Uuid> for CounterId {
+        type Error = CounterIdError;
+
+        fn try_from(value: Uuid) -> Result<Self, Self::Error> {
+            Self::try_from_uuid(value)
+        }
+    }
+
+    #[derive(Debug, Error)]
+    enum CounterStateError {
+        #[error("json error: {0}")]
+        Json(#[from] serde_json::Error),
+    }
+
+    #[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
     struct CounterState {
-        id: CounterAggregateId,
+        id: CounterId,
         counter: i32,
     }
 
     impl CounterState {
-        fn new(id: CounterAggregateId, counter: i32) -> Self {
+        fn new(id: CounterId, counter: i32) -> Self {
             Self { id, counter }
         }
 
@@ -178,14 +213,22 @@ mod tests {
     }
 
     impl AggregateState for CounterState {
-        type Id = CounterAggregateId;
+        type Id = CounterId;
+        type Error = CounterStateError;
 
         fn id(&self) -> Self::Id {
             self.id
         }
     }
 
-    #[derive(Clone, Debug, Eq, PartialEq)]
+    #[derive(Debug, Error)]
+    enum CounterEventPayloadError {
+        #[error("json error: {0}")]
+        Json(#[from] serde_json::Error),
+    }
+
+    #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+    #[serde(tag = "type", content = "data", rename_all = "snake_case")]
     enum CounterEventPayload {
         Created(),
         Increment(i32),
@@ -193,27 +236,21 @@ mod tests {
     }
 
     impl EventPayload for CounterEventPayload {
-        fn event_type(&self) -> &'static str {
-            match self {
-                Self::Created() => "test_created",
-                Self::Increment(_) => "test_increment",
-                Self::Decrement(_) => "test_decrement",
-            }
-        }
+        type Error = CounterEventPayloadError;
     }
 
     impl Display for CounterEventPayload {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            write!(f, "{}", self.event_type())
+            write!(f, "{}", self)
         }
     }
 
-    type CounterEvent = Event<CounterAggregateId, CounterEventPayload>;
+    type CounterEvent = Event<CounterId, CounterEventPayload>;
 
     #[derive(Debug, Error)]
     enum CounterError {
         #[error("aggregate error: {0}")]
-        Aggregate(#[from] AggregateError<CounterAggregateId>),
+        Aggregate(#[from] AggregateError<CounterId>),
 
         #[error("invalid event payload: {0}")]
         InvalidEventPayload(CounterEventPayload),
@@ -236,7 +273,7 @@ mod tests {
 
     #[derive(Clone, Debug)]
     struct Counter {
-        id: CounterAggregateId,
+        id: CounterId,
         state: Option<CounterState>,
         version: AggregateVersion,
         uncommitted_events: Vec<CounterEvent>,
@@ -244,7 +281,7 @@ mod tests {
 
     impl Counter {
         pub fn new() -> Self {
-            let id = CounterAggregateId::new();
+            let id = CounterId::new();
             Self {
                 id,
                 state: None,
@@ -276,7 +313,7 @@ mod tests {
     }
 
     impl Aggregate for Counter {
-        type Id = CounterAggregateId;
+        type Id = CounterId;
         type State = CounterState;
         type EventPayload = CounterEventPayload;
         type Error = CounterError;
@@ -421,7 +458,7 @@ mod tests {
         let mut counter = Counter::new();
         counter.create().expect("create should succeed");
         let mismatched_event = CounterEvent::new(
-            CounterAggregateId::new(),
+            CounterId::new(),
             counter.version().try_next().unwrap(),
             CounterEventPayload::Increment(1),
         );
@@ -513,7 +550,11 @@ mod tests {
         let mut counter = Counter::new();
         let snapshot_state = CounterState::new(counter.id, 10);
         let snapshot_version = AggregateVersion::try_from(3).unwrap();
-        let snapshot = Snapshot::new(snapshot_version, snapshot_state.clone());
+        let snapshot = Snapshot::new(
+            snapshot_state.id(),
+            snapshot_version,
+            snapshot_state.clone(),
+        );
         let event1_version = snapshot_version.try_next().unwrap();
         let event2_version = event1_version.try_next().unwrap();
         let events = vec![
@@ -564,7 +605,11 @@ mod tests {
         let mut counter = Counter::new();
         let snapshot_state = CounterState::new(counter.id, 7);
         let snapshot_version = AggregateVersion::try_from(2).unwrap();
-        let snapshot = Snapshot::new(snapshot_version, snapshot_state.clone());
+        let snapshot = Snapshot::new(
+            snapshot_state.id(),
+            snapshot_version,
+            snapshot_state.clone(),
+        );
 
         counter
             .restore_snapshot(snapshot)

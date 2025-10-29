@@ -2,10 +2,10 @@ use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 pub(crate) struct PgEventModel {
-    aggregate_type: String,
-    aggregate_id: Uuid,
-    aggregate_version: i64,
-    event_type: String,
-    payload: serde_json::Value,
-    created_at: DateTime<Utc>,
+    pub(crate) id: Uuid,
+    pub(crate) aggregate_type: String,
+    pub(crate) aggregate_id: Uuid,
+    pub(crate) aggregate_version: i64,
+    pub(crate) payload: serde_json::Value,
+    pub(crate) created_at: DateTime<Utc>,
 }
