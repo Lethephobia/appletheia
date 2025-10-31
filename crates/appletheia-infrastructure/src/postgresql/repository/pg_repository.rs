@@ -200,12 +200,13 @@ impl<A: Aggregate> Repository<A, sqlx::Error> for PgRepository<A> {
 mod tests {
     use super::*;
 
-    use std::{fmt, marker::PhantomData};
+    use std::{fmt, fmt::Display, marker::PhantomData};
 
     use chrono::{TimeZone, Utc};
     use serde::{Deserialize, Serialize};
     use serde_json::json;
     use sqlx::postgres::PgPoolOptions;
+    use thiserror::Error;
     use uuid::Uuid;
 
     use appletheia_domain::{
@@ -213,40 +214,165 @@ mod tests {
         EventPayload, Id, IdError,
     };
 
-    #[derive(Clone, Debug)]
-    struct CounterAggregate {
-        id: CounterAggregateId,
-        state: Option<CounterAggregateState>,
-        version: AggregateVersion,
-        uncommitted_events: Vec<Event<CounterAggregateId, CounterAggregateEventPayload>>,
+    #[derive(Debug, Error)]
+    enum CounterIdError {
+        #[error("id error: {0}")]
+        Id(#[from] IdError),
     }
 
-    impl CounterAggregate {
+    #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
+    #[serde(try_from = "Uuid", into = "Uuid")]
+    struct CounterId(Id);
+
+    impl CounterId {
         fn new() -> Self {
-            let id = CounterAggregateId::from_uuid(Uuid::now_v7())
-                .expect("uuidv7 generation should succeed");
+            Self(Id::new())
+        }
+    }
+
+    impl AggregateId for CounterId {
+        type Error = CounterIdError;
+
+        fn try_from_uuid(value: Uuid) -> Result<Self, Self::Error> {
+            Ok(Self(Id::try_from(value)?))
+        }
+
+        fn value(self) -> Id {
+            self.0
+        }
+    }
+
+    impl Display for CounterId {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            write!(f, "{}", self.0)
+        }
+    }
+
+    impl From<CounterId> for Uuid {
+        fn from(value: CounterId) -> Self {
+            value.0.value()
+        }
+    }
+
+    impl TryFrom<Uuid> for CounterId {
+        type Error = CounterIdError;
+
+        fn try_from(value: Uuid) -> Result<Self, Self::Error> {
+            Self::try_from_uuid(value)
+        }
+    }
+
+    #[derive(Debug, Error)]
+    enum CounterStateError {
+        #[error("json error: {0}")]
+        Json(#[from] serde_json::Error),
+    }
+
+    #[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
+    struct CounterState {
+        id: CounterId,
+        counter: i32,
+    }
+
+    impl CounterState {
+        fn new(id: CounterId, counter: i32) -> Self {
+            Self { id, counter }
+        }
+    }
+
+    impl AggregateState for CounterState {
+        type Id = CounterId;
+        type Error = CounterStateError;
+
+        fn id(&self) -> Self::Id {
+            self.id
+        }
+    }
+
+    #[derive(Debug, Error)]
+    enum CounterEventPayloadError {
+        #[error("json error: {0}")]
+        Json(#[from] serde_json::Error),
+    }
+
+    #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+    #[serde(tag = "type", content = "data", rename_all = "snake_case")]
+    enum CounterEventPayload {
+        Imported(),
+        Created(),
+        Increment(i32),
+        Decrement(i32),
+    }
+
+    impl EventPayload for CounterEventPayload {
+        type Error = CounterEventPayloadError;
+    }
+
+    impl Display for CounterEventPayload {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            write!(f, "{}", self)
+        }
+    }
+
+    type CounterEvent = Event<CounterId, CounterEventPayload>;
+
+    #[derive(Debug, Error)]
+    enum CounterError {
+        #[error("aggregate error: {0}")]
+        Aggregate(#[from] AggregateError<CounterId>),
+
+        #[error("invalid event payload: {0}")]
+        InvalidEventPayload(CounterEventPayload),
+
+        #[error("state missing")]
+        StateMissing,
+    }
+
+    impl PartialEq for CounterError {
+        fn eq(&self, other: &Self) -> bool {
+            matches!(
+                (self, other),
+                (CounterError::StateMissing, CounterError::StateMissing)
+                    | (CounterError::Aggregate(_), CounterError::Aggregate(_))
+            )
+        }
+    }
+
+    impl Eq for CounterError {}
+
+    #[derive(Clone, Debug)]
+    struct Counter {
+        id: CounterId,
+        state: Option<CounterState>,
+        version: AggregateVersion,
+        uncommitted_events: Vec<CounterEvent>,
+    }
+
+    impl Counter {
+        pub fn new() -> Self {
+            let id = CounterId::new();
             Self {
                 id,
                 state: None,
-                version: AggregateVersion::default(),
+                version: AggregateVersion::new(),
                 uncommitted_events: Vec::new(),
             }
         }
     }
 
-    impl Default for CounterAggregate {
+    impl Default for Counter {
         fn default() -> Self {
             Self::new()
         }
     }
 
-    impl Aggregate for CounterAggregate {
-        type Id = CounterAggregateId;
-        type State = CounterAggregateState;
-        type EventPayload = CounterAggregateEventPayload;
-        type Error = CounterAggregateError;
+    impl Aggregate for Counter {
+        type Id = CounterId;
+        type State = CounterState;
+        type EventPayload = CounterEventPayload;
+        type Error = CounterError;
 
-        const AGGREGATE_TYPE: &'static str = "counter_aggregate";
+        const AGGREGATE_TYPE: &'static str = "counter";
 
         fn state(&self) -> Option<&Self::State> {
             self.state.as_ref()
@@ -273,193 +399,32 @@ mod tests {
         }
 
         fn apply(&mut self, payload: &Self::EventPayload) -> Result<(), Self::Error> {
-            match payload {
-                CounterAggregateEventPayload::Created {
-                    aggregate_id,
-                    value,
-                } => {
-                    let id = CounterAggregateId::from_uuid(*aggregate_id)?;
-                    self.state = Some(CounterAggregateState { id, value: *value });
-                    self.id = id;
-                }
-                CounterAggregateEventPayload::Incremented { by } => {
-                    if let Some(state) = self.state.as_mut() {
-                        state.value += *by;
-                    } else {
-                        return Err(CounterAggregateError::MissingState);
+            match self.state.as_mut() {
+                None => match payload {
+                    CounterEventPayload::Created() => {
+                        self.state = Some(CounterState::new(self.id, 0));
                     }
-                }
+                    _ => {
+                        return Err(CounterError::InvalidEventPayload(payload.clone()).into());
+                    }
+                },
+                Some(state) => match payload {
+                    CounterEventPayload::Increment(delta) => {
+                        state.counter += delta;
+                    }
+                    CounterEventPayload::Decrement(delta) => {
+                        state.counter -= delta;
+                    }
+                    _ => {
+                        return Err(CounterError::StateMissing.into());
+                    }
+                },
             }
-
             Ok(())
         }
     }
 
-    #[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
-    struct CounterAggregateState {
-        id: CounterAggregateId,
-        value: i32,
-    }
-
-    impl AggregateState for CounterAggregateState {
-        type Id = CounterAggregateId;
-        type Error = CounterAggregateStateError;
-
-        fn id(&self) -> Self::Id {
-            self.id
-        }
-    }
-
-    #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-    #[serde(tag = "type", rename_all = "snake_case")]
-    enum CounterAggregateEventPayload {
-        Created { aggregate_id: Uuid, value: i32 },
-        Incremented { by: i32 },
-    }
-
-    impl EventPayload for CounterAggregateEventPayload {
-        type Error = CounterAggregateEventPayloadError;
-    }
-
-    #[derive(Debug)]
-    enum CounterAggregateEventPayloadError {
-        Json(serde_json::Error),
-    }
-
-    impl fmt::Display for CounterAggregateEventPayloadError {
-        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            match self {
-                Self::Json(err) => write!(f, "json error: {err}"),
-            }
-        }
-    }
-
-    impl std::error::Error for CounterAggregateEventPayloadError {}
-
-    impl From<serde_json::Error> for CounterAggregateEventPayloadError {
-        fn from(value: serde_json::Error) -> Self {
-            Self::Json(value)
-        }
-    }
-
-    #[derive(Debug)]
-    enum CounterAggregateStateError {
-        Json(serde_json::Error),
-    }
-
-    impl fmt::Display for CounterAggregateStateError {
-        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            match self {
-                Self::Json(err) => write!(f, "json error: {err}"),
-            }
-        }
-    }
-
-    impl std::error::Error for CounterAggregateStateError {}
-
-    impl From<serde_json::Error> for CounterAggregateStateError {
-        fn from(value: serde_json::Error) -> Self {
-            Self::Json(value)
-        }
-    }
-
-    #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
-    #[serde(try_from = "Uuid", into = "Uuid")]
-    struct CounterAggregateId(Id);
-
-    impl CounterAggregateId {
-        fn from_uuid(value: Uuid) -> Result<Self, CounterAggregateIdError> {
-            Ok(Self(
-                Id::try_from(value).map_err(CounterAggregateIdError::from)?,
-            ))
-        }
-    }
-
-    impl AggregateId for CounterAggregateId {
-        type Error = CounterAggregateIdError;
-
-        fn value(self) -> Id {
-            self.0
-        }
-
-        fn try_from_uuid(value: Uuid) -> Result<Self, Self::Error> {
-            Self::from_uuid(value)
-        }
-    }
-
-    impl From<CounterAggregateId> for Uuid {
-        fn from(value: CounterAggregateId) -> Self {
-            value.0.value()
-        }
-    }
-
-    impl TryFrom<Uuid> for CounterAggregateId {
-        type Error = CounterAggregateIdError;
-
-        fn try_from(value: Uuid) -> Result<Self, Self::Error> {
-            Self::from_uuid(value)
-        }
-    }
-
-    impl fmt::Display for CounterAggregateId {
-        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            write!(f, "{}", self.0)
-        }
-    }
-
-    #[derive(Debug)]
-    enum CounterAggregateIdError {
-        Id(IdError),
-    }
-
-    impl fmt::Display for CounterAggregateIdError {
-        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            match self {
-                Self::Id(err) => write!(f, "aggregate id error: {err}"),
-            }
-        }
-    }
-
-    impl std::error::Error for CounterAggregateIdError {}
-
-    impl From<IdError> for CounterAggregateIdError {
-        fn from(value: IdError) -> Self {
-            Self::Id(value)
-        }
-    }
-
-    #[derive(Debug)]
-    enum CounterAggregateError {
-        Aggregate(AggregateError<CounterAggregateId>),
-        Id(CounterAggregateIdError),
-        MissingState,
-    }
-
-    impl fmt::Display for CounterAggregateError {
-        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            match self {
-                Self::Aggregate(err) => write!(f, "{err}"),
-                Self::Id(err) => write!(f, "{err}"),
-                Self::MissingState => write!(f, "aggregate state is missing"),
-            }
-        }
-    }
-
-    impl std::error::Error for CounterAggregateError {}
-
-    impl From<AggregateError<CounterAggregateId>> for CounterAggregateError {
-        fn from(value: AggregateError<CounterAggregateId>) -> Self {
-            Self::Aggregate(value)
-        }
-    }
-
-    impl From<CounterAggregateIdError> for CounterAggregateError {
-        fn from(value: CounterAggregateIdError) -> Self {
-            Self::Id(value)
-        }
-    }
-
-    fn create_repository() -> PgRepository<CounterAggregate> {
+    fn create_repository() -> PgRepository<Counter> {
         let pool = PgPoolOptions::new()
             .max_connections(1)
             .connect_lazy("postgres://postgres:password@localhost/test")
@@ -477,14 +442,11 @@ mod tests {
         let event_id = Uuid::now_v7();
         let aggregate_uuid = Uuid::now_v7();
         let created_at = Utc.with_ymd_and_hms(2024, 5, 20, 12, 0, 0).unwrap();
-        let payload = CounterAggregateEventPayload::Created {
-            aggregate_id: aggregate_uuid,
-            value: 7,
-        };
+        let payload = CounterEventPayload::Created();
 
         let pg_event = PgEventModel {
             id: event_id,
-            aggregate_type: CounterAggregate::AGGREGATE_TYPE.to_string(),
+            aggregate_type: Counter::AGGREGATE_TYPE.to_string(),
             aggregate_id: aggregate_uuid,
             aggregate_version: 3,
             payload: serde_json::to_value(&payload).expect("payload should serialize"),
@@ -508,14 +470,11 @@ mod tests {
         let repository = create_repository();
         let event_id = Uuid::now_v7();
         let aggregate_uuid = Uuid::now_v7();
-        let payload = CounterAggregateEventPayload::Created {
-            aggregate_id: aggregate_uuid,
-            value: 1,
-        };
+        let payload = CounterEventPayload::Created();
 
         let pg_event = PgEventModel {
             id: event_id,
-            aggregate_type: CounterAggregate::AGGREGATE_TYPE.to_string(),
+            aggregate_type: Counter::AGGREGATE_TYPE.to_string(),
             aggregate_id: aggregate_uuid,
             aggregate_version: -1,
             payload: serde_json::to_value(&payload).expect("payload should serialize"),
@@ -539,14 +498,11 @@ mod tests {
         let repository = create_repository();
         let event_id = Uuid::now_v7();
         let invalid_uuid = Uuid::nil();
-        let payload = CounterAggregateEventPayload::Created {
-            aggregate_id: invalid_uuid,
-            value: 1,
-        };
+        let payload = CounterEventPayload::Created();
 
         let pg_event = PgEventModel {
             id: event_id,
-            aggregate_type: CounterAggregate::AGGREGATE_TYPE.to_string(),
+            aggregate_type: Counter::AGGREGATE_TYPE.to_string(),
             aggregate_id: invalid_uuid,
             aggregate_version: 1,
             payload: serde_json::to_value(&payload).expect("payload should serialize"),
@@ -558,9 +514,7 @@ mod tests {
             .expect_err("expected aggregate id conversion error");
 
         match err {
-            RepositoryError::AggregateId(CounterAggregateIdError::Id(IdError::NotUuidV7(
-                value,
-            ))) => {
+            RepositoryError::AggregateId(CounterIdError::Id(IdError::NotUuidV7(value))) => {
                 assert_eq!(value, invalid_uuid);
             }
             other => panic!("unexpected error variant: {other:?}"),
@@ -574,15 +528,12 @@ mod tests {
         let aggregate_uuid = Uuid::now_v7();
         let created_at = Utc.with_ymd_and_hms(2024, 5, 21, 6, 30, 0).unwrap();
         let aggregate_id =
-            CounterAggregateId::from_uuid(aggregate_uuid).expect("uuidv7 should be accepted");
-        let state = CounterAggregateState {
-            id: aggregate_id,
-            value: 11,
-        };
+            CounterId::try_from_uuid(aggregate_uuid).expect("uuidv7 should be accepted");
+        let state = CounterState::new(aggregate_id, 11);
 
         let pg_snapshot = PgSnapshotModel {
             id: snapshot_id,
-            aggregate_type: CounterAggregate::AGGREGATE_TYPE.to_string(),
+            aggregate_type: Counter::AGGREGATE_TYPE.to_string(),
             aggregate_id: aggregate_uuid,
             aggregate_version: 5,
             state: serde_json::to_value(&state).expect("state should serialize"),
@@ -609,7 +560,7 @@ mod tests {
 
         let pg_snapshot = PgSnapshotModel {
             id: snapshot_id,
-            aggregate_type: CounterAggregate::AGGREGATE_TYPE.to_string(),
+            aggregate_type: Counter::AGGREGATE_TYPE.to_string(),
             aggregate_id: aggregate_uuid,
             aggregate_version: 2,
             state: json!({ "value": 4 }),
@@ -621,7 +572,7 @@ mod tests {
             .expect_err("expected aggregate state conversion error");
 
         match err {
-            RepositoryError::AggregateState(CounterAggregateStateError::Json(_)) => {}
+            RepositoryError::AggregateState(CounterStateError::Json(_)) => {}
             other => panic!("unexpected error variant: {other:?}"),
         }
     }
