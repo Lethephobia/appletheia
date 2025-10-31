@@ -12,7 +12,7 @@ pub trait EventPayload:
         serde_json::from_value(value).map_err(serde_json::Error::into)
     }
 
-    fn to_json_value(&self) -> Result<serde_json::Value, Self::Error> {
-        serde_json::to_value(self).map_err(Self::Error::from)
+    fn into_json_value(self) -> Result<serde_json::Value, Self::Error> {
+        serde_json::to_value(self).map_err(serde_json::Error::into)
     }
 }

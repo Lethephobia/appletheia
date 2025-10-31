@@ -1,3 +1,4 @@
+use std::fmt::Debug;
 use thiserror::Error;
 
 use crate::AggregateState;
@@ -6,7 +7,7 @@ use crate::event::{EventIdError, EventPayload};
 use crate::snapshot::SnapshotIdError;
 
 #[derive(Debug, Error)]
-pub enum RepositoryError<A: Aggregate> {
+pub enum RepositoryError<A: Aggregate, PE: std::error::Error + Send + Sync + 'static> {
     #[error("event id error: {0}")]
     EventId(#[source] EventIdError),
 
@@ -27,4 +28,7 @@ pub enum RepositoryError<A: Aggregate> {
 
     #[error("aggregate error: {0}")]
     Aggregate(#[source] A::Error),
+
+    #[error("persistence error: {0}")]
+    Persistence(#[source] PE),
 }

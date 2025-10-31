@@ -1,3 +1,8 @@
+use chrono::{DateTime, Utc};
+use sqlx::FromRow;
+use uuid::Uuid;
+
+#[derive(Clone, Debug, Eq, PartialEq, Hash, FromRow)]
 pub(crate) struct PgSnapshotModel {
     pub(crate) id: Uuid,
     pub(crate) aggregate_type: String,
