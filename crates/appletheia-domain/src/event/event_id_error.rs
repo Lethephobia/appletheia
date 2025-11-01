@@ -1,9 +1,9 @@
-use crate::identifier::IdError;
+use uuid::Uuid;
 
 use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum EventIdError {
-    #[error("id error: {0}")]
-    Id(#[from] IdError),
+    #[error("not a uuidv7: {0}")]
+    NotUuidV7(Uuid),
 }

@@ -1,20 +1,18 @@
 use std::{fmt, fmt::Display};
 
-use uuid::Uuid;
-
-use crate::core::Id;
+use uuid::{Uuid, Version};
 
 use super::EventIdError;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
-pub struct EventId(Id);
+pub struct EventId(Uuid);
 
 impl EventId {
     pub fn new() -> Self {
-        Self(Id::new())
+        Self(Uuid::now_v7())
     }
 
-    pub fn value(self) -> Id {
+    pub fn value(self) -> Uuid {
         self.0
     }
 }
@@ -29,44 +27,40 @@ impl TryFrom<Uuid> for EventId {
     type Error = EventIdError;
 
     fn try_from(value: Uuid) -> Result<Self, Self::Error> {
-        Ok(Self(Id::try_from(value)?))
+        match value.get_version() {
+            Some(Version::SortRand) => Ok(Self(value)),
+            _ => Err(EventIdError::NotUuidV7(value)),
+        }
     }
 }
 
 impl From<EventId> for Uuid {
     fn from(value: EventId) -> Self {
-        value.0.value()
-    }
-}
-
-impl From<Id> for EventId {
-    fn from(value: Id) -> Self {
-        Self(value)
+        value.value()
     }
 }
 
 impl Display for EventId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
+        write!(f, "{}", self.value())
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::IdError;
     use uuid::{Uuid, Version};
 
     #[test]
     fn new_generates_uuid_v7() {
-        let uuid: Uuid = EventId::new().into();
+        let uuid = EventId::new().value();
 
         assert_eq!(uuid.get_version(), Some(Version::SortRand));
     }
 
     #[test]
     fn default_generates_uuid_v7() {
-        let uuid: Uuid = EventId::default().into();
+        let uuid = EventId::default().value();
 
         assert_eq!(uuid.get_version(), Some(Version::SortRand));
     }
@@ -84,17 +78,9 @@ mod tests {
         let uuid = Uuid::nil();
 
         match EventId::try_from(uuid) {
-            Err(EventIdError::Id(IdError::NotUuidV7(returned))) => assert_eq!(returned, uuid),
-            other => panic!("expected NotUuidV7 error via EventIdError::Id, got {other:?}"),
+            Err(EventIdError::NotUuidV7(returned)) => assert_eq!(returned, uuid),
+            other => panic!("expected NotUuidV7 error, got {other:?}"),
         }
-    }
-
-    #[test]
-    fn from_id_preserves_value() {
-        let id = Id::new();
-        let event_id = EventId::from(id);
-
-        assert_eq!(event_id.value(), id);
     }
 
     #[test]

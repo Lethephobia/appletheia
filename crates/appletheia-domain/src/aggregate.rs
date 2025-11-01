@@ -137,24 +137,23 @@ mod tests {
 
     use serde::{Deserialize, Serialize};
     use thiserror::Error;
-    use uuid::Uuid;
+    use uuid::{Uuid, Version};
 
     use crate::aggregate::{AggregateError, AggregateId, AggregateVersion};
-    use crate::identifier::{Id, IdError};
 
     #[derive(Debug, Error)]
     enum CounterIdError {
-        #[error("id error: {0}")]
-        Id(#[from] IdError),
+        #[error("not a uuidv7: {0}")]
+        NotUuidV7(Uuid),
     }
 
     #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
     #[serde(try_from = "Uuid", into = "Uuid")]
-    struct CounterId(Id);
+    struct CounterId(Uuid);
 
     impl CounterId {
         fn new() -> Self {
-            Self(Id::new())
+            Self(Uuid::now_v7())
         }
     }
 
@@ -162,10 +161,13 @@ mod tests {
         type Error = CounterIdError;
 
         fn try_from_uuid(value: Uuid) -> Result<Self, Self::Error> {
-            Ok(Self(Id::try_from(value)?))
+            match value.get_version() {
+                Some(Version::SortRand) => Ok(Self(value)),
+                _ => Err(CounterIdError::NotUuidV7(value)),
+            }
         }
 
-        fn value(self) -> Id {
+        fn value(self) -> Uuid {
             self.0
         }
     }
@@ -178,7 +180,7 @@ mod tests {
 
     impl From<CounterId> for Uuid {
         fn from(value: CounterId) -> Self {
-            value.0.value()
+            value.value()
         }
     }
 
