@@ -1,9 +1,8 @@
-use crate::identifier::IdError;
-
 use thiserror::Error;
+use uuid::Uuid;
 
 #[derive(Debug, Error)]
 pub enum SnapshotIdError {
-    #[error("id error: {0}")]
-    Id(#[from] IdError),
+    #[error("not a uuidv7: {0}")]
+    NotUuidV7(Uuid),
 }

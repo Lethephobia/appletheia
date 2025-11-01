@@ -1,14 +1,29 @@
 [package]
 name = "appletheia-infrastructure"
 description = "The Infrastructure Layer for Event-Sourcing Architecture"
-version = "0.1.2"
+version = "0.1.3"
 edition = "2024"
 license = "MIT"
-include = ["src/**", "Cargo.toml", "README.md", "LICENSE"]
+include = ["src/**", "migrations/**", "Cargo.toml", "README.md", "LICENSE"]
 authors = ["pbandj082 <pbandj082@gmail.com>"]
 repository = "https://github.com/pbandj082/appletheia"
 keywords = ["appletheia", "ddd", "event-sourcing", "cqrs"]
 
 [dependencies]
-appletheia-domain = { version = "0.1.1", optional = true }
-appletheia-application = { version = "0.1.1", optional = true }
+appletheia-domain = { version = "0.1.4" }
+appletheia-application = { version = "0.1.1" }
+thiserror = "2.0.17"
+sqlx = { version = "0.8.6", features = [
+    "runtime-tokio",
+    "postgres",
+    "uuid",
+    "chrono",
+    "migrate",
+] }
+uuid = { version = "1.18.1", features = ["serde", "v7"] }
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.145"
+chrono = "0.4.42"
+
+[dev-dependencies]
+tokio = { version = "1.48.0", features = ["rt", "macros"] }

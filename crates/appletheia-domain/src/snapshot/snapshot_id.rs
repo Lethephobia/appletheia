@@ -1,20 +1,18 @@
 use std::{fmt, fmt::Display};
 
-use uuid::Uuid;
-
-use crate::identifier::Id;
+use uuid::{Uuid, Version};
 
 use super::SnapshotIdError;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
-pub struct SnapshotId(Id);
+pub struct SnapshotId(Uuid);
 
 impl SnapshotId {
     pub fn new() -> Self {
-        Self(Id::new())
+        Self(Uuid::now_v7())
     }
 
-    pub fn value(self) -> Id {
+    pub fn value(self) -> Uuid {
         self.0
     }
 }
@@ -29,25 +27,22 @@ impl TryFrom<Uuid> for SnapshotId {
     type Error = SnapshotIdError;
 
     fn try_from(value: Uuid) -> Result<Self, Self::Error> {
-        Ok(Self(Id::try_from(value)?))
+        match value.get_version() {
+            Some(Version::SortRand) => Ok(Self(value)),
+            _ => Err(SnapshotIdError::NotUuidV7(value)),
+        }
     }
 }
 
 impl From<SnapshotId> for Uuid {
     fn from(value: SnapshotId) -> Self {
-        value.0.value()
-    }
-}
-
-impl From<Id> for SnapshotId {
-    fn from(value: Id) -> Self {
-        Self(value)
+        value.value()
     }
 }
 
 impl Display for SnapshotId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
+        write!(f, "{}", self.value())
     }
 }
 
@@ -56,18 +51,16 @@ mod tests {
     use super::*;
     use uuid::{Uuid, Version};
 
-    use crate::identifier::IdError;
-
     #[test]
     fn new_generates_uuid_v7() {
-        let uuid: Uuid = SnapshotId::new().into();
+        let uuid: Uuid = SnapshotId::new().value();
 
         assert_eq!(uuid.get_version(), Some(Version::SortRand));
     }
 
     #[test]
     fn default_generates_uuid_v7() {
-        let uuid: Uuid = SnapshotId::default().into();
+        let uuid: Uuid = SnapshotId::default().value();
 
         assert_eq!(uuid.get_version(), Some(Version::SortRand));
     }
@@ -85,17 +78,9 @@ mod tests {
         let uuid = Uuid::nil();
 
         match SnapshotId::try_from(uuid) {
-            Err(SnapshotIdError::Id(IdError::NotUuidV7(returned))) => assert_eq!(returned, uuid),
+            Err(SnapshotIdError::NotUuidV7(returned)) => assert_eq!(returned, uuid),
             other => panic!("expected NotUuidV7 error via SnapshotIdError::Id, got {other:?}"),
         }
-    }
-
-    #[test]
-    fn from_id_preserves_value() {
-        let id = Id::new();
-        let snapshot_id = SnapshotId::from(id);
-
-        assert_eq!(snapshot_id.value(), id);
     }
 
     #[test]

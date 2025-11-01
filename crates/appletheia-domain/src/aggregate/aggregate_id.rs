@@ -1,7 +1,16 @@
-use std::{fmt::Debug, hash::Hash};
+use std::{error::Error, fmt::Debug, hash::Hash};
 
-use crate::core::Id;
+use serde::Serialize;
+use serde::de::DeserializeOwned;
 
-pub trait AggregateId: Copy + Debug + Eq + Hash + Send + Sync + 'static {
-    fn value(self) -> Id;
+use uuid::Uuid;
+
+pub trait AggregateId:
+    Copy + Debug + Eq + Hash + Serialize + DeserializeOwned + Send + Sync + 'static
+{
+    type Error: Error + Send + Sync + 'static;
+
+    fn value(self) -> Uuid;
+
+    fn try_from_uuid(value: Uuid) -> Result<Self, Self::Error>;
 }
