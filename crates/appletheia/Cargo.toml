@@ -17,6 +17,6 @@ infrastructure = ["dep:appletheia-infrastructure"]
 full = ["domain", "application", "infrastructure"]
 
 [dependencies]
-appletheia-domain = { version = "0.1.3", optional = true }
+appletheia-domain = { version = "0.1.4", optional = true }
 appletheia-application = { version = "0.1.2", optional = true }
-appletheia-infrastructure = { version = "0.1.2", optional = true }
+appletheia-infrastructure = { version = "0.1.3", optional = true }
