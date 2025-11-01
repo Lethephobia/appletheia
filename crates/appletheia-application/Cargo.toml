@@ -10,4 +10,4 @@ repository = "https://github.com/pbandj082/appletheia"
 keywords = ["appletheia", "ddd", "event-sourcing", "cqrs"]
 
 [dependencies]
-appletheia-domain = { version = "0.1.1", optional = true }
+appletheia-domain = { version = "0.1.4" }
