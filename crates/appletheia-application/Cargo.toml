@@ -11,3 +11,4 @@ keywords = ["appletheia", "ddd", "event-sourcing", "cqrs"]
 
 [dependencies]
 appletheia-domain = { version = "0.1.4" }
+thiserror = "2.0.17"
