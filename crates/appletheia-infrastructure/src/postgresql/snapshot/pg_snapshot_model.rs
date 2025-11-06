@@ -9,5 +9,5 @@ pub(crate) struct PgSnapshotModel {
     pub(crate) aggregate_id: Uuid,
     pub(crate) aggregate_version: i64,
     pub(crate) state: serde_json::Value,
-    pub(crate) created_at: DateTime<Utc>,
+    pub(crate) materialized_at: DateTime<Utc>,
 }

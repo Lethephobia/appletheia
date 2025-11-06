@@ -1,11 +1,12 @@
+pub mod materialized_at;
 pub mod snapshot_id;
 pub mod snapshot_id_error;
 
+pub use materialized_at::MaterializedAt;
 pub use snapshot_id::SnapshotId;
 pub use snapshot_id_error::SnapshotIdError;
 
 use crate::aggregate::{AggregateState, AggregateVersion};
-use crate::core::CreatedAt;
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct Snapshot<S: AggregateState> {
@@ -13,7 +14,7 @@ pub struct Snapshot<S: AggregateState> {
     aggregate_id: S::Id,
     aggregate_version: AggregateVersion,
     state: S,
-    created_at: CreatedAt,
+    materialized_at: MaterializedAt,
 }
 
 impl<S: AggregateState> Snapshot<S> {
@@ -23,7 +24,7 @@ impl<S: AggregateState> Snapshot<S> {
             aggregate_id,
             aggregate_version,
             state,
-            created_at: CreatedAt::now(),
+            materialized_at: MaterializedAt::now(),
         }
     }
     pub fn from_persisted(
@@ -31,14 +32,14 @@ impl<S: AggregateState> Snapshot<S> {
         aggregate_id: S::Id,
         aggregate_version: AggregateVersion,
         state: S,
-        created_at: CreatedAt,
+        materialized_at: MaterializedAt,
     ) -> Self {
         Self {
             id,
             aggregate_id,
             aggregate_version,
             state,
-            created_at,
+            materialized_at,
         }
     }
 
@@ -62,7 +63,7 @@ impl<S: AggregateState> Snapshot<S> {
         self.state
     }
 
-    pub fn created_at(&self) -> CreatedAt {
-        self.created_at
+    pub fn materialized_at(&self) -> MaterializedAt {
+        self.materialized_at
     }
 }

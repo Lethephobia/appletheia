@@ -9,5 +9,5 @@ pub(crate) struct PgEventModel {
     pub(crate) aggregate_id: Uuid,
     pub(crate) aggregate_version: i64,
     pub(crate) payload: serde_json::Value,
-    pub(crate) created_at: DateTime<Utc>,
+    pub(crate) occurred_at: DateTime<Utc>,
 }

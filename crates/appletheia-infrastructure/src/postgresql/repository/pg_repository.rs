@@ -3,8 +3,8 @@ use sqlx::PgPool;
 use crate::postgresql::event::PgEventModel;
 use crate::postgresql::snapshot::PgSnapshotModel;
 use appletheia_domain::{
-    Aggregate, AggregateId, AggregateState, AggregateVersion, CreatedAt, Event, EventId,
-    EventPayload, Repository, RepositoryError, Snapshot, SnapshotId,
+    Aggregate, AggregateId, AggregateState, AggregateVersion, Event, EventId, EventPayload,
+    MaterializedAt, OccurredAt, Repository, RepositoryError, Snapshot, SnapshotId,
 };
 
 use std::marker::PhantomData;
@@ -31,7 +31,7 @@ impl<A: Aggregate> PgRepository<A> {
             aggregate_id,
             aggregate_version,
             payload,
-            CreatedAt::from(event.created_at),
+            OccurredAt::from(event.occurred_at),
         ))
     }
 
@@ -51,7 +51,7 @@ impl<A: Aggregate> PgRepository<A> {
             aggregate_id,
             aggregate_version,
             state,
-            CreatedAt::from(snapshot.created_at),
+            MaterializedAt::from(snapshot.materialized_at),
         ))
     }
 
@@ -67,7 +67,7 @@ impl<A: Aggregate> PgRepository<A> {
     > {
         let snapshot_row = sqlx::query_as::<_, PgSnapshotModel>(
             r#"
-            SELECT id, aggregate_type, aggregate_id, aggregate_version, state, created_at
+            SELECT id, aggregate_type, aggregate_id, aggregate_version, state, materialized_at
             FROM snapshots WHERE aggregate_type = $1 AND aggregate_id = $2
             ORDER BY aggregate_version DESC
             LIMIT 1
@@ -87,7 +87,7 @@ impl<A: Aggregate> PgRepository<A> {
 
         let event_rows = sqlx::query_as::<_, PgEventModel>(
             r#"
-            SELECT id, aggregate_type, aggregate_id, aggregate_version, payload, created_at
+            SELECT id, aggregate_type, aggregate_id, aggregate_version, payload, occurred_at
             FROM events WHERE aggregate_type = $1 AND aggregate_id = $2 AND aggregate_version > $3
             ORDER BY aggregate_version ASC
             "#,
@@ -121,7 +121,7 @@ impl<A: Aggregate> PgRepository<A> {
     > {
         let snapshot_row = sqlx::query_as::<_, PgSnapshotModel>(
             r#"
-            SELECT id, aggregate_type, aggregate_id, aggregate_version, state, created_at
+            SELECT id, aggregate_type, aggregate_id, aggregate_version, state, materialized_at
             FROM snapshots WHERE aggregate_type = $1 AND aggregate_id = $2 AND aggregate_version <= $3
             ORDER BY aggregate_version DESC
             LIMIT 1
@@ -142,7 +142,7 @@ impl<A: Aggregate> PgRepository<A> {
 
         let event_rows = sqlx::query_as::<_, PgEventModel>(
             r#"
-            SELECT id, aggregate_type, aggregate_id, aggregate_version, payload, created_at
+            SELECT id, aggregate_type, aggregate_id, aggregate_version, payload, occurred_at
             FROM events WHERE aggregate_type = $1 AND aggregate_id = $2
                 AND aggregate_version > $3 AND aggregate_version <= $4
             ORDER BY aggregate_version ASC
@@ -444,7 +444,7 @@ mod tests {
         let repository = create_repository();
         let event_id = Uuid::now_v7();
         let aggregate_uuid = Uuid::now_v7();
-        let created_at = Utc.with_ymd_and_hms(2024, 5, 20, 12, 0, 0).unwrap();
+        let occurred_at = Utc.with_ymd_and_hms(2024, 5, 20, 12, 0, 0).unwrap();
         let payload = CounterEventPayload::Created();
 
         let pg_event = PgEventModel {
@@ -453,7 +453,7 @@ mod tests {
             aggregate_id: aggregate_uuid,
             aggregate_version: 3,
             payload: serde_json::to_value(&payload).expect("payload should serialize"),
-            created_at,
+            occurred_at,
         };
 
         let event = repository
@@ -464,8 +464,8 @@ mod tests {
         assert_eq!(Uuid::from(event.aggregate_id()), aggregate_uuid);
         assert_eq!(event.aggregate_version().value(), 3);
         assert_eq!(event.payload(), &payload);
-        let mapped_created_at: chrono::DateTime<Utc> = event.created_at().into();
-        assert_eq!(mapped_created_at, created_at);
+        let mapped_occurred_at: chrono::DateTime<Utc> = event.occurred_at().into();
+        assert_eq!(mapped_occurred_at, occurred_at);
     }
 
     #[tokio::test(flavor = "current_thread")]
@@ -481,7 +481,7 @@ mod tests {
             aggregate_id: aggregate_uuid,
             aggregate_version: -1,
             payload: serde_json::to_value(&payload).expect("payload should serialize"),
-            created_at: Utc::now(),
+            occurred_at: Utc::now(),
         };
 
         let err = repository
@@ -509,7 +509,7 @@ mod tests {
             aggregate_id: invalid_uuid,
             aggregate_version: 1,
             payload: serde_json::to_value(&payload).expect("payload should serialize"),
-            created_at: Utc::now(),
+            occurred_at: Utc::now(),
         };
 
         let err = repository
@@ -529,7 +529,7 @@ mod tests {
         let repository = create_repository();
         let snapshot_id = Uuid::now_v7();
         let aggregate_uuid = Uuid::now_v7();
-        let created_at = Utc.with_ymd_and_hms(2024, 5, 21, 6, 30, 0).unwrap();
+        let materialized_at = Utc.with_ymd_and_hms(2024, 5, 21, 6, 30, 0).unwrap();
         let aggregate_id =
             CounterId::try_from_uuid(aggregate_uuid).expect("uuidv7 should be accepted");
         let state = CounterState::new(aggregate_id, 11);
@@ -540,7 +540,7 @@ mod tests {
             aggregate_id: aggregate_uuid,
             aggregate_version: 5,
             state: serde_json::to_value(&state).expect("state should serialize"),
-            created_at,
+            materialized_at,
         };
 
         let snapshot = repository
@@ -551,8 +551,8 @@ mod tests {
         assert_eq!(Uuid::from(snapshot.aggregate_id()), aggregate_uuid);
         assert_eq!(snapshot.aggregate_version().value(), 5);
         assert_eq!(snapshot.state(), &state);
-        let mapped_created_at: chrono::DateTime<Utc> = snapshot.created_at().into();
-        assert_eq!(mapped_created_at, created_at);
+        let mapped_materialized_at: chrono::DateTime<Utc> = snapshot.materialized_at().into();
+        assert_eq!(mapped_materialized_at, materialized_at);
     }
 
     #[tokio::test(flavor = "current_thread")]
@@ -567,7 +567,7 @@ mod tests {
             aggregate_id: aggregate_uuid,
             aggregate_version: 2,
             state: json!({ "value": 4 }),
-            created_at: Utc::now(),
+            materialized_at: Utc::now(),
         };
 
         let err = repository
