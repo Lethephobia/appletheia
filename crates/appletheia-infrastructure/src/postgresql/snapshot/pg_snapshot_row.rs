@@ -3,7 +3,7 @@ use sqlx::FromRow;
 use uuid::Uuid;
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash, FromRow)]
-pub(crate) struct PgSnapshotModel {
+pub(crate) struct PgSnapshotRow {
     pub id: Uuid,
     pub aggregate_type: String,
     pub aggregate_id: Uuid,

@@ -3,7 +3,7 @@ use sqlx::FromRow;
 use uuid::Uuid;
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash, FromRow)]
-pub(crate) struct PgEventModel {
+pub(crate) struct PgEventRow {
     pub event_sequence: i64,
     pub id: Uuid,
     pub aggregate_type: String,

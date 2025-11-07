@@ -1,7 +1,7 @@
 use sqlx::PgPool;
 
-use crate::postgresql::event::PgEventModel;
-use crate::postgresql::snapshot::PgSnapshotModel;
+use crate::postgresql::event::PgEventRow;
+use crate::postgresql::snapshot::PgSnapshotRow;
 use appletheia_domain::{
     Aggregate, AggregateId, AggregateState, AggregateVersion, Event, EventId, EventPayload,
     MaterializedAt, OccurredAt, Repository, RepositoryError, Snapshot, SnapshotId,
@@ -17,7 +17,7 @@ pub struct PgRepository<A: Aggregate> {
 impl<A: Aggregate> PgRepository<A> {
     fn map_event(
         &self,
-        event: PgEventModel,
+        event: PgEventRow,
     ) -> Result<Event<A::Id, A::EventPayload>, RepositoryError<A, sqlx::Error>> {
         let id = EventId::try_from(event.id).map_err(RepositoryError::EventId)?;
         let aggregate_id =
@@ -37,7 +37,7 @@ impl<A: Aggregate> PgRepository<A> {
 
     fn map_snapshot(
         &self,
-        snapshot: PgSnapshotModel,
+        snapshot: PgSnapshotRow,
     ) -> Result<Snapshot<A::State>, RepositoryError<A, sqlx::Error>> {
         let id = SnapshotId::try_from(snapshot.id).map_err(RepositoryError::SnapshotId)?;
         let aggregate_id =
@@ -65,7 +65,7 @@ impl<A: Aggregate> PgRepository<A> {
         ),
         RepositoryError<A, sqlx::Error>,
     > {
-        let snapshot_row = sqlx::query_as::<_, PgSnapshotModel>(
+        let snapshot_row = sqlx::query_as::<_, PgSnapshotRow>(
             r#"
             SELECT id, aggregate_type, aggregate_id, aggregate_version, state, materialized_at
             FROM snapshots WHERE aggregate_type = $1 AND aggregate_id = $2
@@ -85,7 +85,7 @@ impl<A: Aggregate> PgRepository<A> {
             .map(|s| s.aggregate_version().value())
             .unwrap_or(0);
 
-        let event_rows = sqlx::query_as::<_, PgEventModel>(
+        let event_rows = sqlx::query_as::<_, PgEventRow>(
             r#"
             SELECT
                 event_sequence, id, aggregate_type, aggregate_id, aggregate_version,
@@ -121,7 +121,7 @@ impl<A: Aggregate> PgRepository<A> {
         ),
         RepositoryError<A, sqlx::Error>,
     > {
-        let snapshot_row = sqlx::query_as::<_, PgSnapshotModel>(
+        let snapshot_row = sqlx::query_as::<_, PgSnapshotRow>(
             r#"
             SELECT id, aggregate_type, aggregate_id, aggregate_version, state, materialized_at
             FROM snapshots WHERE aggregate_type = $1 AND aggregate_id = $2 AND aggregate_version <= $3
@@ -142,7 +142,7 @@ impl<A: Aggregate> PgRepository<A> {
             .map(|s| s.aggregate_version().value())
             .unwrap_or(0);
 
-        let event_rows = sqlx::query_as::<_, PgEventModel>(
+        let event_rows = sqlx::query_as::<_, PgEventRow>(
             r#"
             SELECT
                 event_sequence, id, aggregate_type, aggregate_id, aggregate_version,
@@ -451,7 +451,7 @@ mod tests {
         let occurred_at = Utc.with_ymd_and_hms(2024, 5, 20, 12, 0, 0).unwrap();
         let payload = CounterEventPayload::Created();
 
-        let pg_event = PgEventModel {
+        let pg_event = PgEventRow {
             event_sequence: 1,
             id: event_id,
             aggregate_type: Counter::AGGREGATE_TYPE.to_string(),
@@ -484,7 +484,7 @@ mod tests {
         let aggregate_uuid = Uuid::now_v7();
         let payload = CounterEventPayload::Created();
 
-        let pg_event = PgEventModel {
+        let pg_event = PgEventRow {
             event_sequence: 1,
             id: event_id,
             aggregate_type: Counter::AGGREGATE_TYPE.to_string(),
@@ -517,7 +517,7 @@ mod tests {
         let invalid_uuid = Uuid::nil();
         let payload = CounterEventPayload::Created();
 
-        let pg_event = PgEventModel {
+        let pg_event = PgEventRow {
             event_sequence: 1,
             id: event_id,
             aggregate_type: Counter::AGGREGATE_TYPE.to_string(),
@@ -553,7 +553,7 @@ mod tests {
             CounterId::try_from_uuid(aggregate_uuid).expect("uuidv7 should be accepted");
         let state = CounterState::new(aggregate_id, 11);
 
-        let pg_snapshot = PgSnapshotModel {
+        let pg_snapshot = PgSnapshotRow {
             id: snapshot_id,
             aggregate_type: Counter::AGGREGATE_TYPE.to_string(),
             aggregate_id: aggregate_uuid,
@@ -580,7 +580,7 @@ mod tests {
         let snapshot_id = Uuid::now_v7();
         let aggregate_uuid = Uuid::now_v7();
 
-        let pg_snapshot = PgSnapshotModel {
+        let pg_snapshot = PgSnapshotRow {
             id: snapshot_id,
             aggregate_type: Counter::AGGREGATE_TYPE.to_string(),
             aggregate_id: aggregate_uuid,

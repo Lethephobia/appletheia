@@ -1,3 +1,3 @@
-pub(crate) mod pg_event_model;
+pub(crate) mod pg_event_row;
 
-pub(crate) use pg_event_model::PgEventModel;
+pub(crate) use pg_event_row::PgEventRow;
