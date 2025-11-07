@@ -4,10 +4,10 @@ use uuid::Uuid;
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash, FromRow)]
 pub(crate) struct PgSnapshotModel {
-    pub(crate) id: Uuid,
-    pub(crate) aggregate_type: String,
-    pub(crate) aggregate_id: Uuid,
-    pub(crate) aggregate_version: i64,
-    pub(crate) state: serde_json::Value,
-    pub(crate) materialized_at: DateTime<Utc>,
+    pub id: Uuid,
+    pub aggregate_type: String,
+    pub aggregate_id: Uuid,
+    pub aggregate_version: i64,
+    pub state: serde_json::Value,
+    pub materialized_at: DateTime<Utc>,
 }

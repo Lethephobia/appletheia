@@ -8,8 +8,8 @@ CREATE TABLE IF NOT EXISTS events (
   payload             JSONB       NOT NULL,
   occurred_at         TIMESTAMPTZ NOT NULL,
   recorded_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
-  correlation_id      UUID,
-  causation_id        UUID,
+  correlation_id      UUID        NOT NULL,
+  causation_id        UUID        NOT NULL,
   context             JSONB       NOT NULL DEFAULT '{}'::jsonb,
   CONSTRAINT events_uniq_aggregate_version
     UNIQUE (aggregate_type, aggregate_id, aggregate_version)
@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS events (
 CREATE INDEX IF NOT EXISTS idx_events_occurred_at ON events (occurred_at);
 CREATE INDEX IF NOT EXISTS idx_events_correlation_id ON events (correlation_id);
 CREATE INDEX IF NOT EXISTS idx_events_causation_id   ON events (causation_id);
+CREATE INDEX IF NOT EXISTS idx_events_payload_type ON events ((payload->>'type'));
 
 COMMENT ON TABLE  events IS 'Event store: append-only; (aggregate_type, aggregate_id, aggregate_version) is unique.';
 
@@ -49,8 +50,8 @@ CREATE TABLE IF NOT EXISTS outbox (
   payload              JSONB       NOT NULL,
   occurred_at          TIMESTAMPTZ NOT NULL,
   recorded_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
-  correlation_id       UUID,
-  causation_id         UUID,
+  correlation_id       UUID        NOT NULL,
+  causation_id         UUID        NOT NULL,
   context              JSONB       NOT NULL DEFAULT '{}'::jsonb,
   ordering_key         TEXT        NOT NULL,
   published_at         TIMESTAMPTZ,

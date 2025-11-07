@@ -87,7 +87,9 @@ impl<A: Aggregate> PgRepository<A> {
 
         let event_rows = sqlx::query_as::<_, PgEventModel>(
             r#"
-            SELECT id, aggregate_type, aggregate_id, aggregate_version, payload, occurred_at
+            SELECT
+                event_sequence, id, aggregate_type, aggregate_id, aggregate_version,
+                payload, occurred_at, recorded_at, correlation_id, causation_id, context
             FROM events WHERE aggregate_type = $1 AND aggregate_id = $2 AND aggregate_version > $3
             ORDER BY aggregate_version ASC
             "#,
@@ -142,7 +144,9 @@ impl<A: Aggregate> PgRepository<A> {
 
         let event_rows = sqlx::query_as::<_, PgEventModel>(
             r#"
-            SELECT id, aggregate_type, aggregate_id, aggregate_version, payload, occurred_at
+            SELECT
+                event_sequence, id, aggregate_type, aggregate_id, aggregate_version,
+                payload, occurred_at, recorded_at, correlation_id, causation_id, context
             FROM events WHERE aggregate_type = $1 AND aggregate_id = $2
                 AND aggregate_version > $3 AND aggregate_version <= $4
             ORDER BY aggregate_version ASC
@@ -448,12 +452,17 @@ mod tests {
         let payload = CounterEventPayload::Created();
 
         let pg_event = PgEventModel {
+            event_sequence: 1,
             id: event_id,
             aggregate_type: Counter::AGGREGATE_TYPE.to_string(),
             aggregate_id: aggregate_uuid,
             aggregate_version: 3,
             payload: serde_json::to_value(&payload).expect("payload should serialize"),
             occurred_at,
+            recorded_at: Utc::now(),
+            correlation_id: Uuid::now_v7(),
+            causation_id: Uuid::now_v7(),
+            context: serde_json::json!({}),
         };
 
         let event = repository
@@ -476,12 +485,17 @@ mod tests {
         let payload = CounterEventPayload::Created();
 
         let pg_event = PgEventModel {
+            event_sequence: 1,
             id: event_id,
             aggregate_type: Counter::AGGREGATE_TYPE.to_string(),
             aggregate_id: aggregate_uuid,
             aggregate_version: -1,
             payload: serde_json::to_value(&payload).expect("payload should serialize"),
             occurred_at: Utc::now(),
+            recorded_at: Utc::now(),
+            correlation_id: Uuid::now_v7(),
+            causation_id: Uuid::now_v7(),
+            context: serde_json::json!({}),
         };
 
         let err = repository
@@ -504,12 +518,17 @@ mod tests {
         let payload = CounterEventPayload::Created();
 
         let pg_event = PgEventModel {
+            event_sequence: 1,
             id: event_id,
             aggregate_type: Counter::AGGREGATE_TYPE.to_string(),
             aggregate_id: invalid_uuid,
             aggregate_version: 1,
             payload: serde_json::to_value(&payload).expect("payload should serialize"),
             occurred_at: Utc::now(),
+            recorded_at: Utc::now(),
+            correlation_id: Uuid::now_v7(),
+            causation_id: Uuid::now_v7(),
+            context: serde_json::json!({}),
         };
 
         let err = repository
