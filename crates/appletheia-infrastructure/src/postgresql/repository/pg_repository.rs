@@ -54,6 +54,10 @@ impl<A: Aggregate> PgRepository<A> {
             MaterializedAt::from(snapshot.materialized_at),
         ))
     }
+}
+
+impl<A: Aggregate> Repository<A> for PgRepository<A> {
+    type Error = sqlx::Error;
 
     async fn read_events(
         &self,
@@ -167,36 +171,6 @@ impl<A: Aggregate> PgRepository<A> {
             )?;
 
         Ok((events, snapshot))
-    }
-}
-
-impl<A: Aggregate> Repository<A, sqlx::Error> for PgRepository<A> {
-    async fn find(&self, id: A::Id) -> Result<Option<A>, RepositoryError<A, sqlx::Error>> {
-        let (events, snapshot) = self.read_events(id).await?;
-        if events.is_empty() && snapshot.is_none() {
-            return Ok(None);
-        }
-        let mut aggregate = A::default();
-        aggregate
-            .replay_events(events, snapshot)
-            .map_err(RepositoryError::Aggregate)?;
-        Ok(Some(aggregate))
-    }
-
-    async fn find_at_version(
-        &self,
-        id: A::Id,
-        version_at: AggregateVersion,
-    ) -> Result<Option<A>, RepositoryError<A, sqlx::Error>> {
-        let (events, snapshot) = self.read_events_at_version(id, version_at).await?;
-        if events.is_empty() && snapshot.is_none() {
-            return Ok(None);
-        }
-        let mut aggregate = A::default();
-        aggregate
-            .replay_events(events, snapshot)
-            .map_err(RepositoryError::Aggregate)?;
-        Ok(Some(aggregate))
     }
 }
 
