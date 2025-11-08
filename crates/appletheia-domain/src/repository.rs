@@ -1,7 +1,6 @@
-use std::error::Error;
 pub mod repository_error;
 
-pub use crate::repository_error::RepositoryError;
+pub use crate::repository_error::{PersistenceErrorKind, RepositoryError};
 
 use crate::aggregate::{Aggregate, AggregateVersion};
 use crate::event::Event;
@@ -9,8 +8,6 @@ use crate::snapshot::Snapshot;
 
 #[allow(async_fn_in_trait)]
 pub trait Repository<A: Aggregate> {
-    type Error: Error + Send + Sync + 'static;
-
     async fn read_events(
         &self,
         aggregate_id: A::Id,
@@ -19,7 +16,7 @@ pub trait Repository<A: Aggregate> {
             Vec<Event<A::Id, A::EventPayload>>,
             Option<Snapshot<A::State>>,
         ),
-        RepositoryError<A, Self::Error>,
+        RepositoryError<A>,
     >;
 
     async fn read_events_at_version(
@@ -31,10 +28,10 @@ pub trait Repository<A: Aggregate> {
             Vec<Event<A::Id, A::EventPayload>>,
             Option<Snapshot<A::State>>,
         ),
-        RepositoryError<A, Self::Error>,
+        RepositoryError<A>,
     >;
 
-    async fn find(&self, id: A::Id) -> Result<Option<A>, RepositoryError<A, Self::Error>> {
+    async fn find(&self, id: A::Id) -> Result<Option<A>, RepositoryError<A>> {
         let (events, snapshot) = self.read_events(id).await?;
         if events.is_empty() && snapshot.is_none() {
             return Ok(None);
@@ -50,7 +47,7 @@ pub trait Repository<A: Aggregate> {
         &self,
         id: A::Id,
         version_at: AggregateVersion,
-    ) -> Result<Option<A>, RepositoryError<A, Self::Error>> {
+    ) -> Result<Option<A>, RepositoryError<A>> {
         let (events, snapshot) = self.read_events_at_version(id, version_at).await?;
         if events.is_empty() && snapshot.is_none() {
             return Ok(None);

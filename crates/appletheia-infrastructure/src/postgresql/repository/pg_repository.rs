@@ -4,7 +4,8 @@ use crate::postgresql::event::PgEventRow;
 use crate::postgresql::snapshot::PgSnapshotRow;
 use appletheia_domain::{
     Aggregate, AggregateId, AggregateState, AggregateVersion, Event, EventId, EventPayload,
-    MaterializedAt, OccurredAt, Repository, RepositoryError, Snapshot, SnapshotId,
+    MaterializedAt, OccurredAt, PersistenceErrorKind, Repository, RepositoryError, Snapshot,
+    SnapshotId,
 };
 
 use std::marker::PhantomData;
@@ -18,7 +19,7 @@ impl<A: Aggregate> PgRepository<A> {
     fn map_event(
         &self,
         event: PgEventRow,
-    ) -> Result<Event<A::Id, A::EventPayload>, RepositoryError<A, sqlx::Error>> {
+    ) -> Result<Event<A::Id, A::EventPayload>, RepositoryError<A>> {
         let id = EventId::try_from(event.id).map_err(RepositoryError::EventId)?;
         let aggregate_id =
             A::Id::try_from_uuid(event.aggregate_id).map_err(RepositoryError::AggregateId)?;
@@ -38,7 +39,7 @@ impl<A: Aggregate> PgRepository<A> {
     fn map_snapshot(
         &self,
         snapshot: PgSnapshotRow,
-    ) -> Result<Snapshot<A::State>, RepositoryError<A, sqlx::Error>> {
+    ) -> Result<Snapshot<A::State>, RepositoryError<A>> {
         let id = SnapshotId::try_from(snapshot.id).map_err(RepositoryError::SnapshotId)?;
         let aggregate_id =
             A::Id::try_from_uuid(snapshot.aggregate_id).map_err(RepositoryError::AggregateId)?;
@@ -54,11 +55,47 @@ impl<A: Aggregate> PgRepository<A> {
             MaterializedAt::from(snapshot.materialized_at),
         ))
     }
+
+    fn map_persistence_error(&self, error: sqlx::Error) -> RepositoryError<A> {
+        match error {
+            sqlx::Error::Database(db) => {
+                let code = db.code();
+                match code.as_deref() {
+                    Some("23505") => RepositoryError::Persistence {
+                        kind: PersistenceErrorKind::Conflict,
+                        code: Some("23505".into()),
+                    },
+                    Some("40001") => RepositoryError::Persistence {
+                        kind: PersistenceErrorKind::Serialization,
+                        code: Some("40001".into()),
+                    },
+                    Some(_) => RepositoryError::Persistence {
+                        kind: PersistenceErrorKind::ConstraintViolation,
+                        code: db.code().map(|c| c.into()),
+                    },
+                    None => RepositoryError::Persistence {
+                        kind: PersistenceErrorKind::ConstraintViolation,
+                        code: None,
+                    },
+                }
+            }
+            sqlx::Error::PoolTimedOut => RepositoryError::Persistence {
+                kind: PersistenceErrorKind::Timeout,
+                code: None,
+            },
+            sqlx::Error::Io(_) => RepositoryError::Persistence {
+                kind: PersistenceErrorKind::Io,
+                code: None,
+            },
+            _ => RepositoryError::Persistence {
+                kind: PersistenceErrorKind::Unknown,
+                code: None,
+            },
+        }
+    }
 }
 
 impl<A: Aggregate> Repository<A> for PgRepository<A> {
-    type Error = sqlx::Error;
-
     async fn read_events(
         &self,
         aggregate_id: A::Id,
@@ -67,7 +104,7 @@ impl<A: Aggregate> Repository<A> for PgRepository<A> {
             Vec<Event<A::Id, A::EventPayload>>,
             Option<Snapshot<A::State>>,
         ),
-        RepositoryError<A, sqlx::Error>,
+        RepositoryError<A>,
     > {
         let snapshot_row = sqlx::query_as::<_, PgSnapshotRow>(
             r#"
@@ -81,7 +118,7 @@ impl<A: Aggregate> Repository<A> for PgRepository<A> {
         .bind(aggregate_id.value())
         .fetch_optional(&self.pool)
         .await
-        .map_err(RepositoryError::Persistence)?;
+        .map_err(|e| self.map_persistence_error(e))?;
         let snapshot = snapshot_row.map(|row| self.map_snapshot(row)).transpose()?;
 
         let version_value_after = snapshot
@@ -103,13 +140,12 @@ impl<A: Aggregate> Repository<A> for PgRepository<A> {
         .bind(version_value_after)
         .fetch_all(&self.pool)
         .await
-        .map_err(RepositoryError::Persistence)?;
+        .map_err(|e| self.map_persistence_error(e))?;
 
         let events = event_rows
             .into_iter()
             .map(|row| self.map_event(row))
-            .collect::<Result<Vec<Event<A::Id, A::EventPayload>>, RepositoryError<A, sqlx::Error>>>(
-            )?;
+            .collect::<Result<Vec<Event<A::Id, A::EventPayload>>, RepositoryError<A>>>()?;
 
         Ok((events, snapshot))
     }
@@ -123,7 +159,7 @@ impl<A: Aggregate> Repository<A> for PgRepository<A> {
             Vec<Event<A::Id, A::EventPayload>>,
             Option<Snapshot<A::State>>,
         ),
-        RepositoryError<A, sqlx::Error>,
+        RepositoryError<A>,
     > {
         let snapshot_row = sqlx::query_as::<_, PgSnapshotRow>(
             r#"
@@ -138,7 +174,7 @@ impl<A: Aggregate> Repository<A> for PgRepository<A> {
         .bind(version_at.value())
         .fetch_optional(&self.pool)
         .await
-        .map_err(RepositoryError::Persistence)?;
+        .map_err(|e| self.map_persistence_error(e))?;
         let snapshot = snapshot_row.map(|row| self.map_snapshot(row)).transpose()?;
 
         let version_value_after = snapshot
@@ -162,13 +198,12 @@ impl<A: Aggregate> Repository<A> for PgRepository<A> {
         .bind(version_at.value())
         .fetch_all(&self.pool)
         .await
-        .map_err(RepositoryError::Persistence)?;
+        .map_err(|e| self.map_persistence_error(e))?;
 
         let events = event_rows
             .into_iter()
             .map(|row| self.map_event(row))
-            .collect::<Result<Vec<Event<A::Id, A::EventPayload>>, RepositoryError<A, sqlx::Error>>>(
-            )?;
+            .collect::<Result<Vec<Event<A::Id, A::EventPayload>>, RepositoryError<A>>>()?;
 
         Ok((events, snapshot))
     }
