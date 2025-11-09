@@ -371,8 +371,8 @@ mod tests {
             &self.uncommitted_events
         }
 
-        fn record_uncommitted_event(&mut self, event: Event<Self::Id, Self::EventPayload>) {
-            self.uncommitted_events.push(event);
+        fn uncommitted_events_mut(&mut self) -> &mut Vec<Event<Self::Id, Self::EventPayload>> {
+            &mut self.uncommitted_events
         }
 
         fn apply(&mut self, payload: &Self::EventPayload) -> Result<(), Self::Error> {
