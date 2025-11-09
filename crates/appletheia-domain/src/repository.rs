@@ -1,6 +1,6 @@
 pub mod repository_error;
 
-pub use crate::repository_error::{PersistenceErrorKind, RepositoryError};
+pub use repository_error::RepositoryError;
 
 use crate::aggregate::{Aggregate, AggregateVersion};
 use crate::event::Event;

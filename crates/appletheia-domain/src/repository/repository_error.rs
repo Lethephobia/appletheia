@@ -1,3 +1,4 @@
+use std::error::Error;
 use std::fmt::Debug;
 use thiserror::Error;
 
@@ -5,22 +6,6 @@ use crate::AggregateState;
 use crate::aggregate::{Aggregate, AggregateId, AggregateVersionError};
 use crate::event::{EventIdError, EventPayload};
 use crate::snapshot::SnapshotIdError;
-
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
-pub enum PersistenceErrorKind {
-    Config,
-    Conflict,
-    Timeout,
-    Io,
-    Tls,
-    Serialization,
-    ConstraintViolation,
-    PoolClosed,
-    InvalidArgument,
-    Protocol,
-    WorkerCrashed,
-    Unknown,
-}
 
 #[derive(Debug, Error)]
 pub enum RepositoryError<A: Aggregate> {
@@ -45,9 +30,6 @@ pub enum RepositoryError<A: Aggregate> {
     #[error("aggregate error: {0}")]
     Aggregate(#[source] A::Error),
 
-    #[error("persistence error: {kind:?}, code: {code:?}")]
-    Persistence {
-        kind: PersistenceErrorKind,
-        code: Option<String>,
-    },
+    #[error("persistence error: {0}")]
+    Persistence(#[source] Box<dyn Error + Send + Sync + 'static>),
 }
