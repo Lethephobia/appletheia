@@ -3,9 +3,9 @@ use std::{fmt, fmt::Display};
 use uuid::Uuid;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
-pub struct CommandId(Uuid);
+pub struct MessageId(Uuid);
 
-impl CommandId {
+impl MessageId {
     pub fn new() -> Self {
         Self(Uuid::now_v7())
     }
@@ -15,19 +15,19 @@ impl CommandId {
     }
 }
 
-impl Default for CommandId {
+impl Default for MessageId {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl From<CommandId> for Uuid {
-    fn from(value: CommandId) -> Self {
+impl From<MessageId> for Uuid {
+    fn from(value: MessageId) -> Self {
         value.0
     }
 }
 
-impl Display for CommandId {
+impl Display for MessageId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
     }

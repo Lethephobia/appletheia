@@ -1,10 +1,8 @@
-use crate::command::CorrelationId;
-use crate::event::CausationId;
+use super::snapshot_policy::SnapshotPolicy;
 use crate::request_context::RequestContext;
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct UnitOfWorkConfig {
-    pub correlation_id: CorrelationId,
-    pub causation_id: CausationId,
     pub request_context: RequestContext,
+    pub snapshot_policy: SnapshotPolicy,
 }

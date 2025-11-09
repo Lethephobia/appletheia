@@ -1,6 +1,10 @@
+pub mod snapshot_interval;
+pub mod snapshot_policy;
 pub mod unit_of_work_config;
 pub mod unit_of_work_error;
 
+pub use snapshot_interval::SnapshotInterval;
+pub use snapshot_policy::SnapshotPolicy;
 pub use unit_of_work_config::UnitOfWorkConfig;
 pub use unit_of_work_error::UnitOfWorkError;
 
