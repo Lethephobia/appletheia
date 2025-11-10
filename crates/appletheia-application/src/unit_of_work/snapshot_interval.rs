@@ -11,4 +11,8 @@ impl SnapshotInterval {
     pub fn value(self) -> NonZeroU32 {
         self.0
     }
+
+    pub fn as_u64(self) -> u64 {
+        self.value().get() as u64
+    }
 }

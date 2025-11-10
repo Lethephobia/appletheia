@@ -32,7 +32,6 @@ pub trait Aggregate: Clone + Debug + Default + Send + Sync + 'static {
     fn set_version(&mut self, version: AggregateVersion);
 
     fn uncommitted_events(&self) -> &[Event<Self::Id, Self::EventPayload>];
-    fn uncommitted_events_mut(&mut self) -> &mut Vec<Event<Self::Id, Self::EventPayload>>;
     fn record_uncommitted_event(&mut self, event: Event<Self::Id, Self::EventPayload>);
     fn clear_uncommitted_events(&mut self);
 
@@ -46,10 +45,6 @@ pub trait Aggregate: Clone + Debug + Default + Send + Sync + 'static {
         let next_version = self.version().try_next().map_err(AggregateError::Version)?;
         self.set_version(next_version);
         Ok(())
-    }
-
-    fn drain_uncommitted_events(&mut self) -> Vec<Event<Self::Id, Self::EventPayload>> {
-        self.uncommitted_events_mut().drain(..).collect()
     }
 
     fn append_event(&mut self, payload: Self::EventPayload) -> Result<(), Self::Error> {
@@ -347,10 +342,6 @@ mod tests {
 
         fn uncommitted_events(&self) -> &[Event<Self::Id, Self::EventPayload>] {
             &self.uncommitted_events
-        }
-
-        fn uncommitted_events_mut(&mut self) -> &mut Vec<Event<Self::Id, Self::EventPayload>> {
-            &mut self.uncommitted_events
         }
 
         fn record_uncommitted_event(&mut self, event: Event<Self::Id, Self::EventPayload>) {

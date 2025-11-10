@@ -23,4 +23,7 @@ pub enum UnitOfWorkError<A: Aggregate> {
 
     #[error("aggregate error: {0}")]
     Aggregate(#[source] A::Error),
+
+    #[error("aggregate state missing")]
+    AggregateNoState,
 }
