@@ -42,7 +42,7 @@ impl<A: Aggregate> Repository<A> for PgRepository<A> {
             .await
             .map_err(|e| RepositoryError::Persistence(Box::new(e)))?;
         let snapshot = snapshot_row
-            .map(|row| row.to_snapshot::<A>())
+            .map(|row| row.try_into_snapshot::<A>())
             .transpose()
             .map_err(|e| RepositoryError::MappingFailed(Box::new(e)))?;
         Ok(snapshot)
@@ -54,10 +54,10 @@ impl<A: Aggregate> Repository<A> for PgRepository<A> {
         after: Option<AggregateVersion>,
         as_of: Option<AggregateVersion>,
     ) -> Result<Vec<Event<A::Id, A::EventPayload>>, RepositoryError<A>> {
-        if let (Some(a), Some(u)) = (after, as_of) {
-            if a >= u {
-                return Ok(Vec::new());
-            }
+        if let (Some(a), Some(u)) = (after, as_of)
+            && a >= u
+        {
+            return Ok(Vec::new());
         }
 
         let mut query: QueryBuilder<Postgres> = QueryBuilder::new(
@@ -91,14 +91,11 @@ impl<A: Aggregate> Repository<A> for PgRepository<A> {
             .await
             .map_err(|e| RepositoryError::Persistence(Box::new(e)))?;
 
-        let events =
-            event_rows
-                .into_iter()
-                .map(|row| row.to_event::<A>())
-                .collect::<Result<
-                    Vec<Event<A::Id, A::EventPayload>>,
-                    PgEventRowError<A::Id, A::EventPayload>,
-                >>().map_err(|e| RepositoryError::MappingFailed(Box::new(e)))?;
+        let events = event_rows
+            .into_iter()
+            .map(|row| row.try_into_event::<A>())
+            .collect::<Result<Vec<Event<A::Id, A::EventPayload>>, PgEventRowError<A>>>()
+            .map_err(|e| RepositoryError::MappingFailed(Box::new(e)))?;
 
         Ok(events)
     }

@@ -24,9 +24,9 @@ pub(crate) struct PgEventRow {
 }
 
 impl PgEventRow {
-    pub fn to_event<A: Aggregate>(
+    pub fn try_into_event<A: Aggregate>(
         self,
-    ) -> Result<Event<A::Id, A::EventPayload>, PgEventRowError<A::Id, A::EventPayload>> {
+    ) -> Result<Event<A::Id, A::EventPayload>, PgEventRowError<A>> {
         let id = EventId::try_from(self.id).map_err(PgEventRowError::EventId)?;
         let aggregate_id =
             A::Id::try_from_uuid(self.aggregate_id).map_err(PgEventRowError::AggregateId)?;
