@@ -11,16 +11,16 @@ pub use occurred_at::OccurredAt;
 use crate::aggregate::{AggregateId, AggregateVersion};
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub struct Event<A: AggregateId, P: EventPayload> {
+pub struct Event<I: AggregateId, P: EventPayload> {
     id: EventId,
-    aggregate_id: A,
+    aggregate_id: I,
     aggregate_version: AggregateVersion,
     payload: P,
     occurred_at: OccurredAt,
 }
 
-impl<A: AggregateId, P: EventPayload> Event<A, P> {
-    pub fn new(aggregate_id: A, aggregate_version: AggregateVersion, payload: P) -> Self {
+impl<I: AggregateId, P: EventPayload> Event<I, P> {
+    pub fn new(aggregate_id: I, aggregate_version: AggregateVersion, payload: P) -> Self {
         Self {
             id: EventId::new(),
             aggregate_id,
@@ -32,7 +32,7 @@ impl<A: AggregateId, P: EventPayload> Event<A, P> {
 
     pub fn from_persisted(
         id: EventId,
-        aggregate_id: A,
+        aggregate_id: I,
         aggregate_version: AggregateVersion,
         payload: P,
         occurred_at: OccurredAt,
@@ -50,7 +50,7 @@ impl<A: AggregateId, P: EventPayload> Event<A, P> {
         self.id
     }
 
-    pub fn aggregate_id(&self) -> A {
+    pub fn aggregate_id(&self) -> I {
         self.aggregate_id
     }
 

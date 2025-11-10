@@ -1,8 +1,10 @@
 use std::error::Error;
 use thiserror::Error;
 
+use appletheia_domain::Aggregate;
+
 #[derive(Debug, Error)]
-pub enum UnitOfWorkError {
+pub enum UnitOfWorkError<A: Aggregate> {
     #[error("begin failed {0}")]
     BeginFailed(#[source] Box<dyn Error + Send + Sync + 'static>),
 
@@ -18,4 +20,7 @@ pub enum UnitOfWorkError {
         operation_error: Box<dyn Error + Send + Sync + 'static>,
         rollback_error: Box<dyn Error + Send + Sync + 'static>,
     },
+
+    #[error("aggregate error: {0}")]
+    Aggregate(#[source] A::Error),
 }
