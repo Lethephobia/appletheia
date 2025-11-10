@@ -1,4 +1,4 @@
-use sqlx::PgPool;
+use sqlx::{PgPool, Postgres, QueryBuilder};
 
 use crate::postgresql::event::{PgEventRow, PgEventRowError};
 use crate::postgresql::snapshot::PgSnapshotRow;
@@ -14,54 +14,82 @@ pub struct PgRepository<A: Aggregate> {
 }
 
 impl<A: Aggregate> Repository<A> for PgRepository<A> {
-    async fn read_events(
+    async fn read_latest_snapshot(
         &self,
         aggregate_id: A::Id,
-    ) -> Result<
-        (
-            Vec<Event<A::Id, A::EventPayload>>,
-            Option<Snapshot<A::State>>,
-        ),
-        RepositoryError<A>,
-    > {
-        let snapshot_row = sqlx::query_as::<_, PgSnapshotRow>(
+        as_of: Option<AggregateVersion>,
+    ) -> Result<Option<Snapshot<A::State>>, RepositoryError<A>> {
+        let mut query: QueryBuilder<Postgres> = QueryBuilder::new(
             r#"
             SELECT id, aggregate_type, aggregate_id, aggregate_version, state, materialized_at
-            FROM snapshots WHERE aggregate_type = $1 AND aggregate_id = $2
-            ORDER BY aggregate_version DESC
-            LIMIT 1
-            "#,
-        )
-        .bind(A::AGGREGATE_TYPE)
-        .bind(aggregate_id.value())
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|e| RepositoryError::Persistence(Box::new(e)))?;
+            FROM snapshots WHERE aggregate_type = "#,
+        );
+        query
+            .push_bind(A::AGGREGATE_TYPE)
+            .push(" AND aggregate_id = ")
+            .push_bind(aggregate_id.value());
+
+        if let Some(version) = as_of {
+            query
+                .push(" AND aggregate_version <= ")
+                .push_bind(version.value());
+        }
+        query.push(" ORDER BY aggregate_version DESC LIMIT 1");
+
+        let snapshot_row = query
+            .build_query_as::<PgSnapshotRow>()
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|e| RepositoryError::Persistence(Box::new(e)))?;
         let snapshot = snapshot_row
             .map(|row| row.to_snapshot::<A>())
             .transpose()
             .map_err(|e| RepositoryError::MappingFailed(Box::new(e)))?;
+        Ok(snapshot)
+    }
 
-        let version_value_after = snapshot
-            .as_ref()
-            .map(|s| s.aggregate_version().value())
-            .unwrap_or(0);
+    async fn read_events(
+        &self,
+        aggregate_id: A::Id,
+        after: Option<AggregateVersion>,
+        as_of: Option<AggregateVersion>,
+    ) -> Result<Vec<Event<A::Id, A::EventPayload>>, RepositoryError<A>> {
+        if let (Some(a), Some(u)) = (after, as_of) {
+            if a >= u {
+                return Ok(Vec::new());
+            }
+        }
 
-        let event_rows = sqlx::query_as::<_, PgEventRow>(
+        let mut query: QueryBuilder<Postgres> = QueryBuilder::new(
             r#"
             SELECT
                 event_sequence, id, aggregate_type, aggregate_id, aggregate_version,
                 payload, occurred_at, recorded_at, correlation_id, causation_id, context
-            FROM events WHERE aggregate_type = $1 AND aggregate_id = $2 AND aggregate_version > $3
-            ORDER BY aggregate_version ASC
-            "#,
-        )
-        .bind(A::AGGREGATE_TYPE)
-        .bind(aggregate_id.value())
-        .bind(version_value_after)
-        .fetch_all(&self.pool)
-        .await
-        .map_err(|e| RepositoryError::Persistence(Box::new(e)))?;
+            FROM events WHERE aggregate_type = "#,
+        );
+
+        query
+            .push_bind(A::AGGREGATE_TYPE)
+            .push(" AND aggregate_id = ")
+            .push_bind(aggregate_id.value());
+
+        if let Some(version) = after {
+            query
+                .push(" AND aggregate_version > ")
+                .push_bind(version.value());
+        }
+        if let Some(version) = as_of {
+            query
+                .push(" AND aggregate_version <= ")
+                .push_bind(version.value());
+        }
+        query.push(" ORDER BY aggregate_version ASC");
+
+        let event_rows = query
+            .build_query_as::<PgEventRow>()
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| RepositoryError::Persistence(Box::new(e)))?;
 
         let events =
             event_rows
@@ -72,68 +100,6 @@ impl<A: Aggregate> Repository<A> for PgRepository<A> {
                     PgEventRowError<A::Id, A::EventPayload>,
                 >>().map_err(|e| RepositoryError::MappingFailed(Box::new(e)))?;
 
-        Ok((events, snapshot))
-    }
-
-    async fn read_events_at_version(
-        &self,
-        aggregate_id: A::Id,
-        version_at: AggregateVersion,
-    ) -> Result<
-        (
-            Vec<Event<A::Id, A::EventPayload>>,
-            Option<Snapshot<A::State>>,
-        ),
-        RepositoryError<A>,
-    > {
-        let snapshot_row = sqlx::query_as::<_, PgSnapshotRow>(
-            r#"
-            SELECT id, aggregate_type, aggregate_id, aggregate_version, state, materialized_at
-            FROM snapshots WHERE aggregate_type = $1 AND aggregate_id = $2 AND aggregate_version <= $3
-            ORDER BY aggregate_version DESC
-            LIMIT 1
-            "#,
-        )
-        .bind(A::AGGREGATE_TYPE)
-        .bind(aggregate_id.value())
-        .bind(version_at.value())
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|e| RepositoryError::Persistence(Box::new(e)))?;
-        let snapshot = snapshot_row
-            .map(|row| row.to_snapshot::<A>())
-            .transpose()
-            .map_err(|e| RepositoryError::MappingFailed(Box::new(e)))?;
-
-        let version_value_after = snapshot
-            .as_ref()
-            .map(|s| s.aggregate_version().value())
-            .unwrap_or(0);
-
-        let event_rows = sqlx::query_as::<_, PgEventRow>(
-            r#"
-            SELECT
-                event_sequence, id, aggregate_type, aggregate_id, aggregate_version,
-                payload, occurred_at, recorded_at, correlation_id, causation_id, context
-            FROM events WHERE aggregate_type = $1 AND aggregate_id = $2
-                AND aggregate_version > $3 AND aggregate_version <= $4
-            ORDER BY aggregate_version ASC
-            "#,
-        )
-        .bind(A::AGGREGATE_TYPE)
-        .bind(aggregate_id.value())
-        .bind(version_value_after)
-        .bind(version_at.value())
-        .fetch_all(&self.pool)
-        .await
-        .map_err(|e| RepositoryError::Persistence(Box::new(e)))?;
-
-        let events = event_rows
-            .into_iter()
-            .map(|row| row.to_event::<A>())
-            .collect::<Result<Vec<Event<A::Id, A::EventPayload>>, PgEventRowError<A::Id, A::EventPayload>>>()
-            .map_err(|e| RepositoryError::MappingFailed(Box::new(e)))?;
-
-        Ok((events, snapshot))
+        Ok(events)
     }
 }

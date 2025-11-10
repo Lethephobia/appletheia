@@ -11,7 +11,7 @@ pub use unit_of_work_error::UnitOfWorkError;
 use core::future::Future;
 use std::error::Error;
 
-use appletheia_domain::{Aggregate, AggregateVersion, Event, Snapshot};
+use appletheia_domain::{Aggregate, Event, Snapshot};
 
 #[allow(async_fn_in_trait)]
 pub trait UnitOfWork<A: Aggregate> {
@@ -40,10 +40,10 @@ pub trait UnitOfWork<A: Aggregate> {
         snapshot: &Snapshot<A::State>,
     ) -> Result<(), UnitOfWorkError<A>>;
 
-    async fn fetch_last_snapshot_version(
+    async fn fetch_latest_snapshot(
         &self,
         aggregate_id: A::Id,
-    ) -> Result<Option<AggregateVersion>, UnitOfWorkError<A>>;
+    ) -> Result<Option<Snapshot<A::State>>, UnitOfWorkError<A>>;
 
     async fn save(&mut self, aggregate: &mut A) -> Result<(), UnitOfWorkError<A>> {
         let events = aggregate.uncommitted_events();
