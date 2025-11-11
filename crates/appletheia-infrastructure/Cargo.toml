@@ -10,8 +10,8 @@ repository = "https://github.com/pbandj082/appletheia"
 keywords = ["appletheia", "ddd", "event-sourcing", "cqrs"]
 
 [dependencies]
-appletheia-domain = { version = "0.1.4" }
-appletheia-application = { version = "0.1.1" }
+appletheia-domain = { version = "0.1.5" }
+appletheia-application = { version = "0.1.3" }
 thiserror = "2.0.17"
 sqlx = { version = "0.8.6", features = [
     "runtime-tokio",
