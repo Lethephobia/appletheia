@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS events (
   id                  UUID        NOT NULL UNIQUE,
   aggregate_type      TEXT        NOT NULL,
   aggregate_id        UUID        NOT NULL,
-  aggregate_version   BIGINT         NOT NULL CHECK (aggregate_version > 0),
+  aggregate_version   BIGINT      NOT NULL CHECK (aggregate_version > 0),
   payload             JSONB       NOT NULL,
   occurred_at         TIMESTAMPTZ NOT NULL,
   correlation_id      UUID        NOT NULL,
