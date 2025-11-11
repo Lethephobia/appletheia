@@ -28,6 +28,10 @@ impl AggregateVersion {
             .map(Self)
             .ok_or(AggregateVersionError::Overflow)
     }
+
+    pub fn as_u64(self) -> u64 {
+        self.value() as u64
+    }
 }
 
 impl Default for AggregateVersion {

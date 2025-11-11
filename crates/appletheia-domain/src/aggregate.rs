@@ -33,6 +33,7 @@ pub trait Aggregate: Clone + Debug + Default + Send + Sync + 'static {
 
     fn uncommitted_events(&self) -> &[Event<Self::Id, Self::EventPayload>];
     fn record_uncommitted_event(&mut self, event: Event<Self::Id, Self::EventPayload>);
+    fn clear_uncommitted_events(&mut self);
 
     fn apply(&mut self, payload: &Self::EventPayload) -> Result<(), Self::Error>;
 
@@ -54,7 +55,8 @@ pub trait Aggregate: Clone + Debug + Default + Send + Sync + 'static {
             .as_ref()
             .map(|state| state.id())
             .ok_or(AggregateError::NoState)?;
-        self.record_uncommitted_event(Event::new(aggregate_id, self.version(), payload));
+        let event = Event::new(aggregate_id, self.version(), payload);
+        self.record_uncommitted_event(event);
         Ok(())
     }
 
@@ -344,6 +346,10 @@ mod tests {
 
         fn record_uncommitted_event(&mut self, event: Event<Self::Id, Self::EventPayload>) {
             self.uncommitted_events.push(event);
+        }
+
+        fn clear_uncommitted_events(&mut self) {
+            self.uncommitted_events.clear();
         }
 
         fn apply(&mut self, payload: &Self::EventPayload) -> Result<(), Self::Error> {
