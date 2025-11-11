@@ -11,7 +11,7 @@ pub use unit_of_work_error::UnitOfWorkError;
 use core::future::Future;
 use std::error::Error;
 
-use appletheia_domain::{Aggregate, AggregateId, AggregateVersion, Event, Repository, Snapshot};
+use appletheia_domain::{Aggregate, AggregateVersion, Event, Repository, Snapshot};
 
 #[allow(async_fn_in_trait)]
 pub trait UnitOfWork<A: Aggregate> {
@@ -30,10 +30,6 @@ pub trait UnitOfWork<A: Aggregate> {
     async fn rollback(&mut self) -> Result<(), UnitOfWorkError<A>>;
 
     fn is_in_transaction(&self) -> bool;
-
-    fn ordering_key(&self, aggregate_id: A::Id) -> String {
-        format!("{}:{}", A::AGGREGATE_TYPE, aggregate_id.value().to_string())
-    }
 
     async fn write_events(
         &mut self,

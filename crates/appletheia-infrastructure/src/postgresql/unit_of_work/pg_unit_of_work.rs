@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use appletheia_application::unit_of_work::{UnitOfWork, UnitOfWorkConfig, UnitOfWorkError};
 use appletheia_domain::{Aggregate, AggregateId, AggregateVersion, Event, Snapshot};
 use chrono::{DateTime, Utc};
-use sqlx::{PgPool, Postgres, Transaction, query_scalar};
+use sqlx::{PgPool, Postgres, QueryBuilder, Transaction, query_scalar};
 use uuid::Uuid;
 
 use crate::postgresql::repository::PgRepository;
@@ -95,45 +95,53 @@ impl<A: Aggregate> UnitOfWork<A> for PgUnitOfWork<A> {
         if events.is_empty() {
             return Ok(());
         }
-        for event in events {
-            let event_id = Uuid::from(event.id());
-            let aggregate_id = event.aggregate_id().value();
-            let aggregate_version = event.aggregate_version().value();
-            let payload = serde_json::to_value(event.payload())
-                .map_err(|e| UnitOfWorkError::Persistence(Box::new(e)))?;
-            let occurred_at: DateTime<Utc> = event.occurred_at().into();
-            let correlation_id = self.config.request_context.correlation_id.0;
-            let causation_id = self.config.request_context.message_id.value();
-            let context = serde_json::to_value(self.config.request_context.clone())
-                .map_err(|e| UnitOfWorkError::Persistence(Box::new(e)))?;
 
-            let transaction = self
-                .transaction
-                .as_mut()
-                .ok_or(UnitOfWorkError::NotInTransaction)?;
-            sqlx::query(
-                r#"
-                        INSERT INTO events (
-                            id, aggregate_type, aggregate_id, aggregate_version,
-                            payload, occurred_at, correlation_id, causation_id, context
-                        )
-                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-                        RETURNING event_sequence
-                        "#,
+        let correlation_id = self.config.request_context.correlation_id.0;
+        let causation_id = self.config.request_context.message_id.value();
+        let context = serde_json::to_value(self.config.request_context.clone())
+            .map_err(|e| UnitOfWorkError::Persistence(Box::new(e)))?;
+
+        let tx = self
+            .transaction
+            .as_mut()
+            .ok_or(UnitOfWorkError::NotInTransaction)?;
+        let mut qb = QueryBuilder::<Postgres>::new(
+            r#"
+            INSERT INTO events (
+                id, aggregate_type, aggregate_id, aggregate_version,
+                payload, occurred_at, correlation_id, causation_id, context
             )
-            .bind(event_id)
-            .bind(A::AGGREGATE_TYPE)
-            .bind(aggregate_id)
-            .bind(aggregate_version)
-            .bind(payload)
-            .bind(occurred_at)
-            .bind(correlation_id)
-            .bind(causation_id)
-            .bind(context)
-            .execute(transaction.as_mut())
+            VALUES
+            "#,
+        );
+
+        let mut sep = qb.separated(", ");
+        for ev in events {
+            let event_id = Uuid::from(ev.id());
+            let aggregate_id = ev.aggregate_id().value();
+            let aggregate_version = ev.aggregate_version().value();
+            let payload = serde_json::to_value(ev.payload())
+                .map_err(|e| UnitOfWorkError::Persistence(Box::new(e)))?;
+            let occurred_at: DateTime<Utc> = ev.occurred_at().into();
+
+            sep.push("(")
+                .push_bind(event_id)
+                .push_bind(A::AGGREGATE_TYPE)
+                .push_bind(aggregate_id)
+                .push_bind(aggregate_version)
+                .push_bind(payload)
+                .push_bind(occurred_at)
+                .push_bind(correlation_id)
+                .push_bind(causation_id)
+                .push_bind(&context)
+                .push(")");
+        }
+
+        qb.build()
+            .execute(tx.as_mut())
             .await
             .map_err(|e| UnitOfWorkError::Persistence(Box::new(e)))?;
-        }
+
         Ok(())
     }
 
@@ -145,48 +153,51 @@ impl<A: Aggregate> UnitOfWork<A> for PgUnitOfWork<A> {
             return Ok(());
         }
 
-        for event in events {
-            let payload = serde_json::to_value(event.payload())
-                .map_err(|e| UnitOfWorkError::Persistence(Box::new(e)))?;
-            let occurred_at: DateTime<Utc> = event.occurred_at().into();
-            let aggregate_id = event.aggregate_id().value();
-            let aggregate_version = event.aggregate_version().value();
-            let event_id = Uuid::from(event.id());
-            let outbox_id = Uuid::now_v7();
-            let correlation_id = self.config.request_context.correlation_id.0;
-            let causation_id = self.config.request_context.message_id.value();
-            let context = serde_json::to_value(self.config.request_context.clone())
-                .map_err(|e| UnitOfWorkError::Persistence(Box::new(e)))?;
-            let ordering_key = self.ordering_key(event.aggregate_id());
-            let transaction = self
-                .transaction
-                .as_mut()
-                .ok_or(UnitOfWorkError::NotInTransaction)?;
-            sqlx::query(
-                r#"
-                    INSERT INTO outbox (
-                        id, event_sequence, event_id, aggregate_type, aggregate_id,
-                        aggregate_version, payload, occurred_at, correlation_id,
-                        causation_id, context, ordering_key
-                    )
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-                    "#,
-            )
-            .bind(outbox_id)
-            .bind(event_id)
-            .bind(A::AGGREGATE_TYPE)
-            .bind(aggregate_id)
-            .bind(aggregate_version)
-            .bind(payload)
-            .bind(occurred_at)
-            .bind(correlation_id)
-            .bind(causation_id)
-            .bind(context)
-            .bind(ordering_key)
-            .execute(transaction.as_mut())
-            .await
+        let event_ids: Vec<Uuid> = events.iter().map(|e| Uuid::from(e.id())).collect();
+
+        let correlation_id = self.config.request_context.correlation_id.0;
+        let causation_id = self.config.request_context.message_id.value();
+        let context = serde_json::to_value(self.config.request_context.clone())
             .map_err(|e| UnitOfWorkError::Persistence(Box::new(e)))?;
-        }
+
+        let tx = self
+            .transaction
+            .as_mut()
+            .ok_or(UnitOfWorkError::NotInTransaction)?;
+
+        sqlx::query(
+            r#"
+            INSERT INTO outbox (
+                id, event_sequence, event_id, aggregate_type, aggregate_id,
+                aggregate_version, payload, occurred_at,
+                correlation_id, causation_id, context, ordering_key
+            )
+            SELECT
+                gen_random_uuid(),
+                e.event_sequence,
+                e.id            AS event_id,
+                $1              AS aggregate_type,
+                e.aggregate_id,
+                e.aggregate_version,
+                e.payload,
+                e.occurred_at,
+                $2              AS correlation_id,
+                $3              AS causation_id,
+                $4              AS context,
+                ($1 || ':' || e.aggregate_id::text) AS ordering_key
+            FROM events e
+            WHERE e.id = ANY($5::uuid[])
+            "#,
+        )
+        .bind(A::AGGREGATE_TYPE)
+        .bind(correlation_id)
+        .bind(causation_id)
+        .bind(&context)
+        .bind(&event_ids)
+        .execute(tx.as_mut())
+        .await
+        .map_err(|e| UnitOfWorkError::Persistence(Box::new(e)))?;
+
         Ok(())
     }
 
