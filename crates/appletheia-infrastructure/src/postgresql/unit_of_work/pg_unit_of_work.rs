@@ -217,11 +217,11 @@ impl<A: Aggregate> UnitOfWork<A> for PgUnitOfWork<A> {
         let aggregate_version = snapshot.aggregate_version().value();
         sqlx::query(
             r#"
-                    INSERT INTO snapshots (
-                        id, aggregate_type, aggregate_id, aggregate_version, state, materialized_at
-                    )
-                    VALUES ($1, $2, $3, $4, $5, $6)
-                    "#,
+            INSERT INTO snapshots (
+                id, aggregate_type, aggregate_id, aggregate_version, state, materialized_at
+            )
+            VALUES ($1, $2, $3, $4, $5, $6)
+            "#,
         )
         .bind(snapshot_id)
         .bind(A::AGGREGATE_TYPE)
