@@ -64,7 +64,7 @@ impl<A: Aggregate> Repository<A> for PgRepository<A> {
             r#"
             SELECT
                 event_sequence, id, aggregate_type, aggregate_id, aggregate_version,
-                payload, occurred_at, recorded_at, correlation_id, causation_id, context
+                payload, occurred_at, correlation_id, causation_id, context
             FROM events WHERE aggregate_type = "#,
         );
 

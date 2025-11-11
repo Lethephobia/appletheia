@@ -17,7 +17,6 @@ pub(crate) struct PgEventRow {
     pub aggregate_version: i64,
     pub payload: serde_json::Value,
     pub occurred_at: DateTime<Utc>,
-    pub recorded_at: DateTime<Utc>,
     pub correlation_id: Uuid,
     pub causation_id: Uuid,
     pub context: serde_json::Value,
