@@ -9,24 +9,24 @@ use crate::snapshot::Snapshot;
 #[allow(async_fn_in_trait)]
 pub trait Repository<A: Aggregate> {
     async fn read_latest_snapshot(
-        &self,
+        &mut self,
         aggregate_id: A::Id,
         as_of: Option<AggregateVersion>,
     ) -> Result<Option<Snapshot<A::State>>, RepositoryError<A>>;
 
     async fn read_events(
-        &self,
+        &mut self,
         aggregate_id: A::Id,
         after: Option<AggregateVersion>,
         as_of: Option<AggregateVersion>,
     ) -> Result<Vec<Event<A::Id, A::EventPayload>>, RepositoryError<A>>;
 
-    async fn find(&self, id: A::Id) -> Result<Option<A>, RepositoryError<A>> {
+    async fn find(&mut self, id: A::Id) -> Result<Option<A>, RepositoryError<A>> {
         self.find_at_version(id, None).await
     }
 
     async fn find_at_version(
-        &self,
+        &mut self,
         id: A::Id,
         at: Option<AggregateVersion>,
     ) -> Result<Option<A>, RepositoryError<A>> {

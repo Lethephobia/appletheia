@@ -11,11 +11,17 @@ pub use unit_of_work_error::UnitOfWorkError;
 use core::future::Future;
 use std::error::Error;
 
-use appletheia_domain::{Aggregate, AggregateVersion, Event, Snapshot};
+use appletheia_domain::{Aggregate, AggregateId, AggregateVersion, Event, Repository, Snapshot};
 
 #[allow(async_fn_in_trait)]
 pub trait UnitOfWork<A: Aggregate> {
+    type Repository<'c>: Repository<A>
+    where
+        Self: 'c;
+
     fn config(&self) -> &UnitOfWorkConfig;
+
+    fn repository<'c>(&'c mut self) -> Result<Self::Repository<'c>, UnitOfWorkError<A>>;
 
     async fn begin(&mut self) -> Result<(), UnitOfWorkError<A>>;
 
@@ -23,7 +29,11 @@ pub trait UnitOfWork<A: Aggregate> {
 
     async fn rollback(&mut self) -> Result<(), UnitOfWorkError<A>>;
 
-    fn is_active(&self) -> bool;
+    fn is_in_transaction(&self) -> bool;
+
+    fn ordering_key(&self, aggregate_id: A::Id) -> String {
+        format!("{}:{}", A::AGGREGATE_TYPE, aggregate_id.value().to_string())
+    }
 
     async fn write_events(
         &mut self,
@@ -41,7 +51,7 @@ pub trait UnitOfWork<A: Aggregate> {
     ) -> Result<(), UnitOfWorkError<A>>;
 
     async fn read_latest_snapshot_version(
-        &self,
+        &mut self,
         aggregate_id: A::Id,
     ) -> Result<Option<AggregateVersion>, UnitOfWorkError<A>>;
 
@@ -84,7 +94,7 @@ pub trait UnitOfWork<A: Aggregate> {
         &mut self,
         operation: F,
     ) -> Result<T, E> {
-        if !self.is_active() {
+        if !self.is_in_transaction() {
             self.begin().await?;
             let result = operation(self).await;
             match result {

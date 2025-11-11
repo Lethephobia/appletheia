@@ -1,4 +1,4 @@
-use sqlx::{PgPool, Postgres, QueryBuilder};
+use sqlx::{Postgres, QueryBuilder, Transaction};
 
 use crate::postgresql::event::{PgEventRow, PgEventRowError};
 use crate::postgresql::snapshot::PgSnapshotRow;
@@ -8,14 +8,23 @@ use appletheia_domain::{
 
 use std::marker::PhantomData;
 
-pub struct PgRepository<A: Aggregate> {
-    pool: PgPool,
+pub struct PgRepository<'c, A: Aggregate> {
+    transaction: &'c mut Transaction<'static, Postgres>,
     _phantom: PhantomData<A>,
 }
 
-impl<A: Aggregate> Repository<A> for PgRepository<A> {
+impl<'c, A: Aggregate> PgRepository<'c, A> {
+    pub fn new(transaction: &'c mut Transaction<'static, Postgres>) -> Self {
+        Self {
+            transaction,
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl<'c, A: Aggregate> Repository<A> for PgRepository<'c, A> {
     async fn read_latest_snapshot(
-        &self,
+        &mut self,
         aggregate_id: A::Id,
         as_of: Option<AggregateVersion>,
     ) -> Result<Option<Snapshot<A::State>>, RepositoryError<A>> {
@@ -38,7 +47,7 @@ impl<A: Aggregate> Repository<A> for PgRepository<A> {
 
         let snapshot_row = query
             .build_query_as::<PgSnapshotRow>()
-            .fetch_optional(&self.pool)
+            .fetch_optional(self.transaction.as_mut())
             .await
             .map_err(|e| RepositoryError::Persistence(Box::new(e)))?;
         let snapshot = snapshot_row
@@ -49,7 +58,7 @@ impl<A: Aggregate> Repository<A> for PgRepository<A> {
     }
 
     async fn read_events(
-        &self,
+        &mut self,
         aggregate_id: A::Id,
         after: Option<AggregateVersion>,
         as_of: Option<AggregateVersion>,
@@ -87,7 +96,7 @@ impl<A: Aggregate> Repository<A> for PgRepository<A> {
 
         let event_rows = query
             .build_query_as::<PgEventRow>()
-            .fetch_all(&self.pool)
+            .fetch_all(self.transaction.as_mut())
             .await
             .map_err(|e| RepositoryError::Persistence(Box::new(e)))?;
 

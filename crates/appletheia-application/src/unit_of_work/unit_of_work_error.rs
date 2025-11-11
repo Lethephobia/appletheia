@@ -14,6 +14,9 @@ pub enum UnitOfWorkError<A: Aggregate> {
     #[error("rollback failed {0}")]
     RollbackFailed(#[source] Box<dyn Error + Send + Sync + 'static>),
 
+    #[error("persistence failed {0}")]
+    Persistence(#[source] Box<dyn Error + Send + Sync + 'static>),
+
     #[error("operation and rollback failed {operation_error} {rollback_error}")]
     OperationAndRollbackFailed {
         #[source]
@@ -26,4 +29,7 @@ pub enum UnitOfWorkError<A: Aggregate> {
 
     #[error("aggregate state missing")]
     AggregateNoState,
+
+    #[error("transaction is not active")]
+    NotInTransaction,
 }

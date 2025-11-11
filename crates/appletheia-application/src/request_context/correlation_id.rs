@@ -1,8 +1,10 @@
 use std::{fmt, fmt::Display};
 
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct CorrelationId(pub Uuid);
 
 impl From<CorrelationId> for Uuid {
