@@ -31,12 +31,7 @@ pub trait UnitOfWork<A: Aggregate> {
 
     fn is_in_transaction(&self) -> bool;
 
-    async fn write_events(
-        &mut self,
-        events: &[Event<A::Id, A::EventPayload>],
-    ) -> Result<(), UnitOfWorkError<A>>;
-
-    async fn write_outbox(
+    async fn write_events_and_outbox(
         &mut self,
         events: &[Event<A::Id, A::EventPayload>],
     ) -> Result<(), UnitOfWorkError<A>>;
@@ -53,8 +48,7 @@ pub trait UnitOfWork<A: Aggregate> {
 
     async fn save(&mut self, aggregate: &mut A) -> Result<(), UnitOfWorkError<A>> {
         let events = aggregate.uncommitted_events();
-        self.write_events(events).await?;
-        self.write_outbox(events).await?;
+        self.write_events_and_outbox(events).await?;
         match self.config().snapshot_policy {
             SnapshotPolicy::Disabled => {}
             SnapshotPolicy::AtLeast { minimum_interval } => {
