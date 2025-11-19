@@ -6,7 +6,7 @@ use super::AggregateVersionTagNameError;
 pub struct AggregateVersionTagName(String);
 
 impl AggregateVersionTagName {
-    const MAX_LENGTH: usize = 100;
+    pub const MAX_LENGTH: usize = 100;
 
     pub fn value(&self) -> &str {
         &self.0

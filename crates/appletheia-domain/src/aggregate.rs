@@ -1,6 +1,7 @@
 pub mod aggregate_error;
 pub mod aggregate_id;
 pub mod aggregate_state;
+pub mod aggregate_type;
 pub mod aggregate_version;
 pub mod aggregate_version_error;
 pub mod entity_id;
@@ -8,6 +9,7 @@ pub mod entity_id;
 pub use aggregate_error::AggregateError;
 pub use aggregate_id::AggregateId;
 pub use aggregate_state::AggregateState;
+pub use aggregate_type::AggregateType;
 pub use aggregate_version::AggregateVersion;
 pub use aggregate_version_error::AggregateVersionError;
 pub use entity_id::EntityId;
@@ -23,7 +25,7 @@ pub trait Aggregate: Clone + Debug + Default + Send + Sync + 'static {
     type EventPayload: EventPayload;
     type Error: Error + From<AggregateError<Self::Id>> + Send + Sync + 'static;
 
-    const AGGREGATE_TYPE: &'static str;
+    const AGGREGATE_TYPE: AggregateType;
 
     fn state(&self) -> Option<&Self::State>;
     fn set_state(&mut self, state: Option<Self::State>);
@@ -322,7 +324,7 @@ mod tests {
         type EventPayload = CounterEventPayload;
         type Error = CounterError;
 
-        const AGGREGATE_TYPE: &'static str = "counter";
+        const AGGREGATE_TYPE: AggregateType = AggregateType::new("counter");
 
         fn state(&self) -> Option<&Self::State> {
             self.state.as_ref()

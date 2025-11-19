@@ -34,7 +34,7 @@ impl<'c, A: Aggregate> Repository<A> for PgRepository<'c, A> {
             FROM snapshots WHERE aggregate_type = "#,
         );
         query
-            .push_bind(A::AGGREGATE_TYPE)
+            .push_bind(A::AGGREGATE_TYPE.value())
             .push(" AND aggregate_id = ")
             .push_bind(aggregate_id.value());
 
@@ -78,7 +78,7 @@ impl<'c, A: Aggregate> Repository<A> for PgRepository<'c, A> {
         );
 
         query
-            .push_bind(A::AGGREGATE_TYPE)
+            .push_bind(A::AGGREGATE_TYPE.value())
             .push(" AND aggregate_id = ")
             .push_bind(aggregate_id.value());
 

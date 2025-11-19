@@ -57,7 +57,7 @@ CREATE TABLE IF NOT EXISTS outbox (
   ordering_key         TEXT        NOT NULL,
   published_at         TIMESTAMPTZ,
   attempt_count        INT         NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
-  next_attempt_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  next_attempt_after   TIMESTAMPTZ NOT NULL DEFAULT now(),
   lease_owner          TEXT,
   lease_until          TIMESTAMPTZ,
   CONSTRAINT outbox_uniq_aggregate_version

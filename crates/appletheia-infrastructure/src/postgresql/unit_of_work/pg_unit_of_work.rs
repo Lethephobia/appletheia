@@ -126,7 +126,7 @@ impl<A: Aggregate> UnitOfWork<A> for PgUnitOfWork<A> {
 
             sep.push("(")
                 .push_bind(id)
-                .push_bind(A::AGGREGATE_TYPE)
+                .push_bind(A::AGGREGATE_TYPE.value())
                 .push_bind(aggregate_id)
                 .push_bind(version)
                 .push_bind(payload)
@@ -218,7 +218,7 @@ impl<A: Aggregate> UnitOfWork<A> for PgUnitOfWork<A> {
             "#,
         )
         .bind(snapshot_id)
-        .bind(A::AGGREGATE_TYPE)
+        .bind(A::AGGREGATE_TYPE.value())
         .bind(aggregate_id)
         .bind(aggregate_version)
         .bind(state)
@@ -246,7 +246,7 @@ impl<A: Aggregate> UnitOfWork<A> for PgUnitOfWork<A> {
             LIMIT 1
             "#,
         )
-        .bind(A::AGGREGATE_TYPE)
+        .bind(A::AGGREGATE_TYPE.value())
         .bind(aggregate_id.value())
         .fetch_optional(transaction.as_mut())
         .await
