@@ -1,22 +1,23 @@
+pub mod outbox_id;
+pub mod outbox_id_error;
 pub mod outbox_relay;
 pub mod outbox_relay_config;
 pub mod outbox_relay_error;
 
+pub use outbox_id::OutboxId;
+pub use outbox_id_error::OutboxIdError;
 pub use outbox_relay::OutboxRelay;
 pub use outbox_relay_config::OutboxRelayConfig;
 pub use outbox_relay_error::OutboxRelayError;
 
 use appletheia_domain::{AggregateVersion, EventId, OccurredAt};
 use chrono::{DateTime, Utc};
-use uuid::Uuid;
 
-use crate::request_context::CorrelationId;
-use crate::request_context::MessageId;
-use crate::request_context::RequestContext;
+use crate::request_context::{CorrelationId, MessageId, RequestContext};
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct Outbox {
-    pub id: Uuid,
+    pub id: OutboxId,
     pub event_sequence: i64,
     pub event_id: EventId,
     pub aggregate_type: String,

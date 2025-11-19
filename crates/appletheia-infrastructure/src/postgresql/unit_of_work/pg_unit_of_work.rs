@@ -1,10 +1,10 @@
 use std::marker::PhantomData;
 
+use appletheia_application::outbox::OutboxId;
 use appletheia_application::unit_of_work::{UnitOfWork, UnitOfWorkConfig, UnitOfWorkError};
 use appletheia_domain::{Aggregate, AggregateId, AggregateVersion, Event, Snapshot};
 use chrono::{DateTime, Utc};
 use sqlx::{PgPool, Postgres, QueryBuilder, Transaction, query_scalar};
-use uuid::Uuid;
 
 use crate::postgresql::event::PgEventRow;
 use crate::postgresql::repository::PgRepository;
@@ -169,7 +169,7 @@ impl<A: Aggregate> UnitOfWork<A> for PgUnitOfWork<A> {
         );
         let mut sep = outbox_query.separated(", ");
         for event_row in event_rows {
-            let outbox_id = Uuid::now_v7();
+            let outbox_id = OutboxId::new().value();
             let ordering_key = format!("{}:{}", event_row.aggregate_type, event_row.aggregate_id);
 
             sep.push("(")
