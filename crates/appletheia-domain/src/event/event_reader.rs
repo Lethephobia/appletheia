@@ -1,4 +1,4 @@
-use crate::{Aggregate, AggregateVersion, Event};
+use crate::{Aggregate, AggregateVersionRange, Event};
 
 use super::event_reader_error::EventReaderError;
 
@@ -7,7 +7,6 @@ pub trait EventReader<A: Aggregate> {
     async fn read_events(
         &mut self,
         aggregate_id: A::Id,
-        after: Option<AggregateVersion>,
-        as_of: Option<AggregateVersion>,
+        range: AggregateVersionRange,
     ) -> Result<Vec<Event<A::Id, A::EventPayload>>, EventReaderError>;
 }

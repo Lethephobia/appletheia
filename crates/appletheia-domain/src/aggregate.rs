@@ -4,6 +4,7 @@ pub mod aggregate_state;
 pub mod aggregate_type;
 pub mod aggregate_version;
 pub mod aggregate_version_error;
+pub mod aggregate_version_range;
 pub mod entity_id;
 
 pub use aggregate_error::AggregateError;
@@ -12,6 +13,7 @@ pub use aggregate_state::AggregateState;
 pub use aggregate_type::AggregateType;
 pub use aggregate_version::AggregateVersion;
 pub use aggregate_version_error::AggregateVersionError;
+pub use aggregate_version_range::AggregateVersionRange;
 pub use entity_id::EntityId;
 
 use std::{error::Error, fmt::Debug};

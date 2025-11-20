@@ -1,9 +1,10 @@
 use std::marker::PhantomData;
+use std::ops::{Bound, RangeBounds};
 
 use sqlx::{Postgres, QueryBuilder, Transaction};
 
 use appletheia_domain::{
-    Aggregate, AggregateId, AggregateVersion, Event, EventReader, EventReaderError,
+    Aggregate, AggregateId, AggregateVersionRange, Event, EventReader, EventReaderError,
 };
 
 use crate::postgresql::event::{PgEventRow, PgEventRowError};
@@ -26,12 +27,9 @@ impl<'c, A: Aggregate> EventReader<A> for PgEventReader<'c, A> {
     async fn read_events(
         &mut self,
         aggregate_id: A::Id,
-        after: Option<AggregateVersion>,
-        as_of: Option<AggregateVersion>,
+        range: AggregateVersionRange,
     ) -> Result<Vec<Event<A::Id, A::EventPayload>>, EventReaderError> {
-        if let (Some(a), Some(u)) = (after, as_of)
-            && a >= u
-        {
+        if range_is_empty(&range) {
             return Ok(Vec::new());
         }
 
@@ -48,15 +46,31 @@ impl<'c, A: Aggregate> EventReader<A> for PgEventReader<'c, A> {
             .push(" AND aggregate_id = ")
             .push_bind(aggregate_id.value());
 
-        if let Some(version) = after {
-            query
-                .push(" AND aggregate_version > ")
-                .push_bind(version.value());
+        match range.start_bound() {
+            Bound::Included(version) => {
+                query
+                    .push(" AND aggregate_version >= ")
+                    .push_bind(version.value());
+            }
+            Bound::Excluded(version) => {
+                query
+                    .push(" AND aggregate_version > ")
+                    .push_bind(version.value());
+            }
+            Bound::Unbounded => {}
         }
-        if let Some(version) = as_of {
-            query
-                .push(" AND aggregate_version <= ")
-                .push_bind(version.value());
+        match range.end_bound() {
+            Bound::Included(version) => {
+                query
+                    .push(" AND aggregate_version <= ")
+                    .push_bind(version.value());
+            }
+            Bound::Excluded(version) => {
+                query
+                    .push(" AND aggregate_version < ")
+                    .push_bind(version.value());
+            }
+            Bound::Unbounded => {}
         }
         query.push(" ORDER BY aggregate_version ASC");
 
@@ -73,5 +87,16 @@ impl<'c, A: Aggregate> EventReader<A> for PgEventReader<'c, A> {
             .map_err(|e| EventReaderError::MappingFailed(Box::new(e)))?;
 
         Ok(events)
+    }
+}
+
+fn range_is_empty(range: &AggregateVersionRange) -> bool {
+    use Bound::*;
+    match (range.start_bound(), range.end_bound()) {
+        (_, Unbounded) | (Unbounded, _) => false,
+        (Included(start), Included(end)) => start > end,
+        (Included(start), Excluded(end)) => start >= end,
+        (Excluded(start), Included(end)) => start >= end,
+        (Excluded(start), Excluded(end)) => start >= end,
     }
 }

@@ -4,13 +4,13 @@ use crate::aggregate::AggregateVersion;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct AggregateVersionRange {
-    from: Bound<AggregateVersion>,
-    to: Bound<AggregateVersion>,
+    start: Bound<AggregateVersion>,
+    end: Bound<AggregateVersion>,
 }
 
 impl AggregateVersionRange {
-    pub fn new(from: Bound<AggregateVersion>, to: Bound<AggregateVersion>) -> Self {
-        Self { from, to }
+    pub fn new(start: Bound<AggregateVersion>, end: Bound<AggregateVersion>) -> Self {
+        Self { start, end }
     }
 }
 
@@ -22,7 +22,7 @@ impl Default for AggregateVersionRange {
 
 impl RangeBounds<AggregateVersion> for AggregateVersionRange {
     fn start_bound(&self) -> Bound<&AggregateVersion> {
-        match &self.from {
+        match &self.start {
             Bound::Included(version) => Bound::Included(version),
             Bound::Excluded(version) => Bound::Excluded(version),
             Bound::Unbounded => Bound::Unbounded,
@@ -30,7 +30,7 @@ impl RangeBounds<AggregateVersion> for AggregateVersionRange {
     }
 
     fn end_bound(&self) -> Bound<&AggregateVersion> {
-        match &self.to {
+        match &self.end {
             Bound::Included(version) => Bound::Included(version),
             Bound::Excluded(version) => Bound::Excluded(version),
             Bound::Unbounded => Bound::Unbounded,

@@ -2,9 +2,10 @@ pub mod repository_error;
 
 pub use repository_error::RepositoryError;
 
-use crate::aggregate::{Aggregate, AggregateVersion};
+use crate::aggregate::{Aggregate, AggregateVersion, AggregateVersionRange};
 use crate::event::EventReader;
 use crate::snapshot::SnapshotReader;
+use std::ops::Bound;
 
 #[allow(async_fn_in_trait)]
 pub trait Repository<A: Aggregate> {
@@ -35,9 +36,13 @@ pub trait Repository<A: Aggregate> {
         };
         let events = {
             let mut reader = self.event_reader();
-            reader
-                .read_events(id, snapshot.as_ref().map(|s| s.aggregate_version()), at)
-                .await?
+            let start = snapshot
+                .as_ref()
+                .map(|s| Bound::Excluded(s.aggregate_version()))
+                .unwrap_or(Bound::Unbounded);
+            let end = at.map(Bound::Included).unwrap_or(Bound::Unbounded);
+            let range = AggregateVersionRange::new(start, end);
+            reader.read_events(id, range).await?
         };
         if events.is_empty() && snapshot.is_none() {
             return Ok(None);
