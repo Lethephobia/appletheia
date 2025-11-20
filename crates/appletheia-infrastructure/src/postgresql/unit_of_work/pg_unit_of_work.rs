@@ -38,7 +38,7 @@ impl<A: Aggregate> UnitOfWork<A> for PgUnitOfWork<A> {
         &self.config
     }
 
-    fn repository<'c>(&'c mut self) -> Result<Self::Repository<'c>, UnitOfWorkError<A>> {
+    fn repository(&mut self) -> Result<Self::Repository<'_>, UnitOfWorkError<A>> {
         let transaction = self
             .transaction
             .as_mut()

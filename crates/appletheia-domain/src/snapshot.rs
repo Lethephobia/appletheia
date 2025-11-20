@@ -1,8 +1,12 @@
 pub mod materialized_at;
 pub mod snapshot_id;
 pub mod snapshot_id_error;
+pub mod snapshot_reader;
+pub mod snapshot_reader_error;
 
 pub use materialized_at::MaterializedAt;
+pub use snapshot_reader::SnapshotReader;
+pub use snapshot_reader_error::SnapshotReaderError;
 pub use snapshot_id::SnapshotId;
 pub use snapshot_id_error::SnapshotIdError;
 

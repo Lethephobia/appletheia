@@ -21,7 +21,7 @@ pub trait UnitOfWork<A: Aggregate> {
 
     fn config(&self) -> &UnitOfWorkConfig;
 
-    fn repository<'c>(&'c mut self) -> Result<Self::Repository<'c>, UnitOfWorkError<A>>;
+    fn repository(&mut self) -> Result<Self::Repository<'_>, UnitOfWorkError<A>>;
 
     async fn begin(&mut self) -> Result<(), UnitOfWorkError<A>>;
 
