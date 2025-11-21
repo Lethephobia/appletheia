@@ -1,6 +1,6 @@
 use sqlx::{Postgres, Transaction};
 
-use appletheia_domain::{Aggregate, Repository};
+use appletheia_domain::{Aggregate, EventReaderProvider, Repository, SnapshotReaderProvider};
 
 use crate::postgresql::event::PgEventReader;
 use crate::postgresql::snapshot::PgSnapshotReader;
@@ -21,22 +21,26 @@ impl<'c, A: Aggregate> PgRepository<'c, A> {
     }
 }
 
-impl<'c, A: Aggregate> Repository<A> for PgRepository<'c, A> {
+impl<'c, A: Aggregate> EventReaderProvider<A> for PgRepository<'c, A> {
     type EventReader<'r>
         = PgEventReader<'r, A>
-    where
-        Self: 'r;
-
-    type SnapshotReader<'r>
-        = PgSnapshotReader<'r, A>
     where
         Self: 'r;
 
     fn event_reader(&mut self) -> Self::EventReader<'_> {
         PgEventReader::new(self.transaction)
     }
+}
+
+impl<'c, A: Aggregate> SnapshotReaderProvider<A> for PgRepository<'c, A> {
+    type SnapshotReader<'r>
+        = PgSnapshotReader<'r, A>
+    where
+        Self: 'r;
 
     fn snapshot_reader(&mut self) -> Self::SnapshotReader<'_> {
         PgSnapshotReader::new(self.transaction)
     }
 }
+
+impl<'c, A: Aggregate> Repository<A> for PgRepository<'c, A> {}

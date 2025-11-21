@@ -7,20 +7,24 @@ use crate::event::EventReader;
 use crate::snapshot::SnapshotReader;
 use std::ops::Bound;
 
-#[allow(async_fn_in_trait)]
-pub trait Repository<A: Aggregate> {
+pub trait EventReaderProvider<A: Aggregate> {
     type EventReader<'c>: EventReader<A>
     where
         Self: 'c;
 
+    fn event_reader(&mut self) -> Self::EventReader<'_>;
+}
+
+pub trait SnapshotReaderProvider<A: Aggregate> {
     type SnapshotReader<'c>: SnapshotReader<A>
     where
         Self: 'c;
 
-    fn event_reader(&mut self) -> Self::EventReader<'_>;
-
     fn snapshot_reader(&mut self) -> Self::SnapshotReader<'_>;
+}
 
+#[allow(async_fn_in_trait)]
+pub trait Repository<A: Aggregate>: EventReaderProvider<A> + SnapshotReaderProvider<A> {
     async fn find(&mut self, id: A::Id) -> Result<Option<A>, RepositoryError<A>> {
         self.find_at_version(id, None).await
     }
