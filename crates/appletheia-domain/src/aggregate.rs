@@ -21,25 +21,48 @@ use std::{error::Error, fmt::Debug};
 use crate::event::{Event, EventPayload};
 use crate::snapshot::Snapshot;
 
-pub trait Aggregate: Clone + Debug + Default + Send + Sync + 'static {
+pub trait AggregateStateAccess<I: AggregateId, S: AggregateState<Id = I>> {
+    fn state(&self) -> Option<&S>;
+    fn set_state(&mut self, state: Option<S>);
+}
+
+pub trait AggregateVersionAccess {
+    fn version(&self) -> AggregateVersion;
+    fn set_version(&mut self, version: AggregateVersion);
+}
+
+pub trait AggregateUncommittedEvents<I: AggregateId, E: EventPayload> {
+    fn uncommitted_events(&self) -> &[Event<I, E>];
+    fn record_uncommitted_event(&mut self, event: Event<I, E>);
+    fn clear_uncommitted_events(&mut self);
+}
+
+pub trait AggregateApply<P, E>
+where
+    P: EventPayload,
+    E: Error + Send + Sync + 'static,
+{
+    fn apply(&mut self, payload: &P) -> Result<(), E>;
+}
+
+pub trait Aggregate:
+    Clone
+    + Debug
+    + Default
+    + Send
+    + Sync
+    + 'static
+    + AggregateStateAccess<Self::Id, Self::State>
+    + AggregateVersionAccess
+    + AggregateUncommittedEvents<Self::Id, Self::EventPayload>
+    + AggregateApply<Self::EventPayload, Self::Error>
+{
     type Id: AggregateId;
     type State: AggregateState<Id = Self::Id>;
     type EventPayload: EventPayload;
     type Error: Error + From<AggregateError<Self::Id>> + Send + Sync + 'static;
 
     const AGGREGATE_TYPE: AggregateType;
-
-    fn state(&self) -> Option<&Self::State>;
-    fn set_state(&mut self, state: Option<Self::State>);
-
-    fn version(&self) -> AggregateVersion;
-    fn set_version(&mut self, version: AggregateVersion);
-
-    fn uncommitted_events(&self) -> &[Event<Self::Id, Self::EventPayload>];
-    fn record_uncommitted_event(&mut self, event: Event<Self::Id, Self::EventPayload>);
-    fn clear_uncommitted_events(&mut self);
-
-    fn apply(&mut self, payload: &Self::EventPayload) -> Result<(), Self::Error>;
 
     fn aggregate_id(&self) -> Option<Self::Id> {
         self.state().map(|state| state.id())
@@ -320,22 +343,17 @@ mod tests {
         }
     }
 
-    impl Aggregate for Counter {
-        type Id = CounterId;
-        type State = CounterState;
-        type EventPayload = CounterEventPayload;
-        type Error = CounterError;
-
-        const AGGREGATE_TYPE: AggregateType = AggregateType::new("counter");
-
-        fn state(&self) -> Option<&Self::State> {
+    impl AggregateStateAccess<CounterId, CounterState> for Counter {
+        fn state(&self) -> Option<&CounterState> {
             self.state.as_ref()
         }
 
-        fn set_state(&mut self, state: Option<Self::State>) {
+        fn set_state(&mut self, state: Option<CounterState>) {
             self.state = state;
         }
+    }
 
+    impl AggregateVersionAccess for Counter {
         fn version(&self) -> AggregateVersion {
             self.version
         }
@@ -343,43 +361,55 @@ mod tests {
         fn set_version(&mut self, version: AggregateVersion) {
             self.version = version;
         }
+    }
 
-        fn uncommitted_events(&self) -> &[Event<Self::Id, Self::EventPayload>] {
+    impl AggregateUncommittedEvents<CounterId, CounterEventPayload> for Counter {
+        fn uncommitted_events(&self) -> &[Event<CounterId, CounterEventPayload>] {
             &self.uncommitted_events
         }
 
-        fn record_uncommitted_event(&mut self, event: Event<Self::Id, Self::EventPayload>) {
+        fn record_uncommitted_event(&mut self, event: Event<CounterId, CounterEventPayload>) {
             self.uncommitted_events.push(event);
         }
 
         fn clear_uncommitted_events(&mut self) {
             self.uncommitted_events.clear();
         }
+    }
 
-        fn apply(&mut self, payload: &Self::EventPayload) -> Result<(), Self::Error> {
-            match self.state.as_mut() {
-                None => match payload {
-                    CounterEventPayload::Created() => {
-                        self.state = Some(CounterState::new(self.id, 0));
-                    }
-                    _ => {
+    impl AggregateApply<CounterEventPayload, CounterError> for Counter {
+        fn apply(&mut self, payload: &CounterEventPayload) -> Result<(), CounterError> {
+            match payload {
+                CounterEventPayload::Created() => {
+                    if self.state.is_some() {
                         return Err(CounterError::InvalidEventPayload(payload.clone()).into());
                     }
-                },
-                Some(state) => match payload {
-                    CounterEventPayload::Increment(delta) => {
-                        state.counter += delta;
-                    }
-                    CounterEventPayload::Decrement(delta) => {
-                        state.counter -= delta;
-                    }
-                    _ => {
+                    self.state = Some(CounterState::new(self.id, 0));
+                }
+                CounterEventPayload::Increment(delta) => {
+                    if self.state.is_none() {
                         return Err(CounterError::StateMissing.into());
                     }
-                },
+                    self.state.as_mut().unwrap().counter += delta;
+                }
+                CounterEventPayload::Decrement(delta) => {
+                    if self.state.is_none() {
+                        return Err(CounterError::StateMissing.into());
+                    }
+                    self.state.as_mut().unwrap().counter -= delta;
+                }
             }
             Ok(())
         }
+    }
+
+    impl Aggregate for Counter {
+        type Id = CounterId;
+        type State = CounterState;
+        type EventPayload = CounterEventPayload;
+        type Error = CounterError;
+
+        const AGGREGATE_TYPE: AggregateType = AggregateType::new("counter");
     }
 
     #[test]
@@ -442,7 +472,7 @@ mod tests {
             .increment(1)
             .expect_err("increment should fail without initial state");
 
-        assert!(matches!(err, CounterError::InvalidEventPayload(_)));
+        assert!(matches!(err, CounterError::StateMissing));
         assert_eq!(counter.version().value(), 0);
         assert!(counter.uncommitted_events().is_empty());
     }
@@ -553,7 +583,7 @@ mod tests {
             .replay_event(event)
             .expect_err("expected apply error to propagate");
 
-        assert!(matches!(err, CounterError::InvalidEventPayload(_)));
+        assert!(matches!(err, CounterError::StateMissing));
         assert_eq!(counter.version().value(), 0);
     }
 
