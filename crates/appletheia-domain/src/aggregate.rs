@@ -1,49 +1,33 @@
 pub mod aggregate_error;
+pub mod aggregate_apply;
 pub mod aggregate_id;
 pub mod aggregate_state;
+pub mod aggregate_state_access;
 pub mod aggregate_type;
 pub mod aggregate_version;
+pub mod aggregate_version_access;
 pub mod aggregate_version_error;
 pub mod aggregate_version_range;
+pub mod aggregate_uncommitted_events;
 pub mod entity_id;
 
 pub use aggregate_error::AggregateError;
+pub use aggregate_apply::AggregateApply;
 pub use aggregate_id::AggregateId;
 pub use aggregate_state::AggregateState;
+pub use aggregate_state_access::AggregateStateAccess;
 pub use aggregate_type::AggregateType;
 pub use aggregate_version::AggregateVersion;
+pub use aggregate_version_access::AggregateVersionAccess;
 pub use aggregate_version_error::AggregateVersionError;
 pub use aggregate_version_range::AggregateVersionRange;
+pub use aggregate_uncommitted_events::AggregateUncommittedEvents;
 pub use entity_id::EntityId;
 
 use std::{error::Error, fmt::Debug};
 
 use crate::event::{Event, EventPayload};
 use crate::snapshot::Snapshot;
-
-pub trait AggregateStateAccess<I: AggregateId, S: AggregateState<Id = I>> {
-    fn state(&self) -> Option<&S>;
-    fn set_state(&mut self, state: Option<S>);
-}
-
-pub trait AggregateVersionAccess {
-    fn version(&self) -> AggregateVersion;
-    fn set_version(&mut self, version: AggregateVersion);
-}
-
-pub trait AggregateUncommittedEvents<I: AggregateId, E: EventPayload> {
-    fn uncommitted_events(&self) -> &[Event<I, E>];
-    fn record_uncommitted_event(&mut self, event: Event<I, E>);
-    fn clear_uncommitted_events(&mut self);
-}
-
-pub trait AggregateApply<P, E>
-where
-    P: EventPayload,
-    E: Error + Send + Sync + 'static,
-{
-    fn apply(&mut self, payload: &P) -> Result<(), E>;
-}
 
 pub trait Aggregate:
     Clone

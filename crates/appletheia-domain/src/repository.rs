@@ -3,25 +3,9 @@ pub mod repository_error;
 pub use repository_error::RepositoryError;
 
 use crate::aggregate::{Aggregate, AggregateVersion, AggregateVersionRange};
-use crate::event::EventReader;
-use crate::snapshot::SnapshotReader;
+use crate::event::{EventReader, EventReaderProvider};
+use crate::snapshot::{SnapshotReader, SnapshotReaderProvider};
 use std::ops::Bound;
-
-pub trait EventReaderProvider<A: Aggregate> {
-    type EventReader<'c>: EventReader<A>
-    where
-        Self: 'c;
-
-    fn event_reader(&mut self) -> Self::EventReader<'_>;
-}
-
-pub trait SnapshotReaderProvider<A: Aggregate> {
-    type SnapshotReader<'c>: SnapshotReader<A>
-    where
-        Self: 'c;
-
-    fn snapshot_reader(&mut self) -> Self::SnapshotReader<'_>;
-}
 
 #[allow(async_fn_in_trait)]
 pub trait Repository<A: Aggregate>: EventReaderProvider<A> + SnapshotReaderProvider<A> {
