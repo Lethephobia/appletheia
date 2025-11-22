@@ -11,13 +11,15 @@ pub use unit_of_work_error::UnitOfWorkError;
 use core::future::Future;
 use std::error::Error;
 
+use crate::event::{EventWriter, TryEventWriterProvider};
 use appletheia_domain::{
-    Aggregate, Event, Repository, Snapshot, SnapshotReader, TrySnapshotReaderProvider,
+    Aggregate, Repository, Snapshot, SnapshotReader, TrySnapshotReaderProvider,
 };
 
 #[allow(async_fn_in_trait)]
 pub trait UnitOfWork<A: Aggregate>:
     TrySnapshotReaderProvider<A, Error = UnitOfWorkError<A>>
+    + TryEventWriterProvider<A, Error = UnitOfWorkError<A>>
 {
     type Repository<'c>: Repository<A>
     where
@@ -35,11 +37,6 @@ pub trait UnitOfWork<A: Aggregate>:
 
     fn is_in_transaction(&self) -> bool;
 
-    async fn write_events_and_outbox(
-        &mut self,
-        events: &[Event<A::Id, A::EventPayload>],
-    ) -> Result<(), UnitOfWorkError<A>>;
-
     async fn write_snapshot(
         &mut self,
         snapshot: &Snapshot<A::State>,
@@ -47,7 +44,10 @@ pub trait UnitOfWork<A: Aggregate>:
 
     async fn save(&mut self, aggregate: &mut A) -> Result<(), UnitOfWorkError<A>> {
         let events = aggregate.uncommitted_events();
-        self.write_events_and_outbox(events).await?;
+        {
+            let mut writer = self.try_event_writer()?;
+            writer.write_events_and_outbox(events).await?;
+        }
         match self.config().snapshot_policy {
             SnapshotPolicy::Disabled => {}
             SnapshotPolicy::AtLeast { minimum_interval } => {
