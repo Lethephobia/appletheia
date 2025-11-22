@@ -1,7 +1,9 @@
 use std::marker::PhantomData;
 
 use appletheia_application::{
-    event::EventWriter, outbox::OutboxId, request_context::RequestContext,
+    event::EventWriter,
+    outbox::OutboxId,
+    request_context::{RequestContext, RequestContextAccess},
     unit_of_work::UnitOfWorkError,
 };
 use appletheia_domain::{Aggregate, AggregateId, Event};
@@ -26,6 +28,12 @@ impl<'c, A: Aggregate> PgEventWriter<'c, A> {
             request_context,
             _aggregate: PhantomData,
         }
+    }
+}
+
+impl<'c, A: Aggregate> RequestContextAccess for PgEventWriter<'c, A> {
+    fn request_context(&self) -> &RequestContext {
+        &self.request_context
     }
 }
 
