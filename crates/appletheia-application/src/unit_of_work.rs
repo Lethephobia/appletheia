@@ -1,31 +1,34 @@
 pub mod snapshot_interval;
 pub mod snapshot_policy;
 pub mod unit_of_work_config;
+pub mod unit_of_work_config_access;
 pub mod unit_of_work_error;
 
 pub use snapshot_interval::SnapshotInterval;
 pub use snapshot_policy::SnapshotPolicy;
 pub use unit_of_work_config::UnitOfWorkConfig;
+pub use unit_of_work_config_access::UnitOfWorkConfigAccess;
 pub use unit_of_work_error::UnitOfWorkError;
 
 use core::future::Future;
 use std::error::Error;
 
 use crate::event::{EventWriter, TryEventWriterProvider};
+use crate::request_context::RequestContextAccess;
 use crate::snapshot::{SnapshotWriter, TrySnapshotWriterProvider};
 use appletheia_domain::{Aggregate, Repository, SnapshotReader, TrySnapshotReaderProvider};
 
 #[allow(async_fn_in_trait)]
 pub trait UnitOfWork<A: Aggregate>:
-    TrySnapshotReaderProvider<A, Error = UnitOfWorkError<A>>
+    RequestContextAccess
+    + UnitOfWorkConfigAccess
+    + TrySnapshotReaderProvider<A, Error = UnitOfWorkError<A>>
     + TryEventWriterProvider<A, Error = UnitOfWorkError<A>>
     + TrySnapshotWriterProvider<A, Error = UnitOfWorkError<A>>
 {
     type Repository<'c>: Repository<A>
     where
         Self: 'c;
-
-    fn config(&self) -> &UnitOfWorkConfig;
 
     fn repository(&mut self) -> Result<Self::Repository<'_>, UnitOfWorkError<A>>;
 

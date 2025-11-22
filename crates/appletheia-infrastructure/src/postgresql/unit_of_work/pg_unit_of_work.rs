@@ -1,8 +1,11 @@
 use std::marker::PhantomData;
 
 use appletheia_application::event::TryEventWriterProvider;
+use appletheia_application::request_context::{RequestContext, RequestContextAccess};
 use appletheia_application::snapshot::TrySnapshotWriterProvider;
-use appletheia_application::unit_of_work::{UnitOfWork, UnitOfWorkConfig, UnitOfWorkError};
+use appletheia_application::unit_of_work::{
+    UnitOfWork, UnitOfWorkConfig, UnitOfWorkConfigAccess, UnitOfWorkError,
+};
 use appletheia_domain::{Aggregate, TrySnapshotReaderProvider};
 use sqlx::{PgPool, Postgres, Transaction};
 
@@ -14,15 +17,17 @@ use crate::postgresql::snapshot::{PgSnapshotReader, PgSnapshotWriter};
 pub struct PgUnitOfWork<A: Aggregate> {
     pool: PgPool,
     config: UnitOfWorkConfig,
+    request_context: RequestContext,
     transaction: Option<Transaction<'static, Postgres>>,
     _aggregate: PhantomData<A>,
 }
 
 impl<A: Aggregate> PgUnitOfWork<A> {
-    pub fn new(pool: PgPool, config: UnitOfWorkConfig) -> Self {
+    pub fn new(pool: PgPool, config: UnitOfWorkConfig, request_context: RequestContext) -> Self {
         Self {
             pool,
             config,
+            request_context,
             transaction: None,
             _aggregate: PhantomData,
         }
@@ -41,8 +46,10 @@ impl<A: Aggregate> TryEventWriterProvider<A> for PgUnitOfWork<A> {
             .transaction
             .as_mut()
             .ok_or(UnitOfWorkError::NotInTransaction)?;
-        let request_context = self.config.request_context.clone();
-        Ok(PgEventWriter::new(transaction, request_context))
+        Ok(PgEventWriter::new(
+            transaction,
+            self.request_context.clone(),
+        ))
     }
 }
 
@@ -78,15 +85,23 @@ impl<A: Aggregate> TrySnapshotWriterProvider<A> for PgUnitOfWork<A> {
     }
 }
 
+impl<A: Aggregate> RequestContextAccess for PgUnitOfWork<A> {
+    fn request_context(&self) -> &RequestContext {
+        &self.request_context
+    }
+}
+
+impl<A: Aggregate> UnitOfWorkConfigAccess for PgUnitOfWork<A> {
+    fn config(&self) -> &UnitOfWorkConfig {
+        &self.config
+    }
+}
+
 impl<A: Aggregate> UnitOfWork<A> for PgUnitOfWork<A> {
     type Repository<'c>
         = PgRepository<'c, A>
     where
         Self: 'c;
-
-    fn config(&self) -> &UnitOfWorkConfig {
-        &self.config
-    }
 
     fn repository(&mut self) -> Result<Self::Repository<'_>, UnitOfWorkError<A>> {
         let transaction = self
