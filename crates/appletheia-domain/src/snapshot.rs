@@ -7,12 +7,12 @@ pub mod snapshot_reader_provider;
 pub mod try_snapshot_reader_provider;
 
 pub use materialized_at::MaterializedAt;
+pub use snapshot_id::SnapshotId;
+pub use snapshot_id_error::SnapshotIdError;
 pub use snapshot_reader::SnapshotReader;
 pub use snapshot_reader_error::SnapshotReaderError;
 pub use snapshot_reader_provider::SnapshotReaderProvider;
 pub use try_snapshot_reader_provider::TrySnapshotReaderProvider;
-pub use snapshot_id::SnapshotId;
-pub use snapshot_id_error::SnapshotIdError;
 
 use crate::aggregate::{AggregateState, AggregateVersion};
 
