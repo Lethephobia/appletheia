@@ -1,7 +1,7 @@
 use std::error::Error;
 use thiserror::Error;
 
-use appletheia_domain::{Aggregate, AggregateVersionError};
+use appletheia_domain::{Aggregate, AggregateVersionError, SnapshotReaderError};
 
 #[derive(Debug, Error)]
 pub enum UnitOfWorkError<A: Aggregate> {
@@ -29,6 +29,9 @@ pub enum UnitOfWorkError<A: Aggregate> {
 
     #[error("aggregate version error: {0}")]
     AggregateVersion(#[from] AggregateVersionError),
+
+    #[error("snapshot reader error: {0}")]
+    SnapshotReader(#[from] SnapshotReaderError),
 
     #[error("aggregate state missing")]
     AggregateNoState,

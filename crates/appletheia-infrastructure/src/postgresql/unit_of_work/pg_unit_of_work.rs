@@ -2,12 +2,13 @@ use std::marker::PhantomData;
 
 use appletheia_application::outbox::OutboxId;
 use appletheia_application::unit_of_work::{UnitOfWork, UnitOfWorkConfig, UnitOfWorkError};
-use appletheia_domain::{Aggregate, AggregateId, AggregateVersion, Event, Snapshot};
+use appletheia_domain::{Aggregate, AggregateId, Event, Snapshot, TrySnapshotReaderProvider};
 use chrono::{DateTime, Utc};
-use sqlx::{PgPool, Postgres, QueryBuilder, Transaction, query_scalar};
+use sqlx::{PgPool, Postgres, QueryBuilder, Transaction};
 
 use crate::postgresql::event::PgEventRow;
 use crate::postgresql::repository::PgRepository;
+use crate::postgresql::snapshot::PgSnapshotReader;
 
 #[derive(Debug)]
 pub struct PgUnitOfWork<A: Aggregate> {
@@ -25,6 +26,22 @@ impl<A: Aggregate> PgUnitOfWork<A> {
             transaction: None,
             _aggregate: PhantomData,
         }
+    }
+}
+
+impl<A: Aggregate> TrySnapshotReaderProvider<A> for PgUnitOfWork<A> {
+    type Error = UnitOfWorkError<A>;
+    type SnapshotReader<'c>
+        = PgSnapshotReader<'c, A>
+    where
+        Self: 'c;
+
+    fn try_snapshot_reader(&mut self) -> Result<Self::SnapshotReader<'_>, Self::Error> {
+        let transaction = self
+            .transaction
+            .as_mut()
+            .ok_or(UnitOfWorkError::NotInTransaction)?;
+        Ok(PgSnapshotReader::new(transaction))
     }
 }
 
@@ -227,35 +244,5 @@ impl<A: Aggregate> UnitOfWork<A> for PgUnitOfWork<A> {
         .await
         .map_err(|e| UnitOfWorkError::Persistence(Box::new(e)))?;
         Ok(())
-    }
-
-    async fn read_latest_snapshot_version(
-        &mut self,
-        aggregate_id: A::Id,
-    ) -> Result<Option<AggregateVersion>, UnitOfWorkError<A>> {
-        let transaction = self
-            .transaction
-            .as_mut()
-            .ok_or(UnitOfWorkError::NotInTransaction)?;
-        let latest: Option<i64> = query_scalar(
-            r#"
-            SELECT aggregate_version
-            FROM snapshots
-            WHERE aggregate_type = $1 AND aggregate_id = $2
-            ORDER BY aggregate_version DESC
-            LIMIT 1
-            "#,
-        )
-        .bind(A::AGGREGATE_TYPE.value())
-        .bind(aggregate_id.value())
-        .fetch_optional(transaction.as_mut())
-        .await
-        .map_err(|e| UnitOfWorkError::Persistence(Box::new(e)))?;
-
-        latest
-            .map(|value| {
-                AggregateVersion::try_from(value).map_err(UnitOfWorkError::AggregateVersion)
-            })
-            .transpose()
     }
 }

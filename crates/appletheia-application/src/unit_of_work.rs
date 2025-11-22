@@ -11,10 +11,14 @@ pub use unit_of_work_error::UnitOfWorkError;
 use core::future::Future;
 use std::error::Error;
 
-use appletheia_domain::{Aggregate, AggregateVersion, Event, Repository, Snapshot};
+use appletheia_domain::{
+    Aggregate, Event, Repository, Snapshot, SnapshotReader, TrySnapshotReaderProvider,
+};
 
 #[allow(async_fn_in_trait)]
-pub trait UnitOfWork<A: Aggregate> {
+pub trait UnitOfWork<A: Aggregate>:
+    TrySnapshotReaderProvider<A, Error = UnitOfWorkError<A>>
+{
     type Repository<'c>: Repository<A>
     where
         Self: 'c;
@@ -41,11 +45,6 @@ pub trait UnitOfWork<A: Aggregate> {
         snapshot: &Snapshot<A::State>,
     ) -> Result<(), UnitOfWorkError<A>>;
 
-    async fn read_latest_snapshot_version(
-        &mut self,
-        aggregate_id: A::Id,
-    ) -> Result<Option<AggregateVersion>, UnitOfWorkError<A>>;
-
     async fn save(&mut self, aggregate: &mut A) -> Result<(), UnitOfWorkError<A>> {
         let events = aggregate.uncommitted_events();
         self.write_events_and_outbox(events).await?;
@@ -56,11 +55,16 @@ pub trait UnitOfWork<A: Aggregate> {
                     .aggregate_id()
                     .ok_or(UnitOfWorkError::<A>::AggregateNoState)?;
                 let current_version = aggregate.version().as_u64();
-                let latest_snapshot_version = self
-                    .read_latest_snapshot_version(aggregate_id)
-                    .await?
-                    .map(|v| v.as_u64())
-                    .unwrap_or(0);
+                let latest_snapshot_version = {
+                    let mut reader = self.try_snapshot_reader()?;
+                    reader
+                        .read_latest_snapshot(aggregate_id, None)
+                        .await
+                        .map_err(UnitOfWorkError::<A>::SnapshotReader)?
+                        .as_ref()
+                        .map(|snapshot| snapshot.aggregate_version().as_u64())
+                        .unwrap_or(0)
+                };
                 if current_version.saturating_sub(latest_snapshot_version)
                     >= minimum_interval.as_u64()
                 {
