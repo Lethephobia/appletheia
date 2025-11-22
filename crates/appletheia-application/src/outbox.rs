@@ -15,10 +15,10 @@ pub use outbox_relay_error::OutboxRelayError;
 use appletheia_domain::{AggregateVersion, EventId, OccurredAt};
 use chrono::{DateTime, Utc};
 
-use crate::event::{AggregateIdOwned, AggregateTypeOwned, EventSequence};
+use crate::event::{AggregateIdOwned, AggregateTypeOwned, EventPayloadOwned, EventSequence};
 use crate::request_context::{CorrelationId, MessageId, RequestContext};
 
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Outbox {
     pub id: OutboxId,
     pub event_sequence: EventSequence,
@@ -26,7 +26,7 @@ pub struct Outbox {
     pub aggregate_type: AggregateTypeOwned,
     pub aggregate_id: AggregateIdOwned,
     pub aggregate_version: AggregateVersion,
-    pub payload: serde_json::Value,
+    pub payload: EventPayloadOwned,
     pub occurred_at: OccurredAt,
     pub correlation_id: CorrelationId,
     pub causation_id: MessageId,
