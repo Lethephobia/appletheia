@@ -12,14 +12,14 @@ use core::future::Future;
 use std::error::Error;
 
 use crate::event::{EventWriter, TryEventWriterProvider};
-use appletheia_domain::{
-    Aggregate, Repository, Snapshot, SnapshotReader, TrySnapshotReaderProvider,
-};
+use crate::snapshot::{SnapshotWriter, TrySnapshotWriterProvider};
+use appletheia_domain::{Aggregate, Repository, SnapshotReader, TrySnapshotReaderProvider};
 
 #[allow(async_fn_in_trait)]
 pub trait UnitOfWork<A: Aggregate>:
     TrySnapshotReaderProvider<A, Error = UnitOfWorkError<A>>
     + TryEventWriterProvider<A, Error = UnitOfWorkError<A>>
+    + TrySnapshotWriterProvider<A, Error = UnitOfWorkError<A>>
 {
     type Repository<'c>: Repository<A>
     where
@@ -36,11 +36,6 @@ pub trait UnitOfWork<A: Aggregate>:
     async fn rollback(&mut self) -> Result<(), UnitOfWorkError<A>>;
 
     fn is_in_transaction(&self) -> bool;
-
-    async fn write_snapshot(
-        &mut self,
-        snapshot: &Snapshot<A::State>,
-    ) -> Result<(), UnitOfWorkError<A>>;
 
     async fn save(&mut self, aggregate: &mut A) -> Result<(), UnitOfWorkError<A>> {
         let events = aggregate.uncommitted_events();
@@ -71,7 +66,8 @@ pub trait UnitOfWork<A: Aggregate>:
                     let snapshot = aggregate
                         .to_snapshot()
                         .map_err(UnitOfWorkError::<A>::Aggregate)?;
-                    self.write_snapshot(&snapshot).await?;
+                    let mut writer = self.try_snapshot_writer()?;
+                    writer.write_snapshot(&snapshot).await?;
                 }
             }
         }
