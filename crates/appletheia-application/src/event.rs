@@ -1,6 +1,6 @@
-pub mod event_writer;
 pub mod event_sequence;
 pub mod event_sequence_error;
+pub mod event_writer;
 pub mod try_event_writer_provider;
 
 pub use event_sequence::EventSequence;
