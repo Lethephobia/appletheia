@@ -38,3 +38,9 @@ pub struct Outbox {
     pub lease_owner: Option<String>,
     pub lease_until: Option<DateTime<Utc>>,
 }
+
+impl Outbox {
+    pub fn ordering_key(&self) -> String {
+        format!("{}:{}", self.aggregate_type, self.aggregate_id)
+    }
+}
