@@ -1,6 +1,8 @@
 use std::{fmt, fmt::Display};
 
-use chrono::{DateTime, Duration, Utc};
+use chrono::{DateTime, Utc};
+
+use super::OutboxLeaseDuration;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
 pub struct OutboxLeaseExpiresAt(DateTime<Utc>);
@@ -14,8 +16,8 @@ impl OutboxLeaseExpiresAt {
         self.0
     }
 
-    pub fn from_now(expires_in: Duration) -> Self {
-        Self(Utc::now() + expires_in)
+    pub fn from_now(expires_in: OutboxLeaseDuration) -> Self {
+        Self(Utc::now() + expires_in.value())
     }
 }
 
@@ -46,7 +48,7 @@ impl Display for OutboxLeaseExpiresAt {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::TimeZone;
+    use chrono::{Duration, TimeZone};
 
     #[test]
     fn default_uses_now() {
@@ -86,14 +88,15 @@ mod tests {
 
     #[test]
     fn from_now_adds_duration_to_now() {
-        let backoff = Duration::seconds(30);
+        let backoff = OutboxLeaseDuration::from(Duration::seconds(30));
         let before = Utc::now();
         let lease_expires_at = OutboxLeaseExpiresAt::from_now(backoff);
         let after = Utc::now();
 
         let value = lease_expires_at.value();
-        let min_expected = before + backoff;
-        let max_expected = after + backoff;
+        let duration = backoff.value();
+        let min_expected = before + duration;
+        let max_expected = after + duration;
 
         assert!(
             value >= min_expected,
