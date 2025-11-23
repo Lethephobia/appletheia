@@ -1,3 +1,5 @@
+pub mod ordering_key;
+pub mod ordering_key_error;
 pub mod outbox_id;
 pub mod outbox_id_error;
 pub mod outbox_relay;
@@ -5,6 +7,8 @@ pub mod outbox_relay_config;
 pub mod outbox_relay_config_access;
 pub mod outbox_relay_error;
 
+pub use ordering_key::OrderingKey;
+pub use ordering_key_error::OrderingKeyError;
 pub use outbox_id::OutboxId;
 pub use outbox_id_error::OutboxIdError;
 pub use outbox_relay::OutboxRelay;
@@ -31,7 +35,6 @@ pub struct Outbox {
     pub correlation_id: CorrelationId,
     pub causation_id: MessageId,
     pub context: RequestContext,
-    pub ordering_key: String,
     pub published_at: Option<DateTime<Utc>>,
     pub attempt_count: i64,
     pub next_attempt_after: DateTime<Utc>,
@@ -40,7 +43,7 @@ pub struct Outbox {
 }
 
 impl Outbox {
-    pub fn ordering_key(&self) -> String {
-        format!("{}:{}", self.aggregate_type, self.aggregate_id)
+    pub fn ordering_key(&self) -> OrderingKey {
+        OrderingKey::new(self.aggregate_type.clone(), self.aggregate_id)
     }
 }

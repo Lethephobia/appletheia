@@ -116,7 +116,6 @@ impl<'c, A: Aggregate> EventWriter<A> for PgEventWriter<'c, A> {
         let mut sep = outbox_query.separated(", ");
         for event_row in event_rows {
             let outbox_id = OutboxId::new().value();
-            let ordering_key = format!("{}:{}", event_row.aggregate_type, event_row.aggregate_id);
 
             sep.push("(")
                 .push_bind(outbox_id)
@@ -130,7 +129,6 @@ impl<'c, A: Aggregate> EventWriter<A> for PgEventWriter<'c, A> {
                 .push_bind(event_row.correlation_id)
                 .push_bind(event_row.causation_id)
                 .push_bind(event_row.context)
-                .push_bind(ordering_key)
                 .push(")");
         }
         outbox_query
