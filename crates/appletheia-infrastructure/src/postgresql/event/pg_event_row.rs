@@ -3,7 +3,7 @@ use sqlx::FromRow;
 use uuid::Uuid;
 
 use appletheia_domain::{
-    Aggregate, AggregateId, AggregateVersion, Event, EventId, EventPayload, OccurredAt,
+    Aggregate, AggregateId, AggregateVersion, Event, EventId, EventOccurredAt, EventPayload,
 };
 
 use super::pg_event_row_error::PgEventRowError;
@@ -38,7 +38,7 @@ impl PgEventRow {
             aggregate_id,
             aggregate_version,
             payload,
-            OccurredAt::from(self.occurred_at),
+            EventOccurredAt::from(self.occurred_at),
         ))
     }
 }

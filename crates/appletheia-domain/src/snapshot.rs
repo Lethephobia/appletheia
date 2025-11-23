@@ -1,14 +1,14 @@
-pub mod materialized_at;
 pub mod snapshot_id;
 pub mod snapshot_id_error;
+pub mod snapshot_materialized_at;
 pub mod snapshot_reader;
 pub mod snapshot_reader_error;
 pub mod snapshot_reader_provider;
 pub mod try_snapshot_reader_provider;
 
-pub use materialized_at::MaterializedAt;
 pub use snapshot_id::SnapshotId;
 pub use snapshot_id_error::SnapshotIdError;
+pub use snapshot_materialized_at::SnapshotMaterializedAt;
 pub use snapshot_reader::SnapshotReader;
 pub use snapshot_reader_error::SnapshotReaderError;
 pub use snapshot_reader_provider::SnapshotReaderProvider;
@@ -22,7 +22,7 @@ pub struct Snapshot<S: AggregateState> {
     aggregate_id: S::Id,
     aggregate_version: AggregateVersion,
     state: S,
-    materialized_at: MaterializedAt,
+    materialized_at: SnapshotMaterializedAt,
 }
 
 impl<S: AggregateState> Snapshot<S> {
@@ -32,7 +32,7 @@ impl<S: AggregateState> Snapshot<S> {
             aggregate_id,
             aggregate_version,
             state,
-            materialized_at: MaterializedAt::now(),
+            materialized_at: SnapshotMaterializedAt::now(),
         }
     }
     pub fn from_persisted(
@@ -40,7 +40,7 @@ impl<S: AggregateState> Snapshot<S> {
         aggregate_id: S::Id,
         aggregate_version: AggregateVersion,
         state: S,
-        materialized_at: MaterializedAt,
+        materialized_at: SnapshotMaterializedAt,
     ) -> Self {
         Self {
             id,
@@ -71,7 +71,7 @@ impl<S: AggregateState> Snapshot<S> {
         self.state
     }
 
-    pub fn materialized_at(&self) -> MaterializedAt {
+    pub fn materialized_at(&self) -> SnapshotMaterializedAt {
         self.materialized_at
     }
 }

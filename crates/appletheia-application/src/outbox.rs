@@ -18,7 +18,7 @@ pub use outbox_relay_config::OutboxRelayConfig;
 pub use outbox_relay_config_access::OutboxRelayConfigAccess;
 pub use outbox_relay_error::OutboxRelayError;
 
-use appletheia_domain::{AggregateVersion, EventId, OccurredAt};
+use appletheia_domain::{AggregateVersion, EventId, EventOccurredAt};
 use chrono::{DateTime, Utc};
 
 use crate::event::{AggregateIdOwned, AggregateTypeOwned, EventPayloadOwned, EventSequence};
@@ -33,7 +33,7 @@ pub struct Outbox {
     pub aggregate_id: AggregateIdOwned,
     pub aggregate_version: AggregateVersion,
     pub payload: EventPayloadOwned,
-    pub occurred_at: OccurredAt,
+    pub occurred_at: EventOccurredAt,
     pub correlation_id: CorrelationId,
     pub causation_id: MessageId,
     pub context: RequestContext,
