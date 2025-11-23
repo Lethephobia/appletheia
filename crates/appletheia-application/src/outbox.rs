@@ -4,6 +4,7 @@ pub mod outbox_attempt_count;
 pub mod outbox_attempt_count_error;
 pub mod outbox_id;
 pub mod outbox_id_error;
+pub mod outbox_lease_expires_at;
 pub mod outbox_next_attempt_at;
 pub mod outbox_published_at;
 pub mod outbox_relay;
@@ -21,6 +22,7 @@ pub use outbox_attempt_count::OutboxAttemptCount;
 pub use outbox_attempt_count_error::OutboxAttemptCountError;
 pub use outbox_id::OutboxId;
 pub use outbox_id_error::OutboxIdError;
+pub use outbox_lease_expires_at::OutboxLeaseExpiresAt;
 pub use outbox_next_attempt_at::OutboxNextAttemptAt;
 pub use outbox_published_at::OutboxPublishedAt;
 pub use outbox_relay::OutboxRelay;
@@ -33,7 +35,6 @@ pub use outbox_relay_instance_id::OutboxRelayInstanceId;
 pub use outbox_relay_process_id::OutboxRelayProcessId;
 
 use appletheia_domain::{AggregateVersion, EventId, EventOccurredAt};
-use chrono::{DateTime, Utc};
 
 use crate::event::{AggregateIdOwned, AggregateTypeOwned, EventPayloadOwned, EventSequence};
 use crate::request_context::{CorrelationId, MessageId, RequestContext};
@@ -55,7 +56,7 @@ pub struct Outbox {
     pub attempt_count: OutboxAttemptCount,
     pub next_attempt_after: OutboxNextAttemptAt,
     pub lease_owner: Option<OutboxRelayInstance>,
-    pub lease_until: Option<DateTime<Utc>>,
+    pub lease_until: Option<OutboxLeaseExpiresAt>,
 }
 
 impl Outbox {
