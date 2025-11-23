@@ -10,6 +10,10 @@ pub mod outbox_relay;
 pub mod outbox_relay_config;
 pub mod outbox_relay_config_access;
 pub mod outbox_relay_error;
+pub mod outbox_relay_instance;
+pub mod outbox_relay_instance_error;
+pub mod outbox_relay_instance_id;
+pub mod outbox_relay_process_id;
 
 pub use ordering_key::OrderingKey;
 pub use ordering_key_error::OrderingKeyError;
@@ -23,6 +27,10 @@ pub use outbox_relay::OutboxRelay;
 pub use outbox_relay_config::OutboxRelayConfig;
 pub use outbox_relay_config_access::OutboxRelayConfigAccess;
 pub use outbox_relay_error::OutboxRelayError;
+pub use outbox_relay_instance::OutboxRelayInstance;
+pub use outbox_relay_instance_error::OutboxRelayInstanceError;
+pub use outbox_relay_instance_id::OutboxRelayInstanceId;
+pub use outbox_relay_process_id::OutboxRelayProcessId;
 
 use appletheia_domain::{AggregateVersion, EventId, EventOccurredAt};
 use chrono::{DateTime, Utc};
@@ -46,7 +54,7 @@ pub struct Outbox {
     pub published_at: Option<OutboxPublishedAt>,
     pub attempt_count: OutboxAttemptCount,
     pub next_attempt_after: OutboxNextAttemptAt,
-    pub lease_owner: Option<String>,
+    pub lease_owner: Option<OutboxRelayInstance>,
     pub lease_until: Option<DateTime<Utc>>,
 }
 
