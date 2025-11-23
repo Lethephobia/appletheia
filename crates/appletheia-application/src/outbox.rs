@@ -1,5 +1,7 @@
 pub mod ordering_key;
 pub mod ordering_key_error;
+pub mod outbox_attempt_count;
+pub mod outbox_attempt_count_error;
 pub mod outbox_id;
 pub mod outbox_id_error;
 pub mod outbox_published_at;
@@ -10,6 +12,8 @@ pub mod outbox_relay_error;
 
 pub use ordering_key::OrderingKey;
 pub use ordering_key_error::OrderingKeyError;
+pub use outbox_attempt_count::OutboxAttemptCount;
+pub use outbox_attempt_count_error::OutboxAttemptCountError;
 pub use outbox_id::OutboxId;
 pub use outbox_id_error::OutboxIdError;
 pub use outbox_published_at::OutboxPublishedAt;
@@ -38,7 +42,7 @@ pub struct Outbox {
     pub causation_id: MessageId,
     pub context: RequestContext,
     pub published_at: Option<OutboxPublishedAt>,
-    pub attempt_count: i64,
+    pub attempt_count: OutboxAttemptCount,
     pub next_attempt_after: DateTime<Utc>,
     pub lease_owner: Option<String>,
     pub lease_until: Option<DateTime<Utc>>,
