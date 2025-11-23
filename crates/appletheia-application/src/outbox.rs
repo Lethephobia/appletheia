@@ -4,6 +4,7 @@ pub mod outbox_attempt_count;
 pub mod outbox_attempt_count_error;
 pub mod outbox_id;
 pub mod outbox_id_error;
+pub mod outbox_next_attempt_at;
 pub mod outbox_published_at;
 pub mod outbox_relay;
 pub mod outbox_relay_config;
@@ -16,6 +17,7 @@ pub use outbox_attempt_count::OutboxAttemptCount;
 pub use outbox_attempt_count_error::OutboxAttemptCountError;
 pub use outbox_id::OutboxId;
 pub use outbox_id_error::OutboxIdError;
+pub use outbox_next_attempt_at::OutboxNextAttemptAt;
 pub use outbox_published_at::OutboxPublishedAt;
 pub use outbox_relay::OutboxRelay;
 pub use outbox_relay_config::OutboxRelayConfig;
@@ -43,7 +45,7 @@ pub struct Outbox {
     pub context: RequestContext,
     pub published_at: Option<OutboxPublishedAt>,
     pub attempt_count: OutboxAttemptCount,
-    pub next_attempt_after: DateTime<Utc>,
+    pub next_attempt_after: OutboxNextAttemptAt,
     pub lease_owner: Option<String>,
     pub lease_until: Option<DateTime<Utc>>,
 }
