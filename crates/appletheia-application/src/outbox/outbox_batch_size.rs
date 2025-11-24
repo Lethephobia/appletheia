@@ -12,7 +12,7 @@ impl OutboxBatchSize {
         self.0
     }
 
-    pub fn as_u64(self) -> u64 {
-        self.value().get() as u64
+    pub fn as_i64(self) -> i64 {
+        self.value().get() as i64
     }
 }

@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS outbox (
 );
 
 CREATE INDEX IF NOT EXISTS idx_outbox_published_at         ON outbox (published_at);
-CREATE INDEX IF NOT EXISTS idx_outbox_next_attempt_pending ON outbox (next_attempt_at) WHERE published_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_outbox_next_attempt_pending ON outbox (next_attempt_after, event_sequence) WHERE published_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_outbox_lease_visible        ON outbox (lease_until)     WHERE published_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_outbox_ordering_key         ON outbox (ordering_key);
 CREATE INDEX IF NOT EXISTS idx_outbox_correlation_id       ON outbox (correlation_id);

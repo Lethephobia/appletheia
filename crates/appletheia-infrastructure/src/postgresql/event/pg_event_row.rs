@@ -26,11 +26,10 @@ impl PgEventRow {
     pub fn try_into_event<A: Aggregate>(
         self,
     ) -> Result<Event<A::Id, A::EventPayload>, PgEventRowError<A>> {
-        let id = EventId::try_from(self.id).map_err(PgEventRowError::EventId)?;
+        let id = EventId::try_from(self.id)?;
         let aggregate_id =
             A::Id::try_from_uuid(self.aggregate_id).map_err(PgEventRowError::AggregateId)?;
-        let aggregate_version = AggregateVersion::try_from(self.aggregate_version)
-            .map_err(PgEventRowError::AggregateVersion)?;
+        let aggregate_version = AggregateVersion::try_from(self.aggregate_version)?;
         let payload = A::EventPayload::try_from_json_value(self.payload)
             .map_err(PgEventRowError::EventPayload)?;
         Ok(Event::from_persisted(

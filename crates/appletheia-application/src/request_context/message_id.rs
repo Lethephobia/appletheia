@@ -23,6 +23,12 @@ impl Default for MessageId {
     }
 }
 
+impl From<Uuid> for MessageId {
+    fn from(value: Uuid) -> Self {
+        Self(value)
+    }
+}
+
 impl From<MessageId> for Uuid {
     fn from(value: MessageId) -> Self {
         value.0
