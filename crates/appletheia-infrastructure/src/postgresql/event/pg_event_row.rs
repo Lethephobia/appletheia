@@ -9,7 +9,7 @@ use appletheia_domain::{
 use super::pg_event_row_error::PgEventRowError;
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash, FromRow)]
-pub(crate) struct PgEventRow {
+pub struct PgEventRow {
     pub event_sequence: i64,
     pub id: Uuid,
     pub aggregate_type: String,

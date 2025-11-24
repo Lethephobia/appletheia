@@ -18,7 +18,7 @@ use appletheia_domain::event::{EventId, EventOccurredAt};
 use super::pg_outbox_row_error::PgOutboxRowError;
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash, FromRow)]
-pub(crate) struct PgOutboxRow {
+pub struct PgOutboxRow {
     pub id: Uuid,
     pub event_sequence: i64,
     pub event_id: Uuid,
