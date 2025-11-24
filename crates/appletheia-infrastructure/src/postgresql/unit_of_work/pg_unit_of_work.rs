@@ -13,7 +13,6 @@ use crate::postgresql::event::PgEventWriter;
 use crate::postgresql::repository::PgRepository;
 use crate::postgresql::snapshot::{PgSnapshotReader, PgSnapshotWriter};
 
-#[derive(Debug)]
 pub struct PgUnitOfWork<A: Aggregate> {
     pool: PgPool,
     config: UnitOfWorkConfig,
