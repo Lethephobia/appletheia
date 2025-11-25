@@ -81,15 +81,33 @@ impl<'c> OutboxFetcher for PgOutboxFetcher<'c> {
             }
         }
 
-        update_query.push(")");
+        update_query.push(
+            ") RETURNING
+                id,
+                event_sequence,
+                event_id,
+                aggregate_type,
+                aggregate_id,
+                aggregate_version,
+                payload,
+                occurred_at,
+                correlation_id,
+                causation_id,
+                context,
+                published_at,
+                attempt_count,
+                next_attempt_after,
+                lease_owner,
+                lease_until",
+        );
 
-        update_query
-            .build()
-            .execute(self.transaction.as_mut())
+        let updated_rows = update_query
+            .build_query_as::<PgOutboxRow>()
+            .fetch_all(self.transaction.as_mut())
             .await
             .map_err(|e| OutboxFetcherError::Persistence(Box::new(e)))?;
 
-        let outboxes = outbox_rows
+        let outboxes = updated_rows
             .into_iter()
             .map(PgOutboxRow::try_into_outbox)
             .collect::<Result<Vec<Outbox>, PgOutboxRowError>>()
