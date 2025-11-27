@@ -37,4 +37,7 @@ pub enum PgOutboxRowError {
 
     #[error("lease owner error: {0}")]
     LeaseOwner(#[from] OutboxRelayInstanceError),
+
+    #[error("outbox row contained inconsistent lease state")]
+    InconsistentLeaseState,
 }

@@ -13,6 +13,7 @@ pub mod outbox_lease_expires_at;
 pub mod outbox_next_attempt_at;
 pub mod outbox_published_at;
 pub mod outbox_relay;
+pub mod outbox_state;
 pub mod outbox_relay_config;
 pub mod outbox_relay_config_access;
 pub mod outbox_relay_error;
@@ -36,6 +37,7 @@ pub use outbox_lease_expires_at::OutboxLeaseExpiresAt;
 pub use outbox_next_attempt_at::OutboxNextAttemptAt;
 pub use outbox_published_at::OutboxPublishedAt;
 pub use outbox_relay::OutboxRelay;
+pub use outbox_state::OutboxState;
 pub use outbox_relay_config::OutboxRelayConfig;
 pub use outbox_relay_config_access::OutboxRelayConfigAccess;
 pub use outbox_relay_error::OutboxRelayError;
@@ -62,11 +64,7 @@ pub struct Outbox {
     pub correlation_id: CorrelationId,
     pub causation_id: MessageId,
     pub context: RequestContext,
-    pub published_at: Option<OutboxPublishedAt>,
-    pub attempt_count: OutboxAttemptCount,
-    pub next_attempt_after: OutboxNextAttemptAt,
-    pub lease_owner: Option<OutboxRelayInstance>,
-    pub lease_until: Option<OutboxLeaseExpiresAt>,
+    pub state: OutboxState,
 }
 
 impl Outbox {

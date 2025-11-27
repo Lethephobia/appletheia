@@ -9,7 +9,7 @@ use appletheia_application::event::{
 };
 use appletheia_application::outbox::{
     Outbox, OutboxAttemptCount, OutboxId, OutboxLeaseExpiresAt, OutboxNextAttemptAt,
-    OutboxPublishedAt, OutboxRelayInstance,
+    OutboxPublishedAt, OutboxRelayInstance, OutboxState,
 };
 use appletheia_application::request_context::{CorrelationId, MessageId, RequestContext};
 use appletheia_domain::aggregate::AggregateVersion;
@@ -55,8 +55,6 @@ impl PgOutboxRow {
         let causation_id = MessageId::from(self.causation_id);
         let context: RequestContext = serde_json::from_value(self.context)?;
 
-        let published_at = self.published_at.map(OutboxPublishedAt::from);
-
         let attempt_count_i64 = i64::from(self.attempt_count);
         let attempt_count = OutboxAttemptCount::try_from(attempt_count_i64)?;
 
@@ -72,6 +70,28 @@ impl PgOutboxRow {
 
         let lease_until = self.lease_until.map(OutboxLeaseExpiresAt::from);
 
+        let published_at = self.published_at.map(OutboxPublishedAt::from);
+
+        let state = match (published_at, lease_owner, lease_until) {
+            (Some(published_at), _, _) => OutboxState::Published {
+                published_at,
+                attempt_count,
+            },
+            (None, Some(lease_owner), Some(lease_until)) => OutboxState::Leased {
+                attempt_count,
+                next_attempt_after,
+                lease_owner,
+                lease_until,
+            },
+            (None, None, _) => OutboxState::Pending {
+                attempt_count,
+                next_attempt_after,
+            },
+            (None, Some(_), None) => {
+                return Err(PgOutboxRowError::InconsistentLeaseState);
+            }
+        };
+
         Ok(Outbox {
             id,
             event_sequence,
@@ -84,11 +104,7 @@ impl PgOutboxRow {
             correlation_id,
             causation_id,
             context,
-            published_at,
-            attempt_count,
-            next_attempt_after,
-            lease_owner,
-            lease_until,
+            state,
         })
     }
 }
