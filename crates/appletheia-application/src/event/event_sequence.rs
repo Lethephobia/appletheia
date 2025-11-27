@@ -6,11 +6,11 @@ use super::EventSequenceError;
 pub struct EventSequence(i64);
 
 impl EventSequence {
-    pub fn value(self) -> i64 {
+    pub fn value(&self) -> i64 {
         self.0
     }
 
-    pub fn as_u64(self) -> u64 {
+    pub fn as_u64(&self) -> u64 {
         self.0 as u64
     }
 }

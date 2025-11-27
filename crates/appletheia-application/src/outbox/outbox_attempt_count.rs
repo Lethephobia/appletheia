@@ -10,7 +10,7 @@ impl OutboxAttemptCount {
         Self(0)
     }
 
-    pub fn value(self) -> i64 {
+    pub fn value(&self) -> i64 {
         self.0
     }
 

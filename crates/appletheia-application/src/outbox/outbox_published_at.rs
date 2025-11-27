@@ -10,7 +10,7 @@ impl OutboxPublishedAt {
         Self(Utc::now())
     }
 
-    pub fn value(self) -> DateTime<Utc> {
+    pub fn value(&self) -> DateTime<Utc> {
         self.0
     }
 }

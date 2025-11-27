@@ -9,7 +9,7 @@ pub trait EntityId:
 {
     type Error: Error + Send + Sync + 'static;
 
-    fn value(self) -> Uuid;
+    fn value(&self) -> Uuid;
 
     fn try_from_uuid(value: Uuid) -> Result<Self, Self::Error>;
 }

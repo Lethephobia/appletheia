@@ -8,7 +8,7 @@ impl OutboxLeaseDuration {
         Self(value)
     }
 
-    pub fn value(self) -> Duration {
+    pub fn value(&self) -> Duration {
         self.0
     }
 }

@@ -8,7 +8,7 @@ impl OutboxRelayProcessId {
         Self(value)
     }
 
-    pub fn value(self) -> u32 {
+    pub fn value(&self) -> u32 {
         self.0
     }
 }

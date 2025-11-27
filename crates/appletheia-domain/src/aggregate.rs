@@ -180,7 +180,7 @@ mod tests {
             }
         }
 
-        fn value(self) -> Uuid {
+        fn value(&self) -> Uuid {
             self.0
         }
     }

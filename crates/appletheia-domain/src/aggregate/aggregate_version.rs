@@ -10,7 +10,7 @@ impl AggregateVersion {
         Self(0)
     }
 
-    pub fn value(self) -> i64 {
+    pub fn value(&self) -> i64 {
         self.0
     }
 
@@ -29,7 +29,7 @@ impl AggregateVersion {
             .ok_or(AggregateVersionError::Overflow)
     }
 
-    pub fn as_u64(self) -> u64 {
+    pub fn as_u64(&self) -> u64 {
         self.value() as u64
     }
 }

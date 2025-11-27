@@ -10,7 +10,7 @@ use super::AggregateIdOwnedError;
 pub struct AggregateIdOwned(Uuid);
 
 impl AggregateIdOwned {
-    pub fn value(self) -> Uuid {
+    pub fn value(&self) -> Uuid {
         self.0
     }
 }

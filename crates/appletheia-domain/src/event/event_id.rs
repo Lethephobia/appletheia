@@ -12,7 +12,7 @@ impl EventId {
         Self(Uuid::now_v7())
     }
 
-    pub fn value(self) -> Uuid {
+    pub fn value(&self) -> Uuid {
         self.0
     }
 }

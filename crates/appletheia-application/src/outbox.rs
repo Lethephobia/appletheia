@@ -13,7 +13,6 @@ pub mod outbox_lease_expires_at;
 pub mod outbox_next_attempt_at;
 pub mod outbox_published_at;
 pub mod outbox_relay;
-pub mod outbox_state;
 pub mod outbox_relay_config;
 pub mod outbox_relay_config_access;
 pub mod outbox_relay_error;
@@ -21,6 +20,7 @@ pub mod outbox_relay_instance;
 pub mod outbox_relay_instance_error;
 pub mod outbox_relay_instance_id;
 pub mod outbox_relay_process_id;
+pub mod outbox_state;
 
 pub use ordering_key::OrderingKey;
 pub use ordering_key_error::OrderingKeyError;
@@ -37,7 +37,6 @@ pub use outbox_lease_expires_at::OutboxLeaseExpiresAt;
 pub use outbox_next_attempt_at::OutboxNextAttemptAt;
 pub use outbox_published_at::OutboxPublishedAt;
 pub use outbox_relay::OutboxRelay;
-pub use outbox_state::OutboxState;
 pub use outbox_relay_config::OutboxRelayConfig;
 pub use outbox_relay_config_access::OutboxRelayConfigAccess;
 pub use outbox_relay_error::OutboxRelayError;
@@ -45,6 +44,7 @@ pub use outbox_relay_instance::OutboxRelayInstance;
 pub use outbox_relay_instance_error::OutboxRelayInstanceError;
 pub use outbox_relay_instance_id::OutboxRelayInstanceId;
 pub use outbox_relay_process_id::OutboxRelayProcessId;
+pub use outbox_state::OutboxState;
 
 use appletheia_domain::{AggregateVersion, EventId, EventOccurredAt};
 
