@@ -1,7 +1,11 @@
-use super::{OutboxFetcherProvider, OutboxRelayConfigAccess, OutboxRelayError};
+use super::{
+    OutboxFetcherProvider, OutboxPublisherProvider, OutboxRelayConfigAccess, OutboxRelayError,
+};
 
 #[allow(async_fn_in_trait)]
-pub trait OutboxRelay: OutboxRelayConfigAccess + OutboxFetcherProvider {
+pub trait OutboxRelay:
+    OutboxRelayConfigAccess + OutboxFetcherProvider + OutboxPublisherProvider
+{
     async fn run_forever(&mut self) -> Result<(), OutboxRelayError>;
 
     async fn run_once(&mut self) -> Result<(), OutboxRelayError>;
