@@ -53,7 +53,6 @@ CREATE TABLE IF NOT EXISTS outbox (
   occurred_at          TIMESTAMPTZ NOT NULL,
   correlation_id       UUID        NOT NULL,
   causation_id         UUID        NOT NULL,
-  context              JSONB       NOT NULL DEFAULT '{}'::jsonb,
   published_at         TIMESTAMPTZ,
   attempt_count        INT         NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
   next_attempt_after   TIMESTAMPTZ NOT NULL DEFAULT now(),

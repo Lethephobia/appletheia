@@ -1,6 +1,6 @@
-pub(crate) mod event;
-pub(crate) mod outbox;
-pub(crate) mod snapshot;
+pub mod event;
+pub mod outbox;
+pub mod snapshot;
 
 pub mod migration;
 pub mod repository;

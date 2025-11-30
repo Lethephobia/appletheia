@@ -109,7 +109,7 @@ impl<'c, A: Aggregate> EventWriter<A> for PgEventWriter<'c, A> {
             INSERT INTO outbox (
                 id, event_sequence, event_id, aggregate_type, aggregate_id,
                 aggregate_version, payload, occurred_at,
-                correlation_id, causation_id, context
+                correlation_id, causation_id
             ) VALUES
             "#,
         );
@@ -128,7 +128,6 @@ impl<'c, A: Aggregate> EventWriter<A> for PgEventWriter<'c, A> {
                 .push_bind(event_row.occurred_at)
                 .push_bind(event_row.correlation_id)
                 .push_bind(event_row.causation_id)
-                .push_bind(event_row.context)
                 .push(")");
         }
         outbox_query

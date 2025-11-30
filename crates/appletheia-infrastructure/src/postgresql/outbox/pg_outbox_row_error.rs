@@ -29,9 +29,6 @@ pub enum PgOutboxRowError {
     #[error("payload error: {0}")]
     Payload(#[from] EventPayloadOwnedError),
 
-    #[error("request context error: {0}")]
-    RequestContext(#[from] serde_json::Error),
-
     #[error("attempt count error: {0}")]
     AttemptCount(#[from] OutboxAttemptCountError),
 
