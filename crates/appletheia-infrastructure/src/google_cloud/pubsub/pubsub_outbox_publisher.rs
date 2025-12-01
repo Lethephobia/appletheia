@@ -1,10 +1,11 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 
-use appletheia_application::outbox::{Outbox, OutboxPublisher, OutboxPublisherError};
+use appletheia_application::outbox::{
+    Outbox, OutboxPublishResult, OutboxPublisher, OutboxPublisherError,
+};
 use google_cloud_googleapis::pubsub::v1::PubsubMessage;
 use google_cloud_pubsub::publisher::Publisher;
-
-use super::PubsubOutboxPublisherError;
 
 pub struct PubsubOutboxPublisher {
     publisher: Publisher,
@@ -40,9 +41,7 @@ impl PubsubOutboxPublisher {
         );
         attributes.insert("causation_id".to_string(), outbox.causation_id.to_string());
 
-        let data = serde_json::to_vec(outbox.payload.value()).map_err(|err| {
-            OutboxPublisherError::Publish(Box::new(PubsubOutboxPublisherError::BuildMessage(err)))
-        })?;
+        let data = serde_json::to_vec(outbox.payload.value())?;
 
         let ordering_key = outbox.ordering_key().to_string();
 
@@ -57,9 +56,12 @@ impl PubsubOutboxPublisher {
 }
 
 impl OutboxPublisher for PubsubOutboxPublisher {
-    async fn publish_outbox(&self, outboxes: &[Outbox]) -> Result<(), OutboxPublisherError> {
+    async fn publish_outbox(
+        &self,
+        outboxes: &[Outbox],
+    ) -> Result<Vec<OutboxPublishResult>, OutboxPublisherError> {
         if outboxes.is_empty() {
-            return Ok(());
+            return Ok(Vec::new());
         }
 
         let messages = outboxes
@@ -69,13 +71,26 @@ impl OutboxPublisher for PubsubOutboxPublisher {
 
         let awaiters = self.publisher.publish_bulk(messages).await;
 
-        for awaiter in awaiters {
-            if let Err(status) = awaiter.get().await {
-                let err = PubsubOutboxPublisherError::Publish(status);
-                return Err(OutboxPublisherError::Publish(Box::new(err)));
+        let mut results = Vec::with_capacity(outboxes.len());
+
+        for (outbox, awaiter) in outboxes.iter().zip(awaiters.into_iter()) {
+            let outbox_id = outbox.id;
+            match awaiter.get().await {
+                Ok(message_id) => {
+                    results.push(OutboxPublishResult::Success {
+                        outbox_id,
+                        transport_message_id: Some(message_id),
+                    });
+                }
+                Err(status) => {
+                    results.push(OutboxPublishResult::Failed {
+                        outbox_id,
+                        source: Arc::new(status),
+                    });
+                }
             }
         }
 
-        Ok(())
+        Ok(results)
     }
 }

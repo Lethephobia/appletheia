@@ -22,6 +22,7 @@ pub mod outbox_relay_instance_id;
 pub mod outbox_relay_process_id;
 pub mod outbox_state;
 
+pub mod outbox_publish_result;
 pub mod outbox_publisher;
 pub mod outbox_publisher_error;
 pub mod outbox_publisher_provider;
@@ -39,6 +40,7 @@ pub use outbox_id_error::OutboxIdError;
 pub use outbox_lease_duration::OutboxLeaseDuration;
 pub use outbox_lease_expires_at::OutboxLeaseExpiresAt;
 pub use outbox_next_attempt_at::OutboxNextAttemptAt;
+pub use outbox_publish_result::OutboxPublishResult;
 pub use outbox_published_at::OutboxPublishedAt;
 pub use outbox_publisher::OutboxPublisher;
 pub use outbox_publisher_error::OutboxPublisherError;
