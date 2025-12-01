@@ -1,5 +1,8 @@
 pub mod ordering_key;
 pub mod ordering_key_error;
+pub mod outbox_acker;
+pub mod outbox_acker_error;
+pub mod outbox_acker_provider;
 pub mod outbox_attempt_count;
 pub mod outbox_attempt_count_error;
 pub mod outbox_batch_size;
@@ -29,6 +32,9 @@ pub mod outbox_state;
 
 pub use ordering_key::OrderingKey;
 pub use ordering_key_error::OrderingKeyError;
+pub use outbox_acker::OutboxAcker;
+pub use outbox_acker_error::OutboxAckerError;
+pub use outbox_acker_provider::OutboxAckerProvider;
 pub use outbox_attempt_count::OutboxAttemptCount;
 pub use outbox_attempt_count_error::OutboxAttemptCountError;
 pub use outbox_batch_size::OutboxBatchSize;
