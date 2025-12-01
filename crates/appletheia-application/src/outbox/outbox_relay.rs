@@ -6,11 +6,11 @@ use super::{
 pub trait OutboxRelay:
     OutboxRelayConfigAccess + OutboxFetcherProvider + OutboxPublisherAccess
 {
-    async fn run_forever(&mut self) -> Result<(), OutboxRelayError>;
-
-    async fn run_once(&mut self) -> Result<(), OutboxRelayError>;
+    fn is_stop_requested(&self) -> bool;
 
     fn request_graceful_stop(&mut self);
 
-    fn is_stop_requested(&self) -> bool;
+    async fn run_forever(&mut self) -> Result<(), OutboxRelayError>;
+
+    async fn run_once(&mut self) -> Result<(), OutboxRelayError>;
 }

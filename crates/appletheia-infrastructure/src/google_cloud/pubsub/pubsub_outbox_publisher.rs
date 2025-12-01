@@ -73,17 +73,21 @@ impl OutboxPublisher for PubsubOutboxPublisher {
 
         let mut results = Vec::with_capacity(outboxes.len());
 
-        for (outbox, awaiter) in outboxes.iter().zip(awaiters.into_iter()) {
+        for (input_index, (outbox, awaiter)) in
+            outboxes.iter().zip(awaiters.into_iter()).enumerate()
+        {
             let outbox_id = outbox.id;
             match awaiter.get().await {
                 Ok(message_id) => {
                     results.push(OutboxPublishResult::Success {
+                        input_index,
                         outbox_id,
                         transport_message_id: Some(message_id),
                     });
                 }
                 Err(status) => {
                     results.push(OutboxPublishResult::Failed {
+                        input_index,
                         outbox_id,
                         source: Arc::new(status),
                     });
