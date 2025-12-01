@@ -1,11 +1,11 @@
 use std::collections::HashMap;
-use std::sync::Arc;
 
 use appletheia_application::outbox::{
-    Outbox, OutboxPublishResult, OutboxPublisher, OutboxPublisherError,
+    Outbox, OutboxDispatchError, OutboxPublishResult, OutboxPublisher, OutboxPublisherError,
 };
 use google_cloud_googleapis::pubsub::v1::PubsubMessage;
 use google_cloud_pubsub::publisher::Publisher;
+use tonic::Code;
 
 pub struct PubsubOutboxPublisher {
     publisher: Publisher,
@@ -86,10 +86,19 @@ impl OutboxPublisher for PubsubOutboxPublisher {
                     });
                 }
                 Err(status) => {
+                    let message = status.to_string();
+                    let cause = match status.code() {
+                        Code::Unavailable
+                        | Code::DeadlineExceeded
+                        | Code::ResourceExhausted
+                        | Code::Aborted => OutboxDispatchError::Transient { message },
+                        _ => OutboxDispatchError::Permanent { message },
+                    };
+
                     results.push(OutboxPublishResult::Failed {
                         input_index,
                         outbox_id,
-                        source: Arc::new(status),
+                        cause,
                     });
                 }
             }

@@ -1,8 +1,6 @@
-use std::sync::Arc;
+use super::{OutboxDispatchError, OutboxId};
 
-use super::OutboxId;
-
-#[derive(Clone)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum OutboxPublishResult {
     Success {
         input_index: usize,
@@ -12,6 +10,6 @@ pub enum OutboxPublishResult {
     Failed {
         input_index: usize,
         outbox_id: OutboxId,
-        source: Arc<dyn Send + Sync + 'static>,
+        cause: OutboxDispatchError,
     },
 }
