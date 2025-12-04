@@ -1,8 +1,10 @@
 use std::{fmt, fmt::Display};
 
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct EventOccurredAt(DateTime<Utc>);
 
 impl EventOccurredAt {

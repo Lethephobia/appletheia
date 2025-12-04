@@ -1,8 +1,11 @@
 use std::{fmt, fmt::Display};
 
+use serde::{Deserialize, Serialize};
+
 use super::EventSequenceError;
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct EventSequence(i64);
 
 impl EventSequence {
