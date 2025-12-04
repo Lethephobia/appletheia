@@ -65,7 +65,7 @@ pub use outbox_state::OutboxState;
 use appletheia_domain::{AggregateVersion, EventId, EventOccurredAt};
 
 use crate::event::{AggregateIdOwned, AggregateTypeOwned, EventPayloadOwned, EventSequence};
-use crate::request_context::{CorrelationId, MessageId};
+use crate::request_context::{CorrelationId, MessageId, RequestContext};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Outbox {
@@ -79,6 +79,7 @@ pub struct Outbox {
     pub occurred_at: EventOccurredAt,
     pub correlation_id: CorrelationId,
     pub causation_id: MessageId,
+    pub context: RequestContext,
     pub state: OutboxState,
 }
 
