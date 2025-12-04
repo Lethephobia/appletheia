@@ -8,8 +8,8 @@ use appletheia_application::event::{
     AggregateIdOwned, AggregateTypeOwned, EventPayloadOwned, EventSequence,
 };
 use appletheia_application::outbox::{
-    AppEvent, Outbox, OutboxAttemptCount, OutboxId, OutboxLeaseExpiresAt, OutboxNextAttemptAt,
-    OutboxPublishedAt, OutboxRelayInstance, OutboxState,
+    AppEvent, Outbox, OutboxAttemptCount, OutboxDispatchError, OutboxId, OutboxLeaseExpiresAt,
+    OutboxLifecycle, OutboxNextAttemptAt, OutboxPublishedAt, OutboxRelayInstance, OutboxState,
 };
 use appletheia_application::request_context::{CorrelationId, MessageId, RequestContext};
 use appletheia_domain::aggregate::AggregateVersion;
@@ -31,10 +31,11 @@ pub struct PgOutboxRow {
     pub causation_id: Uuid,
     pub context: serde_json::Value,
     pub published_at: Option<DateTime<Utc>>,
-    pub attempt_count: i32,
+    pub attempt_count: i64,
     pub next_attempt_after: DateTime<Utc>,
     pub lease_owner: Option<String>,
     pub lease_until: Option<DateTime<Utc>>,
+    pub last_error: Option<serde_json::Value>,
 }
 
 impl PgOutboxRow {
@@ -55,8 +56,7 @@ impl PgOutboxRow {
         let causation_id = MessageId::from(self.causation_id);
         let context = serde_json::from_value::<RequestContext>(self.context)?;
 
-        let attempt_count_i64 = i64::from(self.attempt_count);
-        let attempt_count = OutboxAttemptCount::try_from(attempt_count_i64)?;
+        let attempt_count = OutboxAttemptCount::try_from(self.attempt_count)?;
 
         let next_attempt_after = OutboxNextAttemptAt::from(self.next_attempt_after);
 
@@ -71,6 +71,14 @@ impl PgOutboxRow {
         let lease_until = self.lease_until.map(OutboxLeaseExpiresAt::from);
 
         let published_at = self.published_at.map(OutboxPublishedAt::from);
+
+        let last_error = match self.last_error {
+            Some(value) => {
+                let deserialized = serde_json::from_value::<OutboxDispatchError>(value)?;
+                Some(deserialized)
+            }
+            None => None,
+        };
 
         let state = match (published_at, lease_owner, lease_until) {
             (Some(published_at), _, _) => OutboxState::Published {
@@ -105,6 +113,12 @@ impl PgOutboxRow {
             context,
         };
 
-        Ok(Outbox { id, event, state })
+        Ok(Outbox {
+            id,
+            event,
+            state,
+            last_error,
+            lifecycle: OutboxLifecycle::Active,
+        })
     }
 }

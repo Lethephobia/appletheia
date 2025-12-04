@@ -1,10 +1,7 @@
 use chrono::Utc;
-use sqlx::{Postgres, QueryBuilder, Transaction};
+use sqlx::{Postgres, Transaction};
 
-use appletheia_application::outbox::{
-    Outbox, OutboxBatchSize, OutboxFetcher, OutboxFetcherError, OutboxLeaseDuration,
-    OutboxLeaseExpiresAt, OutboxRelayInstance,
-};
+use appletheia_application::outbox::{Outbox, OutboxBatchSize, OutboxFetcher, OutboxFetcherError};
 
 use super::{PgOutboxRow, PgOutboxRowError};
 
@@ -19,12 +16,7 @@ impl<'c> PgOutboxFetcher<'c> {
 }
 
 impl<'c> OutboxFetcher for PgOutboxFetcher<'c> {
-    async fn fetch_and_acquire_outbox(
-        &mut self,
-        limit: OutboxBatchSize,
-        owner: &OutboxRelayInstance,
-        lease_for: OutboxLeaseDuration,
-    ) -> Result<Vec<Outbox>, OutboxFetcherError> {
+    async fn fetch(&mut self, limit: OutboxBatchSize) -> Result<Vec<Outbox>, OutboxFetcherError> {
         let now = Utc::now();
 
         let outbox_rows = sqlx::query_as::<Postgres, PgOutboxRow>(
@@ -45,7 +37,8 @@ impl<'c> OutboxFetcher for PgOutboxFetcher<'c> {
                 attempt_count,
                 next_attempt_after,
                 lease_owner,
-                lease_until
+                lease_until,
+                last_error
             FROM outbox
             WHERE published_at IS NULL
               AND next_attempt_after <= $1
@@ -64,50 +57,7 @@ impl<'c> OutboxFetcher for PgOutboxFetcher<'c> {
         if outbox_rows.is_empty() {
             return Ok(Vec::new());
         }
-
-        let lease_until = OutboxLeaseExpiresAt::from_now(lease_for).value();
-
-        let mut update_query = QueryBuilder::<Postgres>::new("UPDATE outbox SET lease_owner = ");
-        update_query
-            .push_bind(owner.to_string())
-            .push(", lease_until = ")
-            .push_bind(lease_until)
-            .push(" WHERE id IN (");
-
-        {
-            let mut separated = update_query.separated(", ");
-            for row in &outbox_rows {
-                separated.push_bind(row.id);
-            }
-        }
-
-        update_query.push(
-            ") RETURNING
-                id,
-                event_sequence,
-                event_id,
-                aggregate_type,
-                aggregate_id,
-                aggregate_version,
-                payload,
-                occurred_at,
-                correlation_id,
-                causation_id,
-                context,
-                published_at,
-                attempt_count,
-                next_attempt_after,
-                lease_owner,
-                lease_until",
-        );
-
-        let updated_rows = update_query
-            .build_query_as::<PgOutboxRow>()
-            .fetch_all(self.transaction.as_mut())
-            .await
-            .map_err(|e| OutboxFetcherError::Persistence(Box::new(e)))?;
-
-        let outboxes = updated_rows
+        let outboxes = outbox_rows
             .into_iter()
             .map(PgOutboxRow::try_into_outbox)
             .collect::<Result<Vec<Outbox>, PgOutboxRowError>>()

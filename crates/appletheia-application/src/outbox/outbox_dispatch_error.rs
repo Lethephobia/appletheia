@@ -1,5 +1,8 @@
-#[derive(Clone, Debug, Eq, PartialEq)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "type", content = "data")]
 pub enum OutboxDispatchError {
-    Transient { message: String },
-    Permanent { message: String },
+    Transient { code: String, message: String },
+    Permanent { code: String, message: String },
 }

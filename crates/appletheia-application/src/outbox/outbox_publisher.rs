@@ -4,6 +4,6 @@ use super::{Outbox, OutboxPublishResult, OutboxPublisherError};
 pub trait OutboxPublisher {
     async fn publish_outbox(
         &self,
-        outbox: &[Outbox],
+        outboxes: &[Outbox],
     ) -> Result<Vec<OutboxPublishResult>, OutboxPublisherError>;
 }

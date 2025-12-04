@@ -95,13 +95,17 @@ impl OutboxPublisher for PubsubOutboxPublisher {
                     });
                 }
                 Err(status) => {
+                    let code = status.code().to_string();
                     let message = status.to_string();
                     let cause = match status.code() {
                         Code::Unavailable
                         | Code::DeadlineExceeded
                         | Code::ResourceExhausted
-                        | Code::Aborted => OutboxDispatchError::Transient { message },
-                        _ => OutboxDispatchError::Permanent { message },
+                        | Code::Aborted => OutboxDispatchError::Transient {
+                            code: code.clone(),
+                            message,
+                        },
+                        _ => OutboxDispatchError::Permanent { code, message },
                     };
 
                     results.push(OutboxPublishResult::Failed {

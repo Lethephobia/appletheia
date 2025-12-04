@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-use super::{OutboxFetcherError, OutboxPublisherError};
+use super::{OutboxFetcherError, OutboxPublisherError, OutboxWriterError};
 
 #[derive(Debug, Error)]
 pub enum OutboxRelayError {
@@ -9,4 +9,7 @@ pub enum OutboxRelayError {
 
     #[error("outbox publisher failed: {0}")]
     Publisher(#[from] OutboxPublisherError),
+
+    #[error("outbox writer failed: {0}")]
+    Writer(#[from] OutboxWriterError),
 }

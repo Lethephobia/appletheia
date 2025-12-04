@@ -1,6 +1,8 @@
 use std::{fmt, fmt::Display};
 
-use chrono::{DateTime, Duration, Utc};
+use chrono::{DateTime, Utc};
+
+use super::OutboxRetryDelay;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
 pub struct OutboxNextAttemptAt(DateTime<Utc>);
@@ -14,8 +16,8 @@ impl OutboxNextAttemptAt {
         self.0
     }
 
-    pub fn next(self, backoff: Duration) -> Self {
-        Self(self.value() + backoff)
+    pub fn next(self, backoff: OutboxRetryDelay) -> Self {
+        Self(self.value() + backoff.value())
     }
 }
 
@@ -46,6 +48,7 @@ impl Display for OutboxNextAttemptAt {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::Duration;
 
     #[test]
     fn default_uses_now() {
@@ -69,10 +72,10 @@ mod tests {
     fn next_applies_backoff_duration() {
         let base = Utc::now();
         let next_attempt = OutboxNextAttemptAt::from(base);
-        let backoff = Duration::seconds(30);
+        let backoff = OutboxRetryDelay::from(Duration::seconds(30));
 
         let advanced = next_attempt.next(backoff);
-        assert_eq!(advanced.value(), base + backoff);
+        assert_eq!(advanced.value(), base + backoff.value());
     }
 
     #[test]
