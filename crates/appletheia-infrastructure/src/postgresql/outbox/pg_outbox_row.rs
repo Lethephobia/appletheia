@@ -11,7 +11,7 @@ use appletheia_application::outbox::{
     Outbox, OutboxAttemptCount, OutboxId, OutboxLeaseExpiresAt, OutboxNextAttemptAt,
     OutboxPublishedAt, OutboxRelayInstance, OutboxState,
 };
-use appletheia_application::request_context::{CorrelationId, MessageId};
+use appletheia_application::request_context::{CorrelationId, MessageId, RequestContext};
 use appletheia_domain::aggregate::AggregateVersion;
 use appletheia_domain::event::{EventId, EventOccurredAt};
 
@@ -29,6 +29,7 @@ pub struct PgOutboxRow {
     pub occurred_at: DateTime<Utc>,
     pub correlation_id: Uuid,
     pub causation_id: Uuid,
+    pub context: serde_json::Value,
     pub published_at: Option<DateTime<Utc>>,
     pub attempt_count: i32,
     pub next_attempt_after: DateTime<Utc>,
@@ -52,6 +53,7 @@ impl PgOutboxRow {
 
         let correlation_id = CorrelationId(self.correlation_id);
         let causation_id = MessageId::from(self.causation_id);
+        let context = serde_json::from_value::<RequestContext>(self.context)?;
 
         let attempt_count_i64 = i64::from(self.attempt_count);
         let attempt_count = OutboxAttemptCount::try_from(attempt_count_i64)?;
@@ -101,6 +103,7 @@ impl PgOutboxRow {
             occurred_at,
             correlation_id,
             causation_id,
+            context,
             state,
         })
     }

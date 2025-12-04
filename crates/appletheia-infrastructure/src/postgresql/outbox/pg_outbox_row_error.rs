@@ -35,6 +35,9 @@ pub enum PgOutboxRowError {
     #[error("lease owner error: {0}")]
     LeaseOwner(#[from] OutboxRelayInstanceError),
 
+    #[error("context deserialization error: {0}")]
+    Json(#[from] serde_json::Error),
+
     #[error("outbox row contained inconsistent lease state")]
     InconsistentLeaseState,
 }
