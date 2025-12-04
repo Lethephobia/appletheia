@@ -8,7 +8,7 @@ use appletheia_application::event::{
     AggregateIdOwned, AggregateTypeOwned, EventPayloadOwned, EventSequence,
 };
 use appletheia_application::outbox::{
-    Outbox, OutboxAttemptCount, OutboxId, OutboxLeaseExpiresAt, OutboxNextAttemptAt,
+    AppEvent, Outbox, OutboxAttemptCount, OutboxId, OutboxLeaseExpiresAt, OutboxNextAttemptAt,
     OutboxPublishedAt, OutboxRelayInstance, OutboxState,
 };
 use appletheia_application::request_context::{CorrelationId, MessageId, RequestContext};
@@ -92,8 +92,7 @@ impl PgOutboxRow {
             }
         };
 
-        Ok(Outbox {
-            id,
+        let event = AppEvent {
             event_sequence,
             event_id,
             aggregate_type,
@@ -104,7 +103,8 @@ impl PgOutboxRow {
             correlation_id,
             causation_id,
             context,
-            state,
-        })
+        };
+
+        Ok(Outbox { id, event, state })
     }
 }

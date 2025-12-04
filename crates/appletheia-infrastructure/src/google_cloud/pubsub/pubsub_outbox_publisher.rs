@@ -20,28 +20,37 @@ impl PubsubOutboxPublisher {
         let mut attributes = HashMap::new();
 
         attributes.insert("outbox_id".to_string(), outbox.id.to_string());
-        attributes.insert("event_id".to_string(), outbox.event_id.to_string());
+        attributes.insert("event_id".to_string(), outbox.event.event_id.to_string());
         attributes.insert(
             "event_sequence".to_string(),
-            outbox.event_sequence.to_string(),
+            outbox.event.event_sequence.to_string(),
         );
         attributes.insert(
             "aggregate_type".to_string(),
-            outbox.aggregate_type.to_string(),
+            outbox.event.aggregate_type.to_string(),
         );
-        attributes.insert("aggregate_id".to_string(), outbox.aggregate_id.to_string());
+        attributes.insert(
+            "aggregate_id".to_string(),
+            outbox.event.aggregate_id.to_string(),
+        );
         attributes.insert(
             "aggregate_version".to_string(),
-            outbox.aggregate_version.to_string(),
+            outbox.event.aggregate_version.to_string(),
         );
-        attributes.insert("occurred_at".to_string(), outbox.occurred_at.to_string());
+        attributes.insert(
+            "occurred_at".to_string(),
+            outbox.event.occurred_at.to_string(),
+        );
         attributes.insert(
             "correlation_id".to_string(),
-            outbox.correlation_id.to_string(),
+            outbox.event.correlation_id.to_string(),
         );
-        attributes.insert("causation_id".to_string(), outbox.causation_id.to_string());
+        attributes.insert(
+            "causation_id".to_string(),
+            outbox.event.causation_id.to_string(),
+        );
 
-        let data = serde_json::to_vec(outbox.payload.value())?;
+        let data = serde_json::to_vec(&outbox.event)?;
 
         let ordering_key = outbox.ordering_key().to_string();
 

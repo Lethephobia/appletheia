@@ -30,6 +30,7 @@ pub mod outbox_relay_instance_id;
 pub mod outbox_relay_process_id;
 pub mod outbox_state;
 
+pub use crate::event::AppEvent;
 pub use ordering_key::OrderingKey;
 pub use ordering_key_error::OrderingKeyError;
 pub use outbox_acker::OutboxAcker;
@@ -62,29 +63,15 @@ pub use outbox_relay_instance_id::OutboxRelayInstanceId;
 pub use outbox_relay_process_id::OutboxRelayProcessId;
 pub use outbox_state::OutboxState;
 
-use appletheia_domain::{AggregateVersion, EventId, EventOccurredAt};
-
-use crate::event::{AggregateIdOwned, AggregateTypeOwned, EventPayloadOwned, EventSequence};
-use crate::request_context::{CorrelationId, MessageId, RequestContext};
-
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Outbox {
     pub id: OutboxId,
-    pub event_sequence: EventSequence,
-    pub event_id: EventId,
-    pub aggregate_type: AggregateTypeOwned,
-    pub aggregate_id: AggregateIdOwned,
-    pub aggregate_version: AggregateVersion,
-    pub payload: EventPayloadOwned,
-    pub occurred_at: EventOccurredAt,
-    pub correlation_id: CorrelationId,
-    pub causation_id: MessageId,
-    pub context: RequestContext,
+    pub event: AppEvent,
     pub state: OutboxState,
 }
 
 impl Outbox {
     pub fn ordering_key(&self) -> OrderingKey {
-        OrderingKey::new(self.aggregate_type.clone(), self.aggregate_id)
+        OrderingKey::new(self.event.aggregate_type.clone(), self.event.aggregate_id)
     }
 }
