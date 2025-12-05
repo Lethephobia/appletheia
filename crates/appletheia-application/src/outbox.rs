@@ -8,7 +8,6 @@ pub mod outbox_dispatch_error;
 pub mod outbox_error;
 pub mod outbox_fetcher;
 pub mod outbox_fetcher_error;
-pub mod outbox_fetcher_provider;
 pub mod outbox_id;
 pub mod outbox_id_error;
 pub mod outbox_lease_duration;
@@ -34,7 +33,8 @@ pub mod outbox_retry_options;
 pub mod outbox_state;
 pub mod outbox_writer;
 pub mod outbox_writer_error;
-pub mod outbox_writer_provider;
+pub mod try_outbox_fetcher_provider;
+pub mod try_outbox_writer_provider;
 
 pub use crate::event::AppEvent;
 pub use ordering_key::OrderingKey;
@@ -47,7 +47,6 @@ pub use outbox_dispatch_error::OutboxDispatchError;
 pub use outbox_error::OutboxError;
 pub use outbox_fetcher::OutboxFetcher;
 pub use outbox_fetcher_error::OutboxFetcherError;
-pub use outbox_fetcher_provider::OutboxFetcherProvider;
 pub use outbox_id::OutboxId;
 pub use outbox_id_error::OutboxIdError;
 pub use outbox_lease_duration::OutboxLeaseDuration;
@@ -73,7 +72,8 @@ pub use outbox_retry_options::OutboxRetryOptions;
 pub use outbox_state::OutboxState;
 pub use outbox_writer::OutboxWriter;
 pub use outbox_writer_error::OutboxWriterError;
-pub use outbox_writer_provider::OutboxWriterProvider;
+pub use try_outbox_fetcher_provider::TryOutboxFetcherProvider;
+pub use try_outbox_writer_provider::TryOutboxWriterProvider;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Outbox {

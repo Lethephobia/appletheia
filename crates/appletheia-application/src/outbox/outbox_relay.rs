@@ -1,11 +1,14 @@
 use super::{
-    OutboxFetcherProvider, OutboxPublisherAccess, OutboxRelayConfigAccess, OutboxRelayError,
-    OutboxWriterProvider,
+    OutboxPublisherAccess, OutboxRelayConfigAccess, OutboxRelayError, TryOutboxFetcherProvider,
+    TryOutboxWriterProvider,
 };
 
 #[allow(async_fn_in_trait)]
 pub trait OutboxRelay:
-    OutboxRelayConfigAccess + OutboxFetcherProvider + OutboxPublisherAccess + OutboxWriterProvider
+    OutboxRelayConfigAccess
+    + OutboxPublisherAccess
+    + TryOutboxFetcherProvider
+    + TryOutboxWriterProvider
 {
     fn is_stop_requested(&self) -> bool;
 
