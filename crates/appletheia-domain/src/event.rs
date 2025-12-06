@@ -2,17 +2,11 @@ pub mod event_id;
 pub mod event_id_error;
 pub mod event_occurred_at;
 pub mod event_payload;
-pub mod event_reader;
-pub mod event_reader_error;
-pub mod event_reader_provider;
 
 pub use event_id::EventId;
 pub use event_id_error::EventIdError;
 pub use event_occurred_at::EventOccurredAt;
 pub use event_payload::EventPayload;
-pub use event_reader::EventReader;
-pub use event_reader_error::EventReaderError;
-pub use event_reader_provider::EventReaderProvider;
 
 use crate::aggregate::{AggregateId, AggregateVersion};
 

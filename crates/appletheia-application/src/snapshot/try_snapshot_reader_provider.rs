@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use crate::aggregate::Aggregate;
+use appletheia_domain::Aggregate;
 
 use super::SnapshotReader;
 

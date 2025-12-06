@@ -1,11 +1,14 @@
+use std::marker::PhantomData;
+
 use sqlx::{Postgres, Transaction};
 
-use appletheia_domain::{Aggregate, EventReaderProvider, Repository, SnapshotReaderProvider};
+use appletheia_application::event::EventReaderProvider;
+use appletheia_application::repository::Repository;
+use appletheia_application::snapshot::SnapshotReaderProvider;
+use appletheia_domain::Aggregate;
 
 use crate::postgresql::event::PgEventReader;
 use crate::postgresql::snapshot::PgSnapshotReader;
-
-use std::marker::PhantomData;
 
 pub struct PgRepository<'c, A: Aggregate> {
     transaction: &'c mut Transaction<'static, Postgres>,

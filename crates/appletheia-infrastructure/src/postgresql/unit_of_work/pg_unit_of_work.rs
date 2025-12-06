@@ -2,11 +2,12 @@ use std::marker::PhantomData;
 
 use appletheia_application::event::TryEventWriterProvider;
 use appletheia_application::request_context::{RequestContext, RequestContextAccess};
+use appletheia_application::snapshot::TrySnapshotReaderProvider;
 use appletheia_application::snapshot::TrySnapshotWriterProvider;
 use appletheia_application::unit_of_work::{
     UnitOfWork, UnitOfWorkConfig, UnitOfWorkConfigAccess, UnitOfWorkError,
 };
-use appletheia_domain::{Aggregate, TrySnapshotReaderProvider};
+use appletheia_domain::Aggregate;
 use sqlx::{PgPool, Postgres, Transaction};
 
 use crate::postgresql::event::PgEventWriter;

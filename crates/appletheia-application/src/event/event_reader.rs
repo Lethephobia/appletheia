@@ -1,4 +1,4 @@
-use crate::{Aggregate, AggregateVersionRange, Event};
+use appletheia_domain::{Aggregate, AggregateVersionRange, Event};
 
 use super::event_reader_error::EventReaderError;
 

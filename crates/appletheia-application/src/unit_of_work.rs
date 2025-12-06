@@ -14,9 +14,12 @@ use core::future::Future;
 use std::error::Error;
 
 use crate::event::{EventWriter, TryEventWriterProvider};
+use crate::repository::Repository;
 use crate::request_context::RequestContextAccess;
-use crate::snapshot::{SnapshotWriter, TrySnapshotWriterProvider};
-use appletheia_domain::{Aggregate, Repository, SnapshotReader, TrySnapshotReaderProvider};
+use crate::snapshot::{
+    SnapshotReader, SnapshotWriter, TrySnapshotReaderProvider, TrySnapshotWriterProvider,
+};
+use appletheia_domain::Aggregate;
 
 #[allow(async_fn_in_trait)]
 pub trait UnitOfWork<A: Aggregate>:

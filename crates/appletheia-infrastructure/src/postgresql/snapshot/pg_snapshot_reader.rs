@@ -2,9 +2,8 @@ use std::marker::PhantomData;
 
 use sqlx::{Postgres, QueryBuilder, Transaction};
 
-use appletheia_domain::{
-    Aggregate, AggregateId, AggregateVersion, Snapshot, SnapshotReader, SnapshotReaderError,
-};
+use appletheia_application::snapshot::{SnapshotReader, SnapshotReaderError};
+use appletheia_domain::{Aggregate, AggregateId, AggregateVersion, Snapshot};
 
 use crate::postgresql::snapshot::PgSnapshotRow;
 

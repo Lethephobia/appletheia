@@ -1,7 +1,8 @@
 use std::fmt::Debug;
 use thiserror::Error;
 
-use crate::aggregate::Aggregate;
+use appletheia_domain::Aggregate;
+
 use crate::event::EventReaderError;
 use crate::snapshot::SnapshotReaderError;
 

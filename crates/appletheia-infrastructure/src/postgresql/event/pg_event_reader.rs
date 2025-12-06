@@ -3,9 +3,8 @@ use std::ops::{Bound, RangeBounds};
 
 use sqlx::{Postgres, QueryBuilder, Transaction};
 
-use appletheia_domain::{
-    Aggregate, AggregateId, AggregateVersionRange, Event, EventReader, EventReaderError,
-};
+use appletheia_application::event::{EventReader, EventReaderError};
+use appletheia_domain::{Aggregate, AggregateId, AggregateVersionRange, Event};
 
 use crate::postgresql::event::{PgEventRow, PgEventRowError};
 

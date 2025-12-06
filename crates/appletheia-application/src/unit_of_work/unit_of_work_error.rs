@@ -1,7 +1,8 @@
 use std::error::Error;
 use thiserror::Error;
 
-use appletheia_domain::{Aggregate, AggregateVersionError, SnapshotReaderError};
+use crate::snapshot::SnapshotReaderError;
+use appletheia_domain::{Aggregate, AggregateVersionError};
 
 #[derive(Debug, Error)]
 pub enum UnitOfWorkError<A: Aggregate> {

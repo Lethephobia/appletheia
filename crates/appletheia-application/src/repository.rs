@@ -2,10 +2,12 @@ pub mod repository_error;
 
 pub use repository_error::RepositoryError;
 
-use crate::aggregate::{Aggregate, AggregateVersion, AggregateVersionRange};
+use std::ops::Bound;
+
+use appletheia_domain::{Aggregate, AggregateVersion, AggregateVersionRange};
+
 use crate::event::{EventReader, EventReaderProvider};
 use crate::snapshot::{SnapshotReader, SnapshotReaderProvider};
-use std::ops::Bound;
 
 #[allow(async_fn_in_trait)]
 pub trait Repository<A: Aggregate>: EventReaderProvider<A> + SnapshotReaderProvider<A> {

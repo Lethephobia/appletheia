@@ -1,4 +1,4 @@
-use crate::aggregate::Aggregate;
+use appletheia_domain::Aggregate;
 
 use super::EventReader;
 

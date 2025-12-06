@@ -1,4 +1,4 @@
-use crate::{Aggregate, AggregateVersion, Snapshot};
+use appletheia_domain::{Aggregate, AggregateVersion, Snapshot};
 
 use super::snapshot_reader_error::SnapshotReaderError;
 
