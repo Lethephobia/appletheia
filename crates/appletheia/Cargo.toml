@@ -1,7 +1,7 @@
 [package]
 name = "appletheia"
 description = "The Application Interfaces for Event-Sourcing Architecture"
-version = "0.1.6"
+version = "0.1.7"
 edition = "2024"
 license = "MIT"
 include = ["src/**", "Cargo.toml", "README.md", "LICENSE"]
@@ -17,6 +17,6 @@ infrastructure = ["dep:appletheia-infrastructure"]
 full = ["domain", "application", "infrastructure"]
 
 [dependencies]
-appletheia-domain = { version = "0.1.5", optional = true }
-appletheia-application = { version = "0.1.3", optional = true }
-appletheia-infrastructure = { version = "0.1.4", optional = true }
+appletheia-domain = { version = "0.1.7", optional = true }
+appletheia-application = { version = "0.1.4", optional = true }
+appletheia-infrastructure = { version = "0.1.5", optional = true }
