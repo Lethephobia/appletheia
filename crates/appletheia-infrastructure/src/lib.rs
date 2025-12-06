@@ -1,3 +1,4 @@
+pub mod bridge;
 pub mod core;
 pub mod google_cloud;
 pub mod postgresql;
