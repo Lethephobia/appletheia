@@ -3,7 +3,8 @@ use sqlx::FromRow;
 use uuid::Uuid;
 
 use appletheia_domain::{
-    Aggregate, AggregateId, AggregateState, AggregateVersion, MaterializedAt, Snapshot, SnapshotId,
+    Aggregate, AggregateId, AggregateState, AggregateVersion, Snapshot, SnapshotId,
+    SnapshotMaterializedAt,
 };
 
 use super::pg_snapshot_error::PgSnapshotError;
@@ -32,7 +33,7 @@ impl PgSnapshotRow {
             aggregate_id,
             aggregate_version,
             state,
-            MaterializedAt::from(self.materialized_at),
+            SnapshotMaterializedAt::from(self.materialized_at),
         ))
     }
 }

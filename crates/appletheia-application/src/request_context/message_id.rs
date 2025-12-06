@@ -12,7 +12,7 @@ impl MessageId {
         Self(Uuid::now_v7())
     }
 
-    pub fn value(self) -> Uuid {
+    pub fn value(&self) -> Uuid {
         self.0
     }
 }
@@ -20,6 +20,12 @@ impl MessageId {
 impl Default for MessageId {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl From<Uuid> for MessageId {
+    fn from(value: Uuid) -> Self {
+        Self(value)
     }
 }
 

@@ -1,10 +1,9 @@
 use std::error::Error;
+
 use thiserror::Error;
 
-use appletheia_domain::Aggregate;
-
 #[derive(Debug, Error)]
-pub enum UnitOfWorkError<A: Aggregate> {
+pub enum UnitOfWorkError {
     #[error("begin failed {0}")]
     BeginFailed(#[source] Box<dyn Error + Send + Sync + 'static>),
 
@@ -14,9 +13,6 @@ pub enum UnitOfWorkError<A: Aggregate> {
     #[error("rollback failed {0}")]
     RollbackFailed(#[source] Box<dyn Error + Send + Sync + 'static>),
 
-    #[error("persistence failed {0}")]
-    Persistence(#[source] Box<dyn Error + Send + Sync + 'static>),
-
     #[error("operation and rollback failed {operation_error} {rollback_error}")]
     OperationAndRollbackFailed {
         #[source]
@@ -24,12 +20,9 @@ pub enum UnitOfWorkError<A: Aggregate> {
         rollback_error: Box<dyn Error + Send + Sync + 'static>,
     },
 
-    #[error("aggregate error: {0}")]
-    Aggregate(#[source] A::Error),
-
-    #[error("aggregate state missing")]
-    AggregateNoState,
-
     #[error("transaction is not active")]
     NotInTransaction,
+
+    #[error("transaction is already active")]
+    AlreadyInTransaction,
 }

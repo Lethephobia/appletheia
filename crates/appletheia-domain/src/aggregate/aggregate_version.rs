@@ -1,8 +1,11 @@
 use std::{fmt, fmt::Display};
 
+use serde::{Deserialize, Serialize};
+
 use super::AggregateVersionError;
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct AggregateVersion(i64);
 
 impl AggregateVersion {
@@ -10,7 +13,7 @@ impl AggregateVersion {
         Self(0)
     }
 
-    pub fn value(self) -> i64 {
+    pub fn value(&self) -> i64 {
         self.0
     }
 
@@ -29,7 +32,7 @@ impl AggregateVersion {
             .ok_or(AggregateVersionError::Overflow)
     }
 
-    pub fn as_u64(self) -> u64 {
+    pub fn as_u64(&self) -> u64 {
         self.value() as u64
     }
 }

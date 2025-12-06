@@ -54,21 +54,42 @@ CREATE TABLE IF NOT EXISTS outbox (
   correlation_id       UUID        NOT NULL,
   causation_id         UUID        NOT NULL,
   context              JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  ordering_key         TEXT        NOT NULL,
   published_at         TIMESTAMPTZ,
-  attempt_count        INT         NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
-  next_attempt_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  attempt_count        BIGINT      NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
+  next_attempt_after   TIMESTAMPTZ NOT NULL DEFAULT now(),
   lease_owner          TEXT,
   lease_until          TIMESTAMPTZ,
+  last_error           JSONB,
   CONSTRAINT outbox_uniq_aggregate_version
     UNIQUE (aggregate_type, aggregate_id, aggregate_version)
 );
 
 CREATE INDEX IF NOT EXISTS idx_outbox_published_at         ON outbox (published_at);
-CREATE INDEX IF NOT EXISTS idx_outbox_next_attempt_pending ON outbox (next_attempt_at) WHERE published_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_outbox_next_attempt_pending ON outbox (next_attempt_after, event_sequence) WHERE published_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_outbox_lease_visible        ON outbox (lease_until)     WHERE published_at IS NULL;
-CREATE INDEX IF NOT EXISTS idx_outbox_ordering_key         ON outbox (ordering_key);
 CREATE INDEX IF NOT EXISTS idx_outbox_correlation_id       ON outbox (correlation_id);
 CREATE INDEX IF NOT EXISTS idx_outbox_causation_id         ON outbox (causation_id);
 
 COMMENT ON TABLE outbox IS 'Outbox: events to be published; at-least-once delivery guarantee.';
+
+-- dead letters
+CREATE TABLE IF NOT EXISTS dead_letters (
+  outbox_id           UUID        PRIMARY KEY,
+  event_sequence      BIGINT      NOT NULL,
+  event_id            UUID        NOT NULL,
+  aggregate_type      TEXT        NOT NULL,
+  aggregate_id        UUID        NOT NULL,
+  aggregate_version   BIGINT      NOT NULL CHECK (aggregate_version > 0),
+  payload             JSONB       NOT NULL,
+  occurred_at         TIMESTAMPTZ NOT NULL,
+  correlation_id      UUID        NOT NULL,
+  causation_id        UUID        NOT NULL,
+  context             JSONB       NOT NULL,
+  published_at        TIMESTAMPTZ,
+  attempt_count       BIGINT      NOT NULL CHECK (attempt_count >= 0),
+  next_attempt_after  TIMESTAMPTZ NOT NULL,
+  lease_owner         TEXT,
+  lease_until         TIMESTAMPTZ,
+  last_error          JSONB,
+  dead_lettered_at    TIMESTAMPTZ NOT NULL
+);

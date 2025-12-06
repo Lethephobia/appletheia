@@ -1,12 +1,12 @@
 pub mod event_id;
 pub mod event_id_error;
+pub mod event_occurred_at;
 pub mod event_payload;
-pub mod occurred_at;
 
 pub use event_id::EventId;
 pub use event_id_error::EventIdError;
+pub use event_occurred_at::EventOccurredAt;
 pub use event_payload::EventPayload;
-pub use occurred_at::OccurredAt;
 
 use crate::aggregate::{AggregateId, AggregateVersion};
 
@@ -16,7 +16,7 @@ pub struct Event<I: AggregateId, P: EventPayload> {
     aggregate_id: I,
     aggregate_version: AggregateVersion,
     payload: P,
-    occurred_at: OccurredAt,
+    occurred_at: EventOccurredAt,
 }
 
 impl<I: AggregateId, P: EventPayload> Event<I, P> {
@@ -26,7 +26,7 @@ impl<I: AggregateId, P: EventPayload> Event<I, P> {
             aggregate_id,
             aggregate_version,
             payload,
-            occurred_at: OccurredAt::now(),
+            occurred_at: EventOccurredAt::now(),
         }
     }
 
@@ -35,7 +35,7 @@ impl<I: AggregateId, P: EventPayload> Event<I, P> {
         aggregate_id: I,
         aggregate_version: AggregateVersion,
         payload: P,
-        occurred_at: OccurredAt,
+        occurred_at: EventOccurredAt,
     ) -> Self {
         Self {
             id,
@@ -62,7 +62,7 @@ impl<I: AggregateId, P: EventPayload> Event<I, P> {
         &self.payload
     }
 
-    pub fn occurred_at(&self) -> OccurredAt {
+    pub fn occurred_at(&self) -> EventOccurredAt {
         self.occurred_at
     }
 }
