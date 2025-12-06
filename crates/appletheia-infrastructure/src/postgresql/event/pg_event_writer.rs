@@ -1,57 +1,53 @@
 use std::marker::PhantomData;
 
 use appletheia_application::{
-    event::EventWriter,
+    event::{EventWriter, EventWriterError},
     outbox::OutboxId,
-    request_context::{RequestContext, RequestContextAccess},
+    request_context::RequestContext,
     unit_of_work::UnitOfWorkError,
 };
 use appletheia_domain::{Aggregate, AggregateId, Event};
 use chrono::{DateTime, Utc};
-use sqlx::{Postgres, QueryBuilder, Transaction};
+use sqlx::{Postgres, QueryBuilder};
+
+use crate::postgresql::unit_of_work::PgUnitOfWork;
 
 use super::PgEventRow;
 
-pub struct PgEventWriter<'c, A: Aggregate> {
-    transaction: &'c mut Transaction<'static, Postgres>,
-    request_context: RequestContext,
+pub struct PgEventWriter<A: Aggregate> {
     _aggregate: PhantomData<A>,
 }
 
-impl<'c, A: Aggregate> PgEventWriter<'c, A> {
-    pub fn new(
-        transaction: &'c mut Transaction<'static, Postgres>,
-        request_context: RequestContext,
-    ) -> Self {
+impl<A: Aggregate> PgEventWriter<A> {
+    pub fn new() -> Self {
         Self {
-            transaction,
-            request_context,
             _aggregate: PhantomData,
         }
     }
 }
 
-impl<'c, A: Aggregate> RequestContextAccess for PgEventWriter<'c, A> {
-    fn request_context(&self) -> &RequestContext {
-        &self.request_context
+impl<A: Aggregate> Default for PgEventWriter<A> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
-impl<'c, A: Aggregate> EventWriter<A> for PgEventWriter<'c, A> {
-    type Error = UnitOfWorkError<A>;
+impl<A: Aggregate> EventWriter<A> for PgEventWriter<A> {
+    type Uow = PgUnitOfWork<A>;
 
     async fn write_events_and_outbox(
-        &mut self,
+        &self,
+        uow: &mut Self::Uow,
+        request_context: &RequestContext,
         events: &[Event<A::Id, A::EventPayload>],
-    ) -> Result<(), Self::Error> {
+    ) -> Result<(), EventWriterError> {
         if events.is_empty() {
             return Ok(());
         }
 
-        let correlation_id = self.request_context.correlation_id.0;
-        let causation_id = self.request_context.message_id.value();
-        let context_json =
-            serde_json::to_value(&self.request_context).map_err(UnitOfWorkError::Json)?;
+        let correlation_id = request_context.correlation_id.0;
+        let causation_id = request_context.message_id.value();
+        let context_json = serde_json::to_value(request_context).map_err(EventWriterError::Json)?;
 
         let mut events_query = QueryBuilder::<Postgres>::new(
             r#"
@@ -67,7 +63,7 @@ impl<'c, A: Aggregate> EventWriter<A> for PgEventWriter<'c, A> {
             let id = event.id().value();
             let aggregate_id = event.aggregate_id().value();
             let version = event.aggregate_version().value();
-            let payload = serde_json::to_value(event.payload()).map_err(UnitOfWorkError::Json)?;
+            let payload = serde_json::to_value(event.payload()).map_err(EventWriterError::Json)?;
             let occurred_at: DateTime<Utc> = event.occurred_at().into();
 
             sep.push("(")
@@ -98,11 +94,16 @@ impl<'c, A: Aggregate> EventWriter<A> for PgEventWriter<'c, A> {
             "#,
         );
 
+        let transaction = uow.transaction_mut().map_err(|e| match e {
+            UnitOfWorkError::NotInTransaction => EventWriterError::NotInTransaction,
+            other => EventWriterError::Persistence(Box::new(other)),
+        })?;
+
         let event_rows = events_query
             .build_query_as::<PgEventRow>()
-            .fetch_all(self.transaction.as_mut())
+            .fetch_all(transaction.as_mut())
             .await
-            .map_err(|e| UnitOfWorkError::Persistence(Box::new(e)))?;
+            .map_err(|e| EventWriterError::Persistence(Box::new(e)))?;
 
         let mut outbox_query = QueryBuilder::<Postgres>::new(
             r#"
@@ -133,9 +134,9 @@ impl<'c, A: Aggregate> EventWriter<A> for PgEventWriter<'c, A> {
         }
         outbox_query
             .build()
-            .execute(self.transaction.as_mut())
+            .execute(transaction.as_mut())
             .await
-            .map_err(|e| UnitOfWorkError::Persistence(Box::new(e)))?;
+            .map_err(|e| EventWriterError::Persistence(Box::new(e)))?;
 
         Ok(())
     }

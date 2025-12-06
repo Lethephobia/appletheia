@@ -1,29 +1,38 @@
 use std::marker::PhantomData;
 
-use sqlx::{Postgres, QueryBuilder, Transaction};
+use sqlx::{Postgres, QueryBuilder};
 
 use appletheia_application::snapshot::{SnapshotReader, SnapshotReaderError};
+use appletheia_application::unit_of_work::UnitOfWorkError;
 use appletheia_domain::{Aggregate, AggregateId, AggregateVersion, Snapshot};
 
 use crate::postgresql::snapshot::PgSnapshotRow;
+use crate::postgresql::unit_of_work::PgUnitOfWork;
 
-pub struct PgSnapshotReader<'c, A: Aggregate> {
-    transaction: &'c mut Transaction<'static, Postgres>,
+pub struct PgSnapshotReader<A: Aggregate> {
     _phantom: PhantomData<A>,
 }
 
-impl<'c, A: Aggregate> PgSnapshotReader<'c, A> {
-    pub(crate) fn new(transaction: &'c mut Transaction<'static, Postgres>) -> Self {
+impl<A: Aggregate> PgSnapshotReader<A> {
+    pub fn new() -> Self {
         Self {
-            transaction,
             _phantom: PhantomData,
         }
     }
 }
 
-impl<'c, A: Aggregate> SnapshotReader<A> for PgSnapshotReader<'c, A> {
+impl<A: Aggregate> Default for PgSnapshotReader<A> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<A: Aggregate> SnapshotReader<A> for PgSnapshotReader<A> {
+    type Uow = PgUnitOfWork<A>;
+
     async fn read_latest_snapshot(
-        &mut self,
+        &self,
+        uow: &mut Self::Uow,
         aggregate_id: A::Id,
         as_of: Option<AggregateVersion>,
     ) -> Result<Option<Snapshot<A::State>>, SnapshotReaderError> {
@@ -44,9 +53,14 @@ impl<'c, A: Aggregate> SnapshotReader<A> for PgSnapshotReader<'c, A> {
         }
         query.push(" ORDER BY aggregate_version DESC LIMIT 1");
 
+        let transaction = uow.transaction_mut().map_err(|e| match e {
+            UnitOfWorkError::NotInTransaction => SnapshotReaderError::NotInTransaction,
+            other => SnapshotReaderError::Persistence(Box::new(other)),
+        })?;
+
         let snapshot_row = query
             .build_query_as::<PgSnapshotRow>()
-            .fetch_optional(self.transaction.as_mut())
+            .fetch_optional(transaction.as_mut())
             .await
             .map_err(|e| SnapshotReaderError::Persistence(Box::new(e)))?;
         let snapshot = snapshot_row

@@ -1,91 +1,29 @@
 pub mod snapshot_interval;
 pub mod snapshot_policy;
-pub mod unit_of_work_config;
-pub mod unit_of_work_config_access;
 pub mod unit_of_work_error;
 
 pub use snapshot_interval::SnapshotInterval;
 pub use snapshot_policy::SnapshotPolicy;
-pub use unit_of_work_config::UnitOfWorkConfig;
-pub use unit_of_work_config_access::UnitOfWorkConfigAccess;
 pub use unit_of_work_error::UnitOfWorkError;
 
 use core::future::Future;
 use std::error::Error;
 
-use crate::event::{EventWriter, TryEventWriterProvider};
-use crate::repository::Repository;
-use crate::request_context::RequestContextAccess;
-use crate::snapshot::{
-    SnapshotReader, SnapshotWriter, TrySnapshotReaderProvider, TrySnapshotWriterProvider,
-};
-use appletheia_domain::Aggregate;
-
 #[allow(async_fn_in_trait)]
-pub trait UnitOfWork<A: Aggregate>:
-    RequestContextAccess
-    + UnitOfWorkConfigAccess
-    + TrySnapshotReaderProvider<A, Error = UnitOfWorkError<A>>
-    + TryEventWriterProvider<A, Error = UnitOfWorkError<A>>
-    + TrySnapshotWriterProvider<A, Error = UnitOfWorkError<A>>
-{
-    type Repository<'c>: Repository<A>
-    where
-        Self: 'c;
+pub trait UnitOfWork {
+    async fn begin(&mut self) -> Result<(), UnitOfWorkError>;
 
-    fn repository(&mut self) -> Result<Self::Repository<'_>, UnitOfWorkError<A>>;
+    async fn commit(&mut self) -> Result<(), UnitOfWorkError>;
 
-    async fn begin(&mut self) -> Result<(), UnitOfWorkError<A>>;
-
-    async fn commit(&mut self) -> Result<(), UnitOfWorkError<A>>;
-
-    async fn rollback(&mut self) -> Result<(), UnitOfWorkError<A>>;
+    async fn rollback(&mut self) -> Result<(), UnitOfWorkError>;
 
     fn is_in_transaction(&self) -> bool;
-
-    async fn save(&mut self, aggregate: &mut A) -> Result<(), UnitOfWorkError<A>> {
-        let events = aggregate.uncommitted_events();
-        {
-            let mut writer = self.try_event_writer()?;
-            writer.write_events_and_outbox(events).await?;
-        }
-        match self.config().snapshot_policy {
-            SnapshotPolicy::Disabled => {}
-            SnapshotPolicy::AtLeast { minimum_interval } => {
-                let aggregate_id = aggregate
-                    .aggregate_id()
-                    .ok_or(UnitOfWorkError::<A>::AggregateNoState)?;
-                let current_version = aggregate.version().as_u64();
-                let latest_snapshot_version = {
-                    let mut reader = self.try_snapshot_reader()?;
-                    reader
-                        .read_latest_snapshot(aggregate_id, None)
-                        .await
-                        .map_err(UnitOfWorkError::<A>::SnapshotReader)?
-                        .as_ref()
-                        .map(|snapshot| snapshot.aggregate_version().as_u64())
-                        .unwrap_or(0)
-                };
-                if current_version.saturating_sub(latest_snapshot_version)
-                    >= minimum_interval.as_u64()
-                {
-                    let snapshot = aggregate
-                        .to_snapshot()
-                        .map_err(UnitOfWorkError::<A>::Aggregate)?;
-                    let mut writer = self.try_snapshot_writer()?;
-                    writer.write_snapshot(&snapshot).await?;
-                }
-            }
-        }
-        aggregate.clear_uncommitted_events();
-        Ok(())
-    }
 
     async fn run_in_transaction<
         F: FnOnce(&mut Self) -> Fut + Send,
         Fut: Future<Output = Result<T, E>> + Send,
         T: Send,
-        E: Error + From<UnitOfWorkError<A>> + Send + Sync + 'static,
+        E: Error + From<UnitOfWorkError> + Send + Sync + 'static,
     >(
         &mut self,
         operation: F,
@@ -100,11 +38,13 @@ pub trait UnitOfWork<A: Aggregate>:
                 }
                 Err(error) => match self.rollback().await {
                     Ok(()) => Err(error),
-                    Err(rollback_error) => Err(UnitOfWorkError::<A>::OperationAndRollbackFailed {
-                        operation_error: Box::new(error),
-                        rollback_error: Box::new(rollback_error),
-                    }
-                    .into()),
+                    Err(rollback_error) => Err(
+                        UnitOfWorkError::OperationAndRollbackFailed {
+                            operation_error: Box::new(error),
+                            rollback_error: Box::new(rollback_error),
+                        }
+                        .into(),
+                    ),
                 },
             }
         } else {

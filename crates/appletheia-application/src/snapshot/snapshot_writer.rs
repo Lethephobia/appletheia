@@ -1,9 +1,16 @@
 use appletheia_domain::{Aggregate, Snapshot};
-use std::error::Error;
+
+use crate::unit_of_work::UnitOfWork;
+
+use super::snapshot_writer_error::SnapshotWriterError;
 
 #[allow(async_fn_in_trait)]
 pub trait SnapshotWriter<A: Aggregate> {
-    type Error: Error + Send + Sync + 'static;
+    type Uow: UnitOfWork;
 
-    async fn write_snapshot(&mut self, snapshot: &Snapshot<A::State>) -> Result<(), Self::Error>;
+    async fn write_snapshot(
+        &self,
+        uow: &mut Self::Uow,
+        snapshot: &Snapshot<A::State>,
+    ) -> Result<(), SnapshotWriterError>;
 }

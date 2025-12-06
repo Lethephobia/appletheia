@@ -1,30 +1,39 @@
 use std::marker::PhantomData;
 use std::ops::{Bound, RangeBounds};
 
-use sqlx::{Postgres, QueryBuilder, Transaction};
+use sqlx::{Postgres, QueryBuilder};
 
 use appletheia_application::event::{EventReader, EventReaderError};
+use appletheia_application::unit_of_work::UnitOfWorkError;
 use appletheia_domain::{Aggregate, AggregateId, AggregateVersionRange, Event};
 
 use crate::postgresql::event::{PgEventRow, PgEventRowError};
+use crate::postgresql::unit_of_work::PgUnitOfWork;
 
-pub struct PgEventReader<'c, A: Aggregate> {
-    transaction: &'c mut Transaction<'static, Postgres>,
+pub struct PgEventReader<A: Aggregate> {
     _phantom: PhantomData<A>,
 }
 
-impl<'c, A: Aggregate> PgEventReader<'c, A> {
-    pub(crate) fn new(transaction: &'c mut Transaction<'static, Postgres>) -> Self {
+impl<A: Aggregate> PgEventReader<A> {
+    pub fn new() -> Self {
         Self {
-            transaction,
             _phantom: PhantomData,
         }
     }
 }
 
-impl<'c, A: Aggregate> EventReader<A> for PgEventReader<'c, A> {
+impl<A: Aggregate> Default for PgEventReader<A> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<A: Aggregate> EventReader<A> for PgEventReader<A> {
+    type Uow = PgUnitOfWork<A>;
+
     async fn read_events(
-        &mut self,
+        &self,
+        uow: &mut Self::Uow,
         aggregate_id: A::Id,
         range: AggregateVersionRange,
     ) -> Result<Vec<Event<A::Id, A::EventPayload>>, EventReaderError> {
@@ -73,9 +82,14 @@ impl<'c, A: Aggregate> EventReader<A> for PgEventReader<'c, A> {
         }
         query.push(" ORDER BY aggregate_version ASC");
 
+        let transaction = uow.transaction_mut().map_err(|e| match e {
+            UnitOfWorkError::NotInTransaction => EventReaderError::NotInTransaction,
+            other => EventReaderError::Persistence(Box::new(other)),
+        })?;
+
         let event_rows = query
             .build_query_as::<PgEventRow>()
-            .fetch_all(self.transaction.as_mut())
+            .fetch_all(transaction.as_mut())
             .await
             .map_err(|e| EventReaderError::Persistence(Box::new(e)))?;
 

@@ -9,4 +9,7 @@ pub enum SnapshotReaderError {
 
     #[error("snapshot persistence error: {0}")]
     Persistence(#[source] Box<dyn Error + Send + Sync + 'static>),
+
+    #[error("transaction is not active")]
+    NotInTransaction,
 }

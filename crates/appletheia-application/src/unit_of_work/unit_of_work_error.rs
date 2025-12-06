@@ -1,11 +1,9 @@
 use std::error::Error;
+
 use thiserror::Error;
 
-use crate::snapshot::SnapshotReaderError;
-use appletheia_domain::{Aggregate, AggregateVersionError};
-
 #[derive(Debug, Error)]
-pub enum UnitOfWorkError<A: Aggregate> {
+pub enum UnitOfWorkError {
     #[error("begin failed {0}")]
     BeginFailed(#[source] Box<dyn Error + Send + Sync + 'static>),
 
@@ -15,9 +13,6 @@ pub enum UnitOfWorkError<A: Aggregate> {
     #[error("rollback failed {0}")]
     RollbackFailed(#[source] Box<dyn Error + Send + Sync + 'static>),
 
-    #[error("persistence failed {0}")]
-    Persistence(#[source] Box<dyn Error + Send + Sync + 'static>),
-
     #[error("operation and rollback failed {operation_error} {rollback_error}")]
     OperationAndRollbackFailed {
         #[source]
@@ -25,21 +20,6 @@ pub enum UnitOfWorkError<A: Aggregate> {
         rollback_error: Box<dyn Error + Send + Sync + 'static>,
     },
 
-    #[error("aggregate error: {0}")]
-    Aggregate(#[source] A::Error),
-
-    #[error("aggregate version error: {0}")]
-    AggregateVersion(#[from] AggregateVersionError),
-
-    #[error("snapshot reader error: {0}")]
-    SnapshotReader(#[from] SnapshotReaderError),
-
-    #[error("aggregate state missing")]
-    AggregateNoState,
-
     #[error("transaction is not active")]
     NotInTransaction,
-
-    #[error("json serialization error: {0}")]
-    Json(#[from] serde_json::Error),
 }

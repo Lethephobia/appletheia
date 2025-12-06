@@ -3,8 +3,8 @@ use thiserror::Error;
 
 use appletheia_domain::Aggregate;
 
-use crate::event::EventReaderError;
-use crate::snapshot::SnapshotReaderError;
+use crate::event::{EventReaderError, EventWriterError};
+use crate::snapshot::{SnapshotReaderError, SnapshotWriterError};
 
 #[derive(Debug, Error)]
 pub enum RepositoryError<A: Aggregate> {
@@ -16,4 +16,10 @@ pub enum RepositoryError<A: Aggregate> {
 
     #[error("snapshot reader error: {0}")]
     SnapshotReader(#[from] SnapshotReaderError),
+
+    #[error("event writer error: {0}")]
+    EventWriter(#[from] EventWriterError),
+
+    #[error("snapshot writer error: {0}")]
+    SnapshotWriter(#[from] SnapshotWriterError),
 }

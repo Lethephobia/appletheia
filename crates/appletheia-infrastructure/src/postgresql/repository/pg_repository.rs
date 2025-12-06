@@ -1,49 +1,70 @@
-use std::marker::PhantomData;
-
-use sqlx::{Postgres, Transaction};
-
-use appletheia_application::event::EventReaderProvider;
-use appletheia_application::repository::Repository;
-use appletheia_application::snapshot::SnapshotReaderProvider;
+use appletheia_application::event::{EventReaderAccess, EventWriterAccess};
+use appletheia_application::repository::{Repository, RepositoryConfig, RepositoryConfigAccess};
+use appletheia_application::snapshot::{SnapshotReaderAccess, SnapshotWriterAccess};
 use appletheia_domain::Aggregate;
 
-use crate::postgresql::event::PgEventReader;
-use crate::postgresql::snapshot::PgSnapshotReader;
+use crate::postgresql::event::{PgEventReader, PgEventWriter};
+use crate::postgresql::snapshot::{PgSnapshotReader, PgSnapshotWriter};
+use crate::postgresql::unit_of_work::PgUnitOfWork;
 
-pub struct PgRepository<'c, A: Aggregate> {
-    transaction: &'c mut Transaction<'static, Postgres>,
-    _phantom: PhantomData<A>,
+pub struct PgRepository<A: Aggregate> {
+    event_reader: PgEventReader<A>,
+    snapshot_reader: PgSnapshotReader<A>,
+    event_writer: PgEventWriter<A>,
+    snapshot_writer: PgSnapshotWriter<A>,
+    config: RepositoryConfig,
 }
 
-impl<'c, A: Aggregate> PgRepository<'c, A> {
-    pub fn new(transaction: &'c mut Transaction<'static, Postgres>) -> Self {
+impl<A: Aggregate> PgRepository<A> {
+    pub fn new(config: RepositoryConfig) -> Self {
         Self {
-            transaction,
-            _phantom: PhantomData,
+            event_reader: PgEventReader::new(),
+            snapshot_reader: PgSnapshotReader::new(),
+            event_writer: PgEventWriter::new(),
+            snapshot_writer: PgSnapshotWriter::new(),
+            config,
         }
     }
 }
 
-impl<'c, A: Aggregate> EventReaderProvider<A> for PgRepository<'c, A> {
-    type EventReader<'r>
-        = PgEventReader<'r, A>
-    where
-        Self: 'r;
-
-    fn event_reader(&mut self) -> Self::EventReader<'_> {
-        PgEventReader::new(self.transaction)
+impl<A: Aggregate> RepositoryConfigAccess for PgRepository<A> {
+    fn config(&self) -> &RepositoryConfig {
+        &self.config
     }
 }
 
-impl<'c, A: Aggregate> SnapshotReaderProvider<A> for PgRepository<'c, A> {
-    type SnapshotReader<'r>
-        = PgSnapshotReader<'r, A>
-    where
-        Self: 'r;
+impl<A: Aggregate> EventReaderAccess<A> for PgRepository<A> {
+    type Reader = PgEventReader<A>;
 
-    fn snapshot_reader(&mut self) -> Self::SnapshotReader<'_> {
-        PgSnapshotReader::new(self.transaction)
+    fn event_reader(&self) -> &Self::Reader {
+        &self.event_reader
     }
 }
 
-impl<'c, A: Aggregate> Repository<A> for PgRepository<'c, A> {}
+impl<A: Aggregate> SnapshotReaderAccess<A> for PgRepository<A> {
+    type Reader = PgSnapshotReader<A>;
+
+    fn snapshot_reader(&self) -> &Self::Reader {
+        &self.snapshot_reader
+    }
+}
+
+impl<A: Aggregate> EventWriterAccess<A> for PgRepository<A> {
+    type Writer = PgEventWriter<A>;
+
+    fn event_writer(&self) -> &Self::Writer {
+        &self.event_writer
+    }
+}
+
+impl<A: Aggregate> SnapshotWriterAccess<A> for PgRepository<A> {
+    type Writer = PgSnapshotWriter<A>;
+
+    fn snapshot_writer(&self) -> &Self::Writer {
+        &self.snapshot_writer
+    }
+}
+
+impl<A: Aggregate> Repository<A> for PgRepository<A> {
+    type Uow = PgUnitOfWork<A>;
+}
