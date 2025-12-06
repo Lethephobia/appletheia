@@ -1,21 +1,16 @@
-use std::marker::PhantomData;
-
 use appletheia_application::unit_of_work::{UnitOfWork, UnitOfWorkError};
-use appletheia_domain::Aggregate;
 use sqlx::{PgPool, Postgres, Transaction};
 
-pub struct PgUnitOfWork<A: Aggregate> {
+pub struct PgUnitOfWork {
     pool: PgPool,
     transaction: Option<Transaction<'static, Postgres>>,
-    _aggregate: PhantomData<A>,
 }
 
-impl<A: Aggregate> PgUnitOfWork<A> {
+impl PgUnitOfWork {
     pub fn new(pool: PgPool) -> Self {
         Self {
             pool,
             transaction: None,
-            _aggregate: PhantomData,
         }
     }
 
@@ -28,7 +23,7 @@ impl<A: Aggregate> PgUnitOfWork<A> {
     }
 }
 
-impl<A: Aggregate> UnitOfWork for PgUnitOfWork<A> {
+impl UnitOfWork for PgUnitOfWork {
     async fn begin(&mut self) -> Result<(), UnitOfWorkError> {
         if self.is_in_transaction() {
             return Ok(());

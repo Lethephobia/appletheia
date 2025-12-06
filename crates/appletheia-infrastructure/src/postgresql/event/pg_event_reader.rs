@@ -29,7 +29,7 @@ impl<A: Aggregate> Default for PgEventReader<A> {
 }
 
 impl<A: Aggregate> EventReader<A> for PgEventReader<A> {
-    type Uow = PgUnitOfWork<A>;
+    type Uow = PgUnitOfWork;
 
     async fn read_events(
         &self,

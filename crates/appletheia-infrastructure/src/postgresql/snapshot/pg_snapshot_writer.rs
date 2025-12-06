@@ -25,7 +25,7 @@ impl<A: Aggregate> Default for PgSnapshotWriter<A> {
 }
 
 impl<A: Aggregate> SnapshotWriter<A> for PgSnapshotWriter<A> {
-    type Uow = PgUnitOfWork<A>;
+    type Uow = PgUnitOfWork;
 
     async fn write_snapshot(
         &self,

@@ -1,23 +1,41 @@
 use chrono::Utc;
-use sqlx::{Postgres, Transaction};
+use sqlx::Postgres;
 
 use appletheia_application::outbox::{Outbox, OutboxBatchSize, OutboxFetcher, OutboxFetcherError};
+use appletheia_application::unit_of_work::UnitOfWorkError;
+
+use crate::postgresql::unit_of_work::PgUnitOfWork;
 
 use super::{PgOutboxRow, PgOutboxRowError};
 
-pub struct PgOutboxFetcher<'c> {
-    transaction: &'c mut Transaction<'static, Postgres>,
-}
+pub struct PgOutboxFetcher;
 
-impl<'c> PgOutboxFetcher<'c> {
-    pub fn new(transaction: &'c mut Transaction<'static, Postgres>) -> Self {
-        Self { transaction }
+impl PgOutboxFetcher {
+    pub fn new() -> Self {
+        Self
     }
 }
 
-impl<'c> OutboxFetcher for PgOutboxFetcher<'c> {
-    async fn fetch(&mut self, limit: OutboxBatchSize) -> Result<Vec<Outbox>, OutboxFetcherError> {
+impl Default for PgOutboxFetcher {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl OutboxFetcher for PgOutboxFetcher {
+    type Uow = PgUnitOfWork;
+
+    async fn fetch(
+        &self,
+        uow: &mut Self::Uow,
+        limit: OutboxBatchSize,
+    ) -> Result<Vec<Outbox>, OutboxFetcherError> {
         let now = Utc::now();
+
+        let transaction = uow.transaction_mut().map_err(|e| match e {
+            UnitOfWorkError::NotInTransaction => OutboxFetcherError::NotInTransaction,
+            other => OutboxFetcherError::Persistence(Box::new(other)),
+        })?;
 
         let outbox_rows = sqlx::query_as::<Postgres, PgOutboxRow>(
             r#"
@@ -50,7 +68,7 @@ impl<'c> OutboxFetcher for PgOutboxFetcher<'c> {
         )
         .bind(now)
         .bind(limit.as_i64())
-        .fetch_all(self.transaction.as_mut())
+        .fetch_all(transaction.as_mut())
         .await
         .map_err(|e| OutboxFetcherError::Persistence(Box::new(e)))?;
 

@@ -38,13 +38,11 @@ pub trait UnitOfWork {
                 }
                 Err(error) => match self.rollback().await {
                     Ok(()) => Err(error),
-                    Err(rollback_error) => Err(
-                        UnitOfWorkError::OperationAndRollbackFailed {
-                            operation_error: Box::new(error),
-                            rollback_error: Box::new(rollback_error),
-                        }
-                        .into(),
-                    ),
+                    Err(rollback_error) => Err(UnitOfWorkError::OperationAndRollbackFailed {
+                        operation_error: Box::new(error),
+                        rollback_error: Box::new(rollback_error),
+                    }
+                    .into()),
                 },
             }
         } else {

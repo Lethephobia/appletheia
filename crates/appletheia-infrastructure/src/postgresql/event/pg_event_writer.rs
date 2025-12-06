@@ -33,7 +33,7 @@ impl<A: Aggregate> Default for PgEventWriter<A> {
 }
 
 impl<A: Aggregate> EventWriter<A> for PgEventWriter<A> {
-    type Uow = PgUnitOfWork<A>;
+    type Uow = PgUnitOfWork;
 
     async fn write_events_and_outbox(
         &self,

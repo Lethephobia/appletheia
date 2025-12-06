@@ -66,5 +66,5 @@ impl<A: Aggregate> SnapshotWriterAccess<A> for PgRepository<A> {
 }
 
 impl<A: Aggregate> Repository<A> for PgRepository<A> {
-    type Uow = PgUnitOfWork<A>;
+    type Uow = PgUnitOfWork;
 }

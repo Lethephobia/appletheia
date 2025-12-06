@@ -28,7 +28,7 @@ impl<A: Aggregate> Default for PgSnapshotReader<A> {
 }
 
 impl<A: Aggregate> SnapshotReader<A> for PgSnapshotReader<A> {
-    type Uow = PgUnitOfWork<A>;
+    type Uow = PgUnitOfWork;
 
     async fn read_latest_snapshot(
         &self,

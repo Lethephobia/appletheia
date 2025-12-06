@@ -1,18 +1,19 @@
 use chrono::{DateTime, Utc};
-use sqlx::{Postgres, QueryBuilder, Transaction};
+use sqlx::{Postgres, QueryBuilder};
 use uuid::Uuid;
 
 use appletheia_application::outbox::{
     Outbox, OutboxDispatchError, OutboxLifecycle, OutboxWriter, OutboxWriterError,
 };
+use appletheia_application::unit_of_work::UnitOfWorkError;
 
-pub struct PgOutboxWriter<'c> {
-    transaction: &'c mut Transaction<'static, Postgres>,
-}
+use crate::postgresql::unit_of_work::PgUnitOfWork;
 
-impl<'c> PgOutboxWriter<'c> {
-    pub fn new(transaction: &'c mut Transaction<'static, Postgres>) -> Self {
-        Self { transaction }
+pub struct PgOutboxWriter;
+
+impl PgOutboxWriter {
+    pub fn new() -> Self {
+        Self
     }
 
     fn serialize_last_error(
@@ -28,7 +29,10 @@ impl<'c> PgOutboxWriter<'c> {
         }
     }
 
-    async fn update_outbox_row(&mut self, outbox: &Outbox) -> Result<(), OutboxWriterError> {
+    async fn update_outbox_row(
+        uow: &mut PgUnitOfWork,
+        outbox: &Outbox,
+    ) -> Result<(), OutboxWriterError> {
         let outbox_id: Uuid = outbox.id.value();
 
         let published_at_value = outbox.state.published_at().map(DateTime::<Utc>::from);
@@ -38,6 +42,11 @@ impl<'c> PgOutboxWriter<'c> {
         let lease_until_value = outbox.state.lease_until().map(DateTime::<Utc>::from);
 
         let last_error_value = Self::serialize_last_error(outbox)?;
+
+        let transaction = uow.transaction_mut().map_err(|e| match e {
+            UnitOfWorkError::NotInTransaction => OutboxWriterError::NotInTransaction,
+            other => OutboxWriterError::Persistence(Box::new(other)),
+        })?;
 
         sqlx::query(
             r#"
@@ -58,7 +67,7 @@ impl<'c> PgOutboxWriter<'c> {
         .bind(lease_owner_value)
         .bind(lease_until_value)
         .bind(last_error_value)
-        .execute(self.transaction.as_mut())
+        .execute(transaction.as_mut())
         .await
         .map_err(|source| OutboxWriterError::Persistence(Box::new(source)))?;
 
@@ -66,7 +75,7 @@ impl<'c> PgOutboxWriter<'c> {
     }
 
     async fn insert_dead_letters(
-        &mut self,
+        uow: &mut PgUnitOfWork,
         dead_lettered_outboxes: &[&Outbox],
     ) -> Result<(), OutboxWriterError> {
         let mut query_builder = QueryBuilder::<Postgres>::new(
@@ -155,9 +164,14 @@ impl<'c> PgOutboxWriter<'c> {
             }
         }
 
+        let transaction = uow.transaction_mut().map_err(|e| match e {
+            UnitOfWorkError::NotInTransaction => OutboxWriterError::NotInTransaction,
+            other => OutboxWriterError::Persistence(Box::new(other)),
+        })?;
+
         query_builder
             .build()
-            .execute(self.transaction.as_mut())
+            .execute(transaction.as_mut())
             .await
             .map_err(|source| OutboxWriterError::Persistence(Box::new(source)))?;
 
@@ -165,7 +179,7 @@ impl<'c> PgOutboxWriter<'c> {
     }
 
     async fn delete_outboxes(
-        &mut self,
+        uow: &mut PgUnitOfWork,
         dead_lettered_outboxes: &[&Outbox],
     ) -> Result<(), OutboxWriterError> {
         let mut query_builder = QueryBuilder::<Postgres>::new("DELETE FROM outbox WHERE id IN (");
@@ -180,9 +194,14 @@ impl<'c> PgOutboxWriter<'c> {
 
         query_builder.push(")");
 
+        let transaction = uow.transaction_mut().map_err(|e| match e {
+            UnitOfWorkError::NotInTransaction => OutboxWriterError::NotInTransaction,
+            other => OutboxWriterError::Persistence(Box::new(other)),
+        })?;
+
         query_builder
             .build()
-            .execute(self.transaction.as_mut())
+            .execute(transaction.as_mut())
             .await
             .map_err(|source| OutboxWriterError::Persistence(Box::new(source)))?;
 
@@ -190,8 +209,20 @@ impl<'c> PgOutboxWriter<'c> {
     }
 }
 
-impl<'c> OutboxWriter for PgOutboxWriter<'c> {
-    async fn write_outbox(&mut self, outboxes: &[Outbox]) -> Result<(), OutboxWriterError> {
+impl Default for PgOutboxWriter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl OutboxWriter for PgOutboxWriter {
+    type Uow = PgUnitOfWork;
+
+    async fn write_outbox(
+        &self,
+        uow: &mut Self::Uow,
+        outboxes: &[Outbox],
+    ) -> Result<(), OutboxWriterError> {
         if outboxes.is_empty() {
             return Ok(());
         }
@@ -204,12 +235,12 @@ impl<'c> OutboxWriter for PgOutboxWriter<'c> {
         }
 
         for outbox in outboxes {
-            self.update_outbox_row(outbox).await?;
+            Self::update_outbox_row(uow, outbox).await?;
         }
 
         if !dead_lettered_outboxes.is_empty() {
-            self.insert_dead_letters(&dead_lettered_outboxes).await?;
-            self.delete_outboxes(&dead_lettered_outboxes).await?;
+            Self::insert_dead_letters(uow, &dead_lettered_outboxes).await?;
+            Self::delete_outboxes(uow, &dead_lettered_outboxes).await?;
         }
 
         Ok(())
