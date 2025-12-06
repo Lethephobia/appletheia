@@ -22,4 +22,7 @@ pub enum UnitOfWorkError {
 
     #[error("transaction is not active")]
     NotInTransaction,
+
+    #[error("transaction is already active")]
+    AlreadyInTransaction,
 }

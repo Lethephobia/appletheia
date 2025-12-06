@@ -28,25 +28,25 @@ pub trait UnitOfWork {
         &mut self,
         operation: F,
     ) -> Result<T, E> {
-        if !self.is_in_transaction() {
-            self.begin().await?;
-            let result = operation(self).await;
-            match result {
-                Ok(value) => {
-                    self.commit().await?;
-                    Ok(value)
-                }
-                Err(error) => match self.rollback().await {
-                    Ok(()) => Err(error),
-                    Err(rollback_error) => Err(UnitOfWorkError::OperationAndRollbackFailed {
-                        operation_error: Box::new(error),
-                        rollback_error: Box::new(rollback_error),
-                    }
-                    .into()),
-                },
+        if self.is_in_transaction() {
+            return Err(UnitOfWorkError::AlreadyInTransaction.into());
+        }
+
+        self.begin().await?;
+        let result = operation(self).await;
+        match result {
+            Ok(value) => {
+                self.commit().await?;
+                Ok(value)
             }
-        } else {
-            operation(self).await
+            Err(error) => match self.rollback().await {
+                Ok(()) => Err(error),
+                Err(rollback_error) => Err(UnitOfWorkError::OperationAndRollbackFailed {
+                    operation_error: Box::new(error),
+                    rollback_error: Box::new(rollback_error),
+                }
+                .into()),
+            },
         }
     }
 }

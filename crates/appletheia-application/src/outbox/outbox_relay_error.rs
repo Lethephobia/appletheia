@@ -1,6 +1,9 @@
 use thiserror::Error;
 
-use super::{OutboxFetcherError, OutboxPublisherError, OutboxWriterError};
+use super::{
+    OutboxError, OutboxFetcherError, OutboxPublisherError, OutboxState, OutboxWriterError,
+};
+use crate::unit_of_work::UnitOfWorkError;
 
 #[derive(Debug, Error)]
 pub enum OutboxRelayError {
@@ -12,4 +15,13 @@ pub enum OutboxRelayError {
 
     #[error("outbox writer failed: {0}")]
     Writer(#[from] OutboxWriterError),
+
+    #[error("unit of work error: {0}")]
+    UnitOfWork(#[from] UnitOfWorkError),
+
+    #[error("outbox error: {0}")]
+    Outbox(#[from] OutboxError),
+
+    #[error("outbox state must be pending but was {0:?}")]
+    NonPendingOutboxState(OutboxState),
 }
