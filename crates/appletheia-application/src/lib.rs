@@ -1,5 +1,6 @@
 pub mod command;
 pub mod event;
+pub mod idempotency;
 pub mod outbox;
 pub mod repository;
 pub mod request_context;
@@ -8,6 +9,7 @@ pub mod unit_of_work;
 
 pub use command::*;
 pub use event::*;
+pub use idempotency::*;
 pub use outbox::*;
 pub use repository::*;
 pub use request_context::*;
