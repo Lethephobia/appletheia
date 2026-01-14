@@ -67,10 +67,10 @@ where
         let idempotency_begin_result = match idempotency_begin_result {
             Ok(value) => value,
             Err(operation_error) => {
-                match uow.rollback_with_operation_error(operation_error).await {
-                    Ok(operation_error) => return Err(operation_error.into()),
-                    Err(combined) => return Err(combined.into()),
-                }
+                return Err(uow
+                    .rollback_with_operation_error(operation_error)
+                    .await?
+                    .into());
             }
         };
 
@@ -105,56 +105,54 @@ where
                 {
                     Ok(()) => {}
                     Err(operation_error) => {
-                        match uow.rollback_with_operation_error(operation_error).await {
-                            Ok(operation_error) => return Err(operation_error.into()),
-                            Err(combined) => return Err(combined.into()),
-                        }
+                        return Err(uow
+                            .rollback_with_operation_error(operation_error)
+                            .await?
+                            .into());
                     }
                 }
                 uow.commit().await?;
                 Ok(output)
             }
             Err(operation_error) => {
-                match uow.rollback_with_operation_error(operation_error).await {
-                    Ok(operation_error) => {
-                        let report = CommandFailureReport::from(&operation_error);
-                        if uow.begin().await.is_ok() {
-                            let idempotency_begin_result = self
+                let operation_error = uow
+                    .rollback_with_operation_error(operation_error)
+                    .await
+                    .map_err(CommandDispatchError::UnitOfWork)?;
+
+                let report = CommandFailureReport::from(&operation_error);
+                if uow.begin().await.is_ok() {
+                    let idempotency_begin_result = self
+                        .idempotency_service
+                        .begin(uow, message_id, command_name, &request_hash)
+                        .await;
+                    match idempotency_begin_result {
+                        Ok(IdempotencyBeginResult::New) => {
+                            match self
                                 .idempotency_service
-                                .begin(uow, message_id, command_name, &request_hash)
-                                .await;
-                            match idempotency_begin_result {
-                                Ok(IdempotencyBeginResult::New) => {
-                                    match self
-                                        .idempotency_service
-                                        .complete_failure(uow, message_id, report)
-                                        .await
-                                    {
-                                        Ok(()) => {
-                                            let _ = uow.commit().await;
-                                        }
-                                        Err(_) => {
-                                            let _ = uow.rollback().await;
-                                        }
-                                    }
-                                }
-                                Ok(IdempotencyBeginResult::Existing {
-                                    ..
-                                }) => {
+                                .complete_failure(uow, message_id, report)
+                                .await
+                            {
+                                Ok(()) => {
                                     let _ = uow.commit().await;
-                                }
-                                Ok(IdempotencyBeginResult::InProgress) => {
-                                    let _ = uow.rollback().await;
                                 }
                                 Err(_) => {
                                     let _ = uow.rollback().await;
                                 }
-                            };
+                            }
                         }
-                        Err(CommandDispatchError::Handler(operation_error))
-                    }
-                    Err(error) => Err(CommandDispatchError::UnitOfWork(error)),
+                        Ok(IdempotencyBeginResult::Existing { .. }) => {
+                            let _ = uow.commit().await;
+                        }
+                        Ok(IdempotencyBeginResult::InProgress) => {
+                            let _ = uow.rollback().await;
+                        }
+                        Err(_) => {
+                            let _ = uow.rollback().await;
+                        }
+                    };
                 }
+                Err(CommandDispatchError::Handler(operation_error))
             }
         }
     }

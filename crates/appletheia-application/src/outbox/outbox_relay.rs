@@ -105,10 +105,7 @@ where
                 uow.commit().await?;
                 value
             }
-            Err(error) => match uow.rollback_with_operation_error(error).await {
-                Ok(error) => return Err(error),
-                Err(error) => return Err(error.into()),
-            },
+            Err(error) => return Err(uow.rollback_with_operation_error(error).await?),
         };
 
         if outboxes.is_empty() {
@@ -151,10 +148,7 @@ where
             Ok(()) => {
                 uow.commit().await?;
             }
-            Err(error) => match uow.rollback_with_operation_error(error).await {
-                Ok(error) => return Err(error),
-                Err(error) => return Err(error.into()),
-            },
+            Err(error) => return Err(uow.rollback_with_operation_error(error).await?),
         }
 
         Ok(OutboxRelayRunReport::Progress { proceeded })

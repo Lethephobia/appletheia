@@ -55,10 +55,7 @@ pub trait UnitOfWork: Send {
                 self.commit().await?;
                 Ok(value)
             }
-            Err(error) => match self.rollback_with_operation_error(error).await {
-                Ok(error) => Err(error),
-                Err(error) => Err(error.into()),
-            },
+            Err(error) => Err(self.rollback_with_operation_error(error).await?),
         }
     }
 }
