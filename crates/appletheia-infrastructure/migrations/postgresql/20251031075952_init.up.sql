@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS snapshots (
   id                  UUID PRIMARY KEY,
   aggregate_type      TEXT        NOT NULL,
   aggregate_id        UUID        NOT NULL,
-  aggregate_version   BIGINT         NOT NULL CHECK (aggregate_version > 0),
+  aggregate_version   BIGINT      NOT NULL CHECK (aggregate_version > 0),
   state               JSONB       NOT NULL,
   materialized_at     TIMESTAMPTZ NOT NULL,
   CONSTRAINT snapshots_uniq_aggregate_version
@@ -93,3 +93,25 @@ CREATE TABLE IF NOT EXISTS dead_letters (
   last_error          JSONB,
   dead_lettered_at    TIMESTAMPTZ NOT NULL
 );
+
+-- idempotency
+CREATE TABLE IF NOT EXISTS idempotency (
+  message_id    UUID        PRIMARY KEY,
+  command_name  TEXT        NOT NULL,
+  request_hash  TEXT        NOT NULL,
+  output        JSONB,
+  error         JSONB,
+  started_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  completed_at  TIMESTAMPTZ,
+  CONSTRAINT idempotency_output_error_check CHECK (
+    (completed_at IS NULL AND output IS NULL AND error IS NULL) OR
+    (completed_at IS NOT NULL AND output IS NOT NULL AND error IS NULL) OR
+    (completed_at IS NOT NULL AND output IS NULL AND error IS NOT NULL)
+  )
+);
+
+CREATE INDEX IF NOT EXISTS idx_idempotency_started_at
+  ON idempotency (started_at);
+
+CREATE INDEX IF NOT EXISTS idx_idempotency_completed_at
+  ON idempotency (completed_at) WHERE completed_at IS NOT NULL;

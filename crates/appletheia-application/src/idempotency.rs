@@ -1,5 +1,5 @@
-pub mod idempotency_error;
 pub mod idempotency_begin_result;
+pub mod idempotency_error;
 pub mod idempotency_service;
 pub mod idempotency_state;
 
