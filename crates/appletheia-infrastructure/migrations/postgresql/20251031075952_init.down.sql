@@ -1,3 +1,9 @@
+-- idempotency
+DROP TABLE IF EXISTS idempotency;
+
+-- outbox
+DROP TABLE IF EXISTS outbox;
+
 -- snapshots
 DROP TABLE IF EXISTS snapshots;
 

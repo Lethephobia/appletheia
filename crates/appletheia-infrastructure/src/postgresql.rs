@@ -1,4 +1,5 @@
 pub mod event;
+pub mod idempotency;
 pub mod outbox;
 pub mod snapshot;
 

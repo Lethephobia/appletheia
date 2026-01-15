@@ -17,7 +17,7 @@ where
     <Self as OutboxFetcherAccess>::Fetcher: OutboxFetcher<Uow = Self::Uow>,
     <Self as OutboxWriterAccess>::Writer: OutboxWriter<Uow = Self::Uow>,
 {
-    type Uow: UnitOfWork + Send;
+    type Uow: UnitOfWork;
 
     fn is_stop_requested(&self) -> bool;
 
@@ -105,16 +105,7 @@ where
                 uow.commit().await?;
                 value
             }
-            Err(error) => match uow.rollback().await {
-                Ok(()) => return Err(error),
-                Err(rollback_error) => {
-                    let combined = UnitOfWorkError::OperationAndRollbackFailed {
-                        operation_error: Box::new(error),
-                        rollback_error: Box::new(rollback_error),
-                    };
-                    return Err(combined.into());
-                }
-            },
+            Err(error) => return Err(uow.rollback_with_operation_error(error).await?),
         };
 
         if outboxes.is_empty() {
@@ -157,16 +148,7 @@ where
             Ok(()) => {
                 uow.commit().await?;
             }
-            Err(error) => match uow.rollback().await {
-                Ok(()) => return Err(error),
-                Err(rollback_error) => {
-                    let combined = UnitOfWorkError::OperationAndRollbackFailed {
-                        operation_error: Box::new(error),
-                        rollback_error: Box::new(rollback_error),
-                    };
-                    return Err(combined.into());
-                }
-            },
+            Err(error) => return Err(uow.rollback_with_operation_error(error).await?),
         }
 
         Ok(OutboxRelayRunReport::Progress { proceeded })
