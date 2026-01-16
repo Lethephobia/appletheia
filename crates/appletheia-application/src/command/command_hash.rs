@@ -1,8 +1,10 @@
 use std::fmt::{self, Display};
 
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct CommandHash(String);
 
 #[derive(Debug, Error)]

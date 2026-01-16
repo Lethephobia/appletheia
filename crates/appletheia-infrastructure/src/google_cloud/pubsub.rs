@@ -1,3 +1,5 @@
-pub mod pubsub_outbox_publisher;
+pub mod pubsub_command_outbox_publisher;
+pub mod pubsub_event_outbox_publisher;
 
-pub use pubsub_outbox_publisher::PubsubOutboxPublisher;
+pub use pubsub_command_outbox_publisher::PubsubCommandOutboxPublisher;
+pub use pubsub_event_outbox_publisher::PubsubEventOutboxPublisher;

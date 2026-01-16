@@ -1,1 +1,2 @@
-pub mod outbox;
+pub mod command;
+pub mod event;

@@ -1,8 +1,7 @@
 use std::marker::PhantomData;
 
 use appletheia_application::{
-    event::{EventWriter, EventWriterError},
-    outbox::OutboxId,
+    event::{EventOutboxId, EventWriter, EventWriterError},
     request_context::RequestContext,
     unit_of_work::UnitOfWorkError,
 };
@@ -107,7 +106,7 @@ impl<A: Aggregate> EventWriter<A> for PgEventWriter<A> {
 
         let mut outbox_query = QueryBuilder::<Postgres>::new(
             r#"
-            INSERT INTO outbox (
+            INSERT INTO event_outbox (
                 id, event_sequence, event_id, aggregate_type, aggregate_id,
                 aggregate_version, payload, occurred_at,
                 correlation_id, causation_id, context
@@ -116,7 +115,7 @@ impl<A: Aggregate> EventWriter<A> for PgEventWriter<A> {
         );
         let mut sep = outbox_query.separated(", ");
         for event_row in event_rows {
-            let outbox_id = OutboxId::new().value();
+            let outbox_id = EventOutboxId::new().value();
 
             sep.push("(")
                 .push_bind(outbox_id)
