@@ -66,7 +66,7 @@ mod tests {
     #[test]
     fn value_returns_inner_datetime() {
         let timestamp = Utc.with_ymd_and_hms(2024, 1, 2, 3, 4, 5).unwrap();
-        let occurred_at = EventOccurredAt::from(timestamp.clone());
+        let occurred_at = EventOccurredAt::from(timestamp);
 
         assert_eq!(occurred_at.value(), timestamp);
     }
@@ -74,7 +74,7 @@ mod tests {
     #[test]
     fn conversions_round_trip() {
         let timestamp = Utc.with_ymd_and_hms(2022, 6, 7, 8, 9, 10).unwrap();
-        let occurred_at: EventOccurredAt = timestamp.clone().into();
+        let occurred_at: EventOccurredAt = timestamp.into();
         let back_into_datetime: DateTime<Utc> = occurred_at.into();
 
         assert_eq!(back_into_datetime, timestamp);
@@ -83,7 +83,7 @@ mod tests {
     #[test]
     fn display_matches_inner_datetime() {
         let timestamp = Utc.with_ymd_and_hms(2030, 12, 31, 23, 59, 59).unwrap();
-        let occurred_at = EventOccurredAt::from(timestamp.clone());
+        let occurred_at = EventOccurredAt::from(timestamp);
 
         assert_eq!(occurred_at.to_string(), timestamp.to_string());
     }

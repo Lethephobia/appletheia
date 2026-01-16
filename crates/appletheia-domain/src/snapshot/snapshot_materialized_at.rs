@@ -64,7 +64,7 @@ mod tests {
     #[test]
     fn value_returns_inner_datetime() {
         let timestamp = Utc.with_ymd_and_hms(2024, 1, 2, 3, 4, 5).unwrap();
-        let materialized_at = SnapshotMaterializedAt::from(timestamp.clone());
+        let materialized_at = SnapshotMaterializedAt::from(timestamp);
 
         assert_eq!(materialized_at.value(), timestamp);
     }
@@ -72,7 +72,7 @@ mod tests {
     #[test]
     fn conversions_round_trip() {
         let timestamp = Utc.with_ymd_and_hms(2022, 6, 7, 8, 9, 10).unwrap();
-        let materialized_at: SnapshotMaterializedAt = timestamp.clone().into();
+        let materialized_at: SnapshotMaterializedAt = timestamp.into();
         let back_into_datetime: DateTime<Utc> = materialized_at.into();
 
         assert_eq!(back_into_datetime, timestamp);
@@ -81,7 +81,7 @@ mod tests {
     #[test]
     fn display_matches_inner_datetime() {
         let timestamp = Utc.with_ymd_and_hms(2030, 12, 31, 23, 59, 59).unwrap();
-        let materialized_at = SnapshotMaterializedAt::from(timestamp.clone());
+        let materialized_at = SnapshotMaterializedAt::from(timestamp);
 
         assert_eq!(materialized_at.to_string(), timestamp.to_string());
     }

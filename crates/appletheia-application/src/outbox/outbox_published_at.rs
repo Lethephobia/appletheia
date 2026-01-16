@@ -64,7 +64,7 @@ mod tests {
     #[test]
     fn value_returns_inner_datetime() {
         let timestamp = Utc.with_ymd_and_hms(2024, 1, 2, 3, 4, 5).unwrap();
-        let published_at = OutboxPublishedAt::from(timestamp.clone());
+        let published_at = OutboxPublishedAt::from(timestamp);
 
         assert_eq!(published_at.value(), timestamp);
     }
@@ -72,7 +72,7 @@ mod tests {
     #[test]
     fn conversions_round_trip() {
         let timestamp = Utc.with_ymd_and_hms(2022, 6, 7, 8, 9, 10).unwrap();
-        let published_at: OutboxPublishedAt = timestamp.clone().into();
+        let published_at: OutboxPublishedAt = timestamp.into();
         let back_into_datetime: DateTime<Utc> = published_at.into();
 
         assert_eq!(back_into_datetime, timestamp);
@@ -81,7 +81,7 @@ mod tests {
     #[test]
     fn display_matches_inner_datetime() {
         let timestamp = Utc.with_ymd_and_hms(2030, 12, 31, 23, 59, 59).unwrap();
-        let published_at = OutboxPublishedAt::from(timestamp.clone());
+        let published_at = OutboxPublishedAt::from(timestamp);
 
         assert_eq!(published_at.to_string(), timestamp.to_string());
     }

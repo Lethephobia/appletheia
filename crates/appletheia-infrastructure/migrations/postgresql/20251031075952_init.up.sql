@@ -98,7 +98,7 @@ CREATE TABLE IF NOT EXISTS dead_letters (
 CREATE TABLE IF NOT EXISTS idempotency (
   message_id    UUID        PRIMARY KEY,
   command_name  TEXT        NOT NULL,
-  request_hash  TEXT        NOT NULL,
+  command_hash  TEXT        NOT NULL,
   output        JSONB,
   error         JSONB,
   started_at    TIMESTAMPTZ NOT NULL DEFAULT now(),

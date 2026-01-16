@@ -1,5 +1,5 @@
-use crate::command::CommandFailureReport;
-use crate::command::CommandName;
+use crate::command::{CommandFailureReport, CommandHash, CommandName};
+use crate::idempotency::IdempotencyOutput;
 use crate::idempotency::{IdempotencyBeginResult, IdempotencyError};
 use crate::request_context::MessageId;
 use crate::unit_of_work::UnitOfWork;
@@ -13,14 +13,14 @@ pub trait IdempotencyService: Send + Sync {
         uow: &mut Self::Uow,
         message_id: MessageId,
         command_name: CommandName,
-        request_hash: &str,
+        command_hash: &CommandHash,
     ) -> Result<IdempotencyBeginResult, IdempotencyError>;
 
     async fn complete_success(
         &self,
         uow: &mut Self::Uow,
         message_id: MessageId,
-        output: serde_json::Value,
+        output: IdempotencyOutput,
     ) -> Result<(), IdempotencyError>;
 
     async fn complete_failure(

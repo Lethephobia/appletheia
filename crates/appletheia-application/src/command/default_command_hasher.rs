@@ -2,12 +2,12 @@ use std::fmt::Write;
 
 use sha2::{Digest, Sha256};
 
-use crate::command::RequestHasher;
+use crate::command::{CommandHash, CommandHasher};
 
 #[derive(Clone, Copy, Debug, Default)]
-pub struct DefaultRequestHasher;
+pub struct DefaultCommandHasher;
 
-impl DefaultRequestHasher {
+impl DefaultCommandHasher {
     pub fn new() -> Self {
         Self
     }
@@ -43,13 +43,14 @@ impl DefaultRequestHasher {
     }
 }
 
-impl RequestHasher for DefaultRequestHasher {
-    fn request_hash(&self, value: serde_json::Value) -> String {
+impl CommandHasher for DefaultCommandHasher {
+    fn command_hash(&self, value: serde_json::Value) -> CommandHash {
         let canonical = Self::canonicalize_json(value);
         let json = serde_json::to_string(&canonical).unwrap_or_default();
 
         let mut hasher = Sha256::new();
         hasher.update(json.as_bytes());
-        Self::to_lower_hex(&hasher.finalize())
+        let hash = Self::to_lower_hex(&hasher.finalize());
+        CommandHash::new(hash).expect("DefaultCommandHasher must generate valid sha256 lower hex")
     }
 }

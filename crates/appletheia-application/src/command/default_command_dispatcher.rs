@@ -1,31 +1,33 @@
 use crate::command::{
     Command, CommandDispatchError, CommandDispatcher, CommandFailureReport, CommandHandler,
-    RequestHasher,
+    CommandHasher,
 };
-use crate::idempotency::{IdempotencyBeginResult, IdempotencyService, IdempotencyState};
+use crate::idempotency::{
+    IdempotencyBeginResult, IdempotencyOutput, IdempotencyService, IdempotencyState,
+};
 use crate::request_context::RequestContext;
 use crate::unit_of_work::UnitOfWork;
 
 #[derive(Debug)]
-pub struct DefaultCommandDispatcher<RH, IS> {
-    request_hasher: RH,
+pub struct DefaultCommandDispatcher<CH, IS> {
+    command_hasher: CH,
     idempotency_service: IS,
 }
 
-impl<RH, IS> DefaultCommandDispatcher<RH, IS>
+impl<CH, IS> DefaultCommandDispatcher<CH, IS>
 where
-    RH: RequestHasher,
+    CH: CommandHasher,
     IS: IdempotencyService,
 {
-    pub fn new(request_hasher: RH, idempotency_service: IS) -> Self {
+    pub fn new(command_hasher: CH, idempotency_service: IS) -> Self {
         Self {
-            request_hasher,
+            command_hasher,
             idempotency_service,
         }
     }
 
-    pub fn request_hasher(&self) -> &RH {
-        &self.request_hasher
+    pub fn command_hasher(&self) -> &CH {
+        &self.command_hasher
     }
 
     pub fn idempotency_service(&self) -> &IS {
@@ -33,9 +35,9 @@ where
     }
 }
 
-impl<RH, IS> CommandDispatcher for DefaultCommandDispatcher<RH, IS>
+impl<CH, IS> CommandDispatcher for DefaultCommandDispatcher<CH, IS>
 where
-    RH: RequestHasher,
+    CH: CommandHasher,
     IS: IdempotencyService,
 {
     type Uow = IS::Uow;
@@ -51,9 +53,9 @@ where
         H: CommandHandler<Uow = Self::Uow>,
     {
         let command_name = H::Command::COMMAND_NAME;
-        let request_hash = {
+        let command_hash = {
             let command_json = serde_json::to_value(&command)?;
-            self.request_hasher.request_hash(command_json)
+            self.command_hasher.command_hash(command_json)
         };
         let message_id = request_context.message_id;
 
@@ -61,7 +63,7 @@ where
 
         let idempotency_begin_result = self
             .idempotency_service
-            .begin(uow, message_id, command_name, &request_hash)
+            .begin(uow, message_id, command_name, &command_hash)
             .await;
 
         let idempotency_begin_result = match idempotency_begin_result {
@@ -82,7 +84,7 @@ where
             },
             IdempotencyBeginResult::Existing { state } => match state {
                 IdempotencyState::Succeeded { output } => {
-                    let decoded: H::Output = serde_json::from_value(output)?;
+                    let decoded: H::Output = serde_json::from_value(output.into())?;
                     uow.commit().await?;
                     return Ok(decoded);
                 }
@@ -100,7 +102,7 @@ where
                 let output_json = serde_json::to_value(&output)?;
                 match self
                     .idempotency_service
-                    .complete_success(uow, message_id, output_json)
+                    .complete_success(uow, message_id, IdempotencyOutput::from(output_json))
                     .await
                 {
                     Ok(()) => {}
@@ -124,7 +126,7 @@ where
                 if uow.begin().await.is_ok() {
                     let idempotency_begin_result = self
                         .idempotency_service
-                        .begin(uow, message_id, command_name, &request_hash)
+                        .begin(uow, message_id, command_name, &command_hash)
                         .await;
                     match idempotency_begin_result {
                         Ok(IdempotencyBeginResult::New) => {
