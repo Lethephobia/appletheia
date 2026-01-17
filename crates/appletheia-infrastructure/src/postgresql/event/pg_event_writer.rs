@@ -1,7 +1,8 @@
 use std::marker::PhantomData;
 
 use appletheia_application::{
-    event::{EventOutboxId, EventWriter, EventWriterError},
+    event::{EventWriter, EventWriterError},
+    outbox::event::EventOutboxId,
     request_context::RequestContext,
     unit_of_work::UnitOfWorkError,
 };

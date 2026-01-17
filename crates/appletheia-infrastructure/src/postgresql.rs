@@ -1,7 +1,6 @@
-pub mod command_outbox;
 pub mod event;
-pub mod event_outbox;
 pub mod idempotency;
+pub mod outbox;
 pub mod snapshot;
 
 pub mod migration;

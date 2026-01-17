@@ -1,6 +1,7 @@
 pub mod command;
 pub mod event;
 pub mod idempotency;
+pub mod outbox;
 pub mod repository;
 pub mod request_context;
 pub mod snapshot;

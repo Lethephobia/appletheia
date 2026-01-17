@@ -1,0 +1,3 @@
+pub mod pubsub_command_outbox_publisher;
+
+pub use pubsub_command_outbox_publisher::PubsubCommandOutboxPublisher;

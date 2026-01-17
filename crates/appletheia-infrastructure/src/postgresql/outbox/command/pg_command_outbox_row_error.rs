@@ -1,0 +1,30 @@
+use thiserror::Error;
+
+use appletheia_application::command::{CommandHashError, CommandNameOwnedError};
+use appletheia_application::outbox::{
+    OutboxAttemptCountError, OutboxRelayInstanceError, command::CommandOutboxIdError,
+};
+
+#[derive(Debug, Error)]
+pub enum PgCommandOutboxRowError {
+    #[error("command outbox id error: {0}")]
+    OutboxId(#[from] CommandOutboxIdError),
+
+    #[error("command name error: {0}")]
+    CommandName(#[from] CommandNameOwnedError),
+
+    #[error("command hash error: {0}")]
+    CommandHash(#[from] CommandHashError),
+
+    #[error("attempt count error: {0}")]
+    AttemptCount(#[from] OutboxAttemptCountError),
+
+    #[error("lease owner error: {0}")]
+    LeaseOwner(#[from] OutboxRelayInstanceError),
+
+    #[error("context deserialization error: {0}")]
+    Json(#[from] serde_json::Error),
+
+    #[error("command outbox row contained inconsistent lease state")]
+    InconsistentLeaseState,
+}
