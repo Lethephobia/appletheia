@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::command::{CommandHash, CommandNameOwned};
-use crate::request_context::{CorrelationId, MessageId, RequestContext};
+use crate::request_context::{CausationId, CorrelationId, MessageId, RequestContext};
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct CommandEnvelope {
@@ -9,8 +9,7 @@ pub struct CommandEnvelope {
     pub command_hash: CommandHash,
     pub payload: serde_json::Value,
     pub context: RequestContext,
-    pub causation_id: MessageId,
-    pub ordering_key: Option<String>,
+    pub causation_id: CausationId,
 }
 
 impl CommandEnvelope {
@@ -22,7 +21,7 @@ impl CommandEnvelope {
         self.context.message_id
     }
 
-    pub fn causation_id(&self) -> MessageId {
+    pub fn causation_id(&self) -> CausationId {
         self.causation_id
     }
 }

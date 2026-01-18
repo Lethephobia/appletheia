@@ -8,11 +8,13 @@ use appletheia_application::event::{
     AggregateIdOwned, AggregateTypeOwned, AppEvent, EventPayloadOwned, EventSequence,
 };
 use appletheia_application::outbox::{
-    OutboxAttemptCount, OutboxDispatchError, OutboxLeaseExpiresAt, OutboxLifecycle,
+    OrderingKey, OutboxAttemptCount, OutboxDispatchError, OutboxLeaseExpiresAt, OutboxLifecycle,
     OutboxNextAttemptAt, OutboxPublishedAt, OutboxRelayInstance, OutboxState,
     event::{EventOutbox, EventOutboxId},
 };
-use appletheia_application::request_context::{CorrelationId, MessageId, RequestContext};
+use appletheia_application::request_context::{
+    CausationId, CorrelationId, MessageId, RequestContext,
+};
 use appletheia_domain::aggregate::AggregateVersion;
 use appletheia_domain::event::{EventId, EventOccurredAt};
 
@@ -26,6 +28,7 @@ pub struct PgEventOutboxRow {
     pub aggregate_type: String,
     pub aggregate_id: Uuid,
     pub aggregate_version: i64,
+    pub ordering_key: String,
     pub payload: serde_json::Value,
     pub occurred_at: DateTime<Utc>,
     pub correlation_id: Uuid,
@@ -48,14 +51,18 @@ impl PgEventOutboxRow {
         let aggregate_type = AggregateTypeOwned::try_from(self.aggregate_type)?;
         let aggregate_id = AggregateIdOwned::from(self.aggregate_id);
         let aggregate_version = AggregateVersion::try_from(self.aggregate_version)?;
+        let ordering_key = OrderingKey::new(self.ordering_key)?;
 
         let payload = EventPayloadOwned::try_from(self.payload)?;
 
         let occurred_at = EventOccurredAt::from(self.occurred_at);
 
         let correlation_id = CorrelationId(self.correlation_id);
-        let causation_id = MessageId::from(self.causation_id);
-        let context = serde_json::from_value::<RequestContext>(self.context)?;
+        let causation_message_id = MessageId::from(self.causation_id);
+        let causation_id = CausationId::from(causation_message_id);
+        let mut context = serde_json::from_value::<RequestContext>(self.context)?;
+        context.correlation_id = correlation_id;
+        context.message_id = causation_message_id;
 
         let attempt_count = OutboxAttemptCount::try_from(self.attempt_count)?;
 
@@ -116,6 +123,7 @@ impl PgEventOutboxRow {
 
         Ok(EventOutbox {
             id,
+            ordering_key,
             event,
             state,
             last_error,

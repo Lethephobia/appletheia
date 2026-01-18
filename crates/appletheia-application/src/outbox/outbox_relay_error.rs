@@ -6,7 +6,7 @@ use crate::outbox::{
 use crate::unit_of_work::UnitOfWorkError;
 
 #[derive(Debug, Error)]
-pub enum EventOutboxRelayError {
+pub enum OutboxRelayError {
     #[error("outbox fetching failed: {0}")]
     Fetcher(#[from] OutboxFetcherError),
 

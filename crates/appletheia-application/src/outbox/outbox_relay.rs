@@ -3,31 +3,36 @@ use std::time::Duration as StdDuration;
 use chrono::Duration;
 use tokio::time::sleep;
 
-use super::{
-    EventOutbox, EventOutboxFetcher, EventOutboxFetcherAccess, EventOutboxPublishResult,
-    EventOutboxPublisher, EventOutboxPublisherAccess, EventOutboxRelayError, EventOutboxWriter,
-    EventOutboxWriterAccess,
+use crate::outbox::{
+    OutboxLeaseDuration, OutboxRelayConfigAccess, OutboxRelayInstance, OutboxRelayRunReport,
+    OutboxRetryOptions, OutboxState,
 };
-use crate::outbox::{OutboxRelayConfigAccess, OutboxRelayRunReport, OutboxState};
 use crate::unit_of_work::{UnitOfWork, UnitOfWorkError};
 
+use super::{
+    Outbox, OutboxFetcher, OutboxPublishResult, OutboxPublisher, OutboxRelayError, OutboxWriter,
+};
+
 #[allow(async_fn_in_trait)]
-pub trait EventOutboxRelay:
-    OutboxRelayConfigAccess
-    + EventOutboxPublisherAccess
-    + EventOutboxFetcherAccess
-    + EventOutboxWriterAccess
-where
-    <Self as EventOutboxFetcherAccess>::Fetcher: EventOutboxFetcher<Uow = Self::Uow>,
-    <Self as EventOutboxWriterAccess>::Writer: EventOutboxWriter<Uow = Self::Uow>,
-{
+pub trait OutboxRelay: OutboxRelayConfigAccess {
     type Uow: UnitOfWork;
+    type Outbox: Outbox;
+
+    type Fetcher: OutboxFetcher<Uow = Self::Uow, Outbox = Self::Outbox>;
+    type Writer: OutboxWriter<Uow = Self::Uow, Outbox = Self::Outbox>;
+    type Publisher: OutboxPublisher<Outbox = Self::Outbox>;
 
     fn is_stop_requested(&self) -> bool;
 
     fn request_graceful_stop(&mut self);
 
-    async fn run_forever(&self, uow: &mut Self::Uow) -> Result<(), EventOutboxRelayError> {
+    fn outbox_fetcher(&self) -> &Self::Fetcher;
+
+    fn outbox_writer(&self) -> &Self::Writer;
+
+    fn outbox_publisher(&self) -> &Self::Publisher;
+
+    async fn run_forever(&self, uow: &mut Self::Uow) -> Result<(), OutboxRelayError> {
         let relay_config = self.config();
         let polling_options = &relay_config.polling_options;
         let mut poll_interval = polling_options.base;
@@ -64,23 +69,23 @@ where
     async fn run_once(
         &self,
         uow: &mut Self::Uow,
-    ) -> Result<OutboxRelayRunReport, EventOutboxRelayError> {
+    ) -> Result<OutboxRelayRunReport, OutboxRelayError> {
         if uow.is_in_transaction() {
             return Err(UnitOfWorkError::AlreadyInTransaction.into());
         }
 
         let relay_config = self.config();
-        let relay_instance = &relay_config.instance;
-        let lease_duration = relay_config.lease_duration;
+        let relay_instance: &OutboxRelayInstance = &relay_config.instance;
+        let lease_duration: OutboxLeaseDuration = relay_config.lease_duration;
         let batch_size = relay_config.batch_size;
-        let retry_options = relay_config.retry_options;
+        let retry_options: OutboxRetryOptions = relay_config.retry_options;
 
         let outbox_fetcher = self.outbox_fetcher();
         let outbox_writer_for_lease = self.outbox_writer();
 
         uow.begin().await?;
 
-        let operation_result: Result<Vec<EventOutbox>, EventOutboxRelayError> = async {
+        let operation_result: Result<Vec<Self::Outbox>, OutboxRelayError> = async {
             let mut outboxes = outbox_fetcher.fetch(uow, batch_size).await?;
 
             if outboxes.is_empty() {
@@ -88,13 +93,11 @@ where
             }
 
             for outbox in &mut outboxes {
-                match &outbox.state {
+                match outbox.state() {
                     OutboxState::Pending { .. } => {
                         outbox.acquire_lease(relay_instance, lease_duration)?;
                     }
-                    other => {
-                        return Err(EventOutboxRelayError::NonPendingOutboxState(other.clone()));
-                    }
+                    other => return Err(OutboxRelayError::NonPendingOutboxState(other.clone())),
                 }
             }
 
@@ -104,7 +107,7 @@ where
         }
         .await;
 
-        let mut outboxes: Vec<EventOutbox> = match operation_result {
+        let mut outboxes: Vec<Self::Outbox> = match operation_result {
             Ok(value) => {
                 uow.commit().await?;
                 value
@@ -121,10 +124,10 @@ where
 
         for publish_result in publish_results {
             match publish_result {
-                EventOutboxPublishResult::Success { input_index, .. } => {
+                OutboxPublishResult::Success { input_index, .. } => {
                     outboxes[input_index].ack()?;
                 }
-                EventOutboxPublishResult::Failed {
+                OutboxPublishResult::Failed {
                     input_index,
                     ref cause,
                     ..
@@ -140,7 +143,7 @@ where
 
         uow.begin().await?;
 
-        let operation_result: Result<(), EventOutboxRelayError> = async {
+        let operation_result: Result<(), OutboxRelayError> = async {
             outbox_writer_for_update
                 .write_outbox(uow, &outboxes)
                 .await?;

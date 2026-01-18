@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use appletheia_domain::{AggregateVersion, EventId, EventOccurredAt};
 
 use crate::event::{AggregateIdOwned, AggregateTypeOwned, EventPayloadOwned, EventSequence};
-use crate::request_context::{CorrelationId, MessageId, RequestContext};
+use crate::request_context::{CausationId, CorrelationId, RequestContext};
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct AppEvent {
@@ -15,6 +15,6 @@ pub struct AppEvent {
     pub payload: EventPayloadOwned,
     pub occurred_at: EventOccurredAt,
     pub correlation_id: CorrelationId,
-    pub causation_id: MessageId,
+    pub causation_id: CausationId,
     pub context: RequestContext,
 }

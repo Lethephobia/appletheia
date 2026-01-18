@@ -7,11 +7,13 @@ use uuid::Uuid;
 use appletheia_application::command::{CommandHash, CommandNameOwned};
 use appletheia_application::outbox::command::CommandEnvelope;
 use appletheia_application::outbox::{
-    OutboxAttemptCount, OutboxDispatchError, OutboxLeaseExpiresAt, OutboxLifecycle,
+    OrderingKey, OutboxAttemptCount, OutboxDispatchError, OutboxLeaseExpiresAt, OutboxLifecycle,
     OutboxNextAttemptAt, OutboxPublishedAt, OutboxRelayInstance, OutboxState,
     command::{CommandOutbox, CommandOutboxId},
 };
-use appletheia_application::request_context::{CorrelationId, MessageId, RequestContext};
+use appletheia_application::request_context::{
+    CausationId, CorrelationId, MessageId, RequestContext,
+};
 
 use super::PgCommandOutboxRowError;
 
@@ -26,7 +28,7 @@ pub struct PgCommandOutboxRow {
     pub correlation_id: Uuid,
     pub causation_id: Uuid,
     pub context: serde_json::Value,
-    pub ordering_key: Option<String>,
+    pub ordering_key: String,
     pub published_at: Option<DateTime<Utc>>,
     pub attempt_count: i64,
     pub next_attempt_after: DateTime<Utc>,
@@ -49,7 +51,9 @@ impl PgCommandOutboxRow {
         // context differs.
         let _correlation_id = CorrelationId(self.correlation_id);
         let message_id = MessageId::from(self.message_id);
-        let causation_id = MessageId::from(self.causation_id);
+        let causation_id = CausationId::from(MessageId::from(self.causation_id));
+
+        let ordering_key = OrderingKey::new(self.ordering_key)?;
 
         let command = CommandEnvelope {
             command_name,
@@ -60,7 +64,6 @@ impl PgCommandOutboxRow {
                 message_id,
             },
             causation_id,
-            ordering_key: self.ordering_key,
         };
 
         let attempt_count = OutboxAttemptCount::try_from(self.attempt_count)?;
@@ -99,6 +102,7 @@ impl PgCommandOutboxRow {
         Ok(CommandOutbox {
             id,
             sequence: self.command_sequence,
+            ordering_key,
             command,
             state,
             last_error,

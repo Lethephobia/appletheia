@@ -1,11 +1,7 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use appletheia_application::outbox::{
-    OutboxRelayConfig, OutboxRelayConfigAccess,
-    command::{
-        CommandOutboxFetcherAccess, CommandOutboxPublisherAccess, CommandOutboxRelay,
-        CommandOutboxWriterAccess,
-    },
+    OutboxRelay, OutboxRelayConfig, OutboxRelayConfigAccess, command::CommandOutbox,
 };
 
 use crate::google_cloud::pubsub::outbox::command::PubsubCommandOutboxPublisher;
@@ -53,32 +49,25 @@ impl OutboxRelayConfigAccess for PgPubsubCommandOutboxRelay {
     }
 }
 
-impl CommandOutboxPublisherAccess for PgPubsubCommandOutboxRelay {
-    type Publisher = PubsubCommandOutboxPublisher;
+impl OutboxRelay for PgPubsubCommandOutboxRelay {
+    type Uow = PgUnitOfWork;
+    type Outbox = CommandOutbox;
 
-    fn outbox_publisher(&self) -> &Self::Publisher {
-        &self.publisher
-    }
-}
-
-impl CommandOutboxFetcherAccess for PgPubsubCommandOutboxRelay {
     type Fetcher = PgCommandOutboxFetcher;
+    type Writer = PgCommandOutboxWriter;
+    type Publisher = PubsubCommandOutboxPublisher;
 
     fn outbox_fetcher(&self) -> &Self::Fetcher {
         &self.fetcher
     }
-}
-
-impl CommandOutboxWriterAccess for PgPubsubCommandOutboxRelay {
-    type Writer = PgCommandOutboxWriter;
 
     fn outbox_writer(&self) -> &Self::Writer {
         &self.writer
     }
-}
 
-impl CommandOutboxRelay for PgPubsubCommandOutboxRelay {
-    type Uow = PgUnitOfWork;
+    fn outbox_publisher(&self) -> &Self::Publisher {
+        &self.publisher
+    }
 
     fn is_stop_requested(&self) -> bool {
         self.stop_requested.load(Ordering::SeqCst)

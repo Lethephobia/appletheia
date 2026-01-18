@@ -1,16 +1,5 @@
-use super::CommandOutboxId;
-use crate::outbox::OutboxDispatchError;
+use crate::outbox::OutboxPublishResult;
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum CommandOutboxPublishResult {
-    Success {
-        input_index: usize,
-        outbox_id: CommandOutboxId,
-        transport_message_id: Option<String>,
-    },
-    Failed {
-        input_index: usize,
-        outbox_id: CommandOutboxId,
-        cause: OutboxDispatchError,
-    },
-}
+use super::CommandOutboxId;
+
+pub type CommandOutboxPublishResult = OutboxPublishResult<CommandOutboxId>;

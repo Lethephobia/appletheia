@@ -2,7 +2,8 @@ use thiserror::Error;
 
 use appletheia_application::command::{CommandHashError, CommandNameOwnedError};
 use appletheia_application::outbox::{
-    OutboxAttemptCountError, OutboxRelayInstanceError, command::CommandOutboxIdError,
+    OrderingKeyError, OutboxAttemptCountError, OutboxRelayInstanceError,
+    command::CommandOutboxIdError,
 };
 
 #[derive(Debug, Error)]
@@ -21,6 +22,9 @@ pub enum PgCommandOutboxRowError {
 
     #[error("lease owner error: {0}")]
     LeaseOwner(#[from] OutboxRelayInstanceError),
+
+    #[error("ordering key error: {0}")]
+    OrderingKey(#[from] OrderingKeyError),
 
     #[error("context deserialization error: {0}")]
     Json(#[from] serde_json::Error),

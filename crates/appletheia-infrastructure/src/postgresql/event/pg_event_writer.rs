@@ -3,6 +3,7 @@ use std::marker::PhantomData;
 use appletheia_application::{
     event::{EventWriter, EventWriterError},
     outbox::event::EventOutboxId,
+    outbox::OrderingKey,
     request_context::RequestContext,
     unit_of_work::UnitOfWorkError,
 };
@@ -109,7 +110,7 @@ impl<A: Aggregate> EventWriter<A> for PgEventWriter<A> {
             r#"
             INSERT INTO event_outbox (
                 id, event_sequence, event_id, aggregate_type, aggregate_id,
-                aggregate_version, payload, occurred_at,
+                aggregate_version, ordering_key, payload, occurred_at,
                 correlation_id, causation_id, context
             ) VALUES
             "#,
@@ -117,18 +118,25 @@ impl<A: Aggregate> EventWriter<A> for PgEventWriter<A> {
         let mut sep = outbox_query.separated(", ");
         for event_row in event_rows {
             let outbox_id = EventOutboxId::new().value();
+            let app_event = event_row
+                .try_into_app_event()
+                .map_err(|e| EventWriterError::Persistence(Box::new(e)))?;
+            let ordering_key =
+                OrderingKey::from((&app_event.aggregate_type, &app_event.aggregate_id))
+                    .to_string();
 
             sep.push("(")
                 .push_bind(outbox_id)
-                .push_bind(event_row.event_sequence)
-                .push_bind(event_row.id)
-                .push_bind(event_row.aggregate_type)
-                .push_bind(event_row.aggregate_id)
-                .push_bind(event_row.aggregate_version)
-                .push_bind(event_row.payload)
-                .push_bind(event_row.occurred_at)
-                .push_bind(event_row.correlation_id)
-                .push_bind(event_row.causation_id)
+                .push_bind(app_event.event_sequence.value())
+                .push_bind(app_event.event_id.value())
+                .push_bind(app_event.aggregate_type.value().to_owned())
+                .push_bind(app_event.aggregate_id.value())
+                .push_bind(app_event.aggregate_version.value())
+                .push_bind(ordering_key)
+                .push_bind(app_event.payload.value().clone())
+                .push_bind(DateTime::<Utc>::from(app_event.occurred_at))
+                .push_bind(app_event.correlation_id.0)
+                .push_bind(app_event.causation_id.value())
                 .push_bind(&context_json)
                 .push(")");
         }

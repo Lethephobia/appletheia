@@ -3,8 +3,7 @@ use sqlx::{Postgres, QueryBuilder};
 use uuid::Uuid;
 
 use appletheia_application::outbox::{
-    OutboxDispatchError, OutboxLifecycle, OutboxWriterError,
-    command::{CommandOutbox, CommandOutboxWriter},
+    OutboxDispatchError, OutboxLifecycle, OutboxWriter, OutboxWriterError, command::CommandOutbox,
 };
 use appletheia_application::unit_of_work::UnitOfWorkError;
 
@@ -118,7 +117,7 @@ impl PgCommandOutboxWriter {
                 let causation_id_value: Uuid = command.causation_id().value();
                 let context_value = serde_json::to_value(&command.context)
                     .map_err(|source| OutboxWriterError::Persistence(Box::new(source)))?;
-                let ordering_key_value = command.ordering_key.clone();
+                let ordering_key_value = outbox.ordering_key.to_string();
 
                 let published_at_value = outbox.state.published_at().map(DateTime::<Utc>::from);
                 let attempt_count_value = outbox.state.attempt_count().value();
@@ -211,8 +210,9 @@ impl Default for PgCommandOutboxWriter {
     }
 }
 
-impl CommandOutboxWriter for PgCommandOutboxWriter {
+impl OutboxWriter for PgCommandOutboxWriter {
     type Uow = PgUnitOfWork;
+    type Outbox = CommandOutbox;
 
     async fn write_outbox(
         &self,

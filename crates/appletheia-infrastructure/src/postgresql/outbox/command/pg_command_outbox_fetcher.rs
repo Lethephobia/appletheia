@@ -2,8 +2,7 @@ use chrono::Utc;
 use sqlx::Postgres;
 
 use appletheia_application::outbox::{
-    OutboxBatchSize, OutboxFetcherError,
-    command::{CommandOutbox, CommandOutboxFetcher},
+    OutboxBatchSize, OutboxFetcher, OutboxFetcherError, command::CommandOutbox,
 };
 use appletheia_application::unit_of_work::UnitOfWorkError;
 
@@ -25,8 +24,9 @@ impl Default for PgCommandOutboxFetcher {
     }
 }
 
-impl CommandOutboxFetcher for PgCommandOutboxFetcher {
+impl OutboxFetcher for PgCommandOutboxFetcher {
     type Uow = PgUnitOfWork;
+    type Outbox = CommandOutbox;
 
     async fn fetch(
         &self,

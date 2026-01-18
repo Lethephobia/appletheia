@@ -2,8 +2,7 @@ use chrono::Utc;
 use sqlx::Postgres;
 
 use appletheia_application::outbox::{
-    OutboxBatchSize, OutboxFetcherError,
-    event::{EventOutbox, EventOutboxFetcher},
+    OutboxBatchSize, OutboxFetcher, OutboxFetcherError, event::EventOutbox,
 };
 use appletheia_application::unit_of_work::UnitOfWorkError;
 
@@ -25,8 +24,9 @@ impl Default for PgEventOutboxFetcher {
     }
 }
 
-impl EventOutboxFetcher for PgEventOutboxFetcher {
+impl OutboxFetcher for PgEventOutboxFetcher {
     type Uow = PgUnitOfWork;
+    type Outbox = EventOutbox;
 
     async fn fetch(
         &self,
@@ -49,6 +49,7 @@ impl EventOutboxFetcher for PgEventOutboxFetcher {
                 aggregate_type,
                 aggregate_id,
                 aggregate_version,
+                ordering_key,
                 payload,
                 occurred_at,
                 correlation_id,

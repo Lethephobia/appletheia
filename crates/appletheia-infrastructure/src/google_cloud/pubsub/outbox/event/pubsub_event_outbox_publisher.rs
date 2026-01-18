@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 
-use appletheia_application::outbox::{OutboxDispatchError, OutboxPublisherError, event::*};
+use appletheia_application::outbox::{
+    Outbox, OutboxDispatchError, OutboxPublishResult, OutboxPublisher, OutboxPublisherError,
+    event::{EventOutbox, EventOutboxId},
+};
 use google_cloud_googleapis::pubsub::v1::PubsubMessage;
 use google_cloud_pubsub::publisher::Publisher;
 use tonic::Code;
@@ -62,11 +65,13 @@ impl PubsubEventOutboxPublisher {
     }
 }
 
-impl EventOutboxPublisher for PubsubEventOutboxPublisher {
+impl OutboxPublisher for PubsubEventOutboxPublisher {
+    type Outbox = EventOutbox;
+
     async fn publish_outbox(
         &self,
         outboxes: &[EventOutbox],
-    ) -> Result<Vec<EventOutboxPublishResult>, OutboxPublisherError> {
+    ) -> Result<Vec<OutboxPublishResult<EventOutboxId>>, OutboxPublisherError> {
         if outboxes.is_empty() {
             return Ok(Vec::new());
         }
@@ -86,7 +91,7 @@ impl EventOutboxPublisher for PubsubEventOutboxPublisher {
             let outbox_id = outbox.id;
             match awaiter.get().await {
                 Ok(message_id) => {
-                    results.push(EventOutboxPublishResult::Success {
+                    results.push(OutboxPublishResult::Success {
                         input_index,
                         outbox_id,
                         transport_message_id: Some(message_id),
@@ -106,7 +111,7 @@ impl EventOutboxPublisher for PubsubEventOutboxPublisher {
                         _ => OutboxDispatchError::Permanent { code, message },
                     };
 
-                    results.push(EventOutboxPublishResult::Failed {
+                    results.push(OutboxPublishResult::Failed {
                         input_index,
                         outbox_id,
                         cause,

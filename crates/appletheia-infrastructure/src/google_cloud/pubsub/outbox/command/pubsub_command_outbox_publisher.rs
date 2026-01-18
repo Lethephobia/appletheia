@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 
-use appletheia_application::outbox::{OutboxDispatchError, OutboxPublisherError, command::*};
+use appletheia_application::outbox::{
+    Outbox, OutboxDispatchError, OutboxPublishResult, OutboxPublisher, OutboxPublisherError,
+    command::{CommandOutbox, CommandOutboxId, CommandOutboxPublishResult},
+};
 use google_cloud_googleapis::pubsub::v1::PubsubMessage;
 use google_cloud_pubsub::publisher::Publisher;
 use tonic::Code;
@@ -41,7 +44,7 @@ impl PubsubCommandOutboxPublisher {
 
         let data = serde_json::to_vec(&outbox.command)?;
 
-        let ordering_key = outbox.command.ordering_key.clone().unwrap_or_default();
+        let ordering_key = outbox.ordering_key().to_string();
 
         Ok(PubsubMessage {
             data,
@@ -53,11 +56,13 @@ impl PubsubCommandOutboxPublisher {
     }
 }
 
-impl CommandOutboxPublisher for PubsubCommandOutboxPublisher {
+impl OutboxPublisher for PubsubCommandOutboxPublisher {
+    type Outbox = CommandOutbox;
+
     async fn publish_outbox(
         &self,
         outboxes: &[CommandOutbox],
-    ) -> Result<Vec<CommandOutboxPublishResult>, OutboxPublisherError> {
+    ) -> Result<Vec<OutboxPublishResult<CommandOutboxId>>, OutboxPublisherError> {
         if outboxes.is_empty() {
             return Ok(Vec::new());
         }
@@ -97,7 +102,7 @@ impl CommandOutboxPublisher for PubsubCommandOutboxPublisher {
                         _ => OutboxDispatchError::Permanent { code, message },
                     };
 
-                    results.push(CommandOutboxPublishResult::Failed {
+                    results.push(OutboxPublishResult::Failed {
                         input_index,
                         outbox_id,
                         cause,

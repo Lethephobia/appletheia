@@ -3,8 +3,7 @@ use sqlx::{Postgres, QueryBuilder};
 use uuid::Uuid;
 
 use appletheia_application::outbox::{
-    OutboxDispatchError, OutboxLifecycle, OutboxWriterError,
-    event::{EventOutbox, EventOutboxWriter},
+    OutboxDispatchError, OutboxLifecycle, OutboxWriter, OutboxWriterError, event::EventOutbox,
 };
 use appletheia_application::unit_of_work::UnitOfWorkError;
 
@@ -88,6 +87,7 @@ impl PgEventOutboxWriter {
                 aggregate_type,
                 aggregate_id,
                 aggregate_version,
+                ordering_key,
                 payload,
                 occurred_at,
                 correlation_id,
@@ -115,6 +115,7 @@ impl PgEventOutboxWriter {
                 let aggregate_type_value = event.aggregate_type.value().to_owned();
                 let aggregate_id_value = event.aggregate_id.value();
                 let aggregate_version_value = event.aggregate_version.value();
+                let ordering_key_value = outbox.ordering_key.to_string();
                 let payload_value = event.payload.value().clone();
                 let occurred_at_value: DateTime<Utc> = event.occurred_at.into();
                 let correlation_id_value: Uuid = event.correlation_id.0;
@@ -149,6 +150,7 @@ impl PgEventOutboxWriter {
                     .push_bind(aggregate_type_value)
                     .push_bind(aggregate_id_value)
                     .push_bind(aggregate_version_value)
+                    .push_bind(ordering_key_value)
                     .push_bind(payload_value)
                     .push_bind(occurred_at_value)
                     .push_bind(correlation_id_value)
@@ -217,8 +219,9 @@ impl Default for PgEventOutboxWriter {
     }
 }
 
-impl EventOutboxWriter for PgEventOutboxWriter {
+impl OutboxWriter for PgEventOutboxWriter {
     type Uow = PgUnitOfWork;
+    type Outbox = EventOutbox;
 
     async fn write_outbox(
         &self,
