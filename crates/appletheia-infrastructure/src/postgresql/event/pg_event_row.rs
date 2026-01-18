@@ -5,7 +5,9 @@ use uuid::Uuid;
 use appletheia_application::event::{
     AggregateIdOwned, AggregateTypeOwned, AppEvent, EventPayloadOwned, EventSequence,
 };
-use appletheia_application::request_context::{CausationId, CorrelationId, MessageId, RequestContext};
+use appletheia_application::request_context::{
+    CausationId, CorrelationId, MessageId, RequestContext,
+};
 use appletheia_domain::{
     Aggregate, AggregateId, AggregateVersion, Event, EventId, EventOccurredAt, EventPayload,
 };

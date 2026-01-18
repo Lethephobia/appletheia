@@ -39,4 +39,3 @@ impl Display for CausationId {
         write!(f, "{}", self.0)
     }
 }
-

@@ -26,4 +26,3 @@ pub enum PgEventRowAppEventError {
     #[error("context deserialization error: {0}")]
     Json(#[from] serde_json::Error),
 }
-

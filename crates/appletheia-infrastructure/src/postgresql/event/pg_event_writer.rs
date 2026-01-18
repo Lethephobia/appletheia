@@ -2,8 +2,8 @@ use std::marker::PhantomData;
 
 use appletheia_application::{
     event::{EventWriter, EventWriterError},
-    outbox::event::EventOutboxId,
     outbox::OrderingKey,
+    outbox::event::EventOutboxId,
     request_context::RequestContext,
     unit_of_work::UnitOfWorkError,
 };
@@ -122,8 +122,7 @@ impl<A: Aggregate> EventWriter<A> for PgEventWriter<A> {
                 .try_into_app_event()
                 .map_err(|e| EventWriterError::Persistence(Box::new(e)))?;
             let ordering_key =
-                OrderingKey::from((&app_event.aggregate_type, &app_event.aggregate_id))
-                    .to_string();
+                OrderingKey::from((&app_event.aggregate_type, &app_event.aggregate_id)).to_string();
 
             sep.push("(")
                 .push_bind(outbox_id)

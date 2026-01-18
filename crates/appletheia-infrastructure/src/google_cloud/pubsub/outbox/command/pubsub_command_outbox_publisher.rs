@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use appletheia_application::outbox::{
     Outbox, OutboxDispatchError, OutboxPublishResult, OutboxPublisher, OutboxPublisherError,
-    command::{CommandOutbox, CommandOutboxId, CommandOutboxPublishResult},
+    command::{CommandOutbox, CommandOutboxId},
 };
 use google_cloud_googleapis::pubsub::v1::PubsubMessage;
 use google_cloud_pubsub::publisher::Publisher;
@@ -82,7 +82,7 @@ impl OutboxPublisher for PubsubCommandOutboxPublisher {
             let outbox_id = outbox.id;
             match awaiter.get().await {
                 Ok(message_id) => {
-                    results.push(CommandOutboxPublishResult::Success {
+                    results.push(OutboxPublishResult::Success {
                         input_index,
                         outbox_id,
                         transport_message_id: Some(message_id),
