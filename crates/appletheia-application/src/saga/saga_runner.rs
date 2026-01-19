@@ -44,8 +44,8 @@ where
             Some(instance) => instance,
             None => {
                 let state = saga.initial_state(event);
-                let state_json = serde_json::to_value(&state)
-                    .map_err(SagaRunnerError::StateSerialize)?;
+                let state_json =
+                    serde_json::to_value(&state).map_err(SagaRunnerError::StateSerialize)?;
                 self.store
                     .insert_instance_if_absent(uow, saga_name, correlation_id, state_json)
                     .await?;
@@ -54,10 +54,7 @@ where
                     .await?
                     .ok_or_else(|| {
                         SagaRunnerError::Store(super::SagaStoreError::Persistence(Box::new(
-                            std::io::Error::new(
-                                std::io::ErrorKind::Other,
-                                "failed to load saga instance after insert",
-                            ),
+                            std::io::Error::other("failed to load saga instance after insert"),
                         )))
                     })?
             }
@@ -106,10 +103,12 @@ where
                 uow,
                 saga_name,
                 correlation_id,
-                state_json,
-                completed_at,
-                failed_at,
-                last_error,
+                super::SagaInstanceUpdate {
+                    state: state_json,
+                    completed_at,
+                    failed_at,
+                    last_error,
+                },
             )
             .await?;
 

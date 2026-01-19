@@ -2,7 +2,9 @@ use chrono::{DateTime, Utc};
 use sqlx::FromRow;
 use uuid::Uuid;
 
-use appletheia_application::saga::{SagaInstanceRow, SagaName, SagaStore, SagaStoreError};
+use appletheia_application::saga::{
+    SagaInstanceRow, SagaInstanceUpdate, SagaName, SagaStore, SagaStoreError,
+};
 use appletheia_application::unit_of_work::UnitOfWorkError;
 use appletheia_domain::EventId;
 
@@ -117,10 +119,7 @@ impl SagaStore for PgSagaStore {
         uow: &mut Self::Uow,
         saga_name: SagaName,
         correlation_id: appletheia_application::request_context::CorrelationId,
-        state: serde_json::Value,
-        completed_at: Option<DateTime<Utc>>,
-        failed_at: Option<DateTime<Utc>>,
-        last_error: Option<serde_json::Value>,
+        update: SagaInstanceUpdate,
     ) -> Result<(), SagaStoreError> {
         let transaction = uow.transaction_mut().map_err(Self::map_uow_error)?;
 
@@ -142,19 +141,18 @@ impl SagaStore for PgSagaStore {
         )
         .bind(saga_name_value)
         .bind(correlation_id_value)
-        .bind(state)
-        .bind(completed_at)
-        .bind(failed_at)
-        .bind(last_error)
+        .bind(update.state)
+        .bind(update.completed_at)
+        .bind(update.failed_at)
+        .bind(update.last_error)
         .execute(transaction.as_mut())
         .await
         .map_err(|source| SagaStoreError::Persistence(Box::new(source)))?;
 
         if updated.rows_affected() != 1 {
-            return Err(SagaStoreError::Persistence(Box::new(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                "failed to update saga instance row",
-            ))));
+            return Err(SagaStoreError::Persistence(Box::new(
+                std::io::Error::other("failed to update saga instance row"),
+            )));
         }
 
         Ok(())

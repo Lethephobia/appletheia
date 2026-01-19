@@ -1,11 +1,9 @@
-use chrono::{DateTime, Utc};
-
 use appletheia_domain::EventId;
 
 use crate::request_context::CorrelationId;
 use crate::unit_of_work::UnitOfWork;
 
-use super::{SagaInstanceRow, SagaName, SagaStoreError};
+use super::{SagaInstanceRow, SagaInstanceUpdate, SagaName, SagaStoreError};
 
 #[allow(async_fn_in_trait)]
 pub trait SagaStore {
@@ -31,10 +29,7 @@ pub trait SagaStore {
         uow: &mut Self::Uow,
         saga_name: SagaName,
         correlation_id: CorrelationId,
-        state: serde_json::Value,
-        completed_at: Option<DateTime<Utc>>,
-        failed_at: Option<DateTime<Utc>>,
-        last_error: Option<serde_json::Value>,
+        update: SagaInstanceUpdate,
     ) -> Result<(), SagaStoreError>;
 
     async fn mark_event_processed(

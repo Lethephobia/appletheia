@@ -1,5 +1,6 @@
 pub mod saga_definition;
 pub mod saga_instance_row;
+pub mod saga_instance_update;
 pub mod saga_name;
 pub mod saga_name_owned;
 pub mod saga_name_owned_error;
@@ -12,6 +13,7 @@ pub mod saga_store_error;
 
 pub use saga_definition::SagaDefinition;
 pub use saga_instance_row::SagaInstanceRow;
+pub use saga_instance_update::SagaInstanceUpdate;
 pub use saga_name::SagaName;
 pub use saga_name_owned::SagaNameOwned;
 pub use saga_name_owned_error::SagaNameOwnedError;
