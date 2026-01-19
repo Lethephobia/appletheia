@@ -1,3 +1,9 @@
+-- saga processed events
+DROP TABLE IF EXISTS saga_processed_events;
+
+-- saga instances
+DROP TABLE IF EXISTS saga_instances;
+
 -- idempotency
 DROP TABLE IF EXISTS idempotency;
 

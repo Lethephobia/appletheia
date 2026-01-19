@@ -4,6 +4,7 @@ pub mod idempotency;
 pub mod outbox;
 pub mod repository;
 pub mod request_context;
+pub mod saga;
 pub mod snapshot;
 pub mod unit_of_work;
 
@@ -12,5 +13,6 @@ pub use event::*;
 pub use idempotency::*;
 pub use repository::*;
 pub use request_context::*;
+pub use saga::*;
 pub use snapshot::*;
 pub use unit_of_work::*;

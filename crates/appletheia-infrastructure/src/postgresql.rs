@@ -1,6 +1,7 @@
 pub mod event;
 pub mod idempotency;
 pub mod outbox;
+pub mod saga;
 pub mod snapshot;
 
 pub mod migration;

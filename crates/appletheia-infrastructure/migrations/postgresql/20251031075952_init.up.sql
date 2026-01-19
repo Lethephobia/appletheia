@@ -142,6 +142,43 @@ CREATE TABLE IF NOT EXISTS command_dead_letters (
   dead_lettered_at     TIMESTAMPTZ NOT NULL
 );
 
+-- saga instances
+CREATE TABLE IF NOT EXISTS saga_instances (
+  saga_name      TEXT        NOT NULL,
+  correlation_id UUID        NOT NULL,
+  state          JSONB       NOT NULL,
+  state_version  BIGINT      NOT NULL DEFAULT 0 CHECK (state_version >= 0),
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  completed_at   TIMESTAMPTZ,
+  failed_at      TIMESTAMPTZ,
+  last_error     JSONB,
+  PRIMARY KEY (saga_name, correlation_id),
+  CONSTRAINT saga_instances_completed_failed_check CHECK (
+    NOT (completed_at IS NOT NULL AND failed_at IS NOT NULL)
+  ),
+  CONSTRAINT saga_instances_failed_error_check CHECK (
+    (failed_at IS NULL AND last_error IS NULL) OR
+    (failed_at IS NOT NULL AND last_error IS NOT NULL)
+  )
+);
+
+CREATE INDEX IF NOT EXISTS idx_saga_instances_in_progress
+  ON saga_instances (saga_name, updated_at)
+  WHERE completed_at IS NULL AND failed_at IS NULL;
+
+-- saga processed events
+CREATE TABLE IF NOT EXISTS saga_processed_events (
+  saga_name      TEXT        NOT NULL,
+  correlation_id UUID        NOT NULL,
+  event_id       UUID        NOT NULL,
+  processed_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (saga_name, correlation_id, event_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_saga_processed_events_event_id
+  ON saga_processed_events (event_id);
+
 -- idempotency
 CREATE TABLE IF NOT EXISTS idempotency (
   message_id    UUID        PRIMARY KEY,
