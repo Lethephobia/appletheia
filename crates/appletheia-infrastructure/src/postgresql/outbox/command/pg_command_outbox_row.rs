@@ -4,16 +4,15 @@ use chrono::{DateTime, Utc};
 use sqlx::FromRow;
 use uuid::Uuid;
 
-use appletheia_application::command::{CommandHash, CommandNameOwned};
+use appletheia_application::command::CommandNameOwned;
 use appletheia_application::outbox::command::CommandEnvelope;
+use appletheia_application::outbox::command::CommandPayload;
 use appletheia_application::outbox::{
     OrderingKey, OutboxAttemptCount, OutboxDispatchError, OutboxLeaseExpiresAt, OutboxLifecycle,
     OutboxNextAttemptAt, OutboxPublishedAt, OutboxRelayInstance, OutboxState,
     command::{CommandOutbox, CommandOutboxId},
 };
-use appletheia_application::request_context::{
-    CausationId, CorrelationId, MessageId, RequestContext,
-};
+use appletheia_application::request_context::{CausationId, CorrelationId, MessageId};
 
 use super::PgCommandOutboxRowError;
 
@@ -23,11 +22,9 @@ pub struct PgCommandOutboxRow {
     pub command_sequence: i64,
     pub message_id: Uuid,
     pub command_name: String,
-    pub command_hash: String,
     pub payload: serde_json::Value,
     pub correlation_id: Uuid,
     pub causation_id: Uuid,
-    pub context: serde_json::Value,
     pub ordering_key: String,
     pub published_at: Option<DateTime<Utc>>,
     pub attempt_count: i64,
@@ -42,14 +39,9 @@ impl PgCommandOutboxRow {
         let id = CommandOutboxId::try_from(self.id)?;
 
         let command_name = CommandNameOwned::from_str(&self.command_name)?;
-        let command_hash = CommandHash::new(self.command_hash)?;
-        let payload = self.payload;
+        let payload = CommandPayload::try_from(self.payload)?;
 
-        let _context = serde_json::from_value::<RequestContext>(self.context)?;
-
-        // Preserve the DB columns as the source of truth for message/correlation ids, even if
-        // context differs.
-        let _correlation_id = CorrelationId(self.correlation_id);
+        let correlation_id = CorrelationId(self.correlation_id);
         let message_id = MessageId::from(self.message_id);
         let causation_id = CausationId::from(MessageId::from(self.causation_id));
 
@@ -57,12 +49,9 @@ impl PgCommandOutboxRow {
 
         let command = CommandEnvelope {
             command_name,
-            command_hash,
             payload,
-            context: RequestContext {
-                correlation_id: _correlation_id,
-                message_id,
-            },
+            correlation_id,
+            message_id,
             causation_id,
         };
 

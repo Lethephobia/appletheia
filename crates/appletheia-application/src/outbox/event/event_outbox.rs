@@ -1,4 +1,5 @@
-use super::{AppEvent, EventOutboxId};
+use super::EventOutboxId;
+use crate::event::AppEvent;
 use crate::outbox::{OrderingKey, Outbox};
 use crate::outbox::{OutboxDispatchError, OutboxLifecycle, OutboxState};
 

@@ -85,11 +85,9 @@ impl PgCommandOutboxWriter {
                 command_sequence,
                 message_id,
                 command_name,
-                command_hash,
                 payload,
                 correlation_id,
                 causation_id,
-                context,
                 ordering_key,
                 published_at,
                 attempt_count,
@@ -109,14 +107,11 @@ impl PgCommandOutboxWriter {
 
                 let command = &outbox.command;
                 let command_sequence_value = outbox.sequence;
-                let message_id_value: Uuid = command.message_id().value();
+                let message_id_value: Uuid = command.message_id.value();
                 let command_name_value: &str = command.command_name.value();
-                let command_hash_value: &str = command.command_hash.as_str();
-                let payload_value = command.payload.clone();
-                let correlation_id_value: Uuid = command.correlation_id().0;
-                let causation_id_value: Uuid = command.causation_id().value();
-                let context_value = serde_json::to_value(&command.context)
-                    .map_err(|source| OutboxWriterError::Persistence(Box::new(source)))?;
+                let payload_value = command.payload.value().clone();
+                let correlation_id_value: Uuid = command.correlation_id.0;
+                let causation_id_value: Uuid = command.causation_id.value();
                 let ordering_key_value = outbox.ordering_key.to_string();
 
                 let published_at_value = outbox.state.published_at().map(DateTime::<Utc>::from);
@@ -141,11 +136,9 @@ impl PgCommandOutboxWriter {
                     .push_bind(command_sequence_value)
                     .push_bind(message_id_value)
                     .push_bind(command_name_value)
-                    .push_bind(command_hash_value)
                     .push_bind(payload_value)
                     .push_bind(correlation_id_value)
                     .push_bind(causation_id_value)
-                    .push_bind(context_value)
                     .push_bind(ordering_key_value)
                     .push_bind(published_at_value)
                     .push_bind(attempt_count_value)

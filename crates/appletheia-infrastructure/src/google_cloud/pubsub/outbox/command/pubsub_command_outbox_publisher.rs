@@ -23,23 +23,19 @@ impl PubsubCommandOutboxPublisher {
         attributes.insert("command_outbox_id".to_string(), outbox.id.to_string());
         attributes.insert(
             "message_id".to_string(),
-            outbox.command.message_id().to_string(),
+            outbox.command.message_id.to_string(),
         );
         attributes.insert(
             "causation_id".to_string(),
-            outbox.command.causation_id().to_string(),
+            outbox.command.causation_id.to_string(),
         );
         attributes.insert(
             "correlation_id".to_string(),
-            outbox.command.correlation_id().to_string(),
+            outbox.command.correlation_id.to_string(),
         );
         attributes.insert(
             "command_name".to_string(),
             outbox.command.command_name.to_string(),
-        );
-        attributes.insert(
-            "command_hash".to_string(),
-            outbox.command.command_hash.to_string(),
         );
 
         let data = serde_json::to_vec(&outbox.command)?;
