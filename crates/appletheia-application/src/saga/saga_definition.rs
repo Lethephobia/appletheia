@@ -1,15 +1,11 @@
-use serde::{Serialize, de::DeserializeOwned};
-
 use crate::event::AppEvent;
 
-use super::{SagaName, SagaOutcome};
+use super::{SagaName, SagaOutcome, SagaState};
 
 pub trait SagaDefinition: Send + Sync {
-    type State: Serialize + DeserializeOwned + Send + Sync;
+    type State: SagaState;
 
     const NAME: SagaName;
 
-    fn initial_state(&self, first_event: &AppEvent) -> Self::State;
-
-    fn on_event(&self, state: &mut Self::State, event: &AppEvent) -> SagaOutcome;
+    fn on_event(&self, state: &mut Option<Self::State>, event: &AppEvent) -> SagaOutcome;
 }

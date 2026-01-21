@@ -1,20 +1,37 @@
+use std::error::Error;
+
 use thiserror::Error;
 
 use appletheia_domain::{
-    Aggregate, AggregateId, AggregateVersionError, EventIdError, EventPayload,
+    AggregateVersionError, EventIdError,
+};
+use appletheia_application::event::{
+    AggregateTypeOwnedError, EventPayloadOwnedError, EventSequenceError,
 };
 
 #[derive(Debug, Error)]
-pub enum PgEventRowError<A: Aggregate> {
+pub enum PgEventRowError {
+    #[error("event sequence error: {0}")]
+    EventSequence(#[from] EventSequenceError),
+
     #[error("event id error: {0}")]
     EventId(#[from] EventIdError),
 
+    #[error("aggregate type error: {0}")]
+    AggregateType(#[from] AggregateTypeOwnedError),
+
     #[error("aggregate id error: {0}")]
-    AggregateId(#[source] <A::Id as AggregateId>::Error),
+    AggregateId(#[source] Box<dyn Error + Send + Sync>),
 
     #[error("aggregate version error: {0}")]
     AggregateVersion(#[from] AggregateVersionError),
 
     #[error("event payload error: {0}")]
-    EventPayload(#[source] <A::EventPayload as EventPayload>::Error),
+    EventPayload(#[source] Box<dyn Error + Send + Sync>),
+
+    #[error("payload error: {0}")]
+    Payload(#[from] EventPayloadOwnedError),
+
+    #[error("context deserialization error: {0}")]
+    Json(#[from] serde_json::Error),
 }

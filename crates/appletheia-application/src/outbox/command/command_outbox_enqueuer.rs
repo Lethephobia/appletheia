@@ -4,7 +4,7 @@ use crate::unit_of_work::UnitOfWork;
 use super::{CommandEnvelope, CommandOutboxEnqueueError};
 
 #[allow(async_fn_in_trait)]
-pub trait CommandOutboxEnqueuer {
+pub trait CommandOutboxEnqueuer: Send + Sync {
     type Uow: UnitOfWork;
 
     async fn enqueue_commands(

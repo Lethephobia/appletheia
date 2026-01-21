@@ -1,5 +1,5 @@
-use appletheia_application::outbox::{DefaultOutboxRelay, OutboxRelayConfig};
 use appletheia_application::outbox::event::EventOutbox;
+use appletheia_application::outbox::{DefaultOutboxRelay, OutboxRelayConfig};
 
 use crate::google_cloud::pubsub::outbox::event::PubsubEventOutboxPublisher;
 use crate::postgresql::outbox::event::{PgEventOutboxFetcher, PgEventOutboxWriter};

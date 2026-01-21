@@ -13,5 +13,6 @@ pub trait OutboxRelay: Send + Sync {
 
     async fn run_forever(&self, uow: &mut Self::Uow) -> Result<(), OutboxRelayError>;
 
-    async fn run_once(&self, uow: &mut Self::Uow) -> Result<OutboxRelayRunReport, OutboxRelayError>;
+    async fn run_once(&self, uow: &mut Self::Uow)
+    -> Result<OutboxRelayRunReport, OutboxRelayError>;
 }

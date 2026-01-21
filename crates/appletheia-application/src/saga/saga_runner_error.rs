@@ -4,7 +4,7 @@ use crate::outbox::OrderingKeyError;
 use crate::outbox::command::CommandOutboxEnqueueError;
 use crate::unit_of_work::UnitOfWorkError;
 
-use super::SagaStoreError;
+use super::{SagaProcessedEventStoreError, SagaStoreError};
 
 #[derive(Debug, Error)]
 pub enum SagaRunnerError {
@@ -13,11 +13,11 @@ pub enum SagaRunnerError {
     #[error(transparent)]
     Store(#[from] SagaStoreError),
     #[error(transparent)]
+    ProcessedEventStore(#[from] SagaProcessedEventStoreError),
+    #[error(transparent)]
     CommandOutbox(#[from] CommandOutboxEnqueueError),
     #[error(transparent)]
     OrderingKey(#[from] OrderingKeyError),
-    #[error("failed to deserialize saga state")]
-    StateDeserialize(#[source] serde_json::Error),
-    #[error("failed to serialize saga state")]
-    StateSerialize(#[source] serde_json::Error),
+    #[error("terminal outcome requires non-empty saga state")]
+    TerminalOutcomeRequiresState,
 }

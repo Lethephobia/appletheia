@@ -13,7 +13,7 @@ use sqlx::{Postgres, QueryBuilder};
 
 use crate::postgresql::unit_of_work::PgUnitOfWork;
 
-use super::PgEventRow;
+use super::{PgEventRow, PgEventRowError};
 
 pub struct PgEventWriter<A: Aggregate> {
     _aggregate: PhantomData<A>,
@@ -120,7 +120,7 @@ impl<A: Aggregate> EventWriter<A> for PgEventWriter<A> {
             let outbox_id = EventOutboxId::new().value();
             let app_event = event_row
                 .try_into_app_event()
-                .map_err(|e| EventWriterError::Persistence(Box::new(e)))?;
+                .map_err(|e: PgEventRowError| EventWriterError::Persistence(Box::new(e)))?;
             let ordering_key =
                 OrderingKey::from((&app_event.aggregate_type, &app_event.aggregate_id)).to_string();
 

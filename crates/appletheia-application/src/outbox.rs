@@ -1,6 +1,7 @@
 pub mod command;
 pub mod event;
 
+mod default_outbox_relay;
 mod ordering_key;
 mod outbox_attempt_count;
 mod outbox_attempt_count_error;
@@ -26,7 +27,6 @@ mod outbox_publish_result;
 mod outbox_published_at;
 mod outbox_publisher;
 mod outbox_publisher_error;
-mod default_outbox_relay;
 mod outbox_relay;
 mod outbox_relay_config;
 mod outbox_relay_error;
@@ -41,6 +41,7 @@ mod outbox_state;
 mod outbox_writer;
 mod outbox_writer_error;
 
+pub use default_outbox_relay::DefaultOutboxRelay;
 pub use ordering_key::{OrderingKey, OrderingKeyError};
 pub use outbox_attempt_count::OutboxAttemptCount;
 pub use outbox_attempt_count_error::OutboxAttemptCountError;
@@ -66,7 +67,6 @@ pub use outbox_publish_result::OutboxPublishResult;
 pub use outbox_published_at::OutboxPublishedAt;
 pub use outbox_publisher::OutboxPublisher;
 pub use outbox_publisher_error::OutboxPublisherError;
-pub use default_outbox_relay::DefaultOutboxRelay;
 pub use outbox_relay::OutboxRelay;
 pub use outbox_relay_config::OutboxRelayConfig;
 pub use outbox_relay_error::OutboxRelayError;

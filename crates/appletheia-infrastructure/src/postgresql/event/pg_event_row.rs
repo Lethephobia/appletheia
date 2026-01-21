@@ -12,7 +12,6 @@ use appletheia_domain::{
     Aggregate, AggregateId, AggregateVersion, Event, EventId, EventOccurredAt, EventPayload,
 };
 
-use super::pg_event_row_app_event_error::PgEventRowAppEventError;
 use super::pg_event_row_error::PgEventRowError;
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash, FromRow)]
@@ -32,13 +31,17 @@ pub struct PgEventRow {
 impl PgEventRow {
     pub fn try_into_event<A: Aggregate>(
         self,
-    ) -> Result<Event<A::Id, A::EventPayload>, PgEventRowError<A>> {
+    ) -> Result<Event<A::Id, A::EventPayload>, PgEventRowError>
+    where
+        <A::Id as AggregateId>::Error: std::error::Error + Send + Sync + 'static,
+        <A::EventPayload as EventPayload>::Error: std::error::Error + Send + Sync + 'static,
+    {
         let id = EventId::try_from(self.id)?;
-        let aggregate_id =
-            A::Id::try_from_uuid(self.aggregate_id).map_err(PgEventRowError::AggregateId)?;
+        let aggregate_id = A::Id::try_from_uuid(self.aggregate_id)
+            .map_err(|source| PgEventRowError::AggregateId(Box::new(source)))?;
         let aggregate_version = AggregateVersion::try_from(self.aggregate_version)?;
         let payload = A::EventPayload::try_from_json_value(self.payload)
-            .map_err(PgEventRowError::EventPayload)?;
+            .map_err(|source| PgEventRowError::EventPayload(Box::new(source)))?;
         Ok(Event::from_persisted(
             id,
             aggregate_id,
@@ -48,7 +51,7 @@ impl PgEventRow {
         ))
     }
 
-    pub fn try_into_app_event(self) -> Result<AppEvent, PgEventRowAppEventError> {
+    pub fn try_into_app_event(self) -> Result<AppEvent, PgEventRowError> {
         let event_sequence = EventSequence::try_from(self.event_sequence)?;
         let event_id = EventId::try_from(self.id)?;
 

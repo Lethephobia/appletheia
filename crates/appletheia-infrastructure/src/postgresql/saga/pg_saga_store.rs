@@ -1,13 +1,13 @@
-use chrono::{DateTime, Utc};
-use sqlx::FromRow;
 use uuid::Uuid;
 
 use appletheia_application::saga::{
-    SagaInstanceRow, SagaInstanceUpdate, SagaName, SagaStore, SagaStoreError,
+    SagaInstance, SagaInstanceId, SagaName, SagaNameOwned, SagaState, SagaStatus, SagaStore,
+    SagaStoreError,
 };
 use appletheia_application::unit_of_work::UnitOfWorkError;
-use appletheia_domain::EventId;
 
+use super::pg_saga_instance_row_error::PgSagaInstanceRowError;
+use crate::postgresql::saga::pg_saga_instance_row::PgSagaInstanceRow;
 use crate::postgresql::unit_of_work::PgUnitOfWork;
 
 #[derive(Debug, Default)]
@@ -26,35 +26,50 @@ impl PgSagaStore {
     }
 }
 
-#[derive(Debug, FromRow)]
-struct PgSagaInstanceRow {
-    state: serde_json::Value,
-    state_version: i64,
-    completed_at: Option<DateTime<Utc>>,
-    failed_at: Option<DateTime<Utc>>,
-    last_error: Option<serde_json::Value>,
-}
-
 impl SagaStore for PgSagaStore {
     type Uow = PgUnitOfWork;
 
-    async fn load_for_update(
+    async fn load<S: SagaState>(
         &self,
         uow: &mut Self::Uow,
         saga_name: SagaName,
         correlation_id: appletheia_application::request_context::CorrelationId,
-    ) -> Result<Option<SagaInstanceRow>, SagaStoreError> {
+    ) -> Result<SagaInstance<S>, SagaStoreError> {
         let transaction = uow.transaction_mut().map_err(Self::map_uow_error)?;
 
+        let saga_instance_id_value: Uuid = SagaInstanceId::new().value();
         let saga_name_value: &str = saga_name.value();
         let correlation_id_value: Uuid = correlation_id.0;
+
+        sqlx::query(
+            r#"
+            INSERT INTO saga_instances (
+              saga_instance_id,
+              saga_name,
+              correlation_id,
+              state
+            ) VALUES (
+              $1,
+              $2,
+              $3,
+              NULL
+            )
+            ON CONFLICT (saga_name, correlation_id) DO NOTHING
+            "#,
+        )
+        .bind(saga_instance_id_value)
+        .bind(saga_name_value)
+        .bind(correlation_id_value)
+        .execute(transaction.as_mut())
+        .await
+        .map_err(|source| SagaStoreError::Persistence(Box::new(source)))?;
 
         let row = sqlx::query_as::<_, PgSagaInstanceRow>(
             r#"
             SELECT
+              saga_instance_id,
               state,
-              state_version,
-              completed_at,
+              succeeded_at,
               failed_at,
               last_error
             FROM saga_instances
@@ -65,86 +80,76 @@ impl SagaStore for PgSagaStore {
         )
         .bind(saga_name_value)
         .bind(correlation_id_value)
-        .fetch_optional(transaction.as_mut())
+        .fetch_one(transaction.as_mut())
         .await
         .map_err(|source| SagaStoreError::Persistence(Box::new(source)))?;
 
-        Ok(row.map(|row| SagaInstanceRow {
-            state: row.state,
-            state_version: row.state_version,
-            completed_at: row.completed_at,
-            failed_at: row.failed_at,
-            last_error: row.last_error,
-        }))
+        let saga_name_owned = SagaNameOwned::from(saga_name);
+
+        row.try_into_instance::<S>(saga_name_owned, correlation_id)
+            .map_err(|error| match error {
+                PgSagaInstanceRowError::SagaInstanceId(_) => {
+                    SagaStoreError::InvalidPersistedInstance {
+                        message: "saga_instance_id must be a uuidv7",
+                    }
+                }
+                PgSagaInstanceRowError::StateDeserialize(source) => {
+                    SagaStoreError::StateDeserialize(source)
+                }
+                PgSagaInstanceRowError::InvalidPersistedInstance { message } => {
+                    SagaStoreError::InvalidPersistedInstance { message }
+                }
+            })
     }
 
-    async fn insert_instance_if_absent(
+    async fn save<S: SagaState>(
         &self,
         uow: &mut Self::Uow,
-        saga_name: SagaName,
-        correlation_id: appletheia_application::request_context::CorrelationId,
-        initial_state: serde_json::Value,
+        instance: &SagaInstance<S>,
     ) -> Result<(), SagaStoreError> {
         let transaction = uow.transaction_mut().map_err(Self::map_uow_error)?;
 
-        let saga_name_value: &str = saga_name.value();
-        let correlation_id_value: Uuid = correlation_id.0;
+        let saga_instance_id_value: Uuid = instance.saga_instance_id.value();
 
-        sqlx::query(
-            r#"
-            INSERT INTO saga_instances (
-              saga_name,
-              correlation_id,
-              state
-            ) VALUES (
-              $1,
-              $2,
-              $3
-            )
-            ON CONFLICT (saga_name, correlation_id) DO NOTHING
-            "#,
-        )
-        .bind(saga_name_value)
-        .bind(correlation_id_value)
-        .bind(initial_state)
-        .execute(transaction.as_mut())
-        .await
-        .map_err(|source| SagaStoreError::Persistence(Box::new(source)))?;
-
-        Ok(())
-    }
-
-    async fn update_instance(
-        &self,
-        uow: &mut Self::Uow,
-        saga_name: SagaName,
-        correlation_id: appletheia_application::request_context::CorrelationId,
-        update: SagaInstanceUpdate,
-    ) -> Result<(), SagaStoreError> {
-        let transaction = uow.transaction_mut().map_err(Self::map_uow_error)?;
-
-        let saga_name_value: &str = saga_name.value();
-        let correlation_id_value: Uuid = correlation_id.0;
+        let (state_json, completed, failed, last_error) = match &instance.status {
+            SagaStatus::InProgress { state } => {
+                let state_json = match state {
+                    Some(state) => {
+                        Some(serde_json::to_value(state).map_err(SagaStoreError::StateSerialize)?)
+                    }
+                    None => None,
+                };
+                (state_json, false, false, None)
+            }
+            SagaStatus::Succeeded { state } => {
+                let state_json =
+                    Some(serde_json::to_value(state).map_err(SagaStoreError::StateSerialize)?);
+                (state_json, true, false, None)
+            }
+            SagaStatus::Failed { state, error } => {
+                let state_json =
+                    Some(serde_json::to_value(state).map_err(SagaStoreError::StateSerialize)?);
+                (state_json, false, true, Some(error.clone()))
+            }
+        };
 
         let updated = sqlx::query(
             r#"
             UPDATE saga_instances
-               SET state = $3,
+               SET state = $2,
                    state_version = state_version + 1,
                    updated_at = now(),
-                   completed_at = $4,
-                   failed_at = $5,
-                   last_error = $6
-             WHERE saga_name = $1
-               AND correlation_id = $2
+                   succeeded_at = CASE WHEN $3 THEN COALESCE(succeeded_at, now()) ELSE NULL END,
+                   failed_at = CASE WHEN $4 THEN COALESCE(failed_at, now()) ELSE NULL END,
+                   last_error = CASE WHEN $4 THEN $5 ELSE NULL END
+             WHERE saga_instance_id = $1
             "#,
         )
-        .bind(saga_name_value)
-        .bind(correlation_id_value)
-        .bind(update.state)
-        .bind(update.completed_at)
-        .bind(update.failed_at)
-        .bind(update.last_error)
+        .bind(saga_instance_id_value)
+        .bind(state_json)
+        .bind(completed)
+        .bind(failed)
+        .bind(last_error)
         .execute(transaction.as_mut())
         .await
         .map_err(|source| SagaStoreError::Persistence(Box::new(source)))?;
@@ -156,42 +161,5 @@ impl SagaStore for PgSagaStore {
         }
 
         Ok(())
-    }
-
-    async fn mark_event_processed(
-        &self,
-        uow: &mut Self::Uow,
-        saga_name: SagaName,
-        correlation_id: appletheia_application::request_context::CorrelationId,
-        event_id: EventId,
-    ) -> Result<bool, SagaStoreError> {
-        let transaction = uow.transaction_mut().map_err(Self::map_uow_error)?;
-
-        let saga_name_value: &str = saga_name.value();
-        let correlation_id_value: Uuid = correlation_id.0;
-        let event_id_value: Uuid = event_id.value();
-
-        let done = sqlx::query(
-            r#"
-            INSERT INTO saga_processed_events (
-              saga_name,
-              correlation_id,
-              event_id
-            ) VALUES (
-              $1,
-              $2,
-              $3
-            )
-            ON CONFLICT (saga_name, correlation_id, event_id) DO NOTHING
-            "#,
-        )
-        .bind(saga_name_value)
-        .bind(correlation_id_value)
-        .bind(event_id_value)
-        .execute(transaction.as_mut())
-        .await
-        .map_err(|source| SagaStoreError::Persistence(Box::new(source)))?;
-
-        Ok(done.rows_affected() == 1)
     }
 }

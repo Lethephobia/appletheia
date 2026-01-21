@@ -31,5 +31,11 @@ pub fn pg_repository_with_components<A: Aggregate>(
     event_writer: PgEventWriter<A>,
     snapshot_writer: PgSnapshotWriter<A>,
 ) -> PgRepository<A> {
-    DefaultRepository::new(config, event_reader, snapshot_reader, event_writer, snapshot_writer)
+    DefaultRepository::new(
+        config,
+        event_reader,
+        snapshot_reader,
+        event_writer,
+        snapshot_writer,
+    )
 }

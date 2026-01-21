@@ -8,37 +8,33 @@ pub struct SagaCommand {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct SagaOutcome {
-    pub commands: Vec<SagaCommand>,
-    pub completion: SagaCompletion,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum SagaCompletion {
-    InProgress,
-    Completed,
-    Failed { error: serde_json::Value },
+pub enum SagaOutcome {
+    InProgress {
+        commands: Vec<SagaCommand>,
+    },
+    Succeeded {
+        commands: Vec<SagaCommand>,
+    },
+    Failed {
+        commands: Vec<SagaCommand>,
+        error: serde_json::Value,
+    },
 }
 
 impl SagaOutcome {
-    pub fn in_progress(commands: Vec<SagaCommand>) -> Self {
-        Self {
-            commands,
-            completion: SagaCompletion::InProgress,
+    pub fn commands(&self) -> &[SagaCommand] {
+        match self {
+            SagaOutcome::InProgress { commands } => commands,
+            SagaOutcome::Succeeded { commands } => commands,
+            SagaOutcome::Failed { commands, .. } => commands,
         }
     }
 
-    pub fn completed(commands: Vec<SagaCommand>) -> Self {
-        Self {
-            commands,
-            completion: SagaCompletion::Completed,
-        }
-    }
-
-    pub fn failed(commands: Vec<SagaCommand>, error: serde_json::Value) -> Self {
-        Self {
-            commands,
-            completion: SagaCompletion::Failed { error },
+    pub fn into_commands(self) -> Vec<SagaCommand> {
+        match self {
+            SagaOutcome::InProgress { commands } => commands,
+            SagaOutcome::Succeeded { commands } => commands,
+            SagaOutcome::Failed { commands, .. } => commands,
         }
     }
 }

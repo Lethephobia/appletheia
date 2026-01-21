@@ -96,7 +96,7 @@ impl<A: Aggregate> EventReader<A> for PgEventReader<A> {
         let events = event_rows
             .into_iter()
             .map(|row| row.try_into_event::<A>())
-            .collect::<Result<Vec<Event<A::Id, A::EventPayload>>, PgEventRowError<A>>>()
+            .collect::<Result<Vec<Event<A::Id, A::EventPayload>>, PgEventRowError>>()
             .map_err(|e| EventReaderError::MappingFailed(Box::new(e)))?;
 
         Ok(events)

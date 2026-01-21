@@ -1,42 +1,22 @@
-use appletheia_domain::EventId;
-
 use crate::request_context::CorrelationId;
 use crate::unit_of_work::UnitOfWork;
 
-use super::{SagaInstanceRow, SagaInstanceUpdate, SagaName, SagaStoreError};
+use super::{SagaInstance, SagaName, SagaState, SagaStoreError};
 
 #[allow(async_fn_in_trait)]
-pub trait SagaStore {
+pub trait SagaStore: Send + Sync {
     type Uow: UnitOfWork;
 
-    async fn load_for_update(
+    async fn load<S: SagaState>(
         &self,
         uow: &mut Self::Uow,
         saga_name: SagaName,
         correlation_id: CorrelationId,
-    ) -> Result<Option<SagaInstanceRow>, SagaStoreError>;
+    ) -> Result<SagaInstance<S>, SagaStoreError>;
 
-    async fn insert_instance_if_absent(
+    async fn save<S: SagaState>(
         &self,
         uow: &mut Self::Uow,
-        saga_name: SagaName,
-        correlation_id: CorrelationId,
-        initial_state: serde_json::Value,
+        instance: &SagaInstance<S>,
     ) -> Result<(), SagaStoreError>;
-
-    async fn update_instance(
-        &self,
-        uow: &mut Self::Uow,
-        saga_name: SagaName,
-        correlation_id: CorrelationId,
-        update: SagaInstanceUpdate,
-    ) -> Result<(), SagaStoreError>;
-
-    async fn mark_event_processed(
-        &self,
-        uow: &mut Self::Uow,
-        saga_name: SagaName,
-        correlation_id: CorrelationId,
-        event_id: EventId,
-    ) -> Result<bool, SagaStoreError>;
 }
