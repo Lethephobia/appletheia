@@ -4,7 +4,7 @@ use crate::unit_of_work::UnitOfWork;
 use super::Outbox;
 
 #[allow(async_fn_in_trait)]
-pub trait OutboxFetcher {
+pub trait OutboxFetcher: Send + Sync {
     type Uow: UnitOfWork;
     type Outbox: Outbox;
 

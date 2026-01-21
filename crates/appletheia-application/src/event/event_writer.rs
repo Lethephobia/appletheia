@@ -6,7 +6,7 @@ use crate::unit_of_work::UnitOfWork;
 use super::event_writer_error::EventWriterError;
 
 #[allow(async_fn_in_trait)]
-pub trait EventWriter<A: Aggregate> {
+pub trait EventWriter<A: Aggregate>: Send + Sync {
     type Uow: UnitOfWork;
 
     async fn write_events_and_outbox(
