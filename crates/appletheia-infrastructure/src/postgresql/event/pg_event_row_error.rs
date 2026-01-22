@@ -2,12 +2,10 @@ use std::error::Error;
 
 use thiserror::Error;
 
-use appletheia_domain::{
-    AggregateVersionError, EventIdError,
-};
 use appletheia_application::event::{
     AggregateTypeOwnedError, EventPayloadOwnedError, EventSequenceError,
 };
+use appletheia_domain::{AggregateVersionError, EventIdError};
 
 #[derive(Debug, Error)]
 pub enum PgEventRowError {

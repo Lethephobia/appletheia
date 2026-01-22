@@ -26,7 +26,12 @@ impl PgSagaInstanceRow {
     ) -> Result<SagaInstance<S>, PgSagaInstanceRowError> {
         let saga_instance_id = SagaInstanceId::try_from(self.saga_instance_id)?;
 
-        let status = match (self.succeeded_at, self.failed_at, self.state, self.last_error) {
+        let status = match (
+            self.succeeded_at,
+            self.failed_at,
+            self.state,
+            self.last_error,
+        ) {
             (Some(_), None, Some(state_json), _) => {
                 let state: S = serde_json::from_value(state_json)?;
                 SagaStatus::Succeeded { state }

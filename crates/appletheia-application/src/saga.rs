@@ -1,5 +1,5 @@
-pub mod saga_definition;
 pub mod default_saga_runner;
+pub mod saga_definition;
 pub mod saga_instance;
 pub mod saga_instance_id;
 pub mod saga_instance_id_error;
@@ -16,8 +16,8 @@ pub mod saga_state;
 pub mod saga_store;
 pub mod saga_store_error;
 
-pub use saga_definition::SagaDefinition;
 pub use default_saga_runner::DefaultSagaRunner;
+pub use saga_definition::SagaDefinition;
 pub use saga_instance::{SagaInstance, SagaStatus};
 pub use saga_instance_id::SagaInstanceId;
 pub use saga_instance_id_error::SagaInstanceIdError;

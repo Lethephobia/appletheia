@@ -14,4 +14,3 @@ pub trait SagaRunner: Send + Sync {
         event: &AppEvent,
     ) -> Result<SagaRunReport, SagaRunnerError>;
 }
-

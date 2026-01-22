@@ -6,4 +6,3 @@ pub enum SagaInstanceIdError {
     #[error("not a uuidv7: {0}")]
     NotUuidV7(Uuid),
 }
-

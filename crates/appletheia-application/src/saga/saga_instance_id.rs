@@ -90,4 +90,3 @@ mod tests {
         assert_eq!(saga_instance_id.to_string(), uuid.to_string());
     }
 }
-

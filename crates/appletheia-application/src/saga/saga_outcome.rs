@@ -12,29 +12,22 @@ pub enum SagaOutcome {
     InProgress {
         commands: Vec<SagaCommand>,
     },
-    Succeeded {
-        commands: Vec<SagaCommand>,
-    },
-    Failed {
-        commands: Vec<SagaCommand>,
-        error: serde_json::Value,
-    },
+    Succeeded,
+    Failed { error: serde_json::Value },
 }
 
 impl SagaOutcome {
     pub fn commands(&self) -> &[SagaCommand] {
         match self {
             SagaOutcome::InProgress { commands } => commands,
-            SagaOutcome::Succeeded { commands } => commands,
-            SagaOutcome::Failed { commands, .. } => commands,
+            SagaOutcome::Succeeded | SagaOutcome::Failed { .. } => &[],
         }
     }
 
     pub fn into_commands(self) -> Vec<SagaCommand> {
         match self {
             SagaOutcome::InProgress { commands } => commands,
-            SagaOutcome::Succeeded { commands } => commands,
-            SagaOutcome::Failed { commands, .. } => commands,
+            SagaOutcome::Succeeded | SagaOutcome::Failed { .. } => Vec::new(),
         }
     }
 }

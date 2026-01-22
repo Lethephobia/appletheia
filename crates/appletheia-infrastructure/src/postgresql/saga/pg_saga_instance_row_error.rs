@@ -13,4 +13,3 @@ pub(super) enum PgSagaInstanceRowError {
     #[error("invalid persisted saga instance: {message}")]
     InvalidPersistedInstance { message: &'static str },
 }
-
