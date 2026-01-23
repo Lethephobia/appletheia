@@ -194,8 +194,7 @@ where
             SnapshotPolicy::Disabled => {}
             SnapshotPolicy::AtLeast { minimum_interval } => {
                 let aggregate_id = aggregate.aggregate_id().ok_or_else(|| {
-                    let err: AggregateError<A::Id> = AggregateError::NoState;
-                    RepositoryError::Aggregate(err.into())
+                    RepositoryError::Aggregate(AggregateError::<A::Id>::NoState.into())
                 })?;
 
                 let current_version = aggregate.version().as_u64();

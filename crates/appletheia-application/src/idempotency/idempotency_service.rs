@@ -7,12 +7,13 @@ use crate::unit_of_work::UnitOfWork;
 #[allow(async_fn_in_trait)]
 pub trait IdempotencyService: Send + Sync {
     type Uow: UnitOfWork;
+    type CommandName: CommandName;
 
     async fn begin(
         &self,
         uow: &mut Self::Uow,
         message_id: MessageId,
-        command_name: CommandName,
+        command_name: Self::CommandName,
         command_hash: &CommandHash,
     ) -> Result<IdempotencyBeginResult, IdempotencyError>;
 

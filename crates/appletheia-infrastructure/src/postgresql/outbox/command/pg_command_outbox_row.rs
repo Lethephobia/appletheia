@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 use sqlx::FromRow;
 use uuid::Uuid;
 
-use appletheia_application::command::CommandNameOwned;
+use appletheia_application::command::CommandName;
 use appletheia_application::outbox::command::CommandEnvelope;
 use appletheia_application::outbox::command::CommandPayload;
 use appletheia_application::outbox::{
@@ -35,10 +35,15 @@ pub struct PgCommandOutboxRow {
 }
 
 impl PgCommandOutboxRow {
-    pub fn try_into_outbox(self) -> Result<CommandOutbox, PgCommandOutboxRowError> {
+    pub fn try_into_outbox<CN: CommandName>(
+        self,
+    ) -> Result<CommandOutbox<CN>, PgCommandOutboxRowError> {
         let id = CommandOutboxId::try_from(self.id)?;
 
-        let command_name = CommandNameOwned::from_str(&self.command_name)?;
+        let command_name_string = self.command_name;
+        let command_name = command_name_string
+            .parse::<CN>()
+            .map_err(|_| PgCommandOutboxRowError::CommandName(command_name_string.clone()))?;
         let payload = CommandPayload::try_from(self.payload)?;
 
         let correlation_id = CorrelationId(self.correlation_id);

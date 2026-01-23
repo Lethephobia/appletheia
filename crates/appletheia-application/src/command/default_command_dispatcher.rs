@@ -41,6 +41,7 @@ where
     IS: IdempotencyService,
 {
     type Uow = IS::Uow;
+    type CommandName = IS::CommandName;
 
     async fn dispatch<H>(
         &self,
@@ -51,11 +52,11 @@ where
     ) -> Result<H::Output, CommandDispatchError<H::Error>>
     where
         H: CommandHandler<Uow = Self::Uow>,
+        H::Command: Command<Name = Self::CommandName>,
     {
-        let command_name = H::Command::COMMAND_NAME;
+        let command_name = H::Command::NAME;
         let command_hash = {
-            let command_json = serde_json::to_value(&command)?;
-            self.command_hasher.command_hash(command_json)
+            self.command_hasher.command_hash(&command)?
         };
         let message_id = request_context.message_id;
 
@@ -84,7 +85,7 @@ where
             },
             IdempotencyBeginResult::Existing { state } => match state {
                 IdempotencyState::Succeeded { output } => {
-                    let decoded: H::Output = serde_json::from_value(output.into())?;
+                    let decoded = serde_json::from_value(output.into())?;
                     uow.commit().await?;
                     return Ok(decoded);
                 }

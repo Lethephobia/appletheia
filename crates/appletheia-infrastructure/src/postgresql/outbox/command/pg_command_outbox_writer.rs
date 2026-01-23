@@ -1,7 +1,9 @@
+use std::marker::PhantomData;
+
 use chrono::{DateTime, Utc};
 use sqlx::{Postgres, QueryBuilder};
-use uuid::Uuid;
 
+use appletheia_application::command::CommandName;
 use appletheia_application::outbox::{
     OutboxDispatchError, OutboxLifecycle, OutboxWriter, OutboxWriterError, command::CommandOutbox,
 };
@@ -9,15 +11,19 @@ use appletheia_application::unit_of_work::UnitOfWorkError;
 
 use crate::postgresql::unit_of_work::PgUnitOfWork;
 
-pub struct PgCommandOutboxWriter;
+pub struct PgCommandOutboxWriter<CN> {
+    _marker: PhantomData<CN>,
+}
 
-impl PgCommandOutboxWriter {
+impl<CN: CommandName> PgCommandOutboxWriter<CN> {
     pub fn new() -> Self {
-        Self
+        Self {
+            _marker: PhantomData,
+        }
     }
 
     fn serialize_last_error(
-        outbox: &CommandOutbox,
+        outbox: &CommandOutbox<CN>,
     ) -> Result<Option<serde_json::Value>, OutboxWriterError> {
         match &outbox.last_error {
             Some(error) => {
@@ -31,9 +37,9 @@ impl PgCommandOutboxWriter {
 
     async fn update_outbox_row(
         uow: &mut PgUnitOfWork,
-        outbox: &CommandOutbox,
+        outbox: &CommandOutbox<CN>,
     ) -> Result<(), OutboxWriterError> {
-        let outbox_id: Uuid = outbox.id.value();
+        let outbox_id = outbox.id.value();
 
         let published_at_value = outbox.state.published_at().map(DateTime::<Utc>::from);
         let attempt_count_value = outbox.state.attempt_count().value();
@@ -76,7 +82,7 @@ impl PgCommandOutboxWriter {
 
     async fn insert_dead_letters(
         uow: &mut PgUnitOfWork,
-        dead_lettered_outboxes: &[&CommandOutbox],
+        dead_lettered_outboxes: &[&CommandOutbox<CN>],
     ) -> Result<(), OutboxWriterError> {
         let mut query_builder = QueryBuilder::<Postgres>::new(
             r#"
@@ -103,15 +109,15 @@ impl PgCommandOutboxWriter {
         {
             let mut separated = query_builder.separated(", ");
             for outbox in dead_lettered_outboxes {
-                let outbox_id: Uuid = outbox.id.value();
+                let outbox_id = outbox.id.value();
 
                 let command = &outbox.command;
                 let command_sequence_value = outbox.sequence;
-                let message_id_value: Uuid = command.message_id.value();
-                let command_name_value: &str = command.command_name.value();
+                let message_id_value = command.message_id.value();
+                let command_name_value = command.command_name.to_string();
                 let payload_value = command.payload.value().clone();
-                let correlation_id_value: Uuid = command.correlation_id.0;
-                let causation_id_value: Uuid = command.causation_id.value();
+                let correlation_id_value = command.correlation_id.0;
+                let causation_id_value = command.causation_id.value();
                 let ordering_key_value = outbox.ordering_key.to_string();
 
                 let published_at_value = outbox.state.published_at().map(DateTime::<Utc>::from);
@@ -167,7 +173,7 @@ impl PgCommandOutboxWriter {
 
     async fn delete_outboxes(
         uow: &mut PgUnitOfWork,
-        dead_lettered_outboxes: &[&CommandOutbox],
+        dead_lettered_outboxes: &[&CommandOutbox<CN>],
     ) -> Result<(), OutboxWriterError> {
         let mut query_builder =
             QueryBuilder::<Postgres>::new("DELETE FROM command_outbox WHERE id IN (");
@@ -175,7 +181,7 @@ impl PgCommandOutboxWriter {
         {
             let mut separated = query_builder.separated(", ");
             for outbox in dead_lettered_outboxes {
-                let outbox_id: Uuid = outbox.id.value();
+                let outbox_id = outbox.id.value();
                 separated.push_bind(outbox_id);
             }
         }
@@ -197,26 +203,26 @@ impl PgCommandOutboxWriter {
     }
 }
 
-impl Default for PgCommandOutboxWriter {
+impl<CN: CommandName> Default for PgCommandOutboxWriter<CN> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl OutboxWriter for PgCommandOutboxWriter {
+impl<CN: CommandName> OutboxWriter for PgCommandOutboxWriter<CN> {
     type Uow = PgUnitOfWork;
-    type Outbox = CommandOutbox;
+    type Outbox = CommandOutbox<CN>;
 
     async fn write_outbox(
         &self,
         uow: &mut Self::Uow,
-        outboxes: &[CommandOutbox],
+        outboxes: &[CommandOutbox<CN>],
     ) -> Result<(), OutboxWriterError> {
         if outboxes.is_empty() {
             return Ok(());
         }
 
-        let mut dead_lettered_outboxes = Vec::new();
+        let mut dead_lettered_outboxes: Vec<&CommandOutbox<CN>> = Vec::new();
         for outbox in outboxes {
             if matches!(outbox.lifecycle, OutboxLifecycle::DeadLettered { .. }) {
                 dead_lettered_outboxes.push(outbox);

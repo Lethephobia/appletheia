@@ -52,7 +52,7 @@ impl<A: Aggregate> SnapshotWriter<A> for PgSnapshotWriter<A> {
             "#,
         )
         .bind(snapshot_id)
-        .bind(A::AGGREGATE_TYPE.value())
+        .bind(A::AGGREGATE_TYPE.to_string())
         .bind(aggregate_id)
         .bind(aggregate_version)
         .bind(state)

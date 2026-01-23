@@ -1,7 +1,6 @@
 pub mod aggregate_id_owned;
 pub mod aggregate_id_owned_error;
 pub mod aggregate_type_owned;
-pub mod aggregate_type_owned_error;
 pub mod app_event;
 pub mod event_payload_owned;
 pub mod event_payload_owned_error;
@@ -17,7 +16,6 @@ pub mod event_writer_error;
 pub use aggregate_id_owned::AggregateIdOwned;
 pub use aggregate_id_owned_error::AggregateIdOwnedError;
 pub use aggregate_type_owned::AggregateTypeOwned;
-pub use aggregate_type_owned_error::AggregateTypeOwnedError;
 pub use app_event::AppEvent;
 pub use event_payload_owned::EventPayloadOwned;
 pub use event_payload_owned_error::EventPayloadOwnedError;

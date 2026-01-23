@@ -1,6 +1,9 @@
+use std::marker::PhantomData;
+
 use sqlx::{Postgres, QueryBuilder};
 use uuid::Uuid;
 
+use appletheia_application::command::CommandName;
 use appletheia_application::outbox::OrderingKey;
 use appletheia_application::outbox::command::{
     CommandEnvelope, CommandOutboxEnqueueError, CommandOutboxEnqueuer,
@@ -9,11 +12,15 @@ use appletheia_application::unit_of_work::UnitOfWorkError;
 
 use crate::postgresql::unit_of_work::PgUnitOfWork;
 
-pub struct PgCommandOutboxEnqueuer;
+pub struct PgCommandOutboxEnqueuer<CN> {
+    _marker: PhantomData<CN>,
+}
 
-impl PgCommandOutboxEnqueuer {
+impl<CN> PgCommandOutboxEnqueuer<CN> {
     pub fn new() -> Self {
-        Self
+        Self {
+            _marker: PhantomData,
+        }
     }
 
     fn map_uow_error(error: UnitOfWorkError) -> CommandOutboxEnqueueError {
@@ -24,20 +31,21 @@ impl PgCommandOutboxEnqueuer {
     }
 }
 
-impl Default for PgCommandOutboxEnqueuer {
+impl<CN> Default for PgCommandOutboxEnqueuer<CN> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl CommandOutboxEnqueuer for PgCommandOutboxEnqueuer {
+impl<CN: CommandName> CommandOutboxEnqueuer for PgCommandOutboxEnqueuer<CN> {
     type Uow = PgUnitOfWork;
+    type CommandName = CN;
 
     async fn enqueue_commands(
         &self,
         uow: &mut Self::Uow,
         ordering_key: &OrderingKey,
-        commands: &[CommandEnvelope],
+        commands: &[CommandEnvelope<CN>],
     ) -> Result<(), CommandOutboxEnqueueError> {
         if commands.is_empty() {
             return Ok(());
@@ -65,11 +73,11 @@ impl CommandOutboxEnqueuer for PgCommandOutboxEnqueuer {
             let mut separated = query_builder.separated(", ");
             for command in commands {
                 let id_value = Uuid::now_v7();
-                let message_id_value: Uuid = command.message_id.value();
-                let command_name_value: &str = command.command_name.value();
+                let message_id_value = command.message_id.value();
+                let command_name_value = command.command_name.to_string();
                 let payload_value = command.payload.value().clone();
-                let correlation_id_value: Uuid = command.correlation_id.0;
-                let causation_id_value: Uuid = command.causation_id.value();
+                let correlation_id_value = command.correlation_id.0;
+                let causation_id_value = command.causation_id.value();
 
                 separated
                     .push("(")

@@ -1,5 +1,7 @@
 use std::collections::HashMap;
+use std::marker::PhantomData;
 
+use appletheia_application::command::CommandName;
 use appletheia_application::outbox::{
     Outbox, OutboxDispatchError, OutboxPublishResult, OutboxPublisher, OutboxPublisherError,
     command::{CommandOutbox, CommandOutboxId},
@@ -8,16 +10,20 @@ use google_cloud_googleapis::pubsub::v1::PubsubMessage;
 use google_cloud_pubsub::publisher::Publisher;
 use tonic::Code;
 
-pub struct PubsubCommandOutboxPublisher {
+pub struct PubsubCommandOutboxPublisher<CN> {
     publisher: Publisher,
+    _marker: PhantomData<CN>,
 }
 
-impl PubsubCommandOutboxPublisher {
+impl<CN: CommandName> PubsubCommandOutboxPublisher<CN> {
     pub fn new(publisher: Publisher) -> Self {
-        Self { publisher }
+        Self {
+            publisher,
+            _marker: PhantomData,
+        }
     }
 
-    fn build_message(outbox: &CommandOutbox) -> Result<PubsubMessage, OutboxPublisherError> {
+    fn build_message(outbox: &CommandOutbox<CN>) -> Result<PubsubMessage, OutboxPublisherError> {
         let mut attributes = HashMap::new();
 
         attributes.insert("command_outbox_id".to_string(), outbox.id.to_string());
@@ -52,12 +58,12 @@ impl PubsubCommandOutboxPublisher {
     }
 }
 
-impl OutboxPublisher for PubsubCommandOutboxPublisher {
-    type Outbox = CommandOutbox;
+impl<CN: CommandName> OutboxPublisher for PubsubCommandOutboxPublisher<CN> {
+    type Outbox = CommandOutbox<CN>;
 
     async fn publish_outbox(
         &self,
-        outboxes: &[CommandOutbox],
+        outboxes: &[CommandOutbox<CN>],
     ) -> Result<Vec<OutboxPublishResult<CommandOutboxId>>, OutboxPublisherError> {
         if outboxes.is_empty() {
             return Ok(Vec::new());

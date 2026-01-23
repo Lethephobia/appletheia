@@ -2,9 +2,7 @@ use std::error::Error;
 
 use thiserror::Error;
 
-use appletheia_application::event::{
-    AggregateTypeOwnedError, EventPayloadOwnedError, EventSequenceError,
-};
+use appletheia_application::event::{EventPayloadOwnedError, EventSequenceError};
 use appletheia_domain::{AggregateVersionError, EventIdError};
 
 #[derive(Debug, Error)]
@@ -16,7 +14,7 @@ pub enum PgEventRowError {
     EventId(#[from] EventIdError),
 
     #[error("aggregate type error: {0}")]
-    AggregateType(#[from] AggregateTypeOwnedError),
+    AggregateType(String),
 
     #[error("aggregate id error: {0}")]
     AggregateId(#[source] Box<dyn Error + Send + Sync>),

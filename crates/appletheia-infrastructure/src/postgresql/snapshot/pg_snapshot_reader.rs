@@ -42,7 +42,7 @@ impl<A: Aggregate> SnapshotReader<A> for PgSnapshotReader<A> {
             FROM snapshots WHERE aggregate_type = "#,
         );
         query
-            .push_bind(A::AGGREGATE_TYPE.value())
+            .push_bind(A::AGGREGATE_TYPE.to_string())
             .push(" AND aggregate_id = ")
             .push_bind(aggregate_id.value());
 

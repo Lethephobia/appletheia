@@ -69,7 +69,7 @@ impl<A: Aggregate> EventWriter<A> for PgEventWriter<A> {
 
             sep.push("(")
                 .push_bind(id)
-                .push_bind(A::AGGREGATE_TYPE.value())
+                .push_bind(A::AGGREGATE_TYPE.to_string())
                 .push_bind(aggregate_id)
                 .push_bind(version)
                 .push_bind(payload)
@@ -119,7 +119,7 @@ impl<A: Aggregate> EventWriter<A> for PgEventWriter<A> {
         for event_row in event_rows {
             let outbox_id = EventOutboxId::new().value();
             let app_event = event_row
-                .try_into_app_event()
+                .try_into_app_event::<A::AggregateType>()
                 .map_err(|e: PgEventRowError| EventWriterError::Persistence(Box::new(e)))?;
             let ordering_key =
                 OrderingKey::from((&app_event.aggregate_type, &app_event.aggregate_id)).to_string();
@@ -128,7 +128,7 @@ impl<A: Aggregate> EventWriter<A> for PgEventWriter<A> {
                 .push_bind(outbox_id)
                 .push_bind(app_event.event_sequence.value())
                 .push_bind(app_event.event_id.value())
-                .push_bind(app_event.aggregate_type.value().to_owned())
+                .push_bind(app_event.aggregate_type.to_string())
                 .push_bind(app_event.aggregate_id.value())
                 .push_bind(app_event.aggregate_version.value())
                 .push_bind(ordering_key)

@@ -1,6 +1,5 @@
 use thiserror::Error;
 
-use appletheia_application::command::CommandNameOwnedError;
 use appletheia_application::outbox::command::CommandPayloadError;
 use appletheia_application::outbox::{
     OrderingKeyError, OutboxAttemptCountError, OutboxRelayInstanceError,
@@ -13,7 +12,7 @@ pub enum PgCommandOutboxRowError {
     OutboxId(#[from] CommandOutboxIdError),
 
     #[error("command name error: {0}")]
-    CommandName(#[from] CommandNameOwnedError),
+    CommandName(String),
 
     #[error("payload error: {0}")]
     Payload(#[from] CommandPayloadError),

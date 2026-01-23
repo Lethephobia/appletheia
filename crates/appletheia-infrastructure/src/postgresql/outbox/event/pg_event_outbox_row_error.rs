@@ -1,8 +1,6 @@
 use thiserror::Error;
 
-use appletheia_application::event::{
-    AggregateTypeOwnedError, EventPayloadOwnedError, EventSequenceError,
-};
+use appletheia_application::event::{EventPayloadOwnedError, EventSequenceError};
 use appletheia_application::outbox::{
     OrderingKeyError, OutboxAttemptCountError, OutboxRelayInstanceError, event::EventOutboxIdError,
 };
@@ -21,7 +19,7 @@ pub enum PgEventOutboxRowError {
     EventId(#[from] EventIdError),
 
     #[error("aggregate type error: {0}")]
-    AggregateType(#[from] AggregateTypeOwnedError),
+    AggregateType(String),
 
     #[error("aggregate version error: {0}")]
     AggregateVersion(#[from] AggregateVersionError),

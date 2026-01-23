@@ -2,7 +2,7 @@ use std::fmt::Write;
 
 use sha2::{Digest, Sha256};
 
-use crate::command::{CommandHash, CommandHasher};
+use crate::command::{Command, CommandHash, CommandHasher, CommandHasherError};
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct DefaultCommandHasher;
@@ -44,13 +44,14 @@ impl DefaultCommandHasher {
 }
 
 impl CommandHasher for DefaultCommandHasher {
-    fn command_hash(&self, value: serde_json::Value) -> CommandHash {
+    fn command_hash<C: Command>(&self, command: &C) -> Result<CommandHash, CommandHasherError> {
+        let value = serde_json::to_value(command)?;
         let canonical = Self::canonicalize_json(value);
-        let json = serde_json::to_string(&canonical).unwrap_or_default();
+        let json = serde_json::to_string(&canonical)?;
 
         let mut hasher = Sha256::new();
         hasher.update(json.as_bytes());
         let hash = Self::to_lower_hex(&hasher.finalize());
-        CommandHash::new(hash).expect("DefaultCommandHasher must generate valid sha256 lower hex")
+        Ok(CommandHash::new(hash)?)
     }
 }

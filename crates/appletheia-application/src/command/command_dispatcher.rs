@@ -1,3 +1,4 @@
+use crate::command::{Command, CommandName};
 use crate::command::{CommandDispatchError, CommandHandler};
 use crate::request_context::RequestContext;
 use crate::unit_of_work::UnitOfWork;
@@ -5,6 +6,7 @@ use crate::unit_of_work::UnitOfWork;
 #[allow(async_fn_in_trait)]
 pub trait CommandDispatcher: Send + Sync {
     type Uow: UnitOfWork;
+    type CommandName: CommandName;
 
     async fn dispatch<H>(
         &self,
@@ -14,5 +16,6 @@ pub trait CommandDispatcher: Send + Sync {
         command: H::Command,
     ) -> Result<H::Output, CommandDispatchError<H::Error>>
     where
-        H: CommandHandler<Uow = Self::Uow>;
+        H: CommandHandler<Uow = Self::Uow>,
+        H::Command: Command<Name = Self::CommandName>;
 }

@@ -2,14 +2,13 @@ use chrono::{DateTime, Utc};
 use sqlx::FromRow;
 use uuid::Uuid;
 
-use appletheia_application::event::{
-    AggregateIdOwned, AggregateTypeOwned, AppEvent, EventPayloadOwned, EventSequence,
-};
+use appletheia_application::event::{AggregateIdOwned, AppEvent, EventPayloadOwned, EventSequence};
 use appletheia_application::request_context::{
     CausationId, CorrelationId, MessageId, RequestContext,
 };
 use appletheia_domain::{
-    Aggregate, AggregateId, AggregateVersion, Event, EventId, EventOccurredAt, EventPayload,
+    Aggregate, AggregateId, AggregateType, AggregateVersion, Event, EventId, EventOccurredAt,
+    EventPayload,
 };
 
 use super::pg_event_row_error::PgEventRowError;
@@ -51,11 +50,14 @@ impl PgEventRow {
         ))
     }
 
-    pub fn try_into_app_event(self) -> Result<AppEvent, PgEventRowError> {
+    pub fn try_into_app_event<AT: AggregateType>(self) -> Result<AppEvent<AT>, PgEventRowError> {
         let event_sequence = EventSequence::try_from(self.event_sequence)?;
         let event_id = EventId::try_from(self.id)?;
 
-        let aggregate_type = AggregateTypeOwned::try_from(self.aggregate_type)?;
+        let aggregate_type_string = self.aggregate_type;
+        let aggregate_type = aggregate_type_string
+            .parse::<AT>()
+            .map_err(|_| PgEventRowError::AggregateType(aggregate_type_string.clone()))?;
         let aggregate_id = AggregateIdOwned::from(self.aggregate_id);
         let aggregate_version = AggregateVersion::try_from(self.aggregate_version)?;
 

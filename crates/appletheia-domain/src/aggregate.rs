@@ -45,8 +45,9 @@ pub trait Aggregate:
     type State: AggregateState<Id = Self::Id>;
     type EventPayload: EventPayload;
     type Error: Error + From<AggregateError<Self::Id>> + Send + Sync + 'static;
+    type AggregateType: AggregateType;
 
-    const AGGREGATE_TYPE: AggregateType;
+    const AGGREGATE_TYPE: Self::AggregateType;
 
     fn aggregate_id(&self) -> Option<Self::Id> {
         self.state().map(|state| state.id())
@@ -146,7 +147,7 @@ pub trait Aggregate:
 mod tests {
     use super::*;
 
-    use std::{fmt, fmt::Display};
+    use std::{fmt, fmt::Display, str::FromStr};
 
     use serde::{Deserialize, Serialize};
     use thiserror::Error;
@@ -391,13 +392,44 @@ mod tests {
         }
     }
 
+    #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
+    enum CounterType {
+        Counter,
+    }
+
+    #[derive(Debug, Error)]
+    #[error("unknown aggregate type: {0}")]
+    struct CounterTypeParseError(String);
+
+    impl fmt::Display for CounterType {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            match self {
+                CounterType::Counter => f.write_str("counter"),
+            }
+        }
+    }
+
+    impl FromStr for CounterType {
+        type Err = CounterTypeParseError;
+
+        fn from_str(s: &str) -> Result<Self, Self::Err> {
+            match s {
+                "counter" => Ok(CounterType::Counter),
+                other => Err(CounterTypeParseError(other.to_owned())),
+            }
+        }
+    }
+
+    impl AggregateType for CounterType {}
+
     impl Aggregate for Counter {
         type Id = CounterId;
         type State = CounterState;
         type EventPayload = CounterEventPayload;
         type Error = CounterError;
+        type AggregateType = CounterType;
 
-        const AGGREGATE_TYPE: AggregateType = AggregateType::new("counter");
+        const AGGREGATE_TYPE: Self::AggregateType = CounterType::Counter;
     }
 
     #[test]

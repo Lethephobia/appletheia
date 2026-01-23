@@ -8,9 +8,8 @@ use tokio::time::sleep;
 use crate::unit_of_work::{UnitOfWork, UnitOfWorkError};
 
 use super::{
-    Outbox, OutboxFetcher, OutboxLeaseDuration, OutboxPublishResult, OutboxPublisher, OutboxRelay,
-    OutboxRelayConfig, OutboxRelayError, OutboxRelayInstance, OutboxRelayRunReport,
-    OutboxRetryOptions, OutboxState, OutboxWriter,
+    Outbox, OutboxFetcher, OutboxPublishResult, OutboxPublisher, OutboxRelay, OutboxRelayConfig,
+    OutboxRelayError, OutboxRelayRunReport, OutboxState, OutboxWriter,
 };
 
 pub struct DefaultOutboxRelay<Uow, O, F, W, P>
@@ -109,14 +108,14 @@ where
             return Err(UnitOfWorkError::AlreadyInTransaction.into());
         }
 
-        let relay_instance: &OutboxRelayInstance = &self.config.instance;
-        let lease_duration: OutboxLeaseDuration = self.config.lease_duration;
+        let relay_instance = &self.config.instance;
+        let lease_duration = self.config.lease_duration;
         let batch_size = self.config.batch_size;
-        let retry_options: OutboxRetryOptions = self.config.retry_options;
+        let retry_options = self.config.retry_options;
 
         uow.begin().await?;
 
-        let operation_result: Result<Vec<Self::Outbox>, OutboxRelayError> = async {
+        let operation_result = async {
             let mut outboxes = self.fetcher.fetch(uow, batch_size).await?;
 
             if outboxes.is_empty() {
@@ -138,7 +137,7 @@ where
         }
         .await;
 
-        let mut outboxes: Vec<Self::Outbox> = match operation_result {
+        let mut outboxes = match operation_result {
             Ok(value) => {
                 uow.commit().await?;
                 value
@@ -171,7 +170,7 @@ where
 
         uow.begin().await?;
 
-        let operation_result: Result<(), OutboxRelayError> = async {
+        let operation_result = async {
             self.writer.write_outbox(uow, &outboxes).await?;
             Ok(())
         }

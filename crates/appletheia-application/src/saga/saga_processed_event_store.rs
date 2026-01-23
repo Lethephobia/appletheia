@@ -8,11 +8,12 @@ use super::{SagaName, SagaProcessedEventStoreError};
 #[allow(async_fn_in_trait)]
 pub trait SagaProcessedEventStore: Send + Sync {
     type Uow: UnitOfWork;
+    type SagaName: SagaName;
 
     async fn mark_processed(
         &self,
         uow: &mut Self::Uow,
-        saga_name: SagaName,
+        saga_name: Self::SagaName,
         correlation_id: CorrelationId,
         event_id: EventId,
     ) -> Result<bool, SagaProcessedEventStoreError>;

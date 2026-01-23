@@ -1,3 +1,8 @@
+use std::marker::PhantomData;
+
+use appletheia_domain::AggregateType;
+
+use crate::command::CommandName;
 use crate::event::AppEvent;
 use crate::outbox::OrderingKey;
 use crate::outbox::command::{CommandEnvelope, CommandOutboxEnqueuer};
@@ -8,35 +13,44 @@ use super::{
     SagaRunnerError, SagaStatus, SagaStore,
 };
 
-pub struct DefaultSagaRunner<S, P, Q> {
+pub struct DefaultSagaRunner<AT, CN, S, P, Q> {
     saga_store: S,
     processed_event_store: P,
     command_outbox_enqueuer: Q,
+    _marker: PhantomData<(AT, CN)>,
 }
 
-impl<S, P, Q> DefaultSagaRunner<S, P, Q> {
+impl<AT, CN, S, P, Q> DefaultSagaRunner<AT, CN, S, P, Q> {
     pub fn new(saga_store: S, processed_event_store: P, command_outbox_enqueuer: Q) -> Self {
         Self {
             saga_store,
             processed_event_store,
             command_outbox_enqueuer,
+            _marker: PhantomData,
         }
     }
 }
 
-impl<S, P, Q> SagaRunner for DefaultSagaRunner<S, P, Q>
+impl<AT, CN, S, P, Q> SagaRunner for DefaultSagaRunner<AT, CN, S, P, Q>
 where
     S: SagaStore,
-    P: SagaProcessedEventStore<Uow = S::Uow>,
-    Q: CommandOutboxEnqueuer<Uow = S::Uow>,
+    P: SagaProcessedEventStore<Uow = S::Uow, SagaName = S::SagaName>,
+    Q: CommandOutboxEnqueuer<Uow = S::Uow, CommandName = CN>,
+    AT: AggregateType,
+    CN: CommandName,
 {
     type Uow = S::Uow;
+    type SagaName = S::SagaName;
+    type AggregateType = AT;
+    type CommandName = CN;
 
-    async fn handle_event<D: SagaDefinition>(
+    async fn handle_event<
+        D: SagaDefinition<SagaName = Self::SagaName, AggregateType = AT, CommandName = CN>,
+    >(
         &self,
         uow: &mut Self::Uow,
         saga: &D,
-        event: &AppEvent,
+        event: &AppEvent<AT>,
     ) -> Result<SagaRunReport, SagaRunnerError> {
         let saga_name = D::NAME;
         let correlation_id = event.correlation_id;
@@ -109,7 +123,7 @@ where
 
         let ordering_key = OrderingKey::new(correlation_id.to_string())?;
         let causation_id = CausationId::from(event.event_id);
-        let command_envelopes: Vec<CommandEnvelope> = commands
+        let command_envelopes = commands
             .into_iter()
             .map(|command| CommandEnvelope {
                 command_name: command.command_name,
@@ -118,7 +132,7 @@ where
                 message_id: MessageId::new(),
                 causation_id,
             })
-            .collect();
+            .collect::<Vec<_>>();
 
         self.command_outbox_enqueuer
             .enqueue_commands(uow, &ordering_key, &command_envelopes)

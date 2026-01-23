@@ -1,20 +1,25 @@
+use std::marker::PhantomData;
+
 use appletheia_application::command::{CommandFailureReport, CommandHash, CommandName};
 use appletheia_application::idempotency::{
     IdempotencyBeginResult, IdempotencyError, IdempotencyOutput, IdempotencyService,
     IdempotencyState,
 };
 use appletheia_application::request_context::MessageId;
-use uuid::Uuid;
 
 use crate::postgresql::idempotency::pg_idempotency_row::IdempotencyRow;
 use crate::postgresql::unit_of_work::PgUnitOfWork;
 
-#[derive(Debug, Default)]
-pub struct PgIdempotencyService;
+#[derive(Debug)]
+pub struct PgIdempotencyService<N> {
+    _marker: PhantomData<fn() -> N>,
+}
 
-impl PgIdempotencyService {
+impl<N> PgIdempotencyService<N> {
     pub fn new() -> Self {
-        Self
+        Self {
+            _marker: PhantomData,
+        }
     }
 
     fn is_in_progress_lock_error(source: &sqlx::Error) -> bool {
@@ -29,23 +34,30 @@ impl PgIdempotencyService {
     }
 }
 
-impl IdempotencyService for PgIdempotencyService {
+impl<N> Default for PgIdempotencyService<N> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<N: CommandName> IdempotencyService for PgIdempotencyService<N> {
     type Uow = PgUnitOfWork;
+    type CommandName = N;
 
     async fn begin(
         &self,
         uow: &mut Self::Uow,
         message_id: MessageId,
-        command_name: CommandName,
+        command_name: Self::CommandName,
         command_hash: &CommandHash,
     ) -> Result<IdempotencyBeginResult, IdempotencyError> {
         let transaction = uow
             .transaction_mut()
             .map_err(|e| IdempotencyError::Persistence(Box::new(e)))?;
 
-        let message_id_value: Uuid = message_id.value();
-        let command_name_value: &str = command_name.value();
-        let command_hash_value: &str = command_hash.as_str();
+        let message_id_value = message_id.value();
+        let command_name_value = command_name.to_string();
+        let command_hash_value = command_hash.as_str();
 
         let insert_result = sqlx::query(
             r#"
@@ -62,7 +74,7 @@ impl IdempotencyService for PgIdempotencyService {
             "#,
         )
         .bind(message_id_value)
-        .bind(command_name_value)
+        .bind(&command_name_value)
         .bind(command_hash_value)
         .execute(transaction.as_mut())
         .await;
@@ -106,7 +118,7 @@ impl IdempotencyService for PgIdempotencyService {
                     },
                 }),
                 (None, Some(error)) => {
-                    let error: CommandFailureReport = serde_json::from_value(error)
+                    let error = serde_json::from_value(error)
                         .map_err(|source| IdempotencyError::Persistence(Box::new(source)))?;
                     Ok(IdempotencyBeginResult::Existing {
                         state: IdempotencyState::Failed { error },
@@ -127,7 +139,7 @@ impl IdempotencyService for PgIdempotencyService {
             .transaction_mut()
             .map_err(|e| IdempotencyError::Persistence(Box::new(e)))?;
 
-        let message_id_value: Uuid = message_id.value();
+        let message_id_value = message_id.value();
 
         let updated = sqlx::query(
             r#"
@@ -162,7 +174,7 @@ impl IdempotencyService for PgIdempotencyService {
             .transaction_mut()
             .map_err(|e| IdempotencyError::Persistence(Box::new(e)))?;
 
-        let message_id_value: Uuid = message_id.value();
+        let message_id_value = message_id.value();
 
         let error_json = serde_json::to_value(error)
             .map_err(|source| IdempotencyError::Persistence(Box::new(source)))?;
