@@ -1,5 +1,3 @@
-use std::marker::PhantomData;
-
 use appletheia_application::command::{CommandFailureReport, CommandHash, CommandName};
 use appletheia_application::idempotency::{
     IdempotencyBeginResult, IdempotencyError, IdempotencyOutput, IdempotencyService,
@@ -11,15 +9,11 @@ use crate::postgresql::idempotency::pg_idempotency_row::IdempotencyRow;
 use crate::postgresql::unit_of_work::PgUnitOfWork;
 
 #[derive(Debug)]
-pub struct PgIdempotencyService<N> {
-    _marker: PhantomData<fn() -> N>,
-}
+pub struct PgIdempotencyService;
 
-impl<N> PgIdempotencyService<N> {
+impl PgIdempotencyService {
     pub fn new() -> Self {
-        Self {
-            _marker: PhantomData,
-        }
+        Self
     }
 
     fn is_in_progress_lock_error(source: &sqlx::Error) -> bool {
@@ -34,21 +28,20 @@ impl<N> PgIdempotencyService<N> {
     }
 }
 
-impl<N> Default for PgIdempotencyService<N> {
+impl Default for PgIdempotencyService {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<N: CommandName> IdempotencyService for PgIdempotencyService<N> {
+impl IdempotencyService for PgIdempotencyService {
     type Uow = PgUnitOfWork;
-    type CommandName = N;
 
     async fn begin(
         &self,
         uow: &mut Self::Uow,
         message_id: MessageId,
-        command_name: Self::CommandName,
+        command_name: CommandName,
         command_hash: &CommandHash,
     ) -> Result<IdempotencyBeginResult, IdempotencyError> {
         let transaction = uow

@@ -1,7 +1,6 @@
-use std::marker::PhantomData;
-
+use appletheia_application::request_context::CorrelationId;
 use appletheia_application::saga::{
-    SagaInstance, SagaInstanceId, SagaState, SagaStatus, SagaStore, SagaStoreError,
+    SagaInstance, SagaInstanceId, SagaNameOwned, SagaState, SagaStatus, SagaStore, SagaStoreError,
 };
 use appletheia_application::unit_of_work::UnitOfWorkError;
 
@@ -10,15 +9,11 @@ use crate::postgresql::saga::pg_saga_instance_row::PgSagaInstanceRow;
 use crate::postgresql::unit_of_work::PgUnitOfWork;
 
 #[derive(Debug)]
-pub struct PgSagaStore<N> {
-    _marker: PhantomData<fn() -> N>,
-}
+pub struct PgSagaStore;
 
-impl<N> PgSagaStore<N> {
+impl PgSagaStore {
     pub fn new() -> Self {
-        Self {
-            _marker: PhantomData,
-        }
+        Self
     }
 
     fn map_uow_error(error: UnitOfWorkError) -> SagaStoreError {
@@ -29,26 +24,25 @@ impl<N> PgSagaStore<N> {
     }
 }
 
-impl<N> Default for PgSagaStore<N> {
+impl Default for PgSagaStore {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<N: appletheia_application::saga::SagaName> SagaStore for PgSagaStore<N> {
+impl SagaStore for PgSagaStore {
     type Uow = PgUnitOfWork;
-    type SagaName = N;
 
     async fn load<S: SagaState>(
         &self,
         uow: &mut Self::Uow,
-        saga_name: Self::SagaName,
-        correlation_id: appletheia_application::request_context::CorrelationId,
-    ) -> Result<SagaInstance<Self::SagaName, S>, SagaStoreError> {
+        saga_name: SagaNameOwned,
+        correlation_id: CorrelationId,
+    ) -> Result<SagaInstance<S>, SagaStoreError> {
         let transaction = uow.transaction_mut().map_err(Self::map_uow_error)?;
 
         let saga_instance_id_value = SagaInstanceId::new().value();
-        let saga_name_value = saga_name.to_string();
+        let saga_name_value = saga_name.value();
         let correlation_id_value = correlation_id.0;
 
         sqlx::query(
@@ -68,7 +62,7 @@ impl<N: appletheia_application::saga::SagaName> SagaStore for PgSagaStore<N> {
             "#,
         )
         .bind(saga_instance_id_value)
-        .bind(&saga_name_value)
+        .bind(saga_name_value)
         .bind(correlation_id_value)
         .execute(transaction.as_mut())
         .await
@@ -88,13 +82,13 @@ impl<N: appletheia_application::saga::SagaName> SagaStore for PgSagaStore<N> {
             FOR UPDATE
             "#,
         )
-        .bind(&saga_name_value)
+        .bind(saga_name_value)
         .bind(correlation_id_value)
         .fetch_one(transaction.as_mut())
         .await
         .map_err(|source| SagaStoreError::Persistence(Box::new(source)))?;
 
-        row.try_into_instance::<Self::SagaName, S>(saga_name, correlation_id)
+        row.try_into_instance::<S>(saga_name, correlation_id)
             .map_err(|error| match error {
                 PgSagaInstanceRowError::SagaInstanceId(_) => {
                     SagaStoreError::InvalidPersistedInstance {
@@ -113,7 +107,7 @@ impl<N: appletheia_application::saga::SagaName> SagaStore for PgSagaStore<N> {
     async fn save<S: SagaState>(
         &self,
         uow: &mut Self::Uow,
-        instance: &SagaInstance<Self::SagaName, S>,
+        instance: &SagaInstance<S>,
     ) -> Result<(), SagaStoreError> {
         let transaction = uow.transaction_mut().map_err(Self::map_uow_error)?;
 

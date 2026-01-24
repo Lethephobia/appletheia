@@ -50,7 +50,7 @@ impl<A: Aggregate> EventReader<A> for PgEventReader<A> {
         );
 
         query
-            .push_bind(A::AGGREGATE_TYPE.to_string())
+            .push_bind(A::TYPE.to_string())
             .push(" AND aggregate_id = ")
             .push_bind(aggregate_id.value());
 

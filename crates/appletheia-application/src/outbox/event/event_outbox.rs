@@ -1,21 +1,20 @@
 use super::EventOutboxId;
-use appletheia_domain::AggregateType;
 
-use crate::event::AppEvent;
+use crate::event::EventEnvelope;
 use crate::outbox::{OrderingKey, Outbox};
 use crate::outbox::{OutboxDispatchError, OutboxLifecycle, OutboxState};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct EventOutbox<AT: AggregateType> {
+pub struct EventOutbox {
     pub id: EventOutboxId,
     pub ordering_key: OrderingKey,
-    pub event: AppEvent<AT>,
+    pub event: EventEnvelope,
     pub state: OutboxState,
     pub last_error: Option<OutboxDispatchError>,
     pub lifecycle: OutboxLifecycle,
 }
 
-impl<AT: AggregateType> Outbox for EventOutbox<AT> {
+impl Outbox for EventOutbox {
     type Id = EventOutboxId;
 
     fn id(&self) -> Self::Id {

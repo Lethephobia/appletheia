@@ -1,7 +1,7 @@
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum CommandPayloadError {
+pub enum SerializedCommandError {
     #[error("payload must not be null")]
     NullPayload,
     #[error("json serialization error: {0}")]

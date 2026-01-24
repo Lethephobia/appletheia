@@ -2,27 +2,27 @@ use std::{fmt, fmt::Display, str::FromStr};
 
 use serde::{Deserialize, Serialize};
 
-use super::EventPayloadOwnedError;
+use super::SerializedEventPayloadError;
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct EventPayloadOwned(serde_json::Value);
+pub struct SerializedEventPayload(serde_json::Value);
 
-impl EventPayloadOwned {
+impl SerializedEventPayload {
     pub fn value(&self) -> &serde_json::Value {
         &self.0
     }
 
-    fn validate(value: &serde_json::Value) -> Result<(), EventPayloadOwnedError> {
+    fn validate(value: &serde_json::Value) -> Result<(), SerializedEventPayloadError> {
         if value.is_null() {
-            return Err(EventPayloadOwnedError::NullPayload);
+            return Err(SerializedEventPayloadError::NullPayload);
         }
         Ok(())
     }
 }
 
-impl TryFrom<serde_json::Value> for EventPayloadOwned {
-    type Error = EventPayloadOwnedError;
+impl TryFrom<serde_json::Value> for SerializedEventPayload {
+    type Error = SerializedEventPayloadError;
 
     fn try_from(value: serde_json::Value) -> Result<Self, Self::Error> {
         Self::validate(&value)?;
@@ -30,8 +30,8 @@ impl TryFrom<serde_json::Value> for EventPayloadOwned {
     }
 }
 
-impl FromStr for EventPayloadOwned {
-    type Err = EventPayloadOwnedError;
+impl FromStr for SerializedEventPayload {
+    type Err = SerializedEventPayloadError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let value = serde_json::from_str(s)?;
@@ -40,16 +40,16 @@ impl FromStr for EventPayloadOwned {
     }
 }
 
-impl TryFrom<&str> for EventPayloadOwned {
-    type Error = EventPayloadOwnedError;
+impl TryFrom<&str> for SerializedEventPayload {
+    type Error = SerializedEventPayloadError;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         Self::from_str(value)
     }
 }
 
-impl TryFrom<String> for EventPayloadOwned {
-    type Error = EventPayloadOwnedError;
+impl TryFrom<String> for SerializedEventPayload {
+    type Error = SerializedEventPayloadError;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
         let json = serde_json::from_str::<serde_json::Value>(&value)?;
@@ -58,7 +58,7 @@ impl TryFrom<String> for EventPayloadOwned {
     }
 }
 
-impl Display for EventPayloadOwned {
+impl Display for SerializedEventPayload {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
     }
@@ -70,27 +70,27 @@ mod tests {
 
     #[test]
     fn rejects_null() {
-        let err = EventPayloadOwned::try_from(serde_json::Value::Null)
+        let err = SerializedEventPayload::try_from(serde_json::Value::Null)
             .expect_err("null should be rejected");
-        assert!(matches!(err, EventPayloadOwnedError::NullPayload));
+        assert!(matches!(err, SerializedEventPayloadError::NullPayload));
     }
 
     #[test]
     fn accepts_json_object() {
         let value = serde_json::json!({ "name": "apple" });
-        let owned = EventPayloadOwned::try_from(value.clone()).expect("valid");
-        assert_eq!(owned.value(), &value);
+        let payload = SerializedEventPayload::try_from(value.clone()).expect("valid");
+        assert_eq!(payload.value(), &value);
     }
 
     #[test]
     fn parses_from_str() {
-        let owned: EventPayloadOwned = r#"{"name":"banana"}"#.parse().unwrap();
-        assert_eq!(owned.value(), &serde_json::json!({ "name": "banana" }));
+        let payload: SerializedEventPayload = r#"{"name":"banana"}"#.parse().unwrap();
+        assert_eq!(payload.value(), &serde_json::json!({ "name": "banana" }));
     }
 
     #[test]
     fn detects_invalid_json() {
-        let err = EventPayloadOwned::try_from("not-json").expect_err("invalid json");
-        assert!(matches!(err, EventPayloadOwnedError::Json { .. }));
+        let err = SerializedEventPayload::try_from("not-json").expect_err("invalid json");
+        assert!(matches!(err, SerializedEventPayloadError::Json { .. }));
     }
 }

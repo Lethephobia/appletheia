@@ -2,13 +2,14 @@ use chrono::{DateTime, Utc};
 use sqlx::FromRow;
 use uuid::Uuid;
 
-use appletheia_application::event::{AggregateIdOwned, AppEvent, EventPayloadOwned, EventSequence};
+use appletheia_application::event::{
+    AggregateIdValue, AggregateTypeOwned, EventEnvelope, EventSequence, SerializedEventPayload,
+};
 use appletheia_application::request_context::{
     CausationId, CorrelationId, MessageId, RequestContext,
 };
 use appletheia_domain::{
-    Aggregate, AggregateId, AggregateType, AggregateVersion, Event, EventId, EventOccurredAt,
-    EventPayload,
+    Aggregate, AggregateId, AggregateVersion, Event, EventId, EventOccurredAt, EventPayload,
 };
 
 use super::pg_event_row_error::PgEventRowError;
@@ -50,18 +51,19 @@ impl PgEventRow {
         ))
     }
 
-    pub fn try_into_app_event<AT: AggregateType>(self) -> Result<AppEvent<AT>, PgEventRowError> {
+    pub fn try_into_event_envelope(self) -> Result<EventEnvelope, PgEventRowError> {
         let event_sequence = EventSequence::try_from(self.event_sequence)?;
         let event_id = EventId::try_from(self.id)?;
 
         let aggregate_type_string = self.aggregate_type;
-        let aggregate_type = aggregate_type_string
-            .parse::<AT>()
-            .map_err(|_| PgEventRowError::AggregateType(aggregate_type_string.clone()))?;
-        let aggregate_id = AggregateIdOwned::from(self.aggregate_id);
+        let aggregate_type = match AggregateTypeOwned::new(aggregate_type_string.clone()) {
+            Ok(value) => value,
+            Err(_) => return Err(PgEventRowError::AggregateType(aggregate_type_string)),
+        };
+        let aggregate_id = AggregateIdValue::from(self.aggregate_id);
         let aggregate_version = AggregateVersion::try_from(self.aggregate_version)?;
 
-        let payload = EventPayloadOwned::try_from(self.payload)?;
+        let payload = SerializedEventPayload::try_from(self.payload)?;
         let occurred_at = EventOccurredAt::from(self.occurred_at);
 
         let correlation_id = CorrelationId(self.correlation_id);
@@ -72,7 +74,7 @@ impl PgEventRow {
         context.correlation_id = correlation_id;
         context.message_id = causation_message_id;
 
-        Ok(AppEvent {
+        Ok(EventEnvelope {
             event_sequence,
             event_id,
             aggregate_type,

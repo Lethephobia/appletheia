@@ -41,7 +41,6 @@ where
     IS: IdempotencyService,
 {
     type Uow = IS::Uow;
-    type CommandName = IS::CommandName;
 
     async fn dispatch<H>(
         &self,
@@ -52,12 +51,10 @@ where
     ) -> Result<H::Output, CommandDispatchError<H::Error>>
     where
         H: CommandHandler<Uow = Self::Uow>,
-        H::Command: Command<Name = Self::CommandName>,
+        H::Command: Command,
     {
         let command_name = H::Command::NAME;
-        let command_hash = {
-            self.command_hasher.command_hash(&command)?
-        };
+        let command_hash = self.command_hasher.command_hash(&command)?;
         let message_id = request_context.message_id;
 
         uow.begin().await?;

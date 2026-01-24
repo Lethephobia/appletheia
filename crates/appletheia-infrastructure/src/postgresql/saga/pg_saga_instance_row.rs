@@ -3,7 +3,9 @@ use sqlx::FromRow;
 use uuid::Uuid;
 
 use appletheia_application::request_context::CorrelationId;
-use appletheia_application::saga::{SagaInstance, SagaInstanceId, SagaName, SagaState, SagaStatus};
+use appletheia_application::saga::{
+    SagaInstance, SagaInstanceId, SagaNameOwned, SagaState, SagaStatus,
+};
 
 use super::pg_saga_instance_row_error::PgSagaInstanceRowError;
 
@@ -17,11 +19,11 @@ pub(super) struct PgSagaInstanceRow {
 }
 
 impl PgSagaInstanceRow {
-    pub fn try_into_instance<N: SagaName, S: SagaState>(
+    pub fn try_into_instance<S: SagaState>(
         self,
-        saga_name: N,
+        saga_name: SagaNameOwned,
         correlation_id: CorrelationId,
-    ) -> Result<SagaInstance<N, S>, PgSagaInstanceRowError> {
+    ) -> Result<SagaInstance<S>, PgSagaInstanceRowError> {
         let saga_instance_id = SagaInstanceId::try_from(self.saga_instance_id)?;
 
         let status = match (

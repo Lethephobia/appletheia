@@ -2,7 +2,7 @@ use std::error::Error;
 
 use thiserror::Error;
 
-use appletheia_application::event::{EventPayloadOwnedError, EventSequenceError};
+use appletheia_application::event::{EventSequenceError, SerializedEventPayloadError};
 use appletheia_domain::{AggregateVersionError, EventIdError};
 
 #[derive(Debug, Error)]
@@ -26,7 +26,7 @@ pub enum PgEventRowError {
     EventPayload(#[source] Box<dyn Error + Send + Sync>),
 
     #[error("payload error: {0}")]
-    Payload(#[from] EventPayloadOwnedError),
+    Payload(#[from] SerializedEventPayloadError),
 
     #[error("context deserialization error: {0}")]
     Json(#[from] serde_json::Error),

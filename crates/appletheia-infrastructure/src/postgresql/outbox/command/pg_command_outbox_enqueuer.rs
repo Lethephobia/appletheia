@@ -1,9 +1,6 @@
-use std::marker::PhantomData;
-
 use sqlx::{Postgres, QueryBuilder};
 use uuid::Uuid;
 
-use appletheia_application::command::CommandName;
 use appletheia_application::outbox::OrderingKey;
 use appletheia_application::outbox::command::{
     CommandEnvelope, CommandOutboxEnqueueError, CommandOutboxEnqueuer,
@@ -12,15 +9,11 @@ use appletheia_application::unit_of_work::UnitOfWorkError;
 
 use crate::postgresql::unit_of_work::PgUnitOfWork;
 
-pub struct PgCommandOutboxEnqueuer<CN> {
-    _marker: PhantomData<CN>,
-}
+pub struct PgCommandOutboxEnqueuer;
 
-impl<CN> PgCommandOutboxEnqueuer<CN> {
+impl PgCommandOutboxEnqueuer {
     pub fn new() -> Self {
-        Self {
-            _marker: PhantomData,
-        }
+        Self
     }
 
     fn map_uow_error(error: UnitOfWorkError) -> CommandOutboxEnqueueError {
@@ -31,21 +24,20 @@ impl<CN> PgCommandOutboxEnqueuer<CN> {
     }
 }
 
-impl<CN> Default for PgCommandOutboxEnqueuer<CN> {
+impl Default for PgCommandOutboxEnqueuer {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<CN: CommandName> CommandOutboxEnqueuer for PgCommandOutboxEnqueuer<CN> {
+impl CommandOutboxEnqueuer for PgCommandOutboxEnqueuer {
     type Uow = PgUnitOfWork;
-    type CommandName = CN;
 
     async fn enqueue_commands(
         &self,
         uow: &mut Self::Uow,
         ordering_key: &OrderingKey,
-        commands: &[CommandEnvelope<CN>],
+        commands: &[CommandEnvelope],
     ) -> Result<(), CommandOutboxEnqueueError> {
         if commands.is_empty() {
             return Ok(());
@@ -53,7 +45,7 @@ impl<CN: CommandName> CommandOutboxEnqueuer for PgCommandOutboxEnqueuer<CN> {
 
         let transaction = uow.transaction_mut().map_err(Self::map_uow_error)?;
 
-        let ordering_key_value = ordering_key.to_string();
+        let ordering_key_value = ordering_key.as_str();
 
         let mut query_builder = QueryBuilder::<Postgres>::new(
             r#"
@@ -74,8 +66,8 @@ impl<CN: CommandName> CommandOutboxEnqueuer for PgCommandOutboxEnqueuer<CN> {
             for command in commands {
                 let id_value = Uuid::now_v7();
                 let message_id_value = command.message_id.value();
-                let command_name_value = command.command_name.to_string();
-                let payload_value = command.payload.value().clone();
+                let command_name_value = command.command_name.value();
+                let payload_value = command.command.value().clone();
                 let correlation_id_value = command.correlation_id.0;
                 let causation_id_value = command.causation_id.value();
 
@@ -87,7 +79,7 @@ impl<CN: CommandName> CommandOutboxEnqueuer for PgCommandOutboxEnqueuer<CN> {
                     .push_bind(payload_value)
                     .push_bind(correlation_id_value)
                     .push_bind(causation_id_value)
-                    .push_bind(&ordering_key_value)
+                    .push_bind(ordering_key_value)
                     .push(")");
             }
         }

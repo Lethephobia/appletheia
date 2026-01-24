@@ -1,9 +1,6 @@
-use std::marker::PhantomData;
-
 use chrono::Utc;
 use sqlx::Postgres;
 
-use appletheia_application::command::CommandName;
 use appletheia_application::outbox::{
     OutboxBatchSize, OutboxFetcher, OutboxFetcherError, command::CommandOutbox,
 };
@@ -13,33 +10,29 @@ use crate::postgresql::unit_of_work::PgUnitOfWork;
 
 use super::{PgCommandOutboxRow, PgCommandOutboxRowError};
 
-pub struct PgCommandOutboxFetcher<CN> {
-    _marker: PhantomData<CN>,
-}
+pub struct PgCommandOutboxFetcher;
 
-impl<CN> PgCommandOutboxFetcher<CN> {
+impl PgCommandOutboxFetcher {
     pub fn new() -> Self {
-        Self {
-            _marker: PhantomData,
-        }
+        Self
     }
 }
 
-impl<CN> Default for PgCommandOutboxFetcher<CN> {
+impl Default for PgCommandOutboxFetcher {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<CN: CommandName> OutboxFetcher for PgCommandOutboxFetcher<CN> {
+impl OutboxFetcher for PgCommandOutboxFetcher {
     type Uow = PgUnitOfWork;
-    type Outbox = CommandOutbox<CN>;
+    type Outbox = CommandOutbox;
 
     async fn fetch(
         &self,
         uow: &mut Self::Uow,
         limit: OutboxBatchSize,
-    ) -> Result<Vec<CommandOutbox<CN>>, OutboxFetcherError> {
+    ) -> Result<Vec<CommandOutbox>, OutboxFetcherError> {
         let now = Utc::now();
 
         let transaction = uow.transaction_mut().map_err(|e| match e {
@@ -85,8 +78,8 @@ impl<CN: CommandName> OutboxFetcher for PgCommandOutboxFetcher<CN> {
 
         let outboxes = outbox_rows
             .into_iter()
-            .map(PgCommandOutboxRow::try_into_outbox::<CN>)
-            .collect::<Result<Vec<CommandOutbox<CN>>, PgCommandOutboxRowError>>()
+            .map(PgCommandOutboxRow::try_into_outbox)
+            .collect::<Result<Vec<CommandOutbox>, PgCommandOutboxRowError>>()
             .map_err(|e| OutboxFetcherError::MappingFailed(Box::new(e)))?;
 
         Ok(outboxes)

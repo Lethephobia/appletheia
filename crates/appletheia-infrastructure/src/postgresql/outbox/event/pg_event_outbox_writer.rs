@@ -1,5 +1,3 @@
-use std::marker::PhantomData;
-
 use chrono::{DateTime, Utc};
 use sqlx::{Postgres, QueryBuilder};
 
@@ -7,23 +5,18 @@ use appletheia_application::outbox::{
     OutboxDispatchError, OutboxLifecycle, OutboxWriter, OutboxWriterError, event::EventOutbox,
 };
 use appletheia_application::unit_of_work::UnitOfWorkError;
-use appletheia_domain::AggregateType;
 
 use crate::postgresql::unit_of_work::PgUnitOfWork;
 
-pub struct PgEventOutboxWriter<AT> {
-    _marker: PhantomData<AT>,
-}
+pub struct PgEventOutboxWriter;
 
-impl<AT: AggregateType> PgEventOutboxWriter<AT> {
+impl PgEventOutboxWriter {
     pub fn new() -> Self {
-        Self {
-            _marker: PhantomData,
-        }
+        Self
     }
 
     fn serialize_last_error(
-        outbox: &EventOutbox<AT>,
+        outbox: &EventOutbox,
     ) -> Result<Option<serde_json::Value>, OutboxWriterError> {
         match &outbox.last_error {
             Some(error) => {
@@ -37,7 +30,7 @@ impl<AT: AggregateType> PgEventOutboxWriter<AT> {
 
     async fn update_outbox_row(
         uow: &mut PgUnitOfWork,
-        outbox: &EventOutbox<AT>,
+        outbox: &EventOutbox,
     ) -> Result<(), OutboxWriterError> {
         let outbox_id = outbox.id.value();
 
@@ -82,7 +75,7 @@ impl<AT: AggregateType> PgEventOutboxWriter<AT> {
 
     async fn insert_dead_letters(
         uow: &mut PgUnitOfWork,
-        dead_lettered_outboxes: &[&EventOutbox<AT>],
+        dead_lettered_outboxes: &[&EventOutbox],
     ) -> Result<(), OutboxWriterError> {
         let mut query_builder = QueryBuilder::<Postgres>::new(
             r#"
@@ -118,10 +111,10 @@ impl<AT: AggregateType> PgEventOutboxWriter<AT> {
                 let event = &outbox.event;
                 let event_sequence_value = event.event_sequence.value();
                 let event_id_value = event.event_id.value();
-                let aggregate_type_value = event.aggregate_type.to_string();
+                let aggregate_type_value = event.aggregate_type.value();
                 let aggregate_id_value = event.aggregate_id.value();
                 let aggregate_version_value = event.aggregate_version.value();
-                let ordering_key_value = outbox.ordering_key.to_string();
+                let ordering_key_value = outbox.ordering_key.as_str();
                 let payload_value = event.payload.value().clone();
                 let occurred_at_value: DateTime<Utc> = event.occurred_at.into();
                 let correlation_id_value = event.correlation_id.0;
@@ -189,7 +182,7 @@ impl<AT: AggregateType> PgEventOutboxWriter<AT> {
 
     async fn delete_outboxes(
         uow: &mut PgUnitOfWork,
-        dead_lettered_outboxes: &[&EventOutbox<AT>],
+        dead_lettered_outboxes: &[&EventOutbox],
     ) -> Result<(), OutboxWriterError> {
         let mut query_builder =
             QueryBuilder::<Postgres>::new("DELETE FROM event_outbox WHERE id IN (");
@@ -219,26 +212,26 @@ impl<AT: AggregateType> PgEventOutboxWriter<AT> {
     }
 }
 
-impl<AT: AggregateType> Default for PgEventOutboxWriter<AT> {
+impl Default for PgEventOutboxWriter {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<AT: AggregateType> OutboxWriter for PgEventOutboxWriter<AT> {
+impl OutboxWriter for PgEventOutboxWriter {
     type Uow = PgUnitOfWork;
-    type Outbox = EventOutbox<AT>;
+    type Outbox = EventOutbox;
 
     async fn write_outbox(
         &self,
         uow: &mut Self::Uow,
-        outboxes: &[EventOutbox<AT>],
+        outboxes: &[EventOutbox],
     ) -> Result<(), OutboxWriterError> {
         if outboxes.is_empty() {
             return Ok(());
         }
 
-        let mut dead_lettered_outboxes: Vec<&EventOutbox<AT>> = Vec::new();
+        let mut dead_lettered_outboxes: Vec<&EventOutbox> = Vec::new();
         for outbox in outboxes {
             if matches!(outbox.lifecycle, OutboxLifecycle::DeadLettered { .. }) {
                 dead_lettered_outboxes.push(outbox);

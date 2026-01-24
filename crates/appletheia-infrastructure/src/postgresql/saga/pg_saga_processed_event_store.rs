@@ -1,21 +1,18 @@
-use std::marker::PhantomData;
-
-use appletheia_application::saga::{SagaProcessedEventStore, SagaProcessedEventStoreError};
+use appletheia_application::request_context::CorrelationId;
+use appletheia_application::saga::{
+    SagaNameOwned, SagaProcessedEventStore, SagaProcessedEventStoreError,
+};
 use appletheia_application::unit_of_work::UnitOfWorkError;
 use appletheia_domain::EventId;
 
 use crate::postgresql::unit_of_work::PgUnitOfWork;
 
 #[derive(Debug)]
-pub struct PgSagaProcessedEventStore<N> {
-    _marker: PhantomData<fn() -> N>,
-}
+pub struct PgSagaProcessedEventStore;
 
-impl<N> PgSagaProcessedEventStore<N> {
+impl PgSagaProcessedEventStore {
     pub fn new() -> Self {
-        Self {
-            _marker: PhantomData,
-        }
+        Self
     }
 
     fn map_uow_error(error: UnitOfWorkError) -> SagaProcessedEventStoreError {
@@ -26,28 +23,25 @@ impl<N> PgSagaProcessedEventStore<N> {
     }
 }
 
-impl<N> Default for PgSagaProcessedEventStore<N> {
+impl Default for PgSagaProcessedEventStore {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<N: appletheia_application::saga::SagaName> SagaProcessedEventStore
-    for PgSagaProcessedEventStore<N>
-{
+impl SagaProcessedEventStore for PgSagaProcessedEventStore {
     type Uow = PgUnitOfWork;
-    type SagaName = N;
 
     async fn mark_processed(
         &self,
         uow: &mut Self::Uow,
-        saga_name: Self::SagaName,
-        correlation_id: appletheia_application::request_context::CorrelationId,
+        saga_name: SagaNameOwned,
+        correlation_id: CorrelationId,
         event_id: EventId,
     ) -> Result<bool, SagaProcessedEventStoreError> {
         let transaction = uow.transaction_mut().map_err(Self::map_uow_error)?;
 
-        let saga_name_value = saga_name.to_string();
+        let saga_name_value = saga_name.value();
         let correlation_id_value = correlation_id.0;
         let event_id_value = event_id.value();
 
@@ -65,7 +59,7 @@ impl<N: appletheia_application::saga::SagaName> SagaProcessedEventStore
             ON CONFLICT (saga_name, correlation_id, event_id) DO NOTHING
             "#,
         )
-        .bind(&saga_name_value)
+        .bind(saga_name_value)
         .bind(correlation_id_value)
         .bind(event_id_value)
         .execute(transaction.as_mut())

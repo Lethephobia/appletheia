@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-use appletheia_application::event::{EventPayloadOwnedError, EventSequenceError};
+use appletheia_application::event::{EventSequenceError, SerializedEventPayloadError};
 use appletheia_application::outbox::{
     OrderingKeyError, OutboxAttemptCountError, OutboxRelayInstanceError, event::EventOutboxIdError,
 };
@@ -25,7 +25,7 @@ pub enum PgEventOutboxRowError {
     AggregateVersion(#[from] AggregateVersionError),
 
     #[error("payload error: {0}")]
-    Payload(#[from] EventPayloadOwnedError),
+    Payload(#[from] SerializedEventPayloadError),
 
     #[error("attempt count error: {0}")]
     AttemptCount(#[from] OutboxAttemptCountError),

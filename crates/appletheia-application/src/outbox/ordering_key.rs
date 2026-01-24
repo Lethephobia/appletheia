@@ -3,7 +3,7 @@ use std::{fmt, fmt::Display, str::FromStr};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::event::AggregateIdOwned;
+use crate::event::AggregateIdValue;
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize)]
 pub struct OrderingKey(String);
@@ -46,8 +46,8 @@ impl<'de> Deserialize<'de> for OrderingKey {
     }
 }
 
-impl<T: Display> From<(&T, &AggregateIdOwned)> for OrderingKey {
-    fn from((aggregate_type, aggregate_id): (&T, &AggregateIdOwned)) -> Self {
+impl<T: Display> From<(&T, &AggregateIdValue)> for OrderingKey {
+    fn from((aggregate_type, aggregate_id): (&T, &AggregateIdValue)) -> Self {
         Self(format!("{}:{}", aggregate_type, aggregate_id.value()))
     }
 }

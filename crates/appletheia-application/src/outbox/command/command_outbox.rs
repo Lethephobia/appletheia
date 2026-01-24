@@ -1,19 +1,18 @@
 use super::{CommandEnvelope, CommandOutboxId};
-use crate::command::CommandName;
 use crate::outbox::{OrderingKey, Outbox, OutboxDispatchError, OutboxLifecycle, OutboxState};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct CommandOutbox<CN: CommandName> {
+pub struct CommandOutbox {
     pub id: CommandOutboxId,
     pub sequence: i64,
     pub ordering_key: OrderingKey,
-    pub command: CommandEnvelope<CN>,
+    pub command: CommandEnvelope,
     pub state: OutboxState,
     pub last_error: Option<OutboxDispatchError>,
     pub lifecycle: OutboxLifecycle,
 }
 
-impl<CN: CommandName> Outbox for CommandOutbox<CN> {
+impl Outbox for CommandOutbox {
     type Id = CommandOutboxId;
 
     fn id(&self) -> Self::Id {

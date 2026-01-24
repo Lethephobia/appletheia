@@ -1,63 +1,49 @@
-use std::marker::PhantomData;
-
-use appletheia_domain::AggregateType;
-
-use crate::command::CommandName;
-use crate::event::AppEvent;
+use crate::event::EventEnvelope;
 use crate::outbox::OrderingKey;
 use crate::outbox::command::{CommandEnvelope, CommandOutboxEnqueuer};
 use crate::request_context::{CausationId, MessageId};
 
 use super::{
-    SagaDefinition, SagaOutcome, SagaProcessedEventStore, SagaRunReport, SagaRunner,
+    SagaDefinition, SagaNameOwned, SagaOutcome, SagaProcessedEventStore, SagaRunReport, SagaRunner,
     SagaRunnerError, SagaStatus, SagaStore,
 };
 
-pub struct DefaultSagaRunner<AT, CN, S, P, Q> {
+pub struct DefaultSagaRunner<S, P, Q> {
     saga_store: S,
     processed_event_store: P,
     command_outbox_enqueuer: Q,
-    _marker: PhantomData<(AT, CN)>,
 }
 
-impl<AT, CN, S, P, Q> DefaultSagaRunner<AT, CN, S, P, Q> {
+impl<S, P, Q> DefaultSagaRunner<S, P, Q> {
     pub fn new(saga_store: S, processed_event_store: P, command_outbox_enqueuer: Q) -> Self {
         Self {
             saga_store,
             processed_event_store,
             command_outbox_enqueuer,
-            _marker: PhantomData,
         }
     }
 }
 
-impl<AT, CN, S, P, Q> SagaRunner for DefaultSagaRunner<AT, CN, S, P, Q>
+impl<S, P, Q> SagaRunner for DefaultSagaRunner<S, P, Q>
 where
     S: SagaStore,
-    P: SagaProcessedEventStore<Uow = S::Uow, SagaName = S::SagaName>,
-    Q: CommandOutboxEnqueuer<Uow = S::Uow, CommandName = CN>,
-    AT: AggregateType,
-    CN: CommandName,
+    P: SagaProcessedEventStore<Uow = S::Uow>,
+    Q: CommandOutboxEnqueuer<Uow = S::Uow>,
 {
     type Uow = S::Uow;
-    type SagaName = S::SagaName;
-    type AggregateType = AT;
-    type CommandName = CN;
 
-    async fn handle_event<
-        D: SagaDefinition<SagaName = Self::SagaName, AggregateType = AT, CommandName = CN>,
-    >(
+    async fn handle_event<D: SagaDefinition>(
         &self,
         uow: &mut Self::Uow,
         saga: &D,
-        event: &AppEvent<AT>,
+        event: &EventEnvelope,
     ) -> Result<SagaRunReport, SagaRunnerError> {
-        let saga_name = D::NAME;
+        let saga_name = SagaNameOwned::from(D::NAME);
         let correlation_id = event.correlation_id;
 
         let mut instance = self
             .saga_store
-            .load::<D::State>(uow, saga_name, correlation_id)
+            .load::<D::State>(uow, saga_name.clone(), correlation_id)
             .await?;
 
         if instance.is_terminal() {
@@ -70,7 +56,7 @@ where
 
         let inserted = self
             .processed_event_store
-            .mark_processed(uow, saga_name, correlation_id, event.event_id)
+            .mark_processed(uow, saga_name.clone(), correlation_id, event.event_id)
             .await?;
         if !inserted {
             return Ok(SagaRunReport::AlreadyProcessed);
@@ -126,8 +112,8 @@ where
         let command_envelopes = commands
             .into_iter()
             .map(|command| CommandEnvelope {
-                command_name: command.command_name,
-                payload: command.payload,
+                command_name: command.command_name.into(),
+                command: command.command,
                 correlation_id,
                 message_id: MessageId::new(),
                 causation_id,

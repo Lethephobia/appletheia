@@ -1,9 +1,6 @@
-use std::marker::PhantomData;
-
 use chrono::{DateTime, Utc};
 use sqlx::{Postgres, QueryBuilder};
 
-use appletheia_application::command::CommandName;
 use appletheia_application::outbox::{
     OutboxDispatchError, OutboxLifecycle, OutboxWriter, OutboxWriterError, command::CommandOutbox,
 };
@@ -11,19 +8,15 @@ use appletheia_application::unit_of_work::UnitOfWorkError;
 
 use crate::postgresql::unit_of_work::PgUnitOfWork;
 
-pub struct PgCommandOutboxWriter<CN> {
-    _marker: PhantomData<CN>,
-}
+pub struct PgCommandOutboxWriter;
 
-impl<CN: CommandName> PgCommandOutboxWriter<CN> {
+impl PgCommandOutboxWriter {
     pub fn new() -> Self {
-        Self {
-            _marker: PhantomData,
-        }
+        Self
     }
 
     fn serialize_last_error(
-        outbox: &CommandOutbox<CN>,
+        outbox: &CommandOutbox,
     ) -> Result<Option<serde_json::Value>, OutboxWriterError> {
         match &outbox.last_error {
             Some(error) => {
@@ -37,7 +30,7 @@ impl<CN: CommandName> PgCommandOutboxWriter<CN> {
 
     async fn update_outbox_row(
         uow: &mut PgUnitOfWork,
-        outbox: &CommandOutbox<CN>,
+        outbox: &CommandOutbox,
     ) -> Result<(), OutboxWriterError> {
         let outbox_id = outbox.id.value();
 
@@ -82,7 +75,7 @@ impl<CN: CommandName> PgCommandOutboxWriter<CN> {
 
     async fn insert_dead_letters(
         uow: &mut PgUnitOfWork,
-        dead_lettered_outboxes: &[&CommandOutbox<CN>],
+        dead_lettered_outboxes: &[&CommandOutbox],
     ) -> Result<(), OutboxWriterError> {
         let mut query_builder = QueryBuilder::<Postgres>::new(
             r#"
@@ -114,11 +107,11 @@ impl<CN: CommandName> PgCommandOutboxWriter<CN> {
                 let command = &outbox.command;
                 let command_sequence_value = outbox.sequence;
                 let message_id_value = command.message_id.value();
-                let command_name_value = command.command_name.to_string();
-                let payload_value = command.payload.value().clone();
+                let command_name_value = command.command_name.value();
+                let payload_value = command.command.value().clone();
                 let correlation_id_value = command.correlation_id.0;
                 let causation_id_value = command.causation_id.value();
-                let ordering_key_value = outbox.ordering_key.to_string();
+                let ordering_key_value = outbox.ordering_key.as_str();
 
                 let published_at_value = outbox.state.published_at().map(DateTime::<Utc>::from);
                 let attempt_count_value = outbox.state.attempt_count().value();
@@ -173,7 +166,7 @@ impl<CN: CommandName> PgCommandOutboxWriter<CN> {
 
     async fn delete_outboxes(
         uow: &mut PgUnitOfWork,
-        dead_lettered_outboxes: &[&CommandOutbox<CN>],
+        dead_lettered_outboxes: &[&CommandOutbox],
     ) -> Result<(), OutboxWriterError> {
         let mut query_builder =
             QueryBuilder::<Postgres>::new("DELETE FROM command_outbox WHERE id IN (");
@@ -203,26 +196,26 @@ impl<CN: CommandName> PgCommandOutboxWriter<CN> {
     }
 }
 
-impl<CN: CommandName> Default for PgCommandOutboxWriter<CN> {
+impl Default for PgCommandOutboxWriter {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<CN: CommandName> OutboxWriter for PgCommandOutboxWriter<CN> {
+impl OutboxWriter for PgCommandOutboxWriter {
     type Uow = PgUnitOfWork;
-    type Outbox = CommandOutbox<CN>;
+    type Outbox = CommandOutbox;
 
     async fn write_outbox(
         &self,
         uow: &mut Self::Uow,
-        outboxes: &[CommandOutbox<CN>],
+        outboxes: &[CommandOutbox],
     ) -> Result<(), OutboxWriterError> {
         if outboxes.is_empty() {
             return Ok(());
         }
 
-        let mut dead_lettered_outboxes: Vec<&CommandOutbox<CN>> = Vec::new();
+        let mut dead_lettered_outboxes: Vec<&CommandOutbox> = Vec::new();
         for outbox in outboxes {
             if matches!(outbox.lifecycle, OutboxLifecycle::DeadLettered { .. }) {
                 dead_lettered_outboxes.push(outbox);

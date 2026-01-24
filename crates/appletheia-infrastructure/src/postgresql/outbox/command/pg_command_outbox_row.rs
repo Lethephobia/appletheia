@@ -4,9 +4,8 @@ use chrono::{DateTime, Utc};
 use sqlx::FromRow;
 use uuid::Uuid;
 
-use appletheia_application::command::CommandName;
-use appletheia_application::outbox::command::CommandEnvelope;
-use appletheia_application::outbox::command::CommandPayload;
+use appletheia_application::command::CommandNameOwned;
+use appletheia_application::outbox::command::{CommandEnvelope, SerializedCommand};
 use appletheia_application::outbox::{
     OrderingKey, OutboxAttemptCount, OutboxDispatchError, OutboxLeaseExpiresAt, OutboxLifecycle,
     OutboxNextAttemptAt, OutboxPublishedAt, OutboxRelayInstance, OutboxState,
@@ -35,16 +34,15 @@ pub struct PgCommandOutboxRow {
 }
 
 impl PgCommandOutboxRow {
-    pub fn try_into_outbox<CN: CommandName>(
-        self,
-    ) -> Result<CommandOutbox<CN>, PgCommandOutboxRowError> {
+    pub fn try_into_outbox(self) -> Result<CommandOutbox, PgCommandOutboxRowError> {
         let id = CommandOutboxId::try_from(self.id)?;
 
         let command_name_string = self.command_name;
-        let command_name = command_name_string
-            .parse::<CN>()
-            .map_err(|_| PgCommandOutboxRowError::CommandName(command_name_string.clone()))?;
-        let payload = CommandPayload::try_from(self.payload)?;
+        let command_name = match CommandNameOwned::new(command_name_string.clone()) {
+            Ok(value) => value,
+            Err(_) => return Err(PgCommandOutboxRowError::CommandName(command_name_string)),
+        };
+        let serialized_command = SerializedCommand::try_from(self.payload)?;
 
         let correlation_id = CorrelationId(self.correlation_id);
         let message_id = MessageId::from(self.message_id);
@@ -54,7 +52,7 @@ impl PgCommandOutboxRow {
 
         let command = CommandEnvelope {
             command_name,
-            payload,
+            command: serialized_command,
             correlation_id,
             message_id,
             causation_id,

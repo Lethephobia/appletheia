@@ -1,29 +1,23 @@
 use std::collections::HashMap;
-use std::marker::PhantomData;
 
 use appletheia_application::outbox::{
     Outbox, OutboxDispatchError, OutboxPublishResult, OutboxPublisher, OutboxPublisherError,
     event::{EventOutbox, EventOutboxId},
 };
-use appletheia_domain::AggregateType;
 use google_cloud_googleapis::pubsub::v1::PubsubMessage;
 use google_cloud_pubsub::publisher::Publisher;
 use tonic::Code;
 
-pub struct PubsubEventOutboxPublisher<AT> {
+pub struct PubsubEventOutboxPublisher {
     publisher: Publisher,
-    _marker: PhantomData<AT>,
 }
 
-impl<AT: AggregateType> PubsubEventOutboxPublisher<AT> {
+impl PubsubEventOutboxPublisher {
     pub fn new(publisher: Publisher) -> Self {
-        Self {
-            publisher,
-            _marker: PhantomData,
-        }
+        Self { publisher }
     }
 
-    fn build_message(outbox: &EventOutbox<AT>) -> Result<PubsubMessage, OutboxPublisherError> {
+    fn build_message(outbox: &EventOutbox) -> Result<PubsubMessage, OutboxPublisherError> {
         let mut attributes = HashMap::new();
 
         attributes.insert("outbox_id".to_string(), outbox.id.to_string());
@@ -71,12 +65,12 @@ impl<AT: AggregateType> PubsubEventOutboxPublisher<AT> {
     }
 }
 
-impl<AT: AggregateType> OutboxPublisher for PubsubEventOutboxPublisher<AT> {
-    type Outbox = EventOutbox<AT>;
+impl OutboxPublisher for PubsubEventOutboxPublisher {
+    type Outbox = EventOutbox;
 
     async fn publish_outbox(
         &self,
-        outboxes: &[EventOutbox<AT>],
+        outboxes: &[EventOutbox],
     ) -> Result<Vec<OutboxPublishResult<EventOutboxId>>, OutboxPublisherError> {
         if outboxes.is_empty() {
             return Ok(Vec::new());

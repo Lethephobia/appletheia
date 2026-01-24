@@ -1,15 +1,14 @@
 use serde::{Deserialize, Serialize};
 
-use crate::command::CommandName;
+use crate::command::CommandNameOwned;
 use crate::request_context::{CausationId, CorrelationId, MessageId};
 
-use super::CommandPayload;
+use super::SerializedCommand;
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(bound = "")]
-pub struct CommandEnvelope<CN: CommandName> {
-    pub command_name: CN,
-    pub payload: CommandPayload,
+pub struct CommandEnvelope {
+    pub command_name: CommandNameOwned,
+    pub command: SerializedCommand,
     pub correlation_id: CorrelationId,
     pub message_id: MessageId,
     pub causation_id: CausationId,

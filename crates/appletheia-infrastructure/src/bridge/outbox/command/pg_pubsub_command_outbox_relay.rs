@@ -1,4 +1,3 @@
-use appletheia_application::command::CommandName;
 use appletheia_application::outbox::command::CommandOutbox;
 use appletheia_application::outbox::{DefaultOutboxRelay, OutboxRelayConfig};
 
@@ -6,31 +5,31 @@ use crate::google_cloud::pubsub::outbox::command::PubsubCommandOutboxPublisher;
 use crate::postgresql::outbox::command::{PgCommandOutboxFetcher, PgCommandOutboxWriter};
 use crate::postgresql::unit_of_work::PgUnitOfWork;
 
-pub type PgPubsubCommandOutboxRelay<CN> = DefaultOutboxRelay<
+pub type PgPubsubCommandOutboxRelay = DefaultOutboxRelay<
     PgUnitOfWork,
-    CommandOutbox<CN>,
-    PgCommandOutboxFetcher<CN>,
-    PgCommandOutboxWriter<CN>,
-    PubsubCommandOutboxPublisher<CN>,
+    CommandOutbox,
+    PgCommandOutboxFetcher,
+    PgCommandOutboxWriter,
+    PubsubCommandOutboxPublisher,
 >;
 
-pub fn pg_pubsub_command_outbox_relay<CN: CommandName>(
+pub fn pg_pubsub_command_outbox_relay(
     config: OutboxRelayConfig,
-    publisher: PubsubCommandOutboxPublisher<CN>,
-) -> PgPubsubCommandOutboxRelay<CN> {
+    publisher: PubsubCommandOutboxPublisher,
+) -> PgPubsubCommandOutboxRelay {
     DefaultOutboxRelay::new(
         config,
         publisher,
-        PgCommandOutboxFetcher::<CN>::new(),
-        PgCommandOutboxWriter::<CN>::new(),
+        PgCommandOutboxFetcher::new(),
+        PgCommandOutboxWriter::new(),
     )
 }
 
-pub fn pg_pubsub_command_outbox_relay_with_components<CN: CommandName>(
+pub fn pg_pubsub_command_outbox_relay_with_components(
     config: OutboxRelayConfig,
-    publisher: PubsubCommandOutboxPublisher<CN>,
-    fetcher: PgCommandOutboxFetcher<CN>,
-    writer: PgCommandOutboxWriter<CN>,
-) -> PgPubsubCommandOutboxRelay<CN> {
+    publisher: PubsubCommandOutboxPublisher,
+    fetcher: PgCommandOutboxFetcher,
+    writer: PgCommandOutboxWriter,
+) -> PgPubsubCommandOutboxRelay {
     DefaultOutboxRelay::new(config, publisher, fetcher, writer)
 }
