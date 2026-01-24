@@ -15,7 +15,6 @@ pub(super) struct PgSagaInstanceRow {
     pub state: Option<serde_json::Value>,
     pub succeeded_at: Option<DateTime<Utc>>,
     pub failed_at: Option<DateTime<Utc>>,
-    pub last_error: Option<serde_json::Value>,
 }
 
 impl PgSagaInstanceRow {
@@ -26,43 +25,33 @@ impl PgSagaInstanceRow {
     ) -> Result<SagaInstance<S>, PgSagaInstanceRowError> {
         let saga_instance_id = SagaInstanceId::try_from(self.saga_instance_id)?;
 
-        let status = match (
-            self.succeeded_at,
-            self.failed_at,
-            self.state,
-            self.last_error,
-        ) {
-            (Some(_), None, Some(state_json), _) => {
+        let (status, state) = match (self.succeeded_at, self.failed_at, self.state) {
+            (Some(_), None, Some(state_json)) => {
                 let state: S = serde_json::from_value(state_json)?;
-                SagaStatus::Succeeded { state }
+                (SagaStatus::Succeeded, Some(state))
             }
-            (None, Some(_), Some(state_json), Some(error)) => {
+            (None, Some(_), Some(state_json)) => {
                 let state: S = serde_json::from_value(state_json)?;
-                SagaStatus::Failed { state, error }
+                (SagaStatus::Failed, Some(state))
             }
-            (None, None, state_json, _) => {
+            (None, None, state_json) => {
                 let state = match state_json {
                     Some(value) => Some(serde_json::from_value(value)?),
                     None => None,
                 };
-                SagaStatus::InProgress { state }
+                (SagaStatus::InProgress, state)
             }
-            (Some(_), _, None, _) => {
+            (Some(_), _, None) => {
                 return Err(PgSagaInstanceRowError::InvalidPersistedInstance {
                     message: "succeeded instance must have non-null state",
                 });
             }
-            (None, Some(_), None, _) => {
+            (None, Some(_), None) => {
                 return Err(PgSagaInstanceRowError::InvalidPersistedInstance {
                     message: "failed instance must have non-null state",
                 });
             }
-            (None, Some(_), _, None) => {
-                return Err(PgSagaInstanceRowError::InvalidPersistedInstance {
-                    message: "failed instance must have non-null last_error",
-                });
-            }
-            (Some(_), Some(_), _, _) => {
+            (Some(_), Some(_), _) => {
                 return Err(PgSagaInstanceRowError::InvalidPersistedInstance {
                     message: "instance cannot be both succeeded and failed",
                 });
@@ -74,6 +63,8 @@ impl PgSagaInstanceRow {
             saga_name,
             correlation_id,
             status,
+            state,
+            uncommitted_commands: Vec::new(),
         })
     }
 }

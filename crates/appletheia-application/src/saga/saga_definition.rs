@@ -1,11 +1,18 @@
+use std::error::Error;
+
 use crate::event::EventEnvelope;
 
-use super::{SagaName, SagaOutcome, SagaState};
+use super::{SagaInstance, SagaName, SagaState};
 
 pub trait SagaDefinition: Send + Sync {
     type State: SagaState;
+    type Error: Error + Send + Sync + 'static;
 
     const NAME: SagaName;
 
-    fn on_event(&self, state: &mut Option<Self::State>, event: &EventEnvelope) -> SagaOutcome;
+    fn on_event(
+        &self,
+        instance: &mut SagaInstance<Self::State>,
+        event: &EventEnvelope,
+    ) -> Result<(), Self::Error>;
 }

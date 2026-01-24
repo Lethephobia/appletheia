@@ -1,4 +1,5 @@
 pub mod command_envelope;
+pub mod command_envelope_command_error;
 pub mod command_outbox;
 pub mod command_outbox_enqueue_error;
 pub mod command_outbox_enqueuer;
@@ -8,6 +9,7 @@ pub mod serialized_command;
 pub mod serialized_command_error;
 
 pub use command_envelope::CommandEnvelope;
+pub use command_envelope_command_error::CommandEnvelopeCommandError;
 pub use command_outbox::CommandOutbox;
 pub use command_outbox_enqueue_error::CommandOutboxEnqueueError;
 pub use command_outbox_enqueuer::CommandOutboxEnqueuer;

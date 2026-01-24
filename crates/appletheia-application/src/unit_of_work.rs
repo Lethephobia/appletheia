@@ -44,10 +44,6 @@ pub trait UnitOfWork: Send {
         &mut self,
         operation: F,
     ) -> Result<T, E> {
-        if self.is_in_transaction() {
-            return Err(UnitOfWorkError::AlreadyInTransaction.into());
-        }
-
         self.begin().await?;
         let result = operation(self).await;
         match result {

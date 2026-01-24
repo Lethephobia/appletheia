@@ -26,7 +26,7 @@ impl PgUnitOfWork {
 impl UnitOfWork for PgUnitOfWork {
     async fn begin(&mut self) -> Result<(), UnitOfWorkError> {
         if self.is_in_transaction() {
-            return Ok(());
+            return Err(UnitOfWorkError::AlreadyInTransaction);
         }
         self.transaction = Some(
             self.pool

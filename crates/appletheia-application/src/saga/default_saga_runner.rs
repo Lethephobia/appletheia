@@ -1,10 +1,10 @@
 use crate::event::EventEnvelope;
 use crate::outbox::OrderingKey;
-use crate::outbox::command::{CommandEnvelope, CommandOutboxEnqueuer};
-use crate::request_context::{CausationId, MessageId};
+use crate::outbox::command::CommandOutboxEnqueuer;
+use crate::unit_of_work::UnitOfWork;
 
 use super::{
-    SagaDefinition, SagaNameOwned, SagaOutcome, SagaProcessedEventStore, SagaRunReport, SagaRunner,
+    SagaDefinition, SagaNameOwned, SagaProcessedEventStore, SagaRunReport, SagaRunner,
     SagaRunnerError, SagaStatus, SagaStore,
 };
 
@@ -24,17 +24,15 @@ impl<S, P, Q> DefaultSagaRunner<S, P, Q> {
     }
 }
 
-impl<S, P, Q> SagaRunner for DefaultSagaRunner<S, P, Q>
+impl<S, P, Q> DefaultSagaRunner<S, P, Q>
 where
     S: SagaStore,
     P: SagaProcessedEventStore<Uow = S::Uow>,
     Q: CommandOutboxEnqueuer<Uow = S::Uow>,
 {
-    type Uow = S::Uow;
-
-    async fn handle_event<D: SagaDefinition>(
+    async fn handle_event_inner<D: SagaDefinition>(
         &self,
-        uow: &mut Self::Uow,
+        uow: &mut S::Uow,
         saga: &D,
         event: &EventEnvelope,
     ) -> Result<SagaRunReport, SagaRunnerError> {
@@ -62,73 +60,73 @@ where
             return Ok(SagaRunReport::AlreadyProcessed);
         }
 
-        let outcome = match &mut instance.status {
-            SagaStatus::InProgress { state } => {
-                let outcome = saga.on_event(state, event);
-                match &outcome {
-                    SagaOutcome::Succeeded => {
-                        let state_value = state
-                            .take()
-                            .ok_or(SagaRunnerError::TerminalOutcomeRequiresState)?;
-                        instance.status = SagaStatus::Succeeded { state: state_value };
-                    }
-                    SagaOutcome::Failed { error } => {
-                        let state_value = state
-                            .take()
-                            .ok_or(SagaRunnerError::TerminalOutcomeRequiresState)?;
-                        instance.status = SagaStatus::Failed {
-                            state: state_value,
-                            error: error.clone(),
-                        };
-                    }
-                    SagaOutcome::InProgress { .. } => {}
-                }
+        if instance.is_terminal() {
+            return Ok(if instance.is_succeeded() {
+                SagaRunReport::SkippedSucceeded
+            } else {
+                SagaRunReport::SkippedFailed
+            });
+        }
 
-                outcome
-            }
-            SagaStatus::Succeeded { .. } => return Ok(SagaRunReport::SkippedSucceeded),
-            SagaStatus::Failed { .. } => return Ok(SagaRunReport::SkippedFailed),
-        };
+        saga.on_event(&mut instance, event)
+            .map_err(|source| SagaRunnerError::Definition(Box::new(source)))?;
+
+        if instance.is_terminal() && instance.state.is_none() {
+            return Err(SagaRunnerError::TerminalOutcomeRequiresState);
+        }
 
         self.saga_store.save(uow, &instance).await?;
 
-        let commands = outcome.into_commands();
-        if commands.is_empty() {
+        let command_envelopes = instance.uncommitted_commands().to_vec();
+        if command_envelopes.is_empty() {
             return Ok(match &instance.status {
-                SagaStatus::InProgress { .. } => SagaRunReport::InProgress {
+                SagaStatus::InProgress => SagaRunReport::InProgress {
                     commands_enqueued: 0,
                 },
-                SagaStatus::Succeeded { .. } => SagaRunReport::Succeeded {
-                    commands_enqueued: 0,
-                },
-                SagaStatus::Failed { .. } => SagaRunReport::Failed {
-                    commands_enqueued: 0,
-                },
+                SagaStatus::Succeeded => SagaRunReport::Succeeded,
+                SagaStatus::Failed => SagaRunReport::Failed,
             });
         }
 
         let ordering_key = OrderingKey::new(correlation_id.to_string())?;
-        let causation_id = CausationId::from(event.event_id);
-        let command_envelopes = commands
-            .into_iter()
-            .map(|command| CommandEnvelope {
-                command_name: command.command_name.into(),
-                command: command.command,
-                correlation_id,
-                message_id: MessageId::new(),
-                causation_id,
-            })
-            .collect::<Vec<_>>();
 
         self.command_outbox_enqueuer
             .enqueue_commands(uow, &ordering_key, &command_envelopes)
             .await?;
 
         let commands_enqueued = command_envelopes.len();
+        instance.clear_uncommitted_commands();
         Ok(match &instance.status {
-            SagaStatus::InProgress { .. } => SagaRunReport::InProgress { commands_enqueued },
-            SagaStatus::Succeeded { .. } => SagaRunReport::Succeeded { commands_enqueued },
-            SagaStatus::Failed { .. } => SagaRunReport::Failed { commands_enqueued },
+            SagaStatus::InProgress => SagaRunReport::InProgress { commands_enqueued },
+            SagaStatus::Succeeded => SagaRunReport::Succeeded,
+            SagaStatus::Failed => SagaRunReport::Failed,
         })
+    }
+}
+
+impl<S, P, Q> SagaRunner for DefaultSagaRunner<S, P, Q>
+where
+    S: SagaStore,
+    P: SagaProcessedEventStore<Uow = S::Uow>,
+    Q: CommandOutboxEnqueuer<Uow = S::Uow>,
+{
+    type Uow = S::Uow;
+
+    async fn handle_event<D: SagaDefinition>(
+        &self,
+        uow: &mut Self::Uow,
+        saga: &D,
+        event: &EventEnvelope,
+    ) -> Result<SagaRunReport, SagaRunnerError> {
+        uow.begin().await?;
+
+        let result = self.handle_event_inner(uow, saga, event).await;
+        match result {
+            Ok(report) => {
+                uow.commit().await?;
+                Ok(report)
+            }
+            Err(error) => Err(uow.rollback_with_operation_error(error).await?),
+        }
     }
 }

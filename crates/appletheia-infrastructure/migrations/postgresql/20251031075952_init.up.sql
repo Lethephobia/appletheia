@@ -153,14 +153,9 @@ CREATE TABLE IF NOT EXISTS saga_instances (
   updated_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
   succeeded_at   TIMESTAMPTZ,
   failed_at      TIMESTAMPTZ,
-  last_error     JSONB,
   UNIQUE (saga_name, correlation_id),
   CONSTRAINT saga_instances_succeeded_failed_check CHECK (
     NOT (succeeded_at IS NOT NULL AND failed_at IS NOT NULL)
-  ),
-  CONSTRAINT saga_instances_failed_error_check CHECK (
-    (failed_at IS NULL AND last_error IS NULL) OR
-    (failed_at IS NOT NULL AND last_error IS NOT NULL)
   )
 );
 

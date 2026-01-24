@@ -157,11 +157,9 @@ where
                     outboxes[input_index].ack()?;
                 }
                 OutboxPublishResult::Failed {
-                    input_index,
-                    ref cause,
-                    ..
+                    input_index, cause, ..
                 } => {
-                    outboxes[input_index].nack(cause, &retry_options)?;
+                    outboxes[input_index].nack(&cause, &retry_options)?;
                 }
             }
         }

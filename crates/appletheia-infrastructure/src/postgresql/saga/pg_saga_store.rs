@@ -74,8 +74,7 @@ impl SagaStore for PgSagaStore {
               saga_instance_id,
               state,
               succeeded_at,
-              failed_at,
-              last_error
+              failed_at
             FROM saga_instances
             WHERE saga_name = $1
               AND correlation_id = $2
@@ -113,27 +112,26 @@ impl SagaStore for PgSagaStore {
 
         let saga_instance_id_value = instance.saga_instance_id.value();
 
-        let (state_json, completed, failed, last_error) = match &instance.status {
-            SagaStatus::InProgress { state } => {
-                let state_json = match state {
-                    Some(state) => {
-                        Some(serde_json::to_value(state).map_err(SagaStoreError::StateSerialize)?)
-                    }
-                    None => None,
-                };
-                (state_json, false, false, None)
+        let state_json = match instance.state.as_ref() {
+            Some(state) => {
+                Some(serde_json::to_value(state).map_err(SagaStoreError::StateSerialize)?)
             }
-            SagaStatus::Succeeded { state } => {
-                let state_json =
-                    Some(serde_json::to_value(state).map_err(SagaStoreError::StateSerialize)?);
-                (state_json, true, false, None)
-            }
-            SagaStatus::Failed { state, error } => {
-                let state_json =
-                    Some(serde_json::to_value(state).map_err(SagaStoreError::StateSerialize)?);
-                (state_json, false, true, Some(error.clone()))
-            }
+            None => None,
         };
+
+        let (completed, failed) = match instance.status {
+            SagaStatus::InProgress => (false, false),
+            SagaStatus::Succeeded => (true, false),
+            SagaStatus::Failed => (false, true),
+        };
+
+        if matches!(instance.status, SagaStatus::Succeeded | SagaStatus::Failed)
+            && state_json.is_none()
+        {
+            return Err(SagaStoreError::InvalidPersistedInstance {
+                message: "terminal saga instance must have non-null state",
+            });
+        }
 
         let updated = sqlx::query(
             r#"
@@ -142,8 +140,7 @@ impl SagaStore for PgSagaStore {
                    state_version = state_version + 1,
                    updated_at = now(),
                    succeeded_at = CASE WHEN $3 THEN COALESCE(succeeded_at, now()) ELSE NULL END,
-                   failed_at = CASE WHEN $4 THEN COALESCE(failed_at, now()) ELSE NULL END,
-                   last_error = CASE WHEN $4 THEN $5 ELSE NULL END
+                   failed_at = CASE WHEN $4 THEN COALESCE(failed_at, now()) ELSE NULL END
              WHERE saga_instance_id = $1
             "#,
         )
@@ -151,7 +148,6 @@ impl SagaStore for PgSagaStore {
         .bind(state_json)
         .bind(completed)
         .bind(failed)
-        .bind(last_error)
         .execute(transaction.as_mut())
         .await
         .map_err(|source| SagaStoreError::Persistence(Box::new(source)))?;
