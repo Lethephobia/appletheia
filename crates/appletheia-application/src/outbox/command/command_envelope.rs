@@ -1,11 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use serde::de::DeserializeOwned;
-
 use crate::command::{Command, CommandNameOwned};
 use crate::request_context::{CausationId, CorrelationId, MessageId};
 
-use super::CommandEnvelopeCommandError;
+use super::CommandEnvelopeError;
 use super::SerializedCommand;
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -18,13 +16,13 @@ pub struct CommandEnvelope {
 }
 
 impl CommandEnvelope {
-    pub fn try_into_command<C>(&self) -> Result<C, CommandEnvelopeCommandError>
+    pub fn try_into_command<C>(&self) -> Result<C, CommandEnvelopeError>
     where
-        C: Command + DeserializeOwned,
+        C: Command,
     {
         let expected = CommandNameOwned::from(C::NAME);
         if self.command_name != expected {
-            return Err(CommandEnvelopeCommandError::CommandNameMismatch {
+            return Err(CommandEnvelopeError::CommandNameMismatch {
                 expected: expected.to_string(),
                 actual: self.command_name.to_string(),
             });

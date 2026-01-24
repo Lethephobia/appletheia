@@ -1,7 +1,7 @@
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum CommandEnvelopeCommandError {
+pub enum CommandEnvelopeError {
     #[error("command name mismatch: expected {expected}, got {actual}")]
     CommandNameMismatch { expected: String, actual: String },
 

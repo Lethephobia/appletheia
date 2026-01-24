@@ -24,7 +24,8 @@ pub use default_command_dispatcher::DefaultCommandDispatcher;
 pub use default_command_hasher::DefaultCommandHasher;
 
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 
-pub trait Command: Serialize + Send + 'static {
+pub trait Command: Serialize + DeserializeOwned + Send + 'static {
     const NAME: CommandName;
 }

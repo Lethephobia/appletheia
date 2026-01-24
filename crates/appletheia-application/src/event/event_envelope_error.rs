@@ -3,7 +3,7 @@ use std::error::Error;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum EventEnvelopeDomainEventError {
+pub enum EventEnvelopeError {
     #[error("aggregate type mismatch: expected {expected}, got {actual}")]
     AggregateTypeMismatch {
         expected: &'static str,
