@@ -4,7 +4,6 @@ use std::ops::{Bound, RangeBounds};
 use sqlx::{Postgres, QueryBuilder};
 
 use appletheia_application::event::{EventReader, EventReaderError};
-use appletheia_application::unit_of_work::UnitOfWorkError;
 use appletheia_domain::{Aggregate, AggregateId, AggregateVersionRange, Event};
 
 use crate::postgresql::event::{PgEventRow, PgEventRowError};
@@ -82,10 +81,7 @@ impl<A: Aggregate> EventReader<A> for PgEventReader<A> {
         }
         query.push(" ORDER BY aggregate_version ASC");
 
-        let transaction = uow.transaction_mut().map_err(|e| match e {
-            UnitOfWorkError::NotInTransaction => EventReaderError::NotInTransaction,
-            other => EventReaderError::Persistence(Box::new(other)),
-        })?;
+        let transaction = uow.transaction_mut();
 
         let event_rows = query
             .build_query_as::<PgEventRow>()

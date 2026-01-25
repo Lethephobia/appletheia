@@ -72,4 +72,3 @@ impl From<EventName> for EventNameOwned {
         Self(value.value().to_string())
     }
 }
-

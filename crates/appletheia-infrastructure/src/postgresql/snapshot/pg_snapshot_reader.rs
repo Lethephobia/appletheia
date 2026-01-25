@@ -3,7 +3,6 @@ use std::marker::PhantomData;
 use sqlx::{Postgres, QueryBuilder};
 
 use appletheia_application::snapshot::{SnapshotReader, SnapshotReaderError};
-use appletheia_application::unit_of_work::UnitOfWorkError;
 use appletheia_domain::{Aggregate, AggregateId, AggregateVersion, Snapshot};
 
 use crate::postgresql::snapshot::PgSnapshotRow;
@@ -53,10 +52,7 @@ impl<A: Aggregate> SnapshotReader<A> for PgSnapshotReader<A> {
         }
         query.push(" ORDER BY aggregate_version DESC LIMIT 1");
 
-        let transaction = uow.transaction_mut().map_err(|e| match e {
-            UnitOfWorkError::NotInTransaction => SnapshotReaderError::NotInTransaction,
-            other => SnapshotReaderError::Persistence(Box::new(other)),
-        })?;
+        let transaction = uow.transaction_mut();
 
         let snapshot_row = query
             .build_query_as::<PgSnapshotRow>()

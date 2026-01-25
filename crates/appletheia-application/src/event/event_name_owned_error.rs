@@ -9,4 +9,3 @@ pub enum EventNameOwnedError {
     #[error("event name must be snake_case ascii: [a-z0-9_]")]
     InvalidFormat,
 }
-

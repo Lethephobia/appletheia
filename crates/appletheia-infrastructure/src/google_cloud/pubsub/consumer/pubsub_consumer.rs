@@ -41,4 +41,3 @@ where
         Ok(PubsubDelivery::new(received_message, message))
     }
 }
-

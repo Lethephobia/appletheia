@@ -5,7 +5,6 @@ use appletheia_application::{
     outbox::OrderingKey,
     outbox::event::EventOutboxId,
     request_context::RequestContext,
-    unit_of_work::UnitOfWorkError,
 };
 use appletheia_domain::{Aggregate, AggregateId, Event, EventPayload};
 use chrono::{DateTime, Utc};
@@ -98,10 +97,7 @@ impl<A: Aggregate> EventWriter<A> for PgEventWriter<A> {
             "#,
         );
 
-        let transaction = uow.transaction_mut().map_err(|e| match e {
-            UnitOfWorkError::NotInTransaction => EventWriterError::NotInTransaction,
-            other => EventWriterError::Persistence(Box::new(other)),
-        })?;
+        let transaction = uow.transaction_mut();
 
         let event_rows = events_query
             .build_query_as::<PgEventRow>()

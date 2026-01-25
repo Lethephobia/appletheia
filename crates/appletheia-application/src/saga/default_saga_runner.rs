@@ -2,34 +2,43 @@ use crate::event::EventEnvelope;
 use crate::outbox::OrderingKey;
 use crate::outbox::command::CommandOutboxEnqueuer;
 use crate::unit_of_work::UnitOfWork;
+use crate::unit_of_work::UnitOfWorkFactory;
 
+use super::SagaInstance;
 use super::{
     SagaDefinition, SagaNameOwned, SagaProcessedEventStore, SagaRunReport, SagaRunner,
     SagaRunnerError, SagaStatus, SagaStore,
 };
-use super::SagaInstance;
 
-pub struct DefaultSagaRunner<S, P, Q> {
+pub struct DefaultSagaRunner<S, P, Q, U> {
     saga_store: S,
     processed_event_store: P,
     command_outbox_enqueuer: Q,
+    uow_factory: U,
 }
 
-impl<S, P, Q> DefaultSagaRunner<S, P, Q> {
-    pub fn new(saga_store: S, processed_event_store: P, command_outbox_enqueuer: Q) -> Self {
+impl<S, P, Q, U> DefaultSagaRunner<S, P, Q, U> {
+    pub fn new(
+        saga_store: S,
+        processed_event_store: P,
+        command_outbox_enqueuer: Q,
+        uow_factory: U,
+    ) -> Self {
         Self {
             saga_store,
             processed_event_store,
             command_outbox_enqueuer,
+            uow_factory,
         }
     }
 }
 
-impl<S, P, Q> DefaultSagaRunner<S, P, Q>
+impl<S, P, Q, U> DefaultSagaRunner<S, P, Q, U>
 where
     S: SagaStore,
     P: SagaProcessedEventStore<Uow = S::Uow>,
     Q: CommandOutboxEnqueuer<Uow = S::Uow>,
+    U: UnitOfWorkFactory<Uow = S::Uow>,
 {
     async fn handle_event_inner<D: SagaDefinition>(
         &self,
@@ -111,23 +120,21 @@ where
     }
 }
 
-impl<S, P, Q> SagaRunner for DefaultSagaRunner<S, P, Q>
+impl<S, P, Q, U> SagaRunner for DefaultSagaRunner<S, P, Q, U>
 where
     S: SagaStore,
     P: SagaProcessedEventStore<Uow = S::Uow>,
     Q: CommandOutboxEnqueuer<Uow = S::Uow>,
+    U: UnitOfWorkFactory<Uow = S::Uow>,
 {
-    type Uow = S::Uow;
-
     async fn handle_event<D: SagaDefinition>(
         &self,
-        uow: &mut Self::Uow,
         saga: &D,
         event: &EventEnvelope,
     ) -> Result<SagaRunReport, SagaRunnerError> {
-        uow.begin().await?;
+        let mut uow = self.uow_factory.begin().await?;
 
-        let result = self.handle_event_inner(uow, saga, event).await;
+        let result = self.handle_event_inner(&mut uow, saga, event).await;
         match result {
             Ok((mut instance, report)) => {
                 uow.commit().await?;

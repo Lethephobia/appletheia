@@ -1,12 +1,12 @@
-use appletheia_application::{ConsumerBuilder, ConsumerBuilderError};
 use appletheia_application::event::{EventEnvelope, EventSelector};
+use appletheia_application::{ConsumerFactory, ConsumerFactoryError};
 use google_cloud_pubsub::client::Client;
 use google_cloud_pubsub::subscription::{SubscribeConfig, SubscriptionConfig};
 use tonic::Code;
 
 use super::pubsub_consumer::PubsubConsumer;
 
-pub struct PubsubEventEnvelopeConsumerBuilder {
+pub struct PubsubEventEnvelopeConsumerFactory {
     client: Client,
     topic_id: String,
     subscription_id_prefix: String,
@@ -14,7 +14,7 @@ pub struct PubsubEventEnvelopeConsumerBuilder {
     subscribe_config: Option<SubscribeConfig>,
 }
 
-impl PubsubEventEnvelopeConsumerBuilder {
+impl PubsubEventEnvelopeConsumerFactory {
     pub fn new(client: Client, topic_id: impl Into<String>) -> Self {
         Self {
             client,
@@ -67,7 +67,7 @@ impl PubsubEventEnvelopeConsumerBuilder {
     }
 }
 
-impl ConsumerBuilder<EventEnvelope> for PubsubEventEnvelopeConsumerBuilder {
+impl ConsumerFactory<EventEnvelope> for PubsubEventEnvelopeConsumerFactory {
     type Consumer = PubsubConsumer<EventEnvelope>;
     type Selector = EventSelector;
 
@@ -75,7 +75,7 @@ impl ConsumerBuilder<EventEnvelope> for PubsubEventEnvelopeConsumerBuilder {
         &mut self,
         consumer_group: &str,
         selectors: &[Self::Selector],
-    ) -> Result<Self::Consumer, ConsumerBuilderError> {
+    ) -> Result<Self::Consumer, ConsumerFactoryError> {
         let subscription_id = self.subscription_id(consumer_group);
 
         let mut config = self.subscription_config.clone();
@@ -92,16 +92,15 @@ impl ConsumerBuilder<EventEnvelope> for PubsubEventEnvelopeConsumerBuilder {
                 self.client.subscription(&subscription_id)
             }
             Err(status) => {
-                return Err(ConsumerBuilderError::Subscribe(Box::new(status)));
+                return Err(ConsumerFactoryError::Subscribe(Box::new(status)));
             }
         };
 
         let stream = subscription
             .subscribe(self.subscribe_config.clone())
             .await
-            .map_err(|error| ConsumerBuilderError::Subscribe(Box::new(error)))?;
+            .map_err(|error| ConsumerFactoryError::Subscribe(Box::new(error)))?;
 
         Ok(PubsubConsumer::new(stream))
     }
 }
-

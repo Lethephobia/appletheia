@@ -8,4 +8,3 @@ pub trait Delivery<M>: Send {
 
     async fn nack(&mut self) -> Result<(), ConsumerError>;
 }
-

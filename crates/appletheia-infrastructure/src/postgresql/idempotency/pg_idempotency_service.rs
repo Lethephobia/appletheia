@@ -45,9 +45,7 @@ impl IdempotencyService for PgIdempotencyService {
         command_name: CommandName,
         command_hash: &CommandHash,
     ) -> Result<IdempotencyBeginResult, IdempotencyError> {
-        let transaction = uow
-            .transaction_mut()
-            .map_err(|e| IdempotencyError::Persistence(Box::new(e)))?;
+        let transaction = uow.transaction_mut();
 
         let message_id_value = message_id.value();
         let command_name_value = command_name.to_string();
@@ -129,9 +127,7 @@ impl IdempotencyService for PgIdempotencyService {
         message_id: MessageId,
         output: IdempotencyOutput,
     ) -> Result<(), IdempotencyError> {
-        let transaction = uow
-            .transaction_mut()
-            .map_err(|e| IdempotencyError::Persistence(Box::new(e)))?;
+        let transaction = uow.transaction_mut();
 
         let message_id_value = message_id.value();
 
@@ -164,9 +160,7 @@ impl IdempotencyService for PgIdempotencyService {
         message_id: MessageId,
         error: CommandFailureReport,
     ) -> Result<(), IdempotencyError> {
-        let transaction = uow
-            .transaction_mut()
-            .map_err(|e| IdempotencyError::Persistence(Box::new(e)))?;
+        let transaction = uow.transaction_mut();
 
         let message_id_value = message_id.value();
 

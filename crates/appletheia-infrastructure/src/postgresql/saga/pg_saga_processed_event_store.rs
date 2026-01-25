@@ -2,7 +2,6 @@ use appletheia_application::request_context::CorrelationId;
 use appletheia_application::saga::{
     SagaNameOwned, SagaProcessedEventStore, SagaProcessedEventStoreError,
 };
-use appletheia_application::unit_of_work::UnitOfWorkError;
 use appletheia_domain::EventId;
 
 use crate::postgresql::unit_of_work::PgUnitOfWork;
@@ -13,13 +12,6 @@ pub struct PgSagaProcessedEventStore;
 impl PgSagaProcessedEventStore {
     pub fn new() -> Self {
         Self
-    }
-
-    fn map_uow_error(error: UnitOfWorkError) -> SagaProcessedEventStoreError {
-        match error {
-            UnitOfWorkError::NotInTransaction => SagaProcessedEventStoreError::NotInTransaction,
-            other => SagaProcessedEventStoreError::Persistence(Box::new(other)),
-        }
     }
 }
 
@@ -39,7 +31,7 @@ impl SagaProcessedEventStore for PgSagaProcessedEventStore {
         correlation_id: CorrelationId,
         event_id: EventId,
     ) -> Result<bool, SagaProcessedEventStoreError> {
-        let transaction = uow.transaction_mut().map_err(Self::map_uow_error)?;
+        let transaction = uow.transaction_mut();
 
         let saga_name_value = saga_name.value();
         let correlation_id_value = correlation_id.0;

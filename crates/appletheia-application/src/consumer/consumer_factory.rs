@@ -1,7 +1,7 @@
-use super::{Consumer, ConsumerBuilderError};
+use super::{Consumer, ConsumerFactoryError};
 
 #[allow(async_fn_in_trait)]
-pub trait ConsumerBuilder<M>: Send {
+pub trait ConsumerFactory<M>: Send {
     type Consumer: Consumer<M>;
     type Selector;
 
@@ -9,6 +9,5 @@ pub trait ConsumerBuilder<M>: Send {
         &mut self,
         consumer_group: &str,
         selectors: &[Self::Selector],
-    ) -> Result<Self::Consumer, ConsumerBuilderError>;
+    ) -> Result<Self::Consumer, ConsumerFactoryError>;
 }
-

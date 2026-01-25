@@ -1,26 +1,17 @@
 use sqlx::{Postgres, QueryBuilder};
 use uuid::Uuid;
 
+use crate::postgresql::unit_of_work::PgUnitOfWork;
 use appletheia_application::outbox::OrderingKey;
 use appletheia_application::outbox::command::{
     CommandEnvelope, CommandOutboxEnqueueError, CommandOutboxEnqueuer,
 };
-use appletheia_application::unit_of_work::UnitOfWorkError;
-
-use crate::postgresql::unit_of_work::PgUnitOfWork;
 
 pub struct PgCommandOutboxEnqueuer;
 
 impl PgCommandOutboxEnqueuer {
     pub fn new() -> Self {
         Self
-    }
-
-    fn map_uow_error(error: UnitOfWorkError) -> CommandOutboxEnqueueError {
-        match error {
-            UnitOfWorkError::NotInTransaction => CommandOutboxEnqueueError::NotInTransaction,
-            other => CommandOutboxEnqueueError::Persistence(Box::new(other)),
-        }
     }
 }
 
@@ -43,7 +34,7 @@ impl CommandOutboxEnqueuer for PgCommandOutboxEnqueuer {
             return Ok(());
         }
 
-        let transaction = uow.transaction_mut().map_err(Self::map_uow_error)?;
+        let transaction = uow.transaction_mut();
 
         let ordering_key_value = ordering_key.as_str();
 

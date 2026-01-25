@@ -3,11 +3,15 @@ use thiserror::Error;
 use crate::outbox::OrderingKeyError;
 use crate::outbox::command::CommandOutboxEnqueueError;
 use crate::unit_of_work::UnitOfWorkError;
+use crate::unit_of_work::UnitOfWorkFactoryError;
 
 use super::{SagaProcessedEventStoreError, SagaStoreError};
 
 #[derive(Debug, Error)]
 pub enum SagaRunnerError {
+    #[error(transparent)]
+    UnitOfWorkFactory(#[from] UnitOfWorkFactoryError),
+
     #[error(transparent)]
     UnitOfWork(#[from] UnitOfWorkError),
 

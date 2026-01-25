@@ -9,7 +9,6 @@ pub trait CommandDispatcher: Send + Sync {
     async fn dispatch<H>(
         &self,
         handler: &H,
-        uow: &mut Self::Uow,
         request_context: &RequestContext,
         command: H::Command,
     ) -> Result<H::Output, CommandDispatchError<H::Error>>

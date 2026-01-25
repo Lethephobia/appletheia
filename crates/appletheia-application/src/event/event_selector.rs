@@ -21,4 +21,3 @@ impl EventSelector {
             && event.event_name.value() == self.event_name.value()
     }
 }
-

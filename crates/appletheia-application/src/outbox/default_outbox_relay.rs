@@ -5,58 +5,66 @@ use std::time::Duration as StdDuration;
 use chrono::Duration;
 use tokio::time::sleep;
 
-use crate::unit_of_work::{UnitOfWork, UnitOfWorkError};
+use crate::unit_of_work::UnitOfWork;
+use crate::unit_of_work::UnitOfWorkFactory;
 
 use super::{
     Outbox, OutboxFetcher, OutboxPublishResult, OutboxPublisher, OutboxRelay, OutboxRelayConfig,
     OutboxRelayError, OutboxRelayRunReport, OutboxState, OutboxWriter,
 };
 
-pub struct DefaultOutboxRelay<Uow, O, F, W, P>
+pub struct DefaultOutboxRelay<UowFactory, O, F, W, P>
 where
-    Uow: UnitOfWork,
+    UowFactory: UnitOfWorkFactory,
     O: Outbox,
-    F: OutboxFetcher<Uow = Uow, Outbox = O>,
-    W: OutboxWriter<Uow = Uow, Outbox = O>,
+    F: OutboxFetcher<Uow = UowFactory::Uow, Outbox = O>,
+    W: OutboxWriter<Uow = UowFactory::Uow, Outbox = O>,
     P: OutboxPublisher<Outbox = O>,
 {
     config: OutboxRelayConfig,
     publisher: P,
     fetcher: F,
     writer: W,
+    uow_factory: UowFactory,
     stop_requested: AtomicBool,
     _marker: PhantomData<fn() -> O>,
 }
 
-impl<Uow, O, F, W, P> DefaultOutboxRelay<Uow, O, F, W, P>
+impl<UowFactory, O, F, W, P> DefaultOutboxRelay<UowFactory, O, F, W, P>
 where
-    Uow: UnitOfWork,
+    UowFactory: UnitOfWorkFactory,
     O: Outbox,
-    F: OutboxFetcher<Uow = Uow, Outbox = O>,
-    W: OutboxWriter<Uow = Uow, Outbox = O>,
+    F: OutboxFetcher<Uow = UowFactory::Uow, Outbox = O>,
+    W: OutboxWriter<Uow = UowFactory::Uow, Outbox = O>,
     P: OutboxPublisher<Outbox = O>,
 {
-    pub fn new(config: OutboxRelayConfig, publisher: P, fetcher: F, writer: W) -> Self {
+    pub fn new(
+        config: OutboxRelayConfig,
+        publisher: P,
+        fetcher: F,
+        writer: W,
+        uow_factory: UowFactory,
+    ) -> Self {
         Self {
             config,
             publisher,
             fetcher,
             writer,
+            uow_factory,
             stop_requested: AtomicBool::new(false),
             _marker: PhantomData,
         }
     }
 }
 
-impl<Uow, O, F, W, P> OutboxRelay for DefaultOutboxRelay<Uow, O, F, W, P>
+impl<UowFactory, O, F, W, P> OutboxRelay for DefaultOutboxRelay<UowFactory, O, F, W, P>
 where
-    Uow: UnitOfWork,
+    UowFactory: UnitOfWorkFactory,
     O: Outbox,
-    F: OutboxFetcher<Uow = Uow, Outbox = O>,
-    W: OutboxWriter<Uow = Uow, Outbox = O>,
+    F: OutboxFetcher<Uow = UowFactory::Uow, Outbox = O>,
+    W: OutboxWriter<Uow = UowFactory::Uow, Outbox = O>,
     P: OutboxPublisher<Outbox = O>,
 {
-    type Uow = Uow;
     type Outbox = O;
 
     fn is_stop_requested(&self) -> bool {
@@ -67,12 +75,12 @@ where
         self.stop_requested.store(true, AtomicOrdering::SeqCst);
     }
 
-    async fn run_forever(&self, uow: &mut Self::Uow) -> Result<(), OutboxRelayError> {
+    async fn run_forever(&self) -> Result<(), OutboxRelayError> {
         let polling_options = &self.config.polling_options;
         let mut poll_interval = polling_options.base;
 
         while !self.is_stop_requested() {
-            let run_report = self.run_once(uow).await?;
+            let run_report = self.run_once().await?;
 
             match run_report {
                 OutboxRelayRunReport::Progress { .. } => {
@@ -100,54 +108,51 @@ where
         Ok(())
     }
 
-    async fn run_once(
-        &self,
-        uow: &mut Self::Uow,
-    ) -> Result<OutboxRelayRunReport, OutboxRelayError> {
-        if uow.is_in_transaction() {
-            return Err(UnitOfWorkError::AlreadyInTransaction.into());
-        }
-
+    async fn run_once(&self) -> Result<OutboxRelayRunReport, OutboxRelayError> {
         let relay_instance = &self.config.instance;
         let lease_duration = self.config.lease_duration;
         let batch_size = self.config.batch_size;
         let retry_options = self.config.retry_options;
 
-        uow.begin().await?;
-
-        let operation_result = async {
-            let mut outboxes = self.fetcher.fetch(uow, batch_size).await?;
-
-            if outboxes.is_empty() {
-                return Ok(outboxes);
-            }
-
-            for outbox in &mut outboxes {
-                match outbox.state() {
-                    OutboxState::Pending { .. } => {
-                        outbox.acquire_lease(relay_instance, lease_duration)?;
-                    }
-                    other => return Err(OutboxRelayError::NonPendingOutboxState(other.clone())),
+        let mut uow = self.uow_factory.begin().await?;
+        let outboxes = self.fetcher.fetch(&mut uow, batch_size).await;
+        let mut outboxes = match outboxes {
+            Ok(mut outboxes) => {
+                if outboxes.is_empty() {
+                    uow.commit().await?;
+                    return Ok(OutboxRelayRunReport::Idle);
                 }
-            }
 
-            self.writer.write_outbox(uow, &outboxes).await?;
+                for outbox in &mut outboxes {
+                    match outbox.state() {
+                        OutboxState::Pending { .. } => {
+                            outbox.acquire_lease(relay_instance, lease_duration)?;
+                        }
+                        other => {
+                            return Err(uow
+                                .rollback_with_operation_error(
+                                    OutboxRelayError::NonPendingOutboxState(other.clone()),
+                                )
+                                .await?);
+                        }
+                    }
+                }
 
-            Ok(outboxes)
-        }
-        .await;
+                if let Err(operation_error) = self.writer.write_outbox(&mut uow, &outboxes).await {
+                    return Err(uow
+                        .rollback_with_operation_error(OutboxRelayError::Writer(operation_error))
+                        .await?);
+                }
 
-        let mut outboxes = match operation_result {
-            Ok(value) => {
                 uow.commit().await?;
-                value
+                outboxes
             }
-            Err(error) => return Err(uow.rollback_with_operation_error(error).await?),
+            Err(operation_error) => {
+                return Err(uow
+                    .rollback_with_operation_error(OutboxRelayError::Fetcher(operation_error))
+                    .await?);
+            }
         };
-
-        if outboxes.is_empty() {
-            return Ok(OutboxRelayRunReport::Idle);
-        }
 
         let publish_results = self.publisher.publish_outbox(&outboxes).await?;
 
@@ -166,19 +171,17 @@ where
 
         let proceeded_outbox_count = outboxes.len().min(u32::MAX as usize) as u32;
 
-        uow.begin().await?;
-
-        let operation_result = async {
-            self.writer.write_outbox(uow, &outboxes).await?;
-            Ok(())
-        }
-        .await;
-
-        match operation_result {
+        let mut uow = self.uow_factory.begin().await?;
+        let write_result = self.writer.write_outbox(&mut uow, &outboxes).await;
+        match write_result {
             Ok(()) => {
                 uow.commit().await?;
             }
-            Err(error) => return Err(uow.rollback_with_operation_error(error).await?),
+            Err(operation_error) => {
+                return Err(uow
+                    .rollback_with_operation_error(OutboxRelayError::Writer(operation_error))
+                    .await?);
+            }
         }
 
         Ok(OutboxRelayRunReport::Progress {

@@ -13,4 +13,3 @@ pub enum ConsumerError {
     #[error("consumer nack error")]
     Nack(#[source] Box<dyn Error + Send + Sync>),
 }
-

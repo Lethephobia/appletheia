@@ -1,12 +1,12 @@
 use thiserror::Error;
 
 use super::SagaRunnerError;
-use crate::{ConsumerBuilderError, ConsumerError};
+use crate::{ConsumerError, ConsumerFactoryError};
 
 #[derive(Debug, Error)]
 pub enum SagaWorkerError {
     #[error(transparent)]
-    ConsumerBuilder(#[from] ConsumerBuilderError),
+    ConsumerFactory(#[from] ConsumerFactoryError),
 
     #[error(transparent)]
     Consumer(#[from] ConsumerError),

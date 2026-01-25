@@ -37,4 +37,3 @@ where
             .map_err(|error| ConsumerError::Nack(Box::new(error)))
     }
 }
-

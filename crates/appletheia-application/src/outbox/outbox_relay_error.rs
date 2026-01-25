@@ -4,6 +4,7 @@ use crate::outbox::{
     OutboxError, OutboxFetcherError, OutboxPublisherError, OutboxState, OutboxWriterError,
 };
 use crate::unit_of_work::UnitOfWorkError;
+use crate::unit_of_work::UnitOfWorkFactoryError;
 
 #[derive(Debug, Error)]
 pub enum OutboxRelayError {
@@ -18,6 +19,9 @@ pub enum OutboxRelayError {
 
     #[error("unit of work error: {0}")]
     UnitOfWork(#[from] UnitOfWorkError),
+
+    #[error("unit of work factory error: {0}")]
+    UnitOfWorkFactory(#[from] UnitOfWorkFactoryError),
 
     #[error("outbox error: {0}")]
     Outbox(#[from] OutboxError),

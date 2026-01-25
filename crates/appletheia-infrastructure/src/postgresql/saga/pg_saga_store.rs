@@ -1,12 +1,10 @@
+use super::pg_saga_instance_row_error::PgSagaInstanceRowError;
+use crate::postgresql::saga::pg_saga_instance_row::PgSagaInstanceRow;
+use crate::postgresql::unit_of_work::PgUnitOfWork;
 use appletheia_application::request_context::CorrelationId;
 use appletheia_application::saga::{
     SagaInstance, SagaInstanceId, SagaNameOwned, SagaState, SagaStatus, SagaStore, SagaStoreError,
 };
-use appletheia_application::unit_of_work::UnitOfWorkError;
-
-use super::pg_saga_instance_row_error::PgSagaInstanceRowError;
-use crate::postgresql::saga::pg_saga_instance_row::PgSagaInstanceRow;
-use crate::postgresql::unit_of_work::PgUnitOfWork;
 
 #[derive(Debug)]
 pub struct PgSagaStore;
@@ -14,13 +12,6 @@ pub struct PgSagaStore;
 impl PgSagaStore {
     pub fn new() -> Self {
         Self
-    }
-
-    fn map_uow_error(error: UnitOfWorkError) -> SagaStoreError {
-        match error {
-            UnitOfWorkError::NotInTransaction => SagaStoreError::NotInTransaction,
-            other => SagaStoreError::Persistence(Box::new(other)),
-        }
     }
 }
 
@@ -39,7 +30,7 @@ impl SagaStore for PgSagaStore {
         saga_name: SagaNameOwned,
         correlation_id: CorrelationId,
     ) -> Result<SagaInstance<S>, SagaStoreError> {
-        let transaction = uow.transaction_mut().map_err(Self::map_uow_error)?;
+        let transaction = uow.transaction_mut();
 
         let saga_instance_id_value = SagaInstanceId::new().value();
         let saga_name_value = saga_name.value();
@@ -108,7 +99,7 @@ impl SagaStore for PgSagaStore {
         uow: &mut Self::Uow,
         instance: &SagaInstance<S>,
     ) -> Result<(), SagaStoreError> {
-        let transaction = uow.transaction_mut().map_err(Self::map_uow_error)?;
+        let transaction = uow.transaction_mut();
 
         let saga_instance_id_value = instance.saga_instance_id.value();
 

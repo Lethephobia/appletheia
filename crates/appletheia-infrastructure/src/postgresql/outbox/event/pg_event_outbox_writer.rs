@@ -4,7 +4,6 @@ use sqlx::{Postgres, QueryBuilder};
 use appletheia_application::outbox::{
     OutboxDispatchError, OutboxLifecycle, OutboxWriter, OutboxWriterError, event::EventOutbox,
 };
-use appletheia_application::unit_of_work::UnitOfWorkError;
 
 use crate::postgresql::unit_of_work::PgUnitOfWork;
 
@@ -42,10 +41,7 @@ impl PgEventOutboxWriter {
 
         let last_error_value = Self::serialize_last_error(outbox)?;
 
-        let transaction = uow.transaction_mut().map_err(|e| match e {
-            UnitOfWorkError::NotInTransaction => OutboxWriterError::NotInTransaction,
-            other => OutboxWriterError::Persistence(Box::new(other)),
-        })?;
+        let transaction = uow.transaction_mut();
 
         sqlx::query(
             r#"
@@ -169,10 +165,7 @@ impl PgEventOutboxWriter {
             }
         }
 
-        let transaction = uow.transaction_mut().map_err(|e| match e {
-            UnitOfWorkError::NotInTransaction => OutboxWriterError::NotInTransaction,
-            other => OutboxWriterError::Persistence(Box::new(other)),
-        })?;
+        let transaction = uow.transaction_mut();
 
         query_builder
             .build()
@@ -200,10 +193,7 @@ impl PgEventOutboxWriter {
 
         query_builder.push(")");
 
-        let transaction = uow.transaction_mut().map_err(|e| match e {
-            UnitOfWorkError::NotInTransaction => OutboxWriterError::NotInTransaction,
-            other => OutboxWriterError::Persistence(Box::new(other)),
-        })?;
+        let transaction = uow.transaction_mut();
 
         query_builder
             .build()

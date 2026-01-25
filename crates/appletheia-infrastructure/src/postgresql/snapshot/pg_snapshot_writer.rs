@@ -1,7 +1,6 @@
 use std::marker::PhantomData;
 
 use appletheia_application::snapshot::{SnapshotWriter, SnapshotWriterError};
-use appletheia_application::unit_of_work::UnitOfWorkError;
 use appletheia_domain::{Aggregate, AggregateId, Snapshot};
 
 use crate::postgresql::unit_of_work::PgUnitOfWork;
@@ -38,10 +37,7 @@ impl<A: Aggregate> SnapshotWriter<A> for PgSnapshotWriter<A> {
         let aggregate_id = snapshot.aggregate_id().value();
         let aggregate_version = snapshot.aggregate_version().value();
 
-        let transaction = uow.transaction_mut().map_err(|e| match e {
-            UnitOfWorkError::NotInTransaction => SnapshotWriterError::NotInTransaction,
-            other => SnapshotWriterError::Persistence(Box::new(other)),
-        })?;
+        let transaction = uow.transaction_mut();
 
         sqlx::query(
             r#"

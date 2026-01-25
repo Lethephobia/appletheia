@@ -1,25 +1,23 @@
 use std::sync::atomic::{AtomicBool, Ordering as AtomicOrdering};
 
-use super::{
-    SagaDefinition, SagaRunner, SagaWorker, SagaWorkerError,
-};
+use super::{SagaDefinition, SagaRunner, SagaWorker, SagaWorkerError};
 use crate::{
-    Consumer, ConsumerBuilder, Delivery,
+    Consumer, ConsumerFactory, Delivery,
     event::{EventEnvelope, EventSelector},
 };
 
 pub struct DefaultSagaWorker<D, B, R> {
     saga_runner: R,
-    consumer_builder: B,
+    consumer_factory: B,
     saga: D,
     stop_requested: AtomicBool,
 }
 
 impl<D, B, R> DefaultSagaWorker<D, B, R> {
-    pub fn new(saga_runner: R, consumer_builder: B, saga: D) -> Self {
+    pub fn new(saga_runner: R, consumer_factory: B, saga: D) -> Self {
         Self {
             saga_runner,
-            consumer_builder,
+            consumer_factory,
             saga,
             stop_requested: AtomicBool::new(false),
         }
@@ -29,12 +27,11 @@ impl<D, B, R> DefaultSagaWorker<D, B, R> {
 impl<D, B, R> SagaWorker for DefaultSagaWorker<D, B, R>
 where
     D: SagaDefinition,
-    B: ConsumerBuilder<EventEnvelope, Selector = EventSelector>,
+    B: ConsumerFactory<EventEnvelope, Selector = EventSelector>,
     B::Consumer: Consumer<EventEnvelope>,
     <B::Consumer as Consumer<EventEnvelope>>::Delivery: Delivery<EventEnvelope>,
     R: SagaRunner,
 {
-    type Uow = R::Uow;
     type Saga = D;
 
     fn is_stop_requested(&self) -> bool {
@@ -45,9 +42,9 @@ where
         self.stop_requested.store(true, AtomicOrdering::SeqCst);
     }
 
-    async fn run_forever(&mut self, uow: &mut Self::Uow) -> Result<(), SagaWorkerError> {
+    async fn run_forever(&mut self) -> Result<(), SagaWorkerError> {
         let mut consumer = self
-            .consumer_builder
+            .consumer_factory
             .subscribe(D::NAME.value(), D::EVENTS)
             .await?;
 
@@ -61,7 +58,7 @@ where
 
             let result = self
                 .saga_runner
-                .handle_event(uow, &self.saga, delivery.message())
+                .handle_event(&self.saga, delivery.message())
                 .await;
 
             match result {

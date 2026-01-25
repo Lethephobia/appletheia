@@ -4,7 +4,6 @@ use sqlx::Postgres;
 use appletheia_application::outbox::{
     OutboxBatchSize, OutboxFetcher, OutboxFetcherError, event::EventOutbox,
 };
-use appletheia_application::unit_of_work::UnitOfWorkError;
 
 use crate::postgresql::unit_of_work::PgUnitOfWork;
 
@@ -35,10 +34,7 @@ impl OutboxFetcher for PgEventOutboxFetcher {
     ) -> Result<Vec<EventOutbox>, OutboxFetcherError> {
         let now = Utc::now();
 
-        let transaction = uow.transaction_mut().map_err(|e| match e {
-            UnitOfWorkError::NotInTransaction => OutboxFetcherError::NotInTransaction,
-            other => OutboxFetcherError::Persistence(Box::new(other)),
-        })?;
+        let transaction = uow.transaction_mut();
 
         let outbox_rows = sqlx::query_as::<Postgres, PgEventOutboxRow>(
             r#"
