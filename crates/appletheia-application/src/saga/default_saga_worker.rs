@@ -4,28 +4,32 @@ use super::{
     SagaConsumer, SagaDefinition, SagaDelivery, SagaRunner, SagaWorker, SagaWorkerError,
 };
 
-pub struct DefaultSagaWorker<C, R> {
+pub struct DefaultSagaWorker<D, C, R> {
     saga_runner: R,
     consumer: C,
+    saga: D,
     stop_requested: AtomicBool,
 }
 
-impl<C, R> DefaultSagaWorker<C, R> {
-    pub fn new(saga_runner: R, consumer: C) -> Self {
+impl<D, C, R> DefaultSagaWorker<D, C, R> {
+    pub fn new(saga_runner: R, consumer: C, saga: D) -> Self {
         Self {
             saga_runner,
             consumer,
+            saga,
             stop_requested: AtomicBool::new(false),
         }
     }
 }
 
-impl<C, R> SagaWorker for DefaultSagaWorker<C, R>
+impl<D, C, R> SagaWorker for DefaultSagaWorker<D, C, R>
 where
-    C: SagaConsumer,
+    D: SagaDefinition,
+    C: SagaConsumer<Saga = D>,
     R: SagaRunner,
 {
     type Uow = R::Uow;
+    type Saga = D;
 
     fn is_stop_requested(&self) -> bool {
         self.stop_requested.load(AtomicOrdering::SeqCst)
@@ -35,11 +39,7 @@ where
         self.stop_requested.store(true, AtomicOrdering::SeqCst);
     }
 
-    async fn run_forever<D: SagaDefinition>(
-        &mut self,
-        uow: &mut Self::Uow,
-        saga: &D,
-    ) -> Result<(), SagaWorkerError> {
+    async fn run_forever(&mut self, uow: &mut Self::Uow) -> Result<(), SagaWorkerError> {
         while !self.is_stop_requested() {
             let mut delivery = self
                 .consumer
@@ -47,7 +47,7 @@ where
                 .await
                 .map_err(|source| SagaWorkerError::ConsumerNext(Box::new(source)))?;
 
-            if !saga.matches(delivery.event()) {
+            if !self.saga.matches(delivery.event()) {
                 delivery
                     .ack()
                     .await
@@ -57,7 +57,7 @@ where
 
             let result = self
                 .saga_runner
-                .handle_event(uow, saga, delivery.event())
+                .handle_event(uow, &self.saga, delivery.event())
                 .await;
 
             match result {

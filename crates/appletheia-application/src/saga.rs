@@ -1,6 +1,7 @@
-pub mod default_saga_worker;
 pub mod default_saga_runner;
+pub mod default_saga_worker;
 pub mod saga_append_command_error;
+pub mod saga_delivery;
 pub mod saga_consumer;
 pub mod saga_definition;
 pub mod saga_instance;
@@ -20,10 +21,11 @@ pub mod saga_store_error;
 pub mod saga_worker;
 pub mod saga_worker_error;
 
-pub use default_saga_worker::DefaultSagaWorker;
 pub use default_saga_runner::DefaultSagaRunner;
+pub use default_saga_worker::DefaultSagaWorker;
 pub use saga_append_command_error::SagaAppendCommandError;
-pub use saga_consumer::{SagaConsumer, SagaDelivery};
+pub use saga_consumer::SagaConsumer;
+pub use saga_delivery::SagaDelivery;
 pub use saga_definition::SagaDefinition;
 pub use saga_instance::{SagaInstance, SagaStatus};
 pub use saga_instance_id::SagaInstanceId;
