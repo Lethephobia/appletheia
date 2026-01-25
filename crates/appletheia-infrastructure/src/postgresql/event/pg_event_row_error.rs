@@ -16,6 +16,9 @@ pub enum PgEventRowError {
     #[error("aggregate type error: {0}")]
     AggregateType(String),
 
+    #[error("event name error: {0}")]
+    EventName(String),
+
     #[error("aggregate id error: {0}")]
     AggregateId(#[source] Box<dyn Error + Send + Sync>),
 

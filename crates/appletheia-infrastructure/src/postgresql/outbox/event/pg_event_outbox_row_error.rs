@@ -21,6 +21,9 @@ pub enum PgEventOutboxRowError {
     #[error("aggregate type error: {0}")]
     AggregateType(String),
 
+    #[error("event name error: {0}")]
+    EventName(String),
+
     #[error("aggregate version error: {0}")]
     AggregateVersion(#[from] AggregateVersionError),
 

@@ -86,6 +86,7 @@ impl PgEventOutboxWriter {
                 aggregate_type,
                 aggregate_id,
                 aggregate_version,
+                event_name,
                 ordering_key,
                 payload,
                 occurred_at,
@@ -114,6 +115,7 @@ impl PgEventOutboxWriter {
                 let aggregate_type_value = event.aggregate_type.value();
                 let aggregate_id_value = event.aggregate_id.value();
                 let aggregate_version_value = event.aggregate_version.value();
+                let event_name_value = event.event_name.value();
                 let ordering_key_value = outbox.ordering_key.as_str();
                 let payload_value = event.payload.value().clone();
                 let occurred_at_value: DateTime<Utc> = event.occurred_at.into();
@@ -149,6 +151,7 @@ impl PgEventOutboxWriter {
                     .push_bind(aggregate_type_value)
                     .push_bind(aggregate_id_value)
                     .push_bind(aggregate_version_value)
+                    .push_bind(event_name_value)
                     .push_bind(ordering_key_value)
                     .push_bind(payload_value)
                     .push_bind(occurred_at_value)

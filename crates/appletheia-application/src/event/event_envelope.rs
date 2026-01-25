@@ -4,7 +4,9 @@ use appletheia_domain::{
     Aggregate, AggregateId, AggregateVersion, Event, EventId, EventOccurredAt, EventPayload,
 };
 
-use crate::event::{AggregateIdValue, AggregateTypeOwned, EventSequence, SerializedEventPayload};
+use crate::event::{
+    AggregateIdValue, AggregateTypeOwned, EventNameOwned, EventSequence, SerializedEventPayload,
+};
 use crate::request_context::{CausationId, CorrelationId, RequestContext};
 
 use super::EventEnvelopeError;
@@ -16,6 +18,7 @@ pub struct EventEnvelope {
     pub aggregate_type: AggregateTypeOwned,
     pub aggregate_id: AggregateIdValue,
     pub aggregate_version: AggregateVersion,
+    pub event_name: EventNameOwned,
     pub payload: SerializedEventPayload,
     pub occurred_at: EventOccurredAt,
     pub correlation_id: CorrelationId,

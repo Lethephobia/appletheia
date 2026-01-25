@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS events (
   aggregate_type      TEXT        NOT NULL,
   aggregate_id        UUID        NOT NULL,
   aggregate_version   BIGINT      NOT NULL CHECK (aggregate_version > 0),
+  event_name          TEXT        NOT NULL,
   payload             JSONB       NOT NULL,
   occurred_at         TIMESTAMPTZ NOT NULL,
   correlation_id      UUID        NOT NULL,
@@ -20,6 +21,7 @@ CREATE TABLE IF NOT EXISTS events (
 CREATE INDEX IF NOT EXISTS idx_events_occurred_at ON events (occurred_at);
 CREATE INDEX IF NOT EXISTS idx_events_correlation_id ON events (correlation_id);
 CREATE INDEX IF NOT EXISTS idx_events_causation_id   ON events (causation_id);
+CREATE INDEX IF NOT EXISTS idx_events_event_name     ON events (event_name);
 CREATE INDEX IF NOT EXISTS idx_events_payload_type ON events ((payload->>'type'));
 
 COMMENT ON TABLE  events IS 'Event store: append-only; (aggregate_type, aggregate_id, aggregate_version) is unique.';
@@ -49,6 +51,7 @@ CREATE TABLE IF NOT EXISTS event_outbox (
   aggregate_type       TEXT        NOT NULL,
   aggregate_id         UUID        NOT NULL,
   aggregate_version    BIGINT      NOT NULL CHECK (aggregate_version > 0),
+  event_name           TEXT        NOT NULL,
   ordering_key         TEXT        NOT NULL CHECK (length(trim(ordering_key)) > 0),
   payload              JSONB       NOT NULL,
   occurred_at          TIMESTAMPTZ NOT NULL,
@@ -70,6 +73,7 @@ CREATE INDEX IF NOT EXISTS idx_event_outbox_next_attempt_pending ON event_outbox
 CREATE INDEX IF NOT EXISTS idx_event_outbox_lease_visible        ON event_outbox (lease_until)     WHERE published_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_event_outbox_correlation_id       ON event_outbox (correlation_id);
 CREATE INDEX IF NOT EXISTS idx_event_outbox_causation_id         ON event_outbox (causation_id);
+CREATE INDEX IF NOT EXISTS idx_event_outbox_event_name           ON event_outbox (event_name);
 
 COMMENT ON TABLE event_outbox IS 'Event outbox: events to be published; at-least-once delivery guarantee.';
 
@@ -81,6 +85,7 @@ CREATE TABLE IF NOT EXISTS event_dead_letters (
   aggregate_type      TEXT        NOT NULL,
   aggregate_id        UUID        NOT NULL,
   aggregate_version   BIGINT      NOT NULL CHECK (aggregate_version > 0),
+  event_name          TEXT        NOT NULL,
   ordering_key        TEXT        NOT NULL CHECK (length(trim(ordering_key)) > 0),
   payload             JSONB       NOT NULL,
   occurred_at         TIMESTAMPTZ NOT NULL,

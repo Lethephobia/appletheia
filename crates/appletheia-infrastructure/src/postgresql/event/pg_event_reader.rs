@@ -45,7 +45,7 @@ impl<A: Aggregate> EventReader<A> for PgEventReader<A> {
             r#"
             SELECT
                 event_sequence, id, aggregate_type, aggregate_id, aggregate_version,
-                payload, occurred_at, correlation_id, causation_id, context
+                event_name, payload, occurred_at, correlation_id, causation_id, context
             FROM events WHERE aggregate_type = "#,
         );
 

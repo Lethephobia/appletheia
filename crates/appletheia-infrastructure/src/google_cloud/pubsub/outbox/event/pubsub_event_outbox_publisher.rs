@@ -39,6 +39,10 @@ impl PubsubEventOutboxPublisher {
             outbox.event.aggregate_version.to_string(),
         );
         attributes.insert(
+            "event_name".to_string(),
+            outbox.event.event_name.to_string(),
+        );
+        attributes.insert(
             "occurred_at".to_string(),
             outbox.event.occurred_at.to_string(),
         );

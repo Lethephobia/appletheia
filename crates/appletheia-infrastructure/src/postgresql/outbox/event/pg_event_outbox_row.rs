@@ -5,7 +5,8 @@ use sqlx::FromRow;
 use uuid::Uuid;
 
 use appletheia_application::event::{
-    AggregateIdValue, AggregateTypeOwned, EventEnvelope, EventSequence, SerializedEventPayload,
+    AggregateIdValue, AggregateTypeOwned, EventEnvelope, EventNameOwned, EventSequence,
+    SerializedEventPayload,
 };
 use appletheia_application::outbox::{
     OrderingKey, OutboxAttemptCount, OutboxDispatchError, OutboxLeaseExpiresAt, OutboxLifecycle,
@@ -28,6 +29,7 @@ pub struct PgEventOutboxRow {
     pub aggregate_type: String,
     pub aggregate_id: Uuid,
     pub aggregate_version: i64,
+    pub event_name: String,
     pub ordering_key: String,
     pub payload: serde_json::Value,
     pub occurred_at: DateTime<Utc>,
@@ -55,6 +57,11 @@ impl PgEventOutboxRow {
         };
         let aggregate_id = AggregateIdValue::from(self.aggregate_id);
         let aggregate_version = AggregateVersion::try_from(self.aggregate_version)?;
+        let event_name_string = self.event_name;
+        let event_name = match EventNameOwned::new(event_name_string.clone()) {
+            Ok(value) => value,
+            Err(_) => return Err(PgEventOutboxRowError::EventName(event_name_string)),
+        };
         let ordering_key = OrderingKey::new(self.ordering_key)?;
 
         let payload = SerializedEventPayload::try_from(self.payload)?;
@@ -118,6 +125,7 @@ impl PgEventOutboxRow {
             aggregate_type,
             aggregate_id,
             aggregate_version,
+            event_name,
             payload,
             occurred_at,
             correlation_id,

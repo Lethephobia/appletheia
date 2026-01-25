@@ -3,7 +3,8 @@ use sqlx::FromRow;
 use uuid::Uuid;
 
 use appletheia_application::event::{
-    AggregateIdValue, AggregateTypeOwned, EventEnvelope, EventSequence, SerializedEventPayload,
+    AggregateIdValue, AggregateTypeOwned, EventEnvelope, EventNameOwned, EventSequence,
+    SerializedEventPayload,
 };
 use appletheia_application::request_context::{
     CausationId, CorrelationId, MessageId, RequestContext,
@@ -21,6 +22,7 @@ pub struct PgEventRow {
     pub aggregate_type: String,
     pub aggregate_id: Uuid,
     pub aggregate_version: i64,
+    pub event_name: String,
     pub payload: serde_json::Value,
     pub occurred_at: DateTime<Utc>,
     pub correlation_id: Uuid,
@@ -63,6 +65,12 @@ impl PgEventRow {
         let aggregate_id = AggregateIdValue::from(self.aggregate_id);
         let aggregate_version = AggregateVersion::try_from(self.aggregate_version)?;
 
+        let event_name_string = self.event_name;
+        let event_name = match EventNameOwned::new(event_name_string.clone()) {
+            Ok(value) => value,
+            Err(_) => return Err(PgEventRowError::EventName(event_name_string)),
+        };
+
         let payload = SerializedEventPayload::try_from(self.payload)?;
         let occurred_at = EventOccurredAt::from(self.occurred_at);
 
@@ -80,6 +88,7 @@ impl PgEventRow {
             aggregate_type,
             aggregate_id,
             aggregate_version,
+            event_name,
             payload,
             occurred_at,
             correlation_id,

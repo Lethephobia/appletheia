@@ -153,6 +153,7 @@ mod tests {
     use uuid::{Uuid, Version};
 
     use crate::aggregate::{AggregateError, AggregateId, AggregateVersion};
+    use crate::event::EventName;
 
     #[derive(Debug, Error)]
     enum CounterIdError {
@@ -250,8 +251,22 @@ mod tests {
         Decrement(i32),
     }
 
+    impl CounterEventPayload {
+        const CREATED: EventName = EventName::new("created");
+        const INCREMENT: EventName = EventName::new("increment");
+        const DECREMENT: EventName = EventName::new("decrement");
+    }
+
     impl EventPayload for CounterEventPayload {
         type Error = CounterEventPayloadError;
+
+        fn name(&self) -> EventName {
+            match self {
+                CounterEventPayload::Created() => Self::CREATED,
+                CounterEventPayload::Increment(_) => Self::INCREMENT,
+                CounterEventPayload::Decrement(_) => Self::DECREMENT,
+            }
+        }
     }
 
     impl Display for CounterEventPayload {

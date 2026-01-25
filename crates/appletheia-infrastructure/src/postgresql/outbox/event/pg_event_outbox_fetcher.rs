@@ -49,6 +49,7 @@ impl OutboxFetcher for PgEventOutboxFetcher {
                 aggregate_type,
                 aggregate_id,
                 aggregate_version,
+                event_name,
                 ordering_key,
                 payload,
                 occurred_at,

@@ -7,7 +7,7 @@ use appletheia_application::{
     request_context::RequestContext,
     unit_of_work::UnitOfWorkError,
 };
-use appletheia_domain::{Aggregate, AggregateId, Event};
+use appletheia_domain::{Aggregate, AggregateId, Event, EventPayload};
 use chrono::{DateTime, Utc};
 use sqlx::{Postgres, QueryBuilder};
 
@@ -54,7 +54,7 @@ impl<A: Aggregate> EventWriter<A> for PgEventWriter<A> {
             r#"
             INSERT INTO events (
                 id, aggregate_type, aggregate_id, aggregate_version,
-                payload, occurred_at, correlation_id, causation_id, context
+                event_name, payload, occurred_at, correlation_id, causation_id, context
             ) VALUES
             "#,
         );
@@ -64,6 +64,7 @@ impl<A: Aggregate> EventWriter<A> for PgEventWriter<A> {
             let id = event.id().value();
             let aggregate_id = event.aggregate_id().value();
             let version = event.aggregate_version().value();
+            let event_name = event.payload().name().to_string();
             let payload = serde_json::to_value(event.payload()).map_err(EventWriterError::Json)?;
             let occurred_at: DateTime<Utc> = event.occurred_at().into();
 
@@ -72,6 +73,7 @@ impl<A: Aggregate> EventWriter<A> for PgEventWriter<A> {
                 .push_bind(A::TYPE.to_string())
                 .push_bind(aggregate_id)
                 .push_bind(version)
+                .push_bind(event_name)
                 .push_bind(payload)
                 .push_bind(occurred_at)
                 .push_bind(correlation_id)
@@ -87,6 +89,7 @@ impl<A: Aggregate> EventWriter<A> for PgEventWriter<A> {
                 aggregate_type,
                 aggregate_id,
                 aggregate_version,
+                event_name,
                 payload,
                 occurred_at,
                 correlation_id,
@@ -110,7 +113,7 @@ impl<A: Aggregate> EventWriter<A> for PgEventWriter<A> {
             r#"
             INSERT INTO event_outbox (
                 id, event_sequence, event_id, aggregate_type, aggregate_id,
-                aggregate_version, ordering_key, payload, occurred_at,
+                aggregate_version, event_name, ordering_key, payload, occurred_at,
                 correlation_id, causation_id, context
             ) VALUES
             "#,
@@ -132,6 +135,7 @@ impl<A: Aggregate> EventWriter<A> for PgEventWriter<A> {
                 .push_bind(event_envelope.aggregate_type.to_string())
                 .push_bind(event_envelope.aggregate_id.value())
                 .push_bind(event_envelope.aggregate_version.value())
+                .push_bind(event_envelope.event_name.to_string())
                 .push_bind(ordering_key)
                 .push_bind(event_envelope.payload.value().clone())
                 .push_bind(DateTime::<Utc>::from(event_envelope.occurred_at))

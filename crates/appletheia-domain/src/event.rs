@@ -1,10 +1,12 @@
 pub mod event_id;
 pub mod event_id_error;
+pub mod event_name;
 pub mod event_occurred_at;
 pub mod event_payload;
 
 pub use event_id::EventId;
 pub use event_id_error::EventIdError;
+pub use event_name::EventName;
 pub use event_occurred_at::EventOccurredAt;
 pub use event_payload::EventPayload;
 
