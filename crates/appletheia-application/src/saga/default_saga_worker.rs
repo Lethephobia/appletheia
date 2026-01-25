@@ -47,6 +47,14 @@ where
                 .await
                 .map_err(|source| SagaWorkerError::ConsumerNext(Box::new(source)))?;
 
+            if !saga.matches(delivery.event()) {
+                delivery
+                    .ack()
+                    .await
+                    .map_err(|source| SagaWorkerError::ConsumerAck(Box::new(source)))?;
+                continue;
+            }
+
             let result = self
                 .saga_runner
                 .handle_event(uow, saga, delivery.event())

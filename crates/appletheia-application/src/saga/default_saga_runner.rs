@@ -7,6 +7,7 @@ use super::{
     SagaDefinition, SagaNameOwned, SagaProcessedEventStore, SagaRunReport, SagaRunner,
     SagaRunnerError, SagaStatus, SagaStore,
 };
+use super::SagaInstance;
 
 pub struct DefaultSagaRunner<S, P, Q> {
     saga_store: S,
@@ -35,7 +36,7 @@ where
         uow: &mut S::Uow,
         saga: &D,
         event: &EventEnvelope,
-    ) -> Result<SagaRunReport, SagaRunnerError> {
+    ) -> Result<(SagaInstance<D::State>, SagaRunReport), SagaRunnerError> {
         let saga_name = SagaNameOwned::from(D::NAME);
         let correlation_id = event.correlation_id;
 
@@ -45,11 +46,12 @@ where
             .await?;
 
         if instance.is_terminal() {
-            return Ok(if instance.is_succeeded() {
+            let report = if instance.is_succeeded() {
                 SagaRunReport::SkippedSucceeded
             } else {
                 SagaRunReport::SkippedFailed
-            });
+            };
+            return Ok((instance, report));
         }
 
         let inserted = self
@@ -57,15 +59,16 @@ where
             .mark_processed(uow, saga_name.clone(), correlation_id, event.event_id)
             .await?;
         if !inserted {
-            return Ok(SagaRunReport::AlreadyProcessed);
+            return Ok((instance, SagaRunReport::AlreadyProcessed));
         }
 
         if instance.is_terminal() {
-            return Ok(if instance.is_succeeded() {
+            let report = if instance.is_succeeded() {
                 SagaRunReport::SkippedSucceeded
             } else {
                 SagaRunReport::SkippedFailed
-            });
+            };
+            return Ok((instance, report));
         }
 
         saga.on_event(&mut instance, event)
@@ -77,30 +80,34 @@ where
 
         self.saga_store.save(uow, &instance).await?;
 
-        let command_envelopes = instance.uncommitted_commands().to_vec();
-        if command_envelopes.is_empty() {
-            return Ok(match &instance.status {
+        let commands = instance.uncommitted_commands().to_vec();
+        if commands.is_empty() {
+            let report = match &instance.status {
                 SagaStatus::InProgress => SagaRunReport::InProgress {
-                    commands_enqueued: 0,
+                    enqueued_command_count: 0,
                 },
                 SagaStatus::Succeeded => SagaRunReport::Succeeded,
                 SagaStatus::Failed => SagaRunReport::Failed,
-            });
+            };
+            return Ok((instance, report));
         }
 
         let ordering_key = OrderingKey::new(correlation_id.to_string())?;
 
         self.command_outbox_enqueuer
-            .enqueue_commands(uow, &ordering_key, &command_envelopes)
+            .enqueue_commands(uow, &ordering_key, &commands)
             .await?;
 
-        let commands_enqueued = command_envelopes.len();
-        instance.clear_uncommitted_commands();
-        Ok(match &instance.status {
-            SagaStatus::InProgress => SagaRunReport::InProgress { commands_enqueued },
+        let enqueued_command_count = commands.len().min(u32::MAX as usize) as u32;
+        let report = match &instance.status {
+            SagaStatus::InProgress => SagaRunReport::InProgress {
+                enqueued_command_count,
+            },
             SagaStatus::Succeeded => SagaRunReport::Succeeded,
             SagaStatus::Failed => SagaRunReport::Failed,
-        })
+        };
+
+        Ok((instance, report))
     }
 }
 
@@ -122,8 +129,9 @@ where
 
         let result = self.handle_event_inner(uow, saga, event).await;
         match result {
-            Ok(report) => {
+            Ok((mut instance, report)) => {
                 uow.commit().await?;
+                instance.clear_uncommitted_commands();
                 Ok(report)
             }
             Err(error) => Err(uow.rollback_with_operation_error(error).await?),

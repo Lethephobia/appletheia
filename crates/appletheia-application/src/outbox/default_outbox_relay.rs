@@ -164,7 +164,7 @@ where
             }
         }
 
-        let proceeded = outboxes.len().min(u32::MAX as usize) as u32;
+        let proceeded_outbox_count = outboxes.len().min(u32::MAX as usize) as u32;
 
         uow.begin().await?;
 
@@ -181,6 +181,8 @@ where
             Err(error) => return Err(uow.rollback_with_operation_error(error).await?),
         }
 
-        Ok(OutboxRelayRunReport::Progress { proceeded })
+        Ok(OutboxRelayRunReport::Progress {
+            proceeded_outbox_count,
+        })
     }
 }

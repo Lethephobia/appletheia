@@ -6,6 +6,7 @@ use thiserror::Error;
 pub enum SagaProcessedEventStoreError {
     #[error("not in transaction")]
     NotInTransaction,
+
     #[error("persistence error")]
     Persistence(#[source] Box<dyn Error + Send + Sync>),
 }

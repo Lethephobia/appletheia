@@ -1,6 +1,6 @@
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum SagaRunReport {
-    InProgress { commands_enqueued: usize },
+    InProgress { enqueued_command_count: u32 },
     Succeeded,
     Failed,
     AlreadyProcessed,

@@ -252,9 +252,9 @@ mod tests {
     }
 
     impl CounterEventPayload {
-        const CREATED: EventName = EventName::new("created");
-        const INCREMENT: EventName = EventName::new("increment");
-        const DECREMENT: EventName = EventName::new("decrement");
+        pub const CREATED: EventName = EventName::new("created");
+        pub const INCREMENT: EventName = EventName::new("increment");
+        pub const DECREMENT: EventName = EventName::new("decrement");
     }
 
     impl EventPayload for CounterEventPayload {
