@@ -1,4 +1,5 @@
 pub mod command;
+pub mod consumer;
 pub mod event;
 pub mod idempotency;
 pub mod outbox;
@@ -9,6 +10,7 @@ pub mod snapshot;
 pub mod unit_of_work;
 
 pub use command::*;
+pub use consumer::*;
 pub use event::*;
 pub use idempotency::*;
 pub use repository::*;

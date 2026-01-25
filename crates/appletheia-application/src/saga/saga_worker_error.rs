@@ -1,21 +1,16 @@
-use std::error::Error;
-
 use thiserror::Error;
 
 use super::SagaRunnerError;
+use crate::{ConsumerBuilderError, ConsumerError};
 
 #[derive(Debug, Error)]
 pub enum SagaWorkerError {
-    #[error("saga consumer next error")]
-    ConsumerNext(#[source] Box<dyn Error + Send + Sync>),
+    #[error(transparent)]
+    ConsumerBuilder(#[from] ConsumerBuilderError),
 
-    #[error("saga consumer ack error")]
-    ConsumerAck(#[source] Box<dyn Error + Send + Sync>),
-
-    #[error("saga consumer nack error")]
-    ConsumerNack(#[source] Box<dyn Error + Send + Sync>),
+    #[error(transparent)]
+    Consumer(#[from] ConsumerError),
 
     #[error(transparent)]
     Runner(#[from] SagaRunnerError),
 }
-
