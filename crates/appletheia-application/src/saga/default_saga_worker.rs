@@ -2,7 +2,7 @@ use std::sync::atomic::{AtomicBool, Ordering as AtomicOrdering};
 
 use super::{SagaDefinition, SagaRunner, SagaWorker, SagaWorkerError};
 use crate::{
-    Consumer, ConsumerFactory, Delivery,
+    Consumer, ConsumerFactory, ConsumerGroup, Delivery,
     event::{EventEnvelope, EventSelector},
 };
 
@@ -43,9 +43,11 @@ where
     }
 
     async fn run_forever(&mut self) -> Result<(), SagaWorkerError> {
+        let consumer_group = ConsumerGroup::from(D::NAME);
+
         let mut consumer = self
             .consumer_factory
-            .subscribe(D::NAME.value(), D::EVENTS)
+            .subscribe(&consumer_group, D::EVENTS)
             .await?;
 
         while !self.is_stop_requested() {

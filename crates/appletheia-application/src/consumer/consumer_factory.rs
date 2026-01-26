@@ -1,4 +1,4 @@
-use super::{Consumer, ConsumerFactoryError};
+use super::{Consumer, ConsumerFactoryError, ConsumerGroup};
 
 #[allow(async_fn_in_trait)]
 pub trait ConsumerFactory<M>: Send {
@@ -7,7 +7,7 @@ pub trait ConsumerFactory<M>: Send {
 
     async fn subscribe(
         &mut self,
-        consumer_group: &str,
+        consumer_group: &ConsumerGroup,
         selectors: &[Self::Selector],
     ) -> Result<Self::Consumer, ConsumerFactoryError>;
 }

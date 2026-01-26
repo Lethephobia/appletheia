@@ -1,5 +1,5 @@
 use appletheia_application::event::{EventEnvelope, EventSelector};
-use appletheia_application::{ConsumerFactory, ConsumerFactoryError};
+use appletheia_application::{ConsumerFactory, ConsumerFactoryError, ConsumerGroup};
 use google_cloud_pubsub::client::Client;
 use google_cloud_pubsub::subscription::{SubscribeConfig, SubscriptionConfig};
 use tonic::Code;
@@ -73,10 +73,10 @@ impl ConsumerFactory<EventEnvelope> for PubsubEventEnvelopeConsumerFactory {
 
     async fn subscribe(
         &mut self,
-        consumer_group: &str,
+        consumer_group: &ConsumerGroup,
         selectors: &[Self::Selector],
     ) -> Result<Self::Consumer, ConsumerFactoryError> {
-        let subscription_id = self.subscription_id(consumer_group);
+        let subscription_id = self.subscription_id(consumer_group.value());
 
         let mut config = self.subscription_config.clone();
         config.enable_message_ordering = true;
