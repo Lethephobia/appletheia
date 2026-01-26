@@ -6,28 +6,21 @@ use tonic::Code;
 
 use super::pubsub_consumer::PubsubConsumer;
 
-pub struct PubsubEventEnvelopeConsumerFactory {
+pub struct PubsubEventConsumerFactory {
     client: Client,
     topic_id: String,
-    subscription_id_prefix: String,
     subscription_config: SubscriptionConfig,
     subscribe_config: Option<SubscribeConfig>,
 }
 
-impl PubsubEventEnvelopeConsumerFactory {
+impl PubsubEventConsumerFactory {
     pub fn new(client: Client, topic_id: impl Into<String>) -> Self {
         Self {
             client,
             topic_id: topic_id.into(),
-            subscription_id_prefix: String::new(),
             subscription_config: SubscriptionConfig::default(),
             subscribe_config: None,
         }
-    }
-
-    pub fn with_subscription_id_prefix(mut self, prefix: impl Into<String>) -> Self {
-        self.subscription_id_prefix = prefix.into();
-        self
     }
 
     pub fn with_subscription_config(mut self, config: SubscriptionConfig) -> Self {
@@ -41,11 +34,7 @@ impl PubsubEventEnvelopeConsumerFactory {
     }
 
     fn subscription_id(&self, consumer_group: &str) -> String {
-        if self.subscription_id_prefix.is_empty() {
-            consumer_group.to_string()
-        } else {
-            format!("{}{}", self.subscription_id_prefix, consumer_group)
-        }
+        consumer_group.to_string()
     }
 
     fn filter_expression(selectors: &[EventSelector]) -> String {
@@ -67,7 +56,7 @@ impl PubsubEventEnvelopeConsumerFactory {
     }
 }
 
-impl ConsumerFactory<EventEnvelope> for PubsubEventEnvelopeConsumerFactory {
+impl ConsumerFactory<EventEnvelope> for PubsubEventConsumerFactory {
     type Consumer = PubsubConsumer<EventEnvelope>;
     type Selector = EventSelector;
 
