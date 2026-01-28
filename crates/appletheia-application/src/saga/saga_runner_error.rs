@@ -1,6 +1,5 @@
 use thiserror::Error;
 
-use crate::outbox::OrderingKeyError;
 use crate::outbox::command::CommandOutboxEnqueueError;
 use crate::unit_of_work::UnitOfWorkError;
 use crate::unit_of_work::UnitOfWorkFactoryError;
@@ -23,9 +22,6 @@ pub enum SagaRunnerError {
 
     #[error(transparent)]
     CommandOutbox(#[from] CommandOutboxEnqueueError),
-
-    #[error(transparent)]
-    OrderingKey(#[from] OrderingKeyError),
 
     #[error("saga definition error")]
     Definition(#[source] Box<dyn std::error::Error + Send + Sync>),

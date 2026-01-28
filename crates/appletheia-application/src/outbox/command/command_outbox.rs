@@ -1,26 +1,31 @@
 use super::{CommandEnvelope, CommandOutboxId};
-use crate::outbox::{OrderingKey, Outbox, OutboxDispatchError, OutboxLifecycle, OutboxState};
+use crate::massaging::PublishDispatchError;
+use crate::outbox::{OrderingKey, Outbox, OutboxLifecycle, OutboxState};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CommandOutbox {
     pub id: CommandOutboxId,
     pub sequence: i64,
-    pub ordering_key: OrderingKey,
     pub command: CommandEnvelope,
     pub state: OutboxState,
-    pub last_error: Option<OutboxDispatchError>,
+    pub last_error: Option<PublishDispatchError>,
     pub lifecycle: OutboxLifecycle,
 }
 
 impl Outbox for CommandOutbox {
     type Id = CommandOutboxId;
+    type Message = CommandEnvelope;
 
     fn id(&self) -> Self::Id {
         self.id
     }
 
-    fn ordering_key(&self) -> &OrderingKey {
-        &self.ordering_key
+    fn ordering_key(&self) -> OrderingKey {
+        OrderingKey::from(self.command.correlation_id)
+    }
+
+    fn message(&self) -> &Self::Message {
+        &self.command
     }
 
     fn state(&self) -> &OutboxState {
@@ -31,11 +36,11 @@ impl Outbox for CommandOutbox {
         &mut self.state
     }
 
-    fn last_error(&self) -> &Option<OutboxDispatchError> {
+    fn last_error(&self) -> &Option<PublishDispatchError> {
         &self.last_error
     }
 
-    fn last_error_mut(&mut self) -> &mut Option<OutboxDispatchError> {
+    fn last_error_mut(&mut self) -> &mut Option<PublishDispatchError> {
         &mut self.last_error
     }
 

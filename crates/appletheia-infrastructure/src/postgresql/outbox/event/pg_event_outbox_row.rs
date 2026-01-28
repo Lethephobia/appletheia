@@ -9,10 +9,11 @@ use appletheia_application::event::{
     SerializedEventPayload,
 };
 use appletheia_application::outbox::{
-    OrderingKey, OutboxAttemptCount, OutboxDispatchError, OutboxLeaseExpiresAt, OutboxLifecycle,
+    OutboxAttemptCount, OutboxLeaseExpiresAt, OutboxLifecycle,
     OutboxNextAttemptAt, OutboxPublishedAt, OutboxRelayInstance, OutboxState,
     event::{EventOutbox, EventOutboxId},
 };
+use appletheia_application::massaging::PublishDispatchError;
 use appletheia_application::request_context::{
     CausationId, CorrelationId, MessageId, RequestContext,
 };
@@ -30,7 +31,6 @@ pub struct PgEventOutboxRow {
     pub aggregate_id: Uuid,
     pub aggregate_version: i64,
     pub event_name: String,
-    pub ordering_key: String,
     pub payload: serde_json::Value,
     pub occurred_at: DateTime<Utc>,
     pub correlation_id: Uuid,
@@ -62,7 +62,6 @@ impl PgEventOutboxRow {
             Ok(value) => value,
             Err(_) => return Err(PgEventOutboxRowError::EventName(event_name_string)),
         };
-        let ordering_key = OrderingKey::new(self.ordering_key)?;
 
         let payload = SerializedEventPayload::try_from(self.payload)?;
 
@@ -93,7 +92,7 @@ impl PgEventOutboxRow {
 
         let last_error = match self.last_error {
             Some(value) => {
-                let deserialized = serde_json::from_value::<OutboxDispatchError>(value)?;
+                let deserialized = serde_json::from_value::<PublishDispatchError>(value)?;
                 Some(deserialized)
             }
             None => None,
@@ -135,7 +134,6 @@ impl PgEventOutboxRow {
 
         Ok(EventOutbox {
             id,
-            ordering_key,
             event,
             state,
             last_error,

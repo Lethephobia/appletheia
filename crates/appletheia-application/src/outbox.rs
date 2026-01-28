@@ -7,7 +7,6 @@ mod outbox_attempt_count;
 mod outbox_attempt_count_error;
 mod outbox_batch_size;
 mod outbox_dead_lettered_at;
-mod outbox_dispatch_error;
 mod outbox_error;
 mod outbox_fetcher;
 mod outbox_fetcher_error;
@@ -23,10 +22,7 @@ mod outbox_poll_jitter_ratio;
 mod outbox_poll_jitter_ratio_error;
 mod outbox_polling_options;
 mod outbox_polling_options_error;
-mod outbox_publish_result;
 mod outbox_published_at;
-mod outbox_publisher;
-mod outbox_publisher_error;
 mod outbox_relay;
 mod outbox_relay_config;
 mod outbox_relay_error;
@@ -47,7 +43,6 @@ pub use outbox_attempt_count::OutboxAttemptCount;
 pub use outbox_attempt_count_error::OutboxAttemptCountError;
 pub use outbox_batch_size::OutboxBatchSize;
 pub use outbox_dead_lettered_at::OutboxDeadLetteredAt;
-pub use outbox_dispatch_error::OutboxDispatchError;
 pub use outbox_error::OutboxError;
 pub use outbox_fetcher::OutboxFetcher;
 pub use outbox_fetcher_error::OutboxFetcherError;
@@ -63,10 +58,7 @@ pub use outbox_poll_jitter_ratio::OutboxPollJitterRatio;
 pub use outbox_poll_jitter_ratio_error::OutboxPollJitterRatioError;
 pub use outbox_polling_options::OutboxPollingOptions;
 pub use outbox_polling_options_error::OutboxPollingOptionsError;
-pub use outbox_publish_result::OutboxPublishResult;
 pub use outbox_published_at::OutboxPublishedAt;
-pub use outbox_publisher::OutboxPublisher;
-pub use outbox_publisher_error::OutboxPublisherError;
 pub use outbox_relay::OutboxRelay;
 pub use outbox_relay_config::OutboxRelayConfig;
 pub use outbox_relay_error::OutboxRelayError;
@@ -83,18 +75,21 @@ pub use outbox_writer_error::OutboxWriterError;
 
 pub trait Outbox {
     type Id: Copy + Eq + 'static;
+    type Message;
 
     fn id(&self) -> Self::Id;
 
-    fn ordering_key(&self) -> &OrderingKey;
+    fn ordering_key(&self) -> OrderingKey;
+
+    fn message(&self) -> &Self::Message;
 
     fn state(&self) -> &OutboxState;
 
     fn state_mut(&mut self) -> &mut OutboxState;
 
-    fn last_error(&self) -> &Option<OutboxDispatchError>;
+    fn last_error(&self) -> &Option<crate::massaging::PublishDispatchError>;
 
-    fn last_error_mut(&mut self) -> &mut Option<OutboxDispatchError>;
+    fn last_error_mut(&mut self) -> &mut Option<crate::massaging::PublishDispatchError>;
 
     fn lifecycle(&self) -> &OutboxLifecycle;
 
@@ -120,7 +115,7 @@ pub trait Outbox {
 
     fn nack(
         &mut self,
-        cause: &OutboxDispatchError,
+        cause: &crate::massaging::PublishDispatchError,
         retry_options: &OutboxRetryOptions,
     ) -> Result<(), OutboxError> {
         if matches!(self.lifecycle(), OutboxLifecycle::DeadLettered { .. }) {
@@ -142,11 +137,11 @@ pub trait Outbox {
             *self.lifecycle_mut() = OutboxLifecycle::DeadLettered { dead_lettered_at };
         } else {
             match cause {
-                OutboxDispatchError::Permanent { .. } => {
+                crate::massaging::PublishDispatchError::Permanent { .. } => {
                     let dead_lettered_at = OutboxDeadLetteredAt::now();
                     *self.lifecycle_mut() = OutboxLifecycle::DeadLettered { dead_lettered_at };
                 }
-                OutboxDispatchError::Transient { .. } => {
+                crate::massaging::PublishDispatchError::Transient { .. } => {
                     let next_attempt_at = OutboxNextAttemptAt::now().next(retry_options.backoff);
 
                     *self.state_mut() = OutboxState::Pending {

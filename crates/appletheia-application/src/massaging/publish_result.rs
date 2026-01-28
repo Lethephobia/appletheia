@@ -1,15 +1,13 @@
-use super::OutboxDispatchError;
+use super::PublishDispatchError;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum OutboxPublishResult<Id> {
+pub enum PublishResult {
     Success {
         input_index: usize,
-        outbox_id: Id,
         transport_message_id: Option<String>,
     },
     Failed {
         input_index: usize,
-        outbox_id: Id,
-        cause: OutboxDispatchError,
+        cause: PublishDispatchError,
     },
 }

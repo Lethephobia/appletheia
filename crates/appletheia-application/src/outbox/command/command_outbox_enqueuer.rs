@@ -1,4 +1,3 @@
-use crate::outbox::OrderingKey;
 use crate::unit_of_work::UnitOfWork;
 
 use super::{CommandEnvelope, CommandOutboxEnqueueError};
@@ -10,7 +9,6 @@ pub trait CommandOutboxEnqueuer: Send + Sync {
     async fn enqueue_commands(
         &self,
         uow: &mut Self::Uow,
-        ordering_key: &OrderingKey,
         commands: &[CommandEnvelope],
     ) -> Result<(), CommandOutboxEnqueueError>;
 }

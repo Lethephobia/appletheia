@@ -2,7 +2,6 @@ use std::marker::PhantomData;
 
 use appletheia_application::{
     event::{EventWriter, EventWriterError},
-    outbox::OrderingKey,
     outbox::event::EventOutboxId,
     request_context::RequestContext,
 };
@@ -109,7 +108,7 @@ impl<A: Aggregate> EventWriter<A> for PgEventWriter<A> {
             r#"
             INSERT INTO event_outbox (
                 id, event_sequence, event_id, aggregate_type, aggregate_id,
-                aggregate_version, event_name, ordering_key, payload, occurred_at,
+                aggregate_version, event_name, payload, occurred_at,
                 correlation_id, causation_id, context
             ) VALUES
             "#,
@@ -120,9 +119,6 @@ impl<A: Aggregate> EventWriter<A> for PgEventWriter<A> {
             let event_envelope = event_row
                 .try_into_event_envelope()
                 .map_err(|e: PgEventRowError| EventWriterError::Persistence(Box::new(e)))?;
-            let ordering_key =
-                OrderingKey::from((&event_envelope.aggregate_type, &event_envelope.aggregate_id))
-                    .to_string();
 
             sep.push("(")
                 .push_bind(outbox_id)
@@ -132,7 +128,6 @@ impl<A: Aggregate> EventWriter<A> for PgEventWriter<A> {
                 .push_bind(event_envelope.aggregate_id.value())
                 .push_bind(event_envelope.aggregate_version.value())
                 .push_bind(event_envelope.event_name.to_string())
-                .push_bind(ordering_key)
                 .push_bind(event_envelope.payload.value().clone())
                 .push_bind(DateTime::<Utc>::from(event_envelope.occurred_at))
                 .push_bind(event_envelope.correlation_id.0)

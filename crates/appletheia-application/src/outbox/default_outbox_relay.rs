@@ -5,24 +5,25 @@ use std::time::Duration as StdDuration;
 use chrono::Duration;
 use tokio::time::sleep;
 
+use crate::massaging::{PublishResult, Publisher, Topic};
 use crate::unit_of_work::UnitOfWork;
 use crate::unit_of_work::UnitOfWorkFactory;
 
 use super::{
-    Outbox, OutboxFetcher, OutboxPublishResult, OutboxPublisher, OutboxRelay, OutboxRelayConfig,
-    OutboxRelayError, OutboxRelayRunReport, OutboxState, OutboxWriter,
+    Outbox, OutboxFetcher, OutboxRelay, OutboxRelayConfig, OutboxRelayError, OutboxRelayRunReport,
+    OutboxState, OutboxWriter,
 };
 
-pub struct DefaultOutboxRelay<UowFactory, O, F, W, P>
+pub struct DefaultOutboxRelay<UowFactory, O, F, W, T>
 where
     UowFactory: UnitOfWorkFactory,
     O: Outbox,
     F: OutboxFetcher<Uow = UowFactory::Uow, Outbox = O>,
     W: OutboxWriter<Uow = UowFactory::Uow, Outbox = O>,
-    P: OutboxPublisher<Outbox = O>,
+    T: Topic<O::Message> + Sync,
 {
     config: OutboxRelayConfig,
-    publisher: P,
+    topic: T,
     fetcher: F,
     writer: W,
     uow_factory: UowFactory,
@@ -30,24 +31,24 @@ where
     _marker: PhantomData<fn() -> O>,
 }
 
-impl<UowFactory, O, F, W, P> DefaultOutboxRelay<UowFactory, O, F, W, P>
+impl<UowFactory, O, F, W, T> DefaultOutboxRelay<UowFactory, O, F, W, T>
 where
     UowFactory: UnitOfWorkFactory,
     O: Outbox,
     F: OutboxFetcher<Uow = UowFactory::Uow, Outbox = O>,
     W: OutboxWriter<Uow = UowFactory::Uow, Outbox = O>,
-    P: OutboxPublisher<Outbox = O>,
+    T: Topic<O::Message> + Sync,
 {
     pub fn new(
         config: OutboxRelayConfig,
-        publisher: P,
+        topic: T,
         fetcher: F,
         writer: W,
         uow_factory: UowFactory,
     ) -> Self {
         Self {
             config,
-            publisher,
+            topic,
             fetcher,
             writer,
             uow_factory,
@@ -57,13 +58,13 @@ where
     }
 }
 
-impl<UowFactory, O, F, W, P> OutboxRelay for DefaultOutboxRelay<UowFactory, O, F, W, P>
+impl<UowFactory, O, F, W, T> OutboxRelay for DefaultOutboxRelay<UowFactory, O, F, W, T>
 where
     UowFactory: UnitOfWorkFactory,
     O: Outbox,
     F: OutboxFetcher<Uow = UowFactory::Uow, Outbox = O>,
     W: OutboxWriter<Uow = UowFactory::Uow, Outbox = O>,
-    P: OutboxPublisher<Outbox = O>,
+    T: Topic<O::Message> + Sync,
 {
     type Outbox = O;
 
@@ -154,16 +155,18 @@ where
             }
         };
 
-        let publish_results = self.publisher.publish_outbox(&outboxes).await?;
+        let publish_results = self
+            .topic
+            .publisher()
+            .publish(outboxes.iter().map(Outbox::message))
+            .await?;
 
         for publish_result in publish_results {
             match publish_result {
-                OutboxPublishResult::Success { input_index, .. } => {
+                PublishResult::Success { input_index, .. } => {
                     outboxes[input_index].ack()?;
                 }
-                OutboxPublishResult::Failed {
-                    input_index, cause, ..
-                } => {
+                PublishResult::Failed { input_index, cause } => {
                     outboxes[input_index].nack(&cause, &retry_options)?;
                 }
             }

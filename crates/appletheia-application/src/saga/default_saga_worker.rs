@@ -2,34 +2,34 @@ use std::sync::atomic::{AtomicBool, Ordering as AtomicOrdering};
 
 use super::{SagaDefinition, SagaRunner, SagaWorker, SagaWorkerError};
 use crate::{
-    Consumer, ConsumerFactory, ConsumerGroup, Delivery,
+    Consumer, ConsumerGroup, Delivery, Topic,
     event::{EventEnvelope, EventSelector},
 };
 
-pub struct DefaultSagaWorker<D, B, R> {
+pub struct DefaultSagaWorker<D, T, R> {
     saga_runner: R,
-    consumer_factory: B,
+    topic: T,
     saga: D,
     stop_requested: AtomicBool,
 }
 
-impl<D, B, R> DefaultSagaWorker<D, B, R> {
-    pub fn new(saga_runner: R, consumer_factory: B, saga: D) -> Self {
+impl<D, T, R> DefaultSagaWorker<D, T, R> {
+    pub fn new(saga_runner: R, topic: T, saga: D) -> Self {
         Self {
             saga_runner,
-            consumer_factory,
+            topic,
             saga,
             stop_requested: AtomicBool::new(false),
         }
     }
 }
 
-impl<D, B, R> SagaWorker for DefaultSagaWorker<D, B, R>
+impl<D, T, R> SagaWorker for DefaultSagaWorker<D, T, R>
 where
     D: SagaDefinition,
-    B: ConsumerFactory<EventEnvelope, Selector = EventSelector>,
-    B::Consumer: Consumer<EventEnvelope>,
-    <B::Consumer as Consumer<EventEnvelope>>::Delivery: Delivery<EventEnvelope>,
+    T: Topic<EventEnvelope, Selector = EventSelector>,
+    T::Consumer: Consumer<EventEnvelope>,
+    <T::Consumer as Consumer<EventEnvelope>>::Delivery: Delivery<EventEnvelope>,
     R: SagaRunner,
 {
     type Saga = D;
@@ -46,7 +46,7 @@ where
         let consumer_group = ConsumerGroup::from(D::NAME);
 
         let mut consumer = self
-            .consumer_factory
+            .topic
             .subscribe(&consumer_group, D::EVENTS)
             .await?;
 

@@ -3,14 +3,14 @@ use std::{fmt, fmt::Display, str::FromStr};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::event::AggregateIdValue;
+use crate::event::{AggregateIdValue, AggregateTypeOwned};
+use crate::request_context::CorrelationId;
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize)]
 pub struct OrderingKey(String);
 
 impl OrderingKey {
-    pub fn new(value: impl Into<String>) -> Result<Self, OrderingKeyError> {
-        let value = value.into();
+    pub fn new(value: String) -> Result<Self, OrderingKeyError> {
         if value.trim().is_empty() {
             return Err(OrderingKeyError::Empty);
         }
@@ -32,7 +32,7 @@ impl FromStr for OrderingKey {
     type Err = OrderingKeyError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Self::new(s)
+        Self::new(s.to_string())
     }
 }
 
@@ -46,9 +46,15 @@ impl<'de> Deserialize<'de> for OrderingKey {
     }
 }
 
-impl<T: Display> From<(&T, &AggregateIdValue)> for OrderingKey {
-    fn from((aggregate_type, aggregate_id): (&T, &AggregateIdValue)) -> Self {
-        Self(format!("{}:{}", aggregate_type, aggregate_id.value()))
+impl From<(&AggregateTypeOwned, &AggregateIdValue)> for OrderingKey {
+    fn from((aggregate_type, aggregate_id): (&AggregateTypeOwned, &AggregateIdValue)) -> Self {
+        Self(format!("{}:{}", aggregate_type.value(), aggregate_id.value()))
+    }
+}
+
+impl From<CorrelationId> for OrderingKey {
+    fn from(value: CorrelationId) -> Self {
+        Self(value.to_string())
     }
 }
 
@@ -64,13 +70,13 @@ mod tests {
 
     #[test]
     fn accepts_non_empty() {
-        let key = OrderingKey::new("abc").unwrap();
+        let key = OrderingKey::new("abc".to_string()).unwrap();
         assert_eq!(key.as_str(), "abc");
     }
 
     #[test]
     fn rejects_empty() {
-        let err = OrderingKey::new("").unwrap_err();
+        let err = OrderingKey::new("".to_string()).unwrap_err();
         assert!(matches!(err, OrderingKeyError::Empty));
     }
 }

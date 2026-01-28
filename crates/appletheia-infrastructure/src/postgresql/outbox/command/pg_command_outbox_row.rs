@@ -7,10 +7,11 @@ use uuid::Uuid;
 use appletheia_application::command::CommandNameOwned;
 use appletheia_application::outbox::command::{CommandEnvelope, SerializedCommand};
 use appletheia_application::outbox::{
-    OrderingKey, OutboxAttemptCount, OutboxDispatchError, OutboxLeaseExpiresAt, OutboxLifecycle,
+    OutboxAttemptCount, OutboxLeaseExpiresAt, OutboxLifecycle,
     OutboxNextAttemptAt, OutboxPublishedAt, OutboxRelayInstance, OutboxState,
     command::{CommandOutbox, CommandOutboxId},
 };
+use appletheia_application::massaging::PublishDispatchError;
 use appletheia_application::request_context::{CausationId, CorrelationId, MessageId};
 
 use super::PgCommandOutboxRowError;
@@ -24,7 +25,6 @@ pub struct PgCommandOutboxRow {
     pub payload: serde_json::Value,
     pub correlation_id: Uuid,
     pub causation_id: Uuid,
-    pub ordering_key: String,
     pub published_at: Option<DateTime<Utc>>,
     pub attempt_count: i64,
     pub next_attempt_after: DateTime<Utc>,
@@ -48,8 +48,6 @@ impl PgCommandOutboxRow {
         let message_id = MessageId::from(self.message_id);
         let causation_id = CausationId::from(MessageId::from(self.causation_id));
 
-        let ordering_key = OrderingKey::new(self.ordering_key)?;
-
         let command = CommandEnvelope {
             command_name,
             command: serialized_command,
@@ -69,7 +67,7 @@ impl PgCommandOutboxRow {
         let published_at = self.published_at.map(OutboxPublishedAt::from);
 
         let last_error = match self.last_error {
-            Some(value) => Some(serde_json::from_value::<OutboxDispatchError>(value)?),
+            Some(value) => Some(serde_json::from_value::<PublishDispatchError>(value)?),
             None => None,
         };
 
@@ -94,7 +92,6 @@ impl PgCommandOutboxRow {
         Ok(CommandOutbox {
             id,
             sequence: self.command_sequence,
-            ordering_key,
             command,
             state,
             last_error,

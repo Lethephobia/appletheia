@@ -5,4 +5,3 @@ pub enum ConsumerGroupError {
     #[error("consumer group is empty")]
     Empty,
 }
-

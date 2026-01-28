@@ -1,5 +1,4 @@
 use crate::event::EventEnvelope;
-use crate::outbox::OrderingKey;
 use crate::outbox::command::CommandOutboxEnqueuer;
 use crate::unit_of_work::UnitOfWork;
 use crate::unit_of_work::UnitOfWorkFactory;
@@ -101,10 +100,8 @@ where
             return Ok((instance, report));
         }
 
-        let ordering_key = OrderingKey::new(correlation_id.to_string())?;
-
         self.command_outbox_enqueuer
-            .enqueue_commands(uow, &ordering_key, &commands)
+            .enqueue_commands(uow, &commands)
             .await?;
 
         let enqueued_command_count = commands.len().min(u32::MAX as usize) as u32;

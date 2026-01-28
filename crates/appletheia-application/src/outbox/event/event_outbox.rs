@@ -2,27 +2,32 @@ use super::EventOutboxId;
 
 use crate::event::EventEnvelope;
 use crate::outbox::{OrderingKey, Outbox};
-use crate::outbox::{OutboxDispatchError, OutboxLifecycle, OutboxState};
+use crate::massaging::PublishDispatchError;
+use crate::outbox::{OutboxLifecycle, OutboxState};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct EventOutbox {
     pub id: EventOutboxId,
-    pub ordering_key: OrderingKey,
     pub event: EventEnvelope,
     pub state: OutboxState,
-    pub last_error: Option<OutboxDispatchError>,
+    pub last_error: Option<PublishDispatchError>,
     pub lifecycle: OutboxLifecycle,
 }
 
 impl Outbox for EventOutbox {
     type Id = EventOutboxId;
+    type Message = EventEnvelope;
 
     fn id(&self) -> Self::Id {
         self.id
     }
 
-    fn ordering_key(&self) -> &OrderingKey {
-        &self.ordering_key
+    fn ordering_key(&self) -> OrderingKey {
+        OrderingKey::from((&self.event.aggregate_type, &self.event.aggregate_id))
+    }
+
+    fn message(&self) -> &Self::Message {
+        &self.event
     }
 
     fn state(&self) -> &OutboxState {
@@ -33,11 +38,11 @@ impl Outbox for EventOutbox {
         &mut self.state
     }
 
-    fn last_error(&self) -> &Option<OutboxDispatchError> {
+    fn last_error(&self) -> &Option<PublishDispatchError> {
         &self.last_error
     }
 
-    fn last_error_mut(&mut self) -> &mut Option<OutboxDispatchError> {
+    fn last_error_mut(&mut self) -> &mut Option<PublishDispatchError> {
         &mut self.last_error
     }
 

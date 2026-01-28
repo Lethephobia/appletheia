@@ -2,8 +2,9 @@ use chrono::{DateTime, Utc};
 use sqlx::{Postgres, QueryBuilder};
 
 use appletheia_application::outbox::{
-    OutboxDispatchError, OutboxLifecycle, OutboxWriter, OutboxWriterError, command::CommandOutbox,
+    OutboxLifecycle, OutboxWriter, OutboxWriterError, command::CommandOutbox,
 };
+use appletheia_application::massaging::PublishDispatchError;
 
 use crate::postgresql::unit_of_work::PgUnitOfWork;
 
@@ -19,7 +20,7 @@ impl PgCommandOutboxWriter {
     ) -> Result<Option<serde_json::Value>, OutboxWriterError> {
         match &outbox.last_error {
             Some(error) => {
-                let json = serde_json::to_value(error as &OutboxDispatchError)
+                let json = serde_json::to_value(error as &PublishDispatchError)
                     .map_err(|source| OutboxWriterError::Persistence(Box::new(source)))?;
                 Ok(Some(json))
             }
@@ -83,7 +84,6 @@ impl PgCommandOutboxWriter {
                 payload,
                 correlation_id,
                 causation_id,
-                ordering_key,
                 published_at,
                 attempt_count,
                 next_attempt_after,
@@ -107,7 +107,6 @@ impl PgCommandOutboxWriter {
                 let payload_value = command.command.value().clone();
                 let correlation_id_value = command.correlation_id.0;
                 let causation_id_value = command.causation_id.value();
-                let ordering_key_value = outbox.ordering_key.as_str();
 
                 let published_at_value = outbox.state.published_at().map(DateTime::<Utc>::from);
                 let attempt_count_value = outbox.state.attempt_count().value();
@@ -134,7 +133,6 @@ impl PgCommandOutboxWriter {
                     .push_bind(payload_value)
                     .push_bind(correlation_id_value)
                     .push_bind(causation_id_value)
-                    .push_bind(ordering_key_value)
                     .push_bind(published_at_value)
                     .push_bind(attempt_count_value)
                     .push_bind(next_attempt_after_value)

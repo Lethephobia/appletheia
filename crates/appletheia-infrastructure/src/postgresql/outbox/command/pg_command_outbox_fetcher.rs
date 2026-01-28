@@ -46,7 +46,6 @@ impl OutboxFetcher for PgCommandOutboxFetcher {
                 payload,
                 correlation_id,
                 causation_id,
-                ordering_key,
                 published_at,
                 attempt_count,
                 next_attempt_after,

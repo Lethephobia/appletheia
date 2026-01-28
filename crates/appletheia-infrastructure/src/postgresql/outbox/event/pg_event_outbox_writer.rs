@@ -2,8 +2,9 @@ use chrono::{DateTime, Utc};
 use sqlx::{Postgres, QueryBuilder};
 
 use appletheia_application::outbox::{
-    OutboxDispatchError, OutboxLifecycle, OutboxWriter, OutboxWriterError, event::EventOutbox,
+    OutboxLifecycle, OutboxWriter, OutboxWriterError, event::EventOutbox,
 };
+use appletheia_application::massaging::PublishDispatchError;
 
 use crate::postgresql::unit_of_work::PgUnitOfWork;
 
@@ -19,7 +20,7 @@ impl PgEventOutboxWriter {
     ) -> Result<Option<serde_json::Value>, OutboxWriterError> {
         match &outbox.last_error {
             Some(error) => {
-                let json = serde_json::to_value(error as &OutboxDispatchError)
+                let json = serde_json::to_value(error as &PublishDispatchError)
                     .map_err(|source| OutboxWriterError::Persistence(Box::new(source)))?;
                 Ok(Some(json))
             }
@@ -83,7 +84,6 @@ impl PgEventOutboxWriter {
                 aggregate_id,
                 aggregate_version,
                 event_name,
-                ordering_key,
                 payload,
                 occurred_at,
                 correlation_id,
@@ -112,7 +112,6 @@ impl PgEventOutboxWriter {
                 let aggregate_id_value = event.aggregate_id.value();
                 let aggregate_version_value = event.aggregate_version.value();
                 let event_name_value = event.event_name.value();
-                let ordering_key_value = outbox.ordering_key.as_str();
                 let payload_value = event.payload.value().clone();
                 let occurred_at_value: DateTime<Utc> = event.occurred_at.into();
                 let correlation_id_value = event.correlation_id.0;
@@ -148,7 +147,6 @@ impl PgEventOutboxWriter {
                     .push_bind(aggregate_id_value)
                     .push_bind(aggregate_version_value)
                     .push_bind(event_name_value)
-                    .push_bind(ordering_key_value)
                     .push_bind(payload_value)
                     .push_bind(occurred_at_value)
                     .push_bind(correlation_id_value)

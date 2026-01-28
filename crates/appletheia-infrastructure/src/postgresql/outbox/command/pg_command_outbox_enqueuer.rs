@@ -2,7 +2,6 @@ use sqlx::{Postgres, QueryBuilder};
 use uuid::Uuid;
 
 use crate::postgresql::unit_of_work::PgUnitOfWork;
-use appletheia_application::outbox::OrderingKey;
 use appletheia_application::outbox::command::{
     CommandEnvelope, CommandOutboxEnqueueError, CommandOutboxEnqueuer,
 };
@@ -27,7 +26,6 @@ impl CommandOutboxEnqueuer for PgCommandOutboxEnqueuer {
     async fn enqueue_commands(
         &self,
         uow: &mut Self::Uow,
-        ordering_key: &OrderingKey,
         commands: &[CommandEnvelope],
     ) -> Result<(), CommandOutboxEnqueueError> {
         if commands.is_empty() {
@@ -35,8 +33,6 @@ impl CommandOutboxEnqueuer for PgCommandOutboxEnqueuer {
         }
 
         let transaction = uow.transaction_mut();
-
-        let ordering_key_value = ordering_key.as_str();
 
         let mut query_builder = QueryBuilder::<Postgres>::new(
             r#"
@@ -46,8 +42,7 @@ impl CommandOutboxEnqueuer for PgCommandOutboxEnqueuer {
               command_name,
               payload,
               correlation_id,
-              causation_id,
-              ordering_key
+              causation_id
             ) VALUES
             "#,
         );
@@ -70,7 +65,6 @@ impl CommandOutboxEnqueuer for PgCommandOutboxEnqueuer {
                     .push_bind(payload_value)
                     .push_bind(correlation_id_value)
                     .push_bind(causation_id_value)
-                    .push_bind(ordering_key_value)
                     .push(")");
             }
         }
