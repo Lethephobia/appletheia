@@ -1,10 +1,10 @@
 use chrono::{DateTime, Utc};
 use sqlx::{Postgres, QueryBuilder};
 
+use appletheia_application::massaging::PublishDispatchError;
 use appletheia_application::outbox::{
     OutboxLifecycle, OutboxWriter, OutboxWriterError, command::CommandOutbox,
 };
-use appletheia_application::massaging::PublishDispatchError;
 
 use crate::postgresql::unit_of_work::PgUnitOfWork;
 

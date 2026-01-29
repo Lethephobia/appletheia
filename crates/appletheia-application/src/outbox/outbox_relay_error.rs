@@ -1,9 +1,7 @@
 use thiserror::Error;
 
 use crate::massaging::PublisherError;
-use crate::outbox::{
-    OutboxError, OutboxFetcherError, OutboxState, OutboxWriterError,
-};
+use crate::outbox::{OutboxError, OutboxFetcherError, OutboxState, OutboxWriterError};
 use crate::unit_of_work::UnitOfWorkError;
 use crate::unit_of_work::UnitOfWorkFactoryError;
 

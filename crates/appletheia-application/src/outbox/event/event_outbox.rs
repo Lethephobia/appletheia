@@ -1,8 +1,8 @@
 use super::EventOutboxId;
 
 use crate::event::EventEnvelope;
-use crate::outbox::{OrderingKey, Outbox};
 use crate::massaging::PublishDispatchError;
+use crate::outbox::{OrderingKey, Outbox};
 use crate::outbox::{OutboxLifecycle, OutboxState};
 
 #[derive(Clone, Debug, Eq, PartialEq)]

@@ -45,10 +45,7 @@ where
     async fn run_forever(&mut self) -> Result<(), SagaWorkerError> {
         let consumer_group = ConsumerGroup::from(D::NAME);
 
-        let mut consumer = self
-            .topic
-            .subscribe(&consumer_group, D::EVENTS)
-            .await?;
+        let mut consumer = self.topic.subscribe(&consumer_group, D::EVENTS).await?;
 
         while !self.is_stop_requested() {
             let mut delivery = consumer.next().await?;

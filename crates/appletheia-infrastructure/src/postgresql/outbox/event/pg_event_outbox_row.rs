@@ -8,12 +8,12 @@ use appletheia_application::event::{
     AggregateIdValue, AggregateTypeOwned, EventEnvelope, EventNameOwned, EventSequence,
     SerializedEventPayload,
 };
+use appletheia_application::massaging::PublishDispatchError;
 use appletheia_application::outbox::{
-    OutboxAttemptCount, OutboxLeaseExpiresAt, OutboxLifecycle,
-    OutboxNextAttemptAt, OutboxPublishedAt, OutboxRelayInstance, OutboxState,
+    OutboxAttemptCount, OutboxLeaseExpiresAt, OutboxLifecycle, OutboxNextAttemptAt,
+    OutboxPublishedAt, OutboxRelayInstance, OutboxState,
     event::{EventOutbox, EventOutboxId},
 };
-use appletheia_application::massaging::PublishDispatchError;
 use appletheia_application::request_context::{
     CausationId, CorrelationId, MessageId, RequestContext,
 };

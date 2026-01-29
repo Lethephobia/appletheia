@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 
+use appletheia_application::ConsumerGroup;
 use appletheia_application::massaging::{
     PublishDispatchError, PublishResult, Publisher, PublisherError, Topic, TopicError,
 };
 use appletheia_application::outbox::OrderingKey;
 use appletheia_application::outbox::command::CommandEnvelope;
-use appletheia_application::ConsumerGroup;
 use google_cloud_googleapis::pubsub::v1::PubsubMessage;
 use google_cloud_pubsub::client::Client;
 use google_cloud_pubsub::publisher::PublisherConfig;
@@ -30,7 +30,10 @@ impl PubsubCommandPublisher {
 
         attributes.insert("message_id".to_string(), command.message_id.to_string());
         attributes.insert("command_name".to_string(), command.command_name.to_string());
-        attributes.insert("correlation_id".to_string(), command.correlation_id.to_string());
+        attributes.insert(
+            "correlation_id".to_string(),
+            command.correlation_id.to_string(),
+        );
         attributes.insert("causation_id".to_string(), command.causation_id.to_string());
 
         let data = serde_json::to_vec(command)

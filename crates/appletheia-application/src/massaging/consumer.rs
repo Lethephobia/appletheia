@@ -6,4 +6,3 @@ pub trait Consumer<M>: Send {
 
     async fn next(&mut self) -> Result<Self::Delivery, ConsumerError>;
 }
-

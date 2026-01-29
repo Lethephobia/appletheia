@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
+use appletheia_application::ConsumerGroup;
+use appletheia_application::event::{EventEnvelope, EventSelector};
+use appletheia_application::massaging::PublishDispatchError;
 use appletheia_application::massaging::{
     PublishResult, Publisher, PublisherError, Topic, TopicError,
 };
-use appletheia_application::event::{EventEnvelope, EventSelector};
-use appletheia_application::massaging::PublishDispatchError;
 use appletheia_application::outbox::OrderingKey;
-use appletheia_application::ConsumerGroup;
 use google_cloud_googleapis::pubsub::v1::PubsubMessage;
 use google_cloud_pubsub::client::Client;
 use google_cloud_pubsub::publisher::PublisherConfig;
@@ -29,14 +29,26 @@ impl PubsubEventPublisher {
     fn build_message(event: &EventEnvelope) -> Result<PubsubMessage, PublisherError> {
         let mut attributes = HashMap::new();
 
-        attributes.insert("event_sequence".to_string(), event.event_sequence.to_string());
+        attributes.insert(
+            "event_sequence".to_string(),
+            event.event_sequence.to_string(),
+        );
         attributes.insert("event_id".to_string(), event.event_id.to_string());
-        attributes.insert("aggregate_type".to_string(), event.aggregate_type.to_string());
+        attributes.insert(
+            "aggregate_type".to_string(),
+            event.aggregate_type.to_string(),
+        );
         attributes.insert("aggregate_id".to_string(), event.aggregate_id.to_string());
-        attributes.insert("aggregate_version".to_string(), event.aggregate_version.to_string());
+        attributes.insert(
+            "aggregate_version".to_string(),
+            event.aggregate_version.to_string(),
+        );
         attributes.insert("event_name".to_string(), event.event_name.to_string());
         attributes.insert("occurred_at".to_string(), event.occurred_at.to_string());
-        attributes.insert("correlation_id".to_string(), event.correlation_id.to_string());
+        attributes.insert(
+            "correlation_id".to_string(),
+            event.correlation_id.to_string(),
+        );
         attributes.insert("causation_id".to_string(), event.causation_id.to_string());
 
         let data = serde_json::to_vec(event)

@@ -6,4 +6,3 @@ pub enum PublishDispatchError {
     Transient { code: String, message: String },
     Permanent { code: String, message: String },
 }
-

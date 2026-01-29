@@ -48,7 +48,11 @@ impl<'de> Deserialize<'de> for OrderingKey {
 
 impl From<(&AggregateTypeOwned, &AggregateIdValue)> for OrderingKey {
     fn from((aggregate_type, aggregate_id): (&AggregateTypeOwned, &AggregateIdValue)) -> Self {
-        Self(format!("{}:{}", aggregate_type.value(), aggregate_id.value()))
+        Self(format!(
+            "{}:{}",
+            aggregate_type.value(),
+            aggregate_id.value()
+        ))
     }
 }
 
