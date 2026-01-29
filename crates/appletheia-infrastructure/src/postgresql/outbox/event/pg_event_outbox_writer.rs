@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use sqlx::{Postgres, QueryBuilder};
 
-use appletheia_application::massaging::PublishDispatchError;
+use appletheia_application::messaging::PublishDispatchError;
 use appletheia_application::outbox::{
     OutboxLifecycle, OutboxWriter, OutboxWriterError, event::EventOutbox,
 };

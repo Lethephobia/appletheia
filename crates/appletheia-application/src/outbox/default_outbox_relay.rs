@@ -5,7 +5,7 @@ use std::time::Duration as StdDuration;
 use chrono::Duration;
 use tokio::time::sleep;
 
-use crate::massaging::{PublishResult, Publisher, Topic};
+use crate::messaging::{PublishResult, Publisher, Topic};
 use crate::unit_of_work::UnitOfWork;
 use crate::unit_of_work::UnitOfWorkFactory;
 

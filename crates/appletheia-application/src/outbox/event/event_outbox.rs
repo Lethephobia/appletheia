@@ -1,7 +1,7 @@
 use super::EventOutboxId;
 
 use crate::event::EventEnvelope;
-use crate::massaging::PublishDispatchError;
+use crate::messaging::PublishDispatchError;
 use crate::outbox::{OrderingKey, Outbox};
 use crate::outbox::{OutboxLifecycle, OutboxState};
 
