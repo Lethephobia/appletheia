@@ -46,7 +46,7 @@ pub trait Aggregate:
     type EventPayload: EventPayload;
     type Error: Error + From<AggregateError<Self::Id>> + Send + Sync + 'static;
 
-    const AGGREGATE_TYPE: AggregateType;
+    const TYPE: AggregateType;
 
     fn aggregate_id(&self) -> Option<Self::Id> {
         self.state().map(|state| state.id())
@@ -153,6 +153,7 @@ mod tests {
     use uuid::{Uuid, Version};
 
     use crate::aggregate::{AggregateError, AggregateId, AggregateVersion};
+    use crate::event::EventName;
 
     #[derive(Debug, Error)]
     enum CounterIdError {
@@ -250,13 +251,31 @@ mod tests {
         Decrement(i32),
     }
 
+    impl CounterEventPayload {
+        pub const CREATED: EventName = EventName::new("created");
+        pub const INCREMENT: EventName = EventName::new("increment");
+        pub const DECREMENT: EventName = EventName::new("decrement");
+    }
+
     impl EventPayload for CounterEventPayload {
         type Error = CounterEventPayloadError;
+
+        fn name(&self) -> EventName {
+            match self {
+                CounterEventPayload::Created() => Self::CREATED,
+                CounterEventPayload::Increment(_) => Self::INCREMENT,
+                CounterEventPayload::Decrement(_) => Self::DECREMENT,
+            }
+        }
     }
 
     impl Display for CounterEventPayload {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            write!(f, "{}", self)
+            match self {
+                CounterEventPayload::Created() => write!(f, "created"),
+                CounterEventPayload::Increment(delta) => write!(f, "increment({delta})"),
+                CounterEventPayload::Decrement(delta) => write!(f, "decrement({delta})"),
+            }
         }
     }
 
@@ -366,19 +385,19 @@ mod tests {
             match payload {
                 CounterEventPayload::Created() => {
                     if self.state.is_some() {
-                        return Err(CounterError::InvalidEventPayload(payload.clone()).into());
+                        return Err(CounterError::InvalidEventPayload(payload.clone()));
                     }
                     self.state = Some(CounterState::new(self.id, 0));
                 }
                 CounterEventPayload::Increment(delta) => {
                     if self.state.is_none() {
-                        return Err(CounterError::StateMissing.into());
+                        return Err(CounterError::StateMissing);
                     }
                     self.state.as_mut().unwrap().counter += delta;
                 }
                 CounterEventPayload::Decrement(delta) => {
                     if self.state.is_none() {
-                        return Err(CounterError::StateMissing.into());
+                        return Err(CounterError::StateMissing);
                     }
                     self.state.as_mut().unwrap().counter -= delta;
                 }
@@ -393,7 +412,7 @@ mod tests {
         type EventPayload = CounterEventPayload;
         type Error = CounterError;
 
-        const AGGREGATE_TYPE: AggregateType = AggregateType::new("counter");
+        const TYPE: AggregateType = AggregateType::new("counter");
     }
 
     #[test]
@@ -597,7 +616,7 @@ mod tests {
         ];
 
         counter
-            .replay_events(events.into_iter(), Some(snapshot))
+            .replay_events(events, Some(snapshot))
             .expect("replay_events should succeed");
 
         let state = counter.state().expect("state should exist after replay");
@@ -618,7 +637,7 @@ mod tests {
         )];
 
         counter
-            .replay_events(events.into_iter(), None)
+            .replay_events(events, None)
             .expect("replay_events should succeed");
 
         let state = counter.state().expect("state should exist");

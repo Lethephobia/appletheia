@@ -1,7 +1,8 @@
 use crate::command::CommandFailureReport;
+use crate::idempotency::IdempotencyOutput;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum IdempotencyState {
-    Succeeded { output: serde_json::Value },
+    Succeeded { output: IdempotencyOutput },
     Failed { error: CommandFailureReport },
 }

@@ -3,9 +3,9 @@ use std::{fmt, fmt::Display};
 use chrono::{DateTime, Utc};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
-pub struct DeadLetteredAt(DateTime<Utc>);
+pub struct OutboxDeadLetteredAt(DateTime<Utc>);
 
-impl DeadLetteredAt {
+impl OutboxDeadLetteredAt {
     pub fn now() -> Self {
         Self(Utc::now())
     }
@@ -15,25 +15,25 @@ impl DeadLetteredAt {
     }
 }
 
-impl Default for DeadLetteredAt {
+impl Default for OutboxDeadLetteredAt {
     fn default() -> Self {
         Self::now()
     }
 }
 
-impl From<DateTime<Utc>> for DeadLetteredAt {
+impl From<DateTime<Utc>> for OutboxDeadLetteredAt {
     fn from(value: DateTime<Utc>) -> Self {
         Self(value)
     }
 }
 
-impl From<DeadLetteredAt> for DateTime<Utc> {
-    fn from(value: DeadLetteredAt) -> Self {
+impl From<OutboxDeadLetteredAt> for DateTime<Utc> {
+    fn from(value: OutboxDeadLetteredAt) -> Self {
         value.0
     }
 }
 
-impl Display for DeadLetteredAt {
+impl Display for OutboxDeadLetteredAt {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.value())
     }

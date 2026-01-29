@@ -4,7 +4,7 @@ use super::snapshot_reader_error::SnapshotReaderError;
 use crate::unit_of_work::UnitOfWork;
 
 #[allow(async_fn_in_trait)]
-pub trait SnapshotReader<A: Aggregate> {
+pub trait SnapshotReader<A: Aggregate>: Send + Sync {
     type Uow: UnitOfWork;
 
     async fn read_latest_snapshot(

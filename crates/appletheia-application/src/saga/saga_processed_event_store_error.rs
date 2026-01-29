@@ -1,0 +1,12 @@
+use std::error::Error;
+
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+pub enum SagaProcessedEventStoreError {
+    #[error("not in transaction")]
+    NotInTransaction,
+
+    #[error("persistence error")]
+    Persistence(#[source] Box<dyn Error + Send + Sync>),
+}

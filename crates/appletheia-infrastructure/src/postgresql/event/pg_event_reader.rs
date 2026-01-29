@@ -4,7 +4,6 @@ use std::ops::{Bound, RangeBounds};
 use sqlx::{Postgres, QueryBuilder};
 
 use appletheia_application::event::{EventReader, EventReaderError};
-use appletheia_application::unit_of_work::UnitOfWorkError;
 use appletheia_domain::{Aggregate, AggregateId, AggregateVersionRange, Event};
 
 use crate::postgresql::event::{PgEventRow, PgEventRowError};
@@ -45,12 +44,12 @@ impl<A: Aggregate> EventReader<A> for PgEventReader<A> {
             r#"
             SELECT
                 event_sequence, id, aggregate_type, aggregate_id, aggregate_version,
-                payload, occurred_at, correlation_id, causation_id, context
+                event_name, payload, occurred_at, correlation_id, causation_id, context
             FROM events WHERE aggregate_type = "#,
         );
 
         query
-            .push_bind(A::AGGREGATE_TYPE.value())
+            .push_bind(A::TYPE.to_string())
             .push(" AND aggregate_id = ")
             .push_bind(aggregate_id.value());
 
@@ -82,10 +81,7 @@ impl<A: Aggregate> EventReader<A> for PgEventReader<A> {
         }
         query.push(" ORDER BY aggregate_version ASC");
 
-        let transaction = uow.transaction_mut().map_err(|e| match e {
-            UnitOfWorkError::NotInTransaction => EventReaderError::NotInTransaction,
-            other => EventReaderError::Persistence(Box::new(other)),
-        })?;
+        let transaction = uow.transaction_mut();
 
         let event_rows = query
             .build_query_as::<PgEventRow>()
@@ -96,7 +92,7 @@ impl<A: Aggregate> EventReader<A> for PgEventReader<A> {
         let events = event_rows
             .into_iter()
             .map(|row| row.try_into_event::<A>())
-            .collect::<Result<Vec<Event<A::Id, A::EventPayload>>, PgEventRowError<A>>>()
+            .collect::<Result<Vec<Event<A::Id, A::EventPayload>>, PgEventRowError>>()
             .map_err(|e| EventReaderError::MappingFailed(Box::new(e)))?;
 
         Ok(events)

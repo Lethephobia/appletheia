@@ -64,7 +64,7 @@ mod tests {
     #[test]
     fn value_returns_inner_datetime() {
         let timestamp = Utc.with_ymd_and_hms(2024, 1, 2, 3, 4, 5).unwrap();
-        let lease_expires_at = OutboxLeaseExpiresAt::from(timestamp.clone());
+        let lease_expires_at = OutboxLeaseExpiresAt::from(timestamp);
 
         assert_eq!(lease_expires_at.value(), timestamp);
     }
@@ -72,7 +72,7 @@ mod tests {
     #[test]
     fn conversions_round_trip() {
         let timestamp = Utc.with_ymd_and_hms(2022, 6, 7, 8, 9, 10).unwrap();
-        let wrapped: OutboxLeaseExpiresAt = timestamp.clone().into();
+        let wrapped: OutboxLeaseExpiresAt = timestamp.into();
         let back: DateTime<Utc> = wrapped.into();
 
         assert_eq!(back, timestamp);
@@ -81,7 +81,7 @@ mod tests {
     #[test]
     fn display_matches_inner_datetime() {
         let timestamp = Utc.with_ymd_and_hms(2030, 12, 31, 23, 59, 59).unwrap();
-        let lease_expires_at = OutboxLeaseExpiresAt::from(timestamp.clone());
+        let lease_expires_at = OutboxLeaseExpiresAt::from(timestamp);
 
         assert_eq!(lease_expires_at.to_string(), timestamp.to_string());
     }

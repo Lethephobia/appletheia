@@ -10,6 +10,11 @@ use super::AggregateTypeOwnedError;
 pub struct AggregateTypeOwned(String);
 
 impl AggregateTypeOwned {
+    pub fn new(value: String) -> Result<Self, AggregateTypeOwnedError> {
+        Self::validate(&value)?;
+        Ok(Self(value))
+    }
+
     pub fn value(&self) -> &str {
         &self.0
     }

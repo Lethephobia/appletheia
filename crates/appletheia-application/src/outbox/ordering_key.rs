@@ -1,35 +1,30 @@
 use std::{fmt, fmt::Display, str::FromStr};
 
-use crate::event::{AggregateIdOwned, AggregateTypeOwned};
+use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
-use super::OrderingKeyError;
+use crate::event::{AggregateIdValue, AggregateTypeOwned};
+use crate::request_context::CorrelationId;
 
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub struct OrderingKey {
-    aggregate_type: AggregateTypeOwned,
-    aggregate_id: AggregateIdOwned,
-}
+#[derive(Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize)]
+pub struct OrderingKey(String);
 
 impl OrderingKey {
-    pub fn new(aggregate_type: AggregateTypeOwned, aggregate_id: AggregateIdOwned) -> Self {
-        Self {
-            aggregate_type,
-            aggregate_id,
+    pub fn new(value: String) -> Result<Self, OrderingKeyError> {
+        if value.trim().is_empty() {
+            return Err(OrderingKeyError::Empty);
         }
+        Ok(Self(value))
     }
 
-    pub fn aggregate_type(&self) -> &AggregateTypeOwned {
-        &self.aggregate_type
-    }
-
-    pub fn aggregate_id(&self) -> AggregateIdOwned {
-        self.aggregate_id
+    pub fn as_str(&self) -> &str {
+        &self.0
     }
 }
 
 impl Display for OrderingKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}:{}", self.aggregate_type, self.aggregate_id)
+        f.write_str(&self.0)
     }
 }
 
@@ -37,57 +32,55 @@ impl FromStr for OrderingKey {
     type Err = OrderingKeyError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s.matches(':').count() != 1 {
-            return Err(OrderingKeyError::MissingSeparator);
-        }
-        let (aggregate_type_raw, aggregate_id_raw) = s
-            .split_once(':')
-            .ok_or(OrderingKeyError::MissingSeparator)?;
-
-        let aggregate_type = AggregateTypeOwned::from_str(aggregate_type_raw)
-            .map_err(OrderingKeyError::InvalidAggregateType)?;
-        let aggregate_id = AggregateIdOwned::from_str(aggregate_id_raw)
-            .map_err(OrderingKeyError::InvalidAggregateId)?;
-
-        Ok(Self::new(aggregate_type, aggregate_id))
+        Self::new(s.to_string())
     }
+}
+
+impl<'de> Deserialize<'de> for OrderingKey {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = String::deserialize(deserializer)?;
+        OrderingKey::new(value).map_err(serde::de::Error::custom)
+    }
+}
+
+impl From<(&AggregateTypeOwned, &AggregateIdValue)> for OrderingKey {
+    fn from((aggregate_type, aggregate_id): (&AggregateTypeOwned, &AggregateIdValue)) -> Self {
+        Self(format!(
+            "{}:{}",
+            aggregate_type.value(),
+            aggregate_id.value()
+        ))
+    }
+}
+
+impl From<CorrelationId> for OrderingKey {
+    fn from(value: CorrelationId) -> Self {
+        Self(value.to_string())
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum OrderingKeyError {
+    #[error("ordering key cannot be empty")]
+    Empty,
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use uuid::Uuid;
 
     #[test]
-    fn formats_and_parses_round_trip() {
-        let agg_type = AggregateTypeOwned::from_str("order").unwrap();
-        let agg_id = AggregateIdOwned::from_str("123e4567-e89b-12d3-a456-426614174000").unwrap();
-        let key = OrderingKey::new(agg_type.clone(), agg_id);
-
-        let text = key.to_string();
-        let parsed = OrderingKey::from_str(&text).unwrap();
-
-        assert_eq!(parsed.aggregate_type(), &agg_type);
-        assert_eq!(parsed.aggregate_id(), agg_id);
+    fn accepts_non_empty() {
+        let key = OrderingKey::new("abc".to_string()).unwrap();
+        assert_eq!(key.as_str(), "abc");
     }
 
     #[test]
-    fn fails_without_separator() {
-        let err = OrderingKey::from_str("noseparator").expect_err("should fail");
-        assert!(matches!(err, OrderingKeyError::MissingSeparator));
-    }
-
-    #[test]
-    fn fails_on_invalid_uuid() {
-        let err = OrderingKey::from_str("order:not-a-uuid").expect_err("should fail");
-        assert!(matches!(err, OrderingKeyError::InvalidAggregateId(_)));
-    }
-
-    #[test]
-    fn uses_uuid_round_trip() {
-        let uuid = Uuid::nil();
-        let key_str = format!("user:{}", uuid);
-        let key = OrderingKey::from_str(&key_str).unwrap();
-        assert_eq!(key.aggregate_id(), AggregateIdOwned::from(uuid));
+    fn rejects_empty() {
+        let err = OrderingKey::new("".to_string()).unwrap_err();
+        assert!(matches!(err, OrderingKeyError::Empty));
     }
 }

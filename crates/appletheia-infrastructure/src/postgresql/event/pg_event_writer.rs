@@ -2,17 +2,16 @@ use std::marker::PhantomData;
 
 use appletheia_application::{
     event::{EventWriter, EventWriterError},
-    outbox::OutboxId,
+    outbox::event::EventOutboxId,
     request_context::RequestContext,
-    unit_of_work::UnitOfWorkError,
 };
-use appletheia_domain::{Aggregate, AggregateId, Event};
+use appletheia_domain::{Aggregate, AggregateId, Event, EventPayload};
 use chrono::{DateTime, Utc};
 use sqlx::{Postgres, QueryBuilder};
 
 use crate::postgresql::unit_of_work::PgUnitOfWork;
 
-use super::PgEventRow;
+use super::{PgEventRow, PgEventRowError};
 
 pub struct PgEventWriter<A: Aggregate> {
     _aggregate: PhantomData<A>,
@@ -53,7 +52,7 @@ impl<A: Aggregate> EventWriter<A> for PgEventWriter<A> {
             r#"
             INSERT INTO events (
                 id, aggregate_type, aggregate_id, aggregate_version,
-                payload, occurred_at, correlation_id, causation_id, context
+                event_name, payload, occurred_at, correlation_id, causation_id, context
             ) VALUES
             "#,
         );
@@ -63,14 +62,16 @@ impl<A: Aggregate> EventWriter<A> for PgEventWriter<A> {
             let id = event.id().value();
             let aggregate_id = event.aggregate_id().value();
             let version = event.aggregate_version().value();
+            let event_name = event.payload().name().to_string();
             let payload = serde_json::to_value(event.payload()).map_err(EventWriterError::Json)?;
             let occurred_at: DateTime<Utc> = event.occurred_at().into();
 
             sep.push("(")
                 .push_bind(id)
-                .push_bind(A::AGGREGATE_TYPE.value())
+                .push_bind(A::TYPE.to_string())
                 .push_bind(aggregate_id)
                 .push_bind(version)
+                .push_bind(event_name)
                 .push_bind(payload)
                 .push_bind(occurred_at)
                 .push_bind(correlation_id)
@@ -86,6 +87,7 @@ impl<A: Aggregate> EventWriter<A> for PgEventWriter<A> {
                 aggregate_type,
                 aggregate_id,
                 aggregate_version,
+                event_name,
                 payload,
                 occurred_at,
                 correlation_id,
@@ -94,10 +96,7 @@ impl<A: Aggregate> EventWriter<A> for PgEventWriter<A> {
             "#,
         );
 
-        let transaction = uow.transaction_mut().map_err(|e| match e {
-            UnitOfWorkError::NotInTransaction => EventWriterError::NotInTransaction,
-            other => EventWriterError::Persistence(Box::new(other)),
-        })?;
+        let transaction = uow.transaction_mut();
 
         let event_rows = events_query
             .build_query_as::<PgEventRow>()
@@ -107,28 +106,32 @@ impl<A: Aggregate> EventWriter<A> for PgEventWriter<A> {
 
         let mut outbox_query = QueryBuilder::<Postgres>::new(
             r#"
-            INSERT INTO outbox (
+            INSERT INTO event_outbox (
                 id, event_sequence, event_id, aggregate_type, aggregate_id,
-                aggregate_version, payload, occurred_at,
+                aggregate_version, event_name, payload, occurred_at,
                 correlation_id, causation_id, context
             ) VALUES
             "#,
         );
         let mut sep = outbox_query.separated(", ");
         for event_row in event_rows {
-            let outbox_id = OutboxId::new().value();
+            let outbox_id = EventOutboxId::new().value();
+            let event_envelope = event_row
+                .try_into_event_envelope()
+                .map_err(|e: PgEventRowError| EventWriterError::Persistence(Box::new(e)))?;
 
             sep.push("(")
                 .push_bind(outbox_id)
-                .push_bind(event_row.event_sequence)
-                .push_bind(event_row.id)
-                .push_bind(event_row.aggregate_type)
-                .push_bind(event_row.aggregate_id)
-                .push_bind(event_row.aggregate_version)
-                .push_bind(event_row.payload)
-                .push_bind(event_row.occurred_at)
-                .push_bind(event_row.correlation_id)
-                .push_bind(event_row.causation_id)
+                .push_bind(event_envelope.event_sequence.value())
+                .push_bind(event_envelope.event_id.value())
+                .push_bind(event_envelope.aggregate_type.to_string())
+                .push_bind(event_envelope.aggregate_id.value())
+                .push_bind(event_envelope.aggregate_version.value())
+                .push_bind(event_envelope.event_name.to_string())
+                .push_bind(event_envelope.payload.value().clone())
+                .push_bind(DateTime::<Utc>::from(event_envelope.occurred_at))
+                .push_bind(event_envelope.correlation_id.0)
+                .push_bind(event_envelope.causation_id.value())
                 .push_bind(&context_json)
                 .push(")");
         }

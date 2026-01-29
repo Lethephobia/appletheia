@@ -31,7 +31,7 @@ impl AggregateType {
         Self(value)
     }
 
-    pub fn value(&self) -> &'static str {
+    pub fn value(self) -> &'static str {
         self.0
     }
 }
