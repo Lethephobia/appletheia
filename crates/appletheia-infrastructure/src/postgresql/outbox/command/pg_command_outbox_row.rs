@@ -5,7 +5,7 @@ use sqlx::FromRow;
 use uuid::Uuid;
 
 use appletheia_application::command::CommandNameOwned;
-use appletheia_application::massaging::PublishDispatchError;
+use appletheia_application::messaging::PublishDispatchError;
 use appletheia_application::outbox::command::{CommandEnvelope, SerializedCommand};
 use appletheia_application::outbox::{
     OutboxAttemptCount, OutboxLeaseExpiresAt, OutboxLifecycle, OutboxNextAttemptAt,

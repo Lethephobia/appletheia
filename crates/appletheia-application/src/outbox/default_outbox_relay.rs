@@ -5,7 +5,7 @@ use std::time::Duration as StdDuration;
 use chrono::Duration;
 use tokio::time::sleep;
 
-use crate::massaging::{PublishResult, Publisher, Topic};
+use crate::messaging::{PublishResult, Publisher, Topic};
 use crate::unit_of_work::UnitOfWork;
 use crate::unit_of_work::UnitOfWorkFactory;
 
@@ -172,7 +172,7 @@ where
             }
         }
 
-        let proceeded_outbox_count = outboxes.len().min(u32::MAX as usize) as u32;
+        let processed_outbox_count = outboxes.len().min(u32::MAX as usize) as u32;
 
         let mut uow = self.uow_factory.begin().await?;
         let write_result = self.writer.write_outbox(&mut uow, &outboxes).await;
@@ -188,7 +188,7 @@ where
         }
 
         Ok(OutboxRelayRunReport::Progress {
-            proceeded_outbox_count,
+            processed_outbox_count,
         })
     }
 }

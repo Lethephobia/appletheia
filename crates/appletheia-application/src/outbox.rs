@@ -73,6 +73,8 @@ pub use outbox_state::OutboxState;
 pub use outbox_writer::OutboxWriter;
 pub use outbox_writer_error::OutboxWriterError;
 
+use crate::messaging::PublishDispatchError;
+
 pub trait Outbox {
     type Id: Copy + Eq + 'static;
     type Message;
@@ -87,9 +89,9 @@ pub trait Outbox {
 
     fn state_mut(&mut self) -> &mut OutboxState;
 
-    fn last_error(&self) -> &Option<crate::massaging::PublishDispatchError>;
+    fn last_error(&self) -> &Option<PublishDispatchError>;
 
-    fn last_error_mut(&mut self) -> &mut Option<crate::massaging::PublishDispatchError>;
+    fn last_error_mut(&mut self) -> &mut Option<PublishDispatchError>;
 
     fn lifecycle(&self) -> &OutboxLifecycle;
 
@@ -115,7 +117,7 @@ pub trait Outbox {
 
     fn nack(
         &mut self,
-        cause: &crate::massaging::PublishDispatchError,
+        cause: &PublishDispatchError,
         retry_options: &OutboxRetryOptions,
     ) -> Result<(), OutboxError> {
         if matches!(self.lifecycle(), OutboxLifecycle::DeadLettered { .. }) {
@@ -137,11 +139,11 @@ pub trait Outbox {
             *self.lifecycle_mut() = OutboxLifecycle::DeadLettered { dead_lettered_at };
         } else {
             match cause {
-                crate::massaging::PublishDispatchError::Permanent { .. } => {
+                PublishDispatchError::Permanent { .. } => {
                     let dead_lettered_at = OutboxDeadLetteredAt::now();
                     *self.lifecycle_mut() = OutboxLifecycle::DeadLettered { dead_lettered_at };
                 }
-                crate::massaging::PublishDispatchError::Transient { .. } => {
+                PublishDispatchError::Transient { .. } => {
                     let next_attempt_at = OutboxNextAttemptAt::now().next(retry_options.backoff);
 
                     *self.state_mut() = OutboxState::Pending {

@@ -1,5 +1,5 @@
 use super::{CommandEnvelope, CommandOutboxId};
-use crate::massaging::PublishDispatchError;
+use crate::messaging::PublishDispatchError;
 use crate::outbox::{OrderingKey, Outbox, OutboxLifecycle, OutboxState};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
