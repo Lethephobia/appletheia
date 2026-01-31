@@ -1,6 +1,6 @@
 use appletheia_application::ConsumerGroup;
 use appletheia_application::command::CommandSelector;
-use appletheia_application::messaging::{Topic, TopicError};
+use appletheia_application::messaging::{Subscription, Topic, TopicError};
 use appletheia_application::outbox::command::CommandEnvelope;
 use google_cloud_pubsub::client::Client;
 use google_cloud_pubsub::publisher::PublisherConfig;
@@ -57,10 +57,6 @@ impl PubsubCommandTopic {
     }
 
     fn filter_expression(selectors: &[CommandSelector]) -> String {
-        if selectors.is_empty() {
-            return String::new();
-        }
-
         selectors
             .iter()
             .map(|selector| {
@@ -86,13 +82,19 @@ impl Topic<CommandEnvelope> for PubsubCommandTopic {
     async fn subscribe(
         &mut self,
         consumer_group: &ConsumerGroup,
-        selectors: &[Self::Selector],
+        subscription: Subscription<'_, Self::Selector>,
     ) -> Result<Self::Consumer, TopicError> {
         let subscription_id = self.subscription_id(consumer_group);
 
         let mut config = self.subscription_config.clone();
         config.enable_message_ordering = true;
-        config.filter = Self::filter_expression(selectors);
+        config.filter = match subscription {
+            Subscription::All => String::new(),
+            Subscription::Only(selectors) if selectors.is_empty() => {
+                return Err(TopicError::InvalidSubscription);
+            }
+            Subscription::Only(selectors) => Self::filter_expression(selectors),
+        };
 
         let subscription = match self
             .client

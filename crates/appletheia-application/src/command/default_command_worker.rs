@@ -1,6 +1,7 @@
 use std::sync::atomic::{AtomicBool, Ordering as AtomicOrdering};
 
 use crate::command::{Command, CommandDispatcher, CommandHandler, CommandSelector, CommandWorker};
+use crate::messaging::Subscription;
 use crate::outbox::command::{CommandEnvelope, CommandEnvelopeError};
 use crate::request_context::RequestContext;
 use crate::{Consumer, ConsumerGroup, Delivery, Topic};
@@ -49,7 +50,7 @@ where
 
         let mut consumer = self
             .topic
-            .subscribe(&self.consumer_group, &selectors)
+            .subscribe(&self.consumer_group, Subscription::Only(&selectors))
             .await?;
 
         while !self.is_stop_requested() {

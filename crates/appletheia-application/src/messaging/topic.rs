@@ -1,4 +1,4 @@
-use super::{Consumer, ConsumerGroup, Publisher, TopicError};
+use super::{Consumer, ConsumerGroup, Publisher, Subscription, TopicError};
 
 #[allow(async_fn_in_trait)]
 pub trait Topic<M>: Send {
@@ -11,6 +11,6 @@ pub trait Topic<M>: Send {
     async fn subscribe(
         &mut self,
         consumer_group: &ConsumerGroup,
-        selectors: &[Self::Selector],
+        subscription: Subscription<'_, Self::Selector>,
     ) -> Result<Self::Consumer, TopicError>;
 }

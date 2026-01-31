@@ -7,6 +7,7 @@ pub mod publish_dispatch_error;
 pub mod publish_result;
 pub mod publisher;
 pub mod publisher_error;
+pub mod subscription;
 pub mod topic;
 pub mod topic_error;
 
@@ -19,5 +20,6 @@ pub use publish_dispatch_error::PublishDispatchError;
 pub use publish_result::PublishResult;
 pub use publisher::Publisher;
 pub use publisher_error::PublisherError;
+pub use subscription::Subscription;
 pub use topic::Topic;
 pub use topic_error::TopicError;
