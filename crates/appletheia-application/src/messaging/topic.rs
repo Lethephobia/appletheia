@@ -6,7 +6,7 @@ pub trait Topic<M>: Send {
     type Publisher: Publisher<M>;
     type Selector;
 
-    fn publisher(&self) -> &Self::Publisher;
+    fn new_publisher(&self) -> Self::Publisher;
 
     async fn subscribe(
         &mut self,

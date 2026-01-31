@@ -155,9 +155,8 @@ where
             }
         };
 
-        let publish_results = self
-            .topic
-            .publisher()
+        let publisher = self.topic.new_publisher();
+        let publish_results = publisher
             .publish(outboxes.iter().map(Outbox::message))
             .await?;
 

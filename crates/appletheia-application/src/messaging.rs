@@ -9,6 +9,9 @@ pub mod publisher;
 pub mod publisher_error;
 pub mod subscription;
 pub mod topic;
+pub mod topic_id;
+pub mod topic_id_access;
+pub mod topic_id_error;
 pub mod topic_error;
 
 pub use consumer::Consumer;
@@ -22,4 +25,7 @@ pub use publisher::Publisher;
 pub use publisher_error::PublisherError;
 pub use subscription::Subscription;
 pub use topic::Topic;
+pub use topic_id::TopicId;
+pub use topic_id_access::TopicIdAccess;
+pub use topic_id_error::TopicIdError;
 pub use topic_error::TopicError;
