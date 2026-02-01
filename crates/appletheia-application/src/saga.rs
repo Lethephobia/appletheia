@@ -1,5 +1,6 @@
 pub mod default_saga_runner;
 pub mod default_saga_worker;
+pub mod enqueued_command_count;
 pub mod saga_append_command_error;
 pub mod saga_definition;
 pub mod saga_instance;
@@ -21,6 +22,7 @@ pub mod saga_worker_error;
 
 pub use default_saga_runner::DefaultSagaRunner;
 pub use default_saga_worker::DefaultSagaWorker;
+pub use enqueued_command_count::EnqueuedCommandCount;
 pub use saga_append_command_error::SagaAppendCommandError;
 pub use saga_definition::SagaDefinition;
 pub use saga_instance::{SagaInstance, SagaStatus};

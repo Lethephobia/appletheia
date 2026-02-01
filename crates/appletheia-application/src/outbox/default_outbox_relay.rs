@@ -11,7 +11,7 @@ use crate::unit_of_work::UnitOfWorkFactory;
 
 use super::{
     Outbox, OutboxFetcher, OutboxRelay, OutboxRelayConfig, OutboxRelayError, OutboxRelayRunReport,
-    OutboxState, OutboxWriter,
+    OutboxState, OutboxWriter, ProcessedOutboxCount,
 };
 
 pub struct DefaultOutboxRelay<UowFactory, O, F, W, T>
@@ -171,7 +171,7 @@ where
             }
         }
 
-        let processed_outbox_count = outboxes.len().min(u32::MAX as usize) as u32;
+        let processed_outbox_count = ProcessedOutboxCount::from_usize_saturating(outboxes.len());
 
         let mut uow = self.uow_factory.begin().await?;
         let write_result = self.writer.write_outbox(&mut uow, &outboxes).await;

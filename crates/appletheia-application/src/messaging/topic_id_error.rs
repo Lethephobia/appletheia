@@ -5,4 +5,3 @@ pub enum TopicIdError {
     #[error("topic id is empty")]
     Empty,
 }
-

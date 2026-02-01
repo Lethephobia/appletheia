@@ -36,6 +36,7 @@ mod outbox_retry_options;
 mod outbox_state;
 mod outbox_writer;
 mod outbox_writer_error;
+mod processed_outbox_count;
 
 pub use default_outbox_relay::DefaultOutboxRelay;
 pub use ordering_key::{OrderingKey, OrderingKeyError};
@@ -72,6 +73,7 @@ pub use outbox_retry_options::OutboxRetryOptions;
 pub use outbox_state::OutboxState;
 pub use outbox_writer::OutboxWriter;
 pub use outbox_writer_error::OutboxWriterError;
+pub use processed_outbox_count::ProcessedOutboxCount;
 
 use crate::messaging::PublishDispatchError;
 
