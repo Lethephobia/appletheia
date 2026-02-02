@@ -11,7 +11,7 @@ keywords = ["appletheia", "ddd", "event-sourcing", "cqrs"]
 
 [dependencies]
 appletheia-domain = { version = "0.2.0" }
-appletheia-application = { version = "0.2.1" }
+appletheia-application = { version = "0.3.0" }
 thiserror = "2.0.17"
 sqlx = { version = "0.8.6", features = [
     "runtime-tokio",
