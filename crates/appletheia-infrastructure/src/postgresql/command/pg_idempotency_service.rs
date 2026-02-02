@@ -1,13 +1,13 @@
 use appletheia_application::command::CommandFailureReport;
-use appletheia_application::command::{CommandHash, CommandName};
-use appletheia_application::idempotency::{
-    IdempotencyBeginResult, IdempotencyError, IdempotencyOutput, IdempotencyService,
-    IdempotencyState,
+use appletheia_application::command::{
+    CommandHash, CommandName, IdempotencyBeginResult, IdempotencyError, IdempotencyOutput,
+    IdempotencyService, IdempotencyState,
 };
 use appletheia_application::request_context::MessageId;
 
-use crate::postgresql::idempotency::pg_idempotency_row::IdempotencyRow;
 use crate::postgresql::unit_of_work::PgUnitOfWork;
+
+use super::pg_idempotency_row::IdempotencyRow;
 
 #[derive(Debug)]
 pub struct PgIdempotencyService;

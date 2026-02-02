@@ -1,10 +1,10 @@
 use std::error::Error;
 
-use thiserror::Error;
+use thiserror::Error as ThisError;
 
 use crate::request_context::MessageId;
 
-#[derive(Debug, Error)]
+#[derive(Debug, ThisError)]
 pub enum IdempotencyError {
     #[error("idempotency key conflict: {message_id}")]
     Conflict { message_id: MessageId },

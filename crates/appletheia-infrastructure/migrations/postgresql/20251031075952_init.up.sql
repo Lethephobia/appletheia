@@ -176,6 +176,24 @@ CREATE TABLE IF NOT EXISTS saga_processed_events (
 CREATE INDEX IF NOT EXISTS idx_saga_processed_events_event_id
   ON saga_processed_events (event_id);
 
+-- projection checkpoints
+CREATE TABLE IF NOT EXISTS projection_checkpoints (
+  projector_name TEXT PRIMARY KEY,
+  last_event_sequence BIGINT NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- projector processed events
+CREATE TABLE IF NOT EXISTS projector_processed_events (
+  projector_name TEXT NOT NULL,
+  event_id UUID NOT NULL,
+  processed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (projector_name, event_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_projector_processed_events_event_id
+  ON projector_processed_events (event_id);
+
 -- idempotency
 CREATE TABLE IF NOT EXISTS idempotency (
   message_id    UUID        PRIMARY KEY,

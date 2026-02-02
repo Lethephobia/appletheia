@@ -9,4 +9,7 @@ pub enum EventFeedReaderError {
 
     #[error("persistence error")]
     Persistence(#[source] Box<dyn Error + Send + Sync>),
+
+    #[error("invalid subscription")]
+    InvalidSubscription,
 }

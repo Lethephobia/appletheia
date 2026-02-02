@@ -119,11 +119,9 @@ where
                     }
                 };
 
-                if inserted {
-                    if let Err(source) = projector.project(&mut uow, &event).await {
-                        let error = ProjectorRebuilderError::Definition(Box::new(source));
-                        return Err(uow.rollback_with_operation_error(error).await?);
-                    }
+                if inserted && let Err(source) = projector.project(&mut uow, &event).await {
+                    let error = ProjectorRebuilderError::Definition(Box::new(source));
+                    return Err(uow.rollback_with_operation_error(error).await?);
                 }
 
                 if let Err(source) = self

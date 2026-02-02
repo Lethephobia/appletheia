@@ -1,9 +1,6 @@
 use crate::command::{
     Command, CommandDispatchError, CommandDispatcher, CommandFailureReport, CommandHandler,
-    CommandHasher,
-};
-use crate::idempotency::{
-    IdempotencyBeginResult, IdempotencyOutput, IdempotencyService, IdempotencyState,
+    CommandHasher, IdempotencyBeginResult, IdempotencyOutput, IdempotencyService, IdempotencyState,
 };
 use crate::request_context::RequestContext;
 use crate::unit_of_work::UnitOfWork;

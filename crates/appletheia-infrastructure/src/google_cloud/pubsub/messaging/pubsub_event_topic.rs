@@ -61,14 +61,16 @@ impl Topic<EventEnvelope> for PubsubEventTopic {
         let subscription_id = self.subscription_id(consumer_group);
         let topic_id = self.topic_id.value();
 
-        let mut config = SubscriptionConfig::default();
-        config.enable_message_ordering = true;
-        config.filter = match subscription {
-            Subscription::All => String::new(),
-            Subscription::Only(selectors) if selectors.is_empty() => {
-                return Err(TopicError::InvalidSubscription);
-            }
-            Subscription::Only(selectors) => Self::filter_expression(selectors),
+        let config = SubscriptionConfig {
+            enable_message_ordering: true,
+            filter: match subscription {
+                Subscription::All => String::new(),
+                Subscription::Only([]) => {
+                    return Err(TopicError::InvalidSubscription);
+                }
+                Subscription::Only(selectors) => Self::filter_expression(selectors),
+            },
+            ..Default::default()
         };
 
         let subscription = match self

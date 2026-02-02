@@ -1,4 +1,4 @@
-use crate::idempotency::IdempotencyState;
+use super::IdempotencyState;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum IdempotencyBeginResult {
