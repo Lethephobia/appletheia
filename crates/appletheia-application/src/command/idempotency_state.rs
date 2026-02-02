@@ -1,5 +1,4 @@
-use crate::command::CommandFailureReport;
-use crate::idempotency::IdempotencyOutput;
+use super::{CommandFailureReport, IdempotencyOutput};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum IdempotencyState {

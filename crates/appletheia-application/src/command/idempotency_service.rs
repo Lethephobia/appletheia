@@ -1,9 +1,10 @@
-use crate::command::CommandFailureReport;
-use crate::command::{CommandHash, CommandName};
-use crate::idempotency::IdempotencyOutput;
-use crate::idempotency::{IdempotencyBeginResult, IdempotencyError};
 use crate::request_context::MessageId;
 use crate::unit_of_work::UnitOfWork;
+
+use super::{
+    CommandFailureReport, CommandHash, CommandName, IdempotencyBeginResult, IdempotencyError,
+    IdempotencyOutput,
+};
 
 #[allow(async_fn_in_trait)]
 pub trait IdempotencyService: Send + Sync {

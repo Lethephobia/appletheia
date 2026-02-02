@@ -1,6 +1,7 @@
+pub mod command;
 pub mod event;
-pub mod idempotency;
 pub mod outbox;
+pub mod projection;
 pub mod saga;
 pub mod snapshot;
 

@@ -1,5 +1,6 @@
 use std::fmt::{self, Display};
 
+use crate::projection::ProjectorName;
 use crate::saga::SagaName;
 
 use super::ConsumerGroupError;
@@ -22,6 +23,12 @@ impl ConsumerGroup {
 
 impl From<SagaName> for ConsumerGroup {
     fn from(value: SagaName) -> Self {
+        Self(value.value().to_string())
+    }
+}
+
+impl From<ProjectorName> for ConsumerGroup {
+    fn from(value: ProjectorName) -> Self {
         Self(value.value().to_string())
     }
 }

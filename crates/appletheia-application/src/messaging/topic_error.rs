@@ -6,4 +6,7 @@ use thiserror::Error;
 pub enum TopicError {
     #[error("subscribe error")]
     Subscribe(#[source] Box<dyn Error + Send + Sync>),
+
+    #[error("invalid subscription")]
+    InvalidSubscription,
 }

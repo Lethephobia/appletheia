@@ -13,6 +13,12 @@ pub mod command_worker_error;
 pub mod default_command_dispatcher;
 pub mod default_command_hasher;
 pub mod default_command_worker;
+pub mod idempotency_begin_result;
+pub mod idempotency_error;
+pub mod idempotency_output;
+pub mod idempotency_output_error;
+pub mod idempotency_service;
+pub mod idempotency_state;
 
 pub use command_dispatch_error::CommandDispatchError;
 pub use command_dispatcher::CommandDispatcher;
@@ -30,6 +36,12 @@ pub use command_worker_error::CommandWorkerError;
 pub use default_command_dispatcher::DefaultCommandDispatcher;
 pub use default_command_hasher::DefaultCommandHasher;
 pub use default_command_worker::DefaultCommandWorker;
+pub use idempotency_begin_result::IdempotencyBeginResult;
+pub use idempotency_error::IdempotencyError;
+pub use idempotency_output::IdempotencyOutput;
+pub use idempotency_output_error::IdempotencyOutputError;
+pub use idempotency_service::IdempotencyService;
+pub use idempotency_state::IdempotencyState;
 
 use serde::Serialize;
 use serde::de::DeserializeOwned;

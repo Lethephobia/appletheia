@@ -1,3 +1,9 @@
+-- projector processed events
+DROP TABLE IF EXISTS projector_processed_events;
+
+-- projection checkpoints
+DROP TABLE IF EXISTS projection_checkpoints;
+
 -- saga processed events
 DROP TABLE IF EXISTS saga_processed_events;
 

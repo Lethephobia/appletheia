@@ -1,8 +1,8 @@
 pub mod command;
 pub mod event;
-pub mod idempotency;
 pub mod messaging;
 pub mod outbox;
+pub mod projection;
 pub mod repository;
 pub mod request_context;
 pub mod saga;
@@ -11,8 +11,8 @@ pub mod unit_of_work;
 
 pub use command::*;
 pub use event::*;
-pub use idempotency::*;
 pub use messaging::*;
+pub use projection::*;
 pub use repository::*;
 pub use request_context::*;
 pub use saga::*;

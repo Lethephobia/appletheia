@@ -4,7 +4,7 @@ use thiserror::Error;
 
 use crate::command::CommandFailureReport;
 use crate::command::CommandHasherError;
-use crate::idempotency::IdempotencyError;
+use crate::command::IdempotencyError;
 use crate::request_context::MessageId;
 use crate::unit_of_work::UnitOfWorkError;
 use crate::unit_of_work::UnitOfWorkFactoryError;

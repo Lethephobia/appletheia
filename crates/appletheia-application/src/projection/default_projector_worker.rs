@@ -1,38 +1,39 @@
 use std::sync::atomic::{AtomicBool, Ordering as AtomicOrdering};
 
-use super::{SagaDefinition, SagaRunner, SagaWorker, SagaWorkerError};
 use crate::{
     Consumer, ConsumerGroup, Delivery, Topic,
     event::{EventEnvelope, EventSelector},
 };
 
-pub struct DefaultSagaWorker<D, T, R> {
-    saga_runner: R,
+use super::{ProjectorDefinition, ProjectorRunner, ProjectorWorker, ProjectorWorkerError};
+
+pub struct DefaultProjectorWorker<D, T, R> {
+    runner: R,
     topic: T,
-    saga: D,
+    projector: D,
     stop_requested: AtomicBool,
 }
 
-impl<D, T, R> DefaultSagaWorker<D, T, R> {
-    pub fn new(saga_runner: R, topic: T, saga: D) -> Self {
+impl<D, T, R> DefaultProjectorWorker<D, T, R> {
+    pub fn new(runner: R, topic: T, projector: D) -> Self {
         Self {
-            saga_runner,
+            runner,
             topic,
-            saga,
+            projector,
             stop_requested: AtomicBool::new(false),
         }
     }
 }
 
-impl<D, T, R> SagaWorker for DefaultSagaWorker<D, T, R>
+impl<D, T, R> ProjectorWorker for DefaultProjectorWorker<D, T, R>
 where
-    D: SagaDefinition,
+    D: ProjectorDefinition,
     T: Topic<EventEnvelope, Selector = EventSelector>,
     T::Consumer: Consumer<EventEnvelope>,
     <T::Consumer as Consumer<EventEnvelope>>::Delivery: Delivery<EventEnvelope>,
-    R: SagaRunner,
+    R: ProjectorRunner<Uow = D::Uow>,
 {
-    type Saga = D;
+    type Projector = D;
 
     fn is_stop_requested(&self) -> bool {
         self.stop_requested.load(AtomicOrdering::SeqCst)
@@ -42,9 +43,8 @@ where
         self.stop_requested.store(true, AtomicOrdering::SeqCst);
     }
 
-    async fn run_forever(&mut self) -> Result<(), SagaWorkerError> {
+    async fn run_forever(&mut self) -> Result<(), ProjectorWorkerError> {
         let consumer_group = ConsumerGroup::from(D::NAME);
-
         let mut consumer = self
             .topic
             .subscribe(&consumer_group, D::SUBSCRIPTION)
@@ -59,8 +59,8 @@ where
             }
 
             let result = self
-                .saga_runner
-                .handle_event(&self.saga, delivery.message())
+                .runner
+                .project(&self.projector, delivery.message())
                 .await;
 
             match result {

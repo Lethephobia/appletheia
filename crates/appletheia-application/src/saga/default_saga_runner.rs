@@ -5,8 +5,8 @@ use crate::unit_of_work::UnitOfWorkFactory;
 
 use super::SagaInstance;
 use super::{
-    SagaDefinition, SagaNameOwned, SagaProcessedEventStore, SagaRunReport, SagaRunner,
-    SagaRunnerError, SagaStatus, SagaStore,
+    EnqueuedCommandCount, SagaDefinition, SagaNameOwned, SagaProcessedEventStore, SagaRunReport,
+    SagaRunner, SagaRunnerError, SagaStatus, SagaStore,
 };
 
 pub struct DefaultSagaRunner<S, P, Q, U> {
@@ -92,7 +92,7 @@ where
         if commands.is_empty() {
             let report = match &instance.status {
                 SagaStatus::InProgress => SagaRunReport::InProgress {
-                    enqueued_command_count: 0,
+                    enqueued_command_count: EnqueuedCommandCount::zero(),
                 },
                 SagaStatus::Succeeded => SagaRunReport::Succeeded,
                 SagaStatus::Failed => SagaRunReport::Failed,
@@ -104,7 +104,7 @@ where
             .enqueue_commands(uow, &commands)
             .await?;
 
-        let enqueued_command_count = commands.len().min(u32::MAX as usize) as u32;
+        let enqueued_command_count = EnqueuedCommandCount::from_usize_saturating(commands.len());
         let report = match &instance.status {
             SagaStatus::InProgress => SagaRunReport::InProgress {
                 enqueued_command_count,

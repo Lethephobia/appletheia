@@ -1,11 +1,9 @@
 use appletheia_application::ConsumerGroup;
 use appletheia_application::command::CommandSelector;
-use appletheia_application::messaging::{Topic, TopicError};
+use appletheia_application::messaging::{Subscription, Topic, TopicError, TopicId, TopicIdAccess};
 use appletheia_application::outbox::command::CommandEnvelope;
 use google_cloud_pubsub::client::Client;
-use google_cloud_pubsub::publisher::PublisherConfig;
-use google_cloud_pubsub::subscription::{SubscribeConfig, SubscriptionConfig};
-use google_cloud_pubsub::topic::Topic as PubsubTopic;
+use google_cloud_pubsub::subscription::SubscriptionConfig;
 use tonic::Code;
 
 use super::pubsub_command_publisher::PubsubCommandPublisher;
@@ -13,43 +11,12 @@ use super::pubsub_consumer::PubsubConsumer;
 
 pub struct PubsubCommandTopic {
     client: Client,
-    topic_id: String,
-    topic: PubsubTopic,
-    publisher: PubsubCommandPublisher,
-    subscription_config: SubscriptionConfig,
-    subscribe_config: Option<SubscribeConfig>,
+    topic_id: TopicId,
 }
 
 impl PubsubCommandTopic {
-    pub fn new(client: Client, topic_id: impl Into<String>) -> Self {
-        let topic_id = topic_id.into();
-        let topic = client.topic(&topic_id);
-        let publisher = topic.new_publisher(None);
-
-        Self {
-            client,
-            topic_id,
-            topic,
-            publisher: PubsubCommandPublisher::new(publisher),
-            subscription_config: SubscriptionConfig::default(),
-            subscribe_config: None,
-        }
-    }
-
-    pub fn with_subscription_config(mut self, config: SubscriptionConfig) -> Self {
-        self.subscription_config = config;
-        self
-    }
-
-    pub fn with_subscribe_config(mut self, config: SubscribeConfig) -> Self {
-        self.subscribe_config = Some(config);
-        self
-    }
-
-    pub fn with_publisher_config(mut self, config: PublisherConfig) -> Self {
-        let publisher = self.topic.new_publisher(Some(config));
-        self.publisher = PubsubCommandPublisher::new(publisher);
-        self
+    pub fn new(client: Client, topic_id: TopicId) -> Self {
+        Self { client, topic_id }
     }
 
     fn subscription_id(&self, consumer_group: &ConsumerGroup) -> String {
@@ -57,10 +24,6 @@ impl PubsubCommandTopic {
     }
 
     fn filter_expression(selectors: &[CommandSelector]) -> String {
-        if selectors.is_empty() {
-            return String::new();
-        }
-
         selectors
             .iter()
             .map(|selector| {
@@ -74,29 +37,45 @@ impl PubsubCommandTopic {
     }
 }
 
+impl TopicIdAccess for PubsubCommandTopic {
+    fn topic_id(&self) -> &TopicId {
+        &self.topic_id
+    }
+}
+
 impl Topic<CommandEnvelope> for PubsubCommandTopic {
     type Consumer = PubsubConsumer<CommandEnvelope>;
     type Publisher = PubsubCommandPublisher;
     type Selector = CommandSelector;
 
-    fn publisher(&self) -> &Self::Publisher {
-        &self.publisher
+    fn new_publisher(&self) -> Self::Publisher {
+        let publisher = self.client.topic(self.topic_id.value()).new_publisher(None);
+        PubsubCommandPublisher::new(publisher)
     }
 
     async fn subscribe(
         &mut self,
         consumer_group: &ConsumerGroup,
-        selectors: &[Self::Selector],
+        subscription: Subscription<'_, Self::Selector>,
     ) -> Result<Self::Consumer, TopicError> {
         let subscription_id = self.subscription_id(consumer_group);
+        let topic_id = self.topic_id.value();
 
-        let mut config = self.subscription_config.clone();
-        config.enable_message_ordering = true;
-        config.filter = Self::filter_expression(selectors);
+        let config = SubscriptionConfig {
+            enable_message_ordering: true,
+            filter: match subscription {
+                Subscription::All => String::new(),
+                Subscription::Only([]) => {
+                    return Err(TopicError::InvalidSubscription);
+                }
+                Subscription::Only(selectors) => Self::filter_expression(selectors),
+            },
+            ..Default::default()
+        };
 
         let subscription = match self
             .client
-            .create_subscription(&subscription_id, &self.topic_id, config, None)
+            .create_subscription(&subscription_id, topic_id, config, None)
             .await
         {
             Ok(subscription) => subscription,
@@ -109,7 +88,7 @@ impl Topic<CommandEnvelope> for PubsubCommandTopic {
         };
 
         let stream = subscription
-            .subscribe(self.subscribe_config.clone())
+            .subscribe(None)
             .await
             .map_err(|error| TopicError::Subscribe(Box::new(error)))?;
 

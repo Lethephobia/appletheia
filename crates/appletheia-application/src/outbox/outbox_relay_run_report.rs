@@ -1,6 +1,8 @@
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum OutboxRelayRunReport {
-    Progress { processed_outbox_count: u32 },
+    Progress {
+        processed_outbox_count: super::ProcessedOutboxCount,
+    },
     Idle,
     Throttled,
 }
