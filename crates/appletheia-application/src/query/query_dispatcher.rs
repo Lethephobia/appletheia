@@ -22,4 +22,3 @@ pub trait QueryDispatcher: Send + Sync {
     where
         H: QueryHandler<Uow = Self::Uow>;
 }
-

@@ -41,4 +41,3 @@ impl Display for QueryName {
         write!(f, "{}", self.value())
     }
 }
-

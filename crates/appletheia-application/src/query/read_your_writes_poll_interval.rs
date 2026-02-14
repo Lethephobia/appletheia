@@ -44,4 +44,3 @@ impl TryFrom<Duration> for ReadYourWritesPollInterval {
         Ok(Self::new(std))
     }
 }
-

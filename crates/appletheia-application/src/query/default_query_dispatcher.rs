@@ -67,9 +67,7 @@ where
                 }
             };
             uow.commit().await?;
-            seq.ok_or(QueryDispatchError::UnknownMessageId {
-                message_id: after,
-            })?
+            seq.ok_or(QueryDispatchError::UnknownMessageId { message_id: after })?
         };
 
         let deadline = Instant::now() + timeout.value();

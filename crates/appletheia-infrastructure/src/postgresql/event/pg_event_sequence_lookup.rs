@@ -47,9 +47,8 @@ impl EventSequenceLookup for PgEventSequenceLookup {
             return Ok(None);
         };
 
-        let seq = EventSequence::try_from(max).map_err(|e: EventSequenceError| {
-            EventSequenceLookupError::Persistence(Box::new(e))
-        })?;
+        let seq = EventSequence::try_from(max)
+            .map_err(|e: EventSequenceError| EventSequenceLookupError::Persistence(Box::new(e)))?;
 
         Ok(Some(seq))
     }

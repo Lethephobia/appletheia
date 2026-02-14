@@ -10,4 +10,3 @@ pub enum EventSequenceLookupError {
     #[error("persistence error")]
     Persistence(#[source] Box<dyn Error + Send + Sync>),
 }
-

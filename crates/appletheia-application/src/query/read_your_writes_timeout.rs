@@ -44,4 +44,3 @@ impl TryFrom<Duration> for ReadYourWritesTimeout {
         Ok(Self::new(std))
     }
 }
-

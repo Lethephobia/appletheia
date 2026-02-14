@@ -8,4 +8,3 @@ pub enum ReadYourWritesTimeoutError {
     #[error("duration is out of range for std::time::Duration")]
     OutOfRange,
 }
-
