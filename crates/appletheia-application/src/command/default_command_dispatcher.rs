@@ -26,14 +26,6 @@ where
             uow_factory,
         }
     }
-
-    pub fn command_hasher(&self) -> &CH {
-        &self.command_hasher
-    }
-
-    pub fn idempotency_service(&self) -> &IS {
-        &self.idempotency_service
-    }
 }
 
 impl<CH, IS, U> CommandDispatcher for DefaultCommandDispatcher<CH, IS, U>
