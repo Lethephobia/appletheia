@@ -1,3 +1,4 @@
+use crate::authorization::{AuthorizationAction, AuthorizationRequest, Authorizer};
 use crate::command::{
     Command, CommandDispatchError, CommandDispatcher, CommandFailureReport, CommandHandler,
     CommandHasher, IdempotencyBeginResult, IdempotencyOutput, IdempotencyService, IdempotencyState,
@@ -7,32 +8,41 @@ use crate::unit_of_work::UnitOfWork;
 use crate::unit_of_work::UnitOfWorkFactory;
 
 #[derive(Debug)]
-pub struct DefaultCommandDispatcher<CH, IS, U> {
+pub struct DefaultCommandDispatcher<CH, IS, U, AZ> {
     command_hasher: CH,
     idempotency_service: IS,
     uow_factory: U,
+    authorizer: AZ,
 }
 
-impl<CH, IS, U> DefaultCommandDispatcher<CH, IS, U>
+impl<CH, IS, U, AZ> DefaultCommandDispatcher<CH, IS, U, AZ>
 where
     CH: CommandHasher,
     IS: IdempotencyService,
     U: UnitOfWorkFactory<Uow = IS::Uow>,
+    AZ: Authorizer,
 {
-    pub fn new(command_hasher: CH, idempotency_service: IS, uow_factory: U) -> Self {
+    pub fn new(
+        command_hasher: CH,
+        idempotency_service: IS,
+        uow_factory: U,
+        authorizer: AZ,
+    ) -> Self {
         Self {
             command_hasher,
             idempotency_service,
             uow_factory,
+            authorizer,
         }
     }
 }
 
-impl<CH, IS, U> CommandDispatcher for DefaultCommandDispatcher<CH, IS, U>
+impl<CH, IS, U, AZ> CommandDispatcher for DefaultCommandDispatcher<CH, IS, U, AZ>
 where
     CH: CommandHasher,
     IS: IdempotencyService,
     U: UnitOfWorkFactory<Uow = IS::Uow>,
+    AZ: Authorizer,
 {
     type Uow = IS::Uow;
 
@@ -47,6 +57,16 @@ where
         H::Command: Command,
     {
         let command_name = H::Command::NAME;
+        self.authorizer
+            .authorize(
+                &request_context.principal,
+                AuthorizationRequest {
+                    action: AuthorizationAction::Command(command_name),
+                    resource: command.resource_ref(),
+                },
+            )
+            .await?;
+
         let command_hash = self.command_hasher.command_hash(&command)?;
         let message_id = request_context.message_id;
 

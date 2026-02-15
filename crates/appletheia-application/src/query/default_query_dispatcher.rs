@@ -2,18 +2,19 @@ use std::time::Duration as StdDuration;
 
 use tokio::time::Instant;
 
+use crate::authorization::{AuthorizationAction, AuthorizationRequest, Authorizer};
 use crate::event::EventSequenceLookup;
 use crate::projection::{ProjectionCheckpointStore, ProjectorNameOwned};
 use crate::request_context::{CausationId, MessageId, RequestContext};
 use crate::unit_of_work::{UnitOfWork, UnitOfWorkFactory};
 
 use super::{
-    ProjectorDependencies, QueryConsistency, QueryDispatchError, QueryDispatcher, QueryHandler,
-    QueryOptions, ReadYourWritesPendingProjector, ReadYourWritesPollInterval,
+    ProjectorDependencies, Query, QueryConsistency, QueryDispatchError, QueryDispatcher,
+    QueryHandler, QueryOptions, ReadYourWritesPendingProjector, ReadYourWritesPollInterval,
     ReadYourWritesTimeout,
 };
 
-pub struct DefaultQueryDispatcher<L, C, U>
+pub struct DefaultQueryDispatcher<L, C, U, AZ>
 where
     U: UnitOfWorkFactory,
     U::Uow: UnitOfWork,
@@ -23,23 +24,34 @@ where
     lookup: L,
     checkpoint_store: C,
     uow_factory: U,
+    authorizer: AZ,
 }
 
-impl<L, C, U> DefaultQueryDispatcher<L, C, U>
+impl<L, C, U, AZ> DefaultQueryDispatcher<L, C, U, AZ>
+where
+    U: UnitOfWorkFactory,
+    U::Uow: UnitOfWork,
+    L: EventSequenceLookup<Uow = U::Uow>,
+    C: ProjectionCheckpointStore<Uow = U::Uow>,
+    AZ: Authorizer,
+{
+    pub fn new(lookup: L, checkpoint_store: C, uow_factory: U, authorizer: AZ) -> Self {
+        Self {
+            lookup,
+            checkpoint_store,
+            uow_factory,
+            authorizer,
+        }
+    }
+}
+
+impl<L, C, U, AZ> DefaultQueryDispatcher<L, C, U, AZ>
 where
     U: UnitOfWorkFactory,
     U::Uow: UnitOfWork,
     L: EventSequenceLookup<Uow = U::Uow>,
     C: ProjectionCheckpointStore<Uow = U::Uow>,
 {
-    pub fn new(lookup: L, checkpoint_store: C, uow_factory: U) -> Self {
-        Self {
-            lookup,
-            checkpoint_store,
-            uow_factory,
-        }
-    }
-
     async fn wait_for_read_your_writes<HE>(
         &self,
         after: MessageId,
@@ -142,12 +154,13 @@ where
     }
 }
 
-impl<L, C, U> QueryDispatcher for DefaultQueryDispatcher<L, C, U>
+impl<L, C, U, AZ> QueryDispatcher for DefaultQueryDispatcher<L, C, U, AZ>
 where
     U: UnitOfWorkFactory,
     U::Uow: UnitOfWork,
     L: EventSequenceLookup<Uow = U::Uow>,
     C: ProjectionCheckpointStore<Uow = U::Uow>,
+    AZ: Authorizer,
 {
     type Uow = U::Uow;
 
@@ -161,6 +174,16 @@ where
     where
         H: QueryHandler<Uow = Self::Uow>,
     {
+        self.authorizer
+            .authorize(
+                &request_context.principal,
+                AuthorizationRequest {
+                    action: AuthorizationAction::Query(H::Query::NAME),
+                    resource: query.resource_ref(),
+                },
+            )
+            .await?;
+
         match options.consistency {
             QueryConsistency::Eventual => {}
             QueryConsistency::ReadYourWrites {

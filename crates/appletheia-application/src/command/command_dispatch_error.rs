@@ -2,6 +2,7 @@ use std::error::Error;
 
 use thiserror::Error;
 
+use crate::authorization::AuthorizerError;
 use crate::command::CommandFailureReport;
 use crate::command::CommandHasherError;
 use crate::command::IdempotencyError;
@@ -37,4 +38,7 @@ where
 
     #[error("json error: {0}")]
     Json(#[from] serde_json::Error),
+
+    #[error("authorizer error: {0}")]
+    Authorizer(#[from] AuthorizerError),
 }

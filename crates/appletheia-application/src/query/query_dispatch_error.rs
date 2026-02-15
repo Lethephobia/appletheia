@@ -2,6 +2,7 @@ use std::error::Error;
 
 use thiserror::Error as ThisError;
 
+use crate::authorization::AuthorizerError;
 use crate::event::EventSequence;
 use crate::event::EventSequenceLookupError;
 use crate::projection::ProjectionCheckpointStoreError;
@@ -41,4 +42,7 @@ where
 
     #[error("query handler error: {0}")]
     Handler(#[source] HE),
+
+    #[error("authorizer error: {0}")]
+    Authorizer(#[from] AuthorizerError),
 }

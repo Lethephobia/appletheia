@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicBool, Ordering as AtomicOrdering};
 use crate::command::{Command, CommandDispatcher, CommandHandler, CommandSelector, CommandWorker};
 use crate::messaging::Subscription;
 use crate::outbox::command::{CommandEnvelope, CommandEnvelopeError};
-use crate::request_context::RequestContext;
+use crate::request_context::{ActorRef, Principal, RequestContext};
 use crate::{Consumer, ConsumerGroup, Delivery, Topic};
 
 use super::CommandWorkerError;
@@ -72,6 +72,8 @@ where
             let request_context = RequestContext {
                 correlation_id: envelope.correlation_id,
                 message_id: envelope.message_id,
+                actor: ActorRef::System,
+                principal: Principal::System,
             };
 
             let result = self
