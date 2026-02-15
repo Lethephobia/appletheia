@@ -2,14 +2,15 @@ use std::time::Duration as StdDuration;
 
 use tokio::time::Instant;
 
-use crate::event::{EventSequence, EventSequenceLookup};
+use crate::event::EventSequenceLookup;
 use crate::projection::{ProjectionCheckpointStore, ProjectorNameOwned};
 use crate::request_context::{CausationId, MessageId, RequestContext};
 use crate::unit_of_work::{UnitOfWork, UnitOfWorkFactory};
 
 use super::{
-    QueryConsistency, QueryDispatchError, QueryDispatcher, QueryHandler, QueryOptions, ReadModel,
-    ReadYourWritesPollInterval, ReadYourWritesTimeout,
+    ProjectorDependencies, QueryConsistency, QueryDispatchError, QueryDispatcher, QueryHandler,
+    QueryOptions, ReadYourWritesPendingProjector, ReadYourWritesPollInterval,
+    ReadYourWritesTimeout,
 };
 
 pub struct DefaultQueryDispatcher<L, C, U>
@@ -39,17 +40,26 @@ where
         }
     }
 
-    async fn wait_for_read_your_writes<R, HE>(
+    async fn wait_for_read_your_writes<HE>(
         &self,
         after: MessageId,
         timeout: ReadYourWritesTimeout,
         poll_interval: ReadYourWritesPollInterval,
+        dependencies: ProjectorDependencies<'static>,
     ) -> Result<(), QueryDispatchError<HE>>
     where
-        R: ReadModel,
         HE: std::error::Error + Send + Sync + 'static,
     {
-        let projector_name = ProjectorNameOwned::from(R::PROJECTOR);
+        let projectors = dependencies.as_slice();
+        if projectors.is_empty() {
+            return Ok(());
+        }
+
+        let projector_names: Vec<ProjectorNameOwned> = projectors
+            .iter()
+            .copied()
+            .map(ProjectorNameOwned::from)
+            .collect();
 
         let target = {
             let mut uow = self.uow_factory.begin().await?;
@@ -73,44 +83,58 @@ where
         let deadline = Instant::now() + timeout.value();
         let poll_duration = poll_interval.value();
 
-        let mut last_checkpoint: Option<EventSequence>;
-
         loop {
-            let checkpoint = {
-                let mut uow = self.uow_factory.begin().await?;
-                let checkpoint = self
-                    .checkpoint_store
-                    .load(&mut uow, projector_name.clone())
-                    .await;
-                let checkpoint = match checkpoint {
-                    Ok(value) => value,
-                    Err(operation_error) => {
-                        let operation_error =
-                            uow.rollback_with_operation_error(operation_error).await?;
-                        return Err(operation_error.into());
-                    }
+            let mut pending: Vec<ReadYourWritesPendingProjector> = Vec::new();
+
+            for projector_name in &projector_names {
+                let checkpoint = {
+                    let mut uow = self.uow_factory.begin().await?;
+                    let checkpoint = self
+                        .checkpoint_store
+                        .load(&mut uow, projector_name.clone())
+                        .await;
+                    let checkpoint = match checkpoint {
+                        Ok(value) => value,
+                        Err(operation_error) => {
+                            let operation_error =
+                                uow.rollback_with_operation_error(operation_error).await?;
+                            return Err(operation_error.into());
+                        }
+                    };
+                    uow.commit().await?;
+                    checkpoint
                 };
-                uow.commit().await?;
-                checkpoint
-            };
 
-            last_checkpoint = checkpoint;
+                if checkpoint.is_some_and(|seq| seq >= target) {
+                    continue;
+                }
 
-            if checkpoint.is_some_and(|seq| seq >= target) {
+                pending.push(ReadYourWritesPendingProjector {
+                    projector_name: projector_name.clone(),
+                    last_checkpoint: checkpoint,
+                });
+            }
+
+            if pending.is_empty() {
                 return Ok(());
             }
 
-            if Instant::now() >= deadline {
+            let now = Instant::now();
+            if now >= deadline {
                 return Err(QueryDispatchError::Timeout {
-                    projector_name,
                     target,
-                    last_checkpoint,
+                    pending,
                     timeout,
                 });
             }
 
-            if poll_duration > StdDuration::ZERO {
-                tokio::time::sleep(poll_duration).await;
+            let remaining = deadline
+                .checked_duration_since(now)
+                .unwrap_or(StdDuration::ZERO);
+            let sleep_duration = poll_duration.min(remaining);
+
+            if sleep_duration > StdDuration::ZERO {
+                tokio::time::sleep(sleep_duration).await;
             } else {
                 tokio::task::yield_now().await;
             }
@@ -144,10 +168,11 @@ where
                 timeout,
                 poll_interval,
             } => {
-                self.wait_for_read_your_writes::<H::ReadModel, H::Error>(
+                self.wait_for_read_your_writes::<H::Error>(
                     after,
                     timeout,
                     poll_interval,
+                    H::DEPENDENCIES,
                 )
                 .await?;
             }
