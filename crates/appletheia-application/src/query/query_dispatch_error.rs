@@ -4,11 +4,11 @@ use thiserror::Error as ThisError;
 
 use crate::event::EventSequence;
 use crate::event::EventSequenceLookupError;
-use crate::projection::{ProjectionCheckpointStoreError, ProjectorNameOwned};
+use crate::projection::ProjectionCheckpointStoreError;
 use crate::request_context::MessageId;
 use crate::unit_of_work::{UnitOfWorkError, UnitOfWorkFactoryError};
 
-use super::ReadYourWritesTimeout;
+use super::{ReadYourWritesPendingProjector, ReadYourWritesTimeout};
 
 #[derive(Debug, ThisError)]
 pub enum QueryDispatchError<HE>
@@ -31,12 +31,11 @@ where
     UnknownMessageId { message_id: MessageId },
 
     #[error(
-        "read-your-writes timed out (projector={projector_name}, target={target}, last_checkpoint={last_checkpoint:?}, timeout={timeout:?})"
+        "read-your-writes timed out (target={target}, pending={pending:?}, timeout={timeout:?})"
     )]
     Timeout {
-        projector_name: ProjectorNameOwned,
         target: EventSequence,
-        last_checkpoint: Option<EventSequence>,
+        pending: Vec<ReadYourWritesPendingProjector>,
         timeout: ReadYourWritesTimeout,
     },
 
