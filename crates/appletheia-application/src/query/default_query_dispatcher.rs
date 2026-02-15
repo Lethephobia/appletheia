@@ -9,7 +9,8 @@ use crate::unit_of_work::{UnitOfWork, UnitOfWorkFactory};
 
 use super::{
     ProjectorDependencies, QueryConsistency, QueryDispatchError, QueryDispatcher, QueryHandler,
-    QueryOptions, ReadYourWritesPendingProjector, ReadYourWritesPollInterval, ReadYourWritesTimeout,
+    QueryOptions, ReadYourWritesPendingProjector, ReadYourWritesPollInterval,
+    ReadYourWritesTimeout,
 };
 
 pub struct DefaultQueryDispatcher<L, C, U>

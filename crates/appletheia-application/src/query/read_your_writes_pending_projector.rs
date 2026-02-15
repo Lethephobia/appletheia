@@ -6,4 +6,3 @@ pub struct ReadYourWritesPendingProjector {
     pub projector_name: ProjectorNameOwned,
     pub last_checkpoint: Option<EventSequence>,
 }
-
