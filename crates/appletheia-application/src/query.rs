@@ -25,12 +25,12 @@ pub use read_your_writes_poll_interval_error::ReadYourWritesPollIntervalError;
 pub use read_your_writes_timeout::ReadYourWritesTimeout;
 pub use read_your_writes_timeout_error::ReadYourWritesTimeoutError;
 
-use crate::authorization::AggregateRef;
+use crate::authorization::ResourceRef;
 
 pub trait Query: Send + 'static {
     const NAME: QueryName;
 
-    fn resource_ref(&self) -> Option<AggregateRef> {
+    fn resource_ref(&self) -> Option<ResourceRef> {
         None
     }
 }

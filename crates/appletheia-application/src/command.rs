@@ -46,12 +46,12 @@ pub use idempotency_state::IdempotencyState;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
-use crate::authorization::AggregateRef;
+use crate::authorization::ResourceRef;
 
 pub trait Command: Serialize + DeserializeOwned + Send + 'static {
     const NAME: CommandName;
 
-    fn resource_ref(&self) -> Option<AggregateRef> {
+    fn resource_ref(&self) -> Option<ResourceRef> {
         None
     }
 }
