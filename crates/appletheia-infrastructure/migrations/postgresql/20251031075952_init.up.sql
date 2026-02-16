@@ -143,6 +143,66 @@ CREATE TABLE IF NOT EXISTS command_dead_letters (
   dead_lettered_at     TIMESTAMPTZ NOT NULL
 );
 
+-- authorization relationship tuples (ReBAC)
+CREATE TABLE IF NOT EXISTS authorization_relationship_tuples (
+  tenant_id               UUID        NOT NULL,
+  object_type             TEXT        NOT NULL,
+  object_id               UUID        NOT NULL,
+  relation                TEXT        NOT NULL,
+
+  -- subject (direct)
+  subject_kind            TEXT,
+  subject_id              UUID,
+
+  -- subject set (object#relation)
+  subject_set_object_type TEXT,
+  subject_set_object_id   UUID,
+  subject_set_relation    TEXT,
+
+  caveat_name             TEXT,
+  caveat_params           JSONB,
+
+  created_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+  CONSTRAINT authorization_relationship_tuples_subject_check CHECK (
+    (
+      subject_kind IS NOT NULL AND subject_id IS NOT NULL AND
+      subject_set_object_type IS NULL AND subject_set_object_id IS NULL AND subject_set_relation IS NULL
+    )
+    OR
+    (
+      subject_kind IS NULL AND subject_id IS NULL AND
+      subject_set_object_type IS NOT NULL AND subject_set_object_id IS NOT NULL AND subject_set_relation IS NOT NULL
+    )
+  )
+  ,
+  CONSTRAINT authorization_relationship_tuples_caveat_check CHECK (
+    (caveat_name IS NULL AND caveat_params IS NULL)
+    OR
+    (caveat_name IS NOT NULL AND caveat_params IS NOT NULL)
+  )
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_authorization_relationship_tuples_direct_uniq
+  ON authorization_relationship_tuples (
+    tenant_id, object_type, object_id, relation, subject_kind, subject_id
+  )
+  WHERE subject_kind IS NOT NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_authorization_relationship_tuples_subject_set_uniq
+  ON authorization_relationship_tuples (
+    tenant_id, object_type, object_id, relation,
+    subject_set_object_type, subject_set_object_id, subject_set_relation
+  )
+  WHERE subject_set_object_type IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_authorization_relationship_tuples_object_relation
+  ON authorization_relationship_tuples (tenant_id, object_type, object_id, relation);
+
+CREATE INDEX IF NOT EXISTS idx_authorization_relationship_tuples_subject
+  ON authorization_relationship_tuples (tenant_id, subject_kind, subject_id)
+  WHERE subject_kind IS NOT NULL;
+
 -- saga instances
 CREATE TABLE IF NOT EXISTS saga_instances (
   saga_instance_id UUID        PRIMARY KEY,

@@ -4,6 +4,9 @@ DROP TABLE IF EXISTS projector_processed_events;
 -- projection checkpoints
 DROP TABLE IF EXISTS projection_checkpoints;
 
+-- authorization relationship tuples (ReBAC)
+DROP TABLE IF EXISTS authorization_relationship_tuples;
+
 -- saga processed events
 DROP TABLE IF EXISTS saga_processed_events;
 
