@@ -54,7 +54,7 @@ impl CommandOutboxEnqueuer for PgCommandOutboxEnqueuer {
                 let message_id_value = command.message_id.value();
                 let command_name_value = command.command_name.value();
                 let payload_value = command.command.value().clone();
-                let correlation_id_value = command.correlation_id.0;
+                let correlation_id_value = command.correlation_id.value();
                 let causation_id_value = command.causation_id.value();
 
                 separated

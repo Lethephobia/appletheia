@@ -74,7 +74,7 @@ impl PgEventRow {
         let payload = SerializedEventPayload::try_from(self.payload)?;
         let occurred_at = EventOccurredAt::from(self.occurred_at);
 
-        let correlation_id = CorrelationId(self.correlation_id);
+        let correlation_id = CorrelationId::from(self.correlation_id);
         let causation_message_id = MessageId::from(self.causation_id);
         let causation_id = CausationId::from(causation_message_id);
 

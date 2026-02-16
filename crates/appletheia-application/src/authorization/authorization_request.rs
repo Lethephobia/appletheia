@@ -1,7 +1,7 @@
-use super::{AuthorizationAction, ResourceRef};
+use super::{AggregateRef, AuthorizationAction};
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct AuthorizationRequest {
     pub action: AuthorizationAction,
-    pub resource: Option<ResourceRef>,
+    pub resource: Option<AggregateRef>,
 }

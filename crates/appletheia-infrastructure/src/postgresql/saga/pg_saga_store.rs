@@ -34,7 +34,7 @@ impl SagaStore for PgSagaStore {
 
         let saga_instance_id_value = SagaInstanceId::new().value();
         let saga_name_value = saga_name.value();
-        let correlation_id_value = correlation_id.0;
+        let correlation_id_value = correlation_id.value();
 
         sqlx::query(
             r#"

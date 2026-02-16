@@ -44,7 +44,7 @@ impl PgCommandOutboxRow {
         };
         let serialized_command = SerializedCommand::try_from(self.payload)?;
 
-        let correlation_id = CorrelationId(self.correlation_id);
+        let correlation_id = CorrelationId::from(self.correlation_id);
         let message_id = MessageId::from(self.message_id);
         let causation_id = CausationId::from(MessageId::from(self.causation_id));
 

@@ -1,45 +1,36 @@
-use std::fmt::{self, Display};
+use std::{fmt, fmt::Display, str::FromStr};
 
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 use super::TenantIdError;
 
-#[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct TenantId(String);
+pub struct TenantId(Uuid);
 
 impl TenantId {
-    pub const MAX_LENGTH: usize = 200;
-
-    pub fn new(value: String) -> Result<Self, TenantIdError> {
-        Self::validate(&value)?;
-        Ok(Self(value))
-    }
-
-    pub fn value(&self) -> &str {
-        &self.0
-    }
-
-    fn validate(value: &str) -> Result<(), TenantIdError> {
-        if value.is_empty() {
-            return Err(TenantIdError::Empty);
-        }
-        let len = value.len();
-        if len > Self::MAX_LENGTH {
-            return Err(TenantIdError::TooLong {
-                len,
-                max: Self::MAX_LENGTH,
-            });
-        }
-        Ok(())
+    pub fn value(&self) -> Uuid {
+        self.0
     }
 }
 
-impl TryFrom<String> for TenantId {
-    type Error = TenantIdError;
+impl From<Uuid> for TenantId {
+    fn from(value: Uuid) -> Self {
+        Self(value)
+    }
+}
 
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        Self::new(value)
+impl FromStr for TenantId {
+    type Err = TenantIdError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Uuid::try_parse(s)
+            .map(Self)
+            .map_err(|source| TenantIdError::InvalidUuid {
+                value: s.to_owned(),
+                source,
+            })
     }
 }
 
@@ -47,13 +38,23 @@ impl TryFrom<&str> for TenantId {
     type Error = TenantIdError;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        Self::new(value.to_owned())
+        Self::from_str(value)
+    }
+}
+
+impl TryFrom<String> for TenantId {
+    type Error = TenantIdError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Uuid::try_parse(&value)
+            .map(Self)
+            .map_err(|source| TenantIdError::InvalidUuid { value, source })
     }
 }
 
 impl Display for TenantId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.value())
+        write!(f, "{}", self.0)
     }
 }
 
@@ -62,21 +63,15 @@ mod tests {
     use super::*;
 
     #[test]
-    fn rejects_empty() {
-        let err = TenantId::try_from("").expect_err("empty should be rejected");
-        assert!(matches!(err, TenantIdError::Empty));
+    fn rejects_invalid_uuid() {
+        let err = TenantId::try_from("not-a-uuid").expect_err("invalid should be rejected");
+        assert!(matches!(err, TenantIdError::InvalidUuid { .. }));
     }
 
     #[test]
-    fn rejects_too_long() {
-        let long = "a".repeat(TenantId::MAX_LENGTH + 1);
-        let err = TenantId::try_from(long).expect_err("too long should be rejected");
-        assert!(matches!(err, TenantIdError::TooLong { .. }));
-    }
-
-    #[test]
-    fn accepts_non_empty() {
-        let id = TenantId::try_from("tenant-a").expect("non-empty");
-        assert_eq!(id.value(), "tenant-a");
+    fn accepts_uuid() {
+        let uuid = Uuid::nil();
+        let id = TenantId::from(uuid);
+        assert_eq!(id.value(), uuid);
     }
 }

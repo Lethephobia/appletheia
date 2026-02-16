@@ -34,7 +34,7 @@ impl SagaProcessedEventStore for PgSagaProcessedEventStore {
         let transaction = uow.transaction_mut();
 
         let saga_name_value = saga_name.value();
-        let correlation_id_value = correlation_id.0;
+        let correlation_id_value = correlation_id.value();
         let event_id_value = event_id.value();
 
         let done = sqlx::query(
