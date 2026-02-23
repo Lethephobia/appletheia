@@ -12,6 +12,7 @@ pub mod relation_name_error;
 pub mod relationship;
 pub mod relationship_change;
 mod relationship_eval_state;
+mod relationship_expr_eval_context;
 pub mod relationship_id;
 pub mod relationship_id_error;
 mod relationship_memo_key;
