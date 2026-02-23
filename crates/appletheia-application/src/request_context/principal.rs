@@ -1,14 +1,11 @@
-use super::{SubjectRef, TenantId};
+use crate::authorization::AggregateRef;
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub enum Principal {
     Unavailable,
     Anonymous,
     System,
-    Authenticated {
-        subject: SubjectRef,
-        tenant_id: Option<TenantId>,
-    },
+    Authenticated { subject: AggregateRef },
 }
 
 impl Default for Principal {

@@ -1,11 +1,9 @@
 pub mod default_repository;
 pub mod repository_config;
-pub mod repository_config_access;
 pub mod repository_error;
 
 pub use default_repository::DefaultRepository;
 pub use repository_config::RepositoryConfig;
-pub use repository_config_access::RepositoryConfigAccess;
 pub use repository_error::RepositoryError;
 
 use crate::request_context::RequestContext;

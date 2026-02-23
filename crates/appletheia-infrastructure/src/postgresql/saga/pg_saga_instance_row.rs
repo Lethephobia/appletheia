@@ -10,8 +10,8 @@ use appletheia_application::saga::{
 use super::pg_saga_instance_row_error::PgSagaInstanceRowError;
 
 #[derive(Debug, FromRow)]
-pub(super) struct PgSagaInstanceRow {
-    pub saga_instance_id: Uuid,
+pub struct PgSagaInstanceRow {
+    pub id: Uuid,
     pub state: Option<serde_json::Value>,
     pub succeeded_at: Option<DateTime<Utc>>,
     pub failed_at: Option<DateTime<Utc>>,
@@ -23,7 +23,7 @@ impl PgSagaInstanceRow {
         saga_name: SagaNameOwned,
         correlation_id: CorrelationId,
     ) -> Result<SagaInstance<S>, PgSagaInstanceRowError> {
-        let saga_instance_id = SagaInstanceId::try_from(self.saga_instance_id)?;
+        let saga_instance_id = SagaInstanceId::try_from(self.id)?;
 
         let (status, state) = match (self.succeeded_at, self.failed_at, self.state) {
             (Some(_), None, Some(state_json)) => {

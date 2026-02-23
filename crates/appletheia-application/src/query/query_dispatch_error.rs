@@ -2,14 +2,16 @@ use std::error::Error;
 
 use thiserror::Error as ThisError;
 
+use appletheia_domain::EventId;
+
 use crate::authorization::AuthorizerError;
-use crate::event::EventSequence;
 use crate::event::EventSequenceLookupError;
-use crate::projection::ProjectionCheckpointStoreError;
+use crate::projection::{
+    ProjectorNameOwned, ProjectorProcessedEventStoreError, ReadYourWritesTimeout,
+    ReadYourWritesWaitError,
+};
 use crate::request_context::MessageId;
 use crate::unit_of_work::{UnitOfWorkError, UnitOfWorkFactoryError};
-
-use super::{ReadYourWritesPendingProjector, ReadYourWritesTimeout};
 
 #[derive(Debug, ThisError)]
 pub enum QueryDispatchError<HE>
@@ -25,18 +27,18 @@ where
     #[error("event sequence lookup error: {0}")]
     EventSequenceLookup(#[from] EventSequenceLookupError),
 
-    #[error("projection checkpoint store error: {0}")]
-    ProjectionCheckpointStore(#[from] ProjectionCheckpointStoreError),
+    #[error("projector processed event store error: {0}")]
+    ProjectorProcessedEventStore(#[from] ProjectorProcessedEventStoreError),
 
-    #[error("no event sequence found for message id: {message_id}")]
+    #[error("no event found for message id: {message_id}")]
     UnknownMessageId { message_id: MessageId },
 
     #[error(
-        "read-your-writes timed out (target={target}, pending={pending:?}, timeout={timeout:?})"
+        "read-your-writes timed out (target_event_id={target_event_id}, pending={pending:?}, timeout={timeout:?})"
     )]
     Timeout {
-        target: EventSequence,
-        pending: Vec<ReadYourWritesPendingProjector>,
+        target_event_id: EventId,
+        pending: Vec<ProjectorNameOwned>,
         timeout: ReadYourWritesTimeout,
     },
 
@@ -45,4 +47,32 @@ where
 
     #[error("authorizer error: {0}")]
     Authorizer(#[from] AuthorizerError),
+}
+
+impl<HE> From<ReadYourWritesWaitError> for QueryDispatchError<HE>
+where
+    HE: Error + Send + Sync + 'static,
+{
+    fn from(value: ReadYourWritesWaitError) -> Self {
+        match value {
+            ReadYourWritesWaitError::UnitOfWorkFactory(error) => Self::UnitOfWorkFactory(error),
+            ReadYourWritesWaitError::UnitOfWork(error) => Self::UnitOfWork(error),
+            ReadYourWritesWaitError::EventSequenceLookup(error) => Self::EventSequenceLookup(error),
+            ReadYourWritesWaitError::ProjectorProcessedEventStore(error) => {
+                Self::ProjectorProcessedEventStore(error)
+            }
+            ReadYourWritesWaitError::UnknownMessageId { message_id } => {
+                Self::UnknownMessageId { message_id }
+            }
+            ReadYourWritesWaitError::Timeout {
+                target_event_id,
+                pending,
+                timeout,
+            } => Self::Timeout {
+                target_event_id,
+                pending,
+                timeout,
+            },
+        }
+    }
 }

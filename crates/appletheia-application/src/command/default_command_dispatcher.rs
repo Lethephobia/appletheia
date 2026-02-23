@@ -1,46 +1,61 @@
-use crate::authorization::{AuthorizationAction, AuthorizationRequest, Authorizer};
+use crate::authorization::{Authorizer, RelationshipRequirement};
 use crate::command::{
-    Command, CommandDispatchError, CommandDispatcher, CommandFailureReport, CommandHandler,
-    CommandHasher, IdempotencyBeginResult, IdempotencyOutput, IdempotencyService, IdempotencyState,
+    Command, CommandConsistency, CommandDispatchError, CommandDispatcher, CommandFailureReport,
+    CommandHandler, CommandHasher, CommandOptions, IdempotencyBeginResult, IdempotencyOutput,
+    IdempotencyService, IdempotencyState,
 };
+use crate::projection::ReadYourWritesWaiter;
 use crate::request_context::RequestContext;
 use crate::unit_of_work::UnitOfWork;
 use crate::unit_of_work::UnitOfWorkFactory;
 
 #[derive(Debug)]
-pub struct DefaultCommandDispatcher<CH, IS, U, AZ> {
+pub struct DefaultCommandDispatcher<CH, IS, W, U, AZ>
+where
+    CH: CommandHasher,
+    IS: IdempotencyService,
+    IS::Uow: UnitOfWork,
+    W: ReadYourWritesWaiter,
+    U: UnitOfWorkFactory<Uow = IS::Uow>,
+    AZ: Authorizer,
+{
     command_hasher: CH,
     idempotency_service: IS,
+    read_your_writes_waiter: W,
     uow_factory: U,
     authorizer: AZ,
 }
 
-impl<CH, IS, U, AZ> DefaultCommandDispatcher<CH, IS, U, AZ>
+impl<CH, IS, W, U, AZ> DefaultCommandDispatcher<CH, IS, W, U, AZ>
 where
     CH: CommandHasher,
     IS: IdempotencyService,
+    W: ReadYourWritesWaiter,
     U: UnitOfWorkFactory<Uow = IS::Uow>,
     AZ: Authorizer,
 {
     pub fn new(
         command_hasher: CH,
         idempotency_service: IS,
+        read_your_writes_waiter: W,
         uow_factory: U,
         authorizer: AZ,
     ) -> Self {
         Self {
             command_hasher,
             idempotency_service,
+            read_your_writes_waiter,
             uow_factory,
             authorizer,
         }
     }
 }
 
-impl<CH, IS, U, AZ> CommandDispatcher for DefaultCommandDispatcher<CH, IS, U, AZ>
+impl<CH, IS, W, U, AZ> CommandDispatcher for DefaultCommandDispatcher<CH, IS, W, U, AZ>
 where
     CH: CommandHasher,
     IS: IdempotencyService,
+    W: ReadYourWritesWaiter,
     U: UnitOfWorkFactory<Uow = IS::Uow>,
     AZ: Authorizer,
 {
@@ -51,21 +66,49 @@ where
         handler: &H,
         request_context: &RequestContext,
         command: H::Command,
+        options: CommandOptions,
     ) -> Result<H::Output, CommandDispatchError<H::Error>>
     where
         H: CommandHandler<Uow = Self::Uow>,
         H::Command: Command,
     {
         let command_name = H::Command::NAME;
+        let authorization_plan = handler.authorization_plan(&command);
+        let requirement = authorization_plan.requirement;
+        let authorization_dependencies = authorization_plan.dependencies;
+
+        match options.consistency {
+            CommandConsistency::Eventual => {}
+            CommandConsistency::ReadYourWrites {
+                after,
+                timeout,
+                poll_interval,
+            } => {
+                if !matches!(requirement, RelationshipRequirement::None) {
+                    let projectors = authorization_dependencies.owned_names();
+                    self.read_your_writes_waiter
+                        .wait(after, timeout, poll_interval, &projectors)
+                        .await?;
+                }
+            }
+        }
         self.authorizer
-            .authorize(
-                &request_context.principal,
-                AuthorizationRequest {
-                    action: AuthorizationAction::Command(command_name),
-                    resource: command.resource_ref(),
-                },
-            )
+            .authorize(&request_context.principal, &requirement)
             .await?;
+
+        match options.consistency {
+            CommandConsistency::Eventual => {}
+            CommandConsistency::ReadYourWrites {
+                after,
+                timeout,
+                poll_interval,
+            } => {
+                let projectors = H::DEPENDENCIES.owned_names();
+                self.read_your_writes_waiter
+                    .wait(after, timeout, poll_interval, &projectors)
+                    .await?;
+            }
+        }
 
         let command_hash = self.command_hasher.command_hash(&command)?;
         let message_id = request_context.message_id;

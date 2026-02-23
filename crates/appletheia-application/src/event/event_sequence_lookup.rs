@@ -1,3 +1,5 @@
+use appletheia_domain::EventId;
+
 use crate::event::EventSequence;
 use crate::request_context::CausationId;
 use crate::unit_of_work::UnitOfWork;
@@ -13,4 +15,10 @@ pub trait EventSequenceLookup: Send + Sync {
         uow: &mut Self::Uow,
         causation_id: CausationId,
     ) -> Result<Option<EventSequence>, EventSequenceLookupError>;
+
+    async fn last_event_id_by_causation_id(
+        &self,
+        uow: &mut Self::Uow,
+        causation_id: CausationId,
+    ) -> Result<Option<EventId>, EventSequenceLookupError>;
 }

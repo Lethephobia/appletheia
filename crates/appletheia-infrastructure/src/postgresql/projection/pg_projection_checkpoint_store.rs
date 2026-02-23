@@ -1,11 +1,12 @@
-use sqlx::FromRow;
-
 use appletheia_application::event::{EventSequence, EventSequenceError};
 use appletheia_application::projection::{
-    ProjectionCheckpointStore, ProjectionCheckpointStoreError, ProjectorNameOwned,
+    ProjectionCheckpointId, ProjectionCheckpointStore, ProjectionCheckpointStoreError,
+    ProjectorNameOwned,
 };
 
 use crate::postgresql::unit_of_work::PgUnitOfWork;
+
+use super::pg_projection_checkpoint_row::PgProjectionCheckpointRow;
 
 #[derive(Debug)]
 pub struct PgProjectionCheckpointStore;
@@ -22,11 +23,6 @@ impl Default for PgProjectionCheckpointStore {
     }
 }
 
-#[derive(Debug, FromRow)]
-struct ProjectionCheckpointRow {
-    last_event_sequence: i64,
-}
-
 impl ProjectionCheckpointStore for PgProjectionCheckpointStore {
     type Uow = PgUnitOfWork;
 
@@ -37,9 +33,13 @@ impl ProjectionCheckpointStore for PgProjectionCheckpointStore {
     ) -> Result<Option<EventSequence>, ProjectionCheckpointStoreError> {
         let transaction = uow.transaction_mut();
 
-        let row: Option<ProjectionCheckpointRow> = sqlx::query_as(
+        let row: Option<PgProjectionCheckpointRow> = sqlx::query_as(
             r#"
-            SELECT last_event_sequence
+            SELECT
+              id,
+              projector_name,
+              last_event_sequence,
+              updated_at
               FROM projection_checkpoints
              WHERE projector_name = $1
             "#,
@@ -69,15 +69,21 @@ impl ProjectionCheckpointStore for PgProjectionCheckpointStore {
     ) -> Result<(), ProjectionCheckpointStoreError> {
         let transaction = uow.transaction_mut();
 
+        let id_value = ProjectionCheckpointId::new().value();
+
         sqlx::query(
             r#"
-            INSERT INTO projection_checkpoints (projector_name, last_event_sequence)
-            VALUES ($1, $2)
+            INSERT INTO projection_checkpoints (id, projector_name, last_event_sequence)
+            VALUES ($1, $2, $3)
             ON CONFLICT (projector_name)
-            DO UPDATE SET last_event_sequence = EXCLUDED.last_event_sequence,
+            DO UPDATE SET last_event_sequence = GREATEST(
+                              projection_checkpoints.last_event_sequence,
+                              EXCLUDED.last_event_sequence
+                          ),
                           updated_at = now()
             "#,
         )
+        .bind(id_value)
         .bind(projector_name.value())
         .bind(event_sequence.value())
         .execute(transaction.as_mut())

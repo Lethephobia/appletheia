@@ -1,165 +1,42 @@
-use std::time::Duration as StdDuration;
-
-use tokio::time::Instant;
-
-use crate::authorization::{AuthorizationAction, AuthorizationRequest, Authorizer};
-use crate::event::EventSequenceLookup;
-use crate::projection::{ProjectionCheckpointStore, ProjectorNameOwned};
-use crate::request_context::{CausationId, MessageId, RequestContext};
+use crate::authorization::{Authorizer, RelationshipRequirement};
+use crate::projection::ReadYourWritesWaiter;
+use crate::request_context::RequestContext;
 use crate::unit_of_work::{UnitOfWork, UnitOfWorkFactory};
 
-use super::{
-    ProjectorDependencies, Query, QueryConsistency, QueryDispatchError, QueryDispatcher,
-    QueryHandler, QueryOptions, ReadYourWritesPendingProjector, ReadYourWritesPollInterval,
-    ReadYourWritesTimeout,
-};
+use super::{QueryConsistency, QueryDispatchError, QueryDispatcher, QueryHandler, QueryOptions};
 
-pub struct DefaultQueryDispatcher<L, C, U, AZ>
+pub struct DefaultQueryDispatcher<W, U, AZ>
 where
+    W: ReadYourWritesWaiter,
     U: UnitOfWorkFactory,
     U::Uow: UnitOfWork,
-    L: EventSequenceLookup<Uow = U::Uow>,
-    C: ProjectionCheckpointStore<Uow = U::Uow>,
 {
-    lookup: L,
-    checkpoint_store: C,
+    read_your_writes_waiter: W,
     uow_factory: U,
     authorizer: AZ,
 }
 
-impl<L, C, U, AZ> DefaultQueryDispatcher<L, C, U, AZ>
+impl<W, U, AZ> DefaultQueryDispatcher<W, U, AZ>
 where
+    W: ReadYourWritesWaiter,
     U: UnitOfWorkFactory,
     U::Uow: UnitOfWork,
-    L: EventSequenceLookup<Uow = U::Uow>,
-    C: ProjectionCheckpointStore<Uow = U::Uow>,
     AZ: Authorizer,
 {
-    pub fn new(lookup: L, checkpoint_store: C, uow_factory: U, authorizer: AZ) -> Self {
+    pub fn new(read_your_writes_waiter: W, uow_factory: U, authorizer: AZ) -> Self {
         Self {
-            lookup,
-            checkpoint_store,
+            read_your_writes_waiter,
             uow_factory,
             authorizer,
         }
     }
 }
 
-impl<L, C, U, AZ> DefaultQueryDispatcher<L, C, U, AZ>
+impl<W, U, AZ> QueryDispatcher for DefaultQueryDispatcher<W, U, AZ>
 where
+    W: ReadYourWritesWaiter,
     U: UnitOfWorkFactory,
     U::Uow: UnitOfWork,
-    L: EventSequenceLookup<Uow = U::Uow>,
-    C: ProjectionCheckpointStore<Uow = U::Uow>,
-{
-    async fn wait_for_read_your_writes<HE>(
-        &self,
-        after: MessageId,
-        timeout: ReadYourWritesTimeout,
-        poll_interval: ReadYourWritesPollInterval,
-        dependencies: ProjectorDependencies<'static>,
-    ) -> Result<(), QueryDispatchError<HE>>
-    where
-        HE: std::error::Error + Send + Sync + 'static,
-    {
-        let projectors = dependencies.as_slice();
-        if projectors.is_empty() {
-            return Ok(());
-        }
-
-        let projector_names: Vec<ProjectorNameOwned> = projectors
-            .iter()
-            .copied()
-            .map(ProjectorNameOwned::from)
-            .collect();
-
-        let target = {
-            let mut uow = self.uow_factory.begin().await?;
-            let causation_id = CausationId::from(after);
-            let seq = self
-                .lookup
-                .max_event_sequence_by_causation_id(&mut uow, causation_id)
-                .await;
-            let seq = match seq {
-                Ok(value) => value,
-                Err(operation_error) => {
-                    let operation_error =
-                        uow.rollback_with_operation_error(operation_error).await?;
-                    return Err(operation_error.into());
-                }
-            };
-            uow.commit().await?;
-            seq.ok_or(QueryDispatchError::UnknownMessageId { message_id: after })?
-        };
-
-        let deadline = Instant::now() + timeout.value();
-        let poll_duration = poll_interval.value();
-
-        loop {
-            let mut pending: Vec<ReadYourWritesPendingProjector> = Vec::new();
-
-            for projector_name in &projector_names {
-                let checkpoint = {
-                    let mut uow = self.uow_factory.begin().await?;
-                    let checkpoint = self
-                        .checkpoint_store
-                        .load(&mut uow, projector_name.clone())
-                        .await;
-                    let checkpoint = match checkpoint {
-                        Ok(value) => value,
-                        Err(operation_error) => {
-                            let operation_error =
-                                uow.rollback_with_operation_error(operation_error).await?;
-                            return Err(operation_error.into());
-                        }
-                    };
-                    uow.commit().await?;
-                    checkpoint
-                };
-
-                if checkpoint.is_some_and(|seq| seq >= target) {
-                    continue;
-                }
-
-                pending.push(ReadYourWritesPendingProjector {
-                    projector_name: projector_name.clone(),
-                    last_checkpoint: checkpoint,
-                });
-            }
-
-            if pending.is_empty() {
-                return Ok(());
-            }
-
-            let now = Instant::now();
-            if now >= deadline {
-                return Err(QueryDispatchError::Timeout {
-                    target,
-                    pending,
-                    timeout,
-                });
-            }
-
-            let remaining = deadline
-                .checked_duration_since(now)
-                .unwrap_or(StdDuration::ZERO);
-            let sleep_duration = poll_duration.min(remaining);
-
-            if sleep_duration > StdDuration::ZERO {
-                tokio::time::sleep(sleep_duration).await;
-            } else {
-                tokio::task::yield_now().await;
-            }
-        }
-    }
-}
-
-impl<L, C, U, AZ> QueryDispatcher for DefaultQueryDispatcher<L, C, U, AZ>
-where
-    U: UnitOfWorkFactory,
-    U::Uow: UnitOfWork,
-    L: EventSequenceLookup<Uow = U::Uow>,
-    C: ProjectionCheckpointStore<Uow = U::Uow>,
     AZ: Authorizer,
 {
     type Uow = U::Uow;
@@ -174,14 +51,27 @@ where
     where
         H: QueryHandler<Uow = Self::Uow>,
     {
+        let authorization_plan = handler.authorization_plan(&query);
+        let requirement = authorization_plan.requirement;
+        let authorization_dependencies = authorization_plan.dependencies;
+        match options.consistency {
+            QueryConsistency::Eventual => {}
+            QueryConsistency::ReadYourWrites {
+                after,
+                timeout,
+                poll_interval,
+            } => {
+                if !matches!(requirement, RelationshipRequirement::None) {
+                    let projectors = authorization_dependencies.owned_names();
+                    self.read_your_writes_waiter
+                        .wait(after, timeout, poll_interval, &projectors)
+                        .await?;
+                }
+            }
+        }
+
         self.authorizer
-            .authorize(
-                &request_context.principal,
-                AuthorizationRequest {
-                    action: AuthorizationAction::Query(H::Query::NAME),
-                    resource: query.resource_ref(),
-                },
-            )
+            .authorize(&request_context.principal, &requirement)
             .await?;
 
         match options.consistency {
@@ -191,13 +81,10 @@ where
                 timeout,
                 poll_interval,
             } => {
-                self.wait_for_read_your_writes::<H::Error>(
-                    after,
-                    timeout,
-                    poll_interval,
-                    H::DEPENDENCIES,
-                )
-                .await?;
+                let projectors = H::DEPENDENCIES.owned_names();
+                self.read_your_writes_waiter
+                    .wait(after, timeout, poll_interval, &projectors)
+                    .await?;
             }
         }
 

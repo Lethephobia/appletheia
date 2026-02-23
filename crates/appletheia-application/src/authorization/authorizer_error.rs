@@ -10,12 +10,6 @@ pub enum AuthorizerError {
     #[error("unauthenticated")]
     Unauthenticated,
 
-    #[error("tenant_id is required for authorization")]
-    TenantRequired,
-
-    #[error("resource is required for authorization")]
-    ResourceRequired,
-
     #[error("forbidden")]
     Forbidden,
 

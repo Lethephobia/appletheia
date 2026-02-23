@@ -3,6 +3,7 @@ use sqlx::Postgres;
 use appletheia_application::event::{EventSequence, EventSequenceError};
 use appletheia_application::event::{EventSequenceLookup, EventSequenceLookupError};
 use appletheia_application::request_context::CausationId;
+use appletheia_domain::EventId;
 
 use crate::postgresql::unit_of_work::PgUnitOfWork;
 
@@ -51,5 +52,36 @@ impl EventSequenceLookup for PgEventSequenceLookup {
             .map_err(|e: EventSequenceError| EventSequenceLookupError::Persistence(Box::new(e)))?;
 
         Ok(Some(seq))
+    }
+
+    async fn last_event_id_by_causation_id(
+        &self,
+        uow: &mut Self::Uow,
+        causation_id: CausationId,
+    ) -> Result<Option<EventId>, EventSequenceLookupError> {
+        let transaction = uow.transaction_mut();
+
+        let row: Option<(uuid::Uuid,)> = sqlx::query_as::<Postgres, (uuid::Uuid,)>(
+            r#"
+            SELECT event_id
+              FROM events
+             WHERE causation_id = $1
+             ORDER BY aggregate_version DESC
+             LIMIT 1
+            "#,
+        )
+        .bind(causation_id.value())
+        .fetch_optional(transaction.as_mut())
+        .await
+        .map_err(|source| EventSequenceLookupError::Persistence(Box::new(source)))?;
+
+        let Some(row) = row else {
+            return Ok(None);
+        };
+
+        let event_id = EventId::try_from(row.0)
+            .map_err(|e| EventSequenceLookupError::Persistence(Box::new(e)))?;
+
+        Ok(Some(event_id))
     }
 }

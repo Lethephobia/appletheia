@@ -3,26 +3,12 @@ pub mod causation_id;
 pub mod correlation_id;
 pub mod message_id;
 pub mod principal;
-pub mod subject_id;
-pub mod subject_id_error;
-pub mod subject_kind;
-pub mod subject_kind_error;
-pub mod subject_ref;
-pub mod tenant_id;
-pub mod tenant_id_error;
 
 pub use actor_ref::ActorRef;
 pub use causation_id::CausationId;
 pub use correlation_id::CorrelationId;
 pub use message_id::MessageId;
 pub use principal::Principal;
-pub use subject_id::SubjectId;
-pub use subject_id_error::SubjectIdError;
-pub use subject_kind::SubjectKind;
-pub use subject_kind_error::SubjectKindError;
-pub use subject_ref::SubjectRef;
-pub use tenant_id::TenantId;
-pub use tenant_id_error::TenantIdError;
 
 use serde::{Deserialize, Serialize};
 
@@ -32,7 +18,7 @@ pub struct RequestContext {
     pub message_id: MessageId,
     pub actor: ActorRef,
 
-    #[serde(skip, default)]
+    #[serde(skip)]
     pub principal: Principal,
 }
 

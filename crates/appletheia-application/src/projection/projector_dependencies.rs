@@ -1,4 +1,4 @@
-use crate::projection::ProjectorName;
+use super::{ProjectorName, ProjectorNameOwned};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum ProjectorDependencies<'a> {
@@ -12,5 +12,13 @@ impl<'a> ProjectorDependencies<'a> {
             Self::None => &[],
             Self::Some(value) => value,
         }
+    }
+
+    pub fn owned_names(&self) -> Vec<ProjectorNameOwned> {
+        self.as_slice()
+            .iter()
+            .copied()
+            .map(ProjectorNameOwned::from)
+            .collect()
     }
 }

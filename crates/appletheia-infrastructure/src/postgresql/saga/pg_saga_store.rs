@@ -39,7 +39,7 @@ impl SagaStore for PgSagaStore {
         sqlx::query(
             r#"
             INSERT INTO saga_instances (
-              saga_instance_id,
+              id,
               saga_name,
               correlation_id,
               state
@@ -62,7 +62,7 @@ impl SagaStore for PgSagaStore {
         let row = sqlx::query_as::<_, PgSagaInstanceRow>(
             r#"
             SELECT
-              saga_instance_id,
+              id,
               state,
               succeeded_at,
               failed_at
@@ -82,7 +82,7 @@ impl SagaStore for PgSagaStore {
             .map_err(|error| match error {
                 PgSagaInstanceRowError::SagaInstanceId(_) => {
                     SagaStoreError::InvalidPersistedInstance {
-                        message: "saga_instance_id must be a uuidv7",
+                        message: "saga_instances.id must be a uuidv7",
                     }
                 }
                 PgSagaInstanceRowError::StateDeserialize(source) => {
@@ -132,7 +132,7 @@ impl SagaStore for PgSagaStore {
                    updated_at = now(),
                    succeeded_at = CASE WHEN $3 THEN COALESCE(succeeded_at, now()) ELSE NULL END,
                    failed_at = CASE WHEN $4 THEN COALESCE(failed_at, now()) ELSE NULL END
-             WHERE saga_instance_id = $1
+             WHERE id = $1
             "#,
         )
         .bind(saga_instance_id_value)

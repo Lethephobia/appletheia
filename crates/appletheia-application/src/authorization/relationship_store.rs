@@ -1,22 +1,31 @@
-use std::error::Error;
-
-use crate::request_context::TenantId;
+use crate::event::AggregateTypeOwned;
 use crate::unit_of_work::UnitOfWork;
 
-use super::{RelationName, RelationshipEdge, ResourceRef};
+use super::RelationshipStoreError;
+use super::{AggregateRef, RelationName, RelationshipChange, RelationshipSubject};
 
 #[allow(async_fn_in_trait)]
-pub trait RelationshipStore<Uow>: Send + Sync
-where
-    Uow: UnitOfWork,
-{
-    type Error: Error + Send + Sync + 'static;
+pub trait RelationshipStore: Send + Sync {
+    type Uow: UnitOfWork;
 
-    async fn list_subjects(
+    async fn apply_changes(
         &self,
-        uow: &mut Uow,
-        tenant_id: Option<TenantId>,
-        object: &ResourceRef,
+        uow: &mut Self::Uow,
+        changes: &[RelationshipChange],
+    ) -> Result<(), RelationshipStoreError>;
+
+    async fn read_aggregates_by_subject(
+        &self,
+        uow: &mut Self::Uow,
+        subject: &RelationshipSubject,
         relation: &RelationName,
-    ) -> Result<Vec<RelationshipEdge>, Self::Error>;
+        aggregate_type: Option<&AggregateTypeOwned>,
+    ) -> Result<Vec<AggregateRef>, RelationshipStoreError>;
+
+    async fn read_subjects_by_aggregate(
+        &self,
+        uow: &mut Self::Uow,
+        aggregate: &AggregateRef,
+        relation: &RelationName,
+    ) -> Result<Vec<RelationshipSubject>, RelationshipStoreError>;
 }

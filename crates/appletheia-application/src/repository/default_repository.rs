@@ -3,12 +3,12 @@ use std::ops::Bound;
 
 use appletheia_domain::{Aggregate, AggregateError, AggregateVersion, AggregateVersionRange};
 
-use crate::event::{EventReader, EventReaderAccess, EventWriter, EventWriterAccess};
+use crate::event::{EventReader, EventWriter};
 use crate::request_context::RequestContext;
-use crate::snapshot::{SnapshotReader, SnapshotReaderAccess, SnapshotWriter, SnapshotWriterAccess};
+use crate::snapshot::{SnapshotReader, SnapshotWriter};
 use crate::unit_of_work::{SnapshotPolicy, UnitOfWork};
 
-use super::{Repository, RepositoryConfig, RepositoryConfigAccess, RepositoryError};
+use super::{Repository, RepositoryConfig, RepositoryError};
 
 pub struct DefaultRepository<A, ER, EW, SR, SW, Uow>
 where
@@ -51,84 +51,6 @@ where
             snapshot_writer,
             _marker: PhantomData,
         }
-    }
-}
-
-impl<A, ER, EW, SR, SW, Uow> RepositoryConfigAccess for DefaultRepository<A, ER, EW, SR, SW, Uow>
-where
-    A: Aggregate,
-    Uow: UnitOfWork,
-    ER: EventReader<A, Uow = Uow>,
-    EW: EventWriter<A, Uow = Uow>,
-    SR: SnapshotReader<A, Uow = Uow>,
-    SW: SnapshotWriter<A, Uow = Uow>,
-{
-    fn config(&self) -> &RepositoryConfig {
-        &self.config
-    }
-}
-
-impl<A, ER, EW, SR, SW, Uow> EventReaderAccess<A> for DefaultRepository<A, ER, EW, SR, SW, Uow>
-where
-    A: Aggregate,
-    Uow: UnitOfWork,
-    ER: EventReader<A, Uow = Uow>,
-    EW: EventWriter<A, Uow = Uow>,
-    SR: SnapshotReader<A, Uow = Uow>,
-    SW: SnapshotWriter<A, Uow = Uow>,
-{
-    type Reader = ER;
-
-    fn event_reader(&self) -> &Self::Reader {
-        &self.event_reader
-    }
-}
-
-impl<A, ER, EW, SR, SW, Uow> SnapshotReaderAccess<A> for DefaultRepository<A, ER, EW, SR, SW, Uow>
-where
-    A: Aggregate,
-    Uow: UnitOfWork,
-    ER: EventReader<A, Uow = Uow>,
-    EW: EventWriter<A, Uow = Uow>,
-    SR: SnapshotReader<A, Uow = Uow>,
-    SW: SnapshotWriter<A, Uow = Uow>,
-{
-    type Reader = SR;
-
-    fn snapshot_reader(&self) -> &Self::Reader {
-        &self.snapshot_reader
-    }
-}
-
-impl<A, ER, EW, SR, SW, Uow> EventWriterAccess<A> for DefaultRepository<A, ER, EW, SR, SW, Uow>
-where
-    A: Aggregate,
-    Uow: UnitOfWork,
-    ER: EventReader<A, Uow = Uow>,
-    EW: EventWriter<A, Uow = Uow>,
-    SR: SnapshotReader<A, Uow = Uow>,
-    SW: SnapshotWriter<A, Uow = Uow>,
-{
-    type Writer = EW;
-
-    fn event_writer(&self) -> &Self::Writer {
-        &self.event_writer
-    }
-}
-
-impl<A, ER, EW, SR, SW, Uow> SnapshotWriterAccess<A> for DefaultRepository<A, ER, EW, SR, SW, Uow>
-where
-    A: Aggregate,
-    Uow: UnitOfWork,
-    ER: EventReader<A, Uow = Uow>,
-    EW: EventWriter<A, Uow = Uow>,
-    SR: SnapshotReader<A, Uow = Uow>,
-    SW: SnapshotWriter<A, Uow = Uow>,
-{
-    type Writer = SW;
-
-    fn snapshot_writer(&self) -> &Self::Writer {
-        &self.snapshot_writer
     }
 }
 

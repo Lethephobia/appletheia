@@ -143,69 +143,9 @@ CREATE TABLE IF NOT EXISTS command_dead_letters (
   dead_lettered_at     TIMESTAMPTZ NOT NULL
 );
 
--- authorization relationship tuples (ReBAC)
-CREATE TABLE IF NOT EXISTS authorization_relationship_tuples (
-  tenant_id               UUID        NOT NULL,
-  object_type             TEXT        NOT NULL,
-  object_id               UUID        NOT NULL,
-  relation                TEXT        NOT NULL,
-
-  -- subject (direct)
-  subject_kind            TEXT,
-  subject_id              UUID,
-
-  -- subject set (object#relation)
-  subject_set_object_type TEXT,
-  subject_set_object_id   UUID,
-  subject_set_relation    TEXT,
-
-  caveat_name             TEXT,
-  caveat_params           JSONB,
-
-  created_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
-
-  CONSTRAINT authorization_relationship_tuples_subject_check CHECK (
-    (
-      subject_kind IS NOT NULL AND subject_id IS NOT NULL AND
-      subject_set_object_type IS NULL AND subject_set_object_id IS NULL AND subject_set_relation IS NULL
-    )
-    OR
-    (
-      subject_kind IS NULL AND subject_id IS NULL AND
-      subject_set_object_type IS NOT NULL AND subject_set_object_id IS NOT NULL AND subject_set_relation IS NOT NULL
-    )
-  )
-  ,
-  CONSTRAINT authorization_relationship_tuples_caveat_check CHECK (
-    (caveat_name IS NULL AND caveat_params IS NULL)
-    OR
-    (caveat_name IS NOT NULL AND caveat_params IS NOT NULL)
-  )
-);
-
-CREATE UNIQUE INDEX IF NOT EXISTS idx_authorization_relationship_tuples_direct_uniq
-  ON authorization_relationship_tuples (
-    tenant_id, object_type, object_id, relation, subject_kind, subject_id
-  )
-  WHERE subject_kind IS NOT NULL;
-
-CREATE UNIQUE INDEX IF NOT EXISTS idx_authorization_relationship_tuples_subject_set_uniq
-  ON authorization_relationship_tuples (
-    tenant_id, object_type, object_id, relation,
-    subject_set_object_type, subject_set_object_id, subject_set_relation
-  )
-  WHERE subject_set_object_type IS NOT NULL;
-
-CREATE INDEX IF NOT EXISTS idx_authorization_relationship_tuples_object_relation
-  ON authorization_relationship_tuples (tenant_id, object_type, object_id, relation);
-
-CREATE INDEX IF NOT EXISTS idx_authorization_relationship_tuples_subject
-  ON authorization_relationship_tuples (tenant_id, subject_kind, subject_id)
-  WHERE subject_kind IS NOT NULL;
-
 -- saga instances
 CREATE TABLE IF NOT EXISTS saga_instances (
-  saga_instance_id UUID        PRIMARY KEY,
+  id             UUID        PRIMARY KEY,
   saga_name      TEXT        NOT NULL,
   correlation_id UUID        NOT NULL,
   state          JSONB,
@@ -226,6 +166,7 @@ CREATE INDEX IF NOT EXISTS idx_saga_instances_in_progress
 
 -- saga processed events
 CREATE TABLE IF NOT EXISTS saga_processed_events (
+  id             UUID        PRIMARY KEY,
   saga_name      TEXT        NOT NULL,
   correlation_id UUID        NOT NULL,
   event_id       UUID        NOT NULL,
@@ -238,17 +179,19 @@ CREATE INDEX IF NOT EXISTS idx_saga_processed_events_event_id
 
 -- projection checkpoints
 CREATE TABLE IF NOT EXISTS projection_checkpoints (
-  projector_name TEXT PRIMARY KEY,
+  id                UUID        PRIMARY KEY,
+  projector_name     TEXT        NOT NULL UNIQUE,
   last_event_sequence BIGINT NOT NULL,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 -- projector processed events
 CREATE TABLE IF NOT EXISTS projector_processed_events (
-  projector_name TEXT NOT NULL,
-  event_id UUID NOT NULL,
+  id             UUID        PRIMARY KEY,
+  projector_name TEXT        NOT NULL,
+  event_id       UUID        NOT NULL,
   processed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  PRIMARY KEY (projector_name, event_id)
+  UNIQUE (projector_name, event_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_projector_processed_events_event_id
@@ -256,7 +199,8 @@ CREATE INDEX IF NOT EXISTS idx_projector_processed_events_event_id
 
 -- idempotency
 CREATE TABLE IF NOT EXISTS idempotency (
-  message_id    UUID        PRIMARY KEY,
+  id            UUID        PRIMARY KEY,
+  message_id    UUID        NOT NULL UNIQUE,
   command_name  TEXT        NOT NULL,
   command_hash  TEXT        NOT NULL,
   output        JSONB,
@@ -275,3 +219,76 @@ CREATE INDEX IF NOT EXISTS idx_idempotency_started_at
 
 CREATE INDEX IF NOT EXISTS idx_idempotency_completed_at
   ON idempotency (completed_at) WHERE completed_at IS NOT NULL;
+
+-- relationships (Aggregate × ReBAC)
+CREATE TABLE IF NOT EXISTS relationships (
+  id                     UUID        PRIMARY KEY,
+  aggregate_type         TEXT        NOT NULL,
+  aggregate_id           UUID        NOT NULL,
+  relation               TEXT        NOT NULL,
+
+  subject_aggregate_type TEXT        NOT NULL,
+  subject_aggregate_id   UUID,
+  subject_relation       TEXT,
+  subject_is_wildcard    BOOLEAN     NOT NULL DEFAULT false,
+
+  created_at             TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+  CONSTRAINT relationships_subject_check CHECK (
+    (
+      subject_is_wildcard = true
+      AND subject_aggregate_id IS NULL
+      AND subject_relation IS NULL
+    )
+    OR
+    (
+      subject_is_wildcard = false
+      AND subject_aggregate_id IS NOT NULL
+      AND subject_relation IS NULL
+    )
+    OR
+    (
+      subject_is_wildcard = false
+      AND subject_aggregate_id IS NOT NULL
+      AND subject_relation IS NOT NULL
+    )
+  )
+);
+
+CREATE INDEX IF NOT EXISTS idx_relationships_aggregate_relation
+  ON relationships (aggregate_type, aggregate_id, relation);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_relationships_direct_uniq
+  ON relationships (
+    aggregate_type, aggregate_id, relation,
+    subject_aggregate_type, subject_aggregate_id
+  )
+  WHERE subject_is_wildcard = false AND subject_relation IS NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_relationships_subject_set_uniq
+  ON relationships (
+    aggregate_type, aggregate_id, relation,
+    subject_aggregate_type, subject_aggregate_id, subject_relation
+  )
+  WHERE subject_is_wildcard = false AND subject_relation IS NOT NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_relationships_wildcard_uniq
+  ON relationships (
+    aggregate_type, aggregate_id, relation,
+    subject_aggregate_type
+  )
+  WHERE subject_is_wildcard = true;
+
+CREATE INDEX IF NOT EXISTS idx_relationships_subject_direct
+  ON relationships (
+    subject_aggregate_type, subject_aggregate_id, relation,
+    aggregate_type, aggregate_id
+  )
+  WHERE subject_is_wildcard = false;
+
+CREATE INDEX IF NOT EXISTS idx_relationships_subject_wildcard
+  ON relationships (
+    subject_aggregate_type, relation,
+    aggregate_type, aggregate_id
+  )
+  WHERE subject_is_wildcard = true;

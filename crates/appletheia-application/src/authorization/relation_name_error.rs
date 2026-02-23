@@ -11,4 +11,3 @@ pub enum RelationNameError {
     #[error("relation name has invalid format: {value}")]
     InvalidFormat { value: String },
 }
-

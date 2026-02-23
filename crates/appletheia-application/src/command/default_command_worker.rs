@@ -1,6 +1,8 @@
 use std::sync::atomic::{AtomicBool, Ordering as AtomicOrdering};
 
-use crate::command::{Command, CommandDispatcher, CommandHandler, CommandSelector, CommandWorker};
+use crate::command::{
+    Command, CommandDispatcher, CommandHandler, CommandOptions, CommandSelector, CommandWorker,
+};
 use crate::messaging::Subscription;
 use crate::outbox::command::{CommandEnvelope, CommandEnvelopeError};
 use crate::request_context::{ActorRef, Principal, RequestContext};
@@ -8,7 +10,15 @@ use crate::{Consumer, ConsumerGroup, Delivery, Topic};
 
 use super::CommandWorkerError;
 
-pub struct DefaultCommandWorker<H, D, T> {
+pub struct DefaultCommandWorker<H, D, T>
+where
+    H: CommandHandler,
+    H::Command: Command,
+    D: CommandDispatcher<Uow = H::Uow>,
+    T: Topic<CommandEnvelope, Selector = CommandSelector>,
+    T::Consumer: Consumer<CommandEnvelope>,
+    <T::Consumer as Consumer<CommandEnvelope>>::Delivery: Delivery<CommandEnvelope>,
+{
     dispatcher: D,
     handler: H,
     topic: T,
@@ -16,7 +26,15 @@ pub struct DefaultCommandWorker<H, D, T> {
     stop_requested: AtomicBool,
 }
 
-impl<H, D, T> DefaultCommandWorker<H, D, T> {
+impl<H, D, T> DefaultCommandWorker<H, D, T>
+where
+    H: CommandHandler,
+    H::Command: Command,
+    D: CommandDispatcher<Uow = H::Uow>,
+    T: Topic<CommandEnvelope, Selector = CommandSelector>,
+    T::Consumer: Consumer<CommandEnvelope>,
+    <T::Consumer as Consumer<CommandEnvelope>>::Delivery: Delivery<CommandEnvelope>,
+{
     pub fn new(dispatcher: D, handler: H, topic: T, consumer_group: ConsumerGroup) -> Self {
         Self {
             dispatcher,
@@ -78,7 +96,12 @@ where
 
             let result = self
                 .dispatcher
-                .dispatch(&self.handler, &request_context, command)
+                .dispatch(
+                    &self.handler,
+                    &request_context,
+                    command,
+                    CommandOptions::default(),
+                )
                 .await;
 
             match result {

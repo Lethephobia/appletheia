@@ -1,7 +1,7 @@
 use appletheia_application::command::CommandFailureReport;
 use appletheia_application::command::{
-    CommandHash, CommandName, IdempotencyBeginResult, IdempotencyError, IdempotencyOutput,
-    IdempotencyService, IdempotencyState,
+    CommandHash, CommandName, IdempotencyBeginResult, IdempotencyError, IdempotencyId,
+    IdempotencyOutput, IdempotencyService, IdempotencyState,
 };
 use appletheia_application::request_context::MessageId;
 
@@ -50,21 +50,25 @@ impl IdempotencyService for PgIdempotencyService {
         let message_id_value = message_id.value();
         let command_name_value = command_name.to_string();
         let command_hash_value = command_hash.as_str();
+        let id_value = IdempotencyId::new().value();
 
         let insert_result = sqlx::query(
             r#"
             INSERT INTO idempotency (
+              id,
               message_id,
               command_name,
               command_hash
             ) VALUES (
               $1,
               $2,
-              $3
+              $3,
+              $4
             )
             ON CONFLICT (message_id) DO NOTHING
             "#,
         )
+        .bind(id_value)
         .bind(message_id_value)
         .bind(&command_name_value)
         .bind(command_hash_value)
@@ -83,6 +87,7 @@ impl IdempotencyService for PgIdempotencyService {
         let row: IdempotencyRow = sqlx::query_as(
             r#"
             SELECT
+              id,
               command_name,
               command_hash,
               completed_at,
@@ -96,6 +101,9 @@ impl IdempotencyService for PgIdempotencyService {
         .fetch_one(transaction.as_mut())
         .await
         .map_err(|source| IdempotencyError::Persistence(Box::new(source)))?;
+
+        let _idempotency_id = IdempotencyId::try_from(row.id)
+            .map_err(|source| IdempotencyError::Persistence(Box::new(source)))?;
 
         if row.command_name != command_name_value || row.command_hash != command_hash_value {
             return Err(IdempotencyError::Conflict { message_id });
