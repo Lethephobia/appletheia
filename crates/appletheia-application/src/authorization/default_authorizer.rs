@@ -147,8 +147,8 @@ mod tests {
             &self,
             _uow: &mut TestUow,
             _subject: &RelationshipSubject,
+            _aggregate_type: &AggregateTypeOwned,
             _relation: &RelationName,
-            _aggregate_type: Option<&AggregateTypeOwned>,
         ) -> Result<Vec<AggregateRef>, RelationshipStoreError> {
             Ok(Vec::new())
         }

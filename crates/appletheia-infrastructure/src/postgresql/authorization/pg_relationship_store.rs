@@ -246,8 +246,8 @@ impl RelationshipStore for PgRelationshipStore {
         &self,
         uow: &mut PgUnitOfWork,
         subject: &RelationshipSubject,
+        aggregate_type: &AggregateTypeOwned,
         relation: &RelationName,
-        aggregate_type: Option<&AggregateTypeOwned>,
     ) -> Result<Vec<AggregateRef>, RelationshipStoreError> {
         let mut query = QueryBuilder::<Postgres>::new(
             r#"
@@ -286,10 +286,8 @@ impl RelationshipStore for PgRelationshipStore {
             }
         }
 
-        if let Some(aggregate_type) = aggregate_type {
-            query.push(" AND aggregate_type = ");
-            query.push_bind(aggregate_type.value());
-        }
+        query.push(" AND aggregate_type = ");
+        query.push_bind(aggregate_type.value());
 
         let transaction = uow.transaction_mut();
         let rows = query

@@ -18,8 +18,8 @@ pub trait RelationshipStore: Send + Sync {
         &self,
         uow: &mut Self::Uow,
         subject: &RelationshipSubject,
+        aggregate_type: &AggregateTypeOwned,
         relation: &RelationName,
-        aggregate_type: Option<&AggregateTypeOwned>,
     ) -> Result<Vec<AggregateRef>, RelationshipStoreError>;
 
     async fn read_subjects_by_aggregate(
