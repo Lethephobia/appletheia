@@ -14,3 +14,7 @@ With that in mind, when proposing designs or changes, do not assume an “app im
 - As a principle, keep **one primary definition per file** (`trait` / `struct` / `enum`, etc.). Avoid putting multiple primary definitions in a single file.
   - Exception: `#[cfg(test)]` unit tests may live in the same file (preferred).
 - Do not reference `crate::...` / `super::...` directly inside expressions; import via `use` and then use the imported names (for readability and stable diffs).
+
+## Git Commit Messages
+
+- When generating or proposing a commit message, follow the commit message convention defined in `CONTRIBUTING.md` (Conventional Commits).
