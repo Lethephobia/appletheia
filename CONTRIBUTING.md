@@ -10,6 +10,22 @@ Use the **Conventional Commits** format so commits can be parsed for changelogs 
 
 Reference: [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/)
 
+### Git commit template (optional)
+
+This repository provides a commit message template at `.gitmessage`.
+
+To enable it for this repository:
+
+```bash
+git config commit.template .gitmessage
+```
+
+To enable it globally for all repositories:
+
+```bash
+git config --global commit.template /absolute/path/to/.gitmessage
+```
+
 ### Format
 
 ```
@@ -74,4 +90,3 @@ refactor(repository)!: remove access traits from default repository
 
 BREAKING CHANGE: EventReaderAccess/SnapshotReaderAccess/... are removed.
 ```
-

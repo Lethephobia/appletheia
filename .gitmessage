@@ -1,0 +1,26 @@
+# <type>(<scope>)!: <subject>
+#
+# Conventional Commits (https://www.conventionalcommits.org/en/v1.0.0/)
+#
+# type  : feat | fix | refactor | perf | docs | test | build | ci | chore
+# scope : (recommended) authorization | projection | repository | event | snapshot | messaging
+#         or adapters like postgresql | google-cloud-pubsub | or workspace
+# !     : use for breaking changes
+#
+# subject:
+# - short, imperative (e.g. "add", "fix", "remove")
+# - no trailing period
+#
+# body (optional):
+# - explain why and how
+#
+# footer (optional):
+# - BREAKING CHANGE: <what changed and migration notes>
+# - refs: #123, etc.
+#
+# Examples:
+#   feat(authorization): add relationship resolver config
+#   fix(postgresql): handle null subject_relation correctly
+#   refactor(repository)!: remove access traits
+#
+
