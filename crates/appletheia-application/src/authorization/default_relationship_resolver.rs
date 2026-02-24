@@ -105,8 +105,8 @@ where
             relation: relation.clone(),
         };
 
-        if let Some(value) = state.memo.get(&key) {
-            return Ok(*value);
+        if let Some(&value) = state.memo.get(&key) {
+            return Ok(value);
         }
 
         if !state.in_progress.insert(key.clone()) {

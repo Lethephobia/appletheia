@@ -3,9 +3,9 @@ use std::collections::{HashMap, HashSet};
 use super::relationship_memo_key::RelationshipMemoKey;
 
 #[derive(Default)]
-pub(super) struct RelationshipEvalState {
-    pub(super) memo: HashMap<RelationshipMemoKey, bool>,
-    pub(super) in_progress: HashSet<RelationshipMemoKey>,
-    pub(super) nodes: usize,
-    pub(super) relationships_scanned: usize,
+pub struct RelationshipEvalState {
+    pub memo: HashMap<RelationshipMemoKey, bool>,
+    pub in_progress: HashSet<RelationshipMemoKey>,
+    pub nodes: usize,
+    pub relationships_scanned: usize,
 }
