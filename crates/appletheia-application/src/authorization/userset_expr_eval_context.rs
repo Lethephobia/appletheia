@@ -1,23 +1,25 @@
 use super::{AggregateRef, RelationName};
 
-pub struct RelationshipExprEvalContext<'a> {
+use super::userset_expr_eval_depth::UsersetExprEvalDepth;
+
+pub struct UsersetExprEvalContext<'a> {
     pub subject: &'a AggregateRef,
     pub aggregate: &'a AggregateRef,
-    pub current_relation: &'a RelationName,
-    pub depth: usize,
+    pub relation: &'a RelationName,
+    pub depth: UsersetExprEvalDepth,
 }
 
-impl<'a> RelationshipExprEvalContext<'a> {
+impl<'a> UsersetExprEvalContext<'a> {
     pub fn new(
         subject: &'a AggregateRef,
         aggregate: &'a AggregateRef,
-        current_relation: &'a RelationName,
-        depth: usize,
+        relation: &'a RelationName,
+        depth: UsersetExprEvalDepth,
     ) -> Self {
         Self {
             subject,
             aggregate,
-            current_relation,
+            relation,
             depth,
         }
     }

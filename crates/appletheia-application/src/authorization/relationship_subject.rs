@@ -8,8 +8,10 @@ use super::{AggregateRef, RelationName};
 pub enum RelationshipSubject {
     /// `<type>:<id>`
     Aggregate(AggregateRef),
+
     /// `<type>:*`
     Wildcard { aggregate_type: AggregateTypeOwned },
+
     /// `<type>:<id>#<relation>`
     AggregateSet {
         aggregate: AggregateRef,

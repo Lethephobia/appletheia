@@ -1,33 +1,40 @@
+use super::relationship_eval_node_count::RelationshipEvalNodeCount;
+use super::relationship_eval_scanned_relationship_count::RelationshipEvalScannedRelationshipCount;
+use super::userset_expr_eval_depth::UsersetExprEvalDepth;
+
 #[derive(Clone, Debug)]
 pub struct RelationshipResolverConfig {
-    pub max_depth: usize,
-    pub max_nodes: usize,
-    pub max_relationships_scanned: usize,
+    pub max_depth: UsersetExprEvalDepth,
+    pub max_node_count: RelationshipEvalNodeCount,
+    pub max_scanned_relationship_count: RelationshipEvalScannedRelationshipCount,
 }
 
 impl Default for RelationshipResolverConfig {
     fn default() -> Self {
         Self {
-            max_depth: 16,
-            max_nodes: 10_000,
-            max_relationships_scanned: 100_000,
+            max_depth: UsersetExprEvalDepth::new(16),
+            max_node_count: RelationshipEvalNodeCount::new(10_000),
+            max_scanned_relationship_count: RelationshipEvalScannedRelationshipCount::new(100_000),
         }
     }
 }
 
 impl RelationshipResolverConfig {
-    pub fn with_max_depth(mut self, max_depth: usize) -> Self {
+    pub fn with_max_depth(mut self, max_depth: UsersetExprEvalDepth) -> Self {
         self.max_depth = max_depth;
         self
     }
 
-    pub fn with_max_nodes(mut self, max_nodes: usize) -> Self {
-        self.max_nodes = max_nodes;
+    pub fn with_max_node_count(mut self, max_node_count: RelationshipEvalNodeCount) -> Self {
+        self.max_node_count = max_node_count;
         self
     }
 
-    pub fn with_max_relationships_scanned(mut self, max_relationships_scanned: usize) -> Self {
-        self.max_relationships_scanned = max_relationships_scanned;
+    pub fn with_max_scanned_relationship_count(
+        mut self,
+        max_scanned_relationship_count: RelationshipEvalScannedRelationshipCount,
+    ) -> Self {
+        self.max_scanned_relationship_count = max_scanned_relationship_count;
         self
     }
 }

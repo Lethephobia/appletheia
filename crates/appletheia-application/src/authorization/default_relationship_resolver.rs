@@ -1,8 +1,9 @@
 use crate::unit_of_work::UnitOfWork;
 
 use super::relationship_eval_state::RelationshipEvalState;
-use super::relationship_expr_eval_context::RelationshipExprEvalContext;
 use super::relationship_memo_key::RelationshipMemoKey;
+use super::userset_expr_eval_context::UsersetExprEvalContext;
+use super::userset_expr_eval_depth::UsersetExprEvalDepth;
 use super::{
     AggregateRef, AuthorizationModel, RelationName, RelationshipRequirement, RelationshipResolver,
     RelationshipResolverConfig, RelationshipResolverError, RelationshipStore, RelationshipSubject,
@@ -59,8 +60,15 @@ where
                 aggregate,
                 relation,
             } => {
-                self.check_relation(uow, subject, aggregate, relation, state, 0)
-                    .await
+                self.check_relation(
+                    uow,
+                    subject,
+                    aggregate,
+                    relation,
+                    state,
+                    UsersetExprEvalDepth::default(),
+                )
+                .await
             }
             RelationshipRequirement::All(items) => {
                 for item in items {
@@ -91,7 +99,7 @@ where
         aggregate: &AggregateRef,
         relation: &RelationName,
         state: &mut RelationshipEvalState,
-        depth: usize,
+        depth: UsersetExprEvalDepth,
     ) -> Result<bool, RelationshipResolverError> {
         if depth > self.config.max_depth {
             return Err(RelationshipResolverError::EvaluationLimitExceeded(
@@ -113,8 +121,8 @@ where
             return Ok(false);
         }
 
-        state.nodes = state.nodes.saturating_add(1);
-        if state.nodes > self.config.max_nodes {
+        state.node_count = state.node_count.saturating_add(1);
+        if state.node_count > self.config.max_node_count {
             return Err(RelationshipResolverError::EvaluationLimitExceeded(
                 "max_nodes",
             ));
@@ -135,7 +143,7 @@ where
             return Ok(false);
         };
 
-        let context = RelationshipExprEvalContext::new(subject, aggregate, relation, depth);
+        let context = UsersetExprEvalContext::new(subject, aggregate, relation, depth);
         let result = Box::pin(self.eval_expr(uow, state, &context, expr)).await?;
 
         state.in_progress.remove(&key);
@@ -147,20 +155,21 @@ where
         &self,
         uow: &mut RS::Uow,
         state: &mut RelationshipEvalState,
-        context: &RelationshipExprEvalContext<'_>,
+        context: &UsersetExprEvalContext<'_>,
         expr: &UsersetExpr,
     ) -> Result<bool, RelationshipResolverError> {
         match expr {
             UsersetExpr::This => {
                 let subjects = self
                     .relationship_store
-                    .read_subjects_by_aggregate(uow, context.aggregate, context.current_relation)
+                    .read_subjects_by_aggregate(uow, context.aggregate, context.relation)
                     .await
                     .map_err(RelationshipResolverError::from)?;
 
-                state.relationships_scanned =
-                    state.relationships_scanned.saturating_add(subjects.len());
-                if state.relationships_scanned > self.config.max_relationships_scanned {
+                state.scanned_relationship_count = state
+                    .scanned_relationship_count
+                    .saturating_add(subjects.len());
+                if state.scanned_relationship_count > self.config.max_scanned_relationship_count {
                     return Err(RelationshipResolverError::EvaluationLimitExceeded(
                         "max_relationships_scanned",
                     ));
@@ -188,7 +197,7 @@ where
                                 target,
                                 target_relation,
                                 state,
-                                context.depth + 1,
+                                context.depth.increment(),
                             ))
                             .await?
                             {
@@ -207,7 +216,7 @@ where
                     context.aggregate,
                     relation,
                     state,
-                    context.depth + 1,
+                    context.depth.increment(),
                 ))
                 .await
             }
@@ -221,9 +230,10 @@ where
                     .await
                     .map_err(RelationshipResolverError::from)?;
 
-                state.relationships_scanned =
-                    state.relationships_scanned.saturating_add(subjects.len());
-                if state.relationships_scanned > self.config.max_relationships_scanned {
+                state.scanned_relationship_count = state
+                    .scanned_relationship_count
+                    .saturating_add(subjects.len());
+                if state.scanned_relationship_count > self.config.max_scanned_relationship_count {
                     return Err(RelationshipResolverError::EvaluationLimitExceeded(
                         "max_relationships_scanned",
                     ));
@@ -239,7 +249,7 @@ where
                         &target,
                         computed_relation,
                         state,
-                        context.depth + 1,
+                        context.depth.increment(),
                     ))
                     .await?
                     {
