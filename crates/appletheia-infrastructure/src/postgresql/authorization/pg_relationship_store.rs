@@ -199,49 +199,6 @@ impl RelationshipStore for PgRelationshipStore {
         Ok(())
     }
 
-    async fn read_subjects_by_aggregate(
-        &self,
-        uow: &mut PgUnitOfWork,
-        aggregate: &AggregateRef,
-        relation: &RelationName,
-    ) -> Result<Vec<RelationshipSubject>, RelationshipStoreError> {
-        let transaction = uow.transaction_mut();
-        let rows: Vec<PgRelationshipRow> = sqlx::query_as(
-            r#"
-            SELECT
-                id,
-                aggregate_type,
-                aggregate_id,
-                relation,
-                subject_aggregate_type,
-                subject_aggregate_id,
-                subject_relation,
-                subject_is_wildcard
-            FROM relationships
-            WHERE aggregate_type = $1
-              AND aggregate_id = $2
-              AND relation = $3
-            "#,
-        )
-        .bind(aggregate.aggregate_type.value())
-        .bind(aggregate.aggregate_id.value())
-        .bind(relation.value())
-        .fetch_all(transaction.as_mut())
-        .await
-        .map_err(|e| RelationshipStoreError::Persistence(Box::new(e)))?;
-
-        let mut out: Vec<RelationshipSubject> = Vec::with_capacity(rows.len());
-
-        for row in rows {
-            let relationship = row
-                .try_into_relationship()
-                .map_err(|e| RelationshipStoreError::MappingFailed(Box::new(e)))?;
-            out.push(relationship.subject);
-        }
-
-        Ok(out)
-    }
-
     async fn read_aggregates_by_subject(
         &self,
         uow: &mut PgUnitOfWork,
@@ -311,6 +268,49 @@ impl RelationshipStore for PgRelationshipStore {
                 aggregate_type,
                 aggregate_id: AggregateIdValue::from(aggregate_id),
             });
+        }
+
+        Ok(out)
+    }
+
+    async fn read_subjects_by_aggregate(
+        &self,
+        uow: &mut PgUnitOfWork,
+        aggregate: &AggregateRef,
+        relation: &RelationName,
+    ) -> Result<Vec<RelationshipSubject>, RelationshipStoreError> {
+        let transaction = uow.transaction_mut();
+        let rows: Vec<PgRelationshipRow> = sqlx::query_as(
+            r#"
+            SELECT
+                id,
+                aggregate_type,
+                aggregate_id,
+                relation,
+                subject_aggregate_type,
+                subject_aggregate_id,
+                subject_relation,
+                subject_is_wildcard
+            FROM relationships
+            WHERE aggregate_type = $1
+              AND aggregate_id = $2
+              AND relation = $3
+            "#,
+        )
+        .bind(aggregate.aggregate_type.value())
+        .bind(aggregate.aggregate_id.value())
+        .bind(relation.value())
+        .fetch_all(transaction.as_mut())
+        .await
+        .map_err(|e| RelationshipStoreError::Persistence(Box::new(e)))?;
+
+        let mut out: Vec<RelationshipSubject> = Vec::with_capacity(rows.len());
+
+        for row in rows {
+            let relationship = row
+                .try_into_relationship()
+                .map_err(|e| RelationshipStoreError::MappingFailed(Box::new(e)))?;
+            out.push(relationship.subject);
         }
 
         Ok(out)
