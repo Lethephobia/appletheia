@@ -1,14 +1,14 @@
 use super::{AggregateRef, RelationName};
 
-pub(super) struct RelationshipExprEvalContext<'a> {
-    pub(super) subject: &'a AggregateRef,
-    pub(super) aggregate: &'a AggregateRef,
-    pub(super) current_relation: &'a RelationName,
-    pub(super) depth: usize,
+pub struct RelationshipExprEvalContext<'a> {
+    pub subject: &'a AggregateRef,
+    pub aggregate: &'a AggregateRef,
+    pub current_relation: &'a RelationName,
+    pub depth: usize,
 }
 
 impl<'a> RelationshipExprEvalContext<'a> {
-    pub(super) fn new(
+    pub fn new(
         subject: &'a AggregateRef,
         aggregate: &'a AggregateRef,
         current_relation: &'a RelationName,

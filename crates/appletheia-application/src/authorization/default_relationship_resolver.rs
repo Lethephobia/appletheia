@@ -135,8 +135,8 @@ where
             return Ok(false);
         };
 
-        let ctx = RelationshipExprEvalContext::new(subject, aggregate, relation, depth);
-        let result = Box::pin(self.eval_expr(uow, state, &ctx, expr)).await?;
+        let context = RelationshipExprEvalContext::new(subject, aggregate, relation, depth);
+        let result = Box::pin(self.eval_expr(uow, state, &context, expr)).await?;
 
         state.in_progress.remove(&key);
         state.memo.insert(key, result);
@@ -147,14 +147,14 @@ where
         &self,
         uow: &mut RS::Uow,
         state: &mut RelationshipEvalState,
-        ctx: &RelationshipExprEvalContext<'_>,
+        context: &RelationshipExprEvalContext<'_>,
         expr: &UsersetExpr,
     ) -> Result<bool, RelationshipResolverError> {
         match expr {
             UsersetExpr::This => {
                 let subjects = self
                     .relationship_store
-                    .read_subjects_by_aggregate(uow, ctx.aggregate, ctx.current_relation)
+                    .read_subjects_by_aggregate(uow, context.aggregate, context.current_relation)
                     .await
                     .map_err(RelationshipResolverError::from)?;
 
@@ -169,12 +169,12 @@ where
                 for subject_ref in subjects {
                     match &subject_ref {
                         RelationshipSubject::Aggregate(target) => {
-                            if target == ctx.subject {
+                            if target == context.subject {
                                 return Ok(true);
                             }
                         }
                         RelationshipSubject::Wildcard { aggregate_type } => {
-                            if aggregate_type == &ctx.subject.aggregate_type {
+                            if aggregate_type == &context.subject.aggregate_type {
                                 return Ok(true);
                             }
                         }
@@ -184,11 +184,11 @@ where
                         } => {
                             if Box::pin(self.check_relation(
                                 uow,
-                                ctx.subject,
+                                context.subject,
                                 target,
                                 target_relation,
                                 state,
-                                ctx.depth + 1,
+                                context.depth + 1,
                             ))
                             .await?
                             {
@@ -203,11 +203,11 @@ where
             UsersetExpr::ComputedUserset { relation } => {
                 Box::pin(self.check_relation(
                     uow,
-                    ctx.subject,
-                    ctx.aggregate,
+                    context.subject,
+                    context.aggregate,
                     relation,
                     state,
-                    ctx.depth + 1,
+                    context.depth + 1,
                 ))
                 .await
             }
@@ -217,7 +217,7 @@ where
             } => {
                 let subjects = self
                     .relationship_store
-                    .read_subjects_by_aggregate(uow, ctx.aggregate, tupleset_relation)
+                    .read_subjects_by_aggregate(uow, context.aggregate, tupleset_relation)
                     .await
                     .map_err(RelationshipResolverError::from)?;
 
@@ -235,11 +235,11 @@ where
                     };
                     if Box::pin(self.check_relation(
                         uow,
-                        ctx.subject,
+                        context.subject,
                         &target,
                         computed_relation,
                         state,
-                        ctx.depth + 1,
+                        context.depth + 1,
                     ))
                     .await?
                     {
@@ -250,7 +250,7 @@ where
             }
             UsersetExpr::Union(items) => {
                 for item in items {
-                    if Box::pin(self.eval_expr(uow, state, ctx, item)).await? {
+                    if Box::pin(self.eval_expr(uow, state, context, item)).await? {
                         return Ok(true);
                     }
                 }
@@ -258,18 +258,18 @@ where
             }
             UsersetExpr::Intersection(items) => {
                 for item in items {
-                    if !Box::pin(self.eval_expr(uow, state, ctx, item)).await? {
+                    if !Box::pin(self.eval_expr(uow, state, context, item)).await? {
                         return Ok(false);
                     }
                 }
                 Ok(true)
             }
             UsersetExpr::Difference { base, subtract } => {
-                let base_ok = Box::pin(self.eval_expr(uow, state, ctx, base)).await?;
+                let base_ok = Box::pin(self.eval_expr(uow, state, context, base)).await?;
                 if !base_ok {
                     return Ok(false);
                 }
-                let subtract_ok = Box::pin(self.eval_expr(uow, state, ctx, subtract)).await?;
+                let subtract_ok = Box::pin(self.eval_expr(uow, state, context, subtract)).await?;
                 Ok(!subtract_ok)
             }
         }
