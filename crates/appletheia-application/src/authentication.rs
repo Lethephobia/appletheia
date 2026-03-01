@@ -17,6 +17,7 @@ pub mod auth_token_issuer_url;
 pub mod auth_token_issuer_url_error;
 pub mod auth_token_verifier;
 pub mod auth_token_verify_error;
+pub mod oidc;
 
 pub use auth_token::AuthToken;
 pub use auth_token_audience::AuthTokenAudience;
@@ -37,3 +38,4 @@ pub use auth_token_issuer_url::AuthTokenIssuerUrl;
 pub use auth_token_issuer_url_error::AuthTokenIssuerUrlError;
 pub use auth_token_verifier::AuthTokenVerifier;
 pub use auth_token_verify_error::AuthTokenVerifyError;
+pub use oidc::*;
