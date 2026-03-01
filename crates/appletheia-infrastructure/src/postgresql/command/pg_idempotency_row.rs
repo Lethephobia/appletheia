@@ -1,7 +1,9 @@
 use chrono::{DateTime, Utc};
+use uuid::Uuid;
 
 #[derive(Debug, sqlx::FromRow)]
-pub(super) struct IdempotencyRow {
+pub struct IdempotencyRow {
+    pub id: Uuid,
     pub command_name: String,
     pub command_hash: String,
     pub completed_at: Option<DateTime<Utc>>,

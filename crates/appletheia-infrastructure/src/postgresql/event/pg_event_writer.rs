@@ -44,7 +44,7 @@ impl<A: Aggregate> EventWriter<A> for PgEventWriter<A> {
             return Ok(());
         }
 
-        let correlation_id = request_context.correlation_id.0;
+        let correlation_id = request_context.correlation_id.value();
         let causation_id = request_context.message_id.value();
         let context_json = serde_json::to_value(request_context).map_err(EventWriterError::Json)?;
 
@@ -130,7 +130,7 @@ impl<A: Aggregate> EventWriter<A> for PgEventWriter<A> {
                 .push_bind(event_envelope.event_name.to_string())
                 .push_bind(event_envelope.payload.value().clone())
                 .push_bind(DateTime::<Utc>::from(event_envelope.occurred_at))
-                .push_bind(event_envelope.correlation_id.0)
+                .push_bind(event_envelope.correlation_id.value())
                 .push_bind(event_envelope.causation_id.value())
                 .push_bind(&context_json)
                 .push(")");

@@ -8,3 +8,13 @@ This repository (`appletheia` and its related crates) is a **general-purpose lib
 - This repository provides **interfaces (traits)**, **default implementations**, and supporting infrastructure components to make Event Sourcing development easier.
 
 With that in mind, when proposing designs or changes, do not assume an “app implementation that lives inside this repo”. Prefer **generic abstractions, extensibility, and swap-ability** suitable for a reusable library.
+
+## Coding Rules (Added)
+
+- As a principle, keep **one primary definition per file** (`trait` / `struct` / `enum`, etc.). Avoid putting multiple primary definitions in a single file.
+  - Exception: `#[cfg(test)]` unit tests may live in the same file (preferred).
+- Do not reference `crate::...` / `super::...` directly inside expressions; import via `use` and then use the imported names (for readability and stable diffs).
+
+## Git Commit Messages
+
+- When generating or proposing a commit message, follow the commit message convention defined in `CONTRIBUTING.md` (Conventional Commits).

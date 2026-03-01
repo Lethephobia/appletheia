@@ -1,3 +1,15 @@
+-- relationships (Aggregate × ReBAC)
+DROP TABLE IF EXISTS relationships;
+
+-- oidc login attempts
+DROP TABLE IF EXISTS oidc_login_attempts;
+
+-- resource response cache
+DROP TABLE IF EXISTS resource_response_cache;
+
+-- idempotency
+DROP TABLE IF EXISTS idempotency;
+
 -- projector processed events
 DROP TABLE IF EXISTS projector_processed_events;
 
@@ -9,9 +21,6 @@ DROP TABLE IF EXISTS saga_processed_events;
 
 -- saga instances
 DROP TABLE IF EXISTS saga_instances;
-
--- idempotency
-DROP TABLE IF EXISTS idempotency;
 
 -- command dead letters
 DROP TABLE IF EXISTS command_dead_letters;

@@ -1,3 +1,5 @@
+use super::Selector;
+
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub enum Subscription<'a, S> {
     All,
@@ -7,7 +9,7 @@ pub enum Subscription<'a, S> {
 impl<'a, S> Subscription<'a, S> {
     pub fn matches<M>(&self, message: &M) -> bool
     where
-        S: super::Selector<M>,
+        S: Selector<M>,
     {
         match self {
             Subscription::All => true,

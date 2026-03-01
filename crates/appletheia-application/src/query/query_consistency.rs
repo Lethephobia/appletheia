@@ -1,6 +1,6 @@
 use crate::request_context::MessageId;
 
-use super::{ReadYourWritesPollInterval, ReadYourWritesTimeout};
+use crate::projection::{ReadYourWritesPollInterval, ReadYourWritesTimeout};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum QueryConsistency {

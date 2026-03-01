@@ -114,7 +114,7 @@ impl PgEventOutboxWriter {
                 let event_name_value = event.event_name.value();
                 let payload_value = event.payload.value().clone();
                 let occurred_at_value: DateTime<Utc> = event.occurred_at.into();
-                let correlation_id_value = event.correlation_id.0;
+                let correlation_id_value = event.correlation_id.value();
                 let causation_id_value = event.causation_id.value();
                 let context_value = serde_json::to_value(&event.context)
                     .map_err(|source| OutboxWriterError::Persistence(Box::new(source)))?;

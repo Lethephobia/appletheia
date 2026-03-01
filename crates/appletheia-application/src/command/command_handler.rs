@@ -1,6 +1,8 @@
 use std::error::Error;
 
+use crate::authorization::AuthorizationPlan;
 use crate::command::Command;
+use crate::projection::ProjectorDependencies;
 use crate::request_context::RequestContext;
 use crate::unit_of_work::UnitOfWork;
 use serde::Serialize;
@@ -12,6 +14,12 @@ pub trait CommandHandler: Send + Sync {
     type Output: Serialize + DeserializeOwned + Send + 'static;
     type Error: Error + Send + Sync + 'static;
     type Uow: UnitOfWork;
+
+    const DEPENDENCIES: ProjectorDependencies<'static> = ProjectorDependencies::None;
+
+    fn authorization_plan(&self, _command: &Self::Command) -> AuthorizationPlan {
+        AuthorizationPlan::default()
+    }
 
     async fn handle(
         &self,
