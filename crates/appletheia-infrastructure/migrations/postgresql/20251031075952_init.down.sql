@@ -1,6 +1,12 @@
 -- relationships (Aggregate × ReBAC)
 DROP TABLE IF EXISTS relationships;
 
+-- oidc login attempts
+DROP TABLE IF EXISTS oidc_login_attempts;
+
+-- resource response cache
+DROP TABLE IF EXISTS resource_response_cache;
+
 -- idempotency
 DROP TABLE IF EXISTS idempotency;
 

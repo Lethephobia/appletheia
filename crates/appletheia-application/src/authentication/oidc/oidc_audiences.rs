@@ -18,6 +18,23 @@ impl OidcAudiences {
     }
 }
 
+impl TryFrom<Vec<OidcClientId>> for OidcAudiences {
+    type Error = OidcAudiencesError;
+
+    fn try_from(value: Vec<OidcClientId>) -> Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+
+impl TryFrom<Vec<String>> for OidcAudiences {
+    type Error = OidcAudiencesError;
+
+    fn try_from(value: Vec<String>) -> Result<Self, Self::Error> {
+        let audiences = value.into_iter().map(OidcClientId::new).collect();
+        Self::new(audiences)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

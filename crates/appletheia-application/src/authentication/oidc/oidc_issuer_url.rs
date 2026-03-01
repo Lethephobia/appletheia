@@ -1,4 +1,5 @@
 use std::fmt;
+use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
 use url::Url;
@@ -45,5 +46,22 @@ impl OidcIssuerUrl {
 impl fmt::Display for OidcIssuerUrl {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self.0.as_str())
+    }
+}
+
+impl FromStr for OidcIssuerUrl {
+    type Err = url::ParseError;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        let url = Url::parse(value)?;
+        Ok(Self::new(url))
+    }
+}
+
+impl TryFrom<String> for OidcIssuerUrl {
+    type Error = url::ParseError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::from_str(&value)
     }
 }

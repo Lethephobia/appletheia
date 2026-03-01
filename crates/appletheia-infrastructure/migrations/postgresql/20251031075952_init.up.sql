@@ -220,6 +220,35 @@ CREATE INDEX IF NOT EXISTS idx_idempotency_started_at
 CREATE INDEX IF NOT EXISTS idx_idempotency_completed_at
   ON idempotency (completed_at) WHERE completed_at IS NOT NULL;
 
+-- resource response cache
+CREATE TABLE IF NOT EXISTS resource_response_cache (
+  id               UUID        PRIMARY KEY,
+  url              TEXT        NOT NULL UNIQUE,
+  data             BYTEA       NOT NULL,
+  fetched_at       TIMESTAMPTZ NOT NULL,
+  expires_at       TIMESTAMPTZ NOT NULL,
+  last_modified_at TIMESTAMPTZ,
+  entity_tag       TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_resource_response_cache_expires_at
+  ON resource_response_cache (expires_at);
+
+-- oidc login attempts
+CREATE TABLE IF NOT EXISTS oidc_login_attempts (
+  id                 UUID        PRIMARY KEY,
+  state              UUID        NOT NULL UNIQUE,
+  nonce              UUID        NOT NULL,
+  pkce_code_verifier TEXT,
+  created_at         TIMESTAMPTZ NOT NULL,
+  expires_at         TIMESTAMPTZ NOT NULL,
+  consumed_at        TIMESTAMPTZ,
+  CONSTRAINT oidc_login_attempts_expires_check CHECK (expires_at >= created_at)
+);
+
+CREATE INDEX IF NOT EXISTS idx_oidc_login_attempts_expires_at
+  ON oidc_login_attempts (expires_at);
+
 -- relationships (Aggregate × ReBAC)
 CREATE TABLE IF NOT EXISTS relationships (
   id                     UUID        PRIMARY KEY,

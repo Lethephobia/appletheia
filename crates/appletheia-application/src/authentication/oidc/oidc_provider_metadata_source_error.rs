@@ -8,8 +8,8 @@ use super::OidcIssuerUrl;
 pub enum OidcProviderMetadataSourceError {
     #[error("provider metadata issuer mismatch: expected={expected} actual={actual}")]
     IssuerMismatch {
-        expected: OidcIssuerUrl,
-        actual: OidcIssuerUrl,
+        expected: Box<OidcIssuerUrl>,
+        actual: Box<OidcIssuerUrl>,
     },
 
     #[error("backend error")]
