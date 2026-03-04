@@ -139,7 +139,7 @@ where
             }
         }
 
-        aggregate.clear_uncommitted_events();
+        aggregate.core_mut().clear_uncommitted_events();
         Ok(())
     }
 }
