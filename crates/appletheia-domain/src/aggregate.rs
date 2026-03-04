@@ -246,7 +246,7 @@ mod tests {
     #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
     #[serde(tag = "type", content = "data", rename_all = "snake_case")]
     enum CounterEventPayload {
-        Created(),
+        Created { id: CounterId },
         Increment(i32),
         Decrement(i32),
     }
@@ -262,7 +262,7 @@ mod tests {
 
         fn name(&self) -> EventName {
             match self {
-                CounterEventPayload::Created() => Self::CREATED,
+                CounterEventPayload::Created { .. } => Self::CREATED,
                 CounterEventPayload::Increment(_) => Self::INCREMENT,
                 CounterEventPayload::Decrement(_) => Self::DECREMENT,
             }
@@ -272,7 +272,7 @@ mod tests {
     impl Display for CounterEventPayload {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             match self {
-                CounterEventPayload::Created() => write!(f, "created"),
+                CounterEventPayload::Created { id } => write!(f, "created({id})"),
                 CounterEventPayload::Increment(delta) => write!(f, "increment({delta})"),
                 CounterEventPayload::Decrement(delta) => write!(f, "decrement({delta})"),
             }
@@ -307,7 +307,6 @@ mod tests {
 
     #[derive(Clone, Debug)]
     struct Counter {
-        id: CounterId,
         state: Option<CounterState>,
         version: AggregateVersion,
         uncommitted_events: Vec<CounterEvent>,
@@ -315,9 +314,7 @@ mod tests {
 
     impl Counter {
         pub fn new() -> Self {
-            let id = CounterId::new();
             Self {
-                id,
                 state: None,
                 version: AggregateVersion::new(),
                 uncommitted_events: Vec::new(),
@@ -325,7 +322,8 @@ mod tests {
         }
 
         pub fn create(&mut self) -> Result<(), CounterError> {
-            self.append_event(CounterEventPayload::Created())?;
+            let id = CounterId::new();
+            self.append_event(CounterEventPayload::Created { id })?;
             Ok(())
         }
 
@@ -383,11 +381,11 @@ mod tests {
     impl AggregateApply<CounterEventPayload, CounterError> for Counter {
         fn apply(&mut self, payload: &CounterEventPayload) -> Result<(), CounterError> {
             match payload {
-                CounterEventPayload::Created() => {
+                CounterEventPayload::Created { id } => {
                     if self.state.is_some() {
                         return Err(CounterError::InvalidEventPayload(payload.clone()));
                     }
-                    self.state = Some(CounterState::new(self.id, 0));
+                    self.state = Some(CounterState::new(*id, 0));
                 }
                 CounterEventPayload::Increment(delta) => {
                     if self.state.is_none() {
@@ -446,7 +444,10 @@ mod tests {
         let event = &events[0];
         assert_eq!(event.aggregate_id(), state.id());
         assert_eq!(event.aggregate_version().value(), 1);
-        assert_eq!(event.payload(), &CounterEventPayload::Created());
+        assert_eq!(
+            event.payload(),
+            &CounterEventPayload::Created { id: state.id() }
+        );
     }
 
     #[test]
@@ -462,7 +463,10 @@ mod tests {
 
         let events = counter.uncommitted_events();
         assert_eq!(events.len(), 3);
-        assert_eq!(events[0].payload(), &CounterEventPayload::Created());
+        assert_eq!(
+            events[0].payload(),
+            &CounterEventPayload::Created { id: state.id() }
+        );
         assert_eq!(events[1].payload(), &CounterEventPayload::Increment(5));
         assert_eq!(events[2].payload(), &CounterEventPayload::Decrement(2));
     }
@@ -557,10 +561,11 @@ mod tests {
     #[test]
     fn replay_event_applies_payload_and_updates_version() {
         let mut counter = Counter::new();
+        let id = CounterId::new();
         let event = CounterEvent::new(
-            counter.id,
+            id,
             counter.version().try_next().unwrap(),
-            CounterEventPayload::Created(),
+            CounterEventPayload::Created { id },
         );
 
         counter
@@ -576,8 +581,9 @@ mod tests {
     #[test]
     fn replay_event_propagates_apply_errors() {
         let mut counter = Counter::new();
+        let id = CounterId::new();
         let event = CounterEvent::new(
-            counter.id,
+            id,
             counter.version().try_next().unwrap(),
             CounterEventPayload::Increment(1),
         );
@@ -593,7 +599,8 @@ mod tests {
     #[test]
     fn replay_events_applies_snapshot_and_replays_sequence() {
         let mut counter = Counter::new();
-        let snapshot_state = CounterState::new(counter.id, 10);
+        let id = CounterId::new();
+        let snapshot_state = CounterState::new(id, 10);
         let snapshot_version = AggregateVersion::try_from(3).unwrap();
         let snapshot = Snapshot::new(
             snapshot_state.id(),
@@ -648,7 +655,8 @@ mod tests {
     #[test]
     fn restore_snapshot_sets_state_and_version() {
         let mut counter = Counter::new();
-        let snapshot_state = CounterState::new(counter.id, 7);
+        let id = CounterId::new();
+        let snapshot_state = CounterState::new(id, 7);
         let snapshot_version = AggregateVersion::try_from(2).unwrap();
         let snapshot = Snapshot::new(
             snapshot_state.id(),
