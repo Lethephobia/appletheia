@@ -1,25 +1,21 @@
 pub mod aggregate_apply;
+pub mod aggregate_core;
 pub mod aggregate_error;
 pub mod aggregate_id;
 pub mod aggregate_state;
-pub mod aggregate_state_access;
 pub mod aggregate_type;
-pub mod aggregate_uncommitted_events;
 pub mod aggregate_version;
-pub mod aggregate_version_access;
 pub mod aggregate_version_error;
 pub mod aggregate_version_range;
 pub mod entity_id;
 
 pub use aggregate_apply::AggregateApply;
+pub use aggregate_core::AggregateCore;
 pub use aggregate_error::AggregateError;
 pub use aggregate_id::AggregateId;
 pub use aggregate_state::AggregateState;
-pub use aggregate_state_access::AggregateStateAccess;
 pub use aggregate_type::AggregateType;
-pub use aggregate_uncommitted_events::AggregateUncommittedEvents;
 pub use aggregate_version::AggregateVersion;
-pub use aggregate_version_access::AggregateVersionAccess;
 pub use aggregate_version_error::AggregateVersionError;
 pub use aggregate_version_range::AggregateVersionRange;
 pub use entity_id::EntityId;
@@ -30,16 +26,7 @@ use crate::event::{Event, EventPayload};
 use crate::snapshot::Snapshot;
 
 pub trait Aggregate:
-    Clone
-    + Debug
-    + Default
-    + Send
-    + Sync
-    + 'static
-    + AggregateStateAccess<Self::Id, Self::State>
-    + AggregateVersionAccess
-    + AggregateUncommittedEvents<Self::Id, Self::EventPayload>
-    + AggregateApply<Self::EventPayload, Self::Error>
+    Clone + Debug + Default + Send + Sync + 'static + AggregateApply<Self::EventPayload, Self::Error>
 {
     type Id: AggregateId;
     type State: AggregateState<Id = Self::Id>;
@@ -48,26 +35,54 @@ pub trait Aggregate:
 
     const TYPE: AggregateType;
 
+    fn core(&self) -> &AggregateCore<Self::State, Self::EventPayload>;
+
+    fn core_mut(&mut self) -> &mut AggregateCore<Self::State, Self::EventPayload>;
+
+    fn state(&self) -> Option<&Self::State> {
+        self.core().state()
+    }
+
+    fn state_mut(&mut self) -> Option<&mut Self::State> {
+        self.core_mut().state_mut()
+    }
+
+    fn set_state(&mut self, state: Option<Self::State>) {
+        self.core_mut().set_state(state);
+    }
+
+    fn state_required(&self) -> Result<&Self::State, Self::Error> {
+        self.state().ok_or(AggregateError::NoState.into())
+    }
+
+    fn state_required_mut(&mut self) -> Result<&mut Self::State, Self::Error> {
+        self.state_mut().ok_or(AggregateError::NoState.into())
+    }
+
+    fn version(&self) -> AggregateVersion {
+        self.core().version()
+    }
+
+    fn uncommitted_events(&self) -> &[Event<Self::Id, Self::EventPayload>] {
+        self.core().uncommitted_events()
+    }
+
     fn aggregate_id(&self) -> Option<Self::Id> {
         self.state().map(|state| state.id())
     }
 
-    fn bump_version(&mut self) -> Result<(), Self::Error> {
-        let next_version = self.version().try_next().map_err(AggregateError::Version)?;
-        self.set_version(next_version);
-        Ok(())
-    }
-
     fn append_event(&mut self, payload: Self::EventPayload) -> Result<(), Self::Error> {
         self.apply(&payload)?;
-        self.bump_version()?;
+        self.core_mut()
+            .bump_version()
+            .map_err(AggregateError::Version)?;
         let aggregate_id = self
             .state()
             .as_ref()
             .map(|state| state.id())
             .ok_or(AggregateError::NoState)?;
         let event = Event::new(aggregate_id, self.version(), payload);
-        self.record_uncommitted_event(event);
+        self.core_mut().record_uncommitted_event(event);
         Ok(())
     }
 
@@ -99,7 +114,9 @@ pub trait Aggregate:
     ) -> Result<(), Self::Error> {
         self.validate_next_event(&event)?;
         self.apply(event.payload())?;
-        self.bump_version()?;
+        self.core_mut()
+            .bump_version()
+            .map_err(AggregateError::Version)?;
         Ok(())
     }
 
@@ -107,7 +124,7 @@ pub trait Aggregate:
         let version = snapshot.aggregate_version();
         let state = snapshot.into_state();
         self.set_state(Some(state));
-        self.set_version(version);
+        self.core_mut().set_version(version);
         Ok(())
     }
 
@@ -307,17 +324,13 @@ mod tests {
 
     #[derive(Clone, Debug)]
     struct Counter {
-        state: Option<CounterState>,
-        version: AggregateVersion,
-        uncommitted_events: Vec<CounterEvent>,
+        core: AggregateCore<CounterState, CounterEventPayload>,
     }
 
     impl Counter {
         pub fn new() -> Self {
             Self {
-                state: None,
-                version: AggregateVersion::new(),
-                uncommitted_events: Vec::new(),
+                core: AggregateCore::new(),
             }
         }
 
@@ -344,60 +357,22 @@ mod tests {
         }
     }
 
-    impl AggregateStateAccess<CounterId, CounterState> for Counter {
-        fn state(&self) -> Option<&CounterState> {
-            self.state.as_ref()
-        }
-
-        fn set_state(&mut self, state: Option<CounterState>) {
-            self.state = state;
-        }
-    }
-
-    impl AggregateVersionAccess for Counter {
-        fn version(&self) -> AggregateVersion {
-            self.version
-        }
-
-        fn set_version(&mut self, version: AggregateVersion) {
-            self.version = version;
-        }
-    }
-
-    impl AggregateUncommittedEvents<CounterId, CounterEventPayload> for Counter {
-        fn uncommitted_events(&self) -> &[Event<CounterId, CounterEventPayload>] {
-            &self.uncommitted_events
-        }
-
-        fn record_uncommitted_event(&mut self, event: Event<CounterId, CounterEventPayload>) {
-            self.uncommitted_events.push(event);
-        }
-
-        fn clear_uncommitted_events(&mut self) {
-            self.uncommitted_events.clear();
-        }
-    }
-
     impl AggregateApply<CounterEventPayload, CounterError> for Counter {
         fn apply(&mut self, payload: &CounterEventPayload) -> Result<(), CounterError> {
             match payload {
                 CounterEventPayload::Created { id } => {
-                    if self.state.is_some() {
+                    if self.state().is_some() {
                         return Err(CounterError::InvalidEventPayload(payload.clone()));
                     }
-                    self.state = Some(CounterState::new(*id, 0));
+                    self.set_state(Some(CounterState::new(*id, 0)));
                 }
                 CounterEventPayload::Increment(delta) => {
-                    if self.state.is_none() {
-                        return Err(CounterError::StateMissing);
-                    }
-                    self.state.as_mut().unwrap().counter += delta;
+                    let state = self.state_mut().ok_or(CounterError::StateMissing)?;
+                    state.counter += delta;
                 }
                 CounterEventPayload::Decrement(delta) => {
-                    if self.state.is_none() {
-                        return Err(CounterError::StateMissing);
-                    }
-                    self.state.as_mut().unwrap().counter -= delta;
+                    let state = self.state_mut().ok_or(CounterError::StateMissing)?;
+                    state.counter -= delta;
                 }
             }
             Ok(())
@@ -411,6 +386,14 @@ mod tests {
         type Error = CounterError;
 
         const TYPE: AggregateType = AggregateType::new("counter");
+
+        fn core(&self) -> &AggregateCore<Self::State, Self::EventPayload> {
+            &self.core
+        }
+
+        fn core_mut(&mut self) -> &mut AggregateCore<Self::State, Self::EventPayload> {
+            &mut self.core
+        }
     }
 
     #[test]
@@ -489,16 +472,14 @@ mod tests {
         let mut counter = Counter::new();
         counter.create().expect("create should succeed");
         let max_version = AggregateVersion::try_from(i64::MAX).unwrap();
-        counter.set_version(max_version);
+        counter.core_mut().set_version(max_version);
 
         let err = counter
+            .core_mut()
             .bump_version()
             .expect_err("overflow when bumping version should error");
 
-        assert!(matches!(
-            err,
-            CounterError::Aggregate(AggregateError::Version(_))
-        ));
+        assert!(matches!(err, AggregateVersionError::Overflow));
         assert_eq!(counter.version(), max_version);
     }
 
