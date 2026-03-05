@@ -6,6 +6,7 @@ members = [
     "crates/appletheia-domain",
     "crates/appletheia-application",
     "crates/appletheia-infrastructure",
+    "crates/appletheia-macros",
 ]
 
 [workspace.package]
@@ -17,7 +18,7 @@ repository = "https://github.com/pbandj082/appletheia"
 description = "The Application Interfaces for Event-Sourcing Architecture"
 keywords = ["appletheia", "ddd", "event-sourcing", "cqrs"]
 
-[patch.crates-io]
-appletheia-domain = { path = "crates/appletheia-domain" }
-appletheia-application = { path = "crates/appletheia-application" }
-appletheia-infrastructure = { path = "crates/appletheia-infrastructure" }
+[workspace.dependencies]
+appletheia-domain = { version = "0.2.0", path = "crates/appletheia-domain" }
+appletheia-application = { version = "0.5.0", path = "crates/appletheia-application" }
+appletheia-infrastructure = { version = "0.5.0", path = "crates/appletheia-infrastructure" }
