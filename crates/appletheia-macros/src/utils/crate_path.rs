@@ -38,3 +38,11 @@ pub(crate) fn resolve_application_path() -> Result<Path> {
     let appletheia_application = resolve_crate_root("appletheia-application")?;
     Ok(appletheia_application)
 }
+
+pub(crate) fn resolve_serde_root() -> Result<Path> {
+    resolve_crate_root("serde")
+}
+
+pub(crate) fn resolve_uuid_root() -> Result<Path> {
+    resolve_crate_root("uuid")
+}
