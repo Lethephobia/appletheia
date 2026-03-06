@@ -22,3 +22,18 @@ pub fn aggregate(attr: TokenStream, item: TokenStream) -> TokenStream {
         .unwrap_or_else(syn::Error::into_compile_error)
         .into()
 }
+
+#[proc_macro_derive(AggregateId, attributes(aggregate_id_derive))]
+pub fn aggregate_id_derive(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    domain::aggregate::aggregate_id_derive(input)
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
+}
+
+#[proc_macro_attribute]
+pub fn aggregate_id(attr: TokenStream, item: TokenStream) -> TokenStream {
+    domain::aggregate::aggregate_id_attribute(attr, item)
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
+}
