@@ -14,6 +14,17 @@ With that in mind, when proposing designs or changes, do not assume an “app im
 - As a principle, keep **one primary definition per file** (`trait` / `struct` / `enum`, etc.). Avoid putting multiple primary definitions in a single file.
   - Exception: `#[cfg(test)]` unit tests may live in the same file (preferred).
 - Do not reference `crate::...` / `super::...` directly inside expressions; import via `use` and then use the imported names (for readability and stable diffs).
+- In unit tests and macro tests, prefer `thiserror::Error` for custom error definitions instead of manually implementing `Display` and `Error`.
+
+## Documentation Comments
+
+- Write Rust doc comments (`///`) in **English**.
+- Follow common Rust API documentation style:
+  - Start with a short summary sentence describing what the item represents or does.
+  - Add one or more short paragraphs only when they clarify responsibilities, invariants, or extension points.
+  - Prefer describing **behavior and contract** over implementation details.
+  - Use inline code formatting for identifiers, types, and literals.
+- Keep doc comments concise. Do not add long examples or exhaustive discussion unless they materially improve API usage.
 
 ## Git Commit Messages
 

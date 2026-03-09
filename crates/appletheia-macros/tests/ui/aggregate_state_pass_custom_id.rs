@@ -1,28 +1,16 @@
 #![allow(dead_code, unused_imports)]
 
-use std::error::Error;
-use std::fmt::{self, Display};
 use std::convert::Infallible;
 
 use appletheia_domain::{AggregateId, AggregateState};
 use appletheia_macros::{aggregate_id, aggregate_state};
+use thiserror::Error;
 use uuid::Uuid;
 
-#[derive(Debug)]
-struct CounterStateError;
-
-impl Display for CounterStateError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "counter state error")
-    }
-}
-
-impl Error for CounterStateError {}
-
-impl From<serde_json::Error> for CounterStateError {
-    fn from(_: serde_json::Error) -> Self {
-        Self
-    }
+#[derive(Debug, Error)]
+enum CounterStateError {
+    #[error(transparent)]
+    Json(#[from] serde_json::Error),
 }
 
 #[aggregate_id(error = Infallible)]

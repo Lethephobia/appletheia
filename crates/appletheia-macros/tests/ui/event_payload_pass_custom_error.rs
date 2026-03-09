@@ -1,26 +1,13 @@
 #![allow(dead_code, unused_imports)]
 
-use std::error::Error;
-use std::fmt::{self, Display};
-
 use appletheia_domain::{EventName, EventPayload};
 use appletheia_macros::event_payload;
+use thiserror::Error;
 
-#[derive(Debug)]
-struct CounterEventPayloadError;
-
-impl Display for CounterEventPayloadError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "counter event payload error")
-    }
-}
-
-impl Error for CounterEventPayloadError {}
-
-impl From<serde_json::Error> for CounterEventPayloadError {
-    fn from(_: serde_json::Error) -> Self {
-        Self
-    }
+#[derive(Debug, Error)]
+enum CounterEventPayloadError {
+    #[error(transparent)]
+    Json(#[from] serde_json::Error),
 }
 
 #[event_payload(error = CounterEventPayloadError)]

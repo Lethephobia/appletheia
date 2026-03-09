@@ -1,9 +1,9 @@
 #![allow(dead_code, unused_imports)]
 
-use std::error::Error;
 use std::fmt::{self, Display};
 
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 use uuid::Uuid;
 
 use appletheia_domain::{
@@ -12,16 +12,9 @@ use appletheia_domain::{
 };
 use appletheia_macros::aggregate;
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
+#[error("counter id error")]
 struct CounterIdError;
-
-impl Display for CounterIdError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "counter id error")
-    }
-}
-
-impl Error for CounterIdError {}
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
 #[serde(transparent)]
