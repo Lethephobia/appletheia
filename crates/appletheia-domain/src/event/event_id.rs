@@ -5,15 +5,18 @@ use uuid::{Uuid, Version};
 
 use super::EventIdError;
 
+/// Identifies an event using a UUID v7 value.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct EventId(Uuid);
 
 impl EventId {
+    /// Creates a new event ID backed by a freshly generated UUID v7.
     pub fn new() -> Self {
         Self(Uuid::now_v7())
     }
 
+    /// Returns the raw UUID value.
     pub fn value(&self) -> Uuid {
         self.0
     }

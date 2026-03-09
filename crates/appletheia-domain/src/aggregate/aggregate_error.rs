@@ -2,6 +2,7 @@ use thiserror::Error;
 
 use super::{AggregateId, AggregateVersion, AggregateVersionError};
 
+/// Errors that can occur while validating or rebuilding an aggregate.
 #[derive(Debug, Error)]
 pub enum AggregateError<A: AggregateId> {
     #[error("invalid aggregate id: {0}, expected {1}")]
