@@ -8,4 +8,6 @@ fn ui_pass() {
     t.pass("tests/ui/aggregate_id_pass_validate.rs");
     t.pass("tests/ui/aggregate_state_pass_default_id.rs");
     t.pass("tests/ui/aggregate_state_pass_custom_id.rs");
+    t.pass("tests/ui/event_payload_pass_default_error.rs");
+    t.pass("tests/ui/event_payload_pass_custom_error.rs");
 }

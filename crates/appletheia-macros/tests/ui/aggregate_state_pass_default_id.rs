@@ -1,13 +1,15 @@
 #![allow(dead_code, unused_imports)]
 
+use std::convert::Infallible;
+
 use appletheia_domain::{AggregateId, AggregateState};
 use appletheia_macros::{aggregate_id, aggregate_state};
 use uuid::Uuid;
 
-#[aggregate_id]
+#[aggregate_id(error = Infallible)]
 struct CounterId(Uuid);
 
-#[aggregate_state]
+#[aggregate_state(error = serde_json::Error)]
 struct CounterState {
     id: CounterId,
     counter: i32,
