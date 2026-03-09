@@ -2,6 +2,7 @@
 
 use std::error::Error;
 use std::fmt::{self, Display};
+use std::convert::Infallible;
 
 use appletheia_domain::{AggregateId, AggregateState};
 use appletheia_macros::{aggregate_id, aggregate_state};
@@ -24,7 +25,7 @@ impl From<serde_json::Error> for CounterStateError {
     }
 }
 
-#[aggregate_id]
+#[aggregate_id(error = Infallible)]
 struct CounterId(Uuid);
 
 #[aggregate_state(id = aggregate_id, error = CounterStateError)]

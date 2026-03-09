@@ -2,13 +2,13 @@ use syn::spanned::Spanned;
 use syn::{Attribute, Ident, LitStr, Result, Type};
 
 #[derive(Debug)]
-pub(crate) struct AggregateArgs {
+pub(crate) struct AggregateDeriveArgs {
     pub(crate) aggregate_type: LitStr,
     pub(crate) core_field: Option<Ident>,
     pub(crate) error: Type,
 }
 
-impl AggregateArgs {
+impl AggregateDeriveArgs {
     pub(crate) fn from_attrs(attrs: &[Attribute]) -> Result<Self> {
         let mut aggregate_type: Option<LitStr> = None;
         let mut core_field: Option<Ident> = None;

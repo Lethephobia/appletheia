@@ -2,12 +2,12 @@ use syn::spanned::Spanned;
 use syn::{Attribute, Ident, Result, Type};
 
 #[derive(Debug)]
-pub(crate) struct AggregateStateArgs {
+pub(crate) struct AggregateStateDeriveArgs {
     pub(crate) id_field: Ident,
-    pub(crate) error: Option<Type>,
+    pub(crate) error: Type,
 }
 
-impl AggregateStateArgs {
+impl AggregateStateDeriveArgs {
     pub(crate) fn from_attrs(attrs: &[Attribute]) -> Result<Self> {
         let mut id_field: Option<Ident> = None;
         let mut error: Option<Type> = None;
@@ -63,9 +63,14 @@ impl AggregateStateArgs {
             })?;
         }
 
-        Ok(Self {
-            id_field: id_field.unwrap_or_else(|| Ident::new("id", proc_macro2::Span::call_site())),
-            error,
-        })
+        let id_field = id_field.unwrap_or_else(|| Ident::new("id", proc_macro2::Span::call_site()));
+        let error = error.ok_or_else(|| {
+            syn::Error::new(
+                proc_macro2::Span::call_site(),
+                "missing `#[aggregate_state(error = ...)]` (or `#[aggregate_state_derive(error = ...)]` when using `#[derive(AggregateState)]` directly)",
+            )
+        })?;
+
+        Ok(Self { id_field, error })
     }
 }

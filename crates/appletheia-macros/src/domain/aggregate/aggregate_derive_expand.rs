@@ -5,10 +5,13 @@ use syn::{
     Data, DeriveInput, Fields, GenericArgument, Ident, PathArguments, Result, Type, TypePath,
 };
 
-use crate::domain::aggregate::aggregate_derive_args::AggregateArgs;
+use crate::domain::aggregate::aggregate_derive_args::AggregateDeriveArgs;
 use crate::utils::crate_path::resolve_domain_path;
 
-pub(crate) fn expand_aggregate(input: DeriveInput, args: AggregateArgs) -> Result<TokenStream> {
+pub(crate) fn expand_aggregate_derive(
+    input: DeriveInput,
+    args: AggregateDeriveArgs,
+) -> Result<TokenStream> {
     let domain = resolve_domain_path()?;
 
     let name = input.ident;

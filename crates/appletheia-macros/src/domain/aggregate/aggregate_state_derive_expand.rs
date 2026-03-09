@@ -3,15 +3,14 @@ use quote::quote;
 use syn::spanned::Spanned;
 use syn::{Data, DeriveInput, Fields, Ident, Result, Type};
 
-use super::aggregate_state_derive_args::AggregateStateArgs;
-use crate::utils::crate_path::{resolve_domain_path, resolve_serde_json_root};
+use super::aggregate_state_derive_args::AggregateStateDeriveArgs;
+use crate::utils::crate_path::resolve_domain_path;
 
-pub(crate) fn expand_aggregate_state(
+pub(crate) fn expand_aggregate_state_derive(
     input: DeriveInput,
-    args: AggregateStateArgs,
+    args: AggregateStateDeriveArgs,
 ) -> Result<TokenStream> {
     let domain = resolve_domain_path()?;
-    let serde_json = resolve_serde_json_root()?;
 
     let name = input.ident;
     let generics = input.generics;
@@ -19,9 +18,7 @@ pub(crate) fn expand_aggregate_state(
 
     let id_field = args.id_field;
     let id_ty = extract_id_ty(&input.data, &id_field)?;
-    let error_ty = args
-        .error
-        .unwrap_or_else(|| syn::parse_quote!(#serde_json::Error));
+    let error_ty = args.error;
 
     let expanded = quote! {
         #[automatically_derived]

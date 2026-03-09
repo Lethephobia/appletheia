@@ -3,12 +3,12 @@ use quote::quote;
 use syn::spanned::Spanned;
 use syn::{Data, DeriveInput, Fields, Result, Type, TypePath};
 
-use crate::domain::aggregate::aggregate_id_derive_args::AggregateIdArgs;
+use crate::domain::aggregate::aggregate_id_derive_args::AggregateIdDeriveArgs;
 use crate::utils::crate_path::{resolve_domain_path, resolve_uuid_root};
 
-pub(crate) fn expand_aggregate_id(
+pub(crate) fn expand_aggregate_id_derive(
     input: DeriveInput,
-    args: AggregateIdArgs,
+    args: AggregateIdDeriveArgs,
 ) -> Result<TokenStream> {
     let domain = resolve_domain_path()?;
     let uuid = resolve_uuid_root()?;
