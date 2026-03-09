@@ -23,6 +23,10 @@ use std::{error::Error, fmt::Debug};
 use crate::event::{Event, EventPayload};
 use crate::snapshot::Snapshot;
 
+/// Represents an event-sourced aggregate root.
+///
+/// Implementations provide access to the shared `AggregateCore` and define how
+/// event payloads are applied to evolve aggregate state.
 pub trait Aggregate:
     Clone + Debug + Default + Send + Sync + 'static + AggregateApply<Self::EventPayload, Self::Error>
 {
@@ -33,42 +37,53 @@ pub trait Aggregate:
 
     const TYPE: AggregateType;
 
+    /// Returns the shared aggregate core.
     fn core(&self) -> &AggregateCore<Self::State, Self::EventPayload>;
 
+    /// Returns the shared aggregate core as a mutable reference.
     fn core_mut(&mut self) -> &mut AggregateCore<Self::State, Self::EventPayload>;
 
+    /// Returns the current aggregate state, if it has been initialized.
     fn state(&self) -> Option<&Self::State> {
         self.core().state()
     }
 
+    /// Returns the current aggregate state as a mutable reference, if it has been initialized.
     fn state_mut(&mut self) -> Option<&mut Self::State> {
         self.core_mut().state_mut()
     }
 
+    /// Replaces the current aggregate state.
     fn set_state(&mut self, state: Option<Self::State>) {
         self.core_mut().set_state(state);
     }
 
+    /// Returns the current aggregate state or a `NoState` error.
     fn state_required(&self) -> Result<&Self::State, Self::Error> {
         self.state().ok_or(AggregateError::NoState.into())
     }
 
+    /// Returns the current aggregate state mutably or a `NoState` error.
     fn state_required_mut(&mut self) -> Result<&mut Self::State, Self::Error> {
         self.state_mut().ok_or(AggregateError::NoState.into())
     }
 
+    /// Returns the current aggregate version.
     fn version(&self) -> AggregateVersion {
         self.core().version()
     }
 
+    /// Returns the recorded uncommitted events.
     fn uncommitted_events(&self) -> &[Event<Self::Id, Self::EventPayload>] {
         self.core().uncommitted_events()
     }
 
+    /// Returns the current aggregate identifier, if state has been initialized.
     fn aggregate_id(&self) -> Option<Self::Id> {
         self.state().map(|state| state.id())
     }
 
+    /// Applies a new payload, bumps the aggregate version, and records the resulting event.
     fn append_event(&mut self, payload: Self::EventPayload) -> Result<(), Self::Error> {
         self.apply(&payload)?;
         self.core_mut()
@@ -84,6 +99,7 @@ pub trait Aggregate:
         Ok(())
     }
 
+    /// Validates that an event can be applied as the next event in sequence.
     fn validate_next_event(
         &self,
         event: &Event<Self::Id, Self::EventPayload>,
@@ -106,6 +122,7 @@ pub trait Aggregate:
         Ok(())
     }
 
+    /// Replays a persisted event onto the aggregate.
     fn replay_event(
         &mut self,
         event: Event<Self::Id, Self::EventPayload>,
@@ -118,6 +135,7 @@ pub trait Aggregate:
         Ok(())
     }
 
+    /// Restores aggregate state and version from a snapshot.
     fn restore_snapshot(&mut self, snapshot: Snapshot<Self::State>) -> Result<(), Self::Error> {
         let version = snapshot.aggregate_version();
         let state = snapshot.into_state();
@@ -126,6 +144,7 @@ pub trait Aggregate:
         Ok(())
     }
 
+    /// Restores an optional snapshot and replays the provided events in order.
     fn replay_events<I: IntoIterator<Item = Event<Self::Id, Self::EventPayload>>>(
         &mut self,
         events: I,
@@ -150,6 +169,7 @@ pub trait Aggregate:
         Ok(())
     }
 
+    /// Materializes the current aggregate state into a snapshot.
     fn to_snapshot(&self) -> Result<Snapshot<Self::State>, Self::Error> {
         self.state()
             .map(|state| Snapshot::new(state.id(), self.version(), state.clone()))
@@ -161,73 +181,44 @@ pub trait Aggregate:
 mod tests {
     use super::*;
 
+    use appletheia_macros::{aggregate_id, aggregate_state, event_payload};
     use std::{fmt, fmt::Display};
 
-    use serde::{Deserialize, Serialize};
     use thiserror::Error;
-    use uuid::{Uuid, Version};
+    use uuid::Uuid;
 
     use crate::aggregate::{AggregateError, AggregateId, AggregateVersion};
-    use crate::event::EventName;
 
     #[derive(Debug, Error)]
     enum CounterIdError {
-        #[error("not a uuidv7: {0}")]
-        NotUuidV7(Uuid),
+        #[error("nil uuid is not allowed")]
+        NilUuid,
     }
 
-    #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
-    #[serde(try_from = "Uuid", into = "Uuid")]
+    fn validate_counter_id(value: Uuid) -> Result<(), CounterIdError> {
+        if value.is_nil() {
+            return Err(CounterIdError::NilUuid);
+        }
+
+        Ok(())
+    }
+
+    #[aggregate_id(error = CounterIdError, validate = validate_counter_id)]
     struct CounterId(Uuid);
-
-    impl CounterId {
-        fn new() -> Self {
-            Self(Uuid::now_v7())
-        }
-    }
-
-    impl AggregateId for CounterId {
-        type Error = CounterIdError;
-
-        fn try_from_uuid(value: Uuid) -> Result<Self, Self::Error> {
-            match value.get_version() {
-                Some(Version::SortRand) => Ok(Self(value)),
-                _ => Err(CounterIdError::NotUuidV7(value)),
-            }
-        }
-
-        fn value(&self) -> Uuid {
-            self.0
-        }
-    }
 
     impl Display for CounterId {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            write!(f, "{}", self.0)
-        }
-    }
-
-    impl From<CounterId> for Uuid {
-        fn from(value: CounterId) -> Self {
-            value.value()
-        }
-    }
-
-    impl TryFrom<Uuid> for CounterId {
-        type Error = CounterIdError;
-
-        fn try_from(value: Uuid) -> Result<Self, Self::Error> {
-            Self::try_from_uuid(value)
+            write!(f, "{}", self.value())
         }
     }
 
     #[derive(Debug, Error)]
     enum CounterStateError {
-        #[error("json error: {0}")]
+        #[error(transparent)]
         Json(#[from] serde_json::Error),
     }
 
-    #[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
+    #[aggregate_state(error = CounterStateError)]
     struct CounterState {
         id: CounterId,
         counter: i32,
@@ -243,45 +234,17 @@ mod tests {
         }
     }
 
-    impl AggregateState for CounterState {
-        type Id = CounterId;
-        type Error = CounterStateError;
-
-        fn id(&self) -> Self::Id {
-            self.id
-        }
-    }
-
     #[derive(Debug, Error)]
     enum CounterEventPayloadError {
-        #[error("json error: {0}")]
+        #[error(transparent)]
         Json(#[from] serde_json::Error),
     }
 
-    #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-    #[serde(tag = "type", content = "data", rename_all = "snake_case")]
+    #[event_payload(error = CounterEventPayloadError)]
     enum CounterEventPayload {
         Created { id: CounterId },
         Increment(i32),
         Decrement(i32),
-    }
-
-    impl CounterEventPayload {
-        pub const CREATED: EventName = EventName::new("created");
-        pub const INCREMENT: EventName = EventName::new("increment");
-        pub const DECREMENT: EventName = EventName::new("decrement");
-    }
-
-    impl EventPayload for CounterEventPayload {
-        type Error = CounterEventPayloadError;
-
-        fn name(&self) -> EventName {
-            match self {
-                CounterEventPayload::Created { .. } => Self::CREATED,
-                CounterEventPayload::Increment(_) => Self::INCREMENT,
-                CounterEventPayload::Decrement(_) => Self::DECREMENT,
-            }
-        }
     }
 
     impl Display for CounterEventPayload {
@@ -333,7 +296,8 @@ mod tests {
         }
 
         pub fn create(&mut self) -> Result<(), CounterError> {
-            let id = CounterId::new();
+            let id =
+                CounterId::try_from_uuid(Uuid::now_v7()).expect("valid uuid should be accepted");
             self.append_event(CounterEventPayload::Created { id })?;
             Ok(())
         }
@@ -486,7 +450,7 @@ mod tests {
         let mut counter = Counter::new();
         counter.create().expect("create should succeed");
         let mismatched_event = CounterEvent::new(
-            CounterId::new(),
+            CounterId::try_from_uuid(Uuid::now_v7()).expect("valid uuid should be accepted"),
             counter.version().try_next().unwrap(),
             CounterEventPayload::Increment(1),
         );
@@ -540,7 +504,7 @@ mod tests {
     #[test]
     fn replay_event_applies_payload_and_updates_version() {
         let mut counter = Counter::new();
-        let id = CounterId::new();
+        let id = CounterId::try_from_uuid(Uuid::now_v7()).expect("valid uuid should be accepted");
         let event = CounterEvent::new(
             id,
             counter.version().try_next().unwrap(),
@@ -560,7 +524,7 @@ mod tests {
     #[test]
     fn replay_event_propagates_apply_errors() {
         let mut counter = Counter::new();
-        let id = CounterId::new();
+        let id = CounterId::try_from_uuid(Uuid::now_v7()).expect("valid uuid should be accepted");
         let event = CounterEvent::new(
             id,
             counter.version().try_next().unwrap(),
@@ -578,7 +542,7 @@ mod tests {
     #[test]
     fn replay_events_applies_snapshot_and_replays_sequence() {
         let mut counter = Counter::new();
-        let id = CounterId::new();
+        let id = CounterId::try_from_uuid(Uuid::now_v7()).expect("valid uuid should be accepted");
         let snapshot_state = CounterState::new(id, 10);
         let snapshot_version = AggregateVersion::try_from(3).unwrap();
         let snapshot = Snapshot::new(
@@ -634,7 +598,7 @@ mod tests {
     #[test]
     fn restore_snapshot_sets_state_and_version() {
         let mut counter = Counter::new();
-        let id = CounterId::new();
+        let id = CounterId::try_from_uuid(Uuid::now_v7()).expect("valid uuid should be accepted");
         let snapshot_state = CounterState::new(id, 7);
         let snapshot_version = AggregateVersion::try_from(2).unwrap();
         let snapshot = Snapshot::new(

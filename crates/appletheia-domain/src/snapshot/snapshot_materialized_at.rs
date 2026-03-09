@@ -2,14 +2,17 @@ use std::{fmt, fmt::Display};
 
 use chrono::{DateTime, Utc};
 
+/// Represents the timestamp at which a snapshot was materialized.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
 pub struct SnapshotMaterializedAt(DateTime<Utc>);
 
 impl SnapshotMaterializedAt {
+    /// Creates a timestamp using the current UTC time.
     pub fn now() -> Self {
         Self(Utc::now())
     }
 
+    /// Returns the underlying UTC timestamp.
     pub fn value(&self) -> DateTime<Utc> {
         self.0
     }

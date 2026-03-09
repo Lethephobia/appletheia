@@ -15,6 +15,9 @@ With that in mind, when proposing designs or changes, do not assume an “app im
   - Exception: `#[cfg(test)]` unit tests may live in the same file (preferred).
 - Do not reference `crate::...` / `super::...` directly inside expressions; import via `use` and then use the imported names (for readability and stable diffs).
 - In unit tests and macro tests, prefer `thiserror::Error` for custom error definitions instead of manually implementing `Display` and `Error`.
+- Unit tests in non-macro crates may use proc macros from `appletheia-macros` through `dev-dependencies` when that improves readability for test-only helper types.
+- When a unit test directly targets a core trait or value object, prefer a handwritten implementation for the item under test; helper types may still use macros.
+- Macro expansion behavior must be tested in `appletheia-macros`; domain/application/infrastructure tests should stay focused on the trait or API being verified.
 
 ## Documentation Comments
 

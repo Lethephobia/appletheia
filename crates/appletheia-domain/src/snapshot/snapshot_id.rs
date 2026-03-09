@@ -4,14 +4,17 @@ use uuid::{Uuid, Version};
 
 use super::SnapshotIdError;
 
+/// Identifies a snapshot using a UUID v7 value.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
 pub struct SnapshotId(Uuid);
 
 impl SnapshotId {
+    /// Creates a new snapshot ID backed by a freshly generated UUID v7.
     pub fn new() -> Self {
         Self(Uuid::now_v7())
     }
 
+    /// Returns the raw UUID value.
     pub fn value(&self) -> Uuid {
         self.0
     }
