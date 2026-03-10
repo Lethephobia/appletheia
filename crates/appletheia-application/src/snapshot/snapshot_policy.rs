@@ -1,4 +1,4 @@
-use super::snapshot_interval::SnapshotInterval;
+use super::SnapshotInterval;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SnapshotPolicy {
