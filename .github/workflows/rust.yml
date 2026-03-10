@@ -11,12 +11,15 @@ env:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v4
-    - name: Build
+    - name: Build root workspace
       run: cargo build --verbose
-    - name: Run tests
+    - name: Run root workspace tests
       run: cargo test --verbose
+    - name: Build banking server workspace
+      run: cargo build --manifest-path examples/banking/server/Cargo.toml --verbose
+    - name: Run banking server workspace tests
+      run: cargo test --manifest-path examples/banking/server/Cargo.toml --verbose
