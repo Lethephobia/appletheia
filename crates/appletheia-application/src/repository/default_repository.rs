@@ -5,8 +5,8 @@ use appletheia_domain::{Aggregate, AggregateError, AggregateVersion, AggregateVe
 
 use crate::event::{EventReader, EventWriter};
 use crate::request_context::RequestContext;
-use crate::snapshot::{SnapshotReader, SnapshotWriter};
-use crate::unit_of_work::{SnapshotPolicy, UnitOfWork};
+use crate::snapshot::{SnapshotPolicy, SnapshotReader, SnapshotWriter};
+use crate::unit_of_work::UnitOfWork;
 
 use super::{Repository, RepositoryConfig, RepositoryError};
 
