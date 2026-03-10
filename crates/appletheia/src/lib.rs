@@ -15,6 +15,6 @@ pub mod infrastructure {
 
 #[cfg(feature = "macros")]
 pub use appletheia_macros::{
-    aggregate, aggregate_id, aggregate_state, event_payload, Aggregate, AggregateId,
-    AggregateState, EventPayload,
+    Aggregate, AggregateId, AggregateState, EventPayload, aggregate, aggregate_id, aggregate_state,
+    event_payload,
 };
