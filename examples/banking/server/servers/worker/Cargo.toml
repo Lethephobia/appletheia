@@ -1,0 +1,11 @@
+[package]
+name = "worker"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+appletheia = { workspace = true, features = ["domain", "application", "infrastructure"] }
+banking-domain = { workspace = true }
+banking-application = { workspace = true }
+banking-infrastructure = { workspace = true }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "time"] }

@@ -1,0 +1,79 @@
+services:
+  api:
+    build:
+      context: ../../..
+      dockerfile: examples/banking/server/docker/api/Dockerfile
+      target: dev
+    depends_on:
+      - postgresql
+      - pubsub-emulator
+    environment:
+      APP_ENV: local
+      PORT: "8080"
+      DATABASE_URL: postgres://banking:banking@postgresql:5432/banking
+      PUBSUB_EMULATOR_HOST: pubsub-emulator:8085
+      PUBSUB_PROJECT_ID: banking-local
+    ports:
+      - "127.0.0.1:18080:8080"
+    volumes:
+      - ../../..:/workspace
+      - banking-server-target:/workspace/examples/banking/server/target
+      - cargo-registry:/usr/local/cargo/registry
+
+  worker:
+    build:
+      context: ../../..
+      dockerfile: examples/banking/server/docker/worker/Dockerfile
+      target: dev
+    depends_on:
+      - postgresql
+      - pubsub-emulator
+    environment:
+      APP_ENV: local
+      DATABASE_URL: postgres://banking:banking@postgresql:5432/banking
+      PUBSUB_EMULATOR_HOST: pubsub-emulator:8085
+      PUBSUB_PROJECT_ID: banking-local
+    volumes:
+      - ../../..:/workspace
+      - banking-server-target:/workspace/examples/banking/server/target
+      - cargo-registry:/usr/local/cargo/registry
+
+  postgresql:
+    build:
+      context: .
+      dockerfile: docker/postgresql/Dockerfile
+    environment:
+      POSTGRES_DB: banking
+      POSTGRES_USER: banking
+      POSTGRES_PASSWORD: banking
+    ports:
+      - "127.0.0.1:15432:5432"
+    volumes:
+      - postgresql-data:/var/lib/postgresql/data
+
+  pubsub-emulator:
+    build:
+      context: .
+      dockerfile: docker/pubsub-emulator/Dockerfile
+    environment:
+      PUBSUB_PROJECT_ID: banking-local
+    ports:
+      - "127.0.0.1:18085:8085"
+
+  terraform:
+    profiles:
+      - tools
+    build:
+      context: .
+      dockerfile: docker/terraform/Dockerfile
+    working_dir: /workspace/examples/banking/server/iac
+    volumes:
+      - ../../..:/workspace
+    stdin_open: true
+    tty: true
+    command: ["sh"]
+
+volumes:
+  banking-server-target:
+  cargo-registry:
+  postgresql-data:
