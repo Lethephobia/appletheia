@@ -12,3 +12,9 @@ pub mod domain {
 pub mod infrastructure {
     pub use appletheia_infrastructure::*;
 }
+
+#[cfg(feature = "macros")]
+pub use appletheia_macros::{
+    aggregate, aggregate_id, aggregate_state, event_payload, Aggregate, AggregateId,
+    AggregateState, EventPayload,
+};
