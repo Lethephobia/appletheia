@@ -5,7 +5,7 @@ use thiserror::Error as ThisError;
 use crate::request_context::MessageId;
 
 #[derive(Debug, ThisError)]
-pub enum IdempotencyError {
+pub enum IdempotencyServiceError {
     #[error("idempotency key conflict: {message_id}")]
     Conflict { message_id: MessageId },
 
