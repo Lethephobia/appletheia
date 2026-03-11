@@ -3,7 +3,7 @@ use crate::projection::ReadYourWritesWaiter;
 use crate::request_context::RequestContext;
 use crate::unit_of_work::{UnitOfWork, UnitOfWorkFactory};
 
-use super::{QueryConsistency, QueryDispatchError, QueryDispatcher, QueryHandler, QueryOptions};
+use super::{QueryConsistency, QueryDispatcher, QueryDispatcherError, QueryHandler, QueryOptions};
 
 pub struct DefaultQueryDispatcher<W, U, AZ>
 where
@@ -47,7 +47,7 @@ where
         request_context: &RequestContext,
         query: H::Query,
         options: QueryOptions,
-    ) -> Result<H::Output, QueryDispatchError<H::Error>>
+    ) -> Result<H::Output, QueryDispatcherError<H::Error>>
     where
         H: QueryHandler<Uow = Self::Uow>,
     {
@@ -100,8 +100,8 @@ where
                 let operation_error = uow
                     .rollback_with_operation_error(operation_error)
                     .await
-                    .map_err(QueryDispatchError::UnitOfWork)?;
-                Err(QueryDispatchError::Handler(operation_error))
+                    .map_err(QueryDispatcherError::UnitOfWork)?;
+                Err(QueryDispatcherError::Handler(operation_error))
             }
         }
     }

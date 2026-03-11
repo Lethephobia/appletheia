@@ -1,6 +1,6 @@
 use crate::authorization::{Authorizer, RelationshipRequirement};
 use crate::command::{
-    Command, CommandConsistency, CommandDispatchError, CommandDispatcher, CommandFailureReport,
+    Command, CommandConsistency, CommandDispatcher, CommandDispatcherError, CommandFailureReport,
     CommandHandler, CommandHasher, CommandOptions, IdempotencyBeginResult, IdempotencyOutput,
     IdempotencyService, IdempotencyState,
 };
@@ -67,7 +67,7 @@ where
         request_context: &RequestContext,
         command: H::Command,
         options: CommandOptions,
-    ) -> Result<H::Output, CommandDispatchError<H::Error>>
+    ) -> Result<H::Output, CommandDispatcherError<H::Error>>
     where
         H: CommandHandler<Uow = Self::Uow>,
         H::Command: Command,
@@ -131,7 +131,7 @@ where
         match idempotency_begin_result {
             IdempotencyBeginResult::New => {}
             IdempotencyBeginResult::InProgress => match uow.rollback().await {
-                Ok(()) => return Err(CommandDispatchError::InProgress { message_id }),
+                Ok(()) => return Err(CommandDispatcherError::InProgress { message_id }),
                 Err(rollback_error) => return Err(rollback_error.into()),
             },
             IdempotencyBeginResult::Existing { state } => match state {
@@ -142,7 +142,7 @@ where
                 }
                 IdempotencyState::Failed { error } => {
                     uow.commit().await?;
-                    return Err(CommandDispatchError::PreviousFailure(error));
+                    return Err(CommandDispatcherError::PreviousFailure(error));
                 }
             },
         }
@@ -171,7 +171,7 @@ where
                 let operation_error = uow
                     .rollback_with_operation_error(operation_error)
                     .await
-                    .map_err(CommandDispatchError::UnitOfWork)?;
+                    .map_err(CommandDispatcherError::UnitOfWork)?;
 
                 let report = CommandFailureReport::from(&operation_error);
                 if let Ok(mut uow) = self.uow_factory.begin().await {
@@ -205,7 +205,7 @@ where
                         }
                     }
                 }
-                Err(CommandDispatchError::Handler(operation_error))
+                Err(CommandDispatcherError::Handler(operation_error))
             }
         }
     }

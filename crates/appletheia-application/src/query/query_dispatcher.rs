@@ -1,7 +1,7 @@
 use crate::request_context::RequestContext;
 use crate::unit_of_work::UnitOfWork;
 
-use super::{QueryConsistency, QueryDispatchError, QueryHandler};
+use super::{QueryConsistency, QueryDispatcherError, QueryHandler};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct QueryOptions {
@@ -18,7 +18,7 @@ pub trait QueryDispatcher: Send + Sync {
         request_context: &RequestContext,
         query: H::Query,
         options: QueryOptions,
-    ) -> Result<H::Output, QueryDispatchError<H::Error>>
+    ) -> Result<H::Output, QueryDispatcherError<H::Error>>
     where
         H: QueryHandler<Uow = Self::Uow>;
 }

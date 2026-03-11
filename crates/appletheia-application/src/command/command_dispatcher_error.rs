@@ -7,7 +7,7 @@ use appletheia_domain::EventId;
 use crate::authorization::AuthorizerError;
 use crate::command::CommandFailureReport;
 use crate::command::CommandHasherError;
-use crate::command::IdempotencyError;
+use crate::command::IdempotencyServiceError;
 use crate::event::EventSequenceLookupError;
 use crate::projection::{
     ProjectorNameOwned, ProjectorProcessedEventStoreError, ReadYourWritesTimeout,
@@ -18,7 +18,7 @@ use crate::unit_of_work::UnitOfWorkError;
 use crate::unit_of_work::UnitOfWorkFactoryError;
 
 #[derive(Debug, Error)]
-pub enum CommandDispatchError<HE>
+pub enum CommandDispatcherError<HE>
 where
     HE: Error + Send + Sync + 'static,
 {
@@ -47,7 +47,7 @@ where
     },
 
     #[error("idempotency error: {0}")]
-    Idempotency(#[from] IdempotencyError),
+    Idempotency(#[from] IdempotencyServiceError),
 
     #[error("command handler error: {0}")]
     Handler(#[source] HE),
@@ -68,7 +68,7 @@ where
     Authorizer(#[from] AuthorizerError),
 }
 
-impl<HE> From<ReadYourWritesWaitError> for CommandDispatchError<HE>
+impl<HE> From<ReadYourWritesWaitError> for CommandDispatcherError<HE>
 where
     HE: Error + Send + Sync + 'static,
 {

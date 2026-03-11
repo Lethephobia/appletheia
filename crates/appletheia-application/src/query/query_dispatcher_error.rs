@@ -14,7 +14,7 @@ use crate::request_context::MessageId;
 use crate::unit_of_work::{UnitOfWorkError, UnitOfWorkFactoryError};
 
 #[derive(Debug, ThisError)]
-pub enum QueryDispatchError<HE>
+pub enum QueryDispatcherError<HE>
 where
     HE: Error + Send + Sync + 'static,
 {
@@ -49,7 +49,7 @@ where
     Authorizer(#[from] AuthorizerError),
 }
 
-impl<HE> From<ReadYourWritesWaitError> for QueryDispatchError<HE>
+impl<HE> From<ReadYourWritesWaitError> for QueryDispatcherError<HE>
 where
     HE: Error + Send + Sync + 'static,
 {
