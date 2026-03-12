@@ -55,7 +55,6 @@ where
         state: &mut RelationshipEvalState,
     ) -> Result<bool, RelationshipResolverError> {
         match requirement {
-            RelationshipRequirement::None => Ok(true),
             RelationshipRequirement::Check {
                 aggregate,
                 relation,
