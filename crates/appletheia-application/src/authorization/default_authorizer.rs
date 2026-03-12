@@ -1,7 +1,9 @@
 use crate::request_context::Principal;
 use crate::unit_of_work::{UnitOfWork, UnitOfWorkFactory};
 
-use super::{Authorizer, AuthorizerError, RelationshipRequirement, RelationshipResolver};
+use super::{
+    AuthorizationPlan, Authorizer, AuthorizerError, PrincipalRequirement, RelationshipResolver,
+};
 
 #[derive(Debug)]
 pub struct DefaultAuthorizer<U, RR>
@@ -26,6 +28,75 @@ where
             relationship_resolver,
         }
     }
+
+    async fn check_principal_requirement(
+        &self,
+        principal: &Principal,
+        principal_requirement: &PrincipalRequirement,
+    ) -> Result<bool, AuthorizerError> {
+        match principal_requirement {
+            PrincipalRequirement::System => {
+                if matches!(principal, Principal::System) {
+                    Ok(true)
+                } else if matches!(principal, Principal::Unavailable) {
+                    Err(AuthorizerError::PrincipalUnavailable)
+                } else {
+                    Ok(false)
+                }
+            }
+            PrincipalRequirement::Anonymous => {
+                if matches!(principal, Principal::Anonymous) {
+                    Ok(true)
+                } else if matches!(principal, Principal::Unavailable) {
+                    Err(AuthorizerError::PrincipalUnavailable)
+                } else {
+                    Ok(false)
+                }
+            }
+            PrincipalRequirement::Authenticated => match principal {
+                Principal::Authenticated { .. } => Ok(true),
+                Principal::Anonymous => Ok(false),
+                Principal::Unavailable => Err(AuthorizerError::PrincipalUnavailable),
+                Principal::System => Ok(false),
+            },
+            PrincipalRequirement::AuthenticatedWithRelationship { requirement, .. } => {
+                let subject = match principal {
+                    Principal::Authenticated { subject } => subject,
+                    Principal::Anonymous => return Ok(false),
+                    Principal::Unavailable => return Err(AuthorizerError::PrincipalUnavailable),
+                    Principal::System => return Ok(false),
+                };
+
+                let mut uow = self
+                    .uow_factory
+                    .begin()
+                    .await
+                    .map_err(AuthorizerError::backend)?;
+
+                match self
+                    .relationship_resolver
+                    .satisfies(&mut uow, subject, requirement)
+                    .await
+                {
+                    Ok(true) => {
+                        uow.commit().await.map_err(AuthorizerError::backend)?;
+                        Ok(true)
+                    }
+                    Ok(false) => {
+                        uow.commit().await.map_err(AuthorizerError::backend)?;
+                        Ok(false)
+                    }
+                    Err(operation_error) => {
+                        let operation_error = uow
+                            .rollback_with_operation_error(operation_error)
+                            .await
+                            .map_err(AuthorizerError::backend)?;
+                        Err(AuthorizerError::backend(operation_error))
+                    }
+                }
+            }
+        }
+    }
 }
 
 impl<U, RR> Authorizer for DefaultAuthorizer<U, RR>
@@ -37,46 +108,25 @@ where
     async fn authorize(
         &self,
         principal: &Principal,
-        requirement: &RelationshipRequirement,
+        authorization_plan: &AuthorizationPlan,
     ) -> Result<(), AuthorizerError> {
-        if matches!(requirement, RelationshipRequirement::None) {
-            return Ok(());
+        if matches!(principal, Principal::Unavailable) {
+            return Err(AuthorizerError::PrincipalUnavailable);
         }
 
-        let subject = match principal {
-            Principal::Authenticated { subject } => subject,
-            Principal::Anonymous => return Err(AuthorizerError::Unauthenticated),
-            Principal::Unavailable => return Err(AuthorizerError::PrincipalUnavailable),
-            Principal::System => return Ok(()),
-        };
+        match authorization_plan {
+            AuthorizationPlan::None => Ok(()),
+            AuthorizationPlan::OnlyPrincipals(principal_requirements) => {
+                for principal_requirement in principal_requirements {
+                    if self
+                        .check_principal_requirement(principal, principal_requirement)
+                        .await?
+                    {
+                        return Ok(());
+                    }
+                }
 
-        let mut uow = self
-            .uow_factory
-            .begin()
-            .await
-            .map_err(AuthorizerError::backend)?;
-
-        let operation = async {
-            self.relationship_resolver
-                .satisfies(&mut uow, subject, requirement)
-                .await
-        };
-
-        match operation.await {
-            Ok(true) => {
-                uow.commit().await.map_err(AuthorizerError::backend)?;
-                Ok(())
-            }
-            Ok(false) => {
-                uow.commit().await.map_err(AuthorizerError::backend)?;
                 Err(AuthorizerError::Forbidden)
-            }
-            Err(operation_error) => {
-                let operation_error = uow
-                    .rollback_with_operation_error(operation_error)
-                    .await
-                    .map_err(AuthorizerError::backend)?;
-                Err(AuthorizerError::backend(operation_error))
             }
         }
     }
@@ -98,10 +148,11 @@ mod tests {
     };
 
     use crate::authorization::{
-        AggregateRef, AuthorizationModel, AuthorizationTypeDefinition, Authorizer,
-        DefaultAuthorizer, RelationName, RelationshipRequirement, RelationshipResolverConfig,
-        RelationshipStore, RelationshipSubject, UsersetExpr,
+        AggregateRef, AuthorizationModel, AuthorizationPlan, AuthorizationTypeDefinition,
+        Authorizer, DefaultAuthorizer, PrincipalRequirement, RelationName, RelationshipRequirement,
+        RelationshipResolverConfig, RelationshipStore, RelationshipSubject, UsersetExpr,
     };
+    use crate::projection::ProjectorDependencies;
 
     #[derive(Default)]
     struct TestUow;
@@ -221,10 +272,15 @@ mod tests {
         authorizer
             .authorize(
                 &principal,
-                &RelationshipRequirement::Check {
-                    aggregate: doc,
-                    relation: relation("editor"),
-                },
+                &AuthorizationPlan::OnlyPrincipals(vec![
+                    PrincipalRequirement::AuthenticatedWithRelationship {
+                        requirement: RelationshipRequirement::Check {
+                            aggregate: doc,
+                            relation: relation("editor"),
+                        },
+                        projector_dependencies: ProjectorDependencies::None,
+                    },
+                ]),
             )
             .await
             .expect("allowed");
