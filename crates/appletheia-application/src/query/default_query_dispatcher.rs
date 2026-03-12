@@ -1,4 +1,4 @@
-use crate::authorization::{Authorizer, RelationshipRequirement};
+use crate::authorization::{AuthorizationPlan, Authorizer, PrincipalRequirement};
 use crate::projection::ReadYourWritesWaiter;
 use crate::request_context::RequestContext;
 use crate::unit_of_work::{UnitOfWork, UnitOfWorkFactory};
@@ -30,6 +30,28 @@ where
             authorizer,
         }
     }
+
+    fn authorization_dependencies(
+        authorization_plan: &AuthorizationPlan,
+    ) -> Vec<crate::projection::ProjectorNameOwned> {
+        let AuthorizationPlan::OnlyPrincipals(principal_requirements) = authorization_plan else {
+            return Vec::new();
+        };
+
+        principal_requirements
+            .iter()
+            .filter_map(|principal_requirement| match principal_requirement {
+                PrincipalRequirement::AuthenticatedWithRelationship {
+                    projector_dependencies,
+                    ..
+                } => Some(projector_dependencies.owned_names()),
+                PrincipalRequirement::System
+                | PrincipalRequirement::Anonymous
+                | PrincipalRequirement::Authenticated => None,
+            })
+            .flatten()
+            .collect()
+    }
 }
 
 impl<W, U, AZ> QueryDispatcher for DefaultQueryDispatcher<W, U, AZ>
@@ -52,8 +74,7 @@ where
         H: QueryHandler<Uow = Self::Uow>,
     {
         let authorization_plan = handler.authorization_plan(&query);
-        let requirement = authorization_plan.requirement;
-        let authorization_dependencies = authorization_plan.dependencies;
+        let authorization_dependencies = Self::authorization_dependencies(&authorization_plan);
         match options.consistency {
             QueryConsistency::Eventual => {}
             QueryConsistency::ReadYourWrites {
@@ -61,17 +82,16 @@ where
                 timeout,
                 poll_interval,
             } => {
-                if !matches!(requirement, RelationshipRequirement::None) {
-                    let projectors = authorization_dependencies.owned_names();
+                if !authorization_dependencies.is_empty() {
                     self.read_your_writes_waiter
-                        .wait(after, timeout, poll_interval, &projectors)
+                        .wait(after, timeout, poll_interval, &authorization_dependencies)
                         .await?;
                 }
             }
         }
 
         self.authorizer
-            .authorize(&request_context.principal, &requirement)
+            .authorize(&request_context.principal, &authorization_plan)
             .await?;
 
         match options.consistency {
