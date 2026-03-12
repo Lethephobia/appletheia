@@ -1,7 +1,9 @@
 pub mod command_consistency;
+pub mod command_dispatch_result;
 pub mod command_dispatcher;
 pub mod command_dispatcher_error;
 pub mod command_failure_report;
+pub mod command_handled;
 pub mod command_handler;
 pub mod command_hash;
 pub mod command_hash_error;
@@ -27,9 +29,11 @@ pub mod idempotency_service_error;
 pub mod idempotency_state;
 
 pub use command_consistency::CommandConsistency;
+pub use command_dispatch_result::CommandDispatchResult;
 pub use command_dispatcher::CommandDispatcher;
 pub use command_dispatcher_error::CommandDispatcherError;
 pub use command_failure_report::CommandFailureReport;
+pub use command_handled::CommandHandled;
 pub use command_handler::CommandHandler;
 pub use command_hash::CommandHash;
 pub use command_hash_error::CommandHashError;
