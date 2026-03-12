@@ -1,7 +1,7 @@
 use crate::authorization::{AuthorizationPlan, Authorizer, PrincipalRequirement};
 use crate::command::{
-    Command, CommandConsistency, CommandDispatcher, CommandDispatcherError, CommandFailureReport,
-    CommandHandler, CommandHasher, CommandOptions, IdempotencyBeginResult, IdempotencyOutput,
+    Command, CommandConsistency, CommandDispatchResult, CommandDispatcher, CommandDispatcherError,
+    CommandFailureReport, CommandHandler, CommandHasher, CommandOptions, IdempotencyBeginResult,
     IdempotencyService, IdempotencyState,
 };
 use crate::projection::ReadYourWritesWaiter;
@@ -89,7 +89,7 @@ where
         request_context: &RequestContext,
         command: H::Command,
         options: CommandOptions,
-    ) -> Result<H::Output, CommandDispatcherError<H::Error>>
+    ) -> Result<CommandDispatchResult<H::Output, H::ReplayOutput>, CommandDispatcherError<H::Error>>
     where
         H: CommandHandler<Uow = Self::Uow>,
         H::Command: Command,
@@ -158,7 +158,7 @@ where
                 IdempotencyState::Succeeded { output } => {
                     let decoded = serde_json::from_value(output.into())?;
                     uow.commit().await?;
-                    return Ok(decoded);
+                    return Ok(CommandDispatchResult::Replayed(decoded));
                 }
                 IdempotencyState::Failed { error } => {
                     uow.commit().await?;
@@ -170,11 +170,12 @@ where
         let handler_result = handler.handle(&mut uow, request_context, command).await;
 
         match handler_result {
-            Ok(output) => {
-                let output_json = serde_json::to_value(&output)?;
+            Ok(handled) => {
+                let replay_output = handled.idempotency_output()?;
+                let output = handled.into_output();
                 match self
                     .idempotency_service
-                    .complete_success(&mut uow, message_id, IdempotencyOutput::from(output_json))
+                    .complete_success(&mut uow, message_id, replay_output)
                     .await
                 {
                     Ok(()) => {}
@@ -185,7 +186,7 @@ where
                     }
                 }
                 uow.commit().await?;
-                Ok(output)
+                Ok(CommandDispatchResult::Executed(output))
             }
             Err(operation_error) => {
                 let operation_error = uow
