@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use super::{RelationName, RelationNameOwned, UsersetExpr};
+use super::{RelationName, UsersetExpr};
 
 #[derive(Clone, Debug, Default)]
 pub struct AuthorizationTypeDefinition {
@@ -16,11 +16,11 @@ impl AuthorizationTypeDefinition {
         self.relations.insert(relation, expr);
     }
 
-    pub fn is_defined(&self, relation: &RelationNameOwned) -> bool {
-        self.relations.contains_key(relation.value())
+    pub fn is_defined(&self, relation: &RelationName) -> bool {
+        self.relations.contains_key(relation)
     }
 
-    pub fn expr_for(&self, relation: &RelationNameOwned) -> Option<&UsersetExpr> {
-        self.relations.get(relation.value())
+    pub fn expr_for(&self, relation: &RelationName) -> Option<&UsersetExpr> {
+        self.relations.get(relation)
     }
 }
