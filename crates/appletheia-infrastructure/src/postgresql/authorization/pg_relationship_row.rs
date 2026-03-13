@@ -1,5 +1,5 @@
 use appletheia_application::authorization::{
-    AggregateRef, RelationNameOwned, Relationship, RelationshipSubject,
+    AggregateRef, RelationName, Relationship, RelationshipSubject,
 };
 use appletheia_application::event::{AggregateIdValue, AggregateTypeOwned};
 use sqlx::FromRow;
@@ -29,7 +29,7 @@ impl PgRelationshipRow {
         };
 
         let relation_string = self.relation;
-        let relation = match RelationNameOwned::new(relation_string.clone()) {
+        let relation = match RelationName::new(relation_string.clone()) {
             Ok(value) => value,
             Err(_) => return Err(PgRelationshipRowError::Relation(relation_string)),
         };
@@ -83,8 +83,7 @@ impl PgRelationshipRow {
 
         let subject = match self.subject_relation {
             Some(subject_relation_string) => {
-                let subject_relation = match RelationNameOwned::new(subject_relation_string.clone())
-                {
+                let subject_relation = match RelationName::new(subject_relation_string.clone()) {
                     Ok(value) => value,
                     Err(_) => {
                         return Err(PgRelationshipRowError::SubjectRelation(

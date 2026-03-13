@@ -1,10 +1,10 @@
 use serde::{Deserialize, Serialize};
 
-use super::{AggregateRef, RelationNameOwned, RelationshipSubject};
+use super::{AggregateRef, RelationName, RelationshipSubject};
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct Relationship {
     pub aggregate: AggregateRef,
-    pub relation: RelationNameOwned,
+    pub relation: RelationName,
     pub subject: RelationshipSubject,
 }
