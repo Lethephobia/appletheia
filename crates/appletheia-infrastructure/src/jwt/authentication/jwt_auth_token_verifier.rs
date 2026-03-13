@@ -1,4 +1,6 @@
-use appletheia_application::{AuthToken, AuthTokenClaims, AuthTokenVerifier, AuthTokenVerifyError};
+use appletheia_application::{
+    AuthToken, AuthTokenClaims, AuthTokenVerifier, AuthTokenVerifierError,
+};
 use jsonwebtoken::{Algorithm, DecodingKey, Validation, decode, decode_header};
 
 use super::jwt_auth_token_claims::JwtAuthTokenClaims;
@@ -43,34 +45,34 @@ impl JwtAuthTokenVerifier {
 }
 
 impl AuthTokenVerifier for JwtAuthTokenVerifier {
-    async fn verify(&self, token: &AuthToken) -> Result<AuthTokenClaims, AuthTokenVerifyError> {
+    async fn verify(&self, token: &AuthToken) -> Result<AuthTokenClaims, AuthTokenVerifierError> {
         let token_value = token.value();
 
         let header = decode_header(token_value).map_err(|e| {
-            AuthTokenVerifyError::Backend(Box::new(JwtAuthTokenVerifierError::DecodeHeader(e)))
+            AuthTokenVerifierError::Backend(Box::new(JwtAuthTokenVerifierError::DecodeHeader(e)))
         })?;
 
         let key_id = header.kid.ok_or_else(|| {
-            AuthTokenVerifyError::Backend(Box::new(JwtAuthTokenVerifierError::MissingKeyId))
+            AuthTokenVerifierError::Backend(Box::new(JwtAuthTokenVerifierError::MissingKeyId))
         })?;
 
         let jwk = self.config.jwks().find(&key_id).ok_or_else(|| {
-            AuthTokenVerifyError::Backend(Box::new(JwtAuthTokenVerifierError::UnknownKeyId))
+            AuthTokenVerifierError::Backend(Box::new(JwtAuthTokenVerifierError::UnknownKeyId))
         })?;
 
         let decoding_key = DecodingKey::from_jwk(jwk).map_err(|e| {
-            AuthTokenVerifyError::Backend(Box::new(JwtAuthTokenVerifierError::InvalidKey(e)))
+            AuthTokenVerifierError::Backend(Box::new(JwtAuthTokenVerifierError::InvalidKey(e)))
         })?;
 
         let validation = self.validation();
         let token_data = decode::<JwtAuthTokenClaims>(token_value, &decoding_key, &validation)
             .map_err(|e| {
-                AuthTokenVerifyError::Backend(Box::new(JwtAuthTokenVerifierError::Decode(e)))
+                AuthTokenVerifierError::Backend(Box::new(JwtAuthTokenVerifierError::Decode(e)))
             })?;
 
         let jwt_claims = token_data.claims;
         jwt_claims
             .try_into_auth_token_claims()
-            .map_err(|source| AuthTokenVerifyError::Backend(Box::new(source)))
+            .map_err(|source| AuthTokenVerifierError::Backend(Box::new(source)))
     }
 }

@@ -20,9 +20,6 @@ pub enum JwtAuthTokenVerifierError {
     #[error("missing required claim: {name}")]
     MissingRequiredClaim { name: &'static str },
 
-    #[error("invalid timestamp: {seconds}")]
-    InvalidTimestamp { seconds: u64 },
-
     #[error("invalid token id")]
     InvalidTokenId(#[source] uuid::Error),
 

@@ -6,7 +6,6 @@ use appletheia_application::{
     AggregateIdValue, AggregateRef, AggregateTypeOwned, AuthTokenAudience, AuthTokenAudiences,
     AuthTokenClaims, AuthTokenExpiresAt, AuthTokenId, AuthTokenIssuedAt, AuthTokenIssuerUrl,
 };
-use chrono::{DateTime, TimeZone, Utc};
 use uuid::Uuid;
 
 use super::jwt_auth_token_verifier_error::JwtAuthTokenVerifierError;
@@ -52,10 +51,11 @@ impl JwtAuthTokenClaims {
 
         let subject = Self::parse_subject(&self.subject_type, &self.subject)?;
 
-        let issued_at = Self::timestamp_to_datetime(self.issued_at).map(AuthTokenIssuedAt::from)?;
+        let issued_at = AuthTokenIssuedAt::from_unix_timestamp_seconds(self.issued_at)
+            .map_err(|e| JwtAuthTokenVerifierError::InvalidClaimValue(Box::new(e)))?;
 
-        let expires_at =
-            Self::timestamp_to_datetime(self.expires_at).map(AuthTokenExpiresAt::from)?;
+        let expires_at = AuthTokenExpiresAt::from_unix_timestamp_seconds(self.expires_at)
+            .map_err(|e| JwtAuthTokenVerifierError::InvalidClaimValue(Box::new(e)))?;
 
         let token_uuid =
             Uuid::try_parse(&self.token_id).map_err(JwtAuthTokenVerifierError::InvalidTokenId)?;
@@ -98,14 +98,6 @@ impl JwtAuthTokenClaims {
 
         AuthTokenAudiences::new(primary, additional)
             .map_err(|e| JwtAuthTokenVerifierError::InvalidClaimValue(Box::new(e)))
-    }
-
-    fn timestamp_to_datetime(seconds: u64) -> Result<DateTime<Utc>, JwtAuthTokenVerifierError> {
-        let seconds_i64 = i64::try_from(seconds)
-            .map_err(|_| JwtAuthTokenVerifierError::InvalidTimestamp { seconds })?;
-        Utc.timestamp_opt(seconds_i64, 0)
-            .single()
-            .ok_or(JwtAuthTokenVerifierError::InvalidTimestamp { seconds })
     }
 }
 
