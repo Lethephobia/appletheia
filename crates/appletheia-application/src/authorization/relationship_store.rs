@@ -2,7 +2,7 @@ use crate::event::AggregateTypeOwned;
 use crate::unit_of_work::UnitOfWork;
 
 use super::RelationshipStoreError;
-use super::{AggregateRef, RelationName, RelationshipChange, RelationshipSubject};
+use super::{AggregateRef, RelationNameOwned, RelationshipChange, RelationshipSubject};
 
 #[allow(async_fn_in_trait)]
 pub trait RelationshipStore: Send + Sync {
@@ -19,13 +19,13 @@ pub trait RelationshipStore: Send + Sync {
         uow: &mut Self::Uow,
         subject: &RelationshipSubject,
         aggregate_type: &AggregateTypeOwned,
-        relation: &RelationName,
+        relation: &RelationNameOwned,
     ) -> Result<Vec<AggregateRef>, RelationshipStoreError>;
 
     async fn read_subjects_by_aggregate(
         &self,
         uow: &mut Self::Uow,
         aggregate: &AggregateRef,
-        relation: &RelationName,
+        relation: &RelationNameOwned,
     ) -> Result<Vec<RelationshipSubject>, RelationshipStoreError>;
 }
