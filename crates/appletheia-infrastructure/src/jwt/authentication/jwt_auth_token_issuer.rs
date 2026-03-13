@@ -1,8 +1,7 @@
 use appletheia_application::{
-    AuthToken, AuthTokenClaims, AuthTokenExpiresAt, AuthTokenId, AuthTokenIssueError,
-    AuthTokenIssueRequest, AuthTokenIssueResult, AuthTokenIssuedAt, AuthTokenIssuer,
+    AuthToken, AuthTokenClaims, AuthTokenExpiresAt, AuthTokenId, AuthTokenIssueRequest,
+    AuthTokenIssueResult, AuthTokenIssuedAt, AuthTokenIssuer, AuthTokenIssuerError,
 };
-use chrono::{DateTime, Utc};
 use jsonwebtoken::{Header, encode};
 
 use super::jwt_auth_token_claims::JwtAuthTokenClaims;
@@ -18,27 +17,19 @@ impl JwtAuthTokenIssuer {
     pub fn new(config: JwtAuthTokenIssuerConfig) -> Self {
         Self { config }
     }
-
-    fn to_timestamp_seconds(timestamp: DateTime<Utc>) -> Result<u64, JwtAuthTokenIssuerError> {
-        let seconds = timestamp.timestamp();
-        if seconds < 0 {
-            return Err(JwtAuthTokenIssuerError::Timestamp);
-        }
-        Ok(seconds as u64)
-    }
 }
 
 impl AuthTokenIssuer for JwtAuthTokenIssuer {
     async fn issue(
         &self,
         request: AuthTokenIssueRequest,
-    ) -> Result<AuthTokenIssueResult, AuthTokenIssueError> {
+    ) -> Result<AuthTokenIssueResult, AuthTokenIssuerError> {
         let encoding_key = self
             .config
             .signing_key()
             .try_into_encoding_key()
             .map_err(|e| {
-                AuthTokenIssueError::Backend(Box::new(JwtAuthTokenIssuerError::SigningKey(e)))
+                AuthTokenIssuerError::Backend(Box::new(JwtAuthTokenIssuerError::SigningKey(e)))
             })?;
         let algorithm = self.config.signing_key().algorithm();
 
@@ -67,10 +58,12 @@ impl AuthTokenIssuer for JwtAuthTokenIssuer {
                 .collect(),
             subject: request.subject().aggregate_id.to_string(),
             subject_type: request.subject().aggregate_type.to_string(),
-            issued_at: Self::to_timestamp_seconds(issued_at.value())
-                .map_err(|e| AuthTokenIssueError::Backend(Box::new(e)))?,
-            expires_at: Self::to_timestamp_seconds(expires_at.value())
-                .map_err(|e| AuthTokenIssueError::Backend(Box::new(e)))?,
+            issued_at: issued_at
+                .to_unix_timestamp_seconds()
+                .map_err(|e| AuthTokenIssuerError::Backend(Box::new(e)))?,
+            expires_at: expires_at
+                .to_unix_timestamp_seconds()
+                .map_err(|e| AuthTokenIssuerError::Backend(Box::new(e)))?,
             token_id: token_id.to_string(),
         };
 
@@ -78,7 +71,7 @@ impl AuthTokenIssuer for JwtAuthTokenIssuer {
         header.kid = Some(self.config.signing_key().key_id().value().to_owned());
 
         let token_value = encode(&header, &jwt_claims, &encoding_key).map_err(|source| {
-            AuthTokenIssueError::Backend(Box::new(JwtAuthTokenIssuerError::Encode(source)))
+            AuthTokenIssuerError::Backend(Box::new(JwtAuthTokenIssuerError::Encode(source)))
         })?;
 
         let token = AuthToken::new(token_value);
