@@ -1,8 +1,8 @@
-use super::{AggregateRef, RelationNameOwned};
+use super::{AggregateRef, RelationName};
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct RelationshipMemoKey {
     pub subject: AggregateRef,
     pub aggregate: AggregateRef,
-    pub relation: RelationNameOwned,
+    pub relation: RelationName,
 }

@@ -149,9 +149,8 @@ mod tests {
 
     use crate::authorization::{
         AggregateRef, AuthorizationModel, AuthorizationPlan, AuthorizationTypeDefinition,
-        Authorizer, DefaultAuthorizer, PrincipalRequirement, RelationName, RelationNameOwned,
-        RelationshipRequirement, RelationshipResolverConfig, RelationshipStore,
-        RelationshipSubject, UsersetExpr,
+        Authorizer, DefaultAuthorizer, PrincipalRequirement, RelationName, RelationshipRequirement,
+        RelationshipResolverConfig, RelationshipStore, RelationshipSubject, UsersetExpr,
     };
     use crate::projection::ProjectorDependencies;
 
@@ -181,7 +180,7 @@ mod tests {
 
     #[derive(Clone, Default)]
     struct TestStore {
-        map: HashMap<(AggregateRef, RelationNameOwned), Vec<RelationshipSubject>>,
+        map: HashMap<(AggregateRef, RelationName), Vec<RelationshipSubject>>,
     }
 
     impl RelationshipStore for TestStore {
@@ -200,7 +199,7 @@ mod tests {
             _uow: &mut TestUow,
             _subject: &RelationshipSubject,
             _aggregate_type: &AggregateTypeOwned,
-            _relation: &RelationNameOwned,
+            _relation: &RelationName,
         ) -> Result<Vec<AggregateRef>, RelationshipStoreError> {
             Ok(Vec::new())
         }
@@ -209,7 +208,7 @@ mod tests {
             &self,
             _uow: &mut TestUow,
             aggregate: &AggregateRef,
-            relation: &RelationNameOwned,
+            relation: &RelationName,
         ) -> Result<Vec<RelationshipSubject>, RelationshipStoreError> {
             Ok(self
                 .map
@@ -244,12 +243,8 @@ mod tests {
         }
     }
 
-    fn relation(value: &'static str) -> RelationName {
-        RelationName::new(value)
-    }
-
-    fn relation_owned(value: &str) -> RelationNameOwned {
-        RelationNameOwned::try_from(value).expect("valid relation")
+    fn relation(value: &str) -> RelationName {
+        value.parse().unwrap()
     }
 
     #[tokio::test]
@@ -259,7 +254,7 @@ mod tests {
 
         let mut store = TestStore::default();
         store.map.insert(
-            (doc.clone(), relation_owned("editor")),
+            (doc.clone(), relation("editor")),
             vec![RelationshipSubject::Aggregate(user.clone())],
         );
 
