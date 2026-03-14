@@ -1,32 +1,42 @@
-use std::{error::Error, fmt::Debug, hash::Hash};
+use std::{fmt::Debug, hash::Hash};
 
 use serde::Serialize;
 
 use serde::de::DeserializeOwned;
 
-use super::AggregateId;
+use super::{AggregateId, AggregateStateError, UniqueConstraints};
 
 /// Represents the persisted state of an aggregate.
 ///
-/// Implementations expose the aggregate identifier and provide JSON
-/// conversion helpers used for serialization boundaries.
+/// Implementations expose the aggregate identifier, define their unique-key
+/// constraints, and provide JSON conversion helpers used for serialization
+/// boundaries.
 pub trait AggregateState:
-    Clone + Debug + Eq + Hash + Serialize + DeserializeOwned + Send + Sync + 'static
+    UniqueConstraints<Self::Error>
+    + Clone
+    + Debug
+    + Eq
+    + Hash
+    + Serialize
+    + DeserializeOwned
+    + Send
+    + Sync
+    + 'static
 {
     type Id: AggregateId;
-    type Error: Error + From<serde_json::Error> + Send + Sync + 'static;
+    type Error: std::error::Error + From<AggregateStateError> + Send + Sync + 'static;
 
     /// Returns the identifier of the aggregate represented by this state.
     fn id(&self) -> Self::Id;
 
     /// Deserializes the state from a JSON value.
     fn try_from_json_value(value: serde_json::Value) -> Result<Self, Self::Error> {
-        serde_json::from_value(value).map_err(serde_json::Error::into)
+        Ok(serde_json::from_value(value).map_err(AggregateStateError::from)?)
     }
 
     /// Serializes the state into a JSON value.
     fn into_json_value(self) -> Result<serde_json::Value, Self::Error> {
-        serde_json::to_value(self).map_err(serde_json::Error::into)
+        Ok(serde_json::to_value(self).map_err(AggregateStateError::from)?)
     }
 }
 
@@ -38,7 +48,9 @@ mod tests {
     use uuid::Uuid;
 
     use super::AggregateState;
-    use crate::aggregate::AggregateId;
+    use crate::aggregate::{
+        AggregateId, AggregateStateError, UniqueConstraints, UniqueValuesError,
+    };
 
     #[derive(Debug, Error, Eq, PartialEq)]
     enum CounterIdError {
@@ -60,7 +72,10 @@ mod tests {
     #[derive(Debug, Error)]
     enum CounterStateError {
         #[error(transparent)]
-        Serde(#[from] serde_json::Error),
+        AggregateState(#[from] AggregateStateError),
+
+        #[error(transparent)]
+        UniqueValues(#[from] UniqueValuesError),
     }
 
     #[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
@@ -68,6 +83,8 @@ mod tests {
         id: CounterId,
         count: i32,
     }
+
+    impl UniqueConstraints<CounterStateError> for CounterState {}
 
     impl AggregateState for CounterState {
         type Id = CounterId;
@@ -112,7 +129,7 @@ mod tests {
 
         let error = CounterState::try_from_json_value(value).expect_err("invalid json should fail");
 
-        assert!(matches!(error, CounterStateError::Serde(_)));
+        assert!(matches!(error, CounterStateError::AggregateState(_)));
     }
 
     #[test]
@@ -124,5 +141,17 @@ mod tests {
 
         assert_eq!(value["id"], serde_json::json!(id.value()));
         assert_eq!(value["count"], serde_json::json!(8));
+    }
+
+    #[test]
+    fn unique_keys_defaults_to_empty() {
+        let state = CounterState {
+            id: CounterId::try_from_uuid(Uuid::now_v7()).expect("valid uuid should be accepted"),
+            count: 1,
+        };
+
+        let unique_keys = state.unique_entries().expect("unique entries should build");
+
+        assert!(unique_keys.is_empty());
     }
 }

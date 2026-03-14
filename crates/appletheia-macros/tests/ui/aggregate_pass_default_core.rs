@@ -8,7 +8,7 @@ use uuid::Uuid;
 
 use appletheia_domain::{
     Aggregate, AggregateApply, AggregateCore, AggregateError, AggregateId, AggregateState, EventName,
-    EventPayload,
+    AggregateStateError, EventPayload, UniqueConstraints, UniqueValuesError,
 };
 use appletheia_macros::aggregate;
 
@@ -43,10 +43,21 @@ struct CounterState {
     id: CounterId,
 }
 
+#[derive(Debug, Error)]
+enum CounterStateError {
+    #[error(transparent)]
+    AggregateState(#[from] AggregateStateError),
+
+    #[error(transparent)]
+    UniqueValues(#[from] UniqueValuesError),
+}
+
+impl UniqueConstraints<CounterStateError> for CounterState {}
+
 impl AggregateState for CounterState {
     type Id = CounterId;
-    type Error = serde_json::Error;
-
+    type Error = CounterStateError;
+    
     fn id(&self) -> Self::Id {
         self.id
     }

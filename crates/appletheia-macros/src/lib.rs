@@ -53,6 +53,13 @@ pub fn aggregate_state(attr: TokenStream, item: TokenStream) -> TokenStream {
         .into()
 }
 
+#[proc_macro_attribute]
+pub fn unique_constraints(attr: TokenStream, item: TokenStream) -> TokenStream {
+    domain::aggregate::unique_constraints_attribute(attr, item)
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
+}
+
 #[proc_macro_derive(EventPayload, attributes(event_payload_derive))]
 pub fn event_payload_derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);

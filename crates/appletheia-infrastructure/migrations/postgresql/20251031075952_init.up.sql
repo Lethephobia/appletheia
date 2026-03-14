@@ -43,6 +43,22 @@ CREATE INDEX IF NOT EXISTS idx_snapshots_materialized_at
 
 COMMENT ON TABLE snapshots IS 'Materialized snapshots per aggregate version; latest is fetched via DESC index.';
 
+-- unique key reservations
+CREATE TABLE IF NOT EXISTS unique_key_reservations (
+  id               UUID PRIMARY KEY,
+  aggregate_type   TEXT NOT NULL,
+  owner_id         UUID NOT NULL,
+  namespace        TEXT NOT NULL,
+  normalized_value TEXT NOT NULL,
+
+  UNIQUE (aggregate_type, namespace, normalized_value)
+);
+
+CREATE INDEX IF NOT EXISTS idx_unique_key_reservations_owner
+  ON unique_key_reservations (aggregate_type, owner_id);
+
+COMMENT ON TABLE unique_key_reservations IS 'Current unique-value reservations keyed by aggregate owner.';
+
 -- event_outbox
 CREATE TABLE IF NOT EXISTS event_outbox (
   id                   UUID        PRIMARY KEY,
