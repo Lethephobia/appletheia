@@ -34,6 +34,9 @@ DROP TABLE IF EXISTS event_dead_letters;
 -- event_outbox
 DROP TABLE IF EXISTS event_outbox;
 
+-- unique key reservations
+DROP TABLE IF EXISTS unique_key_reservations;
+
 -- snapshots
 DROP TABLE IF EXISTS snapshots;
 

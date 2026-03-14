@@ -2,7 +2,9 @@
 
 use std::convert::Infallible;
 
-use appletheia_domain::{AggregateId, AggregateState};
+use appletheia_domain::{
+    AggregateId, AggregateState, AggregateStateError, UniqueConstraints, UniqueValuesError,
+};
 use appletheia_macros::{aggregate_id, aggregate_state};
 use thiserror::Error;
 use uuid::Uuid;
@@ -10,7 +12,10 @@ use uuid::Uuid;
 #[derive(Debug, Error)]
 enum CounterStateError {
     #[error(transparent)]
-    Json(#[from] serde_json::Error),
+    AggregateState(#[from] AggregateStateError),
+
+    #[error(transparent)]
+    UniqueValues(#[from] UniqueValuesError),
 }
 
 #[aggregate_id(error = Infallible)]
@@ -21,6 +26,8 @@ struct CounterState {
     aggregate_id: CounterId,
     counter: i32,
 }
+
+impl UniqueConstraints<CounterStateError> for CounterState {}
 
 fn assert_aggregate_state<T: AggregateState<Id = CounterId, Error = CounterStateError>>() {}
 

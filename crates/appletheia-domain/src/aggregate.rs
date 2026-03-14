@@ -3,20 +3,40 @@ pub mod aggregate_core;
 pub mod aggregate_error;
 pub mod aggregate_id;
 pub mod aggregate_state;
+pub mod aggregate_state_error;
 pub mod aggregate_type;
 pub mod aggregate_version;
 pub mod aggregate_version_error;
 pub mod aggregate_version_range;
+pub mod unique_constraints;
+pub mod unique_entries;
+pub mod unique_key;
+pub mod unique_value;
+pub mod unique_value_error;
+pub mod unique_value_part;
+pub mod unique_value_part_error;
+pub mod unique_values;
+pub mod unique_values_error;
 
 pub use aggregate_apply::AggregateApply;
 pub use aggregate_core::AggregateCore;
 pub use aggregate_error::AggregateError;
 pub use aggregate_id::AggregateId;
 pub use aggregate_state::AggregateState;
+pub use aggregate_state_error::AggregateStateError;
 pub use aggregate_type::AggregateType;
 pub use aggregate_version::AggregateVersion;
 pub use aggregate_version_error::AggregateVersionError;
 pub use aggregate_version_range::AggregateVersionRange;
+pub use unique_constraints::UniqueConstraints;
+pub use unique_entries::UniqueEntries;
+pub use unique_key::UniqueKey;
+pub use unique_value::UniqueValue;
+pub use unique_value_error::UniqueValueError;
+pub use unique_value_part::UniqueValuePart;
+pub use unique_value_part_error::UniqueValuePartError;
+pub use unique_values::UniqueValues;
+pub use unique_values_error::UniqueValuesError;
 
 use std::{error::Error, fmt::Debug};
 
@@ -181,13 +201,13 @@ pub trait Aggregate:
 mod tests {
     use super::*;
 
-    use appletheia_macros::{aggregate_id, aggregate_state, event_payload};
+    use appletheia_macros::{aggregate_id, aggregate_state, event_payload, unique_constraints};
     use std::{fmt, fmt::Display};
 
     use thiserror::Error;
     use uuid::Uuid;
 
-    use crate::aggregate::{AggregateError, AggregateId, AggregateVersion};
+    use crate::aggregate::{AggregateError, AggregateId, AggregateStateError, AggregateVersion};
 
     #[derive(Debug, Error)]
     enum CounterIdError {
@@ -215,10 +235,14 @@ mod tests {
     #[derive(Debug, Error)]
     enum CounterStateError {
         #[error(transparent)]
-        Json(#[from] serde_json::Error),
+        AggregateState(#[from] AggregateStateError),
+
+        #[error(transparent)]
+        UniqueValues(#[from] UniqueValuesError),
     }
 
     #[aggregate_state(error = CounterStateError)]
+    #[unique_constraints()]
     struct CounterState {
         id: CounterId,
         counter: i32,

@@ -5,11 +5,12 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use uuid::Uuid;
 
-use appletheia_macros::aggregate;
+use appletheia_macros::{aggregate, unique_constraints};
 
 use domain::{
     Aggregate, AggregateApply, AggregateCore, AggregateError, AggregateId, AggregateState,
-    AggregateType, EventName, EventPayload,
+    AggregateStateError, AggregateType, EventName, EventPayload, UniqueConstraints,
+    UniqueValuesError,
 };
 
 #[derive(Debug, Error)]
@@ -43,9 +44,13 @@ impl AggregateId for CounterId {
 #[derive(Debug, Error)]
 enum CounterStateError {
     #[error(transparent)]
-    Json(#[from] serde_json::Error),
+    AggregateState(#[from] AggregateStateError),
+
+    #[error(transparent)]
+    UniqueValues(#[from] UniqueValuesError),
 }
 
+#[unique_constraints()]
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 struct CounterState {
     id: CounterId,

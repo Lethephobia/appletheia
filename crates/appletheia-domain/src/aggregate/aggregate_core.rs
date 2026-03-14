@@ -96,7 +96,10 @@ mod tests {
     use uuid::Uuid;
 
     use super::AggregateCore;
-    use crate::aggregate::{AggregateId, AggregateVersion, AggregateVersionError};
+    use crate::aggregate::{
+        AggregateId, AggregateStateError, AggregateVersion, AggregateVersionError,
+        UniqueConstraints, UniqueValuesError,
+    };
     use crate::event::Event;
 
     #[derive(Debug, Error, Eq, PartialEq)]
@@ -119,7 +122,10 @@ mod tests {
     #[derive(Debug, Error)]
     enum CounterStateError {
         #[error(transparent)]
-        Serde(#[from] serde_json::Error),
+        AggregateState(#[from] AggregateStateError),
+
+        #[error(transparent)]
+        UniqueValues(#[from] UniqueValuesError),
     }
 
     #[aggregate_state(error = CounterStateError)]
@@ -127,6 +133,8 @@ mod tests {
         id: CounterId,
         count: i32,
     }
+
+    impl UniqueConstraints<CounterStateError> for CounterState {}
 
     #[derive(Debug, Error)]
     enum CounterEventPayloadError {

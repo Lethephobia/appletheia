@@ -89,7 +89,9 @@ mod tests {
     use uuid::Uuid;
 
     use super::{Snapshot, SnapshotId, SnapshotMaterializedAt};
-    use crate::aggregate::{AggregateId, AggregateVersion};
+    use crate::aggregate::{
+        AggregateId, AggregateStateError, AggregateVersion, UniqueConstraints, UniqueValuesError,
+    };
 
     #[derive(Debug, Error, Eq, PartialEq)]
     enum CounterIdError {
@@ -111,7 +113,10 @@ mod tests {
     #[derive(Debug, Error)]
     enum CounterStateError {
         #[error(transparent)]
-        Serde(#[from] serde_json::Error),
+        AggregateState(#[from] AggregateStateError),
+
+        #[error(transparent)]
+        UniqueValues(#[from] UniqueValuesError),
     }
 
     #[aggregate_state(error = CounterStateError)]
@@ -119,6 +124,8 @@ mod tests {
         id: CounterId,
         count: i32,
     }
+
+    impl UniqueConstraints<CounterStateError> for CounterState {}
 
     #[test]
     fn new_creates_snapshot_with_generated_id_and_timestamp() {

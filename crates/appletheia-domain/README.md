@@ -33,7 +33,7 @@ use appletheia_domain::{
     Aggregate, AggregateApply, AggregateCore, AggregateError, AggregateId, AggregateState,
     EventPayload,
 };
-use appletheia_macros::{aggregate, aggregate_id, aggregate_state, event_payload};
+use appletheia_macros::{aggregate, aggregate_id, aggregate_state, event_payload, unique_constraints};
 
 #[derive(Debug, Error)]
 enum CounterIdError {
@@ -51,6 +51,7 @@ enum CounterStateError {
 }
 
 #[aggregate_state(error = CounterStateError)]
+#[unique_constraints()]
 struct CounterState {
     id: CounterId,
     value: i32,
