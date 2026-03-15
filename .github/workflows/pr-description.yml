@@ -1,0 +1,178 @@
+name: PR Description
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  update-description:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout base branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+
+      - name: Update PR description
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require("fs");
+
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const pull_number = context.payload.pull_request.number;
+
+            const commits = await github.paginate(
+              github.rest.pulls.listCommits,
+              {
+                owner,
+                repo,
+                pull_number,
+                per_page: 100,
+              },
+            );
+
+            const files = await github.paginate(
+              github.rest.pulls.listFiles,
+              {
+                owner,
+                repo,
+                pull_number,
+                per_page: 100,
+              },
+            );
+
+            const typeHeadings = {
+              feat: "Features",
+              fix: "Fixes",
+              refactor: "Refactors",
+              perf: "Performance",
+              docs: "Documentation",
+              test: "Tests",
+              build: "Build",
+              ci: "CI",
+              chore: "Chores",
+            };
+
+            const grouped = new Map();
+            const breakingChanges = [];
+
+            for (const commit of commits) {
+              const message = commit.commit.message.trim();
+              const title = message.split("\n")[0].trim();
+              const conventional = title.match(/^([a-z]+)(?:\(([^)]+)\))?(!)?:\s+(.+)$/);
+
+              if (conventional) {
+                const [, type, scope, bang, subject] = conventional;
+                const entry = scope ? `\`${scope}\`: ${subject}` : subject;
+                const key = typeHeadings[type] ?? "Other Changes";
+
+                if (!grouped.has(key)) {
+                  grouped.set(key, []);
+                }
+                grouped.get(key).push(entry);
+
+                if (bang) {
+                  breakingChanges.push(title);
+                }
+              } else {
+                if (!grouped.has("Other Changes")) {
+                  grouped.set("Other Changes", []);
+                }
+                grouped.get("Other Changes").push(title);
+              }
+
+              const breakingFooter = message
+                .split("\n")
+                .filter((line) => line.startsWith("BREAKING CHANGE:"))
+                .map((line) => line.replace("BREAKING CHANGE:", "").trim());
+
+              for (const footer of breakingFooter) {
+                breakingChanges.push(footer);
+              }
+            }
+
+            const changedAreas = Array.from(
+              new Set(
+                files.map((file) => {
+                  const parts = file.filename.split("/");
+                  if (parts[0] === "crates" && parts.length >= 2) {
+                    return `\`${parts[1]}\``;
+                  }
+                  if (parts[0] === ".github") {
+                    return "`.github`";
+                  }
+                  if (parts[0] === "examples" && parts.length >= 2) {
+                    return `\`${parts[0]}/${parts[1]}\``;
+                  }
+                  return `\`${parts[0]}\``;
+                }),
+              ),
+            );
+
+            const additions = files.reduce((sum, file) => sum + file.additions, 0);
+            const deletions = files.reduce((sum, file) => sum + file.deletions, 0);
+
+            const sections = [];
+            sections.push(`- ${commits.length} commit(s)`);
+            sections.push(`- ${files.length} file(s) changed (+${additions} / -${deletions})`);
+            if (changedAreas.length > 0) {
+              sections.push(`- Main areas: ${changedAreas.join(", ")}`);
+            }
+
+            for (const [heading, entries] of grouped.entries()) {
+              sections.push(`\n### ${heading}`);
+              for (const entry of entries) {
+                sections.push(`- ${entry}`);
+              }
+            }
+
+            sections.push("\n### Breaking Changes");
+            if (breakingChanges.length === 0) {
+              sections.push("- None detected from commit messages.");
+            } else {
+              for (const item of breakingChanges) {
+                sections.push(`- ${item}`);
+              }
+            }
+
+            const generated = sections.join("\n");
+            const markerStart = "<!-- auto-generated:start -->";
+            const markerEnd = "<!-- auto-generated:end -->";
+            const template = fs.readFileSync(".github/pull_request_template.md", "utf8");
+            const currentBody = context.payload.pull_request.body ?? "";
+            const baseBody =
+              currentBody.includes(markerStart) && currentBody.includes(markerEnd)
+                ? currentBody
+                : template;
+
+            const escapedStart = markerStart.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+            const escapedEnd = markerEnd.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+            const markerPattern = new RegExp(`${escapedStart}[\\s\\S]*?${escapedEnd}`);
+            const nextBody = baseBody.replace(
+              markerPattern,
+              `${markerStart}\n${generated}\n${markerEnd}`,
+            );
+
+            if (nextBody === currentBody) {
+              core.info("PR description is already up to date.");
+              return;
+            }
+
+            await github.rest.pulls.update({
+              owner,
+              repo,
+              pull_number,
+              body: nextBody,
+            });
