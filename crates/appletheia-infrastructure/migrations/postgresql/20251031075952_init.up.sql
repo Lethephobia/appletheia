@@ -47,7 +47,7 @@ COMMENT ON TABLE snapshots IS 'Materialized snapshots per aggregate version; lat
 CREATE TABLE IF NOT EXISTS unique_key_reservations (
   id               UUID PRIMARY KEY,
   aggregate_type   TEXT NOT NULL,
-  owner_id         UUID NOT NULL,
+  owner_aggregate_id UUID NOT NULL,
   namespace        TEXT NOT NULL,
   normalized_value TEXT NOT NULL,
 
@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS unique_key_reservations (
 );
 
 CREATE INDEX IF NOT EXISTS idx_unique_key_reservations_owner
-  ON unique_key_reservations (aggregate_type, owner_id);
+  ON unique_key_reservations (aggregate_type, owner_aggregate_id);
 
 COMMENT ON TABLE unique_key_reservations IS 'Current unique-value reservations keyed by aggregate owner.';
 
@@ -337,3 +337,28 @@ CREATE INDEX IF NOT EXISTS idx_relationships_subject_wildcard
     aggregate_type, aggregate_id
   )
   WHERE subject_is_wildcard = true;
+
+-- auth token revocations
+CREATE TABLE IF NOT EXISTS auth_token_revocations (
+  id         UUID        PRIMARY KEY,
+  token_id   UUID        NOT NULL UNIQUE,
+  expires_at TIMESTAMPTZ NOT NULL,
+  revoked_at TIMESTAMPTZ NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_auth_token_revocations_expires_at
+  ON auth_token_revocations (expires_at);
+
+COMMENT ON TABLE auth_token_revocations IS 'Per-token revocations keyed by auth token id.';
+
+CREATE TABLE IF NOT EXISTS auth_token_revocation_cutoffs (
+  id                     UUID        PRIMARY KEY,
+  subject_aggregate_type TEXT        NOT NULL,
+  subject_aggregate_id   UUID        NOT NULL,
+  revoke_before          TIMESTAMPTZ NOT NULL,
+  updated_at             TIMESTAMPTZ NOT NULL,
+
+  UNIQUE (subject_aggregate_type, subject_aggregate_id)
+);
+
+COMMENT ON TABLE auth_token_revocation_cutoffs IS 'Subject-wide revocation cutoffs for auth tokens.';

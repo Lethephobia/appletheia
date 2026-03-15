@@ -13,7 +13,7 @@ pub trait UniqueKeyReservationStore: Send + Sync {
         &self,
         uow: &mut Self::Uow,
         aggregate_type: AggregateType,
-        owner_id: I,
+        owner_aggregate_id: I,
         unique_entries: &UniqueEntries,
     ) -> Result<(), UniqueKeyReservationStoreError>
     where

@@ -1,3 +1,9 @@
+-- auth token revocation cutoffs
+DROP TABLE IF EXISTS auth_token_revocation_cutoffs;
+
+-- auth token revocations
+DROP TABLE IF EXISTS auth_token_revocations;
+
 -- relationships (Aggregate × ReBAC)
 DROP TABLE IF EXISTS relationships;
 
