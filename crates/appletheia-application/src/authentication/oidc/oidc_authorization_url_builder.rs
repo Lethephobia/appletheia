@@ -2,8 +2,8 @@ use std::collections::BTreeMap;
 
 use super::{
     OidcAuthorizationEndpointUrl, OidcAuthorizationUrl, OidcClientId, OidcDisplay, OidcMaxAge,
-    OidcNonce, OidcPkceCodeChallenge, OidcPkceCodeChallengeMethod, OidcPrompt, OidcRedirectUri,
-    OidcResponseType, OidcScopes, OidcState,
+    OidcNonce, OidcPrompt, OidcRedirectUri, OidcResponseType, OidcScopes, OidcState,
+    PkceCodeChallenge, PkceCodeChallengeMethod,
 };
 
 #[derive(Clone, Debug)]
@@ -17,7 +17,7 @@ pub struct OidcAuthorizationUrlBuilder {
     display: Option<OidcDisplay>,
     max_age: Option<OidcMaxAge>,
     prompt: Option<OidcPrompt>,
-    pkce_code_challenge: Option<(OidcPkceCodeChallenge, OidcPkceCodeChallengeMethod)>,
+    pkce_code_challenge: Option<(PkceCodeChallenge, PkceCodeChallengeMethod)>,
     extra_authorize_params: BTreeMap<String, String>,
 }
 
@@ -62,8 +62,8 @@ impl OidcAuthorizationUrlBuilder {
 
     pub fn with_pkce(
         mut self,
-        code_challenge: OidcPkceCodeChallenge,
-        method: OidcPkceCodeChallengeMethod,
+        code_challenge: PkceCodeChallenge,
+        method: PkceCodeChallengeMethod,
     ) -> Self {
         self.pkce_code_challenge = Some((code_challenge, method));
         self
@@ -101,7 +101,7 @@ impl OidcAuthorizationUrlBuilder {
 
             if let Some((challenge, method)) = self.pkce_code_challenge {
                 pairs.append_pair("code_challenge", challenge.value());
-                pairs.append_pair("code_challenge_method", method.as_str());
+                pairs.append_pair("code_challenge_method", method.value());
             }
 
             for (key, value) in self.extra_authorize_params {

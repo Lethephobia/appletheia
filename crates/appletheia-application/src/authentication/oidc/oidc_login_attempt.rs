@@ -1,13 +1,13 @@
 use chrono::{DateTime, Utc};
 
-use super::{OidcLoginAttemptId, OidcNonce, OidcPkceCodeVerifier, OidcState};
+use super::{OidcLoginAttemptId, OidcNonce, OidcState, PkceCodeVerifier};
 
 #[derive(Clone, Debug)]
 pub struct OidcLoginAttempt {
     id: OidcLoginAttemptId,
     state: OidcState,
     nonce: OidcNonce,
-    pkce_code_verifier: Option<OidcPkceCodeVerifier>,
+    pkce_code_verifier: Option<PkceCodeVerifier>,
     created_at: DateTime<Utc>,
     expires_at: DateTime<Utc>,
     consumed_at: Option<DateTime<Utc>>,
@@ -17,7 +17,7 @@ impl OidcLoginAttempt {
     pub fn new(
         state: OidcState,
         nonce: OidcNonce,
-        pkce_code_verifier: Option<OidcPkceCodeVerifier>,
+        pkce_code_verifier: Option<PkceCodeVerifier>,
         created_at: DateTime<Utc>,
         expires_at: DateTime<Utc>,
     ) -> Self {
@@ -36,7 +36,7 @@ impl OidcLoginAttempt {
         id: OidcLoginAttemptId,
         state: OidcState,
         nonce: OidcNonce,
-        pkce_code_verifier: Option<OidcPkceCodeVerifier>,
+        pkce_code_verifier: Option<PkceCodeVerifier>,
         created_at: DateTime<Utc>,
         expires_at: DateTime<Utc>,
         consumed_at: Option<DateTime<Utc>>,
@@ -64,7 +64,7 @@ impl OidcLoginAttempt {
         &self.nonce
     }
 
-    pub fn pkce_code_verifier(&self) -> Option<&OidcPkceCodeVerifier> {
+    pub fn pkce_code_verifier(&self) -> Option<&PkceCodeVerifier> {
         self.pkce_code_verifier.as_ref()
     }
 

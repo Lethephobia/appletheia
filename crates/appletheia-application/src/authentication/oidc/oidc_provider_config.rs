@@ -1,4 +1,4 @@
-use super::{OidcClientAuth, OidcClientId, OidcIssuerUrl, OidcPkceMode, OidcRedirectUri};
+use super::{OidcClientAuth, OidcClientId, OidcIssuerUrl, OidcRedirectUri, PkceMode};
 
 #[derive(Clone, Debug)]
 pub struct OidcProviderConfig {
@@ -6,5 +6,5 @@ pub struct OidcProviderConfig {
     pub client_id: OidcClientId,
     pub redirect_uri: OidcRedirectUri,
     pub client_auth: OidcClientAuth,
-    pub pkce_mode: OidcPkceMode,
+    pub pkce_mode: PkceMode,
 }

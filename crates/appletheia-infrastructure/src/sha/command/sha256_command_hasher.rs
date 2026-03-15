@@ -2,12 +2,13 @@ use std::fmt::Write;
 
 use sha2::{Digest, Sha256};
 
-use crate::command::{Command, CommandHash, CommandHasher, CommandHasherError};
+use appletheia_application::command::{Command, CommandHash, CommandHasher, CommandHasherError};
 
+/// Hashes commands with SHA-256 over canonicalized JSON.
 #[derive(Clone, Copy, Debug, Default)]
-pub struct DefaultCommandHasher;
+pub struct Sha256CommandHasher;
 
-impl DefaultCommandHasher {
+impl Sha256CommandHasher {
     pub fn new() -> Self {
         Self
     }
@@ -43,7 +44,7 @@ impl DefaultCommandHasher {
     }
 }
 
-impl CommandHasher for DefaultCommandHasher {
+impl CommandHasher for Sha256CommandHasher {
     fn command_hash<C: Command>(&self, command: &C) -> Result<CommandHash, CommandHasherError> {
         let value = serde_json::to_value(command)?;
         let canonical = Self::canonicalize_json(value);
