@@ -19,6 +19,9 @@ pub enum OutboxError {
     #[error("cannot acquire lease for a dead-lettered outbox in lifecycle {0:?}")]
     AcquireLeaseOnDeadLettered(OutboxLifecycle),
 
+    #[error("cannot redrive a non-dead-lettered outbox in lifecycle {0:?}")]
+    RedriveOnNonDeadLettered(OutboxLifecycle),
+
     #[error("extend_lease is only valid in leased state, got {0:?}")]
     ExtendLeaseOnNonLeased(OutboxState),
 

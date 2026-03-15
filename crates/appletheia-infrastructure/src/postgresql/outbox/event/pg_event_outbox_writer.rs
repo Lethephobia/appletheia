@@ -28,44 +28,95 @@ impl PgEventOutboxWriter {
         }
     }
 
-    async fn update_outbox_row(
+    async fn upsert_outbox_rows(
         uow: &mut PgUnitOfWork,
-        outbox: &EventOutbox,
+        outboxes: &[&EventOutbox],
     ) -> Result<(), OutboxWriterError> {
-        let outbox_id = outbox.id.value();
+        if outboxes.is_empty() {
+            return Ok(());
+        }
 
-        let published_at_value = outbox.state.published_at().map(DateTime::<Utc>::from);
-        let attempt_count_value = outbox.state.attempt_count().value();
-        let next_attempt_after_value = outbox.state.next_attempt_after().map(DateTime::<Utc>::from);
-        let lease_owner_value = outbox.state.lease_owner().map(ToString::to_string);
-        let lease_until_value = outbox.state.lease_until().map(DateTime::<Utc>::from);
+        let mut query_builder = QueryBuilder::<Postgres>::new(
+            r#"
+            INSERT INTO event_outbox (
+                id,
+                event_sequence,
+                event_id,
+                aggregate_type,
+                aggregate_id,
+                aggregate_version,
+                event_name,
+                payload,
+                occurred_at,
+                correlation_id,
+                causation_id,
+                context,
+                published_at,
+                attempt_count,
+                next_attempt_after,
+                lease_owner,
+                lease_until,
+                last_error
+            ) VALUES
+            "#,
+        );
 
-        let last_error_value = Self::serialize_last_error(outbox)?;
+        {
+            let mut separated = query_builder.separated(", ");
+            for outbox in outboxes {
+                let event = &outbox.event;
+                let context_value = serde_json::to_value(&event.context)
+                    .map_err(|source| OutboxWriterError::Persistence(Box::new(source)))?;
+                let last_error_value = Self::serialize_last_error(outbox)?;
+                let next_attempt_after_value = outbox
+                    .state
+                    .next_attempt_after()
+                    .unwrap_or_default()
+                    .value();
+
+                separated
+                    .push("(")
+                    .push_bind(outbox.id.value())
+                    .push_bind(event.event_sequence.value())
+                    .push_bind(event.event_id.value())
+                    .push_bind(event.aggregate_type.value())
+                    .push_bind(event.aggregate_id.value())
+                    .push_bind(event.aggregate_version.value())
+                    .push_bind(event.event_name.value())
+                    .push_bind(event.payload.value().clone())
+                    .push_bind(DateTime::<Utc>::from(event.occurred_at))
+                    .push_bind(event.correlation_id.value())
+                    .push_bind(event.causation_id.value())
+                    .push_bind(context_value)
+                    .push_bind(outbox.state.published_at().map(DateTime::<Utc>::from))
+                    .push_bind(outbox.state.attempt_count().value())
+                    .push_bind(next_attempt_after_value)
+                    .push_bind(outbox.state.lease_owner().map(ToString::to_string))
+                    .push_bind(outbox.state.lease_until().map(DateTime::<Utc>::from))
+                    .push_bind(last_error_value)
+                    .push(")");
+            }
+        }
+
+        query_builder.push(
+            r#"
+            ON CONFLICT (id) DO UPDATE
+               SET published_at = EXCLUDED.published_at,
+                   attempt_count = EXCLUDED.attempt_count,
+                   next_attempt_after = EXCLUDED.next_attempt_after,
+                   lease_owner = EXCLUDED.lease_owner,
+                   lease_until = EXCLUDED.lease_until,
+                   last_error = EXCLUDED.last_error
+            "#,
+        );
 
         let transaction = uow.transaction_mut();
 
-        sqlx::query(
-            r#"
-            UPDATE event_outbox
-               SET published_at = $2,
-                   attempt_count = $3,
-                   next_attempt_after = COALESCE($4, next_attempt_after),
-                   lease_owner = $5,
-                   lease_until = $6,
-                   last_error = $7
-             WHERE id = $1
-            "#,
-        )
-        .bind(outbox_id)
-        .bind(published_at_value)
-        .bind(attempt_count_value)
-        .bind(next_attempt_after_value)
-        .bind(lease_owner_value)
-        .bind(lease_until_value)
-        .bind(last_error_value)
-        .execute(transaction.as_mut())
-        .await
-        .map_err(|source| OutboxWriterError::Persistence(Box::new(source)))?;
+        query_builder
+            .build()
+            .execute(transaction.as_mut())
+            .await
+            .map_err(|source| OutboxWriterError::Persistence(Box::new(source)))?;
 
         Ok(())
     }
@@ -104,59 +155,36 @@ impl PgEventOutboxWriter {
             let mut separated = query_builder.separated(", ");
             for outbox in dead_lettered_outboxes {
                 let outbox_id = outbox.id.value();
-
                 let event = &outbox.event;
-                let event_sequence_value = event.event_sequence.value();
-                let event_id_value = event.event_id.value();
-                let aggregate_type_value = event.aggregate_type.value();
-                let aggregate_id_value = event.aggregate_id.value();
-                let aggregate_version_value = event.aggregate_version.value();
-                let event_name_value = event.event_name.value();
-                let payload_value = event.payload.value().clone();
-                let occurred_at_value: DateTime<Utc> = event.occurred_at.into();
-                let correlation_id_value = event.correlation_id.value();
-                let causation_id_value = event.causation_id.value();
                 let context_value = serde_json::to_value(&event.context)
                     .map_err(|source| OutboxWriterError::Persistence(Box::new(source)))?;
-
-                let published_at_value = outbox.state.published_at().map(DateTime::<Utc>::from);
-                let attempt_count_value = outbox.state.attempt_count().value();
-                let next_attempt_after_value =
-                    outbox.state.next_attempt_after().map(DateTime::<Utc>::from);
-                let lease_owner_value = outbox.state.lease_owner().map(ToString::to_string);
-                let lease_until_value = outbox.state.lease_until().map(DateTime::<Utc>::from);
-
                 let last_error_value = Self::serialize_last_error(outbox)?;
-
                 let dead_lettered_at_value = match outbox.lifecycle {
                     OutboxLifecycle::DeadLettered { dead_lettered_at } => {
                         DateTime::<Utc>::from(dead_lettered_at)
                     }
-                    OutboxLifecycle::Active => {
-                        // This should not happen for dead-letter insertion.
-                        Utc::now()
-                    }
+                    OutboxLifecycle::Active => Utc::now(),
                 };
 
                 separated
                     .push("(")
                     .push_bind(outbox_id)
-                    .push_bind(event_sequence_value)
-                    .push_bind(event_id_value)
-                    .push_bind(aggregate_type_value)
-                    .push_bind(aggregate_id_value)
-                    .push_bind(aggregate_version_value)
-                    .push_bind(event_name_value)
-                    .push_bind(payload_value)
-                    .push_bind(occurred_at_value)
-                    .push_bind(correlation_id_value)
-                    .push_bind(causation_id_value)
+                    .push_bind(event.event_sequence.value())
+                    .push_bind(event.event_id.value())
+                    .push_bind(event.aggregate_type.value())
+                    .push_bind(event.aggregate_id.value())
+                    .push_bind(event.aggregate_version.value())
+                    .push_bind(event.event_name.value())
+                    .push_bind(event.payload.value().clone())
+                    .push_bind(DateTime::<Utc>::from(event.occurred_at))
+                    .push_bind(event.correlation_id.value())
+                    .push_bind(event.causation_id.value())
                     .push_bind(context_value)
-                    .push_bind(published_at_value)
-                    .push_bind(attempt_count_value)
-                    .push_bind(next_attempt_after_value)
-                    .push_bind(lease_owner_value)
-                    .push_bind(lease_until_value)
+                    .push_bind(outbox.state.published_at().map(DateTime::<Utc>::from))
+                    .push_bind(outbox.state.attempt_count().value())
+                    .push_bind(outbox.state.next_attempt_after().map(DateTime::<Utc>::from))
+                    .push_bind(outbox.state.lease_owner().map(ToString::to_string))
+                    .push_bind(outbox.state.lease_until().map(DateTime::<Utc>::from))
                     .push_bind(last_error_value)
                     .push_bind(dead_lettered_at_value)
                     .push(")");
@@ -184,8 +212,42 @@ impl PgEventOutboxWriter {
         {
             let mut separated = query_builder.separated(", ");
             for outbox in dead_lettered_outboxes {
-                let outbox_id = outbox.id.value();
-                separated.push_bind(outbox_id);
+                separated.push_bind(outbox.id.value());
+            }
+        }
+
+        query_builder.push(")");
+
+        let transaction = uow.transaction_mut();
+
+        query_builder
+            .build()
+            .execute(transaction.as_mut())
+            .await
+            .map_err(|source| OutboxWriterError::Persistence(Box::new(source)))?;
+
+        Ok(())
+    }
+
+    async fn delete_dead_letters(
+        uow: &mut PgUnitOfWork,
+        active_outboxes: &[&EventOutbox],
+    ) -> Result<(), OutboxWriterError> {
+        if active_outboxes.is_empty() {
+            return Ok(());
+        }
+
+        let mut query_builder = QueryBuilder::<Postgres>::new(
+            r#"
+            DELETE FROM event_dead_letters
+             WHERE event_outbox_id IN (
+            "#,
+        );
+
+        {
+            let mut separated = query_builder.separated(", ");
+            for outbox in active_outboxes {
+                separated.push_bind(outbox.id.value());
             }
         }
 
@@ -222,16 +284,18 @@ impl OutboxWriter for PgEventOutboxWriter {
             return Ok(());
         }
 
+        let mut active_outboxes: Vec<&EventOutbox> = Vec::new();
         let mut dead_lettered_outboxes: Vec<&EventOutbox> = Vec::new();
         for outbox in outboxes {
             if matches!(outbox.lifecycle, OutboxLifecycle::DeadLettered { .. }) {
                 dead_lettered_outboxes.push(outbox);
+            } else {
+                active_outboxes.push(outbox);
             }
         }
 
-        for outbox in outboxes {
-            Self::update_outbox_row(uow, outbox).await?;
-        }
+        Self::upsert_outbox_rows(uow, &active_outboxes).await?;
+        Self::delete_dead_letters(uow, &active_outboxes).await?;
 
         if !dead_lettered_outboxes.is_empty() {
             Self::insert_dead_letters(uow, &dead_lettered_outboxes).await?;

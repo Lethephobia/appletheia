@@ -117,6 +117,22 @@ pub trait Outbox {
         Ok(())
     }
 
+    fn redrive(&mut self) -> Result<(), OutboxError> {
+        match self.lifecycle() {
+            OutboxLifecycle::DeadLettered { .. } => {}
+            other => return Err(OutboxError::RedriveOnNonDeadLettered(other.clone())),
+        }
+
+        *self.state_mut() = OutboxState::Pending {
+            attempt_count: OutboxAttemptCount::default(),
+            next_attempt_after: OutboxNextAttemptAt::now(),
+        };
+        *self.last_error_mut() = None;
+        *self.lifecycle_mut() = OutboxLifecycle::Active;
+
+        Ok(())
+    }
+
     fn nack(
         &mut self,
         cause: &PublishDispatchError,
