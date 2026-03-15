@@ -37,6 +37,11 @@ impl UniqueValues {
         self.0.len()
     }
 
+    /// Returns whether the collection contains no values.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
     /// Returns the first contained value.
     pub fn first(&self) -> Option<&UniqueValue> {
         self.0.first()
