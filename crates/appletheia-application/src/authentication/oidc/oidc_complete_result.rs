@@ -1,12 +1,7 @@
-use super::{
-    OidcAccessToken, OidcIdToken, OidcIdTokenClaims, OidcRefreshToken, OidcTokenExpiresIn,
-};
+use super::{OidcIdTokenClaims, OidcTokens};
 
 #[derive(Clone, Debug)]
 pub struct OidcCompleteResult {
-    pub id_token: OidcIdToken,
+    pub tokens: OidcTokens,
     pub id_token_claims: OidcIdTokenClaims,
-    pub access_token: Option<OidcAccessToken>,
-    pub refresh_token: Option<OidcRefreshToken>,
-    pub expires_in: Option<OidcTokenExpiresIn>,
 }

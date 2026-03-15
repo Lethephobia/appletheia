@@ -1,3 +1,6 @@
+-- auth token exchange codes
+DROP TABLE IF EXISTS auth_token_exchange_codes;
+
 -- auth token revocation cutoffs
 DROP TABLE IF EXISTS auth_token_revocation_cutoffs;
 

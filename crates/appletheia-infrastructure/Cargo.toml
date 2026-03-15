@@ -37,6 +37,7 @@ httpdate = "1.0.3"
 url = "2.5.7"
 base64 = "0.22.1"
 sha2 = "0.10.9"
+aes-gcm = { version = "0.10.3", features = ["std"] }
 
 [dev-dependencies]
 tokio = { version = "1.48.0", features = ["rt", "macros"] }

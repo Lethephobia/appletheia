@@ -1,7 +1,8 @@
 use thiserror::Error;
 
+/// Errors that can occur when parsing a `PkceCodeVerifier`.
 #[derive(Clone, Debug, Eq, PartialEq, Error)]
-pub enum OidcPkceCodeVerifierError {
+pub enum PkceCodeVerifierError {
     #[error("code_verifier is too short: length={length} (min={min})")]
     TooShort { length: usize, min: usize },
 

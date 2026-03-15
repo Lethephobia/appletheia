@@ -362,3 +362,31 @@ CREATE TABLE IF NOT EXISTS auth_token_revocation_cutoffs (
 );
 
 COMMENT ON TABLE auth_token_revocation_cutoffs IS 'Subject-wide revocation cutoffs for auth tokens.';
+
+CREATE TABLE IF NOT EXISTS auth_token_exchange_codes (
+  id                    UUID        PRIMARY KEY,
+  code_hash             TEXT        NOT NULL UNIQUE,
+  code_challenge_method TEXT,
+  code_challenge        TEXT,
+  encrypted_grant       BYTEA       NOT NULL,
+  created_at            TIMESTAMPTZ NOT NULL,
+  expires_at            TIMESTAMPTZ NOT NULL,
+  consumed_at           TIMESTAMPTZ,
+  CONSTRAINT auth_token_exchange_codes_protection_check CHECK (
+    (
+      code_challenge_method IS NULL
+      AND code_challenge IS NULL
+    )
+    OR
+    (
+      code_challenge_method IS NOT NULL
+      AND code_challenge IS NOT NULL
+    )
+  ),
+  CONSTRAINT auth_token_exchange_codes_expires_check CHECK (expires_at >= created_at)
+);
+
+CREATE INDEX IF NOT EXISTS idx_auth_token_exchange_codes_expires_at
+  ON auth_token_exchange_codes (expires_at);
+
+COMMENT ON TABLE auth_token_exchange_codes IS 'Encrypted one-time exchange codes for issuing auth tokens.';

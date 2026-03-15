@@ -1,42 +1,36 @@
 use chrono::Utc;
 
-use crate::unit_of_work::{UnitOfWork, UnitOfWorkFactory};
-
 use super::{
     OidcAuthorizationUrl, OidcAuthorizationUrlBuilder, OidcBeginOptions, OidcCallbackParams,
     OidcCompleteResult, OidcIdTokenVerifier, OidcIdTokenVerifyContext, OidcLoginAttempt,
     OidcLoginAttemptStore, OidcLoginFlow, OidcLoginFlowConfig, OidcLoginFlowError, OidcNonce,
-    OidcPkceCodeVerifier, OidcPkceMode, OidcProviderMetadataSource, OidcScopes, OidcState,
-    OidcTokenClient, OidcTokenGrant, OidcTokenRequest, OidcTokenResponse,
+    OidcProviderMetadataSource, OidcScopes, OidcState, OidcTokenClient, OidcTokenGrant,
+    OidcTokenRequest, OidcTokenResponse, OidcTokens, PkceCodeVerifier, PkceMode,
 };
 
-pub struct DefaultOidcLoginFlow<U, LAS, PMS, TC, ITV>
+pub struct DefaultOidcLoginFlow<LAS, PMS, TC, ITV>
 where
-    U: UnitOfWorkFactory,
-    LAS: OidcLoginAttemptStore<Uow = U::Uow>,
+    LAS: OidcLoginAttemptStore,
     PMS: OidcProviderMetadataSource,
     TC: OidcTokenClient,
     ITV: OidcIdTokenVerifier,
 {
     login_flow_config: OidcLoginFlowConfig,
-    unit_of_work_factory: U,
     login_attempt_store: LAS,
     provider_metadata_source: PMS,
     token_client: TC,
     id_token_verifier: ITV,
 }
 
-impl<U, LAS, PMS, TC, ITV> DefaultOidcLoginFlow<U, LAS, PMS, TC, ITV>
+impl<LAS, PMS, TC, ITV> DefaultOidcLoginFlow<LAS, PMS, TC, ITV>
 where
-    U: UnitOfWorkFactory,
-    LAS: OidcLoginAttemptStore<Uow = U::Uow>,
+    LAS: OidcLoginAttemptStore,
     PMS: OidcProviderMetadataSource,
     TC: OidcTokenClient,
     ITV: OidcIdTokenVerifier,
 {
     pub fn new(
         login_flow_config: OidcLoginFlowConfig,
-        unit_of_work_factory: U,
         login_attempt_store: LAS,
         provider_metadata_source: PMS,
         token_client: TC,
@@ -44,7 +38,6 @@ where
     ) -> Self {
         Self {
             login_flow_config,
-            unit_of_work_factory,
             login_attempt_store,
             provider_metadata_source,
             token_client,
@@ -53,16 +46,18 @@ where
     }
 }
 
-impl<U, LAS, PMS, TC, ITV> OidcLoginFlow for DefaultOidcLoginFlow<U, LAS, PMS, TC, ITV>
+impl<LAS, PMS, TC, ITV> OidcLoginFlow for DefaultOidcLoginFlow<LAS, PMS, TC, ITV>
 where
-    U: UnitOfWorkFactory,
-    LAS: OidcLoginAttemptStore<Uow = U::Uow>,
+    LAS: OidcLoginAttemptStore,
     PMS: OidcProviderMetadataSource,
     TC: OidcTokenClient,
     ITV: OidcIdTokenVerifier,
 {
+    type Uow = LAS::Uow;
+
     async fn begin(
         &self,
+        uow: &mut Self::Uow,
         mut options: OidcBeginOptions,
     ) -> Result<OidcAuthorizationUrl, OidcLoginFlowError> {
         options.scopes = OidcScopes::new(options.scopes.values().to_vec());
@@ -79,11 +74,11 @@ where
 
         let (pkce_code_verifier, pkce_code_challenge) =
             match self.login_flow_config.provider_config.pkce_mode {
-                OidcPkceMode::Disabled => (None, None),
-                OidcPkceMode::Enabled {
+                PkceMode::Disabled => (None, None),
+                PkceMode::Enabled {
                     code_challenge_method,
                 } => {
-                    let verifier = OidcPkceCodeVerifier::new();
+                    let verifier = PkceCodeVerifier::new();
                     let challenge = verifier.to_code_challenge(code_challenge_method);
                     (Some(verifier), Some((challenge, code_challenge_method)))
                 }
@@ -131,38 +126,21 @@ where
 
         let attempt = OidcLoginAttempt::new(state, nonce, pkce_code_verifier, now, expires_at);
 
-        let mut uow = self.unit_of_work_factory.begin().await?;
-        match self.login_attempt_store.save(&mut uow, &attempt).await {
-            Ok(()) => uow.commit().await?,
-            Err(error) => {
-                let error = OidcLoginFlowError::from(error);
-                return Err(uow.rollback_with_operation_error(error).await?);
-            }
-        }
+        self.login_attempt_store.save(uow, &attempt).await?;
 
         Ok(authorization_url)
     }
 
     async fn complete(
         &self,
+        uow: &mut Self::Uow,
         callback_params: OidcCallbackParams,
     ) -> Result<OidcCompleteResult, OidcLoginFlowError> {
         let state = callback_params.state.clone();
-        let mut uow = self.unit_of_work_factory.begin().await?;
-        let attempt = match self
+        let attempt = self
             .login_attempt_store
-            .consume_by_state(&mut uow, &state)
-            .await
-        {
-            Ok(attempt) => {
-                uow.commit().await?;
-                attempt
-            }
-            Err(error) => {
-                let error = OidcLoginFlowError::from(error);
-                return Err(uow.rollback_with_operation_error(error).await?);
-            }
-        };
+            .consume_by_state(uow, &state)
+            .await?;
 
         let issuer_url = &self.login_flow_config.provider_config.issuer_url;
         let provider_metadata = self
@@ -205,11 +183,8 @@ where
             .await?;
 
         Ok(OidcCompleteResult {
-            id_token,
+            tokens: OidcTokens::new(id_token, access_token, refresh_token, expires_in),
             id_token_claims,
-            access_token,
-            refresh_token,
-            expires_in,
         })
     }
 }

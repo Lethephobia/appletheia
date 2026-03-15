@@ -1,5 +1,5 @@
 use super::{
-    OidcAuthorizationCode, OidcPkceCodeVerifier, OidcRedirectUri, OidcRefreshToken, OidcScopes,
+    OidcAuthorizationCode, OidcRedirectUri, OidcRefreshToken, OidcScopes, PkceCodeVerifier,
 };
 
 #[derive(Clone, Debug)]
@@ -7,7 +7,7 @@ pub enum OidcTokenGrant {
     AuthorizationCode {
         authorization_code: OidcAuthorizationCode,
         redirect_uri: OidcRedirectUri,
-        pkce_code_verifier: Option<OidcPkceCodeVerifier>,
+        pkce_code_verifier: Option<PkceCodeVerifier>,
     },
     RefreshToken {
         refresh_token: OidcRefreshToken,

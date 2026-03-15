@@ -1,5 +1,5 @@
 use appletheia_application::authentication::oidc::{
-    OidcLoginAttempt, OidcLoginAttemptId, OidcNonce, OidcPkceCodeVerifier, OidcState,
+    OidcLoginAttempt, OidcLoginAttemptId, OidcNonce, OidcState, PkceCodeVerifier,
 };
 use chrono::{DateTime, Utc};
 use sqlx::FromRow;
@@ -33,7 +33,7 @@ impl PgOidcLoginAttemptRow {
         let pkce_code_verifier = match self.pkce_code_verifier {
             None => None,
             Some(value) => Some(
-                OidcPkceCodeVerifier::try_from(value)
+                PkceCodeVerifier::try_from(value)
                     .map_err(|_| PgOidcLoginAttemptRowError::InvalidPkceCodeVerifier)?,
             ),
         };

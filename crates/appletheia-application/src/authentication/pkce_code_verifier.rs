@@ -6,12 +6,14 @@ use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
-use super::{OidcPkceCodeChallenge, OidcPkceCodeChallengeMethod, OidcPkceCodeVerifierError};
+use super::{PkceCodeChallenge, PkceCodeChallengeMethod, PkceCodeVerifierError};
 
+/// Represents a PKCE code verifier.
 #[derive(Clone, PartialEq, Eq)]
-pub struct OidcPkceCodeVerifier(String);
+pub struct PkceCodeVerifier(String);
 
-impl OidcPkceCodeVerifier {
+impl PkceCodeVerifier {
+    /// Generates a new verifier.
     pub fn new() -> Self {
         let mut bytes = [0u8; 32];
         bytes[..16].copy_from_slice(Uuid::new_v4().as_bytes());
@@ -20,34 +22,36 @@ impl OidcPkceCodeVerifier {
         Self(encoded)
     }
 
+    /// Returns the raw verifier value.
     pub fn value(&self) -> &str {
         &self.0
     }
 
-    pub fn to_code_challenge(&self, method: OidcPkceCodeChallengeMethod) -> OidcPkceCodeChallenge {
+    /// Derives the challenge for the configured method.
+    pub fn to_code_challenge(&self, method: PkceCodeChallengeMethod) -> PkceCodeChallenge {
         match method {
-            OidcPkceCodeChallengeMethod::Plain => OidcPkceCodeChallenge::new(self.0.clone()),
-            OidcPkceCodeChallengeMethod::S256 => {
+            PkceCodeChallengeMethod::Plain => PkceCodeChallenge::new(self.0.clone()),
+            PkceCodeChallengeMethod::S256 => {
                 let digest = Sha256::digest(self.0.as_bytes());
                 let encoded = URL_SAFE_NO_PAD.encode(digest);
-                OidcPkceCodeChallenge::new(encoded)
+                PkceCodeChallenge::new(encoded)
             }
         }
     }
 
-    fn validate(value: &str) -> Result<(), OidcPkceCodeVerifierError> {
+    fn validate(value: &str) -> Result<(), PkceCodeVerifierError> {
         const MIN_LEN: usize = 43;
         const MAX_LEN: usize = 128;
 
         let length = value.len();
         if length < MIN_LEN {
-            return Err(OidcPkceCodeVerifierError::TooShort {
+            return Err(PkceCodeVerifierError::TooShort {
                 length,
                 min: MIN_LEN,
             });
         }
         if length > MAX_LEN {
-            return Err(OidcPkceCodeVerifierError::TooLong {
+            return Err(PkceCodeVerifierError::TooLong {
                 length,
                 max: MAX_LEN,
             });
@@ -57,7 +61,7 @@ impl OidcPkceCodeVerifier {
             let is_valid =
                 matches!(character, 'a'..='z' | 'A'..='Z' | '0'..='9' | '-' | '.' | '_' | '~');
             if !is_valid {
-                return Err(OidcPkceCodeVerifierError::InvalidCharacter {
+                return Err(PkceCodeVerifierError::InvalidCharacter {
                     character,
                     position,
                 });
@@ -68,20 +72,20 @@ impl OidcPkceCodeVerifier {
     }
 }
 
-impl Default for OidcPkceCodeVerifier {
+impl Default for PkceCodeVerifier {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl fmt::Debug for OidcPkceCodeVerifier {
+impl fmt::Debug for PkceCodeVerifier {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("OidcPkceCodeVerifier([REDACTED])")
+        f.write_str("PkceCodeVerifier([REDACTED])")
     }
 }
 
-impl FromStr for OidcPkceCodeVerifier {
-    type Err = OidcPkceCodeVerifierError;
+impl FromStr for PkceCodeVerifier {
+    type Err = PkceCodeVerifierError;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         Self::validate(value)?;
@@ -89,8 +93,8 @@ impl FromStr for OidcPkceCodeVerifier {
     }
 }
 
-impl TryFrom<String> for OidcPkceCodeVerifier {
-    type Error = OidcPkceCodeVerifierError;
+impl TryFrom<String> for PkceCodeVerifier {
+    type Error = PkceCodeVerifierError;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
         Self::validate(&value)?;
@@ -100,23 +104,24 @@ impl TryFrom<String> for OidcPkceCodeVerifier {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::str::FromStr;
+
+    use super::{PkceCodeVerifier, PkceCodeVerifierError};
 
     #[test]
     fn new_generates_valid_code_verifier() {
-        let verifier = OidcPkceCodeVerifier::new();
+        let verifier = PkceCodeVerifier::new();
         assert!(verifier.value().len() >= 43);
         assert!(verifier.value().len() <= 128);
-        OidcPkceCodeVerifier::from_str(verifier.value())
-            .expect("generated verifier should be valid");
+        PkceCodeVerifier::from_str(verifier.value()).expect("generated verifier should be valid");
     }
 
     #[test]
     fn from_str_rejects_too_short() {
         let input = "a".repeat(42);
         let error =
-            OidcPkceCodeVerifier::from_str(&input).expect_err("should reject too-short verifier");
-        assert!(matches!(error, OidcPkceCodeVerifierError::TooShort { .. }));
+            PkceCodeVerifier::from_str(&input).expect_err("should reject too-short verifier");
+        assert!(matches!(error, PkceCodeVerifierError::TooShort { .. }));
     }
 
     #[test]
@@ -124,10 +129,10 @@ mod tests {
         let mut input = "a".repeat(43);
         input.replace_range(10..11, "!");
         let error =
-            OidcPkceCodeVerifier::from_str(&input).expect_err("should reject invalid character");
+            PkceCodeVerifier::from_str(&input).expect_err("should reject invalid character");
         assert!(matches!(
             error,
-            OidcPkceCodeVerifierError::InvalidCharacter { .. }
+            PkceCodeVerifierError::InvalidCharacter { .. }
         ));
     }
 }
