@@ -1,0 +1,25 @@
+[workspace]
+release = false
+release_always = false
+pr_name = "chore(release): release crates"
+pr_labels = ["release"]
+
+[[package]]
+name = "appletheia"
+release = true
+semver_check = true
+
+[[package]]
+name = "appletheia-domain"
+release = true
+semver_check = true
+
+[[package]]
+name = "appletheia-application"
+release = true
+semver_check = true
+
+[[package]]
+name = "appletheia-infrastructure"
+release = true
+semver_check = true
