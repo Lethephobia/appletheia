@@ -426,7 +426,7 @@ mod tests {
             &self,
             _uow: &mut Self::Uow,
             aggregate_type: AggregateType,
-            owner_id: I,
+            owner_aggregate_id: I,
             unique_entries: &UniqueEntries,
         ) -> Result<(), UniqueKeyReservationStoreError>
         where
@@ -454,7 +454,7 @@ mod tests {
                 ));
             }
 
-            let _ = owner_id.value();
+            let _ = owner_aggregate_id.value();
             Ok(())
         }
     }

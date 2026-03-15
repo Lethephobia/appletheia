@@ -30,7 +30,7 @@ impl UniqueKeyReservationStore for PgUniqueKeyReservationStore {
         &self,
         uow: &mut Self::Uow,
         aggregate_type: AggregateType,
-        owner_id: I,
+        owner_aggregate_id: I,
         unique_entries: &UniqueEntries,
     ) -> Result<(), UniqueKeyReservationStoreError>
     where
@@ -43,7 +43,7 @@ impl UniqueKeyReservationStore for PgUniqueKeyReservationStore {
         }
 
         let aggregate_type_value = aggregate_type.to_string();
-        let owner_id_value = owner_id.value();
+        let owner_aggregate_id_value = owner_aggregate_id.value();
         let flattened_entries = unique_entries
             .iter()
             .flat_map(|(namespace, values)| {
@@ -59,11 +59,11 @@ impl UniqueKeyReservationStore for PgUniqueKeyReservationStore {
         sqlx::query(
             r#"
             DELETE FROM unique_key_reservations
-            WHERE aggregate_type = $1 AND owner_id = $2
+            WHERE aggregate_type = $1 AND owner_aggregate_id = $2
             "#,
         )
         .bind(&aggregate_type_value)
-        .bind(owner_id_value)
+        .bind(owner_aggregate_id_value)
         .execute(transaction.as_mut())
         .await
         .map_err(|error| UniqueKeyReservationStoreError::Persistence(Box::new(error)))?;
@@ -75,7 +75,7 @@ impl UniqueKeyReservationStore for PgUniqueKeyReservationStore {
         let mut query_builder = QueryBuilder::<Postgres>::new(
             r#"
             INSERT INTO unique_key_reservations (
-                id, aggregate_type, owner_id, namespace, normalized_value
+                id, aggregate_type, owner_aggregate_id, namespace, normalized_value
             )
             "#,
         );
@@ -83,7 +83,7 @@ impl UniqueKeyReservationStore for PgUniqueKeyReservationStore {
             builder
                 .push_bind(Uuid::now_v7())
                 .push_bind(&aggregate_type_value)
-                .push_bind(owner_id_value)
+                .push_bind(owner_aggregate_id_value)
                 .push_bind(entry.namespace.value())
                 .push_bind(&entry.normalized_value);
         });
