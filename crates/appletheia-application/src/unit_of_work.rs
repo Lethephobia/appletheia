@@ -1,11 +1,7 @@
-pub mod snapshot_interval;
-pub mod snapshot_policy;
 pub mod unit_of_work_error;
 pub mod unit_of_work_factory;
 pub mod unit_of_work_factory_error;
 
-pub use snapshot_interval::SnapshotInterval;
-pub use snapshot_policy::SnapshotPolicy;
 pub use unit_of_work_error::UnitOfWorkError;
 pub use unit_of_work_factory::UnitOfWorkFactory;
 pub use unit_of_work_factory_error::UnitOfWorkFactoryError;

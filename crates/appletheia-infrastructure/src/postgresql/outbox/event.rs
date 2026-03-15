@@ -1,3 +1,5 @@
+mod pg_event_outbox_dead_letter_row;
+mod pg_event_outbox_dead_letter_row_error;
 pub mod pg_event_outbox_fetcher;
 pub mod pg_event_outbox_row;
 pub mod pg_event_outbox_row_error;

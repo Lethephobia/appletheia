@@ -2,8 +2,8 @@ use crate::request_context::MessageId;
 use crate::unit_of_work::UnitOfWork;
 
 use super::{
-    CommandFailureReport, CommandHash, CommandName, IdempotencyBeginResult, IdempotencyError,
-    IdempotencyOutput,
+    CommandFailureReport, CommandHash, CommandName, IdempotencyBeginResult, IdempotencyOutput,
+    IdempotencyServiceError,
 };
 
 #[allow(async_fn_in_trait)]
@@ -16,19 +16,19 @@ pub trait IdempotencyService: Send + Sync {
         message_id: MessageId,
         command_name: CommandName,
         command_hash: &CommandHash,
-    ) -> Result<IdempotencyBeginResult, IdempotencyError>;
+    ) -> Result<IdempotencyBeginResult, IdempotencyServiceError>;
 
     async fn complete_success(
         &self,
         uow: &mut Self::Uow,
         message_id: MessageId,
         output: IdempotencyOutput,
-    ) -> Result<(), IdempotencyError>;
+    ) -> Result<(), IdempotencyServiceError>;
 
     async fn complete_failure(
         &self,
         uow: &mut Self::Uow,
         message_id: MessageId,
         error: CommandFailureReport,
-    ) -> Result<(), IdempotencyError>;
+    ) -> Result<(), IdempotencyServiceError>;
 }

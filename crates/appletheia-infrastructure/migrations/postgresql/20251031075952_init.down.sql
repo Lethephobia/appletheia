@@ -1,3 +1,12 @@
+-- auth token exchange codes
+DROP TABLE IF EXISTS auth_token_exchange_codes;
+
+-- auth token revocation cutoffs
+DROP TABLE IF EXISTS auth_token_revocation_cutoffs;
+
+-- auth token revocations
+DROP TABLE IF EXISTS auth_token_revocations;
+
 -- relationships (Aggregate × ReBAC)
 DROP TABLE IF EXISTS relationships;
 
@@ -33,6 +42,9 @@ DROP TABLE IF EXISTS event_dead_letters;
 
 -- event_outbox
 DROP TABLE IF EXISTS event_outbox;
+
+-- unique key reservations
+DROP TABLE IF EXISTS unique_key_reservations;
 
 -- snapshots
 DROP TABLE IF EXISTS snapshots;

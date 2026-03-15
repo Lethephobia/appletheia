@@ -1,7 +1,7 @@
-use crate::authorization::{Authorizer, RelationshipRequirement};
+use crate::authorization::{AuthorizationPlan, Authorizer, PrincipalRequirement};
 use crate::command::{
-    Command, CommandConsistency, CommandDispatchError, CommandDispatcher, CommandFailureReport,
-    CommandHandler, CommandHasher, CommandOptions, IdempotencyBeginResult, IdempotencyOutput,
+    Command, CommandConsistency, CommandDispatchResult, CommandDispatcher, CommandDispatcherError,
+    CommandFailureReport, CommandHandler, CommandHasher, CommandOptions, IdempotencyBeginResult,
     IdempotencyService, IdempotencyState,
 };
 use crate::projection::ReadYourWritesWaiter;
@@ -49,6 +49,28 @@ where
             authorizer,
         }
     }
+
+    fn authorization_dependencies(
+        authorization_plan: &AuthorizationPlan,
+    ) -> Vec<crate::projection::ProjectorNameOwned> {
+        let AuthorizationPlan::OnlyPrincipals(principal_requirements) = authorization_plan else {
+            return Vec::new();
+        };
+
+        principal_requirements
+            .iter()
+            .filter_map(|principal_requirement| match principal_requirement {
+                PrincipalRequirement::AuthenticatedWithRelationship {
+                    projector_dependencies,
+                    ..
+                } => Some(projector_dependencies.owned_names()),
+                PrincipalRequirement::System
+                | PrincipalRequirement::Anonymous
+                | PrincipalRequirement::Authenticated => None,
+            })
+            .flatten()
+            .collect()
+    }
 }
 
 impl<CH, IS, W, U, AZ> CommandDispatcher for DefaultCommandDispatcher<CH, IS, W, U, AZ>
@@ -67,15 +89,14 @@ where
         request_context: &RequestContext,
         command: H::Command,
         options: CommandOptions,
-    ) -> Result<H::Output, CommandDispatchError<H::Error>>
+    ) -> Result<CommandDispatchResult<H::Output, H::ReplayOutput>, CommandDispatcherError<H::Error>>
     where
         H: CommandHandler<Uow = Self::Uow>,
         H::Command: Command,
     {
         let command_name = H::Command::NAME;
         let authorization_plan = handler.authorization_plan(&command);
-        let requirement = authorization_plan.requirement;
-        let authorization_dependencies = authorization_plan.dependencies;
+        let authorization_dependencies = Self::authorization_dependencies(&authorization_plan);
 
         match options.consistency {
             CommandConsistency::Eventual => {}
@@ -84,16 +105,15 @@ where
                 timeout,
                 poll_interval,
             } => {
-                if !matches!(requirement, RelationshipRequirement::None) {
-                    let projectors = authorization_dependencies.owned_names();
+                if !authorization_dependencies.is_empty() {
                     self.read_your_writes_waiter
-                        .wait(after, timeout, poll_interval, &projectors)
+                        .wait(after, timeout, poll_interval, &authorization_dependencies)
                         .await?;
                 }
             }
         }
         self.authorizer
-            .authorize(&request_context.principal, &requirement)
+            .authorize(&request_context.principal, &authorization_plan)
             .await?;
 
         match options.consistency {
@@ -131,18 +151,18 @@ where
         match idempotency_begin_result {
             IdempotencyBeginResult::New => {}
             IdempotencyBeginResult::InProgress => match uow.rollback().await {
-                Ok(()) => return Err(CommandDispatchError::InProgress { message_id }),
+                Ok(()) => return Err(CommandDispatcherError::InProgress { message_id }),
                 Err(rollback_error) => return Err(rollback_error.into()),
             },
             IdempotencyBeginResult::Existing { state } => match state {
                 IdempotencyState::Succeeded { output } => {
                     let decoded = serde_json::from_value(output.into())?;
                     uow.commit().await?;
-                    return Ok(decoded);
+                    return Ok(CommandDispatchResult::Replayed(decoded));
                 }
                 IdempotencyState::Failed { error } => {
                     uow.commit().await?;
-                    return Err(CommandDispatchError::PreviousFailure(error));
+                    return Err(CommandDispatcherError::PreviousFailure(error));
                 }
             },
         }
@@ -150,11 +170,12 @@ where
         let handler_result = handler.handle(&mut uow, request_context, command).await;
 
         match handler_result {
-            Ok(output) => {
-                let output_json = serde_json::to_value(&output)?;
+            Ok(handled) => {
+                let replay_output = handled.idempotency_output()?;
+                let output = handled.into_output();
                 match self
                     .idempotency_service
-                    .complete_success(&mut uow, message_id, IdempotencyOutput::from(output_json))
+                    .complete_success(&mut uow, message_id, replay_output)
                     .await
                 {
                     Ok(()) => {}
@@ -165,13 +186,13 @@ where
                     }
                 }
                 uow.commit().await?;
-                Ok(output)
+                Ok(CommandDispatchResult::Executed(output))
             }
             Err(operation_error) => {
                 let operation_error = uow
                     .rollback_with_operation_error(operation_error)
                     .await
-                    .map_err(CommandDispatchError::UnitOfWork)?;
+                    .map_err(CommandDispatcherError::UnitOfWork)?;
 
                 let report = CommandFailureReport::from(&operation_error);
                 if let Ok(mut uow) = self.uow_factory.begin().await {
@@ -205,7 +226,7 @@ where
                         }
                     }
                 }
-                Err(CommandDispatchError::Handler(operation_error))
+                Err(CommandDispatcherError::Handler(operation_error))
             }
         }
     }

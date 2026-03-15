@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use crate::unit_of_work::SnapshotPolicy;
+use crate::snapshot::SnapshotPolicy;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RepositoryConfig {

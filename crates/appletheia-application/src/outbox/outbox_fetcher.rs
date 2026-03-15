@@ -8,7 +8,13 @@ pub trait OutboxFetcher: Send + Sync {
     type Uow: UnitOfWork;
     type Outbox: Outbox;
 
-    async fn fetch(
+    async fn fetch_pending(
+        &self,
+        uow: &mut Self::Uow,
+        limit: OutboxBatchSize,
+    ) -> Result<Vec<Self::Outbox>, OutboxFetcherError>;
+
+    async fn fetch_dead_lettered(
         &self,
         uow: &mut Self::Uow,
         limit: OutboxBatchSize,

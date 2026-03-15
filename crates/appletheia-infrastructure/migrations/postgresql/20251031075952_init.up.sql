@@ -43,6 +43,22 @@ CREATE INDEX IF NOT EXISTS idx_snapshots_materialized_at
 
 COMMENT ON TABLE snapshots IS 'Materialized snapshots per aggregate version; latest is fetched via DESC index.';
 
+-- unique key reservations
+CREATE TABLE IF NOT EXISTS unique_key_reservations (
+  id               UUID PRIMARY KEY,
+  aggregate_type   TEXT NOT NULL,
+  owner_aggregate_id UUID NOT NULL,
+  namespace        TEXT NOT NULL,
+  normalized_value TEXT NOT NULL,
+
+  UNIQUE (aggregate_type, namespace, normalized_value)
+);
+
+CREATE INDEX IF NOT EXISTS idx_unique_key_reservations_owner
+  ON unique_key_reservations (aggregate_type, owner_aggregate_id);
+
+COMMENT ON TABLE unique_key_reservations IS 'Current unique-value reservations keyed by aggregate owner.';
+
 -- event_outbox
 CREATE TABLE IF NOT EXISTS event_outbox (
   id                   UUID        PRIMARY KEY,
@@ -321,3 +337,56 @@ CREATE INDEX IF NOT EXISTS idx_relationships_subject_wildcard
     aggregate_type, aggregate_id
   )
   WHERE subject_is_wildcard = true;
+
+-- auth token revocations
+CREATE TABLE IF NOT EXISTS auth_token_revocations (
+  id         UUID        PRIMARY KEY,
+  token_id   UUID        NOT NULL UNIQUE,
+  expires_at TIMESTAMPTZ NOT NULL,
+  revoked_at TIMESTAMPTZ NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_auth_token_revocations_expires_at
+  ON auth_token_revocations (expires_at);
+
+COMMENT ON TABLE auth_token_revocations IS 'Per-token revocations keyed by auth token id.';
+
+CREATE TABLE IF NOT EXISTS auth_token_revocation_cutoffs (
+  id                     UUID        PRIMARY KEY,
+  subject_aggregate_type TEXT        NOT NULL,
+  subject_aggregate_id   UUID        NOT NULL,
+  revoke_before          TIMESTAMPTZ NOT NULL,
+  updated_at             TIMESTAMPTZ NOT NULL,
+
+  UNIQUE (subject_aggregate_type, subject_aggregate_id)
+);
+
+COMMENT ON TABLE auth_token_revocation_cutoffs IS 'Subject-wide revocation cutoffs for auth tokens.';
+
+CREATE TABLE IF NOT EXISTS auth_token_exchange_codes (
+  id                    UUID        PRIMARY KEY,
+  code_hash             TEXT        NOT NULL UNIQUE,
+  code_challenge_method TEXT,
+  code_challenge        TEXT,
+  encrypted_grant       BYTEA       NOT NULL,
+  created_at            TIMESTAMPTZ NOT NULL,
+  expires_at            TIMESTAMPTZ NOT NULL,
+  consumed_at           TIMESTAMPTZ,
+  CONSTRAINT auth_token_exchange_codes_protection_check CHECK (
+    (
+      code_challenge_method IS NULL
+      AND code_challenge IS NULL
+    )
+    OR
+    (
+      code_challenge_method IS NOT NULL
+      AND code_challenge IS NOT NULL
+    )
+  ),
+  CONSTRAINT auth_token_exchange_codes_expires_check CHECK (expires_at >= created_at)
+);
+
+CREATE INDEX IF NOT EXISTS idx_auth_token_exchange_codes_expires_at
+  ON auth_token_exchange_codes (expires_at);
+
+COMMENT ON TABLE auth_token_exchange_codes IS 'Encrypted one-time exchange codes for issuing auth tokens.';

@@ -9,3 +9,31 @@ updates:
     open-pull-requests-limit: 10
     target-branch: "main"
     rebase-strategy: "auto"
+  - package-ecosystem: "cargo"
+    directory: "/examples/banking/server"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "deps"
+    open-pull-requests-limit: 10
+    target-branch: "main"
+    rebase-strategy: "auto"
+  - package-ecosystem: "docker-compose"
+    directory: "/examples/banking/server"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "deps"
+    open-pull-requests-limit: 10
+    target-branch: "main"
+    rebase-strategy: "auto"
+  - package-ecosystem: "docker"
+    directories:
+      - "/examples/banking/server/docker/*"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "deps"
+    open-pull-requests-limit: 10
+    target-branch: "main"
+    rebase-strategy: "auto"

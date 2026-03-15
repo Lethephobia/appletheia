@@ -9,7 +9,4 @@ pub enum JwtAuthTokenIssuerError {
 
     #[error("failed to encode jwt")]
     Encode(#[source] jsonwebtoken::errors::Error),
-
-    #[error("failed to compute timestamp")]
-    Timestamp,
 }

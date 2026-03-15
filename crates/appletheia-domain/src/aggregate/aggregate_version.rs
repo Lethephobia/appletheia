@@ -4,27 +4,36 @@ use serde::{Deserialize, Serialize};
 
 use super::AggregateVersionError;
 
+/// Represents a non-negative version number for an aggregate stream.
+///
+/// Aggregate versions start at `0` and increase monotonically as new events are
+/// applied and persisted.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct AggregateVersion(i64);
 
 impl AggregateVersion {
+    /// Creates the initial aggregate version.
     pub fn new() -> Self {
         Self(0)
     }
 
+    /// Returns the raw version number.
     pub fn value(&self) -> i64 {
         self.0
     }
 
+    /// Returns the next aggregate version.
     pub fn next(self) -> Self {
         Self(self.value() + 1)
     }
 
+    /// Returns the next aggregate version, or `None` if it would overflow.
     pub fn checked_next(self) -> Option<Self> {
         self.value().checked_add(1).map(Self)
     }
 
+    /// Returns the next aggregate version, or an overflow error if it cannot be represented.
     pub fn try_next(self) -> Result<Self, AggregateVersionError> {
         self.value()
             .checked_add(1)
@@ -32,6 +41,7 @@ impl AggregateVersion {
             .ok_or(AggregateVersionError::Overflow)
     }
 
+    /// Returns the version as `u64`.
     pub fn as_u64(&self) -> u64 {
         self.value() as u64
     }

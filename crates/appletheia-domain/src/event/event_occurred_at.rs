@@ -3,15 +3,18 @@ use std::{fmt, fmt::Display};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+/// Represents the timestamp at which an event occurred.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct EventOccurredAt(DateTime<Utc>);
 
 impl EventOccurredAt {
+    /// Creates a timestamp using the current UTC time.
     pub fn now() -> Self {
         Self(Utc::now())
     }
 
+    /// Returns the underlying UTC timestamp.
     pub fn value(&self) -> DateTime<Utc> {
         self.0
     }

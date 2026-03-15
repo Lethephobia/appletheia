@@ -1,17 +1,12 @@
 use std::fmt::{self, Display};
 
 use serde::{Deserialize, Serialize};
-use thiserror::Error;
+
+use crate::command::CommandHashError;
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct CommandHash(String);
-
-#[derive(Debug, Error)]
-pub enum CommandHashError {
-    #[error("command hash must be 64 lowercase hex chars")]
-    InvalidFormat,
-}
 
 impl CommandHash {
     pub const LENGTH: usize = 64;
