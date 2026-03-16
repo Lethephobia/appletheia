@@ -95,7 +95,9 @@ where
         H::Command: Command,
     {
         let command_name = H::Command::NAME;
-        let authorization_plan = handler.authorization_plan(&command);
+        let authorization_plan = handler
+            .authorization_plan(&command)
+            .map_err(CommandDispatcherError::Handler)?;
         let authorization_dependencies = Self::authorization_dependencies(&authorization_plan);
 
         match options.consistency {

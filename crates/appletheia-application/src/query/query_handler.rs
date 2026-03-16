@@ -16,8 +16,8 @@ pub trait QueryHandler: Send + Sync {
     type Error: Error + Send + Sync + 'static;
     type Uow: UnitOfWork;
 
-    fn authorization_plan(&self, _query: &Self::Query) -> AuthorizationPlan {
-        AuthorizationPlan::default()
+    fn authorization_plan(&self, _query: &Self::Query) -> Result<AuthorizationPlan, Self::Error> {
+        Ok(AuthorizationPlan::default())
     }
 
     async fn handle(
