@@ -28,12 +28,12 @@ impl AuthorizationTypeDefinition {
     /// This is primarily intended for in-memory, compile-time configuration of
     /// authorization models. Each relation is represented by its own type
     /// implementing `Relation`.
-    pub fn define_static_relation<R>(&mut self)
+    pub fn define_static_relation<R>(&mut self, relation: R)
     where
         R: Relation,
     {
         self.relations
-            .insert(RelationNameOwned::from(R::NAME), R::expr());
+            .insert(RelationNameOwned::from(R::NAME), relation.expr());
     }
 
     pub fn is_defined(&self, relation: &RelationNameOwned) -> bool {
