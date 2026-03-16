@@ -1,8 +1,7 @@
 use std::marker::PhantomData;
 
 use appletheia_application::{Consumer, ConsumerError};
-use futures_util::StreamExt;
-use google_cloud_pubsub::subscription::MessageStream;
+use google_cloud_pubsub::subscriber::MessageStream;
 use serde::de::DeserializeOwned;
 
 use super::pubsub_delivery::PubsubDelivery;
@@ -28,16 +27,22 @@ where
     type Delivery = PubsubDelivery<M>;
 
     async fn next(&mut self) -> Result<Self::Delivery, ConsumerError> {
-        let received_message = self.stream.next().await.ok_or_else(|| {
-            ConsumerError::Next(Box::new(std::io::Error::new(
-                std::io::ErrorKind::UnexpectedEof,
-                "pubsub message stream ended",
-            )))
-        })?;
+        let (message, handler) = self
+            .stream
+            .next()
+            .await
+            .transpose()
+            .map_err(|error| ConsumerError::Next(Box::new(error)))?
+            .ok_or_else(|| {
+                ConsumerError::Next(Box::new(std::io::Error::new(
+                    std::io::ErrorKind::UnexpectedEof,
+                    "pubsub message stream ended",
+                )))
+            })?;
 
-        let message: M = serde_json::from_slice(&received_message.message.data)
+        let message: M = serde_json::from_slice(&message.data)
             .map_err(|error| ConsumerError::Next(Box::new(error)))?;
 
-        Ok(PubsubDelivery::new(received_message, message))
+        Ok(PubsubDelivery::new(handler, message))
     }
 }

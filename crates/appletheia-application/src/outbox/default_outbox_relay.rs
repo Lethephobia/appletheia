@@ -5,7 +5,7 @@ use std::time::Duration as StdDuration;
 use chrono::Duration;
 use tokio::time::sleep;
 
-use crate::messaging::{PublishResult, Publisher, Topic};
+use crate::messaging::{PublishResult, Publisher};
 use crate::unit_of_work::UnitOfWork;
 use crate::unit_of_work::UnitOfWorkFactory;
 
@@ -14,16 +14,16 @@ use super::{
     OutboxState, OutboxWriter, ProcessedOutboxCount,
 };
 
-pub struct DefaultOutboxRelay<UowFactory, O, F, W, T>
+pub struct DefaultOutboxRelay<UowFactory, O, F, W, P>
 where
     UowFactory: UnitOfWorkFactory,
     O: Outbox,
     F: OutboxFetcher<Uow = UowFactory::Uow, Outbox = O>,
     W: OutboxWriter<Uow = UowFactory::Uow, Outbox = O>,
-    T: Topic<O::Message> + Sync,
+    P: Publisher<O::Message>,
 {
     config: OutboxRelayConfig,
-    topic: T,
+    publisher: P,
     fetcher: F,
     writer: W,
     uow_factory: UowFactory,
@@ -31,24 +31,24 @@ where
     _marker: PhantomData<fn() -> O>,
 }
 
-impl<UowFactory, O, F, W, T> DefaultOutboxRelay<UowFactory, O, F, W, T>
+impl<UowFactory, O, F, W, P> DefaultOutboxRelay<UowFactory, O, F, W, P>
 where
     UowFactory: UnitOfWorkFactory,
     O: Outbox,
     F: OutboxFetcher<Uow = UowFactory::Uow, Outbox = O>,
     W: OutboxWriter<Uow = UowFactory::Uow, Outbox = O>,
-    T: Topic<O::Message> + Sync,
+    P: Publisher<O::Message>,
 {
     pub fn new(
         config: OutboxRelayConfig,
-        topic: T,
+        publisher: P,
         fetcher: F,
         writer: W,
         uow_factory: UowFactory,
     ) -> Self {
         Self {
             config,
-            topic,
+            publisher,
             fetcher,
             writer,
             uow_factory,
@@ -58,13 +58,13 @@ where
     }
 }
 
-impl<UowFactory, O, F, W, T> OutboxRelay for DefaultOutboxRelay<UowFactory, O, F, W, T>
+impl<UowFactory, O, F, W, P> OutboxRelay for DefaultOutboxRelay<UowFactory, O, F, W, P>
 where
     UowFactory: UnitOfWorkFactory,
     O: Outbox,
     F: OutboxFetcher<Uow = UowFactory::Uow, Outbox = O>,
     W: OutboxWriter<Uow = UowFactory::Uow, Outbox = O>,
-    T: Topic<O::Message> + Sync,
+    P: Publisher<O::Message>,
 {
     type Outbox = O;
 
@@ -155,8 +155,8 @@ where
             }
         };
 
-        let publisher = self.topic.new_publisher();
-        let publish_results = publisher
+        let publish_results = self
+            .publisher
             .publish(outboxes.iter().map(Outbox::message))
             .await?;
 
