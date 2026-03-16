@@ -9,5 +9,5 @@ pub trait Relation {
     const NAME: RelationName;
 
     /// Returns the userset expression that defines this relation.
-    fn expr() -> UsersetExpr;
+    fn expr(&self) -> UsersetExpr;
 }
