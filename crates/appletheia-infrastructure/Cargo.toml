@@ -28,10 +28,7 @@ google-cloud-pubsub = "0.33.0"
 google-cloud-gax = "1.8.0"
 futures-util = "0.3.31"
 jsonwebtoken = { version = "10.3.0", features = ["rust_crypto"] }
-reqwest = { version = "0.12.28", default-features = false, features = [
-    "rustls-tls",
-    "gzip",
-] }
+reqwest = { version = "0.13.2", default-features = false, features = ["rustls", "gzip"] }
 httpdate = "1.0.3"
 url = "2.5.7"
 base64 = "0.22.1"
