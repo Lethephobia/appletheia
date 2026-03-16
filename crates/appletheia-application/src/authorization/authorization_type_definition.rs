@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use super::{AuthorizationRelation, RelationNameOwned, UsersetExpr};
+use super::{Relation, RelationNameOwned, UsersetExpr};
 
 #[derive(Clone, Debug, Default)]
 pub struct AuthorizationTypeDefinition {
@@ -23,14 +23,14 @@ impl AuthorizationTypeDefinition {
         self.relations.insert(relation.into(), expr);
     }
 
-    /// Defines a relation from a statically-typed `AuthorizationRelation`.
+    /// Defines a relation from a statically-typed `Relation`.
     ///
     /// This is primarily intended for in-memory, compile-time configuration of
     /// authorization models. Each relation is represented by its own type
-    /// implementing `AuthorizationRelation`.
+    /// implementing `Relation`.
     pub fn define_static_relation<R>(&mut self)
     where
-        R: AuthorizationRelation,
+        R: Relation,
     {
         self.relations
             .insert(RelationNameOwned::from(R::NAME), R::expr());
