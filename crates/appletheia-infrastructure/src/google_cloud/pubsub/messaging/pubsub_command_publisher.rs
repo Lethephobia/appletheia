@@ -5,20 +5,22 @@ use appletheia_application::messaging::{
 };
 use appletheia_application::outbox::OrderingKey;
 use appletheia_application::outbox::command::CommandEnvelope;
-use google_cloud_googleapis::pubsub::v1::PubsubMessage;
-use tonic::Code;
+use google_cloud_gax::error::rpc::Code;
+use google_cloud_pubsub::client::Publisher as GooglePublisher;
+use google_cloud_pubsub::error::PublishError;
+use google_cloud_pubsub::model::Message;
 
 #[derive(Clone)]
 pub struct PubsubCommandPublisher {
-    publisher: google_cloud_pubsub::publisher::Publisher,
+    publisher: GooglePublisher,
 }
 
 impl PubsubCommandPublisher {
-    pub fn new(publisher: google_cloud_pubsub::publisher::Publisher) -> Self {
+    pub fn new(publisher: GooglePublisher) -> Self {
         Self { publisher }
     }
 
-    fn build_message(command: &CommandEnvelope) -> Result<PubsubMessage, PublisherError> {
+    fn build_message(command: &CommandEnvelope) -> Result<Message, PublisherError> {
         let mut attributes = HashMap::new();
 
         attributes.insert("message_id".to_string(), command.message_id.to_string());
@@ -34,13 +36,36 @@ impl PubsubCommandPublisher {
 
         let ordering_key = OrderingKey::from(command.correlation_id).to_string();
 
-        Ok(PubsubMessage {
-            data,
-            attributes,
-            message_id: String::new(),
-            publish_time: None,
-            ordering_key,
-        })
+        Ok(Message::new()
+            .set_data(data)
+            .set_attributes(attributes)
+            .set_ordering_key(ordering_key))
+    }
+
+    fn dispatch_error(error: PublishError) -> PublishDispatchError {
+        match error {
+            PublishError::Rpc(source) => {
+                let code = source
+                    .status()
+                    .map(|status| status.code.to_string())
+                    .unwrap_or_else(|| "unknown".to_string());
+                let message = source.to_string();
+
+                match source.status().map(|status| status.code) {
+                    Some(
+                        Code::Unavailable
+                        | Code::DeadlineExceeded
+                        | Code::ResourceExhausted
+                        | Code::Aborted,
+                    ) => PublishDispatchError::Transient { code, message },
+                    _ => PublishDispatchError::Permanent { code, message },
+                }
+            }
+            other => PublishDispatchError::Permanent {
+                code: "publish_error".to_string(),
+                message: other.to_string(),
+            },
+        }
     }
 }
 
@@ -59,32 +84,23 @@ impl Publisher<CommandEnvelope> for PubsubCommandPublisher {
             return Ok(Vec::new());
         }
 
-        let awaiters = self.publisher.publish_bulk(pubsub_messages).await;
+        let publish_futures = pubsub_messages
+            .into_iter()
+            .map(|message| self.publisher.publish(message))
+            .collect::<Vec<_>>();
 
-        let mut results = Vec::with_capacity(awaiters.len());
+        let mut results = Vec::with_capacity(publish_futures.len());
 
-        for (input_index, awaiter) in awaiters.into_iter().enumerate() {
-            match awaiter.get().await {
+        for (input_index, publish_future) in publish_futures.into_iter().enumerate() {
+            match publish_future.await {
                 Ok(message_id) => {
                     results.push(PublishResult::Success {
                         input_index,
                         transport_message_id: Some(message_id),
                     });
                 }
-                Err(status) => {
-                    let code = status.code().to_string();
-                    let message = status.to_string();
-                    let cause = match status.code() {
-                        Code::Unavailable
-                        | Code::DeadlineExceeded
-                        | Code::ResourceExhausted
-                        | Code::Aborted => PublishDispatchError::Transient {
-                            code: code.clone(),
-                            message,
-                        },
-                        _ => PublishDispatchError::Permanent { code, message },
-                    };
-
+                Err(error) => {
+                    let cause = Self::dispatch_error(error);
                     results.push(PublishResult::Failed { input_index, cause });
                 }
             }

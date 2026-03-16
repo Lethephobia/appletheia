@@ -1,7 +1,7 @@
 use appletheia_application::outbox::DefaultOutboxRelay;
 use appletheia_application::outbox::command::CommandOutbox;
 
-use crate::google_cloud::pubsub::messaging::PubsubCommandTopic;
+use crate::google_cloud::pubsub::messaging::PubsubCommandPublisher;
 use crate::postgresql::outbox::command::{PgCommandOutboxFetcher, PgCommandOutboxWriter};
 use crate::postgresql::unit_of_work::PgUnitOfWorkFactory;
 
@@ -10,5 +10,5 @@ pub type PgPubsubCommandOutboxRelay = DefaultOutboxRelay<
     CommandOutbox,
     PgCommandOutboxFetcher,
     PgCommandOutboxWriter,
-    PubsubCommandTopic,
+    PubsubCommandPublisher,
 >;

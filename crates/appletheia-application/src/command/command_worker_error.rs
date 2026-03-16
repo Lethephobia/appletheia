@@ -3,13 +3,13 @@ use std::error::Error;
 use thiserror::Error;
 
 use crate::messaging::ConsumerError;
-use crate::messaging::TopicError;
+use crate::messaging::SubscriberError;
 use crate::outbox::command::CommandEnvelopeError;
 
 #[derive(Debug, Error)]
 pub enum CommandWorkerError {
     #[error(transparent)]
-    Topic(#[from] TopicError),
+    Subscriber(#[from] SubscriberError),
 
     #[error(transparent)]
     Consumer(#[from] ConsumerError),

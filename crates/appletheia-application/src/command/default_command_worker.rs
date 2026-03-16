@@ -6,54 +6,54 @@ use crate::command::{
 use crate::messaging::Subscription;
 use crate::outbox::command::{CommandEnvelope, CommandEnvelopeError};
 use crate::request_context::{ActorRef, Principal, RequestContext};
-use crate::{Consumer, ConsumerGroup, Delivery, Topic};
+use crate::{Consumer, ConsumerGroup, Delivery, Subscriber};
 
 use super::CommandWorkerError;
 
-pub struct DefaultCommandWorker<H, D, T>
+pub struct DefaultCommandWorker<H, D, S>
 where
     H: CommandHandler,
     H::Command: Command,
     D: CommandDispatcher<Uow = H::Uow>,
-    T: Topic<CommandEnvelope, Selector = CommandSelector>,
-    T::Consumer: Consumer<CommandEnvelope>,
-    <T::Consumer as Consumer<CommandEnvelope>>::Delivery: Delivery<CommandEnvelope>,
+    S: Subscriber<CommandEnvelope, Selector = CommandSelector>,
+    S::Consumer: Consumer<CommandEnvelope>,
+    <S::Consumer as Consumer<CommandEnvelope>>::Delivery: Delivery<CommandEnvelope>,
 {
     dispatcher: D,
     handler: H,
-    topic: T,
+    subscriber: S,
     consumer_group: ConsumerGroup,
     stop_requested: AtomicBool,
 }
 
-impl<H, D, T> DefaultCommandWorker<H, D, T>
+impl<H, D, S> DefaultCommandWorker<H, D, S>
 where
     H: CommandHandler,
     H::Command: Command,
     D: CommandDispatcher<Uow = H::Uow>,
-    T: Topic<CommandEnvelope, Selector = CommandSelector>,
-    T::Consumer: Consumer<CommandEnvelope>,
-    <T::Consumer as Consumer<CommandEnvelope>>::Delivery: Delivery<CommandEnvelope>,
+    S: Subscriber<CommandEnvelope, Selector = CommandSelector>,
+    S::Consumer: Consumer<CommandEnvelope>,
+    <S::Consumer as Consumer<CommandEnvelope>>::Delivery: Delivery<CommandEnvelope>,
 {
-    pub fn new(dispatcher: D, handler: H, topic: T, consumer_group: ConsumerGroup) -> Self {
+    pub fn new(dispatcher: D, handler: H, subscriber: S, consumer_group: ConsumerGroup) -> Self {
         Self {
             dispatcher,
             handler,
-            topic,
+            subscriber,
             consumer_group,
             stop_requested: AtomicBool::new(false),
         }
     }
 }
 
-impl<H, D, T> CommandWorker for DefaultCommandWorker<H, D, T>
+impl<H, D, S> CommandWorker for DefaultCommandWorker<H, D, S>
 where
     H: CommandHandler,
     H::Command: Command,
     D: CommandDispatcher<Uow = H::Uow>,
-    T: Topic<CommandEnvelope, Selector = CommandSelector>,
-    T::Consumer: Consumer<CommandEnvelope>,
-    <T::Consumer as Consumer<CommandEnvelope>>::Delivery: Delivery<CommandEnvelope>,
+    S: Subscriber<CommandEnvelope, Selector = CommandSelector>,
+    S::Consumer: Consumer<CommandEnvelope>,
+    <S::Consumer as Consumer<CommandEnvelope>>::Delivery: Delivery<CommandEnvelope>,
 {
     fn is_stop_requested(&self) -> bool {
         self.stop_requested.load(AtomicOrdering::SeqCst)
@@ -67,7 +67,7 @@ where
         let selectors = [CommandSelector::new(H::Command::NAME)];
 
         let mut consumer = self
-            .topic
+            .subscriber
             .subscribe(&self.consumer_group, Subscription::Only(&selectors))
             .await?;
 
