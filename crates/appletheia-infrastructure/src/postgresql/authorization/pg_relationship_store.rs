@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use appletheia_application::authorization::{
-    AggregateRef, RelationName, Relationship, RelationshipChange, RelationshipId,
+    AggregateRef, RelationNameOwned, Relationship, RelationshipChange, RelationshipId,
     RelationshipStore, RelationshipStoreError, RelationshipSubject,
 };
 use appletheia_application::event::{AggregateIdValue, AggregateTypeOwned};
@@ -204,7 +204,7 @@ impl RelationshipStore for PgRelationshipStore {
         uow: &mut PgUnitOfWork,
         subject: &RelationshipSubject,
         aggregate_type: &AggregateTypeOwned,
-        relation: &RelationName,
+        relation: &RelationNameOwned,
     ) -> Result<Vec<AggregateRef>, RelationshipStoreError> {
         let mut query = QueryBuilder::<Postgres>::new(
             r#"
@@ -277,7 +277,7 @@ impl RelationshipStore for PgRelationshipStore {
         &self,
         uow: &mut PgUnitOfWork,
         aggregate: &AggregateRef,
-        relation: &RelationName,
+        relation: &RelationNameOwned,
     ) -> Result<Vec<RelationshipSubject>, RelationshipStoreError> {
         let transaction = uow.transaction_mut();
         let rows: Vec<PgRelationshipRow> = sqlx::query_as(

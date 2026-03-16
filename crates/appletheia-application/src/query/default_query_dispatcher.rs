@@ -73,7 +73,9 @@ where
     where
         H: QueryHandler<Uow = Self::Uow>,
     {
-        let authorization_plan = handler.authorization_plan(&query);
+        let authorization_plan = handler
+            .authorization_plan(&query)
+            .map_err(QueryDispatcherError::Handler)?;
         let authorization_dependencies = Self::authorization_dependencies(&authorization_plan);
         match options.consistency {
             QueryConsistency::Eventual => {}

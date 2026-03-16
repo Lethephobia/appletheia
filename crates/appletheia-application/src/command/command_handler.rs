@@ -18,8 +18,11 @@ pub trait CommandHandler: Send + Sync {
 
     const DEPENDENCIES: ProjectorDependencies<'static> = ProjectorDependencies::None;
 
-    fn authorization_plan(&self, _command: &Self::Command) -> AuthorizationPlan {
-        AuthorizationPlan::default()
+    fn authorization_plan(
+        &self,
+        _command: &Self::Command,
+    ) -> Result<AuthorizationPlan, Self::Error> {
+        Ok(AuthorizationPlan::default())
     }
 
     async fn handle(

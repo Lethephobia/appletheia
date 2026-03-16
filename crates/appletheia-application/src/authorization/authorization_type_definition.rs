@@ -1,26 +1,29 @@
 use std::collections::HashMap;
 
-use super::{RelationName, UsersetExpr};
+use super::{RelationNameOwned, UsersetExpr};
 
 #[derive(Clone, Debug, Default)]
 pub struct AuthorizationTypeDefinition {
-    relations: HashMap<RelationName, UsersetExpr>,
+    relations: HashMap<RelationNameOwned, UsersetExpr>,
 }
 
 impl AuthorizationTypeDefinition {
-    pub fn new(relations: HashMap<RelationName, UsersetExpr>) -> Self {
+    pub fn new(relations: HashMap<RelationNameOwned, UsersetExpr>) -> Self {
         Self { relations }
     }
 
-    pub fn define_relation(&mut self, relation: RelationName, expr: UsersetExpr) {
-        self.relations.insert(relation, expr);
+    pub fn define_relation<R>(&mut self, relation: R, expr: UsersetExpr)
+    where
+        R: Into<RelationNameOwned>,
+    {
+        self.relations.insert(relation.into(), expr);
     }
 
-    pub fn is_defined(&self, relation: &RelationName) -> bool {
+    pub fn is_defined(&self, relation: &RelationNameOwned) -> bool {
         self.relations.contains_key(relation)
     }
 
-    pub fn expr_for(&self, relation: &RelationName) -> Option<&UsersetExpr> {
+    pub fn expr_for(&self, relation: &RelationNameOwned) -> Option<&UsersetExpr> {
         self.relations.get(relation)
     }
 }

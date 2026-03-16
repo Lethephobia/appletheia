@@ -5,9 +5,9 @@ use super::relationship_memo_key::RelationshipMemoKey;
 use super::userset_expr_eval_context::UsersetExprEvalContext;
 use super::userset_expr_eval_depth::UsersetExprEvalDepth;
 use super::{
-    AggregateRef, AuthorizationModel, RelationName, RelationshipRequirement, RelationshipResolver,
-    RelationshipResolverConfig, RelationshipResolverError, RelationshipStore, RelationshipSubject,
-    UsersetExpr,
+    AggregateRef, AuthorizationModel, RelationNameOwned, RelationshipRequirement,
+    RelationshipResolver, RelationshipResolverConfig, RelationshipResolverError, RelationshipStore,
+    RelationshipSubject, UsersetExpr,
 };
 
 #[derive(Debug)]
@@ -96,7 +96,7 @@ where
         uow: &mut RS::Uow,
         subject: &AggregateRef,
         aggregate: &AggregateRef,
-        relation: &RelationName,
+        relation: &RelationNameOwned,
         state: &mut RelationshipEvalState,
         depth: UsersetExprEvalDepth,
     ) -> Result<bool, RelationshipResolverError> {
@@ -130,6 +130,8 @@ where
         let Some(model) = self
             .authorization_model
             .type_definition_for(&aggregate.aggregate_type)
+            .await
+            .map_err(RelationshipResolverError::backend)?
         else {
             state.in_progress.remove(&key);
             state.memo.insert(key, false);

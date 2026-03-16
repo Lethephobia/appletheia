@@ -1,7 +1,7 @@
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum RelationNameError {
+pub enum RelationNameOwnedError {
     #[error("relation name is empty")]
     Empty,
 

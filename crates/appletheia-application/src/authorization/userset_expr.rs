@@ -1,4 +1,4 @@
-use super::RelationName;
+use super::RelationNameOwned;
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub enum UsersetExpr {
@@ -7,13 +7,13 @@ pub enum UsersetExpr {
 
     /// Evaluate another relation on the same aggregate.
     ComputedUserset {
-        relation: RelationName,
+        relation: RelationNameOwned,
     },
 
     /// `computed_relation from tupleset_relation`
     TupleToUserset {
-        tupleset_relation: RelationName,
-        computed_relation: RelationName,
+        tupleset_relation: RelationNameOwned,
+        computed_relation: RelationNameOwned,
     },
 
     Union(Vec<UsersetExpr>),

@@ -1,10 +1,11 @@
 use crate::event::AggregateTypeOwned;
 
-use super::AuthorizationTypeDefinition;
+use super::{AuthorizationModelError, AuthorizationTypeDefinition};
 
+#[allow(async_fn_in_trait)]
 pub trait AuthorizationModel: Send + Sync {
-    fn type_definition_for(
+    async fn type_definition_for(
         &self,
         aggregate_type: &AggregateTypeOwned,
-    ) -> Option<&AuthorizationTypeDefinition>;
+    ) -> Result<Option<AuthorizationTypeDefinition>, AuthorizationModelError>;
 }
