@@ -1,10 +1,10 @@
 use super::{RelationName, UsersetExpr};
 
-/// Defines a statically-typed authorization relation.
+/// Defines a statically-typed relation.
 ///
 /// This trait is intended for in-memory and compile-time configuration of
 /// authorization models, where each relation is represented by its own type.
-pub trait AuthorizationRelation {
+pub trait Relation {
     /// The canonical name of this relation.
     const NAME: RelationName;
 

@@ -3,10 +3,7 @@ use std::sync::Arc;
 
 use crate::event::AggregateTypeOwned;
 
-use super::{
-    AuthorizationModel, AuthorizationModelError, AuthorizationRelations,
-    AuthorizationTypeDefinition,
-};
+use super::{AuthorizationModel, AuthorizationModelError, AuthorizationTypeDefinition, Relations};
 
 #[derive(Clone, Debug, Default)]
 pub struct InMemoryAuthorizationModel {
@@ -36,7 +33,7 @@ impl InMemoryAuthorizationModel {
 
     pub fn define_relations<R>(&mut self, relations: R)
     where
-        R: AuthorizationRelations,
+        R: Relations,
     {
         let type_definition = relations.build();
         self.define_type(AggregateTypeOwned::from(R::AGGREGATE_TYPE), type_definition);
