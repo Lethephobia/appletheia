@@ -1,23 +1,16 @@
 use serde::{Deserialize, Serialize};
 
 use super::{
-    OidcAccessTokenHash, OidcAddress, OidcAudiences, OidcAuthTime, OidcBirthdate, OidcEmail,
-    OidcEmailVerified, OidcFamilyName, OidcGender, OidcGivenName, OidcIdTokenExpiresAt,
-    OidcIdTokenIssuedAt, OidcIssuerUrl, OidcLocale, OidcMiddleName, OidcName, OidcNickname,
-    OidcNonce, OidcPhoneNumber, OidcPhoneNumberVerified, OidcPictureUrl, OidcPreferredUsername,
-    OidcProfileUrl, OidcSubject, OidcUpdatedAt, OidcWebsiteUrl, OidcZoneinfo,
+    OidcAddress, OidcBirthdate, OidcEmail, OidcEmailVerified, OidcFamilyName, OidcGender,
+    OidcGivenName, OidcLocale, OidcMiddleName, OidcName, OidcNickname, OidcPhoneNumber,
+    OidcPhoneNumberVerified, OidcPictureUrl, OidcPreferredUsername, OidcProfileUrl, OidcSubject,
+    OidcUpdatedAt, OidcWebsiteUrl, OidcZoneinfo,
 };
 
+/// Represents the user info returned from the OIDC `userinfo` endpoint.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct OidcIdTokenClaims {
-    pub issuer_url: OidcIssuerUrl,
+pub struct OidcUserInfo {
     pub subject: OidcSubject,
-    pub audiences: OidcAudiences,
-    pub expires_at: OidcIdTokenExpiresAt,
-    pub issued_at: Option<OidcIdTokenIssuedAt>,
-    pub auth_time: Option<OidcAuthTime>,
-    pub nonce: Option<OidcNonce>,
-    pub access_token_hash: Option<OidcAccessTokenHash>,
     pub email: Option<OidcEmail>,
     pub email_verified: Option<OidcEmailVerified>,
     pub name: Option<OidcName>,
