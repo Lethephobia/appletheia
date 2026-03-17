@@ -7,9 +7,7 @@ pub struct OidcScopes(Vec<OidcScope>);
 
 impl OidcScopes {
     pub fn new(mut scopes: Vec<OidcScope>) -> Self {
-        if !scopes.iter().any(|s| s.value() == OidcScope::OPENID) {
-            scopes.insert(0, OidcScope::openid());
-        }
+        Self::ensure_scope(&mut scopes, OidcScope::openid());
         Self(scopes)
     }
 
@@ -24,10 +22,38 @@ impl OidcScopes {
             .collect::<Vec<_>>()
             .join(" ")
     }
+
+    fn ensure_scope(scopes: &mut Vec<OidcScope>, required: OidcScope) {
+        if scopes.iter().any(|scope| scope.value() == required.value()) {
+            return;
+        }
+
+        scopes.push(required);
+    }
 }
 
 impl Default for OidcScopes {
     fn default() -> Self {
         Self::new(vec![OidcScope::openid()])
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::OidcScopes;
+    use crate::authentication::oidc::OidcScope;
+
+    #[test]
+    fn new_always_includes_openid() {
+        let scopes = OidcScopes::new(vec![OidcScope::email(), OidcScope::profile()]);
+
+        assert_eq!(
+            scopes.values(),
+            &[
+                OidcScope::email(),
+                OidcScope::profile(),
+                OidcScope::openid()
+            ]
+        );
     }
 }

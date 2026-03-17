@@ -20,3 +20,5 @@ tokio = { version = "1", features = ["time", "rt", "macros"] }
 sha2 = "0.10.9"
 url = { version = "2.5.7", features = ["serde"] }
 base64 = "0.22.1"
+icu_locale = { version = "2.1.1", features = ["serde"] }
+chrono-tz = { version = "0.10.4", features = ["serde"] }

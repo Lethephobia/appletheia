@@ -1,9 +1,14 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use url::Url;
 
 use appletheia_application::authentication::oidc::{
-    OidcAccessTokenHash, OidcAudiences, OidcAuthTime, OidcIdTokenClaims, OidcIdTokenExpiresAt,
-    OidcIdTokenIssuedAt, OidcIdTokenVerifyError, OidcIssuerUrl, OidcNonce, OidcSubject,
+    OidcAccessTokenHash, OidcAddress, OidcAudiences, OidcAuthTime, OidcBirthdate, OidcEmail,
+    OidcEmailVerified, OidcFamilyName, OidcGender, OidcGivenName, OidcIdTokenClaims,
+    OidcIdTokenExpiresAt, OidcIdTokenIssuedAt, OidcIdTokenVerifyError, OidcIssuerUrl, OidcLocale,
+    OidcMiddleName, OidcName, OidcNickname, OidcNonce, OidcPhoneNumber, OidcPhoneNumberVerified,
+    OidcPictureUrl, OidcPreferredUsername, OidcProfileUrl, OidcSubject, OidcUpdatedAt,
+    OidcWebsiteUrl, OidcZoneinfo,
 };
 use chrono::{DateTime, TimeZone, Utc};
 
@@ -31,6 +36,44 @@ pub(crate) struct JwtOidcIdTokenClaims {
 
     #[serde(rename = "at_hash")]
     pub access_token_hash: Option<String>,
+
+    pub email: Option<String>,
+
+    pub email_verified: Option<bool>,
+
+    pub name: Option<String>,
+
+    pub given_name: Option<String>,
+
+    pub family_name: Option<String>,
+
+    pub middle_name: Option<String>,
+
+    pub nickname: Option<String>,
+
+    pub preferred_username: Option<String>,
+
+    pub profile: Option<String>,
+
+    pub picture: Option<String>,
+
+    pub website: Option<String>,
+
+    pub gender: Option<String>,
+
+    pub birthdate: Option<String>,
+
+    pub zoneinfo: Option<String>,
+
+    pub locale: Option<String>,
+
+    pub phone_number: Option<String>,
+
+    pub phone_number_verified: Option<bool>,
+
+    pub address: Option<OidcAddress>,
+
+    pub updated_at: Option<u64>,
 }
 
 impl JwtOidcIdTokenClaims {
@@ -68,7 +111,51 @@ impl JwtOidcIdTokenClaims {
             .transpose()
             .map_err(|_| OidcIdTokenVerifyError::InvalidIdToken)?;
 
-        let access_token_hash = self.access_token_hash.clone().map(OidcAccessTokenHash::new);
+        let picture_url = self
+            .picture
+            .as_deref()
+            .map(Url::parse)
+            .transpose()
+            .map_err(|_| OidcIdTokenVerifyError::InvalidIdToken)?
+            .map(OidcPictureUrl::new);
+        let profile_url = self
+            .profile
+            .as_deref()
+            .map(Url::parse)
+            .transpose()
+            .map_err(|_| OidcIdTokenVerifyError::InvalidIdToken)?
+            .map(OidcProfileUrl::new);
+        let website_url = self
+            .website
+            .as_deref()
+            .map(Url::parse)
+            .transpose()
+            .map_err(|_| OidcIdTokenVerifyError::InvalidIdToken)?
+            .map(OidcWebsiteUrl::new);
+        let birthdate = self
+            .birthdate
+            .clone()
+            .map(OidcBirthdate::try_from)
+            .transpose()
+            .map_err(|_| OidcIdTokenVerifyError::InvalidIdToken)?;
+        let zoneinfo = self
+            .zoneinfo
+            .clone()
+            .map(OidcZoneinfo::try_from)
+            .transpose()
+            .map_err(|_| OidcIdTokenVerifyError::InvalidIdToken)?;
+        let locale = self
+            .locale
+            .clone()
+            .map(OidcLocale::try_from)
+            .transpose()
+            .map_err(|_| OidcIdTokenVerifyError::InvalidIdToken)?;
+        let updated_at = self
+            .updated_at
+            .map(Self::timestamp_to_datetime)
+            .transpose()
+            .map_err(|_| OidcIdTokenVerifyError::InvalidIdToken)?
+            .map(OidcUpdatedAt::new);
 
         Ok(OidcIdTokenClaims {
             issuer_url,
@@ -78,7 +165,29 @@ impl JwtOidcIdTokenClaims {
             issued_at,
             auth_time,
             nonce,
-            access_token_hash,
+            access_token_hash: self.access_token_hash.clone().map(OidcAccessTokenHash::new),
+            email: self.email.clone().map(OidcEmail::new),
+            email_verified: self.email_verified.map(OidcEmailVerified::new),
+            name: self.name.clone().map(OidcName::new),
+            given_name: self.given_name.clone().map(OidcGivenName::new),
+            family_name: self.family_name.clone().map(OidcFamilyName::new),
+            middle_name: self.middle_name.clone().map(OidcMiddleName::new),
+            nickname: self.nickname.clone().map(OidcNickname::new),
+            preferred_username: self
+                .preferred_username
+                .clone()
+                .map(OidcPreferredUsername::new),
+            profile_url,
+            picture_url,
+            website_url,
+            gender: self.gender.clone().map(OidcGender::new),
+            birthdate,
+            zoneinfo,
+            locale,
+            phone_number: self.phone_number.clone().map(OidcPhoneNumber::new),
+            phone_number_verified: self.phone_number_verified.map(OidcPhoneNumberVerified::new),
+            address: self.address.clone(),
+            updated_at,
         })
     }
 

@@ -1,6 +1,6 @@
 use appletheia_application::authentication::oidc::{
     OidcAuthorizationEndpointUrl, OidcIssuerUrl, OidcJwksUri, OidcProviderMetadata,
-    OidcTokenEndpointUrl,
+    OidcTokenEndpointUrl, OidcUserInfoEndpointUrl,
 };
 use serde::Deserialize;
 use url::Url;
@@ -20,6 +20,9 @@ pub struct OidcProviderMetadataBody {
 
     #[serde(rename = "jwks_uri")]
     jwks_uri: Url,
+
+    #[serde(rename = "userinfo_endpoint")]
+    user_info_endpoint_url: Option<Url>,
 }
 
 impl OidcProviderMetadataBody {
@@ -35,6 +38,10 @@ impl OidcProviderMetadataBody {
             ),
             token_endpoint_url: OidcTokenEndpointUrl::new(self.token_endpoint_url.clone()),
             jwks_uri: OidcJwksUri::new(self.jwks_uri.clone()),
+            user_info_endpoint_url: self
+                .user_info_endpoint_url
+                .clone()
+                .map(OidcUserInfoEndpointUrl::new),
         }
     }
 }
