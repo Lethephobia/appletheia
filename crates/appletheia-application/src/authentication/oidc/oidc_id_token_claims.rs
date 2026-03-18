@@ -2,10 +2,10 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     OidcAccessTokenHash, OidcAddress, OidcAudiences, OidcAuthTime, OidcBirthdate, OidcEmail,
-    OidcEmailVerified, OidcFamilyName, OidcGender, OidcGivenName, OidcIdTokenExpiresAt,
-    OidcIdTokenIssuedAt, OidcIssuerUrl, OidcLocale, OidcMiddleName, OidcName, OidcNickname,
-    OidcNonce, OidcPhoneNumber, OidcPhoneNumberVerified, OidcPictureUrl, OidcPreferredUsername,
-    OidcProfileUrl, OidcSubject, OidcUpdatedAt, OidcWebsiteUrl, OidcZoneinfo,
+    OidcFamilyName, OidcGender, OidcGivenName, OidcIdTokenExpiresAt, OidcIdTokenIssuedAt,
+    OidcIssuerUrl, OidcLocale, OidcMiddleName, OidcName, OidcNickname, OidcNonce, OidcPhoneNumber,
+    OidcPictureUrl, OidcPreferredUsername, OidcProfileUrl, OidcSubject, OidcUpdatedAt,
+    OidcWebsiteUrl, OidcZoneinfo,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -19,7 +19,7 @@ pub struct OidcIdTokenClaims {
     pub nonce: Option<OidcNonce>,
     pub access_token_hash: Option<OidcAccessTokenHash>,
     pub email: Option<OidcEmail>,
-    pub email_verified: Option<OidcEmailVerified>,
+    pub email_verified: Option<bool>,
     pub name: Option<OidcName>,
     pub given_name: Option<OidcGivenName>,
     pub family_name: Option<OidcFamilyName>,
@@ -34,7 +34,7 @@ pub struct OidcIdTokenClaims {
     pub zoneinfo: Option<OidcZoneinfo>,
     pub locale: Option<OidcLocale>,
     pub phone_number: Option<OidcPhoneNumber>,
-    pub phone_number_verified: Option<OidcPhoneNumberVerified>,
+    pub phone_number_verified: Option<bool>,
     pub address: Option<OidcAddress>,
     pub updated_at: Option<OidcUpdatedAt>,
 }

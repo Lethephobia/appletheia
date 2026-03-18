@@ -1,8 +1,7 @@
 use appletheia_application::authentication::oidc::{
-    OidcAddress, OidcBirthdate, OidcEmail, OidcEmailVerified, OidcFamilyName, OidcGender,
-    OidcGivenName, OidcLocale, OidcMiddleName, OidcName, OidcNickname, OidcPhoneNumber,
-    OidcPhoneNumberVerified, OidcPictureUrl, OidcPreferredUsername, OidcProfileUrl, OidcSubject,
-    OidcUpdatedAt, OidcUserInfo, OidcWebsiteUrl, OidcZoneinfo,
+    OidcAddress, OidcBirthdate, OidcEmail, OidcFamilyName, OidcGender, OidcGivenName, OidcLocale,
+    OidcMiddleName, OidcName, OidcNickname, OidcPhoneNumber, OidcPictureUrl, OidcPreferredUsername,
+    OidcProfileUrl, OidcSubject, OidcUpdatedAt, OidcUserInfo, OidcWebsiteUrl, OidcZoneinfo,
 };
 use chrono::{TimeZone, Utc};
 use serde::Deserialize;
@@ -104,7 +103,7 @@ impl OidcUserInfoBody {
         Ok(OidcUserInfo {
             subject: OidcSubject::new(self.subject.clone()),
             email: self.email.clone().map(OidcEmail::new),
-            email_verified: self.email_verified.map(OidcEmailVerified::new),
+            email_verified: self.email_verified,
             name: self.name.clone().map(OidcName::new),
             given_name: self.given_name.clone().map(OidcGivenName::new),
             family_name: self.family_name.clone().map(OidcFamilyName::new),
@@ -122,7 +121,7 @@ impl OidcUserInfoBody {
             zoneinfo,
             locale,
             phone_number: self.phone_number.clone().map(OidcPhoneNumber::new),
-            phone_number_verified: self.phone_number_verified.map(OidcPhoneNumberVerified::new),
+            phone_number_verified: self.phone_number_verified,
             address: self.address.clone(),
             updated_at,
         })
