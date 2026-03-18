@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.3](https://github.com/Lethephobia/appletheia/compare/appletheia-infrastructure-v0.7.2...appletheia-infrastructure-v0.7.3) - 2026-03-18
+
+### Other
+
+- *(oidc)* use bool for verified claims
+
 ## [0.7.2](https://github.com/Lethephobia/appletheia/compare/appletheia-infrastructure-v0.7.1...appletheia-infrastructure-v0.7.2) - 2026-03-17
 
 ### Added
