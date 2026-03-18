@@ -2,7 +2,6 @@ mod user_error;
 mod user_event_payload;
 mod user_event_payload_error;
 mod user_id;
-mod user_id_error;
 mod user_state;
 mod user_state_error;
 
@@ -10,7 +9,6 @@ pub use user_error::UserError;
 pub use user_event_payload::UserEventPayload;
 pub use user_event_payload_error::UserEventPayloadError;
 pub use user_id::UserId;
-pub use user_id_error::UserIdError;
 pub use user_state::UserState;
 pub use user_state_error::UserStateError;
 

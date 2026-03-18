@@ -19,11 +19,17 @@ pub(crate) fn expand_aggregate_id_derive(
 
     let inner_ty = extract_inner_uuid_ty(&input.data)?;
 
+    let has_custom_error = args.error.is_some();
     let error_ty: Type = args
         .error
         .unwrap_or_else(|| syn::parse_quote!(::std::convert::Infallible));
     let validate = args.validate;
     let validate_stmt = validate.map(|path| quote!(#path(value)?;));
+    let try_from_allow = if has_custom_error {
+        quote!()
+    } else {
+        quote!(#[allow(clippy::infallible_try_from)])
+    };
 
     let expanded = quote! {
         #[automatically_derived]
@@ -48,6 +54,14 @@ pub(crate) fn expand_aggregate_id_derive(
         }
 
         #[automatically_derived]
+        impl #impl_generics ::std::fmt::Display for #name #ty_generics #where_clause {
+            fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+                write!(f, "{}", self.value())
+            }
+        }
+
+        #[automatically_derived]
+        #try_from_allow
         impl #impl_generics ::std::convert::TryFrom<#uuid::Uuid> for #name #ty_generics #where_clause {
             type Error = #error_ty;
 
