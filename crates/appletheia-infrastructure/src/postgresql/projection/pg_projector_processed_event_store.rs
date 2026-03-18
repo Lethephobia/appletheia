@@ -86,4 +86,25 @@ impl ProjectorProcessedEventStore for PgProjectorProcessedEventStore {
 
         Ok(done.rows_affected() == 1)
     }
+
+    async fn reset(
+        &self,
+        uow: &mut Self::Uow,
+        projector_name: ProjectorNameOwned,
+    ) -> Result<(), ProjectorProcessedEventStoreError> {
+        let transaction = uow.transaction_mut();
+
+        sqlx::query(
+            r#"
+            DELETE FROM projector_processed_events
+             WHERE projector_name = $1
+            "#,
+        )
+        .bind(projector_name.value())
+        .execute(transaction.as_mut())
+        .await
+        .map_err(|source| ProjectorProcessedEventStoreError::Persistence(Box::new(source)))?;
+
+        Ok(())
+    }
 }
