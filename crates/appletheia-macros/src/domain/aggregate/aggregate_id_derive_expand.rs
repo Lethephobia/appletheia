@@ -19,7 +19,9 @@ pub(crate) fn expand_aggregate_id_derive(
 
     let inner_ty = extract_inner_uuid_ty(&input.data)?;
 
-    let error_ty = args.error;
+    let error_ty: Type = args
+        .error
+        .unwrap_or_else(|| syn::parse_quote!(::std::convert::Infallible));
     let validate = args.validate;
     let validate_stmt = validate.map(|path| quote!(#path(value)?;));
 

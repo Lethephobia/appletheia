@@ -3,7 +3,7 @@ use syn::{Attribute, Path, Result, Type};
 
 #[derive(Debug)]
 pub(crate) struct AggregateIdDeriveArgs {
-    pub(crate) error: Type,
+    pub(crate) error: Option<Type>,
     pub(crate) validate: Option<Path>,
 }
 
@@ -43,13 +43,43 @@ impl AggregateIdDeriveArgs {
             })?;
         }
 
-        let error = error.ok_or_else(|| {
-            syn::Error::new(
+        if validate.is_some() && error.is_none() {
+            return Err(syn::Error::new(
                 proc_macro2::Span::call_site(),
-                "missing `#[aggregate_id(error = ...)]` (or `#[aggregate_id_derive(error = ...)]` when using `#[derive(AggregateId)]` directly)",
-            )
-        })?;
+                "missing `#[aggregate_id(error = ...)]` when `validate` is specified (or `#[aggregate_id_derive(error = ...)]` when using `#[derive(AggregateId)]` directly)",
+            ));
+        }
 
         Ok(Self { error, validate })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use syn::parse_quote;
+
+    use super::AggregateIdDeriveArgs;
+
+    #[test]
+    fn from_attrs_defaults_error_when_validate_is_absent() {
+        let attrs = vec![parse_quote!(#[aggregate_id_derive()])];
+
+        let args = AggregateIdDeriveArgs::from_attrs(&attrs).expect("args should parse");
+
+        assert!(args.error.is_none());
+        assert!(args.validate.is_none());
+    }
+
+    #[test]
+    fn from_attrs_requires_error_when_validate_is_present() {
+        let attrs = vec![parse_quote!(#[aggregate_id_derive(validate = validate_counter_id)])];
+
+        let error = AggregateIdDeriveArgs::from_attrs(&attrs).expect_err("args should fail");
+
+        assert!(
+            error
+                .to_string()
+                .contains("missing `#[aggregate_id(error = ...)]` when `validate` is specified")
+        );
     }
 }
