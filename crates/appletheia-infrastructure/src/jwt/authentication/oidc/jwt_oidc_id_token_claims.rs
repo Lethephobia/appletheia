@@ -4,11 +4,10 @@ use url::Url;
 
 use appletheia_application::authentication::oidc::{
     OidcAccessTokenHash, OidcAddress, OidcAudiences, OidcAuthTime, OidcBirthdate, OidcEmail,
-    OidcEmailVerified, OidcFamilyName, OidcGender, OidcGivenName, OidcIdTokenClaims,
-    OidcIdTokenExpiresAt, OidcIdTokenIssuedAt, OidcIdTokenVerifyError, OidcIssuerUrl, OidcLocale,
-    OidcMiddleName, OidcName, OidcNickname, OidcNonce, OidcPhoneNumber, OidcPhoneNumberVerified,
-    OidcPictureUrl, OidcPreferredUsername, OidcProfileUrl, OidcSubject, OidcUpdatedAt,
-    OidcWebsiteUrl, OidcZoneinfo,
+    OidcFamilyName, OidcGender, OidcGivenName, OidcIdTokenClaims, OidcIdTokenExpiresAt,
+    OidcIdTokenIssuedAt, OidcIdTokenVerifyError, OidcIssuerUrl, OidcLocale, OidcMiddleName,
+    OidcName, OidcNickname, OidcNonce, OidcPhoneNumber, OidcPictureUrl, OidcPreferredUsername,
+    OidcProfileUrl, OidcSubject, OidcUpdatedAt, OidcWebsiteUrl, OidcZoneinfo,
 };
 use chrono::{DateTime, TimeZone, Utc};
 
@@ -167,7 +166,7 @@ impl JwtOidcIdTokenClaims {
             nonce,
             access_token_hash: self.access_token_hash.clone().map(OidcAccessTokenHash::new),
             email: self.email.clone().map(OidcEmail::new),
-            email_verified: self.email_verified.map(OidcEmailVerified::new),
+            email_verified: self.email_verified,
             name: self.name.clone().map(OidcName::new),
             given_name: self.given_name.clone().map(OidcGivenName::new),
             family_name: self.family_name.clone().map(OidcFamilyName::new),
@@ -185,7 +184,7 @@ impl JwtOidcIdTokenClaims {
             zoneinfo,
             locale,
             phone_number: self.phone_number.clone().map(OidcPhoneNumber::new),
-            phone_number_verified: self.phone_number_verified.map(OidcPhoneNumberVerified::new),
+            phone_number_verified: self.phone_number_verified,
             address: self.address.clone(),
             updated_at,
         })

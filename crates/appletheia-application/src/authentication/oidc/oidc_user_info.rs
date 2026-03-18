@@ -1,10 +1,9 @@
 use serde::{Deserialize, Serialize};
 
 use super::{
-    OidcAddress, OidcBirthdate, OidcEmail, OidcEmailVerified, OidcFamilyName, OidcGender,
-    OidcGivenName, OidcLocale, OidcMiddleName, OidcName, OidcNickname, OidcPhoneNumber,
-    OidcPhoneNumberVerified, OidcPictureUrl, OidcPreferredUsername, OidcProfileUrl, OidcSubject,
-    OidcUpdatedAt, OidcWebsiteUrl, OidcZoneinfo,
+    OidcAddress, OidcBirthdate, OidcEmail, OidcFamilyName, OidcGender, OidcGivenName, OidcLocale,
+    OidcMiddleName, OidcName, OidcNickname, OidcPhoneNumber, OidcPictureUrl, OidcPreferredUsername,
+    OidcProfileUrl, OidcSubject, OidcUpdatedAt, OidcWebsiteUrl, OidcZoneinfo,
 };
 
 /// Represents the user info returned from the OIDC `userinfo` endpoint.
@@ -12,7 +11,7 @@ use super::{
 pub struct OidcUserInfo {
     pub subject: OidcSubject,
     pub email: Option<OidcEmail>,
-    pub email_verified: Option<OidcEmailVerified>,
+    pub email_verified: Option<bool>,
     pub name: Option<OidcName>,
     pub given_name: Option<OidcGivenName>,
     pub family_name: Option<OidcFamilyName>,
@@ -27,7 +26,7 @@ pub struct OidcUserInfo {
     pub zoneinfo: Option<OidcZoneinfo>,
     pub locale: Option<OidcLocale>,
     pub phone_number: Option<OidcPhoneNumber>,
-    pub phone_number_verified: Option<OidcPhoneNumberVerified>,
+    pub phone_number_verified: Option<bool>,
     pub address: Option<OidcAddress>,
     pub updated_at: Option<OidcUpdatedAt>,
 }
