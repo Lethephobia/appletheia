@@ -21,4 +21,10 @@ pub trait ProjectorProcessedEventStore: Send + Sync {
         projector_name: ProjectorNameOwned,
         event_id: EventId,
     ) -> Result<bool, ProjectorProcessedEventStoreError>;
+
+    async fn reset(
+        &self,
+        uow: &mut Self::Uow,
+        projector_name: ProjectorNameOwned,
+    ) -> Result<(), ProjectorProcessedEventStoreError>;
 }
