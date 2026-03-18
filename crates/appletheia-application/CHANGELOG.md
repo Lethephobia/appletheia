@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0](https://github.com/Lethephobia/appletheia/compare/appletheia-application-v0.7.0...appletheia-application-v0.8.0) - 2026-03-17
+
+### Added
+
+- *(oidc)* add standard claims and userinfo support
+
 ## [0.7.0](https://github.com/Lethephobia/appletheia/compare/appletheia-application-v0.6.0...appletheia-application-v0.7.0) - 2026-03-16
 
 ### Added
