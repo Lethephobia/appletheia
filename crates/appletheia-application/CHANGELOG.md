@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0](https://github.com/Lethephobia/appletheia/compare/appletheia-application-v0.9.0...appletheia-application-v0.10.0) - 2026-03-18
+
+### Added
+
+- *(projection)* add reset support for processed event stores
+
 ## [0.9.0](https://github.com/Lethephobia/appletheia/compare/appletheia-application-v0.8.0...appletheia-application-v0.9.0) - 2026-03-18
 
 ### Other
