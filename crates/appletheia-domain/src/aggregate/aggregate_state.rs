@@ -42,7 +42,6 @@ pub trait AggregateState:
 
 #[cfg(test)]
 mod tests {
-    use appletheia_macros::aggregate_id;
     use serde::{Deserialize, Serialize};
     use thiserror::Error;
     use uuid::Uuid;
@@ -66,8 +65,22 @@ mod tests {
         Ok(())
     }
 
-    #[aggregate_id(error = CounterIdError, validate = validate_counter_id)]
+    #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
+    #[serde(transparent)]
     struct CounterId(Uuid);
+
+    impl AggregateId for CounterId {
+        type Error = CounterIdError;
+
+        fn value(&self) -> Uuid {
+            self.0
+        }
+
+        fn try_from_uuid(value: Uuid) -> Result<Self, Self::Error> {
+            validate_counter_id(value)?;
+            Ok(Self(value))
+        }
+    }
 
     #[derive(Debug, Error)]
     enum CounterStateError {
