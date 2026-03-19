@@ -17,10 +17,11 @@ where
 
 #[cfg(test)]
 mod tests {
-    use appletheia_macros::event_payload;
+    use serde::{Deserialize, Serialize};
     use thiserror::Error;
 
     use super::AggregateApply;
+    use crate::event::{EventName, EventPayload};
 
     #[derive(Debug, Error)]
     enum CounterEventPayloadError {
@@ -28,10 +29,22 @@ mod tests {
         Serde(#[from] serde_json::Error),
     }
 
-    #[event_payload(error = CounterEventPayloadError)]
+    #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+    #[serde(tag = "type", content = "data", rename_all = "snake_case")]
     enum CounterEventPayload {
         Incremented { amount: i32 },
         Decremented { amount: i32 },
+    }
+
+    impl EventPayload for CounterEventPayload {
+        type Error = CounterEventPayloadError;
+
+        fn name(&self) -> EventName {
+            match self {
+                Self::Incremented { .. } => EventName::new("incremented"),
+                Self::Decremented { .. } => EventName::new("decremented"),
+            }
+        }
     }
 
     #[derive(Debug, Error, Eq, PartialEq)]

@@ -83,13 +83,14 @@ impl<I: AggregateId, P: EventPayload> Event<I, P> {
 
 #[cfg(test)]
 mod tests {
-    use appletheia_macros::{aggregate_id, event_payload};
     use chrono::Utc;
+    use serde::{Deserialize, Serialize};
     use thiserror::Error;
     use uuid::{Uuid, Version};
 
     use super::{Event, EventId, EventOccurredAt};
     use crate::aggregate::{AggregateId, AggregateVersion};
+    use crate::event::{EventName, EventPayload};
 
     #[derive(Debug, Error, Eq, PartialEq)]
     enum CounterIdError {
@@ -105,8 +106,22 @@ mod tests {
         Ok(())
     }
 
-    #[aggregate_id(error = CounterIdError, validate = validate_counter_id)]
+    #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
+    #[serde(transparent)]
     struct CounterId(Uuid);
+
+    impl AggregateId for CounterId {
+        type Error = CounterIdError;
+
+        fn value(&self) -> Uuid {
+            self.0
+        }
+
+        fn try_from_uuid(value: Uuid) -> Result<Self, Self::Error> {
+            validate_counter_id(value)?;
+            Ok(Self(value))
+        }
+    }
 
     #[derive(Debug, Error)]
     enum CounterEventPayloadError {
@@ -114,10 +129,22 @@ mod tests {
         Serde(#[from] serde_json::Error),
     }
 
-    #[event_payload(error = CounterEventPayloadError)]
+    #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+    #[serde(tag = "type", content = "data", rename_all = "snake_case")]
     enum CounterEventPayload {
         Opened,
         Incremented { amount: i32 },
+    }
+
+    impl EventPayload for CounterEventPayload {
+        type Error = CounterEventPayloadError;
+
+        fn name(&self) -> EventName {
+            match self {
+                Self::Opened => EventName::new("opened"),
+                Self::Incremented { .. } => EventName::new("incremented"),
+            }
+        }
     }
 
     #[test]

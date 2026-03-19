@@ -201,12 +201,16 @@ pub trait Aggregate:
 mod tests {
     use super::*;
 
-    use appletheia_macros::{aggregate_id, aggregate_state, event_payload, unique_constraints};
+    use serde::{Deserialize, Serialize};
     use std::{fmt, fmt::Display};
     use thiserror::Error;
     use uuid::Uuid;
 
-    use crate::aggregate::{AggregateError, AggregateId, AggregateStateError, AggregateVersion};
+    use crate::aggregate::{
+        AggregateError, AggregateId, AggregateState, AggregateStateError, AggregateVersion,
+        UniqueConstraints,
+    };
+    use crate::event::{EventName, EventPayload};
 
     #[derive(Debug, Error)]
     enum CounterIdError {
@@ -222,23 +226,50 @@ mod tests {
         Ok(())
     }
 
-    #[aggregate_id(error = CounterIdError, validate = validate_counter_id)]
+    #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
+    #[serde(transparent)]
     struct CounterId(Uuid);
+
+    impl AggregateId for CounterId {
+        type Error = CounterIdError;
+
+        fn value(&self) -> Uuid {
+            self.0
+        }
+
+        fn try_from_uuid(value: Uuid) -> Result<Self, Self::Error> {
+            validate_counter_id(value)?;
+            Ok(Self(value))
+        }
+    }
+
+    impl Display for CounterId {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            write!(f, "{}", self.0)
+        }
+    }
 
     #[derive(Debug, Error)]
     enum CounterStateError {
         #[error(transparent)]
         AggregateState(#[from] AggregateStateError),
-
-        #[error(transparent)]
-        UniqueValues(#[from] UniqueValuesError),
     }
 
-    #[aggregate_state(error = CounterStateError)]
-    #[unique_constraints()]
+    #[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
     struct CounterState {
         id: CounterId,
         counter: i32,
+    }
+
+    impl UniqueConstraints<CounterStateError> for CounterState {}
+
+    impl AggregateState for CounterState {
+        type Id = CounterId;
+        type Error = CounterStateError;
+
+        fn id(&self) -> Self::Id {
+            self.id
+        }
     }
 
     impl CounterState {
@@ -257,11 +288,24 @@ mod tests {
         Json(#[from] serde_json::Error),
     }
 
-    #[event_payload(error = CounterEventPayloadError)]
+    #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+    #[serde(tag = "type", content = "data", rename_all = "snake_case")]
     enum CounterEventPayload {
         Created { id: CounterId },
         Increment(i32),
         Decrement(i32),
+    }
+
+    impl EventPayload for CounterEventPayload {
+        type Error = CounterEventPayloadError;
+
+        fn name(&self) -> EventName {
+            match self {
+                Self::Created { .. } => EventName::new("created"),
+                Self::Increment(..) => EventName::new("increment"),
+                Self::Decrement(..) => EventName::new("decrement"),
+            }
+        }
     }
 
     impl Display for CounterEventPayload {
