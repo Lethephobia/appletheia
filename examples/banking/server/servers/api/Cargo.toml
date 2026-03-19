@@ -9,4 +9,4 @@ banking-domain = { workspace = true }
 banking-application = { workspace = true }
 banking-infrastructure = { workspace = true }
 axum = "0.8"
-tokio = { version = "1", features = ["macros", "net", "rt-multi-thread", "signal"] }
+tokio = { workspace = true, features = ["macros", "net", "rt-multi-thread", "signal"] }

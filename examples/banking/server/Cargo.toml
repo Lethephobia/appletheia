@@ -11,3 +11,4 @@ appletheia = { path = "../../../crates/appletheia" }
 banking-domain = { path = "crates/domain" }
 banking-application = { path = "crates/application" }
 banking-infrastructure = { path = "crates/infrastructure" }
+tokio = "1"
