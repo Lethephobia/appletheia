@@ -203,7 +203,6 @@ mod tests {
 
     use appletheia_macros::{aggregate_id, aggregate_state, event_payload, unique_constraints};
     use std::{fmt, fmt::Display};
-
     use thiserror::Error;
     use uuid::Uuid;
 
@@ -225,12 +224,6 @@ mod tests {
 
     #[aggregate_id(error = CounterIdError, validate = validate_counter_id)]
     struct CounterId(Uuid);
-
-    impl Display for CounterId {
-        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            write!(f, "{}", self.value())
-        }
-    }
 
     #[derive(Debug, Error)]
     enum CounterStateError {

@@ -1,27 +1,15 @@
-use std::fmt::{self, Display};
-
 use appletheia::aggregate_id;
 use appletheia::domain::AggregateId;
 use uuid::Uuid;
 
-use super::UserIdError;
-
-fn validate_user_id(value: Uuid) -> Result<(), UserIdError> {
-    if value.is_nil() {
-        return Err(UserIdError::NilUuid);
-    }
-
-    Ok(())
-}
-
 /// Identifies a `User` aggregate.
-#[aggregate_id(error = UserIdError, validate = validate_user_id)]
+#[aggregate_id]
 pub struct UserId(Uuid);
 
 impl UserId {
     /// Creates a new user ID.
     pub fn new() -> Self {
-        Self::try_from_uuid(Uuid::now_v7()).expect("generated uuid v7 should be valid")
+        Self(Uuid::now_v7())
     }
 }
 
@@ -31,18 +19,12 @@ impl Default for UserId {
     }
 }
 
-impl Display for UserId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.value())
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use appletheia::domain::AggregateId;
     use uuid::Uuid;
 
-    use super::{UserId, UserIdError};
+    use super::UserId;
 
     #[test]
     fn new_creates_valid_user_id() {
@@ -52,9 +34,9 @@ mod tests {
     }
 
     #[test]
-    fn rejects_nil_uuid() {
-        let error = UserId::try_from_uuid(Uuid::nil()).expect_err("nil uuid should fail");
+    fn accepts_uuid_without_validation() {
+        let user_id = UserId::try_from_uuid(Uuid::nil()).expect("uuid should be accepted");
 
-        assert!(matches!(error, UserIdError::NilUuid));
+        assert_eq!(user_id.value(), Uuid::nil());
     }
 }

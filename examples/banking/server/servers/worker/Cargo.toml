@@ -8,4 +8,4 @@ appletheia = { workspace = true, features = ["domain", "application", "infrastru
 banking-domain = { workspace = true }
 banking-application = { workspace = true }
 banking-infrastructure = { workspace = true }
-tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "time"] }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "signal", "time"] }

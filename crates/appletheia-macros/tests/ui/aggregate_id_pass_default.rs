@@ -1,12 +1,10 @@
 #![allow(dead_code, unused_imports)]
 
-use std::convert::Infallible;
-
 use appletheia_domain::AggregateId;
 use appletheia_macros::aggregate_id;
 use uuid::Uuid;
 
-#[aggregate_id(error = Infallible)]
+#[aggregate_id]
 struct CounterId(Uuid);
 
 fn assert_aggregate_id<T: AggregateId>() {}
