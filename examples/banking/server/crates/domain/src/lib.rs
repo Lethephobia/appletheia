@@ -1,2 +1,3 @@
 pub mod core;
+pub mod currency_definition;
 pub mod user;
