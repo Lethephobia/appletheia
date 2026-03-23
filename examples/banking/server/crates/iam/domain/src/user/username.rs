@@ -2,6 +2,7 @@ use std::fmt::{self, Display};
 use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 use super::UsernameError;
 
@@ -19,7 +20,7 @@ impl Username {
             return Err(UsernameError::Empty);
         }
 
-        if trimmed.chars().count() > 30 {
+        if trimmed.chars().count() > 32 {
             return Err(UsernameError::TooLong);
         }
 
@@ -35,6 +36,12 @@ impl Username {
     /// Returns the username value.
     pub fn value(&self) -> &str {
         &self.0
+    }
+
+    /// Creates a random username that satisfies the domain constraints.
+    pub fn new_random() -> Self {
+        Self::new(Uuid::now_v7().simple().to_string())
+            .expect("generated username should satisfy constraints")
     }
 }
 
@@ -100,7 +107,7 @@ mod tests {
 
     #[test]
     fn rejects_too_long_username() {
-        let value = "a".repeat(31);
+        let value = "a".repeat(33);
         let error = Username::try_from(value).expect_err("username should be too long");
 
         assert!(matches!(error, UsernameError::TooLong));
@@ -111,5 +118,12 @@ mod tests {
         let error = Username::try_from("Alice Example").expect_err("username should be invalid");
 
         assert!(matches!(error, UsernameError::InvalidCharacter));
+    }
+
+    #[test]
+    fn new_random_generates_valid_username() {
+        let username = Username::new_random();
+
+        assert_eq!(username.value().chars().count(), 32);
     }
 }

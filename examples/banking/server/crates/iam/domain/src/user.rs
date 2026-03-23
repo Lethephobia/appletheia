@@ -31,14 +31,14 @@ pub struct User {
 
 impl User {
     /// Registers a new user.
-    pub fn register(&mut self, username: Username) -> Result<(), UserError> {
+    pub fn register(&mut self) -> Result<(), UserError> {
         if self.state().is_some() {
             return Err(UserError::AlreadyRegistered);
         }
 
         self.append_event(UserEventPayload::Registered {
             id: UserId::new(),
-            username,
+            username: Username::new_random(),
         })
     }
 
@@ -91,18 +91,16 @@ mod tests {
 
     #[test]
     fn register_initializes_state_and_records_event() {
-        let username = Username::try_from("alice_example").expect("username should be valid");
         let mut user = User::default();
 
-        user.register(username.clone())
-            .expect("registration should succeed");
+        user.register().expect("registration should succeed");
 
         let state = user.state().expect("state should exist");
         assert_eq!(
             state.id(),
             user.aggregate_id().expect("aggregate id should exist")
         );
-        assert_eq!(state.username(), &username);
+        assert_eq!(state.username().value().chars().count(), 32);
         assert_eq!(state.display_name(), None);
         assert_eq!(user.uncommitted_events().len(), 1);
         assert_eq!(
@@ -113,10 +111,9 @@ mod tests {
 
     #[test]
     fn changing_to_same_username_is_a_no_op() {
-        let username = Username::try_from("alice_example").expect("username should be valid");
         let mut user = User::default();
-        user.register(username.clone())
-            .expect("registration should succeed");
+        user.register().expect("registration should succeed");
+        let username = user.state().expect("state should exist").username().clone();
 
         user.change_username(username)
             .expect("no-op username change should succeed");
@@ -126,11 +123,9 @@ mod tests {
 
     #[test]
     fn change_username_appends_event_and_updates_state() {
-        let initial_name = Username::try_from("alice").expect("username should be valid");
         let changed_name = Username::try_from("alice_example").expect("username should be valid");
         let mut user = User::default();
-        user.register(initial_name)
-            .expect("registration should succeed");
+        user.register().expect("registration should succeed");
 
         user.change_username(changed_name.clone())
             .expect("username change should succeed");
@@ -147,8 +142,7 @@ mod tests {
     #[test]
     fn change_display_name_appends_event_and_updates_state() {
         let mut user = User::default();
-        user.register(Username::try_from("alice").expect("username should be valid"))
-            .expect("registration should succeed");
+        user.register().expect("registration should succeed");
 
         let display_name =
             Some(UserDisplayName::try_from("Alice Example").expect("display name should be valid"));
@@ -216,11 +210,10 @@ mod tests {
     #[test]
     fn register_rejects_already_registered_user() {
         let mut user = User::default();
-        user.register(Username::try_from("alice").expect("username should be valid"))
-            .expect("registration should succeed");
+        user.register().expect("registration should succeed");
 
         let error = user
-            .register(Username::try_from("alice_2").expect("username should be valid"))
+            .register()
             .expect_err("duplicate registration should fail");
 
         assert!(matches!(error, super::UserError::AlreadyRegistered));
