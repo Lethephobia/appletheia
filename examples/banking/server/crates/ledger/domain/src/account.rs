@@ -15,7 +15,7 @@ pub use account_state::AccountState;
 pub use account_state_error::AccountStateError;
 
 use appletheia::aggregate;
-use appletheia::domain::{Aggregate, AggregateApply, AggregateCore};
+use appletheia::domain::{Aggregate, AggregateApply, AggregateCore, AggregateState};
 use banking_iam_domain::UserId;
 
 use crate::currency_definition::CurrencyDefinitionId;
@@ -87,11 +87,86 @@ impl Account {
             return Err(AccountError::Frozen);
         }
 
-        if state.balance().value() < amount.value() {
+        if state.available_balance()?.value() < amount.value() {
             return Err(AccountError::InsufficientBalance);
         }
 
         self.append_event(AccountEventPayload::Withdrawn { amount })
+    }
+
+    /// Reserves funds in the account.
+    pub fn reserve_funds(&mut self, amount: AccountBalance) -> Result<(), AccountError> {
+        if amount.is_zero() {
+            return Ok(());
+        }
+
+        let state = self.state_required()?;
+
+        if state.is_frozen() {
+            return Err(AccountError::Frozen);
+        }
+
+        if state.available_balance()?.value() < amount.value() {
+            return Err(AccountError::InsufficientAvailableBalance);
+        }
+
+        self.append_event(AccountEventPayload::FundsReserved { amount })
+    }
+
+    /// Releases reserved funds in the account.
+    pub fn release_reserved_funds(&mut self, amount: AccountBalance) -> Result<(), AccountError> {
+        if amount.is_zero() {
+            return Ok(());
+        }
+
+        if self.state_required()?.is_frozen() {
+            return Err(AccountError::Frozen);
+        }
+
+        self.append_event(AccountEventPayload::ReservedFundsReleased { amount })
+    }
+
+    /// Commits reserved funds and deducts them from the account.
+    pub fn commit_reserved_funds(&mut self, amount: AccountBalance) -> Result<(), AccountError> {
+        if amount.is_zero() {
+            return Ok(());
+        }
+
+        if self.state_required()?.is_frozen() {
+            return Err(AccountError::Frozen);
+        }
+
+        self.append_event(AccountEventPayload::ReservedFundsCommitted { amount })
+    }
+
+    /// Requests a transfer from this account to another account.
+    pub fn request_transfer(
+        &mut self,
+        to_account_id: AccountId,
+        amount: AccountBalance,
+    ) -> Result<(), AccountError> {
+        if amount.is_zero() {
+            return Err(AccountError::ZeroTransferAmount);
+        }
+
+        let state = self.state_required()?;
+
+        if state.is_frozen() {
+            return Err(AccountError::Frozen);
+        }
+
+        if state.id() == to_account_id {
+            return Err(AccountError::SameTransferAccount);
+        }
+
+        if state.available_balance()?.value() < amount.value() {
+            return Err(AccountError::InsufficientAvailableBalance);
+        }
+
+        self.append_event(AccountEventPayload::TransferRequested {
+            to_account_id,
+            amount,
+        })
     }
 }
 
@@ -121,6 +196,16 @@ impl AggregateApply<AccountEventPayload, AccountError> for Account {
             AccountEventPayload::Withdrawn { amount } => {
                 self.state_required_mut()?.withdraw(*amount)?;
             }
+            AccountEventPayload::FundsReserved { amount } => {
+                self.state_required_mut()?.reserve_funds(*amount)?;
+            }
+            AccountEventPayload::ReservedFundsReleased { amount } => {
+                self.state_required_mut()?.release_reserved_funds(*amount)?;
+            }
+            AccountEventPayload::ReservedFundsCommitted { amount } => {
+                self.state_required_mut()?.commit_reserved_funds(*amount)?;
+            }
+            AccountEventPayload::TransferRequested { .. } => {}
         }
 
         Ok(())
@@ -155,6 +240,7 @@ mod tests {
         assert_eq!(state.user_id(), &user_id);
         assert_eq!(state.currency_definition_id(), &currency_definition_id);
         assert_eq!(state.balance(), &AccountBalance::zero());
+        assert_eq!(state.reserved_balance(), &AccountBalance::zero());
         assert!(!state.is_frozen());
         assert_eq!(account.uncommitted_events().len(), 1);
         assert_eq!(
@@ -269,6 +355,12 @@ mod tests {
 
         let state = account.state().expect("state should exist");
         assert_eq!(state.balance(), &AccountBalance::new(110));
+        assert_eq!(
+            state
+                .available_balance()
+                .expect("available balance should be valid"),
+            AccountBalance::new(110)
+        );
         assert_eq!(account.uncommitted_events().len(), 3);
         assert_eq!(
             account.uncommitted_events()[1].payload().name(),
@@ -311,5 +403,187 @@ mod tests {
 
         assert!(matches!(deposit_error, super::AccountError::Frozen));
         assert!(matches!(withdraw_error, super::AccountError::Frozen));
+    }
+
+    #[test]
+    fn reserve_release_and_commit_update_reserved_balance() {
+        let mut account = Account::default();
+        account
+            .open(UserId::new(), CurrencyDefinitionId::new())
+            .expect("open should succeed");
+        account
+            .deposit(AccountBalance::new(150))
+            .expect("deposit should succeed");
+
+        account
+            .reserve_funds(AccountBalance::new(40))
+            .expect("reserve should succeed");
+        account
+            .release_reserved_funds(AccountBalance::new(10))
+            .expect("release should succeed");
+        account
+            .commit_reserved_funds(AccountBalance::new(20))
+            .expect("commit should succeed");
+
+        let state = account.state().expect("state should exist");
+        assert_eq!(state.balance(), &AccountBalance::new(130));
+        assert_eq!(state.reserved_balance(), &AccountBalance::new(10));
+        assert_eq!(
+            state
+                .available_balance()
+                .expect("available balance should be valid"),
+            AccountBalance::new(120)
+        );
+        assert_eq!(account.uncommitted_events().len(), 5);
+        assert_eq!(
+            account.uncommitted_events()[2].payload().name(),
+            AccountEventPayload::FUNDS_RESERVED
+        );
+        assert_eq!(
+            account.uncommitted_events()[3].payload().name(),
+            AccountEventPayload::RESERVED_FUNDS_RELEASED
+        );
+        assert_eq!(
+            account.uncommitted_events()[4].payload().name(),
+            AccountEventPayload::RESERVED_FUNDS_COMMITTED
+        );
+    }
+
+    #[test]
+    fn reserve_rejects_insufficient_available_balance() {
+        let mut account = Account::default();
+        account
+            .open(UserId::new(), CurrencyDefinitionId::new())
+            .expect("open should succeed");
+        account
+            .deposit(AccountBalance::new(100))
+            .expect("deposit should succeed");
+        account
+            .reserve_funds(AccountBalance::new(80))
+            .expect("reserve should succeed");
+
+        let error = account
+            .reserve_funds(AccountBalance::new(30))
+            .expect_err("reserve should fail");
+
+        assert!(matches!(
+            error,
+            super::AccountError::InsufficientAvailableBalance
+        ));
+    }
+
+    #[test]
+    fn request_transfer_uses_available_balance() {
+        let mut account = Account::default();
+        account
+            .open(UserId::new(), CurrencyDefinitionId::new())
+            .expect("open should succeed");
+        account
+            .deposit(AccountBalance::new(100))
+            .expect("deposit should succeed");
+        account
+            .reserve_funds(AccountBalance::new(80))
+            .expect("reserve should succeed");
+
+        let error = account
+            .request_transfer(AccountId::new(), AccountBalance::new(30))
+            .expect_err("transfer request should fail");
+
+        assert!(matches!(
+            error,
+            super::AccountError::InsufficientAvailableBalance
+        ));
+    }
+
+    #[test]
+    fn request_transfer_records_event_without_changing_balance() {
+        let mut account = Account::default();
+        account
+            .open(UserId::new(), CurrencyDefinitionId::new())
+            .expect("open should succeed");
+        account
+            .deposit(AccountBalance::new(100))
+            .expect("deposit should succeed");
+        let to_account_id = AccountId::new();
+
+        account
+            .request_transfer(to_account_id, AccountBalance::new(40))
+            .expect("transfer request should succeed");
+
+        let state = account.state().expect("state should exist");
+        assert_eq!(state.balance(), &AccountBalance::new(100));
+        assert_eq!(state.reserved_balance(), &AccountBalance::zero());
+        assert_eq!(account.uncommitted_events().len(), 3);
+        assert_eq!(
+            account.uncommitted_events()[2].payload().name(),
+            AccountEventPayload::TRANSFER_REQUESTED
+        );
+    }
+
+    #[test]
+    fn request_transfer_rejects_zero_amount() {
+        let mut account = Account::default();
+        account
+            .open(UserId::new(), CurrencyDefinitionId::new())
+            .expect("open should succeed");
+
+        let error = account
+            .request_transfer(AccountId::new(), AccountBalance::zero())
+            .expect_err("zero transfer should fail");
+
+        assert!(matches!(error, super::AccountError::ZeroTransferAmount));
+    }
+
+    #[test]
+    fn request_transfer_rejects_same_account() {
+        let mut account = Account::default();
+        account
+            .open(UserId::new(), CurrencyDefinitionId::new())
+            .expect("open should succeed");
+        account
+            .deposit(AccountBalance::new(100))
+            .expect("deposit should succeed");
+        let account_id = account.aggregate_id().expect("aggregate id should exist");
+
+        let error = account
+            .request_transfer(account_id, AccountBalance::new(1))
+            .expect_err("same-account transfer should fail");
+
+        assert!(matches!(error, super::AccountError::SameTransferAccount));
+    }
+
+    #[test]
+    fn request_transfer_rejects_insufficient_balance() {
+        let mut account = Account::default();
+        account
+            .open(UserId::new(), CurrencyDefinitionId::new())
+            .expect("open should succeed");
+
+        let error = account
+            .request_transfer(AccountId::new(), AccountBalance::new(1))
+            .expect_err("transfer request should fail");
+
+        assert!(matches!(
+            error,
+            super::AccountError::InsufficientAvailableBalance
+        ));
+    }
+
+    #[test]
+    fn request_transfer_rejects_frozen_account() {
+        let mut account = Account::default();
+        account
+            .open(UserId::new(), CurrencyDefinitionId::new())
+            .expect("open should succeed");
+        account
+            .deposit(AccountBalance::new(100))
+            .expect("deposit should succeed");
+        account.freeze().expect("freeze should succeed");
+
+        let error = account
+            .request_transfer(AccountId::new(), AccountBalance::new(1))
+            .expect_err("transfer request should fail");
+
+        assert!(matches!(error, super::AccountError::Frozen));
     }
 }

@@ -6,4 +6,16 @@ use thiserror::Error;
 pub enum AccountStateError {
     #[error(transparent)]
     AggregateState(#[from] AggregateStateError),
+
+    #[error("account balance overflowed")]
+    BalanceOverflow,
+
+    #[error("account has insufficient balance")]
+    InsufficientBalance,
+
+    #[error("account has insufficient reserved balance")]
+    InsufficientReservedBalance,
+
+    #[error("account reserved balance exceeds total balance")]
+    InvalidReservedBalance,
 }
