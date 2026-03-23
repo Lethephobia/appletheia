@@ -1,0 +1,8 @@
+[package]
+name = "banking-ledger-application"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+appletheia = { workspace = true, features = ["application"] }
+banking-ledger-domain = { workspace = true }
