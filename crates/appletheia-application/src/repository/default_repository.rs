@@ -11,9 +11,12 @@ use crate::request_context::RequestContext;
 use crate::snapshot::{SnapshotPolicy, SnapshotReader, SnapshotWriter};
 use crate::unit_of_work::UnitOfWork;
 
-use super::{Repository, RepositoryConfig, RepositoryError, UniqueKeyReservationStore};
+use super::{
+    Repository, RepositoryConfig, RepositoryError, UniqueKeyReservationStore,
+    UniqueValueOwnerLookup,
+};
 
-pub struct DefaultRepository<A, ER, EW, SR, SW, UKS, Uow>
+pub struct DefaultRepository<A, ER, EW, SR, SW, UVOL, UKS, Uow>
 where
     A: Aggregate,
     A::State: UniqueConstraints<<A::State as AggregateState>::Error>,
@@ -22,6 +25,7 @@ where
     EW: EventWriter<A, Uow = Uow>,
     SR: SnapshotReader<A, Uow = Uow>,
     SW: SnapshotWriter<A, Uow = Uow>,
+    UVOL: UniqueValueOwnerLookup<Uow = Uow>,
     UKS: UniqueKeyReservationStore<Uow = Uow>,
 {
     config: RepositoryConfig,
@@ -29,11 +33,12 @@ where
     snapshot_reader: SR,
     event_writer: EW,
     snapshot_writer: SW,
+    unique_value_owner_lookup: UVOL,
     unique_key_reservation_store: UKS,
     _marker: PhantomData<fn() -> A>,
 }
 
-impl<A, ER, EW, SR, SW, UKS, Uow> DefaultRepository<A, ER, EW, SR, SW, UKS, Uow>
+impl<A, ER, EW, SR, SW, UVOL, UKS, Uow> DefaultRepository<A, ER, EW, SR, SW, UVOL, UKS, Uow>
 where
     A: Aggregate,
     A::State: UniqueConstraints<<A::State as AggregateState>::Error>,
@@ -42,6 +47,7 @@ where
     EW: EventWriter<A, Uow = Uow>,
     SR: SnapshotReader<A, Uow = Uow>,
     SW: SnapshotWriter<A, Uow = Uow>,
+    UVOL: UniqueValueOwnerLookup<Uow = Uow>,
     UKS: UniqueKeyReservationStore<Uow = Uow>,
 {
     pub fn new(
@@ -50,6 +56,7 @@ where
         snapshot_reader: SR,
         event_writer: EW,
         snapshot_writer: SW,
+        unique_value_owner_lookup: UVOL,
         unique_key_reservation_store: UKS,
     ) -> Self {
         Self {
@@ -58,13 +65,15 @@ where
             snapshot_reader,
             event_writer,
             snapshot_writer,
+            unique_value_owner_lookup,
             unique_key_reservation_store,
             _marker: PhantomData,
         }
     }
 }
 
-impl<A, ER, EW, SR, SW, UKS, Uow> Repository<A> for DefaultRepository<A, ER, EW, SR, SW, UKS, Uow>
+impl<A, ER, EW, SR, SW, UVOL, UKS, Uow> Repository<A>
+    for DefaultRepository<A, ER, EW, SR, SW, UVOL, UKS, Uow>
 where
     A: Aggregate,
     A::State: UniqueConstraints<<A::State as AggregateState>::Error>,
@@ -73,6 +82,7 @@ where
     EW: EventWriter<A, Uow = Uow>,
     SR: SnapshotReader<A, Uow = Uow>,
     SW: SnapshotWriter<A, Uow = Uow>,
+    UVOL: UniqueValueOwnerLookup<Uow = Uow>,
     UKS: UniqueKeyReservationStore<Uow = Uow>,
 {
     type Uow = Uow;
@@ -111,6 +121,23 @@ where
             .map_err(RepositoryError::Aggregate)?;
 
         Ok(Some(aggregate))
+    }
+
+    async fn find_by_unique_value(
+        &self,
+        uow: &mut Self::Uow,
+        unique_key: appletheia_domain::UniqueKey,
+        unique_value: &appletheia_domain::UniqueValue,
+    ) -> Result<Option<A>, RepositoryError<A>> {
+        let aggregate_id = self
+            .unique_value_owner_lookup
+            .find_owner_id(uow, A::TYPE, unique_key, unique_value)
+            .await?;
+        let Some(aggregate_id) = aggregate_id else {
+            return Ok(None);
+        };
+
+        self.find(uow, aggregate_id).await
     }
 
     async fn save(
@@ -169,7 +196,7 @@ mod tests {
     use crate::event::{EventReader, EventReaderError, EventWriter, EventWriterError};
     use crate::repository::{
         Repository, RepositoryConfig, RepositoryError, UniqueKeyReservationStore,
-        UniqueKeyReservationStoreError,
+        UniqueKeyReservationStoreError, UniqueValueOwnerLookup, UniqueValueOwnerLookupError,
     };
     use crate::request_context::{ActorRef, CorrelationId, MessageId, Principal, RequestContext};
     use crate::snapshot::{
@@ -414,6 +441,52 @@ mod tests {
     }
 
     #[derive(Debug)]
+    struct RecordingUniqueValueOwnerLookup {
+        aggregate_id: Option<CounterId>,
+        fail: bool,
+        log: Arc<Mutex<Vec<String>>>,
+    }
+
+    impl UniqueValueOwnerLookup for RecordingUniqueValueOwnerLookup {
+        type Uow = TestUnitOfWork;
+
+        async fn find_owner_id<I>(
+            &self,
+            _uow: &mut Self::Uow,
+            aggregate_type: AggregateType,
+            unique_key: UniqueKey,
+            unique_value: &UniqueValue,
+        ) -> Result<Option<I>, UniqueValueOwnerLookupError>
+        where
+            I: AggregateId,
+        {
+            self.log
+                .lock()
+                .expect("lookup log should be lockable")
+                .push(format!(
+                    "lookup:{}:{}:{}",
+                    aggregate_type.value(),
+                    unique_key.value(),
+                    unique_value.normalized_key()
+                ));
+
+            if self.fail {
+                return Err(UniqueValueOwnerLookupError::Persistence(Box::new(
+                    std::io::Error::other("lookup failed"),
+                )));
+            }
+
+            self.aggregate_id
+                .map(|aggregate_id| {
+                    I::try_from_uuid(aggregate_id.value()).map_err(|error| {
+                        UniqueValueOwnerLookupError::OwnerAggregateId(Box::new(error))
+                    })
+                })
+                .transpose()
+        }
+    }
+
+    #[derive(Debug)]
     struct RecordingUniqueKeyReservationStore {
         fail_with_conflict: bool,
         log: Arc<Mutex<Vec<String>>>,
@@ -468,6 +541,7 @@ mod tests {
         RecordingEventWriter,
         RecordingSnapshotReader,
         RecordingSnapshotWriter,
+        RecordingUniqueValueOwnerLookup,
         RecordingUniqueKeyReservationStore,
         TestUnitOfWork,
     > {
@@ -481,6 +555,11 @@ mod tests {
                 log: Arc::clone(&log),
             },
             RecordingSnapshotWriter,
+            RecordingUniqueValueOwnerLookup {
+                aggregate_id: None,
+                fail: false,
+                log: Arc::clone(&log),
+            },
             RecordingUniqueKeyReservationStore {
                 fail_with_conflict,
                 log,
@@ -508,6 +587,42 @@ mod tests {
             .expect("register event should apply");
 
         aggregate
+    }
+
+    fn repository_with_lookup(
+        log: Arc<Mutex<Vec<String>>>,
+        aggregate_id: Option<CounterId>,
+        fail_lookup: bool,
+    ) -> DefaultRepository<
+        Counter,
+        RecordingEventReader,
+        RecordingEventWriter,
+        RecordingSnapshotReader,
+        RecordingSnapshotWriter,
+        RecordingUniqueValueOwnerLookup,
+        RecordingUniqueKeyReservationStore,
+        TestUnitOfWork,
+    > {
+        DefaultRepository::new(
+            RepositoryConfig {
+                snapshot_policy: SnapshotPolicy::Disabled,
+            },
+            RecordingEventReader,
+            RecordingSnapshotReader,
+            RecordingEventWriter {
+                log: Arc::clone(&log),
+            },
+            RecordingSnapshotWriter,
+            RecordingUniqueValueOwnerLookup {
+                aggregate_id,
+                fail: fail_lookup,
+                log: Arc::clone(&log),
+            },
+            RecordingUniqueKeyReservationStore {
+                fail_with_conflict: false,
+                log,
+            },
+        )
     }
 
     #[tokio::test]
@@ -572,5 +687,45 @@ mod tests {
             *log.lock().expect("log should be lockable"),
             vec!["replace:1:1".to_owned()]
         );
+    }
+
+    #[tokio::test]
+    async fn find_by_unique_value_returns_none_when_lookup_misses() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let repository = repository_with_lookup(Arc::clone(&log), None, false);
+        let mut uow = TestUnitOfWork;
+        let unique_value = UniqueValue::new(vec![
+            UniqueValuePart::try_from("foo@example.com").expect("unique part should be valid"),
+        ])
+        .expect("unique value should be valid");
+
+        let aggregate = repository
+            .find_by_unique_value(&mut uow, UniqueKey::new("email"), &unique_value)
+            .await
+            .expect("lookup should succeed");
+
+        assert!(aggregate.is_none());
+        assert_eq!(
+            *log.lock().expect("log should be lockable"),
+            vec!["lookup:counter:email:15:foo@example.com".to_owned()]
+        );
+    }
+
+    #[tokio::test]
+    async fn find_by_unique_value_returns_lookup_errors() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let repository = repository_with_lookup(Arc::clone(&log), None, true);
+        let mut uow = TestUnitOfWork;
+        let unique_value = UniqueValue::new(vec![
+            UniqueValuePart::try_from("foo@example.com").expect("unique part should be valid"),
+        ])
+        .expect("unique value should be valid");
+
+        let error = repository
+            .find_by_unique_value(&mut uow, UniqueKey::new("email"), &unique_value)
+            .await
+            .expect_err("lookup failure should be returned");
+
+        assert!(matches!(error, RepositoryError::UniqueValueOwnerLookup(_)));
     }
 }
