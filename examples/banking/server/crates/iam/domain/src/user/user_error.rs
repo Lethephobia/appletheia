@@ -11,4 +11,10 @@ pub enum UserError {
 
     #[error("user is already registered")]
     AlreadyRegistered,
+
+    #[error("user profile is already ready")]
+    ProfileAlreadyReady,
+
+    #[error("user profile is not ready")]
+    ProfileNotReady,
 }
