@@ -11,7 +11,7 @@ use serde::de::DeserializeOwned;
 #[allow(async_fn_in_trait)]
 pub trait CommandHandler: Send + Sync {
     type Command: Command;
-    type Output: Serialize + DeserializeOwned + Send + 'static;
+    type Output: Send + 'static;
     type ReplayOutput: Serialize + DeserializeOwned + Send + 'static;
     type Error: Error + Send + Sync + 'static;
     type Uow: UnitOfWork;
