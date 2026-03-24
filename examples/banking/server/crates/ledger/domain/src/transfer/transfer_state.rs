@@ -1,5 +1,5 @@
 use appletheia::aggregate_state;
-use appletheia::domain::UniqueConstraints;
+use appletheia::unique_constraints;
 
 use crate::account::{AccountBalance, AccountId};
 
@@ -7,6 +7,7 @@ use super::{TransferId, TransferStateError, TransferStatus};
 
 /// Stores the materialized state of a `Transfer` aggregate.
 #[aggregate_state(error = TransferStateError)]
+#[unique_constraints()]
 pub struct TransferState {
     pub(super) id: TransferId,
     pub(super) from_account_id: AccountId,
@@ -32,8 +33,6 @@ impl TransferState {
         }
     }
 }
-
-impl UniqueConstraints<TransferStateError> for TransferState {}
 
 #[cfg(test)]
 mod tests {

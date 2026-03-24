@@ -15,6 +15,7 @@ pub enum AccountEventPayload {
     },
     Frozen,
     Thawed,
+    Closed,
     Deposited {
         amount: AccountBalance,
     },
@@ -59,6 +60,10 @@ mod tests {
         assert_eq!(
             AccountEventPayload::THAWED,
             appletheia::domain::EventName::new("thawed")
+        );
+        assert_eq!(
+            AccountEventPayload::CLOSED,
+            appletheia::domain::EventName::new("closed")
         );
         assert_eq!(
             AccountEventPayload::DEPOSITED,

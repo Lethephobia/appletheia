@@ -1,20 +1,21 @@
 use appletheia::aggregate_state;
-use appletheia::domain::UniqueConstraints;
+use appletheia::unique_constraints;
 use banking_iam_domain::UserId;
 
 use crate::currency_definition::CurrencyDefinitionId;
 
-use super::{AccountBalance, AccountId, AccountStateError};
+use super::{AccountBalance, AccountId, AccountStateError, AccountStatus};
 
 /// Stores the materialized state of an `Account` aggregate.
 #[aggregate_state(error = AccountStateError)]
+#[unique_constraints()]
 pub struct AccountState {
     pub(super) id: AccountId,
     pub(super) user_id: UserId,
     pub(super) currency_definition_id: CurrencyDefinitionId,
     pub(super) balance: AccountBalance,
     pub(super) reserved_balance: AccountBalance,
-    pub(super) frozen: bool,
+    pub(super) status: AccountStatus,
 }
 
 impl AccountState {
@@ -30,12 +31,10 @@ impl AccountState {
             currency_definition_id,
             balance: AccountBalance::zero(),
             reserved_balance: AccountBalance::zero(),
-            frozen: false,
+            status: AccountStatus::Active,
         }
     }
 }
-
-impl UniqueConstraints<AccountStateError> for AccountState {}
 
 #[cfg(test)]
 mod tests {
@@ -45,7 +44,7 @@ mod tests {
 
     use crate::currency_definition::CurrencyDefinitionId;
 
-    use super::{AccountBalance, AccountId, AccountState};
+    use super::{AccountBalance, AccountId, AccountState, AccountStatus};
 
     #[test]
     fn exposes_id_via_aggregate_state_trait() {
@@ -56,11 +55,11 @@ mod tests {
     }
 
     #[test]
-    fn new_initializes_zero_balances_and_not_frozen() {
+    fn new_initializes_zero_balances_and_active_status() {
         let state = AccountState::new(AccountId::new(), UserId::new(), CurrencyDefinitionId::new());
 
         assert_eq!(state.balance, AccountBalance::zero());
         assert_eq!(state.reserved_balance, AccountBalance::zero());
-        assert!(!state.frozen);
+        assert_eq!(state.status, AccountStatus::Active);
     }
 }
