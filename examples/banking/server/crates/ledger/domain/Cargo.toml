@@ -1,0 +1,12 @@
+[package]
+name = "banking-ledger-domain"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+appletheia = { workspace = true, features = ["macros"] }
+banking-iam-domain = { workspace = true }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+uuid = { version = "1", features = ["serde", "v7"] }

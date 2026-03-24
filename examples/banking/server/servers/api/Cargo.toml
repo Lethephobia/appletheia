@@ -5,8 +5,11 @@ edition = "2024"
 
 [dependencies]
 appletheia = { workspace = true, features = ["domain", "application", "infrastructure"] }
-banking-domain = { workspace = true }
-banking-application = { workspace = true }
-banking-infrastructure = { workspace = true }
+banking-iam-domain = { workspace = true }
+banking-iam-application = { workspace = true }
+banking-iam-infrastructure = { workspace = true }
+banking-ledger-domain = { workspace = true }
+banking-ledger-application = { workspace = true }
+banking-ledger-infrastructure = { workspace = true }
 axum = "0.8"
 tokio = { workspace = true, features = ["macros", "net", "rt-multi-thread", "signal"] }

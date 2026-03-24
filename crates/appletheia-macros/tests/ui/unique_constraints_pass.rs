@@ -66,11 +66,11 @@ fn main() {
 
     let unique_entries = state.unique_entries().unwrap();
 
+    assert_eq!(CounterState::EMAIL_KEY, UniqueKey::new("email"));
+    assert_eq!(CounterState::PHONE_NUMBER_KEY, UniqueKey::new("phone_number"));
     assert_eq!(
-        unique_entries
-            .get(UniqueKey::new("email"))
-            .map(UniqueValues::len),
+        unique_entries.get(CounterState::EMAIL_KEY).map(UniqueValues::len),
         Some(1)
     );
-    assert_eq!(unique_entries.get(UniqueKey::new("phone_number")), None);
+    assert_eq!(unique_entries.get(CounterState::PHONE_NUMBER_KEY), None);
 }

@@ -1,0 +1,9 @@
+[package]
+name = "banking-iam-infrastructure"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+appletheia = { workspace = true, features = ["infrastructure"] }
+banking-iam-domain = { workspace = true }
+banking-iam-application = { workspace = true }

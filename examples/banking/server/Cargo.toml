@@ -2,13 +2,16 @@
 resolver = "3"
 
 members = [
-    "crates/*",
+    "crates/*/*",
     "servers/*",
 ]
 
 [workspace.dependencies]
 appletheia = { path = "../../../crates/appletheia" }
-banking-domain = { path = "crates/domain" }
-banking-application = { path = "crates/application" }
-banking-infrastructure = { path = "crates/infrastructure" }
+banking-iam-domain = { path = "crates/iam/domain" }
+banking-iam-application = { path = "crates/iam/application" }
+banking-iam-infrastructure = { path = "crates/iam/infrastructure" }
+banking-ledger-domain = { path = "crates/ledger/domain" }
+banking-ledger-application = { path = "crates/ledger/application" }
+banking-ledger-infrastructure = { path = "crates/ledger/infrastructure" }
 tokio = "1"
