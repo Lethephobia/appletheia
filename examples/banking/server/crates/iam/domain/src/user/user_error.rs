@@ -12,6 +12,12 @@ pub enum UserError {
     #[error("user is already registered")]
     AlreadyRegistered,
 
+    #[error("user identity is already linked")]
+    IdentityAlreadyLinked,
+
+    #[error("user identity was not found")]
+    IdentityNotFound,
+
     #[error("user profile is already ready")]
     ProfileAlreadyReady,
 

@@ -4,6 +4,11 @@ mod user_error;
 mod user_event_payload;
 mod user_event_payload_error;
 mod user_id;
+mod user_identity;
+mod user_identity_provider;
+mod user_identity_provider_error;
+mod user_identity_subject;
+mod user_identity_subject_error;
 mod user_profile;
 mod user_state;
 mod user_state_error;
@@ -16,6 +21,11 @@ pub use user_error::UserError;
 pub use user_event_payload::UserEventPayload;
 pub use user_event_payload_error::UserEventPayloadError;
 pub use user_id::UserId;
+pub use user_identity::UserIdentity;
+pub use user_identity_provider::UserIdentityProvider;
+pub use user_identity_provider_error::UserIdentityProviderError;
+pub use user_identity_subject::UserIdentitySubject;
+pub use user_identity_subject_error::UserIdentitySubjectError;
 pub use user_profile::UserProfile;
 pub use user_state::UserState;
 pub use user_state_error::UserStateError;
@@ -25,6 +35,8 @@ pub use username_error::UsernameError;
 use appletheia::aggregate;
 use appletheia::domain::{Aggregate, AggregateApply, AggregateCore};
 
+use crate::core::Email;
+
 /// Represents the `User` aggregate root.
 #[aggregate(type = "user", error = UserError)]
 pub struct User {
@@ -32,13 +44,16 @@ pub struct User {
 }
 
 impl User {
-    /// Registers a new user.
-    pub fn register(&mut self) -> Result<(), UserError> {
+    /// Registers a new user with an initial external identity.
+    pub fn register(&mut self, identity: UserIdentity) -> Result<(), UserError> {
         if self.state().is_some() {
             return Err(UserError::AlreadyRegistered);
         }
 
-        self.append_event(UserEventPayload::Registered { id: UserId::new() })
+        self.append_event(UserEventPayload::Registered {
+            id: UserId::new(),
+            identity,
+        })
     }
 
     /// Marks the profile as ready with explicit profile values.
@@ -91,13 +106,51 @@ impl User {
 
         self.append_event(UserEventPayload::DisplayNameChanged { display_name })
     }
+
+    /// Links an additional external identity.
+    pub fn link_identity(&mut self, identity: UserIdentity) -> Result<(), UserError> {
+        if let Some(current_identity) = self
+            .state_required()?
+            .identity(identity.provider(), identity.subject())
+        {
+            if current_identity.eq(&identity) {
+                return Ok(());
+            }
+
+            return Err(UserError::IdentityAlreadyLinked);
+        }
+
+        self.append_event(UserEventPayload::IdentityLinked { identity })
+    }
+
+    /// Changes the email snapshot for a linked identity.
+    pub fn change_identity_email(
+        &mut self,
+        provider: UserIdentityProvider,
+        subject: UserIdentitySubject,
+        email: Option<Email>,
+    ) -> Result<(), UserError> {
+        let Some(identity) = self.state_required()?.identity(&provider, &subject) else {
+            return Err(UserError::IdentityNotFound);
+        };
+
+        if identity.email() == email.as_ref() {
+            return Ok(());
+        }
+
+        self.append_event(UserEventPayload::IdentityEmailChanged {
+            provider,
+            subject,
+            email,
+        })
+    }
 }
 
 impl AggregateApply<UserEventPayload, UserError> for User {
     fn apply(&mut self, payload: &UserEventPayload) -> Result<(), UserError> {
         match payload {
-            UserEventPayload::Registered { id } => {
-                self.set_state(Some(UserState::new(*id)));
+            UserEventPayload::Registered { id, identity } => {
+                self.set_state(Some(UserState::new(*id, identity.clone())));
             }
             UserEventPayload::ProfileReadied {
                 username,
@@ -130,6 +183,21 @@ impl AggregateApply<UserEventPayload, UserError> for User {
                     display_name: display_name.clone(),
                 });
             }
+            UserEventPayload::IdentityLinked { identity } => {
+                self.state_required_mut()?.add_identity(identity.clone());
+            }
+            UserEventPayload::IdentityEmailChanged {
+                provider,
+                subject,
+                email,
+            } => {
+                let updated =
+                    self.state_required_mut()?
+                        .set_identity_email(provider, subject, email.clone());
+                if !updated {
+                    return Err(UserError::IdentityNotFound);
+                }
+            }
         }
 
         Ok(())
@@ -140,13 +208,28 @@ impl AggregateApply<UserEventPayload, UserError> for User {
 mod tests {
     use appletheia::domain::{Aggregate, AggregateState, Event, EventPayload};
 
-    use super::{User, UserDisplayName, UserEventPayload, UserId, UserProfile, Username};
+    use crate::core::Email;
+
+    use super::{
+        User, UserDisplayName, UserEventPayload, UserId, UserIdentity, UserIdentityProvider,
+        UserIdentitySubject, UserProfile, Username,
+    };
+
+    fn identity() -> UserIdentity {
+        UserIdentity::new(
+            UserIdentityProvider::try_from("https://accounts.example.com")
+                .expect("provider should be valid"),
+            UserIdentitySubject::try_from("user-123").expect("subject should be valid"),
+            Some(Email::try_from("alice@example.com").expect("email should be valid")),
+        )
+    }
 
     #[test]
     fn register_initializes_state_and_records_event() {
         let mut user = User::default();
 
-        user.register().expect("registration should succeed");
+        user.register(identity())
+            .expect("registration should succeed");
 
         let state = user.state().expect("state should exist");
         assert_eq!(
@@ -156,6 +239,14 @@ mod tests {
         assert_eq!(state.profile(), &UserProfile::Pending);
         assert_eq!(state.username(), None);
         assert_eq!(state.display_name(), None);
+        assert_eq!(state.identities().len(), 1);
+        assert_eq!(
+            state.identities()[0]
+                .email()
+                .expect("email should exist")
+                .value(),
+            "alice@example.com"
+        );
         assert_eq!(user.uncommitted_events().len(), 1);
         assert_eq!(
             user.uncommitted_events()[0].payload().name(),
@@ -166,7 +257,8 @@ mod tests {
     #[test]
     fn readying_to_same_profile_is_a_no_op() {
         let mut user = User::default();
-        user.register().expect("registration should succeed");
+        user.register(identity())
+            .expect("registration should succeed");
         let username = Username::try_from("alice").expect("username should be valid");
         let display_name =
             UserDisplayName::try_from("Alice Example").expect("display name should be valid");
@@ -182,7 +274,8 @@ mod tests {
     #[test]
     fn ready_profile_rejects_already_ready_user_with_different_values() {
         let mut user = User::default();
-        user.register().expect("registration should succeed");
+        user.register(identity())
+            .expect("registration should succeed");
         user.ready_profile(
             Username::try_from("alice").expect("username should be valid"),
             UserDisplayName::try_from("Alice Example").expect("display name should be valid"),
@@ -205,7 +298,8 @@ mod tests {
         let display_name =
             UserDisplayName::try_from("Alice Example").expect("display name should be valid");
         let mut user = User::default();
-        user.register().expect("registration should succeed");
+        user.register(identity())
+            .expect("registration should succeed");
 
         user.ready_profile(username.clone(), display_name.clone())
             .expect("profile ready should succeed");
@@ -230,7 +324,8 @@ mod tests {
     #[test]
     fn change_username_rejects_pending_profile() {
         let mut user = User::default();
-        user.register().expect("registration should succeed");
+        user.register(identity())
+            .expect("registration should succeed");
 
         let error = user
             .change_username(Username::try_from("alice").expect("username should be valid"))
@@ -242,7 +337,8 @@ mod tests {
     #[test]
     fn change_username_appends_event_and_updates_state() {
         let mut user = User::default();
-        user.register().expect("registration should succeed");
+        user.register(identity())
+            .expect("registration should succeed");
         user.ready_profile(
             Username::try_from("alice").expect("username should be valid"),
             UserDisplayName::try_from("Alice Example").expect("display name should be valid"),
@@ -265,7 +361,8 @@ mod tests {
     #[test]
     fn change_display_name_rejects_pending_profile() {
         let mut user = User::default();
-        user.register().expect("registration should succeed");
+        user.register(identity())
+            .expect("registration should succeed");
 
         let error = user
             .change_display_name(
@@ -279,7 +376,8 @@ mod tests {
     #[test]
     fn change_display_name_appends_event_and_updates_state() {
         let mut user = User::default();
-        user.register().expect("registration should succeed");
+        user.register(identity())
+            .expect("registration should succeed");
         user.ready_profile(
             Username::try_from("alice").expect("username should be valid"),
             UserDisplayName::try_from("Alice Example").expect("display name should be valid"),
@@ -301,12 +399,103 @@ mod tests {
     }
 
     #[test]
+    fn link_identity_appends_event_and_updates_state() {
+        let mut user = User::default();
+        user.register(identity())
+            .expect("registration should succeed");
+        let linked_identity = UserIdentity::new(
+            UserIdentityProvider::try_from("https://login.example.com")
+                .expect("provider should be valid"),
+            UserIdentitySubject::try_from("user-456").expect("subject should be valid"),
+            None,
+        );
+
+        user.link_identity(linked_identity.clone())
+            .expect("identity link should succeed");
+
+        let state = user.state().expect("state should exist");
+        assert_eq!(state.identities().len(), 2);
+        assert!(
+            state
+                .identity(linked_identity.provider(), linked_identity.subject())
+                .is_some()
+        );
+        assert_eq!(user.uncommitted_events().len(), 2);
+        assert_eq!(
+            user.uncommitted_events()[1].payload().name(),
+            UserEventPayload::IDENTITY_LINKED
+        );
+    }
+
+    #[test]
+    fn linking_same_identity_is_a_no_op() {
+        let mut user = User::default();
+        let identity = identity();
+        user.register(identity.clone())
+            .expect("registration should succeed");
+
+        user.link_identity(identity)
+            .expect("same identity link should succeed");
+
+        assert_eq!(user.uncommitted_events().len(), 1);
+    }
+
+    #[test]
+    fn change_identity_email_rejects_unknown_identity() {
+        let mut user = User::default();
+        user.register(identity())
+            .expect("registration should succeed");
+
+        let error = user
+            .change_identity_email(
+                UserIdentityProvider::try_from("https://login.example.com")
+                    .expect("provider should be valid"),
+                UserIdentitySubject::try_from("user-456").expect("subject should be valid"),
+                Some(Email::try_from("other@example.com").expect("email should be valid")),
+            )
+            .expect_err("unknown identity should fail");
+
+        assert!(matches!(error, super::UserError::IdentityNotFound));
+    }
+
+    #[test]
+    fn change_identity_email_appends_event_and_updates_state() {
+        let mut user = User::default();
+        user.register(identity())
+            .expect("registration should succeed");
+        let provider = UserIdentityProvider::try_from("https://accounts.example.com")
+            .expect("provider should be valid");
+        let subject = UserIdentitySubject::try_from("user-123").expect("subject should be valid");
+        let email = Some(Email::try_from("alice@bank.example").expect("email should be valid"));
+
+        user.change_identity_email(provider.clone(), subject.clone(), email.clone())
+            .expect("identity email change should succeed");
+
+        let state = user.state().expect("state should exist");
+        assert_eq!(
+            state
+                .identity(&provider, &subject)
+                .expect("identity should exist")
+                .email(),
+            email.as_ref()
+        );
+        assert_eq!(user.uncommitted_events().len(), 2);
+        assert_eq!(
+            user.uncommitted_events()[1].payload().name(),
+            UserEventPayload::IDENTITY_EMAIL_CHANGED
+        );
+    }
+
+    #[test]
     fn replay_events_rebuilds_state() {
         let id = UserId::new();
         let registered = Event::new(
             id,
             appletheia::domain::AggregateVersion::try_from(1).expect("version should be valid"),
-            UserEventPayload::Registered { id },
+            UserEventPayload::Registered {
+                id,
+                identity: identity(),
+            },
         );
         let profile_readied = Event::new(
             id,
@@ -317,19 +506,42 @@ mod tests {
                     .expect("display name should be valid"),
             },
         );
-        let username_changed = Event::new(
+        let identity_linked = Event::new(
             id,
             appletheia::domain::AggregateVersion::try_from(3).expect("version should be valid"),
+            UserEventPayload::IdentityLinked {
+                identity: UserIdentity::new(
+                    UserIdentityProvider::try_from("https://login.example.com")
+                        .expect("provider should be valid"),
+                    UserIdentitySubject::try_from("user-456").expect("subject should be valid"),
+                    None,
+                ),
+            },
+        );
+        let username_changed = Event::new(
+            id,
+            appletheia::domain::AggregateVersion::try_from(4).expect("version should be valid"),
             UserEventPayload::UsernameChanged {
                 username: Username::try_from("alice_updated").expect("username should be valid"),
             },
         );
         let display_name_changed = Event::new(
             id,
-            appletheia::domain::AggregateVersion::try_from(4).expect("version should be valid"),
+            appletheia::domain::AggregateVersion::try_from(5).expect("version should be valid"),
             UserEventPayload::DisplayNameChanged {
                 display_name: UserDisplayName::try_from("Alice Updated")
                     .expect("display name should be valid"),
+            },
+        );
+        let identity_email_changed = Event::new(
+            id,
+            appletheia::domain::AggregateVersion::try_from(6).expect("version should be valid"),
+            UserEventPayload::IdentityEmailChanged {
+                provider: UserIdentityProvider::try_from("https://accounts.example.com")
+                    .expect("provider should be valid"),
+                subject: UserIdentitySubject::try_from("user-123")
+                    .expect("subject should be valid"),
+                email: Some(Email::try_from("alice@bank.example").expect("email should be valid")),
             },
         );
         let mut user = User::default();
@@ -338,8 +550,10 @@ mod tests {
             vec![
                 registered,
                 profile_readied,
+                identity_linked,
                 username_changed,
                 display_name_changed,
+                identity_email_changed,
             ],
             None,
         )
@@ -357,17 +571,26 @@ mod tests {
                 .value(),
             "Alice Updated"
         );
-        assert_eq!(user.version().value(), 4);
+        assert_eq!(state.identities().len(), 2);
+        assert_eq!(
+            state.identities()[0]
+                .email()
+                .expect("email should exist")
+                .value(),
+            "alice@bank.example"
+        );
+        assert_eq!(user.version().value(), 6);
         assert!(user.uncommitted_events().is_empty());
     }
 
     #[test]
     fn register_rejects_already_registered_user() {
         let mut user = User::default();
-        user.register().expect("registration should succeed");
+        user.register(identity())
+            .expect("registration should succeed");
 
         let error = user
-            .register()
+            .register(identity())
             .expect_err("duplicate registration should fail");
 
         assert!(matches!(error, super::UserError::AlreadyRegistered));
