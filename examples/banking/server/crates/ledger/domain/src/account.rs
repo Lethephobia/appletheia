@@ -1,4 +1,5 @@
 mod account_balance;
+mod account_balance_error;
 mod account_error;
 mod account_event_payload;
 mod account_event_payload_error;
@@ -7,6 +8,7 @@ mod account_state;
 mod account_state_error;
 
 pub use account_balance::AccountBalance;
+pub use account_balance_error::AccountBalanceError;
 pub use account_error::AccountError;
 pub use account_event_payload::AccountEventPayload;
 pub use account_event_payload_error::AccountEventPayloadError;
@@ -68,9 +70,13 @@ impl Account {
             return Ok(());
         }
 
-        if self.state_required()?.is_frozen() {
+        let state = self.state_required()?;
+
+        if state.is_frozen() {
             return Err(AccountError::Frozen);
         }
+
+        let _ = state.balance().try_add(amount)?;
 
         self.append_event(AccountEventPayload::Deposited { amount })
     }
@@ -110,6 +116,8 @@ impl Account {
             return Err(AccountError::InsufficientAvailableBalance);
         }
 
+        let _ = state.reserved_balance().try_add(amount)?;
+
         self.append_event(AccountEventPayload::FundsReserved { amount })
     }
 
@@ -119,8 +127,14 @@ impl Account {
             return Ok(());
         }
 
-        if self.state_required()?.is_frozen() {
+        let state = self.state_required()?;
+
+        if state.is_frozen() {
             return Err(AccountError::Frozen);
+        }
+
+        if state.reserved_balance().value() < amount.value() {
+            return Err(AccountError::InsufficientReservedBalance);
         }
 
         self.append_event(AccountEventPayload::ReservedFundsReleased { amount })
@@ -132,9 +146,17 @@ impl Account {
             return Ok(());
         }
 
-        if self.state_required()?.is_frozen() {
+        let state = self.state_required()?;
+
+        if state.is_frozen() {
             return Err(AccountError::Frozen);
         }
+
+        if state.reserved_balance().value() < amount.value() {
+            return Err(AccountError::InsufficientReservedBalance);
+        }
+
+        let _ = state.balance().try_sub(amount)?;
 
         self.append_event(AccountEventPayload::ReservedFundsCommitted { amount })
     }
@@ -185,25 +207,51 @@ impl AggregateApply<AccountEventPayload, AccountError> for Account {
                 )));
             }
             AccountEventPayload::Frozen => {
-                self.state_required_mut()?.freeze();
+                self.state_required_mut()?.frozen = true;
             }
             AccountEventPayload::Thawed => {
-                self.state_required_mut()?.thaw();
+                self.state_required_mut()?.frozen = false;
             }
             AccountEventPayload::Deposited { amount } => {
-                self.state_required_mut()?.deposit(*amount)?;
+                let state = self.state_required_mut()?;
+                state.balance = state.balance.try_add(*amount)?;
             }
             AccountEventPayload::Withdrawn { amount } => {
-                self.state_required_mut()?.withdraw(*amount)?;
+                let state = self.state_required_mut()?;
+                state.balance = state.balance.try_sub(*amount)?;
             }
             AccountEventPayload::FundsReserved { amount } => {
-                self.state_required_mut()?.reserve_funds(*amount)?;
+                let state = self.state_required_mut()?;
+                state.reserved_balance = state.reserved_balance.try_add(*amount)?;
             }
             AccountEventPayload::ReservedFundsReleased { amount } => {
-                self.state_required_mut()?.release_reserved_funds(*amount)?;
+                let state = self.state_required_mut()?;
+                state.reserved_balance =
+                    state
+                        .reserved_balance
+                        .try_sub(*amount)
+                        .map_err(|error| match error {
+                            AccountBalanceError::InsufficientBalance => {
+                                AccountError::InsufficientReservedBalance
+                            }
+                            AccountBalanceError::BalanceOverflow => AccountError::BalanceOverflow,
+                        })?;
             }
             AccountEventPayload::ReservedFundsCommitted { amount } => {
-                self.state_required_mut()?.commit_reserved_funds(*amount)?;
+                let state = self.state_required_mut()?;
+                let next_reserved =
+                    state
+                        .reserved_balance
+                        .try_sub(*amount)
+                        .map_err(|error| match error {
+                            AccountBalanceError::InsufficientBalance => {
+                                AccountError::InsufficientReservedBalance
+                            }
+                            AccountBalanceError::BalanceOverflow => AccountError::BalanceOverflow,
+                        })?;
+                let next_balance = state.balance.try_sub(*amount)?;
+                state.reserved_balance = next_reserved;
+                state.balance = next_balance;
             }
             AccountEventPayload::TransferRequested { .. } => {}
         }

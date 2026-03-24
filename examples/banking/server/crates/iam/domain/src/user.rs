@@ -156,10 +156,10 @@ impl AggregateApply<UserEventPayload, UserError> for User {
                 username,
                 display_name,
             } => {
-                self.state_required_mut()?.set_profile(UserProfile::Ready {
+                self.state_required_mut()?.profile = UserProfile::Ready {
                     username: username.clone(),
                     display_name: display_name.clone(),
-                });
+                };
             }
             UserEventPayload::UsernameChanged { username } => {
                 let state = self.state_required_mut()?;
@@ -167,10 +167,10 @@ impl AggregateApply<UserEventPayload, UserError> for User {
                     .display_name()
                     .cloned()
                     .ok_or(UserError::ProfileNotReady)?;
-                state.set_profile(UserProfile::Ready {
+                state.profile = UserProfile::Ready {
                     username: username.clone(),
                     display_name,
-                });
+                };
             }
             UserEventPayload::DisplayNameChanged { display_name } => {
                 let state = self.state_required_mut()?;
@@ -178,25 +178,28 @@ impl AggregateApply<UserEventPayload, UserError> for User {
                     .username()
                     .cloned()
                     .ok_or(UserError::ProfileNotReady)?;
-                state.set_profile(UserProfile::Ready {
+                state.profile = UserProfile::Ready {
                     username,
                     display_name: display_name.clone(),
-                });
+                };
             }
             UserEventPayload::IdentityLinked { identity } => {
-                self.state_required_mut()?.add_identity(identity.clone());
+                self.state_required_mut()?.identities.push(identity.clone());
             }
             UserEventPayload::IdentityEmailChanged {
                 provider,
                 subject,
                 email,
             } => {
-                let updated =
-                    self.state_required_mut()?
-                        .set_identity_email(provider, subject, email.clone());
-                if !updated {
+                let state = self.state_required_mut()?;
+                let Some(identity) = state
+                    .identities
+                    .iter_mut()
+                    .find(|identity| identity.matches(provider, subject))
+                else {
                     return Err(UserError::IdentityNotFound);
-                }
+                };
+                identity.set_email(email.clone());
             }
         }
 

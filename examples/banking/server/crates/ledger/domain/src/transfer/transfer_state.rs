@@ -8,16 +8,16 @@ use super::{TransferId, TransferStateError, TransferStatus};
 /// Stores the materialized state of a `Transfer` aggregate.
 #[aggregate_state(error = TransferStateError)]
 pub struct TransferState {
-    id: TransferId,
-    from_account_id: AccountId,
-    to_account_id: AccountId,
-    amount: AccountBalance,
-    status: TransferStatus,
+    pub(super) id: TransferId,
+    pub(super) from_account_id: AccountId,
+    pub(super) to_account_id: AccountId,
+    pub(super) amount: AccountBalance,
+    pub(super) status: TransferStatus,
 }
 
 impl TransferState {
     /// Creates a new transfer state.
-    pub fn new(
+    pub(super) fn new(
         id: TransferId,
         from_account_id: AccountId,
         to_account_id: AccountId,
@@ -50,21 +50,6 @@ impl TransferState {
     /// Returns the current transfer status.
     pub fn status(&self) -> &TransferStatus {
         &self.status
-    }
-
-    /// Marks the transfer as completed.
-    pub fn mark_completed(&mut self) {
-        self.status = TransferStatus::Completed;
-    }
-
-    /// Marks the transfer as failed.
-    pub fn mark_failed(&mut self) {
-        self.status = TransferStatus::Failed;
-    }
-
-    /// Marks the transfer as cancelled.
-    pub fn cancel(&mut self) {
-        self.status = TransferStatus::Cancelled;
     }
 }
 

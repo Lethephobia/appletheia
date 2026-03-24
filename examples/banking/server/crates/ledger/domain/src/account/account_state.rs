@@ -4,22 +4,22 @@ use banking_iam_domain::UserId;
 
 use crate::currency_definition::CurrencyDefinitionId;
 
-use super::{AccountBalance, AccountId, AccountStateError};
+use super::{AccountBalance, AccountBalanceError, AccountError, AccountId, AccountStateError};
 
 /// Stores the materialized state of an `Account` aggregate.
 #[aggregate_state(error = AccountStateError)]
 pub struct AccountState {
-    id: AccountId,
-    user_id: UserId,
-    currency_definition_id: CurrencyDefinitionId,
-    balance: AccountBalance,
-    reserved_balance: AccountBalance,
-    frozen: bool,
+    pub(super) id: AccountId,
+    pub(super) user_id: UserId,
+    pub(super) currency_definition_id: CurrencyDefinitionId,
+    pub(super) balance: AccountBalance,
+    pub(super) reserved_balance: AccountBalance,
+    pub(super) frozen: bool,
 }
 
 impl AccountState {
     /// Creates a new account state.
-    pub fn new(
+    pub(super) fn new(
         id: AccountId,
         user_id: UserId,
         currency_definition_id: CurrencyDefinitionId,
@@ -55,93 +55,18 @@ impl AccountState {
     }
 
     /// Returns the current available balance.
-    pub fn available_balance(&self) -> Result<AccountBalance, AccountStateError> {
+    pub fn available_balance(&self) -> Result<AccountBalance, AccountError> {
         self.balance
             .try_sub(self.reserved_balance)
             .map_err(|error| match error {
-                AccountStateError::InsufficientBalance => AccountStateError::InvalidReservedBalance,
-                other => other,
+                AccountBalanceError::InsufficientBalance => AccountError::InvalidReservedBalance,
+                AccountBalanceError::BalanceOverflow => AccountError::BalanceOverflow,
             })
     }
 
     /// Returns whether the account is frozen.
     pub fn is_frozen(&self) -> bool {
         self.frozen
-    }
-
-    /// Deposits balance into the account.
-    pub fn deposit(&mut self, amount: AccountBalance) -> Result<(), AccountStateError> {
-        self.balance = self.balance.try_add(amount)?;
-
-        Ok(())
-    }
-
-    /// Withdraws balance from the account.
-    pub fn withdraw(&mut self, amount: AccountBalance) -> Result<(), AccountStateError> {
-        self.balance = self.balance.try_sub(amount)?;
-
-        Ok(())
-    }
-
-    /// Reserves balance in the account.
-    pub fn reserve_funds(&mut self, amount: AccountBalance) -> Result<(), AccountStateError> {
-        if self.available_balance()?.value() < amount.value() {
-            return Err(AccountStateError::InsufficientBalance);
-        }
-
-        self.reserved_balance = self.reserved_balance.try_add(amount)?;
-
-        Ok(())
-    }
-
-    /// Releases reserved balance from the account.
-    pub fn release_reserved_funds(
-        &mut self,
-        amount: AccountBalance,
-    ) -> Result<(), AccountStateError> {
-        self.reserved_balance =
-            self.reserved_balance
-                .try_sub(amount)
-                .map_err(|error| match error {
-                    AccountStateError::InsufficientBalance => {
-                        AccountStateError::InsufficientReservedBalance
-                    }
-                    other => other,
-                })?;
-
-        Ok(())
-    }
-
-    /// Commits reserved balance and deducts it from the account.
-    pub fn commit_reserved_funds(
-        &mut self,
-        amount: AccountBalance,
-    ) -> Result<(), AccountStateError> {
-        let next_reserved = self
-            .reserved_balance
-            .try_sub(amount)
-            .map_err(|error| match error {
-                AccountStateError::InsufficientBalance => {
-                    AccountStateError::InsufficientReservedBalance
-                }
-                other => other,
-            })?;
-        let next_balance = self.balance.try_sub(amount)?;
-
-        self.reserved_balance = next_reserved;
-        self.balance = next_balance;
-
-        Ok(())
-    }
-
-    /// Marks the account as frozen.
-    pub fn freeze(&mut self) {
-        self.frozen = true;
-    }
-
-    /// Marks the account as thawed.
-    pub fn thaw(&mut self) {
-        self.frozen = false;
     }
 }
 
@@ -169,12 +94,8 @@ mod tests {
     fn available_balance_excludes_reserved_balance() {
         let mut state =
             AccountState::new(AccountId::new(), UserId::new(), CurrencyDefinitionId::new());
-        state
-            .deposit(AccountBalance::new(100))
-            .expect("deposit should succeed");
-        state
-            .reserve_funds(AccountBalance::new(30))
-            .expect("reserve should succeed");
+        state.balance = AccountBalance::new(100);
+        state.reserved_balance = AccountBalance::new(30);
 
         assert_eq!(state.balance(), &AccountBalance::new(100));
         assert_eq!(state.reserved_balance(), &AccountBalance::new(30));

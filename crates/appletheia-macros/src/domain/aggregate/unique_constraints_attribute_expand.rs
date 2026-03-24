@@ -1,5 +1,5 @@
 use proc_macro2::TokenStream;
-use quote::quote;
+use quote::{format_ident, quote};
 use syn::{Item, ItemStruct, Result};
 
 use super::unique_constraints_attribute_args::UniqueConstraintsAttributeArgs;
@@ -42,8 +42,22 @@ fn expand_unique_constraints_impl(
         }
     });
 
+    let key_consts = args.entries.iter().map(|entry| {
+        let key = entry.key.value();
+        let const_ident = format_ident!("{}_KEY", to_shouty_snake_case(&key));
+        let key_literal = &entry.key;
+
+        quote! {
+            pub const #const_ident: #domain::UniqueKey = #domain::UniqueKey::new(#key_literal);
+        }
+    });
+
     Ok(quote! {
         #item_struct
+
+        impl #impl_generics #name #ty_generics #where_clause {
+            #(#key_consts)*
+        }
 
         #[automatically_derived]
         impl #impl_generics #domain::UniqueConstraints<<#name #ty_generics as #domain::AggregateState>::Error>
@@ -61,4 +75,8 @@ fn expand_unique_constraints_impl(
             }
         }
     })
+}
+
+fn to_shouty_snake_case(value: &str) -> String {
+    value.to_ascii_uppercase()
 }

@@ -101,13 +101,13 @@ impl AggregateApply<TransferEventPayload, TransferError> for Transfer {
                 )));
             }
             TransferEventPayload::Completed => {
-                self.state_required_mut()?.mark_completed();
+                self.state_required_mut()?.status = TransferStatus::Completed;
             }
             TransferEventPayload::Failed => {
-                self.state_required_mut()?.mark_failed();
+                self.state_required_mut()?.status = TransferStatus::Failed;
             }
             TransferEventPayload::Cancelled => {
-                self.state_required_mut()?.cancel();
+                self.state_required_mut()?.status = TransferStatus::Cancelled;
             }
         }
 

@@ -2,8 +2,6 @@ use appletheia::aggregate_state;
 use appletheia::domain::{UniqueValue, UniqueValuePart, UniqueValues};
 use appletheia::unique_constraints;
 
-use crate::core::Email;
-
 use super::{
     UserDisplayName, UserId, UserIdentity, UserIdentityProvider, UserIdentitySubject, UserProfile,
     UserStateError, Username,
@@ -16,14 +14,14 @@ use super::{
     entry(key = "provider_subject", values = provider_subject_values)
 )]
 pub struct UserState {
-    id: UserId,
-    profile: UserProfile,
-    identities: Vec<UserIdentity>,
+    pub(super) id: UserId,
+    pub(super) profile: UserProfile,
+    pub(super) identities: Vec<UserIdentity>,
 }
 
 impl UserState {
     /// Creates a new user state.
-    pub fn new(id: UserId, identity: UserIdentity) -> Self {
+    pub(super) fn new(id: UserId, identity: UserIdentity) -> Self {
         Self {
             id,
             profile: UserProfile::Pending,
@@ -60,35 +58,6 @@ impl UserState {
         self.identities
             .iter()
             .find(|identity| identity.matches(provider, subject))
-    }
-
-    /// Replaces the current profile.
-    pub fn set_profile(&mut self, profile: UserProfile) {
-        self.profile = profile;
-    }
-
-    /// Adds a linked identity.
-    pub fn add_identity(&mut self, identity: UserIdentity) {
-        self.identities.push(identity);
-    }
-
-    /// Replaces the email snapshot for a linked identity.
-    pub fn set_identity_email(
-        &mut self,
-        provider: &UserIdentityProvider,
-        subject: &UserIdentitySubject,
-        email: Option<Email>,
-    ) -> bool {
-        let Some(identity) = self
-            .identities
-            .iter_mut()
-            .find(|identity| identity.matches(provider, subject))
-        else {
-            return false;
-        };
-
-        identity.set_email(email);
-        true
     }
 }
 
@@ -150,9 +119,7 @@ mod tests {
         let entries = state.unique_entries().expect("unique entries should build");
 
         assert_eq!(
-            entries
-                .get(UniqueKey::new("username"))
-                .map(UniqueValues::len),
+            entries.get(UserState::USERNAME_KEY).map(UniqueValues::len),
             None
         );
     }
@@ -160,18 +127,16 @@ mod tests {
     #[test]
     fn ready_profile_returns_unique_entries_for_username() {
         let mut state = UserState::new(UserId::new(), identity());
-        state.set_profile(UserProfile::Ready {
+        state.profile = UserProfile::Ready {
             username: Username::try_from("alice").expect("username should be valid"),
             display_name: UserDisplayName::try_from("Alice Example")
                 .expect("display name should be valid"),
-        });
+        };
 
         let entries = state.unique_entries().expect("unique entries should build");
 
         assert_eq!(
-            entries
-                .get(UniqueKey::new("username"))
-                .map(UniqueValues::len),
+            entries.get(UserState::USERNAME_KEY).map(UniqueValues::len),
             Some(1)
         );
     }
@@ -179,7 +144,7 @@ mod tests {
     #[test]
     fn identities_return_unique_entries_for_provider_subject() {
         let mut state = UserState::new(UserId::new(), identity());
-        state.add_identity(UserIdentity::new(
+        state.identities.push(UserIdentity::new(
             UserIdentityProvider::try_from("https://login.example.com")
                 .expect("provider should be valid"),
             UserIdentitySubject::try_from("user-456").expect("subject should be valid"),
@@ -190,9 +155,18 @@ mod tests {
 
         assert_eq!(
             entries
-                .get(UniqueKey::new("provider_subject"))
+                .get(UserState::PROVIDER_SUBJECT_KEY)
                 .map(UniqueValues::len),
             Some(2)
+        );
+    }
+
+    #[test]
+    fn exposes_generated_unique_key_constants() {
+        assert_eq!(UserState::USERNAME_KEY, UniqueKey::new("username"));
+        assert_eq!(
+            UserState::PROVIDER_SUBJECT_KEY,
+            UniqueKey::new("provider_subject")
         );
     }
 

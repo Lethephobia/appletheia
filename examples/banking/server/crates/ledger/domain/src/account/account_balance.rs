@@ -2,7 +2,7 @@ use std::fmt::{self, Display};
 
 use serde::{Deserialize, Serialize};
 
-use super::AccountStateError;
+use super::AccountBalanceError;
 
 /// Represents a balance amount in the smallest unit of an account currency.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
@@ -31,21 +31,21 @@ impl AccountBalance {
     }
 
     /// Adds another balance and returns the resulting amount.
-    pub fn try_add(self, amount: Self) -> Result<Self, AccountStateError> {
+    pub fn try_add(self, amount: Self) -> Result<Self, AccountBalanceError> {
         let value = self
             .value()
             .checked_add(amount.value())
-            .ok_or(AccountStateError::BalanceOverflow)?;
+            .ok_or(AccountBalanceError::BalanceOverflow)?;
 
         Ok(Self::new(value))
     }
 
     /// Subtracts another balance and returns the resulting amount.
-    pub fn try_sub(self, amount: Self) -> Result<Self, AccountStateError> {
+    pub fn try_sub(self, amount: Self) -> Result<Self, AccountBalanceError> {
         let value = self
             .value()
             .checked_sub(amount.value())
-            .ok_or(AccountStateError::InsufficientBalance)?;
+            .ok_or(AccountBalanceError::InsufficientBalance)?;
 
         Ok(Self::new(value))
     }
@@ -66,7 +66,7 @@ impl Display for AccountBalance {
 #[cfg(test)]
 mod tests {
     use super::AccountBalance;
-    use crate::account::AccountStateError;
+    use crate::account::AccountBalanceError;
 
     #[test]
     fn zero_returns_zero_balance() {
@@ -88,7 +88,7 @@ mod tests {
             .try_add(AccountBalance::new(1))
             .expect_err("overflow should fail");
 
-        assert!(matches!(error, AccountStateError::BalanceOverflow));
+        assert!(matches!(error, AccountBalanceError::BalanceOverflow));
     }
 
     #[test]
@@ -106,6 +106,6 @@ mod tests {
             .try_sub(AccountBalance::new(2))
             .expect_err("subtraction should fail");
 
-        assert!(matches!(error, AccountStateError::InsufficientBalance));
+        assert!(matches!(error, AccountBalanceError::InsufficientBalance));
     }
 }

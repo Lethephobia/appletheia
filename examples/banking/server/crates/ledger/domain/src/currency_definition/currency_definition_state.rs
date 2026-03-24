@@ -9,16 +9,16 @@ use super::{CurrencyDefinitionId, CurrencyDefinitionName, CurrencyDefinitionStat
 #[aggregate_state(error = CurrencyDefinitionStateError)]
 #[unique_constraints(entry(key = "symbol", values = symbol_values))]
 pub struct CurrencyDefinitionState {
-    id: CurrencyDefinitionId,
-    symbol: CurrencySymbol,
-    name: CurrencyDefinitionName,
-    decimals: CurrencyDecimals,
-    active: bool,
+    pub(super) id: CurrencyDefinitionId,
+    pub(super) symbol: CurrencySymbol,
+    pub(super) name: CurrencyDefinitionName,
+    pub(super) decimals: CurrencyDecimals,
+    pub(super) active: bool,
 }
 
 impl CurrencyDefinitionState {
     /// Creates a new currency-definition state.
-    pub fn new(
+    pub(super) fn new(
         id: CurrencyDefinitionId,
         symbol: CurrencySymbol,
         name: CurrencyDefinitionName,
@@ -51,26 +51,6 @@ impl CurrencyDefinitionState {
     /// Returns whether the currency is active.
     pub fn is_active(&self) -> bool {
         self.active
-    }
-
-    /// Replaces the current symbol.
-    pub fn set_symbol(&mut self, symbol: CurrencySymbol) {
-        self.symbol = symbol;
-    }
-
-    /// Replaces the current name.
-    pub fn set_name(&mut self, name: CurrencyDefinitionName) {
-        self.name = name;
-    }
-
-    /// Marks the currency as active.
-    pub fn activate(&mut self) {
-        self.active = true;
-    }
-
-    /// Marks the currency as inactive.
-    pub fn deactivate(&mut self) {
-        self.active = false;
     }
 }
 

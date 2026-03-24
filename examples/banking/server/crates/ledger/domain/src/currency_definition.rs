@@ -109,16 +109,16 @@ impl AggregateApply<CurrencyDefinitionEventPayload, CurrencyDefinitionError>
                 )));
             }
             CurrencyDefinitionEventPayload::SymbolChanged { symbol } => {
-                self.state_required_mut()?.set_symbol(symbol.clone());
+                self.state_required_mut()?.symbol = symbol.clone();
             }
             CurrencyDefinitionEventPayload::NameChanged { name } => {
-                self.state_required_mut()?.set_name(name.clone());
+                self.state_required_mut()?.name = name.clone();
             }
             CurrencyDefinitionEventPayload::Activated => {
-                self.state_required_mut()?.activate();
+                self.state_required_mut()?.active = true;
             }
             CurrencyDefinitionEventPayload::Deactivated => {
-                self.state_required_mut()?.deactivate();
+                self.state_required_mut()?.active = false;
             }
         }
 
