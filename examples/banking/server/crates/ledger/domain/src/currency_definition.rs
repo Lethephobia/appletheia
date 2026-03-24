@@ -28,6 +28,26 @@ pub struct CurrencyDefinition {
 }
 
 impl CurrencyDefinition {
+    /// Returns the current symbol.
+    pub fn symbol(&self) -> Result<&CurrencySymbol, CurrencyDefinitionError> {
+        Ok(&self.state_required()?.symbol)
+    }
+
+    /// Returns the current name.
+    pub fn name(&self) -> Result<&CurrencyDefinitionName, CurrencyDefinitionError> {
+        Ok(&self.state_required()?.name)
+    }
+
+    /// Returns the current decimals.
+    pub fn decimals(&self) -> Result<&CurrencyDecimals, CurrencyDefinitionError> {
+        Ok(&self.state_required()?.decimals)
+    }
+
+    /// Returns whether the currency is active.
+    pub fn is_active(&self) -> Result<bool, CurrencyDefinitionError> {
+        Ok(self.state_required()?.active)
+    }
+
     /// Defines a new currency.
     pub fn define(
         &mut self,
@@ -49,7 +69,7 @@ impl CurrencyDefinition {
 
     /// Changes the current currency symbol.
     pub fn change_symbol(&mut self, symbol: CurrencySymbol) -> Result<(), CurrencyDefinitionError> {
-        if self.state_required()?.symbol().eq(&symbol) {
+        if self.state_required()?.symbol.eq(&symbol) {
             return Ok(());
         }
 
@@ -61,7 +81,7 @@ impl CurrencyDefinition {
         &mut self,
         name: CurrencyDefinitionName,
     ) -> Result<(), CurrencyDefinitionError> {
-        if self.state_required()?.name().eq(&name) {
+        if self.state_required()?.name.eq(&name) {
             return Ok(());
         }
 
@@ -70,7 +90,7 @@ impl CurrencyDefinition {
 
     /// Activates the currency.
     pub fn activate(&mut self) -> Result<(), CurrencyDefinitionError> {
-        if self.state_required()?.is_active() {
+        if self.state_required()?.active {
             return Ok(());
         }
 
@@ -79,7 +99,7 @@ impl CurrencyDefinition {
 
     /// Deactivates the currency.
     pub fn deactivate(&mut self) -> Result<(), CurrencyDefinitionError> {
-        if !self.state_required()?.is_active() {
+        if !self.state_required()?.active {
             return Ok(());
         }
 
@@ -128,7 +148,7 @@ impl AggregateApply<CurrencyDefinitionEventPayload, CurrencyDefinitionError>
 
 #[cfg(test)]
 mod tests {
-    use appletheia::domain::{Aggregate, AggregateState, Event, EventPayload};
+    use appletheia::domain::{Aggregate, Event, EventPayload};
 
     use crate::core::{CurrencyDecimals, CurrencySymbol};
 
@@ -148,17 +168,33 @@ mod tests {
             .define(symbol.clone(), name.clone(), decimals)
             .expect("definition should succeed");
 
-        let state = currency_definition.state().expect("state should exist");
         assert_eq!(
-            state.id(),
+            currency_definition
+                .aggregate_id()
+                .expect("aggregate id should exist"),
             currency_definition
                 .aggregate_id()
                 .expect("aggregate id should exist")
         );
-        assert_eq!(state.symbol(), &symbol);
-        assert_eq!(state.name(), &name);
-        assert_eq!(state.decimals(), &decimals);
-        assert!(state.is_active());
+        assert_eq!(
+            currency_definition.symbol().expect("symbol should exist"),
+            &symbol
+        );
+        assert_eq!(
+            currency_definition.name().expect("name should exist"),
+            &name
+        );
+        assert_eq!(
+            currency_definition
+                .decimals()
+                .expect("decimals should exist"),
+            &decimals
+        );
+        assert!(
+            currency_definition
+                .is_active()
+                .expect("active state should exist")
+        );
         assert_eq!(currency_definition.uncommitted_events().len(), 1);
         assert_eq!(
             currency_definition.uncommitted_events()[0].payload().name(),
@@ -212,11 +248,25 @@ mod tests {
             .deactivate()
             .expect("deactivation should succeed");
 
-        let state = currency_definition.state().expect("state should exist");
-        assert_eq!(state.symbol(), &changed_symbol);
-        assert_eq!(state.name(), &changed_name);
-        assert_eq!(state.decimals(), &CurrencyDecimals::new(6));
-        assert!(!state.is_active());
+        assert_eq!(
+            currency_definition.symbol().expect("symbol should exist"),
+            &changed_symbol
+        );
+        assert_eq!(
+            currency_definition.name().expect("name should exist"),
+            &changed_name
+        );
+        assert_eq!(
+            currency_definition
+                .decimals()
+                .expect("decimals should exist"),
+            &CurrencyDecimals::new(6)
+        );
+        assert!(
+            !currency_definition
+                .is_active()
+                .expect("active state should exist")
+        );
         assert_eq!(currency_definition.uncommitted_events().len(), 4);
     }
 
@@ -244,9 +294,18 @@ mod tests {
             .replay_events(vec![defined, deactivated], None)
             .expect("events should replay");
 
-        let state = currency_definition.state().expect("state should exist");
-        assert_eq!(state.symbol().value(), "USDC");
-        assert!(!state.is_active());
+        assert_eq!(
+            currency_definition
+                .symbol()
+                .expect("symbol should exist")
+                .value(),
+            "USDC"
+        );
+        assert!(
+            !currency_definition
+                .is_active()
+                .expect("active state should exist")
+        );
         assert_eq!(currency_definition.version().value(), 2);
         assert!(currency_definition.uncommitted_events().is_empty());
     }

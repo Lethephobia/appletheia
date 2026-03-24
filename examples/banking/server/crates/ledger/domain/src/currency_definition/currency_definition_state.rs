@@ -32,32 +32,12 @@ impl CurrencyDefinitionState {
             active: true,
         }
     }
-
-    /// Returns the current symbol.
-    pub fn symbol(&self) -> &CurrencySymbol {
-        &self.symbol
-    }
-
-    /// Returns the current name.
-    pub fn name(&self) -> &CurrencyDefinitionName {
-        &self.name
-    }
-
-    /// Returns the current decimals.
-    pub fn decimals(&self) -> &CurrencyDecimals {
-        &self.decimals
-    }
-
-    /// Returns whether the currency is active.
-    pub fn is_active(&self) -> bool {
-        self.active
-    }
 }
 
 fn symbol_values(
     state: &CurrencyDefinitionState,
 ) -> Result<Option<UniqueValues>, CurrencyDefinitionStateError> {
-    let part = UniqueValuePart::try_from(state.symbol().as_ref())?;
+    let part = UniqueValuePart::try_from(state.symbol.as_ref())?;
     let value = UniqueValue::new(vec![part])?;
     let values = UniqueValues::new(vec![value])?;
 

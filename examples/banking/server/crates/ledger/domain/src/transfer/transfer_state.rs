@@ -31,26 +31,6 @@ impl TransferState {
             status: TransferStatus::Pending,
         }
     }
-
-    /// Returns the source account.
-    pub fn from_account_id(&self) -> &AccountId {
-        &self.from_account_id
-    }
-
-    /// Returns the destination account.
-    pub fn to_account_id(&self) -> &AccountId {
-        &self.to_account_id
-    }
-
-    /// Returns the transfer amount.
-    pub fn amount(&self) -> &AccountBalance {
-        &self.amount
-    }
-
-    /// Returns the current transfer status.
-    pub fn status(&self) -> &TransferStatus {
-        &self.status
-    }
 }
 
 impl UniqueConstraints<TransferStateError> for TransferState {}
@@ -74,6 +54,6 @@ mod tests {
         );
 
         assert_eq!(state.id(), id);
-        assert_eq!(state.status(), &TransferStatus::Pending);
+        assert_eq!(state.status, TransferStatus::Pending);
     }
 }

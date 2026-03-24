@@ -4,7 +4,7 @@ use banking_iam_domain::UserId;
 
 use crate::currency_definition::CurrencyDefinitionId;
 
-use super::{AccountBalance, AccountBalanceError, AccountError, AccountId, AccountStateError};
+use super::{AccountBalance, AccountId, AccountStateError};
 
 /// Stores the materialized state of an `Account` aggregate.
 #[aggregate_state(error = AccountStateError)]
@@ -33,41 +33,6 @@ impl AccountState {
             frozen: false,
         }
     }
-
-    /// Returns the account owner.
-    pub fn user_id(&self) -> &UserId {
-        &self.user_id
-    }
-
-    /// Returns the currency definition referenced by the account.
-    pub fn currency_definition_id(&self) -> &CurrencyDefinitionId {
-        &self.currency_definition_id
-    }
-
-    /// Returns the current balance.
-    pub fn balance(&self) -> &AccountBalance {
-        &self.balance
-    }
-
-    /// Returns the current reserved balance.
-    pub fn reserved_balance(&self) -> &AccountBalance {
-        &self.reserved_balance
-    }
-
-    /// Returns the current available balance.
-    pub fn available_balance(&self) -> Result<AccountBalance, AccountError> {
-        self.balance
-            .try_sub(self.reserved_balance)
-            .map_err(|error| match error {
-                AccountBalanceError::InsufficientBalance => AccountError::InvalidReservedBalance,
-                AccountBalanceError::BalanceOverflow => AccountError::BalanceOverflow,
-            })
-    }
-
-    /// Returns whether the account is frozen.
-    pub fn is_frozen(&self) -> bool {
-        self.frozen
-    }
 }
 
 impl UniqueConstraints<AccountStateError> for AccountState {}
@@ -91,19 +56,11 @@ mod tests {
     }
 
     #[test]
-    fn available_balance_excludes_reserved_balance() {
-        let mut state =
-            AccountState::new(AccountId::new(), UserId::new(), CurrencyDefinitionId::new());
-        state.balance = AccountBalance::new(100);
-        state.reserved_balance = AccountBalance::new(30);
+    fn new_initializes_zero_balances_and_not_frozen() {
+        let state = AccountState::new(AccountId::new(), UserId::new(), CurrencyDefinitionId::new());
 
-        assert_eq!(state.balance(), &AccountBalance::new(100));
-        assert_eq!(state.reserved_balance(), &AccountBalance::new(30));
-        assert_eq!(
-            state
-                .available_balance()
-                .expect("available balance should be valid"),
-            AccountBalance::new(70)
-        );
+        assert_eq!(state.balance, AccountBalance::zero());
+        assert_eq!(state.reserved_balance, AccountBalance::zero());
+        assert!(!state.frozen);
     }
 }

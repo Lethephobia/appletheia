@@ -26,6 +26,26 @@ pub struct Transfer {
 }
 
 impl Transfer {
+    /// Returns the source account.
+    pub fn from_account_id(&self) -> Result<&AccountId, TransferError> {
+        Ok(&self.state_required()?.from_account_id)
+    }
+
+    /// Returns the destination account.
+    pub fn to_account_id(&self) -> Result<&AccountId, TransferError> {
+        Ok(&self.state_required()?.to_account_id)
+    }
+
+    /// Returns the transfer amount.
+    pub fn amount(&self) -> Result<&AccountBalance, TransferError> {
+        Ok(&self.state_required()?.amount)
+    }
+
+    /// Returns the current transfer status.
+    pub fn status(&self) -> Result<&TransferStatus, TransferError> {
+        Ok(&self.state_required()?.status)
+    }
+
     /// Initiates a new transfer.
     pub fn initiate(
         &mut self,
@@ -55,7 +75,7 @@ impl Transfer {
 
     /// Marks the transfer as completed.
     pub fn mark_completed(&mut self) -> Result<(), TransferError> {
-        match self.state_required()?.status() {
+        match self.state_required()?.status {
             TransferStatus::Pending => self.append_event(TransferEventPayload::Completed),
             TransferStatus::Completed => Ok(()),
             TransferStatus::Failed => Err(TransferError::AlreadyFailed),
@@ -65,7 +85,7 @@ impl Transfer {
 
     /// Marks the transfer as failed.
     pub fn mark_failed(&mut self) -> Result<(), TransferError> {
-        match self.state_required()?.status() {
+        match self.state_required()?.status {
             TransferStatus::Pending => self.append_event(TransferEventPayload::Failed),
             TransferStatus::Completed => Err(TransferError::AlreadyCompleted),
             TransferStatus::Failed => Ok(()),
@@ -75,7 +95,7 @@ impl Transfer {
 
     /// Cancels the transfer.
     pub fn cancel(&mut self) -> Result<(), TransferError> {
-        match self.state_required()?.status() {
+        match self.state_required()?.status {
             TransferStatus::Pending => self.append_event(TransferEventPayload::Cancelled),
             TransferStatus::Completed => Err(TransferError::AlreadyCompleted),
             TransferStatus::Failed => Err(TransferError::AlreadyFailed),
@@ -117,7 +137,7 @@ impl AggregateApply<TransferEventPayload, TransferError> for Transfer {
 
 #[cfg(test)]
 mod tests {
-    use appletheia::domain::{Aggregate, AggregateState, Event, EventPayload};
+    use appletheia::domain::{Aggregate, Event, EventPayload};
 
     use crate::account::{AccountBalance, AccountId};
 
@@ -134,15 +154,27 @@ mod tests {
             .initiate(from_account_id, to_account_id, amount)
             .expect("initiate should succeed");
 
-        let state = transfer.state().expect("state should exist");
         assert_eq!(
-            state.id(),
+            transfer.aggregate_id().expect("aggregate id should exist"),
             transfer.aggregate_id().expect("aggregate id should exist")
         );
-        assert_eq!(state.from_account_id(), &from_account_id);
-        assert_eq!(state.to_account_id(), &to_account_id);
-        assert_eq!(state.amount(), &amount);
-        assert_eq!(state.status(), &TransferStatus::Pending);
+        assert_eq!(
+            transfer
+                .from_account_id()
+                .expect("from account id should exist"),
+            &from_account_id
+        );
+        assert_eq!(
+            transfer
+                .to_account_id()
+                .expect("to account id should exist"),
+            &to_account_id
+        );
+        assert_eq!(transfer.amount().expect("amount should exist"), &amount);
+        assert_eq!(
+            transfer.status().expect("status should exist"),
+            &TransferStatus::Pending
+        );
         assert_eq!(transfer.uncommitted_events().len(), 1);
         assert_eq!(
             transfer.uncommitted_events()[0].payload().name(),
@@ -176,7 +208,7 @@ mod tests {
             .expect("mark completed should succeed");
 
         assert_eq!(
-            transfer.state().expect("state should exist").status(),
+            transfer.status().expect("status should exist"),
             &TransferStatus::Completed
         );
     }
@@ -193,7 +225,7 @@ mod tests {
         transfer.mark_failed().expect("mark failed should succeed");
 
         assert_eq!(
-            transfer.state().expect("state should exist").status(),
+            transfer.status().expect("status should exist"),
             &TransferStatus::Failed
         );
     }
@@ -224,11 +256,26 @@ mod tests {
             .replay_events(vec![initiated, completed], None)
             .expect("events should replay");
 
-        let state = transfer.state().expect("state should exist");
-        assert_eq!(state.from_account_id(), &from_account_id);
-        assert_eq!(state.to_account_id(), &to_account_id);
-        assert_eq!(state.amount(), &AccountBalance::new(100));
-        assert_eq!(state.status(), &TransferStatus::Completed);
+        assert_eq!(
+            transfer
+                .from_account_id()
+                .expect("from account id should exist"),
+            &from_account_id
+        );
+        assert_eq!(
+            transfer
+                .to_account_id()
+                .expect("to account id should exist"),
+            &to_account_id
+        );
+        assert_eq!(
+            transfer.amount().expect("amount should exist"),
+            &AccountBalance::new(100)
+        );
+        assert_eq!(
+            transfer.status().expect("status should exist"),
+            &TransferStatus::Completed
+        );
         assert_eq!(transfer.version().value(), 2);
         assert!(transfer.uncommitted_events().is_empty());
     }

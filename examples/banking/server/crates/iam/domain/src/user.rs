@@ -44,6 +44,39 @@ pub struct User {
 }
 
 impl User {
+    /// Returns the current profile.
+    pub fn profile(&self) -> Result<&UserProfile, UserError> {
+        Ok(&self.state_required()?.profile)
+    }
+
+    /// Returns the current username.
+    pub fn username(&self) -> Result<Option<&Username>, UserError> {
+        Ok(self.state_required()?.profile.username())
+    }
+
+    /// Returns the current display name.
+    pub fn display_name(&self) -> Result<Option<&UserDisplayName>, UserError> {
+        Ok(self.state_required()?.profile.display_name())
+    }
+
+    /// Returns the linked external identities.
+    pub fn identities(&self) -> Result<&[UserIdentity], UserError> {
+        Ok(&self.state_required()?.identities)
+    }
+
+    /// Returns a linked identity by provider and subject.
+    pub fn identity(
+        &self,
+        provider: &UserIdentityProvider,
+        subject: &UserIdentitySubject,
+    ) -> Result<Option<&UserIdentity>, UserError> {
+        Ok(self
+            .state_required()?
+            .identities
+            .iter()
+            .find(|identity| identity.matches(provider, subject)))
+    }
+
     /// Registers a new user with an initial external identity.
     pub fn register(&mut self, identity: UserIdentity) -> Result<(), UserError> {
         if self.state().is_some() {
@@ -62,7 +95,7 @@ impl User {
         username: Username,
         display_name: UserDisplayName,
     ) -> Result<(), UserError> {
-        match self.state_required()?.profile() {
+        match &self.state_required()?.profile {
             UserProfile::Pending => {}
             UserProfile::Ready {
                 username: current_username,
@@ -83,7 +116,7 @@ impl User {
 
     /// Changes the current username.
     pub fn change_username(&mut self, username: Username) -> Result<(), UserError> {
-        let Some(current_username) = self.state_required()?.username() else {
+        let Some(current_username) = self.state_required()?.profile.username() else {
             return Err(UserError::ProfileNotReady);
         };
 
@@ -96,7 +129,7 @@ impl User {
 
     /// Changes the current display name.
     pub fn change_display_name(&mut self, display_name: UserDisplayName) -> Result<(), UserError> {
-        let Some(current_display_name) = self.state_required()?.display_name() else {
+        let Some(current_display_name) = self.state_required()?.profile.display_name() else {
             return Err(UserError::ProfileNotReady);
         };
 
@@ -109,9 +142,13 @@ impl User {
 
     /// Links an additional external identity.
     pub fn link_identity(&mut self, identity: UserIdentity) -> Result<(), UserError> {
-        if let Some(current_identity) = self
-            .state_required()?
-            .identity(identity.provider(), identity.subject())
+        if let Some(current_identity) =
+            self.state_required()?
+                .identities
+                .iter()
+                .find(|current_identity| {
+                    current_identity.matches(identity.provider(), identity.subject())
+                })
         {
             if current_identity.eq(&identity) {
                 return Ok(());
@@ -130,7 +167,12 @@ impl User {
         subject: UserIdentitySubject,
         email: Option<Email>,
     ) -> Result<(), UserError> {
-        let Some(identity) = self.state_required()?.identity(&provider, &subject) else {
+        let Some(identity) = self
+            .state_required()?
+            .identities
+            .iter()
+            .find(|identity| identity.matches(&provider, &subject))
+        else {
             return Err(UserError::IdentityNotFound);
         };
 
@@ -163,23 +205,21 @@ impl AggregateApply<UserEventPayload, UserError> for User {
             }
             UserEventPayload::UsernameChanged { username } => {
                 let state = self.state_required_mut()?;
-                let display_name = state
-                    .display_name()
-                    .cloned()
-                    .ok_or(UserError::ProfileNotReady)?;
+                let UserProfile::Ready { display_name, .. } = &state.profile else {
+                    return Err(UserError::ProfileNotReady);
+                };
                 state.profile = UserProfile::Ready {
                     username: username.clone(),
-                    display_name,
+                    display_name: display_name.clone(),
                 };
             }
             UserEventPayload::DisplayNameChanged { display_name } => {
                 let state = self.state_required_mut()?;
-                let username = state
-                    .username()
-                    .cloned()
-                    .ok_or(UserError::ProfileNotReady)?;
+                let UserProfile::Ready { username, .. } = &state.profile else {
+                    return Err(UserError::ProfileNotReady);
+                };
                 state.profile = UserProfile::Ready {
-                    username,
+                    username: username.clone(),
                     display_name: display_name.clone(),
                 };
             }
@@ -209,7 +249,7 @@ impl AggregateApply<UserEventPayload, UserError> for User {
 
 #[cfg(test)]
 mod tests {
-    use appletheia::domain::{Aggregate, AggregateState, Event, EventPayload};
+    use appletheia::domain::{Aggregate, Event, EventPayload};
 
     use crate::core::Email;
 
@@ -234,17 +274,26 @@ mod tests {
         user.register(identity())
             .expect("registration should succeed");
 
-        let state = user.state().expect("state should exist");
         assert_eq!(
-            state.id(),
+            user.aggregate_id().expect("aggregate id should exist"),
             user.aggregate_id().expect("aggregate id should exist")
         );
-        assert_eq!(state.profile(), &UserProfile::Pending);
-        assert_eq!(state.username(), None);
-        assert_eq!(state.display_name(), None);
-        assert_eq!(state.identities().len(), 1);
         assert_eq!(
-            state.identities()[0]
+            user.profile().expect("profile should exist"),
+            &UserProfile::Pending
+        );
+        assert_eq!(
+            user.username().expect("username lookup should succeed"),
+            None
+        );
+        assert_eq!(
+            user.display_name()
+                .expect("display name lookup should succeed"),
+            None
+        );
+        assert_eq!(user.identities().expect("identities should exist").len(), 1);
+        assert_eq!(
+            user.identities().expect("identities should exist")[0]
                 .email()
                 .expect("email should exist")
                 .value(),
@@ -307,16 +356,22 @@ mod tests {
         user.ready_profile(username.clone(), display_name.clone())
             .expect("profile ready should succeed");
 
-        let state = user.state().expect("state should exist");
         assert_eq!(
-            state.profile(),
+            user.profile().expect("profile should exist"),
             &UserProfile::Ready {
                 username: username.clone(),
                 display_name: display_name.clone(),
             }
         );
-        assert_eq!(state.username(), Some(&username));
-        assert_eq!(state.display_name(), Some(&display_name));
+        assert_eq!(
+            user.username().expect("username lookup should succeed"),
+            Some(&username)
+        );
+        assert_eq!(
+            user.display_name()
+                .expect("display name lookup should succeed"),
+            Some(&display_name)
+        );
         assert_eq!(user.uncommitted_events().len(), 2);
         assert_eq!(
             user.uncommitted_events()[1].payload().name(),
@@ -352,8 +407,10 @@ mod tests {
         user.change_username(username.clone())
             .expect("username change should succeed");
 
-        let state = user.state().expect("state should exist");
-        assert_eq!(state.username(), Some(&username));
+        assert_eq!(
+            user.username().expect("username lookup should succeed"),
+            Some(&username)
+        );
         assert_eq!(user.uncommitted_events().len(), 3);
         assert_eq!(
             user.uncommitted_events()[2].payload().name(),
@@ -392,8 +449,11 @@ mod tests {
         user.change_display_name(display_name.clone())
             .expect("display name change should succeed");
 
-        let state = user.state().expect("state should exist");
-        assert_eq!(state.display_name(), Some(&display_name));
+        assert_eq!(
+            user.display_name()
+                .expect("display name lookup should succeed"),
+            Some(&display_name)
+        );
         assert_eq!(user.uncommitted_events().len(), 3);
         assert_eq!(
             user.uncommitted_events()[2].payload().name(),
@@ -416,11 +476,10 @@ mod tests {
         user.link_identity(linked_identity.clone())
             .expect("identity link should succeed");
 
-        let state = user.state().expect("state should exist");
-        assert_eq!(state.identities().len(), 2);
+        assert_eq!(user.identities().expect("identities should exist").len(), 2);
         assert!(
-            state
-                .identity(linked_identity.provider(), linked_identity.subject())
+            user.identity(linked_identity.provider(), linked_identity.subject())
+                .expect("identity lookup should succeed")
                 .is_some()
         );
         assert_eq!(user.uncommitted_events().len(), 2);
@@ -474,10 +533,9 @@ mod tests {
         user.change_identity_email(provider.clone(), subject.clone(), email.clone())
             .expect("identity email change should succeed");
 
-        let state = user.state().expect("state should exist");
         assert_eq!(
-            state
-                .identity(&provider, &subject)
+            user.identity(&provider, &subject)
+                .expect("identity lookup should succeed")
                 .expect("identity should exist")
                 .email(),
             email.as_ref()
@@ -562,21 +620,23 @@ mod tests {
         )
         .expect("events should replay");
 
-        let state = user.state().expect("state should exist");
         assert_eq!(
-            state.username().expect("username should exist").value(),
+            user.username()
+                .expect("username lookup should succeed")
+                .expect("username should exist")
+                .value(),
             "alice_updated"
         );
         assert_eq!(
-            state
-                .display_name()
+            user.display_name()
+                .expect("display name lookup should succeed")
                 .expect("display name should exist")
                 .value(),
             "Alice Updated"
         );
-        assert_eq!(state.identities().len(), 2);
+        assert_eq!(user.identities().expect("identities should exist").len(), 2);
         assert_eq!(
-            state.identities()[0]
+            user.identities().expect("identities should exist")[0]
                 .email()
                 .expect("email should exist")
                 .value(),

@@ -2,10 +2,7 @@ use appletheia::aggregate_state;
 use appletheia::domain::{UniqueValue, UniqueValuePart, UniqueValues};
 use appletheia::unique_constraints;
 
-use super::{
-    UserDisplayName, UserId, UserIdentity, UserIdentityProvider, UserIdentitySubject, UserProfile,
-    UserStateError, Username,
-};
+use super::{UserId, UserIdentity, UserProfile, UserStateError};
 
 /// Stores the materialized state of a `User` aggregate.
 #[aggregate_state(error = UserStateError)]
@@ -28,41 +25,10 @@ impl UserState {
             identities: vec![identity],
         }
     }
-
-    /// Returns the current profile.
-    pub fn profile(&self) -> &UserProfile {
-        &self.profile
-    }
-
-    /// Returns the current username.
-    pub fn username(&self) -> Option<&Username> {
-        self.profile.username()
-    }
-
-    /// Returns the current display name.
-    pub fn display_name(&self) -> Option<&UserDisplayName> {
-        self.profile.display_name()
-    }
-
-    /// Returns the linked external identities.
-    pub fn identities(&self) -> &[UserIdentity] {
-        &self.identities
-    }
-
-    /// Returns a linked identity by provider and subject.
-    pub fn identity(
-        &self,
-        provider: &UserIdentityProvider,
-        subject: &UserIdentitySubject,
-    ) -> Option<&UserIdentity> {
-        self.identities
-            .iter()
-            .find(|identity| identity.matches(provider, subject))
-    }
 }
 
 fn username_values(state: &UserState) -> Result<Option<UniqueValues>, UserStateError> {
-    let Some(username) = state.username() else {
+    let Some(username) = state.profile.username() else {
         return Ok(None);
     };
 
@@ -74,12 +40,12 @@ fn username_values(state: &UserState) -> Result<Option<UniqueValues>, UserStateE
 }
 
 fn provider_subject_values(state: &UserState) -> Result<Option<UniqueValues>, UserStateError> {
-    if state.identities().is_empty() {
+    if state.identities.is_empty() {
         return Ok(None);
     }
 
     let values = state
-        .identities()
+        .identities
         .iter()
         .map(|identity| {
             let provider = UniqueValuePart::try_from(identity.provider().as_ref())?;
@@ -96,11 +62,9 @@ fn provider_subject_values(state: &UserState) -> Result<Option<UniqueValues>, Us
 mod tests {
     use appletheia::domain::{AggregateState, UniqueConstraints, UniqueKey, UniqueValues};
 
-    use crate::core::Email;
-
-    use super::{
+    use crate::{
         UserDisplayName, UserId, UserIdentity, UserIdentityProvider, UserIdentitySubject,
-        UserProfile, UserState, Username,
+        UserProfile, UserState, Username, core::Email,
     };
 
     fn identity() -> UserIdentity {
