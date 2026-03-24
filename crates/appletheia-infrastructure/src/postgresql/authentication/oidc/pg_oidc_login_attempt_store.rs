@@ -2,7 +2,6 @@ use appletheia_application::authentication::oidc::{
     OidcLoginAttempt, OidcLoginAttemptStore, OidcLoginAttemptStoreError, OidcState,
 };
 use chrono::{DateTime, Utc};
-use uuid::Uuid;
 
 use crate::postgresql::unit_of_work::PgUnitOfWork;
 
@@ -14,11 +13,6 @@ pub struct PgOidcLoginAttemptStore;
 impl PgOidcLoginAttemptStore {
     pub fn new() -> Self {
         Self
-    }
-
-    fn parse_uuid(value: &str) -> Result<Uuid, OidcLoginAttemptStoreError> {
-        Uuid::parse_str(value)
-            .map_err(|source| OidcLoginAttemptStoreError::Backend(Box::new(source)))
     }
 }
 
@@ -39,12 +33,12 @@ impl OidcLoginAttemptStore for PgOidcLoginAttemptStore {
         let transaction = uow.transaction_mut();
 
         let id_value = attempt.id().value();
-        let state_value = Self::parse_uuid(attempt.state().value())?;
-        let nonce_value = Self::parse_uuid(attempt.nonce().value())?;
+        let state_value = attempt.state().value();
+        let nonce_value = attempt.nonce().value();
         let pkce_code_verifier_value = attempt
             .pkce_code_verifier()
             .map(|value| value.value().to_string());
-        let created_at_value = attempt.created_at();
+        let started_at_value = attempt.started_at();
         let expires_at_value = attempt.expires_at();
         let consumed_at_value = attempt.consumed_at();
 
@@ -55,7 +49,7 @@ impl OidcLoginAttemptStore for PgOidcLoginAttemptStore {
               state,
               nonce,
               pkce_code_verifier,
-              created_at,
+              started_at,
               expires_at,
               consumed_at
             ) VALUES (
@@ -73,7 +67,7 @@ impl OidcLoginAttemptStore for PgOidcLoginAttemptStore {
         .bind(state_value)
         .bind(nonce_value)
         .bind(pkce_code_verifier_value)
-        .bind(created_at_value.value())
+        .bind(started_at_value.value())
         .bind(expires_at_value.value())
         .bind(consumed_at_value.map(|value| value.value()))
         .execute(transaction.as_mut())
@@ -90,8 +84,6 @@ impl OidcLoginAttemptStore for PgOidcLoginAttemptStore {
     ) -> Result<OidcLoginAttempt, OidcLoginAttemptStoreError> {
         let transaction = uow.transaction_mut();
 
-        let state_value = Self::parse_uuid(state.value())?;
-
         let row: Option<PgOidcLoginAttemptRow> = sqlx::query_as(
             r#"
             SELECT
@@ -99,7 +91,7 @@ impl OidcLoginAttemptStore for PgOidcLoginAttemptStore {
               state,
               nonce,
               pkce_code_verifier,
-              created_at,
+              started_at,
               expires_at,
               consumed_at
             FROM oidc_login_attempts
@@ -107,7 +99,7 @@ impl OidcLoginAttemptStore for PgOidcLoginAttemptStore {
             FOR UPDATE
             "#,
         )
-        .bind(state_value)
+        .bind(state.value())
         .fetch_optional(transaction.as_mut())
         .await
         .map_err(|source| OidcLoginAttemptStoreError::Backend(Box::new(source)))?;
@@ -131,13 +123,20 @@ impl OidcLoginAttemptStore for PgOidcLoginAttemptStore {
             return Err(OidcLoginAttemptStoreError::Expired);
         }
 
-        let consumed_at: chrono::DateTime<chrono::Utc> = sqlx::query_scalar(
+        let consumed_row: PgOidcLoginAttemptRow = sqlx::query_as(
             r#"
             UPDATE oidc_login_attempts
                SET consumed_at = now()
              WHERE id = $1
                AND consumed_at IS NULL
-            RETURNING consumed_at
+            RETURNING
+              id,
+              state,
+              nonce,
+              pkce_code_verifier,
+              started_at,
+              expires_at,
+              consumed_at
             "#,
         )
         .bind(row.id)
@@ -145,7 +144,8 @@ impl OidcLoginAttemptStore for PgOidcLoginAttemptStore {
         .await
         .map_err(|source| OidcLoginAttemptStoreError::Backend(Box::new(source)))?;
 
-        row.try_into_oidc_login_attempt_with_consumed_at(Some(consumed_at))
+        consumed_row
+            .try_into_oidc_login_attempt()
             .map_err(|source| OidcLoginAttemptStoreError::Backend(Box::new(source)))
     }
 }

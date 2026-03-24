@@ -1,6 +1,6 @@
 use super::{
-    OidcLoginAttemptConsumedAt, OidcLoginAttemptCreatedAt, OidcLoginAttemptExpiresAt,
-    OidcLoginAttemptId, OidcNonce, OidcState, PkceCodeVerifier,
+    OidcLoginAttemptConsumedAt, OidcLoginAttemptExpiresAt, OidcLoginAttemptId,
+    OidcLoginAttemptStartedAt, OidcNonce, OidcState, PkceCodeVerifier,
 };
 
 #[derive(Clone, Debug)]
@@ -9,7 +9,7 @@ pub struct OidcLoginAttempt {
     state: OidcState,
     nonce: OidcNonce,
     pkce_code_verifier: Option<PkceCodeVerifier>,
-    created_at: OidcLoginAttemptCreatedAt,
+    started_at: OidcLoginAttemptStartedAt,
     expires_at: OidcLoginAttemptExpiresAt,
     consumed_at: Option<OidcLoginAttemptConsumedAt>,
 }
@@ -19,7 +19,7 @@ impl OidcLoginAttempt {
         state: OidcState,
         nonce: OidcNonce,
         pkce_code_verifier: Option<PkceCodeVerifier>,
-        created_at: OidcLoginAttemptCreatedAt,
+        started_at: OidcLoginAttemptStartedAt,
         expires_at: OidcLoginAttemptExpiresAt,
     ) -> Self {
         Self {
@@ -27,7 +27,7 @@ impl OidcLoginAttempt {
             state,
             nonce,
             pkce_code_verifier,
-            created_at,
+            started_at,
             expires_at,
             consumed_at: None,
         }
@@ -38,7 +38,7 @@ impl OidcLoginAttempt {
         state: OidcState,
         nonce: OidcNonce,
         pkce_code_verifier: Option<PkceCodeVerifier>,
-        created_at: OidcLoginAttemptCreatedAt,
+        started_at: OidcLoginAttemptStartedAt,
         expires_at: OidcLoginAttemptExpiresAt,
         consumed_at: Option<OidcLoginAttemptConsumedAt>,
     ) -> Self {
@@ -47,7 +47,7 @@ impl OidcLoginAttempt {
             state,
             nonce,
             pkce_code_verifier,
-            created_at,
+            started_at,
             expires_at,
             consumed_at,
         }
@@ -69,8 +69,8 @@ impl OidcLoginAttempt {
         self.pkce_code_verifier.as_ref()
     }
 
-    pub fn created_at(&self) -> OidcLoginAttemptCreatedAt {
-        self.created_at
+    pub fn started_at(&self) -> OidcLoginAttemptStartedAt {
+        self.started_at
     }
 
     pub fn expires_at(&self) -> OidcLoginAttemptExpiresAt {

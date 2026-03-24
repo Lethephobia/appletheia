@@ -253,17 +253,29 @@ CREATE INDEX IF NOT EXISTS idx_resource_response_cache_expires_at
 -- oidc login attempts
 CREATE TABLE IF NOT EXISTS oidc_login_attempts (
   id                 UUID        PRIMARY KEY,
-  state              UUID        NOT NULL UNIQUE,
-  nonce              UUID        NOT NULL,
+  state              TEXT        NOT NULL UNIQUE,
+  nonce              TEXT        NOT NULL,
   pkce_code_verifier TEXT,
-  created_at         TIMESTAMPTZ NOT NULL,
+  started_at         TIMESTAMPTZ NOT NULL,
   expires_at         TIMESTAMPTZ NOT NULL,
   consumed_at        TIMESTAMPTZ,
-  CONSTRAINT oidc_login_attempts_expires_check CHECK (expires_at >= created_at)
+  CONSTRAINT oidc_login_attempts_expires_check CHECK (expires_at >= started_at)
 );
 
 CREATE INDEX IF NOT EXISTS idx_oidc_login_attempts_expires_at
   ON oidc_login_attempts (expires_at);
+
+-- oidc continuations
+CREATE TABLE IF NOT EXISTS oidc_continuations (
+  id          UUID        PRIMARY KEY,
+  state       TEXT        NOT NULL UNIQUE,
+  payload     JSONB       NOT NULL,
+  expires_at  TIMESTAMPTZ NOT NULL,
+  consumed_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_oidc_continuations_expires_at
+  ON oidc_continuations (expires_at);
 
 -- relationships (Aggregate × ReBAC)
 CREATE TABLE IF NOT EXISTS relationships (

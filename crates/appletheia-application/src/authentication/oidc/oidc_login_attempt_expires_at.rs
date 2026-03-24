@@ -3,7 +3,7 @@ use std::{fmt, fmt::Display};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use super::{OidcLoginAttemptCreatedAt, OidcLoginAttemptExpiresIn};
+use super::{OidcLoginAttemptExpiresIn, OidcLoginAttemptStartedAt};
 
 /// Represents when an OIDC login attempt expires.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
@@ -11,12 +11,12 @@ use super::{OidcLoginAttemptCreatedAt, OidcLoginAttemptExpiresIn};
 pub struct OidcLoginAttemptExpiresAt(DateTime<Utc>);
 
 impl OidcLoginAttemptExpiresAt {
-    /// Creates an expiration timestamp from `created_at` and the provided lifetime.
-    pub fn from_created_at(
-        created_at: OidcLoginAttemptCreatedAt,
+    /// Creates an expiration timestamp from `started_at` and the provided lifetime.
+    pub fn from_started_at(
+        started_at: OidcLoginAttemptStartedAt,
         expires_in: OidcLoginAttemptExpiresIn,
     ) -> Self {
-        Self(created_at.value() + expires_in.value())
+        Self(started_at.value() + expires_in.value())
     }
 
     /// Returns the wrapped timestamp.

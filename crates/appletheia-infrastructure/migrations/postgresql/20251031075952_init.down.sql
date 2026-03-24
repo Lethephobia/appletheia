@@ -13,6 +13,9 @@ DROP TABLE IF EXISTS relationships;
 -- oidc login attempts
 DROP TABLE IF EXISTS oidc_login_attempts;
 
+-- oidc continuations
+DROP TABLE IF EXISTS oidc_continuations;
+
 -- resource response cache
 DROP TABLE IF EXISTS resource_response_cache;
 
