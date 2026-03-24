@@ -73,9 +73,9 @@ impl OidcLoginAttemptStore for PgOidcLoginAttemptStore {
         .bind(state_value)
         .bind(nonce_value)
         .bind(pkce_code_verifier_value)
-        .bind(created_at_value)
-        .bind(expires_at_value)
-        .bind(consumed_at_value)
+        .bind(created_at_value.value())
+        .bind(expires_at_value.value())
+        .bind(consumed_at_value.map(|value| value.value()))
         .execute(transaction.as_mut())
         .await
         .map_err(|source| OidcLoginAttemptStoreError::Backend(Box::new(source)))?;

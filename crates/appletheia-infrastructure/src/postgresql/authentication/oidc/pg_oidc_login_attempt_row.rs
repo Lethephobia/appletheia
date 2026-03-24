@@ -1,5 +1,6 @@
 use appletheia_application::authentication::oidc::{
-    OidcLoginAttempt, OidcLoginAttemptId, OidcNonce, OidcState, PkceCodeVerifier,
+    OidcLoginAttempt, OidcLoginAttemptConsumedAt, OidcLoginAttemptCreatedAt,
+    OidcLoginAttemptExpiresAt, OidcLoginAttemptId, OidcNonce, OidcState, PkceCodeVerifier,
 };
 use chrono::{DateTime, Utc};
 use sqlx::FromRow;
@@ -43,9 +44,9 @@ impl PgOidcLoginAttemptRow {
             OidcState::from(self.state),
             OidcNonce::from(self.nonce),
             pkce_code_verifier,
-            self.created_at,
-            self.expires_at,
-            consumed_at,
+            OidcLoginAttemptCreatedAt::from(self.created_at),
+            OidcLoginAttemptExpiresAt::from(self.expires_at),
+            consumed_at.map(OidcLoginAttemptConsumedAt::from),
         ))
     }
 }

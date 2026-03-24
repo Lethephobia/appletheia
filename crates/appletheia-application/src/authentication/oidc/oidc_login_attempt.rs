@@ -1,6 +1,7 @@
-use chrono::{DateTime, Utc};
-
-use super::{OidcLoginAttemptId, OidcNonce, OidcState, PkceCodeVerifier};
+use super::{
+    OidcLoginAttemptConsumedAt, OidcLoginAttemptCreatedAt, OidcLoginAttemptExpiresAt,
+    OidcLoginAttemptId, OidcNonce, OidcState, PkceCodeVerifier,
+};
 
 #[derive(Clone, Debug)]
 pub struct OidcLoginAttempt {
@@ -8,9 +9,9 @@ pub struct OidcLoginAttempt {
     state: OidcState,
     nonce: OidcNonce,
     pkce_code_verifier: Option<PkceCodeVerifier>,
-    created_at: DateTime<Utc>,
-    expires_at: DateTime<Utc>,
-    consumed_at: Option<DateTime<Utc>>,
+    created_at: OidcLoginAttemptCreatedAt,
+    expires_at: OidcLoginAttemptExpiresAt,
+    consumed_at: Option<OidcLoginAttemptConsumedAt>,
 }
 
 impl OidcLoginAttempt {
@@ -18,8 +19,8 @@ impl OidcLoginAttempt {
         state: OidcState,
         nonce: OidcNonce,
         pkce_code_verifier: Option<PkceCodeVerifier>,
-        created_at: DateTime<Utc>,
-        expires_at: DateTime<Utc>,
+        created_at: OidcLoginAttemptCreatedAt,
+        expires_at: OidcLoginAttemptExpiresAt,
     ) -> Self {
         Self {
             id: OidcLoginAttemptId::new(),
@@ -37,9 +38,9 @@ impl OidcLoginAttempt {
         state: OidcState,
         nonce: OidcNonce,
         pkce_code_verifier: Option<PkceCodeVerifier>,
-        created_at: DateTime<Utc>,
-        expires_at: DateTime<Utc>,
-        consumed_at: Option<DateTime<Utc>>,
+        created_at: OidcLoginAttemptCreatedAt,
+        expires_at: OidcLoginAttemptExpiresAt,
+        consumed_at: Option<OidcLoginAttemptConsumedAt>,
     ) -> Self {
         Self {
             id,
@@ -68,15 +69,15 @@ impl OidcLoginAttempt {
         self.pkce_code_verifier.as_ref()
     }
 
-    pub fn created_at(&self) -> DateTime<Utc> {
+    pub fn created_at(&self) -> OidcLoginAttemptCreatedAt {
         self.created_at
     }
 
-    pub fn expires_at(&self) -> DateTime<Utc> {
+    pub fn expires_at(&self) -> OidcLoginAttemptExpiresAt {
         self.expires_at
     }
 
-    pub fn consumed_at(&self) -> Option<DateTime<Utc>> {
+    pub fn consumed_at(&self) -> Option<OidcLoginAttemptConsumedAt> {
         self.consumed_at
     }
 }
