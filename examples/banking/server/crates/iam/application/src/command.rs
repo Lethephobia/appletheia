@@ -1,6 +1,8 @@
 pub mod user;
 
 pub use user::{
-    OidcBeginCommand, OidcBeginCommandHandler, OidcBeginOutput, OidcCompleteCommand,
-    OidcCompleteCommandHandler, OidcCompleteOutput, OidcCompleteReplayOutput,
+    LogoutAllSessionsCommand, LogoutAllSessionsCommandHandler, LogoutAllSessionsOutput,
+    LogoutCommand, LogoutCommandHandler, LogoutOutput, OidcBeginCommand, OidcBeginCommandHandler,
+    OidcBeginOutput, OidcCompleteCommand, OidcCompleteCommandHandler, OidcCompleteOutput,
+    OidcCompleteReplayOutput,
 };
