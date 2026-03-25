@@ -12,7 +12,11 @@ pub enum UserRoleAssignmentEventPayload {
         role_id: RoleId,
         user_id: UserId,
     },
-    Revoked,
+    Revoked {
+        id: UserRoleAssignmentId,
+        role_id: RoleId,
+        user_id: UserId,
+    },
 }
 
 #[cfg(test)]

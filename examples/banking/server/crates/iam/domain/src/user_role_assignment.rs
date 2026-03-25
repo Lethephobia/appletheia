@@ -56,11 +56,16 @@ impl UserRoleAssignment {
 
     /// Revokes the assignment.
     pub fn revoke(&mut self) -> Result<(), UserRoleAssignmentError> {
-        if self.state_required()?.status.is_revoked() {
+        let state = self.state_required()?;
+        if state.status.is_revoked() {
             return Ok(());
         }
 
-        self.append_event(UserRoleAssignmentEventPayload::Revoked)
+        self.append_event(UserRoleAssignmentEventPayload::Revoked {
+            id: state.id,
+            role_id: state.role_id,
+            user_id: state.user_id,
+        })
     }
 
     fn ensure_not_assigned(&self) -> Result<(), UserRoleAssignmentError> {
@@ -88,7 +93,7 @@ impl AggregateApply<UserRoleAssignmentEventPayload, UserRoleAssignmentError>
                 self.ensure_not_assigned()?;
                 self.set_state(Some(UserRoleAssignmentState::new(*id, *role_id, *user_id)));
             }
-            UserRoleAssignmentEventPayload::Revoked => match self.state_required()?.status {
+            UserRoleAssignmentEventPayload::Revoked { .. } => match self.state_required()?.status {
                 UserRoleAssignmentStatus::Assigned => {
                     self.state_required_mut()?.status = UserRoleAssignmentStatus::Revoked;
                 }
@@ -143,8 +148,9 @@ mod tests {
         let mut assignment = UserRoleAssignment::default();
         let role_name = RoleName::try_from("admin").expect("role name should be valid");
         let role_id = RoleId::from_name(&role_name);
+        let user_id = UserId::new();
         assignment
-            .assign(role_id, UserId::new())
+            .assign(role_id, user_id)
             .expect("assign should succeed");
 
         assignment.revoke().expect("revoke should succeed");
@@ -152,6 +158,16 @@ mod tests {
         assert_eq!(
             assignment.status().expect("status should exist"),
             UserRoleAssignmentStatus::Revoked
+        );
+        assert_eq!(
+            assignment.uncommitted_events()[1].payload(),
+            &UserRoleAssignmentEventPayload::Revoked {
+                id: assignment
+                    .aggregate_id()
+                    .expect("assignment id should exist"),
+                role_id,
+                user_id,
+            }
         );
     }
 }
