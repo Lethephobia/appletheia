@@ -1,6 +1,7 @@
-use chrono::{DateTime, Utc};
-
-use super::{OidcLoginAttemptId, OidcNonce, OidcState, PkceCodeVerifier};
+use super::{
+    OidcLoginAttemptConsumedAt, OidcLoginAttemptExpiresAt, OidcLoginAttemptId,
+    OidcLoginAttemptStartedAt, OidcNonce, OidcState, PkceCodeVerifier,
+};
 
 #[derive(Clone, Debug)]
 pub struct OidcLoginAttempt {
@@ -8,9 +9,9 @@ pub struct OidcLoginAttempt {
     state: OidcState,
     nonce: OidcNonce,
     pkce_code_verifier: Option<PkceCodeVerifier>,
-    created_at: DateTime<Utc>,
-    expires_at: DateTime<Utc>,
-    consumed_at: Option<DateTime<Utc>>,
+    started_at: OidcLoginAttemptStartedAt,
+    expires_at: OidcLoginAttemptExpiresAt,
+    consumed_at: Option<OidcLoginAttemptConsumedAt>,
 }
 
 impl OidcLoginAttempt {
@@ -18,15 +19,15 @@ impl OidcLoginAttempt {
         state: OidcState,
         nonce: OidcNonce,
         pkce_code_verifier: Option<PkceCodeVerifier>,
-        created_at: DateTime<Utc>,
-        expires_at: DateTime<Utc>,
+        started_at: OidcLoginAttemptStartedAt,
+        expires_at: OidcLoginAttemptExpiresAt,
     ) -> Self {
         Self {
             id: OidcLoginAttemptId::new(),
             state,
             nonce,
             pkce_code_verifier,
-            created_at,
+            started_at,
             expires_at,
             consumed_at: None,
         }
@@ -37,16 +38,16 @@ impl OidcLoginAttempt {
         state: OidcState,
         nonce: OidcNonce,
         pkce_code_verifier: Option<PkceCodeVerifier>,
-        created_at: DateTime<Utc>,
-        expires_at: DateTime<Utc>,
-        consumed_at: Option<DateTime<Utc>>,
+        started_at: OidcLoginAttemptStartedAt,
+        expires_at: OidcLoginAttemptExpiresAt,
+        consumed_at: Option<OidcLoginAttemptConsumedAt>,
     ) -> Self {
         Self {
             id,
             state,
             nonce,
             pkce_code_verifier,
-            created_at,
+            started_at,
             expires_at,
             consumed_at,
         }
@@ -68,15 +69,15 @@ impl OidcLoginAttempt {
         self.pkce_code_verifier.as_ref()
     }
 
-    pub fn created_at(&self) -> DateTime<Utc> {
-        self.created_at
+    pub fn started_at(&self) -> OidcLoginAttemptStartedAt {
+        self.started_at
     }
 
-    pub fn expires_at(&self) -> DateTime<Utc> {
+    pub fn expires_at(&self) -> OidcLoginAttemptExpiresAt {
         self.expires_at
     }
 
-    pub fn consumed_at(&self) -> Option<DateTime<Utc>> {
+    pub fn consumed_at(&self) -> Option<OidcLoginAttemptConsumedAt> {
         self.consumed_at
     }
 }

@@ -1,8 +1,7 @@
 use crate::unit_of_work::UnitOfWork;
 
 use super::{
-    OidcAuthorizationUrl, OidcBeginOptions, OidcCallbackParams, OidcCompleteResult,
-    OidcLoginFlowError,
+    OidcBeginOptions, OidcBeginResult, OidcCallbackParams, OidcCompleteResult, OidcLoginFlowError,
 };
 
 #[allow(async_fn_in_trait)]
@@ -13,7 +12,7 @@ pub trait OidcLoginFlow: Send + Sync {
         &self,
         uow: &mut Self::Uow,
         options: OidcBeginOptions,
-    ) -> Result<OidcAuthorizationUrl, OidcLoginFlowError>;
+    ) -> Result<OidcBeginResult, OidcLoginFlowError>;
 
     async fn complete(
         &self,

@@ -2,10 +2,7 @@ use appletheia::aggregate_state;
 use appletheia::domain::{UniqueValue, UniqueValuePart, UniqueValues};
 use appletheia::unique_constraints;
 
-use super::{
-    UserDisplayName, UserId, UserIdentity, UserIdentityProvider, UserIdentitySubject, UserProfile,
-    UserStateError, Username,
-};
+use super::{UserId, UserIdentity, UserProfile, UserStateError, UserStatus};
 
 /// Stores the materialized state of a `User` aggregate.
 #[aggregate_state(error = UserStateError)]
@@ -15,6 +12,7 @@ use super::{
 )]
 pub struct UserState {
     pub(super) id: UserId,
+    pub(super) status: UserStatus,
     pub(super) profile: UserProfile,
     pub(super) identities: Vec<UserIdentity>,
 }
@@ -24,45 +22,19 @@ impl UserState {
     pub(super) fn new(id: UserId, identity: UserIdentity) -> Self {
         Self {
             id,
+            status: UserStatus::Active,
             profile: UserProfile::Pending,
             identities: vec![identity],
         }
     }
-
-    /// Returns the current profile.
-    pub fn profile(&self) -> &UserProfile {
-        &self.profile
-    }
-
-    /// Returns the current username.
-    pub fn username(&self) -> Option<&Username> {
-        self.profile.username()
-    }
-
-    /// Returns the current display name.
-    pub fn display_name(&self) -> Option<&UserDisplayName> {
-        self.profile.display_name()
-    }
-
-    /// Returns the linked external identities.
-    pub fn identities(&self) -> &[UserIdentity] {
-        &self.identities
-    }
-
-    /// Returns a linked identity by provider and subject.
-    pub fn identity(
-        &self,
-        provider: &UserIdentityProvider,
-        subject: &UserIdentitySubject,
-    ) -> Option<&UserIdentity> {
-        self.identities
-            .iter()
-            .find(|identity| identity.matches(provider, subject))
-    }
 }
 
 fn username_values(state: &UserState) -> Result<Option<UniqueValues>, UserStateError> {
-    let Some(username) = state.username() else {
+    if state.status.is_removed() {
+        return Ok(None);
+    }
+
+    let Some(username) = state.profile.username() else {
         return Ok(None);
     };
 
@@ -74,12 +46,16 @@ fn username_values(state: &UserState) -> Result<Option<UniqueValues>, UserStateE
 }
 
 fn provider_subject_values(state: &UserState) -> Result<Option<UniqueValues>, UserStateError> {
-    if state.identities().is_empty() {
+    if state.status.is_removed() {
+        return Ok(None);
+    }
+
+    if state.identities.is_empty() {
         return Ok(None);
     }
 
     let values = state
-        .identities()
+        .identities
         .iter()
         .map(|identity| {
             let provider = UniqueValuePart::try_from(identity.provider().as_ref())?;
@@ -96,11 +72,9 @@ fn provider_subject_values(state: &UserState) -> Result<Option<UniqueValues>, Us
 mod tests {
     use appletheia::domain::{AggregateState, UniqueConstraints, UniqueKey, UniqueValues};
 
-    use crate::core::Email;
-
-    use super::{
+    use crate::{
         UserDisplayName, UserId, UserIdentity, UserIdentityProvider, UserIdentitySubject,
-        UserProfile, UserState, Username,
+        UserProfile, UserState, UserStatus, Username, core::Email,
     };
 
     fn identity() -> UserIdentity {
@@ -176,5 +150,29 @@ mod tests {
         let state = UserState::new(id, identity());
 
         assert_eq!(state.id(), id);
+    }
+
+    #[test]
+    fn removed_state_has_no_unique_entries() {
+        let mut state = UserState::new(UserId::new(), identity());
+        state.status = UserStatus::Removed;
+        state.profile = UserProfile::Ready {
+            username: Username::try_from("alice").expect("username should be valid"),
+            display_name: UserDisplayName::try_from("Alice Example")
+                .expect("display name should be valid"),
+        };
+
+        let entries = state.unique_entries().expect("unique entries should build");
+
+        assert_eq!(
+            entries.get(UserState::USERNAME_KEY).map(UniqueValues::len),
+            None
+        );
+        assert_eq!(
+            entries
+                .get(UserState::PROVIDER_SUBJECT_KEY)
+                .map(UniqueValues::len),
+            None
+        );
     }
 }

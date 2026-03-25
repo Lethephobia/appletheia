@@ -3,7 +3,10 @@ use appletheia::{aggregate_state, unique_constraints};
 
 use crate::core::{CurrencyDecimals, CurrencySymbol};
 
-use super::{CurrencyDefinitionId, CurrencyDefinitionName, CurrencyDefinitionStateError};
+use super::{
+    CurrencyDefinitionId, CurrencyDefinitionName, CurrencyDefinitionStateError,
+    CurrencyDefinitionStatus,
+};
 
 /// Stores the materialized state of a `CurrencyDefinition` aggregate.
 #[aggregate_state(error = CurrencyDefinitionStateError)]
@@ -13,7 +16,7 @@ pub struct CurrencyDefinitionState {
     pub(super) symbol: CurrencySymbol,
     pub(super) name: CurrencyDefinitionName,
     pub(super) decimals: CurrencyDecimals,
-    pub(super) active: bool,
+    pub(super) status: CurrencyDefinitionStatus,
 }
 
 impl CurrencyDefinitionState {
@@ -29,35 +32,19 @@ impl CurrencyDefinitionState {
             symbol,
             name,
             decimals,
-            active: true,
+            status: CurrencyDefinitionStatus::Active,
         }
-    }
-
-    /// Returns the current symbol.
-    pub fn symbol(&self) -> &CurrencySymbol {
-        &self.symbol
-    }
-
-    /// Returns the current name.
-    pub fn name(&self) -> &CurrencyDefinitionName {
-        &self.name
-    }
-
-    /// Returns the current decimals.
-    pub fn decimals(&self) -> &CurrencyDecimals {
-        &self.decimals
-    }
-
-    /// Returns whether the currency is active.
-    pub fn is_active(&self) -> bool {
-        self.active
     }
 }
 
 fn symbol_values(
     state: &CurrencyDefinitionState,
 ) -> Result<Option<UniqueValues>, CurrencyDefinitionStateError> {
-    let part = UniqueValuePart::try_from(state.symbol().as_ref())?;
+    if state.status.is_removed() {
+        return Ok(None);
+    }
+
+    let part = UniqueValuePart::try_from(state.symbol.as_ref())?;
     let value = UniqueValue::new(vec![part])?;
     let values = UniqueValues::new(vec![value])?;
 
@@ -70,7 +57,10 @@ mod tests {
 
     use crate::core::{CurrencyDecimals, CurrencySymbol};
 
-    use super::{CurrencyDefinitionId, CurrencyDefinitionName, CurrencyDefinitionState};
+    use super::{
+        CurrencyDefinitionId, CurrencyDefinitionName, CurrencyDefinitionState,
+        CurrencyDefinitionStatus,
+    };
 
     #[test]
     fn returns_unique_entries_for_symbol() {
@@ -100,5 +90,23 @@ mod tests {
         );
 
         assert_eq!(state.id(), id);
+    }
+
+    #[test]
+    fn removed_state_has_no_symbol_unique_entry() {
+        let mut state = CurrencyDefinitionState::new(
+            CurrencyDefinitionId::new(),
+            CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
+            CurrencyDefinitionName::try_from("USD Coin").expect("name should be valid"),
+            CurrencyDecimals::new(6),
+        );
+        state.status = CurrencyDefinitionStatus::Removed;
+
+        let entries = state.unique_entries().expect("unique entries should build");
+
+        assert_eq!(
+            entries.get(UniqueKey::new("symbol")).map(UniqueValues::len),
+            None
+        );
     }
 }

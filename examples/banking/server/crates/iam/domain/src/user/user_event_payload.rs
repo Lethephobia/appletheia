@@ -14,6 +14,9 @@ pub enum UserEventPayload {
         id: UserId,
         identity: UserIdentity,
     },
+    Activated,
+    Inactivated,
+    Removed,
     ProfileReadied {
         username: Username,
         display_name: UserDisplayName,
@@ -54,6 +57,18 @@ mod tests {
         assert_eq!(
             UserEventPayload::PROFILE_READIED,
             appletheia::domain::EventName::new("profile_readied")
+        );
+        assert_eq!(
+            UserEventPayload::ACTIVATED,
+            appletheia::domain::EventName::new("activated")
+        );
+        assert_eq!(
+            UserEventPayload::INACTIVATED,
+            appletheia::domain::EventName::new("inactivated")
+        );
+        assert_eq!(
+            UserEventPayload::REMOVED,
+            appletheia::domain::EventName::new("removed")
         );
         assert_eq!(
             UserEventPayload::USERNAME_CHANGED,

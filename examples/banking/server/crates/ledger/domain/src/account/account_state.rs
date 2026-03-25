@@ -1,20 +1,21 @@
 use appletheia::aggregate_state;
-use appletheia::domain::UniqueConstraints;
+use appletheia::unique_constraints;
 use banking_iam_domain::UserId;
 
 use crate::currency_definition::CurrencyDefinitionId;
 
-use super::{AccountBalance, AccountBalanceError, AccountError, AccountId, AccountStateError};
+use super::{AccountBalance, AccountId, AccountStateError, AccountStatus};
 
 /// Stores the materialized state of an `Account` aggregate.
 #[aggregate_state(error = AccountStateError)]
+#[unique_constraints()]
 pub struct AccountState {
     pub(super) id: AccountId,
     pub(super) user_id: UserId,
     pub(super) currency_definition_id: CurrencyDefinitionId,
     pub(super) balance: AccountBalance,
     pub(super) reserved_balance: AccountBalance,
-    pub(super) frozen: bool,
+    pub(super) status: AccountStatus,
 }
 
 impl AccountState {
@@ -30,47 +31,10 @@ impl AccountState {
             currency_definition_id,
             balance: AccountBalance::zero(),
             reserved_balance: AccountBalance::zero(),
-            frozen: false,
+            status: AccountStatus::Active,
         }
     }
-
-    /// Returns the account owner.
-    pub fn user_id(&self) -> &UserId {
-        &self.user_id
-    }
-
-    /// Returns the currency definition referenced by the account.
-    pub fn currency_definition_id(&self) -> &CurrencyDefinitionId {
-        &self.currency_definition_id
-    }
-
-    /// Returns the current balance.
-    pub fn balance(&self) -> &AccountBalance {
-        &self.balance
-    }
-
-    /// Returns the current reserved balance.
-    pub fn reserved_balance(&self) -> &AccountBalance {
-        &self.reserved_balance
-    }
-
-    /// Returns the current available balance.
-    pub fn available_balance(&self) -> Result<AccountBalance, AccountError> {
-        self.balance
-            .try_sub(self.reserved_balance)
-            .map_err(|error| match error {
-                AccountBalanceError::InsufficientBalance => AccountError::InvalidReservedBalance,
-                AccountBalanceError::BalanceOverflow => AccountError::BalanceOverflow,
-            })
-    }
-
-    /// Returns whether the account is frozen.
-    pub fn is_frozen(&self) -> bool {
-        self.frozen
-    }
 }
-
-impl UniqueConstraints<AccountStateError> for AccountState {}
 
 #[cfg(test)]
 mod tests {
@@ -80,7 +44,7 @@ mod tests {
 
     use crate::currency_definition::CurrencyDefinitionId;
 
-    use super::{AccountBalance, AccountId, AccountState};
+    use super::{AccountBalance, AccountId, AccountState, AccountStatus};
 
     #[test]
     fn exposes_id_via_aggregate_state_trait() {
@@ -91,19 +55,11 @@ mod tests {
     }
 
     #[test]
-    fn available_balance_excludes_reserved_balance() {
-        let mut state =
-            AccountState::new(AccountId::new(), UserId::new(), CurrencyDefinitionId::new());
-        state.balance = AccountBalance::new(100);
-        state.reserved_balance = AccountBalance::new(30);
+    fn new_initializes_zero_balances_and_active_status() {
+        let state = AccountState::new(AccountId::new(), UserId::new(), CurrencyDefinitionId::new());
 
-        assert_eq!(state.balance(), &AccountBalance::new(100));
-        assert_eq!(state.reserved_balance(), &AccountBalance::new(30));
-        assert_eq!(
-            state
-                .available_balance()
-                .expect("available balance should be valid"),
-            AccountBalance::new(70)
-        );
+        assert_eq!(state.balance, AccountBalance::zero());
+        assert_eq!(state.reserved_balance, AccountBalance::zero());
+        assert_eq!(state.status, AccountStatus::Active);
     }
 }

@@ -1,11 +1,10 @@
-use chrono::Utc;
-
 use super::{
-    OidcAuthorizationUrl, OidcAuthorizationUrlBuilder, OidcBeginOptions, OidcCallbackParams,
+    OidcAuthorizationUrlBuilder, OidcBeginOptions, OidcBeginResult, OidcCallbackParams,
     OidcCompleteResult, OidcIdTokenVerifier, OidcIdTokenVerifyContext, OidcLoginAttempt,
-    OidcLoginAttemptStore, OidcLoginFlow, OidcLoginFlowConfig, OidcLoginFlowError, OidcNonce,
-    OidcProviderMetadataSource, OidcScopes, OidcState, OidcTokenClient, OidcTokenGrant,
-    OidcTokenRequest, OidcTokenResponse, OidcTokens, PkceCodeVerifier, PkceMode,
+    OidcLoginAttemptExpiresAt, OidcLoginAttemptStartedAt, OidcLoginAttemptStore, OidcLoginFlow,
+    OidcLoginFlowConfig, OidcLoginFlowError, OidcNonce, OidcProviderMetadataSource, OidcScopes,
+    OidcState, OidcTokenClient, OidcTokenGrant, OidcTokenRequest, OidcTokenResponse, OidcTokens,
+    PkceCodeVerifier, PkceMode,
 };
 
 pub struct DefaultOidcLoginFlow<LAS, PMS, TC, ITV>
@@ -59,10 +58,10 @@ where
         &self,
         uow: &mut Self::Uow,
         mut options: OidcBeginOptions,
-    ) -> Result<OidcAuthorizationUrl, OidcLoginFlowError> {
+    ) -> Result<OidcBeginResult, OidcLoginFlowError> {
         options.scopes = OidcScopes::new(options.scopes.values().to_vec());
 
-        let now = Utc::now();
+        let now = OidcLoginAttemptStartedAt::now();
         let issuer_url = &self.login_flow_config.provider_config.issuer_url;
         let provider_metadata = self
             .provider_metadata_source
@@ -122,13 +121,21 @@ where
 
         let authorization_url = authorization_url_builder.build();
 
-        let expires_at = now + self.login_flow_config.login_attempt_expires_in.value();
+        let expires_at = OidcLoginAttemptExpiresAt::from_started_at(
+            now,
+            self.login_flow_config.login_attempt_expires_in,
+        );
 
-        let attempt = OidcLoginAttempt::new(state, nonce, pkce_code_verifier, now, expires_at);
+        let attempt =
+            OidcLoginAttempt::new(state.clone(), nonce, pkce_code_verifier, now, expires_at);
 
         self.login_attempt_store.save(uow, &attempt).await?;
 
-        Ok(authorization_url)
+        Ok(OidcBeginResult {
+            authorization_url,
+            state,
+            expires_at,
+        })
     }
 
     async fn complete(

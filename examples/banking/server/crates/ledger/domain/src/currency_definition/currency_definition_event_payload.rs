@@ -21,6 +21,7 @@ pub enum CurrencyDefinitionEventPayload {
     },
     Activated,
     Deactivated,
+    Removed,
 }
 
 #[cfg(test)]
@@ -52,6 +53,10 @@ mod tests {
         assert_eq!(
             CurrencyDefinitionEventPayload::DEACTIVATED,
             appletheia::domain::EventName::new("deactivated")
+        );
+        assert_eq!(
+            CurrencyDefinitionEventPayload::REMOVED,
+            appletheia::domain::EventName::new("removed")
         );
     }
 

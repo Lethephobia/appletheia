@@ -11,4 +11,7 @@ pub enum CurrencyDefinitionError {
 
     #[error("currency is already defined")]
     AlreadyDefined,
+
+    #[error("currency is removed")]
+    Removed,
 }

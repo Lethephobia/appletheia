@@ -15,6 +15,9 @@ pub enum AccountError {
     #[error("account is frozen")]
     Frozen,
 
+    #[error("account is closed")]
+    Closed,
+
     #[error("account has insufficient balance")]
     InsufficientBalance,
 
@@ -29,6 +32,12 @@ pub enum AccountError {
 
     #[error("account reserved balance exceeds total balance")]
     InvalidReservedBalance,
+
+    #[error("account balance must be zero before closing")]
+    BalanceRemaining,
+
+    #[error("account reserved balance must be zero before closing")]
+    ReservedBalanceRemaining,
 
     #[error("transfer amount must be greater than zero")]
     ZeroTransferAmount,
