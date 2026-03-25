@@ -1,8 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-/// Represents how OIDC completion should return credentials.
+/// Represents why an OIDC completion flow is being performed.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum OidcCompletionMode {
+pub enum OidcCompletionPurpose {
     Token,
     ExchangeCode,
+    LinkIdentity,
 }

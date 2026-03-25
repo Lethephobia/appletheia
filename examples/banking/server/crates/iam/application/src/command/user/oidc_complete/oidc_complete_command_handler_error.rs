@@ -53,4 +53,16 @@ pub enum OidcCompleteCommandHandlerError {
 
     #[error("aggregate ref is invalid")]
     AggregateRef(#[from] AggregateRefError),
+
+    #[error("identity linking requires an authenticated principal at OIDC begin time")]
+    LinkIdentityRequiresAuthenticatedPrincipal,
+
+    #[error("identity linking requires a user principal")]
+    LinkIdentityRequiresUserPrincipal,
+
+    #[error("authenticated user was not found")]
+    AuthenticatedUserNotFound,
+
+    #[error("identity is already linked to another user")]
+    IdentityAlreadyLinkedToAnotherUser,
 }

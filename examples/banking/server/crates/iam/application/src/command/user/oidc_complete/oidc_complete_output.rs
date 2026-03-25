@@ -3,7 +3,7 @@ use appletheia::application::authentication::{
     AuthToken, AuthTokenExchangeCode, AuthTokenExchangeCodeExpiresAt, AuthTokenExpiresIn,
 };
 
-use crate::user::OidcCompletionRedirectUri;
+use crate::oidc::OidcCompletionRedirectUri;
 
 /// Represents the result returned after completing an OIDC flow.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -18,5 +18,9 @@ pub enum OidcCompleteOutput {
         completion_redirect_uri: OidcCompletionRedirectUri,
         auth_token_exchange_code: AuthTokenExchangeCode,
         auth_token_exchange_code_expires_at: AuthTokenExchangeCodeExpiresAt,
+    },
+    IdentityLinked {
+        completion_redirect_uri: OidcCompletionRedirectUri,
+        oidc_tokens: OidcTokens,
     },
 }

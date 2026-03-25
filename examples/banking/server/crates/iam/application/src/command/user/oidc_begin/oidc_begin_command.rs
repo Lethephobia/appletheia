@@ -5,12 +5,12 @@ use appletheia::application::authentication::oidc::{OidcDisplay, OidcPrompt, Oid
 use appletheia::application::command::{Command, CommandName};
 use serde::{Deserialize, Serialize};
 
-use crate::user::{OidcCompletionMode, OidcCompletionRedirectUri};
+use crate::oidc::{OidcCompletionPurpose, OidcCompletionRedirectUri};
 
 /// Starts an OIDC authorization flow for a user.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OidcBeginCommand {
-    pub completion_mode: OidcCompletionMode,
+    pub completion_purpose: OidcCompletionPurpose,
     pub completion_redirect_uri: OidcCompletionRedirectUri,
     pub code_challenge: Option<PkceCodeChallenge>,
     pub scopes: OidcScopes,

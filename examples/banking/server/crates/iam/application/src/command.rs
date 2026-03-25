@@ -1,8 +1,6 @@
-pub mod command;
-pub mod oidc;
+pub mod user;
 
-pub use command::{
+pub use user::{
     OidcBeginCommand, OidcBeginCommandHandler, OidcBeginOutput, OidcCompleteCommand,
     OidcCompleteCommandHandler, OidcCompleteOutput, OidcCompleteReplayOutput,
 };
-pub use oidc::{OidcCompletionMode, OidcCompletionRedirectUri, OidcContinuationPayload};
