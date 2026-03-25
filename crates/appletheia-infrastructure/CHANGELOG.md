@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0](https://github.com/Lethephobia/appletheia/compare/appletheia-infrastructure-v0.7.6...appletheia-infrastructure-v0.8.0) - 2026-03-25
+
+### Added
+
+- *(oidc)* [**breaking**] add continuation abstractions and begin result
+- *(oidc)* [**breaking**] add begin result and login attempt timestamp value objects
+
 ## [0.7.6](https://github.com/Lethephobia/appletheia/compare/appletheia-infrastructure-v0.7.5...appletheia-infrastructure-v0.7.6) - 2026-03-24
 
 ### Added
