@@ -17,6 +17,22 @@ pub struct AggregateRef {
 }
 
 impl AggregateRef {
+    /// Creates an aggregate reference from already-owned type and identifier values.
+    pub fn new(aggregate_type: AggregateTypeOwned, aggregate_id: AggregateIdValue) -> Self {
+        Self {
+            aggregate_type,
+            aggregate_id,
+        }
+    }
+
+    /// Builds an aggregate reference from an aggregate ID and its static aggregate type.
+    pub fn from_id<A: Aggregate>(aggregate_id: A::Id) -> Self {
+        Self::new(
+            AggregateTypeOwned::from(A::TYPE),
+            AggregateIdValue::from(aggregate_id.value()),
+        )
+    }
+
     /// Builds an aggregate reference from an aggregate instance.
     ///
     /// Returns `AggregateRefError::MissingAggregateId` when the aggregate has
@@ -26,10 +42,7 @@ impl AggregateRef {
             return Err(AggregateRefError::MissingAggregateId);
         };
 
-        Ok(Self {
-            aggregate_type: AggregateTypeOwned::from(A::TYPE),
-            aggregate_id: AggregateIdValue::from(id.value()),
-        })
+        Ok(Self::from_id::<A>(id))
     }
 }
 
@@ -47,6 +60,7 @@ mod tests {
 
     use super::AggregateRef;
     use crate::authorization::AggregateRefError;
+    use crate::event::{AggregateIdValue, AggregateTypeOwned};
 
     #[derive(Debug, Error, Eq, PartialEq)]
     enum CounterIdError {
@@ -166,6 +180,28 @@ mod tests {
 
         let aggregate_ref =
             AggregateRef::try_from_aggregate(&aggregate).expect("initialized aggregate");
+
+        assert_eq!(aggregate_ref.aggregate_type.value(), "counter");
+        assert_eq!(aggregate_ref.aggregate_id.value(), aggregate_id.value());
+    }
+
+    #[test]
+    fn new_stores_type_and_id() {
+        let aggregate_type = AggregateTypeOwned::from(CounterAggregate::TYPE);
+        let aggregate_id = AggregateIdValue::from(Uuid::now_v7());
+
+        let aggregate_ref = AggregateRef::new(aggregate_type.clone(), aggregate_id);
+
+        assert_eq!(aggregate_ref.aggregate_type, aggregate_type);
+        assert_eq!(aggregate_ref.aggregate_id, aggregate_id);
+    }
+
+    #[test]
+    fn from_id_uses_static_aggregate_type() {
+        let aggregate_id =
+            CounterId::try_from_uuid(Uuid::now_v7()).expect("valid uuid should be accepted");
+
+        let aggregate_ref = AggregateRef::from_id::<CounterAggregate>(aggregate_id);
 
         assert_eq!(aggregate_ref.aggregate_type.value(), "counter");
         assert_eq!(aggregate_ref.aggregate_id.value(), aggregate_id.value());

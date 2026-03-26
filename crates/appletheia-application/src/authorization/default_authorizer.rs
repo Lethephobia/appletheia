@@ -248,10 +248,6 @@ mod tests {
         RelationName::new(value)
     }
 
-    fn relation_owned(value: &'static str) -> RelationNameOwned {
-        RelationNameOwned::from(relation(value))
-    }
-
     #[tokio::test]
     async fn allows_direct_subject_in_this_relation() {
         let doc = aggregate_ref("document", Uuid::from_u128(1));
@@ -259,7 +255,7 @@ mod tests {
 
         let mut store = TestStore::default();
         store.map.insert(
-            (doc.clone(), relation_owned("editor")),
+            (doc.clone(), RelationNameOwned::from(relation("editor"))),
             vec![RelationshipSubject::Aggregate(user.clone())],
         );
 
@@ -281,7 +277,7 @@ mod tests {
                     PrincipalRequirement::AuthenticatedWithRelationship {
                         requirement: RelationshipRequirement::Check {
                             aggregate: doc,
-                            relation: relation_owned("editor"),
+                            relation: relation("editor"),
                         },
                         projector_dependencies: ProjectorDependencies::None,
                     },
