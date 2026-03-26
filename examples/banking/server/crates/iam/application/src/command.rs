@@ -7,7 +7,9 @@ pub use user::{
     LogoutAllSessionsCommand, LogoutAllSessionsCommandHandler, LogoutAllSessionsOutput,
     LogoutCommand, LogoutCommandHandler, LogoutOutput, OidcBeginCommand, OidcBeginCommandHandler,
     OidcBeginOutput, OidcCompleteCommand, OidcCompleteCommandHandler, OidcCompleteOutput,
-    OidcCompleteReplayOutput,
+    OidcCompleteReplayOutput, UserProfileEditCommand, UserProfileEditCommandHandler,
+    UserProfileEditOutput, UserProfileReadyCommand, UserProfileReadyCommandHandler,
+    UserProfileReadyOutput,
 };
 pub use user_role_assignment::{
     UserRoleAssignmentAssignCommand, UserRoleAssignmentAssignCommandHandler,

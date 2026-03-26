@@ -3,12 +3,14 @@ pub mod command;
 pub mod oidc;
 pub mod projection;
 
-pub use authorization::RoleRelations;
+pub use authorization::{RoleRelations, UserRelations};
 pub use command::{
     LogoutAllSessionsCommand, LogoutAllSessionsCommandHandler, LogoutAllSessionsOutput,
     LogoutCommand, LogoutCommandHandler, LogoutOutput, OidcBeginCommand, OidcBeginCommandHandler,
     OidcBeginOutput, OidcCompleteCommand, OidcCompleteCommandHandler, OidcCompleteOutput,
     OidcCompleteReplayOutput, RoleCreateCommand, RoleCreateCommandHandler, RoleCreateOutput,
+    UserProfileEditCommand, UserProfileEditCommandHandler, UserProfileEditOutput,
+    UserProfileReadyCommand, UserProfileReadyCommandHandler, UserProfileReadyOutput,
     UserRoleAssignmentAssignCommand, UserRoleAssignmentAssignCommandHandler,
     UserRoleAssignmentAssignOutput, UserRoleAssignmentRevokeCommand,
     UserRoleAssignmentRevokeCommandHandler, UserRoleAssignmentRevokeOutput,
@@ -16,5 +18,6 @@ pub use command::{
 pub use oidc::{OidcCompletionPurpose, OidcCompletionRedirectUri, OidcContinuationPayload};
 pub use projection::{
     RoleAssigneeRelationshipProjector, RoleAssigneeRelationshipProjectorError,
-    RoleAssigneeRelationshipProjectorSpec,
+    RoleAssigneeRelationshipProjectorSpec, UserProfileEditorRelationshipProjector,
+    UserProfileEditorRelationshipProjectorError, UserProfileEditorRelationshipProjectorSpec,
 };
