@@ -78,11 +78,15 @@ where
             .save(uow, request_context, &mut user)
             .await?;
 
-        let output = UserProfileReadyOutput::new(
-            command.user_id,
-            user.username()?.cloned(),
-            user.display_name()?.cloned(),
-        );
+        let username = user
+            .username()?
+            .cloned()
+            .ok_or(UserProfileReadyCommandHandlerError::UserProfileNotReady)?;
+        let display_name = user
+            .display_name()?
+            .cloned()
+            .ok_or(UserProfileReadyCommandHandlerError::UserProfileNotReady)?;
+        let output = UserProfileReadyOutput::new(command.user_id, username, display_name);
 
         Ok(CommandHandled::same(output))
     }
@@ -263,8 +267,8 @@ mod tests {
             handled.into_output(),
             UserProfileReadyOutput::new(
                 user_id,
-                Some(Username::try_from("alice").expect("username should be valid")),
-                Some(UserDisplayName::try_from("Alice").expect("display name should be valid")),
+                Username::try_from("alice").expect("username should be valid"),
+                UserDisplayName::try_from("Alice").expect("display name should be valid"),
             )
         );
     }

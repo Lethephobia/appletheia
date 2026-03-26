@@ -5,17 +5,13 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct UserProfileReadyOutput {
     pub user_id: UserId,
-    pub username: Option<Username>,
-    pub display_name: Option<UserDisplayName>,
+    pub username: Username,
+    pub display_name: UserDisplayName,
 }
 
 impl UserProfileReadyOutput {
     /// Creates a new user-profile-ready output.
-    pub fn new(
-        user_id: UserId,
-        username: Option<Username>,
-        display_name: Option<UserDisplayName>,
-    ) -> Self {
+    pub fn new(user_id: UserId, username: Username, display_name: UserDisplayName) -> Self {
         Self {
             user_id,
             username,

@@ -13,4 +13,7 @@ pub enum UserProfileReadyCommandHandlerError {
 
     #[error("user was not found")]
     UserNotFound,
+
+    #[error("user profile is not ready after readying")]
+    UserProfileNotReady,
 }
