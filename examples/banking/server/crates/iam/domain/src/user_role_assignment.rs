@@ -62,7 +62,6 @@ impl UserRoleAssignment {
         }
 
         self.append_event(UserRoleAssignmentEventPayload::Revoked {
-            id: state.id,
             role_id: state.role_id,
             user_id: state.user_id,
         })
@@ -161,13 +160,7 @@ mod tests {
         );
         assert_eq!(
             assignment.uncommitted_events()[1].payload(),
-            &UserRoleAssignmentEventPayload::Revoked {
-                id: assignment
-                    .aggregate_id()
-                    .expect("assignment id should exist"),
-                role_id,
-                user_id,
-            }
+            &UserRoleAssignmentEventPayload::Revoked { role_id, user_id }
         );
     }
 }

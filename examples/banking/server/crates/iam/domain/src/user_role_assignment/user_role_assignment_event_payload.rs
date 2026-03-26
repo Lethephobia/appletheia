@@ -13,7 +13,6 @@ pub enum UserRoleAssignmentEventPayload {
         user_id: UserId,
     },
     Revoked {
-        id: UserRoleAssignmentId,
         role_id: RoleId,
         user_id: UserId,
     },
