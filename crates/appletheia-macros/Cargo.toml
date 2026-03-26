@@ -19,6 +19,7 @@ syn = { version = "2", features = ["extra-traits", "full"] }
 proc-macro-crate = "3"
 
 [dev-dependencies]
+appletheia-application = { workspace = true }
 appletheia-domain = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }

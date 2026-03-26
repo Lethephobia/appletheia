@@ -8,6 +8,36 @@ mod application;
 mod domain;
 mod utils;
 
+#[proc_macro_derive(Command, attributes(command_derive))]
+pub fn command_derive(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    application::command_derive(input)
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
+}
+
+#[proc_macro_attribute]
+pub fn command(attr: TokenStream, item: TokenStream) -> TokenStream {
+    application::command_attribute(attr, item)
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
+}
+
+#[proc_macro_derive(Relations, attributes(relations_derive))]
+pub fn relations_derive(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    application::relations_derive(input)
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
+}
+
+#[proc_macro_attribute]
+pub fn relations(attr: TokenStream, item: TokenStream) -> TokenStream {
+    application::relations_attribute(attr, item)
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
+}
+
 #[proc_macro_derive(Aggregate, attributes(aggregate_derive))]
 pub fn aggregate_derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);

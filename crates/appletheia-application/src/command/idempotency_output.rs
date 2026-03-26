@@ -4,19 +4,23 @@ use serde::{Deserialize, Serialize};
 
 use super::IdempotencyOutputError;
 
+/// Stores the replay-safe command result persisted for idempotent replays.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct IdempotencyOutput(serde_json::Value);
 
 impl IdempotencyOutput {
+    /// Creates an idempotency output from a serialized JSON value.
     pub fn new(value: serde_json::Value) -> Self {
         Self(value)
     }
 
+    /// Returns the underlying serialized JSON value.
     pub fn value(&self) -> &serde_json::Value {
         &self.0
     }
 
+    /// Consumes the wrapper and returns the underlying serialized JSON value.
     pub fn into_value(self) -> serde_json::Value {
         self.0
     }

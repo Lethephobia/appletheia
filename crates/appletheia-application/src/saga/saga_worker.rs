@@ -1,8 +1,8 @@
-use super::{SagaDefinition, SagaWorkerError};
+use super::{Saga, SagaWorkerError};
 
 #[allow(async_fn_in_trait)]
 pub trait SagaWorker: Send {
-    type Saga: SagaDefinition;
+    type Saga: Saga;
 
     fn is_stop_requested(&self) -> bool;
 

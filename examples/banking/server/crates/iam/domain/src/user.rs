@@ -157,23 +157,23 @@ impl User {
     /// Changes the email snapshot for a linked identity.
     pub fn change_identity_email(
         &mut self,
-        provider: UserIdentityProvider,
-        subject: UserIdentitySubject,
+        provider: &UserIdentityProvider,
+        subject: &UserIdentitySubject,
         email: Option<Email>,
     ) -> Result<(), UserError> {
         if let Some(identity) = self
             .state_required()?
             .identities
             .iter()
-            .find(|identity| identity.matches(&provider, &subject))
+            .find(|identity| identity.matches(provider, subject))
             && identity.email() == email.as_ref()
         {
             return Ok(());
         }
 
         self.append_event(UserEventPayload::IdentityEmailChanged {
-            provider,
-            subject,
+            provider: provider.clone(),
+            subject: subject.clone(),
             email,
         })
     }
@@ -634,11 +634,14 @@ mod tests {
         user.register(identity())
             .expect("registration should succeed");
 
+        let provider = UserIdentityProvider::try_from("https://login.example.com")
+            .expect("provider should be valid");
+        let subject = UserIdentitySubject::try_from("user-456").expect("subject should be valid");
+
         let error = user
             .change_identity_email(
-                UserIdentityProvider::try_from("https://login.example.com")
-                    .expect("provider should be valid"),
-                UserIdentitySubject::try_from("user-456").expect("subject should be valid"),
+                &provider,
+                &subject,
                 Some(Email::try_from("other@example.com").expect("email should be valid")),
             )
             .expect_err("unknown identity should fail");
@@ -656,7 +659,7 @@ mod tests {
         let subject = UserIdentitySubject::try_from("user-123").expect("subject should be valid");
         let email = Some(Email::try_from("alice@bank.example").expect("email should be valid"));
 
-        user.change_identity_email(provider.clone(), subject.clone(), email.clone())
+        user.change_identity_email(&provider, &subject, email.clone())
             .expect("identity email change should succeed");
 
         assert_eq!(
@@ -841,11 +844,13 @@ mod tests {
                 UserDisplayName::try_from("Alice Example").expect("display name should be valid"),
             )
             .expect_err("inactive user should reject profile ready");
+        let provider = UserIdentityProvider::try_from("https://accounts.example.com")
+            .expect("provider should be valid");
+        let subject = UserIdentitySubject::try_from("user-123").expect("subject should be valid");
         let identity_error = user
             .change_identity_email(
-                UserIdentityProvider::try_from("https://accounts.example.com")
-                    .expect("provider should be valid"),
-                UserIdentitySubject::try_from("user-123").expect("subject should be valid"),
+                &provider,
+                &subject,
                 Some(Email::try_from("alice@bank.example").expect("email should be valid")),
             )
             .expect_err("inactive user should reject identity updates");

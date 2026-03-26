@@ -3,8 +3,8 @@ use crate::unit_of_work::UnitOfWork;
 use crate::unit_of_work::UnitOfWorkFactory;
 
 use super::{
-    ProjectorDefinition, ProjectorNameOwned, ProjectorProcessedEventStore, ProjectorRunReport,
-    ProjectorRunner, ProjectorRunnerError,
+    Projector, ProjectorNameOwned, ProjectorProcessedEventStore, ProjectorRunReport,
+    ProjectorRunner, ProjectorRunnerError, ProjectorSpec,
 };
 
 pub struct DefaultProjectorRunner<P, U> {
@@ -20,16 +20,16 @@ impl<P, U> DefaultProjectorRunner<P, U> {
         }
     }
 
-    async fn project_inner<D: ProjectorDefinition<Uow = P::Uow>>(
+    async fn project_inner<PJ: Projector<Uow = P::Uow>>(
         &self,
         uow: &mut P::Uow,
-        projector: &D,
+        projector: &PJ,
         event: &EventEnvelope,
     ) -> Result<ProjectorRunReport, ProjectorRunnerError>
     where
         P: ProjectorProcessedEventStore,
     {
-        let projector_name = ProjectorNameOwned::from(D::NAME);
+        let projector_name = ProjectorNameOwned::from(<PJ::Spec as ProjectorSpec>::NAME);
         let event_id = event.event_id;
 
         let inserted = self
@@ -57,9 +57,9 @@ where
 {
     type Uow = P::Uow;
 
-    async fn project<D: ProjectorDefinition<Uow = P::Uow>>(
+    async fn project<PJ: Projector<Uow = P::Uow>>(
         &self,
-        projector: &D,
+        projector: &PJ,
         event: &EventEnvelope,
     ) -> Result<ProjectorRunReport, ProjectorRunnerError> {
         let mut uow = self.uow_factory.begin().await?;

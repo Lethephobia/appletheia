@@ -13,8 +13,11 @@ pub mod infrastructure {
     pub use appletheia_infrastructure::*;
 }
 
-#[cfg(feature = "macros")]
+#[cfg(feature = "macros-domain")]
 pub use appletheia_macros::{
     Aggregate, AggregateId, AggregateState, EventPayload, aggregate, aggregate_id, aggregate_state,
     event_payload, unique_constraints,
 };
+
+#[cfg(feature = "macros-application")]
+pub use appletheia_macros::{Command, Relations, command, relations};

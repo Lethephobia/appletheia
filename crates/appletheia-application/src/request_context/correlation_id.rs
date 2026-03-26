@@ -3,11 +3,13 @@ use std::{fmt, fmt::Display};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+/// Groups messages and events that belong to the same logical request flow.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct CorrelationId(Uuid);
 
 impl CorrelationId {
+    /// Returns the raw UUID value.
     pub fn value(&self) -> Uuid {
         self.0
     }
@@ -28,5 +30,34 @@ impl From<CorrelationId> for Uuid {
 impl Display for CorrelationId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn from_uuid_round_trips() {
+        let uuid = Uuid::now_v7();
+        let correlation_id = CorrelationId::from(uuid);
+
+        assert_eq!(Uuid::from(correlation_id), uuid);
+    }
+
+    #[test]
+    fn value_returns_inner_uuid() {
+        let uuid = Uuid::now_v7();
+        let correlation_id = CorrelationId::from(uuid);
+
+        assert_eq!(correlation_id.value(), uuid);
+    }
+
+    #[test]
+    fn display_formats_underlying_uuid() {
+        let uuid = Uuid::now_v7();
+        let correlation_id = CorrelationId::from(uuid);
+
+        assert_eq!(correlation_id.to_string(), uuid.to_string());
     }
 }
