@@ -8,6 +8,10 @@ use crate::unit_of_work::UnitOfWork;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
+/// Handles a command within the application command pipeline.
+///
+/// A handler returns an immediate `Output` for the current execution and a replay-safe
+/// `ReplayOutput` that can be persisted for idempotent replays.
 #[allow(async_fn_in_trait)]
 pub trait CommandHandler: Send + Sync {
     type Command: Command;
@@ -16,8 +20,10 @@ pub trait CommandHandler: Send + Sync {
     type Error: Error + Send + Sync + 'static;
     type Uow: UnitOfWork;
 
+    /// Declares projector dependencies required before returning a read-your-writes result.
     const DEPENDENCIES: ProjectorDependencies<'static> = ProjectorDependencies::None;
 
+    /// Builds the authorization requirements for the incoming command.
     fn authorization_plan(
         &self,
         _command: &Self::Command,
@@ -25,6 +31,7 @@ pub trait CommandHandler: Send + Sync {
         Ok(AuthorizationPlan::default())
     }
 
+    /// Executes the command and returns both the immediate output and replay-safe output.
     async fn handle(
         &self,
         uow: &mut Self::Uow,

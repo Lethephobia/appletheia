@@ -8,16 +8,27 @@ pub use unit_of_work_factory_error::UnitOfWorkFactoryError;
 
 use std::error::Error;
 
+/// Represents a transactional application work scope.
+///
+/// A `UnitOfWork` is typically created for a single command, saga step, or
+/// projection update and is responsible for either committing or rolling back
+/// all changes performed within that scope.
 #[allow(async_fn_in_trait)]
 pub trait UnitOfWork: Send {
+    /// Commits all changes performed within this unit of work.
     async fn commit(self) -> Result<(), UnitOfWorkError>
     where
         Self: Sized;
 
+    /// Rolls back all changes performed within this unit of work.
     async fn rollback(self) -> Result<(), UnitOfWorkError>
     where
         Self: Sized;
 
+    /// Rolls back the unit of work and returns the original operation error.
+    ///
+    /// If the rollback itself fails, both errors are combined into
+    /// `UnitOfWorkError::OperationAndRollbackFailed`.
     async fn rollback_with_operation_error<E>(
         self,
         operation_error: E,
