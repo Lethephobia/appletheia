@@ -59,6 +59,11 @@ pub use idempotency_state::IdempotencyState;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
+/// Represents an application command that can be dispatched through the command pipeline.
+///
+/// `NAME` must remain stable for the command type so infrastructure can identify the
+/// command consistently across routing, persistence, and replay boundaries.
 pub trait Command: Serialize + DeserializeOwned + Send + 'static {
+    /// Returns the stable identifier for the command type.
     const NAME: CommandName;
 }
