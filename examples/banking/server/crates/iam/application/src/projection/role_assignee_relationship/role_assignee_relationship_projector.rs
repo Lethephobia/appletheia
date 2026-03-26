@@ -2,9 +2,8 @@ use appletheia::application::authorization::{
     AggregateRef, Relation, RelationNameOwned, Relationship, RelationshipChange, RelationshipStore,
     RelationshipSubject,
 };
-use appletheia::application::event::{AggregateIdValue, AggregateTypeOwned, EventEnvelope};
+use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
-use appletheia::domain::{Aggregate, AggregateId};
 use banking_iam_domain::{
     Role, RoleId, User, UserId, UserRoleAssignment, UserRoleAssignmentEventPayload,
 };
@@ -30,15 +29,9 @@ where
 
     fn relationship(role_id: RoleId, user_id: UserId) -> Relationship {
         Relationship {
-            aggregate: AggregateRef {
-                aggregate_type: AggregateTypeOwned::from(Role::TYPE),
-                aggregate_id: AggregateIdValue::from(role_id.value()),
-            },
+            aggregate: AggregateRef::from_id::<Role>(role_id),
             relation: RelationNameOwned::from(RoleAssigneeRelation::NAME),
-            subject: RelationshipSubject::Aggregate(AggregateRef {
-                aggregate_type: AggregateTypeOwned::from(User::TYPE),
-                aggregate_id: AggregateIdValue::from(user_id.value()),
-            }),
+            subject: RelationshipSubject::Aggregate(AggregateRef::from_id::<User>(user_id)),
         }
     }
 }

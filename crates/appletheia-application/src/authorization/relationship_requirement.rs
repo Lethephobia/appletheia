@@ -1,4 +1,4 @@
-use super::{AggregateRef, RelationNameOwned};
+use super::{AggregateRef, RelationName};
 
 /// Describes relationship checks required for authorization.
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
@@ -8,7 +8,7 @@ pub enum RelationshipRequirement {
         /// The aggregate on which the relation is evaluated.
         aggregate: AggregateRef,
         /// The relation the principal must satisfy on the aggregate.
-        relation: RelationNameOwned,
+        relation: RelationName,
     },
     /// Requires all contained relationship requirements to be satisfied.
     All(Vec<RelationshipRequirement>),

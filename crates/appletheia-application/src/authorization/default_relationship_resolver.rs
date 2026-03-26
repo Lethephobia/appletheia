@@ -59,11 +59,12 @@ where
                 aggregate,
                 relation,
             } => {
+                let relation = RelationNameOwned::from(*relation);
                 self.check_relation(
                     uow,
                     subject,
                     aggregate,
-                    relation,
+                    &relation,
                     state,
                     UsersetExprEvalDepth::default(),
                 )

@@ -1,13 +1,11 @@
 use appletheia::application::authorization::{
-    AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationNameOwned,
-    RelationshipRequirement,
+    AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
 use appletheia::application::command::{CommandHandled, CommandHandler};
-use appletheia::application::event::{AggregateIdValue, AggregateTypeOwned};
 use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use appletheia::domain::{Aggregate, AggregateId};
+use appletheia::domain::Aggregate;
 use banking_iam_domain::{Role, RoleId, RoleName, UserRoleAssignment};
 
 use super::{
@@ -18,18 +16,18 @@ use crate::authorization::RoleAssigneeRelation;
 use crate::projection::RoleAssigneeRelationshipProjectorSpec;
 
 /// Handles `UserRoleAssignmentRevokeCommand`.
-pub struct UserRoleAssignmentRevokeCommandHandler<UARR>
+pub struct UserRoleAssignmentRevokeCommandHandler<URAR>
 where
-    UARR: Repository<UserRoleAssignment>,
+    URAR: Repository<UserRoleAssignment>,
 {
-    user_role_assignment_repository: UARR,
+    user_role_assignment_repository: URAR,
 }
 
-impl<UARR> UserRoleAssignmentRevokeCommandHandler<UARR>
+impl<URAR> UserRoleAssignmentRevokeCommandHandler<URAR>
 where
-    UARR: Repository<UserRoleAssignment>,
+    URAR: Repository<UserRoleAssignment>,
 {
-    pub fn new(user_role_assignment_repository: UARR) -> Self {
+    pub fn new(user_role_assignment_repository: URAR) -> Self {
         Self {
             user_role_assignment_repository,
         }
@@ -39,11 +37,8 @@ where
     -> Result<PrincipalRequirement, UserRoleAssignmentRevokeCommandHandlerError> {
         let role_name = RoleName::try_from("admin")?;
         let role_id = RoleId::from_name(&role_name);
-        let aggregate = AggregateRef {
-            aggregate_type: AggregateTypeOwned::from(Role::TYPE),
-            aggregate_id: AggregateIdValue::from(role_id.value()),
-        };
-        let relation = RelationNameOwned::from(RoleAssigneeRelation::NAME);
+        let aggregate = AggregateRef::from_id::<Role>(role_id);
+        let relation = RoleAssigneeRelation::NAME;
 
         Ok(PrincipalRequirement::AuthenticatedWithRelationship {
             requirement: RelationshipRequirement::Check {
@@ -57,15 +52,15 @@ where
     }
 }
 
-impl<UARR> CommandHandler for UserRoleAssignmentRevokeCommandHandler<UARR>
+impl<URAR> CommandHandler for UserRoleAssignmentRevokeCommandHandler<URAR>
 where
-    UARR: Repository<UserRoleAssignment>,
+    URAR: Repository<UserRoleAssignment>,
 {
     type Command = UserRoleAssignmentRevokeCommand;
     type Output = UserRoleAssignmentRevokeOutput;
     type ReplayOutput = UserRoleAssignmentRevokeOutput;
     type Error = UserRoleAssignmentRevokeCommandHandlerError;
-    type Uow = UARR::Uow;
+    type Uow = URAR::Uow;
 
     fn authorization_plan(
         &self,
