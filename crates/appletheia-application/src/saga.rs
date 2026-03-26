@@ -1,8 +1,11 @@
+use std::error::Error;
+
+use crate::event::EventEnvelope;
+
 pub mod default_saga_runner;
 pub mod default_saga_worker;
 pub mod enqueued_command_count;
 pub mod saga_append_command_error;
-pub mod saga_definition;
 pub mod saga_instance;
 pub mod saga_instance_id;
 pub mod saga_instance_id_error;
@@ -16,6 +19,7 @@ pub mod saga_processed_event_store_error;
 pub mod saga_run_report;
 pub mod saga_runner;
 pub mod saga_runner_error;
+pub mod saga_spec;
 pub mod saga_state;
 pub mod saga_store;
 pub mod saga_store_error;
@@ -26,7 +30,6 @@ pub use default_saga_runner::DefaultSagaRunner;
 pub use default_saga_worker::DefaultSagaWorker;
 pub use enqueued_command_count::EnqueuedCommandCount;
 pub use saga_append_command_error::SagaAppendCommandError;
-pub use saga_definition::SagaDefinition;
 pub use saga_instance::{SagaInstance, SagaStatus};
 pub use saga_instance_id::SagaInstanceId;
 pub use saga_instance_id_error::SagaInstanceIdError;
@@ -40,8 +43,21 @@ pub use saga_processed_event_store_error::SagaProcessedEventStoreError;
 pub use saga_run_report::SagaRunReport;
 pub use saga_runner::SagaRunner;
 pub use saga_runner_error::SagaRunnerError;
+pub use saga_spec::SagaSpec;
 pub use saga_state::SagaState;
 pub use saga_store::SagaStore;
 pub use saga_store_error::SagaStoreError;
 pub use saga_worker::SagaWorker;
 pub use saga_worker_error::SagaWorkerError;
+
+/// Handles events for a saga instance.
+pub trait Saga: Send + Sync {
+    type Spec: SagaSpec;
+    type Error: Error + Send + Sync + 'static;
+
+    fn on_event(
+        &self,
+        instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State>,
+        event: &EventEnvelope,
+    ) -> Result<(), Self::Error>;
+}

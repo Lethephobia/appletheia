@@ -15,6 +15,6 @@ pub use command::{
 };
 pub use oidc::{OidcCompletionPurpose, OidcCompletionRedirectUri, OidcContinuationPayload};
 pub use projection::{
-    DefaultRoleAssigneeRelationshipProjector, RoleAssigneeRelationshipProjector,
-    RoleAssigneeRelationshipProjectorError,
+    RoleAssigneeRelationshipProjector, RoleAssigneeRelationshipProjectorError,
+    RoleAssigneeRelationshipProjectorSpec,
 };

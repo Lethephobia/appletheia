@@ -1,6 +1,6 @@
 use crate::unit_of_work::UnitOfWork;
 
-use super::{ProjectorDefinition, ProjectorRebuildReport, ProjectorRebuilderError};
+use super::{Projector, ProjectorRebuildReport, ProjectorRebuilderError};
 
 #[allow(async_fn_in_trait)]
 pub trait ProjectorRebuilder: Send {
@@ -10,8 +10,8 @@ pub trait ProjectorRebuilder: Send {
 
     fn request_graceful_stop(&mut self);
 
-    async fn run_until_idle<P: ProjectorDefinition<Uow = Self::Uow>>(
+    async fn run_until_idle<PJ: Projector<Uow = Self::Uow>>(
         &mut self,
-        projector: &P,
+        projector: &PJ,
     ) -> Result<ProjectorRebuildReport, ProjectorRebuilderError>;
 }

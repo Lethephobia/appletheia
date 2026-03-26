@@ -6,9 +6,9 @@ use crate::unit_of_work::UnitOfWorkFactory;
 
 use super::ProcessedEventCount;
 use super::{
-    ProjectionCheckpointStore, ProjectorDefinition, ProjectorNameOwned,
-    ProjectorProcessedEventStore, ProjectorRebuildReport, ProjectorRebuilder,
-    ProjectorRebuilderConfig, ProjectorRebuilderError,
+    ProjectionCheckpointStore, Projector, ProjectorNameOwned, ProjectorProcessedEventStore,
+    ProjectorRebuildReport, ProjectorRebuilder, ProjectorRebuilderConfig, ProjectorRebuilderError,
+    ProjectorSpec,
 };
 
 pub struct DefaultProjectorRebuilder<F, C, P, U> {
@@ -56,11 +56,11 @@ where
         self.stop_requested.store(true, AtomicOrdering::SeqCst);
     }
 
-    async fn run_until_idle<D: ProjectorDefinition<Uow = F::Uow>>(
+    async fn run_until_idle<PJ: Projector<Uow = F::Uow>>(
         &mut self,
-        projector: &D,
+        projector: &PJ,
     ) -> Result<ProjectorRebuildReport, ProjectorRebuilderError> {
-        let projector_name = ProjectorNameOwned::from(D::NAME);
+        let projector_name = ProjectorNameOwned::from(<PJ::Spec as ProjectorSpec>::NAME);
 
         let mut processed_event_count = ProcessedEventCount::zero();
 
@@ -82,7 +82,12 @@ where
 
                 let events = match self
                     .feed_reader
-                    .read_after(&mut uow, after, self.config.batch_size, D::SUBSCRIPTION)
+                    .read_after(
+                        &mut uow,
+                        after,
+                        self.config.batch_size,
+                        <PJ::Spec as ProjectorSpec>::SUBSCRIPTION,
+                    )
                     .await
                 {
                     Ok(events) => events,

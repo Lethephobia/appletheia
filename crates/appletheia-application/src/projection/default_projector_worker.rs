@@ -5,17 +5,17 @@ use crate::{
     event::{EventEnvelope, EventSelector},
 };
 
-use super::{ProjectorDefinition, ProjectorRunner, ProjectorWorker, ProjectorWorkerError};
+use super::{Projector, ProjectorRunner, ProjectorSpec, ProjectorWorker, ProjectorWorkerError};
 
-pub struct DefaultProjectorWorker<D, S, R> {
+pub struct DefaultProjectorWorker<PJ, S, R> {
     runner: R,
     subscriber: S,
-    projector: D,
+    projector: PJ,
     stop_requested: AtomicBool,
 }
 
-impl<D, S, R> DefaultProjectorWorker<D, S, R> {
-    pub fn new(runner: R, subscriber: S, projector: D) -> Self {
+impl<PJ, S, R> DefaultProjectorWorker<PJ, S, R> {
+    pub fn new(runner: R, subscriber: S, projector: PJ) -> Self {
         Self {
             runner,
             subscriber,
@@ -25,15 +25,15 @@ impl<D, S, R> DefaultProjectorWorker<D, S, R> {
     }
 }
 
-impl<D, S, R> ProjectorWorker for DefaultProjectorWorker<D, S, R>
+impl<PJ, S, R> ProjectorWorker for DefaultProjectorWorker<PJ, S, R>
 where
-    D: ProjectorDefinition,
+    PJ: Projector,
     S: Subscriber<EventEnvelope, Selector = EventSelector>,
     S::Consumer: Consumer<EventEnvelope>,
     <S::Consumer as Consumer<EventEnvelope>>::Delivery: Delivery<EventEnvelope>,
-    R: ProjectorRunner<Uow = D::Uow>,
+    R: ProjectorRunner<Uow = PJ::Uow>,
 {
-    type Projector = D;
+    type Projector = PJ;
 
     fn is_stop_requested(&self) -> bool {
         self.stop_requested.load(AtomicOrdering::SeqCst)
@@ -44,16 +44,16 @@ where
     }
 
     async fn run_forever(&mut self) -> Result<(), ProjectorWorkerError> {
-        let consumer_group = ConsumerGroup::from(D::NAME);
+        let consumer_group = ConsumerGroup::from(<PJ::Spec as ProjectorSpec>::NAME);
         let mut consumer = self
             .subscriber
-            .subscribe(&consumer_group, D::SUBSCRIPTION)
+            .subscribe(&consumer_group, <PJ::Spec as ProjectorSpec>::SUBSCRIPTION)
             .await?;
 
         while !self.is_stop_requested() {
             let mut delivery = consumer.next().await?;
 
-            if !D::SUBSCRIPTION.matches(delivery.message()) {
+            if !<PJ::Spec as ProjectorSpec>::SUBSCRIPTION.matches(delivery.message()) {
                 delivery.ack().await?;
                 continue;
             }

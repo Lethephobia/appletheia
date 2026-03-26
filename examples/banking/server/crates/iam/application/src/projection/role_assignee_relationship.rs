@@ -1,7 +1,7 @@
-mod default_role_assignee_relationship_projector;
 mod role_assignee_relationship_projector;
 mod role_assignee_relationship_projector_error;
+mod role_assignee_relationship_projector_spec;
 
-pub use default_role_assignee_relationship_projector::DefaultRoleAssigneeRelationshipProjector;
 pub use role_assignee_relationship_projector::RoleAssigneeRelationshipProjector;
 pub use role_assignee_relationship_projector_error::RoleAssigneeRelationshipProjectorError;
+pub use role_assignee_relationship_projector_spec::RoleAssigneeRelationshipProjectorSpec;

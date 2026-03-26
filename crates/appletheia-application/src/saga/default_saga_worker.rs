@@ -1,20 +1,20 @@
 use std::sync::atomic::{AtomicBool, Ordering as AtomicOrdering};
 
-use super::{SagaDefinition, SagaRunner, SagaWorker, SagaWorkerError};
+use super::{Saga, SagaRunner, SagaSpec, SagaWorker, SagaWorkerError};
 use crate::{
     Consumer, ConsumerGroup, Delivery, Subscriber,
     event::{EventEnvelope, EventSelector},
 };
 
-pub struct DefaultSagaWorker<D, S, R> {
+pub struct DefaultSagaWorker<SG, S, R> {
     saga_runner: R,
     subscriber: S,
-    saga: D,
+    saga: SG,
     stop_requested: AtomicBool,
 }
 
-impl<D, S, R> DefaultSagaWorker<D, S, R> {
-    pub fn new(saga_runner: R, subscriber: S, saga: D) -> Self {
+impl<SG, S, R> DefaultSagaWorker<SG, S, R> {
+    pub fn new(saga_runner: R, subscriber: S, saga: SG) -> Self {
         Self {
             saga_runner,
             subscriber,
@@ -24,15 +24,15 @@ impl<D, S, R> DefaultSagaWorker<D, S, R> {
     }
 }
 
-impl<D, S, R> SagaWorker for DefaultSagaWorker<D, S, R>
+impl<SG, S, R> SagaWorker for DefaultSagaWorker<SG, S, R>
 where
-    D: SagaDefinition,
+    SG: Saga,
     S: Subscriber<EventEnvelope, Selector = EventSelector>,
     S::Consumer: Consumer<EventEnvelope>,
     <S::Consumer as Consumer<EventEnvelope>>::Delivery: Delivery<EventEnvelope>,
     R: SagaRunner,
 {
-    type Saga = D;
+    type Saga = SG;
 
     fn is_stop_requested(&self) -> bool {
         self.stop_requested.load(AtomicOrdering::SeqCst)
@@ -43,17 +43,17 @@ where
     }
 
     async fn run_forever(&mut self) -> Result<(), SagaWorkerError> {
-        let consumer_group = ConsumerGroup::from(D::NAME);
+        let consumer_group = ConsumerGroup::from(<SG::Spec as SagaSpec>::NAME);
 
         let mut consumer = self
             .subscriber
-            .subscribe(&consumer_group, D::SUBSCRIPTION)
+            .subscribe(&consumer_group, <SG::Spec as SagaSpec>::SUBSCRIPTION)
             .await?;
 
         while !self.is_stop_requested() {
             let mut delivery = consumer.next().await?;
 
-            if !D::SUBSCRIPTION.matches(delivery.message()) {
+            if !<SG::Spec as SagaSpec>::SUBSCRIPTION.matches(delivery.message()) {
                 delivery.ack().await?;
                 continue;
             }

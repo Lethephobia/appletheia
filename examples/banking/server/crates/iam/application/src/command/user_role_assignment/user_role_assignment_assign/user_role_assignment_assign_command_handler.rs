@@ -4,7 +4,7 @@ use appletheia::application::authorization::{
 };
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::event::{AggregateIdValue, AggregateTypeOwned};
-use appletheia::application::projection::ProjectorDependencies;
+use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use appletheia::domain::{Aggregate, AggregateId};
@@ -15,30 +15,30 @@ use super::{
     UserRoleAssignmentAssignOutput,
 };
 use crate::authorization::RoleAssigneeRelation;
-use crate::projection::RoleAssigneeRelationshipProjector;
+use crate::projection::RoleAssigneeRelationshipProjectorSpec;
 
 /// Handles `UserRoleAssignmentAssignCommand`.
-pub struct UserRoleAssignmentAssignCommandHandler<RR, UR, UARR>
+pub struct UserRoleAssignmentAssignCommandHandler<RR, UR, URAR>
 where
     RR: Repository<Role>,
     UR: Repository<User, Uow = RR::Uow>,
-    UARR: Repository<UserRoleAssignment, Uow = RR::Uow>,
+    URAR: Repository<UserRoleAssignment, Uow = RR::Uow>,
 {
     role_repository: RR,
     user_repository: UR,
-    user_role_assignment_repository: UARR,
+    user_role_assignment_repository: URAR,
 }
 
-impl<RR, UR, UARR> UserRoleAssignmentAssignCommandHandler<RR, UR, UARR>
+impl<RR, UR, URAR> UserRoleAssignmentAssignCommandHandler<RR, UR, URAR>
 where
     RR: Repository<Role>,
     UR: Repository<User, Uow = RR::Uow>,
-    UARR: Repository<UserRoleAssignment, Uow = RR::Uow>,
+    URAR: Repository<UserRoleAssignment, Uow = RR::Uow>,
 {
     pub fn new(
         role_repository: RR,
         user_repository: UR,
-        user_role_assignment_repository: UARR,
+        user_role_assignment_repository: URAR,
     ) -> Self {
         Self {
             role_repository,
@@ -63,17 +63,17 @@ where
                 relation,
             },
             projector_dependencies: ProjectorDependencies::Some(&[
-                RoleAssigneeRelationshipProjector::NAME,
+                RoleAssigneeRelationshipProjectorSpec::NAME,
             ]),
         })
     }
 }
 
-impl<RR, UR, UARR> CommandHandler for UserRoleAssignmentAssignCommandHandler<RR, UR, UARR>
+impl<RR, UR, URAR> CommandHandler for UserRoleAssignmentAssignCommandHandler<RR, UR, URAR>
 where
     RR: Repository<Role>,
     UR: Repository<User, Uow = RR::Uow>,
-    UARR: Repository<UserRoleAssignment, Uow = RR::Uow>,
+    URAR: Repository<UserRoleAssignment, Uow = RR::Uow>,
 {
     type Command = UserRoleAssignmentAssignCommand;
     type Output = UserRoleAssignmentAssignOutput;

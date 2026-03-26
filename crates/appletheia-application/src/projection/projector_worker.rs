@@ -1,8 +1,8 @@
-use super::{ProjectorDefinition, ProjectorWorkerError};
+use super::{Projector, ProjectorWorkerError};
 
 #[allow(async_fn_in_trait)]
 pub trait ProjectorWorker: Send {
-    type Projector: ProjectorDefinition;
+    type Projector: Projector;
 
     fn is_stop_requested(&self) -> bool;
 

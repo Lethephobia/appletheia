@@ -4,7 +4,7 @@ use appletheia::application::authorization::{
 };
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::event::{AggregateIdValue, AggregateTypeOwned};
-use appletheia::application::projection::ProjectorDependencies;
+use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use appletheia::domain::{Aggregate, AggregateId};
@@ -15,7 +15,7 @@ use super::{
     UserRoleAssignmentRevokeOutput,
 };
 use crate::authorization::RoleAssigneeRelation;
-use crate::projection::RoleAssigneeRelationshipProjector;
+use crate::projection::RoleAssigneeRelationshipProjectorSpec;
 
 /// Handles `UserRoleAssignmentRevokeCommand`.
 pub struct UserRoleAssignmentRevokeCommandHandler<UARR>
@@ -51,7 +51,7 @@ where
                 relation,
             },
             projector_dependencies: ProjectorDependencies::Some(&[
-                RoleAssigneeRelationshipProjector::NAME,
+                RoleAssigneeRelationshipProjectorSpec::NAME,
             ]),
         })
     }

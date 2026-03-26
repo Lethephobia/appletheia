@@ -5,8 +5,8 @@ use crate::unit_of_work::UnitOfWorkFactory;
 
 use super::SagaInstance;
 use super::{
-    EnqueuedCommandCount, SagaDefinition, SagaNameOwned, SagaProcessedEventStore, SagaRunReport,
-    SagaRunner, SagaRunnerError, SagaStatus, SagaStore,
+    EnqueuedCommandCount, Saga, SagaNameOwned, SagaProcessedEventStore, SagaRunReport, SagaRunner,
+    SagaRunnerError, SagaSpec, SagaStatus, SagaStore,
 };
 
 pub struct DefaultSagaRunner<S, P, Q, U> {
@@ -39,18 +39,18 @@ where
     Q: CommandOutboxEnqueuer<Uow = S::Uow>,
     U: UnitOfWorkFactory<Uow = S::Uow>,
 {
-    async fn handle_event_inner<D: SagaDefinition>(
+    async fn handle_event_inner<SG: Saga>(
         &self,
         uow: &mut S::Uow,
-        saga: &D,
+        saga: &SG,
         event: &EventEnvelope,
-    ) -> Result<(SagaInstance<D::State>, SagaRunReport), SagaRunnerError> {
-        let saga_name = SagaNameOwned::from(D::NAME);
+    ) -> Result<(SagaInstance<<SG::Spec as SagaSpec>::State>, SagaRunReport), SagaRunnerError> {
+        let saga_name = SagaNameOwned::from(<SG::Spec as SagaSpec>::NAME);
         let correlation_id = event.correlation_id;
 
         let mut instance = self
             .saga_store
-            .load::<D::State>(uow, saga_name.clone(), correlation_id)
+            .load::<<SG::Spec as SagaSpec>::State>(uow, saga_name.clone(), correlation_id)
             .await?;
 
         if instance.is_terminal() {
@@ -124,9 +124,9 @@ where
     Q: CommandOutboxEnqueuer<Uow = S::Uow>,
     U: UnitOfWorkFactory<Uow = S::Uow>,
 {
-    async fn handle_event<D: SagaDefinition>(
+    async fn handle_event<SG: Saga>(
         &self,
-        saga: &D,
+        saga: &SG,
         event: &EventEnvelope,
     ) -> Result<SagaRunReport, SagaRunnerError> {
         let mut uow = self.uow_factory.begin().await?;

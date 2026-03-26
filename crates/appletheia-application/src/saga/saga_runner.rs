@@ -1,12 +1,12 @@
 use crate::event::EventEnvelope;
 
-use super::{SagaDefinition, SagaRunReport, SagaRunnerError};
+use super::{Saga, SagaRunReport, SagaRunnerError};
 
 #[allow(async_fn_in_trait)]
 pub trait SagaRunner: Send + Sync {
-    async fn handle_event<D: SagaDefinition>(
+    async fn handle_event<SG: Saga>(
         &self,
-        saga: &D,
+        saga: &SG,
         event: &EventEnvelope,
     ) -> Result<SagaRunReport, SagaRunnerError>;
 }
