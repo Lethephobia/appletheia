@@ -2,7 +2,6 @@ use std::error::Error;
 
 use crate::authorization::AuthorizationPlan;
 use crate::command::{Command, CommandHandled};
-use crate::projection::ProjectorDependencies;
 use crate::request_context::RequestContext;
 use crate::unit_of_work::UnitOfWork;
 use serde::Serialize;
@@ -19,9 +18,6 @@ pub trait CommandHandler: Send + Sync {
     type ReplayOutput: Serialize + DeserializeOwned + Send + 'static;
     type Error: Error + Send + Sync + 'static;
     type Uow: UnitOfWork;
-
-    /// Declares projector dependencies required before returning a read-your-writes result.
-    const DEPENDENCIES: ProjectorDependencies<'static> = ProjectorDependencies::None;
 
     /// Builds the authorization requirements for the incoming command.
     fn authorization_plan(

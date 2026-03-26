@@ -118,20 +118,6 @@ where
             .authorize(&request_context.principal, &authorization_plan)
             .await?;
 
-        match options.consistency {
-            CommandConsistency::Eventual => {}
-            CommandConsistency::ReadYourWrites {
-                after,
-                timeout,
-                poll_interval,
-            } => {
-                let projectors = H::DEPENDENCIES.owned_names();
-                self.read_your_writes_waiter
-                    .wait(after, timeout, poll_interval, &projectors)
-                    .await?;
-            }
-        }
-
         let command_hash = self.command_hasher.command_hash(&command)?;
         let message_id = request_context.message_id;
 
