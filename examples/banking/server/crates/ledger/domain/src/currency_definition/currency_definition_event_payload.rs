@@ -2,7 +2,7 @@ use appletheia::event_payload;
 
 use crate::core::{CurrencyDecimals, CurrencySymbol};
 
-use super::{CurrencyDefinitionEventPayloadError, CurrencyDefinitionId, CurrencyDefinitionName};
+use super::{CurrencyDefinitionEventPayloadError, CurrencyDefinitionId, CurrencyName};
 
 /// Represents the domain events emitted by a `CurrencyDefinition` aggregate.
 #[event_payload(error = CurrencyDefinitionEventPayloadError)]
@@ -10,14 +10,14 @@ pub enum CurrencyDefinitionEventPayload {
     Defined {
         id: CurrencyDefinitionId,
         symbol: CurrencySymbol,
-        name: CurrencyDefinitionName,
+        name: CurrencyName,
         decimals: CurrencyDecimals,
     },
     SymbolChanged {
         symbol: CurrencySymbol,
     },
     NameChanged {
-        name: CurrencyDefinitionName,
+        name: CurrencyName,
     },
     Activated,
     Deactivated,
@@ -30,7 +30,7 @@ mod tests {
 
     use crate::core::{CurrencyDecimals, CurrencySymbol};
 
-    use super::{CurrencyDefinitionEventPayload, CurrencyDefinitionId, CurrencyDefinitionName};
+    use super::{CurrencyDefinitionEventPayload, CurrencyDefinitionId, CurrencyName};
 
     #[test]
     fn returns_stable_event_names() {
@@ -72,7 +72,7 @@ mod tests {
         let payload = CurrencyDefinitionEventPayload::Defined {
             id: CurrencyDefinitionId::new(),
             symbol: CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
-            name: CurrencyDefinitionName::try_from("USD Coin").expect("name should be valid"),
+            name: CurrencyName::try_from("USD Coin").expect("name should be valid"),
             decimals: CurrencyDecimals::new(6),
         };
 

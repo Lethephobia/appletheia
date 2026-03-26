@@ -2,21 +2,21 @@ mod currency_definition_error;
 mod currency_definition_event_payload;
 mod currency_definition_event_payload_error;
 mod currency_definition_id;
-mod currency_definition_name;
-mod currency_definition_name_error;
 mod currency_definition_state;
 mod currency_definition_state_error;
 mod currency_definition_status;
+mod currency_name;
+mod currency_name_error;
 
 pub use currency_definition_error::CurrencyDefinitionError;
 pub use currency_definition_event_payload::CurrencyDefinitionEventPayload;
 pub use currency_definition_event_payload_error::CurrencyDefinitionEventPayloadError;
 pub use currency_definition_id::CurrencyDefinitionId;
-pub use currency_definition_name::CurrencyDefinitionName;
-pub use currency_definition_name_error::CurrencyDefinitionNameError;
 pub use currency_definition_state::CurrencyDefinitionState;
 pub use currency_definition_state_error::CurrencyDefinitionStateError;
 pub use currency_definition_status::CurrencyDefinitionStatus;
+pub use currency_name::CurrencyName;
+pub use currency_name_error::CurrencyNameError;
 
 use appletheia::aggregate;
 use appletheia::domain::{Aggregate, AggregateApply, AggregateCore};
@@ -36,7 +36,7 @@ impl CurrencyDefinition {
     }
 
     /// Returns the current name.
-    pub fn name(&self) -> Result<&CurrencyDefinitionName, CurrencyDefinitionError> {
+    pub fn name(&self) -> Result<&CurrencyName, CurrencyDefinitionError> {
         Ok(&self.state_required()?.name)
     }
 
@@ -59,7 +59,7 @@ impl CurrencyDefinition {
     pub fn define(
         &mut self,
         symbol: CurrencySymbol,
-        name: CurrencyDefinitionName,
+        name: CurrencyName,
         decimals: CurrencyDecimals,
     ) -> Result<(), CurrencyDefinitionError> {
         if self.state().is_some() {
@@ -84,10 +84,7 @@ impl CurrencyDefinition {
     }
 
     /// Changes the current currency name.
-    pub fn change_name(
-        &mut self,
-        name: CurrencyDefinitionName,
-    ) -> Result<(), CurrencyDefinitionError> {
+    pub fn change_name(&mut self, name: CurrencyName) -> Result<(), CurrencyDefinitionError> {
         if self.state_required()?.name.eq(&name) {
             return Ok(());
         }
@@ -199,13 +196,13 @@ mod tests {
 
     use super::{
         CurrencyDefinition, CurrencyDefinitionEventPayload, CurrencyDefinitionId,
-        CurrencyDefinitionName, CurrencyDefinitionStatus,
+        CurrencyDefinitionStatus, CurrencyName,
     };
 
     #[test]
     fn define_initializes_state_and_records_event() {
         let symbol = CurrencySymbol::try_from("usdc").expect("symbol should be valid");
-        let name = CurrencyDefinitionName::try_from("USD Coin").expect("name should be valid");
+        let name = CurrencyName::try_from("USD Coin").expect("name should be valid");
         let decimals = CurrencyDecimals::new(6);
         let mut currency_definition = CurrencyDefinition::default();
 
@@ -254,7 +251,7 @@ mod tests {
     #[test]
     fn changing_to_same_values_and_same_status_is_a_no_op() {
         let symbol = CurrencySymbol::try_from("usdc").expect("symbol should be valid");
-        let name = CurrencyDefinitionName::try_from("USD Coin").expect("name should be valid");
+        let name = CurrencyName::try_from("USD Coin").expect("name should be valid");
         let decimals = CurrencyDecimals::new(6);
         let mut currency_definition = CurrencyDefinition::default();
         currency_definition
@@ -277,11 +274,10 @@ mod tests {
     #[test]
     fn change_methods_append_events_and_update_state() {
         let initial_symbol = CurrencySymbol::try_from("usdc").expect("symbol should be valid");
-        let initial_name =
-            CurrencyDefinitionName::try_from("USD Coin").expect("name should be valid");
+        let initial_name = CurrencyName::try_from("USD Coin").expect("name should be valid");
         let changed_symbol = CurrencySymbol::try_from("usdce").expect("symbol should be valid");
         let changed_name =
-            CurrencyDefinitionName::try_from("USD Coin Example").expect("name should be valid");
+            CurrencyName::try_from("USD Coin Example").expect("name should be valid");
         let mut currency_definition = CurrencyDefinition::default();
         currency_definition
             .define(initial_symbol, initial_name, CurrencyDecimals::new(6))
@@ -328,7 +324,7 @@ mod tests {
             CurrencyDefinitionEventPayload::Defined {
                 id,
                 symbol: CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
-                name: CurrencyDefinitionName::try_from("USD Coin").expect("name should be valid"),
+                name: CurrencyName::try_from("USD Coin").expect("name should be valid"),
                 decimals: CurrencyDecimals::new(6),
             },
         );
@@ -365,7 +361,7 @@ mod tests {
         currency_definition
             .define(
                 CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
-                CurrencyDefinitionName::try_from("USD Coin").expect("name should be valid"),
+                CurrencyName::try_from("USD Coin").expect("name should be valid"),
                 CurrencyDecimals::new(6),
             )
             .expect("definition should succeed");
@@ -373,7 +369,7 @@ mod tests {
         let error = currency_definition
             .define(
                 CurrencySymbol::try_from("sol").expect("symbol should be valid"),
-                CurrencyDefinitionName::try_from("Solana").expect("name should be valid"),
+                CurrencyName::try_from("Solana").expect("name should be valid"),
                 CurrencyDecimals::new(9),
             )
             .expect_err("duplicate definition should fail");
@@ -390,7 +386,7 @@ mod tests {
         currency_definition
             .define(
                 CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
-                CurrencyDefinitionName::try_from("USD Coin").expect("name should be valid"),
+                CurrencyName::try_from("USD Coin").expect("name should be valid"),
                 CurrencyDecimals::new(6),
             )
             .expect("definition should succeed");
@@ -414,7 +410,7 @@ mod tests {
         currency_definition
             .define(
                 CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
-                CurrencyDefinitionName::try_from("USD Coin").expect("name should be valid"),
+                CurrencyName::try_from("USD Coin").expect("name should be valid"),
                 CurrencyDecimals::new(6),
             )
             .expect("definition should succeed");
@@ -430,9 +426,7 @@ mod tests {
             .change_symbol(CurrencySymbol::try_from("usdce").expect("symbol should be valid"))
             .expect_err("symbol change should fail");
         let name_error = currency_definition
-            .change_name(
-                CurrencyDefinitionName::try_from("USD Coin Example").expect("name should be valid"),
-            )
+            .change_name(CurrencyName::try_from("USD Coin Example").expect("name should be valid"))
             .expect_err("name change should fail");
 
         assert!(matches!(
