@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-appletheia = { workspace = true, features = ["application", "domain"] }
+appletheia = { workspace = true, features = ["application", "domain", "macros-application"] }
 banking-iam-domain = { workspace = true }
 serde = { version = "1.0.228", features = ["derive"] }
 thiserror = "2.0.17"

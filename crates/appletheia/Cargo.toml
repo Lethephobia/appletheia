@@ -12,10 +12,11 @@ keywords = ["appletheia", "ddd", "event-sourcing", "cqrs"]
 [features]
 default = []
 domain = ["dep:appletheia-domain"]
-macros = ["dep:appletheia-macros", "domain", "application"]
 application = ["dep:appletheia-application"]
+macros-domain = ["dep:appletheia-macros", "domain"]
+macros-application = ["dep:appletheia-macros", "application"]
 infrastructure = ["dep:appletheia-infrastructure"]
-full = ["domain", "macros", "application", "infrastructure"]
+full = ["domain", "application", "infrastructure", "macros-domain", "macros-application"]
 
 [dependencies]
 appletheia-domain = { workspace = true, optional = true }
