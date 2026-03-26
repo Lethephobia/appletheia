@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0](https://github.com/Lethephobia/appletheia/compare/appletheia-application-v0.12.0...appletheia-application-v0.13.0) - 2026-03-26
+
+### Added
+
+- *(macros)* add command attribute macro
+
+### Other
+
+- *(application)* document application value objects
+- *(application)* split projector and saga specs from services
+
 ## [0.12.0](https://github.com/Lethephobia/appletheia/compare/appletheia-application-v0.11.0...appletheia-application-v0.12.0) - 2026-03-25
 
 ### Added
