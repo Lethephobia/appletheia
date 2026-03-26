@@ -20,4 +20,4 @@ pub use appletheia_macros::{
 };
 
 #[cfg(feature = "macros-application")]
-pub use appletheia_macros::{Command, command};
+pub use appletheia_macros::{Command, Relations, command, relations};
