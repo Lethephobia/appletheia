@@ -9,7 +9,7 @@ use banking_iam_domain::User;
 
 use super::{UserProfileReadyCommand, UserProfileReadyCommandHandlerError, UserProfileReadyOutput};
 use crate::authorization::UserProfileEditorRelation;
-use crate::projection::UserProfileEditorRelationshipProjectorSpec;
+use crate::projection::UserOwnerRelationshipProjectorSpec;
 
 /// Handles `UserProfileReadyCommand`.
 pub struct UserProfileReadyCommandHandler<UR>
@@ -25,21 +25,6 @@ where
 {
     pub fn new(user_repository: UR) -> Self {
         Self { user_repository }
-    }
-
-    fn editor_requirement(command: &UserProfileReadyCommand) -> PrincipalRequirement {
-        let aggregate = AggregateRef::from_id::<User>(command.user_id);
-        let relation = UserProfileEditorRelation::NAME;
-
-        PrincipalRequirement::AuthenticatedWithRelationship {
-            requirement: RelationshipRequirement::Check {
-                aggregate,
-                relation,
-            },
-            projector_dependencies: ProjectorDependencies::Some(&[
-                UserProfileEditorRelationshipProjectorSpec::NAME,
-            ]),
-        }
     }
 }
 
@@ -58,7 +43,15 @@ where
         command: &Self::Command,
     ) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
-            Self::editor_requirement(command),
+            PrincipalRequirement::AuthenticatedWithRelationship {
+                requirement: RelationshipRequirement::Check {
+                    aggregate: AggregateRef::from_id::<User>(command.user_id),
+                    relation: UserProfileEditorRelation::NAME,
+                },
+                projector_dependencies: ProjectorDependencies::Some(&[
+                    UserOwnerRelationshipProjectorSpec::NAME,
+                ]),
+            },
         ]))
     }
 
@@ -115,7 +108,7 @@ mod tests {
 
     use super::{UserProfileReadyCommand, UserProfileReadyCommandHandler, UserProfileReadyOutput};
     use crate::authorization::UserProfileEditorRelation;
-    use crate::projection::UserProfileEditorRelationshipProjectorSpec;
+    use crate::projection::UserOwnerRelationshipProjectorSpec;
 
     #[derive(Default)]
     struct TestUow;
@@ -233,7 +226,7 @@ mod tests {
                         relation: UserProfileEditorRelation::NAME,
                     },
                     projector_dependencies: ProjectorDependencies::Some(&[
-                        UserProfileEditorRelationshipProjectorSpec::NAME,
+                        UserOwnerRelationshipProjectorSpec::NAME,
                     ]),
                 },
             ])

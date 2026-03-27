@@ -32,24 +32,6 @@ where
             user_role_assignment_repository,
         }
     }
-
-    fn admin_role_requirement()
-    -> Result<PrincipalRequirement, UserRoleAssignmentRevokeCommandHandlerError> {
-        let role_name = RoleName::try_from("admin")?;
-        let role_id = RoleId::from_name(&role_name);
-        let aggregate = AggregateRef::from_id::<Role>(role_id);
-        let relation = RoleAssigneeRelation::NAME;
-
-        Ok(PrincipalRequirement::AuthenticatedWithRelationship {
-            requirement: RelationshipRequirement::Check {
-                aggregate,
-                relation,
-            },
-            projector_dependencies: ProjectorDependencies::Some(&[
-                RoleAssigneeRelationshipProjectorSpec::NAME,
-            ]),
-        })
-    }
 }
 
 impl<URAR> CommandHandler for UserRoleAssignmentRevokeCommandHandler<URAR>
@@ -66,9 +48,20 @@ where
         &self,
         _command: &Self::Command,
     ) -> Result<AuthorizationPlan, Self::Error> {
+        let role_name = RoleName::try_from("admin")?;
+        let role_id = RoleId::from_name(&role_name);
+
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
             PrincipalRequirement::System,
-            Self::admin_role_requirement()?,
+            PrincipalRequirement::AuthenticatedWithRelationship {
+                requirement: RelationshipRequirement::Check {
+                    aggregate: AggregateRef::from_id::<Role>(role_id),
+                    relation: RoleAssigneeRelation::NAME,
+                },
+                projector_dependencies: ProjectorDependencies::Some(&[
+                    RoleAssigneeRelationshipProjectorSpec::NAME,
+                ]),
+            },
         ]))
     }
 
@@ -78,12 +71,9 @@ where
         request_context: &RequestContext,
         command: Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
-        let UserRoleAssignmentRevokeCommand {
-            user_role_assignment_id,
-        } = command;
         let Some(mut assignment) = self
             .user_role_assignment_repository
-            .find(uow, user_role_assignment_id)
+            .find(uow, command.user_role_assignment_id)
             .await?
         else {
             return Err(UserRoleAssignmentRevokeCommandHandlerError::UserRoleAssignmentNotFound);

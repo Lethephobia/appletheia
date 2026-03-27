@@ -1,0 +1,9 @@
+mod user_deactivate_command;
+mod user_deactivate_command_handler;
+mod user_deactivate_command_handler_error;
+mod user_deactivate_output;
+
+pub use user_deactivate_command::UserDeactivateCommand;
+pub use user_deactivate_command_handler::UserDeactivateCommandHandler;
+pub use user_deactivate_command_handler_error::UserDeactivateCommandHandlerError;
+pub use user_deactivate_output::UserDeactivateOutput;

@@ -44,24 +44,6 @@ where
             user_role_assignment_repository,
         }
     }
-
-    fn admin_role_requirement()
-    -> Result<PrincipalRequirement, UserRoleAssignmentAssignCommandHandlerError> {
-        let role_name = RoleName::try_from("admin")?;
-        let role_id = RoleId::from_name(&role_name);
-        let aggregate = AggregateRef::from_id::<Role>(role_id);
-        let relation = RoleAssigneeRelation::NAME;
-
-        Ok(PrincipalRequirement::AuthenticatedWithRelationship {
-            requirement: RelationshipRequirement::Check {
-                aggregate,
-                relation,
-            },
-            projector_dependencies: ProjectorDependencies::Some(&[
-                RoleAssigneeRelationshipProjectorSpec::NAME,
-            ]),
-        })
-    }
 }
 
 impl<RR, UR, URAR> CommandHandler for UserRoleAssignmentAssignCommandHandler<RR, UR, URAR>
@@ -80,9 +62,20 @@ where
         &self,
         _command: &Self::Command,
     ) -> Result<AuthorizationPlan, Self::Error> {
+        let role_name = RoleName::try_from("admin")?;
+        let role_id = RoleId::from_name(&role_name);
+
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
             PrincipalRequirement::System,
-            Self::admin_role_requirement()?,
+            PrincipalRequirement::AuthenticatedWithRelationship {
+                requirement: RelationshipRequirement::Check {
+                    aggregate: AggregateRef::from_id::<Role>(role_id),
+                    relation: RoleAssigneeRelation::NAME,
+                },
+                projector_dependencies: ProjectorDependencies::Some(&[
+                    RoleAssigneeRelationshipProjectorSpec::NAME,
+                ]),
+            },
         ]))
     }
 
