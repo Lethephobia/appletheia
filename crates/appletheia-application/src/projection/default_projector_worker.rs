@@ -44,30 +44,30 @@ where
     }
 
     async fn run_forever(&mut self) -> Result<(), ProjectorWorkerError> {
-        let consumer_group = ConsumerGroup::from(<PJ::Spec as ProjectorSpec>::NAME);
+        let descriptor = <PJ::Spec as ProjectorSpec>::DESCRIPTOR;
+        let consumer_group = ConsumerGroup::from(descriptor.name);
         let mut consumer = self
             .subscriber
-            .subscribe(&consumer_group, <PJ::Spec as ProjectorSpec>::SUBSCRIPTION)
+            .subscribe(&consumer_group, descriptor.subscription)
             .await?;
 
         while !self.is_stop_requested() {
             let mut delivery = consumer.next().await?;
 
-            if !<PJ::Spec as ProjectorSpec>::SUBSCRIPTION.matches(delivery.message()) {
+            if !descriptor.subscription.matches(delivery.message()) {
                 delivery.ack().await?;
-                continue;
-            }
+            } else {
+                let result = self
+                    .runner
+                    .project(&self.projector, delivery.message())
+                    .await;
 
-            let result = self
-                .runner
-                .project(&self.projector, delivery.message())
-                .await;
-
-            match result {
-                Ok(_) => delivery.ack().await?,
-                Err(error) => {
-                    delivery.nack().await?;
-                    return Err(error.into());
+                match result {
+                    Ok(_) => delivery.ack().await?,
+                    Err(error) => {
+                        delivery.nack().await?;
+                        return Err(error.into());
+                    }
                 }
             }
         }

@@ -1,6 +1,6 @@
 use appletheia::application::event::EventSelector;
 use appletheia::application::messaging::Subscription;
-use appletheia::application::projection::{ProjectorName, ProjectorSpec};
+use appletheia::application::projection::{ProjectorDescriptor, ProjectorName, ProjectorSpec};
 use appletheia::domain::Aggregate;
 use banking_iam_domain::{UserRoleAssignment, UserRoleAssignmentEventPayload};
 
@@ -8,15 +8,17 @@ use banking_iam_domain::{UserRoleAssignment, UserRoleAssignmentEventPayload};
 pub struct RoleAssigneeRelationshipProjectorSpec;
 
 impl ProjectorSpec for RoleAssigneeRelationshipProjectorSpec {
-    const NAME: ProjectorName = ProjectorName::new("role_assignee_relationship");
-    const SUBSCRIPTION: Subscription<'static, EventSelector> = Subscription::Only(&[
-        EventSelector::new(
-            UserRoleAssignment::TYPE,
-            UserRoleAssignmentEventPayload::ASSIGNED,
-        ),
-        EventSelector::new(
-            UserRoleAssignment::TYPE,
-            UserRoleAssignmentEventPayload::REVOKED,
-        ),
-    ]);
+    const DESCRIPTOR: ProjectorDescriptor = ProjectorDescriptor::new(
+        ProjectorName::new("role_assignee_relationship"),
+        Subscription::Only(&[
+            EventSelector::new(
+                UserRoleAssignment::TYPE,
+                UserRoleAssignmentEventPayload::ASSIGNED,
+            ),
+            EventSelector::new(
+                UserRoleAssignment::TYPE,
+                UserRoleAssignmentEventPayload::REVOKED,
+            ),
+        ]),
+    );
 }

@@ -60,7 +60,8 @@ where
         &mut self,
         projector: &PJ,
     ) -> Result<ProjectorRebuildReport, ProjectorRebuilderError> {
-        let projector_name = ProjectorNameOwned::from(<PJ::Spec as ProjectorSpec>::NAME);
+        let descriptor = <PJ::Spec as ProjectorSpec>::DESCRIPTOR;
+        let projector_name = ProjectorNameOwned::from(descriptor.name);
 
         let mut processed_event_count = ProcessedEventCount::zero();
 
@@ -86,7 +87,7 @@ where
                         &mut uow,
                         after,
                         self.config.batch_size,
-                        <PJ::Spec as ProjectorSpec>::SUBSCRIPTION,
+                        descriptor.subscription,
                     )
                     .await
                 {

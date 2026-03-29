@@ -4,9 +4,7 @@ use appletheia::application::authorization::{
 };
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
-use banking_iam_domain::{
-    Role, RoleId, User, UserId, UserRoleAssignment, UserRoleAssignmentEventPayload,
-};
+use banking_iam_domain::{Role, User, UserRoleAssignment, UserRoleAssignmentEventPayload};
 
 use super::{RoleAssigneeRelationshipProjectorError, RoleAssigneeRelationshipProjectorSpec};
 use crate::authorization::RoleAssigneeRelation;
@@ -26,14 +24,6 @@ where
     pub fn new(relationship_store: RS) -> Self {
         Self { relationship_store }
     }
-
-    fn relationship(role_id: RoleId, user_id: UserId) -> Relationship {
-        Relationship {
-            aggregate: AggregateRef::from_id::<Role>(role_id),
-            relation: RelationNameOwned::from(RoleAssigneeRelation::NAME),
-            subject: RelationshipSubject::Aggregate(AggregateRef::from_id::<User>(user_id)),
-        }
-    }
 }
 
 impl<RS> Projector for RoleAssigneeRelationshipProjector<RS>
@@ -50,10 +40,18 @@ where
         let change = match event.payload() {
             UserRoleAssignmentEventPayload::Assigned {
                 role_id, user_id, ..
-            } => RelationshipChange::Upsert(Self::relationship(*role_id, *user_id)),
+            } => RelationshipChange::Upsert(Relationship {
+                aggregate: AggregateRef::from_id::<Role>(*role_id),
+                relation: RelationNameOwned::from(RoleAssigneeRelation::NAME),
+                subject: RelationshipSubject::Aggregate(AggregateRef::from_id::<User>(*user_id)),
+            }),
             UserRoleAssignmentEventPayload::Revoked {
                 role_id, user_id, ..
-            } => RelationshipChange::Delete(Self::relationship(*role_id, *user_id)),
+            } => RelationshipChange::Delete(Relationship {
+                aggregate: AggregateRef::from_id::<Role>(*role_id),
+                relation: RelationNameOwned::from(RoleAssigneeRelation::NAME),
+                subject: RelationshipSubject::Aggregate(AggregateRef::from_id::<User>(*user_id)),
+            }),
         };
 
         self.relationship_store

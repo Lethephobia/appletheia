@@ -43,17 +43,18 @@ where
     }
 
     async fn run_forever(&mut self) -> Result<(), SagaWorkerError> {
-        let consumer_group = ConsumerGroup::from(<SG::Spec as SagaSpec>::NAME);
+        let descriptor = <SG::Spec as SagaSpec>::DESCRIPTOR;
+        let consumer_group = ConsumerGroup::from(descriptor.name);
 
         let mut consumer = self
             .subscriber
-            .subscribe(&consumer_group, <SG::Spec as SagaSpec>::SUBSCRIPTION)
+            .subscribe(&consumer_group, descriptor.subscription)
             .await?;
 
         while !self.is_stop_requested() {
             let mut delivery = consumer.next().await?;
 
-            if !<SG::Spec as SagaSpec>::SUBSCRIPTION.matches(delivery.message()) {
+            if !descriptor.subscription.matches(delivery.message()) {
                 delivery.ack().await?;
                 continue;
             }

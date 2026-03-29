@@ -26,6 +26,39 @@ impl Default for PgProjectorProcessedEventStore {
 impl ProjectorProcessedEventStore for PgProjectorProcessedEventStore {
     type Uow = PgUnitOfWork;
 
+    async fn are_all_processed(
+        &self,
+        uow: &mut Self::Uow,
+        projector_name: ProjectorNameOwned,
+        event_ids: &[EventId],
+    ) -> Result<bool, ProjectorProcessedEventStoreError> {
+        if event_ids.is_empty() {
+            return Ok(true);
+        }
+
+        let transaction = uow.transaction_mut();
+        let projector_name_value = projector_name.value();
+        let event_id_values: Vec<uuid::Uuid> =
+            event_ids.iter().map(|event_id| event_id.value()).collect();
+
+        let all_processed: bool = sqlx::query_scalar(
+            r#"
+            SELECT count(DISTINCT event_id) = $3
+              FROM projector_processed_events
+             WHERE projector_name = $1
+               AND event_id = ANY($2)
+            "#,
+        )
+        .bind(projector_name_value)
+        .bind(&event_id_values)
+        .bind(event_id_values.len() as i64)
+        .fetch_one(transaction.as_mut())
+        .await
+        .map_err(|source| ProjectorProcessedEventStoreError::Persistence(Box::new(source)))?;
+
+        Ok(all_processed)
+    }
+
     async fn is_processed(
         &self,
         uow: &mut Self::Uow,

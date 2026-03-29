@@ -1,12 +1,11 @@
-use crate::projection::{ReadYourWritesPollInterval, ReadYourWritesTimeout};
-use crate::request_context::MessageId;
+use crate::projection::{ReadYourWritesPollInterval, ReadYourWritesTarget, ReadYourWritesTimeout};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub enum CommandConsistency {
     #[default]
     Eventual,
     ReadYourWrites {
-        after: MessageId,
+        target: ReadYourWritesTarget,
         timeout: ReadYourWritesTimeout,
         poll_interval: ReadYourWritesPollInterval,
     },

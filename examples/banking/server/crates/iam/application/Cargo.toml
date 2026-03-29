@@ -9,3 +9,7 @@ banking-iam-domain = { workspace = true }
 serde = { version = "1.0.228", features = ["derive"] }
 thiserror = "2.0.17"
 url = { version = "2.5.7", features = ["serde"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt"] }
+uuid = { version = "1", features = ["v7"] }

@@ -4,8 +4,7 @@ use appletheia::{aggregate_state, unique_constraints};
 use crate::core::{CurrencyDecimals, CurrencySymbol};
 
 use super::{
-    CurrencyDefinitionId, CurrencyDefinitionName, CurrencyDefinitionStateError,
-    CurrencyDefinitionStatus,
+    CurrencyDefinitionId, CurrencyDefinitionStateError, CurrencyDefinitionStatus, CurrencyName,
 };
 
 /// Stores the materialized state of a `CurrencyDefinition` aggregate.
@@ -14,7 +13,7 @@ use super::{
 pub struct CurrencyDefinitionState {
     pub(super) id: CurrencyDefinitionId,
     pub(super) symbol: CurrencySymbol,
-    pub(super) name: CurrencyDefinitionName,
+    pub(super) name: CurrencyName,
     pub(super) decimals: CurrencyDecimals,
     pub(super) status: CurrencyDefinitionStatus,
 }
@@ -24,7 +23,7 @@ impl CurrencyDefinitionState {
     pub(super) fn new(
         id: CurrencyDefinitionId,
         symbol: CurrencySymbol,
-        name: CurrencyDefinitionName,
+        name: CurrencyName,
         decimals: CurrencyDecimals,
     ) -> Self {
         Self {
@@ -58,8 +57,7 @@ mod tests {
     use crate::core::{CurrencyDecimals, CurrencySymbol};
 
     use super::{
-        CurrencyDefinitionId, CurrencyDefinitionName, CurrencyDefinitionState,
-        CurrencyDefinitionStatus,
+        CurrencyDefinitionId, CurrencyDefinitionState, CurrencyDefinitionStatus, CurrencyName,
     };
 
     #[test]
@@ -67,7 +65,7 @@ mod tests {
         let state = CurrencyDefinitionState::new(
             CurrencyDefinitionId::new(),
             CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
-            CurrencyDefinitionName::try_from("USD Coin").expect("name should be valid"),
+            CurrencyName::try_from("USD Coin").expect("name should be valid"),
             CurrencyDecimals::new(6),
         );
 
@@ -85,7 +83,7 @@ mod tests {
         let state = CurrencyDefinitionState::new(
             id,
             CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
-            CurrencyDefinitionName::try_from("USD Coin").expect("name should be valid"),
+            CurrencyName::try_from("USD Coin").expect("name should be valid"),
             CurrencyDecimals::new(6),
         );
 
@@ -97,7 +95,7 @@ mod tests {
         let mut state = CurrencyDefinitionState::new(
             CurrencyDefinitionId::new(),
             CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
-            CurrencyDefinitionName::try_from("USD Coin").expect("name should be valid"),
+            CurrencyName::try_from("USD Coin").expect("name should be valid"),
             CurrencyDecimals::new(6),
         );
         state.status = CurrencyDefinitionStatus::Removed;

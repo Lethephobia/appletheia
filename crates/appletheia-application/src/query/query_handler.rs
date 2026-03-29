@@ -3,13 +3,15 @@ use std::error::Error;
 use crate::authorization::AuthorizationPlan;
 use crate::projection::ProjectorDependencies;
 use crate::request_context::RequestContext;
+use crate::saga::SagaDependencies;
 use crate::unit_of_work::UnitOfWork;
 
 use super::Query;
 
 #[allow(async_fn_in_trait)]
 pub trait QueryHandler: Send + Sync {
-    const DEPENDENCIES: ProjectorDependencies<'static> = ProjectorDependencies::None;
+    const PROJECTOR_DEPENDENCIES: ProjectorDependencies<'static> = ProjectorDependencies::None;
+    const SAGA_DEPENDENCIES: SagaDependencies<'static> = SagaDependencies::None;
 
     type Query: Query;
     type Output: Send + 'static;

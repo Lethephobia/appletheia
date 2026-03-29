@@ -1,4 +1,4 @@
-use super::{ProjectorName, ProjectorNameOwned};
+use super::ProjectorDescriptor;
 
 /// Lists the projectors that an operation depends on.
 ///
@@ -10,24 +10,20 @@ pub enum ProjectorDependencies<'a> {
     /// Indicates that no projector dependency is required.
     None,
     /// Indicates that the listed projectors must be available and up to date.
-    Some(&'a [ProjectorName]),
+    Some(&'a [ProjectorDescriptor]),
 }
 
 impl<'a> ProjectorDependencies<'a> {
     /// Returns the dependencies as a borrowed slice.
-    pub const fn as_slice(&self) -> &'a [ProjectorName] {
+    pub const fn as_slice(&self) -> &'a [ProjectorDescriptor] {
         match self {
             Self::None => &[],
             Self::Some(value) => value,
         }
     }
 
-    /// Returns owned projector names for persistence or runtime lookup.
-    pub fn owned_names(&self) -> Vec<ProjectorNameOwned> {
-        self.as_slice()
-            .iter()
-            .copied()
-            .map(ProjectorNameOwned::from)
-            .collect()
+    /// Returns the dependencies as owned values.
+    pub fn to_vec(&self) -> Vec<ProjectorDescriptor> {
+        self.as_slice().to_vec()
     }
 }
