@@ -3,7 +3,7 @@ use sqlx::Postgres;
 use appletheia_application::event::{
     EventEnvelope, EventLookup, EventLookupError, EventSequence, EventSequenceError,
 };
-use appletheia_application::request_context::CausationId;
+use appletheia_application::request_context::{CausationId, CorrelationId};
 use appletheia_domain::EventId;
 
 use crate::postgresql::event::PgEventRow;
@@ -114,6 +114,43 @@ impl EventLookup for PgEventLookup {
             "#,
         )
         .bind(causation_id.value())
+        .fetch_all(transaction.as_mut())
+        .await
+        .map_err(|source| EventLookupError::Persistence(Box::new(source)))?;
+
+        rows.into_iter()
+            .map(PgEventRow::try_into_event_envelope)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|source| EventLookupError::MappingFailed(Box::new(source)))
+    }
+
+    async fn events_by_correlation_id(
+        &self,
+        uow: &mut Self::Uow,
+        correlation_id: CorrelationId,
+    ) -> Result<Vec<EventEnvelope>, EventLookupError> {
+        let transaction = uow.transaction_mut();
+
+        let rows: Vec<PgEventRow> = sqlx::query_as::<Postgres, PgEventRow>(
+            r#"
+            SELECT
+              event_sequence,
+              id,
+              aggregate_type,
+              aggregate_id,
+              aggregate_version,
+              event_name,
+              payload,
+              occurred_at,
+              correlation_id,
+              causation_id,
+              context
+              FROM events
+             WHERE correlation_id = $1
+             ORDER BY event_sequence ASC
+            "#,
+        )
+        .bind(correlation_id.value())
         .fetch_all(transaction.as_mut())
         .await
         .map_err(|source| EventLookupError::Persistence(Box::new(source)))?;

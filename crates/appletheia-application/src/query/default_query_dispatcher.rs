@@ -100,7 +100,7 @@ where
         match options.consistency {
             QueryConsistency::Eventual => {}
             QueryConsistency::ReadYourWrites {
-                after,
+                target,
                 timeout,
                 poll_interval,
             } => {
@@ -108,7 +108,13 @@ where
                     let authorization_dependencies =
                         ProjectorDependencies::Some(authorization_dependencies.as_slice());
                     self.read_your_writes_waiter
-                        .wait(after, timeout, poll_interval, authorization_dependencies)
+                        .wait(
+                            target,
+                            timeout,
+                            poll_interval,
+                            authorization_dependencies,
+                            H::SAGA_DEPENDENCIES,
+                        )
                         .await?;
                 }
             }
@@ -121,12 +127,18 @@ where
         match options.consistency {
             QueryConsistency::Eventual => {}
             QueryConsistency::ReadYourWrites {
-                after,
+                target,
                 timeout,
                 poll_interval,
             } => {
                 self.read_your_writes_waiter
-                    .wait(after, timeout, poll_interval, H::DEPENDENCIES)
+                    .wait(
+                        target,
+                        timeout,
+                        poll_interval,
+                        H::PROJECTOR_DEPENDENCIES,
+                        H::SAGA_DEPENDENCIES,
+                    )
                     .await?;
             }
         }
@@ -161,12 +173,13 @@ mod tests {
     };
     use crate::event::{AggregateIdValue, AggregateTypeOwned};
     use crate::messaging::Subscription;
+    use crate::projection::ReadYourWritesTarget;
     use crate::projection::{
         ProjectorDependencies, ProjectorDescriptor, ProjectorName, ReadYourWritesPollInterval,
         ReadYourWritesTimeout, ReadYourWritesWaitError, ReadYourWritesWaiter,
     };
-    use crate::request_context::MessageId;
     use crate::request_context::Principal;
+    use crate::saga::SagaDependencies;
     use crate::unit_of_work::{
         UnitOfWork, UnitOfWorkError, UnitOfWorkFactory, UnitOfWorkFactoryError,
     };
@@ -176,10 +189,11 @@ mod tests {
     impl ReadYourWritesWaiter for TestWaiter {
         async fn wait(
             &self,
-            _after: MessageId,
+            _target: ReadYourWritesTarget,
             _timeout: ReadYourWritesTimeout,
             _poll_interval: ReadYourWritesPollInterval,
             _projector_dependencies: ProjectorDependencies<'_>,
+            _saga_dependencies: SagaDependencies<'_>,
         ) -> Result<(), ReadYourWritesWaitError> {
             Ok(())
         }

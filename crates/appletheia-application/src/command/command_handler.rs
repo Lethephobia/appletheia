@@ -2,7 +2,9 @@ use std::error::Error;
 
 use crate::authorization::AuthorizationPlan;
 use crate::command::{Command, CommandHandled};
+use crate::projection::ProjectorDependencies;
 use crate::request_context::RequestContext;
+use crate::saga::SagaDependencies;
 use crate::unit_of_work::UnitOfWork;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -13,6 +15,9 @@ use serde::de::DeserializeOwned;
 /// `ReplayOutput` that can be persisted for idempotent replays.
 #[allow(async_fn_in_trait)]
 pub trait CommandHandler: Send + Sync {
+    const PROJECTOR_DEPENDENCIES: ProjectorDependencies<'static> = ProjectorDependencies::None;
+    const SAGA_DEPENDENCIES: SagaDependencies<'static> = SagaDependencies::None;
+
     type Command: Command;
     type Output: Send + 'static;
     type ReplayOutput: Serialize + DeserializeOwned + Send + 'static;
