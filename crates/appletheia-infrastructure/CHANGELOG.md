@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0](https://github.com/Lethephobia/appletheia/compare/appletheia-infrastructure-v0.8.3...appletheia-infrastructure-v0.9.0) - 2026-03-29
+
+### Other
+
+- *(workspace)* support correlation read-your-writes targets
+- *(workspace)* align descriptors and read-your-writes waiting
+
 ## [0.8.3](https://github.com/Lethephobia/appletheia/compare/appletheia-infrastructure-v0.8.2...appletheia-infrastructure-v0.8.3) - 2026-03-26
 
 ### Other
