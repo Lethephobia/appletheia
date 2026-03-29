@@ -8,6 +8,13 @@ use super::{ProjectorNameOwned, ProjectorProcessedEventStoreError};
 pub trait ProjectorProcessedEventStore: Send + Sync {
     type Uow: UnitOfWork;
 
+    async fn are_all_processed(
+        &self,
+        uow: &mut Self::Uow,
+        projector_name: ProjectorNameOwned,
+        event_ids: &[EventId],
+    ) -> Result<bool, ProjectorProcessedEventStoreError>;
+
     async fn is_processed(
         &self,
         uow: &mut Self::Uow,

@@ -73,7 +73,7 @@ where
                     relation: RoleAssigneeRelation::NAME,
                 },
                 projector_dependencies: ProjectorDependencies::Some(&[
-                    RoleAssigneeRelationshipProjectorSpec::NAME,
+                    RoleAssigneeRelationshipProjectorSpec::DESCRIPTOR,
                 ]),
             },
         ]))

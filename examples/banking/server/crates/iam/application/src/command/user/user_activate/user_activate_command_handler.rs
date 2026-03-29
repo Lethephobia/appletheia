@@ -52,8 +52,8 @@ where
                     relation: UserActivatorRelation::NAME,
                 },
                 projector_dependencies: ProjectorDependencies::Some(&[
-                    RoleAssigneeRelationshipProjectorSpec::NAME,
-                    UserStatusManagerRelationshipProjectorSpec::NAME,
+                    RoleAssigneeRelationshipProjectorSpec::DESCRIPTOR,
+                    UserStatusManagerRelationshipProjectorSpec::DESCRIPTOR,
                 ]),
             },
         ]))

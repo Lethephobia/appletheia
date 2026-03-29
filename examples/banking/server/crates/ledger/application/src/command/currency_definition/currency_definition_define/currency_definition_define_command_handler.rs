@@ -47,7 +47,7 @@ where
                 relation,
             },
             projector_dependencies: ProjectorDependencies::Some(&[
-                RoleAssigneeRelationshipProjectorSpec::NAME,
+                RoleAssigneeRelationshipProjectorSpec::DESCRIPTOR,
             ]),
         })
     }
@@ -227,7 +227,7 @@ mod tests {
                         relation: RoleAssigneeRelation::NAME,
                     },
                     projector_dependencies: ProjectorDependencies::Some(&[
-                        RoleAssigneeRelationshipProjectorSpec::NAME,
+                        RoleAssigneeRelationshipProjectorSpec::DESCRIPTOR,
                     ]),
                 },
             ])

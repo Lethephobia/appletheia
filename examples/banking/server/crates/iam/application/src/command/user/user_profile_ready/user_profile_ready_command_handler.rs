@@ -49,7 +49,7 @@ where
                     relation: UserProfileEditorRelation::NAME,
                 },
                 projector_dependencies: ProjectorDependencies::Some(&[
-                    UserOwnerRelationshipProjectorSpec::NAME,
+                    UserOwnerRelationshipProjectorSpec::DESCRIPTOR,
                 ]),
             },
         ]))
@@ -226,7 +226,7 @@ mod tests {
                         relation: UserProfileEditorRelation::NAME,
                     },
                     projector_dependencies: ProjectorDependencies::Some(&[
-                        UserOwnerRelationshipProjectorSpec::NAME,
+                        UserOwnerRelationshipProjectorSpec::DESCRIPTOR,
                     ]),
                 },
             ])

@@ -45,7 +45,8 @@ where
         saga: &SG,
         event: &EventEnvelope,
     ) -> Result<(SagaInstance<<SG::Spec as SagaSpec>::State>, SagaRunReport), SagaRunnerError> {
-        let saga_name = SagaNameOwned::from(<SG::Spec as SagaSpec>::NAME);
+        let descriptor = <SG::Spec as SagaSpec>::DESCRIPTOR;
+        let saga_name = SagaNameOwned::from(descriptor.name);
         let correlation_id = event.correlation_id;
 
         let mut instance = self

@@ -29,7 +29,8 @@ impl<P, U> DefaultProjectorRunner<P, U> {
     where
         P: ProjectorProcessedEventStore,
     {
-        let projector_name = ProjectorNameOwned::from(<PJ::Spec as ProjectorSpec>::NAME);
+        let descriptor = <PJ::Spec as ProjectorSpec>::DESCRIPTOR;
+        let projector_name = ProjectorNameOwned::from(descriptor.name);
         let event_id = event.event_id;
 
         let inserted = self

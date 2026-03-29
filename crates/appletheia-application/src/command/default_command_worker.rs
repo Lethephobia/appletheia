@@ -73,13 +73,12 @@ where
 
         while !self.is_stop_requested() {
             let mut delivery = consumer.next().await?;
-            let envelope = delivery.message();
 
-            let command = match envelope.try_into_command::<H::Command>() {
-                Ok(command) => command,
+            let command = match delivery.message().try_into_command::<H::Command>() {
+                Ok(command) => Some(command),
                 Err(CommandEnvelopeError::CommandNameMismatch { .. }) => {
                     delivery.ack().await?;
-                    continue;
+                    None
                 }
                 Err(error) => {
                     delivery.nack().await?;
@@ -87,28 +86,31 @@ where
                 }
             };
 
-            let request_context = RequestContext {
-                correlation_id: envelope.correlation_id,
-                message_id: envelope.message_id,
-                actor: ActorRef::System,
-                principal: Principal::System,
-            };
+            if let Some(command) = command {
+                let envelope = delivery.message();
+                let request_context = RequestContext {
+                    correlation_id: envelope.correlation_id,
+                    message_id: envelope.message_id,
+                    actor: ActorRef::System,
+                    principal: Principal::System,
+                };
 
-            let result = self
-                .dispatcher
-                .dispatch(
-                    &self.handler,
-                    &request_context,
-                    command,
-                    CommandOptions::default(),
-                )
-                .await;
+                let result = self
+                    .dispatcher
+                    .dispatch(
+                        &self.handler,
+                        &request_context,
+                        command,
+                        CommandOptions::default(),
+                    )
+                    .await;
 
-            match result {
-                Ok(_) => delivery.ack().await?,
-                Err(error) => {
-                    delivery.nack().await?;
-                    return Err(CommandWorkerError::Dispatch(Box::new(error)));
+                match result {
+                    Ok(_) => delivery.ack().await?,
+                    Err(error) => {
+                        delivery.nack().await?;
+                        return Err(CommandWorkerError::Dispatch(Box::new(error)));
+                    }
                 }
             }
         }

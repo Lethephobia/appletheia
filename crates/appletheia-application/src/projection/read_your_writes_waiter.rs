@@ -1,7 +1,8 @@
 use crate::request_context::MessageId;
 
 use super::{
-    ProjectorNameOwned, ReadYourWritesPollInterval, ReadYourWritesTimeout, ReadYourWritesWaitError,
+    ProjectorDependencies, ReadYourWritesPollInterval, ReadYourWritesTimeout,
+    ReadYourWritesWaitError,
 };
 
 #[allow(async_fn_in_trait)]
@@ -11,6 +12,6 @@ pub trait ReadYourWritesWaiter: Send + Sync {
         after: MessageId,
         timeout: ReadYourWritesTimeout,
         poll_interval: ReadYourWritesPollInterval,
-        projector_names: &[ProjectorNameOwned],
+        projector_dependencies: ProjectorDependencies<'_>,
     ) -> Result<(), ReadYourWritesWaitError>;
 }
