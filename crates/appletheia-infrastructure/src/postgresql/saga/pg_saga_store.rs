@@ -116,14 +116,6 @@ impl SagaStore for PgSagaStore {
             SagaStatus::Failed => (false, true),
         };
 
-        if matches!(instance.status, SagaStatus::Succeeded | SagaStatus::Failed)
-            && state_json.is_none()
-        {
-            return Err(SagaStoreError::InvalidPersistedInstance {
-                message: "terminal saga instance must have non-null state",
-            });
-        }
-
         let updated = sqlx::query(
             r#"
             UPDATE saga_instances

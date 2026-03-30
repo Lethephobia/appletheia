@@ -22,7 +22,7 @@ pub enum UserRoleAssignmentEventPayload {
 mod tests {
     use appletheia::domain::EventPayload;
 
-    use crate::{RoleId, RoleName, UserId};
+    use crate::{RoleId, UserId};
 
     use super::{UserRoleAssignmentEventPayload, UserRoleAssignmentId};
 
@@ -42,9 +42,7 @@ mod tests {
     fn payload_name_matches_variant() {
         let payload = UserRoleAssignmentEventPayload::Assigned {
             id: UserRoleAssignmentId::new(),
-            role_id: RoleId::from_name(
-                &RoleName::try_from("admin").expect("role name should be valid"),
-            ),
+            role_id: RoleId::admin(),
             user_id: UserId::new(),
         };
 

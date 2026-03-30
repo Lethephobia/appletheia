@@ -4,7 +4,7 @@ use appletheia::application::authorization::{
 };
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
-use banking_iam_domain::{Role, RoleId, RoleName, User, UserEventPayload};
+use banking_iam_domain::{Role, RoleId, User, UserEventPayload};
 
 use super::{
     UserStatusManagerRelationshipProjectorError, UserStatusManagerRelationshipProjectorSpec,
@@ -42,9 +42,6 @@ where
             return Ok(());
         };
 
-        let role_name = RoleName::try_from("admin")?;
-        let role_id = RoleId::from_name(&role_name);
-
         self.relationship_store
             .apply_changes(
                 uow,
@@ -52,7 +49,7 @@ where
                     aggregate: AggregateRef::from_id::<User>(event.aggregate_id()),
                     relation: RelationNameOwned::from(UserStatusManagerRelation::NAME),
                     subject: RelationshipSubject::AggregateSet {
-                        aggregate: AggregateRef::from_id::<Role>(role_id),
+                        aggregate: AggregateRef::from_id::<Role>(RoleId::admin()),
                         relation: RelationNameOwned::from(RoleAssigneeRelation::NAME),
                     },
                 })],
@@ -79,8 +76,7 @@ mod tests {
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::{Aggregate, AggregateId, EventPayload};
     use banking_iam_domain::{
-        Email, Role, RoleId, RoleName, User, UserIdentity, UserIdentityProvider,
-        UserIdentitySubject,
+        Email, Role, RoleId, User, UserIdentity, UserIdentityProvider, UserIdentitySubject,
     };
 
     use super::UserStatusManagerRelationshipProjector;
@@ -216,9 +212,6 @@ mod tests {
             panic!("expected upsert relationship");
         };
 
-        let role_name = RoleName::try_from("admin").expect("admin role name should be valid");
-        let role_id = RoleId::from_name(&role_name);
-
         assert_eq!(
             relationship.relation,
             RelationNameOwned::from(UserStatusManagerRelation::NAME)
@@ -226,7 +219,7 @@ mod tests {
         assert_eq!(
             relationship.subject,
             RelationshipSubject::AggregateSet {
-                aggregate: AggregateRef::from_id::<Role>(role_id),
+                aggregate: AggregateRef::from_id::<Role>(RoleId::admin()),
                 relation: RelationNameOwned::from(RoleAssigneeRelation::NAME),
             }
         );

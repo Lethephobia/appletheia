@@ -1,5 +1,5 @@
 use appletheia::application::repository::RepositoryError;
-use banking_iam_domain::{Role, RoleNameError, User, UserRoleAssignment, UserRoleAssignmentError};
+use banking_iam_domain::{Role, User, UserRoleAssignment, UserRoleAssignmentError};
 use thiserror::Error;
 
 /// Represents errors returned while assigning a role to a user.
@@ -16,9 +16,6 @@ pub enum UserRoleAssignmentAssignCommandHandlerError {
 
     #[error("user role assignment aggregate failed")]
     UserRoleAssignment(#[from] UserRoleAssignmentError),
-
-    #[error("role name is invalid")]
-    RoleName(#[from] RoleNameError),
 
     #[error("role was not found")]
     RoleNotFound,

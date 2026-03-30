@@ -108,15 +108,14 @@ impl AggregateApply<UserRoleAssignmentEventPayload, UserRoleAssignmentError>
 mod tests {
     use appletheia::domain::{Aggregate, EventPayload};
 
-    use crate::{RoleId, RoleName, UserId};
+    use crate::{RoleId, UserId};
 
     use super::{UserRoleAssignment, UserRoleAssignmentEventPayload, UserRoleAssignmentStatus};
 
     #[test]
     fn assign_initializes_state_and_records_event() {
         let mut assignment = UserRoleAssignment::default();
-        let role_name = RoleName::try_from("admin").expect("role name should be valid");
-        let role_id = RoleId::from_name(&role_name);
+        let role_id = RoleId::admin();
         let user_id = UserId::new();
 
         assignment
@@ -145,8 +144,7 @@ mod tests {
     #[test]
     fn revoke_updates_status() {
         let mut assignment = UserRoleAssignment::default();
-        let role_name = RoleName::try_from("admin").expect("role name should be valid");
-        let role_id = RoleId::from_name(&role_name);
+        let role_id = RoleId::admin();
         let user_id = UserId::new();
         assignment
             .assign(role_id, user_id)
