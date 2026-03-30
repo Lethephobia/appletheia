@@ -66,7 +66,7 @@ where
         &self,
         uow: &mut Self::Uow,
         request_context: &RequestContext,
-        command: Self::Command,
+        command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
         let Some(mut currency_definition) = self
             .currency_definition_repository
@@ -76,11 +76,11 @@ where
             return Err(CurrencyDefinitionUpdateCommandHandlerError::CurrencyDefinitionNotFound);
         };
 
-        if let Some(symbol) = command.symbol {
+        if let Some(symbol) = command.symbol.clone() {
             currency_definition.change_symbol(symbol)?;
         }
 
-        if let Some(name) = command.name {
+        if let Some(name) = command.name.clone() {
             currency_definition.change_name(name)?;
         }
 
@@ -270,7 +270,7 @@ mod tests {
             .handle(
                 &mut uow,
                 &request_context(),
-                CurrencyDefinitionUpdateCommand {
+                &CurrencyDefinitionUpdateCommand {
                     currency_definition_id,
                     symbol: None,
                     name: Some(

@@ -59,17 +59,17 @@ where
         &self,
         uow: &mut Self::Uow,
         request_context: &RequestContext,
-        command: Self::Command,
+        command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
         let Some(mut user) = self.user_repository.find(uow, command.user_id).await? else {
             return Err(UserProfileEditCommandHandlerError::UserNotFound);
         };
 
-        if let Some(username) = command.username {
+        if let Some(username) = command.username.clone() {
             user.change_username(username)?;
         }
 
-        if let Some(display_name) = command.display_name {
+        if let Some(display_name) = command.display_name.clone() {
             user.change_display_name(display_name)?;
         }
 
@@ -216,7 +216,7 @@ mod tests {
             .handle(
                 &mut uow,
                 &request_context,
-                UserProfileEditCommand {
+                &UserProfileEditCommand {
                     user_id,
                     username: None,
                     display_name: Some(

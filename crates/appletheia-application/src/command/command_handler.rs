@@ -1,7 +1,9 @@
 use std::error::Error;
 
 use crate::authorization::AuthorizationPlan;
-use crate::command::{Command, CommandHandled};
+use crate::command::{
+    Command, CommandFailureReaction, CommandFailureReactionError, CommandHandled,
+};
 use crate::projection::ProjectorDependencies;
 use crate::request_context::RequestContext;
 use crate::saga::SagaDependencies;
@@ -32,11 +34,25 @@ pub trait CommandHandler: Send + Sync {
         Ok(AuthorizationPlan::default())
     }
 
+    /// Describes follow-up work for a handled command failure.
+    ///
+    /// This hook is intended for failures a handler deliberately converts into
+    /// follow-up work. Unexpected infrastructure failures should still be returned
+    /// from `handle`.
+    fn on_failure(
+        &self,
+        _request_context: &RequestContext,
+        _command: &Self::Command,
+        _error: &Self::Error,
+    ) -> Result<CommandFailureReaction, CommandFailureReactionError> {
+        Ok(CommandFailureReaction::None)
+    }
+
     /// Executes the command and returns both the immediate output and replay-safe output.
     async fn handle(
         &self,
         uow: &mut Self::Uow,
         request_context: &RequestContext,
-        command: Self::Command,
+        command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error>;
 }

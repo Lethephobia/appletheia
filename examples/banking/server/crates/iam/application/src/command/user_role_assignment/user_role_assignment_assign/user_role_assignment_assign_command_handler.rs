@@ -80,9 +80,10 @@ where
         &self,
         uow: &mut Self::Uow,
         request_context: &RequestContext,
-        command: Self::Command,
+        command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
-        let UserRoleAssignmentAssignCommand { role_id, user_id } = command;
+        let role_id = command.role_id;
+        let user_id = command.user_id;
 
         if self.role_repository.find(uow, role_id).await?.is_none() {
             return Err(UserRoleAssignmentAssignCommandHandlerError::RoleNotFound);

@@ -1,16 +1,16 @@
 use crate::authorization::{AuthorizationPlan, Authorizer, PrincipalRequirement};
 use crate::command::{
     Command, CommandConsistency, CommandDispatchResult, CommandDispatcher, CommandDispatcherError,
-    CommandFailureReport, CommandHandler, CommandHasher, CommandOptions, IdempotencyBeginResult,
-    IdempotencyService, IdempotencyState,
+    CommandFailureReaction, CommandFailureReport, CommandHandler, CommandHasher, CommandOptions,
+    IdempotencyBeginResult, IdempotencyService, IdempotencyState,
 };
+use crate::outbox::command::CommandOutboxEnqueuer;
 use crate::projection::{ProjectorDependencies, ProjectorDescriptor, ReadYourWritesWaiter};
 use crate::request_context::{Principal, RequestContext};
 use crate::unit_of_work::UnitOfWork;
 use crate::unit_of_work::UnitOfWorkFactory;
 
-#[derive(Debug)]
-pub struct DefaultCommandDispatcher<CH, IS, W, U, AZ>
+pub struct DefaultCommandDispatcher<CH, IS, W, U, AZ, Q>
 where
     CH: CommandHasher,
     IS: IdempotencyService,
@@ -18,21 +18,24 @@ where
     W: ReadYourWritesWaiter,
     U: UnitOfWorkFactory<Uow = IS::Uow>,
     AZ: Authorizer,
+    Q: CommandOutboxEnqueuer<Uow = IS::Uow>,
 {
     command_hasher: CH,
     idempotency_service: IS,
     read_your_writes_waiter: W,
     uow_factory: U,
     authorizer: AZ,
+    command_outbox_enqueuer: Q,
 }
 
-impl<CH, IS, W, U, AZ> DefaultCommandDispatcher<CH, IS, W, U, AZ>
+impl<CH, IS, W, U, AZ, Q> DefaultCommandDispatcher<CH, IS, W, U, AZ, Q>
 where
     CH: CommandHasher,
     IS: IdempotencyService,
     W: ReadYourWritesWaiter,
     U: UnitOfWorkFactory<Uow = IS::Uow>,
     AZ: Authorizer,
+    Q: CommandOutboxEnqueuer<Uow = IS::Uow>,
 {
     fn authorization_dependencies(
         principal: &Principal,
@@ -68,13 +71,14 @@ where
     }
 }
 
-impl<CH, IS, W, U, AZ> DefaultCommandDispatcher<CH, IS, W, U, AZ>
+impl<CH, IS, W, U, AZ, Q> DefaultCommandDispatcher<CH, IS, W, U, AZ, Q>
 where
     CH: CommandHasher,
     IS: IdempotencyService,
     W: ReadYourWritesWaiter,
     U: UnitOfWorkFactory<Uow = IS::Uow>,
     AZ: Authorizer,
+    Q: CommandOutboxEnqueuer<Uow = IS::Uow>,
 {
     pub fn new(
         command_hasher: CH,
@@ -82,6 +86,7 @@ where
         read_your_writes_waiter: W,
         uow_factory: U,
         authorizer: AZ,
+        command_outbox_enqueuer: Q,
     ) -> Self {
         Self {
             command_hasher,
@@ -89,17 +94,19 @@ where
             read_your_writes_waiter,
             uow_factory,
             authorizer,
+            command_outbox_enqueuer,
         }
     }
 }
 
-impl<CH, IS, W, U, AZ> CommandDispatcher for DefaultCommandDispatcher<CH, IS, W, U, AZ>
+impl<CH, IS, W, U, AZ, Q> CommandDispatcher for DefaultCommandDispatcher<CH, IS, W, U, AZ, Q>
 where
     CH: CommandHasher,
     IS: IdempotencyService,
     W: ReadYourWritesWaiter,
     U: UnitOfWorkFactory<Uow = IS::Uow>,
     AZ: Authorizer,
+    Q: CommandOutboxEnqueuer<Uow = IS::Uow>,
 {
     type Uow = IS::Uow;
 
@@ -203,7 +210,7 @@ where
             },
         }
 
-        let handler_result = handler.handle(&mut uow, request_context, command).await;
+        let handler_result = handler.handle(&mut uow, request_context, &command).await;
 
         match handler_result {
             Ok(handled) => {
@@ -229,6 +236,9 @@ where
                     .rollback_with_operation_error(operation_error)
                     .await
                     .map_err(CommandDispatcherError::UnitOfWork)?;
+                let command_failure_reaction = handler
+                    .on_failure(request_context, &command, &operation_error)
+                    .map_err(CommandDispatcherError::CommandFailureReaction)?;
 
                 let report = CommandFailureReport::from(&operation_error);
                 if let Ok(mut uow) = self.uow_factory.begin().await {
@@ -243,9 +253,27 @@ where
                                 .complete_failure(&mut uow, message_id, report)
                                 .await
                             {
-                                Ok(()) => {
-                                    let _ = uow.commit().await;
-                                }
+                                Ok(()) => match command_failure_reaction {
+                                    CommandFailureReaction::None => {
+                                        let _ = uow.commit().await;
+                                    }
+                                    CommandFailureReaction::FollowUpCommands(_) => {
+                                        let commands = command_failure_reaction
+                                            .into_command_envelopes(request_context);
+                                        match self
+                                            .command_outbox_enqueuer
+                                            .enqueue_commands(&mut uow, &commands)
+                                            .await
+                                        {
+                                            Ok(()) => {
+                                                let _ = uow.commit().await;
+                                            }
+                                            Err(_) => {
+                                                let _ = uow.rollback().await;
+                                            }
+                                        }
+                                    }
+                                },
                                 Err(_) => {
                                     let _ = uow.rollback().await;
                                 }
@@ -270,6 +298,9 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::sync::{Arc, Mutex};
+
+    use serde::{Deserialize, Serialize};
     use uuid::Uuid;
 
     use super::DefaultCommandDispatcher;
@@ -278,11 +309,16 @@ mod tests {
         RelationName, RelationshipRequirement,
     };
     use crate::command::{
-        Command, CommandFailureReport, CommandHash, CommandHasher, CommandHasherError, CommandName,
-        IdempotencyBeginResult, IdempotencyOutput, IdempotencyService, IdempotencyServiceError,
+        Command, CommandDispatcher, CommandDispatcherError, CommandFailureReaction,
+        CommandFailureReport, CommandHandled, CommandHandler, CommandHash, CommandHasher,
+        CommandHasherError, CommandName, IdempotencyBeginResult, IdempotencyOutput,
+        IdempotencyService, IdempotencyServiceError,
     };
     use crate::event::{AggregateIdValue, AggregateTypeOwned};
     use crate::messaging::Subscription;
+    use crate::outbox::command::{
+        CommandEnvelope, CommandOutboxEnqueueError, CommandOutboxEnqueuer,
+    };
     use crate::projection::ReadYourWritesTarget;
     use crate::projection::{
         ProjectorDependencies, ProjectorDescriptor, ProjectorName, ReadYourWritesPollInterval,
@@ -310,6 +346,7 @@ mod tests {
         }
     }
 
+    #[derive(Default)]
     struct TestUow;
 
     impl UnitOfWork for TestUow {
@@ -389,12 +426,74 @@ mod tests {
         }
     }
 
+    struct TestNewIdempotencyService;
+
+    impl IdempotencyService for TestNewIdempotencyService {
+        type Uow = TestUow;
+
+        async fn begin(
+            &self,
+            _uow: &mut Self::Uow,
+            _message_id: MessageId,
+            _command_name: CommandName,
+            _command_hash: &CommandHash,
+        ) -> Result<IdempotencyBeginResult, IdempotencyServiceError> {
+            Ok(IdempotencyBeginResult::New)
+        }
+
+        async fn complete_success(
+            &self,
+            _uow: &mut Self::Uow,
+            _message_id: MessageId,
+            _output: IdempotencyOutput,
+        ) -> Result<(), IdempotencyServiceError> {
+            Ok(())
+        }
+
+        async fn complete_failure(
+            &self,
+            _uow: &mut Self::Uow,
+            _message_id: MessageId,
+            _error: CommandFailureReport,
+        ) -> Result<(), IdempotencyServiceError> {
+            Ok(())
+        }
+    }
+
+    #[derive(Clone, Default)]
+    struct TestCommandOutboxEnqueuer {
+        commands: Arc<Mutex<Vec<CommandEnvelope>>>,
+    }
+
+    impl TestCommandOutboxEnqueuer {
+        fn recorded_commands(&self) -> Vec<CommandEnvelope> {
+            self.commands.lock().expect("lock").clone()
+        }
+    }
+
+    impl CommandOutboxEnqueuer for TestCommandOutboxEnqueuer {
+        type Uow = TestUow;
+
+        async fn enqueue_commands(
+            &self,
+            _uow: &mut Self::Uow,
+            commands: &[CommandEnvelope],
+        ) -> Result<(), CommandOutboxEnqueueError> {
+            self.commands
+                .lock()
+                .expect("lock")
+                .extend_from_slice(commands);
+            Ok(())
+        }
+    }
+
     type TestDispatcher = DefaultCommandDispatcher<
         TestCommandHasher,
         TestIdempotencyService,
         TestWaiter,
         TestUowFactory,
         TestAuthorizer,
+        TestCommandOutboxEnqueuer,
     >;
 
     const PROJECTOR: ProjectorDescriptor =
@@ -417,6 +516,52 @@ mod tests {
                 aggregate_id: AggregateIdValue::from(Uuid::from_u128(1)),
             },
             relation: RelationName::new("viewer"),
+        }
+    }
+
+    #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+    struct TestCommand {}
+
+    impl Command for TestCommand {
+        const NAME: CommandName = CommandName::new("test");
+    }
+
+    #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+    struct FollowUpTestCommand {}
+
+    impl Command for FollowUpTestCommand {
+        const NAME: CommandName = CommandName::new("follow_up");
+    }
+
+    #[derive(Debug, thiserror::Error)]
+    #[error("business rule failed")]
+    struct TestHandlerError;
+
+    struct TestCommandFailureHandler;
+
+    impl CommandHandler for TestCommandFailureHandler {
+        type Command = TestCommand;
+        type Output = ();
+        type ReplayOutput = ();
+        type Error = TestHandlerError;
+        type Uow = TestUow;
+
+        async fn handle(
+            &self,
+            _uow: &mut Self::Uow,
+            _request_context: &crate::request_context::RequestContext,
+            _command: &Self::Command,
+        ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
+            Err(TestHandlerError)
+        }
+
+        fn on_failure(
+            &self,
+            _request_context: &crate::request_context::RequestContext,
+            _command: &Self::Command,
+            _error: &Self::Error,
+        ) -> Result<CommandFailureReaction, crate::command::CommandFailureReactionError> {
+            CommandFailureReaction::with_command(&FollowUpTestCommand {})
         }
     }
 
@@ -480,6 +625,45 @@ mod tests {
                 &authorization_plan
             ),
             vec![PROJECTOR]
+        );
+    }
+
+    #[tokio::test]
+    async fn dispatch_enqueues_follow_up_commands_for_command_failure() {
+        let outbox_enqueuer = TestCommandOutboxEnqueuer::default();
+        let dispatcher = DefaultCommandDispatcher::new(
+            TestCommandHasher,
+            TestNewIdempotencyService,
+            TestWaiter,
+            TestUowFactory,
+            TestAuthorizer,
+            outbox_enqueuer.clone(),
+        );
+        let request_context = crate::request_context::RequestContext::new(
+            crate::request_context::CorrelationId::from(Uuid::now_v7()),
+            crate::request_context::MessageId::new(),
+            crate::request_context::ActorRef::System,
+            Principal::System,
+        );
+
+        let result = dispatcher
+            .dispatch(
+                &TestCommandFailureHandler,
+                &request_context,
+                TestCommand {},
+                crate::command::CommandOptions::default(),
+            )
+            .await;
+
+        assert!(matches!(result, Err(CommandDispatcherError::Handler(_))));
+
+        let recorded = outbox_enqueuer.recorded_commands();
+        assert_eq!(recorded.len(), 1);
+        assert_eq!(recorded[0].command_name.to_string(), "follow_up");
+        assert_eq!(recorded[0].correlation_id, request_context.correlation_id);
+        assert_eq!(
+            recorded[0].causation_id,
+            crate::request_context::CausationId::from(request_context.message_id)
         );
     }
 }

@@ -1,12 +1,11 @@
 use std::fmt::{self, Display};
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use super::AccountBalanceError;
 
 /// Represents a balance amount in the smallest unit of an account currency.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
-#[serde(transparent)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct AccountBalance(u128);
 
 impl AccountBalance {
@@ -54,6 +53,27 @@ impl AccountBalance {
 impl From<u128> for AccountBalance {
     fn from(value: u128) -> Self {
         Self::new(value)
+    }
+}
+
+impl Serialize for AccountBalance {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&self.value().to_string())
+    }
+}
+
+impl<'de> Deserialize<'de> for AccountBalance {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = String::deserialize(deserializer)?;
+        let value = value.parse::<u128>().map_err(serde::de::Error::custom)?;
+
+        Ok(AccountBalance::new(value))
     }
 }
 
@@ -107,5 +127,30 @@ mod tests {
             .expect_err("subtraction should fail");
 
         assert!(matches!(error, AccountBalanceError::InsufficientBalance));
+    }
+
+    #[test]
+    fn serializes_to_json_string() {
+        let value =
+            serde_json::to_value(AccountBalance::new(42)).expect("serialize should succeed");
+
+        assert_eq!(value, serde_json::Value::String("42".to_owned()));
+    }
+
+    #[test]
+    fn deserializes_from_json_string() {
+        let balance =
+            serde_json::from_value::<AccountBalance>(serde_json::Value::String("42".to_owned()))
+                .expect("deserialize should succeed");
+
+        assert_eq!(balance, AccountBalance::new(42));
+    }
+
+    #[test]
+    fn rejects_json_integer() {
+        let error =
+            serde_json::from_value::<AccountBalance>(serde_json::json!(42)).expect_err("reject");
+
+        assert!(error.is_data());
     }
 }

@@ -59,13 +59,13 @@ where
         &self,
         uow: &mut Self::Uow,
         request_context: &RequestContext,
-        command: Self::Command,
+        command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
         let Some(mut user) = self.user_repository.find(uow, command.user_id).await? else {
             return Err(UserProfileReadyCommandHandlerError::UserNotFound);
         };
 
-        user.ready_profile(command.username, command.display_name)?;
+        user.ready_profile(command.username.clone(), command.display_name.clone())?;
 
         self.user_repository
             .save(uow, request_context, &mut user)
@@ -246,7 +246,7 @@ mod tests {
             .handle(
                 &mut uow,
                 &request_context,
-                UserProfileReadyCommand {
+                &UserProfileReadyCommand {
                     user_id,
                     username: Username::try_from("alice").expect("username should be valid"),
                     display_name: UserDisplayName::try_from("Alice")
