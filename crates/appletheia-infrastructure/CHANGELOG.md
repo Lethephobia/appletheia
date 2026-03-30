@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.1](https://github.com/Lethephobia/appletheia/compare/appletheia-infrastructure-v0.9.0...appletheia-infrastructure-v0.9.1) - 2026-03-30
+
+### Fixed
+
+- *(saga)* allow terminal instances without state
+
 ## [0.9.0](https://github.com/Lethephobia/appletheia/compare/appletheia-infrastructure-v0.8.3...appletheia-infrastructure-v0.9.0) - 2026-03-29
 
 ### Other
