@@ -74,10 +74,6 @@ where
         saga.on_event(&mut instance, event)
             .map_err(|source| SagaRunnerError::Definition(Box::new(source)))?;
 
-        if instance.is_terminal() && instance.state.is_none() {
-            return Err(SagaRunnerError::TerminalOutcomeRequiresState);
-        }
-
         self.saga_store.save(uow, &instance).await?;
 
         let commands = instance.uncommitted_commands().to_vec();
@@ -273,6 +269,22 @@ mod tests {
         }
     }
 
+    struct SucceedWithoutStateSaga;
+
+    impl Saga for SucceedWithoutStateSaga {
+        type Spec = TestSagaSpec;
+        type Error = TestSagaError;
+
+        fn on_event(
+            &self,
+            instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State>,
+            _event: &EventEnvelope,
+        ) -> Result<(), Self::Error> {
+            instance.succeed();
+            Ok(())
+        }
+    }
+
     fn test_event() -> EventEnvelope {
         let correlation_id = CorrelationId::from(Uuid::now_v7());
         let message_id = MessageId::from(Uuid::now_v7());
@@ -317,5 +329,47 @@ mod tests {
 
         assert_eq!(report, SagaRunReport::SkippedSucceeded);
         assert_eq!(calls.load(Ordering::SeqCst), 0);
+    }
+
+    #[tokio::test]
+    async fn handle_event_allows_terminal_saga_without_state() {
+        let runner = DefaultSagaRunner::new(
+            TerminalSagaStoreForNewInstance,
+            CountingProcessedEventStore {
+                calls: Arc::new(AtomicUsize::new(0)),
+            },
+            TestCommandOutboxEnqueuer,
+            TestUowFactory,
+        );
+
+        let report = runner
+            .handle_event(&SucceedWithoutStateSaga, &test_event())
+            .await
+            .expect("terminal saga without state should be accepted");
+
+        assert_eq!(report, SagaRunReport::Succeeded);
+    }
+
+    struct TerminalSagaStoreForNewInstance;
+
+    impl SagaStore for TerminalSagaStoreForNewInstance {
+        type Uow = TestUow;
+
+        async fn load<S: SagaState>(
+            &self,
+            _uow: &mut Self::Uow,
+            saga_name: SagaNameOwned,
+            correlation_id: CorrelationId,
+        ) -> Result<SagaInstance<S>, SagaStoreError> {
+            Ok(SagaInstance::new(saga_name, correlation_id))
+        }
+
+        async fn save<S: SagaState>(
+            &self,
+            _uow: &mut Self::Uow,
+            _instance: &SagaInstance<S>,
+        ) -> Result<(), SagaStoreError> {
+            Ok(())
+        }
     }
 }

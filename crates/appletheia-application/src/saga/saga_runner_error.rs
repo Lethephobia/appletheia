@@ -25,7 +25,4 @@ pub enum SagaRunnerError {
 
     #[error("saga definition error")]
     Definition(#[source] Box<dyn std::error::Error + Send + Sync>),
-
-    #[error("terminal outcome requires non-empty saga state")]
-    TerminalOutcomeRequiresState,
 }
