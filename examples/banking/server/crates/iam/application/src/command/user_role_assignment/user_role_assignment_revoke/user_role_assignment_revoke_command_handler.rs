@@ -48,13 +48,11 @@ where
         &self,
         _command: &Self::Command,
     ) -> Result<AuthorizationPlan, Self::Error> {
-        let role_id = RoleId::admin();
-
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
             PrincipalRequirement::System,
             PrincipalRequirement::AuthenticatedWithRelationship {
                 requirement: RelationshipRequirement::Check {
-                    aggregate: AggregateRef::from_id::<Role>(role_id),
+                    aggregate: AggregateRef::from_id::<Role>(RoleId::admin()),
                     relation: RoleAssigneeRelation::NAME,
                 },
                 projector_dependencies: ProjectorDependencies::Some(&[

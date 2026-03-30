@@ -42,8 +42,6 @@ where
             return Ok(());
         };
 
-        let role_id = RoleId::admin();
-
         self.relationship_store
             .apply_changes(
                 uow,
@@ -51,7 +49,7 @@ where
                     aggregate: AggregateRef::from_id::<User>(event.aggregate_id()),
                     relation: RelationNameOwned::from(UserStatusManagerRelation::NAME),
                     subject: RelationshipSubject::AggregateSet {
-                        aggregate: AggregateRef::from_id::<Role>(role_id),
+                        aggregate: AggregateRef::from_id::<Role>(RoleId::admin()),
                         relation: RelationNameOwned::from(RoleAssigneeRelation::NAME),
                     },
                 })],
@@ -214,8 +212,6 @@ mod tests {
             panic!("expected upsert relationship");
         };
 
-        let role_id = RoleId::admin();
-
         assert_eq!(
             relationship.relation,
             RelationNameOwned::from(UserStatusManagerRelation::NAME)
@@ -223,7 +219,7 @@ mod tests {
         assert_eq!(
             relationship.subject,
             RelationshipSubject::AggregateSet {
-                aggregate: AggregateRef::from_id::<Role>(role_id),
+                aggregate: AggregateRef::from_id::<Role>(RoleId::admin()),
                 relation: RelationNameOwned::from(RoleAssigneeRelation::NAME),
             }
         );

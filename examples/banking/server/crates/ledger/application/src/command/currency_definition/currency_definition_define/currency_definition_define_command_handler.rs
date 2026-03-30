@@ -36,14 +36,10 @@ where
 
     fn admin_role_requirement()
     -> Result<PrincipalRequirement, CurrencyDefinitionDefineCommandHandlerError> {
-        let role_id = RoleId::admin();
-        let aggregate = AggregateRef::from_id::<Role>(role_id);
-        let relation = RoleAssigneeRelation::NAME;
-
         Ok(PrincipalRequirement::AuthenticatedWithRelationship {
             requirement: RelationshipRequirement::Check {
-                aggregate,
-                relation,
+                aggregate: AggregateRef::from_id::<Role>(RoleId::admin()),
+                relation: RoleAssigneeRelation::NAME,
             },
             projector_dependencies: ProjectorDependencies::Some(&[
                 RoleAssigneeRelationshipProjectorSpec::DESCRIPTOR,
@@ -206,7 +202,6 @@ mod tests {
     fn authorization_plan_requires_admin_role_assignee_relationship() {
         let repository = TestCurrencyDefinitionRepository::default();
         let handler = CurrencyDefinitionDefineCommandHandler::new(repository);
-        let admin_role_id = RoleId::admin();
 
         let plan = handler
             .authorization_plan(&CurrencyDefinitionDefineCommand {
@@ -221,7 +216,7 @@ mod tests {
             AuthorizationPlan::OnlyPrincipals(vec![
                 PrincipalRequirement::AuthenticatedWithRelationship {
                     requirement: RelationshipRequirement::Check {
-                        aggregate: AggregateRef::from_id::<Role>(admin_role_id),
+                        aggregate: AggregateRef::from_id::<Role>(RoleId::admin()),
                         relation: RoleAssigneeRelation::NAME,
                     },
                     projector_dependencies: ProjectorDependencies::Some(&[
