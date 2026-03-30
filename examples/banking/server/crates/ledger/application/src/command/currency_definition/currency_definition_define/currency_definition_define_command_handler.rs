@@ -8,7 +8,7 @@ use appletheia::application::request_context::RequestContext;
 use appletheia::domain::Aggregate;
 use banking_iam_application::RoleAssigneeRelationshipProjectorSpec;
 use banking_iam_application::authorization::RoleAssigneeRelation;
-use banking_iam_domain::{Role, RoleId, RoleName};
+use banking_iam_domain::{Role, RoleId};
 use banking_ledger_domain::currency_definition::CurrencyDefinition;
 
 use super::{
@@ -36,8 +36,7 @@ where
 
     fn admin_role_requirement()
     -> Result<PrincipalRequirement, CurrencyDefinitionDefineCommandHandlerError> {
-        let role_name = RoleName::try_from("admin")?;
-        let role_id = RoleId::from_name(&role_name);
+        let role_id = RoleId::admin();
         let aggregate = AggregateRef::from_id::<Role>(role_id);
         let relation = RoleAssigneeRelation::NAME;
 
@@ -116,7 +115,7 @@ mod tests {
     use appletheia::domain::Aggregate;
     use banking_iam_application::RoleAssigneeRelationshipProjectorSpec;
     use banking_iam_application::authorization::RoleAssigneeRelation;
-    use banking_iam_domain::{Role, RoleId, RoleName};
+    use banking_iam_domain::{Role, RoleId};
     use banking_ledger_domain::core::{CurrencyDecimals, CurrencySymbol};
     use banking_ledger_domain::currency_definition::{
         CurrencyDefinition, CurrencyDefinitionId, CurrencyName,
@@ -207,8 +206,7 @@ mod tests {
     fn authorization_plan_requires_admin_role_assignee_relationship() {
         let repository = TestCurrencyDefinitionRepository::default();
         let handler = CurrencyDefinitionDefineCommandHandler::new(repository);
-        let admin_role_name = RoleName::try_from("admin").expect("role name should be valid");
-        let admin_role_id = RoleId::from_name(&admin_role_name);
+        let admin_role_id = RoleId::admin();
 
         let plan = handler
             .authorization_plan(&CurrencyDefinitionDefineCommand {

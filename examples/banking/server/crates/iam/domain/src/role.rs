@@ -76,7 +76,7 @@ mod tests {
     #[test]
     fn create_initializes_state_and_records_event() {
         let mut role = Role::default();
-        let name = RoleName::try_from("admin").expect("role name should be valid");
+        let name = RoleName::admin();
 
         role.create(name.clone()).expect("create should succeed");
 
@@ -95,7 +95,7 @@ mod tests {
     #[test]
     fn create_is_noop_when_role_already_exists_with_same_name() {
         let mut role = Role::default();
-        let name = RoleName::try_from("admin").expect("role name should be valid");
+        let name = RoleName::admin();
         role.create(name.clone()).expect("create should succeed");
 
         role.create(name)

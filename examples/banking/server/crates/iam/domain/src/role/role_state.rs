@@ -34,7 +34,7 @@ mod tests {
 
     #[test]
     fn exposes_id_via_aggregate_state_trait() {
-        let name = RoleName::try_from("admin").expect("role name should be valid");
+        let name = RoleName::admin();
         let id = RoleId::from_name(&name);
         let state = RoleState::new(id, name);
 
@@ -43,7 +43,7 @@ mod tests {
 
     #[test]
     fn returns_unique_entries_for_role_name() {
-        let name = RoleName::try_from("admin").expect("role name should be valid");
+        let name = RoleName::admin();
         let state = RoleState::new(RoleId::from_name(&name), name);
 
         let entries = state.unique_entries().expect("unique entries should build");

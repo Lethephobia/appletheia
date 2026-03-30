@@ -9,6 +9,11 @@ use super::{RoleIdError, RoleName};
 pub struct RoleId(Uuid);
 
 impl RoleId {
+    /// Returns the predefined administrator role ID.
+    pub fn admin() -> Self {
+        Self::from_name(&RoleName::admin())
+    }
+
     /// Creates a deterministic role ID from a role name.
     pub fn from_name(name: &RoleName) -> Self {
         let uuid = Uuid::new_v5(
@@ -37,9 +42,14 @@ mod tests {
 
     #[test]
     fn from_name_is_deterministic() {
-        let name = RoleName::try_from("admin").expect("role name should be valid");
+        let name = RoleName::admin();
 
         assert_eq!(RoleId::from_name(&name), RoleId::from_name(&name));
+    }
+
+    #[test]
+    fn admin_is_stable() {
+        assert_eq!(RoleId::admin(), RoleId::from_name(&RoleName::admin()));
     }
 
     #[test]

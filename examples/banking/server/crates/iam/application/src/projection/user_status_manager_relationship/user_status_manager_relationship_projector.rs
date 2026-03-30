@@ -4,7 +4,7 @@ use appletheia::application::authorization::{
 };
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
-use banking_iam_domain::{Role, RoleId, RoleName, User, UserEventPayload};
+use banking_iam_domain::{Role, RoleId, User, UserEventPayload};
 
 use super::{
     UserStatusManagerRelationshipProjectorError, UserStatusManagerRelationshipProjectorSpec,
@@ -42,8 +42,7 @@ where
             return Ok(());
         };
 
-        let role_name = RoleName::try_from("admin")?;
-        let role_id = RoleId::from_name(&role_name);
+        let role_id = RoleId::admin();
 
         self.relationship_store
             .apply_changes(
@@ -79,8 +78,7 @@ mod tests {
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::{Aggregate, AggregateId, EventPayload};
     use banking_iam_domain::{
-        Email, Role, RoleId, RoleName, User, UserIdentity, UserIdentityProvider,
-        UserIdentitySubject,
+        Email, Role, RoleId, User, UserIdentity, UserIdentityProvider, UserIdentitySubject,
     };
 
     use super::UserStatusManagerRelationshipProjector;
@@ -216,8 +214,7 @@ mod tests {
             panic!("expected upsert relationship");
         };
 
-        let role_name = RoleName::try_from("admin").expect("admin role name should be valid");
-        let role_id = RoleId::from_name(&role_name);
+        let role_id = RoleId::admin();
 
         assert_eq!(
             relationship.relation,

@@ -25,8 +25,8 @@ mod tests {
     #[test]
     fn payload_name_matches_variant() {
         let payload = RoleEventPayload::Created {
-            id: RoleId::from_name(&RoleName::try_from("admin").expect("role name should be valid")),
-            name: RoleName::try_from("admin").expect("role name should be valid"),
+            id: RoleId::admin(),
+            name: RoleName::admin(),
         };
 
         assert_eq!(payload.name(), RoleEventPayload::CREATED);

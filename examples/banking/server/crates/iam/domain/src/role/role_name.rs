@@ -32,6 +32,11 @@ impl RoleName {
         Ok(Self(trimmed.to_owned()))
     }
 
+    /// Returns the predefined administrator role name.
+    pub fn admin() -> Self {
+        Self("admin".to_owned())
+    }
+
     /// Returns the role-name value.
     pub fn value(&self) -> &str {
         &self.0
@@ -89,6 +94,13 @@ mod tests {
         let role_name = RoleName::try_from("  admin_user  ").expect("role name should be valid");
 
         assert_eq!(role_name.value(), "admin_user");
+    }
+
+    #[test]
+    fn provides_predefined_admin_role_name() {
+        let role_name = RoleName::admin();
+
+        assert_eq!(role_name.value(), "admin");
     }
 
     #[test]

@@ -46,15 +46,14 @@ fn role_id_user_id_values(
 mod tests {
     use appletheia::domain::{AggregateState, UniqueConstraints, UniqueKey, UniqueValues};
 
-    use crate::{RoleId, RoleName, UserId};
+    use crate::{RoleId, UserId};
 
     use super::{UserRoleAssignmentId, UserRoleAssignmentState, UserRoleAssignmentStatus};
 
     #[test]
     fn exposes_id_via_aggregate_state_trait() {
         let id = UserRoleAssignmentId::new();
-        let role_id =
-            RoleId::from_name(&RoleName::try_from("admin").expect("role name should be valid"));
+        let role_id = RoleId::admin();
         let state = UserRoleAssignmentState::new(id, role_id, UserId::new());
 
         assert_eq!(state.id(), id);
@@ -62,8 +61,7 @@ mod tests {
 
     #[test]
     fn assigned_state_returns_unique_entries() {
-        let role_id =
-            RoleId::from_name(&RoleName::try_from("admin").expect("role name should be valid"));
+        let role_id = RoleId::admin();
         let state =
             UserRoleAssignmentState::new(UserRoleAssignmentId::new(), role_id, UserId::new());
 
@@ -79,8 +77,7 @@ mod tests {
 
     #[test]
     fn revoked_state_has_no_unique_entries() {
-        let role_id =
-            RoleId::from_name(&RoleName::try_from("admin").expect("role name should be valid"));
+        let role_id = RoleId::admin();
         let mut state =
             UserRoleAssignmentState::new(UserRoleAssignmentId::new(), role_id, UserId::new());
         state.status = UserRoleAssignmentStatus::Revoked;

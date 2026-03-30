@@ -6,7 +6,7 @@ use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use appletheia::domain::Aggregate;
-use banking_iam_domain::{Role, RoleId, RoleName, UserRoleAssignment};
+use banking_iam_domain::{Role, RoleId, UserRoleAssignment};
 
 use super::{
     UserRoleAssignmentRevokeCommand, UserRoleAssignmentRevokeCommandHandlerError,
@@ -48,8 +48,7 @@ where
         &self,
         _command: &Self::Command,
     ) -> Result<AuthorizationPlan, Self::Error> {
-        let role_name = RoleName::try_from("admin")?;
-        let role_id = RoleId::from_name(&role_name);
+        let role_id = RoleId::admin();
 
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
             PrincipalRequirement::System,
