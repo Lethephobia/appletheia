@@ -47,10 +47,10 @@ where
         &self,
         uow: &mut Self::Uow,
         request_context: &RequestContext,
-        command: Self::Command,
+        command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
         let mut role = Role::default();
-        role.create(command.name)?;
+        role.create(command.name.clone())?;
 
         self.role_repository
             .save(uow, request_context, &mut role)

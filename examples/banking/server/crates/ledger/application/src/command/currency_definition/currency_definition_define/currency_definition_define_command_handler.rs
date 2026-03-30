@@ -66,13 +66,13 @@ where
         &self,
         uow: &mut Self::Uow,
         request_context: &RequestContext,
-        command: Self::Command,
+        command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
         let CurrencyDefinitionDefineCommand {
             symbol,
             name,
             decimals,
-        } = command;
+        } = command.clone();
         let mut currency_definition = CurrencyDefinition::default();
         currency_definition.define(symbol, name, decimals)?;
 
@@ -232,7 +232,7 @@ mod tests {
             .handle(
                 &mut uow,
                 &request_context(),
-                CurrencyDefinitionDefineCommand {
+                &CurrencyDefinitionDefineCommand {
                     symbol: CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
                     name: CurrencyName::try_from("USD Coin").expect("name should be valid"),
                     decimals: CurrencyDecimals::new(6),

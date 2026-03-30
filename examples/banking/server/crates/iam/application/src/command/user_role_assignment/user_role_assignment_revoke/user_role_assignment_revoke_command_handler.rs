@@ -66,7 +66,7 @@ where
         &self,
         uow: &mut Self::Uow,
         request_context: &RequestContext,
-        command: Self::Command,
+        command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
         let Some(mut assignment) = self
             .user_role_assignment_repository

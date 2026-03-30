@@ -61,8 +61,8 @@ impl Transfer {
         })
     }
 
-    /// Marks the transfer as completed.
-    pub fn mark_completed(&mut self) -> Result<(), TransferError> {
+    /// Completes the transfer.
+    pub fn complete(&mut self) -> Result<(), TransferError> {
         if matches!(self.state_required()?.status, TransferStatus::Completed) {
             return Ok(());
         }
@@ -70,8 +70,8 @@ impl Transfer {
         self.append_event(TransferEventPayload::Completed)
     }
 
-    /// Marks the transfer as failed.
-    pub fn mark_failed(&mut self) -> Result<(), TransferError> {
+    /// Fails the transfer.
+    pub fn fail(&mut self) -> Result<(), TransferError> {
         if matches!(self.state_required()?.status, TransferStatus::Failed) {
             return Ok(());
         }
@@ -207,7 +207,7 @@ mod tests {
     }
 
     #[test]
-    fn mark_completed_updates_status() {
+    fn complete_updates_status() {
         let mut transfer = Transfer::default();
         let from_account_id = AccountId::new();
         let to_account_id = AccountId::new();
@@ -215,9 +215,7 @@ mod tests {
             .initiate(from_account_id, to_account_id, AccountBalance::new(100))
             .expect("initiate should succeed");
 
-        transfer
-            .mark_completed()
-            .expect("mark completed should succeed");
+        transfer.complete().expect("complete should succeed");
 
         assert_eq!(
             transfer.status().expect("status should exist"),
@@ -226,7 +224,7 @@ mod tests {
     }
 
     #[test]
-    fn mark_failed_updates_status() {
+    fn fail_updates_status() {
         let mut transfer = Transfer::default();
         let from_account_id = AccountId::new();
         let to_account_id = AccountId::new();
@@ -234,7 +232,7 @@ mod tests {
             .initiate(from_account_id, to_account_id, AccountBalance::new(100))
             .expect("initiate should succeed");
 
-        transfer.mark_failed().expect("mark failed should succeed");
+        transfer.fail().expect("fail should succeed");
 
         assert_eq!(
             transfer.status().expect("status should exist"),

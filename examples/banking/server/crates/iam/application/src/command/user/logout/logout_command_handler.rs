@@ -45,7 +45,7 @@ where
         &self,
         uow: &mut Self::Uow,
         _request_context: &RequestContext,
-        command: Self::Command,
+        command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
         self.auth_token_revoker
             .revoke_token(uow, command.token_id, command.token_expires_at)

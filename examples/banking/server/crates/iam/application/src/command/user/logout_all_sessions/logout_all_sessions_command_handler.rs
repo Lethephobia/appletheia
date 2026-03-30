@@ -47,7 +47,7 @@ where
         &self,
         uow: &mut Self::Uow,
         request_context: &RequestContext,
-        command: Self::Command,
+        command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
         let Principal::Authenticated { subject } = &request_context.principal else {
             return Err(LogoutAllSessionsCommandHandlerError::AuthenticatedPrincipalRequired);

@@ -169,11 +169,11 @@ where
         &self,
         uow: &mut Self::Uow,
         request_context: &RequestContext,
-        command: Self::Command,
+        command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
         let callback_params = OidcCallbackParams {
-            state: command.state,
-            authorization_code: command.authorization_code,
+            state: command.state.clone(),
+            authorization_code: command.authorization_code.clone(),
         };
         let continuation = self
             .oidc_continuation_store

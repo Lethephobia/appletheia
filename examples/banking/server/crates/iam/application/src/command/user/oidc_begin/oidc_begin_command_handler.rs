@@ -81,7 +81,7 @@ where
         &self,
         uow: &mut Self::Uow,
         request_context: &RequestContext,
-        command: Self::Command,
+        command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
         let OidcBeginCommand {
             completion_purpose,
@@ -91,7 +91,7 @@ where
             display,
             prompt,
             extra_authorize_params,
-        } = command;
+        } = command.clone();
         let options = OidcBeginOptions {
             scopes,
             display,
