@@ -81,22 +81,13 @@ where
         self.saga_store.save(uow, &instance).await?;
 
         let commands = instance.uncommitted_commands().to_vec();
-        if commands.is_empty() {
-            let report = match &instance.status {
-                SagaStatus::InProgress => SagaRunReport::InProgress {
-                    enqueued_command_count: EnqueuedCommandCount::zero(),
-                },
-                SagaStatus::Succeeded => SagaRunReport::Succeeded,
-                SagaStatus::Failed => SagaRunReport::Failed,
-            };
-            return Ok((instance, report));
+        let enqueued_command_count = EnqueuedCommandCount::from_usize_saturating(commands.len());
+        if !commands.is_empty() {
+            self.command_outbox_enqueuer
+                .enqueue_commands(uow, &commands)
+                .await?;
         }
 
-        self.command_outbox_enqueuer
-            .enqueue_commands(uow, &commands)
-            .await?;
-
-        let enqueued_command_count = EnqueuedCommandCount::from_usize_saturating(commands.len());
         let report = match &instance.status {
             SagaStatus::InProgress => SagaRunReport::InProgress {
                 enqueued_command_count,
