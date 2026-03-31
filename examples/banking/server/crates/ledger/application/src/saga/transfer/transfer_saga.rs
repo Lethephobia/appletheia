@@ -2,13 +2,13 @@ use appletheia::application::event::EventEnvelope;
 use appletheia::application::saga::{Saga, SagaInstance, SagaSpec};
 use appletheia::domain::Aggregate;
 use banking_ledger_domain::account::{Account, AccountEventPayload};
-use banking_ledger_domain::transfer::{Transfer, TransferEventPayload, TransferId};
+use banking_ledger_domain::transfer::{Transfer, TransferEventPayload};
 
 use super::{TransferSagaError, TransferSagaSpec, TransferSagaState};
 use crate::command::{
     AccountCommitReservedFundsCommand, AccountCommitReservedFundsContext, AccountDepositCommand,
     AccountDepositContext, AccountReserveFundsCommand, AccountReserveFundsContext,
-    TransferCompleteCommand, TransferFailCommand, TransferInitiateCommand,
+    TransferCompleteCommand, TransferFailCommand,
 };
 
 /// Coordinates the transfer flow.
@@ -23,29 +23,47 @@ impl Saga for TransferSaga {
         instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State>,
         event: &EventEnvelope,
     ) -> Result<(), Self::Error> {
-        if event.aggregate_type.value() == Account::TYPE.value() {
-            let account_event = event.try_into_domain_event::<Account>()?;
-            match account_event.payload() {
-                AccountEventPayload::TransferRequested {
+        if event.aggregate_type.value() == Transfer::TYPE.value() {
+            let transfer_event = event.try_into_domain_event::<Transfer>()?;
+            match transfer_event.payload() {
+                TransferEventPayload::Requested {
+                    id,
+                    from_account_id,
                     to_account_id,
                     amount,
                 } => {
-                    let from_account_id = account_event.aggregate_id();
-                    *instance.state_mut() = Some(TransferSagaState {
-                        from_account_id: Some(from_account_id),
-                        to_account_id: Some(*to_account_id),
-                        amount: Some(*amount),
-                        transfer_id: None,
-                    });
+                    let next_state = instance
+                        .state_mut()
+                        .get_or_insert_with(TransferSagaState::default);
+                    next_state.from_account_id = Some(*from_account_id);
+                    next_state.to_account_id = Some(*to_account_id);
+                    next_state.amount = Some(*amount);
+                    next_state.transfer_id = Some(*id);
+
                     instance.append_command(
                         event,
-                        &TransferInitiateCommand {
-                            from_account_id,
-                            to_account_id: *to_account_id,
+                        &AccountReserveFundsCommand {
+                            account_id: *from_account_id,
                             amount: *amount,
+                            context: AccountReserveFundsContext::Transfer { transfer_id: *id },
                         },
                     )?;
                 }
+                TransferEventPayload::Completed => {
+                    instance.succeed();
+                }
+                TransferEventPayload::Failed => {
+                    instance.fail();
+                }
+                _ => {}
+            }
+
+            return Ok(());
+        }
+
+        if event.aggregate_type.value() == Account::TYPE.value() {
+            let account_event = event.try_into_domain_event::<Account>()?;
+            match account_event.payload() {
                 AccountEventPayload::FundsReserved { .. } => {
                     let Some(state) = instance.state.as_ref() else {
                         return Ok(());
@@ -124,45 +142,6 @@ impl Saga for TransferSaga {
                 }
                 _ => {}
             }
-
-            return Ok(());
-        }
-
-        if event.aggregate_type.value() == Transfer::TYPE.value() {
-            let transfer_event = event.try_into_domain_event::<Transfer>()?;
-            match transfer_event.payload() {
-                TransferEventPayload::Initiated {
-                    from_account_id,
-                    to_account_id,
-                    amount,
-                    ..
-                } => {
-                    let transfer_id: TransferId = transfer_event.aggregate_id();
-                    let next_state = instance
-                        .state_mut()
-                        .get_or_insert_with(TransferSagaState::default);
-                    next_state.from_account_id = Some(*from_account_id);
-                    next_state.to_account_id = Some(*to_account_id);
-                    next_state.amount = Some(*amount);
-                    next_state.transfer_id = Some(transfer_id);
-
-                    instance.append_command(
-                        event,
-                        &AccountReserveFundsCommand {
-                            account_id: *from_account_id,
-                            amount: *amount,
-                            context: AccountReserveFundsContext::Transfer { transfer_id },
-                        },
-                    )?;
-                }
-                TransferEventPayload::Completed => {
-                    instance.succeed();
-                }
-                TransferEventPayload::Failed => {
-                    instance.fail();
-                }
-                _ => {}
-            }
         }
 
         Ok(())
@@ -189,7 +168,6 @@ mod tests {
         AccountCommitReservedFundsCommand, AccountCommitReservedFundsContext,
         AccountDepositCommand, AccountDepositContext, AccountReserveFundsCommand,
         AccountReserveFundsContext, TransferCompleteCommand, TransferFailCommand,
-        TransferInitiateCommand,
     };
 
     fn request_context(correlation_id: CorrelationId) -> RequestContext {
@@ -255,11 +233,12 @@ mod tests {
     }
 
     #[test]
-    fn transfer_requested_appends_transfer_initiate_command() {
+    fn transfer_requested_appends_account_reserve_funds_command() {
         let saga = TransferSaga;
         let correlation_id = CorrelationId::from(uuid::Uuid::now_v7());
         let from_account_id = AccountId::new();
         let to_account_id = AccountId::new();
+        let transfer_id = TransferId::new();
         let amount = AccountBalance::new(100);
         let mut instance = SagaInstance::<TransferSagaState>::new(
             SagaNameOwned::from(TransferSagaSpec::DESCRIPTOR.name),
@@ -268,10 +247,12 @@ mod tests {
 
         saga.on_event(
             &mut instance,
-            &account_event_envelope(
+            &transfer_event_envelope(
                 correlation_id,
-                from_account_id,
-                AccountEventPayload::TransferRequested {
+                transfer_id,
+                TransferEventPayload::Requested {
+                    id: transfer_id,
+                    from_account_id,
                     to_account_id,
                     amount,
                 },
@@ -281,14 +262,14 @@ mod tests {
 
         assert_eq!(instance.uncommitted_commands().len(), 1);
         let command = instance.uncommitted_commands()[0]
-            .try_into_command::<TransferInitiateCommand>()
+            .try_into_command::<AccountReserveFundsCommand>()
             .expect("command should deserialize");
         assert_eq!(
             command,
-            TransferInitiateCommand {
-                from_account_id,
-                to_account_id,
+            AccountReserveFundsCommand {
+                account_id: from_account_id,
                 amount,
+                context: AccountReserveFundsContext::Transfer { transfer_id },
             }
         );
     }
@@ -311,7 +292,7 @@ mod tests {
             &transfer_event_envelope(
                 correlation_id,
                 transfer_id,
-                TransferEventPayload::Initiated {
+                TransferEventPayload::Requested {
                     id: transfer_id,
                     from_account_id,
                     to_account_id,
@@ -319,7 +300,7 @@ mod tests {
                 },
             ),
         )
-        .expect("initiated should succeed");
+        .expect("requested should succeed");
         let reserve = instance.uncommitted_commands()[0]
             .try_into_command::<AccountReserveFundsCommand>()
             .expect("command should deserialize");

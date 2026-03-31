@@ -4,7 +4,6 @@ mod account_deposit;
 mod account_freeze;
 mod account_open;
 mod account_release_reserved_funds;
-mod account_request_transfer;
 mod account_reserve_funds;
 mod account_thaw;
 mod account_withdraw;
@@ -23,10 +22,6 @@ pub use account_open::{AccountOpenCommand, AccountOpenCommandHandler, AccountOpe
 pub use account_release_reserved_funds::{
     AccountReleaseReservedFundsCommand, AccountReleaseReservedFundsCommandHandler,
     AccountReleaseReservedFundsContext, AccountReleaseReservedFundsOutput,
-};
-pub use account_request_transfer::{
-    AccountRequestTransferCommand, AccountRequestTransferCommandHandler,
-    AccountRequestTransferOutput,
 };
 pub use account_reserve_funds::{
     AccountReserveFundsCommand, AccountReserveFundsCommandHandler, AccountReserveFundsContext,

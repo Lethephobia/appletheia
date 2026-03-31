@@ -46,14 +46,14 @@ impl Transfer {
         Ok(&self.state_required()?.status)
     }
 
-    /// Initiates a new transfer.
-    pub fn initiate(
+    /// Requests a new transfer.
+    pub fn request(
         &mut self,
         from_account_id: AccountId,
         to_account_id: AccountId,
         amount: AccountBalance,
     ) -> Result<(), TransferError> {
-        self.append_event(TransferEventPayload::Initiated {
+        self.append_event(TransferEventPayload::Requested {
             id: TransferId::new(),
             from_account_id,
             to_account_id,
@@ -92,14 +92,14 @@ impl Transfer {
 impl AggregateApply<TransferEventPayload, TransferError> for Transfer {
     fn apply(&mut self, payload: &TransferEventPayload) -> Result<(), TransferError> {
         match payload {
-            TransferEventPayload::Initiated {
+            TransferEventPayload::Requested {
                 id,
                 from_account_id,
                 to_account_id,
                 amount,
             } => {
                 if self.state().is_some() {
-                    return Err(TransferError::AlreadyInitiated);
+                    return Err(TransferError::AlreadyRequested);
                 }
 
                 if from_account_id == to_account_id {
@@ -156,15 +156,15 @@ mod tests {
     use super::{Transfer, TransferEventPayload, TransferId, TransferStatus};
 
     #[test]
-    fn initiate_initializes_state_and_records_event() {
+    fn request_initializes_state_and_records_event() {
         let from_account_id = AccountId::new();
         let to_account_id = AccountId::new();
         let amount = AccountBalance::new(100);
         let mut transfer = Transfer::default();
 
         transfer
-            .initiate(from_account_id, to_account_id, amount)
-            .expect("initiate should succeed");
+            .request(from_account_id, to_account_id, amount)
+            .expect("request should succeed");
 
         assert_eq!(
             transfer.aggregate_id().expect("aggregate id should exist"),
@@ -190,17 +190,17 @@ mod tests {
         assert_eq!(transfer.uncommitted_events().len(), 1);
         assert_eq!(
             transfer.uncommitted_events()[0].payload().name(),
-            TransferEventPayload::INITIATED
+            TransferEventPayload::REQUESTED
         );
     }
 
     #[test]
-    fn initiate_rejects_same_account_transfer() {
+    fn request_rejects_same_account_transfer() {
         let account_id = AccountId::new();
         let mut transfer = Transfer::default();
 
         let error = transfer
-            .initiate(account_id, account_id, AccountBalance::new(1))
+            .request(account_id, account_id, AccountBalance::new(1))
             .expect_err("same-account transfer should fail");
 
         assert!(matches!(error, super::TransferError::SameAccount));
@@ -212,8 +212,8 @@ mod tests {
         let from_account_id = AccountId::new();
         let to_account_id = AccountId::new();
         transfer
-            .initiate(from_account_id, to_account_id, AccountBalance::new(100))
-            .expect("initiate should succeed");
+            .request(from_account_id, to_account_id, AccountBalance::new(100))
+            .expect("request should succeed");
 
         transfer.complete().expect("complete should succeed");
 
@@ -229,8 +229,8 @@ mod tests {
         let from_account_id = AccountId::new();
         let to_account_id = AccountId::new();
         transfer
-            .initiate(from_account_id, to_account_id, AccountBalance::new(100))
-            .expect("initiate should succeed");
+            .request(from_account_id, to_account_id, AccountBalance::new(100))
+            .expect("request should succeed");
 
         transfer.fail().expect("fail should succeed");
 
@@ -245,10 +245,10 @@ mod tests {
         let id = TransferId::new();
         let from_account_id = AccountId::new();
         let to_account_id = AccountId::new();
-        let initiated = Event::new(
+        let requested = Event::new(
             id,
             appletheia::domain::AggregateVersion::try_from(1).expect("version should be valid"),
-            TransferEventPayload::Initiated {
+            TransferEventPayload::Requested {
                 id,
                 from_account_id,
                 to_account_id,
@@ -263,7 +263,7 @@ mod tests {
         let mut transfer = Transfer::default();
 
         transfer
-            .replay_events(vec![initiated, completed], None)
+            .replay_events(vec![requested, completed], None)
             .expect("events should replay");
 
         assert_eq!(

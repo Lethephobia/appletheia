@@ -10,8 +10,7 @@ pub use account::{
     AccountFreezeCommand, AccountFreezeCommandHandler, AccountFreezeOutput, AccountOpenCommand,
     AccountOpenCommandHandler, AccountOpenOutput, AccountReleaseReservedFundsCommand,
     AccountReleaseReservedFundsCommandHandler, AccountReleaseReservedFundsContext,
-    AccountReleaseReservedFundsOutput, AccountRequestTransferCommand,
-    AccountRequestTransferCommandHandler, AccountRequestTransferOutput, AccountReserveFundsCommand,
+    AccountReleaseReservedFundsOutput, AccountReserveFundsCommand,
     AccountReserveFundsCommandHandler, AccountReserveFundsContext, AccountReserveFundsOutput,
     AccountThawCommand, AccountThawCommandHandler, AccountThawOutput, AccountWithdrawCommand,
     AccountWithdrawCommandHandler, AccountWithdrawOutput,
@@ -28,6 +27,6 @@ pub use currency_definition::{
 };
 pub use transfer::{
     TransferCompleteCommand, TransferCompleteCommandHandler, TransferCompleteOutput,
-    TransferFailCommand, TransferFailCommandHandler, TransferFailOutput, TransferInitiateCommand,
-    TransferInitiateCommandHandler, TransferInitiateOutput,
+    TransferFailCommand, TransferFailCommandHandler, TransferFailOutput, TransferRequestCommand,
+    TransferRequestCommandHandler, TransferRequestOutput,
 };

@@ -20,8 +20,7 @@ pub use command::{
     AccountFreezeCommand, AccountFreezeCommandHandler, AccountFreezeOutput, AccountOpenCommand,
     AccountOpenCommandHandler, AccountOpenOutput, AccountReleaseReservedFundsCommand,
     AccountReleaseReservedFundsCommandHandler, AccountReleaseReservedFundsContext,
-    AccountReleaseReservedFundsOutput, AccountRequestTransferCommand,
-    AccountRequestTransferCommandHandler, AccountRequestTransferOutput, AccountReserveFundsCommand,
+    AccountReleaseReservedFundsOutput, AccountReserveFundsCommand,
     AccountReserveFundsCommandHandler, AccountReserveFundsContext, AccountReserveFundsOutput,
     AccountThawCommand, AccountThawCommandHandler, AccountThawOutput, AccountWithdrawCommand,
     AccountWithdrawCommandHandler, AccountWithdrawOutput, CurrencyDefinitionActivateCommand,
@@ -33,8 +32,8 @@ pub use command::{
     CurrencyDefinitionRemoveOutput, CurrencyDefinitionUpdateCommand,
     CurrencyDefinitionUpdateCommandHandler, CurrencyDefinitionUpdateOutput,
     TransferCompleteCommand, TransferCompleteCommandHandler, TransferCompleteOutput,
-    TransferFailCommand, TransferFailCommandHandler, TransferFailOutput, TransferInitiateCommand,
-    TransferInitiateCommandHandler, TransferInitiateOutput,
+    TransferFailCommand, TransferFailCommandHandler, TransferFailOutput, TransferRequestCommand,
+    TransferRequestCommandHandler, TransferRequestOutput,
 };
 pub use projection::{
     AccountOwnerRelationshipProjector, AccountOwnerRelationshipProjectorError,

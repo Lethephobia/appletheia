@@ -38,12 +38,6 @@ pub enum AccountError {
 
     #[error("account reserved balance must be zero before closing")]
     ReservedBalanceRemaining,
-
-    #[error("transfer amount must be greater than zero")]
-    ZeroTransferAmount,
-
-    #[error("transfer target account must differ from source account")]
-    SameTransferAccount,
 }
 
 impl From<AccountBalanceError> for AccountError {

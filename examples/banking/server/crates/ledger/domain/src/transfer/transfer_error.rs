@@ -9,8 +9,8 @@ pub enum TransferError {
     #[error(transparent)]
     Aggregate(#[from] AggregateError<TransferId>),
 
-    #[error("transfer is already initiated")]
-    AlreadyInitiated,
+    #[error("transfer has already been requested")]
+    AlreadyRequested,
 
     #[error("transfer source and destination accounts must differ")]
     SameAccount,

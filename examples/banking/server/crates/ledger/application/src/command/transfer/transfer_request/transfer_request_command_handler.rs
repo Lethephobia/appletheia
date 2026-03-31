@@ -1,15 +1,22 @@
-use appletheia::application::authorization::{AuthorizationPlan, PrincipalRequirement};
+use appletheia::application::ProjectorDependencies;
+use appletheia::application::authorization::{
+    AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
+};
 use appletheia::application::command::{CommandHandled, CommandHandler};
+use appletheia::application::projection::ProjectorSpec;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use appletheia::domain::Aggregate;
 use banking_ledger_domain::account::Account;
 use banking_ledger_domain::transfer::Transfer;
 
-use super::{TransferInitiateCommand, TransferInitiateCommandHandlerError, TransferInitiateOutput};
+use crate::authorization::AccountTransferRequesterRelation;
+use crate::projection::AccountOwnerRelationshipProjectorSpec;
 
-/// Handles `TransferInitiateCommand`.
-pub struct TransferInitiateCommandHandler<AR, TR>
+use super::{TransferRequestCommand, TransferRequestCommandHandlerError, TransferRequestOutput};
+
+/// Handles `TransferRequestCommand`.
+pub struct TransferRequestCommandHandler<AR, TR>
 where
     AR: Repository<Account, Uow = TR::Uow>,
     TR: Repository<Transfer>,
@@ -18,7 +25,7 @@ where
     transfer_repository: TR,
 }
 
-impl<AR, TR> TransferInitiateCommandHandler<AR, TR>
+impl<AR, TR> TransferRequestCommandHandler<AR, TR>
 where
     AR: Repository<Account, Uow = TR::Uow>,
     TR: Repository<Transfer>,
@@ -31,23 +38,31 @@ where
     }
 }
 
-impl<AR, TR> CommandHandler for TransferInitiateCommandHandler<AR, TR>
+impl<AR, TR> CommandHandler for TransferRequestCommandHandler<AR, TR>
 where
     AR: Repository<Account, Uow = TR::Uow>,
     TR: Repository<Transfer>,
 {
-    type Command = TransferInitiateCommand;
-    type Output = TransferInitiateOutput;
-    type ReplayOutput = TransferInitiateOutput;
-    type Error = TransferInitiateCommandHandlerError;
+    type Command = TransferRequestCommand;
+    type Output = TransferRequestOutput;
+    type ReplayOutput = TransferRequestOutput;
+    type Error = TransferRequestCommandHandlerError;
     type Uow = TR::Uow;
 
     fn authorization_plan(
         &self,
-        _command: &Self::Command,
+        command: &Self::Command,
     ) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
-            PrincipalRequirement::System,
+            PrincipalRequirement::AuthenticatedWithRelationship {
+                requirement: RelationshipRequirement::Check {
+                    aggregate: AggregateRef::from_id::<Account>(command.from_account_id),
+                    relation: AccountTransferRequesterRelation::NAME,
+                },
+                projector_dependencies: ProjectorDependencies::Some(&[
+                    AccountOwnerRelationshipProjectorSpec::DESCRIPTOR,
+                ]),
+            },
         ]))
     }
 
@@ -62,24 +77,24 @@ where
             .find(uow, command.from_account_id)
             .await?
         else {
-            return Err(TransferInitiateCommandHandlerError::SourceAccountNotFound);
+            return Err(TransferRequestCommandHandlerError::SourceAccountNotFound);
         };
         let Some(destination_account) = self
             .account_repository
             .find(uow, command.to_account_id)
             .await?
         else {
-            return Err(TransferInitiateCommandHandlerError::DestinationAccountNotFound);
+            return Err(TransferRequestCommandHandlerError::DestinationAccountNotFound);
         };
 
         if source_account.currency_definition_id()?
             != destination_account.currency_definition_id()?
         {
-            return Err(TransferInitiateCommandHandlerError::CurrencyDefinitionMismatch);
+            return Err(TransferRequestCommandHandlerError::CurrencyDefinitionMismatch);
         }
 
         let mut transfer = Transfer::default();
-        transfer.initiate(
+        transfer.request(
             command.from_account_id,
             command.to_account_id,
             command.amount,
@@ -91,9 +106,9 @@ where
 
         let transfer_id = transfer
             .aggregate_id()
-            .ok_or(TransferInitiateCommandHandlerError::MissingTransferId)?;
+            .ok_or(TransferRequestCommandHandlerError::MissingTransferId)?;
 
-        Ok(CommandHandled::same(TransferInitiateOutput::new(
+        Ok(CommandHandled::same(TransferRequestOutput::new(
             transfer_id,
         )))
     }
@@ -104,8 +119,12 @@ mod tests {
     use std::collections::HashMap;
     use std::sync::{Arc, Mutex};
 
-    use appletheia::application::authorization::AggregateRef;
+    use appletheia::application::ProjectorDependencies;
+    use appletheia::application::authorization::{
+        AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
+    };
     use appletheia::application::command::CommandHandler;
+    use appletheia::application::projection::ProjectorSpec;
     use appletheia::application::repository::{Repository, RepositoryError};
     use appletheia::application::request_context::{
         ActorRef, CorrelationId, MessageId, Principal, RequestContext,
@@ -118,9 +137,11 @@ mod tests {
     use banking_ledger_domain::transfer::{Transfer, TransferId};
     use uuid::Uuid;
 
+    use crate::authorization::AccountTransferRequesterRelation;
+    use crate::projection::AccountOwnerRelationshipProjectorSpec;
+
     use super::{
-        TransferInitiateCommand, TransferInitiateCommandHandler,
-        TransferInitiateCommandHandlerError,
+        TransferRequestCommand, TransferRequestCommandHandler, TransferRequestCommandHandlerError,
     };
 
     #[derive(Default)]
@@ -262,6 +283,38 @@ mod tests {
         account
     }
 
+    #[test]
+    fn authorization_plan_requires_transfer_requester_relationship() {
+        let account_repository = TestAccountRepository::default();
+        let transfer_repository = TestTransferRepository::default();
+        let handler = TransferRequestCommandHandler::new(account_repository, transfer_repository);
+
+        let command = TransferRequestCommand {
+            from_account_id: AccountId::new(),
+            to_account_id: AccountId::new(),
+            amount: AccountBalance::new(10),
+        };
+
+        let plan = handler
+            .authorization_plan(&command)
+            .expect("authorization plan should build");
+
+        assert_eq!(
+            plan,
+            AuthorizationPlan::OnlyPrincipals(vec![
+                PrincipalRequirement::AuthenticatedWithRelationship {
+                    requirement: RelationshipRequirement::Check {
+                        aggregate: AggregateRef::from_id::<Account>(command.from_account_id),
+                        relation: AccountTransferRequesterRelation::NAME,
+                    },
+                    projector_dependencies: ProjectorDependencies::Some(&[
+                        AccountOwnerRelationshipProjectorSpec::DESCRIPTOR,
+                    ]),
+                },
+            ])
+        );
+    }
+
     #[tokio::test]
     async fn handle_rejects_different_currency_definitions() {
         let account_repository = TestAccountRepository::default();
@@ -273,14 +326,14 @@ mod tests {
         account_repository.insert(destination);
 
         let transfer_repository = TestTransferRepository::default();
-        let handler = TransferInitiateCommandHandler::new(account_repository, transfer_repository);
+        let handler = TransferRequestCommandHandler::new(account_repository, transfer_repository);
         let mut uow = TestUow;
 
         let error = handler
             .handle(
                 &mut uow,
                 &request_context(),
-                &TransferInitiateCommand {
+                &TransferRequestCommand {
                     from_account_id: source_account_id,
                     to_account_id: destination_account_id,
                     amount: AccountBalance::new(10),
@@ -291,7 +344,7 @@ mod tests {
 
         assert!(matches!(
             error,
-            TransferInitiateCommandHandlerError::CurrencyDefinitionMismatch
+            TransferRequestCommandHandlerError::CurrencyDefinitionMismatch
         ));
     }
 }

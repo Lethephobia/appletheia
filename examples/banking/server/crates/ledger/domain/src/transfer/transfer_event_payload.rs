@@ -7,7 +7,7 @@ use super::{TransferEventPayloadError, TransferId};
 /// Represents the domain events emitted by a `Transfer` aggregate.
 #[event_payload(error = TransferEventPayloadError)]
 pub enum TransferEventPayload {
-    Initiated {
+    Requested {
         id: TransferId,
         from_account_id: AccountId,
         to_account_id: AccountId,
@@ -29,8 +29,8 @@ mod tests {
     #[test]
     fn returns_stable_event_names() {
         assert_eq!(
-            TransferEventPayload::INITIATED,
-            appletheia::domain::EventName::new("initiated")
+            TransferEventPayload::REQUESTED,
+            appletheia::domain::EventName::new("requested")
         );
         assert_eq!(
             TransferEventPayload::COMPLETED,
@@ -55,7 +55,7 @@ mod tests {
 
     #[test]
     fn serializes_payload_to_json() {
-        let payload = TransferEventPayload::Initiated {
+        let payload = TransferEventPayload::Requested {
             id: TransferId::new(),
             from_account_id: AccountId::new(),
             to_account_id: AccountId::new(),
@@ -64,6 +64,6 @@ mod tests {
 
         let value = payload.into_json_value().expect("payload should serialize");
 
-        assert_eq!(value["type"], serde_json::json!("initiated"));
+        assert_eq!(value["type"], serde_json::json!("requested"));
     }
 }
