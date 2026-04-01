@@ -5,7 +5,7 @@ pub mod saga;
 
 pub use authorization::{
     AccountCloserRelation, AccountDepositorRelation, AccountFreezerRelation, AccountOwnerRelation,
-    AccountRelations, AccountStatusManagerRelation, AccountThawerRelation,
+    AccountRelations, AccountRenamerRelation, AccountStatusManagerRelation, AccountThawerRelation,
     AccountTransferRequesterRelation, AccountWithdrawerRelation,
     CurrencyDefinitionActivatorRelation, CurrencyDefinitionDeactivatorRelation,
     CurrencyDefinitionOwnerRelation, CurrencyDefinitionRelations,
@@ -20,9 +20,10 @@ pub use command::{
     AccountFreezeCommand, AccountFreezeCommandHandler, AccountFreezeOutput, AccountOpenCommand,
     AccountOpenCommandHandler, AccountOpenOutput, AccountReleaseReservedFundsCommand,
     AccountReleaseReservedFundsCommandHandler, AccountReleaseReservedFundsContext,
-    AccountReleaseReservedFundsOutput, AccountReserveFundsCommand,
-    AccountReserveFundsCommandHandler, AccountReserveFundsContext, AccountReserveFundsOutput,
-    AccountThawCommand, AccountThawCommandHandler, AccountThawOutput, AccountWithdrawCommand,
+    AccountReleaseReservedFundsOutput, AccountRenameCommand, AccountRenameCommandHandler,
+    AccountRenameOutput, AccountReserveFundsCommand, AccountReserveFundsCommandHandler,
+    AccountReserveFundsContext, AccountReserveFundsOutput, AccountThawCommand,
+    AccountThawCommandHandler, AccountThawOutput, AccountWithdrawCommand,
     AccountWithdrawCommandHandler, AccountWithdrawOutput, CurrencyDefinitionActivateCommand,
     CurrencyDefinitionActivateCommandHandler, CurrencyDefinitionActivateOutput,
     CurrencyDefinitionDeactivateCommand, CurrencyDefinitionDeactivateCommandHandler,

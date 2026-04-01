@@ -5,25 +5,21 @@ use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use appletheia::domain::Aggregate;
-use banking_iam_application::authorization::{RoleAssigneeRelation, UserOwnerRelation};
-use banking_iam_application::{
-    RoleAssigneeRelationshipProjectorSpec, UserOwnerRelationshipProjectorSpec,
-};
-use banking_iam_domain::{Role, RoleId, User};
 use banking_ledger_domain::account::Account;
 
-use super::{AccountOpenCommand, AccountOpenCommandHandlerError, AccountOpenOutput};
+use super::{AccountRenameCommand, AccountRenameCommandHandlerError, AccountRenameOutput};
+use crate::authorization::AccountRenamerRelation;
+use crate::projection::AccountOwnerRelationshipProjectorSpec;
 
-/// Handles `AccountOpenCommand`.
-pub struct AccountOpenCommandHandler<AR>
+/// Handles `AccountRenameCommand`.
+pub struct AccountRenameCommandHandler<AR>
 where
     AR: Repository<Account>,
 {
     account_repository: AR,
 }
 
-impl<AR> AccountOpenCommandHandler<AR>
+impl<AR> AccountRenameCommandHandler<AR>
 where
     AR: Repository<Account>,
 {
@@ -32,14 +28,14 @@ where
     }
 }
 
-impl<AR> CommandHandler for AccountOpenCommandHandler<AR>
+impl<AR> CommandHandler for AccountRenameCommandHandler<AR>
 where
     AR: Repository<Account>,
 {
-    type Command = AccountOpenCommand;
-    type Output = AccountOpenOutput;
-    type ReplayOutput = AccountOpenOutput;
-    type Error = AccountOpenCommandHandlerError;
+    type Command = AccountRenameCommand;
+    type Output = AccountRenameOutput;
+    type ReplayOutput = AccountRenameOutput;
+    type Error = AccountRenameCommandHandlerError;
     type Uow = AR::Uow;
 
     fn authorization_plan(
@@ -49,19 +45,12 @@ where
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
             PrincipalRequirement::System,
             PrincipalRequirement::AuthenticatedWithRelationship {
-                requirement: RelationshipRequirement::Any(vec![
-                    RelationshipRequirement::Check {
-                        aggregate: AggregateRef::from_id::<Role>(RoleId::admin()),
-                        relation: RoleAssigneeRelation::NAME,
-                    },
-                    RelationshipRequirement::Check {
-                        aggregate: AggregateRef::from_id::<User>(*command.owner.user_id()),
-                        relation: UserOwnerRelation::NAME,
-                    },
-                ]),
+                requirement: RelationshipRequirement::Check {
+                    aggregate: AggregateRef::from_id::<Account>(command.account_id),
+                    relation: AccountRenamerRelation::NAME,
+                },
                 projector_dependencies: ProjectorDependencies::Some(&[
-                    RoleAssigneeRelationshipProjectorSpec::DESCRIPTOR,
-                    UserOwnerRelationshipProjectorSpec::DESCRIPTOR,
+                    AccountOwnerRelationshipProjectorSpec::DESCRIPTOR,
                 ]),
             },
         ]))
@@ -73,22 +62,24 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
-        let mut account = Account::default();
-        account.open(
-            command.owner.clone(),
-            command.name.clone(),
-            command.currency_definition_id,
-        )?;
+        let Some(mut account) = self
+            .account_repository
+            .find(uow, command.account_id)
+            .await?
+        else {
+            return Err(AccountRenameCommandHandlerError::AccountNotFound);
+        };
+
+        account.rename(command.name.clone())?;
 
         self.account_repository
             .save(uow, request_context, &mut account)
             .await?;
 
-        let account_id = account
-            .aggregate_id()
-            .ok_or(AccountOpenCommandHandlerError::MissingAccountId)?;
-
-        Ok(CommandHandled::same(AccountOpenOutput::new(account_id)))
+        Ok(CommandHandled::same(AccountRenameOutput::new(
+            command.account_id,
+            account.name()?.clone(),
+        )))
     }
 }
 
@@ -107,24 +98,13 @@ mod tests {
     };
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::Aggregate;
-    use banking_iam_application::authorization::{RoleAssigneeRelation, UserOwnerRelation};
-    use banking_iam_application::{
-        RoleAssigneeRelationshipProjectorSpec, UserOwnerRelationshipProjectorSpec,
-    };
-    use banking_iam_domain::{Role, RoleId, User, UserId};
     use banking_ledger_domain::account::{Account, AccountId, AccountName, AccountOwner};
     use banking_ledger_domain::currency_definition::CurrencyDefinitionId;
     use uuid::Uuid;
 
-    use super::{AccountOpenCommand, AccountOpenCommandHandler, AccountOpenOutput};
-
-    fn account_name() -> AccountName {
-        AccountName::try_from("main").expect("account name should be valid")
-    }
-
-    fn account_owner() -> AccountOwner {
-        AccountOwner::User(UserId::new())
-    }
+    use super::{AccountRenameCommand, AccountRenameCommandHandler, AccountRenameOutput};
+    use crate::authorization::AccountRenamerRelation;
+    use crate::projection::AccountOwnerRelationshipProjectorSpec;
 
     #[derive(Default)]
     struct TestUow;
@@ -142,6 +122,14 @@ mod tests {
     #[derive(Clone, Default)]
     struct TestAccountRepository {
         account: Arc<Mutex<Option<Account>>>,
+    }
+
+    impl TestAccountRepository {
+        fn new(account: Account) -> Self {
+            Self {
+                account: Arc::new(Mutex::new(Some(account))),
+            }
+        }
     }
 
     impl Repository<Account> for TestAccountRepository {
@@ -185,29 +173,43 @@ mod tests {
     }
 
     fn request_context() -> RequestContext {
-        let subject = AggregateRef::from_id::<User>(UserId::new());
-
         RequestContext::new(
             CorrelationId::from(Uuid::now_v7()),
             MessageId::new(),
-            ActorRef::Subject {
-                subject: subject.clone(),
-            },
-            Principal::Authenticated { subject },
+            ActorRef::System,
+            Principal::System,
         )
     }
 
+    fn account_name(value: &str) -> AccountName {
+        AccountName::try_from(value).expect("account name should be valid")
+    }
+
+    fn account_owner() -> AccountOwner {
+        AccountOwner::User(banking_iam_domain::UserId::new())
+    }
+
+    fn opened_account() -> Account {
+        let mut account = Account::default();
+        account
+            .open(
+                account_owner(),
+                account_name("main"),
+                CurrencyDefinitionId::new(),
+            )
+            .expect("open should succeed");
+        account
+    }
+
     #[test]
-    fn authorization_plan_allows_system_admin_or_target_owner() {
-        let handler = AccountOpenCommandHandler::new(TestAccountRepository::default());
-        let owner = account_owner();
-        let name = account_name();
+    fn authorization_plan_allows_system_or_account_owner() {
+        let handler = AccountRenameCommandHandler::new(TestAccountRepository::default());
+        let account_id = AccountId::new();
 
         let plan = handler
-            .authorization_plan(&AccountOpenCommand {
-                owner: owner.clone(),
-                name,
-                currency_definition_id: CurrencyDefinitionId::new(),
+            .authorization_plan(&AccountRenameCommand {
+                account_id,
+                name: account_name("savings"),
             })
             .expect("authorization plan should build");
 
@@ -216,19 +218,12 @@ mod tests {
             AuthorizationPlan::OnlyPrincipals(vec![
                 PrincipalRequirement::System,
                 PrincipalRequirement::AuthenticatedWithRelationship {
-                    requirement: RelationshipRequirement::Any(vec![
-                        RelationshipRequirement::Check {
-                            aggregate: AggregateRef::from_id::<Role>(RoleId::admin()),
-                            relation: RoleAssigneeRelation::NAME,
-                        },
-                        RelationshipRequirement::Check {
-                            aggregate: AggregateRef::from_id::<User>(*owner.user_id()),
-                            relation: UserOwnerRelation::NAME,
-                        },
-                    ]),
+                    requirement: RelationshipRequirement::Check {
+                        aggregate: AggregateRef::from_id::<Account>(account_id),
+                        relation: AccountRenamerRelation::NAME,
+                    },
                     projector_dependencies: ProjectorDependencies::Some(&[
-                        RoleAssigneeRelationshipProjectorSpec::DESCRIPTOR,
-                        UserOwnerRelationshipProjectorSpec::DESCRIPTOR,
+                        AccountOwnerRelationshipProjectorSpec::DESCRIPTOR,
                     ]),
                 },
             ])
@@ -236,21 +231,28 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn handle_opens_account_for_specified_owner() {
-        let repository = TestAccountRepository::default();
-        let handler = AccountOpenCommandHandler::new(repository.clone());
+    async fn handle_renames_account() {
+        let repository = TestAccountRepository::new(opened_account());
+        let handler = AccountRenameCommandHandler::new(repository.clone());
         let mut uow = TestUow;
-        let owner = account_owner();
-        let name = account_name();
+        let request_context = request_context();
+        let account_id = repository
+            .account
+            .lock()
+            .expect("lock")
+            .as_ref()
+            .expect("account should exist")
+            .aggregate_id()
+            .expect("account id should exist");
+        let name = account_name("savings");
 
         let handled = handler
             .handle(
                 &mut uow,
-                &request_context(),
-                &AccountOpenCommand {
-                    owner: owner.clone(),
+                &request_context,
+                &AccountRenameCommand {
+                    account_id,
                     name: name.clone(),
-                    currency_definition_id: CurrencyDefinitionId::new(),
                 },
             )
             .await
@@ -262,10 +264,11 @@ mod tests {
             .expect("lock")
             .clone()
             .expect("account should be saved");
-        let account_id = saved.aggregate_id().expect("account id should exist");
-        assert_eq!(saved.owner().expect("owner should exist"), &owner);
         assert_eq!(saved.name().expect("name should exist"), &name);
 
-        assert_eq!(handled.into_output(), AccountOpenOutput::new(account_id));
+        assert_eq!(
+            handled.into_output(),
+            AccountRenameOutput::new(account_id, name)
+        );
     }
 }

@@ -82,11 +82,15 @@ mod tests {
     use appletheia::domain::{Aggregate, AggregateId, EventPayload};
     use banking_iam_application::authorization::RoleAssigneeRelation;
     use banking_iam_domain::{Role, RoleId, User, UserId};
-    use banking_ledger_domain::account::Account;
+    use banking_ledger_domain::account::{Account, AccountName, AccountOwner};
     use banking_ledger_domain::currency_definition::CurrencyDefinitionId;
 
     use super::AccountStatusManagerRelationshipProjector;
     use crate::authorization::AccountStatusManagerRelation;
+
+    fn account_name() -> AccountName {
+        AccountName::try_from("main").expect("account name should be valid")
+    }
 
     #[derive(Default)]
     struct TestUow;
@@ -151,7 +155,11 @@ mod tests {
         let mut account = Account::default();
         let user_id = UserId::new();
         account
-            .open(user_id, CurrencyDefinitionId::new())
+            .open(
+                AccountOwner::from(user_id),
+                account_name(),
+                CurrencyDefinitionId::new(),
+            )
             .expect("open should succeed");
 
         let event = account

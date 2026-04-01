@@ -3,8 +3,8 @@ use banking_ledger_domain::account::Account;
 
 use super::{
     AccountCloserRelation, AccountDepositorRelation, AccountFreezerRelation, AccountOwnerRelation,
-    AccountStatusManagerRelation, AccountThawerRelation, AccountTransferRequesterRelation,
-    AccountWithdrawerRelation,
+    AccountRenamerRelation, AccountStatusManagerRelation, AccountThawerRelation,
+    AccountTransferRequesterRelation, AccountWithdrawerRelation,
 };
 
 /// Defines static authorization relations for `Account`.
@@ -16,6 +16,7 @@ use super::{
         AccountFreezerRelation,
         AccountThawerRelation,
         AccountCloserRelation,
+        AccountRenamerRelation,
         AccountDepositorRelation,
         AccountWithdrawerRelation,
         AccountTransferRequesterRelation
@@ -31,8 +32,9 @@ mod tests {
 
     use super::{
         AccountCloserRelation, AccountDepositorRelation, AccountFreezerRelation,
-        AccountOwnerRelation, AccountRelations, AccountStatusManagerRelation,
-        AccountThawerRelation, AccountTransferRequesterRelation, AccountWithdrawerRelation,
+        AccountOwnerRelation, AccountRelations, AccountRenamerRelation,
+        AccountStatusManagerRelation, AccountThawerRelation, AccountTransferRequesterRelation,
+        AccountWithdrawerRelation,
     };
 
     #[test]
@@ -43,6 +45,7 @@ mod tests {
         let freezer = RelationNameOwned::from(AccountFreezerRelation::NAME);
         let thawer = RelationNameOwned::from(AccountThawerRelation::NAME);
         let closer = RelationNameOwned::from(AccountCloserRelation::NAME);
+        let renamer = RelationNameOwned::from(AccountRenamerRelation::NAME);
         let depositor = RelationNameOwned::from(AccountDepositorRelation::NAME);
         let withdrawer = RelationNameOwned::from(AccountWithdrawerRelation::NAME);
         let transfer_requester = RelationNameOwned::from(AccountTransferRequesterRelation::NAME);
@@ -72,6 +75,15 @@ mod tests {
         );
         assert_eq!(
             definition.expr_for(&closer),
+            Some(&UsersetExpr::Union(vec![
+                UsersetExpr::This,
+                UsersetExpr::ComputedUserset {
+                    relation: owner.clone(),
+                },
+            ]))
+        );
+        assert_eq!(
+            definition.expr_for(&renamer),
             Some(&UsersetExpr::Union(vec![
                 UsersetExpr::This,
                 UsersetExpr::ComputedUserset {

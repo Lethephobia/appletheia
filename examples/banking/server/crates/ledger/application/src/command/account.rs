@@ -4,6 +4,7 @@ mod account_deposit;
 mod account_freeze;
 mod account_open;
 mod account_release_reserved_funds;
+mod account_rename;
 mod account_reserve_funds;
 mod account_thaw;
 mod account_withdraw;
@@ -23,6 +24,7 @@ pub use account_release_reserved_funds::{
     AccountReleaseReservedFundsCommand, AccountReleaseReservedFundsCommandHandler,
     AccountReleaseReservedFundsContext, AccountReleaseReservedFundsOutput,
 };
+pub use account_rename::{AccountRenameCommand, AccountRenameCommandHandler, AccountRenameOutput};
 pub use account_reserve_funds::{
     AccountReserveFundsCommand, AccountReserveFundsCommandHandler, AccountReserveFundsContext,
     AccountReserveFundsOutput,

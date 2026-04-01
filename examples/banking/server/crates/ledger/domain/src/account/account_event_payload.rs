@@ -1,17 +1,20 @@
 use appletheia::event_payload;
-use banking_iam_domain::UserId;
 
 use crate::currency_definition::CurrencyDefinitionId;
 
-use super::{AccountBalance, AccountEventPayloadError, AccountId};
+use super::{AccountBalance, AccountEventPayloadError, AccountId, AccountName, AccountOwner};
 
 /// Represents the domain events emitted by an `Account` aggregate.
 #[event_payload(error = AccountEventPayloadError)]
 pub enum AccountEventPayload {
     Opened {
         id: AccountId,
-        user_id: UserId,
+        owner: AccountOwner,
+        name: AccountName,
         currency_definition_id: CurrencyDefinitionId,
+    },
+    Renamed {
+        name: AccountName,
     },
     Frozen,
     Thawed,
@@ -37,17 +40,19 @@ pub enum AccountEventPayload {
 mod tests {
     use appletheia::domain::EventPayload;
 
-    use banking_iam_domain::UserId;
-
     use crate::currency_definition::CurrencyDefinitionId;
 
-    use super::{AccountBalance, AccountEventPayload, AccountId};
+    use super::{AccountBalance, AccountEventPayload, AccountId, AccountName, AccountOwner};
 
     #[test]
     fn returns_stable_event_names() {
         assert_eq!(
             AccountEventPayload::OPENED,
             appletheia::domain::EventName::new("opened")
+        );
+        assert_eq!(
+            AccountEventPayload::RENAMED,
+            appletheia::domain::EventName::new("renamed")
         );
         assert_eq!(
             AccountEventPayload::FROZEN,
@@ -94,13 +99,25 @@ mod tests {
     fn serializes_payload_to_json() {
         let payload = AccountEventPayload::Opened {
             id: AccountId::new(),
-            user_id: UserId::new(),
+            owner: AccountOwner::from(banking_iam_domain::UserId::new()),
+            name: AccountName::try_from("main").expect("account name should be valid"),
             currency_definition_id: CurrencyDefinitionId::new(),
         };
 
         let value = payload.into_json_value().expect("payload should serialize");
 
         assert_eq!(value["type"], serde_json::json!("opened"));
+    }
+
+    #[test]
+    fn serializes_renamed_payload_to_json() {
+        let payload = AccountEventPayload::Renamed {
+            name: AccountName::try_from("savings").expect("account name should be valid"),
+        };
+
+        let value = payload.into_json_value().expect("payload should serialize");
+
+        assert_eq!(value["type"], serde_json::json!("renamed"));
     }
 
     #[test]

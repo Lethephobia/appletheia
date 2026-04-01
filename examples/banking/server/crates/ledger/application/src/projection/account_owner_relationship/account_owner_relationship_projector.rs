@@ -37,7 +37,7 @@ where
 
     async fn project(&self, uow: &mut Self::Uow, event: &EventEnvelope) -> Result<(), Self::Error> {
         let event = event.try_into_domain_event::<Account>()?;
-        let AccountEventPayload::Opened { user_id, .. } = event.payload() else {
+        let AccountEventPayload::Opened { owner, .. } = event.payload() else {
             return Ok(());
         };
 
@@ -49,7 +49,7 @@ where
                     aggregate: account,
                     relation: RelationNameOwned::from(AccountOwnerRelation::NAME),
                     subject: RelationshipSubject::Aggregate(AggregateRef::from_id::<User>(
-                        *user_id,
+                        *owner.user_id(),
                     )),
                 })],
             )
@@ -75,11 +75,15 @@ mod tests {
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::{Aggregate, AggregateId, EventPayload};
     use banking_iam_domain::{User, UserId};
-    use banking_ledger_domain::account::Account;
+    use banking_ledger_domain::account::{Account, AccountName, AccountOwner};
     use banking_ledger_domain::currency_definition::CurrencyDefinitionId;
 
     use super::AccountOwnerRelationshipProjector;
     use crate::authorization::AccountOwnerRelation;
+
+    fn account_name() -> AccountName {
+        AccountName::try_from("main").expect("account name should be valid")
+    }
 
     #[derive(Default)]
     struct TestUow;
@@ -144,7 +148,11 @@ mod tests {
         let mut account = Account::default();
         let user_id = UserId::new();
         account
-            .open(user_id, CurrencyDefinitionId::new())
+            .open(
+                AccountOwner::from(user_id),
+                account_name(),
+                CurrencyDefinitionId::new(),
+            )
             .expect("open should succeed");
 
         let event = account

@@ -10,9 +10,10 @@ pub use account::{
     AccountFreezeCommand, AccountFreezeCommandHandler, AccountFreezeOutput, AccountOpenCommand,
     AccountOpenCommandHandler, AccountOpenOutput, AccountReleaseReservedFundsCommand,
     AccountReleaseReservedFundsCommandHandler, AccountReleaseReservedFundsContext,
-    AccountReleaseReservedFundsOutput, AccountReserveFundsCommand,
-    AccountReserveFundsCommandHandler, AccountReserveFundsContext, AccountReserveFundsOutput,
-    AccountThawCommand, AccountThawCommandHandler, AccountThawOutput, AccountWithdrawCommand,
+    AccountReleaseReservedFundsOutput, AccountRenameCommand, AccountRenameCommandHandler,
+    AccountRenameOutput, AccountReserveFundsCommand, AccountReserveFundsCommandHandler,
+    AccountReserveFundsContext, AccountReserveFundsOutput, AccountThawCommand,
+    AccountThawCommandHandler, AccountThawOutput, AccountWithdrawCommand,
     AccountWithdrawCommandHandler, AccountWithdrawOutput,
 };
 pub use currency_definition::{

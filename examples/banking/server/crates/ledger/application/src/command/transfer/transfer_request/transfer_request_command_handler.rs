@@ -132,7 +132,9 @@ mod tests {
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::{Aggregate, AggregateVersion, UniqueKey, UniqueValue};
     use banking_iam_domain::{User, UserId};
-    use banking_ledger_domain::account::{Account, AccountBalance, AccountId};
+    use banking_ledger_domain::account::{
+        Account, AccountBalance, AccountId, AccountName, AccountOwner,
+    };
     use banking_ledger_domain::currency_definition::CurrencyDefinitionId;
     use banking_ledger_domain::transfer::{Transfer, TransferId};
     use uuid::Uuid;
@@ -143,6 +145,14 @@ mod tests {
     use super::{
         TransferRequestCommand, TransferRequestCommandHandler, TransferRequestCommandHandlerError,
     };
+
+    fn account_name() -> AccountName {
+        AccountName::try_from("main").expect("account name should be valid")
+    }
+
+    fn account_owner() -> AccountOwner {
+        AccountOwner::User(UserId::new())
+    }
 
     #[derive(Default)]
     struct TestUow;
@@ -277,7 +287,7 @@ mod tests {
     fn opened_account(currency_definition_id: CurrencyDefinitionId) -> Account {
         let mut account = Account::default();
         account
-            .open(UserId::new(), currency_definition_id)
+            .open(account_owner(), account_name(), currency_definition_id)
             .expect("open should succeed");
 
         account
