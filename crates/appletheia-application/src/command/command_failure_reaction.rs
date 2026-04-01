@@ -5,8 +5,9 @@ use crate::request_context::RequestContext;
 use super::CommandFailureReactionError;
 
 /// Describes follow-up work to schedule after a handled command failure.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub enum CommandFailureReaction {
+    #[default]
     None,
     FollowUpCommands(Vec<FollowUpCommand>),
 }
@@ -65,12 +66,6 @@ impl CommandFailureReaction {
                 .map(|command| command.into_command_envelope(request_context))
                 .collect(),
         }
-    }
-}
-
-impl Default for CommandFailureReaction {
-    fn default() -> Self {
-        Self::None
     }
 }
 
