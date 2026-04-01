@@ -76,10 +76,7 @@ where
             .save(uow, request_context, &mut account)
             .await?;
 
-        Ok(CommandHandled::same(AccountRenameOutput::new(
-            command.account_id,
-            account.name()?.clone(),
-        )))
+        Ok(CommandHandled::same(AccountRenameOutput))
     }
 }
 
@@ -266,9 +263,6 @@ mod tests {
             .expect("account should be saved");
         assert_eq!(saved.name().expect("name should exist"), &name);
 
-        assert_eq!(
-            handled.into_output(),
-            AccountRenameOutput::new(account_id, name)
-        );
+        assert_eq!(handled.into_output(), AccountRenameOutput);
     }
 }

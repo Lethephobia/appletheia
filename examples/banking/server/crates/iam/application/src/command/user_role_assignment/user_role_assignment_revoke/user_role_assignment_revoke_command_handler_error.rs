@@ -13,7 +13,4 @@ pub enum UserRoleAssignmentRevokeCommandHandlerError {
 
     #[error("active user role assignment was not found")]
     UserRoleAssignmentNotFound,
-
-    #[error("user role assignment id is missing after revoke")]
-    MissingUserRoleAssignmentId,
 }

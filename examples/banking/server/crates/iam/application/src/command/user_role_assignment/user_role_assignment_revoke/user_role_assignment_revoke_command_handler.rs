@@ -5,7 +5,6 @@ use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use appletheia::domain::Aggregate;
 use banking_iam_domain::{Role, RoleId, UserRoleAssignment};
 
 use super::{
@@ -82,11 +81,6 @@ where
             .save(uow, request_context, &mut assignment)
             .await?;
 
-        let assignment_id = assignment
-            .aggregate_id()
-            .ok_or(UserRoleAssignmentRevokeCommandHandlerError::MissingUserRoleAssignmentId)?;
-        let output = UserRoleAssignmentRevokeOutput::new(assignment_id);
-
-        Ok(CommandHandled::same(output))
+        Ok(CommandHandled::same(UserRoleAssignmentRevokeOutput))
     }
 }

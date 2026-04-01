@@ -75,18 +75,7 @@ where
             .save(uow, request_context, &mut user)
             .await?;
 
-        let username = user
-            .username()?
-            .cloned()
-            .ok_or(UserProfileReadyCommandHandlerError::UserProfileNotReady)?;
-        let display_name = user
-            .display_name()?
-            .cloned()
-            .ok_or(UserProfileReadyCommandHandlerError::UserProfileNotReady)?;
-        let bio = user.bio()?.cloned();
-        let output = UserProfileReadyOutput::new(command.user_id, username, display_name, bio);
-
-        Ok(CommandHandled::same(output))
+        Ok(CommandHandled::same(UserProfileReadyOutput))
     }
 }
 
@@ -265,14 +254,6 @@ mod tests {
             .await
             .expect("command should succeed");
 
-        assert_eq!(
-            handled.into_output(),
-            UserProfileReadyOutput::new(
-                user_id,
-                Username::try_from("alice").expect("username should be valid"),
-                UserDisplayName::try_from("Alice").expect("display name should be valid"),
-                Some(UserBio::try_from("Banking enthusiast").expect("bio should be valid")),
-            )
-        );
+        assert_eq!(handled.into_output(), UserProfileReadyOutput);
     }
 }

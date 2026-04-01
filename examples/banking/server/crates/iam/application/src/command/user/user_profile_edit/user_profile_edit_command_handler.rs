@@ -81,14 +81,7 @@ where
             .save(uow, request_context, &mut user)
             .await?;
 
-        let output = UserProfileEditOutput::new(
-            command.user_id,
-            user.username()?.cloned(),
-            user.display_name()?.cloned(),
-            user.bio()?.cloned(),
-        );
-
-        Ok(CommandHandled::same(output))
+        Ok(CommandHandled::same(UserProfileEditOutput))
     }
 }
 
@@ -235,17 +228,6 @@ mod tests {
             .await
             .expect("command should succeed");
 
-        assert_eq!(
-            handled.into_output(),
-            UserProfileEditOutput::new(
-                user_id,
-                Some(Username::try_from("alice").expect("username should be valid")),
-                Some(
-                    UserDisplayName::try_from("Alice Example")
-                        .expect("display name should be valid")
-                ),
-                None,
-            )
-        );
+        assert_eq!(handled.into_output(), UserProfileEditOutput);
     }
 }

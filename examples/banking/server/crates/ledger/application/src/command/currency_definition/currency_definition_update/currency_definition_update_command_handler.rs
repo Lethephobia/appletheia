@@ -88,13 +88,7 @@ where
             .save(uow, request_context, &mut currency_definition)
             .await?;
 
-        let output = CurrencyDefinitionUpdateOutput::new(
-            command.currency_definition_id,
-            currency_definition.symbol()?.clone(),
-            currency_definition.name()?.clone(),
-        );
-
-        Ok(CommandHandled::same(output))
+        Ok(CommandHandled::same(CurrencyDefinitionUpdateOutput))
     }
 }
 
@@ -281,13 +275,6 @@ mod tests {
             .await
             .expect("command should succeed");
 
-        assert_eq!(
-            handled.into_output(),
-            CurrencyDefinitionUpdateOutput::new(
-                currency_definition_id,
-                CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
-                CurrencyName::try_from("USD Coin Updated").expect("name should be valid"),
-            )
-        );
+        assert_eq!(handled.into_output(), CurrencyDefinitionUpdateOutput);
     }
 }
