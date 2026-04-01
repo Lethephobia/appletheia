@@ -1,7 +1,7 @@
 use appletheia::application::authorization::{
     AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
-use appletheia::application::command::{CommandHandled, CommandHandler};
+use appletheia::application::command::{CommandHandled, CommandHandler, FieldPatch};
 use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
@@ -65,12 +65,16 @@ where
             return Err(UserProfileEditCommandHandlerError::UserNotFound);
         };
 
-        if let Some(username) = command.username.clone() {
-            user.change_username(username)?;
+        if let FieldPatch::Set(username) = &command.username {
+            user.change_username(username.clone())?;
         }
 
-        if let Some(display_name) = command.display_name.clone() {
-            user.change_display_name(display_name)?;
+        if let FieldPatch::Set(display_name) = &command.display_name {
+            user.change_display_name(display_name.clone())?;
+        }
+
+        if let FieldPatch::Set(bio) = &command.bio {
+            user.change_bio(bio.clone())?;
         }
 
         self.user_repository
@@ -81,6 +85,7 @@ where
             command.user_id,
             user.username()?.cloned(),
             user.display_name()?.cloned(),
+            user.bio()?.cloned(),
         );
 
         Ok(CommandHandled::same(output))
@@ -92,7 +97,7 @@ mod tests {
     use std::sync::{Arc, Mutex};
 
     use appletheia::application::authorization::AggregateRef;
-    use appletheia::application::command::CommandHandler;
+    use appletheia::application::command::{CommandHandler, FieldPatch};
     use appletheia::application::repository::{Repository, RepositoryError};
     use appletheia::application::request_context::{
         ActorRef, CorrelationId, MessageId, Principal, RequestContext,
@@ -100,8 +105,8 @@ mod tests {
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::Aggregate;
     use banking_iam_domain::{
-        User, UserDisplayName, UserId, UserIdentity, UserIdentityProvider, UserIdentitySubject,
-        Username,
+        User, UserBio, UserDisplayName, UserId, UserIdentity, UserIdentityProvider,
+        UserIdentitySubject, Username,
     };
     use uuid::Uuid;
 
@@ -198,6 +203,7 @@ mod tests {
         user.ready_profile(
             Username::try_from("alice").expect("username should be valid"),
             UserDisplayName::try_from("Alice").expect("display name should be valid"),
+            Some(UserBio::try_from("Banking enthusiast").expect("bio should be valid")),
         )
         .expect("profile should be readied");
         user
@@ -218,11 +224,12 @@ mod tests {
                 &request_context,
                 &UserProfileEditCommand {
                     user_id,
-                    username: None,
-                    display_name: Some(
+                    username: FieldPatch::Unchanged,
+                    display_name: FieldPatch::Set(
                         UserDisplayName::try_from("Alice Example")
                             .expect("display name should be valid"),
                     ),
+                    bio: FieldPatch::Set(None),
                 },
             )
             .await
@@ -237,6 +244,7 @@ mod tests {
                     UserDisplayName::try_from("Alice Example")
                         .expect("display name should be valid")
                 ),
+                None,
             )
         );
     }

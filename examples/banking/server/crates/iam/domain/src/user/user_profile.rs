@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::{UserDisplayName, Username};
+use super::{UserBio, UserDisplayName, Username};
 
 /// Represents the onboarding state of a user's profile.
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
@@ -9,6 +9,8 @@ pub enum UserProfile {
     Ready {
         username: Username,
         display_name: UserDisplayName,
+        #[serde(default)]
+        bio: Option<UserBio>,
     },
 }
 
@@ -28,11 +30,19 @@ impl UserProfile {
             Self::Ready { display_name, .. } => Some(display_name),
         }
     }
+
+    /// Returns the bio when the profile is ready.
+    pub fn bio(&self) -> Option<&UserBio> {
+        match self {
+            Self::Pending => None,
+            Self::Ready { bio, .. } => bio.as_ref(),
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{UserDisplayName, UserProfile, Username};
+    use super::{UserBio, UserDisplayName, UserProfile, Username};
 
     #[test]
     fn pending_profile_has_no_public_values() {
@@ -40,6 +50,7 @@ mod tests {
 
         assert_eq!(profile.username(), None);
         assert_eq!(profile.display_name(), None);
+        assert_eq!(profile.bio(), None);
     }
 
     #[test]
@@ -50,9 +61,14 @@ mod tests {
         let profile = UserProfile::Ready {
             username: username.clone(),
             display_name: display_name.clone(),
+            bio: Some(UserBio::try_from("Banking enthusiast").expect("bio should be valid")),
         };
 
         assert_eq!(profile.username(), Some(&username));
         assert_eq!(profile.display_name(), Some(&display_name));
+        assert_eq!(
+            profile.bio().expect("bio should exist").value(),
+            "Banking enthusiast"
+        );
     }
 }

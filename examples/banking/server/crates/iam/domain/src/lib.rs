@@ -9,10 +9,10 @@ pub use role::{
     RoleNameError, RoleState, RoleStateError,
 };
 pub use user::{
-    User, UserDisplayName, UserDisplayNameError, UserError, UserEventPayload,
-    UserEventPayloadError, UserId, UserIdentity, UserIdentityProvider, UserIdentityProviderError,
-    UserIdentitySubject, UserIdentitySubjectError, UserProfile, UserState, UserStateError,
-    UserStatus, Username, UsernameError,
+    User, UserBio, UserBioError, UserDisplayName, UserDisplayNameError, UserError,
+    UserEventPayload, UserEventPayloadError, UserId, UserIdentity, UserIdentityProvider,
+    UserIdentityProviderError, UserIdentitySubject, UserIdentitySubjectError, UserProfile,
+    UserState, UserStateError, UserStatus, Username, UsernameError,
 };
 pub use user_role_assignment::{
     UserRoleAssignment, UserRoleAssignmentError, UserRoleAssignmentEventPayload,

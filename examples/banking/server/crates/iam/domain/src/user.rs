@@ -1,3 +1,5 @@
+mod user_bio;
+mod user_bio_error;
 mod user_display_name;
 mod user_display_name_error;
 mod user_error;
@@ -16,6 +18,8 @@ mod user_status;
 mod username;
 mod username_error;
 
+pub use user_bio::UserBio;
+pub use user_bio_error::UserBioError;
 pub use user_display_name::UserDisplayName;
 pub use user_display_name_error::UserDisplayNameError;
 pub use user_error::UserError;
@@ -66,6 +70,11 @@ impl User {
         Ok(self.state_required()?.profile.display_name())
     }
 
+    /// Returns the current bio.
+    pub fn bio(&self) -> Result<Option<&UserBio>, UserError> {
+        Ok(self.state_required()?.profile.bio())
+    }
+
     /// Returns the linked external identities.
     pub fn identities(&self) -> Result<&[UserIdentity], UserError> {
         Ok(&self.state_required()?.identities)
@@ -98,15 +107,20 @@ impl User {
         &mut self,
         username: Username,
         display_name: UserDisplayName,
+        bio: Option<UserBio>,
     ) -> Result<(), UserError> {
         self.ensure_active_status()?;
 
         if let UserProfile::Ready {
             username: current_username,
             display_name: current_display_name,
+            bio: current_bio,
         } = &self.state_required()?.profile
         {
-            if current_username.eq(&username) && current_display_name.eq(&display_name) {
+            if current_username.eq(&username)
+                && current_display_name.eq(&display_name)
+                && current_bio.as_ref() == bio.as_ref()
+            {
                 return Ok(());
             }
 
@@ -116,6 +130,7 @@ impl User {
         self.append_event(UserEventPayload::ProfileReadied {
             username,
             display_name,
+            bio,
         })
     }
 
@@ -147,6 +162,24 @@ impl User {
         }
 
         self.append_event(UserEventPayload::DisplayNameChanged { display_name })
+    }
+
+    /// Changes the current bio.
+    pub fn change_bio(&mut self, bio: Option<UserBio>) -> Result<(), UserError> {
+        self.ensure_active_status()?;
+
+        let UserProfile::Ready {
+            bio: current_bio, ..
+        } = &self.state_required()?.profile
+        else {
+            return Err(UserError::ProfileNotReady);
+        };
+
+        if current_bio.as_ref() == bio.as_ref() {
+            return Ok(());
+        }
+
+        self.append_event(UserEventPayload::BioChanged { bio })
     }
 
     /// Links an additional external identity.
@@ -274,34 +307,53 @@ impl AggregateApply<UserEventPayload, UserError> for User {
             UserEventPayload::ProfileReadied {
                 username,
                 display_name,
+                bio,
             } => {
                 self.state_required_mut()?.profile = UserProfile::Ready {
                     username: username.clone(),
                     display_name: display_name.clone(),
+                    bio: bio.clone(),
                 };
             }
             UserEventPayload::UsernameChanged { username } => {
                 let state = self.state_required_mut()?;
-                let UserProfile::Ready { display_name, .. } = &state.profile else {
-                    unreachable!(
-                        "profile readiness should be validated before appending the event"
-                    );
+                let UserProfile::Ready {
+                    display_name, bio, ..
+                } = &state.profile
+                else {
+                    return Err(UserError::InvalidProfileState);
                 };
                 state.profile = UserProfile::Ready {
                     username: username.clone(),
                     display_name: display_name.clone(),
+                    bio: bio.clone(),
                 };
             }
             UserEventPayload::DisplayNameChanged { display_name } => {
                 let state = self.state_required_mut()?;
-                let UserProfile::Ready { username, .. } = &state.profile else {
-                    unreachable!(
-                        "profile readiness should be validated before appending the event"
-                    );
+                let UserProfile::Ready { username, bio, .. } = &state.profile else {
+                    return Err(UserError::InvalidProfileState);
                 };
                 state.profile = UserProfile::Ready {
                     username: username.clone(),
                     display_name: display_name.clone(),
+                    bio: bio.clone(),
+                };
+            }
+            UserEventPayload::BioChanged { bio } => {
+                let state = self.state_required_mut()?;
+                let UserProfile::Ready {
+                    username,
+                    display_name,
+                    ..
+                } = &state.profile
+                else {
+                    return Err(UserError::InvalidProfileState);
+                };
+                state.profile = UserProfile::Ready {
+                    username: username.clone(),
+                    display_name: display_name.clone(),
+                    bio: bio.clone(),
                 };
             }
             UserEventPayload::IdentityLinked { identity } => {
@@ -317,11 +369,7 @@ impl AggregateApply<UserEventPayload, UserError> for User {
                     .identities
                     .iter_mut()
                     .find(|identity| identity.matches(provider, subject))
-                    .unwrap_or_else(|| {
-                        unreachable!(
-                            "identity existence should be validated before appending the event"
-                        )
-                    });
+                    .ok_or(UserError::InvalidIdentityState)?;
                 identity.set_email(email.clone());
             }
         }
@@ -337,8 +385,8 @@ mod tests {
     use crate::core::Email;
 
     use super::{
-        User, UserDisplayName, UserEventPayload, UserId, UserIdentity, UserIdentityProvider,
-        UserIdentitySubject, UserProfile, UserStatus, Username,
+        User, UserBio, UserDisplayName, UserEventPayload, UserId, UserIdentity,
+        UserIdentityProvider, UserIdentitySubject, UserProfile, UserStatus, Username,
     };
 
     fn identity() -> UserIdentity {
@@ -378,6 +426,7 @@ mod tests {
                 .expect("display name lookup should succeed"),
             None
         );
+        assert_eq!(user.bio().expect("bio lookup should succeed"), None);
         assert_eq!(user.identities().expect("identities should exist").len(), 1);
         assert_eq!(
             user.identities().expect("identities should exist")[0]
@@ -401,10 +450,11 @@ mod tests {
         let username = Username::try_from("alice").expect("username should be valid");
         let display_name =
             UserDisplayName::try_from("Alice Example").expect("display name should be valid");
-        user.ready_profile(username.clone(), display_name.clone())
+        let bio = Some(UserBio::try_from("Banking enthusiast").expect("bio should be valid"));
+        user.ready_profile(username.clone(), display_name.clone(), bio.clone())
             .expect("profile ready should succeed");
 
-        user.ready_profile(username, display_name)
+        user.ready_profile(username, display_name, bio)
             .expect("no-op profile ready should succeed");
 
         assert_eq!(user.uncommitted_events().len(), 2);
@@ -415,9 +465,11 @@ mod tests {
         let mut user = User::default();
         user.register(identity())
             .expect("registration should succeed");
+        let bio = Some(UserBio::try_from("Banking enthusiast").expect("bio should be valid"));
         user.ready_profile(
             Username::try_from("alice").expect("username should be valid"),
             UserDisplayName::try_from("Alice Example").expect("display name should be valid"),
+            bio.clone(),
         )
         .expect("profile ready should succeed");
 
@@ -425,6 +477,7 @@ mod tests {
             .ready_profile(
                 Username::try_from("alice_example").expect("username should be valid"),
                 UserDisplayName::try_from("Alice Updated").expect("display name should be valid"),
+                None,
             )
             .expect_err("readying an already-ready profile should fail");
 
@@ -436,11 +489,12 @@ mod tests {
         let username = Username::try_from("alice_example").expect("username should be valid");
         let display_name =
             UserDisplayName::try_from("Alice Example").expect("display name should be valid");
+        let bio = Some(UserBio::try_from("Banking enthusiast").expect("bio should be valid"));
         let mut user = User::default();
         user.register(identity())
             .expect("registration should succeed");
 
-        user.ready_profile(username.clone(), display_name.clone())
+        user.ready_profile(username.clone(), display_name.clone(), bio.clone())
             .expect("profile ready should succeed");
 
         assert_eq!(
@@ -448,6 +502,7 @@ mod tests {
             &UserProfile::Ready {
                 username: username.clone(),
                 display_name: display_name.clone(),
+                bio: bio.clone(),
             }
         );
         assert_eq!(
@@ -459,6 +514,7 @@ mod tests {
                 .expect("display name lookup should succeed"),
             Some(&display_name)
         );
+        assert_eq!(user.bio().expect("bio lookup should succeed"), bio.as_ref());
         assert_eq!(user.uncommitted_events().len(), 2);
         assert_eq!(
             user.uncommitted_events()[1].payload().name(),
@@ -484,9 +540,11 @@ mod tests {
         let mut user = User::default();
         user.register(identity())
             .expect("registration should succeed");
+        let bio = Some(UserBio::try_from("Banking enthusiast").expect("bio should be valid"));
         user.ready_profile(
             Username::try_from("alice").expect("username should be valid"),
             UserDisplayName::try_from("Alice Example").expect("display name should be valid"),
+            bio.clone(),
         )
         .expect("profile ready should succeed");
         let username = Username::try_from("alice_example").expect("username should be valid");
@@ -498,6 +556,7 @@ mod tests {
             user.username().expect("username lookup should succeed"),
             Some(&username)
         );
+        assert_eq!(user.bio().expect("bio lookup should succeed"), bio.as_ref());
         assert_eq!(user.uncommitted_events().len(), 3);
         assert_eq!(
             user.uncommitted_events()[2].payload().name(),
@@ -525,9 +584,11 @@ mod tests {
         let mut user = User::default();
         user.register(identity())
             .expect("registration should succeed");
+        let bio = Some(UserBio::try_from("Banking enthusiast").expect("bio should be valid"));
         user.ready_profile(
             Username::try_from("alice").expect("username should be valid"),
             UserDisplayName::try_from("Alice Example").expect("display name should be valid"),
+            bio.clone(),
         )
         .expect("profile ready should succeed");
         let display_name =
@@ -541,10 +602,55 @@ mod tests {
                 .expect("display name lookup should succeed"),
             Some(&display_name)
         );
+        assert_eq!(user.bio().expect("bio lookup should succeed"), bio.as_ref());
         assert_eq!(user.uncommitted_events().len(), 3);
         assert_eq!(
             user.uncommitted_events()[2].payload().name(),
             UserEventPayload::DISPLAY_NAME_CHANGED
+        );
+    }
+
+    #[test]
+    fn change_bio_rejects_pending_profile() {
+        let mut user = User::default();
+        user.register(identity())
+            .expect("registration should succeed");
+
+        let error = user
+            .change_bio(Some(
+                UserBio::try_from("Banking enthusiast").expect("bio should be valid"),
+            ))
+            .expect_err("pending profile should reject bio changes");
+
+        assert!(matches!(error, super::UserError::ProfileNotReady));
+    }
+
+    #[test]
+    fn change_bio_appends_event_and_updates_state() {
+        let mut user = User::default();
+        user.register(identity())
+            .expect("registration should succeed");
+        let initial_bio =
+            Some(UserBio::try_from("Banking enthusiast").expect("bio should be valid"));
+        user.ready_profile(
+            Username::try_from("alice").expect("username should be valid"),
+            UserDisplayName::try_from("Alice Example").expect("display name should be valid"),
+            initial_bio.clone(),
+        )
+        .expect("profile ready should succeed");
+        let updated_bio = Some(UserBio::try_from("Banking operator").expect("bio should be valid"));
+
+        user.change_bio(updated_bio.clone())
+            .expect("bio change should succeed");
+
+        assert_eq!(
+            user.bio().expect("bio lookup should succeed"),
+            updated_bio.as_ref()
+        );
+        assert_eq!(user.uncommitted_events().len(), 3);
+        assert_eq!(
+            user.uncommitted_events()[2].payload().name(),
+            UserEventPayload::BIO_CHANGED
         );
     }
 
@@ -655,6 +761,7 @@ mod tests {
                 username: Username::try_from("alice_example").expect("username should be valid"),
                 display_name: UserDisplayName::try_from("Alice Example")
                     .expect("display name should be valid"),
+                bio: Some(UserBio::try_from("Banking enthusiast").expect("bio should be valid")),
             },
         );
         let identity_linked = Event::new(
@@ -684,9 +791,14 @@ mod tests {
                     .expect("display name should be valid"),
             },
         );
-        let identity_email_changed = Event::new(
+        let bio_changed = Event::new(
             id,
             appletheia::domain::AggregateVersion::try_from(6).expect("version should be valid"),
+            UserEventPayload::BioChanged { bio: None },
+        );
+        let identity_email_changed = Event::new(
+            id,
+            appletheia::domain::AggregateVersion::try_from(7).expect("version should be valid"),
             UserEventPayload::IdentityEmailChanged {
                 provider: UserIdentityProvider::try_from("https://accounts.example.com")
                     .expect("provider should be valid"),
@@ -704,6 +816,7 @@ mod tests {
                 identity_linked,
                 username_changed,
                 display_name_changed,
+                bio_changed,
                 identity_email_changed,
             ],
             None,
@@ -724,6 +837,7 @@ mod tests {
                 .value(),
             "Alice Updated"
         );
+        assert_eq!(user.bio().expect("bio lookup should succeed"), None);
         assert_eq!(user.identities().expect("identities should exist").len(), 2);
         assert_eq!(
             user.identities().expect("identities should exist")[0]
@@ -732,8 +846,35 @@ mod tests {
                 .value(),
             "alice@bank.example"
         );
-        assert_eq!(user.version().value(), 6);
+        assert_eq!(user.version().value(), 7);
         assert!(user.uncommitted_events().is_empty());
+    }
+
+    #[test]
+    fn replay_rejects_profile_change_before_profile_is_ready() {
+        let id = UserId::new();
+        let registered = Event::new(
+            id,
+            appletheia::domain::AggregateVersion::try_from(1).expect("version should be valid"),
+            UserEventPayload::Registered {
+                id,
+                identity: identity(),
+            },
+        );
+        let username_changed = Event::new(
+            id,
+            appletheia::domain::AggregateVersion::try_from(2).expect("version should be valid"),
+            UserEventPayload::UsernameChanged {
+                username: Username::try_from("alice_updated").expect("username should be valid"),
+            },
+        );
+        let mut user = User::default();
+
+        let error = user
+            .replay_events(vec![registered, username_changed], None)
+            .expect_err("invalid replay should fail");
+
+        assert!(matches!(error, super::UserError::InvalidProfileState));
     }
 
     #[test]
@@ -803,6 +944,7 @@ mod tests {
             .ready_profile(
                 Username::try_from("alice").expect("username should be valid"),
                 UserDisplayName::try_from("Alice Example").expect("display name should be valid"),
+                None,
             )
             .expect_err("inactive user should reject profile ready");
         let provider = UserIdentityProvider::try_from("https://accounts.example.com")
@@ -834,6 +976,7 @@ mod tests {
             .ready_profile(
                 Username::try_from("alice").expect("username should be valid"),
                 UserDisplayName::try_from("Alice Example").expect("display name should be valid"),
+                None,
             )
             .expect_err("profile ready should fail");
 

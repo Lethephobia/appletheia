@@ -65,7 +65,11 @@ where
             return Err(UserProfileReadyCommandHandlerError::UserNotFound);
         };
 
-        user.ready_profile(command.username.clone(), command.display_name.clone())?;
+        user.ready_profile(
+            command.username.clone(),
+            command.display_name.clone(),
+            command.bio.clone(),
+        )?;
 
         self.user_repository
             .save(uow, request_context, &mut user)
@@ -79,7 +83,8 @@ where
             .display_name()?
             .cloned()
             .ok_or(UserProfileReadyCommandHandlerError::UserProfileNotReady)?;
-        let output = UserProfileReadyOutput::new(command.user_id, username, display_name);
+        let bio = user.bio()?.cloned();
+        let output = UserProfileReadyOutput::new(command.user_id, username, display_name, bio);
 
         Ok(CommandHandled::same(output))
     }
@@ -101,8 +106,8 @@ mod tests {
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::Aggregate;
     use banking_iam_domain::{
-        User, UserDisplayName, UserId, UserIdentity, UserIdentityProvider, UserIdentitySubject,
-        Username,
+        User, UserBio, UserDisplayName, UserId, UserIdentity, UserIdentityProvider,
+        UserIdentitySubject, Username,
     };
     use uuid::Uuid;
 
@@ -211,6 +216,7 @@ mod tests {
             user_id,
             username: Username::try_from("alice").expect("username should be valid"),
             display_name: UserDisplayName::try_from("Alice").expect("display name should be valid"),
+            bio: Some(UserBio::try_from("Banking enthusiast").expect("bio should be valid")),
         };
 
         let plan = handler
@@ -251,6 +257,9 @@ mod tests {
                     username: Username::try_from("alice").expect("username should be valid"),
                     display_name: UserDisplayName::try_from("Alice")
                         .expect("display name should be valid"),
+                    bio: Some(
+                        UserBio::try_from("Banking enthusiast").expect("bio should be valid"),
+                    ),
                 },
             )
             .await
@@ -262,6 +271,7 @@ mod tests {
                 user_id,
                 Username::try_from("alice").expect("username should be valid"),
                 UserDisplayName::try_from("Alice").expect("display name should be valid"),
+                Some(UserBio::try_from("Banking enthusiast").expect("bio should be valid")),
             )
         );
     }

@@ -1,5 +1,5 @@
 use appletheia::command;
-use banking_iam_domain::{UserDisplayName, UserId, Username};
+use banking_iam_domain::{UserBio, UserDisplayName, UserId, Username};
 use serde::{Deserialize, Serialize};
 
 /// Marks a user's profile as ready.
@@ -9,4 +9,6 @@ pub struct UserProfileReadyCommand {
     pub user_id: UserId,
     pub username: Username,
     pub display_name: UserDisplayName,
+    #[serde(default)]
+    pub bio: Option<UserBio>,
 }

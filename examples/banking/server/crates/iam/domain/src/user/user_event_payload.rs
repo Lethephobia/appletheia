@@ -3,7 +3,7 @@ use appletheia::event_payload;
 use crate::core::Email;
 
 use super::{
-    UserDisplayName, UserEventPayloadError, UserId, UserIdentity, UserIdentityProvider,
+    UserBio, UserDisplayName, UserEventPayloadError, UserId, UserIdentity, UserIdentityProvider,
     UserIdentitySubject, Username,
 };
 
@@ -20,12 +20,17 @@ pub enum UserEventPayload {
     ProfileReadied {
         username: Username,
         display_name: UserDisplayName,
+        #[serde(default)]
+        bio: Option<UserBio>,
     },
     UsernameChanged {
         username: Username,
     },
     DisplayNameChanged {
         display_name: UserDisplayName,
+    },
+    BioChanged {
+        bio: Option<UserBio>,
     },
     IdentityLinked {
         identity: UserIdentity,
@@ -44,7 +49,7 @@ mod tests {
     use crate::core::Email;
 
     use super::{
-        UserDisplayName, UserEventPayload, UserId, UserIdentity, UserIdentityProvider,
+        UserBio, UserDisplayName, UserEventPayload, UserId, UserIdentity, UserIdentityProvider,
         UserIdentitySubject, Username,
     };
 
@@ -79,6 +84,10 @@ mod tests {
             appletheia::domain::EventName::new("display_name_changed")
         );
         assert_eq!(
+            UserEventPayload::BIO_CHANGED,
+            appletheia::domain::EventName::new("bio_changed")
+        );
+        assert_eq!(
             UserEventPayload::IDENTITY_LINKED,
             appletheia::domain::EventName::new("identity_linked")
         );
@@ -94,6 +103,7 @@ mod tests {
             username: Username::try_from("alice_example").expect("username should be valid"),
             display_name: UserDisplayName::try_from("Alice Example")
                 .expect("display name should be valid"),
+            bio: Some(UserBio::try_from("Banking enthusiast").expect("bio should be valid")),
         };
 
         assert_eq!(payload.name(), UserEventPayload::PROFILE_READIED);
@@ -116,6 +126,15 @@ mod tests {
         };
 
         assert_eq!(payload.name(), UserEventPayload::DISPLAY_NAME_CHANGED);
+    }
+
+    #[test]
+    fn bio_changed_payload_name_matches_variant() {
+        let payload = UserEventPayload::BioChanged {
+            bio: Some(UserBio::try_from("Banking enthusiast").expect("bio should be valid")),
+        };
+
+        assert_eq!(payload.name(), UserEventPayload::BIO_CHANGED);
     }
 
     #[test]
