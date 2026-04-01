@@ -53,6 +53,18 @@ impl Transfer {
         to_account_id: AccountId,
         amount: AccountBalance,
     ) -> Result<(), TransferError> {
+        if self.state().is_some() {
+            return Err(TransferError::AlreadyRequested);
+        }
+
+        if from_account_id == to_account_id {
+            return Err(TransferError::SameAccount);
+        }
+
+        if amount.is_zero() {
+            return Err(TransferError::ZeroAmount);
+        }
+
         self.append_event(TransferEventPayload::Requested {
             id: TransferId::new(),
             from_account_id,
@@ -63,29 +75,32 @@ impl Transfer {
 
     /// Completes the transfer.
     pub fn complete(&mut self) -> Result<(), TransferError> {
-        if matches!(self.state_required()?.status, TransferStatus::Completed) {
-            return Ok(());
+        match self.state_required()?.status {
+            TransferStatus::Pending => self.append_event(TransferEventPayload::Completed),
+            TransferStatus::Completed => Ok(()),
+            TransferStatus::Failed => Err(TransferError::AlreadyFailed),
+            TransferStatus::Cancelled => Err(TransferError::AlreadyCancelled),
         }
-
-        self.append_event(TransferEventPayload::Completed)
     }
 
     /// Fails the transfer.
     pub fn fail(&mut self) -> Result<(), TransferError> {
-        if matches!(self.state_required()?.status, TransferStatus::Failed) {
-            return Ok(());
+        match self.state_required()?.status {
+            TransferStatus::Pending => self.append_event(TransferEventPayload::Failed),
+            TransferStatus::Completed => Err(TransferError::AlreadyCompleted),
+            TransferStatus::Failed => Ok(()),
+            TransferStatus::Cancelled => Err(TransferError::AlreadyCancelled),
         }
-
-        self.append_event(TransferEventPayload::Failed)
     }
 
     /// Cancels the transfer.
     pub fn cancel(&mut self) -> Result<(), TransferError> {
-        if matches!(self.state_required()?.status, TransferStatus::Cancelled) {
-            return Ok(());
+        match self.state_required()?.status {
+            TransferStatus::Pending => self.append_event(TransferEventPayload::Cancelled),
+            TransferStatus::Completed => Err(TransferError::AlreadyCompleted),
+            TransferStatus::Failed => Err(TransferError::AlreadyFailed),
+            TransferStatus::Cancelled => Ok(()),
         }
-
-        self.append_event(TransferEventPayload::Cancelled)
     }
 }
 
@@ -97,50 +112,21 @@ impl AggregateApply<TransferEventPayload, TransferError> for Transfer {
                 from_account_id,
                 to_account_id,
                 amount,
-            } => {
-                if self.state().is_some() {
-                    return Err(TransferError::AlreadyRequested);
-                }
-
-                if from_account_id == to_account_id {
-                    return Err(TransferError::SameAccount);
-                }
-
-                if amount.is_zero() {
-                    return Err(TransferError::ZeroAmount);
-                }
-
-                self.set_state(Some(TransferState::new(
-                    *id,
-                    *from_account_id,
-                    *to_account_id,
-                    *amount,
-                )));
+            } => self.set_state(Some(TransferState::new(
+                *id,
+                *from_account_id,
+                *to_account_id,
+                *amount,
+            ))),
+            TransferEventPayload::Completed => {
+                self.state_required_mut()?.status = TransferStatus::Completed;
             }
-            TransferEventPayload::Completed => match self.state_required()?.status {
-                TransferStatus::Pending => {
-                    self.state_required_mut()?.status = TransferStatus::Completed;
-                }
-                TransferStatus::Completed => {}
-                TransferStatus::Failed => return Err(TransferError::AlreadyFailed),
-                TransferStatus::Cancelled => return Err(TransferError::AlreadyCancelled),
-            },
-            TransferEventPayload::Failed => match self.state_required()?.status {
-                TransferStatus::Pending => {
-                    self.state_required_mut()?.status = TransferStatus::Failed;
-                }
-                TransferStatus::Completed => return Err(TransferError::AlreadyCompleted),
-                TransferStatus::Failed => {}
-                TransferStatus::Cancelled => return Err(TransferError::AlreadyCancelled),
-            },
-            TransferEventPayload::Cancelled => match self.state_required()?.status {
-                TransferStatus::Pending => {
-                    self.state_required_mut()?.status = TransferStatus::Cancelled;
-                }
-                TransferStatus::Completed => return Err(TransferError::AlreadyCompleted),
-                TransferStatus::Failed => return Err(TransferError::AlreadyFailed),
-                TransferStatus::Cancelled => {}
-            },
+            TransferEventPayload::Failed => {
+                self.state_required_mut()?.status = TransferStatus::Failed;
+            }
+            TransferEventPayload::Cancelled => {
+                self.state_required_mut()?.status = TransferStatus::Cancelled;
+            }
         }
 
         Ok(())

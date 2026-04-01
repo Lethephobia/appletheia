@@ -96,6 +96,7 @@ impl Account {
         name: AccountName,
         currency_definition_id: CurrencyDefinitionId,
     ) -> Result<(), AccountError> {
+        self.ensure_not_opened()?;
         self.append_event(AccountEventPayload::Opened {
             id: AccountId::new(),
             owner,
@@ -106,6 +107,8 @@ impl Account {
 
     /// Renames the account.
     pub fn rename(&mut self, name: AccountName) -> Result<(), AccountError> {
+        self.ensure_not_closed()?;
+
         if self.state().is_some_and(|state| state.name.eq(&name)) {
             return Ok(());
         }
@@ -115,6 +118,8 @@ impl Account {
 
     /// Freezes the account.
     pub fn freeze(&mut self) -> Result<(), AccountError> {
+        self.ensure_not_closed()?;
+
         if self.state().is_some_and(|state| state.status.is_frozen()) {
             return Ok(());
         }
@@ -124,6 +129,8 @@ impl Account {
 
     /// Thaws the account.
     pub fn thaw(&mut self) -> Result<(), AccountError> {
+        self.ensure_not_closed()?;
+
         if self.state().is_some_and(|state| state.status.is_active()) {
             return Ok(());
         }
@@ -133,6 +140,8 @@ impl Account {
 
     /// Closes the account permanently.
     pub fn close(&mut self) -> Result<(), AccountError> {
+        self.ensure_zero_balances_for_close()?;
+
         if self.state().is_some_and(|state| state.status.is_closed()) {
             return Ok(());
         }
@@ -142,6 +151,8 @@ impl Account {
 
     /// Deposits balance into the account.
     pub fn deposit(&mut self, amount: AccountBalance) -> Result<(), AccountError> {
+        self.ensure_active_status()?;
+
         if amount.is_zero() {
             return Ok(());
         }
@@ -151,6 +162,9 @@ impl Account {
 
     /// Withdraws balance from the account.
     pub fn withdraw(&mut self, amount: AccountBalance) -> Result<(), AccountError> {
+        self.ensure_active_status()?;
+        self.ensure_available_balance_at_least(amount, AccountError::InsufficientBalance)?;
+
         if amount.is_zero() {
             return Ok(());
         }
@@ -160,6 +174,9 @@ impl Account {
 
     /// Reserves funds in the account.
     pub fn reserve_funds(&mut self, amount: AccountBalance) -> Result<(), AccountError> {
+        self.ensure_active_status()?;
+        self.ensure_available_balance_at_least(amount, AccountError::InsufficientAvailableBalance)?;
+
         if amount.is_zero() {
             return Ok(());
         }
@@ -169,6 +186,9 @@ impl Account {
 
     /// Releases reserved funds in the account.
     pub fn release_reserved_funds(&mut self, amount: AccountBalance) -> Result<(), AccountError> {
+        self.ensure_active_status()?;
+        self.ensure_reserved_balance_at_least(amount)?;
+
         if amount.is_zero() {
             return Ok(());
         }
@@ -178,6 +198,9 @@ impl Account {
 
     /// Commits reserved funds and deducts them from the account.
     pub fn commit_reserved_funds(&mut self, amount: AccountBalance) -> Result<(), AccountError> {
+        self.ensure_active_status()?;
+        self.ensure_reserved_balance_at_least(amount)?;
+
         if amount.is_zero() {
             return Ok(());
         }
@@ -252,60 +275,35 @@ impl AggregateApply<AccountEventPayload, AccountError> for Account {
                 owner,
                 name,
                 currency_definition_id,
-            } => {
-                self.ensure_not_opened()?;
-                self.set_state(Some(AccountState::new(
-                    *id,
-                    owner.clone(),
-                    name.clone(),
-                    *currency_definition_id,
-                )));
+            } => self.set_state(Some(AccountState::new(
+                *id,
+                owner.clone(),
+                name.clone(),
+                *currency_definition_id,
+            ))),
+            AccountEventPayload::Renamed { name } => self.state_required_mut()?.name = name.clone(),
+            AccountEventPayload::Frozen => {
+                self.state_required_mut()?.status = AccountStatus::Frozen;
             }
-            AccountEventPayload::Renamed { name } => {
-                self.ensure_not_closed()?;
-                self.state_required_mut()?.name = name.clone();
+            AccountEventPayload::Thawed => {
+                self.state_required_mut()?.status = AccountStatus::Active;
             }
-            AccountEventPayload::Frozen => match self.state_required()?.status {
-                AccountStatus::Active => self.state_required_mut()?.status = AccountStatus::Frozen,
-                AccountStatus::Frozen => {}
-                AccountStatus::Closed => return Err(AccountError::Closed),
-            },
-            AccountEventPayload::Thawed => match self.state_required()?.status {
-                AccountStatus::Active => {}
-                AccountStatus::Frozen => self.state_required_mut()?.status = AccountStatus::Active,
-                AccountStatus::Closed => self.ensure_not_closed()?,
-            },
             AccountEventPayload::Closed => {
-                if self.state_required()?.status.is_closed() {
-                    return Ok(());
-                }
-
-                self.ensure_zero_balances_for_close()?;
                 self.state_required_mut()?.status = AccountStatus::Closed;
             }
             AccountEventPayload::Deposited { amount } => {
-                self.ensure_active_status()?;
                 let state = self.state_required_mut()?;
                 state.balance = state.balance.try_add(*amount)?;
             }
             AccountEventPayload::Withdrawn { amount } => {
-                self.ensure_active_status()?;
-                self.ensure_available_balance_at_least(*amount, AccountError::InsufficientBalance)?;
                 let state = self.state_required_mut()?;
                 state.balance = state.balance.try_sub(*amount)?;
             }
             AccountEventPayload::FundsReserved { amount } => {
-                self.ensure_active_status()?;
-                self.ensure_available_balance_at_least(
-                    *amount,
-                    AccountError::InsufficientAvailableBalance,
-                )?;
                 let state = self.state_required_mut()?;
                 state.reserved_balance = state.reserved_balance.try_add(*amount)?;
             }
             AccountEventPayload::ReservedFundsReleased { amount } => {
-                self.ensure_active_status()?;
-                self.ensure_reserved_balance_at_least(*amount)?;
                 let state = self.state_required_mut()?;
                 state.reserved_balance =
                     state
@@ -319,8 +317,6 @@ impl AggregateApply<AccountEventPayload, AccountError> for Account {
                         })?;
             }
             AccountEventPayload::ReservedFundsCommitted { amount } => {
-                self.ensure_active_status()?;
-                self.ensure_reserved_balance_at_least(*amount)?;
                 let state = self.state_required_mut()?;
                 let next_reserved =
                     state
@@ -532,7 +528,7 @@ mod tests {
     }
 
     #[test]
-    fn replay_rejects_events_after_closed() {
+    fn replay_events_after_closed_updates_state() {
         let id = AccountId::new();
         let owner = account_owner();
         let name = account_name();
@@ -561,11 +557,20 @@ mod tests {
         );
         let mut account = Account::default();
 
-        let error = account
+        account
             .replay_events(vec![opened, closed, renamed], None)
-            .expect_err("event after close should fail");
+            .expect("events should replay");
 
-        assert!(matches!(error, super::AccountError::Closed));
+        assert_eq!(
+            account.name().expect("name should exist"),
+            &AccountName::try_from("archived").expect("account name should be valid")
+        );
+        assert_eq!(
+            account.status().expect("status should exist"),
+            AccountStatus::Closed
+        );
+        assert_eq!(account.version().value(), 3);
+        assert!(account.uncommitted_events().is_empty());
     }
 
     #[test]

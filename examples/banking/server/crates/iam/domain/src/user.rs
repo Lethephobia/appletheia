@@ -86,6 +86,7 @@ impl User {
 
     /// Registers a new user with an initial external identity.
     pub fn register(&mut self, identity: UserIdentity) -> Result<(), UserError> {
+        self.ensure_not_registered()?;
         self.append_event(UserEventPayload::Registered {
             id: UserId::new(),
             identity,
@@ -98,14 +99,18 @@ impl User {
         username: Username,
         display_name: UserDisplayName,
     ) -> Result<(), UserError> {
+        self.ensure_active_status()?;
+
         if let UserProfile::Ready {
             username: current_username,
             display_name: current_display_name,
         } = &self.state_required()?.profile
-            && current_username.eq(&username)
-            && current_display_name.eq(&display_name)
         {
-            return Ok(());
+            if current_username.eq(&username) && current_display_name.eq(&display_name) {
+                return Ok(());
+            }
+
+            return Err(UserError::ProfileAlreadyReady);
         }
 
         self.append_event(UserEventPayload::ProfileReadied {
@@ -116,9 +121,13 @@ impl User {
 
     /// Changes the current username.
     pub fn change_username(&mut self, username: Username) -> Result<(), UserError> {
-        if let Some(current_username) = self.state_required()?.profile.username()
-            && current_username.eq(&username)
-        {
+        self.ensure_active_status()?;
+
+        let Some(current_username) = self.state_required()?.profile.username() else {
+            return Err(UserError::ProfileNotReady);
+        };
+
+        if current_username.eq(&username) {
             return Ok(());
         }
 
@@ -127,9 +136,13 @@ impl User {
 
     /// Changes the current display name.
     pub fn change_display_name(&mut self, display_name: UserDisplayName) -> Result<(), UserError> {
-        if let Some(current_display_name) = self.state_required()?.profile.display_name()
-            && current_display_name.eq(&display_name)
-        {
+        self.ensure_active_status()?;
+
+        let Some(current_display_name) = self.state_required()?.profile.display_name() else {
+            return Err(UserError::ProfileNotReady);
+        };
+
+        if current_display_name.eq(&display_name) {
             return Ok(());
         }
 
@@ -138,6 +151,8 @@ impl User {
 
     /// Links an additional external identity.
     pub fn link_identity(&mut self, identity: UserIdentity) -> Result<(), UserError> {
+        self.ensure_active_status()?;
+
         if let Some(current_identity) =
             self.state_required()?
                 .identities
@@ -145,10 +160,12 @@ impl User {
                 .find(|current_identity| {
                     current_identity.matches(identity.provider(), identity.subject())
                 })
-            && current_identity.eq(&identity)
         {
-            let _ = current_identity;
-            return Ok(());
+            if current_identity.eq(&identity) {
+                return Ok(());
+            }
+
+            return Err(UserError::IdentityAlreadyLinked);
         }
 
         self.append_event(UserEventPayload::IdentityLinked { identity })
@@ -161,13 +178,18 @@ impl User {
         subject: &UserIdentitySubject,
         email: Option<Email>,
     ) -> Result<(), UserError> {
-        if let Some(identity) = self
+        self.ensure_active_status()?;
+
+        let Some(identity) = self
             .state_required()?
             .identities
             .iter()
             .find(|identity| identity.matches(provider, subject))
-            && identity.email() == email.as_ref()
-        {
+        else {
+            return Err(UserError::IdentityNotFound);
+        };
+
+        if identity.email() == email.as_ref() {
             return Ok(());
         }
 
@@ -180,6 +202,8 @@ impl User {
 
     /// Activates an inactive user.
     pub fn activate(&mut self) -> Result<(), UserError> {
+        self.ensure_not_removed()?;
+
         if self.state_required()?.status.is_active() {
             return Ok(());
         }
@@ -189,6 +213,8 @@ impl User {
 
     /// Deactivates an active user.
     pub fn deactivate(&mut self) -> Result<(), UserError> {
+        self.ensure_not_removed()?;
+
         if self.state_required()?.status.is_inactive() {
             return Ok(());
         }
@@ -228,101 +254,38 @@ impl User {
 
         Ok(())
     }
-
-    fn ensure_profile_pending(&self) -> Result<(), UserError> {
-        if matches!(self.state_required()?.profile, UserProfile::Ready { .. }) {
-            return Err(UserError::ProfileAlreadyReady);
-        }
-
-        Ok(())
-    }
-
-    fn ensure_profile_ready(&self) -> Result<(), UserError> {
-        if self.state_required()?.profile.username().is_none() {
-            return Err(UserError::ProfileNotReady);
-        }
-
-        Ok(())
-    }
-
-    fn ensure_identity_not_linked(&self, identity: &UserIdentity) -> Result<(), UserError> {
-        if self
-            .state_required()?
-            .identities
-            .iter()
-            .any(|current_identity| {
-                current_identity.matches(identity.provider(), identity.subject())
-            })
-        {
-            return Err(UserError::IdentityAlreadyLinked);
-        }
-
-        Ok(())
-    }
-
-    fn ensure_identity_exists(
-        &self,
-        provider: &UserIdentityProvider,
-        subject: &UserIdentitySubject,
-    ) -> Result<(), UserError> {
-        if self
-            .state_required()?
-            .identities
-            .iter()
-            .any(|identity| identity.matches(provider, subject))
-        {
-            return Ok(());
-        }
-
-        Err(UserError::IdentityNotFound)
-    }
 }
 
 impl AggregateApply<UserEventPayload, UserError> for User {
     fn apply(&mut self, payload: &UserEventPayload) -> Result<(), UserError> {
         match payload {
             UserEventPayload::Registered { id, identity } => {
-                self.ensure_not_registered()?;
-                self.set_state(Some(UserState::new(*id, identity.clone())));
+                self.set_state(Some(UserState::new(*id, identity.clone())))
             }
-            UserEventPayload::Activated => match self.state_required()?.status {
-                UserStatus::Active => {}
-                UserStatus::Inactive => {
-                    self.state_required_mut()?.status = UserStatus::Active;
-                }
-                UserStatus::Removed => self.ensure_not_removed()?,
-            },
-            UserEventPayload::Inactivated => match self.state_required()?.status {
-                UserStatus::Active => {
-                    self.state_required_mut()?.status = UserStatus::Inactive;
-                }
-                UserStatus::Inactive => {}
-                UserStatus::Removed => self.ensure_not_removed()?,
-            },
+            UserEventPayload::Activated => {
+                self.state_required_mut()?.status = UserStatus::Active;
+            }
+            UserEventPayload::Inactivated => {
+                self.state_required_mut()?.status = UserStatus::Inactive;
+            }
             UserEventPayload::Removed => {
-                if self.state_required()?.status.is_removed() {
-                    return Ok(());
-                }
-
                 self.state_required_mut()?.status = UserStatus::Removed;
             }
             UserEventPayload::ProfileReadied {
                 username,
                 display_name,
             } => {
-                self.ensure_active_status()?;
-                self.ensure_profile_pending()?;
                 self.state_required_mut()?.profile = UserProfile::Ready {
                     username: username.clone(),
                     display_name: display_name.clone(),
                 };
             }
             UserEventPayload::UsernameChanged { username } => {
-                self.ensure_active_status()?;
-                self.ensure_profile_ready()?;
                 let state = self.state_required_mut()?;
                 let UserProfile::Ready { display_name, .. } = &state.profile else {
-                    return Err(UserError::ProfileNotReady);
+                    unreachable!(
+                        "profile readiness should be validated before appending the event"
+                    );
                 };
                 state.profile = UserProfile::Ready {
                     username: username.clone(),
@@ -330,11 +293,11 @@ impl AggregateApply<UserEventPayload, UserError> for User {
                 };
             }
             UserEventPayload::DisplayNameChanged { display_name } => {
-                self.ensure_active_status()?;
-                self.ensure_profile_ready()?;
                 let state = self.state_required_mut()?;
                 let UserProfile::Ready { username, .. } = &state.profile else {
-                    return Err(UserError::ProfileNotReady);
+                    unreachable!(
+                        "profile readiness should be validated before appending the event"
+                    );
                 };
                 state.profile = UserProfile::Ready {
                     username: username.clone(),
@@ -342,8 +305,6 @@ impl AggregateApply<UserEventPayload, UserError> for User {
                 };
             }
             UserEventPayload::IdentityLinked { identity } => {
-                self.ensure_active_status()?;
-                self.ensure_identity_not_linked(identity)?;
                 self.state_required_mut()?.identities.push(identity.clone());
             }
             UserEventPayload::IdentityEmailChanged {
@@ -351,16 +312,16 @@ impl AggregateApply<UserEventPayload, UserError> for User {
                 subject,
                 email,
             } => {
-                self.ensure_active_status()?;
-                self.ensure_identity_exists(provider, subject)?;
                 let state = self.state_required_mut()?;
-                let Some(identity) = state
+                let identity = state
                     .identities
                     .iter_mut()
                     .find(|identity| identity.matches(provider, subject))
-                else {
-                    return Err(UserError::IdentityNotFound);
-                };
+                    .unwrap_or_else(|| {
+                        unreachable!(
+                            "identity existence should be validated before appending the event"
+                        )
+                    });
                 identity.set_email(email.clone());
             }
         }

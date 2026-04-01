@@ -76,6 +76,8 @@ impl CurrencyDefinition {
 
     /// Changes the current currency symbol.
     pub fn change_symbol(&mut self, symbol: CurrencySymbol) -> Result<(), CurrencyDefinitionError> {
+        self.ensure_not_removed()?;
+
         if self.state_required()?.symbol.eq(&symbol) {
             return Ok(());
         }
@@ -85,6 +87,8 @@ impl CurrencyDefinition {
 
     /// Changes the current currency name.
     pub fn change_name(&mut self, name: CurrencyName) -> Result<(), CurrencyDefinitionError> {
+        self.ensure_not_removed()?;
+
         if self.state_required()?.name.eq(&name) {
             return Ok(());
         }
@@ -94,6 +98,8 @@ impl CurrencyDefinition {
 
     /// Activates the currency.
     pub fn activate(&mut self) -> Result<(), CurrencyDefinitionError> {
+        self.ensure_not_removed()?;
+
         if self.state_required()?.status.is_active() {
             return Ok(());
         }
@@ -103,6 +109,8 @@ impl CurrencyDefinition {
 
     /// Deactivates the currency.
     pub fn deactivate(&mut self) -> Result<(), CurrencyDefinitionError> {
+        self.ensure_not_removed()?;
+
         if self.state_required()?.status.is_inactive() {
             return Ok(());
         }
@@ -141,45 +149,25 @@ impl AggregateApply<CurrencyDefinitionEventPayload, CurrencyDefinitionError>
                 symbol,
                 name,
                 decimals,
-            } => {
-                if self.state().is_some() {
-                    return Err(CurrencyDefinitionError::AlreadyDefined);
-                }
-
-                self.set_state(Some(CurrencyDefinitionState::new(
-                    *id,
-                    symbol.clone(),
-                    name.clone(),
-                    *decimals,
-                )));
-            }
+            } => self.set_state(Some(CurrencyDefinitionState::new(
+                *id,
+                symbol.clone(),
+                name.clone(),
+                *decimals,
+            ))),
             CurrencyDefinitionEventPayload::SymbolChanged { symbol } => {
-                self.ensure_not_removed()?;
                 self.state_required_mut()?.symbol = symbol.clone();
             }
             CurrencyDefinitionEventPayload::NameChanged { name } => {
-                self.ensure_not_removed()?;
                 self.state_required_mut()?.name = name.clone();
             }
-            CurrencyDefinitionEventPayload::Activated => match self.state_required()?.status {
-                CurrencyDefinitionStatus::Active => {}
-                CurrencyDefinitionStatus::Inactive => {
-                    self.state_required_mut()?.status = CurrencyDefinitionStatus::Active;
-                }
-                CurrencyDefinitionStatus::Removed => return Err(CurrencyDefinitionError::Removed),
-            },
-            CurrencyDefinitionEventPayload::Deactivated => match self.state_required()?.status {
-                CurrencyDefinitionStatus::Active => {
-                    self.state_required_mut()?.status = CurrencyDefinitionStatus::Inactive;
-                }
-                CurrencyDefinitionStatus::Inactive => {}
-                CurrencyDefinitionStatus::Removed => return Err(CurrencyDefinitionError::Removed),
-            },
+            CurrencyDefinitionEventPayload::Activated => {
+                self.state_required_mut()?.status = CurrencyDefinitionStatus::Active;
+            }
+            CurrencyDefinitionEventPayload::Deactivated => {
+                self.state_required_mut()?.status = CurrencyDefinitionStatus::Inactive;
+            }
             CurrencyDefinitionEventPayload::Removed => {
-                if self.state_required()?.status.is_removed() {
-                    return Ok(());
-                }
-
                 self.state_required_mut()?.status = CurrencyDefinitionStatus::Removed;
             }
         }

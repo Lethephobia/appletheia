@@ -35,22 +35,16 @@ impl Role {
 
     /// Creates a new role.
     pub fn create(&mut self, name: RoleName) -> Result<(), RoleError> {
-        if let Some(state) = self.state()
-            && state.name == name
-        {
-            return Ok(());
+        if let Some(state) = self.state() {
+            if state.name == name {
+                return Ok(());
+            }
+
+            return Err(RoleError::AlreadyCreated);
         }
 
         let id = RoleId::from_name(&name);
         self.append_event(RoleEventPayload::Created { id, name })
-    }
-
-    fn ensure_not_created(&self) -> Result<(), RoleError> {
-        if self.state().is_some() {
-            return Err(RoleError::AlreadyCreated);
-        }
-
-        Ok(())
     }
 }
 
@@ -58,8 +52,7 @@ impl AggregateApply<RoleEventPayload, RoleError> for Role {
     fn apply(&mut self, payload: &RoleEventPayload) -> Result<(), RoleError> {
         match payload {
             RoleEventPayload::Created { id, name } => {
-                self.ensure_not_created()?;
-                self.set_state(Some(RoleState::new(*id, name.clone())));
+                self.set_state(Some(RoleState::new(*id, name.clone())))
             }
         }
 

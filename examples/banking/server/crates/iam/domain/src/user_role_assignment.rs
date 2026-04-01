@@ -47,6 +47,7 @@ impl UserRoleAssignment {
         role_id: RoleId,
         user_id: UserId,
     ) -> Result<(), UserRoleAssignmentError> {
+        self.ensure_not_assigned()?;
         self.append_event(UserRoleAssignmentEventPayload::Assigned {
             id: UserRoleAssignmentId::new(),
             role_id,
@@ -88,16 +89,10 @@ impl AggregateApply<UserRoleAssignmentEventPayload, UserRoleAssignmentError>
                 id,
                 role_id,
                 user_id,
-            } => {
-                self.ensure_not_assigned()?;
-                self.set_state(Some(UserRoleAssignmentState::new(*id, *role_id, *user_id)));
+            } => self.set_state(Some(UserRoleAssignmentState::new(*id, *role_id, *user_id))),
+            UserRoleAssignmentEventPayload::Revoked { .. } => {
+                self.state_required_mut()?.status = UserRoleAssignmentStatus::Revoked;
             }
-            UserRoleAssignmentEventPayload::Revoked { .. } => match self.state_required()?.status {
-                UserRoleAssignmentStatus::Assigned => {
-                    self.state_required_mut()?.status = UserRoleAssignmentStatus::Revoked;
-                }
-                UserRoleAssignmentStatus::Revoked => {}
-            },
         }
 
         Ok(())
