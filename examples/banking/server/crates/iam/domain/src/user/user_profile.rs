@@ -9,7 +9,6 @@ pub enum UserProfile {
     Ready {
         username: Username,
         display_name: UserDisplayName,
-        #[serde(default)]
         bio: Option<UserBio>,
     },
 }

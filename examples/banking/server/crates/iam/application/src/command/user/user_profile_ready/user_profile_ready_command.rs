@@ -9,6 +9,5 @@ pub struct UserProfileReadyCommand {
     pub user_id: UserId,
     pub username: Username,
     pub display_name: UserDisplayName,
-    #[serde(default)]
     pub bio: Option<UserBio>,
 }

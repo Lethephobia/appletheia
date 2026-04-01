@@ -10,6 +10,5 @@ use super::AccountReserveFundsContext;
 pub struct AccountReserveFundsCommand {
     pub account_id: AccountId,
     pub amount: AccountBalance,
-    #[serde(default)]
     pub context: AccountReserveFundsContext,
 }

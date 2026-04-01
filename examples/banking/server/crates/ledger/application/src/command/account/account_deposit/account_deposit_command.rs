@@ -10,6 +10,5 @@ use super::AccountDepositContext;
 pub struct AccountDepositCommand {
     pub account_id: AccountId,
     pub amount: AccountBalance,
-    #[serde(default)]
     pub context: AccountDepositContext,
 }

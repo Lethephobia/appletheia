@@ -20,7 +20,6 @@ pub enum UserEventPayload {
     ProfileReadied {
         username: Username,
         display_name: UserDisplayName,
-        #[serde(default)]
         bio: Option<UserBio>,
     },
     UsernameChanged {
