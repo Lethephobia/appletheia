@@ -4,12 +4,12 @@ use appletheia::application::authorization::{
 };
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
-use banking_iam_domain::{Role, RoleId, User, UserEventPayload};
+use banking_iam_domain::{User, UserEventPayload};
 
 use super::{
     UserStatusManagerRelationshipProjectorError, UserStatusManagerRelationshipProjectorSpec,
 };
-use crate::authorization::{RoleAssigneeRelation, UserStatusManagerRelation};
+use crate::authorization::UserStatusManagerRelation;
 
 /// Projects the initial status manager relationship for new users.
 pub struct UserStatusManagerRelationshipProjector<RS>
@@ -48,10 +48,9 @@ where
                 &[RelationshipChange::Upsert(Relationship {
                     aggregate: AggregateRef::from_id::<User>(event.aggregate_id()),
                     relation: RelationNameOwned::from(UserStatusManagerRelation::NAME),
-                    subject: RelationshipSubject::AggregateSet {
-                        aggregate: AggregateRef::from_id::<Role>(RoleId::admin()),
-                        relation: RelationNameOwned::from(RoleAssigneeRelation::NAME),
-                    },
+                    subject: RelationshipSubject::Aggregate(AggregateRef::from_id::<User>(
+                        event.aggregate_id(),
+                    )),
                 })],
             )
             .await?;
@@ -76,11 +75,11 @@ mod tests {
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::{Aggregate, AggregateId, EventPayload};
     use banking_iam_domain::{
-        Email, Role, RoleId, User, UserIdentity, UserIdentityProvider, UserIdentitySubject,
+        Email, User, UserIdentity, UserIdentityProvider, UserIdentitySubject,
     };
 
     use super::UserStatusManagerRelationshipProjector;
-    use crate::authorization::{RoleAssigneeRelation, UserStatusManagerRelation};
+    use crate::authorization::UserStatusManagerRelation;
 
     #[derive(Default)]
     struct TestUow;
@@ -218,10 +217,10 @@ mod tests {
         );
         assert_eq!(
             relationship.subject,
-            RelationshipSubject::AggregateSet {
-                aggregate: AggregateRef::from_id::<Role>(RoleId::admin()),
-                relation: RelationNameOwned::from(RoleAssigneeRelation::NAME),
-            }
+            RelationshipSubject::Aggregate(AggregateRef::new(
+                event.aggregate_type.clone(),
+                event.aggregate_id.clone(),
+            ))
         );
     }
 }

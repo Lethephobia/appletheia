@@ -4,8 +4,7 @@ use appletheia::application::authorization::{
 };
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
-use banking_iam_application::authorization::RoleAssigneeRelation;
-use banking_iam_domain::{Role, RoleId};
+use banking_iam_domain::User;
 use banking_ledger_domain::account::{Account, AccountEventPayload};
 
 use super::{
@@ -40,15 +39,13 @@ where
 
     async fn project(&self, uow: &mut Self::Uow, event: &EventEnvelope) -> Result<(), Self::Error> {
         let event = event.try_into_domain_event::<Account>()?;
-        let AccountEventPayload::Opened { .. } = event.payload() else {
+        let AccountEventPayload::Opened { owner, .. } = event.payload() else {
             return Ok(());
         };
 
         let account = AggregateRef::from_id::<Account>(event.aggregate_id());
-        let admin_subject = RelationshipSubject::AggregateSet {
-            aggregate: AggregateRef::from_id::<Role>(RoleId::admin()),
-            relation: RelationNameOwned::from(RoleAssigneeRelation::NAME),
-        };
+        let owner_subject =
+            RelationshipSubject::Aggregate(AggregateRef::from_id::<User>(*owner.user_id()));
 
         self.relationship_store
             .apply_changes(
@@ -56,7 +53,7 @@ where
                 &[RelationshipChange::Upsert(Relationship {
                     aggregate: account,
                     relation: RelationNameOwned::from(AccountStatusManagerRelation::NAME),
-                    subject: admin_subject,
+                    subject: owner_subject,
                 })],
             )
             .await?;
@@ -80,8 +77,7 @@ mod tests {
     };
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::{Aggregate, AggregateId, EventPayload};
-    use banking_iam_application::authorization::RoleAssigneeRelation;
-    use banking_iam_domain::{Role, RoleId, User, UserId};
+    use banking_iam_domain::{User, UserId};
     use banking_ledger_domain::account::{Account, AccountName, AccountOwner};
     use banking_ledger_domain::currency_definition::CurrencyDefinitionId;
 
@@ -218,9 +214,9 @@ mod tests {
         let changes = store.recorded_changes();
         assert_eq!(changes.len(), 1);
 
-        let expected_subject = RelationshipSubject::AggregateSet {
-            aggregate: AggregateRef::from_id::<Role>(RoleId::admin()),
-            relation: RelationNameOwned::from(RoleAssigneeRelation::NAME),
+        let expected_subject = match &event.context.actor {
+            ActorRef::Subject { subject } => RelationshipSubject::Aggregate(subject.clone()),
+            _ => panic!("expected subject actor"),
         };
 
         let relationship = match &changes[0] {

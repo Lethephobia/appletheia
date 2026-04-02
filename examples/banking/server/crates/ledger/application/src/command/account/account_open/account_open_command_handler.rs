@@ -6,11 +6,9 @@ use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use appletheia::domain::Aggregate;
-use banking_iam_application::authorization::{RoleAssigneeRelation, UserOwnerRelation};
-use banking_iam_application::{
-    RoleAssigneeRelationshipProjectorSpec, UserOwnerRelationshipProjectorSpec,
-};
-use banking_iam_domain::{Role, RoleId, User};
+use banking_iam_application::UserOwnerRelationshipProjectorSpec;
+use banking_iam_application::authorization::UserOwnerRelation;
+use banking_iam_domain::User;
 use banking_ledger_domain::account::Account;
 
 use super::{AccountOpenCommand, AccountOpenCommandHandlerError, AccountOpenOutput};
@@ -49,18 +47,11 @@ where
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
             PrincipalRequirement::System,
             PrincipalRequirement::AuthenticatedWithRelationship {
-                requirement: RelationshipRequirement::Any(vec![
-                    RelationshipRequirement::Check {
-                        aggregate: AggregateRef::from_id::<Role>(RoleId::admin()),
-                        relation: RoleAssigneeRelation::NAME,
-                    },
-                    RelationshipRequirement::Check {
-                        aggregate: AggregateRef::from_id::<User>(*command.owner.user_id()),
-                        relation: UserOwnerRelation::NAME,
-                    },
-                ]),
+                requirement: RelationshipRequirement::Check {
+                    aggregate: AggregateRef::from_id::<User>(*command.owner.user_id()),
+                    relation: UserOwnerRelation::NAME,
+                },
                 projector_dependencies: ProjectorDependencies::Some(&[
-                    RoleAssigneeRelationshipProjectorSpec::DESCRIPTOR,
                     UserOwnerRelationshipProjectorSpec::DESCRIPTOR,
                 ]),
             },
@@ -107,11 +98,9 @@ mod tests {
     };
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::Aggregate;
-    use banking_iam_application::authorization::{RoleAssigneeRelation, UserOwnerRelation};
-    use banking_iam_application::{
-        RoleAssigneeRelationshipProjectorSpec, UserOwnerRelationshipProjectorSpec,
-    };
-    use banking_iam_domain::{Role, RoleId, User, UserId};
+    use banking_iam_application::UserOwnerRelationshipProjectorSpec;
+    use banking_iam_application::authorization::UserOwnerRelation;
+    use banking_iam_domain::{User, UserId};
     use banking_ledger_domain::account::{Account, AccountId, AccountName, AccountOwner};
     use banking_ledger_domain::currency_definition::CurrencyDefinitionId;
     use uuid::Uuid;
@@ -198,7 +187,7 @@ mod tests {
     }
 
     #[test]
-    fn authorization_plan_allows_system_admin_or_target_owner() {
+    fn authorization_plan_allows_system_or_target_owner() {
         let handler = AccountOpenCommandHandler::new(TestAccountRepository::default());
         let owner = account_owner();
         let name = account_name();
@@ -216,18 +205,11 @@ mod tests {
             AuthorizationPlan::OnlyPrincipals(vec![
                 PrincipalRequirement::System,
                 PrincipalRequirement::AuthenticatedWithRelationship {
-                    requirement: RelationshipRequirement::Any(vec![
-                        RelationshipRequirement::Check {
-                            aggregate: AggregateRef::from_id::<Role>(RoleId::admin()),
-                            relation: RoleAssigneeRelation::NAME,
-                        },
-                        RelationshipRequirement::Check {
-                            aggregate: AggregateRef::from_id::<User>(*owner.user_id()),
-                            relation: UserOwnerRelation::NAME,
-                        },
-                    ]),
+                    requirement: RelationshipRequirement::Check {
+                        aggregate: AggregateRef::from_id::<User>(*owner.user_id()),
+                        relation: UserOwnerRelation::NAME,
+                    },
                     projector_dependencies: ProjectorDependencies::Some(&[
-                        RoleAssigneeRelationshipProjectorSpec::DESCRIPTOR,
                         UserOwnerRelationshipProjectorSpec::DESCRIPTOR,
                     ]),
                 },

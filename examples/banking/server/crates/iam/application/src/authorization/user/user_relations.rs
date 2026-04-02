@@ -44,12 +44,7 @@ mod tests {
         assert_eq!(definition.expr_for(&owner), Some(&UsersetExpr::This));
         assert_eq!(
             definition.expr_for(&status_manager),
-            Some(&UsersetExpr::Difference {
-                base: Box::new(UsersetExpr::This),
-                subtract: Box::new(UsersetExpr::ComputedUserset {
-                    relation: owner.clone(),
-                }),
-            })
+            Some(&UsersetExpr::This)
         );
         assert_eq!(
             definition.expr_for(&profile_editor),

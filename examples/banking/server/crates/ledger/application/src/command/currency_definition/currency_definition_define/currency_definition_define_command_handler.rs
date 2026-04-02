@@ -1,14 +1,8 @@
-use appletheia::application::authorization::{
-    AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
-};
+use appletheia::application::authorization::{AuthorizationPlan, PrincipalRequirement};
 use appletheia::application::command::{CommandHandled, CommandHandler};
-use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use appletheia::domain::Aggregate;
-use banking_iam_application::RoleAssigneeRelationshipProjectorSpec;
-use banking_iam_application::authorization::RoleAssigneeRelation;
-use banking_iam_domain::{Role, RoleId};
 use banking_ledger_domain::currency_definition::CurrencyDefinition;
 
 use super::{
@@ -50,15 +44,7 @@ where
         _command: &Self::Command,
     ) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
-            PrincipalRequirement::AuthenticatedWithRelationship {
-                requirement: RelationshipRequirement::Check {
-                    aggregate: AggregateRef::from_id::<Role>(RoleId::admin()),
-                    relation: RoleAssigneeRelation::NAME,
-                },
-                projector_dependencies: ProjectorDependencies::Some(&[
-                    RoleAssigneeRelationshipProjectorSpec::DESCRIPTOR,
-                ]),
-            },
+            PrincipalRequirement::Authenticated,
         ]))
     }
 
@@ -94,19 +80,15 @@ mod tests {
     use std::sync::{Arc, Mutex};
 
     use appletheia::application::authorization::{
-        AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
+        AggregateRef, AuthorizationPlan, PrincipalRequirement,
     };
     use appletheia::application::command::CommandHandler;
-    use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
     use appletheia::application::repository::{Repository, RepositoryError};
     use appletheia::application::request_context::{
         ActorRef, CorrelationId, MessageId, Principal, RequestContext,
     };
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::Aggregate;
-    use banking_iam_application::RoleAssigneeRelationshipProjectorSpec;
-    use banking_iam_application::authorization::RoleAssigneeRelation;
-    use banking_iam_domain::{Role, RoleId};
     use banking_ledger_domain::core::{CurrencyDecimals, CurrencySymbol};
     use banking_ledger_domain::currency_definition::{
         CurrencyDefinition, CurrencyDefinitionId, CurrencyName,
@@ -194,7 +176,7 @@ mod tests {
     }
 
     #[test]
-    fn authorization_plan_requires_admin_role_assignee_relationship() {
+    fn authorization_plan_requires_authenticated_principal() {
         let repository = TestCurrencyDefinitionRepository::default();
         let handler = CurrencyDefinitionDefineCommandHandler::new(repository);
 
@@ -208,17 +190,7 @@ mod tests {
 
         assert_eq!(
             plan,
-            AuthorizationPlan::OnlyPrincipals(vec![
-                PrincipalRequirement::AuthenticatedWithRelationship {
-                    requirement: RelationshipRequirement::Check {
-                        aggregate: AggregateRef::from_id::<Role>(RoleId::admin()),
-                        relation: RoleAssigneeRelation::NAME,
-                    },
-                    projector_dependencies: ProjectorDependencies::Some(&[
-                        RoleAssigneeRelationshipProjectorSpec::DESCRIPTOR,
-                    ]),
-                },
-            ])
+            AuthorizationPlan::OnlyPrincipals(vec![PrincipalRequirement::Authenticated])
         );
     }
 

@@ -1,9 +1,0 @@
-mod user_role_assignment_revoke_command;
-mod user_role_assignment_revoke_command_handler;
-mod user_role_assignment_revoke_command_handler_error;
-mod user_role_assignment_revoke_output;
-
-pub use user_role_assignment_revoke_command::UserRoleAssignmentRevokeCommand;
-pub use user_role_assignment_revoke_command_handler::UserRoleAssignmentRevokeCommandHandler;
-pub use user_role_assignment_revoke_command_handler_error::UserRoleAssignmentRevokeCommandHandlerError;
-pub use user_role_assignment_revoke_output::UserRoleAssignmentRevokeOutput;

@@ -4,8 +4,6 @@ use appletheia::application::authorization::{
 };
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
-use banking_iam_application::authorization::RoleAssigneeRelation;
-use banking_iam_domain::{Role, RoleId};
 use banking_ledger_domain::currency_definition::{
     CurrencyDefinition, CurrencyDefinitionEventPayload,
 };
@@ -47,6 +45,12 @@ where
             return Ok(());
         };
 
+        let appletheia::application::request_context::ActorRef::Subject { subject } =
+            &event.context.actor
+        else {
+            return Ok(());
+        };
+
         self.relationship_store
             .apply_changes(
                 uow,
@@ -57,10 +61,7 @@ where
                     relation: RelationNameOwned::from(
                         CurrencyDefinitionStatusManagerRelation::NAME,
                     ),
-                    subject: RelationshipSubject::AggregateSet {
-                        aggregate: AggregateRef::from_id::<Role>(RoleId::admin()),
-                        relation: RelationNameOwned::from(RoleAssigneeRelation::NAME),
-                    },
+                    subject: RelationshipSubject::Aggregate(subject.clone()),
                 })],
             )
             .await?;
@@ -84,8 +85,6 @@ mod tests {
     };
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::{Aggregate, AggregateId, EventPayload};
-    use banking_iam_application::authorization::RoleAssigneeRelation;
-    use banking_iam_domain::{Role, RoleId};
     use banking_ledger_domain::core::{CurrencyDecimals, CurrencySymbol};
     use banking_ledger_domain::currency_definition::{CurrencyDefinition, CurrencyName};
     use uuid::Uuid;
@@ -230,16 +229,15 @@ mod tests {
             panic!("expected upsert relationship");
         };
 
+        let expected_subject = match &event.context.actor {
+            ActorRef::Subject { subject } => RelationshipSubject::Aggregate(subject.clone()),
+            _ => panic!("expected subject actor"),
+        };
+
         assert_eq!(
             relationship.relation,
             RelationNameOwned::from(CurrencyDefinitionStatusManagerRelation::NAME)
         );
-        assert_eq!(
-            relationship.subject,
-            RelationshipSubject::AggregateSet {
-                aggregate: AggregateRef::from_id::<Role>(RoleId::admin()),
-                relation: RelationNameOwned::from(RoleAssigneeRelation::NAME),
-            }
-        );
+        assert_eq!(relationship.subject, expected_subject);
     }
 }

@@ -5,7 +5,6 @@ use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_iam_application::RoleAssigneeRelationshipProjectorSpec;
 use banking_ledger_domain::account::Account;
 
 use super::{AccountFreezeCommand, AccountFreezeCommandHandlerError, AccountFreezeOutput};
@@ -51,7 +50,6 @@ where
                     relation: AccountFreezerRelation::NAME,
                 },
                 projector_dependencies: ProjectorDependencies::Some(&[
-                    RoleAssigneeRelationshipProjectorSpec::DESCRIPTOR,
                     AccountStatusManagerRelationshipProjectorSpec::DESCRIPTOR,
                 ]),
             },

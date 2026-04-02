@@ -9,9 +9,7 @@ use banking_iam_domain::User;
 
 use super::{UserActivateCommand, UserActivateCommandHandlerError, UserActivateOutput};
 use crate::authorization::UserActivatorRelation;
-use crate::projection::{
-    RoleAssigneeRelationshipProjectorSpec, UserStatusManagerRelationshipProjectorSpec,
-};
+use crate::projection::UserStatusManagerRelationshipProjectorSpec;
 
 /// Handles `UserActivateCommand`.
 pub struct UserActivateCommandHandler<UR>
@@ -52,7 +50,6 @@ where
                     relation: UserActivatorRelation::NAME,
                 },
                 projector_dependencies: ProjectorDependencies::Some(&[
-                    RoleAssigneeRelationshipProjectorSpec::DESCRIPTOR,
                     UserStatusManagerRelationshipProjectorSpec::DESCRIPTOR,
                 ]),
             },
