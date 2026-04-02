@@ -1,5 +1,9 @@
+pub mod organization;
 pub mod user;
 
+pub use organization::{
+    OrganizationCreateCommand, OrganizationCreateCommandHandler, OrganizationCreateOutput,
+};
 pub use user::{
     LogoutAllSessionsCommand, LogoutAllSessionsCommandHandler, LogoutAllSessionsOutput,
     LogoutCommand, LogoutCommandHandler, LogoutOutput, OidcBeginCommand, OidcBeginCommandHandler,
