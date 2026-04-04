@@ -5,8 +5,8 @@ pub mod user;
 pub use core::{Email, EmailError};
 pub use organization::{
     Organization, OrganizationError, OrganizationEventPayload, OrganizationEventPayloadError,
-    OrganizationId, OrganizationName, OrganizationNameError, OrganizationState,
-    OrganizationStateError,
+    OrganizationHandle, OrganizationHandleError, OrganizationId, OrganizationName,
+    OrganizationNameError, OrganizationState, OrganizationStateError, OrganizationStatus,
 };
 pub use user::{
     User, UserBio, UserBioError, UserDisplayName, UserDisplayNameError, UserError,

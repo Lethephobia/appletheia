@@ -53,9 +53,9 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
-        let OrganizationCreateCommand { name } = command.clone();
+        let OrganizationCreateCommand { handle, name } = command.clone();
         let mut organization = Organization::default();
-        organization.create(name)?;
+        organization.create(handle, name)?;
 
         self.organization_repository
             .save(uow, request_context, &mut organization)
@@ -84,7 +84,7 @@ mod tests {
     };
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::Aggregate;
-    use banking_iam_domain::{Organization, OrganizationId, OrganizationName};
+    use banking_iam_domain::{Organization, OrganizationHandle, OrganizationId, OrganizationName};
     use uuid::Uuid;
 
     use super::{
@@ -173,6 +173,7 @@ mod tests {
 
         let plan = handler
             .authorization_plan(&OrganizationCreateCommand {
+                handle: OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
                 name: OrganizationName::try_from("Acme Labs").expect("name should be valid"),
             })
             .expect("authorization plan should build");
@@ -194,6 +195,8 @@ mod tests {
                 &mut uow,
                 &request_context(),
                 &OrganizationCreateCommand {
+                    handle: OrganizationHandle::try_from("acme-labs")
+                        .expect("handle should be valid"),
                     name: OrganizationName::try_from("Acme Labs").expect("name should be valid"),
                 },
             )
@@ -211,6 +214,10 @@ mod tests {
         assert_eq!(
             saved.name().expect("name should exist"),
             &OrganizationName::try_from("Acme Labs").expect("name should be valid")
+        );
+        assert_eq!(
+            saved.handle().expect("handle should exist"),
+            &OrganizationHandle::try_from("acme-labs").expect("handle should be valid")
         );
     }
 }
