@@ -1,4 +1,5 @@
 pub mod organization;
+pub mod organization_membership;
 pub mod user;
 
 pub use organization::{
@@ -7,6 +8,14 @@ pub use organization::{
     OrganizationChangeNameCommandHandler, OrganizationChangeNameOutput, OrganizationCreateCommand,
     OrganizationCreateCommandHandler, OrganizationCreateOutput, OrganizationRemoveCommand,
     OrganizationRemoveCommandHandler, OrganizationRemoveOutput,
+};
+pub use organization_membership::{
+    OrganizationMembershipActivateCommand, OrganizationMembershipActivateCommandHandler,
+    OrganizationMembershipActivateOutput, OrganizationMembershipCreateCommand,
+    OrganizationMembershipCreateCommandHandler, OrganizationMembershipCreateOutput,
+    OrganizationMembershipDeactivateCommand, OrganizationMembershipDeactivateCommandHandler,
+    OrganizationMembershipDeactivateOutput, OrganizationMembershipRemoveCommand,
+    OrganizationMembershipRemoveCommandHandler, OrganizationMembershipRemoveOutput,
 };
 pub use user::{
     LogoutAllSessionsCommand, LogoutAllSessionsCommandHandler, LogoutAllSessionsOutput,

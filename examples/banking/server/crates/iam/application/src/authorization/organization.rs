@@ -1,10 +1,12 @@
 mod organization_handle_editor_relation;
+mod organization_member_relation;
 mod organization_owner_relation;
 mod organization_relations;
 mod organization_remover_relation;
 mod organization_renamer_relation;
 
 pub use organization_handle_editor_relation::OrganizationHandleEditorRelation;
+pub use organization_member_relation::OrganizationMemberRelation;
 pub use organization_owner_relation::OrganizationOwnerRelation;
 pub use organization_relations::OrganizationRelations;
 pub use organization_remover_relation::OrganizationRemoverRelation;

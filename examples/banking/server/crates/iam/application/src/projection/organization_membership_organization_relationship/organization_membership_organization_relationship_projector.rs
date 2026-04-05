@@ -4,24 +4,25 @@ use appletheia::application::authorization::{
 };
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
-use appletheia::application::request_context::ActorRef;
-use banking_iam_domain::Organization;
+use banking_iam_domain::{
+    Organization, OrganizationMembership, OrganizationMembershipEventPayload,
+};
 
 use super::{
-    OrganizationOwnerRelationshipProjectorError, OrganizationOwnerRelationshipProjectorSpec,
+    OrganizationMembershipOrganizationRelationshipProjectorError,
+    OrganizationMembershipOrganizationRelationshipProjectorSpec,
 };
-use crate::authorization::OrganizationOwnerRelation;
-use banking_iam_domain::OrganizationEventPayload;
+use crate::authorization::OrganizationMembershipOrganizationRelation;
 
-/// Projects the initial owner relationship for new organizations.
-pub struct OrganizationOwnerRelationshipProjector<RS>
+/// Projects the organization relation for organization memberships.
+pub struct OrganizationMembershipOrganizationRelationshipProjector<RS>
 where
     RS: RelationshipStore,
 {
     relationship_store: RS,
 }
 
-impl<RS> OrganizationOwnerRelationshipProjector<RS>
+impl<RS> OrganizationMembershipOrganizationRelationshipProjector<RS>
 where
     RS: RelationshipStore,
 {
@@ -30,62 +31,69 @@ where
     }
 }
 
-impl<RS> Projector for OrganizationOwnerRelationshipProjector<RS>
+impl<RS> Projector for OrganizationMembershipOrganizationRelationshipProjector<RS>
 where
     RS: RelationshipStore,
 {
-    type Spec = OrganizationOwnerRelationshipProjectorSpec;
+    type Spec = OrganizationMembershipOrganizationRelationshipProjectorSpec;
     type Uow = RS::Uow;
-    type Error = OrganizationOwnerRelationshipProjectorError;
+    type Error = OrganizationMembershipOrganizationRelationshipProjectorError;
 
     async fn project(&self, uow: &mut Self::Uow, event: &EventEnvelope) -> Result<(), Self::Error> {
-        let domain_event = event.try_into_domain_event::<Organization>()?;
+        let domain_event = event.try_into_domain_event::<OrganizationMembership>()?;
 
         match domain_event.payload() {
-            OrganizationEventPayload::Created { .. } => {
-                let ActorRef::Subject { subject } = &event.context.actor else {
-                    return Ok(());
-                };
-
+            OrganizationMembershipEventPayload::Created {
+                organization_id, ..
+            } => {
                 self.relationship_store
                     .apply_changes(
                         uow,
                         &[RelationshipChange::Upsert(Relationship {
-                            aggregate: AggregateRef::from_id::<Organization>(
+                            aggregate: AggregateRef::from_id::<OrganizationMembership>(
                                 domain_event.aggregate_id(),
                             ),
-                            relation: RelationNameOwned::from(OrganizationOwnerRelation::NAME),
-                            subject: RelationshipSubject::Aggregate(subject.clone()),
+                            relation: RelationNameOwned::from(
+                                OrganizationMembershipOrganizationRelation::NAME,
+                            ),
+                            subject: RelationshipSubject::Aggregate(AggregateRef::from_id::<
+                                Organization,
+                            >(
+                                *organization_id
+                            )),
                         })],
                     )
                     .await?;
             }
-            OrganizationEventPayload::Removed => {
-                let aggregate = AggregateRef::from_id::<Organization>(domain_event.aggregate_id());
-                let owner_relation = RelationNameOwned::from(OrganizationOwnerRelation::NAME);
-                let owner_subjects = self
+            OrganizationMembershipEventPayload::Removed { .. } => {
+                let aggregate =
+                    AggregateRef::from_id::<OrganizationMembership>(domain_event.aggregate_id());
+                let relation =
+                    RelationNameOwned::from(OrganizationMembershipOrganizationRelation::NAME);
+                let subjects = self
                     .relationship_store
-                    .read_subjects_by_aggregate(uow, &aggregate, &owner_relation)
+                    .read_subjects_by_aggregate(uow, &aggregate, &relation)
                     .await?;
 
-                if owner_subjects.is_empty() {
+                if subjects.is_empty() {
                     return Ok(());
                 }
 
-                let owner_changes = owner_subjects.into_iter().map(|subject| {
-                    RelationshipChange::Delete(Relationship {
-                        aggregate: aggregate.clone(),
-                        relation: owner_relation.clone(),
-                        subject,
+                let changes = subjects
+                    .into_iter()
+                    .map(|subject| {
+                        RelationshipChange::Delete(Relationship {
+                            aggregate: aggregate.clone(),
+                            relation: relation.clone(),
+                            subject,
+                        })
                     })
-                });
-
-                let changes = owner_changes.collect::<Vec<_>>();
+                    .collect::<Vec<_>>();
 
                 self.relationship_store.apply_changes(uow, &changes).await?;
             }
-            OrganizationEventPayload::HandleChanged { .. } => return Ok(()),
-            OrganizationEventPayload::NameChanged { .. } => return Ok(()),
+            OrganizationMembershipEventPayload::Activated { .. } => return Ok(()),
+            OrganizationMembershipEventPayload::Inactivated { .. } => return Ok(()),
         }
 
         Ok(())
@@ -107,10 +115,10 @@ mod tests {
     };
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::{Aggregate, AggregateId, EventPayload};
-    use banking_iam_domain::{Organization, OrganizationHandle, OrganizationName, User, UserId};
+    use banking_iam_domain::{Organization, OrganizationId, OrganizationMembership, UserId};
 
-    use super::OrganizationOwnerRelationshipProjector;
-    use crate::authorization::OrganizationOwnerRelation;
+    use super::OrganizationMembershipOrganizationRelationshipProjector;
+    use crate::authorization::OrganizationMembershipOrganizationRelation;
 
     #[derive(Default)]
     struct TestUow;
@@ -128,7 +136,7 @@ mod tests {
     #[derive(Clone, Default)]
     struct TestRelationshipStore {
         changes: Arc<Mutex<Vec<RelationshipChange>>>,
-        owner_subjects_by_aggregate: Arc<Mutex<Vec<RelationshipSubject>>>,
+        subjects_by_aggregate: Arc<Mutex<Vec<RelationshipSubject>>>,
     }
 
     impl TestRelationshipStore {
@@ -166,36 +174,29 @@ mod tests {
             &self,
             _uow: &mut Self::Uow,
             _aggregate: &AggregateRef,
-            relation: &RelationNameOwned,
+            _relation: &RelationNameOwned,
         ) -> Result<Vec<RelationshipSubject>, RelationshipStoreError> {
-            if relation == &RelationNameOwned::from(OrganizationOwnerRelation::NAME) {
-                Ok(self
-                    .owner_subjects_by_aggregate
-                    .lock()
-                    .expect("lock should succeed")
-                    .clone())
-            } else {
-                Ok(Vec::new())
-            }
+            Ok(self
+                .subjects_by_aggregate
+                .lock()
+                .expect("lock should succeed")
+                .clone())
         }
     }
 
-    fn created_event_envelope() -> (EventEnvelope, AggregateRef) {
-        let mut organization = Organization::default();
-        organization
-            .create(
-                OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
-                OrganizationName::try_from("Acme Labs").expect("name should be valid"),
-            )
+    fn created_event_envelope() -> (EventEnvelope, OrganizationId) {
+        let mut membership = OrganizationMembership::default();
+        let organization_id = OrganizationId::new();
+        let user_id = UserId::new();
+        membership
+            .create(organization_id, user_id)
             .expect("creation should succeed");
 
-        let event = organization
+        let event = membership
             .uncommitted_events()
             .first()
             .expect("created event should exist")
             .clone();
-        let subject = AggregateRef::from_id::<User>(UserId::new());
-        let actor_subject = subject.clone();
         let message_id = MessageId::new();
 
         (
@@ -203,7 +204,7 @@ mod tests {
                 event_sequence: EventSequence::try_from(1).expect("sequence should be valid"),
                 event_id: event.id(),
                 aggregate_type: appletheia::application::event::AggregateTypeOwned::from(
-                    Organization::TYPE,
+                    OrganizationMembership::TYPE,
                 ),
                 aggregate_id: appletheia::application::event::AggregateIdValue::from(
                     event.aggregate_id().value(),
@@ -225,42 +226,34 @@ mod tests {
                 causation_id: CausationId::from(message_id),
                 context: RequestContext::new(
                     CorrelationId::from(MessageId::new().value()),
-                    message_id,
-                    ActorRef::Subject {
-                        subject: actor_subject.clone(),
-                    },
-                    Principal::Authenticated {
-                        subject: actor_subject,
-                    },
+                    MessageId::new(),
+                    ActorRef::System,
+                    Principal::System,
                 ),
             },
-            subject,
+            organization_id,
         )
     }
 
     fn removed_event_envelope() -> EventEnvelope {
-        let mut organization = Organization::default();
-        organization
-            .create(
-                OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
-                OrganizationName::try_from("Acme Labs").expect("name should be valid"),
-            )
+        let mut membership = OrganizationMembership::default();
+        membership
+            .create(OrganizationId::new(), UserId::new())
             .expect("creation should succeed");
-        organization.remove().expect("remove should succeed");
+        membership.remove().expect("remove should succeed");
 
-        let event = organization
+        let event = membership
             .uncommitted_events()
             .last()
             .expect("removed event should exist")
             .clone();
-        let subject = AggregateRef::from_id::<User>(UserId::new());
         let message_id = MessageId::new();
 
         EventEnvelope {
             event_sequence: EventSequence::try_from(2).expect("sequence should be valid"),
             event_id: event.id(),
             aggregate_type: appletheia::application::event::AggregateTypeOwned::from(
-                Organization::TYPE,
+                OrganizationMembership::TYPE,
             ),
             aggregate_id: appletheia::application::event::AggregateIdValue::from(
                 event.aggregate_id().value(),
@@ -283,20 +276,18 @@ mod tests {
             context: RequestContext::new(
                 CorrelationId::from(MessageId::new().value()),
                 MessageId::new(),
-                ActorRef::Subject {
-                    subject: subject.clone(),
-                },
-                Principal::Authenticated { subject },
+                ActorRef::System,
+                Principal::System,
             ),
         }
     }
 
     #[tokio::test]
-    async fn project_created_event_upserts_owner_relationship() {
+    async fn project_created_event_upserts_membership_organization_relationship() {
         let store = TestRelationshipStore::default();
-        let projector = OrganizationOwnerRelationshipProjector::new(store.clone());
+        let projector = OrganizationMembershipOrganizationRelationshipProjector::new(store.clone());
         let mut uow = TestUow;
-        let (event, subject) = created_event_envelope();
+        let (event, organization_id) = created_event_envelope();
 
         projector
             .project(&mut uow, &event)
@@ -312,23 +303,23 @@ mod tests {
 
         assert_eq!(
             relationship.relation,
-            RelationNameOwned::from(OrganizationOwnerRelation::NAME)
+            RelationNameOwned::from(OrganizationMembershipOrganizationRelation::NAME)
         );
         assert_eq!(
             relationship.subject,
-            RelationshipSubject::Aggregate(subject)
+            RelationshipSubject::Aggregate(AggregateRef::from_id::<Organization>(organization_id))
         );
     }
 
     #[tokio::test]
-    async fn project_removed_event_deletes_owner_relationship() {
+    async fn project_removed_event_deletes_membership_organization_relationship() {
         let store = TestRelationshipStore {
-            owner_subjects_by_aggregate: Arc::new(Mutex::new(vec![
-                RelationshipSubject::Aggregate(AggregateRef::from_id::<User>(UserId::new())),
-            ])),
+            subjects_by_aggregate: Arc::new(Mutex::new(vec![RelationshipSubject::Aggregate(
+                AggregateRef::from_id::<Organization>(OrganizationId::new()),
+            )])),
             ..Default::default()
         };
-        let projector = OrganizationOwnerRelationshipProjector::new(store.clone());
+        let projector = OrganizationMembershipOrganizationRelationshipProjector::new(store.clone());
         let mut uow = TestUow;
         let event = removed_event_envelope();
 
@@ -346,7 +337,7 @@ mod tests {
 
         assert_eq!(
             relationship.relation,
-            RelationNameOwned::from(OrganizationOwnerRelation::NAME)
+            RelationNameOwned::from(OrganizationMembershipOrganizationRelation::NAME)
         );
     }
 }
