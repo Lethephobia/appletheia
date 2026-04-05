@@ -1,6 +1,7 @@
 pub mod core;
 pub mod organization;
 pub mod organization_invitation;
+pub mod organization_join_request;
 pub mod organization_membership;
 pub mod user;
 
@@ -15,6 +16,11 @@ pub use organization_invitation::{
     OrganizationInvitationEventPayloadError, OrganizationInvitationExpiresAt,
     OrganizationInvitationId, OrganizationInvitationIssuer, OrganizationInvitationState,
     OrganizationInvitationStateError, OrganizationInvitationStatus,
+};
+pub use organization_join_request::{
+    OrganizationJoinRequest, OrganizationJoinRequestError, OrganizationJoinRequestEventPayload,
+    OrganizationJoinRequestEventPayloadError, OrganizationJoinRequestId,
+    OrganizationJoinRequestState, OrganizationJoinRequestStateError, OrganizationJoinRequestStatus,
 };
 pub use organization_membership::{
     OrganizationMembership, OrganizationMembershipError, OrganizationMembershipEventPayload,

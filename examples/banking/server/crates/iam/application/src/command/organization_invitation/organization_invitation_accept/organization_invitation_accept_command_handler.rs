@@ -8,7 +8,7 @@ use appletheia::application::request_context::RequestContext;
 use banking_iam_domain::OrganizationInvitation;
 
 use crate::authorization::OrganizationInvitationInviteeRelation;
-use crate::projection::OrganizationInvitationRelationshipProjectorSpec;
+use crate::projection::OrganizationInvitationInviteeRelationshipProjectorSpec;
 
 use super::{
     OrganizationInvitationAcceptCommand, OrganizationInvitationAcceptCommandHandlerError,
@@ -57,7 +57,7 @@ where
                     relation: OrganizationInvitationInviteeRelation::NAME,
                 },
                 projector_dependencies: ProjectorDependencies::Some(&[
-                    OrganizationInvitationRelationshipProjectorSpec::DESCRIPTOR,
+                    OrganizationInvitationInviteeRelationshipProjectorSpec::DESCRIPTOR,
                 ]),
             },
         ]))

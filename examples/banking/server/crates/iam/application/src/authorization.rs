@@ -1,5 +1,6 @@
 mod organization;
 mod organization_invitation;
+mod organization_join_request;
 mod organization_membership;
 mod user;
 
@@ -13,6 +14,11 @@ pub use organization::{
 pub use organization_invitation::{
     OrganizationInvitationCancelerRelation, OrganizationInvitationInviteeRelation,
     OrganizationInvitationOrganizationRelation, OrganizationInvitationRelations,
+};
+pub use organization_join_request::{
+    OrganizationJoinRequestApproverRelation, OrganizationJoinRequestCancelerRelation,
+    OrganizationJoinRequestOrganizationRelation, OrganizationJoinRequestRejecterRelation,
+    OrganizationJoinRequestRelations, OrganizationJoinRequestRequesterRelation,
 };
 pub use organization_membership::{
     OrganizationMembershipActivatorRelation, OrganizationMembershipDeactivatorRelation,

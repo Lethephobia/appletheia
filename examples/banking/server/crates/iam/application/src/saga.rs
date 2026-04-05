@@ -1,6 +1,11 @@
-mod organization_invitation_acceptance;
+mod organization_invitation;
+mod organization_join_request;
 
-pub use organization_invitation_acceptance::{
-    OrganizationInvitationAcceptanceSaga, OrganizationInvitationAcceptanceSagaError,
-    OrganizationInvitationAcceptanceSagaSpec, OrganizationInvitationAcceptanceSagaState,
+pub use organization_invitation::{
+    OrganizationInvitationSaga, OrganizationInvitationSagaError, OrganizationInvitationSagaSpec,
+    OrganizationInvitationSagaState,
+};
+pub use organization_join_request::{
+    OrganizationJoinRequestSaga, OrganizationJoinRequestSagaError, OrganizationJoinRequestSagaSpec,
+    OrganizationJoinRequestSagaState,
 };

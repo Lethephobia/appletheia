@@ -2,9 +2,9 @@ use appletheia::application::event::EventEnvelopeError;
 use appletheia::application::saga::SagaAppendCommandError;
 use thiserror::Error;
 
-/// Represents errors returned by the organization invitation acceptance saga.
+/// Represents errors returned by the organization join request saga.
 #[derive(Debug, Error)]
-pub enum OrganizationInvitationAcceptanceSagaError {
+pub enum OrganizationJoinRequestSagaError {
     #[error("failed to decode event envelope")]
     EventEnvelope(#[from] EventEnvelopeError),
 

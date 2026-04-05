@@ -9,16 +9,16 @@ use banking_iam_domain::{
 use crate::command::OrganizationMembershipCreateCommand;
 
 use super::{
-    OrganizationInvitationAcceptanceSagaError, OrganizationInvitationAcceptanceSagaSpec,
-    OrganizationInvitationAcceptanceSagaState,
+    OrganizationInvitationSagaError, OrganizationInvitationSagaSpec,
+    OrganizationInvitationSagaState,
 };
 
-/// Coordinates invitation acceptance into organization membership creation.
-pub struct OrganizationInvitationAcceptanceSaga;
+/// Coordinates organization invitation workflow into organization membership creation.
+pub struct OrganizationInvitationSaga;
 
-impl Saga for OrganizationInvitationAcceptanceSaga {
-    type Spec = OrganizationInvitationAcceptanceSagaSpec;
-    type Error = OrganizationInvitationAcceptanceSagaError;
+impl Saga for OrganizationInvitationSaga {
+    type Spec = OrganizationInvitationSagaSpec;
+    type Error = OrganizationInvitationSagaError;
 
     fn on_event(
         &self,
@@ -34,7 +34,7 @@ impl Saga for OrganizationInvitationAcceptanceSaga {
             {
                 let state = instance
                     .state_mut()
-                    .get_or_insert_with(OrganizationInvitationAcceptanceSagaState::default);
+                    .get_or_insert_with(OrganizationInvitationSagaState::default);
                 state.organization_invitation_id = Some(invitation_event.aggregate_id());
                 state.organization_id = Some(*organization_id);
                 state.invitee_id = Some(*invitee_id);
@@ -94,7 +94,7 @@ mod tests {
 
     use crate::command::OrganizationMembershipCreateCommand;
 
-    use super::{OrganizationInvitationAcceptanceSaga, OrganizationInvitationAcceptanceSagaSpec};
+    use super::{OrganizationInvitationSaga, OrganizationInvitationSagaSpec};
 
     fn request_context(correlation_id: CorrelationId) -> RequestContext {
         let subject =
@@ -173,16 +173,15 @@ mod tests {
 
     #[test]
     fn accepted_event_appends_membership_create_command() {
-        let saga = OrganizationInvitationAcceptanceSaga;
+        let saga = OrganizationInvitationSaga;
         let correlation_id = CorrelationId::from(uuid::Uuid::now_v7());
         let organization_id = OrganizationId::new();
         let invitation_id = OrganizationInvitationId::new();
         let invitee_id = UserId::new();
-        let mut instance =
-            SagaInstance::<<OrganizationInvitationAcceptanceSagaSpec as SagaSpec>::State>::new(
-                SagaNameOwned::from(OrganizationInvitationAcceptanceSagaSpec::DESCRIPTOR.name),
-                correlation_id,
-            );
+        let mut instance = SagaInstance::<<OrganizationInvitationSagaSpec as SagaSpec>::State>::new(
+            SagaNameOwned::from(OrganizationInvitationSagaSpec::DESCRIPTOR.name),
+            correlation_id,
+        );
 
         saga.on_event(
             &mut instance,
@@ -206,16 +205,15 @@ mod tests {
 
     #[test]
     fn created_membership_completes_saga() {
-        let saga = OrganizationInvitationAcceptanceSaga;
+        let saga = OrganizationInvitationSaga;
         let correlation_id = CorrelationId::from(uuid::Uuid::now_v7());
         let organization_id = OrganizationId::new();
         let invitation_id = OrganizationInvitationId::new();
         let invitee_id = UserId::new();
-        let mut instance =
-            SagaInstance::<<OrganizationInvitationAcceptanceSagaSpec as SagaSpec>::State>::new(
-                SagaNameOwned::from(OrganizationInvitationAcceptanceSagaSpec::DESCRIPTOR.name),
-                correlation_id,
-            );
+        let mut instance = SagaInstance::<<OrganizationInvitationSagaSpec as SagaSpec>::State>::new(
+            SagaNameOwned::from(OrganizationInvitationSagaSpec::DESCRIPTOR.name),
+            correlation_id,
+        );
 
         saga.on_event(
             &mut instance,
