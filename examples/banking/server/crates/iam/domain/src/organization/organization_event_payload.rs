@@ -13,6 +13,9 @@ pub enum OrganizationEventPayload {
     HandleChanged {
         handle: OrganizationHandle,
     },
+    NameChanged {
+        name: OrganizationName,
+    },
     Removed,
 }
 
@@ -31,6 +34,10 @@ mod tests {
         assert_eq!(
             OrganizationEventPayload::HANDLE_CHANGED,
             appletheia::domain::EventName::new("handle_changed")
+        );
+        assert_eq!(
+            OrganizationEventPayload::NAME_CHANGED,
+            appletheia::domain::EventName::new("name_changed")
         );
         assert_eq!(
             OrganizationEventPayload::REMOVED,
@@ -56,6 +63,15 @@ mod tests {
         };
 
         assert_eq!(payload.name(), OrganizationEventPayload::HANDLE_CHANGED);
+    }
+
+    #[test]
+    fn name_changed_payload_name_matches_variant() {
+        let payload = OrganizationEventPayload::NameChanged {
+            name: OrganizationName::try_from("Acme Labs 2").expect("name should be valid"),
+        };
+
+        assert_eq!(payload.name(), OrganizationEventPayload::NAME_CHANGED);
     }
 
     #[test]

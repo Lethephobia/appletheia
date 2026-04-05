@@ -87,6 +87,19 @@ impl Organization {
         self.append_event(OrganizationEventPayload::HandleChanged { handle })
     }
 
+    /// Changes the current organization name.
+    pub fn change_name(&mut self, name: OrganizationName) -> Result<(), OrganizationError> {
+        self.ensure_not_removed()?;
+
+        let current_name = self.state_required()?.name.clone();
+
+        if current_name.eq(&name) {
+            return Ok(());
+        }
+
+        self.append_event(OrganizationEventPayload::NameChanged { name })
+    }
+
     /// Permanently removes the organization.
     pub fn remove(&mut self) -> Result<(), OrganizationError> {
         if self.state_required()?.status.is_removed() {
@@ -117,6 +130,9 @@ impl AggregateApply<OrganizationEventPayload, OrganizationError> for Organizatio
             }
             OrganizationEventPayload::HandleChanged { handle } => {
                 self.state_required_mut()?.handle = handle.clone();
+            }
+            OrganizationEventPayload::NameChanged { name } => {
+                self.state_required_mut()?.name = name.clone();
             }
             OrganizationEventPayload::Removed => {
                 self.state_required_mut()?.status = OrganizationStatus::Removed;
@@ -184,6 +200,31 @@ mod tests {
     }
 
     #[test]
+    fn changing_name_updates_state_and_records_event() {
+        let mut organization = Organization::default();
+        organization
+            .create(
+                OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
+                OrganizationName::try_from("Acme Labs").expect("name should be valid"),
+            )
+            .expect("first creation should succeed");
+
+        organization
+            .change_name(OrganizationName::try_from("Acme Labs 2").expect("name should be valid"))
+            .expect("name change should succeed");
+
+        assert_eq!(
+            organization.name().expect("name should exist"),
+            &OrganizationName::try_from("Acme Labs 2").expect("name should be valid")
+        );
+        assert_eq!(organization.uncommitted_events().len(), 2);
+        assert_eq!(
+            organization.uncommitted_events()[1].payload().name(),
+            OrganizationEventPayload::NAME_CHANGED
+        );
+    }
+
+    #[test]
     fn removing_organization_updates_status_and_records_event() {
         let mut organization = Organization::default();
         organization
@@ -218,6 +259,24 @@ mod tests {
             .change_handle(
                 OrganizationHandle::try_from("acme-labs-2").expect("handle should be valid"),
             )
+            .expect_err("removed organization should reject changes");
+
+        assert!(matches!(error, super::OrganizationError::Removed));
+    }
+
+    #[test]
+    fn removed_organization_rejects_name_changes() {
+        let mut organization = Organization::default();
+        organization
+            .create(
+                OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
+                OrganizationName::try_from("Acme Labs").expect("name should be valid"),
+            )
+            .expect("first creation should succeed");
+        organization.remove().expect("remove should succeed");
+
+        let error = organization
+            .change_name(OrganizationName::try_from("Acme Labs 2").expect("name should be valid"))
             .expect_err("removed organization should reject changes");
 
         assert!(matches!(error, super::OrganizationError::Removed));

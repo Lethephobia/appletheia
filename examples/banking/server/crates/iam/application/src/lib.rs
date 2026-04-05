@@ -4,7 +4,8 @@ pub mod oidc;
 pub mod projection;
 
 pub use authorization::{
-    OrganizationOwnerRelation, OrganizationRelations, UserActivatorRelation,
+    OrganizationHandleEditorRelation, OrganizationOwnerRelation, OrganizationRelations,
+    OrganizationRemoverRelation, OrganizationRenamerRelation, UserActivatorRelation,
     UserDeactivatorRelation, UserOwnerRelation, UserProfileEditorRelation, UserRelations,
     UserRemoverRelation, UserStatusManagerRelation,
 };
@@ -12,8 +13,12 @@ pub use command::{
     LogoutAllSessionsCommand, LogoutAllSessionsCommandHandler, LogoutAllSessionsOutput,
     LogoutCommand, LogoutCommandHandler, LogoutOutput, OidcBeginCommand, OidcBeginCommandHandler,
     OidcBeginOutput, OidcCompleteCommand, OidcCompleteCommandHandler, OidcCompleteOutput,
-    OidcCompleteReplayOutput, OrganizationCreateCommand, OrganizationCreateCommandHandler,
-    OrganizationCreateOutput, UserActivateCommand, UserActivateCommandHandler, UserActivateOutput,
+    OidcCompleteReplayOutput, OrganizationChangeHandleCommand,
+    OrganizationChangeHandleCommandHandler, OrganizationChangeHandleOutput,
+    OrganizationChangeNameCommand, OrganizationChangeNameCommandHandler,
+    OrganizationChangeNameOutput, OrganizationCreateCommand, OrganizationCreateCommandHandler,
+    OrganizationCreateOutput, OrganizationRemoveCommand, OrganizationRemoveCommandHandler,
+    OrganizationRemoveOutput, UserActivateCommand, UserActivateCommandHandler, UserActivateOutput,
     UserDeactivateCommand, UserDeactivateCommandHandler, UserDeactivateOutput,
     UserProfileEditCommand, UserProfileEditCommandHandler, UserProfileEditOutput,
     UserProfileReadyCommand, UserProfileReadyCommandHandler, UserProfileReadyOutput,

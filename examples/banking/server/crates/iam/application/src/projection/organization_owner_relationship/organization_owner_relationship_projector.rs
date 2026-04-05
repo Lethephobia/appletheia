@@ -86,6 +86,7 @@ where
                 self.relationship_store.apply_changes(uow, &changes).await?;
             }
             OrganizationEventPayload::HandleChanged { .. } => return Ok(()),
+            OrganizationEventPayload::NameChanged { .. } => return Ok(()),
         }
 
         Ok(())

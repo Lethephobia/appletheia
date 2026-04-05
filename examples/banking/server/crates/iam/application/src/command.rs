@@ -2,7 +2,11 @@ pub mod organization;
 pub mod user;
 
 pub use organization::{
-    OrganizationCreateCommand, OrganizationCreateCommandHandler, OrganizationCreateOutput,
+    OrganizationChangeHandleCommand, OrganizationChangeHandleCommandHandler,
+    OrganizationChangeHandleOutput, OrganizationChangeNameCommand,
+    OrganizationChangeNameCommandHandler, OrganizationChangeNameOutput, OrganizationCreateCommand,
+    OrganizationCreateCommandHandler, OrganizationCreateOutput, OrganizationRemoveCommand,
+    OrganizationRemoveCommandHandler, OrganizationRemoveOutput,
 };
 pub use user::{
     LogoutAllSessionsCommand, LogoutAllSessionsCommandHandler, LogoutAllSessionsOutput,
