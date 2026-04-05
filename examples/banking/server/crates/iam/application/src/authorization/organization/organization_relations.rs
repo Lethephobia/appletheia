@@ -2,8 +2,8 @@ use appletheia::relations;
 use banking_iam_domain::Organization;
 
 use super::{
-    OrganizationHandleEditorRelation, OrganizationMemberRelation, OrganizationOwnerRelation,
-    OrganizationRemoverRelation, OrganizationRenamerRelation,
+    OrganizationHandleEditorRelation, OrganizationInviterRelation, OrganizationMemberRelation,
+    OrganizationOwnerRelation, OrganizationRemoverRelation, OrganizationRenamerRelation,
 };
 
 /// Defines static authorization relations for `Organization`.
@@ -12,6 +12,7 @@ use super::{
     relations = [
         OrganizationOwnerRelation,
         OrganizationMemberRelation,
+        OrganizationInviterRelation,
         OrganizationRenamerRelation,
         OrganizationHandleEditorRelation,
         OrganizationRemoverRelation
@@ -26,8 +27,9 @@ mod tests {
     };
 
     use super::{
-        OrganizationHandleEditorRelation, OrganizationMemberRelation, OrganizationOwnerRelation,
-        OrganizationRelations, OrganizationRemoverRelation, OrganizationRenamerRelation,
+        OrganizationHandleEditorRelation, OrganizationInviterRelation, OrganizationMemberRelation,
+        OrganizationOwnerRelation, OrganizationRelations, OrganizationRemoverRelation,
+        OrganizationRenamerRelation,
     };
 
     #[test]
@@ -35,6 +37,7 @@ mod tests {
         let definition = OrganizationRelations.build();
         let owner = RelationNameOwned::from(OrganizationOwnerRelation::NAME);
         let member = RelationNameOwned::from(OrganizationMemberRelation::NAME);
+        let inviter = RelationNameOwned::from(OrganizationInviterRelation::NAME);
         let renamer = RelationNameOwned::from(OrganizationRenamerRelation::NAME);
         let handle_editor = RelationNameOwned::from(OrganizationHandleEditorRelation::NAME);
         let remover = RelationNameOwned::from(OrganizationRemoverRelation::NAME);
@@ -42,6 +45,15 @@ mod tests {
         assert_eq!(definition.expr_for(&owner), Some(&UsersetExpr::This));
         assert_eq!(
             definition.expr_for(&member),
+            Some(&UsersetExpr::Union(vec![
+                UsersetExpr::This,
+                UsersetExpr::ComputedUserset {
+                    relation: owner.clone(),
+                },
+            ]))
+        );
+        assert_eq!(
+            definition.expr_for(&inviter),
             Some(&UsersetExpr::Union(vec![
                 UsersetExpr::This,
                 UsersetExpr::ComputedUserset {

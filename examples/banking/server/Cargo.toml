@@ -14,4 +14,5 @@ banking-iam-infrastructure = { path = "crates/iam/infrastructure" }
 banking-ledger-domain = { path = "crates/ledger/domain" }
 banking-ledger-application = { path = "crates/ledger/application" }
 banking-ledger-infrastructure = { path = "crates/ledger/infrastructure" }
+chrono = { version = "0.4.42" }
 tokio = "1"

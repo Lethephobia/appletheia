@@ -485,6 +485,52 @@ pub(super) struct ExampleState {
 
 ## EventPayload
 
+### PREFER model `EventPayload` as an enum
+
+Use enum variants to represent distinct facts instead of collapsing them into a struct with optional fields.
+
+good:
+```rust
+#[derive(Serialize, Deserialize)]
+#[serde(tag = "type", content = "data", rename_all = "snake_case")]
+pub enum ExampleEventPayload {
+    Opened { id: ExampleId, name: ExampleName },
+    DisplayNameChanged { name: ExampleName },
+}
+```
+
+bad:
+```rust
+#[derive(Serialize, Deserialize)]
+pub struct ExampleEventPayload {
+    pub kind: String,
+    pub id: Option<ExampleId>,
+    pub name: Option<ExampleName>,
+}
+```
+
+### PREFER adjacently tagged JSON for `EventPayload` serialization
+
+Use `#[serde(tag = "type", content = "data")]` so each variant stays explicit on the wire and payload shapes can evolve without flattening everything into one object.
+
+good:
+```rust
+#[derive(Serialize, Deserialize)]
+#[serde(tag = "type", content = "data")]
+pub enum ExampleEventPayload {
+    Opened { id: ExampleId, name: ExampleName },
+}
+```
+
+bad:
+```rust
+#[derive(Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum ExampleEventPayload {
+    Opened { id: ExampleId, name: ExampleName },
+}
+```
+
 ### DO use past participles for variant names
 
 Make variants read as facts about what already happened.

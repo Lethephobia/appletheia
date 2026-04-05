@@ -49,7 +49,7 @@ fn handle_values(
 
 #[cfg(test)]
 mod tests {
-    use appletheia::domain::{AggregateState, UniqueConstraints, UniqueKey, UniqueValues};
+    use appletheia::domain::{AggregateState, UniqueConstraints, UniqueValues};
 
     use super::{
         OrganizationHandle, OrganizationId, OrganizationName, OrganizationState, OrganizationStatus,
@@ -80,7 +80,9 @@ mod tests {
         let entries = state.unique_entries().expect("unique entries should build");
 
         assert_eq!(
-            entries.get(UniqueKey::new("handle")).map(UniqueValues::len),
+            entries
+                .get(OrganizationState::HANDLE_KEY)
+                .map(UniqueValues::len),
             Some(1)
         );
     }
@@ -97,7 +99,9 @@ mod tests {
         let entries = state.unique_entries().expect("unique entries should build");
 
         assert_eq!(
-            entries.get(UniqueKey::new("handle")).map(UniqueValues::len),
+            entries
+                .get(OrganizationState::HANDLE_KEY)
+                .map(UniqueValues::len),
             None
         );
     }

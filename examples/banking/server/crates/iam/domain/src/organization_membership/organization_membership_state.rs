@@ -53,7 +53,7 @@ fn organization_user_values(
 
 #[cfg(test)]
 mod tests {
-    use appletheia::domain::{AggregateState, UniqueConstraints, UniqueKey, UniqueValues};
+    use appletheia::domain::{AggregateState, UniqueConstraints, UniqueValues};
 
     use crate::{OrganizationId, UserId};
 
@@ -81,7 +81,7 @@ mod tests {
 
         assert_eq!(
             entries
-                .get(UniqueKey::new("organization_user"))
+                .get(OrganizationMembershipState::ORGANIZATION_USER_KEY)
                 .map(UniqueValues::len),
             Some(1)
         );
@@ -100,7 +100,7 @@ mod tests {
 
         assert_eq!(
             entries
-                .get(UniqueKey::new("organization_user"))
+                .get(OrganizationMembershipState::ORGANIZATION_USER_KEY)
                 .map(UniqueValues::len),
             None
         );

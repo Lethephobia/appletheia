@@ -35,6 +35,38 @@ bad:
 let value = crate::value::ExampleValue::new();
 ```
 
+### DON'T use `expect` or `unwrap` in non-test code
+
+Propagate errors or handle them explicitly in library, application, and example code. Reserve `expect` and `unwrap` for tests and fixtures where the failure context is part of the assertion.
+
+good:
+```rust
+let value = MaybeValue::try_from(input).map_err(ValueError::from)?;
+```
+
+bad:
+```rust
+let value = MaybeValue::try_from(input).expect("input should be valid");
+```
+
+### PREFER import concrete domain and application types instead of qualifying them through the crate name
+
+Bring commonly used external types into scope once, then refer to them by bare name in signatures and expressions.
+
+good:
+```rust
+use banking_iam_domain::{Organization, OrganizationId, UserId};
+
+let organization = AggregateRef::from_id::<Organization>(organization_id);
+let user_id = UserId::new();
+```
+
+bad:
+```rust
+let organization = AggregateRef::from_id::<banking_iam_domain::Organization>(organization_id);
+let user_id = banking_iam_domain::UserId::new();
+```
+
 ### PREFER keep related items together when they form a small unit
 
 Use a single module when the types and helpers are meant to change together.
