@@ -10,9 +10,15 @@ Keep write-side behavior inside the aggregate boundary.
 
 good:
 ```rust
-pub fn rename(&mut self, name: ExampleName) -> Result<(), ExampleError> {
-    self.ensure_opened()?;
-    self.append_event(ExampleEventPayload::Renamed { name })
+pub fn change_name(&mut self, name: OrganizationName) -> Result<(), OrganizationError> {
+    self.ensure_not_removed()?;
+
+    let current_name = self.state_required()?.name.clone();
+    if current_name.eq(&name) {
+        return Ok(());
+    }
+
+    self.append_event(OrganizationEventPayload::NameChanged { name })
 }
 ```
 
@@ -27,11 +33,23 @@ Construct the payload from the validated command input before you append it.
 
 good:
 ```rust
-pub fn open(&mut self, name: ExampleName) -> Result<(), ExampleError> {
-    self.ensure_not_opened()?;
-    self.append_event(ExampleEventPayload::Opened {
-        id: ExampleId::new(),
-        name,
+pub fn issue(
+    &mut self,
+    organization_id: OrganizationId,
+    invitee_id: UserId,
+    issuer: OrganizationInvitationIssuer,
+    expires_at: OrganizationInvitationExpiresAt,
+) -> Result<(), OrganizationInvitationError> {
+    if self.state().is_some() {
+        return Err(OrganizationInvitationError::AlreadyIssued);
+    }
+
+    self.append_event(OrganizationInvitationEventPayload::Issued {
+        id: OrganizationInvitationId::new(),
+        organization_id,
+        invitee_id,
+        issuer,
+        expires_at,
     })
 }
 ```
@@ -49,9 +67,15 @@ Reject invalid requests before any state change is recorded.
 
 good:
 ```rust
-pub fn rename(&mut self, name: ExampleName) -> Result<(), ExampleError> {
-    self.ensure_opened()?;
-    self.append_event(ExampleEventPayload::Renamed { name })
+pub fn reserve_funds(&mut self, amount: AccountBalance) -> Result<(), AccountError> {
+    self.ensure_active_status()?;
+    self.ensure_available_balance_at_least(amount, AccountError::InsufficientAvailableBalance)?;
+
+    if amount.is_zero() {
+        return Ok(());
+    }
+
+    self.append_event(AccountEventPayload::FundsReserved { amount })
 }
 ```
 
@@ -68,11 +92,15 @@ Return `Ok(())` instead of an error for idempotent requests.
 
 good:
 ```rust
-if self.state().is_some_and(|state| state.name == name) {
-    return Ok(());
-}
+pub fn rename(&mut self, name: AccountName) -> Result<(), AccountError> {
+    self.ensure_not_closed()?;
 
-self.append_event(ExampleEventPayload::Renamed { name })
+    if self.state().is_some_and(|state| state.name.eq(&name)) {
+        return Ok(());
+    }
+
+    self.append_event(AccountEventPayload::Renamed { name })
+}
 ```
 
 bad:
@@ -88,10 +116,14 @@ Do not let a repeated state hide a real validation failure.
 
 good:
 ```rust
-self.ensure_opened()?;
+pub fn change_handle(&mut self, handle: OrganizationHandle) -> Result<(), OrganizationError> {
+    self.ensure_not_removed()?;
 
-if self.state().is_some_and(|state| state.name == name) {
-    return Ok(());
+    if self.state().is_some_and(|state| state.handle.eq(&handle)) {
+        return Ok(());
+    }
+
+    self.append_event(OrganizationEventPayload::HandleChanged { handle })
 }
 ```
 
@@ -110,13 +142,18 @@ Treat repeated create, open, or close calls as misuse.
 
 good:
 ```rust
-pub fn open(&mut self, name: ExampleName) -> Result<(), ExampleError> {
+pub fn create(
+    &mut self,
+    handle: OrganizationHandle,
+    name: OrganizationName,
+) -> Result<(), OrganizationError> {
     if self.state().is_some() {
-        return Err(ExampleError::AlreadyOpened);
+        return Err(OrganizationError::AlreadyCreated);
     }
 
-    self.append_event(ExampleEventPayload::Opened {
-        id: ExampleId::new(),
+    self.append_event(OrganizationEventPayload::Created {
+        id: OrganizationId::new(),
+        handle,
         name,
     })
 }
@@ -142,10 +179,15 @@ Keep identity creation within the aggregate boundary.
 
 good:
 ```rust
-pub fn open(&mut self, name: ExampleName) -> Result<(), ExampleError> {
-    self.append_event(ExampleEventPayload::Opened {
-        id: ExampleId::new(),
-        name,
+pub fn create(
+    &mut self,
+    organization_id: OrganizationId,
+    user_id: UserId,
+) -> Result<(), OrganizationMembershipError> {
+    self.append_event(OrganizationMembershipEventPayload::Created {
+        id: OrganizationMembershipId::new(),
+        organization_id,
+        user_id,
     })
 }
 ```
@@ -163,8 +205,16 @@ Use read-only accessors when callers need the current state or a derived value.
 
 good:
 ```rust
-pub fn name(&self) -> Result<&ExampleName, ExampleError> {
-    Ok(&self.state_required()?.name)
+pub fn available_balance(&self) -> Result<AccountBalance, AccountError> {
+    let state = self.state_required()?;
+
+    state
+        .balance
+        .try_sub(state.reserved_balance)
+        .map_err(|error| match error {
+            AccountBalanceError::InsufficientBalance => AccountError::InvalidReservedBalance,
+            AccountBalanceError::BalanceOverflow => AccountError::BalanceOverflow,
+        })
 }
 ```
 
@@ -187,8 +237,8 @@ pub struct ExampleAggregate {
 
 good:
 ```rust
-pub struct ExampleAggregate {
-    core: AggregateCore<ExampleState, ExampleEventPayload>,
+pub struct Organization {
+    core: AggregateCore<OrganizationState, OrganizationEventPayload>,
 }
 ```
 
@@ -198,17 +248,17 @@ Keep public methods focused on intent and share repeated checks through private 
 
 good:
 ```rust
-fn ensure_opened(&self) -> Result<(), ExampleError> {
-    if self.state().is_none() {
-        return Err(ExampleError::NotOpened);
+fn ensure_not_removed(&self) -> Result<(), OrganizationError> {
+    if self.state_required()?.status.is_removed() {
+        return Err(OrganizationError::Removed);
     }
 
     Ok(())
 }
 
-pub fn rename(&mut self, name: ExampleName) -> Result<(), ExampleError> {
-    self.ensure_opened()?;
-    self.append_event(ExampleEventPayload::Renamed { name })
+pub fn change_name(&mut self, name: OrganizationName) -> Result<(), OrganizationError> {
+    self.ensure_not_removed()?;
+    self.append_event(OrganizationEventPayload::NameChanged { name })
 }
 ```
 
@@ -247,11 +297,16 @@ impl Child {
 
 good:
 ```rust
-impl Child {
-    pub fn open(&mut self, name: ChildName) -> Result<(), ChildError> {
-        self.append_event(ChildEventPayload::Opened {
-            id: ChildId::new(),
-            name,
+impl OrganizationMembership {
+    pub fn create(
+        &mut self,
+        organization_id: OrganizationId,
+        user_id: UserId,
+    ) -> Result<(), OrganizationMembershipError> {
+        self.append_event(OrganizationMembershipEventPayload::Created {
+            id: OrganizationMembershipId::new(),
+            organization_id,
+            user_id,
         })
     }
 }
@@ -277,12 +332,20 @@ pub fn transfer_to(
 
 good:
 ```rust
-pub fn transfer_to(
+pub fn issue(
     &mut self,
-    target_id: ExampleId,
-    amount: Money,
-) -> Result<(), ExampleError> {
-    self.append_event(ExampleEventPayload::Transferred { target_id, amount })
+    organization_id: OrganizationId,
+    invitee_id: UserId,
+    issuer: OrganizationInvitationIssuer,
+    expires_at: OrganizationInvitationExpiresAt,
+) -> Result<(), OrganizationInvitationError> {
+    self.append_event(OrganizationInvitationEventPayload::Issued {
+        id: OrganizationInvitationId::new(),
+        organization_id,
+        invitee_id,
+        issuer,
+        expires_at,
+    })
 }
 ```
 
@@ -294,34 +357,51 @@ Keep validation in command methods, not in event replay.
 
 bad:
 ```rust
-fn apply(&mut self, event: ExampleEventPayload) -> Result<(), ExampleError> {
-    if self.state_required()?.is_closed() {
-        return Err(ExampleError::Closed);
+fn apply(&mut self, payload: &OrganizationEventPayload) -> Result<(), OrganizationError> {
+    if self.state_required()?.status.is_removed() {
+        return Err(OrganizationError::Removed);
     }
 
-    match event {
-        ExampleEventPayload::Renamed { name } => {
-            self.state_required_mut()?.name = name;
+    match payload {
+        OrganizationEventPayload::NameChanged { name } => {
+            self.state_required_mut()?.name = name.clone();
             Ok(())
         }
-        ExampleEventPayload::Opened { id, name } => {
-            self.state = Some(ExampleState::new(id, name));
+        OrganizationEventPayload::Created { id, handle, name } => {
+            self.state = Some(OrganizationState::new(
+                *id,
+                handle.clone(),
+                name.clone(),
+            ));
             Ok(())
         }
+        _ => Ok(()),
     }
 }
 ```
 
 good:
 ```rust
-fn apply(&mut self, event: ExampleEventPayload) -> Result<(), ExampleError> {
-    match event {
-        ExampleEventPayload::Renamed { name } => {
-            self.state_required_mut()?.name = name;
+fn apply(&mut self, payload: &OrganizationEventPayload) -> Result<(), OrganizationError> {
+    match payload {
+        OrganizationEventPayload::Created { id, handle, name } => {
+            self.state = Some(OrganizationState::new(
+                *id,
+                handle.clone(),
+                name.clone(),
+            ));
             Ok(())
         }
-        ExampleEventPayload::Opened { id, name } => {
-            self.state = Some(ExampleState::new(id, name));
+        OrganizationEventPayload::HandleChanged { handle } => {
+            self.state_required_mut()?.handle = handle.clone();
+            Ok(())
+        }
+        OrganizationEventPayload::NameChanged { name } => {
+            self.state_required_mut()?.name = name.clone();
+            Ok(())
+        }
+        OrganizationEventPayload::Removed => {
+            self.state_required_mut()?.status = OrganizationStatus::Removed;
             Ok(())
         }
     }
@@ -353,15 +433,27 @@ fn apply(&mut self, event: ExampleEventPayload) -> Result<(), ExampleError> {
 
 good:
 ```rust
-fn apply(&mut self, event: ExampleEventPayload) -> Result<(), ExampleError> {
-    match event {
-        ExampleEventPayload::Renamed { name } => {
+fn apply(&mut self, payload: &OrganizationEventPayload) -> Result<(), OrganizationError> {
+    match payload {
+        OrganizationEventPayload::NameChanged { name } => {
             let state = self.state_required_mut()?;
-            state.name = name;
+            state.name = name.clone();
             Ok(())
         }
-        ExampleEventPayload::Opened { id, name } => {
-            self.state = Some(ExampleState::new(id, name));
+        OrganizationEventPayload::Created { id, handle, name } => {
+            self.state = Some(OrganizationState::new(
+                *id,
+                handle.clone(),
+                name.clone(),
+            ));
+            Ok(())
+        }
+        OrganizationEventPayload::HandleChanged { handle } => {
+            self.state_required_mut()?.handle = handle.clone();
+            Ok(())
+        }
+        OrganizationEventPayload::Removed => {
+            self.state_required_mut()?.status = OrganizationStatus::Removed;
             Ok(())
         }
     }
@@ -376,17 +468,21 @@ Limit field visibility to the aggregate module or its parent when possible.
 
 good:
 ```rust
-pub(super) struct ExampleState {
-    pub(super) id: ExampleId,
-    pub(super) name: ExampleName,
+pub(super) struct OrganizationState {
+    pub(super) id: OrganizationId,
+    pub(super) status: OrganizationStatus,
+    pub(super) handle: OrganizationHandle,
+    pub(super) name: OrganizationName,
 }
 ```
 
 bad:
 ```rust
-pub struct ExampleState {
-    pub id: ExampleId,
-    pub name: ExampleName,
+pub struct OrganizationState {
+    pub id: OrganizationId,
+    pub handle: OrganizationHandle,
+    pub name: OrganizationName,
+    pub status: OrganizationStatus,
 }
 ```
 
@@ -396,13 +492,17 @@ Use a constructor to capture default state in one place.
 
 good:
 ```rust
-impl ExampleState {
-    pub(super) fn new(id: ExampleId, name: ExampleName) -> Self {
+impl OrganizationState {
+    pub(super) fn new(
+        id: OrganizationId,
+        handle: OrganizationHandle,
+        name: OrganizationName,
+    ) -> Self {
         Self {
             id,
+            status: OrganizationStatus::Active,
+            handle,
             name,
-            status: ExampleStatus::Pending,
-            description: None,
         }
     }
 }
@@ -410,11 +510,11 @@ impl ExampleState {
 
 bad:
 ```rust
-pub(super) struct ExampleState {
-    pub(super) id: ExampleId,
-    pub(super) name: ExampleName,
-    pub(super) status: ExampleStatus,
-    pub(super) description: Option<ExampleDescription>,
+pub(super) struct OrganizationState {
+    pub(super) id: OrganizationId,
+    pub(super) handle: OrganizationHandle,
+    pub(super) name: OrganizationName,
+    pub(super) status: OrganizationStatus,
 }
 ```
 
@@ -424,8 +524,8 @@ Keep `AggregateState` as a data container and update it directly from `Aggregate
 
 bad:
 ```rust
-impl ExampleState {
-    pub fn rename(&mut self, name: ExampleName) {
+impl OrganizationState {
+    pub fn change_name(&mut self, name: OrganizationName) {
         self.name = name;
     }
 }
@@ -433,10 +533,13 @@ impl ExampleState {
 
 good:
 ```rust
-impl AggregateApply<ExampleEventPayload> for ExampleAggregate {
-    fn apply(&mut self, event: ExampleEventPayload) -> Result<(), ExampleError> {
-        if let ExampleEventPayload::Renamed { name } = event {
-            self.state_required_mut()?.name = name;
+impl AggregateApply<OrganizationEventPayload, OrganizationError> for Organization {
+    fn apply(
+        &mut self,
+        payload: &OrganizationEventPayload,
+    ) -> Result<(), OrganizationError> {
+        if let OrganizationEventPayload::NameChanged { name } = payload {
+            self.state_required_mut()?.name = name.clone();
         }
 
         Ok(())
@@ -450,17 +553,19 @@ Prefer domain-specific types over primitive fields when the meaning matters.
 
 good:
 ```rust
-pub(super) struct ExampleState {
-    pub(super) name: ExampleName,
-    pub(super) balance: Money,
+pub(super) struct OrganizationState {
+    pub(super) handle: OrganizationHandle,
+    pub(super) name: OrganizationName,
+    pub(super) status: OrganizationStatus,
 }
 ```
 
 bad:
 ```rust
-pub(super) struct ExampleState {
+pub(super) struct OrganizationState {
+    pub(super) handle: String,
     pub(super) name: String,
-    pub(super) balance: i64,
+    pub(super) status: i64,
 }
 ```
 
@@ -470,16 +575,16 @@ Use a fixed-point representation and keep the decimal precision explicit.
 
 bad:
 ```rust
-pub(super) struct ExampleState {
-    pub(super) amount: f64,
+pub(super) struct AccountState {
+    pub(super) balance: f64,
 }
 ```
 
 good:
 ```rust
-pub(super) struct ExampleState {
-    pub(super) amount: i64,
-    pub(super) decimals: CurrencyDecimals,
+pub(super) struct AccountState {
+    pub(super) balance: AccountBalance,
+    pub(super) reserved_balance: AccountBalance,
 }
 ```
 
@@ -493,19 +598,30 @@ good:
 ```rust
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "type", content = "data", rename_all = "snake_case")]
-pub enum ExampleEventPayload {
-    Opened { id: ExampleId, name: ExampleName },
-    DisplayNameChanged { name: ExampleName },
+pub enum OrganizationEventPayload {
+    Created {
+        id: OrganizationId,
+        handle: OrganizationHandle,
+        name: OrganizationName,
+    },
+    HandleChanged {
+        handle: OrganizationHandle,
+    },
+    NameChanged {
+        name: OrganizationName,
+    },
+    Removed,
 }
 ```
 
 bad:
 ```rust
 #[derive(Serialize, Deserialize)]
-pub struct ExampleEventPayload {
+pub struct OrganizationEventPayload {
     pub kind: String,
-    pub id: Option<ExampleId>,
-    pub name: Option<ExampleName>,
+    pub id: Option<OrganizationId>,
+    pub handle: Option<OrganizationHandle>,
+    pub name: Option<OrganizationName>,
 }
 ```
 
@@ -517,8 +633,14 @@ good:
 ```rust
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "type", content = "data")]
-pub enum ExampleEventPayload {
-    Opened { id: ExampleId, name: ExampleName },
+pub enum OrganizationInvitationEventPayload {
+    Issued {
+        id: OrganizationInvitationId,
+        organization_id: OrganizationId,
+        invitee_id: UserId,
+        issuer: OrganizationInvitationIssuer,
+        expires_at: OrganizationInvitationExpiresAt,
+    },
 }
 ```
 
@@ -526,8 +648,14 @@ bad:
 ```rust
 #[derive(Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum ExampleEventPayload {
-    Opened { id: ExampleId, name: ExampleName },
+pub enum OrganizationInvitationEventPayload {
+    Issued {
+        id: OrganizationInvitationId,
+        organization_id: OrganizationId,
+        invitee_id: UserId,
+        issuer: OrganizationInvitationIssuer,
+        expires_at: OrganizationInvitationExpiresAt,
+    },
 }
 ```
 
@@ -537,16 +665,48 @@ Make variants read as facts about what already happened.
 
 good:
 ```rust
-pub enum ExampleEventPayload {
-    Opened { id: ExampleId, name: ExampleName },
-    DisplayNameChanged { name: ExampleName },
+pub enum OrganizationInvitationEventPayload {
+    Issued {
+        id: OrganizationInvitationId,
+        organization_id: OrganizationId,
+        invitee_id: UserId,
+        issuer: OrganizationInvitationIssuer,
+        expires_at: OrganizationInvitationExpiresAt,
+    },
+    Accepted {
+        organization_id: OrganizationId,
+        invitee_id: UserId,
+    },
+    Declined {
+        organization_id: OrganizationId,
+        invitee_id: UserId,
+    },
+    Canceled {
+        organization_id: OrganizationId,
+        invitee_id: UserId,
+    },
 }
 ```
 
 bad:
 ```rust
-pub enum ExampleEventPayload {
-    Open { id: ExampleId, name: ExampleName },
-    ChangedDisplayName { name: ExampleName },
+pub enum OrganizationInvitationEventPayload {
+    Issue {
+        id: OrganizationInvitationId,
+        organization_id: OrganizationId,
+        invitee_id: UserId,
+    },
+    Accept {
+        organization_id: OrganizationId,
+        invitee_id: UserId,
+    },
+    Decline {
+        organization_id: OrganizationId,
+        invitee_id: UserId,
+    },
+    Cancel {
+        organization_id: OrganizationId,
+        invitee_id: UserId,
+    },
 }
 ```
