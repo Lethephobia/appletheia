@@ -4,6 +4,7 @@ use appletheia::application::authorization::{
 };
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
+use appletheia::application::request_context::Principal;
 use banking_ledger_domain::currency_definition::{
     CurrencyDefinition, CurrencyDefinitionEventPayload,
 };
@@ -45,9 +46,7 @@ where
             return Ok(());
         };
 
-        let appletheia::application::request_context::ActorRef::Subject { subject } =
-            &event.context.actor
-        else {
+        let Principal::Authenticated { subject } = &event.context.principal else {
             return Ok(());
         };
 
@@ -200,9 +199,7 @@ mod tests {
             context: RequestContext::new(
                 CorrelationId::from(MessageId::new().value()),
                 message_id,
-                ActorRef::Subject {
-                    subject: actor_subject.clone(),
-                },
+                ActorRef::System,
                 Principal::Authenticated {
                     subject: actor_subject,
                 },
@@ -229,9 +226,9 @@ mod tests {
             panic!("expected upsert relationship");
         };
 
-        let expected_subject = match &event.context.actor {
-            ActorRef::Subject { subject } => RelationshipSubject::Aggregate(subject.clone()),
-            _ => panic!("expected subject actor"),
+        let expected_subject = match &event.context.principal {
+            Principal::Authenticated { subject } => RelationshipSubject::Aggregate(subject.clone()),
+            _ => panic!("expected authenticated principal"),
         };
 
         assert_eq!(

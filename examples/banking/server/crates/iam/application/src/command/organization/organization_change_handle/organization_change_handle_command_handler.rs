@@ -74,6 +74,10 @@ where
             return Err(OrganizationChangeHandleCommandHandlerError::OrganizationNotFound);
         };
 
+        if organization.is_removed()? {
+            return Err(OrganizationChangeHandleCommandHandlerError::OrganizationRemoved);
+        }
+
         organization.change_handle(command.handle.clone())?;
 
         self.organization_repository

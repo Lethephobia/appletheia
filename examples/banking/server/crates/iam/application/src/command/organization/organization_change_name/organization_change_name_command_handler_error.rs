@@ -13,4 +13,7 @@ pub enum OrganizationChangeNameCommandHandlerError {
 
     #[error("organization was not found")]
     OrganizationNotFound,
+
+    #[error("organization is removed")]
+    OrganizationRemoved,
 }

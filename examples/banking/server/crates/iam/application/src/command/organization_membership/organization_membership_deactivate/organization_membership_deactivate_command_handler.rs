@@ -5,7 +5,7 @@ use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_iam_domain::OrganizationMembership;
+use banking_iam_domain::{Organization, OrganizationMembership};
 
 use super::{
     OrganizationMembershipDeactivateCommand, OrganizationMembershipDeactivateCommandHandlerError,
@@ -15,33 +15,38 @@ use crate::authorization::OrganizationMembershipDeactivatorRelation;
 use crate::projection::OrganizationMembershipOrganizationRelationshipProjectorSpec;
 
 /// Handles `OrganizationMembershipDeactivateCommand`.
-pub struct OrganizationMembershipDeactivateCommandHandler<OR>
+pub struct OrganizationMembershipDeactivateCommandHandler<ORG, MR>
 where
-    OR: Repository<OrganizationMembership>,
+    ORG: Repository<Organization>,
+    MR: Repository<OrganizationMembership, Uow = ORG::Uow>,
 {
-    organization_membership_repository: OR,
+    organization_repository: ORG,
+    organization_membership_repository: MR,
 }
 
-impl<OR> OrganizationMembershipDeactivateCommandHandler<OR>
+impl<ORG, MR> OrganizationMembershipDeactivateCommandHandler<ORG, MR>
 where
-    OR: Repository<OrganizationMembership>,
+    ORG: Repository<Organization>,
+    MR: Repository<OrganizationMembership, Uow = ORG::Uow>,
 {
-    pub fn new(organization_membership_repository: OR) -> Self {
+    pub fn new(organization_repository: ORG, organization_membership_repository: MR) -> Self {
         Self {
+            organization_repository,
             organization_membership_repository,
         }
     }
 }
 
-impl<OR> CommandHandler for OrganizationMembershipDeactivateCommandHandler<OR>
+impl<ORG, MR> CommandHandler for OrganizationMembershipDeactivateCommandHandler<ORG, MR>
 where
-    OR: Repository<OrganizationMembership>,
+    ORG: Repository<Organization>,
+    MR: Repository<OrganizationMembership, Uow = ORG::Uow>,
 {
     type Command = OrganizationMembershipDeactivateCommand;
     type Output = OrganizationMembershipDeactivateOutput;
     type ReplayOutput = OrganizationMembershipDeactivateOutput;
     type Error = OrganizationMembershipDeactivateCommandHandlerError;
-    type Uow = OR::Uow;
+    type Uow = ORG::Uow;
 
     fn authorization_plan(
         &self,
@@ -78,6 +83,18 @@ where
                 OrganizationMembershipDeactivateCommandHandlerError::TargetOrganizationMembershipNotFound,
             );
         };
+
+        let Some(organization) = self
+            .organization_repository
+            .find(uow, *organization_membership.organization_id()?)
+            .await?
+        else {
+            return Err(OrganizationMembershipDeactivateCommandHandlerError::OrganizationNotFound);
+        };
+
+        if organization.is_removed()? {
+            return Err(OrganizationMembershipDeactivateCommandHandlerError::OrganizationRemoved);
+        }
 
         organization_membership.deactivate()?;
 

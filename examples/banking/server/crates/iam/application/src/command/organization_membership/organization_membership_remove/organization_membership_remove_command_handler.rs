@@ -5,7 +5,7 @@ use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_iam_domain::OrganizationMembership;
+use banking_iam_domain::{Organization, OrganizationMembership};
 
 use super::{
     OrganizationMembershipRemoveCommand, OrganizationMembershipRemoveCommandHandlerError,
@@ -15,33 +15,38 @@ use crate::authorization::OrganizationMembershipRemoverRelation;
 use crate::projection::OrganizationMembershipOrganizationRelationshipProjectorSpec;
 
 /// Handles `OrganizationMembershipRemoveCommand`.
-pub struct OrganizationMembershipRemoveCommandHandler<OR>
+pub struct OrganizationMembershipRemoveCommandHandler<ORG, MR>
 where
-    OR: Repository<OrganizationMembership>,
+    ORG: Repository<Organization>,
+    MR: Repository<OrganizationMembership, Uow = ORG::Uow>,
 {
-    organization_membership_repository: OR,
+    organization_repository: ORG,
+    organization_membership_repository: MR,
 }
 
-impl<OR> OrganizationMembershipRemoveCommandHandler<OR>
+impl<ORG, MR> OrganizationMembershipRemoveCommandHandler<ORG, MR>
 where
-    OR: Repository<OrganizationMembership>,
+    ORG: Repository<Organization>,
+    MR: Repository<OrganizationMembership, Uow = ORG::Uow>,
 {
-    pub fn new(organization_membership_repository: OR) -> Self {
+    pub fn new(organization_repository: ORG, organization_membership_repository: MR) -> Self {
         Self {
+            organization_repository,
             organization_membership_repository,
         }
     }
 }
 
-impl<OR> CommandHandler for OrganizationMembershipRemoveCommandHandler<OR>
+impl<ORG, MR> CommandHandler for OrganizationMembershipRemoveCommandHandler<ORG, MR>
 where
-    OR: Repository<OrganizationMembership>,
+    ORG: Repository<Organization>,
+    MR: Repository<OrganizationMembership, Uow = ORG::Uow>,
 {
     type Command = OrganizationMembershipRemoveCommand;
     type Output = OrganizationMembershipRemoveOutput;
     type ReplayOutput = OrganizationMembershipRemoveOutput;
     type Error = OrganizationMembershipRemoveCommandHandlerError;
-    type Uow = OR::Uow;
+    type Uow = ORG::Uow;
 
     fn authorization_plan(
         &self,
@@ -78,6 +83,18 @@ where
                 OrganizationMembershipRemoveCommandHandlerError::TargetOrganizationMembershipNotFound,
             );
         };
+
+        let Some(organization) = self
+            .organization_repository
+            .find(uow, *organization_membership.organization_id()?)
+            .await?
+        else {
+            return Err(OrganizationMembershipRemoveCommandHandlerError::OrganizationNotFound);
+        };
+
+        if organization.is_removed()? {
+            return Err(OrganizationMembershipRemoveCommandHandlerError::OrganizationRemoved);
+        }
 
         organization_membership.remove()?;
 

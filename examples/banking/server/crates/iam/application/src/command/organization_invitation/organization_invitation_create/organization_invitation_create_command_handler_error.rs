@@ -1,13 +1,17 @@
 use appletheia::application::repository::RepositoryError;
 use appletheia::domain::{AggregateId, UniqueValueError, UniqueValuePartError};
 use banking_iam_domain::{
-    OrganizationInvitation, OrganizationInvitationError, OrganizationMembership, UserId,
+    Organization, OrganizationError, OrganizationInvitation, OrganizationInvitationError,
+    OrganizationMembership, UserId,
 };
 use thiserror::Error;
 
 /// Represents errors returned while issuing an organization invitation.
 #[derive(Debug, Error)]
 pub enum OrganizationInvitationIssueCommandHandlerError {
+    #[error("organization repository failed")]
+    OrganizationRepository(#[from] RepositoryError<Organization>),
+
     #[error("organization invitation repository failed")]
     OrganizationInvitationRepository(#[from] RepositoryError<OrganizationInvitation>),
 
@@ -16,6 +20,9 @@ pub enum OrganizationInvitationIssueCommandHandlerError {
 
     #[error("organization invitation aggregate failed")]
     OrganizationInvitation(#[from] OrganizationInvitationError),
+
+    #[error("organization aggregate failed")]
+    Organization(#[from] OrganizationError),
 
     #[error("unique value part is invalid")]
     UniqueValuePart(#[from] UniqueValuePartError),
@@ -37,4 +44,10 @@ pub enum OrganizationInvitationIssueCommandHandlerError {
 
     #[error("invitee is already a member of the organization")]
     InviteeAlreadyMember,
+
+    #[error("organization is not found")]
+    OrganizationNotFound,
+
+    #[error("organization is removed")]
+    OrganizationRemoved,
 }

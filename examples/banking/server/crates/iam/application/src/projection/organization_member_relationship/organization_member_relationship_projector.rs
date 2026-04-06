@@ -6,8 +6,7 @@ use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
 use appletheia::domain::Aggregate;
 use banking_iam_domain::{
-    Organization, OrganizationEventPayload, OrganizationMembership,
-    OrganizationMembershipEventPayload, User,
+    Organization, OrganizationMembership, OrganizationMembershipEventPayload, User,
 };
 
 use super::{
@@ -95,32 +94,6 @@ where
                         .await?;
                 }
             }
-        } else if aggregate_type == Organization::TYPE.value() {
-            let domain_event = event.try_into_domain_event::<Organization>()?;
-
-            if matches!(domain_event.payload(), OrganizationEventPayload::Removed) {
-                let aggregate = AggregateRef::from_id::<Organization>(domain_event.aggregate_id());
-                let relation = RelationNameOwned::from(OrganizationMemberRelation::NAME);
-                let subjects = self
-                    .relationship_store
-                    .read_subjects_by_aggregate(uow, &aggregate, &relation)
-                    .await?;
-
-                if !subjects.is_empty() {
-                    let changes = subjects
-                        .into_iter()
-                        .map(|subject| {
-                            RelationshipChange::Delete(Relationship {
-                                aggregate: aggregate.clone(),
-                                relation: relation.clone(),
-                                subject,
-                            })
-                        })
-                        .collect::<Vec<_>>();
-
-                    self.relationship_store.apply_changes(uow, &changes).await?;
-                }
-            }
         }
 
         Ok(())
@@ -143,9 +116,8 @@ mod tests {
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::{Aggregate, AggregateId, Event, EventPayload};
     use banking_iam_domain::{
-        Organization, OrganizationHandle, OrganizationId, OrganizationMembership,
-        OrganizationMembershipEventPayload, OrganizationMembershipId, OrganizationName, User,
-        UserId,
+        Organization, OrganizationId, OrganizationMembership, OrganizationMembershipEventPayload,
+        OrganizationMembershipId, User, UserId,
     };
 
     use super::OrganizationMemberRelationshipProjector;
@@ -321,66 +293,6 @@ mod tests {
         (envelope, organization_id, user_id)
     }
 
-    fn organization_removed_event_envelope() -> (EventEnvelope, OrganizationId) {
-        let mut organization = Organization::default();
-        organization
-            .create(
-                OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
-                OrganizationName::try_from("Acme Labs").expect("name should be valid"),
-            )
-            .expect("creation should succeed");
-        let organization_id = organization
-            .aggregate_id()
-            .expect("aggregate id should exist");
-        organization.remove().expect("remove should succeed");
-
-        let event = organization
-            .uncommitted_events()
-            .last()
-            .expect("removed event should exist")
-            .clone();
-        let message_id = MessageId::new();
-
-        (
-            EventEnvelope {
-                event_sequence: EventSequence::try_from(2).expect("sequence should be valid"),
-                event_id: event.id(),
-                aggregate_type: appletheia::application::event::AggregateTypeOwned::from(
-                    Organization::TYPE,
-                ),
-                aggregate_id: appletheia::application::event::AggregateIdValue::from(
-                    event.aggregate_id().value(),
-                ),
-                aggregate_version: event.aggregate_version(),
-                event_name: appletheia::application::event::EventNameOwned::from(
-                    event.payload().name(),
-                ),
-                payload: SerializedEventPayload::try_from(
-                    event
-                        .payload()
-                        .clone()
-                        .into_json_value()
-                        .expect("payload should serialize"),
-                )
-                .expect("payload should be valid"),
-                occurred_at: event.occurred_at(),
-                correlation_id: CorrelationId::from(message_id.value()),
-                causation_id: CausationId::from(message_id),
-                context: RequestContext::new(
-                    CorrelationId::from(MessageId::new().value()),
-                    MessageId::new(),
-                    ActorRef::Subject {
-                        subject: AggregateRef::from_id::<User>(UserId::new()),
-                    },
-                    Principal::Authenticated {
-                        subject: AggregateRef::from_id::<User>(UserId::new()),
-                    },
-                ),
-            },
-            organization_id,
-        )
-    }
-
     #[tokio::test]
     async fn project_created_event_upserts_member_relationship() {
         let store = TestRelationshipStore::default();
@@ -511,42 +423,5 @@ mod tests {
             relationship.subject,
             RelationshipSubject::Aggregate(AggregateRef::from_id::<User>(user_id))
         );
-    }
-
-    #[tokio::test]
-    async fn project_organization_removed_event_deletes_member_relationships() {
-        let store = TestRelationshipStore {
-            subjects_by_aggregate: Arc::new(Mutex::new(vec![
-                RelationshipSubject::Aggregate(AggregateRef::from_id::<User>(UserId::new())),
-                RelationshipSubject::Aggregate(AggregateRef::from_id::<User>(UserId::new())),
-            ])),
-            ..Default::default()
-        };
-        let projector = OrganizationMemberRelationshipProjector::new(store.clone());
-        let mut uow = TestUow;
-        let (event, organization_id) = organization_removed_event_envelope();
-
-        projector
-            .project(&mut uow, &event)
-            .await
-            .expect("projection should succeed");
-
-        let changes = store.recorded_changes();
-        assert_eq!(changes.len(), 2);
-
-        for change in changes {
-            let RelationshipChange::Delete(relationship) = change else {
-                panic!("expected delete relationship");
-            };
-
-            assert_eq!(
-                relationship.relation,
-                RelationNameOwned::from(OrganizationMemberRelation::NAME)
-            );
-            assert_eq!(
-                relationship.aggregate,
-                AggregateRef::from_id::<Organization>(organization_id)
-            );
-        }
     }
 }

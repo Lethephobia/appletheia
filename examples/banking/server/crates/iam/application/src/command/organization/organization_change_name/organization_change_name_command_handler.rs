@@ -74,6 +74,10 @@ where
             return Err(OrganizationChangeNameCommandHandlerError::OrganizationNotFound);
         };
 
+        if organization.is_removed()? {
+            return Err(OrganizationChangeNameCommandHandlerError::OrganizationRemoved);
+        }
+
         organization.change_name(command.name.clone())?;
 
         self.organization_repository

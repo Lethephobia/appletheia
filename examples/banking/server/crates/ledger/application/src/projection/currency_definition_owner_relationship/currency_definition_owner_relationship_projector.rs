@@ -4,7 +4,7 @@ use appletheia::application::authorization::{
 };
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
-use appletheia::application::request_context::ActorRef;
+use appletheia::application::request_context::Principal;
 use banking_ledger_domain::currency_definition::{
     CurrencyDefinition, CurrencyDefinitionEventPayload,
 };
@@ -46,7 +46,7 @@ where
             return Ok(());
         };
 
-        let ActorRef::Subject { subject } = &event.context.actor else {
+        let Principal::Authenticated { subject } = &event.context.principal else {
             return Ok(());
         };
         let currency_definition =
@@ -156,7 +156,7 @@ mod tests {
         )
     }
 
-    fn defined_event_envelope(actor: ActorRef) -> EventEnvelope {
+    fn defined_event_envelope(principal: Principal) -> EventEnvelope {
         let mut currency_definition = CurrencyDefinition::default();
         currency_definition
             .define(
@@ -200,8 +200,8 @@ mod tests {
             context: RequestContext::new(
                 CorrelationId::from(MessageId::new().value()),
                 message_id,
-                actor,
-                Principal::Unavailable,
+                ActorRef::System,
+                principal,
             ),
         }
     }
@@ -212,7 +212,7 @@ mod tests {
         let projector = CurrencyDefinitionOwnerRelationshipProjector::new(store.clone());
         let mut uow = TestUow;
         let creator = creator_subject();
-        let event = defined_event_envelope(ActorRef::Subject {
+        let event = defined_event_envelope(Principal::Authenticated {
             subject: creator.clone(),
         });
 
@@ -243,7 +243,7 @@ mod tests {
         let store = TestRelationshipStore::default();
         let projector = CurrencyDefinitionOwnerRelationshipProjector::new(store.clone());
         let mut uow = TestUow;
-        let event = defined_event_envelope(ActorRef::System);
+        let event = defined_event_envelope(Principal::System);
 
         projector
             .project(&mut uow, &event)

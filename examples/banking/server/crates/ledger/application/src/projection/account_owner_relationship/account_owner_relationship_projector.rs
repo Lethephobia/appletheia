@@ -191,9 +191,7 @@ mod tests {
                 context: RequestContext::new(
                     CorrelationId::from(MessageId::new().value()),
                     message_id,
-                    ActorRef::Subject {
-                        subject: subject.clone(),
-                    },
+                    ActorRef::System,
                     Principal::Authenticated { subject },
                 ),
             },

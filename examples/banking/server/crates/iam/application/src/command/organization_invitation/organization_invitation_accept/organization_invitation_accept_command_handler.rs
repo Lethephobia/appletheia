@@ -5,7 +5,7 @@ use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_iam_domain::OrganizationInvitation;
+use banking_iam_domain::{Organization, OrganizationInvitation};
 
 use crate::authorization::OrganizationInvitationInviteeRelation;
 use crate::projection::OrganizationInvitationInviteeRelationshipProjectorSpec;
@@ -16,33 +16,38 @@ use super::{
 };
 
 /// Handles `OrganizationInvitationAcceptCommand`.
-pub struct OrganizationInvitationAcceptCommandHandler<OR>
+pub struct OrganizationInvitationAcceptCommandHandler<ORG, IR>
 where
-    OR: Repository<OrganizationInvitation>,
+    ORG: Repository<Organization>,
+    IR: Repository<OrganizationInvitation, Uow = ORG::Uow>,
 {
-    organization_invitation_repository: OR,
+    organization_repository: ORG,
+    organization_invitation_repository: IR,
 }
 
-impl<OR> OrganizationInvitationAcceptCommandHandler<OR>
+impl<ORG, IR> OrganizationInvitationAcceptCommandHandler<ORG, IR>
 where
-    OR: Repository<OrganizationInvitation>,
+    ORG: Repository<Organization>,
+    IR: Repository<OrganizationInvitation, Uow = ORG::Uow>,
 {
-    pub fn new(organization_invitation_repository: OR) -> Self {
+    pub fn new(organization_repository: ORG, organization_invitation_repository: IR) -> Self {
         Self {
+            organization_repository,
             organization_invitation_repository,
         }
     }
 }
 
-impl<OR> CommandHandler for OrganizationInvitationAcceptCommandHandler<OR>
+impl<ORG, IR> CommandHandler for OrganizationInvitationAcceptCommandHandler<ORG, IR>
 where
-    OR: Repository<OrganizationInvitation>,
+    ORG: Repository<Organization>,
+    IR: Repository<OrganizationInvitation, Uow = ORG::Uow>,
 {
     type Command = OrganizationInvitationAcceptCommand;
     type Output = OrganizationInvitationAcceptOutput;
     type ReplayOutput = OrganizationInvitationAcceptOutput;
     type Error = OrganizationInvitationAcceptCommandHandlerError;
-    type Uow = OR::Uow;
+    type Uow = ORG::Uow;
 
     fn authorization_plan(
         &self,
@@ -78,6 +83,18 @@ where
                 OrganizationInvitationAcceptCommandHandlerError::TargetOrganizationInvitationNotFound,
             );
         };
+
+        let Some(organization) = self
+            .organization_repository
+            .find(uow, *organization_invitation.organization_id()?)
+            .await?
+        else {
+            return Err(OrganizationInvitationAcceptCommandHandlerError::OrganizationNotFound);
+        };
+
+        if organization.is_removed()? {
+            return Err(OrganizationInvitationAcceptCommandHandlerError::OrganizationRemoved);
+        }
 
         organization_invitation.accept()?;
 

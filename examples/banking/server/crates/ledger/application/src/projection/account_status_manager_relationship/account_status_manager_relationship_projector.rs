@@ -147,7 +147,7 @@ mod tests {
         }
     }
 
-    fn opened_event_envelope() -> EventEnvelope {
+    fn opened_event_envelope() -> (EventEnvelope, UserId) {
         let mut account = Account::default();
         let user_id = UserId::new();
         account
@@ -166,37 +166,40 @@ mod tests {
         let message_id = MessageId::new();
         let subject = AggregateRef::from_id::<User>(user_id);
 
-        EventEnvelope {
-            event_sequence: EventSequence::try_from(1).expect("sequence should be valid"),
-            event_id: event.id(),
-            aggregate_type: appletheia::application::event::AggregateTypeOwned::from(Account::TYPE),
-            aggregate_id: appletheia::application::event::AggregateIdValue::from(
-                event.aggregate_id().value(),
-            ),
-            aggregate_version: event.aggregate_version(),
-            event_name: appletheia::application::event::EventNameOwned::from(
-                event.payload().name(),
-            ),
-            payload: SerializedEventPayload::try_from(
-                event
-                    .payload()
-                    .clone()
-                    .into_json_value()
-                    .expect("payload should serialize"),
-            )
-            .expect("payload should be valid"),
-            occurred_at: event.occurred_at(),
-            correlation_id: CorrelationId::from(message_id.value()),
-            causation_id: CausationId::from(message_id),
-            context: RequestContext::new(
-                CorrelationId::from(MessageId::new().value()),
-                message_id,
-                ActorRef::Subject {
-                    subject: subject.clone(),
-                },
-                Principal::Authenticated { subject },
-            ),
-        }
+        (
+            EventEnvelope {
+                event_sequence: EventSequence::try_from(1).expect("sequence should be valid"),
+                event_id: event.id(),
+                aggregate_type: appletheia::application::event::AggregateTypeOwned::from(
+                    Account::TYPE,
+                ),
+                aggregate_id: appletheia::application::event::AggregateIdValue::from(
+                    event.aggregate_id().value(),
+                ),
+                aggregate_version: event.aggregate_version(),
+                event_name: appletheia::application::event::EventNameOwned::from(
+                    event.payload().name(),
+                ),
+                payload: SerializedEventPayload::try_from(
+                    event
+                        .payload()
+                        .clone()
+                        .into_json_value()
+                        .expect("payload should serialize"),
+                )
+                .expect("payload should be valid"),
+                occurred_at: event.occurred_at(),
+                correlation_id: CorrelationId::from(message_id.value()),
+                causation_id: CausationId::from(message_id),
+                context: RequestContext::new(
+                    CorrelationId::from(MessageId::new().value()),
+                    message_id,
+                    ActorRef::System,
+                    Principal::Authenticated { subject },
+                ),
+            },
+            user_id,
+        )
     }
 
     #[tokio::test]
@@ -204,7 +207,7 @@ mod tests {
         let store = TestRelationshipStore::default();
         let projector = AccountStatusManagerRelationshipProjector::new(store.clone());
         let mut uow = TestUow;
-        let event = opened_event_envelope();
+        let (event, user_id) = opened_event_envelope();
 
         projector
             .project(&mut uow, &event)
@@ -214,10 +217,8 @@ mod tests {
         let changes = store.recorded_changes();
         assert_eq!(changes.len(), 1);
 
-        let expected_subject = match &event.context.actor {
-            ActorRef::Subject { subject } => RelationshipSubject::Aggregate(subject.clone()),
-            _ => panic!("expected subject actor"),
-        };
+        let expected_subject =
+            RelationshipSubject::Aggregate(AggregateRef::from_id::<User>(user_id));
 
         let relationship = match &changes[0] {
             RelationshipChange::Upsert(relationship) => relationship,

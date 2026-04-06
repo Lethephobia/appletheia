@@ -3,7 +3,7 @@ use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use appletheia::domain::Aggregate;
-use banking_iam_domain::OrganizationMembership;
+use banking_iam_domain::{Organization, OrganizationMembership};
 
 use super::{
     OrganizationMembershipCreateCommand, OrganizationMembershipCreateCommandHandlerError,
@@ -11,33 +11,38 @@ use super::{
 };
 
 /// Handles `OrganizationMembershipCreateCommand`.
-pub struct OrganizationMembershipCreateCommandHandler<OR>
+pub struct OrganizationMembershipCreateCommandHandler<ORG, MR>
 where
-    OR: Repository<OrganizationMembership>,
+    ORG: Repository<Organization>,
+    MR: Repository<OrganizationMembership, Uow = ORG::Uow>,
 {
-    organization_membership_repository: OR,
+    organization_repository: ORG,
+    organization_membership_repository: MR,
 }
 
-impl<OR> OrganizationMembershipCreateCommandHandler<OR>
+impl<ORG, MR> OrganizationMembershipCreateCommandHandler<ORG, MR>
 where
-    OR: Repository<OrganizationMembership>,
+    ORG: Repository<Organization>,
+    MR: Repository<OrganizationMembership, Uow = ORG::Uow>,
 {
-    pub fn new(organization_membership_repository: OR) -> Self {
+    pub fn new(organization_repository: ORG, organization_membership_repository: MR) -> Self {
         Self {
+            organization_repository,
             organization_membership_repository,
         }
     }
 }
 
-impl<OR> CommandHandler for OrganizationMembershipCreateCommandHandler<OR>
+impl<ORG, MR> CommandHandler for OrganizationMembershipCreateCommandHandler<ORG, MR>
 where
-    OR: Repository<OrganizationMembership>,
+    ORG: Repository<Organization>,
+    MR: Repository<OrganizationMembership, Uow = ORG::Uow>,
 {
     type Command = OrganizationMembershipCreateCommand;
     type Output = OrganizationMembershipCreateOutput;
     type ReplayOutput = OrganizationMembershipCreateOutput;
     type Error = OrganizationMembershipCreateCommandHandlerError;
-    type Uow = OR::Uow;
+    type Uow = ORG::Uow;
 
     fn authorization_plan(
         &self,
@@ -54,6 +59,18 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
+        let Some(organization) = self
+            .organization_repository
+            .find(uow, command.organization_id)
+            .await?
+        else {
+            return Err(OrganizationMembershipCreateCommandHandlerError::OrganizationNotFound);
+        };
+
+        if organization.is_removed()? {
+            return Err(OrganizationMembershipCreateCommandHandlerError::OrganizationRemoved);
+        }
+
         let OrganizationMembershipCreateCommand {
             organization_id,
             user_id,

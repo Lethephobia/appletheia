@@ -4,7 +4,7 @@ use appletheia::application::authorization::{
 };
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
-use appletheia::application::request_context::ActorRef;
+use appletheia::application::request_context::Principal;
 use banking_iam_domain::Organization;
 
 use super::{
@@ -43,7 +43,7 @@ where
 
         match domain_event.payload() {
             OrganizationEventPayload::Created { .. } => {
-                let ActorRef::Subject { subject } = &event.context.actor else {
+                let Principal::Authenticated { subject } = &event.context.principal else {
                     return Ok(());
                 };
 
@@ -60,32 +60,9 @@ where
                     )
                     .await?;
             }
-            OrganizationEventPayload::Removed => {
-                let aggregate = AggregateRef::from_id::<Organization>(domain_event.aggregate_id());
-                let owner_relation = RelationNameOwned::from(OrganizationOwnerRelation::NAME);
-                let owner_subjects = self
-                    .relationship_store
-                    .read_subjects_by_aggregate(uow, &aggregate, &owner_relation)
-                    .await?;
-
-                if owner_subjects.is_empty() {
-                    return Ok(());
-                }
-
-                let owner_changes = owner_subjects.into_iter().map(|subject| {
-                    RelationshipChange::Delete(Relationship {
-                        aggregate: aggregate.clone(),
-                        relation: owner_relation.clone(),
-                        subject,
-                    })
-                });
-
-                let changes = owner_changes.collect::<Vec<_>>();
-
-                self.relationship_store.apply_changes(uow, &changes).await?;
-            }
             OrganizationEventPayload::HandleChanged { .. } => return Ok(()),
             OrganizationEventPayload::NameChanged { .. } => return Ok(()),
+            OrganizationEventPayload::Removed => return Ok(()),
         }
 
         Ok(())
@@ -195,7 +172,6 @@ mod tests {
             .expect("created event should exist")
             .clone();
         let subject = AggregateRef::from_id::<User>(UserId::new());
-        let actor_subject = subject.clone();
         let message_id = MessageId::new();
 
         (
@@ -226,11 +202,9 @@ mod tests {
                 context: RequestContext::new(
                     CorrelationId::from(MessageId::new().value()),
                     message_id,
-                    ActorRef::Subject {
-                        subject: actor_subject.clone(),
-                    },
+                    ActorRef::System,
                     Principal::Authenticated {
-                        subject: actor_subject,
+                        subject: subject.clone(),
                     },
                 ),
             },
@@ -283,9 +257,7 @@ mod tests {
             context: RequestContext::new(
                 CorrelationId::from(MessageId::new().value()),
                 MessageId::new(),
-                ActorRef::Subject {
-                    subject: subject.clone(),
-                },
+                ActorRef::System,
                 Principal::Authenticated { subject },
             ),
         }
@@ -321,7 +293,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn project_removed_event_deletes_owner_relationship() {
+    async fn project_removed_event_noops() {
         let store = TestRelationshipStore {
             owner_subjects_by_aggregate: Arc::new(Mutex::new(vec![
                 RelationshipSubject::Aggregate(AggregateRef::from_id::<User>(UserId::new())),
@@ -338,15 +310,6 @@ mod tests {
             .expect("projection should succeed");
 
         let changes = store.recorded_changes();
-        assert_eq!(changes.len(), 1);
-
-        let RelationshipChange::Delete(relationship) = &changes[0] else {
-            panic!("expected delete relationship");
-        };
-
-        assert_eq!(
-            relationship.relation,
-            RelationNameOwned::from(OrganizationOwnerRelation::NAME)
-        );
+        assert!(changes.is_empty());
     }
 }

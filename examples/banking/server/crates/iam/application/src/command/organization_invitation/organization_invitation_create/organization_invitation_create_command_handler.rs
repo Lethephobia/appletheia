@@ -20,25 +20,30 @@ use super::{
 };
 
 /// Handles `OrganizationInvitationIssueCommand`.
-pub struct OrganizationInvitationIssueCommandHandler<IR, MR>
+pub struct OrganizationInvitationIssueCommandHandler<ORG, IR, MR>
 where
-    IR: Repository<OrganizationInvitation, Uow = MR::Uow>,
-    MR: Repository<OrganizationMembership>,
+    ORG: Repository<Organization>,
+    IR: Repository<OrganizationInvitation, Uow = ORG::Uow>,
+    MR: Repository<OrganizationMembership, Uow = ORG::Uow>,
 {
+    organization_repository: ORG,
     organization_invitation_repository: IR,
     organization_membership_repository: MR,
 }
 
-impl<IR, MR> OrganizationInvitationIssueCommandHandler<IR, MR>
+impl<ORG, IR, MR> OrganizationInvitationIssueCommandHandler<ORG, IR, MR>
 where
-    IR: Repository<OrganizationInvitation, Uow = MR::Uow>,
-    MR: Repository<OrganizationMembership>,
+    ORG: Repository<Organization>,
+    IR: Repository<OrganizationInvitation, Uow = ORG::Uow>,
+    MR: Repository<OrganizationMembership, Uow = ORG::Uow>,
 {
     pub fn new(
+        organization_repository: ORG,
         organization_invitation_repository: IR,
         organization_membership_repository: MR,
     ) -> Self {
         Self {
+            organization_repository,
             organization_invitation_repository,
             organization_membership_repository,
         }
@@ -80,16 +85,17 @@ where
     }
 }
 
-impl<IR, MR> CommandHandler for OrganizationInvitationIssueCommandHandler<IR, MR>
+impl<ORG, IR, MR> CommandHandler for OrganizationInvitationIssueCommandHandler<ORG, IR, MR>
 where
-    IR: Repository<OrganizationInvitation, Uow = MR::Uow>,
-    MR: Repository<OrganizationMembership>,
+    ORG: Repository<Organization>,
+    IR: Repository<OrganizationInvitation, Uow = ORG::Uow>,
+    MR: Repository<OrganizationMembership, Uow = ORG::Uow>,
 {
     type Command = OrganizationInvitationIssueCommand;
     type Output = OrganizationInvitationIssueOutput;
     type ReplayOutput = OrganizationInvitationIssueOutput;
     type Error = OrganizationInvitationIssueCommandHandlerError;
-    type Uow = IR::Uow;
+    type Uow = ORG::Uow;
 
     fn authorization_plan(
         &self,
@@ -115,6 +121,18 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
+        let Some(organization) = self
+            .organization_repository
+            .find(uow, command.organization_id)
+            .await?
+        else {
+            return Err(OrganizationInvitationIssueCommandHandlerError::OrganizationNotFound);
+        };
+
+        if organization.is_removed()? {
+            return Err(OrganizationInvitationIssueCommandHandlerError::OrganizationRemoved);
+        }
+
         let invitee_unique_value =
             Self::organization_user_unique_value(command.organization_id, command.invitee_id)?;
         if self

@@ -5,7 +5,7 @@ use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_iam_domain::OrganizationJoinRequest;
+use banking_iam_domain::{Organization, OrganizationJoinRequest};
 
 use crate::authorization::OrganizationJoinRequestCancelerRelation;
 use crate::projection::OrganizationJoinRequestRequesterRelationshipProjectorSpec;
@@ -16,27 +16,32 @@ use super::{
 };
 
 /// Handles `OrganizationJoinRequestCancelCommand`.
-pub struct OrganizationJoinRequestCancelCommandHandler<JR>
+pub struct OrganizationJoinRequestCancelCommandHandler<ORG, JR>
 where
-    JR: Repository<OrganizationJoinRequest>,
+    ORG: Repository<Organization>,
+    JR: Repository<OrganizationJoinRequest, Uow = ORG::Uow>,
 {
+    organization_repository: ORG,
     organization_join_request_repository: JR,
 }
 
-impl<JR> OrganizationJoinRequestCancelCommandHandler<JR>
+impl<ORG, JR> OrganizationJoinRequestCancelCommandHandler<ORG, JR>
 where
-    JR: Repository<OrganizationJoinRequest>,
+    ORG: Repository<Organization>,
+    JR: Repository<OrganizationJoinRequest, Uow = ORG::Uow>,
 {
-    pub fn new(organization_join_request_repository: JR) -> Self {
+    pub fn new(organization_repository: ORG, organization_join_request_repository: JR) -> Self {
         Self {
+            organization_repository,
             organization_join_request_repository,
         }
     }
 }
 
-impl<JR> CommandHandler for OrganizationJoinRequestCancelCommandHandler<JR>
+impl<ORG, JR> CommandHandler for OrganizationJoinRequestCancelCommandHandler<ORG, JR>
 where
-    JR: Repository<OrganizationJoinRequest>,
+    ORG: Repository<Organization>,
+    JR: Repository<OrganizationJoinRequest, Uow = ORG::Uow>,
 {
     type Command = OrganizationJoinRequestCancelCommand;
     type Output = OrganizationJoinRequestCancelOutput;
@@ -78,6 +83,18 @@ where
                 OrganizationJoinRequestCancelCommandHandlerError::TargetOrganizationJoinRequestNotFound,
             );
         };
+
+        let Some(organization) = self
+            .organization_repository
+            .find(uow, *organization_join_request.organization_id()?)
+            .await?
+        else {
+            return Err(OrganizationJoinRequestCancelCommandHandlerError::OrganizationNotFound);
+        };
+
+        if organization.is_removed()? {
+            return Err(OrganizationJoinRequestCancelCommandHandlerError::OrganizationRemoved);
+        }
 
         organization_join_request.cancel()?;
 
