@@ -36,3 +36,7 @@ The reference files follow an Effective Dart style:
 - `references/domain/aggregate.md`
 
   Use for aggregate boundaries, command methods, state transitions, and event application.
+
+- `references/application/command.md`
+
+  Use for command payload design, command handlers, authorization, and orchestration.
