@@ -1,6 +1,5 @@
 use appletheia::application::authorization::{
-    AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationRefOwned,
-    RelationshipRequirement,
+    AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
@@ -46,10 +45,10 @@ where
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
             PrincipalRequirement::System,
             PrincipalRequirement::AuthenticatedWithRelationship {
-                requirement: RelationshipRequirement::Check {
-                    aggregate: AggregateRef::from_id::<Account>(command.account_id),
-                    relation: RelationRefOwned::from(AccountRenamerRelation::REF),
-                },
+                requirement: RelationshipRequirement::check::<Account>(
+                    command.account_id,
+                    AccountRenamerRelation::REF,
+                ),
                 projector_dependencies: ProjectorDependencies::Some(&[
                     AccountOwnerRelationshipProjectorSpec::DESCRIPTOR,
                 ]),
@@ -86,8 +85,7 @@ mod tests {
     use std::sync::{Arc, Mutex};
 
     use appletheia::application::authorization::{
-        AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationRefOwned,
-        RelationshipRequirement,
+        AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
     };
     use appletheia::application::command::CommandHandler;
     use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
@@ -217,10 +215,10 @@ mod tests {
             AuthorizationPlan::OnlyPrincipals(vec![
                 PrincipalRequirement::System,
                 PrincipalRequirement::AuthenticatedWithRelationship {
-                    requirement: RelationshipRequirement::Check {
-                        aggregate: AggregateRef::from_id::<Account>(account_id),
-                        relation: RelationRefOwned::from(AccountRenamerRelation::REF),
-                    },
+                    requirement: RelationshipRequirement::check::<Account>(
+                        account_id,
+                        AccountRenamerRelation::REF
+                    ),
                     projector_dependencies: ProjectorDependencies::Some(&[
                         AccountOwnerRelationshipProjectorSpec::DESCRIPTOR,
                     ]),

@@ -1,7 +1,6 @@
 use appletheia::application::ProjectorDependencies;
 use appletheia::application::authorization::{
-    AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationRefOwned,
-    RelationshipRequirement,
+    AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::projection::ProjectorSpec;
@@ -56,10 +55,10 @@ where
     ) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
             PrincipalRequirement::AuthenticatedWithRelationship {
-                requirement: RelationshipRequirement::Check {
-                    aggregate: AggregateRef::from_id::<Account>(command.from_account_id),
-                    relation: RelationRefOwned::from(AccountTransferRequesterRelation::REF),
-                },
+                requirement: RelationshipRequirement::check::<Account>(
+                    command.from_account_id,
+                    AccountTransferRequesterRelation::REF,
+                ),
                 projector_dependencies: ProjectorDependencies::Some(&[
                     AccountOwnerRelationshipProjectorSpec::DESCRIPTOR,
                 ]),
@@ -122,8 +121,7 @@ mod tests {
 
     use appletheia::application::ProjectorDependencies;
     use appletheia::application::authorization::{
-        AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationRefOwned,
-        RelationshipRequirement,
+        AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
     };
     use appletheia::application::command::CommandHandler;
     use appletheia::application::projection::ProjectorSpec;
@@ -315,10 +313,10 @@ mod tests {
             plan,
             AuthorizationPlan::OnlyPrincipals(vec![
                 PrincipalRequirement::AuthenticatedWithRelationship {
-                    requirement: RelationshipRequirement::Check {
-                        aggregate: AggregateRef::from_id::<Account>(command.from_account_id),
-                        relation: RelationRefOwned::from(AccountTransferRequesterRelation::REF),
-                    },
+                    requirement: RelationshipRequirement::check::<Account>(
+                        command.from_account_id,
+                        AccountTransferRequesterRelation::REF
+                    ),
                     projector_dependencies: ProjectorDependencies::Some(&[
                         AccountOwnerRelationshipProjectorSpec::DESCRIPTOR,
                     ]),

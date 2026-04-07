@@ -1,6 +1,5 @@
 use appletheia::application::authorization::{
-    AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationRefOwned,
-    RelationshipRequirement,
+    AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
@@ -56,12 +55,10 @@ where
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
             PrincipalRequirement::System,
             PrincipalRequirement::AuthenticatedWithRelationship {
-                requirement: RelationshipRequirement::Check {
-                    aggregate: AggregateRef::from_id::<OrganizationMembership>(
-                        command.organization_membership_id,
-                    ),
-                    relation: RelationRefOwned::from(OrganizationMembershipRemoverRelation::REF),
-                },
+                requirement: RelationshipRequirement::check::<OrganizationMembership>(
+                    command.organization_membership_id,
+                    OrganizationMembershipRemoverRelation::REF,
+                ),
                 projector_dependencies: ProjectorDependencies::Some(&[
                     OrganizationMembershipOrganizationRelationshipProjectorSpec::DESCRIPTOR,
                 ]),
