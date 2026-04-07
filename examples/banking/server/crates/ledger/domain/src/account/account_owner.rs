@@ -2,7 +2,7 @@ use banking_iam_domain::UserId;
 use serde::{Deserialize, Serialize};
 
 /// Identifies the owner of an `Account`.
-#[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 #[serde(tag = "type", content = "value", rename_all = "snake_case")]
 pub enum AccountOwner {
     User(UserId),

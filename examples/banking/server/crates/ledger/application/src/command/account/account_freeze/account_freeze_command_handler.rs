@@ -9,7 +9,7 @@ use banking_ledger_domain::account::Account;
 
 use super::{AccountFreezeCommand, AccountFreezeCommandHandlerError, AccountFreezeOutput};
 use crate::authorization::AccountFreezerRelation;
-use crate::projection::AccountStatusManagerRelationshipProjectorSpec;
+use crate::projection::AccountOwnerRelationshipProjectorSpec;
 
 /// Handles `AccountFreezeCommand`.
 pub struct AccountFreezeCommandHandler<AR>
@@ -50,7 +50,7 @@ where
                     relation: AccountFreezerRelation::NAME,
                 },
                 projector_dependencies: ProjectorDependencies::Some(&[
-                    AccountStatusManagerRelationshipProjectorSpec::DESCRIPTOR,
+                    AccountOwnerRelationshipProjectorSpec::DESCRIPTOR,
                 ]),
             },
         ]))

@@ -9,7 +9,7 @@ use banking_ledger_domain::account::Account;
 
 use super::{AccountThawCommand, AccountThawCommandHandlerError, AccountThawOutput};
 use crate::authorization::AccountThawerRelation;
-use crate::projection::AccountStatusManagerRelationshipProjectorSpec;
+use crate::projection::AccountOwnerRelationshipProjectorSpec;
 
 /// Handles `AccountThawCommand`.
 pub struct AccountThawCommandHandler<AR>
@@ -50,7 +50,7 @@ where
                     relation: AccountThawerRelation::NAME,
                 },
                 projector_dependencies: ProjectorDependencies::Some(&[
-                    AccountStatusManagerRelationshipProjectorSpec::DESCRIPTOR,
+                    AccountOwnerRelationshipProjectorSpec::DESCRIPTOR,
                 ]),
             },
         ]))

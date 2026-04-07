@@ -1,3 +1,4 @@
+mod organization_currency_definition_definer_relation;
 mod organization_handle_editor_relation;
 mod organization_inviter_relation;
 mod organization_member_relation;
@@ -6,6 +7,7 @@ mod organization_relations;
 mod organization_remover_relation;
 mod organization_renamer_relation;
 
+pub use organization_currency_definition_definer_relation::OrganizationCurrencyDefinitionDefinerRelation;
 pub use organization_handle_editor_relation::OrganizationHandleEditorRelation;
 pub use organization_inviter_relation::OrganizationInviterRelation;
 pub use organization_member_relation::OrganizationMemberRelation;

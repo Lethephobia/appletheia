@@ -61,6 +61,108 @@ pub fn open(&mut self, event: ExampleEventPayload) -> Result<(), ExampleError> {
 }
 ```
 
+### PREFER one command method to append one event
+
+Keep a command method focused on a single domain fact. If a lifecycle event already contains the data needed for a relationship subject, prefer to carry that data in the primary event payload instead of emitting a second relationship-specific event.
+
+good:
+```rust
+pub fn register(
+    &mut self,
+    username: Username,
+) -> Result<(), UserError> {
+    if self.state().is_some() {
+        return Err(UserError::AlreadyRegistered);
+    }
+
+    self.append_event(UserEventPayload::Registered {
+        id: UserId::new(),
+        username,
+    })
+}
+```
+
+bad:
+```rust
+pub fn register(
+    &mut self,
+    username: Username,
+) -> Result<(), UserError> {
+    self.append_event(UserEventPayload::Registered {
+        id: UserId::new(),
+        username,
+    })?;
+    self.append_event(ExampleEventPayload::SomethingElse { owner: UserId::new() })
+}
+```
+
+### PREFER deriving relationship subjects from the primary event
+
+If a relationship subject is derivable from the primary event, let the projector derive it from that event or the aggregate id. If the subject is business data that must be preserved, keep it in the primary event payload rather than splitting it into a second relationship-only event.
+
+good:
+```rust
+pub fn register(&mut self, identity: UserIdentity) -> Result<(), UserError> {
+    if self.state().is_some() {
+        return Err(UserError::AlreadyRegistered);
+    }
+
+    self.append_event(UserEventPayload::Registered {
+        id: UserId::new(),
+        identity,
+    })
+}
+```
+
+bad:
+```rust
+pub fn register(&mut self, identity: UserIdentity) -> Result<(), UserError> {
+    self.append_event(UserEventPayload::Registered {
+        id: UserId::new(),
+        identity,
+    })?;
+    self.append_event(UserEventPayload::OwnerAssigned {
+        owner: UserId::new(),
+    })
+}
+```
+
+### DO model separate relationship workflows explicitly
+
+Prefer a separate `assign_*` or `unassign_*` method only when the relationship is a distinct workflow, can involve multiple subjects, or is intentionally modeled outside the aggregate state.
+
+good:
+```rust
+pub fn assign_owner(&mut self, owner: UserId) -> Result<(), OrganizationError> {
+    self.ensure_not_removed()?;
+
+    self.append_event(OrganizationEventPayload::OwnerAssigned { owner })
+}
+
+pub fn unassign_owner(&mut self, owner: UserId) -> Result<(), OrganizationError> {
+    self.ensure_not_removed()?;
+
+    self.append_event(OrganizationEventPayload::OwnerUnassigned { owner })
+}
+```
+
+bad:
+```rust
+pub fn create(
+    &mut self,
+    handle: OrganizationHandle,
+    name: OrganizationName,
+    owner: UserId,
+) -> Result<(), OrganizationError> {
+    self.append_event(OrganizationEventPayload::Created {
+        id: OrganizationId::new(),
+        handle,
+        name,
+    })?;
+    self.append_event(OrganizationEventPayload::OwnerAssigned { owner })
+}
+```
+
 ### DO validate the request before you append an event
 
 Reject invalid requests before any state change is recorded.

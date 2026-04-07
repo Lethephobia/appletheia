@@ -1,9 +1,9 @@
 use appletheia::application::authorization::{AuthorizationPlan, PrincipalRequirement};
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
-use appletheia::application::request_context::RequestContext;
-use appletheia::domain::Aggregate;
-use banking_iam_domain::Organization;
+use appletheia::application::request_context::{Principal, RequestContext};
+use appletheia::domain::{Aggregate, AggregateId};
+use banking_iam_domain::{Organization, OrganizationOwner, User, UserId};
 
 use super::{
     OrganizationCreateCommand, OrganizationCreateCommandHandlerError, OrganizationCreateOutput,
@@ -43,6 +43,7 @@ where
         _command: &Self::Command,
     ) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
+            PrincipalRequirement::System,
             PrincipalRequirement::Authenticated,
         ]))
     }
@@ -56,6 +57,13 @@ where
         let OrganizationCreateCommand { handle, name } = command.clone();
         let mut organization = Organization::default();
         organization.create(handle, name)?;
+        if let Principal::Authenticated { subject } = &request_context.principal
+            && subject.aggregate_type.value() == User::TYPE.value()
+        {
+            let owner = UserId::try_from_uuid(subject.aggregate_id.value())
+                .map_err(OrganizationCreateCommandHandlerError::InvalidOwnerUserId)?;
+            organization.assign_owner(OrganizationOwner::User(owner))?;
+        }
 
         self.organization_repository
             .save(uow, request_context, &mut organization)
@@ -83,8 +91,10 @@ mod tests {
         ActorRef, CorrelationId, MessageId, Principal, RequestContext,
     };
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
-    use appletheia::domain::Aggregate;
-    use banking_iam_domain::{Organization, OrganizationHandle, OrganizationId, OrganizationName};
+    use appletheia::domain::{Aggregate, EventPayload};
+    use banking_iam_domain::{
+        Organization, OrganizationHandle, OrganizationId, OrganizationName, User, UserId,
+    };
     use uuid::Uuid;
 
     use super::{
@@ -149,25 +159,34 @@ mod tests {
         }
     }
 
-    fn request_context() -> RequestContext {
-        let subject = AggregateRef::new(
-            appletheia::application::event::AggregateTypeOwned::try_from("user")
-                .expect("aggregate type should be valid"),
-            appletheia::application::event::AggregateIdValue::from(Uuid::now_v7()),
-        );
+    fn request_context() -> (RequestContext, UserId) {
+        let user_id = UserId::new();
+        let subject = AggregateRef::from_id::<User>(user_id);
 
+        (
+            RequestContext::new(
+                CorrelationId::from(Uuid::now_v7()),
+                MessageId::new(),
+                ActorRef::Subject {
+                    subject: subject.clone(),
+                },
+                Principal::Authenticated { subject },
+            ),
+            user_id,
+        )
+    }
+
+    fn system_request_context() -> RequestContext {
         RequestContext::new(
             CorrelationId::from(Uuid::now_v7()),
             MessageId::new(),
-            ActorRef::Subject {
-                subject: subject.clone(),
-            },
-            Principal::Authenticated { subject },
+            ActorRef::System,
+            Principal::System,
         )
     }
 
     #[test]
-    fn authorization_plan_requires_authenticated_principal() {
+    fn authorization_plan_requires_authenticated_or_system_principal() {
         let repository = TestOrganizationRepository::default();
         let handler = OrganizationCreateCommandHandler::new(repository);
 
@@ -180,7 +199,10 @@ mod tests {
 
         assert_eq!(
             plan,
-            AuthorizationPlan::OnlyPrincipals(vec![PrincipalRequirement::Authenticated])
+            AuthorizationPlan::OnlyPrincipals(vec![
+                PrincipalRequirement::System,
+                PrincipalRequirement::Authenticated,
+            ])
         );
     }
 
@@ -189,11 +211,12 @@ mod tests {
         let repository = TestOrganizationRepository::default();
         let handler = OrganizationCreateCommandHandler::new(repository.clone());
         let mut uow = TestUow;
+        let (request_context, _) = request_context();
 
         let handled = handler
             .handle(
                 &mut uow,
-                &request_context(),
+                &request_context,
                 &OrganizationCreateCommand {
                     handle: OrganizationHandle::try_from("acme-labs")
                         .expect("handle should be valid"),
@@ -219,5 +242,40 @@ mod tests {
             saved.handle().expect("handle should exist"),
             &OrganizationHandle::try_from("acme-labs").expect("handle should be valid")
         );
+        assert_eq!(saved.uncommitted_events().len(), 2);
+        assert_eq!(
+            saved.uncommitted_events()[1].payload().name(),
+            banking_iam_domain::OrganizationEventPayload::OWNER_ASSIGNED
+        );
+    }
+
+    #[tokio::test]
+    async fn handle_allows_system_principal() {
+        let repository = TestOrganizationRepository::default();
+        let handler = OrganizationCreateCommandHandler::new(repository.clone());
+        let mut uow = TestUow;
+
+        let handled = handler
+            .handle(
+                &mut uow,
+                &system_request_context(),
+                &OrganizationCreateCommand {
+                    handle: OrganizationHandle::try_from("acme-labs")
+                        .expect("handle should be valid"),
+                    name: OrganizationName::try_from("Acme Labs").expect("name should be valid"),
+                },
+            )
+            .await
+            .expect("command should succeed");
+
+        let output = handled.into_output();
+        let saved = repository.organization.lock().expect("lock").clone();
+        let saved = saved.expect("organization should be saved");
+
+        assert_eq!(
+            output,
+            OrganizationCreateOutput::new(saved.aggregate_id().expect("id"))
+        );
+        assert_eq!(saved.uncommitted_events().len(), 1);
     }
 }

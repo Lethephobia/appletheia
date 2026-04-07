@@ -8,8 +8,9 @@ use appletheia::application::request_context::RequestContext;
 use banking_iam_domain::User;
 
 use super::{UserDeactivateCommand, UserDeactivateCommandHandlerError, UserDeactivateOutput};
+use crate::UserStatusManagerRelationshipProjectorSpec;
 use crate::authorization::UserDeactivatorRelation;
-use crate::projection::UserStatusManagerRelationshipProjectorSpec;
+use crate::projection::UserOwnerRelationshipProjectorSpec;
 
 /// Handles `UserDeactivateCommand`.
 pub struct UserDeactivateCommandHandler<UR>
@@ -50,6 +51,7 @@ where
                     relation: UserDeactivatorRelation::NAME,
                 },
                 projector_dependencies: ProjectorDependencies::Some(&[
+                    UserOwnerRelationshipProjectorSpec::DESCRIPTOR,
                     UserStatusManagerRelationshipProjectorSpec::DESCRIPTOR,
                 ]),
             },

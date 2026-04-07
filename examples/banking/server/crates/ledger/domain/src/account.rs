@@ -37,8 +37,8 @@ pub struct Account {
 
 impl Account {
     /// Returns the account owner.
-    pub fn owner(&self) -> Result<&AccountOwner, AccountError> {
-        Ok(&self.state_required()?.owner)
+    pub fn owner(&self) -> Result<AccountOwner, AccountError> {
+        Ok(self.state_required()?.owner)
     }
 
     /// Returns the account name.
@@ -140,11 +140,11 @@ impl Account {
 
     /// Closes the account permanently.
     pub fn close(&mut self) -> Result<(), AccountError> {
-        self.ensure_zero_balances_for_close()?;
-
-        if self.state().is_some_and(|state| state.status.is_closed()) {
-            return Ok(());
+        if self.state_required()?.status.is_closed() {
+            return Err(AccountError::Closed);
         }
+
+        self.ensure_zero_balances_for_close()?;
 
         self.append_event(AccountEventPayload::Closed)
     }
@@ -275,12 +275,10 @@ impl AggregateApply<AccountEventPayload, AccountError> for Account {
                 owner,
                 name,
                 currency_definition_id,
-            } => self.set_state(Some(AccountState::new(
-                *id,
-                owner.clone(),
-                name.clone(),
-                *currency_definition_id,
-            ))),
+            } => {
+                let state = AccountState::new(*id, *owner, name.clone(), *currency_definition_id);
+                self.set_state(Some(state));
+            }
             AccountEventPayload::Renamed { name } => self.state_required_mut()?.name = name.clone(),
             AccountEventPayload::Frozen => {
                 self.state_required_mut()?.status = AccountStatus::Frozen;
@@ -372,7 +370,7 @@ mod tests {
             account.aggregate_id().expect("aggregate id should exist"),
             account.aggregate_id().expect("aggregate id should exist")
         );
-        assert_eq!(account.owner().expect("owner should exist"), &owner);
+        assert_eq!(account.owner().expect("owner should exist"), owner);
         assert_eq!(
             account
                 .currency_definition_id()
@@ -397,6 +395,15 @@ mod tests {
         assert_eq!(
             account.uncommitted_events()[0].payload().name(),
             AccountEventPayload::OPENED
+        );
+        assert_eq!(
+            account.uncommitted_events()[0].payload(),
+            &AccountEventPayload::Opened {
+                id: account.aggregate_id().expect("aggregate id should exist"),
+                owner,
+                name,
+                currency_definition_id,
+            }
         );
     }
 
@@ -482,9 +489,11 @@ mod tests {
             .expect("open should succeed");
 
         account.close().expect("close should succeed");
+        let duplicate_close_error = account.close().expect_err("duplicate close should fail");
 
         assert!(account.is_closed().expect("closed state should exist"));
         assert_eq!(account.uncommitted_events().len(), 2);
+        assert!(matches!(duplicate_close_error, super::AccountError::Closed));
         assert_eq!(
             account.uncommitted_events()[1].payload().name(),
             AccountEventPayload::CLOSED
@@ -614,7 +623,7 @@ mod tests {
             .replay_events(vec![opened, renamed, deposited, frozen], None)
             .expect("events should replay");
 
-        assert_eq!(account.owner().expect("owner should exist"), &owner);
+        assert_eq!(account.owner().expect("owner should exist"), owner);
         assert_eq!(
             account.name().expect("name should exist"),
             &AccountName::try_from("savings").expect("account name should be valid")

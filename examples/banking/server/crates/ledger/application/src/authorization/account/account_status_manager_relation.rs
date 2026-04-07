@@ -1,6 +1,6 @@
 use appletheia::application::authorization::{Relation, RelationName, UsersetExpr};
 
-/// Allows direct tuples to manage account status operations.
+/// Allows owners to manage account status operations.
 pub struct AccountStatusManagerRelation;
 
 impl Relation for AccountStatusManagerRelation {

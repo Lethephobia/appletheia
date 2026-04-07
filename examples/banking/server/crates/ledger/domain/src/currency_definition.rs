@@ -2,6 +2,7 @@ mod currency_definition_error;
 mod currency_definition_event_payload;
 mod currency_definition_event_payload_error;
 mod currency_definition_id;
+mod currency_definition_owner;
 mod currency_definition_state;
 mod currency_definition_state_error;
 mod currency_definition_status;
@@ -12,6 +13,7 @@ pub use currency_definition_error::CurrencyDefinitionError;
 pub use currency_definition_event_payload::CurrencyDefinitionEventPayload;
 pub use currency_definition_event_payload_error::CurrencyDefinitionEventPayloadError;
 pub use currency_definition_id::CurrencyDefinitionId;
+pub use currency_definition_owner::CurrencyDefinitionOwner;
 pub use currency_definition_state::CurrencyDefinitionState;
 pub use currency_definition_state_error::CurrencyDefinitionStateError;
 pub use currency_definition_status::CurrencyDefinitionStatus;
@@ -30,6 +32,11 @@ pub struct CurrencyDefinition {
 }
 
 impl CurrencyDefinition {
+    /// Returns the current owner.
+    pub fn owner(&self) -> Result<CurrencyDefinitionOwner, CurrencyDefinitionError> {
+        Ok(self.state_required()?.owner)
+    }
+
     /// Returns the current symbol.
     pub fn symbol(&self) -> Result<&CurrencySymbol, CurrencyDefinitionError> {
         Ok(&self.state_required()?.symbol)
@@ -58,6 +65,7 @@ impl CurrencyDefinition {
     /// Defines a new currency.
     pub fn define(
         &mut self,
+        owner: CurrencyDefinitionOwner,
         symbol: CurrencySymbol,
         name: CurrencyName,
         decimals: CurrencyDecimals,
@@ -68,6 +76,7 @@ impl CurrencyDefinition {
 
         self.append_event(CurrencyDefinitionEventPayload::Defined {
             id: CurrencyDefinitionId::new(),
+            owner,
             symbol,
             name,
             decimals,
@@ -120,9 +129,7 @@ impl CurrencyDefinition {
 
     /// Permanently removes the currency definition.
     pub fn remove(&mut self) -> Result<(), CurrencyDefinitionError> {
-        if self.state_required()?.status.is_removed() {
-            return Ok(());
-        }
+        self.ensure_not_removed()?;
 
         self.append_event(CurrencyDefinitionEventPayload::Removed)
     }
@@ -146,15 +153,20 @@ impl AggregateApply<CurrencyDefinitionEventPayload, CurrencyDefinitionError>
         match payload {
             CurrencyDefinitionEventPayload::Defined {
                 id,
+                owner,
                 symbol,
                 name,
                 decimals,
-            } => self.set_state(Some(CurrencyDefinitionState::new(
-                *id,
-                symbol.clone(),
-                name.clone(),
-                *decimals,
-            ))),
+            } => {
+                let state = CurrencyDefinitionState::new(
+                    *id,
+                    *owner,
+                    symbol.clone(),
+                    name.clone(),
+                    *decimals,
+                );
+                self.set_state(Some(state));
+            }
             CurrencyDefinitionEventPayload::SymbolChanged { symbol } => {
                 self.state_required_mut()?.symbol = symbol.clone();
             }
@@ -181,21 +193,31 @@ mod tests {
     use appletheia::domain::{Aggregate, Event, EventPayload};
 
     use crate::core::{CurrencyDecimals, CurrencySymbol};
+    use banking_iam_domain::{OrganizationId, UserId};
 
     use super::{
         CurrencyDefinition, CurrencyDefinitionEventPayload, CurrencyDefinitionId,
-        CurrencyDefinitionStatus, CurrencyName,
+        CurrencyDefinitionOwner, CurrencyDefinitionStatus, CurrencyName,
     };
+
+    fn user_owner() -> CurrencyDefinitionOwner {
+        CurrencyDefinitionOwner::user(UserId::new())
+    }
+
+    fn organization_owner() -> CurrencyDefinitionOwner {
+        CurrencyDefinitionOwner::organization(OrganizationId::new())
+    }
 
     #[test]
     fn define_initializes_state_and_records_event() {
+        let owner = user_owner();
         let symbol = CurrencySymbol::try_from("usdc").expect("symbol should be valid");
         let name = CurrencyName::try_from("USD Coin").expect("name should be valid");
         let decimals = CurrencyDecimals::new(6);
         let mut currency_definition = CurrencyDefinition::default();
 
         currency_definition
-            .define(symbol.clone(), name.clone(), decimals)
+            .define(owner.clone(), symbol.clone(), name.clone(), decimals)
             .expect("definition should succeed");
 
         assert_eq!(
@@ -213,6 +235,10 @@ mod tests {
         assert_eq!(
             currency_definition.name().expect("name should exist"),
             &name
+        );
+        assert_eq!(
+            currency_definition.owner().expect("owner should exist"),
+            owner
         );
         assert_eq!(
             currency_definition
@@ -234,16 +260,29 @@ mod tests {
             currency_definition.uncommitted_events()[0].payload().name(),
             CurrencyDefinitionEventPayload::DEFINED
         );
+        assert_eq!(
+            currency_definition.uncommitted_events()[0].payload(),
+            &CurrencyDefinitionEventPayload::Defined {
+                id: currency_definition
+                    .aggregate_id()
+                    .expect("aggregate id should exist"),
+                owner,
+                symbol,
+                name,
+                decimals,
+            }
+        );
     }
 
     #[test]
     fn changing_to_same_values_and_same_status_is_a_no_op() {
+        let owner = user_owner();
         let symbol = CurrencySymbol::try_from("usdc").expect("symbol should be valid");
         let name = CurrencyName::try_from("USD Coin").expect("name should be valid");
         let decimals = CurrencyDecimals::new(6);
         let mut currency_definition = CurrencyDefinition::default();
         currency_definition
-            .define(symbol.clone(), name.clone(), decimals)
+            .define(owner, symbol.clone(), name.clone(), decimals)
             .expect("definition should succeed");
 
         currency_definition
@@ -261,6 +300,7 @@ mod tests {
 
     #[test]
     fn change_methods_append_events_and_update_state() {
+        let owner = user_owner();
         let initial_symbol = CurrencySymbol::try_from("usdc").expect("symbol should be valid");
         let initial_name = CurrencyName::try_from("USD Coin").expect("name should be valid");
         let changed_symbol = CurrencySymbol::try_from("usdce").expect("symbol should be valid");
@@ -268,7 +308,12 @@ mod tests {
             CurrencyName::try_from("USD Coin Example").expect("name should be valid");
         let mut currency_definition = CurrencyDefinition::default();
         currency_definition
-            .define(initial_symbol, initial_name, CurrencyDecimals::new(6))
+            .define(
+                owner,
+                initial_symbol,
+                initial_name,
+                CurrencyDecimals::new(6),
+            )
             .expect("definition should succeed");
 
         currency_definition
@@ -305,12 +350,14 @@ mod tests {
 
     #[test]
     fn replay_events_rebuilds_state() {
+        let owner = user_owner();
         let id = CurrencyDefinitionId::new();
         let defined = Event::new(
             id,
             appletheia::domain::AggregateVersion::try_from(1).expect("version should be valid"),
             CurrencyDefinitionEventPayload::Defined {
                 id,
+                owner: owner.clone(),
                 symbol: CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
                 name: CurrencyName::try_from("USD Coin").expect("name should be valid"),
                 decimals: CurrencyDecimals::new(6),
@@ -334,6 +381,10 @@ mod tests {
                 .value(),
             "USDC"
         );
+        assert_eq!(
+            currency_definition.owner().expect("owner should exist"),
+            owner
+        );
         assert!(
             !currency_definition
                 .is_active()
@@ -344,10 +395,29 @@ mod tests {
     }
 
     #[test]
+    fn define_supports_organization_owner() {
+        let owner = organization_owner();
+        let symbol = CurrencySymbol::try_from("usdc").expect("symbol should be valid");
+        let name = CurrencyName::try_from("USD Coin").expect("name should be valid");
+        let mut currency_definition = CurrencyDefinition::default();
+
+        currency_definition
+            .define(owner.clone(), symbol, name, CurrencyDecimals::new(6))
+            .expect("definition should succeed");
+
+        assert_eq!(
+            currency_definition.owner().expect("owner should exist"),
+            owner
+        );
+    }
+
+    #[test]
     fn define_rejects_already_defined_currency() {
+        let owner = user_owner();
         let mut currency_definition = CurrencyDefinition::default();
         currency_definition
             .define(
+                owner.clone(),
                 CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
                 CurrencyName::try_from("USD Coin").expect("name should be valid"),
                 CurrencyDecimals::new(6),
@@ -356,6 +426,7 @@ mod tests {
 
         let error = currency_definition
             .define(
+                owner,
                 CurrencySymbol::try_from("sol").expect("symbol should be valid"),
                 CurrencyName::try_from("Solana").expect("name should be valid"),
                 CurrencyDecimals::new(9),
@@ -370,9 +441,11 @@ mod tests {
 
     #[test]
     fn remove_updates_status_to_removed() {
+        let owner = user_owner();
         let mut currency_definition = CurrencyDefinition::default();
         currency_definition
             .define(
+                owner,
                 CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
                 CurrencyName::try_from("USD Coin").expect("name should be valid"),
                 CurrencyDecimals::new(6),
@@ -380,12 +453,19 @@ mod tests {
             .expect("definition should succeed");
 
         currency_definition.remove().expect("remove should succeed");
+        let duplicate_remove_error = currency_definition
+            .remove()
+            .expect_err("duplicate remove should fail");
 
         assert_eq!(
             currency_definition.status().expect("status should exist"),
             CurrencyDefinitionStatus::Removed
         );
         assert_eq!(currency_definition.uncommitted_events().len(), 2);
+        assert!(matches!(
+            duplicate_remove_error,
+            super::CurrencyDefinitionError::Removed
+        ));
         assert_eq!(
             currency_definition.uncommitted_events()[1].payload().name(),
             CurrencyDefinitionEventPayload::REMOVED
@@ -394,9 +474,11 @@ mod tests {
 
     #[test]
     fn operations_reject_removed_currency_definition() {
+        let owner = user_owner();
         let mut currency_definition = CurrencyDefinition::default();
         currency_definition
             .define(
+                owner,
                 CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
                 CurrencyName::try_from("USD Coin").expect("name should be valid"),
                 CurrencyDecimals::new(6),
@@ -416,6 +498,9 @@ mod tests {
         let name_error = currency_definition
             .change_name(CurrencyName::try_from("USD Coin Example").expect("name should be valid"))
             .expect_err("name change should fail");
+        let remove_error = currency_definition
+            .remove()
+            .expect_err("remove should fail");
 
         assert!(matches!(
             activate_error,
@@ -431,6 +516,10 @@ mod tests {
         ));
         assert!(matches!(
             name_error,
+            super::CurrencyDefinitionError::Removed
+        ));
+        assert!(matches!(
+            remove_error,
             super::CurrencyDefinitionError::Removed
         ));
     }

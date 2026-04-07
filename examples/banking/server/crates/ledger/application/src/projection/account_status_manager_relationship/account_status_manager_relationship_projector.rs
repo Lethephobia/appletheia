@@ -12,7 +12,7 @@ use super::{
 };
 use crate::authorization::AccountStatusManagerRelation;
 
-/// Projects status-manager relationships for new accounts.
+/// Projects the status-manager relationship for accounts.
 pub struct AccountStatusManagerRelationshipProjector<RS>
 where
     RS: RelationshipStore,
@@ -39,13 +39,14 @@ where
 
     async fn project(&self, uow: &mut Self::Uow, event: &EventEnvelope) -> Result<(), Self::Error> {
         let event = event.try_into_domain_event::<Account>()?;
-        let AccountEventPayload::Opened { owner, .. } = event.payload() else {
+        let AccountEventPayload::StatusManagerAssigned { status_manager } = event.payload() else {
             return Ok(());
         };
 
         let account = AggregateRef::from_id::<Account>(event.aggregate_id());
-        let owner_subject =
-            RelationshipSubject::Aggregate(AggregateRef::from_id::<User>(*owner.user_id()));
+        let status_manager_subject = RelationshipSubject::Aggregate(AggregateRef::from_id::<User>(
+            *status_manager.user_id(),
+        ));
 
         self.relationship_store
             .apply_changes(
@@ -53,7 +54,7 @@ where
                 &[RelationshipChange::Upsert(Relationship {
                     aggregate: account,
                     relation: RelationNameOwned::from(AccountStatusManagerRelation::NAME),
-                    subject: owner_subject,
+                    subject: status_manager_subject,
                 })],
             )
             .await?;
@@ -147,7 +148,7 @@ mod tests {
         }
     }
 
-    fn opened_event_envelope() -> (EventEnvelope, UserId) {
+    fn status_manager_assigned_event_envelope() -> (EventEnvelope, UserId) {
         let mut account = Account::default();
         let user_id = UserId::new();
         account
@@ -160,8 +161,8 @@ mod tests {
 
         let event = account
             .uncommitted_events()
-            .first()
-            .expect("opened event should exist")
+            .get(2)
+            .expect("status-manager-assigned event should exist")
             .clone();
         let message_id = MessageId::new();
         let subject = AggregateRef::from_id::<User>(user_id);
@@ -203,11 +204,11 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn project_opened_event_upserts_status_manager_relationship() {
+    async fn project_status_manager_assigned_event_upserts_status_manager_relationship() {
         let store = TestRelationshipStore::default();
         let projector = AccountStatusManagerRelationshipProjector::new(store.clone());
         let mut uow = TestUow;
-        let (event, user_id) = opened_event_envelope();
+        let (event, user_id) = status_manager_assigned_event_envelope();
 
         projector
             .project(&mut uow, &event)

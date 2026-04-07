@@ -1,5 +1,6 @@
 use appletheia::event_payload;
 
+use super::OrganizationOwner;
 use super::{OrganizationEventPayloadError, OrganizationHandle, OrganizationId, OrganizationName};
 
 /// Represents the domain events emitted by an `Organization` aggregate.
@@ -9,6 +10,12 @@ pub enum OrganizationEventPayload {
         id: OrganizationId,
         handle: OrganizationHandle,
         name: OrganizationName,
+    },
+    OwnerAssigned {
+        owner: OrganizationOwner,
+    },
+    OwnerUnassigned {
+        owner: OrganizationOwner,
     },
     HandleChanged {
         handle: OrganizationHandle,
@@ -23,13 +30,24 @@ pub enum OrganizationEventPayload {
 mod tests {
     use appletheia::domain::EventPayload;
 
-    use super::{OrganizationEventPayload, OrganizationHandle, OrganizationId, OrganizationName};
+    use super::{
+        OrganizationEventPayload, OrganizationHandle, OrganizationId, OrganizationName,
+        OrganizationOwner,
+    };
 
     #[test]
     fn returns_stable_event_names() {
         assert_eq!(
             OrganizationEventPayload::CREATED,
             appletheia::domain::EventName::new("created")
+        );
+        assert_eq!(
+            OrganizationEventPayload::OWNER_ASSIGNED,
+            appletheia::domain::EventName::new("owner_assigned")
+        );
+        assert_eq!(
+            OrganizationEventPayload::OWNER_UNASSIGNED,
+            appletheia::domain::EventName::new("owner_unassigned")
         );
         assert_eq!(
             OrganizationEventPayload::HANDLE_CHANGED,
@@ -54,6 +72,24 @@ mod tests {
         };
 
         assert_eq!(payload.name(), OrganizationEventPayload::CREATED);
+    }
+
+    #[test]
+    fn owner_assigned_payload_name_matches_variant() {
+        let payload = OrganizationEventPayload::OwnerAssigned {
+            owner: OrganizationOwner::User(crate::UserId::new()),
+        };
+
+        assert_eq!(payload.name(), OrganizationEventPayload::OWNER_ASSIGNED);
+    }
+
+    #[test]
+    fn owner_unassigned_payload_name_matches_variant() {
+        let payload = OrganizationEventPayload::OwnerUnassigned {
+            owner: OrganizationOwner::User(crate::UserId::new()),
+        };
+
+        assert_eq!(payload.name(), OrganizationEventPayload::OWNER_UNASSIGNED);
     }
 
     #[test]

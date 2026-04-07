@@ -1,5 +1,6 @@
 mod currency_definition_activator_relation;
 mod currency_definition_deactivator_relation;
+mod currency_definition_organization_relation;
 mod currency_definition_owner_relation;
 mod currency_definition_relations;
 mod currency_definition_remover_relation;
@@ -8,6 +9,7 @@ mod currency_definition_updater_relation;
 
 pub use currency_definition_activator_relation::CurrencyDefinitionActivatorRelation;
 pub use currency_definition_deactivator_relation::CurrencyDefinitionDeactivatorRelation;
+pub use currency_definition_organization_relation::CurrencyDefinitionOrganizationRelation;
 pub use currency_definition_owner_relation::CurrencyDefinitionOwnerRelation;
 pub use currency_definition_relations::CurrencyDefinitionRelations;
 pub use currency_definition_remover_relation::CurrencyDefinitionRemoverRelation;

@@ -2,8 +2,9 @@ use appletheia::relations;
 use banking_iam_domain::Organization;
 
 use super::{
-    OrganizationHandleEditorRelation, OrganizationInviterRelation, OrganizationMemberRelation,
-    OrganizationOwnerRelation, OrganizationRemoverRelation, OrganizationRenamerRelation,
+    OrganizationCurrencyDefinitionDefinerRelation, OrganizationHandleEditorRelation,
+    OrganizationInviterRelation, OrganizationMemberRelation, OrganizationOwnerRelation,
+    OrganizationRemoverRelation, OrganizationRenamerRelation,
 };
 
 /// Defines static authorization relations for `Organization`.
@@ -11,6 +12,7 @@ use super::{
     aggregate = Organization,
     relations = [
         OrganizationOwnerRelation,
+        OrganizationCurrencyDefinitionDefinerRelation,
         OrganizationMemberRelation,
         OrganizationInviterRelation,
         OrganizationRenamerRelation,
@@ -27,15 +29,16 @@ mod tests {
     };
 
     use super::{
-        OrganizationHandleEditorRelation, OrganizationInviterRelation, OrganizationMemberRelation,
-        OrganizationOwnerRelation, OrganizationRelations, OrganizationRemoverRelation,
-        OrganizationRenamerRelation,
+        OrganizationCurrencyDefinitionDefinerRelation, OrganizationHandleEditorRelation,
+        OrganizationInviterRelation, OrganizationMemberRelation, OrganizationOwnerRelation,
+        OrganizationRelations, OrganizationRemoverRelation, OrganizationRenamerRelation,
     };
 
     #[test]
     fn organization_relations_define_expected_expressions() {
         let definition = OrganizationRelations.build();
         let owner = RelationNameOwned::from(OrganizationOwnerRelation::NAME);
+        let definer = RelationNameOwned::from(OrganizationCurrencyDefinitionDefinerRelation::NAME);
         let member = RelationNameOwned::from(OrganizationMemberRelation::NAME);
         let inviter = RelationNameOwned::from(OrganizationInviterRelation::NAME);
         let renamer = RelationNameOwned::from(OrganizationRenamerRelation::NAME);
@@ -43,6 +46,12 @@ mod tests {
         let remover = RelationNameOwned::from(OrganizationRemoverRelation::NAME);
 
         assert_eq!(definition.expr_for(&owner), Some(&UsersetExpr::This));
+        assert_eq!(
+            definition.expr_for(&definer),
+            Some(&UsersetExpr::ComputedUserset {
+                relation: owner.clone(),
+            })
+        );
         assert_eq!(
             definition.expr_for(&member),
             Some(&UsersetExpr::Union(vec![

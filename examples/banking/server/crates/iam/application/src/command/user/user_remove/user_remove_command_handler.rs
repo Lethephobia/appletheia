@@ -9,7 +9,9 @@ use banking_iam_domain::User;
 
 use super::{UserRemoveCommand, UserRemoveCommandHandlerError, UserRemoveOutput};
 use crate::authorization::UserRemoverRelation;
-use crate::projection::UserStatusManagerRelationshipProjectorSpec;
+use crate::projection::{
+    UserOwnerRelationshipProjectorSpec, UserStatusManagerRelationshipProjectorSpec,
+};
 
 /// Handles `UserRemoveCommand`.
 pub struct UserRemoveCommandHandler<UR>
@@ -50,6 +52,7 @@ where
                     relation: UserRemoverRelation::NAME,
                 },
                 projector_dependencies: ProjectorDependencies::Some(&[
+                    UserOwnerRelationshipProjectorSpec::DESCRIPTOR,
                     UserStatusManagerRelationshipProjectorSpec::DESCRIPTOR,
                 ]),
             },

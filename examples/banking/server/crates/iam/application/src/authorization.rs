@@ -5,8 +5,8 @@ mod organization_membership;
 mod user;
 
 pub use organization::{
-    OrganizationHandleEditorRelation, OrganizationInviterRelation, OrganizationRemoverRelation,
-    OrganizationRenamerRelation,
+    OrganizationCurrencyDefinitionDefinerRelation, OrganizationHandleEditorRelation,
+    OrganizationInviterRelation, OrganizationRemoverRelation, OrganizationRenamerRelation,
 };
 pub use organization::{
     OrganizationMemberRelation, OrganizationOwnerRelation, OrganizationRelations,

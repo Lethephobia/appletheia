@@ -66,7 +66,7 @@ where
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
         let mut account = Account::default();
         account.open(
-            command.owner.clone(),
+            command.owner,
             command.name.clone(),
             command.currency_definition_id,
         )?;
@@ -245,7 +245,7 @@ mod tests {
             .clone()
             .expect("account should be saved");
         let account_id = saved.aggregate_id().expect("account id should exist");
-        assert_eq!(saved.owner().expect("owner should exist"), &owner);
+        assert_eq!(saved.owner().expect("owner should exist"), owner);
         assert_eq!(saved.name().expect("name should exist"), &name);
 
         assert_eq!(handled.into_output(), AccountOpenOutput::new(account_id));

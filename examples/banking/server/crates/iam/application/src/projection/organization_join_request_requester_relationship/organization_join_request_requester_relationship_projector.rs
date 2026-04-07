@@ -48,24 +48,21 @@ where
             let requester_relation =
                 RelationNameOwned::from(OrganizationJoinRequestRequesterRelation::NAME);
 
-            match domain_event.payload() {
-                OrganizationJoinRequestEventPayload::Requested { requester_id, .. } => {
-                    self.relationship_store
-                        .apply_changes(
-                            uow,
-                            &[RelationshipChange::Upsert(Relationship {
-                                aggregate,
-                                relation: requester_relation,
-                                subject: RelationshipSubject::Aggregate(AggregateRef::from_id::<
-                                    User,
-                                >(
-                                    *requester_id
-                                )),
-                            })],
-                        )
-                        .await?;
-                }
-                _ => {}
+            if let OrganizationJoinRequestEventPayload::Requested { requester_id, .. } =
+                domain_event.payload()
+            {
+                self.relationship_store
+                    .apply_changes(
+                        uow,
+                        &[RelationshipChange::Upsert(Relationship {
+                            aggregate,
+                            relation: requester_relation,
+                            subject: RelationshipSubject::Aggregate(AggregateRef::from_id::<User>(
+                                *requester_id,
+                            )),
+                        })],
+                    )
+                    .await?;
             }
         }
 

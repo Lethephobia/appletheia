@@ -9,7 +9,7 @@ use banking_iam_domain::{User, UserEventPayload};
 use super::{UserOwnerRelationshipProjectorError, UserOwnerRelationshipProjectorSpec};
 use crate::authorization::UserOwnerRelation;
 
-/// Projects the initial owner relationship for new users.
+/// Projects the owner relationship for new users.
 pub struct UserOwnerRelationshipProjector<RS>
 where
     RS: RelationshipStore,
@@ -36,21 +36,22 @@ where
 
     async fn project(&self, uow: &mut Self::Uow, event: &EventEnvelope) -> Result<(), Self::Error> {
         let event = event.try_into_domain_event::<User>()?;
-        let UserEventPayload::Registered { .. } = event.payload() else {
-            return Ok(());
-        };
-
-        let user = AggregateRef::from_id::<User>(event.aggregate_id());
-        self.relationship_store
-            .apply_changes(
-                uow,
-                &[RelationshipChange::Upsert(Relationship {
-                    aggregate: user.clone(),
-                    relation: RelationNameOwned::from(UserOwnerRelation::NAME),
-                    subject: RelationshipSubject::Aggregate(user),
-                })],
-            )
-            .await?;
+        match event.payload() {
+            UserEventPayload::Registered { id, .. } => {
+                let user = AggregateRef::from_id::<User>(*id);
+                self.relationship_store
+                    .apply_changes(
+                        uow,
+                        &[RelationshipChange::Upsert(Relationship {
+                            aggregate: user.clone(),
+                            relation: RelationNameOwned::from(UserOwnerRelation::NAME),
+                            subject: RelationshipSubject::Aggregate(user),
+                        })],
+                    )
+                    .await?;
+            }
+            _ => return Ok(()),
+        }
 
         Ok(())
     }
@@ -189,6 +190,50 @@ mod tests {
         }
     }
 
+    fn removed_event_envelope() -> EventEnvelope {
+        let mut user = User::default();
+        user.register(identity())
+            .expect("registration should succeed");
+        user.remove().expect("removal should succeed");
+
+        let event = user
+            .uncommitted_events()
+            .last()
+            .expect("removed event should exist")
+            .clone();
+        let message_id = MessageId::new();
+
+        EventEnvelope {
+            event_sequence: EventSequence::try_from(1).expect("sequence should be valid"),
+            event_id: event.id(),
+            aggregate_type: appletheia::application::event::AggregateTypeOwned::from(User::TYPE),
+            aggregate_id: appletheia::application::event::AggregateIdValue::from(
+                event.aggregate_id().value(),
+            ),
+            aggregate_version: event.aggregate_version(),
+            event_name: appletheia::application::event::EventNameOwned::from(
+                event.payload().name(),
+            ),
+            payload: SerializedEventPayload::try_from(
+                event
+                    .payload()
+                    .clone()
+                    .into_json_value()
+                    .expect("payload should serialize"),
+            )
+            .expect("payload should be valid"),
+            occurred_at: event.occurred_at(),
+            correlation_id: CorrelationId::from(message_id.value()),
+            causation_id: CausationId::from(message_id),
+            context: RequestContext::new(
+                CorrelationId::from(MessageId::new().value()),
+                message_id,
+                ActorRef::System,
+                Principal::System,
+            ),
+        }
+    }
+
     #[tokio::test]
     async fn project_registered_event_upserts_owner_relationship() {
         let store = TestRelationshipStore::default();
@@ -216,5 +261,20 @@ mod tests {
             relationship.subject,
             RelationshipSubject::Aggregate(relationship.aggregate.clone())
         );
+    }
+
+    #[tokio::test]
+    async fn project_removed_event_is_a_no_op() {
+        let store = TestRelationshipStore::default();
+        let projector = UserOwnerRelationshipProjector::new(store.clone());
+        let mut uow = TestUow;
+        let event = removed_event_envelope();
+
+        projector
+            .project(&mut uow, &event)
+            .await
+            .expect("projection should succeed");
+
+        assert!(store.recorded_changes().is_empty());
     }
 }

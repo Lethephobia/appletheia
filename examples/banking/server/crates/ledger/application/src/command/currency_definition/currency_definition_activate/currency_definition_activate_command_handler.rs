@@ -12,7 +12,7 @@ use super::{
     CurrencyDefinitionActivateOutput,
 };
 use crate::authorization::CurrencyDefinitionActivatorRelation;
-use crate::projection::CurrencyDefinitionStatusManagerRelationshipProjectorSpec;
+use crate::projection::CurrencyDefinitionOwnerRelationshipProjectorSpec;
 
 /// Handles `CurrencyDefinitionActivateCommand`.
 pub struct CurrencyDefinitionActivateCommandHandler<CDR>
@@ -56,7 +56,7 @@ where
                     relation: CurrencyDefinitionActivatorRelation::NAME,
                 },
                 projector_dependencies: ProjectorDependencies::Some(&[
-                    CurrencyDefinitionStatusManagerRelationshipProjectorSpec::DESCRIPTOR,
+                    CurrencyDefinitionOwnerRelationshipProjectorSpec::DESCRIPTOR,
                 ]),
             },
         ]))

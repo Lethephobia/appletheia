@@ -107,9 +107,10 @@ mod tests {
     };
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::Aggregate;
+    use banking_iam_domain::UserId;
     use banking_ledger_domain::core::{CurrencyDecimals, CurrencySymbol};
     use banking_ledger_domain::currency_definition::{
-        CurrencyDefinition, CurrencyDefinitionId, CurrencyName,
+        CurrencyDefinition, CurrencyDefinitionId, CurrencyDefinitionOwner, CurrencyName,
     };
     use uuid::Uuid;
 
@@ -207,6 +208,7 @@ mod tests {
         let mut currency_definition = CurrencyDefinition::default();
         currency_definition
             .define(
+                CurrencyDefinitionOwner::User(UserId::new()),
                 CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
                 CurrencyName::try_from("USD Coin").expect("name should be valid"),
                 CurrencyDecimals::new(6),

@@ -8,9 +8,9 @@ pub use authorization::{
     AccountRelations, AccountRenamerRelation, AccountStatusManagerRelation, AccountThawerRelation,
     AccountTransferRequesterRelation, AccountWithdrawerRelation,
     CurrencyDefinitionActivatorRelation, CurrencyDefinitionDeactivatorRelation,
-    CurrencyDefinitionOwnerRelation, CurrencyDefinitionRelations,
-    CurrencyDefinitionRemoverRelation, CurrencyDefinitionStatusManagerRelation,
-    CurrencyDefinitionUpdaterRelation,
+    CurrencyDefinitionOrganizationRelation, CurrencyDefinitionOwnerRelation,
+    CurrencyDefinitionRelations, CurrencyDefinitionRemoverRelation,
+    CurrencyDefinitionStatusManagerRelation, CurrencyDefinitionUpdaterRelation,
 };
 pub use command::{
     AccountCloseCommand, AccountCloseCommandHandler, AccountCloseOutput,
@@ -38,13 +38,8 @@ pub use command::{
 };
 pub use projection::{
     AccountOwnerRelationshipProjector, AccountOwnerRelationshipProjectorError,
-    AccountOwnerRelationshipProjectorSpec, AccountStatusManagerRelationshipProjector,
-    AccountStatusManagerRelationshipProjectorError, AccountStatusManagerRelationshipProjectorSpec,
-    CurrencyDefinitionOwnerRelationshipProjector,
+    AccountOwnerRelationshipProjectorSpec, CurrencyDefinitionOwnerRelationshipProjector,
     CurrencyDefinitionOwnerRelationshipProjectorError,
     CurrencyDefinitionOwnerRelationshipProjectorSpec,
-    CurrencyDefinitionStatusManagerRelationshipProjector,
-    CurrencyDefinitionStatusManagerRelationshipProjectorError,
-    CurrencyDefinitionStatusManagerRelationshipProjectorSpec,
 };
 pub use saga::{TransferSaga, TransferSagaSpec, TransferSagaState};

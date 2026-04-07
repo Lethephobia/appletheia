@@ -48,24 +48,21 @@ where
             let invitee_relation =
                 RelationNameOwned::from(OrganizationInvitationInviteeRelation::NAME);
 
-            match domain_event.payload() {
-                OrganizationInvitationEventPayload::Issued { invitee_id, .. } => {
-                    self.relationship_store
-                        .apply_changes(
-                            uow,
-                            &[RelationshipChange::Upsert(Relationship {
-                                aggregate,
-                                relation: invitee_relation,
-                                subject: RelationshipSubject::Aggregate(AggregateRef::from_id::<
-                                    User,
-                                >(
-                                    *invitee_id
-                                )),
-                            })],
-                        )
-                        .await?;
-                }
-                _ => {}
+            if let OrganizationInvitationEventPayload::Issued { invitee_id, .. } =
+                domain_event.payload()
+            {
+                self.relationship_store
+                    .apply_changes(
+                        uow,
+                        &[RelationshipChange::Upsert(Relationship {
+                            aggregate,
+                            relation: invitee_relation,
+                            subject: RelationshipSubject::Aggregate(AggregateRef::from_id::<User>(
+                                *invitee_id,
+                            )),
+                        })],
+                    )
+                    .await?;
             }
         }
 

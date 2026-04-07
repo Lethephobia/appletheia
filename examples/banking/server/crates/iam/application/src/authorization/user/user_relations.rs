@@ -69,6 +69,9 @@ mod tests {
             Some(&UsersetExpr::Union(vec![
                 UsersetExpr::This,
                 UsersetExpr::ComputedUserset {
+                    relation: owner.clone(),
+                },
+                UsersetExpr::ComputedUserset {
                     relation: status_manager.clone(),
                 },
             ]))
@@ -77,8 +80,9 @@ mod tests {
             definition.expr_for(&remover),
             Some(&UsersetExpr::Union(vec![
                 UsersetExpr::This,
+                UsersetExpr::ComputedUserset { relation: owner },
                 UsersetExpr::ComputedUserset {
-                    relation: status_manager,
+                    relation: status_manager
                 },
             ]))
         );

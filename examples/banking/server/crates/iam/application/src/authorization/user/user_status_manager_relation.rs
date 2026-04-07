@@ -1,6 +1,6 @@
 use appletheia::application::authorization::{Relation, RelationName, UsersetExpr};
 
-/// Allows subjects with a direct tuple to manage user status transitions.
+/// Allows directly assigned status managers to manage user status transitions.
 pub struct UserStatusManagerRelation;
 
 impl Relation for UserStatusManagerRelation {

@@ -81,6 +81,26 @@ let members = relationship_store.read_subjects_by_aggregate(...).await?;
 let summary = read_model_store.find_by_organization_id(...).await?;
 ```
 
+### DON'T depend on `RequestContext` inside a saga
+
+Use the triggering event payload and saga state as the only workflow inputs.
+Avoid reading `event.context.principal`, `event.context.actor`, or any other ambient request metadata in saga logic.
+If the workflow needs provenance or issuer information later, put that data into the domain event payload when the event is emitted, not into `RequestContext`.
+
+good:
+```rust
+let transfer_event = event.try_into_domain_event::<Transfer>()?;
+if let TransferEventPayload::Requested { requester_id, .. } = transfer_event.payload() {
+    // derive the next command from event data
+}
+```
+
+bad:
+```rust
+let actor = &event.context.actor;
+let principal = &event.context.principal;
+```
+
 ### PREFER a saga per workflow
 
 Give each orchestration flow its own saga even when several flows are similar.

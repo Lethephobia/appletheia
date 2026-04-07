@@ -12,7 +12,7 @@ use super::{
     CurrencyDefinitionRemoveOutput,
 };
 use crate::authorization::CurrencyDefinitionRemoverRelation;
-use crate::projection::CurrencyDefinitionStatusManagerRelationshipProjectorSpec;
+use crate::projection::CurrencyDefinitionOwnerRelationshipProjectorSpec;
 
 /// Handles `CurrencyDefinitionRemoveCommand`.
 pub struct CurrencyDefinitionRemoveCommandHandler<CDR>
@@ -56,7 +56,7 @@ where
                     relation: CurrencyDefinitionRemoverRelation::NAME,
                 },
                 projector_dependencies: ProjectorDependencies::Some(&[
-                    CurrencyDefinitionStatusManagerRelationshipProjectorSpec::DESCRIPTOR,
+                    CurrencyDefinitionOwnerRelationshipProjectorSpec::DESCRIPTOR,
                 ]),
             },
         ]))

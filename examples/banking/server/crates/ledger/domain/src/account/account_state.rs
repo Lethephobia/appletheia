@@ -44,6 +44,8 @@ impl AccountState {
 mod tests {
     use appletheia::domain::AggregateState;
 
+    use banking_iam_domain::UserId;
+
     use crate::currency_definition::CurrencyDefinitionId;
 
     use super::{
@@ -54,20 +56,11 @@ mod tests {
         AccountName::try_from("main").expect("account name should be valid")
     }
 
-    fn account_owner() -> AccountOwner {
-        AccountOwner::from(banking_iam_domain::UserId::new())
-    }
-
     #[test]
     fn exposes_id_via_aggregate_state_trait() {
         let id = AccountId::new();
-        let owner = account_owner();
-        let state = AccountState::new(
-            id,
-            owner.clone(),
-            account_name(),
-            CurrencyDefinitionId::new(),
-        );
+        let owner = AccountOwner::User(UserId::new());
+        let state = AccountState::new(id, owner, account_name(), CurrencyDefinitionId::new());
 
         assert_eq!(state.id(), id);
         assert_eq!(state.owner, owner);
@@ -75,10 +68,10 @@ mod tests {
 
     #[test]
     fn new_initializes_zero_balances_and_active_status() {
-        let owner = account_owner();
+        let owner = AccountOwner::User(UserId::new());
         let state = AccountState::new(
             AccountId::new(),
-            owner.clone(),
+            owner,
             account_name(),
             CurrencyDefinitionId::new(),
         );

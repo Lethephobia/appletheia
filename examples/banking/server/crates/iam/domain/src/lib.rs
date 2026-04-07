@@ -9,7 +9,8 @@ pub use core::{Email, EmailError};
 pub use organization::{
     Organization, OrganizationError, OrganizationEventPayload, OrganizationEventPayloadError,
     OrganizationHandle, OrganizationHandleError, OrganizationId, OrganizationName,
-    OrganizationNameError, OrganizationState, OrganizationStateError, OrganizationStatus,
+    OrganizationNameError, OrganizationOwner, OrganizationState, OrganizationStateError,
+    OrganizationStatus,
 };
 pub use organization_invitation::{
     OrganizationInvitation, OrganizationInvitationError, OrganizationInvitationEventPayload,
@@ -31,5 +32,5 @@ pub use user::{
     User, UserBio, UserBioError, UserDisplayName, UserDisplayNameError, UserError,
     UserEventPayload, UserEventPayloadError, UserId, UserIdentity, UserIdentityProvider,
     UserIdentityProviderError, UserIdentitySubject, UserIdentitySubjectError, UserProfile,
-    UserState, UserStateError, UserStatus, Username, UsernameError,
+    UserState, UserStateError, UserStatus, UserStatusManager, Username, UsernameError,
 };

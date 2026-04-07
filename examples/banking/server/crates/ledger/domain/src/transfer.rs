@@ -75,31 +75,31 @@ impl Transfer {
 
     /// Completes the transfer.
     pub fn complete(&mut self) -> Result<(), TransferError> {
-        match self.state_required()?.status {
-            TransferStatus::Pending => self.append_event(TransferEventPayload::Completed),
-            TransferStatus::Completed => Ok(()),
-            TransferStatus::Failed => Err(TransferError::AlreadyFailed),
-            TransferStatus::Cancelled => Err(TransferError::AlreadyCancelled),
-        }
+        self.ensure_pending()?;
+
+        self.append_event(TransferEventPayload::Completed)
     }
 
     /// Fails the transfer.
     pub fn fail(&mut self) -> Result<(), TransferError> {
-        match self.state_required()?.status {
-            TransferStatus::Pending => self.append_event(TransferEventPayload::Failed),
-            TransferStatus::Completed => Err(TransferError::AlreadyCompleted),
-            TransferStatus::Failed => Ok(()),
-            TransferStatus::Cancelled => Err(TransferError::AlreadyCancelled),
-        }
+        self.ensure_pending()?;
+
+        self.append_event(TransferEventPayload::Failed)
     }
 
     /// Cancels the transfer.
     pub fn cancel(&mut self) -> Result<(), TransferError> {
+        self.ensure_pending()?;
+
+        self.append_event(TransferEventPayload::Cancelled)
+    }
+
+    fn ensure_pending(&self) -> Result<(), TransferError> {
         match self.state_required()?.status {
-            TransferStatus::Pending => self.append_event(TransferEventPayload::Cancelled),
+            TransferStatus::Pending => Ok(()),
             TransferStatus::Completed => Err(TransferError::AlreadyCompleted),
             TransferStatus::Failed => Err(TransferError::AlreadyFailed),
-            TransferStatus::Cancelled => Ok(()),
+            TransferStatus::Cancelled => Err(TransferError::AlreadyCancelled),
         }
     }
 }
@@ -202,11 +202,18 @@ mod tests {
             .expect("request should succeed");
 
         transfer.complete().expect("complete should succeed");
+        let duplicate_complete_error = transfer
+            .complete()
+            .expect_err("duplicate complete should fail");
 
         assert_eq!(
             transfer.status().expect("status should exist"),
             &TransferStatus::Completed
         );
+        assert!(matches!(
+            duplicate_complete_error,
+            super::TransferError::AlreadyCompleted
+        ));
     }
 
     #[test]
@@ -219,11 +226,38 @@ mod tests {
             .expect("request should succeed");
 
         transfer.fail().expect("fail should succeed");
+        let duplicate_fail_error = transfer.fail().expect_err("duplicate fail should fail");
 
         assert_eq!(
             transfer.status().expect("status should exist"),
             &TransferStatus::Failed
         );
+        assert!(matches!(
+            duplicate_fail_error,
+            super::TransferError::AlreadyFailed
+        ));
+    }
+
+    #[test]
+    fn cancel_updates_status() {
+        let mut transfer = Transfer::default();
+        let from_account_id = AccountId::new();
+        let to_account_id = AccountId::new();
+        transfer
+            .request(from_account_id, to_account_id, AccountBalance::new(100))
+            .expect("request should succeed");
+
+        transfer.cancel().expect("cancel should succeed");
+        let duplicate_cancel_error = transfer.cancel().expect_err("duplicate cancel should fail");
+
+        assert_eq!(
+            transfer.status().expect("status should exist"),
+            &TransferStatus::Cancelled
+        );
+        assert!(matches!(
+            duplicate_cancel_error,
+            super::TransferError::AlreadyCancelled
+        ));
     }
 
     #[test]

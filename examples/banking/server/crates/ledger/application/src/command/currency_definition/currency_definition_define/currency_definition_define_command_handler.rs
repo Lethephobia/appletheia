@@ -1,9 +1,15 @@
-use appletheia::application::authorization::{AuthorizationPlan, PrincipalRequirement};
+use appletheia::application::authorization::{
+    AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
+};
 use appletheia::application::command::{CommandHandled, CommandHandler};
+use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::repository::Repository;
-use appletheia::application::request_context::RequestContext;
-use appletheia::domain::Aggregate;
-use banking_ledger_domain::currency_definition::CurrencyDefinition;
+use appletheia::application::request_context::{Principal, RequestContext};
+use appletheia::domain::{Aggregate, AggregateId};
+use banking_iam_application::OrganizationOwnerRelationshipProjectorSpec;
+use banking_iam_application::authorization::OrganizationCurrencyDefinitionDefinerRelation;
+use banking_iam_domain::{Organization, User, UserId};
+use banking_ledger_domain::currency_definition::{CurrencyDefinition, CurrencyDefinitionOwner};
 
 use super::{
     CurrencyDefinitionDefineCommand, CurrencyDefinitionDefineCommandHandlerError,
@@ -27,6 +33,21 @@ where
             currency_definition_repository,
         }
     }
+
+    fn owner_user_id(
+        request_context: &RequestContext,
+    ) -> Result<UserId, CurrencyDefinitionDefineCommandHandlerError> {
+        let Principal::Authenticated { subject } = &request_context.principal else {
+            return Err(CurrencyDefinitionDefineCommandHandlerError::OwnerRequiresPrincipal);
+        };
+
+        if subject.aggregate_type.value() != User::TYPE.value() {
+            return Err(CurrencyDefinitionDefineCommandHandlerError::OwnerRequiresUserPrincipal);
+        }
+
+        UserId::try_from_uuid(subject.aggregate_id.value())
+            .map_err(CurrencyDefinitionDefineCommandHandlerError::InvalidOwnerUserId)
+    }
 }
 
 impl<CDR> CommandHandler for CurrencyDefinitionDefineCommandHandler<CDR>
@@ -41,11 +62,25 @@ where
 
     fn authorization_plan(
         &self,
-        _command: &Self::Command,
+        command: &Self::Command,
     ) -> Result<AuthorizationPlan, Self::Error> {
-        Ok(AuthorizationPlan::OnlyPrincipals(vec![
-            PrincipalRequirement::Authenticated,
-        ]))
+        if let Some(organization_id) = command.organization_id {
+            Ok(AuthorizationPlan::OnlyPrincipals(vec![
+                PrincipalRequirement::AuthenticatedWithRelationship {
+                    requirement: RelationshipRequirement::Check {
+                        aggregate: AggregateRef::from_id::<Organization>(organization_id),
+                        relation: OrganizationCurrencyDefinitionDefinerRelation::NAME,
+                    },
+                    projector_dependencies: ProjectorDependencies::Some(&[
+                        OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
+                    ]),
+                },
+            ]))
+        } else {
+            Ok(AuthorizationPlan::OnlyPrincipals(vec![
+                PrincipalRequirement::Authenticated,
+            ]))
+        }
     }
 
     async fn handle(
@@ -58,9 +93,14 @@ where
             symbol,
             name,
             decimals,
+            organization_id,
         } = command.clone();
         let mut currency_definition = CurrencyDefinition::default();
-        currency_definition.define(symbol, name, decimals)?;
+        let owner = match organization_id {
+            Some(organization_id) => CurrencyDefinitionOwner::Organization(organization_id),
+            None => CurrencyDefinitionOwner::User(Self::owner_user_id(request_context)?),
+        };
+        currency_definition.define(owner, symbol, name, decimals)?;
 
         self.currency_definition_repository
             .save(uow, request_context, &mut currency_definition)
@@ -80,18 +120,22 @@ mod tests {
     use std::sync::{Arc, Mutex};
 
     use appletheia::application::authorization::{
-        AggregateRef, AuthorizationPlan, PrincipalRequirement,
+        AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
     };
     use appletheia::application::command::CommandHandler;
+    use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
     use appletheia::application::repository::{Repository, RepositoryError};
     use appletheia::application::request_context::{
         ActorRef, CorrelationId, MessageId, Principal, RequestContext,
     };
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::Aggregate;
+    use banking_iam_application::OrganizationOwnerRelationshipProjectorSpec;
+    use banking_iam_application::authorization::OrganizationCurrencyDefinitionDefinerRelation;
+    use banking_iam_domain::{Organization, OrganizationId, User, UserId};
     use banking_ledger_domain::core::{CurrencyDecimals, CurrencySymbol};
     use banking_ledger_domain::currency_definition::{
-        CurrencyDefinition, CurrencyDefinitionId, CurrencyName,
+        CurrencyDefinition, CurrencyDefinitionId, CurrencyDefinitionOwner, CurrencyName,
     };
     use uuid::Uuid;
 
@@ -158,21 +202,29 @@ mod tests {
         }
     }
 
-    fn request_context() -> RequestContext {
-        let subject = AggregateRef::new(
-            appletheia::application::event::AggregateTypeOwned::try_from("user")
-                .expect("aggregate type should be valid"),
-            appletheia::application::event::AggregateIdValue::from(Uuid::now_v7()),
-        );
+    fn request_context() -> (RequestContext, UserId) {
+        let user_id = UserId::new();
+        let subject = AggregateRef::from_id::<User>(user_id);
 
-        RequestContext::new(
-            CorrelationId::from(Uuid::now_v7()),
-            MessageId::new(),
-            ActorRef::Subject {
-                subject: subject.clone(),
-            },
-            Principal::Authenticated { subject },
+        (
+            RequestContext::new(
+                CorrelationId::from(Uuid::now_v7()),
+                MessageId::new(),
+                ActorRef::Subject {
+                    subject: subject.clone(),
+                },
+                Principal::Authenticated { subject },
+            ),
+            user_id,
         )
+    }
+
+    fn user_owner(user_id: UserId) -> CurrencyDefinitionOwner {
+        CurrencyDefinitionOwner::User(user_id)
+    }
+
+    fn organization_owner(organization_id: OrganizationId) -> CurrencyDefinitionOwner {
+        CurrencyDefinitionOwner::Organization(organization_id)
     }
 
     #[test]
@@ -185,6 +237,7 @@ mod tests {
                 symbol: CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
                 name: CurrencyName::try_from("USD Coin").expect("name should be valid"),
                 decimals: CurrencyDecimals::new(6),
+                organization_id: None,
             })
             .expect("authorization plan should build");
 
@@ -194,20 +247,54 @@ mod tests {
         );
     }
 
+    #[test]
+    fn authorization_plan_requires_organization_definer_relationship_when_organization_is_specified()
+     {
+        let repository = TestCurrencyDefinitionRepository::default();
+        let handler = CurrencyDefinitionDefineCommandHandler::new(repository);
+        let organization_id = OrganizationId::new();
+
+        let plan = handler
+            .authorization_plan(&CurrencyDefinitionDefineCommand {
+                symbol: CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
+                name: CurrencyName::try_from("USD Coin").expect("name should be valid"),
+                decimals: CurrencyDecimals::new(6),
+                organization_id: Some(organization_id),
+            })
+            .expect("authorization plan should build");
+
+        assert_eq!(
+            plan,
+            AuthorizationPlan::OnlyPrincipals(vec![
+                PrincipalRequirement::AuthenticatedWithRelationship {
+                    requirement: RelationshipRequirement::Check {
+                        aggregate: AggregateRef::from_id::<Organization>(organization_id),
+                        relation: OrganizationCurrencyDefinitionDefinerRelation::NAME,
+                    },
+                    projector_dependencies: ProjectorDependencies::Some(&[
+                        OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
+                    ]),
+                },
+            ])
+        );
+    }
+
     #[tokio::test]
     async fn handle_defines_currency_definition_and_returns_id() {
         let repository = TestCurrencyDefinitionRepository::default();
         let handler = CurrencyDefinitionDefineCommandHandler::new(repository.clone());
         let mut uow = TestUow;
 
+        let (request_context, user_id) = request_context();
         let handled = handler
             .handle(
                 &mut uow,
-                &request_context(),
+                &request_context,
                 &CurrencyDefinitionDefineCommand {
                     symbol: CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
                     name: CurrencyName::try_from("USD Coin").expect("name should be valid"),
                     decimals: CurrencyDecimals::new(6),
+                    organization_id: None,
                 },
             )
             .await
@@ -228,5 +315,48 @@ mod tests {
         assert_eq!(saved.symbol().expect("symbol should exist").value(), "USDC");
         assert_eq!(saved.name().expect("name should exist").value(), "USD Coin");
         assert_eq!(saved.decimals().expect("decimals should exist").value(), 6);
+        assert_eq!(
+            saved.owner().expect("owner should exist"),
+            user_owner(user_id)
+        );
+    }
+
+    #[tokio::test]
+    async fn handle_defines_organization_owned_currency_definition_when_organization_is_specified()
+    {
+        let repository = TestCurrencyDefinitionRepository::default();
+        let handler = CurrencyDefinitionDefineCommandHandler::new(repository.clone());
+        let mut uow = TestUow;
+        let organization_id = OrganizationId::new();
+        let expected_owner = organization_owner(organization_id);
+        let (request_context, _) = request_context();
+
+        let handled = handler
+            .handle(
+                &mut uow,
+                &request_context,
+                &CurrencyDefinitionDefineCommand {
+                    symbol: CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
+                    name: CurrencyName::try_from("USD Coin").expect("name should be valid"),
+                    decimals: CurrencyDecimals::new(6),
+                    organization_id: Some(organization_id),
+                },
+            )
+            .await
+            .expect("command should succeed");
+
+        let output = handled.into_output();
+        let saved = repository
+            .currency_definition
+            .lock()
+            .expect("lock")
+            .clone()
+            .expect("currency definition should be saved");
+        let saved_id = saved
+            .aggregate_id()
+            .expect("currency definition id should exist");
+
+        assert_eq!(output, CurrencyDefinitionDefineOutput::new(saved_id));
+        assert_eq!(saved.owner().expect("owner should exist"), expected_owner);
     }
 }

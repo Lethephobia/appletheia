@@ -5,19 +5,19 @@ pub mod projection;
 pub mod saga;
 
 pub use authorization::{
-    OrganizationHandleEditorRelation, OrganizationInvitationCancelerRelation,
-    OrganizationInvitationInviteeRelation, OrganizationInvitationOrganizationRelation,
-    OrganizationInvitationRelations, OrganizationInviterRelation,
-    OrganizationJoinRequestApproverRelation, OrganizationJoinRequestCancelerRelation,
-    OrganizationJoinRequestOrganizationRelation, OrganizationJoinRequestRejecterRelation,
-    OrganizationJoinRequestRelations, OrganizationJoinRequestRequesterRelation,
-    OrganizationMemberRelation, OrganizationMembershipActivatorRelation,
-    OrganizationMembershipDeactivatorRelation, OrganizationMembershipOrganizationRelation,
-    OrganizationMembershipRelations, OrganizationMembershipRemoverRelation,
-    OrganizationMembershipStatusManagerRelation, OrganizationOwnerRelation, OrganizationRelations,
-    OrganizationRemoverRelation, OrganizationRenamerRelation, UserActivatorRelation,
-    UserDeactivatorRelation, UserOwnerRelation, UserProfileEditorRelation, UserRelations,
-    UserRemoverRelation, UserStatusManagerRelation,
+    OrganizationCurrencyDefinitionDefinerRelation, OrganizationHandleEditorRelation,
+    OrganizationInvitationCancelerRelation, OrganizationInvitationInviteeRelation,
+    OrganizationInvitationOrganizationRelation, OrganizationInvitationRelations,
+    OrganizationInviterRelation, OrganizationJoinRequestApproverRelation,
+    OrganizationJoinRequestCancelerRelation, OrganizationJoinRequestOrganizationRelation,
+    OrganizationJoinRequestRejecterRelation, OrganizationJoinRequestRelations,
+    OrganizationJoinRequestRequesterRelation, OrganizationMemberRelation,
+    OrganizationMembershipActivatorRelation, OrganizationMembershipDeactivatorRelation,
+    OrganizationMembershipOrganizationRelation, OrganizationMembershipRelations,
+    OrganizationMembershipRemoverRelation, OrganizationMembershipStatusManagerRelation,
+    OrganizationOwnerRelation, OrganizationRelations, OrganizationRemoverRelation,
+    OrganizationRenamerRelation, UserActivatorRelation, UserDeactivatorRelation, UserOwnerRelation,
+    UserProfileEditorRelation, UserRelations, UserRemoverRelation, UserStatusManagerRelation,
 };
 pub use command::{
     LogoutAllSessionsCommand, LogoutAllSessionsCommandHandler, LogoutAllSessionsOutput,

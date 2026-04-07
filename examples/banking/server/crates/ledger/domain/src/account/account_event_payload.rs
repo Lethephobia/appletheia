@@ -99,7 +99,7 @@ mod tests {
     fn serializes_payload_to_json() {
         let payload = AccountEventPayload::Opened {
             id: AccountId::new(),
-            owner: AccountOwner::from(banking_iam_domain::UserId::new()),
+            owner: AccountOwner::User(banking_iam_domain::UserId::new()),
             name: AccountName::try_from("main").expect("account name should be valid"),
             currency_definition_id: CurrencyDefinitionId::new(),
         };
@@ -107,6 +107,7 @@ mod tests {
         let value = payload.into_json_value().expect("payload should serialize");
 
         assert_eq!(value["type"], serde_json::json!("opened"));
+        assert_eq!(value["data"]["owner"]["type"], serde_json::json!("user"));
     }
 
     #[test]

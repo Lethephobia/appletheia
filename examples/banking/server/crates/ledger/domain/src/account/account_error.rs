@@ -38,6 +38,9 @@ pub enum AccountError {
 
     #[error("account reserved balance must be zero before closing")]
     ReservedBalanceRemaining,
+
+    #[error("account owner is not assigned")]
+    OwnerNotAssigned,
 }
 
 impl From<AccountBalanceError> for AccountError {

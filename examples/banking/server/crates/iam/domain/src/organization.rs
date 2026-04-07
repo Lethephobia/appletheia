@@ -6,6 +6,7 @@ mod organization_handle_error;
 mod organization_id;
 mod organization_name;
 mod organization_name_error;
+mod organization_owner;
 mod organization_state;
 mod organization_state_error;
 mod organization_status;
@@ -18,6 +19,7 @@ pub use organization_handle_error::OrganizationHandleError;
 pub use organization_id::OrganizationId;
 pub use organization_name::OrganizationName;
 pub use organization_name_error::OrganizationNameError;
+pub use organization_owner::OrganizationOwner;
 pub use organization_state::OrganizationState;
 pub use organization_state_error::OrganizationStateError;
 pub use organization_status::OrganizationStatus;
@@ -74,6 +76,20 @@ impl Organization {
         })
     }
 
+    /// Assigns an owner to the organization.
+    pub fn assign_owner(&mut self, owner: OrganizationOwner) -> Result<(), OrganizationError> {
+        self.ensure_not_removed()?;
+
+        self.append_event(OrganizationEventPayload::OwnerAssigned { owner })
+    }
+
+    /// Unassigns a specific owner from the organization.
+    pub fn unassign_owner(&mut self, owner: OrganizationOwner) -> Result<(), OrganizationError> {
+        self.ensure_not_removed()?;
+
+        self.append_event(OrganizationEventPayload::OwnerUnassigned { owner })
+    }
+
     /// Changes the current organization handle.
     pub fn change_handle(&mut self, handle: OrganizationHandle) -> Result<(), OrganizationError> {
         self.ensure_not_removed()?;
@@ -102,9 +118,7 @@ impl Organization {
 
     /// Permanently removes the organization.
     pub fn remove(&mut self) -> Result<(), OrganizationError> {
-        if self.state_required()?.status.is_removed() {
-            return Ok(());
-        }
+        self.ensure_not_removed()?;
 
         self.append_event(OrganizationEventPayload::Removed)
     }
@@ -121,13 +135,11 @@ impl Organization {
 impl AggregateApply<OrganizationEventPayload, OrganizationError> for Organization {
     fn apply(&mut self, payload: &OrganizationEventPayload) -> Result<(), OrganizationError> {
         match payload {
-            OrganizationEventPayload::Created { id, handle, name } => {
-                self.set_state(Some(OrganizationState::new(
-                    *id,
-                    handle.clone(),
-                    name.clone(),
-                )));
-            }
+            OrganizationEventPayload::Created { id, handle, name } => self.set_state(Some(
+                OrganizationState::new(*id, handle.clone(), name.clone()),
+            )),
+            OrganizationEventPayload::OwnerAssigned { .. } => {}
+            OrganizationEventPayload::OwnerUnassigned { .. } => {}
             OrganizationEventPayload::HandleChanged { handle } => {
                 self.state_required_mut()?.handle = handle.clone();
             }
@@ -147,7 +159,14 @@ impl AggregateApply<OrganizationEventPayload, OrganizationError> for Organizatio
 mod tests {
     use appletheia::domain::{Aggregate, AggregateId, EventPayload};
 
-    use super::{Organization, OrganizationEventPayload, OrganizationHandle, OrganizationName};
+    use super::{
+        Organization, OrganizationEventPayload, OrganizationHandle, OrganizationName,
+        OrganizationOwner,
+    };
+
+    fn owner() -> OrganizationOwner {
+        OrganizationOwner::User(crate::UserId::new())
+    }
 
     #[test]
     fn create_initializes_state_and_records_event() {
@@ -169,6 +188,50 @@ mod tests {
         assert_eq!(
             organization.uncommitted_events()[0].payload().name(),
             OrganizationEventPayload::CREATED
+        );
+    }
+
+    #[test]
+    fn assign_owner_records_event() {
+        let mut organization = Organization::default();
+        organization
+            .create(
+                OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
+                OrganizationName::try_from("Acme Labs").expect("name should be valid"),
+            )
+            .expect("first creation should succeed");
+
+        let owner = owner();
+        organization
+            .assign_owner(owner)
+            .expect("assigning owner should succeed");
+
+        assert_eq!(organization.uncommitted_events().len(), 2);
+        assert_eq!(
+            organization.uncommitted_events()[1].payload().name(),
+            OrganizationEventPayload::OWNER_ASSIGNED
+        );
+    }
+
+    #[test]
+    fn unassign_owner_records_event() {
+        let mut organization = Organization::default();
+        organization
+            .create(
+                OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
+                OrganizationName::try_from("Acme Labs").expect("name should be valid"),
+            )
+            .expect("first creation should succeed");
+
+        let owner = owner();
+        organization
+            .unassign_owner(owner)
+            .expect("unassigning owner should succeed");
+
+        assert_eq!(organization.uncommitted_events().len(), 2);
+        assert_eq!(
+            organization.uncommitted_events()[1].payload().name(),
+            OrganizationEventPayload::OWNER_UNASSIGNED
         );
     }
 
@@ -235,9 +298,16 @@ mod tests {
             .expect("first creation should succeed");
 
         organization.remove().expect("remove should succeed");
+        let duplicate_remove_error = organization
+            .remove()
+            .expect_err("duplicate remove should fail");
 
         assert!(organization.is_removed().expect("status should exist"));
         assert_eq!(organization.uncommitted_events().len(), 2);
+        assert!(matches!(
+            duplicate_remove_error,
+            super::OrganizationError::Removed
+        ));
         assert_eq!(
             organization.uncommitted_events()[1].payload().name(),
             OrganizationEventPayload::REMOVED

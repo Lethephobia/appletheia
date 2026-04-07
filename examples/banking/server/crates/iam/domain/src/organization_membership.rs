@@ -105,9 +105,7 @@ impl OrganizationMembership {
 
     /// Permanently removes the membership.
     pub fn remove(&mut self) -> Result<(), OrganizationMembershipError> {
-        if self.state_required()?.status.is_removed() {
-            return Ok(());
-        }
+        self.ensure_not_removed()?;
 
         let state = self.state_required()?;
         self.append_event(OrganizationMembershipEventPayload::Removed {
@@ -258,12 +256,19 @@ mod tests {
             .expect("creation should succeed");
 
         membership.remove().expect("remove should succeed");
+        let duplicate_remove_error = membership
+            .remove()
+            .expect_err("duplicate remove should fail");
 
         assert_eq!(
             membership.status().expect("status should exist"),
             OrganizationMembershipStatus::Removed
         );
         assert_eq!(membership.uncommitted_events().len(), 2);
+        assert!(matches!(
+            duplicate_remove_error,
+            super::OrganizationMembershipError::Removed
+        ));
         assert_eq!(
             membership.uncommitted_events()[1].payload(),
             &OrganizationMembershipEventPayload::Removed {
@@ -290,6 +295,12 @@ mod tests {
         let deactivate_error = membership.deactivate().expect_err("deactivate should fail");
         assert!(matches!(
             deactivate_error,
+            super::OrganizationMembershipError::Removed
+        ));
+
+        let remove_error = membership.remove().expect_err("remove should fail");
+        assert!(matches!(
+            remove_error,
             super::OrganizationMembershipError::Removed
         ));
     }
