@@ -1,6 +1,6 @@
 ---
 name: appletheia-library-maintainer
-description: Maintain the Appletheia library, macros, and examples. Use when changing crate APIs, trait contracts, macro expansion, generated code, docs, compatibility, or release behavior.
+description: Maintain the Appletheia library, macros, and examples. Use when changing crate APIs, trait contracts, macro expansion, generated code, docs, compatibility, release behavior, commits, or commit messages.
 ---
 
 # Appletheia Library Maintainer
