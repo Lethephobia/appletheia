@@ -1,21 +1,18 @@
-use appletheia::application::authorization::{
-    Relation, RelationName, RelationNameOwned, UsersetExpr,
-};
+use appletheia::application::authorization::{Relation, RelationName, RelationRef, UsersetExpr};
+use appletheia::domain::Aggregate;
 
-use super::UserStatusManagerRelation;
+use super::{User, UserStatusManagerRelation};
 
 /// Allows status managers to activate a user.
 pub struct UserActivatorRelation;
 
 impl Relation for UserActivatorRelation {
-    const NAME: RelationName = RelationName::new("activator");
+    const REF: RelationRef = RelationRef::new(User::TYPE, RelationName::new("activator"));
 
-    fn expr(&self) -> UsersetExpr {
-        UsersetExpr::Union(vec![
-            UsersetExpr::This,
-            UsersetExpr::ComputedUserset {
-                relation: RelationNameOwned::from(UserStatusManagerRelation::NAME),
-            },
-        ])
-    }
+    const EXPR: UsersetExpr = UsersetExpr::Union(&[
+        UsersetExpr::This,
+        UsersetExpr::ComputedUserset {
+            relation: UserStatusManagerRelation::REF,
+        },
+    ]);
 }

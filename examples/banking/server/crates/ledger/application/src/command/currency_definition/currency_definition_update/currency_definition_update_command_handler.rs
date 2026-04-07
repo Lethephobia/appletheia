@@ -1,5 +1,6 @@
 use appletheia::application::authorization::{
-    AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
+    AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationRefOwned,
+    RelationshipRequirement,
 };
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
@@ -53,7 +54,7 @@ where
                     aggregate: AggregateRef::from_id::<CurrencyDefinition>(
                         command.currency_definition_id,
                     ),
-                    relation: CurrencyDefinitionUpdaterRelation::NAME,
+                    relation: RelationRefOwned::from(CurrencyDefinitionUpdaterRelation::REF),
                 },
                 projector_dependencies: ProjectorDependencies::Some(&[
                     CurrencyDefinitionOwnerRelationshipProjectorSpec::DESCRIPTOR,
@@ -97,7 +98,8 @@ mod tests {
     use std::sync::{Arc, Mutex};
 
     use appletheia::application::authorization::{
-        AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
+        AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationRefOwned,
+        RelationshipRequirement,
     };
     use appletheia::application::command::CommandHandler;
     use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
@@ -242,7 +244,7 @@ mod tests {
                         aggregate: AggregateRef::from_id::<CurrencyDefinition>(
                             currency_definition_id,
                         ),
-                        relation: CurrencyDefinitionUpdaterRelation::NAME,
+                        relation: RelationRefOwned::from(CurrencyDefinitionUpdaterRelation::REF),
                     },
                     projector_dependencies: ProjectorDependencies::Some(&[
                         CurrencyDefinitionOwnerRelationshipProjectorSpec::DESCRIPTOR,

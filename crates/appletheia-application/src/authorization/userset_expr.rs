@@ -1,4 +1,4 @@
-use super::RelationNameOwned;
+use super::RelationRef;
 
 /// Represents a userset expression in the authorization model.
 ///
@@ -12,28 +12,28 @@ pub enum UsersetExpr {
     /// Evaluate another relation on the same aggregate.
     ComputedUserset {
         /// The relation to evaluate on the current aggregate.
-        relation: RelationNameOwned,
+        relation: RelationRef,
     },
 
     /// `computed_relation from tupleset_relation`
     TupleToUserset {
         /// The relation that yields related aggregates to traverse.
-        tupleset_relation: RelationNameOwned,
+        tupleset_relation: RelationRef,
         /// The relation to evaluate on each related aggregate.
-        computed_relation: RelationNameOwned,
+        computed_userset: RelationRef,
     },
 
     /// Resolves subjects that appear in any of the contained expressions.
-    Union(Vec<UsersetExpr>),
+    Union(&'static [UsersetExpr]),
 
     /// Resolves only subjects that appear in all contained expressions.
-    Intersection(Vec<UsersetExpr>),
+    Intersection(&'static [UsersetExpr]),
 
     /// Resolves subjects from `base` except those also contained in `subtract`.
     Difference {
         /// The base userset expression.
-        base: Box<UsersetExpr>,
+        base: &'static UsersetExpr,
         /// The userset expression to subtract from the base result.
-        subtract: Box<UsersetExpr>,
+        subtract: &'static UsersetExpr,
     },
 }

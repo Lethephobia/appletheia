@@ -306,7 +306,7 @@ mod tests {
     use super::DefaultCommandDispatcher;
     use crate::authorization::{
         AggregateRef, AuthorizationPlan, Authorizer, AuthorizerError, PrincipalRequirement,
-        RelationName, RelationshipRequirement,
+        RelationName, RelationRefOwned, RelationshipRequirement,
     };
     use crate::command::{
         Command, CommandDispatcher, CommandDispatcherError, CommandFailureReaction,
@@ -515,7 +515,10 @@ mod tests {
                     .expect("valid aggregate type"),
                 aggregate_id: AggregateIdValue::from(Uuid::from_u128(1)),
             },
-            relation: RelationName::new("viewer"),
+            relation: RelationRefOwned::new(
+                AggregateTypeOwned::try_from("document").expect("valid aggregate type"),
+                RelationName::new("viewer").into(),
+            ),
         }
     }
 

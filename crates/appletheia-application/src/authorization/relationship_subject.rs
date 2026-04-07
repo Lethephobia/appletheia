@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::event::AggregateTypeOwned;
 
-use super::{AggregateRef, RelationNameOwned};
+use super::{AggregateRef, RelationRefOwned};
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub enum RelationshipSubject {
@@ -15,6 +15,6 @@ pub enum RelationshipSubject {
     /// `<type>:<id>#<relation>`
     AggregateSet {
         aggregate: AggregateRef,
-        relation: RelationNameOwned,
+        relation: RelationRefOwned,
     },
 }

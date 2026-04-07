@@ -1,5 +1,6 @@
 use appletheia::application::authorization::{
-    AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
+    AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationRefOwned,
+    RelationshipRequirement,
 };
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
@@ -46,7 +47,7 @@ where
             PrincipalRequirement::AuthenticatedWithRelationship {
                 requirement: RelationshipRequirement::Check {
                     aggregate: AggregateRef::from_id::<User>(command.user_id),
-                    relation: UserProfileEditorRelation::NAME,
+                    relation: RelationRefOwned::from(UserProfileEditorRelation::REF),
                 },
                 projector_dependencies: ProjectorDependencies::Some(&[
                     UserOwnerRelationshipProjectorSpec::DESCRIPTOR,
@@ -84,7 +85,8 @@ mod tests {
     use std::sync::{Arc, Mutex};
 
     use appletheia::application::authorization::{
-        AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
+        AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationRefOwned,
+        RelationshipRequirement,
     };
     use appletheia::application::command::CommandHandler;
     use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
@@ -218,7 +220,7 @@ mod tests {
                 PrincipalRequirement::AuthenticatedWithRelationship {
                     requirement: RelationshipRequirement::Check {
                         aggregate: AggregateRef::from_id::<User>(user_id),
-                        relation: UserProfileEditorRelation::NAME,
+                        relation: RelationRefOwned::from(UserProfileEditorRelation::REF),
                     },
                     projector_dependencies: ProjectorDependencies::Some(&[
                         UserOwnerRelationshipProjectorSpec::DESCRIPTOR,

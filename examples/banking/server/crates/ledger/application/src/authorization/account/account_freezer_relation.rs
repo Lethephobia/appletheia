@@ -1,21 +1,18 @@
-use appletheia::application::authorization::{
-    Relation, RelationName, RelationNameOwned, UsersetExpr,
-};
+use appletheia::application::authorization::{Relation, RelationName, RelationRef, UsersetExpr};
+use appletheia::domain::Aggregate;
 
-use super::AccountStatusManagerRelation;
+use super::{Account, AccountStatusManagerRelation};
 
 /// Allows status managers to freeze an account.
 pub struct AccountFreezerRelation;
 
 impl Relation for AccountFreezerRelation {
-    const NAME: RelationName = RelationName::new("freezer");
+    const REF: RelationRef = RelationRef::new(Account::TYPE, RelationName::new("freezer"));
 
-    fn expr(&self) -> UsersetExpr {
-        UsersetExpr::Union(vec![
-            UsersetExpr::This,
-            UsersetExpr::ComputedUserset {
-                relation: RelationNameOwned::from(AccountStatusManagerRelation::NAME),
-            },
-        ])
-    }
+    const EXPR: UsersetExpr = UsersetExpr::Union(&[
+        UsersetExpr::This,
+        UsersetExpr::ComputedUserset {
+            relation: AccountStatusManagerRelation::REF,
+        },
+    ]);
 }

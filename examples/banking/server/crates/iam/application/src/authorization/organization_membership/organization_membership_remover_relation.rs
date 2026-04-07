@@ -1,23 +1,19 @@
-use appletheia::application::authorization::{
-    Relation, RelationName, RelationNameOwned, UsersetExpr,
-};
+use appletheia::application::authorization::{Relation, RelationName, RelationRef, UsersetExpr};
+use appletheia::domain::Aggregate;
 
-use super::OrganizationMembershipStatusManagerRelation;
+use super::{OrganizationMembership, OrganizationMembershipStatusManagerRelation};
 
 /// Allows status managers to remove a membership.
 pub struct OrganizationMembershipRemoverRelation;
 
 impl Relation for OrganizationMembershipRemoverRelation {
-    const NAME: RelationName = RelationName::new("remover");
+    const REF: RelationRef =
+        RelationRef::new(OrganizationMembership::TYPE, RelationName::new("remover"));
 
-    fn expr(&self) -> UsersetExpr {
-        UsersetExpr::Union(vec![
-            UsersetExpr::This,
-            UsersetExpr::ComputedUserset {
-                relation: RelationNameOwned::from(
-                    OrganizationMembershipStatusManagerRelation::NAME,
-                ),
-            },
-        ])
-    }
+    const EXPR: UsersetExpr = UsersetExpr::Union(&[
+        UsersetExpr::This,
+        UsersetExpr::ComputedUserset {
+            relation: OrganizationMembershipStatusManagerRelation::REF,
+        },
+    ]);
 }

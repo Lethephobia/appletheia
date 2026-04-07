@@ -1,5 +1,6 @@
 use appletheia::application::authorization::{
-    AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
+    AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationRefOwned,
+    RelationshipRequirement,
 };
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
@@ -59,7 +60,7 @@ where
                     aggregate: AggregateRef::from_id::<OrganizationInvitation>(
                         command.organization_invitation_id,
                     ),
-                    relation: OrganizationInvitationInviteeRelation::NAME,
+                    relation: RelationRefOwned::from(OrganizationInvitationInviteeRelation::REF),
                 },
                 projector_dependencies: ProjectorDependencies::Some(&[
                     OrganizationInvitationInviteeRelationshipProjectorSpec::DESCRIPTOR,

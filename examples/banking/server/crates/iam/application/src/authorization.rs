@@ -8,24 +8,22 @@ pub use organization::{
     OrganizationCurrencyDefinitionDefinerRelation, OrganizationHandleEditorRelation,
     OrganizationInviterRelation, OrganizationRemoverRelation, OrganizationRenamerRelation,
 };
-pub use organization::{
-    OrganizationMemberRelation, OrganizationOwnerRelation, OrganizationRelations,
-};
+pub use organization::{OrganizationMemberRelation, OrganizationOwnerRelation};
 pub use organization_invitation::{
     OrganizationInvitationCancelerRelation, OrganizationInvitationInviteeRelation,
-    OrganizationInvitationOrganizationRelation, OrganizationInvitationRelations,
+    OrganizationInvitationOrganizationRelation,
 };
 pub use organization_join_request::{
     OrganizationJoinRequestApproverRelation, OrganizationJoinRequestCancelerRelation,
     OrganizationJoinRequestOrganizationRelation, OrganizationJoinRequestRejecterRelation,
-    OrganizationJoinRequestRelations, OrganizationJoinRequestRequesterRelation,
+    OrganizationJoinRequestRequesterRelation,
 };
 pub use organization_membership::{
     OrganizationMembershipActivatorRelation, OrganizationMembershipDeactivatorRelation,
-    OrganizationMembershipOrganizationRelation, OrganizationMembershipRelations,
-    OrganizationMembershipRemoverRelation, OrganizationMembershipStatusManagerRelation,
+    OrganizationMembershipOrganizationRelation, OrganizationMembershipRemoverRelation,
+    OrganizationMembershipStatusManagerRelation,
 };
 pub use user::{
     UserActivatorRelation, UserDeactivatorRelation, UserOwnerRelation, UserProfileEditorRelation,
-    UserRelations, UserRemoverRelation, UserStatusManagerRelation,
+    UserRemoverRelation, UserStatusManagerRelation,
 };

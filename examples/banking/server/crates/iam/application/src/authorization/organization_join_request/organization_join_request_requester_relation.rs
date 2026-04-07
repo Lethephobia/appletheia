@@ -1,12 +1,16 @@
-use appletheia::application::authorization::{Relation, RelationName, UsersetExpr};
+use appletheia::application::authorization::{Relation, RelationName, RelationRef, UsersetExpr};
+use appletheia::domain::Aggregate;
+
+use super::OrganizationJoinRequest;
 
 /// Links a join request to the user who requested membership.
 pub struct OrganizationJoinRequestRequesterRelation;
 
 impl Relation for OrganizationJoinRequestRequesterRelation {
-    const NAME: RelationName = RelationName::new("requester");
+    const REF: RelationRef = RelationRef::new(
+        OrganizationJoinRequest::TYPE,
+        RelationName::new("requester"),
+    );
 
-    fn expr(&self) -> UsersetExpr {
-        UsersetExpr::This
-    }
+    const EXPR: UsersetExpr = UsersetExpr::This;
 }

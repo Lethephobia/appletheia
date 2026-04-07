@@ -1,9 +1,10 @@
 use appletheia::application::authorization::{
-    AggregateRef, Relation, RelationNameOwned, Relationship, RelationshipChange, RelationshipStore,
+    AggregateRef, Relation, RelationRefOwned, Relationship, RelationshipChange, RelationshipStore,
     RelationshipSubject,
 };
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
+use banking_iam_application::OrganizationOwnerRelation;
 use banking_iam_domain::{Organization, User};
 use banking_ledger_domain::currency_definition::{
     CurrencyDefinition, CurrencyDefinitionEventPayload, CurrencyDefinitionOwner,
@@ -13,9 +14,9 @@ use super::{
     CurrencyDefinitionOwnerRelationshipProjectorError,
     CurrencyDefinitionOwnerRelationshipProjectorSpec,
 };
-use crate::authorization::CurrencyDefinitionOrganizationRelation;
+use crate::authorization::CurrencyDefinitionOwnerRelation;
 
-/// Projects the organization relationship for currency definitions.
+/// Projects the owner relationship for currency definitions.
 pub struct CurrencyDefinitionOwnerRelationshipProjector<RS>
 where
     RS: RelationshipStore,
@@ -36,7 +37,7 @@ where
         uow: &mut RS::Uow,
         currency_definition: AggregateRef,
     ) -> Result<(), CurrencyDefinitionOwnerRelationshipProjectorError> {
-        let relation = RelationNameOwned::from(CurrencyDefinitionOrganizationRelation::NAME);
+        let relation = RelationRefOwned::from(CurrencyDefinitionOwnerRelation::REF);
         let subjects = self
             .relationship_store
             .read_subjects_by_aggregate(uow, &currency_definition, &relation)
@@ -78,9 +79,10 @@ where
                         RelationshipSubject::Aggregate(AggregateRef::from_id::<User>(*user_id))
                     }
                     CurrencyDefinitionOwner::Organization(organization_id) => {
-                        RelationshipSubject::Aggregate(AggregateRef::from_id::<Organization>(
-                            *organization_id,
-                        ))
+                        RelationshipSubject::AggregateSet {
+                            aggregate: AggregateRef::from_id::<Organization>(*organization_id),
+                            relation: RelationRefOwned::from(OrganizationOwnerRelation::REF),
+                        }
                     }
                 };
 
@@ -91,9 +93,7 @@ where
                             aggregate: AggregateRef::from_id::<CurrencyDefinition>(
                                 domain_event.aggregate_id(),
                             ),
-                            relation: RelationNameOwned::from(
-                                CurrencyDefinitionOrganizationRelation::NAME,
-                            ),
+                            relation: RelationRefOwned::from(CurrencyDefinitionOwnerRelation::REF),
                             subject,
                         })],
                     )
@@ -118,7 +118,7 @@ mod tests {
     use std::sync::{Arc, Mutex};
 
     use appletheia::application::authorization::{
-        AggregateRef, Relation, RelationNameOwned, RelationshipChange, RelationshipStore,
+        AggregateRef, Relation, RelationRefOwned, RelationshipChange, RelationshipStore,
         RelationshipStoreError, RelationshipSubject,
     };
     use appletheia::application::event::{EventEnvelope, EventSequence, SerializedEventPayload};
@@ -128,6 +128,7 @@ mod tests {
     };
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::{Aggregate, AggregateId, Event, EventPayload};
+    use banking_iam_application::OrganizationOwnerRelation;
     use banking_iam_domain::{Organization, User};
     use banking_ledger_domain::core::{CurrencyDecimals, CurrencySymbol};
     use banking_ledger_domain::currency_definition::{
@@ -136,7 +137,7 @@ mod tests {
     };
 
     use super::CurrencyDefinitionOwnerRelationshipProjector;
-    use crate::authorization::CurrencyDefinitionOrganizationRelation;
+    use crate::authorization::CurrencyDefinitionOwnerRelation;
 
     #[derive(Default)]
     struct TestUow;
@@ -182,8 +183,7 @@ mod tests {
             &self,
             _uow: &mut Self::Uow,
             _subject: &RelationshipSubject,
-            _aggregate_type: &appletheia::application::event::AggregateTypeOwned,
-            _relation: &RelationNameOwned,
+            _relation: &RelationRefOwned,
         ) -> Result<Vec<AggregateRef>, RelationshipStoreError> {
             Ok(Vec::new())
         }
@@ -192,9 +192,9 @@ mod tests {
             &self,
             _uow: &mut Self::Uow,
             _aggregate: &AggregateRef,
-            relation: &RelationNameOwned,
+            relation: &RelationRefOwned,
         ) -> Result<Vec<RelationshipSubject>, RelationshipStoreError> {
-            if relation == &RelationNameOwned::from(CurrencyDefinitionOrganizationRelation::NAME) {
+            if relation == &RelationRefOwned::from(CurrencyDefinitionOwnerRelation::REF) {
                 Ok(self
                     .owner_subjects_by_aggregate
                     .lock()
@@ -258,7 +258,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn project_defined_event_upserts_organization_relationship_for_user_owner() {
+    async fn project_defined_event_upserts_owner_relationship_for_user_owner() {
         let store = TestRelationshipStore::default();
         let projector = CurrencyDefinitionOwnerRelationshipProjector::new(store.clone());
         let mut uow = TestUow;
@@ -279,7 +279,7 @@ mod tests {
 
         assert_eq!(
             relationship.relation,
-            RelationNameOwned::from(CurrencyDefinitionOrganizationRelation::NAME)
+            RelationRefOwned::from(CurrencyDefinitionOwnerRelation::REF)
         );
         assert_eq!(
             relationship.subject,
@@ -288,7 +288,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn project_defined_event_upserts_organization_relationship_for_organization_owner() {
+    async fn project_defined_event_upserts_owner_relationship_for_organization_owner() {
         let store = TestRelationshipStore::default();
         let projector = CurrencyDefinitionOwnerRelationshipProjector::new(store.clone());
         let mut uow = TestUow;
@@ -309,16 +309,19 @@ mod tests {
 
         assert_eq!(
             relationship.relation,
-            RelationNameOwned::from(CurrencyDefinitionOrganizationRelation::NAME)
+            RelationRefOwned::from(CurrencyDefinitionOwnerRelation::REF)
         );
         assert_eq!(
             relationship.subject,
-            RelationshipSubject::Aggregate(AggregateRef::from_id::<Organization>(organization_id,))
+            RelationshipSubject::AggregateSet {
+                aggregate: AggregateRef::from_id::<Organization>(organization_id),
+                relation: RelationRefOwned::from(OrganizationOwnerRelation::REF),
+            }
         );
     }
 
     #[tokio::test]
-    async fn project_removed_event_deletes_organization_relationship() {
+    async fn project_removed_event_deletes_owner_relationship() {
         let user_id = banking_iam_domain::UserId::new();
         let store = TestRelationshipStore {
             owner_subjects_by_aggregate: Arc::new(Mutex::new(vec![
@@ -381,7 +384,7 @@ mod tests {
 
         assert_eq!(
             relationship.relation,
-            RelationNameOwned::from(CurrencyDefinitionOrganizationRelation::NAME)
+            RelationRefOwned::from(CurrencyDefinitionOwnerRelation::REF)
         );
         assert_eq!(
             relationship.subject,

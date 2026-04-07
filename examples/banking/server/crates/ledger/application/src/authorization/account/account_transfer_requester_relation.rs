@@ -1,21 +1,19 @@
-use appletheia::application::authorization::{
-    Relation, RelationName, RelationNameOwned, UsersetExpr,
-};
+use appletheia::application::authorization::{Relation, RelationName, RelationRef, UsersetExpr};
+use appletheia::domain::Aggregate;
 
-use super::AccountOwnerRelation;
+use super::{Account, AccountOwnerRelation};
 
 /// Allows owners to request transfers from an account.
 pub struct AccountTransferRequesterRelation;
 
 impl Relation for AccountTransferRequesterRelation {
-    const NAME: RelationName = RelationName::new("transfer_requester");
+    const REF: RelationRef =
+        RelationRef::new(Account::TYPE, RelationName::new("transfer_requester"));
 
-    fn expr(&self) -> UsersetExpr {
-        UsersetExpr::Union(vec![
-            UsersetExpr::This,
-            UsersetExpr::ComputedUserset {
-                relation: RelationNameOwned::from(AccountOwnerRelation::NAME),
-            },
-        ])
-    }
+    const EXPR: UsersetExpr = UsersetExpr::Union(&[
+        UsersetExpr::This,
+        UsersetExpr::ComputedUserset {
+            relation: AccountOwnerRelation::REF,
+        },
+    ]);
 }

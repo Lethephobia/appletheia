@@ -1,5 +1,5 @@
 use appletheia::application::authorization::{
-    AggregateRef, Relation, RelationNameOwned, Relationship, RelationshipChange, RelationshipStore,
+    AggregateRef, Relation, RelationRefOwned, Relationship, RelationshipChange, RelationshipStore,
     RelationshipSubject,
 };
 use appletheia::application::event::EventEnvelope;
@@ -48,7 +48,7 @@ where
             let aggregate =
                 AggregateRef::from_id::<OrganizationJoinRequest>(domain_event.aggregate_id());
             let organization_relation =
-                RelationNameOwned::from(OrganizationJoinRequestOrganizationRelation::NAME);
+                RelationRefOwned::from(OrganizationJoinRequestOrganizationRelation::REF);
 
             if let OrganizationJoinRequestEventPayload::Requested {
                 organization_id, ..

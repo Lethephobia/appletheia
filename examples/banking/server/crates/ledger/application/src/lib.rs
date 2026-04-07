@@ -5,11 +5,10 @@ pub mod saga;
 
 pub use authorization::{
     AccountCloserRelation, AccountDepositorRelation, AccountFreezerRelation, AccountOwnerRelation,
-    AccountRelations, AccountRenamerRelation, AccountStatusManagerRelation, AccountThawerRelation,
+    AccountRenamerRelation, AccountStatusManagerRelation, AccountThawerRelation,
     AccountTransferRequesterRelation, AccountWithdrawerRelation,
     CurrencyDefinitionActivatorRelation, CurrencyDefinitionDeactivatorRelation,
-    CurrencyDefinitionOrganizationRelation, CurrencyDefinitionOwnerRelation,
-    CurrencyDefinitionRelations, CurrencyDefinitionRemoverRelation,
+    CurrencyDefinitionOwnerRelation, CurrencyDefinitionRemoverRelation,
     CurrencyDefinitionStatusManagerRelation, CurrencyDefinitionUpdaterRelation,
 };
 pub use command::{

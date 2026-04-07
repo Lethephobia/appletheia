@@ -1,21 +1,19 @@
-use appletheia::application::authorization::{
-    Relation, RelationName, RelationNameOwned, UsersetExpr,
-};
+use appletheia::application::authorization::{Relation, RelationName, RelationRef, UsersetExpr};
+use appletheia::domain::Aggregate;
 
-use super::OrganizationOwnerRelation;
+use super::{Organization, OrganizationOwnerRelation};
 
 /// Allows owners to edit an organization handle.
 pub struct OrganizationHandleEditorRelation;
 
 impl Relation for OrganizationHandleEditorRelation {
-    const NAME: RelationName = RelationName::new("handle_editor");
+    const REF: RelationRef =
+        RelationRef::new(Organization::TYPE, RelationName::new("handle_editor"));
 
-    fn expr(&self) -> UsersetExpr {
-        UsersetExpr::Union(vec![
-            UsersetExpr::This,
-            UsersetExpr::ComputedUserset {
-                relation: RelationNameOwned::from(OrganizationOwnerRelation::NAME),
-            },
-        ])
-    }
+    const EXPR: UsersetExpr = UsersetExpr::Union(&[
+        UsersetExpr::This,
+        UsersetExpr::ComputedUserset {
+            relation: OrganizationOwnerRelation::REF,
+        },
+    ]);
 }

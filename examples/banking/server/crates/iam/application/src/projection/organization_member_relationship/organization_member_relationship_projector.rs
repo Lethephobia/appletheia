@@ -1,5 +1,5 @@
 use appletheia::application::authorization::{
-    AggregateRef, Relation, RelationNameOwned, Relationship, RelationshipChange, RelationshipStore,
+    AggregateRef, Relation, RelationRefOwned, Relationship, RelationshipChange, RelationshipStore,
     RelationshipSubject,
 };
 use appletheia::application::event::EventEnvelope;
@@ -60,7 +60,7 @@ where
                             uow,
                             &[RelationshipChange::Upsert(Relationship {
                                 aggregate: AggregateRef::from_id::<Organization>(*organization_id),
-                                relation: RelationNameOwned::from(OrganizationMemberRelation::NAME),
+                                relation: RelationRefOwned::from(OrganizationMemberRelation::REF),
                                 subject: RelationshipSubject::Aggregate(AggregateRef::from_id::<
                                     User,
                                 >(
@@ -83,7 +83,7 @@ where
                             uow,
                             &[RelationshipChange::Delete(Relationship {
                                 aggregate: AggregateRef::from_id::<Organization>(*organization_id),
-                                relation: RelationNameOwned::from(OrganizationMemberRelation::NAME),
+                                relation: RelationRefOwned::from(OrganizationMemberRelation::REF),
                                 subject: RelationshipSubject::Aggregate(AggregateRef::from_id::<
                                     User,
                                 >(
@@ -105,7 +105,7 @@ mod tests {
     use std::sync::{Arc, Mutex};
 
     use appletheia::application::authorization::{
-        AggregateRef, Relation, RelationNameOwned, RelationshipChange, RelationshipStore,
+        AggregateRef, Relation, RelationRefOwned, RelationshipChange, RelationshipStore,
         RelationshipStoreError, RelationshipSubject,
     };
     use appletheia::application::event::{EventEnvelope, EventSequence, SerializedEventPayload};
@@ -167,8 +167,7 @@ mod tests {
             &self,
             _uow: &mut Self::Uow,
             _subject: &RelationshipSubject,
-            _aggregate_type: &appletheia::application::event::AggregateTypeOwned,
-            _relation: &RelationNameOwned,
+            _relation: &RelationRefOwned,
         ) -> Result<Vec<AggregateRef>, RelationshipStoreError> {
             Ok(Vec::new())
         }
@@ -177,7 +176,7 @@ mod tests {
             &self,
             _uow: &mut Self::Uow,
             _aggregate: &AggregateRef,
-            _relation: &RelationNameOwned,
+            _relation: &RelationRefOwned,
         ) -> Result<Vec<RelationshipSubject>, RelationshipStoreError> {
             Ok(self
                 .subjects_by_aggregate
@@ -314,7 +313,7 @@ mod tests {
 
         assert_eq!(
             relationship.relation,
-            RelationNameOwned::from(OrganizationMemberRelation::NAME)
+            RelationRefOwned::from(OrganizationMemberRelation::REF)
         );
         assert_eq!(
             relationship.aggregate,
@@ -347,7 +346,7 @@ mod tests {
 
         assert_eq!(
             relationship.relation,
-            RelationNameOwned::from(OrganizationMemberRelation::NAME)
+            RelationRefOwned::from(OrganizationMemberRelation::REF)
         );
         assert_eq!(
             relationship.aggregate,
@@ -380,7 +379,7 @@ mod tests {
 
         assert_eq!(
             relationship.relation,
-            RelationNameOwned::from(OrganizationMemberRelation::NAME)
+            RelationRefOwned::from(OrganizationMemberRelation::REF)
         );
         assert_eq!(
             relationship.aggregate,
@@ -413,7 +412,7 @@ mod tests {
 
         assert_eq!(
             relationship.relation,
-            RelationNameOwned::from(OrganizationMemberRelation::NAME)
+            RelationRefOwned::from(OrganizationMemberRelation::REF)
         );
         assert_eq!(
             relationship.aggregate,

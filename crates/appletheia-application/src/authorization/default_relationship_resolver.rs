@@ -5,9 +5,9 @@ use super::relationship_memo_key::RelationshipMemoKey;
 use super::userset_expr_eval_context::UsersetExprEvalContext;
 use super::userset_expr_eval_depth::UsersetExprEvalDepth;
 use super::{
-    AggregateRef, AuthorizationModel, RelationNameOwned, RelationshipRequirement,
+    AggregateRef, AuthorizationModel, RelationRefOwned, RelationshipRequirement,
     RelationshipResolver, RelationshipResolverConfig, RelationshipResolverError, RelationshipStore,
-    RelationshipSubject, UsersetExpr,
+    RelationshipSubject, UsersetExprOwned,
 };
 
 #[derive(Debug)]
@@ -59,12 +59,11 @@ where
                 aggregate,
                 relation,
             } => {
-                let relation = RelationNameOwned::from(*relation);
                 self.check_relation(
                     uow,
                     subject,
                     aggregate,
-                    &relation,
+                    relation,
                     state,
                     UsersetExprEvalDepth::default(),
                 )
@@ -97,7 +96,7 @@ where
         uow: &mut RS::Uow,
         subject: &AggregateRef,
         aggregate: &AggregateRef,
-        relation: &RelationNameOwned,
+        relation: &RelationRefOwned,
         state: &mut RelationshipEvalState,
         depth: UsersetExprEvalDepth,
     ) -> Result<bool, RelationshipResolverError> {
@@ -105,6 +104,13 @@ where
             return Err(RelationshipResolverError::EvaluationLimitExceeded(
                 "max_depth",
             ));
+        }
+
+        if aggregate.aggregate_type != relation.aggregate_type {
+            return Err(RelationshipResolverError::InvalidRelationReference {
+                aggregate_type: aggregate.aggregate_type.clone(),
+                relation: relation.clone(),
+            });
         }
 
         let key = RelationshipMemoKey {
@@ -128,9 +134,9 @@ where
             ));
         }
 
-        let Some(model) = self
+        let Some(expr) = self
             .authorization_model
-            .type_definition_for(&aggregate.aggregate_type)
+            .expr_for(relation)
             .await
             .map_err(RelationshipResolverError::backend)?
         else {
@@ -139,14 +145,8 @@ where
             return Ok(false);
         };
 
-        let Some(expr) = model.expr_for(relation) else {
-            state.in_progress.remove(&key);
-            state.memo.insert(key, false);
-            return Ok(false);
-        };
-
         let context = UsersetExprEvalContext::new(subject, aggregate, relation, depth);
-        let result = Box::pin(self.eval_expr(uow, state, &context, expr)).await?;
+        let result = Box::pin(self.eval_expr(uow, state, &context, &expr)).await?;
 
         state.in_progress.remove(&key);
         state.memo.insert(key, result);
@@ -158,10 +158,10 @@ where
         uow: &mut RS::Uow,
         state: &mut RelationshipEvalState,
         context: &UsersetExprEvalContext<'_>,
-        expr: &UsersetExpr,
+        expr: &UsersetExprOwned,
     ) -> Result<bool, RelationshipResolverError> {
         match expr {
-            UsersetExpr::This => {
+            UsersetExprOwned::This => {
                 let subjects = self
                     .relationship_store
                     .read_subjects_by_aggregate(uow, context.aggregate, context.relation)
@@ -211,7 +211,7 @@ where
 
                 Ok(false)
             }
-            UsersetExpr::ComputedUserset { relation } => {
+            UsersetExprOwned::ComputedUserset { relation } => {
                 Box::pin(self.check_relation(
                     uow,
                     context.subject,
@@ -222,9 +222,9 @@ where
                 ))
                 .await
             }
-            UsersetExpr::TupleToUserset {
+            UsersetExprOwned::TupleToUserset {
                 tupleset_relation,
-                computed_relation,
+                computed_userset,
             } => {
                 let subjects = self
                     .relationship_store
@@ -249,7 +249,7 @@ where
                         uow,
                         context.subject,
                         &target,
-                        computed_relation,
+                        computed_userset,
                         state,
                         context.depth.increment(),
                     ))
@@ -260,7 +260,7 @@ where
                 }
                 Ok(false)
             }
-            UsersetExpr::Union(items) => {
+            UsersetExprOwned::Union(items) => {
                 for item in items {
                     if Box::pin(self.eval_expr(uow, state, context, item)).await? {
                         return Ok(true);
@@ -268,7 +268,7 @@ where
                 }
                 Ok(false)
             }
-            UsersetExpr::Intersection(items) => {
+            UsersetExprOwned::Intersection(items) => {
                 for item in items {
                     if !Box::pin(self.eval_expr(uow, state, context, item)).await? {
                         return Ok(false);
@@ -276,7 +276,7 @@ where
                 }
                 Ok(true)
             }
-            UsersetExpr::Difference { base, subtract } => {
+            UsersetExprOwned::Difference { base, subtract } => {
                 let base_ok = Box::pin(self.eval_expr(uow, state, context, base)).await?;
                 if !base_ok {
                     return Ok(false);

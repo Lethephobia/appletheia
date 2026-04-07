@@ -1,5 +1,5 @@
 use appletheia::application::authorization::{
-    AggregateRef, Relation, RelationNameOwned, Relationship, RelationshipChange, RelationshipStore,
+    AggregateRef, Relation, RelationRefOwned, Relationship, RelationshipChange, RelationshipStore,
     RelationshipSubject,
 };
 use appletheia::application::event::EventEnvelope;
@@ -66,7 +66,7 @@ where
                     aggregate: AggregateRef::from_id::<CurrencyDefinition>(
                         domain_event.aggregate_id(),
                     ),
-                    relation: RelationNameOwned::from(CurrencyDefinitionOrganizationRelation::NAME),
+                    relation: RelationRefOwned::from(CurrencyDefinitionOrganizationRelation::REF),
                     subject,
                 })],
             )
@@ -81,7 +81,7 @@ mod tests {
     use std::sync::{Arc, Mutex};
 
     use appletheia::application::authorization::{
-        AggregateRef, Relation, RelationNameOwned, RelationshipChange, RelationshipStore,
+        AggregateRef, Relation, RelationRefOwned, RelationshipChange, RelationshipStore,
         RelationshipStoreError, RelationshipSubject,
     };
     use appletheia::application::event::{EventEnvelope, EventSequence, SerializedEventPayload};
@@ -144,8 +144,7 @@ mod tests {
             &self,
             _uow: &mut Self::Uow,
             _subject: &RelationshipSubject,
-            _aggregate_type: &appletheia::application::event::AggregateTypeOwned,
-            _relation: &RelationNameOwned,
+            _relation: &RelationRefOwned,
         ) -> Result<Vec<AggregateRef>, RelationshipStoreError> {
             Ok(Vec::new())
         }
@@ -154,7 +153,7 @@ mod tests {
             &self,
             _uow: &mut Self::Uow,
             _aggregate: &AggregateRef,
-            _relation: &RelationNameOwned,
+            _relation: &RelationRefOwned,
         ) -> Result<Vec<RelationshipSubject>, RelationshipStoreError> {
             Ok(Vec::new())
         }
@@ -241,7 +240,7 @@ mod tests {
 
         assert_eq!(
             relationship.relation,
-            RelationNameOwned::from(CurrencyDefinitionOrganizationRelation::NAME)
+            RelationRefOwned::from(CurrencyDefinitionOrganizationRelation::REF)
         );
         assert_eq!(
             relationship.subject,
@@ -274,7 +273,7 @@ mod tests {
 
         assert_eq!(
             relationship.relation,
-            RelationNameOwned::from(CurrencyDefinitionOrganizationRelation::NAME)
+            RelationRefOwned::from(CurrencyDefinitionOrganizationRelation::REF)
         );
         assert_eq!(
             relationship.subject,

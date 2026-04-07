@@ -1,12 +1,16 @@
-use appletheia::application::authorization::{Relation, RelationName, UsersetExpr};
+use appletheia::application::authorization::{Relation, RelationName, RelationRef, UsersetExpr};
+use appletheia::domain::Aggregate;
+
+use super::OrganizationMembership;
 
 /// Links a membership to its organization.
 pub struct OrganizationMembershipOrganizationRelation;
 
 impl Relation for OrganizationMembershipOrganizationRelation {
-    const NAME: RelationName = RelationName::new("organization");
+    const REF: RelationRef = RelationRef::new(
+        OrganizationMembership::TYPE,
+        RelationName::new("organization"),
+    );
 
-    fn expr(&self) -> UsersetExpr {
-        UsersetExpr::This
-    }
+    const EXPR: UsersetExpr = UsersetExpr::This;
 }

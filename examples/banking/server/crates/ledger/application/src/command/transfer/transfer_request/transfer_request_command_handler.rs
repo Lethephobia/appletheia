@@ -1,6 +1,7 @@
 use appletheia::application::ProjectorDependencies;
 use appletheia::application::authorization::{
-    AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
+    AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationRefOwned,
+    RelationshipRequirement,
 };
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::projection::ProjectorSpec;
@@ -57,7 +58,7 @@ where
             PrincipalRequirement::AuthenticatedWithRelationship {
                 requirement: RelationshipRequirement::Check {
                     aggregate: AggregateRef::from_id::<Account>(command.from_account_id),
-                    relation: AccountTransferRequesterRelation::NAME,
+                    relation: RelationRefOwned::from(AccountTransferRequesterRelation::REF),
                 },
                 projector_dependencies: ProjectorDependencies::Some(&[
                     AccountOwnerRelationshipProjectorSpec::DESCRIPTOR,
@@ -121,7 +122,8 @@ mod tests {
 
     use appletheia::application::ProjectorDependencies;
     use appletheia::application::authorization::{
-        AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
+        AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationRefOwned,
+        RelationshipRequirement,
     };
     use appletheia::application::command::CommandHandler;
     use appletheia::application::projection::ProjectorSpec;
@@ -315,7 +317,7 @@ mod tests {
                 PrincipalRequirement::AuthenticatedWithRelationship {
                     requirement: RelationshipRequirement::Check {
                         aggregate: AggregateRef::from_id::<Account>(command.from_account_id),
-                        relation: AccountTransferRequesterRelation::NAME,
+                        relation: RelationRefOwned::from(AccountTransferRequesterRelation::REF),
                     },
                     projector_dependencies: ProjectorDependencies::Some(&[
                         AccountOwnerRelationshipProjectorSpec::DESCRIPTOR,

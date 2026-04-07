@@ -1,5 +1,6 @@
 use appletheia::application::authorization::{
-    AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
+    AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationRefOwned,
+    RelationshipRequirement,
 };
 use appletheia::application::command::{
     CommandFailureReaction, CommandFailureReactionError, CommandHandled, CommandHandler,
@@ -53,7 +54,7 @@ where
             PrincipalRequirement::AuthenticatedWithRelationship {
                 requirement: RelationshipRequirement::Check {
                     aggregate: AggregateRef::from_id::<Account>(command.account_id),
-                    relation: AccountDepositorRelation::NAME,
+                    relation: RelationRefOwned::from(AccountDepositorRelation::REF),
                 },
                 projector_dependencies: ProjectorDependencies::Some(&[
                     AccountOwnerRelationshipProjectorSpec::DESCRIPTOR,

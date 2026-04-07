@@ -1,21 +1,18 @@
-use appletheia::application::authorization::{
-    Relation, RelationName, RelationNameOwned, UsersetExpr,
-};
+use appletheia::application::authorization::{Relation, RelationName, RelationRef, UsersetExpr};
+use appletheia::domain::Aggregate;
 
-use super::OrganizationOwnerRelation;
+use super::{Organization, OrganizationOwnerRelation};
 
 /// Allows owners to rename an organization.
 pub struct OrganizationRenamerRelation;
 
 impl Relation for OrganizationRenamerRelation {
-    const NAME: RelationName = RelationName::new("renamer");
+    const REF: RelationRef = RelationRef::new(Organization::TYPE, RelationName::new("renamer"));
 
-    fn expr(&self) -> UsersetExpr {
-        UsersetExpr::Union(vec![
-            UsersetExpr::This,
-            UsersetExpr::ComputedUserset {
-                relation: RelationNameOwned::from(OrganizationOwnerRelation::NAME),
-            },
-        ])
-    }
+    const EXPR: UsersetExpr = UsersetExpr::Union(&[
+        UsersetExpr::This,
+        UsersetExpr::ComputedUserset {
+            relation: OrganizationOwnerRelation::REF,
+        },
+    ]);
 }

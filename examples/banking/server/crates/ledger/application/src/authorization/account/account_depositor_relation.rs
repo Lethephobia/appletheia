@@ -1,21 +1,18 @@
-use appletheia::application::authorization::{
-    Relation, RelationName, RelationNameOwned, UsersetExpr,
-};
+use appletheia::application::authorization::{Relation, RelationName, RelationRef, UsersetExpr};
+use appletheia::domain::Aggregate;
 
-use super::AccountOwnerRelation;
+use super::{Account, AccountOwnerRelation};
 
 /// Allows owners to deposit into an account.
 pub struct AccountDepositorRelation;
 
 impl Relation for AccountDepositorRelation {
-    const NAME: RelationName = RelationName::new("depositor");
+    const REF: RelationRef = RelationRef::new(Account::TYPE, RelationName::new("depositor"));
 
-    fn expr(&self) -> UsersetExpr {
-        UsersetExpr::Union(vec![
-            UsersetExpr::This,
-            UsersetExpr::ComputedUserset {
-                relation: RelationNameOwned::from(AccountOwnerRelation::NAME),
-            },
-        ])
-    }
+    const EXPR: UsersetExpr = UsersetExpr::Union(&[
+        UsersetExpr::This,
+        UsersetExpr::ComputedUserset {
+            relation: AccountOwnerRelation::REF,
+        },
+    ]);
 }

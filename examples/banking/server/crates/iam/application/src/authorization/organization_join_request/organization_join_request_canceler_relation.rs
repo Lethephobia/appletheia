@@ -1,18 +1,16 @@
-use appletheia::application::authorization::{
-    Relation, RelationName, RelationNameOwned, UsersetExpr,
-};
+use appletheia::application::authorization::{Relation, RelationName, RelationRef, UsersetExpr};
+use appletheia::domain::Aggregate;
 
-use super::OrganizationJoinRequestRequesterRelation;
+use super::{OrganizationJoinRequest, OrganizationJoinRequestRequesterRelation};
 
 /// Allows the requesting user to cancel their own join request.
 pub struct OrganizationJoinRequestCancelerRelation;
 
 impl Relation for OrganizationJoinRequestCancelerRelation {
-    const NAME: RelationName = RelationName::new("canceler");
+    const REF: RelationRef =
+        RelationRef::new(OrganizationJoinRequest::TYPE, RelationName::new("canceler"));
 
-    fn expr(&self) -> UsersetExpr {
-        UsersetExpr::ComputedUserset {
-            relation: RelationNameOwned::from(OrganizationJoinRequestRequesterRelation::NAME),
-        }
-    }
+    const EXPR: UsersetExpr = UsersetExpr::ComputedUserset {
+        relation: OrganizationJoinRequestRequesterRelation::REF,
+    };
 }

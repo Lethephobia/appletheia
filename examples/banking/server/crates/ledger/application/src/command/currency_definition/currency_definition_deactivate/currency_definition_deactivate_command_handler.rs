@@ -1,5 +1,6 @@
 use appletheia::application::authorization::{
-    AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
+    AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationRefOwned,
+    RelationshipRequirement,
 };
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
@@ -53,7 +54,7 @@ where
                     aggregate: AggregateRef::from_id::<CurrencyDefinition>(
                         command.currency_definition_id,
                     ),
-                    relation: CurrencyDefinitionDeactivatorRelation::NAME,
+                    relation: RelationRefOwned::from(CurrencyDefinitionDeactivatorRelation::REF),
                 },
                 projector_dependencies: ProjectorDependencies::Some(&[
                     CurrencyDefinitionOwnerRelationshipProjectorSpec::DESCRIPTOR,

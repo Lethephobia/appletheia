@@ -1,18 +1,18 @@
-use appletheia::application::authorization::{
-    Relation, RelationName, RelationNameOwned, UsersetExpr,
-};
+use appletheia::application::authorization::{Relation, RelationName, RelationRef, UsersetExpr};
+use appletheia::domain::Aggregate;
 
-use crate::OrganizationOwnerRelation;
+use super::{Organization, OrganizationOwnerRelation};
 
 /// Allows organization owners to define currency definitions.
 pub struct OrganizationCurrencyDefinitionDefinerRelation;
 
 impl Relation for OrganizationCurrencyDefinitionDefinerRelation {
-    const NAME: RelationName = RelationName::new("currency_definition_definer");
+    const REF: RelationRef = RelationRef::new(
+        Organization::TYPE,
+        RelationName::new("currency_definition_definer"),
+    );
 
-    fn expr(&self) -> UsersetExpr {
-        UsersetExpr::ComputedUserset {
-            relation: RelationNameOwned::from(OrganizationOwnerRelation::NAME),
-        }
-    }
+    const EXPR: UsersetExpr = UsersetExpr::ComputedUserset {
+        relation: OrganizationOwnerRelation::REF,
+    };
 }

@@ -1,12 +1,13 @@
-use appletheia::application::authorization::{Relation, RelationName, UsersetExpr};
+use appletheia::application::authorization::{Relation, RelationName, RelationRef, UsersetExpr};
+use appletheia::domain::Aggregate;
+
+use super::Organization;
 
 /// Allows the owning subject itself.
 pub struct OrganizationOwnerRelation;
 
 impl Relation for OrganizationOwnerRelation {
-    const NAME: RelationName = RelationName::new("owner");
+    const REF: RelationRef = RelationRef::new(Organization::TYPE, RelationName::new("owner"));
 
-    fn expr(&self) -> UsersetExpr {
-        UsersetExpr::This
-    }
+    const EXPR: UsersetExpr = UsersetExpr::This;
 }

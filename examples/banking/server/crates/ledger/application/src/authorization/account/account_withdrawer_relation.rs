@@ -1,21 +1,18 @@
-use appletheia::application::authorization::{
-    Relation, RelationName, RelationNameOwned, UsersetExpr,
-};
+use appletheia::application::authorization::{Relation, RelationName, RelationRef, UsersetExpr};
+use appletheia::domain::Aggregate;
 
-use super::AccountOwnerRelation;
+use super::{Account, AccountOwnerRelation};
 
 /// Allows owners to withdraw from an account.
 pub struct AccountWithdrawerRelation;
 
 impl Relation for AccountWithdrawerRelation {
-    const NAME: RelationName = RelationName::new("withdrawer");
+    const REF: RelationRef = RelationRef::new(Account::TYPE, RelationName::new("withdrawer"));
 
-    fn expr(&self) -> UsersetExpr {
-        UsersetExpr::Union(vec![
-            UsersetExpr::This,
-            UsersetExpr::ComputedUserset {
-                relation: RelationNameOwned::from(AccountOwnerRelation::NAME),
-            },
-        ])
-    }
+    const EXPR: UsersetExpr = UsersetExpr::Union(&[
+        UsersetExpr::This,
+        UsersetExpr::ComputedUserset {
+            relation: AccountOwnerRelation::REF,
+        },
+    ]);
 }

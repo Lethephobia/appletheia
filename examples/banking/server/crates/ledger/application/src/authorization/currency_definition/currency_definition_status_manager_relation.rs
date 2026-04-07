@@ -1,21 +1,21 @@
-use appletheia::application::authorization::{
-    Relation, RelationName, RelationNameOwned, UsersetExpr,
-};
+use appletheia::application::authorization::{Relation, RelationName, RelationRef, UsersetExpr};
+use appletheia::domain::Aggregate;
 
-use super::CurrencyDefinitionOwnerRelation;
+use super::{CurrencyDefinition, CurrencyDefinitionOwnerRelation};
 
 /// Allows owners to manage currency-definition status.
 pub struct CurrencyDefinitionStatusManagerRelation;
 
 impl Relation for CurrencyDefinitionStatusManagerRelation {
-    const NAME: RelationName = RelationName::new("status_manager");
+    const REF: RelationRef = RelationRef::new(
+        CurrencyDefinition::TYPE,
+        RelationName::new("status_manager"),
+    );
 
-    fn expr(&self) -> UsersetExpr {
-        UsersetExpr::Union(vec![
-            UsersetExpr::This,
-            UsersetExpr::ComputedUserset {
-                relation: RelationNameOwned::from(CurrencyDefinitionOwnerRelation::NAME),
-            },
-        ])
-    }
+    const EXPR: UsersetExpr = UsersetExpr::Union(&[
+        UsersetExpr::This,
+        UsersetExpr::ComputedUserset {
+            relation: CurrencyDefinitionOwnerRelation::REF,
+        },
+    ]);
 }

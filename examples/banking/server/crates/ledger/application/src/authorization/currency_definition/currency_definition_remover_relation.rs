@@ -1,21 +1,19 @@
-use appletheia::application::authorization::{
-    Relation, RelationName, RelationNameOwned, UsersetExpr,
-};
+use appletheia::application::authorization::{Relation, RelationName, RelationRef, UsersetExpr};
+use appletheia::domain::Aggregate;
 
-use super::CurrencyDefinitionStatusManagerRelation;
+use super::{CurrencyDefinition, CurrencyDefinitionStatusManagerRelation};
 
 /// Allows status managers to remove a currency definition.
 pub struct CurrencyDefinitionRemoverRelation;
 
 impl Relation for CurrencyDefinitionRemoverRelation {
-    const NAME: RelationName = RelationName::new("remover");
+    const REF: RelationRef =
+        RelationRef::new(CurrencyDefinition::TYPE, RelationName::new("remover"));
 
-    fn expr(&self) -> UsersetExpr {
-        UsersetExpr::Union(vec![
-            UsersetExpr::This,
-            UsersetExpr::ComputedUserset {
-                relation: RelationNameOwned::from(CurrencyDefinitionStatusManagerRelation::NAME),
-            },
-        ])
-    }
+    const EXPR: UsersetExpr = UsersetExpr::Union(&[
+        UsersetExpr::This,
+        UsersetExpr::ComputedUserset {
+            relation: CurrencyDefinitionStatusManagerRelation::REF,
+        },
+    ]);
 }

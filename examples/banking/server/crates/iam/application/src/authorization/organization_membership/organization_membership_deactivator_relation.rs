@@ -1,23 +1,21 @@
-use appletheia::application::authorization::{
-    Relation, RelationName, RelationNameOwned, UsersetExpr,
-};
+use appletheia::application::authorization::{Relation, RelationName, RelationRef, UsersetExpr};
+use appletheia::domain::Aggregate;
 
-use super::OrganizationMembershipStatusManagerRelation;
+use super::{OrganizationMembership, OrganizationMembershipStatusManagerRelation};
 
 /// Allows status managers to deactivate a membership.
 pub struct OrganizationMembershipDeactivatorRelation;
 
 impl Relation for OrganizationMembershipDeactivatorRelation {
-    const NAME: RelationName = RelationName::new("deactivator");
+    const REF: RelationRef = RelationRef::new(
+        OrganizationMembership::TYPE,
+        RelationName::new("deactivator"),
+    );
 
-    fn expr(&self) -> UsersetExpr {
-        UsersetExpr::Union(vec![
-            UsersetExpr::This,
-            UsersetExpr::ComputedUserset {
-                relation: RelationNameOwned::from(
-                    OrganizationMembershipStatusManagerRelation::NAME,
-                ),
-            },
-        ])
-    }
+    const EXPR: UsersetExpr = UsersetExpr::Union(&[
+        UsersetExpr::This,
+        UsersetExpr::ComputedUserset {
+            relation: OrganizationMembershipStatusManagerRelation::REF,
+        },
+    ]);
 }

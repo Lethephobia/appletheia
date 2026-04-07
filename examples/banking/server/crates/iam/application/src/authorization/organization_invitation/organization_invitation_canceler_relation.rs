@@ -1,22 +1,18 @@
-use appletheia::application::authorization::{
-    Relation, RelationName, RelationNameOwned, UsersetExpr,
-};
+use appletheia::application::authorization::{Relation, RelationName, RelationRef, UsersetExpr};
+use appletheia::domain::Aggregate;
 
-use super::OrganizationInvitationOrganizationRelation;
+use super::{OrganizationInvitation, OrganizationInvitationOrganizationRelation};
 use crate::OrganizationInviterRelation;
 
 /// Allows organization inviters to cancel invitations.
 pub struct OrganizationInvitationCancelerRelation;
 
 impl Relation for OrganizationInvitationCancelerRelation {
-    const NAME: RelationName = RelationName::new("canceler");
+    const REF: RelationRef =
+        RelationRef::new(OrganizationInvitation::TYPE, RelationName::new("canceler"));
 
-    fn expr(&self) -> UsersetExpr {
-        UsersetExpr::TupleToUserset {
-            tupleset_relation: RelationNameOwned::from(
-                OrganizationInvitationOrganizationRelation::NAME,
-            ),
-            computed_relation: RelationNameOwned::from(OrganizationInviterRelation::NAME),
-        }
-    }
+    const EXPR: UsersetExpr = UsersetExpr::TupleToUserset {
+        tupleset_relation: OrganizationInvitationOrganizationRelation::REF,
+        computed_userset: OrganizationInviterRelation::REF,
+    };
 }

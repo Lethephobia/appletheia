@@ -1,22 +1,13 @@
-use appletheia::application::authorization::{
-    Relation, RelationName, RelationNameOwned, UsersetExpr,
-};
-use banking_iam_application::OrganizationOwnerRelation;
+use appletheia::application::authorization::{Relation, RelationName, RelationRef, UsersetExpr};
+use appletheia::domain::Aggregate;
 
-use super::CurrencyDefinitionOrganizationRelation;
+use super::CurrencyDefinition;
 
-/// Allows organization owners to access the currency definition.
+/// Allows the owning subject itself.
 pub struct CurrencyDefinitionOwnerRelation;
 
 impl Relation for CurrencyDefinitionOwnerRelation {
-    const NAME: RelationName = RelationName::new("owner");
+    const REF: RelationRef = RelationRef::new(CurrencyDefinition::TYPE, RelationName::new("owner"));
 
-    fn expr(&self) -> UsersetExpr {
-        UsersetExpr::TupleToUserset {
-            tupleset_relation: RelationNameOwned::from(
-                CurrencyDefinitionOrganizationRelation::NAME,
-            ),
-            computed_relation: RelationNameOwned::from(OrganizationOwnerRelation::NAME),
-        }
-    }
+    const EXPR: UsersetExpr = UsersetExpr::This;
 }
