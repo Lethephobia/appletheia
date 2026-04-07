@@ -5,18 +5,18 @@ pub mod projection;
 pub mod saga;
 
 pub use authorization::{
-    OrganizationCurrencyDefinitionDefinerRelation, OrganizationHandleEditorRelation,
-    OrganizationInvitationCancelerRelation, OrganizationInvitationInviteeRelation,
-    OrganizationInvitationOrganizationRelation, OrganizationInviterRelation,
-    OrganizationJoinRequestApproverRelation, OrganizationJoinRequestCancelerRelation,
-    OrganizationJoinRequestOrganizationRelation, OrganizationJoinRequestRejecterRelation,
-    OrganizationJoinRequestRequesterRelation, OrganizationMemberRelation,
-    OrganizationMembershipActivatorRelation, OrganizationMembershipDeactivatorRelation,
-    OrganizationMembershipOrganizationRelation, OrganizationMembershipRemoverRelation,
-    OrganizationMembershipStatusManagerRelation, OrganizationOwnerRelation,
-    OrganizationRemoverRelation, OrganizationRenamerRelation, UserActivatorRelation,
-    UserDeactivatorRelation, UserOwnerRelation, UserProfileEditorRelation, UserRemoverRelation,
-    UserStatusManagerRelation,
+    OrganizationAccountOpenerRelation, OrganizationCurrencyDefinitionDefinerRelation,
+    OrganizationHandleEditorRelation, OrganizationInvitationCancelerRelation,
+    OrganizationInvitationInviteeRelation, OrganizationInvitationOrganizationRelation,
+    OrganizationInviterRelation, OrganizationJoinRequestApproverRelation,
+    OrganizationJoinRequestCancelerRelation, OrganizationJoinRequestOrganizationRelation,
+    OrganizationJoinRequestRejecterRelation, OrganizationJoinRequestRequesterRelation,
+    OrganizationMemberRelation, OrganizationMembershipActivatorRelation,
+    OrganizationMembershipDeactivatorRelation, OrganizationMembershipOrganizationRelation,
+    OrganizationMembershipRemoverRelation, OrganizationMembershipStatusManagerRelation,
+    OrganizationOwnerRelation, OrganizationRemoverRelation, OrganizationRenamerRelation,
+    UserActivatorRelation, UserDeactivatorRelation, UserOwnerRelation, UserProfileEditorRelation,
+    UserRemoverRelation, UserStatusManagerRelation,
 };
 pub use command::{
     LogoutAllSessionsCommand, LogoutAllSessionsCommandHandler, LogoutAllSessionsOutput,

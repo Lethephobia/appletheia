@@ -1,5 +1,6 @@
 use banking_iam_domain::Organization;
 
+mod organization_account_opener_relation;
 mod organization_currency_definition_definer_relation;
 mod organization_handle_editor_relation;
 mod organization_inviter_relation;
@@ -8,6 +9,7 @@ mod organization_owner_relation;
 mod organization_remover_relation;
 mod organization_renamer_relation;
 
+pub use organization_account_opener_relation::OrganizationAccountOpenerRelation;
 pub use organization_currency_definition_definer_relation::OrganizationCurrencyDefinitionDefinerRelation;
 pub use organization_handle_editor_relation::OrganizationHandleEditorRelation;
 pub use organization_inviter_relation::OrganizationInviterRelation;

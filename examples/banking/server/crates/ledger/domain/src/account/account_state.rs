@@ -44,7 +44,7 @@ impl AccountState {
 mod tests {
     use appletheia::domain::AggregateState;
 
-    use banking_iam_domain::UserId;
+    use banking_iam_domain::{OrganizationId, UserId};
 
     use crate::currency_definition::CurrencyDefinitionId;
 
@@ -79,6 +79,19 @@ mod tests {
         assert_eq!(state.balance, AccountBalance::zero());
         assert_eq!(state.reserved_balance, AccountBalance::zero());
         assert_eq!(state.status, AccountStatus::Active);
+        assert_eq!(state.owner, owner);
+    }
+
+    #[test]
+    fn new_accepts_organization_owner() {
+        let owner = AccountOwner::Organization(OrganizationId::new());
+        let state = AccountState::new(
+            AccountId::new(),
+            owner,
+            account_name(),
+            CurrencyDefinitionId::new(),
+        );
+
         assert_eq!(state.owner, owner);
     }
 }

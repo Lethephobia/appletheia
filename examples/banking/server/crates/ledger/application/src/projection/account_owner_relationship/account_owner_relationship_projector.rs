@@ -4,7 +4,7 @@ use appletheia::application::authorization::{
 };
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
-use banking_iam_domain::User;
+use banking_iam_domain::{Organization, User};
 use banking_ledger_domain::account::{Account, AccountEventPayload};
 
 use super::{AccountOwnerRelationshipProjectorError, AccountOwnerRelationshipProjectorSpec};
@@ -25,35 +25,6 @@ where
     pub fn new(relationship_store: RS) -> Self {
         Self { relationship_store }
     }
-
-    async fn delete_owner_relationships(
-        &self,
-        uow: &mut RS::Uow,
-        account: AggregateRef,
-    ) -> Result<(), AccountOwnerRelationshipProjectorError> {
-        let relation = RelationRefOwned::from(AccountOwnerRelation::REF);
-        let subjects = self
-            .relationship_store
-            .read_subjects_by_aggregate(uow, &account, &relation, None)
-            .await?;
-
-        let changes = subjects
-            .into_iter()
-            .map(|subject| {
-                RelationshipChange::Delete(Relationship {
-                    aggregate: account.clone(),
-                    relation: relation.clone(),
-                    subject,
-                })
-            })
-            .collect::<Vec<_>>();
-
-        if !changes.is_empty() {
-            self.relationship_store.apply_changes(uow, &changes).await?;
-        }
-
-        Ok(())
-    }
 }
 
 impl<RS> Projector for AccountOwnerRelationshipProjector<RS>
@@ -68,25 +39,27 @@ where
         let event = event.try_into_domain_event::<Account>()?;
         match event.payload() {
             AccountEventPayload::Opened { owner, .. } => {
+                let subject = match owner {
+                    banking_ledger_domain::account::AccountOwner::User(user_id) => {
+                        RelationshipSubject::Aggregate(AggregateRef::from_id::<User>(*user_id))
+                    }
+                    banking_ledger_domain::account::AccountOwner::Organization(organization_id) => {
+                        RelationshipSubject::Aggregate(AggregateRef::from_id::<Organization>(
+                            *organization_id,
+                        ))
+                    }
+                };
+
                 self.relationship_store
                     .apply_changes(
                         uow,
                         &[RelationshipChange::Upsert(Relationship {
                             aggregate: AggregateRef::from_id::<Account>(event.aggregate_id()),
                             relation: RelationRefOwned::from(AccountOwnerRelation::REF),
-                            subject: RelationshipSubject::Aggregate(AggregateRef::from_id::<User>(
-                                *owner.user_id(),
-                            )),
+                            subject,
                         })],
                     )
                     .await?;
-            }
-            AccountEventPayload::Closed => {
-                self.delete_owner_relationships(
-                    uow,
-                    AggregateRef::from_id::<Account>(event.aggregate_id()),
-                )
-                .await?;
             }
             _ => return Ok(()),
         }
@@ -110,7 +83,7 @@ mod tests {
     };
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::{Aggregate, AggregateId, EventPayload};
-    use banking_iam_domain::{User, UserId};
+    use banking_iam_domain::{Organization, OrganizationId, User, UserId};
     use banking_ledger_domain::account::{Account, AccountName, AccountOwner};
     use banking_ledger_domain::currency_definition::CurrencyDefinitionId;
 
@@ -137,7 +110,6 @@ mod tests {
     #[derive(Clone, Default)]
     struct TestRelationshipStore {
         changes: Arc<Mutex<Vec<RelationshipChange>>>,
-        owner_subjects_by_aggregate: Arc<Mutex<Vec<RelationshipSubject>>>,
     }
 
     impl TestRelationshipStore {
@@ -174,18 +146,10 @@ mod tests {
             &self,
             _uow: &mut Self::Uow,
             _aggregate: &AggregateRef,
-            relation: &RelationRefOwned,
+            _relation: &RelationRefOwned,
             _subject_aggregate_type: Option<&appletheia::application::event::AggregateTypeOwned>,
         ) -> Result<Vec<RelationshipSubject>, RelationshipStoreError> {
-            if relation == &RelationRefOwned::from(AccountOwnerRelation::REF) {
-                Ok(self
-                    .owner_subjects_by_aggregate
-                    .lock()
-                    .expect("lock should succeed")
-                    .clone())
-            } else {
-                Ok(Vec::new())
-            }
+            Ok(Vec::new())
         }
     }
 
@@ -244,22 +208,21 @@ mod tests {
         )
     }
 
-    fn closed_event_envelope() -> (EventEnvelope, UserId) {
+    fn opened_event_envelope_for_organization_owner() -> (EventEnvelope, OrganizationId) {
         let mut account = Account::default();
-        let user_id = UserId::new();
+        let organization_id = OrganizationId::new();
         account
             .open(
-                AccountOwner::from(user_id),
+                AccountOwner::from(organization_id),
                 account_name(),
                 CurrencyDefinitionId::new(),
             )
             .expect("open should succeed");
-        account.close().expect("close should succeed");
 
         let event = account
             .uncommitted_events()
-            .get(1)
-            .expect("closed event should exist")
+            .first()
+            .expect("opened event should exist")
             .clone();
         let message_id = MessageId::new();
 
@@ -295,7 +258,7 @@ mod tests {
                     Principal::System,
                 ),
             },
-            user_id,
+            organization_id,
         )
     }
 
@@ -329,14 +292,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn project_closed_event_deletes_owner_relationship() {
-        let (event, user_id) = closed_event_envelope();
-        let store = TestRelationshipStore {
-            owner_subjects_by_aggregate: Arc::new(Mutex::new(vec![
-                RelationshipSubject::Aggregate(AggregateRef::from_id::<User>(user_id)),
-            ])),
-            ..Default::default()
-        };
+    async fn project_opened_event_upserts_owner_relationship_for_organization_owner() {
+        let (event, organization_id) = opened_event_envelope_for_organization_owner();
+        let store = TestRelationshipStore::default();
         let projector = AccountOwnerRelationshipProjector::new(store.clone());
         let mut uow = TestUow;
 
@@ -348,8 +306,8 @@ mod tests {
         let changes = store.recorded_changes();
         assert_eq!(changes.len(), 1);
 
-        let RelationshipChange::Delete(relationship) = &changes[0] else {
-            panic!("expected delete relationship");
+        let RelationshipChange::Upsert(relationship) = &changes[0] else {
+            panic!("expected upsert relationship");
         };
 
         assert_eq!(
@@ -358,7 +316,7 @@ mod tests {
         );
         assert_eq!(
             relationship.subject,
-            RelationshipSubject::Aggregate(AggregateRef::from_id::<User>(user_id))
+            RelationshipSubject::Aggregate(AggregateRef::from_id::<Organization>(organization_id))
         );
     }
 }

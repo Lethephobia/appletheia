@@ -3,7 +3,7 @@ use appletheia::domain::Aggregate;
 
 use super::Account;
 
-/// Allows the owning user itself.
+/// Allows the owning subject itself.
 pub struct AccountOwnerRelation;
 
 impl Relation for AccountOwnerRelation {

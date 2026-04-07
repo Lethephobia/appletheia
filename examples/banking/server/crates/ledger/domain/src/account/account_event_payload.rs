@@ -111,6 +111,23 @@ mod tests {
     }
 
     #[test]
+    fn serializes_organization_owned_payload_to_json() {
+        let payload = AccountEventPayload::Opened {
+            id: AccountId::new(),
+            owner: AccountOwner::Organization(banking_iam_domain::OrganizationId::new()),
+            name: AccountName::try_from("ops").expect("account name should be valid"),
+            currency_definition_id: CurrencyDefinitionId::new(),
+        };
+
+        let value = payload.into_json_value().expect("payload should serialize");
+
+        assert_eq!(
+            value["data"]["owner"]["type"],
+            serde_json::json!("organization")
+        );
+    }
+
+    #[test]
     fn serializes_renamed_payload_to_json() {
         let payload = AccountEventPayload::Renamed {
             name: AccountName::try_from("savings").expect("account name should be valid"),
