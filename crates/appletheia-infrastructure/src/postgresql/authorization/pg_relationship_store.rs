@@ -277,9 +277,10 @@ impl RelationshipStore for PgRelationshipStore {
         uow: &mut PgUnitOfWork,
         aggregate: &AggregateRef,
         relation: &RelationRefOwned,
+        subject_aggregate_type: Option<&AggregateTypeOwned>,
     ) -> Result<Vec<RelationshipSubject>, RelationshipStoreError> {
         let transaction = uow.transaction_mut();
-        let rows: Vec<PgRelationshipRow> = sqlx::query_as(
+        let mut query = QueryBuilder::<Postgres>::new(
             r#"
             SELECT
                 id,
@@ -291,17 +292,25 @@ impl RelationshipStore for PgRelationshipStore {
                 subject_relation,
                 subject_is_wildcard
             FROM relationships
-            WHERE aggregate_type = $1
-              AND aggregate_id = $2
-              AND relation = $3
+            WHERE aggregate_type =
             "#,
-        )
-        .bind(aggregate.aggregate_type.value())
-        .bind(aggregate.aggregate_id.value())
-        .bind(relation.relation_name.value())
-        .fetch_all(transaction.as_mut())
-        .await
-        .map_err(|e| RelationshipStoreError::Persistence(Box::new(e)))?;
+        );
+        query.push_bind(aggregate.aggregate_type.value());
+        query.push(" AND aggregate_id = ");
+        query.push_bind(aggregate.aggregate_id.value());
+        query.push(" AND relation = ");
+        query.push_bind(relation.relation_name.value());
+
+        if let Some(subject_aggregate_type) = subject_aggregate_type {
+            query.push(" AND subject_aggregate_type = ");
+            query.push_bind(subject_aggregate_type.value());
+        }
+
+        let rows: Vec<PgRelationshipRow> = query
+            .build_query_as()
+            .fetch_all(transaction.as_mut())
+            .await
+            .map_err(|e| RelationshipStoreError::Persistence(Box::new(e)))?;
 
         let mut out: Vec<RelationshipSubject> = Vec::with_capacity(rows.len());
 

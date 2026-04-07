@@ -209,6 +209,7 @@ mod tests {
             _uow: &mut TestUow,
             aggregate: &AggregateRef,
             relation: &RelationRefOwned,
+            _subject_aggregate_type: Option<&AggregateTypeOwned>,
         ) -> Result<Vec<RelationshipSubject>, RelationshipStoreError> {
             Ok(self
                 .map

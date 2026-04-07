@@ -1,3 +1,4 @@
+use crate::event::AggregateTypeOwned;
 use crate::unit_of_work::UnitOfWork;
 
 use super::RelationshipStoreError;
@@ -25,5 +26,6 @@ pub trait RelationshipStore: Send + Sync {
         uow: &mut Self::Uow,
         aggregate: &AggregateRef,
         relation: &RelationRefOwned,
+        subject_aggregate_type: Option<&AggregateTypeOwned>,
     ) -> Result<Vec<RelationshipSubject>, RelationshipStoreError>;
 }

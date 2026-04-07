@@ -1,5 +1,6 @@
 use appletheia::application::authorization::{Relation, RelationName, RelationRef, UsersetExpr};
 use appletheia::domain::Aggregate;
+use banking_iam_application::OrganizationOwnerRelation;
 
 use super::{CurrencyDefinition, CurrencyDefinitionOwnerRelation};
 
@@ -16,6 +17,10 @@ impl Relation for CurrencyDefinitionStatusManagerRelation {
         UsersetExpr::This,
         UsersetExpr::ComputedUserset {
             relation: CurrencyDefinitionOwnerRelation::REF,
+        },
+        UsersetExpr::TupleToUserset {
+            tupleset_relation: CurrencyDefinitionOwnerRelation::REF,
+            computed_userset: OrganizationOwnerRelation::REF,
         },
     ]);
 }

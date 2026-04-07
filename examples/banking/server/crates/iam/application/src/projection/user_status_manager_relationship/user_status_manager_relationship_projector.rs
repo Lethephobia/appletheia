@@ -154,6 +154,7 @@ mod tests {
             _uow: &mut Self::Uow,
             _aggregate: &AggregateRef,
             _relation: &RelationRefOwned,
+            _subject_aggregate_type: Option<&appletheia::application::event::AggregateTypeOwned>,
         ) -> Result<Vec<RelationshipSubject>, RelationshipStoreError> {
             Ok(Vec::new())
         }

@@ -34,7 +34,7 @@ where
         let relation = RelationRefOwned::from(AccountOwnerRelation::REF);
         let subjects = self
             .relationship_store
-            .read_subjects_by_aggregate(uow, &account, &relation)
+            .read_subjects_by_aggregate(uow, &account, &relation, None)
             .await?;
 
         let changes = subjects
@@ -175,6 +175,7 @@ mod tests {
             _uow: &mut Self::Uow,
             _aggregate: &AggregateRef,
             relation: &RelationRefOwned,
+            _subject_aggregate_type: Option<&appletheia::application::event::AggregateTypeOwned>,
         ) -> Result<Vec<RelationshipSubject>, RelationshipStoreError> {
             if relation == &RelationRefOwned::from(AccountOwnerRelation::REF) {
                 Ok(self
