@@ -1,8 +1,6 @@
 use std::sync::atomic::{AtomicBool, Ordering as AtomicOrdering};
 
-use crate::command::{
-    Command, CommandDispatcher, CommandHandler, CommandOptions, CommandSelector, CommandWorker,
-};
+use crate::command::{Command, CommandDispatcher, CommandHandler, CommandSelector, CommandWorker};
 use crate::messaging::Subscription;
 use crate::outbox::command::{CommandEnvelope, CommandEnvelopeError};
 use crate::request_context::{ActorRef, Principal, RequestContext};
@@ -101,7 +99,7 @@ where
                         &self.handler,
                         &request_context,
                         command,
-                        CommandOptions::default(),
+                        envelope.options.clone(),
                     )
                     .await;
 

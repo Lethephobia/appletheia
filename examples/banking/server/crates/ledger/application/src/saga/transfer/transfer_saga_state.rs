@@ -5,12 +5,43 @@ use banking_ledger_domain::transfer::TransferId;
 use serde::{Deserialize, Serialize};
 
 /// Stores progress for the transfer orchestration saga.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TransferSagaState {
-    pub from_account_id: Option<AccountId>,
-    pub to_account_id: Option<AccountId>,
-    pub amount: Option<CurrencyAmount>,
-    pub transfer_id: Option<TransferId>,
+    pub from_account_id: AccountId,
+    pub to_account_id: AccountId,
+    pub amount: CurrencyAmount,
+    pub transfer_id: TransferId,
+    pub status: TransferSagaStatus,
+}
+
+impl TransferSagaState {
+    pub fn new(
+        transfer_id: TransferId,
+        from_account_id: AccountId,
+        to_account_id: AccountId,
+        amount: CurrencyAmount,
+    ) -> Self {
+        Self {
+            from_account_id,
+            to_account_id,
+            amount,
+            transfer_id,
+            status: TransferSagaStatus::Requested,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TransferSagaStatus {
+    #[default]
+    Initial,
+    Requested,
+    FundsReserved,
+    Deposited,
+    ReservedFundsCommitted,
+    ReservedFundsReleased,
+    Completed,
+    Failed,
 }
 
 impl SagaState for TransferSagaState {}

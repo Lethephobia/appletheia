@@ -1,11 +1,13 @@
 use crate::request_context::CorrelationId;
-use crate::{command::Command, event::EventEnvelope};
+use crate::{
+    command::{Command, CommandOptions},
+    event::EventEnvelope,
+};
 
 use super::SagaState;
 use super::{SagaAppendCommandError, SagaInstanceId, SagaNameOwned};
-use crate::command::CommandNameOwned;
-use crate::outbox::command::{CommandEnvelope, SerializedCommand};
-use crate::request_context::{CausationId, MessageId};
+use crate::outbox::command::CommandEnvelope;
+use crate::request_context::CausationId;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct SagaInstance<S: SagaState> {
@@ -54,22 +56,18 @@ impl<S: SagaState> SagaInstance<S> {
         &mut self,
         event_from: &EventEnvelope,
         command: &C,
+        options: CommandOptions,
     ) -> Result<(), SagaAppendCommandError> {
         if self.correlation_id != event_from.correlation_id {
             return Err(SagaAppendCommandError::CorrelationIdMismatch);
         }
 
-        let command_name = CommandNameOwned::from(C::NAME);
-        let json = serde_json::to_value(command)?;
-        let serialized_command = SerializedCommand::new(json)?;
-
-        self.uncommitted_commands.push(CommandEnvelope {
-            command_name,
-            command: serialized_command,
-            correlation_id: self.correlation_id,
-            message_id: MessageId::new(),
-            causation_id: CausationId::from(event_from.event_id),
-        });
+        self.uncommitted_commands.push(CommandEnvelope::new(
+            command,
+            self.correlation_id,
+            CausationId::from(event_from.event_id),
+            options,
+        )?);
 
         Ok(())
     }

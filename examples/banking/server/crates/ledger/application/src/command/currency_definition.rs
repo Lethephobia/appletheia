@@ -16,8 +16,7 @@ pub use currency_definition_deactivate::{
 };
 pub use currency_definition_decrease_supply::{
     CurrencyDefinitionDecreaseSupplyCommand, CurrencyDefinitionDecreaseSupplyCommandHandler,
-    CurrencyDefinitionDecreaseSupplyCommandHandlerError, CurrencyDefinitionDecreaseSupplyContext,
-    CurrencyDefinitionDecreaseSupplyOutput,
+    CurrencyDefinitionDecreaseSupplyCommandHandlerError, CurrencyDefinitionDecreaseSupplyOutput,
 };
 pub use currency_definition_define::{
     CurrencyDefinitionDefineCommand, CurrencyDefinitionDefineCommandHandler,
@@ -25,8 +24,7 @@ pub use currency_definition_define::{
 };
 pub use currency_definition_increase_supply::{
     CurrencyDefinitionIncreaseSupplyCommand, CurrencyDefinitionIncreaseSupplyCommandHandler,
-    CurrencyDefinitionIncreaseSupplyCommandHandlerError, CurrencyDefinitionIncreaseSupplyContext,
-    CurrencyDefinitionIncreaseSupplyOutput,
+    CurrencyDefinitionIncreaseSupplyCommandHandlerError, CurrencyDefinitionIncreaseSupplyOutput,
 };
 pub use currency_definition_remove::{
     CurrencyDefinitionRemoveCommand, CurrencyDefinitionRemoveCommandHandler,

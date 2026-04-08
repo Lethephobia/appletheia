@@ -1,15 +1,14 @@
-use crate::command::{Command, FollowUpCommand, FollowUpCommandSource};
+use crate::command::{Command, CommandOptions, CommandOwned, CommandOwnedError};
 use crate::outbox::command::CommandEnvelope;
 use crate::request_context::RequestContext;
-
-use super::CommandFailureReactionError;
+use serde::{Deserialize, Serialize};
 
 /// Describes follow-up work to schedule after a handled command failure.
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub enum CommandFailureReaction {
     #[default]
     None,
-    FollowUpCommands(Vec<FollowUpCommand>),
+    FollowUpCommands(Vec<CommandOwned>),
 }
 
 impl CommandFailureReaction {
@@ -18,31 +17,18 @@ impl CommandFailureReaction {
         Self::None
     }
 
-    /// Builds a reaction containing a single follow-up command.
-    pub fn with_command<C>(command: &C) -> Result<Self, CommandFailureReactionError>
+    /// Appends a follow-up command to this reaction.
+    pub fn push<C>(&mut self, command: &C, options: CommandOptions) -> Result<(), CommandOwnedError>
     where
         C: Command,
     {
-        Ok(Self::FollowUpCommands(vec![FollowUpCommand::try_from(
-            FollowUpCommandSource::new(command),
-        )?]))
-    }
-
-    /// Appends a typed follow-up command to this reaction.
-    pub fn push_command<C>(&mut self, command: &C) -> Result<(), CommandFailureReactionError>
-    where
-        C: Command,
-    {
+        let command = CommandOwned::try_from_command(command, options)?;
         match self {
             Self::None => {
-                *self = Self::FollowUpCommands(vec![FollowUpCommand::try_from(
-                    FollowUpCommandSource::new(command),
-                )?]);
+                *self = Self::FollowUpCommands(vec![command]);
             }
             Self::FollowUpCommands(commands) => {
-                commands.push(FollowUpCommand::try_from(FollowUpCommandSource::new(
-                    command,
-                ))?);
+                commands.push(command);
             }
         }
 
@@ -50,7 +36,7 @@ impl CommandFailureReaction {
     }
 
     /// Returns the serialized follow-up commands when present.
-    pub fn follow_up_commands(&self) -> &[FollowUpCommand] {
+    pub fn follow_up_commands(&self) -> &[CommandOwned] {
         match self {
             Self::None => &[],
             Self::FollowUpCommands(commands) => commands,
@@ -74,7 +60,7 @@ mod tests {
     use serde::{Deserialize, Serialize};
 
     use super::CommandFailureReaction;
-    use crate::command::Command;
+    use crate::command::{Command, CommandOptions};
     use crate::request_context::{ActorRef, CorrelationId, MessageId, Principal, RequestContext};
 
     #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -93,8 +79,13 @@ mod tests {
 
     #[test]
     fn builds_envelopes_for_multiple_follow_up_commands() {
-        let mut reaction = CommandFailureReaction::with_command(&FirstCommand {}).expect("first");
-        reaction.push_command(&SecondCommand {}).expect("second");
+        let mut reaction = CommandFailureReaction::new();
+        reaction
+            .push(&FirstCommand {}, CommandOptions::default())
+            .expect("first");
+        reaction
+            .push(&SecondCommand {}, CommandOptions::default())
+            .expect("second");
         let request_context = RequestContext::new(
             CorrelationId::from(uuid::Uuid::now_v7()),
             MessageId::new(),
@@ -109,6 +100,14 @@ mod tests {
         assert_eq!(envelopes[1].command_name.to_string(), "second");
         assert_eq!(envelopes[0].correlation_id, request_context.correlation_id);
         assert_eq!(envelopes[1].correlation_id, request_context.correlation_id);
+        assert_eq!(
+            envelopes[0].options.failure_reaction,
+            CommandFailureReaction::None
+        );
+        assert_eq!(
+            envelopes[1].options.failure_reaction,
+            CommandFailureReaction::None
+        );
     }
 
     #[test]
@@ -123,5 +122,18 @@ mod tests {
         let envelopes = CommandFailureReaction::None.into_command_envelopes(&request_context);
 
         assert!(envelopes.is_empty());
+    }
+
+    #[test]
+    fn serializes_and_deserializes_follow_up_commands() {
+        let mut reaction = CommandFailureReaction::new();
+        reaction
+            .push(&FirstCommand {}, CommandOptions::default())
+            .expect("first");
+
+        let json = serde_json::to_value(&reaction).expect("serialize");
+        let decoded: CommandFailureReaction = serde_json::from_value(json).expect("deserialize");
+
+        assert_eq!(decoded, reaction);
     }
 }

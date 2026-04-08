@@ -1,3 +1,4 @@
+use appletheia::application::command::CommandOwnedError;
 use appletheia::application::event::EventEnvelopeError;
 use appletheia::application::saga::SagaAppendCommandError;
 use thiserror::Error;
@@ -11,6 +12,6 @@ pub enum TransferSagaError {
     #[error("failed to append transfer saga command")]
     AppendCommand(#[from] SagaAppendCommandError),
 
-    #[error("transfer saga state is incomplete")]
-    IncompleteState,
+    #[error("failed to build transfer saga owned command")]
+    CommandOwned(#[from] CommandOwnedError),
 }

@@ -1,3 +1,4 @@
+use appletheia::application::command::CommandOptions;
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::saga::{Saga, SagaInstance, SagaSpec};
 use appletheia::domain::Aggregate;
@@ -45,6 +46,7 @@ impl Saga for OrganizationJoinRequestSaga {
                         organization_id: *organization_id,
                         user_id: *requester_id,
                     },
+                    CommandOptions::default(),
                 )?;
             }
 

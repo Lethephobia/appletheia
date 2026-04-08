@@ -278,8 +278,8 @@ where
         projector_dependencies: ProjectorDependencies<'_>,
         saga_dependencies: SagaDependencies<'_>,
     ) -> Result<(), ReadYourWritesWaitError> {
-        let deadline = Instant::now() + timeout.value();
-        let poll_duration = poll_interval.value();
+        let deadline = Instant::now() + StdDuration::from(timeout);
+        let poll_duration = StdDuration::from(poll_interval);
 
         match target {
             ReadYourWritesTarget::Message(after) => {

@@ -1,6 +1,8 @@
-use super::CommandConsistency;
+use super::{CommandConsistency, CommandFailureReaction};
+use serde::{Deserialize, Serialize};
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Default)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct CommandOptions {
     pub consistency: CommandConsistency,
+    pub failure_reaction: CommandFailureReaction,
 }

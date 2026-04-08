@@ -236,9 +236,7 @@ where
                     .rollback_with_operation_error(operation_error)
                     .await
                     .map_err(CommandDispatcherError::UnitOfWork)?;
-                let command_failure_reaction = handler
-                    .on_failure(request_context, &command, &operation_error)
-                    .map_err(CommandDispatcherError::CommandFailureReaction)?;
+                let command_failure_reaction = options.failure_reaction.clone();
 
                 let report = CommandFailureReport::from(&operation_error);
                 if let Ok(mut uow) = self.uow_factory.begin().await {
@@ -311,7 +309,7 @@ mod tests {
     use crate::command::{
         Command, CommandDispatcher, CommandDispatcherError, CommandFailureReaction,
         CommandFailureReport, CommandHandled, CommandHandler, CommandHash, CommandHasher,
-        CommandHasherError, CommandName, IdempotencyBeginResult, IdempotencyOutput,
+        CommandHasherError, CommandName, CommandOptions, IdempotencyBeginResult, IdempotencyOutput,
         IdempotencyService, IdempotencyServiceError,
     };
     use crate::event::{AggregateIdValue, AggregateTypeOwned};
@@ -557,15 +555,6 @@ mod tests {
         ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
             Err(TestHandlerError)
         }
-
-        fn on_failure(
-            &self,
-            _request_context: &crate::request_context::RequestContext,
-            _command: &Self::Command,
-            _error: &Self::Error,
-        ) -> Result<CommandFailureReaction, crate::command::CommandFailureReactionError> {
-            CommandFailureReaction::with_command(&FollowUpTestCommand {})
-        }
     }
 
     #[test]
@@ -654,7 +643,16 @@ mod tests {
                 &TestCommandFailureHandler,
                 &request_context,
                 TestCommand {},
-                crate::command::CommandOptions::default(),
+                CommandOptions {
+                    failure_reaction: {
+                        let mut reaction = CommandFailureReaction::new();
+                        reaction
+                            .push(&FollowUpTestCommand {}, CommandOptions::default())
+                            .expect("reaction should serialize");
+                        reaction
+                    },
+                    ..CommandOptions::default()
+                },
             )
             .await;
 

@@ -1,16 +1,13 @@
 use appletheia::application::authorization::{AuthorizationPlan, PrincipalRequirement};
-use appletheia::application::command::{
-    CommandFailureReaction, CommandFailureReactionError, CommandHandled, CommandHandler,
-};
+use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_ledger_domain::currency_definition::CurrencyDefinition;
 
 use super::{
     CurrencyDefinitionIncreaseSupplyCommand, CurrencyDefinitionIncreaseSupplyCommandHandlerError,
-    CurrencyDefinitionIncreaseSupplyContext, CurrencyDefinitionIncreaseSupplyOutput,
+    CurrencyDefinitionIncreaseSupplyOutput,
 };
-use crate::command::CurrencyIssuanceFailCommand;
 
 /// Handles `CurrencyDefinitionIncreaseSupplyCommand`.
 pub struct CurrencyDefinitionIncreaseSupplyCommandHandler<CDR>
@@ -48,22 +45,6 @@ where
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
             PrincipalRequirement::System,
         ]))
-    }
-
-    fn on_failure(
-        &self,
-        _request_context: &RequestContext,
-        command: &Self::Command,
-        _error: &Self::Error,
-    ) -> Result<CommandFailureReaction, CommandFailureReactionError> {
-        match &command.context {
-            CurrencyDefinitionIncreaseSupplyContext::Issuance {
-                currency_issuance_id,
-            } => CommandFailureReaction::with_command(&CurrencyIssuanceFailCommand {
-                currency_issuance_id: *currency_issuance_id,
-            }),
-            CurrencyDefinitionIncreaseSupplyContext::Direct => Ok(CommandFailureReaction::None),
-        }
     }
 
     async fn handle(

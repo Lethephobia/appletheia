@@ -117,6 +117,107 @@ bad:
 WorkflowSaga
 ```
 
+### DO use `SagaInstance` to carry state, queued commands, and terminal status
+
+Let the saga implementation use the instance as the single place for in-flight workflow bookkeeping.
+
+good:
+```rust
+*instance.state_mut() = Some(TransferSagaState::new(*id, *from_account_id, *to_account_id, *amount));
+instance.append_command(event, &AccountReserveFundsCommand { .. })?;
+```
+
+bad:
+```rust
+command_bus.send(AccountReserveFundsCommand { .. });
+```
+
+### DO mark the saga succeeded or failed on terminal events
+
+Use explicit terminal transitions when the workflow completes or aborts.
+
+good:
+```rust
+match transfer_event.payload() {
+    TransferEventPayload::Completed => instance.succeed(),
+    TransferEventPayload::Failed => instance.fail(),
+    _ => {}
+}
+```
+
+bad:
+```rust
+match transfer_event.payload() {
+    TransferEventPayload::Completed => {}
+    TransferEventPayload::Failed => {}
+    _ => {}
+}
+```
+
+### DON'T emit follow-up commands after the saga is terminal
+
+Terminal workflows should not keep appending commands.
+
+good:
+```rust
+instance.succeed();
+```
+
+bad:
+```rust
+instance.succeed();
+instance.append_command(event, &AnotherCommand { .. })?;
+```
+
+### DON'T add redundant transition validation for strictly ordered saga steps
+
+Commands emitted within one correlation are processed in append order. When the next event can only
+arrive after the prior command completed, do not add defensive "previous status must be X" checks
+or repeat completeness validation for data the saga already fixed at startup.
+
+good:
+```rust
+let Some(state) = instance.state_mut().as_mut() else {
+    return Ok(());
+};
+state.status = TransferSagaStatus::FundsReserved;
+
+instance.append_command(
+    event,
+    &AccountDepositCommand {
+        account_id: state.to_account_id,
+        amount: state.amount,
+    },
+    CommandOptions::default(),
+)?;
+```
+
+bad:
+```rust
+if state.status != TransferSagaStatus::Requested {
+    return Err(TransferSagaError::UnexpectedStatus);
+}
+
+let transfer_id = state.transfer_id.ok_or(TransferSagaError::IncompleteState)?;
+let from_account_id = state.from_account_id.ok_or(TransferSagaError::IncompleteState)?;
+```
+
+### DO use state checks as readiness tracking only for parallel branches
+
+When a saga fans out multiple commands and must wait for all their events, track readiness in saga
+state and no-op until every required branch is complete. Treat this as workflow progress tracking,
+not as an error condition.
+
+good:
+```rust
+state.profile_ready = true;
+if !state.settings_ready {
+    return Ok(());
+}
+
+instance.append_command(event, &CompleteSetupCommand { .. }, CommandOptions::default())?;
+```
+
 ## SagaSpec
 
 ### DO declare the event subscription explicitly
@@ -191,10 +292,10 @@ Keep saga state compact and focused on in-flight ids.
 good:
 ```rust
 pub struct TransferSagaState {
-    pub from_account_id: Option<AccountId>,
-    pub to_account_id: Option<AccountId>,
-    pub amount: Option<AccountBalance>,
-    pub transfer_id: Option<TransferId>,
+    pub from_account_id: AccountId,
+    pub to_account_id: AccountId,
+    pub amount: AccountBalance,
+    pub transfer_id: TransferId,
 }
 ```
 
@@ -204,6 +305,46 @@ pub struct TransferSagaState {
     pub from_account_balance: Option<AccountBalance>,
     pub to_account_balance: Option<AccountBalance>,
     pub transfer_total: Option<AccountBalance>,
+}
+```
+
+### PREFER an explicit workflow status or phase in saga state when progress matters
+
+When a saga has multiple meaningful steps, store a compact status enum so the state shows both
+the routing ids and how far the workflow has advanced.
+
+Use the status to model saga-local progress transitions, not to mirror aggregate business status.
+
+good:
+```rust
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TransferSagaState {
+    pub transfer_id: TransferId,
+    pub from_account_id: AccountId,
+    pub to_account_id: AccountId,
+    pub amount: CurrencyAmount,
+    pub status: TransferSagaStatus,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TransferSagaStatus {
+    #[default]
+    Requested,
+    FundsReserved,
+    Deposited,
+    Completed,
+    Failed,
+}
+```
+
+bad:
+```rust
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TransferSagaState {
+    pub transfer_id: Option<TransferId>,
+    pub from_account_id: Option<AccountId>,
+    pub to_account_id: Option<AccountId>,
+    pub amount: Option<CurrencyAmount>,
 }
 ```
 
@@ -237,7 +378,7 @@ good:
 ```rust
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ExampleSagaState {
-    pub example_id: Option<ExampleId>,
+    pub example_id: ExampleId,
 }
 ```
 
@@ -246,76 +387,4 @@ bad:
 pub struct ExampleSagaState {
     pub repository: ExampleRepository,
 }
-```
-
-## SagaInstance
-
-### DO use `SagaInstance` to carry state, queued commands, and terminal status
-
-Let the instance own the in-flight workflow bookkeeping.
-
-good:
-```rust
-let state = instance.state_mut().get_or_insert_with(TransferSagaState::default);
-state.transfer_id = Some(*id);
-instance.append_command(event, &AccountReserveFundsCommand { .. })?;
-```
-
-bad:
-```rust
-state.transfer_id = Some(*id);
-command_bus.send(AccountReserveFundsCommand { .. });
-```
-
-### DO mark the saga succeeded or failed on terminal events
-
-Use explicit terminal states when the workflow completes or aborts.
-
-good:
-```rust
-match transfer_event.payload() {
-    TransferEventPayload::Completed => instance.succeed(),
-    TransferEventPayload::Failed => instance.fail(),
-    _ => {}
-}
-```
-
-bad:
-```rust
-match transfer_event.payload() {
-    TransferEventPayload::Completed => {}
-    TransferEventPayload::Failed => {}
-    _ => {}
-}
-```
-
-### DO check state completeness before emitting the next command
-
-If the saga cannot derive the next command safely, stop and surface incomplete state.
-
-good:
-```rust
-let transfer_id = state.transfer_id.ok_or(TransferSagaError::IncompleteState)?;
-let from_account_id = state.from_account_id.ok_or(TransferSagaError::IncompleteState)?;
-```
-
-bad:
-```rust
-let transfer_id = state.transfer_id.unwrap();
-let from_account_id = state.from_account_id.unwrap();
-```
-
-### DON'T emit follow-up commands after the saga is terminal
-
-Terminal workflows should not keep appending commands.
-
-good:
-```rust
-instance.succeed();
-```
-
-bad:
-```rust
-instance.succeed();
-instance.append_command(event, &AnotherCommand { .. })?;
 ```
