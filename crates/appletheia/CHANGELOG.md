@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.6](https://github.com/Lethephobia/appletheia/compare/appletheia-v0.7.5...appletheia-v0.7.6) - 2026-04-08
+
+### Other
+
+- *(authorization)* redesign relation model
+
 ## [0.7.5](https://github.com/Lethephobia/appletheia/compare/appletheia-v0.7.4...appletheia-v0.7.5) - 2026-03-30
 
 ### Other
