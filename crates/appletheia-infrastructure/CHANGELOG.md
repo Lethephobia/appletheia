@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0](https://github.com/Lethephobia/appletheia/compare/appletheia-infrastructure-v0.9.2...appletheia-infrastructure-v0.10.0) - 2026-04-08
+
+### Added
+
+- *(application)* [**breaking**] move saga reactions into command options
+
+### Other
+
+- *(authorization)* [**breaking**] tighten subject filtering and owner handling
+- *(authorization)* redesign relation model
+
 ## [0.9.2](https://github.com/Lethephobia/appletheia/compare/appletheia-infrastructure-v0.9.1...appletheia-infrastructure-v0.9.2) - 2026-03-30
 
 ### Other

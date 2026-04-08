@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.18.0](https://github.com/Lethephobia/appletheia/compare/appletheia-application-v0.17.0...appletheia-application-v0.18.0) - 2026-04-08
+
+### Added
+
+- *(application)* [**breaking**] make request context construction fallible
+- *(application)* [**breaking**] move saga reactions into command options
+- *(command)* add field patch and user bio
+
+### Other
+
+- *(authorization)* simplify handler authorization plans
+- *(authorization)* [**breaking**] tighten subject filtering and owner handling
+- *(authorization)* redesign relation model
+- *(command)* make patch and context serialization explicit
+- *(workspace)* derive default and update sha2
+
 ## [0.17.0](https://github.com/Lethephobia/appletheia/compare/appletheia-application-v0.16.0...appletheia-application-v0.17.0) - 2026-03-30
 
 ### Added
