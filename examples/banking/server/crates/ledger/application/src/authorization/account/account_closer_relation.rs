@@ -1,6 +1,6 @@
 use appletheia::application::authorization::{Relation, RelationName, RelationRef, UsersetExpr};
 use appletheia::domain::Aggregate;
-use banking_iam_application::OrganizationOwnerRelation;
+use banking_iam_application::OrganizationAccountCloserRelation;
 
 use super::{Account, AccountOwnerRelation};
 
@@ -17,7 +17,7 @@ impl Relation for AccountCloserRelation {
         },
         UsersetExpr::TupleToUserset {
             tupleset_relation: AccountOwnerRelation::REF,
-            computed_userset: OrganizationOwnerRelation::REF,
+            computed_userset: OrganizationAccountCloserRelation::REF,
         },
     ]);
 }
