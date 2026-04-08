@@ -1,14 +1,18 @@
 pub mod actor_ref;
+pub mod actor_ref_error;
 pub mod causation_id;
 pub mod correlation_id;
 pub mod message_id;
 pub mod principal;
+pub mod request_context_error;
 
 pub use actor_ref::ActorRef;
+pub use actor_ref_error::ActorRefError;
 pub use causation_id::CausationId;
 pub use correlation_id::CorrelationId;
 pub use message_id::MessageId;
 pub use principal::Principal;
+pub use request_context_error::RequestContextError;
 
 use serde::{Deserialize, Serialize};
 
@@ -27,19 +31,20 @@ pub struct RequestContext {
 }
 
 impl RequestContext {
-    /// Creates a request context from correlation, message, actor, and principal data.
+    /// Creates a request context from correlation, message, and principal data.
     pub fn new(
         correlation_id: CorrelationId,
         message_id: MessageId,
-        actor: ActorRef,
         principal: Principal,
-    ) -> Self {
-        Self {
+    ) -> Result<Self, RequestContextError> {
+        let actor = ActorRef::try_from(principal.clone()).map_err(RequestContextError::ActorRef)?;
+
+        Ok(Self {
             correlation_id,
             message_id,
             actor,
             principal,
-        }
+        })
     }
 }
 
@@ -63,19 +68,21 @@ mod tests {
     fn new_stores_all_fields() {
         let correlation_id = CorrelationId::from(Uuid::now_v7());
         let message_id = MessageId::from(Uuid::now_v7());
-        let actor = ActorRef::Subject {
-            subject: aggregate_ref(),
-        };
         let principal = Principal::Authenticated {
             subject: aggregate_ref(),
         };
 
-        let request_context =
-            RequestContext::new(correlation_id, message_id, actor.clone(), principal.clone());
+        let request_context = RequestContext::new(correlation_id, message_id, principal.clone())
+            .expect("request context should be valid");
 
         assert_eq!(request_context.correlation_id, correlation_id);
         assert_eq!(request_context.message_id, message_id);
-        assert_eq!(request_context.actor, actor);
+        assert_eq!(
+            request_context.actor,
+            ActorRef::Subject {
+                subject: aggregate_ref(),
+            }
+        );
         assert_eq!(request_context.principal, principal);
     }
 
@@ -84,13 +91,11 @@ mod tests {
         let request_context = RequestContext::new(
             CorrelationId::from(Uuid::nil()),
             MessageId::from(Uuid::now_v7()),
-            ActorRef::Subject {
-                subject: aggregate_ref(),
-            },
             Principal::Authenticated {
                 subject: aggregate_ref(),
             },
-        );
+        )
+        .expect("request context should be valid");
 
         let serialized = serde_json::to_value(&request_context).expect("serialize request context");
         assert_eq!(
@@ -112,5 +117,20 @@ mod tests {
         let deserialized: RequestContext =
             serde_json::from_value(serialized).expect("deserialize request context");
         assert_eq!(deserialized.principal, Principal::Unavailable);
+    }
+
+    #[test]
+    fn new_returns_error_for_unavailable_principal() {
+        let error = RequestContext::new(
+            CorrelationId::from(Uuid::now_v7()),
+            MessageId::from(Uuid::now_v7()),
+            Principal::Unavailable,
+        )
+        .expect_err("unavailable principal should fail");
+
+        assert!(matches!(
+            error,
+            RequestContextError::ActorRef(ActorRefError::PrincipalUnavailable)
+        ));
     }
 }

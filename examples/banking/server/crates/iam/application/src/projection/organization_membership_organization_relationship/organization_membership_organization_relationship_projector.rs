@@ -111,7 +111,7 @@ mod tests {
     use appletheia::application::event::{EventEnvelope, EventSequence, SerializedEventPayload};
     use appletheia::application::projection::Projector;
     use appletheia::application::request_context::{
-        ActorRef, CausationId, CorrelationId, MessageId, Principal, RequestContext,
+        CausationId, CorrelationId, MessageId, Principal, RequestContext,
     };
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::{Aggregate, AggregateId, EventPayload};
@@ -227,9 +227,9 @@ mod tests {
                 context: RequestContext::new(
                     CorrelationId::from(MessageId::new().value()),
                     MessageId::new(),
-                    ActorRef::System,
                     Principal::System,
-                ),
+                )
+                .expect("request context should be valid"),
             },
             organization_id,
         )
@@ -276,9 +276,9 @@ mod tests {
             context: RequestContext::new(
                 CorrelationId::from(MessageId::new().value()),
                 MessageId::new(),
-                ActorRef::System,
                 Principal::System,
-            ),
+            )
+            .expect("request context should be valid"),
         }
     }
 

@@ -198,7 +198,7 @@ mod tests {
         Repository, RepositoryConfig, RepositoryError, UniqueKeyReservationStore,
         UniqueKeyReservationStoreError, UniqueValueOwnerLookup, UniqueValueOwnerLookupError,
     };
-    use crate::request_context::{ActorRef, CorrelationId, MessageId, Principal, RequestContext};
+    use crate::request_context::{CorrelationId, MessageId, Principal, RequestContext};
     use crate::snapshot::{
         SnapshotPolicy, SnapshotReader, SnapshotReaderError, SnapshotWriter, SnapshotWriterError,
     };
@@ -571,9 +571,9 @@ mod tests {
         RequestContext::new(
             CorrelationId::from(Uuid::now_v7()),
             MessageId::new(),
-            ActorRef::System,
             Principal::System,
         )
+        .expect("request context should be valid")
     }
 
     fn registered_counter(email: Option<&str>) -> Counter {

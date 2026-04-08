@@ -129,7 +129,7 @@ mod tests {
     use appletheia::application::projection::ProjectorSpec;
     use appletheia::application::repository::{Repository, RepositoryError};
     use appletheia::application::request_context::{
-        ActorRef, CorrelationId, MessageId, Principal, RequestContext,
+        CorrelationId, MessageId, Principal, RequestContext,
     };
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::{Aggregate, AggregateVersion, UniqueKey, UniqueValue};
@@ -279,11 +279,9 @@ mod tests {
         RequestContext::new(
             CorrelationId::from(Uuid::now_v7()),
             MessageId::new(),
-            ActorRef::Subject {
-                subject: subject.clone(),
-            },
             Principal::Authenticated { subject },
         )
+        .expect("request context should be valid")
     }
 
     fn opened_account(currency_definition_id: CurrencyDefinitionId) -> Account {

@@ -195,9 +195,9 @@ mod tests {
                 context: RequestContext::new(
                     CorrelationId::from(MessageId::new().value()),
                     message_id,
-                    ActorRef::System,
                     Principal::Authenticated { subject },
-                ),
+                )
+                .expect("request context should be valid"),
             },
             user_id,
         )

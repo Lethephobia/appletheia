@@ -634,9 +634,9 @@ mod tests {
         let request_context = crate::request_context::RequestContext::new(
             crate::request_context::CorrelationId::from(Uuid::now_v7()),
             crate::request_context::MessageId::new(),
-            crate::request_context::ActorRef::System,
             Principal::System,
-        );
+        )
+        .expect("request context should be valid");
 
         let result = dispatcher
             .dispatch(

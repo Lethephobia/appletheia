@@ -48,7 +48,7 @@ mod tests {
     use super::CommandOwned;
     use crate::command::{Command, CommandFailureReaction, CommandOptions};
     use crate::request_context::{
-        ActorRef, CausationId, CorrelationId, MessageId, Principal, RequestContext,
+        CausationId, CorrelationId, MessageId, Principal, RequestContext,
     };
 
     #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -72,9 +72,9 @@ mod tests {
         let request_context = RequestContext::new(
             CorrelationId::from(uuid::Uuid::now_v7()),
             MessageId::new(),
-            ActorRef::System,
             Principal::System,
-        );
+        )
+        .expect("request context should be valid");
         let envelope = command_owned.into_command_envelope(&request_context);
 
         assert_eq!(envelope.command_name.to_string(), "test");
@@ -122,9 +122,9 @@ mod tests {
         let request_context = RequestContext::new(
             CorrelationId::from(uuid::Uuid::now_v7()),
             MessageId::new(),
-            ActorRef::System,
             Principal::System,
-        );
+        )
+        .expect("request context should be valid");
 
         let envelope = command_owned.into_command_envelope(&request_context);
 

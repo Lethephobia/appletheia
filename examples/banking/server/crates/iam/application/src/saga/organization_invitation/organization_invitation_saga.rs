@@ -84,7 +84,7 @@ mod tests {
         SerializedEventPayload,
     };
     use appletheia::application::request_context::{
-        ActorRef, CausationId, CorrelationId, MessageId, Principal, RequestContext,
+        CausationId, CorrelationId, MessageId, Principal, RequestContext,
     };
     use appletheia::application::saga::{Saga, SagaInstance, SagaNameOwned, SagaSpec, SagaStatus};
     use appletheia::domain::{Aggregate, AggregateId, EventId, EventOccurredAt, EventPayload};
@@ -105,11 +105,9 @@ mod tests {
         RequestContext::new(
             correlation_id,
             MessageId::new(),
-            ActorRef::Subject {
-                subject: subject.clone(),
-            },
             Principal::Authenticated { subject },
         )
+        .expect("request context should be valid")
     }
 
     fn invitation_accepted_event_envelope(

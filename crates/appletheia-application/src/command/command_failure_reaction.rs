@@ -61,7 +61,7 @@ mod tests {
 
     use super::CommandFailureReaction;
     use crate::command::{Command, CommandOptions};
-    use crate::request_context::{ActorRef, CorrelationId, MessageId, Principal, RequestContext};
+    use crate::request_context::{CorrelationId, MessageId, Principal, RequestContext};
 
     #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
     struct FirstCommand {}
@@ -89,9 +89,9 @@ mod tests {
         let request_context = RequestContext::new(
             CorrelationId::from(uuid::Uuid::now_v7()),
             MessageId::new(),
-            ActorRef::System,
             Principal::System,
-        );
+        )
+        .expect("request context should be valid");
 
         let envelopes = reaction.into_command_envelopes(&request_context);
 
@@ -115,9 +115,9 @@ mod tests {
         let request_context = RequestContext::new(
             CorrelationId::from(uuid::Uuid::now_v7()),
             MessageId::new(),
-            ActorRef::System,
             Principal::System,
-        );
+        )
+        .expect("request context should be valid");
 
         let envelopes = CommandFailureReaction::None.into_command_envelopes(&request_context);
 
