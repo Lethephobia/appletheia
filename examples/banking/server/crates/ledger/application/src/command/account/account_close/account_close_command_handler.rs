@@ -1,10 +1,11 @@
 use appletheia::application::authorization::{
-    AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
+    AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
+use banking_iam_application::OrganizationOwnerRelationshipProjectorSpec;
 use banking_ledger_domain::account::Account;
 
 use super::{AccountCloseCommand, AccountCloseCommandHandlerError, AccountCloseOutput};
@@ -45,12 +46,13 @@ where
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
             PrincipalRequirement::System,
             PrincipalRequirement::AuthenticatedWithRelationship {
-                requirement: RelationshipRequirement::Check {
-                    aggregate: AggregateRef::from_id::<Account>(command.account_id),
-                    relation: AccountCloserRelation::NAME,
-                },
+                requirement: RelationshipRequirement::check::<Account>(
+                    command.account_id,
+                    AccountCloserRelation::REF,
+                ),
                 projector_dependencies: ProjectorDependencies::Some(&[
                     AccountOwnerRelationshipProjectorSpec::DESCRIPTOR,
+                    OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
                 ]),
             },
         ]))

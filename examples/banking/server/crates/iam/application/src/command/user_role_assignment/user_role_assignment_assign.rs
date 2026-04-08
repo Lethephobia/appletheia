@@ -1,9 +1,0 @@
-mod user_role_assignment_assign_command;
-mod user_role_assignment_assign_command_handler;
-mod user_role_assignment_assign_command_handler_error;
-mod user_role_assignment_assign_output;
-
-pub use user_role_assignment_assign_command::UserRoleAssignmentAssignCommand;
-pub use user_role_assignment_assign_command_handler::UserRoleAssignmentAssignCommandHandler;
-pub use user_role_assignment_assign_command_handler_error::UserRoleAssignmentAssignCommandHandlerError;
-pub use user_role_assignment_assign_output::UserRoleAssignmentAssignOutput;

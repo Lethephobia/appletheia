@@ -1,5 +1,5 @@
 use appletheia::application::authorization::{
-    AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
+    AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
@@ -8,10 +8,9 @@ use appletheia::application::request_context::RequestContext;
 use banking_iam_domain::User;
 
 use super::{UserDeactivateCommand, UserDeactivateCommandHandlerError, UserDeactivateOutput};
+use crate::UserStatusManagerRelationshipProjectorSpec;
 use crate::authorization::UserDeactivatorRelation;
-use crate::projection::{
-    RoleAssigneeRelationshipProjectorSpec, UserStatusManagerRelationshipProjectorSpec,
-};
+use crate::projection::UserOwnerRelationshipProjectorSpec;
 
 /// Handles `UserDeactivateCommand`.
 pub struct UserDeactivateCommandHandler<UR>
@@ -47,12 +46,12 @@ where
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
             PrincipalRequirement::System,
             PrincipalRequirement::AuthenticatedWithRelationship {
-                requirement: RelationshipRequirement::Check {
-                    aggregate: AggregateRef::from_id::<User>(command.user_id),
-                    relation: UserDeactivatorRelation::NAME,
-                },
+                requirement: RelationshipRequirement::check::<User>(
+                    command.user_id,
+                    UserDeactivatorRelation::REF,
+                ),
                 projector_dependencies: ProjectorDependencies::Some(&[
-                    RoleAssigneeRelationshipProjectorSpec::DESCRIPTOR,
+                    UserOwnerRelationshipProjectorSpec::DESCRIPTOR,
                     UserStatusManagerRelationshipProjectorSpec::DESCRIPTOR,
                 ]),
             },

@@ -1,12 +1,23 @@
-use appletheia::application::authorization::{Relation, RelationName, UsersetExpr};
+use appletheia::application::authorization::{Relation, RelationName, RelationRef, UsersetExpr};
+use appletheia::domain::Aggregate;
+use banking_iam_application::OrganizationAccountStatusManagerRelation;
 
-/// Allows direct tuples to manage account status operations.
+use super::{Account, AccountOwnerRelation};
+
+/// Allows owners to manage account status operations.
 pub struct AccountStatusManagerRelation;
 
 impl Relation for AccountStatusManagerRelation {
-    const NAME: RelationName = RelationName::new("status_manager");
+    const REF: RelationRef = RelationRef::new(Account::TYPE, RelationName::new("status_manager"));
 
-    fn expr(&self) -> UsersetExpr {
-        UsersetExpr::This
-    }
+    const EXPR: UsersetExpr = UsersetExpr::Union(&[
+        UsersetExpr::This,
+        UsersetExpr::ComputedUserset {
+            relation: AccountOwnerRelation::REF,
+        },
+        UsersetExpr::TupleToUserset {
+            tupleset_relation: AccountOwnerRelation::REF,
+            computed_userset: OrganizationAccountStatusManagerRelation::REF,
+        },
+    ]);
 }

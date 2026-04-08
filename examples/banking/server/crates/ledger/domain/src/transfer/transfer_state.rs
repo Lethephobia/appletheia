@@ -1,7 +1,8 @@
 use appletheia::aggregate_state;
 use appletheia::unique_constraints;
 
-use crate::account::{AccountBalance, AccountId};
+use crate::account::AccountId;
+use crate::core::CurrencyAmount;
 
 use super::{TransferId, TransferStateError, TransferStatus};
 
@@ -12,7 +13,7 @@ pub struct TransferState {
     pub(super) id: TransferId,
     pub(super) from_account_id: AccountId,
     pub(super) to_account_id: AccountId,
-    pub(super) amount: AccountBalance,
+    pub(super) amount: CurrencyAmount,
     pub(super) status: TransferStatus,
 }
 
@@ -22,7 +23,7 @@ impl TransferState {
         id: TransferId,
         from_account_id: AccountId,
         to_account_id: AccountId,
-        amount: AccountBalance,
+        amount: CurrencyAmount,
     ) -> Self {
         Self {
             id,
@@ -38,7 +39,8 @@ impl TransferState {
 mod tests {
     use appletheia::domain::AggregateState;
 
-    use crate::account::{AccountBalance, AccountId};
+    use crate::account::AccountId;
+    use crate::core::CurrencyAmount;
 
     use super::{TransferId, TransferState, TransferStatus};
 
@@ -49,7 +51,7 @@ mod tests {
             id,
             AccountId::new(),
             AccountId::new(),
-            AccountBalance::new(1),
+            CurrencyAmount::new(1),
         );
 
         assert_eq!(state.id(), id);

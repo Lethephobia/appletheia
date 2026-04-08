@@ -1,5 +1,5 @@
 use appletheia::application::authorization::{
-    AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
+    AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
@@ -44,10 +44,10 @@ where
     ) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
             PrincipalRequirement::AuthenticatedWithRelationship {
-                requirement: RelationshipRequirement::Check {
-                    aggregate: AggregateRef::from_id::<User>(command.user_id),
-                    relation: UserProfileEditorRelation::NAME,
-                },
+                requirement: RelationshipRequirement::check::<User>(
+                    command.user_id,
+                    UserProfileEditorRelation::REF,
+                ),
                 projector_dependencies: ProjectorDependencies::Some(&[
                     UserOwnerRelationshipProjectorSpec::DESCRIPTOR,
                 ]),
@@ -65,23 +65,17 @@ where
             return Err(UserProfileReadyCommandHandlerError::UserNotFound);
         };
 
-        user.ready_profile(command.username.clone(), command.display_name.clone())?;
+        user.ready_profile(
+            command.username.clone(),
+            command.display_name.clone(),
+            command.bio.clone(),
+        )?;
 
         self.user_repository
             .save(uow, request_context, &mut user)
             .await?;
 
-        let username = user
-            .username()?
-            .cloned()
-            .ok_or(UserProfileReadyCommandHandlerError::UserProfileNotReady)?;
-        let display_name = user
-            .display_name()?
-            .cloned()
-            .ok_or(UserProfileReadyCommandHandlerError::UserProfileNotReady)?;
-        let output = UserProfileReadyOutput::new(command.user_id, username, display_name);
-
-        Ok(CommandHandled::same(output))
+        Ok(CommandHandled::same(UserProfileReadyOutput))
     }
 }
 
@@ -96,13 +90,13 @@ mod tests {
     use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
     use appletheia::application::repository::{Repository, RepositoryError};
     use appletheia::application::request_context::{
-        ActorRef, CorrelationId, MessageId, Principal, RequestContext,
+        CorrelationId, MessageId, Principal, RequestContext,
     };
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::Aggregate;
     use banking_iam_domain::{
-        User, UserDisplayName, UserId, UserIdentity, UserIdentityProvider, UserIdentitySubject,
-        Username,
+        User, UserBio, UserDisplayName, UserId, UserIdentity, UserIdentityProvider,
+        UserIdentitySubject, Username,
     };
     use uuid::Uuid;
 
@@ -182,11 +176,9 @@ mod tests {
         RequestContext::new(
             CorrelationId::from(Uuid::now_v7()),
             MessageId::new(),
-            ActorRef::Subject {
-                subject: subject.clone(),
-            },
             Principal::Authenticated { subject },
         )
+        .expect("request context should be valid")
     }
 
     fn registered_user() -> User {
@@ -211,6 +203,7 @@ mod tests {
             user_id,
             username: Username::try_from("alice").expect("username should be valid"),
             display_name: UserDisplayName::try_from("Alice").expect("display name should be valid"),
+            bio: Some(UserBio::try_from("Banking enthusiast").expect("bio should be valid")),
         };
 
         let plan = handler
@@ -221,10 +214,10 @@ mod tests {
             plan,
             AuthorizationPlan::OnlyPrincipals(vec![
                 PrincipalRequirement::AuthenticatedWithRelationship {
-                    requirement: RelationshipRequirement::Check {
-                        aggregate: AggregateRef::from_id::<User>(user_id),
-                        relation: UserProfileEditorRelation::NAME,
-                    },
+                    requirement: RelationshipRequirement::check::<User>(
+                        user_id,
+                        UserProfileEditorRelation::REF
+                    ),
                     projector_dependencies: ProjectorDependencies::Some(&[
                         UserOwnerRelationshipProjectorSpec::DESCRIPTOR,
                     ]),
@@ -251,18 +244,14 @@ mod tests {
                     username: Username::try_from("alice").expect("username should be valid"),
                     display_name: UserDisplayName::try_from("Alice")
                         .expect("display name should be valid"),
+                    bio: Some(
+                        UserBio::try_from("Banking enthusiast").expect("bio should be valid"),
+                    ),
                 },
             )
             .await
             .expect("command should succeed");
 
-        assert_eq!(
-            handled.into_output(),
-            UserProfileReadyOutput::new(
-                user_id,
-                Username::try_from("alice").expect("username should be valid"),
-                UserDisplayName::try_from("Alice").expect("display name should be valid"),
-            )
-        );
+        assert_eq!(handled.into_output(), UserProfileReadyOutput);
     }
 }

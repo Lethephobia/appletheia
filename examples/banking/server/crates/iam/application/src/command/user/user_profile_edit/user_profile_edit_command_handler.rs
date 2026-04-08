@@ -1,7 +1,7 @@
 use appletheia::application::authorization::{
-    AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
+    AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
-use appletheia::application::command::{CommandHandled, CommandHandler};
+use appletheia::application::command::{CommandHandled, CommandHandler, FieldPatch};
 use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
@@ -44,10 +44,10 @@ where
     ) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
             PrincipalRequirement::AuthenticatedWithRelationship {
-                requirement: RelationshipRequirement::Check {
-                    aggregate: AggregateRef::from_id::<User>(command.user_id),
-                    relation: UserProfileEditorRelation::NAME,
-                },
+                requirement: RelationshipRequirement::check::<User>(
+                    command.user_id,
+                    UserProfileEditorRelation::REF,
+                ),
                 projector_dependencies: ProjectorDependencies::Some(&[
                     UserOwnerRelationshipProjectorSpec::DESCRIPTOR,
                 ]),
@@ -65,25 +65,23 @@ where
             return Err(UserProfileEditCommandHandlerError::UserNotFound);
         };
 
-        if let Some(username) = command.username.clone() {
-            user.change_username(username)?;
+        if let FieldPatch::Set(username) = &command.username {
+            user.change_username(username.clone())?;
         }
 
-        if let Some(display_name) = command.display_name.clone() {
-            user.change_display_name(display_name)?;
+        if let FieldPatch::Set(display_name) = &command.display_name {
+            user.change_display_name(display_name.clone())?;
+        }
+
+        if let FieldPatch::Set(bio) = &command.bio {
+            user.change_bio(bio.clone())?;
         }
 
         self.user_repository
             .save(uow, request_context, &mut user)
             .await?;
 
-        let output = UserProfileEditOutput::new(
-            command.user_id,
-            user.username()?.cloned(),
-            user.display_name()?.cloned(),
-        );
-
-        Ok(CommandHandled::same(output))
+        Ok(CommandHandled::same(UserProfileEditOutput))
     }
 }
 
@@ -92,16 +90,16 @@ mod tests {
     use std::sync::{Arc, Mutex};
 
     use appletheia::application::authorization::AggregateRef;
-    use appletheia::application::command::CommandHandler;
+    use appletheia::application::command::{CommandHandler, FieldPatch};
     use appletheia::application::repository::{Repository, RepositoryError};
     use appletheia::application::request_context::{
-        ActorRef, CorrelationId, MessageId, Principal, RequestContext,
+        CorrelationId, MessageId, Principal, RequestContext,
     };
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::Aggregate;
     use banking_iam_domain::{
-        User, UserDisplayName, UserId, UserIdentity, UserIdentityProvider, UserIdentitySubject,
-        Username,
+        User, UserBio, UserDisplayName, UserId, UserIdentity, UserIdentityProvider,
+        UserIdentitySubject, Username,
     };
     use uuid::Uuid;
 
@@ -179,11 +177,9 @@ mod tests {
         RequestContext::new(
             CorrelationId::from(Uuid::now_v7()),
             MessageId::new(),
-            ActorRef::Subject {
-                subject: subject.clone(),
-            },
             Principal::Authenticated { subject },
         )
+        .expect("request context should be valid")
     }
 
     fn ready_user() -> User {
@@ -198,6 +194,7 @@ mod tests {
         user.ready_profile(
             Username::try_from("alice").expect("username should be valid"),
             UserDisplayName::try_from("Alice").expect("display name should be valid"),
+            Some(UserBio::try_from("Banking enthusiast").expect("bio should be valid")),
         )
         .expect("profile should be readied");
         user
@@ -218,26 +215,17 @@ mod tests {
                 &request_context,
                 &UserProfileEditCommand {
                     user_id,
-                    username: None,
-                    display_name: Some(
+                    username: FieldPatch::Unchanged,
+                    display_name: FieldPatch::Set(
                         UserDisplayName::try_from("Alice Example")
                             .expect("display name should be valid"),
                     ),
+                    bio: FieldPatch::Set(None),
                 },
             )
             .await
             .expect("command should succeed");
 
-        assert_eq!(
-            handled.into_output(),
-            UserProfileEditOutput::new(
-                user_id,
-                Some(Username::try_from("alice").expect("username should be valid")),
-                Some(
-                    UserDisplayName::try_from("Alice Example")
-                        .expect("display name should be valid")
-                ),
-            )
-        );
+        assert_eq!(handled.into_output(), UserProfileEditOutput);
     }
 }

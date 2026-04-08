@@ -42,7 +42,8 @@ impl CommandOutboxEnqueuer for PgCommandOutboxEnqueuer {
               command_name,
               payload,
               correlation_id,
-              causation_id
+              causation_id,
+              options
             ) VALUES
             "#,
         );
@@ -56,6 +57,8 @@ impl CommandOutboxEnqueuer for PgCommandOutboxEnqueuer {
                 let payload_value = command.command.value().clone();
                 let correlation_id_value = command.correlation_id.value();
                 let causation_id_value = command.causation_id.value();
+                let options_value = serde_json::to_value(&command.options)
+                    .map_err(|source| CommandOutboxEnqueueError::Persistence(Box::new(source)))?;
 
                 separated
                     .push("(")
@@ -65,6 +68,7 @@ impl CommandOutboxEnqueuer for PgCommandOutboxEnqueuer {
                     .push_bind(payload_value)
                     .push_bind(correlation_id_value)
                     .push_bind(causation_id_value)
+                    .push_bind(options_value)
                     .push(")");
             }
         }

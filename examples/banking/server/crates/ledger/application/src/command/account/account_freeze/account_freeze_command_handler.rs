@@ -1,16 +1,16 @@
 use appletheia::application::authorization::{
-    AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
+    AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_iam_application::RoleAssigneeRelationshipProjectorSpec;
+use banking_iam_application::OrganizationOwnerRelationshipProjectorSpec;
 use banking_ledger_domain::account::Account;
 
 use super::{AccountFreezeCommand, AccountFreezeCommandHandlerError, AccountFreezeOutput};
 use crate::authorization::AccountFreezerRelation;
-use crate::projection::AccountStatusManagerRelationshipProjectorSpec;
+use crate::projection::AccountOwnerRelationshipProjectorSpec;
 
 /// Handles `AccountFreezeCommand`.
 pub struct AccountFreezeCommandHandler<AR>
@@ -46,13 +46,13 @@ where
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
             PrincipalRequirement::System,
             PrincipalRequirement::AuthenticatedWithRelationship {
-                requirement: RelationshipRequirement::Check {
-                    aggregate: AggregateRef::from_id::<Account>(command.account_id),
-                    relation: AccountFreezerRelation::NAME,
-                },
+                requirement: RelationshipRequirement::check::<Account>(
+                    command.account_id,
+                    AccountFreezerRelation::REF,
+                ),
                 projector_dependencies: ProjectorDependencies::Some(&[
-                    RoleAssigneeRelationshipProjectorSpec::DESCRIPTOR,
-                    AccountStatusManagerRelationshipProjectorSpec::DESCRIPTOR,
+                    AccountOwnerRelationshipProjectorSpec::DESCRIPTOR,
+                    OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
                 ]),
             },
         ]))

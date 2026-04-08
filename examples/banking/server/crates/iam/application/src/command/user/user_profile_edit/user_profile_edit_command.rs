@@ -1,5 +1,6 @@
+use appletheia::application::command::FieldPatch;
 use appletheia::command;
-use banking_iam_domain::{UserDisplayName, UserId, Username};
+use banking_iam_domain::{UserBio, UserDisplayName, UserId, Username};
 use serde::{Deserialize, Serialize};
 
 /// Applies a partial update to a user's profile.
@@ -7,6 +8,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct UserProfileEditCommand {
     pub user_id: UserId,
-    pub username: Option<Username>,
-    pub display_name: Option<UserDisplayName>,
+    pub username: FieldPatch<Username>,
+    pub display_name: FieldPatch<UserDisplayName>,
+    pub bio: FieldPatch<Option<UserBio>>,
 }

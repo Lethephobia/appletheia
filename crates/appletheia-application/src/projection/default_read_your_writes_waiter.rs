@@ -278,8 +278,8 @@ where
         projector_dependencies: ProjectorDependencies<'_>,
         saga_dependencies: SagaDependencies<'_>,
     ) -> Result<(), ReadYourWritesWaitError> {
-        let deadline = Instant::now() + timeout.value();
-        let poll_duration = poll_interval.value();
+        let deadline = Instant::now() + StdDuration::from(timeout);
+        let poll_duration = StdDuration::from(poll_interval);
 
         match target {
             ReadYourWritesTarget::Message(after) => {
@@ -348,7 +348,7 @@ mod tests {
     use crate::projection::{
         ProjectorDependencies, ProjectorDescriptor, ProjectorName, ReadYourWritesTarget,
     };
-    use crate::request_context::{ActorRef, CorrelationId, Principal, RequestContext};
+    use crate::request_context::{CorrelationId, Principal, RequestContext};
     use crate::saga::{
         SagaDependencies, SagaDescriptor, SagaName, SagaNameOwned, SagaStatus, SagaStatusLookup,
         SagaStatusLookupError,
@@ -620,12 +620,8 @@ mod tests {
             occurred_at: EventOccurredAt::now(),
             correlation_id,
             causation_id: CausationId::from(message_id),
-            context: RequestContext::new(
-                correlation_id,
-                message_id,
-                ActorRef::System,
-                Principal::System,
-            ),
+            context: RequestContext::new(correlation_id, message_id, Principal::System)
+                .expect("request context should be valid"),
         }
     }
 

@@ -139,6 +139,7 @@ mod tests {
     use uuid::Uuid;
 
     use crate::authorization::DefaultRelationshipResolver;
+    use crate::authorization::InMemoryAuthorizationModel;
     use crate::authorization::RelationshipChange;
     use crate::authorization::RelationshipStoreError;
     use crate::event::{AggregateIdValue, AggregateTypeOwned};
@@ -148,10 +149,9 @@ mod tests {
     };
 
     use crate::authorization::{
-        AggregateRef, AuthorizationModel, AuthorizationModelError, AuthorizationPlan,
-        AuthorizationTypeDefinition, Authorizer, DefaultAuthorizer, PrincipalRequirement,
-        RelationName, RelationNameOwned, RelationshipRequirement, RelationshipResolverConfig,
-        RelationshipStore, RelationshipSubject, UsersetExpr,
+        AggregateRef, AuthorizationPlan, Authorizer, DefaultAuthorizer, PrincipalRequirement,
+        RelationName, RelationRefOwned, RelationshipRequirement, RelationshipResolverConfig,
+        RelationshipStore, RelationshipSubject, UsersetExprOwned,
     };
     use crate::projection::ProjectorDependencies;
 
@@ -181,7 +181,7 @@ mod tests {
 
     #[derive(Clone, Default)]
     struct TestStore {
-        map: HashMap<(AggregateRef, RelationNameOwned), Vec<RelationshipSubject>>,
+        map: HashMap<(AggregateRef, RelationRefOwned), Vec<RelationshipSubject>>,
     }
 
     impl RelationshipStore for TestStore {
@@ -199,8 +199,7 @@ mod tests {
             &self,
             _uow: &mut TestUow,
             _subject: &RelationshipSubject,
-            _aggregate_type: &AggregateTypeOwned,
-            _relation: &RelationNameOwned,
+            _relation: &RelationRefOwned,
         ) -> Result<Vec<AggregateRef>, RelationshipStoreError> {
             Ok(Vec::new())
         }
@@ -209,27 +208,14 @@ mod tests {
             &self,
             _uow: &mut TestUow,
             aggregate: &AggregateRef,
-            relation: &RelationNameOwned,
+            relation: &RelationRefOwned,
+            _subject_aggregate_type: Option<&AggregateTypeOwned>,
         ) -> Result<Vec<RelationshipSubject>, RelationshipStoreError> {
             Ok(self
                 .map
                 .get(&(aggregate.clone(), relation.clone()))
                 .cloned()
                 .unwrap_or_default())
-        }
-    }
-
-    #[derive(Clone, Default)]
-    struct TestModels {
-        models: HashMap<AggregateTypeOwned, AuthorizationTypeDefinition>,
-    }
-
-    impl AuthorizationModel for TestModels {
-        async fn type_definition_for(
-            &self,
-            aggregate_type: &AggregateTypeOwned,
-        ) -> Result<Option<AuthorizationTypeDefinition>, AuthorizationModelError> {
-            Ok(self.models.get(aggregate_type).cloned())
         }
     }
 
@@ -248,6 +234,13 @@ mod tests {
         RelationName::new(value)
     }
 
+    fn relation_ref(aggregate_type_name: &str, relation_name: &'static str) -> RelationRefOwned {
+        RelationRefOwned::new(
+            aggregate_type(aggregate_type_name),
+            relation(relation_name).into(),
+        )
+    }
+
     #[tokio::test]
     async fn allows_direct_subject_in_this_relation() {
         let doc = aggregate_ref("document", Uuid::from_u128(1));
@@ -255,15 +248,12 @@ mod tests {
 
         let mut store = TestStore::default();
         store.map.insert(
-            (doc.clone(), RelationNameOwned::from(relation("editor"))),
+            (doc.clone(), relation_ref("document", "editor")),
             vec![RelationshipSubject::Aggregate(user.clone())],
         );
 
-        let mut model = AuthorizationTypeDefinition::default();
-        model.define_relation(relation("editor"), UsersetExpr::This);
-
-        let mut models = TestModels::default();
-        models.models.insert(doc.aggregate_type.clone(), model);
+        let mut models = InMemoryAuthorizationModel::new();
+        models.define_expr(relation_ref("document", "editor"), UsersetExprOwned::This);
 
         let resolver =
             DefaultRelationshipResolver::new(store, models, RelationshipResolverConfig::default());
@@ -277,7 +267,7 @@ mod tests {
                     PrincipalRequirement::AuthenticatedWithRelationship {
                         requirement: RelationshipRequirement::Check {
                             aggregate: doc,
-                            relation: relation("editor"),
+                            relation: relation_ref("document", "editor"),
                         },
                         projector_dependencies: ProjectorDependencies::None,
                     },

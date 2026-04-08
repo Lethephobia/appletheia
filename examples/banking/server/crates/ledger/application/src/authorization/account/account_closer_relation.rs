@@ -1,21 +1,23 @@
-use appletheia::application::authorization::{
-    Relation, RelationName, RelationNameOwned, UsersetExpr,
-};
+use appletheia::application::authorization::{Relation, RelationName, RelationRef, UsersetExpr};
+use appletheia::domain::Aggregate;
+use banking_iam_application::OrganizationAccountCloserRelation;
 
-use super::AccountOwnerRelation;
+use super::{Account, AccountOwnerRelation};
 
 /// Allows owners to close an account.
 pub struct AccountCloserRelation;
 
 impl Relation for AccountCloserRelation {
-    const NAME: RelationName = RelationName::new("closer");
+    const REF: RelationRef = RelationRef::new(Account::TYPE, RelationName::new("closer"));
 
-    fn expr(&self) -> UsersetExpr {
-        UsersetExpr::Union(vec![
-            UsersetExpr::This,
-            UsersetExpr::ComputedUserset {
-                relation: RelationNameOwned::from(AccountOwnerRelation::NAME),
-            },
-        ])
-    }
+    const EXPR: UsersetExpr = UsersetExpr::Union(&[
+        UsersetExpr::This,
+        UsersetExpr::ComputedUserset {
+            relation: AccountOwnerRelation::REF,
+        },
+        UsersetExpr::TupleToUserset {
+            tupleset_relation: AccountOwnerRelation::REF,
+            computed_userset: OrganizationAccountCloserRelation::REF,
+        },
+    ]);
 }

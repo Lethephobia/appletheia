@@ -1,39 +1,39 @@
 use appletheia::event_payload;
-use banking_iam_domain::UserId;
 
+use crate::core::CurrencyAmount;
 use crate::currency_definition::CurrencyDefinitionId;
 
-use super::{AccountBalance, AccountEventPayloadError, AccountId};
+use super::{AccountEventPayloadError, AccountId, AccountName, AccountOwner};
 
 /// Represents the domain events emitted by an `Account` aggregate.
 #[event_payload(error = AccountEventPayloadError)]
 pub enum AccountEventPayload {
     Opened {
         id: AccountId,
-        user_id: UserId,
+        owner: AccountOwner,
+        name: AccountName,
         currency_definition_id: CurrencyDefinitionId,
+    },
+    Renamed {
+        name: AccountName,
     },
     Frozen,
     Thawed,
     Closed,
     Deposited {
-        amount: AccountBalance,
+        amount: CurrencyAmount,
     },
     Withdrawn {
-        amount: AccountBalance,
+        amount: CurrencyAmount,
     },
     FundsReserved {
-        amount: AccountBalance,
+        amount: CurrencyAmount,
     },
     ReservedFundsReleased {
-        amount: AccountBalance,
+        amount: CurrencyAmount,
     },
     ReservedFundsCommitted {
-        amount: AccountBalance,
-    },
-    TransferRequested {
-        to_account_id: AccountId,
-        amount: AccountBalance,
+        amount: CurrencyAmount,
     },
 }
 
@@ -41,17 +41,19 @@ pub enum AccountEventPayload {
 mod tests {
     use appletheia::domain::EventPayload;
 
-    use banking_iam_domain::UserId;
-
     use crate::currency_definition::CurrencyDefinitionId;
 
-    use super::{AccountBalance, AccountEventPayload, AccountId};
+    use super::{AccountEventPayload, AccountId, AccountName, AccountOwner, CurrencyAmount};
 
     #[test]
     fn returns_stable_event_names() {
         assert_eq!(
             AccountEventPayload::OPENED,
             appletheia::domain::EventName::new("opened")
+        );
+        assert_eq!(
+            AccountEventPayload::RENAMED,
+            appletheia::domain::EventName::new("renamed")
         );
         assert_eq!(
             AccountEventPayload::FROZEN,
@@ -85,10 +87,6 @@ mod tests {
             AccountEventPayload::RESERVED_FUNDS_COMMITTED,
             appletheia::domain::EventName::new("reserved_funds_committed")
         );
-        assert_eq!(
-            AccountEventPayload::TRANSFER_REQUESTED,
-            appletheia::domain::EventName::new("transfer_requested")
-        );
     }
 
     #[test]
@@ -102,19 +100,49 @@ mod tests {
     fn serializes_payload_to_json() {
         let payload = AccountEventPayload::Opened {
             id: AccountId::new(),
-            user_id: UserId::new(),
+            owner: AccountOwner::User(banking_iam_domain::UserId::new()),
+            name: AccountName::try_from("main").expect("account name should be valid"),
             currency_definition_id: CurrencyDefinitionId::new(),
         };
 
         let value = payload.into_json_value().expect("payload should serialize");
 
         assert_eq!(value["type"], serde_json::json!("opened"));
+        assert_eq!(value["data"]["owner"]["type"], serde_json::json!("user"));
+    }
+
+    #[test]
+    fn serializes_organization_owned_payload_to_json() {
+        let payload = AccountEventPayload::Opened {
+            id: AccountId::new(),
+            owner: AccountOwner::Organization(banking_iam_domain::OrganizationId::new()),
+            name: AccountName::try_from("ops").expect("account name should be valid"),
+            currency_definition_id: CurrencyDefinitionId::new(),
+        };
+
+        let value = payload.into_json_value().expect("payload should serialize");
+
+        assert_eq!(
+            value["data"]["owner"]["type"],
+            serde_json::json!("organization")
+        );
+    }
+
+    #[test]
+    fn serializes_renamed_payload_to_json() {
+        let payload = AccountEventPayload::Renamed {
+            name: AccountName::try_from("savings").expect("account name should be valid"),
+        };
+
+        let value = payload.into_json_value().expect("payload should serialize");
+
+        assert_eq!(value["type"], serde_json::json!("renamed"));
     }
 
     #[test]
     fn serializes_balance_movement_payload_to_json() {
         let payload = AccountEventPayload::Deposited {
-            amount: AccountBalance::new(10),
+            amount: CurrencyAmount::new(10),
         };
 
         let value = payload.into_json_value().expect("payload should serialize");
@@ -125,23 +153,11 @@ mod tests {
     #[test]
     fn serializes_reserved_funds_payload_to_json() {
         let payload = AccountEventPayload::FundsReserved {
-            amount: AccountBalance::new(10),
+            amount: CurrencyAmount::new(10),
         };
 
         let value = payload.into_json_value().expect("payload should serialize");
 
         assert_eq!(value["type"], serde_json::json!("funds_reserved"));
-    }
-
-    #[test]
-    fn serializes_transfer_request_payload_to_json() {
-        let payload = AccountEventPayload::TransferRequested {
-            to_account_id: AccountId::new(),
-            amount: AccountBalance::new(10),
-        };
-
-        let value = payload.into_json_value().expect("payload should serialize");
-
-        assert_eq!(value["type"], serde_json::json!("transfer_requested"));
     }
 }

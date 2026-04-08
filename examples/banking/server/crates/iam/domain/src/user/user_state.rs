@@ -105,6 +105,7 @@ mod tests {
             username: Username::try_from("alice").expect("username should be valid"),
             display_name: UserDisplayName::try_from("Alice Example")
                 .expect("display name should be valid"),
+            bio: None,
         };
 
         let entries = state.unique_entries().expect("unique entries should build");
@@ -160,6 +161,7 @@ mod tests {
             username: Username::try_from("alice").expect("username should be valid"),
             display_name: UserDisplayName::try_from("Alice Example")
                 .expect("display name should be valid"),
+            bio: None,
         };
 
         let entries = state.unique_entries().expect("unique entries should build");

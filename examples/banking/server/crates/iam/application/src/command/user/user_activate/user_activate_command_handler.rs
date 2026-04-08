@@ -1,5 +1,5 @@
 use appletheia::application::authorization::{
-    AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
+    AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
@@ -9,9 +9,7 @@ use banking_iam_domain::User;
 
 use super::{UserActivateCommand, UserActivateCommandHandlerError, UserActivateOutput};
 use crate::authorization::UserActivatorRelation;
-use crate::projection::{
-    RoleAssigneeRelationshipProjectorSpec, UserStatusManagerRelationshipProjectorSpec,
-};
+use crate::projection::UserStatusManagerRelationshipProjectorSpec;
 
 /// Handles `UserActivateCommand`.
 pub struct UserActivateCommandHandler<UR>
@@ -47,12 +45,11 @@ where
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
             PrincipalRequirement::System,
             PrincipalRequirement::AuthenticatedWithRelationship {
-                requirement: RelationshipRequirement::Check {
-                    aggregate: AggregateRef::from_id::<User>(command.user_id),
-                    relation: UserActivatorRelation::NAME,
-                },
+                requirement: RelationshipRequirement::check::<User>(
+                    command.user_id,
+                    UserActivatorRelation::REF,
+                ),
                 projector_dependencies: ProjectorDependencies::Some(&[
-                    RoleAssigneeRelationshipProjectorSpec::DESCRIPTOR,
                     UserStatusManagerRelationshipProjectorSpec::DESCRIPTOR,
                 ]),
             },

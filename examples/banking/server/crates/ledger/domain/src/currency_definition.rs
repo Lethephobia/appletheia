@@ -2,6 +2,7 @@ mod currency_definition_error;
 mod currency_definition_event_payload;
 mod currency_definition_event_payload_error;
 mod currency_definition_id;
+mod currency_definition_owner;
 mod currency_definition_state;
 mod currency_definition_state_error;
 mod currency_definition_status;
@@ -12,6 +13,7 @@ pub use currency_definition_error::CurrencyDefinitionError;
 pub use currency_definition_event_payload::CurrencyDefinitionEventPayload;
 pub use currency_definition_event_payload_error::CurrencyDefinitionEventPayloadError;
 pub use currency_definition_id::CurrencyDefinitionId;
+pub use currency_definition_owner::CurrencyDefinitionOwner;
 pub use currency_definition_state::CurrencyDefinitionState;
 pub use currency_definition_state_error::CurrencyDefinitionStateError;
 pub use currency_definition_status::CurrencyDefinitionStatus;
@@ -21,6 +23,7 @@ pub use currency_name_error::CurrencyNameError;
 use appletheia::aggregate;
 use appletheia::domain::{Aggregate, AggregateApply, AggregateCore};
 
+use crate::core::{CurrencyAmount, CurrencyAmountError};
 use crate::core::{CurrencyDecimals, CurrencySymbol};
 
 /// Represents the `CurrencyDefinition` aggregate root.
@@ -30,6 +33,11 @@ pub struct CurrencyDefinition {
 }
 
 impl CurrencyDefinition {
+    /// Returns the current owner.
+    pub fn owner(&self) -> Result<CurrencyDefinitionOwner, CurrencyDefinitionError> {
+        Ok(self.state_required()?.owner)
+    }
+
     /// Returns the current symbol.
     pub fn symbol(&self) -> Result<&CurrencySymbol, CurrencyDefinitionError> {
         Ok(&self.state_required()?.symbol)
@@ -50,6 +58,11 @@ impl CurrencyDefinition {
         Ok(self.state_required()?.status)
     }
 
+    /// Returns the total supply.
+    pub fn supply(&self) -> Result<&CurrencyAmount, CurrencyDefinitionError> {
+        Ok(&self.state_required()?.supply)
+    }
+
     /// Returns whether the currency is active.
     pub fn is_active(&self) -> Result<bool, CurrencyDefinitionError> {
         Ok(self.state_required()?.status.is_active())
@@ -58,6 +71,7 @@ impl CurrencyDefinition {
     /// Defines a new currency.
     pub fn define(
         &mut self,
+        owner: CurrencyDefinitionOwner,
         symbol: CurrencySymbol,
         name: CurrencyName,
         decimals: CurrencyDecimals,
@@ -68,6 +82,7 @@ impl CurrencyDefinition {
 
         self.append_event(CurrencyDefinitionEventPayload::Defined {
             id: CurrencyDefinitionId::new(),
+            owner,
             symbol,
             name,
             decimals,
@@ -76,6 +91,8 @@ impl CurrencyDefinition {
 
     /// Changes the current currency symbol.
     pub fn change_symbol(&mut self, symbol: CurrencySymbol) -> Result<(), CurrencyDefinitionError> {
+        self.ensure_not_removed()?;
+
         if self.state_required()?.symbol.eq(&symbol) {
             return Ok(());
         }
@@ -85,6 +102,8 @@ impl CurrencyDefinition {
 
     /// Changes the current currency name.
     pub fn change_name(&mut self, name: CurrencyName) -> Result<(), CurrencyDefinitionError> {
+        self.ensure_not_removed()?;
+
         if self.state_required()?.name.eq(&name) {
             return Ok(());
         }
@@ -94,6 +113,8 @@ impl CurrencyDefinition {
 
     /// Activates the currency.
     pub fn activate(&mut self) -> Result<(), CurrencyDefinitionError> {
+        self.ensure_not_removed()?;
+
         if self.state_required()?.status.is_active() {
             return Ok(());
         }
@@ -103,6 +124,8 @@ impl CurrencyDefinition {
 
     /// Deactivates the currency.
     pub fn deactivate(&mut self) -> Result<(), CurrencyDefinitionError> {
+        self.ensure_not_removed()?;
+
         if self.state_required()?.status.is_inactive() {
             return Ok(());
         }
@@ -112,11 +135,41 @@ impl CurrencyDefinition {
 
     /// Permanently removes the currency definition.
     pub fn remove(&mut self) -> Result<(), CurrencyDefinitionError> {
-        if self.state_required()?.status.is_removed() {
+        self.ensure_not_removed()?;
+
+        self.append_event(CurrencyDefinitionEventPayload::Removed)
+    }
+
+    /// Increases the total supply.
+    pub fn increase_supply(
+        &mut self,
+        amount: CurrencyAmount,
+    ) -> Result<(), CurrencyDefinitionError> {
+        self.ensure_active()?;
+
+        if amount.is_zero() {
             return Ok(());
         }
 
-        self.append_event(CurrencyDefinitionEventPayload::Removed)
+        self.append_event(CurrencyDefinitionEventPayload::SupplyIncreased { amount })
+    }
+
+    /// Decreases the total supply.
+    pub fn decrease_supply(
+        &mut self,
+        amount: CurrencyAmount,
+    ) -> Result<(), CurrencyDefinitionError> {
+        self.ensure_not_removed()?;
+
+        if amount.is_zero() {
+            return Ok(());
+        }
+
+        if self.state_required()?.supply.value() < amount.value() {
+            return Err(CurrencyDefinitionError::InsufficientSupply);
+        }
+
+        self.append_event(CurrencyDefinitionEventPayload::SupplyDecreased { amount })
     }
 
     fn ensure_not_removed(&self) -> Result<(), CurrencyDefinitionError> {
@@ -125,6 +178,14 @@ impl CurrencyDefinition {
         }
 
         Ok(())
+    }
+
+    fn ensure_active(&self) -> Result<(), CurrencyDefinitionError> {
+        match self.state_required()?.status {
+            CurrencyDefinitionStatus::Active => Ok(()),
+            CurrencyDefinitionStatus::Inactive => Err(CurrencyDefinitionError::Inactive),
+            CurrencyDefinitionStatus::Removed => Err(CurrencyDefinitionError::Removed),
+        }
     }
 }
 
@@ -138,48 +199,51 @@ impl AggregateApply<CurrencyDefinitionEventPayload, CurrencyDefinitionError>
         match payload {
             CurrencyDefinitionEventPayload::Defined {
                 id,
+                owner,
                 symbol,
                 name,
                 decimals,
             } => {
-                if self.state().is_some() {
-                    return Err(CurrencyDefinitionError::AlreadyDefined);
-                }
-
-                self.set_state(Some(CurrencyDefinitionState::new(
+                let state = CurrencyDefinitionState::new(
                     *id,
+                    *owner,
                     symbol.clone(),
                     name.clone(),
                     *decimals,
-                )));
+                );
+                self.set_state(Some(state));
             }
             CurrencyDefinitionEventPayload::SymbolChanged { symbol } => {
-                self.ensure_not_removed()?;
                 self.state_required_mut()?.symbol = symbol.clone();
             }
             CurrencyDefinitionEventPayload::NameChanged { name } => {
-                self.ensure_not_removed()?;
                 self.state_required_mut()?.name = name.clone();
             }
-            CurrencyDefinitionEventPayload::Activated => match self.state_required()?.status {
-                CurrencyDefinitionStatus::Active => {}
-                CurrencyDefinitionStatus::Inactive => {
-                    self.state_required_mut()?.status = CurrencyDefinitionStatus::Active;
-                }
-                CurrencyDefinitionStatus::Removed => return Err(CurrencyDefinitionError::Removed),
-            },
-            CurrencyDefinitionEventPayload::Deactivated => match self.state_required()?.status {
-                CurrencyDefinitionStatus::Active => {
-                    self.state_required_mut()?.status = CurrencyDefinitionStatus::Inactive;
-                }
-                CurrencyDefinitionStatus::Inactive => {}
-                CurrencyDefinitionStatus::Removed => return Err(CurrencyDefinitionError::Removed),
-            },
+            CurrencyDefinitionEventPayload::SupplyIncreased { amount } => {
+                let state = self.state_required_mut()?;
+                state.supply = state.supply.try_add(*amount).map_err(|error| match error {
+                    CurrencyAmountError::BalanceOverflow => CurrencyDefinitionError::SupplyOverflow,
+                    CurrencyAmountError::InsufficientBalance => {
+                        CurrencyDefinitionError::InsufficientSupply
+                    }
+                })?;
+            }
+            CurrencyDefinitionEventPayload::SupplyDecreased { amount } => {
+                let state = self.state_required_mut()?;
+                state.supply = state.supply.try_sub(*amount).map_err(|error| match error {
+                    CurrencyAmountError::BalanceOverflow => CurrencyDefinitionError::SupplyOverflow,
+                    CurrencyAmountError::InsufficientBalance => {
+                        CurrencyDefinitionError::InsufficientSupply
+                    }
+                })?;
+            }
+            CurrencyDefinitionEventPayload::Activated => {
+                self.state_required_mut()?.status = CurrencyDefinitionStatus::Active;
+            }
+            CurrencyDefinitionEventPayload::Deactivated => {
+                self.state_required_mut()?.status = CurrencyDefinitionStatus::Inactive;
+            }
             CurrencyDefinitionEventPayload::Removed => {
-                if self.state_required()?.status.is_removed() {
-                    return Ok(());
-                }
-
                 self.state_required_mut()?.status = CurrencyDefinitionStatus::Removed;
             }
         }
@@ -192,22 +256,33 @@ impl AggregateApply<CurrencyDefinitionEventPayload, CurrencyDefinitionError>
 mod tests {
     use appletheia::domain::{Aggregate, Event, EventPayload};
 
+    use crate::core::CurrencyAmount;
     use crate::core::{CurrencyDecimals, CurrencySymbol};
+    use banking_iam_domain::{OrganizationId, UserId};
 
     use super::{
         CurrencyDefinition, CurrencyDefinitionEventPayload, CurrencyDefinitionId,
-        CurrencyDefinitionStatus, CurrencyName,
+        CurrencyDefinitionOwner, CurrencyDefinitionStatus, CurrencyName,
     };
+
+    fn user_owner() -> CurrencyDefinitionOwner {
+        CurrencyDefinitionOwner::user(UserId::new())
+    }
+
+    fn organization_owner() -> CurrencyDefinitionOwner {
+        CurrencyDefinitionOwner::organization(OrganizationId::new())
+    }
 
     #[test]
     fn define_initializes_state_and_records_event() {
+        let owner = user_owner();
         let symbol = CurrencySymbol::try_from("usdc").expect("symbol should be valid");
         let name = CurrencyName::try_from("USD Coin").expect("name should be valid");
         let decimals = CurrencyDecimals::new(6);
         let mut currency_definition = CurrencyDefinition::default();
 
         currency_definition
-            .define(symbol.clone(), name.clone(), decimals)
+            .define(owner.clone(), symbol.clone(), name.clone(), decimals)
             .expect("definition should succeed");
 
         assert_eq!(
@@ -227,6 +302,10 @@ mod tests {
             &name
         );
         assert_eq!(
+            currency_definition.owner().expect("owner should exist"),
+            owner
+        );
+        assert_eq!(
             currency_definition
                 .decimals()
                 .expect("decimals should exist"),
@@ -238,6 +317,10 @@ mod tests {
                 .expect("active state should exist")
         );
         assert_eq!(
+            currency_definition.supply().expect("supply should exist"),
+            &CurrencyAmount::zero()
+        );
+        assert_eq!(
             currency_definition.status().expect("status should exist"),
             CurrencyDefinitionStatus::Active
         );
@@ -246,16 +329,29 @@ mod tests {
             currency_definition.uncommitted_events()[0].payload().name(),
             CurrencyDefinitionEventPayload::DEFINED
         );
+        assert_eq!(
+            currency_definition.uncommitted_events()[0].payload(),
+            &CurrencyDefinitionEventPayload::Defined {
+                id: currency_definition
+                    .aggregate_id()
+                    .expect("aggregate id should exist"),
+                owner,
+                symbol,
+                name,
+                decimals,
+            }
+        );
     }
 
     #[test]
     fn changing_to_same_values_and_same_status_is_a_no_op() {
+        let owner = user_owner();
         let symbol = CurrencySymbol::try_from("usdc").expect("symbol should be valid");
         let name = CurrencyName::try_from("USD Coin").expect("name should be valid");
         let decimals = CurrencyDecimals::new(6);
         let mut currency_definition = CurrencyDefinition::default();
         currency_definition
-            .define(symbol.clone(), name.clone(), decimals)
+            .define(owner, symbol.clone(), name.clone(), decimals)
             .expect("definition should succeed");
 
         currency_definition
@@ -273,6 +369,7 @@ mod tests {
 
     #[test]
     fn change_methods_append_events_and_update_state() {
+        let owner = user_owner();
         let initial_symbol = CurrencySymbol::try_from("usdc").expect("symbol should be valid");
         let initial_name = CurrencyName::try_from("USD Coin").expect("name should be valid");
         let changed_symbol = CurrencySymbol::try_from("usdce").expect("symbol should be valid");
@@ -280,7 +377,12 @@ mod tests {
             CurrencyName::try_from("USD Coin Example").expect("name should be valid");
         let mut currency_definition = CurrencyDefinition::default();
         currency_definition
-            .define(initial_symbol, initial_name, CurrencyDecimals::new(6))
+            .define(
+                owner,
+                initial_symbol,
+                initial_name,
+                CurrencyDecimals::new(6),
+            )
             .expect("definition should succeed");
 
         currency_definition
@@ -317,12 +419,14 @@ mod tests {
 
     #[test]
     fn replay_events_rebuilds_state() {
+        let owner = user_owner();
         let id = CurrencyDefinitionId::new();
         let defined = Event::new(
             id,
             appletheia::domain::AggregateVersion::try_from(1).expect("version should be valid"),
             CurrencyDefinitionEventPayload::Defined {
                 id,
+                owner: owner.clone(),
                 symbol: CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
                 name: CurrencyName::try_from("USD Coin").expect("name should be valid"),
                 decimals: CurrencyDecimals::new(6),
@@ -346,6 +450,10 @@ mod tests {
                 .value(),
             "USDC"
         );
+        assert_eq!(
+            currency_definition.owner().expect("owner should exist"),
+            owner
+        );
         assert!(
             !currency_definition
                 .is_active()
@@ -356,10 +464,29 @@ mod tests {
     }
 
     #[test]
+    fn define_supports_organization_owner() {
+        let owner = organization_owner();
+        let symbol = CurrencySymbol::try_from("usdc").expect("symbol should be valid");
+        let name = CurrencyName::try_from("USD Coin").expect("name should be valid");
+        let mut currency_definition = CurrencyDefinition::default();
+
+        currency_definition
+            .define(owner.clone(), symbol, name, CurrencyDecimals::new(6))
+            .expect("definition should succeed");
+
+        assert_eq!(
+            currency_definition.owner().expect("owner should exist"),
+            owner
+        );
+    }
+
+    #[test]
     fn define_rejects_already_defined_currency() {
+        let owner = user_owner();
         let mut currency_definition = CurrencyDefinition::default();
         currency_definition
             .define(
+                owner.clone(),
                 CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
                 CurrencyName::try_from("USD Coin").expect("name should be valid"),
                 CurrencyDecimals::new(6),
@@ -368,6 +495,7 @@ mod tests {
 
         let error = currency_definition
             .define(
+                owner,
                 CurrencySymbol::try_from("sol").expect("symbol should be valid"),
                 CurrencyName::try_from("Solana").expect("name should be valid"),
                 CurrencyDecimals::new(9),
@@ -381,10 +509,62 @@ mod tests {
     }
 
     #[test]
-    fn remove_updates_status_to_removed() {
+    fn supply_methods_update_supply() {
+        let owner = user_owner();
         let mut currency_definition = CurrencyDefinition::default();
         currency_definition
             .define(
+                owner,
+                CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
+                CurrencyName::try_from("USD Coin").expect("name should be valid"),
+                CurrencyDecimals::new(6),
+            )
+            .expect("definition should succeed");
+
+        currency_definition
+            .increase_supply(CurrencyAmount::new(100))
+            .expect("increase should succeed");
+        currency_definition
+            .decrease_supply(CurrencyAmount::new(40))
+            .expect("decrease should succeed");
+
+        assert_eq!(
+            currency_definition.supply().expect("supply should exist"),
+            &CurrencyAmount::new(60)
+        );
+        assert_eq!(currency_definition.uncommitted_events().len(), 3);
+    }
+
+    #[test]
+    fn increase_supply_rejects_inactive_currency() {
+        let owner = user_owner();
+        let mut currency_definition = CurrencyDefinition::default();
+        currency_definition
+            .define(
+                owner,
+                CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
+                CurrencyName::try_from("USD Coin").expect("name should be valid"),
+                CurrencyDecimals::new(6),
+            )
+            .expect("definition should succeed");
+        currency_definition
+            .deactivate()
+            .expect("deactivate should succeed");
+
+        let error = currency_definition
+            .increase_supply(CurrencyAmount::new(1))
+            .expect_err("increase should fail");
+
+        assert!(matches!(error, super::CurrencyDefinitionError::Inactive));
+    }
+
+    #[test]
+    fn remove_updates_status_to_removed() {
+        let owner = user_owner();
+        let mut currency_definition = CurrencyDefinition::default();
+        currency_definition
+            .define(
+                owner,
                 CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
                 CurrencyName::try_from("USD Coin").expect("name should be valid"),
                 CurrencyDecimals::new(6),
@@ -392,12 +572,19 @@ mod tests {
             .expect("definition should succeed");
 
         currency_definition.remove().expect("remove should succeed");
+        let duplicate_remove_error = currency_definition
+            .remove()
+            .expect_err("duplicate remove should fail");
 
         assert_eq!(
             currency_definition.status().expect("status should exist"),
             CurrencyDefinitionStatus::Removed
         );
         assert_eq!(currency_definition.uncommitted_events().len(), 2);
+        assert!(matches!(
+            duplicate_remove_error,
+            super::CurrencyDefinitionError::Removed
+        ));
         assert_eq!(
             currency_definition.uncommitted_events()[1].payload().name(),
             CurrencyDefinitionEventPayload::REMOVED
@@ -406,9 +593,11 @@ mod tests {
 
     #[test]
     fn operations_reject_removed_currency_definition() {
+        let owner = user_owner();
         let mut currency_definition = CurrencyDefinition::default();
         currency_definition
             .define(
+                owner,
                 CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
                 CurrencyName::try_from("USD Coin").expect("name should be valid"),
                 CurrencyDecimals::new(6),
@@ -428,6 +617,9 @@ mod tests {
         let name_error = currency_definition
             .change_name(CurrencyName::try_from("USD Coin Example").expect("name should be valid"))
             .expect_err("name change should fail");
+        let remove_error = currency_definition
+            .remove()
+            .expect_err("remove should fail");
 
         assert!(matches!(
             activate_error,
@@ -443,6 +635,10 @@ mod tests {
         ));
         assert!(matches!(
             name_error,
+            super::CurrencyDefinitionError::Removed
+        ));
+        assert!(matches!(
+            remove_error,
             super::CurrencyDefinitionError::Removed
         ));
     }

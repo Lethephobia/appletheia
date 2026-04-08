@@ -1,14 +1,19 @@
 use appletheia::event_payload;
 
+use crate::core::CurrencyAmount;
 use crate::core::{CurrencyDecimals, CurrencySymbol};
 
-use super::{CurrencyDefinitionEventPayloadError, CurrencyDefinitionId, CurrencyName};
+use super::{
+    CurrencyDefinitionEventPayloadError, CurrencyDefinitionId, CurrencyDefinitionOwner,
+    CurrencyName,
+};
 
 /// Represents the domain events emitted by a `CurrencyDefinition` aggregate.
 #[event_payload(error = CurrencyDefinitionEventPayloadError)]
 pub enum CurrencyDefinitionEventPayload {
     Defined {
         id: CurrencyDefinitionId,
+        owner: CurrencyDefinitionOwner,
         symbol: CurrencySymbol,
         name: CurrencyName,
         decimals: CurrencyDecimals,
@@ -19,6 +24,12 @@ pub enum CurrencyDefinitionEventPayload {
     NameChanged {
         name: CurrencyName,
     },
+    SupplyIncreased {
+        amount: CurrencyAmount,
+    },
+    SupplyDecreased {
+        amount: CurrencyAmount,
+    },
     Activated,
     Deactivated,
     Removed,
@@ -28,9 +39,9 @@ pub enum CurrencyDefinitionEventPayload {
 mod tests {
     use appletheia::domain::EventPayload;
 
-    use crate::core::{CurrencyDecimals, CurrencySymbol};
+    use banking_iam_domain::UserId;
 
-    use super::{CurrencyDefinitionEventPayload, CurrencyDefinitionId, CurrencyName};
+    use super::{CurrencyDefinitionEventPayload, CurrencyDefinitionOwner};
 
     #[test]
     fn returns_stable_event_names() {
@@ -45,6 +56,14 @@ mod tests {
         assert_eq!(
             CurrencyDefinitionEventPayload::NAME_CHANGED,
             appletheia::domain::EventName::new("name_changed")
+        );
+        assert_eq!(
+            CurrencyDefinitionEventPayload::SUPPLY_INCREASED,
+            appletheia::domain::EventName::new("supply_increased")
+        );
+        assert_eq!(
+            CurrencyDefinitionEventPayload::SUPPLY_DECREASED,
+            appletheia::domain::EventName::new("supply_decreased")
         );
         assert_eq!(
             CurrencyDefinitionEventPayload::ACTIVATED,
@@ -70,14 +89,16 @@ mod tests {
     #[test]
     fn serializes_payload_to_json() {
         let payload = CurrencyDefinitionEventPayload::Defined {
-            id: CurrencyDefinitionId::new(),
-            symbol: CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
-            name: CurrencyName::try_from("USD Coin").expect("name should be valid"),
-            decimals: CurrencyDecimals::new(6),
+            id: super::CurrencyDefinitionId::new(),
+            owner: CurrencyDefinitionOwner::User(UserId::new()),
+            symbol: crate::core::CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
+            name: super::CurrencyName::try_from("USD Coin").expect("name should be valid"),
+            decimals: crate::core::CurrencyDecimals::new(6),
         };
 
         let value = payload.into_json_value().expect("payload should serialize");
 
         assert_eq!(value["type"], serde_json::json!("defined"));
+        assert_eq!(value["data"]["owner"]["type"], serde_json::json!("user"));
     }
 }

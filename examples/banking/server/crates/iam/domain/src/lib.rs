@@ -1,21 +1,36 @@
 pub mod core;
-pub mod role;
+pub mod organization;
+pub mod organization_invitation;
+pub mod organization_join_request;
+pub mod organization_membership;
 pub mod user;
-pub mod user_role_assignment;
 
 pub use core::{Email, EmailError};
-pub use role::{
-    Role, RoleError, RoleEventPayload, RoleEventPayloadError, RoleId, RoleIdError, RoleName,
-    RoleNameError, RoleState, RoleStateError,
+pub use organization::{
+    Organization, OrganizationError, OrganizationEventPayload, OrganizationEventPayloadError,
+    OrganizationHandle, OrganizationHandleError, OrganizationId, OrganizationName,
+    OrganizationNameError, OrganizationOwner, OrganizationState, OrganizationStateError,
+    OrganizationStatus,
+};
+pub use organization_invitation::{
+    OrganizationInvitation, OrganizationInvitationError, OrganizationInvitationEventPayload,
+    OrganizationInvitationEventPayloadError, OrganizationInvitationExpiresAt,
+    OrganizationInvitationId, OrganizationInvitationIssuer, OrganizationInvitationState,
+    OrganizationInvitationStateError, OrganizationInvitationStatus,
+};
+pub use organization_join_request::{
+    OrganizationJoinRequest, OrganizationJoinRequestError, OrganizationJoinRequestEventPayload,
+    OrganizationJoinRequestEventPayloadError, OrganizationJoinRequestId,
+    OrganizationJoinRequestState, OrganizationJoinRequestStateError, OrganizationJoinRequestStatus,
+};
+pub use organization_membership::{
+    OrganizationMembership, OrganizationMembershipError, OrganizationMembershipEventPayload,
+    OrganizationMembershipEventPayloadError, OrganizationMembershipId, OrganizationMembershipState,
+    OrganizationMembershipStateError, OrganizationMembershipStatus,
 };
 pub use user::{
-    User, UserDisplayName, UserDisplayNameError, UserError, UserEventPayload,
-    UserEventPayloadError, UserId, UserIdentity, UserIdentityProvider, UserIdentityProviderError,
-    UserIdentitySubject, UserIdentitySubjectError, UserProfile, UserState, UserStateError,
-    UserStatus, Username, UsernameError,
-};
-pub use user_role_assignment::{
-    UserRoleAssignment, UserRoleAssignmentError, UserRoleAssignmentEventPayload,
-    UserRoleAssignmentEventPayloadError, UserRoleAssignmentId, UserRoleAssignmentState,
-    UserRoleAssignmentStateError, UserRoleAssignmentStatus,
+    User, UserBio, UserBioError, UserDisplayName, UserDisplayNameError, UserError,
+    UserEventPayload, UserEventPayloadError, UserId, UserIdentity, UserIdentityProvider,
+    UserIdentityProviderError, UserIdentitySubject, UserIdentitySubjectError, UserProfile,
+    UserState, UserStateError, UserStatus, UserStatusManager, Username, UsernameError,
 };

@@ -1,15 +1,10 @@
-use appletheia::application::authorization::{
-    AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
-};
+use appletheia::application::authorization::{AuthorizationPlan, PrincipalRequirement};
 use appletheia::application::command::{CommandHandled, CommandHandler};
-use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_ledger_domain::account::Account;
 
 use super::{AccountWithdrawCommand, AccountWithdrawCommandHandlerError, AccountWithdrawOutput};
-use crate::authorization::AccountWithdrawerRelation;
-use crate::projection::AccountOwnerRelationshipProjectorSpec;
 
 /// Handles `AccountWithdrawCommand`.
 pub struct AccountWithdrawCommandHandler<AR>
@@ -40,18 +35,10 @@ where
 
     fn authorization_plan(
         &self,
-        command: &Self::Command,
+        _command: &Self::Command,
     ) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
-            PrincipalRequirement::AuthenticatedWithRelationship {
-                requirement: RelationshipRequirement::Check {
-                    aggregate: AggregateRef::from_id::<Account>(command.account_id),
-                    relation: AccountWithdrawerRelation::NAME,
-                },
-                projector_dependencies: ProjectorDependencies::Some(&[
-                    AccountOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                ]),
-            },
+            PrincipalRequirement::System,
         ]))
     }
 

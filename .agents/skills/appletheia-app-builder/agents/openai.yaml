@@ -1,0 +1,4 @@
+interface:
+  display_name: "Appletheia App Builder"
+  short_description: "Guide Appletheia app architecture and modules"
+  default_prompt: "Use $appletheia-app-builder to design and implement an Appletheia-based CQRS/Event Sourcing application."

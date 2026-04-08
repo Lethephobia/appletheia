@@ -1,16 +1,12 @@
 use appletheia::application::authorization::{AuthorizationPlan, PrincipalRequirement};
-use appletheia::application::command::{
-    CommandFailureReaction, CommandFailureReactionError, CommandHandled, CommandHandler,
-};
+use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_ledger_domain::account::Account;
 
 use super::{
-    AccountReserveFundsCommand, AccountReserveFundsCommandHandlerError, AccountReserveFundsContext,
-    AccountReserveFundsOutput,
+    AccountReserveFundsCommand, AccountReserveFundsCommandHandlerError, AccountReserveFundsOutput,
 };
-use crate::command::TransferFailCommand;
 
 /// Handles `AccountReserveFundsCommand`.
 pub struct AccountReserveFundsCommandHandler<AR>
@@ -48,22 +44,6 @@ where
         ]))
     }
 
-    fn on_failure(
-        &self,
-        _request_context: &RequestContext,
-        command: &Self::Command,
-        _error: &Self::Error,
-    ) -> Result<CommandFailureReaction, CommandFailureReactionError> {
-        match &command.context {
-            AccountReserveFundsContext::Transfer { transfer_id } => {
-                CommandFailureReaction::with_command(&TransferFailCommand {
-                    transfer_id: *transfer_id,
-                })
-            }
-            AccountReserveFundsContext::Direct => Ok(CommandFailureReaction::None),
-        }
-    }
-
     async fn handle(
         &self,
         uow: &mut Self::Uow,
@@ -84,111 +64,5 @@ where
             .await?;
 
         Ok(CommandHandled::same(AccountReserveFundsOutput))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use appletheia::application::command::CommandHandler;
-    use appletheia::application::repository::{Repository, RepositoryError};
-    use appletheia::application::request_context::{
-        ActorRef, CorrelationId, MessageId, Principal, RequestContext,
-    };
-    use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
-    use banking_ledger_domain::account::{Account, AccountBalance, AccountId};
-    use banking_ledger_domain::transfer::TransferId;
-
-    use super::{
-        AccountReserveFundsCommand, AccountReserveFundsCommandHandler,
-        AccountReserveFundsCommandHandlerError, AccountReserveFundsContext,
-    };
-    use crate::command::TransferFailCommand;
-
-    #[derive(Default)]
-    struct TestUow;
-
-    impl UnitOfWork for TestUow {
-        async fn commit(self) -> Result<(), UnitOfWorkError> {
-            Ok(())
-        }
-
-        async fn rollback(self) -> Result<(), UnitOfWorkError> {
-            Ok(())
-        }
-    }
-
-    struct TestRepository;
-
-    impl Repository<Account> for TestRepository {
-        type Uow = TestUow;
-
-        async fn find(
-            &self,
-            _uow: &mut Self::Uow,
-            _id: <Account as appletheia::domain::Aggregate>::Id,
-        ) -> Result<Option<Account>, RepositoryError<Account>> {
-            unreachable!("repository is not used in on_failure tests")
-        }
-
-        async fn find_at_version(
-            &self,
-            _uow: &mut Self::Uow,
-            _id: <Account as appletheia::domain::Aggregate>::Id,
-            _at: Option<appletheia::domain::AggregateVersion>,
-        ) -> Result<Option<Account>, RepositoryError<Account>> {
-            unreachable!("repository is not used in on_failure tests")
-        }
-
-        async fn find_by_unique_value(
-            &self,
-            _uow: &mut Self::Uow,
-            _unique_key: appletheia::domain::UniqueKey,
-            _unique_value: &appletheia::domain::UniqueValue,
-        ) -> Result<Option<Account>, RepositoryError<Account>> {
-            unreachable!("repository is not used in on_failure tests")
-        }
-
-        async fn save(
-            &self,
-            _uow: &mut Self::Uow,
-            _request_context: &RequestContext,
-            _aggregate: &mut Account,
-        ) -> Result<(), RepositoryError<Account>> {
-            unreachable!("repository is not used in on_failure tests")
-        }
-    }
-
-    fn request_context() -> RequestContext {
-        RequestContext::new(
-            CorrelationId::from(uuid::Uuid::now_v7()),
-            MessageId::new(),
-            ActorRef::System,
-            Principal::System,
-        )
-    }
-
-    #[test]
-    fn on_failure_enqueues_transfer_fail_for_transfer_context() {
-        let handler = AccountReserveFundsCommandHandler::new(TestRepository);
-        let transfer_id = TransferId::new();
-        let request_context = request_context();
-        let reaction = handler
-            .on_failure(
-                &request_context,
-                &AccountReserveFundsCommand {
-                    account_id: AccountId::new(),
-                    amount: AccountBalance::new(10),
-                    context: AccountReserveFundsContext::Transfer { transfer_id },
-                },
-                &AccountReserveFundsCommandHandlerError::AccountNotFound,
-            )
-            .expect("reaction should be created");
-
-        let command = reaction
-            .into_command_envelopes(&request_context)
-            .remove(0)
-            .try_into_command::<TransferFailCommand>()
-            .expect("command should deserialize");
-        assert_eq!(command, TransferFailCommand { transfer_id });
     }
 }

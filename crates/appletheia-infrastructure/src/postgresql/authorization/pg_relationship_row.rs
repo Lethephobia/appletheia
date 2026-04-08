@@ -1,5 +1,5 @@
 use appletheia_application::authorization::{
-    AggregateRef, RelationNameOwned, Relationship, RelationshipSubject,
+    AggregateRef, RelationNameOwned, RelationRefOwned, Relationship, RelationshipSubject,
 };
 use appletheia_application::event::{AggregateIdValue, AggregateTypeOwned};
 use sqlx::FromRow;
@@ -29,10 +29,11 @@ impl PgRelationshipRow {
         };
 
         let relation_string = self.relation;
-        let relation = match RelationNameOwned::new(relation_string.clone()) {
+        let relation_name = match RelationNameOwned::new(relation_string.clone()) {
             Ok(value) => value,
             Err(_) => return Err(PgRelationshipRowError::Relation(relation_string)),
         };
+        let relation = RelationRefOwned::new(aggregate_type.clone(), relation_name);
 
         let aggregate = AggregateRef {
             aggregate_type,
@@ -83,15 +84,19 @@ impl PgRelationshipRow {
 
         let subject = match self.subject_relation {
             Some(subject_relation_string) => {
-                let subject_relation = match RelationNameOwned::new(subject_relation_string.clone())
-                {
-                    Ok(value) => value,
-                    Err(_) => {
-                        return Err(PgRelationshipRowError::SubjectRelation(
-                            subject_relation_string,
-                        ));
-                    }
-                };
+                let subject_relation_name =
+                    match RelationNameOwned::new(subject_relation_string.clone()) {
+                        Ok(value) => value,
+                        Err(_) => {
+                            return Err(PgRelationshipRowError::SubjectRelation(
+                                subject_relation_string,
+                            ));
+                        }
+                    };
+                let subject_relation = RelationRefOwned::new(
+                    subject_aggregate.aggregate_type.clone(),
+                    subject_relation_name,
+                );
                 RelationshipSubject::AggregateSet {
                     aggregate: subject_aggregate,
                     relation: subject_relation,

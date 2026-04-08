@@ -1,17 +1,18 @@
 use appletheia::event_payload;
 
-use crate::account::{AccountBalance, AccountId};
+use crate::account::AccountId;
+use crate::core::CurrencyAmount;
 
 use super::{TransferEventPayloadError, TransferId};
 
 /// Represents the domain events emitted by a `Transfer` aggregate.
 #[event_payload(error = TransferEventPayloadError)]
 pub enum TransferEventPayload {
-    Initiated {
+    Requested {
         id: TransferId,
         from_account_id: AccountId,
         to_account_id: AccountId,
-        amount: AccountBalance,
+        amount: CurrencyAmount,
     },
     Completed,
     Failed,
@@ -22,15 +23,16 @@ pub enum TransferEventPayload {
 mod tests {
     use appletheia::domain::EventPayload;
 
-    use crate::account::{AccountBalance, AccountId};
+    use crate::account::AccountId;
+    use crate::core::CurrencyAmount;
 
     use super::{TransferEventPayload, TransferId};
 
     #[test]
     fn returns_stable_event_names() {
         assert_eq!(
-            TransferEventPayload::INITIATED,
-            appletheia::domain::EventName::new("initiated")
+            TransferEventPayload::REQUESTED,
+            appletheia::domain::EventName::new("requested")
         );
         assert_eq!(
             TransferEventPayload::COMPLETED,
@@ -55,15 +57,15 @@ mod tests {
 
     #[test]
     fn serializes_payload_to_json() {
-        let payload = TransferEventPayload::Initiated {
+        let payload = TransferEventPayload::Requested {
             id: TransferId::new(),
             from_account_id: AccountId::new(),
             to_account_id: AccountId::new(),
-            amount: AccountBalance::new(100),
+            amount: CurrencyAmount::new(100),
         };
 
         let value = payload.into_json_value().expect("payload should serialize");
 
-        assert_eq!(value["type"], serde_json::json!("initiated"));
+        assert_eq!(value["type"], serde_json::json!("requested"));
     }
 }

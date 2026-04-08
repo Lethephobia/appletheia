@@ -1,0 +1,9 @@
+use banking_iam_domain::OrganizationInvitation;
+
+mod organization_invitation_canceler_relation;
+mod organization_invitation_invitee_relation;
+mod organization_invitation_organization_relation;
+
+pub use organization_invitation_canceler_relation::OrganizationInvitationCancelerRelation;
+pub use organization_invitation_invitee_relation::OrganizationInvitationInviteeRelation;
+pub use organization_invitation_organization_relation::OrganizationInvitationOrganizationRelation;

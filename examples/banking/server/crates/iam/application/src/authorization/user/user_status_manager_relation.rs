@@ -1,21 +1,13 @@
-use appletheia::application::authorization::{
-    Relation, RelationName, RelationNameOwned, UsersetExpr,
-};
+use appletheia::application::authorization::{Relation, RelationName, RelationRef, UsersetExpr};
+use appletheia::domain::Aggregate;
 
-use super::UserOwnerRelation;
+use super::User;
 
-/// Allows subjects with a direct tuple to manage user status transitions.
+/// Allows directly assigned status managers to manage user status transitions.
 pub struct UserStatusManagerRelation;
 
 impl Relation for UserStatusManagerRelation {
-    const NAME: RelationName = RelationName::new("status_manager");
+    const REF: RelationRef = RelationRef::new(User::TYPE, RelationName::new("status_manager"));
 
-    fn expr(&self) -> UsersetExpr {
-        UsersetExpr::Difference {
-            base: Box::new(UsersetExpr::This),
-            subtract: Box::new(UsersetExpr::ComputedUserset {
-                relation: RelationNameOwned::from(UserOwnerRelation::NAME),
-            }),
-        }
-    }
+    const EXPR: UsersetExpr = UsersetExpr::This;
 }

@@ -236,9 +236,7 @@ where
                     .rollback_with_operation_error(operation_error)
                     .await
                     .map_err(CommandDispatcherError::UnitOfWork)?;
-                let command_failure_reaction = handler
-                    .on_failure(request_context, &command, &operation_error)
-                    .map_err(CommandDispatcherError::CommandFailureReaction)?;
+                let command_failure_reaction = options.failure_reaction.clone();
 
                 let report = CommandFailureReport::from(&operation_error);
                 if let Ok(mut uow) = self.uow_factory.begin().await {
@@ -306,12 +304,12 @@ mod tests {
     use super::DefaultCommandDispatcher;
     use crate::authorization::{
         AggregateRef, AuthorizationPlan, Authorizer, AuthorizerError, PrincipalRequirement,
-        RelationName, RelationshipRequirement,
+        RelationName, RelationRefOwned, RelationshipRequirement,
     };
     use crate::command::{
         Command, CommandDispatcher, CommandDispatcherError, CommandFailureReaction,
         CommandFailureReport, CommandHandled, CommandHandler, CommandHash, CommandHasher,
-        CommandHasherError, CommandName, IdempotencyBeginResult, IdempotencyOutput,
+        CommandHasherError, CommandName, CommandOptions, IdempotencyBeginResult, IdempotencyOutput,
         IdempotencyService, IdempotencyServiceError,
     };
     use crate::event::{AggregateIdValue, AggregateTypeOwned};
@@ -515,7 +513,10 @@ mod tests {
                     .expect("valid aggregate type"),
                 aggregate_id: AggregateIdValue::from(Uuid::from_u128(1)),
             },
-            relation: RelationName::new("viewer"),
+            relation: RelationRefOwned::new(
+                AggregateTypeOwned::try_from("document").expect("valid aggregate type"),
+                RelationName::new("viewer").into(),
+            ),
         }
     }
 
@@ -553,15 +554,6 @@ mod tests {
             _command: &Self::Command,
         ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
             Err(TestHandlerError)
-        }
-
-        fn on_failure(
-            &self,
-            _request_context: &crate::request_context::RequestContext,
-            _command: &Self::Command,
-            _error: &Self::Error,
-        ) -> Result<CommandFailureReaction, crate::command::CommandFailureReactionError> {
-            CommandFailureReaction::with_command(&FollowUpTestCommand {})
         }
     }
 
@@ -642,16 +634,25 @@ mod tests {
         let request_context = crate::request_context::RequestContext::new(
             crate::request_context::CorrelationId::from(Uuid::now_v7()),
             crate::request_context::MessageId::new(),
-            crate::request_context::ActorRef::System,
             Principal::System,
-        );
+        )
+        .expect("request context should be valid");
 
         let result = dispatcher
             .dispatch(
                 &TestCommandFailureHandler,
                 &request_context,
                 TestCommand {},
-                crate::command::CommandOptions::default(),
+                CommandOptions {
+                    failure_reaction: {
+                        let mut reaction = CommandFailureReaction::new();
+                        reaction
+                            .push(&FollowUpTestCommand {}, CommandOptions::default())
+                            .expect("reaction should serialize");
+                        reaction
+                    },
+                    ..CommandOptions::default()
+                },
             )
             .await;
 

@@ -1,17 +1,19 @@
 use appletheia::application::authorization::{
-    AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
+    AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use appletheia::domain::Aggregate;
-use banking_iam_application::authorization::{RoleAssigneeRelation, UserOwnerRelation};
-use banking_iam_application::{
-    RoleAssigneeRelationshipProjectorSpec, UserOwnerRelationshipProjectorSpec,
+use banking_iam_application::authorization::{
+    OrganizationAccountOpenerRelation, UserOwnerRelation,
 };
-use banking_iam_domain::{Role, RoleId, User};
-use banking_ledger_domain::account::Account;
+use banking_iam_application::{
+    OrganizationOwnerRelationshipProjectorSpec, UserOwnerRelationshipProjectorSpec,
+};
+use banking_iam_domain::{Organization, User};
+use banking_ledger_domain::account::{Account, AccountOwner};
 
 use super::{AccountOpenCommand, AccountOpenCommandHandlerError, AccountOpenOutput};
 
@@ -46,25 +48,34 @@ where
         &self,
         command: &Self::Command,
     ) -> Result<AuthorizationPlan, Self::Error> {
-        Ok(AuthorizationPlan::OnlyPrincipals(vec![
-            PrincipalRequirement::System,
-            PrincipalRequirement::AuthenticatedWithRelationship {
-                requirement: RelationshipRequirement::Any(vec![
-                    RelationshipRequirement::Check {
-                        aggregate: AggregateRef::from_id::<Role>(RoleId::admin()),
-                        relation: RoleAssigneeRelation::NAME,
+        match command.owner {
+            AccountOwner::User(user_id) => Ok(AuthorizationPlan::OnlyPrincipals(vec![
+                PrincipalRequirement::System,
+                PrincipalRequirement::AuthenticatedWithRelationship {
+                    requirement: RelationshipRequirement::check::<User>(
+                        user_id,
+                        UserOwnerRelation::REF,
+                    ),
+                    projector_dependencies: ProjectorDependencies::Some(&[
+                        UserOwnerRelationshipProjectorSpec::DESCRIPTOR,
+                    ]),
+                },
+            ])),
+            AccountOwner::Organization(organization_id) => {
+                Ok(AuthorizationPlan::OnlyPrincipals(vec![
+                    PrincipalRequirement::System,
+                    PrincipalRequirement::AuthenticatedWithRelationship {
+                        requirement: RelationshipRequirement::check::<Organization>(
+                            organization_id,
+                            OrganizationAccountOpenerRelation::REF,
+                        ),
+                        projector_dependencies: ProjectorDependencies::Some(&[
+                            OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
+                        ]),
                     },
-                    RelationshipRequirement::Check {
-                        aggregate: AggregateRef::from_id::<User>(command.user_id),
-                        relation: UserOwnerRelation::NAME,
-                    },
-                ]),
-                projector_dependencies: ProjectorDependencies::Some(&[
-                    RoleAssigneeRelationshipProjectorSpec::DESCRIPTOR,
-                    UserOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                ]),
-            },
-        ]))
+                ]))
+            }
+        }
     }
 
     async fn handle(
@@ -74,7 +85,11 @@ where
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
         let mut account = Account::default();
-        account.open(command.user_id, command.currency_definition_id)?;
+        account.open(
+            command.owner,
+            command.name.clone(),
+            command.currency_definition_id,
+        )?;
 
         self.account_repository
             .save(uow, request_context, &mut account)
@@ -99,20 +114,34 @@ mod tests {
     use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
     use appletheia::application::repository::{Repository, RepositoryError};
     use appletheia::application::request_context::{
-        ActorRef, CorrelationId, MessageId, Principal, RequestContext,
+        CorrelationId, MessageId, Principal, RequestContext,
     };
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::Aggregate;
-    use banking_iam_application::authorization::{RoleAssigneeRelation, UserOwnerRelation};
-    use banking_iam_application::{
-        RoleAssigneeRelationshipProjectorSpec, UserOwnerRelationshipProjectorSpec,
+    use banking_iam_application::authorization::{
+        OrganizationAccountOpenerRelation, UserOwnerRelation,
     };
-    use banking_iam_domain::{Role, RoleId, User, UserId};
-    use banking_ledger_domain::account::{Account, AccountId};
+    use banking_iam_application::{
+        OrganizationOwnerRelationshipProjectorSpec, UserOwnerRelationshipProjectorSpec,
+    };
+    use banking_iam_domain::{Organization, OrganizationId, User, UserId};
+    use banking_ledger_domain::account::{Account, AccountId, AccountName, AccountOwner};
     use banking_ledger_domain::currency_definition::CurrencyDefinitionId;
     use uuid::Uuid;
 
     use super::{AccountOpenCommand, AccountOpenCommandHandler, AccountOpenOutput};
+
+    fn account_name() -> AccountName {
+        AccountName::try_from("main").expect("account name should be valid")
+    }
+
+    fn account_owner() -> AccountOwner {
+        AccountOwner::User(UserId::new())
+    }
+
+    fn organization_owner() -> AccountOwner {
+        AccountOwner::Organization(OrganizationId::new())
+    }
 
     #[derive(Default)]
     struct TestUow;
@@ -178,21 +207,21 @@ mod tests {
         RequestContext::new(
             CorrelationId::from(Uuid::now_v7()),
             MessageId::new(),
-            ActorRef::Subject {
-                subject: subject.clone(),
-            },
             Principal::Authenticated { subject },
         )
+        .expect("request context should be valid")
     }
 
     #[test]
-    fn authorization_plan_allows_system_admin_or_target_user_owner() {
+    fn authorization_plan_allows_system_or_target_owner() {
         let handler = AccountOpenCommandHandler::new(TestAccountRepository::default());
-        let user_id = UserId::new();
+        let owner = account_owner();
+        let name = account_name();
 
         let plan = handler
             .authorization_plan(&AccountOpenCommand {
-                user_id,
+                owner: owner.clone(),
+                name,
                 currency_definition_id: CurrencyDefinitionId::new(),
             })
             .expect("authorization plan should build");
@@ -202,18 +231,11 @@ mod tests {
             AuthorizationPlan::OnlyPrincipals(vec![
                 PrincipalRequirement::System,
                 PrincipalRequirement::AuthenticatedWithRelationship {
-                    requirement: RelationshipRequirement::Any(vec![
-                        RelationshipRequirement::Check {
-                            aggregate: AggregateRef::from_id::<Role>(RoleId::admin()),
-                            relation: RoleAssigneeRelation::NAME,
-                        },
-                        RelationshipRequirement::Check {
-                            aggregate: AggregateRef::from_id::<User>(user_id),
-                            relation: UserOwnerRelation::NAME,
-                        },
-                    ]),
+                    requirement: RelationshipRequirement::check::<User>(
+                        owner.user_id().copied().expect("user owner expected"),
+                        UserOwnerRelation::REF
+                    ),
                     projector_dependencies: ProjectorDependencies::Some(&[
-                        RoleAssigneeRelationshipProjectorSpec::DESCRIPTOR,
                         UserOwnerRelationshipProjectorSpec::DESCRIPTOR,
                     ]),
                 },
@@ -221,19 +243,55 @@ mod tests {
         );
     }
 
+    #[test]
+    fn authorization_plan_allows_system_or_organization_account_opener() {
+        let handler = AccountOpenCommandHandler::new(TestAccountRepository::default());
+        let owner = organization_owner();
+        let name = account_name();
+
+        let plan = handler
+            .authorization_plan(&AccountOpenCommand {
+                owner,
+                name,
+                currency_definition_id: CurrencyDefinitionId::new(),
+            })
+            .expect("authorization plan should build");
+
+        assert_eq!(
+            plan,
+            AuthorizationPlan::OnlyPrincipals(vec![
+                PrincipalRequirement::System,
+                PrincipalRequirement::AuthenticatedWithRelationship {
+                    requirement: RelationshipRequirement::check::<Organization>(
+                        owner
+                            .organization_id()
+                            .copied()
+                            .expect("organization owner expected"),
+                        OrganizationAccountOpenerRelation::REF
+                    ),
+                    projector_dependencies: ProjectorDependencies::Some(&[
+                        OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
+                    ]),
+                },
+            ])
+        );
+    }
+
     #[tokio::test]
-    async fn handle_opens_account_for_specified_user() {
+    async fn handle_opens_account_for_specified_owner() {
         let repository = TestAccountRepository::default();
         let handler = AccountOpenCommandHandler::new(repository.clone());
         let mut uow = TestUow;
-        let user_id = UserId::new();
+        let owner = account_owner();
+        let name = account_name();
 
         let handled = handler
             .handle(
                 &mut uow,
                 &request_context(),
                 &AccountOpenCommand {
-                    user_id,
+                    owner: owner.clone(),
+                    name: name.clone(),
                     currency_definition_id: CurrencyDefinitionId::new(),
                 },
             )
@@ -247,7 +305,42 @@ mod tests {
             .clone()
             .expect("account should be saved");
         let account_id = saved.aggregate_id().expect("account id should exist");
-        assert_eq!(saved.user_id().expect("user id should exist"), &user_id);
+        assert_eq!(saved.owner().expect("owner should exist"), owner);
+        assert_eq!(saved.name().expect("name should exist"), &name);
+
+        assert_eq!(handled.into_output(), AccountOpenOutput::new(account_id));
+    }
+
+    #[tokio::test]
+    async fn handle_opens_account_for_specified_organization_owner() {
+        let repository = TestAccountRepository::default();
+        let handler = AccountOpenCommandHandler::new(repository.clone());
+        let mut uow = TestUow;
+        let owner = organization_owner();
+        let name = account_name();
+
+        let handled = handler
+            .handle(
+                &mut uow,
+                &request_context(),
+                &AccountOpenCommand {
+                    owner,
+                    name: name.clone(),
+                    currency_definition_id: CurrencyDefinitionId::new(),
+                },
+            )
+            .await
+            .expect("command should succeed");
+
+        let saved = repository
+            .account
+            .lock()
+            .expect("lock")
+            .clone()
+            .expect("account should be saved");
+        let account_id = saved.aggregate_id().expect("account id should exist");
+        assert_eq!(saved.owner().expect("owner should exist"), owner);
+        assert_eq!(saved.name().expect("name should exist"), &name);
 
         assert_eq!(handled.into_output(), AccountOpenOutput::new(account_id));
     }

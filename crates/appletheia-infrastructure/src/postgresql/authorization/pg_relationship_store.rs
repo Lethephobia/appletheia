@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use appletheia_application::authorization::{
-    AggregateRef, RelationNameOwned, Relationship, RelationshipChange, RelationshipId,
+    AggregateRef, RelationRefOwned, Relationship, RelationshipChange, RelationshipId,
     RelationshipStore, RelationshipStoreError, RelationshipSubject,
 };
 use appletheia_application::event::{AggregateIdValue, AggregateTypeOwned};
@@ -92,14 +92,14 @@ impl RelationshipStore for PgRelationshipStore {
                     } => (
                         aggregate.aggregate_type.value(),
                         Some(aggregate.aggregate_id.value()),
-                        Some(relation.value()),
+                        Some(relation.relation_name.value()),
                         false,
                     ),
                 };
 
                 b.push_bind(item.aggregate.aggregate_type.value())
                     .push_bind(item.aggregate.aggregate_id.value())
-                    .push_bind(item.relation.value())
+                    .push_bind(item.relation.relation_name.value())
                     .push_bind(subject_aggregate_type)
                     .push_bind(subject_aggregate_id)
                     .push_bind(subject_relation)
@@ -172,7 +172,7 @@ impl RelationshipStore for PgRelationshipStore {
                     } => (
                         aggregate.aggregate_type.value(),
                         Some(aggregate.aggregate_id.value()),
-                        Some(relation.value()),
+                        Some(relation.relation_name.value()),
                         false,
                     ),
                 };
@@ -180,7 +180,7 @@ impl RelationshipStore for PgRelationshipStore {
                 b.push_bind(RelationshipId::new().value())
                     .push_bind(item.aggregate.aggregate_type.value())
                     .push_bind(item.aggregate.aggregate_id.value())
-                    .push_bind(item.relation.value())
+                    .push_bind(item.relation.relation_name.value())
                     .push_bind(subject_aggregate_type)
                     .push_bind(subject_aggregate_id)
                     .push_bind(subject_relation)
@@ -203,8 +203,7 @@ impl RelationshipStore for PgRelationshipStore {
         &self,
         uow: &mut PgUnitOfWork,
         subject: &RelationshipSubject,
-        aggregate_type: &AggregateTypeOwned,
-        relation: &RelationNameOwned,
+        relation: &RelationRefOwned,
     ) -> Result<Vec<AggregateRef>, RelationshipStoreError> {
         let mut query = QueryBuilder::<Postgres>::new(
             r#"
@@ -213,7 +212,7 @@ impl RelationshipStore for PgRelationshipStore {
             WHERE relation =
             "#,
         );
-        query.push_bind(relation.value());
+        query.push_bind(relation.relation_name.value());
 
         match subject {
             RelationshipSubject::Aggregate(subject) => {
@@ -235,7 +234,7 @@ impl RelationshipStore for PgRelationshipStore {
             } => {
                 query.push(" AND subject_is_wildcard = false");
                 query.push(" AND subject_relation = ");
-                query.push_bind(relation.value());
+                query.push_bind(relation.relation_name.value());
                 query.push(" AND subject_aggregate_type = ");
                 query.push_bind(aggregate.aggregate_type.value());
                 query.push(" AND subject_aggregate_id = ");
@@ -244,7 +243,7 @@ impl RelationshipStore for PgRelationshipStore {
         }
 
         query.push(" AND aggregate_type = ");
-        query.push_bind(aggregate_type.value());
+        query.push_bind(relation.aggregate_type.value());
 
         let transaction = uow.transaction_mut();
         let rows = query
@@ -277,10 +276,11 @@ impl RelationshipStore for PgRelationshipStore {
         &self,
         uow: &mut PgUnitOfWork,
         aggregate: &AggregateRef,
-        relation: &RelationNameOwned,
+        relation: &RelationRefOwned,
+        subject_aggregate_type: Option<&AggregateTypeOwned>,
     ) -> Result<Vec<RelationshipSubject>, RelationshipStoreError> {
         let transaction = uow.transaction_mut();
-        let rows: Vec<PgRelationshipRow> = sqlx::query_as(
+        let mut query = QueryBuilder::<Postgres>::new(
             r#"
             SELECT
                 id,
@@ -292,17 +292,25 @@ impl RelationshipStore for PgRelationshipStore {
                 subject_relation,
                 subject_is_wildcard
             FROM relationships
-            WHERE aggregate_type = $1
-              AND aggregate_id = $2
-              AND relation = $3
+            WHERE aggregate_type =
             "#,
-        )
-        .bind(aggregate.aggregate_type.value())
-        .bind(aggregate.aggregate_id.value())
-        .bind(relation.value())
-        .fetch_all(transaction.as_mut())
-        .await
-        .map_err(|e| RelationshipStoreError::Persistence(Box::new(e)))?;
+        );
+        query.push_bind(aggregate.aggregate_type.value());
+        query.push(" AND aggregate_id = ");
+        query.push_bind(aggregate.aggregate_id.value());
+        query.push(" AND relation = ");
+        query.push_bind(relation.relation_name.value());
+
+        if let Some(subject_aggregate_type) = subject_aggregate_type {
+            query.push(" AND subject_aggregate_type = ");
+            query.push_bind(subject_aggregate_type.value());
+        }
+
+        let rows: Vec<PgRelationshipRow> = query
+            .build_query_as()
+            .fetch_all(transaction.as_mut())
+            .await
+            .map_err(|e| RelationshipStoreError::Persistence(Box::new(e)))?;
 
         let mut out: Vec<RelationshipSubject> = Vec::with_capacity(rows.len());
 

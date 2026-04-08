@@ -1,8 +1,10 @@
+use crate::event::AggregateTypeOwned;
+
 use std::error::Error;
 
 use thiserror::Error as ThisError;
 
-use super::RelationshipStoreError;
+use super::{RelationRefOwned, RelationshipStoreError};
 
 #[derive(Debug, ThisError)]
 pub enum RelationshipResolverError {
@@ -11,6 +13,14 @@ pub enum RelationshipResolverError {
 
     #[error("relationship resolver evaluation limit exceeded: {0}")]
     EvaluationLimitExceeded(&'static str),
+
+    #[error(
+        "relationship reference aggregate type does not match target aggregate: target={aggregate_type}, relation={relation}"
+    )]
+    InvalidRelationReference {
+        aggregate_type: AggregateTypeOwned,
+        relation: RelationRefOwned,
+    },
 
     #[error("relationship resolver backend error: {0}")]
     Backend(#[source] Box<dyn Error + Send + Sync + 'static>),

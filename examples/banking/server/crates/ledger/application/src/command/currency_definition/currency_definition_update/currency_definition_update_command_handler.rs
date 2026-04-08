@@ -1,10 +1,11 @@
 use appletheia::application::authorization::{
-    AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
+    AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
+use banking_iam_application::OrganizationOwnerRelationshipProjectorSpec;
 use banking_ledger_domain::currency_definition::CurrencyDefinition;
 
 use super::{
@@ -49,14 +50,13 @@ where
     ) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
             PrincipalRequirement::AuthenticatedWithRelationship {
-                requirement: RelationshipRequirement::Check {
-                    aggregate: AggregateRef::from_id::<CurrencyDefinition>(
-                        command.currency_definition_id,
-                    ),
-                    relation: CurrencyDefinitionUpdaterRelation::NAME,
-                },
+                requirement: RelationshipRequirement::check::<CurrencyDefinition>(
+                    command.currency_definition_id,
+                    CurrencyDefinitionUpdaterRelation::REF,
+                ),
                 projector_dependencies: ProjectorDependencies::Some(&[
                     CurrencyDefinitionOwnerRelationshipProjectorSpec::DESCRIPTOR,
+                    OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
                 ]),
             },
         ]))
@@ -88,13 +88,7 @@ where
             .save(uow, request_context, &mut currency_definition)
             .await?;
 
-        let output = CurrencyDefinitionUpdateOutput::new(
-            command.currency_definition_id,
-            currency_definition.symbol()?.clone(),
-            currency_definition.name()?.clone(),
-        );
-
-        Ok(CommandHandled::same(output))
+        Ok(CommandHandled::same(CurrencyDefinitionUpdateOutput))
     }
 }
 
@@ -109,13 +103,15 @@ mod tests {
     use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
     use appletheia::application::repository::{Repository, RepositoryError};
     use appletheia::application::request_context::{
-        ActorRef, CorrelationId, MessageId, Principal, RequestContext,
+        CorrelationId, MessageId, Principal, RequestContext,
     };
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::Aggregate;
+    use banking_iam_application::OrganizationOwnerRelationshipProjectorSpec;
+    use banking_iam_domain::UserId;
     use banking_ledger_domain::core::{CurrencyDecimals, CurrencySymbol};
     use banking_ledger_domain::currency_definition::{
-        CurrencyDefinition, CurrencyDefinitionId, CurrencyName,
+        CurrencyDefinition, CurrencyDefinitionId, CurrencyDefinitionOwner, CurrencyName,
     };
     use uuid::Uuid;
 
@@ -202,17 +198,16 @@ mod tests {
         RequestContext::new(
             CorrelationId::from(Uuid::now_v7()),
             MessageId::new(),
-            ActorRef::Subject {
-                subject: subject.clone(),
-            },
             Principal::Authenticated { subject },
         )
+        .expect("request context should be valid")
     }
 
     fn defined_currency_definition() -> CurrencyDefinition {
         let mut currency_definition = CurrencyDefinition::default();
         currency_definition
             .define(
+                CurrencyDefinitionOwner::User(UserId::new()),
                 CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
                 CurrencyName::try_from("USD Coin").expect("name should be valid"),
                 CurrencyDecimals::new(6),
@@ -242,14 +237,13 @@ mod tests {
             plan,
             AuthorizationPlan::OnlyPrincipals(vec![
                 PrincipalRequirement::AuthenticatedWithRelationship {
-                    requirement: RelationshipRequirement::Check {
-                        aggregate: AggregateRef::from_id::<CurrencyDefinition>(
-                            currency_definition_id,
-                        ),
-                        relation: CurrencyDefinitionUpdaterRelation::NAME,
-                    },
+                    requirement: RelationshipRequirement::check::<CurrencyDefinition>(
+                        currency_definition_id,
+                        CurrencyDefinitionUpdaterRelation::REF,
+                    ),
                     projector_dependencies: ProjectorDependencies::Some(&[
                         CurrencyDefinitionOwnerRelationshipProjectorSpec::DESCRIPTOR,
+                        OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
                     ]),
                 },
             ])
@@ -281,13 +275,6 @@ mod tests {
             .await
             .expect("command should succeed");
 
-        assert_eq!(
-            handled.into_output(),
-            CurrencyDefinitionUpdateOutput::new(
-                currency_definition_id,
-                CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
-                CurrencyName::try_from("USD Coin Updated").expect("name should be valid"),
-            )
-        );
+        assert_eq!(handled.into_output(), CurrencyDefinitionUpdateOutput);
     }
 }

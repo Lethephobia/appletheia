@@ -28,6 +28,11 @@ impl PgCommandOutboxWriter {
         }
     }
 
+    fn serialize_options(outbox: &CommandOutbox) -> Result<serde_json::Value, OutboxWriterError> {
+        serde_json::to_value(&outbox.command.options)
+            .map_err(|source| OutboxWriterError::Persistence(Box::new(source)))
+    }
+
     async fn upsert_outbox_rows(
         uow: &mut PgUnitOfWork,
         outboxes: &[&CommandOutbox],
@@ -46,6 +51,7 @@ impl PgCommandOutboxWriter {
                 payload,
                 correlation_id,
                 causation_id,
+                options,
                 published_at,
                 attempt_count,
                 next_attempt_after,
@@ -61,6 +67,7 @@ impl PgCommandOutboxWriter {
             for outbox in outboxes {
                 let command = &outbox.command;
                 let last_error_value = Self::serialize_last_error(outbox)?;
+                let options_value = Self::serialize_options(outbox)?;
                 let next_attempt_after_value = outbox
                     .state
                     .next_attempt_after()
@@ -76,6 +83,7 @@ impl PgCommandOutboxWriter {
                     .push_bind(command.command.value().clone())
                     .push_bind(command.correlation_id.value())
                     .push_bind(command.causation_id.value())
+                    .push_bind(options_value)
                     .push_bind(outbox.state.published_at().map(DateTime::<Utc>::from))
                     .push_bind(outbox.state.attempt_count().value())
                     .push_bind(next_attempt_after_value)
@@ -123,6 +131,7 @@ impl PgCommandOutboxWriter {
                 payload,
                 correlation_id,
                 causation_id,
+                options,
                 published_at,
                 attempt_count,
                 next_attempt_after,
@@ -139,6 +148,7 @@ impl PgCommandOutboxWriter {
             for outbox in dead_lettered_outboxes {
                 let command = &outbox.command;
                 let last_error_value = Self::serialize_last_error(outbox)?;
+                let options_value = Self::serialize_options(outbox)?;
                 let dead_lettered_at_value = match outbox.lifecycle {
                     OutboxLifecycle::DeadLettered { dead_lettered_at } => {
                         DateTime::<Utc>::from(dead_lettered_at)
@@ -155,6 +165,7 @@ impl PgCommandOutboxWriter {
                     .push_bind(command.command.value().clone())
                     .push_bind(command.correlation_id.value())
                     .push_bind(command.causation_id.value())
+                    .push_bind(options_value)
                     .push_bind(outbox.state.published_at().map(DateTime::<Utc>::from))
                     .push_bind(outbox.state.attempt_count().value())
                     .push_bind(outbox.state.next_attempt_after().map(DateTime::<Utc>::from))

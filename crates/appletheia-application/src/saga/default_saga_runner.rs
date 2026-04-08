@@ -145,7 +145,7 @@ mod tests {
         CommandEnvelope, CommandOutboxEnqueueError, CommandOutboxEnqueuer,
     };
     use crate::request_context::{
-        ActorRef, CausationId, CorrelationId, MessageId, Principal, RequestContext,
+        CausationId, CorrelationId, MessageId, Principal, RequestContext,
     };
     use crate::saga::{
         Saga, SagaDescriptor, SagaInstance, SagaName, SagaNameOwned, SagaProcessedEventStore,
@@ -301,12 +301,8 @@ mod tests {
             occurred_at: appletheia_domain::EventOccurredAt::now(),
             correlation_id,
             causation_id: CausationId::from(message_id),
-            context: RequestContext::new(
-                correlation_id,
-                message_id,
-                ActorRef::System,
-                Principal::System,
-            ),
+            context: RequestContext::new(correlation_id, message_id, Principal::System)
+                .expect("request context should be valid"),
         }
     }
 

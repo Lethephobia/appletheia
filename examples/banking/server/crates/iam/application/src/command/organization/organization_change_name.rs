@@ -1,0 +1,9 @@
+mod organization_change_name_command;
+mod organization_change_name_command_handler;
+mod organization_change_name_command_handler_error;
+mod organization_change_name_output;
+
+pub use organization_change_name_command::OrganizationChangeNameCommand;
+pub use organization_change_name_command_handler::OrganizationChangeNameCommandHandler;
+pub use organization_change_name_command_handler_error::OrganizationChangeNameCommandHandlerError;
+pub use organization_change_name_output::OrganizationChangeNameOutput;

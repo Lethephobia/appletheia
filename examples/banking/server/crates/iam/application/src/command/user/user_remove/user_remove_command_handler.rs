@@ -1,5 +1,5 @@
 use appletheia::application::authorization::{
-    AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
+    AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
@@ -10,7 +10,7 @@ use banking_iam_domain::User;
 use super::{UserRemoveCommand, UserRemoveCommandHandlerError, UserRemoveOutput};
 use crate::authorization::UserRemoverRelation;
 use crate::projection::{
-    RoleAssigneeRelationshipProjectorSpec, UserStatusManagerRelationshipProjectorSpec,
+    UserOwnerRelationshipProjectorSpec, UserStatusManagerRelationshipProjectorSpec,
 };
 
 /// Handles `UserRemoveCommand`.
@@ -47,12 +47,12 @@ where
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
             PrincipalRequirement::System,
             PrincipalRequirement::AuthenticatedWithRelationship {
-                requirement: RelationshipRequirement::Check {
-                    aggregate: AggregateRef::from_id::<User>(command.user_id),
-                    relation: UserRemoverRelation::NAME,
-                },
+                requirement: RelationshipRequirement::check::<User>(
+                    command.user_id,
+                    UserRemoverRelation::REF,
+                ),
                 projector_dependencies: ProjectorDependencies::Some(&[
-                    RoleAssigneeRelationshipProjectorSpec::DESCRIPTOR,
+                    UserOwnerRelationshipProjectorSpec::DESCRIPTOR,
                     UserStatusManagerRelationshipProjectorSpec::DESCRIPTOR,
                 ]),
             },

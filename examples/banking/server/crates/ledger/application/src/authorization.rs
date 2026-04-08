@@ -2,13 +2,12 @@ mod account;
 mod currency_definition;
 
 pub use account::{
-    AccountCloserRelation, AccountDepositorRelation, AccountFreezerRelation, AccountOwnerRelation,
-    AccountRelations, AccountStatusManagerRelation, AccountThawerRelation,
-    AccountTransferRequesterRelation, AccountWithdrawerRelation,
+    AccountCloserRelation, AccountFreezerRelation, AccountOwnerRelation, AccountRenamerRelation,
+    AccountStatusManagerRelation, AccountThawerRelation, AccountTransferRequesterRelation,
 };
 pub use currency_definition::{
     CurrencyDefinitionActivatorRelation, CurrencyDefinitionDeactivatorRelation,
-    CurrencyDefinitionOwnerRelation, CurrencyDefinitionRelations,
+    CurrencyDefinitionIssuerRelation, CurrencyDefinitionOwnerRelation,
     CurrencyDefinitionRemoverRelation, CurrencyDefinitionStatusManagerRelation,
     CurrencyDefinitionUpdaterRelation,
 };

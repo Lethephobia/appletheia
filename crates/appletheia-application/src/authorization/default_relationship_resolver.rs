@@ -5,9 +5,9 @@ use super::relationship_memo_key::RelationshipMemoKey;
 use super::userset_expr_eval_context::UsersetExprEvalContext;
 use super::userset_expr_eval_depth::UsersetExprEvalDepth;
 use super::{
-    AggregateRef, AuthorizationModel, RelationNameOwned, RelationshipRequirement,
+    AggregateRef, AuthorizationModel, RelationRefOwned, RelationshipRequirement,
     RelationshipResolver, RelationshipResolverConfig, RelationshipResolverError, RelationshipStore,
-    RelationshipSubject, UsersetExpr,
+    RelationshipSubject, UsersetExprOwned,
 };
 
 #[derive(Debug)]
@@ -59,12 +59,11 @@ where
                 aggregate,
                 relation,
             } => {
-                let relation = RelationNameOwned::from(*relation);
                 self.check_relation(
                     uow,
                     subject,
                     aggregate,
-                    &relation,
+                    relation,
                     state,
                     UsersetExprEvalDepth::default(),
                 )
@@ -97,7 +96,7 @@ where
         uow: &mut RS::Uow,
         subject: &AggregateRef,
         aggregate: &AggregateRef,
-        relation: &RelationNameOwned,
+        relation: &RelationRefOwned,
         state: &mut RelationshipEvalState,
         depth: UsersetExprEvalDepth,
     ) -> Result<bool, RelationshipResolverError> {
@@ -105,6 +104,13 @@ where
             return Err(RelationshipResolverError::EvaluationLimitExceeded(
                 "max_depth",
             ));
+        }
+
+        if aggregate.aggregate_type != relation.aggregate_type {
+            return Err(RelationshipResolverError::InvalidRelationReference {
+                aggregate_type: aggregate.aggregate_type.clone(),
+                relation: relation.clone(),
+            });
         }
 
         let key = RelationshipMemoKey {
@@ -128,9 +134,9 @@ where
             ));
         }
 
-        let Some(model) = self
+        let Some(expr) = self
             .authorization_model
-            .type_definition_for(&aggregate.aggregate_type)
+            .expr_for(relation)
             .await
             .map_err(RelationshipResolverError::backend)?
         else {
@@ -139,14 +145,8 @@ where
             return Ok(false);
         };
 
-        let Some(expr) = model.expr_for(relation) else {
-            state.in_progress.remove(&key);
-            state.memo.insert(key, false);
-            return Ok(false);
-        };
-
         let context = UsersetExprEvalContext::new(subject, aggregate, relation, depth);
-        let result = Box::pin(self.eval_expr(uow, state, &context, expr)).await?;
+        let result = Box::pin(self.eval_expr(uow, state, &context, &expr)).await?;
 
         state.in_progress.remove(&key);
         state.memo.insert(key, result);
@@ -158,13 +158,13 @@ where
         uow: &mut RS::Uow,
         state: &mut RelationshipEvalState,
         context: &UsersetExprEvalContext<'_>,
-        expr: &UsersetExpr,
+        expr: &UsersetExprOwned,
     ) -> Result<bool, RelationshipResolverError> {
         match expr {
-            UsersetExpr::This => {
+            UsersetExprOwned::This => {
                 let subjects = self
                     .relationship_store
-                    .read_subjects_by_aggregate(uow, context.aggregate, context.relation)
+                    .read_subjects_by_aggregate(uow, context.aggregate, context.relation, None)
                     .await
                     .map_err(RelationshipResolverError::from)?;
 
@@ -211,7 +211,7 @@ where
 
                 Ok(false)
             }
-            UsersetExpr::ComputedUserset { relation } => {
+            UsersetExprOwned::ComputedUserset { relation } => {
                 Box::pin(self.check_relation(
                     uow,
                     context.subject,
@@ -222,13 +222,18 @@ where
                 ))
                 .await
             }
-            UsersetExpr::TupleToUserset {
+            UsersetExprOwned::TupleToUserset {
                 tupleset_relation,
-                computed_relation,
+                computed_userset,
             } => {
                 let subjects = self
                     .relationship_store
-                    .read_subjects_by_aggregate(uow, context.aggregate, tupleset_relation)
+                    .read_subjects_by_aggregate(
+                        uow,
+                        context.aggregate,
+                        tupleset_relation,
+                        Some(&computed_userset.aggregate_type),
+                    )
                     .await
                     .map_err(RelationshipResolverError::from)?;
 
@@ -249,7 +254,7 @@ where
                         uow,
                         context.subject,
                         &target,
-                        computed_relation,
+                        computed_userset,
                         state,
                         context.depth.increment(),
                     ))
@@ -260,7 +265,7 @@ where
                 }
                 Ok(false)
             }
-            UsersetExpr::Union(items) => {
+            UsersetExprOwned::Union(items) => {
                 for item in items {
                     if Box::pin(self.eval_expr(uow, state, context, item)).await? {
                         return Ok(true);
@@ -268,7 +273,7 @@ where
                 }
                 Ok(false)
             }
-            UsersetExpr::Intersection(items) => {
+            UsersetExprOwned::Intersection(items) => {
                 for item in items {
                     if !Box::pin(self.eval_expr(uow, state, context, item)).await? {
                         return Ok(false);
@@ -276,7 +281,7 @@ where
                 }
                 Ok(true)
             }
-            UsersetExpr::Difference { base, subtract } => {
+            UsersetExprOwned::Difference { base, subtract } => {
                 let base_ok = Box::pin(self.eval_expr(uow, state, context, base)).await?;
                 if !base_ok {
                     return Ok(false);
@@ -305,5 +310,162 @@ where
         let mut state = RelationshipEvalState::default();
         self.check_requirement(uow, subject, requirement, &mut state)
             .await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use uuid::Uuid;
+
+    use super::DefaultRelationshipResolver;
+    use crate::authorization::{
+        AggregateRef, InMemoryAuthorizationModel, RelationName, RelationRefOwned,
+        RelationshipChange, RelationshipRequirement, RelationshipResolver,
+        RelationshipResolverConfig, RelationshipStore, RelationshipStoreError, RelationshipSubject,
+        UsersetExprOwned,
+    };
+    use crate::event::{AggregateIdValue, AggregateTypeOwned};
+    use crate::unit_of_work::{UnitOfWork, UnitOfWorkError};
+
+    #[derive(Default)]
+    struct TestUow;
+
+    impl UnitOfWork for TestUow {
+        async fn commit(self) -> Result<(), UnitOfWorkError> {
+            Ok(())
+        }
+
+        async fn rollback(self) -> Result<(), UnitOfWorkError> {
+            Ok(())
+        }
+    }
+
+    #[derive(Clone, Default)]
+    struct TestStore {
+        map: HashMap<(AggregateRef, RelationRefOwned), Vec<RelationshipSubject>>,
+    }
+
+    impl RelationshipStore for TestStore {
+        type Uow = TestUow;
+
+        async fn apply_changes(
+            &self,
+            _uow: &mut Self::Uow,
+            _changes: &[RelationshipChange],
+        ) -> Result<(), RelationshipStoreError> {
+            Ok(())
+        }
+
+        async fn read_aggregates_by_subject(
+            &self,
+            _uow: &mut Self::Uow,
+            _subject: &RelationshipSubject,
+            _relation: &RelationRefOwned,
+        ) -> Result<Vec<AggregateRef>, RelationshipStoreError> {
+            Ok(Vec::new())
+        }
+
+        async fn read_subjects_by_aggregate(
+            &self,
+            _uow: &mut Self::Uow,
+            aggregate: &AggregateRef,
+            relation: &RelationRefOwned,
+            subject_aggregate_type: Option<&AggregateTypeOwned>,
+        ) -> Result<Vec<RelationshipSubject>, RelationshipStoreError> {
+            let subjects = self
+                .map
+                .get(&(aggregate.clone(), relation.clone()))
+                .cloned()
+                .unwrap_or_default();
+
+            Ok(match subject_aggregate_type {
+                Some(subject_aggregate_type) => subjects
+                    .into_iter()
+                    .filter(|subject| match subject {
+                        RelationshipSubject::Aggregate(aggregate) => {
+                            &aggregate.aggregate_type == subject_aggregate_type
+                        }
+                        RelationshipSubject::Wildcard { aggregate_type } => {
+                            aggregate_type == subject_aggregate_type
+                        }
+                        RelationshipSubject::AggregateSet { aggregate, .. } => {
+                            &aggregate.aggregate_type == subject_aggregate_type
+                        }
+                    })
+                    .collect(),
+                None => subjects,
+            })
+        }
+    }
+
+    fn aggregate_type(value: &str) -> AggregateTypeOwned {
+        value.parse().expect("aggregate type should be valid")
+    }
+
+    fn aggregate_ref(ty: &str, id: Uuid) -> AggregateRef {
+        AggregateRef::new(aggregate_type(ty), AggregateIdValue::from(id))
+    }
+
+    fn relation_ref(aggregate_type_name: &str, relation_name: &'static str) -> RelationRefOwned {
+        RelationRefOwned::new(
+            aggregate_type(aggregate_type_name),
+            RelationName::new(relation_name).into(),
+        )
+    }
+
+    #[tokio::test]
+    async fn tuple_to_userset_skips_targets_with_different_aggregate_type() {
+        let document = aggregate_ref("document", Uuid::from_u128(1));
+        let user = aggregate_ref("user", Uuid::from_u128(2));
+        let organization = aggregate_ref("organization", Uuid::from_u128(3));
+
+        let owner_relation = relation_ref("document", "owner");
+        let status_manager_relation = relation_ref("document", "status_manager");
+        let organization_owner_relation = relation_ref("organization", "owner");
+
+        let mut store = TestStore::default();
+        store.map.insert(
+            (document.clone(), owner_relation.clone()),
+            vec![
+                RelationshipSubject::Aggregate(user.clone()),
+                RelationshipSubject::Aggregate(organization.clone()),
+            ],
+        );
+        store.map.insert(
+            (organization.clone(), organization_owner_relation.clone()),
+            vec![RelationshipSubject::Aggregate(user.clone())],
+        );
+
+        let mut model = InMemoryAuthorizationModel::new();
+        model.define_expr(
+            status_manager_relation.clone(),
+            UsersetExprOwned::TupleToUserset {
+                tupleset_relation: owner_relation,
+                computed_userset: organization_owner_relation,
+            },
+        );
+        model.define_expr(
+            relation_ref("organization", "owner"),
+            UsersetExprOwned::This,
+        );
+
+        let resolver =
+            DefaultRelationshipResolver::new(store, model, RelationshipResolverConfig::default());
+
+        let result = resolver
+            .satisfies(
+                &mut TestUow,
+                &user,
+                &RelationshipRequirement::Check {
+                    aggregate: document,
+                    relation: status_manager_relation,
+                },
+            )
+            .await
+            .expect("relationship resolution should succeed");
+
+        assert!(result);
     }
 }

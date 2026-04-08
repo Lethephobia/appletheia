@@ -1,17 +1,17 @@
 use appletheia::application::authorization::{
-    AggregateRef, Relation, RelationNameOwned, Relationship, RelationshipChange, RelationshipStore,
+    AggregateRef, Relation, RelationRefOwned, Relationship, RelationshipChange, RelationshipStore,
     RelationshipSubject,
 };
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
-use banking_iam_domain::{Role, RoleId, User, UserEventPayload};
+use banking_iam_domain::{User, UserEventPayload, UserStatusManager};
 
 use super::{
     UserStatusManagerRelationshipProjectorError, UserStatusManagerRelationshipProjectorSpec,
 };
-use crate::authorization::{RoleAssigneeRelation, UserStatusManagerRelation};
+use crate::authorization::UserStatusManagerRelation;
 
-/// Projects the initial status manager relationship for new users.
+/// Projects the status manager relationship for users.
 pub struct UserStatusManagerRelationshipProjector<RS>
 where
     RS: RelationshipStore,
@@ -38,23 +38,41 @@ where
 
     async fn project(&self, uow: &mut Self::Uow, event: &EventEnvelope) -> Result<(), Self::Error> {
         let event = event.try_into_domain_event::<User>()?;
-        let UserEventPayload::Registered { .. } = event.payload() else {
-            return Ok(());
-        };
-
-        self.relationship_store
-            .apply_changes(
-                uow,
-                &[RelationshipChange::Upsert(Relationship {
-                    aggregate: AggregateRef::from_id::<User>(event.aggregate_id()),
-                    relation: RelationNameOwned::from(UserStatusManagerRelation::NAME),
-                    subject: RelationshipSubject::AggregateSet {
-                        aggregate: AggregateRef::from_id::<Role>(RoleId::admin()),
-                        relation: RelationNameOwned::from(RoleAssigneeRelation::NAME),
-                    },
-                })],
-            )
-            .await?;
+        match event.payload() {
+            UserEventPayload::StatusManagerAssigned { status_manager } => {
+                let UserStatusManager::User(status_manager) = *status_manager;
+                let user = AggregateRef::from_id::<User>(event.aggregate_id());
+                self.relationship_store
+                    .apply_changes(
+                        uow,
+                        &[RelationshipChange::Upsert(Relationship {
+                            aggregate: user,
+                            relation: RelationRefOwned::from(UserStatusManagerRelation::REF),
+                            subject: RelationshipSubject::Aggregate(AggregateRef::from_id::<User>(
+                                status_manager,
+                            )),
+                        })],
+                    )
+                    .await?;
+            }
+            UserEventPayload::StatusManagerUnassigned { status_manager } => {
+                let UserStatusManager::User(status_manager) = *status_manager;
+                let user = AggregateRef::from_id::<User>(event.aggregate_id());
+                self.relationship_store
+                    .apply_changes(
+                        uow,
+                        &[RelationshipChange::Delete(Relationship {
+                            aggregate: user,
+                            relation: RelationRefOwned::from(UserStatusManagerRelation::REF),
+                            subject: RelationshipSubject::Aggregate(AggregateRef::from_id::<User>(
+                                status_manager,
+                            )),
+                        })],
+                    )
+                    .await?;
+            }
+            _ => return Ok(()),
+        }
 
         Ok(())
     }
@@ -65,22 +83,23 @@ mod tests {
     use std::sync::{Arc, Mutex};
 
     use appletheia::application::authorization::{
-        AggregateRef, Relation, RelationNameOwned, RelationshipChange, RelationshipStore,
+        AggregateRef, Relation, RelationRefOwned, RelationshipChange, RelationshipStore,
         RelationshipStoreError, RelationshipSubject,
     };
     use appletheia::application::event::{EventEnvelope, EventSequence, SerializedEventPayload};
     use appletheia::application::projection::Projector;
     use appletheia::application::request_context::{
-        ActorRef, CausationId, CorrelationId, MessageId, Principal, RequestContext,
+        CausationId, CorrelationId, MessageId, Principal, RequestContext,
     };
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::{Aggregate, AggregateId, EventPayload};
     use banking_iam_domain::{
-        Email, Role, RoleId, User, UserIdentity, UserIdentityProvider, UserIdentitySubject,
+        Email, User, UserId, UserIdentity, UserIdentityProvider, UserIdentitySubject,
+        UserStatusManager,
     };
 
     use super::UserStatusManagerRelationshipProjector;
-    use crate::authorization::{RoleAssigneeRelation, UserStatusManagerRelation};
+    use crate::authorization::UserStatusManagerRelation;
 
     #[derive(Default)]
     struct TestUow;
@@ -125,8 +144,7 @@ mod tests {
             &self,
             _uow: &mut Self::Uow,
             _subject: &RelationshipSubject,
-            _aggregate_type: &appletheia::application::event::AggregateTypeOwned,
-            _relation: &RelationNameOwned,
+            _relation: &RelationRefOwned,
         ) -> Result<Vec<AggregateRef>, RelationshipStoreError> {
             Ok(Vec::new())
         }
@@ -135,7 +153,8 @@ mod tests {
             &self,
             _uow: &mut Self::Uow,
             _aggregate: &AggregateRef,
-            _relation: &RelationNameOwned,
+            _relation: &RelationRefOwned,
+            _subject_aggregate_type: Option<&appletheia::application::event::AggregateTypeOwned>,
         ) -> Result<Vec<RelationshipSubject>, RelationshipStoreError> {
             Ok(Vec::new())
         }
@@ -150,55 +169,116 @@ mod tests {
         )
     }
 
-    fn registered_event_envelope() -> EventEnvelope {
+    fn status_manager_assigned_event_envelope() -> (EventEnvelope, UserStatusManager) {
+        let status_manager_id = UserId::new();
+        let status_manager = UserStatusManager::User(status_manager_id);
         let mut user = User::default();
         user.register(identity())
             .expect("registration should succeed");
+        user.assign_status_manager(status_manager)
+            .expect("status manager assignment should succeed");
 
         let event = user
             .uncommitted_events()
-            .first()
-            .expect("registered event should exist")
+            .last()
+            .expect("status manager event should exist")
             .clone();
         let message_id = MessageId::new();
 
-        EventEnvelope {
-            event_sequence: EventSequence::try_from(1).expect("sequence should be valid"),
-            event_id: event.id(),
-            aggregate_type: appletheia::application::event::AggregateTypeOwned::from(User::TYPE),
-            aggregate_id: appletheia::application::event::AggregateIdValue::from(
-                event.aggregate_id().value(),
-            ),
-            aggregate_version: event.aggregate_version(),
-            event_name: appletheia::application::event::EventNameOwned::from(
-                event.payload().name(),
-            ),
-            payload: SerializedEventPayload::try_from(
-                event
-                    .payload()
-                    .clone()
-                    .into_json_value()
-                    .expect("payload should serialize"),
-            )
-            .expect("payload should be valid"),
-            occurred_at: event.occurred_at(),
-            correlation_id: CorrelationId::from(message_id.value()),
-            causation_id: CausationId::from(message_id),
-            context: RequestContext::new(
-                CorrelationId::from(MessageId::new().value()),
-                message_id,
-                ActorRef::System,
-                Principal::System,
-            ),
-        }
+        (
+            EventEnvelope {
+                event_sequence: EventSequence::try_from(1).expect("sequence should be valid"),
+                event_id: event.id(),
+                aggregate_type: appletheia::application::event::AggregateTypeOwned::from(
+                    User::TYPE,
+                ),
+                aggregate_id: appletheia::application::event::AggregateIdValue::from(
+                    event.aggregate_id().value(),
+                ),
+                aggregate_version: event.aggregate_version(),
+                event_name: appletheia::application::event::EventNameOwned::from(
+                    event.payload().name(),
+                ),
+                payload: SerializedEventPayload::try_from(
+                    event
+                        .payload()
+                        .clone()
+                        .into_json_value()
+                        .expect("payload should serialize"),
+                )
+                .expect("payload should be valid"),
+                occurred_at: event.occurred_at(),
+                correlation_id: CorrelationId::from(message_id.value()),
+                causation_id: CausationId::from(message_id),
+                context: RequestContext::new(
+                    CorrelationId::from(MessageId::new().value()),
+                    message_id,
+                    Principal::System,
+                )
+                .expect("request context should be valid"),
+            },
+            status_manager,
+        )
+    }
+
+    fn status_manager_unassigned_event_envelope() -> (EventEnvelope, UserStatusManager) {
+        let status_manager_id = UserId::new();
+        let status_manager = UserStatusManager::User(status_manager_id);
+        let mut user = User::default();
+        user.register(identity())
+            .expect("registration should succeed");
+        user.unassign_status_manager(status_manager)
+            .expect("status manager unassignment should succeed");
+
+        let event = user
+            .uncommitted_events()
+            .last()
+            .expect("status manager unassigned event should exist")
+            .clone();
+        let message_id = MessageId::new();
+
+        (
+            EventEnvelope {
+                event_sequence: EventSequence::try_from(1).expect("sequence should be valid"),
+                event_id: event.id(),
+                aggregate_type: appletheia::application::event::AggregateTypeOwned::from(
+                    User::TYPE,
+                ),
+                aggregate_id: appletheia::application::event::AggregateIdValue::from(
+                    event.aggregate_id().value(),
+                ),
+                aggregate_version: event.aggregate_version(),
+                event_name: appletheia::application::event::EventNameOwned::from(
+                    event.payload().name(),
+                ),
+                payload: SerializedEventPayload::try_from(
+                    event
+                        .payload()
+                        .clone()
+                        .into_json_value()
+                        .expect("payload should serialize"),
+                )
+                .expect("payload should be valid"),
+                occurred_at: event.occurred_at(),
+                correlation_id: CorrelationId::from(message_id.value()),
+                causation_id: CausationId::from(message_id),
+                context: RequestContext::new(
+                    CorrelationId::from(MessageId::new().value()),
+                    message_id,
+                    Principal::System,
+                )
+                .expect("request context should be valid"),
+            },
+            status_manager,
+        )
     }
 
     #[tokio::test]
-    async fn project_registered_event_upserts_status_manager_relationship() {
+    async fn project_status_manager_assigned_event_upserts_status_manager_relationship() {
         let store = TestRelationshipStore::default();
         let projector = UserStatusManagerRelationshipProjector::new(store.clone());
         let mut uow = TestUow;
-        let event = registered_event_envelope();
+        let (event, status_manager) = status_manager_assigned_event_envelope();
 
         projector
             .project(&mut uow, &event)
@@ -214,14 +294,42 @@ mod tests {
 
         assert_eq!(
             relationship.relation,
-            RelationNameOwned::from(UserStatusManagerRelation::NAME)
+            RelationRefOwned::from(UserStatusManagerRelation::REF)
         );
+        let UserStatusManager::User(status_manager) = status_manager;
         assert_eq!(
             relationship.subject,
-            RelationshipSubject::AggregateSet {
-                aggregate: AggregateRef::from_id::<Role>(RoleId::admin()),
-                relation: RelationNameOwned::from(RoleAssigneeRelation::NAME),
-            }
+            RelationshipSubject::Aggregate(AggregateRef::from_id::<User>(status_manager))
+        );
+    }
+
+    #[tokio::test]
+    async fn project_status_manager_unassigned_event_deletes_status_manager_relationship() {
+        let store = TestRelationshipStore::default();
+        let projector = UserStatusManagerRelationshipProjector::new(store.clone());
+        let mut uow = TestUow;
+        let (event, status_manager) = status_manager_unassigned_event_envelope();
+
+        projector
+            .project(&mut uow, &event)
+            .await
+            .expect("projection should succeed");
+
+        let changes = store.recorded_changes();
+        assert_eq!(changes.len(), 1);
+
+        let RelationshipChange::Delete(relationship) = &changes[0] else {
+            panic!("expected delete relationship");
+        };
+
+        assert_eq!(
+            relationship.relation,
+            RelationRefOwned::from(UserStatusManagerRelation::REF)
+        );
+        let UserStatusManager::User(status_manager) = status_manager;
+        assert_eq!(
+            relationship.subject,
+            RelationshipSubject::Aggregate(AggregateRef::from_id::<User>(status_manager))
         );
     }
 }

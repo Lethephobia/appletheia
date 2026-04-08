@@ -1,0 +1,4 @@
+interface:
+  display_name: "Appletheia Library Maintainer"
+  short_description: "Maintain Appletheia crates, macros, and compatibility"
+  default_prompt: "Use $appletheia-library-maintainer to modify Appletheia crates, macros, and compatibility safely."

@@ -1,11 +1,11 @@
 use appletheia::application::authorization::{
-    AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
+    AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_iam_application::RoleAssigneeRelationshipProjectorSpec;
+use banking_iam_application::OrganizationOwnerRelationshipProjectorSpec;
 use banking_ledger_domain::currency_definition::CurrencyDefinition;
 
 use super::{
@@ -13,7 +13,7 @@ use super::{
     CurrencyDefinitionRemoveOutput,
 };
 use crate::authorization::CurrencyDefinitionRemoverRelation;
-use crate::projection::CurrencyDefinitionStatusManagerRelationshipProjectorSpec;
+use crate::projection::CurrencyDefinitionOwnerRelationshipProjectorSpec;
 
 /// Handles `CurrencyDefinitionRemoveCommand`.
 pub struct CurrencyDefinitionRemoveCommandHandler<CDR>
@@ -50,15 +50,13 @@ where
     ) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
             PrincipalRequirement::AuthenticatedWithRelationship {
-                requirement: RelationshipRequirement::Check {
-                    aggregate: AggregateRef::from_id::<CurrencyDefinition>(
-                        command.currency_definition_id,
-                    ),
-                    relation: CurrencyDefinitionRemoverRelation::NAME,
-                },
+                requirement: RelationshipRequirement::check::<CurrencyDefinition>(
+                    command.currency_definition_id,
+                    CurrencyDefinitionRemoverRelation::REF,
+                ),
                 projector_dependencies: ProjectorDependencies::Some(&[
-                    RoleAssigneeRelationshipProjectorSpec::DESCRIPTOR,
-                    CurrencyDefinitionStatusManagerRelationshipProjectorSpec::DESCRIPTOR,
+                    CurrencyDefinitionOwnerRelationshipProjectorSpec::DESCRIPTOR,
+                    OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
                 ]),
             },
         ]))

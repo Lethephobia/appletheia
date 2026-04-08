@@ -1,10 +1,12 @@
 use appletheia::domain::{UniqueValue, UniqueValuePart, UniqueValues};
 use appletheia::{aggregate_state, unique_constraints};
 
+use crate::core::CurrencyAmount;
 use crate::core::{CurrencyDecimals, CurrencySymbol};
 
 use super::{
-    CurrencyDefinitionId, CurrencyDefinitionStateError, CurrencyDefinitionStatus, CurrencyName,
+    CurrencyDefinitionId, CurrencyDefinitionOwner, CurrencyDefinitionStateError,
+    CurrencyDefinitionStatus, CurrencyName,
 };
 
 /// Stores the materialized state of a `CurrencyDefinition` aggregate.
@@ -12,9 +14,11 @@ use super::{
 #[unique_constraints(entry(key = "symbol", values = symbol_values))]
 pub struct CurrencyDefinitionState {
     pub(super) id: CurrencyDefinitionId,
+    pub(super) owner: CurrencyDefinitionOwner,
     pub(super) symbol: CurrencySymbol,
     pub(super) name: CurrencyName,
     pub(super) decimals: CurrencyDecimals,
+    pub(super) supply: CurrencyAmount,
     pub(super) status: CurrencyDefinitionStatus,
 }
 
@@ -22,15 +26,18 @@ impl CurrencyDefinitionState {
     /// Creates a new currency-definition state.
     pub(super) fn new(
         id: CurrencyDefinitionId,
+        owner: CurrencyDefinitionOwner,
         symbol: CurrencySymbol,
         name: CurrencyName,
         decimals: CurrencyDecimals,
     ) -> Self {
         Self {
             id,
+            owner,
             symbol,
             name,
             decimals,
+            supply: CurrencyAmount::zero(),
             status: CurrencyDefinitionStatus::Active,
         }
     }
@@ -53,17 +60,21 @@ fn symbol_values(
 #[cfg(test)]
 mod tests {
     use appletheia::domain::{AggregateState, UniqueConstraints, UniqueKey, UniqueValues};
+    use banking_iam_domain::UserId;
 
+    use crate::core::CurrencyAmount;
     use crate::core::{CurrencyDecimals, CurrencySymbol};
 
     use super::{
-        CurrencyDefinitionId, CurrencyDefinitionState, CurrencyDefinitionStatus, CurrencyName,
+        CurrencyDefinitionId, CurrencyDefinitionOwner, CurrencyDefinitionState,
+        CurrencyDefinitionStatus, CurrencyName,
     };
 
     #[test]
     fn returns_unique_entries_for_symbol() {
         let state = CurrencyDefinitionState::new(
             CurrencyDefinitionId::new(),
+            CurrencyDefinitionOwner::User(UserId::new()),
             CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
             CurrencyName::try_from("USD Coin").expect("name should be valid"),
             CurrencyDecimals::new(6),
@@ -82,18 +93,21 @@ mod tests {
         let id = CurrencyDefinitionId::new();
         let state = CurrencyDefinitionState::new(
             id,
+            CurrencyDefinitionOwner::User(UserId::new()),
             CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
             CurrencyName::try_from("USD Coin").expect("name should be valid"),
             CurrencyDecimals::new(6),
         );
 
         assert_eq!(state.id(), id);
+        assert_eq!(state.supply, CurrencyAmount::zero());
     }
 
     #[test]
     fn removed_state_has_no_symbol_unique_entry() {
         let mut state = CurrencyDefinitionState::new(
             CurrencyDefinitionId::new(),
+            CurrencyDefinitionOwner::User(UserId::new()),
             CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
             CurrencyName::try_from("USD Coin").expect("name should be valid"),
             CurrencyDecimals::new(6),

@@ -6,7 +6,7 @@ use banking_ledger_domain::currency_definition::{
     CurrencyDefinition, CurrencyDefinitionEventPayload,
 };
 
-/// Declares the subscription for the currency-definition owner relationship projector.
+/// Declares the subscription for the currency-definition organization relationship projector.
 pub struct CurrencyDefinitionOwnerRelationshipProjectorSpec;
 
 impl ProjectorSpec for CurrencyDefinitionOwnerRelationshipProjectorSpec {

@@ -1,12 +1,13 @@
 use appletheia::command;
-use banking_iam_domain::UserId;
+use banking_ledger_domain::account::{AccountName, AccountOwner};
 use banking_ledger_domain::currency_definition::CurrencyDefinitionId;
 use serde::{Deserialize, Serialize};
 
-/// Opens a new account for the specified user.
+/// Opens a new account for the specified owner.
 #[command(name = "account_open")]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AccountOpenCommand {
-    pub user_id: UserId,
+    pub owner: AccountOwner,
+    pub name: AccountName,
     pub currency_definition_id: CurrencyDefinitionId,
 }

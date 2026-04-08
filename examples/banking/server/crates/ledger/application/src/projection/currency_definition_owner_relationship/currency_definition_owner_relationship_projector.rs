@@ -1,12 +1,12 @@
 use appletheia::application::authorization::{
-    AggregateRef, Relation, RelationNameOwned, Relationship, RelationshipChange, RelationshipStore,
+    AggregateRef, Relation, RelationRefOwned, Relationship, RelationshipChange, RelationshipStore,
     RelationshipSubject,
 };
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
-use appletheia::application::request_context::ActorRef;
+use banking_iam_domain::{Organization, User};
 use banking_ledger_domain::currency_definition::{
-    CurrencyDefinition, CurrencyDefinitionEventPayload,
+    CurrencyDefinition, CurrencyDefinitionEventPayload, CurrencyDefinitionOwner,
 };
 
 use super::{
@@ -15,7 +15,7 @@ use super::{
 };
 use crate::authorization::CurrencyDefinitionOwnerRelation;
 
-/// Projects the initial owner relationship for new currency definitions.
+/// Projects the owner relationship for currency definitions.
 pub struct CurrencyDefinitionOwnerRelationshipProjector<RS>
 where
     RS: RelationshipStore,
@@ -42,26 +42,34 @@ where
 
     async fn project(&self, uow: &mut Self::Uow, event: &EventEnvelope) -> Result<(), Self::Error> {
         let domain_event = event.try_into_domain_event::<CurrencyDefinition>()?;
-        let CurrencyDefinitionEventPayload::Defined { .. } = domain_event.payload() else {
-            return Ok(());
-        };
+        match domain_event.payload() {
+            CurrencyDefinitionEventPayload::Defined { owner, .. } => {
+                let subject = match owner {
+                    CurrencyDefinitionOwner::User(user_id) => {
+                        RelationshipSubject::Aggregate(AggregateRef::from_id::<User>(*user_id))
+                    }
+                    CurrencyDefinitionOwner::Organization(organization_id) => {
+                        RelationshipSubject::Aggregate(AggregateRef::from_id::<Organization>(
+                            *organization_id,
+                        ))
+                    }
+                };
 
-        let ActorRef::Subject { subject } = &event.context.actor else {
-            return Ok(());
-        };
-        let currency_definition =
-            AggregateRef::from_id::<CurrencyDefinition>(domain_event.aggregate_id());
-
-        self.relationship_store
-            .apply_changes(
-                uow,
-                &[RelationshipChange::Upsert(Relationship {
-                    aggregate: currency_definition,
-                    relation: RelationNameOwned::from(CurrencyDefinitionOwnerRelation::NAME),
-                    subject: RelationshipSubject::Aggregate(subject.clone()),
-                })],
-            )
-            .await?;
+                self.relationship_store
+                    .apply_changes(
+                        uow,
+                        &[RelationshipChange::Upsert(Relationship {
+                            aggregate: AggregateRef::from_id::<CurrencyDefinition>(
+                                domain_event.aggregate_id(),
+                            ),
+                            relation: RelationRefOwned::from(CurrencyDefinitionOwnerRelation::REF),
+                            subject,
+                        })],
+                    )
+                    .await?;
+            }
+            _ => return Ok(()),
+        }
 
         Ok(())
     }
@@ -72,19 +80,21 @@ mod tests {
     use std::sync::{Arc, Mutex};
 
     use appletheia::application::authorization::{
-        AggregateRef, Relation, RelationNameOwned, RelationshipChange, RelationshipStore,
+        AggregateRef, Relation, RelationRefOwned, RelationshipChange, RelationshipStore,
         RelationshipStoreError, RelationshipSubject,
     };
     use appletheia::application::event::{EventEnvelope, EventSequence, SerializedEventPayload};
     use appletheia::application::projection::Projector;
     use appletheia::application::request_context::{
-        ActorRef, CausationId, CorrelationId, MessageId, Principal, RequestContext,
+        CausationId, CorrelationId, MessageId, Principal, RequestContext,
     };
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::{Aggregate, AggregateId, EventPayload};
+    use banking_iam_domain::{Organization, User};
     use banking_ledger_domain::core::{CurrencyDecimals, CurrencySymbol};
-    use banking_ledger_domain::currency_definition::{CurrencyDefinition, CurrencyName};
-    use uuid::Uuid;
+    use banking_ledger_domain::currency_definition::{
+        CurrencyDefinition, CurrencyDefinitionOwner, CurrencyName,
+    };
 
     use super::CurrencyDefinitionOwnerRelationshipProjector;
     use crate::authorization::CurrencyDefinitionOwnerRelation;
@@ -132,8 +142,7 @@ mod tests {
             &self,
             _uow: &mut Self::Uow,
             _subject: &RelationshipSubject,
-            _aggregate_type: &appletheia::application::event::AggregateTypeOwned,
-            _relation: &RelationNameOwned,
+            _relation: &RelationRefOwned,
         ) -> Result<Vec<AggregateRef>, RelationshipStoreError> {
             Ok(Vec::new())
         }
@@ -142,24 +151,18 @@ mod tests {
             &self,
             _uow: &mut Self::Uow,
             _aggregate: &AggregateRef,
-            _relation: &RelationNameOwned,
+            _relation: &RelationRefOwned,
+            _subject_aggregate_type: Option<&appletheia::application::event::AggregateTypeOwned>,
         ) -> Result<Vec<RelationshipSubject>, RelationshipStoreError> {
             Ok(Vec::new())
         }
     }
 
-    fn creator_subject() -> AggregateRef {
-        AggregateRef::new(
-            appletheia::application::event::AggregateTypeOwned::try_from("user")
-                .expect("aggregate type should be valid"),
-            appletheia::application::event::AggregateIdValue::from(Uuid::now_v7()),
-        )
-    }
-
-    fn defined_event_envelope(actor: ActorRef) -> EventEnvelope {
+    fn defined_event_envelope(owner: CurrencyDefinitionOwner) -> EventEnvelope {
         let mut currency_definition = CurrencyDefinition::default();
         currency_definition
             .define(
+                owner,
                 CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
                 CurrencyName::try_from("USD Coin").expect("name should be valid"),
                 CurrencyDecimals::new(6),
@@ -200,21 +203,19 @@ mod tests {
             context: RequestContext::new(
                 CorrelationId::from(MessageId::new().value()),
                 message_id,
-                actor,
-                Principal::Unavailable,
-            ),
+                Principal::System,
+            )
+            .expect("request context should be valid"),
         }
     }
 
     #[tokio::test]
-    async fn project_defined_event_upserts_owner_relationship() {
+    async fn project_defined_event_upserts_owner_relationship_for_user_owner() {
         let store = TestRelationshipStore::default();
         let projector = CurrencyDefinitionOwnerRelationshipProjector::new(store.clone());
         let mut uow = TestUow;
-        let creator = creator_subject();
-        let event = defined_event_envelope(ActorRef::Subject {
-            subject: creator.clone(),
-        });
+        let user_id = banking_iam_domain::UserId::new();
+        let event = defined_event_envelope(CurrencyDefinitionOwner::User(user_id));
 
         projector
             .project(&mut uow, &event)
@@ -230,26 +231,41 @@ mod tests {
 
         assert_eq!(
             relationship.relation,
-            RelationNameOwned::from(CurrencyDefinitionOwnerRelation::NAME)
+            RelationRefOwned::from(CurrencyDefinitionOwnerRelation::REF)
         );
         assert_eq!(
             relationship.subject,
-            RelationshipSubject::Aggregate(creator)
+            RelationshipSubject::Aggregate(AggregateRef::from_id::<User>(user_id))
         );
     }
 
     #[tokio::test]
-    async fn project_ignores_non_subject_actor() {
+    async fn project_defined_event_upserts_owner_relationship_for_organization_owner() {
         let store = TestRelationshipStore::default();
         let projector = CurrencyDefinitionOwnerRelationshipProjector::new(store.clone());
         let mut uow = TestUow;
-        let event = defined_event_envelope(ActorRef::System);
+        let organization_id = banking_iam_domain::OrganizationId::new();
+        let event = defined_event_envelope(CurrencyDefinitionOwner::Organization(organization_id));
 
         projector
             .project(&mut uow, &event)
             .await
             .expect("projection should succeed");
 
-        assert!(store.recorded_changes().is_empty());
+        let changes = store.recorded_changes();
+        assert_eq!(changes.len(), 1);
+
+        let RelationshipChange::Upsert(relationship) = &changes[0] else {
+            panic!("expected upsert relationship");
+        };
+
+        assert_eq!(
+            relationship.relation,
+            RelationRefOwned::from(CurrencyDefinitionOwnerRelation::REF)
+        );
+        assert_eq!(
+            relationship.subject,
+            RelationshipSubject::Aggregate(AggregateRef::from_id::<Organization>(organization_id))
+        );
     }
 }

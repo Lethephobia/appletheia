@@ -3,8 +3,8 @@ use appletheia::event_payload;
 use crate::core::Email;
 
 use super::{
-    UserDisplayName, UserEventPayloadError, UserId, UserIdentity, UserIdentityProvider,
-    UserIdentitySubject, Username,
+    UserBio, UserDisplayName, UserEventPayloadError, UserId, UserIdentity, UserIdentityProvider,
+    UserIdentitySubject, UserStatusManager, Username,
 };
 
 /// Represents the domain events emitted by a `User` aggregate.
@@ -17,15 +17,25 @@ pub enum UserEventPayload {
     Activated,
     Inactivated,
     Removed,
+    StatusManagerAssigned {
+        status_manager: UserStatusManager,
+    },
+    StatusManagerUnassigned {
+        status_manager: UserStatusManager,
+    },
     ProfileReadied {
         username: Username,
         display_name: UserDisplayName,
+        bio: Option<UserBio>,
     },
     UsernameChanged {
         username: Username,
     },
     DisplayNameChanged {
         display_name: UserDisplayName,
+    },
+    BioChanged {
+        bio: Option<UserBio>,
     },
     IdentityLinked {
         identity: UserIdentity,
@@ -44,8 +54,8 @@ mod tests {
     use crate::core::Email;
 
     use super::{
-        UserDisplayName, UserEventPayload, UserId, UserIdentity, UserIdentityProvider,
-        UserIdentitySubject, Username,
+        UserBio, UserDisplayName, UserEventPayload, UserId, UserIdentity, UserIdentityProvider,
+        UserIdentitySubject, UserStatusManager, Username,
     };
 
     #[test]
@@ -71,12 +81,24 @@ mod tests {
             appletheia::domain::EventName::new("removed")
         );
         assert_eq!(
+            UserEventPayload::STATUS_MANAGER_ASSIGNED,
+            appletheia::domain::EventName::new("status_manager_assigned")
+        );
+        assert_eq!(
+            UserEventPayload::STATUS_MANAGER_UNASSIGNED,
+            appletheia::domain::EventName::new("status_manager_unassigned")
+        );
+        assert_eq!(
             UserEventPayload::USERNAME_CHANGED,
             appletheia::domain::EventName::new("username_changed")
         );
         assert_eq!(
             UserEventPayload::DISPLAY_NAME_CHANGED,
             appletheia::domain::EventName::new("display_name_changed")
+        );
+        assert_eq!(
+            UserEventPayload::BIO_CHANGED,
+            appletheia::domain::EventName::new("bio_changed")
         );
         assert_eq!(
             UserEventPayload::IDENTITY_LINKED,
@@ -94,6 +116,7 @@ mod tests {
             username: Username::try_from("alice_example").expect("username should be valid"),
             display_name: UserDisplayName::try_from("Alice Example")
                 .expect("display name should be valid"),
+            bio: Some(UserBio::try_from("Banking enthusiast").expect("bio should be valid")),
         };
 
         assert_eq!(payload.name(), UserEventPayload::PROFILE_READIED);
@@ -116,6 +139,15 @@ mod tests {
         };
 
         assert_eq!(payload.name(), UserEventPayload::DISPLAY_NAME_CHANGED);
+    }
+
+    #[test]
+    fn bio_changed_payload_name_matches_variant() {
+        let payload = UserEventPayload::BioChanged {
+            bio: Some(UserBio::try_from("Banking enthusiast").expect("bio should be valid")),
+        };
+
+        assert_eq!(payload.name(), UserEventPayload::BIO_CHANGED);
     }
 
     #[test]
@@ -142,6 +174,24 @@ mod tests {
         };
 
         assert_eq!(payload.name(), UserEventPayload::IDENTITY_EMAIL_CHANGED);
+    }
+
+    #[test]
+    fn status_manager_assigned_payload_name_matches_variant() {
+        let payload = UserEventPayload::StatusManagerAssigned {
+            status_manager: UserStatusManager::User(UserId::new()),
+        };
+
+        assert_eq!(payload.name(), UserEventPayload::STATUS_MANAGER_ASSIGNED);
+    }
+
+    #[test]
+    fn status_manager_unassigned_payload_name_matches_variant() {
+        let payload = UserEventPayload::StatusManagerUnassigned {
+            status_manager: UserStatusManager::User(UserId::new()),
+        };
+
+        assert_eq!(payload.name(), UserEventPayload::STATUS_MANAGER_UNASSIGNED);
     }
 
     #[test]
