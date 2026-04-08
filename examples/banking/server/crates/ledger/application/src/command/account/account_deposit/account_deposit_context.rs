@@ -1,4 +1,6 @@
 use banking_ledger_domain::account::AccountId;
+use banking_ledger_domain::currency_definition::CurrencyDefinitionId;
+use banking_ledger_domain::currency_issuance::CurrencyIssuanceId;
 use banking_ledger_domain::transfer::TransferId;
 use serde::{Deserialize, Serialize};
 
@@ -10,5 +12,9 @@ pub enum AccountDepositContext {
     Transfer {
         transfer_id: TransferId,
         from_account_id: AccountId,
+    },
+    Issuance {
+        currency_issuance_id: CurrencyIssuanceId,
+        currency_definition_id: CurrencyDefinitionId,
     },
 }

@@ -1,5 +1,6 @@
 use appletheia::command;
-use banking_ledger_domain::account::{AccountBalance, AccountId};
+use banking_ledger_domain::account::AccountId;
+use banking_ledger_domain::core::CurrencyAmount;
 use serde::{Deserialize, Serialize};
 
 /// Withdraws from the specified account.
@@ -7,5 +8,5 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AccountWithdrawCommand {
     pub account_id: AccountId,
-    pub amount: AccountBalance,
+    pub amount: CurrencyAmount,
 }

@@ -8,8 +8,9 @@ pub use authorization::{
     AccountRenamerRelation, AccountStatusManagerRelation, AccountThawerRelation,
     AccountTransferRequesterRelation, AccountWithdrawerRelation,
     CurrencyDefinitionActivatorRelation, CurrencyDefinitionDeactivatorRelation,
-    CurrencyDefinitionOwnerRelation, CurrencyDefinitionRemoverRelation,
-    CurrencyDefinitionStatusManagerRelation, CurrencyDefinitionUpdaterRelation,
+    CurrencyDefinitionIssuerRelation, CurrencyDefinitionOwnerRelation,
+    CurrencyDefinitionRemoverRelation, CurrencyDefinitionStatusManagerRelation,
+    CurrencyDefinitionUpdaterRelation,
 };
 pub use command::{
     AccountCloseCommand, AccountCloseCommandHandler, AccountCloseOutput,
@@ -26,13 +27,21 @@ pub use command::{
     AccountWithdrawCommandHandler, AccountWithdrawOutput, CurrencyDefinitionActivateCommand,
     CurrencyDefinitionActivateCommandHandler, CurrencyDefinitionActivateOutput,
     CurrencyDefinitionDeactivateCommand, CurrencyDefinitionDeactivateCommandHandler,
-    CurrencyDefinitionDeactivateOutput, CurrencyDefinitionDefineCommand,
+    CurrencyDefinitionDeactivateOutput, CurrencyDefinitionDecreaseSupplyCommand,
+    CurrencyDefinitionDecreaseSupplyCommandHandler, CurrencyDefinitionDecreaseSupplyContext,
+    CurrencyDefinitionDecreaseSupplyOutput, CurrencyDefinitionDefineCommand,
     CurrencyDefinitionDefineCommandHandler, CurrencyDefinitionDefineOutput,
+    CurrencyDefinitionIncreaseSupplyCommand, CurrencyDefinitionIncreaseSupplyCommandHandler,
+    CurrencyDefinitionIncreaseSupplyContext, CurrencyDefinitionIncreaseSupplyOutput,
     CurrencyDefinitionRemoveCommand, CurrencyDefinitionRemoveCommandHandler,
     CurrencyDefinitionRemoveOutput, CurrencyDefinitionUpdateCommand,
     CurrencyDefinitionUpdateCommandHandler, CurrencyDefinitionUpdateOutput,
-    TransferCompleteCommand, TransferCompleteCommandHandler, TransferCompleteOutput,
-    TransferFailCommand, TransferFailCommandHandler, TransferFailOutput, TransferRequestCommand,
+    CurrencyIssuanceCompleteCommand, CurrencyIssuanceCompleteCommandHandler,
+    CurrencyIssuanceCompleteOutput, CurrencyIssuanceFailCommand,
+    CurrencyIssuanceFailCommandHandler, CurrencyIssuanceFailOutput, CurrencyIssueCommand,
+    CurrencyIssueCommandHandler, CurrencyIssueOutput, TransferCompleteCommand,
+    TransferCompleteCommandHandler, TransferCompleteOutput, TransferFailCommand,
+    TransferFailCommandHandler, TransferFailOutput, TransferRequestCommand,
     TransferRequestCommandHandler, TransferRequestOutput,
 };
 pub use projection::{
@@ -41,4 +50,7 @@ pub use projection::{
     CurrencyDefinitionOwnerRelationshipProjectorError,
     CurrencyDefinitionOwnerRelationshipProjectorSpec,
 };
-pub use saga::{TransferSaga, TransferSagaSpec, TransferSagaState};
+pub use saga::{
+    CurrencyIssuanceSaga, CurrencyIssuanceSagaSpec, CurrencyIssuanceSagaState, TransferSaga,
+    TransferSagaSpec, TransferSagaState,
+};

@@ -23,6 +23,7 @@ pub use currency_name_error::CurrencyNameError;
 use appletheia::aggregate;
 use appletheia::domain::{Aggregate, AggregateApply, AggregateCore};
 
+use crate::core::{CurrencyAmount, CurrencyAmountError};
 use crate::core::{CurrencyDecimals, CurrencySymbol};
 
 /// Represents the `CurrencyDefinition` aggregate root.
@@ -55,6 +56,11 @@ impl CurrencyDefinition {
     /// Returns the current status.
     pub fn status(&self) -> Result<CurrencyDefinitionStatus, CurrencyDefinitionError> {
         Ok(self.state_required()?.status)
+    }
+
+    /// Returns the total supply.
+    pub fn supply(&self) -> Result<&CurrencyAmount, CurrencyDefinitionError> {
+        Ok(&self.state_required()?.supply)
     }
 
     /// Returns whether the currency is active.
@@ -134,12 +140,52 @@ impl CurrencyDefinition {
         self.append_event(CurrencyDefinitionEventPayload::Removed)
     }
 
+    /// Increases the total supply.
+    pub fn increase_supply(
+        &mut self,
+        amount: CurrencyAmount,
+    ) -> Result<(), CurrencyDefinitionError> {
+        self.ensure_active()?;
+
+        if amount.is_zero() {
+            return Ok(());
+        }
+
+        self.append_event(CurrencyDefinitionEventPayload::SupplyIncreased { amount })
+    }
+
+    /// Decreases the total supply.
+    pub fn decrease_supply(
+        &mut self,
+        amount: CurrencyAmount,
+    ) -> Result<(), CurrencyDefinitionError> {
+        self.ensure_not_removed()?;
+
+        if amount.is_zero() {
+            return Ok(());
+        }
+
+        if self.state_required()?.supply.value() < amount.value() {
+            return Err(CurrencyDefinitionError::InsufficientSupply);
+        }
+
+        self.append_event(CurrencyDefinitionEventPayload::SupplyDecreased { amount })
+    }
+
     fn ensure_not_removed(&self) -> Result<(), CurrencyDefinitionError> {
         if self.state_required()?.status.is_removed() {
             return Err(CurrencyDefinitionError::Removed);
         }
 
         Ok(())
+    }
+
+    fn ensure_active(&self) -> Result<(), CurrencyDefinitionError> {
+        match self.state_required()?.status {
+            CurrencyDefinitionStatus::Active => Ok(()),
+            CurrencyDefinitionStatus::Inactive => Err(CurrencyDefinitionError::Inactive),
+            CurrencyDefinitionStatus::Removed => Err(CurrencyDefinitionError::Removed),
+        }
     }
 }
 
@@ -173,6 +219,24 @@ impl AggregateApply<CurrencyDefinitionEventPayload, CurrencyDefinitionError>
             CurrencyDefinitionEventPayload::NameChanged { name } => {
                 self.state_required_mut()?.name = name.clone();
             }
+            CurrencyDefinitionEventPayload::SupplyIncreased { amount } => {
+                let state = self.state_required_mut()?;
+                state.supply = state.supply.try_add(*amount).map_err(|error| match error {
+                    CurrencyAmountError::BalanceOverflow => CurrencyDefinitionError::SupplyOverflow,
+                    CurrencyAmountError::InsufficientBalance => {
+                        CurrencyDefinitionError::InsufficientSupply
+                    }
+                })?;
+            }
+            CurrencyDefinitionEventPayload::SupplyDecreased { amount } => {
+                let state = self.state_required_mut()?;
+                state.supply = state.supply.try_sub(*amount).map_err(|error| match error {
+                    CurrencyAmountError::BalanceOverflow => CurrencyDefinitionError::SupplyOverflow,
+                    CurrencyAmountError::InsufficientBalance => {
+                        CurrencyDefinitionError::InsufficientSupply
+                    }
+                })?;
+            }
             CurrencyDefinitionEventPayload::Activated => {
                 self.state_required_mut()?.status = CurrencyDefinitionStatus::Active;
             }
@@ -192,6 +256,7 @@ impl AggregateApply<CurrencyDefinitionEventPayload, CurrencyDefinitionError>
 mod tests {
     use appletheia::domain::{Aggregate, Event, EventPayload};
 
+    use crate::core::CurrencyAmount;
     use crate::core::{CurrencyDecimals, CurrencySymbol};
     use banking_iam_domain::{OrganizationId, UserId};
 
@@ -250,6 +315,10 @@ mod tests {
             currency_definition
                 .is_active()
                 .expect("active state should exist")
+        );
+        assert_eq!(
+            currency_definition.supply().expect("supply should exist"),
+            &CurrencyAmount::zero()
         );
         assert_eq!(
             currency_definition.status().expect("status should exist"),
@@ -437,6 +506,56 @@ mod tests {
             error,
             super::CurrencyDefinitionError::AlreadyDefined
         ));
+    }
+
+    #[test]
+    fn supply_methods_update_supply() {
+        let owner = user_owner();
+        let mut currency_definition = CurrencyDefinition::default();
+        currency_definition
+            .define(
+                owner,
+                CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
+                CurrencyName::try_from("USD Coin").expect("name should be valid"),
+                CurrencyDecimals::new(6),
+            )
+            .expect("definition should succeed");
+
+        currency_definition
+            .increase_supply(CurrencyAmount::new(100))
+            .expect("increase should succeed");
+        currency_definition
+            .decrease_supply(CurrencyAmount::new(40))
+            .expect("decrease should succeed");
+
+        assert_eq!(
+            currency_definition.supply().expect("supply should exist"),
+            &CurrencyAmount::new(60)
+        );
+        assert_eq!(currency_definition.uncommitted_events().len(), 3);
+    }
+
+    #[test]
+    fn increase_supply_rejects_inactive_currency() {
+        let owner = user_owner();
+        let mut currency_definition = CurrencyDefinition::default();
+        currency_definition
+            .define(
+                owner,
+                CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
+                CurrencyName::try_from("USD Coin").expect("name should be valid"),
+                CurrencyDecimals::new(6),
+            )
+            .expect("definition should succeed");
+        currency_definition
+            .deactivate()
+            .expect("deactivate should succeed");
+
+        let error = currency_definition
+            .increase_supply(CurrencyAmount::new(1))
+            .expect_err("increase should fail");
+
+        assert!(matches!(error, super::CurrencyDefinitionError::Inactive));
     }
 
     #[test]

@@ -160,7 +160,8 @@ mod tests {
     use appletheia::application::saga::{Saga, SagaInstance, SagaNameOwned, SagaSpec, SagaStatus};
     use appletheia::domain::{Aggregate, AggregateId, EventId, EventOccurredAt, EventPayload};
     use banking_iam_domain::{User, UserId};
-    use banking_ledger_domain::account::{Account, AccountBalance, AccountEventPayload, AccountId};
+    use banking_ledger_domain::account::{Account, AccountEventPayload, AccountId};
+    use banking_ledger_domain::core::CurrencyAmount;
     use banking_ledger_domain::transfer::{Transfer, TransferEventPayload, TransferId};
 
     use super::{TransferSaga, TransferSagaSpec, TransferSagaState};
@@ -239,7 +240,7 @@ mod tests {
         let from_account_id = AccountId::new();
         let to_account_id = AccountId::new();
         let transfer_id = TransferId::new();
-        let amount = AccountBalance::new(100);
+        let amount = CurrencyAmount::new(100);
         let mut instance = SagaInstance::<TransferSagaState>::new(
             SagaNameOwned::from(TransferSagaSpec::DESCRIPTOR.name),
             correlation_id,
@@ -281,7 +282,7 @@ mod tests {
         let from_account_id = AccountId::new();
         let to_account_id = AccountId::new();
         let transfer_id = TransferId::new();
-        let amount = AccountBalance::new(100);
+        let amount = CurrencyAmount::new(100);
         let mut instance = SagaInstance::<TransferSagaState>::new(
             SagaNameOwned::from(TransferSagaSpec::DESCRIPTOR.name),
             correlation_id,
@@ -392,7 +393,7 @@ mod tests {
         let from_account_id = AccountId::new();
         let to_account_id = AccountId::new();
         let transfer_id = TransferId::new();
-        let amount = AccountBalance::new(100);
+        let amount = CurrencyAmount::new(100);
         let mut instance = SagaInstance::<TransferSagaState>::new(
             SagaNameOwned::from(TransferSagaSpec::DESCRIPTOR.name),
             correlation_id,

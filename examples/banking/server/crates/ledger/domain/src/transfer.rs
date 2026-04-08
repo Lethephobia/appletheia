@@ -17,7 +17,8 @@ pub use transfer_status::TransferStatus;
 use appletheia::aggregate;
 use appletheia::domain::{Aggregate, AggregateApply, AggregateCore};
 
-use crate::account::{AccountBalance, AccountId};
+use crate::account::AccountId;
+use crate::core::CurrencyAmount;
 
 /// Represents the `Transfer` aggregate root.
 #[aggregate(type = "transfer", error = TransferError)]
@@ -37,7 +38,7 @@ impl Transfer {
     }
 
     /// Returns the transfer amount.
-    pub fn amount(&self) -> Result<&AccountBalance, TransferError> {
+    pub fn amount(&self) -> Result<&CurrencyAmount, TransferError> {
         Ok(&self.state_required()?.amount)
     }
 
@@ -51,7 +52,7 @@ impl Transfer {
         &mut self,
         from_account_id: AccountId,
         to_account_id: AccountId,
-        amount: AccountBalance,
+        amount: CurrencyAmount,
     ) -> Result<(), TransferError> {
         if self.state().is_some() {
             return Err(TransferError::AlreadyRequested);
@@ -137,7 +138,8 @@ impl AggregateApply<TransferEventPayload, TransferError> for Transfer {
 mod tests {
     use appletheia::domain::{Aggregate, Event, EventPayload};
 
-    use crate::account::{AccountBalance, AccountId};
+    use crate::account::AccountId;
+    use crate::core::CurrencyAmount;
 
     use super::{Transfer, TransferEventPayload, TransferId, TransferStatus};
 
@@ -145,7 +147,7 @@ mod tests {
     fn request_initializes_state_and_records_event() {
         let from_account_id = AccountId::new();
         let to_account_id = AccountId::new();
-        let amount = AccountBalance::new(100);
+        let amount = CurrencyAmount::new(100);
         let mut transfer = Transfer::default();
 
         transfer
@@ -186,7 +188,7 @@ mod tests {
         let mut transfer = Transfer::default();
 
         let error = transfer
-            .request(account_id, account_id, AccountBalance::new(1))
+            .request(account_id, account_id, CurrencyAmount::new(1))
             .expect_err("same-account transfer should fail");
 
         assert!(matches!(error, super::TransferError::SameAccount));
@@ -198,7 +200,7 @@ mod tests {
         let from_account_id = AccountId::new();
         let to_account_id = AccountId::new();
         transfer
-            .request(from_account_id, to_account_id, AccountBalance::new(100))
+            .request(from_account_id, to_account_id, CurrencyAmount::new(100))
             .expect("request should succeed");
 
         transfer.complete().expect("complete should succeed");
@@ -222,7 +224,7 @@ mod tests {
         let from_account_id = AccountId::new();
         let to_account_id = AccountId::new();
         transfer
-            .request(from_account_id, to_account_id, AccountBalance::new(100))
+            .request(from_account_id, to_account_id, CurrencyAmount::new(100))
             .expect("request should succeed");
 
         transfer.fail().expect("fail should succeed");
@@ -244,7 +246,7 @@ mod tests {
         let from_account_id = AccountId::new();
         let to_account_id = AccountId::new();
         transfer
-            .request(from_account_id, to_account_id, AccountBalance::new(100))
+            .request(from_account_id, to_account_id, CurrencyAmount::new(100))
             .expect("request should succeed");
 
         transfer.cancel().expect("cancel should succeed");
@@ -272,7 +274,7 @@ mod tests {
                 id,
                 from_account_id,
                 to_account_id,
-                amount: AccountBalance::new(100),
+                amount: CurrencyAmount::new(100),
             },
         );
         let completed = Event::new(
@@ -300,7 +302,7 @@ mod tests {
         );
         assert_eq!(
             transfer.amount().expect("amount should exist"),
-            &AccountBalance::new(100)
+            &CurrencyAmount::new(100)
         );
         assert_eq!(
             transfer.status().expect("status should exist"),

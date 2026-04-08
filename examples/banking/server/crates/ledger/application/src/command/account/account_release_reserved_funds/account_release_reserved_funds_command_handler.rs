@@ -95,7 +95,8 @@ mod tests {
         ActorRef, CorrelationId, MessageId, Principal, RequestContext,
     };
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
-    use banking_ledger_domain::account::{Account, AccountBalance, AccountId};
+    use banking_ledger_domain::account::{Account, AccountId};
+    use banking_ledger_domain::core::CurrencyAmount;
     use banking_ledger_domain::transfer::TransferId;
 
     use super::{
@@ -178,7 +179,7 @@ mod tests {
                 &request_context,
                 &AccountReleaseReservedFundsCommand {
                     account_id: AccountId::new(),
-                    amount: AccountBalance::new(10),
+                    amount: CurrencyAmount::new(10),
                     context: AccountReleaseReservedFundsContext::Transfer { transfer_id },
                 },
                 &AccountReleaseReservedFundsCommandHandlerError::AccountNotFound,

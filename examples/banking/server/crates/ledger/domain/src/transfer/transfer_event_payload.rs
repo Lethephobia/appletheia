@@ -1,6 +1,7 @@
 use appletheia::event_payload;
 
-use crate::account::{AccountBalance, AccountId};
+use crate::account::AccountId;
+use crate::core::CurrencyAmount;
 
 use super::{TransferEventPayloadError, TransferId};
 
@@ -11,7 +12,7 @@ pub enum TransferEventPayload {
         id: TransferId,
         from_account_id: AccountId,
         to_account_id: AccountId,
-        amount: AccountBalance,
+        amount: CurrencyAmount,
     },
     Completed,
     Failed,
@@ -22,7 +23,8 @@ pub enum TransferEventPayload {
 mod tests {
     use appletheia::domain::EventPayload;
 
-    use crate::account::{AccountBalance, AccountId};
+    use crate::account::AccountId;
+    use crate::core::CurrencyAmount;
 
     use super::{TransferEventPayload, TransferId};
 
@@ -59,7 +61,7 @@ mod tests {
             id: TransferId::new(),
             from_account_id: AccountId::new(),
             to_account_id: AccountId::new(),
-            amount: AccountBalance::new(100),
+            amount: CurrencyAmount::new(100),
         };
 
         let value = payload.into_json_value().expect("payload should serialize");

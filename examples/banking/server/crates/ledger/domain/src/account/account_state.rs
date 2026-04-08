@@ -1,11 +1,10 @@
 use appletheia::aggregate_state;
 use appletheia::unique_constraints;
 
+use crate::core::CurrencyAmount;
 use crate::currency_definition::CurrencyDefinitionId;
 
-use super::{
-    AccountBalance, AccountId, AccountName, AccountOwner, AccountStateError, AccountStatus,
-};
+use super::{AccountId, AccountName, AccountOwner, AccountStateError, AccountStatus};
 
 /// Stores the materialized state of an `Account` aggregate.
 #[aggregate_state(error = AccountStateError)]
@@ -15,8 +14,8 @@ pub struct AccountState {
     pub(super) owner: AccountOwner,
     pub(super) name: AccountName,
     pub(super) currency_definition_id: CurrencyDefinitionId,
-    pub(super) balance: AccountBalance,
-    pub(super) reserved_balance: AccountBalance,
+    pub(super) balance: CurrencyAmount,
+    pub(super) reserved_balance: CurrencyAmount,
     pub(super) status: AccountStatus,
 }
 
@@ -33,8 +32,8 @@ impl AccountState {
             owner,
             name,
             currency_definition_id,
-            balance: AccountBalance::zero(),
-            reserved_balance: AccountBalance::zero(),
+            balance: CurrencyAmount::zero(),
+            reserved_balance: CurrencyAmount::zero(),
             status: AccountStatus::Active,
         }
     }
@@ -49,7 +48,7 @@ mod tests {
     use crate::currency_definition::CurrencyDefinitionId;
 
     use super::{
-        AccountBalance, AccountId, AccountName, AccountOwner, AccountState, AccountStatus,
+        AccountId, AccountName, AccountOwner, AccountState, AccountStatus, CurrencyAmount,
     };
 
     fn account_name() -> AccountName {
@@ -76,8 +75,8 @@ mod tests {
             CurrencyDefinitionId::new(),
         );
 
-        assert_eq!(state.balance, AccountBalance::zero());
-        assert_eq!(state.reserved_balance, AccountBalance::zero());
+        assert_eq!(state.balance, CurrencyAmount::zero());
+        assert_eq!(state.reserved_balance, CurrencyAmount::zero());
         assert_eq!(state.status, AccountStatus::Active);
         assert_eq!(state.owner, owner);
     }

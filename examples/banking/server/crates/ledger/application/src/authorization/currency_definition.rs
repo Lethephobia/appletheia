@@ -2,6 +2,7 @@ use banking_ledger_domain::currency_definition::CurrencyDefinition;
 
 mod currency_definition_activator_relation;
 mod currency_definition_deactivator_relation;
+mod currency_definition_issuer_relation;
 mod currency_definition_owner_relation;
 mod currency_definition_remover_relation;
 mod currency_definition_status_manager_relation;
@@ -9,6 +10,7 @@ mod currency_definition_updater_relation;
 
 pub use currency_definition_activator_relation::CurrencyDefinitionActivatorRelation;
 pub use currency_definition_deactivator_relation::CurrencyDefinitionDeactivatorRelation;
+pub use currency_definition_issuer_relation::CurrencyDefinitionIssuerRelation;
 pub use currency_definition_owner_relation::CurrencyDefinitionOwnerRelation;
 pub use currency_definition_remover_relation::CurrencyDefinitionRemoverRelation;
 pub use currency_definition_status_manager_relation::CurrencyDefinitionStatusManagerRelation;

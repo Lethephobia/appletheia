@@ -1,6 +1,7 @@
 use appletheia::domain::{UniqueValue, UniqueValuePart, UniqueValues};
 use appletheia::{aggregate_state, unique_constraints};
 
+use crate::core::CurrencyAmount;
 use crate::core::{CurrencyDecimals, CurrencySymbol};
 
 use super::{
@@ -17,6 +18,7 @@ pub struct CurrencyDefinitionState {
     pub(super) symbol: CurrencySymbol,
     pub(super) name: CurrencyName,
     pub(super) decimals: CurrencyDecimals,
+    pub(super) supply: CurrencyAmount,
     pub(super) status: CurrencyDefinitionStatus,
 }
 
@@ -35,6 +37,7 @@ impl CurrencyDefinitionState {
             symbol,
             name,
             decimals,
+            supply: CurrencyAmount::zero(),
             status: CurrencyDefinitionStatus::Active,
         }
     }
@@ -59,6 +62,7 @@ mod tests {
     use appletheia::domain::{AggregateState, UniqueConstraints, UniqueKey, UniqueValues};
     use banking_iam_domain::UserId;
 
+    use crate::core::CurrencyAmount;
     use crate::core::{CurrencyDecimals, CurrencySymbol};
 
     use super::{
@@ -96,6 +100,7 @@ mod tests {
         );
 
         assert_eq!(state.id(), id);
+        assert_eq!(state.supply, CurrencyAmount::zero());
     }
 
     #[test]

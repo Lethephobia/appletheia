@@ -1,5 +1,6 @@
 use appletheia::event_payload;
 
+use crate::core::CurrencyAmount;
 use crate::core::{CurrencyDecimals, CurrencySymbol};
 
 use super::{
@@ -22,6 +23,12 @@ pub enum CurrencyDefinitionEventPayload {
     },
     NameChanged {
         name: CurrencyName,
+    },
+    SupplyIncreased {
+        amount: CurrencyAmount,
+    },
+    SupplyDecreased {
+        amount: CurrencyAmount,
     },
     Activated,
     Deactivated,
@@ -49,6 +56,14 @@ mod tests {
         assert_eq!(
             CurrencyDefinitionEventPayload::NAME_CHANGED,
             appletheia::domain::EventName::new("name_changed")
+        );
+        assert_eq!(
+            CurrencyDefinitionEventPayload::SUPPLY_INCREASED,
+            appletheia::domain::EventName::new("supply_increased")
+        );
+        assert_eq!(
+            CurrencyDefinitionEventPayload::SUPPLY_DECREASED,
+            appletheia::domain::EventName::new("supply_decreased")
         );
         assert_eq!(
             CurrencyDefinitionEventPayload::ACTIVATED,

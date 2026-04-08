@@ -135,9 +135,8 @@ mod tests {
     use appletheia::domain::{Aggregate, AggregateVersion, UniqueKey, UniqueValue};
     use banking_iam_application::OrganizationOwnerRelationshipProjectorSpec;
     use banking_iam_domain::{User, UserId};
-    use banking_ledger_domain::account::{
-        Account, AccountBalance, AccountId, AccountName, AccountOwner,
-    };
+    use banking_ledger_domain::account::{Account, AccountId, AccountName, AccountOwner};
+    use banking_ledger_domain::core::CurrencyAmount;
     use banking_ledger_domain::currency_definition::CurrencyDefinitionId;
     use banking_ledger_domain::transfer::{Transfer, TransferId};
     use uuid::Uuid;
@@ -305,7 +304,7 @@ mod tests {
         let command = TransferRequestCommand {
             from_account_id: AccountId::new(),
             to_account_id: AccountId::new(),
-            amount: AccountBalance::new(10),
+            amount: CurrencyAmount::new(10),
         };
 
         let plan = handler
@@ -350,7 +349,7 @@ mod tests {
                 &TransferRequestCommand {
                     from_account_id: source_account_id,
                     to_account_id: destination_account_id,
-                    amount: AccountBalance::new(10),
+                    amount: CurrencyAmount::new(10),
                 },
             )
             .await

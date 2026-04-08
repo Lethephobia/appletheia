@@ -1,5 +1,6 @@
 pub mod account;
 pub mod currency_definition;
+pub mod currency_issuance;
 pub mod transfer;
 
 pub use account::{
@@ -20,11 +21,23 @@ pub use currency_definition::{
     CurrencyDefinitionActivateCommand, CurrencyDefinitionActivateCommandHandler,
     CurrencyDefinitionActivateOutput, CurrencyDefinitionDeactivateCommand,
     CurrencyDefinitionDeactivateCommandHandler, CurrencyDefinitionDeactivateOutput,
-    CurrencyDefinitionDefineCommand, CurrencyDefinitionDefineCommandHandler,
-    CurrencyDefinitionDefineOutput, CurrencyDefinitionRemoveCommand,
+    CurrencyDefinitionDecreaseSupplyCommand, CurrencyDefinitionDecreaseSupplyCommandHandler,
+    CurrencyDefinitionDecreaseSupplyCommandHandlerError, CurrencyDefinitionDecreaseSupplyContext,
+    CurrencyDefinitionDecreaseSupplyOutput, CurrencyDefinitionDefineCommand,
+    CurrencyDefinitionDefineCommandHandler, CurrencyDefinitionDefineOutput,
+    CurrencyDefinitionIncreaseSupplyCommand, CurrencyDefinitionIncreaseSupplyCommandHandler,
+    CurrencyDefinitionIncreaseSupplyCommandHandlerError, CurrencyDefinitionIncreaseSupplyContext,
+    CurrencyDefinitionIncreaseSupplyOutput, CurrencyDefinitionRemoveCommand,
     CurrencyDefinitionRemoveCommandHandler, CurrencyDefinitionRemoveOutput,
     CurrencyDefinitionUpdateCommand, CurrencyDefinitionUpdateCommandHandler,
     CurrencyDefinitionUpdateOutput,
+};
+pub use currency_issuance::{
+    CurrencyIssuanceCompleteCommand, CurrencyIssuanceCompleteCommandHandler,
+    CurrencyIssuanceCompleteCommandHandlerError, CurrencyIssuanceCompleteOutput,
+    CurrencyIssuanceFailCommand, CurrencyIssuanceFailCommandHandler,
+    CurrencyIssuanceFailCommandHandlerError, CurrencyIssuanceFailOutput, CurrencyIssueCommand,
+    CurrencyIssueCommandHandler, CurrencyIssueCommandHandlerError, CurrencyIssueOutput,
 };
 pub use transfer::{
     TransferCompleteCommand, TransferCompleteCommandHandler, TransferCompleteOutput,

@@ -1,8 +1,9 @@
 use appletheia::event_payload;
 
+use crate::core::CurrencyAmount;
 use crate::currency_definition::CurrencyDefinitionId;
 
-use super::{AccountBalance, AccountEventPayloadError, AccountId, AccountName, AccountOwner};
+use super::{AccountEventPayloadError, AccountId, AccountName, AccountOwner};
 
 /// Represents the domain events emitted by an `Account` aggregate.
 #[event_payload(error = AccountEventPayloadError)]
@@ -20,19 +21,19 @@ pub enum AccountEventPayload {
     Thawed,
     Closed,
     Deposited {
-        amount: AccountBalance,
+        amount: CurrencyAmount,
     },
     Withdrawn {
-        amount: AccountBalance,
+        amount: CurrencyAmount,
     },
     FundsReserved {
-        amount: AccountBalance,
+        amount: CurrencyAmount,
     },
     ReservedFundsReleased {
-        amount: AccountBalance,
+        amount: CurrencyAmount,
     },
     ReservedFundsCommitted {
-        amount: AccountBalance,
+        amount: CurrencyAmount,
     },
 }
 
@@ -42,7 +43,7 @@ mod tests {
 
     use crate::currency_definition::CurrencyDefinitionId;
 
-    use super::{AccountBalance, AccountEventPayload, AccountId, AccountName, AccountOwner};
+    use super::{AccountEventPayload, AccountId, AccountName, AccountOwner, CurrencyAmount};
 
     #[test]
     fn returns_stable_event_names() {
@@ -141,7 +142,7 @@ mod tests {
     #[test]
     fn serializes_balance_movement_payload_to_json() {
         let payload = AccountEventPayload::Deposited {
-            amount: AccountBalance::new(10),
+            amount: CurrencyAmount::new(10),
         };
 
         let value = payload.into_json_value().expect("payload should serialize");
@@ -152,7 +153,7 @@ mod tests {
     #[test]
     fn serializes_reserved_funds_payload_to_json() {
         let payload = AccountEventPayload::FundsReserved {
-            amount: AccountBalance::new(10),
+            amount: CurrencyAmount::new(10),
         };
 
         let value = payload.into_json_value().expect("payload should serialize");

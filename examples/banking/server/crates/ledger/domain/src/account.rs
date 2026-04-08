@@ -1,5 +1,3 @@
-mod account_balance;
-mod account_balance_error;
 mod account_error;
 mod account_event_payload;
 mod account_event_payload_error;
@@ -11,8 +9,6 @@ mod account_state;
 mod account_state_error;
 mod account_status;
 
-pub use account_balance::AccountBalance;
-pub use account_balance_error::AccountBalanceError;
 pub use account_error::AccountError;
 pub use account_event_payload::AccountEventPayload;
 pub use account_event_payload_error::AccountEventPayloadError;
@@ -27,6 +23,7 @@ pub use account_status::AccountStatus;
 use appletheia::aggregate;
 use appletheia::domain::{Aggregate, AggregateApply, AggregateCore};
 
+use crate::core::{CurrencyAmount, CurrencyAmountError};
 use crate::currency_definition::CurrencyDefinitionId;
 
 /// Represents the `Account` aggregate root.
@@ -52,12 +49,12 @@ impl Account {
     }
 
     /// Returns the current balance.
-    pub fn balance(&self) -> Result<&AccountBalance, AccountError> {
+    pub fn balance(&self) -> Result<&CurrencyAmount, AccountError> {
         Ok(&self.state_required()?.balance)
     }
 
     /// Returns the current reserved balance.
-    pub fn reserved_balance(&self) -> Result<&AccountBalance, AccountError> {
+    pub fn reserved_balance(&self) -> Result<&CurrencyAmount, AccountError> {
         Ok(&self.state_required()?.reserved_balance)
     }
 
@@ -67,15 +64,15 @@ impl Account {
     }
 
     /// Returns the current available balance.
-    pub fn available_balance(&self) -> Result<AccountBalance, AccountError> {
+    pub fn available_balance(&self) -> Result<CurrencyAmount, AccountError> {
         let state = self.state_required()?;
 
         state
             .balance
             .try_sub(state.reserved_balance)
             .map_err(|error| match error {
-                AccountBalanceError::InsufficientBalance => AccountError::InvalidReservedBalance,
-                AccountBalanceError::BalanceOverflow => AccountError::BalanceOverflow,
+                CurrencyAmountError::InsufficientBalance => AccountError::InvalidReservedBalance,
+                CurrencyAmountError::BalanceOverflow => AccountError::BalanceOverflow,
             })
     }
 
@@ -150,7 +147,7 @@ impl Account {
     }
 
     /// Deposits balance into the account.
-    pub fn deposit(&mut self, amount: AccountBalance) -> Result<(), AccountError> {
+    pub fn deposit(&mut self, amount: CurrencyAmount) -> Result<(), AccountError> {
         self.ensure_active_status()?;
 
         if amount.is_zero() {
@@ -161,7 +158,7 @@ impl Account {
     }
 
     /// Withdraws balance from the account.
-    pub fn withdraw(&mut self, amount: AccountBalance) -> Result<(), AccountError> {
+    pub fn withdraw(&mut self, amount: CurrencyAmount) -> Result<(), AccountError> {
         self.ensure_active_status()?;
         self.ensure_available_balance_at_least(amount, AccountError::InsufficientBalance)?;
 
@@ -173,7 +170,7 @@ impl Account {
     }
 
     /// Reserves funds in the account.
-    pub fn reserve_funds(&mut self, amount: AccountBalance) -> Result<(), AccountError> {
+    pub fn reserve_funds(&mut self, amount: CurrencyAmount) -> Result<(), AccountError> {
         self.ensure_active_status()?;
         self.ensure_available_balance_at_least(amount, AccountError::InsufficientAvailableBalance)?;
 
@@ -185,7 +182,7 @@ impl Account {
     }
 
     /// Releases reserved funds in the account.
-    pub fn release_reserved_funds(&mut self, amount: AccountBalance) -> Result<(), AccountError> {
+    pub fn release_reserved_funds(&mut self, amount: CurrencyAmount) -> Result<(), AccountError> {
         self.ensure_active_status()?;
         self.ensure_reserved_balance_at_least(amount)?;
 
@@ -197,7 +194,7 @@ impl Account {
     }
 
     /// Commits reserved funds and deducts them from the account.
-    pub fn commit_reserved_funds(&mut self, amount: AccountBalance) -> Result<(), AccountError> {
+    pub fn commit_reserved_funds(&mut self, amount: CurrencyAmount) -> Result<(), AccountError> {
         self.ensure_active_status()?;
         self.ensure_reserved_balance_at_least(amount)?;
 
@@ -248,7 +245,7 @@ impl Account {
 
     fn ensure_available_balance_at_least(
         &self,
-        amount: AccountBalance,
+        amount: CurrencyAmount,
         error: AccountError,
     ) -> Result<(), AccountError> {
         if self.available_balance()?.value() < amount.value() {
@@ -258,7 +255,7 @@ impl Account {
         Ok(())
     }
 
-    fn ensure_reserved_balance_at_least(&self, amount: AccountBalance) -> Result<(), AccountError> {
+    fn ensure_reserved_balance_at_least(&self, amount: CurrencyAmount) -> Result<(), AccountError> {
         if self.state_required()?.reserved_balance.value() < amount.value() {
             return Err(AccountError::InsufficientReservedBalance);
         }
@@ -308,10 +305,10 @@ impl AggregateApply<AccountEventPayload, AccountError> for Account {
                         .reserved_balance
                         .try_sub(*amount)
                         .map_err(|error| match error {
-                            AccountBalanceError::InsufficientBalance => {
+                            CurrencyAmountError::InsufficientBalance => {
                                 AccountError::InsufficientReservedBalance
                             }
-                            AccountBalanceError::BalanceOverflow => AccountError::BalanceOverflow,
+                            CurrencyAmountError::BalanceOverflow => AccountError::BalanceOverflow,
                         })?;
             }
             AccountEventPayload::ReservedFundsCommitted { amount } => {
@@ -321,10 +318,10 @@ impl AggregateApply<AccountEventPayload, AccountError> for Account {
                         .reserved_balance
                         .try_sub(*amount)
                         .map_err(|error| match error {
-                            AccountBalanceError::InsufficientBalance => {
+                            CurrencyAmountError::InsufficientBalance => {
                                 AccountError::InsufficientReservedBalance
                             }
-                            AccountBalanceError::BalanceOverflow => AccountError::BalanceOverflow,
+                            CurrencyAmountError::BalanceOverflow => AccountError::BalanceOverflow,
                         })?;
                 let next_balance = state.balance.try_sub(*amount)?;
                 state.reserved_balance = next_reserved;
@@ -340,11 +337,11 @@ impl AggregateApply<AccountEventPayload, AccountError> for Account {
 mod tests {
     use appletheia::domain::{Aggregate, Event, EventPayload};
 
+    use crate::core::CurrencyAmount;
     use crate::currency_definition::CurrencyDefinitionId;
 
     use super::{
-        Account, AccountBalance, AccountEventPayload, AccountId, AccountName, AccountOwner,
-        AccountStatus,
+        Account, AccountEventPayload, AccountId, AccountName, AccountOwner, AccountStatus,
     };
 
     fn account_name() -> AccountName {
@@ -379,13 +376,13 @@ mod tests {
         );
         assert_eq!(
             account.balance().expect("balance should exist"),
-            &AccountBalance::zero()
+            &CurrencyAmount::zero()
         );
         assert_eq!(
             account
                 .reserved_balance()
                 .expect("reserved balance should exist"),
-            &AccountBalance::zero()
+            &CurrencyAmount::zero()
         );
         assert_eq!(
             account.status().expect("status should exist"),
@@ -507,7 +504,7 @@ mod tests {
             .open(account_owner(), account_name(), CurrencyDefinitionId::new())
             .expect("open should succeed");
         account
-            .deposit(AccountBalance::new(1))
+            .deposit(CurrencyAmount::new(1))
             .expect("deposit should succeed");
 
         let error = account.close().expect_err("close should fail");
@@ -522,10 +519,10 @@ mod tests {
             .open(account_owner(), account_name(), CurrencyDefinitionId::new())
             .expect("open should succeed");
         account
-            .deposit(AccountBalance::new(1))
+            .deposit(CurrencyAmount::new(1))
             .expect("deposit should succeed");
         account
-            .reserve_funds(AccountBalance::new(1))
+            .reserve_funds(CurrencyAmount::new(1))
             .expect("reserve should succeed");
 
         let error = account.close().expect_err("close should fail");
@@ -609,7 +606,7 @@ mod tests {
             id,
             appletheia::domain::AggregateVersion::try_from(3).expect("version should be valid"),
             AccountEventPayload::Deposited {
-                amount: AccountBalance::new(100),
+                amount: CurrencyAmount::new(100),
             },
         );
         let frozen = Event::new(
@@ -637,7 +634,7 @@ mod tests {
         assert!(account.is_frozen().expect("frozen state should exist"));
         assert_eq!(
             account.balance().expect("balance should exist"),
-            &AccountBalance::new(100)
+            &CurrencyAmount::new(100)
         );
         assert_eq!(account.version().value(), 4);
         assert!(account.uncommitted_events().is_empty());
@@ -665,21 +662,21 @@ mod tests {
             .expect("open should succeed");
 
         account
-            .deposit(AccountBalance::new(150))
+            .deposit(CurrencyAmount::new(150))
             .expect("deposit should succeed");
         account
-            .withdraw(AccountBalance::new(40))
+            .withdraw(CurrencyAmount::new(40))
             .expect("withdraw should succeed");
 
         assert_eq!(
             account.balance().expect("balance should exist"),
-            &AccountBalance::new(110)
+            &CurrencyAmount::new(110)
         );
         assert_eq!(
             account
                 .available_balance()
                 .expect("available balance should be valid"),
-            AccountBalance::new(110)
+            CurrencyAmount::new(110)
         );
         assert_eq!(account.uncommitted_events().len(), 3);
         assert_eq!(
@@ -700,7 +697,7 @@ mod tests {
             .expect("open should succeed");
 
         let error = account
-            .withdraw(AccountBalance::new(1))
+            .withdraw(CurrencyAmount::new(1))
             .expect_err("withdraw should fail");
 
         assert!(matches!(error, super::AccountError::InsufficientBalance));
@@ -715,10 +712,10 @@ mod tests {
         account.freeze().expect("freeze should succeed");
 
         let deposit_error = account
-            .deposit(AccountBalance::new(1))
+            .deposit(CurrencyAmount::new(1))
             .expect_err("deposit should fail");
         let withdraw_error = account
-            .withdraw(AccountBalance::new(1))
+            .withdraw(CurrencyAmount::new(1))
             .expect_err("withdraw should fail");
 
         assert!(matches!(deposit_error, super::AccountError::Frozen));
@@ -739,19 +736,19 @@ mod tests {
             .rename(AccountName::try_from("savings").expect("account name should be valid"))
             .expect_err("rename should fail");
         let deposit_error = account
-            .deposit(AccountBalance::new(1))
+            .deposit(CurrencyAmount::new(1))
             .expect_err("deposit should fail");
         let withdraw_error = account
-            .withdraw(AccountBalance::new(1))
+            .withdraw(CurrencyAmount::new(1))
             .expect_err("withdraw should fail");
         let reserve_error = account
-            .reserve_funds(AccountBalance::new(1))
+            .reserve_funds(CurrencyAmount::new(1))
             .expect_err("reserve should fail");
         let release_error = account
-            .release_reserved_funds(AccountBalance::new(1))
+            .release_reserved_funds(CurrencyAmount::new(1))
             .expect_err("release should fail");
         let commit_error = account
-            .commit_reserved_funds(AccountBalance::new(1))
+            .commit_reserved_funds(CurrencyAmount::new(1))
             .expect_err("commit should fail");
 
         assert!(matches!(freeze_error, super::AccountError::Closed));
@@ -771,34 +768,34 @@ mod tests {
             .open(account_owner(), account_name(), CurrencyDefinitionId::new())
             .expect("open should succeed");
         account
-            .deposit(AccountBalance::new(150))
+            .deposit(CurrencyAmount::new(150))
             .expect("deposit should succeed");
 
         account
-            .reserve_funds(AccountBalance::new(40))
+            .reserve_funds(CurrencyAmount::new(40))
             .expect("reserve should succeed");
         account
-            .release_reserved_funds(AccountBalance::new(10))
+            .release_reserved_funds(CurrencyAmount::new(10))
             .expect("release should succeed");
         account
-            .commit_reserved_funds(AccountBalance::new(20))
+            .commit_reserved_funds(CurrencyAmount::new(20))
             .expect("commit should succeed");
 
         assert_eq!(
             account.balance().expect("balance should exist"),
-            &AccountBalance::new(130)
+            &CurrencyAmount::new(130)
         );
         assert_eq!(
             account
                 .reserved_balance()
                 .expect("reserved balance should exist"),
-            &AccountBalance::new(10)
+            &CurrencyAmount::new(10)
         );
         assert_eq!(
             account
                 .available_balance()
                 .expect("available balance should be valid"),
-            AccountBalance::new(120)
+            CurrencyAmount::new(120)
         );
         assert_eq!(account.uncommitted_events().len(), 5);
         assert_eq!(
@@ -822,14 +819,14 @@ mod tests {
             .open(account_owner(), account_name(), CurrencyDefinitionId::new())
             .expect("open should succeed");
         account
-            .deposit(AccountBalance::new(100))
+            .deposit(CurrencyAmount::new(100))
             .expect("deposit should succeed");
         account
-            .reserve_funds(AccountBalance::new(80))
+            .reserve_funds(CurrencyAmount::new(80))
             .expect("reserve should succeed");
 
         let error = account
-            .reserve_funds(AccountBalance::new(30))
+            .reserve_funds(CurrencyAmount::new(30))
             .expect_err("reserve should fail");
 
         assert!(matches!(

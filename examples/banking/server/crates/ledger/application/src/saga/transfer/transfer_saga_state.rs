@@ -1,5 +1,6 @@
 use appletheia::application::saga::SagaState;
-use banking_ledger_domain::account::{AccountBalance, AccountId};
+use banking_ledger_domain::account::AccountId;
+use banking_ledger_domain::core::CurrencyAmount;
 use banking_ledger_domain::transfer::TransferId;
 use serde::{Deserialize, Serialize};
 
@@ -8,7 +9,7 @@ use serde::{Deserialize, Serialize};
 pub struct TransferSagaState {
     pub from_account_id: Option<AccountId>,
     pub to_account_id: Option<AccountId>,
-    pub amount: Option<AccountBalance>,
+    pub amount: Option<CurrencyAmount>,
     pub transfer_id: Option<TransferId>,
 }
 

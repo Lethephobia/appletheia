@@ -8,6 +8,7 @@ pub use account::{
 };
 pub use currency_definition::{
     CurrencyDefinitionActivatorRelation, CurrencyDefinitionDeactivatorRelation,
-    CurrencyDefinitionOwnerRelation, CurrencyDefinitionRemoverRelation,
-    CurrencyDefinitionStatusManagerRelation, CurrencyDefinitionUpdaterRelation,
+    CurrencyDefinitionIssuerRelation, CurrencyDefinitionOwnerRelation,
+    CurrencyDefinitionRemoverRelation, CurrencyDefinitionStatusManagerRelation,
+    CurrencyDefinitionUpdaterRelation,
 };

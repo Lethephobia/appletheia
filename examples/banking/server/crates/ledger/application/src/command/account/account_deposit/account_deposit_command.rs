@@ -1,5 +1,6 @@
 use appletheia::command;
-use banking_ledger_domain::account::{AccountBalance, AccountId};
+use banking_ledger_domain::account::AccountId;
+use banking_ledger_domain::core::CurrencyAmount;
 use serde::{Deserialize, Serialize};
 
 use super::AccountDepositContext;
@@ -9,6 +10,6 @@ use super::AccountDepositContext;
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AccountDepositCommand {
     pub account_id: AccountId,
-    pub amount: AccountBalance,
+    pub amount: CurrencyAmount,
     pub context: AccountDepositContext,
 }

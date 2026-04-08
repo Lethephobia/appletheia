@@ -1,7 +1,9 @@
 use appletheia::domain::AggregateError;
 use thiserror::Error;
 
-use super::{AccountBalanceError, AccountId};
+use crate::core::CurrencyAmountError;
+
+use super::AccountId;
 
 /// Describes why an `Account` aggregate operation failed.
 #[derive(Debug, Error)]
@@ -43,11 +45,11 @@ pub enum AccountError {
     OwnerNotAssigned,
 }
 
-impl From<AccountBalanceError> for AccountError {
-    fn from(error: AccountBalanceError) -> Self {
+impl From<CurrencyAmountError> for AccountError {
+    fn from(error: CurrencyAmountError) -> Self {
         match error {
-            AccountBalanceError::BalanceOverflow => Self::BalanceOverflow,
-            AccountBalanceError::InsufficientBalance => Self::InsufficientBalance,
+            CurrencyAmountError::BalanceOverflow => Self::BalanceOverflow,
+            CurrencyAmountError::InsufficientBalance => Self::InsufficientBalance,
         }
     }
 }

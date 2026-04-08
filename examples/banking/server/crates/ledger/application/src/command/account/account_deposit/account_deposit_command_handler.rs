@@ -15,7 +15,10 @@ use super::{
     AccountDepositOutput,
 };
 use crate::authorization::AccountDepositorRelation;
-use crate::command::{AccountReleaseReservedFundsCommand, AccountReleaseReservedFundsContext};
+use crate::command::{
+    AccountReleaseReservedFundsCommand, AccountReleaseReservedFundsContext,
+    CurrencyDefinitionDecreaseSupplyCommand, CurrencyDefinitionDecreaseSupplyContext,
+};
 use crate::projection::AccountOwnerRelationshipProjectorSpec;
 
 /// Handles `AccountDepositCommand`.
@@ -81,6 +84,16 @@ where
                     transfer_id: *transfer_id,
                 },
             }),
+            AccountDepositContext::Issuance {
+                currency_issuance_id,
+                currency_definition_id,
+            } => CommandFailureReaction::with_command(&CurrencyDefinitionDecreaseSupplyCommand {
+                currency_definition_id: *currency_definition_id,
+                amount: command.amount,
+                context: CurrencyDefinitionDecreaseSupplyContext::Issuance {
+                    currency_issuance_id: *currency_issuance_id,
+                },
+            }),
             AccountDepositContext::Direct => Ok(CommandFailureReaction::None),
         }
     }
@@ -116,14 +129,20 @@ mod tests {
         ActorRef, CorrelationId, MessageId, Principal, RequestContext,
     };
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
-    use banking_ledger_domain::account::{Account, AccountBalance, AccountId};
+    use banking_ledger_domain::account::{Account, AccountId};
+    use banking_ledger_domain::core::CurrencyAmount;
+    use banking_ledger_domain::currency_definition::CurrencyDefinitionId;
+    use banking_ledger_domain::currency_issuance::CurrencyIssuanceId;
     use banking_ledger_domain::transfer::TransferId;
 
     use super::{
         AccountDepositCommand, AccountDepositCommandHandler, AccountDepositCommandHandlerError,
         AccountDepositContext,
     };
-    use crate::command::{AccountReleaseReservedFundsCommand, AccountReleaseReservedFundsContext};
+    use crate::command::{
+        AccountReleaseReservedFundsCommand, AccountReleaseReservedFundsContext,
+        CurrencyDefinitionDecreaseSupplyCommand, CurrencyDefinitionDecreaseSupplyContext,
+    };
 
     #[derive(Default)]
     struct TestUow;
@@ -194,7 +213,7 @@ mod tests {
         let transfer_id = TransferId::new();
         let from_account_id = AccountId::new();
         let to_account_id = AccountId::new();
-        let amount = AccountBalance::new(10);
+        let amount = CurrencyAmount::new(10);
         let request_context = request_context();
 
         let reaction = handler
@@ -223,6 +242,46 @@ mod tests {
                 account_id: from_account_id,
                 amount,
                 context: AccountReleaseReservedFundsContext::Transfer { transfer_id },
+            }
+        );
+    }
+
+    #[test]
+    fn on_failure_enqueues_supply_decrease_for_issuance_context() {
+        let handler = AccountDepositCommandHandler::new(TestRepository);
+        let currency_issuance_id = CurrencyIssuanceId::new();
+        let currency_definition_id = CurrencyDefinitionId::new();
+        let amount = CurrencyAmount::new(10);
+        let request_context = request_context();
+
+        let reaction = handler
+            .on_failure(
+                &request_context,
+                &AccountDepositCommand {
+                    account_id: AccountId::new(),
+                    amount,
+                    context: AccountDepositContext::Issuance {
+                        currency_issuance_id,
+                        currency_definition_id,
+                    },
+                },
+                &AccountDepositCommandHandlerError::AccountNotFound,
+            )
+            .expect("reaction should be created");
+
+        let command = reaction
+            .into_command_envelopes(&request_context)
+            .remove(0)
+            .try_into_command::<CurrencyDefinitionDecreaseSupplyCommand>()
+            .expect("command should deserialize");
+        assert_eq!(
+            command,
+            CurrencyDefinitionDecreaseSupplyCommand {
+                currency_definition_id,
+                amount,
+                context: CurrencyDefinitionDecreaseSupplyContext::Issuance {
+                    currency_issuance_id,
+                },
             }
         );
     }

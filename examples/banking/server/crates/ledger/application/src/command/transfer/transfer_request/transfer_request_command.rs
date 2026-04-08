@@ -1,5 +1,6 @@
 use appletheia::command;
-use banking_ledger_domain::account::{AccountBalance, AccountId};
+use banking_ledger_domain::account::AccountId;
+use banking_ledger_domain::core::CurrencyAmount;
 use serde::{Deserialize, Serialize};
 
 /// Requests a transfer between accounts.
@@ -8,5 +9,5 @@ use serde::{Deserialize, Serialize};
 pub struct TransferRequestCommand {
     pub from_account_id: AccountId,
     pub to_account_id: AccountId,
-    pub amount: AccountBalance,
+    pub amount: CurrencyAmount,
 }
