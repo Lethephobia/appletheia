@@ -4,9 +4,8 @@ pub mod projection;
 pub mod saga;
 
 pub use authorization::{
-    AccountCloserRelation, AccountDepositorRelation, AccountFreezerRelation, AccountOwnerRelation,
-    AccountRenamerRelation, AccountStatusManagerRelation, AccountThawerRelation,
-    AccountTransferRequesterRelation, AccountWithdrawerRelation,
+    AccountCloserRelation, AccountFreezerRelation, AccountOwnerRelation, AccountRenamerRelation,
+    AccountStatusManagerRelation, AccountThawerRelation, AccountTransferRequesterRelation,
     CurrencyDefinitionActivatorRelation, CurrencyDefinitionDeactivatorRelation,
     CurrencyDefinitionIssuerRelation, CurrencyDefinitionOwnerRelation,
     CurrencyDefinitionRemoverRelation, CurrencyDefinitionStatusManagerRelation,
