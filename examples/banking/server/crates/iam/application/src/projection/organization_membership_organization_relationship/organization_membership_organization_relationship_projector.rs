@@ -50,19 +50,13 @@ where
                     self.relationship_store
                         .apply_changes(
                             uow,
-                            &[RelationshipChange::Upsert(Relationship {
-                                aggregate: AggregateRef::from_id::<OrganizationMembership>(
-                                    domain_event.aggregate_id(),
-                                ),
-                                relation: RelationRefOwned::from(
-                                    OrganizationMembershipOrganizationRelation::REF,
-                                ),
-                                subject: RelationshipSubject::Aggregate(AggregateRef::from_id::<
-                                    Organization,
-                                >(
-                                    *organization_id
-                                )),
-                            })],
+                            &[RelationshipChange::Upsert(Relationship::new::<
+                                OrganizationMembership,
+                            >(
+                                domain_event.aggregate_id(),
+                                OrganizationMembershipOrganizationRelation::REF,
+                                RelationshipSubject::aggregate::<Organization>(*organization_id),
+                            ))],
                         )
                         .await?;
                 }
@@ -84,11 +78,11 @@ where
                     let changes = subjects
                         .into_iter()
                         .map(|subject| {
-                            RelationshipChange::Delete(Relationship {
-                                aggregate: aggregate.clone(),
-                                relation: relation.clone(),
+                            RelationshipChange::Delete(Relationship::new::<OrganizationMembership>(
+                                domain_event.aggregate_id(),
+                                OrganizationMembershipOrganizationRelation::REF,
                                 subject,
-                            })
+                            ))
                         })
                         .collect::<Vec<_>>();
 

@@ -1,6 +1,5 @@
 use appletheia::application::authorization::{
-    AggregateRef, Relation, RelationRefOwned, Relationship, RelationshipChange, RelationshipStore,
-    RelationshipSubject,
+    Relation, Relationship, RelationshipChange, RelationshipStore, RelationshipSubject,
 };
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
@@ -39,15 +38,14 @@ where
             let event = event.try_into_domain_event::<User>()?;
             match event.payload() {
                 UserEventPayload::Registered { id, .. } => {
-                    let user = AggregateRef::from_id::<User>(*id);
                     self.relationship_store
                         .apply_changes(
                             uow,
-                            &[RelationshipChange::Upsert(Relationship {
-                                aggregate: user.clone(),
-                                relation: RelationRefOwned::from(UserOwnerRelation::REF),
-                                subject: RelationshipSubject::Aggregate(user),
-                            })],
+                            &[RelationshipChange::Upsert(Relationship::new::<User>(
+                                *id,
+                                UserOwnerRelation::REF,
+                                RelationshipSubject::aggregate::<User>(*id),
+                            ))],
                         )
                         .await?;
                 }

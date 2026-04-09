@@ -1,6 +1,5 @@
 use appletheia::application::authorization::{
-    AggregateRef, Relation, RelationRefOwned, Relationship, RelationshipChange, RelationshipStore,
-    RelationshipSubject,
+    Relation, Relationship, RelationshipChange, RelationshipStore, RelationshipSubject,
 };
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
@@ -42,23 +41,21 @@ where
                 AccountEventPayload::Opened { owner, .. } => {
                     let subject = match owner {
                         banking_ledger_domain::account::AccountOwner::User(user_id) => {
-                            RelationshipSubject::Aggregate(AggregateRef::from_id::<User>(*user_id))
+                            RelationshipSubject::aggregate::<User>(*user_id)
                         }
                         banking_ledger_domain::account::AccountOwner::Organization(
                             organization_id,
-                        ) => RelationshipSubject::Aggregate(AggregateRef::from_id::<Organization>(
-                            *organization_id,
-                        )),
+                        ) => RelationshipSubject::aggregate::<Organization>(*organization_id),
                     };
 
                     self.relationship_store
                         .apply_changes(
                             uow,
-                            &[RelationshipChange::Upsert(Relationship {
-                                aggregate: AggregateRef::from_id::<Account>(event.aggregate_id()),
-                                relation: RelationRefOwned::from(AccountOwnerRelation::REF),
+                            &[RelationshipChange::Upsert(Relationship::new::<Account>(
+                                event.aggregate_id(),
+                                AccountOwnerRelation::REF,
                                 subject,
-                            })],
+                            ))],
                         )
                         .await?;
                 }

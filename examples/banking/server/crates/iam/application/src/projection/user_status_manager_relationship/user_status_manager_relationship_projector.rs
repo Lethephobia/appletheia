@@ -1,6 +1,5 @@
 use appletheia::application::authorization::{
-    AggregateRef, Relation, RelationRefOwned, Relationship, RelationshipChange, RelationshipStore,
-    RelationshipSubject,
+    Relation, Relationship, RelationshipChange, RelationshipStore, RelationshipSubject,
 };
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
@@ -42,37 +41,27 @@ where
             match event.payload() {
                 UserEventPayload::StatusManagerAssigned { status_manager } => {
                     let UserStatusManager::User(status_manager) = *status_manager;
-                    let user = AggregateRef::from_id::<User>(event.aggregate_id());
                     self.relationship_store
                         .apply_changes(
                             uow,
-                            &[RelationshipChange::Upsert(Relationship {
-                                aggregate: user,
-                                relation: RelationRefOwned::from(UserStatusManagerRelation::REF),
-                                subject: RelationshipSubject::Aggregate(AggregateRef::from_id::<
-                                    User,
-                                >(
-                                    status_manager
-                                )),
-                            })],
+                            &[RelationshipChange::Upsert(Relationship::new::<User>(
+                                event.aggregate_id(),
+                                UserStatusManagerRelation::REF,
+                                RelationshipSubject::aggregate::<User>(status_manager),
+                            ))],
                         )
                         .await?;
                 }
                 UserEventPayload::StatusManagerUnassigned { status_manager } => {
                     let UserStatusManager::User(status_manager) = *status_manager;
-                    let user = AggregateRef::from_id::<User>(event.aggregate_id());
                     self.relationship_store
                         .apply_changes(
                             uow,
-                            &[RelationshipChange::Delete(Relationship {
-                                aggregate: user,
-                                relation: RelationRefOwned::from(UserStatusManagerRelation::REF),
-                                subject: RelationshipSubject::Aggregate(AggregateRef::from_id::<
-                                    User,
-                                >(
-                                    status_manager
-                                )),
-                            })],
+                            &[RelationshipChange::Delete(Relationship::new::<User>(
+                                event.aggregate_id(),
+                                UserStatusManagerRelation::REF,
+                                RelationshipSubject::aggregate::<User>(status_manager),
+                            ))],
                         )
                         .await?;
                 }

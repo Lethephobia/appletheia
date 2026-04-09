@@ -1,6 +1,5 @@
 use appletheia::application::authorization::{
-    AggregateRef, Relation, RelationRefOwned, Relationship, RelationshipChange, RelationshipStore,
-    RelationshipSubject,
+    Relation, Relationship, RelationshipChange, RelationshipStore, RelationshipSubject,
 };
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
@@ -40,10 +39,6 @@ where
     async fn project(&self, uow: &mut Self::Uow, event: &EventEnvelope) -> Result<(), Self::Error> {
         if event.is_for_aggregate::<OrganizationJoinRequest>() {
             let domain_event = event.try_into_domain_event::<OrganizationJoinRequest>()?;
-            let aggregate =
-                AggregateRef::from_id::<OrganizationJoinRequest>(domain_event.aggregate_id());
-            let requester_relation =
-                RelationRefOwned::from(OrganizationJoinRequestRequesterRelation::REF);
 
             if let OrganizationJoinRequestEventPayload::Requested { requester_id, .. } =
                 domain_event.payload()
@@ -51,13 +46,13 @@ where
                 self.relationship_store
                     .apply_changes(
                         uow,
-                        &[RelationshipChange::Upsert(Relationship {
-                            aggregate,
-                            relation: requester_relation,
-                            subject: RelationshipSubject::Aggregate(AggregateRef::from_id::<User>(
-                                *requester_id,
-                            )),
-                        })],
+                        &[RelationshipChange::Upsert(Relationship::new::<
+                            OrganizationJoinRequest,
+                        >(
+                            domain_event.aggregate_id(),
+                            OrganizationJoinRequestRequesterRelation::REF,
+                            RelationshipSubject::aggregate::<User>(*requester_id),
+                        ))],
                     )
                     .await?;
             }

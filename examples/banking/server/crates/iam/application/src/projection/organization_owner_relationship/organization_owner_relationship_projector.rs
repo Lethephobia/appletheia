@@ -1,6 +1,5 @@
 use appletheia::application::authorization::{
-    AggregateRef, Relation, RelationRefOwned, Relationship, RelationshipChange, RelationshipStore,
-    RelationshipSubject,
+    Relation, Relationship, RelationshipChange, RelationshipStore, RelationshipSubject,
 };
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
@@ -47,17 +46,13 @@ where
                     self.relationship_store
                         .apply_changes(
                             uow,
-                            &[RelationshipChange::Upsert(Relationship {
-                                aggregate: AggregateRef::from_id::<Organization>(
+                            &[RelationshipChange::Upsert(
+                                Relationship::new::<Organization>(
                                     domain_event.aggregate_id(),
+                                    OrganizationOwnerRelation::REF,
+                                    RelationshipSubject::aggregate::<User>(owner),
                                 ),
-                                relation: RelationRefOwned::from(OrganizationOwnerRelation::REF),
-                                subject: RelationshipSubject::Aggregate(AggregateRef::from_id::<
-                                    User,
-                                >(
-                                    owner
-                                )),
-                            })],
+                            )],
                         )
                         .await?;
                 }
@@ -66,17 +61,13 @@ where
                     self.relationship_store
                         .apply_changes(
                             uow,
-                            &[RelationshipChange::Delete(Relationship {
-                                aggregate: AggregateRef::from_id::<Organization>(
+                            &[RelationshipChange::Delete(
+                                Relationship::new::<Organization>(
                                     domain_event.aggregate_id(),
+                                    OrganizationOwnerRelation::REF,
+                                    RelationshipSubject::aggregate::<User>(owner),
                                 ),
-                                relation: RelationRefOwned::from(OrganizationOwnerRelation::REF),
-                                subject: RelationshipSubject::Aggregate(AggregateRef::from_id::<
-                                    User,
-                                >(
-                                    owner
-                                )),
-                            })],
+                            )],
                         )
                         .await?;
                 }

@@ -1,6 +1,5 @@
 use appletheia::application::authorization::{
-    AggregateRef, Relation, RelationRefOwned, Relationship, RelationshipChange, RelationshipStore,
-    RelationshipSubject,
+    Relation, Relationship, RelationshipChange, RelationshipStore, RelationshipSubject,
 };
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
@@ -44,20 +43,14 @@ where
                 return Ok(());
             };
 
-            let account = AggregateRef::from_id::<Account>(event.aggregate_id());
-            let status_manager_subject =
-                RelationshipSubject::Aggregate(AggregateRef::from_id::<User>(
-                    *status_manager.user_id(),
-                ));
-
             self.relationship_store
                 .apply_changes(
                     uow,
-                    &[RelationshipChange::Upsert(Relationship {
-                        aggregate: account,
-                        relation: RelationRefOwned::from(AccountStatusManagerRelation::REF),
-                        subject: status_manager_subject,
-                    })],
+                    &[RelationshipChange::Upsert(Relationship::new::<Account>(
+                        event.aggregate_id(),
+                        AccountStatusManagerRelation::REF,
+                        RelationshipSubject::aggregate::<User>(*status_manager.user_id()),
+                    ))],
                 )
                 .await?;
         }

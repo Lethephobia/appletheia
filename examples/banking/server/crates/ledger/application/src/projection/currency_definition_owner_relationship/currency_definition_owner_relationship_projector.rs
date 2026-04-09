@@ -1,6 +1,5 @@
 use appletheia::application::authorization::{
-    AggregateRef, Relation, RelationRefOwned, Relationship, RelationshipChange, RelationshipStore,
-    RelationshipSubject,
+    Relation, Relationship, RelationshipChange, RelationshipStore, RelationshipSubject,
 };
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
@@ -47,27 +46,23 @@ where
                 CurrencyDefinitionEventPayload::Defined { owner, .. } => {
                     let subject = match owner {
                         CurrencyDefinitionOwner::User(user_id) => {
-                            RelationshipSubject::Aggregate(AggregateRef::from_id::<User>(*user_id))
+                            RelationshipSubject::aggregate::<User>(*user_id)
                         }
                         CurrencyDefinitionOwner::Organization(organization_id) => {
-                            RelationshipSubject::Aggregate(AggregateRef::from_id::<Organization>(
-                                *organization_id,
-                            ))
+                            RelationshipSubject::aggregate::<Organization>(*organization_id)
                         }
                     };
 
                     self.relationship_store
                         .apply_changes(
                             uow,
-                            &[RelationshipChange::Upsert(Relationship {
-                                aggregate: AggregateRef::from_id::<CurrencyDefinition>(
-                                    domain_event.aggregate_id(),
-                                ),
-                                relation: RelationRefOwned::from(
-                                    CurrencyDefinitionOwnerRelation::REF,
-                                ),
+                            &[RelationshipChange::Upsert(Relationship::new::<
+                                CurrencyDefinition,
+                            >(
+                                domain_event.aggregate_id(),
+                                CurrencyDefinitionOwnerRelation::REF,
                                 subject,
-                            })],
+                            ))],
                         )
                         .await?;
                 }

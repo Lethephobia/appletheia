@@ -1,6 +1,5 @@
 use appletheia::application::authorization::{
-    AggregateRef, Relation, RelationRefOwned, Relationship, RelationshipChange, RelationshipStore,
-    RelationshipSubject,
+    Relation, Relationship, RelationshipChange, RelationshipStore, RelationshipSubject,
 };
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
@@ -55,15 +54,13 @@ where
                     self.relationship_store
                         .apply_changes(
                             uow,
-                            &[RelationshipChange::Upsert(Relationship {
-                                aggregate: AggregateRef::from_id::<Organization>(*organization_id),
-                                relation: RelationRefOwned::from(OrganizationMemberRelation::REF),
-                                subject: RelationshipSubject::Aggregate(AggregateRef::from_id::<
-                                    User,
-                                >(
-                                    *user_id
-                                )),
-                            })],
+                            &[RelationshipChange::Upsert(
+                                Relationship::new::<Organization>(
+                                    *organization_id,
+                                    OrganizationMemberRelation::REF,
+                                    RelationshipSubject::aggregate::<User>(*user_id),
+                                ),
+                            )],
                         )
                         .await?;
                 }
@@ -78,15 +75,13 @@ where
                     self.relationship_store
                         .apply_changes(
                             uow,
-                            &[RelationshipChange::Delete(Relationship {
-                                aggregate: AggregateRef::from_id::<Organization>(*organization_id),
-                                relation: RelationRefOwned::from(OrganizationMemberRelation::REF),
-                                subject: RelationshipSubject::Aggregate(AggregateRef::from_id::<
-                                    User,
-                                >(
-                                    *user_id
-                                )),
-                            })],
+                            &[RelationshipChange::Delete(
+                                Relationship::new::<Organization>(
+                                    *organization_id,
+                                    OrganizationMemberRelation::REF,
+                                    RelationshipSubject::aggregate::<User>(*user_id),
+                                ),
+                            )],
                         )
                         .await?;
                 }
