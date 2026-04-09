@@ -1,7 +1,6 @@
 use appletheia::application::command::{CommandFailureReaction, CommandOptions};
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::saga::{Saga, SagaInstance, SagaSpec};
-use appletheia::domain::Aggregate;
 use banking_ledger_domain::account::{Account, AccountEventPayload};
 use banking_ledger_domain::transfer::{Transfer, TransferEventPayload};
 
@@ -23,7 +22,7 @@ impl Saga for TransferSaga {
         instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State>,
         event: &EventEnvelope,
     ) -> Result<(), Self::Error> {
-        if event.aggregate_type.value() == Transfer::TYPE.value() {
+        if event.is_for_aggregate::<Transfer>() {
             let transfer_event = event.try_into_domain_event::<Transfer>()?;
             match transfer_event.payload() {
                 TransferEventPayload::Requested {
@@ -74,24 +73,16 @@ impl Saga for TransferSaga {
             }
 
             return Ok(());
-        }
-
-        if event.aggregate_type.value() == Account::TYPE.value() {
+        } else if event.is_for_aggregate::<Account>() {
             let account_event = event.try_into_domain_event::<Account>()?;
             match account_event.payload() {
                 AccountEventPayload::FundsReserved { .. } => {
-                    let (transfer_id, from_account_id, to_account_id, amount) = {
-                        let Some(state) = instance.state_mut().as_mut() else {
-                            return Ok(());
-                        };
-                        state.status = TransferSagaStatus::FundsReserved;
-                        (
-                            state.transfer_id,
-                            state.from_account_id,
-                            state.to_account_id,
-                            state.amount,
-                        )
-                    };
+                    let state = instance.state_required_mut()?;
+                    state.status = TransferSagaStatus::FundsReserved;
+                    let transfer_id = state.transfer_id;
+                    let from_account_id = state.from_account_id;
+                    let to_account_id = state.to_account_id;
+                    let amount = state.amount;
 
                     instance.append_command(
                         event,
@@ -126,13 +117,10 @@ impl Saga for TransferSaga {
                     )?;
                 }
                 AccountEventPayload::Deposited { .. } => {
-                    let (from_account_id, amount) = {
-                        let Some(state) = instance.state_mut().as_mut() else {
-                            return Ok(());
-                        };
-                        state.status = TransferSagaStatus::Deposited;
-                        (state.from_account_id, state.amount)
-                    };
+                    let state = instance.state_required_mut()?;
+                    state.status = TransferSagaStatus::Deposited;
+                    let from_account_id = state.from_account_id;
+                    let amount = state.amount;
 
                     instance.append_command(
                         event,
@@ -144,13 +132,9 @@ impl Saga for TransferSaga {
                     )?;
                 }
                 AccountEventPayload::ReservedFundsReleased { .. } => {
-                    let transfer_id = {
-                        let Some(state) = instance.state_mut().as_mut() else {
-                            return Ok(());
-                        };
-                        state.status = TransferSagaStatus::ReservedFundsReleased;
-                        state.transfer_id
-                    };
+                    let state = instance.state_required_mut()?;
+                    state.status = TransferSagaStatus::ReservedFundsReleased;
+                    let transfer_id = state.transfer_id;
 
                     instance.append_command(
                         event,
@@ -159,13 +143,9 @@ impl Saga for TransferSaga {
                     )?;
                 }
                 AccountEventPayload::ReservedFundsCommitted { .. } => {
-                    let transfer_id = {
-                        let Some(state) = instance.state_mut().as_mut() else {
-                            return Ok(());
-                        };
-                        state.status = TransferSagaStatus::ReservedFundsCommitted;
-                        state.transfer_id
-                    };
+                    let state = instance.state_required_mut()?;
+                    state.status = TransferSagaStatus::ReservedFundsCommitted;
+                    let transfer_id = state.transfer_id;
 
                     instance.append_command(
                         event,

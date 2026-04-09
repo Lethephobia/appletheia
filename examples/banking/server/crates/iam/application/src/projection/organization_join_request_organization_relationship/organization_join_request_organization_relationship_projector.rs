@@ -1,10 +1,8 @@
 use appletheia::application::authorization::{
-    AggregateRef, Relation, RelationRefOwned, Relationship, RelationshipChange, RelationshipStore,
-    RelationshipSubject,
+    Relation, Relationship, RelationshipChange, RelationshipStore, RelationshipSubject,
 };
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
-use appletheia::domain::Aggregate;
 use banking_iam_domain::{
     Organization, OrganizationJoinRequest, OrganizationJoinRequestEventPayload,
 };
@@ -41,14 +39,8 @@ where
     type Error = OrganizationJoinRequestOrganizationRelationshipProjectorError;
 
     async fn project(&self, uow: &mut Self::Uow, event: &EventEnvelope) -> Result<(), Self::Error> {
-        let aggregate_type = event.aggregate_type.value();
-
-        if aggregate_type == OrganizationJoinRequest::TYPE.value() {
+        if event.is_for_aggregate::<OrganizationJoinRequest>() {
             let domain_event = event.try_into_domain_event::<OrganizationJoinRequest>()?;
-            let aggregate =
-                AggregateRef::from_id::<OrganizationJoinRequest>(domain_event.aggregate_id());
-            let organization_relation =
-                RelationRefOwned::from(OrganizationJoinRequestOrganizationRelation::REF);
 
             if let OrganizationJoinRequestEventPayload::Requested {
                 organization_id, ..
@@ -57,15 +49,13 @@ where
                 self.relationship_store
                     .apply_changes(
                         uow,
-                        &[RelationshipChange::Upsert(Relationship {
-                            aggregate,
-                            relation: organization_relation,
-                            subject: RelationshipSubject::Aggregate(AggregateRef::from_id::<
-                                Organization,
-                            >(
-                                *organization_id
-                            )),
-                        })],
+                        &[RelationshipChange::Upsert(Relationship::new::<
+                            OrganizationJoinRequest,
+                        >(
+                            domain_event.aggregate_id(),
+                            OrganizationJoinRequestOrganizationRelation::REF,
+                            RelationshipSubject::aggregate::<Organization>(*organization_id),
+                        ))],
                     )
                     .await?;
             }

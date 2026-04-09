@@ -1,6 +1,5 @@
 use appletheia::application::authorization::{
-    AggregateRef, Relation, RelationRefOwned, Relationship, RelationshipChange, RelationshipStore,
-    RelationshipSubject,
+    Relation, Relationship, RelationshipChange, RelationshipStore, RelationshipSubject,
 };
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
@@ -38,26 +37,23 @@ where
     type Error = AccountStatusManagerRelationshipProjectorError;
 
     async fn project(&self, uow: &mut Self::Uow, event: &EventEnvelope) -> Result<(), Self::Error> {
-        let event = event.try_into_domain_event::<Account>()?;
-        let AccountEventPayload::StatusManagerAssigned { status_manager } = event.payload() else {
-            return Ok(());
-        };
+        if event.is_for_aggregate::<Account>() {
+            let event = event.try_into_domain_event::<Account>()?;
+            let AccountEventPayload::StatusManagerAssigned { status_manager } = event.payload() else {
+                return Ok(());
+            };
 
-        let account = AggregateRef::from_id::<Account>(event.aggregate_id());
-        let status_manager_subject = RelationshipSubject::Aggregate(AggregateRef::from_id::<User>(
-            *status_manager.user_id(),
-        ));
-
-        self.relationship_store
-            .apply_changes(
-                uow,
-                &[RelationshipChange::Upsert(Relationship {
-                    aggregate: account,
-                    relation: RelationRefOwned::from(AccountStatusManagerRelation::REF),
-                    subject: status_manager_subject,
-                })],
-            )
-            .await?;
+            self.relationship_store
+                .apply_changes(
+                    uow,
+                    &[RelationshipChange::Upsert(Relationship::new::<Account>(
+                        event.aggregate_id(),
+                        AccountStatusManagerRelation::REF,
+                        RelationshipSubject::aggregate::<User>(*status_manager.user_id()),
+                    ))],
+                )
+                .await?;
+        }
 
         Ok(())
     }

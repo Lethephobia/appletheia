@@ -1,6 +1,5 @@
 use appletheia::application::authorization::{
-    AggregateRef, Relation, RelationRefOwned, Relationship, RelationshipChange, RelationshipStore,
-    RelationshipSubject,
+    Relation, Relationship, RelationshipChange, RelationshipStore, RelationshipSubject,
 };
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
@@ -37,41 +36,37 @@ where
     type Error = UserStatusManagerRelationshipProjectorError;
 
     async fn project(&self, uow: &mut Self::Uow, event: &EventEnvelope) -> Result<(), Self::Error> {
-        let event = event.try_into_domain_event::<User>()?;
-        match event.payload() {
-            UserEventPayload::StatusManagerAssigned { status_manager } => {
-                let UserStatusManager::User(status_manager) = *status_manager;
-                let user = AggregateRef::from_id::<User>(event.aggregate_id());
-                self.relationship_store
-                    .apply_changes(
-                        uow,
-                        &[RelationshipChange::Upsert(Relationship {
-                            aggregate: user,
-                            relation: RelationRefOwned::from(UserStatusManagerRelation::REF),
-                            subject: RelationshipSubject::Aggregate(AggregateRef::from_id::<User>(
-                                status_manager,
-                            )),
-                        })],
-                    )
-                    .await?;
+        if event.is_for_aggregate::<User>() {
+            let event = event.try_into_domain_event::<User>()?;
+            match event.payload() {
+                UserEventPayload::StatusManagerAssigned { status_manager } => {
+                    let UserStatusManager::User(status_manager) = *status_manager;
+                    self.relationship_store
+                        .apply_changes(
+                            uow,
+                            &[RelationshipChange::Upsert(Relationship::new::<User>(
+                                event.aggregate_id(),
+                                UserStatusManagerRelation::REF,
+                                RelationshipSubject::aggregate::<User>(status_manager),
+                            ))],
+                        )
+                        .await?;
+                }
+                UserEventPayload::StatusManagerUnassigned { status_manager } => {
+                    let UserStatusManager::User(status_manager) = *status_manager;
+                    self.relationship_store
+                        .apply_changes(
+                            uow,
+                            &[RelationshipChange::Delete(Relationship::new::<User>(
+                                event.aggregate_id(),
+                                UserStatusManagerRelation::REF,
+                                RelationshipSubject::aggregate::<User>(status_manager),
+                            ))],
+                        )
+                        .await?;
+                }
+                _ => return Ok(()),
             }
-            UserEventPayload::StatusManagerUnassigned { status_manager } => {
-                let UserStatusManager::User(status_manager) = *status_manager;
-                let user = AggregateRef::from_id::<User>(event.aggregate_id());
-                self.relationship_store
-                    .apply_changes(
-                        uow,
-                        &[RelationshipChange::Delete(Relationship {
-                            aggregate: user,
-                            relation: RelationRefOwned::from(UserStatusManagerRelation::REF),
-                            subject: RelationshipSubject::Aggregate(AggregateRef::from_id::<User>(
-                                status_manager,
-                            )),
-                        })],
-                    )
-                    .await?;
-            }
-            _ => return Ok(()),
         }
 
         Ok(())
