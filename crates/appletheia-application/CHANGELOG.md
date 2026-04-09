@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.0](https://github.com/Lethephobia/appletheia/compare/appletheia-application-v0.18.0...appletheia-application-v0.19.0) - 2026-04-09
+
+### Other
+
+- *(saga)* rename SagaAppendCommandError to SagaInstanceError
+- *(application)* add relationship builders for projectors
+- *(application)* use is_for_aggregate in sagas and projectors
+- *(workspace)* fix repository urls
+
 ## [0.18.0](https://github.com/Lethephobia/appletheia/compare/appletheia-application-v0.17.0...appletheia-application-v0.18.0) - 2026-04-08
 
 ### Added
