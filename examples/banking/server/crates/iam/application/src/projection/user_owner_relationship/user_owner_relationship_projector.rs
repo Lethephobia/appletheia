@@ -35,22 +35,24 @@ where
     type Error = UserOwnerRelationshipProjectorError;
 
     async fn project(&self, uow: &mut Self::Uow, event: &EventEnvelope) -> Result<(), Self::Error> {
-        let event = event.try_into_domain_event::<User>()?;
-        match event.payload() {
-            UserEventPayload::Registered { id, .. } => {
-                let user = AggregateRef::from_id::<User>(*id);
-                self.relationship_store
-                    .apply_changes(
-                        uow,
-                        &[RelationshipChange::Upsert(Relationship {
-                            aggregate: user.clone(),
-                            relation: RelationRefOwned::from(UserOwnerRelation::REF),
-                            subject: RelationshipSubject::Aggregate(user),
-                        })],
-                    )
-                    .await?;
+        if event.is_for_aggregate::<User>() {
+            let event = event.try_into_domain_event::<User>()?;
+            match event.payload() {
+                UserEventPayload::Registered { id, .. } => {
+                    let user = AggregateRef::from_id::<User>(*id);
+                    self.relationship_store
+                        .apply_changes(
+                            uow,
+                            &[RelationshipChange::Upsert(Relationship {
+                                aggregate: user.clone(),
+                                relation: RelationRefOwned::from(UserOwnerRelation::REF),
+                                subject: RelationshipSubject::Aggregate(user),
+                            })],
+                        )
+                        .await?;
+                }
+                _ => return Ok(()),
             }
-            _ => return Ok(()),
         }
 
         Ok(())

@@ -1,7 +1,6 @@
 use appletheia::application::command::{CommandFailureReaction, CommandOptions};
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::saga::{Saga, SagaInstance, SagaSpec};
-use appletheia::domain::Aggregate;
 use banking_ledger_domain::account::{Account, AccountEventPayload};
 use banking_ledger_domain::currency_definition::{
     CurrencyDefinition, CurrencyDefinitionEventPayload,
@@ -30,7 +29,7 @@ impl Saga for CurrencyIssuanceSaga {
         instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State>,
         event: &EventEnvelope,
     ) -> Result<(), Self::Error> {
-        if event.aggregate_type.value() == CurrencyIssuance::TYPE.value() {
+        if event.is_for_aggregate::<CurrencyIssuance>() {
             let issuance_event = event.try_into_domain_event::<CurrencyIssuance>()?;
             match issuance_event.payload() {
                 CurrencyIssuanceEventPayload::Issued {
@@ -82,9 +81,7 @@ impl Saga for CurrencyIssuanceSaga {
             }
 
             return Ok(());
-        }
-
-        if event.aggregate_type.value() == CurrencyDefinition::TYPE.value() {
+        } else if event.is_for_aggregate::<CurrencyDefinition>() {
             let currency_definition_event = event.try_into_domain_event::<CurrencyDefinition>()?;
             match currency_definition_event.payload() {
                 CurrencyDefinitionEventPayload::SupplyIncreased { .. } => {
@@ -161,9 +158,7 @@ impl Saga for CurrencyIssuanceSaga {
             }
 
             return Ok(());
-        }
-
-        if event.aggregate_type.value() == Account::TYPE.value() {
+        } else if event.is_for_aggregate::<Account>() {
             let account_event = event.try_into_domain_event::<Account>()?;
             if let AccountEventPayload::Deposited { .. } = account_event.payload() {
                 let currency_issuance_id = {

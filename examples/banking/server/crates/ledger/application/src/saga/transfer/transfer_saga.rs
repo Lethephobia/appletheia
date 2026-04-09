@@ -1,7 +1,6 @@
 use appletheia::application::command::{CommandFailureReaction, CommandOptions};
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::saga::{Saga, SagaInstance, SagaSpec};
-use appletheia::domain::Aggregate;
 use banking_ledger_domain::account::{Account, AccountEventPayload};
 use banking_ledger_domain::transfer::{Transfer, TransferEventPayload};
 
@@ -23,7 +22,7 @@ impl Saga for TransferSaga {
         instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State>,
         event: &EventEnvelope,
     ) -> Result<(), Self::Error> {
-        if event.aggregate_type.value() == Transfer::TYPE.value() {
+        if event.is_for_aggregate::<Transfer>() {
             let transfer_event = event.try_into_domain_event::<Transfer>()?;
             match transfer_event.payload() {
                 TransferEventPayload::Requested {
@@ -74,9 +73,7 @@ impl Saga for TransferSaga {
             }
 
             return Ok(());
-        }
-
-        if event.aggregate_type.value() == Account::TYPE.value() {
+        } else if event.is_for_aggregate::<Account>() {
             let account_event = event.try_into_domain_event::<Account>()?;
             match account_event.payload() {
                 AccountEventPayload::FundsReserved { .. } => {

@@ -40,60 +40,63 @@ where
     type Error = OrganizationMembershipOrganizationRelationshipProjectorError;
 
     async fn project(&self, uow: &mut Self::Uow, event: &EventEnvelope) -> Result<(), Self::Error> {
-        let domain_event = event.try_into_domain_event::<OrganizationMembership>()?;
+        if event.is_for_aggregate::<OrganizationMembership>() {
+            let domain_event = event.try_into_domain_event::<OrganizationMembership>()?;
 
-        match domain_event.payload() {
-            OrganizationMembershipEventPayload::Created {
-                organization_id, ..
-            } => {
-                self.relationship_store
-                    .apply_changes(
-                        uow,
-                        &[RelationshipChange::Upsert(Relationship {
-                            aggregate: AggregateRef::from_id::<OrganizationMembership>(
-                                domain_event.aggregate_id(),
-                            ),
-                            relation: RelationRefOwned::from(
-                                OrganizationMembershipOrganizationRelation::REF,
-                            ),
-                            subject: RelationshipSubject::Aggregate(AggregateRef::from_id::<
-                                Organization,
-                            >(
-                                *organization_id
-                            )),
-                        })],
-                    )
-                    .await?;
-            }
-            OrganizationMembershipEventPayload::Removed { .. } => {
-                let aggregate =
-                    AggregateRef::from_id::<OrganizationMembership>(domain_event.aggregate_id());
-                let relation =
-                    RelationRefOwned::from(OrganizationMembershipOrganizationRelation::REF);
-                let subjects = self
-                    .relationship_store
-                    .read_subjects_by_aggregate(uow, &aggregate, &relation, None)
-                    .await?;
-
-                if subjects.is_empty() {
-                    return Ok(());
+            match domain_event.payload() {
+                OrganizationMembershipEventPayload::Created {
+                    organization_id, ..
+                } => {
+                    self.relationship_store
+                        .apply_changes(
+                            uow,
+                            &[RelationshipChange::Upsert(Relationship {
+                                aggregate: AggregateRef::from_id::<OrganizationMembership>(
+                                    domain_event.aggregate_id(),
+                                ),
+                                relation: RelationRefOwned::from(
+                                    OrganizationMembershipOrganizationRelation::REF,
+                                ),
+                                subject: RelationshipSubject::Aggregate(AggregateRef::from_id::<
+                                    Organization,
+                                >(
+                                    *organization_id
+                                )),
+                            })],
+                        )
+                        .await?;
                 }
+                OrganizationMembershipEventPayload::Removed { .. } => {
+                    let aggregate = AggregateRef::from_id::<OrganizationMembership>(
+                        domain_event.aggregate_id(),
+                    );
+                    let relation =
+                        RelationRefOwned::from(OrganizationMembershipOrganizationRelation::REF);
+                    let subjects = self
+                        .relationship_store
+                        .read_subjects_by_aggregate(uow, &aggregate, &relation, None)
+                        .await?;
 
-                let changes = subjects
-                    .into_iter()
-                    .map(|subject| {
-                        RelationshipChange::Delete(Relationship {
-                            aggregate: aggregate.clone(),
-                            relation: relation.clone(),
-                            subject,
+                    if subjects.is_empty() {
+                        return Ok(());
+                    }
+
+                    let changes = subjects
+                        .into_iter()
+                        .map(|subject| {
+                            RelationshipChange::Delete(Relationship {
+                                aggregate: aggregate.clone(),
+                                relation: relation.clone(),
+                                subject,
+                            })
                         })
-                    })
-                    .collect::<Vec<_>>();
+                        .collect::<Vec<_>>();
 
-                self.relationship_store.apply_changes(uow, &changes).await?;
+                    self.relationship_store.apply_changes(uow, &changes).await?;
+                }
+                OrganizationMembershipEventPayload::Activated { .. } => return Ok(()),
+                OrganizationMembershipEventPayload::Inactivated { .. } => return Ok(()),
             }
-            OrganizationMembershipEventPayload::Activated { .. } => return Ok(()),
-            OrganizationMembershipEventPayload::Inactivated { .. } => return Ok(()),
         }
 
         Ok(())

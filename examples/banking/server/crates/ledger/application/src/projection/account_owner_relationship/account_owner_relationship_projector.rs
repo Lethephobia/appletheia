@@ -36,32 +36,34 @@ where
     type Error = AccountOwnerRelationshipProjectorError;
 
     async fn project(&self, uow: &mut Self::Uow, event: &EventEnvelope) -> Result<(), Self::Error> {
-        let event = event.try_into_domain_event::<Account>()?;
-        match event.payload() {
-            AccountEventPayload::Opened { owner, .. } => {
-                let subject = match owner {
-                    banking_ledger_domain::account::AccountOwner::User(user_id) => {
-                        RelationshipSubject::Aggregate(AggregateRef::from_id::<User>(*user_id))
-                    }
-                    banking_ledger_domain::account::AccountOwner::Organization(organization_id) => {
-                        RelationshipSubject::Aggregate(AggregateRef::from_id::<Organization>(
+        if event.is_for_aggregate::<Account>() {
+            let event = event.try_into_domain_event::<Account>()?;
+            match event.payload() {
+                AccountEventPayload::Opened { owner, .. } => {
+                    let subject = match owner {
+                        banking_ledger_domain::account::AccountOwner::User(user_id) => {
+                            RelationshipSubject::Aggregate(AggregateRef::from_id::<User>(*user_id))
+                        }
+                        banking_ledger_domain::account::AccountOwner::Organization(
+                            organization_id,
+                        ) => RelationshipSubject::Aggregate(AggregateRef::from_id::<Organization>(
                             *organization_id,
-                        ))
-                    }
-                };
+                        )),
+                    };
 
-                self.relationship_store
-                    .apply_changes(
-                        uow,
-                        &[RelationshipChange::Upsert(Relationship {
-                            aggregate: AggregateRef::from_id::<Account>(event.aggregate_id()),
-                            relation: RelationRefOwned::from(AccountOwnerRelation::REF),
-                            subject,
-                        })],
-                    )
-                    .await?;
+                    self.relationship_store
+                        .apply_changes(
+                            uow,
+                            &[RelationshipChange::Upsert(Relationship {
+                                aggregate: AggregateRef::from_id::<Account>(event.aggregate_id()),
+                                relation: RelationRefOwned::from(AccountOwnerRelation::REF),
+                                subject,
+                            })],
+                        )
+                        .await?;
+                }
+                _ => return Ok(()),
             }
-            _ => return Ok(()),
         }
 
         Ok(())

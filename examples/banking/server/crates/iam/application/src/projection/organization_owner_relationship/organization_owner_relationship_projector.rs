@@ -38,44 +38,50 @@ where
     type Error = OrganizationOwnerRelationshipProjectorError;
 
     async fn project(&self, uow: &mut Self::Uow, event: &EventEnvelope) -> Result<(), Self::Error> {
-        let domain_event = event.try_into_domain_event::<Organization>()?;
+        if event.is_for_aggregate::<Organization>() {
+            let domain_event = event.try_into_domain_event::<Organization>()?;
 
-        match domain_event.payload() {
-            OrganizationEventPayload::OwnerAssigned { owner } => {
-                let OrganizationOwner::User(owner) = *owner;
-                self.relationship_store
-                    .apply_changes(
-                        uow,
-                        &[RelationshipChange::Upsert(Relationship {
-                            aggregate: AggregateRef::from_id::<Organization>(
-                                domain_event.aggregate_id(),
-                            ),
-                            relation: RelationRefOwned::from(OrganizationOwnerRelation::REF),
-                            subject: RelationshipSubject::Aggregate(AggregateRef::from_id::<User>(
-                                owner,
-                            )),
-                        })],
-                    )
-                    .await?;
+            match domain_event.payload() {
+                OrganizationEventPayload::OwnerAssigned { owner } => {
+                    let OrganizationOwner::User(owner) = *owner;
+                    self.relationship_store
+                        .apply_changes(
+                            uow,
+                            &[RelationshipChange::Upsert(Relationship {
+                                aggregate: AggregateRef::from_id::<Organization>(
+                                    domain_event.aggregate_id(),
+                                ),
+                                relation: RelationRefOwned::from(OrganizationOwnerRelation::REF),
+                                subject: RelationshipSubject::Aggregate(AggregateRef::from_id::<
+                                    User,
+                                >(
+                                    owner
+                                )),
+                            })],
+                        )
+                        .await?;
+                }
+                OrganizationEventPayload::OwnerUnassigned { owner } => {
+                    let OrganizationOwner::User(owner) = *owner;
+                    self.relationship_store
+                        .apply_changes(
+                            uow,
+                            &[RelationshipChange::Delete(Relationship {
+                                aggregate: AggregateRef::from_id::<Organization>(
+                                    domain_event.aggregate_id(),
+                                ),
+                                relation: RelationRefOwned::from(OrganizationOwnerRelation::REF),
+                                subject: RelationshipSubject::Aggregate(AggregateRef::from_id::<
+                                    User,
+                                >(
+                                    owner
+                                )),
+                            })],
+                        )
+                        .await?;
+                }
+                _ => return Ok(()),
             }
-            OrganizationEventPayload::OwnerUnassigned { owner } => {
-                let OrganizationOwner::User(owner) = *owner;
-                self.relationship_store
-                    .apply_changes(
-                        uow,
-                        &[RelationshipChange::Delete(Relationship {
-                            aggregate: AggregateRef::from_id::<Organization>(
-                                domain_event.aggregate_id(),
-                            ),
-                            relation: RelationRefOwned::from(OrganizationOwnerRelation::REF),
-                            subject: RelationshipSubject::Aggregate(AggregateRef::from_id::<User>(
-                                owner,
-                            )),
-                        })],
-                    )
-                    .await?;
-            }
-            _ => return Ok(()),
         }
 
         Ok(())

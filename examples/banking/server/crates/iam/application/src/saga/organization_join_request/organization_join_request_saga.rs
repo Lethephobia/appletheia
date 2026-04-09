@@ -1,7 +1,6 @@
 use appletheia::application::command::CommandOptions;
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::saga::{Saga, SagaInstance, SagaSpec};
-use appletheia::domain::Aggregate;
 use banking_iam_domain::{
     OrganizationJoinRequest, OrganizationJoinRequestEventPayload, OrganizationMembership,
     OrganizationMembershipEventPayload,
@@ -26,7 +25,7 @@ impl Saga for OrganizationJoinRequestSaga {
         instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State>,
         event: &EventEnvelope,
     ) -> Result<(), Self::Error> {
-        if event.aggregate_type.value() == OrganizationJoinRequest::TYPE.value() {
+        if event.is_for_aggregate::<OrganizationJoinRequest>() {
             let join_request_event = event.try_into_domain_event::<OrganizationJoinRequest>()?;
             if let OrganizationJoinRequestEventPayload::Approved {
                 organization_id,
@@ -48,9 +47,7 @@ impl Saga for OrganizationJoinRequestSaga {
             }
 
             return Ok(());
-        }
-
-        if event.aggregate_type.value() == OrganizationMembership::TYPE.value() {
+        } else if event.is_for_aggregate::<OrganizationMembership>() {
             let membership_event = event.try_into_domain_event::<OrganizationMembership>()?;
             if let OrganizationMembershipEventPayload::Created { .. } = membership_event.payload() {
                 instance.succeed();

@@ -4,7 +4,6 @@ use appletheia::application::authorization::{
 };
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
-use appletheia::domain::Aggregate;
 use banking_iam_domain::{OrganizationJoinRequest, OrganizationJoinRequestEventPayload, User};
 
 use super::{
@@ -39,9 +38,7 @@ where
     type Error = OrganizationJoinRequestRequesterRelationshipProjectorError;
 
     async fn project(&self, uow: &mut Self::Uow, event: &EventEnvelope) -> Result<(), Self::Error> {
-        let aggregate_type = event.aggregate_type.value();
-
-        if aggregate_type == OrganizationJoinRequest::TYPE.value() {
+        if event.is_for_aggregate::<OrganizationJoinRequest>() {
             let domain_event = event.try_into_domain_event::<OrganizationJoinRequest>()?;
             let aggregate =
                 AggregateRef::from_id::<OrganizationJoinRequest>(domain_event.aggregate_id());
