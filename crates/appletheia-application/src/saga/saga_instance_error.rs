@@ -4,9 +4,12 @@ use thiserror::Error;
 use crate::outbox::command::SerializedCommandError;
 
 #[derive(Debug, Error)]
-pub enum SagaAppendCommandError {
+pub enum SagaInstanceError {
     #[error("correlation id mismatch between saga instance and source event")]
     CorrelationIdMismatch,
+
+    #[error("no state")]
+    NoState,
 
     #[error("failed to serialize command: {0}")]
     Json(#[from] serde_json::Error),

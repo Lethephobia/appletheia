@@ -5,7 +5,7 @@ use crate::{
 };
 
 use super::SagaState;
-use super::{SagaAppendCommandError, SagaInstanceId, SagaNameOwned};
+use super::{SagaInstanceError, SagaInstanceId, SagaNameOwned};
 use crate::outbox::command::CommandEnvelope;
 use crate::request_context::CausationId;
 
@@ -42,6 +42,16 @@ impl<S: SagaState> SagaInstance<S> {
         &mut self.state
     }
 
+    /// Returns the current saga state or a `NoState` error.
+    pub fn state_required(&self) -> Result<&S, SagaInstanceError> {
+        self.state.as_ref().ok_or(SagaInstanceError::NoState)
+    }
+
+    /// Returns the current saga state mutably or a `NoState` error.
+    pub fn state_required_mut(&mut self) -> Result<&mut S, SagaInstanceError> {
+        self.state.as_mut().ok_or(SagaInstanceError::NoState)
+    }
+
     pub fn succeed(&mut self) {
         self.status = SagaStatus::Succeeded;
         self.clear_uncommitted_commands();
@@ -57,9 +67,9 @@ impl<S: SagaState> SagaInstance<S> {
         event_from: &EventEnvelope,
         command: &C,
         options: CommandOptions,
-    ) -> Result<(), SagaAppendCommandError> {
+    ) -> Result<(), SagaInstanceError> {
         if self.correlation_id != event_from.correlation_id {
-            return Err(SagaAppendCommandError::CorrelationIdMismatch);
+            return Err(SagaInstanceError::CorrelationIdMismatch);
         }
 
         self.uncommitted_commands.push(CommandEnvelope::new(
