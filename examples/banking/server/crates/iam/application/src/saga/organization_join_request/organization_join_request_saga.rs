@@ -37,8 +37,6 @@ impl Saga for OrganizationJoinRequestSaga {
                     .state_mut()
                     .get_or_insert_with(OrganizationJoinRequestSagaState::default);
                 state.organization_join_request_id = Some(join_request_event.aggregate_id());
-                state.organization_id = Some(*organization_id);
-                state.requester_id = Some(*requester_id);
 
                 instance.append_command(
                     event,
@@ -55,21 +53,12 @@ impl Saga for OrganizationJoinRequestSaga {
 
         if event.aggregate_type.value() == OrganizationMembership::TYPE.value() {
             let membership_event = event.try_into_domain_event::<OrganizationMembership>()?;
-            if let OrganizationMembershipEventPayload::Created {
-                organization_id,
-                user_id,
-                ..
-            } = membership_event.payload()
-            {
-                let Some(state) = instance.state.as_ref() else {
+            if let OrganizationMembershipEventPayload::Created { .. } = membership_event.payload() {
+                let Some(_) = instance.state.as_ref() else {
                     return Ok(());
                 };
 
-                if state.organization_id == Some(*organization_id)
-                    && state.requester_id == Some(*user_id)
-                {
-                    instance.succeed();
-                }
+                instance.succeed();
             }
         }
 

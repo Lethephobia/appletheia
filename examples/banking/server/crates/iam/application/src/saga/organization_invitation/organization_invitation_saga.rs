@@ -37,8 +37,6 @@ impl Saga for OrganizationInvitationSaga {
                     .state_mut()
                     .get_or_insert_with(OrganizationInvitationSagaState::default);
                 state.organization_invitation_id = Some(invitation_event.aggregate_id());
-                state.organization_id = Some(*organization_id);
-                state.invitee_id = Some(*invitee_id);
 
                 instance.append_command(
                     event,
@@ -55,21 +53,12 @@ impl Saga for OrganizationInvitationSaga {
 
         if event.aggregate_type.value() == OrganizationMembership::TYPE.value() {
             let membership_event = event.try_into_domain_event::<OrganizationMembership>()?;
-            if let OrganizationMembershipEventPayload::Created {
-                organization_id,
-                user_id,
-                ..
-            } = membership_event.payload()
-            {
-                let Some(state) = instance.state.as_ref() else {
+            if let OrganizationMembershipEventPayload::Created { .. } = membership_event.payload() {
+                let Some(_) = instance.state.as_ref() else {
                     return Ok(());
                 };
 
-                if state.organization_id == Some(*organization_id)
-                    && state.invitee_id == Some(*user_id)
-                {
-                    instance.succeed();
-                }
+                instance.succeed();
             }
         }
 
@@ -140,16 +129,12 @@ mod tests {
         }
     }
 
-    fn membership_created_event_envelope(
-        correlation_id: CorrelationId,
-        organization_id: OrganizationId,
-        user_id: UserId,
-    ) -> EventEnvelope {
+    fn membership_created_event_envelope(correlation_id: CorrelationId) -> EventEnvelope {
         let membership_id = OrganizationMembershipId::new();
         let payload = OrganizationMembershipEventPayload::Created {
             id: membership_id,
-            organization_id,
-            user_id,
+            organization_id: OrganizationId::new(),
+            user_id: UserId::new(),
         };
 
         EventEnvelope {
@@ -227,7 +212,7 @@ mod tests {
         .expect("accepted event should be handled");
         saga.on_event(
             &mut instance,
-            &membership_created_event_envelope(correlation_id, organization_id, invitee_id),
+            &membership_created_event_envelope(correlation_id),
         )
         .expect("membership created event should be handled");
 

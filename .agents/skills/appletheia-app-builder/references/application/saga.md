@@ -173,7 +173,10 @@ instance.append_command(event, &AnotherCommand { .. })?;
 
 Commands emitted within one correlation are processed in append order. When the next event can only
 arrive after the prior command completed, do not add defensive "previous status must be X" checks
-or repeat completeness validation for data the saga already fixed at startup.
+or repeat completeness validation for data the saga already fixed at startup. For the same reason,
+do not add extra checks to prove that a follow-up event "really belongs" to the saga by comparing
+stored business IDs when the subscription and correlation already guarantee the event came from the
+same workflow.
 
 good:
 ```rust
