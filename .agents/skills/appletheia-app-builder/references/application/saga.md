@@ -176,13 +176,15 @@ arrive after the prior command completed, do not add defensive "previous status 
 or repeat completeness validation for data the saga already fixed at startup. For the same reason,
 do not add extra checks to prove that a follow-up event "really belongs" to the saga by comparing
 stored business IDs when the subscription and correlation already guarantee the event came from the
-same workflow.
+same workflow, and do not add no-op guards for missing saga state on branches that can only run
+after the saga start event initialized that state.
 
 good:
 ```rust
-let Some(state) = instance.state_mut().as_mut() else {
-    return Ok(());
-};
+let state = instance
+    .state_mut()
+    .as_mut()
+    .expect("state is initialized by the start event");
 state.status = TransferSagaStatus::FundsReserved;
 
 instance.append_command(

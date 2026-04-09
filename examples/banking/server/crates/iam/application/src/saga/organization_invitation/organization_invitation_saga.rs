@@ -33,10 +33,9 @@ impl Saga for OrganizationInvitationSaga {
                 invitee_id,
             } = invitation_event.payload()
             {
-                let state = instance
-                    .state_mut()
-                    .get_or_insert_with(OrganizationInvitationSagaState::default);
-                state.organization_invitation_id = Some(invitation_event.aggregate_id());
+                *instance.state_mut() = Some(OrganizationInvitationSagaState::new(
+                    invitation_event.aggregate_id(),
+                ));
 
                 instance.append_command(
                     event,
@@ -54,10 +53,6 @@ impl Saga for OrganizationInvitationSaga {
         if event.aggregate_type.value() == OrganizationMembership::TYPE.value() {
             let membership_event = event.try_into_domain_event::<OrganizationMembership>()?;
             if let OrganizationMembershipEventPayload::Created { .. } = membership_event.payload() {
-                let Some(_) = instance.state.as_ref() else {
-                    return Ok(());
-                };
-
                 instance.succeed();
             }
         }
