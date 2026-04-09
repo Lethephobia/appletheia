@@ -175,18 +175,13 @@ Commands emitted within one correlation are processed in append order. When the 
 arrive after the prior command completed, do not add defensive "previous status must be X" checks
 or repeat completeness validation for data the saga already fixed at startup. For the same reason,
 do not add extra checks to prove that a follow-up event "really belongs" to the saga by comparing
-stored business IDs when the subscription and correlation already guarantee the event came from the
-same workflow, and do not add no-op guards for missing saga state on branches that can only run
+stored business IDs when the subscription and correlation already guarantee the event came from the same workflow.
 after the saga start event initialized that state.
+Treat later handlers as operating on already-established saga state instead of
+re-validating that state field by field.
 
 good:
 ```rust
-let state = instance
-    .state_mut()
-    .as_mut()
-    .expect("state is initialized by the start event");
-state.status = TransferSagaStatus::FundsReserved;
-
 instance.append_command(
     event,
     &AccountDepositCommand {
@@ -203,8 +198,19 @@ if state.status != TransferSagaStatus::Requested {
     return Err(TransferSagaError::UnexpectedStatus);
 }
 
-let transfer_id = state.transfer_id.ok_or(TransferSagaError::IncompleteState)?;
-let from_account_id = state.from_account_id.ok_or(TransferSagaError::IncompleteState)?;
+let to_account_id = state
+    .to_account_id
+    .ok_or(TransferSagaError::MissingState)?;
+let amount = state.amount.ok_or(TransferSagaError::MissingState)?;
+
+instance.append_command(
+    event,
+    &AccountDepositCommand {
+        account_id: state.to_account_id,
+        amount: state.amount,
+    },
+    CommandOptions::default(),
+)?;
 ```
 
 ### DO use state checks as readiness tracking only for parallel branches
