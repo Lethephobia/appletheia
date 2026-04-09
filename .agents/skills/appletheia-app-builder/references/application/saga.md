@@ -32,7 +32,7 @@ Branch on the aggregate type and payload you actually need.
 
 good:
 ```rust
-if event.aggregate_type.value() == Transfer::TYPE.value() {
+if event.is_for_aggregate::<Transfer>() {
     let transfer_event = event.try_into_domain_event::<Transfer>()?;
     // ...
 }
