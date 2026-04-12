@@ -6,7 +6,7 @@ use appletheia_domain::EventId;
 
 use crate::event::{EventEnvelope, EventLookup};
 use crate::request_context::{CausationId, CorrelationId, MessageId};
-use crate::saga::{SagaDependencies, SagaNameOwned, SagaStatus, SagaStatusLookup};
+use crate::saga::{SagaDependencies, SagaNameOwned, SagaRunStore};
 use crate::unit_of_work::{UnitOfWork, UnitOfWorkFactory};
 
 use super::{
@@ -21,12 +21,12 @@ where
     U::Uow: UnitOfWork,
     L: EventLookup<Uow = U::Uow>,
     P: ProjectorProcessedEventStore<Uow = U::Uow>,
-    S: SagaStatusLookup<Uow = U::Uow>,
+    S: SagaRunStore<Uow = U::Uow>,
 {
     uow_factory: U,
     lookup: L,
-    processed_event_store: P,
-    saga_status_lookup: S,
+    projector_processed_event_store: P,
+    saga_run_store: S,
 }
 
 impl<U, L, P, S> DefaultReadYourWritesWaiter<U, L, P, S>
@@ -35,22 +35,27 @@ where
     U::Uow: UnitOfWork,
     L: EventLookup<Uow = U::Uow>,
     P: ProjectorProcessedEventStore<Uow = U::Uow>,
-    S: SagaStatusLookup<Uow = U::Uow>,
+    S: SagaRunStore<Uow = U::Uow>,
 {
-    pub fn new(uow_factory: U, lookup: L, processed_event_store: P, saga_status_lookup: S) -> Self {
+    pub fn new(
+        uow_factory: U,
+        lookup: L,
+        projector_processed_event_store: P,
+        saga_run_store: S,
+    ) -> Self {
         Self {
             uow_factory,
             lookup,
-            processed_event_store,
-            saga_status_lookup,
+            projector_processed_event_store,
+            saga_run_store,
         }
     }
     async fn causation_events(
         &self,
-        after: MessageId,
+        message_id: MessageId,
     ) -> Result<Vec<EventEnvelope>, ReadYourWritesWaitError> {
         let mut uow = self.uow_factory.begin().await?;
-        let causation_id = CausationId::from(after);
+        let causation_id = CausationId::from(message_id);
         let events = self
             .lookup
             .events_by_causation_id(&mut uow, causation_id)
@@ -65,7 +70,7 @@ where
         uow.commit().await?;
 
         if events.is_empty() {
-            return Err(ReadYourWritesWaitError::UnknownMessageId { message_id: after });
+            return Err(ReadYourWritesWaitError::UnknownMessageId { message_id });
         }
 
         Ok(events)
@@ -144,7 +149,7 @@ where
                 let all_processed = {
                     let mut uow = self.uow_factory.begin().await?;
                     let all_processed = self
-                        .processed_event_store
+                        .projector_processed_event_store
                         .are_all_processed(&mut uow, projector_name.clone(), relevant_event_ids)
                         .await;
                     let all_processed = match all_processed {
@@ -210,13 +215,13 @@ where
 
             for descriptor in saga_dependencies.as_slice() {
                 let saga_name = SagaNameOwned::from(descriptor.name);
-                let status = {
+                let completed = {
                     let mut uow = self.uow_factory.begin().await?;
-                    let status = self
-                        .saga_status_lookup
-                        .status(&mut uow, saga_name.clone(), correlation_id)
+                    let completed = self
+                        .saga_run_store
+                        .exists(&mut uow, saga_name.clone(), correlation_id)
                         .await;
-                    let status = match status {
+                    let completed = match completed {
                         Ok(value) => value,
                         Err(operation_error) => {
                             let operation_error =
@@ -226,10 +231,10 @@ where
                     };
 
                     uow.commit().await?;
-                    status
+                    completed
                 };
 
-                if !matches!(status, Some(SagaStatus::Succeeded | SagaStatus::Failed)) {
+                if !completed {
                     pending_sagas.push(saga_name);
                 }
             }
@@ -268,7 +273,7 @@ where
     U::Uow: UnitOfWork,
     L: EventLookup<Uow = U::Uow>,
     P: ProjectorProcessedEventStore<Uow = U::Uow>,
-    S: SagaStatusLookup<Uow = U::Uow>,
+    S: SagaRunStore<Uow = U::Uow>,
 {
     async fn wait(
         &self,
@@ -282,12 +287,12 @@ where
         let poll_duration = StdDuration::from(poll_interval);
 
         match target {
-            ReadYourWritesTarget::Message(after) => {
+            ReadYourWritesTarget::Message(message_id) => {
                 if projector_dependencies.as_slice().is_empty() {
                     return Ok(());
                 }
 
-                let causation_events = self.causation_events(after).await?;
+                let causation_events = self.causation_events(message_id).await?;
                 self.wait_for_projectors(
                     target,
                     timeout,
@@ -330,10 +335,11 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::collections::{HashMap, HashSet};
+    use std::collections::HashSet;
     use std::sync::{Arc, Mutex};
     use std::time::Duration;
 
+    use serde::{Serialize, de::DeserializeOwned};
     use serde_json::json;
     use uuid::Uuid;
 
@@ -350,8 +356,8 @@ mod tests {
     };
     use crate::request_context::{CorrelationId, Principal, RequestContext};
     use crate::saga::{
-        SagaDependencies, SagaDescriptor, SagaName, SagaNameOwned, SagaStatus, SagaStatusLookup,
-        SagaStatusLookupError,
+        SagaDependencies, SagaDescriptor, SagaName, SagaNameOwned, SagaPredecessor, SagaRun,
+        SagaRunStore, SagaRunStoreError,
     };
     use crate::unit_of_work::{UnitOfWorkError, UnitOfWorkFactoryError};
 
@@ -363,15 +369,16 @@ mod tests {
     );
     const REGISTERED_PROJECTOR: ProjectorDescriptor = ProjectorDescriptor::new(
         ProjectorName::new("registered_projector"),
-        Subscription::Only(&[REGISTERED_SELECTOR]),
+        Subscription::AnyOf(&[REGISTERED_SELECTOR]),
     );
     const PROFILE_PROJECTOR: ProjectorDescriptor = ProjectorDescriptor::new(
         ProjectorName::new("profile_projector"),
-        Subscription::Only(&[PROFILE_READIED_SELECTOR]),
+        Subscription::AnyOf(&[PROFILE_READIED_SELECTOR]),
     );
     const WORKSPACE_SETUP_SAGA: SagaDescriptor = SagaDescriptor::new(
         SagaName::new("workspace_setup"),
-        Subscription::Only(&[REGISTERED_SELECTOR]),
+        REGISTERED_SELECTOR,
+        SagaPredecessor::None,
     );
 
     #[derive(Default)]
@@ -459,20 +466,20 @@ mod tests {
 
     #[derive(Clone, Default)]
     struct TestProjectorProcessedEventStore {
-        processed: Arc<Mutex<HashSet<(String, EventId)>>>,
+        projector_processed_events: Arc<Mutex<HashSet<(String, EventId)>>>,
     }
 
     impl TestProjectorProcessedEventStore {
-        fn with_processed(
+        fn with_projector_processed_events(
             entries: impl IntoIterator<Item = (ProjectorNameOwned, EventId)>,
         ) -> Self {
-            let processed = entries
+            let projector_processed_events = entries
                 .into_iter()
                 .map(|(projector_name, event_id)| (projector_name.value().to_string(), event_id))
                 .collect();
 
             Self {
-                processed: Arc::new(Mutex::new(processed)),
+                projector_processed_events: Arc::new(Mutex::new(projector_processed_events)),
             }
         }
     }
@@ -486,12 +493,15 @@ mod tests {
             projector_name: ProjectorNameOwned,
             event_ids: &[EventId],
         ) -> Result<bool, crate::projection::ProjectorProcessedEventStoreError> {
-            let processed = self.processed.lock().expect("lock should succeed");
+            let projector_processed_events = self
+                .projector_processed_events
+                .lock()
+                .expect("lock should succeed");
             let projector_name = projector_name.value().to_string();
 
-            Ok(event_ids
-                .iter()
-                .all(|event_id| processed.contains(&(projector_name.clone(), *event_id))))
+            Ok(event_ids.iter().all(|event_id| {
+                projector_processed_events.contains(&(projector_name.clone(), *event_id))
+            }))
         }
 
         async fn is_processed(
@@ -500,9 +510,15 @@ mod tests {
             projector_name: ProjectorNameOwned,
             event_id: EventId,
         ) -> Result<bool, crate::projection::ProjectorProcessedEventStoreError> {
-            let processed = self.processed.lock().expect("lock should succeed");
+            let projector_processed_events = self
+                .projector_processed_events
+                .lock()
+                .expect("lock should succeed");
 
-            Ok(processed.contains(&(projector_name.value().to_string(), event_id)))
+            Ok(
+                projector_processed_events
+                    .contains(&(projector_name.value().to_string(), event_id)),
+            )
         }
 
         async fn mark_processed(
@@ -511,9 +527,12 @@ mod tests {
             projector_name: ProjectorNameOwned,
             event_id: EventId,
         ) -> Result<bool, crate::projection::ProjectorProcessedEventStoreError> {
-            let mut processed = self.processed.lock().expect("lock should succeed");
+            let mut projector_processed_events = self
+                .projector_processed_events
+                .lock()
+                .expect("lock should succeed");
 
-            Ok(processed.insert((projector_name.value().to_string(), event_id)))
+            Ok(projector_processed_events.insert((projector_name.value().to_string(), event_id)))
         }
 
         async fn reset(
@@ -521,67 +540,98 @@ mod tests {
             _uow: &mut Self::Uow,
             projector_name: ProjectorNameOwned,
         ) -> Result<(), crate::projection::ProjectorProcessedEventStoreError> {
-            let mut processed = self.processed.lock().expect("lock should succeed");
+            let mut projector_processed_events = self
+                .projector_processed_events
+                .lock()
+                .expect("lock should succeed");
             let projector_name = projector_name.value().to_string();
 
-            processed.retain(|(stored_name, _)| stored_name != &projector_name);
+            projector_processed_events.retain(|(stored_name, _)| stored_name != &projector_name);
             Ok(())
         }
     }
 
     #[derive(Clone, Default)]
-    struct TestSagaStatusLookup {
-        statuses: Arc<Mutex<HashMap<(SagaNameOwned, CorrelationId), Option<SagaStatus>>>>,
+    struct TestSagaRunStore {
+        runs: Arc<Mutex<HashSet<(SagaNameOwned, CorrelationId)>>>,
     }
 
-    impl TestSagaStatusLookup {
-        fn with_statuses(
-            entries: impl IntoIterator<Item = (SagaNameOwned, CorrelationId, Option<SagaStatus>)>,
+    impl TestSagaRunStore {
+        fn with_runs(
+            entries: impl IntoIterator<Item = (SagaNameOwned, CorrelationId, bool)>,
         ) -> Self {
-            let statuses = entries
+            let runs = entries
                 .into_iter()
-                .map(|(saga_name, correlation_id, status)| ((saga_name, correlation_id), status))
+                .filter_map(|(saga_name, correlation_id, completed)| {
+                    completed.then_some((saga_name, correlation_id))
+                })
                 .collect();
 
             Self {
-                statuses: Arc::new(Mutex::new(statuses)),
+                runs: Arc::new(Mutex::new(runs)),
             }
         }
     }
 
-    impl SagaStatusLookup for TestSagaStatusLookup {
+    impl SagaRunStore for TestSagaRunStore {
         type Uow = TestUnitOfWork;
 
-        async fn status(
+        async fn read<C: Serialize + DeserializeOwned + Send + Sync + 'static>(
             &self,
             _uow: &mut Self::Uow,
             saga_name: SagaNameOwned,
             correlation_id: CorrelationId,
-        ) -> Result<Option<SagaStatus>, SagaStatusLookupError> {
-            let statuses = self.statuses.lock().expect("lock should succeed");
+        ) -> Result<Option<SagaRun<C>>, SagaRunStoreError> {
+            let runs = self.runs.lock().expect("lock should succeed");
 
-            Ok(statuses
-                .get(&(saga_name, correlation_id))
-                .cloned()
-                .unwrap_or(None))
+            if runs.contains(&(saga_name.clone(), correlation_id)) {
+                Err(SagaRunStoreError::MappingFailed(Box::new(
+                    std::io::Error::other("test saga run store does not materialize contexts"),
+                )))
+            } else {
+                Ok(None)
+            }
+        }
+
+        async fn exists(
+            &self,
+            _uow: &mut Self::Uow,
+            saga_name: SagaNameOwned,
+            correlation_id: CorrelationId,
+        ) -> Result<bool, SagaRunStoreError> {
+            let runs = self.runs.lock().expect("lock should succeed");
+
+            Ok(runs.contains(&(saga_name, correlation_id)))
+        }
+
+        async fn write<C: Serialize + DeserializeOwned + Send + Sync + 'static>(
+            &self,
+            _uow: &mut Self::Uow,
+            run: &SagaRun<C>,
+        ) -> Result<(), SagaRunStoreError> {
+            let mut runs = self.runs.lock().expect("lock should succeed");
+            runs.insert((run.saga_name.clone(), run.correlation_id));
+            Ok(())
         }
     }
 
     fn test_waiter(
         events: Vec<EventEnvelope>,
-        processed: impl IntoIterator<Item = (ProjectorNameOwned, EventId)>,
-        saga_statuses: impl IntoIterator<Item = (SagaNameOwned, CorrelationId, Option<SagaStatus>)>,
+        projector_processed_events: impl IntoIterator<Item = (ProjectorNameOwned, EventId)>,
+        saga_runs: impl IntoIterator<Item = (SagaNameOwned, CorrelationId, bool)>,
     ) -> DefaultReadYourWritesWaiter<
         TestUnitOfWorkFactory,
         TestEventLookup,
         TestProjectorProcessedEventStore,
-        TestSagaStatusLookup,
+        TestSagaRunStore,
     > {
         DefaultReadYourWritesWaiter::new(
             TestUnitOfWorkFactory,
             TestEventLookup::new(events),
-            TestProjectorProcessedEventStore::with_processed(processed),
-            TestSagaStatusLookup::with_statuses(saga_statuses),
+            TestProjectorProcessedEventStore::with_projector_processed_events(
+                projector_processed_events,
+            ),
+            TestSagaRunStore::with_runs(saga_runs),
         )
     }
 
@@ -761,7 +811,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn wait_times_out_when_saga_is_not_terminal_for_correlation_target() {
+    async fn wait_times_out_when_saga_is_not_completed_for_correlation_target() {
         let correlation_id = CorrelationId::from(Uuid::now_v7());
         let waiter = test_waiter(
             Vec::new(),
@@ -769,7 +819,7 @@ mod tests {
             vec![(
                 SagaNameOwned::from(WORKSPACE_SETUP_SAGA.name),
                 correlation_id,
-                Some(SagaStatus::InProgress),
+                false,
             )],
         );
 
@@ -797,7 +847,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn wait_succeeds_when_correlation_saga_is_terminal_and_projector_is_caught_up() {
+    async fn wait_succeeds_when_correlation_saga_is_completed_and_projector_is_caught_up() {
         let correlation_id = CorrelationId::from(Uuid::now_v7());
         let message_id = MessageId::from(Uuid::now_v7());
         let registered_event_id = EventId::try_from(Uuid::now_v7()).expect("event id");
@@ -826,7 +876,7 @@ mod tests {
             vec![(
                 SagaNameOwned::from(WORKSPACE_SETUP_SAGA.name),
                 correlation_id,
-                Some(SagaStatus::Succeeded),
+                true,
             )],
         );
 

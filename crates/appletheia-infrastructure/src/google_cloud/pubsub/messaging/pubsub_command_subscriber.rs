@@ -33,15 +33,17 @@ impl PubsubCommandSubscriber {
         }
     }
 
-    fn filter_expression(selectors: &[CommandSelector]) -> String {
+    fn filter_expression_for_selector(selector: &CommandSelector) -> String {
+        format!(
+            "(attributes.command_name = \"{}\")",
+            selector.command_name.value()
+        )
+    }
+
+    fn filter_expression_for_selectors(selectors: &[CommandSelector]) -> String {
         selectors
             .iter()
-            .map(|selector| {
-                format!(
-                    "(attributes.command_name = \"{}\")",
-                    selector.command_name.value()
-                )
-            })
+            .map(Self::filter_expression_for_selector)
             .collect::<Vec<_>>()
             .join(" OR ")
     }
@@ -61,10 +63,11 @@ impl Subscriber<CommandEnvelope> for PubsubCommandSubscriber {
             .subscription_name(consumer_group);
         let filter = match subscription {
             Subscription::All => String::new(),
-            Subscription::Only([]) => {
+            Subscription::AnyOf([]) => {
                 return Err(SubscriberError::InvalidSubscription);
             }
-            Subscription::Only(selectors) => Self::filter_expression(selectors),
+            Subscription::AnyOf(selectors) => Self::filter_expression_for_selectors(selectors),
+            Subscription::One(selector) => Self::filter_expression_for_selector(selector),
         };
 
         let create_request = PubsubSubscription::new()

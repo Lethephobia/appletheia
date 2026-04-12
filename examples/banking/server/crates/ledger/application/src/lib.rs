@@ -47,6 +47,17 @@ pub use projection::{
     CurrencyDefinitionOwnerRelationshipProjectorSpec,
 };
 pub use saga::{
-    CurrencyIssuanceSaga, CurrencyIssuanceSagaSpec, CurrencyIssuanceSagaState, TransferSaga,
-    TransferSagaSpec, TransferSagaState,
+    CurrencyIssuanceDepositedSaga, CurrencyIssuanceDepositedSagaError,
+    CurrencyIssuanceDepositedSagaSpec, CurrencyIssuanceIssuedSaga, CurrencyIssuanceIssuedSagaError,
+    CurrencyIssuanceIssuedSagaSpec, CurrencyIssuanceSagaContext, CurrencyIssuanceSagaStatus,
+    CurrencyIssuanceSupplyDecreasedSaga, CurrencyIssuanceSupplyDecreasedSagaError,
+    CurrencyIssuanceSupplyDecreasedSagaSpec, CurrencyIssuanceSupplyIncreasedSaga,
+    CurrencyIssuanceSupplyIncreasedSagaError, CurrencyIssuanceSupplyIncreasedSagaSpec,
+    TransferDepositedSaga, TransferDepositedSagaError, TransferDepositedSagaSpec,
+    TransferFundsReservedSaga, TransferFundsReservedSagaError, TransferFundsReservedSagaSpec,
+    TransferRequestedSaga, TransferRequestedSagaError, TransferRequestedSagaSpec,
+    TransferReservedFundsCommittedSaga, TransferReservedFundsCommittedSagaError,
+    TransferReservedFundsCommittedSagaSpec, TransferReservedFundsReleasedSaga,
+    TransferReservedFundsReleasedSagaError, TransferReservedFundsReleasedSagaSpec,
+    TransferSagaContext, TransferSagaStatus,
 };

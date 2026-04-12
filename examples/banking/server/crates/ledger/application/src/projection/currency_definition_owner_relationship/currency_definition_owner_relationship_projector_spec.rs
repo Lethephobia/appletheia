@@ -12,7 +12,7 @@ pub struct CurrencyDefinitionOwnerRelationshipProjectorSpec;
 impl ProjectorSpec for CurrencyDefinitionOwnerRelationshipProjectorSpec {
     const DESCRIPTOR: ProjectorDescriptor = ProjectorDescriptor::new(
         ProjectorName::new("currency_definition_owner_relationship"),
-        Subscription::Only(&[EventSelector::new(
+        Subscription::AnyOf(&[EventSelector::new(
             CurrencyDefinition::TYPE,
             CurrencyDefinitionEventPayload::DEFINED,
         )]),

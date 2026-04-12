@@ -34,12 +34,18 @@ impl EventFeedReader for PgEventFeedReader {
         limit: EventFeedBatchSize,
         subscription: Subscription<'_, EventSelector>,
     ) -> Result<Vec<EventEnvelope>, EventFeedReaderError> {
+        enum Selectors<'a> {
+            AnyOf(&'a [EventSelector]),
+            One(&'a EventSelector),
+        }
+
         let selectors = match subscription {
             Subscription::All => None,
-            Subscription::Only([]) => {
+            Subscription::AnyOf([]) => {
                 return Err(EventFeedReaderError::InvalidSubscription);
             }
-            Subscription::Only(selectors) => Some(selectors),
+            Subscription::AnyOf(selectors) => Some(Selectors::AnyOf(selectors)),
+            Subscription::One(selector) => Some(Selectors::One(selector)),
         };
 
         let mut query: QueryBuilder<Postgres> = QueryBuilder::new(
@@ -62,16 +68,28 @@ impl EventFeedReader for PgEventFeedReader {
 
         if let Some(selectors) = selectors {
             query.push(if has_where { " AND (" } else { " WHERE (" });
-            let mut separated = query.separated(" OR ");
-            for selector in selectors {
-                separated
-                    .push("(aggregate_type = ")
-                    .push_bind(selector.aggregate_type.value())
-                    .push(" AND event_name = ")
-                    .push_bind(selector.event_name.value())
-                    .push(")");
+            match selectors {
+                Selectors::AnyOf(selectors) => {
+                    let mut separated = query.separated(" OR ");
+                    for selector in selectors {
+                        separated
+                            .push("(aggregate_type = ")
+                            .push_bind(selector.aggregate_type.value())
+                            .push(" AND event_name = ")
+                            .push_bind(selector.event_name.value())
+                            .push(")");
+                    }
+                    separated.push_unseparated(")");
+                }
+                Selectors::One(selector) => {
+                    query
+                        .push("(aggregate_type = ")
+                        .push_bind(selector.aggregate_type.value())
+                        .push(" AND event_name = ")
+                        .push_bind(selector.event_name.value())
+                        .push("))");
+                }
             }
-            separated.push_unseparated(")");
         }
 
         query

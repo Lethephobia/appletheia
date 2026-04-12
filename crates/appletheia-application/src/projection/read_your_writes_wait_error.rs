@@ -4,7 +4,7 @@ use crate::event::EventLookupError;
 use crate::projection::ProjectorNameOwned;
 use crate::projection::ProjectorProcessedEventStoreError;
 use crate::request_context::{CorrelationId, MessageId};
-use crate::saga::{SagaNameOwned, SagaStatusLookupError};
+use crate::saga::{SagaNameOwned, SagaRunStoreError};
 use crate::unit_of_work::{UnitOfWorkError, UnitOfWorkFactoryError};
 
 use super::{ReadYourWritesTarget, ReadYourWritesTimeout};
@@ -20,8 +20,8 @@ pub enum ReadYourWritesWaitError {
     #[error("event lookup error: {0}")]
     EventLookup(#[from] EventLookupError),
 
-    #[error("saga status lookup error: {0}")]
-    SagaStatusLookup(#[from] SagaStatusLookupError),
+    #[error("saga run store error: {0}")]
+    SagaRunStore(#[from] SagaRunStoreError),
 
     #[error("projector processed event store error: {0}")]
     ProjectorProcessedEventStore(#[from] ProjectorProcessedEventStoreError),

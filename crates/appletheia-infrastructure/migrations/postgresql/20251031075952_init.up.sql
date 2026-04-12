@@ -161,26 +161,15 @@ CREATE TABLE IF NOT EXISTS command_dead_letters (
   dead_lettered_at     TIMESTAMPTZ NOT NULL
 );
 
--- saga instances
-CREATE TABLE IF NOT EXISTS saga_instances (
+-- saga runs
+CREATE TABLE IF NOT EXISTS saga_runs (
   id             UUID        PRIMARY KEY,
   saga_name      TEXT        NOT NULL,
   correlation_id UUID        NOT NULL,
-  state          JSONB,
-  state_version  BIGINT      NOT NULL DEFAULT 0 CHECK (state_version >= 0),
+  context        JSONB       NOT NULL,
   created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
-  succeeded_at   TIMESTAMPTZ,
-  failed_at      TIMESTAMPTZ,
-  UNIQUE (saga_name, correlation_id),
-  CONSTRAINT saga_instances_succeeded_failed_check CHECK (
-    NOT (succeeded_at IS NOT NULL AND failed_at IS NOT NULL)
-  )
+  UNIQUE (saga_name, correlation_id)
 );
-
-CREATE INDEX IF NOT EXISTS idx_saga_instances_in_progress
-  ON saga_instances (saga_name, updated_at)
-  WHERE succeeded_at IS NULL AND failed_at IS NULL;
 
 -- saga processed events
 CREATE TABLE IF NOT EXISTS saga_processed_events (

@@ -255,7 +255,7 @@ where
                                     CommandFailureReaction::None => {
                                         let _ = uow.commit().await;
                                     }
-                                    CommandFailureReaction::FollowUpCommands(_) => {
+                                    CommandFailureReaction::FollowUpCommand(_) => {
                                         let commands = command_failure_reaction
                                             .into_command_envelopes(request_context);
                                         match self
@@ -309,8 +309,8 @@ mod tests {
     use crate::command::{
         Command, CommandDispatcher, CommandDispatcherError, CommandFailureReaction,
         CommandFailureReport, CommandHandled, CommandHandler, CommandHash, CommandHasher,
-        CommandHasherError, CommandName, CommandOptions, IdempotencyBeginResult, IdempotencyOutput,
-        IdempotencyService, IdempotencyServiceError,
+        CommandHasherError, CommandName, CommandOptions, CommandRequest, IdempotencyBeginResult,
+        IdempotencyOutput, IdempotencyService, IdempotencyServiceError,
     };
     use crate::event::{AggregateIdValue, AggregateTypeOwned};
     use crate::messaging::Subscription;
@@ -621,7 +621,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn dispatch_enqueues_follow_up_commands_for_command_failure() {
+    async fn dispatch_enqueues_follow_up_command_for_command_failure() {
         let outbox_enqueuer = TestCommandOutboxEnqueuer::default();
         let dispatcher = DefaultCommandDispatcher::new(
             TestCommandHasher,
@@ -644,13 +644,10 @@ mod tests {
                 &request_context,
                 TestCommand {},
                 CommandOptions {
-                    failure_reaction: {
-                        let mut reaction = CommandFailureReaction::new();
-                        reaction
-                            .push(&FollowUpTestCommand {}, CommandOptions::default())
-                            .expect("reaction should serialize");
-                        reaction
-                    },
+                    failure_reaction: CommandFailureReaction::follow_up_command(
+                        CommandRequest::new(FollowUpTestCommand {}),
+                    )
+                    .expect("reaction should serialize"),
                     ..CommandOptions::default()
                 },
             )

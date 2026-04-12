@@ -10,7 +10,7 @@ pub struct OrganizationJoinRequestRequesterRelationshipProjectorSpec;
 impl ProjectorSpec for OrganizationJoinRequestRequesterRelationshipProjectorSpec {
     const DESCRIPTOR: ProjectorDescriptor = ProjectorDescriptor::new(
         ProjectorName::new("organization_join_request_requester_relationship"),
-        Subscription::Only(&[EventSelector::new(
+        Subscription::AnyOf(&[EventSelector::new(
             OrganizationJoinRequest::TYPE,
             OrganizationJoinRequestEventPayload::REQUESTED,
         )]),

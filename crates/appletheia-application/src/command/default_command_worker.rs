@@ -66,7 +66,7 @@ where
 
         let mut consumer = self
             .subscriber
-            .subscribe(&self.consumer_group, Subscription::Only(&selectors))
+            .subscribe(&self.consumer_group, Subscription::AnyOf(&selectors))
             .await?;
 
         while !self.is_stop_requested() {
