@@ -2,7 +2,6 @@ use super::{
     ProjectorDependencies, ReadYourWritesPollInterval, ReadYourWritesTarget, ReadYourWritesTimeout,
     ReadYourWritesWaitError,
 };
-use crate::saga::SagaDependencies;
 
 #[allow(async_fn_in_trait)]
 pub trait ReadYourWritesWaiter: Send + Sync {
@@ -12,6 +11,5 @@ pub trait ReadYourWritesWaiter: Send + Sync {
         timeout: ReadYourWritesTimeout,
         poll_interval: ReadYourWritesPollInterval,
         projector_dependencies: ProjectorDependencies<'_>,
-        saga_dependencies: SagaDependencies<'_>,
     ) -> Result<(), ReadYourWritesWaitError>;
 }

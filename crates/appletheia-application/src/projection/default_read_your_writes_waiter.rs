@@ -6,7 +6,6 @@ use appletheia_domain::EventId;
 
 use crate::event::{EventEnvelope, EventLookup};
 use crate::request_context::{CausationId, CorrelationId, MessageId};
-use crate::saga::{SagaDependencies, SagaNameOwned, SagaRunStore};
 use crate::unit_of_work::{UnitOfWork, UnitOfWorkFactory};
 
 use super::{
@@ -15,39 +14,30 @@ use super::{
     ReadYourWritesWaitError, ReadYourWritesWaiter,
 };
 
-pub struct DefaultReadYourWritesWaiter<U, L, P, S>
+pub struct DefaultReadYourWritesWaiter<U, L, P>
 where
     U: UnitOfWorkFactory,
     U::Uow: UnitOfWork,
     L: EventLookup<Uow = U::Uow>,
     P: ProjectorProcessedEventStore<Uow = U::Uow>,
-    S: SagaRunStore<Uow = U::Uow>,
 {
     uow_factory: U,
     lookup: L,
     projector_processed_event_store: P,
-    saga_run_store: S,
 }
 
-impl<U, L, P, S> DefaultReadYourWritesWaiter<U, L, P, S>
+impl<U, L, P> DefaultReadYourWritesWaiter<U, L, P>
 where
     U: UnitOfWorkFactory,
     U::Uow: UnitOfWork,
     L: EventLookup<Uow = U::Uow>,
     P: ProjectorProcessedEventStore<Uow = U::Uow>,
-    S: SagaRunStore<Uow = U::Uow>,
 {
-    pub fn new(
-        uow_factory: U,
-        lookup: L,
-        projector_processed_event_store: P,
-        saga_run_store: S,
-    ) -> Self {
+    pub fn new(uow_factory: U, lookup: L, projector_processed_event_store: P) -> Self {
         Self {
             uow_factory,
             lookup,
             projector_processed_event_store,
-            saga_run_store,
         }
     }
     async fn causation_events(
@@ -179,76 +169,6 @@ where
                 return Err(ReadYourWritesWaitError::Timeout {
                     target,
                     pending_projectors,
-                    pending_sagas: Vec::new(),
-                    timeout,
-                });
-            }
-
-            let remaining = deadline
-                .checked_duration_since(now)
-                .unwrap_or(StdDuration::ZERO);
-            let sleep_duration = poll_duration.min(remaining);
-
-            if sleep_duration > StdDuration::ZERO {
-                tokio::time::sleep(sleep_duration).await;
-            } else {
-                tokio::task::yield_now().await;
-            }
-        }
-    }
-
-    async fn wait_for_sagas(
-        &self,
-        target: ReadYourWritesTarget,
-        timeout: ReadYourWritesTimeout,
-        poll_duration: StdDuration,
-        deadline: Instant,
-        correlation_id: CorrelationId,
-        saga_dependencies: SagaDependencies<'_>,
-    ) -> Result<(), ReadYourWritesWaitError> {
-        if saga_dependencies.as_slice().is_empty() {
-            return Ok(());
-        }
-
-        loop {
-            let mut pending_sagas: Vec<SagaNameOwned> = Vec::new();
-
-            for descriptor in saga_dependencies.as_slice() {
-                let saga_name = SagaNameOwned::from(descriptor.name);
-                let completed = {
-                    let mut uow = self.uow_factory.begin().await?;
-                    let completed = self
-                        .saga_run_store
-                        .exists(&mut uow, saga_name.clone(), correlation_id)
-                        .await;
-                    let completed = match completed {
-                        Ok(value) => value,
-                        Err(operation_error) => {
-                            let operation_error =
-                                uow.rollback_with_operation_error(operation_error).await?;
-                            return Err(operation_error.into());
-                        }
-                    };
-
-                    uow.commit().await?;
-                    completed
-                };
-
-                if !completed {
-                    pending_sagas.push(saga_name);
-                }
-            }
-
-            if pending_sagas.is_empty() {
-                return Ok(());
-            }
-
-            let now = Instant::now();
-            if now >= deadline {
-                return Err(ReadYourWritesWaitError::Timeout {
-                    target,
-                    pending_projectors: Vec::new(),
-                    pending_sagas,
                     timeout,
                 });
             }
@@ -267,13 +187,12 @@ where
     }
 }
 
-impl<U, L, P, S> ReadYourWritesWaiter for DefaultReadYourWritesWaiter<U, L, P, S>
+impl<U, L, P> ReadYourWritesWaiter for DefaultReadYourWritesWaiter<U, L, P>
 where
     U: UnitOfWorkFactory,
     U::Uow: UnitOfWork,
     L: EventLookup<Uow = U::Uow>,
     P: ProjectorProcessedEventStore<Uow = U::Uow>,
-    S: SagaRunStore<Uow = U::Uow>,
 {
     async fn wait(
         &self,
@@ -281,7 +200,6 @@ where
         timeout: ReadYourWritesTimeout,
         poll_interval: ReadYourWritesPollInterval,
         projector_dependencies: ProjectorDependencies<'_>,
-        saga_dependencies: SagaDependencies<'_>,
     ) -> Result<(), ReadYourWritesWaitError> {
         let deadline = Instant::now() + StdDuration::from(timeout);
         let poll_duration = StdDuration::from(poll_interval);
@@ -304,16 +222,6 @@ where
                 .await
             }
             ReadYourWritesTarget::Correlation(correlation_id) => {
-                self.wait_for_sagas(
-                    target,
-                    timeout,
-                    poll_duration,
-                    deadline,
-                    correlation_id,
-                    saga_dependencies,
-                )
-                .await?;
-
                 if projector_dependencies.as_slice().is_empty() {
                     return Ok(());
                 }
@@ -339,7 +247,6 @@ mod tests {
     use std::sync::{Arc, Mutex};
     use std::time::Duration;
 
-    use serde::{Serialize, de::DeserializeOwned};
     use serde_json::json;
     use uuid::Uuid;
 
@@ -355,10 +262,6 @@ mod tests {
         ProjectorDependencies, ProjectorDescriptor, ProjectorName, ReadYourWritesTarget,
     };
     use crate::request_context::{CorrelationId, Principal, RequestContext};
-    use crate::saga::{
-        SagaDependencies, SagaDescriptor, SagaName, SagaNameOwned, SagaPredecessor, SagaRun,
-        SagaRunStore, SagaRunStoreError,
-    };
     use crate::unit_of_work::{UnitOfWorkError, UnitOfWorkFactoryError};
 
     const REGISTERED_SELECTOR: EventSelector =
@@ -375,12 +278,6 @@ mod tests {
         ProjectorName::new("profile_projector"),
         Subscription::AnyOf(&[PROFILE_READIED_SELECTOR]),
     );
-    const WORKSPACE_SETUP_SAGA: SagaDescriptor = SagaDescriptor::new(
-        SagaName::new("workspace_setup"),
-        REGISTERED_SELECTOR,
-        SagaPredecessor::None,
-    );
-
     #[derive(Default)]
     struct TestUnitOfWork;
 
@@ -551,79 +448,13 @@ mod tests {
         }
     }
 
-    #[derive(Clone, Default)]
-    struct TestSagaRunStore {
-        runs: Arc<Mutex<HashSet<(SagaNameOwned, CorrelationId)>>>,
-    }
-
-    impl TestSagaRunStore {
-        fn with_runs(
-            entries: impl IntoIterator<Item = (SagaNameOwned, CorrelationId, bool)>,
-        ) -> Self {
-            let runs = entries
-                .into_iter()
-                .filter_map(|(saga_name, correlation_id, completed)| {
-                    completed.then_some((saga_name, correlation_id))
-                })
-                .collect();
-
-            Self {
-                runs: Arc::new(Mutex::new(runs)),
-            }
-        }
-    }
-
-    impl SagaRunStore for TestSagaRunStore {
-        type Uow = TestUnitOfWork;
-
-        async fn read<C: Serialize + DeserializeOwned + Send + Sync + 'static>(
-            &self,
-            _uow: &mut Self::Uow,
-            saga_name: SagaNameOwned,
-            correlation_id: CorrelationId,
-        ) -> Result<Option<SagaRun<C>>, SagaRunStoreError> {
-            let runs = self.runs.lock().expect("lock should succeed");
-
-            if runs.contains(&(saga_name.clone(), correlation_id)) {
-                Err(SagaRunStoreError::MappingFailed(Box::new(
-                    std::io::Error::other("test saga run store does not materialize contexts"),
-                )))
-            } else {
-                Ok(None)
-            }
-        }
-
-        async fn exists(
-            &self,
-            _uow: &mut Self::Uow,
-            saga_name: SagaNameOwned,
-            correlation_id: CorrelationId,
-        ) -> Result<bool, SagaRunStoreError> {
-            let runs = self.runs.lock().expect("lock should succeed");
-
-            Ok(runs.contains(&(saga_name, correlation_id)))
-        }
-
-        async fn write<C: Serialize + DeserializeOwned + Send + Sync + 'static>(
-            &self,
-            _uow: &mut Self::Uow,
-            run: &SagaRun<C>,
-        ) -> Result<(), SagaRunStoreError> {
-            let mut runs = self.runs.lock().expect("lock should succeed");
-            runs.insert((run.saga_name.clone(), run.correlation_id));
-            Ok(())
-        }
-    }
-
     fn test_waiter(
         events: Vec<EventEnvelope>,
         projector_processed_events: impl IntoIterator<Item = (ProjectorNameOwned, EventId)>,
-        saga_runs: impl IntoIterator<Item = (SagaNameOwned, CorrelationId, bool)>,
     ) -> DefaultReadYourWritesWaiter<
         TestUnitOfWorkFactory,
         TestEventLookup,
         TestProjectorProcessedEventStore,
-        TestSagaRunStore,
     > {
         DefaultReadYourWritesWaiter::new(
             TestUnitOfWorkFactory,
@@ -631,7 +462,6 @@ mod tests {
             TestProjectorProcessedEventStore::with_projector_processed_events(
                 projector_processed_events,
             ),
-            TestSagaRunStore::with_runs(saga_runs),
         )
     }
 
@@ -678,7 +508,7 @@ mod tests {
     #[tokio::test]
     async fn wait_returns_unknown_message_id_when_no_event_exists() {
         let message_id = MessageId::from(Uuid::now_v7());
-        let waiter = test_waiter(Vec::new(), Vec::new(), Vec::new());
+        let waiter = test_waiter(Vec::new(), Vec::new());
 
         let result = waiter
             .wait(
@@ -686,7 +516,6 @@ mod tests {
                 ReadYourWritesTimeout::from(Duration::ZERO),
                 ReadYourWritesPollInterval::from(Duration::ZERO),
                 ProjectorDependencies::Some(&[REGISTERED_PROJECTOR]),
-                SagaDependencies::None,
             )
             .await;
 
@@ -710,7 +539,6 @@ mod tests {
                 message_id,
             )],
             Vec::new(),
-            Vec::new(),
         );
 
         let result = waiter
@@ -719,7 +547,6 @@ mod tests {
                 ReadYourWritesTimeout::from(Duration::ZERO),
                 ReadYourWritesPollInterval::from(Duration::ZERO),
                 ProjectorDependencies::Some(&[REGISTERED_PROJECTOR]),
-                SagaDependencies::None,
             )
             .await;
 
@@ -738,7 +565,6 @@ mod tests {
                 message_id,
             )],
             Vec::new(),
-            Vec::new(),
         );
 
         let result = waiter
@@ -747,7 +573,6 @@ mod tests {
                 ReadYourWritesTimeout::from(Duration::ZERO),
                 ReadYourWritesPollInterval::from(Duration::ZERO),
                 ProjectorDependencies::Some(&[REGISTERED_PROJECTOR]),
-                SagaDependencies::None,
             )
             .await;
 
@@ -756,11 +581,9 @@ mod tests {
             Err(ReadYourWritesWaitError::Timeout {
                 target,
                 pending_projectors,
-                pending_sagas,
                 ..
             }) if target == ReadYourWritesTarget::Message(message_id)
                 && pending_projectors == vec![ProjectorNameOwned::from(REGISTERED_PROJECTOR.name)]
-                && pending_sagas.is_empty()
         ));
     }
 
@@ -794,7 +617,6 @@ mod tests {
                     profile_readied_event_id,
                 ),
             ],
-            Vec::new(),
         );
 
         let result = waiter
@@ -803,7 +625,6 @@ mod tests {
                 ReadYourWritesTimeout::from(Duration::from_millis(10)),
                 ReadYourWritesPollInterval::from(Duration::ZERO),
                 ProjectorDependencies::Some(&[REGISTERED_PROJECTOR, PROFILE_PROJECTOR]),
-                SagaDependencies::None,
             )
             .await;
 
@@ -811,43 +632,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn wait_times_out_when_saga_is_not_completed_for_correlation_target() {
-        let correlation_id = CorrelationId::from(Uuid::now_v7());
-        let waiter = test_waiter(
-            Vec::new(),
-            Vec::new(),
-            vec![(
-                SagaNameOwned::from(WORKSPACE_SETUP_SAGA.name),
-                correlation_id,
-                false,
-            )],
-        );
-
-        let result = waiter
-            .wait(
-                ReadYourWritesTarget::Correlation(correlation_id),
-                ReadYourWritesTimeout::from(Duration::ZERO),
-                ReadYourWritesPollInterval::from(Duration::ZERO),
-                ProjectorDependencies::None,
-                SagaDependencies::Some(&[WORKSPACE_SETUP_SAGA]),
-            )
-            .await;
-
-        assert!(matches!(
-            result,
-            Err(ReadYourWritesWaitError::Timeout {
-                target,
-                pending_projectors,
-                pending_sagas,
-                ..
-            }) if target == ReadYourWritesTarget::Correlation(correlation_id)
-                && pending_projectors.is_empty()
-                && pending_sagas == vec![SagaNameOwned::from(WORKSPACE_SETUP_SAGA.name)]
-        ));
-    }
-
-    #[tokio::test]
-    async fn wait_succeeds_when_correlation_saga_is_completed_and_projector_is_caught_up() {
+    async fn wait_succeeds_when_correlation_projector_is_caught_up() {
         let correlation_id = CorrelationId::from(Uuid::now_v7());
         let message_id = MessageId::from(Uuid::now_v7());
         let registered_event_id = EventId::try_from(Uuid::now_v7()).expect("event id");
@@ -873,11 +658,6 @@ mod tests {
                 ProjectorNameOwned::from(PROFILE_PROJECTOR.name),
                 profile_readied_event_id,
             )],
-            vec![(
-                SagaNameOwned::from(WORKSPACE_SETUP_SAGA.name),
-                correlation_id,
-                true,
-            )],
         );
 
         let result = waiter
@@ -886,7 +666,6 @@ mod tests {
                 ReadYourWritesTimeout::from(Duration::from_millis(10)),
                 ReadYourWritesPollInterval::from(Duration::ZERO),
                 ProjectorDependencies::Some(&[PROFILE_PROJECTOR]),
-                SagaDependencies::Some(&[WORKSPACE_SETUP_SAGA]),
             )
             .await;
 
