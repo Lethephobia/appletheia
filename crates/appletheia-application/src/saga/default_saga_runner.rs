@@ -52,12 +52,7 @@ where
 
         if self
             .saga_run_store
-            .read_by_trigger_event::<SG::Context>(
-                uow,
-                saga_name.clone(),
-                correlation_id,
-                trigger_event_id,
-            )
+            .read_by_trigger_event::<SG::Context>(uow, saga_name.clone(), trigger_event_id)
             .await?
             .is_some()
         {
@@ -72,7 +67,6 @@ where
                     .read_by_dispatched_command_message::<SG::Context>(
                         uow,
                         SagaNameOwned::from(predecessor.name),
-                        correlation_id,
                         predecessor_command_message_id,
                     )
                     .await?;
@@ -86,7 +80,7 @@ where
 
         let inserted = self
             .saga_processed_event_store
-            .mark_processed(uow, saga_name.clone(), correlation_id, event.event_id)
+            .mark_processed(uow, saga_name.clone(), event.event_id)
             .await?;
         if !inserted {
             return Ok(SagaRunReport::EventAlreadyProcessed);
@@ -108,7 +102,6 @@ where
         let run = SagaRun {
             saga_run_id: SagaRunId::new(),
             saga_name: saga_name.clone(),
-            correlation_id,
             trigger_event_id,
             dispatched_command_message_id: command.message_id,
             context: transition.context,

@@ -1,6 +1,6 @@
 use crate::postgresql::saga::pg_saga_run_row::PgSagaRunRow;
 use crate::postgresql::unit_of_work::PgUnitOfWork;
-use appletheia_application::request_context::{CorrelationId, MessageId};
+use appletheia_application::request_context::MessageId;
 use appletheia_application::saga::{SagaNameOwned, SagaRun, SagaRunStore, SagaRunStoreError};
 use appletheia_domain::EventId;
 use serde::{Serialize, de::DeserializeOwned};
@@ -27,13 +27,11 @@ impl SagaRunStore for PgSagaRunStore {
         &self,
         uow: &mut Self::Uow,
         saga_name: SagaNameOwned,
-        correlation_id: CorrelationId,
         trigger_event_id: EventId,
     ) -> Result<Option<SagaRun<C>>, SagaRunStoreError> {
         let transaction = uow.transaction_mut();
 
         let saga_name_value = saga_name.value();
-        let correlation_id_value = correlation_id.value();
         let trigger_event_id_value = trigger_event_id.value();
 
         let row = sqlx::query_as::<_, PgSagaRunRow>(
@@ -45,20 +43,18 @@ impl SagaRunStore for PgSagaRunStore {
               context
             FROM saga_runs
             WHERE saga_name = $1
-              AND correlation_id = $2
-              AND trigger_event_id = $3
+              AND trigger_event_id = $2
             FOR UPDATE
             "#,
         )
         .bind(saga_name_value)
-        .bind(correlation_id_value)
         .bind(trigger_event_id_value)
         .fetch_optional(transaction.as_mut())
         .await
         .map_err(|source| SagaRunStoreError::Persistence(Box::new(source)))?;
 
         row.map(|row| {
-            row.try_into_run::<C>(saga_name, correlation_id)
+            row.try_into_run::<C>(saga_name)
                 .map_err(SagaRunStoreError::MappingFailed)
         })
         .transpose()
@@ -70,13 +66,11 @@ impl SagaRunStore for PgSagaRunStore {
         &self,
         uow: &mut Self::Uow,
         saga_name: SagaNameOwned,
-        correlation_id: CorrelationId,
         dispatched_command_message_id: MessageId,
     ) -> Result<Option<SagaRun<C>>, SagaRunStoreError> {
         let transaction = uow.transaction_mut();
 
         let saga_name_value = saga_name.value();
-        let correlation_id_value = correlation_id.value();
         let dispatched_command_message_id_value = dispatched_command_message_id.value();
 
         let row = sqlx::query_as::<_, PgSagaRunRow>(
@@ -88,20 +82,18 @@ impl SagaRunStore for PgSagaRunStore {
               context
             FROM saga_runs
             WHERE saga_name = $1
-              AND correlation_id = $2
-              AND dispatched_command_message_id = $3
+              AND dispatched_command_message_id = $2
             FOR UPDATE
             "#,
         )
         .bind(saga_name_value)
-        .bind(correlation_id_value)
         .bind(dispatched_command_message_id_value)
         .fetch_optional(transaction.as_mut())
         .await
         .map_err(|source| SagaRunStoreError::Persistence(Box::new(source)))?;
 
         row.map(|row| {
-            row.try_into_run::<C>(saga_name, correlation_id)
+            row.try_into_run::<C>(saga_name)
                 .map_err(SagaRunStoreError::MappingFailed)
         })
         .transpose()
@@ -124,7 +116,6 @@ impl SagaRunStore for PgSagaRunStore {
             INSERT INTO saga_runs (
               id,
               saga_name,
-              correlation_id,
               trigger_event_id,
               dispatched_command_message_id,
               context
@@ -133,14 +124,12 @@ impl SagaRunStore for PgSagaRunStore {
               $2,
               $3,
               $4,
-              $5,
-              $6
+              $5
             )
             "#,
         )
         .bind(saga_run_id_value)
         .bind(run.saga_name.value())
-        .bind(run.correlation_id.value())
         .bind(run.trigger_event_id.value())
         .bind(run.dispatched_command_message_id.value())
         .bind(&context_json)

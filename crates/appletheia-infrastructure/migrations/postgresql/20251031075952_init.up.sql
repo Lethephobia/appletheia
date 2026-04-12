@@ -165,23 +165,21 @@ CREATE TABLE IF NOT EXISTS command_dead_letters (
 CREATE TABLE IF NOT EXISTS saga_runs (
   id                            UUID        PRIMARY KEY,
   saga_name                     TEXT        NOT NULL,
-  correlation_id                UUID        NOT NULL,
   trigger_event_id              UUID        NOT NULL,
   dispatched_command_message_id UUID        NOT NULL,
   context                       JSONB       NOT NULL,
   created_at                    TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE (saga_name, correlation_id, trigger_event_id),
-  UNIQUE (saga_name, correlation_id, dispatched_command_message_id)
+  UNIQUE (saga_name, trigger_event_id),
+  UNIQUE (saga_name, dispatched_command_message_id)
 );
 
 -- saga processed events
 CREATE TABLE IF NOT EXISTS saga_processed_events (
   id             UUID        PRIMARY KEY,
   saga_name      TEXT        NOT NULL,
-  correlation_id UUID        NOT NULL,
   event_id       UUID        NOT NULL,
   processed_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE (saga_name, correlation_id, event_id)
+  UNIQUE (saga_name, event_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_saga_processed_events_event_id
