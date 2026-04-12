@@ -1,7 +1,8 @@
 use crate::postgresql::saga::pg_saga_run_row::PgSagaRunRow;
 use crate::postgresql::unit_of_work::PgUnitOfWork;
-use appletheia_application::request_context::CorrelationId;
+use appletheia_application::request_context::{CorrelationId, MessageId};
 use appletheia_application::saga::{SagaNameOwned, SagaRun, SagaRunStore, SagaRunStoreError};
+use appletheia_domain::EventId;
 use serde::{Serialize, de::DeserializeOwned};
 
 #[derive(Debug)]
@@ -22,30 +23,36 @@ impl Default for PgSagaRunStore {
 impl SagaRunStore for PgSagaRunStore {
     type Uow = PgUnitOfWork;
 
-    async fn read<C: Serialize + DeserializeOwned + Send + Sync + 'static>(
+    async fn read_by_trigger_event<C: Serialize + DeserializeOwned + Send + Sync + 'static>(
         &self,
         uow: &mut Self::Uow,
         saga_name: SagaNameOwned,
         correlation_id: CorrelationId,
+        trigger_event_id: EventId,
     ) -> Result<Option<SagaRun<C>>, SagaRunStoreError> {
         let transaction = uow.transaction_mut();
 
         let saga_name_value = saga_name.value();
         let correlation_id_value = correlation_id.value();
+        let trigger_event_id_value = trigger_event_id.value();
 
         let row = sqlx::query_as::<_, PgSagaRunRow>(
             r#"
             SELECT
               id,
+              trigger_event_id,
+              dispatched_command_message_id,
               context
             FROM saga_runs
             WHERE saga_name = $1
               AND correlation_id = $2
+              AND trigger_event_id = $3
             FOR UPDATE
             "#,
         )
         .bind(saga_name_value)
         .bind(correlation_id_value)
+        .bind(trigger_event_id_value)
         .fetch_optional(transaction.as_mut())
         .await
         .map_err(|source| SagaRunStoreError::Persistence(Box::new(source)))?;
@@ -57,31 +64,47 @@ impl SagaRunStore for PgSagaRunStore {
         .transpose()
     }
 
-    async fn exists(
+    async fn read_by_dispatched_command_message<
+        C: Serialize + DeserializeOwned + Send + Sync + 'static,
+    >(
         &self,
         uow: &mut Self::Uow,
         saga_name: SagaNameOwned,
         correlation_id: CorrelationId,
-    ) -> Result<bool, SagaRunStoreError> {
+        dispatched_command_message_id: MessageId,
+    ) -> Result<Option<SagaRun<C>>, SagaRunStoreError> {
         let transaction = uow.transaction_mut();
 
-        let exists: bool = sqlx::query_scalar(
+        let saga_name_value = saga_name.value();
+        let correlation_id_value = correlation_id.value();
+        let dispatched_command_message_id_value = dispatched_command_message_id.value();
+
+        let row = sqlx::query_as::<_, PgSagaRunRow>(
             r#"
-            SELECT EXISTS (
-              SELECT 1
-              FROM saga_runs
-              WHERE saga_name = $1
-                AND correlation_id = $2
-            )
+            SELECT
+              id,
+              trigger_event_id,
+              dispatched_command_message_id,
+              context
+            FROM saga_runs
+            WHERE saga_name = $1
+              AND correlation_id = $2
+              AND dispatched_command_message_id = $3
+            FOR UPDATE
             "#,
         )
-        .bind(saga_name.value())
-        .bind(correlation_id.value())
-        .fetch_one(transaction.as_mut())
+        .bind(saga_name_value)
+        .bind(correlation_id_value)
+        .bind(dispatched_command_message_id_value)
+        .fetch_optional(transaction.as_mut())
         .await
         .map_err(|source| SagaRunStoreError::Persistence(Box::new(source)))?;
 
-        Ok(exists)
+        row.map(|row| {
+            row.try_into_run::<C>(saga_name, correlation_id)
+                .map_err(SagaRunStoreError::MappingFailed)
+        })
+        .transpose()
     }
 
     async fn write<C: Serialize + DeserializeOwned + Send + Sync + 'static>(
@@ -102,18 +125,24 @@ impl SagaRunStore for PgSagaRunStore {
               id,
               saga_name,
               correlation_id,
+              trigger_event_id,
+              dispatched_command_message_id,
               context
             ) VALUES (
               $1,
               $2,
               $3,
-              $4
+              $4,
+              $5,
+              $6
             )
             "#,
         )
         .bind(saga_run_id_value)
         .bind(run.saga_name.value())
         .bind(run.correlation_id.value())
+        .bind(run.trigger_event_id.value())
+        .bind(run.dispatched_command_message_id.value())
         .bind(&context_json)
         .execute(transaction.as_mut())
         .await

@@ -1,6 +1,6 @@
 use crate::event::EventEnvelope;
 use crate::outbox::command::{CommandEnvelope, CommandOutboxEnqueuer};
-use crate::request_context::CausationId;
+use crate::request_context::{CausationId, MessageId};
 use crate::unit_of_work::UnitOfWork;
 use crate::unit_of_work::UnitOfWorkFactory;
 
@@ -48,10 +48,16 @@ where
         let descriptor = <SG::Spec as SagaSpec>::DESCRIPTOR;
         let saga_name = SagaNameOwned::from(descriptor.name);
         let correlation_id = event.correlation_id;
+        let trigger_event_id = event.event_id;
 
         if self
             .saga_run_store
-            .read::<SG::Context>(uow, saga_name.clone(), correlation_id)
+            .read_by_trigger_event::<SG::Context>(
+                uow,
+                saga_name.clone(),
+                correlation_id,
+                trigger_event_id,
+            )
             .await?
             .is_some()
         {
@@ -60,9 +66,15 @@ where
 
         let context = match descriptor.predecessor {
             SagaPredecessor::Required(predecessor) => {
+                let predecessor_command_message_id = MessageId::from(event.causation_id.value());
                 let predecessor = self
                     .saga_run_store
-                    .read::<SG::Context>(uow, SagaNameOwned::from(predecessor.name), correlation_id)
+                    .read_by_dispatched_command_message::<SG::Context>(
+                        uow,
+                        SagaNameOwned::from(predecessor.name),
+                        correlation_id,
+                        predecessor_command_message_id,
+                    )
                     .await?;
                 let Some(predecessor) = predecessor else {
                     return Ok(SagaRunReport::PredecessorRunMissing);
@@ -86,21 +98,24 @@ where
             .on_event(context, &domain_event)
             .map_err(|source| SagaRunnerError::Handler(Box::new(source)))?;
 
-        let run = SagaRun {
-            saga_run_id: SagaRunId::new(),
-            saga_name: saga_name.clone(),
-            correlation_id,
-            context: transition.context,
-        };
-
-        self.saga_run_store.write(uow, &run).await?;
-
         let command = CommandEnvelope::new(
             &transition.command.command,
             correlation_id,
             CausationId::from(event.event_id),
             transition.command.options,
         )?;
+
+        let run = SagaRun {
+            saga_run_id: SagaRunId::new(),
+            saga_name: saga_name.clone(),
+            correlation_id,
+            trigger_event_id,
+            dispatched_command_message_id: command.message_id,
+            context: transition.context,
+        };
+
+        self.saga_run_store.write(uow, &run).await?;
+
         self.command_outbox_enqueuer
             .enqueue_command(uow, &command)
             .await?;

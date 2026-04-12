@@ -1,6 +1,8 @@
 use serde::{Serialize, de::DeserializeOwned};
 
-use crate::request_context::CorrelationId;
+use appletheia_domain::EventId;
+
+use crate::request_context::{CorrelationId, MessageId};
 use crate::unit_of_work::UnitOfWork;
 
 use super::{SagaNameOwned, SagaRun, SagaRunStoreError};
@@ -9,19 +11,23 @@ use super::{SagaNameOwned, SagaRun, SagaRunStoreError};
 pub trait SagaRunStore: Send + Sync {
     type Uow: UnitOfWork;
 
-    async fn read<C: Serialize + DeserializeOwned + Send + Sync + 'static>(
+    async fn read_by_trigger_event<C: Serialize + DeserializeOwned + Send + Sync + 'static>(
         &self,
         uow: &mut Self::Uow,
         saga_name: SagaNameOwned,
         correlation_id: CorrelationId,
+        trigger_event_id: EventId,
     ) -> Result<Option<SagaRun<C>>, SagaRunStoreError>;
 
-    async fn exists(
+    async fn read_by_dispatched_command_message<
+        C: Serialize + DeserializeOwned + Send + Sync + 'static,
+    >(
         &self,
         uow: &mut Self::Uow,
         saga_name: SagaNameOwned,
         correlation_id: CorrelationId,
-    ) -> Result<bool, SagaRunStoreError>;
+        dispatched_command_message_id: MessageId,
+    ) -> Result<Option<SagaRun<C>>, SagaRunStoreError>;
 
     async fn write<C: Serialize + DeserializeOwned + Send + Sync + 'static>(
         &self,
