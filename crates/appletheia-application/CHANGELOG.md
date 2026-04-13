@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.20.0](https://github.com/Lethephobia/appletheia/compare/appletheia-application-v0.19.0...appletheia-application-v0.20.0) - 2026-04-13
+
+### Other
+
+- *(saga)* [**breaking**] remove correlation from persistence keys
+- *(saga)* [**breaking**] identify runs by trigger event
+- *(saga)* [**breaking**] remove handler saga dependencies
+- *(saga)* [**breaking**] model saga runs as transitions
+
 ## [0.19.0](https://github.com/Lethephobia/appletheia/compare/appletheia-application-v0.18.0...appletheia-application-v0.19.0) - 2026-04-09
 
 ### Other
