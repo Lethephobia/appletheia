@@ -58,6 +58,10 @@ bad:
 
 Treat those changes as contract changes and review them explicitly.
 
+### PREFER serialize JSON-facing enums as adjacently tagged `snake_case`
+
+When an enum is serialized to JSON, prefer `#[serde(tag = "type", content = "data", rename_all = "snake_case")]` so the wire shape stays explicit and remains compatible with future tuple variants.
+
 ### DON'T change a public contract casually
 
 If a breaking change is necessary, make it deliberate and visible.
