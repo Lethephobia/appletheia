@@ -1,4 +1,3 @@
-use appletheia_application::request_context::CorrelationId;
 use appletheia_application::saga::{
     SagaNameOwned, SagaProcessedEventId, SagaProcessedEventStore, SagaProcessedEventStoreError,
 };
@@ -30,13 +29,11 @@ impl SagaProcessedEventStore for PgSagaProcessedEventStore {
         &self,
         uow: &mut Self::Uow,
         saga_name: SagaNameOwned,
-        correlation_id: CorrelationId,
         event_id: EventId,
     ) -> Result<bool, SagaProcessedEventStoreError> {
         let transaction = uow.transaction_mut();
 
         let saga_name_value = saga_name.value();
-        let correlation_id_value = correlation_id.value();
         let event_id_value = event_id.value();
         let id_value = SagaProcessedEventId::new().value();
 
@@ -45,26 +42,22 @@ impl SagaProcessedEventStore for PgSagaProcessedEventStore {
             INSERT INTO saga_processed_events (
               id,
               saga_name,
-              correlation_id,
               event_id
             ) VALUES (
               $1,
               $2,
-              $3,
-              $4
+              $3
             )
-            ON CONFLICT (saga_name, correlation_id, event_id) DO NOTHING
+            ON CONFLICT (saga_name, event_id) DO NOTHING
             RETURNING
               id,
               saga_name,
-              correlation_id,
               event_id,
               processed_at
             "#,
         )
         .bind(id_value)
         .bind(saga_name_value)
-        .bind(correlation_id_value)
         .bind(event_id_value)
         .fetch_optional(transaction.as_mut())
         .await

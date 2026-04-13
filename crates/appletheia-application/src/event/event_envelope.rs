@@ -39,8 +39,6 @@ impl EventEnvelope {
     ) -> Result<Event<A::Id, A::EventPayload>, EventEnvelopeError>
     where
         A: Aggregate,
-        <A::Id as AggregateId>::Error: std::error::Error + Send + Sync + 'static,
-        <A::EventPayload as EventPayload>::Error: std::error::Error + Send + Sync + 'static,
     {
         if self.aggregate_type.value() != A::TYPE.value() {
             return Err(EventEnvelopeError::AggregateTypeMismatch {

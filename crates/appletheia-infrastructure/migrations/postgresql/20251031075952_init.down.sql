@@ -31,8 +31,8 @@ DROP TABLE IF EXISTS projection_checkpoints;
 -- saga processed events
 DROP TABLE IF EXISTS saga_processed_events;
 
--- saga instances
-DROP TABLE IF EXISTS saga_instances;
+-- saga runs
+DROP TABLE IF EXISTS saga_runs;
 
 -- command dead letters
 DROP TABLE IF EXISTS command_dead_letters;

@@ -108,13 +108,7 @@ where
                     let authorization_dependencies =
                         ProjectorDependencies::Some(authorization_dependencies.as_slice());
                     self.read_your_writes_waiter
-                        .wait(
-                            target,
-                            timeout,
-                            poll_interval,
-                            authorization_dependencies,
-                            H::SAGA_DEPENDENCIES,
-                        )
+                        .wait(target, timeout, poll_interval, authorization_dependencies)
                         .await?;
                 }
             }
@@ -132,13 +126,7 @@ where
                 poll_interval,
             } => {
                 self.read_your_writes_waiter
-                    .wait(
-                        target,
-                        timeout,
-                        poll_interval,
-                        H::PROJECTOR_DEPENDENCIES,
-                        H::SAGA_DEPENDENCIES,
-                    )
+                    .wait(target, timeout, poll_interval, H::PROJECTOR_DEPENDENCIES)
                     .await?;
             }
         }
@@ -179,7 +167,6 @@ mod tests {
         ReadYourWritesTimeout, ReadYourWritesWaitError, ReadYourWritesWaiter,
     };
     use crate::request_context::Principal;
-    use crate::saga::SagaDependencies;
     use crate::unit_of_work::{
         UnitOfWork, UnitOfWorkError, UnitOfWorkFactory, UnitOfWorkFactoryError,
     };
@@ -193,7 +180,6 @@ mod tests {
             _timeout: ReadYourWritesTimeout,
             _poll_interval: ReadYourWritesPollInterval,
             _projector_dependencies: ProjectorDependencies<'_>,
-            _saga_dependencies: SagaDependencies<'_>,
         ) -> Result<(), ReadYourWritesWaitError> {
             Ok(())
         }

@@ -10,6 +10,6 @@ pub struct UserOwnerRelationshipProjectorSpec;
 impl ProjectorSpec for UserOwnerRelationshipProjectorSpec {
     const DESCRIPTOR: ProjectorDescriptor = ProjectorDescriptor::new(
         ProjectorName::new("user_owner_relationship"),
-        Subscription::Only(&[EventSelector::new(User::TYPE, UserEventPayload::REGISTERED)]),
+        Subscription::AnyOf(&[EventSelector::new(User::TYPE, UserEventPayload::REGISTERED)]),
     );
 }

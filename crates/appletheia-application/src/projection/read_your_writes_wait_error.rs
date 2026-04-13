@@ -4,7 +4,6 @@ use crate::event::EventLookupError;
 use crate::projection::ProjectorNameOwned;
 use crate::projection::ProjectorProcessedEventStoreError;
 use crate::request_context::{CorrelationId, MessageId};
-use crate::saga::{SagaNameOwned, SagaStatusLookupError};
 use crate::unit_of_work::{UnitOfWorkError, UnitOfWorkFactoryError};
 
 use super::{ReadYourWritesTarget, ReadYourWritesTimeout};
@@ -20,9 +19,6 @@ pub enum ReadYourWritesWaitError {
     #[error("event lookup error: {0}")]
     EventLookup(#[from] EventLookupError),
 
-    #[error("saga status lookup error: {0}")]
-    SagaStatusLookup(#[from] SagaStatusLookupError),
-
     #[error("projector processed event store error: {0}")]
     ProjectorProcessedEventStore(#[from] ProjectorProcessedEventStoreError),
 
@@ -33,12 +29,11 @@ pub enum ReadYourWritesWaitError {
     UnknownCorrelationId { correlation_id: CorrelationId },
 
     #[error(
-        "read-your-writes timed out (target={target:?}, pending_projectors={pending_projectors:?}, pending_sagas={pending_sagas:?}, timeout={timeout:?})"
+        "read-your-writes timed out (target={target:?}, pending_projectors={pending_projectors:?}, timeout={timeout:?})"
     )]
     Timeout {
         target: ReadYourWritesTarget,
         pending_projectors: Vec<ProjectorNameOwned>,
-        pending_sagas: Vec<SagaNameOwned>,
         timeout: ReadYourWritesTimeout,
     },
 }

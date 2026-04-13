@@ -6,7 +6,6 @@ use appletheia_domain::EventId;
 
 use crate::event::{EventEnvelope, EventLookup};
 use crate::request_context::{CausationId, CorrelationId, MessageId};
-use crate::saga::{SagaDependencies, SagaNameOwned, SagaStatus, SagaStatusLookup};
 use crate::unit_of_work::{UnitOfWork, UnitOfWorkFactory};
 
 use super::{
@@ -15,42 +14,38 @@ use super::{
     ReadYourWritesWaitError, ReadYourWritesWaiter,
 };
 
-pub struct DefaultReadYourWritesWaiter<U, L, P, S>
+pub struct DefaultReadYourWritesWaiter<U, L, P>
 where
     U: UnitOfWorkFactory,
     U::Uow: UnitOfWork,
     L: EventLookup<Uow = U::Uow>,
     P: ProjectorProcessedEventStore<Uow = U::Uow>,
-    S: SagaStatusLookup<Uow = U::Uow>,
 {
     uow_factory: U,
     lookup: L,
-    processed_event_store: P,
-    saga_status_lookup: S,
+    projector_processed_event_store: P,
 }
 
-impl<U, L, P, S> DefaultReadYourWritesWaiter<U, L, P, S>
+impl<U, L, P> DefaultReadYourWritesWaiter<U, L, P>
 where
     U: UnitOfWorkFactory,
     U::Uow: UnitOfWork,
     L: EventLookup<Uow = U::Uow>,
     P: ProjectorProcessedEventStore<Uow = U::Uow>,
-    S: SagaStatusLookup<Uow = U::Uow>,
 {
-    pub fn new(uow_factory: U, lookup: L, processed_event_store: P, saga_status_lookup: S) -> Self {
+    pub fn new(uow_factory: U, lookup: L, projector_processed_event_store: P) -> Self {
         Self {
             uow_factory,
             lookup,
-            processed_event_store,
-            saga_status_lookup,
+            projector_processed_event_store,
         }
     }
     async fn causation_events(
         &self,
-        after: MessageId,
+        message_id: MessageId,
     ) -> Result<Vec<EventEnvelope>, ReadYourWritesWaitError> {
         let mut uow = self.uow_factory.begin().await?;
-        let causation_id = CausationId::from(after);
+        let causation_id = CausationId::from(message_id);
         let events = self
             .lookup
             .events_by_causation_id(&mut uow, causation_id)
@@ -65,7 +60,7 @@ where
         uow.commit().await?;
 
         if events.is_empty() {
-            return Err(ReadYourWritesWaitError::UnknownMessageId { message_id: after });
+            return Err(ReadYourWritesWaitError::UnknownMessageId { message_id });
         }
 
         Ok(events)
@@ -144,7 +139,7 @@ where
                 let all_processed = {
                     let mut uow = self.uow_factory.begin().await?;
                     let all_processed = self
-                        .processed_event_store
+                        .projector_processed_event_store
                         .are_all_processed(&mut uow, projector_name.clone(), relevant_event_ids)
                         .await;
                     let all_processed = match all_processed {
@@ -174,76 +169,6 @@ where
                 return Err(ReadYourWritesWaitError::Timeout {
                     target,
                     pending_projectors,
-                    pending_sagas: Vec::new(),
-                    timeout,
-                });
-            }
-
-            let remaining = deadline
-                .checked_duration_since(now)
-                .unwrap_or(StdDuration::ZERO);
-            let sleep_duration = poll_duration.min(remaining);
-
-            if sleep_duration > StdDuration::ZERO {
-                tokio::time::sleep(sleep_duration).await;
-            } else {
-                tokio::task::yield_now().await;
-            }
-        }
-    }
-
-    async fn wait_for_sagas(
-        &self,
-        target: ReadYourWritesTarget,
-        timeout: ReadYourWritesTimeout,
-        poll_duration: StdDuration,
-        deadline: Instant,
-        correlation_id: CorrelationId,
-        saga_dependencies: SagaDependencies<'_>,
-    ) -> Result<(), ReadYourWritesWaitError> {
-        if saga_dependencies.as_slice().is_empty() {
-            return Ok(());
-        }
-
-        loop {
-            let mut pending_sagas: Vec<SagaNameOwned> = Vec::new();
-
-            for descriptor in saga_dependencies.as_slice() {
-                let saga_name = SagaNameOwned::from(descriptor.name);
-                let status = {
-                    let mut uow = self.uow_factory.begin().await?;
-                    let status = self
-                        .saga_status_lookup
-                        .status(&mut uow, saga_name.clone(), correlation_id)
-                        .await;
-                    let status = match status {
-                        Ok(value) => value,
-                        Err(operation_error) => {
-                            let operation_error =
-                                uow.rollback_with_operation_error(operation_error).await?;
-                            return Err(operation_error.into());
-                        }
-                    };
-
-                    uow.commit().await?;
-                    status
-                };
-
-                if !matches!(status, Some(SagaStatus::Succeeded | SagaStatus::Failed)) {
-                    pending_sagas.push(saga_name);
-                }
-            }
-
-            if pending_sagas.is_empty() {
-                return Ok(());
-            }
-
-            let now = Instant::now();
-            if now >= deadline {
-                return Err(ReadYourWritesWaitError::Timeout {
-                    target,
-                    pending_projectors: Vec::new(),
-                    pending_sagas,
                     timeout,
                 });
             }
@@ -262,13 +187,12 @@ where
     }
 }
 
-impl<U, L, P, S> ReadYourWritesWaiter for DefaultReadYourWritesWaiter<U, L, P, S>
+impl<U, L, P> ReadYourWritesWaiter for DefaultReadYourWritesWaiter<U, L, P>
 where
     U: UnitOfWorkFactory,
     U::Uow: UnitOfWork,
     L: EventLookup<Uow = U::Uow>,
     P: ProjectorProcessedEventStore<Uow = U::Uow>,
-    S: SagaStatusLookup<Uow = U::Uow>,
 {
     async fn wait(
         &self,
@@ -276,18 +200,17 @@ where
         timeout: ReadYourWritesTimeout,
         poll_interval: ReadYourWritesPollInterval,
         projector_dependencies: ProjectorDependencies<'_>,
-        saga_dependencies: SagaDependencies<'_>,
     ) -> Result<(), ReadYourWritesWaitError> {
         let deadline = Instant::now() + StdDuration::from(timeout);
         let poll_duration = StdDuration::from(poll_interval);
 
         match target {
-            ReadYourWritesTarget::Message(after) => {
+            ReadYourWritesTarget::Message(message_id) => {
                 if projector_dependencies.as_slice().is_empty() {
                     return Ok(());
                 }
 
-                let causation_events = self.causation_events(after).await?;
+                let causation_events = self.causation_events(message_id).await?;
                 self.wait_for_projectors(
                     target,
                     timeout,
@@ -299,16 +222,6 @@ where
                 .await
             }
             ReadYourWritesTarget::Correlation(correlation_id) => {
-                self.wait_for_sagas(
-                    target,
-                    timeout,
-                    poll_duration,
-                    deadline,
-                    correlation_id,
-                    saga_dependencies,
-                )
-                .await?;
-
                 if projector_dependencies.as_slice().is_empty() {
                     return Ok(());
                 }
@@ -330,7 +243,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::collections::{HashMap, HashSet};
+    use std::collections::HashSet;
     use std::sync::{Arc, Mutex};
     use std::time::Duration;
 
@@ -349,10 +262,6 @@ mod tests {
         ProjectorDependencies, ProjectorDescriptor, ProjectorName, ReadYourWritesTarget,
     };
     use crate::request_context::{CorrelationId, Principal, RequestContext};
-    use crate::saga::{
-        SagaDependencies, SagaDescriptor, SagaName, SagaNameOwned, SagaStatus, SagaStatusLookup,
-        SagaStatusLookupError,
-    };
     use crate::unit_of_work::{UnitOfWorkError, UnitOfWorkFactoryError};
 
     const REGISTERED_SELECTOR: EventSelector =
@@ -363,17 +272,12 @@ mod tests {
     );
     const REGISTERED_PROJECTOR: ProjectorDescriptor = ProjectorDescriptor::new(
         ProjectorName::new("registered_projector"),
-        Subscription::Only(&[REGISTERED_SELECTOR]),
+        Subscription::AnyOf(&[REGISTERED_SELECTOR]),
     );
     const PROFILE_PROJECTOR: ProjectorDescriptor = ProjectorDescriptor::new(
         ProjectorName::new("profile_projector"),
-        Subscription::Only(&[PROFILE_READIED_SELECTOR]),
+        Subscription::AnyOf(&[PROFILE_READIED_SELECTOR]),
     );
-    const WORKSPACE_SETUP_SAGA: SagaDescriptor = SagaDescriptor::new(
-        SagaName::new("workspace_setup"),
-        Subscription::Only(&[REGISTERED_SELECTOR]),
-    );
-
     #[derive(Default)]
     struct TestUnitOfWork;
 
@@ -459,20 +363,20 @@ mod tests {
 
     #[derive(Clone, Default)]
     struct TestProjectorProcessedEventStore {
-        processed: Arc<Mutex<HashSet<(String, EventId)>>>,
+        projector_processed_events: Arc<Mutex<HashSet<(String, EventId)>>>,
     }
 
     impl TestProjectorProcessedEventStore {
-        fn with_processed(
+        fn with_projector_processed_events(
             entries: impl IntoIterator<Item = (ProjectorNameOwned, EventId)>,
         ) -> Self {
-            let processed = entries
+            let projector_processed_events = entries
                 .into_iter()
                 .map(|(projector_name, event_id)| (projector_name.value().to_string(), event_id))
                 .collect();
 
             Self {
-                processed: Arc::new(Mutex::new(processed)),
+                projector_processed_events: Arc::new(Mutex::new(projector_processed_events)),
             }
         }
     }
@@ -486,12 +390,15 @@ mod tests {
             projector_name: ProjectorNameOwned,
             event_ids: &[EventId],
         ) -> Result<bool, crate::projection::ProjectorProcessedEventStoreError> {
-            let processed = self.processed.lock().expect("lock should succeed");
+            let projector_processed_events = self
+                .projector_processed_events
+                .lock()
+                .expect("lock should succeed");
             let projector_name = projector_name.value().to_string();
 
-            Ok(event_ids
-                .iter()
-                .all(|event_id| processed.contains(&(projector_name.clone(), *event_id))))
+            Ok(event_ids.iter().all(|event_id| {
+                projector_processed_events.contains(&(projector_name.clone(), *event_id))
+            }))
         }
 
         async fn is_processed(
@@ -500,9 +407,15 @@ mod tests {
             projector_name: ProjectorNameOwned,
             event_id: EventId,
         ) -> Result<bool, crate::projection::ProjectorProcessedEventStoreError> {
-            let processed = self.processed.lock().expect("lock should succeed");
+            let projector_processed_events = self
+                .projector_processed_events
+                .lock()
+                .expect("lock should succeed");
 
-            Ok(processed.contains(&(projector_name.value().to_string(), event_id)))
+            Ok(
+                projector_processed_events
+                    .contains(&(projector_name.value().to_string(), event_id)),
+            )
         }
 
         async fn mark_processed(
@@ -511,9 +424,12 @@ mod tests {
             projector_name: ProjectorNameOwned,
             event_id: EventId,
         ) -> Result<bool, crate::projection::ProjectorProcessedEventStoreError> {
-            let mut processed = self.processed.lock().expect("lock should succeed");
+            let mut projector_processed_events = self
+                .projector_processed_events
+                .lock()
+                .expect("lock should succeed");
 
-            Ok(processed.insert((projector_name.value().to_string(), event_id)))
+            Ok(projector_processed_events.insert((projector_name.value().to_string(), event_id)))
         }
 
         async fn reset(
@@ -521,67 +437,31 @@ mod tests {
             _uow: &mut Self::Uow,
             projector_name: ProjectorNameOwned,
         ) -> Result<(), crate::projection::ProjectorProcessedEventStoreError> {
-            let mut processed = self.processed.lock().expect("lock should succeed");
+            let mut projector_processed_events = self
+                .projector_processed_events
+                .lock()
+                .expect("lock should succeed");
             let projector_name = projector_name.value().to_string();
 
-            processed.retain(|(stored_name, _)| stored_name != &projector_name);
+            projector_processed_events.retain(|(stored_name, _)| stored_name != &projector_name);
             Ok(())
-        }
-    }
-
-    #[derive(Clone, Default)]
-    struct TestSagaStatusLookup {
-        statuses: Arc<Mutex<HashMap<(SagaNameOwned, CorrelationId), Option<SagaStatus>>>>,
-    }
-
-    impl TestSagaStatusLookup {
-        fn with_statuses(
-            entries: impl IntoIterator<Item = (SagaNameOwned, CorrelationId, Option<SagaStatus>)>,
-        ) -> Self {
-            let statuses = entries
-                .into_iter()
-                .map(|(saga_name, correlation_id, status)| ((saga_name, correlation_id), status))
-                .collect();
-
-            Self {
-                statuses: Arc::new(Mutex::new(statuses)),
-            }
-        }
-    }
-
-    impl SagaStatusLookup for TestSagaStatusLookup {
-        type Uow = TestUnitOfWork;
-
-        async fn status(
-            &self,
-            _uow: &mut Self::Uow,
-            saga_name: SagaNameOwned,
-            correlation_id: CorrelationId,
-        ) -> Result<Option<SagaStatus>, SagaStatusLookupError> {
-            let statuses = self.statuses.lock().expect("lock should succeed");
-
-            Ok(statuses
-                .get(&(saga_name, correlation_id))
-                .cloned()
-                .unwrap_or(None))
         }
     }
 
     fn test_waiter(
         events: Vec<EventEnvelope>,
-        processed: impl IntoIterator<Item = (ProjectorNameOwned, EventId)>,
-        saga_statuses: impl IntoIterator<Item = (SagaNameOwned, CorrelationId, Option<SagaStatus>)>,
+        projector_processed_events: impl IntoIterator<Item = (ProjectorNameOwned, EventId)>,
     ) -> DefaultReadYourWritesWaiter<
         TestUnitOfWorkFactory,
         TestEventLookup,
         TestProjectorProcessedEventStore,
-        TestSagaStatusLookup,
     > {
         DefaultReadYourWritesWaiter::new(
             TestUnitOfWorkFactory,
             TestEventLookup::new(events),
-            TestProjectorProcessedEventStore::with_processed(processed),
-            TestSagaStatusLookup::with_statuses(saga_statuses),
+            TestProjectorProcessedEventStore::with_projector_processed_events(
+                projector_processed_events,
+            ),
         )
     }
 
@@ -628,7 +508,7 @@ mod tests {
     #[tokio::test]
     async fn wait_returns_unknown_message_id_when_no_event_exists() {
         let message_id = MessageId::from(Uuid::now_v7());
-        let waiter = test_waiter(Vec::new(), Vec::new(), Vec::new());
+        let waiter = test_waiter(Vec::new(), Vec::new());
 
         let result = waiter
             .wait(
@@ -636,7 +516,6 @@ mod tests {
                 ReadYourWritesTimeout::from(Duration::ZERO),
                 ReadYourWritesPollInterval::from(Duration::ZERO),
                 ProjectorDependencies::Some(&[REGISTERED_PROJECTOR]),
-                SagaDependencies::None,
             )
             .await;
 
@@ -660,7 +539,6 @@ mod tests {
                 message_id,
             )],
             Vec::new(),
-            Vec::new(),
         );
 
         let result = waiter
@@ -669,7 +547,6 @@ mod tests {
                 ReadYourWritesTimeout::from(Duration::ZERO),
                 ReadYourWritesPollInterval::from(Duration::ZERO),
                 ProjectorDependencies::Some(&[REGISTERED_PROJECTOR]),
-                SagaDependencies::None,
             )
             .await;
 
@@ -688,7 +565,6 @@ mod tests {
                 message_id,
             )],
             Vec::new(),
-            Vec::new(),
         );
 
         let result = waiter
@@ -697,7 +573,6 @@ mod tests {
                 ReadYourWritesTimeout::from(Duration::ZERO),
                 ReadYourWritesPollInterval::from(Duration::ZERO),
                 ProjectorDependencies::Some(&[REGISTERED_PROJECTOR]),
-                SagaDependencies::None,
             )
             .await;
 
@@ -706,11 +581,9 @@ mod tests {
             Err(ReadYourWritesWaitError::Timeout {
                 target,
                 pending_projectors,
-                pending_sagas,
                 ..
             }) if target == ReadYourWritesTarget::Message(message_id)
                 && pending_projectors == vec![ProjectorNameOwned::from(REGISTERED_PROJECTOR.name)]
-                && pending_sagas.is_empty()
         ));
     }
 
@@ -744,7 +617,6 @@ mod tests {
                     profile_readied_event_id,
                 ),
             ],
-            Vec::new(),
         );
 
         let result = waiter
@@ -753,7 +625,6 @@ mod tests {
                 ReadYourWritesTimeout::from(Duration::from_millis(10)),
                 ReadYourWritesPollInterval::from(Duration::ZERO),
                 ProjectorDependencies::Some(&[REGISTERED_PROJECTOR, PROFILE_PROJECTOR]),
-                SagaDependencies::None,
             )
             .await;
 
@@ -761,43 +632,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn wait_times_out_when_saga_is_not_terminal_for_correlation_target() {
-        let correlation_id = CorrelationId::from(Uuid::now_v7());
-        let waiter = test_waiter(
-            Vec::new(),
-            Vec::new(),
-            vec![(
-                SagaNameOwned::from(WORKSPACE_SETUP_SAGA.name),
-                correlation_id,
-                Some(SagaStatus::InProgress),
-            )],
-        );
-
-        let result = waiter
-            .wait(
-                ReadYourWritesTarget::Correlation(correlation_id),
-                ReadYourWritesTimeout::from(Duration::ZERO),
-                ReadYourWritesPollInterval::from(Duration::ZERO),
-                ProjectorDependencies::None,
-                SagaDependencies::Some(&[WORKSPACE_SETUP_SAGA]),
-            )
-            .await;
-
-        assert!(matches!(
-            result,
-            Err(ReadYourWritesWaitError::Timeout {
-                target,
-                pending_projectors,
-                pending_sagas,
-                ..
-            }) if target == ReadYourWritesTarget::Correlation(correlation_id)
-                && pending_projectors.is_empty()
-                && pending_sagas == vec![SagaNameOwned::from(WORKSPACE_SETUP_SAGA.name)]
-        ));
-    }
-
-    #[tokio::test]
-    async fn wait_succeeds_when_correlation_saga_is_terminal_and_projector_is_caught_up() {
+    async fn wait_succeeds_when_correlation_projector_is_caught_up() {
         let correlation_id = CorrelationId::from(Uuid::now_v7());
         let message_id = MessageId::from(Uuid::now_v7());
         let registered_event_id = EventId::try_from(Uuid::now_v7()).expect("event id");
@@ -823,11 +658,6 @@ mod tests {
                 ProjectorNameOwned::from(PROFILE_PROJECTOR.name),
                 profile_readied_event_id,
             )],
-            vec![(
-                SagaNameOwned::from(WORKSPACE_SETUP_SAGA.name),
-                correlation_id,
-                Some(SagaStatus::Succeeded),
-            )],
         );
 
         let result = waiter
@@ -836,7 +666,6 @@ mod tests {
                 ReadYourWritesTimeout::from(Duration::from_millis(10)),
                 ReadYourWritesPollInterval::from(Duration::ZERO),
                 ProjectorDependencies::Some(&[PROFILE_PROJECTOR]),
-                SagaDependencies::Some(&[WORKSPACE_SETUP_SAGA]),
             )
             .await;
 

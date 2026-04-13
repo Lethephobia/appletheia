@@ -139,13 +139,7 @@ where
                     let authorization_dependencies =
                         ProjectorDependencies::Some(authorization_dependencies.as_slice());
                     self.read_your_writes_waiter
-                        .wait(
-                            target,
-                            timeout,
-                            poll_interval,
-                            authorization_dependencies,
-                            H::SAGA_DEPENDENCIES,
-                        )
+                        .wait(target, timeout, poll_interval, authorization_dependencies)
                         .await?;
                 }
             }
@@ -162,13 +156,7 @@ where
                 poll_interval,
             } => {
                 self.read_your_writes_waiter
-                    .wait(
-                        target,
-                        timeout,
-                        poll_interval,
-                        H::PROJECTOR_DEPENDENCIES,
-                        H::SAGA_DEPENDENCIES,
-                    )
+                    .wait(target, timeout, poll_interval, H::PROJECTOR_DEPENDENCIES)
                     .await?;
             }
         }
@@ -255,7 +243,7 @@ where
                                     CommandFailureReaction::None => {
                                         let _ = uow.commit().await;
                                     }
-                                    CommandFailureReaction::FollowUpCommands(_) => {
+                                    CommandFailureReaction::FollowUpCommand(_) => {
                                         let commands = command_failure_reaction
                                             .into_command_envelopes(request_context);
                                         match self
@@ -309,8 +297,8 @@ mod tests {
     use crate::command::{
         Command, CommandDispatcher, CommandDispatcherError, CommandFailureReaction,
         CommandFailureReport, CommandHandled, CommandHandler, CommandHash, CommandHasher,
-        CommandHasherError, CommandName, CommandOptions, IdempotencyBeginResult, IdempotencyOutput,
-        IdempotencyService, IdempotencyServiceError,
+        CommandHasherError, CommandName, CommandOptions, CommandRequest, IdempotencyBeginResult,
+        IdempotencyOutput, IdempotencyService, IdempotencyServiceError,
     };
     use crate::event::{AggregateIdValue, AggregateTypeOwned};
     use crate::messaging::Subscription;
@@ -324,7 +312,6 @@ mod tests {
     };
     use crate::request_context::MessageId;
     use crate::request_context::Principal;
-    use crate::saga::SagaDependencies;
     use crate::unit_of_work::{
         UnitOfWork, UnitOfWorkError, UnitOfWorkFactory, UnitOfWorkFactoryError,
     };
@@ -338,7 +325,6 @@ mod tests {
             _timeout: ReadYourWritesTimeout,
             _poll_interval: ReadYourWritesPollInterval,
             _projector_dependencies: ProjectorDependencies<'_>,
-            _saga_dependencies: SagaDependencies<'_>,
         ) -> Result<(), ReadYourWritesWaitError> {
             Ok(())
         }
@@ -621,7 +607,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn dispatch_enqueues_follow_up_commands_for_command_failure() {
+    async fn dispatch_enqueues_follow_up_command_for_command_failure() {
         let outbox_enqueuer = TestCommandOutboxEnqueuer::default();
         let dispatcher = DefaultCommandDispatcher::new(
             TestCommandHasher,
@@ -644,13 +630,10 @@ mod tests {
                 &request_context,
                 TestCommand {},
                 CommandOptions {
-                    failure_reaction: {
-                        let mut reaction = CommandFailureReaction::new();
-                        reaction
-                            .push(&FollowUpTestCommand {}, CommandOptions::default())
-                            .expect("reaction should serialize");
-                        reaction
-                    },
+                    failure_reaction: CommandFailureReaction::follow_up_command(
+                        CommandRequest::new(FollowUpTestCommand {}),
+                    )
+                    .expect("reaction should serialize"),
                     ..CommandOptions::default()
                 },
             )

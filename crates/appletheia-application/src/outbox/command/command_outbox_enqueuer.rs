@@ -6,6 +6,15 @@ use super::{CommandEnvelope, CommandOutboxEnqueueError};
 pub trait CommandOutboxEnqueuer: Send + Sync {
     type Uow: UnitOfWork;
 
+    async fn enqueue_command(
+        &self,
+        uow: &mut Self::Uow,
+        command: &CommandEnvelope,
+    ) -> Result<(), CommandOutboxEnqueueError> {
+        self.enqueue_commands(uow, std::slice::from_ref(command))
+            .await
+    }
+
     async fn enqueue_commands(
         &self,
         uow: &mut Self::Uow,

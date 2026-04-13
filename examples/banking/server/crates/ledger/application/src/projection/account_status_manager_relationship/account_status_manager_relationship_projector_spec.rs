@@ -10,7 +10,7 @@ pub struct AccountStatusManagerRelationshipProjectorSpec;
 impl ProjectorSpec for AccountStatusManagerRelationshipProjectorSpec {
     const DESCRIPTOR: ProjectorDescriptor = ProjectorDescriptor::new(
         ProjectorName::new("account_status_manager_relationship"),
-        Subscription::Only(&[EventSelector::new(
+        Subscription::AnyOf(&[EventSelector::new(
             Account::TYPE,
             AccountEventPayload::OPENED,
         )]),

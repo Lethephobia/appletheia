@@ -10,7 +10,7 @@ pub struct OrganizationInvitationInviteeRelationshipProjectorSpec;
 impl ProjectorSpec for OrganizationInvitationInviteeRelationshipProjectorSpec {
     const DESCRIPTOR: ProjectorDescriptor = ProjectorDescriptor::new(
         ProjectorName::new("organization_invitation_invitee_relationship"),
-        Subscription::Only(&[EventSelector::new(
+        Subscription::AnyOf(&[EventSelector::new(
             OrganizationInvitation::TYPE,
             OrganizationInvitationEventPayload::ISSUED,
         )]),

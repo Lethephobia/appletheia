@@ -40,7 +40,3 @@ The reference files follow an Effective Dart style:
 - `references/application/command.md`
 
   Use for command payload design, command handlers, authorization, and orchestration.
-
-- `references/application/saga.md`
-
-  Use for cross-aggregate workflow orchestration, saga state, and follow-up command emission.

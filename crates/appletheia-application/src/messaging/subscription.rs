@@ -3,7 +3,8 @@ use super::Selector;
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub enum Subscription<'a, S> {
     All,
-    Only(&'a [S]),
+    AnyOf(&'a [S]),
+    One(&'a S),
 }
 
 impl<'a, S> Subscription<'a, S> {
@@ -13,9 +14,10 @@ impl<'a, S> Subscription<'a, S> {
     {
         match self {
             Subscription::All => true,
-            Subscription::Only(selectors) => {
+            Subscription::AnyOf(selectors) => {
                 selectors.iter().any(|selector| selector.matches(message))
             }
+            Subscription::One(selector) => selector.matches(message),
         }
     }
 }

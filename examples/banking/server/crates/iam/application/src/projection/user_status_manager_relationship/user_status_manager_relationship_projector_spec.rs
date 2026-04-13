@@ -10,7 +10,7 @@ pub struct UserStatusManagerRelationshipProjectorSpec;
 impl ProjectorSpec for UserStatusManagerRelationshipProjectorSpec {
     const DESCRIPTOR: ProjectorDescriptor = ProjectorDescriptor::new(
         ProjectorName::new("user_status_manager_relationship"),
-        Subscription::Only(&[
+        Subscription::AnyOf(&[
             EventSelector::new(User::TYPE, UserEventPayload::STATUS_MANAGER_ASSIGNED),
             EventSelector::new(User::TYPE, UserEventPayload::STATUS_MANAGER_UNASSIGNED),
         ]),
