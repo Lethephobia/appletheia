@@ -3,11 +3,12 @@ use serde::{Deserialize, Serialize};
 /// Represents a patch for a single command field.
 ///
 /// `Unchanged` means the field was not provided by the caller. The enum is
-/// serialized using Serde's standard externally tagged representation.
+/// serialized using an adjacently tagged representation.
 ///
 /// `Set` carries the field value, including `Option<T>` when the caller wants
 /// to clear a nullable field.
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "type", content = "data", rename_all = "snake_case")]
 pub enum FieldPatch<T> {
     /// Leaves the field unchanged.
     #[default]
@@ -62,7 +63,7 @@ mod tests {
         let patch = FieldPatch::<String>::Unchanged;
         let value = serde_json::to_value(patch).expect("patch should serialize");
 
-        assert_eq!(value, serde_json::json!("Unchanged"));
+        assert_eq!(value, serde_json::json!({ "type": "unchanged" }));
     }
 
     #[test]
@@ -70,13 +71,21 @@ mod tests {
         let patch = FieldPatch::Set(Some("hello".to_owned()));
         let value = serde_json::to_value(patch).expect("patch should serialize");
 
-        assert_eq!(value, serde_json::json!({ "Set": "hello" }));
+        assert_eq!(
+            value,
+            serde_json::json!({
+                "type": "set",
+                "data": "hello"
+            })
+        );
     }
 
     #[test]
     fn deserializes_unchanged_variant_as_unchanged() {
-        let patch = serde_json::from_value::<FieldPatch<String>>(serde_json::json!("Unchanged"))
-            .expect("unchanged variant should deserialize");
+        let patch = serde_json::from_value::<FieldPatch<String>>(serde_json::json!({
+            "type": "unchanged"
+        }))
+        .expect("unchanged variant should deserialize");
 
         assert_eq!(patch, FieldPatch::Unchanged);
     }
@@ -84,7 +93,8 @@ mod tests {
     #[test]
     fn deserializes_null_field_as_clear_value() {
         let patch = serde_json::from_value::<FieldPatch<Option<String>>>(serde_json::json!({
-            "Set": null
+            "type": "set",
+            "data": null
         }))
         .expect("null field should deserialize");
 
@@ -94,7 +104,8 @@ mod tests {
     #[test]
     fn deserializes_value_field_as_set_value() {
         let patch = serde_json::from_value::<FieldPatch<Option<String>>>(serde_json::json!({
-            "Set": "hello"
+            "type": "set",
+            "data": "hello"
         }))
         .expect("value field should deserialize");
 

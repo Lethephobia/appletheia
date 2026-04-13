@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 
 /// Identifies the actor recorded in request context and emitted events.
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(tag = "type", content = "data", rename_all = "snake_case")]
 pub enum ActorRef {
     /// Represents an unauthenticated external actor.
     Anonymous,
@@ -46,10 +47,15 @@ mod tests {
         let actor = ActorRef::Subject {
             subject: aggregate_ref(),
         };
+        let value = serde_json::to_value(&actor).expect("serialize");
 
-        let round_trip: ActorRef =
-            serde_json::from_value(serde_json::to_value(&actor).expect("serialize"))
-                .expect("deserialize");
+        assert_eq!(value["type"], serde_json::json!("subject"));
+        assert_eq!(
+            value["data"]["subject"]["aggregate_type"],
+            serde_json::json!("user")
+        );
+
+        let round_trip: ActorRef = serde_json::from_value(value).expect("deserialize");
 
         assert_eq!(round_trip, actor);
     }
@@ -58,6 +64,15 @@ mod tests {
     fn preserves_simple_variants() {
         assert_eq!(ActorRef::Anonymous, ActorRef::Anonymous);
         assert_eq!(ActorRef::System, ActorRef::System);
+    }
+
+    #[test]
+    fn serializes_simple_variants_with_type_only() {
+        let anonymous = serde_json::to_value(ActorRef::Anonymous).expect("serialize anonymous");
+        let system = serde_json::to_value(ActorRef::System).expect("serialize system");
+
+        assert_eq!(anonymous, serde_json::json!({ "type": "anonymous" }));
+        assert_eq!(system, serde_json::json!({ "type": "system" }));
     }
 
     #[test]

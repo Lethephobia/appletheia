@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 /// Represents the lifecycle status of a `User`.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[serde(tag = "type", content = "data", rename_all = "snake_case")]
 pub enum UserStatus {
     Active,
     Inactive,

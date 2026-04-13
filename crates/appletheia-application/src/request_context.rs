@@ -104,7 +104,8 @@ mod tests {
                 "correlation_id": request_context.correlation_id.value(),
                 "message_id": request_context.message_id.value(),
                 "actor": {
-                    "Subject": {
+                    "type": "subject",
+                    "data": {
                         "subject": {
                             "aggregate_type": "user",
                             "aggregate_id": Uuid::nil(),

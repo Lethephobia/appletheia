@@ -4,6 +4,7 @@ use super::{UserBio, UserDisplayName, Username};
 
 /// Represents the onboarding state of a user's profile.
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[serde(tag = "type", content = "data", rename_all = "snake_case")]
 pub enum UserProfile {
     Pending,
     Ready {
