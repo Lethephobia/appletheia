@@ -1,5 +1,5 @@
 pub mod account;
-pub mod currency_definition;
+pub mod currency;
 pub mod currency_issuance;
 pub mod transfer;
 
@@ -15,19 +15,16 @@ pub use account::{
     AccountReserveFundsOutput, AccountThawCommand, AccountThawCommandHandler, AccountThawOutput,
     AccountWithdrawCommand, AccountWithdrawCommandHandler, AccountWithdrawOutput,
 };
-pub use currency_definition::{
-    CurrencyDefinitionActivateCommand, CurrencyDefinitionActivateCommandHandler,
-    CurrencyDefinitionActivateOutput, CurrencyDefinitionDeactivateCommand,
-    CurrencyDefinitionDeactivateCommandHandler, CurrencyDefinitionDeactivateOutput,
-    CurrencyDefinitionDecreaseSupplyCommand, CurrencyDefinitionDecreaseSupplyCommandHandler,
-    CurrencyDefinitionDecreaseSupplyCommandHandlerError, CurrencyDefinitionDecreaseSupplyOutput,
-    CurrencyDefinitionDefineCommand, CurrencyDefinitionDefineCommandHandler,
-    CurrencyDefinitionDefineOutput, CurrencyDefinitionIncreaseSupplyCommand,
-    CurrencyDefinitionIncreaseSupplyCommandHandler,
-    CurrencyDefinitionIncreaseSupplyCommandHandlerError, CurrencyDefinitionIncreaseSupplyOutput,
-    CurrencyDefinitionRemoveCommand, CurrencyDefinitionRemoveCommandHandler,
-    CurrencyDefinitionRemoveOutput, CurrencyDefinitionUpdateCommand,
-    CurrencyDefinitionUpdateCommandHandler, CurrencyDefinitionUpdateOutput,
+pub use currency::{
+    CurrencyActivateCommand, CurrencyActivateCommandHandler, CurrencyActivateOutput,
+    CurrencyDeactivateCommand, CurrencyDeactivateCommandHandler, CurrencyDeactivateOutput,
+    CurrencyDecreaseSupplyCommand, CurrencyDecreaseSupplyCommandHandler,
+    CurrencyDecreaseSupplyCommandHandlerError, CurrencyDecreaseSupplyOutput, CurrencyDefineCommand,
+    CurrencyDefineCommandHandler, CurrencyDefineOutput, CurrencyIncreaseSupplyCommand,
+    CurrencyIncreaseSupplyCommandHandler, CurrencyIncreaseSupplyCommandHandlerError,
+    CurrencyIncreaseSupplyOutput, CurrencyRemoveCommand, CurrencyRemoveCommandHandler,
+    CurrencyRemoveOutput, CurrencyUpdateCommand, CurrencyUpdateCommandHandler,
+    CurrencyUpdateOutput,
 };
 pub use currency_issuance::{
     CurrencyIssuanceCompleteCommand, CurrencyIssuanceCompleteCommandHandler,

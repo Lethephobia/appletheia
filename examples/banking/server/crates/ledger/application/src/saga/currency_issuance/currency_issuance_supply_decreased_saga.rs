@@ -1,9 +1,7 @@
 use appletheia::application::command::CommandRequest;
 use appletheia::application::saga::{Saga, SagaTransition};
 use appletheia::domain::{Aggregate, Event};
-use banking_ledger_domain::currency_definition::{
-    CurrencyDefinition, CurrencyDefinitionEventPayload,
-};
+use banking_ledger_domain::currency::{Currency, CurrencyEventPayload};
 
 use super::{
     CurrencyIssuanceSagaContext, CurrencyIssuanceSagaStatus,
@@ -17,7 +15,7 @@ pub struct CurrencyIssuanceSupplyDecreasedSaga;
 impl Saga for CurrencyIssuanceSupplyDecreasedSaga {
     type Spec = CurrencyIssuanceSupplyDecreasedSagaSpec;
     type Context = CurrencyIssuanceSagaContext;
-    type EventAggregate = CurrencyDefinition;
+    type EventAggregate = Currency;
     type Command = CurrencyIssuanceFailCommand;
     type Error = CurrencyIssuanceSupplyDecreasedSagaError;
 
@@ -29,7 +27,7 @@ impl Saga for CurrencyIssuanceSupplyDecreasedSaga {
             <Self::EventAggregate as Aggregate>::EventPayload,
         >,
     ) -> Result<SagaTransition<Self::Context, Self::Command>, Self::Error> {
-        let CurrencyDefinitionEventPayload::SupplyDecreased { .. } = event.payload() else {
+        let CurrencyEventPayload::SupplyDecreased { .. } = event.payload() else {
             return Err(CurrencyIssuanceSupplyDecreasedSagaError::UnexpectedEvent);
         };
         let mut context =

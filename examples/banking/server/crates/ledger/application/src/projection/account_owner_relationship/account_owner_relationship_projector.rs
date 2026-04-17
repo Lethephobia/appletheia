@@ -84,7 +84,7 @@ mod tests {
     use appletheia::domain::{Aggregate, AggregateId, EventPayload};
     use banking_iam_domain::{Organization, OrganizationId, User, UserId};
     use banking_ledger_domain::account::{Account, AccountName, AccountOwner};
-    use banking_ledger_domain::currency_definition::CurrencyDefinitionId;
+    use banking_ledger_domain::currency::CurrencyId;
 
     use super::AccountOwnerRelationshipProjector;
     use crate::authorization::AccountOwnerRelation;
@@ -159,7 +159,7 @@ mod tests {
             .open(
                 AccountOwner::from(user_id),
                 account_name(),
-                CurrencyDefinitionId::new(),
+                CurrencyId::new(),
             )
             .expect("open should succeed");
 
@@ -214,7 +214,7 @@ mod tests {
             .open(
                 AccountOwner::from(organization_id),
                 account_name(),
-                CurrencyDefinitionId::new(),
+                CurrencyId::new(),
             )
             .expect("open should succeed");
 

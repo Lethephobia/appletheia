@@ -6,7 +6,7 @@ use banking_ledger_domain::currency_issuance::{CurrencyIssuance, CurrencyIssuanc
 use super::{
     CurrencyIssuanceIssuedSagaError, CurrencyIssuanceIssuedSagaSpec, CurrencyIssuanceSagaContext,
 };
-use crate::command::{CurrencyDefinitionIncreaseSupplyCommand, CurrencyIssuanceFailCommand};
+use crate::command::{CurrencyIncreaseSupplyCommand, CurrencyIssuanceFailCommand};
 
 /// Coordinates the first currency issuance step.
 pub struct CurrencyIssuanceIssuedSaga;
@@ -15,7 +15,7 @@ impl Saga for CurrencyIssuanceIssuedSaga {
     type Spec = CurrencyIssuanceIssuedSagaSpec;
     type Context = CurrencyIssuanceSagaContext;
     type EventAggregate = CurrencyIssuance;
-    type Command = CurrencyDefinitionIncreaseSupplyCommand;
+    type Command = CurrencyIncreaseSupplyCommand;
     type Error = CurrencyIssuanceIssuedSagaError;
 
     fn on_event(
@@ -28,7 +28,7 @@ impl Saga for CurrencyIssuanceIssuedSaga {
     ) -> Result<SagaTransition<Self::Context, Self::Command>, Self::Error> {
         let CurrencyIssuanceEventPayload::Issued {
             id,
-            currency_definition_id,
+            currency_id,
             destination_account_id,
             amount,
         } = event.payload()
@@ -36,16 +36,12 @@ impl Saga for CurrencyIssuanceIssuedSaga {
             return Err(CurrencyIssuanceIssuedSagaError::UnexpectedEvent);
         };
 
-        let context = CurrencyIssuanceSagaContext::new(
-            *id,
-            *currency_definition_id,
-            *destination_account_id,
-            *amount,
-        );
+        let context =
+            CurrencyIssuanceSagaContext::new(*id, *currency_id, *destination_account_id, *amount);
 
         let command = CommandRequest::with_failure_follow_up(
-            CurrencyDefinitionIncreaseSupplyCommand {
-                currency_definition_id: *currency_definition_id,
+            CurrencyIncreaseSupplyCommand {
+                currency_id: *currency_id,
                 amount: *amount,
             },
             CommandRequest::new(CurrencyIssuanceFailCommand {

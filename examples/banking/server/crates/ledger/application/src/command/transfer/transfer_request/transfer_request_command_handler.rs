@@ -89,10 +89,8 @@ where
             return Err(TransferRequestCommandHandlerError::DestinationAccountNotFound);
         };
 
-        if source_account.currency_definition_id()?
-            != destination_account.currency_definition_id()?
-        {
-            return Err(TransferRequestCommandHandlerError::CurrencyDefinitionMismatch);
+        if source_account.currency_id()? != destination_account.currency_id()? {
+            return Err(TransferRequestCommandHandlerError::CurrencyMismatch);
         }
 
         let mut transfer = Transfer::default();
@@ -137,7 +135,7 @@ mod tests {
     use banking_iam_domain::{User, UserId};
     use banking_ledger_domain::account::{Account, AccountId, AccountName, AccountOwner};
     use banking_ledger_domain::core::CurrencyAmount;
-    use banking_ledger_domain::currency_definition::CurrencyDefinitionId;
+    use banking_ledger_domain::currency::CurrencyId;
     use banking_ledger_domain::transfer::{Transfer, TransferId};
     use uuid::Uuid;
 
@@ -284,10 +282,10 @@ mod tests {
         .expect("request context should be valid")
     }
 
-    fn opened_account(currency_definition_id: CurrencyDefinitionId) -> Account {
+    fn opened_account(currency_id: CurrencyId) -> Account {
         let mut account = Account::default();
         account
-            .open(account_owner(), account_name(), currency_definition_id)
+            .open(account_owner(), account_name(), currency_id)
             .expect("open should succeed");
 
         account
@@ -327,10 +325,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn handle_rejects_different_currency_definitions() {
+    async fn handle_rejects_different_currencies() {
         let account_repository = TestAccountRepository::default();
-        let source = opened_account(CurrencyDefinitionId::new());
-        let destination = opened_account(CurrencyDefinitionId::new());
+        let source = opened_account(CurrencyId::new());
+        let destination = opened_account(CurrencyId::new());
         let source_account_id = source.aggregate_id().expect("account id should exist");
         let destination_account_id = destination.aggregate_id().expect("account id should exist");
         account_repository.insert(source);
@@ -351,11 +349,11 @@ mod tests {
                 },
             )
             .await
-            .expect_err("different currency definitions should fail");
+            .expect_err("different currencies should fail");
 
         assert!(matches!(
             error,
-            TransferRequestCommandHandlerError::CurrencyDefinitionMismatch
+            TransferRequestCommandHandlerError::CurrencyMismatch
         ));
     }
 }

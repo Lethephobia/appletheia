@@ -85,11 +85,7 @@ where
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
         let mut account = Account::default();
-        account.open(
-            command.owner,
-            command.name.clone(),
-            command.currency_definition_id,
-        )?;
+        account.open(command.owner, command.name.clone(), command.currency_id)?;
 
         self.account_repository
             .save(uow, request_context, &mut account)
@@ -126,7 +122,7 @@ mod tests {
     };
     use banking_iam_domain::{Organization, OrganizationId, User, UserId};
     use banking_ledger_domain::account::{Account, AccountId, AccountName, AccountOwner};
-    use banking_ledger_domain::currency_definition::CurrencyDefinitionId;
+    use banking_ledger_domain::currency::CurrencyId;
     use uuid::Uuid;
 
     use super::{AccountOpenCommand, AccountOpenCommandHandler, AccountOpenOutput};
@@ -222,7 +218,7 @@ mod tests {
             .authorization_plan(&AccountOpenCommand {
                 owner: owner.clone(),
                 name,
-                currency_definition_id: CurrencyDefinitionId::new(),
+                currency_id: CurrencyId::new(),
             })
             .expect("authorization plan should build");
 
@@ -253,7 +249,7 @@ mod tests {
             .authorization_plan(&AccountOpenCommand {
                 owner,
                 name,
-                currency_definition_id: CurrencyDefinitionId::new(),
+                currency_id: CurrencyId::new(),
             })
             .expect("authorization plan should build");
 
@@ -292,7 +288,7 @@ mod tests {
                 &AccountOpenCommand {
                     owner: owner.clone(),
                     name: name.clone(),
-                    currency_definition_id: CurrencyDefinitionId::new(),
+                    currency_id: CurrencyId::new(),
                 },
             )
             .await
@@ -326,7 +322,7 @@ mod tests {
                 &AccountOpenCommand {
                     owner,
                     name: name.clone(),
-                    currency_definition_id: CurrencyDefinitionId::new(),
+                    currency_id: CurrencyId::new(),
                 },
             )
             .await

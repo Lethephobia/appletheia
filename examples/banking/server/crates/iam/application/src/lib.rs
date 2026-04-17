@@ -7,10 +7,9 @@ pub mod saga;
 pub use authorization::{
     OrganizationAccountCloserRelation, OrganizationAccountOpenerRelation,
     OrganizationAccountRenamerRelation, OrganizationAccountStatusManagerRelation,
-    OrganizationAccountTransferRequesterRelation, OrganizationCurrencyDefinitionDefinerRelation,
-    OrganizationCurrencyDefinitionIssuerRelation,
-    OrganizationCurrencyDefinitionStatusManagerRelation,
-    OrganizationCurrencyDefinitionUpdaterRelation, OrganizationHandleEditorRelation,
+    OrganizationAccountTransferRequesterRelation, OrganizationCurrencyDefinerRelation,
+    OrganizationCurrencyIssuerRelation, OrganizationCurrencyStatusManagerRelation,
+    OrganizationCurrencyUpdaterRelation, OrganizationHandleEditorRelation,
     OrganizationInvitationCancelerRelation, OrganizationInvitationInviteeRelation,
     OrganizationInvitationOrganizationRelation, OrganizationInviterRelation,
     OrganizationJoinRequestApproverRelation, OrganizationJoinRequestCancelerRelation,

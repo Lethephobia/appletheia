@@ -1,7 +1,7 @@
 use appletheia::event_payload;
 
 use crate::core::CurrencyAmount;
-use crate::currency_definition::CurrencyDefinitionId;
+use crate::currency::CurrencyId;
 
 use super::{AccountEventPayloadError, AccountId, AccountName, AccountOwner};
 
@@ -12,7 +12,7 @@ pub enum AccountEventPayload {
         id: AccountId,
         owner: AccountOwner,
         name: AccountName,
-        currency_definition_id: CurrencyDefinitionId,
+        currency_id: CurrencyId,
     },
     Renamed {
         name: AccountName,
@@ -41,7 +41,7 @@ pub enum AccountEventPayload {
 mod tests {
     use appletheia::domain::EventPayload;
 
-    use crate::currency_definition::CurrencyDefinitionId;
+    use crate::currency::CurrencyId;
 
     use super::{AccountEventPayload, AccountId, AccountName, AccountOwner, CurrencyAmount};
 
@@ -102,7 +102,7 @@ mod tests {
             id: AccountId::new(),
             owner: AccountOwner::User(banking_iam_domain::UserId::new()),
             name: AccountName::try_from("main").expect("account name should be valid"),
-            currency_definition_id: CurrencyDefinitionId::new(),
+            currency_id: CurrencyId::new(),
         };
 
         let value = payload.into_json_value().expect("payload should serialize");
@@ -117,7 +117,7 @@ mod tests {
             id: AccountId::new(),
             owner: AccountOwner::Organization(banking_iam_domain::OrganizationId::new()),
             name: AccountName::try_from("ops").expect("account name should be valid"),
-            currency_definition_id: CurrencyDefinitionId::new(),
+            currency_id: CurrencyId::new(),
         };
 
         let value = payload.into_json_value().expect("payload should serialize");

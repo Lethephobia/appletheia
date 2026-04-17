@@ -2,7 +2,7 @@ use appletheia::aggregate_state;
 use appletheia::unique_constraints;
 
 use crate::core::CurrencyAmount;
-use crate::currency_definition::CurrencyDefinitionId;
+use crate::currency::CurrencyId;
 
 use super::{AccountId, AccountName, AccountOwner, AccountStateError, AccountStatus};
 
@@ -13,7 +13,7 @@ pub struct AccountState {
     pub(super) id: AccountId,
     pub(super) owner: AccountOwner,
     pub(super) name: AccountName,
-    pub(super) currency_definition_id: CurrencyDefinitionId,
+    pub(super) currency_id: CurrencyId,
     pub(super) balance: CurrencyAmount,
     pub(super) reserved_balance: CurrencyAmount,
     pub(super) status: AccountStatus,
@@ -25,13 +25,13 @@ impl AccountState {
         id: AccountId,
         owner: AccountOwner,
         name: AccountName,
-        currency_definition_id: CurrencyDefinitionId,
+        currency_id: CurrencyId,
     ) -> Self {
         Self {
             id,
             owner,
             name,
-            currency_definition_id,
+            currency_id,
             balance: CurrencyAmount::zero(),
             reserved_balance: CurrencyAmount::zero(),
             status: AccountStatus::Active,
@@ -45,7 +45,7 @@ mod tests {
 
     use banking_iam_domain::{OrganizationId, UserId};
 
-    use crate::currency_definition::CurrencyDefinitionId;
+    use crate::currency::CurrencyId;
 
     use super::{
         AccountId, AccountName, AccountOwner, AccountState, AccountStatus, CurrencyAmount,
@@ -59,7 +59,7 @@ mod tests {
     fn exposes_id_via_aggregate_state_trait() {
         let id = AccountId::new();
         let owner = AccountOwner::User(UserId::new());
-        let state = AccountState::new(id, owner, account_name(), CurrencyDefinitionId::new());
+        let state = AccountState::new(id, owner, account_name(), CurrencyId::new());
 
         assert_eq!(state.id(), id);
         assert_eq!(state.owner, owner);
@@ -68,12 +68,7 @@ mod tests {
     #[test]
     fn new_initializes_zero_balances_and_active_status() {
         let owner = AccountOwner::User(UserId::new());
-        let state = AccountState::new(
-            AccountId::new(),
-            owner,
-            account_name(),
-            CurrencyDefinitionId::new(),
-        );
+        let state = AccountState::new(AccountId::new(), owner, account_name(), CurrencyId::new());
 
         assert_eq!(state.balance, CurrencyAmount::zero());
         assert_eq!(state.reserved_balance, CurrencyAmount::zero());
@@ -84,12 +79,7 @@ mod tests {
     #[test]
     fn new_accepts_organization_owner() {
         let owner = AccountOwner::Organization(OrganizationId::new());
-        let state = AccountState::new(
-            AccountId::new(),
-            owner,
-            account_name(),
-            CurrencyDefinitionId::new(),
-        );
+        let state = AccountState::new(AccountId::new(), owner, account_name(), CurrencyId::new());
 
         assert_eq!(state.owner, owner);
     }

@@ -7,10 +7,9 @@ mod user;
 pub use organization::{
     OrganizationAccountCloserRelation, OrganizationAccountOpenerRelation,
     OrganizationAccountRenamerRelation, OrganizationAccountStatusManagerRelation,
-    OrganizationAccountTransferRequesterRelation, OrganizationCurrencyDefinitionDefinerRelation,
-    OrganizationCurrencyDefinitionIssuerRelation,
-    OrganizationCurrencyDefinitionStatusManagerRelation,
-    OrganizationCurrencyDefinitionUpdaterRelation, OrganizationHandleEditorRelation,
+    OrganizationAccountTransferRequesterRelation, OrganizationCurrencyDefinerRelation,
+    OrganizationCurrencyIssuerRelation, OrganizationCurrencyStatusManagerRelation,
+    OrganizationCurrencyUpdaterRelation, OrganizationHandleEditorRelation,
     OrganizationInviterRelation, OrganizationRemoverRelation, OrganizationRenamerRelation,
 };
 pub use organization::{OrganizationMemberRelation, OrganizationOwnerRelation};
