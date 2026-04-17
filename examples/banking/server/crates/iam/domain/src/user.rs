@@ -7,10 +7,6 @@ mod user_event_payload;
 mod user_event_payload_error;
 mod user_id;
 mod user_identity;
-mod user_identity_provider;
-mod user_identity_provider_error;
-mod user_identity_subject;
-mod user_identity_subject_error;
 mod user_profile;
 mod user_state;
 mod user_state_error;
@@ -27,11 +23,10 @@ pub use user_error::UserError;
 pub use user_event_payload::UserEventPayload;
 pub use user_event_payload_error::UserEventPayloadError;
 pub use user_id::UserId;
-pub use user_identity::UserIdentity;
-pub use user_identity_provider::UserIdentityProvider;
-pub use user_identity_provider_error::UserIdentityProviderError;
-pub use user_identity_subject::UserIdentitySubject;
-pub use user_identity_subject_error::UserIdentitySubjectError;
+pub use user_identity::{
+    UserIdentity, UserIdentityProvider, UserIdentityProviderError, UserIdentitySubject,
+    UserIdentitySubjectError,
+};
 pub use user_profile::UserProfile;
 pub use user_state::UserState;
 pub use user_state_error::UserStateError;
@@ -393,7 +388,7 @@ impl AggregateApply<UserEventPayload, UserError> for User {
                     .iter_mut()
                     .find(|identity| identity.matches(provider, subject))
                     .ok_or(UserError::InvalidIdentityState)?;
-                identity.set_email(email.clone());
+                identity.change_email(email.clone());
             }
         }
 
