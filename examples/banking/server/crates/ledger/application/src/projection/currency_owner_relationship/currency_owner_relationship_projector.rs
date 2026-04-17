@@ -83,8 +83,9 @@ mod tests {
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::{Aggregate, AggregateId, EventPayload};
     use banking_iam_domain::{Organization, User};
-    use banking_ledger_domain::core::{CurrencyDecimals, CurrencySymbol};
-    use banking_ledger_domain::currency::{Currency, CurrencyName, CurrencyOwner};
+    use banking_ledger_domain::currency::{
+        Currency, CurrencyDecimals, CurrencyName, CurrencyOwner, CurrencySymbol,
+    };
 
     use super::CurrencyOwnerRelationshipProjector;
     use crate::authorization::CurrencyOwnerRelation;

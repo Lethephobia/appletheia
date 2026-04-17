@@ -2,9 +2,11 @@ use appletheia::domain::{UniqueValue, UniqueValuePart, UniqueValues};
 use appletheia::{aggregate_state, unique_constraints};
 
 use crate::core::CurrencyAmount;
-use crate::core::{CurrencyDecimals, CurrencySymbol};
 
-use super::{CurrencyId, CurrencyName, CurrencyOwner, CurrencyStateError, CurrencyStatus};
+use super::{
+    CurrencyDecimals, CurrencyId, CurrencyName, CurrencyOwner, CurrencyStateError, CurrencyStatus,
+    CurrencySymbol,
+};
 
 /// Stores the materialized state of a `Currency` aggregate.
 #[aggregate_state(error = CurrencyStateError)]
@@ -58,9 +60,11 @@ mod tests {
     use banking_iam_domain::UserId;
 
     use crate::core::CurrencyAmount;
-    use crate::core::{CurrencyDecimals, CurrencySymbol};
 
-    use super::{CurrencyId, CurrencyName, CurrencyOwner, CurrencyState, CurrencyStatus};
+    use super::{
+        CurrencyDecimals, CurrencyId, CurrencyName, CurrencyOwner, CurrencyState, CurrencyStatus,
+        CurrencySymbol,
+    };
 
     #[test]
     fn returns_unique_entries_for_symbol() {

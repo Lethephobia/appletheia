@@ -106,8 +106,9 @@ mod tests {
     use appletheia::domain::Aggregate;
     use banking_iam_application::OrganizationOwnerRelationshipProjectorSpec;
     use banking_iam_domain::UserId;
-    use banking_ledger_domain::core::{CurrencyDecimals, CurrencySymbol};
-    use banking_ledger_domain::currency::{Currency, CurrencyId, CurrencyName, CurrencyOwner};
+    use banking_ledger_domain::currency::{
+        Currency, CurrencyDecimals, CurrencyId, CurrencyName, CurrencyOwner, CurrencySymbol,
+    };
     use uuid::Uuid;
 
     use super::{CurrencyUpdateCommand, CurrencyUpdateCommandHandler, CurrencyUpdateOutput};

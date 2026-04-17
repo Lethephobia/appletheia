@@ -1,6 +1,7 @@
 use appletheia::command;
-use banking_ledger_domain::core::{CurrencyDecimals, CurrencySymbol};
-use banking_ledger_domain::currency::{CurrencyName, CurrencyOwner};
+use banking_ledger_domain::currency::{
+    CurrencyDecimals, CurrencyName, CurrencyOwner, CurrencySymbol,
+};
 use serde::{Deserialize, Serialize};
 
 /// Defines a new currency.

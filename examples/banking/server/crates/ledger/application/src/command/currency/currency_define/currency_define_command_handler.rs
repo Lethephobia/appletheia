@@ -128,8 +128,9 @@ mod tests {
         OrganizationOwnerRelationshipProjectorSpec, UserOwnerRelationshipProjectorSpec,
     };
     use banking_iam_domain::{Organization, OrganizationId, User, UserId};
-    use banking_ledger_domain::core::{CurrencyDecimals, CurrencySymbol};
-    use banking_ledger_domain::currency::{Currency, CurrencyId, CurrencyName, CurrencyOwner};
+    use banking_ledger_domain::currency::{
+        Currency, CurrencyDecimals, CurrencyId, CurrencyName, CurrencyOwner, CurrencySymbol,
+    };
     use uuid::Uuid;
 
     use super::{CurrencyDefineCommand, CurrencyDefineCommandHandler, CurrencyDefineOutput};

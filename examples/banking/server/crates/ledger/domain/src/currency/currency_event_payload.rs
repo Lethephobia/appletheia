@@ -1,9 +1,11 @@
 use appletheia::event_payload;
 
 use crate::core::CurrencyAmount;
-use crate::core::{CurrencyDecimals, CurrencySymbol};
 
-use super::{CurrencyEventPayloadError, CurrencyId, CurrencyName, CurrencyOwner};
+use super::{
+    CurrencyDecimals, CurrencyEventPayloadError, CurrencyId, CurrencyName, CurrencyOwner,
+    CurrencySymbol,
+};
 
 /// Represents the domain events emitted by a `Currency` aggregate.
 #[event_payload(error = CurrencyEventPayloadError)]
@@ -88,9 +90,9 @@ mod tests {
         let payload = CurrencyEventPayload::Defined {
             id: super::CurrencyId::new(),
             owner: CurrencyOwner::User(UserId::new()),
-            symbol: crate::core::CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
+            symbol: super::CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
             name: super::CurrencyName::try_from("USD Coin").expect("name should be valid"),
-            decimals: crate::core::CurrencyDecimals::new(6),
+            decimals: super::CurrencyDecimals::new(6),
         };
 
         let value = payload.into_json_value().expect("payload should serialize");

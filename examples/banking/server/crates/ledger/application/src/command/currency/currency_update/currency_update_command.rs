@@ -1,6 +1,5 @@
 use appletheia::command;
-use banking_ledger_domain::core::CurrencySymbol;
-use banking_ledger_domain::currency::{CurrencyId, CurrencyName};
+use banking_ledger_domain::currency::{CurrencyId, CurrencyName, CurrencySymbol};
 use serde::{Deserialize, Serialize};
 
 /// Applies a partial update to a currency.

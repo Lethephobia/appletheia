@@ -1,3 +1,4 @@
+mod currency_decimals;
 mod currency_error;
 mod currency_event_payload;
 mod currency_event_payload_error;
@@ -8,7 +9,10 @@ mod currency_owner;
 mod currency_state;
 mod currency_state_error;
 mod currency_status;
+mod currency_symbol;
+mod currency_symbol_error;
 
+pub use currency_decimals::CurrencyDecimals;
 pub use currency_error::CurrencyError;
 pub use currency_event_payload::CurrencyEventPayload;
 pub use currency_event_payload_error::CurrencyEventPayloadError;
@@ -19,12 +23,13 @@ pub use currency_owner::CurrencyOwner;
 pub use currency_state::CurrencyState;
 pub use currency_state_error::CurrencyStateError;
 pub use currency_status::CurrencyStatus;
+pub use currency_symbol::CurrencySymbol;
+pub use currency_symbol_error::CurrencySymbolError;
 
 use appletheia::aggregate;
 use appletheia::domain::{Aggregate, AggregateApply, AggregateCore};
 
 use crate::core::{CurrencyAmount, CurrencyAmountError};
-use crate::core::{CurrencyDecimals, CurrencySymbol};
 
 /// Represents the `Currency` aggregate root.
 #[aggregate(type = "currency", error = CurrencyError)]
@@ -237,11 +242,11 @@ mod tests {
     use appletheia::domain::{Aggregate, Event, EventPayload};
 
     use crate::core::CurrencyAmount;
-    use crate::core::{CurrencyDecimals, CurrencySymbol};
     use banking_iam_domain::{OrganizationId, UserId};
 
     use super::{
-        Currency, CurrencyEventPayload, CurrencyId, CurrencyName, CurrencyOwner, CurrencyStatus,
+        Currency, CurrencyDecimals, CurrencyEventPayload, CurrencyId, CurrencyName, CurrencyOwner,
+        CurrencyStatus, CurrencySymbol,
     };
 
     fn user_owner() -> CurrencyOwner {
