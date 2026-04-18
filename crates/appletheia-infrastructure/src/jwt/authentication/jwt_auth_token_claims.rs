@@ -44,7 +44,9 @@ impl JwtAuthTokenClaims {
             return Err(JwtAuthTokenVerifierError::MissingRequiredClaim { name: "sub_type" });
         }
 
-        let issuer_url = AuthTokenIssuerUrl::parse(&self.issuer)
+        let issuer_url = self
+            .issuer
+            .parse::<AuthTokenIssuerUrl>()
             .map_err(|e| JwtAuthTokenVerifierError::InvalidClaimValue(Box::new(e)))?;
 
         let audiences = Self::parse_audiences(&self.audiences)?;

@@ -133,7 +133,9 @@ mod tests {
     struct StubCheckerBackendError;
 
     fn claims() -> AuthTokenClaims {
-        let issuer_url = AuthTokenIssuerUrl::parse("https://example.com").expect("valid issuer");
+        let issuer_url = "https://example.com"
+            .parse::<AuthTokenIssuerUrl>()
+            .expect("valid issuer");
         let audience = AuthTokenAudience::new("web".to_owned()).expect("valid audience");
         let audiences = AuthTokenAudiences::new(audience, Vec::new()).expect("valid audiences");
         let subject = AggregateRef {
