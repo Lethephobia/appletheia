@@ -8,14 +8,9 @@ use super::{OrganizationEventPayloadError, OrganizationHandle, OrganizationId, O
 pub enum OrganizationEventPayload {
     Created {
         id: OrganizationId,
+        owner: OrganizationOwner,
         handle: OrganizationHandle,
         name: OrganizationName,
-    },
-    OwnerAssigned {
-        owner: OrganizationOwner,
-    },
-    OwnerUnassigned {
-        owner: OrganizationOwner,
     },
     HandleChanged {
         handle: OrganizationHandle,
@@ -42,14 +37,6 @@ mod tests {
             appletheia::domain::EventName::new("created")
         );
         assert_eq!(
-            OrganizationEventPayload::OWNER_ASSIGNED,
-            appletheia::domain::EventName::new("owner_assigned")
-        );
-        assert_eq!(
-            OrganizationEventPayload::OWNER_UNASSIGNED,
-            appletheia::domain::EventName::new("owner_unassigned")
-        );
-        assert_eq!(
             OrganizationEventPayload::HANDLE_CHANGED,
             appletheia::domain::EventName::new("handle_changed")
         );
@@ -67,29 +54,12 @@ mod tests {
     fn payload_name_matches_variant() {
         let payload = OrganizationEventPayload::Created {
             id: OrganizationId::new(),
+            owner: OrganizationOwner::User(crate::UserId::new()),
             handle: OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
             name: OrganizationName::try_from("Acme Labs").expect("name should be valid"),
         };
 
         assert_eq!(payload.name(), OrganizationEventPayload::CREATED);
-    }
-
-    #[test]
-    fn owner_assigned_payload_name_matches_variant() {
-        let payload = OrganizationEventPayload::OwnerAssigned {
-            owner: OrganizationOwner::User(crate::UserId::new()),
-        };
-
-        assert_eq!(payload.name(), OrganizationEventPayload::OWNER_ASSIGNED);
-    }
-
-    #[test]
-    fn owner_unassigned_payload_name_matches_variant() {
-        let payload = OrganizationEventPayload::OwnerUnassigned {
-            owner: OrganizationOwner::User(crate::UserId::new()),
-        };
-
-        assert_eq!(payload.name(), OrganizationEventPayload::OWNER_UNASSIGNED);
     }
 
     #[test]
@@ -121,6 +91,7 @@ mod tests {
     fn serializes_payload_to_json() {
         let payload = OrganizationEventPayload::Created {
             id: OrganizationId::new(),
+            owner: OrganizationOwner::User(crate::UserId::new()),
             handle: OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
             name: OrganizationName::try_from("Acme Labs").expect("name should be valid"),
         };
@@ -128,5 +99,6 @@ mod tests {
         let value = payload.into_json_value().expect("payload should serialize");
 
         assert_eq!(value["type"], serde_json::json!("created"));
+        assert_eq!(value["data"]["owner"]["type"], serde_json::json!("user"));
     }
 }

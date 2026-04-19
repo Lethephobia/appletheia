@@ -11,12 +11,9 @@ pub struct OrganizationOwnerRelationshipProjectorSpec;
 impl ProjectorSpec for OrganizationOwnerRelationshipProjectorSpec {
     const DESCRIPTOR: ProjectorDescriptor = ProjectorDescriptor::new(
         ProjectorName::new("organization_owner_relationship"),
-        Subscription::AnyOf(&[
-            EventSelector::new(Organization::TYPE, OrganizationEventPayload::OWNER_ASSIGNED),
-            EventSelector::new(
-                Organization::TYPE,
-                OrganizationEventPayload::OWNER_UNASSIGNED,
-            ),
-        ]),
+        Subscription::AnyOf(&[EventSelector::new(
+            Organization::TYPE,
+            OrganizationEventPayload::CREATED,
+        )]),
     );
 }

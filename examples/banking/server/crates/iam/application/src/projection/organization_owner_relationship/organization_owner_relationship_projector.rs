@@ -40,39 +40,23 @@ where
         if event.is_for_aggregate::<Organization>() {
             let domain_event = event.try_into_domain_event::<Organization>()?;
 
-            match domain_event.payload() {
-                OrganizationEventPayload::OwnerAssigned { owner } => {
-                    let OrganizationOwner::User(owner) = *owner;
-                    self.relationship_store
-                        .apply_changes(
-                            uow,
-                            &[RelationshipChange::Upsert(
-                                Relationship::new::<Organization>(
-                                    domain_event.aggregate_id(),
-                                    OrganizationOwnerRelation::REF,
-                                    RelationshipSubject::aggregate::<User>(owner),
-                                ),
-                            )],
-                        )
-                        .await?;
-                }
-                OrganizationEventPayload::OwnerUnassigned { owner } => {
-                    let OrganizationOwner::User(owner) = *owner;
-                    self.relationship_store
-                        .apply_changes(
-                            uow,
-                            &[RelationshipChange::Delete(
-                                Relationship::new::<Organization>(
-                                    domain_event.aggregate_id(),
-                                    OrganizationOwnerRelation::REF,
-                                    RelationshipSubject::aggregate::<User>(owner),
-                                ),
-                            )],
-                        )
-                        .await?;
-                }
-                _ => return Ok(()),
-            }
+            let OrganizationEventPayload::Created { owner, .. } = domain_event.payload() else {
+                return Ok(());
+            };
+            let OrganizationOwner::User(owner) = *owner;
+
+            self.relationship_store
+                .apply_changes(
+                    uow,
+                    &[RelationshipChange::Upsert(
+                        Relationship::new::<Organization>(
+                            domain_event.aggregate_id(),
+                            OrganizationOwnerRelation::REF,
+                            RelationshipSubject::aggregate::<User>(owner),
+                        ),
+                    )],
+                )
+                .await?;
         }
 
         Ok(())
@@ -160,10 +144,11 @@ mod tests {
         }
     }
 
-    fn created_event_envelope() -> EventEnvelope {
+    fn created_event_envelope(owner: OrganizationOwner) -> EventEnvelope {
         let mut organization = Organization::default();
         organization
             .create(
+                owner,
                 OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
                 OrganizationName::try_from("Acme Labs").expect("name should be valid"),
             )
@@ -209,117 +194,11 @@ mod tests {
         }
     }
 
-    fn owner_assigned_event_envelope(owner: OrganizationOwner) -> EventEnvelope {
-        let mut organization = Organization::default();
-        organization
-            .create(
-                OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
-                OrganizationName::try_from("Acme Labs").expect("name should be valid"),
-            )
-            .expect("creation should succeed");
-        organization
-            .assign_owner(owner)
-            .expect("owner assignment should succeed");
-
-        let event = organization
-            .uncommitted_events()
-            .get(1)
-            .expect("owner-assigned event should exist")
-            .clone();
-        let message_id = MessageId::new();
-
-        EventEnvelope {
-            event_sequence: EventSequence::try_from(2).expect("sequence should be valid"),
-            event_id: event.id(),
-            aggregate_type: appletheia::application::event::AggregateTypeOwned::from(
-                Organization::TYPE,
-            ),
-            aggregate_id: appletheia::application::event::AggregateIdValue::from(
-                event.aggregate_id().value(),
-            ),
-            aggregate_version: event.aggregate_version(),
-            event_name: appletheia::application::event::EventNameOwned::from(
-                event.payload().name(),
-            ),
-            payload: SerializedEventPayload::try_from(
-                event
-                    .payload()
-                    .clone()
-                    .into_json_value()
-                    .expect("payload should serialize"),
-            )
-            .expect("payload should be valid"),
-            occurred_at: event.occurred_at(),
-            correlation_id: CorrelationId::from(message_id.value()),
-            causation_id: CausationId::from(message_id),
-            context: RequestContext::new(
-                CorrelationId::from(MessageId::new().value()),
-                message_id,
-                Principal::System,
-            )
-            .expect("request context should be valid"),
-        }
-    }
-
-    fn owner_unassigned_event_envelope(owner: OrganizationOwner) -> EventEnvelope {
-        let mut organization = Organization::default();
-        organization
-            .create(
-                OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
-                OrganizationName::try_from("Acme Labs").expect("name should be valid"),
-            )
-            .expect("creation should succeed");
-        organization
-            .assign_owner(owner)
-            .expect("owner assignment should succeed");
-        organization
-            .unassign_owner(owner)
-            .expect("owner unassignment should succeed");
-
-        let event = organization
-            .uncommitted_events()
-            .get(2)
-            .expect("owner-unassigned event should exist")
-            .clone();
-        let message_id = MessageId::new();
-
-        EventEnvelope {
-            event_sequence: EventSequence::try_from(3).expect("sequence should be valid"),
-            event_id: event.id(),
-            aggregate_type: appletheia::application::event::AggregateTypeOwned::from(
-                Organization::TYPE,
-            ),
-            aggregate_id: appletheia::application::event::AggregateIdValue::from(
-                event.aggregate_id().value(),
-            ),
-            aggregate_version: event.aggregate_version(),
-            event_name: appletheia::application::event::EventNameOwned::from(
-                event.payload().name(),
-            ),
-            payload: SerializedEventPayload::try_from(
-                event
-                    .payload()
-                    .clone()
-                    .into_json_value()
-                    .expect("payload should serialize"),
-            )
-            .expect("payload should be valid"),
-            occurred_at: event.occurred_at(),
-            correlation_id: CorrelationId::from(message_id.value()),
-            causation_id: CausationId::from(message_id),
-            context: RequestContext::new(
-                CorrelationId::from(MessageId::new().value()),
-                message_id,
-                Principal::System,
-            )
-            .expect("request context should be valid"),
-        }
-    }
-
     fn removed_event_envelope() -> EventEnvelope {
         let mut organization = Organization::default();
         organization
             .create(
+                OrganizationOwner::User(UserId::new()),
                 OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
                 OrganizationName::try_from("Acme Labs").expect("name should be valid"),
             )
@@ -367,27 +246,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn project_created_event_is_a_no_op() {
-        let store = TestRelationshipStore::default();
-        let projector = OrganizationOwnerRelationshipProjector::new(store.clone());
-        let mut uow = TestUow;
-        let event = created_event_envelope();
-
-        projector
-            .project(&mut uow, &event)
-            .await
-            .expect("projection should succeed");
-
-        assert!(store.recorded_changes().is_empty());
-    }
-
-    #[tokio::test]
-    async fn project_owner_assigned_event_upserts_owner_relationship() {
+    async fn project_created_event_upserts_owner_relationship() {
         let store = TestRelationshipStore::default();
         let projector = OrganizationOwnerRelationshipProjector::new(store.clone());
         let mut uow = TestUow;
         let owner = OrganizationOwner::User(UserId::new());
-        let event = owner_assigned_event_envelope(owner);
+        let event = created_event_envelope(owner);
 
         projector
             .project(&mut uow, &event)
@@ -399,37 +263,6 @@ mod tests {
 
         let RelationshipChange::Upsert(relationship) = &changes[0] else {
             panic!("expected upsert relationship");
-        };
-
-        assert_eq!(
-            relationship.relation,
-            RelationRefOwned::from(OrganizationOwnerRelation::REF)
-        );
-        let OrganizationOwner::User(owner) = owner;
-        assert_eq!(
-            relationship.subject,
-            RelationshipSubject::Aggregate(AggregateRef::from_id::<User>(owner))
-        );
-    }
-
-    #[tokio::test]
-    async fn project_owner_unassigned_event_deletes_owner_relationship() {
-        let owner = OrganizationOwner::User(UserId::new());
-        let store = TestRelationshipStore::default();
-        let projector = OrganizationOwnerRelationshipProjector::new(store.clone());
-        let mut uow = TestUow;
-        let event = owner_unassigned_event_envelope(owner);
-
-        projector
-            .project(&mut uow, &event)
-            .await
-            .expect("projection should succeed");
-
-        let changes = store.recorded_changes();
-        assert_eq!(changes.len(), 1);
-
-        let RelationshipChange::Delete(relationship) = &changes[0] else {
-            panic!("expected delete relationship");
         };
 
         assert_eq!(

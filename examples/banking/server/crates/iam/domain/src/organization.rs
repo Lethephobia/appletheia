@@ -44,6 +44,11 @@ impl Organization {
         Ok(&self.state_required()?.name)
     }
 
+    /// Returns the current organization owner.
+    pub fn owner(&self) -> Result<OrganizationOwner, OrganizationError> {
+        Ok(self.state_required()?.owner)
+    }
+
     /// Returns the current organization status.
     pub fn status(&self) -> Result<OrganizationStatus, OrganizationError> {
         Ok(self.state_required()?.status)
@@ -62,6 +67,7 @@ impl Organization {
     /// Creates a new organization.
     pub fn create(
         &mut self,
+        owner: OrganizationOwner,
         handle: OrganizationHandle,
         name: OrganizationName,
     ) -> Result<(), OrganizationError> {
@@ -71,23 +77,10 @@ impl Organization {
 
         self.append_event(OrganizationEventPayload::Created {
             id: OrganizationId::new(),
+            owner,
             handle,
             name,
         })
-    }
-
-    /// Assigns an owner to the organization.
-    pub fn assign_owner(&mut self, owner: OrganizationOwner) -> Result<(), OrganizationError> {
-        self.ensure_not_removed()?;
-
-        self.append_event(OrganizationEventPayload::OwnerAssigned { owner })
-    }
-
-    /// Unassigns a specific owner from the organization.
-    pub fn unassign_owner(&mut self, owner: OrganizationOwner) -> Result<(), OrganizationError> {
-        self.ensure_not_removed()?;
-
-        self.append_event(OrganizationEventPayload::OwnerUnassigned { owner })
     }
 
     /// Changes the current organization handle.
@@ -135,11 +128,17 @@ impl Organization {
 impl AggregateApply<OrganizationEventPayload, OrganizationError> for Organization {
     fn apply(&mut self, payload: &OrganizationEventPayload) -> Result<(), OrganizationError> {
         match payload {
-            OrganizationEventPayload::Created { id, handle, name } => self.set_state(Some(
-                OrganizationState::new(*id, handle.clone(), name.clone()),
-            )),
-            OrganizationEventPayload::OwnerAssigned { .. } => {}
-            OrganizationEventPayload::OwnerUnassigned { .. } => {}
+            OrganizationEventPayload::Created {
+                id,
+                owner,
+                handle,
+                name,
+            } => self.set_state(Some(OrganizationState::new(
+                *id,
+                *owner,
+                handle.clone(),
+                name.clone(),
+            ))),
             OrganizationEventPayload::HandleChanged { handle } => {
                 self.state_required_mut()?.handle = handle.clone();
             }
@@ -172,16 +171,18 @@ mod tests {
     fn create_initializes_state_and_records_event() {
         let handle = OrganizationHandle::try_from("acme-labs").expect("handle should be valid");
         let name = OrganizationName::try_from("  Acme Labs  ").expect("name should be valid");
+        let owner = owner();
         let mut organization = Organization::default();
 
         organization
-            .create(handle.clone(), name.clone())
+            .create(owner, handle.clone(), name.clone())
             .expect("creation should succeed");
 
         let aggregate_id = organization
             .aggregate_id()
             .expect("aggregate id should exist");
         assert!(!aggregate_id.value().is_nil());
+        assert_eq!(organization.owner().expect("owner should exist"), owner);
         assert_eq!(organization.handle().expect("handle should exist"), &handle);
         assert_eq!(organization.name().expect("name should exist"), &name);
         assert_eq!(organization.uncommitted_events().len(), 1);
@@ -192,54 +193,11 @@ mod tests {
     }
 
     #[test]
-    fn assign_owner_records_event() {
-        let mut organization = Organization::default();
-        organization
-            .create(
-                OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
-                OrganizationName::try_from("Acme Labs").expect("name should be valid"),
-            )
-            .expect("first creation should succeed");
-
-        let owner = owner();
-        organization
-            .assign_owner(owner)
-            .expect("assigning owner should succeed");
-
-        assert_eq!(organization.uncommitted_events().len(), 2);
-        assert_eq!(
-            organization.uncommitted_events()[1].payload().name(),
-            OrganizationEventPayload::OWNER_ASSIGNED
-        );
-    }
-
-    #[test]
-    fn unassign_owner_records_event() {
-        let mut organization = Organization::default();
-        organization
-            .create(
-                OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
-                OrganizationName::try_from("Acme Labs").expect("name should be valid"),
-            )
-            .expect("first creation should succeed");
-
-        let owner = owner();
-        organization
-            .unassign_owner(owner)
-            .expect("unassigning owner should succeed");
-
-        assert_eq!(organization.uncommitted_events().len(), 2);
-        assert_eq!(
-            organization.uncommitted_events()[1].payload().name(),
-            OrganizationEventPayload::OWNER_UNASSIGNED
-        );
-    }
-
-    #[test]
     fn changing_handle_updates_state_and_records_event() {
         let mut organization = Organization::default();
         organization
             .create(
+                owner(),
                 OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
                 OrganizationName::try_from("Acme Labs").expect("name should be valid"),
             )
@@ -267,6 +225,7 @@ mod tests {
         let mut organization = Organization::default();
         organization
             .create(
+                owner(),
                 OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
                 OrganizationName::try_from("Acme Labs").expect("name should be valid"),
             )
@@ -292,6 +251,7 @@ mod tests {
         let mut organization = Organization::default();
         organization
             .create(
+                owner(),
                 OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
                 OrganizationName::try_from("Acme Labs").expect("name should be valid"),
             )
@@ -319,6 +279,7 @@ mod tests {
         let mut organization = Organization::default();
         organization
             .create(
+                owner(),
                 OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
                 OrganizationName::try_from("Acme Labs").expect("name should be valid"),
             )
@@ -339,6 +300,7 @@ mod tests {
         let mut organization = Organization::default();
         organization
             .create(
+                owner(),
                 OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
                 OrganizationName::try_from("Acme Labs").expect("name should be valid"),
             )
@@ -358,6 +320,7 @@ mod tests {
         let mut organization = Organization::default();
         organization
             .create(
+                owner(),
                 handle.clone(),
                 OrganizationName::try_from("Acme Labs").expect("name should be valid"),
             )
@@ -375,6 +338,7 @@ mod tests {
         let mut organization = Organization::default();
         organization
             .create(
+                owner(),
                 OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
                 OrganizationName::try_from("Acme Labs").expect("name should be valid"),
             )
@@ -382,6 +346,7 @@ mod tests {
 
         let error = organization
             .create(
+                owner(),
                 OrganizationHandle::try_from("acme-labs-2").expect("handle should be valid"),
                 OrganizationName::try_from("Second").expect("name should be valid"),
             )
