@@ -1,7 +1,7 @@
 use appletheia::application::authorization::{Relation, RelationName, RelationRef, UsersetExpr};
 use appletheia::domain::Aggregate;
 
-use super::{User, UserOwnerRelation, UserStatusManagerRelation};
+use super::{User, UserOwnerRelation};
 
 /// Allows owners to remove a user.
 pub struct UserRemoverRelation;
@@ -13,9 +13,6 @@ impl Relation for UserRemoverRelation {
         UsersetExpr::This,
         UsersetExpr::ComputedUserset {
             relation: UserOwnerRelation::REF,
-        },
-        UsersetExpr::ComputedUserset {
-            relation: UserStatusManagerRelation::REF,
         },
     ]);
 }

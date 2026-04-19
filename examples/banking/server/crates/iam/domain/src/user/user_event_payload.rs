@@ -4,7 +4,7 @@ use crate::core::Email;
 
 use super::{
     UserBio, UserDisplayName, UserEventPayloadError, UserId, UserIdentity, UserIdentityProvider,
-    UserIdentitySubject, UserStatusManager, Username,
+    UserIdentitySubject, Username,
 };
 
 /// Represents the domain events emitted by a `User` aggregate.
@@ -17,12 +17,6 @@ pub enum UserEventPayload {
     Activated,
     Inactivated,
     Removed,
-    StatusManagerAssigned {
-        status_manager: UserStatusManager,
-    },
-    StatusManagerUnassigned {
-        status_manager: UserStatusManager,
-    },
     ProfileReadied {
         username: Username,
         display_name: UserDisplayName,
@@ -55,7 +49,7 @@ mod tests {
 
     use super::{
         UserBio, UserDisplayName, UserEventPayload, UserId, UserIdentity, UserIdentityProvider,
-        UserIdentitySubject, UserStatusManager, Username,
+        UserIdentitySubject, Username,
     };
 
     #[test]
@@ -79,14 +73,6 @@ mod tests {
         assert_eq!(
             UserEventPayload::REMOVED,
             appletheia::domain::EventName::new("removed")
-        );
-        assert_eq!(
-            UserEventPayload::STATUS_MANAGER_ASSIGNED,
-            appletheia::domain::EventName::new("status_manager_assigned")
-        );
-        assert_eq!(
-            UserEventPayload::STATUS_MANAGER_UNASSIGNED,
-            appletheia::domain::EventName::new("status_manager_unassigned")
         );
         assert_eq!(
             UserEventPayload::USERNAME_CHANGED,
@@ -174,24 +160,6 @@ mod tests {
         };
 
         assert_eq!(payload.name(), UserEventPayload::IDENTITY_EMAIL_CHANGED);
-    }
-
-    #[test]
-    fn status_manager_assigned_payload_name_matches_variant() {
-        let payload = UserEventPayload::StatusManagerAssigned {
-            status_manager: UserStatusManager::User(UserId::new()),
-        };
-
-        assert_eq!(payload.name(), UserEventPayload::STATUS_MANAGER_ASSIGNED);
-    }
-
-    #[test]
-    fn status_manager_unassigned_payload_name_matches_variant() {
-        let payload = UserEventPayload::StatusManagerUnassigned {
-            status_manager: UserStatusManager::User(UserId::new()),
-        };
-
-        assert_eq!(payload.name(), UserEventPayload::STATUS_MANAGER_UNASSIGNED);
     }
 
     #[test]

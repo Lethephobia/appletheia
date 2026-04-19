@@ -32,5 +32,5 @@ pub use user::{
     User, UserBio, UserBioError, UserDisplayName, UserDisplayNameError, UserError,
     UserEventPayload, UserEventPayloadError, UserId, UserIdentity, UserIdentityProvider,
     UserIdentityProviderError, UserIdentitySubject, UserIdentitySubjectError, UserProfile,
-    UserState, UserStateError, UserStatus, UserStatusManager, Username, UsernameError,
+    UserState, UserStateError, UserStatus, Username, UsernameError,
 };

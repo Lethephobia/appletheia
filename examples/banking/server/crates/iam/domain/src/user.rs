@@ -11,7 +11,6 @@ mod user_profile;
 mod user_state;
 mod user_state_error;
 mod user_status;
-mod user_status_manager;
 mod username;
 mod username_error;
 
@@ -31,7 +30,6 @@ pub use user_profile::UserProfile;
 pub use user_state::UserState;
 pub use user_state_error::UserStateError;
 pub use user_status::UserStatus;
-pub use user_status_manager::UserStatusManager;
 pub use username::Username;
 pub use username_error::UsernameError;
 
@@ -110,26 +108,6 @@ impl User {
         self.ensure_not_registered()?;
         let id = UserId::new();
         self.append_event(UserEventPayload::Registered { id, identity })
-    }
-
-    /// Assigns a status manager relationship.
-    pub fn assign_status_manager(
-        &mut self,
-        status_manager: UserStatusManager,
-    ) -> Result<(), UserError> {
-        self.ensure_not_removed()?;
-
-        self.append_event(UserEventPayload::StatusManagerAssigned { status_manager })
-    }
-
-    /// Unassigns a status manager relationship.
-    pub fn unassign_status_manager(
-        &mut self,
-        status_manager: UserStatusManager,
-    ) -> Result<(), UserError> {
-        self.ensure_not_removed()?;
-
-        self.append_event(UserEventPayload::StatusManagerUnassigned { status_manager })
     }
 
     /// Marks the profile as ready with explicit profile values.
@@ -311,8 +289,6 @@ impl AggregateApply<UserEventPayload, UserError> for User {
             UserEventPayload::Registered { id, identity } => {
                 self.set_state(Some(UserState::new(*id, identity.clone())))
             }
-            UserEventPayload::StatusManagerAssigned { .. } => {}
-            UserEventPayload::StatusManagerUnassigned { .. } => {}
             UserEventPayload::Activated => {
                 self.state_required_mut()?.status = UserStatus::Active;
             }
@@ -404,8 +380,7 @@ mod tests {
 
     use super::{
         User, UserBio, UserDisplayName, UserEventPayload, UserId, UserIdentity,
-        UserIdentityProvider, UserIdentitySubject, UserProfile, UserStatus, UserStatusManager,
-        Username,
+        UserIdentityProvider, UserIdentitySubject, UserProfile, UserStatus, Username,
     };
 
     fn identity() -> UserIdentity {
@@ -482,94 +457,6 @@ mod tests {
 
         assert!(matches!(error, super::UserError::ProfileAlreadyReady));
         assert_eq!(user.uncommitted_events().len(), 2);
-    }
-
-    #[test]
-    fn assign_status_manager_appends_event() {
-        let mut user = User::default();
-        user.register(identity())
-            .expect("registration should succeed");
-        let status_manager = UserStatusManager::User(UserId::new());
-
-        user.assign_status_manager(status_manager)
-            .expect("status manager assignment should succeed");
-
-        assert_eq!(user.uncommitted_events().len(), 2);
-        assert_eq!(
-            user.uncommitted_events()[1].payload().name(),
-            UserEventPayload::STATUS_MANAGER_ASSIGNED
-        );
-        let UserEventPayload::StatusManagerAssigned {
-            status_manager: actual,
-        } = user.uncommitted_events()[1].payload()
-        else {
-            panic!("expected status manager assigned payload");
-        };
-        assert_eq!(actual, &status_manager);
-    }
-
-    #[test]
-    fn assign_status_manager_appends_event_even_when_repeated() {
-        let mut user = User::default();
-        user.register(identity())
-            .expect("registration should succeed");
-        let status_manager = UserStatusManager::User(UserId::new());
-
-        user.assign_status_manager(status_manager)
-            .expect("status manager assignment should succeed");
-        user.assign_status_manager(status_manager)
-            .expect("repeated status manager assignment should succeed");
-
-        assert_eq!(user.uncommitted_events().len(), 3);
-        let UserEventPayload::StatusManagerAssigned {
-            status_manager: actual,
-        } = user.uncommitted_events()[2].payload()
-        else {
-            panic!("expected status manager assigned payload");
-        };
-        assert_eq!(actual, &status_manager);
-    }
-
-    #[test]
-    fn unassign_status_manager_appends_event() {
-        let mut user = User::default();
-        user.register(identity())
-            .expect("registration should succeed");
-        let status_manager = UserStatusManager::User(UserId::new());
-
-        user.assign_status_manager(status_manager)
-            .expect("status manager assignment should succeed");
-        user.unassign_status_manager(status_manager)
-            .expect("status manager unassignment should succeed");
-
-        assert_eq!(user.uncommitted_events().len(), 3);
-        let UserEventPayload::StatusManagerUnassigned {
-            status_manager: actual,
-        } = user.uncommitted_events()[2].payload()
-        else {
-            panic!("expected status manager unassigned payload");
-        };
-        assert_eq!(actual, &status_manager);
-    }
-
-    #[test]
-    fn unassign_status_manager_appends_event_without_prior_assignment() {
-        let mut user = User::default();
-        user.register(identity())
-            .expect("registration should succeed");
-        let status_manager = UserStatusManager::User(UserId::new());
-
-        user.unassign_status_manager(status_manager)
-            .expect("status manager unassignment should succeed");
-
-        assert_eq!(user.uncommitted_events().len(), 2);
-        let UserEventPayload::StatusManagerUnassigned {
-            status_manager: actual,
-        } = user.uncommitted_events()[1].payload()
-        else {
-            panic!("expected status manager unassigned payload");
-        };
-        assert_eq!(actual, &status_manager);
     }
 
     #[test]

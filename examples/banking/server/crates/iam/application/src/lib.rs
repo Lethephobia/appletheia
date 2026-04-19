@@ -20,7 +20,6 @@ pub use authorization::{
     OrganizationMembershipStatusManagerRelation, OrganizationOwnerRelation,
     OrganizationRemoverRelation, OrganizationRenamerRelation, UserActivatorRelation,
     UserDeactivatorRelation, UserOwnerRelation, UserProfileEditorRelation, UserRemoverRelation,
-    UserStatusManagerRelation,
 };
 pub use command::{
     LogoutAllSessionsCommand, LogoutAllSessionsCommandHandler, LogoutAllSessionsOutput,
@@ -82,8 +81,6 @@ pub use projection::{
     OrganizationOwnerRelationshipProjector, OrganizationOwnerRelationshipProjectorError,
     OrganizationOwnerRelationshipProjectorSpec, UserOwnerRelationshipProjector,
     UserOwnerRelationshipProjectorError, UserOwnerRelationshipProjectorSpec,
-    UserStatusManagerRelationshipProjector, UserStatusManagerRelationshipProjectorError,
-    UserStatusManagerRelationshipProjectorSpec,
 };
 pub use saga::{
     OrganizationInvitationAcceptedSaga, OrganizationInvitationAcceptedSagaError,
