@@ -9,10 +9,7 @@ pub struct UserProfileEditorRelation;
 impl Relation for UserProfileEditorRelation {
     const REF: RelationRef = RelationRef::new(User::TYPE, RelationName::new("profile_editor"));
 
-    const EXPR: UsersetExpr = UsersetExpr::Union(&[
-        UsersetExpr::This,
-        UsersetExpr::ComputedUserset {
-            relation: UserOwnerRelation::REF,
-        },
-    ]);
+    const EXPR: UsersetExpr = UsersetExpr::ComputedUserset {
+        relation: UserOwnerRelation::REF,
+    };
 }

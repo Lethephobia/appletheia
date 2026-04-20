@@ -11,7 +11,6 @@ impl Relation for AccountCloserRelation {
     const REF: RelationRef = RelationRef::new(Account::TYPE, RelationName::new("closer"));
 
     const EXPR: UsersetExpr = UsersetExpr::Union(&[
-        UsersetExpr::This,
         UsersetExpr::ComputedUserset {
             relation: AccountOwnerRelation::REF,
         },

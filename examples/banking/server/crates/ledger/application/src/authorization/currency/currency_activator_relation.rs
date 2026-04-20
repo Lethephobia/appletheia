@@ -9,10 +9,7 @@ pub struct CurrencyActivatorRelation;
 impl Relation for CurrencyActivatorRelation {
     const REF: RelationRef = RelationRef::new(Currency::TYPE, RelationName::new("activator"));
 
-    const EXPR: UsersetExpr = UsersetExpr::Union(&[
-        UsersetExpr::This,
-        UsersetExpr::ComputedUserset {
-            relation: CurrencyStatusManagerRelation::REF,
-        },
-    ]);
+    const EXPR: UsersetExpr = UsersetExpr::ComputedUserset {
+        relation: CurrencyStatusManagerRelation::REF,
+    };
 }

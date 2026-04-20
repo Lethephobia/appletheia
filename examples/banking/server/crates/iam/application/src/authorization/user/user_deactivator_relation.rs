@@ -9,10 +9,7 @@ pub struct UserDeactivatorRelation;
 impl Relation for UserDeactivatorRelation {
     const REF: RelationRef = RelationRef::new(User::TYPE, RelationName::new("deactivator"));
 
-    const EXPR: UsersetExpr = UsersetExpr::Union(&[
-        UsersetExpr::This,
-        UsersetExpr::ComputedUserset {
-            relation: UserOwnerRelation::REF,
-        },
-    ]);
+    const EXPR: UsersetExpr = UsersetExpr::ComputedUserset {
+        relation: UserOwnerRelation::REF,
+    };
 }

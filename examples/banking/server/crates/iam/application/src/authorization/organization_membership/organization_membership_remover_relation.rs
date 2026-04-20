@@ -10,10 +10,7 @@ impl Relation for OrganizationMembershipRemoverRelation {
     const REF: RelationRef =
         RelationRef::new(OrganizationMembership::TYPE, RelationName::new("remover"));
 
-    const EXPR: UsersetExpr = UsersetExpr::Union(&[
-        UsersetExpr::This,
-        UsersetExpr::ComputedUserset {
-            relation: OrganizationMembershipStatusManagerRelation::REF,
-        },
-    ]);
+    const EXPR: UsersetExpr = UsersetExpr::ComputedUserset {
+        relation: OrganizationMembershipStatusManagerRelation::REF,
+    };
 }

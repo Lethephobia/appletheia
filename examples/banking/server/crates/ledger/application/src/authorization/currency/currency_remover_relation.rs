@@ -9,10 +9,7 @@ pub struct CurrencyRemoverRelation;
 impl Relation for CurrencyRemoverRelation {
     const REF: RelationRef = RelationRef::new(Currency::TYPE, RelationName::new("remover"));
 
-    const EXPR: UsersetExpr = UsersetExpr::Union(&[
-        UsersetExpr::This,
-        UsersetExpr::ComputedUserset {
-            relation: CurrencyStatusManagerRelation::REF,
-        },
-    ]);
+    const EXPR: UsersetExpr = UsersetExpr::ComputedUserset {
+        relation: CurrencyStatusManagerRelation::REF,
+    };
 }

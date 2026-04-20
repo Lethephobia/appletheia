@@ -12,7 +12,6 @@ impl Relation for AccountTransferRequesterRelation {
         RelationRef::new(Account::TYPE, RelationName::new("transfer_requester"));
 
     const EXPR: UsersetExpr = UsersetExpr::Union(&[
-        UsersetExpr::This,
         UsersetExpr::ComputedUserset {
             relation: AccountOwnerRelation::REF,
         },

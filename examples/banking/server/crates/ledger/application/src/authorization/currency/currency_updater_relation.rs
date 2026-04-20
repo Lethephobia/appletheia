@@ -11,7 +11,6 @@ impl Relation for CurrencyUpdaterRelation {
     const REF: RelationRef = RelationRef::new(Currency::TYPE, RelationName::new("updater"));
 
     const EXPR: UsersetExpr = UsersetExpr::Union(&[
-        UsersetExpr::This,
         UsersetExpr::ComputedUserset {
             relation: CurrencyOwnerRelation::REF,
         },

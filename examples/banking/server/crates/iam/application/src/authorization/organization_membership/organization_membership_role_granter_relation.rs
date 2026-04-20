@@ -12,10 +12,7 @@ impl Relation for OrganizationMembershipRoleGranterRelation {
         RelationName::new("role_granter"),
     );
 
-    const EXPR: UsersetExpr = UsersetExpr::Union(&[
-        UsersetExpr::This,
-        UsersetExpr::ComputedUserset {
-            relation: OrganizationMembershipRoleManagerRelation::REF,
-        },
-    ]);
+    const EXPR: UsersetExpr = UsersetExpr::ComputedUserset {
+        relation: OrganizationMembershipRoleManagerRelation::REF,
+    };
 }

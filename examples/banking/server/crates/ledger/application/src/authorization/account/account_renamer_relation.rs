@@ -11,7 +11,6 @@ impl Relation for AccountRenamerRelation {
     const REF: RelationRef = RelationRef::new(Account::TYPE, RelationName::new("renamer"));
 
     const EXPR: UsersetExpr = UsersetExpr::Union(&[
-        UsersetExpr::This,
         UsersetExpr::ComputedUserset {
             relation: AccountOwnerRelation::REF,
         },

@@ -9,10 +9,7 @@ pub struct OrganizationRemoverRelation;
 impl Relation for OrganizationRemoverRelation {
     const REF: RelationRef = RelationRef::new(Organization::TYPE, RelationName::new("remover"));
 
-    const EXPR: UsersetExpr = UsersetExpr::Union(&[
-        UsersetExpr::This,
-        UsersetExpr::ComputedUserset {
-            relation: OrganizationAdminRelation::REF,
-        },
-    ]);
+    const EXPR: UsersetExpr = UsersetExpr::ComputedUserset {
+        relation: OrganizationAdminRelation::REF,
+    };
 }

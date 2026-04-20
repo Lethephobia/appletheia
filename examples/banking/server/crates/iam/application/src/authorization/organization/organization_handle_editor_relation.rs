@@ -10,10 +10,7 @@ impl Relation for OrganizationHandleEditorRelation {
     const REF: RelationRef =
         RelationRef::new(Organization::TYPE, RelationName::new("handle_editor"));
 
-    const EXPR: UsersetExpr = UsersetExpr::Union(&[
-        UsersetExpr::This,
-        UsersetExpr::ComputedUserset {
-            relation: OrganizationAdminRelation::REF,
-        },
-    ]);
+    const EXPR: UsersetExpr = UsersetExpr::ComputedUserset {
+        relation: OrganizationAdminRelation::REF,
+    };
 }
