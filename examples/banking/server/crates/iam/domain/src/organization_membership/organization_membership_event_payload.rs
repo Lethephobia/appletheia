@@ -172,6 +172,9 @@ mod tests {
         let value = payload.into_json_value().expect("payload should serialize");
 
         assert_eq!(value["type"], serde_json::json!("role_granted"));
-        assert_eq!(value["data"]["role"], serde_json::json!("finance_manager"));
+        assert_eq!(
+            value["data"]["role"],
+            serde_json::json!({ "type": "finance_manager" })
+        );
     }
 }
