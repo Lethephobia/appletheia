@@ -3,12 +3,12 @@ use appletheia::domain::Aggregate;
 
 use super::{Organization, OrganizationOwnerRelation};
 
-/// Allows organization owners to close organization-owned accounts.
-pub struct OrganizationAccountCloserRelation;
+/// Allows elevated organization administrators and the owner.
+pub struct OrganizationAdminRelation;
 
-impl Relation for OrganizationAccountCloserRelation {
+impl Relation for OrganizationAdminRelation {
     const REF: RelationRef =
-        RelationRef::new(Organization::TYPE, RelationName::new("account_closer"));
+        RelationRef::new(Organization::TYPE, RelationName::new("organization_admin"));
 
     const EXPR: UsersetExpr = UsersetExpr::Union(&[
         UsersetExpr::This,

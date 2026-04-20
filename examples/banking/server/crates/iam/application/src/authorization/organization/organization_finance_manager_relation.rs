@@ -3,12 +3,12 @@ use appletheia::domain::Aggregate;
 
 use super::{Organization, OrganizationOwnerRelation};
 
-/// Allows organization owners to update organization-owned currencies.
-pub struct OrganizationCurrencyUpdaterRelation;
+/// Allows elevated finance managers and the owner.
+pub struct OrganizationFinanceManagerRelation;
 
-impl Relation for OrganizationCurrencyUpdaterRelation {
+impl Relation for OrganizationFinanceManagerRelation {
     const REF: RelationRef =
-        RelationRef::new(Organization::TYPE, RelationName::new("currency_updater"));
+        RelationRef::new(Organization::TYPE, RelationName::new("finance_manager"));
 
     const EXPR: UsersetExpr = UsersetExpr::Union(&[
         UsersetExpr::This,

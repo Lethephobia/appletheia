@@ -12,7 +12,9 @@ use banking_iam_domain::{
 };
 
 use crate::authorization::OrganizationInviterRelation;
-use crate::projection::OrganizationOwnerRelationshipProjectorSpec;
+use crate::projection::{
+    OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
+};
 
 use super::{
     OrganizationInvitationIssueCommand, OrganizationInvitationIssueCommandHandlerError,
@@ -110,6 +112,7 @@ where
                 ),
                 projector_dependencies: ProjectorDependencies::Some(&[
                     OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
+                    OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
                 ]),
             },
         ]))

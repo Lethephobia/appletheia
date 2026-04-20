@@ -11,7 +11,9 @@ use super::{
     OrganizationRemoveCommand, OrganizationRemoveCommandHandlerError, OrganizationRemoveOutput,
 };
 use crate::authorization::OrganizationRemoverRelation;
-use crate::projection::OrganizationOwnerRelationshipProjectorSpec;
+use crate::projection::{
+    OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
+};
 
 /// Handles `OrganizationRemoveCommand`.
 pub struct OrganizationRemoveCommandHandler<OR>
@@ -54,6 +56,7 @@ where
                 ),
                 projector_dependencies: ProjectorDependencies::Some(&[
                     OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
+                    OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
                 ]),
             },
         ]))
@@ -112,7 +115,9 @@ mod tests {
         OrganizationRemoveCommand, OrganizationRemoveCommandHandler, OrganizationRemoveOutput,
     };
     use crate::authorization::OrganizationRemoverRelation;
-    use crate::projection::OrganizationOwnerRelationshipProjectorSpec;
+    use crate::projection::{
+        OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
+    };
 
     #[derive(Default)]
     struct TestUow;
@@ -227,6 +232,7 @@ mod tests {
                     ),
                     projector_dependencies: ProjectorDependencies::Some(&[
                         OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
+                        OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
                     ]),
                 },
             ])

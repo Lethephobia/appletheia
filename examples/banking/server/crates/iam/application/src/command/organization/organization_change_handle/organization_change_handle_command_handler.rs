@@ -12,7 +12,9 @@ use super::{
     OrganizationChangeHandleOutput,
 };
 use crate::authorization::OrganizationHandleEditorRelation;
-use crate::projection::OrganizationOwnerRelationshipProjectorSpec;
+use crate::projection::{
+    OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
+};
 
 /// Handles `OrganizationChangeHandleCommand`.
 pub struct OrganizationChangeHandleCommandHandler<OR>
@@ -55,6 +57,7 @@ where
                 ),
                 projector_dependencies: ProjectorDependencies::Some(&[
                     OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
+                    OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
                 ]),
             },
         ]))
@@ -114,7 +117,9 @@ mod tests {
         OrganizationChangeHandleOutput,
     };
     use crate::authorization::OrganizationHandleEditorRelation;
-    use crate::projection::OrganizationOwnerRelationshipProjectorSpec;
+    use crate::projection::{
+        OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
+    };
 
     #[derive(Default)]
     struct TestUow;
@@ -233,6 +238,7 @@ mod tests {
                     ),
                     projector_dependencies: ProjectorDependencies::Some(&[
                         OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
+                        OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
                     ]),
                 },
             ])

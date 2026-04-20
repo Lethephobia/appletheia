@@ -7,10 +7,11 @@ use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use appletheia::domain::Aggregate;
 use banking_iam_application::authorization::{
-    OrganizationCurrencyDefinerRelation, UserOwnerRelation,
+    OrganizationFinanceManagerRelation, UserOwnerRelation,
 };
 use banking_iam_application::{
-    OrganizationOwnerRelationshipProjectorSpec, UserOwnerRelationshipProjectorSpec,
+    OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
+    UserOwnerRelationshipProjectorSpec,
 };
 use banking_iam_domain::{Organization, User};
 use banking_ledger_domain::currency::{Currency, CurrencyOwner};
@@ -67,10 +68,11 @@ where
                     PrincipalRequirement::AuthenticatedWithRelationship {
                         requirement: RelationshipRequirement::check::<Organization>(
                             organization_id,
-                            OrganizationCurrencyDefinerRelation::REF,
+                            OrganizationFinanceManagerRelation::REF,
                         ),
                         projector_dependencies: ProjectorDependencies::Some(&[
                             OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
+                            OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
                         ]),
                     },
                 ]))
@@ -122,10 +124,11 @@ mod tests {
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::Aggregate;
     use banking_iam_application::authorization::{
-        OrganizationCurrencyDefinerRelation, UserOwnerRelation,
+        OrganizationFinanceManagerRelation, UserOwnerRelation,
     };
     use banking_iam_application::{
-        OrganizationOwnerRelationshipProjectorSpec, UserOwnerRelationshipProjectorSpec,
+        OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
+        UserOwnerRelationshipProjectorSpec,
     };
     use banking_iam_domain::{Organization, OrganizationId, User, UserId};
     use banking_ledger_domain::currency::{
@@ -269,10 +272,11 @@ mod tests {
                 PrincipalRequirement::AuthenticatedWithRelationship {
                     requirement: RelationshipRequirement::check::<Organization>(
                         organization_id,
-                        OrganizationCurrencyDefinerRelation::REF,
+                        OrganizationFinanceManagerRelation::REF,
                     ),
                     projector_dependencies: ProjectorDependencies::Some(&[
                         OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
+                        OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
                     ]),
                 },
             ])

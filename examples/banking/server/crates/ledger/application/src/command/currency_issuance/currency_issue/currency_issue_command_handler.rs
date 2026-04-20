@@ -6,7 +6,9 @@ use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use appletheia::domain::Aggregate;
-use banking_iam_application::OrganizationOwnerRelationshipProjectorSpec;
+use banking_iam_application::{
+    OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
+};
 use banking_ledger_domain::account::Account;
 use banking_ledger_domain::currency::Currency;
 use banking_ledger_domain::currency_issuance::CurrencyIssuance;
@@ -71,6 +73,7 @@ where
                 projector_dependencies: ProjectorDependencies::Some(&[
                     CurrencyOwnerRelationshipProjectorSpec::DESCRIPTOR,
                     OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
+                    OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
                 ]),
             },
         ]))

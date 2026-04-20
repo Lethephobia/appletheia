@@ -50,6 +50,7 @@ where
                 | OrganizationMembershipEventPayload::Activated {
                     organization_id,
                     user_id,
+                    ..
                 } => {
                     self.relationship_store
                         .apply_changes(
@@ -85,6 +86,8 @@ where
                         )
                         .await?;
                 }
+                OrganizationMembershipEventPayload::RoleGranted { .. }
+                | OrganizationMembershipEventPayload::RoleRevoked { .. } => {}
             }
         }
 

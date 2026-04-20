@@ -7,10 +7,11 @@ use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use appletheia::domain::Aggregate;
 use banking_iam_application::authorization::{
-    OrganizationAccountOpenerRelation, UserOwnerRelation,
+    OrganizationFinanceManagerRelation, UserOwnerRelation,
 };
 use banking_iam_application::{
-    OrganizationOwnerRelationshipProjectorSpec, UserOwnerRelationshipProjectorSpec,
+    OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
+    UserOwnerRelationshipProjectorSpec,
 };
 use banking_iam_domain::{Organization, User};
 use banking_ledger_domain::account::{Account, AccountOwner};
@@ -67,10 +68,11 @@ where
                     PrincipalRequirement::AuthenticatedWithRelationship {
                         requirement: RelationshipRequirement::check::<Organization>(
                             organization_id,
-                            OrganizationAccountOpenerRelation::REF,
+                            OrganizationFinanceManagerRelation::REF,
                         ),
                         projector_dependencies: ProjectorDependencies::Some(&[
                             OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
+                            OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
                         ]),
                     },
                 ]))
@@ -115,10 +117,11 @@ mod tests {
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::Aggregate;
     use banking_iam_application::authorization::{
-        OrganizationAccountOpenerRelation, UserOwnerRelation,
+        OrganizationFinanceManagerRelation, UserOwnerRelation,
     };
     use banking_iam_application::{
-        OrganizationOwnerRelationshipProjectorSpec, UserOwnerRelationshipProjectorSpec,
+        OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
+        UserOwnerRelationshipProjectorSpec,
     };
     use banking_iam_domain::{Organization, OrganizationId, User, UserId};
     use banking_ledger_domain::account::{Account, AccountId, AccountName, AccountOwner};
@@ -263,10 +266,11 @@ mod tests {
                             .organization_id()
                             .copied()
                             .expect("organization owner expected"),
-                        OrganizationAccountOpenerRelation::REF
+                        OrganizationFinanceManagerRelation::REF
                     ),
                     projector_dependencies: ProjectorDependencies::Some(&[
                         OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
+                        OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
                     ]),
                 },
             ])

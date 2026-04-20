@@ -10,7 +10,7 @@ use banking_iam_domain::{Organization, OrganizationInvitation};
 use crate::authorization::OrganizationInvitationCancelerRelation;
 use crate::projection::{
     OrganizationInvitationOrganizationRelationshipProjectorSpec,
-    OrganizationOwnerRelationshipProjectorSpec,
+    OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
 };
 
 use super::{
@@ -65,6 +65,7 @@ where
                 projector_dependencies: ProjectorDependencies::Some(&[
                     OrganizationInvitationOrganizationRelationshipProjectorSpec::DESCRIPTOR,
                     OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
+                    OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
                 ]),
             },
         ]))

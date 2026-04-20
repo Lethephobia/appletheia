@@ -5,7 +5,9 @@ use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_iam_application::OrganizationOwnerRelationshipProjectorSpec;
+use banking_iam_application::{
+    OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
+};
 use banking_ledger_domain::account::Account;
 
 use super::{AccountThawCommand, AccountThawCommandHandlerError, AccountThawOutput};
@@ -53,6 +55,7 @@ where
                 projector_dependencies: ProjectorDependencies::Some(&[
                     AccountOwnerRelationshipProjectorSpec::DESCRIPTOR,
                     OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
+                    OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
                 ]),
             },
         ]))

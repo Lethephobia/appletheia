@@ -7,7 +7,9 @@ use appletheia::application::projection::ProjectorSpec;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use appletheia::domain::Aggregate;
-use banking_iam_application::OrganizationOwnerRelationshipProjectorSpec;
+use banking_iam_application::{
+    OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
+};
 use banking_ledger_domain::account::Account;
 use banking_ledger_domain::transfer::Transfer;
 
@@ -63,6 +65,7 @@ where
                 projector_dependencies: ProjectorDependencies::Some(&[
                     AccountOwnerRelationshipProjectorSpec::DESCRIPTOR,
                     OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
+                    OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
                 ]),
             },
         ]))
@@ -131,7 +134,9 @@ mod tests {
     };
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::{Aggregate, AggregateVersion, UniqueKey, UniqueValue};
-    use banking_iam_application::OrganizationOwnerRelationshipProjectorSpec;
+    use banking_iam_application::{
+        OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
+    };
     use banking_iam_domain::{User, UserId};
     use banking_ledger_domain::account::{Account, AccountId, AccountName, AccountOwner};
     use banking_ledger_domain::core::CurrencyAmount;
@@ -318,6 +323,7 @@ mod tests {
                     projector_dependencies: ProjectorDependencies::Some(&[
                         AccountOwnerRelationshipProjectorSpec::DESCRIPTOR,
                         OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
+                        OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
                     ]),
                 },
             ])

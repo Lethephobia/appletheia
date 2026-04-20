@@ -90,6 +90,8 @@ where
                 }
                 OrganizationMembershipEventPayload::Activated { .. } => return Ok(()),
                 OrganizationMembershipEventPayload::Inactivated { .. } => return Ok(()),
+                OrganizationMembershipEventPayload::RoleGranted { .. }
+                | OrganizationMembershipEventPayload::RoleRevoked { .. } => return Ok(()),
             }
         }
 

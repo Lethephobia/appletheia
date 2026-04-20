@@ -1,6 +1,6 @@
 use appletheia::application::authorization::{Relation, RelationName, RelationRef, UsersetExpr};
 use appletheia::domain::Aggregate;
-use banking_iam_application::OrganizationAccountTransferRequesterRelation;
+use banking_iam_application::OrganizationTreasurerRelation;
 
 use super::{Account, AccountOwnerRelation};
 
@@ -18,7 +18,7 @@ impl Relation for AccountTransferRequesterRelation {
         },
         UsersetExpr::TupleToUserset {
             tupleset_relation: AccountOwnerRelation::REF,
-            computed_userset: OrganizationAccountTransferRequesterRelation::REF,
+            computed_userset: OrganizationTreasurerRelation::REF,
         },
     ]);
 }

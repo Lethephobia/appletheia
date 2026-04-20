@@ -2,7 +2,7 @@ use appletheia::aggregate_state;
 use appletheia::domain::{AggregateId, UniqueValue, UniqueValuePart, UniqueValues};
 use appletheia::unique_constraints;
 
-use crate::{OrganizationId, UserId};
+use crate::{OrganizationId, OrganizationRoles, UserId};
 
 use super::{
     OrganizationMembershipId, OrganizationMembershipStateError, OrganizationMembershipStatus,
@@ -16,6 +16,7 @@ pub struct OrganizationMembershipState {
     pub(super) status: OrganizationMembershipStatus,
     pub(super) organization_id: OrganizationId,
     pub(super) user_id: UserId,
+    pub(super) roles: OrganizationRoles,
 }
 
 impl OrganizationMembershipState {
@@ -24,12 +25,14 @@ impl OrganizationMembershipState {
         id: OrganizationMembershipId,
         organization_id: OrganizationId,
         user_id: UserId,
+        roles: OrganizationRoles,
     ) -> Self {
         Self {
             id,
             status: OrganizationMembershipStatus::Active,
             organization_id,
             user_id,
+            roles,
         }
     }
 }
@@ -55,7 +58,7 @@ fn organization_user_values(
 mod tests {
     use appletheia::domain::{AggregateState, UniqueConstraints, UniqueValues};
 
-    use crate::{OrganizationId, UserId};
+    use crate::{OrganizationId, OrganizationRole, OrganizationRoles, UserId};
 
     use super::{
         OrganizationMembershipId, OrganizationMembershipState, OrganizationMembershipStatus,
@@ -64,9 +67,16 @@ mod tests {
     #[test]
     fn exposes_id_via_aggregate_state_trait() {
         let id = OrganizationMembershipId::new();
-        let state = OrganizationMembershipState::new(id, OrganizationId::new(), UserId::new());
+        let roles = OrganizationRoles::from([OrganizationRole::FinanceManager]);
+        let state = OrganizationMembershipState::new(
+            id,
+            OrganizationId::new(),
+            UserId::new(),
+            roles.clone(),
+        );
 
         assert_eq!(state.id(), id);
+        assert_eq!(state.roles, roles);
     }
 
     #[test]
@@ -75,6 +85,7 @@ mod tests {
             OrganizationMembershipId::new(),
             OrganizationId::new(),
             UserId::new(),
+            OrganizationRoles::default(),
         );
 
         let entries = state.unique_entries().expect("unique entries should build");
@@ -93,6 +104,7 @@ mod tests {
             OrganizationMembershipId::new(),
             OrganizationId::new(),
             UserId::new(),
+            OrganizationRoles::default(),
         );
         state.status = OrganizationMembershipStatus::Removed;
 

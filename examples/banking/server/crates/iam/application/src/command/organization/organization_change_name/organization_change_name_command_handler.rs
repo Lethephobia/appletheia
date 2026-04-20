@@ -12,7 +12,9 @@ use super::{
     OrganizationChangeNameOutput,
 };
 use crate::authorization::OrganizationRenamerRelation;
-use crate::projection::OrganizationOwnerRelationshipProjectorSpec;
+use crate::projection::{
+    OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
+};
 
 /// Handles `OrganizationChangeNameCommand`.
 pub struct OrganizationChangeNameCommandHandler<OR>
@@ -55,6 +57,7 @@ where
                 ),
                 projector_dependencies: ProjectorDependencies::Some(&[
                     OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
+                    OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
                 ]),
             },
         ]))
@@ -114,7 +117,9 @@ mod tests {
         OrganizationChangeNameOutput,
     };
     use crate::authorization::OrganizationRenamerRelation;
-    use crate::projection::OrganizationOwnerRelationshipProjectorSpec;
+    use crate::projection::{
+        OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
+    };
 
     #[derive(Default)]
     struct TestUow;
@@ -232,6 +237,7 @@ mod tests {
                     ),
                     projector_dependencies: ProjectorDependencies::Some(&[
                         OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
+                        OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
                     ]),
                 },
             ])

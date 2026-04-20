@@ -5,7 +5,9 @@ use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_iam_application::OrganizationOwnerRelationshipProjectorSpec;
+use banking_iam_application::{
+    OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
+};
 use banking_ledger_domain::currency::Currency;
 
 use super::{CurrencyUpdateCommand, CurrencyUpdateCommandHandlerError, CurrencyUpdateOutput};
@@ -54,6 +56,7 @@ where
                 projector_dependencies: ProjectorDependencies::Some(&[
                     CurrencyOwnerRelationshipProjectorSpec::DESCRIPTOR,
                     OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
+                    OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
                 ]),
             },
         ]))
@@ -104,7 +107,9 @@ mod tests {
     };
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::Aggregate;
-    use banking_iam_application::OrganizationOwnerRelationshipProjectorSpec;
+    use banking_iam_application::{
+        OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
+    };
     use banking_iam_domain::UserId;
     use banking_ledger_domain::currency::{
         Currency, CurrencyDecimals, CurrencyId, CurrencyName, CurrencyOwner, CurrencySymbol,
@@ -235,6 +240,7 @@ mod tests {
                     projector_dependencies: ProjectorDependencies::Some(&[
                         CurrencyOwnerRelationshipProjectorSpec::DESCRIPTOR,
                         OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
+                        OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
                     ]),
                 },
             ])

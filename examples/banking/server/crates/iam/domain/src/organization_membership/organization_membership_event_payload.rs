@@ -1,6 +1,6 @@
 use appletheia::event_payload;
 
-use crate::{OrganizationId, UserId};
+use crate::{OrganizationId, OrganizationRole, OrganizationRoles, UserId};
 
 use super::{OrganizationMembershipEventPayloadError, OrganizationMembershipId};
 
@@ -15,6 +15,7 @@ pub enum OrganizationMembershipEventPayload {
     Activated {
         organization_id: OrganizationId,
         user_id: UserId,
+        roles: OrganizationRoles,
     },
     Inactivated {
         organization_id: OrganizationId,
@@ -24,6 +25,16 @@ pub enum OrganizationMembershipEventPayload {
         organization_id: OrganizationId,
         user_id: UserId,
     },
+    RoleGranted {
+        organization_id: OrganizationId,
+        user_id: UserId,
+        role: OrganizationRole,
+    },
+    RoleRevoked {
+        organization_id: OrganizationId,
+        user_id: UserId,
+        role: OrganizationRole,
+    },
 }
 
 #[cfg(test)]
@@ -31,7 +42,7 @@ mod tests {
     use appletheia::domain::EventPayload;
 
     use super::{OrganizationMembershipEventPayload, OrganizationMembershipId};
-    use crate::{OrganizationId, UserId};
+    use crate::{OrganizationId, OrganizationRole, OrganizationRoles, UserId};
 
     #[test]
     fn returns_stable_event_names() {
@@ -51,6 +62,14 @@ mod tests {
             OrganizationMembershipEventPayload::REMOVED,
             appletheia::domain::EventName::new("removed")
         );
+        assert_eq!(
+            OrganizationMembershipEventPayload::ROLE_GRANTED,
+            appletheia::domain::EventName::new("role_granted")
+        );
+        assert_eq!(
+            OrganizationMembershipEventPayload::ROLE_REVOKED,
+            appletheia::domain::EventName::new("role_revoked")
+        );
     }
 
     #[test]
@@ -69,6 +88,7 @@ mod tests {
         let payload = OrganizationMembershipEventPayload::Activated {
             organization_id: OrganizationId::new(),
             user_id: UserId::new(),
+            roles: OrganizationRoles::default(),
         };
 
         assert_eq!(
@@ -101,6 +121,34 @@ mod tests {
     }
 
     #[test]
+    fn role_granted_payload_name_matches_variant() {
+        let payload = OrganizationMembershipEventPayload::RoleGranted {
+            organization_id: OrganizationId::new(),
+            user_id: UserId::new(),
+            role: OrganizationRole::Admin,
+        };
+
+        assert_eq!(
+            payload.name(),
+            OrganizationMembershipEventPayload::ROLE_GRANTED
+        );
+    }
+
+    #[test]
+    fn role_revoked_payload_name_matches_variant() {
+        let payload = OrganizationMembershipEventPayload::RoleRevoked {
+            organization_id: OrganizationId::new(),
+            user_id: UserId::new(),
+            role: OrganizationRole::Admin,
+        };
+
+        assert_eq!(
+            payload.name(),
+            OrganizationMembershipEventPayload::ROLE_REVOKED
+        );
+    }
+
+    #[test]
     fn serializes_payload_to_json() {
         let payload = OrganizationMembershipEventPayload::Created {
             id: OrganizationMembershipId::new(),
@@ -111,5 +159,19 @@ mod tests {
         let value = payload.into_json_value().expect("payload should serialize");
 
         assert_eq!(value["type"], serde_json::json!("created"));
+    }
+
+    #[test]
+    fn serializes_role_granted_payload_to_json() {
+        let payload = OrganizationMembershipEventPayload::RoleGranted {
+            organization_id: OrganizationId::new(),
+            user_id: UserId::new(),
+            role: OrganizationRole::FinanceManager,
+        };
+
+        let value = payload.into_json_value().expect("payload should serialize");
+
+        assert_eq!(value["type"], serde_json::json!("role_granted"));
+        assert_eq!(value["data"]["role"], serde_json::json!("finance_manager"));
     }
 }

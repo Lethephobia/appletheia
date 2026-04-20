@@ -5,7 +5,9 @@ use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_iam_application::OrganizationOwnerRelationshipProjectorSpec;
+use banking_iam_application::{
+    OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
+};
 use banking_ledger_domain::currency::Currency;
 
 use super::{CurrencyRemoveCommand, CurrencyRemoveCommandHandlerError, CurrencyRemoveOutput};
@@ -54,6 +56,7 @@ where
                 projector_dependencies: ProjectorDependencies::Some(&[
                     CurrencyOwnerRelationshipProjectorSpec::DESCRIPTOR,
                     OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
+                    OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
                 ]),
             },
         ]))

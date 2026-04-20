@@ -12,7 +12,10 @@ use super::{
     OrganizationMembershipActivateOutput,
 };
 use crate::authorization::OrganizationMembershipActivatorRelation;
-use crate::projection::OrganizationMembershipOrganizationRelationshipProjectorSpec;
+use crate::projection::{
+    OrganizationMembershipOrganizationRelationshipProjectorSpec,
+    OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
+};
 
 /// Handles `OrganizationMembershipActivateCommand`.
 pub struct OrganizationMembershipActivateCommandHandler<ORG, MR>
@@ -61,6 +64,8 @@ where
                 ),
                 projector_dependencies: ProjectorDependencies::Some(&[
                     OrganizationMembershipOrganizationRelationshipProjectorSpec::DESCRIPTOR,
+                    OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
+                    OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
                 ]),
             },
         ]))

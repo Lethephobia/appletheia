@@ -3,14 +3,11 @@ use appletheia::domain::Aggregate;
 
 use super::{Organization, OrganizationOwnerRelation};
 
-/// Allows organization owners to manage organization account status.
-pub struct OrganizationAccountStatusManagerRelation;
+/// Allows elevated treasurers and the owner.
+pub struct OrganizationTreasurerRelation;
 
-impl Relation for OrganizationAccountStatusManagerRelation {
-    const REF: RelationRef = RelationRef::new(
-        Organization::TYPE,
-        RelationName::new("account_status_manager"),
-    );
+impl Relation for OrganizationTreasurerRelation {
+    const REF: RelationRef = RelationRef::new(Organization::TYPE, RelationName::new("treasurer"));
 
     const EXPR: UsersetExpr = UsersetExpr::Union(&[
         UsersetExpr::This,

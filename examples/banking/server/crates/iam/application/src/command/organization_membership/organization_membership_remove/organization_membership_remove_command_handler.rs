@@ -12,7 +12,10 @@ use super::{
     OrganizationMembershipRemoveOutput,
 };
 use crate::authorization::OrganizationMembershipRemoverRelation;
-use crate::projection::OrganizationMembershipOrganizationRelationshipProjectorSpec;
+use crate::projection::{
+    OrganizationMembershipOrganizationRelationshipProjectorSpec,
+    OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
+};
 
 /// Handles `OrganizationMembershipRemoveCommand`.
 pub struct OrganizationMembershipRemoveCommandHandler<ORG, MR>
@@ -61,6 +64,8 @@ where
                 ),
                 projector_dependencies: ProjectorDependencies::Some(&[
                     OrganizationMembershipOrganizationRelationshipProjectorSpec::DESCRIPTOR,
+                    OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
+                    OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
                 ]),
             },
         ]))
