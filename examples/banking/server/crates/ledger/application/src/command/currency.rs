@@ -3,6 +3,7 @@ mod currency_deactivate;
 mod currency_decrease_supply;
 mod currency_define;
 mod currency_increase_supply;
+mod currency_ownership_transfer;
 mod currency_remove;
 mod currency_update;
 
@@ -25,6 +26,10 @@ pub use currency_define::{
 pub use currency_increase_supply::{
     CurrencyIncreaseSupplyCommand, CurrencyIncreaseSupplyCommandHandler,
     CurrencyIncreaseSupplyCommandHandlerError, CurrencyIncreaseSupplyOutput,
+};
+pub use currency_ownership_transfer::{
+    CurrencyOwnershipTransferCommand, CurrencyOwnershipTransferCommandHandler,
+    CurrencyOwnershipTransferCommandHandlerError, CurrencyOwnershipTransferOutput,
 };
 pub use currency_remove::{
     CurrencyRemoveCommand, CurrencyRemoveCommandHandler, CurrencyRemoveCommandHandlerError,

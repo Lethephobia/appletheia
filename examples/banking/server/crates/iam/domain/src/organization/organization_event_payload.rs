@@ -12,6 +12,9 @@ pub enum OrganizationEventPayload {
         handle: OrganizationHandle,
         name: OrganizationName,
     },
+    OwnershipTransferred {
+        owner: OrganizationOwner,
+    },
     HandleChanged {
         handle: OrganizationHandle,
     },
@@ -35,6 +38,10 @@ mod tests {
         assert_eq!(
             OrganizationEventPayload::CREATED,
             appletheia::domain::EventName::new("created")
+        );
+        assert_eq!(
+            OrganizationEventPayload::OWNERSHIP_TRANSFERRED,
+            appletheia::domain::EventName::new("ownership_transferred")
         );
         assert_eq!(
             OrganizationEventPayload::HANDLE_CHANGED,
@@ -72,6 +79,18 @@ mod tests {
     }
 
     #[test]
+    fn ownership_transferred_payload_name_matches_variant() {
+        let payload = OrganizationEventPayload::OwnershipTransferred {
+            owner: OrganizationOwner::User(crate::UserId::new()),
+        };
+
+        assert_eq!(
+            payload.name(),
+            OrganizationEventPayload::OWNERSHIP_TRANSFERRED
+        );
+    }
+
+    #[test]
     fn name_changed_payload_name_matches_variant() {
         let payload = OrganizationEventPayload::NameChanged {
             name: OrganizationName::try_from("Acme Labs 2").expect("name should be valid"),
@@ -99,6 +118,18 @@ mod tests {
         let value = payload.into_json_value().expect("payload should serialize");
 
         assert_eq!(value["type"], serde_json::json!("created"));
+        assert_eq!(value["data"]["owner"]["type"], serde_json::json!("user"));
+    }
+
+    #[test]
+    fn serializes_ownership_transferred_payload_to_json() {
+        let payload = OrganizationEventPayload::OwnershipTransferred {
+            owner: OrganizationOwner::User(crate::UserId::new()),
+        };
+
+        let value = payload.into_json_value().expect("payload should serialize");
+
+        assert_eq!(value["type"], serde_json::json!("ownership_transferred"));
         assert_eq!(value["data"]["owner"]["type"], serde_json::json!("user"));
     }
 }

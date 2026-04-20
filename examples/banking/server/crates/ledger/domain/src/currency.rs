@@ -116,6 +116,17 @@ impl Currency {
         self.append_event(CurrencyEventPayload::NameChanged { name })
     }
 
+    /// Transfers ownership of the currency.
+    pub fn transfer_ownership(&mut self, owner: CurrencyOwner) -> Result<(), CurrencyError> {
+        self.ensure_not_removed()?;
+
+        if self.state_required()?.owner == owner {
+            return Ok(());
+        }
+
+        self.append_event(CurrencyEventPayload::OwnershipTransferred { owner })
+    }
+
     /// Activates the currency.
     pub fn activate(&mut self) -> Result<(), CurrencyError> {
         self.ensure_not_removed()?;
@@ -201,6 +212,9 @@ impl AggregateApply<CurrencyEventPayload, CurrencyError> for Currency {
                 let state =
                     CurrencyState::new(*id, *owner, symbol.clone(), name.clone(), *decimals);
                 self.set_state(Some(state));
+            }
+            CurrencyEventPayload::OwnershipTransferred { owner } => {
+                self.state_required_mut()?.owner = *owner;
             }
             CurrencyEventPayload::SymbolChanged { symbol } => {
                 self.state_required_mut()?.symbol = symbol.clone();
@@ -331,6 +345,26 @@ mod tests {
     }
 
     #[test]
+    fn transferring_to_same_owner_is_a_no_op() {
+        let owner = user_owner();
+        let mut currency = Currency::default();
+        currency
+            .define(
+                owner,
+                CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
+                CurrencyName::try_from("USD Coin").expect("name should be valid"),
+                CurrencyDecimals::new(6),
+            )
+            .expect("definition should succeed");
+
+        currency
+            .transfer_ownership(owner)
+            .expect("same owner transfer should succeed");
+
+        assert_eq!(currency.uncommitted_events().len(), 1);
+    }
+
+    #[test]
     fn change_methods_append_events_and_update_state() {
         let owner = user_owner();
         let initial_symbol = CurrencySymbol::try_from("usdc").expect("symbol should be valid");
@@ -367,6 +401,35 @@ mod tests {
         );
         assert!(!currency.is_active().expect("active state should exist"));
         assert_eq!(currency.uncommitted_events().len(), 4);
+    }
+
+    #[test]
+    fn transfer_ownership_updates_owner_and_records_event() {
+        let original_owner = user_owner();
+        let transferred_owner = organization_owner();
+        let mut currency = Currency::default();
+        currency
+            .define(
+                original_owner,
+                CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
+                CurrencyName::try_from("USD Coin").expect("name should be valid"),
+                CurrencyDecimals::new(6),
+            )
+            .expect("definition should succeed");
+
+        currency
+            .transfer_ownership(transferred_owner)
+            .expect("ownership transfer should succeed");
+
+        assert_eq!(
+            currency.owner().expect("owner should exist"),
+            transferred_owner
+        );
+        assert_eq!(currency.uncommitted_events().len(), 2);
+        assert_eq!(
+            currency.uncommitted_events()[1].payload().name(),
+            CurrencyEventPayload::OWNERSHIP_TRANSFERRED
+        );
     }
 
     #[test]

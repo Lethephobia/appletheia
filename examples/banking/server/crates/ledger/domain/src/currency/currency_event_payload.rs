@@ -17,6 +17,9 @@ pub enum CurrencyEventPayload {
         name: CurrencyName,
         decimals: CurrencyDecimals,
     },
+    OwnershipTransferred {
+        owner: CurrencyOwner,
+    },
     SymbolChanged {
         symbol: CurrencySymbol,
     },
@@ -47,6 +50,10 @@ mod tests {
         assert_eq!(
             CurrencyEventPayload::DEFINED,
             appletheia::domain::EventName::new("defined")
+        );
+        assert_eq!(
+            CurrencyEventPayload::OWNERSHIP_TRANSFERRED,
+            appletheia::domain::EventName::new("ownership_transferred")
         );
         assert_eq!(
             CurrencyEventPayload::SYMBOL_CHANGED,
@@ -98,6 +105,18 @@ mod tests {
         let value = payload.into_json_value().expect("payload should serialize");
 
         assert_eq!(value["type"], serde_json::json!("defined"));
+        assert_eq!(value["data"]["owner"]["type"], serde_json::json!("user"));
+    }
+
+    #[test]
+    fn serializes_ownership_transferred_payload_to_json() {
+        let payload = CurrencyEventPayload::OwnershipTransferred {
+            owner: CurrencyOwner::User(UserId::new()),
+        };
+
+        let value = payload.into_json_value().expect("payload should serialize");
+
+        assert_eq!(value["type"], serde_json::json!("ownership_transferred"));
         assert_eq!(value["data"]["owner"]["type"], serde_json::json!("user"));
     }
 }

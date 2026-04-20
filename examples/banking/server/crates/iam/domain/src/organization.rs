@@ -109,6 +109,20 @@ impl Organization {
         self.append_event(OrganizationEventPayload::NameChanged { name })
     }
 
+    /// Transfers ownership of the organization.
+    pub fn transfer_ownership(
+        &mut self,
+        owner: OrganizationOwner,
+    ) -> Result<(), OrganizationError> {
+        self.ensure_not_removed()?;
+
+        if self.state_required()?.owner == owner {
+            return Ok(());
+        }
+
+        self.append_event(OrganizationEventPayload::OwnershipTransferred { owner })
+    }
+
     /// Permanently removes the organization.
     pub fn remove(&mut self) -> Result<(), OrganizationError> {
         self.ensure_not_removed()?;
@@ -139,6 +153,9 @@ impl AggregateApply<OrganizationEventPayload, OrganizationError> for Organizatio
                 handle.clone(),
                 name.clone(),
             ))),
+            OrganizationEventPayload::OwnershipTransferred { owner } => {
+                self.state_required_mut()?.owner = *owner;
+            }
             OrganizationEventPayload::HandleChanged { handle } => {
                 self.state_required_mut()?.handle = handle.clone();
             }
@@ -247,6 +264,33 @@ mod tests {
     }
 
     #[test]
+    fn transfer_ownership_updates_owner_and_records_event() {
+        let mut organization = Organization::default();
+        organization
+            .create(
+                owner(),
+                OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
+                OrganizationName::try_from("Acme Labs").expect("name should be valid"),
+            )
+            .expect("first creation should succeed");
+        let transferred_owner = OrganizationOwner::User(crate::UserId::new());
+
+        organization
+            .transfer_ownership(transferred_owner)
+            .expect("ownership transfer should succeed");
+
+        assert_eq!(
+            organization.owner().expect("owner should exist"),
+            transferred_owner
+        );
+        assert_eq!(organization.uncommitted_events().len(), 2);
+        assert_eq!(
+            organization.uncommitted_events()[1].payload().name(),
+            OrganizationEventPayload::OWNERSHIP_TRANSFERRED
+        );
+    }
+
+    #[test]
     fn removing_organization_updates_status_and_records_event() {
         let mut organization = Organization::default();
         organization
@@ -329,6 +373,25 @@ mod tests {
         organization
             .change_handle(handle)
             .expect("idempotent change should succeed");
+
+        assert_eq!(organization.uncommitted_events().len(), 1);
+    }
+
+    #[test]
+    fn transferring_to_same_owner_is_a_no_op() {
+        let owner = owner();
+        let mut organization = Organization::default();
+        organization
+            .create(
+                owner,
+                OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
+                OrganizationName::try_from("Acme Labs").expect("name should be valid"),
+            )
+            .expect("first creation should succeed");
+
+        organization
+            .transfer_ownership(owner)
+            .expect("same owner transfer should succeed");
 
         assert_eq!(organization.uncommitted_events().len(), 1);
     }

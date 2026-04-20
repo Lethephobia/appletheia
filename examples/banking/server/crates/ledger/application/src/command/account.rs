@@ -3,6 +3,7 @@ mod account_commit_reserved_funds;
 mod account_deposit;
 mod account_freeze;
 mod account_open;
+mod account_ownership_transfer;
 mod account_release_reserved_funds;
 mod account_rename;
 mod account_reserve_funds;
@@ -19,6 +20,10 @@ pub use account_deposit::{
 };
 pub use account_freeze::{AccountFreezeCommand, AccountFreezeCommandHandler, AccountFreezeOutput};
 pub use account_open::{AccountOpenCommand, AccountOpenCommandHandler, AccountOpenOutput};
+pub use account_ownership_transfer::{
+    AccountOwnershipTransferCommand, AccountOwnershipTransferCommandHandler,
+    AccountOwnershipTransferOutput,
+};
 pub use account_release_reserved_funds::{
     AccountReleaseReservedFundsCommand, AccountReleaseReservedFundsCommandHandler,
     AccountReleaseReservedFundsOutput,

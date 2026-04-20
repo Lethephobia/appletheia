@@ -9,11 +9,13 @@ pub use account::{
     AccountCommitReservedFundsOutput, AccountDepositCommand, AccountDepositCommandHandler,
     AccountDepositOutput, AccountFreezeCommand, AccountFreezeCommandHandler, AccountFreezeOutput,
     AccountOpenCommand, AccountOpenCommandHandler, AccountOpenOutput,
-    AccountReleaseReservedFundsCommand, AccountReleaseReservedFundsCommandHandler,
-    AccountReleaseReservedFundsOutput, AccountRenameCommand, AccountRenameCommandHandler,
-    AccountRenameOutput, AccountReserveFundsCommand, AccountReserveFundsCommandHandler,
-    AccountReserveFundsOutput, AccountThawCommand, AccountThawCommandHandler, AccountThawOutput,
-    AccountWithdrawCommand, AccountWithdrawCommandHandler, AccountWithdrawOutput,
+    AccountOwnershipTransferCommand, AccountOwnershipTransferCommandHandler,
+    AccountOwnershipTransferOutput, AccountReleaseReservedFundsCommand,
+    AccountReleaseReservedFundsCommandHandler, AccountReleaseReservedFundsOutput,
+    AccountRenameCommand, AccountRenameCommandHandler, AccountRenameOutput,
+    AccountReserveFundsCommand, AccountReserveFundsCommandHandler, AccountReserveFundsOutput,
+    AccountThawCommand, AccountThawCommandHandler, AccountThawOutput, AccountWithdrawCommand,
+    AccountWithdrawCommandHandler, AccountWithdrawOutput,
 };
 pub use currency::{
     CurrencyActivateCommand, CurrencyActivateCommandHandler, CurrencyActivateOutput,
@@ -22,9 +24,10 @@ pub use currency::{
     CurrencyDecreaseSupplyCommandHandlerError, CurrencyDecreaseSupplyOutput, CurrencyDefineCommand,
     CurrencyDefineCommandHandler, CurrencyDefineOutput, CurrencyIncreaseSupplyCommand,
     CurrencyIncreaseSupplyCommandHandler, CurrencyIncreaseSupplyCommandHandlerError,
-    CurrencyIncreaseSupplyOutput, CurrencyRemoveCommand, CurrencyRemoveCommandHandler,
-    CurrencyRemoveOutput, CurrencyUpdateCommand, CurrencyUpdateCommandHandler,
-    CurrencyUpdateOutput,
+    CurrencyIncreaseSupplyOutput, CurrencyOwnershipTransferCommand,
+    CurrencyOwnershipTransferCommandHandler, CurrencyOwnershipTransferOutput,
+    CurrencyRemoveCommand, CurrencyRemoveCommandHandler, CurrencyRemoveOutput,
+    CurrencyUpdateCommand, CurrencyUpdateCommandHandler, CurrencyUpdateOutput,
 };
 pub use currency_issuance::{
     CurrencyIssuanceCompleteCommand, CurrencyIssuanceCompleteCommandHandler,

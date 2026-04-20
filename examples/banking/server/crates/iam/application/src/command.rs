@@ -8,7 +8,9 @@ pub use organization::{
     OrganizationChangeHandleCommand, OrganizationChangeHandleCommandHandler,
     OrganizationChangeHandleOutput, OrganizationChangeNameCommand,
     OrganizationChangeNameCommandHandler, OrganizationChangeNameOutput, OrganizationCreateCommand,
-    OrganizationCreateCommandHandler, OrganizationCreateOutput, OrganizationRemoveCommand,
+    OrganizationCreateCommandHandler, OrganizationCreateOutput,
+    OrganizationOwnershipTransferCommand, OrganizationOwnershipTransferCommandHandler,
+    OrganizationOwnershipTransferOutput, OrganizationRemoveCommand,
     OrganizationRemoveCommandHandler, OrganizationRemoveOutput,
 };
 pub use organization_invitation::{

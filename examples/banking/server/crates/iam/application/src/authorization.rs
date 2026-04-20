@@ -6,7 +6,8 @@ mod user;
 
 pub use organization::{
     OrganizationAdminRelation, OrganizationFinanceManagerRelation,
-    OrganizationHandleEditorRelation, OrganizationInviterRelation, OrganizationRemoverRelation,
+    OrganizationHandleEditorRelation, OrganizationInviterRelation,
+    OrganizationOwnershipTransfererRelation, OrganizationRemoverRelation,
     OrganizationRenamerRelation, OrganizationTreasurerRelation,
 };
 pub use organization::{OrganizationMemberRelation, OrganizationOwnerRelation};

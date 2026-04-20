@@ -14,6 +14,9 @@ pub enum AccountEventPayload {
         name: AccountName,
         currency_id: CurrencyId,
     },
+    OwnershipTransferred {
+        owner: AccountOwner,
+    },
     Renamed {
         name: AccountName,
     },
@@ -50,6 +53,10 @@ mod tests {
         assert_eq!(
             AccountEventPayload::OPENED,
             appletheia::domain::EventName::new("opened")
+        );
+        assert_eq!(
+            AccountEventPayload::OWNERSHIP_TRANSFERRED,
+            appletheia::domain::EventName::new("ownership_transferred")
         );
         assert_eq!(
             AccountEventPayload::RENAMED,
@@ -126,6 +133,18 @@ mod tests {
             value["data"]["owner"]["type"],
             serde_json::json!("organization")
         );
+    }
+
+    #[test]
+    fn serializes_ownership_transferred_payload_to_json() {
+        let payload = AccountEventPayload::OwnershipTransferred {
+            owner: AccountOwner::User(banking_iam_domain::UserId::new()),
+        };
+
+        let value = payload.into_json_value().expect("payload should serialize");
+
+        assert_eq!(value["type"], serde_json::json!("ownership_transferred"));
+        assert_eq!(value["data"]["owner"]["type"], serde_json::json!("user"));
     }
 
     #[test]

@@ -113,6 +113,17 @@ impl Account {
         self.append_event(AccountEventPayload::Renamed { name })
     }
 
+    /// Transfers ownership of the account.
+    pub fn transfer_ownership(&mut self, owner: AccountOwner) -> Result<(), AccountError> {
+        self.ensure_not_closed()?;
+
+        if self.state_required()?.owner == owner {
+            return Ok(());
+        }
+
+        self.append_event(AccountEventPayload::OwnershipTransferred { owner })
+    }
+
     /// Freezes the account.
     pub fn freeze(&mut self) -> Result<(), AccountError> {
         self.ensure_not_closed()?;
@@ -276,6 +287,9 @@ impl AggregateApply<AccountEventPayload, AccountError> for Account {
                 let state = AccountState::new(*id, *owner, name.clone(), *currency_id);
                 self.set_state(Some(state));
             }
+            AccountEventPayload::OwnershipTransferred { owner } => {
+                self.state_required_mut()?.owner = *owner;
+            }
             AccountEventPayload::Renamed { name } => self.state_required_mut()?.name = name.clone(),
             AccountEventPayload::Frozen => {
                 self.state_required_mut()?.status = AccountStatus::Frozen;
@@ -425,6 +439,31 @@ mod tests {
     }
 
     #[test]
+    fn transfer_ownership_updates_owner_and_records_event() {
+        let original_owner = account_owner();
+        let transferred_owner =
+            AccountOwner::Organization(banking_iam_domain::OrganizationId::new());
+        let mut account = Account::default();
+        account
+            .open(original_owner, account_name(), CurrencyId::new())
+            .expect("open should succeed");
+
+        account
+            .transfer_ownership(transferred_owner)
+            .expect("ownership transfer should succeed");
+
+        assert_eq!(
+            account.owner().expect("owner should exist"),
+            transferred_owner
+        );
+        assert_eq!(account.uncommitted_events().len(), 2);
+        assert_eq!(
+            account.uncommitted_events()[1].payload().name(),
+            AccountEventPayload::OWNERSHIP_TRANSFERRED
+        );
+    }
+
+    #[test]
     fn changing_to_same_name_is_a_no_op() {
         let mut account = Account::default();
         account
@@ -434,6 +473,21 @@ mod tests {
         account
             .rename(account_name())
             .expect("no-op rename should succeed");
+
+        assert_eq!(account.uncommitted_events().len(), 1);
+    }
+
+    #[test]
+    fn transferring_to_same_owner_is_a_no_op() {
+        let owner = account_owner();
+        let mut account = Account::default();
+        account
+            .open(owner, account_name(), CurrencyId::new())
+            .expect("open should succeed");
+
+        account
+            .transfer_ownership(owner)
+            .expect("same owner transfer should succeed");
 
         assert_eq!(account.uncommitted_events().len(), 1);
     }
