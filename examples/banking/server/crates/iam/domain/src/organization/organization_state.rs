@@ -3,7 +3,7 @@ use appletheia::domain::{UniqueValue, UniqueValuePart, UniqueValues};
 use appletheia::unique_constraints;
 
 use super::{
-    OrganizationHandle, OrganizationId, OrganizationName, OrganizationOwner,
+    OrganizationHandle, OrganizationId, OrganizationOwner, OrganizationProfile,
     OrganizationStateError, OrganizationStatus,
 };
 
@@ -13,8 +13,8 @@ use super::{
 pub struct OrganizationState {
     pub(super) id: OrganizationId,
     pub(super) status: OrganizationStatus,
+    pub(super) profile: OrganizationProfile,
     pub(super) handle: OrganizationHandle,
-    pub(super) name: OrganizationName,
     pub(super) owner: OrganizationOwner,
 }
 
@@ -24,13 +24,13 @@ impl OrganizationState {
         id: OrganizationId,
         owner: OrganizationOwner,
         handle: OrganizationHandle,
-        name: OrganizationName,
+        profile: OrganizationProfile,
     ) -> Self {
         Self {
             id,
             status: OrganizationStatus::Active,
+            profile,
             handle,
-            name,
             owner,
         }
     }
@@ -54,9 +54,14 @@ fn handle_values(
 mod tests {
     use appletheia::domain::{AggregateState, UniqueConstraints, UniqueValues};
 
+    use crate::{
+        OrganizationDescription, OrganizationDisplayName, OrganizationPictureUrl,
+        OrganizationWebsiteUrl,
+    };
+
     use super::{
-        OrganizationHandle, OrganizationId, OrganizationName, OrganizationOwner, OrganizationState,
-        OrganizationStatus,
+        OrganizationHandle, OrganizationId, OrganizationOwner, OrganizationProfile,
+        OrganizationState, OrganizationStatus,
     };
 
     #[test]
@@ -68,7 +73,13 @@ mod tests {
             id,
             owner,
             handle.clone(),
-            OrganizationName::try_from("Acme Labs").expect("name should be valid"),
+            OrganizationProfile::new(
+                OrganizationDisplayName::try_from("Acme Labs")
+                    .expect("display name should be valid"),
+                None,
+                None,
+                None,
+            ),
         );
 
         assert_eq!(state.id(), id);
@@ -77,12 +88,45 @@ mod tests {
     }
 
     #[test]
+    fn state_can_store_profile() {
+        let state = OrganizationState::new(
+            OrganizationId::new(),
+            OrganizationOwner::User(crate::UserId::new()),
+            OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
+            OrganizationProfile::new(
+                OrganizationDisplayName::try_from("Acme Labs")
+                    .expect("display name should be valid"),
+                Some(
+                    OrganizationDescription::try_from("Independent research lab")
+                        .expect("description should be valid"),
+                ),
+                Some(
+                    OrganizationWebsiteUrl::try_from("https://acme.example.com")
+                        .expect("website URL should be valid"),
+                ),
+                Some(
+                    OrganizationPictureUrl::try_from("https://cdn.example.com/acme.png")
+                        .expect("picture URL should be valid"),
+                ),
+            ),
+        );
+
+        assert_eq!(state.profile.display_name().value(), "Acme Labs");
+    }
+
+    #[test]
     fn active_state_returns_unique_entries_for_handle() {
         let state = OrganizationState::new(
             OrganizationId::new(),
             OrganizationOwner::User(crate::UserId::new()),
             OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
-            OrganizationName::try_from("Acme Labs").expect("name should be valid"),
+            OrganizationProfile::new(
+                OrganizationDisplayName::try_from("Acme Labs")
+                    .expect("display name should be valid"),
+                None,
+                None,
+                None,
+            ),
         );
 
         let entries = state.unique_entries().expect("unique entries should build");
@@ -101,7 +145,13 @@ mod tests {
             OrganizationId::new(),
             OrganizationOwner::User(crate::UserId::new()),
             OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
-            OrganizationName::try_from("Acme Labs").expect("name should be valid"),
+            OrganizationProfile::new(
+                OrganizationDisplayName::try_from("Acme Labs")
+                    .expect("display name should be valid"),
+                None,
+                None,
+                None,
+            ),
         );
         state.status = OrganizationStatus::Removed;
 

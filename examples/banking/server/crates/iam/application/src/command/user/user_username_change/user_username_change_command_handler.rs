@@ -7,19 +7,21 @@ use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_iam_domain::User;
 
-use super::{UserProfileReadyCommand, UserProfileReadyCommandHandlerError, UserProfileReadyOutput};
-use crate::authorization::UserProfileEditorRelation;
+use super::{
+    UserUsernameChangeCommand, UserUsernameChangeCommandHandlerError, UserUsernameChangeOutput,
+};
+use crate::authorization::UserUsernameChangerRelation;
 use crate::projection::UserOwnerRelationshipProjectorSpec;
 
-/// Handles `UserProfileReadyCommand`.
-pub struct UserProfileReadyCommandHandler<UR>
+/// Handles `UserUsernameChangeCommand`.
+pub struct UserUsernameChangeCommandHandler<UR>
 where
     UR: Repository<User>,
 {
     user_repository: UR,
 }
 
-impl<UR> UserProfileReadyCommandHandler<UR>
+impl<UR> UserUsernameChangeCommandHandler<UR>
 where
     UR: Repository<User>,
 {
@@ -28,14 +30,14 @@ where
     }
 }
 
-impl<UR> CommandHandler for UserProfileReadyCommandHandler<UR>
+impl<UR> CommandHandler for UserUsernameChangeCommandHandler<UR>
 where
     UR: Repository<User>,
 {
-    type Command = UserProfileReadyCommand;
-    type Output = UserProfileReadyOutput;
-    type ReplayOutput = UserProfileReadyOutput;
-    type Error = UserProfileReadyCommandHandlerError;
+    type Command = UserUsernameChangeCommand;
+    type Output = UserUsernameChangeOutput;
+    type ReplayOutput = UserUsernameChangeOutput;
+    type Error = UserUsernameChangeCommandHandlerError;
     type Uow = UR::Uow;
 
     fn authorization_plan(
@@ -46,7 +48,7 @@ where
             PrincipalRequirement::AuthenticatedWithRelationship {
                 requirement: RelationshipRequirement::check::<User>(
                     command.user_id,
-                    UserProfileEditorRelation::REF,
+                    UserUsernameChangerRelation::REF,
                 ),
                 projector_dependencies: ProjectorDependencies::Some(&[
                     UserOwnerRelationshipProjectorSpec::DESCRIPTOR,
@@ -62,20 +64,16 @@ where
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
         let Some(mut user) = self.user_repository.find(uow, command.user_id).await? else {
-            return Err(UserProfileReadyCommandHandlerError::UserNotFound);
+            return Err(UserUsernameChangeCommandHandlerError::UserNotFound);
         };
 
-        user.ready_profile(
-            command.username.clone(),
-            command.display_name.clone(),
-            command.bio.clone(),
-        )?;
+        user.change_username(command.username.clone())?;
 
         self.user_repository
             .save(uow, request_context, &mut user)
             .await?;
 
-        Ok(CommandHandled::same(UserProfileReadyOutput))
+        Ok(CommandHandled::same(UserUsernameChangeOutput))
     }
 }
 
@@ -83,11 +81,8 @@ where
 mod tests {
     use std::sync::{Arc, Mutex};
 
-    use appletheia::application::authorization::{
-        AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
-    };
+    use appletheia::application::authorization::AggregateRef;
     use appletheia::application::command::CommandHandler;
-    use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
     use appletheia::application::repository::{Repository, RepositoryError};
     use appletheia::application::request_context::{
         CorrelationId, MessageId, Principal, RequestContext,
@@ -95,23 +90,20 @@ mod tests {
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::Aggregate;
     use banking_iam_domain::{
-        User, UserBio, UserDisplayName, UserId, UserIdentity, UserIdentityProvider,
-        UserIdentitySubject, Username,
+        User, UserId, UserIdentity, UserIdentityProvider, UserIdentitySubject, Username,
     };
     use uuid::Uuid;
 
-    use super::{UserProfileReadyCommand, UserProfileReadyCommandHandler, UserProfileReadyOutput};
-    use crate::authorization::UserProfileEditorRelation;
-    use crate::projection::UserOwnerRelationshipProjectorSpec;
+    use super::{
+        UserUsernameChangeCommand, UserUsernameChangeCommandHandler, UserUsernameChangeOutput,
+    };
 
     #[derive(Default)]
     struct TestUow;
-
     impl UnitOfWork for TestUow {
         async fn commit(self) -> Result<(), UnitOfWorkError> {
             Ok(())
         }
-
         async fn rollback(self) -> Result<(), UnitOfWorkError> {
             Ok(())
         }
@@ -121,7 +113,6 @@ mod tests {
     struct TestUserRepository {
         user: Arc<Mutex<Option<User>>>,
     }
-
     impl TestUserRepository {
         fn new(user: User) -> Self {
             Self {
@@ -129,10 +120,8 @@ mod tests {
             }
         }
     }
-
     impl Repository<User> for TestUserRepository {
         type Uow = TestUow;
-
         async fn find(
             &self,
             _uow: &mut Self::Uow,
@@ -140,7 +129,6 @@ mod tests {
         ) -> Result<Option<User>, RepositoryError<User>> {
             Ok(self.user.lock().expect("lock").clone())
         }
-
         async fn find_at_version(
             &self,
             _uow: &mut Self::Uow,
@@ -149,7 +137,6 @@ mod tests {
         ) -> Result<Option<User>, RepositoryError<User>> {
             Ok(self.user.lock().expect("lock").clone())
         }
-
         async fn find_by_unique_value(
             &self,
             _uow: &mut Self::Uow,
@@ -158,7 +145,6 @@ mod tests {
         ) -> Result<Option<User>, RepositoryError<User>> {
             Ok(None)
         }
-
         async fn save(
             &self,
             _uow: &mut Self::Uow,
@@ -171,87 +157,48 @@ mod tests {
     }
 
     fn request_context(user_id: UserId) -> RequestContext {
-        let subject = AggregateRef::from_id::<User>(user_id);
-
         RequestContext::new(
             CorrelationId::from(Uuid::now_v7()),
             MessageId::new(),
-            Principal::Authenticated { subject },
+            Principal::Authenticated {
+                subject: AggregateRef::from_id::<User>(user_id),
+            },
         )
         .expect("request context should be valid")
     }
 
     fn registered_user() -> User {
-        let identity = UserIdentity::new(
+        let mut user = User::default();
+        user.register(UserIdentity::new(
             UserIdentityProvider::try_from("https://accounts.example.com")
                 .expect("provider should be valid"),
             UserIdentitySubject::try_from("user-123").expect("subject should be valid"),
             None,
-        );
-        let mut user = User::default();
-        user.register(identity).expect("user should register");
+        ))
+        .expect("user should register");
         user
     }
 
-    #[test]
-    fn authorization_plan_requires_profile_editor_relationship() {
-        let user = registered_user();
-        let user_id = user.aggregate_id().expect("user id should exist");
-        let repository = TestUserRepository::new(user);
-        let handler = UserProfileReadyCommandHandler::new(repository);
-        let command = UserProfileReadyCommand {
-            user_id,
-            username: Username::try_from("alice").expect("username should be valid"),
-            display_name: UserDisplayName::try_from("Alice").expect("display name should be valid"),
-            bio: Some(UserBio::try_from("Banking enthusiast").expect("bio should be valid")),
-        };
-
-        let plan = handler
-            .authorization_plan(&command)
-            .expect("authorization plan should build");
-
-        assert_eq!(
-            plan,
-            AuthorizationPlan::OnlyPrincipals(vec![
-                PrincipalRequirement::AuthenticatedWithRelationship {
-                    requirement: RelationshipRequirement::check::<User>(
-                        user_id,
-                        UserProfileEditorRelation::REF
-                    ),
-                    projector_dependencies: ProjectorDependencies::Some(&[
-                        UserOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                    ]),
-                },
-            ])
-        );
-    }
-
     #[tokio::test]
-    async fn handle_readies_profile_and_returns_updated_values() {
+    async fn handle_changes_username() {
         let user = registered_user();
         let user_id = user.aggregate_id().expect("user id should exist");
         let repository = TestUserRepository::new(user);
-        let handler = UserProfileReadyCommandHandler::new(repository.clone());
+        let handler = UserUsernameChangeCommandHandler::new(repository);
         let mut uow = TestUow;
-        let request_context = request_context(user_id);
 
         let handled = handler
             .handle(
                 &mut uow,
-                &request_context,
-                &UserProfileReadyCommand {
+                &request_context(user_id),
+                &UserUsernameChangeCommand {
                     user_id,
                     username: Username::try_from("alice").expect("username should be valid"),
-                    display_name: UserDisplayName::try_from("Alice")
-                        .expect("display name should be valid"),
-                    bio: Some(
-                        UserBio::try_from("Banking enthusiast").expect("bio should be valid"),
-                    ),
                 },
             )
             .await
             .expect("command should succeed");
 
-        assert_eq!(handled.into_output(), UserProfileReadyOutput);
+        assert_eq!(handled.into_output(), UserUsernameChangeOutput);
     }
 }

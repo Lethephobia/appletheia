@@ -96,6 +96,96 @@ pub fn register(
 }
 ```
 
+### PREFER command methods and events to align with top-level value object boundaries
+
+If an aggregate state owns a top-level value object, prefer changing that value object through one aggregate command method and one event for the whole value object. Avoid adding attribute-specific command methods and events for fields nested inside that value object unless those fields have meaning outside the value object boundary.
+
+good:
+```rust
+pub fn change_profile(
+    &mut self,
+    profile: OrganizationProfile,
+) -> Result<(), OrganizationError> {
+    self.ensure_not_removed()?;
+
+    if self.state_required()?.profile == profile {
+        return Ok(());
+    }
+
+    self.append_event(OrganizationEventPayload::ProfileChanged { profile })
+}
+```
+
+bad:
+```rust
+pub fn change_display_name(
+    &mut self,
+    display_name: OrganizationDisplayName,
+) -> Result<(), OrganizationError> {
+    self.ensure_not_removed()?;
+
+    if self
+        .state_required()?
+        .profile
+        .display_name()
+        .eq(&display_name)
+    {
+        return Ok(());
+    }
+
+    self.append_event(OrganizationEventPayload::DisplayNameChanged { display_name })
+}
+```
+
+### DO allow attribute-level command methods and events when changing an entity inside the aggregate
+
+If the aggregate owns an entity and the change targets one attribute of that entity, attribute-level command methods and events are acceptable. In that case the domain fact is usually about that specific attribute on that specific entity, not about replacing an enclosing value object.
+
+good:
+```rust
+pub fn change_identity_email(
+    &mut self,
+    provider: UserIdentityProvider,
+    subject: UserIdentitySubject,
+    email: Option<Email>,
+) -> Result<(), UserError> {
+    self.ensure_active()?;
+
+    let identity = self
+        .state_required()?
+        .identities
+        .iter()
+        .find(|identity| identity.matches(&provider, &subject))
+        .ok_or(UserError::IdentityNotFound)?;
+
+    if identity.email() == email.as_ref() {
+        return Ok(());
+    }
+
+    self.append_event(UserEventPayload::IdentityEmailChanged {
+        provider,
+        subject,
+        email,
+    })
+}
+```
+
+bad:
+```rust
+pub fn change_identity(
+    &mut self,
+    provider: UserIdentityProvider,
+    subject: UserIdentitySubject,
+    identity: UserIdentity,
+) -> Result<(), UserError> {
+    self.append_event(UserEventPayload::IdentityChanged {
+        provider,
+        subject,
+        identity,
+    })
+}
+```
+
 ### DO validate the request before you append an event
 
 Reject invalid requests before any state change is recorded.

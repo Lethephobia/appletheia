@@ -69,10 +69,10 @@ where
         let OrganizationCreateCommand {
             owner,
             handle,
-            name,
+            profile,
         } = command.clone();
         let mut organization = Organization::default();
-        organization.create(owner, handle, name)?;
+        organization.create(owner, handle, profile)?;
 
         self.organization_repository
             .save(uow, request_context, &mut organization)
@@ -103,14 +103,23 @@ mod tests {
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::Aggregate;
     use banking_iam_domain::{
-        Organization, OrganizationHandle, OrganizationId, OrganizationName, OrganizationOwner,
-        User, UserId,
+        Organization, OrganizationDisplayName, OrganizationHandle, OrganizationId,
+        OrganizationOwner, OrganizationProfile, User, UserId,
     };
     use uuid::Uuid;
 
     use super::{
         OrganizationCreateCommand, OrganizationCreateCommandHandler, OrganizationCreateOutput,
     };
+
+    fn profile() -> OrganizationProfile {
+        OrganizationProfile::new(
+            OrganizationDisplayName::try_from("Acme Labs").expect("display name should be valid"),
+            None,
+            None,
+            None,
+        )
+    }
 
     #[derive(Default)]
     struct TestUow;
@@ -204,7 +213,7 @@ mod tests {
             .authorization_plan(&OrganizationCreateCommand {
                 owner: OrganizationOwner::User(owner),
                 handle: OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
-                name: OrganizationName::try_from("Acme Labs").expect("name should be valid"),
+                profile: profile(),
             })
             .expect("authorization plan should build");
 
@@ -240,7 +249,7 @@ mod tests {
                     owner: OrganizationOwner::User(user_id),
                     handle: OrganizationHandle::try_from("acme-labs")
                         .expect("handle should be valid"),
-                    name: OrganizationName::try_from("Acme Labs").expect("name should be valid"),
+                    profile: profile(),
                 },
             )
             .await
@@ -256,7 +265,7 @@ mod tests {
         );
         assert_eq!(
             saved.name().expect("name should exist"),
-            &OrganizationName::try_from("Acme Labs").expect("name should be valid")
+            profile().display_name()
         );
         assert_eq!(
             saved.handle().expect("handle should exist"),
@@ -283,7 +292,7 @@ mod tests {
                     owner: OrganizationOwner::User(UserId::new()),
                     handle: OrganizationHandle::try_from("acme-labs")
                         .expect("handle should be valid"),
-                    name: OrganizationName::try_from("Acme Labs").expect("name should be valid"),
+                    profile: profile(),
                 },
             )
             .await

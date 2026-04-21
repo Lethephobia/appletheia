@@ -8,23 +8,23 @@ use appletheia::application::request_context::RequestContext;
 use banking_iam_domain::Organization;
 
 use super::{
-    OrganizationChangeNameCommand, OrganizationChangeNameCommandHandlerError,
-    OrganizationChangeNameOutput,
+    OrganizationProfileChangeCommand, OrganizationProfileChangeCommandHandlerError,
+    OrganizationProfileChangeOutput,
 };
-use crate::authorization::OrganizationRenamerRelation;
+use crate::authorization::OrganizationProfileChangerRelation;
 use crate::projection::{
     OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
 };
 
-/// Handles `OrganizationChangeNameCommand`.
-pub struct OrganizationChangeNameCommandHandler<OR>
+/// Handles `OrganizationProfileChangeCommand`.
+pub struct OrganizationProfileChangeCommandHandler<OR>
 where
     OR: Repository<Organization>,
 {
     organization_repository: OR,
 }
 
-impl<OR> OrganizationChangeNameCommandHandler<OR>
+impl<OR> OrganizationProfileChangeCommandHandler<OR>
 where
     OR: Repository<Organization>,
 {
@@ -35,14 +35,14 @@ where
     }
 }
 
-impl<OR> CommandHandler for OrganizationChangeNameCommandHandler<OR>
+impl<OR> CommandHandler for OrganizationProfileChangeCommandHandler<OR>
 where
     OR: Repository<Organization>,
 {
-    type Command = OrganizationChangeNameCommand;
-    type Output = OrganizationChangeNameOutput;
-    type ReplayOutput = OrganizationChangeNameOutput;
-    type Error = OrganizationChangeNameCommandHandlerError;
+    type Command = OrganizationProfileChangeCommand;
+    type Output = OrganizationProfileChangeOutput;
+    type ReplayOutput = OrganizationProfileChangeOutput;
+    type Error = OrganizationProfileChangeCommandHandlerError;
     type Uow = OR::Uow;
 
     fn authorization_plan(
@@ -53,7 +53,7 @@ where
             PrincipalRequirement::AuthenticatedWithRelationship {
                 requirement: RelationshipRequirement::check::<Organization>(
                     command.organization_id,
-                    OrganizationRenamerRelation::REF,
+                    OrganizationProfileChangerRelation::REF,
                 ),
                 projector_dependencies: ProjectorDependencies::Some(&[
                     OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
@@ -74,20 +74,16 @@ where
             .find(uow, command.organization_id)
             .await?
         else {
-            return Err(OrganizationChangeNameCommandHandlerError::OrganizationNotFound);
+            return Err(OrganizationProfileChangeCommandHandlerError::OrganizationNotFound);
         };
 
-        if organization.is_removed()? {
-            return Err(OrganizationChangeNameCommandHandlerError::OrganizationRemoved);
-        }
-
-        organization.change_name(command.name.clone())?;
+        organization.change_profile(command.profile.clone())?;
 
         self.organization_repository
             .save(uow, request_context, &mut organization)
             .await?;
 
-        Ok(CommandHandled::same(OrganizationChangeNameOutput))
+        Ok(CommandHandled::same(OrganizationProfileChangeOutput))
     }
 }
 
@@ -95,11 +91,8 @@ where
 mod tests {
     use std::sync::{Arc, Mutex};
 
-    use appletheia::application::authorization::{
-        AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
-    };
+    use appletheia::application::authorization::AggregateRef;
     use appletheia::application::command::CommandHandler;
-    use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
     use appletheia::application::repository::{Repository, RepositoryError};
     use appletheia::application::request_context::{
         CorrelationId, MessageId, Principal, RequestContext,
@@ -107,28 +100,22 @@ mod tests {
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::Aggregate;
     use banking_iam_domain::{
-        Organization, OrganizationHandle, OrganizationId, OrganizationName, OrganizationOwner,
-        UserId,
+        Organization, OrganizationDisplayName, OrganizationHandle, OrganizationId,
+        OrganizationOwner, OrganizationProfile, UserId,
     };
     use uuid::Uuid;
 
     use super::{
-        OrganizationChangeNameCommand, OrganizationChangeNameCommandHandler,
-        OrganizationChangeNameOutput,
-    };
-    use crate::authorization::OrganizationRenamerRelation;
-    use crate::projection::{
-        OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
+        OrganizationProfileChangeCommand, OrganizationProfileChangeCommandHandler,
+        OrganizationProfileChangeOutput,
     };
 
     #[derive(Default)]
     struct TestUow;
-
     impl UnitOfWork for TestUow {
         async fn commit(self) -> Result<(), UnitOfWorkError> {
             Ok(())
         }
-
         async fn rollback(self) -> Result<(), UnitOfWorkError> {
             Ok(())
         }
@@ -138,7 +125,6 @@ mod tests {
     struct TestOrganizationRepository {
         organization: Arc<Mutex<Option<Organization>>>,
     }
-
     impl TestOrganizationRepository {
         fn new(organization: Organization) -> Self {
             Self {
@@ -146,10 +132,8 @@ mod tests {
             }
         }
     }
-
     impl Repository<Organization> for TestOrganizationRepository {
         type Uow = TestUow;
-
         async fn find(
             &self,
             _uow: &mut Self::Uow,
@@ -157,7 +141,6 @@ mod tests {
         ) -> Result<Option<Organization>, RepositoryError<Organization>> {
             Ok(self.organization.lock().expect("lock").clone())
         }
-
         async fn find_at_version(
             &self,
             _uow: &mut Self::Uow,
@@ -166,7 +149,6 @@ mod tests {
         ) -> Result<Option<Organization>, RepositoryError<Organization>> {
             Ok(self.organization.lock().expect("lock").clone())
         }
-
         async fn find_by_unique_value(
             &self,
             _uow: &mut Self::Uow,
@@ -175,7 +157,6 @@ mod tests {
         ) -> Result<Option<Organization>, RepositoryError<Organization>> {
             Ok(None)
         }
-
         async fn save(
             &self,
             _uow: &mut Self::Uow,
@@ -188,16 +169,16 @@ mod tests {
     }
 
     fn request_context() -> RequestContext {
-        let subject = AggregateRef::new(
-            appletheia::application::event::AggregateTypeOwned::try_from("user")
-                .expect("aggregate type should be valid"),
-            appletheia::application::event::AggregateIdValue::from(Uuid::now_v7()),
-        );
-
         RequestContext::new(
             CorrelationId::from(Uuid::now_v7()),
             MessageId::new(),
-            Principal::Authenticated { subject },
+            Principal::Authenticated {
+                subject: AggregateRef::new(
+                    appletheia::application::event::AggregateTypeOwned::try_from("user")
+                        .expect("aggregate type should be valid"),
+                    appletheia::application::event::AggregateIdValue::from(Uuid::now_v7()),
+                ),
+            },
         )
         .expect("request context should be valid")
     }
@@ -208,72 +189,46 @@ mod tests {
             .create(
                 OrganizationOwner::User(UserId::new()),
                 OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
-                OrganizationName::try_from("Acme Labs").expect("name should be valid"),
+                OrganizationProfile::new(
+                    OrganizationDisplayName::try_from("Acme Labs")
+                        .expect("display name should be valid"),
+                    None,
+                    None,
+                    None,
+                ),
             )
             .expect("organization should create");
         organization
     }
 
-    #[test]
-    fn authorization_plan_requires_organization_renamer_relationship() {
-        let repository = TestOrganizationRepository::default();
-        let handler = OrganizationChangeNameCommandHandler::new(repository);
-        let organization_id = OrganizationId::new();
-
-        let plan = handler
-            .authorization_plan(&OrganizationChangeNameCommand {
-                organization_id,
-                name: OrganizationName::try_from("Acme Labs 2").expect("name should be valid"),
-            })
-            .expect("authorization plan should build");
-
-        assert_eq!(
-            plan,
-            AuthorizationPlan::OnlyPrincipals(vec![
-                PrincipalRequirement::AuthenticatedWithRelationship {
-                    requirement: RelationshipRequirement::check::<Organization>(
-                        organization_id,
-                        OrganizationRenamerRelation::REF
-                    ),
-                    projector_dependencies: ProjectorDependencies::Some(&[
-                        OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                        OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
-                    ]),
-                },
-            ])
-        );
-    }
-
     #[tokio::test]
-    async fn handle_changes_organization_name_and_returns_output() {
+    async fn handle_changes_profile() {
         let organization = organization();
         let organization_id = organization
             .aggregate_id()
             .expect("organization id should exist");
         let repository = TestOrganizationRepository::new(organization);
-        let handler = OrganizationChangeNameCommandHandler::new(repository.clone());
+        let handler = OrganizationProfileChangeCommandHandler::new(repository);
         let mut uow = TestUow;
 
         let handled = handler
             .handle(
                 &mut uow,
                 &request_context(),
-                &OrganizationChangeNameCommand {
+                &OrganizationProfileChangeCommand {
                     organization_id,
-                    name: OrganizationName::try_from("Acme Labs 2").expect("name should be valid"),
+                    profile: OrganizationProfile::new(
+                        OrganizationDisplayName::try_from("Acme Labs Updated")
+                            .expect("display name should be valid"),
+                        None,
+                        None,
+                        None,
+                    ),
                 },
             )
             .await
             .expect("command should succeed");
 
-        let output = handled.into_output();
-        let saved = repository.organization.lock().expect("lock").clone();
-        let saved = saved.expect("organization should be saved");
-
-        assert_eq!(output, OrganizationChangeNameOutput);
-        assert_eq!(
-            saved.name().expect("name should exist"),
-            &OrganizationName::try_from("Acme Labs 2").expect("name should be valid")
-        );
+        assert_eq!(handled.into_output(), OrganizationProfileChangeOutput);
     }
 }

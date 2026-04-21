@@ -6,12 +6,12 @@ pub mod user;
 
 pub use organization::{
     OrganizationChangeHandleCommand, OrganizationChangeHandleCommandHandler,
-    OrganizationChangeHandleOutput, OrganizationChangeNameCommand,
-    OrganizationChangeNameCommandHandler, OrganizationChangeNameOutput, OrganizationCreateCommand,
-    OrganizationCreateCommandHandler, OrganizationCreateOutput,
-    OrganizationOwnershipTransferCommand, OrganizationOwnershipTransferCommandHandler,
-    OrganizationOwnershipTransferOutput, OrganizationRemoveCommand,
-    OrganizationRemoveCommandHandler, OrganizationRemoveOutput,
+    OrganizationChangeHandleOutput, OrganizationCreateCommand, OrganizationCreateCommandHandler,
+    OrganizationCreateOutput, OrganizationOwnershipTransferCommand,
+    OrganizationOwnershipTransferCommandHandler, OrganizationOwnershipTransferOutput,
+    OrganizationProfileChangeCommand, OrganizationProfileChangeCommandHandler,
+    OrganizationProfileChangeOutput, OrganizationRemoveCommand, OrganizationRemoveCommandHandler,
+    OrganizationRemoveOutput,
 };
 pub use organization_invitation::{
     OrganizationInvitationAcceptCommand, OrganizationInvitationAcceptCommandHandler,
@@ -50,7 +50,7 @@ pub use user::{
     OidcBeginOutput, OidcCompleteCommand, OidcCompleteCommandHandler, OidcCompleteOutput,
     OidcCompleteReplayOutput, UserActivateCommand, UserActivateCommandHandler, UserActivateOutput,
     UserDeactivateCommand, UserDeactivateCommandHandler, UserDeactivateOutput,
-    UserProfileEditCommand, UserProfileEditCommandHandler, UserProfileEditOutput,
-    UserProfileReadyCommand, UserProfileReadyCommandHandler, UserProfileReadyOutput,
-    UserRemoveCommand, UserRemoveCommandHandler, UserRemoveOutput,
+    UserProfileChangeCommand, UserProfileChangeCommandHandler, UserProfileChangeOutput,
+    UserRemoveCommand, UserRemoveCommandHandler, UserRemoveOutput, UserUsernameChangeCommand,
+    UserUsernameChangeCommandHandler, UserUsernameChangeOutput,
 };

@@ -3,11 +3,11 @@ use appletheia::domain::Aggregate;
 
 use super::{User, UserOwnerRelation};
 
-/// Defines the `profile_editor` relation for `User`.
-pub struct UserProfileEditorRelation;
+/// Defines the `username_changer` relation for `User`.
+pub struct UserUsernameChangerRelation;
 
-impl Relation for UserProfileEditorRelation {
-    const REF: RelationRef = RelationRef::new(User::TYPE, RelationName::new("profile_editor"));
+impl Relation for UserUsernameChangerRelation {
+    const REF: RelationRef = RelationRef::new(User::TYPE, RelationName::new("username_changer"));
 
     const EXPR: UsersetExpr = UsersetExpr::ComputedUserset {
         relation: UserOwnerRelation::REF,

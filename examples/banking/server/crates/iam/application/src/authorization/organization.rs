@@ -2,22 +2,22 @@ use banking_iam_domain::Organization;
 
 mod organization_admin_relation;
 mod organization_finance_manager_relation;
-mod organization_handle_editor_relation;
+mod organization_handle_changer_relation;
 mod organization_inviter_relation;
 mod organization_member_relation;
 mod organization_owner_relation;
 mod organization_ownership_transferer_relation;
+mod organization_profile_changer_relation;
 mod organization_remover_relation;
-mod organization_renamer_relation;
 mod organization_treasurer_relation;
 
 pub use organization_admin_relation::OrganizationAdminRelation;
 pub use organization_finance_manager_relation::OrganizationFinanceManagerRelation;
-pub use organization_handle_editor_relation::OrganizationHandleEditorRelation;
+pub use organization_handle_changer_relation::OrganizationHandleChangerRelation;
 pub use organization_inviter_relation::OrganizationInviterRelation;
 pub use organization_member_relation::OrganizationMemberRelation;
 pub use organization_owner_relation::OrganizationOwnerRelation;
 pub use organization_ownership_transferer_relation::OrganizationOwnershipTransfererRelation;
+pub use organization_profile_changer_relation::OrganizationProfileChangerRelation;
 pub use organization_remover_relation::OrganizationRemoverRelation;
-pub use organization_renamer_relation::OrganizationRenamerRelation;
 pub use organization_treasurer_relation::OrganizationTreasurerRelation;

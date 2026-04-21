@@ -127,7 +127,7 @@ mod tests {
     use banking_iam_domain::{
         Organization, OrganizationHandle, OrganizationId, OrganizationMembership,
         OrganizationMembershipId, OrganizationMembershipStatus, OrganizationName,
-        OrganizationOwner, OrganizationRole, UserId,
+        OrganizationOwner, OrganizationProfile, OrganizationRole, UserId,
     };
     use uuid::Uuid;
 
@@ -284,7 +284,12 @@ mod tests {
             .create(
                 OrganizationOwner::User(UserId::new()),
                 OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
-                OrganizationName::try_from("Acme Labs").expect("name should be valid"),
+                OrganizationProfile::new(
+                    OrganizationName::try_from("Acme Labs").expect("name should be valid"),
+                    None,
+                    None,
+                    None,
+                ),
             )
             .expect("organization should create");
         organization

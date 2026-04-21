@@ -11,7 +11,7 @@ use super::{
     OrganizationChangeHandleCommand, OrganizationChangeHandleCommandHandlerError,
     OrganizationChangeHandleOutput,
 };
-use crate::authorization::OrganizationHandleEditorRelation;
+use crate::authorization::OrganizationHandleChangerRelation;
 use crate::projection::{
     OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
 };
@@ -53,7 +53,7 @@ where
             PrincipalRequirement::AuthenticatedWithRelationship {
                 requirement: RelationshipRequirement::check::<Organization>(
                     command.organization_id,
-                    OrganizationHandleEditorRelation::REF,
+                    OrganizationHandleChangerRelation::REF,
                 ),
                 projector_dependencies: ProjectorDependencies::Some(&[
                     OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
@@ -108,7 +108,7 @@ mod tests {
     use appletheia::domain::Aggregate;
     use banking_iam_domain::{
         Organization, OrganizationHandle, OrganizationId, OrganizationName, OrganizationOwner,
-        UserId,
+        OrganizationProfile, UserId,
     };
     use uuid::Uuid;
 
@@ -116,7 +116,7 @@ mod tests {
         OrganizationChangeHandleCommand, OrganizationChangeHandleCommandHandler,
         OrganizationChangeHandleOutput,
     };
-    use crate::authorization::OrganizationHandleEditorRelation;
+    use crate::authorization::OrganizationHandleChangerRelation;
     use crate::projection::{
         OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
     };
@@ -208,14 +208,19 @@ mod tests {
             .create(
                 OrganizationOwner::User(UserId::new()),
                 OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
-                OrganizationName::try_from("Acme Labs").expect("name should be valid"),
+                OrganizationProfile::new(
+                    OrganizationName::try_from("Acme Labs").expect("name should be valid"),
+                    None,
+                    None,
+                    None,
+                ),
             )
             .expect("organization should create");
         organization
     }
 
     #[test]
-    fn authorization_plan_requires_organization_handle_editor_relationship() {
+    fn authorization_plan_requires_organization_handle_changer_relationship() {
         let repository = TestOrganizationRepository::default();
         let handler = OrganizationChangeHandleCommandHandler::new(repository);
         let organization_id = OrganizationId::new();
@@ -234,7 +239,7 @@ mod tests {
                 PrincipalRequirement::AuthenticatedWithRelationship {
                     requirement: RelationshipRequirement::check::<Organization>(
                         organization_id,
-                        OrganizationHandleEditorRelation::REF
+                        OrganizationHandleChangerRelation::REF
                     ),
                     projector_dependencies: ProjectorDependencies::Some(&[
                         OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,

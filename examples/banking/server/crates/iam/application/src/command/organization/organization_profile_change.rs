@@ -1,0 +1,9 @@
+mod organization_profile_change_command;
+mod organization_profile_change_command_handler;
+mod organization_profile_change_command_handler_error;
+mod organization_profile_change_output;
+
+pub use organization_profile_change_command::OrganizationProfileChangeCommand;
+pub use organization_profile_change_command_handler::OrganizationProfileChangeCommandHandler;
+pub use organization_profile_change_command_handler_error::OrganizationProfileChangeCommandHandlerError;
+pub use organization_profile_change_output::OrganizationProfileChangeOutput;

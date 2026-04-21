@@ -2,9 +2,9 @@ use appletheia::application::repository::RepositoryError;
 use banking_iam_domain::{User, UserError};
 use thiserror::Error;
 
-/// Represents errors returned while editing a user profile.
+/// Represents errors returned while changing a username.
 #[derive(Debug, Error)]
-pub enum UserProfileEditCommandHandlerError {
+pub enum UserUsernameChangeCommandHandlerError {
     #[error("user repository failed")]
     UserRepository(#[from] RepositoryError<User>),
 

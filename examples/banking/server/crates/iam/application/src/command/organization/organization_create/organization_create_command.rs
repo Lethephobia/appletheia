@@ -1,5 +1,5 @@
 use appletheia::command;
-use banking_iam_domain::{OrganizationHandle, OrganizationName, OrganizationOwner};
+use banking_iam_domain::{OrganizationHandle, OrganizationOwner, OrganizationProfile};
 use serde::{Deserialize, Serialize};
 
 /// Creates a new organization.
@@ -8,5 +8,5 @@ use serde::{Deserialize, Serialize};
 pub struct OrganizationCreateCommand {
     pub owner: OrganizationOwner,
     pub handle: OrganizationHandle,
-    pub name: OrganizationName,
+    pub profile: OrganizationProfile,
 }

@@ -1,9 +1,0 @@
-mod user_profile_edit_command;
-mod user_profile_edit_command_handler;
-mod user_profile_edit_command_handler_error;
-mod user_profile_edit_output;
-
-pub use user_profile_edit_command::UserProfileEditCommand;
-pub use user_profile_edit_command_handler::UserProfileEditCommandHandler;
-pub use user_profile_edit_command_handler_error::UserProfileEditCommandHandlerError;
-pub use user_profile_edit_output::UserProfileEditOutput;

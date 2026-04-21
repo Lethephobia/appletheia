@@ -6,7 +6,7 @@ pub mod saga;
 
 pub use authorization::{
     OrganizationAdminRelation, OrganizationFinanceManagerRelation,
-    OrganizationHandleEditorRelation, OrganizationInvitationCancelerRelation,
+    OrganizationHandleChangerRelation, OrganizationInvitationCancelerRelation,
     OrganizationInvitationInviteeRelation, OrganizationInvitationOrganizationRelation,
     OrganizationInviterRelation, OrganizationJoinRequestApproverRelation,
     OrganizationJoinRequestCancelerRelation, OrganizationJoinRequestOrganizationRelation,
@@ -16,9 +16,11 @@ pub use authorization::{
     OrganizationMembershipRemoverRelation, OrganizationMembershipRoleGranterRelation,
     OrganizationMembershipRoleManagerRelation, OrganizationMembershipRoleRevokerRelation,
     OrganizationMembershipStatusManagerRelation, OrganizationOwnerRelation,
-    OrganizationOwnershipTransfererRelation, OrganizationRemoverRelation,
-    OrganizationRenamerRelation, OrganizationTreasurerRelation, UserActivatorRelation,
-    UserDeactivatorRelation, UserOwnerRelation, UserProfileEditorRelation, UserRemoverRelation,
+    OrganizationOwnershipTransfererRelation, OrganizationProfileChangerRelation,
+    OrganizationRemoverRelation, OrganizationTreasurerRelation, UserActivatorRelation,
+    UserDeactivatorRelation,
+    UserOwnerRelation, UserProfileChangerRelation, UserRemoverRelation,
+    UserUsernameChangerRelation,
 };
 pub use command::{
     LogoutAllSessionsCommand, LogoutAllSessionsCommandHandler, LogoutAllSessionsOutput,
@@ -26,9 +28,8 @@ pub use command::{
     OidcBeginOutput, OidcCompleteCommand, OidcCompleteCommandHandler, OidcCompleteOutput,
     OidcCompleteReplayOutput, OrganizationChangeHandleCommand,
     OrganizationChangeHandleCommandHandler, OrganizationChangeHandleOutput,
-    OrganizationChangeNameCommand, OrganizationChangeNameCommandHandler,
-    OrganizationChangeNameOutput, OrganizationCreateCommand, OrganizationCreateCommandHandler,
-    OrganizationCreateOutput, OrganizationInvitationAcceptCommand,
+    OrganizationCreateCommand, OrganizationCreateCommandHandler, OrganizationCreateOutput,
+    OrganizationInvitationAcceptCommand,
     OrganizationInvitationAcceptCommandHandler, OrganizationInvitationAcceptCommandHandlerError,
     OrganizationInvitationAcceptOutput, OrganizationInvitationCancelCommand,
     OrganizationInvitationCancelCommandHandler, OrganizationInvitationCancelCommandHandlerError,
@@ -55,13 +56,14 @@ pub use command::{
     OrganizationMembershipRoleGrantOutput, OrganizationMembershipRoleRevokeCommand,
     OrganizationMembershipRoleRevokeCommandHandler, OrganizationMembershipRoleRevokeOutput,
     OrganizationOwnershipTransferCommand, OrganizationOwnershipTransferCommandHandler,
-    OrganizationOwnershipTransferOutput, OrganizationRemoveCommand,
-    OrganizationRemoveCommandHandler, OrganizationRemoveOutput, UserActivateCommand,
-    UserActivateCommandHandler, UserActivateOutput, UserDeactivateCommand,
-    UserDeactivateCommandHandler, UserDeactivateOutput, UserProfileEditCommand,
-    UserProfileEditCommandHandler, UserProfileEditOutput, UserProfileReadyCommand,
-    UserProfileReadyCommandHandler, UserProfileReadyOutput, UserRemoveCommand,
-    UserRemoveCommandHandler, UserRemoveOutput,
+    OrganizationOwnershipTransferOutput, OrganizationProfileChangeCommand,
+    OrganizationProfileChangeCommandHandler, OrganizationProfileChangeOutput,
+    OrganizationRemoveCommand, OrganizationRemoveCommandHandler, OrganizationRemoveOutput,
+    UserActivateCommand, UserActivateCommandHandler, UserActivateOutput, UserDeactivateCommand,
+    UserDeactivateCommandHandler, UserDeactivateOutput, UserProfileChangeCommand,
+    UserProfileChangeCommandHandler, UserProfileChangeOutput, UserRemoveCommand,
+    UserRemoveCommandHandler, UserRemoveOutput, UserUsernameChangeCommand,
+    UserUsernameChangeCommandHandler, UserUsernameChangeOutput,
 };
 pub use oidc::{OidcCompletionPurpose, OidcCompletionRedirectUri, OidcContinuationPayload};
 pub use projection::{

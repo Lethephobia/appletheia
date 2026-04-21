@@ -3,12 +3,12 @@ use appletheia::domain::Aggregate;
 
 use super::{Organization, OrganizationAdminRelation};
 
-/// Allows organization administrators to edit an organization handle.
-pub struct OrganizationHandleEditorRelation;
+/// Allows organization administrators to change an organization profile.
+pub struct OrganizationProfileChangerRelation;
 
-impl Relation for OrganizationHandleEditorRelation {
+impl Relation for OrganizationProfileChangerRelation {
     const REF: RelationRef =
-        RelationRef::new(Organization::TYPE, RelationName::new("handle_editor"));
+        RelationRef::new(Organization::TYPE, RelationName::new("profile_changer"));
 
     const EXPR: UsersetExpr = UsersetExpr::ComputedUserset {
         relation: OrganizationAdminRelation::REF,

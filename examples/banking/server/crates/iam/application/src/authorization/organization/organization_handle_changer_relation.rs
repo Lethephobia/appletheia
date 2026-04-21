@@ -3,11 +3,12 @@ use appletheia::domain::Aggregate;
 
 use super::{Organization, OrganizationAdminRelation};
 
-/// Allows organization administrators to rename an organization.
-pub struct OrganizationRenamerRelation;
+/// Allows organization administrators to change an organization handle.
+pub struct OrganizationHandleChangerRelation;
 
-impl Relation for OrganizationRenamerRelation {
-    const REF: RelationRef = RelationRef::new(Organization::TYPE, RelationName::new("renamer"));
+impl Relation for OrganizationHandleChangerRelation {
+    const REF: RelationRef =
+        RelationRef::new(Organization::TYPE, RelationName::new("handle_changer"));
 
     const EXPR: UsersetExpr = UsersetExpr::ComputedUserset {
         relation: OrganizationAdminRelation::REF,
