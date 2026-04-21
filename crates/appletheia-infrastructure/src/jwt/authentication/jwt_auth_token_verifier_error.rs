@@ -1,5 +1,7 @@
 use thiserror::Error;
 
+use super::jwt_auth_token_claims_error::JwtAuthTokenClaimsError;
+
 #[derive(Debug, Error)]
 pub enum JwtAuthTokenVerifierError {
     #[error("missing key id (kid) in jwt header")]
@@ -17,12 +19,6 @@ pub enum JwtAuthTokenVerifierError {
     #[error("failed to decode jwt")]
     Decode(#[source] jsonwebtoken::errors::Error),
 
-    #[error("missing required claim: {name}")]
-    MissingRequiredClaim { name: &'static str },
-
-    #[error("invalid token id")]
-    InvalidTokenId(#[source] uuid::Error),
-
-    #[error("invalid claim value")]
-    InvalidClaimValue(#[source] Box<dyn std::error::Error + Send + Sync>),
+    #[error(transparent)]
+    Claims(#[from] JwtAuthTokenClaimsError),
 }

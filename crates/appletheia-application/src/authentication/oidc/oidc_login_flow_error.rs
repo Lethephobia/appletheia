@@ -3,7 +3,7 @@ use thiserror::Error;
 use crate::unit_of_work::{UnitOfWorkError, UnitOfWorkFactoryError};
 
 use super::{
-    OidcIdTokenVerifyError, OidcLoginAttemptStoreError, OidcProviderMetadataSourceError,
+    OidcIdTokenVerifierError, OidcLoginAttemptStoreError, OidcProviderMetadataSourceError,
     OidcTokenClientError,
 };
 
@@ -25,7 +25,7 @@ pub enum OidcLoginFlowError {
     TokenClient(#[from] OidcTokenClientError),
 
     #[error(transparent)]
-    IdTokenVerify(#[from] OidcIdTokenVerifyError),
+    IdTokenVerifier(#[from] OidcIdTokenVerifierError),
 
     #[error("id token is missing in token response")]
     MissingIdToken,

@@ -1,7 +1,7 @@
 use crate::jwt::{JwkKeyId, JwksSource};
 use appletheia_application::authentication::oidc::{
-    OidcIdToken, OidcIdTokenClaims, OidcIdTokenVerifier, OidcIdTokenVerifyContext,
-    OidcIdTokenVerifyError, OidcNonce,
+    OidcIdToken, OidcIdTokenClaims, OidcIdTokenVerifier, OidcIdTokenVerifierError,
+    OidcIdTokenVerifyContext, OidcNonce,
 };
 use base64::Engine;
 use chrono::{DateTime, Utc};
@@ -10,6 +10,7 @@ use sha2::{Digest, Sha256, Sha384, Sha512};
 
 use super::jwt_oidc_id_token_claims::JwtOidcIdTokenClaims;
 use super::jwt_oidc_id_token_verifier_config::JwtOidcIdTokenVerifierConfig;
+use super::jwt_oidc_id_token_verifier_error::JwtOidcIdTokenVerifierError;
 
 #[derive(Clone, Debug)]
 pub struct JwtOidcIdTokenVerifier<JS>
@@ -46,15 +47,15 @@ where
     fn validate_nonce(
         expected: Option<&OidcNonce>,
         actual: Option<&str>,
-    ) -> Result<(), OidcIdTokenVerifyError> {
+    ) -> Result<(), JwtOidcIdTokenVerifierError> {
         let Some(expected) = expected else {
             return Ok(());
         };
         let Some(actual) = actual else {
-            return Err(OidcIdTokenVerifyError::InvalidIdToken);
+            return Err(JwtOidcIdTokenVerifierError::MissingNonce);
         };
         if expected.value() != actual {
-            return Err(OidcIdTokenVerifyError::InvalidIdToken);
+            return Err(JwtOidcIdTokenVerifierError::NonceMismatch);
         }
         Ok(())
     }
@@ -63,14 +64,14 @@ where
         now: DateTime<Utc>,
         leeway_seconds: u64,
         issued_at_seconds: Option<u64>,
-    ) -> Result<(), OidcIdTokenVerifyError> {
+    ) -> Result<(), JwtOidcIdTokenVerifierError> {
         let Some(issued_at_seconds) = issued_at_seconds else {
             return Ok(());
         };
-        let now_seconds =
-            u64::try_from(now.timestamp()).map_err(|_| OidcIdTokenVerifyError::InvalidIdToken)?;
+        let now_seconds = u64::try_from(now.timestamp())
+            .map_err(|_| JwtOidcIdTokenVerifierError::InvalidCurrentTime)?;
         if issued_at_seconds > now_seconds.saturating_add(leeway_seconds) {
-            return Err(OidcIdTokenVerifyError::InvalidIdToken);
+            return Err(JwtOidcIdTokenVerifierError::InvalidIssuedAt);
         }
         Ok(())
     }
@@ -78,7 +79,7 @@ where
     fn compute_access_token_hash(
         access_token: &str,
         algorithm: Algorithm,
-    ) -> Result<String, OidcIdTokenVerifyError> {
+    ) -> Result<String, JwtOidcIdTokenVerifierError> {
         let digest: Vec<u8> = match algorithm {
             Algorithm::RS256 | Algorithm::PS256 | Algorithm::ES256 => {
                 let mut hasher = Sha256::new();
@@ -95,7 +96,7 @@ where
                 hasher.update(access_token.as_bytes());
                 hasher.finalize().to_vec()
             }
-            _ => return Err(OidcIdTokenVerifyError::InvalidIdToken),
+            _ => return Err(JwtOidcIdTokenVerifierError::UnsupportedAlgorithm),
         };
 
         let half_len = digest.len() / 2;
@@ -106,7 +107,7 @@ where
         access_token: Option<&str>,
         access_token_hash: Option<&str>,
         algorithm: Algorithm,
-    ) -> Result<(), OidcIdTokenVerifyError> {
+    ) -> Result<(), JwtOidcIdTokenVerifierError> {
         let Some(access_token) = access_token else {
             return Ok(());
         };
@@ -116,9 +117,19 @@ where
 
         let computed = Self::compute_access_token_hash(access_token, algorithm)?;
         if computed != access_token_hash {
-            return Err(OidcIdTokenVerifyError::InvalidIdToken);
+            return Err(JwtOidcIdTokenVerifierError::AccessTokenHashMismatch);
         }
         Ok(())
+    }
+
+    fn map_error(error: JwtOidcIdTokenVerifierError) -> OidcIdTokenVerifierError {
+        match error {
+            JwtOidcIdTokenVerifierError::JwksSource(_)
+            | JwtOidcIdTokenVerifierError::InvalidKey(_) => {
+                OidcIdTokenVerifierError::Backend(Box::new(error))
+            }
+            _ => OidcIdTokenVerifierError::invalid_id_token_with_source(error),
+        }
     }
 }
 
@@ -130,31 +141,44 @@ where
         &self,
         id_token: &OidcIdToken,
         context: OidcIdTokenVerifyContext,
-    ) -> Result<OidcIdTokenClaims, OidcIdTokenVerifyError> {
+    ) -> Result<OidcIdTokenClaims, OidcIdTokenVerifierError> {
         let token_value = id_token.value();
 
-        let header =
-            decode_header(token_value).map_err(|_| OidcIdTokenVerifyError::InvalidIdToken)?;
+        let header = decode_header(token_value)
+            .map_err(JwtOidcIdTokenVerifierError::DecodeHeader)
+            .map_err(Self::map_error)?;
 
-        let key_id = header.kid.ok_or(OidcIdTokenVerifyError::InvalidIdToken)?;
-        let key_id = JwkKeyId::new(key_id).map_err(|_| OidcIdTokenVerifyError::InvalidIdToken)?;
+        let key_id = header
+            .kid
+            .ok_or(JwtOidcIdTokenVerifierError::MissingKeyId)
+            .map_err(Self::map_error)?;
+        let key_id = JwkKeyId::new(key_id)
+            .map_err(JwtOidcIdTokenVerifierError::InvalidKeyId)
+            .map_err(Self::map_error)?;
 
         let jwks = self
             .jwks_source
             .read_jwks(&context.jwks_uri)
             .await
-            .map_err(|source| OidcIdTokenVerifyError::Backend(Box::new(source)))?;
+            .map_err(|source| {
+                OidcIdTokenVerifierError::Backend(Box::new(
+                    JwtOidcIdTokenVerifierError::JwksSource(Box::new(source)),
+                ))
+            })?;
 
         let jwk = jwks
             .find(key_id.value())
-            .ok_or(OidcIdTokenVerifyError::InvalidIdToken)?;
+            .ok_or(JwtOidcIdTokenVerifierError::UnknownKeyId)
+            .map_err(Self::map_error)?;
 
-        let decoding_key =
-            DecodingKey::from_jwk(jwk).map_err(|e| OidcIdTokenVerifyError::Backend(Box::new(e)))?;
+        let decoding_key = DecodingKey::from_jwk(jwk)
+            .map_err(JwtOidcIdTokenVerifierError::InvalidKey)
+            .map_err(Self::map_error)?;
 
         let validation = self.validation(&context);
         let token_data = decode::<JwtOidcIdTokenClaims>(token_value, &decoding_key, &validation)
-            .map_err(|_| OidcIdTokenVerifyError::InvalidIdToken)?;
+            .map_err(JwtOidcIdTokenVerifierError::Decode)
+            .map_err(Self::map_error)?;
         let jwt_claims = token_data.claims;
 
         let now = Utc::now();
@@ -162,16 +186,22 @@ where
             now,
             self.config.leeway_seconds().value(),
             jwt_claims.issued_at,
-        )?;
+        )
+        .map_err(Self::map_error)?;
 
-        Self::validate_nonce(context.expected_nonce.as_ref(), jwt_claims.nonce.as_deref())?;
+        Self::validate_nonce(context.expected_nonce.as_ref(), jwt_claims.nonce.as_deref())
+            .map_err(Self::map_error)?;
 
         Self::validate_access_token_hash(
             context.access_token.as_ref().map(|token| token.value()),
             jwt_claims.access_token_hash.as_deref(),
             header.alg,
-        )?;
+        )
+        .map_err(Self::map_error)?;
 
-        jwt_claims.try_into_id_token_claims()
+        jwt_claims
+            .try_into_id_token_claims()
+            .map_err(JwtOidcIdTokenVerifierError::from)
+            .map_err(Self::map_error)
     }
 }
