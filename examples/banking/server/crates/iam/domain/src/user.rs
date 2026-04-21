@@ -7,6 +7,9 @@ mod user_event_payload;
 mod user_event_payload_error;
 mod user_id;
 mod user_identity;
+mod user_picture_object_name;
+mod user_picture_object_name_error;
+mod user_picture_ref;
 mod user_picture_url;
 mod user_picture_url_error;
 mod user_profile;
@@ -28,6 +31,9 @@ pub use user_identity::{
     UserIdentity, UserIdentityProvider, UserIdentityProviderError, UserIdentitySubject,
     UserIdentitySubjectError,
 };
+pub use user_picture_object_name::UserPictureObjectName;
+pub use user_picture_object_name_error::UserPictureObjectNameError;
+pub use user_picture_ref::UserPictureRef;
 pub use user_picture_url::UserPictureUrl;
 pub use user_picture_url_error::UserPictureUrlError;
 pub use user_profile::UserProfile;
@@ -97,13 +103,13 @@ impl User {
             .and_then(UserProfile::bio))
     }
 
-    /// Returns the current picture URL.
-    pub fn picture_url(&self) -> Result<Option<&UserPictureUrl>, UserError> {
+    /// Returns the current picture.
+    pub fn picture(&self) -> Result<Option<&UserPictureRef>, UserError> {
         Ok(self
             .state_required()?
             .profile
             .as_ref()
-            .and_then(UserProfile::picture_url))
+            .and_then(UserProfile::picture))
     }
 
     /// Returns the linked external identities.
@@ -307,8 +313,9 @@ mod tests {
     use appletheia::domain::{Aggregate, EventPayload};
 
     use super::{
-        User, UserBio, UserDisplayName, UserEventPayload, UserIdentity, UserIdentityProvider,
-        UserIdentitySubject, UserPictureUrl, UserProfile, UserStatus, Username,
+        User, UserBio, UserDisplayName, UserError, UserEventPayload, UserIdentity,
+        UserIdentityProvider, UserIdentitySubject, UserPictureRef, UserPictureUrl, UserProfile,
+        UserStatus, Username,
     };
 
     fn identity() -> UserIdentity {
@@ -324,10 +331,10 @@ mod tests {
         UserProfile::new(
             UserDisplayName::try_from("Alice Example").expect("display name should be valid"),
             Some(UserBio::try_from("Banking enthusiast").expect("bio should be valid")),
-            Some(
+            Some(UserPictureRef::external_url(
                 UserPictureUrl::try_from("https://cdn.example.com/alice.png")
                     .expect("picture URL should be valid"),
-            ),
+            )),
         )
     }
 
@@ -423,8 +430,8 @@ mod tests {
             .change_profile(profile())
             .expect_err("inactive user should reject profile changes");
 
-        assert!(matches!(username_error, super::UserError::Inactive));
-        assert!(matches!(profile_error, super::UserError::Inactive));
+        assert!(matches!(username_error, UserError::Inactive));
+        assert!(matches!(profile_error, UserError::Inactive));
     }
 
     #[test]
@@ -436,12 +443,12 @@ mod tests {
             .change_identity_email(
                 &UserIdentityProvider::try_from("https://other.example.com")
                     .expect("provider should be valid"),
-                &UserIdentitySubject::try_from("other-user").expect("subject should be valid"),
+                &UserIdentitySubject::try_from("user-999").expect("subject should be valid"),
                 None,
             )
             .expect_err("unknown identity should be rejected");
 
-        assert!(matches!(error, super::UserError::IdentityNotFound));
+        assert!(matches!(error, UserError::IdentityNotFound));
     }
 
     #[test]
@@ -451,6 +458,10 @@ mod tests {
 
         user.remove().expect("remove should succeed");
 
-        assert!(user.is_removed().expect("status should exist"));
+        assert!(user.is_removed().expect("removed status should exist"));
+        assert_eq!(
+            user.uncommitted_events()[1].payload().name(),
+            UserEventPayload::REMOVED
+        );
     }
 }

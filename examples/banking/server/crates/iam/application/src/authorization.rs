@@ -27,6 +27,6 @@ pub use organization_membership::{
     OrganizationMembershipRoleRevokerRelation, OrganizationMembershipStatusManagerRelation,
 };
 pub use user::{
-    UserActivatorRelation, UserDeactivatorRelation, UserOwnerRelation,
-    UserProfileChangerRelation, UserRemoverRelation, UserUsernameChangerRelation,
+    UserActivatorRelation, UserDeactivatorRelation, UserOwnerRelation, UserProfileChangerRelation,
+    UserRemoverRelation, UserUsernameChangerRelation,
 };

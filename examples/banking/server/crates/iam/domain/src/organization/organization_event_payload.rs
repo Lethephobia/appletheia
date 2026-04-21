@@ -28,8 +28,8 @@ pub enum OrganizationEventPayload {
 
 #[cfg(test)]
 mod tests {
-    use appletheia::domain::EventPayload;
     use crate::OrganizationDisplayName;
+    use appletheia::domain::EventPayload;
 
     use super::{
         OrganizationEventPayload, OrganizationHandle, OrganizationId, OrganizationOwner,

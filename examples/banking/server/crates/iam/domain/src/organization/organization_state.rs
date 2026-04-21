@@ -55,8 +55,8 @@ mod tests {
     use appletheia::domain::{AggregateState, UniqueConstraints, UniqueValues};
 
     use crate::{
-        OrganizationDescription, OrganizationDisplayName, OrganizationPictureUrl,
-        OrganizationWebsiteUrl,
+        OrganizationDescription, OrganizationDisplayName, OrganizationPictureRef,
+        OrganizationPictureUrl, OrganizationWebsiteUrl,
     };
 
     use super::{
@@ -104,10 +104,10 @@ mod tests {
                     OrganizationWebsiteUrl::try_from("https://acme.example.com")
                         .expect("website URL should be valid"),
                 ),
-                Some(
+                Some(OrganizationPictureRef::external_url(
                     OrganizationPictureUrl::try_from("https://cdn.example.com/acme.png")
                         .expect("picture URL should be valid"),
-                ),
+                )),
             ),
         );
 

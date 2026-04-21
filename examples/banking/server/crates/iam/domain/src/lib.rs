@@ -10,7 +10,8 @@ pub use organization::{
     Organization, OrganizationDescription, OrganizationDescriptionError, OrganizationDisplayName,
     OrganizationDisplayNameError, OrganizationError, OrganizationEventPayload,
     OrganizationEventPayloadError, OrganizationHandle, OrganizationHandleError, OrganizationId,
-    OrganizationName, OrganizationNameError, OrganizationOwner, OrganizationPictureUrl,
+    OrganizationName, OrganizationNameError, OrganizationOwner, OrganizationPictureObjectName,
+    OrganizationPictureObjectNameError, OrganizationPictureRef, OrganizationPictureUrl,
     OrganizationPictureUrlError, OrganizationProfile, OrganizationState, OrganizationStateError,
     OrganizationStatus, OrganizationWebsiteUrl, OrganizationWebsiteUrlError,
 };
@@ -34,7 +35,8 @@ pub use organization_membership::{
 pub use user::{
     User, UserBio, UserBioError, UserDisplayName, UserDisplayNameError, UserError,
     UserEventPayload, UserEventPayloadError, UserId, UserIdentity, UserIdentityProvider,
-    UserIdentityProviderError, UserIdentitySubject, UserIdentitySubjectError, UserPictureUrl,
+    UserIdentityProviderError, UserIdentitySubject, UserIdentitySubjectError,
+    UserPictureObjectName, UserPictureObjectNameError, UserPictureRef, UserPictureUrl,
     UserPictureUrlError, UserProfile, UserState, UserStateError, UserStatus, Username,
     UsernameError,
 };

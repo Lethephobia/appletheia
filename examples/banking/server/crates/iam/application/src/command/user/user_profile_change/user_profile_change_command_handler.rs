@@ -91,7 +91,7 @@ mod tests {
     use appletheia::domain::Aggregate;
     use banking_iam_domain::{
         User, UserDisplayName, UserId, UserIdentity, UserIdentityProvider, UserIdentitySubject,
-        UserPictureUrl, UserProfile,
+        UserPictureRef, UserPictureUrl, UserProfile,
     };
     use uuid::Uuid;
 
@@ -201,10 +201,10 @@ mod tests {
                         UserDisplayName::try_from("Alice Example")
                             .expect("display name should be valid"),
                         None,
-                        Some(
+                        Some(UserPictureRef::external_url(
                             UserPictureUrl::try_from("https://cdn.example.com/alice.png")
                                 .expect("picture URL should be valid"),
-                        ),
+                        )),
                     ),
                 },
             )

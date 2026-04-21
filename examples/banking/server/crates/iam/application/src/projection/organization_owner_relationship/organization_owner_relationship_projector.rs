@@ -128,8 +128,8 @@ mod tests {
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::{Aggregate, AggregateId, EventPayload};
     use banking_iam_domain::{
-        Organization, OrganizationHandle, OrganizationName, OrganizationOwner,
-        OrganizationProfile, User, UserId,
+        Organization, OrganizationHandle, OrganizationName, OrganizationOwner, OrganizationProfile,
+        User, UserId,
     };
 
     use super::OrganizationOwnerRelationshipProjector;

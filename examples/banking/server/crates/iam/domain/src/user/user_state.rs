@@ -72,7 +72,7 @@ mod tests {
 
     use crate::{
         UserDisplayName, UserId, UserIdentity, UserIdentityProvider, UserIdentitySubject,
-        UserPictureUrl, UserProfile, UserState, UserStatus, Username, core::Email,
+        UserPictureRef, UserPictureUrl, UserProfile, UserState, UserStatus, Username, core::Email,
     };
 
     fn identity() -> UserIdentity {
@@ -103,10 +103,10 @@ mod tests {
         state.profile = Some(UserProfile::new(
             UserDisplayName::try_from("Alice Example").expect("display name should be valid"),
             None,
-            Some(
+            Some(UserPictureRef::external_url(
                 UserPictureUrl::try_from("https://cdn.example.com/alice.png")
                     .expect("picture URL should be valid"),
-            ),
+            )),
         ));
 
         let entries = state.unique_entries().expect("unique entries should build");

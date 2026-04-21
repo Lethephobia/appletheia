@@ -3,7 +3,7 @@ use url::Url;
 
 use super::UserPictureUrlError;
 
-/// Represents a user's public picture URL.
+/// Represents an externally hosted user picture URL.
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct UserPictureUrl(Url);
@@ -48,12 +48,12 @@ mod tests {
 
     #[test]
     fn accepts_valid_picture_url() {
-        let picture_url = UserPictureUrl::try_from("https://cdn.example.com/alice.png")
+        let picture_url = UserPictureUrl::try_from("https://cdn.example.com/pictures/alice.png")
             .expect("picture URL should be valid");
 
         assert_eq!(
             picture_url.value().as_str(),
-            "https://cdn.example.com/alice.png"
+            "https://cdn.example.com/pictures/alice.png"
         );
     }
 }

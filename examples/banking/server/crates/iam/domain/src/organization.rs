@@ -9,6 +9,9 @@ mod organization_handle;
 mod organization_handle_error;
 mod organization_id;
 mod organization_owner;
+mod organization_picture_object_name;
+mod organization_picture_object_name_error;
+mod organization_picture_ref;
 mod organization_picture_url;
 mod organization_picture_url_error;
 mod organization_profile;
@@ -29,6 +32,9 @@ pub use organization_handle::OrganizationHandle;
 pub use organization_handle_error::OrganizationHandleError;
 pub use organization_id::OrganizationId;
 pub use organization_owner::OrganizationOwner;
+pub use organization_picture_object_name::OrganizationPictureObjectName;
+pub use organization_picture_object_name_error::OrganizationPictureObjectNameError;
+pub use organization_picture_ref::OrganizationPictureRef;
 pub use organization_picture_url::OrganizationPictureUrl;
 pub use organization_picture_url_error::OrganizationPictureUrlError;
 pub use organization_profile::OrganizationProfile;
@@ -76,9 +82,9 @@ impl Organization {
         Ok(self.state_required()?.profile.website_url())
     }
 
-    /// Returns the current organization picture URL.
-    pub fn picture_url(&self) -> Result<Option<&OrganizationPictureUrl>, OrganizationError> {
-        Ok(self.state_required()?.profile.picture_url())
+    /// Returns the current organization picture.
+    pub fn picture(&self) -> Result<Option<&OrganizationPictureRef>, OrganizationError> {
+        Ok(self.state_required()?.profile.picture())
     }
 
     /// Returns the current organization handle.
@@ -218,8 +224,8 @@ mod tests {
 
     use super::{
         Organization, OrganizationDescription, OrganizationDisplayName, OrganizationEventPayload,
-        OrganizationHandle, OrganizationOwner, OrganizationPictureUrl, OrganizationProfile,
-        OrganizationWebsiteUrl,
+        OrganizationHandle, OrganizationOwner, OrganizationPictureRef, OrganizationPictureUrl,
+        OrganizationProfile, OrganizationWebsiteUrl,
     };
 
     fn owner() -> OrganizationOwner {
@@ -237,10 +243,10 @@ mod tests {
                 OrganizationWebsiteUrl::try_from("https://acme.example.com")
                     .expect("website URL should be valid"),
             ),
-            Some(
+            Some(OrganizationPictureRef::external_url(
                 OrganizationPictureUrl::try_from("https://cdn.example.com/acme.png")
                     .expect("picture URL should be valid"),
-            ),
+            )),
         )
     }
 

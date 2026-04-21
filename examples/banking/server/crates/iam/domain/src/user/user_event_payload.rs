@@ -38,7 +38,7 @@ mod tests {
     use appletheia::domain::EventPayload;
 
     use crate::core::Email;
-    use crate::{UserDisplayName, UserPictureUrl};
+    use crate::{UserDisplayName, UserPictureRef, UserPictureUrl};
 
     use super::{
         UserEventPayload, UserId, UserIdentity, UserIdentityProvider, UserIdentitySubject,
@@ -87,10 +87,10 @@ mod tests {
             profile: UserProfile::new(
                 UserDisplayName::try_from("Alice Example").expect("display name should be valid"),
                 None,
-                Some(
+                Some(UserPictureRef::external_url(
                     UserPictureUrl::try_from("https://cdn.example.com/alice.png")
                         .expect("picture URL should be valid"),
-                ),
+                )),
             ),
         };
 

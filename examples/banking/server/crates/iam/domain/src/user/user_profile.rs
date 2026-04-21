@@ -1,13 +1,13 @@
 use serde::{Deserialize, Serialize};
 
-use super::{UserBio, UserDisplayName, UserPictureUrl};
+use super::{UserBio, UserDisplayName, UserPictureRef};
 
 /// Stores the public profile information for a user.
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct UserProfile {
     display_name: UserDisplayName,
     bio: Option<UserBio>,
-    picture_url: Option<UserPictureUrl>,
+    picture: Option<UserPictureRef>,
 }
 
 impl UserProfile {
@@ -15,12 +15,12 @@ impl UserProfile {
     pub fn new(
         display_name: UserDisplayName,
         bio: Option<UserBio>,
-        picture_url: Option<UserPictureUrl>,
+        picture: Option<UserPictureRef>,
     ) -> Self {
         Self {
             display_name,
             bio,
-            picture_url,
+            picture,
         }
     }
 
@@ -34,25 +34,29 @@ impl UserProfile {
         self.bio.as_ref()
     }
 
-    /// Returns the picture URL.
-    pub fn picture_url(&self) -> Option<&UserPictureUrl> {
-        self.picture_url.as_ref()
+    /// Returns the picture.
+    pub fn picture(&self) -> Option<&UserPictureRef> {
+        self.picture.as_ref()
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{UserBio, UserDisplayName, UserPictureUrl, UserProfile};
+    use crate::UserPictureObjectName;
+
+    use super::{UserBio, UserDisplayName, UserPictureRef, UserProfile};
 
     #[test]
     fn exposes_stored_values() {
         let profile = UserProfile::new(
             UserDisplayName::try_from("Alice Example").expect("display name should be valid"),
             Some(UserBio::try_from("Banking enthusiast").expect("bio should be valid")),
-            Some(
-                UserPictureUrl::try_from("https://cdn.example.com/alice.png")
-                    .expect("picture URL should be valid"),
-            ),
+            Some(UserPictureRef::object_name(
+                UserPictureObjectName::try_from(
+                    "users/00000000-0000-0000-0000-000000000001/picture",
+                )
+                .expect("picture object name should be valid"),
+            )),
         );
 
         assert_eq!(profile.display_name().value(), "Alice Example");
@@ -62,11 +66,12 @@ mod tests {
         );
         assert_eq!(
             profile
-                .picture_url()
+                .picture()
                 .expect("picture should exist")
-                .value()
-                .as_str(),
-            "https://cdn.example.com/alice.png"
+                .as_object_name()
+                .expect("picture should be stored in object storage")
+                .value(),
+            "users/00000000-0000-0000-0000-000000000001/picture"
         );
     }
 }

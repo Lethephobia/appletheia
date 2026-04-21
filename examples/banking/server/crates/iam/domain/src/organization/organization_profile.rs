@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::{
-    OrganizationDescription, OrganizationDisplayName, OrganizationPictureUrl,
+    OrganizationDescription, OrganizationDisplayName, OrganizationPictureRef,
     OrganizationWebsiteUrl,
 };
 
@@ -11,7 +11,7 @@ pub struct OrganizationProfile {
     pub(super) display_name: OrganizationDisplayName,
     pub(super) description: Option<OrganizationDescription>,
     pub(super) website_url: Option<OrganizationWebsiteUrl>,
-    pub(super) picture_url: Option<OrganizationPictureUrl>,
+    pub(super) picture: Option<OrganizationPictureRef>,
 }
 
 impl OrganizationProfile {
@@ -20,13 +20,13 @@ impl OrganizationProfile {
         display_name: OrganizationDisplayName,
         description: Option<OrganizationDescription>,
         website_url: Option<OrganizationWebsiteUrl>,
-        picture_url: Option<OrganizationPictureUrl>,
+        picture: Option<OrganizationPictureRef>,
     ) -> Self {
         Self {
             display_name,
             description,
             website_url,
-            picture_url,
+            picture,
         }
     }
 
@@ -45,16 +45,18 @@ impl OrganizationProfile {
         self.website_url.as_ref()
     }
 
-    /// Returns the organization picture URL.
-    pub fn picture_url(&self) -> Option<&OrganizationPictureUrl> {
-        self.picture_url.as_ref()
+    /// Returns the organization picture.
+    pub fn picture(&self) -> Option<&OrganizationPictureRef> {
+        self.picture.as_ref()
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::OrganizationPictureObjectName;
+
     use super::{
-        OrganizationDescription, OrganizationDisplayName, OrganizationPictureUrl,
+        OrganizationDescription, OrganizationDisplayName, OrganizationPictureRef,
         OrganizationProfile, OrganizationWebsiteUrl,
     };
 
@@ -70,10 +72,12 @@ mod tests {
                 OrganizationWebsiteUrl::try_from("https://acme.example.com")
                     .expect("website URL should be valid"),
             ),
-            Some(
-                OrganizationPictureUrl::try_from("https://cdn.example.com/acme.png")
-                    .expect("picture URL should be valid"),
-            ),
+            Some(OrganizationPictureRef::object_name(
+                OrganizationPictureObjectName::try_from(
+                    "organizations/00000000-0000-0000-0000-000000000001/picture",
+                )
+                .expect("picture object name should be valid"),
+            )),
         );
 
         assert_eq!(profile.display_name().value(), "Acme Labs");
@@ -86,8 +90,11 @@ mod tests {
             Some("https://acme.example.com/")
         );
         assert_eq!(
-            profile.picture_url().map(|value| value.value().as_str()),
-            Some("https://cdn.example.com/acme.png")
+            profile
+                .picture()
+                .and_then(OrganizationPictureRef::as_object_name)
+                .map(OrganizationPictureObjectName::value),
+            Some("organizations/00000000-0000-0000-0000-000000000001/picture")
         );
     }
 }

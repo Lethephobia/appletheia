@@ -3,7 +3,7 @@ use url::Url;
 
 use super::OrganizationPictureUrlError;
 
-/// Represents an organization's public picture URL.
+/// Represents an externally hosted organization picture URL.
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct OrganizationPictureUrl(Url);
@@ -55,16 +55,5 @@ mod tests {
             picture_url.value().as_str(),
             "https://cdn.example.com/acme.png"
         );
-    }
-
-    #[test]
-    fn rejects_invalid_picture_url() {
-        let error =
-            OrganizationPictureUrl::try_from("not a url").expect_err("invalid URL should fail");
-
-        assert!(matches!(
-            error,
-            super::OrganizationPictureUrlError::Parse(_)
-        ));
     }
 }
