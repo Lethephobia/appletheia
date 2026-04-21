@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.3](https://github.com/Lethephobia/appletheia/compare/appletheia-domain-v0.3.2...appletheia-domain-v0.3.3) - 2026-04-21
+
+### Other
+
+- *(snapshot)* simplify getting aggregate id
+
 ## [0.3.2](https://github.com/Lethephobia/appletheia/compare/appletheia-domain-v0.3.1...appletheia-domain-v0.3.2) - 2026-04-09
 
 ### Other
