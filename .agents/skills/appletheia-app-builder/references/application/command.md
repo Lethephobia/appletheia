@@ -4,47 +4,6 @@ Use for command payloads, command handlers, authorization, validation, and orche
 
 ## Command
 
-### DO model commands as intent-only messages
-
-Commands should describe what the caller wants to do, not how the application will do it.
-
-good:
-```rust
-pub struct OrganizationChangeNameCommand {
-    pub organization_id: OrganizationId,
-    pub name: OrganizationName,
-}
-```
-
-bad:
-```rust
-pub struct OrganizationChangeNameCommand {
-    pub organization: Organization,
-    pub name: String,
-    pub principal: Principal,
-}
-```
-
-### DO keep command payloads serializable and transport-friendly
-
-Use value objects and ids that can move across process boundaries cleanly.
-
-good:
-```rust
-pub struct AccountOpenCommand {
-    pub owner_id: UserId,
-    pub currency_definition_id: CurrencyDefinitionId,
-}
-```
-
-bad:
-```rust
-pub struct AccountOpenCommand {
-    pub owner: AccountOwner,
-    pub currency_definition: CurrencyDefinition,
-}
-```
-
 ### DO keep command input minimal
 
 Include only the data that is necessary to express the intent.
@@ -62,71 +21,6 @@ pub struct OrganizationRemoveCommand {
     pub organization_id: OrganizationId,
     pub organization_name: OrganizationName,
     pub organization_handle: OrganizationHandle,
-}
-```
-
-### DO keep principal and actor out of command payloads
-
-Security context belongs in `RequestContext`, not in the command struct.
-
-good:
-```rust
-pub struct CurrencyDefinitionDefineCommand {
-    pub symbol: CurrencySymbol,
-    pub name: CurrencyName,
-    pub decimals: CurrencyDecimals,
-}
-```
-
-bad:
-```rust
-pub struct CurrencyDefinitionDefineCommand {
-    pub principal: Principal,
-    pub symbol: CurrencySymbol,
-    pub name: CurrencyName,
-    pub decimals: CurrencyDecimals,
-}
-```
-
-### PREFER one command per user intent
-
-Split commands when they represent different business actions, especially when authorization differs.
-If the domain object is edited as a coupled set of fields, a patch command can still be a good fit.
-
-good:
-```rust
-pub struct OrganizationChangeNameCommand;
-pub struct OrganizationChangeHandleCommand;
-pub struct OrganizationRemoveCommand;
-```
-
-bad:
-```rust
-pub struct OrganizationUpdateCommand {
-    pub name: Option<OrganizationName>,
-    pub handle: Option<OrganizationHandle>,
-}
-```
-
-### CONSIDER `FieldPatch` for coupled fields
-
-Use `FieldPatch` when several fields of one conceptual object are expected to change together and omitted fields mean "leave unchanged".
-This fits user profile or settings surfaces better than splitting every field into its own command.
-
-good:
-```rust
-pub struct UserProfileEditCommand {
-    pub username: FieldPatch<Username>,
-    pub display_name: FieldPatch<UserDisplayName>,
-    pub bio: FieldPatch<Option<UserBio>>,
-}
-```
-
-bad:
-```rust
-pub struct OrganizationPatchCommand {
-    pub name: FieldPatch<OrganizationName>,
-    pub handle: FieldPatch<OrganizationHandle>,
 }
 ```
 
