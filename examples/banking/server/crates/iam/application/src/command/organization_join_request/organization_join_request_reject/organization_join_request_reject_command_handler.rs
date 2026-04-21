@@ -10,7 +10,7 @@ use banking_iam_domain::{Organization, OrganizationJoinRequest};
 use crate::authorization::OrganizationJoinRequestRejecterRelation;
 use crate::projection::{
     OrganizationJoinRequestOrganizationRelationshipProjectorSpec,
-    OrganizationOwnerRelationshipProjectorSpec,
+    OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
 };
 
 use super::{
@@ -65,6 +65,7 @@ where
                 projector_dependencies: ProjectorDependencies::Some(&[
                     OrganizationJoinRequestOrganizationRelationshipProjectorSpec::DESCRIPTOR,
                     OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
+                    OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
                 ]),
             },
         ]))

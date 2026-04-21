@@ -1,6 +1,6 @@
 use appletheia::command;
 use banking_ledger_domain::account::{AccountName, AccountOwner};
-use banking_ledger_domain::currency_definition::CurrencyDefinitionId;
+use banking_ledger_domain::currency::CurrencyId;
 use serde::{Deserialize, Serialize};
 
 /// Opens a new account for the specified owner.
@@ -9,5 +9,5 @@ use serde::{Deserialize, Serialize};
 pub struct AccountOpenCommand {
     pub owner: AccountOwner,
     pub name: AccountName,
-    pub currency_definition_id: CurrencyDefinitionId,
+    pub currency_id: CurrencyId,
 }

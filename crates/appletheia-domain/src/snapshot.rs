@@ -57,7 +57,7 @@ impl<S: AggregateState> Snapshot<S> {
 
     /// Returns the identifier of the aggregate represented by the snapshot.
     pub fn aggregate_id(&self) -> S::Id {
-        self.state.id()
+        self.aggregate_id
     }
 
     /// Returns the aggregate version captured by the snapshot.

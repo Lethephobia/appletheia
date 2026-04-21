@@ -27,6 +27,6 @@ pub enum TransferRequestCommandHandlerError {
     #[error("destination account was not found")]
     DestinationAccountNotFound,
 
-    #[error("source and destination accounts use different currency definitions")]
-    CurrencyDefinitionMismatch,
+    #[error("source and destination accounts use different currencies")]
+    CurrencyMismatch,
 }

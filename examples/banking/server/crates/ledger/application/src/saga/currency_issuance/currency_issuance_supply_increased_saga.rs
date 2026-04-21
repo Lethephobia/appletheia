@@ -1,16 +1,14 @@
 use appletheia::application::command::CommandRequest;
 use appletheia::application::saga::{Saga, SagaTransition};
 use appletheia::domain::{Aggregate, Event};
-use banking_ledger_domain::currency_definition::{
-    CurrencyDefinition, CurrencyDefinitionEventPayload,
-};
+use banking_ledger_domain::currency::{Currency, CurrencyEventPayload};
 
 use super::{
     CurrencyIssuanceSagaContext, CurrencyIssuanceSagaStatus,
     CurrencyIssuanceSupplyIncreasedSagaError, CurrencyIssuanceSupplyIncreasedSagaSpec,
 };
 use crate::command::{
-    AccountDepositCommand, CurrencyDefinitionDecreaseSupplyCommand, CurrencyIssuanceFailCommand,
+    AccountDepositCommand, CurrencyDecreaseSupplyCommand, CurrencyIssuanceFailCommand,
 };
 
 /// Coordinates the currency issuance step after supply is increased.
@@ -19,7 +17,7 @@ pub struct CurrencyIssuanceSupplyIncreasedSaga;
 impl Saga for CurrencyIssuanceSupplyIncreasedSaga {
     type Spec = CurrencyIssuanceSupplyIncreasedSagaSpec;
     type Context = CurrencyIssuanceSagaContext;
-    type EventAggregate = CurrencyDefinition;
+    type EventAggregate = Currency;
     type Command = AccountDepositCommand;
     type Error = CurrencyIssuanceSupplyIncreasedSagaError;
 
@@ -31,7 +29,7 @@ impl Saga for CurrencyIssuanceSupplyIncreasedSaga {
             <Self::EventAggregate as Aggregate>::EventPayload,
         >,
     ) -> Result<SagaTransition<Self::Context, Self::Command>, Self::Error> {
-        let CurrencyDefinitionEventPayload::SupplyIncreased { .. } = event.payload() else {
+        let CurrencyEventPayload::SupplyIncreased { .. } = event.payload() else {
             return Err(CurrencyIssuanceSupplyIncreasedSagaError::UnexpectedEvent);
         };
         let mut context =
@@ -44,8 +42,8 @@ impl Saga for CurrencyIssuanceSupplyIncreasedSaga {
                 amount: context.amount,
             },
             CommandRequest::with_failure_follow_up(
-                CurrencyDefinitionDecreaseSupplyCommand {
-                    currency_definition_id: context.currency_definition_id,
+                CurrencyDecreaseSupplyCommand {
+                    currency_id: context.currency_id,
                     amount: context.amount,
                 },
                 CommandRequest::new(CurrencyIssuanceFailCommand {

@@ -2,7 +2,7 @@ use appletheia::event_payload;
 
 use crate::account::AccountId;
 use crate::core::CurrencyAmount;
-use crate::currency_definition::CurrencyDefinitionId;
+use crate::currency::CurrencyId;
 
 use super::{CurrencyIssuanceEventPayloadError, CurrencyIssuanceId};
 
@@ -11,7 +11,7 @@ use super::{CurrencyIssuanceEventPayloadError, CurrencyIssuanceId};
 pub enum CurrencyIssuanceEventPayload {
     Issued {
         id: CurrencyIssuanceId,
-        currency_definition_id: CurrencyDefinitionId,
+        currency_id: CurrencyId,
         destination_account_id: AccountId,
         amount: CurrencyAmount,
     },
@@ -25,7 +25,7 @@ mod tests {
 
     use crate::account::AccountId;
     use crate::core::CurrencyAmount;
-    use crate::currency_definition::CurrencyDefinitionId;
+    use crate::currency::CurrencyId;
 
     use super::{CurrencyIssuanceEventPayload, CurrencyIssuanceId};
 
@@ -49,7 +49,7 @@ mod tests {
     fn serializes_payload_to_json() {
         let payload = CurrencyIssuanceEventPayload::Issued {
             id: CurrencyIssuanceId::new(),
-            currency_definition_id: CurrencyDefinitionId::new(),
+            currency_id: CurrencyId::new(),
             destination_account_id: AccountId::new(),
             amount: CurrencyAmount::new(100),
         };

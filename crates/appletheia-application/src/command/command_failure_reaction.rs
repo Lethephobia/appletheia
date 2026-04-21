@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 
 /// Describes follow-up work to schedule after a handled command failure.
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "type", content = "data", rename_all = "snake_case")]
 pub enum CommandFailureReaction {
     #[default]
     None,

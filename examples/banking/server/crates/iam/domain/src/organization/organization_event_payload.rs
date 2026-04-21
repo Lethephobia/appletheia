@@ -1,39 +1,49 @@
 use appletheia::event_payload;
 
-use super::OrganizationOwner;
-use super::{OrganizationEventPayloadError, OrganizationHandle, OrganizationId, OrganizationName};
+use super::{
+    OrganizationEventPayloadError, OrganizationHandle, OrganizationId, OrganizationOwner,
+    OrganizationProfile,
+};
 
 /// Represents the domain events emitted by an `Organization` aggregate.
 #[event_payload(error = OrganizationEventPayloadError)]
 pub enum OrganizationEventPayload {
     Created {
         id: OrganizationId,
-        handle: OrganizationHandle,
-        name: OrganizationName,
-    },
-    OwnerAssigned {
         owner: OrganizationOwner,
+        handle: OrganizationHandle,
+        profile: OrganizationProfile,
     },
-    OwnerUnassigned {
+    OwnershipTransferred {
         owner: OrganizationOwner,
     },
     HandleChanged {
         handle: OrganizationHandle,
     },
-    NameChanged {
-        name: OrganizationName,
+    ProfileChanged {
+        profile: OrganizationProfile,
     },
     Removed,
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::OrganizationDisplayName;
     use appletheia::domain::EventPayload;
 
     use super::{
-        OrganizationEventPayload, OrganizationHandle, OrganizationId, OrganizationName,
-        OrganizationOwner,
+        OrganizationEventPayload, OrganizationHandle, OrganizationId, OrganizationOwner,
+        OrganizationProfile,
     };
+
+    fn profile() -> OrganizationProfile {
+        OrganizationProfile::new(
+            OrganizationDisplayName::try_from("Acme Labs").expect("display name should be valid"),
+            None,
+            None,
+            None,
+        )
+    }
 
     #[test]
     fn returns_stable_event_names() {
@@ -42,20 +52,16 @@ mod tests {
             appletheia::domain::EventName::new("created")
         );
         assert_eq!(
-            OrganizationEventPayload::OWNER_ASSIGNED,
-            appletheia::domain::EventName::new("owner_assigned")
-        );
-        assert_eq!(
-            OrganizationEventPayload::OWNER_UNASSIGNED,
-            appletheia::domain::EventName::new("owner_unassigned")
+            OrganizationEventPayload::OWNERSHIP_TRANSFERRED,
+            appletheia::domain::EventName::new("ownership_transferred")
         );
         assert_eq!(
             OrganizationEventPayload::HANDLE_CHANGED,
             appletheia::domain::EventName::new("handle_changed")
         );
         assert_eq!(
-            OrganizationEventPayload::NAME_CHANGED,
-            appletheia::domain::EventName::new("name_changed")
+            OrganizationEventPayload::PROFILE_CHANGED,
+            appletheia::domain::EventName::new("profile_changed")
         );
         assert_eq!(
             OrganizationEventPayload::REMOVED,
@@ -64,69 +70,40 @@ mod tests {
     }
 
     #[test]
-    fn payload_name_matches_variant() {
+    fn profile_changed_payload_name_matches_variant() {
+        let payload = OrganizationEventPayload::ProfileChanged { profile: profile() };
+
+        assert_eq!(payload.name(), OrganizationEventPayload::PROFILE_CHANGED);
+    }
+
+    #[test]
+    fn serializes_profile_changed_payload_to_json() {
+        let payload = OrganizationEventPayload::ProfileChanged { profile: profile() };
+
+        let value = payload.into_json_value().expect("payload should serialize");
+
+        assert_eq!(value["type"], serde_json::json!("profile_changed"));
+        assert_eq!(
+            value["data"]["profile"]["display_name"],
+            serde_json::json!("Acme Labs")
+        );
+    }
+
+    #[test]
+    fn serializes_created_payload_to_json() {
         let payload = OrganizationEventPayload::Created {
             id: OrganizationId::new(),
-            handle: OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
-            name: OrganizationName::try_from("Acme Labs").expect("name should be valid"),
-        };
-
-        assert_eq!(payload.name(), OrganizationEventPayload::CREATED);
-    }
-
-    #[test]
-    fn owner_assigned_payload_name_matches_variant() {
-        let payload = OrganizationEventPayload::OwnerAssigned {
             owner: OrganizationOwner::User(crate::UserId::new()),
-        };
-
-        assert_eq!(payload.name(), OrganizationEventPayload::OWNER_ASSIGNED);
-    }
-
-    #[test]
-    fn owner_unassigned_payload_name_matches_variant() {
-        let payload = OrganizationEventPayload::OwnerUnassigned {
-            owner: OrganizationOwner::User(crate::UserId::new()),
-        };
-
-        assert_eq!(payload.name(), OrganizationEventPayload::OWNER_UNASSIGNED);
-    }
-
-    #[test]
-    fn handle_changed_payload_name_matches_variant() {
-        let payload = OrganizationEventPayload::HandleChanged {
-            handle: OrganizationHandle::try_from("acme-labs-2").expect("handle should be valid"),
-        };
-
-        assert_eq!(payload.name(), OrganizationEventPayload::HANDLE_CHANGED);
-    }
-
-    #[test]
-    fn name_changed_payload_name_matches_variant() {
-        let payload = OrganizationEventPayload::NameChanged {
-            name: OrganizationName::try_from("Acme Labs 2").expect("name should be valid"),
-        };
-
-        assert_eq!(payload.name(), OrganizationEventPayload::NAME_CHANGED);
-    }
-
-    #[test]
-    fn removed_payload_name_matches_variant() {
-        let payload = OrganizationEventPayload::Removed;
-
-        assert_eq!(payload.name(), OrganizationEventPayload::REMOVED);
-    }
-
-    #[test]
-    fn serializes_payload_to_json() {
-        let payload = OrganizationEventPayload::Created {
-            id: OrganizationId::new(),
             handle: OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
-            name: OrganizationName::try_from("Acme Labs").expect("name should be valid"),
+            profile: profile(),
         };
 
         let value = payload.into_json_value().expect("payload should serialize");
 
         assert_eq!(value["type"], serde_json::json!("created"));
+        assert_eq!(
+            value["data"]["profile"]["display_name"],
+            serde_json::json!("Acme Labs")
+        );
     }
 }

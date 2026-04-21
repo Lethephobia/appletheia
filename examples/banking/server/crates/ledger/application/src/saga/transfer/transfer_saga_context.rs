@@ -31,6 +31,7 @@ impl TransferSagaContext {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "type", content = "data", rename_all = "snake_case")]
 pub enum TransferSagaStatus {
     #[default]
     Initial,

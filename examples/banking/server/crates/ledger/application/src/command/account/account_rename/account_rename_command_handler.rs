@@ -5,7 +5,9 @@ use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_iam_application::OrganizationOwnerRelationshipProjectorSpec;
+use banking_iam_application::{
+    OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
+};
 use banking_ledger_domain::account::Account;
 
 use super::{AccountRenameCommand, AccountRenameCommandHandlerError, AccountRenameOutput};
@@ -53,6 +55,7 @@ where
                 projector_dependencies: ProjectorDependencies::Some(&[
                     AccountOwnerRelationshipProjectorSpec::DESCRIPTOR,
                     OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
+                    OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
                 ]),
             },
         ]))
@@ -97,9 +100,11 @@ mod tests {
     };
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::Aggregate;
-    use banking_iam_application::OrganizationOwnerRelationshipProjectorSpec;
+    use banking_iam_application::{
+        OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
+    };
     use banking_ledger_domain::account::{Account, AccountId, AccountName, AccountOwner};
-    use banking_ledger_domain::currency_definition::CurrencyDefinitionId;
+    use banking_ledger_domain::currency::CurrencyId;
     use uuid::Uuid;
 
     use super::{AccountRenameCommand, AccountRenameCommandHandler, AccountRenameOutput};
@@ -192,11 +197,7 @@ mod tests {
     fn opened_account() -> Account {
         let mut account = Account::default();
         account
-            .open(
-                account_owner(),
-                account_name("main"),
-                CurrencyDefinitionId::new(),
-            )
+            .open(account_owner(), account_name("main"), CurrencyId::new())
             .expect("open should succeed");
         account
     }
@@ -225,6 +226,7 @@ mod tests {
                     projector_dependencies: ProjectorDependencies::Some(&[
                         AccountOwnerRelationshipProjectorSpec::DESCRIPTOR,
                         OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
+                        OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
                     ]),
                 },
             ])

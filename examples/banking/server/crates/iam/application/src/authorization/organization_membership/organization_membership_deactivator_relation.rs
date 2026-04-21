@@ -12,10 +12,7 @@ impl Relation for OrganizationMembershipDeactivatorRelation {
         RelationName::new("deactivator"),
     );
 
-    const EXPR: UsersetExpr = UsersetExpr::Union(&[
-        UsersetExpr::This,
-        UsersetExpr::ComputedUserset {
-            relation: OrganizationMembershipStatusManagerRelation::REF,
-        },
-    ]);
+    const EXPR: UsersetExpr = UsersetExpr::ComputedUserset {
+        relation: OrganizationMembershipStatusManagerRelation::REF,
+    };
 }

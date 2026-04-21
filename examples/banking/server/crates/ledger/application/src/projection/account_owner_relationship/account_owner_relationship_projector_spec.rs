@@ -10,9 +10,9 @@ pub struct AccountOwnerRelationshipProjectorSpec;
 impl ProjectorSpec for AccountOwnerRelationshipProjectorSpec {
     const DESCRIPTOR: ProjectorDescriptor = ProjectorDescriptor::new(
         ProjectorName::new("account_owner_relationship"),
-        Subscription::AnyOf(&[EventSelector::new(
-            Account::TYPE,
-            AccountEventPayload::OPENED,
-        )]),
+        Subscription::AnyOf(&[
+            EventSelector::new(Account::TYPE, AccountEventPayload::OPENED),
+            EventSelector::new(Account::TYPE, AccountEventPayload::OWNERSHIP_TRANSFERRED),
+        ]),
     );
 }

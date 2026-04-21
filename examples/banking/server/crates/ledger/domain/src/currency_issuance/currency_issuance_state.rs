@@ -3,7 +3,7 @@ use appletheia::unique_constraints;
 
 use crate::account::AccountId;
 use crate::core::CurrencyAmount;
-use crate::currency_definition::CurrencyDefinitionId;
+use crate::currency::CurrencyId;
 
 use super::{CurrencyIssuanceId, CurrencyIssuanceStateError, CurrencyIssuanceStatus};
 
@@ -12,7 +12,7 @@ use super::{CurrencyIssuanceId, CurrencyIssuanceStateError, CurrencyIssuanceStat
 #[unique_constraints()]
 pub struct CurrencyIssuanceState {
     pub(super) id: CurrencyIssuanceId,
-    pub(super) currency_definition_id: CurrencyDefinitionId,
+    pub(super) currency_id: CurrencyId,
     pub(super) destination_account_id: AccountId,
     pub(super) amount: CurrencyAmount,
     pub(super) status: CurrencyIssuanceStatus,
@@ -22,13 +22,13 @@ impl CurrencyIssuanceState {
     /// Creates a new issuance state.
     pub(super) fn new(
         id: CurrencyIssuanceId,
-        currency_definition_id: CurrencyDefinitionId,
+        currency_id: CurrencyId,
         destination_account_id: AccountId,
         amount: CurrencyAmount,
     ) -> Self {
         Self {
             id,
-            currency_definition_id,
+            currency_id,
             destination_account_id,
             amount,
             status: CurrencyIssuanceStatus::Pending,
@@ -42,7 +42,7 @@ mod tests {
 
     use crate::account::AccountId;
     use crate::core::CurrencyAmount;
-    use crate::currency_definition::CurrencyDefinitionId;
+    use crate::currency::CurrencyId;
 
     use super::{CurrencyIssuanceId, CurrencyIssuanceState, CurrencyIssuanceStatus};
 
@@ -51,7 +51,7 @@ mod tests {
         let id = CurrencyIssuanceId::new();
         let state = CurrencyIssuanceState::new(
             id,
-            CurrencyDefinitionId::new(),
+            CurrencyId::new(),
             AccountId::new(),
             CurrencyAmount::new(1),
         );

@@ -9,10 +9,7 @@ pub struct AccountThawerRelation;
 impl Relation for AccountThawerRelation {
     const REF: RelationRef = RelationRef::new(Account::TYPE, RelationName::new("thawer"));
 
-    const EXPR: UsersetExpr = UsersetExpr::Union(&[
-        UsersetExpr::This,
-        UsersetExpr::ComputedUserset {
-            relation: AccountStatusManagerRelation::REF,
-        },
-    ]);
+    const EXPR: UsersetExpr = UsersetExpr::ComputedUserset {
+        relation: AccountStatusManagerRelation::REF,
+    };
 }

@@ -6,9 +6,11 @@ edition = "2024"
 [dependencies]
 appletheia = { workspace = true, features = ["application", "domain", "macros-application"] }
 banking-iam-domain = { workspace = true }
+chrono = { workspace = true }
 serde = { version = "1.0.228", features = ["derive"] }
 thiserror = "2.0.17"
 url = { version = "2.5.7", features = ["serde"] }
+uuid = { version = "1", features = ["v7"] }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt"] }

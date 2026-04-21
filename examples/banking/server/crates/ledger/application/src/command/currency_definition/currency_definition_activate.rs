@@ -1,9 +1,0 @@
-mod currency_definition_activate_command;
-mod currency_definition_activate_command_handler;
-mod currency_definition_activate_command_handler_error;
-mod currency_definition_activate_output;
-
-pub use currency_definition_activate_command::CurrencyDefinitionActivateCommand;
-pub use currency_definition_activate_command_handler::CurrencyDefinitionActivateCommandHandler;
-pub use currency_definition_activate_command_handler_error::CurrencyDefinitionActivateCommandHandlerError;
-pub use currency_definition_activate_output::CurrencyDefinitionActivateOutput;

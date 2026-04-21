@@ -1,5 +1,6 @@
 use appletheia::application::authorization::{
-    Relation, Relationship, RelationshipChange, RelationshipStore, RelationshipSubject,
+    AggregateRef, Relation, Relationship, RelationshipChange, RelationshipStore,
+    RelationshipSubject,
 };
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
@@ -24,6 +25,48 @@ where
     pub fn new(relationship_store: RS) -> Self {
         Self { relationship_store }
     }
+
+    fn owner_subject(owner: banking_ledger_domain::account::AccountOwner) -> RelationshipSubject {
+        match owner {
+            banking_ledger_domain::account::AccountOwner::User(user_id) => {
+                RelationshipSubject::aggregate::<User>(user_id)
+            }
+            banking_ledger_domain::account::AccountOwner::Organization(organization_id) => {
+                RelationshipSubject::aggregate::<Organization>(organization_id)
+            }
+        }
+    }
+
+    async fn replace_owner_relationships(
+        &self,
+        uow: &mut RS::Uow,
+        account_id: banking_ledger_domain::account::AccountId,
+        owner: banking_ledger_domain::account::AccountOwner,
+    ) -> Result<(), AccountOwnerRelationshipProjectorError> {
+        let aggregate = AggregateRef::from_id::<Account>(account_id);
+        let mut changes: Vec<_> = self
+            .relationship_store
+            .read_subjects_by_aggregate(uow, &aggregate, &AccountOwnerRelation::REF.into(), None)
+            .await?
+            .into_iter()
+            .map(|subject| {
+                RelationshipChange::Delete(Relationship::new::<Account>(
+                    account_id,
+                    AccountOwnerRelation::REF,
+                    subject,
+                ))
+            })
+            .collect();
+
+        changes.push(RelationshipChange::Upsert(Relationship::new::<Account>(
+            account_id,
+            AccountOwnerRelation::REF,
+            Self::owner_subject(owner),
+        )));
+
+        self.relationship_store.apply_changes(uow, &changes).await?;
+        Ok(())
+    }
 }
 
 impl<RS> Projector for AccountOwnerRelationshipProjector<RS>
@@ -39,24 +82,19 @@ where
             let event = event.try_into_domain_event::<Account>()?;
             match event.payload() {
                 AccountEventPayload::Opened { owner, .. } => {
-                    let subject = match owner {
-                        banking_ledger_domain::account::AccountOwner::User(user_id) => {
-                            RelationshipSubject::aggregate::<User>(*user_id)
-                        }
-                        banking_ledger_domain::account::AccountOwner::Organization(
-                            organization_id,
-                        ) => RelationshipSubject::aggregate::<Organization>(*organization_id),
-                    };
-
                     self.relationship_store
                         .apply_changes(
                             uow,
                             &[RelationshipChange::Upsert(Relationship::new::<Account>(
                                 event.aggregate_id(),
                                 AccountOwnerRelation::REF,
-                                subject,
+                                Self::owner_subject(*owner),
                             ))],
                         )
+                        .await?;
+                }
+                AccountEventPayload::OwnershipTransferred { owner } => {
+                    self.replace_owner_relationships(uow, event.aggregate_id(), *owner)
                         .await?;
                 }
                 _ => return Ok(()),
@@ -84,7 +122,7 @@ mod tests {
     use appletheia::domain::{Aggregate, AggregateId, EventPayload};
     use banking_iam_domain::{Organization, OrganizationId, User, UserId};
     use banking_ledger_domain::account::{Account, AccountName, AccountOwner};
-    use banking_ledger_domain::currency_definition::CurrencyDefinitionId;
+    use banking_ledger_domain::currency::CurrencyId;
 
     use super::AccountOwnerRelationshipProjector;
     use crate::authorization::AccountOwnerRelation;
@@ -109,11 +147,19 @@ mod tests {
     #[derive(Clone, Default)]
     struct TestRelationshipStore {
         changes: Arc<Mutex<Vec<RelationshipChange>>>,
+        current_subjects: Arc<Mutex<Vec<RelationshipSubject>>>,
     }
 
     impl TestRelationshipStore {
         fn recorded_changes(&self) -> Vec<RelationshipChange> {
             self.changes.lock().expect("lock should succeed").clone()
+        }
+
+        fn with_current_subjects(subjects: Vec<RelationshipSubject>) -> Self {
+            Self {
+                changes: Arc::default(),
+                current_subjects: Arc::new(Mutex::new(subjects)),
+            }
         }
     }
 
@@ -148,8 +194,71 @@ mod tests {
             _relation: &RelationRefOwned,
             _subject_aggregate_type: Option<&appletheia::application::event::AggregateTypeOwned>,
         ) -> Result<Vec<RelationshipSubject>, RelationshipStoreError> {
-            Ok(Vec::new())
+            Ok(self
+                .current_subjects
+                .lock()
+                .expect("lock should succeed")
+                .clone())
         }
+    }
+
+    fn ownership_transferred_event_envelope() -> (EventEnvelope, OrganizationId, UserId) {
+        let mut account = Account::default();
+        let previous_owner = OrganizationId::new();
+        let next_owner = UserId::new();
+        account
+            .open(
+                AccountOwner::from(previous_owner),
+                account_name(),
+                CurrencyId::new(),
+            )
+            .expect("open should succeed");
+        account
+            .transfer_ownership(AccountOwner::from(next_owner))
+            .expect("ownership transfer should succeed");
+
+        let event = account
+            .uncommitted_events()
+            .last()
+            .expect("ownership transferred event should exist")
+            .clone();
+        let message_id = MessageId::new();
+
+        (
+            EventEnvelope {
+                event_sequence: EventSequence::try_from(2).expect("sequence should be valid"),
+                event_id: event.id(),
+                aggregate_type: appletheia::application::event::AggregateTypeOwned::from(
+                    Account::TYPE,
+                ),
+                aggregate_id: appletheia::application::event::AggregateIdValue::from(
+                    event.aggregate_id().value(),
+                ),
+                aggregate_version: event.aggregate_version(),
+                event_name: appletheia::application::event::EventNameOwned::from(
+                    event.payload().name(),
+                ),
+                payload: SerializedEventPayload::try_from(
+                    event
+                        .payload()
+                        .clone()
+                        .into_json_value()
+                        .expect("payload should serialize"),
+                )
+                .expect("payload should be valid"),
+                occurred_at: event.occurred_at(),
+                correlation_id: CorrelationId::from(message_id.value()),
+                causation_id: CausationId::from(message_id),
+                context: RequestContext::new(
+                    CorrelationId::from(MessageId::new().value()),
+                    message_id,
+                    Principal::System,
+                )
+                .expect("request context should be valid"),
+            },
+            previous_owner,
+            next_owner,
+        )
     }
 
     fn opened_event_envelope() -> (EventEnvelope, UserId) {
@@ -159,7 +268,7 @@ mod tests {
             .open(
                 AccountOwner::from(user_id),
                 account_name(),
-                CurrencyDefinitionId::new(),
+                CurrencyId::new(),
             )
             .expect("open should succeed");
 
@@ -214,7 +323,7 @@ mod tests {
             .open(
                 AccountOwner::from(organization_id),
                 account_name(),
-                CurrencyDefinitionId::new(),
+                CurrencyId::new(),
             )
             .expect("open should succeed");
 
@@ -316,6 +425,41 @@ mod tests {
         assert_eq!(
             relationship.subject,
             RelationshipSubject::Aggregate(AggregateRef::from_id::<Organization>(organization_id))
+        );
+    }
+
+    #[tokio::test]
+    async fn project_ownership_transferred_event_replaces_owner_relationship() {
+        let (event, previous_owner, next_owner) = ownership_transferred_event_envelope();
+        let store =
+            TestRelationshipStore::with_current_subjects(vec![RelationshipSubject::aggregate::<
+                Organization,
+            >(previous_owner)]);
+        let projector = AccountOwnerRelationshipProjector::new(store.clone());
+        let mut uow = TestUow;
+
+        projector
+            .project(&mut uow, &event)
+            .await
+            .expect("projection should succeed");
+
+        let changes = store.recorded_changes();
+        assert_eq!(changes.len(), 2);
+
+        let RelationshipChange::Delete(relationship) = &changes[0] else {
+            panic!("expected delete relationship");
+        };
+        assert_eq!(
+            relationship.subject,
+            RelationshipSubject::Aggregate(AggregateRef::from_id::<Organization>(previous_owner))
+        );
+
+        let RelationshipChange::Upsert(relationship) = &changes[1] else {
+            panic!("expected upsert relationship");
+        };
+        assert_eq!(
+            relationship.subject,
+            RelationshipSubject::Aggregate(AggregateRef::from_id::<User>(next_owner))
         );
     }
 }

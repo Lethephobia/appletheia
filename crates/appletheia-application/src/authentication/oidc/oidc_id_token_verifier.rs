@@ -1,4 +1,4 @@
-use super::{OidcIdToken, OidcIdTokenClaims, OidcIdTokenVerifyContext, OidcIdTokenVerifyError};
+use super::{OidcIdToken, OidcIdTokenClaims, OidcIdTokenVerifierError, OidcIdTokenVerifyContext};
 
 #[allow(async_fn_in_trait)]
 pub trait OidcIdTokenVerifier: Send + Sync {
@@ -6,5 +6,5 @@ pub trait OidcIdTokenVerifier: Send + Sync {
         &self,
         id_token: &OidcIdToken,
         context: OidcIdTokenVerifyContext,
-    ) -> Result<OidcIdTokenClaims, OidcIdTokenVerifyError>;
+    ) -> Result<OidcIdTokenClaims, OidcIdTokenVerifierError>;
 }

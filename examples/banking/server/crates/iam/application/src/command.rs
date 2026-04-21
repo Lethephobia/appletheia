@@ -6,10 +6,15 @@ pub mod user;
 
 pub use organization::{
     OrganizationChangeHandleCommand, OrganizationChangeHandleCommandHandler,
-    OrganizationChangeHandleOutput, OrganizationChangeNameCommand,
-    OrganizationChangeNameCommandHandler, OrganizationChangeNameOutput, OrganizationCreateCommand,
-    OrganizationCreateCommandHandler, OrganizationCreateOutput, OrganizationRemoveCommand,
-    OrganizationRemoveCommandHandler, OrganizationRemoveOutput,
+    OrganizationChangeHandleOutput, OrganizationCreateCommand, OrganizationCreateCommandHandler,
+    OrganizationCreateOutput, OrganizationOwnershipTransferCommand,
+    OrganizationOwnershipTransferCommandHandler, OrganizationOwnershipTransferOutput,
+    OrganizationPictureUploadPrepareCommand, OrganizationPictureUploadPrepareCommandHandler,
+    OrganizationPictureUploadPrepareCommandHandlerConfig,
+    OrganizationPictureUploadPrepareCommandHandlerError, OrganizationPictureUploadPrepareOutput,
+    OrganizationProfileChangeCommand, OrganizationProfileChangeCommandHandler,
+    OrganizationProfileChangeOutput, OrganizationRemoveCommand, OrganizationRemoveCommandHandler,
+    OrganizationRemoveOutput,
 };
 pub use organization_invitation::{
     OrganizationInvitationAcceptCommand, OrganizationInvitationAcceptCommandHandler,
@@ -38,6 +43,9 @@ pub use organization_membership::{
     OrganizationMembershipDeactivateCommand, OrganizationMembershipDeactivateCommandHandler,
     OrganizationMembershipDeactivateOutput, OrganizationMembershipRemoveCommand,
     OrganizationMembershipRemoveCommandHandler, OrganizationMembershipRemoveOutput,
+    OrganizationMembershipRoleGrantCommand, OrganizationMembershipRoleGrantCommandHandler,
+    OrganizationMembershipRoleGrantOutput, OrganizationMembershipRoleRevokeCommand,
+    OrganizationMembershipRoleRevokeCommandHandler, OrganizationMembershipRoleRevokeOutput,
 };
 pub use user::{
     LogoutAllSessionsCommand, LogoutAllSessionsCommandHandler, LogoutAllSessionsOutput,
@@ -45,7 +53,9 @@ pub use user::{
     OidcBeginOutput, OidcCompleteCommand, OidcCompleteCommandHandler, OidcCompleteOutput,
     OidcCompleteReplayOutput, UserActivateCommand, UserActivateCommandHandler, UserActivateOutput,
     UserDeactivateCommand, UserDeactivateCommandHandler, UserDeactivateOutput,
-    UserProfileEditCommand, UserProfileEditCommandHandler, UserProfileEditOutput,
-    UserProfileReadyCommand, UserProfileReadyCommandHandler, UserProfileReadyOutput,
-    UserRemoveCommand, UserRemoveCommandHandler, UserRemoveOutput,
+    UserPictureUploadPrepareCommand, UserPictureUploadPrepareCommandHandler,
+    UserPictureUploadPrepareCommandHandlerConfig, UserPictureUploadPrepareCommandHandlerError,
+    UserPictureUploadPrepareOutput, UserProfileChangeCommand, UserProfileChangeCommandHandler,
+    UserProfileChangeOutput, UserRemoveCommand, UserRemoveCommandHandler, UserRemoveOutput,
+    UserUsernameChangeCommand, UserUsernameChangeCommandHandler, UserUsernameChangeOutput,
 };

@@ -11,7 +11,9 @@ use super::{
     OrganizationRemoveCommand, OrganizationRemoveCommandHandlerError, OrganizationRemoveOutput,
 };
 use crate::authorization::OrganizationRemoverRelation;
-use crate::projection::OrganizationOwnerRelationshipProjectorSpec;
+use crate::projection::{
+    OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
+};
 
 /// Handles `OrganizationRemoveCommand`.
 pub struct OrganizationRemoveCommandHandler<OR>
@@ -54,6 +56,7 @@ where
                 ),
                 projector_dependencies: ProjectorDependencies::Some(&[
                     OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
+                    OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
                 ]),
             },
         ]))
@@ -102,14 +105,19 @@ mod tests {
     };
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::Aggregate;
-    use banking_iam_domain::{Organization, OrganizationHandle, OrganizationId, OrganizationName};
+    use banking_iam_domain::{
+        Organization, OrganizationHandle, OrganizationId, OrganizationName, OrganizationOwner,
+        OrganizationProfile, UserId,
+    };
     use uuid::Uuid;
 
     use super::{
         OrganizationRemoveCommand, OrganizationRemoveCommandHandler, OrganizationRemoveOutput,
     };
     use crate::authorization::OrganizationRemoverRelation;
-    use crate::projection::OrganizationOwnerRelationshipProjectorSpec;
+    use crate::projection::{
+        OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
+    };
 
     #[derive(Default)]
     struct TestUow;
@@ -196,8 +204,14 @@ mod tests {
         let mut organization = Organization::default();
         organization
             .create(
+                OrganizationOwner::User(UserId::new()),
                 OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
-                OrganizationName::try_from("Acme Labs").expect("name should be valid"),
+                OrganizationProfile::new(
+                    OrganizationName::try_from("Acme Labs").expect("name should be valid"),
+                    None,
+                    None,
+                    None,
+                ),
             )
             .expect("organization should create");
         organization
@@ -223,6 +237,7 @@ mod tests {
                     ),
                     projector_dependencies: ProjectorDependencies::Some(&[
                         OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
+                        OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
                     ]),
                 },
             ])

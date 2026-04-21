@@ -8,7 +8,6 @@ use appletheia::application::request_context::RequestContext;
 use banking_iam_domain::User;
 
 use super::{UserDeactivateCommand, UserDeactivateCommandHandlerError, UserDeactivateOutput};
-use crate::UserStatusManagerRelationshipProjectorSpec;
 use crate::authorization::UserDeactivatorRelation;
 use crate::projection::UserOwnerRelationshipProjectorSpec;
 
@@ -52,7 +51,6 @@ where
                 ),
                 projector_dependencies: ProjectorDependencies::Some(&[
                     UserOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                    UserStatusManagerRelationshipProjectorSpec::DESCRIPTOR,
                 ]),
             },
         ]))

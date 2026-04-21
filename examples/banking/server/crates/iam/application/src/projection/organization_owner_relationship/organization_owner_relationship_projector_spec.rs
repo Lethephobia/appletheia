@@ -12,10 +12,10 @@ impl ProjectorSpec for OrganizationOwnerRelationshipProjectorSpec {
     const DESCRIPTOR: ProjectorDescriptor = ProjectorDescriptor::new(
         ProjectorName::new("organization_owner_relationship"),
         Subscription::AnyOf(&[
-            EventSelector::new(Organization::TYPE, OrganizationEventPayload::OWNER_ASSIGNED),
+            EventSelector::new(Organization::TYPE, OrganizationEventPayload::CREATED),
             EventSelector::new(
                 Organization::TYPE,
-                OrganizationEventPayload::OWNER_UNASSIGNED,
+                OrganizationEventPayload::OWNERSHIP_TRANSFERRED,
             ),
         ]),
     );

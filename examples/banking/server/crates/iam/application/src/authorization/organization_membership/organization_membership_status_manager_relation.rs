@@ -2,9 +2,9 @@ use appletheia::application::authorization::{Relation, RelationName, RelationRef
 use appletheia::domain::Aggregate;
 
 use super::{OrganizationMembership, OrganizationMembershipOrganizationRelation};
-use crate::OrganizationOwnerRelation;
+use crate::OrganizationAdminRelation;
 
-/// Allows organization owners to manage membership status transitions.
+/// Allows organization administrators to manage membership status transitions.
 pub struct OrganizationMembershipStatusManagerRelation;
 
 impl Relation for OrganizationMembershipStatusManagerRelation {
@@ -15,6 +15,6 @@ impl Relation for OrganizationMembershipStatusManagerRelation {
 
     const EXPR: UsersetExpr = UsersetExpr::TupleToUserset {
         tupleset_relation: OrganizationMembershipOrganizationRelation::REF,
-        computed_userset: OrganizationOwnerRelation::REF,
+        computed_userset: OrganizationAdminRelation::REF,
     };
 }

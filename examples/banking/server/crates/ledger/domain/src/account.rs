@@ -24,7 +24,7 @@ use appletheia::aggregate;
 use appletheia::domain::{Aggregate, AggregateApply, AggregateCore};
 
 use crate::core::{CurrencyAmount, CurrencyAmountError};
-use crate::currency_definition::CurrencyDefinitionId;
+use crate::currency::CurrencyId;
 
 /// Represents the `Account` aggregate root.
 #[aggregate(type = "account", error = AccountError)]
@@ -43,9 +43,9 @@ impl Account {
         Ok(&self.state_required()?.name)
     }
 
-    /// Returns the currency definition referenced by the account.
-    pub fn currency_definition_id(&self) -> Result<&CurrencyDefinitionId, AccountError> {
-        Ok(&self.state_required()?.currency_definition_id)
+    /// Returns the currency referenced by the account.
+    pub fn currency_id(&self) -> Result<&CurrencyId, AccountError> {
+        Ok(&self.state_required()?.currency_id)
     }
 
     /// Returns the current balance.
@@ -91,14 +91,14 @@ impl Account {
         &mut self,
         owner: AccountOwner,
         name: AccountName,
-        currency_definition_id: CurrencyDefinitionId,
+        currency_id: CurrencyId,
     ) -> Result<(), AccountError> {
         self.ensure_not_opened()?;
         self.append_event(AccountEventPayload::Opened {
             id: AccountId::new(),
             owner,
             name,
-            currency_definition_id,
+            currency_id,
         })
     }
 
@@ -111,6 +111,17 @@ impl Account {
         }
 
         self.append_event(AccountEventPayload::Renamed { name })
+    }
+
+    /// Transfers ownership of the account.
+    pub fn transfer_ownership(&mut self, owner: AccountOwner) -> Result<(), AccountError> {
+        self.ensure_not_closed()?;
+
+        if self.state_required()?.owner == owner {
+            return Ok(());
+        }
+
+        self.append_event(AccountEventPayload::OwnershipTransferred { owner })
     }
 
     /// Freezes the account.
@@ -271,10 +282,13 @@ impl AggregateApply<AccountEventPayload, AccountError> for Account {
                 id,
                 owner,
                 name,
-                currency_definition_id,
+                currency_id,
             } => {
-                let state = AccountState::new(*id, *owner, name.clone(), *currency_definition_id);
+                let state = AccountState::new(*id, *owner, name.clone(), *currency_id);
                 self.set_state(Some(state));
+            }
+            AccountEventPayload::OwnershipTransferred { owner } => {
+                self.state_required_mut()?.owner = *owner;
             }
             AccountEventPayload::Renamed { name } => self.state_required_mut()?.name = name.clone(),
             AccountEventPayload::Frozen => {
@@ -338,7 +352,7 @@ mod tests {
     use appletheia::domain::{Aggregate, Event, EventPayload};
 
     use crate::core::CurrencyAmount;
-    use crate::currency_definition::CurrencyDefinitionId;
+    use crate::currency::CurrencyId;
 
     use super::{
         Account, AccountEventPayload, AccountId, AccountName, AccountOwner, AccountStatus,
@@ -356,11 +370,11 @@ mod tests {
     fn open_initializes_state_and_records_event() {
         let owner = account_owner();
         let name = account_name();
-        let currency_definition_id = CurrencyDefinitionId::new();
+        let currency_id = CurrencyId::new();
         let mut account = Account::default();
 
         account
-            .open(owner.clone(), name.clone(), currency_definition_id)
+            .open(owner.clone(), name.clone(), currency_id)
             .expect("open should succeed");
 
         assert_eq!(
@@ -369,10 +383,8 @@ mod tests {
         );
         assert_eq!(account.owner().expect("owner should exist"), owner);
         assert_eq!(
-            account
-                .currency_definition_id()
-                .expect("currency definition id should exist"),
-            &currency_definition_id
+            account.currency_id().expect("currency id should exist"),
+            &currency_id
         );
         assert_eq!(
             account.balance().expect("balance should exist"),
@@ -399,7 +411,7 @@ mod tests {
                 id: account.aggregate_id().expect("aggregate id should exist"),
                 owner,
                 name,
-                currency_definition_id,
+                currency_id,
             }
         );
     }
@@ -411,11 +423,7 @@ mod tests {
         let renamed = AccountName::try_from("savings").expect("account name should be valid");
         let mut account = Account::default();
         account
-            .open(
-                owner.clone(),
-                original_name.clone(),
-                CurrencyDefinitionId::new(),
-            )
+            .open(owner.clone(), original_name.clone(), CurrencyId::new())
             .expect("open should succeed");
 
         account
@@ -431,10 +439,35 @@ mod tests {
     }
 
     #[test]
+    fn transfer_ownership_updates_owner_and_records_event() {
+        let original_owner = account_owner();
+        let transferred_owner =
+            AccountOwner::Organization(banking_iam_domain::OrganizationId::new());
+        let mut account = Account::default();
+        account
+            .open(original_owner, account_name(), CurrencyId::new())
+            .expect("open should succeed");
+
+        account
+            .transfer_ownership(transferred_owner)
+            .expect("ownership transfer should succeed");
+
+        assert_eq!(
+            account.owner().expect("owner should exist"),
+            transferred_owner
+        );
+        assert_eq!(account.uncommitted_events().len(), 2);
+        assert_eq!(
+            account.uncommitted_events()[1].payload().name(),
+            AccountEventPayload::OWNERSHIP_TRANSFERRED
+        );
+    }
+
+    #[test]
     fn changing_to_same_name_is_a_no_op() {
         let mut account = Account::default();
         account
-            .open(account_owner(), account_name(), CurrencyDefinitionId::new())
+            .open(account_owner(), account_name(), CurrencyId::new())
             .expect("open should succeed");
 
         account
@@ -445,10 +478,25 @@ mod tests {
     }
 
     #[test]
+    fn transferring_to_same_owner_is_a_no_op() {
+        let owner = account_owner();
+        let mut account = Account::default();
+        account
+            .open(owner, account_name(), CurrencyId::new())
+            .expect("open should succeed");
+
+        account
+            .transfer_ownership(owner)
+            .expect("same owner transfer should succeed");
+
+        assert_eq!(account.uncommitted_events().len(), 1);
+    }
+
+    #[test]
     fn changing_to_same_status_is_a_no_op() {
         let mut account = Account::default();
         account
-            .open(account_owner(), account_name(), CurrencyDefinitionId::new())
+            .open(account_owner(), account_name(), CurrencyId::new())
             .expect("open should succeed");
 
         account.thaw().expect("no-op thaw should succeed");
@@ -460,7 +508,7 @@ mod tests {
     fn freeze_and_thaw_update_state() {
         let mut account = Account::default();
         account
-            .open(account_owner(), account_name(), CurrencyDefinitionId::new())
+            .open(account_owner(), account_name(), CurrencyId::new())
             .expect("open should succeed");
 
         account.freeze().expect("freeze should succeed");
@@ -482,7 +530,7 @@ mod tests {
     fn close_updates_state_to_closed() {
         let mut account = Account::default();
         account
-            .open(account_owner(), account_name(), CurrencyDefinitionId::new())
+            .open(account_owner(), account_name(), CurrencyId::new())
             .expect("open should succeed");
 
         account.close().expect("close should succeed");
@@ -501,7 +549,7 @@ mod tests {
     fn close_rejects_non_zero_balance() {
         let mut account = Account::default();
         account
-            .open(account_owner(), account_name(), CurrencyDefinitionId::new())
+            .open(account_owner(), account_name(), CurrencyId::new())
             .expect("open should succeed");
         account
             .deposit(CurrencyAmount::new(1))
@@ -516,7 +564,7 @@ mod tests {
     fn close_rejects_reserved_balance_remaining() {
         let mut account = Account::default();
         account
-            .open(account_owner(), account_name(), CurrencyDefinitionId::new())
+            .open(account_owner(), account_name(), CurrencyId::new())
             .expect("open should succeed");
         account
             .deposit(CurrencyAmount::new(1))
@@ -538,7 +586,7 @@ mod tests {
         let id = AccountId::new();
         let owner = account_owner();
         let name = account_name();
-        let currency_definition_id = CurrencyDefinitionId::new();
+        let currency_id = CurrencyId::new();
         let opened = Event::new(
             id,
             appletheia::domain::AggregateVersion::try_from(1).expect("version should be valid"),
@@ -546,7 +594,7 @@ mod tests {
                 id,
                 owner: owner.clone(),
                 name: name.clone(),
-                currency_definition_id,
+                currency_id,
             },
         );
         let closed = Event::new(
@@ -584,7 +632,7 @@ mod tests {
         let id = AccountId::new();
         let owner = account_owner();
         let name = account_name();
-        let currency_definition_id = CurrencyDefinitionId::new();
+        let currency_id = CurrencyId::new();
         let opened = Event::new(
             id,
             appletheia::domain::AggregateVersion::try_from(1).expect("version should be valid"),
@@ -592,7 +640,7 @@ mod tests {
                 id,
                 owner: owner.clone(),
                 name: name.clone(),
-                currency_definition_id,
+                currency_id,
             },
         );
         let renamed = Event::new(
@@ -626,10 +674,8 @@ mod tests {
             &AccountName::try_from("savings").expect("account name should be valid")
         );
         assert_eq!(
-            account
-                .currency_definition_id()
-                .expect("currency definition id should exist"),
-            &currency_definition_id
+            account.currency_id().expect("currency id should exist"),
+            &currency_id
         );
         assert!(account.is_frozen().expect("frozen state should exist"));
         assert_eq!(
@@ -644,11 +690,11 @@ mod tests {
     fn open_rejects_already_opened_account() {
         let mut account = Account::default();
         account
-            .open(account_owner(), account_name(), CurrencyDefinitionId::new())
+            .open(account_owner(), account_name(), CurrencyId::new())
             .expect("open should succeed");
 
         let error = account
-            .open(account_owner(), account_name(), CurrencyDefinitionId::new())
+            .open(account_owner(), account_name(), CurrencyId::new())
             .expect_err("duplicate open should fail");
 
         assert!(matches!(error, super::AccountError::AlreadyOpened));
@@ -658,7 +704,7 @@ mod tests {
     fn deposit_and_withdraw_update_balance() {
         let mut account = Account::default();
         account
-            .open(account_owner(), account_name(), CurrencyDefinitionId::new())
+            .open(account_owner(), account_name(), CurrencyId::new())
             .expect("open should succeed");
 
         account
@@ -693,7 +739,7 @@ mod tests {
     fn withdraw_rejects_insufficient_balance() {
         let mut account = Account::default();
         account
-            .open(account_owner(), account_name(), CurrencyDefinitionId::new())
+            .open(account_owner(), account_name(), CurrencyId::new())
             .expect("open should succeed");
 
         let error = account
@@ -707,7 +753,7 @@ mod tests {
     fn movement_rejects_frozen_account() {
         let mut account = Account::default();
         account
-            .open(account_owner(), account_name(), CurrencyDefinitionId::new())
+            .open(account_owner(), account_name(), CurrencyId::new())
             .expect("open should succeed");
         account.freeze().expect("freeze should succeed");
 
@@ -726,7 +772,7 @@ mod tests {
     fn operations_reject_closed_account() {
         let mut account = Account::default();
         account
-            .open(account_owner(), account_name(), CurrencyDefinitionId::new())
+            .open(account_owner(), account_name(), CurrencyId::new())
             .expect("open should succeed");
         account.close().expect("close should succeed");
 
@@ -765,7 +811,7 @@ mod tests {
     fn reserve_release_and_commit_update_reserved_balance() {
         let mut account = Account::default();
         account
-            .open(account_owner(), account_name(), CurrencyDefinitionId::new())
+            .open(account_owner(), account_name(), CurrencyId::new())
             .expect("open should succeed");
         account
             .deposit(CurrencyAmount::new(150))
@@ -816,7 +862,7 @@ mod tests {
     fn reserve_rejects_insufficient_available_balance() {
         let mut account = Account::default();
         account
-            .open(account_owner(), account_name(), CurrencyDefinitionId::new())
+            .open(account_owner(), account_name(), CurrencyId::new())
             .expect("open should succeed");
         account
             .deposit(CurrencyAmount::new(100))

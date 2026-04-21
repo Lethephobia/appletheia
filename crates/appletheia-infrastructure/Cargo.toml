@@ -25,7 +25,9 @@ serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 chrono = { workspace = true }
 google-cloud-pubsub = "0.33.0"
-google-cloud-gax = "1.8.0"
+google-cloud-gax = "1.9.1"
+google-cloud-auth = "1.9.0"
+google-cloud-storage = "1.11.0"
 futures-util = "0.3.31"
 jsonwebtoken = { version = "10.3.0", features = ["rust_crypto"] }
 reqwest = { version = "0.13.2", default-features = false, features = ["rustls", "gzip"] }

@@ -96,70 +96,93 @@ pub fn register(
 }
 ```
 
-### PREFER deriving relationship subjects from the primary event
+### PREFER command methods and events to align with top-level value object boundaries
 
-If a relationship subject is derivable from the primary event, let the projector derive it from that event or the aggregate id. If the subject is business data that must be preserved, keep it in the primary event payload rather than splitting it into a second relationship-only event.
+If an aggregate state owns a top-level value object, prefer changing that value object through one aggregate command method and one event for the whole value object. Avoid adding attribute-specific command methods and events for fields nested inside that value object unless those fields have meaning outside the value object boundary.
 
 good:
 ```rust
-pub fn register(&mut self, identity: UserIdentity) -> Result<(), UserError> {
-    if self.state().is_some() {
-        return Err(UserError::AlreadyRegistered);
+pub fn change_profile(
+    &mut self,
+    profile: OrganizationProfile,
+) -> Result<(), OrganizationError> {
+    self.ensure_not_removed()?;
+
+    if self.state_required()?.profile == profile {
+        return Ok(());
     }
 
-    self.append_event(UserEventPayload::Registered {
-        id: UserId::new(),
-        identity,
-    })
+    self.append_event(OrganizationEventPayload::ProfileChanged { profile })
 }
 ```
 
 bad:
 ```rust
-pub fn register(&mut self, identity: UserIdentity) -> Result<(), UserError> {
-    self.append_event(UserEventPayload::Registered {
-        id: UserId::new(),
-        identity,
-    })?;
-    self.append_event(UserEventPayload::OwnerAssigned {
-        owner: UserId::new(),
-    })
+pub fn change_display_name(
+    &mut self,
+    display_name: OrganizationDisplayName,
+) -> Result<(), OrganizationError> {
+    self.ensure_not_removed()?;
+
+    if self
+        .state_required()?
+        .profile
+        .display_name()
+        .eq(&display_name)
+    {
+        return Ok(());
+    }
+
+    self.append_event(OrganizationEventPayload::DisplayNameChanged { display_name })
 }
 ```
 
-### DO model separate relationship workflows explicitly
+### DO allow attribute-level command methods and events when changing an entity inside the aggregate
 
-Prefer a separate `assign_*` or `unassign_*` method only when the relationship is a distinct workflow, can involve multiple subjects, or is intentionally modeled outside the aggregate state.
+If the aggregate owns an entity and the change targets one attribute of that entity, attribute-level command methods and events are acceptable. In that case the domain fact is usually about that specific attribute on that specific entity, not about replacing an enclosing value object.
 
 good:
 ```rust
-pub fn assign_owner(&mut self, owner: UserId) -> Result<(), OrganizationError> {
-    self.ensure_not_removed()?;
+pub fn change_identity_email(
+    &mut self,
+    provider: UserIdentityProvider,
+    subject: UserIdentitySubject,
+    email: Option<Email>,
+) -> Result<(), UserError> {
+    self.ensure_active()?;
 
-    self.append_event(OrganizationEventPayload::OwnerAssigned { owner })
-}
+    let identity = self
+        .state_required()?
+        .identities
+        .iter()
+        .find(|identity| identity.matches(&provider, &subject))
+        .ok_or(UserError::IdentityNotFound)?;
 
-pub fn unassign_owner(&mut self, owner: UserId) -> Result<(), OrganizationError> {
-    self.ensure_not_removed()?;
+    if identity.email() == email.as_ref() {
+        return Ok(());
+    }
 
-    self.append_event(OrganizationEventPayload::OwnerUnassigned { owner })
+    self.append_event(UserEventPayload::IdentityEmailChanged {
+        provider,
+        subject,
+        email,
+    })
 }
 ```
 
 bad:
 ```rust
-pub fn create(
+pub fn change_identity(
     &mut self,
-    handle: OrganizationHandle,
-    name: OrganizationName,
-    owner: UserId,
-) -> Result<(), OrganizationError> {
-    self.append_event(OrganizationEventPayload::Created {
-        id: OrganizationId::new(),
-        handle,
-        name,
-    })?;
-    self.append_event(OrganizationEventPayload::OwnerAssigned { owner })
+    provider: UserIdentityProvider,
+    subject: UserIdentitySubject,
+    identity: UserIdentity,
+) -> Result<(), UserError> {
+    self.append_event(UserEventPayload::IdentityChanged {
+        provider,
+        subject,
+        identity,
+    })
 }
 ```
 
@@ -671,6 +694,30 @@ pub(super) struct OrganizationState {
 }
 ```
 
+### PREFER serialize enum value objects as adjacently tagged JSON
+
+When a value object is an enum and it is serialized to JSON, prefer `#[serde(tag = "type", content = "data", rename_all = "snake_case")]` so the wire shape stays explicit and compatible with future tuple variants.
+
+good:
+```rust
+#[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[serde(tag = "type", content = "data", rename_all = "snake_case")]
+pub enum OrganizationStatus {
+    Active,
+    Removed,
+}
+```
+
+bad:
+```rust
+#[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OrganizationStatus {
+    Active,
+    Removed,
+}
+```
+
 ### AVOID use floating-point types such as `f64` in `AggregateState`
 
 Use a fixed-point representation and keep the decimal precision explicit.
@@ -698,8 +745,7 @@ Use enum variants to represent distinct facts instead of collapsing them into a 
 
 good:
 ```rust
-#[derive(Serialize, Deserialize)]
-#[serde(tag = "type", content = "data", rename_all = "snake_case")]
+#[event_payload(error = OrganizationEventPayloadError)]
 pub enum OrganizationEventPayload {
     Created {
         id: OrganizationId,
@@ -724,40 +770,6 @@ pub struct OrganizationEventPayload {
     pub id: Option<OrganizationId>,
     pub handle: Option<OrganizationHandle>,
     pub name: Option<OrganizationName>,
-}
-```
-
-### PREFER adjacently tagged JSON for `EventPayload` serialization
-
-Use `#[serde(tag = "type", content = "data")]` so each variant stays explicit on the wire and payload shapes can evolve without flattening everything into one object.
-
-good:
-```rust
-#[derive(Serialize, Deserialize)]
-#[serde(tag = "type", content = "data")]
-pub enum OrganizationInvitationEventPayload {
-    Issued {
-        id: OrganizationInvitationId,
-        organization_id: OrganizationId,
-        invitee_id: UserId,
-        issuer: OrganizationInvitationIssuer,
-        expires_at: OrganizationInvitationExpiresAt,
-    },
-}
-```
-
-bad:
-```rust
-#[derive(Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum OrganizationInvitationEventPayload {
-    Issued {
-        id: OrganizationInvitationId,
-        organization_id: OrganizationId,
-        invitee_id: UserId,
-        issuer: OrganizationInvitationIssuer,
-        expires_at: OrganizationInvitationExpiresAt,
-    },
 }
 ```
 

@@ -6,41 +6,43 @@ use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use appletheia::domain::Aggregate;
-use banking_iam_application::OrganizationOwnerRelationshipProjectorSpec;
+use banking_iam_application::{
+    OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
+};
 use banking_ledger_domain::account::Account;
-use banking_ledger_domain::currency_definition::CurrencyDefinition;
+use banking_ledger_domain::currency::Currency;
 use banking_ledger_domain::currency_issuance::CurrencyIssuance;
 
 use super::{CurrencyIssueCommand, CurrencyIssueCommandHandlerError, CurrencyIssueOutput};
-use crate::authorization::CurrencyDefinitionIssuerRelation;
-use crate::projection::CurrencyDefinitionOwnerRelationshipProjectorSpec;
+use crate::authorization::CurrencyIssuerRelation;
+use crate::projection::CurrencyOwnerRelationshipProjectorSpec;
 
 /// Handles `CurrencyIssueCommand`.
 pub struct CurrencyIssueCommandHandler<AR, CDR, CIR>
 where
     AR: Repository<Account, Uow = CDR::Uow>,
-    CDR: Repository<CurrencyDefinition, Uow = CIR::Uow>,
+    CDR: Repository<Currency, Uow = CIR::Uow>,
     CIR: Repository<CurrencyIssuance>,
 {
     account_repository: AR,
-    currency_definition_repository: CDR,
+    currency_repository: CDR,
     currency_issuance_repository: CIR,
 }
 
 impl<AR, CDR, CIR> CurrencyIssueCommandHandler<AR, CDR, CIR>
 where
     AR: Repository<Account, Uow = CDR::Uow>,
-    CDR: Repository<CurrencyDefinition, Uow = CIR::Uow>,
+    CDR: Repository<Currency, Uow = CIR::Uow>,
     CIR: Repository<CurrencyIssuance>,
 {
     pub fn new(
         account_repository: AR,
-        currency_definition_repository: CDR,
+        currency_repository: CDR,
         currency_issuance_repository: CIR,
     ) -> Self {
         Self {
             account_repository,
-            currency_definition_repository,
+            currency_repository,
             currency_issuance_repository,
         }
     }
@@ -49,7 +51,7 @@ where
 impl<AR, CDR, CIR> CommandHandler for CurrencyIssueCommandHandler<AR, CDR, CIR>
 where
     AR: Repository<Account, Uow = CDR::Uow>,
-    CDR: Repository<CurrencyDefinition, Uow = CIR::Uow>,
+    CDR: Repository<Currency, Uow = CIR::Uow>,
     CIR: Repository<CurrencyIssuance>,
 {
     type Command = CurrencyIssueCommand;
@@ -64,13 +66,14 @@ where
     ) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
             PrincipalRequirement::AuthenticatedWithRelationship {
-                requirement: RelationshipRequirement::check::<CurrencyDefinition>(
-                    command.currency_definition_id,
-                    CurrencyDefinitionIssuerRelation::REF,
+                requirement: RelationshipRequirement::check::<Currency>(
+                    command.currency_id,
+                    CurrencyIssuerRelation::REF,
                 ),
                 projector_dependencies: ProjectorDependencies::Some(&[
-                    CurrencyDefinitionOwnerRelationshipProjectorSpec::DESCRIPTOR,
+                    CurrencyOwnerRelationshipProjectorSpec::DESCRIPTOR,
                     OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
+                    OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
                 ]),
             },
         ]))
@@ -89,27 +92,27 @@ where
         else {
             return Err(CurrencyIssueCommandHandlerError::DestinationAccountNotFound);
         };
-        let Some(currency_definition) = self
-            .currency_definition_repository
-            .find(uow, command.currency_definition_id)
+        let Some(currency) = self
+            .currency_repository
+            .find(uow, command.currency_id)
             .await?
         else {
-            return Err(CurrencyIssueCommandHandlerError::CurrencyDefinitionNotFound);
+            return Err(CurrencyIssueCommandHandlerError::CurrencyNotFound);
         };
 
-        if destination_account.currency_definition_id()? != &command.currency_definition_id {
-            return Err(CurrencyIssueCommandHandlerError::CurrencyDefinitionMismatch);
+        if destination_account.currency_id()? != &command.currency_id {
+            return Err(CurrencyIssueCommandHandlerError::CurrencyMismatch);
         }
 
-        if !currency_definition.is_active()? {
-            return Err(CurrencyIssueCommandHandlerError::CurrencyDefinition(
-                banking_ledger_domain::currency_definition::CurrencyDefinitionError::Inactive,
+        if !currency.is_active()? {
+            return Err(CurrencyIssueCommandHandlerError::Currency(
+                banking_ledger_domain::currency::CurrencyError::Inactive,
             ));
         }
 
         let mut currency_issuance = CurrencyIssuance::default();
         currency_issuance.issue(
-            command.currency_definition_id,
+            command.currency_id,
             command.destination_account_id,
             command.amount,
         )?;

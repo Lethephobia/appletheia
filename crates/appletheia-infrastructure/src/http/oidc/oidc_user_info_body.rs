@@ -92,7 +92,7 @@ impl OidcUserInfoBody {
             })?;
         let updated_at = self
             .updated_at
-            .map(timestamp_to_datetime)
+            .map(Self::timestamp_to_datetime)
             .transpose()
             .map_err(|source| OidcUserInfoBodyError::InvalidField {
                 field: "updated_at",
@@ -126,13 +126,13 @@ impl OidcUserInfoBody {
             updated_at,
         })
     }
-}
 
-fn timestamp_to_datetime(seconds: u64) -> Result<chrono::DateTime<Utc>, io::Error> {
-    let seconds_i64 = i64::try_from(seconds)
-        .map_err(|source| io::Error::new(io::ErrorKind::InvalidInput, source))?;
+    fn timestamp_to_datetime(seconds: u64) -> Result<chrono::DateTime<Utc>, io::Error> {
+        let seconds_i64 = i64::try_from(seconds)
+            .map_err(|source| io::Error::new(io::ErrorKind::InvalidInput, source))?;
 
-    Utc.timestamp_opt(seconds_i64, 0)
-        .single()
-        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "invalid unix timestamp"))
+        Utc.timestamp_opt(seconds_i64, 0)
+            .single()
+            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "invalid unix timestamp"))
+    }
 }

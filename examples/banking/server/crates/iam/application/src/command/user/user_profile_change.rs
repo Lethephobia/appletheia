@@ -1,0 +1,9 @@
+mod user_profile_change_command;
+mod user_profile_change_command_handler;
+mod user_profile_change_command_handler_error;
+mod user_profile_change_output;
+
+pub use user_profile_change_command::UserProfileChangeCommand;
+pub use user_profile_change_command_handler::UserProfileChangeCommandHandler;
+pub use user_profile_change_command_handler_error::UserProfileChangeCommandHandlerError;
+pub use user_profile_change_output::UserProfileChangeOutput;

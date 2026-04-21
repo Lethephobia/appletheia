@@ -1,0 +1,9 @@
+mod currency_decrease_supply_command;
+mod currency_decrease_supply_command_handler;
+mod currency_decrease_supply_command_handler_error;
+mod currency_decrease_supply_output;
+
+pub use currency_decrease_supply_command::CurrencyDecreaseSupplyCommand;
+pub use currency_decrease_supply_command_handler::CurrencyDecreaseSupplyCommandHandler;
+pub use currency_decrease_supply_command_handler_error::CurrencyDecreaseSupplyCommandHandlerError;
+pub use currency_decrease_supply_output::CurrencyDecreaseSupplyOutput;

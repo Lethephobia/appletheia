@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 
 /// Identifies the write scope that read-your-writes consistency should observe.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(tag = "type", content = "data", rename_all = "snake_case")]
 pub enum ReadYourWritesTarget {
     /// Waits for effects caused by a specific message.
     Message(MessageId),

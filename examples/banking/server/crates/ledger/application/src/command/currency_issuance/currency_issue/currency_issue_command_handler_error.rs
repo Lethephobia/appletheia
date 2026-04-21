@@ -1,6 +1,6 @@
 use appletheia::application::repository::RepositoryError;
 use banking_ledger_domain::account::{Account, AccountError};
-use banking_ledger_domain::currency_definition::{CurrencyDefinition, CurrencyDefinitionError};
+use banking_ledger_domain::currency::{Currency, CurrencyError};
 use banking_ledger_domain::currency_issuance::{CurrencyIssuance, CurrencyIssuanceError};
 use thiserror::Error;
 
@@ -10,14 +10,14 @@ pub enum CurrencyIssueCommandHandlerError {
     #[error("account repository failed")]
     AccountRepository(#[from] RepositoryError<Account>),
 
-    #[error("currency definition repository failed")]
-    CurrencyDefinitionRepository(#[from] RepositoryError<CurrencyDefinition>),
+    #[error("currency repository failed")]
+    CurrencyRepository(#[from] RepositoryError<Currency>),
 
     #[error("currency issuance repository failed")]
     CurrencyIssuanceRepository(#[from] RepositoryError<CurrencyIssuance>),
 
-    #[error("currency definition aggregate failed")]
-    CurrencyDefinition(#[from] CurrencyDefinitionError),
+    #[error("currency aggregate failed")]
+    Currency(#[from] CurrencyError),
 
     #[error("account aggregate failed")]
     Account(#[from] AccountError),
@@ -28,11 +28,11 @@ pub enum CurrencyIssueCommandHandlerError {
     #[error("destination account was not found")]
     DestinationAccountNotFound,
 
-    #[error("currency definition was not found")]
-    CurrencyDefinitionNotFound,
+    #[error("currency was not found")]
+    CurrencyNotFound,
 
-    #[error("destination account currency definition does not match")]
-    CurrencyDefinitionMismatch,
+    #[error("destination account currency does not match")]
+    CurrencyMismatch,
 
     #[error("currency issuance id was missing")]
     MissingCurrencyIssuanceId,

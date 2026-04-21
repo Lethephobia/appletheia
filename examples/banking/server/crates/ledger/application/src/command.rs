@@ -1,5 +1,5 @@
 pub mod account;
-pub mod currency_definition;
+pub mod currency;
 pub mod currency_issuance;
 pub mod transfer;
 
@@ -9,25 +9,25 @@ pub use account::{
     AccountCommitReservedFundsOutput, AccountDepositCommand, AccountDepositCommandHandler,
     AccountDepositOutput, AccountFreezeCommand, AccountFreezeCommandHandler, AccountFreezeOutput,
     AccountOpenCommand, AccountOpenCommandHandler, AccountOpenOutput,
-    AccountReleaseReservedFundsCommand, AccountReleaseReservedFundsCommandHandler,
-    AccountReleaseReservedFundsOutput, AccountRenameCommand, AccountRenameCommandHandler,
-    AccountRenameOutput, AccountReserveFundsCommand, AccountReserveFundsCommandHandler,
-    AccountReserveFundsOutput, AccountThawCommand, AccountThawCommandHandler, AccountThawOutput,
-    AccountWithdrawCommand, AccountWithdrawCommandHandler, AccountWithdrawOutput,
+    AccountOwnershipTransferCommand, AccountOwnershipTransferCommandHandler,
+    AccountOwnershipTransferOutput, AccountReleaseReservedFundsCommand,
+    AccountReleaseReservedFundsCommandHandler, AccountReleaseReservedFundsOutput,
+    AccountRenameCommand, AccountRenameCommandHandler, AccountRenameOutput,
+    AccountReserveFundsCommand, AccountReserveFundsCommandHandler, AccountReserveFundsOutput,
+    AccountThawCommand, AccountThawCommandHandler, AccountThawOutput, AccountWithdrawCommand,
+    AccountWithdrawCommandHandler, AccountWithdrawOutput,
 };
-pub use currency_definition::{
-    CurrencyDefinitionActivateCommand, CurrencyDefinitionActivateCommandHandler,
-    CurrencyDefinitionActivateOutput, CurrencyDefinitionDeactivateCommand,
-    CurrencyDefinitionDeactivateCommandHandler, CurrencyDefinitionDeactivateOutput,
-    CurrencyDefinitionDecreaseSupplyCommand, CurrencyDefinitionDecreaseSupplyCommandHandler,
-    CurrencyDefinitionDecreaseSupplyCommandHandlerError, CurrencyDefinitionDecreaseSupplyOutput,
-    CurrencyDefinitionDefineCommand, CurrencyDefinitionDefineCommandHandler,
-    CurrencyDefinitionDefineOutput, CurrencyDefinitionIncreaseSupplyCommand,
-    CurrencyDefinitionIncreaseSupplyCommandHandler,
-    CurrencyDefinitionIncreaseSupplyCommandHandlerError, CurrencyDefinitionIncreaseSupplyOutput,
-    CurrencyDefinitionRemoveCommand, CurrencyDefinitionRemoveCommandHandler,
-    CurrencyDefinitionRemoveOutput, CurrencyDefinitionUpdateCommand,
-    CurrencyDefinitionUpdateCommandHandler, CurrencyDefinitionUpdateOutput,
+pub use currency::{
+    CurrencyActivateCommand, CurrencyActivateCommandHandler, CurrencyActivateOutput,
+    CurrencyDeactivateCommand, CurrencyDeactivateCommandHandler, CurrencyDeactivateOutput,
+    CurrencyDecreaseSupplyCommand, CurrencyDecreaseSupplyCommandHandler,
+    CurrencyDecreaseSupplyCommandHandlerError, CurrencyDecreaseSupplyOutput, CurrencyDefineCommand,
+    CurrencyDefineCommandHandler, CurrencyDefineOutput, CurrencyIncreaseSupplyCommand,
+    CurrencyIncreaseSupplyCommandHandler, CurrencyIncreaseSupplyCommandHandlerError,
+    CurrencyIncreaseSupplyOutput, CurrencyOwnershipTransferCommand,
+    CurrencyOwnershipTransferCommandHandler, CurrencyOwnershipTransferOutput,
+    CurrencyRemoveCommand, CurrencyRemoveCommandHandler, CurrencyRemoveOutput,
+    CurrencyUpdateCommand, CurrencyUpdateCommandHandler, CurrencyUpdateOutput,
 };
 pub use currency_issuance::{
     CurrencyIssuanceCompleteCommand, CurrencyIssuanceCompleteCommandHandler,

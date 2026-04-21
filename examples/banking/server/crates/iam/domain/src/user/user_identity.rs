@@ -1,8 +1,16 @@
+mod user_identity_provider;
+mod user_identity_provider_error;
+mod user_identity_subject;
+mod user_identity_subject_error;
+
+pub use user_identity_provider::UserIdentityProvider;
+pub use user_identity_provider_error::UserIdentityProviderError;
+pub use user_identity_subject::UserIdentitySubject;
+pub use user_identity_subject_error::UserIdentitySubjectError;
+
 use serde::{Deserialize, Serialize};
 
 use crate::core::Email;
-
-use super::{UserIdentityProvider, UserIdentitySubject};
 
 /// Represents an external identity linked to a `User`.
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
@@ -46,8 +54,8 @@ impl UserIdentity {
         self.provider().eq(provider) && self.subject().eq(subject)
     }
 
-    /// Replaces the current email snapshot.
-    pub fn set_email(&mut self, email: Option<Email>) {
+    /// Changes the current email snapshot.
+    pub fn change_email(&mut self, email: Option<Email>) {
         self.email = email;
     }
 }

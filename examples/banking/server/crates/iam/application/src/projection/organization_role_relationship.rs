@@ -1,0 +1,7 @@
+mod organization_role_relationship_projector;
+mod organization_role_relationship_projector_error;
+mod organization_role_relationship_projector_spec;
+
+pub use organization_role_relationship_projector::OrganizationRoleRelationshipProjector;
+pub use organization_role_relationship_projector_error::OrganizationRoleRelationshipProjectorError;
+pub use organization_role_relationship_projector_spec::OrganizationRoleRelationshipProjectorSpec;

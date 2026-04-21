@@ -12,6 +12,9 @@ pub enum OrganizationMembershipError {
     #[error("organization membership is already created")]
     AlreadyCreated,
 
+    #[error("organization membership is inactive")]
+    Inactive,
+
     #[error("organization membership is removed")]
     Removed,
 }

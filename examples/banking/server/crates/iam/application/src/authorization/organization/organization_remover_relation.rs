@@ -1,18 +1,15 @@
 use appletheia::application::authorization::{Relation, RelationName, RelationRef, UsersetExpr};
 use appletheia::domain::Aggregate;
 
-use super::{Organization, OrganizationOwnerRelation};
+use super::{Organization, OrganizationAdminRelation};
 
-/// Allows owners to remove an organization.
+/// Allows organization administrators to remove an organization.
 pub struct OrganizationRemoverRelation;
 
 impl Relation for OrganizationRemoverRelation {
     const REF: RelationRef = RelationRef::new(Organization::TYPE, RelationName::new("remover"));
 
-    const EXPR: UsersetExpr = UsersetExpr::Union(&[
-        UsersetExpr::This,
-        UsersetExpr::ComputedUserset {
-            relation: OrganizationOwnerRelation::REF,
-        },
-    ]);
+    const EXPR: UsersetExpr = UsersetExpr::ComputedUserset {
+        relation: OrganizationAdminRelation::REF,
+    };
 }

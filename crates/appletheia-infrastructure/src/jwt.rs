@@ -19,11 +19,14 @@ pub use jwt_leeway_seconds::JwtLeewaySeconds;
 pub use jwt_signing_key::JwtSigningKey;
 pub use jwt_signing_key_error::JwtSigningKeyError;
 
+pub use authentication::JwtAuthTokenClaimsError;
 pub use authentication::JwtAuthTokenIssuer;
 pub use authentication::JwtAuthTokenIssuerConfig;
 pub use authentication::JwtAuthTokenIssuerError;
 pub use authentication::JwtAuthTokenVerifier;
 pub use authentication::JwtAuthTokenVerifierConfig;
 pub use authentication::JwtAuthTokenVerifierError;
+pub use authentication::JwtOidcIdTokenClaimsError;
 pub use authentication::JwtOidcIdTokenVerifier;
 pub use authentication::JwtOidcIdTokenVerifierConfig;
+pub use authentication::JwtOidcIdTokenVerifierError;

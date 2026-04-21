@@ -2,7 +2,7 @@ use appletheia::aggregate_state;
 use appletheia::domain::{UniqueValue, UniqueValuePart, UniqueValues};
 use appletheia::unique_constraints;
 
-use super::{UserId, UserIdentity, UserProfile, UserStateError, UserStatus};
+use super::{UserId, UserIdentity, UserProfile, UserStateError, UserStatus, Username};
 
 /// Stores the materialized state of a `User` aggregate.
 #[aggregate_state(error = UserStateError)]
@@ -13,7 +13,8 @@ use super::{UserId, UserIdentity, UserProfile, UserStateError, UserStatus};
 pub struct UserState {
     pub(super) id: UserId,
     pub(super) status: UserStatus,
-    pub(super) profile: UserProfile,
+    pub(super) username: Option<Username>,
+    pub(super) profile: Option<UserProfile>,
     pub(super) identities: Vec<UserIdentity>,
 }
 
@@ -23,7 +24,8 @@ impl UserState {
         Self {
             id,
             status: UserStatus::Active,
-            profile: UserProfile::Pending,
+            username: None,
+            profile: None,
             identities: vec![identity],
         }
     }
@@ -34,7 +36,7 @@ fn username_values(state: &UserState) -> Result<Option<UniqueValues>, UserStateE
         return Ok(None);
     }
 
-    let Some(username) = state.profile.username() else {
+    let Some(username) = state.username.as_ref() else {
         return Ok(None);
     };
 
@@ -46,11 +48,7 @@ fn username_values(state: &UserState) -> Result<Option<UniqueValues>, UserStateE
 }
 
 fn provider_subject_values(state: &UserState) -> Result<Option<UniqueValues>, UserStateError> {
-    if state.status.is_removed() {
-        return Ok(None);
-    }
-
-    if state.identities.is_empty() {
+    if state.status.is_removed() || state.identities.is_empty() {
         return Ok(None);
     }
 
@@ -70,11 +68,11 @@ fn provider_subject_values(state: &UserState) -> Result<Option<UniqueValues>, Us
 
 #[cfg(test)]
 mod tests {
-    use appletheia::domain::{AggregateState, UniqueConstraints, UniqueKey, UniqueValues};
+    use appletheia::domain::{UniqueConstraints, UniqueKey, UniqueValues};
 
     use crate::{
         UserDisplayName, UserId, UserIdentity, UserIdentityProvider, UserIdentitySubject,
-        UserProfile, UserState, UserStatus, Username, core::Email,
+        UserPictureRef, UserPictureUrl, UserProfile, UserState, UserStatus, Username, core::Email,
     };
 
     fn identity() -> UserIdentity {
@@ -87,7 +85,7 @@ mod tests {
     }
 
     #[test]
-    fn pending_profile_has_no_username_unique_entry() {
+    fn pending_username_has_no_unique_entry() {
         let state = UserState::new(UserId::new(), identity());
 
         let entries = state.unique_entries().expect("unique entries should build");
@@ -99,14 +97,17 @@ mod tests {
     }
 
     #[test]
-    fn ready_profile_returns_unique_entries_for_username() {
+    fn configured_username_returns_unique_entries() {
         let mut state = UserState::new(UserId::new(), identity());
-        state.profile = UserProfile::Ready {
-            username: Username::try_from("alice").expect("username should be valid"),
-            display_name: UserDisplayName::try_from("Alice Example")
-                .expect("display name should be valid"),
-            bio: None,
-        };
+        state.username = Some(Username::try_from("alice").expect("username should be valid"));
+        state.profile = Some(UserProfile::new(
+            UserDisplayName::try_from("Alice Example").expect("display name should be valid"),
+            None,
+            Some(UserPictureRef::external_url(
+                UserPictureUrl::try_from("https://cdn.example.com/alice.png")
+                    .expect("picture URL should be valid"),
+            )),
+        ));
 
         let entries = state.unique_entries().expect("unique entries should build");
 
@@ -146,23 +147,10 @@ mod tests {
     }
 
     #[test]
-    fn exposes_id_via_aggregate_state_trait() {
-        let id = UserId::new();
-        let state = UserState::new(id, identity());
-
-        assert_eq!(state.id(), id);
-    }
-
-    #[test]
     fn removed_state_has_no_unique_entries() {
         let mut state = UserState::new(UserId::new(), identity());
         state.status = UserStatus::Removed;
-        state.profile = UserProfile::Ready {
-            username: Username::try_from("alice").expect("username should be valid"),
-            display_name: UserDisplayName::try_from("Alice Example")
-                .expect("display name should be valid"),
-            bio: None,
-        };
+        state.username = Some(Username::try_from("alice").expect("username should be valid"));
 
         let entries = state.unique_entries().expect("unique entries should build");
 

@@ -19,7 +19,7 @@ use appletheia::domain::{Aggregate, AggregateApply, AggregateCore};
 
 use crate::account::AccountId;
 use crate::core::CurrencyAmount;
-use crate::currency_definition::CurrencyDefinitionId;
+use crate::currency::CurrencyId;
 
 /// Represents the `CurrencyIssuance` aggregate root.
 #[aggregate(type = "currency_issuance", error = CurrencyIssuanceError)]
@@ -28,9 +28,9 @@ pub struct CurrencyIssuance {
 }
 
 impl CurrencyIssuance {
-    /// Returns the issued currency definition.
-    pub fn currency_definition_id(&self) -> Result<&CurrencyDefinitionId, CurrencyIssuanceError> {
-        Ok(&self.state_required()?.currency_definition_id)
+    /// Returns the issued currency.
+    pub fn currency_id(&self) -> Result<&CurrencyId, CurrencyIssuanceError> {
+        Ok(&self.state_required()?.currency_id)
     }
 
     /// Returns the destination account.
@@ -51,7 +51,7 @@ impl CurrencyIssuance {
     /// Starts a new issuance workflow.
     pub fn issue(
         &mut self,
-        currency_definition_id: CurrencyDefinitionId,
+        currency_id: CurrencyId,
         destination_account_id: AccountId,
         amount: CurrencyAmount,
     ) -> Result<(), CurrencyIssuanceError> {
@@ -65,7 +65,7 @@ impl CurrencyIssuance {
 
         self.append_event(CurrencyIssuanceEventPayload::Issued {
             id: CurrencyIssuanceId::new(),
-            currency_definition_id,
+            currency_id,
             destination_account_id,
             amount,
         })
@@ -102,12 +102,12 @@ impl AggregateApply<CurrencyIssuanceEventPayload, CurrencyIssuanceError> for Cur
         match payload {
             CurrencyIssuanceEventPayload::Issued {
                 id,
-                currency_definition_id,
+                currency_id,
                 destination_account_id,
                 amount,
             } => self.set_state(Some(CurrencyIssuanceState::new(
                 *id,
-                *currency_definition_id,
+                *currency_id,
                 *destination_account_id,
                 *amount,
             ))),
@@ -129,7 +129,7 @@ mod tests {
 
     use crate::account::AccountId;
     use crate::core::CurrencyAmount;
-    use crate::currency_definition::CurrencyDefinitionId;
+    use crate::currency::CurrencyId;
 
     use super::{
         CurrencyIssuance, CurrencyIssuanceEventPayload, CurrencyIssuanceId, CurrencyIssuanceStatus,
@@ -137,20 +137,18 @@ mod tests {
 
     #[test]
     fn issue_initializes_state_and_records_event() {
-        let currency_definition_id = CurrencyDefinitionId::new();
+        let currency_id = CurrencyId::new();
         let destination_account_id = AccountId::new();
         let amount = CurrencyAmount::new(100);
         let mut issuance = CurrencyIssuance::default();
 
         issuance
-            .issue(currency_definition_id, destination_account_id, amount)
+            .issue(currency_id, destination_account_id, amount)
             .expect("issue should succeed");
 
         assert_eq!(
-            issuance
-                .currency_definition_id()
-                .expect("currency definition id should exist"),
-            &currency_definition_id
+            issuance.currency_id().expect("currency id should exist"),
+            &currency_id
         );
         assert_eq!(
             issuance
@@ -174,11 +172,7 @@ mod tests {
         let mut issuance = CurrencyIssuance::default();
 
         let error = issuance
-            .issue(
-                CurrencyDefinitionId::new(),
-                AccountId::new(),
-                CurrencyAmount::zero(),
-            )
+            .issue(CurrencyId::new(), AccountId::new(), CurrencyAmount::zero())
             .expect_err("zero amount should fail");
 
         assert!(matches!(error, super::CurrencyIssuanceError::ZeroAmount));
@@ -189,7 +183,7 @@ mod tests {
         let mut issuance = CurrencyIssuance::default();
         issuance
             .issue(
-                CurrencyDefinitionId::new(),
+                CurrencyId::new(),
                 AccountId::new(),
                 CurrencyAmount::new(100),
             )
@@ -208,7 +202,7 @@ mod tests {
         let mut issuance = CurrencyIssuance::default();
         issuance
             .issue(
-                CurrencyDefinitionId::new(),
+                CurrencyId::new(),
                 AccountId::new(),
                 CurrencyAmount::new(100),
             )
@@ -225,14 +219,14 @@ mod tests {
     #[test]
     fn replay_events_rebuilds_state() {
         let id = CurrencyIssuanceId::new();
-        let currency_definition_id = CurrencyDefinitionId::new();
+        let currency_id = CurrencyId::new();
         let destination_account_id = AccountId::new();
         let issued = Event::new(
             id,
             appletheia::domain::AggregateVersion::try_from(1).expect("version should be valid"),
             CurrencyIssuanceEventPayload::Issued {
                 id,
-                currency_definition_id,
+                currency_id,
                 destination_account_id,
                 amount: CurrencyAmount::new(100),
             },
@@ -249,10 +243,8 @@ mod tests {
             .expect("events should replay");
 
         assert_eq!(
-            issuance
-                .currency_definition_id()
-                .expect("currency definition id should exist"),
-            &currency_definition_id
+            issuance.currency_id().expect("currency id should exist"),
+            &currency_id
         );
         assert_eq!(
             issuance.status().expect("status should exist"),

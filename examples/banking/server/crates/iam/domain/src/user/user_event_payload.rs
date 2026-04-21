@@ -3,8 +3,8 @@ use appletheia::event_payload;
 use crate::core::Email;
 
 use super::{
-    UserBio, UserDisplayName, UserEventPayloadError, UserId, UserIdentity, UserIdentityProvider,
-    UserIdentitySubject, UserStatusManager, Username,
+    UserEventPayloadError, UserId, UserIdentity, UserIdentityProvider, UserIdentitySubject,
+    UserProfile, Username,
 };
 
 /// Represents the domain events emitted by a `User` aggregate.
@@ -17,25 +17,11 @@ pub enum UserEventPayload {
     Activated,
     Inactivated,
     Removed,
-    StatusManagerAssigned {
-        status_manager: UserStatusManager,
-    },
-    StatusManagerUnassigned {
-        status_manager: UserStatusManager,
-    },
-    ProfileReadied {
-        username: Username,
-        display_name: UserDisplayName,
-        bio: Option<UserBio>,
-    },
     UsernameChanged {
         username: Username,
     },
-    DisplayNameChanged {
-        display_name: UserDisplayName,
-    },
-    BioChanged {
-        bio: Option<UserBio>,
+    ProfileChanged {
+        profile: UserProfile,
     },
     IdentityLinked {
         identity: UserIdentity,
@@ -52,10 +38,11 @@ mod tests {
     use appletheia::domain::EventPayload;
 
     use crate::core::Email;
+    use crate::{UserDisplayName, UserPictureRef, UserPictureUrl};
 
     use super::{
-        UserBio, UserDisplayName, UserEventPayload, UserId, UserIdentity, UserIdentityProvider,
-        UserIdentitySubject, UserStatusManager, Username,
+        UserEventPayload, UserId, UserIdentity, UserIdentityProvider, UserIdentitySubject,
+        UserProfile,
     };
 
     #[test]
@@ -65,8 +52,12 @@ mod tests {
             appletheia::domain::EventName::new("registered")
         );
         assert_eq!(
-            UserEventPayload::PROFILE_READIED,
-            appletheia::domain::EventName::new("profile_readied")
+            UserEventPayload::USERNAME_CHANGED,
+            appletheia::domain::EventName::new("username_changed")
+        );
+        assert_eq!(
+            UserEventPayload::PROFILE_CHANGED,
+            appletheia::domain::EventName::new("profile_changed")
         );
         assert_eq!(
             UserEventPayload::ACTIVATED,
@@ -81,26 +72,6 @@ mod tests {
             appletheia::domain::EventName::new("removed")
         );
         assert_eq!(
-            UserEventPayload::STATUS_MANAGER_ASSIGNED,
-            appletheia::domain::EventName::new("status_manager_assigned")
-        );
-        assert_eq!(
-            UserEventPayload::STATUS_MANAGER_UNASSIGNED,
-            appletheia::domain::EventName::new("status_manager_unassigned")
-        );
-        assert_eq!(
-            UserEventPayload::USERNAME_CHANGED,
-            appletheia::domain::EventName::new("username_changed")
-        );
-        assert_eq!(
-            UserEventPayload::DISPLAY_NAME_CHANGED,
-            appletheia::domain::EventName::new("display_name_changed")
-        );
-        assert_eq!(
-            UserEventPayload::BIO_CHANGED,
-            appletheia::domain::EventName::new("bio_changed")
-        );
-        assert_eq!(
             UserEventPayload::IDENTITY_LINKED,
             appletheia::domain::EventName::new("identity_linked")
         );
@@ -111,57 +82,38 @@ mod tests {
     }
 
     #[test]
-    fn payload_name_matches_variant() {
-        let payload = UserEventPayload::ProfileReadied {
-            username: Username::try_from("alice_example").expect("username should be valid"),
-            display_name: UserDisplayName::try_from("Alice Example")
-                .expect("display name should be valid"),
-            bio: Some(UserBio::try_from("Banking enthusiast").expect("bio should be valid")),
+    fn profile_changed_payload_name_matches_variant() {
+        let payload = UserEventPayload::ProfileChanged {
+            profile: UserProfile::new(
+                UserDisplayName::try_from("Alice Example").expect("display name should be valid"),
+                None,
+                Some(UserPictureRef::external_url(
+                    UserPictureUrl::try_from("https://cdn.example.com/alice.png")
+                        .expect("picture URL should be valid"),
+                )),
+            ),
         };
 
-        assert_eq!(payload.name(), UserEventPayload::PROFILE_READIED);
+        assert_eq!(payload.name(), UserEventPayload::PROFILE_CHANGED);
     }
 
     #[test]
-    fn username_changed_payload_name_matches_variant() {
-        let payload = UserEventPayload::UsernameChanged {
-            username: Username::try_from("alice_example").expect("username should be valid"),
-        };
-
-        assert_eq!(payload.name(), UserEventPayload::USERNAME_CHANGED);
-    }
-
-    #[test]
-    fn display_name_changed_payload_name_matches_variant() {
-        let payload = UserEventPayload::DisplayNameChanged {
-            display_name: UserDisplayName::try_from("Alice Example")
-                .expect("display name should be valid"),
-        };
-
-        assert_eq!(payload.name(), UserEventPayload::DISPLAY_NAME_CHANGED);
-    }
-
-    #[test]
-    fn bio_changed_payload_name_matches_variant() {
-        let payload = UserEventPayload::BioChanged {
-            bio: Some(UserBio::try_from("Banking enthusiast").expect("bio should be valid")),
-        };
-
-        assert_eq!(payload.name(), UserEventPayload::BIO_CHANGED);
-    }
-
-    #[test]
-    fn identity_linked_payload_name_matches_variant() {
-        let payload = UserEventPayload::IdentityLinked {
-            identity: UserIdentity::new(
-                UserIdentityProvider::try_from("https://accounts.example.com")
-                    .expect("provider should be valid"),
-                UserIdentitySubject::try_from("user-123").expect("subject should be valid"),
+    fn serializes_profile_changed_payload_to_json() {
+        let payload = UserEventPayload::ProfileChanged {
+            profile: UserProfile::new(
+                UserDisplayName::try_from("Alice Example").expect("display name should be valid"),
+                None,
                 None,
             ),
         };
 
-        assert_eq!(payload.name(), UserEventPayload::IDENTITY_LINKED);
+        let value = payload.into_json_value().expect("payload should serialize");
+
+        assert_eq!(value["type"], serde_json::json!("profile_changed"));
+        assert_eq!(
+            value["data"]["profile"]["display_name"],
+            serde_json::json!("Alice Example")
+        );
     }
 
     #[test]
@@ -177,25 +129,7 @@ mod tests {
     }
 
     #[test]
-    fn status_manager_assigned_payload_name_matches_variant() {
-        let payload = UserEventPayload::StatusManagerAssigned {
-            status_manager: UserStatusManager::User(UserId::new()),
-        };
-
-        assert_eq!(payload.name(), UserEventPayload::STATUS_MANAGER_ASSIGNED);
-    }
-
-    #[test]
-    fn status_manager_unassigned_payload_name_matches_variant() {
-        let payload = UserEventPayload::StatusManagerUnassigned {
-            status_manager: UserStatusManager::User(UserId::new()),
-        };
-
-        assert_eq!(payload.name(), UserEventPayload::STATUS_MANAGER_UNASSIGNED);
-    }
-
-    #[test]
-    fn serializes_payload_to_json() {
+    fn serializes_registered_payload_to_json() {
         let payload = UserEventPayload::Registered {
             id: UserId::new(),
             identity: UserIdentity::new(

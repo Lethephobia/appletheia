@@ -1,0 +1,9 @@
+mod user_username_change_command;
+mod user_username_change_command_handler;
+mod user_username_change_command_handler_error;
+mod user_username_change_output;
+
+pub use user_username_change_command::UserUsernameChangeCommand;
+pub use user_username_change_command_handler::UserUsernameChangeCommandHandler;
+pub use user_username_change_command_handler_error::UserUsernameChangeCommandHandlerError;
+pub use user_username_change_output::UserUsernameChangeOutput;

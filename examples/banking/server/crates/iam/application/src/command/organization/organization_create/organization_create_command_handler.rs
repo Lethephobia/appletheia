@@ -1,13 +1,18 @@
-use appletheia::application::authorization::{AuthorizationPlan, PrincipalRequirement};
+use appletheia::application::authorization::{
+    AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
+};
 use appletheia::application::command::{CommandHandled, CommandHandler};
+use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::repository::Repository;
-use appletheia::application::request_context::{Principal, RequestContext};
-use appletheia::domain::{Aggregate, AggregateId};
-use banking_iam_domain::{Organization, OrganizationOwner, User, UserId};
+use appletheia::application::request_context::RequestContext;
+use appletheia::domain::Aggregate;
+use banking_iam_domain::{Organization, OrganizationOwner, User};
 
 use super::{
     OrganizationCreateCommand, OrganizationCreateCommandHandlerError, OrganizationCreateOutput,
 };
+use crate::authorization::UserOwnerRelation;
+use crate::projection::UserOwnerRelationshipProjectorSpec;
 
 /// Handles `OrganizationCreateCommand`.
 pub struct OrganizationCreateCommandHandler<OR>
@@ -40,11 +45,18 @@ where
 
     fn authorization_plan(
         &self,
-        _command: &Self::Command,
+        command: &Self::Command,
     ) -> Result<AuthorizationPlan, Self::Error> {
+        let OrganizationOwner::User(owner) = command.owner;
+
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
             PrincipalRequirement::System,
-            PrincipalRequirement::Authenticated,
+            PrincipalRequirement::AuthenticatedWithRelationship {
+                requirement: RelationshipRequirement::check::<User>(owner, UserOwnerRelation::REF),
+                projector_dependencies: ProjectorDependencies::Some(&[
+                    UserOwnerRelationshipProjectorSpec::DESCRIPTOR,
+                ]),
+            },
         ]))
     }
 
@@ -54,16 +66,13 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
-        let OrganizationCreateCommand { handle, name } = command.clone();
+        let OrganizationCreateCommand {
+            owner,
+            handle,
+            profile,
+        } = command.clone();
         let mut organization = Organization::default();
-        organization.create(handle, name)?;
-        if let Principal::Authenticated { subject } = &request_context.principal
-            && subject.aggregate_type.value() == User::TYPE.value()
-        {
-            let owner = UserId::try_from_uuid(subject.aggregate_id.value())
-                .map_err(OrganizationCreateCommandHandlerError::InvalidOwnerUserId)?;
-            organization.assign_owner(OrganizationOwner::User(owner))?;
-        }
+        organization.create(owner, handle, profile)?;
 
         self.organization_repository
             .save(uow, request_context, &mut organization)
@@ -83,23 +92,34 @@ mod tests {
     use std::sync::{Arc, Mutex};
 
     use appletheia::application::authorization::{
-        AggregateRef, AuthorizationPlan, PrincipalRequirement,
+        AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
     };
     use appletheia::application::command::CommandHandler;
+    use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
     use appletheia::application::repository::{Repository, RepositoryError};
     use appletheia::application::request_context::{
         CorrelationId, MessageId, Principal, RequestContext,
     };
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
-    use appletheia::domain::{Aggregate, EventPayload};
+    use appletheia::domain::Aggregate;
     use banking_iam_domain::{
-        Organization, OrganizationHandle, OrganizationId, OrganizationName, User, UserId,
+        Organization, OrganizationDisplayName, OrganizationHandle, OrganizationId,
+        OrganizationOwner, OrganizationProfile, User, UserId,
     };
     use uuid::Uuid;
 
     use super::{
         OrganizationCreateCommand, OrganizationCreateCommandHandler, OrganizationCreateOutput,
     };
+
+    fn profile() -> OrganizationProfile {
+        OrganizationProfile::new(
+            OrganizationDisplayName::try_from("Acme Labs").expect("display name should be valid"),
+            None,
+            None,
+            None,
+        )
+    }
 
     #[derive(Default)]
     struct TestUow;
@@ -188,10 +208,12 @@ mod tests {
         let repository = TestOrganizationRepository::default();
         let handler = OrganizationCreateCommandHandler::new(repository);
 
+        let owner = UserId::new();
         let plan = handler
             .authorization_plan(&OrganizationCreateCommand {
+                owner: OrganizationOwner::User(owner),
                 handle: OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
-                name: OrganizationName::try_from("Acme Labs").expect("name should be valid"),
+                profile: profile(),
             })
             .expect("authorization plan should build");
 
@@ -199,7 +221,15 @@ mod tests {
             plan,
             AuthorizationPlan::OnlyPrincipals(vec![
                 PrincipalRequirement::System,
-                PrincipalRequirement::Authenticated,
+                PrincipalRequirement::AuthenticatedWithRelationship {
+                    requirement: RelationshipRequirement::check::<User>(
+                        owner,
+                        crate::authorization::UserOwnerRelation::REF,
+                    ),
+                    projector_dependencies: ProjectorDependencies::Some(&[
+                        crate::projection::UserOwnerRelationshipProjectorSpec::DESCRIPTOR,
+                    ]),
+                },
             ])
         );
     }
@@ -209,16 +239,17 @@ mod tests {
         let repository = TestOrganizationRepository::default();
         let handler = OrganizationCreateCommandHandler::new(repository.clone());
         let mut uow = TestUow;
-        let (request_context, _) = request_context();
+        let (request_context, user_id) = request_context();
 
         let handled = handler
             .handle(
                 &mut uow,
                 &request_context,
                 &OrganizationCreateCommand {
+                    owner: OrganizationOwner::User(user_id),
                     handle: OrganizationHandle::try_from("acme-labs")
                         .expect("handle should be valid"),
-                    name: OrganizationName::try_from("Acme Labs").expect("name should be valid"),
+                    profile: profile(),
                 },
             )
             .await
@@ -234,17 +265,17 @@ mod tests {
         );
         assert_eq!(
             saved.name().expect("name should exist"),
-            &OrganizationName::try_from("Acme Labs").expect("name should be valid")
+            profile().display_name()
         );
         assert_eq!(
             saved.handle().expect("handle should exist"),
             &OrganizationHandle::try_from("acme-labs").expect("handle should be valid")
         );
-        assert_eq!(saved.uncommitted_events().len(), 2);
         assert_eq!(
-            saved.uncommitted_events()[1].payload().name(),
-            banking_iam_domain::OrganizationEventPayload::OWNER_ASSIGNED
+            saved.owner().expect("owner should exist"),
+            OrganizationOwner::User(user_id)
         );
+        assert_eq!(saved.uncommitted_events().len(), 1);
     }
 
     #[tokio::test]
@@ -258,9 +289,10 @@ mod tests {
                 &mut uow,
                 &system_request_context(),
                 &OrganizationCreateCommand {
+                    owner: OrganizationOwner::User(UserId::new()),
                     handle: OrganizationHandle::try_from("acme-labs")
                         .expect("handle should be valid"),
-                    name: OrganizationName::try_from("Acme Labs").expect("name should be valid"),
+                    profile: profile(),
                 },
             )
             .await
