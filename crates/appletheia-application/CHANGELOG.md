@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.21.0](https://github.com/Lethephobia/appletheia/compare/appletheia-application-v0.20.0...appletheia-application-v0.21.0) - 2026-04-21
+
+### Added
+
+- *(object-storage)* [**breaking**] add signed object upload signer
+
+### Other
+
+- Refine OIDC and JWT claim errors
+- Add profile picture upload preparation
+- [**breaking**] normalize enum serde tagging
+
 ## [0.20.0](https://github.com/Lethephobia/appletheia/compare/appletheia-application-v0.19.0...appletheia-application-v0.20.0) - 2026-04-13
 
 ### Other
