@@ -1,13 +1,15 @@
 use serde::{Deserialize, Serialize};
 
-use super::{ObjectUploadExpiresIn, ObjectUploadHeader, ObjectUploadMethod, SignedObjectUploadUrl};
+use super::{
+    ObjectUploadExpiresIn, ObjectUploadHeaders, ObjectUploadMethod, SignedObjectUploadUrl,
+};
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct SignedObjectUploadRequest {
     method: ObjectUploadMethod,
     url: SignedObjectUploadUrl,
     expires_in: ObjectUploadExpiresIn,
-    headers: Vec<ObjectUploadHeader>,
+    headers: ObjectUploadHeaders,
 }
 
 impl SignedObjectUploadRequest {
@@ -15,7 +17,7 @@ impl SignedObjectUploadRequest {
         method: ObjectUploadMethod,
         url: SignedObjectUploadUrl,
         expires_in: ObjectUploadExpiresIn,
-        headers: Vec<ObjectUploadHeader>,
+        headers: ObjectUploadHeaders,
     ) -> Self {
         Self {
             method,
@@ -37,7 +39,7 @@ impl SignedObjectUploadRequest {
         self.expires_in
     }
 
-    pub fn headers(&self) -> &[ObjectUploadHeader] {
+    pub fn headers(&self) -> &ObjectUploadHeaders {
         &self.headers
     }
 }

@@ -1,9 +1,7 @@
-use std::collections::BTreeMap;
-
 use super::{
-    OidcAuthorizationEndpointUrl, OidcAuthorizationUrl, OidcClientId, OidcDisplay, OidcMaxAge,
-    OidcNonce, OidcPrompt, OidcRedirectUri, OidcResponseType, OidcScopes, OidcState,
-    PkceCodeChallenge, PkceCodeChallengeMethod,
+    OidcAuthorizationEndpointUrl, OidcAuthorizationUrl, OidcClientId, OidcDisplay,
+    OidcExtraAuthorizeParams, OidcMaxAge, OidcNonce, OidcPrompt, OidcRedirectUri, OidcResponseType,
+    OidcScopes, OidcState, PkceCodeChallenge, PkceCodeChallengeMethod,
 };
 
 #[derive(Clone, Debug)]
@@ -18,7 +16,7 @@ pub struct OidcAuthorizationUrlBuilder {
     max_age: Option<OidcMaxAge>,
     prompt: Option<OidcPrompt>,
     pkce_code_challenge: Option<(PkceCodeChallenge, PkceCodeChallengeMethod)>,
-    extra_authorize_params: BTreeMap<String, String>,
+    extra_authorize_params: OidcExtraAuthorizeParams,
 }
 
 impl OidcAuthorizationUrlBuilder {
@@ -41,7 +39,7 @@ impl OidcAuthorizationUrlBuilder {
             max_age: None,
             prompt: None,
             pkce_code_challenge: None,
-            extra_authorize_params: BTreeMap::new(),
+            extra_authorize_params: OidcExtraAuthorizeParams::default(),
         }
     }
 

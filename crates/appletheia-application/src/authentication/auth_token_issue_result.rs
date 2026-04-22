@@ -43,7 +43,7 @@ mod tests {
             .parse::<AuthTokenIssuerUrl>()
             .expect("valid issuer");
         let audience = AuthTokenAudience::new("web".to_owned()).expect("valid audience");
-        let audiences = AuthTokenAudiences::new(audience, Vec::new()).expect("valid audiences");
+        let audiences = AuthTokenAudiences::new(vec![audience]).expect("valid audiences");
         let subject = AggregateRef {
             aggregate_type: AggregateTypeOwned::new("user".to_owned()).expect("valid type"),
             aggregate_id: AggregateIdValue::from(Uuid::from_u128(1)),

@@ -127,7 +127,6 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeSet;
     use std::sync::{Arc, Mutex};
 
     use appletheia::application::authorization::{
@@ -136,9 +135,9 @@ mod tests {
     use appletheia::application::command::CommandHandler;
     use appletheia::application::object_storage::{
         ObjectBucketName, ObjectChecksum, ObjectChecksumAlgorithm, ObjectChecksumValue,
-        ObjectContentLength, ObjectContentType, ObjectUploadExpiresIn, ObjectUploadRequest,
-        ObjectUploadSigner, ObjectUploadSignerError, SignedObjectUploadRequest,
-        SignedObjectUploadUrl,
+        ObjectContentLength, ObjectContentType, ObjectContentTypes, ObjectUploadExpiresIn,
+        ObjectUploadHeaders, ObjectUploadRequest, ObjectUploadSigner, ObjectUploadSignerError,
+        SignedObjectUploadRequest, SignedObjectUploadUrl,
     };
     use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
     use appletheia::application::repository::{Repository, RepositoryError};
@@ -290,7 +289,7 @@ mod tests {
             SignedObjectUploadUrl::try_from("https://storage.example.com/upload")
                 .expect("signed URL should be valid"),
             expires_in,
-            vec![],
+            ObjectUploadHeaders::default(),
         )
     }
 
@@ -302,8 +301,8 @@ mod tests {
         )
     }
 
-    fn allowed_content_types() -> BTreeSet<ObjectContentType> {
-        BTreeSet::from([
+    fn allowed_content_types() -> ObjectContentTypes {
+        ObjectContentTypes::from([
             ObjectContentType::png(),
             ObjectContentType::jpeg(),
             ObjectContentType::webp(),

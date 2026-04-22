@@ -1,7 +1,8 @@
 use appletheia_application::{
     ObjectBucketName, ObjectChecksum, ObjectChecksumAlgorithm, ObjectUploadHeader,
-    ObjectUploadHeaderName, ObjectUploadHeaderValue, ObjectUploadMethod, ObjectUploadRequest,
-    ObjectUploadSigner, ObjectUploadSignerError, SignedObjectUploadRequest, SignedObjectUploadUrl,
+    ObjectUploadHeaderName, ObjectUploadHeaderValue, ObjectUploadHeaders, ObjectUploadMethod,
+    ObjectUploadRequest, ObjectUploadSigner, ObjectUploadSignerError, SignedObjectUploadRequest,
+    SignedObjectUploadUrl,
 };
 use google_cloud_auth::signer::Signer;
 use google_cloud_storage::builder::storage::SignedUrlBuilder;
@@ -32,7 +33,7 @@ impl CloudStorageObjectUploadSigner {
 
     fn headers_for_request(
         request: &ObjectUploadRequest,
-    ) -> Result<Vec<ObjectUploadHeader>, CloudStorageObjectUploadSignerError> {
+    ) -> Result<ObjectUploadHeaders, CloudStorageObjectUploadSignerError> {
         let mut headers = vec![ObjectUploadHeader::new(
             ObjectUploadHeaderName::content_type(),
             ObjectUploadHeaderValue::from_content_type(request.content_type()),
@@ -49,7 +50,7 @@ impl CloudStorageObjectUploadSigner {
             headers.push(Self::checksum_header(checksum)?);
         }
 
-        Ok(headers)
+        Ok(headers.into())
     }
 
     fn checksum_header(
@@ -90,7 +91,7 @@ impl ObjectUploadSigner for CloudStorageObjectUploadSigner {
         .with_method(Self::method(request.method()).map_err(Self::signer_error)?)
         .with_expiration(expires_in);
 
-        for header in &headers {
+        for header in headers.iter() {
             builder = builder.with_header(header.name().as_str(), header.value().as_str());
         }
 

@@ -109,19 +109,8 @@ impl JwtAuthTokenClaims {
     fn parse_audiences(
         audiences: &[String],
     ) -> Result<AuthTokenAudiences, JwtAuthTokenClaimsError> {
-        let mut iter = audiences.iter();
-        let first = iter
-            .next()
-            .ok_or(JwtAuthTokenClaimsError::MissingRequiredClaim { name: "aud" })?;
-
-        let primary = AuthTokenAudience::new(first.to_owned()).map_err(|e| {
-            JwtAuthTokenClaimsError::InvalidClaimValue {
-                name: "aud",
-                source: Box::new(e),
-            }
-        })?;
-
-        let additional = iter
+        let audiences = audiences
+            .iter()
             .map(|aud| AuthTokenAudience::new(aud.to_owned()))
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| JwtAuthTokenClaimsError::InvalidClaimValue {
@@ -129,11 +118,9 @@ impl JwtAuthTokenClaims {
                 source: Box::new(e),
             })?;
 
-        AuthTokenAudiences::new(primary, additional).map_err(|e| {
-            JwtAuthTokenClaimsError::InvalidClaimValue {
-                name: "aud",
-                source: Box::new(e),
-            }
+        AuthTokenAudiences::new(audiences).map_err(|e| JwtAuthTokenClaimsError::InvalidClaimValue {
+            name: "aud",
+            source: Box::new(e),
         })
     }
 

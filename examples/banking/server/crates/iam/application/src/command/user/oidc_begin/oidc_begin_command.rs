@@ -1,7 +1,7 @@
-use std::collections::BTreeMap;
-
 use appletheia::application::authentication::PkceCodeChallenge;
-use appletheia::application::authentication::oidc::{OidcDisplay, OidcPrompt, OidcScopes};
+use appletheia::application::authentication::oidc::{
+    OidcDisplay, OidcExtraAuthorizeParams, OidcPrompt, OidcScopes,
+};
 use appletheia::command;
 use serde::{Deserialize, Serialize};
 
@@ -17,5 +17,5 @@ pub struct OidcBeginCommand {
     pub scopes: OidcScopes,
     pub display: Option<OidcDisplay>,
     pub prompt: Option<OidcPrompt>,
-    pub extra_authorize_params: BTreeMap<String, String>,
+    pub extra_authorize_params: OidcExtraAuthorizeParams,
 }

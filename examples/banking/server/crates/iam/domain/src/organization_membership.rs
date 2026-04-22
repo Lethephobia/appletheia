@@ -6,7 +6,6 @@ mod organization_membership_state;
 mod organization_membership_state_error;
 mod organization_membership_status;
 mod organization_role;
-mod organization_roles;
 
 pub use organization_membership_error::OrganizationMembershipError;
 pub use organization_membership_event_payload::OrganizationMembershipEventPayload;
@@ -16,7 +15,8 @@ pub use organization_membership_state::OrganizationMembershipState;
 pub use organization_membership_state_error::OrganizationMembershipStateError;
 pub use organization_membership_status::OrganizationMembershipStatus;
 pub use organization_role::OrganizationRole;
-pub use organization_roles::OrganizationRoles;
+
+use std::collections::BTreeSet;
 
 use appletheia::aggregate;
 use appletheia::domain::{Aggregate, AggregateApply, AggregateCore};
@@ -46,7 +46,7 @@ impl OrganizationMembership {
     }
 
     /// Returns the elevated roles granted through this membership.
-    pub fn roles(&self) -> Result<&OrganizationRoles, OrganizationMembershipError> {
+    pub fn roles(&self) -> Result<&BTreeSet<OrganizationRole>, OrganizationMembershipError> {
         Ok(&self.state_required()?.roles)
     }
 
@@ -89,7 +89,7 @@ impl OrganizationMembership {
     ) -> Result<(), OrganizationMembershipError> {
         self.ensure_active()?;
 
-        if self.state_required()?.roles.contains(role) {
+        if self.state_required()?.roles.contains(&role) {
             return Ok(());
         }
 
@@ -108,7 +108,7 @@ impl OrganizationMembership {
     ) -> Result<(), OrganizationMembershipError> {
         self.ensure_active()?;
 
-        if !self.state_required()?.roles.contains(role) {
+        if !self.state_required()?.roles.contains(&role) {
             return Ok(());
         }
 
@@ -198,7 +198,7 @@ impl AggregateApply<OrganizationMembershipEventPayload, OrganizationMembershipEr
                     *id,
                     *organization_id,
                     *user_id,
-                    OrganizationRoles::default(),
+                    BTreeSet::new(),
                 )));
             }
             OrganizationMembershipEventPayload::Activated { roles, .. } => {
@@ -213,11 +213,13 @@ impl AggregateApply<OrganizationMembershipEventPayload, OrganizationMembershipEr
                 self.state_required_mut()?.status = OrganizationMembershipStatus::Removed;
             }
             OrganizationMembershipEventPayload::RoleGranted { role, .. } => {
-                let roles = self.state_required()?.roles.granted(*role);
+                let mut roles = self.state_required()?.roles.clone();
+                roles.insert(*role);
                 self.state_required_mut()?.roles = roles;
             }
             OrganizationMembershipEventPayload::RoleRevoked { role, .. } => {
-                let roles = self.state_required()?.roles.revoked(*role);
+                let mut roles = self.state_required()?.roles.clone();
+                roles.remove(role);
                 self.state_required_mut()?.roles = roles;
             }
         }
@@ -228,12 +230,14 @@ impl AggregateApply<OrganizationMembershipEventPayload, OrganizationMembershipEr
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeSet;
+
     use appletheia::domain::{Aggregate, AggregateId, EventPayload};
 
     use super::{
         OrganizationMembership, OrganizationMembershipEventPayload, OrganizationMembershipStatus,
     };
-    use crate::{OrganizationId, OrganizationRole, OrganizationRoles, UserId};
+    use crate::{OrganizationId, OrganizationRole, UserId};
 
     fn organization_id() -> OrganizationId {
         OrganizationId::new()
@@ -273,7 +277,7 @@ mod tests {
         );
         assert_eq!(
             membership.roles().expect("roles should exist"),
-            &OrganizationRoles::default()
+            &BTreeSet::new()
         );
         assert_eq!(membership.uncommitted_events().len(), 1);
         assert_eq!(
@@ -286,7 +290,7 @@ mod tests {
     fn activate_and_deactivate_update_status_and_record_events() {
         let organization_id_value = organization_id();
         let user_id_value = user_id();
-        let roles = OrganizationRoles::from([OrganizationRole::Treasurer]);
+        let roles = BTreeSet::from([OrganizationRole::Treasurer]);
         let mut membership = OrganizationMembership::default();
         membership
             .create(organization_id_value, user_id_value)
@@ -340,7 +344,7 @@ mod tests {
             membership
                 .roles()
                 .expect("roles should exist")
-                .contains(OrganizationRole::FinanceManager)
+                .contains(&OrganizationRole::FinanceManager)
         );
 
         membership
@@ -350,7 +354,7 @@ mod tests {
             !membership
                 .roles()
                 .expect("roles should exist")
-                .contains(OrganizationRole::FinanceManager)
+                .contains(&OrganizationRole::FinanceManager)
         );
         assert_eq!(membership.uncommitted_events().len(), 3);
         assert_eq!(
