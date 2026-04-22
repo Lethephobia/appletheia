@@ -390,7 +390,7 @@ mod tests {
             !saved
                 .roles()
                 .expect("roles should exist")
-                .contains(OrganizationRole::FinanceManager)
+                .contains(&OrganizationRole::FinanceManager)
         );
     }
 }

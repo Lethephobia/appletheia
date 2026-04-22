@@ -1,7 +1,5 @@
-use std::collections::BTreeSet;
-
 use appletheia::application::object_storage::{
-    ObjectBucketName, ObjectContentLength, ObjectContentType, ObjectUploadExpiresIn,
+    ObjectBucketName, ObjectContentLength, ObjectContentTypes, ObjectUploadExpiresIn,
 };
 
 /// Configuration for `UserPictureUploadPrepareCommandHandler`.
@@ -10,7 +8,7 @@ pub struct UserPictureUploadPrepareCommandHandlerConfig {
     bucket_name: ObjectBucketName,
     expires_in: ObjectUploadExpiresIn,
     max_content_length: ObjectContentLength,
-    allowed_content_types: BTreeSet<ObjectContentType>,
+    allowed_content_types: ObjectContentTypes,
 }
 
 impl UserPictureUploadPrepareCommandHandlerConfig {
@@ -19,7 +17,7 @@ impl UserPictureUploadPrepareCommandHandlerConfig {
         bucket_name: ObjectBucketName,
         expires_in: ObjectUploadExpiresIn,
         max_content_length: ObjectContentLength,
-        allowed_content_types: BTreeSet<ObjectContentType>,
+        allowed_content_types: ObjectContentTypes,
     ) -> Self {
         Self {
             bucket_name,
@@ -45,7 +43,7 @@ impl UserPictureUploadPrepareCommandHandlerConfig {
     }
 
     /// Returns the allowed content types.
-    pub fn allowed_content_types(&self) -> &BTreeSet<ObjectContentType> {
+    pub fn allowed_content_types(&self) -> &ObjectContentTypes {
         &self.allowed_content_types
     }
 }

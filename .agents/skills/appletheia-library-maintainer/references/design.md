@@ -70,6 +70,18 @@ If a breaking change is necessary, make it deliberate and visible.
 
 Add new types, methods, or fields when you can preserve the old contract.
 
+### PREFER dedicated collection types only when the public API treats the collection as one named value
+
+If a collection is configured, validated, serialized, and passed around as one declared value, a dedicated wrapper type can make the contract clearer. This fits public surfaces such as audience lists, issuer URL lists, and other named collections with collection-level rules.
+
+### AVOID introducing collection wrappers for APIs whose domain facts are item-by-item mutations
+
+If the public API is fundamentally about adding, removing, or toggling single items, prefer exposing a raw collection in state and modeling the per-item operation explicitly. In those cases a wrapper often makes the contract look more aggregate-wide than the behavior really is.
+
+### CONSIDER the raw collection semantics before adding a wrapper
+
+When a wrapper is unnecessary, still choose the raw collection deliberately. Prefer `Vec` for ordered declarations and `BTreeSet` or `HashSet` for uniqueness-driven sets.
+
 ### AVOID renaming public types or event names when an additive path exists
 
 Prefer compatibility-preserving changes before removing old names.

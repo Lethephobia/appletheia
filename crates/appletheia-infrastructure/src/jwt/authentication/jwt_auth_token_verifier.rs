@@ -26,6 +26,7 @@ impl JwtAuthTokenVerifier {
         let issuers: Vec<String> = self
             .config
             .allowed_issuer_urls()
+            .values()
             .iter()
             .map(|url| url.value().to_string())
             .collect();

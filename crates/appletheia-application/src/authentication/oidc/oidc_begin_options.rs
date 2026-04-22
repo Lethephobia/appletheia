@@ -1,6 +1,4 @@
-use std::collections::BTreeMap;
-
-use super::{OidcDisplay, OidcMaxAge, OidcPrompt, OidcScopes};
+use super::{OidcDisplay, OidcExtraAuthorizeParams, OidcMaxAge, OidcPrompt, OidcScopes};
 
 #[derive(Clone, Debug, Default)]
 pub struct OidcBeginOptions {
@@ -8,5 +6,5 @@ pub struct OidcBeginOptions {
     pub display: Option<OidcDisplay>,
     pub max_age: Option<OidcMaxAge>,
     pub prompt: Option<OidcPrompt>,
-    pub extra_authorize_params: BTreeMap<String, String>,
+    pub extra_authorize_params: OidcExtraAuthorizeParams,
 }

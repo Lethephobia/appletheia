@@ -1,6 +1,8 @@
+use std::collections::BTreeSet;
+
 use appletheia::event_payload;
 
-use crate::{OrganizationId, OrganizationRole, OrganizationRoles, UserId};
+use crate::{OrganizationId, OrganizationRole, UserId};
 
 use super::{OrganizationMembershipEventPayloadError, OrganizationMembershipId};
 
@@ -15,7 +17,7 @@ pub enum OrganizationMembershipEventPayload {
     Activated {
         organization_id: OrganizationId,
         user_id: UserId,
-        roles: OrganizationRoles,
+        roles: BTreeSet<OrganizationRole>,
     },
     Inactivated {
         organization_id: OrganizationId,
@@ -39,10 +41,12 @@ pub enum OrganizationMembershipEventPayload {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeSet;
+
     use appletheia::domain::EventPayload;
 
     use super::{OrganizationMembershipEventPayload, OrganizationMembershipId};
-    use crate::{OrganizationId, OrganizationRole, OrganizationRoles, UserId};
+    use crate::{OrganizationId, OrganizationRole, UserId};
 
     #[test]
     fn returns_stable_event_names() {
@@ -88,7 +92,7 @@ mod tests {
         let payload = OrganizationMembershipEventPayload::Activated {
             organization_id: OrganizationId::new(),
             user_id: UserId::new(),
-            roles: OrganizationRoles::default(),
+            roles: BTreeSet::new(),
         };
 
         assert_eq!(

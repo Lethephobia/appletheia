@@ -186,6 +186,69 @@ pub fn change_identity(
 }
 ```
 
+### PREFER collection value objects when the aggregate treats the whole collection as one declared value
+
+If a collection is supplied, stored, and replaced as one declared value, model it as a dedicated type instead of exposing the raw collection directly. This usually fits configuration-like inputs and top-level aggregate values that are changed in one step.
+
+good:
+```rust
+pub fn configure_audiences(
+    &mut self,
+    audiences: AuthTokenAudiences,
+) -> Result<(), ExampleError> {
+    self.append_event(ExampleEventPayload::AudiencesConfigured { audiences })
+}
+```
+
+bad:
+```rust
+pub fn add_audience(
+    &mut self,
+    audience: AuthTokenAudience,
+) -> Result<(), ExampleError> {
+    self.append_event(ExampleEventPayload::AudienceAdded { audience })
+}
+```
+
+### PREFER raw collections when add/remove operations are the domain facts
+
+If commands and events add or remove single items, keep the state as a raw collection and choose the collection type that matches the semantics. Prefer `Vec` when order matters and `BTreeSet` or `HashSet` when uniqueness matters.
+
+good:
+```rust
+pub fn grant_role(
+    &mut self,
+    role: OrganizationRole,
+) -> Result<(), ExampleError> {
+    self.append_event(ExampleEventPayload::RoleGranted { role })
+}
+```
+
+good:
+```rust
+pub struct ExampleState {
+    roles: BTreeSet<OrganizationRole>,
+}
+```
+
+bad:
+```rust
+pub struct ExampleState {
+    roles: OrganizationRoles,
+}
+
+pub fn grant_role(
+    &mut self,
+    role: OrganizationRole,
+) -> Result<(), ExampleError> {
+    self.append_event(ExampleEventPayload::RoleGranted { role })
+}
+```
+
+### DON'T model a collection as a value object when the commands and events mutate it item by item
+
+Avoid wrapping a collection in a value object when the surrounding API still talks in terms of individual inserts and removals. That split usually makes the state shape and the event model drift apart.
+
 ### DO validate the request before you append an event
 
 Reject invalid requests before any state change is recorded.

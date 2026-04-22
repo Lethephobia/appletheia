@@ -8,20 +8,13 @@ use super::{AuthTokenAudience, AuthTokenAudiencesError};
 pub struct AuthTokenAudiences(Vec<AuthTokenAudience>);
 
 impl AuthTokenAudiences {
-    pub fn new(
-        primary: AuthTokenAudience,
-        additional: impl IntoIterator<Item = AuthTokenAudience>,
-    ) -> Result<Self, AuthTokenAudiencesError> {
-        let mut audiences = Vec::new();
-        audiences.push(primary);
-        audiences.extend(additional);
-
-        let mut seen = HashSet::new();
-        audiences.retain(|audience| seen.insert(audience.clone()));
-
+    pub fn new(mut audiences: Vec<AuthTokenAudience>) -> Result<Self, AuthTokenAudiencesError> {
         if audiences.is_empty() {
             return Err(AuthTokenAudiencesError::Empty);
         }
+
+        let mut seen = HashSet::new();
+        audiences.retain(|audience| seen.insert(audience.clone()));
 
         Ok(Self(audiences))
     }
@@ -31,19 +24,35 @@ impl AuthTokenAudiences {
     }
 }
 
+impl TryFrom<Vec<AuthTokenAudience>> for AuthTokenAudiences {
+    type Error = AuthTokenAudiencesError;
+
+    fn try_from(value: Vec<AuthTokenAudience>) -> Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
+    fn new_rejects_empty() {
+        assert!(matches!(
+            AuthTokenAudiences::new(vec![]),
+            Err(AuthTokenAudiencesError::Empty)
+        ));
+    }
+
+    #[test]
     fn new_dedupes_audiences() {
-        let primary = AuthTokenAudience::new("a".to_owned()).unwrap();
-        let additional = vec![
+        let audiences = vec![
+            AuthTokenAudience::new("a".to_owned()).unwrap(),
             AuthTokenAudience::new("a".to_owned()).unwrap(),
             AuthTokenAudience::new("b".to_owned()).unwrap(),
         ];
 
-        let audiences = AuthTokenAudiences::new(primary, additional).unwrap();
+        let audiences = AuthTokenAudiences::new(audiences).unwrap();
         let values: Vec<&str> = audiences.values().iter().map(|a| a.value()).collect();
 
         assert_eq!(values, vec!["a", "b"]);

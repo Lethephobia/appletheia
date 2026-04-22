@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use appletheia::application::authorization::{
     Relation, Relationship, RelationshipChange, RelationshipStore, RelationshipSubject,
 };
@@ -5,7 +7,7 @@ use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
 use banking_iam_domain::{
     Organization, OrganizationMembership, OrganizationMembershipEventPayload, OrganizationRole,
-    OrganizationRoles, User,
+    User,
 };
 
 use super::{
@@ -34,7 +36,7 @@ where
     fn upsert_role_relationships(
         organization_id: banking_iam_domain::OrganizationId,
         user_id: banking_iam_domain::UserId,
-        roles: &OrganizationRoles,
+        roles: &BTreeSet<OrganizationRole>,
     ) -> Vec<RelationshipChange> {
         roles
             .iter()
@@ -98,11 +100,7 @@ where
                 organization_id,
                 user_id,
                 ..
-            } => Self::upsert_role_relationships(
-                *organization_id,
-                *user_id,
-                &OrganizationRoles::default(),
-            ),
+            } => Self::upsert_role_relationships(*organization_id, *user_id, &BTreeSet::new()),
             OrganizationMembershipEventPayload::Activated {
                 organization_id,
                 user_id,

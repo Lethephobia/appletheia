@@ -1,11 +1,11 @@
-use appletheia_application::{AuthTokenAudiences, AuthTokenIssuerUrl};
+use appletheia_application::{AuthTokenAudiences, AuthTokenIssuerUrls};
 
 use crate::jwt::Jwks;
 use crate::jwt::JwtLeewaySeconds;
 
 #[derive(Clone, Debug)]
 pub struct JwtAuthTokenVerifierConfig {
-    allowed_issuer_urls: Vec<AuthTokenIssuerUrl>,
+    allowed_issuer_urls: AuthTokenIssuerUrls,
     allowed_audiences: AuthTokenAudiences,
     jwks: Jwks,
     leeway_seconds: JwtLeewaySeconds,
@@ -13,7 +13,7 @@ pub struct JwtAuthTokenVerifierConfig {
 
 impl JwtAuthTokenVerifierConfig {
     pub fn new(
-        allowed_issuer_urls: Vec<AuthTokenIssuerUrl>,
+        allowed_issuer_urls: AuthTokenIssuerUrls,
         allowed_audiences: AuthTokenAudiences,
         jwks: Jwks,
     ) -> Self {
@@ -30,7 +30,7 @@ impl JwtAuthTokenVerifierConfig {
         self
     }
 
-    pub fn allowed_issuer_urls(&self) -> &[AuthTokenIssuerUrl] {
+    pub fn allowed_issuer_urls(&self) -> &AuthTokenIssuerUrls {
         &self.allowed_issuer_urls
     }
 
