@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0](https://github.com/Lethephobia/appletheia/compare/appletheia-infrastructure-v0.12.0...appletheia-infrastructure-v0.13.0) - 2026-04-22
+
+### Other
+
+- *(collections)* [**breaking**] align collection wrappers with domain semantics
+
 ## [0.12.0](https://github.com/Lethephobia/appletheia/compare/appletheia-infrastructure-v0.11.0...appletheia-infrastructure-v0.12.0) - 2026-04-21
 
 ### Added
