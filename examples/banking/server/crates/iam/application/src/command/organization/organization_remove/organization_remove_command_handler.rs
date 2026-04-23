@@ -107,7 +107,7 @@ mod tests {
     use appletheia::domain::Aggregate;
     use banking_iam_domain::{
         Organization, OrganizationHandle, OrganizationId, OrganizationName, OrganizationOwner,
-        OrganizationProfile, UserId,
+        UserId,
     };
     use uuid::Uuid;
 
@@ -206,12 +206,10 @@ mod tests {
             .create(
                 OrganizationOwner::User(UserId::new()),
                 OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
-                OrganizationProfile::new(
-                    OrganizationName::try_from("Acme Labs").expect("name should be valid"),
-                    None,
-                    None,
-                    None,
-                ),
+                OrganizationName::try_from("Acme Labs").expect("name should be valid"),
+                None,
+                None,
+                None,
             )
             .expect("organization should create");
         organization

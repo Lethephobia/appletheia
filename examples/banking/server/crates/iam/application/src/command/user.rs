@@ -3,9 +3,11 @@ pub mod logout_all_sessions;
 pub mod oidc_begin;
 pub mod oidc_complete;
 pub mod user_activate;
+pub mod user_bio_change;
 pub mod user_deactivate;
+pub mod user_display_name_change;
+pub mod user_picture_change;
 pub mod user_picture_upload_prepare;
-pub mod user_profile_change;
 pub mod user_remove;
 pub mod user_username_change;
 
@@ -18,16 +20,20 @@ pub use oidc_complete::{
     OidcCompleteCommand, OidcCompleteCommandHandler, OidcCompleteOutput, OidcCompleteReplayOutput,
 };
 pub use user_activate::{UserActivateCommand, UserActivateCommandHandler, UserActivateOutput};
+pub use user_bio_change::{UserBioChangeCommand, UserBioChangeCommandHandler, UserBioChangeOutput};
 pub use user_deactivate::{
     UserDeactivateCommand, UserDeactivateCommandHandler, UserDeactivateOutput,
+};
+pub use user_display_name_change::{
+    UserDisplayNameChangeCommand, UserDisplayNameChangeCommandHandler, UserDisplayNameChangeOutput,
+};
+pub use user_picture_change::{
+    UserPictureChangeCommand, UserPictureChangeCommandHandler, UserPictureChangeOutput,
 };
 pub use user_picture_upload_prepare::{
     UserPictureUploadPrepareCommand, UserPictureUploadPrepareCommandHandler,
     UserPictureUploadPrepareCommandHandlerConfig, UserPictureUploadPrepareCommandHandlerError,
     UserPictureUploadPrepareOutput,
-};
-pub use user_profile_change::{
-    UserProfileChangeCommand, UserProfileChangeCommandHandler, UserProfileChangeOutput,
 };
 pub use user_remove::{UserRemoveCommand, UserRemoveCommandHandler, UserRemoveOutput};
 pub use user_username_change::{

@@ -2,7 +2,10 @@ use appletheia::aggregate_state;
 use appletheia::domain::{UniqueValue, UniqueValuePart, UniqueValues};
 use appletheia::unique_constraints;
 
-use super::{UserId, UserIdentity, UserProfile, UserStateError, UserStatus, Username};
+use super::{
+    UserBio, UserDisplayName, UserId, UserIdentity, UserPictureRef, UserStateError, UserStatus,
+    Username,
+};
 
 /// Stores the materialized state of a `User` aggregate.
 #[aggregate_state(error = UserStateError)]
@@ -14,7 +17,9 @@ pub struct UserState {
     pub(super) id: UserId,
     pub(super) status: UserStatus,
     pub(super) username: Option<Username>,
-    pub(super) profile: Option<UserProfile>,
+    pub(super) display_name: Option<UserDisplayName>,
+    pub(super) bio: Option<UserBio>,
+    pub(super) picture: Option<UserPictureRef>,
     pub(super) identities: Vec<UserIdentity>,
 }
 
@@ -25,7 +30,9 @@ impl UserState {
             id,
             status: UserStatus::Active,
             username: None,
-            profile: None,
+            display_name: None,
+            bio: None,
+            picture: None,
             identities: vec![identity],
         }
     }
@@ -72,7 +79,7 @@ mod tests {
 
     use crate::{
         UserDisplayName, UserId, UserIdentity, UserIdentityProvider, UserIdentitySubject,
-        UserPictureRef, UserPictureUrl, UserProfile, UserState, UserStatus, Username, core::Email,
+        UserPictureRef, UserPictureUrl, UserState, UserStatus, Username, core::Email,
     };
 
     fn identity() -> UserIdentity {
@@ -100,13 +107,11 @@ mod tests {
     fn configured_username_returns_unique_entries() {
         let mut state = UserState::new(UserId::new(), identity());
         state.username = Some(Username::try_from("alice").expect("username should be valid"));
-        state.profile = Some(UserProfile::new(
-            UserDisplayName::try_from("Alice Example").expect("display name should be valid"),
-            None,
-            Some(UserPictureRef::external_url(
-                UserPictureUrl::try_from("https://cdn.example.com/alice.png")
-                    .expect("picture URL should be valid"),
-            )),
+        state.display_name =
+            Some(UserDisplayName::try_from("Alice Example").expect("display name should be valid"));
+        state.picture = Some(UserPictureRef::external_url(
+            UserPictureUrl::try_from("https://cdn.example.com/alice.png")
+                .expect("picture URL should be valid"),
         ));
 
         let entries = state.unique_entries().expect("unique entries should build");
@@ -138,19 +143,10 @@ mod tests {
     }
 
     #[test]
-    fn exposes_generated_unique_key_constants() {
-        assert_eq!(UserState::USERNAME_KEY, UniqueKey::new("username"));
-        assert_eq!(
-            UserState::PROVIDER_SUBJECT_KEY,
-            UniqueKey::new("provider_subject")
-        );
-    }
-
-    #[test]
     fn removed_state_has_no_unique_entries() {
         let mut state = UserState::new(UserId::new(), identity());
-        state.status = UserStatus::Removed;
         state.username = Some(Username::try_from("alice").expect("username should be valid"));
+        state.status = UserStatus::Removed;
 
         let entries = state.unique_entries().expect("unique entries should build");
 
@@ -163,6 +159,15 @@ mod tests {
                 .get(UserState::PROVIDER_SUBJECT_KEY)
                 .map(UniqueValues::len),
             None
+        );
+    }
+
+    #[test]
+    fn exposes_unique_keys() {
+        assert_eq!(UserState::USERNAME_KEY, UniqueKey::new("username"));
+        assert_eq!(
+            UserState::PROVIDER_SUBJECT_KEY,
+            UniqueKey::new("provider_subject")
         );
     }
 }

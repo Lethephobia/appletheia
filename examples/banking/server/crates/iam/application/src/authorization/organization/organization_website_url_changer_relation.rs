@@ -3,12 +3,12 @@ use appletheia::domain::Aggregate;
 
 use super::{Organization, OrganizationAdminRelation};
 
-/// Allows organization administrators to change an organization profile.
-pub struct OrganizationProfileChangerRelation;
+/// Allows organization administrators to change an organization website URL.
+pub struct OrganizationWebsiteUrlChangerRelation;
 
-impl Relation for OrganizationProfileChangerRelation {
+impl Relation for OrganizationWebsiteUrlChangerRelation {
     const REF: RelationRef =
-        RelationRef::new(Organization::TYPE, RelationName::new("profile_changer"));
+        RelationRef::new(Organization::TYPE, RelationName::new("website_url_changer"));
 
     const EXPR: UsersetExpr = UsersetExpr::ComputedUserset {
         relation: OrganizationAdminRelation::REF,

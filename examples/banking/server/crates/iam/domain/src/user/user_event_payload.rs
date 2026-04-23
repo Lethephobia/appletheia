@@ -3,8 +3,8 @@ use appletheia::event_payload;
 use crate::core::Email;
 
 use super::{
-    UserEventPayloadError, UserId, UserIdentity, UserIdentityProvider, UserIdentitySubject,
-    UserProfile, Username,
+    UserBio, UserDisplayName, UserEventPayloadError, UserId, UserIdentity, UserIdentityProvider,
+    UserIdentitySubject, UserPictureRef, Username,
 };
 
 /// Represents the domain events emitted by a `User` aggregate.
@@ -20,8 +20,14 @@ pub enum UserEventPayload {
     UsernameChanged {
         username: Username,
     },
-    ProfileChanged {
-        profile: UserProfile,
+    DisplayNameChanged {
+        display_name: UserDisplayName,
+    },
+    BioChanged {
+        bio: Option<UserBio>,
+    },
+    PictureChanged {
+        picture: Option<UserPictureRef>,
     },
     IdentityLinked {
         identity: UserIdentity,
@@ -38,11 +44,10 @@ mod tests {
     use appletheia::domain::EventPayload;
 
     use crate::core::Email;
-    use crate::{UserDisplayName, UserPictureRef, UserPictureUrl};
+    use crate::{UserBio, UserDisplayName, UserPictureRef, UserPictureUrl};
 
     use super::{
         UserEventPayload, UserId, UserIdentity, UserIdentityProvider, UserIdentitySubject,
-        UserProfile,
     };
 
     #[test]
@@ -56,8 +61,16 @@ mod tests {
             appletheia::domain::EventName::new("username_changed")
         );
         assert_eq!(
-            UserEventPayload::PROFILE_CHANGED,
-            appletheia::domain::EventName::new("profile_changed")
+            UserEventPayload::DISPLAY_NAME_CHANGED,
+            appletheia::domain::EventName::new("display_name_changed")
+        );
+        assert_eq!(
+            UserEventPayload::BIO_CHANGED,
+            appletheia::domain::EventName::new("bio_changed")
+        );
+        assert_eq!(
+            UserEventPayload::PICTURE_CHANGED,
+            appletheia::domain::EventName::new("picture_changed")
         );
         assert_eq!(
             UserEventPayload::ACTIVATED,
@@ -82,38 +95,43 @@ mod tests {
     }
 
     #[test]
-    fn profile_changed_payload_name_matches_variant() {
-        let payload = UserEventPayload::ProfileChanged {
-            profile: UserProfile::new(
-                UserDisplayName::try_from("Alice Example").expect("display name should be valid"),
-                None,
-                Some(UserPictureRef::external_url(
-                    UserPictureUrl::try_from("https://cdn.example.com/alice.png")
-                        .expect("picture URL should be valid"),
-                )),
-            ),
+    fn display_name_changed_payload_name_matches_variant() {
+        let payload = UserEventPayload::DisplayNameChanged {
+            display_name: UserDisplayName::try_from("Alice Example")
+                .expect("display name should be valid"),
         };
 
-        assert_eq!(payload.name(), UserEventPayload::PROFILE_CHANGED);
+        assert_eq!(payload.name(), UserEventPayload::DISPLAY_NAME_CHANGED);
     }
 
     #[test]
-    fn serializes_profile_changed_payload_to_json() {
-        let payload = UserEventPayload::ProfileChanged {
-            profile: UserProfile::new(
-                UserDisplayName::try_from("Alice Example").expect("display name should be valid"),
-                None,
-                None,
-            ),
+    fn serializes_bio_changed_payload_to_json() {
+        let payload = UserEventPayload::BioChanged {
+            bio: Some(UserBio::try_from("Banking enthusiast").expect("bio should be valid")),
         };
 
         let value = payload.into_json_value().expect("payload should serialize");
 
-        assert_eq!(value["type"], serde_json::json!("profile_changed"));
+        assert_eq!(value["type"], serde_json::json!("bio_changed"));
         assert_eq!(
-            value["data"]["profile"]["display_name"],
-            serde_json::json!("Alice Example")
+            value["data"]["bio"],
+            serde_json::json!("Banking enthusiast")
         );
+    }
+
+    #[test]
+    fn serializes_picture_changed_payload_to_json() {
+        let payload = UserEventPayload::PictureChanged {
+            picture: Some(UserPictureRef::external_url(
+                UserPictureUrl::try_from("https://cdn.example.com/alice.png")
+                    .expect("picture URL should be valid"),
+            )),
+        };
+
+        let value = payload.into_json_value().expect("payload should serialize");
+
+        assert_eq!(value["type"], serde_json::json!("picture_changed"));
+        assert!(value["data"]["picture"].is_object());
     }
 
     #[test]
@@ -129,9 +147,8 @@ mod tests {
     }
 
     #[test]
-    fn serializes_registered_payload_to_json() {
-        let payload = UserEventPayload::Registered {
-            id: UserId::new(),
+    fn serializes_identity_linked_payload_to_json() {
+        let payload = UserEventPayload::IdentityLinked {
             identity: UserIdentity::new(
                 UserIdentityProvider::try_from("https://accounts.example.com")
                     .expect("provider should be valid"),
@@ -142,6 +159,31 @@ mod tests {
 
         let value = payload.into_json_value().expect("payload should serialize");
 
+        assert_eq!(value["type"], serde_json::json!("identity_linked"));
+        assert_eq!(
+            value["data"]["identity"]["provider"],
+            serde_json::json!("https://accounts.example.com")
+        );
+    }
+
+    #[test]
+    fn serializes_registered_payload_to_json() {
+        let payload = UserEventPayload::Registered {
+            id: UserId::new(),
+            identity: UserIdentity::new(
+                UserIdentityProvider::try_from("https://accounts.example.com")
+                    .expect("provider should be valid"),
+                UserIdentitySubject::try_from("user-123").expect("subject should be valid"),
+                None,
+            ),
+        };
+
+        let value = payload.into_json_value().expect("payload should serialize");
+
         assert_eq!(value["type"], serde_json::json!("registered"));
+        assert_eq!(
+            value["data"]["identity"]["subject"],
+            serde_json::json!("user-123")
+        );
     }
 }

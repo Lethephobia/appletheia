@@ -14,7 +14,7 @@ use super::{
     OrganizationPictureUploadPrepareCommand, OrganizationPictureUploadPrepareCommandHandlerConfig,
     OrganizationPictureUploadPrepareCommandHandlerError, OrganizationPictureUploadPrepareOutput,
 };
-use crate::authorization::OrganizationProfileChangerRelation;
+use crate::authorization::OrganizationPictureChangerRelation;
 use crate::projection::{
     OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
 };
@@ -67,7 +67,7 @@ where
             PrincipalRequirement::AuthenticatedWithRelationship {
                 requirement: RelationshipRequirement::check::<Organization>(
                     command.organization_id,
-                    OrganizationProfileChangerRelation::REF,
+                    OrganizationPictureChangerRelation::REF,
                 ),
                 projector_dependencies: ProjectorDependencies::Some(&[
                     OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
@@ -148,7 +148,7 @@ mod tests {
     use appletheia::domain::Aggregate;
     use banking_iam_domain::{
         Organization, OrganizationDisplayName, OrganizationHandle, OrganizationId,
-        OrganizationOwner, OrganizationProfile, UserId,
+        OrganizationOwner, UserId,
     };
     use chrono::Duration;
     use uuid::Uuid;
@@ -271,13 +271,11 @@ mod tests {
             .create(
                 OrganizationOwner::User(UserId::new()),
                 OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
-                OrganizationProfile::new(
-                    OrganizationDisplayName::try_from("Acme Labs")
-                        .expect("display name should be valid"),
-                    None,
-                    None,
-                    None,
-                ),
+                OrganizationDisplayName::try_from("Acme Labs")
+                    .expect("display name should be valid"),
+                None,
+                None,
+                None,
             )
             .expect("organization should create");
         organization
@@ -310,7 +308,7 @@ mod tests {
     }
 
     #[test]
-    fn authorization_plan_requires_organization_profile_changer_relationship() {
+    fn authorization_plan_requires_organization_picture_changer_relationship() {
         let repository = TestOrganizationRepository::new(organization());
         let expires_in =
             ObjectUploadExpiresIn::new(Duration::minutes(10)).expect("expiration should be valid");
@@ -341,7 +339,7 @@ mod tests {
                 PrincipalRequirement::AuthenticatedWithRelationship {
                     requirement: RelationshipRequirement::check::<Organization>(
                         organization_id,
-                        crate::authorization::OrganizationProfileChangerRelation::REF,
+                        crate::authorization::OrganizationPictureChangerRelation::REF,
                     ),
                     projector_dependencies: ProjectorDependencies::Some(&[
                         crate::projection::OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,

@@ -12,7 +12,6 @@ mod user_picture_object_name_error;
 mod user_picture_ref;
 mod user_picture_url;
 mod user_picture_url_error;
-mod user_profile;
 mod user_state;
 mod user_state_error;
 mod user_status;
@@ -36,7 +35,6 @@ pub use user_picture_object_name_error::UserPictureObjectNameError;
 pub use user_picture_ref::UserPictureRef;
 pub use user_picture_url::UserPictureUrl;
 pub use user_picture_url_error::UserPictureUrlError;
-pub use user_profile::UserProfile;
 pub use user_state::UserState;
 pub use user_state_error::UserStateError;
 pub use user_status::UserStatus;
@@ -75,11 +73,6 @@ impl User {
         Ok(self.state_required()?.status.is_removed())
     }
 
-    /// Returns the current profile.
-    pub fn profile(&self) -> Result<Option<&UserProfile>, UserError> {
-        Ok(self.state_required()?.profile.as_ref())
-    }
-
     /// Returns the current username.
     pub fn username(&self) -> Result<Option<&Username>, UserError> {
         Ok(self.state_required()?.username.as_ref())
@@ -87,29 +80,17 @@ impl User {
 
     /// Returns the current display name.
     pub fn display_name(&self) -> Result<Option<&UserDisplayName>, UserError> {
-        Ok(self
-            .state_required()?
-            .profile
-            .as_ref()
-            .map(UserProfile::display_name))
+        Ok(self.state_required()?.display_name.as_ref())
     }
 
     /// Returns the current bio.
     pub fn bio(&self) -> Result<Option<&UserBio>, UserError> {
-        Ok(self
-            .state_required()?
-            .profile
-            .as_ref()
-            .and_then(UserProfile::bio))
+        Ok(self.state_required()?.bio.as_ref())
     }
 
     /// Returns the current picture.
     pub fn picture(&self) -> Result<Option<&UserPictureRef>, UserError> {
-        Ok(self
-            .state_required()?
-            .profile
-            .as_ref()
-            .and_then(UserProfile::picture))
+        Ok(self.state_required()?.picture.as_ref())
     }
 
     /// Returns the linked external identities.
@@ -153,15 +134,37 @@ impl User {
         self.append_event(UserEventPayload::UsernameChanged { username })
     }
 
-    /// Changes the current profile.
-    pub fn change_profile(&mut self, profile: UserProfile) -> Result<(), UserError> {
+    /// Changes the current display name.
+    pub fn change_display_name(&mut self, display_name: UserDisplayName) -> Result<(), UserError> {
         self.ensure_active_status()?;
 
-        if self.state_required()?.profile.as_ref() == Some(&profile) {
+        if self.state_required()?.display_name.as_ref() == Some(&display_name) {
             return Ok(());
         }
 
-        self.append_event(UserEventPayload::ProfileChanged { profile })
+        self.append_event(UserEventPayload::DisplayNameChanged { display_name })
+    }
+
+    /// Changes the current bio.
+    pub fn change_bio(&mut self, bio: Option<UserBio>) -> Result<(), UserError> {
+        self.ensure_active_status()?;
+
+        if self.state_required()?.bio == bio {
+            return Ok(());
+        }
+
+        self.append_event(UserEventPayload::BioChanged { bio })
+    }
+
+    /// Changes the current picture.
+    pub fn change_picture(&mut self, picture: Option<UserPictureRef>) -> Result<(), UserError> {
+        self.ensure_active_status()?;
+
+        if self.state_required()?.picture == picture {
+            return Ok(());
+        }
+
+        self.append_event(UserEventPayload::PictureChanged { picture })
     }
 
     /// Links an additional external identity.
@@ -283,8 +286,14 @@ impl AggregateApply<UserEventPayload, UserError> for User {
             UserEventPayload::UsernameChanged { username } => {
                 self.state_required_mut()?.username = Some(username.clone());
             }
-            UserEventPayload::ProfileChanged { profile } => {
-                self.state_required_mut()?.profile = Some(profile.clone());
+            UserEventPayload::DisplayNameChanged { display_name } => {
+                self.state_required_mut()?.display_name = Some(display_name.clone());
+            }
+            UserEventPayload::BioChanged { bio } => {
+                self.state_required_mut()?.bio = bio.clone();
+            }
+            UserEventPayload::PictureChanged { picture } => {
+                self.state_required_mut()?.picture = picture.clone();
             }
             UserEventPayload::IdentityLinked { identity } => {
                 self.state_required_mut()?.identities.push(identity.clone());
@@ -314,8 +323,8 @@ mod tests {
 
     use super::{
         User, UserBio, UserDisplayName, UserError, UserEventPayload, UserIdentity,
-        UserIdentityProvider, UserIdentitySubject, UserPictureRef, UserPictureUrl, UserProfile,
-        UserStatus, Username,
+        UserIdentityProvider, UserIdentitySubject, UserPictureRef, UserPictureUrl, UserStatus,
+        Username,
     };
 
     fn identity() -> UserIdentity {
@@ -327,14 +336,18 @@ mod tests {
         )
     }
 
-    fn profile() -> UserProfile {
-        UserProfile::new(
-            UserDisplayName::try_from("Alice Example").expect("display name should be valid"),
-            Some(UserBio::try_from("Banking enthusiast").expect("bio should be valid")),
-            Some(UserPictureRef::external_url(
-                UserPictureUrl::try_from("https://cdn.example.com/alice.png")
-                    .expect("picture URL should be valid"),
-            )),
+    fn display_name() -> UserDisplayName {
+        UserDisplayName::try_from("Alice Example").expect("display name should be valid")
+    }
+
+    fn bio() -> UserBio {
+        UserBio::try_from("Banking enthusiast").expect("bio should be valid")
+    }
+
+    fn picture() -> UserPictureRef {
+        UserPictureRef::external_url(
+            UserPictureUrl::try_from("https://cdn.example.com/alice.png")
+                .expect("picture URL should be valid"),
         )
     }
 
@@ -349,7 +362,12 @@ mod tests {
             UserStatus::Active
         );
         assert_eq!(user.username().expect("username should exist"), None);
-        assert_eq!(user.profile().expect("profile should exist"), None);
+        assert_eq!(
+            user.display_name().expect("display name should exist"),
+            None
+        );
+        assert_eq!(user.bio().expect("bio should exist"), None);
+        assert_eq!(user.picture().expect("picture should exist"), None);
         assert_eq!(
             user.uncommitted_events()[0].payload().name(),
             UserEventPayload::REGISTERED
@@ -371,21 +389,17 @@ mod tests {
     }
 
     #[test]
-    fn change_profile_sets_profile() {
+    fn change_display_name_sets_display_name() {
         let mut user = User::default();
-        let profile = profile();
+        let display_name = display_name();
         user.register(identity()).expect("user should register");
 
-        user.change_profile(profile.clone())
-            .expect("profile change should succeed");
+        user.change_display_name(display_name.clone())
+            .expect("display name change should succeed");
 
         assert_eq!(
-            user.profile().expect("profile should exist"),
-            Some(&profile)
-        );
-        assert_eq!(
             user.display_name().expect("display name should exist"),
-            Some(profile.display_name())
+            Some(&display_name)
         );
     }
 
@@ -404,21 +418,38 @@ mod tests {
     }
 
     #[test]
-    fn identical_profile_change_is_a_no_op() {
+    fn identical_display_name_change_is_a_no_op() {
         let mut user = User::default();
-        let profile = profile();
+        let display_name = display_name();
         user.register(identity()).expect("user should register");
-        user.change_profile(profile.clone())
-            .expect("profile change should succeed");
+        user.change_display_name(display_name.clone())
+            .expect("display name change should succeed");
 
-        user.change_profile(profile)
-            .expect("idempotent profile change should succeed");
+        user.change_display_name(display_name)
+            .expect("idempotent display name change should succeed");
 
         assert_eq!(user.uncommitted_events().len(), 2);
     }
 
     #[test]
-    fn profile_and_username_changes_reject_inactive_user() {
+    fn bio_and_picture_changes_update_state() {
+        let mut user = User::default();
+        user.register(identity()).expect("user should register");
+
+        user.change_bio(Some(bio()))
+            .expect("bio change should succeed");
+        user.change_picture(Some(picture()))
+            .expect("picture change should succeed");
+
+        assert_eq!(
+            user.bio().expect("bio should exist").map(UserBio::value),
+            Some("Banking enthusiast")
+        );
+        assert!(user.picture().expect("picture should exist").is_some());
+    }
+
+    #[test]
+    fn display_name_and_username_changes_reject_inactive_user() {
         let mut user = User::default();
         user.register(identity()).expect("user should register");
         user.deactivate().expect("user should deactivate");
@@ -426,12 +457,12 @@ mod tests {
         let username_error = user
             .change_username(Username::try_from("alice").expect("username should be valid"))
             .expect_err("inactive user should reject username changes");
-        let profile_error = user
-            .change_profile(profile())
-            .expect_err("inactive user should reject profile changes");
+        let display_name_error = user
+            .change_display_name(display_name())
+            .expect_err("inactive user should reject display name changes");
 
         assert!(matches!(username_error, UserError::Inactive));
-        assert!(matches!(profile_error, UserError::Inactive));
+        assert!(matches!(display_name_error, UserError::Inactive));
     }
 
     #[test]

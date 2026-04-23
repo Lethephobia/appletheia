@@ -128,8 +128,7 @@ mod tests {
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::{Aggregate, AggregateId, EventPayload};
     use banking_iam_domain::{
-        Organization, OrganizationHandle, OrganizationName, OrganizationOwner, OrganizationProfile,
-        User, UserId,
+        Organization, OrganizationHandle, OrganizationName, OrganizationOwner, User, UserId,
     };
 
     use super::OrganizationOwnerRelationshipProjector;
@@ -212,12 +211,10 @@ mod tests {
             .create(
                 owner,
                 OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
-                OrganizationProfile::new(
-                    OrganizationName::try_from("Acme Labs").expect("name should be valid"),
-                    None,
-                    None,
-                    None,
-                ),
+                OrganizationName::try_from("Acme Labs").expect("name should be valid"),
+                None,
+                None,
+                None,
             )
             .expect("creation should succeed");
 
@@ -267,12 +264,10 @@ mod tests {
             .create(
                 OrganizationOwner::User(UserId::new()),
                 OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
-                OrganizationProfile::new(
-                    OrganizationName::try_from("Acme Labs").expect("name should be valid"),
-                    None,
-                    None,
-                    None,
-                ),
+                OrganizationName::try_from("Acme Labs").expect("name should be valid"),
+                None,
+                None,
+                None,
             )
             .expect("creation should succeed");
         organization.remove().expect("remove should succeed");
@@ -326,12 +321,10 @@ mod tests {
             .create(
                 OrganizationOwner::User(previous_owner),
                 OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
-                OrganizationProfile::new(
-                    OrganizationName::try_from("Acme Labs").expect("name should be valid"),
-                    None,
-                    None,
-                    None,
-                ),
+                OrganizationName::try_from("Acme Labs").expect("name should be valid"),
+                None,
+                None,
+                None,
             )
             .expect("creation should succeed");
         organization

@@ -12,8 +12,8 @@ pub use organization::{
     OrganizationEventPayloadError, OrganizationHandle, OrganizationHandleError, OrganizationId,
     OrganizationName, OrganizationNameError, OrganizationOwner, OrganizationPictureObjectName,
     OrganizationPictureObjectNameError, OrganizationPictureRef, OrganizationPictureUrl,
-    OrganizationPictureUrlError, OrganizationProfile, OrganizationState, OrganizationStateError,
-    OrganizationStatus, OrganizationWebsiteUrl, OrganizationWebsiteUrlError,
+    OrganizationPictureUrlError, OrganizationState, OrganizationStateError, OrganizationStatus,
+    OrganizationWebsiteUrl, OrganizationWebsiteUrlError,
 };
 pub use organization_invitation::{
     OrganizationInvitation, OrganizationInvitationError, OrganizationInvitationEventPayload,
@@ -36,6 +36,5 @@ pub use user::{
     UserEventPayload, UserEventPayloadError, UserId, UserIdentity, UserIdentityProvider,
     UserIdentityProviderError, UserIdentitySubject, UserIdentitySubjectError,
     UserPictureObjectName, UserPictureObjectNameError, UserPictureRef, UserPictureUrl,
-    UserPictureUrlError, UserProfile, UserState, UserStateError, UserStatus, Username,
-    UsernameError,
+    UserPictureUrlError, UserState, UserStateError, UserStatus, Username, UsernameError,
 };
