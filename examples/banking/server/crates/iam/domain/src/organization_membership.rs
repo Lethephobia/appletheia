@@ -38,14 +38,14 @@ impl OrganizationMembership {
         Ok(&self.state_required()?.user_id)
     }
 
-    /// Returns the current membership status.
-    pub fn status(&self) -> Result<OrganizationMembershipStatus, OrganizationMembershipError> {
-        Ok(self.state_required()?.status)
-    }
-
     /// Returns the elevated roles granted through this membership.
     pub fn roles(&self) -> Result<&[OrganizationRole], OrganizationMembershipError> {
         Ok(self.state_required()?.roles.as_slice())
+    }
+
+    /// Returns the current membership status.
+    pub fn status(&self) -> Result<OrganizationMembershipStatus, OrganizationMembershipError> {
+        Ok(self.state_required()?.status)
     }
 
     /// Returns whether the membership is active.
@@ -199,17 +199,6 @@ impl AggregateApply<OrganizationMembershipEventPayload, OrganizationMembershipEr
                     Vec::new(),
                 )));
             }
-            OrganizationMembershipEventPayload::Activated { roles, .. } => {
-                let state = self.state_required_mut()?;
-                state.status = OrganizationMembershipStatus::Active;
-                state.roles = deduplicated_roles(roles);
-            }
-            OrganizationMembershipEventPayload::Inactivated { .. } => {
-                self.state_required_mut()?.status = OrganizationMembershipStatus::Inactive;
-            }
-            OrganizationMembershipEventPayload::Removed { .. } => {
-                self.state_required_mut()?.status = OrganizationMembershipStatus::Removed;
-            }
             OrganizationMembershipEventPayload::RoleGranted { role, .. } => {
                 let state = self.state_required_mut()?;
                 if !state.roles.contains(role) {
@@ -220,6 +209,17 @@ impl AggregateApply<OrganizationMembershipEventPayload, OrganizationMembershipEr
                 self.state_required_mut()?
                     .roles
                     .retain(|existing_role| existing_role != role);
+            }
+            OrganizationMembershipEventPayload::Activated { roles, .. } => {
+                let state = self.state_required_mut()?;
+                state.status = OrganizationMembershipStatus::Active;
+                state.roles = deduplicated_roles(roles);
+            }
+            OrganizationMembershipEventPayload::Inactivated { .. } => {
+                self.state_required_mut()?.status = OrganizationMembershipStatus::Inactive;
+            }
+            OrganizationMembershipEventPayload::Removed { .. } => {
+                self.state_required_mut()?.status = OrganizationMembershipStatus::Removed;
             }
         }
 

@@ -13,10 +13,10 @@ use super::{
 #[unique_constraints(entry(key = "organization_user", values = organization_user_values))]
 pub struct OrganizationMembershipState {
     pub(super) id: OrganizationMembershipId,
-    pub(super) status: OrganizationMembershipStatus,
     pub(super) organization_id: OrganizationId,
     pub(super) user_id: UserId,
     pub(super) roles: Vec<OrganizationRole>,
+    pub(super) status: OrganizationMembershipStatus,
 }
 
 impl OrganizationMembershipState {
@@ -29,10 +29,10 @@ impl OrganizationMembershipState {
     ) -> Self {
         Self {
             id,
-            status: OrganizationMembershipStatus::Active,
             organization_id,
             user_id,
             roles,
+            status: OrganizationMembershipStatus::Active,
         }
     }
 }

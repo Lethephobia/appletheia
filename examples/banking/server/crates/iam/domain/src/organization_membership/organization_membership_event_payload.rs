@@ -12,6 +12,16 @@ pub enum OrganizationMembershipEventPayload {
         organization_id: OrganizationId,
         user_id: UserId,
     },
+    RoleGranted {
+        organization_id: OrganizationId,
+        user_id: UserId,
+        role: OrganizationRole,
+    },
+    RoleRevoked {
+        organization_id: OrganizationId,
+        user_id: UserId,
+        role: OrganizationRole,
+    },
     Activated {
         organization_id: OrganizationId,
         user_id: UserId,
@@ -24,16 +34,6 @@ pub enum OrganizationMembershipEventPayload {
     Removed {
         organization_id: OrganizationId,
         user_id: UserId,
-    },
-    RoleGranted {
-        organization_id: OrganizationId,
-        user_id: UserId,
-        role: OrganizationRole,
-    },
-    RoleRevoked {
-        organization_id: OrganizationId,
-        user_id: UserId,
-        role: OrganizationRole,
     },
 }
 
@@ -51,6 +51,14 @@ mod tests {
             appletheia::domain::EventName::new("created")
         );
         assert_eq!(
+            OrganizationMembershipEventPayload::ROLE_GRANTED,
+            appletheia::domain::EventName::new("role_granted")
+        );
+        assert_eq!(
+            OrganizationMembershipEventPayload::ROLE_REVOKED,
+            appletheia::domain::EventName::new("role_revoked")
+        );
+        assert_eq!(
             OrganizationMembershipEventPayload::ACTIVATED,
             appletheia::domain::EventName::new("activated")
         );
@@ -61,14 +69,6 @@ mod tests {
         assert_eq!(
             OrganizationMembershipEventPayload::REMOVED,
             appletheia::domain::EventName::new("removed")
-        );
-        assert_eq!(
-            OrganizationMembershipEventPayload::ROLE_GRANTED,
-            appletheia::domain::EventName::new("role_granted")
-        );
-        assert_eq!(
-            OrganizationMembershipEventPayload::ROLE_REVOKED,
-            appletheia::domain::EventName::new("role_revoked")
         );
     }
 

@@ -13,13 +13,13 @@ use super::{
 #[unique_constraints(entry(key = "handle", values = handle_values))]
 pub struct OrganizationState {
     pub(super) id: OrganizationId,
-    pub(super) status: OrganizationStatus,
+    pub(super) owner: OrganizationOwner,
+    pub(super) handle: OrganizationHandle,
     pub(super) display_name: OrganizationDisplayName,
     pub(super) description: Option<OrganizationDescription>,
     pub(super) website_url: Option<OrganizationWebsiteUrl>,
     pub(super) picture: Option<OrganizationPictureRef>,
-    pub(super) handle: OrganizationHandle,
-    pub(super) owner: OrganizationOwner,
+    pub(super) status: OrganizationStatus,
 }
 
 impl OrganizationState {
@@ -35,13 +35,13 @@ impl OrganizationState {
     ) -> Self {
         Self {
             id,
-            status: OrganizationStatus::Active,
+            owner,
+            handle,
             display_name,
             description,
             website_url,
             picture,
-            handle,
-            owner,
+            status: OrganizationStatus::Active,
         }
     }
 }

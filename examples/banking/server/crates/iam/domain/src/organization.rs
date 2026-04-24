@@ -55,6 +55,16 @@ pub struct Organization {
 }
 
 impl Organization {
+    /// Returns the current organization owner.
+    pub fn owner(&self) -> Result<OrganizationOwner, OrganizationError> {
+        Ok(self.state_required()?.owner)
+    }
+
+    /// Returns the current organization handle.
+    pub fn handle(&self) -> Result<&OrganizationHandle, OrganizationError> {
+        Ok(&self.state_required()?.handle)
+    }
+
     /// Returns the current organization display name.
     pub fn display_name(&self) -> Result<&OrganizationDisplayName, OrganizationError> {
         Ok(&self.state_required()?.display_name)
@@ -78,16 +88,6 @@ impl Organization {
     /// Returns the current organization picture.
     pub fn picture(&self) -> Result<Option<&OrganizationPictureRef>, OrganizationError> {
         Ok(self.state_required()?.picture.as_ref())
-    }
-
-    /// Returns the current organization handle.
-    pub fn handle(&self) -> Result<&OrganizationHandle, OrganizationError> {
-        Ok(&self.state_required()?.handle)
-    }
-
-    /// Returns the current organization owner.
-    pub fn owner(&self) -> Result<OrganizationOwner, OrganizationError> {
-        Ok(self.state_required()?.owner)
     }
 
     /// Returns the current organization status.
@@ -128,6 +128,20 @@ impl Organization {
             website_url,
             picture,
         })
+    }
+
+    /// Transfers ownership of the organization.
+    pub fn transfer_ownership(
+        &mut self,
+        owner: OrganizationOwner,
+    ) -> Result<(), OrganizationError> {
+        self.ensure_not_removed()?;
+
+        if self.state_required()?.owner == owner {
+            return Ok(());
+        }
+
+        self.append_event(OrganizationEventPayload::OwnershipTransferred { owner })
     }
 
     /// Changes the current organization handle.
@@ -195,20 +209,6 @@ impl Organization {
         }
 
         self.append_event(OrganizationEventPayload::PictureChanged { picture })
-    }
-
-    /// Transfers ownership of the organization.
-    pub fn transfer_ownership(
-        &mut self,
-        owner: OrganizationOwner,
-    ) -> Result<(), OrganizationError> {
-        self.ensure_not_removed()?;
-
-        if self.state_required()?.owner == owner {
-            return Ok(());
-        }
-
-        self.append_event(OrganizationEventPayload::OwnershipTransferred { owner })
     }
 
     /// Permanently removes the organization.

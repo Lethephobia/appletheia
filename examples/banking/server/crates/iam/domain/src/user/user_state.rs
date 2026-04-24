@@ -15,12 +15,12 @@ use super::{
 )]
 pub struct UserState {
     pub(super) id: UserId,
-    pub(super) status: UserStatus,
+    pub(super) identities: Vec<UserIdentity>,
     pub(super) username: Option<Username>,
     pub(super) display_name: Option<UserDisplayName>,
     pub(super) bio: Option<UserBio>,
     pub(super) picture: Option<UserPictureRef>,
-    pub(super) identities: Vec<UserIdentity>,
+    pub(super) status: UserStatus,
 }
 
 impl UserState {
@@ -28,12 +28,12 @@ impl UserState {
     pub(super) fn new(id: UserId, identity: UserIdentity) -> Self {
         Self {
             id,
-            status: UserStatus::Active,
+            identities: vec![identity],
             username: None,
             display_name: None,
             bio: None,
             picture: None,
-            identities: vec![identity],
+            status: UserStatus::Active,
         }
     }
 }

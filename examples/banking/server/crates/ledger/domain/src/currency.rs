@@ -58,14 +58,14 @@ impl Currency {
         Ok(&self.state_required()?.decimals)
     }
 
-    /// Returns the current status.
-    pub fn status(&self) -> Result<CurrencyStatus, CurrencyError> {
-        Ok(self.state_required()?.status)
-    }
-
     /// Returns the total supply.
     pub fn supply(&self) -> Result<&CurrencyAmount, CurrencyError> {
         Ok(&self.state_required()?.supply)
+    }
+
+    /// Returns the current status.
+    pub fn status(&self) -> Result<CurrencyStatus, CurrencyError> {
+        Ok(self.state_required()?.status)
     }
 
     /// Returns whether the currency is active.
@@ -94,6 +94,17 @@ impl Currency {
         })
     }
 
+    /// Transfers ownership of the currency.
+    pub fn transfer_ownership(&mut self, owner: CurrencyOwner) -> Result<(), CurrencyError> {
+        self.ensure_not_removed()?;
+
+        if self.state_required()?.owner == owner {
+            return Ok(());
+        }
+
+        self.append_event(CurrencyEventPayload::OwnershipTransferred { owner })
+    }
+
     /// Changes the current currency symbol.
     pub fn change_symbol(&mut self, symbol: CurrencySymbol) -> Result<(), CurrencyError> {
         self.ensure_not_removed()?;
@@ -116,15 +127,30 @@ impl Currency {
         self.append_event(CurrencyEventPayload::NameChanged { name })
     }
 
-    /// Transfers ownership of the currency.
-    pub fn transfer_ownership(&mut self, owner: CurrencyOwner) -> Result<(), CurrencyError> {
-        self.ensure_not_removed()?;
+    /// Increases the total supply.
+    pub fn increase_supply(&mut self, amount: CurrencyAmount) -> Result<(), CurrencyError> {
+        self.ensure_active()?;
 
-        if self.state_required()?.owner == owner {
+        if amount.is_zero() {
             return Ok(());
         }
 
-        self.append_event(CurrencyEventPayload::OwnershipTransferred { owner })
+        self.append_event(CurrencyEventPayload::SupplyIncreased { amount })
+    }
+
+    /// Decreases the total supply.
+    pub fn decrease_supply(&mut self, amount: CurrencyAmount) -> Result<(), CurrencyError> {
+        self.ensure_not_removed()?;
+
+        if amount.is_zero() {
+            return Ok(());
+        }
+
+        if self.state_required()?.supply.value() < amount.value() {
+            return Err(CurrencyError::InsufficientSupply);
+        }
+
+        self.append_event(CurrencyEventPayload::SupplyDecreased { amount })
     }
 
     /// Activates the currency.
@@ -154,32 +180,6 @@ impl Currency {
         self.ensure_not_removed()?;
 
         self.append_event(CurrencyEventPayload::Removed)
-    }
-
-    /// Increases the total supply.
-    pub fn increase_supply(&mut self, amount: CurrencyAmount) -> Result<(), CurrencyError> {
-        self.ensure_active()?;
-
-        if amount.is_zero() {
-            return Ok(());
-        }
-
-        self.append_event(CurrencyEventPayload::SupplyIncreased { amount })
-    }
-
-    /// Decreases the total supply.
-    pub fn decrease_supply(&mut self, amount: CurrencyAmount) -> Result<(), CurrencyError> {
-        self.ensure_not_removed()?;
-
-        if amount.is_zero() {
-            return Ok(());
-        }
-
-        if self.state_required()?.supply.value() < amount.value() {
-            return Err(CurrencyError::InsufficientSupply);
-        }
-
-        self.append_event(CurrencyEventPayload::SupplyDecreased { amount })
     }
 
     fn ensure_not_removed(&self) -> Result<(), CurrencyError> {

@@ -14,9 +14,14 @@ pub enum UserEventPayload {
         id: UserId,
         identity: UserIdentity,
     },
-    Activated,
-    Inactivated,
-    Removed,
+    IdentityLinked {
+        identity: UserIdentity,
+    },
+    IdentityEmailChanged {
+        provider: UserIdentityProvider,
+        subject: UserIdentitySubject,
+        email: Option<Email>,
+    },
     UsernameChanged {
         username: Username,
     },
@@ -29,14 +34,9 @@ pub enum UserEventPayload {
     PictureChanged {
         picture: Option<UserPictureRef>,
     },
-    IdentityLinked {
-        identity: UserIdentity,
-    },
-    IdentityEmailChanged {
-        provider: UserIdentityProvider,
-        subject: UserIdentitySubject,
-        email: Option<Email>,
-    },
+    Activated,
+    Inactivated,
+    Removed,
 }
 
 #[cfg(test)]
@@ -55,6 +55,14 @@ mod tests {
         assert_eq!(
             UserEventPayload::REGISTERED,
             appletheia::domain::EventName::new("registered")
+        );
+        assert_eq!(
+            UserEventPayload::IDENTITY_LINKED,
+            appletheia::domain::EventName::new("identity_linked")
+        );
+        assert_eq!(
+            UserEventPayload::IDENTITY_EMAIL_CHANGED,
+            appletheia::domain::EventName::new("identity_email_changed")
         );
         assert_eq!(
             UserEventPayload::USERNAME_CHANGED,
@@ -83,14 +91,6 @@ mod tests {
         assert_eq!(
             UserEventPayload::REMOVED,
             appletheia::domain::EventName::new("removed")
-        );
-        assert_eq!(
-            UserEventPayload::IDENTITY_LINKED,
-            appletheia::domain::EventName::new("identity_linked")
-        );
-        assert_eq!(
-            UserEventPayload::IDENTITY_EMAIL_CHANGED,
-            appletheia::domain::EventName::new("identity_email_changed")
         );
     }
 

@@ -58,11 +58,6 @@ impl Account {
         Ok(&self.state_required()?.reserved_balance)
     }
 
-    /// Returns the current account status.
-    pub fn status(&self) -> Result<AccountStatus, AccountError> {
-        Ok(self.state_required()?.status)
-    }
-
     /// Returns the current available balance.
     pub fn available_balance(&self) -> Result<CurrencyAmount, AccountError> {
         let state = self.state_required()?;
@@ -74,6 +69,11 @@ impl Account {
                 CurrencyAmountError::InsufficientBalance => AccountError::InvalidReservedBalance,
                 CurrencyAmountError::BalanceOverflow => AccountError::BalanceOverflow,
             })
+    }
+
+    /// Returns the current account status.
+    pub fn status(&self) -> Result<AccountStatus, AccountError> {
+        Ok(self.state_required()?.status)
     }
 
     /// Returns whether the account is frozen.
@@ -102,17 +102,6 @@ impl Account {
         })
     }
 
-    /// Renames the account.
-    pub fn rename(&mut self, name: AccountName) -> Result<(), AccountError> {
-        self.ensure_not_closed()?;
-
-        if self.state().is_some_and(|state| state.name.eq(&name)) {
-            return Ok(());
-        }
-
-        self.append_event(AccountEventPayload::Renamed { name })
-    }
-
     /// Transfers ownership of the account.
     pub fn transfer_ownership(&mut self, owner: AccountOwner) -> Result<(), AccountError> {
         self.ensure_not_closed()?;
@@ -124,37 +113,15 @@ impl Account {
         self.append_event(AccountEventPayload::OwnershipTransferred { owner })
     }
 
-    /// Freezes the account.
-    pub fn freeze(&mut self) -> Result<(), AccountError> {
+    /// Renames the account.
+    pub fn rename(&mut self, name: AccountName) -> Result<(), AccountError> {
         self.ensure_not_closed()?;
 
-        if self.state().is_some_and(|state| state.status.is_frozen()) {
+        if self.state().is_some_and(|state| state.name.eq(&name)) {
             return Ok(());
         }
 
-        self.append_event(AccountEventPayload::Frozen)
-    }
-
-    /// Thaws the account.
-    pub fn thaw(&mut self) -> Result<(), AccountError> {
-        self.ensure_not_closed()?;
-
-        if self.state().is_some_and(|state| state.status.is_active()) {
-            return Ok(());
-        }
-
-        self.append_event(AccountEventPayload::Thawed)
-    }
-
-    /// Closes the account permanently.
-    pub fn close(&mut self) -> Result<(), AccountError> {
-        if self.state_required()?.status.is_closed() {
-            return Err(AccountError::Closed);
-        }
-
-        self.ensure_zero_balances_for_close()?;
-
-        self.append_event(AccountEventPayload::Closed)
+        self.append_event(AccountEventPayload::Renamed { name })
     }
 
     /// Deposits balance into the account.
@@ -214,6 +181,39 @@ impl Account {
         }
 
         self.append_event(AccountEventPayload::ReservedFundsCommitted { amount })
+    }
+
+    /// Freezes the account.
+    pub fn freeze(&mut self) -> Result<(), AccountError> {
+        self.ensure_not_closed()?;
+
+        if self.state().is_some_and(|state| state.status.is_frozen()) {
+            return Ok(());
+        }
+
+        self.append_event(AccountEventPayload::Frozen)
+    }
+
+    /// Thaws the account.
+    pub fn thaw(&mut self) -> Result<(), AccountError> {
+        self.ensure_not_closed()?;
+
+        if self.state().is_some_and(|state| state.status.is_active()) {
+            return Ok(());
+        }
+
+        self.append_event(AccountEventPayload::Thawed)
+    }
+
+    /// Closes the account permanently.
+    pub fn close(&mut self) -> Result<(), AccountError> {
+        if self.state_required()?.status.is_closed() {
+            return Err(AccountError::Closed);
+        }
+
+        self.ensure_zero_balances_for_close()?;
+
+        self.append_event(AccountEventPayload::Closed)
     }
 
     fn ensure_not_opened(&self) -> Result<(), AccountError> {
@@ -291,15 +291,6 @@ impl AggregateApply<AccountEventPayload, AccountError> for Account {
                 self.state_required_mut()?.owner = *owner;
             }
             AccountEventPayload::Renamed { name } => self.state_required_mut()?.name = name.clone(),
-            AccountEventPayload::Frozen => {
-                self.state_required_mut()?.status = AccountStatus::Frozen;
-            }
-            AccountEventPayload::Thawed => {
-                self.state_required_mut()?.status = AccountStatus::Active;
-            }
-            AccountEventPayload::Closed => {
-                self.state_required_mut()?.status = AccountStatus::Closed;
-            }
             AccountEventPayload::Deposited { amount } => {
                 let state = self.state_required_mut()?;
                 state.balance = state.balance.try_add(*amount)?;
@@ -340,6 +331,15 @@ impl AggregateApply<AccountEventPayload, AccountError> for Account {
                 let next_balance = state.balance.try_sub(*amount)?;
                 state.reserved_balance = next_reserved;
                 state.balance = next_balance;
+            }
+            AccountEventPayload::Frozen => {
+                self.state_required_mut()?.status = AccountStatus::Frozen;
+            }
+            AccountEventPayload::Thawed => {
+                self.state_required_mut()?.status = AccountStatus::Active;
+            }
+            AccountEventPayload::Closed => {
+                self.state_required_mut()?.status = AccountStatus::Closed;
             }
         }
 

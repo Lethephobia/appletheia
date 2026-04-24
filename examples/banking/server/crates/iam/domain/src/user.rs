@@ -53,24 +53,22 @@ pub struct User {
 }
 
 impl User {
-    /// Returns the current user status.
-    pub fn status(&self) -> Result<UserStatus, UserError> {
-        Ok(self.state_required()?.status)
+    /// Returns the linked external identities.
+    pub fn identities(&self) -> Result<&[UserIdentity], UserError> {
+        Ok(&self.state_required()?.identities)
     }
 
-    /// Returns whether the user is active.
-    pub fn is_active(&self) -> Result<bool, UserError> {
-        Ok(self.state_required()?.status.is_active())
-    }
-
-    /// Returns whether the user is inactive.
-    pub fn is_inactive(&self) -> Result<bool, UserError> {
-        Ok(self.state_required()?.status.is_inactive())
-    }
-
-    /// Returns whether the user is removed.
-    pub fn is_removed(&self) -> Result<bool, UserError> {
-        Ok(self.state_required()?.status.is_removed())
+    /// Returns a linked identity by provider and subject.
+    pub fn identity(
+        &self,
+        provider: &UserIdentityProvider,
+        subject: &UserIdentitySubject,
+    ) -> Result<Option<&UserIdentity>, UserError> {
+        Ok(self
+            .state_required()?
+            .identities
+            .iter()
+            .find(|identity| identity.matches(provider, subject)))
     }
 
     /// Returns the current username.
@@ -93,22 +91,24 @@ impl User {
         Ok(self.state_required()?.picture.as_ref())
     }
 
-    /// Returns the linked external identities.
-    pub fn identities(&self) -> Result<&[UserIdentity], UserError> {
-        Ok(&self.state_required()?.identities)
+    /// Returns the current user status.
+    pub fn status(&self) -> Result<UserStatus, UserError> {
+        Ok(self.state_required()?.status)
     }
 
-    /// Returns a linked identity by provider and subject.
-    pub fn identity(
-        &self,
-        provider: &UserIdentityProvider,
-        subject: &UserIdentitySubject,
-    ) -> Result<Option<&UserIdentity>, UserError> {
-        Ok(self
-            .state_required()?
-            .identities
-            .iter()
-            .find(|identity| identity.matches(provider, subject)))
+    /// Returns whether the user is active.
+    pub fn is_active(&self) -> Result<bool, UserError> {
+        Ok(self.state_required()?.status.is_active())
+    }
+
+    /// Returns whether the user is inactive.
+    pub fn is_inactive(&self) -> Result<bool, UserError> {
+        Ok(self.state_required()?.status.is_inactive())
+    }
+
+    /// Returns whether the user is removed.
+    pub fn is_removed(&self) -> Result<bool, UserError> {
+        Ok(self.state_required()?.status.is_removed())
     }
 
     /// Registers a new user with an initial external identity.
@@ -121,50 +121,6 @@ impl User {
             id: UserId::new(),
             identity,
         })
-    }
-
-    /// Changes the current username.
-    pub fn change_username(&mut self, username: Username) -> Result<(), UserError> {
-        self.ensure_active_status()?;
-
-        if self.state_required()?.username.as_ref() == Some(&username) {
-            return Ok(());
-        }
-
-        self.append_event(UserEventPayload::UsernameChanged { username })
-    }
-
-    /// Changes the current display name.
-    pub fn change_display_name(&mut self, display_name: UserDisplayName) -> Result<(), UserError> {
-        self.ensure_active_status()?;
-
-        if self.state_required()?.display_name.as_ref() == Some(&display_name) {
-            return Ok(());
-        }
-
-        self.append_event(UserEventPayload::DisplayNameChanged { display_name })
-    }
-
-    /// Changes the current bio.
-    pub fn change_bio(&mut self, bio: Option<UserBio>) -> Result<(), UserError> {
-        self.ensure_active_status()?;
-
-        if self.state_required()?.bio == bio {
-            return Ok(());
-        }
-
-        self.append_event(UserEventPayload::BioChanged { bio })
-    }
-
-    /// Changes the current picture.
-    pub fn change_picture(&mut self, picture: Option<UserPictureRef>) -> Result<(), UserError> {
-        self.ensure_active_status()?;
-
-        if self.state_required()?.picture == picture {
-            return Ok(());
-        }
-
-        self.append_event(UserEventPayload::PictureChanged { picture })
     }
 
     /// Links an additional external identity.
@@ -216,6 +172,50 @@ impl User {
             subject: subject.clone(),
             email,
         })
+    }
+
+    /// Changes the current username.
+    pub fn change_username(&mut self, username: Username) -> Result<(), UserError> {
+        self.ensure_active_status()?;
+
+        if self.state_required()?.username.as_ref() == Some(&username) {
+            return Ok(());
+        }
+
+        self.append_event(UserEventPayload::UsernameChanged { username })
+    }
+
+    /// Changes the current display name.
+    pub fn change_display_name(&mut self, display_name: UserDisplayName) -> Result<(), UserError> {
+        self.ensure_active_status()?;
+
+        if self.state_required()?.display_name.as_ref() == Some(&display_name) {
+            return Ok(());
+        }
+
+        self.append_event(UserEventPayload::DisplayNameChanged { display_name })
+    }
+
+    /// Changes the current bio.
+    pub fn change_bio(&mut self, bio: Option<UserBio>) -> Result<(), UserError> {
+        self.ensure_active_status()?;
+
+        if self.state_required()?.bio == bio {
+            return Ok(());
+        }
+
+        self.append_event(UserEventPayload::BioChanged { bio })
+    }
+
+    /// Changes the current picture.
+    pub fn change_picture(&mut self, picture: Option<UserPictureRef>) -> Result<(), UserError> {
+        self.ensure_active_status()?;
+
+        if self.state_required()?.picture == picture {
+            return Ok(());
+        }
+
+        self.append_event(UserEventPayload::PictureChanged { picture })
     }
 
     /// Activates an inactive user.
@@ -274,27 +274,6 @@ impl AggregateApply<UserEventPayload, UserError> for User {
             UserEventPayload::Registered { id, identity } => {
                 self.set_state(Some(UserState::new(*id, identity.clone())))
             }
-            UserEventPayload::Activated => {
-                self.state_required_mut()?.status = UserStatus::Active;
-            }
-            UserEventPayload::Inactivated => {
-                self.state_required_mut()?.status = UserStatus::Inactive;
-            }
-            UserEventPayload::Removed => {
-                self.state_required_mut()?.status = UserStatus::Removed;
-            }
-            UserEventPayload::UsernameChanged { username } => {
-                self.state_required_mut()?.username = Some(username.clone());
-            }
-            UserEventPayload::DisplayNameChanged { display_name } => {
-                self.state_required_mut()?.display_name = Some(display_name.clone());
-            }
-            UserEventPayload::BioChanged { bio } => {
-                self.state_required_mut()?.bio = bio.clone();
-            }
-            UserEventPayload::PictureChanged { picture } => {
-                self.state_required_mut()?.picture = picture.clone();
-            }
             UserEventPayload::IdentityLinked { identity } => {
                 self.state_required_mut()?.identities.push(identity.clone());
             }
@@ -310,6 +289,27 @@ impl AggregateApply<UserEventPayload, UserError> for User {
                     .find(|identity| identity.matches(provider, subject))
                     .ok_or(UserError::InvalidIdentityState)?;
                 identity.change_email(email.clone());
+            }
+            UserEventPayload::UsernameChanged { username } => {
+                self.state_required_mut()?.username = Some(username.clone());
+            }
+            UserEventPayload::DisplayNameChanged { display_name } => {
+                self.state_required_mut()?.display_name = Some(display_name.clone());
+            }
+            UserEventPayload::BioChanged { bio } => {
+                self.state_required_mut()?.bio = bio.clone();
+            }
+            UserEventPayload::PictureChanged { picture } => {
+                self.state_required_mut()?.picture = picture.clone();
+            }
+            UserEventPayload::Activated => {
+                self.state_required_mut()?.status = UserStatus::Active;
+            }
+            UserEventPayload::Inactivated => {
+                self.state_required_mut()?.status = UserStatus::Inactive;
+            }
+            UserEventPayload::Removed => {
+                self.state_required_mut()?.status = UserStatus::Removed;
             }
         }
 
