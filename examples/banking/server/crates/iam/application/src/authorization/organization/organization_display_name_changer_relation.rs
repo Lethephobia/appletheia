@@ -1,9 +1,9 @@
 use appletheia::application::authorization::{Relation, RelationName, RelationRef, UsersetExpr};
 use appletheia::domain::Aggregate;
 
-use super::{Organization, OrganizationAdminRelation};
+use super::{Organization, OrganizationProfileEditorRelation};
 
-/// Allows organization administrators to change an organization display name.
+/// Allows organization profile editors to change an organization display name.
 pub struct OrganizationDisplayNameChangerRelation;
 
 impl Relation for OrganizationDisplayNameChangerRelation {
@@ -13,6 +13,6 @@ impl Relation for OrganizationDisplayNameChangerRelation {
     );
 
     const EXPR: UsersetExpr = UsersetExpr::ComputedUserset {
-        relation: OrganizationAdminRelation::REF,
+        relation: OrganizationProfileEditorRelation::REF,
     };
 }

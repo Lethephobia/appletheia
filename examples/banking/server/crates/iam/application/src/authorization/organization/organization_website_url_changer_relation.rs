@@ -1,9 +1,9 @@
 use appletheia::application::authorization::{Relation, RelationName, RelationRef, UsersetExpr};
 use appletheia::domain::Aggregate;
 
-use super::{Organization, OrganizationAdminRelation};
+use super::{Organization, OrganizationProfileEditorRelation};
 
-/// Allows organization administrators to change an organization website URL.
+/// Allows organization profile editors to change an organization website URL.
 pub struct OrganizationWebsiteUrlChangerRelation;
 
 impl Relation for OrganizationWebsiteUrlChangerRelation {
@@ -11,6 +11,6 @@ impl Relation for OrganizationWebsiteUrlChangerRelation {
         RelationRef::new(Organization::TYPE, RelationName::new("website_url_changer"));
 
     const EXPR: UsersetExpr = UsersetExpr::ComputedUserset {
-        relation: OrganizationAdminRelation::REF,
+        relation: OrganizationProfileEditorRelation::REF,
     };
 }
