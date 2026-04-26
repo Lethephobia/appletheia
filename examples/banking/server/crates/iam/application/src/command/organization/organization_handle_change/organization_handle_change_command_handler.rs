@@ -8,23 +8,23 @@ use appletheia::application::request_context::RequestContext;
 use banking_iam_domain::Organization;
 
 use super::{
-    OrganizationChangeHandleCommand, OrganizationChangeHandleCommandHandlerError,
-    OrganizationChangeHandleOutput,
+    OrganizationHandleChangeCommand, OrganizationHandleChangeCommandHandlerError,
+    OrganizationHandleChangeOutput,
 };
 use crate::authorization::OrganizationHandleChangerRelation;
 use crate::projection::{
     OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
 };
 
-/// Handles `OrganizationChangeHandleCommand`.
-pub struct OrganizationChangeHandleCommandHandler<OR>
+/// Handles `OrganizationHandleChangeCommand`.
+pub struct OrganizationHandleChangeCommandHandler<OR>
 where
     OR: Repository<Organization>,
 {
     organization_repository: OR,
 }
 
-impl<OR> OrganizationChangeHandleCommandHandler<OR>
+impl<OR> OrganizationHandleChangeCommandHandler<OR>
 where
     OR: Repository<Organization>,
 {
@@ -35,14 +35,14 @@ where
     }
 }
 
-impl<OR> CommandHandler for OrganizationChangeHandleCommandHandler<OR>
+impl<OR> CommandHandler for OrganizationHandleChangeCommandHandler<OR>
 where
     OR: Repository<Organization>,
 {
-    type Command = OrganizationChangeHandleCommand;
-    type Output = OrganizationChangeHandleOutput;
-    type ReplayOutput = OrganizationChangeHandleOutput;
-    type Error = OrganizationChangeHandleCommandHandlerError;
+    type Command = OrganizationHandleChangeCommand;
+    type Output = OrganizationHandleChangeOutput;
+    type ReplayOutput = OrganizationHandleChangeOutput;
+    type Error = OrganizationHandleChangeCommandHandlerError;
     type Uow = OR::Uow;
 
     fn authorization_plan(
@@ -74,11 +74,11 @@ where
             .find(uow, command.organization_id)
             .await?
         else {
-            return Err(OrganizationChangeHandleCommandHandlerError::OrganizationNotFound);
+            return Err(OrganizationHandleChangeCommandHandlerError::OrganizationNotFound);
         };
 
         if organization.is_removed()? {
-            return Err(OrganizationChangeHandleCommandHandlerError::OrganizationRemoved);
+            return Err(OrganizationHandleChangeCommandHandlerError::OrganizationRemoved);
         }
 
         organization.change_handle(command.handle.clone())?;
@@ -87,7 +87,7 @@ where
             .save(uow, request_context, &mut organization)
             .await?;
 
-        Ok(CommandHandled::same(OrganizationChangeHandleOutput))
+        Ok(CommandHandled::same(OrganizationHandleChangeOutput))
     }
 }
 
@@ -113,8 +113,8 @@ mod tests {
     use uuid::Uuid;
 
     use super::{
-        OrganizationChangeHandleCommand, OrganizationChangeHandleCommandHandler,
-        OrganizationChangeHandleOutput,
+        OrganizationHandleChangeCommand, OrganizationHandleChangeCommandHandler,
+        OrganizationHandleChangeOutput,
     };
     use crate::authorization::OrganizationHandleChangerRelation;
     use crate::projection::{
@@ -220,11 +220,11 @@ mod tests {
     #[test]
     fn authorization_plan_requires_organization_handle_changer_relationship() {
         let repository = TestOrganizationRepository::default();
-        let handler = OrganizationChangeHandleCommandHandler::new(repository);
+        let handler = OrganizationHandleChangeCommandHandler::new(repository);
         let organization_id = OrganizationId::new();
 
         let plan = handler
-            .authorization_plan(&OrganizationChangeHandleCommand {
+            .authorization_plan(&OrganizationHandleChangeCommand {
                 organization_id,
                 handle: OrganizationHandle::try_from("acme-labs-2")
                     .expect("handle should be valid"),
@@ -255,14 +255,14 @@ mod tests {
             .aggregate_id()
             .expect("organization id should exist");
         let repository = TestOrganizationRepository::new(organization);
-        let handler = OrganizationChangeHandleCommandHandler::new(repository.clone());
+        let handler = OrganizationHandleChangeCommandHandler::new(repository.clone());
         let mut uow = TestUow;
 
         let handled = handler
             .handle(
                 &mut uow,
                 &request_context(),
-                &OrganizationChangeHandleCommand {
+                &OrganizationHandleChangeCommand {
                     organization_id,
                     handle: OrganizationHandle::try_from("acme-labs-2")
                         .expect("handle should be valid"),
@@ -275,7 +275,7 @@ mod tests {
         let saved = repository.organization.lock().expect("lock").clone();
         let saved = saved.expect("organization should be saved");
 
-        assert_eq!(output, OrganizationChangeHandleOutput);
+        assert_eq!(output, OrganizationHandleChangeOutput);
         assert_eq!(
             saved.handle().expect("handle should exist"),
             &OrganizationHandle::try_from("acme-labs-2").expect("handle should be valid")

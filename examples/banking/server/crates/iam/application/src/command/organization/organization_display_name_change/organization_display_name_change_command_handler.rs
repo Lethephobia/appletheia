@@ -3,54 +3,28 @@ use appletheia::application::authorization::{
 };
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
-use appletheia::application::repository::{Repository, RepositoryError};
+use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use appletheia::command;
-use banking_iam_domain::{
-    Organization, OrganizationDisplayName, OrganizationError, OrganizationId,
-};
-use serde::{Deserialize, Serialize};
-use thiserror::Error;
+use banking_iam_domain::Organization;
 
+use super::{
+    OrganizationDisplayNameChangeCommand, OrganizationDisplayNameChangeCommandHandlerError,
+    OrganizationDisplayNameChangeOutput,
+};
 use crate::authorization::OrganizationDisplayNameChangerRelation;
 use crate::projection::{
     OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
 };
 
-/// Changes an organization's display name.
-#[command(name = "organization_change_display_name")]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct OrganizationChangeDisplayNameCommand {
-    pub organization_id: OrganizationId,
-    pub display_name: OrganizationDisplayName,
-}
-
-/// Returned after an organization display name change request is applied.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct OrganizationChangeDisplayNameOutput;
-
-/// Represents errors returned while changing an organization display name.
-#[derive(Debug, Error)]
-pub enum OrganizationChangeDisplayNameCommandHandlerError {
-    #[error("organization repository failed")]
-    OrganizationRepository(#[from] RepositoryError<Organization>),
-
-    #[error("organization aggregate failed")]
-    Organization(#[from] OrganizationError),
-
-    #[error("organization was not found")]
-    OrganizationNotFound,
-}
-
-/// Handles `OrganizationChangeDisplayNameCommand`.
-pub struct OrganizationChangeDisplayNameCommandHandler<OR>
+/// Handles `OrganizationDisplayNameChangeCommand`.
+pub struct OrganizationDisplayNameChangeCommandHandler<OR>
 where
     OR: Repository<Organization>,
 {
     organization_repository: OR,
 }
 
-impl<OR> OrganizationChangeDisplayNameCommandHandler<OR>
+impl<OR> OrganizationDisplayNameChangeCommandHandler<OR>
 where
     OR: Repository<Organization>,
 {
@@ -61,14 +35,14 @@ where
     }
 }
 
-impl<OR> CommandHandler for OrganizationChangeDisplayNameCommandHandler<OR>
+impl<OR> CommandHandler for OrganizationDisplayNameChangeCommandHandler<OR>
 where
     OR: Repository<Organization>,
 {
-    type Command = OrganizationChangeDisplayNameCommand;
-    type Output = OrganizationChangeDisplayNameOutput;
-    type ReplayOutput = OrganizationChangeDisplayNameOutput;
-    type Error = OrganizationChangeDisplayNameCommandHandlerError;
+    type Command = OrganizationDisplayNameChangeCommand;
+    type Output = OrganizationDisplayNameChangeOutput;
+    type ReplayOutput = OrganizationDisplayNameChangeOutput;
+    type Error = OrganizationDisplayNameChangeCommandHandlerError;
     type Uow = OR::Uow;
 
     fn authorization_plan(
@@ -100,7 +74,7 @@ where
             .find(uow, command.organization_id)
             .await?
         else {
-            return Err(OrganizationChangeDisplayNameCommandHandlerError::OrganizationNotFound);
+            return Err(OrganizationDisplayNameChangeCommandHandlerError::OrganizationNotFound);
         };
 
         organization.change_display_name(command.display_name.clone())?;
@@ -109,6 +83,6 @@ where
             .save(uow, request_context, &mut organization)
             .await?;
 
-        Ok(CommandHandled::same(OrganizationChangeDisplayNameOutput))
+        Ok(CommandHandled::same(OrganizationDisplayNameChangeOutput))
     }
 }

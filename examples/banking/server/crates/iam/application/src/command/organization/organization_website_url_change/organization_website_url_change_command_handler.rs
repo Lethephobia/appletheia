@@ -3,52 +3,28 @@ use appletheia::application::authorization::{
 };
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
-use appletheia::application::repository::{Repository, RepositoryError};
+use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use appletheia::command;
-use banking_iam_domain::{Organization, OrganizationError, OrganizationId, OrganizationWebsiteUrl};
-use serde::{Deserialize, Serialize};
-use thiserror::Error;
+use banking_iam_domain::Organization;
 
+use super::{
+    OrganizationWebsiteUrlChangeCommand, OrganizationWebsiteUrlChangeCommandHandlerError,
+    OrganizationWebsiteUrlChangeOutput,
+};
 use crate::authorization::OrganizationWebsiteUrlChangerRelation;
 use crate::projection::{
     OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
 };
 
-/// Changes an organization's website URL.
-#[command(name = "organization_change_website_url")]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct OrganizationChangeWebsiteUrlCommand {
-    pub organization_id: OrganizationId,
-    pub website_url: Option<OrganizationWebsiteUrl>,
-}
-
-/// Returned after an organization website URL change request is applied.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct OrganizationChangeWebsiteUrlOutput;
-
-/// Represents errors returned while changing an organization website URL.
-#[derive(Debug, Error)]
-pub enum OrganizationChangeWebsiteUrlCommandHandlerError {
-    #[error("organization repository failed")]
-    OrganizationRepository(#[from] RepositoryError<Organization>),
-
-    #[error("organization aggregate failed")]
-    Organization(#[from] OrganizationError),
-
-    #[error("organization was not found")]
-    OrganizationNotFound,
-}
-
-/// Handles `OrganizationChangeWebsiteUrlCommand`.
-pub struct OrganizationChangeWebsiteUrlCommandHandler<OR>
+/// Handles `OrganizationWebsiteUrlChangeCommand`.
+pub struct OrganizationWebsiteUrlChangeCommandHandler<OR>
 where
     OR: Repository<Organization>,
 {
     organization_repository: OR,
 }
 
-impl<OR> OrganizationChangeWebsiteUrlCommandHandler<OR>
+impl<OR> OrganizationWebsiteUrlChangeCommandHandler<OR>
 where
     OR: Repository<Organization>,
 {
@@ -59,14 +35,14 @@ where
     }
 }
 
-impl<OR> CommandHandler for OrganizationChangeWebsiteUrlCommandHandler<OR>
+impl<OR> CommandHandler for OrganizationWebsiteUrlChangeCommandHandler<OR>
 where
     OR: Repository<Organization>,
 {
-    type Command = OrganizationChangeWebsiteUrlCommand;
-    type Output = OrganizationChangeWebsiteUrlOutput;
-    type ReplayOutput = OrganizationChangeWebsiteUrlOutput;
-    type Error = OrganizationChangeWebsiteUrlCommandHandlerError;
+    type Command = OrganizationWebsiteUrlChangeCommand;
+    type Output = OrganizationWebsiteUrlChangeOutput;
+    type ReplayOutput = OrganizationWebsiteUrlChangeOutput;
+    type Error = OrganizationWebsiteUrlChangeCommandHandlerError;
     type Uow = OR::Uow;
 
     fn authorization_plan(
@@ -98,7 +74,7 @@ where
             .find(uow, command.organization_id)
             .await?
         else {
-            return Err(OrganizationChangeWebsiteUrlCommandHandlerError::OrganizationNotFound);
+            return Err(OrganizationWebsiteUrlChangeCommandHandlerError::OrganizationNotFound);
         };
 
         organization.change_website_url(command.website_url.clone())?;
@@ -107,6 +83,6 @@ where
             .save(uow, request_context, &mut organization)
             .await?;
 
-        Ok(CommandHandled::same(OrganizationChangeWebsiteUrlOutput))
+        Ok(CommandHandled::same(OrganizationWebsiteUrlChangeOutput))
     }
 }

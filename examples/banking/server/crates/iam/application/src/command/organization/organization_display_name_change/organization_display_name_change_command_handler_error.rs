@@ -2,9 +2,9 @@ use appletheia::application::repository::RepositoryError;
 use banking_iam_domain::{Organization, OrganizationError};
 use thiserror::Error;
 
-/// Represents errors returned while changing an organization handle.
+/// Represents errors returned while changing an organization display name.
 #[derive(Debug, Error)]
-pub enum OrganizationChangeHandleCommandHandlerError {
+pub enum OrganizationDisplayNameChangeCommandHandlerError {
     #[error("organization repository failed")]
     OrganizationRepository(#[from] RepositoryError<Organization>),
 
@@ -13,7 +13,4 @@ pub enum OrganizationChangeHandleCommandHandlerError {
 
     #[error("organization was not found")]
     OrganizationNotFound,
-
-    #[error("organization is removed")]
-    OrganizationRemoved,
 }

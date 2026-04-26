@@ -3,54 +3,28 @@ use appletheia::application::authorization::{
 };
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
-use appletheia::application::repository::{Repository, RepositoryError};
+use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use appletheia::command;
-use banking_iam_domain::{
-    Organization, OrganizationDescription, OrganizationError, OrganizationId,
-};
-use serde::{Deserialize, Serialize};
-use thiserror::Error;
+use banking_iam_domain::Organization;
 
+use super::{
+    OrganizationDescriptionChangeCommand, OrganizationDescriptionChangeCommandHandlerError,
+    OrganizationDescriptionChangeOutput,
+};
 use crate::authorization::OrganizationDescriptionChangerRelation;
 use crate::projection::{
     OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
 };
 
-/// Changes an organization's description.
-#[command(name = "organization_change_description")]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct OrganizationChangeDescriptionCommand {
-    pub organization_id: OrganizationId,
-    pub description: Option<OrganizationDescription>,
-}
-
-/// Returned after an organization description change request is applied.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct OrganizationChangeDescriptionOutput;
-
-/// Represents errors returned while changing an organization description.
-#[derive(Debug, Error)]
-pub enum OrganizationChangeDescriptionCommandHandlerError {
-    #[error("organization repository failed")]
-    OrganizationRepository(#[from] RepositoryError<Organization>),
-
-    #[error("organization aggregate failed")]
-    Organization(#[from] OrganizationError),
-
-    #[error("organization was not found")]
-    OrganizationNotFound,
-}
-
-/// Handles `OrganizationChangeDescriptionCommand`.
-pub struct OrganizationChangeDescriptionCommandHandler<OR>
+/// Handles `OrganizationDescriptionChangeCommand`.
+pub struct OrganizationDescriptionChangeCommandHandler<OR>
 where
     OR: Repository<Organization>,
 {
     organization_repository: OR,
 }
 
-impl<OR> OrganizationChangeDescriptionCommandHandler<OR>
+impl<OR> OrganizationDescriptionChangeCommandHandler<OR>
 where
     OR: Repository<Organization>,
 {
@@ -61,14 +35,14 @@ where
     }
 }
 
-impl<OR> CommandHandler for OrganizationChangeDescriptionCommandHandler<OR>
+impl<OR> CommandHandler for OrganizationDescriptionChangeCommandHandler<OR>
 where
     OR: Repository<Organization>,
 {
-    type Command = OrganizationChangeDescriptionCommand;
-    type Output = OrganizationChangeDescriptionOutput;
-    type ReplayOutput = OrganizationChangeDescriptionOutput;
-    type Error = OrganizationChangeDescriptionCommandHandlerError;
+    type Command = OrganizationDescriptionChangeCommand;
+    type Output = OrganizationDescriptionChangeOutput;
+    type ReplayOutput = OrganizationDescriptionChangeOutput;
+    type Error = OrganizationDescriptionChangeCommandHandlerError;
     type Uow = OR::Uow;
 
     fn authorization_plan(
@@ -100,7 +74,7 @@ where
             .find(uow, command.organization_id)
             .await?
         else {
-            return Err(OrganizationChangeDescriptionCommandHandlerError::OrganizationNotFound);
+            return Err(OrganizationDescriptionChangeCommandHandlerError::OrganizationNotFound);
         };
 
         organization.change_description(command.description.clone())?;
@@ -109,6 +83,6 @@ where
             .save(uow, request_context, &mut organization)
             .await?;
 
-        Ok(CommandHandled::same(OrganizationChangeDescriptionOutput))
+        Ok(CommandHandled::same(OrganizationDescriptionChangeOutput))
     }
 }
