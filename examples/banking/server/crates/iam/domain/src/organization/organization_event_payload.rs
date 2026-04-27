@@ -35,6 +35,7 @@ pub enum OrganizationEventPayload {
     },
     PictureChanged {
         picture: Option<OrganizationPictureRef>,
+        old_picture: Option<OrganizationPictureRef>,
     },
     Removed,
 }

@@ -5,8 +5,8 @@ use crate::unit_of_work::UnitOfWork;
 use crate::unit_of_work::UnitOfWorkFactory;
 
 use super::{
-    EnqueuedCommandCount, Saga, SagaNameOwned, SagaPredecessor, SagaProcessedEventStore, SagaRun,
-    SagaRunId, SagaRunReport, SagaRunStore, SagaRunner, SagaRunnerError, SagaSpec,
+    Saga, SagaNameOwned, SagaPredecessor, SagaProcessedEventStore, SagaRun, SagaRunId,
+    SagaRunReport, SagaRunStore, SagaRunner, SagaRunnerError, SagaSpec,
 };
 
 pub struct DefaultSagaRunner<S, P, Q, U> {
@@ -92,30 +92,38 @@ where
             .on_event(context, &domain_event)
             .map_err(|source| SagaRunnerError::Handler(Box::new(source)))?;
 
-        let command = CommandEnvelope::new(
-            &transition.command.command,
-            correlation_id,
-            CausationId::from(event.event_id),
-            transition.command.options,
-        )?;
+        let command = transition
+            .command
+            .map(|command| {
+                CommandEnvelope::new(
+                    &command.command,
+                    correlation_id,
+                    CausationId::from(event.event_id),
+                    command.options,
+                )
+            })
+            .transpose()?;
+        let dispatched_command_message_id = command.as_ref().map(|command| command.message_id);
 
         let run = SagaRun {
             saga_run_id: SagaRunId::new(),
             saga_name: saga_name.clone(),
             trigger_event_id,
-            dispatched_command_message_id: command.message_id,
+            dispatched_command_message_id,
             context: transition.context,
         };
 
         self.saga_run_store.write(uow, &run).await?;
 
-        self.command_outbox_enqueuer
-            .enqueue_command(uow, &command)
-            .await?;
+        if let Some(command) = command {
+            self.command_outbox_enqueuer
+                .enqueue_command(uow, &command)
+                .await?;
 
-        Ok(SagaRunReport::Dispatched {
-            enqueued_command_count: EnqueuedCommandCount::from_usize_saturating(1),
-        })
+            Ok(SagaRunReport::CommandDispatched)
+        } else {
+            Ok(SagaRunReport::NoCommandDispatched)
+        }
     }
 }
 

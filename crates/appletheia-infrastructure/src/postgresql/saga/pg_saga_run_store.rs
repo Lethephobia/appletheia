@@ -131,7 +131,7 @@ impl SagaRunStore for PgSagaRunStore {
         .bind(saga_run_id_value)
         .bind(run.saga_name.value())
         .bind(run.trigger_event_id.value())
-        .bind(run.dispatched_command_message_id.value())
+        .bind(run.dispatched_command_message_id.map(|id| id.value()))
         .bind(&context_json)
         .execute(transaction.as_mut())
         .await

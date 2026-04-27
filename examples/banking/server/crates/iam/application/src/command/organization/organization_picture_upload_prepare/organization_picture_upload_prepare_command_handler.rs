@@ -410,10 +410,14 @@ mod tests {
             output.picture.as_object_name().map(|value| value.value()),
             Some(request.object_name().as_str())
         );
-        assert_eq!(
-            request.object_name().as_str(),
-            format!("organizations/{organization_id}/picture")
-        );
+        let expected_prefix = format!("organizations/{organization_id}/pictures/");
+        assert!(request.object_name().as_str().starts_with(&expected_prefix));
+        let picture_id = request
+            .object_name()
+            .as_str()
+            .strip_prefix(&expected_prefix)
+            .expect("object name should have organization picture prefix");
+        Uuid::parse_str(picture_id).expect("picture ID should be a UUID");
     }
 
     #[tokio::test]

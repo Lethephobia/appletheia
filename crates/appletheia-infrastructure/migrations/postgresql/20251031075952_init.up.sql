@@ -166,7 +166,7 @@ CREATE TABLE IF NOT EXISTS saga_runs (
   id                            UUID        PRIMARY KEY,
   saga_name                     TEXT        NOT NULL,
   trigger_event_id              UUID        NOT NULL,
-  dispatched_command_message_id UUID        NOT NULL,
+  dispatched_command_message_id UUID,
   context                       JSONB       NOT NULL,
   created_at                    TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (saga_name, trigger_event_id),

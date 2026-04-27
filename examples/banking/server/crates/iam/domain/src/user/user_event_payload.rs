@@ -33,6 +33,7 @@ pub enum UserEventPayload {
     },
     PictureChanged {
         picture: Option<UserPictureRef>,
+        old_picture: Option<UserPictureRef>,
     },
     Activated,
     Inactivated,
@@ -126,12 +127,14 @@ mod tests {
                 UserPictureUrl::try_from("https://cdn.example.com/alice.png")
                     .expect("picture URL should be valid"),
             )),
+            old_picture: None,
         };
 
         let value = payload.into_json_value().expect("payload should serialize");
 
         assert_eq!(value["type"], serde_json::json!("picture_changed"));
         assert!(value["data"]["picture"].is_object());
+        assert_eq!(value["data"]["old_picture"], serde_json::Value::Null);
     }
 
     #[test]

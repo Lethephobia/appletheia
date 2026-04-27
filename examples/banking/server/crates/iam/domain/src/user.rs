@@ -215,7 +215,12 @@ impl User {
             return Ok(());
         }
 
-        self.append_event(UserEventPayload::PictureChanged { picture })
+        let old_picture = self.state_required()?.picture.clone();
+
+        self.append_event(UserEventPayload::PictureChanged {
+            picture,
+            old_picture,
+        })
     }
 
     /// Activates an inactive user.
@@ -299,7 +304,7 @@ impl AggregateApply<UserEventPayload, UserError> for User {
             UserEventPayload::BioChanged { bio } => {
                 self.state_required_mut()?.bio = bio.clone();
             }
-            UserEventPayload::PictureChanged { picture } => {
+            UserEventPayload::PictureChanged { picture, .. } => {
                 self.state_required_mut()?.picture = picture.clone();
             }
             UserEventPayload::Activated => {
@@ -446,6 +451,32 @@ mod tests {
             Some("Banking enthusiast")
         );
         assert!(user.picture().expect("picture should exist").is_some());
+    }
+
+    #[test]
+    fn picture_changed_event_records_old_picture_after_current_picture() {
+        let mut user = User::default();
+        let first_picture = picture();
+        let second_picture = UserPictureRef::external_url(
+            UserPictureUrl::try_from("https://cdn.example.com/alice-updated.png")
+                .expect("picture URL should be valid"),
+        );
+        user.register(identity()).expect("user should register");
+        user.change_picture(Some(first_picture.clone()))
+            .expect("picture change should succeed");
+
+        user.change_picture(Some(second_picture.clone()))
+            .expect("picture change should succeed");
+
+        let UserEventPayload::PictureChanged {
+            picture,
+            old_picture,
+        } = user.uncommitted_events()[2].payload()
+        else {
+            panic!("event should be picture changed");
+        };
+        assert_eq!(picture.as_ref(), Some(&second_picture));
+        assert_eq!(old_picture.as_ref(), Some(&first_picture));
     }
 
     #[test]

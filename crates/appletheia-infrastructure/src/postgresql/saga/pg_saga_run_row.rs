@@ -12,7 +12,7 @@ use appletheia_domain::EventId;
 pub struct PgSagaRunRow {
     pub id: Uuid,
     pub trigger_event_id: Uuid,
-    pub dispatched_command_message_id: Uuid,
+    pub dispatched_command_message_id: Option<Uuid>,
     pub context: serde_json::Value,
 }
 
@@ -23,7 +23,7 @@ impl PgSagaRunRow {
     ) -> Result<SagaRun<C>, Box<dyn Error + Send + Sync>> {
         let saga_run_id = SagaRunId::try_from(self.id)?;
         let trigger_event_id = EventId::try_from(self.trigger_event_id)?;
-        let dispatched_command_message_id = MessageId::from(self.dispatched_command_message_id);
+        let dispatched_command_message_id = self.dispatched_command_message_id.map(MessageId::from);
 
         let context = serde_json::from_value(self.context)?;
 

@@ -208,7 +208,12 @@ impl Organization {
             return Ok(());
         }
 
-        self.append_event(OrganizationEventPayload::PictureChanged { picture })
+        let old_picture = self.state_required()?.picture.clone();
+
+        self.append_event(OrganizationEventPayload::PictureChanged {
+            picture,
+            old_picture,
+        })
     }
 
     /// Permanently removes the organization.
@@ -262,7 +267,7 @@ impl AggregateApply<OrganizationEventPayload, OrganizationError> for Organizatio
             OrganizationEventPayload::WebsiteUrlChanged { website_url } => {
                 self.state_required_mut()?.website_url = website_url.clone();
             }
-            OrganizationEventPayload::PictureChanged { picture } => {
+            OrganizationEventPayload::PictureChanged { picture, .. } => {
                 self.state_required_mut()?.picture = picture.clone();
             }
             OrganizationEventPayload::Removed => {
@@ -413,6 +418,33 @@ mod tests {
                 .expect("picture should exist")
                 .is_some()
         );
+    }
+
+    #[test]
+    fn picture_changed_event_records_old_picture_after_current_picture() {
+        let mut organization = organization();
+        let first_picture = picture();
+        let second_picture = OrganizationPictureRef::external_url(
+            OrganizationPictureUrl::try_from("https://cdn.example.com/acme-updated.png")
+                .expect("picture URL should be valid"),
+        );
+        organization
+            .change_picture(Some(first_picture.clone()))
+            .expect("picture change should succeed");
+
+        organization
+            .change_picture(Some(second_picture.clone()))
+            .expect("picture change should succeed");
+
+        let OrganizationEventPayload::PictureChanged {
+            picture,
+            old_picture,
+        } = organization.uncommitted_events()[2].payload()
+        else {
+            panic!("event should be picture changed");
+        };
+        assert_eq!(picture.as_ref(), Some(&second_picture));
+        assert_eq!(old_picture.as_ref(), Some(&first_picture));
     }
 
     #[test]

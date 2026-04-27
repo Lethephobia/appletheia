@@ -7,6 +7,7 @@ pub mod user_bio_change;
 pub mod user_deactivate;
 pub mod user_display_name_change;
 pub mod user_picture_change;
+pub mod user_picture_object_delete;
 pub mod user_picture_upload_prepare;
 pub mod user_remove;
 pub mod user_username_change;
@@ -29,6 +30,10 @@ pub use user_display_name_change::{
 };
 pub use user_picture_change::{
     UserPictureChangeCommand, UserPictureChangeCommandHandler, UserPictureChangeOutput,
+};
+pub use user_picture_object_delete::{
+    UserPictureObjectDeleteCommand, UserPictureObjectDeleteCommandHandler,
+    UserPictureObjectDeleteCommandHandlerError, UserPictureObjectDeleteOutput,
 };
 pub use user_picture_upload_prepare::{
     UserPictureUploadPrepareCommand, UserPictureUploadPrepareCommandHandler,
