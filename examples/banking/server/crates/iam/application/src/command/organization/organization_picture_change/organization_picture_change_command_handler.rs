@@ -11,7 +11,7 @@ use super::{
     OrganizationPictureChangeCommand, OrganizationPictureChangeCommandHandlerError,
     OrganizationPictureChangeOutput,
 };
-use crate::authorization::OrganizationPictureChangerRelation;
+use crate::authorization::OrganizationProfileEditorRelation;
 use crate::projection::{
     OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
 };
@@ -53,7 +53,7 @@ where
             PrincipalRequirement::AuthenticatedWithRelationship {
                 requirement: RelationshipRequirement::check::<Organization>(
                     command.organization_id,
-                    OrganizationPictureChangerRelation::REF,
+                    OrganizationProfileEditorRelation::REF,
                 ),
                 projector_dependencies: ProjectorDependencies::Some(&[
                     OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,

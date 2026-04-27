@@ -11,7 +11,7 @@ use super::{
     OrganizationWebsiteUrlChangeCommand, OrganizationWebsiteUrlChangeCommandHandlerError,
     OrganizationWebsiteUrlChangeOutput,
 };
-use crate::authorization::OrganizationWebsiteUrlChangerRelation;
+use crate::authorization::OrganizationProfileEditorRelation;
 use crate::projection::{
     OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
 };
@@ -53,7 +53,7 @@ where
             PrincipalRequirement::AuthenticatedWithRelationship {
                 requirement: RelationshipRequirement::check::<Organization>(
                     command.organization_id,
-                    OrganizationWebsiteUrlChangerRelation::REF,
+                    OrganizationProfileEditorRelation::REF,
                 ),
                 projector_dependencies: ProjectorDependencies::Some(&[
                     OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,

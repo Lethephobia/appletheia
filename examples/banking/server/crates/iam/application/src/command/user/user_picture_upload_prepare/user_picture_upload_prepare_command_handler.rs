@@ -14,7 +14,7 @@ use super::{
     UserPictureUploadPrepareCommand, UserPictureUploadPrepareCommandHandlerConfig,
     UserPictureUploadPrepareCommandHandlerError, UserPictureUploadPrepareOutput,
 };
-use crate::authorization::UserPictureChangerRelation;
+use crate::authorization::UserProfileEditorRelation;
 use crate::projection::UserOwnerRelationshipProjectorSpec;
 
 /// Handles `UserPictureUploadPrepareCommand`.
@@ -65,7 +65,7 @@ where
             PrincipalRequirement::AuthenticatedWithRelationship {
                 requirement: RelationshipRequirement::check::<User>(
                     command.user_id,
-                    UserPictureChangerRelation::REF,
+                    UserProfileEditorRelation::REF,
                 ),
                 projector_dependencies: ProjectorDependencies::Some(&[
                     UserOwnerRelationshipProjectorSpec::DESCRIPTOR,
@@ -295,7 +295,7 @@ mod tests {
     }
 
     #[test]
-    fn authorization_plan_requires_user_picture_changer_relationship() {
+    fn authorization_plan_requires_user_profile_editor_relationship() {
         let repository = TestUserRepository::new(registered_user());
         let expires_in =
             ObjectUploadExpiresIn::new(Duration::minutes(10)).expect("expiration should be valid");
@@ -326,7 +326,7 @@ mod tests {
                 PrincipalRequirement::AuthenticatedWithRelationship {
                     requirement: RelationshipRequirement::check::<User>(
                         user_id,
-                        crate::authorization::UserPictureChangerRelation::REF,
+                        crate::authorization::UserProfileEditorRelation::REF,
                     ),
                     projector_dependencies: ProjectorDependencies::Some(&[
                         crate::projection::UserOwnerRelationshipProjectorSpec::DESCRIPTOR,

@@ -14,7 +14,7 @@ use super::{
     OrganizationPictureUploadPrepareCommand, OrganizationPictureUploadPrepareCommandHandlerConfig,
     OrganizationPictureUploadPrepareCommandHandlerError, OrganizationPictureUploadPrepareOutput,
 };
-use crate::authorization::OrganizationPictureChangerRelation;
+use crate::authorization::OrganizationProfileEditorRelation;
 use crate::projection::{
     OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
 };
@@ -67,7 +67,7 @@ where
             PrincipalRequirement::AuthenticatedWithRelationship {
                 requirement: RelationshipRequirement::check::<Organization>(
                     command.organization_id,
-                    OrganizationPictureChangerRelation::REF,
+                    OrganizationProfileEditorRelation::REF,
                 ),
                 projector_dependencies: ProjectorDependencies::Some(&[
                     OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
@@ -308,7 +308,7 @@ mod tests {
     }
 
     #[test]
-    fn authorization_plan_requires_organization_picture_changer_relationship() {
+    fn authorization_plan_requires_organization_profile_editor_relationship() {
         let repository = TestOrganizationRepository::new(organization());
         let expires_in =
             ObjectUploadExpiresIn::new(Duration::minutes(10)).expect("expiration should be valid");
@@ -339,7 +339,7 @@ mod tests {
                 PrincipalRequirement::AuthenticatedWithRelationship {
                     requirement: RelationshipRequirement::check::<Organization>(
                         organization_id,
-                        crate::authorization::OrganizationPictureChangerRelation::REF,
+                        crate::authorization::OrganizationProfileEditorRelation::REF,
                     ),
                     projector_dependencies: ProjectorDependencies::Some(&[
                         crate::projection::OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,

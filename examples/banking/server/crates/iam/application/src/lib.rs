@@ -5,8 +5,7 @@ pub mod projection;
 pub mod saga;
 
 pub use authorization::{
-    OrganizationAdminRelation, OrganizationDescriptionChangerRelation,
-    OrganizationDisplayNameChangerRelation, OrganizationFinanceManagerRelation,
+    OrganizationAdminRelation, OrganizationFinanceManagerRelation,
     OrganizationHandleChangerRelation, OrganizationInvitationCancelerRelation,
     OrganizationInvitationInviteeRelation, OrganizationInvitationOrganizationRelation,
     OrganizationInviterRelation, OrganizationJoinRequestApproverRelation,
@@ -17,11 +16,10 @@ pub use authorization::{
     OrganizationMembershipRemoverRelation, OrganizationMembershipRoleGranterRelation,
     OrganizationMembershipRoleManagerRelation, OrganizationMembershipRoleRevokerRelation,
     OrganizationMembershipStatusManagerRelation, OrganizationOwnerRelation,
-    OrganizationOwnershipTransfererRelation, OrganizationPictureChangerRelation,
-    OrganizationRemoverRelation, OrganizationTreasurerRelation,
-    OrganizationWebsiteUrlChangerRelation, UserActivatorRelation, UserBioChangerRelation,
-    UserDeactivatorRelation, UserDisplayNameChangerRelation, UserOwnerRelation,
-    UserPictureChangerRelation, UserRemoverRelation, UserUsernameChangerRelation,
+    OrganizationOwnershipTransfererRelation, OrganizationProfileEditorRelation,
+    OrganizationRemoverRelation, OrganizationTreasurerRelation, UserActivatorRelation,
+    UserDeactivatorRelation, UserOwnerRelation, UserProfileEditorRelation, UserRemoverRelation,
+    UserUsernameChangerRelation,
 };
 pub use command::{
     LogoutAllSessionsCommand, LogoutAllSessionsCommandHandler, LogoutAllSessionsOutput,

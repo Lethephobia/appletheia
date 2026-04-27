@@ -5,12 +5,10 @@ mod organization_membership;
 mod user;
 
 pub use organization::{
-    OrganizationAdminRelation, OrganizationDescriptionChangerRelation,
-    OrganizationDisplayNameChangerRelation, OrganizationFinanceManagerRelation,
+    OrganizationAdminRelation, OrganizationFinanceManagerRelation,
     OrganizationHandleChangerRelation, OrganizationInviterRelation,
-    OrganizationOwnershipTransfererRelation, OrganizationPictureChangerRelation,
+    OrganizationOwnershipTransfererRelation, OrganizationProfileEditorRelation,
     OrganizationRemoverRelation, OrganizationTreasurerRelation,
-    OrganizationWebsiteUrlChangerRelation,
 };
 pub use organization::{OrganizationMemberRelation, OrganizationOwnerRelation};
 pub use organization_invitation::{
@@ -29,7 +27,6 @@ pub use organization_membership::{
     OrganizationMembershipRoleRevokerRelation, OrganizationMembershipStatusManagerRelation,
 };
 pub use user::{
-    UserActivatorRelation, UserBioChangerRelation, UserDeactivatorRelation,
-    UserDisplayNameChangerRelation, UserOwnerRelation, UserPictureChangerRelation,
+    UserActivatorRelation, UserDeactivatorRelation, UserOwnerRelation, UserProfileEditorRelation,
     UserRemoverRelation, UserUsernameChangerRelation,
 };
