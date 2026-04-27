@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.23.0](https://github.com/Lethephobia/appletheia/compare/appletheia-application-v0.22.0...appletheia-application-v0.23.0) - 2026-04-27
+
+### Added
+
+- *(saga)* [**breaking**] support no-command transitions
+- *(object-storage)* add object deleter
+
 ## [0.22.0](https://github.com/Lethephobia/appletheia/compare/appletheia-application-v0.21.0...appletheia-application-v0.22.0) - 2026-04-22
 
 ### Other
