@@ -1,5 +1,3 @@
-use std::collections::BTreeSet;
-
 use appletheia::application::authorization::{
     Relation, Relationship, RelationshipChange, RelationshipStore, RelationshipSubject,
 };
@@ -36,14 +34,23 @@ where
     fn upsert_role_relationships(
         organization_id: banking_iam_domain::OrganizationId,
         user_id: banking_iam_domain::UserId,
-        roles: &BTreeSet<OrganizationRole>,
+        roles: &[OrganizationRole],
     ) -> Vec<RelationshipChange> {
-        roles
-            .iter()
+        let mut deduplicated_roles = Vec::with_capacity(roles.len());
+        for role in roles {
+            if deduplicated_roles.contains(role) {
+                continue;
+            }
+
+            deduplicated_roles.push(*role);
+        }
+
+        deduplicated_roles
+            .into_iter()
             .map(|role| {
                 RelationshipChange::Upsert(Relationship::new::<Organization>(
                     organization_id,
-                    Self::relation_for_role(*role),
+                    Self::relation_for_role(role),
                     RelationshipSubject::aggregate::<User>(user_id),
                 ))
             })
@@ -100,7 +107,7 @@ where
                 organization_id,
                 user_id,
                 ..
-            } => Self::upsert_role_relationships(*organization_id, *user_id, &BTreeSet::new()),
+            } => Self::upsert_role_relationships(*organization_id, *user_id, &[]),
             OrganizationMembershipEventPayload::Activated {
                 organization_id,
                 user_id,

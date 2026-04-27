@@ -1,0 +1,9 @@
+mod organization_picture_change_command;
+mod organization_picture_change_command_handler;
+mod organization_picture_change_command_handler_error;
+mod organization_picture_change_output;
+
+pub use organization_picture_change_command::OrganizationPictureChangeCommand;
+pub use organization_picture_change_command_handler::OrganizationPictureChangeCommandHandler;
+pub use organization_picture_change_command_handler_error::OrganizationPictureChangeCommandHandlerError;
+pub use organization_picture_change_output::OrganizationPictureChangeOutput;

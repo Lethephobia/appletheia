@@ -1,5 +1,3 @@
-use std::collections::BTreeSet;
-
 use appletheia::event_payload;
 
 use crate::{OrganizationId, OrganizationRole, UserId};
@@ -14,19 +12,6 @@ pub enum OrganizationMembershipEventPayload {
         organization_id: OrganizationId,
         user_id: UserId,
     },
-    Activated {
-        organization_id: OrganizationId,
-        user_id: UserId,
-        roles: BTreeSet<OrganizationRole>,
-    },
-    Inactivated {
-        organization_id: OrganizationId,
-        user_id: UserId,
-    },
-    Removed {
-        organization_id: OrganizationId,
-        user_id: UserId,
-    },
     RoleGranted {
         organization_id: OrganizationId,
         user_id: UserId,
@@ -37,12 +22,23 @@ pub enum OrganizationMembershipEventPayload {
         user_id: UserId,
         role: OrganizationRole,
     },
+    Activated {
+        organization_id: OrganizationId,
+        user_id: UserId,
+        roles: Vec<OrganizationRole>,
+    },
+    Inactivated {
+        organization_id: OrganizationId,
+        user_id: UserId,
+    },
+    Removed {
+        organization_id: OrganizationId,
+        user_id: UserId,
+    },
 }
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeSet;
-
     use appletheia::domain::EventPayload;
 
     use super::{OrganizationMembershipEventPayload, OrganizationMembershipId};
@@ -55,6 +51,14 @@ mod tests {
             appletheia::domain::EventName::new("created")
         );
         assert_eq!(
+            OrganizationMembershipEventPayload::ROLE_GRANTED,
+            appletheia::domain::EventName::new("role_granted")
+        );
+        assert_eq!(
+            OrganizationMembershipEventPayload::ROLE_REVOKED,
+            appletheia::domain::EventName::new("role_revoked")
+        );
+        assert_eq!(
             OrganizationMembershipEventPayload::ACTIVATED,
             appletheia::domain::EventName::new("activated")
         );
@@ -65,14 +69,6 @@ mod tests {
         assert_eq!(
             OrganizationMembershipEventPayload::REMOVED,
             appletheia::domain::EventName::new("removed")
-        );
-        assert_eq!(
-            OrganizationMembershipEventPayload::ROLE_GRANTED,
-            appletheia::domain::EventName::new("role_granted")
-        );
-        assert_eq!(
-            OrganizationMembershipEventPayload::ROLE_REVOKED,
-            appletheia::domain::EventName::new("role_revoked")
         );
     }
 
@@ -92,7 +88,7 @@ mod tests {
         let payload = OrganizationMembershipEventPayload::Activated {
             organization_id: OrganizationId::new(),
             user_id: UserId::new(),
-            roles: BTreeSet::new(),
+            roles: Vec::new(),
         };
 
         assert_eq!(

@@ -227,7 +227,7 @@ pub fn grant_role(
 good:
 ```rust
 pub struct ExampleState {
-    roles: BTreeSet<OrganizationRole>,
+    roles: Vec<OrganizationRole>,
 }
 ```
 

@@ -66,10 +66,6 @@ impl CloudStorageObjectUploadSigner {
             }
         }
     }
-
-    fn signer_error(error: CloudStorageObjectUploadSignerError) -> ObjectUploadSignerError {
-        ObjectUploadSignerError::Backend(Box::new(error))
-    }
 }
 
 impl ObjectUploadSigner for CloudStorageObjectUploadSigner {
@@ -82,13 +78,17 @@ impl ObjectUploadSigner for CloudStorageObjectUploadSigner {
             .value()
             .to_std()
             .map_err(CloudStorageObjectUploadSignerError::InvalidExpiration)
-            .map_err(Self::signer_error)?;
-        let headers = Self::headers_for_request(&request).map_err(Self::signer_error)?;
+            .map_err(|error| ObjectUploadSignerError::Backend(Box::new(error)))?;
+        let headers = Self::headers_for_request(&request)
+            .map_err(|error| ObjectUploadSignerError::Backend(Box::new(error)))?;
         let mut builder = SignedUrlBuilder::for_object(
             Self::bucket_resource_name(request.bucket_name()),
             request.object_name().as_str(),
         )
-        .with_method(Self::method(request.method()).map_err(Self::signer_error)?)
+        .with_method(
+            Self::method(request.method())
+                .map_err(|error| ObjectUploadSignerError::Backend(Box::new(error)))?,
+        )
         .with_expiration(expires_in);
 
         for header in headers.iter() {
@@ -99,11 +99,11 @@ impl ObjectUploadSigner for CloudStorageObjectUploadSigner {
             .sign_with(&self.signer)
             .await
             .map_err(CloudStorageObjectUploadSignerError::Sign)
-            .map_err(Self::signer_error)?;
+            .map_err(|error| ObjectUploadSignerError::Backend(Box::new(error)))?;
         let url = url
             .parse::<SignedObjectUploadUrl>()
             .map_err(CloudStorageObjectUploadSignerError::InvalidSignedUrl)
-            .map_err(Self::signer_error)?;
+            .map_err(|error| ObjectUploadSignerError::Backend(Box::new(error)))?;
 
         Ok(SignedObjectUploadRequest::new(
             request.method(),

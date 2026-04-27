@@ -45,13 +45,17 @@ mod tests {
     #[test]
     fn returns_object_name_when_present() {
         let picture = UserPictureRef::object_name(
-            UserPictureObjectName::try_from("users/00000000-0000-0000-0000-000000000001/picture")
-                .expect("name should be valid"),
+            UserPictureObjectName::try_from(
+                "users/00000000-0000-0000-0000-000000000001/pictures/00000000-0000-0000-0000-000000000002",
+            )
+            .expect("name should be valid"),
         );
 
         assert_eq!(
             picture.as_object_name().map(UserPictureObjectName::value),
-            Some("users/00000000-0000-0000-0000-000000000001/picture")
+            Some(
+                "users/00000000-0000-0000-0000-000000000001/pictures/00000000-0000-0000-0000-000000000002"
+            )
         );
         assert_eq!(picture.as_external_url(), None);
     }

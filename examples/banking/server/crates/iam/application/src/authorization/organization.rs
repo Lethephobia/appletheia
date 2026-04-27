@@ -7,7 +7,7 @@ mod organization_inviter_relation;
 mod organization_member_relation;
 mod organization_owner_relation;
 mod organization_ownership_transferer_relation;
-mod organization_profile_changer_relation;
+mod organization_profile_editor_relation;
 mod organization_remover_relation;
 mod organization_treasurer_relation;
 
@@ -18,6 +18,6 @@ pub use organization_inviter_relation::OrganizationInviterRelation;
 pub use organization_member_relation::OrganizationMemberRelation;
 pub use organization_owner_relation::OrganizationOwnerRelation;
 pub use organization_ownership_transferer_relation::OrganizationOwnershipTransfererRelation;
-pub use organization_profile_changer_relation::OrganizationProfileChangerRelation;
+pub use organization_profile_editor_relation::OrganizationProfileEditorRelation;
 pub use organization_remover_relation::OrganizationRemoverRelation;
 pub use organization_treasurer_relation::OrganizationTreasurerRelation;

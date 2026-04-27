@@ -1,0 +1,9 @@
+mod user_picture_change_command;
+mod user_picture_change_command_handler;
+mod user_picture_change_command_handler_error;
+mod user_picture_change_output;
+
+pub use user_picture_change_command::UserPictureChangeCommand;
+pub use user_picture_change_command_handler::UserPictureChangeCommandHandler;
+pub use user_picture_change_command_handler_error::UserPictureChangeCommandHandlerError;
+pub use user_picture_change_output::UserPictureChangeOutput;

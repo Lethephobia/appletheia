@@ -1,5 +1,3 @@
-use std::collections::BTreeSet;
-
 use appletheia::aggregate_state;
 use appletheia::domain::{AggregateId, UniqueValue, UniqueValuePart, UniqueValues};
 use appletheia::unique_constraints;
@@ -15,10 +13,10 @@ use super::{
 #[unique_constraints(entry(key = "organization_user", values = organization_user_values))]
 pub struct OrganizationMembershipState {
     pub(super) id: OrganizationMembershipId,
-    pub(super) status: OrganizationMembershipStatus,
     pub(super) organization_id: OrganizationId,
     pub(super) user_id: UserId,
-    pub(super) roles: BTreeSet<OrganizationRole>,
+    pub(super) roles: Vec<OrganizationRole>,
+    pub(super) status: OrganizationMembershipStatus,
 }
 
 impl OrganizationMembershipState {
@@ -27,14 +25,14 @@ impl OrganizationMembershipState {
         id: OrganizationMembershipId,
         organization_id: OrganizationId,
         user_id: UserId,
-        roles: BTreeSet<OrganizationRole>,
+        roles: Vec<OrganizationRole>,
     ) -> Self {
         Self {
             id,
-            status: OrganizationMembershipStatus::Active,
             organization_id,
             user_id,
             roles,
+            status: OrganizationMembershipStatus::Active,
         }
     }
 }
@@ -58,8 +56,6 @@ fn organization_user_values(
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeSet;
-
     use appletheia::domain::{AggregateState, UniqueConstraints, UniqueValues};
 
     use crate::{OrganizationId, OrganizationRole, UserId};
@@ -71,7 +67,7 @@ mod tests {
     #[test]
     fn exposes_id_via_aggregate_state_trait() {
         let id = OrganizationMembershipId::new();
-        let roles = BTreeSet::from([OrganizationRole::FinanceManager]);
+        let roles = vec![OrganizationRole::FinanceManager];
         let state = OrganizationMembershipState::new(
             id,
             OrganizationId::new(),
@@ -89,7 +85,7 @@ mod tests {
             OrganizationMembershipId::new(),
             OrganizationId::new(),
             UserId::new(),
-            BTreeSet::new(),
+            Vec::new(),
         );
 
         let entries = state.unique_entries().expect("unique entries should build");
@@ -108,7 +104,7 @@ mod tests {
             OrganizationMembershipId::new(),
             OrganizationId::new(),
             UserId::new(),
-            BTreeSet::new(),
+            Vec::new(),
         );
         state.status = OrganizationMembershipStatus::Removed;
 

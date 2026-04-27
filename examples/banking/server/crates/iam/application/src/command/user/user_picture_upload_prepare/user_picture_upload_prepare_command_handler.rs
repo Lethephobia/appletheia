@@ -14,7 +14,7 @@ use super::{
     UserPictureUploadPrepareCommand, UserPictureUploadPrepareCommandHandlerConfig,
     UserPictureUploadPrepareCommandHandlerError, UserPictureUploadPrepareOutput,
 };
-use crate::authorization::UserProfileChangerRelation;
+use crate::authorization::UserProfileEditorRelation;
 use crate::projection::UserOwnerRelationshipProjectorSpec;
 
 /// Handles `UserPictureUploadPrepareCommand`.
@@ -65,7 +65,7 @@ where
             PrincipalRequirement::AuthenticatedWithRelationship {
                 requirement: RelationshipRequirement::check::<User>(
                     command.user_id,
-                    UserProfileChangerRelation::REF,
+                    UserProfileEditorRelation::REF,
                 ),
                 projector_dependencies: ProjectorDependencies::Some(&[
                     UserOwnerRelationshipProjectorSpec::DESCRIPTOR,
@@ -295,7 +295,7 @@ mod tests {
     }
 
     #[test]
-    fn authorization_plan_requires_user_profile_changer_relationship() {
+    fn authorization_plan_requires_user_profile_editor_relationship() {
         let repository = TestUserRepository::new(registered_user());
         let expires_in =
             ObjectUploadExpiresIn::new(Duration::minutes(10)).expect("expiration should be valid");
@@ -326,7 +326,7 @@ mod tests {
                 PrincipalRequirement::AuthenticatedWithRelationship {
                     requirement: RelationshipRequirement::check::<User>(
                         user_id,
-                        crate::authorization::UserProfileChangerRelation::REF,
+                        crate::authorization::UserProfileEditorRelation::REF,
                     ),
                     projector_dependencies: ProjectorDependencies::Some(&[
                         crate::projection::UserOwnerRelationshipProjectorSpec::DESCRIPTOR,
@@ -394,10 +394,14 @@ mod tests {
             output.picture.as_object_name().map(|value| value.value()),
             Some(request.object_name().as_str())
         );
-        assert_eq!(
-            request.object_name().as_str(),
-            format!("users/{user_id}/picture")
-        );
+        let expected_prefix = format!("users/{user_id}/pictures/");
+        assert!(request.object_name().as_str().starts_with(&expected_prefix));
+        let picture_id = request
+            .object_name()
+            .as_str()
+            .strip_prefix(&expected_prefix)
+            .expect("object name should have user picture prefix");
+        Uuid::parse_str(picture_id).expect("picture ID should be a UUID");
     }
 
     #[tokio::test]

@@ -1,0 +1,9 @@
+mod organization_handle_change_command;
+mod organization_handle_change_command_handler;
+mod organization_handle_change_command_handler_error;
+mod organization_handle_change_output;
+
+pub use organization_handle_change_command::OrganizationHandleChangeCommand;
+pub use organization_handle_change_command_handler::OrganizationHandleChangeCommandHandler;
+pub use organization_handle_change_command_handler_error::OrganizationHandleChangeCommandHandlerError;
+pub use organization_handle_change_output::OrganizationHandleChangeOutput;

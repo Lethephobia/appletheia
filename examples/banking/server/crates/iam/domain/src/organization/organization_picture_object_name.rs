@@ -16,7 +16,11 @@ pub struct OrganizationPictureObjectName(String);
 impl OrganizationPictureObjectName {
     /// Creates a new picture object name for the given organization.
     pub fn new(organization_id: OrganizationId) -> Self {
-        Self(format!("organizations/{}/picture", organization_id.value()))
+        Self(format!(
+            "organizations/{}/pictures/{}",
+            organization_id.value(),
+            Uuid::now_v7()
+        ))
     }
 
     /// Returns the picture object name.
@@ -46,7 +50,7 @@ impl FromStr for OrganizationPictureObjectName {
         }
 
         let segments = value.split('/').collect::<Vec<_>>();
-        if segments.len() != 3 || segments[0] != "organizations" || segments[2] != "picture" {
+        if segments.len() != 4 || segments[0] != "organizations" || segments[2] != "pictures" {
             return Err(OrganizationPictureObjectNameError::InvalidFormat);
         }
 
@@ -55,6 +59,8 @@ impl FromStr for OrganizationPictureObjectName {
                 .map_err(|_| OrganizationPictureObjectNameError::InvalidFormat)?,
         )
         .map_err(|_| OrganizationPictureObjectNameError::InvalidFormat)?;
+        Uuid::parse_str(segments[3])
+            .map_err(|_| OrganizationPictureObjectNameError::InvalidFormat)?;
 
         Ok(Self(value.to_owned()))
     }
@@ -97,30 +103,33 @@ mod tests {
         let organization_id =
             OrganizationId::try_from_uuid(Uuid::nil()).expect("organization ID should be valid");
         let object_name = OrganizationPictureObjectName::new(organization_id);
+        let segments = object_name.value().split('/').collect::<Vec<_>>();
 
-        assert_eq!(
-            object_name.value(),
-            "organizations/00000000-0000-0000-0000-000000000000/picture"
-        );
+        assert_eq!(segments.len(), 4);
+        assert_eq!(segments[0], "organizations");
+        assert_eq!(segments[1], "00000000-0000-0000-0000-000000000000");
+        assert_eq!(segments[2], "pictures");
+        Uuid::parse_str(segments[3]).expect("picture ID should be a UUID");
     }
 
     #[test]
     fn try_from_accepts_valid_picture_object_name() {
         let object_name = OrganizationPictureObjectName::try_from(
-            "organizations/00000000-0000-0000-0000-000000000001/picture",
+            "organizations/00000000-0000-0000-0000-000000000001/pictures/00000000-0000-0000-0000-000000000002",
         )
         .expect("name should be valid");
 
         assert_eq!(
             object_name.value(),
-            "organizations/00000000-0000-0000-0000-000000000001/picture"
+            "organizations/00000000-0000-0000-0000-000000000001/pictures/00000000-0000-0000-0000-000000000002"
         );
     }
 
     #[test]
     fn try_from_rejects_invalid_picture_object_name() {
-        let error = OrganizationPictureObjectName::try_from("organizations/not-a-uuid/picture")
-            .expect_err("name should be invalid");
+        let error =
+            OrganizationPictureObjectName::try_from("organizations/not-a-uuid/pictures/not-a-uuid")
+                .expect_err("name should be invalid");
 
         assert!(matches!(
             error,

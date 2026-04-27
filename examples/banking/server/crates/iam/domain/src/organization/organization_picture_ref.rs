@@ -46,7 +46,7 @@ mod tests {
     fn returns_object_name_when_present() {
         let picture = OrganizationPictureRef::object_name(
             OrganizationPictureObjectName::try_from(
-                "organizations/00000000-0000-0000-0000-000000000001/picture",
+                "organizations/00000000-0000-0000-0000-000000000001/pictures/00000000-0000-0000-0000-000000000002",
             )
             .expect("name should be valid"),
         );
@@ -55,7 +55,9 @@ mod tests {
             picture
                 .as_object_name()
                 .map(OrganizationPictureObjectName::value),
-            Some("organizations/00000000-0000-0000-0000-000000000001/picture")
+            Some(
+                "organizations/00000000-0000-0000-0000-000000000001/pictures/00000000-0000-0000-0000-000000000002"
+            )
         );
         assert_eq!(picture.as_external_url(), None);
     }

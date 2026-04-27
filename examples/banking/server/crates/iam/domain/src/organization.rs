@@ -14,7 +14,6 @@ mod organization_picture_object_name_error;
 mod organization_picture_ref;
 mod organization_picture_url;
 mod organization_picture_url_error;
-mod organization_profile;
 mod organization_state;
 mod organization_state_error;
 mod organization_status;
@@ -37,7 +36,6 @@ pub use organization_picture_object_name_error::OrganizationPictureObjectNameErr
 pub use organization_picture_ref::OrganizationPictureRef;
 pub use organization_picture_url::OrganizationPictureUrl;
 pub use organization_picture_url_error::OrganizationPictureUrlError;
-pub use organization_profile::OrganizationProfile;
 pub use organization_state::OrganizationState;
 pub use organization_state_error::OrganizationStateError;
 pub use organization_status::OrganizationStatus;
@@ -57,14 +55,19 @@ pub struct Organization {
 }
 
 impl Organization {
-    /// Returns the current organization profile.
-    pub fn profile(&self) -> Result<&OrganizationProfile, OrganizationError> {
-        Ok(&self.state_required()?.profile)
+    /// Returns the current organization owner.
+    pub fn owner(&self) -> Result<OrganizationOwner, OrganizationError> {
+        Ok(self.state_required()?.owner)
+    }
+
+    /// Returns the current organization handle.
+    pub fn handle(&self) -> Result<&OrganizationHandle, OrganizationError> {
+        Ok(&self.state_required()?.handle)
     }
 
     /// Returns the current organization display name.
     pub fn display_name(&self) -> Result<&OrganizationDisplayName, OrganizationError> {
-        Ok(self.state_required()?.profile.display_name())
+        Ok(&self.state_required()?.display_name)
     }
 
     /// Returns the current organization display name.
@@ -74,27 +77,17 @@ impl Organization {
 
     /// Returns the current organization description.
     pub fn description(&self) -> Result<Option<&OrganizationDescription>, OrganizationError> {
-        Ok(self.state_required()?.profile.description())
+        Ok(self.state_required()?.description.as_ref())
     }
 
     /// Returns the current organization website URL.
     pub fn website_url(&self) -> Result<Option<&OrganizationWebsiteUrl>, OrganizationError> {
-        Ok(self.state_required()?.profile.website_url())
+        Ok(self.state_required()?.website_url.as_ref())
     }
 
     /// Returns the current organization picture.
     pub fn picture(&self) -> Result<Option<&OrganizationPictureRef>, OrganizationError> {
-        Ok(self.state_required()?.profile.picture())
-    }
-
-    /// Returns the current organization handle.
-    pub fn handle(&self) -> Result<&OrganizationHandle, OrganizationError> {
-        Ok(&self.state_required()?.handle)
-    }
-
-    /// Returns the current organization owner.
-    pub fn owner(&self) -> Result<OrganizationOwner, OrganizationError> {
-        Ok(self.state_required()?.owner)
+        Ok(self.state_required()?.picture.as_ref())
     }
 
     /// Returns the current organization status.
@@ -117,7 +110,10 @@ impl Organization {
         &mut self,
         owner: OrganizationOwner,
         handle: OrganizationHandle,
-        profile: OrganizationProfile,
+        display_name: OrganizationDisplayName,
+        description: Option<OrganizationDescription>,
+        website_url: Option<OrganizationWebsiteUrl>,
+        picture: Option<OrganizationPictureRef>,
     ) -> Result<(), OrganizationError> {
         if self.state().is_some() {
             return Err(OrganizationError::AlreadyCreated);
@@ -127,33 +123,11 @@ impl Organization {
             id: OrganizationId::new(),
             owner,
             handle,
-            profile,
+            display_name,
+            description,
+            website_url,
+            picture,
         })
-    }
-
-    /// Changes the current organization handle.
-    pub fn change_handle(&mut self, handle: OrganizationHandle) -> Result<(), OrganizationError> {
-        self.ensure_not_removed()?;
-
-        if self.state_required()?.handle == handle {
-            return Ok(());
-        }
-
-        self.append_event(OrganizationEventPayload::HandleChanged { handle })
-    }
-
-    /// Changes the current organization profile.
-    pub fn change_profile(
-        &mut self,
-        profile: OrganizationProfile,
-    ) -> Result<(), OrganizationError> {
-        self.ensure_not_removed()?;
-
-        if self.state_required()?.profile == profile {
-            return Ok(());
-        }
-
-        self.append_event(OrganizationEventPayload::ProfileChanged { profile })
     }
 
     /// Transfers ownership of the organization.
@@ -168,6 +142,78 @@ impl Organization {
         }
 
         self.append_event(OrganizationEventPayload::OwnershipTransferred { owner })
+    }
+
+    /// Changes the current organization handle.
+    pub fn change_handle(&mut self, handle: OrganizationHandle) -> Result<(), OrganizationError> {
+        self.ensure_not_removed()?;
+
+        if self.state_required()?.handle == handle {
+            return Ok(());
+        }
+
+        self.append_event(OrganizationEventPayload::HandleChanged { handle })
+    }
+
+    /// Changes the current organization display name.
+    pub fn change_display_name(
+        &mut self,
+        display_name: OrganizationDisplayName,
+    ) -> Result<(), OrganizationError> {
+        self.ensure_not_removed()?;
+
+        if self.state_required()?.display_name == display_name {
+            return Ok(());
+        }
+
+        self.append_event(OrganizationEventPayload::DisplayNameChanged { display_name })
+    }
+
+    /// Changes the current organization description.
+    pub fn change_description(
+        &mut self,
+        description: Option<OrganizationDescription>,
+    ) -> Result<(), OrganizationError> {
+        self.ensure_not_removed()?;
+
+        if self.state_required()?.description == description {
+            return Ok(());
+        }
+
+        self.append_event(OrganizationEventPayload::DescriptionChanged { description })
+    }
+
+    /// Changes the current organization website URL.
+    pub fn change_website_url(
+        &mut self,
+        website_url: Option<OrganizationWebsiteUrl>,
+    ) -> Result<(), OrganizationError> {
+        self.ensure_not_removed()?;
+
+        if self.state_required()?.website_url == website_url {
+            return Ok(());
+        }
+
+        self.append_event(OrganizationEventPayload::WebsiteUrlChanged { website_url })
+    }
+
+    /// Changes the current organization picture.
+    pub fn change_picture(
+        &mut self,
+        picture: Option<OrganizationPictureRef>,
+    ) -> Result<(), OrganizationError> {
+        self.ensure_not_removed()?;
+
+        if self.state_required()?.picture == picture {
+            return Ok(());
+        }
+
+        let old_picture = self.state_required()?.picture.clone();
+
+        self.append_event(OrganizationEventPayload::PictureChanged {
+            picture,
+            old_picture,
+        })
     }
 
     /// Permanently removes the organization.
@@ -193,12 +239,18 @@ impl AggregateApply<OrganizationEventPayload, OrganizationError> for Organizatio
                 id,
                 owner,
                 handle,
-                profile,
+                display_name,
+                description,
+                website_url,
+                picture,
             } => self.set_state(Some(OrganizationState::new(
                 *id,
                 *owner,
                 handle.clone(),
-                profile.clone(),
+                display_name.clone(),
+                description.clone(),
+                website_url.clone(),
+                picture.clone(),
             ))),
             OrganizationEventPayload::OwnershipTransferred { owner } => {
                 self.state_required_mut()?.owner = *owner;
@@ -206,8 +258,17 @@ impl AggregateApply<OrganizationEventPayload, OrganizationError> for Organizatio
             OrganizationEventPayload::HandleChanged { handle } => {
                 self.state_required_mut()?.handle = handle.clone();
             }
-            OrganizationEventPayload::ProfileChanged { profile } => {
-                self.state_required_mut()?.profile = profile.clone();
+            OrganizationEventPayload::DisplayNameChanged { display_name } => {
+                self.state_required_mut()?.display_name = display_name.clone();
+            }
+            OrganizationEventPayload::DescriptionChanged { description } => {
+                self.state_required_mut()?.description = description.clone();
+            }
+            OrganizationEventPayload::WebsiteUrlChanged { website_url } => {
+                self.state_required_mut()?.website_url = website_url.clone();
+            }
+            OrganizationEventPayload::PictureChanged { picture, .. } => {
+                self.state_required_mut()?.picture = picture.clone();
             }
             OrganizationEventPayload::Removed => {
                 self.state_required_mut()?.status = OrganizationStatus::Removed;
@@ -225,48 +286,52 @@ mod tests {
     use super::{
         Organization, OrganizationDescription, OrganizationDisplayName, OrganizationEventPayload,
         OrganizationHandle, OrganizationOwner, OrganizationPictureRef, OrganizationPictureUrl,
-        OrganizationProfile, OrganizationWebsiteUrl,
+        OrganizationWebsiteUrl,
     };
 
     fn owner() -> OrganizationOwner {
         OrganizationOwner::User(crate::UserId::new())
     }
 
-    fn profile() -> OrganizationProfile {
-        OrganizationProfile::new(
-            OrganizationDisplayName::try_from("Acme Labs").expect("display name should be valid"),
-            Some(
-                OrganizationDescription::try_from("Independent research lab")
-                    .expect("description should be valid"),
-            ),
-            Some(
-                OrganizationWebsiteUrl::try_from("https://acme.example.com")
-                    .expect("website URL should be valid"),
-            ),
-            Some(OrganizationPictureRef::external_url(
-                OrganizationPictureUrl::try_from("https://cdn.example.com/acme.png")
-                    .expect("picture URL should be valid"),
-            )),
+    fn display_name() -> OrganizationDisplayName {
+        OrganizationDisplayName::try_from("Acme Labs").expect("display name should be valid")
+    }
+
+    fn description() -> OrganizationDescription {
+        OrganizationDescription::try_from("Independent research lab")
+            .expect("description should be valid")
+    }
+
+    fn website_url() -> OrganizationWebsiteUrl {
+        OrganizationWebsiteUrl::try_from("https://acme.example.com")
+            .expect("website URL should be valid")
+    }
+
+    fn picture() -> OrganizationPictureRef {
+        OrganizationPictureRef::external_url(
+            OrganizationPictureUrl::try_from("https://cdn.example.com/acme.png")
+                .expect("picture URL should be valid"),
         )
     }
 
-    #[test]
-    fn create_initializes_state_and_records_event() {
+    fn organization() -> Organization {
         let mut organization = Organization::default();
-
         organization
             .create(
                 owner(),
                 OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
-                OrganizationProfile::new(
-                    OrganizationDisplayName::try_from("Acme Labs")
-                        .expect("display name should be valid"),
-                    None,
-                    None,
-                    None,
-                ),
+                display_name(),
+                None,
+                None,
+                None,
             )
             .expect("creation should succeed");
+        organization
+    }
+
+    #[test]
+    fn create_initializes_state_and_records_event() {
+        let organization = organization();
 
         assert_eq!(
             organization
@@ -282,85 +347,113 @@ mod tests {
     }
 
     #[test]
-    fn change_profile_updates_state_and_records_event() {
-        let mut organization = Organization::default();
-        let profile = profile();
-        organization
-            .create(
-                owner(),
-                OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
-                OrganizationProfile::new(
-                    OrganizationDisplayName::try_from("Acme Labs")
-                        .expect("display name should be valid"),
-                    None,
-                    None,
-                    None,
-                ),
-            )
-            .expect("creation should succeed");
+    fn change_display_name_updates_state_and_records_event() {
+        let mut organization = organization();
+        let updated =
+            OrganizationDisplayName::try_from("Acme Labs Updated").expect("name should be valid");
 
         organization
-            .change_profile(profile.clone())
-            .expect("profile change should succeed");
+            .change_display_name(updated.clone())
+            .expect("display name change should succeed");
 
         assert_eq!(
-            organization.profile().expect("profile should exist"),
-            &profile
+            organization
+                .display_name()
+                .expect("display name should exist"),
+            &updated
         );
         assert_eq!(
             organization.uncommitted_events()[1].payload().name(),
-            OrganizationEventPayload::PROFILE_CHANGED
+            OrganizationEventPayload::DISPLAY_NAME_CHANGED
         );
     }
 
     #[test]
-    fn same_profile_change_is_a_no_op() {
-        let mut organization = Organization::default();
-        let profile = profile();
-        organization
-            .create(
-                owner(),
-                OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
-                OrganizationProfile::new(
-                    OrganizationDisplayName::try_from("Acme Labs")
-                        .expect("display name should be valid"),
-                    None,
-                    None,
-                    None,
-                ),
-            )
-            .expect("creation should succeed");
-        organization
-            .change_profile(profile.clone())
-            .expect("profile change should succeed");
+    fn same_display_name_change_is_a_no_op() {
+        let mut organization = organization();
+        let updated =
+            OrganizationDisplayName::try_from("Acme Labs Updated").expect("name should be valid");
 
         organization
-            .change_profile(profile)
-            .expect("idempotent profile change should succeed");
+            .change_display_name(updated.clone())
+            .expect("display name change should succeed");
+        organization
+            .change_display_name(updated)
+            .expect("idempotent display name change should succeed");
 
         assert_eq!(organization.uncommitted_events().len(), 2);
     }
 
     #[test]
-    fn removed_organization_rejects_profile_changes() {
-        let mut organization = Organization::default();
+    fn change_description_website_url_and_picture_updates_state() {
+        let mut organization = organization();
+
         organization
-            .create(
-                owner(),
-                OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
-                OrganizationProfile::new(
-                    OrganizationDisplayName::try_from("Acme Labs")
-                        .expect("display name should be valid"),
-                    None,
-                    None,
-                    None,
-                ),
-            )
-            .expect("creation should succeed");
+            .change_description(Some(description()))
+            .expect("description change should succeed");
+        organization
+            .change_website_url(Some(website_url()))
+            .expect("website URL change should succeed");
+        organization
+            .change_picture(Some(picture()))
+            .expect("picture change should succeed");
+
+        assert_eq!(
+            organization
+                .description()
+                .expect("description should exist")
+                .map(OrganizationDescription::value),
+            Some("Independent research lab")
+        );
+        assert_eq!(
+            organization
+                .website_url()
+                .expect("website URL should exist")
+                .map(|value| value.value().as_str()),
+            Some("https://acme.example.com/")
+        );
+        assert!(
+            organization
+                .picture()
+                .expect("picture should exist")
+                .is_some()
+        );
+    }
+
+    #[test]
+    fn picture_changed_event_records_old_picture_after_current_picture() {
+        let mut organization = organization();
+        let first_picture = picture();
+        let second_picture = OrganizationPictureRef::external_url(
+            OrganizationPictureUrl::try_from("https://cdn.example.com/acme-updated.png")
+                .expect("picture URL should be valid"),
+        );
+        organization
+            .change_picture(Some(first_picture.clone()))
+            .expect("picture change should succeed");
+
+        organization
+            .change_picture(Some(second_picture.clone()))
+            .expect("picture change should succeed");
+
+        let OrganizationEventPayload::PictureChanged {
+            picture,
+            old_picture,
+        } = organization.uncommitted_events()[2].payload()
+        else {
+            panic!("event should be picture changed");
+        };
+        assert_eq!(picture.as_ref(), Some(&second_picture));
+        assert_eq!(old_picture.as_ref(), Some(&first_picture));
+    }
+
+    #[test]
+    fn removed_organization_rejects_attribute_changes() {
+        let mut organization = organization();
         organization.remove().expect("remove should succeed");
 
         let error = organization
-            .change_profile(profile())
+            .change_description(Some(description()))
             .expect_err("removed organization should reject changes");
 
         assert!(matches!(error, super::OrganizationError::Removed));

@@ -16,11 +16,11 @@ use super::{
 )]
 pub struct OrganizationInvitationState {
     pub(super) id: OrganizationInvitationId,
-    pub(super) status: OrganizationInvitationStatus,
     pub(super) organization_id: OrganizationId,
     pub(super) invitee_id: UserId,
     pub(super) issuer: OrganizationInvitationIssuer,
     pub(super) expires_at: OrganizationInvitationExpiresAt,
+    pub(super) status: OrganizationInvitationStatus,
 }
 
 impl OrganizationInvitationState {
@@ -34,11 +34,11 @@ impl OrganizationInvitationState {
     ) -> Self {
         Self {
             id,
-            status: OrganizationInvitationStatus::Pending,
             organization_id,
             invitee_id,
             issuer,
             expires_at,
+            status: OrganizationInvitationStatus::Pending,
         }
     }
 }

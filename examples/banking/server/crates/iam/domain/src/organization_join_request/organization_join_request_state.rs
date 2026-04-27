@@ -15,9 +15,9 @@ use super::{
 )]
 pub struct OrganizationJoinRequestState {
     pub(super) id: OrganizationJoinRequestId,
-    pub(super) status: OrganizationJoinRequestStatus,
     pub(super) organization_id: OrganizationId,
     pub(super) requester_id: UserId,
+    pub(super) status: OrganizationJoinRequestStatus,
 }
 
 impl OrganizationJoinRequestState {
@@ -29,9 +29,9 @@ impl OrganizationJoinRequestState {
     ) -> Self {
         Self {
             id,
-            status: OrganizationJoinRequestStatus::Pending,
             organization_id,
             requester_id,
+            status: OrganizationJoinRequestStatus::Pending,
         }
     }
 }

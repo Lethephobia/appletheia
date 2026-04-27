@@ -69,10 +69,20 @@ where
         let OrganizationCreateCommand {
             owner,
             handle,
-            profile,
+            display_name,
+            description,
+            website_url,
+            picture,
         } = command.clone();
         let mut organization = Organization::default();
-        organization.create(owner, handle, profile)?;
+        organization.create(
+            owner,
+            handle,
+            display_name,
+            description,
+            website_url,
+            picture,
+        )?;
 
         self.organization_repository
             .save(uow, request_context, &mut organization)
@@ -104,7 +114,7 @@ mod tests {
     use appletheia::domain::Aggregate;
     use banking_iam_domain::{
         Organization, OrganizationDisplayName, OrganizationHandle, OrganizationId,
-        OrganizationOwner, OrganizationProfile, User, UserId,
+        OrganizationOwner, User, UserId,
     };
     use uuid::Uuid;
 
@@ -112,13 +122,8 @@ mod tests {
         OrganizationCreateCommand, OrganizationCreateCommandHandler, OrganizationCreateOutput,
     };
 
-    fn profile() -> OrganizationProfile {
-        OrganizationProfile::new(
-            OrganizationDisplayName::try_from("Acme Labs").expect("display name should be valid"),
-            None,
-            None,
-            None,
-        )
+    fn display_name() -> OrganizationDisplayName {
+        OrganizationDisplayName::try_from("Acme Labs").expect("display name should be valid")
     }
 
     #[derive(Default)]
@@ -213,7 +218,10 @@ mod tests {
             .authorization_plan(&OrganizationCreateCommand {
                 owner: OrganizationOwner::User(owner),
                 handle: OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
-                profile: profile(),
+                display_name: display_name(),
+                description: None,
+                website_url: None,
+                picture: None,
             })
             .expect("authorization plan should build");
 
@@ -249,7 +257,10 @@ mod tests {
                     owner: OrganizationOwner::User(user_id),
                     handle: OrganizationHandle::try_from("acme-labs")
                         .expect("handle should be valid"),
-                    profile: profile(),
+                    display_name: display_name(),
+                    description: None,
+                    website_url: None,
+                    picture: None,
                 },
             )
             .await
@@ -263,10 +274,7 @@ mod tests {
             output,
             OrganizationCreateOutput::new(saved.aggregate_id().expect("id"))
         );
-        assert_eq!(
-            saved.name().expect("name should exist"),
-            profile().display_name()
-        );
+        assert_eq!(saved.name().expect("name should exist"), &display_name());
         assert_eq!(
             saved.handle().expect("handle should exist"),
             &OrganizationHandle::try_from("acme-labs").expect("handle should be valid")
@@ -292,7 +300,10 @@ mod tests {
                     owner: OrganizationOwner::User(UserId::new()),
                     handle: OrganizationHandle::try_from("acme-labs")
                         .expect("handle should be valid"),
-                    profile: profile(),
+                    display_name: display_name(),
+                    description: None,
+                    website_url: None,
+                    picture: None,
                 },
             )
             .await

@@ -16,8 +16,6 @@ pub use organization_membership_state_error::OrganizationMembershipStateError;
 pub use organization_membership_status::OrganizationMembershipStatus;
 pub use organization_role::OrganizationRole;
 
-use std::collections::BTreeSet;
-
 use appletheia::aggregate;
 use appletheia::domain::{Aggregate, AggregateApply, AggregateCore};
 
@@ -40,14 +38,14 @@ impl OrganizationMembership {
         Ok(&self.state_required()?.user_id)
     }
 
+    /// Returns the elevated roles granted through this membership.
+    pub fn roles(&self) -> Result<&[OrganizationRole], OrganizationMembershipError> {
+        Ok(self.state_required()?.roles.as_slice())
+    }
+
     /// Returns the current membership status.
     pub fn status(&self) -> Result<OrganizationMembershipStatus, OrganizationMembershipError> {
         Ok(self.state_required()?.status)
-    }
-
-    /// Returns the elevated roles granted through this membership.
-    pub fn roles(&self) -> Result<&BTreeSet<OrganizationRole>, OrganizationMembershipError> {
-        Ok(&self.state_required()?.roles)
     }
 
     /// Returns whether the membership is active.
@@ -198,13 +196,24 @@ impl AggregateApply<OrganizationMembershipEventPayload, OrganizationMembershipEr
                     *id,
                     *organization_id,
                     *user_id,
-                    BTreeSet::new(),
+                    Vec::new(),
                 )));
+            }
+            OrganizationMembershipEventPayload::RoleGranted { role, .. } => {
+                let state = self.state_required_mut()?;
+                if !state.roles.contains(role) {
+                    state.roles.push(*role);
+                }
+            }
+            OrganizationMembershipEventPayload::RoleRevoked { role, .. } => {
+                self.state_required_mut()?
+                    .roles
+                    .retain(|existing_role| existing_role != role);
             }
             OrganizationMembershipEventPayload::Activated { roles, .. } => {
                 let state = self.state_required_mut()?;
                 state.status = OrganizationMembershipStatus::Active;
-                state.roles = roles.clone();
+                state.roles = deduplicated_roles(roles);
             }
             OrganizationMembershipEventPayload::Inactivated { .. } => {
                 self.state_required_mut()?.status = OrganizationMembershipStatus::Inactive;
@@ -212,26 +221,28 @@ impl AggregateApply<OrganizationMembershipEventPayload, OrganizationMembershipEr
             OrganizationMembershipEventPayload::Removed { .. } => {
                 self.state_required_mut()?.status = OrganizationMembershipStatus::Removed;
             }
-            OrganizationMembershipEventPayload::RoleGranted { role, .. } => {
-                let mut roles = self.state_required()?.roles.clone();
-                roles.insert(*role);
-                self.state_required_mut()?.roles = roles;
-            }
-            OrganizationMembershipEventPayload::RoleRevoked { role, .. } => {
-                let mut roles = self.state_required()?.roles.clone();
-                roles.remove(role);
-                self.state_required_mut()?.roles = roles;
-            }
         }
 
         Ok(())
     }
 }
 
+fn deduplicated_roles(roles: &[OrganizationRole]) -> Vec<OrganizationRole> {
+    let mut deduplicated = Vec::with_capacity(roles.len());
+
+    for role in roles {
+        if deduplicated.contains(role) {
+            continue;
+        }
+
+        deduplicated.push(*role);
+    }
+
+    deduplicated
+}
+
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeSet;
-
     use appletheia::domain::{Aggregate, AggregateId, EventPayload};
 
     use super::{
@@ -275,10 +286,7 @@ mod tests {
             membership.status().expect("status should exist"),
             OrganizationMembershipStatus::Active
         );
-        assert_eq!(
-            membership.roles().expect("roles should exist"),
-            &BTreeSet::new()
-        );
+        assert_eq!(membership.roles().expect("roles should exist"), &[]);
         assert_eq!(membership.uncommitted_events().len(), 1);
         assert_eq!(
             membership.uncommitted_events()[0].payload().name(),
@@ -290,7 +298,7 @@ mod tests {
     fn activate_and_deactivate_update_status_and_record_events() {
         let organization_id_value = organization_id();
         let user_id_value = user_id();
-        let roles = BTreeSet::from([OrganizationRole::Treasurer]);
+        let roles = vec![OrganizationRole::Treasurer];
         let mut membership = OrganizationMembership::default();
         membership
             .create(organization_id_value, user_id_value)
@@ -489,5 +497,44 @@ mod tests {
             .revoke_role(OrganizationRole::Admin)
             .expect("missing revoke should be ignored");
         assert_eq!(membership.uncommitted_events().len(), 3);
+    }
+
+    #[test]
+    fn granted_roles_preserve_grant_order_through_reactivation() {
+        let organization_id_value = organization_id();
+        let user_id_value = user_id();
+        let mut membership = OrganizationMembership::default();
+        membership
+            .create(organization_id_value, user_id_value)
+            .expect("creation should succeed");
+        membership
+            .grant_role(OrganizationRole::Treasurer)
+            .expect("grant should succeed");
+        membership
+            .grant_role(OrganizationRole::FinanceManager)
+            .expect("grant should succeed");
+
+        assert_eq!(
+            membership.roles().expect("roles should exist"),
+            &[
+                OrganizationRole::Treasurer,
+                OrganizationRole::FinanceManager
+            ]
+        );
+
+        membership.deactivate().expect("deactivate should succeed");
+        membership.activate().expect("activate should succeed");
+
+        assert_eq!(
+            membership.uncommitted_events()[4].payload(),
+            &OrganizationMembershipEventPayload::Activated {
+                organization_id: organization_id_value,
+                user_id: user_id_value,
+                roles: vec![
+                    OrganizationRole::Treasurer,
+                    OrganizationRole::FinanceManager,
+                ],
+            }
+        );
     }
 }

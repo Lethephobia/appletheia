@@ -1,0 +1,9 @@
+mod user_bio_change_command;
+mod user_bio_change_command_handler;
+mod user_bio_change_command_handler_error;
+mod user_bio_change_output;
+
+pub use user_bio_change_command::UserBioChangeCommand;
+pub use user_bio_change_command_handler::UserBioChangeCommandHandler;
+pub use user_bio_change_command_handler_error::UserBioChangeCommandHandlerError;
+pub use user_bio_change_output::UserBioChangeOutput;

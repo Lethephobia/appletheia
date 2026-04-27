@@ -14,7 +14,7 @@ where
     pub saga_run_id: SagaRunId,
     pub saga_name: SagaNameOwned,
     pub trigger_event_id: EventId,
-    pub dispatched_command_message_id: MessageId,
+    pub dispatched_command_message_id: Option<MessageId>,
     pub context: C,
 }
 
@@ -25,7 +25,7 @@ where
     pub fn new(
         saga_name: SagaNameOwned,
         trigger_event_id: EventId,
-        dispatched_command_message_id: MessageId,
+        dispatched_command_message_id: Option<MessageId>,
         context: C,
     ) -> Self {
         Self {

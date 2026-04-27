@@ -16,7 +16,11 @@ pub struct UserPictureObjectName(String);
 impl UserPictureObjectName {
     /// Creates a new picture object name for the given user.
     pub fn new(user_id: UserId) -> Self {
-        Self(format!("users/{}/picture", user_id.value()))
+        Self(format!(
+            "users/{}/pictures/{}",
+            user_id.value(),
+            Uuid::now_v7()
+        ))
     }
 
     /// Returns the picture object name.
@@ -46,7 +50,7 @@ impl FromStr for UserPictureObjectName {
         }
 
         let segments = value.split('/').collect::<Vec<_>>();
-        if segments.len() != 3 || segments[0] != "users" || segments[2] != "picture" {
+        if segments.len() != 4 || segments[0] != "users" || segments[2] != "pictures" {
             return Err(UserPictureObjectNameError::InvalidFormat);
         }
 
@@ -54,6 +58,7 @@ impl FromStr for UserPictureObjectName {
             Uuid::parse_str(segments[1]).map_err(|_| UserPictureObjectNameError::InvalidFormat)?,
         )
         .map_err(|_| UserPictureObjectNameError::InvalidFormat)?;
+        Uuid::parse_str(segments[3]).map_err(|_| UserPictureObjectNameError::InvalidFormat)?;
 
         Ok(Self(value.to_owned()))
     }
@@ -93,28 +98,31 @@ mod tests {
     fn new_generates_picture_object_name_for_user() {
         let user_id = UserId::try_from_uuid(Uuid::nil()).expect("user ID should be valid");
         let object_name = UserPictureObjectName::new(user_id);
+        let segments = object_name.value().split('/').collect::<Vec<_>>();
 
-        assert_eq!(
-            object_name.value(),
-            "users/00000000-0000-0000-0000-000000000000/picture"
-        );
+        assert_eq!(segments.len(), 4);
+        assert_eq!(segments[0], "users");
+        assert_eq!(segments[1], "00000000-0000-0000-0000-000000000000");
+        assert_eq!(segments[2], "pictures");
+        Uuid::parse_str(segments[3]).expect("picture ID should be a UUID");
     }
 
     #[test]
     fn try_from_accepts_valid_picture_object_name() {
-        let object_name =
-            UserPictureObjectName::try_from("users/00000000-0000-0000-0000-000000000001/picture")
-                .expect("name should be valid");
+        let object_name = UserPictureObjectName::try_from(
+            "users/00000000-0000-0000-0000-000000000001/pictures/00000000-0000-0000-0000-000000000002",
+        )
+        .expect("name should be valid");
 
         assert_eq!(
             object_name.value(),
-            "users/00000000-0000-0000-0000-000000000001/picture"
+            "users/00000000-0000-0000-0000-000000000001/pictures/00000000-0000-0000-0000-000000000002"
         );
     }
 
     #[test]
     fn try_from_rejects_invalid_picture_object_name() {
-        let error = UserPictureObjectName::try_from("users/not-a-uuid/picture")
+        let error = UserPictureObjectName::try_from("users/not-a-uuid/pictures/not-a-uuid")
             .expect_err("name should be invalid");
 
         assert!(matches!(error, UserPictureObjectNameError::InvalidFormat));

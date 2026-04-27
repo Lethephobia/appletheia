@@ -1,8 +1,9 @@
 use appletheia::event_payload;
 
 use super::{
-    OrganizationEventPayloadError, OrganizationHandle, OrganizationId, OrganizationOwner,
-    OrganizationProfile,
+    OrganizationDescription, OrganizationDisplayName, OrganizationEventPayloadError,
+    OrganizationHandle, OrganizationId, OrganizationOwner, OrganizationPictureRef,
+    OrganizationWebsiteUrl,
 };
 
 /// Represents the domain events emitted by an `Organization` aggregate.
@@ -12,7 +13,10 @@ pub enum OrganizationEventPayload {
         id: OrganizationId,
         owner: OrganizationOwner,
         handle: OrganizationHandle,
-        profile: OrganizationProfile,
+        display_name: OrganizationDisplayName,
+        description: Option<OrganizationDescription>,
+        website_url: Option<OrganizationWebsiteUrl>,
+        picture: Option<OrganizationPictureRef>,
     },
     OwnershipTransferred {
         owner: OrganizationOwner,
@@ -20,29 +24,32 @@ pub enum OrganizationEventPayload {
     HandleChanged {
         handle: OrganizationHandle,
     },
-    ProfileChanged {
-        profile: OrganizationProfile,
+    DisplayNameChanged {
+        display_name: OrganizationDisplayName,
+    },
+    DescriptionChanged {
+        description: Option<OrganizationDescription>,
+    },
+    WebsiteUrlChanged {
+        website_url: Option<OrganizationWebsiteUrl>,
+    },
+    PictureChanged {
+        picture: Option<OrganizationPictureRef>,
+        old_picture: Option<OrganizationPictureRef>,
     },
     Removed,
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::OrganizationDisplayName;
     use appletheia::domain::EventPayload;
 
-    use super::{
-        OrganizationEventPayload, OrganizationHandle, OrganizationId, OrganizationOwner,
-        OrganizationProfile,
-    };
+    use crate::{OrganizationDisplayName, OrganizationWebsiteUrl};
 
-    fn profile() -> OrganizationProfile {
-        OrganizationProfile::new(
-            OrganizationDisplayName::try_from("Acme Labs").expect("display name should be valid"),
-            None,
-            None,
-            None,
-        )
+    use super::{OrganizationEventPayload, OrganizationHandle, OrganizationId, OrganizationOwner};
+
+    fn display_name() -> OrganizationDisplayName {
+        OrganizationDisplayName::try_from("Acme Labs").expect("display name should be valid")
     }
 
     #[test]
@@ -60,8 +67,20 @@ mod tests {
             appletheia::domain::EventName::new("handle_changed")
         );
         assert_eq!(
-            OrganizationEventPayload::PROFILE_CHANGED,
-            appletheia::domain::EventName::new("profile_changed")
+            OrganizationEventPayload::DISPLAY_NAME_CHANGED,
+            appletheia::domain::EventName::new("display_name_changed")
+        );
+        assert_eq!(
+            OrganizationEventPayload::DESCRIPTION_CHANGED,
+            appletheia::domain::EventName::new("description_changed")
+        );
+        assert_eq!(
+            OrganizationEventPayload::WEBSITE_URL_CHANGED,
+            appletheia::domain::EventName::new("website_url_changed")
+        );
+        assert_eq!(
+            OrganizationEventPayload::PICTURE_CHANGED,
+            appletheia::domain::EventName::new("picture_changed")
         );
         assert_eq!(
             OrganizationEventPayload::REMOVED,
@@ -70,22 +89,32 @@ mod tests {
     }
 
     #[test]
-    fn profile_changed_payload_name_matches_variant() {
-        let payload = OrganizationEventPayload::ProfileChanged { profile: profile() };
+    fn display_name_changed_payload_name_matches_variant() {
+        let payload = OrganizationEventPayload::DisplayNameChanged {
+            display_name: display_name(),
+        };
 
-        assert_eq!(payload.name(), OrganizationEventPayload::PROFILE_CHANGED);
+        assert_eq!(
+            payload.name(),
+            OrganizationEventPayload::DISPLAY_NAME_CHANGED
+        );
     }
 
     #[test]
-    fn serializes_profile_changed_payload_to_json() {
-        let payload = OrganizationEventPayload::ProfileChanged { profile: profile() };
+    fn serializes_website_url_changed_payload_to_json() {
+        let payload = OrganizationEventPayload::WebsiteUrlChanged {
+            website_url: Some(
+                OrganizationWebsiteUrl::try_from("https://acme.example.com")
+                    .expect("website URL should be valid"),
+            ),
+        };
 
         let value = payload.into_json_value().expect("payload should serialize");
 
-        assert_eq!(value["type"], serde_json::json!("profile_changed"));
+        assert_eq!(value["type"], serde_json::json!("website_url_changed"));
         assert_eq!(
-            value["data"]["profile"]["display_name"],
-            serde_json::json!("Acme Labs")
+            value["data"]["website_url"],
+            serde_json::json!("https://acme.example.com/")
         );
     }
 
@@ -95,14 +124,17 @@ mod tests {
             id: OrganizationId::new(),
             owner: OrganizationOwner::User(crate::UserId::new()),
             handle: OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
-            profile: profile(),
+            display_name: display_name(),
+            description: None,
+            website_url: None,
+            picture: None,
         };
 
         let value = payload.into_json_value().expect("payload should serialize");
 
         assert_eq!(value["type"], serde_json::json!("created"));
         assert_eq!(
-            value["data"]["profile"]["display_name"],
+            value["data"]["display_name"],
             serde_json::json!("Acme Labs")
         );
     }

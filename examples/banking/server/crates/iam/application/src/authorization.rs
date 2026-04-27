@@ -7,7 +7,7 @@ mod user;
 pub use organization::{
     OrganizationAdminRelation, OrganizationFinanceManagerRelation,
     OrganizationHandleChangerRelation, OrganizationInviterRelation,
-    OrganizationOwnershipTransfererRelation, OrganizationProfileChangerRelation,
+    OrganizationOwnershipTransfererRelation, OrganizationProfileEditorRelation,
     OrganizationRemoverRelation, OrganizationTreasurerRelation,
 };
 pub use organization::{OrganizationMemberRelation, OrganizationOwnerRelation};
@@ -27,6 +27,6 @@ pub use organization_membership::{
     OrganizationMembershipRoleRevokerRelation, OrganizationMembershipStatusManagerRelation,
 };
 pub use user::{
-    UserActivatorRelation, UserDeactivatorRelation, UserOwnerRelation, UserProfileChangerRelation,
+    UserActivatorRelation, UserDeactivatorRelation, UserOwnerRelation, UserProfileEditorRelation,
     UserRemoverRelation, UserUsernameChangerRelation,
 };

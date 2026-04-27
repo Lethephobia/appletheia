@@ -20,9 +20,6 @@ pub enum AccountEventPayload {
     Renamed {
         name: AccountName,
     },
-    Frozen,
-    Thawed,
-    Closed,
     Deposited {
         amount: CurrencyAmount,
     },
@@ -38,6 +35,9 @@ pub enum AccountEventPayload {
     ReservedFundsCommitted {
         amount: CurrencyAmount,
     },
+    Frozen,
+    Thawed,
+    Closed,
 }
 
 #[cfg(test)]
@@ -63,18 +63,6 @@ mod tests {
             appletheia::domain::EventName::new("renamed")
         );
         assert_eq!(
-            AccountEventPayload::FROZEN,
-            appletheia::domain::EventName::new("frozen")
-        );
-        assert_eq!(
-            AccountEventPayload::THAWED,
-            appletheia::domain::EventName::new("thawed")
-        );
-        assert_eq!(
-            AccountEventPayload::CLOSED,
-            appletheia::domain::EventName::new("closed")
-        );
-        assert_eq!(
             AccountEventPayload::DEPOSITED,
             appletheia::domain::EventName::new("deposited")
         );
@@ -93,6 +81,18 @@ mod tests {
         assert_eq!(
             AccountEventPayload::RESERVED_FUNDS_COMMITTED,
             appletheia::domain::EventName::new("reserved_funds_committed")
+        );
+        assert_eq!(
+            AccountEventPayload::FROZEN,
+            appletheia::domain::EventName::new("frozen")
+        );
+        assert_eq!(
+            AccountEventPayload::THAWED,
+            appletheia::domain::EventName::new("thawed")
+        );
+        assert_eq!(
+            AccountEventPayload::CLOSED,
+            appletheia::domain::EventName::new("closed")
         );
     }
 

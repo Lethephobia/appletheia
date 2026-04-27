@@ -8,7 +8,6 @@ use crate::command::Command;
 
 pub mod default_saga_runner;
 pub mod default_saga_worker;
-pub mod enqueued_command_count;
 pub mod saga_descriptor;
 pub mod saga_name;
 pub mod saga_name_owned;
@@ -33,7 +32,6 @@ pub mod saga_worker_error;
 
 pub use default_saga_runner::DefaultSagaRunner;
 pub use default_saga_worker::DefaultSagaWorker;
-pub use enqueued_command_count::EnqueuedCommandCount;
 pub use saga_descriptor::SagaDescriptor;
 pub use saga_name::SagaName;
 pub use saga_name_owned::SagaNameOwned;
