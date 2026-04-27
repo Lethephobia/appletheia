@@ -20,9 +20,9 @@ keywords = ["appletheia", "ddd", "event-sourcing", "cqrs"]
 
 [workspace.dependencies]
 appletheia-domain = { version = "0.3.3", path = "crates/appletheia-domain" }
-appletheia-application = { version = "0.22.0", path = "crates/appletheia-application" }
-appletheia-infrastructure = { version = "0.13.0", path = "crates/appletheia-infrastructure" }
-appletheia-macros = { version = "0.2.13", path = "crates/appletheia-macros" }
+appletheia-application = { version = "0.23.0", path = "crates/appletheia-application" }
+appletheia-infrastructure = { version = "0.14.0", path = "crates/appletheia-infrastructure" }
+appletheia-macros = { version = "0.2.14", path = "crates/appletheia-macros" }
 base64 = "0.22.1"
 chrono = "0.4.42"
 serde = "1.0.228"
