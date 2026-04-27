@@ -143,9 +143,7 @@ mod tests {
     };
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::Aggregate;
-    use banking_iam_domain::{
-        User, UserId, UserIdentity, UserIdentityProvider, UserIdentitySubject,
-    };
+    use banking_iam_domain::{User, UserId, UserIdentityProvider, UserIdentitySubject};
     use chrono::Duration;
     use uuid::Uuid;
 
@@ -258,13 +256,14 @@ mod tests {
 
     fn registered_user() -> User {
         let mut user = User::default();
-        user.register(UserIdentity::new(
+        user.register().expect("user should register");
+        user.link_identity(
             UserIdentityProvider::try_from("https://accounts.example.com")
                 .expect("provider should be valid"),
             UserIdentitySubject::try_from("user-123").expect("subject should be valid"),
             None,
-        ))
-        .expect("user should register");
+        )
+        .expect("identity should link");
         user
     }
 

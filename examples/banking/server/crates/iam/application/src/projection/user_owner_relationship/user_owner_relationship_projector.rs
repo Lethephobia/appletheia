@@ -72,9 +72,7 @@ mod tests {
     };
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::{Aggregate, AggregateId, EventPayload};
-    use banking_iam_domain::{
-        Email, User, UserIdentity, UserIdentityProvider, UserIdentitySubject,
-    };
+    use banking_iam_domain::{Email, User, UserIdentityProvider, UserIdentitySubject};
 
     use super::UserOwnerRelationshipProjector;
     use crate::authorization::UserOwnerRelation;
@@ -138,8 +136,8 @@ mod tests {
         }
     }
 
-    fn identity() -> UserIdentity {
-        UserIdentity::new(
+    fn identity_parts() -> (UserIdentityProvider, UserIdentitySubject, Option<Email>) {
+        (
             UserIdentityProvider::try_from("https://accounts.example.com")
                 .expect("provider should be valid"),
             UserIdentitySubject::try_from("user-123").expect("subject should be valid"),
@@ -149,8 +147,7 @@ mod tests {
 
     fn registered_event_envelope() -> EventEnvelope {
         let mut user = User::default();
-        user.register(identity())
-            .expect("registration should succeed");
+        user.register().expect("registration should succeed");
 
         let event = user
             .uncommitted_events()
@@ -192,8 +189,10 @@ mod tests {
 
     fn removed_event_envelope() -> EventEnvelope {
         let mut user = User::default();
-        user.register(identity())
-            .expect("registration should succeed");
+        let (provider, subject, email) = identity_parts();
+        user.register().expect("registration should succeed");
+        user.link_identity(provider, subject, email)
+            .expect("identity linking should succeed");
         user.remove().expect("removal should succeed");
 
         let event = user

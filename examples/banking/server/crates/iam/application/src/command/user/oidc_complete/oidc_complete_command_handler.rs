@@ -94,7 +94,12 @@ where
             }
             None => {
                 let mut user = User::default();
-                user.register(identity.clone())?;
+                user.register()?;
+                user.link_identity(
+                    identity.provider().clone(),
+                    identity.subject().clone(),
+                    identity.email().cloned(),
+                )?;
                 Ok(user)
             }
         }
@@ -133,7 +138,11 @@ where
                     return Err(OidcCompleteCommandHandlerError::AuthenticatedUserNotFound);
                 };
 
-                user.link_identity(identity.clone())?;
+                user.link_identity(
+                    identity.provider().clone(),
+                    identity.subject().clone(),
+                    identity.email().cloned(),
+                )?;
                 Ok(user)
             }
         }

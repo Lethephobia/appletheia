@@ -21,6 +21,9 @@ pub enum UserError {
     #[error("user identity is already linked")]
     IdentityAlreadyLinked,
 
+    #[error("user identity count limit exceeded")]
+    IdentityCountLimitExceeded,
+
     #[error("user identity was not found")]
     IdentityNotFound,
 

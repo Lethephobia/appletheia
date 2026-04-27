@@ -53,6 +53,8 @@ pub struct User {
 }
 
 impl User {
+    pub const MAX_IDENTITY_COUNT: usize = 32;
+
     /// Returns the linked external identities.
     pub fn identities(&self) -> Result<&[UserIdentity], UserError> {
         Ok(&self.state_required()?.identities)
@@ -111,30 +113,31 @@ impl User {
         Ok(self.state_required()?.status.is_removed())
     }
 
-    /// Registers a new user with an initial external identity.
-    pub fn register(&mut self, identity: UserIdentity) -> Result<(), UserError> {
+    /// Registers a new user.
+    pub fn register(&mut self) -> Result<(), UserError> {
         if self.state().is_some() {
             return Err(UserError::AlreadyRegistered);
         }
 
-        self.append_event(UserEventPayload::Registered {
-            id: UserId::new(),
-            identity,
-        })
+        self.append_event(UserEventPayload::Registered { id: UserId::new() })
     }
 
     /// Links an additional external identity.
-    pub fn link_identity(&mut self, identity: UserIdentity) -> Result<(), UserError> {
+    pub fn link_identity(
+        &mut self,
+        provider: UserIdentityProvider,
+        subject: UserIdentitySubject,
+        email: Option<Email>,
+    ) -> Result<(), UserError> {
         self.ensure_active_status()?;
 
-        if let Some(current_identity) =
-            self.state_required()?
-                .identities
-                .iter()
-                .find(|current_identity| {
-                    current_identity.matches(identity.provider(), identity.subject())
-                })
+        if let Some(current_identity) = self
+            .state_required()?
+            .identities
+            .iter()
+            .find(|current_identity| current_identity.matches(&provider, &subject))
         {
+            let identity = UserIdentity::new(provider, subject, email);
             if current_identity == &identity {
                 return Ok(());
             }
@@ -142,7 +145,15 @@ impl User {
             return Err(UserError::IdentityAlreadyLinked);
         }
 
-        self.append_event(UserEventPayload::IdentityLinked { identity })
+        if self.state_required()?.identities.len() >= Self::MAX_IDENTITY_COUNT {
+            return Err(UserError::IdentityCountLimitExceeded);
+        }
+
+        self.append_event(UserEventPayload::IdentityLinked {
+            provider,
+            subject,
+            email,
+        })
     }
 
     /// Changes the email snapshot for a linked identity.
@@ -276,11 +287,19 @@ impl User {
 impl AggregateApply<UserEventPayload, UserError> for User {
     fn apply(&mut self, payload: &UserEventPayload) -> Result<(), UserError> {
         match payload {
-            UserEventPayload::Registered { id, identity } => {
-                self.set_state(Some(UserState::new(*id, identity.clone())))
-            }
-            UserEventPayload::IdentityLinked { identity } => {
-                self.state_required_mut()?.identities.push(identity.clone());
+            UserEventPayload::Registered { id } => self.set_state(Some(UserState::new(*id))),
+            UserEventPayload::IdentityLinked {
+                provider,
+                subject,
+                email,
+            } => {
+                self.state_required_mut()?
+                    .identities
+                    .push(UserIdentity::new(
+                        provider.clone(),
+                        subject.clone(),
+                        email.clone(),
+                    ));
             }
             UserEventPayload::IdentityEmailChanged {
                 provider,
@@ -327,18 +346,12 @@ mod tests {
     use appletheia::domain::{Aggregate, EventPayload};
 
     use super::{
-        User, UserBio, UserDisplayName, UserError, UserEventPayload, UserIdentity,
-        UserIdentityProvider, UserIdentitySubject, UserPictureRef, UserPictureUrl, UserStatus,
-        Username,
+        User, UserBio, UserDisplayName, UserError, UserEventPayload, UserIdentityProvider,
+        UserIdentitySubject, UserPictureRef, UserPictureUrl, UserStatus, Username,
     };
 
-    fn identity() -> UserIdentity {
-        UserIdentity::new(
-            UserIdentityProvider::try_from("https://accounts.example.com")
-                .expect("provider should be valid"),
-            UserIdentitySubject::try_from("user-123").expect("subject should be valid"),
-            None,
-        )
+    fn register_user(user: &mut User) {
+        user.register().expect("user should register");
     }
 
     fn display_name() -> UserDisplayName {
@@ -360,7 +373,7 @@ mod tests {
     fn register_initializes_state_and_records_event() {
         let mut user = User::default();
 
-        user.register(identity()).expect("user should register");
+        register_user(&mut user);
 
         assert_eq!(
             user.status().expect("status should exist"),
@@ -382,7 +395,7 @@ mod tests {
     #[test]
     fn change_username_sets_username() {
         let mut user = User::default();
-        user.register(identity()).expect("user should register");
+        register_user(&mut user);
 
         user.change_username(Username::try_from("alice").expect("username should be valid"))
             .expect("username change should succeed");
@@ -397,7 +410,7 @@ mod tests {
     fn change_display_name_sets_display_name() {
         let mut user = User::default();
         let display_name = display_name();
-        user.register(identity()).expect("user should register");
+        register_user(&mut user);
 
         user.change_display_name(display_name.clone())
             .expect("display name change should succeed");
@@ -412,7 +425,7 @@ mod tests {
     fn identical_username_change_is_a_no_op() {
         let mut user = User::default();
         let username = Username::try_from("alice").expect("username should be valid");
-        user.register(identity()).expect("user should register");
+        register_user(&mut user);
         user.change_username(username.clone())
             .expect("username change should succeed");
 
@@ -426,7 +439,7 @@ mod tests {
     fn identical_display_name_change_is_a_no_op() {
         let mut user = User::default();
         let display_name = display_name();
-        user.register(identity()).expect("user should register");
+        register_user(&mut user);
         user.change_display_name(display_name.clone())
             .expect("display name change should succeed");
 
@@ -439,7 +452,7 @@ mod tests {
     #[test]
     fn bio_and_picture_changes_update_state() {
         let mut user = User::default();
-        user.register(identity()).expect("user should register");
+        register_user(&mut user);
 
         user.change_bio(Some(bio()))
             .expect("bio change should succeed");
@@ -461,7 +474,7 @@ mod tests {
             UserPictureUrl::try_from("https://cdn.example.com/alice-updated.png")
                 .expect("picture URL should be valid"),
         );
-        user.register(identity()).expect("user should register");
+        register_user(&mut user);
         user.change_picture(Some(first_picture.clone()))
             .expect("picture change should succeed");
 
@@ -482,7 +495,7 @@ mod tests {
     #[test]
     fn display_name_and_username_changes_reject_inactive_user() {
         let mut user = User::default();
-        user.register(identity()).expect("user should register");
+        register_user(&mut user);
         user.deactivate().expect("user should deactivate");
 
         let username_error = user
@@ -499,7 +512,7 @@ mod tests {
     #[test]
     fn identity_email_change_rejects_unknown_identity() {
         let mut user = User::default();
-        user.register(identity()).expect("user should register");
+        register_user(&mut user);
 
         let error = user
             .change_identity_email(
@@ -514,9 +527,37 @@ mod tests {
     }
 
     #[test]
+    fn link_identity_rejects_identity_count_over_limit() {
+        let mut user = User::default();
+        register_user(&mut user);
+
+        for index in 0..User::MAX_IDENTITY_COUNT {
+            user.link_identity(
+                UserIdentityProvider::try_from(format!("https://accounts-{index}.example.com"))
+                    .expect("provider should be valid"),
+                UserIdentitySubject::try_from(format!("user-{index}"))
+                    .expect("subject should be valid"),
+                None,
+            )
+            .expect("identity should link");
+        }
+
+        let error = user
+            .link_identity(
+                UserIdentityProvider::try_from("https://accounts-over-limit.example.com")
+                    .expect("provider should be valid"),
+                UserIdentitySubject::try_from("user-over-limit").expect("subject should be valid"),
+                None,
+            )
+            .expect_err("identity count over limit should be rejected");
+
+        assert!(matches!(error, UserError::IdentityCountLimitExceeded));
+    }
+
+    #[test]
     fn remove_updates_status_to_removed() {
         let mut user = User::default();
-        user.register(identity()).expect("user should register");
+        register_user(&mut user);
 
         user.remove().expect("remove should succeed");
 
