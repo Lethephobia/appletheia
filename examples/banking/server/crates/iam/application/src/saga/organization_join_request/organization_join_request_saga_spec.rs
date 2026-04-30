@@ -17,6 +17,10 @@ impl SagaSpec for OrganizationJoinRequestSagaSpec {
 
     const DESCRIPTOR: SagaDescriptor = SagaDescriptor::new(
         SagaName::new("organization_join_request"),
+        EventSelector::new(
+            OrganizationJoinRequest::TYPE,
+            OrganizationJoinRequestEventPayload::APPROVED,
+        ),
         Subscription::AnyOf(&[
             EventSelector::new(
                 OrganizationJoinRequest::TYPE,

@@ -3,7 +3,7 @@ use std::error::Error;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum SagaStoreError {
+pub enum SagaInstanceStoreError {
     #[error("not in transaction")]
     NotInTransaction,
 

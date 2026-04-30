@@ -17,6 +17,10 @@ impl SagaSpec for OrganizationInvitationSagaSpec {
 
     const DESCRIPTOR: SagaDescriptor = SagaDescriptor::new(
         SagaName::new("organization_invitation"),
+        EventSelector::new(
+            OrganizationInvitation::TYPE,
+            OrganizationInvitationEventPayload::ACCEPTED,
+        ),
         Subscription::AnyOf(&[
             EventSelector::new(
                 OrganizationInvitation::TYPE,

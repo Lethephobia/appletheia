@@ -16,6 +16,7 @@ impl SagaSpec for CurrencyIssuanceSagaSpec {
 
     const DESCRIPTOR: SagaDescriptor = SagaDescriptor::new(
         SagaName::new("currency_issuance"),
+        EventSelector::new(CurrencyIssuance::TYPE, CurrencyIssuanceEventPayload::ISSUED),
         Subscription::AnyOf(&[
             EventSelector::new(CurrencyIssuance::TYPE, CurrencyIssuanceEventPayload::ISSUED),
             EventSelector::new(Currency::TYPE, CurrencyEventPayload::SUPPLY_INCREASED),

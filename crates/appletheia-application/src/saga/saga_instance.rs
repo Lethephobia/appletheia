@@ -1,4 +1,6 @@
-use crate::request_context::CorrelationId;
+use appletheia_domain::EventId;
+
+use crate::request_context::{CorrelationId, MessageId};
 use crate::{
     command::{Command, CommandOptions},
     event::EventEnvelope,
@@ -13,19 +15,27 @@ pub struct SagaInstance<S: SagaState> {
     pub saga_instance_id: SagaInstanceId,
     pub saga_name: SagaNameOwned,
     pub correlation_id: CorrelationId,
+    pub start_event_id: EventId,
     pub status: SagaStatus,
     pub state: Option<S>,
+    pub dispatched_command_message_ids: Vec<MessageId>,
     pub uncommitted_commands: Vec<CommandEnvelope>,
 }
 
 impl<S: SagaState> SagaInstance<S> {
-    pub fn new(saga_name: SagaNameOwned, correlation_id: CorrelationId) -> Self {
+    pub fn new(
+        saga_name: SagaNameOwned,
+        correlation_id: CorrelationId,
+        start_event_id: EventId,
+    ) -> Self {
         Self {
             saga_instance_id: SagaInstanceId::new(),
             saga_name,
             correlation_id,
+            start_event_id,
             status: SagaStatus::InProgress,
             state: None,
+            dispatched_command_message_ids: Vec::new(),
             uncommitted_commands: Vec::new(),
         }
     }
@@ -56,28 +66,31 @@ impl<S: SagaState> SagaInstance<S> {
 
     pub fn append_command<C: Command>(
         &mut self,
-        event_from: &EventEnvelope,
+        from_event: &EventEnvelope,
         command: &C,
     ) -> Result<(), SagaInstanceError> {
-        self.append_command_with_options(event_from, command, CommandOptions::default())
+        self.append_command_with_options(from_event, command, CommandOptions::default())
     }
 
     pub fn append_command_with_options<C: Command>(
         &mut self,
-        event_from: &EventEnvelope,
+        from_event: &EventEnvelope,
         command: &C,
         options: CommandOptions,
     ) -> Result<(), SagaInstanceError> {
-        if self.correlation_id != event_from.correlation_id {
+        if self.correlation_id != from_event.correlation_id {
             return Err(SagaInstanceError::CorrelationIdMismatch);
         }
 
-        self.uncommitted_commands.push(CommandEnvelope::new(
+        let envelope = CommandEnvelope::new(
             command,
             self.correlation_id,
-            CausationId::from(event_from.event_id),
+            CausationId::from(from_event.event_id),
             options,
-        )?);
+        )?;
+        self.dispatched_command_message_ids
+            .push(envelope.message_id);
+        self.uncommitted_commands.push(envelope);
 
         Ok(())
     }

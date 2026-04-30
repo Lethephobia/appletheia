@@ -16,6 +16,7 @@ impl SagaSpec for TransferSagaSpec {
 
     const DESCRIPTOR: SagaDescriptor = SagaDescriptor::new(
         SagaName::new("transfer"),
+        EventSelector::new(Transfer::TYPE, TransferEventPayload::REQUESTED),
         Subscription::AnyOf(&[
             EventSelector::new(Transfer::TYPE, TransferEventPayload::REQUESTED),
             EventSelector::new(Account::TYPE, AccountEventPayload::FUNDS_RESERVED),

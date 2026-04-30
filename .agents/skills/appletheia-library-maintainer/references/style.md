@@ -71,6 +71,37 @@ let user_id = banking_iam_domain::UserId::new();
 
 Use a single module when the types and helpers are meant to change together.
 
+### PREFER keeping type-specific helpers inside the relevant `impl`
+
+When a small helper only exists to support one type's behavior, keep it as a private associated
+function on that type instead of a free function.
+
+good:
+```rust
+impl ExampleSelector {
+    pub const fn matches_static(&self, other: &Self) -> bool {
+        Self::str_eq(self.name, other.name)
+    }
+
+    const fn str_eq(left: &str, right: &str) -> bool {
+        // ...
+    }
+}
+```
+
+bad:
+```rust
+impl ExampleSelector {
+    pub const fn matches_static(&self, other: &Self) -> bool {
+        str_eq(self.name, other.name)
+    }
+}
+
+const fn str_eq(left: &str, right: &str) -> bool {
+    // ...
+}
+```
+
 ### AVOID sprawling grab-bag modules
 
 Split a module when unrelated concerns start accumulating in the same file.

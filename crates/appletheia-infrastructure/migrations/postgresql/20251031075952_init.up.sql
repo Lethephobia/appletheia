@@ -166,6 +166,7 @@ CREATE TABLE IF NOT EXISTS saga_instances (
   id             UUID        PRIMARY KEY,
   saga_name      TEXT        NOT NULL,
   correlation_id UUID        NOT NULL,
+  start_event_id UUID        NOT NULL,
   state          JSONB,
   state_version  BIGINT      NOT NULL DEFAULT 0 CHECK (state_version >= 0),
   created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -181,6 +182,17 @@ CREATE TABLE IF NOT EXISTS saga_instances (
 CREATE INDEX IF NOT EXISTS idx_saga_instances_in_progress
   ON saga_instances (saga_name, updated_at)
   WHERE succeeded_at IS NULL AND failed_at IS NULL;
+
+CREATE TABLE IF NOT EXISTS saga_instance_commands (
+  saga_instance_id UUID        NOT NULL REFERENCES saga_instances (id) ON DELETE CASCADE,
+  message_id       UUID        NOT NULL,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (saga_instance_id, message_id),
+  UNIQUE (message_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_saga_instance_commands_message_id
+  ON saga_instance_commands (message_id);
 
 -- saga processed events
 CREATE TABLE IF NOT EXISTS saga_processed_events (

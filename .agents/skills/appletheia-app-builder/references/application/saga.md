@@ -150,7 +150,11 @@ instance.append_command_with_options(
 
 bad:
 ```rust
-instance.append_command(event, &TransferCompleteCommand { transfer_id }, CommandOptions::default())?;
+instance.append_command_with_options(
+    event,
+    &TransferCompleteCommand { transfer_id },
+    CommandOptions::default(),
+)?;
 ```
 
 ### DO mark the saga succeeded or failed on terminal events
@@ -249,6 +253,7 @@ good:
 ```rust
 const DESCRIPTOR: SagaDescriptor = SagaDescriptor::new(
     SagaName::new("transfer"),
+    EventSelector::new(Transfer::TYPE, TransferEventPayload::REQUESTED),
     Subscription::AnyOf(&[
         EventSelector::new(Transfer::TYPE, TransferEventPayload::REQUESTED),
         EventSelector::new(Account::TYPE, AccountEventPayload::FUNDS_RESERVED),
@@ -260,6 +265,7 @@ bad:
 ```rust
 const DESCRIPTOR: SagaDescriptor = SagaDescriptor::new(
     SagaName::new("transfer"),
+    EventSelector::new(Transfer::TYPE, TransferEventPayload::REQUESTED),
     Subscription::All,
 );
 ```

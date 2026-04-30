@@ -156,6 +156,7 @@ mod tests {
         let mut instance = SagaInstance::<<OrganizationInvitationSagaSpec as SagaSpec>::State>::new(
             SagaNameOwned::from(OrganizationInvitationSagaSpec::DESCRIPTOR.name),
             correlation_id,
+            EventId::new(),
         );
 
         saga.on_event(
@@ -188,6 +189,7 @@ mod tests {
         let mut instance = SagaInstance::<<OrganizationInvitationSagaSpec as SagaSpec>::State>::new(
             SagaNameOwned::from(OrganizationInvitationSagaSpec::DESCRIPTOR.name),
             correlation_id,
+            EventId::new(),
         );
 
         saga.on_event(

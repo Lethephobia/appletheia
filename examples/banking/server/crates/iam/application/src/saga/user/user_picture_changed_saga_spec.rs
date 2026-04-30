@@ -14,6 +14,7 @@ impl SagaSpec for UserPictureChangedSagaSpec {
 
     const DESCRIPTOR: SagaDescriptor = SagaDescriptor::new(
         SagaName::new("user_picture_changed"),
+        EventSelector::new(User::TYPE, UserEventPayload::PICTURE_CHANGED),
         Subscription::One(&EventSelector::new(
             User::TYPE,
             UserEventPayload::PICTURE_CHANGED,

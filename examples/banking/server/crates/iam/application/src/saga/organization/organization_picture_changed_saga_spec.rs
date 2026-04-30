@@ -14,6 +14,10 @@ impl SagaSpec for OrganizationPictureChangedSagaSpec {
 
     const DESCRIPTOR: SagaDescriptor = SagaDescriptor::new(
         SagaName::new("organization_picture_changed"),
+        EventSelector::new(
+            Organization::TYPE,
+            OrganizationEventPayload::PICTURE_CHANGED,
+        ),
         Subscription::One(&EventSelector::new(
             Organization::TYPE,
             OrganizationEventPayload::PICTURE_CHANGED,

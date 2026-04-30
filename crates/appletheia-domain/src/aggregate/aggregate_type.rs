@@ -37,7 +37,7 @@ impl AggregateType {
     }
 
     /// Returns the raw aggregate type string.
-    pub fn value(self) -> &'static str {
+    pub const fn value(self) -> &'static str {
         self.0
     }
 }

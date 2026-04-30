@@ -1,16 +1,17 @@
 use crate::event::EventEnvelope;
 use crate::outbox::command::CommandOutboxEnqueuer;
+use crate::request_context::MessageId;
 use crate::unit_of_work::UnitOfWork;
 use crate::unit_of_work::UnitOfWorkFactory;
 
 use super::SagaInstance;
 use super::{
-    EnqueuedCommandCount, Saga, SagaNameOwned, SagaProcessedEventStore, SagaRunReport, SagaRunner,
-    SagaRunnerError, SagaSpec, SagaStatus, SagaStore,
+    EnqueuedCommandCount, Saga, SagaInstanceStore, SagaNameOwned, SagaProcessedEventStore,
+    SagaRunReport, SagaRunner, SagaRunnerError, SagaSpec, SagaStatus,
 };
 
 pub struct DefaultSagaRunner<S, P, Q, U> {
-    saga_store: S,
+    saga_instance_store: S,
     processed_event_store: P,
     command_outbox_enqueuer: Q,
     uow_factory: U,
@@ -18,13 +19,13 @@ pub struct DefaultSagaRunner<S, P, Q, U> {
 
 impl<S, P, Q, U> DefaultSagaRunner<S, P, Q, U> {
     pub fn new(
-        saga_store: S,
+        saga_instance_store: S,
         processed_event_store: P,
         command_outbox_enqueuer: Q,
         uow_factory: U,
     ) -> Self {
         Self {
-            saga_store,
+            saga_instance_store,
             processed_event_store,
             command_outbox_enqueuer,
             uow_factory,
@@ -34,7 +35,7 @@ impl<S, P, Q, U> DefaultSagaRunner<S, P, Q, U> {
 
 impl<S, P, Q, U> DefaultSagaRunner<S, P, Q, U>
 where
-    S: SagaStore,
+    S: SagaInstanceStore,
     P: SagaProcessedEventStore<Uow = S::Uow>,
     Q: CommandOutboxEnqueuer<Uow = S::Uow>,
     U: UnitOfWorkFactory<Uow = S::Uow>,
@@ -46,13 +47,49 @@ where
         event: &EventEnvelope,
     ) -> Result<(SagaInstance<<SG::Spec as SagaSpec>::State>, SagaRunReport), SagaRunnerError> {
         let descriptor = <SG::Spec as SagaSpec>::DESCRIPTOR;
+        if !descriptor.subscription.matches(event) {
+            return Ok((
+                SagaInstance::new(
+                    SagaNameOwned::from(descriptor.name),
+                    event.correlation_id,
+                    event.event_id,
+                ),
+                SagaRunReport::NotSubscribed,
+            ));
+        }
+
         let saga_name = SagaNameOwned::from(descriptor.name);
         let correlation_id = event.correlation_id;
 
-        let mut instance = self
-            .saga_store
-            .load::<<SG::Spec as SagaSpec>::State>(uow, saga_name.clone(), correlation_id)
-            .await?;
+        let mut instance = if descriptor.start_event.matches(event) {
+            self.saga_instance_store
+                .find_by_correlation_id::<<SG::Spec as SagaSpec>::State>(
+                    uow,
+                    saga_name.clone(),
+                    correlation_id,
+                )
+                .await?
+                .unwrap_or_else(|| {
+                    SagaInstance::new(saga_name.clone(), correlation_id, event.event_id)
+                })
+        } else {
+            let command_message_id = MessageId::from(event.causation_id.value());
+            let Some(instance) = self
+                .saga_instance_store
+                .find_by_dispatched_command_message_id::<<SG::Spec as SagaSpec>::State>(
+                    uow,
+                    saga_name.clone(),
+                    command_message_id,
+                )
+                .await?
+            else {
+                return Ok((
+                    SagaInstance::new(saga_name, correlation_id, event.event_id),
+                    SagaRunReport::InstanceNotFound,
+                ));
+            };
+            instance
+        };
 
         if instance.is_terminal() {
             let report = if instance.is_succeeded() {
@@ -74,7 +111,7 @@ where
         saga.on_event(&mut instance, event)
             .map_err(|source| SagaRunnerError::Definition(Box::new(source)))?;
 
-        self.saga_store.save(uow, &instance).await?;
+        self.saga_instance_store.save(uow, &instance).await?;
 
         let commands = instance.uncommitted_commands().to_vec();
         let enqueued_command_count = EnqueuedCommandCount::from_usize_saturating(commands.len());
@@ -98,7 +135,7 @@ where
 
 impl<S, P, Q, U> SagaRunner for DefaultSagaRunner<S, P, Q, U>
 where
-    S: SagaStore,
+    S: SagaInstanceStore,
     P: SagaProcessedEventStore<Uow = S::Uow>,
     Q: CommandOutboxEnqueuer<Uow = S::Uow>,
     U: UnitOfWorkFactory<Uow = S::Uow>,
@@ -137,8 +174,8 @@ mod tests {
 
     use super::DefaultSagaRunner;
     use crate::event::{
-        AggregateIdValue, AggregateTypeOwned, EventEnvelope, EventNameOwned, EventSequence,
-        SerializedEventPayload,
+        AggregateIdValue, AggregateTypeOwned, EventEnvelope, EventNameOwned, EventSelector,
+        EventSequence, SerializedEventPayload,
     };
     use crate::messaging::Subscription;
     use crate::outbox::command::{
@@ -148,9 +185,9 @@ mod tests {
         CausationId, CorrelationId, MessageId, Principal, RequestContext,
     };
     use crate::saga::{
-        Saga, SagaDescriptor, SagaInstance, SagaName, SagaNameOwned, SagaProcessedEventStore,
-        SagaProcessedEventStoreError, SagaRunReport, SagaRunner, SagaSpec, SagaState, SagaStatus,
-        SagaStore, SagaStoreError,
+        Saga, SagaDescriptor, SagaInstance, SagaInstanceStore, SagaInstanceStoreError, SagaName,
+        SagaNameOwned, SagaProcessedEventStore, SagaProcessedEventStoreError, SagaRunReport,
+        SagaRunner, SagaSpec, SagaState, SagaStatus,
     };
     use crate::unit_of_work::{
         UnitOfWork, UnitOfWorkError, UnitOfWorkFactory, UnitOfWorkFactoryError,
@@ -178,27 +215,36 @@ mod tests {
         }
     }
 
-    struct TerminalSagaStore;
+    struct TerminalSagaInstanceStore;
 
-    impl SagaStore for TerminalSagaStore {
+    impl SagaInstanceStore for TerminalSagaInstanceStore {
         type Uow = TestUow;
 
-        async fn load<S: SagaState>(
+        async fn find_by_correlation_id<S: SagaState>(
             &self,
             _uow: &mut Self::Uow,
             saga_name: SagaNameOwned,
             correlation_id: CorrelationId,
-        ) -> Result<SagaInstance<S>, SagaStoreError> {
-            let mut instance = SagaInstance::new(saga_name, correlation_id);
+        ) -> Result<Option<SagaInstance<S>>, SagaInstanceStoreError> {
+            let mut instance = SagaInstance::new(saga_name, correlation_id, EventId::new());
             instance.status = SagaStatus::Succeeded;
-            Ok(instance)
+            Ok(Some(instance))
+        }
+
+        async fn find_by_dispatched_command_message_id<S: SagaState>(
+            &self,
+            _uow: &mut Self::Uow,
+            _saga_name: SagaNameOwned,
+            _dispatched_command_message_id: MessageId,
+        ) -> Result<Option<SagaInstance<S>>, SagaInstanceStoreError> {
+            Ok(None)
         }
 
         async fn save<S: SagaState>(
             &self,
             _uow: &mut Self::Uow,
             _instance: &SagaInstance<S>,
-        ) -> Result<(), SagaStoreError> {
+        ) -> Result<(), SagaInstanceStoreError> {
             Ok(())
         }
     }
@@ -246,8 +292,14 @@ mod tests {
     impl SagaSpec for TestSagaSpec {
         type State = TestSagaState;
 
-        const DESCRIPTOR: SagaDescriptor =
-            SagaDescriptor::new(SagaName::new("test_saga"), Subscription::All);
+        const DESCRIPTOR: SagaDescriptor = SagaDescriptor::new(
+            SagaName::new("test_saga"),
+            EventSelector::new(
+                appletheia_domain::AggregateType::new("user"),
+                appletheia_domain::EventName::new("user_registered"),
+            ),
+            Subscription::All,
+        );
     }
 
     struct TestSaga;
@@ -310,7 +362,7 @@ mod tests {
     async fn handle_event_skips_terminal_saga_before_marking_processed() {
         let calls = Arc::new(AtomicUsize::new(0));
         let runner = DefaultSagaRunner::new(
-            TerminalSagaStore,
+            TerminalSagaInstanceStore,
             CountingProcessedEventStore {
                 calls: Arc::clone(&calls),
             },
@@ -330,7 +382,7 @@ mod tests {
     #[tokio::test]
     async fn handle_event_allows_terminal_saga_without_state() {
         let runner = DefaultSagaRunner::new(
-            TerminalSagaStoreForNewInstance,
+            TerminalSagaInstanceStoreForNewInstance,
             CountingProcessedEventStore {
                 calls: Arc::new(AtomicUsize::new(0)),
             },
@@ -346,25 +398,38 @@ mod tests {
         assert_eq!(report, SagaRunReport::Succeeded);
     }
 
-    struct TerminalSagaStoreForNewInstance;
+    struct TerminalSagaInstanceStoreForNewInstance;
 
-    impl SagaStore for TerminalSagaStoreForNewInstance {
+    impl SagaInstanceStore for TerminalSagaInstanceStoreForNewInstance {
         type Uow = TestUow;
 
-        async fn load<S: SagaState>(
+        async fn find_by_correlation_id<S: SagaState>(
             &self,
             _uow: &mut Self::Uow,
             saga_name: SagaNameOwned,
             correlation_id: CorrelationId,
-        ) -> Result<SagaInstance<S>, SagaStoreError> {
-            Ok(SagaInstance::new(saga_name, correlation_id))
+        ) -> Result<Option<SagaInstance<S>>, SagaInstanceStoreError> {
+            Ok(Some(SagaInstance::new(
+                saga_name,
+                correlation_id,
+                EventId::new(),
+            )))
+        }
+
+        async fn find_by_dispatched_command_message_id<S: SagaState>(
+            &self,
+            _uow: &mut Self::Uow,
+            _saga_name: SagaNameOwned,
+            _dispatched_command_message_id: MessageId,
+        ) -> Result<Option<SagaInstance<S>>, SagaInstanceStoreError> {
+            Ok(None)
         }
 
         async fn save<S: SagaState>(
             &self,
             _uow: &mut Self::Uow,
             _instance: &SagaInstance<S>,
-        ) -> Result<(), SagaStoreError> {
+        ) -> Result<(), SagaInstanceStoreError> {
             Ok(())
         }
     }

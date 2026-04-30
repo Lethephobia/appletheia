@@ -7,6 +7,8 @@ pub enum SagaRunReport {
     },
     Succeeded,
     Failed,
+    NotSubscribed,
+    InstanceNotFound,
     AlreadyProcessed,
     SkippedSucceeded,
     SkippedFailed,

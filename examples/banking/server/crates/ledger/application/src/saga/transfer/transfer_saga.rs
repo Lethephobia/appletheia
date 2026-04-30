@@ -207,6 +207,7 @@ mod tests {
         let mut instance = SagaInstance::<TransferSagaState>::new(
             SagaNameOwned::from(TransferSagaSpec::DESCRIPTOR.name),
             correlation_id,
+            EventId::new(),
         );
 
         saga.on_event(
@@ -252,6 +253,7 @@ mod tests {
         let mut instance = SagaInstance::<TransferSagaState>::new(
             SagaNameOwned::from(TransferSagaSpec::DESCRIPTOR.name),
             correlation_id,
+            EventId::new(),
         );
 
         saga.on_event(
@@ -373,6 +375,7 @@ mod tests {
         let mut instance = SagaInstance::<TransferSagaState>::new(
             SagaNameOwned::from(TransferSagaSpec::DESCRIPTOR.name),
             correlation_id,
+            EventId::new(),
         );
 
         *instance.state_mut() = Some(TransferSagaState {
@@ -411,6 +414,7 @@ mod tests {
         let mut instance = SagaInstance::<TransferSagaState>::new(
             SagaNameOwned::from(TransferSagaSpec::DESCRIPTOR.name),
             correlation_id,
+            EventId::new(),
         );
 
         saga.on_event(
