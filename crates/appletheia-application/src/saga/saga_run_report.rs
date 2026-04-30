@@ -1,8 +1,13 @@
+use super::EnqueuedCommandCount;
+
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum SagaRunReport {
-    CommandDispatched,
-    NoCommandDispatched,
-    PredecessorRunMissing,
-    AlreadyRun,
-    EventAlreadyProcessed,
+    InProgress {
+        enqueued_command_count: EnqueuedCommandCount,
+    },
+    Succeeded,
+    Failed,
+    AlreadyProcessed,
+    SkippedSucceeded,
+    SkippedFailed,
 }

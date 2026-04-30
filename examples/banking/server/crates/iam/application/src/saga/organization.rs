@@ -1,9 +1,9 @@
 mod organization_picture_changed_saga;
 mod organization_picture_changed_saga_error;
 mod organization_picture_changed_saga_spec;
-mod organization_picture_saga_context;
+mod organization_picture_saga_state;
 
 pub use organization_picture_changed_saga::OrganizationPictureChangedSaga;
 pub use organization_picture_changed_saga_error::OrganizationPictureChangedSagaError;
 pub use organization_picture_changed_saga_spec::OrganizationPictureChangedSagaSpec;
-pub use organization_picture_saga_context::OrganizationPictureSagaContext;
+pub use organization_picture_saga_state::OrganizationPictureSagaState;

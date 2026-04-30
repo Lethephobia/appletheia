@@ -1,5 +1,6 @@
 use appletheia_domain::EventId;
 
+use crate::request_context::CorrelationId;
 use crate::unit_of_work::UnitOfWork;
 
 use super::{SagaNameOwned, SagaProcessedEventStoreError};
@@ -12,6 +13,7 @@ pub trait SagaProcessedEventStore: Send + Sync {
         &self,
         uow: &mut Self::Uow,
         saga_name: SagaNameOwned,
+        correlation_id: CorrelationId,
         event_id: EventId,
     ) -> Result<bool, SagaProcessedEventStoreError>;
 }
