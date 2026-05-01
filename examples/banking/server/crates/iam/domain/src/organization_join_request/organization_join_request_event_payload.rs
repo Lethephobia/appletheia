@@ -2,7 +2,11 @@ use appletheia::event_payload;
 
 use crate::{OrganizationId, UserId};
 
-use super::{OrganizationJoinRequestEventPayloadError, OrganizationJoinRequestId};
+use super::{
+    OrganizationJoinRequestApproveRejectionReason, OrganizationJoinRequestCancelRejectionReason,
+    OrganizationJoinRequestEventPayloadError, OrganizationJoinRequestId,
+    OrganizationJoinRequestRejectRejectionReason,
+};
 
 /// Represents the domain events emitted by an `OrganizationJoinRequest` aggregate.
 #[event_payload(error = OrganizationJoinRequestEventPayloadError)]
@@ -16,13 +20,28 @@ pub enum OrganizationJoinRequestEventPayload {
         organization_id: OrganizationId,
         requester_id: UserId,
     },
+    ApproveRejected {
+        organization_id: OrganizationId,
+        requester_id: UserId,
+        reason: OrganizationJoinRequestApproveRejectionReason,
+    },
     Rejected {
         organization_id: OrganizationId,
         requester_id: UserId,
     },
+    RejectRejected {
+        organization_id: OrganizationId,
+        requester_id: UserId,
+        reason: OrganizationJoinRequestRejectRejectionReason,
+    },
     Canceled {
         organization_id: OrganizationId,
         requester_id: UserId,
+    },
+    CancelRejected {
+        organization_id: OrganizationId,
+        requester_id: UserId,
+        reason: OrganizationJoinRequestCancelRejectionReason,
     },
 }
 
@@ -44,12 +63,24 @@ mod tests {
             appletheia::domain::EventName::new("approved")
         );
         assert_eq!(
+            OrganizationJoinRequestEventPayload::APPROVE_REJECTED,
+            appletheia::domain::EventName::new("approve_rejected")
+        );
+        assert_eq!(
             OrganizationJoinRequestEventPayload::REJECTED,
             appletheia::domain::EventName::new("rejected")
         );
         assert_eq!(
+            OrganizationJoinRequestEventPayload::REJECT_REJECTED,
+            appletheia::domain::EventName::new("reject_rejected")
+        );
+        assert_eq!(
             OrganizationJoinRequestEventPayload::CANCELED,
             appletheia::domain::EventName::new("canceled")
+        );
+        assert_eq!(
+            OrganizationJoinRequestEventPayload::CANCEL_REJECTED,
+            appletheia::domain::EventName::new("cancel_rejected")
         );
     }
 

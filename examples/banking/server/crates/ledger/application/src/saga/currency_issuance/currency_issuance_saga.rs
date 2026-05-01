@@ -2,15 +2,17 @@ use appletheia::application::event::EventEnvelope;
 use appletheia::application::saga::{Saga, SagaInstance, SagaSpec};
 use banking_ledger_domain::account::{Account, AccountEventPayload};
 use banking_ledger_domain::currency::{Currency, CurrencyEventPayload};
-use banking_ledger_domain::currency_issuance::{CurrencyIssuance, CurrencyIssuanceEventPayload};
+use banking_ledger_domain::currency_issuance::{
+    CurrencyIssuance, CurrencyIssuanceEventPayload, CurrencyIssuanceFailureReason,
+};
 
 use super::{
     CurrencyIssuanceSagaError, CurrencyIssuanceSagaSpec, CurrencyIssuanceSagaState,
     CurrencyIssuanceSagaStatus,
 };
 use crate::command::{
-    AccountDepositCommand, CurrencyIncreaseSupplyCommand, CurrencyIssuanceCompleteCommand,
-    CurrencyIssuanceFailCommand,
+    AccountDepositCommand, CurrencyIssuanceCompleteCommand, CurrencyIssuanceFailCommand,
+    CurrencySupplyDecreaseCommand, CurrencySupplyIncreaseCommand,
 };
 
 /// Coordinates the currency issuance flow.
@@ -43,7 +45,7 @@ impl Saga for CurrencyIssuanceSaga {
 
                     instance.append_command(
                         event,
-                        &CurrencyIncreaseSupplyCommand {
+                        &CurrencySupplyIncreaseCommand {
                             currency_id: *currency_id,
                             amount: *amount,
                         },
@@ -55,12 +57,19 @@ impl Saga for CurrencyIssuanceSaga {
                     }
                     instance.succeed()
                 }
-                CurrencyIssuanceEventPayload::Failed => {
+                CurrencyIssuanceEventPayload::IssueRejected { .. } => {
                     if let Some(state) = instance.state_mut().as_mut() {
                         state.status = CurrencyIssuanceSagaStatus::Failed;
                     }
                     instance.fail()
                 }
+                CurrencyIssuanceEventPayload::Failed { .. } => {
+                    if let Some(state) = instance.state_mut().as_mut() {
+                        state.status = CurrencyIssuanceSagaStatus::Failed;
+                    }
+                    instance.fail()
+                }
+                _ => {}
             }
 
             return Ok(());
@@ -90,6 +99,20 @@ impl Saga for CurrencyIssuanceSaga {
                         event,
                         &CurrencyIssuanceFailCommand {
                             currency_issuance_id,
+                            reason: CurrencyIssuanceFailureReason::DepositRejected,
+                        },
+                    )?;
+                }
+                CurrencyEventPayload::SupplyDecreaseRejected { .. } => {
+                    let state = instance.state_required_mut()?;
+                    state.status = CurrencyIssuanceSagaStatus::Failed;
+                    let currency_issuance_id = state.currency_issuance_id;
+
+                    instance.append_command(
+                        event,
+                        &CurrencyIssuanceFailCommand {
+                            currency_issuance_id,
+                            reason: CurrencyIssuanceFailureReason::SupplyDecreaseRejected,
                         },
                     )?;
                 }
@@ -99,17 +122,34 @@ impl Saga for CurrencyIssuanceSaga {
             return Ok(());
         } else if event.is_for_aggregate::<Account>() {
             let account_event = event.try_into_domain_event::<Account>()?;
-            if let AccountEventPayload::Deposited { .. } = account_event.payload() {
-                let state = instance.state_required_mut()?;
-                state.status = CurrencyIssuanceSagaStatus::Deposited;
-                let currency_issuance_id = state.currency_issuance_id;
+            match account_event.payload() {
+                AccountEventPayload::Deposited { .. } => {
+                    let state = instance.state_required_mut()?;
+                    state.status = CurrencyIssuanceSagaStatus::Deposited;
+                    let currency_issuance_id = state.currency_issuance_id;
 
-                instance.append_command(
-                    event,
-                    &CurrencyIssuanceCompleteCommand {
-                        currency_issuance_id,
-                    },
-                )?;
+                    instance.append_command(
+                        event,
+                        &CurrencyIssuanceCompleteCommand {
+                            currency_issuance_id,
+                        },
+                    )?;
+                }
+                AccountEventPayload::DepositRejected { .. } => {
+                    let state = instance.state_required_mut()?;
+                    state.status = CurrencyIssuanceSagaStatus::SupplyDecreaseRequested;
+                    let currency_id = state.currency_id;
+                    let amount = state.amount;
+
+                    instance.append_command(
+                        event,
+                        &CurrencySupplyDecreaseCommand {
+                            currency_id,
+                            amount,
+                        },
+                    )?;
+                }
+                _ => {}
             }
         }
 

@@ -99,12 +99,14 @@ where
             return Err(OrganizationJoinRequestApproveCommandHandlerError::OrganizationRemoved);
         }
 
-        organization_join_request.approve()?;
+        let result = organization_join_request.approve()?;
 
         self.organization_join_request_repository
             .save(uow, _request_context, &mut organization_join_request)
             .await?;
 
-        Ok(CommandHandled::same(OrganizationJoinRequestApproveOutput))
+        Ok(CommandHandled::same(
+            OrganizationJoinRequestApproveOutput::from(result),
+        ))
     }
 }

@@ -20,9 +20,21 @@ impl SagaSpec for TransferSagaSpec {
         Subscription::AnyOf(&[
             EventSelector::new(Transfer::TYPE, TransferEventPayload::REQUESTED),
             EventSelector::new(Account::TYPE, AccountEventPayload::FUNDS_RESERVED),
+            EventSelector::new(Account::TYPE, AccountEventPayload::FUNDS_RESERVE_REJECTED),
             EventSelector::new(Account::TYPE, AccountEventPayload::DEPOSITED),
+            EventSelector::new(Account::TYPE, AccountEventPayload::DEPOSIT_REJECTED),
             EventSelector::new(Account::TYPE, AccountEventPayload::RESERVED_FUNDS_RELEASED),
+            EventSelector::new(
+                Account::TYPE,
+                AccountEventPayload::RESERVED_FUNDS_RELEASE_REJECTED,
+            ),
             EventSelector::new(Account::TYPE, AccountEventPayload::RESERVED_FUNDS_COMMITTED),
+            EventSelector::new(
+                Account::TYPE,
+                AccountEventPayload::RESERVED_FUNDS_COMMIT_REJECTED,
+            ),
+            EventSelector::new(Account::TYPE, AccountEventPayload::WITHDRAWN),
+            EventSelector::new(Account::TYPE, AccountEventPayload::WITHDRAW_REJECTED),
             EventSelector::new(Transfer::TYPE, TransferEventPayload::COMPLETED),
             EventSelector::new(Transfer::TYPE, TransferEventPayload::FAILED),
         ]),

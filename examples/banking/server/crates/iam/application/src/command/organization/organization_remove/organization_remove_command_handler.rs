@@ -76,17 +76,13 @@ where
             return Err(OrganizationRemoveCommandHandlerError::OrganizationNotFound);
         };
 
-        if organization.is_removed()? {
-            return Err(OrganizationRemoveCommandHandlerError::OrganizationRemoved);
-        }
-
-        organization.remove()?;
+        let result = organization.remove()?;
 
         self.organization_repository
             .save(uow, request_context, &mut organization)
             .await?;
 
-        Ok(CommandHandled::same(OrganizationRemoveOutput))
+        Ok(CommandHandled::same(OrganizationRemoveOutput::from(result)))
     }
 }
 
@@ -265,7 +261,7 @@ mod tests {
         let saved = repository.organization.lock().expect("lock").clone();
         let saved = saved.expect("organization should be saved");
 
-        assert_eq!(output, OrganizationRemoveOutput);
+        assert_eq!(output, OrganizationRemoveOutput::Removed);
         assert!(saved.is_removed().expect("status should exist"));
     }
 }

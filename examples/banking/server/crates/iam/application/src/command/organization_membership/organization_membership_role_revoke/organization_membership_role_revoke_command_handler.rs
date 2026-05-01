@@ -99,13 +99,15 @@ where
             return Err(OrganizationMembershipRoleRevokeCommandHandlerError::OrganizationRemoved);
         }
 
-        organization_membership.revoke_role(command.role)?;
+        let result = organization_membership.revoke_role(command.role)?;
 
         self.organization_membership_repository
             .save(uow, request_context, &mut organization_membership)
             .await?;
 
-        Ok(CommandHandled::same(OrganizationMembershipRoleRevokeOutput))
+        Ok(CommandHandled::same(
+            OrganizationMembershipRoleRevokeOutput::from(result),
+        ))
     }
 }
 
@@ -379,7 +381,7 @@ mod tests {
             .clone()
             .expect("organization membership should be saved");
 
-        assert_eq!(output, OrganizationMembershipRoleRevokeOutput);
+        assert_eq!(output, OrganizationMembershipRoleRevokeOutput::Revoked);
         assert_eq!(
             saved.status().expect("status should exist"),
             OrganizationMembershipStatus::Active

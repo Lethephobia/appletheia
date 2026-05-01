@@ -3,7 +3,13 @@ use appletheia::event_payload;
 use crate::core::CurrencyAmount;
 use crate::currency::CurrencyId;
 
-use super::{AccountEventPayloadError, AccountId, AccountName, AccountOwner};
+use super::{
+    AccountCloseRejectionReason, AccountDepositRejectionReason, AccountEventPayloadError,
+    AccountFreezeRejectionReason, AccountFundsReserveRejectionReason, AccountId, AccountName,
+    AccountNameChangeRejectionReason, AccountOwner, AccountOwnershipTransferRejectionReason,
+    AccountReservedFundsCommitRejectionReason, AccountReservedFundsReleaseRejectionReason,
+    AccountThawRejectionReason, AccountWithdrawRejectionReason,
+};
 
 /// Represents the domain events emitted by an `Account` aggregate.
 #[event_payload(error = AccountEventPayloadError)]
@@ -17,27 +23,64 @@ pub enum AccountEventPayload {
     OwnershipTransferred {
         owner: AccountOwner,
     },
-    Renamed {
+    OwnershipTransferRejected {
+        owner: AccountOwner,
+        reason: AccountOwnershipTransferRejectionReason,
+    },
+    NameChanged {
         name: AccountName,
+    },
+    NameChangeRejected {
+        name: AccountName,
+        reason: AccountNameChangeRejectionReason,
     },
     Deposited {
         amount: CurrencyAmount,
     },
+    DepositRejected {
+        amount: CurrencyAmount,
+        reason: AccountDepositRejectionReason,
+    },
     Withdrawn {
         amount: CurrencyAmount,
+    },
+    WithdrawRejected {
+        amount: CurrencyAmount,
+        reason: AccountWithdrawRejectionReason,
     },
     FundsReserved {
         amount: CurrencyAmount,
     },
+    FundsReserveRejected {
+        amount: CurrencyAmount,
+        reason: AccountFundsReserveRejectionReason,
+    },
     ReservedFundsReleased {
         amount: CurrencyAmount,
+    },
+    ReservedFundsReleaseRejected {
+        amount: CurrencyAmount,
+        reason: AccountReservedFundsReleaseRejectionReason,
     },
     ReservedFundsCommitted {
         amount: CurrencyAmount,
     },
+    ReservedFundsCommitRejected {
+        amount: CurrencyAmount,
+        reason: AccountReservedFundsCommitRejectionReason,
+    },
     Frozen,
+    FreezeRejected {
+        reason: AccountFreezeRejectionReason,
+    },
     Thawed,
+    ThawRejected {
+        reason: AccountThawRejectionReason,
+    },
     Closed,
+    CloseRejected {
+        reason: AccountCloseRejectionReason,
+    },
 }
 
 #[cfg(test)]
@@ -59,40 +102,80 @@ mod tests {
             appletheia::domain::EventName::new("ownership_transferred")
         );
         assert_eq!(
-            AccountEventPayload::RENAMED,
-            appletheia::domain::EventName::new("renamed")
+            AccountEventPayload::OWNERSHIP_TRANSFER_REJECTED,
+            appletheia::domain::EventName::new("ownership_transfer_rejected")
+        );
+        assert_eq!(
+            AccountEventPayload::NAME_CHANGED,
+            appletheia::domain::EventName::new("name_changed")
+        );
+        assert_eq!(
+            AccountEventPayload::NAME_CHANGE_REJECTED,
+            appletheia::domain::EventName::new("name_change_rejected")
         );
         assert_eq!(
             AccountEventPayload::DEPOSITED,
             appletheia::domain::EventName::new("deposited")
         );
         assert_eq!(
+            AccountEventPayload::DEPOSIT_REJECTED,
+            appletheia::domain::EventName::new("deposit_rejected")
+        );
+        assert_eq!(
             AccountEventPayload::WITHDRAWN,
             appletheia::domain::EventName::new("withdrawn")
+        );
+        assert_eq!(
+            AccountEventPayload::WITHDRAW_REJECTED,
+            appletheia::domain::EventName::new("withdraw_rejected")
         );
         assert_eq!(
             AccountEventPayload::FUNDS_RESERVED,
             appletheia::domain::EventName::new("funds_reserved")
         );
         assert_eq!(
+            AccountEventPayload::FUNDS_RESERVE_REJECTED,
+            appletheia::domain::EventName::new("funds_reserve_rejected")
+        );
+        assert_eq!(
             AccountEventPayload::RESERVED_FUNDS_RELEASED,
             appletheia::domain::EventName::new("reserved_funds_released")
+        );
+        assert_eq!(
+            AccountEventPayload::RESERVED_FUNDS_RELEASE_REJECTED,
+            appletheia::domain::EventName::new("reserved_funds_release_rejected")
         );
         assert_eq!(
             AccountEventPayload::RESERVED_FUNDS_COMMITTED,
             appletheia::domain::EventName::new("reserved_funds_committed")
         );
         assert_eq!(
+            AccountEventPayload::RESERVED_FUNDS_COMMIT_REJECTED,
+            appletheia::domain::EventName::new("reserved_funds_commit_rejected")
+        );
+        assert_eq!(
             AccountEventPayload::FROZEN,
             appletheia::domain::EventName::new("frozen")
+        );
+        assert_eq!(
+            AccountEventPayload::FREEZE_REJECTED,
+            appletheia::domain::EventName::new("freeze_rejected")
         );
         assert_eq!(
             AccountEventPayload::THAWED,
             appletheia::domain::EventName::new("thawed")
         );
         assert_eq!(
+            AccountEventPayload::THAW_REJECTED,
+            appletheia::domain::EventName::new("thaw_rejected")
+        );
+        assert_eq!(
             AccountEventPayload::CLOSED,
             appletheia::domain::EventName::new("closed")
+        );
+        assert_eq!(
+            AccountEventPayload::CLOSE_REJECTED,
+            appletheia::domain::EventName::new("close_rejected")
         );
     }
 
@@ -148,14 +231,14 @@ mod tests {
     }
 
     #[test]
-    fn serializes_renamed_payload_to_json() {
-        let payload = AccountEventPayload::Renamed {
+    fn serializes_name_changed_payload_to_json() {
+        let payload = AccountEventPayload::NameChanged {
             name: AccountName::try_from("savings").expect("account name should be valid"),
         };
 
         let value = payload.into_json_value().expect("payload should serialize");
 
-        assert_eq!(value["type"], serde_json::json!("renamed"));
+        assert_eq!(value["type"], serde_json::json!("name_changed"));
     }
 
     #[test]

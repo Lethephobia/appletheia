@@ -77,12 +77,14 @@ where
             return Err(OrganizationPictureChangeCommandHandlerError::OrganizationNotFound);
         };
 
-        organization.change_picture(command.picture.clone())?;
+        let result = organization.change_picture(command.picture.clone())?;
 
         self.organization_repository
             .save(uow, request_context, &mut organization)
             .await?;
 
-        Ok(CommandHandled::same(OrganizationPictureChangeOutput))
+        Ok(CommandHandled::same(OrganizationPictureChangeOutput::from(
+            result,
+        )))
     }
 }

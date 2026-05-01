@@ -75,12 +75,14 @@ where
             return Err(AccountOwnershipTransferCommandHandlerError::AccountNotFound);
         };
 
-        account.transfer_ownership(command.owner)?;
+        let result = account.transfer_ownership(command.owner)?;
 
         self.account_repository
             .save(uow, request_context, &mut account)
             .await?;
 
-        Ok(CommandHandled::same(AccountOwnershipTransferOutput))
+        Ok(CommandHandled::same(AccountOwnershipTransferOutput::from(
+            result,
+        )))
     }
 }

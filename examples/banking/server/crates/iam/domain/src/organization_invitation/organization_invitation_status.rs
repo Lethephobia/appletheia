@@ -8,6 +8,7 @@ pub enum OrganizationInvitationStatus {
     Accepted,
     Declined,
     Canceled,
+    Rejected,
 }
 
 impl OrganizationInvitationStatus {
@@ -29,6 +30,11 @@ impl OrganizationInvitationStatus {
     /// Returns whether the invitation is canceled.
     pub fn is_canceled(&self) -> bool {
         matches!(self, Self::Canceled)
+    }
+
+    /// Returns whether the invitation is rejected.
+    pub fn is_rejected(&self) -> bool {
+        matches!(self, Self::Rejected)
     }
 }
 

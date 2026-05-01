@@ -19,9 +19,18 @@ impl SagaSpec for CurrencyIssuanceSagaSpec {
         EventSelector::new(CurrencyIssuance::TYPE, CurrencyIssuanceEventPayload::ISSUED),
         Subscription::AnyOf(&[
             EventSelector::new(CurrencyIssuance::TYPE, CurrencyIssuanceEventPayload::ISSUED),
+            EventSelector::new(
+                CurrencyIssuance::TYPE,
+                CurrencyIssuanceEventPayload::ISSUE_REJECTED,
+            ),
             EventSelector::new(Currency::TYPE, CurrencyEventPayload::SUPPLY_INCREASED),
             EventSelector::new(Account::TYPE, AccountEventPayload::DEPOSITED),
+            EventSelector::new(Account::TYPE, AccountEventPayload::DEPOSIT_REJECTED),
             EventSelector::new(Currency::TYPE, CurrencyEventPayload::SUPPLY_DECREASED),
+            EventSelector::new(
+                Currency::TYPE,
+                CurrencyEventPayload::SUPPLY_DECREASE_REJECTED,
+            ),
             EventSelector::new(
                 CurrencyIssuance::TYPE,
                 CurrencyIssuanceEventPayload::COMPLETED,

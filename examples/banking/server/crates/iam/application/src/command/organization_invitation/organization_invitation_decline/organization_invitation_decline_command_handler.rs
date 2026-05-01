@@ -94,12 +94,14 @@ where
             return Err(OrganizationInvitationDeclineCommandHandlerError::OrganizationRemoved);
         }
 
-        organization_invitation.decline()?;
+        let result = organization_invitation.decline()?;
 
         self.organization_invitation_repository
             .save(uow, request_context, &mut organization_invitation)
             .await?;
 
-        Ok(CommandHandled::same(OrganizationInvitationDeclineOutput))
+        Ok(CommandHandled::same(
+            OrganizationInvitationDeclineOutput::from(result),
+        ))
     }
 }

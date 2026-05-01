@@ -4,17 +4,22 @@ Guidelines for repository-wide Rust style, file layout, imports, and source orga
 
 ## File Layout
 
-### DO keep one primary definition per file when practical
+### DO keep one primary definition per file
 
-Keep a file focused on a single primary `struct`, `enum`, or `trait` so changes stay easy to review. Small `#[cfg(test)]` unit tests may live in the same file when that keeps them close to the implementation.
+Keep a file focused on a single primary `struct`, `enum`, or `trait` so changes stay easy to review.
+When adding a new `trait`, `enum`, or `struct`, create a dedicated module file and re-export it
+from the parent module. Small `#[cfg(test)]` unit tests may live in the same file when that keeps
+them close to the implementation.
 
 good:
 ```rust
+// example_value.rs
 pub struct ExampleValue;
 ```
 
 bad:
 ```rust
+// example.rs
 pub struct ExampleValue;
 pub struct AnotherValue;
 ```

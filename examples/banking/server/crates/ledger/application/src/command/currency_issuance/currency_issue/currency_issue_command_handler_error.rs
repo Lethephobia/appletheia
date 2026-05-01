@@ -30,10 +30,4 @@ pub enum CurrencyIssueCommandHandlerError {
 
     #[error("currency was not found")]
     CurrencyNotFound,
-
-    #[error("destination account currency does not match")]
-    CurrencyMismatch,
-
-    #[error("currency issuance id was missing")]
-    MissingCurrencyIssuanceId,
 }

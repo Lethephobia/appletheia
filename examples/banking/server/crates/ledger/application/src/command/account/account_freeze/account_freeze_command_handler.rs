@@ -75,11 +75,11 @@ where
             return Err(AccountFreezeCommandHandlerError::AccountNotFound);
         };
 
-        account.freeze()?;
+        let result = account.freeze()?;
         self.account_repository
             .save(uow, request_context, &mut account)
             .await?;
 
-        Ok(CommandHandled::same(AccountFreezeOutput))
+        Ok(CommandHandled::same(AccountFreezeOutput::from(result)))
     }
 }

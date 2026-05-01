@@ -91,7 +91,12 @@ where
                 OrganizationMembershipEventPayload::Activated { .. } => return Ok(()),
                 OrganizationMembershipEventPayload::Inactivated { .. } => return Ok(()),
                 OrganizationMembershipEventPayload::RoleGranted { .. }
-                | OrganizationMembershipEventPayload::RoleRevoked { .. } => return Ok(()),
+                | OrganizationMembershipEventPayload::RoleGrantRejected { .. }
+                | OrganizationMembershipEventPayload::RoleRevoked { .. }
+                | OrganizationMembershipEventPayload::RoleRevokeRejected { .. }
+                | OrganizationMembershipEventPayload::ActivateRejected { .. }
+                | OrganizationMembershipEventPayload::DeactivateRejected { .. }
+                | OrganizationMembershipEventPayload::RemoveRejected { .. } => return Ok(()),
             }
         }
 

@@ -10,15 +10,22 @@ Keep write-side behavior inside the aggregate boundary.
 
 good:
 ```rust
-pub fn change_name(&mut self, name: OrganizationName) -> Result<(), OrganizationError> {
-    self.ensure_not_removed()?;
-
-    let current_name = self.state_required()?.name.clone();
-    if current_name.eq(&name) {
-        return Ok(());
+pub fn rename(&mut self, name: AccountName) -> Result<AccountRenameResult, AccountError> {
+    if self.state_required()?.status.is_closed() {
+        let reason = AccountRenameRejectionReason::Closed;
+        self.append_event(AccountEventPayload::RenameRejected {
+            name: name.clone(),
+            reason,
+        })?;
+        return Ok(AccountRenameResult::Rejected { reason });
     }
 
-    self.append_event(OrganizationEventPayload::NameChanged { name })
+    if self.state_required()?.name == name {
+        return Ok(AccountRenameResult::Renamed);
+    }
+
+    self.append_event(AccountEventPayload::Renamed { name })?;
+    Ok(AccountRenameResult::Renamed)
 }
 ```
 
@@ -41,7 +48,15 @@ pub fn issue(
     expires_at: OrganizationInvitationExpiresAt,
 ) -> Result<(), OrganizationInvitationError> {
     if self.state().is_some() {
-        return Err(OrganizationInvitationError::AlreadyIssued);
+        let reason = OrganizationInvitationIssueRejectionReason::AlreadyIssued;
+        self.append_event(OrganizationInvitationEventPayload::IssueRejected {
+            organization_id,
+            invitee_id,
+            issuer,
+            expires_at,
+            reason,
+        })?;
+        return Ok(());
     }
 
     self.append_event(OrganizationInvitationEventPayload::Issued {
@@ -70,15 +85,19 @@ good:
 pub fn register(
     &mut self,
     username: Username,
-) -> Result<(), UserError> {
+) -> Result<UserRegisterResult, UserError> {
     if self.state().is_some() {
-        return Err(UserError::AlreadyRegistered);
+        let reason = UserRegisterRejectionReason::AlreadyRegistered;
+        self.append_event(UserEventPayload::RegisterRejected { username, reason })?;
+        return Ok(UserRegisterResult::Rejected { reason });
     }
 
+    let id = UserId::new();
     self.append_event(UserEventPayload::Registered {
-        id: UserId::new(),
+        id,
         username,
-    })
+    })?;
+    Ok(UserRegisterResult::Registered { user_id: id })
 }
 ```
 
@@ -96,6 +115,107 @@ pub fn register(
 }
 ```
 
+### DO model expected domain rejections as events and command results
+
+If a command can be refused as a normal business outcome, append a rejection or failure event and
+return a result value from the aggregate command method. Do not return `Err` for outcomes that
+sagas, projections, or users should observe as persisted facts.
+
+good:
+```rust
+pub enum ReserveFundsResult {
+    Reserved,
+    Rejected { reason: ReserveFundsRejectionReason },
+}
+
+pub fn reserve_funds(&mut self, amount: Money) -> Result<ReserveFundsResult, AccountError> {
+    match self.state_required()?.status {
+        AccountStatus::Active => {}
+        AccountStatus::Frozen => {
+            let reason = ReserveFundsRejectionReason::Frozen;
+            self.append_event(AccountEventPayload::FundsReservationRejected { amount, reason })?;
+            return Ok(ReserveFundsResult::Rejected { reason });
+        }
+        AccountStatus::Closed => {
+            let reason = ReserveFundsRejectionReason::Closed;
+            self.append_event(AccountEventPayload::FundsReservationRejected { amount, reason })?;
+            return Ok(ReserveFundsResult::Rejected { reason });
+        }
+    }
+
+    if self.available_balance()?.is_less_than(amount) {
+        let reason = ReserveFundsRejectionReason::InsufficientAvailableBalance;
+        self.append_event(AccountEventPayload::FundsReservationRejected { amount, reason })?;
+        return Ok(ReserveFundsResult::Rejected { reason });
+    }
+
+    self.append_event(AccountEventPayload::FundsReserved { amount })?;
+    Ok(ReserveFundsResult::Reserved)
+}
+```
+
+bad:
+```rust
+pub fn reserve_funds(&mut self, amount: Money) -> Result<(), AccountError> {
+    if self.state_required()?.status.is_closed() {
+        return Err(AccountError::Closed);
+    }
+
+    if self.available_balance()?.is_less_than(amount) {
+        return Err(AccountError::InsufficientAvailableBalance);
+    }
+
+    self.append_event(AccountEventPayload::FundsReserved { amount })
+}
+```
+
+### DO reserve aggregate errors for invalid or incomplete processing
+
+Return `Err` when the command cannot be processed reliably or an invariant would be violated.
+Use a rejection event for expected business denials such as insufficient funds, expired offers,
+capacity limits, or already-consumed resources when those outcomes must drive projections or sagas.
+`Err` is still appropriate for unexpected processing failures, missing required aggregate state,
+serialization or conversion failures, arithmetic overflow, and internal invariant violations that
+should roll back the command instead of being persisted as a business fact.
+
+good:
+```rust
+pub fn available_balance(&self) -> Result<Money, AccountError> {
+    let state = self.state_required()?;
+
+    state.balance.try_sub(state.reserved_balance).map_err(|error| match error {
+        MoneyError::InsufficientBalance => AccountError::InvalidReservedBalance,
+        MoneyError::Overflow => AccountError::BalanceOverflow,
+    })
+}
+```
+
+good:
+```rust
+pub fn close(&mut self) -> Result<CloseAccountResult, AccountError> {
+    if !self.state_required()?.balance.is_zero() {
+        let reason = CloseAccountRejectionReason::BalanceRemaining;
+        self.append_event(AccountEventPayload::CloseRejected { reason })?;
+        return Ok(CloseAccountResult::Rejected { reason });
+    }
+
+    self.append_event(AccountEventPayload::Closed)?;
+    Ok(CloseAccountResult::Closed)
+}
+```
+
+bad:
+```rust
+pub fn reserve_funds(&mut self, amount: Money) -> Result<ReserveFundsResult, AccountError> {
+    if !self.state_required()?.balance.is_zero() {
+        return Err(AccountError::InsufficientAvailableBalance);
+    }
+
+    self.append_event(AccountEventPayload::FundsReserved { amount })?;
+    Ok(ReserveFundsResult::Reserved)
+}
+```
+
 ### PREFER command methods and events to align with top-level value object boundaries
 
 If an aggregate state owns a top-level value object, prefer changing that value object through one aggregate command method and one event for the whole value object. Avoid adding attribute-specific command methods and events for fields nested inside that value object unless those fields have meaning outside the value object boundary.
@@ -105,14 +225,22 @@ good:
 pub fn change_profile(
     &mut self,
     profile: OrganizationProfile,
-) -> Result<(), OrganizationError> {
-    self.ensure_not_removed()?;
-
-    if self.state_required()?.profile == profile {
-        return Ok(());
+) -> Result<OrganizationChangeProfileResult, OrganizationError> {
+    if self.state_required()?.status.is_removed() {
+        let reason = OrganizationChangeProfileRejectionReason::Removed;
+        self.append_event(OrganizationEventPayload::ProfileChangeRejected {
+            profile: profile.clone(),
+            reason,
+        })?;
+        return Ok(OrganizationChangeProfileResult::Rejected { reason });
     }
 
-    self.append_event(OrganizationEventPayload::ProfileChanged { profile })
+    if self.state_required()?.profile == profile {
+        return Ok(OrganizationChangeProfileResult::Changed);
+    }
+
+    self.append_event(OrganizationEventPayload::ProfileChanged { profile })?;
+    Ok(OrganizationChangeProfileResult::Changed)
 }
 ```
 
@@ -122,17 +250,6 @@ pub fn change_display_name(
     &mut self,
     display_name: OrganizationDisplayName,
 ) -> Result<(), OrganizationError> {
-    self.ensure_not_removed()?;
-
-    if self
-        .state_required()?
-        .profile
-        .display_name()
-        .eq(&display_name)
-    {
-        return Ok(());
-    }
-
     self.append_event(OrganizationEventPayload::DisplayNameChanged { display_name })
 }
 ```
@@ -149,8 +266,6 @@ pub fn change_identity_email(
     subject: UserIdentitySubject,
     email: Option<Email>,
 ) -> Result<(), UserError> {
-    self.ensure_active()?;
-
     let identity = self
         .state_required()?
         .identities
@@ -249,21 +364,40 @@ pub fn grant_role(
 
 Avoid wrapping a collection in a value object when the surrounding API still talks in terms of individual inserts and removals. That split usually makes the state shape and the event model drift apart.
 
-### DO validate the request before you append an event
-
-Reject invalid requests before any state change is recorded.
+bad:
+```rust
+pub fn grant_role(&mut self, roles: OrganizationRoles) -> Result<(), OrganizationError> {
+    self.append_event(OrganizationEventPayload::RolesReplaced { roles })
+}
+```
 
 good:
 ```rust
-pub fn reserve_funds(&mut self, amount: AccountBalance) -> Result<(), AccountError> {
-    self.ensure_active_status()?;
-    self.ensure_available_balance_at_least(amount, AccountError::InsufficientAvailableBalance)?;
+pub fn grant_role(&mut self, role: OrganizationRole) -> Result<(), OrganizationError> {
+    self.append_event(OrganizationEventPayload::RoleGranted { role })
+}
+```
 
-    if amount.is_zero() {
-        return Ok(());
+### DO validate the request before you append an event
+
+Append a rejection event for expected business denials before any success event is recorded. Keep
+unexpected processing errors as `Err`.
+
+good:
+```rust
+pub fn reserve_funds(&mut self, amount: Money) -> Result<ReserveFundsResult, AccountError> {
+    if self.available_balance()?.is_less_than(amount) {
+        let reason = ReserveFundsRejectionReason::InsufficientAvailableBalance;
+        self.append_event(AccountEventPayload::FundsReservationRejected { amount, reason })?;
+        return Ok(ReserveFundsResult::Rejected { reason });
     }
 
-    self.append_event(AccountEventPayload::FundsReserved { amount })
+    if amount.is_zero() {
+        return Ok(ReserveFundsResult::Reserved);
+    }
+
+    self.append_event(AccountEventPayload::FundsReserved { amount })?;
+    Ok(ReserveFundsResult::Reserved)
 }
 ```
 
@@ -274,59 +408,77 @@ pub fn rename(&mut self, name: ExampleName) -> Result<(), ExampleError> {
 }
 ```
 
-### DO treat repeated updates to the same state as no-ops when repeating them is harmless
+### DO append success events even when the resulting state is unchanged
 
-Return `Ok(())` instead of an error for idempotent requests.
+If a command is accepted, append the corresponding success event and return the success result even
+when replaying that event leaves the aggregate state unchanged. This keeps command acceptance
+observable for sagas and projections. Use command idempotency to suppress duplicate command messages;
+do not hide accepted commands inside aggregate no-ops.
 
 good:
 ```rust
-pub fn rename(&mut self, name: AccountName) -> Result<(), AccountError> {
-    self.ensure_not_closed()?;
-
-    if self.state().is_some_and(|state| state.name.eq(&name)) {
-        return Ok(());
+pub fn change_name(&mut self, name: AccountName) -> Result<AccountNameChangeResult, AccountError> {
+    if self.state_required()?.status.is_closed() {
+        let reason = AccountNameChangeRejectionReason::Closed;
+        self.append_event(AccountEventPayload::NameChangeRejected {
+            name: name.clone(),
+            reason,
+        })?;
+        return Ok(AccountNameChangeResult::Rejected { reason });
     }
 
-    self.append_event(AccountEventPayload::Renamed { name })
+    self.append_event(AccountEventPayload::NameChanged { name })?;
+    Ok(AccountNameChangeResult::Changed)
 }
 ```
 
 bad:
 ```rust
 if self.state().is_some_and(|state| state.name == name) {
-    return Err(ExampleError::AlreadyRenamed);
+    return Ok(AccountNameChangeResult::Changed);
 }
 ```
 
-### DO run validation before the no-op check
+### DO run business rejection checks before success events
 
-Do not let a repeated state hide a real validation failure.
+Do not let an already-matching state hide a business rejection that should be persisted. Validate
+the command first, then append the success event.
 
 good:
 ```rust
-pub fn change_handle(&mut self, handle: OrganizationHandle) -> Result<(), OrganizationError> {
-    self.ensure_not_removed()?;
-
-    if self.state().is_some_and(|state| state.handle.eq(&handle)) {
-        return Ok(());
+pub fn change_name(&mut self, name: AccountName) -> Result<AccountNameChangeResult, AccountError> {
+    if self.state_required()?.status.is_closed() {
+        let reason = AccountNameChangeRejectionReason::Closed;
+        self.append_event(AccountEventPayload::NameChangeRejected {
+            name: name.clone(),
+            reason,
+        })?;
+        return Ok(AccountNameChangeResult::Rejected { reason });
     }
 
-    self.append_event(OrganizationEventPayload::HandleChanged { handle })
+    self.append_event(AccountEventPayload::NameChanged { name })?;
+    Ok(AccountNameChangeResult::Changed)
 }
 ```
 
 bad:
 ```rust
 if self.state().is_some_and(|state| state.name == name) {
-    return Ok(());
+    return Ok(AccountNameChangeResult::Changed);
 }
 
-self.ensure_opened()?;
+if self.state_required()?.status.is_closed() {
+    let reason = AccountNameChangeRejectionReason::Closed;
+    self.append_event(AccountEventPayload::NameChangeRejected { name, reason })?;
+    return Ok(AccountNameChangeResult::Rejected { reason });
+}
 ```
 
-### DO return an error instead of a no-op for one-shot methods that should only succeed once
+### DO reject repeated one-shot methods when repetition is a business outcome
 
-Treat repeated create, open, or close calls as misuse.
+When repetition is observable domain behavior, append a rejection event instead of silently treating
+it as a success event. Use `Err` only when the repeated call is command misuse that should roll back and not
+be projected.
 
 good:
 ```rust
@@ -334,16 +486,20 @@ pub fn create(
     &mut self,
     handle: OrganizationHandle,
     name: OrganizationName,
-) -> Result<(), OrganizationError> {
+) -> Result<OrganizationCreateResult, OrganizationError> {
     if self.state().is_some() {
-        return Err(OrganizationError::AlreadyCreated);
+        let reason = OrganizationCreateRejectionReason::AlreadyCreated;
+        self.append_event(OrganizationEventPayload::CreateRejected { handle, name, reason })?;
+        return Ok(OrganizationCreateResult::Rejected { reason });
     }
 
+    let id = OrganizationId::new();
     self.append_event(OrganizationEventPayload::Created {
-        id: OrganizationId::new(),
+        id,
         handle,
         name,
-    })
+    })?;
+    Ok(OrganizationCreateResult::Created { organization_id: id })
 }
 ```
 
@@ -427,37 +583,6 @@ good:
 ```rust
 pub struct Organization {
     core: AggregateCore<OrganizationState, OrganizationEventPayload>,
-}
-```
-
-### PREFER move validations shared by several command methods into private helper methods
-
-Keep public methods focused on intent and share repeated checks through private helpers.
-
-good:
-```rust
-fn ensure_not_removed(&self) -> Result<(), OrganizationError> {
-    if self.state_required()?.status.is_removed() {
-        return Err(OrganizationError::Removed);
-    }
-
-    Ok(())
-}
-
-pub fn change_name(&mut self, name: OrganizationName) -> Result<(), OrganizationError> {
-    self.ensure_not_removed()?;
-    self.append_event(OrganizationEventPayload::NameChanged { name })
-}
-```
-
-bad:
-```rust
-pub fn rename(&mut self, name: ExampleName) -> Result<(), ExampleError> {
-    if self.state().is_none() {
-        return Err(ExampleError::NotOpened);
-    }
-
-    self.append_event(ExampleEventPayload::Renamed { name })
 }
 ```
 

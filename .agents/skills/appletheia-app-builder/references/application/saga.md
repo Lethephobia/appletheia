@@ -46,6 +46,65 @@ match event.payload().name() {
 }
 ```
 
+### DO drive compensation and abort paths from domain failure events
+
+Sagas should react to persisted rejection or failure events emitted by aggregates. Do not depend on
+command handler `Err` values for workflow failure, because those errors are rolled back and retried
+by the command dispatcher and worker.
+
+good:
+```rust
+match account_event.payload() {
+    AccountEventPayload::FundsReservationRejected { .. } => {
+        let state = instance.state_required_mut()?;
+        state.status = TransferSagaStatus::FailRequested;
+        instance.append_command(event, &TransferFailCommand {
+            transfer_id: state.transfer_id,
+        })?;
+    }
+    AccountEventPayload::FundsReserved { .. } => {
+        // continue the success path
+    }
+    _ => {}
+}
+```
+
+bad:
+```rust
+// command worker failure is not a saga input
+if command_failed {
+    instance.append_command(event, &TransferFailCommand { transfer_id })?;
+}
+```
+
+### PREFER enum statuses for linear saga progress
+
+For a single-path workflow, store progress in one status enum and include command-requested states
+when they prevent duplicate follow-up commands. Use booleans or sets only for parallel branches or
+independent facts that cannot be represented by one current status.
+
+good:
+```rust
+pub enum TransferSagaStatus {
+    Requested,
+    FundsReserved,
+    DepositRequested,
+    FailRequested,
+    Completed,
+    Failed,
+}
+```
+
+bad:
+```rust
+pub struct TransferSagaState {
+    funds_reserved: bool,
+    deposit_requested: bool,
+    fail_requested: bool,
+    completed: bool,
+}
+```
+
 ### DON'T operate aggregates directly inside a saga
 
 Keep validation and mutation inside command handlers and aggregate command methods.

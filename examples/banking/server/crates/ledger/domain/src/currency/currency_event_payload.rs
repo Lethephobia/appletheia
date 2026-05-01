@@ -3,8 +3,11 @@ use appletheia::event_payload;
 use crate::core::CurrencyAmount;
 
 use super::{
-    CurrencyDecimals, CurrencyEventPayloadError, CurrencyId, CurrencyName, CurrencyOwner,
-    CurrencySymbol,
+    CurrencyActivateRejectionReason, CurrencyDeactivateRejectionReason, CurrencyDecimals,
+    CurrencyEventPayloadError, CurrencyId, CurrencyName, CurrencyNameChangeRejectionReason,
+    CurrencyOwner, CurrencyOwnershipTransferRejectionReason, CurrencyRemoveRejectionReason,
+    CurrencySupplyDecreaseRejectionReason, CurrencySupplyIncreaseRejectionReason, CurrencySymbol,
+    CurrencySymbolChangeRejectionReason,
 };
 
 /// Represents the domain events emitted by a `Currency` aggregate.
@@ -20,21 +23,50 @@ pub enum CurrencyEventPayload {
     OwnershipTransferred {
         owner: CurrencyOwner,
     },
+    OwnershipTransferRejected {
+        owner: CurrencyOwner,
+        reason: CurrencyOwnershipTransferRejectionReason,
+    },
     SymbolChanged {
         symbol: CurrencySymbol,
+    },
+    SymbolChangeRejected {
+        symbol: CurrencySymbol,
+        reason: CurrencySymbolChangeRejectionReason,
     },
     NameChanged {
         name: CurrencyName,
     },
+    NameChangeRejected {
+        name: CurrencyName,
+        reason: CurrencyNameChangeRejectionReason,
+    },
     SupplyIncreased {
         amount: CurrencyAmount,
+    },
+    SupplyIncreaseRejected {
+        amount: CurrencyAmount,
+        reason: CurrencySupplyIncreaseRejectionReason,
     },
     SupplyDecreased {
         amount: CurrencyAmount,
     },
+    SupplyDecreaseRejected {
+        amount: CurrencyAmount,
+        reason: CurrencySupplyDecreaseRejectionReason,
+    },
     Activated,
+    ActivateRejected {
+        reason: CurrencyActivateRejectionReason,
+    },
     Deactivated,
+    DeactivateRejected {
+        reason: CurrencyDeactivateRejectionReason,
+    },
     Removed,
+    RemoveRejected {
+        reason: CurrencyRemoveRejectionReason,
+    },
 }
 
 #[cfg(test)]
@@ -56,32 +88,64 @@ mod tests {
             appletheia::domain::EventName::new("ownership_transferred")
         );
         assert_eq!(
+            CurrencyEventPayload::OWNERSHIP_TRANSFER_REJECTED,
+            appletheia::domain::EventName::new("ownership_transfer_rejected")
+        );
+        assert_eq!(
             CurrencyEventPayload::SYMBOL_CHANGED,
             appletheia::domain::EventName::new("symbol_changed")
+        );
+        assert_eq!(
+            CurrencyEventPayload::SYMBOL_CHANGE_REJECTED,
+            appletheia::domain::EventName::new("symbol_change_rejected")
         );
         assert_eq!(
             CurrencyEventPayload::NAME_CHANGED,
             appletheia::domain::EventName::new("name_changed")
         );
         assert_eq!(
+            CurrencyEventPayload::NAME_CHANGE_REJECTED,
+            appletheia::domain::EventName::new("name_change_rejected")
+        );
+        assert_eq!(
             CurrencyEventPayload::SUPPLY_INCREASED,
             appletheia::domain::EventName::new("supply_increased")
+        );
+        assert_eq!(
+            CurrencyEventPayload::SUPPLY_INCREASE_REJECTED,
+            appletheia::domain::EventName::new("supply_increase_rejected")
         );
         assert_eq!(
             CurrencyEventPayload::SUPPLY_DECREASED,
             appletheia::domain::EventName::new("supply_decreased")
         );
         assert_eq!(
+            CurrencyEventPayload::SUPPLY_DECREASE_REJECTED,
+            appletheia::domain::EventName::new("supply_decrease_rejected")
+        );
+        assert_eq!(
             CurrencyEventPayload::ACTIVATED,
             appletheia::domain::EventName::new("activated")
+        );
+        assert_eq!(
+            CurrencyEventPayload::ACTIVATE_REJECTED,
+            appletheia::domain::EventName::new("activate_rejected")
         );
         assert_eq!(
             CurrencyEventPayload::DEACTIVATED,
             appletheia::domain::EventName::new("deactivated")
         );
         assert_eq!(
+            CurrencyEventPayload::DEACTIVATE_REJECTED,
+            appletheia::domain::EventName::new("deactivate_rejected")
+        );
+        assert_eq!(
             CurrencyEventPayload::REMOVED,
             appletheia::domain::EventName::new("removed")
+        );
+        assert_eq!(
+            CurrencyEventPayload::REMOVE_REJECTED,
+            appletheia::domain::EventName::new("remove_rejected")
         );
     }
 

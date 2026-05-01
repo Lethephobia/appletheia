@@ -1,5 +1,5 @@
 use appletheia::command;
-use banking_ledger_domain::currency_issuance::CurrencyIssuanceId;
+use banking_ledger_domain::currency_issuance::{CurrencyIssuanceFailureReason, CurrencyIssuanceId};
 use serde::{Deserialize, Serialize};
 
 /// Fails the specified currency issuance.
@@ -7,4 +7,5 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CurrencyIssuanceFailCommand {
     pub currency_issuance_id: CurrencyIssuanceId,
+    pub reason: CurrencyIssuanceFailureReason,
 }

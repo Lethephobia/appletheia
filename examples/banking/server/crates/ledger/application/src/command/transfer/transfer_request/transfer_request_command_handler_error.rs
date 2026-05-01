@@ -18,9 +18,6 @@ pub enum TransferRequestCommandHandlerError {
     #[error("transfer aggregate failed")]
     Transfer(#[from] TransferError),
 
-    #[error("transfer id is missing after request")]
-    MissingTransferId,
-
     #[error("source account was not found")]
     SourceAccountNotFound,
 

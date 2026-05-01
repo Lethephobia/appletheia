@@ -74,13 +74,15 @@ where
             return Err(OrganizationOwnershipTransferCommandHandlerError::OrganizationNotFound);
         };
 
-        organization.transfer_ownership(command.owner)?;
+        let result = organization.transfer_ownership(command.owner)?;
 
         self.organization_repository
             .save(uow, request_context, &mut organization)
             .await?;
 
-        Ok(CommandHandled::same(OrganizationOwnershipTransferOutput))
+        Ok(CommandHandled::same(
+            OrganizationOwnershipTransferOutput::from(result),
+        ))
     }
 }
 
@@ -254,7 +256,10 @@ mod tests {
             .await
             .expect("command should succeed");
 
-        assert_eq!(handled.into_output(), OrganizationOwnershipTransferOutput);
+        assert_eq!(
+            handled.into_output(),
+            OrganizationOwnershipTransferOutput::Transferred
+        );
         assert_eq!(
             repository
                 .organization

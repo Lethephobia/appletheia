@@ -87,7 +87,12 @@ where
                         .await?;
                 }
                 OrganizationMembershipEventPayload::RoleGranted { .. }
-                | OrganizationMembershipEventPayload::RoleRevoked { .. } => {}
+                | OrganizationMembershipEventPayload::RoleGrantRejected { .. }
+                | OrganizationMembershipEventPayload::RoleRevoked { .. }
+                | OrganizationMembershipEventPayload::RoleRevokeRejected { .. }
+                | OrganizationMembershipEventPayload::ActivateRejected { .. }
+                | OrganizationMembershipEventPayload::DeactivateRejected { .. }
+                | OrganizationMembershipEventPayload::RemoveRejected { .. } => {}
             }
         }
 

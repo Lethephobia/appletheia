@@ -78,12 +78,12 @@ where
             return Err(CurrencyDeactivateCommandHandlerError::CurrencyNotFound);
         };
 
-        currency.deactivate()?;
+        let result = currency.deactivate()?;
 
         self.currency_repository
             .save(uow, request_context, &mut currency)
             .await?;
 
-        Ok(CommandHandled::same(CurrencyDeactivateOutput))
+        Ok(CommandHandled::same(CurrencyDeactivateOutput::from(result)))
     }
 }

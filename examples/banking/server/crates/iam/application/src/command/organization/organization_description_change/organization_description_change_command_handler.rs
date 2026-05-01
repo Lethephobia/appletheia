@@ -77,12 +77,14 @@ where
             return Err(OrganizationDescriptionChangeCommandHandlerError::OrganizationNotFound);
         };
 
-        organization.change_description(command.description.clone())?;
+        let result = organization.change_description(command.description.clone())?;
 
         self.organization_repository
             .save(uow, request_context, &mut organization)
             .await?;
 
-        Ok(CommandHandled::same(OrganizationDescriptionChangeOutput))
+        Ok(CommandHandled::same(
+            OrganizationDescriptionChangeOutput::from(result),
+        ))
     }
 }

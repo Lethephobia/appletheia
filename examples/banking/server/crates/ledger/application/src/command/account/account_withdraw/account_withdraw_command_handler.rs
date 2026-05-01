@@ -56,11 +56,11 @@ where
             return Err(AccountWithdrawCommandHandlerError::AccountNotFound);
         };
 
-        account.withdraw(command.amount)?;
+        let result = account.withdraw(command.amount)?;
         self.account_repository
             .save(uow, request_context, &mut account)
             .await?;
 
-        Ok(CommandHandled::same(AccountWithdrawOutput))
+        Ok(CommandHandled::same(AccountWithdrawOutput::from(result)))
     }
 }

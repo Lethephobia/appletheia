@@ -5,6 +5,8 @@ use banking_ledger_domain::currency::CurrencyId;
 use banking_ledger_domain::currency_issuance::CurrencyIssuanceId;
 use serde::{Deserialize, Serialize};
 
+use super::CurrencyIssuanceSagaStatus;
+
 /// Stores progress for the currency issuance orchestration saga.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CurrencyIssuanceSagaState {
@@ -30,18 +32,6 @@ impl CurrencyIssuanceSagaState {
             status: CurrencyIssuanceSagaStatus::Issued,
         }
     }
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub enum CurrencyIssuanceSagaStatus {
-    #[default]
-    Initial,
-    Issued,
-    SupplyIncreased,
-    Deposited,
-    SupplyDecreased,
-    Completed,
-    Failed,
 }
 
 impl SagaState for CurrencyIssuanceSagaState {}

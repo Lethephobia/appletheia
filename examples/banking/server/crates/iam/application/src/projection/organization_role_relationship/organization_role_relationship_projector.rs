@@ -143,6 +143,11 @@ where
                 organization_id,
                 user_id,
             } => Self::delete_all_role_relationships(*organization_id, *user_id),
+            OrganizationMembershipEventPayload::RoleGrantRejected { .. }
+            | OrganizationMembershipEventPayload::RoleRevokeRejected { .. }
+            | OrganizationMembershipEventPayload::ActivateRejected { .. }
+            | OrganizationMembershipEventPayload::DeactivateRejected { .. }
+            | OrganizationMembershipEventPayload::RemoveRejected { .. } => Vec::new(),
         };
 
         if changes.is_empty() {

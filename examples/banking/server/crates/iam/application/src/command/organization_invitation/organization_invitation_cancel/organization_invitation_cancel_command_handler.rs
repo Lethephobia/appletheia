@@ -99,12 +99,14 @@ where
             return Err(OrganizationInvitationCancelCommandHandlerError::OrganizationRemoved);
         }
 
-        organization_invitation.cancel()?;
+        let result = organization_invitation.cancel()?;
 
         self.organization_invitation_repository
             .save(uow, request_context, &mut organization_invitation)
             .await?;
 
-        Ok(CommandHandled::same(OrganizationInvitationCancelOutput))
+        Ok(CommandHandled::same(
+            OrganizationInvitationCancelOutput::from(result),
+        ))
     }
 }

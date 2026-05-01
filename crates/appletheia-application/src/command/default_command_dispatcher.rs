@@ -1,8 +1,7 @@
 use crate::authorization::{AuthorizationPlan, Authorizer, PrincipalRequirement};
 use crate::command::{
     Command, CommandConsistency, CommandDispatchResult, CommandDispatcher, CommandDispatcherError,
-    CommandFailureReport, CommandHandler, CommandHasher, CommandOptions, IdempotencyBeginResult,
-    IdempotencyService, IdempotencyState,
+    CommandHandler, CommandHasher, CommandOptions, IdempotencyBeginResult, IdempotencyService,
 };
 use crate::projection::{ProjectorDependencies, ProjectorDescriptor, ReadYourWritesWaiter};
 use crate::request_context::{Principal, RequestContext};
@@ -177,17 +176,11 @@ where
                 Ok(()) => return Err(CommandDispatcherError::InProgress { message_id }),
                 Err(rollback_error) => return Err(rollback_error.into()),
             },
-            IdempotencyBeginResult::Existing { state } => match state {
-                IdempotencyState::Succeeded { output } => {
-                    let decoded = serde_json::from_value(output.into())?;
-                    uow.commit().await?;
-                    return Ok(CommandDispatchResult::Replayed(decoded));
-                }
-                IdempotencyState::Failed { error } => {
-                    uow.commit().await?;
-                    return Err(CommandDispatcherError::PreviousFailure(error));
-                }
-            },
+            IdempotencyBeginResult::Existing { output } => {
+                let decoded = serde_json::from_value(output.into())?;
+                uow.commit().await?;
+                return Ok(CommandDispatchResult::Replayed(decoded));
+            }
         }
 
         let handler_result = handler.handle(&mut uow, request_context, &command).await;
@@ -198,7 +191,7 @@ where
                 let output = handled.into_output();
                 match self
                     .idempotency_service
-                    .complete_success(&mut uow, message_id, replay_output)
+                    .complete(&mut uow, message_id, replay_output)
                     .await
                 {
                     Ok(()) => {}
@@ -216,38 +209,6 @@ where
                     .rollback_with_operation_error(operation_error)
                     .await
                     .map_err(CommandDispatcherError::UnitOfWork)?;
-                let report = CommandFailureReport::from(&operation_error);
-                if let Ok(mut uow) = self.uow_factory.begin().await {
-                    let idempotency_begin_result = self
-                        .idempotency_service
-                        .begin(&mut uow, message_id, command_name, &command_hash)
-                        .await;
-                    match idempotency_begin_result {
-                        Ok(IdempotencyBeginResult::New) => {
-                            match self
-                                .idempotency_service
-                                .complete_failure(&mut uow, message_id, report)
-                                .await
-                            {
-                                Ok(()) => {
-                                    let _ = uow.commit().await;
-                                }
-                                Err(_) => {
-                                    let _ = uow.rollback().await;
-                                }
-                            }
-                        }
-                        Ok(IdempotencyBeginResult::Existing { .. }) => {
-                            let _ = uow.commit().await;
-                        }
-                        Ok(IdempotencyBeginResult::InProgress) => {
-                            let _ = uow.rollback().await;
-                        }
-                        Err(_) => {
-                            let _ = uow.rollback().await;
-                        }
-                    }
-                }
                 Err(CommandDispatcherError::Handler(operation_error))
             }
         }
@@ -265,10 +226,9 @@ mod tests {
         RelationName, RelationRefOwned, RelationshipRequirement,
     };
     use crate::command::{
-        Command, CommandDispatcher, CommandDispatcherError, CommandFailureReport, CommandHandled,
-        CommandHandler, CommandHash, CommandHasher, CommandHasherError, CommandName,
-        CommandOptions, IdempotencyBeginResult, IdempotencyOutput, IdempotencyService,
-        IdempotencyServiceError,
+        Command, CommandDispatcher, CommandDispatcherError, CommandHandled, CommandHandler,
+        CommandHash, CommandHasher, CommandHasherError, CommandName, CommandOptions,
+        IdempotencyBeginResult, IdempotencyOutput, IdempotencyService, IdempotencyServiceError,
     };
     use crate::event::{AggregateIdValue, AggregateTypeOwned};
     use crate::messaging::Subscription;
@@ -358,20 +318,11 @@ mod tests {
             Ok(IdempotencyBeginResult::InProgress)
         }
 
-        async fn complete_success(
+        async fn complete(
             &self,
             _uow: &mut Self::Uow,
             _message_id: MessageId,
             _output: IdempotencyOutput,
-        ) -> Result<(), IdempotencyServiceError> {
-            Ok(())
-        }
-
-        async fn complete_failure(
-            &self,
-            _uow: &mut Self::Uow,
-            _message_id: MessageId,
-            _error: CommandFailureReport,
         ) -> Result<(), IdempotencyServiceError> {
             Ok(())
         }
@@ -392,20 +343,11 @@ mod tests {
             Ok(IdempotencyBeginResult::New)
         }
 
-        async fn complete_success(
+        async fn complete(
             &self,
             _uow: &mut Self::Uow,
             _message_id: MessageId,
             _output: IdempotencyOutput,
-        ) -> Result<(), IdempotencyServiceError> {
-            Ok(())
-        }
-
-        async fn complete_failure(
-            &self,
-            _uow: &mut Self::Uow,
-            _message_id: MessageId,
-            _error: CommandFailureReport,
         ) -> Result<(), IdempotencyServiceError> {
             Ok(())
         }
@@ -539,7 +481,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn dispatch_records_command_failure() {
+    async fn dispatch_rolls_back_command_failure() {
         let dispatcher = DefaultCommandDispatcher::new(
             TestCommandHasher,
             TestNewIdempotencyService,

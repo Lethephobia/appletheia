@@ -1,15 +1,33 @@
+mod transfer_cancel_rejection_reason;
+mod transfer_cancel_result;
+mod transfer_complete_rejection_reason;
+mod transfer_complete_result;
 mod transfer_error;
 mod transfer_event_payload;
 mod transfer_event_payload_error;
+mod transfer_fail_rejection_reason;
+mod transfer_fail_result;
+mod transfer_failure_reason;
 mod transfer_id;
+mod transfer_request_rejection_reason;
+mod transfer_request_result;
 mod transfer_state;
 mod transfer_state_error;
 mod transfer_status;
 
+pub use transfer_cancel_rejection_reason::TransferCancelRejectionReason;
+pub use transfer_cancel_result::TransferCancelResult;
+pub use transfer_complete_rejection_reason::TransferCompleteRejectionReason;
+pub use transfer_complete_result::TransferCompleteResult;
 pub use transfer_error::TransferError;
 pub use transfer_event_payload::TransferEventPayload;
 pub use transfer_event_payload_error::TransferEventPayloadError;
+pub use transfer_fail_rejection_reason::TransferFailRejectionReason;
+pub use transfer_fail_result::TransferFailResult;
+pub use transfer_failure_reason::TransferFailureReason;
 pub use transfer_id::TransferId;
+pub use transfer_request_rejection_reason::TransferRequestRejectionReason;
+pub use transfer_request_result::TransferRequestResult;
 pub use transfer_state::TransferState;
 pub use transfer_state_error::TransferStateError;
 pub use transfer_status::TransferStatus;
@@ -53,55 +71,154 @@ impl Transfer {
         from_account_id: AccountId,
         to_account_id: AccountId,
         amount: CurrencyAmount,
-    ) -> Result<(), TransferError> {
+    ) -> Result<TransferRequestResult, TransferError> {
         if self.state().is_some() {
             return Err(TransferError::AlreadyRequested);
         }
 
         if from_account_id == to_account_id {
-            return Err(TransferError::SameAccount);
+            let reason = TransferRequestRejectionReason::SameAccount;
+            self.append_event(TransferEventPayload::RequestRejected {
+                id: TransferId::new(),
+                from_account_id,
+                to_account_id,
+                amount,
+                reason,
+            })?;
+
+            return Ok(TransferRequestResult::Rejected { reason });
         }
 
         if amount.is_zero() {
-            return Err(TransferError::ZeroAmount);
+            let reason = TransferRequestRejectionReason::ZeroAmount;
+            self.append_event(TransferEventPayload::RequestRejected {
+                id: TransferId::new(),
+                from_account_id,
+                to_account_id,
+                amount,
+                reason,
+            })?;
+
+            return Ok(TransferRequestResult::Rejected { reason });
         }
 
+        let id = TransferId::new();
         self.append_event(TransferEventPayload::Requested {
-            id: TransferId::new(),
+            id,
             from_account_id,
             to_account_id,
             amount,
-        })
+        })?;
+
+        Ok(TransferRequestResult::Requested { transfer_id: id })
     }
 
     /// Completes the transfer.
-    pub fn complete(&mut self) -> Result<(), TransferError> {
-        self.ensure_pending()?;
+    pub fn complete(&mut self) -> Result<TransferCompleteResult, TransferError> {
+        match self.state_required()?.status {
+            TransferStatus::Pending => {}
+            TransferStatus::Completed => {
+                let reason = TransferCompleteRejectionReason::AlreadyCompleted;
+                self.append_event(TransferEventPayload::CompleteRejected { reason })?;
 
-        self.append_event(TransferEventPayload::Completed)
+                return Ok(TransferCompleteResult::Rejected { reason });
+            }
+            TransferStatus::Failed => {
+                let reason = TransferCompleteRejectionReason::AlreadyFailed;
+                self.append_event(TransferEventPayload::CompleteRejected { reason })?;
+
+                return Ok(TransferCompleteResult::Rejected { reason });
+            }
+            TransferStatus::Cancelled => {
+                let reason = TransferCompleteRejectionReason::AlreadyCancelled;
+                self.append_event(TransferEventPayload::CompleteRejected { reason })?;
+
+                return Ok(TransferCompleteResult::Rejected { reason });
+            }
+            TransferStatus::Rejected => {
+                let reason = TransferCompleteRejectionReason::AlreadyRejected;
+                self.append_event(TransferEventPayload::CompleteRejected { reason })?;
+
+                return Ok(TransferCompleteResult::Rejected { reason });
+            }
+        }
+
+        self.append_event(TransferEventPayload::Completed)?;
+
+        Ok(TransferCompleteResult::Completed)
     }
 
     /// Fails the transfer.
-    pub fn fail(&mut self) -> Result<(), TransferError> {
-        self.ensure_pending()?;
+    pub fn fail(
+        &mut self,
+        reason: TransferFailureReason,
+    ) -> Result<TransferFailResult, TransferError> {
+        match self.state_required()?.status {
+            TransferStatus::Pending => {}
+            TransferStatus::Completed => {
+                let reason = TransferFailRejectionReason::AlreadyCompleted;
+                self.append_event(TransferEventPayload::FailRejected { reason })?;
 
-        self.append_event(TransferEventPayload::Failed)
+                return Ok(TransferFailResult::Rejected { reason });
+            }
+            TransferStatus::Failed => {
+                let reason = TransferFailRejectionReason::AlreadyFailed;
+                self.append_event(TransferEventPayload::FailRejected { reason })?;
+
+                return Ok(TransferFailResult::Rejected { reason });
+            }
+            TransferStatus::Cancelled => {
+                let reason = TransferFailRejectionReason::AlreadyCancelled;
+                self.append_event(TransferEventPayload::FailRejected { reason })?;
+
+                return Ok(TransferFailResult::Rejected { reason });
+            }
+            TransferStatus::Rejected => {
+                let reason = TransferFailRejectionReason::AlreadyRejected;
+                self.append_event(TransferEventPayload::FailRejected { reason })?;
+
+                return Ok(TransferFailResult::Rejected { reason });
+            }
+        }
+
+        self.append_event(TransferEventPayload::Failed { reason })?;
+
+        Ok(TransferFailResult::Failed)
     }
 
     /// Cancels the transfer.
-    pub fn cancel(&mut self) -> Result<(), TransferError> {
-        self.ensure_pending()?;
-
-        self.append_event(TransferEventPayload::Cancelled)
-    }
-
-    fn ensure_pending(&self) -> Result<(), TransferError> {
+    pub fn cancel(&mut self) -> Result<TransferCancelResult, TransferError> {
         match self.state_required()?.status {
-            TransferStatus::Pending => Ok(()),
-            TransferStatus::Completed => Err(TransferError::AlreadyCompleted),
-            TransferStatus::Failed => Err(TransferError::AlreadyFailed),
-            TransferStatus::Cancelled => Err(TransferError::AlreadyCancelled),
+            TransferStatus::Pending => {}
+            TransferStatus::Completed => {
+                let reason = TransferCancelRejectionReason::AlreadyCompleted;
+                self.append_event(TransferEventPayload::CancelRejected { reason })?;
+
+                return Ok(TransferCancelResult::Rejected { reason });
+            }
+            TransferStatus::Failed => {
+                let reason = TransferCancelRejectionReason::AlreadyFailed;
+                self.append_event(TransferEventPayload::CancelRejected { reason })?;
+
+                return Ok(TransferCancelResult::Rejected { reason });
+            }
+            TransferStatus::Cancelled => {
+                let reason = TransferCancelRejectionReason::AlreadyCancelled;
+                self.append_event(TransferEventPayload::CancelRejected { reason })?;
+
+                return Ok(TransferCancelResult::Rejected { reason });
+            }
+            TransferStatus::Rejected => {
+                let reason = TransferCancelRejectionReason::AlreadyRejected;
+                self.append_event(TransferEventPayload::CancelRejected { reason })?;
+
+                return Ok(TransferCancelResult::Rejected { reason });
+            }
         }
+
+        self.append_event(TransferEventPayload::Cancelled)?;
+
+        Ok(TransferCancelResult::Cancelled)
     }
 }
 
@@ -119,15 +236,30 @@ impl AggregateApply<TransferEventPayload, TransferError> for Transfer {
                 *to_account_id,
                 *amount,
             ))),
+            TransferEventPayload::RequestRejected {
+                id,
+                from_account_id,
+                to_account_id,
+                amount,
+                ..
+            } => self.set_state(Some(TransferState::rejected(
+                *id,
+                *from_account_id,
+                *to_account_id,
+                *amount,
+            ))),
             TransferEventPayload::Completed => {
                 self.state_required_mut()?.status = TransferStatus::Completed;
             }
-            TransferEventPayload::Failed => {
+            TransferEventPayload::CompleteRejected { .. } => {}
+            TransferEventPayload::Failed { .. } => {
                 self.state_required_mut()?.status = TransferStatus::Failed;
             }
+            TransferEventPayload::FailRejected { .. } => {}
             TransferEventPayload::Cancelled => {
                 self.state_required_mut()?.status = TransferStatus::Cancelled;
             }
+            TransferEventPayload::CancelRejected { .. } => {}
         }
 
         Ok(())
@@ -187,11 +319,42 @@ mod tests {
         let account_id = AccountId::new();
         let mut transfer = Transfer::default();
 
-        let error = transfer
+        let result = transfer
             .request(account_id, account_id, CurrencyAmount::new(1))
-            .expect_err("same-account transfer should fail");
+            .expect("same-account transfer should complete with a rejection event");
 
-        assert!(matches!(error, super::TransferError::SameAccount));
+        assert!(matches!(
+            result,
+            super::TransferRequestResult::Rejected {
+                reason: super::TransferRequestRejectionReason::SameAccount
+            }
+        ));
+        assert_eq!(
+            transfer.status().expect("status should exist"),
+            &TransferStatus::Rejected
+        );
+        assert_eq!(
+            transfer.uncommitted_events()[0].payload().name(),
+            TransferEventPayload::REQUEST_REJECTED
+        );
+    }
+
+    #[test]
+    fn request_errors_when_transfer_is_already_requested() {
+        let from_account_id = AccountId::new();
+        let to_account_id = AccountId::new();
+        let amount = CurrencyAmount::new(100);
+        let mut transfer = Transfer::default();
+
+        transfer
+            .request(from_account_id, to_account_id, amount)
+            .expect("initial request should succeed");
+
+        let error = transfer
+            .request(from_account_id, to_account_id, amount)
+            .expect_err("second request should be an unexpected processing error");
+
+        assert!(matches!(error, super::TransferError::AlreadyRequested));
     }
 
     #[test]
@@ -204,17 +367,19 @@ mod tests {
             .expect("request should succeed");
 
         transfer.complete().expect("complete should succeed");
-        let duplicate_complete_error = transfer
+        let duplicate_complete_result = transfer
             .complete()
-            .expect_err("duplicate complete should fail");
+            .expect("duplicate complete should complete with a rejection event");
 
         assert_eq!(
             transfer.status().expect("status should exist"),
             &TransferStatus::Completed
         );
         assert!(matches!(
-            duplicate_complete_error,
-            super::TransferError::AlreadyCompleted
+            duplicate_complete_result,
+            super::TransferCompleteResult::Rejected {
+                reason: super::TransferCompleteRejectionReason::AlreadyCompleted
+            }
         ));
     }
 
@@ -227,16 +392,22 @@ mod tests {
             .request(from_account_id, to_account_id, CurrencyAmount::new(100))
             .expect("request should succeed");
 
-        transfer.fail().expect("fail should succeed");
-        let duplicate_fail_error = transfer.fail().expect_err("duplicate fail should fail");
+        transfer
+            .fail(super::TransferFailureReason::FundsReserveRejected)
+            .expect("fail should succeed");
+        let duplicate_fail_result = transfer
+            .fail(super::TransferFailureReason::FundsReserveRejected)
+            .expect("duplicate fail should complete with a rejection event");
 
         assert_eq!(
             transfer.status().expect("status should exist"),
             &TransferStatus::Failed
         );
         assert!(matches!(
-            duplicate_fail_error,
-            super::TransferError::AlreadyFailed
+            duplicate_fail_result,
+            super::TransferFailResult::Rejected {
+                reason: super::TransferFailRejectionReason::AlreadyFailed
+            }
         ));
     }
 
@@ -250,15 +421,19 @@ mod tests {
             .expect("request should succeed");
 
         transfer.cancel().expect("cancel should succeed");
-        let duplicate_cancel_error = transfer.cancel().expect_err("duplicate cancel should fail");
+        let duplicate_cancel_result = transfer
+            .cancel()
+            .expect("duplicate cancel should complete with a rejection event");
 
         assert_eq!(
             transfer.status().expect("status should exist"),
             &TransferStatus::Cancelled
         );
         assert!(matches!(
-            duplicate_cancel_error,
-            super::TransferError::AlreadyCancelled
+            duplicate_cancel_result,
+            super::TransferCancelResult::Rejected {
+                reason: super::TransferCancelRejectionReason::AlreadyCancelled
+            }
         ));
     }
 

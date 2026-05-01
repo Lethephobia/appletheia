@@ -99,12 +99,14 @@ where
             return Err(OrganizationMembershipRemoveCommandHandlerError::OrganizationRemoved);
         }
 
-        organization_membership.remove()?;
+        let result = organization_membership.remove()?;
 
         self.organization_membership_repository
             .save(uow, request_context, &mut organization_membership)
             .await?;
 
-        Ok(CommandHandled::same(OrganizationMembershipRemoveOutput))
+        Ok(CommandHandled::same(
+            OrganizationMembershipRemoveOutput::from(result),
+        ))
     }
 }

@@ -99,13 +99,15 @@ where
             return Err(OrganizationMembershipRoleGrantCommandHandlerError::OrganizationRemoved);
         }
 
-        organization_membership.grant_role(command.role)?;
+        let result = organization_membership.grant_role(command.role)?;
 
         self.organization_membership_repository
             .save(uow, request_context, &mut organization_membership)
             .await?;
 
-        Ok(CommandHandled::same(OrganizationMembershipRoleGrantOutput))
+        Ok(CommandHandled::same(
+            OrganizationMembershipRoleGrantOutput::from(result),
+        ))
     }
 }
 
@@ -376,7 +378,7 @@ mod tests {
             .clone()
             .expect("organization membership should be saved");
 
-        assert_eq!(output, OrganizationMembershipRoleGrantOutput);
+        assert_eq!(output, OrganizationMembershipRoleGrantOutput::Granted);
         assert_eq!(
             saved.status().expect("status should exist"),
             OrganizationMembershipStatus::Active

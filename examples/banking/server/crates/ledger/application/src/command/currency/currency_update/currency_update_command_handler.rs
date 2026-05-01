@@ -8,9 +8,14 @@ use appletheia::application::request_context::RequestContext;
 use banking_iam_application::{
     OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
 };
-use banking_ledger_domain::currency::Currency;
+use banking_ledger_domain::currency::{
+    Currency, CurrencyNameChangeResult, CurrencySymbolChangeResult,
+};
 
-use super::{CurrencyUpdateCommand, CurrencyUpdateCommandHandlerError, CurrencyUpdateOutput};
+use super::{
+    CurrencyUpdateCommand, CurrencyUpdateCommandHandlerError, CurrencyUpdateOutput,
+    CurrencyUpdateRejectionReason,
+};
 use crate::authorization::CurrencyUpdaterRelation;
 use crate::projection::CurrencyOwnerRelationshipProjectorSpec;
 
@@ -77,18 +82,36 @@ where
         };
 
         if let Some(symbol) = command.symbol.clone() {
-            currency.change_symbol(symbol)?;
+            if let CurrencySymbolChangeResult::Rejected { reason } =
+                currency.change_symbol(symbol)?
+            {
+                self.currency_repository
+                    .save(uow, request_context, &mut currency)
+                    .await?;
+
+                return Ok(CommandHandled::same(CurrencyUpdateOutput::Rejected {
+                    reason: CurrencyUpdateRejectionReason::from(reason),
+                }));
+            }
         }
 
         if let Some(name) = command.name.clone() {
-            currency.change_name(name)?;
+            if let CurrencyNameChangeResult::Rejected { reason } = currency.change_name(name)? {
+                self.currency_repository
+                    .save(uow, request_context, &mut currency)
+                    .await?;
+
+                return Ok(CommandHandled::same(CurrencyUpdateOutput::Rejected {
+                    reason: CurrencyUpdateRejectionReason::from(reason),
+                }));
+            }
         }
 
         self.currency_repository
             .save(uow, request_context, &mut currency)
             .await?;
 
-        Ok(CommandHandled::same(CurrencyUpdateOutput))
+        Ok(CommandHandled::same(CurrencyUpdateOutput::Updated))
     }
 }
 
@@ -270,6 +293,6 @@ mod tests {
             .await
             .expect("command should succeed");
 
-        assert_eq!(handled.into_output(), CurrencyUpdateOutput);
+        assert_eq!(handled.into_output(), CurrencyUpdateOutput::Updated);
     }
 }

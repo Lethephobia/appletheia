@@ -234,13 +234,11 @@ CREATE TABLE IF NOT EXISTS idempotency (
   command_name  TEXT        NOT NULL,
   command_hash  TEXT        NOT NULL,
   output        JSONB,
-  error         JSONB,
   started_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
   completed_at  TIMESTAMPTZ,
-  CONSTRAINT idempotency_output_error_check CHECK (
-    (completed_at IS NULL AND output IS NULL AND error IS NULL) OR
-    (completed_at IS NOT NULL AND output IS NOT NULL AND error IS NULL) OR
-    (completed_at IS NOT NULL AND output IS NULL AND error IS NOT NULL)
+  CONSTRAINT idempotency_output_completed_check CHECK (
+    (completed_at IS NULL AND output IS NULL) OR
+    (completed_at IS NOT NULL AND output IS NOT NULL)
   )
 );
 

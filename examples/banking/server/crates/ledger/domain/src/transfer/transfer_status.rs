@@ -8,4 +8,5 @@ pub enum TransferStatus {
     Completed,
     Failed,
     Cancelled,
+    Rejected,
 }

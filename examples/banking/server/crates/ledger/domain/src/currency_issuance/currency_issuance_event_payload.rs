@@ -4,7 +4,11 @@ use crate::account::AccountId;
 use crate::core::CurrencyAmount;
 use crate::currency::CurrencyId;
 
-use super::{CurrencyIssuanceEventPayloadError, CurrencyIssuanceId};
+use super::{
+    CurrencyIssuanceCompleteRejectionReason, CurrencyIssuanceEventPayloadError,
+    CurrencyIssuanceFailRejectionReason, CurrencyIssuanceFailureReason, CurrencyIssuanceId,
+    CurrencyIssuanceIssueRejectionReason,
+};
 
 /// Represents the domain events emitted by a `CurrencyIssuance` aggregate.
 #[event_payload(error = CurrencyIssuanceEventPayloadError)]
@@ -15,8 +19,23 @@ pub enum CurrencyIssuanceEventPayload {
         destination_account_id: AccountId,
         amount: CurrencyAmount,
     },
+    IssueRejected {
+        id: CurrencyIssuanceId,
+        currency_id: CurrencyId,
+        destination_account_id: AccountId,
+        amount: CurrencyAmount,
+        reason: CurrencyIssuanceIssueRejectionReason,
+    },
     Completed,
-    Failed,
+    CompleteRejected {
+        reason: CurrencyIssuanceCompleteRejectionReason,
+    },
+    Failed {
+        reason: CurrencyIssuanceFailureReason,
+    },
+    FailRejected {
+        reason: CurrencyIssuanceFailRejectionReason,
+    },
 }
 
 #[cfg(test)]
@@ -36,12 +55,24 @@ mod tests {
             appletheia::domain::EventName::new("issued")
         );
         assert_eq!(
+            CurrencyIssuanceEventPayload::ISSUE_REJECTED,
+            appletheia::domain::EventName::new("issue_rejected")
+        );
+        assert_eq!(
             CurrencyIssuanceEventPayload::COMPLETED,
             appletheia::domain::EventName::new("completed")
         );
         assert_eq!(
+            CurrencyIssuanceEventPayload::COMPLETE_REJECTED,
+            appletheia::domain::EventName::new("complete_rejected")
+        );
+        assert_eq!(
             CurrencyIssuanceEventPayload::FAILED,
             appletheia::domain::EventName::new("failed")
+        );
+        assert_eq!(
+            CurrencyIssuanceEventPayload::FAIL_REJECTED,
+            appletheia::domain::EventName::new("fail_rejected")
         );
     }
 

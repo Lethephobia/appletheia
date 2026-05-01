@@ -77,17 +77,15 @@ where
             return Err(OrganizationHandleChangeCommandHandlerError::OrganizationNotFound);
         };
 
-        if organization.is_removed()? {
-            return Err(OrganizationHandleChangeCommandHandlerError::OrganizationRemoved);
-        }
-
-        organization.change_handle(command.handle.clone())?;
+        let result = organization.change_handle(command.handle.clone())?;
 
         self.organization_repository
             .save(uow, request_context, &mut organization)
             .await?;
 
-        Ok(CommandHandled::same(OrganizationHandleChangeOutput))
+        Ok(CommandHandled::same(OrganizationHandleChangeOutput::from(
+            result,
+        )))
     }
 }
 
@@ -275,7 +273,7 @@ mod tests {
         let saved = repository.organization.lock().expect("lock").clone();
         let saved = saved.expect("organization should be saved");
 
-        assert_eq!(output, OrganizationHandleChangeOutput);
+        assert_eq!(output, OrganizationHandleChangeOutput::Changed);
         assert_eq!(
             saved.handle().expect("handle should exist"),
             &OrganizationHandle::try_from("acme-labs-2").expect("handle should be valid")

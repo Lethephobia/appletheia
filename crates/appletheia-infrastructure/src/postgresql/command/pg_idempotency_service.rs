@@ -1,7 +1,6 @@
-use appletheia_application::command::CommandFailureReport;
 use appletheia_application::command::{
     CommandHash, CommandName, IdempotencyBeginResult, IdempotencyId, IdempotencyOutput,
-    IdempotencyService, IdempotencyServiceError, IdempotencyState,
+    IdempotencyService, IdempotencyServiceError,
 };
 use appletheia_application::request_context::MessageId;
 
@@ -91,8 +90,7 @@ impl IdempotencyService for PgIdempotencyService {
               command_name,
               command_hash,
               completed_at,
-              output,
-              error
+              output
             FROM idempotency
             WHERE message_id = $1
             "#,
@@ -111,25 +109,16 @@ impl IdempotencyService for PgIdempotencyService {
 
         match row.completed_at {
             None => Ok(IdempotencyBeginResult::InProgress),
-            Some(_) => match (row.output, row.error) {
-                (Some(output), None) => Ok(IdempotencyBeginResult::Existing {
-                    state: IdempotencyState::Succeeded {
-                        output: IdempotencyOutput::from(output),
-                    },
+            Some(_) => match row.output {
+                Some(output) => Ok(IdempotencyBeginResult::Existing {
+                    output: IdempotencyOutput::from(output),
                 }),
-                (None, Some(error)) => {
-                    let error = serde_json::from_value(error)
-                        .map_err(|source| IdempotencyServiceError::Persistence(Box::new(source)))?;
-                    Ok(IdempotencyBeginResult::Existing {
-                        state: IdempotencyState::Failed { error },
-                    })
-                }
-                _ => Err(IdempotencyServiceError::InvalidStateTransition),
+                None => Err(IdempotencyServiceError::InvalidStateTransition),
             },
         }
     }
 
-    async fn complete_success(
+    async fn complete(
         &self,
         uow: &mut Self::Uow,
         message_id: MessageId,
@@ -143,50 +132,13 @@ impl IdempotencyService for PgIdempotencyService {
             r#"
             UPDATE idempotency
                SET completed_at = now(),
-                   output = $2,
-                   error = NULL
+                   output = $2
              WHERE message_id = $1
                AND completed_at IS NULL
             "#,
         )
         .bind(message_id_value)
         .bind(serde_json::Value::from(output))
-        .execute(transaction.as_mut())
-        .await
-        .map_err(|source| IdempotencyServiceError::Persistence(Box::new(source)))?;
-
-        if updated.rows_affected() != 1 {
-            return Err(IdempotencyServiceError::InvalidStateTransition);
-        }
-
-        Ok(())
-    }
-
-    async fn complete_failure(
-        &self,
-        uow: &mut Self::Uow,
-        message_id: MessageId,
-        error: CommandFailureReport,
-    ) -> Result<(), IdempotencyServiceError> {
-        let transaction = uow.transaction_mut();
-
-        let message_id_value = message_id.value();
-
-        let error_json = serde_json::to_value(error)
-            .map_err(|source| IdempotencyServiceError::Persistence(Box::new(source)))?;
-
-        let updated = sqlx::query(
-            r#"
-            UPDATE idempotency
-               SET completed_at = now(),
-                   output = NULL,
-                   error = $2
-             WHERE message_id = $1
-               AND completed_at IS NULL
-            "#,
-        )
-        .bind(message_id_value)
-        .bind(error_json)
         .execute(transaction.as_mut())
         .await
         .map_err(|source| IdempotencyServiceError::Persistence(Box::new(source)))?;

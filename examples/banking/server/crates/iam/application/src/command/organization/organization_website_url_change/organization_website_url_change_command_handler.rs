@@ -77,12 +77,14 @@ where
             return Err(OrganizationWebsiteUrlChangeCommandHandlerError::OrganizationNotFound);
         };
 
-        organization.change_website_url(command.website_url.clone())?;
+        let result = organization.change_website_url(command.website_url.clone())?;
 
         self.organization_repository
             .save(uow, request_context, &mut organization)
             .await?;
 
-        Ok(CommandHandled::same(OrganizationWebsiteUrlChangeOutput))
+        Ok(CommandHandled::same(
+            OrganizationWebsiteUrlChangeOutput::from(result),
+        ))
     }
 }

@@ -76,12 +76,12 @@ where
             return Err(CurrencyRemoveCommandHandlerError::CurrencyNotFound);
         };
 
-        currency.remove()?;
+        let result = currency.remove()?;
 
         self.currency_repository
             .save(uow, request_context, &mut currency)
             .await?;
 
-        Ok(CommandHandled::same(CurrencyRemoveOutput))
+        Ok(CommandHandled::same(CurrencyRemoveOutput::from(result)))
     }
 }

@@ -2,8 +2,8 @@ mod account;
 mod currency;
 
 pub use account::{
-    AccountCloserRelation, AccountFreezerRelation, AccountOwnerRelation,
-    AccountOwnershipTransfererRelation, AccountRenamerRelation, AccountStatusManagerRelation,
+    AccountCloserRelation, AccountFreezerRelation, AccountNameChangerRelation,
+    AccountOwnerRelation, AccountOwnershipTransfererRelation, AccountStatusManagerRelation,
     AccountThawerRelation, AccountTransferRequesterRelation,
 };
 pub use currency::{

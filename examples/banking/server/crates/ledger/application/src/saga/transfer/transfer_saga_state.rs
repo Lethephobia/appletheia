@@ -4,6 +4,8 @@ use banking_ledger_domain::core::CurrencyAmount;
 use banking_ledger_domain::transfer::TransferId;
 use serde::{Deserialize, Serialize};
 
+use super::TransferSagaStatus;
+
 /// Stores progress for the transfer orchestration saga.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TransferSagaState {
@@ -29,19 +31,6 @@ impl TransferSagaState {
             status: TransferSagaStatus::Requested,
         }
     }
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub enum TransferSagaStatus {
-    #[default]
-    Initial,
-    Requested,
-    FundsReserved,
-    Deposited,
-    ReservedFundsCommitted,
-    ReservedFundsReleased,
-    Completed,
-    Failed,
 }
 
 impl SagaState for TransferSagaState {}

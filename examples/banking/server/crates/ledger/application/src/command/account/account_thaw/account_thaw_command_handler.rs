@@ -75,11 +75,11 @@ where
             return Err(AccountThawCommandHandlerError::AccountNotFound);
         };
 
-        account.thaw()?;
+        let result = account.thaw()?;
         self.account_repository
             .save(uow, request_context, &mut account)
             .await?;
 
-        Ok(CommandHandled::same(AccountThawOutput))
+        Ok(CommandHandled::same(AccountThawOutput::from(result)))
     }
 }

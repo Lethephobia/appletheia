@@ -75,11 +75,11 @@ where
             return Err(AccountCloseCommandHandlerError::AccountNotFound);
         };
 
-        account.close()?;
+        let result = account.close()?;
         self.account_repository
             .save(uow, request_context, &mut account)
             .await?;
 
-        Ok(CommandHandled::same(AccountCloseOutput))
+        Ok(CommandHandled::same(AccountCloseOutput::from(result)))
     }
 }

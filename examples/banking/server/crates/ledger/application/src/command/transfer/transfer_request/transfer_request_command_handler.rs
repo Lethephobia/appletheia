@@ -6,7 +6,6 @@ use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::projection::ProjectorSpec;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use appletheia::domain::Aggregate;
 use banking_iam_application::{
     OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
 };
@@ -97,7 +96,7 @@ where
         }
 
         let mut transfer = Transfer::default();
-        transfer.request(
+        let result = transfer.request(
             command.from_account_id,
             command.to_account_id,
             command.amount,
@@ -107,13 +106,7 @@ where
             .save(uow, request_context, &mut transfer)
             .await?;
 
-        let transfer_id = transfer
-            .aggregate_id()
-            .ok_or(TransferRequestCommandHandlerError::MissingTransferId)?;
-
-        Ok(CommandHandled::same(TransferRequestOutput::new(
-            transfer_id,
-        )))
+        Ok(CommandHandled::same(TransferRequestOutput::from(result)))
     }
 }
 

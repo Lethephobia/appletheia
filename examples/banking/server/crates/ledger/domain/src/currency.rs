@@ -1,29 +1,61 @@
+mod currency_activate_rejection_reason;
+mod currency_activate_result;
+mod currency_deactivate_rejection_reason;
+mod currency_deactivate_result;
 mod currency_decimals;
 mod currency_error;
 mod currency_event_payload;
 mod currency_event_payload_error;
 mod currency_id;
 mod currency_name;
+mod currency_name_change_rejection_reason;
+mod currency_name_change_result;
 mod currency_name_error;
 mod currency_owner;
+mod currency_ownership_transfer_rejection_reason;
+mod currency_ownership_transfer_result;
+mod currency_remove_rejection_reason;
+mod currency_remove_result;
 mod currency_state;
 mod currency_state_error;
 mod currency_status;
+mod currency_supply_decrease_rejection_reason;
+mod currency_supply_decrease_result;
+mod currency_supply_increase_rejection_reason;
+mod currency_supply_increase_result;
 mod currency_symbol;
+mod currency_symbol_change_rejection_reason;
+mod currency_symbol_change_result;
 mod currency_symbol_error;
 
+pub use currency_activate_rejection_reason::CurrencyActivateRejectionReason;
+pub use currency_activate_result::CurrencyActivateResult;
+pub use currency_deactivate_rejection_reason::CurrencyDeactivateRejectionReason;
+pub use currency_deactivate_result::CurrencyDeactivateResult;
 pub use currency_decimals::CurrencyDecimals;
 pub use currency_error::CurrencyError;
 pub use currency_event_payload::CurrencyEventPayload;
 pub use currency_event_payload_error::CurrencyEventPayloadError;
 pub use currency_id::CurrencyId;
 pub use currency_name::CurrencyName;
+pub use currency_name_change_rejection_reason::CurrencyNameChangeRejectionReason;
+pub use currency_name_change_result::CurrencyNameChangeResult;
 pub use currency_name_error::CurrencyNameError;
 pub use currency_owner::CurrencyOwner;
+pub use currency_ownership_transfer_rejection_reason::CurrencyOwnershipTransferRejectionReason;
+pub use currency_ownership_transfer_result::CurrencyOwnershipTransferResult;
+pub use currency_remove_rejection_reason::CurrencyRemoveRejectionReason;
+pub use currency_remove_result::CurrencyRemoveResult;
 pub use currency_state::CurrencyState;
 pub use currency_state_error::CurrencyStateError;
 pub use currency_status::CurrencyStatus;
+pub use currency_supply_decrease_rejection_reason::CurrencySupplyDecreaseRejectionReason;
+pub use currency_supply_decrease_result::CurrencySupplyDecreaseResult;
+pub use currency_supply_increase_rejection_reason::CurrencySupplyIncreaseRejectionReason;
+pub use currency_supply_increase_result::CurrencySupplyIncreaseResult;
 pub use currency_symbol::CurrencySymbol;
+pub use currency_symbol_change_rejection_reason::CurrencySymbolChangeRejectionReason;
+pub use currency_symbol_change_result::CurrencySymbolChangeResult;
 pub use currency_symbol_error::CurrencySymbolError;
 
 use appletheia::aggregate;
@@ -95,107 +127,128 @@ impl Currency {
     }
 
     /// Transfers ownership of the currency.
-    pub fn transfer_ownership(&mut self, owner: CurrencyOwner) -> Result<(), CurrencyError> {
-        self.ensure_not_removed()?;
-
-        if self.state_required()?.owner == owner {
-            return Ok(());
+    pub fn transfer_ownership(
+        &mut self,
+        owner: CurrencyOwner,
+    ) -> Result<CurrencyOwnershipTransferResult, CurrencyError> {
+        if self.state_required()?.status.is_removed() {
+            let reason = CurrencyOwnershipTransferRejectionReason::Removed;
+            self.append_event(CurrencyEventPayload::OwnershipTransferRejected { owner, reason })?;
+            return Ok(CurrencyOwnershipTransferResult::Rejected { reason });
         }
 
-        self.append_event(CurrencyEventPayload::OwnershipTransferred { owner })
+        self.append_event(CurrencyEventPayload::OwnershipTransferred { owner })?;
+        Ok(CurrencyOwnershipTransferResult::Transferred)
     }
 
     /// Changes the current currency symbol.
-    pub fn change_symbol(&mut self, symbol: CurrencySymbol) -> Result<(), CurrencyError> {
-        self.ensure_not_removed()?;
-
-        if self.state_required()?.symbol.eq(&symbol) {
-            return Ok(());
+    pub fn change_symbol(
+        &mut self,
+        symbol: CurrencySymbol,
+    ) -> Result<CurrencySymbolChangeResult, CurrencyError> {
+        if self.state_required()?.status.is_removed() {
+            let reason = CurrencySymbolChangeRejectionReason::Removed;
+            self.append_event(CurrencyEventPayload::SymbolChangeRejected { symbol, reason })?;
+            return Ok(CurrencySymbolChangeResult::Rejected { reason });
         }
 
-        self.append_event(CurrencyEventPayload::SymbolChanged { symbol })
+        self.append_event(CurrencyEventPayload::SymbolChanged { symbol })?;
+        Ok(CurrencySymbolChangeResult::Changed)
     }
 
     /// Changes the current currency name.
-    pub fn change_name(&mut self, name: CurrencyName) -> Result<(), CurrencyError> {
-        self.ensure_not_removed()?;
-
-        if self.state_required()?.name.eq(&name) {
-            return Ok(());
+    pub fn change_name(
+        &mut self,
+        name: CurrencyName,
+    ) -> Result<CurrencyNameChangeResult, CurrencyError> {
+        if self.state_required()?.status.is_removed() {
+            let reason = CurrencyNameChangeRejectionReason::Removed;
+            self.append_event(CurrencyEventPayload::NameChangeRejected { name, reason })?;
+            return Ok(CurrencyNameChangeResult::Rejected { reason });
         }
 
-        self.append_event(CurrencyEventPayload::NameChanged { name })
+        self.append_event(CurrencyEventPayload::NameChanged { name })?;
+        Ok(CurrencyNameChangeResult::Changed)
     }
 
     /// Increases the total supply.
-    pub fn increase_supply(&mut self, amount: CurrencyAmount) -> Result<(), CurrencyError> {
-        self.ensure_active()?;
-
-        if amount.is_zero() {
-            return Ok(());
+    pub fn increase_supply(
+        &mut self,
+        amount: CurrencyAmount,
+    ) -> Result<CurrencySupplyIncreaseResult, CurrencyError> {
+        match self.state_required()?.status {
+            CurrencyStatus::Active => {}
+            CurrencyStatus::Inactive => {
+                let reason = CurrencySupplyIncreaseRejectionReason::Inactive;
+                self.append_event(CurrencyEventPayload::SupplyIncreaseRejected { amount, reason })?;
+                return Ok(CurrencySupplyIncreaseResult::Rejected { reason });
+            }
+            CurrencyStatus::Removed => {
+                let reason = CurrencySupplyIncreaseRejectionReason::Removed;
+                self.append_event(CurrencyEventPayload::SupplyIncreaseRejected { amount, reason })?;
+                return Ok(CurrencySupplyIncreaseResult::Rejected { reason });
+            }
         }
 
-        self.append_event(CurrencyEventPayload::SupplyIncreased { amount })
+        self.append_event(CurrencyEventPayload::SupplyIncreased { amount })?;
+        Ok(CurrencySupplyIncreaseResult::Increased)
     }
 
     /// Decreases the total supply.
-    pub fn decrease_supply(&mut self, amount: CurrencyAmount) -> Result<(), CurrencyError> {
-        self.ensure_not_removed()?;
-
-        if amount.is_zero() {
-            return Ok(());
+    pub fn decrease_supply(
+        &mut self,
+        amount: CurrencyAmount,
+    ) -> Result<CurrencySupplyDecreaseResult, CurrencyError> {
+        if self.state_required()?.status.is_removed() {
+            let reason = CurrencySupplyDecreaseRejectionReason::Removed;
+            self.append_event(CurrencyEventPayload::SupplyDecreaseRejected { amount, reason })?;
+            return Ok(CurrencySupplyDecreaseResult::Rejected { reason });
         }
 
         if self.state_required()?.supply.value() < amount.value() {
-            return Err(CurrencyError::InsufficientSupply);
+            let reason = CurrencySupplyDecreaseRejectionReason::InsufficientSupply;
+            self.append_event(CurrencyEventPayload::SupplyDecreaseRejected { amount, reason })?;
+            return Ok(CurrencySupplyDecreaseResult::Rejected { reason });
         }
 
-        self.append_event(CurrencyEventPayload::SupplyDecreased { amount })
+        self.append_event(CurrencyEventPayload::SupplyDecreased { amount })?;
+        Ok(CurrencySupplyDecreaseResult::Decreased)
     }
 
     /// Activates the currency.
-    pub fn activate(&mut self) -> Result<(), CurrencyError> {
-        self.ensure_not_removed()?;
-
-        if self.state_required()?.status.is_active() {
-            return Ok(());
+    pub fn activate(&mut self) -> Result<CurrencyActivateResult, CurrencyError> {
+        if self.state_required()?.status.is_removed() {
+            let reason = CurrencyActivateRejectionReason::Removed;
+            self.append_event(CurrencyEventPayload::ActivateRejected { reason })?;
+            return Ok(CurrencyActivateResult::Rejected { reason });
         }
 
-        self.append_event(CurrencyEventPayload::Activated)
+        self.append_event(CurrencyEventPayload::Activated)?;
+        Ok(CurrencyActivateResult::Activated)
     }
 
     /// Deactivates the currency.
-    pub fn deactivate(&mut self) -> Result<(), CurrencyError> {
-        self.ensure_not_removed()?;
-
-        if self.state_required()?.status.is_inactive() {
-            return Ok(());
+    pub fn deactivate(&mut self) -> Result<CurrencyDeactivateResult, CurrencyError> {
+        if self.state_required()?.status.is_removed() {
+            let reason = CurrencyDeactivateRejectionReason::Removed;
+            self.append_event(CurrencyEventPayload::DeactivateRejected { reason })?;
+            return Ok(CurrencyDeactivateResult::Rejected { reason });
         }
 
-        self.append_event(CurrencyEventPayload::Deactivated)
+        self.append_event(CurrencyEventPayload::Deactivated)?;
+        Ok(CurrencyDeactivateResult::Deactivated)
     }
 
     /// Permanently removes the currency.
-    pub fn remove(&mut self) -> Result<(), CurrencyError> {
-        self.ensure_not_removed()?;
-
-        self.append_event(CurrencyEventPayload::Removed)
-    }
-
-    fn ensure_not_removed(&self) -> Result<(), CurrencyError> {
+    pub fn remove(&mut self) -> Result<CurrencyRemoveResult, CurrencyError> {
         if self.state_required()?.status.is_removed() {
-            return Err(CurrencyError::Removed);
+            let reason = CurrencyRemoveRejectionReason::Removed;
+            self.append_event(CurrencyEventPayload::RemoveRejected { reason })?;
+            return Ok(CurrencyRemoveResult::Rejected { reason });
         }
 
-        Ok(())
-    }
-
-    fn ensure_active(&self) -> Result<(), CurrencyError> {
-        match self.state_required()?.status {
-            CurrencyStatus::Active => Ok(()),
-            CurrencyStatus::Inactive => Err(CurrencyError::Inactive),
-            CurrencyStatus::Removed => Err(CurrencyError::Removed),
-        }
+        self.append_event(CurrencyEventPayload::Removed)?;
+        Ok(CurrencyRemoveResult::Removed)
     }
 }
 
@@ -216,12 +269,15 @@ impl AggregateApply<CurrencyEventPayload, CurrencyError> for Currency {
             CurrencyEventPayload::OwnershipTransferred { owner } => {
                 self.state_required_mut()?.owner = *owner;
             }
+            CurrencyEventPayload::OwnershipTransferRejected { .. } => {}
             CurrencyEventPayload::SymbolChanged { symbol } => {
                 self.state_required_mut()?.symbol = symbol.clone();
             }
+            CurrencyEventPayload::SymbolChangeRejected { .. } => {}
             CurrencyEventPayload::NameChanged { name } => {
                 self.state_required_mut()?.name = name.clone();
             }
+            CurrencyEventPayload::NameChangeRejected { .. } => {}
             CurrencyEventPayload::SupplyIncreased { amount } => {
                 let state = self.state_required_mut()?;
                 state.supply = state.supply.try_add(*amount).map_err(|error| match error {
@@ -229,6 +285,7 @@ impl AggregateApply<CurrencyEventPayload, CurrencyError> for Currency {
                     CurrencyAmountError::InsufficientBalance => CurrencyError::InsufficientSupply,
                 })?;
             }
+            CurrencyEventPayload::SupplyIncreaseRejected { .. } => {}
             CurrencyEventPayload::SupplyDecreased { amount } => {
                 let state = self.state_required_mut()?;
                 state.supply = state.supply.try_sub(*amount).map_err(|error| match error {
@@ -236,15 +293,19 @@ impl AggregateApply<CurrencyEventPayload, CurrencyError> for Currency {
                     CurrencyAmountError::InsufficientBalance => CurrencyError::InsufficientSupply,
                 })?;
             }
+            CurrencyEventPayload::SupplyDecreaseRejected { .. } => {}
             CurrencyEventPayload::Activated => {
                 self.state_required_mut()?.status = CurrencyStatus::Active;
             }
+            CurrencyEventPayload::ActivateRejected { .. } => {}
             CurrencyEventPayload::Deactivated => {
                 self.state_required_mut()?.status = CurrencyStatus::Inactive;
             }
+            CurrencyEventPayload::DeactivateRejected { .. } => {}
             CurrencyEventPayload::Removed => {
                 self.state_required_mut()?.status = CurrencyStatus::Removed;
             }
+            CurrencyEventPayload::RemoveRejected { .. } => {}
         }
 
         Ok(())
@@ -321,7 +382,7 @@ mod tests {
     }
 
     #[test]
-    fn changing_to_same_values_and_same_status_is_a_no_op() {
+    fn changing_to_same_values_and_same_status_appends_success_events() {
         let owner = user_owner();
         let symbol = CurrencySymbol::try_from("usdc").expect("symbol should be valid");
         let name = CurrencyName::try_from("USD Coin").expect("name should be valid");
@@ -333,19 +394,17 @@ mod tests {
 
         currency
             .change_symbol(symbol)
-            .expect("no-op symbol change should succeed");
+            .expect("symbol change should succeed");
         currency
             .change_name(name)
-            .expect("no-op name change should succeed");
-        currency
-            .activate()
-            .expect("no-op activation should succeed");
+            .expect("name change should succeed");
+        currency.activate().expect("activation should succeed");
 
-        assert_eq!(currency.uncommitted_events().len(), 1);
+        assert_eq!(currency.uncommitted_events().len(), 4);
     }
 
     #[test]
-    fn transferring_to_same_owner_is_a_no_op() {
+    fn transferring_to_same_owner_appends_success_event() {
         let owner = user_owner();
         let mut currency = Currency::default();
         currency
@@ -361,7 +420,7 @@ mod tests {
             .transfer_ownership(owner)
             .expect("same owner transfer should succeed");
 
-        assert_eq!(currency.uncommitted_events().len(), 1);
+        assert_eq!(currency.uncommitted_events().len(), 2);
     }
 
     #[test]
@@ -548,11 +607,20 @@ mod tests {
             .expect("definition should succeed");
         currency.deactivate().expect("deactivate should succeed");
 
-        let error = currency
+        let result = currency
             .increase_supply(CurrencyAmount::new(1))
-            .expect_err("increase should fail");
+            .expect("increase should complete with a rejection event");
 
-        assert!(matches!(error, super::CurrencyError::Inactive));
+        assert!(matches!(
+            result,
+            super::CurrencySupplyIncreaseResult::Rejected {
+                reason: super::CurrencySupplyIncreaseRejectionReason::Inactive
+            }
+        ));
+        assert_eq!(
+            currency.uncommitted_events()[2].payload().name(),
+            CurrencyEventPayload::SUPPLY_INCREASE_REJECTED
+        );
     }
 
     #[test]
@@ -569,20 +637,28 @@ mod tests {
             .expect("definition should succeed");
 
         currency.remove().expect("remove should succeed");
-        let duplicate_remove_error = currency.remove().expect_err("duplicate remove should fail");
+        let duplicate_remove_result = currency
+            .remove()
+            .expect("duplicate remove should complete with a rejection event");
 
         assert_eq!(
             currency.status().expect("status should exist"),
             CurrencyStatus::Removed
         );
-        assert_eq!(currency.uncommitted_events().len(), 2);
+        assert_eq!(currency.uncommitted_events().len(), 3);
         assert!(matches!(
-            duplicate_remove_error,
-            super::CurrencyError::Removed
+            duplicate_remove_result,
+            super::CurrencyRemoveResult::Rejected {
+                reason: super::CurrencyRemoveRejectionReason::Removed
+            }
         ));
         assert_eq!(
             currency.uncommitted_events()[1].payload().name(),
             CurrencyEventPayload::REMOVED
+        );
+        assert_eq!(
+            currency.uncommitted_events()[2].payload().name(),
+            CurrencyEventPayload::REMOVE_REJECTED
         );
     }
 
@@ -600,20 +676,51 @@ mod tests {
             .expect("definition should succeed");
         currency.remove().expect("remove should succeed");
 
-        let activate_error = currency.activate().expect_err("activate should fail");
-        let deactivate_error = currency.deactivate().expect_err("deactivate should fail");
-        let symbol_error = currency
+        let activate_result = currency
+            .activate()
+            .expect("activate should complete with a rejection event");
+        let deactivate_result = currency
+            .deactivate()
+            .expect("deactivate should complete with a rejection event");
+        let symbol_result = currency
             .change_symbol(CurrencySymbol::try_from("usdce").expect("symbol should be valid"))
-            .expect_err("symbol change should fail");
-        let name_error = currency
+            .expect("symbol change should complete with a rejection event");
+        let name_result = currency
             .change_name(CurrencyName::try_from("USD Coin Example").expect("name should be valid"))
-            .expect_err("name change should fail");
-        let remove_error = currency.remove().expect_err("remove should fail");
+            .expect("name change should complete with a rejection event");
+        let remove_result = currency
+            .remove()
+            .expect("remove should complete with a rejection event");
 
-        assert!(matches!(activate_error, super::CurrencyError::Removed));
-        assert!(matches!(deactivate_error, super::CurrencyError::Removed));
-        assert!(matches!(symbol_error, super::CurrencyError::Removed));
-        assert!(matches!(name_error, super::CurrencyError::Removed));
-        assert!(matches!(remove_error, super::CurrencyError::Removed));
+        assert!(matches!(
+            activate_result,
+            super::CurrencyActivateResult::Rejected {
+                reason: super::CurrencyActivateRejectionReason::Removed
+            }
+        ));
+        assert!(matches!(
+            deactivate_result,
+            super::CurrencyDeactivateResult::Rejected {
+                reason: super::CurrencyDeactivateRejectionReason::Removed
+            }
+        ));
+        assert!(matches!(
+            symbol_result,
+            super::CurrencySymbolChangeResult::Rejected {
+                reason: super::CurrencySymbolChangeRejectionReason::Removed
+            }
+        ));
+        assert!(matches!(
+            name_result,
+            super::CurrencyNameChangeResult::Rejected {
+                reason: super::CurrencyNameChangeRejectionReason::Removed
+            }
+        ));
+        assert!(matches!(
+            remove_result,
+            super::CurrencyRemoveResult::Rejected {
+                reason: super::CurrencyRemoveRejectionReason::Removed
+            }
+        ));
     }
 }

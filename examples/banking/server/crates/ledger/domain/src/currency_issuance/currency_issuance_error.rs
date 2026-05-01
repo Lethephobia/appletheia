@@ -9,15 +9,6 @@ pub enum CurrencyIssuanceError {
     #[error(transparent)]
     Aggregate(#[from] AggregateError<CurrencyIssuanceId>),
 
-    #[error("currency has already been issued")]
+    #[error("currency issuance was already issued")]
     AlreadyIssued,
-
-    #[error("issuance amount must be greater than zero")]
-    ZeroAmount,
-
-    #[error("issuance is already completed")]
-    AlreadyCompleted,
-
-    #[error("issuance is already failed")]
-    AlreadyFailed,
 }

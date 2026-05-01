@@ -34,6 +34,22 @@ impl CurrencyIssuanceState {
             status: CurrencyIssuanceStatus::Pending,
         }
     }
+
+    /// Creates a new rejected issuance state.
+    pub(super) fn rejected(
+        id: CurrencyIssuanceId,
+        currency_id: CurrencyId,
+        destination_account_id: AccountId,
+        amount: CurrencyAmount,
+    ) -> Self {
+        Self {
+            id,
+            currency_id,
+            destination_account_id,
+            amount,
+            status: CurrencyIssuanceStatus::Rejected,
+        }
+    }
 }
 
 #[cfg(test)]

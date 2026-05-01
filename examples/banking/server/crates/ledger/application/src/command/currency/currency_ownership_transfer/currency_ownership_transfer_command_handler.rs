@@ -76,12 +76,14 @@ where
             return Err(CurrencyOwnershipTransferCommandHandlerError::CurrencyNotFound);
         };
 
-        currency.transfer_ownership(command.owner)?;
+        let result = currency.transfer_ownership(command.owner)?;
 
         self.currency_repository
             .save(uow, request_context, &mut currency)
             .await?;
 
-        Ok(CommandHandled::same(CurrencyOwnershipTransferOutput))
+        Ok(CommandHandled::same(CurrencyOwnershipTransferOutput::from(
+            result,
+        )))
     }
 }

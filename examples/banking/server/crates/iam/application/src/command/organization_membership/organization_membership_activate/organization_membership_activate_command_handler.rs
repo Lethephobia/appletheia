@@ -99,12 +99,14 @@ where
             return Err(OrganizationMembershipActivateCommandHandlerError::OrganizationRemoved);
         }
 
-        organization_membership.activate()?;
+        let result = organization_membership.activate()?;
 
         self.organization_membership_repository
             .save(uow, request_context, &mut organization_membership)
             .await?;
 
-        Ok(CommandHandled::same(OrganizationMembershipActivateOutput))
+        Ok(CommandHandled::same(
+            OrganizationMembershipActivateOutput::from(result),
+        ))
     }
 }
