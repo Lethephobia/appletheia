@@ -1,0 +1,72 @@
+use appletheia::application::event::EventEnvelope;
+use appletheia::application::projection::Projector;
+use banking_iam_domain::{OrganizationMembership, OrganizationMembershipEventPayload};
+
+use super::{OrganizationMembershipRoleProjectorError, OrganizationMembershipRoleProjectorSpec};
+use crate::view::{OrganizationMembershipRoleViewStore, OrganizationMembershipRoleViewUpsert};
+
+/// Projects organization membership role events into normalized role views.
+pub struct OrganizationMembershipRoleProjector<VS>
+where
+    VS: OrganizationMembershipRoleViewStore,
+{
+    view_store: VS,
+}
+
+impl<VS> OrganizationMembershipRoleProjector<VS>
+where
+    VS: OrganizationMembershipRoleViewStore,
+{
+    pub fn new(view_store: VS) -> Self {
+        Self { view_store }
+    }
+}
+
+impl<VS> Projector for OrganizationMembershipRoleProjector<VS>
+where
+    VS: OrganizationMembershipRoleViewStore,
+{
+    type Spec = OrganizationMembershipRoleProjectorSpec;
+    type Uow = VS::Uow;
+    type Error = OrganizationMembershipRoleProjectorError;
+
+    async fn project(&self, uow: &mut Self::Uow, event: &EventEnvelope) -> Result<(), Self::Error> {
+        let domain_event = event.try_into_domain_event::<OrganizationMembership>()?;
+        let membership_id = domain_event.aggregate_id();
+
+        match domain_event.payload() {
+            OrganizationMembershipEventPayload::RoleGranted { role, .. } => {
+                self.view_store
+                    .upsert(
+                        uow,
+                        OrganizationMembershipRoleViewUpsert {
+                            organization_membership_id: membership_id,
+                            role: *role,
+                        },
+                        event.event_sequence,
+                    )
+                    .await?;
+            }
+            OrganizationMembershipEventPayload::RoleRevoked { role, .. } => {
+                self.view_store
+                    .delete(uow, membership_id, *role, event.event_sequence)
+                    .await?;
+            }
+            OrganizationMembershipEventPayload::Removed { .. } => {
+                self.view_store
+                    .delete_by_membership(uow, membership_id, event.event_sequence)
+                    .await?;
+            }
+            OrganizationMembershipEventPayload::Created { .. }
+            | OrganizationMembershipEventPayload::Activated { .. }
+            | OrganizationMembershipEventPayload::Inactivated { .. }
+            | OrganizationMembershipEventPayload::RoleGrantRejected { .. }
+            | OrganizationMembershipEventPayload::RoleRevokeRejected { .. }
+            | OrganizationMembershipEventPayload::ActivateRejected { .. }
+            | OrganizationMembershipEventPayload::DeactivateRejected { .. }
+            | OrganizationMembershipEventPayload::RemoveRejected { .. } => {}
+        }
+
+        Ok(())
+    }
+}

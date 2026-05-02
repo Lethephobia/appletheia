@@ -1,0 +1,7 @@
+mod user_identity_projector;
+mod user_identity_projector_error;
+mod user_identity_projector_spec;
+
+pub use user_identity_projector::UserIdentityProjector;
+pub use user_identity_projector_error::UserIdentityProjectorError;
+pub use user_identity_projector_spec::UserIdentityProjectorSpec;

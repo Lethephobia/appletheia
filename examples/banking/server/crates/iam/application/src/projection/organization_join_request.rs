@@ -1,0 +1,7 @@
+mod organization_join_request_projector;
+mod organization_join_request_projector_error;
+mod organization_join_request_projector_spec;
+
+pub use organization_join_request_projector::OrganizationJoinRequestProjector;
+pub use organization_join_request_projector_error::OrganizationJoinRequestProjectorError;
+pub use organization_join_request_projector_spec::OrganizationJoinRequestProjectorSpec;

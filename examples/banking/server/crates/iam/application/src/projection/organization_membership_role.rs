@@ -1,0 +1,7 @@
+mod organization_membership_role_projector;
+mod organization_membership_role_projector_error;
+mod organization_membership_role_projector_spec;
+
+pub use organization_membership_role_projector::OrganizationMembershipRoleProjector;
+pub use organization_membership_role_projector_error::OrganizationMembershipRoleProjectorError;
+pub use organization_membership_role_projector_spec::OrganizationMembershipRoleProjectorSpec;

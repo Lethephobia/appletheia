@@ -3,7 +3,7 @@ use appletheia::application::projection::Projector;
 use banking_iam_domain::{Organization, OrganizationEventPayload};
 
 use super::{OrganizationProjectorError, OrganizationProjectorSpec};
-use crate::view::{OrganizationView, OrganizationViewStore};
+use crate::view::{OrganizationViewStore, OrganizationViewUpsert};
 
 /// Projects organization events into normalized organization views.
 pub struct OrganizationProjector<VS>
@@ -47,7 +47,7 @@ where
                 self.view_store
                     .upsert(
                         uow,
-                        OrganizationView {
+                        OrganizationViewUpsert {
                             id: organization_id,
                             owner: *owner,
                             handle: handle.clone(),
@@ -143,7 +143,9 @@ mod tests {
     };
 
     use super::OrganizationProjector;
-    use crate::view::{OrganizationView, OrganizationViewStore, OrganizationViewStoreError};
+    use crate::view::{
+        OrganizationView, OrganizationViewStore, OrganizationViewStoreError, OrganizationViewUpsert,
+    };
 
     #[derive(Default)]
     struct TestUow;
@@ -160,7 +162,7 @@ mod tests {
 
     #[derive(Clone, Debug, Eq, PartialEq)]
     enum RecordedChange {
-        Upsert(OrganizationView, EventSequence),
+        Upsert(Box<OrganizationView>, EventSequence),
         Owner(OrganizationId, OrganizationOwner, EventSequence),
         Delete(OrganizationId, EventSequence),
     }
@@ -182,13 +184,24 @@ mod tests {
         async fn upsert(
             &self,
             _uow: &mut Self::Uow,
-            view: OrganizationView,
+            input: OrganizationViewUpsert,
             event_sequence: EventSequence,
         ) -> Result<(), OrganizationViewStoreError> {
             self.changes
                 .lock()
                 .expect("lock should succeed")
-                .push(RecordedChange::Upsert(view, event_sequence));
+                .push(RecordedChange::Upsert(
+                    Box::new(OrganizationView {
+                        id: input.id,
+                        owner: input.owner,
+                        handle: input.handle,
+                        display_name: input.display_name,
+                        description: input.description,
+                        website_url: input.website_url,
+                        picture: input.picture,
+                    }),
+                    event_sequence,
+                ));
             Ok(())
         }
 

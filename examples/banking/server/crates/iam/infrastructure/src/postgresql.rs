@@ -1,6 +1,6 @@
-pub mod postgresql;
+pub mod view;
 
-pub use postgresql::{
+pub use view::{
     PgOrganizationInvitationViewStore, PgOrganizationJoinRequestViewStore,
     PgOrganizationMembershipRoleViewStore, PgOrganizationMembershipViewStore,
     PgOrganizationViewStore, PgUserIdentityViewStore, PgUserViewStore,

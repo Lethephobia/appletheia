@@ -1,0 +1,3 @@
+mod pg_organization_invitation_view_store;
+
+pub use pg_organization_invitation_view_store::PgOrganizationInvitationViewStore;

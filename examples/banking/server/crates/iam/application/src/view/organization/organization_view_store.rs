@@ -5,7 +5,7 @@ use banking_iam_domain::{
     OrganizationOwner, OrganizationPictureRef, OrganizationWebsiteUrl,
 };
 
-use super::{OrganizationView, OrganizationViewStoreError};
+use super::{OrganizationViewStoreError, OrganizationViewUpsert};
 
 /// Persists normalized organization views for query-side reads.
 #[allow(async_fn_in_trait)]
@@ -15,7 +15,7 @@ pub trait OrganizationViewStore: Send + Sync {
     async fn upsert(
         &self,
         uow: &mut Self::Uow,
-        view: OrganizationView,
+        input: OrganizationViewUpsert,
         event_sequence: EventSequence,
     ) -> Result<(), OrganizationViewStoreError>;
 

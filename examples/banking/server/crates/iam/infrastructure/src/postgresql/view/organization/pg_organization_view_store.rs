@@ -2,7 +2,7 @@ use appletheia::application::event::EventSequence;
 use appletheia::domain::AggregateId;
 use appletheia::infrastructure::postgresql::PgUnitOfWork;
 use banking_iam_application::{
-    OrganizationView, OrganizationViewStore, OrganizationViewStoreError,
+    OrganizationViewStore, OrganizationViewStoreError, OrganizationViewUpsert,
 };
 use banking_iam_domain::{
     OrganizationDescription, OrganizationDisplayName, OrganizationHandle, OrganizationId,
@@ -37,9 +37,11 @@ impl OrganizationViewStore for PgOrganizationViewStore {
     async fn upsert(
         &self,
         uow: &mut Self::Uow,
-        view: OrganizationView,
+        input: OrganizationViewUpsert,
         event_sequence: EventSequence,
     ) -> Result<(), OrganizationViewStoreError> {
+        let (owner_type, owner_id) = Self::owner_parts(input.owner);
+
         sqlx::query(
             r#"
             INSERT INTO organizations (
@@ -66,22 +68,24 @@ impl OrganizationViewStore for PgOrganizationViewStore {
             WHERE organizations.updated_event_sequence < EXCLUDED.updated_event_sequence
             "#,
         )
-        .bind(view.id.value())
-        .bind(Self::owner_parts(view.owner).0)
-        .bind(Self::owner_parts(view.owner).1)
-        .bind(view.handle.value())
-        .bind(view.display_name.value())
+        .bind(input.id.value())
+        .bind(owner_type)
+        .bind(owner_id)
+        .bind(input.handle.value())
+        .bind(input.display_name.value())
         .bind(
-            view.description
+            input
+                .description
                 .as_ref()
                 .map(OrganizationDescription::value),
         )
         .bind(
-            view.website_url
+            input
+                .website_url
                 .as_ref()
                 .map(|value| value.value().as_str()),
         )
-        .bind(view.picture.as_ref().map(Json))
+        .bind(input.picture.as_ref().map(Json))
         .bind(event_sequence.value())
         .execute(uow.transaction_mut().as_mut())
         .await
