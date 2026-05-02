@@ -3,6 +3,7 @@ pub mod command;
 pub mod oidc;
 pub mod projection;
 pub mod saga;
+pub mod view;
 
 pub use authorization::{
     OrganizationAdminRelation, OrganizationFinanceManagerRelation,
@@ -98,7 +99,8 @@ pub use projection::{
     OrganizationMembershipOrganizationRelationshipProjectorError,
     OrganizationMembershipOrganizationRelationshipProjectorSpec,
     OrganizationOwnerRelationshipProjector, OrganizationOwnerRelationshipProjectorError,
-    OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjector,
+    OrganizationOwnerRelationshipProjectorSpec, OrganizationProjector, OrganizationProjectorError,
+    OrganizationProjectorSpec, OrganizationRoleRelationshipProjector,
     OrganizationRoleRelationshipProjectorError, OrganizationRoleRelationshipProjectorSpec,
     UserOwnerRelationshipProjector, UserOwnerRelationshipProjectorError,
     UserOwnerRelationshipProjectorSpec,
@@ -111,3 +113,4 @@ pub use saga::{
     OrganizationPictureChangedSagaSpec, OrganizationPictureSagaState, UserPictureChangedSaga,
     UserPictureChangedSagaError, UserPictureChangedSagaSpec, UserPictureSagaState,
 };
+pub use view::{OrganizationView, OrganizationViewStore, OrganizationViewStoreError};

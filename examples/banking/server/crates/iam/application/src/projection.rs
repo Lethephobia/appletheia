@@ -1,3 +1,4 @@
+mod organization;
 mod organization_invitation_invitee_relationship;
 mod organization_invitation_organization_relationship;
 mod organization_join_request_organization_relationship;
@@ -8,6 +9,9 @@ mod organization_owner_relationship;
 mod organization_role_relationship;
 mod user_owner_relationship;
 
+pub use organization::{
+    OrganizationProjector, OrganizationProjectorError, OrganizationProjectorSpec,
+};
 pub use organization_invitation_invitee_relationship::{
     OrganizationInvitationInviteeRelationshipProjector,
     OrganizationInvitationInviteeRelationshipProjectorError,
