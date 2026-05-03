@@ -1,3 +1,4 @@
 mod pg_owned_account_list_store;
+mod pg_owned_account_list_store_error;
 
 pub use pg_owned_account_list_store::PgOwnedAccountListStore;

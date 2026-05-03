@@ -1,5 +1,3 @@
-use std::io;
-
 use appletheia::domain::AggregateId;
 use appletheia::infrastructure::postgresql::PgUnitOfWork;
 use banking_iam_domain::{OrganizationId, UserId};
@@ -12,6 +10,8 @@ use banking_ledger_domain::account::{AccountId, AccountName, AccountOwner, Accou
 use banking_ledger_domain::core::CurrencyAmount;
 use banking_ledger_domain::currency::{CurrencyDecimals, CurrencyId, CurrencyName, CurrencySymbol};
 use sqlx::{Postgres, QueryBuilder, Row};
+
+use super::pg_owned_account_list_store_error::PgOwnedAccountListStoreError;
 
 /// PostgreSQL-backed account list store.
 pub struct PgOwnedAccountListStore;
@@ -30,21 +30,23 @@ impl PgOwnedAccountListStore {
         }
     }
 
-    fn owner(owner_type: String, owner_id: uuid::Uuid) -> Result<AccountOwner, io::Error> {
+    fn owner(
+        owner_type: String,
+        owner_id: uuid::Uuid,
+    ) -> Result<AccountOwner, PgOwnedAccountListStoreError> {
         match owner_type.as_str() {
             "user" => Ok(AccountOwner::User(
                 UserId::try_from_uuid(owner_id).map_err(|error| {
-                    io::Error::new(io::ErrorKind::InvalidData, error.to_string())
+                    PgOwnedAccountListStoreError::InvalidOwnerId(Box::new(error))
                 })?,
             )),
             "organization" => Ok(AccountOwner::Organization(
                 OrganizationId::try_from_uuid(owner_id).map_err(|error| {
-                    io::Error::new(io::ErrorKind::InvalidData, error.to_string())
+                    PgOwnedAccountListStoreError::InvalidOwnerId(Box::new(error))
                 })?,
             )),
-            value => Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                format!("unknown account owner type: {value}"),
+            value => Err(PgOwnedAccountListStoreError::UnknownOwnerType(
+                value.to_owned(),
             )),
         }
     }
@@ -57,58 +59,54 @@ impl PgOwnedAccountListStore {
         }
     }
 
-    fn status(value: String) -> Result<AccountStatus, io::Error> {
+    fn status(value: String) -> Result<AccountStatus, PgOwnedAccountListStoreError> {
         match value.as_str() {
             "active" => Ok(AccountStatus::Active),
             "frozen" => Ok(AccountStatus::Frozen),
             "closed" => Ok(AccountStatus::Closed),
-            value => Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                format!("unknown account status: {value}"),
+            value => Err(PgOwnedAccountListStoreError::UnknownStatus(
+                value.to_owned(),
             )),
         }
     }
 
-    fn amount(value: String) -> Result<CurrencyAmount, io::Error> {
+    fn amount(value: String) -> Result<CurrencyAmount, PgOwnedAccountListStoreError> {
         let value = value
             .parse::<u128>()
-            .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error.to_string()))?;
+            .map_err(PgOwnedAccountListStoreError::InvalidCurrencyAmount)?;
         Ok(CurrencyAmount::new(value))
     }
 
     fn item(
         row: sqlx::postgres::PgRow,
-    ) -> Result<OwnedAccountListItem, OwnedAccountListStoreError> {
+    ) -> Result<OwnedAccountListItem, PgOwnedAccountListStoreError> {
         let currency_decimals: i16 = row.get("currency_decimals");
         let currency_decimals = u8::try_from(currency_decimals).map_err(|error| {
-            OwnedAccountListStoreError::Persistence(Box::new(io::Error::new(
-                io::ErrorKind::InvalidData,
-                error.to_string(),
-            )))
+            PgOwnedAccountListStoreError::InvalidCurrencyDecimals(Box::new(error))
         })?;
 
         Ok(OwnedAccountListItem {
             id: AccountId::try_from_uuid(row.get("id"))
-                .map_err(|e| OwnedAccountListStoreError::Persistence(Box::new(e)))?,
-            owner: Self::owner(row.get("owner_type"), row.get("owner_id"))
-                .map_err(|e| OwnedAccountListStoreError::Persistence(Box::new(e)))?,
-            name: AccountName::try_from(row.get::<String, _>("name"))
-                .map_err(|e| OwnedAccountListStoreError::Persistence(Box::new(e)))?,
+                .map_err(|error| PgOwnedAccountListStoreError::InvalidAccountId(Box::new(error)))?,
+            owner: Self::owner(row.get("owner_type"), row.get("owner_id"))?,
+            name: AccountName::try_from(row.get::<String, _>("name")).map_err(|error| {
+                PgOwnedAccountListStoreError::InvalidAccountName(Box::new(error))
+            })?,
             currency: OwnedAccountListItemCurrency {
-                id: CurrencyId::try_from_uuid(row.get("currency_id"))
-                    .map_err(|e| OwnedAccountListStoreError::Persistence(Box::new(e)))?,
-                symbol: CurrencySymbol::try_from(row.get::<String, _>("currency_symbol"))
-                    .map_err(|e| OwnedAccountListStoreError::Persistence(Box::new(e)))?,
-                name: CurrencyName::try_from(row.get::<String, _>("currency_name"))
-                    .map_err(|e| OwnedAccountListStoreError::Persistence(Box::new(e)))?,
+                id: CurrencyId::try_from_uuid(row.get("currency_id")).map_err(|error| {
+                    PgOwnedAccountListStoreError::InvalidCurrencyId(Box::new(error))
+                })?,
+                symbol: CurrencySymbol::try_from(row.get::<String, _>("currency_symbol")).map_err(
+                    |error| PgOwnedAccountListStoreError::InvalidCurrencySymbol(Box::new(error)),
+                )?,
+                name: CurrencyName::try_from(row.get::<String, _>("currency_name")).map_err(
+                    |error| PgOwnedAccountListStoreError::InvalidCurrencyName(Box::new(error)),
+                )?,
                 decimals: CurrencyDecimals::new(currency_decimals),
             },
-            balance: Self::amount(row.get("balance"))
-                .map_err(|e| OwnedAccountListStoreError::Persistence(Box::new(e)))?,
-            reserved_balance: Self::amount(row.get("reserved_balance"))
-                .map_err(|e| OwnedAccountListStoreError::Persistence(Box::new(e)))?,
-            status: Self::status(row.get("status"))
-                .map_err(|e| OwnedAccountListStoreError::Persistence(Box::new(e)))?,
+            balance: Self::amount(row.get("balance"))?,
+            reserved_balance: Self::amount(row.get("reserved_balance"))?,
+            status: Self::status(row.get("status"))?,
         })
     }
 }
@@ -204,7 +202,8 @@ impl OwnedAccountListStore for PgOwnedAccountListStore {
             .into_iter()
             .take(limit)
             .map(Self::item)
-            .collect::<Result<Vec<_>, _>>()?;
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| OwnedAccountListStoreError::Persistence(Box::new(e)))?;
         let next_cursor = if has_next && query.cursor_options.is_some() {
             items
                 .last()
