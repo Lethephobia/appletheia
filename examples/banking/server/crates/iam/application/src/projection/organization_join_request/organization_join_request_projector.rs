@@ -54,6 +54,7 @@ where
                             status: OrganizationJoinRequestStatus::Pending,
                         },
                         event.event_sequence,
+                        event.occurred_at,
                     )
                     .await?;
             }
@@ -64,6 +65,7 @@ where
                         join_request_id,
                         OrganizationJoinRequestStatus::Approved,
                         event.event_sequence,
+                        event.occurred_at,
                     )
                     .await?;
             }
@@ -74,6 +76,7 @@ where
                         join_request_id,
                         OrganizationJoinRequestStatus::Rejected,
                         event.event_sequence,
+                        event.occurred_at,
                     )
                     .await?;
             }
@@ -84,6 +87,7 @@ where
                         join_request_id,
                         OrganizationJoinRequestStatus::Canceled,
                         event.event_sequence,
+                        event.occurred_at,
                     )
                     .await?;
             }

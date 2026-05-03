@@ -54,6 +54,7 @@ where
                             status: OrganizationMembershipStatus::Active,
                         },
                         event.event_sequence,
+                        event.occurred_at,
                     )
                     .await?;
             }
@@ -64,6 +65,7 @@ where
                         membership_id,
                         OrganizationMembershipStatus::Active,
                         event.event_sequence,
+                        event.occurred_at,
                     )
                     .await?;
             }
@@ -74,12 +76,13 @@ where
                         membership_id,
                         OrganizationMembershipStatus::Inactive,
                         event.event_sequence,
+                        event.occurred_at,
                     )
                     .await?;
             }
             OrganizationMembershipEventPayload::Removed { .. } => {
                 self.projection_store
-                    .delete(uow, membership_id, event.event_sequence)
+                    .delete(uow, membership_id, event.event_sequence, event.occurred_at)
                     .await?;
             }
             OrganizationMembershipEventPayload::RoleGranted { .. }

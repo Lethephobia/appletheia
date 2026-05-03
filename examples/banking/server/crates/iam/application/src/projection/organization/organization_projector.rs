@@ -57,17 +57,30 @@ where
                             picture: picture.clone(),
                         },
                         event.event_sequence,
+                        event.occurred_at,
                     )
                     .await?;
             }
             OrganizationEventPayload::OwnershipTransferred { owner } => {
                 self.projection_store
-                    .update_owner(uow, organization_id, *owner, event.event_sequence)
+                    .update_owner(
+                        uow,
+                        organization_id,
+                        *owner,
+                        event.event_sequence,
+                        event.occurred_at,
+                    )
                     .await?;
             }
             OrganizationEventPayload::HandleChanged { handle } => {
                 self.projection_store
-                    .update_handle(uow, organization_id, handle.clone(), event.event_sequence)
+                    .update_handle(
+                        uow,
+                        organization_id,
+                        handle.clone(),
+                        event.event_sequence,
+                        event.occurred_at,
+                    )
                     .await?;
             }
             OrganizationEventPayload::DisplayNameChanged { display_name } => {
@@ -77,6 +90,7 @@ where
                         organization_id,
                         display_name.clone(),
                         event.event_sequence,
+                        event.occurred_at,
                     )
                     .await?;
             }
@@ -87,6 +101,7 @@ where
                         organization_id,
                         description.clone(),
                         event.event_sequence,
+                        event.occurred_at,
                     )
                     .await?;
             }
@@ -97,17 +112,29 @@ where
                         organization_id,
                         website_url.clone(),
                         event.event_sequence,
+                        event.occurred_at,
                     )
                     .await?;
             }
             OrganizationEventPayload::PictureChanged { picture, .. } => {
                 self.projection_store
-                    .update_picture(uow, organization_id, picture.clone(), event.event_sequence)
+                    .update_picture(
+                        uow,
+                        organization_id,
+                        picture.clone(),
+                        event.event_sequence,
+                        event.occurred_at,
+                    )
                     .await?;
             }
             OrganizationEventPayload::Removed => {
                 self.projection_store
-                    .delete(uow, organization_id, event.event_sequence)
+                    .delete(
+                        uow,
+                        organization_id,
+                        event.event_sequence,
+                        event.occurred_at,
+                    )
                     .await?;
             }
             OrganizationEventPayload::OwnershipTransferRejected { .. }
@@ -135,7 +162,7 @@ mod tests {
         CausationId, CorrelationId, MessageId, Principal, RequestContext,
     };
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
-    use appletheia::domain::{Aggregate, AggregateId, Event, EventPayload};
+    use appletheia::domain::{Aggregate, AggregateId, Event, EventOccurredAt, EventPayload};
     use banking_iam_domain::{
         Organization, OrganizationDescription, OrganizationDisplayName, OrganizationEventPayload,
         OrganizationHandle, OrganizationId, OrganizationOwner, OrganizationPictureRef,
@@ -186,6 +213,7 @@ mod tests {
             _uow: &mut Self::Uow,
             input: OrganizationProjectionUpsert,
             event_sequence: EventSequence,
+            _occurred_at: EventOccurredAt,
         ) -> Result<(), OrganizationProjectionStoreError> {
             self.changes
                 .lock()
@@ -200,6 +228,7 @@ mod tests {
             _id: OrganizationId,
             _handle: OrganizationHandle,
             _event_sequence: EventSequence,
+            _occurred_at: EventOccurredAt,
         ) -> Result<(), OrganizationProjectionStoreError> {
             Ok(())
         }
@@ -210,6 +239,7 @@ mod tests {
             id: OrganizationId,
             owner: OrganizationOwner,
             event_sequence: EventSequence,
+            _occurred_at: EventOccurredAt,
         ) -> Result<(), OrganizationProjectionStoreError> {
             self.changes
                 .lock()
@@ -224,6 +254,7 @@ mod tests {
             _id: OrganizationId,
             _display_name: OrganizationDisplayName,
             _event_sequence: EventSequence,
+            _occurred_at: EventOccurredAt,
         ) -> Result<(), OrganizationProjectionStoreError> {
             Ok(())
         }
@@ -234,6 +265,7 @@ mod tests {
             _id: OrganizationId,
             _description: Option<OrganizationDescription>,
             _event_sequence: EventSequence,
+            _occurred_at: EventOccurredAt,
         ) -> Result<(), OrganizationProjectionStoreError> {
             Ok(())
         }
@@ -244,6 +276,7 @@ mod tests {
             _id: OrganizationId,
             _website_url: Option<OrganizationWebsiteUrl>,
             _event_sequence: EventSequence,
+            _occurred_at: EventOccurredAt,
         ) -> Result<(), OrganizationProjectionStoreError> {
             Ok(())
         }
@@ -254,6 +287,7 @@ mod tests {
             _id: OrganizationId,
             _picture: Option<OrganizationPictureRef>,
             _event_sequence: EventSequence,
+            _occurred_at: EventOccurredAt,
         ) -> Result<(), OrganizationProjectionStoreError> {
             Ok(())
         }
@@ -263,6 +297,7 @@ mod tests {
             _uow: &mut Self::Uow,
             id: OrganizationId,
             event_sequence: EventSequence,
+            _occurred_at: EventOccurredAt,
         ) -> Result<(), OrganizationProjectionStoreError> {
             self.changes
                 .lock()

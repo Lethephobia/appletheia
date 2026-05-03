@@ -48,42 +48,79 @@ where
                             status: UserStatus::Active,
                         },
                         event.event_sequence,
+                        event.occurred_at,
                     )
                     .await?;
             }
             UserEventPayload::UsernameChanged { username } => {
                 self.projection_store
-                    .update_username(uow, user_id, username.clone(), event.event_sequence)
+                    .update_username(
+                        uow,
+                        user_id,
+                        username.clone(),
+                        event.event_sequence,
+                        event.occurred_at,
+                    )
                     .await?;
             }
             UserEventPayload::DisplayNameChanged { display_name } => {
                 self.projection_store
-                    .update_display_name(uow, user_id, display_name.clone(), event.event_sequence)
+                    .update_display_name(
+                        uow,
+                        user_id,
+                        display_name.clone(),
+                        event.event_sequence,
+                        event.occurred_at,
+                    )
                     .await?;
             }
             UserEventPayload::BioChanged { bio } => {
                 self.projection_store
-                    .update_bio(uow, user_id, bio.clone(), event.event_sequence)
+                    .update_bio(
+                        uow,
+                        user_id,
+                        bio.clone(),
+                        event.event_sequence,
+                        event.occurred_at,
+                    )
                     .await?;
             }
             UserEventPayload::PictureChanged { picture, .. } => {
                 self.projection_store
-                    .update_picture(uow, user_id, picture.clone(), event.event_sequence)
+                    .update_picture(
+                        uow,
+                        user_id,
+                        picture.clone(),
+                        event.event_sequence,
+                        event.occurred_at,
+                    )
                     .await?;
             }
             UserEventPayload::Activated => {
                 self.projection_store
-                    .update_status(uow, user_id, UserStatus::Active, event.event_sequence)
+                    .update_status(
+                        uow,
+                        user_id,
+                        UserStatus::Active,
+                        event.event_sequence,
+                        event.occurred_at,
+                    )
                     .await?;
             }
             UserEventPayload::Inactivated => {
                 self.projection_store
-                    .update_status(uow, user_id, UserStatus::Inactive, event.event_sequence)
+                    .update_status(
+                        uow,
+                        user_id,
+                        UserStatus::Inactive,
+                        event.event_sequence,
+                        event.occurred_at,
+                    )
                     .await?;
             }
             UserEventPayload::Removed => {
                 self.projection_store
-                    .delete(uow, user_id, event.event_sequence)
+                    .delete(uow, user_id, event.event_sequence, event.occurred_at)
                     .await?;
             }
             UserEventPayload::IdentityLinked { .. }

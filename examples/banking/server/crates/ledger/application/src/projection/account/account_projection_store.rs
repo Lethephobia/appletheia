@@ -1,5 +1,6 @@
 use appletheia::application::event::EventSequence;
 use appletheia::application::unit_of_work::UnitOfWork;
+use appletheia::domain::EventOccurredAt;
 use banking_ledger_domain::account::{AccountId, AccountName, AccountOwner, AccountStatus};
 use banking_ledger_domain::core::CurrencyAmount;
 
@@ -15,6 +16,7 @@ pub trait AccountProjectionStore: Send + Sync {
         uow: &mut Self::Uow,
         input: AccountProjectionUpsert,
         event_sequence: EventSequence,
+        occurred_at: EventOccurredAt,
     ) -> Result<(), AccountProjectionStoreError>;
 
     async fn update_owner(
@@ -23,6 +25,7 @@ pub trait AccountProjectionStore: Send + Sync {
         id: AccountId,
         owner: AccountOwner,
         event_sequence: EventSequence,
+        occurred_at: EventOccurredAt,
     ) -> Result<(), AccountProjectionStoreError>;
 
     async fn update_name(
@@ -31,6 +34,7 @@ pub trait AccountProjectionStore: Send + Sync {
         id: AccountId,
         name: AccountName,
         event_sequence: EventSequence,
+        occurred_at: EventOccurredAt,
     ) -> Result<(), AccountProjectionStoreError>;
 
     async fn increase_balance(
@@ -39,6 +43,7 @@ pub trait AccountProjectionStore: Send + Sync {
         id: AccountId,
         amount: CurrencyAmount,
         event_sequence: EventSequence,
+        occurred_at: EventOccurredAt,
     ) -> Result<(), AccountProjectionStoreError>;
 
     async fn decrease_balance(
@@ -47,6 +52,7 @@ pub trait AccountProjectionStore: Send + Sync {
         id: AccountId,
         amount: CurrencyAmount,
         event_sequence: EventSequence,
+        occurred_at: EventOccurredAt,
     ) -> Result<(), AccountProjectionStoreError>;
 
     async fn move_balance_to_reserved(
@@ -55,6 +61,7 @@ pub trait AccountProjectionStore: Send + Sync {
         id: AccountId,
         amount: CurrencyAmount,
         event_sequence: EventSequence,
+        occurred_at: EventOccurredAt,
     ) -> Result<(), AccountProjectionStoreError>;
 
     async fn move_reserved_to_balance(
@@ -63,6 +70,7 @@ pub trait AccountProjectionStore: Send + Sync {
         id: AccountId,
         amount: CurrencyAmount,
         event_sequence: EventSequence,
+        occurred_at: EventOccurredAt,
     ) -> Result<(), AccountProjectionStoreError>;
 
     async fn decrease_reserved(
@@ -71,6 +79,7 @@ pub trait AccountProjectionStore: Send + Sync {
         id: AccountId,
         amount: CurrencyAmount,
         event_sequence: EventSequence,
+        occurred_at: EventOccurredAt,
     ) -> Result<(), AccountProjectionStoreError>;
 
     async fn update_status(
@@ -79,5 +88,6 @@ pub trait AccountProjectionStore: Send + Sync {
         id: AccountId,
         status: AccountStatus,
         event_sequence: EventSequence,
+        occurred_at: EventOccurredAt,
     ) -> Result<(), AccountProjectionStoreError>;
 }

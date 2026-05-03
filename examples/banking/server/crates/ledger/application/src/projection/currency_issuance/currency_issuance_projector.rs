@@ -54,6 +54,7 @@ where
                             status: CurrencyIssuanceStatus::Pending,
                         },
                         event.event_sequence,
+                        event.occurred_at,
                     )
                     .await?;
             }
@@ -64,6 +65,7 @@ where
                         issuance_id,
                         CurrencyIssuanceStatus::Completed,
                         event.event_sequence,
+                        event.occurred_at,
                     )
                     .await?;
             }
@@ -74,6 +76,7 @@ where
                         issuance_id,
                         CurrencyIssuanceStatus::Failed,
                         event.event_sequence,
+                        event.occurred_at,
                     )
                     .await?;
             }

@@ -1,5 +1,6 @@
 use appletheia::application::event::EventSequence;
 use appletheia::application::unit_of_work::UnitOfWork;
+use appletheia::domain::EventOccurredAt;
 use banking_ledger_domain::currency_issuance::{CurrencyIssuanceId, CurrencyIssuanceStatus};
 
 use super::{CurrencyIssuanceProjectionStoreError, CurrencyIssuanceProjectionUpsert};
@@ -14,6 +15,7 @@ pub trait CurrencyIssuanceProjectionStore: Send + Sync {
         uow: &mut Self::Uow,
         input: CurrencyIssuanceProjectionUpsert,
         event_sequence: EventSequence,
+        occurred_at: EventOccurredAt,
     ) -> Result<(), CurrencyIssuanceProjectionStoreError>;
 
     async fn update_status(
@@ -22,5 +24,6 @@ pub trait CurrencyIssuanceProjectionStore: Send + Sync {
         id: CurrencyIssuanceId,
         status: CurrencyIssuanceStatus,
         event_sequence: EventSequence,
+        occurred_at: EventOccurredAt,
     ) -> Result<(), CurrencyIssuanceProjectionStoreError>;
 }

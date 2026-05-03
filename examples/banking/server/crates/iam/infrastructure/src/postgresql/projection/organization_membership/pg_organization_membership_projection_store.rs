@@ -1,5 +1,6 @@
 use appletheia::application::event::EventSequence;
 use appletheia::domain::AggregateId;
+use appletheia::domain::EventOccurredAt;
 use appletheia::infrastructure::postgresql::PgUnitOfWork;
 use banking_iam_application::{
     OrganizationMembershipProjectionStore, OrganizationMembershipProjectionStoreError,
@@ -38,6 +39,7 @@ impl OrganizationMembershipProjectionStore for PgOrganizationMembershipProjectio
         uow: &mut Self::Uow,
         input: OrganizationMembershipProjectionUpsert,
         event_sequence: EventSequence,
+        occurred_at: EventOccurredAt,
     ) -> Result<(), OrganizationMembershipProjectionStoreError> {
         sqlx::query(
             r#"
@@ -46,13 +48,14 @@ impl OrganizationMembershipProjectionStore for PgOrganizationMembershipProjectio
                 organization_id,
                 user_id,
                 status,
-                updated_event_sequence
+                created_at, updated_at, updated_event_sequence
             )
-            VALUES ($1, $2, $3, $4, $5)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
             ON CONFLICT (id) DO UPDATE SET
                 organization_id = EXCLUDED.organization_id,
                 user_id = EXCLUDED.user_id,
                 status = EXCLUDED.status,
+                updated_at = EXCLUDED.updated_at,
                 updated_event_sequence = EXCLUDED.updated_event_sequence
             WHERE organization_memberships.updated_event_sequence < EXCLUDED.updated_event_sequence
             "#,
@@ -61,6 +64,8 @@ impl OrganizationMembershipProjectionStore for PgOrganizationMembershipProjectio
         .bind(input.organization_id.value())
         .bind(input.user_id.value())
         .bind(Self::status_name(input.status))
+        .bind(occurred_at.value())
+        .bind(occurred_at.value())
         .bind(event_sequence.value())
         .execute(uow.transaction_mut().as_mut())
         .await
@@ -75,18 +80,21 @@ impl OrganizationMembershipProjectionStore for PgOrganizationMembershipProjectio
         id: OrganizationMembershipId,
         status: OrganizationMembershipStatus,
         event_sequence: EventSequence,
+        occurred_at: EventOccurredAt,
     ) -> Result<(), OrganizationMembershipProjectionStoreError> {
         sqlx::query(
             r#"
             UPDATE organization_memberships
                SET status = $2,
-                   updated_event_sequence = $3
+                   updated_at = $3,
+                   updated_event_sequence = $4
              WHERE id = $1
-               AND updated_event_sequence < $3
+               AND updated_event_sequence < $4
             "#,
         )
         .bind(id.value())
         .bind(Self::status_name(status))
+        .bind(occurred_at.value())
         .bind(event_sequence.value())
         .execute(uow.transaction_mut().as_mut())
         .await
@@ -100,15 +108,17 @@ impl OrganizationMembershipProjectionStore for PgOrganizationMembershipProjectio
         uow: &mut Self::Uow,
         id: OrganizationMembershipId,
         event_sequence: EventSequence,
+        occurred_at: EventOccurredAt,
     ) -> Result<(), OrganizationMembershipProjectionStoreError> {
         sqlx::query(
             r#"
             DELETE FROM organization_memberships
              WHERE id = $1
-               AND updated_event_sequence < $2
+               AND updated_event_sequence < $3
             "#,
         )
         .bind(id.value())
+        .bind(occurred_at.value())
         .bind(event_sequence.value())
         .execute(uow.transaction_mut().as_mut())
         .await

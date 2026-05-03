@@ -1,4 +1,5 @@
 use appletheia::domain::AggregateId;
+use appletheia::domain::EventOccurredAt;
 use appletheia::infrastructure::postgresql::PgUnitOfWork;
 use banking_iam_domain::{OrganizationId, UserId};
 use banking_ledger_application::{
@@ -88,6 +89,9 @@ impl PgOwnedAccountListStore {
         Ok(OwnedAccountListItem {
             id: AccountId::try_from_uuid(row.get("id"))
                 .map_err(|error| PgOwnedAccountListStoreError::InvalidAccountId(Box::new(error)))?,
+            created_at: EventOccurredAt::from(
+                row.get::<sqlx::types::chrono::DateTime<sqlx::types::chrono::Utc>, _>("created_at"),
+            ),
             owner: Self::owner(row.get("owner_type"), row.get("owner_id"))?,
             name: AccountName::try_from(row.get::<String, _>("name")).map_err(|error| {
                 PgOwnedAccountListStoreError::InvalidAccountName(Box::new(error))
@@ -133,6 +137,7 @@ impl OwnedAccountListStore for PgOwnedAccountListStore {
             r#"
             SELECT
                 a.id,
+                a.created_at,
                 a.owner_type,
                 a.owner_id,
                 a.name,
@@ -166,25 +171,54 @@ impl OwnedAccountListStore for PgOwnedAccountListStore {
                 .push_bind(Self::status_name(status));
         }
 
-        if let Some(cursor_options) = query.cursor_options {
-            if let Some(cursor) = cursor_options.cursor {
-                match cursor_options.sort_direction {
-                    SortDirection::Asc => {
-                        builder.push(" AND a.id > ").push_bind(cursor.id.value());
-                    }
-                    SortDirection::Desc => {
-                        builder.push(" AND a.id < ").push_bind(cursor.id.value());
-                    }
-                }
-            }
+        let sort_key = query
+            .cursor_options
+            .map(|options| options.sort_key)
+            .unwrap_or(OwnedAccountListSortKey::CreatedAt);
+        let sort_direction = query
+            .cursor_options
+            .map(|options| options.sort_direction)
+            .unwrap_or(SortDirection::Desc);
 
-            match (cursor_options.sort_key, cursor_options.sort_direction) {
+        if let Some(cursor) = query.cursor_options.and_then(|options| options.cursor) {
+            match (sort_key, sort_direction) {
+                (OwnedAccountListSortKey::CreatedAt, SortDirection::Asc) => {
+                    builder
+                        .push(" AND (a.created_at, a.id) > (")
+                        .push_bind(cursor.created_at.value())
+                        .push(", ")
+                        .push_bind(cursor.id.value())
+                        .push(")");
+                }
+                (OwnedAccountListSortKey::CreatedAt, SortDirection::Desc) => {
+                    builder
+                        .push(" AND (a.created_at, a.id) < (")
+                        .push_bind(cursor.created_at.value())
+                        .push(", ")
+                        .push_bind(cursor.id.value())
+                        .push(")");
+                }
                 (OwnedAccountListSortKey::Id, SortDirection::Asc) => {
-                    builder.push(" ORDER BY a.id ASC");
+                    builder.push(" AND a.id > ").push_bind(cursor.id.value());
                 }
                 (OwnedAccountListSortKey::Id, SortDirection::Desc) => {
-                    builder.push(" ORDER BY a.id DESC");
+                    builder.push(" AND a.id < ").push_bind(cursor.id.value());
                 }
+            }
+        }
+
+        match (sort_key, sort_direction) {
+            (OwnedAccountListSortKey::CreatedAt, SortDirection::Asc) => {
+                builder.push(" ORDER BY a.created_at ASC, a.id ASC");
+            }
+            (OwnedAccountListSortKey::CreatedAt, SortDirection::Desc) => {
+                builder.push(" ORDER BY a.created_at DESC, a.id DESC");
+            }
+            (OwnedAccountListSortKey::Id, SortDirection::Asc) => {
+                builder.push(" ORDER BY a.id ASC");
+            }
+            (OwnedAccountListSortKey::Id, SortDirection::Desc) => {
+                builder.push(" ORDER BY a.id DESC");
             }
         }
 
@@ -204,10 +238,11 @@ impl OwnedAccountListStore for PgOwnedAccountListStore {
             .map(Self::item)
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| OwnedAccountListStoreError::Persistence(Box::new(e)))?;
-        let next_cursor = if has_next && query.cursor_options.is_some() {
-            items
-                .last()
-                .map(|item| OwnedAccountListCursor { id: item.id })
+        let next_cursor = if has_next {
+            items.last().map(|item| OwnedAccountListCursor {
+                created_at: item.created_at,
+                id: item.id,
+            })
         } else {
             None
         };

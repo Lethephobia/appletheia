@@ -1,5 +1,6 @@
 use appletheia::application::event::EventSequence;
 use appletheia::application::unit_of_work::UnitOfWork;
+use appletheia::domain::EventOccurredAt;
 use banking_ledger_domain::transfer::{TransferId, TransferStatus};
 
 use super::{TransferProjectionStoreError, TransferProjectionUpsert};
@@ -14,6 +15,7 @@ pub trait TransferProjectionStore: Send + Sync {
         uow: &mut Self::Uow,
         input: TransferProjectionUpsert,
         event_sequence: EventSequence,
+        occurred_at: EventOccurredAt,
     ) -> Result<(), TransferProjectionStoreError>;
 
     async fn update_status(
@@ -22,5 +24,6 @@ pub trait TransferProjectionStore: Send + Sync {
         id: TransferId,
         status: TransferStatus,
         event_sequence: EventSequence,
+        occurred_at: EventOccurredAt,
     ) -> Result<(), TransferProjectionStoreError>;
 }

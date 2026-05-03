@@ -56,32 +56,63 @@ where
                             status: CurrencyStatus::Active,
                         },
                         event.event_sequence,
+                        event.occurred_at,
                     )
                     .await?;
             }
             CurrencyEventPayload::OwnershipTransferred { owner } => {
                 self.projection_store
-                    .update_owner(uow, currency_id, *owner, event.event_sequence)
+                    .update_owner(
+                        uow,
+                        currency_id,
+                        *owner,
+                        event.event_sequence,
+                        event.occurred_at,
+                    )
                     .await?;
             }
             CurrencyEventPayload::SymbolChanged { symbol } => {
                 self.projection_store
-                    .update_symbol(uow, currency_id, symbol.clone(), event.event_sequence)
+                    .update_symbol(
+                        uow,
+                        currency_id,
+                        symbol.clone(),
+                        event.event_sequence,
+                        event.occurred_at,
+                    )
                     .await?;
             }
             CurrencyEventPayload::NameChanged { name } => {
                 self.projection_store
-                    .update_name(uow, currency_id, name.clone(), event.event_sequence)
+                    .update_name(
+                        uow,
+                        currency_id,
+                        name.clone(),
+                        event.event_sequence,
+                        event.occurred_at,
+                    )
                     .await?;
             }
             CurrencyEventPayload::SupplyIncreased { amount } => {
                 self.projection_store
-                    .increase_supply(uow, currency_id, *amount, event.event_sequence)
+                    .increase_supply(
+                        uow,
+                        currency_id,
+                        *amount,
+                        event.event_sequence,
+                        event.occurred_at,
+                    )
                     .await?;
             }
             CurrencyEventPayload::SupplyDecreased { amount } => {
                 self.projection_store
-                    .decrease_supply(uow, currency_id, *amount, event.event_sequence)
+                    .decrease_supply(
+                        uow,
+                        currency_id,
+                        *amount,
+                        event.event_sequence,
+                        event.occurred_at,
+                    )
                     .await?;
             }
             CurrencyEventPayload::Activated => {
@@ -91,6 +122,7 @@ where
                         currency_id,
                         CurrencyStatus::Active,
                         event.event_sequence,
+                        event.occurred_at,
                     )
                     .await?;
             }
@@ -101,12 +133,13 @@ where
                         currency_id,
                         CurrencyStatus::Inactive,
                         event.event_sequence,
+                        event.occurred_at,
                     )
                     .await?;
             }
             CurrencyEventPayload::Removed => {
                 self.projection_store
-                    .delete(uow, currency_id, event.event_sequence)
+                    .delete(uow, currency_id, event.event_sequence, event.occurred_at)
                     .await?;
             }
             CurrencyEventPayload::OwnershipTransferRejected { .. }

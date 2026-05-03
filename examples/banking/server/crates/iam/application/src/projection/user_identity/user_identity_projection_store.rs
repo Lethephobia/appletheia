@@ -1,5 +1,6 @@
 use appletheia::application::event::EventSequence;
 use appletheia::application::unit_of_work::UnitOfWork;
+use appletheia::domain::EventOccurredAt;
 use banking_iam_domain::{Email, UserId, UserIdentityProvider, UserIdentitySubject};
 
 use super::{UserIdentityProjectionStoreError, UserIdentityProjectionUpsert};
@@ -14,6 +15,7 @@ pub trait UserIdentityProjectionStore: Send + Sync {
         uow: &mut Self::Uow,
         input: UserIdentityProjectionUpsert,
         event_sequence: EventSequence,
+        occurred_at: EventOccurredAt,
     ) -> Result<(), UserIdentityProjectionStoreError>;
 
     async fn update_email(
@@ -23,6 +25,7 @@ pub trait UserIdentityProjectionStore: Send + Sync {
         subject: UserIdentitySubject,
         email: Option<Email>,
         event_sequence: EventSequence,
+        occurred_at: EventOccurredAt,
     ) -> Result<(), UserIdentityProjectionStoreError>;
 
     async fn delete_by_user(
@@ -30,5 +33,6 @@ pub trait UserIdentityProjectionStore: Send + Sync {
         uow: &mut Self::Uow,
         user_id: UserId,
         event_sequence: EventSequence,
+        occurred_at: EventOccurredAt,
     ) -> Result<(), UserIdentityProjectionStoreError>;
 }

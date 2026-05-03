@@ -50,6 +50,7 @@ where
                             email: email.clone(),
                         },
                         event.event_sequence,
+                        event.occurred_at,
                     )
                     .await?;
             }
@@ -65,12 +66,13 @@ where
                         subject.clone(),
                         email.clone(),
                         event.event_sequence,
+                        event.occurred_at,
                     )
                     .await?;
             }
             UserEventPayload::Removed => {
                 self.projection_store
-                    .delete_by_user(uow, user_id, event.event_sequence)
+                    .delete_by_user(uow, user_id, event.event_sequence, event.occurred_at)
                     .await?;
             }
             UserEventPayload::Registered { .. }

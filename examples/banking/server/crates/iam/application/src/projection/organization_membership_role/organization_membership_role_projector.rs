@@ -46,17 +46,29 @@ where
                             role: *role,
                         },
                         event.event_sequence,
+                        event.occurred_at,
                     )
                     .await?;
             }
             OrganizationMembershipEventPayload::RoleRevoked { role, .. } => {
                 self.projection_store
-                    .delete(uow, membership_id, *role, event.event_sequence)
+                    .delete(
+                        uow,
+                        membership_id,
+                        *role,
+                        event.event_sequence,
+                        event.occurred_at,
+                    )
                     .await?;
             }
             OrganizationMembershipEventPayload::Removed { .. } => {
                 self.projection_store
-                    .delete_by_membership(uow, membership_id, event.event_sequence)
+                    .delete_by_membership(
+                        uow,
+                        membership_id,
+                        event.event_sequence,
+                        event.occurred_at,
+                    )
                     .await?;
             }
             OrganizationMembershipEventPayload::Created { .. }

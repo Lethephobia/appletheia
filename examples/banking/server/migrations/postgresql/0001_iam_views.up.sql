@@ -7,6 +7,8 @@ CREATE TABLE IF NOT EXISTS organizations (
     description text,
     website_url text,
     picture jsonb,
+    created_at timestamptz NOT NULL,
+    updated_at timestamptz NOT NULL,
     updated_event_sequence bigint NOT NULL,
     CONSTRAINT organizations_owner_type_check CHECK (owner_type IN ('user'))
 );
@@ -24,6 +26,8 @@ CREATE TABLE IF NOT EXISTS users (
     bio text,
     picture jsonb,
     status text NOT NULL,
+    created_at timestamptz NOT NULL,
+    updated_at timestamptz NOT NULL,
     updated_event_sequence bigint NOT NULL,
     CONSTRAINT users_status_check CHECK (status IN ('active', 'inactive'))
 );
@@ -40,6 +44,8 @@ CREATE TABLE IF NOT EXISTS user_identities (
     subject text NOT NULL,
     user_id uuid NOT NULL,
     email text,
+    created_at timestamptz NOT NULL,
+    updated_at timestamptz NOT NULL,
     updated_event_sequence bigint NOT NULL,
     PRIMARY KEY (provider, subject)
 );
@@ -56,6 +62,8 @@ CREATE TABLE IF NOT EXISTS organization_join_requests (
     organization_id uuid NOT NULL,
     requester_id uuid NOT NULL,
     status text NOT NULL,
+    created_at timestamptz NOT NULL,
+    updated_at timestamptz NOT NULL,
     updated_event_sequence bigint NOT NULL,
     CONSTRAINT organization_join_requests_status_check CHECK (
         status IN ('pending', 'approved', 'rejected', 'canceled')
@@ -80,6 +88,8 @@ CREATE TABLE IF NOT EXISTS organization_invitations (
     issuer_id uuid,
     expires_at timestamptz NOT NULL,
     status text NOT NULL,
+    created_at timestamptz NOT NULL,
+    updated_at timestamptz NOT NULL,
     updated_event_sequence bigint NOT NULL,
     CONSTRAINT organization_invitations_issuer_type_check CHECK (
         issuer_type IN ('user', 'system')
@@ -111,6 +121,8 @@ CREATE TABLE IF NOT EXISTS organization_memberships (
     organization_id uuid NOT NULL,
     user_id uuid NOT NULL,
     status text NOT NULL,
+    created_at timestamptz NOT NULL,
+    updated_at timestamptz NOT NULL,
     updated_event_sequence bigint NOT NULL,
     CONSTRAINT organization_memberships_status_check CHECK (status IN ('active', 'inactive'))
 );
@@ -127,6 +139,8 @@ CREATE INDEX IF NOT EXISTS organization_memberships_status_idx
 CREATE TABLE IF NOT EXISTS organization_membership_roles (
     organization_membership_id uuid NOT NULL,
     role text NOT NULL,
+    created_at timestamptz NOT NULL,
+    updated_at timestamptz NOT NULL,
     updated_event_sequence bigint NOT NULL,
     PRIMARY KEY (organization_membership_id, role),
     CONSTRAINT organization_membership_roles_role_check CHECK (

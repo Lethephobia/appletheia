@@ -58,6 +58,7 @@ where
                             status: OrganizationInvitationStatus::Pending,
                         },
                         event.event_sequence,
+                        event.occurred_at,
                     )
                     .await?;
             }
@@ -68,6 +69,7 @@ where
                         invitation_id,
                         OrganizationInvitationStatus::Accepted,
                         event.event_sequence,
+                        event.occurred_at,
                     )
                     .await?;
             }
@@ -78,6 +80,7 @@ where
                         invitation_id,
                         OrganizationInvitationStatus::Declined,
                         event.event_sequence,
+                        event.occurred_at,
                     )
                     .await?;
             }
@@ -88,6 +91,7 @@ where
                         invitation_id,
                         OrganizationInvitationStatus::Canceled,
                         event.event_sequence,
+                        event.occurred_at,
                     )
                     .await?;
             }

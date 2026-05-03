@@ -1,3 +1,4 @@
+use appletheia::domain::EventOccurredAt;
 use banking_ledger_domain::account::{AccountId, AccountName, AccountOwner, AccountStatus};
 use banking_ledger_domain::core::CurrencyAmount;
 
@@ -7,6 +8,7 @@ use super::OwnedAccountListItemCurrency;
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct OwnedAccountListItem {
     pub id: AccountId,
+    pub created_at: EventOccurredAt,
     pub owner: AccountOwner,
     pub name: AccountName,
     pub currency: OwnedAccountListItemCurrency,

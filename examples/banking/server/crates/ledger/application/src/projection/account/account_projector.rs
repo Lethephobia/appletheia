@@ -55,57 +55,118 @@ where
                             status: AccountStatus::Active,
                         },
                         event.event_sequence,
+                        event.occurred_at,
                     )
                     .await?;
             }
             AccountEventPayload::OwnershipTransferred { owner } => {
                 self.projection_store
-                    .update_owner(uow, account_id, *owner, event.event_sequence)
+                    .update_owner(
+                        uow,
+                        account_id,
+                        *owner,
+                        event.event_sequence,
+                        event.occurred_at,
+                    )
                     .await?;
             }
             AccountEventPayload::NameChanged { name } => {
                 self.projection_store
-                    .update_name(uow, account_id, name.clone(), event.event_sequence)
+                    .update_name(
+                        uow,
+                        account_id,
+                        name.clone(),
+                        event.event_sequence,
+                        event.occurred_at,
+                    )
                     .await?;
             }
             AccountEventPayload::Deposited { amount } => {
                 self.projection_store
-                    .increase_balance(uow, account_id, *amount, event.event_sequence)
+                    .increase_balance(
+                        uow,
+                        account_id,
+                        *amount,
+                        event.event_sequence,
+                        event.occurred_at,
+                    )
                     .await?;
             }
             AccountEventPayload::Withdrawn { amount } => {
                 self.projection_store
-                    .decrease_balance(uow, account_id, *amount, event.event_sequence)
+                    .decrease_balance(
+                        uow,
+                        account_id,
+                        *amount,
+                        event.event_sequence,
+                        event.occurred_at,
+                    )
                     .await?;
             }
             AccountEventPayload::FundsReserved { amount } => {
                 self.projection_store
-                    .move_balance_to_reserved(uow, account_id, *amount, event.event_sequence)
+                    .move_balance_to_reserved(
+                        uow,
+                        account_id,
+                        *amount,
+                        event.event_sequence,
+                        event.occurred_at,
+                    )
                     .await?;
             }
             AccountEventPayload::ReservedFundsReleased { amount } => {
                 self.projection_store
-                    .move_reserved_to_balance(uow, account_id, *amount, event.event_sequence)
+                    .move_reserved_to_balance(
+                        uow,
+                        account_id,
+                        *amount,
+                        event.event_sequence,
+                        event.occurred_at,
+                    )
                     .await?;
             }
             AccountEventPayload::ReservedFundsCommitted { amount } => {
                 self.projection_store
-                    .decrease_reserved(uow, account_id, *amount, event.event_sequence)
+                    .decrease_reserved(
+                        uow,
+                        account_id,
+                        *amount,
+                        event.event_sequence,
+                        event.occurred_at,
+                    )
                     .await?;
             }
             AccountEventPayload::Frozen => {
                 self.projection_store
-                    .update_status(uow, account_id, AccountStatus::Frozen, event.event_sequence)
+                    .update_status(
+                        uow,
+                        account_id,
+                        AccountStatus::Frozen,
+                        event.event_sequence,
+                        event.occurred_at,
+                    )
                     .await?;
             }
             AccountEventPayload::Thawed => {
                 self.projection_store
-                    .update_status(uow, account_id, AccountStatus::Active, event.event_sequence)
+                    .update_status(
+                        uow,
+                        account_id,
+                        AccountStatus::Active,
+                        event.event_sequence,
+                        event.occurred_at,
+                    )
                     .await?;
             }
             AccountEventPayload::Closed => {
                 self.projection_store
-                    .update_status(uow, account_id, AccountStatus::Closed, event.event_sequence)
+                    .update_status(
+                        uow,
+                        account_id,
+                        AccountStatus::Closed,
+                        event.event_sequence,
+                        event.occurred_at,
+                    )
                     .await?;
             }
             AccountEventPayload::OwnershipTransferRejected { .. }

@@ -1,5 +1,6 @@
 use appletheia::application::event::EventSequence;
 use appletheia::application::unit_of_work::UnitOfWork;
+use appletheia::domain::EventOccurredAt;
 use banking_iam_domain::{
     OrganizationDescription, OrganizationDisplayName, OrganizationHandle, OrganizationId,
     OrganizationOwner, OrganizationPictureRef, OrganizationWebsiteUrl,
@@ -17,6 +18,7 @@ pub trait OrganizationProjectionStore: Send + Sync {
         uow: &mut Self::Uow,
         input: OrganizationProjectionUpsert,
         event_sequence: EventSequence,
+        occurred_at: EventOccurredAt,
     ) -> Result<(), OrganizationProjectionStoreError>;
 
     async fn update_handle(
@@ -25,6 +27,7 @@ pub trait OrganizationProjectionStore: Send + Sync {
         id: OrganizationId,
         handle: OrganizationHandle,
         event_sequence: EventSequence,
+        occurred_at: EventOccurredAt,
     ) -> Result<(), OrganizationProjectionStoreError>;
 
     async fn update_owner(
@@ -33,6 +36,7 @@ pub trait OrganizationProjectionStore: Send + Sync {
         id: OrganizationId,
         owner: OrganizationOwner,
         event_sequence: EventSequence,
+        occurred_at: EventOccurredAt,
     ) -> Result<(), OrganizationProjectionStoreError>;
 
     async fn update_display_name(
@@ -41,6 +45,7 @@ pub trait OrganizationProjectionStore: Send + Sync {
         id: OrganizationId,
         display_name: OrganizationDisplayName,
         event_sequence: EventSequence,
+        occurred_at: EventOccurredAt,
     ) -> Result<(), OrganizationProjectionStoreError>;
 
     async fn update_description(
@@ -49,6 +54,7 @@ pub trait OrganizationProjectionStore: Send + Sync {
         id: OrganizationId,
         description: Option<OrganizationDescription>,
         event_sequence: EventSequence,
+        occurred_at: EventOccurredAt,
     ) -> Result<(), OrganizationProjectionStoreError>;
 
     async fn update_website_url(
@@ -57,6 +63,7 @@ pub trait OrganizationProjectionStore: Send + Sync {
         id: OrganizationId,
         website_url: Option<OrganizationWebsiteUrl>,
         event_sequence: EventSequence,
+        occurred_at: EventOccurredAt,
     ) -> Result<(), OrganizationProjectionStoreError>;
 
     async fn update_picture(
@@ -65,6 +72,7 @@ pub trait OrganizationProjectionStore: Send + Sync {
         id: OrganizationId,
         picture: Option<OrganizationPictureRef>,
         event_sequence: EventSequence,
+        occurred_at: EventOccurredAt,
     ) -> Result<(), OrganizationProjectionStoreError>;
 
     async fn delete(
@@ -72,5 +80,6 @@ pub trait OrganizationProjectionStore: Send + Sync {
         uow: &mut Self::Uow,
         id: OrganizationId,
         event_sequence: EventSequence,
+        occurred_at: EventOccurredAt,
     ) -> Result<(), OrganizationProjectionStoreError>;
 }

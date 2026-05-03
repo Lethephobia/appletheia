@@ -1,5 +1,6 @@
 use appletheia::application::event::EventSequence;
 use appletheia::domain::AggregateId;
+use appletheia::domain::EventOccurredAt;
 use appletheia::infrastructure::postgresql::PgUnitOfWork;
 use banking_iam_application::{
     OrganizationInvitationProjectionStore, OrganizationInvitationProjectionStoreError,
@@ -49,6 +50,7 @@ impl OrganizationInvitationProjectionStore for PgOrganizationInvitationProjectio
         uow: &mut Self::Uow,
         input: OrganizationInvitationProjectionUpsert,
         event_sequence: EventSequence,
+        occurred_at: EventOccurredAt,
     ) -> Result<(), OrganizationInvitationProjectionStoreError> {
         let (issuer_type, issuer_id) = Self::issuer_parts(input.issuer);
 
@@ -62,9 +64,9 @@ impl OrganizationInvitationProjectionStore for PgOrganizationInvitationProjectio
                 issuer_id,
                 expires_at,
                 status,
-                updated_event_sequence
+                created_at, updated_at, updated_event_sequence
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
             ON CONFLICT (id) DO UPDATE SET
                 organization_id = EXCLUDED.organization_id,
                 invitee_id = EXCLUDED.invitee_id,
@@ -72,6 +74,7 @@ impl OrganizationInvitationProjectionStore for PgOrganizationInvitationProjectio
                 issuer_id = EXCLUDED.issuer_id,
                 expires_at = EXCLUDED.expires_at,
                 status = EXCLUDED.status,
+                updated_at = EXCLUDED.updated_at,
                 updated_event_sequence = EXCLUDED.updated_event_sequence
             WHERE organization_invitations.updated_event_sequence < EXCLUDED.updated_event_sequence
             "#,
@@ -83,6 +86,8 @@ impl OrganizationInvitationProjectionStore for PgOrganizationInvitationProjectio
         .bind(issuer_id)
         .bind(input.expires_at.value())
         .bind(Self::status_name(input.status))
+        .bind(occurred_at.value())
+        .bind(occurred_at.value())
         .bind(event_sequence.value())
         .execute(uow.transaction_mut().as_mut())
         .await
@@ -97,18 +102,21 @@ impl OrganizationInvitationProjectionStore for PgOrganizationInvitationProjectio
         id: OrganizationInvitationId,
         status: OrganizationInvitationStatus,
         event_sequence: EventSequence,
+        occurred_at: EventOccurredAt,
     ) -> Result<(), OrganizationInvitationProjectionStoreError> {
         sqlx::query(
             r#"
             UPDATE organization_invitations
                SET status = $2,
-                   updated_event_sequence = $3
+                   updated_at = $3,
+                   updated_event_sequence = $4
              WHERE id = $1
-               AND updated_event_sequence < $3
+               AND updated_event_sequence < $4
             "#,
         )
         .bind(id.value())
         .bind(Self::status_name(status))
+        .bind(occurred_at.value())
         .bind(event_sequence.value())
         .execute(uow.transaction_mut().as_mut())
         .await

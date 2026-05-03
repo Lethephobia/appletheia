@@ -8,6 +8,8 @@ CREATE TABLE IF NOT EXISTS accounts (
     balance numeric(39, 0) NOT NULL,
     reserved_balance numeric(39, 0) NOT NULL,
     status text NOT NULL,
+    created_at timestamptz NOT NULL,
+    updated_at timestamptz NOT NULL,
     updated_event_sequence bigint NOT NULL,
     CONSTRAINT accounts_owner_type_check CHECK (owner_type IN ('user', 'organization')),
     CONSTRAINT accounts_status_check CHECK (status IN ('active', 'frozen', 'closed'))
@@ -15,6 +17,9 @@ CREATE TABLE IF NOT EXISTS accounts (
 
 CREATE INDEX IF NOT EXISTS accounts_owner_idx
     ON accounts (owner_type, owner_id);
+
+CREATE INDEX IF NOT EXISTS accounts_owner_created_at_idx
+    ON accounts (owner_type, owner_id, created_at DESC, id DESC);
 
 CREATE INDEX IF NOT EXISTS accounts_currency_idx
     ON accounts (currency_id);
@@ -31,6 +36,8 @@ CREATE TABLE IF NOT EXISTS currencies (
     decimals smallint NOT NULL,
     supply numeric(39, 0) NOT NULL,
     status text NOT NULL,
+    created_at timestamptz NOT NULL,
+    updated_at timestamptz NOT NULL,
     updated_event_sequence bigint NOT NULL,
     CONSTRAINT currencies_owner_type_check CHECK (owner_type IN ('user', 'organization')),
     CONSTRAINT currencies_status_check CHECK (status IN ('active', 'inactive'))
@@ -51,6 +58,8 @@ CREATE TABLE IF NOT EXISTS currency_issuances (
     destination_account_id uuid NOT NULL,
     amount numeric(39, 0) NOT NULL,
     status text NOT NULL,
+    created_at timestamptz NOT NULL,
+    updated_at timestamptz NOT NULL,
     updated_event_sequence bigint NOT NULL,
     CONSTRAINT currency_issuances_status_check CHECK (
         status IN ('pending', 'completed', 'failed')
@@ -72,6 +81,8 @@ CREATE TABLE IF NOT EXISTS transfers (
     to_account_id uuid NOT NULL,
     amount numeric(39, 0) NOT NULL,
     status text NOT NULL,
+    created_at timestamptz NOT NULL,
+    updated_at timestamptz NOT NULL,
     updated_event_sequence bigint NOT NULL,
     CONSTRAINT transfers_status_check CHECK (
         status IN ('pending', 'completed', 'failed', 'cancelled')

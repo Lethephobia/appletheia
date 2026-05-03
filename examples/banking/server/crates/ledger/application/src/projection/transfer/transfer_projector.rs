@@ -52,6 +52,7 @@ where
                             status: TransferStatus::Pending,
                         },
                         event.event_sequence,
+                        event.occurred_at,
                     )
                     .await?;
             }
@@ -62,6 +63,7 @@ where
                         transfer_id,
                         TransferStatus::Completed,
                         event.event_sequence,
+                        event.occurred_at,
                     )
                     .await?;
             }
@@ -72,6 +74,7 @@ where
                         transfer_id,
                         TransferStatus::Failed,
                         event.event_sequence,
+                        event.occurred_at,
                     )
                     .await?;
             }
@@ -82,6 +85,7 @@ where
                         transfer_id,
                         TransferStatus::Cancelled,
                         event.event_sequence,
+                        event.occurred_at,
                     )
                     .await?;
             }

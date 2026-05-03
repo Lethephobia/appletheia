@@ -1,5 +1,6 @@
 use appletheia::application::event::EventSequence;
 use appletheia::domain::AggregateId;
+use appletheia::domain::EventOccurredAt;
 use appletheia::infrastructure::postgresql::PgUnitOfWork;
 use banking_iam_application::{
     UserIdentityProjectionStore, UserIdentityProjectionStoreError, UserIdentityProjectionUpsert,
@@ -29,6 +30,7 @@ impl UserIdentityProjectionStore for PgUserIdentityProjectionStore {
         uow: &mut Self::Uow,
         input: UserIdentityProjectionUpsert,
         event_sequence: EventSequence,
+        occurred_at: EventOccurredAt,
     ) -> Result<(), UserIdentityProjectionStoreError> {
         sqlx::query(
             r#"
@@ -37,12 +39,13 @@ impl UserIdentityProjectionStore for PgUserIdentityProjectionStore {
                 subject,
                 user_id,
                 email,
-                updated_event_sequence
+                created_at, updated_at, updated_event_sequence
             )
-            VALUES ($1, $2, $3, $4, $5)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
             ON CONFLICT (provider, subject) DO UPDATE SET
                 user_id = EXCLUDED.user_id,
                 email = EXCLUDED.email,
+                updated_at = EXCLUDED.updated_at,
                 updated_event_sequence = EXCLUDED.updated_event_sequence
             WHERE user_identities.updated_event_sequence < EXCLUDED.updated_event_sequence
             "#,
@@ -51,6 +54,8 @@ impl UserIdentityProjectionStore for PgUserIdentityProjectionStore {
         .bind(input.subject.value())
         .bind(input.user_id.value())
         .bind(input.email.as_ref().map(Email::value))
+        .bind(occurred_at.value())
+        .bind(occurred_at.value())
         .bind(event_sequence.value())
         .execute(uow.transaction_mut().as_mut())
         .await
@@ -66,20 +71,23 @@ impl UserIdentityProjectionStore for PgUserIdentityProjectionStore {
         subject: UserIdentitySubject,
         email: Option<Email>,
         event_sequence: EventSequence,
+        occurred_at: EventOccurredAt,
     ) -> Result<(), UserIdentityProjectionStoreError> {
         sqlx::query(
             r#"
             UPDATE user_identities
                SET email = $3,
-                   updated_event_sequence = $4
+                   updated_at = $4,
+                   updated_event_sequence = $5
              WHERE provider = $1
                AND subject = $2
-               AND updated_event_sequence < $4
+               AND updated_event_sequence < $5
             "#,
         )
         .bind(provider.value())
         .bind(subject.value())
         .bind(email.as_ref().map(Email::value))
+        .bind(occurred_at.value())
         .bind(event_sequence.value())
         .execute(uow.transaction_mut().as_mut())
         .await
@@ -93,15 +101,17 @@ impl UserIdentityProjectionStore for PgUserIdentityProjectionStore {
         uow: &mut Self::Uow,
         user_id: UserId,
         event_sequence: EventSequence,
+        occurred_at: EventOccurredAt,
     ) -> Result<(), UserIdentityProjectionStoreError> {
         sqlx::query(
             r#"
             DELETE FROM user_identities
              WHERE user_id = $1
-               AND updated_event_sequence < $2
+               AND updated_event_sequence < $3
             "#,
         )
         .bind(user_id.value())
+        .bind(occurred_at.value())
         .bind(event_sequence.value())
         .execute(uow.transaction_mut().as_mut())
         .await

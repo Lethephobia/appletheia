@@ -1,5 +1,6 @@
 use appletheia::application::event::EventSequence;
 use appletheia::application::unit_of_work::UnitOfWork;
+use appletheia::domain::EventOccurredAt;
 use banking_iam_domain::{OrganizationJoinRequestId, OrganizationJoinRequestStatus};
 
 use super::{OrganizationJoinRequestProjectionStoreError, OrganizationJoinRequestProjectionUpsert};
@@ -14,6 +15,7 @@ pub trait OrganizationJoinRequestProjectionStore: Send + Sync {
         uow: &mut Self::Uow,
         input: OrganizationJoinRequestProjectionUpsert,
         event_sequence: EventSequence,
+        occurred_at: EventOccurredAt,
     ) -> Result<(), OrganizationJoinRequestProjectionStoreError>;
 
     async fn update_status(
@@ -22,5 +24,6 @@ pub trait OrganizationJoinRequestProjectionStore: Send + Sync {
         id: OrganizationJoinRequestId,
         status: OrganizationJoinRequestStatus,
         event_sequence: EventSequence,
+        occurred_at: EventOccurredAt,
     ) -> Result<(), OrganizationJoinRequestProjectionStoreError>;
 }

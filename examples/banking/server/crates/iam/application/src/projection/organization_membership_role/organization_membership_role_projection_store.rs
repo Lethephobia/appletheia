@@ -1,5 +1,6 @@
 use appletheia::application::event::EventSequence;
 use appletheia::application::unit_of_work::UnitOfWork;
+use appletheia::domain::EventOccurredAt;
 use banking_iam_domain::{OrganizationMembershipId, OrganizationRole};
 
 use super::{
@@ -16,6 +17,7 @@ pub trait OrganizationMembershipRoleProjectionStore: Send + Sync {
         uow: &mut Self::Uow,
         input: OrganizationMembershipRoleProjectionUpsert,
         event_sequence: EventSequence,
+        occurred_at: EventOccurredAt,
     ) -> Result<(), OrganizationMembershipRoleProjectionStoreError>;
 
     async fn delete(
@@ -24,6 +26,7 @@ pub trait OrganizationMembershipRoleProjectionStore: Send + Sync {
         organization_membership_id: OrganizationMembershipId,
         role: OrganizationRole,
         event_sequence: EventSequence,
+        occurred_at: EventOccurredAt,
     ) -> Result<(), OrganizationMembershipRoleProjectionStoreError>;
 
     async fn delete_by_membership(
@@ -31,5 +34,6 @@ pub trait OrganizationMembershipRoleProjectionStore: Send + Sync {
         uow: &mut Self::Uow,
         organization_membership_id: OrganizationMembershipId,
         event_sequence: EventSequence,
+        occurred_at: EventOccurredAt,
     ) -> Result<(), OrganizationMembershipRoleProjectionStoreError>;
 }
