@@ -1,0 +1,3 @@
+mod pg_currency_issuance_view_store;
+
+pub use pg_currency_issuance_view_store::PgCurrencyIssuanceViewStore;

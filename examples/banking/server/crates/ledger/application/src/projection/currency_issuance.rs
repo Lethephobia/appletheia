@@ -1,0 +1,7 @@
+mod currency_issuance_projector;
+mod currency_issuance_projector_error;
+mod currency_issuance_projector_spec;
+
+pub use currency_issuance_projector::CurrencyIssuanceProjector;
+pub use currency_issuance_projector_error::CurrencyIssuanceProjectorError;
+pub use currency_issuance_projector_spec::CurrencyIssuanceProjectorSpec;

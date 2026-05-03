@@ -1,5 +1,5 @@
-pub mod postgresql;
+pub mod view;
 
-pub use postgresql::{
+pub use view::{
     PgAccountViewStore, PgCurrencyIssuanceViewStore, PgCurrencyViewStore, PgTransferViewStore,
 };

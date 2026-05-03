@@ -81,30 +81,29 @@ where
             return Err(CurrencyUpdateCommandHandlerError::CurrencyNotFound);
         };
 
-        if let Some(symbol) = command.symbol.clone() {
-            if let CurrencySymbolChangeResult::Rejected { reason } =
+        if let Some(symbol) = command.symbol.clone()
+            && let CurrencySymbolChangeResult::Rejected { reason } =
                 currency.change_symbol(symbol)?
-            {
-                self.currency_repository
-                    .save(uow, request_context, &mut currency)
-                    .await?;
+        {
+            self.currency_repository
+                .save(uow, request_context, &mut currency)
+                .await?;
 
-                return Ok(CommandHandled::same(CurrencyUpdateOutput::Rejected {
-                    reason: CurrencyUpdateRejectionReason::from(reason),
-                }));
-            }
+            return Ok(CommandHandled::same(CurrencyUpdateOutput::Rejected {
+                reason: CurrencyUpdateRejectionReason::from(reason),
+            }));
         }
 
-        if let Some(name) = command.name.clone() {
-            if let CurrencyNameChangeResult::Rejected { reason } = currency.change_name(name)? {
-                self.currency_repository
-                    .save(uow, request_context, &mut currency)
-                    .await?;
+        if let Some(name) = command.name.clone()
+            && let CurrencyNameChangeResult::Rejected { reason } = currency.change_name(name)?
+        {
+            self.currency_repository
+                .save(uow, request_context, &mut currency)
+                .await?;
 
-                return Ok(CommandHandled::same(CurrencyUpdateOutput::Rejected {
-                    reason: CurrencyUpdateRejectionReason::from(reason),
-                }));
-            }
+            return Ok(CommandHandled::same(CurrencyUpdateOutput::Rejected {
+                reason: CurrencyUpdateRejectionReason::from(reason),
+            }));
         }
 
         self.currency_repository

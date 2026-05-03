@@ -2,6 +2,7 @@ pub mod authorization;
 pub mod command;
 pub mod projection;
 pub mod saga;
+pub mod view;
 
 pub use authorization::{
     AccountCloserRelation, AccountFreezerRelation, AccountNameChangerRelation,
@@ -42,11 +43,21 @@ pub use command::{
 };
 pub use projection::{
     AccountOwnerRelationshipProjector, AccountOwnerRelationshipProjectorError,
-    AccountOwnerRelationshipProjectorSpec, CurrencyOwnerRelationshipProjector,
+    AccountOwnerRelationshipProjectorSpec, AccountProjector, AccountProjectorError,
+    AccountProjectorSpec, CurrencyIssuanceProjector, CurrencyIssuanceProjectorError,
+    CurrencyIssuanceProjectorSpec, CurrencyOwnerRelationshipProjector,
     CurrencyOwnerRelationshipProjectorError, CurrencyOwnerRelationshipProjectorSpec,
+    CurrencyProjector, CurrencyProjectorError, CurrencyProjectorSpec, TransferProjector,
+    TransferProjectorError, TransferProjectorSpec,
 };
 pub use saga::{
     CurrencyIssuanceSaga, CurrencyIssuanceSagaError, CurrencyIssuanceSagaSpec,
     CurrencyIssuanceSagaState, CurrencyIssuanceSagaStatus, TransferSaga, TransferSagaError,
     TransferSagaSpec, TransferSagaState, TransferSagaStatus,
+};
+pub use view::{
+    AccountView, AccountViewStore, AccountViewStoreError, AccountViewUpsert, CurrencyIssuanceView,
+    CurrencyIssuanceViewStore, CurrencyIssuanceViewStoreError, CurrencyIssuanceViewUpsert,
+    CurrencyView, CurrencyViewStore, CurrencyViewStoreError, CurrencyViewUpsert, TransferView,
+    TransferViewStore, TransferViewStoreError, TransferViewUpsert,
 };

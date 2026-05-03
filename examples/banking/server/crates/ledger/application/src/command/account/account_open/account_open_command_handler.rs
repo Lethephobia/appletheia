@@ -219,7 +219,7 @@ mod tests {
 
         let plan = handler
             .authorization_plan(&AccountOpenCommand {
-                owner: owner.clone(),
+                owner,
                 name,
                 currency_id: CurrencyId::new(),
             })
@@ -290,7 +290,7 @@ mod tests {
                 &mut uow,
                 &request_context(),
                 &AccountOpenCommand {
-                    owner: owner.clone(),
+                    owner,
                     name: name.clone(),
                     currency_id: CurrencyId::new(),
                 },
