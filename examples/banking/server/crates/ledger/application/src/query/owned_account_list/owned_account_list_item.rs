@@ -8,11 +8,11 @@ use super::OwnedAccountListItemCurrency;
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct OwnedAccountListItem {
     pub id: AccountId,
-    pub created_at: EventOccurredAt,
     pub owner: AccountOwner,
     pub name: AccountName,
     pub currency: OwnedAccountListItemCurrency,
     pub balance: CurrencyAmount,
     pub reserved_balance: CurrencyAmount,
     pub status: AccountStatus,
+    pub created_at: EventOccurredAt,
 }

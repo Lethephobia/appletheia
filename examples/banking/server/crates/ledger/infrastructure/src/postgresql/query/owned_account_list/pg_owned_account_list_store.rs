@@ -89,9 +89,6 @@ impl PgOwnedAccountListStore {
         Ok(OwnedAccountListItem {
             id: AccountId::try_from_uuid(row.get("id"))
                 .map_err(|error| PgOwnedAccountListStoreError::InvalidAccountId(Box::new(error)))?,
-            created_at: EventOccurredAt::from(
-                row.get::<sqlx::types::chrono::DateTime<sqlx::types::chrono::Utc>, _>("created_at"),
-            ),
             owner: Self::owner(row.get("owner_type"), row.get("owner_id"))?,
             name: AccountName::try_from(row.get::<String, _>("name")).map_err(|error| {
                 PgOwnedAccountListStoreError::InvalidAccountName(Box::new(error))
@@ -111,6 +108,9 @@ impl PgOwnedAccountListStore {
             balance: Self::amount(row.get("balance"))?,
             reserved_balance: Self::amount(row.get("reserved_balance"))?,
             status: Self::status(row.get("status"))?,
+            created_at: EventOccurredAt::from(
+                row.get::<sqlx::types::chrono::DateTime<sqlx::types::chrono::Utc>, _>("created_at"),
+            ),
         })
     }
 }
