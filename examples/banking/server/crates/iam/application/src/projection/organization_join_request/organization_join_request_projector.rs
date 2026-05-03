@@ -5,28 +5,30 @@ use banking_iam_domain::{
 };
 
 use super::{OrganizationJoinRequestProjectorError, OrganizationJoinRequestProjectorSpec};
-use crate::view::{OrganizationJoinRequestViewStore, OrganizationJoinRequestViewUpsert};
+use crate::projection::{
+    OrganizationJoinRequestProjectionStore, OrganizationJoinRequestProjectionUpsert,
+};
 
-/// Projects organization join request events into normalized join request views.
+/// Projects organization join request events into normalized join request projections.
 pub struct OrganizationJoinRequestProjector<VS>
 where
-    VS: OrganizationJoinRequestViewStore,
+    VS: OrganizationJoinRequestProjectionStore,
 {
-    view_store: VS,
+    projection_store: VS,
 }
 
 impl<VS> OrganizationJoinRequestProjector<VS>
 where
-    VS: OrganizationJoinRequestViewStore,
+    VS: OrganizationJoinRequestProjectionStore,
 {
-    pub fn new(view_store: VS) -> Self {
-        Self { view_store }
+    pub fn new(projection_store: VS) -> Self {
+        Self { projection_store }
     }
 }
 
 impl<VS> Projector for OrganizationJoinRequestProjector<VS>
 where
-    VS: OrganizationJoinRequestViewStore,
+    VS: OrganizationJoinRequestProjectionStore,
 {
     type Spec = OrganizationJoinRequestProjectorSpec;
     type Uow = VS::Uow;
@@ -42,10 +44,10 @@ where
                 requester_id,
                 ..
             } => {
-                self.view_store
+                self.projection_store
                     .upsert(
                         uow,
-                        OrganizationJoinRequestViewUpsert {
+                        OrganizationJoinRequestProjectionUpsert {
                             id: join_request_id,
                             organization_id: *organization_id,
                             requester_id: *requester_id,
@@ -56,7 +58,7 @@ where
                     .await?;
             }
             OrganizationJoinRequestEventPayload::Approved { .. } => {
-                self.view_store
+                self.projection_store
                     .update_status(
                         uow,
                         join_request_id,
@@ -66,7 +68,7 @@ where
                     .await?;
             }
             OrganizationJoinRequestEventPayload::Rejected { .. } => {
-                self.view_store
+                self.projection_store
                     .update_status(
                         uow,
                         join_request_id,
@@ -76,7 +78,7 @@ where
                     .await?;
             }
             OrganizationJoinRequestEventPayload::Canceled { .. } => {
-                self.view_store
+                self.projection_store
                     .update_status(
                         uow,
                         join_request_id,

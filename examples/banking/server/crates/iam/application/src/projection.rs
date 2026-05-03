@@ -16,11 +16,13 @@ mod user_identity;
 mod user_owner_relationship;
 
 pub use organization::{
+    OrganizationProjectionStore, OrganizationProjectionStoreError, OrganizationProjectionUpsert,
     OrganizationProjector, OrganizationProjectorError, OrganizationProjectorSpec,
 };
 pub use organization_invitation::{
-    OrganizationInvitationProjector, OrganizationInvitationProjectorError,
-    OrganizationInvitationProjectorSpec,
+    OrganizationInvitationProjectionStore, OrganizationInvitationProjectionStoreError,
+    OrganizationInvitationProjectionUpsert, OrganizationInvitationProjector,
+    OrganizationInvitationProjectorError, OrganizationInvitationProjectorSpec,
 };
 pub use organization_invitation_invitee_relationship::{
     OrganizationInvitationInviteeRelationshipProjector,
@@ -33,8 +35,9 @@ pub use organization_invitation_organization_relationship::{
     OrganizationInvitationOrganizationRelationshipProjectorSpec,
 };
 pub use organization_join_request::{
-    OrganizationJoinRequestProjector, OrganizationJoinRequestProjectorError,
-    OrganizationJoinRequestProjectorSpec,
+    OrganizationJoinRequestProjectionStore, OrganizationJoinRequestProjectionStoreError,
+    OrganizationJoinRequestProjectionUpsert, OrganizationJoinRequestProjector,
+    OrganizationJoinRequestProjectorError, OrganizationJoinRequestProjectorSpec,
 };
 pub use organization_join_request_organization_relationship::{
     OrganizationJoinRequestOrganizationRelationshipProjector,
@@ -51,8 +54,9 @@ pub use organization_member_relationship::{
     OrganizationMemberRelationshipProjectorSpec,
 };
 pub use organization_membership::{
-    OrganizationMembershipProjector, OrganizationMembershipProjectorError,
-    OrganizationMembershipProjectorSpec,
+    OrganizationMembershipProjectionStore, OrganizationMembershipProjectionStoreError,
+    OrganizationMembershipProjectionUpsert, OrganizationMembershipProjector,
+    OrganizationMembershipProjectorError, OrganizationMembershipProjectorSpec,
 };
 pub use organization_membership_organization_relationship::{
     OrganizationMembershipOrganizationRelationshipProjector,
@@ -60,8 +64,9 @@ pub use organization_membership_organization_relationship::{
     OrganizationMembershipOrganizationRelationshipProjectorSpec,
 };
 pub use organization_membership_role::{
-    OrganizationMembershipRoleProjector, OrganizationMembershipRoleProjectorError,
-    OrganizationMembershipRoleProjectorSpec,
+    OrganizationMembershipRoleProjectionStore, OrganizationMembershipRoleProjectionStoreError,
+    OrganizationMembershipRoleProjectionUpsert, OrganizationMembershipRoleProjector,
+    OrganizationMembershipRoleProjectorError, OrganizationMembershipRoleProjectorSpec,
 };
 pub use organization_owner_relationship::{
     OrganizationOwnerRelationshipProjector, OrganizationOwnerRelationshipProjectorError,
@@ -71,8 +76,12 @@ pub use organization_role_relationship::{
     OrganizationRoleRelationshipProjector, OrganizationRoleRelationshipProjectorError,
     OrganizationRoleRelationshipProjectorSpec,
 };
-pub use user::{UserProjector, UserProjectorError, UserProjectorSpec};
+pub use user::{
+    UserProjectionStore, UserProjectionStoreError, UserProjectionUpsert, UserProjector,
+    UserProjectorError, UserProjectorSpec,
+};
 pub use user_identity::{
+    UserIdentityProjectionStore, UserIdentityProjectionStoreError, UserIdentityProjectionUpsert,
     UserIdentityProjector, UserIdentityProjectorError, UserIdentityProjectorSpec,
 };
 pub use user_owner_relationship::{

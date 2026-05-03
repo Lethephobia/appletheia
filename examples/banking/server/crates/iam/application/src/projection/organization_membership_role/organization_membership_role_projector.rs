@@ -3,28 +3,30 @@ use appletheia::application::projection::Projector;
 use banking_iam_domain::{OrganizationMembership, OrganizationMembershipEventPayload};
 
 use super::{OrganizationMembershipRoleProjectorError, OrganizationMembershipRoleProjectorSpec};
-use crate::view::{OrganizationMembershipRoleViewStore, OrganizationMembershipRoleViewUpsert};
+use crate::projection::{
+    OrganizationMembershipRoleProjectionStore, OrganizationMembershipRoleProjectionUpsert,
+};
 
-/// Projects organization membership role events into normalized role views.
+/// Projects organization membership role events into normalized role projections.
 pub struct OrganizationMembershipRoleProjector<VS>
 where
-    VS: OrganizationMembershipRoleViewStore,
+    VS: OrganizationMembershipRoleProjectionStore,
 {
-    view_store: VS,
+    projection_store: VS,
 }
 
 impl<VS> OrganizationMembershipRoleProjector<VS>
 where
-    VS: OrganizationMembershipRoleViewStore,
+    VS: OrganizationMembershipRoleProjectionStore,
 {
-    pub fn new(view_store: VS) -> Self {
-        Self { view_store }
+    pub fn new(projection_store: VS) -> Self {
+        Self { projection_store }
     }
 }
 
 impl<VS> Projector for OrganizationMembershipRoleProjector<VS>
 where
-    VS: OrganizationMembershipRoleViewStore,
+    VS: OrganizationMembershipRoleProjectionStore,
 {
     type Spec = OrganizationMembershipRoleProjectorSpec;
     type Uow = VS::Uow;
@@ -36,10 +38,10 @@ where
 
         match domain_event.payload() {
             OrganizationMembershipEventPayload::RoleGranted { role, .. } => {
-                self.view_store
+                self.projection_store
                     .upsert(
                         uow,
-                        OrganizationMembershipRoleViewUpsert {
+                        OrganizationMembershipRoleProjectionUpsert {
                             organization_membership_id: membership_id,
                             role: *role,
                         },
@@ -48,12 +50,12 @@ where
                     .await?;
             }
             OrganizationMembershipEventPayload::RoleRevoked { role, .. } => {
-                self.view_store
+                self.projection_store
                     .delete(uow, membership_id, *role, event.event_sequence)
                     .await?;
             }
             OrganizationMembershipEventPayload::Removed { .. } => {
-                self.view_store
+                self.projection_store
                     .delete_by_membership(uow, membership_id, event.event_sequence)
                     .await?;
             }

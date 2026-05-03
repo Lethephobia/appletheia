@@ -4,7 +4,7 @@ use appletheia::application::projection::{ProjectorDescriptor, ProjectorName, Pr
 use appletheia::domain::Aggregate;
 use banking_iam_domain::{User, UserEventPayload};
 
-/// Declares the subscription for the user view projector.
+/// Declares the subscription for the user projection projector.
 pub struct UserProjectorSpec;
 
 impl ProjectorSpec for UserProjectorSpec {

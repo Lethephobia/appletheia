@@ -4,28 +4,28 @@ use banking_ledger_domain::account::{Account, AccountEventPayload, AccountStatus
 use banking_ledger_domain::core::CurrencyAmount;
 
 use super::{AccountProjectorError, AccountProjectorSpec};
-use crate::view::{AccountViewStore, AccountViewUpsert};
+use crate::projection::{AccountProjectionStore, AccountProjectionUpsert};
 
-/// Projects account events into normalized account views.
+/// Projects account events into normalized account projections.
 pub struct AccountProjector<VS>
 where
-    VS: AccountViewStore,
+    VS: AccountProjectionStore,
 {
-    view_store: VS,
+    projection_store: VS,
 }
 
 impl<VS> AccountProjector<VS>
 where
-    VS: AccountViewStore,
+    VS: AccountProjectionStore,
 {
-    pub fn new(view_store: VS) -> Self {
-        Self { view_store }
+    pub fn new(projection_store: VS) -> Self {
+        Self { projection_store }
     }
 }
 
 impl<VS> Projector for AccountProjector<VS>
 where
-    VS: AccountViewStore,
+    VS: AccountProjectionStore,
 {
     type Spec = AccountProjectorSpec;
     type Uow = VS::Uow;
@@ -42,10 +42,10 @@ where
                 currency_id,
                 ..
             } => {
-                self.view_store
+                self.projection_store
                     .upsert(
                         uow,
-                        AccountViewUpsert {
+                        AccountProjectionUpsert {
                             id: account_id,
                             owner: *owner,
                             name: name.clone(),
@@ -59,52 +59,52 @@ where
                     .await?;
             }
             AccountEventPayload::OwnershipTransferred { owner } => {
-                self.view_store
+                self.projection_store
                     .update_owner(uow, account_id, *owner, event.event_sequence)
                     .await?;
             }
             AccountEventPayload::NameChanged { name } => {
-                self.view_store
+                self.projection_store
                     .update_name(uow, account_id, name.clone(), event.event_sequence)
                     .await?;
             }
             AccountEventPayload::Deposited { amount } => {
-                self.view_store
+                self.projection_store
                     .increase_balance(uow, account_id, *amount, event.event_sequence)
                     .await?;
             }
             AccountEventPayload::Withdrawn { amount } => {
-                self.view_store
+                self.projection_store
                     .decrease_balance(uow, account_id, *amount, event.event_sequence)
                     .await?;
             }
             AccountEventPayload::FundsReserved { amount } => {
-                self.view_store
+                self.projection_store
                     .move_balance_to_reserved(uow, account_id, *amount, event.event_sequence)
                     .await?;
             }
             AccountEventPayload::ReservedFundsReleased { amount } => {
-                self.view_store
+                self.projection_store
                     .move_reserved_to_balance(uow, account_id, *amount, event.event_sequence)
                     .await?;
             }
             AccountEventPayload::ReservedFundsCommitted { amount } => {
-                self.view_store
+                self.projection_store
                     .decrease_reserved(uow, account_id, *amount, event.event_sequence)
                     .await?;
             }
             AccountEventPayload::Frozen => {
-                self.view_store
+                self.projection_store
                     .update_status(uow, account_id, AccountStatus::Frozen, event.event_sequence)
                     .await?;
             }
             AccountEventPayload::Thawed => {
-                self.view_store
+                self.projection_store
                     .update_status(uow, account_id, AccountStatus::Active, event.event_sequence)
                     .await?;
             }
             AccountEventPayload::Closed => {
-                self.view_store
+                self.projection_store
                     .update_status(uow, account_id, AccountStatus::Closed, event.event_sequence)
                     .await?;
             }

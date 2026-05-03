@@ -1,3 +1,0 @@
-mod pg_organization_join_request_view_store;
-
-pub use pg_organization_join_request_view_store::PgOrganizationJoinRequestViewStore;

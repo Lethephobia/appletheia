@@ -4,7 +4,7 @@ use appletheia::application::projection::{ProjectorDescriptor, ProjectorName, Pr
 use appletheia::domain::Aggregate;
 use banking_ledger_domain::account::{Account, AccountEventPayload};
 
-/// Declares the subscription for the account view projector.
+/// Declares the subscription for the account projection projector.
 pub struct AccountProjectorSpec;
 
 impl ProjectorSpec for AccountProjectorSpec {

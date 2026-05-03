@@ -1,7 +1,13 @@
+mod organization_projection_store;
+mod organization_projection_store_error;
+mod organization_projection_upsert;
 mod organization_projector;
 mod organization_projector_error;
 mod organization_projector_spec;
 
+pub use organization_projection_store::OrganizationProjectionStore;
+pub use organization_projection_store_error::OrganizationProjectionStoreError;
+pub use organization_projection_upsert::OrganizationProjectionUpsert;
 pub use organization_projector::OrganizationProjector;
 pub use organization_projector_error::OrganizationProjectorError;
 pub use organization_projector_spec::OrganizationProjectorSpec;

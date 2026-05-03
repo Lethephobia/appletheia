@@ -4,7 +4,7 @@ use appletheia::application::projection::{ProjectorDescriptor, ProjectorName, Pr
 use appletheia::domain::Aggregate;
 use banking_ledger_domain::transfer::{Transfer, TransferEventPayload};
 
-/// Declares the subscription for the transfer view projector.
+/// Declares the subscription for the transfer projection projector.
 pub struct TransferProjectorSpec;
 
 impl ProjectorSpec for TransferProjectorSpec {

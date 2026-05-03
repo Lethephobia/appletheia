@@ -5,28 +5,30 @@ use banking_iam_domain::{
 };
 
 use super::{OrganizationInvitationProjectorError, OrganizationInvitationProjectorSpec};
-use crate::view::{OrganizationInvitationViewStore, OrganizationInvitationViewUpsert};
+use crate::projection::{
+    OrganizationInvitationProjectionStore, OrganizationInvitationProjectionUpsert,
+};
 
-/// Projects organization invitation events into normalized invitation views.
+/// Projects organization invitation events into normalized invitation projections.
 pub struct OrganizationInvitationProjector<VS>
 where
-    VS: OrganizationInvitationViewStore,
+    VS: OrganizationInvitationProjectionStore,
 {
-    view_store: VS,
+    projection_store: VS,
 }
 
 impl<VS> OrganizationInvitationProjector<VS>
 where
-    VS: OrganizationInvitationViewStore,
+    VS: OrganizationInvitationProjectionStore,
 {
-    pub fn new(view_store: VS) -> Self {
-        Self { view_store }
+    pub fn new(projection_store: VS) -> Self {
+        Self { projection_store }
     }
 }
 
 impl<VS> Projector for OrganizationInvitationProjector<VS>
 where
-    VS: OrganizationInvitationViewStore,
+    VS: OrganizationInvitationProjectionStore,
 {
     type Spec = OrganizationInvitationProjectorSpec;
     type Uow = VS::Uow;
@@ -44,10 +46,10 @@ where
                 expires_at,
                 ..
             } => {
-                self.view_store
+                self.projection_store
                     .upsert(
                         uow,
-                        OrganizationInvitationViewUpsert {
+                        OrganizationInvitationProjectionUpsert {
                             id: invitation_id,
                             organization_id: *organization_id,
                             invitee_id: *invitee_id,
@@ -60,7 +62,7 @@ where
                     .await?;
             }
             OrganizationInvitationEventPayload::Accepted { .. } => {
-                self.view_store
+                self.projection_store
                     .update_status(
                         uow,
                         invitation_id,
@@ -70,7 +72,7 @@ where
                     .await?;
             }
             OrganizationInvitationEventPayload::Declined { .. } => {
-                self.view_store
+                self.projection_store
                     .update_status(
                         uow,
                         invitation_id,
@@ -80,7 +82,7 @@ where
                     .await?;
             }
             OrganizationInvitationEventPayload::Canceled { .. } => {
-                self.view_store
+                self.projection_store
                     .update_status(
                         uow,
                         invitation_id,

@@ -4,7 +4,7 @@ use appletheia::application::projection::{ProjectorDescriptor, ProjectorName, Pr
 use appletheia::domain::Aggregate;
 use banking_iam_domain::{OrganizationInvitation, OrganizationInvitationEventPayload};
 
-/// Declares the subscription for the organization invitation view projector.
+/// Declares the subscription for the organization invitation projection projector.
 pub struct OrganizationInvitationProjectorSpec;
 
 impl ProjectorSpec for OrganizationInvitationProjectorSpec {

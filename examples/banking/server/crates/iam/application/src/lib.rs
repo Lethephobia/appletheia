@@ -3,7 +3,6 @@ pub mod command;
 pub mod oidc;
 pub mod projection;
 pub mod saga;
-pub mod view;
 
 pub use authorization::{
     OrganizationAdminRelation, OrganizationFinanceManagerRelation,
@@ -86,11 +85,15 @@ pub use projection::{
     OrganizationInvitationInviteeRelationshipProjectorSpec,
     OrganizationInvitationOrganizationRelationshipProjector,
     OrganizationInvitationOrganizationRelationshipProjectorError,
-    OrganizationInvitationOrganizationRelationshipProjectorSpec, OrganizationInvitationProjector,
+    OrganizationInvitationOrganizationRelationshipProjectorSpec,
+    OrganizationInvitationProjectionStore, OrganizationInvitationProjectionStoreError,
+    OrganizationInvitationProjectionUpsert, OrganizationInvitationProjector,
     OrganizationInvitationProjectorError, OrganizationInvitationProjectorSpec,
     OrganizationJoinRequestOrganizationRelationshipProjector,
     OrganizationJoinRequestOrganizationRelationshipProjectorError,
-    OrganizationJoinRequestOrganizationRelationshipProjectorSpec, OrganizationJoinRequestProjector,
+    OrganizationJoinRequestOrganizationRelationshipProjectorSpec,
+    OrganizationJoinRequestProjectionStore, OrganizationJoinRequestProjectionStoreError,
+    OrganizationJoinRequestProjectionUpsert, OrganizationJoinRequestProjector,
     OrganizationJoinRequestProjectorError, OrganizationJoinRequestProjectorSpec,
     OrganizationJoinRequestRequesterRelationshipProjector,
     OrganizationJoinRequestRequesterRelationshipProjectorError,
@@ -99,16 +102,23 @@ pub use projection::{
     OrganizationMemberRelationshipProjectorSpec,
     OrganizationMembershipOrganizationRelationshipProjector,
     OrganizationMembershipOrganizationRelationshipProjectorError,
-    OrganizationMembershipOrganizationRelationshipProjectorSpec, OrganizationMembershipProjector,
+    OrganizationMembershipOrganizationRelationshipProjectorSpec,
+    OrganizationMembershipProjectionStore, OrganizationMembershipProjectionStoreError,
+    OrganizationMembershipProjectionUpsert, OrganizationMembershipProjector,
     OrganizationMembershipProjectorError, OrganizationMembershipProjectorSpec,
-    OrganizationMembershipRoleProjector, OrganizationMembershipRoleProjectorError,
-    OrganizationMembershipRoleProjectorSpec, OrganizationOwnerRelationshipProjector,
-    OrganizationOwnerRelationshipProjectorError, OrganizationOwnerRelationshipProjectorSpec,
-    OrganizationProjector, OrganizationProjectorError, OrganizationProjectorSpec,
-    OrganizationRoleRelationshipProjector, OrganizationRoleRelationshipProjectorError,
-    OrganizationRoleRelationshipProjectorSpec, UserIdentityProjector, UserIdentityProjectorError,
-    UserIdentityProjectorSpec, UserOwnerRelationshipProjector, UserOwnerRelationshipProjectorError,
-    UserOwnerRelationshipProjectorSpec, UserProjector, UserProjectorError, UserProjectorSpec,
+    OrganizationMembershipRoleProjectionStore, OrganizationMembershipRoleProjectionStoreError,
+    OrganizationMembershipRoleProjectionUpsert, OrganizationMembershipRoleProjector,
+    OrganizationMembershipRoleProjectorError, OrganizationMembershipRoleProjectorSpec,
+    OrganizationOwnerRelationshipProjector, OrganizationOwnerRelationshipProjectorError,
+    OrganizationOwnerRelationshipProjectorSpec, OrganizationProjectionStore,
+    OrganizationProjectionStoreError, OrganizationProjectionUpsert, OrganizationProjector,
+    OrganizationProjectorError, OrganizationProjectorSpec, OrganizationRoleRelationshipProjector,
+    OrganizationRoleRelationshipProjectorError, OrganizationRoleRelationshipProjectorSpec,
+    UserIdentityProjectionStore, UserIdentityProjectionStoreError, UserIdentityProjectionUpsert,
+    UserIdentityProjector, UserIdentityProjectorError, UserIdentityProjectorSpec,
+    UserOwnerRelationshipProjector, UserOwnerRelationshipProjectorError,
+    UserOwnerRelationshipProjectorSpec, UserProjectionStore, UserProjectionStoreError,
+    UserProjectionUpsert, UserProjector, UserProjectorError, UserProjectorSpec,
 };
 pub use saga::{
     OrganizationInvitationSaga, OrganizationInvitationSagaError, OrganizationInvitationSagaSpec,
@@ -117,17 +127,4 @@ pub use saga::{
     OrganizationPictureChangedSaga, OrganizationPictureChangedSagaError,
     OrganizationPictureChangedSagaSpec, OrganizationPictureSagaState, UserPictureChangedSaga,
     UserPictureChangedSagaError, UserPictureChangedSagaSpec, UserPictureSagaState,
-};
-pub use view::{
-    OrganizationInvitationView, OrganizationInvitationViewStore,
-    OrganizationInvitationViewStoreError, OrganizationInvitationViewUpsert,
-    OrganizationJoinRequestView, OrganizationJoinRequestViewStore,
-    OrganizationJoinRequestViewStoreError, OrganizationJoinRequestViewUpsert,
-    OrganizationMembershipRoleView, OrganizationMembershipRoleViewStore,
-    OrganizationMembershipRoleViewStoreError, OrganizationMembershipRoleViewUpsert,
-    OrganizationMembershipView, OrganizationMembershipViewStore,
-    OrganizationMembershipViewStoreError, OrganizationMembershipViewUpsert, OrganizationView,
-    OrganizationViewStore, OrganizationViewStoreError, OrganizationViewUpsert, UserIdentityView,
-    UserIdentityViewStore, UserIdentityViewStoreError, UserIdentityViewUpsert, UserView,
-    UserViewStore, UserViewStoreError, UserViewUpsert,
 };

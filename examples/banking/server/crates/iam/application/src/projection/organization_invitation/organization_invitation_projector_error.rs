@@ -1,14 +1,14 @@
 use appletheia::application::event::EventEnvelopeError;
 use thiserror::Error;
 
-use crate::view::OrganizationInvitationViewStoreError;
+use crate::projection::OrganizationInvitationProjectionStoreError;
 
-/// Represents errors returned while projecting organization invitation views.
+/// Represents errors returned while projecting organization invitation projections.
 #[derive(Debug, Error)]
 pub enum OrganizationInvitationProjectorError {
     #[error(transparent)]
     EventEnvelope(#[from] EventEnvelopeError),
 
     #[error(transparent)]
-    ViewStore(#[from] OrganizationInvitationViewStoreError),
+    ProjectionStore(#[from] OrganizationInvitationProjectionStoreError),
 }

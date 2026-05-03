@@ -3,28 +3,28 @@ use appletheia::application::projection::Projector;
 use banking_ledger_domain::transfer::{Transfer, TransferEventPayload, TransferStatus};
 
 use super::{TransferProjectorError, TransferProjectorSpec};
-use crate::view::{TransferViewStore, TransferViewUpsert};
+use crate::projection::{TransferProjectionStore, TransferProjectionUpsert};
 
-/// Projects transfer events into normalized transfer views.
+/// Projects transfer events into normalized transfer projections.
 pub struct TransferProjector<VS>
 where
-    VS: TransferViewStore,
+    VS: TransferProjectionStore,
 {
-    view_store: VS,
+    projection_store: VS,
 }
 
 impl<VS> TransferProjector<VS>
 where
-    VS: TransferViewStore,
+    VS: TransferProjectionStore,
 {
-    pub fn new(view_store: VS) -> Self {
-        Self { view_store }
+    pub fn new(projection_store: VS) -> Self {
+        Self { projection_store }
     }
 }
 
 impl<VS> Projector for TransferProjector<VS>
 where
-    VS: TransferViewStore,
+    VS: TransferProjectionStore,
 {
     type Spec = TransferProjectorSpec;
     type Uow = VS::Uow;
@@ -41,10 +41,10 @@ where
                 amount,
                 ..
             } => {
-                self.view_store
+                self.projection_store
                     .upsert(
                         uow,
-                        TransferViewUpsert {
+                        TransferProjectionUpsert {
                             id: transfer_id,
                             from_account_id: *from_account_id,
                             to_account_id: *to_account_id,
@@ -56,7 +56,7 @@ where
                     .await?;
             }
             TransferEventPayload::Completed => {
-                self.view_store
+                self.projection_store
                     .update_status(
                         uow,
                         transfer_id,
@@ -66,7 +66,7 @@ where
                     .await?;
             }
             TransferEventPayload::Failed { .. } => {
-                self.view_store
+                self.projection_store
                     .update_status(
                         uow,
                         transfer_id,
@@ -76,7 +76,7 @@ where
                     .await?;
             }
             TransferEventPayload::Cancelled => {
-                self.view_store
+                self.projection_store
                     .update_status(
                         uow,
                         transfer_id,

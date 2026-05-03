@@ -1,7 +1,8 @@
+pub mod projection;
 pub mod query;
-pub mod view;
 
-pub use query::PgOwnedAccountListStore;
-pub use view::{
-    PgAccountViewStore, PgCurrencyIssuanceViewStore, PgCurrencyViewStore, PgTransferViewStore,
+pub use projection::{
+    PgAccountProjectionStore, PgCurrencyIssuanceProjectionStore, PgCurrencyProjectionStore,
+    PgTransferProjectionStore,
 };
+pub use query::PgOwnedAccountListStore;

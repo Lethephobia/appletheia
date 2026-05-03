@@ -1,7 +1,7 @@
 pub mod postgresql;
 
 pub use postgresql::{
-    PgOrganizationInvitationViewStore, PgOrganizationJoinRequestViewStore,
-    PgOrganizationMembershipRoleViewStore, PgOrganizationMembershipViewStore,
-    PgOrganizationViewStore, PgUserIdentityViewStore, PgUserViewStore,
+    PgOrganizationInvitationProjectionStore, PgOrganizationJoinRequestProjectionStore,
+    PgOrganizationMembershipProjectionStore, PgOrganizationMembershipRoleProjectionStore,
+    PgOrganizationProjectionStore, PgUserIdentityProjectionStore, PgUserProjectionStore,
 };

@@ -3,28 +3,28 @@ use appletheia::application::projection::Projector;
 use banking_iam_domain::{Organization, OrganizationEventPayload};
 
 use super::{OrganizationProjectorError, OrganizationProjectorSpec};
-use crate::view::{OrganizationViewStore, OrganizationViewUpsert};
+use crate::projection::{OrganizationProjectionStore, OrganizationProjectionUpsert};
 
-/// Projects organization events into normalized organization views.
+/// Projects organization events into normalized organization projections.
 pub struct OrganizationProjector<VS>
 where
-    VS: OrganizationViewStore,
+    VS: OrganizationProjectionStore,
 {
-    view_store: VS,
+    projection_store: VS,
 }
 
 impl<VS> OrganizationProjector<VS>
 where
-    VS: OrganizationViewStore,
+    VS: OrganizationProjectionStore,
 {
-    pub fn new(view_store: VS) -> Self {
-        Self { view_store }
+    pub fn new(projection_store: VS) -> Self {
+        Self { projection_store }
     }
 }
 
 impl<VS> Projector for OrganizationProjector<VS>
 where
-    VS: OrganizationViewStore,
+    VS: OrganizationProjectionStore,
 {
     type Spec = OrganizationProjectorSpec;
     type Uow = VS::Uow;
@@ -44,10 +44,10 @@ where
                 picture,
                 ..
             } => {
-                self.view_store
+                self.projection_store
                     .upsert(
                         uow,
-                        OrganizationViewUpsert {
+                        OrganizationProjectionUpsert {
                             id: organization_id,
                             owner: *owner,
                             handle: handle.clone(),
@@ -61,17 +61,17 @@ where
                     .await?;
             }
             OrganizationEventPayload::OwnershipTransferred { owner } => {
-                self.view_store
+                self.projection_store
                     .update_owner(uow, organization_id, *owner, event.event_sequence)
                     .await?;
             }
             OrganizationEventPayload::HandleChanged { handle } => {
-                self.view_store
+                self.projection_store
                     .update_handle(uow, organization_id, handle.clone(), event.event_sequence)
                     .await?;
             }
             OrganizationEventPayload::DisplayNameChanged { display_name } => {
-                self.view_store
+                self.projection_store
                     .update_display_name(
                         uow,
                         organization_id,
@@ -81,7 +81,7 @@ where
                     .await?;
             }
             OrganizationEventPayload::DescriptionChanged { description } => {
-                self.view_store
+                self.projection_store
                     .update_description(
                         uow,
                         organization_id,
@@ -91,7 +91,7 @@ where
                     .await?;
             }
             OrganizationEventPayload::WebsiteUrlChanged { website_url } => {
-                self.view_store
+                self.projection_store
                     .update_website_url(
                         uow,
                         organization_id,
@@ -101,12 +101,12 @@ where
                     .await?;
             }
             OrganizationEventPayload::PictureChanged { picture, .. } => {
-                self.view_store
+                self.projection_store
                     .update_picture(uow, organization_id, picture.clone(), event.event_sequence)
                     .await?;
             }
             OrganizationEventPayload::Removed => {
-                self.view_store
+                self.projection_store
                     .delete(uow, organization_id, event.event_sequence)
                     .await?;
             }
@@ -143,8 +143,8 @@ mod tests {
     };
 
     use super::OrganizationProjector;
-    use crate::view::{
-        OrganizationView, OrganizationViewStore, OrganizationViewStoreError, OrganizationViewUpsert,
+    use crate::projection::{
+        OrganizationProjectionStore, OrganizationProjectionStoreError, OrganizationProjectionUpsert,
     };
 
     #[derive(Default)]
@@ -162,46 +162,35 @@ mod tests {
 
     #[derive(Clone, Debug, Eq, PartialEq)]
     enum RecordedChange {
-        Upsert(Box<OrganizationView>, EventSequence),
+        Upsert(Box<OrganizationProjectionUpsert>, EventSequence),
         Owner(OrganizationId, OrganizationOwner, EventSequence),
         Delete(OrganizationId, EventSequence),
     }
 
     #[derive(Clone, Default)]
-    struct TestOrganizationViewStore {
+    struct TestOrganizationProjectionStore {
         changes: Arc<Mutex<Vec<RecordedChange>>>,
     }
 
-    impl TestOrganizationViewStore {
+    impl TestOrganizationProjectionStore {
         fn recorded_changes(&self) -> Vec<RecordedChange> {
             self.changes.lock().expect("lock should succeed").clone()
         }
     }
 
-    impl OrganizationViewStore for TestOrganizationViewStore {
+    impl OrganizationProjectionStore for TestOrganizationProjectionStore {
         type Uow = TestUow;
 
         async fn upsert(
             &self,
             _uow: &mut Self::Uow,
-            input: OrganizationViewUpsert,
+            input: OrganizationProjectionUpsert,
             event_sequence: EventSequence,
-        ) -> Result<(), OrganizationViewStoreError> {
+        ) -> Result<(), OrganizationProjectionStoreError> {
             self.changes
                 .lock()
                 .expect("lock should succeed")
-                .push(RecordedChange::Upsert(
-                    Box::new(OrganizationView {
-                        id: input.id,
-                        owner: input.owner,
-                        handle: input.handle,
-                        display_name: input.display_name,
-                        description: input.description,
-                        website_url: input.website_url,
-                        picture: input.picture,
-                    }),
-                    event_sequence,
-                ));
+                .push(RecordedChange::Upsert(Box::new(input), event_sequence));
             Ok(())
         }
 
@@ -211,7 +200,7 @@ mod tests {
             _id: OrganizationId,
             _handle: OrganizationHandle,
             _event_sequence: EventSequence,
-        ) -> Result<(), OrganizationViewStoreError> {
+        ) -> Result<(), OrganizationProjectionStoreError> {
             Ok(())
         }
 
@@ -221,7 +210,7 @@ mod tests {
             id: OrganizationId,
             owner: OrganizationOwner,
             event_sequence: EventSequence,
-        ) -> Result<(), OrganizationViewStoreError> {
+        ) -> Result<(), OrganizationProjectionStoreError> {
             self.changes
                 .lock()
                 .expect("lock should succeed")
@@ -235,7 +224,7 @@ mod tests {
             _id: OrganizationId,
             _display_name: OrganizationDisplayName,
             _event_sequence: EventSequence,
-        ) -> Result<(), OrganizationViewStoreError> {
+        ) -> Result<(), OrganizationProjectionStoreError> {
             Ok(())
         }
 
@@ -245,7 +234,7 @@ mod tests {
             _id: OrganizationId,
             _description: Option<OrganizationDescription>,
             _event_sequence: EventSequence,
-        ) -> Result<(), OrganizationViewStoreError> {
+        ) -> Result<(), OrganizationProjectionStoreError> {
             Ok(())
         }
 
@@ -255,7 +244,7 @@ mod tests {
             _id: OrganizationId,
             _website_url: Option<OrganizationWebsiteUrl>,
             _event_sequence: EventSequence,
-        ) -> Result<(), OrganizationViewStoreError> {
+        ) -> Result<(), OrganizationProjectionStoreError> {
             Ok(())
         }
 
@@ -265,7 +254,7 @@ mod tests {
             _id: OrganizationId,
             _picture: Option<OrganizationPictureRef>,
             _event_sequence: EventSequence,
-        ) -> Result<(), OrganizationViewStoreError> {
+        ) -> Result<(), OrganizationProjectionStoreError> {
             Ok(())
         }
 
@@ -274,7 +263,7 @@ mod tests {
             _uow: &mut Self::Uow,
             id: OrganizationId,
             event_sequence: EventSequence,
-        ) -> Result<(), OrganizationViewStoreError> {
+        ) -> Result<(), OrganizationProjectionStoreError> {
             self.changes
                 .lock()
                 .expect("lock should succeed")
@@ -334,8 +323,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn created_event_upserts_organization_view() {
-        let store = TestOrganizationViewStore::default();
+    async fn created_event_upserts_organization_projection() {
+        let store = TestOrganizationProjectionStore::default();
         let projector = OrganizationProjector::new(store.clone());
         let organization = organization();
         let event = organization
@@ -352,13 +341,13 @@ mod tests {
         let changes = store.recorded_changes();
         assert_eq!(changes.len(), 1);
 
-        let RecordedChange::Upsert(view, sequence) = &changes[0] else {
+        let RecordedChange::Upsert(projection, sequence) = &changes[0] else {
             panic!("change should be upsert");
         };
-        assert_eq!(view.id, event.aggregate_id());
-        assert!(matches!(view.owner, OrganizationOwner::User(_)));
-        assert_eq!(view.handle.value(), "acme-labs");
-        assert_eq!(view.display_name.value(), "Acme Labs");
+        assert_eq!(projection.id, event.aggregate_id());
+        assert!(matches!(projection.owner, OrganizationOwner::User(_)));
+        assert_eq!(projection.handle.value(), "acme-labs");
+        assert_eq!(projection.display_name.value(), "Acme Labs");
         assert_eq!(
             *sequence,
             EventSequence::try_from(1).expect("sequence should be valid")
@@ -367,7 +356,7 @@ mod tests {
 
     #[tokio::test]
     async fn ownership_transferred_event_updates_owner() {
-        let store = TestOrganizationViewStore::default();
+        let store = TestOrganizationProjectionStore::default();
         let projector = OrganizationProjector::new(store.clone());
         let mut organization = organization();
         let new_owner = OrganizationOwner::User(UserId::new());
@@ -396,8 +385,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn removed_event_deletes_organization_view() {
-        let store = TestOrganizationViewStore::default();
+    async fn removed_event_deletes_organization_projection() {
+        let store = TestOrganizationProjectionStore::default();
         let projector = OrganizationProjector::new(store.clone());
         let mut organization = organization();
         organization

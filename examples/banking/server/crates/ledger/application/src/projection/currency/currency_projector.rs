@@ -4,28 +4,28 @@ use banking_ledger_domain::core::CurrencyAmount;
 use banking_ledger_domain::currency::{Currency, CurrencyEventPayload, CurrencyStatus};
 
 use super::{CurrencyProjectorError, CurrencyProjectorSpec};
-use crate::view::{CurrencyViewStore, CurrencyViewUpsert};
+use crate::projection::{CurrencyProjectionStore, CurrencyProjectionUpsert};
 
-/// Projects currency events into normalized currency views.
+/// Projects currency events into normalized currency projections.
 pub struct CurrencyProjector<VS>
 where
-    VS: CurrencyViewStore,
+    VS: CurrencyProjectionStore,
 {
-    view_store: VS,
+    projection_store: VS,
 }
 
 impl<VS> CurrencyProjector<VS>
 where
-    VS: CurrencyViewStore,
+    VS: CurrencyProjectionStore,
 {
-    pub fn new(view_store: VS) -> Self {
-        Self { view_store }
+    pub fn new(projection_store: VS) -> Self {
+        Self { projection_store }
     }
 }
 
 impl<VS> Projector for CurrencyProjector<VS>
 where
-    VS: CurrencyViewStore,
+    VS: CurrencyProjectionStore,
 {
     type Spec = CurrencyProjectorSpec;
     type Uow = VS::Uow;
@@ -43,10 +43,10 @@ where
                 decimals,
                 ..
             } => {
-                self.view_store
+                self.projection_store
                     .upsert(
                         uow,
-                        CurrencyViewUpsert {
+                        CurrencyProjectionUpsert {
                             id: currency_id,
                             owner: *owner,
                             symbol: symbol.clone(),
@@ -60,32 +60,32 @@ where
                     .await?;
             }
             CurrencyEventPayload::OwnershipTransferred { owner } => {
-                self.view_store
+                self.projection_store
                     .update_owner(uow, currency_id, *owner, event.event_sequence)
                     .await?;
             }
             CurrencyEventPayload::SymbolChanged { symbol } => {
-                self.view_store
+                self.projection_store
                     .update_symbol(uow, currency_id, symbol.clone(), event.event_sequence)
                     .await?;
             }
             CurrencyEventPayload::NameChanged { name } => {
-                self.view_store
+                self.projection_store
                     .update_name(uow, currency_id, name.clone(), event.event_sequence)
                     .await?;
             }
             CurrencyEventPayload::SupplyIncreased { amount } => {
-                self.view_store
+                self.projection_store
                     .increase_supply(uow, currency_id, *amount, event.event_sequence)
                     .await?;
             }
             CurrencyEventPayload::SupplyDecreased { amount } => {
-                self.view_store
+                self.projection_store
                     .decrease_supply(uow, currency_id, *amount, event.event_sequence)
                     .await?;
             }
             CurrencyEventPayload::Activated => {
-                self.view_store
+                self.projection_store
                     .update_status(
                         uow,
                         currency_id,
@@ -95,7 +95,7 @@ where
                     .await?;
             }
             CurrencyEventPayload::Deactivated => {
-                self.view_store
+                self.projection_store
                     .update_status(
                         uow,
                         currency_id,
@@ -105,7 +105,7 @@ where
                     .await?;
             }
             CurrencyEventPayload::Removed => {
-                self.view_store
+                self.projection_store
                     .delete(uow, currency_id, event.event_sequence)
                     .await?;
             }

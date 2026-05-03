@@ -5,28 +5,28 @@ use banking_ledger_domain::currency_issuance::{
 };
 
 use super::{CurrencyIssuanceProjectorError, CurrencyIssuanceProjectorSpec};
-use crate::view::{CurrencyIssuanceViewStore, CurrencyIssuanceViewUpsert};
+use crate::projection::{CurrencyIssuanceProjectionStore, CurrencyIssuanceProjectionUpsert};
 
-/// Projects currency issuance events into normalized currency issuance views.
+/// Projects currency issuance events into normalized currency issuance projections.
 pub struct CurrencyIssuanceProjector<VS>
 where
-    VS: CurrencyIssuanceViewStore,
+    VS: CurrencyIssuanceProjectionStore,
 {
-    view_store: VS,
+    projection_store: VS,
 }
 
 impl<VS> CurrencyIssuanceProjector<VS>
 where
-    VS: CurrencyIssuanceViewStore,
+    VS: CurrencyIssuanceProjectionStore,
 {
-    pub fn new(view_store: VS) -> Self {
-        Self { view_store }
+    pub fn new(projection_store: VS) -> Self {
+        Self { projection_store }
     }
 }
 
 impl<VS> Projector for CurrencyIssuanceProjector<VS>
 where
-    VS: CurrencyIssuanceViewStore,
+    VS: CurrencyIssuanceProjectionStore,
 {
     type Spec = CurrencyIssuanceProjectorSpec;
     type Uow = VS::Uow;
@@ -43,10 +43,10 @@ where
                 amount,
                 ..
             } => {
-                self.view_store
+                self.projection_store
                     .upsert(
                         uow,
-                        CurrencyIssuanceViewUpsert {
+                        CurrencyIssuanceProjectionUpsert {
                             id: issuance_id,
                             currency_id: *currency_id,
                             destination_account_id: *destination_account_id,
@@ -58,7 +58,7 @@ where
                     .await?;
             }
             CurrencyIssuanceEventPayload::Completed => {
-                self.view_store
+                self.projection_store
                     .update_status(
                         uow,
                         issuance_id,
@@ -68,7 +68,7 @@ where
                     .await?;
             }
             CurrencyIssuanceEventPayload::Failed { .. } => {
-                self.view_store
+                self.projection_store
                     .update_status(
                         uow,
                         issuance_id,

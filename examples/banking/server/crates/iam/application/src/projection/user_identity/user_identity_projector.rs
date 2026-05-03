@@ -3,28 +3,28 @@ use appletheia::application::projection::Projector;
 use banking_iam_domain::{User, UserEventPayload};
 
 use super::{UserIdentityProjectorError, UserIdentityProjectorSpec};
-use crate::view::{UserIdentityViewStore, UserIdentityViewUpsert};
+use crate::projection::{UserIdentityProjectionStore, UserIdentityProjectionUpsert};
 
-/// Projects user identity events into normalized user identity views.
+/// Projects user identity events into normalized user identity projections.
 pub struct UserIdentityProjector<VS>
 where
-    VS: UserIdentityViewStore,
+    VS: UserIdentityProjectionStore,
 {
-    view_store: VS,
+    projection_store: VS,
 }
 
 impl<VS> UserIdentityProjector<VS>
 where
-    VS: UserIdentityViewStore,
+    VS: UserIdentityProjectionStore,
 {
-    pub fn new(view_store: VS) -> Self {
-        Self { view_store }
+    pub fn new(projection_store: VS) -> Self {
+        Self { projection_store }
     }
 }
 
 impl<VS> Projector for UserIdentityProjector<VS>
 where
-    VS: UserIdentityViewStore,
+    VS: UserIdentityProjectionStore,
 {
     type Spec = UserIdentityProjectorSpec;
     type Uow = VS::Uow;
@@ -40,10 +40,10 @@ where
                 subject,
                 email,
             } => {
-                self.view_store
+                self.projection_store
                     .upsert(
                         uow,
-                        UserIdentityViewUpsert {
+                        UserIdentityProjectionUpsert {
                             user_id,
                             provider: provider.clone(),
                             subject: subject.clone(),
@@ -58,7 +58,7 @@ where
                 subject,
                 email,
             } => {
-                self.view_store
+                self.projection_store
                     .update_email(
                         uow,
                         provider.clone(),
@@ -69,7 +69,7 @@ where
                     .await?;
             }
             UserEventPayload::Removed => {
-                self.view_store
+                self.projection_store
                     .delete_by_user(uow, user_id, event.event_sequence)
                     .await?;
             }

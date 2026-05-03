@@ -1,0 +1,3 @@
+mod pg_organization_projection_store;
+
+pub use pg_organization_projection_store::PgOrganizationProjectionStore;

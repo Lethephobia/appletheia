@@ -1,7 +1,7 @@
-pub mod view;
+pub mod projection;
 
-pub use view::{
-    PgOrganizationInvitationViewStore, PgOrganizationJoinRequestViewStore,
-    PgOrganizationMembershipRoleViewStore, PgOrganizationMembershipViewStore,
-    PgOrganizationViewStore, PgUserIdentityViewStore, PgUserViewStore,
+pub use projection::{
+    PgOrganizationInvitationProjectionStore, PgOrganizationJoinRequestProjectionStore,
+    PgOrganizationMembershipProjectionStore, PgOrganizationMembershipRoleProjectionStore,
+    PgOrganizationProjectionStore, PgUserIdentityProjectionStore, PgUserProjectionStore,
 };

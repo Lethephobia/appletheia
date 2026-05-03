@@ -1,3 +1,0 @@
-mod pg_organization_membership_role_view_store;
-
-pub use pg_organization_membership_role_view_store::PgOrganizationMembershipRoleViewStore;

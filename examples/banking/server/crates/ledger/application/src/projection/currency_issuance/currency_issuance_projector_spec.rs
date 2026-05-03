@@ -4,7 +4,7 @@ use appletheia::application::projection::{ProjectorDescriptor, ProjectorName, Pr
 use appletheia::domain::Aggregate;
 use banking_ledger_domain::currency_issuance::{CurrencyIssuance, CurrencyIssuanceEventPayload};
 
-/// Declares the subscription for the currency issuance view projector.
+/// Declares the subscription for the currency issuance projection projector.
 pub struct CurrencyIssuanceProjectorSpec;
 
 impl ProjectorSpec for CurrencyIssuanceProjectorSpec {

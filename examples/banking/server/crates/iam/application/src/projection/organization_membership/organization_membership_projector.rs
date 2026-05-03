@@ -5,28 +5,30 @@ use banking_iam_domain::{
 };
 
 use super::{OrganizationMembershipProjectorError, OrganizationMembershipProjectorSpec};
-use crate::view::{OrganizationMembershipViewStore, OrganizationMembershipViewUpsert};
+use crate::projection::{
+    OrganizationMembershipProjectionStore, OrganizationMembershipProjectionUpsert,
+};
 
-/// Projects organization membership events into normalized membership views.
+/// Projects organization membership events into normalized membership projections.
 pub struct OrganizationMembershipProjector<VS>
 where
-    VS: OrganizationMembershipViewStore,
+    VS: OrganizationMembershipProjectionStore,
 {
-    view_store: VS,
+    projection_store: VS,
 }
 
 impl<VS> OrganizationMembershipProjector<VS>
 where
-    VS: OrganizationMembershipViewStore,
+    VS: OrganizationMembershipProjectionStore,
 {
-    pub fn new(view_store: VS) -> Self {
-        Self { view_store }
+    pub fn new(projection_store: VS) -> Self {
+        Self { projection_store }
     }
 }
 
 impl<VS> Projector for OrganizationMembershipProjector<VS>
 where
-    VS: OrganizationMembershipViewStore,
+    VS: OrganizationMembershipProjectionStore,
 {
     type Spec = OrganizationMembershipProjectorSpec;
     type Uow = VS::Uow;
@@ -42,10 +44,10 @@ where
                 user_id,
                 ..
             } => {
-                self.view_store
+                self.projection_store
                     .upsert(
                         uow,
-                        OrganizationMembershipViewUpsert {
+                        OrganizationMembershipProjectionUpsert {
                             id: membership_id,
                             organization_id: *organization_id,
                             user_id: *user_id,
@@ -56,7 +58,7 @@ where
                     .await?;
             }
             OrganizationMembershipEventPayload::Activated { .. } => {
-                self.view_store
+                self.projection_store
                     .update_status(
                         uow,
                         membership_id,
@@ -66,7 +68,7 @@ where
                     .await?;
             }
             OrganizationMembershipEventPayload::Inactivated { .. } => {
-                self.view_store
+                self.projection_store
                     .update_status(
                         uow,
                         membership_id,
@@ -76,7 +78,7 @@ where
                     .await?;
             }
             OrganizationMembershipEventPayload::Removed { .. } => {
-                self.view_store
+                self.projection_store
                     .delete(uow, membership_id, event.event_sequence)
                     .await?;
             }
