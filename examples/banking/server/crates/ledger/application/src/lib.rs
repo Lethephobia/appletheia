@@ -1,6 +1,7 @@
 pub mod authorization;
 pub mod command;
 pub mod projection;
+pub mod query;
 pub mod saga;
 pub mod view;
 
@@ -49,6 +50,12 @@ pub use projection::{
     CurrencyOwnerRelationshipProjectorError, CurrencyOwnerRelationshipProjectorSpec,
     CurrencyProjector, CurrencyProjectorError, CurrencyProjectorSpec, TransferProjector,
     TransferProjectorError, TransferProjectorSpec,
+};
+pub use query::{
+    CursorOptions, OwnedAccountListCursor, OwnedAccountListItem, OwnedAccountListItemCurrency,
+    OwnedAccountListQuery, OwnedAccountListQueryHandler, OwnedAccountListQueryHandlerError,
+    OwnedAccountListSortKey, OwnedAccountListStore, OwnedAccountListStoreError, Page, PageLimit,
+    PageLimitError, SortDirection,
 };
 pub use saga::{
     CurrencyIssuanceSaga, CurrencyIssuanceSagaError, CurrencyIssuanceSagaSpec,

@@ -1,5 +1,6 @@
 pub mod postgresql;
 
 pub use postgresql::{
-    PgAccountViewStore, PgCurrencyIssuanceViewStore, PgCurrencyViewStore, PgTransferViewStore,
+    PgAccountViewStore, PgCurrencyIssuanceViewStore, PgCurrencyViewStore, PgOwnedAccountListStore,
+    PgTransferViewStore,
 };

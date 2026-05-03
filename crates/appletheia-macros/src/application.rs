@@ -1,4 +1,5 @@
 mod command;
+mod query;
 
 use proc_macro2::TokenStream;
 use syn::{DeriveInput, Result};
@@ -13,4 +14,16 @@ pub(crate) fn command_attribute(
 pub(crate) fn command_derive(input: DeriveInput) -> Result<TokenStream> {
     let args = command::command_derive_args::CommandDeriveArgs::from_attrs(&input.attrs)?;
     command::command_derive_expand::expand_command_derive(input, args)
+}
+
+pub(crate) fn query_attribute(
+    attr: proc_macro::TokenStream,
+    item: proc_macro::TokenStream,
+) -> Result<TokenStream> {
+    query::query_attribute_expand::expand_query_attribute(attr, item)
+}
+
+pub(crate) fn query_derive(input: DeriveInput) -> Result<TokenStream> {
+    let args = query::query_derive_args::QueryDeriveArgs::from_attrs(&input.attrs)?;
+    query::query_derive_expand::expand_query_derive(input, args)
 }
