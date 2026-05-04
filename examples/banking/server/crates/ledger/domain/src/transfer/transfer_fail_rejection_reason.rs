@@ -6,6 +6,5 @@ use serde::{Deserialize, Serialize};
 pub enum TransferFailRejectionReason {
     AlreadyCompleted,
     AlreadyFailed,
-    AlreadyCancelled,
     AlreadyRejected,
 }

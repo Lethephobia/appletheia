@@ -508,7 +508,7 @@ mod tests {
         let mut account = Account::default();
 
         account
-            .open(owner.clone(), name.clone(), currency_id)
+            .open(owner, name.clone(), currency_id)
             .expect("open should succeed");
 
         assert_eq!(
@@ -557,7 +557,7 @@ mod tests {
         let name_changed = AccountName::try_from("savings").expect("account name should be valid");
         let mut account = Account::default();
         account
-            .open(owner.clone(), original_name.clone(), CurrencyId::new())
+            .open(owner, original_name.clone(), CurrencyId::new())
             .expect("open should succeed");
 
         account
@@ -748,7 +748,7 @@ mod tests {
             appletheia::domain::AggregateVersion::try_from(1).expect("version should be valid"),
             AccountEventPayload::Opened {
                 id,
-                owner: owner.clone(),
+                owner,
                 name: name.clone(),
                 currency_id,
             },
@@ -794,7 +794,7 @@ mod tests {
             appletheia::domain::AggregateVersion::try_from(1).expect("version should be valid"),
             AccountEventPayload::Opened {
                 id,
-                owner: owner.clone(),
+                owner,
                 name: name.clone(),
                 currency_id,
             },

@@ -1,12 +1,12 @@
 use crate::event::AggregateTypeOwned;
 
-use std::error::Error;
+use std::error::Error as StdError;
 
-use thiserror::Error as ThisError;
+use thiserror::Error;
 
 use super::{RelationRefOwned, RelationshipStoreError};
 
-#[derive(Debug, ThisError)]
+#[derive(Debug, Error)]
 pub enum RelationshipResolverError {
     #[error("relationship store error: {0}")]
     RelationshipStore(#[from] RelationshipStoreError),
@@ -23,13 +23,13 @@ pub enum RelationshipResolverError {
     },
 
     #[error("relationship resolver backend error: {0}")]
-    Backend(#[source] Box<dyn Error + Send + Sync + 'static>),
+    Backend(#[source] Box<dyn StdError + Send + Sync + 'static>),
 }
 
 impl RelationshipResolverError {
     pub fn backend<E>(error: E) -> Self
     where
-        E: Error + Send + Sync + 'static,
+        E: StdError + Send + Sync + 'static,
     {
         Self::Backend(Box::new(error))
     }

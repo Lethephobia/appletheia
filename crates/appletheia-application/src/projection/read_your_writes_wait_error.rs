@@ -1,4 +1,4 @@
-use thiserror::Error as ThisError;
+use thiserror::Error;
 
 use crate::event::EventLookupError;
 use crate::projection::ProjectorNameOwned;
@@ -8,7 +8,7 @@ use crate::unit_of_work::{UnitOfWorkError, UnitOfWorkFactoryError};
 
 use super::{ReadYourWritesTarget, ReadYourWritesTimeout};
 
-#[derive(Debug, ThisError)]
+#[derive(Debug, Error)]
 pub enum ReadYourWritesWaitError {
     #[error("unit of work factory error: {0}")]
     UnitOfWorkFactory(#[from] UnitOfWorkFactoryError),

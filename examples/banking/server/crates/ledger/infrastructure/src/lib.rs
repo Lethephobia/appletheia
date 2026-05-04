@@ -1,6 +1,7 @@
 pub mod postgresql;
 
 pub use postgresql::{
-    PgAccountProjectionStore, PgCurrencyIssuanceProjectionStore, PgCurrencyProjectionStore,
-    PgOwnedAccountListStore, PgTransferProjectionStore,
+    PgCurrencyListItemReader, PgCurrencyListItemWriter, PgOwnedAccountListItemReader,
+    PgOwnedAccountListItemWriter, PgOwnedAccountTransactionListItemReader,
+    PgOwnedAccountTransactionListItemWriter,
 };

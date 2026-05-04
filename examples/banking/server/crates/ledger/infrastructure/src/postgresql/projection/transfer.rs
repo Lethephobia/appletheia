@@ -1,3 +1,0 @@
-mod pg_transfer_projection_store;
-
-pub use pg_transfer_projection_store::PgTransferProjectionStore;

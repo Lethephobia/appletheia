@@ -1,3 +1,0 @@
-mod pg_organization_invitation_projection_store;
-
-pub use pg_organization_invitation_projection_store::PgOrganizationInvitationProjectionStore;

@@ -1,3 +1,0 @@
-mod pg_organization_join_request_projection_store;
-
-pub use pg_organization_join_request_projection_store::PgOrganizationJoinRequestProjectionStore;

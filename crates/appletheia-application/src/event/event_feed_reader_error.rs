@@ -1,14 +1,14 @@
-use std::error::Error;
+use std::error::Error as StdError;
 
-use thiserror::Error as ThisError;
+use thiserror::Error;
 
-#[derive(Debug, ThisError)]
+#[derive(Debug, Error)]
 pub enum EventFeedReaderError {
     #[error("not in transaction")]
     NotInTransaction,
 
     #[error("persistence error")]
-    Persistence(#[source] Box<dyn Error + Send + Sync>),
+    Persistence(#[source] Box<dyn StdError + Send + Sync>),
 
     #[error("invalid subscription")]
     InvalidSubscription,

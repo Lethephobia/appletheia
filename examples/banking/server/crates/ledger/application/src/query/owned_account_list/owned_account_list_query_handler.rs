@@ -14,25 +14,25 @@ use banking_iam_application::{
 use banking_iam_domain::{Organization, User};
 use banking_ledger_domain::account::AccountOwner;
 
-use crate::projection::{AccountProjectorSpec, CurrencyProjectorSpec};
-use crate::query::Page;
-
-use super::{
-    OwnedAccountListCursor, OwnedAccountListItem, OwnedAccountListQuery,
-    OwnedAccountListQueryHandlerError, OwnedAccountListStore,
+use crate::pagination::Page;
+use crate::projection::OwnedAccountListItemProjectorSpec;
+use crate::read_model::{
+    OwnedAccountListItem, OwnedAccountListItemCursor, OwnedAccountListItemReader,
 };
+
+use super::{OwnedAccountListQuery, OwnedAccountListQueryHandlerError};
 
 /// Handles account list queries.
 pub struct OwnedAccountListQueryHandler<S>
 where
-    S: OwnedAccountListStore,
+    S: OwnedAccountListItemReader,
 {
     store: S,
 }
 
 impl<S> OwnedAccountListQueryHandler<S>
 where
-    S: OwnedAccountListStore,
+    S: OwnedAccountListItemReader,
 {
     pub fn new(store: S) -> Self {
         Self { store }
@@ -41,17 +41,15 @@ where
 
 impl<S> QueryHandler for OwnedAccountListQueryHandler<S>
 where
-    S: OwnedAccountListStore,
+    S: OwnedAccountListItemReader,
 {
     type Query = OwnedAccountListQuery;
-    type Output = Page<OwnedAccountListItem, OwnedAccountListCursor>;
+    type Output = Page<OwnedAccountListItem, OwnedAccountListItemCursor>;
     type Error = OwnedAccountListQueryHandlerError;
     type Uow = S::Uow;
 
-    const PROJECTOR_DEPENDENCIES: ProjectorDependencies<'static> = ProjectorDependencies::Some(&[
-        <AccountProjectorSpec as ProjectorSpec>::DESCRIPTOR,
-        <CurrencyProjectorSpec as ProjectorSpec>::DESCRIPTOR,
-    ]);
+    const PROJECTOR_DEPENDENCIES: ProjectorDependencies<'static> =
+        ProjectorDependencies::Some(&[OwnedAccountListItemProjectorSpec::DESCRIPTOR]);
 
     fn authorization_plan(&self, query: &Self::Query) -> Result<AuthorizationPlan, Self::Error> {
         match query.owner {
@@ -91,6 +89,16 @@ where
         _request_context: &RequestContext,
         query: Self::Query,
     ) -> Result<Self::Output, Self::Error> {
-        self.store.list(uow, &query).await.map_err(Into::into)
+        Ok(self
+            .store
+            .list(
+                uow,
+                query.owner,
+                query.currency_id,
+                query.status,
+                query.cursor_options,
+                query.limit,
+            )
+            .await?)
     }
 }

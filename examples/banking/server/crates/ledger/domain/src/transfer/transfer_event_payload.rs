@@ -4,8 +4,8 @@ use crate::account::AccountId;
 use crate::core::CurrencyAmount;
 
 use super::{
-    TransferCancelRejectionReason, TransferCompleteRejectionReason, TransferEventPayloadError,
-    TransferFailRejectionReason, TransferFailureReason, TransferId, TransferRequestRejectionReason,
+    TransferCompleteRejectionReason, TransferEventPayloadError, TransferFailRejectionReason,
+    TransferFailureReason, TransferId, TransferRequestRejectionReason,
 };
 
 /// Represents the domain events emitted by a `Transfer` aggregate.
@@ -33,10 +33,6 @@ pub enum TransferEventPayload {
     },
     FailRejected {
         reason: TransferFailRejectionReason,
-    },
-    Cancelled,
-    CancelRejected {
-        reason: TransferCancelRejectionReason,
     },
 }
 
@@ -74,14 +70,6 @@ mod tests {
         assert_eq!(
             TransferEventPayload::FAIL_REJECTED,
             appletheia::domain::EventName::new("fail_rejected")
-        );
-        assert_eq!(
-            TransferEventPayload::CANCELLED,
-            appletheia::domain::EventName::new("cancelled")
-        );
-        assert_eq!(
-            TransferEventPayload::CANCEL_REJECTED,
-            appletheia::domain::EventName::new("cancel_rejected")
         );
     }
 

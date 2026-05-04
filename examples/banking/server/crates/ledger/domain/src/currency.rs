@@ -341,7 +341,7 @@ mod tests {
         let mut currency = Currency::default();
 
         currency
-            .define(owner.clone(), symbol.clone(), name.clone(), decimals)
+            .define(owner, symbol.clone(), name.clone(), decimals)
             .expect("definition should succeed");
 
         assert_eq!(
@@ -500,7 +500,7 @@ mod tests {
             appletheia::domain::AggregateVersion::try_from(1).expect("version should be valid"),
             CurrencyEventPayload::Defined {
                 id,
-                owner: owner.clone(),
+                owner,
                 symbol: CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
                 name: CurrencyName::try_from("USD Coin").expect("name should be valid"),
                 decimals: CurrencyDecimals::new(6),
@@ -535,7 +535,7 @@ mod tests {
         let mut currency = Currency::default();
 
         currency
-            .define(owner.clone(), symbol, name, CurrencyDecimals::new(6))
+            .define(owner, symbol, name, CurrencyDecimals::new(6))
             .expect("definition should succeed");
 
         assert_eq!(currency.owner().expect("owner should exist"), owner);
@@ -547,7 +547,7 @@ mod tests {
         let mut currency = Currency::default();
         currency
             .define(
-                owner.clone(),
+                owner,
                 CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
                 CurrencyName::try_from("USD Coin").expect("name should be valid"),
                 CurrencyDecimals::new(6),

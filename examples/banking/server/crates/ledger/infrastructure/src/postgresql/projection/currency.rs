@@ -1,3 +1,0 @@
-mod pg_currency_projection_store;
-
-pub use pg_currency_projection_store::PgCurrencyProjectionStore;

@@ -1,3 +1,0 @@
-mod pg_user_identity_projection_store;
-
-pub use pg_user_identity_projection_store::PgUserIdentityProjectionStore;

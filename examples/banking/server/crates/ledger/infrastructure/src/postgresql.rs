@@ -1,8 +1,7 @@
-pub mod projection;
-pub mod query;
+pub mod read_model;
 
-pub use projection::{
-    PgAccountProjectionStore, PgCurrencyIssuanceProjectionStore, PgCurrencyProjectionStore,
-    PgTransferProjectionStore,
+pub use read_model::{
+    PgCurrencyListItemReader, PgCurrencyListItemWriter, PgOwnedAccountListItemReader,
+    PgOwnedAccountListItemWriter, PgOwnedAccountTransactionListItemReader,
+    PgOwnedAccountTransactionListItemWriter,
 };
-pub use query::PgOwnedAccountListStore;

@@ -62,7 +62,7 @@ mod tests {
         let owner = CurrencyOwner::User(
             UserId::try_from_uuid(Uuid::now_v7()).expect("user id should be accepted"),
         );
-        let value = serde_json::to_value(&owner).expect("owner should serialize");
+        let value = serde_json::to_value(owner).expect("owner should serialize");
 
         assert_eq!(value["type"], serde_json::json!("user"));
     }
