@@ -3,14 +3,11 @@ use appletheia::application::projection::Projector;
 use banking_iam_domain::{Organization, OrganizationEventPayload, User, UserEventPayload};
 use banking_ledger_domain::account::{Account, AccountEventPayload};
 use banking_ledger_domain::currency::{Currency, CurrencyEventPayload};
-use banking_ledger_domain::currency_issuance::{
-    CurrencyIssuance, CurrencyIssuanceEventPayload,
-};
+use banking_ledger_domain::currency_issuance::{CurrencyIssuance, CurrencyIssuanceEventPayload};
 use banking_ledger_domain::transfer::{Transfer, TransferEventPayload};
 
 use super::{
-    OwnedAccountTransactionListItemProjectorError,
-    OwnedAccountTransactionListItemProjectorSpec,
+    OwnedAccountTransactionListItemProjectorError, OwnedAccountTransactionListItemProjectorSpec,
 };
 use crate::read_model::{
     OwnedAccountTransactionListItemDirection, OwnedAccountTransactionListItemKind,
@@ -357,11 +354,7 @@ where
             }
             CurrencyIssuanceEventPayload::Failed { .. } => {
                 self.writer
-                    .fail_currency_issuance(
-                        uow,
-                        currency_issuance_id,
-                        event.event_sequence,
-                    )
+                    .fail_currency_issuance(uow, currency_issuance_id, event.event_sequence)
                     .await?;
             }
             _ => {}

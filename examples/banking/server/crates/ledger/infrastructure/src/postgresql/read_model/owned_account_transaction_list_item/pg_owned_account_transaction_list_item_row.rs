@@ -152,23 +152,27 @@ impl PgOwnedAccountTransactionListItemRow {
             .ok_or(PgOwnedAccountTransactionListItemRowError::MissingCounterpartyAccountOwner)?;
 
         match owner_type {
-            "user" => Ok(OwnedAccountTransactionListItemCounterpartyAccountOwner::User(
-                OwnedAccountTransactionListItemCounterpartyAccountOwnerUser {
-                    id: UserId::try_from_uuid(owner_id).map_err(|error| {
-                        PgOwnedAccountTransactionListItemRowError::InvalidUserOwnerId(Box::new(
-                            error,
-                        ))
-                    })?,
-                    username: Self::optional_username(row.counterparty_owner_user_username.clone())?,
-                    display_name: Self::optional_user_display_name(
-                        row.counterparty_owner_user_display_name.clone(),
-                    )?,
-                    picture: row
-                        .counterparty_owner_user_picture
-                        .clone()
-                        .map(|value| value.0),
-                },
-            )),
+            "user" => Ok(
+                OwnedAccountTransactionListItemCounterpartyAccountOwner::User(
+                    OwnedAccountTransactionListItemCounterpartyAccountOwnerUser {
+                        id: UserId::try_from_uuid(owner_id).map_err(|error| {
+                            PgOwnedAccountTransactionListItemRowError::InvalidUserOwnerId(Box::new(
+                                error,
+                            ))
+                        })?,
+                        username: Self::optional_username(
+                            row.counterparty_owner_user_username.clone(),
+                        )?,
+                        display_name: Self::optional_user_display_name(
+                            row.counterparty_owner_user_display_name.clone(),
+                        )?,
+                        picture: row
+                            .counterparty_owner_user_picture
+                            .clone()
+                            .map(|value| value.0),
+                    },
+                ),
+            ),
             "organization" => {
                 let handle = row
                     .counterparty_owner_organization_handle
@@ -214,12 +218,9 @@ impl PgOwnedAccountTransactionListItemRow {
     fn optional_username(
         value: Option<String>,
     ) -> Result<Option<Username>, PgOwnedAccountTransactionListItemRowError> {
-        value
-            .map(Username::try_from)
-            .transpose()
-            .map_err(|error| {
-                PgOwnedAccountTransactionListItemRowError::InvalidUsername(Box::new(error))
-            })
+        value.map(Username::try_from).transpose().map_err(|error| {
+            PgOwnedAccountTransactionListItemRowError::InvalidUsername(Box::new(error))
+        })
     }
 
     fn optional_user_display_name(
@@ -282,7 +283,10 @@ impl TryFrom<PgOwnedAccountTransactionListItemRow> for OwnedAccountTransactionLi
             id: EventId::try_from(row.id).map_err(|error| {
                 PgOwnedAccountTransactionListItemRowError::InvalidEventId(Box::new(error))
             })?,
-            owner: PgOwnedAccountTransactionListItemRow::owner(row.owner_type.clone(), row.owner_id)?,
+            owner: PgOwnedAccountTransactionListItemRow::owner(
+                row.owner_type.clone(),
+                row.owner_id,
+            )?,
             account_id: AccountId::try_from_uuid(row.account_id).map_err(|error| {
                 PgOwnedAccountTransactionListItemRowError::InvalidAccountId(Box::new(error))
             })?,
@@ -291,7 +295,9 @@ impl TryFrom<PgOwnedAccountTransactionListItemRow> for OwnedAccountTransactionLi
                     PgOwnedAccountTransactionListItemRowError::InvalidCurrencyId(Box::new(error))
                 })?,
                 symbol: CurrencySymbol::try_from(row.currency_symbol.clone()).map_err(|error| {
-                    PgOwnedAccountTransactionListItemRowError::InvalidCurrencySymbol(Box::new(error))
+                    PgOwnedAccountTransactionListItemRowError::InvalidCurrencySymbol(Box::new(
+                        error,
+                    ))
                 })?,
                 name: CurrencyName::try_from(row.currency_name.clone()).map_err(|error| {
                     PgOwnedAccountTransactionListItemRowError::InvalidCurrencyName(Box::new(error))

@@ -5,9 +5,7 @@ use appletheia::domain::Aggregate;
 use banking_iam_domain::{Organization, OrganizationEventPayload, User, UserEventPayload};
 use banking_ledger_domain::account::{Account, AccountEventPayload};
 use banking_ledger_domain::currency::{Currency, CurrencyEventPayload};
-use banking_ledger_domain::currency_issuance::{
-    CurrencyIssuance, CurrencyIssuanceEventPayload,
-};
+use banking_ledger_domain::currency_issuance::{CurrencyIssuance, CurrencyIssuanceEventPayload};
 use banking_ledger_domain::transfer::{Transfer, TransferEventPayload};
 
 /// Projector specification for owned account transaction list item read models.

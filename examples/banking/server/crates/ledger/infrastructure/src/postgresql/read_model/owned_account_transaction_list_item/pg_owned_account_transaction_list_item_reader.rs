@@ -3,8 +3,8 @@ use appletheia::infrastructure::postgresql::PgUnitOfWork;
 use banking_ledger_application::{
     CursorOptions, OwnedAccountTransactionListItem, OwnedAccountTransactionListItemCursor,
     OwnedAccountTransactionListItemReader, OwnedAccountTransactionListItemReaderError,
-    OwnedAccountTransactionListItemSortKey, OwnedAccountTransactionListItemStatus, Page,
-    PageLimit, SortDirection,
+    OwnedAccountTransactionListItemSortKey, OwnedAccountTransactionListItemStatus, Page, PageLimit,
+    SortDirection,
 };
 use banking_ledger_domain::account::{AccountId, AccountOwner};
 use banking_ledger_domain::currency::CurrencyId;
@@ -23,7 +23,9 @@ impl PgOwnedAccountTransactionListItemReader {
     fn owner_parts(owner: AccountOwner) -> (&'static str, uuid::Uuid) {
         match owner {
             AccountOwner::User(user_id) => ("user", user_id.value()),
-            AccountOwner::Organization(organization_id) => ("organization", organization_id.value()),
+            AccountOwner::Organization(organization_id) => {
+                ("organization", organization_id.value())
+            }
         }
     }
 
@@ -194,10 +196,12 @@ impl OwnedAccountTransactionListItemReader for PgOwnedAccountTransactionListItem
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| OwnedAccountTransactionListItemReaderError::Persistence(Box::new(e)))?;
         let next_cursor = if has_next {
-            items.last().map(|item| OwnedAccountTransactionListItemCursor {
-                occurred_at: item.occurred_at,
-                id: item.id,
-            })
+            items
+                .last()
+                .map(|item| OwnedAccountTransactionListItemCursor {
+                    occurred_at: item.occurred_at,
+                    id: item.id,
+                })
         } else {
             None
         };

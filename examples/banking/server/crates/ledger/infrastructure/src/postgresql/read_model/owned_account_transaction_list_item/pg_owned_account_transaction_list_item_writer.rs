@@ -51,9 +51,12 @@ impl PgOwnedAccountTransactionListItemWriter {
         }
     }
 
-    fn transfer_failure_status(reason: TransferFailureReason) -> OwnedAccountTransactionListItemStatus {
+    fn transfer_failure_status(
+        reason: TransferFailureReason,
+    ) -> OwnedAccountTransactionListItemStatus {
         match reason {
-            TransferFailureReason::FundsReserveRejected | TransferFailureReason::DepositRejected => {
+            TransferFailureReason::FundsReserveRejected
+            | TransferFailureReason::DepositRejected => {
                 OwnedAccountTransactionListItemStatus::Failed
             }
             TransferFailureReason::ReservedFundsReleaseRejected

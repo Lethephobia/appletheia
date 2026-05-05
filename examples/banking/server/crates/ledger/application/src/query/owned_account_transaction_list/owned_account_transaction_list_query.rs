@@ -17,7 +17,10 @@ pub struct OwnedAccountTransactionListQuery {
     pub currency_id: Option<CurrencyId>,
     pub status: Option<OwnedAccountTransactionListItemStatus>,
     pub cursor_options: Option<
-        CursorOptions<OwnedAccountTransactionListItemSortKey, OwnedAccountTransactionListItemCursor>,
+        CursorOptions<
+            OwnedAccountTransactionListItemSortKey,
+            OwnedAccountTransactionListItemCursor,
+        >,
     >,
     pub limit: PageLimit,
 }
