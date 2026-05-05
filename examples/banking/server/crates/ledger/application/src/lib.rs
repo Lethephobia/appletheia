@@ -52,12 +52,15 @@ pub use projection::{
     OwnedAccountListItemProjector, OwnedAccountListItemProjectorError,
     OwnedAccountListItemProjectorSpec, OwnedAccountTransactionListItemProjector,
     OwnedAccountTransactionListItemProjectorError, OwnedAccountTransactionListItemProjectorSpec,
+    TransferRecipientListItemProjector, TransferRecipientListItemProjectorError,
+    TransferRecipientListItemProjectorSpec,
 };
 pub use query::{
     CurrencyListQuery, CurrencyListQueryHandler, CurrencyListQueryHandlerError,
     OwnedAccountListQuery, OwnedAccountListQueryHandler, OwnedAccountListQueryHandlerError,
     OwnedAccountTransactionListQuery, OwnedAccountTransactionListQueryHandler,
-    OwnedAccountTransactionListQueryHandlerError,
+    OwnedAccountTransactionListQueryHandlerError, TransferRecipientListQuery,
+    TransferRecipientListQueryHandler, TransferRecipientListQueryHandlerError,
 };
 pub use read_model::{
     CurrencyListItem, CurrencyListItemCursor, CurrencyListItemOwner,
@@ -76,6 +79,12 @@ pub use read_model::{
     OwnedAccountTransactionListItemReader, OwnedAccountTransactionListItemReaderError,
     OwnedAccountTransactionListItemSortKey, OwnedAccountTransactionListItemStatus,
     OwnedAccountTransactionListItemWriter, OwnedAccountTransactionListItemWriterError,
+    TransferRecipientListItem, TransferRecipientListItemAccount,
+    TransferRecipientListItemAccountStatus, TransferRecipientListItemCurrency,
+    TransferRecipientListItemCursor, TransferRecipientListItemReader,
+    TransferRecipientListItemReaderError, TransferRecipientListItemSortKey,
+    TransferRecipientListItemUserStatus, TransferRecipientListItemWriter,
+    TransferRecipientListItemWriterError,
 };
 pub use repository::{AccountEventSaveHook, CurrencyEventSaveHook};
 pub use saga::{

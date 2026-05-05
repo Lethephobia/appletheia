@@ -189,3 +189,71 @@ CREATE INDEX IF NOT EXISTS owned_account_transaction_list_items_currency_idx
 
 CREATE INDEX IF NOT EXISTS owned_account_transaction_list_items_status_idx
     ON owned_account_transaction_list_items (status);
+
+CREATE TABLE IF NOT EXISTS transfer_recipient_list_item_users (
+    id uuid PRIMARY KEY,
+    username text,
+    display_name text,
+    picture jsonb,
+    status text NOT NULL,
+    updated_at timestamptz NOT NULL,
+    created_at timestamptz NOT NULL,
+    updated_event_sequence bigint NOT NULL,
+    CONSTRAINT transfer_recipient_list_item_users_status_check CHECK (status IN ('active', 'inactive'))
+);
+
+CREATE INDEX IF NOT EXISTS transfer_recipient_list_item_users_status_idx
+    ON transfer_recipient_list_item_users (status);
+
+CREATE INDEX IF NOT EXISTS transfer_recipient_list_item_users_created_at_idx
+    ON transfer_recipient_list_item_users (created_at DESC, id DESC);
+
+CREATE INDEX IF NOT EXISTS transfer_recipient_list_item_users_status_created_at_idx
+    ON transfer_recipient_list_item_users (status, created_at DESC, id DESC);
+
+CREATE INDEX IF NOT EXISTS transfer_recipient_list_item_users_status_username_prefix_idx
+    ON transfer_recipient_list_item_users (status, (lower(username)) text_pattern_ops);
+
+CREATE INDEX IF NOT EXISTS transfer_recipient_list_item_users_status_display_name_prefix_idx
+    ON transfer_recipient_list_item_users (status, (lower(display_name)) text_pattern_ops);
+
+CREATE TABLE IF NOT EXISTS transfer_recipient_list_item_currencies (
+    id uuid PRIMARY KEY,
+    symbol text NOT NULL,
+    name text NOT NULL,
+    decimals smallint NOT NULL,
+    updated_at timestamptz NOT NULL,
+    created_at timestamptz NOT NULL,
+    updated_event_sequence bigint NOT NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS transfer_recipient_list_item_currencies_symbol_idx
+    ON transfer_recipient_list_item_currencies (symbol);
+
+CREATE TABLE IF NOT EXISTS transfer_recipient_list_item_accounts (
+    id uuid PRIMARY KEY,
+    owner_type text NOT NULL,
+    owner_id uuid NOT NULL,
+    currency_id uuid NOT NULL,
+    status text NOT NULL,
+    updated_at timestamptz NOT NULL,
+    created_at timestamptz NOT NULL,
+    updated_event_sequence bigint NOT NULL,
+    CONSTRAINT transfer_recipient_list_item_accounts_owner_type_check CHECK (owner_type IN ('user', 'organization')),
+    CONSTRAINT transfer_recipient_list_item_accounts_status_check CHECK (status IN ('active', 'frozen'))
+);
+
+CREATE INDEX IF NOT EXISTS transfer_recipient_list_item_accounts_owner_idx
+    ON transfer_recipient_list_item_accounts (owner_type, owner_id);
+
+CREATE INDEX IF NOT EXISTS transfer_recipient_list_item_accounts_owner_created_at_idx
+    ON transfer_recipient_list_item_accounts (owner_type, owner_id, created_at DESC, id DESC);
+
+CREATE INDEX IF NOT EXISTS transfer_recipient_list_item_accounts_currency_idx
+    ON transfer_recipient_list_item_accounts (currency_id);
+
+CREATE INDEX IF NOT EXISTS transfer_recipient_list_item_accounts_status_idx
+    ON transfer_recipient_list_item_accounts (status);
+
+CREATE INDEX IF NOT EXISTS transfer_recipient_list_item_accounts_owner_status_currency_idx
+    ON transfer_recipient_list_item_accounts (owner_type, owner_id, status, currency_id);

@@ -1,4 +1,18 @@
 -- Add down migration script here
+DROP INDEX IF EXISTS transfer_recipient_list_item_accounts_owner_status_currency_idx;
+DROP INDEX IF EXISTS transfer_recipient_list_item_accounts_status_idx;
+DROP INDEX IF EXISTS transfer_recipient_list_item_accounts_currency_idx;
+DROP INDEX IF EXISTS transfer_recipient_list_item_accounts_owner_created_at_idx;
+DROP INDEX IF EXISTS transfer_recipient_list_item_accounts_owner_idx;
+DROP TABLE IF EXISTS transfer_recipient_list_item_accounts;
+DROP INDEX IF EXISTS transfer_recipient_list_item_currencies_symbol_idx;
+DROP TABLE IF EXISTS transfer_recipient_list_item_currencies;
+DROP INDEX IF EXISTS transfer_recipient_list_item_users_status_display_name_prefix_idx;
+DROP INDEX IF EXISTS transfer_recipient_list_item_users_status_username_prefix_idx;
+DROP INDEX IF EXISTS transfer_recipient_list_item_users_status_created_at_idx;
+DROP INDEX IF EXISTS transfer_recipient_list_item_users_created_at_idx;
+DROP INDEX IF EXISTS transfer_recipient_list_item_users_status_idx;
+DROP TABLE IF EXISTS transfer_recipient_list_item_users;
 DROP INDEX IF EXISTS owned_account_transaction_list_items_status_idx;
 DROP INDEX IF EXISTS owned_account_transaction_list_items_currency_idx;
 DROP INDEX IF EXISTS owned_account_transaction_list_items_account_idx;
