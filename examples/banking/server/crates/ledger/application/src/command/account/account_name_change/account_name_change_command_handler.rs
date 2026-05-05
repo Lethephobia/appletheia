@@ -2,19 +2,14 @@ use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
 use appletheia::application::command::{CommandHandled, CommandHandler};
-use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_iam_application::{
-    OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
-};
 use banking_ledger_domain::account::Account;
 
 use super::{
     AccountNameChangeCommand, AccountNameChangeCommandHandlerError, AccountNameChangeOutput,
 };
 use crate::authorization::AccountNameChangerRelation;
-use crate::projection::AccountOwnerRelationshipProjectorSpec;
 
 /// Handles `AccountNameChangeCommand`.
 pub struct AccountNameChangeCommandHandler<AR>
@@ -49,17 +44,12 @@ where
     ) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
             PrincipalRequirement::System,
-            PrincipalRequirement::AuthenticatedWithRelationship {
-                requirement: RelationshipRequirement::check::<Account>(
-                    command.account_id,
-                    AccountNameChangerRelation::REF,
-                ),
-                projector_dependencies: ProjectorDependencies::Some(&[
-                    AccountOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                    OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                    OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
-                ]),
-            },
+            PrincipalRequirement::AuthenticatedWithRelationship(RelationshipRequirement::check::<
+                Account,
+            >(
+                command.account_id,
+                AccountNameChangerRelation::REF,
+            )),
         ]))
     }
 
@@ -95,16 +85,14 @@ mod tests {
         AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
     };
     use appletheia::application::command::CommandHandler;
-    use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
+
     use appletheia::application::repository::{Repository, RepositoryError};
     use appletheia::application::request_context::{
         CorrelationId, MessageId, Principal, RequestContext,
     };
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::Aggregate;
-    use banking_iam_application::{
-        OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
-    };
+
     use banking_ledger_domain::account::{Account, AccountId, AccountName, AccountOwner};
     use banking_ledger_domain::currency::CurrencyId;
     use uuid::Uuid;
@@ -113,7 +101,6 @@ mod tests {
         AccountNameChangeCommand, AccountNameChangeCommandHandler, AccountNameChangeOutput,
     };
     use crate::authorization::AccountNameChangerRelation;
-    use crate::projection::AccountOwnerRelationshipProjectorSpec;
 
     #[derive(Default)]
     struct TestUow;
@@ -222,17 +209,12 @@ mod tests {
             plan,
             AuthorizationPlan::OnlyPrincipals(vec![
                 PrincipalRequirement::System,
-                PrincipalRequirement::AuthenticatedWithRelationship {
-                    requirement: RelationshipRequirement::check::<Account>(
+                PrincipalRequirement::AuthenticatedWithRelationship(
+                    RelationshipRequirement::check::<Account>(
                         account_id,
                         AccountNameChangerRelation::REF
-                    ),
-                    projector_dependencies: ProjectorDependencies::Some(&[
-                        AccountOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                        OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                        OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
-                    ]),
-                },
+                    )
+                ),
             ])
         );
     }

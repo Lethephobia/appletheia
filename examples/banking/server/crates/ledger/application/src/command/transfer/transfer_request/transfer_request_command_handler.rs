@@ -1,19 +1,13 @@
-use appletheia::application::ProjectorDependencies;
 use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
 use appletheia::application::command::{CommandHandled, CommandHandler};
-use appletheia::application::projection::ProjectorSpec;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_iam_application::{
-    OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
-};
 use banking_ledger_domain::account::Account;
 use banking_ledger_domain::transfer::Transfer;
 
 use crate::authorization::AccountTransferRequesterRelation;
-use crate::projection::AccountOwnerRelationshipProjectorSpec;
 
 use super::{TransferRequestCommand, TransferRequestCommandHandlerError, TransferRequestOutput};
 
@@ -56,17 +50,12 @@ where
         command: &Self::Command,
     ) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
-            PrincipalRequirement::AuthenticatedWithRelationship {
-                requirement: RelationshipRequirement::check::<Account>(
-                    command.from_account_id,
-                    AccountTransferRequesterRelation::REF,
-                ),
-                projector_dependencies: ProjectorDependencies::Some(&[
-                    AccountOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                    OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                    OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
-                ]),
-            },
+            PrincipalRequirement::AuthenticatedWithRelationship(RelationshipRequirement::check::<
+                Account,
+            >(
+                command.from_account_id,
+                AccountTransferRequesterRelation::REF,
+            )),
         ]))
     }
 
@@ -115,21 +104,18 @@ mod tests {
     use std::collections::HashMap;
     use std::sync::{Arc, Mutex};
 
-    use appletheia::application::ProjectorDependencies;
     use appletheia::application::authorization::{
         AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
     };
     use appletheia::application::command::CommandHandler;
-    use appletheia::application::projection::ProjectorSpec;
+
     use appletheia::application::repository::{Repository, RepositoryError};
     use appletheia::application::request_context::{
         CorrelationId, MessageId, Principal, RequestContext,
     };
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::{Aggregate, AggregateVersion, UniqueKey, UniqueValue};
-    use banking_iam_application::{
-        OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
-    };
+
     use banking_iam_domain::{User, UserId};
     use banking_ledger_domain::account::{Account, AccountId, AccountName, AccountOwner};
     use banking_ledger_domain::core::CurrencyAmount;
@@ -138,7 +124,6 @@ mod tests {
     use uuid::Uuid;
 
     use crate::authorization::AccountTransferRequesterRelation;
-    use crate::projection::AccountOwnerRelationshipProjectorSpec;
 
     use super::{
         TransferRequestCommand, TransferRequestCommandHandler, TransferRequestCommandHandlerError,
@@ -308,17 +293,12 @@ mod tests {
         assert_eq!(
             plan,
             AuthorizationPlan::OnlyPrincipals(vec![
-                PrincipalRequirement::AuthenticatedWithRelationship {
-                    requirement: RelationshipRequirement::check::<Account>(
+                PrincipalRequirement::AuthenticatedWithRelationship(
+                    RelationshipRequirement::check::<Account>(
                         command.from_account_id,
                         AccountTransferRequesterRelation::REF
-                    ),
-                    projector_dependencies: ProjectorDependencies::Some(&[
-                        AccountOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                        OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                        OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
-                    ]),
-                },
+                    )
+                ),
             ])
         );
     }

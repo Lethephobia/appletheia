@@ -1,4 +1,6 @@
+use std::error::Error;
 use std::fmt::Debug;
+
 use thiserror::Error;
 
 use appletheia_domain::{Aggregate, AggregateState};
@@ -31,6 +33,18 @@ pub enum RepositoryError<A: Aggregate> {
     #[error("event writer error: {0}")]
     EventWriter(#[from] EventWriterError),
 
+    #[error("event save hook error: {0}")]
+    EventSaveHook(#[source] Box<dyn Error + Send + Sync>),
+
     #[error("snapshot writer error: {0}")]
     SnapshotWriter(#[from] SnapshotWriterError),
+}
+
+impl<A: Aggregate> RepositoryError<A> {
+    pub fn event_save_hook<E>(error: E) -> Self
+    where
+        E: Error + Send + Sync + 'static,
+    {
+        Self::EventSaveHook(Box::new(error))
+    }
 }

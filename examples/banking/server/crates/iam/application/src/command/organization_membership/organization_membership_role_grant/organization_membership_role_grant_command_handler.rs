@@ -2,7 +2,6 @@ use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
 use appletheia::application::command::{CommandHandled, CommandHandler};
-use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_iam_domain::{Organization, OrganizationMembership};
@@ -12,10 +11,6 @@ use super::{
     OrganizationMembershipRoleGrantOutput,
 };
 use crate::authorization::OrganizationMembershipRoleGranterRelation;
-use crate::projection::{
-    OrganizationMembershipOrganizationRelationshipProjectorSpec,
-    OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
-};
 
 /// Handles `OrganizationMembershipRoleGrantCommand`.
 pub struct OrganizationMembershipRoleGrantCommandHandler<ORG, MR>
@@ -57,17 +52,12 @@ where
     ) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
             PrincipalRequirement::System,
-            PrincipalRequirement::AuthenticatedWithRelationship {
-                requirement: RelationshipRequirement::check::<OrganizationMembership>(
-                    command.organization_membership_id,
-                    OrganizationMembershipRoleGranterRelation::REF,
-                ),
-                projector_dependencies: ProjectorDependencies::Some(&[
-                    OrganizationMembershipOrganizationRelationshipProjectorSpec::DESCRIPTOR,
-                    OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                    OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
-                ]),
-            },
+            PrincipalRequirement::AuthenticatedWithRelationship(RelationshipRequirement::check::<
+                OrganizationMembership,
+            >(
+                command.organization_membership_id,
+                OrganizationMembershipRoleGranterRelation::REF,
+            )),
         ]))
     }
 
@@ -119,7 +109,7 @@ mod tests {
         AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
     };
     use appletheia::application::command::CommandHandler;
-    use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
+
     use appletheia::application::repository::{Repository, RepositoryError};
     use appletheia::application::request_context::{
         CorrelationId, MessageId, Principal, RequestContext,
@@ -138,10 +128,6 @@ mod tests {
         OrganizationMembershipRoleGrantOutput,
     };
     use crate::authorization::OrganizationMembershipRoleGranterRelation;
-    use crate::projection::{
-        OrganizationMembershipOrganizationRelationshipProjectorSpec,
-        OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
-    };
 
     #[derive(Default)]
     struct TestUow;
@@ -324,17 +310,12 @@ mod tests {
             plan,
             AuthorizationPlan::OnlyPrincipals(vec![
                 PrincipalRequirement::System,
-                PrincipalRequirement::AuthenticatedWithRelationship {
-                    requirement: RelationshipRequirement::check::<OrganizationMembership>(
+                PrincipalRequirement::AuthenticatedWithRelationship(
+                    RelationshipRequirement::check::<OrganizationMembership>(
                         organization_membership_id,
                         OrganizationMembershipRoleGranterRelation::REF,
-                    ),
-                    projector_dependencies: ProjectorDependencies::Some(&[
-                        OrganizationMembershipOrganizationRelationshipProjectorSpec::DESCRIPTOR,
-                        OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                        OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
-                    ]),
-                },
+                    )
+                ),
             ])
         );
     }

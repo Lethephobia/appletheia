@@ -2,10 +2,8 @@ use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
 use appletheia::application::command::{CommandHandled, CommandHandler};
-use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_iam_application::OrganizationOwnerRelationshipProjectorSpec;
 use banking_ledger_domain::currency::Currency;
 
 use super::{
@@ -13,7 +11,6 @@ use super::{
     CurrencyOwnershipTransferOutput,
 };
 use crate::authorization::CurrencyOwnershipTransfererRelation;
-use crate::projection::CurrencyOwnerRelationshipProjectorSpec;
 
 /// Handles `CurrencyOwnershipTransferCommand`.
 pub struct CurrencyOwnershipTransferCommandHandler<CR>
@@ -49,16 +46,12 @@ where
         command: &Self::Command,
     ) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
-            PrincipalRequirement::AuthenticatedWithRelationship {
-                requirement: RelationshipRequirement::check::<Currency>(
-                    command.currency_id,
-                    CurrencyOwnershipTransfererRelation::REF,
-                ),
-                projector_dependencies: ProjectorDependencies::Some(&[
-                    CurrencyOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                    OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                ]),
-            },
+            PrincipalRequirement::AuthenticatedWithRelationship(RelationshipRequirement::check::<
+                Currency,
+            >(
+                command.currency_id,
+                CurrencyOwnershipTransfererRelation::REF,
+            )),
         ]))
     }
 

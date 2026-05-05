@@ -4,15 +4,18 @@ pub mod pagination;
 pub mod projection;
 pub mod query;
 pub mod read_model;
+pub mod repository;
 pub mod saga;
 
 pub use authorization::{
     AccountCloserRelation, AccountFreezerRelation, AccountNameChangerRelation,
-    AccountOwnerRelation, AccountOwnershipTransfererRelation, AccountStatusManagerRelation,
-    AccountThawerRelation, AccountTransferRequesterRelation, CurrencyActivatorRelation,
-    CurrencyDeactivatorRelation, CurrencyIssuerRelation, CurrencyOwnerRelation,
-    CurrencyOwnershipTransfererRelation, CurrencyRemoverRelation, CurrencyStatusManagerRelation,
-    CurrencyUpdaterRelation,
+    AccountOwnerRelation, AccountOwnershipTransfererRelation, AccountRelationshipUpdater,
+    AccountRelationshipUpdaterError, AccountStatusManagerRelation, AccountThawerRelation,
+    AccountTransferRequesterRelation, CurrencyActivatorRelation, CurrencyDeactivatorRelation,
+    CurrencyIssuerRelation, CurrencyOwnerRelation, CurrencyOwnershipTransfererRelation,
+    CurrencyRelationshipUpdater, CurrencyRelationshipUpdaterError, CurrencyRemoverRelation,
+    CurrencyStatusManagerRelation, CurrencyUpdaterRelation, DefaultAccountRelationshipUpdater,
+    DefaultCurrencyRelationshipUpdater,
 };
 pub use command::{
     AccountCloseCommand, AccountCloseCommandHandler, AccountCloseOutput, AccountDepositCommand,
@@ -45,14 +48,10 @@ pub use command::{
 };
 pub use pagination::{CursorOptions, Page, PageLimit, PageLimitError, SortDirection};
 pub use projection::{
-    AccountOwnerRelationshipProjector, AccountOwnerRelationshipProjectorError,
-    AccountOwnerRelationshipProjectorSpec, CurrencyListItemProjector,
-    CurrencyListItemProjectorError, CurrencyListItemProjectorSpec,
-    CurrencyOwnerRelationshipProjector, CurrencyOwnerRelationshipProjectorError,
-    CurrencyOwnerRelationshipProjectorSpec, OwnedAccountListItemProjector,
-    OwnedAccountListItemProjectorError, OwnedAccountListItemProjectorSpec,
-    OwnedAccountTransactionListItemProjector, OwnedAccountTransactionListItemProjectorError,
-    OwnedAccountTransactionListItemProjectorSpec,
+    CurrencyListItemProjector, CurrencyListItemProjectorError, CurrencyListItemProjectorSpec,
+    OwnedAccountListItemProjector, OwnedAccountListItemProjectorError,
+    OwnedAccountListItemProjectorSpec, OwnedAccountTransactionListItemProjector,
+    OwnedAccountTransactionListItemProjectorError, OwnedAccountTransactionListItemProjectorSpec,
 };
 pub use query::{
     CurrencyListQuery, CurrencyListQueryHandler, CurrencyListQueryHandlerError,
@@ -67,18 +66,18 @@ pub use read_model::{
     CurrencyListItemWriter, CurrencyListItemWriterError, OwnedAccountListItem,
     OwnedAccountListItemCurrency, OwnedAccountListItemCursor, OwnedAccountListItemReader,
     OwnedAccountListItemReaderError, OwnedAccountListItemSortKey, OwnedAccountListItemStatus,
-    OwnedAccountListItemWriter, OwnedAccountListItemWriterError,
-    OwnedAccountTransactionListItem, OwnedAccountTransactionListItemCurrency,
+    OwnedAccountListItemWriter, OwnedAccountListItemWriterError, OwnedAccountTransactionListItem,
     OwnedAccountTransactionListItemCounterpartyAccount,
     OwnedAccountTransactionListItemCounterpartyAccountOwner,
     OwnedAccountTransactionListItemCounterpartyAccountOwnerOrganization,
     OwnedAccountTransactionListItemCounterpartyAccountOwnerUser,
-    OwnedAccountTransactionListItemCursor, OwnedAccountTransactionListItemDirection,
-    OwnedAccountTransactionListItemKind, OwnedAccountTransactionListItemReader,
-    OwnedAccountTransactionListItemReaderError, OwnedAccountTransactionListItemSortKey,
-    OwnedAccountTransactionListItemStatus, OwnedAccountTransactionListItemWriter,
-    OwnedAccountTransactionListItemWriterError,
+    OwnedAccountTransactionListItemCurrency, OwnedAccountTransactionListItemCursor,
+    OwnedAccountTransactionListItemDirection, OwnedAccountTransactionListItemKind,
+    OwnedAccountTransactionListItemReader, OwnedAccountTransactionListItemReaderError,
+    OwnedAccountTransactionListItemSortKey, OwnedAccountTransactionListItemStatus,
+    OwnedAccountTransactionListItemWriter, OwnedAccountTransactionListItemWriterError,
 };
+pub use repository::{AccountEventSaveHook, CurrencyEventSaveHook};
 pub use saga::{
     CurrencyIssuanceSaga, CurrencyIssuanceSagaError, CurrencyIssuanceSagaSpec,
     CurrencyIssuanceSagaState, CurrencyIssuanceSagaStatus, TransferSaga, TransferSagaError,

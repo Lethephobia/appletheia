@@ -2,7 +2,6 @@ use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
 use appletheia::application::command::{CommandHandled, CommandHandler};
-use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_iam_domain::{Organization, OrganizationMembership};
@@ -12,10 +11,6 @@ use super::{
     OrganizationMembershipRemoveOutput,
 };
 use crate::authorization::OrganizationMembershipRemoverRelation;
-use crate::projection::{
-    OrganizationMembershipOrganizationRelationshipProjectorSpec,
-    OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
-};
 
 /// Handles `OrganizationMembershipRemoveCommand`.
 pub struct OrganizationMembershipRemoveCommandHandler<ORG, MR>
@@ -57,17 +52,12 @@ where
     ) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
             PrincipalRequirement::System,
-            PrincipalRequirement::AuthenticatedWithRelationship {
-                requirement: RelationshipRequirement::check::<OrganizationMembership>(
-                    command.organization_membership_id,
-                    OrganizationMembershipRemoverRelation::REF,
-                ),
-                projector_dependencies: ProjectorDependencies::Some(&[
-                    OrganizationMembershipOrganizationRelationshipProjectorSpec::DESCRIPTOR,
-                    OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                    OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
-                ]),
-            },
+            PrincipalRequirement::AuthenticatedWithRelationship(RelationshipRequirement::check::<
+                OrganizationMembership,
+            >(
+                command.organization_membership_id,
+                OrganizationMembershipRemoverRelation::REF,
+            )),
         ]))
     }
 

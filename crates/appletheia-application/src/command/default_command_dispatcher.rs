@@ -1,10 +1,10 @@
-use crate::authorization::{AuthorizationPlan, Authorizer, PrincipalRequirement};
+use crate::authorization::Authorizer;
 use crate::command::{
     Command, CommandConsistency, CommandDispatchResult, CommandDispatcher, CommandDispatcherError,
     CommandHandler, CommandHasher, CommandOptions, IdempotencyBeginResult, IdempotencyService,
 };
-use crate::projection::{ProjectorDependencies, ProjectorDescriptor, ReadYourWritesWaiter};
-use crate::request_context::{Principal, RequestContext};
+use crate::projection::ReadYourWritesWaiter;
+use crate::request_context::RequestContext;
 use crate::unit_of_work::UnitOfWork;
 use crate::unit_of_work::UnitOfWorkFactory;
 
@@ -22,48 +22,6 @@ where
     read_your_writes_waiter: W,
     uow_factory: U,
     authorizer: AZ,
-}
-
-impl<CH, IS, W, U, AZ> DefaultCommandDispatcher<CH, IS, W, U, AZ>
-where
-    CH: CommandHasher,
-    IS: IdempotencyService,
-    W: ReadYourWritesWaiter,
-    U: UnitOfWorkFactory<Uow = IS::Uow>,
-    AZ: Authorizer,
-{
-    fn authorization_dependencies(
-        principal: &Principal,
-        authorization_plan: &AuthorizationPlan,
-    ) -> Vec<ProjectorDescriptor> {
-        if !matches!(principal, Principal::Authenticated { .. }) {
-            return Vec::new();
-        }
-
-        let AuthorizationPlan::OnlyPrincipals(principal_requirements) = authorization_plan else {
-            return Vec::new();
-        };
-
-        if principal_requirements.iter().any(|principal_requirement| {
-            matches!(principal_requirement, PrincipalRequirement::Authenticated)
-        }) {
-            return Vec::new();
-        }
-
-        principal_requirements
-            .iter()
-            .filter_map(|principal_requirement| match principal_requirement {
-                PrincipalRequirement::AuthenticatedWithRelationship {
-                    projector_dependencies,
-                    ..
-                } => Some(projector_dependencies.to_vec()),
-                PrincipalRequirement::System
-                | PrincipalRequirement::Anonymous
-                | PrincipalRequirement::Authenticated => None,
-            })
-            .flatten()
-            .collect()
-    }
 }
 
 impl<CH, IS, W, U, AZ> DefaultCommandDispatcher<CH, IS, W, U, AZ>
@@ -116,25 +74,6 @@ where
         let authorization_plan = handler
             .authorization_plan(&command)
             .map_err(CommandDispatcherError::Handler)?;
-        let authorization_dependencies =
-            Self::authorization_dependencies(&request_context.principal, &authorization_plan);
-
-        match options.consistency {
-            CommandConsistency::Eventual => {}
-            CommandConsistency::ReadYourWrites {
-                target,
-                timeout,
-                poll_interval,
-            } => {
-                if !authorization_dependencies.is_empty() {
-                    let authorization_dependencies =
-                        ProjectorDependencies::Some(authorization_dependencies.as_slice());
-                    self.read_your_writes_waiter
-                        .wait(target, timeout, poll_interval, authorization_dependencies)
-                        .await?;
-                }
-            }
-        }
         self.authorizer
             .authorize(&request_context.principal, &authorization_plan)
             .await?;
@@ -221,21 +160,16 @@ mod tests {
     use uuid::Uuid;
 
     use super::DefaultCommandDispatcher;
-    use crate::authorization::{
-        AggregateRef, AuthorizationPlan, Authorizer, AuthorizerError, PrincipalRequirement,
-        RelationName, RelationRefOwned, RelationshipRequirement,
-    };
+    use crate::authorization::{AuthorizationPlan, Authorizer, AuthorizerError};
     use crate::command::{
         Command, CommandDispatcher, CommandDispatcherError, CommandHandled, CommandHandler,
         CommandHash, CommandHasher, CommandHasherError, CommandName, CommandOptions,
         IdempotencyBeginResult, IdempotencyOutput, IdempotencyService, IdempotencyServiceError,
     };
-    use crate::event::{AggregateIdValue, AggregateTypeOwned};
-    use crate::messaging::Subscription;
     use crate::projection::ReadYourWritesTarget;
     use crate::projection::{
-        ProjectorDependencies, ProjectorDescriptor, ProjectorName, ReadYourWritesPollInterval,
-        ReadYourWritesTimeout, ReadYourWritesWaitError, ReadYourWritesWaiter,
+        ProjectorDependencies, ReadYourWritesPollInterval, ReadYourWritesTimeout,
+        ReadYourWritesWaitError, ReadYourWritesWaiter,
     };
     use crate::request_context::MessageId;
     use crate::request_context::Principal;
@@ -303,31 +237,6 @@ mod tests {
         }
     }
 
-    struct TestIdempotencyService;
-
-    impl IdempotencyService for TestIdempotencyService {
-        type Uow = TestUow;
-
-        async fn begin(
-            &self,
-            _uow: &mut Self::Uow,
-            _message_id: MessageId,
-            _command_name: CommandName,
-            _command_hash: &CommandHash,
-        ) -> Result<IdempotencyBeginResult, IdempotencyServiceError> {
-            Ok(IdempotencyBeginResult::InProgress)
-        }
-
-        async fn complete(
-            &self,
-            _uow: &mut Self::Uow,
-            _message_id: MessageId,
-            _output: IdempotencyOutput,
-        ) -> Result<(), IdempotencyServiceError> {
-            Ok(())
-        }
-    }
-
     struct TestNewIdempotencyService;
 
     impl IdempotencyService for TestNewIdempotencyService {
@@ -350,40 +259,6 @@ mod tests {
             _output: IdempotencyOutput,
         ) -> Result<(), IdempotencyServiceError> {
             Ok(())
-        }
-    }
-
-    type TestDispatcher = DefaultCommandDispatcher<
-        TestCommandHasher,
-        TestIdempotencyService,
-        TestWaiter,
-        TestUowFactory,
-        TestAuthorizer,
-    >;
-
-    const PROJECTOR: ProjectorDescriptor =
-        ProjectorDescriptor::new(ProjectorName::new("relationship"), Subscription::All);
-
-    fn authenticated_principal() -> Principal {
-        Principal::Authenticated {
-            subject: AggregateRef {
-                aggregate_type: AggregateTypeOwned::try_from("user").expect("valid aggregate type"),
-                aggregate_id: AggregateIdValue::from(Uuid::nil()),
-            },
-        }
-    }
-
-    fn relationship_requirement() -> RelationshipRequirement {
-        RelationshipRequirement::Check {
-            aggregate: AggregateRef {
-                aggregate_type: AggregateTypeOwned::try_from("document")
-                    .expect("valid aggregate type"),
-                aggregate_id: AggregateIdValue::from(Uuid::from_u128(1)),
-            },
-            relation: RelationRefOwned::new(
-                AggregateTypeOwned::try_from("document").expect("valid aggregate type"),
-                RelationName::new("viewer").into(),
-            ),
         }
     }
 
@@ -415,69 +290,6 @@ mod tests {
         ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
             Err(TestHandlerError)
         }
-    }
-
-    #[test]
-    fn skips_authorization_dependencies_for_non_authenticated_principals() {
-        let authorization_plan = AuthorizationPlan::OnlyPrincipals(vec![
-            PrincipalRequirement::AuthenticatedWithRelationship {
-                requirement: relationship_requirement(),
-                projector_dependencies: ProjectorDependencies::Some(&[PROJECTOR]),
-            },
-        ]);
-
-        assert!(
-            TestDispatcher::authorization_dependencies(&Principal::System, &authorization_plan)
-                .is_empty()
-        );
-        assert!(
-            TestDispatcher::authorization_dependencies(&Principal::Anonymous, &authorization_plan)
-                .is_empty()
-        );
-        assert!(
-            TestDispatcher::authorization_dependencies(
-                &Principal::Unavailable,
-                &authorization_plan
-            )
-            .is_empty()
-        );
-    }
-
-    #[test]
-    fn skips_authorization_dependencies_when_authenticated_requirement_is_present() {
-        let authorization_plan = AuthorizationPlan::OnlyPrincipals(vec![
-            PrincipalRequirement::Authenticated,
-            PrincipalRequirement::AuthenticatedWithRelationship {
-                requirement: relationship_requirement(),
-                projector_dependencies: ProjectorDependencies::Some(&[PROJECTOR]),
-            },
-        ]);
-
-        assert!(
-            TestDispatcher::authorization_dependencies(
-                &authenticated_principal(),
-                &authorization_plan
-            )
-            .is_empty()
-        );
-    }
-
-    #[test]
-    fn collects_relationship_dependencies_for_authenticated_principal() {
-        let authorization_plan = AuthorizationPlan::OnlyPrincipals(vec![
-            PrincipalRequirement::AuthenticatedWithRelationship {
-                requirement: relationship_requirement(),
-                projector_dependencies: ProjectorDependencies::Some(&[PROJECTOR]),
-            },
-        ]);
-
-        assert_eq!(
-            TestDispatcher::authorization_dependencies(
-                &authenticated_principal(),
-                &authorization_plan
-            ),
-            vec![PROJECTOR]
-        );
     }
 
     #[tokio::test]

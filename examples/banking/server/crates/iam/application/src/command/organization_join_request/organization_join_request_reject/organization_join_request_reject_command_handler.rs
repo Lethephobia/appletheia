@@ -2,16 +2,11 @@ use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
 use appletheia::application::command::{CommandHandled, CommandHandler};
-use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_iam_domain::{Organization, OrganizationJoinRequest};
 
 use crate::authorization::OrganizationJoinRequestRejecterRelation;
-use crate::projection::{
-    OrganizationJoinRequestOrganizationRelationshipProjectorSpec,
-    OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
-};
 
 use super::{
     OrganizationJoinRequestRejectCommand, OrganizationJoinRequestRejectCommandHandlerError,
@@ -57,17 +52,12 @@ where
         command: &Self::Command,
     ) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
-            PrincipalRequirement::AuthenticatedWithRelationship {
-                requirement: RelationshipRequirement::check::<OrganizationJoinRequest>(
-                    command.organization_join_request_id,
-                    OrganizationJoinRequestRejecterRelation::REF,
-                ),
-                projector_dependencies: ProjectorDependencies::Some(&[
-                    OrganizationJoinRequestOrganizationRelationshipProjectorSpec::DESCRIPTOR,
-                    OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                    OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
-                ]),
-            },
+            PrincipalRequirement::AuthenticatedWithRelationship(RelationshipRequirement::check::<
+                OrganizationJoinRequest,
+            >(
+                command.organization_join_request_id,
+                OrganizationJoinRequestRejecterRelation::REF,
+            )),
         ]))
     }
 

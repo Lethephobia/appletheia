@@ -3,11 +3,13 @@ mod currency;
 
 pub use account::{
     AccountCloserRelation, AccountFreezerRelation, AccountNameChangerRelation,
-    AccountOwnerRelation, AccountOwnershipTransfererRelation, AccountStatusManagerRelation,
-    AccountThawerRelation, AccountTransferRequesterRelation,
+    AccountOwnerRelation, AccountOwnershipTransfererRelation, AccountRelationshipUpdater,
+    AccountRelationshipUpdaterError, AccountStatusManagerRelation, AccountThawerRelation,
+    AccountTransferRequesterRelation, DefaultAccountRelationshipUpdater,
 };
 pub use currency::{
     CurrencyActivatorRelation, CurrencyDeactivatorRelation, CurrencyIssuerRelation,
-    CurrencyOwnerRelation, CurrencyOwnershipTransfererRelation, CurrencyRemoverRelation,
-    CurrencyStatusManagerRelation, CurrencyUpdaterRelation,
+    CurrencyOwnerRelation, CurrencyOwnershipTransfererRelation, CurrencyRelationshipUpdater,
+    CurrencyRelationshipUpdaterError, CurrencyRemoverRelation, CurrencyStatusManagerRelation,
+    CurrencyUpdaterRelation, DefaultCurrencyRelationshipUpdater,
 };

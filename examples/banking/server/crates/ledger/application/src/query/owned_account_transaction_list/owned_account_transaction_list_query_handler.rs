@@ -7,23 +7,19 @@ use appletheia::application::request_context::RequestContext;
 use banking_iam_application::authorization::{
     OrganizationFinanceManagerRelation, UserOwnerRelation,
 };
-use banking_iam_application::{
-    OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
-    UserOwnerRelationshipProjectorSpec,
-};
 use banking_iam_domain::{Organization, User};
 use banking_ledger_domain::account::AccountOwner;
 
 use crate::pagination::Page;
-use crate::projection::{OwnedAccountListItemProjectorSpec, OwnedAccountTransactionListItemProjectorSpec};
+use crate::projection::{
+    OwnedAccountListItemProjectorSpec, OwnedAccountTransactionListItemProjectorSpec,
+};
 use crate::read_model::{
     OwnedAccountTransactionListItem, OwnedAccountTransactionListItemCursor,
     OwnedAccountTransactionListItemReader,
 };
 
-use super::{
-    OwnedAccountTransactionListQuery, OwnedAccountTransactionListQueryHandlerError,
-};
+use super::{OwnedAccountTransactionListQuery, OwnedAccountTransactionListQueryHandlerError};
 
 /// Handles owned account transaction list queries.
 pub struct OwnedAccountTransactionListQueryHandler<S>
@@ -47,44 +43,32 @@ where
     S: OwnedAccountTransactionListItemReader,
 {
     type Query = OwnedAccountTransactionListQuery;
-    type Output =
-        Page<OwnedAccountTransactionListItem, OwnedAccountTransactionListItemCursor>;
+    type Output = Page<OwnedAccountTransactionListItem, OwnedAccountTransactionListItemCursor>;
     type Error = OwnedAccountTransactionListQueryHandlerError;
     type Uow = S::Uow;
 
-    const PROJECTOR_DEPENDENCIES: ProjectorDependencies<'static> =
-        ProjectorDependencies::Some(&[
-            OwnedAccountListItemProjectorSpec::DESCRIPTOR,
-            OwnedAccountTransactionListItemProjectorSpec::DESCRIPTOR,
-        ]);
+    const PROJECTOR_DEPENDENCIES: ProjectorDependencies<'static> = ProjectorDependencies::Some(&[
+        OwnedAccountListItemProjectorSpec::DESCRIPTOR,
+        OwnedAccountTransactionListItemProjectorSpec::DESCRIPTOR,
+    ]);
 
     fn authorization_plan(&self, query: &Self::Query) -> Result<AuthorizationPlan, Self::Error> {
         match query.owner {
             AccountOwner::User(user_id) => Ok(AuthorizationPlan::OnlyPrincipals(vec![
                 PrincipalRequirement::System,
-                PrincipalRequirement::AuthenticatedWithRelationship {
-                    requirement: RelationshipRequirement::check::<User>(
-                        user_id,
-                        UserOwnerRelation::REF,
-                    ),
-                    projector_dependencies: ProjectorDependencies::Some(&[
-                        UserOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                    ]),
-                },
+                PrincipalRequirement::AuthenticatedWithRelationship(
+                    RelationshipRequirement::check::<User>(user_id, UserOwnerRelation::REF),
+                ),
             ])),
             AccountOwner::Organization(organization_id) => {
                 Ok(AuthorizationPlan::OnlyPrincipals(vec![
                     PrincipalRequirement::System,
-                    PrincipalRequirement::AuthenticatedWithRelationship {
-                        requirement: RelationshipRequirement::check::<Organization>(
+                    PrincipalRequirement::AuthenticatedWithRelationship(
+                        RelationshipRequirement::check::<Organization>(
                             organization_id,
                             OrganizationFinanceManagerRelation::REF,
                         ),
-                        projector_dependencies: ProjectorDependencies::Some(&[
-                            OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                            OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
-                        ]),
-                    },
+                    ),
                 ]))
             }
         }

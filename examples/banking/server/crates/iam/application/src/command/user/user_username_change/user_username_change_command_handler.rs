@@ -2,7 +2,6 @@ use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
 use appletheia::application::command::{CommandHandled, CommandHandler};
-use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_iam_domain::User;
@@ -11,7 +10,6 @@ use super::{
     UserUsernameChangeCommand, UserUsernameChangeCommandHandlerError, UserUsernameChangeOutput,
 };
 use crate::authorization::UserUsernameChangerRelation;
-use crate::projection::UserOwnerRelationshipProjectorSpec;
 
 /// Handles `UserUsernameChangeCommand`.
 pub struct UserUsernameChangeCommandHandler<UR>
@@ -45,15 +43,12 @@ where
         command: &Self::Command,
     ) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
-            PrincipalRequirement::AuthenticatedWithRelationship {
-                requirement: RelationshipRequirement::check::<User>(
-                    command.user_id,
-                    UserUsernameChangerRelation::REF,
-                ),
-                projector_dependencies: ProjectorDependencies::Some(&[
-                    UserOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                ]),
-            },
+            PrincipalRequirement::AuthenticatedWithRelationship(RelationshipRequirement::check::<
+                User,
+            >(
+                command.user_id,
+                UserUsernameChangerRelation::REF,
+            )),
         ]))
     }
 

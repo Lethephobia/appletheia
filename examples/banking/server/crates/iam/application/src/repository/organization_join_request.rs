@@ -1,0 +1,3 @@
+mod organization_join_request_event_save_hook;
+
+pub use organization_join_request_event_save_hook::OrganizationJoinRequestEventSaveHook;

@@ -2,17 +2,12 @@ use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
 use appletheia::application::command::{CommandHandled, CommandHandler};
-use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_iam_application::{
-    OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
-};
 use banking_ledger_domain::account::Account;
 
 use super::{AccountCloseCommand, AccountCloseCommandHandlerError, AccountCloseOutput};
 use crate::authorization::AccountCloserRelation;
-use crate::projection::AccountOwnerRelationshipProjectorSpec;
 
 /// Handles `AccountCloseCommand`.
 pub struct AccountCloseCommandHandler<AR>
@@ -47,17 +42,12 @@ where
     ) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
             PrincipalRequirement::System,
-            PrincipalRequirement::AuthenticatedWithRelationship {
-                requirement: RelationshipRequirement::check::<Account>(
-                    command.account_id,
-                    AccountCloserRelation::REF,
-                ),
-                projector_dependencies: ProjectorDependencies::Some(&[
-                    AccountOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                    OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                    OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
-                ]),
-            },
+            PrincipalRequirement::AuthenticatedWithRelationship(RelationshipRequirement::check::<
+                Account,
+            >(
+                command.account_id,
+                AccountCloserRelation::REF,
+            )),
         ]))
     }
 

@@ -1,7 +1,0 @@
-mod user_owner_relationship_projector;
-mod user_owner_relationship_projector_error;
-mod user_owner_relationship_projector_spec;
-
-pub use user_owner_relationship_projector::UserOwnerRelationshipProjector;
-pub use user_owner_relationship_projector_error::UserOwnerRelationshipProjectorError;
-pub use user_owner_relationship_projector_spec::UserOwnerRelationshipProjectorSpec;

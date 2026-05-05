@@ -5,7 +5,6 @@ use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::object_storage::{
     ObjectName, ObjectUploadRequest, ObjectUploadSigner,
 };
-use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_iam_domain::{User, UserPictureObjectName, UserPictureRef};
@@ -15,7 +14,6 @@ use super::{
     UserPictureUploadPrepareCommandHandlerError, UserPictureUploadPrepareOutput,
 };
 use crate::authorization::UserProfileEditorRelation;
-use crate::projection::UserOwnerRelationshipProjectorSpec;
 
 /// Handles `UserPictureUploadPrepareCommand`.
 pub struct UserPictureUploadPrepareCommandHandler<UR, OUS>
@@ -62,15 +60,12 @@ where
         command: &Self::Command,
     ) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
-            PrincipalRequirement::AuthenticatedWithRelationship {
-                requirement: RelationshipRequirement::check::<User>(
-                    command.user_id,
-                    UserProfileEditorRelation::REF,
-                ),
-                projector_dependencies: ProjectorDependencies::Some(&[
-                    UserOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                ]),
-            },
+            PrincipalRequirement::AuthenticatedWithRelationship(RelationshipRequirement::check::<
+                User,
+            >(
+                command.user_id,
+                UserProfileEditorRelation::REF,
+            )),
         ]))
     }
 
@@ -136,7 +131,7 @@ mod tests {
         ObjectUploadHeaders, ObjectUploadRequest, ObjectUploadSigner, ObjectUploadSignerError,
         SignedObjectUploadRequest, SignedObjectUploadUrl,
     };
-    use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
+
     use appletheia::application::repository::{Repository, RepositoryError};
     use appletheia::application::request_context::{
         CorrelationId, MessageId, Principal, RequestContext,
@@ -322,15 +317,12 @@ mod tests {
         assert_eq!(
             plan,
             AuthorizationPlan::OnlyPrincipals(vec![
-                PrincipalRequirement::AuthenticatedWithRelationship {
-                    requirement: RelationshipRequirement::check::<User>(
+                PrincipalRequirement::AuthenticatedWithRelationship(
+                    RelationshipRequirement::check::<User>(
                         user_id,
                         crate::authorization::UserProfileEditorRelation::REF,
-                    ),
-                    projector_dependencies: ProjectorDependencies::Some(&[
-                        crate::projection::UserOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                    ]),
-                },
+                    )
+                ),
             ])
         );
     }

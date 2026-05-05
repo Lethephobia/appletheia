@@ -7,10 +7,6 @@ use appletheia::application::request_context::RequestContext;
 use banking_iam_application::authorization::{
     OrganizationFinanceManagerRelation, UserOwnerRelation,
 };
-use banking_iam_application::{
-    OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
-    UserOwnerRelationshipProjectorSpec,
-};
 use banking_iam_domain::{Organization, User};
 use banking_ledger_domain::account::AccountOwner;
 
@@ -55,29 +51,19 @@ where
         match query.owner {
             AccountOwner::User(user_id) => Ok(AuthorizationPlan::OnlyPrincipals(vec![
                 PrincipalRequirement::System,
-                PrincipalRequirement::AuthenticatedWithRelationship {
-                    requirement: RelationshipRequirement::check::<User>(
-                        user_id,
-                        UserOwnerRelation::REF,
-                    ),
-                    projector_dependencies: ProjectorDependencies::Some(&[
-                        UserOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                    ]),
-                },
+                PrincipalRequirement::AuthenticatedWithRelationship(
+                    RelationshipRequirement::check::<User>(user_id, UserOwnerRelation::REF),
+                ),
             ])),
             AccountOwner::Organization(organization_id) => {
                 Ok(AuthorizationPlan::OnlyPrincipals(vec![
                     PrincipalRequirement::System,
-                    PrincipalRequirement::AuthenticatedWithRelationship {
-                        requirement: RelationshipRequirement::check::<Organization>(
+                    PrincipalRequirement::AuthenticatedWithRelationship(
+                        RelationshipRequirement::check::<Organization>(
                             organization_id,
                             OrganizationFinanceManagerRelation::REF,
                         ),
-                        projector_dependencies: ProjectorDependencies::Some(&[
-                            OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                            OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
-                        ]),
-                    },
+                    ),
                 ]))
             }
         }
