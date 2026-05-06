@@ -1,4 +1,4 @@
--- Add up migration script here
+-- owned_account_list_item read model
 CREATE TABLE IF NOT EXISTS owned_account_list_item_currencies (
     id uuid PRIMARY KEY,
     symbol text NOT NULL,
@@ -40,6 +40,7 @@ CREATE INDEX IF NOT EXISTS owned_account_list_items_currency_idx
 CREATE INDEX IF NOT EXISTS owned_account_list_items_status_idx
     ON owned_account_list_items (status);
 
+-- currency_list_item read model
 CREATE TABLE IF NOT EXISTS currency_list_item_owner_users (
     id uuid PRIMARY KEY,
     username text,
@@ -91,6 +92,7 @@ CREATE INDEX IF NOT EXISTS currency_list_items_created_at_idx
 CREATE INDEX IF NOT EXISTS currency_list_items_status_created_at_idx
     ON currency_list_items (status, created_at DESC, id DESC);
 
+-- owned_account_transaction_list_item read model
 CREATE TABLE IF NOT EXISTS owned_account_transaction_list_item_currencies (
     id uuid PRIMARY KEY,
     symbol text NOT NULL,
@@ -190,6 +192,7 @@ CREATE INDEX IF NOT EXISTS owned_account_transaction_list_items_currency_idx
 CREATE INDEX IF NOT EXISTS owned_account_transaction_list_items_status_idx
     ON owned_account_transaction_list_items (status);
 
+-- transfer_recipient_list_item read model
 CREATE TABLE IF NOT EXISTS transfer_recipient_list_item_users (
     id uuid PRIMARY KEY,
     username text,
