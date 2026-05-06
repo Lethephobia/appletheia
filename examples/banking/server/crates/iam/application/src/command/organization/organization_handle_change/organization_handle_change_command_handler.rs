@@ -2,7 +2,6 @@ use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
 use appletheia::application::command::{CommandHandled, CommandHandler};
-use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_iam_domain::Organization;
@@ -12,9 +11,6 @@ use super::{
     OrganizationHandleChangeOutput,
 };
 use crate::authorization::OrganizationHandleChangerRelation;
-use crate::projection::{
-    OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
-};
 
 /// Handles `OrganizationHandleChangeCommand`.
 pub struct OrganizationHandleChangeCommandHandler<OR>
@@ -50,16 +46,12 @@ where
         command: &Self::Command,
     ) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
-            PrincipalRequirement::AuthenticatedWithRelationship {
-                requirement: RelationshipRequirement::check::<Organization>(
-                    command.organization_id,
-                    OrganizationHandleChangerRelation::REF,
-                ),
-                projector_dependencies: ProjectorDependencies::Some(&[
-                    OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                    OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
-                ]),
-            },
+            PrincipalRequirement::AuthenticatedWithRelationship(RelationshipRequirement::check::<
+                Organization,
+            >(
+                command.organization_id,
+                OrganizationHandleChangerRelation::REF,
+            )),
         ]))
     }
 
@@ -77,17 +69,15 @@ where
             return Err(OrganizationHandleChangeCommandHandlerError::OrganizationNotFound);
         };
 
-        if organization.is_removed()? {
-            return Err(OrganizationHandleChangeCommandHandlerError::OrganizationRemoved);
-        }
-
-        organization.change_handle(command.handle.clone())?;
+        let result = organization.change_handle(command.handle.clone())?;
 
         self.organization_repository
             .save(uow, request_context, &mut organization)
             .await?;
 
-        Ok(CommandHandled::same(OrganizationHandleChangeOutput))
+        Ok(CommandHandled::same(OrganizationHandleChangeOutput::from(
+            result,
+        )))
     }
 }
 
@@ -99,7 +89,7 @@ mod tests {
         AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
     };
     use appletheia::application::command::CommandHandler;
-    use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
+
     use appletheia::application::repository::{Repository, RepositoryError};
     use appletheia::application::request_context::{
         CorrelationId, MessageId, Principal, RequestContext,
@@ -117,9 +107,6 @@ mod tests {
         OrganizationHandleChangeOutput,
     };
     use crate::authorization::OrganizationHandleChangerRelation;
-    use crate::projection::{
-        OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
-    };
 
     #[derive(Default)]
     struct TestUow;
@@ -234,16 +221,12 @@ mod tests {
         assert_eq!(
             plan,
             AuthorizationPlan::OnlyPrincipals(vec![
-                PrincipalRequirement::AuthenticatedWithRelationship {
-                    requirement: RelationshipRequirement::check::<Organization>(
+                PrincipalRequirement::AuthenticatedWithRelationship(
+                    RelationshipRequirement::check::<Organization>(
                         organization_id,
                         OrganizationHandleChangerRelation::REF
-                    ),
-                    projector_dependencies: ProjectorDependencies::Some(&[
-                        OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                        OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
-                    ]),
-                },
+                    )
+                ),
             ])
         );
     }
@@ -275,7 +258,7 @@ mod tests {
         let saved = repository.organization.lock().expect("lock").clone();
         let saved = saved.expect("organization should be saved");
 
-        assert_eq!(output, OrganizationHandleChangeOutput);
+        assert_eq!(output, OrganizationHandleChangeOutput::Changed);
         assert_eq!(
             saved.handle().expect("handle should exist"),
             &OrganizationHandle::try_from("acme-labs-2").expect("handle should be valid")

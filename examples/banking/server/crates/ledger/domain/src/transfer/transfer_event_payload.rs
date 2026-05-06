@@ -3,7 +3,10 @@ use appletheia::event_payload;
 use crate::account::AccountId;
 use crate::core::CurrencyAmount;
 
-use super::{TransferEventPayloadError, TransferId};
+use super::{
+    TransferCompleteRejectionReason, TransferEventPayloadError, TransferFailRejectionReason,
+    TransferFailureReason, TransferId, TransferRequestRejectionReason,
+};
 
 /// Represents the domain events emitted by a `Transfer` aggregate.
 #[event_payload(error = TransferEventPayloadError)]
@@ -14,9 +17,23 @@ pub enum TransferEventPayload {
         to_account_id: AccountId,
         amount: CurrencyAmount,
     },
+    RequestRejected {
+        id: TransferId,
+        from_account_id: AccountId,
+        to_account_id: AccountId,
+        amount: CurrencyAmount,
+        reason: TransferRequestRejectionReason,
+    },
     Completed,
-    Failed,
-    Cancelled,
+    CompleteRejected {
+        reason: TransferCompleteRejectionReason,
+    },
+    Failed {
+        reason: TransferFailureReason,
+    },
+    FailRejected {
+        reason: TransferFailRejectionReason,
+    },
 }
 
 #[cfg(test)]
@@ -35,16 +52,24 @@ mod tests {
             appletheia::domain::EventName::new("requested")
         );
         assert_eq!(
+            TransferEventPayload::REQUEST_REJECTED,
+            appletheia::domain::EventName::new("request_rejected")
+        );
+        assert_eq!(
             TransferEventPayload::COMPLETED,
             appletheia::domain::EventName::new("completed")
+        );
+        assert_eq!(
+            TransferEventPayload::COMPLETE_REJECTED,
+            appletheia::domain::EventName::new("complete_rejected")
         );
         assert_eq!(
             TransferEventPayload::FAILED,
             appletheia::domain::EventName::new("failed")
         );
         assert_eq!(
-            TransferEventPayload::CANCELLED,
-            appletheia::domain::EventName::new("cancelled")
+            TransferEventPayload::FAIL_REJECTED,
+            appletheia::domain::EventName::new("fail_rejected")
         );
     }
 

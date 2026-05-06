@@ -3,8 +3,10 @@ use appletheia::event_payload;
 use crate::{OrganizationId, UserId};
 
 use super::{
-    OrganizationInvitationEventPayloadError, OrganizationInvitationExpiresAt,
-    OrganizationInvitationId, OrganizationInvitationIssuer,
+    OrganizationInvitationAcceptRejectionReason, OrganizationInvitationCancelRejectionReason,
+    OrganizationInvitationDeclineRejectionReason, OrganizationInvitationEventPayloadError,
+    OrganizationInvitationExpiresAt, OrganizationInvitationId,
+    OrganizationInvitationIssueRejectionReason, OrganizationInvitationIssuer,
 };
 
 /// Represents the domain events emitted by an `OrganizationInvitation` aggregate.
@@ -17,17 +19,40 @@ pub enum OrganizationInvitationEventPayload {
         issuer: OrganizationInvitationIssuer,
         expires_at: OrganizationInvitationExpiresAt,
     },
+    IssueRejected {
+        id: OrganizationInvitationId,
+        organization_id: OrganizationId,
+        invitee_id: UserId,
+        issuer: OrganizationInvitationIssuer,
+        expires_at: OrganizationInvitationExpiresAt,
+        reason: OrganizationInvitationIssueRejectionReason,
+    },
     Accepted {
         organization_id: OrganizationId,
         invitee_id: UserId,
+    },
+    AcceptRejected {
+        organization_id: OrganizationId,
+        invitee_id: UserId,
+        reason: OrganizationInvitationAcceptRejectionReason,
     },
     Declined {
         organization_id: OrganizationId,
         invitee_id: UserId,
     },
+    DeclineRejected {
+        organization_id: OrganizationId,
+        invitee_id: UserId,
+        reason: OrganizationInvitationDeclineRejectionReason,
+    },
     Canceled {
         organization_id: OrganizationId,
         invitee_id: UserId,
+    },
+    CancelRejected {
+        organization_id: OrganizationId,
+        invitee_id: UserId,
+        reason: OrganizationInvitationCancelRejectionReason,
     },
 }
 
@@ -52,16 +77,32 @@ mod tests {
             appletheia::domain::EventName::new("issued")
         );
         assert_eq!(
+            OrganizationInvitationEventPayload::ISSUE_REJECTED,
+            appletheia::domain::EventName::new("issue_rejected")
+        );
+        assert_eq!(
             OrganizationInvitationEventPayload::ACCEPTED,
             appletheia::domain::EventName::new("accepted")
+        );
+        assert_eq!(
+            OrganizationInvitationEventPayload::ACCEPT_REJECTED,
+            appletheia::domain::EventName::new("accept_rejected")
         );
         assert_eq!(
             OrganizationInvitationEventPayload::DECLINED,
             appletheia::domain::EventName::new("declined")
         );
         assert_eq!(
+            OrganizationInvitationEventPayload::DECLINE_REJECTED,
+            appletheia::domain::EventName::new("decline_rejected")
+        );
+        assert_eq!(
             OrganizationInvitationEventPayload::CANCELED,
             appletheia::domain::EventName::new("canceled")
+        );
+        assert_eq!(
+            OrganizationInvitationEventPayload::CANCEL_REJECTED,
+            appletheia::domain::EventName::new("cancel_rejected")
         );
     }
 

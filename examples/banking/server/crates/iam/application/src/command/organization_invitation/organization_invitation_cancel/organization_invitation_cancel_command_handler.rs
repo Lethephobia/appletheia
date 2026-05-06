@@ -2,16 +2,11 @@ use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
 use appletheia::application::command::{CommandHandled, CommandHandler};
-use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_iam_domain::{Organization, OrganizationInvitation};
 
 use crate::authorization::OrganizationInvitationCancelerRelation;
-use crate::projection::{
-    OrganizationInvitationOrganizationRelationshipProjectorSpec,
-    OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
-};
 
 use super::{
     OrganizationInvitationCancelCommand, OrganizationInvitationCancelCommandHandlerError,
@@ -57,17 +52,12 @@ where
         command: &Self::Command,
     ) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
-            PrincipalRequirement::AuthenticatedWithRelationship {
-                requirement: RelationshipRequirement::check::<OrganizationInvitation>(
-                    command.organization_invitation_id,
-                    OrganizationInvitationCancelerRelation::REF,
-                ),
-                projector_dependencies: ProjectorDependencies::Some(&[
-                    OrganizationInvitationOrganizationRelationshipProjectorSpec::DESCRIPTOR,
-                    OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                    OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
-                ]),
-            },
+            PrincipalRequirement::AuthenticatedWithRelationship(RelationshipRequirement::check::<
+                OrganizationInvitation,
+            >(
+                command.organization_invitation_id,
+                OrganizationInvitationCancelerRelation::REF,
+            )),
         ]))
     }
 
@@ -99,12 +89,14 @@ where
             return Err(OrganizationInvitationCancelCommandHandlerError::OrganizationRemoved);
         }
 
-        organization_invitation.cancel()?;
+        let result = organization_invitation.cancel()?;
 
         self.organization_invitation_repository
             .save(uow, request_context, &mut organization_invitation)
             .await?;
 
-        Ok(CommandHandled::same(OrganizationInvitationCancelOutput))
+        Ok(CommandHandled::same(
+            OrganizationInvitationCancelOutput::from(result),
+        ))
     }
 }

@@ -33,6 +33,22 @@ impl TransferState {
             status: TransferStatus::Pending,
         }
     }
+
+    /// Creates a new rejected transfer state.
+    pub(super) fn rejected(
+        id: TransferId,
+        from_account_id: AccountId,
+        to_account_id: AccountId,
+        amount: CurrencyAmount,
+    ) -> Self {
+        Self {
+            id,
+            from_account_id,
+            to_account_id,
+            amount,
+            status: TransferStatus::Rejected,
+        }
+    }
 }
 
 #[cfg(test)]

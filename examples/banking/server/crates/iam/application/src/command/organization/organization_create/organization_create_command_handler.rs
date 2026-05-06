@@ -2,7 +2,6 @@ use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
 use appletheia::application::command::{CommandHandled, CommandHandler};
-use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use appletheia::domain::Aggregate;
@@ -12,7 +11,6 @@ use super::{
     OrganizationCreateCommand, OrganizationCreateCommandHandlerError, OrganizationCreateOutput,
 };
 use crate::authorization::UserOwnerRelation;
-use crate::projection::UserOwnerRelationshipProjectorSpec;
 
 /// Handles `OrganizationCreateCommand`.
 pub struct OrganizationCreateCommandHandler<OR>
@@ -51,12 +49,11 @@ where
 
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
             PrincipalRequirement::System,
-            PrincipalRequirement::AuthenticatedWithRelationship {
-                requirement: RelationshipRequirement::check::<User>(owner, UserOwnerRelation::REF),
-                projector_dependencies: ProjectorDependencies::Some(&[
-                    UserOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                ]),
-            },
+            PrincipalRequirement::AuthenticatedWithRelationship(RelationshipRequirement::check::<
+                User,
+            >(
+                owner, UserOwnerRelation::REF
+            )),
         ]))
     }
 
@@ -105,7 +102,7 @@ mod tests {
         AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
     };
     use appletheia::application::command::CommandHandler;
-    use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
+
     use appletheia::application::repository::{Repository, RepositoryError};
     use appletheia::application::request_context::{
         CorrelationId, MessageId, Principal, RequestContext,
@@ -229,15 +226,12 @@ mod tests {
             plan,
             AuthorizationPlan::OnlyPrincipals(vec![
                 PrincipalRequirement::System,
-                PrincipalRequirement::AuthenticatedWithRelationship {
-                    requirement: RelationshipRequirement::check::<User>(
+                PrincipalRequirement::AuthenticatedWithRelationship(
+                    RelationshipRequirement::check::<User>(
                         owner,
                         crate::authorization::UserOwnerRelation::REF,
-                    ),
-                    projector_dependencies: ProjectorDependencies::Some(&[
-                        crate::projection::UserOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                    ]),
-                },
+                    )
+                ),
             ])
         );
     }

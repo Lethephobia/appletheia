@@ -2,19 +2,14 @@ use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
 use appletheia::application::command::{CommandHandled, CommandHandler};
-use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_iam_application::{
-    OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
-};
 use banking_ledger_domain::currency::Currency;
 
 use super::{
     CurrencyDeactivateCommand, CurrencyDeactivateCommandHandlerError, CurrencyDeactivateOutput,
 };
 use crate::authorization::CurrencyDeactivatorRelation;
-use crate::projection::CurrencyOwnerRelationshipProjectorSpec;
 
 /// Handles `CurrencyDeactivateCommand`.
 pub struct CurrencyDeactivateCommandHandler<CDR>
@@ -50,17 +45,12 @@ where
         command: &Self::Command,
     ) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
-            PrincipalRequirement::AuthenticatedWithRelationship {
-                requirement: RelationshipRequirement::check::<Currency>(
-                    command.currency_id,
-                    CurrencyDeactivatorRelation::REF,
-                ),
-                projector_dependencies: ProjectorDependencies::Some(&[
-                    CurrencyOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                    OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                    OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
-                ]),
-            },
+            PrincipalRequirement::AuthenticatedWithRelationship(RelationshipRequirement::check::<
+                Currency,
+            >(
+                command.currency_id,
+                CurrencyDeactivatorRelation::REF,
+            )),
         ]))
     }
 
@@ -78,12 +68,12 @@ where
             return Err(CurrencyDeactivateCommandHandlerError::CurrencyNotFound);
         };
 
-        currency.deactivate()?;
+        let result = currency.deactivate()?;
 
         self.currency_repository
             .save(uow, request_context, &mut currency)
             .await?;
 
-        Ok(CommandHandled::same(CurrencyDeactivateOutput))
+        Ok(CommandHandled::same(CurrencyDeactivateOutput::from(result)))
     }
 }

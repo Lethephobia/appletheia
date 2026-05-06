@@ -2,20 +2,16 @@ use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
 use appletheia::application::command::{CommandHandled, CommandHandler};
-use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use appletheia::domain::Aggregate;
-use banking_iam_application::{
-    OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
-};
 use banking_ledger_domain::account::Account;
 use banking_ledger_domain::currency::Currency;
-use banking_ledger_domain::currency_issuance::CurrencyIssuance;
+use banking_ledger_domain::currency_issuance::{
+    CurrencyIssuance, CurrencyIssuanceIssueRejectionReason,
+};
 
 use super::{CurrencyIssueCommand, CurrencyIssueCommandHandlerError, CurrencyIssueOutput};
 use crate::authorization::CurrencyIssuerRelation;
-use crate::projection::CurrencyOwnerRelationshipProjectorSpec;
 
 /// Handles `CurrencyIssueCommand`.
 pub struct CurrencyIssueCommandHandler<AR, CDR, CIR>
@@ -65,17 +61,12 @@ where
         command: &Self::Command,
     ) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
-            PrincipalRequirement::AuthenticatedWithRelationship {
-                requirement: RelationshipRequirement::check::<Currency>(
-                    command.currency_id,
-                    CurrencyIssuerRelation::REF,
-                ),
-                projector_dependencies: ProjectorDependencies::Some(&[
-                    CurrencyOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                    OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                    OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
-                ]),
-            },
+            PrincipalRequirement::AuthenticatedWithRelationship(RelationshipRequirement::check::<
+                Currency,
+            >(
+                command.currency_id,
+                CurrencyIssuerRelation::REF,
+            )),
         ]))
     }
 
@@ -100,33 +91,33 @@ where
             return Err(CurrencyIssueCommandHandlerError::CurrencyNotFound);
         };
 
-        if destination_account.currency_id()? != &command.currency_id {
-            return Err(CurrencyIssueCommandHandlerError::CurrencyMismatch);
-        }
-
-        if !currency.is_active()? {
-            return Err(CurrencyIssueCommandHandlerError::Currency(
-                banking_ledger_domain::currency::CurrencyError::Inactive,
-            ));
-        }
-
         let mut currency_issuance = CurrencyIssuance::default();
-        currency_issuance.issue(
-            command.currency_id,
-            command.destination_account_id,
-            command.amount,
-        )?;
+        let output = if destination_account.currency_id()? != &command.currency_id {
+            CurrencyIssueOutput::from(currency_issuance.reject_issue(
+                command.currency_id,
+                command.destination_account_id,
+                command.amount,
+                CurrencyIssuanceIssueRejectionReason::CurrencyMismatch,
+            )?)
+        } else if !currency.is_active()? {
+            CurrencyIssueOutput::from(currency_issuance.reject_issue(
+                command.currency_id,
+                command.destination_account_id,
+                command.amount,
+                CurrencyIssuanceIssueRejectionReason::CurrencyInactive,
+            )?)
+        } else {
+            CurrencyIssueOutput::from(currency_issuance.issue(
+                command.currency_id,
+                command.destination_account_id,
+                command.amount,
+            )?)
+        };
 
         self.currency_issuance_repository
             .save(uow, request_context, &mut currency_issuance)
             .await?;
 
-        let currency_issuance_id = currency_issuance
-            .aggregate_id()
-            .ok_or(CurrencyIssueCommandHandlerError::MissingCurrencyIssuanceId)?;
-
-        Ok(CommandHandled::same(CurrencyIssueOutput::new(
-            currency_issuance_id,
-        )))
+        Ok(CommandHandled::same(output))
     }
 }

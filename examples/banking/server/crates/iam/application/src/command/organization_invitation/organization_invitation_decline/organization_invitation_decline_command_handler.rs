@@ -2,13 +2,11 @@ use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
 use appletheia::application::command::{CommandHandled, CommandHandler};
-use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_iam_domain::{Organization, OrganizationInvitation};
 
 use crate::authorization::OrganizationInvitationInviteeRelation;
-use crate::projection::OrganizationInvitationInviteeRelationshipProjectorSpec;
 
 use super::{
     OrganizationInvitationDeclineCommand, OrganizationInvitationDeclineCommandHandlerError,
@@ -54,15 +52,12 @@ where
         command: &Self::Command,
     ) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
-            PrincipalRequirement::AuthenticatedWithRelationship {
-                requirement: RelationshipRequirement::check::<OrganizationInvitation>(
-                    command.organization_invitation_id,
-                    OrganizationInvitationInviteeRelation::REF,
-                ),
-                projector_dependencies: ProjectorDependencies::Some(&[
-                    OrganizationInvitationInviteeRelationshipProjectorSpec::DESCRIPTOR,
-                ]),
-            },
+            PrincipalRequirement::AuthenticatedWithRelationship(RelationshipRequirement::check::<
+                OrganizationInvitation,
+            >(
+                command.organization_invitation_id,
+                OrganizationInvitationInviteeRelation::REF,
+            )),
         ]))
     }
 
@@ -94,12 +89,14 @@ where
             return Err(OrganizationInvitationDeclineCommandHandlerError::OrganizationRemoved);
         }
 
-        organization_invitation.decline()?;
+        let result = organization_invitation.decline()?;
 
         self.organization_invitation_repository
             .save(uow, request_context, &mut organization_invitation)
             .await?;
 
-        Ok(CommandHandled::same(OrganizationInvitationDeclineOutput))
+        Ok(CommandHandled::same(
+            OrganizationInvitationDeclineOutput::from(result),
+        ))
     }
 }

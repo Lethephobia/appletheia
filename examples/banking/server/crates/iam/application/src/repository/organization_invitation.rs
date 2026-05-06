@@ -1,0 +1,3 @@
+mod organization_invitation_event_save_hook;
+
+pub use organization_invitation_event_save_hook::OrganizationInvitationEventSaveHook;

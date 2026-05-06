@@ -1,15 +1,15 @@
-use std::error::Error;
+use std::error::Error as StdError;
 
-use thiserror::Error as ThisError;
+use thiserror::Error;
 
 use crate::authorization::AuthorizerError;
 use crate::projection::ReadYourWritesWaitError;
 use crate::unit_of_work::{UnitOfWorkError, UnitOfWorkFactoryError};
 
-#[derive(Debug, ThisError)]
+#[derive(Debug, Error)]
 pub enum QueryDispatcherError<HE>
 where
-    HE: Error + Send + Sync + 'static,
+    HE: StdError + Send + Sync + 'static,
 {
     #[error("unit of work factory error: {0}")]
     UnitOfWorkFactory(#[from] UnitOfWorkFactoryError),

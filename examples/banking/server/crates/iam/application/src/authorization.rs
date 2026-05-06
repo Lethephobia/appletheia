@@ -5,28 +5,34 @@ mod organization_membership;
 mod user;
 
 pub use organization::{
-    OrganizationAdminRelation, OrganizationFinanceManagerRelation,
-    OrganizationHandleChangerRelation, OrganizationInviterRelation,
+    DefaultOrganizationRelationshipUpdater, OrganizationAdminRelation,
+    OrganizationFinanceManagerRelation, OrganizationHandleChangerRelation,
+    OrganizationInviterRelation, OrganizationMemberRelation, OrganizationOwnerRelation,
     OrganizationOwnershipTransfererRelation, OrganizationProfileEditorRelation,
+    OrganizationRelationshipUpdater, OrganizationRelationshipUpdaterError,
     OrganizationRemoverRelation, OrganizationTreasurerRelation,
 };
-pub use organization::{OrganizationMemberRelation, OrganizationOwnerRelation};
 pub use organization_invitation::{
-    OrganizationInvitationCancelerRelation, OrganizationInvitationInviteeRelation,
-    OrganizationInvitationOrganizationRelation,
+    DefaultOrganizationInvitationRelationshipUpdater, OrganizationInvitationCancelerRelation,
+    OrganizationInvitationInviteeRelation, OrganizationInvitationOrganizationRelation,
+    OrganizationInvitationRelationshipUpdater, OrganizationInvitationRelationshipUpdaterError,
 };
 pub use organization_join_request::{
-    OrganizationJoinRequestApproverRelation, OrganizationJoinRequestCancelerRelation,
-    OrganizationJoinRequestOrganizationRelation, OrganizationJoinRequestRejecterRelation,
-    OrganizationJoinRequestRequesterRelation,
+    DefaultOrganizationJoinRequestRelationshipUpdater, OrganizationJoinRequestApproverRelation,
+    OrganizationJoinRequestCancelerRelation, OrganizationJoinRequestOrganizationRelation,
+    OrganizationJoinRequestRejecterRelation, OrganizationJoinRequestRelationshipUpdater,
+    OrganizationJoinRequestRelationshipUpdaterError, OrganizationJoinRequestRequesterRelation,
 };
 pub use organization_membership::{
-    OrganizationMembershipActivatorRelation, OrganizationMembershipDeactivatorRelation,
-    OrganizationMembershipOrganizationRelation, OrganizationMembershipRemoverRelation,
-    OrganizationMembershipRoleGranterRelation, OrganizationMembershipRoleManagerRelation,
-    OrganizationMembershipRoleRevokerRelation, OrganizationMembershipStatusManagerRelation,
+    DefaultOrganizationMembershipRelationshipUpdater, OrganizationMembershipActivatorRelation,
+    OrganizationMembershipDeactivatorRelation, OrganizationMembershipOrganizationRelation,
+    OrganizationMembershipRelationshipUpdater, OrganizationMembershipRelationshipUpdaterError,
+    OrganizationMembershipRemoverRelation, OrganizationMembershipRoleGranterRelation,
+    OrganizationMembershipRoleManagerRelation, OrganizationMembershipRoleRevokerRelation,
+    OrganizationMembershipStatusManagerRelation,
 };
 pub use user::{
-    UserActivatorRelation, UserDeactivatorRelation, UserOwnerRelation, UserProfileEditorRelation,
-    UserRemoverRelation, UserUsernameChangerRelation,
+    DefaultUserRelationshipUpdater, UserActivatorRelation, UserDeactivatorRelation,
+    UserOwnerRelation, UserProfileEditorRelation, UserRelationshipUpdater,
+    UserRelationshipUpdaterError, UserRemoverRelation, UserUsernameChangerRelation,
 };

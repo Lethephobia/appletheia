@@ -38,7 +38,7 @@ impl EventName {
     }
 
     /// Returns the raw event name.
-    pub fn value(self) -> &'static str {
+    pub const fn value(self) -> &'static str {
         self.0
     }
 }

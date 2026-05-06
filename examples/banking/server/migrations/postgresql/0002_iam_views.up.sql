@@ -1,0 +1,1 @@
+-- Source-normalized projection tables were removed in favor of read-model-specific projections.

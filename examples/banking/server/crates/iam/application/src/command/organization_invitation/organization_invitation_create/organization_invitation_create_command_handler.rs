@@ -2,7 +2,6 @@ use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
 use appletheia::application::command::{CommandHandled, CommandHandler};
-use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::{Principal, RequestContext};
 use appletheia::domain::{Aggregate, AggregateId, UniqueValue, UniqueValuePart};
@@ -12,9 +11,6 @@ use banking_iam_domain::{
 };
 
 use crate::authorization::OrganizationInviterRelation;
-use crate::projection::{
-    OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
-};
 
 use super::{
     OrganizationInvitationIssueCommand, OrganizationInvitationIssueCommandHandlerError,
@@ -105,16 +101,12 @@ where
     ) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
             PrincipalRequirement::System,
-            PrincipalRequirement::AuthenticatedWithRelationship {
-                requirement: RelationshipRequirement::check::<Organization>(
-                    _command.organization_id,
-                    OrganizationInviterRelation::REF,
-                ),
-                projector_dependencies: ProjectorDependencies::Some(&[
-                    OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                    OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
-                ]),
-            },
+            PrincipalRequirement::AuthenticatedWithRelationship(RelationshipRequirement::check::<
+                Organization,
+            >(
+                _command.organization_id,
+                OrganizationInviterRelation::REF,
+            )),
         ]))
     }
 
@@ -154,7 +146,7 @@ where
         let issuer = Self::issuer(request_context)?;
 
         let mut organization_invitation = OrganizationInvitation::default();
-        organization_invitation.issue(
+        let result = organization_invitation.issue(
             command.organization_id,
             command.invitee_id,
             issuer,
@@ -165,12 +157,8 @@ where
             .save(uow, request_context, &mut organization_invitation)
             .await?;
 
-        let organization_invitation_id = organization_invitation.aggregate_id().ok_or(
-            OrganizationInvitationIssueCommandHandlerError::MissingOrganizationInvitationId,
-        )?;
-
         Ok(CommandHandled::same(
-            OrganizationInvitationIssueOutput::new(organization_invitation_id),
+            OrganizationInvitationIssueOutput::from(result),
         ))
     }
 }

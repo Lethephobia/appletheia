@@ -2,7 +2,6 @@ use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
 use appletheia::application::command::{CommandHandled, CommandHandler};
-use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_iam_domain::Organization;
@@ -12,7 +11,6 @@ use super::{
     OrganizationOwnershipTransferOutput,
 };
 use crate::authorization::OrganizationOwnershipTransfererRelation;
-use crate::projection::OrganizationOwnerRelationshipProjectorSpec;
 
 /// Handles `OrganizationOwnershipTransferCommand`.
 pub struct OrganizationOwnershipTransferCommandHandler<OR>
@@ -48,15 +46,12 @@ where
         command: &Self::Command,
     ) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
-            PrincipalRequirement::AuthenticatedWithRelationship {
-                requirement: RelationshipRequirement::check::<Organization>(
-                    command.organization_id,
-                    OrganizationOwnershipTransfererRelation::REF,
-                ),
-                projector_dependencies: ProjectorDependencies::Some(&[
-                    OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                ]),
-            },
+            PrincipalRequirement::AuthenticatedWithRelationship(RelationshipRequirement::check::<
+                Organization,
+            >(
+                command.organization_id,
+                OrganizationOwnershipTransfererRelation::REF,
+            )),
         ]))
     }
 
@@ -74,13 +69,15 @@ where
             return Err(OrganizationOwnershipTransferCommandHandlerError::OrganizationNotFound);
         };
 
-        organization.transfer_ownership(command.owner)?;
+        let result = organization.transfer_ownership(command.owner)?;
 
         self.organization_repository
             .save(uow, request_context, &mut organization)
             .await?;
 
-        Ok(CommandHandled::same(OrganizationOwnershipTransferOutput))
+        Ok(CommandHandled::same(
+            OrganizationOwnershipTransferOutput::from(result),
+        ))
     }
 }
 
@@ -92,7 +89,7 @@ mod tests {
         AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
     };
     use appletheia::application::command::CommandHandler;
-    use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
+
     use appletheia::application::repository::{Repository, RepositoryError};
     use appletheia::application::request_context::{
         CorrelationId, MessageId, Principal, RequestContext,
@@ -110,7 +107,6 @@ mod tests {
         OrganizationOwnershipTransferOutput,
     };
     use crate::authorization::OrganizationOwnershipTransfererRelation;
-    use crate::projection::OrganizationOwnerRelationshipProjectorSpec;
 
     #[derive(Default)]
     struct TestUow;
@@ -220,15 +216,12 @@ mod tests {
         assert_eq!(
             plan,
             AuthorizationPlan::OnlyPrincipals(vec![
-                PrincipalRequirement::AuthenticatedWithRelationship {
-                    requirement: RelationshipRequirement::check::<Organization>(
+                PrincipalRequirement::AuthenticatedWithRelationship(
+                    RelationshipRequirement::check::<Organization>(
                         organization_id,
                         OrganizationOwnershipTransfererRelation::REF,
-                    ),
-                    projector_dependencies: ProjectorDependencies::Some(&[
-                        OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                    ]),
-                },
+                    )
+                ),
             ])
         );
     }
@@ -254,7 +247,10 @@ mod tests {
             .await
             .expect("command should succeed");
 
-        assert_eq!(handled.into_output(), OrganizationOwnershipTransferOutput);
+        assert_eq!(
+            handled.into_output(),
+            OrganizationOwnershipTransferOutput::Transferred
+        );
         assert_eq!(
             repository
                 .organization

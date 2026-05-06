@@ -5,7 +5,6 @@ use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::object_storage::{
     ObjectName, ObjectUploadRequest, ObjectUploadSigner,
 };
-use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_iam_domain::{Organization, OrganizationPictureObjectName, OrganizationPictureRef};
@@ -15,9 +14,6 @@ use super::{
     OrganizationPictureUploadPrepareCommandHandlerError, OrganizationPictureUploadPrepareOutput,
 };
 use crate::authorization::OrganizationProfileEditorRelation;
-use crate::projection::{
-    OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
-};
 
 /// Handles `OrganizationPictureUploadPrepareCommand`.
 pub struct OrganizationPictureUploadPrepareCommandHandler<OR, OUS>
@@ -64,16 +60,12 @@ where
         command: &Self::Command,
     ) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
-            PrincipalRequirement::AuthenticatedWithRelationship {
-                requirement: RelationshipRequirement::check::<Organization>(
-                    command.organization_id,
-                    OrganizationProfileEditorRelation::REF,
-                ),
-                projector_dependencies: ProjectorDependencies::Some(&[
-                    OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                    OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
-                ]),
-            },
+            PrincipalRequirement::AuthenticatedWithRelationship(RelationshipRequirement::check::<
+                Organization,
+            >(
+                command.organization_id,
+                OrganizationProfileEditorRelation::REF,
+            )),
         ]))
     }
 
@@ -139,7 +131,7 @@ mod tests {
         ObjectUploadHeaders, ObjectUploadRequest, ObjectUploadSigner, ObjectUploadSignerError,
         SignedObjectUploadRequest, SignedObjectUploadUrl,
     };
-    use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
+
     use appletheia::application::repository::{Repository, RepositoryError};
     use appletheia::application::request_context::{
         CorrelationId, MessageId, Principal, RequestContext,
@@ -336,16 +328,12 @@ mod tests {
         assert_eq!(
             plan,
             AuthorizationPlan::OnlyPrincipals(vec![
-                PrincipalRequirement::AuthenticatedWithRelationship {
-                    requirement: RelationshipRequirement::check::<Organization>(
+                PrincipalRequirement::AuthenticatedWithRelationship(
+                    RelationshipRequirement::check::<Organization>(
                         organization_id,
                         crate::authorization::OrganizationProfileEditorRelation::REF,
-                    ),
-                    projector_dependencies: ProjectorDependencies::Some(&[
-                        crate::projection::OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                        crate::projection::OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
-                    ]),
-                },
+                    )
+                ),
             ])
         );
     }

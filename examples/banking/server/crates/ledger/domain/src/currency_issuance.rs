@@ -1,15 +1,31 @@
+mod currency_issuance_complete_rejection_reason;
+mod currency_issuance_complete_result;
 mod currency_issuance_error;
 mod currency_issuance_event_payload;
 mod currency_issuance_event_payload_error;
+mod currency_issuance_fail_rejection_reason;
+mod currency_issuance_fail_result;
+mod currency_issuance_failure_reason;
 mod currency_issuance_id;
+mod currency_issuance_issue_reject_result;
+mod currency_issuance_issue_rejection_reason;
+mod currency_issuance_issue_result;
 mod currency_issuance_state;
 mod currency_issuance_state_error;
 mod currency_issuance_status;
 
+pub use currency_issuance_complete_rejection_reason::CurrencyIssuanceCompleteRejectionReason;
+pub use currency_issuance_complete_result::CurrencyIssuanceCompleteResult;
 pub use currency_issuance_error::CurrencyIssuanceError;
 pub use currency_issuance_event_payload::CurrencyIssuanceEventPayload;
 pub use currency_issuance_event_payload_error::CurrencyIssuanceEventPayloadError;
+pub use currency_issuance_fail_rejection_reason::CurrencyIssuanceFailRejectionReason;
+pub use currency_issuance_fail_result::CurrencyIssuanceFailResult;
+pub use currency_issuance_failure_reason::CurrencyIssuanceFailureReason;
 pub use currency_issuance_id::CurrencyIssuanceId;
+pub use currency_issuance_issue_reject_result::CurrencyIssuanceIssueRejectResult;
+pub use currency_issuance_issue_rejection_reason::CurrencyIssuanceIssueRejectionReason;
+pub use currency_issuance_issue_result::CurrencyIssuanceIssueResult;
 pub use currency_issuance_state::CurrencyIssuanceState;
 pub use currency_issuance_state_error::CurrencyIssuanceStateError;
 pub use currency_issuance_status::CurrencyIssuanceStatus;
@@ -54,43 +70,107 @@ impl CurrencyIssuance {
         currency_id: CurrencyId,
         destination_account_id: AccountId,
         amount: CurrencyAmount,
-    ) -> Result<(), CurrencyIssuanceError> {
+    ) -> Result<CurrencyIssuanceIssueResult, CurrencyIssuanceError> {
         if self.state().is_some() {
             return Err(CurrencyIssuanceError::AlreadyIssued);
         }
 
         if amount.is_zero() {
-            return Err(CurrencyIssuanceError::ZeroAmount);
+            self.reject_issue(
+                currency_id,
+                destination_account_id,
+                amount,
+                CurrencyIssuanceIssueRejectionReason::ZeroAmount,
+            )?;
+            return Ok(CurrencyIssuanceIssueResult::Rejected {
+                reason: CurrencyIssuanceIssueRejectionReason::ZeroAmount,
+            });
         }
 
+        let id = CurrencyIssuanceId::new();
         self.append_event(CurrencyIssuanceEventPayload::Issued {
-            id: CurrencyIssuanceId::new(),
+            id,
             currency_id,
             destination_account_id,
             amount,
+        })?;
+
+        Ok(CurrencyIssuanceIssueResult::Issued {
+            currency_issuance_id: id,
         })
     }
 
-    /// Marks the issuance completed.
-    pub fn complete(&mut self) -> Result<(), CurrencyIssuanceError> {
-        self.ensure_pending()?;
+    /// Rejects a new issuance workflow.
+    pub fn reject_issue(
+        &mut self,
+        currency_id: CurrencyId,
+        destination_account_id: AccountId,
+        amount: CurrencyAmount,
+        reason: CurrencyIssuanceIssueRejectionReason,
+    ) -> Result<CurrencyIssuanceIssueRejectResult, CurrencyIssuanceError> {
+        let id = CurrencyIssuanceId::new();
+        self.append_event(CurrencyIssuanceEventPayload::IssueRejected {
+            id,
+            currency_id,
+            destination_account_id,
+            amount,
+            reason,
+        })?;
 
-        self.append_event(CurrencyIssuanceEventPayload::Completed)
+        Ok(CurrencyIssuanceIssueRejectResult::Rejected { reason })
+    }
+
+    /// Marks the issuance completed.
+    pub fn complete(&mut self) -> Result<CurrencyIssuanceCompleteResult, CurrencyIssuanceError> {
+        match self.state_required()?.status {
+            CurrencyIssuanceStatus::Pending => {}
+            CurrencyIssuanceStatus::Completed => {
+                let reason = CurrencyIssuanceCompleteRejectionReason::AlreadyCompleted;
+                self.append_event(CurrencyIssuanceEventPayload::CompleteRejected { reason })?;
+                return Ok(CurrencyIssuanceCompleteResult::Rejected { reason });
+            }
+            CurrencyIssuanceStatus::Failed => {
+                let reason = CurrencyIssuanceCompleteRejectionReason::AlreadyFailed;
+                self.append_event(CurrencyIssuanceEventPayload::CompleteRejected { reason })?;
+                return Ok(CurrencyIssuanceCompleteResult::Rejected { reason });
+            }
+            CurrencyIssuanceStatus::Rejected => {
+                let reason = CurrencyIssuanceCompleteRejectionReason::AlreadyRejected;
+                self.append_event(CurrencyIssuanceEventPayload::CompleteRejected { reason })?;
+                return Ok(CurrencyIssuanceCompleteResult::Rejected { reason });
+            }
+        }
+
+        self.append_event(CurrencyIssuanceEventPayload::Completed)?;
+        Ok(CurrencyIssuanceCompleteResult::Completed)
     }
 
     /// Marks the issuance failed.
-    pub fn fail(&mut self) -> Result<(), CurrencyIssuanceError> {
-        self.ensure_pending()?;
-
-        self.append_event(CurrencyIssuanceEventPayload::Failed)
-    }
-
-    fn ensure_pending(&self) -> Result<(), CurrencyIssuanceError> {
+    pub fn fail(
+        &mut self,
+        reason: CurrencyIssuanceFailureReason,
+    ) -> Result<CurrencyIssuanceFailResult, CurrencyIssuanceError> {
         match self.state_required()?.status {
-            CurrencyIssuanceStatus::Pending => Ok(()),
-            CurrencyIssuanceStatus::Completed => Err(CurrencyIssuanceError::AlreadyCompleted),
-            CurrencyIssuanceStatus::Failed => Err(CurrencyIssuanceError::AlreadyFailed),
+            CurrencyIssuanceStatus::Pending => {}
+            CurrencyIssuanceStatus::Completed => {
+                let reason = CurrencyIssuanceFailRejectionReason::AlreadyCompleted;
+                self.append_event(CurrencyIssuanceEventPayload::FailRejected { reason })?;
+                return Ok(CurrencyIssuanceFailResult::Rejected { reason });
+            }
+            CurrencyIssuanceStatus::Failed => {
+                let reason = CurrencyIssuanceFailRejectionReason::AlreadyFailed;
+                self.append_event(CurrencyIssuanceEventPayload::FailRejected { reason })?;
+                return Ok(CurrencyIssuanceFailResult::Rejected { reason });
+            }
+            CurrencyIssuanceStatus::Rejected => {
+                let reason = CurrencyIssuanceFailRejectionReason::AlreadyRejected;
+                self.append_event(CurrencyIssuanceEventPayload::FailRejected { reason })?;
+                return Ok(CurrencyIssuanceFailResult::Rejected { reason });
+            }
         }
+
+        self.append_event(CurrencyIssuanceEventPayload::Failed { reason })?;
+        Ok(CurrencyIssuanceFailResult::Failed)
     }
 }
 
@@ -111,12 +191,26 @@ impl AggregateApply<CurrencyIssuanceEventPayload, CurrencyIssuanceError> for Cur
                 *destination_account_id,
                 *amount,
             ))),
+            CurrencyIssuanceEventPayload::IssueRejected {
+                id,
+                currency_id,
+                destination_account_id,
+                amount,
+                ..
+            } => self.set_state(Some(CurrencyIssuanceState::rejected(
+                *id,
+                *currency_id,
+                *destination_account_id,
+                *amount,
+            ))),
             CurrencyIssuanceEventPayload::Completed => {
                 self.state_required_mut()?.status = CurrencyIssuanceStatus::Completed;
             }
-            CurrencyIssuanceEventPayload::Failed => {
+            CurrencyIssuanceEventPayload::CompleteRejected { .. } => {}
+            CurrencyIssuanceEventPayload::Failed { .. } => {
                 self.state_required_mut()?.status = CurrencyIssuanceStatus::Failed;
             }
+            CurrencyIssuanceEventPayload::FailRejected { .. } => {}
         }
 
         Ok(())
@@ -171,11 +265,42 @@ mod tests {
     fn issue_rejects_zero_amount() {
         let mut issuance = CurrencyIssuance::default();
 
-        let error = issuance
+        let result = issuance
             .issue(CurrencyId::new(), AccountId::new(), CurrencyAmount::zero())
-            .expect_err("zero amount should fail");
+            .expect("zero amount should complete with a rejection event");
 
-        assert!(matches!(error, super::CurrencyIssuanceError::ZeroAmount));
+        assert!(matches!(
+            result,
+            super::CurrencyIssuanceIssueResult::Rejected {
+                reason: super::CurrencyIssuanceIssueRejectionReason::ZeroAmount
+            }
+        ));
+        assert_eq!(
+            issuance.status().expect("status should exist"),
+            &CurrencyIssuanceStatus::Rejected
+        );
+    }
+
+    #[test]
+    fn issue_errors_when_issuance_is_already_issued() {
+        let mut issuance = CurrencyIssuance::default();
+        issuance
+            .issue(
+                CurrencyId::new(),
+                AccountId::new(),
+                CurrencyAmount::new(100),
+            )
+            .expect("issue should succeed");
+
+        let error = issuance
+            .issue(
+                CurrencyId::new(),
+                AccountId::new(),
+                CurrencyAmount::new(100),
+            )
+            .expect_err("duplicate issue should fail");
+
+        assert!(matches!(error, super::CurrencyIssuanceError::AlreadyIssued));
     }
 
     #[test]
@@ -208,7 +333,9 @@ mod tests {
             )
             .expect("issue should succeed");
 
-        issuance.fail().expect("fail should succeed");
+        issuance
+            .fail(super::CurrencyIssuanceFailureReason::DepositRejected)
+            .expect("fail should succeed");
 
         assert_eq!(
             issuance.status().expect("status should exist"),

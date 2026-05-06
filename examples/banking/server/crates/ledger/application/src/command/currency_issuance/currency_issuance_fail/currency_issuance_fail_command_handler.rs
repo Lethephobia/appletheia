@@ -61,11 +61,13 @@ where
             return Err(CurrencyIssuanceFailCommandHandlerError::CurrencyIssuanceNotFound);
         };
 
-        currency_issuance.fail()?;
+        let result = currency_issuance.fail(command.reason)?;
         self.currency_issuance_repository
             .save(uow, request_context, &mut currency_issuance)
             .await?;
 
-        Ok(CommandHandled::same(CurrencyIssuanceFailOutput))
+        Ok(CommandHandled::same(CurrencyIssuanceFailOutput::from(
+            result,
+        )))
     }
 }

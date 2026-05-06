@@ -1,0 +1,1 @@
+-- No source-normalized projection tables to drop.

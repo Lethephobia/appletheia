@@ -2,17 +2,12 @@ use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
 use appletheia::application::command::{CommandHandled, CommandHandler};
-use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_iam_application::{
-    OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
-};
 use banking_ledger_domain::currency::Currency;
 
 use super::{CurrencyRemoveCommand, CurrencyRemoveCommandHandlerError, CurrencyRemoveOutput};
 use crate::authorization::CurrencyRemoverRelation;
-use crate::projection::CurrencyOwnerRelationshipProjectorSpec;
 
 /// Handles `CurrencyRemoveCommand`.
 pub struct CurrencyRemoveCommandHandler<CDR>
@@ -48,17 +43,12 @@ where
         command: &Self::Command,
     ) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
-            PrincipalRequirement::AuthenticatedWithRelationship {
-                requirement: RelationshipRequirement::check::<Currency>(
-                    command.currency_id,
-                    CurrencyRemoverRelation::REF,
-                ),
-                projector_dependencies: ProjectorDependencies::Some(&[
-                    CurrencyOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                    OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                    OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
-                ]),
-            },
+            PrincipalRequirement::AuthenticatedWithRelationship(RelationshipRequirement::check::<
+                Currency,
+            >(
+                command.currency_id,
+                CurrencyRemoverRelation::REF,
+            )),
         ]))
     }
 
@@ -76,12 +66,12 @@ where
             return Err(CurrencyRemoveCommandHandlerError::CurrencyNotFound);
         };
 
-        currency.remove()?;
+        let result = currency.remove()?;
 
         self.currency_repository
             .save(uow, request_context, &mut currency)
             .await?;
 
-        Ok(CommandHandled::same(CurrencyRemoveOutput))
+        Ok(CommandHandled::same(CurrencyRemoveOutput::from(result)))
     }
 }

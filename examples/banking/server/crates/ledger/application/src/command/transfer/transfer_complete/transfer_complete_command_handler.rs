@@ -58,11 +58,11 @@ where
             return Err(TransferCompleteCommandHandlerError::TransferNotFound);
         };
 
-        transfer.complete()?;
+        let result = transfer.complete()?;
         self.transfer_repository
             .save(uow, request_context, &mut transfer)
             .await?;
 
-        Ok(CommandHandled::same(TransferCompleteOutput))
+        Ok(CommandHandled::same(TransferCompleteOutput::from(result)))
     }
 }

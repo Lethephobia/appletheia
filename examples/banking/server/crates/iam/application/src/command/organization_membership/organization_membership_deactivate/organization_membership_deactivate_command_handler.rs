@@ -2,7 +2,6 @@ use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
 use appletheia::application::command::{CommandHandled, CommandHandler};
-use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_iam_domain::{Organization, OrganizationMembership};
@@ -12,10 +11,6 @@ use super::{
     OrganizationMembershipDeactivateOutput,
 };
 use crate::authorization::OrganizationMembershipDeactivatorRelation;
-use crate::projection::{
-    OrganizationMembershipOrganizationRelationshipProjectorSpec,
-    OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
-};
 
 /// Handles `OrganizationMembershipDeactivateCommand`.
 pub struct OrganizationMembershipDeactivateCommandHandler<ORG, MR>
@@ -57,17 +52,12 @@ where
     ) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
             PrincipalRequirement::System,
-            PrincipalRequirement::AuthenticatedWithRelationship {
-                requirement: RelationshipRequirement::check::<OrganizationMembership>(
-                    command.organization_membership_id,
-                    OrganizationMembershipDeactivatorRelation::REF,
-                ),
-                projector_dependencies: ProjectorDependencies::Some(&[
-                    OrganizationMembershipOrganizationRelationshipProjectorSpec::DESCRIPTOR,
-                    OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                    OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
-                ]),
-            },
+            PrincipalRequirement::AuthenticatedWithRelationship(RelationshipRequirement::check::<
+                OrganizationMembership,
+            >(
+                command.organization_membership_id,
+                OrganizationMembershipDeactivatorRelation::REF,
+            )),
         ]))
     }
 
@@ -99,12 +89,14 @@ where
             return Err(OrganizationMembershipDeactivateCommandHandlerError::OrganizationRemoved);
         }
 
-        organization_membership.deactivate()?;
+        let result = organization_membership.deactivate()?;
 
         self.organization_membership_repository
             .save(uow, request_context, &mut organization_membership)
             .await?;
 
-        Ok(CommandHandled::same(OrganizationMembershipDeactivateOutput))
+        Ok(CommandHandled::same(
+            OrganizationMembershipDeactivateOutput::from(result),
+        ))
     }
 }

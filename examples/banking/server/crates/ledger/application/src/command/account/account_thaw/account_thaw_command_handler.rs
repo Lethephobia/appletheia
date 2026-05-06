@@ -2,17 +2,12 @@ use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
 use appletheia::application::command::{CommandHandled, CommandHandler};
-use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_iam_application::{
-    OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
-};
 use banking_ledger_domain::account::Account;
 
 use super::{AccountThawCommand, AccountThawCommandHandlerError, AccountThawOutput};
 use crate::authorization::AccountThawerRelation;
-use crate::projection::AccountOwnerRelationshipProjectorSpec;
 
 /// Handles `AccountThawCommand`.
 pub struct AccountThawCommandHandler<AR>
@@ -47,17 +42,12 @@ where
     ) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
             PrincipalRequirement::System,
-            PrincipalRequirement::AuthenticatedWithRelationship {
-                requirement: RelationshipRequirement::check::<Account>(
-                    command.account_id,
-                    AccountThawerRelation::REF,
-                ),
-                projector_dependencies: ProjectorDependencies::Some(&[
-                    AccountOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                    OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                    OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
-                ]),
-            },
+            PrincipalRequirement::AuthenticatedWithRelationship(RelationshipRequirement::check::<
+                Account,
+            >(
+                command.account_id,
+                AccountThawerRelation::REF,
+            )),
         ]))
     }
 
@@ -75,11 +65,11 @@ where
             return Err(AccountThawCommandHandlerError::AccountNotFound);
         };
 
-        account.thaw()?;
+        let result = account.thaw()?;
         self.account_repository
             .save(uow, request_context, &mut account)
             .await?;
 
-        Ok(CommandHandled::same(AccountThawOutput))
+        Ok(CommandHandled::same(AccountThawOutput::from(result)))
     }
 }

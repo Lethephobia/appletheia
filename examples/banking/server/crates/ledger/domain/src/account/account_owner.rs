@@ -58,7 +58,7 @@ mod tests {
     #[test]
     fn serializes_to_json() {
         let owner = AccountOwner::User(UserId::new());
-        let value = serde_json::to_value(&owner).expect("owner should serialize");
+        let value = serde_json::to_value(owner).expect("owner should serialize");
 
         assert_eq!(value["type"], serde_json::json!("user"));
     }

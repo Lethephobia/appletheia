@@ -1,8 +1,8 @@
-use super::IdempotencyState;
+use super::IdempotencyOutput;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum IdempotencyBeginResult {
     New,
-    Existing { state: IdempotencyState },
+    Existing { output: IdempotencyOutput },
     InProgress,
 }

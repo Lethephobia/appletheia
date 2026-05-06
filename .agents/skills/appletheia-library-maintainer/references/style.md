@@ -4,17 +4,22 @@ Guidelines for repository-wide Rust style, file layout, imports, and source orga
 
 ## File Layout
 
-### DO keep one primary definition per file when practical
+### DO keep one primary definition per file
 
-Keep a file focused on a single primary `struct`, `enum`, or `trait` so changes stay easy to review. Small `#[cfg(test)]` unit tests may live in the same file when that keeps them close to the implementation.
+Keep a file focused on a single primary `struct`, `enum`, or `trait` so changes stay easy to review.
+When adding a new `trait`, `enum`, or `struct`, create a dedicated module file and re-export it
+from the parent module. Small `#[cfg(test)]` unit tests may live in the same file when that keeps
+them close to the implementation.
 
 good:
 ```rust
+// example_value.rs
 pub struct ExampleValue;
 ```
 
 bad:
 ```rust
+// example.rs
 pub struct ExampleValue;
 pub struct AnotherValue;
 ```
@@ -70,6 +75,37 @@ let user_id = banking_iam_domain::UserId::new();
 ### PREFER keep related items together when they form a small unit
 
 Use a single module when the types and helpers are meant to change together.
+
+### PREFER keeping type-specific helpers inside the relevant `impl`
+
+When a small helper only exists to support one type's behavior, keep it as a private associated
+function on that type instead of a free function.
+
+good:
+```rust
+impl ExampleSelector {
+    pub const fn matches_static(&self, other: &Self) -> bool {
+        Self::str_eq(self.name, other.name)
+    }
+
+    const fn str_eq(left: &str, right: &str) -> bool {
+        // ...
+    }
+}
+```
+
+bad:
+```rust
+impl ExampleSelector {
+    pub const fn matches_static(&self, other: &Self) -> bool {
+        str_eq(self.name, other.name)
+    }
+}
+
+const fn str_eq(left: &str, right: &str) -> bool {
+    // ...
+}
+```
 
 ### AVOID sprawling grab-bag modules
 

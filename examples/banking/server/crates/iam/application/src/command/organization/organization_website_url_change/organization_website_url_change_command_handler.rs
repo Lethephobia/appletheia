@@ -2,7 +2,6 @@ use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
 use appletheia::application::command::{CommandHandled, CommandHandler};
-use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_iam_domain::Organization;
@@ -12,9 +11,6 @@ use super::{
     OrganizationWebsiteUrlChangeOutput,
 };
 use crate::authorization::OrganizationProfileEditorRelation;
-use crate::projection::{
-    OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
-};
 
 /// Handles `OrganizationWebsiteUrlChangeCommand`.
 pub struct OrganizationWebsiteUrlChangeCommandHandler<OR>
@@ -50,16 +46,12 @@ where
         command: &Self::Command,
     ) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
-            PrincipalRequirement::AuthenticatedWithRelationship {
-                requirement: RelationshipRequirement::check::<Organization>(
-                    command.organization_id,
-                    OrganizationProfileEditorRelation::REF,
-                ),
-                projector_dependencies: ProjectorDependencies::Some(&[
-                    OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                    OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
-                ]),
-            },
+            PrincipalRequirement::AuthenticatedWithRelationship(RelationshipRequirement::check::<
+                Organization,
+            >(
+                command.organization_id,
+                OrganizationProfileEditorRelation::REF,
+            )),
         ]))
     }
 
@@ -77,12 +69,14 @@ where
             return Err(OrganizationWebsiteUrlChangeCommandHandlerError::OrganizationNotFound);
         };
 
-        organization.change_website_url(command.website_url.clone())?;
+        let result = organization.change_website_url(command.website_url.clone())?;
 
         self.organization_repository
             .save(uow, request_context, &mut organization)
             .await?;
 
-        Ok(CommandHandled::same(OrganizationWebsiteUrlChangeOutput))
+        Ok(CommandHandled::same(
+            OrganizationWebsiteUrlChangeOutput::from(result),
+        ))
     }
 }

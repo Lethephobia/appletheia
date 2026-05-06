@@ -5,5 +5,9 @@ edition = "2024"
 
 [dependencies]
 appletheia = { workspace = true, features = ["infrastructure"] }
-banking-ledger-domain = { workspace = true }
+banking-iam-domain = { workspace = true }
 banking-ledger-application = { workspace = true }
+banking-ledger-domain = { workspace = true }
+sqlx = { version = "0.8.6", features = ["runtime-tokio", "postgres", "uuid", "chrono"] }
+thiserror = "2.0.17"
+uuid = { version = "1" }

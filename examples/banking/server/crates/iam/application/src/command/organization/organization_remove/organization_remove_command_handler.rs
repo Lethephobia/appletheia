@@ -2,7 +2,6 @@ use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
 use appletheia::application::command::{CommandHandled, CommandHandler};
-use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_iam_domain::Organization;
@@ -11,9 +10,6 @@ use super::{
     OrganizationRemoveCommand, OrganizationRemoveCommandHandlerError, OrganizationRemoveOutput,
 };
 use crate::authorization::OrganizationRemoverRelation;
-use crate::projection::{
-    OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
-};
 
 /// Handles `OrganizationRemoveCommand`.
 pub struct OrganizationRemoveCommandHandler<OR>
@@ -49,16 +45,12 @@ where
         command: &Self::Command,
     ) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
-            PrincipalRequirement::AuthenticatedWithRelationship {
-                requirement: RelationshipRequirement::check::<Organization>(
-                    command.organization_id,
-                    OrganizationRemoverRelation::REF,
-                ),
-                projector_dependencies: ProjectorDependencies::Some(&[
-                    OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                    OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
-                ]),
-            },
+            PrincipalRequirement::AuthenticatedWithRelationship(RelationshipRequirement::check::<
+                Organization,
+            >(
+                command.organization_id,
+                OrganizationRemoverRelation::REF,
+            )),
         ]))
     }
 
@@ -76,17 +68,13 @@ where
             return Err(OrganizationRemoveCommandHandlerError::OrganizationNotFound);
         };
 
-        if organization.is_removed()? {
-            return Err(OrganizationRemoveCommandHandlerError::OrganizationRemoved);
-        }
-
-        organization.remove()?;
+        let result = organization.remove()?;
 
         self.organization_repository
             .save(uow, request_context, &mut organization)
             .await?;
 
-        Ok(CommandHandled::same(OrganizationRemoveOutput))
+        Ok(CommandHandled::same(OrganizationRemoveOutput::from(result)))
     }
 }
 
@@ -98,7 +86,7 @@ mod tests {
         AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
     };
     use appletheia::application::command::CommandHandler;
-    use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
+
     use appletheia::application::repository::{Repository, RepositoryError};
     use appletheia::application::request_context::{
         CorrelationId, MessageId, Principal, RequestContext,
@@ -115,9 +103,6 @@ mod tests {
         OrganizationRemoveCommand, OrganizationRemoveCommandHandler, OrganizationRemoveOutput,
     };
     use crate::authorization::OrganizationRemoverRelation;
-    use crate::projection::{
-        OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
-    };
 
     #[derive(Default)]
     struct TestUow;
@@ -228,16 +213,12 @@ mod tests {
         assert_eq!(
             plan,
             AuthorizationPlan::OnlyPrincipals(vec![
-                PrincipalRequirement::AuthenticatedWithRelationship {
-                    requirement: RelationshipRequirement::check::<Organization>(
+                PrincipalRequirement::AuthenticatedWithRelationship(
+                    RelationshipRequirement::check::<Organization>(
                         organization_id,
                         OrganizationRemoverRelation::REF
-                    ),
-                    projector_dependencies: ProjectorDependencies::Some(&[
-                        OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                        OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
-                    ]),
-                },
+                    )
+                ),
             ])
         );
     }
@@ -265,7 +246,7 @@ mod tests {
         let saved = repository.organization.lock().expect("lock").clone();
         let saved = saved.expect("organization should be saved");
 
-        assert_eq!(output, OrganizationRemoveOutput);
+        assert_eq!(output, OrganizationRemoveOutput::Removed);
         assert!(saved.is_removed().expect("status should exist"));
     }
 }

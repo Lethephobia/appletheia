@@ -56,11 +56,11 @@ where
             return Err(AccountDepositCommandHandlerError::AccountNotFound);
         };
 
-        account.deposit(command.amount)?;
+        let result = account.deposit(command.amount)?;
         self.account_repository
             .save(uow, request_context, &mut account)
             .await?;
 
-        Ok(CommandHandled::same(AccountDepositOutput))
+        Ok(CommandHandled::same(AccountDepositOutput::from(result)))
     }
 }

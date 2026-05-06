@@ -5,17 +5,17 @@ mod user;
 
 pub use organization::{
     OrganizationPictureChangedSaga, OrganizationPictureChangedSagaError,
-    OrganizationPictureChangedSagaSpec, OrganizationPictureSagaContext,
+    OrganizationPictureChangedSagaSpec, OrganizationPictureSagaState,
 };
 pub use organization_invitation::{
-    OrganizationInvitationAcceptedSaga, OrganizationInvitationAcceptedSagaError,
-    OrganizationInvitationAcceptedSagaSpec, OrganizationInvitationSagaContext,
+    OrganizationInvitationSaga, OrganizationInvitationSagaError, OrganizationInvitationSagaSpec,
+    OrganizationInvitationSagaState,
 };
 pub use organization_join_request::{
-    OrganizationJoinRequestApprovedSaga, OrganizationJoinRequestApprovedSagaError,
-    OrganizationJoinRequestApprovedSagaSpec, OrganizationJoinRequestSagaContext,
+    OrganizationJoinRequestSaga, OrganizationJoinRequestSagaError, OrganizationJoinRequestSagaSpec,
+    OrganizationJoinRequestSagaState,
 };
 pub use user::{
     UserPictureChangedSaga, UserPictureChangedSagaError, UserPictureChangedSagaSpec,
-    UserPictureSagaContext,
+    UserPictureSagaState,
 };

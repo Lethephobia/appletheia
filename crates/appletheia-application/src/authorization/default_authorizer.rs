@@ -59,7 +59,7 @@ where
                 Principal::Unavailable => Err(AuthorizerError::PrincipalUnavailable),
                 Principal::System => Ok(false),
             },
-            PrincipalRequirement::AuthenticatedWithRelationship { requirement, .. } => {
+            PrincipalRequirement::AuthenticatedWithRelationship(requirement) => {
                 let subject = match principal {
                     Principal::Authenticated { subject } => subject,
                     Principal::Anonymous => return Ok(false),
@@ -153,7 +153,6 @@ mod tests {
         RelationName, RelationRefOwned, RelationshipRequirement, RelationshipResolverConfig,
         RelationshipStore, RelationshipSubject, UsersetExprOwned,
     };
-    use crate::projection::ProjectorDependencies;
 
     #[derive(Default)]
     struct TestUow;
@@ -264,13 +263,12 @@ mod tests {
             .authorize(
                 &principal,
                 &AuthorizationPlan::OnlyPrincipals(vec![
-                    PrincipalRequirement::AuthenticatedWithRelationship {
-                        requirement: RelationshipRequirement::Check {
+                    PrincipalRequirement::AuthenticatedWithRelationship(
+                        RelationshipRequirement::Check {
                             aggregate: doc,
                             relation: relation_ref("document", "editor"),
                         },
-                        projector_dependencies: ProjectorDependencies::None,
-                    },
+                    ),
                 ]),
             )
             .await

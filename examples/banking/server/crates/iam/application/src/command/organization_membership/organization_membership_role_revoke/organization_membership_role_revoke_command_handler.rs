@@ -2,7 +2,6 @@ use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
 use appletheia::application::command::{CommandHandled, CommandHandler};
-use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_iam_domain::{Organization, OrganizationMembership};
@@ -12,10 +11,6 @@ use super::{
     OrganizationMembershipRoleRevokeOutput,
 };
 use crate::authorization::OrganizationMembershipRoleRevokerRelation;
-use crate::projection::{
-    OrganizationMembershipOrganizationRelationshipProjectorSpec,
-    OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
-};
 
 /// Handles `OrganizationMembershipRoleRevokeCommand`.
 pub struct OrganizationMembershipRoleRevokeCommandHandler<ORG, MR>
@@ -57,17 +52,12 @@ where
     ) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
             PrincipalRequirement::System,
-            PrincipalRequirement::AuthenticatedWithRelationship {
-                requirement: RelationshipRequirement::check::<OrganizationMembership>(
-                    command.organization_membership_id,
-                    OrganizationMembershipRoleRevokerRelation::REF,
-                ),
-                projector_dependencies: ProjectorDependencies::Some(&[
-                    OrganizationMembershipOrganizationRelationshipProjectorSpec::DESCRIPTOR,
-                    OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                    OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
-                ]),
-            },
+            PrincipalRequirement::AuthenticatedWithRelationship(RelationshipRequirement::check::<
+                OrganizationMembership,
+            >(
+                command.organization_membership_id,
+                OrganizationMembershipRoleRevokerRelation::REF,
+            )),
         ]))
     }
 
@@ -99,13 +89,15 @@ where
             return Err(OrganizationMembershipRoleRevokeCommandHandlerError::OrganizationRemoved);
         }
 
-        organization_membership.revoke_role(command.role)?;
+        let result = organization_membership.revoke_role(command.role)?;
 
         self.organization_membership_repository
             .save(uow, request_context, &mut organization_membership)
             .await?;
 
-        Ok(CommandHandled::same(OrganizationMembershipRoleRevokeOutput))
+        Ok(CommandHandled::same(
+            OrganizationMembershipRoleRevokeOutput::from(result),
+        ))
     }
 }
 
@@ -117,7 +109,7 @@ mod tests {
         AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
     };
     use appletheia::application::command::CommandHandler;
-    use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
+
     use appletheia::application::repository::{Repository, RepositoryError};
     use appletheia::application::request_context::{
         CorrelationId, MessageId, Principal, RequestContext,
@@ -136,10 +128,6 @@ mod tests {
         OrganizationMembershipRoleRevokeOutput,
     };
     use crate::authorization::OrganizationMembershipRoleRevokerRelation;
-    use crate::projection::{
-        OrganizationMembershipOrganizationRelationshipProjectorSpec,
-        OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
-    };
 
     #[derive(Default)]
     struct TestUow;
@@ -325,17 +313,12 @@ mod tests {
             plan,
             AuthorizationPlan::OnlyPrincipals(vec![
                 PrincipalRequirement::System,
-                PrincipalRequirement::AuthenticatedWithRelationship {
-                    requirement: RelationshipRequirement::check::<OrganizationMembership>(
+                PrincipalRequirement::AuthenticatedWithRelationship(
+                    RelationshipRequirement::check::<OrganizationMembership>(
                         organization_membership_id,
                         OrganizationMembershipRoleRevokerRelation::REF,
-                    ),
-                    projector_dependencies: ProjectorDependencies::Some(&[
-                        OrganizationMembershipOrganizationRelationshipProjectorSpec::DESCRIPTOR,
-                        OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                        OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
-                    ]),
-                },
+                    )
+                ),
             ])
         );
     }
@@ -379,7 +362,7 @@ mod tests {
             .clone()
             .expect("organization membership should be saved");
 
-        assert_eq!(output, OrganizationMembershipRoleRevokeOutput);
+        assert_eq!(output, OrganizationMembershipRoleRevokeOutput::Revoked);
         assert_eq!(
             saved.status().expect("status should exist"),
             OrganizationMembershipStatus::Active

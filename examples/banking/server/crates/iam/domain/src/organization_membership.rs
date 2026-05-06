@@ -1,16 +1,36 @@
+mod organization_membership_activate_rejection_reason;
+mod organization_membership_activate_result;
+mod organization_membership_deactivate_rejection_reason;
+mod organization_membership_deactivate_result;
 mod organization_membership_error;
 mod organization_membership_event_payload;
 mod organization_membership_event_payload_error;
 mod organization_membership_id;
+mod organization_membership_remove_rejection_reason;
+mod organization_membership_remove_result;
+mod organization_membership_role_grant_rejection_reason;
+mod organization_membership_role_grant_result;
+mod organization_membership_role_revoke_rejection_reason;
+mod organization_membership_role_revoke_result;
 mod organization_membership_state;
 mod organization_membership_state_error;
 mod organization_membership_status;
 mod organization_role;
 
+pub use organization_membership_activate_rejection_reason::OrganizationMembershipActivateRejectionReason;
+pub use organization_membership_activate_result::OrganizationMembershipActivateResult;
+pub use organization_membership_deactivate_rejection_reason::OrganizationMembershipDeactivateRejectionReason;
+pub use organization_membership_deactivate_result::OrganizationMembershipDeactivateResult;
 pub use organization_membership_error::OrganizationMembershipError;
 pub use organization_membership_event_payload::OrganizationMembershipEventPayload;
 pub use organization_membership_event_payload_error::OrganizationMembershipEventPayloadError;
 pub use organization_membership_id::OrganizationMembershipId;
+pub use organization_membership_remove_rejection_reason::OrganizationMembershipRemoveRejectionReason;
+pub use organization_membership_remove_result::OrganizationMembershipRemoveResult;
+pub use organization_membership_role_grant_rejection_reason::OrganizationMembershipRoleGrantRejectionReason;
+pub use organization_membership_role_grant_result::OrganizationMembershipRoleGrantResult;
+pub use organization_membership_role_revoke_rejection_reason::OrganizationMembershipRoleRevokeRejectionReason;
+pub use organization_membership_role_revoke_result::OrganizationMembershipRoleRevokeResult;
 pub use organization_membership_state::OrganizationMembershipState;
 pub use organization_membership_state_error::OrganizationMembershipStateError;
 pub use organization_membership_status::OrganizationMembershipStatus;
@@ -84,11 +104,31 @@ impl OrganizationMembership {
     pub fn grant_role(
         &mut self,
         role: OrganizationRole,
-    ) -> Result<(), OrganizationMembershipError> {
-        self.ensure_active()?;
-
-        if self.state_required()?.roles.contains(&role) {
-            return Ok(());
+    ) -> Result<OrganizationMembershipRoleGrantResult, OrganizationMembershipError> {
+        match self.state_required()?.status {
+            OrganizationMembershipStatus::Active => {}
+            OrganizationMembershipStatus::Inactive => {
+                let reason = OrganizationMembershipRoleGrantRejectionReason::Inactive;
+                let state = self.state_required()?;
+                self.append_event(OrganizationMembershipEventPayload::RoleGrantRejected {
+                    organization_id: state.organization_id,
+                    user_id: state.user_id,
+                    role,
+                    reason,
+                })?;
+                return Ok(OrganizationMembershipRoleGrantResult::Rejected { reason });
+            }
+            OrganizationMembershipStatus::Removed => {
+                let reason = OrganizationMembershipRoleGrantRejectionReason::Removed;
+                let state = self.state_required()?;
+                self.append_event(OrganizationMembershipEventPayload::RoleGrantRejected {
+                    organization_id: state.organization_id,
+                    user_id: state.user_id,
+                    role,
+                    reason,
+                })?;
+                return Ok(OrganizationMembershipRoleGrantResult::Rejected { reason });
+            }
         }
 
         let state = self.state_required()?;
@@ -96,18 +136,39 @@ impl OrganizationMembership {
             organization_id: state.organization_id,
             user_id: state.user_id,
             role,
-        })
+        })?;
+        Ok(OrganizationMembershipRoleGrantResult::Granted)
     }
 
     /// Revokes a role from an active membership.
     pub fn revoke_role(
         &mut self,
         role: OrganizationRole,
-    ) -> Result<(), OrganizationMembershipError> {
-        self.ensure_active()?;
-
-        if !self.state_required()?.roles.contains(&role) {
-            return Ok(());
+    ) -> Result<OrganizationMembershipRoleRevokeResult, OrganizationMembershipError> {
+        match self.state_required()?.status {
+            OrganizationMembershipStatus::Active => {}
+            OrganizationMembershipStatus::Inactive => {
+                let reason = OrganizationMembershipRoleRevokeRejectionReason::Inactive;
+                let state = self.state_required()?;
+                self.append_event(OrganizationMembershipEventPayload::RoleRevokeRejected {
+                    organization_id: state.organization_id,
+                    user_id: state.user_id,
+                    role,
+                    reason,
+                })?;
+                return Ok(OrganizationMembershipRoleRevokeResult::Rejected { reason });
+            }
+            OrganizationMembershipStatus::Removed => {
+                let reason = OrganizationMembershipRoleRevokeRejectionReason::Removed;
+                let state = self.state_required()?;
+                self.append_event(OrganizationMembershipEventPayload::RoleRevokeRejected {
+                    organization_id: state.organization_id,
+                    user_id: state.user_id,
+                    role,
+                    reason,
+                })?;
+                return Ok(OrganizationMembershipRoleRevokeResult::Rejected { reason });
+            }
         }
 
         let state = self.state_required()?;
@@ -115,15 +176,23 @@ impl OrganizationMembership {
             organization_id: state.organization_id,
             user_id: state.user_id,
             role,
-        })
+        })?;
+        Ok(OrganizationMembershipRoleRevokeResult::Revoked)
     }
 
     /// Activates an inactive membership.
-    pub fn activate(&mut self) -> Result<(), OrganizationMembershipError> {
-        self.ensure_not_removed()?;
-
-        if self.state_required()?.status.is_active() {
-            return Ok(());
+    pub fn activate(
+        &mut self,
+    ) -> Result<OrganizationMembershipActivateResult, OrganizationMembershipError> {
+        if self.state_required()?.status.is_removed() {
+            let reason = OrganizationMembershipActivateRejectionReason::Removed;
+            let state = self.state_required()?;
+            self.append_event(OrganizationMembershipEventPayload::ActivateRejected {
+                organization_id: state.organization_id,
+                user_id: state.user_id,
+                reason,
+            })?;
+            return Ok(OrganizationMembershipActivateResult::Rejected { reason });
         }
 
         let state = self.state_required()?;
@@ -131,51 +200,54 @@ impl OrganizationMembership {
             organization_id: state.organization_id,
             user_id: state.user_id,
             roles: state.roles.clone(),
-        })
+        })?;
+        Ok(OrganizationMembershipActivateResult::Activated)
     }
 
     /// Deactivates an active membership.
-    pub fn deactivate(&mut self) -> Result<(), OrganizationMembershipError> {
-        self.ensure_not_removed()?;
-
-        if self.state_required()?.status.is_inactive() {
-            return Ok(());
+    pub fn deactivate(
+        &mut self,
+    ) -> Result<OrganizationMembershipDeactivateResult, OrganizationMembershipError> {
+        if self.state_required()?.status.is_removed() {
+            let reason = OrganizationMembershipDeactivateRejectionReason::Removed;
+            let state = self.state_required()?;
+            self.append_event(OrganizationMembershipEventPayload::DeactivateRejected {
+                organization_id: state.organization_id,
+                user_id: state.user_id,
+                reason,
+            })?;
+            return Ok(OrganizationMembershipDeactivateResult::Rejected { reason });
         }
 
         let state = self.state_required()?;
         self.append_event(OrganizationMembershipEventPayload::Inactivated {
             organization_id: state.organization_id,
             user_id: state.user_id,
-        })
+        })?;
+        Ok(OrganizationMembershipDeactivateResult::Deactivated)
     }
 
     /// Permanently removes the membership.
-    pub fn remove(&mut self) -> Result<(), OrganizationMembershipError> {
-        self.ensure_not_removed()?;
+    pub fn remove(
+        &mut self,
+    ) -> Result<OrganizationMembershipRemoveResult, OrganizationMembershipError> {
+        if self.state_required()?.status.is_removed() {
+            let reason = OrganizationMembershipRemoveRejectionReason::Removed;
+            let state = self.state_required()?;
+            self.append_event(OrganizationMembershipEventPayload::RemoveRejected {
+                organization_id: state.organization_id,
+                user_id: state.user_id,
+                reason,
+            })?;
+            return Ok(OrganizationMembershipRemoveResult::Rejected { reason });
+        }
 
         let state = self.state_required()?;
         self.append_event(OrganizationMembershipEventPayload::Removed {
             organization_id: state.organization_id,
             user_id: state.user_id,
-        })
-    }
-
-    fn ensure_not_removed(&self) -> Result<(), OrganizationMembershipError> {
-        if self.state_required()?.status.is_removed() {
-            return Err(OrganizationMembershipError::Removed);
-        }
-
-        Ok(())
-    }
-
-    fn ensure_active(&self) -> Result<(), OrganizationMembershipError> {
-        self.ensure_not_removed()?;
-
-        if self.state_required()?.status.is_inactive() {
-            return Err(OrganizationMembershipError::Inactive);
-        }
-
-        Ok(())
+        })?;
+        Ok(OrganizationMembershipRemoveResult::Removed)
     }
 }
 
@@ -205,22 +277,27 @@ impl AggregateApply<OrganizationMembershipEventPayload, OrganizationMembershipEr
                     state.roles.push(*role);
                 }
             }
+            OrganizationMembershipEventPayload::RoleGrantRejected { .. } => {}
             OrganizationMembershipEventPayload::RoleRevoked { role, .. } => {
                 self.state_required_mut()?
                     .roles
                     .retain(|existing_role| existing_role != role);
             }
+            OrganizationMembershipEventPayload::RoleRevokeRejected { .. } => {}
             OrganizationMembershipEventPayload::Activated { roles, .. } => {
                 let state = self.state_required_mut()?;
                 state.status = OrganizationMembershipStatus::Active;
                 state.roles = deduplicated_roles(roles);
             }
+            OrganizationMembershipEventPayload::ActivateRejected { .. } => {}
             OrganizationMembershipEventPayload::Inactivated { .. } => {
                 self.state_required_mut()?.status = OrganizationMembershipStatus::Inactive;
             }
+            OrganizationMembershipEventPayload::DeactivateRejected { .. } => {}
             OrganizationMembershipEventPayload::Removed { .. } => {
                 self.state_required_mut()?.status = OrganizationMembershipStatus::Removed;
             }
+            OrganizationMembershipEventPayload::RemoveRejected { .. } => {}
         }
 
         Ok(())
@@ -393,18 +470,20 @@ mod tests {
             .expect("creation should succeed");
 
         membership.remove().expect("remove should succeed");
-        let duplicate_remove_error = membership
+        let duplicate_remove_result = membership
             .remove()
-            .expect_err("duplicate remove should fail");
+            .expect("duplicate remove should complete with a rejection event");
 
         assert_eq!(
             membership.status().expect("status should exist"),
             OrganizationMembershipStatus::Removed
         );
-        assert_eq!(membership.uncommitted_events().len(), 2);
+        assert_eq!(membership.uncommitted_events().len(), 3);
         assert!(matches!(
-            duplicate_remove_error,
-            super::OrganizationMembershipError::Removed
+            duplicate_remove_result,
+            super::OrganizationMembershipRemoveResult::Rejected {
+                reason: super::OrganizationMembershipRemoveRejectionReason::Removed
+            }
         ));
         assert_eq!(
             membership.uncommitted_events()[1].payload(),
@@ -423,30 +502,44 @@ mod tests {
             .expect("creation should succeed");
         membership.remove().expect("remove should succeed");
 
-        let activate_error = membership.activate().expect_err("activate should fail");
+        let activate_result = membership
+            .activate()
+            .expect("activate should complete with a rejection event");
         assert!(matches!(
-            activate_error,
-            super::OrganizationMembershipError::Removed
+            activate_result,
+            super::OrganizationMembershipActivateResult::Rejected {
+                reason: super::OrganizationMembershipActivateRejectionReason::Removed
+            }
         ));
 
-        let deactivate_error = membership.deactivate().expect_err("deactivate should fail");
+        let deactivate_result = membership
+            .deactivate()
+            .expect("deactivate should complete with a rejection event");
         assert!(matches!(
-            deactivate_error,
-            super::OrganizationMembershipError::Removed
+            deactivate_result,
+            super::OrganizationMembershipDeactivateResult::Rejected {
+                reason: super::OrganizationMembershipDeactivateRejectionReason::Removed
+            }
         ));
 
-        let remove_error = membership.remove().expect_err("remove should fail");
+        let remove_result = membership
+            .remove()
+            .expect("remove should complete with a rejection event");
         assert!(matches!(
-            remove_error,
-            super::OrganizationMembershipError::Removed
+            remove_result,
+            super::OrganizationMembershipRemoveResult::Rejected {
+                reason: super::OrganizationMembershipRemoveRejectionReason::Removed
+            }
         ));
 
-        let grant_error = membership
+        let grant_result = membership
             .grant_role(OrganizationRole::Admin)
-            .expect_err("grant should fail");
+            .expect("grant should complete with a rejection event");
         assert!(matches!(
-            grant_error,
-            super::OrganizationMembershipError::Removed
+            grant_result,
+            super::OrganizationMembershipRoleGrantResult::Rejected {
+                reason: super::OrganizationMembershipRoleGrantRejectionReason::Removed
+            }
         ));
     }
 
@@ -458,25 +551,29 @@ mod tests {
             .expect("creation should succeed");
         membership.deactivate().expect("deactivate should succeed");
 
-        let grant_error = membership
+        let grant_result = membership
             .grant_role(OrganizationRole::Admin)
-            .expect_err("grant should fail");
+            .expect("grant should complete with a rejection event");
         assert!(matches!(
-            grant_error,
-            super::OrganizationMembershipError::Inactive
+            grant_result,
+            super::OrganizationMembershipRoleGrantResult::Rejected {
+                reason: super::OrganizationMembershipRoleGrantRejectionReason::Inactive
+            }
         ));
 
-        let revoke_error = membership
+        let revoke_result = membership
             .revoke_role(OrganizationRole::Admin)
-            .expect_err("revoke should fail");
+            .expect("revoke should complete with a rejection event");
         assert!(matches!(
-            revoke_error,
-            super::OrganizationMembershipError::Inactive
+            revoke_result,
+            super::OrganizationMembershipRoleRevokeResult::Rejected {
+                reason: super::OrganizationMembershipRoleRevokeRejectionReason::Inactive
+            }
         ));
     }
 
     #[test]
-    fn duplicate_grant_and_missing_revoke_are_no_ops() {
+    fn duplicate_grant_and_missing_revoke_append_success_events() {
         let mut membership = OrganizationMembership::default();
         membership
             .create(organization_id(), user_id())
@@ -487,16 +584,16 @@ mod tests {
 
         membership
             .grant_role(OrganizationRole::Admin)
-            .expect("duplicate grant should be ignored");
-        assert_eq!(membership.uncommitted_events().len(), 2);
+            .expect("duplicate grant should succeed");
+        assert_eq!(membership.uncommitted_events().len(), 3);
 
         membership
             .revoke_role(OrganizationRole::Admin)
             .expect("revoke should succeed");
         membership
             .revoke_role(OrganizationRole::Admin)
-            .expect("missing revoke should be ignored");
-        assert_eq!(membership.uncommitted_events().len(), 3);
+            .expect("missing revoke should succeed");
+        assert_eq!(membership.uncommitted_events().len(), 5);
     }
 
     #[test]

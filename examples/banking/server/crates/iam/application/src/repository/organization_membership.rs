@@ -1,0 +1,3 @@
+mod organization_membership_event_save_hook;
+
+pub use organization_membership_event_save_hook::OrganizationMembershipEventSaveHook;

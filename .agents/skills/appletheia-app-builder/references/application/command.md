@@ -44,6 +44,48 @@ organization.state_mut().name = command.name;
 repository.save(uow, &organization).await?;
 ```
 
+### DO treat domain rejections as successful command handling
+
+When the aggregate command method returns a domain result such as `Accepted` or `Rejected`, save the
+aggregate and return the result through the command output. `CommandHandler::Error` is for processing
+failures that should roll back and retry, not for expected business outcomes.
+
+good:
+```rust
+let result = account.reserve_funds(command.amount)?;
+repository.save(uow, request_context, &mut account).await?;
+
+Ok(CommandHandled::same(AccountReserveFundsOutput::from(result)))
+```
+
+bad:
+```rust
+account.reserve_funds(command.amount)?;
+repository.save(uow, request_context, &mut account).await?;
+
+Ok(CommandHandled::same(AccountReserveFundsOutput))
+```
+
+### DON'T convert expected domain rejections into handler errors
+
+If a saga or projection must react to a refusal, that refusal must be a persisted domain event.
+Returning `Err` rolls back the event write and lets the command worker retry or dead-letter the
+message, so the saga will never observe the business failure.
+
+bad:
+```rust
+if account.available_balance()? < command.amount {
+    return Err(AccountReserveFundsCommandHandlerError::InsufficientAvailableBalance);
+}
+```
+
+good:
+```rust
+let result = account.reserve_funds(command.amount)?;
+repository.save(uow, request_context, &mut account).await?;
+Ok(CommandHandled::same(AccountReserveFundsOutput::from(result)))
+```
+
 ### DON'T touch `RequestContext.actor` in command handlers
 
 The default command dispatcher already authorizes commands with `principal`.
@@ -77,20 +119,44 @@ account.rename(command.name)?;
 
 ### DO keep cross-aggregate validation in the handler when the rule cannot live inside one aggregate
 
-Use the handler for lookups that span multiple aggregates or read models.
+Use the handler for lookups that span multiple aggregates or read models. If the failure can be
+recorded on the aggregate being commanded, call an aggregate command method that appends a rejection
+event and save it. Keep `Err` for missing aggregates, repository failures, and other processing
+failures that should roll back and retry.
 
 good:
 ```rust
-let organization = organization_repository.find_by_id(uow, command.organization_id).await?;
-if organization.is_removed() {
-    return Err(OrganizationChangeNameCommandHandlerError::OrganizationRemoved);
-}
+let currency = currency_repository.find_by_id(uow, command.currency_id).await?;
+let mut issuance = currency_issuance_repository.find_by_id(uow, command.currency_issuance_id).await?;
+
+let result = if issuance.currency_id() != currency.id() {
+    issuance.reject_issue(CurrencyIssuanceIssueRejectionReason::CurrencyMismatch)?
+} else if !currency.is_active() {
+    issuance.reject_issue(CurrencyIssuanceIssueRejectionReason::CurrencyInactive)?
+} else {
+    issuance.issue(command.amount)?
+};
+
+currency_issuance_repository.save(uow, request_context, &mut issuance).await?;
+Ok(CommandHandled::same(CurrencyIssuanceIssueOutput::from(result)))
+```
+
+good:
+```rust
+let account = account_repository.find_by_id(uow, command.account_id).await?;
+let source = source_repository.find_by_id(uow, command.source_id).await?;
 ```
 
 bad:
 ```rust
-let mut organization = repository.find_by_id(uow, command.organization_id).await?;
-organization.ensure_not_removed()?;
+let currency = currency_repository.find_by_id(uow, command.currency_id).await?;
+let mut issuance = currency_issuance_repository.find_by_id(uow, command.currency_issuance_id).await?;
+
+if !currency.is_active() {
+    return Err(CurrencyIssuanceIssueCommandHandlerError::CurrencyInactive);
+}
+
+let result = issuance.issue(command.amount)?;
 ```
 
 ### DON'T duplicate aggregate-owned validation in the handler
@@ -108,7 +174,7 @@ bad:
 ```rust
 let mut organization = repository.find_by_id(uow, command.organization_id).await?;
 if organization.is_removed() {
-    return Err(OrganizationChangeNameCommandHandlerError::OrganizationRemoved);
+    return Err(OrganizationChangeNameCommandHandlerError::Removed);
 }
 
 organization.change_name(command.name)?;
@@ -150,9 +216,11 @@ let members = relationship_store.read_subjects_by_aggregate(...).await?;
 let summary = read_model_store.find_by_organization_id(...).await?;
 ```
 
-### DO map domain errors into handler errors
+### DO map non-outcome domain errors into handler errors
 
-Return application-specific errors from the handler boundary.
+Return application-specific errors from the handler boundary when the aggregate reports an invalid
+operation or invariant failure. Do not use this for expected business rejections that should be
+persisted as events.
 
 good:
 ```rust

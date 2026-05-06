@@ -2,24 +2,32 @@ pub mod authorization;
 pub mod command;
 pub mod oidc;
 pub mod projection;
+pub mod repository;
 pub mod saga;
 
 pub use authorization::{
-    OrganizationAdminRelation, OrganizationFinanceManagerRelation,
+    DefaultOrganizationInvitationRelationshipUpdater,
+    DefaultOrganizationJoinRequestRelationshipUpdater,
+    DefaultOrganizationMembershipRelationshipUpdater, DefaultOrganizationRelationshipUpdater,
+    DefaultUserRelationshipUpdater, OrganizationAdminRelation, OrganizationFinanceManagerRelation,
     OrganizationHandleChangerRelation, OrganizationInvitationCancelerRelation,
     OrganizationInvitationInviteeRelation, OrganizationInvitationOrganizationRelation,
+    OrganizationInvitationRelationshipUpdater, OrganizationInvitationRelationshipUpdaterError,
     OrganizationInviterRelation, OrganizationJoinRequestApproverRelation,
     OrganizationJoinRequestCancelerRelation, OrganizationJoinRequestOrganizationRelation,
-    OrganizationJoinRequestRejecterRelation, OrganizationJoinRequestRequesterRelation,
+    OrganizationJoinRequestRejecterRelation, OrganizationJoinRequestRelationshipUpdater,
+    OrganizationJoinRequestRelationshipUpdaterError, OrganizationJoinRequestRequesterRelation,
     OrganizationMemberRelation, OrganizationMembershipActivatorRelation,
     OrganizationMembershipDeactivatorRelation, OrganizationMembershipOrganizationRelation,
+    OrganizationMembershipRelationshipUpdater, OrganizationMembershipRelationshipUpdaterError,
     OrganizationMembershipRemoverRelation, OrganizationMembershipRoleGranterRelation,
     OrganizationMembershipRoleManagerRelation, OrganizationMembershipRoleRevokerRelation,
     OrganizationMembershipStatusManagerRelation, OrganizationOwnerRelation,
     OrganizationOwnershipTransfererRelation, OrganizationProfileEditorRelation,
+    OrganizationRelationshipUpdater, OrganizationRelationshipUpdaterError,
     OrganizationRemoverRelation, OrganizationTreasurerRelation, UserActivatorRelation,
-    UserDeactivatorRelation, UserOwnerRelation, UserProfileEditorRelation, UserRemoverRelation,
-    UserUsernameChangerRelation,
+    UserDeactivatorRelation, UserOwnerRelation, UserProfileEditorRelation, UserRelationshipUpdater,
+    UserRelationshipUpdaterError, UserRemoverRelation, UserUsernameChangerRelation,
 };
 pub use command::{
     LogoutAllSessionsCommand, LogoutAllSessionsCommandHandler, LogoutAllSessionsOutput,
@@ -79,36 +87,15 @@ pub use command::{
     UserUsernameChangeCommand, UserUsernameChangeCommandHandler, UserUsernameChangeOutput,
 };
 pub use oidc::{OidcCompletionPurpose, OidcCompletionRedirectUri, OidcContinuationPayload};
-pub use projection::{
-    OrganizationInvitationInviteeRelationshipProjector,
-    OrganizationInvitationInviteeRelationshipProjectorError,
-    OrganizationInvitationInviteeRelationshipProjectorSpec,
-    OrganizationInvitationOrganizationRelationshipProjector,
-    OrganizationInvitationOrganizationRelationshipProjectorError,
-    OrganizationInvitationOrganizationRelationshipProjectorSpec,
-    OrganizationJoinRequestOrganizationRelationshipProjector,
-    OrganizationJoinRequestOrganizationRelationshipProjectorError,
-    OrganizationJoinRequestOrganizationRelationshipProjectorSpec,
-    OrganizationJoinRequestRequesterRelationshipProjector,
-    OrganizationJoinRequestRequesterRelationshipProjectorError,
-    OrganizationJoinRequestRequesterRelationshipProjectorSpec,
-    OrganizationMemberRelationshipProjector, OrganizationMemberRelationshipProjectorError,
-    OrganizationMemberRelationshipProjectorSpec,
-    OrganizationMembershipOrganizationRelationshipProjector,
-    OrganizationMembershipOrganizationRelationshipProjectorError,
-    OrganizationMembershipOrganizationRelationshipProjectorSpec,
-    OrganizationOwnerRelationshipProjector, OrganizationOwnerRelationshipProjectorError,
-    OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjector,
-    OrganizationRoleRelationshipProjectorError, OrganizationRoleRelationshipProjectorSpec,
-    UserOwnerRelationshipProjector, UserOwnerRelationshipProjectorError,
-    UserOwnerRelationshipProjectorSpec,
+pub use repository::{
+    OrganizationEventSaveHook, OrganizationInvitationEventSaveHook,
+    OrganizationJoinRequestEventSaveHook, OrganizationMembershipEventSaveHook, UserEventSaveHook,
 };
 pub use saga::{
-    OrganizationInvitationAcceptedSaga, OrganizationInvitationAcceptedSagaError,
-    OrganizationInvitationAcceptedSagaSpec, OrganizationInvitationSagaContext,
-    OrganizationJoinRequestApprovedSaga, OrganizationJoinRequestApprovedSagaError,
-    OrganizationJoinRequestApprovedSagaSpec, OrganizationJoinRequestSagaContext,
+    OrganizationInvitationSaga, OrganizationInvitationSagaError, OrganizationInvitationSagaSpec,
+    OrganizationInvitationSagaState, OrganizationJoinRequestSaga, OrganizationJoinRequestSagaError,
+    OrganizationJoinRequestSagaSpec, OrganizationJoinRequestSagaState,
     OrganizationPictureChangedSaga, OrganizationPictureChangedSagaError,
-    OrganizationPictureChangedSagaSpec, OrganizationPictureSagaContext, UserPictureChangedSaga,
-    UserPictureChangedSagaError, UserPictureChangedSagaSpec, UserPictureSagaContext,
+    OrganizationPictureChangedSagaSpec, OrganizationPictureSagaState, UserPictureChangedSaga,
+    UserPictureChangedSagaError, UserPictureChangedSagaSpec, UserPictureSagaState,
 };

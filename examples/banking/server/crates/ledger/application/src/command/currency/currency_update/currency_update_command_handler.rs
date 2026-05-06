@@ -2,17 +2,17 @@ use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
 use appletheia::application::command::{CommandHandled, CommandHandler};
-use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_iam_application::{
-    OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
+use banking_ledger_domain::currency::{
+    Currency, CurrencyNameChangeResult, CurrencySymbolChangeResult,
 };
-use banking_ledger_domain::currency::Currency;
 
-use super::{CurrencyUpdateCommand, CurrencyUpdateCommandHandlerError, CurrencyUpdateOutput};
+use super::{
+    CurrencyUpdateCommand, CurrencyUpdateCommandHandlerError, CurrencyUpdateOutput,
+    CurrencyUpdateRejectionReason,
+};
 use crate::authorization::CurrencyUpdaterRelation;
-use crate::projection::CurrencyOwnerRelationshipProjectorSpec;
 
 /// Handles `CurrencyUpdateCommand`.
 pub struct CurrencyUpdateCommandHandler<CDR>
@@ -48,17 +48,12 @@ where
         command: &Self::Command,
     ) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
-            PrincipalRequirement::AuthenticatedWithRelationship {
-                requirement: RelationshipRequirement::check::<Currency>(
-                    command.currency_id,
-                    CurrencyUpdaterRelation::REF,
-                ),
-                projector_dependencies: ProjectorDependencies::Some(&[
-                    CurrencyOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                    OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                    OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
-                ]),
-            },
+            PrincipalRequirement::AuthenticatedWithRelationship(RelationshipRequirement::check::<
+                Currency,
+            >(
+                command.currency_id,
+                CurrencyUpdaterRelation::REF,
+            )),
         ]))
     }
 
@@ -76,19 +71,36 @@ where
             return Err(CurrencyUpdateCommandHandlerError::CurrencyNotFound);
         };
 
-        if let Some(symbol) = command.symbol.clone() {
-            currency.change_symbol(symbol)?;
+        if let Some(symbol) = command.symbol.clone()
+            && let CurrencySymbolChangeResult::Rejected { reason } =
+                currency.change_symbol(symbol)?
+        {
+            self.currency_repository
+                .save(uow, request_context, &mut currency)
+                .await?;
+
+            return Ok(CommandHandled::same(CurrencyUpdateOutput::Rejected {
+                reason: CurrencyUpdateRejectionReason::from(reason),
+            }));
         }
 
-        if let Some(name) = command.name.clone() {
-            currency.change_name(name)?;
+        if let Some(name) = command.name.clone()
+            && let CurrencyNameChangeResult::Rejected { reason } = currency.change_name(name)?
+        {
+            self.currency_repository
+                .save(uow, request_context, &mut currency)
+                .await?;
+
+            return Ok(CommandHandled::same(CurrencyUpdateOutput::Rejected {
+                reason: CurrencyUpdateRejectionReason::from(reason),
+            }));
         }
 
         self.currency_repository
             .save(uow, request_context, &mut currency)
             .await?;
 
-        Ok(CommandHandled::same(CurrencyUpdateOutput))
+        Ok(CommandHandled::same(CurrencyUpdateOutput::Updated))
     }
 }
 
@@ -100,16 +112,14 @@ mod tests {
         AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
     };
     use appletheia::application::command::CommandHandler;
-    use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
+
     use appletheia::application::repository::{Repository, RepositoryError};
     use appletheia::application::request_context::{
         CorrelationId, MessageId, Principal, RequestContext,
     };
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::Aggregate;
-    use banking_iam_application::{
-        OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
-    };
+
     use banking_iam_domain::UserId;
     use banking_ledger_domain::currency::{
         Currency, CurrencyDecimals, CurrencyId, CurrencyName, CurrencyOwner, CurrencySymbol,
@@ -118,7 +128,6 @@ mod tests {
 
     use super::{CurrencyUpdateCommand, CurrencyUpdateCommandHandler, CurrencyUpdateOutput};
     use crate::authorization::CurrencyUpdaterRelation;
-    use crate::projection::CurrencyOwnerRelationshipProjectorSpec;
 
     #[derive(Default)]
     struct TestUow;
@@ -232,17 +241,12 @@ mod tests {
         assert_eq!(
             plan,
             AuthorizationPlan::OnlyPrincipals(vec![
-                PrincipalRequirement::AuthenticatedWithRelationship {
-                    requirement: RelationshipRequirement::check::<Currency>(
+                PrincipalRequirement::AuthenticatedWithRelationship(
+                    RelationshipRequirement::check::<Currency>(
                         currency_id,
                         CurrencyUpdaterRelation::REF,
-                    ),
-                    projector_dependencies: ProjectorDependencies::Some(&[
-                        CurrencyOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                        OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                        OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
-                    ]),
-                },
+                    )
+                ),
             ])
         );
     }
@@ -270,6 +274,6 @@ mod tests {
             .await
             .expect("command should succeed");
 
-        assert_eq!(handled.into_output(), CurrencyUpdateOutput);
+        assert_eq!(handled.into_output(), CurrencyUpdateOutput::Updated);
     }
 }

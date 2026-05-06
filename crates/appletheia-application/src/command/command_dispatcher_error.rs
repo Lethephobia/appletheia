@@ -3,9 +3,7 @@ use std::error::Error;
 use thiserror::Error;
 
 use crate::authorization::AuthorizerError;
-use crate::command::{
-    CommandFailureReactionError, CommandFailureReport, CommandHasherError, IdempotencyServiceError,
-};
+use crate::command::{CommandHasherError, IdempotencyServiceError};
 use crate::projection::ReadYourWritesWaitError;
 use crate::request_context::MessageId;
 use crate::unit_of_work::UnitOfWorkError;
@@ -31,14 +29,8 @@ where
     #[error("command handler error: {0}")]
     Handler(#[source] HE),
 
-    #[error("command failure reaction error: {0}")]
-    CommandFailureReaction(#[from] CommandFailureReactionError),
-
     #[error("command is still in progress: {message_id}")]
     InProgress { message_id: MessageId },
-
-    #[error("previous command failed: {0}")]
-    PreviousFailure(CommandFailureReport),
 
     #[error("command hasher error: {0}")]
     Hasher(#[from] CommandHasherError),

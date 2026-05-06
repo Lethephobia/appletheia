@@ -4,7 +4,6 @@ use super::{Saga, SagaRunner, SagaSpec, SagaWorker, SagaWorkerError};
 use crate::{
     Consumer, ConsumerGroup, Delivery, Subscriber,
     event::{EventEnvelope, EventSelector},
-    messaging::Subscription,
 };
 
 pub struct DefaultSagaWorker<SG, S, R> {
@@ -46,17 +45,16 @@ where
     async fn run_forever(&mut self) -> Result<(), SagaWorkerError> {
         let descriptor = <SG::Spec as SagaSpec>::DESCRIPTOR;
         let consumer_group = ConsumerGroup::from(descriptor.name);
-        let subscription = Subscription::One(&descriptor.trigger_event);
 
         let mut consumer = self
             .subscriber
-            .subscribe(&consumer_group, subscription)
+            .subscribe(&consumer_group, descriptor.subscription)
             .await?;
 
         while !self.is_stop_requested() {
             let mut delivery = consumer.next().await?;
 
-            if !subscription.matches(delivery.message()) {
+            if !descriptor.subscription.matches(delivery.message()) {
                 delivery.ack().await?;
                 continue;
             }

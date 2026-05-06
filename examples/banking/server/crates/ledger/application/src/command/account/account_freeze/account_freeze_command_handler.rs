@@ -2,17 +2,12 @@ use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
 use appletheia::application::command::{CommandHandled, CommandHandler};
-use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_iam_application::{
-    OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
-};
 use banking_ledger_domain::account::Account;
 
 use super::{AccountFreezeCommand, AccountFreezeCommandHandlerError, AccountFreezeOutput};
 use crate::authorization::AccountFreezerRelation;
-use crate::projection::AccountOwnerRelationshipProjectorSpec;
 
 /// Handles `AccountFreezeCommand`.
 pub struct AccountFreezeCommandHandler<AR>
@@ -47,17 +42,12 @@ where
     ) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
             PrincipalRequirement::System,
-            PrincipalRequirement::AuthenticatedWithRelationship {
-                requirement: RelationshipRequirement::check::<Account>(
-                    command.account_id,
-                    AccountFreezerRelation::REF,
-                ),
-                projector_dependencies: ProjectorDependencies::Some(&[
-                    AccountOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                    OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                    OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
-                ]),
-            },
+            PrincipalRequirement::AuthenticatedWithRelationship(RelationshipRequirement::check::<
+                Account,
+            >(
+                command.account_id,
+                AccountFreezerRelation::REF,
+            )),
         ]))
     }
 
@@ -75,11 +65,11 @@ where
             return Err(AccountFreezeCommandHandlerError::AccountNotFound);
         };
 
-        account.freeze()?;
+        let result = account.freeze()?;
         self.account_repository
             .save(uow, request_context, &mut account)
             .await?;
 
-        Ok(CommandHandled::same(AccountFreezeOutput))
+        Ok(CommandHandled::same(AccountFreezeOutput::from(result)))
     }
 }

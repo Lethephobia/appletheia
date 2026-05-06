@@ -2,16 +2,11 @@ use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
 use appletheia::application::command::{CommandHandled, CommandHandler};
-use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use appletheia::domain::Aggregate;
 use banking_iam_application::authorization::{
     OrganizationFinanceManagerRelation, UserOwnerRelation,
-};
-use banking_iam_application::{
-    OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
-    UserOwnerRelationshipProjectorSpec,
 };
 use banking_iam_domain::{Organization, User};
 use banking_ledger_domain::currency::{Currency, CurrencyOwner};
@@ -53,28 +48,18 @@ where
     ) -> Result<AuthorizationPlan, Self::Error> {
         match command.owner {
             CurrencyOwner::User(user_id) => Ok(AuthorizationPlan::OnlyPrincipals(vec![
-                PrincipalRequirement::AuthenticatedWithRelationship {
-                    requirement: RelationshipRequirement::check::<User>(
-                        user_id,
-                        UserOwnerRelation::REF,
-                    ),
-                    projector_dependencies: ProjectorDependencies::Some(&[
-                        UserOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                    ]),
-                },
+                PrincipalRequirement::AuthenticatedWithRelationship(
+                    RelationshipRequirement::check::<User>(user_id, UserOwnerRelation::REF),
+                ),
             ])),
             CurrencyOwner::Organization(organization_id) => {
                 Ok(AuthorizationPlan::OnlyPrincipals(vec![
-                    PrincipalRequirement::AuthenticatedWithRelationship {
-                        requirement: RelationshipRequirement::check::<Organization>(
+                    PrincipalRequirement::AuthenticatedWithRelationship(
+                        RelationshipRequirement::check::<Organization>(
                             organization_id,
                             OrganizationFinanceManagerRelation::REF,
                         ),
-                        projector_dependencies: ProjectorDependencies::Some(&[
-                            OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                            OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
-                        ]),
-                    },
+                    ),
                 ]))
             }
         }
@@ -116,7 +101,7 @@ mod tests {
         AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
     };
     use appletheia::application::command::CommandHandler;
-    use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
+
     use appletheia::application::repository::{Repository, RepositoryError};
     use appletheia::application::request_context::{
         CorrelationId, MessageId, Principal, RequestContext,
@@ -126,10 +111,7 @@ mod tests {
     use banking_iam_application::authorization::{
         OrganizationFinanceManagerRelation, UserOwnerRelation,
     };
-    use banking_iam_application::{
-        OrganizationOwnerRelationshipProjectorSpec, OrganizationRoleRelationshipProjectorSpec,
-        UserOwnerRelationshipProjectorSpec,
-    };
+
     use banking_iam_domain::{Organization, OrganizationId, User, UserId};
     use banking_ledger_domain::currency::{
         Currency, CurrencyDecimals, CurrencyId, CurrencyName, CurrencyOwner, CurrencySymbol,
@@ -237,15 +219,9 @@ mod tests {
         assert_eq!(
             plan,
             AuthorizationPlan::OnlyPrincipals(vec![
-                PrincipalRequirement::AuthenticatedWithRelationship {
-                    requirement: RelationshipRequirement::check::<User>(
-                        user_id,
-                        UserOwnerRelation::REF
-                    ),
-                    projector_dependencies: ProjectorDependencies::Some(&[
-                        UserOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                    ]),
-                },
+                PrincipalRequirement::AuthenticatedWithRelationship(
+                    RelationshipRequirement::check::<User>(user_id, UserOwnerRelation::REF)
+                ),
             ])
         );
     }
@@ -269,16 +245,12 @@ mod tests {
         assert_eq!(
             plan,
             AuthorizationPlan::OnlyPrincipals(vec![
-                PrincipalRequirement::AuthenticatedWithRelationship {
-                    requirement: RelationshipRequirement::check::<Organization>(
+                PrincipalRequirement::AuthenticatedWithRelationship(
+                    RelationshipRequirement::check::<Organization>(
                         organization_id,
                         OrganizationFinanceManagerRelation::REF,
-                    ),
-                    projector_dependencies: ProjectorDependencies::Some(&[
-                        OrganizationOwnerRelationshipProjectorSpec::DESCRIPTOR,
-                        OrganizationRoleRelationshipProjectorSpec::DESCRIPTOR,
-                    ]),
-                },
+                    )
+                ),
             ])
         );
     }

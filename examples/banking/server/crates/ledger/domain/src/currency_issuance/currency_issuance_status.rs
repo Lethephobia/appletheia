@@ -7,4 +7,5 @@ pub enum CurrencyIssuanceStatus {
     Pending,
     Completed,
     Failed,
+    Rejected,
 }

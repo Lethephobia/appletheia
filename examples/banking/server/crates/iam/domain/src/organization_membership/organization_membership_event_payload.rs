@@ -2,7 +2,12 @@ use appletheia::event_payload;
 
 use crate::{OrganizationId, OrganizationRole, UserId};
 
-use super::{OrganizationMembershipEventPayloadError, OrganizationMembershipId};
+use super::{
+    OrganizationMembershipActivateRejectionReason, OrganizationMembershipDeactivateRejectionReason,
+    OrganizationMembershipEventPayloadError, OrganizationMembershipId,
+    OrganizationMembershipRemoveRejectionReason, OrganizationMembershipRoleGrantRejectionReason,
+    OrganizationMembershipRoleRevokeRejectionReason,
+};
 
 /// Represents the domain events emitted by an `OrganizationMembership` aggregate.
 #[event_payload(error = OrganizationMembershipEventPayloadError)]
@@ -17,23 +22,50 @@ pub enum OrganizationMembershipEventPayload {
         user_id: UserId,
         role: OrganizationRole,
     },
+    RoleGrantRejected {
+        organization_id: OrganizationId,
+        user_id: UserId,
+        role: OrganizationRole,
+        reason: OrganizationMembershipRoleGrantRejectionReason,
+    },
     RoleRevoked {
         organization_id: OrganizationId,
         user_id: UserId,
         role: OrganizationRole,
+    },
+    RoleRevokeRejected {
+        organization_id: OrganizationId,
+        user_id: UserId,
+        role: OrganizationRole,
+        reason: OrganizationMembershipRoleRevokeRejectionReason,
     },
     Activated {
         organization_id: OrganizationId,
         user_id: UserId,
         roles: Vec<OrganizationRole>,
     },
+    ActivateRejected {
+        organization_id: OrganizationId,
+        user_id: UserId,
+        reason: OrganizationMembershipActivateRejectionReason,
+    },
     Inactivated {
         organization_id: OrganizationId,
         user_id: UserId,
     },
+    DeactivateRejected {
+        organization_id: OrganizationId,
+        user_id: UserId,
+        reason: OrganizationMembershipDeactivateRejectionReason,
+    },
     Removed {
         organization_id: OrganizationId,
         user_id: UserId,
+    },
+    RemoveRejected {
+        organization_id: OrganizationId,
+        user_id: UserId,
+        reason: OrganizationMembershipRemoveRejectionReason,
     },
 }
 
@@ -55,20 +87,40 @@ mod tests {
             appletheia::domain::EventName::new("role_granted")
         );
         assert_eq!(
+            OrganizationMembershipEventPayload::ROLE_GRANT_REJECTED,
+            appletheia::domain::EventName::new("role_grant_rejected")
+        );
+        assert_eq!(
             OrganizationMembershipEventPayload::ROLE_REVOKED,
             appletheia::domain::EventName::new("role_revoked")
+        );
+        assert_eq!(
+            OrganizationMembershipEventPayload::ROLE_REVOKE_REJECTED,
+            appletheia::domain::EventName::new("role_revoke_rejected")
         );
         assert_eq!(
             OrganizationMembershipEventPayload::ACTIVATED,
             appletheia::domain::EventName::new("activated")
         );
         assert_eq!(
+            OrganizationMembershipEventPayload::ACTIVATE_REJECTED,
+            appletheia::domain::EventName::new("activate_rejected")
+        );
+        assert_eq!(
             OrganizationMembershipEventPayload::INACTIVATED,
             appletheia::domain::EventName::new("inactivated")
         );
         assert_eq!(
+            OrganizationMembershipEventPayload::DEACTIVATE_REJECTED,
+            appletheia::domain::EventName::new("deactivate_rejected")
+        );
+        assert_eq!(
             OrganizationMembershipEventPayload::REMOVED,
             appletheia::domain::EventName::new("removed")
+        );
+        assert_eq!(
+            OrganizationMembershipEventPayload::REMOVE_REJECTED,
+            appletheia::domain::EventName::new("remove_rejected")
         );
     }
 

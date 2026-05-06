@@ -23,6 +23,21 @@ pub fn command(attr: TokenStream, item: TokenStream) -> TokenStream {
         .into()
 }
 
+#[proc_macro_derive(Query, attributes(query_derive))]
+pub fn query_derive(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    application::query_derive(input)
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
+}
+
+#[proc_macro_attribute]
+pub fn query(attr: TokenStream, item: TokenStream) -> TokenStream {
+    application::query_attribute(attr, item)
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
+}
+
 #[proc_macro_derive(Aggregate, attributes(aggregate_derive))]
 pub fn aggregate_derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);

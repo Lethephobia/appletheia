@@ -1,9 +1,12 @@
 use appletheia::event_payload;
 
 use super::{
-    OrganizationDescription, OrganizationDisplayName, OrganizationEventPayloadError,
-    OrganizationHandle, OrganizationId, OrganizationOwner, OrganizationPictureRef,
-    OrganizationWebsiteUrl,
+    OrganizationDescription, OrganizationDescriptionChangeRejectionReason, OrganizationDisplayName,
+    OrganizationDisplayNameChangeRejectionReason, OrganizationEventPayloadError,
+    OrganizationHandle, OrganizationHandleChangeRejectionReason, OrganizationId, OrganizationOwner,
+    OrganizationOwnershipTransferRejectionReason, OrganizationPictureChangeRejectionReason,
+    OrganizationPictureRef, OrganizationRemoveRejectionReason, OrganizationWebsiteUrl,
+    OrganizationWebsiteUrlChangeRejectionReason,
 };
 
 /// Represents the domain events emitted by an `Organization` aggregate.
@@ -21,23 +24,50 @@ pub enum OrganizationEventPayload {
     OwnershipTransferred {
         owner: OrganizationOwner,
     },
+    OwnershipTransferRejected {
+        owner: OrganizationOwner,
+        reason: OrganizationOwnershipTransferRejectionReason,
+    },
     HandleChanged {
         handle: OrganizationHandle,
+    },
+    HandleChangeRejected {
+        handle: OrganizationHandle,
+        reason: OrganizationHandleChangeRejectionReason,
     },
     DisplayNameChanged {
         display_name: OrganizationDisplayName,
     },
+    DisplayNameChangeRejected {
+        display_name: OrganizationDisplayName,
+        reason: OrganizationDisplayNameChangeRejectionReason,
+    },
     DescriptionChanged {
         description: Option<OrganizationDescription>,
     },
+    DescriptionChangeRejected {
+        description: Option<OrganizationDescription>,
+        reason: OrganizationDescriptionChangeRejectionReason,
+    },
     WebsiteUrlChanged {
         website_url: Option<OrganizationWebsiteUrl>,
+    },
+    WebsiteUrlChangeRejected {
+        website_url: Option<OrganizationWebsiteUrl>,
+        reason: OrganizationWebsiteUrlChangeRejectionReason,
     },
     PictureChanged {
         picture: Option<OrganizationPictureRef>,
         old_picture: Option<OrganizationPictureRef>,
     },
+    PictureChangeRejected {
+        picture: Option<OrganizationPictureRef>,
+        reason: OrganizationPictureChangeRejectionReason,
+    },
     Removed,
+    RemoveRejected {
+        reason: OrganizationRemoveRejectionReason,
+    },
 }
 
 #[cfg(test)]
@@ -63,28 +93,56 @@ mod tests {
             appletheia::domain::EventName::new("ownership_transferred")
         );
         assert_eq!(
+            OrganizationEventPayload::OWNERSHIP_TRANSFER_REJECTED,
+            appletheia::domain::EventName::new("ownership_transfer_rejected")
+        );
+        assert_eq!(
             OrganizationEventPayload::HANDLE_CHANGED,
             appletheia::domain::EventName::new("handle_changed")
+        );
+        assert_eq!(
+            OrganizationEventPayload::HANDLE_CHANGE_REJECTED,
+            appletheia::domain::EventName::new("handle_change_rejected")
         );
         assert_eq!(
             OrganizationEventPayload::DISPLAY_NAME_CHANGED,
             appletheia::domain::EventName::new("display_name_changed")
         );
         assert_eq!(
+            OrganizationEventPayload::DISPLAY_NAME_CHANGE_REJECTED,
+            appletheia::domain::EventName::new("display_name_change_rejected")
+        );
+        assert_eq!(
             OrganizationEventPayload::DESCRIPTION_CHANGED,
             appletheia::domain::EventName::new("description_changed")
+        );
+        assert_eq!(
+            OrganizationEventPayload::DESCRIPTION_CHANGE_REJECTED,
+            appletheia::domain::EventName::new("description_change_rejected")
         );
         assert_eq!(
             OrganizationEventPayload::WEBSITE_URL_CHANGED,
             appletheia::domain::EventName::new("website_url_changed")
         );
         assert_eq!(
+            OrganizationEventPayload::WEBSITE_URL_CHANGE_REJECTED,
+            appletheia::domain::EventName::new("website_url_change_rejected")
+        );
+        assert_eq!(
             OrganizationEventPayload::PICTURE_CHANGED,
             appletheia::domain::EventName::new("picture_changed")
         );
         assert_eq!(
+            OrganizationEventPayload::PICTURE_CHANGE_REJECTED,
+            appletheia::domain::EventName::new("picture_change_rejected")
+        );
+        assert_eq!(
             OrganizationEventPayload::REMOVED,
             appletheia::domain::EventName::new("removed")
+        );
+        assert_eq!(
+            OrganizationEventPayload::REMOVE_REJECTED,
+            appletheia::domain::EventName::new("remove_rejected")
         );
     }
 

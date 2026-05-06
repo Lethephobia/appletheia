@@ -12,11 +12,11 @@ use crate::snapshot::{SnapshotPolicy, SnapshotReader, SnapshotWriter};
 use crate::unit_of_work::UnitOfWork;
 
 use super::{
-    Repository, RepositoryConfig, RepositoryError, UniqueKeyReservationStore,
-    UniqueValueOwnerLookup,
+    DefaultRepositoryDependencies, EventSaveHook, Repository, RepositoryConfig, RepositoryError,
+    UniqueKeyReservationStore, UniqueValueOwnerLookup,
 };
 
-pub struct DefaultRepository<A, ER, EW, SR, SW, UVOL, UKS, Uow>
+pub struct DefaultRepository<A, ER, EW, SR, SW, UVOL, UKS, ESH, Uow>
 where
     A: Aggregate,
     A::State: UniqueConstraints<<A::State as AggregateState>::Error>,
@@ -27,6 +27,7 @@ where
     SW: SnapshotWriter<A, Uow = Uow>,
     UVOL: UniqueValueOwnerLookup<Uow = Uow>,
     UKS: UniqueKeyReservationStore<Uow = Uow>,
+    ESH: EventSaveHook<A, Uow = Uow>,
 {
     config: RepositoryConfig,
     event_reader: ER,
@@ -35,10 +36,12 @@ where
     snapshot_writer: SW,
     unique_value_owner_lookup: UVOL,
     unique_key_reservation_store: UKS,
+    event_save_hook: ESH,
     _marker: PhantomData<fn() -> A>,
 }
 
-impl<A, ER, EW, SR, SW, UVOL, UKS, Uow> DefaultRepository<A, ER, EW, SR, SW, UVOL, UKS, Uow>
+impl<A, ER, EW, SR, SW, UVOL, UKS, ESH, Uow>
+    DefaultRepository<A, ER, EW, SR, SW, UVOL, UKS, ESH, Uow>
 where
     A: Aggregate,
     A::State: UniqueConstraints<<A::State as AggregateState>::Error>,
@@ -49,31 +52,28 @@ where
     SW: SnapshotWriter<A, Uow = Uow>,
     UVOL: UniqueValueOwnerLookup<Uow = Uow>,
     UKS: UniqueKeyReservationStore<Uow = Uow>,
+    ESH: EventSaveHook<A, Uow = Uow>,
 {
     pub fn new(
         config: RepositoryConfig,
-        event_reader: ER,
-        snapshot_reader: SR,
-        event_writer: EW,
-        snapshot_writer: SW,
-        unique_value_owner_lookup: UVOL,
-        unique_key_reservation_store: UKS,
+        dependencies: DefaultRepositoryDependencies<ER, EW, SR, SW, UVOL, UKS, ESH>,
     ) -> Self {
         Self {
             config,
-            event_reader,
-            snapshot_reader,
-            event_writer,
-            snapshot_writer,
-            unique_value_owner_lookup,
-            unique_key_reservation_store,
+            event_reader: dependencies.event_reader,
+            snapshot_reader: dependencies.snapshot_reader,
+            event_writer: dependencies.event_writer,
+            snapshot_writer: dependencies.snapshot_writer,
+            unique_value_owner_lookup: dependencies.unique_value_owner_lookup,
+            unique_key_reservation_store: dependencies.unique_key_reservation_store,
+            event_save_hook: dependencies.event_save_hook,
             _marker: PhantomData,
         }
     }
 }
 
-impl<A, ER, EW, SR, SW, UVOL, UKS, Uow> Repository<A>
-    for DefaultRepository<A, ER, EW, SR, SW, UVOL, UKS, Uow>
+impl<A, ER, EW, SR, SW, UVOL, UKS, ESH, Uow> Repository<A>
+    for DefaultRepository<A, ER, EW, SR, SW, UVOL, UKS, ESH, Uow>
 where
     A: Aggregate,
     A::State: UniqueConstraints<<A::State as AggregateState>::Error>,
@@ -84,6 +84,7 @@ where
     SW: SnapshotWriter<A, Uow = Uow>,
     UVOL: UniqueValueOwnerLookup<Uow = Uow>,
     UKS: UniqueKeyReservationStore<Uow = Uow>,
+    ESH: EventSaveHook<A, Uow = Uow>,
 {
     type Uow = Uow;
 
@@ -162,6 +163,13 @@ where
             .write_events_and_outbox(uow, request_context, events)
             .await?;
 
+        for event in events {
+            self.event_save_hook
+                .after_event_saved(uow, event)
+                .await
+                .map_err(RepositoryError::event_save_hook)?;
+        }
+
         match self.config.snapshot_policy {
             SnapshotPolicy::Disabled => {}
             SnapshotPolicy::AtLeast { minimum_interval } => {
@@ -195,8 +203,9 @@ mod tests {
     use super::DefaultRepository;
     use crate::event::{EventReader, EventReaderError, EventWriter, EventWriterError};
     use crate::repository::{
-        Repository, RepositoryConfig, RepositoryError, UniqueKeyReservationStore,
-        UniqueKeyReservationStoreError, UniqueValueOwnerLookup, UniqueValueOwnerLookupError,
+        DefaultRepositoryDependencies, NoopEventSaveHook, Repository, RepositoryConfig,
+        RepositoryError, UniqueKeyReservationStore, UniqueKeyReservationStoreError,
+        UniqueValueOwnerLookup, UniqueValueOwnerLookupError,
     };
     use crate::request_context::{CorrelationId, MessageId, Principal, RequestContext};
     use crate::snapshot::{
@@ -543,26 +552,30 @@ mod tests {
         RecordingSnapshotWriter,
         RecordingUniqueValueOwnerLookup,
         RecordingUniqueKeyReservationStore,
+        NoopEventSaveHook<TestUnitOfWork>,
         TestUnitOfWork,
     > {
         DefaultRepository::new(
             RepositoryConfig {
                 snapshot_policy: SnapshotPolicy::Disabled,
             },
-            RecordingEventReader,
-            RecordingSnapshotReader,
-            RecordingEventWriter {
-                log: Arc::clone(&log),
-            },
-            RecordingSnapshotWriter,
-            RecordingUniqueValueOwnerLookup {
-                aggregate_id: None,
-                fail: false,
-                log: Arc::clone(&log),
-            },
-            RecordingUniqueKeyReservationStore {
-                fail_with_conflict,
-                log,
+            DefaultRepositoryDependencies {
+                event_reader: RecordingEventReader,
+                event_writer: RecordingEventWriter {
+                    log: Arc::clone(&log),
+                },
+                snapshot_reader: RecordingSnapshotReader,
+                snapshot_writer: RecordingSnapshotWriter,
+                unique_value_owner_lookup: RecordingUniqueValueOwnerLookup {
+                    aggregate_id: None,
+                    fail: false,
+                    log: Arc::clone(&log),
+                },
+                unique_key_reservation_store: RecordingUniqueKeyReservationStore {
+                    fail_with_conflict,
+                    log,
+                },
+                event_save_hook: NoopEventSaveHook::new(),
             },
         )
     }
@@ -601,26 +614,30 @@ mod tests {
         RecordingSnapshotWriter,
         RecordingUniqueValueOwnerLookup,
         RecordingUniqueKeyReservationStore,
+        NoopEventSaveHook<TestUnitOfWork>,
         TestUnitOfWork,
     > {
         DefaultRepository::new(
             RepositoryConfig {
                 snapshot_policy: SnapshotPolicy::Disabled,
             },
-            RecordingEventReader,
-            RecordingSnapshotReader,
-            RecordingEventWriter {
-                log: Arc::clone(&log),
-            },
-            RecordingSnapshotWriter,
-            RecordingUniqueValueOwnerLookup {
-                aggregate_id,
-                fail: fail_lookup,
-                log: Arc::clone(&log),
-            },
-            RecordingUniqueKeyReservationStore {
-                fail_with_conflict: false,
-                log,
+            DefaultRepositoryDependencies {
+                event_reader: RecordingEventReader,
+                event_writer: RecordingEventWriter {
+                    log: Arc::clone(&log),
+                },
+                snapshot_reader: RecordingSnapshotReader,
+                snapshot_writer: RecordingSnapshotWriter,
+                unique_value_owner_lookup: RecordingUniqueValueOwnerLookup {
+                    aggregate_id,
+                    fail: fail_lookup,
+                    log: Arc::clone(&log),
+                },
+                unique_key_reservation_store: RecordingUniqueKeyReservationStore {
+                    fail_with_conflict: false,
+                    log,
+                },
+                event_save_hook: NoopEventSaveHook::new(),
             },
         )
     }

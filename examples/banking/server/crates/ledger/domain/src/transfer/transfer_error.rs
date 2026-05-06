@@ -11,19 +11,4 @@ pub enum TransferError {
 
     #[error("transfer has already been requested")]
     AlreadyRequested,
-
-    #[error("transfer source and destination accounts must differ")]
-    SameAccount,
-
-    #[error("transfer amount must be greater than zero")]
-    ZeroAmount,
-
-    #[error("transfer is already completed")]
-    AlreadyCompleted,
-
-    #[error("transfer is already failed")]
-    AlreadyFailed,
-
-    #[error("transfer is already cancelled")]
-    AlreadyCancelled,
 }
