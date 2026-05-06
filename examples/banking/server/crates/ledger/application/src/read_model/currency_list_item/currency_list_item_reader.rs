@@ -3,8 +3,8 @@ use appletheia::application::unit_of_work::UnitOfWork;
 use crate::pagination::{CursorOptions, Page, PageLimit};
 
 use super::{
-    CurrencyListItem, CurrencyListItemCursor, CurrencyListItemReaderError, CurrencyListItemSortKey,
-    CurrencyListItemStatus,
+    CurrencyListItem, CurrencyListItemCriteria, CurrencyListItemCursor,
+    CurrencyListItemReaderError, CurrencyListItemSortKey,
 };
 
 /// Loads currency list read models from normalized query-side tables.
@@ -15,7 +15,7 @@ pub trait CurrencyListItemReader: Send + Sync {
     async fn list(
         &self,
         uow: &mut Self::Uow,
-        status: Option<CurrencyListItemStatus>,
+        criteria: CurrencyListItemCriteria,
         cursor_options: Option<CursorOptions<CurrencyListItemSortKey, CurrencyListItemCursor>>,
         limit: PageLimit,
     ) -> Result<Page<CurrencyListItem, CurrencyListItemCursor>, CurrencyListItemReaderError>;

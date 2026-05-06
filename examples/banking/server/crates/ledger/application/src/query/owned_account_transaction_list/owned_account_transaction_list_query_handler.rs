@@ -85,9 +85,7 @@ where
             .list(
                 uow,
                 query.owner,
-                query.account_id,
-                query.currency_id,
-                query.status,
+                query.criteria,
                 query.cursor_options,
                 query.limit,
             )

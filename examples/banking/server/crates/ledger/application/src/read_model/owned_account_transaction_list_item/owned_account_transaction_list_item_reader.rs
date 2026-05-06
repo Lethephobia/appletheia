@@ -1,13 +1,12 @@
 use appletheia::application::unit_of_work::UnitOfWork;
-use banking_ledger_domain::account::{AccountId, AccountOwner};
-use banking_ledger_domain::currency::CurrencyId;
+use banking_ledger_domain::account::AccountOwner;
 
 use crate::pagination::{CursorOptions, Page, PageLimit};
 
 use super::{
-    OwnedAccountTransactionListItem, OwnedAccountTransactionListItemCursor,
-    OwnedAccountTransactionListItemReaderError, OwnedAccountTransactionListItemSortKey,
-    OwnedAccountTransactionListItemStatus,
+    OwnedAccountTransactionListItem, OwnedAccountTransactionListItemCriteria,
+    OwnedAccountTransactionListItemCursor, OwnedAccountTransactionListItemReaderError,
+    OwnedAccountTransactionListItemSortKey,
 };
 
 /// Loads owned account transaction list read models.
@@ -19,9 +18,7 @@ pub trait OwnedAccountTransactionListItemReader: Send + Sync {
         &self,
         uow: &mut Self::Uow,
         owner: AccountOwner,
-        account_id: Option<AccountId>,
-        currency_id: Option<CurrencyId>,
-        status: Option<OwnedAccountTransactionListItemStatus>,
+        criteria: OwnedAccountTransactionListItemCriteria,
         cursor_options: Option<
             CursorOptions<
                 OwnedAccountTransactionListItemSortKey,

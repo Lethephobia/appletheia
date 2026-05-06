@@ -1,11 +1,10 @@
 use appletheia::query;
-use banking_ledger_domain::account::{AccountId, AccountOwner};
-use banking_ledger_domain::currency::CurrencyId;
+use banking_ledger_domain::account::AccountOwner;
 
 use crate::pagination::{CursorOptions, PageLimit};
 use crate::read_model::{
-    OwnedAccountTransactionListItemCursor, OwnedAccountTransactionListItemSortKey,
-    OwnedAccountTransactionListItemStatus,
+    OwnedAccountTransactionListItemCriteria, OwnedAccountTransactionListItemCursor,
+    OwnedAccountTransactionListItemSortKey,
 };
 
 /// Query parameters for owned account transaction list reads.
@@ -13,9 +12,7 @@ use crate::read_model::{
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct OwnedAccountTransactionListQuery {
     pub owner: AccountOwner,
-    pub account_id: Option<AccountId>,
-    pub currency_id: Option<CurrencyId>,
-    pub status: Option<OwnedAccountTransactionListItemStatus>,
+    pub criteria: OwnedAccountTransactionListItemCriteria,
     pub cursor_options: Option<
         CursorOptions<
             OwnedAccountTransactionListItemSortKey,

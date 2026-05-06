@@ -1,7 +1,0 @@
-mod transfer_recipient_list_item_projector;
-mod transfer_recipient_list_item_projector_error;
-mod transfer_recipient_list_item_projector_spec;
-
-pub use transfer_recipient_list_item_projector::TransferRecipientListItemProjector;
-pub use transfer_recipient_list_item_projector_error::TransferRecipientListItemProjectorError;
-pub use transfer_recipient_list_item_projector_spec::TransferRecipientListItemProjectorSpec;

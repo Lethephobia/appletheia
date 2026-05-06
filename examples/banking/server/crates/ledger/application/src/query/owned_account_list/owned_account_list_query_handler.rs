@@ -80,8 +80,7 @@ where
             .list(
                 uow,
                 query.owner,
-                query.currency_id,
-                query.status,
+                query.criteria,
                 query.cursor_options,
                 query.limit,
             )

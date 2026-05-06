@@ -1,16 +1,13 @@
 use thiserror::Error;
 
-/// Error returned while mapping PostgreSQL rows for transfer recipient list reads.
+/// Error returned while mapping PostgreSQL rows for public account list reads.
 #[derive(Debug, Error)]
-pub enum PgTransferRecipientListItemRowError {
-    #[error("invalid user id")]
-    InvalidUserId(#[source] Box<dyn std::error::Error + Send + Sync>),
+pub enum PgPublicAccountListItemRowError {
+    #[error("unknown account owner type: {0}")]
+    UnknownOwnerType(String),
 
-    #[error("invalid username")]
-    InvalidUsername(#[source] Box<dyn std::error::Error + Send + Sync>),
-
-    #[error("invalid user display name")]
-    InvalidUserDisplayName(#[source] Box<dyn std::error::Error + Send + Sync>),
+    #[error("invalid account owner id")]
+    InvalidOwnerId(#[source] Box<dyn std::error::Error + Send + Sync>),
 
     #[error("invalid account id")]
     InvalidAccountId(#[source] Box<dyn std::error::Error + Send + Sync>),

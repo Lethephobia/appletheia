@@ -2,6 +2,7 @@ use appletheia::domain::EventOccurredAt;
 use banking_ledger_domain::core::CurrencyAmount;
 use banking_ledger_domain::currency::{CurrencyDecimals, CurrencyId, CurrencyName, CurrencySymbol};
 
+mod currency_list_item_criteria;
 mod currency_list_item_cursor;
 mod currency_list_item_owner;
 mod currency_list_item_owner_organization;
@@ -13,6 +14,7 @@ mod currency_list_item_status;
 mod currency_list_item_writer;
 mod currency_list_item_writer_error;
 
+pub use currency_list_item_criteria::CurrencyListItemCriteria;
 pub use currency_list_item_cursor::CurrencyListItemCursor;
 pub use currency_list_item_owner::CurrencyListItemOwner;
 pub use currency_list_item_owner_organization::CurrencyListItemOwnerOrganization;

@@ -1,8 +1,9 @@
 use appletheia::domain::AggregateId;
 use appletheia::infrastructure::postgresql::PgUnitOfWork;
 use banking_ledger_application::{
-    CurrencyListItem, CurrencyListItemCursor, CurrencyListItemReader, CurrencyListItemReaderError,
-    CurrencyListItemSortKey, CurrencyListItemStatus, CursorOptions, Page, PageLimit, SortDirection,
+    CurrencyListItem, CurrencyListItemCriteria, CurrencyListItemCursor, CurrencyListItemReader,
+    CurrencyListItemReaderError, CurrencyListItemSortKey, CurrencyListItemStatus, CursorOptions,
+    Page, PageLimit, SortDirection,
 };
 use sqlx::{Postgres, QueryBuilder};
 
@@ -36,7 +37,7 @@ impl CurrencyListItemReader for PgCurrencyListItemReader {
     async fn list(
         &self,
         uow: &mut Self::Uow,
-        status: Option<CurrencyListItemStatus>,
+        criteria: CurrencyListItemCriteria,
         cursor_options: Option<CursorOptions<CurrencyListItemSortKey, CurrencyListItemCursor>>,
         page_limit: PageLimit,
     ) -> Result<Page<CurrencyListItem, CurrencyListItemCursor>, CurrencyListItemReaderError> {
@@ -71,7 +72,7 @@ impl CurrencyListItemReader for PgCurrencyListItemReader {
             "#,
         );
 
-        if let Some(status) = status {
+        if let Some(status) = criteria.status {
             builder
                 .push(" AND i.status = ")
                 .push_bind(Self::status_name(status));

@@ -1,125 +1,37 @@
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
-use banking_iam_domain::{User, UserEventPayload};
 use banking_ledger_domain::account::{Account, AccountEventPayload};
 use banking_ledger_domain::currency::{Currency, CurrencyEventPayload};
 
-use super::{TransferRecipientListItemProjectorError, TransferRecipientListItemProjectorSpec};
-use crate::read_model::{
-    TransferRecipientListItemAccountStatus, TransferRecipientListItemUserStatus,
-    TransferRecipientListItemWriter,
-};
+use super::{PublicAccountListItemProjectorError, PublicAccountListItemProjectorSpec};
+use crate::read_model::{PublicAccountListItemStatus, PublicAccountListItemWriter};
 
-/// Projects user, account, and currency events into transfer recipient list item read models.
-pub struct TransferRecipientListItemProjector<W>
+/// Projects account and currency events into public account list item read models.
+pub struct PublicAccountListItemProjector<W>
 where
-    W: TransferRecipientListItemWriter,
+    W: PublicAccountListItemWriter,
 {
     writer: W,
 }
 
-impl<W> TransferRecipientListItemProjector<W>
+impl<W> PublicAccountListItemProjector<W>
 where
-    W: TransferRecipientListItemWriter,
+    W: PublicAccountListItemWriter,
 {
     pub fn new(writer: W) -> Self {
         Self { writer }
     }
 }
 
-impl<W> Projector for TransferRecipientListItemProjector<W>
+impl<W> Projector for PublicAccountListItemProjector<W>
 where
-    W: TransferRecipientListItemWriter,
+    W: PublicAccountListItemWriter,
 {
-    type Spec = TransferRecipientListItemProjectorSpec;
+    type Spec = PublicAccountListItemProjectorSpec;
     type Uow = W::Uow;
-    type Error = TransferRecipientListItemProjectorError;
+    type Error = PublicAccountListItemProjectorError;
 
     async fn project(&self, uow: &mut Self::Uow, event: &EventEnvelope) -> Result<(), Self::Error> {
-        if event.is_for_aggregate::<User>() {
-            let domain_event = event.try_into_domain_event::<User>()?;
-            let user_id = domain_event.aggregate_id();
-
-            match domain_event.payload() {
-                UserEventPayload::Registered { .. } => {
-                    self.writer
-                        .upsert_user(
-                            uow,
-                            user_id,
-                            TransferRecipientListItemUserStatus::Active,
-                            event.event_sequence,
-                            event.occurred_at,
-                        )
-                        .await?;
-                }
-                UserEventPayload::UsernameChanged { username } => {
-                    self.writer
-                        .update_user_username(
-                            uow,
-                            user_id,
-                            username.clone(),
-                            event.event_sequence,
-                            event.occurred_at,
-                        )
-                        .await?;
-                }
-                UserEventPayload::DisplayNameChanged { display_name } => {
-                    self.writer
-                        .update_user_display_name(
-                            uow,
-                            user_id,
-                            display_name.clone(),
-                            event.event_sequence,
-                            event.occurred_at,
-                        )
-                        .await?;
-                }
-                UserEventPayload::PictureChanged { picture, .. } => {
-                    self.writer
-                        .update_user_picture(
-                            uow,
-                            user_id,
-                            picture.clone(),
-                            event.event_sequence,
-                            event.occurred_at,
-                        )
-                        .await?;
-                }
-                UserEventPayload::Activated => {
-                    self.writer
-                        .update_user_status(
-                            uow,
-                            user_id,
-                            TransferRecipientListItemUserStatus::Active,
-                            event.event_sequence,
-                            event.occurred_at,
-                        )
-                        .await?;
-                }
-                UserEventPayload::Inactivated => {
-                    self.writer
-                        .update_user_status(
-                            uow,
-                            user_id,
-                            TransferRecipientListItemUserStatus::Inactive,
-                            event.event_sequence,
-                            event.occurred_at,
-                        )
-                        .await?;
-                }
-                UserEventPayload::Removed => {
-                    self.writer
-                        .delete_user(uow, user_id, event.event_sequence)
-                        .await?;
-                }
-                UserEventPayload::IdentityLinked { .. }
-                | UserEventPayload::IdentityEmailChanged { .. }
-                | UserEventPayload::BioChanged { .. } => {}
-            }
-
-            return Ok(());
-        }
-
         if event.is_for_aggregate::<Account>() {
             let domain_event = event.try_into_domain_event::<Account>()?;
             let account_id = domain_event.aggregate_id();
@@ -134,7 +46,7 @@ where
                             account_id,
                             *owner,
                             *currency_id,
-                            TransferRecipientListItemAccountStatus::Active,
+                            PublicAccountListItemStatus::Active,
                             event.event_sequence,
                             event.occurred_at,
                         )
@@ -156,7 +68,7 @@ where
                         .update_account_status(
                             uow,
                             account_id,
-                            TransferRecipientListItemAccountStatus::Frozen,
+                            PublicAccountListItemStatus::Frozen,
                             event.event_sequence,
                             event.occurred_at,
                         )
@@ -167,7 +79,7 @@ where
                         .update_account_status(
                             uow,
                             account_id,
-                            TransferRecipientListItemAccountStatus::Active,
+                            PublicAccountListItemStatus::Active,
                             event.event_sequence,
                             event.occurred_at,
                         )

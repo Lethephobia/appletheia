@@ -4,41 +4,41 @@ use appletheia::application::query::QueryHandler;
 use appletheia::application::request_context::RequestContext;
 
 use crate::pagination::Page;
-use crate::projection::TransferRecipientListItemProjectorSpec;
+use crate::projection::PublicAccountListItemProjectorSpec;
 use crate::read_model::{
-    TransferRecipientListItem, TransferRecipientListItemCursor, TransferRecipientListItemReader,
+    PublicAccountListItem, PublicAccountListItemCursor, PublicAccountListItemReader,
 };
 
-use super::{TransferRecipientListQuery, TransferRecipientListQueryHandlerError};
+use super::{PublicAccountListQuery, PublicAccountListQueryHandlerError};
 
-/// Handles transfer recipient list queries.
-pub struct TransferRecipientListQueryHandler<S>
+/// Handles public account list queries.
+pub struct PublicAccountListQueryHandler<S>
 where
-    S: TransferRecipientListItemReader,
+    S: PublicAccountListItemReader,
 {
     store: S,
 }
 
-impl<S> TransferRecipientListQueryHandler<S>
+impl<S> PublicAccountListQueryHandler<S>
 where
-    S: TransferRecipientListItemReader,
+    S: PublicAccountListItemReader,
 {
     pub fn new(store: S) -> Self {
         Self { store }
     }
 }
 
-impl<S> QueryHandler for TransferRecipientListQueryHandler<S>
+impl<S> QueryHandler for PublicAccountListQueryHandler<S>
 where
-    S: TransferRecipientListItemReader,
+    S: PublicAccountListItemReader,
 {
-    type Query = TransferRecipientListQuery;
-    type Output = Page<TransferRecipientListItem, TransferRecipientListItemCursor>;
-    type Error = TransferRecipientListQueryHandlerError;
+    type Query = PublicAccountListQuery;
+    type Output = Page<PublicAccountListItem, PublicAccountListItemCursor>;
+    type Error = PublicAccountListQueryHandlerError;
     type Uow = S::Uow;
 
     const PROJECTOR_DEPENDENCIES: ProjectorDependencies<'static> =
-        ProjectorDependencies::Some(&[TransferRecipientListItemProjectorSpec::DESCRIPTOR]);
+        ProjectorDependencies::Some(&[PublicAccountListItemProjectorSpec::DESCRIPTOR]);
 
     fn authorization_plan(&self, _query: &Self::Query) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
@@ -55,13 +55,7 @@ where
     ) -> Result<Self::Output, Self::Error> {
         Ok(self
             .store
-            .list(
-                uow,
-                query.keyword,
-                query.currency_id,
-                query.cursor_options,
-                query.limit,
-            )
+            .list(uow, query.criteria, query.cursor_options, query.limit)
             .await?)
     }
 }

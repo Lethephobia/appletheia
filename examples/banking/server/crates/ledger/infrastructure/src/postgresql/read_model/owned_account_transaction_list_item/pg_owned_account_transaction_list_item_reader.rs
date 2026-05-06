@@ -1,13 +1,12 @@
 use appletheia::domain::AggregateId;
 use appletheia::infrastructure::postgresql::PgUnitOfWork;
 use banking_ledger_application::{
-    CursorOptions, OwnedAccountTransactionListItem, OwnedAccountTransactionListItemCursor,
-    OwnedAccountTransactionListItemReader, OwnedAccountTransactionListItemReaderError,
-    OwnedAccountTransactionListItemSortKey, OwnedAccountTransactionListItemStatus, Page, PageLimit,
-    SortDirection,
+    CursorOptions, OwnedAccountTransactionListItem, OwnedAccountTransactionListItemCriteria,
+    OwnedAccountTransactionListItemCursor, OwnedAccountTransactionListItemReader,
+    OwnedAccountTransactionListItemReaderError, OwnedAccountTransactionListItemSortKey,
+    OwnedAccountTransactionListItemStatus, Page, PageLimit, SortDirection,
 };
-use banking_ledger_domain::account::{AccountId, AccountOwner};
-use banking_ledger_domain::currency::CurrencyId;
+use banking_ledger_domain::account::AccountOwner;
 use sqlx::{Postgres, QueryBuilder};
 
 use super::pg_owned_account_transaction_list_item_row::PgOwnedAccountTransactionListItemRow;
@@ -52,9 +51,7 @@ impl OwnedAccountTransactionListItemReader for PgOwnedAccountTransactionListItem
         &self,
         uow: &mut Self::Uow,
         owner: AccountOwner,
-        account_id: Option<AccountId>,
-        currency_id: Option<CurrencyId>,
-        status: Option<OwnedAccountTransactionListItemStatus>,
+        criteria: OwnedAccountTransactionListItemCriteria,
         cursor_options: Option<
             CursorOptions<
                 OwnedAccountTransactionListItemSortKey,
@@ -112,19 +109,19 @@ impl OwnedAccountTransactionListItemReader for PgOwnedAccountTransactionListItem
             .push(" AND i.owner_id = ")
             .push_bind(owner_id);
 
-        if let Some(account_id) = account_id {
+        if let Some(account_id) = criteria.account_id {
             builder
                 .push(" AND i.account_id = ")
                 .push_bind(account_id.value());
         }
 
-        if let Some(currency_id) = currency_id {
+        if let Some(currency_id) = criteria.currency_id {
             builder
                 .push(" AND i.currency_id = ")
                 .push_bind(currency_id.value());
         }
 
-        if let Some(status) = status {
+        if let Some(status) = criteria.status {
             builder
                 .push(" AND i.status = ")
                 .push_bind(Self::status_name(status));

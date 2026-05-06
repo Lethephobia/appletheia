@@ -53,7 +53,7 @@ where
     ) -> Result<Self::Output, Self::Error> {
         Ok(self
             .store
-            .list(uow, query.status, query.cursor_options, query.limit)
+            .list(uow, query.criteria, query.cursor_options, query.limit)
             .await?)
     }
 }

@@ -2,6 +2,7 @@ use appletheia::domain::EventOccurredAt;
 use banking_ledger_domain::account::{AccountId, AccountName, AccountOwner};
 use banking_ledger_domain::core::CurrencyAmount;
 
+mod owned_account_list_item_criteria;
 mod owned_account_list_item_currency;
 mod owned_account_list_item_cursor;
 mod owned_account_list_item_reader;
@@ -11,6 +12,7 @@ mod owned_account_list_item_status;
 mod owned_account_list_item_writer;
 mod owned_account_list_item_writer_error;
 
+pub use owned_account_list_item_criteria::OwnedAccountListItemCriteria;
 pub use owned_account_list_item_currency::OwnedAccountListItemCurrency;
 pub use owned_account_list_item_cursor::OwnedAccountListItemCursor;
 pub use owned_account_list_item_reader::OwnedAccountListItemReader;
