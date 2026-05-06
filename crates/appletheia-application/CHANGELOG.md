@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.24.0](https://github.com/Lethephobia/appletheia/compare/appletheia-application-v0.23.0...appletheia-application-v0.24.0) - 2026-05-06
+
+### Added
+
+- *(repository)* [**breaking**] move relationship updates to save hooks
+- *(banking)* project ledger read models
+- *(command)* [**breaking**] persist domain rejection outcomes
+
+### Other
+
+- *(saga)* [**breaking**] enforce instance start events
+- *(saga)* [**breaking**] restore instance-based workflows
+
 ## [0.23.0](https://github.com/Lethephobia/appletheia/compare/appletheia-application-v0.22.0...appletheia-application-v0.23.0) - 2026-04-27
 
 ### Added

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.15](https://github.com/Lethephobia/appletheia/compare/appletheia-macros-v0.2.14...appletheia-macros-v0.2.15) - 2026-05-06
+
+### Added
+
+- *(banking-ledger)* add owned account list query
+
 ## [0.2.14](https://github.com/Lethephobia/appletheia/compare/appletheia-macros-v0.2.13...appletheia-macros-v0.2.14) - 2026-04-27
 
 ### Other

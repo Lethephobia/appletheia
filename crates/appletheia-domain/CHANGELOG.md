@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0](https://github.com/Lethephobia/appletheia/compare/appletheia-domain-v0.3.3...appletheia-domain-v0.4.0) - 2026-05-06
+
+### Other
+
+- *(saga)* [**breaking**] enforce instance start events
+
 ## [0.3.3](https://github.com/Lethephobia/appletheia/compare/appletheia-domain-v0.3.2...appletheia-domain-v0.3.3) - 2026-04-21
 
 ### Other
