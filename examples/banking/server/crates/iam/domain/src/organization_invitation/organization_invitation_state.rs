@@ -15,7 +15,11 @@ use super::{
 #[unique_constraints(
     entry(key = "organization_invitee", value = organization_invitee_value)
 )]
-#[reference_indexes()]
+#[reference_indexes(
+    entry(key = "organization", value = organization_value),
+    entry(key = "invitee", value = invitee_value),
+    entry(key = "issuer_user", value = issuer_user_value)
+)]
 pub struct OrganizationInvitationState {
     pub(super) id: OrganizationInvitationId,
     pub(super) organization_id: OrganizationId,
@@ -59,9 +63,34 @@ fn organization_invitee_value(
     Ok(Some(value))
 }
 
+fn organization_value(
+    state: &OrganizationInvitationState,
+) -> Result<Option<OrganizationId>, OrganizationInvitationStateError> {
+    Ok(Some(state.organization_id))
+}
+
+fn invitee_value(
+    state: &OrganizationInvitationState,
+) -> Result<Option<UserId>, OrganizationInvitationStateError> {
+    Ok(Some(state.invitee_id))
+}
+
+fn issuer_user_value(
+    state: &OrganizationInvitationState,
+) -> Result<Option<UserId>, OrganizationInvitationStateError> {
+    let user_id = match state.issuer {
+        OrganizationInvitationIssuer::User(user_id) => Some(user_id),
+        OrganizationInvitationIssuer::System => None,
+    };
+
+    Ok(user_id)
+}
+
 #[cfg(test)]
 mod tests {
-    use appletheia::domain::{AggregateState, UniqueConstraints, UniqueValues};
+    use appletheia::domain::{
+        AggregateState, ReferenceIndexes, ReferenceValues, UniqueConstraints, UniqueValues,
+    };
     use chrono::{Duration, Utc};
 
     use crate::{OrganizationId, UserId};
@@ -126,6 +155,65 @@ mod tests {
             entries
                 .get(OrganizationInvitationState::ORGANIZATION_INVITEE_KEY)
                 .map(UniqueValues::len),
+            None
+        );
+    }
+
+    #[test]
+    fn returns_reference_entries_for_organization_invitee_and_issuer() {
+        let organization_id = OrganizationId::new();
+        let invitee_id = UserId::new();
+        let issuer_id = UserId::new();
+        let state = OrganizationInvitationState::new(
+            OrganizationInvitationId::new(),
+            organization_id,
+            invitee_id,
+            OrganizationInvitationIssuer::User(issuer_id),
+            expires_at(),
+        );
+
+        let entries = state
+            .reference_entries()
+            .expect("reference entries should build");
+
+        assert_eq!(
+            entries
+                .get(OrganizationInvitationState::ORGANIZATION_REF)
+                .map(ReferenceValues::len),
+            Some(1)
+        );
+        assert_eq!(
+            entries
+                .get(OrganizationInvitationState::INVITEE_REF)
+                .map(ReferenceValues::len),
+            Some(1)
+        );
+        assert_eq!(
+            entries
+                .get(OrganizationInvitationState::ISSUER_USER_REF)
+                .map(ReferenceValues::len),
+            Some(1)
+        );
+    }
+
+    #[test]
+    fn system_issued_invitation_has_no_issuer_reference_entry() {
+        let state = OrganizationInvitationState::new(
+            OrganizationInvitationId::new(),
+            OrganizationId::new(),
+            UserId::new(),
+            OrganizationInvitationIssuer::System,
+            expires_at(),
+        );
+
+        let entries = state
+            .reference_entries()
+            .expect("reference entries should build");
+
+        assert_eq!(
+            entries
+                .get(OrganizationInvitationState::ISSUER_USER_REF)
+                .map(ReferenceValues::len),
             None
         );
     }

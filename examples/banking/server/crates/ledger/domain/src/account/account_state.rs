@@ -10,7 +10,11 @@ use super::{AccountId, AccountName, AccountOwner, AccountStateError, AccountStat
 /// Stores the materialized state of an `Account` aggregate.
 #[aggregate_state(error = AccountStateError)]
 #[unique_constraints()]
-#[reference_indexes()]
+#[reference_indexes(
+    entry(key = "owner_user", value = owner_user_value),
+    entry(key = "owner_organization", value = owner_organization_value),
+    entry(key = "currency", value = currency_value)
+)]
 pub struct AccountState {
     pub(super) id: AccountId,
     pub(super) owner: AccountOwner,
@@ -41,9 +45,25 @@ impl AccountState {
     }
 }
 
+fn owner_user_value(
+    state: &AccountState,
+) -> Result<Option<banking_iam_domain::UserId>, AccountStateError> {
+    Ok(state.owner.user_id().copied())
+}
+
+fn owner_organization_value(
+    state: &AccountState,
+) -> Result<Option<banking_iam_domain::OrganizationId>, AccountStateError> {
+    Ok(state.owner.organization_id().copied())
+}
+
+fn currency_value(state: &AccountState) -> Result<Option<CurrencyId>, AccountStateError> {
+    Ok(Some(state.currency_id))
+}
+
 #[cfg(test)]
 mod tests {
-    use appletheia::domain::AggregateState;
+    use appletheia::domain::{AggregateState, ReferenceIndexes, ReferenceValues};
 
     use banking_iam_domain::{OrganizationId, UserId};
 
@@ -84,5 +104,71 @@ mod tests {
         let state = AccountState::new(AccountId::new(), owner, account_name(), CurrencyId::new());
 
         assert_eq!(state.owner, owner);
+    }
+
+    #[test]
+    fn user_owned_account_returns_user_and_currency_reference_entries() {
+        let state = AccountState::new(
+            AccountId::new(),
+            AccountOwner::User(UserId::new()),
+            account_name(),
+            CurrencyId::new(),
+        );
+
+        let entries = state
+            .reference_entries()
+            .expect("reference entries should build");
+
+        assert_eq!(
+            entries
+                .get(AccountState::OWNER_USER_REF)
+                .map(ReferenceValues::len),
+            Some(1)
+        );
+        assert_eq!(
+            entries
+                .get(AccountState::OWNER_ORGANIZATION_REF)
+                .map(ReferenceValues::len),
+            None
+        );
+        assert_eq!(
+            entries
+                .get(AccountState::CURRENCY_REF)
+                .map(ReferenceValues::len),
+            Some(1)
+        );
+    }
+
+    #[test]
+    fn organization_owned_account_returns_organization_and_currency_reference_entries() {
+        let state = AccountState::new(
+            AccountId::new(),
+            AccountOwner::Organization(OrganizationId::new()),
+            account_name(),
+            CurrencyId::new(),
+        );
+
+        let entries = state
+            .reference_entries()
+            .expect("reference entries should build");
+
+        assert_eq!(
+            entries
+                .get(AccountState::OWNER_USER_REF)
+                .map(ReferenceValues::len),
+            None
+        );
+        assert_eq!(
+            entries
+                .get(AccountState::OWNER_ORGANIZATION_REF)
+                .map(ReferenceValues::len),
+            Some(1)
+        );
+        assert_eq!(
+            entries
+                .get(AccountState::CURRENCY_REF)
+                .map(ReferenceValues::len),
+            Some(1)
+        );
     }
 }

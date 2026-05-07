@@ -14,7 +14,10 @@ use super::{
 #[unique_constraints(
     entry(key = "organization_requester", value = organization_requester_value)
 )]
-#[reference_indexes()]
+#[reference_indexes(
+    entry(key = "organization", value = organization_value),
+    entry(key = "requester", value = requester_value)
+)]
 pub struct OrganizationJoinRequestState {
     pub(super) id: OrganizationJoinRequestId,
     pub(super) organization_id: OrganizationId,
@@ -52,9 +55,23 @@ fn organization_requester_value(
     Ok(Some(value))
 }
 
+fn organization_value(
+    state: &OrganizationJoinRequestState,
+) -> Result<Option<OrganizationId>, OrganizationJoinRequestStateError> {
+    Ok(Some(state.organization_id))
+}
+
+fn requester_value(
+    state: &OrganizationJoinRequestState,
+) -> Result<Option<UserId>, OrganizationJoinRequestStateError> {
+    Ok(Some(state.requester_id))
+}
+
 #[cfg(test)]
 mod tests {
-    use appletheia::domain::{AggregateState, UniqueConstraints, UniqueValues};
+    use appletheia::domain::{
+        AggregateState, ReferenceIndexes, ReferenceValues, UniqueConstraints, UniqueValues,
+    };
 
     use crate::{OrganizationId, UserId};
 
@@ -104,6 +121,34 @@ mod tests {
                 .get(OrganizationJoinRequestState::ORGANIZATION_REQUESTER_KEY)
                 .map(UniqueValues::len),
             None
+        );
+    }
+
+    #[test]
+    fn returns_reference_entries_for_organization_and_requester() {
+        let organization_id = OrganizationId::new();
+        let requester_id = UserId::new();
+        let state = OrganizationJoinRequestState::new(
+            OrganizationJoinRequestId::new(),
+            organization_id,
+            requester_id,
+        );
+
+        let entries = state
+            .reference_entries()
+            .expect("reference entries should build");
+
+        assert_eq!(
+            entries
+                .get(OrganizationJoinRequestState::ORGANIZATION_REF)
+                .map(ReferenceValues::len),
+            Some(1)
+        );
+        assert_eq!(
+            entries
+                .get(OrganizationJoinRequestState::REQUESTER_REF)
+                .map(ReferenceValues::len),
+            Some(1)
         );
     }
 }

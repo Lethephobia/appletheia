@@ -12,7 +12,7 @@ use super::{
 /// Stores the materialized state of an `Organization` aggregate.
 #[aggregate_state(error = OrganizationStateError)]
 #[unique_constraints(entry(key = "handle", value = handle_value))]
-#[reference_indexes()]
+#[reference_indexes(entry(key = "owner_user", value = owner_user_value))]
 pub struct OrganizationState {
     pub(super) id: OrganizationId,
     pub(super) owner: OrganizationOwner,
@@ -58,9 +58,21 @@ fn handle_value(state: &OrganizationState) -> Result<Option<UniqueValue>, Organi
     Ok(Some(value))
 }
 
+fn owner_user_value(
+    state: &OrganizationState,
+) -> Result<Option<crate::UserId>, OrganizationStateError> {
+    let user_id = match state.owner {
+        OrganizationOwner::User(user_id) => user_id,
+    };
+
+    Ok(Some(user_id))
+}
+
 #[cfg(test)]
 mod tests {
-    use appletheia::domain::{AggregateState, UniqueConstraints, UniqueValues};
+    use appletheia::domain::{
+        AggregateState, ReferenceIndexes, ReferenceValues, UniqueConstraints, UniqueValues,
+    };
 
     use crate::{
         OrganizationDescription, OrganizationDisplayName, OrganizationPictureRef,
@@ -158,6 +170,31 @@ mod tests {
                 .get(OrganizationState::HANDLE_KEY)
                 .map(UniqueValues::len),
             None
+        );
+    }
+
+    #[test]
+    fn returns_reference_entry_for_owner_user() {
+        let owner = OrganizationOwner::User(crate::UserId::new());
+        let state = OrganizationState::new(
+            OrganizationId::new(),
+            owner,
+            OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
+            display_name(),
+            None,
+            None,
+            None,
+        );
+
+        let entries = state
+            .reference_entries()
+            .expect("reference entries should build");
+
+        assert_eq!(
+            entries
+                .get(OrganizationState::OWNER_USER_REF)
+                .map(ReferenceValues::len),
+            Some(1)
         );
     }
 }

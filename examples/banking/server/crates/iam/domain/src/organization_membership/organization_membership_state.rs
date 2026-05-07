@@ -12,7 +12,10 @@ use super::{
 /// Stores the materialized state of an `OrganizationMembership` aggregate.
 #[aggregate_state(error = OrganizationMembershipStateError)]
 #[unique_constraints(entry(key = "organization_user", value = organization_user_value))]
-#[reference_indexes()]
+#[reference_indexes(
+    entry(key = "organization", value = organization_value),
+    entry(key = "user", value = user_value)
+)]
 pub struct OrganizationMembershipState {
     pub(super) id: OrganizationMembershipId,
     pub(super) organization_id: OrganizationId,
@@ -53,9 +56,23 @@ fn organization_user_value(
     Ok(Some(value))
 }
 
+fn organization_value(
+    state: &OrganizationMembershipState,
+) -> Result<Option<OrganizationId>, OrganizationMembershipStateError> {
+    Ok(Some(state.organization_id))
+}
+
+fn user_value(
+    state: &OrganizationMembershipState,
+) -> Result<Option<UserId>, OrganizationMembershipStateError> {
+    Ok(Some(state.user_id))
+}
+
 #[cfg(test)]
 mod tests {
-    use appletheia::domain::{AggregateState, UniqueConstraints, UniqueValues};
+    use appletheia::domain::{
+        AggregateState, ReferenceIndexes, ReferenceValues, UniqueConstraints, UniqueValues,
+    };
 
     use crate::{OrganizationId, OrganizationRole, UserId};
 
@@ -114,6 +131,35 @@ mod tests {
                 .get(OrganizationMembershipState::ORGANIZATION_USER_KEY)
                 .map(UniqueValues::len),
             None
+        );
+    }
+
+    #[test]
+    fn returns_reference_entries_for_organization_and_user() {
+        let organization_id = OrganizationId::new();
+        let user_id = UserId::new();
+        let state = OrganizationMembershipState::new(
+            OrganizationMembershipId::new(),
+            organization_id,
+            user_id,
+            Vec::new(),
+        );
+
+        let entries = state
+            .reference_entries()
+            .expect("reference entries should build");
+
+        assert_eq!(
+            entries
+                .get(OrganizationMembershipState::ORGANIZATION_REF)
+                .map(ReferenceValues::len),
+            Some(1)
+        );
+        assert_eq!(
+            entries
+                .get(OrganizationMembershipState::USER_REF)
+                .map(ReferenceValues::len),
+            Some(1)
         );
     }
 }

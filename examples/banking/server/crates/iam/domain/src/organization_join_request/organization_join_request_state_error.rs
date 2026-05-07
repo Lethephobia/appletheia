@@ -1,5 +1,6 @@
 use appletheia::domain::{
-    AggregateStateError, UniqueValueError, UniqueValuePartError, UniqueValuesError,
+    AggregateStateError, ReferenceValuesError, UniqueValueError, UniqueValuePartError,
+    UniqueValuesError,
 };
 use thiserror::Error;
 
@@ -8,6 +9,9 @@ use thiserror::Error;
 pub enum OrganizationJoinRequestStateError {
     #[error(transparent)]
     AggregateState(#[from] AggregateStateError),
+
+    #[error(transparent)]
+    ReferenceValues(#[from] ReferenceValuesError),
 
     #[error(transparent)]
     UniqueValues(#[from] UniqueValuesError),

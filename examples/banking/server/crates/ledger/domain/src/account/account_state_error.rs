@@ -1,4 +1,4 @@
-use appletheia::domain::AggregateStateError;
+use appletheia::domain::{AggregateStateError, ReferenceValuesError};
 use thiserror::Error;
 
 /// Describes why an account state value cannot be handled.
@@ -6,4 +6,7 @@ use thiserror::Error;
 pub enum AccountStateError {
     #[error(transparent)]
     AggregateState(#[from] AggregateStateError),
+
+    #[error(transparent)]
+    ReferenceValues(#[from] ReferenceValuesError),
 }
