@@ -3,7 +3,7 @@ use appletheia_application::repository::{
     ReferenceIndexLookupPageSize,
 };
 use appletheia_domain::aggregate::{AggregateId, AggregateType, ReferenceKey};
-use sqlx::{Row, postgres::PgRow};
+use sqlx::{Postgres, QueryBuilder, Row, postgres::PgRow};
 
 use crate::postgresql::unit_of_work::PgUnitOfWork;
 
@@ -43,7 +43,7 @@ impl ReferenceIndexLookup for PgReferenceIndexLookup {
         source_aggregate_type: AggregateType,
         reference_key: ReferenceKey,
         target_aggregate_id: T,
-        after_source_aggregate_id: Option<I>,
+        cursor: Option<I>,
         limit: ReferenceIndexLookupPageSize,
     ) -> Result<ReferenceIndexLookupPage<I>, ReferenceIndexLookupError>
     where
@@ -51,46 +51,32 @@ impl ReferenceIndexLookup for PgReferenceIndexLookup {
         T: AggregateId,
     {
         let query_limit = limit.as_i64() + 1;
-        let rows = if let Some(after_source_aggregate_id) = after_source_aggregate_id {
-            sqlx::query(
-                r#"
-                SELECT source_aggregate_id
-                FROM aggregate_reference_indexes
-                WHERE source_aggregate_type = $1
-                  AND namespace = $2
-                  AND target_aggregate_id = $3
-                  AND source_aggregate_id > $4
-                ORDER BY source_aggregate_id
-                LIMIT $5
-                "#,
-            )
-            .bind(source_aggregate_type.value())
-            .bind(reference_key.value())
-            .bind(target_aggregate_id.value())
-            .bind(after_source_aggregate_id.value())
-            .bind(query_limit)
-            .fetch_all(uow.transaction_mut().as_mut())
-            .await
-        } else {
-            sqlx::query(
-                r#"
-                SELECT source_aggregate_id
-                FROM aggregate_reference_indexes
-                WHERE source_aggregate_type = $1
-                  AND namespace = $2
-                  AND target_aggregate_id = $3
-                ORDER BY source_aggregate_id
-                LIMIT $4
-                "#,
-            )
-            .bind(source_aggregate_type.value())
-            .bind(reference_key.value())
-            .bind(target_aggregate_id.value())
-            .bind(query_limit)
-            .fetch_all(uow.transaction_mut().as_mut())
-            .await
+        let mut query = QueryBuilder::<Postgres>::new(
+            r#"
+            SELECT source_aggregate_id
+            FROM aggregate_reference_indexes
+            WHERE source_aggregate_type = "#,
+        );
+        query
+            .push_bind(source_aggregate_type.value())
+            .push(" AND namespace = ")
+            .push_bind(reference_key.value())
+            .push(" AND target_aggregate_id = ")
+            .push_bind(target_aggregate_id.value());
+
+        if let Some(cursor) = cursor {
+            query
+                .push(" AND source_aggregate_id > ")
+                .push_bind(cursor.value());
         }
-        .map_err(|error| ReferenceIndexLookupError::Persistence(Box::new(error)))?;
+
+        let rows = query
+            .push(" ORDER BY source_aggregate_id LIMIT ")
+            .push_bind(query_limit)
+            .build()
+            .fetch_all(uow.transaction_mut().as_mut())
+            .await
+            .map_err(|error| ReferenceIndexLookupError::Persistence(Box::new(error)))?;
 
         let page_limit = limit.as_usize();
         let mut source_ids = rows
