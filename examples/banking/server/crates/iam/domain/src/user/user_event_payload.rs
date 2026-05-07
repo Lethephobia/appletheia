@@ -3,8 +3,10 @@ use appletheia::event_payload;
 use crate::core::Email;
 
 use super::{
-    UserBio, UserDisplayName, UserEventPayloadError, UserId, UserIdentityProvider,
-    UserIdentitySubject, UserPictureRef, Username,
+    UserBio, UserDisplayName, UserEventPayloadError, UserId,
+    UserIdentityEmailChangeRejectionReason, UserIdentityLinkRejectionReason, UserIdentityProvider,
+    UserIdentitySubject, UserPictureRef, UserProfileChangeRejectionReason,
+    UserStatusRejectionReason, Username,
 };
 
 /// Represents the domain events emitted by a `User` aggregate.
@@ -18,27 +20,64 @@ pub enum UserEventPayload {
         subject: UserIdentitySubject,
         email: Option<Email>,
     },
+    IdentityLinkRejected {
+        provider: UserIdentityProvider,
+        subject: UserIdentitySubject,
+        email: Option<Email>,
+        reason: UserIdentityLinkRejectionReason,
+    },
     IdentityEmailChanged {
         provider: UserIdentityProvider,
         subject: UserIdentitySubject,
         email: Option<Email>,
     },
+    IdentityEmailChangeRejected {
+        provider: UserIdentityProvider,
+        subject: UserIdentitySubject,
+        email: Option<Email>,
+        reason: UserIdentityEmailChangeRejectionReason,
+    },
     UsernameChanged {
         username: Username,
+    },
+    UsernameChangeRejected {
+        username: Username,
+        reason: UserProfileChangeRejectionReason,
     },
     DisplayNameChanged {
         display_name: UserDisplayName,
     },
+    DisplayNameChangeRejected {
+        display_name: UserDisplayName,
+        reason: UserProfileChangeRejectionReason,
+    },
     BioChanged {
         bio: Option<UserBio>,
+    },
+    BioChangeRejected {
+        bio: Option<UserBio>,
+        reason: UserProfileChangeRejectionReason,
     },
     PictureChanged {
         picture: Option<UserPictureRef>,
         old_picture: Option<UserPictureRef>,
     },
+    PictureChangeRejected {
+        picture: Option<UserPictureRef>,
+        reason: UserProfileChangeRejectionReason,
+    },
     Activated,
+    ActivateRejected {
+        reason: UserStatusRejectionReason,
+    },
     Inactivated,
+    DeactivateRejected {
+        reason: UserStatusRejectionReason,
+    },
     Removed,
+    RemoveRejected {
+        reason: UserStatusRejectionReason,
+    },
 }
 
 #[cfg(test)]
@@ -61,36 +100,72 @@ mod tests {
             appletheia::domain::EventName::new("identity_linked")
         );
         assert_eq!(
+            UserEventPayload::IDENTITY_LINK_REJECTED,
+            appletheia::domain::EventName::new("identity_link_rejected")
+        );
+        assert_eq!(
             UserEventPayload::IDENTITY_EMAIL_CHANGED,
             appletheia::domain::EventName::new("identity_email_changed")
+        );
+        assert_eq!(
+            UserEventPayload::IDENTITY_EMAIL_CHANGE_REJECTED,
+            appletheia::domain::EventName::new("identity_email_change_rejected")
         );
         assert_eq!(
             UserEventPayload::USERNAME_CHANGED,
             appletheia::domain::EventName::new("username_changed")
         );
         assert_eq!(
+            UserEventPayload::USERNAME_CHANGE_REJECTED,
+            appletheia::domain::EventName::new("username_change_rejected")
+        );
+        assert_eq!(
             UserEventPayload::DISPLAY_NAME_CHANGED,
             appletheia::domain::EventName::new("display_name_changed")
+        );
+        assert_eq!(
+            UserEventPayload::DISPLAY_NAME_CHANGE_REJECTED,
+            appletheia::domain::EventName::new("display_name_change_rejected")
         );
         assert_eq!(
             UserEventPayload::BIO_CHANGED,
             appletheia::domain::EventName::new("bio_changed")
         );
         assert_eq!(
+            UserEventPayload::BIO_CHANGE_REJECTED,
+            appletheia::domain::EventName::new("bio_change_rejected")
+        );
+        assert_eq!(
             UserEventPayload::PICTURE_CHANGED,
             appletheia::domain::EventName::new("picture_changed")
+        );
+        assert_eq!(
+            UserEventPayload::PICTURE_CHANGE_REJECTED,
+            appletheia::domain::EventName::new("picture_change_rejected")
         );
         assert_eq!(
             UserEventPayload::ACTIVATED,
             appletheia::domain::EventName::new("activated")
         );
         assert_eq!(
+            UserEventPayload::ACTIVATE_REJECTED,
+            appletheia::domain::EventName::new("activate_rejected")
+        );
+        assert_eq!(
             UserEventPayload::INACTIVATED,
             appletheia::domain::EventName::new("inactivated")
         );
         assert_eq!(
+            UserEventPayload::DEACTIVATE_REJECTED,
+            appletheia::domain::EventName::new("deactivate_rejected")
+        );
+        assert_eq!(
             UserEventPayload::REMOVED,
             appletheia::domain::EventName::new("removed")
+        );
+        assert_eq!(
+            UserEventPayload::REMOVE_REJECTED,
+            appletheia::domain::EventName::new("remove_rejected")
         );
     }
 

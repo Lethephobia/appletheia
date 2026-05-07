@@ -11,10 +11,4 @@ pub enum OrganizationInvitationError {
 
     #[error("organization invitation is already issued")]
     AlreadyIssued,
-
-    #[error("organization invitation is not pending")]
-    NotPending,
-
-    #[error("organization invitation is expired")]
-    Expired,
 }

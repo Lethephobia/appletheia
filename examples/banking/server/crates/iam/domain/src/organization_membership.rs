@@ -132,6 +132,17 @@ impl OrganizationMembership {
         }
 
         let state = self.state_required()?;
+        if state.roles.contains(&role) {
+            let reason = OrganizationMembershipRoleGrantRejectionReason::AlreadyGranted;
+            self.append_event(OrganizationMembershipEventPayload::RoleGrantRejected {
+                organization_id: state.organization_id,
+                user_id: state.user_id,
+                role,
+                reason,
+            })?;
+            return Ok(OrganizationMembershipRoleGrantResult::Rejected { reason });
+        }
+
         self.append_event(OrganizationMembershipEventPayload::RoleGranted {
             organization_id: state.organization_id,
             user_id: state.user_id,
@@ -272,10 +283,7 @@ impl AggregateApply<OrganizationMembershipEventPayload, OrganizationMembershipEr
                 )));
             }
             OrganizationMembershipEventPayload::RoleGranted { role, .. } => {
-                let state = self.state_required_mut()?;
-                if !state.roles.contains(role) {
-                    state.roles.push(*role);
-                }
+                self.state_required_mut()?.roles.push(*role);
             }
             OrganizationMembershipEventPayload::RoleGrantRejected { .. } => {}
             OrganizationMembershipEventPayload::RoleRevoked { role, .. } => {
@@ -573,7 +581,7 @@ mod tests {
     }
 
     #[test]
-    fn duplicate_grant_and_missing_revoke_append_success_events() {
+    fn duplicate_grant_is_rejected_and_missing_revoke_appends_success_event() {
         let mut membership = OrganizationMembership::default();
         membership
             .create(organization_id(), user_id())
@@ -582,10 +590,20 @@ mod tests {
             .grant_role(OrganizationRole::Admin)
             .expect("grant should succeed");
 
-        membership
+        let duplicate_grant_result = membership
             .grant_role(OrganizationRole::Admin)
-            .expect("duplicate grant should succeed");
+            .expect("duplicate grant rejection should be recorded");
+        assert!(matches!(
+            duplicate_grant_result,
+            super::OrganizationMembershipRoleGrantResult::Rejected {
+                reason: super::OrganizationMembershipRoleGrantRejectionReason::AlreadyGranted
+            }
+        ));
         assert_eq!(membership.uncommitted_events().len(), 3);
+        assert_eq!(
+            membership.roles().expect("roles should exist"),
+            &[OrganizationRole::Admin]
+        );
 
         membership
             .revoke_role(OrganizationRole::Admin)
