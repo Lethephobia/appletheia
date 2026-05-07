@@ -62,13 +62,13 @@ where
             return Err(UserUsernameChangeCommandHandlerError::UserNotFound);
         };
 
-        user.change_username(command.username.clone())?;
+        let result = user.change_username(command.username.clone())?;
 
         self.user_repository
             .save(uow, request_context, &mut user)
             .await?;
 
-        Ok(CommandHandled::same(UserUsernameChangeOutput))
+        Ok(CommandHandled::same(result.into()))
     }
 }
 
@@ -193,6 +193,6 @@ mod tests {
             .await
             .expect("command should succeed");
 
-        assert_eq!(handled.into_output(), UserUsernameChangeOutput);
+        assert_eq!(handled.into_output(), UserUsernameChangeOutput::Changed);
     }
 }

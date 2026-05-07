@@ -62,12 +62,12 @@ where
             return Err(UserPictureChangeCommandHandlerError::UserNotFound);
         };
 
-        user.change_picture(command.picture.clone())?;
+        let result = user.change_picture(command.picture.clone())?;
 
         self.user_repository
             .save(uow, request_context, &mut user)
             .await?;
 
-        Ok(CommandHandled::same(UserPictureChangeOutput))
+        Ok(CommandHandled::same(result.into()))
     }
 }
