@@ -99,7 +99,7 @@ mod tests {
     use crate::aggregate::AggregateState;
     use crate::aggregate::{
         AggregateId, AggregateStateError, AggregateVersion, AggregateVersionError,
-        UniqueConstraints,
+        ReferenceIndexes, UniqueConstraints,
     };
     use crate::event::{Event, EventName, EventPayload};
 
@@ -147,6 +147,7 @@ mod tests {
     }
 
     impl UniqueConstraints<CounterStateError> for CounterState {}
+    impl ReferenceIndexes<CounterStateError> for CounterState {}
 
     impl AggregateState for CounterState {
         type Id = CounterId;

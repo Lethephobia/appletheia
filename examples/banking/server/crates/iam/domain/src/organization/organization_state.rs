@@ -1,5 +1,6 @@
 use appletheia::aggregate_state;
 use appletheia::domain::{UniqueValue, UniqueValuePart, UniqueValues};
+use appletheia::reference_indexes;
 use appletheia::unique_constraints;
 
 use super::{
@@ -11,6 +12,7 @@ use super::{
 /// Stores the materialized state of an `Organization` aggregate.
 #[aggregate_state(error = OrganizationStateError)]
 #[unique_constraints(entry(key = "handle", values = handle_values))]
+#[reference_indexes()]
 pub struct OrganizationState {
     pub(super) id: OrganizationId,
     pub(super) owner: OrganizationOwner,

@@ -90,7 +90,8 @@ mod tests {
 
     use super::{Snapshot, SnapshotId, SnapshotMaterializedAt};
     use crate::aggregate::{
-        AggregateId, AggregateState, AggregateStateError, AggregateVersion, UniqueConstraints,
+        AggregateId, AggregateState, AggregateStateError, AggregateVersion, ReferenceIndexes,
+        UniqueConstraints,
     };
 
     #[derive(Debug, Error, Eq, PartialEq)]
@@ -137,6 +138,7 @@ mod tests {
     }
 
     impl UniqueConstraints<CounterStateError> for CounterState {}
+    impl ReferenceIndexes<CounterStateError> for CounterState {}
 
     impl AggregateState for CounterState {
         type Id = CounterId;

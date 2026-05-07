@@ -8,6 +8,11 @@ pub mod aggregate_type;
 pub mod aggregate_version;
 pub mod aggregate_version_error;
 pub mod aggregate_version_range;
+pub mod reference_entries;
+pub mod reference_indexes;
+pub mod reference_key;
+pub mod reference_values;
+pub mod reference_values_error;
 pub mod unique_constraints;
 pub mod unique_entries;
 pub mod unique_key;
@@ -28,6 +33,11 @@ pub use aggregate_type::AggregateType;
 pub use aggregate_version::AggregateVersion;
 pub use aggregate_version_error::AggregateVersionError;
 pub use aggregate_version_range::AggregateVersionRange;
+pub use reference_entries::ReferenceEntries;
+pub use reference_indexes::ReferenceIndexes;
+pub use reference_key::ReferenceKey;
+pub use reference_values::ReferenceValues;
+pub use reference_values_error::ReferenceValuesError;
 pub use unique_constraints::UniqueConstraints;
 pub use unique_entries::UniqueEntries;
 pub use unique_key::UniqueKey;
@@ -208,7 +218,7 @@ mod tests {
 
     use crate::aggregate::{
         AggregateError, AggregateId, AggregateState, AggregateStateError, AggregateVersion,
-        UniqueConstraints,
+        ReferenceIndexes, UniqueConstraints,
     };
     use crate::event::{EventName, EventPayload};
 
@@ -262,6 +272,7 @@ mod tests {
     }
 
     impl UniqueConstraints<CounterStateError> for CounterState {}
+    impl ReferenceIndexes<CounterStateError> for CounterState {}
 
     impl AggregateState for CounterState {
         type Id = CounterId;

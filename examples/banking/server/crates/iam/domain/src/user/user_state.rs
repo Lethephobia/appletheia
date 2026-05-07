@@ -1,5 +1,6 @@
 use appletheia::aggregate_state;
 use appletheia::domain::{UniqueValue, UniqueValuePart, UniqueValues};
+use appletheia::reference_indexes;
 use appletheia::unique_constraints;
 
 use super::{
@@ -13,6 +14,7 @@ use super::{
     entry(key = "username", values = username_values),
     entry(key = "provider_subject", values = provider_subject_values)
 )]
+#[reference_indexes()]
 pub struct UserState {
     pub(super) id: UserId,
     pub(super) identities: Vec<UserIdentity>,

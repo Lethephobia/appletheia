@@ -49,7 +49,8 @@ impl AggregateRef {
 #[cfg(test)]
 mod tests {
     use appletheia_domain::aggregate::{
-        AggregateCore, AggregateError, AggregateState, AggregateStateError, UniqueConstraints,
+        AggregateCore, AggregateError, AggregateState, AggregateStateError, ReferenceIndexes,
+        UniqueConstraints,
     };
     use appletheia_domain::event::{EventName, EventPayload};
     use appletheia_domain::{Aggregate, AggregateApply, AggregateId, AggregateType};
@@ -106,6 +107,7 @@ mod tests {
     }
 
     impl UniqueConstraints<CounterStateError> for CounterState {}
+    impl ReferenceIndexes<CounterStateError> for CounterState {}
 
     impl AggregateState for CounterState {
         type Id = CounterId;

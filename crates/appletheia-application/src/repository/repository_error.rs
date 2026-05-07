@@ -8,7 +8,9 @@ use appletheia_domain::{Aggregate, AggregateState};
 use crate::event::{EventReaderError, EventWriterError};
 use crate::snapshot::{SnapshotReaderError, SnapshotWriterError};
 
-use super::{UniqueKeyReservationStoreError, UniqueValueOwnerLookupError};
+use super::{
+    ReferenceIndexStoreError, UniqueKeyReservationStoreError, UniqueValueOwnerLookupError,
+};
 
 #[derive(Debug, Error)]
 pub enum RepositoryError<A: Aggregate> {
@@ -23,6 +25,9 @@ pub enum RepositoryError<A: Aggregate> {
 
     #[error("unique value owner lookup error: {0}")]
     UniqueValueOwnerLookup(#[from] UniqueValueOwnerLookupError),
+
+    #[error("reference index store error: {0}")]
+    ReferenceIndexStore(#[from] ReferenceIndexStoreError),
 
     #[error("event reader error: {0}")]
     EventReader(#[from] EventReaderError),

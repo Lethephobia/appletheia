@@ -1,5 +1,6 @@
 use appletheia::aggregate_state;
 use appletheia::domain::{AggregateId, UniqueValue, UniqueValuePart, UniqueValues};
+use appletheia::reference_indexes;
 use appletheia::unique_constraints;
 
 use crate::{OrganizationId, UserId};
@@ -13,6 +14,7 @@ use super::{
 #[unique_constraints(
     entry(key = "organization_requester", values = organization_requester_values)
 )]
+#[reference_indexes()]
 pub struct OrganizationJoinRequestState {
     pub(super) id: OrganizationJoinRequestId,
     pub(super) organization_id: OrganizationId,

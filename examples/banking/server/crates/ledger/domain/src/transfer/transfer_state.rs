@@ -1,4 +1,5 @@
 use appletheia::aggregate_state;
+use appletheia::reference_indexes;
 use appletheia::unique_constraints;
 
 use crate::account::AccountId;
@@ -9,6 +10,7 @@ use super::{TransferId, TransferStateError, TransferStatus};
 /// Stores the materialized state of a `Transfer` aggregate.
 #[aggregate_state(error = TransferStateError)]
 #[unique_constraints()]
+#[reference_indexes()]
 pub struct TransferState {
     pub(super) id: TransferId,
     pub(super) from_account_id: AccountId,

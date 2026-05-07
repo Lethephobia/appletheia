@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-use super::UniqueValuesError;
+use super::{ReferenceValuesError, UniqueValuesError};
 
 /// Errors produced by framework-level aggregate-state operations.
 #[derive(Debug, Error)]
@@ -10,4 +10,7 @@ pub enum AggregateStateError {
 
     #[error(transparent)]
     UniqueValues(#[from] UniqueValuesError),
+
+    #[error(transparent)]
+    ReferenceValues(#[from] ReferenceValuesError),
 }

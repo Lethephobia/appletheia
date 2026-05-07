@@ -1,4 +1,5 @@
 use appletheia::aggregate_state;
+use appletheia::reference_indexes;
 use appletheia::unique_constraints;
 
 use crate::account::AccountId;
@@ -10,6 +11,7 @@ use super::{CurrencyIssuanceId, CurrencyIssuanceStateError, CurrencyIssuanceStat
 /// Stores the materialized state of a `CurrencyIssuance` aggregate.
 #[aggregate_state(error = CurrencyIssuanceStateError)]
 #[unique_constraints()]
+#[reference_indexes()]
 pub struct CurrencyIssuanceState {
     pub(super) id: CurrencyIssuanceId,
     pub(super) currency_id: CurrencyId,

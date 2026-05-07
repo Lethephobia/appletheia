@@ -5,11 +5,11 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use uuid::Uuid;
 
-use appletheia_macros::{aggregate, unique_constraints};
+use appletheia_macros::{aggregate, reference_indexes, unique_constraints};
 
 use theia::domain::{
     Aggregate, AggregateApply, AggregateCore, AggregateError, AggregateId, AggregateState,
-    AggregateStateError, AggregateType, EventName, EventPayload, UniqueConstraints,
+    AggregateStateError, AggregateType, EventName, EventPayload, ReferenceIndexes, UniqueConstraints,
     UniqueValuesError,
 };
 
@@ -51,6 +51,7 @@ enum CounterStateError {
 }
 
 #[unique_constraints()]
+#[reference_indexes()]
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 struct CounterState {
     id: CounterId,

@@ -3,8 +3,8 @@
 use std::convert::Infallible;
 
 use appletheia_domain::{
-    AggregateId, AggregateState, AggregateStateError, UniqueConstraints, UniqueKey, UniqueValue,
-    UniqueValuePart, UniqueValues, UniqueValuesError,
+    AggregateId, AggregateState, AggregateStateError, ReferenceIndexes, UniqueConstraints,
+    UniqueKey, UniqueValue, UniqueValuePart, UniqueValues, UniqueValuesError,
 };
 use appletheia_macros::{aggregate_id, aggregate_state, unique_constraints};
 use thiserror::Error;
@@ -32,6 +32,8 @@ struct CounterState {
     email: Option<String>,
     phone_number: Option<String>,
 }
+
+impl ReferenceIndexes<CounterStateError> for CounterState {}
 
 fn email_values(state: &CounterState) -> Result<Option<UniqueValues>, CounterStateError> {
     match state.email.as_deref() {

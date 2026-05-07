@@ -1,5 +1,5 @@
 use appletheia::domain::{UniqueValue, UniqueValuePart, UniqueValues};
-use appletheia::{aggregate_state, unique_constraints};
+use appletheia::{aggregate_state, reference_indexes, unique_constraints};
 
 use crate::core::CurrencyAmount;
 
@@ -11,6 +11,7 @@ use super::{
 /// Stores the materialized state of a `Currency` aggregate.
 #[aggregate_state(error = CurrencyStateError)]
 #[unique_constraints(entry(key = "symbol", values = symbol_values))]
+#[reference_indexes()]
 pub struct CurrencyState {
     pub(super) id: CurrencyId,
     pub(super) owner: CurrencyOwner,

@@ -1,5 +1,6 @@
 use appletheia::aggregate_state;
 use appletheia::domain::{AggregateId, UniqueValue, UniqueValuePart, UniqueValues};
+use appletheia::reference_indexes;
 use appletheia::unique_constraints;
 
 use crate::{OrganizationId, OrganizationRole, UserId};
@@ -11,6 +12,7 @@ use super::{
 /// Stores the materialized state of an `OrganizationMembership` aggregate.
 #[aggregate_state(error = OrganizationMembershipStateError)]
 #[unique_constraints(entry(key = "organization_user", values = organization_user_values))]
+#[reference_indexes()]
 pub struct OrganizationMembershipState {
     pub(super) id: OrganizationMembershipId,
     pub(super) organization_id: OrganizationId,

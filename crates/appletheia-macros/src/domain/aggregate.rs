@@ -7,6 +7,8 @@ mod aggregate_id_derive_expand;
 mod aggregate_state_attribute_expand;
 mod aggregate_state_derive_args;
 mod aggregate_state_derive_expand;
+mod reference_indexes_attribute_args;
+mod reference_indexes_attribute_expand;
 mod unique_constraints_attribute_args;
 mod unique_constraints_attribute_expand;
 
@@ -54,4 +56,11 @@ pub(crate) fn unique_constraints_attribute(
     item: proc_macro::TokenStream,
 ) -> Result<TokenStream> {
     unique_constraints_attribute_expand::expand_unique_constraints_attribute(attr, item)
+}
+
+pub(crate) fn reference_indexes_attribute(
+    attr: proc_macro::TokenStream,
+    item: proc_macro::TokenStream,
+) -> Result<TokenStream> {
+    reference_indexes_attribute_expand::expand_reference_indexes_attribute(attr, item)
 }
