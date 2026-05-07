@@ -1,4 +1,4 @@
-use appletheia::domain::{UniqueValue, UniqueValuePart, UniqueValues};
+use appletheia::domain::{UniqueValue, UniqueValues};
 use appletheia::{aggregate_state, reference_indexes, unique_constraints};
 
 use crate::core::CurrencyAmount;
@@ -48,8 +48,7 @@ fn symbol_values(state: &CurrencyState) -> Result<Option<UniqueValues>, Currency
         return Ok(None);
     }
 
-    let part = UniqueValuePart::try_from(state.symbol.as_ref())?;
-    let value = UniqueValue::new(vec![part])?;
+    let value = UniqueValue::from_strings([state.symbol.as_ref()])?;
     let values = UniqueValues::new(vec![value])?;
 
     Ok(Some(values))

@@ -1,5 +1,5 @@
 use appletheia::aggregate_state;
-use appletheia::domain::{UniqueValue, UniqueValuePart, UniqueValues};
+use appletheia::domain::{UniqueValue, UniqueValues};
 use appletheia::reference_indexes;
 use appletheia::unique_constraints;
 
@@ -49,8 +49,7 @@ fn username_values(state: &UserState) -> Result<Option<UniqueValues>, UserStateE
         return Ok(None);
     };
 
-    let part = UniqueValuePart::try_from(username.as_ref())?;
-    let value = UniqueValue::new(vec![part])?;
+    let value = UniqueValue::from_strings([username.as_ref()])?;
     let values = UniqueValues::new(vec![value])?;
 
     Ok(Some(values))
@@ -65,9 +64,10 @@ fn provider_subject_values(state: &UserState) -> Result<Option<UniqueValues>, Us
         .identities
         .iter()
         .map(|identity| {
-            let provider = UniqueValuePart::try_from(identity.provider().as_ref())?;
-            let subject = UniqueValuePart::try_from(identity.subject().as_ref())?;
-            UniqueValue::new(vec![provider, subject]).map_err(UserStateError::from)
+            Ok(UniqueValue::from_strings([
+                identity.provider().as_ref(),
+                identity.subject().as_ref(),
+            ])?)
         })
         .collect::<Result<Vec<_>, UserStateError>>()?;
     let values = UniqueValues::new(values)?;

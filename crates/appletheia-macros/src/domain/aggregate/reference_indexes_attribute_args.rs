@@ -27,7 +27,13 @@ impl Parse for ReferenceIndexesAttributeArgs {
 #[derive(Debug)]
 pub(crate) struct ReferenceIndexEntryArg {
     pub(crate) key: LitStr,
-    pub(crate) values: Path,
+    pub(crate) source: ReferenceIndexEntrySourceArg,
+}
+
+#[derive(Debug)]
+pub(crate) enum ReferenceIndexEntrySourceArg {
+    Values(Path),
+    Value(Path),
 }
 
 impl Parse for ReferenceIndexEntryArg {
@@ -49,12 +55,19 @@ impl Parse for ReferenceIndexEntryArg {
 
         let _ = content.parse::<Token![,]>()?;
 
-        let values_ident: Ident = content.parse()?;
-        if values_ident != "values" {
-            return Err(syn::Error::new(values_ident.span(), "expected `values`"));
-        }
+        let source_ident: Ident = content.parse()?;
         let _ = content.parse::<Token![=]>()?;
-        let values = content.parse::<Path>()?;
+        let source_path = content.parse::<Path>()?;
+        let source = if source_ident == "values" {
+            ReferenceIndexEntrySourceArg::Values(source_path)
+        } else if source_ident == "value" {
+            ReferenceIndexEntrySourceArg::Value(source_path)
+        } else {
+            return Err(syn::Error::new(
+                source_ident.span(),
+                "expected `values` or `value`",
+            ));
+        };
 
         if !content.is_empty() {
             let _ = content.parse::<Token![,]>()?;
@@ -64,6 +77,6 @@ impl Parse for ReferenceIndexEntryArg {
             return Err(content.error("unexpected tokens in `entry(...)`"));
         }
 
-        Ok(Self { key, values })
+        Ok(Self { key, source })
     }
 }

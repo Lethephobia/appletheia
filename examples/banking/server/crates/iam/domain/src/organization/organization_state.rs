@@ -1,5 +1,5 @@
 use appletheia::aggregate_state;
-use appletheia::domain::{UniqueValue, UniqueValuePart, UniqueValues};
+use appletheia::domain::{UniqueValue, UniqueValues};
 use appletheia::reference_indexes;
 use appletheia::unique_constraints;
 
@@ -55,8 +55,7 @@ fn handle_values(
         return Ok(None);
     }
 
-    let part = UniqueValuePart::try_from(state.handle.as_ref())?;
-    let value = UniqueValue::new(vec![part])?;
+    let value = UniqueValue::from_strings([state.handle.as_ref()])?;
     let values = UniqueValues::new(vec![value])?;
 
     Ok(Some(values))

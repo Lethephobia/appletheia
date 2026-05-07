@@ -2,7 +2,9 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use syn::{Item, ItemStruct, Result};
 
-use super::unique_constraints_attribute_args::UniqueConstraintsAttributeArgs;
+use super::unique_constraints_attribute_args::{
+    UniqueConstraintEntrySourceArg, UniqueConstraintsAttributeArgs,
+};
 use crate::utils::crate_path::resolve_domain_path;
 
 pub(crate) fn expand_unique_constraints_attribute(
@@ -33,12 +35,18 @@ fn expand_unique_constraints_impl(
 
     let inserts = args.entries.iter().map(|entry| {
         let key = &entry.key;
-        let values = &entry.values;
-
-        quote! {
-            if let Some(values) = #values(self)? {
-                let _ = entries.insert(#domain::UniqueKey::new(#key), values);
-            }
+        match &entry.source {
+            UniqueConstraintEntrySourceArg::Values(values) => quote! {
+                if let Some(values) = #values(self)? {
+                    let _ = entries.insert(#domain::UniqueKey::new(#key), values);
+                }
+            },
+            UniqueConstraintEntrySourceArg::Value(value) => quote! {
+                if let Some(value) = #value(self)? {
+                    let values = #domain::UniqueValues::new(vec![value])?;
+                    let _ = entries.insert(#domain::UniqueKey::new(#key), values);
+                }
+            },
         }
     });
 

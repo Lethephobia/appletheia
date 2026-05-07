@@ -2,7 +2,9 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use syn::{Item, ItemStruct, Result};
 
-use super::reference_indexes_attribute_args::ReferenceIndexesAttributeArgs;
+use super::reference_indexes_attribute_args::{
+    ReferenceIndexEntrySourceArg, ReferenceIndexesAttributeArgs,
+};
 use crate::utils::crate_path::resolve_domain_path;
 
 pub(crate) fn expand_reference_indexes_attribute(
@@ -33,12 +35,18 @@ fn expand_reference_indexes_impl(
 
     let inserts = args.entries.iter().map(|entry| {
         let key = &entry.key;
-        let values = &entry.values;
-
-        quote! {
-            if let Some(values) = #values(self)? {
-                let _ = entries.insert(#domain::ReferenceKey::new(#key), values);
-            }
+        match &entry.source {
+            ReferenceIndexEntrySourceArg::Values(values) => quote! {
+                if let Some(values) = #values(self)? {
+                    let _ = entries.insert(#domain::ReferenceKey::new(#key), values);
+                }
+            },
+            ReferenceIndexEntrySourceArg::Value(value) => quote! {
+                if let Some(value) = #value(self)? {
+                    let values = #domain::ReferenceValues::new(vec![value])?;
+                    let _ = entries.insert(#domain::ReferenceKey::new(#key), values);
+                }
+            },
         }
     });
 
