@@ -1,7 +1,7 @@
 use appletheia::application::unit_of_work::UnitOfWork;
 use banking_ledger_domain::account::AccountOwner;
 
-use crate::pagination::{CursorOptions, Page, PageLimit};
+use crate::pagination::{CursorOptions, Page, PageSize};
 
 use super::{
     OwnedAccountListItem, OwnedAccountListItemCriteria, OwnedAccountListItemCursor,
@@ -21,7 +21,7 @@ pub trait OwnedAccountListItemReader: Send + Sync {
         cursor_options: Option<
             CursorOptions<OwnedAccountListItemSortKey, OwnedAccountListItemCursor>,
         >,
-        limit: PageLimit,
+        limit: PageSize,
     ) -> Result<
         Page<OwnedAccountListItem, OwnedAccountListItemCursor>,
         OwnedAccountListItemReaderError,

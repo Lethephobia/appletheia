@@ -1,6 +1,6 @@
 use appletheia::query;
 
-use crate::pagination::{CursorOptions, PageLimit};
+use crate::pagination::{CursorOptions, PageSize};
 use crate::read_model::{
     CurrencyListItemCriteria, CurrencyListItemCursor, CurrencyListItemSortKey,
 };
@@ -11,5 +11,5 @@ use crate::read_model::{
 pub struct CurrencyListQuery {
     pub criteria: CurrencyListItemCriteria,
     pub cursor_options: Option<CursorOptions<CurrencyListItemSortKey, CurrencyListItemCursor>>,
-    pub limit: PageLimit,
+    pub limit: PageSize,
 }

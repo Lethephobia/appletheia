@@ -1,6 +1,6 @@
 use appletheia::application::unit_of_work::UnitOfWork;
 
-use crate::pagination::{CursorOptions, Page, PageLimit};
+use crate::pagination::{CursorOptions, Page, PageSize};
 
 use super::{
     CurrencyListItem, CurrencyListItemCriteria, CurrencyListItemCursor,
@@ -17,6 +17,6 @@ pub trait CurrencyListItemReader: Send + Sync {
         uow: &mut Self::Uow,
         criteria: CurrencyListItemCriteria,
         cursor_options: Option<CursorOptions<CurrencyListItemSortKey, CurrencyListItemCursor>>,
-        limit: PageLimit,
+        limit: PageSize,
     ) -> Result<Page<CurrencyListItem, CurrencyListItemCursor>, CurrencyListItemReaderError>;
 }

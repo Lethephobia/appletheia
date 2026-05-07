@@ -4,7 +4,7 @@ use banking_ledger_application::{
     CursorOptions, OwnedAccountTransactionListItem, OwnedAccountTransactionListItemCriteria,
     OwnedAccountTransactionListItemCursor, OwnedAccountTransactionListItemReader,
     OwnedAccountTransactionListItemReaderError, OwnedAccountTransactionListItemSortKey,
-    OwnedAccountTransactionListItemStatus, Page, PageLimit, SortDirection,
+    OwnedAccountTransactionListItemStatus, Page, PageSize, SortDirection,
 };
 use banking_ledger_domain::account::AccountOwner;
 use sqlx::{Postgres, QueryBuilder};
@@ -58,13 +58,13 @@ impl OwnedAccountTransactionListItemReader for PgOwnedAccountTransactionListItem
                 OwnedAccountTransactionListItemCursor,
             >,
         >,
-        page_limit: PageLimit,
+        page_size: PageSize,
     ) -> Result<
         Page<OwnedAccountTransactionListItem, OwnedAccountTransactionListItemCursor>,
         OwnedAccountTransactionListItemReaderError,
     > {
         let (owner_type, owner_id) = Self::owner_parts(owner);
-        let limit = i64::from(page_limit.value()) + 1;
+        let limit = i64::from(page_size.value()) + 1;
 
         let mut builder = QueryBuilder::<Postgres>::new(
             r#"
@@ -184,7 +184,7 @@ impl OwnedAccountTransactionListItemReader for PgOwnedAccountTransactionListItem
             .await
             .map_err(|e| OwnedAccountTransactionListItemReaderError::Persistence(Box::new(e)))?;
 
-        let limit = page_limit.value() as usize;
+        let limit = page_size.value() as usize;
         let has_next = rows.len() > limit;
         let items = rows
             .into_iter()

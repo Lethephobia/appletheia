@@ -46,7 +46,7 @@ pub use command::{
     TransferFailCommandHandler, TransferFailOutput, TransferRequestCommand,
     TransferRequestCommandHandler, TransferRequestOutput,
 };
-pub use pagination::{CursorOptions, Page, PageLimit, PageLimitError, SortDirection};
+pub use pagination::{CursorOptions, Page, PageSize, PageSizeError, SortDirection};
 pub use projection::{
     CurrencyListItemProjector, CurrencyListItemProjectorError, CurrencyListItemProjectorSpec,
     OwnedAccountListItemProjector, OwnedAccountListItemProjectorError,

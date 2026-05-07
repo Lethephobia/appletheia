@@ -1,7 +1,7 @@
 use appletheia::domain::AggregateId;
 use appletheia::infrastructure::postgresql::PgUnitOfWork;
 use banking_ledger_application::{
-    CursorOptions, Page, PageLimit, PublicAccountListItem, PublicAccountListItemCriteria,
+    CursorOptions, Page, PageSize, PublicAccountListItem, PublicAccountListItemCriteria,
     PublicAccountListItemCursor, PublicAccountListItemReader, PublicAccountListItemReaderError,
     PublicAccountListItemSortKey, SortDirection,
 };
@@ -44,12 +44,12 @@ impl PublicAccountListItemReader for PgPublicAccountListItemReader {
         cursor_options: Option<
             CursorOptions<PublicAccountListItemSortKey, PublicAccountListItemCursor>,
         >,
-        page_limit: PageLimit,
+        page_size: PageSize,
     ) -> Result<
         Page<PublicAccountListItem, PublicAccountListItemCursor>,
         PublicAccountListItemReaderError,
     > {
-        let limit = i64::from(page_limit.value()) + 1;
+        let limit = i64::from(page_size.value()) + 1;
 
         let mut builder = QueryBuilder::<Postgres>::new(
             r#"
@@ -145,7 +145,7 @@ impl PublicAccountListItemReader for PgPublicAccountListItemReader {
             .await
             .map_err(|e| PublicAccountListItemReaderError::Persistence(Box::new(e)))?;
 
-        let limit = page_limit.value() as usize;
+        let limit = page_size.value() as usize;
         let has_next = rows.len() > limit;
         let items = rows
             .into_iter()

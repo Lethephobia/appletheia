@@ -3,7 +3,7 @@ use appletheia::infrastructure::postgresql::PgUnitOfWork;
 use banking_ledger_application::{
     CursorOptions, OwnedAccountListItem, OwnedAccountListItemCriteria, OwnedAccountListItemCursor,
     OwnedAccountListItemReader, OwnedAccountListItemReaderError, OwnedAccountListItemSortKey,
-    OwnedAccountListItemStatus, Page, PageLimit, SortDirection,
+    OwnedAccountListItemStatus, Page, PageSize, SortDirection,
 };
 use banking_ledger_domain::account::AccountOwner;
 use sqlx::{Postgres, QueryBuilder};
@@ -52,13 +52,13 @@ impl OwnedAccountListItemReader for PgOwnedAccountListItemReader {
         cursor_options: Option<
             CursorOptions<OwnedAccountListItemSortKey, OwnedAccountListItemCursor>,
         >,
-        page_limit: PageLimit,
+        page_size: PageSize,
     ) -> Result<
         Page<OwnedAccountListItem, OwnedAccountListItemCursor>,
         OwnedAccountListItemReaderError,
     > {
         let (owner_type, owner_id) = Self::owner_parts(owner);
-        let limit = i64::from(page_limit.value()) + 1;
+        let limit = i64::from(page_size.value()) + 1;
 
         let mut builder = QueryBuilder::<Postgres>::new(
             r#"
@@ -155,7 +155,7 @@ impl OwnedAccountListItemReader for PgOwnedAccountListItemReader {
             .await
             .map_err(|e| OwnedAccountListItemReaderError::Persistence(Box::new(e)))?;
 
-        let limit = page_limit.value() as usize;
+        let limit = page_size.value() as usize;
         let has_next = rows.len() > limit;
         let items = rows
             .into_iter()
