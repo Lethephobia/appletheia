@@ -73,6 +73,14 @@ CREATE TABLE IF NOT EXISTS aggregate_reference_indexes (
 CREATE INDEX IF NOT EXISTS idx_aggregate_reference_indexes_target
   ON aggregate_reference_indexes (source_aggregate_type, namespace, target_aggregate_id);
 
+CREATE INDEX IF NOT EXISTS idx_aggregate_reference_indexes_lookup_page
+  ON aggregate_reference_indexes (
+    source_aggregate_type,
+    namespace,
+    target_aggregate_id,
+    source_aggregate_id
+  );
+
 COMMENT ON TABLE aggregate_reference_indexes IS 'Current aggregate reference indexes keyed by source aggregate.';
 
 -- event_outbox
