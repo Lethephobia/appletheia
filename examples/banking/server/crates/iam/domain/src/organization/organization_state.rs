@@ -5,7 +5,7 @@ use appletheia::unique_constraints;
 
 use super::{
     OrganizationDescription, OrganizationDisplayName, OrganizationHandle, OrganizationId,
-    OrganizationOwner, OrganizationPictureRef, OrganizationStateError, OrganizationStatus,
+    OrganizationOwner, OrganizationPictureRef, OrganizationStateError, OrganizationStatus, UserId,
     OrganizationWebsiteUrl,
 };
 
@@ -60,7 +60,7 @@ fn handle_value(state: &OrganizationState) -> Result<Option<UniqueValue>, Organi
 
 fn owner_user_value(
     state: &OrganizationState,
-) -> Result<Option<crate::UserId>, OrganizationStateError> {
+) -> Result<Option<UserId>, OrganizationStateError> {
     let user_id = match state.owner {
         OrganizationOwner::User(user_id) => user_id,
     };
@@ -76,7 +76,7 @@ mod tests {
 
     use crate::{
         OrganizationDescription, OrganizationDisplayName, OrganizationPictureRef,
-        OrganizationPictureUrl, OrganizationWebsiteUrl,
+        OrganizationPictureUrl, OrganizationWebsiteUrl, UserId,
     };
 
     use super::{
@@ -91,7 +91,7 @@ mod tests {
     #[test]
     fn exposes_id_via_aggregate_state_trait() {
         let id = OrganizationId::new();
-        let owner = OrganizationOwner::User(crate::UserId::new());
+        let owner = OrganizationOwner::User(UserId::new());
         let handle = OrganizationHandle::try_from("acme-labs").expect("handle should be valid");
         let state =
             OrganizationState::new(id, owner, handle.clone(), display_name(), None, None, None);
@@ -105,7 +105,7 @@ mod tests {
     fn state_can_store_profile_attributes() {
         let state = OrganizationState::new(
             OrganizationId::new(),
-            OrganizationOwner::User(crate::UserId::new()),
+            OrganizationOwner::User(UserId::new()),
             OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
             display_name(),
             Some(
@@ -132,7 +132,7 @@ mod tests {
     fn active_state_returns_unique_entries_for_handle() {
         let state = OrganizationState::new(
             OrganizationId::new(),
-            OrganizationOwner::User(crate::UserId::new()),
+            OrganizationOwner::User(UserId::new()),
             OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
             display_name(),
             None,
@@ -154,7 +154,7 @@ mod tests {
     fn removed_state_has_no_handle_unique_entry() {
         let mut state = OrganizationState::new(
             OrganizationId::new(),
-            OrganizationOwner::User(crate::UserId::new()),
+            OrganizationOwner::User(UserId::new()),
             OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
             display_name(),
             None,
@@ -175,7 +175,7 @@ mod tests {
 
     #[test]
     fn returns_reference_entry_for_owner_user() {
-        let owner = OrganizationOwner::User(crate::UserId::new());
+        let owner = OrganizationOwner::User(UserId::new());
         let state = OrganizationState::new(
             OrganizationId::new(),
             owner,
