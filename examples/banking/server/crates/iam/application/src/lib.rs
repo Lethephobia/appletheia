@@ -95,7 +95,8 @@ pub use saga::{
     OrganizationInvitationSaga, OrganizationInvitationSagaError, OrganizationInvitationSagaSpec,
     OrganizationInvitationSagaState, OrganizationJoinRequestSaga, OrganizationJoinRequestSagaError,
     OrganizationJoinRequestSagaSpec, OrganizationJoinRequestSagaState,
-    OrganizationPictureChangedSaga, OrganizationPictureChangedSagaError,
-    OrganizationPictureChangedSagaSpec, OrganizationPictureSagaState, UserPictureChangedSaga,
-    UserPictureChangedSagaError, UserPictureChangedSagaSpec, UserPictureSagaState,
+    OrganizationOldPictureObjectDeletionSaga, OrganizationOldPictureObjectDeletionSagaError,
+    OrganizationOldPictureObjectDeletionSagaSpec, OrganizationOldPictureObjectDeletionSagaState,
+    UserOldPictureObjectDeletionSaga, UserOldPictureObjectDeletionSagaError,
+    UserOldPictureObjectDeletionSagaSpec, UserOldPictureObjectDeletionSagaState,
 };

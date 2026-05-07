@@ -4,14 +4,17 @@ use banking_iam_domain::{User, UserEventPayload};
 
 use crate::command::UserPictureObjectDeleteCommand;
 
-use super::{UserPictureChangedSagaError, UserPictureChangedSagaSpec, UserPictureSagaState};
+use super::{
+    UserOldPictureObjectDeletionSagaError, UserOldPictureObjectDeletionSagaSpec,
+    UserOldPictureObjectDeletionSagaState,
+};
 
-/// Coordinates user picture changes into old picture object deletion.
-pub struct UserPictureChangedSaga;
+/// Coordinates old user picture object deletion after picture changes.
+pub struct UserOldPictureObjectDeletionSaga;
 
-impl Saga for UserPictureChangedSaga {
-    type Spec = UserPictureChangedSagaSpec;
-    type Error = UserPictureChangedSagaError;
+impl Saga for UserOldPictureObjectDeletionSaga {
+    type Spec = UserOldPictureObjectDeletionSagaSpec;
+    type Error = UserOldPictureObjectDeletionSagaError;
 
     fn on_event(
         &self,
@@ -20,18 +23,19 @@ impl Saga for UserPictureChangedSaga {
     ) -> Result<(), Self::Error> {
         let event = event_envelope
             .try_into_domain_event::<User>()
-            .map_err(|_| UserPictureChangedSagaError::UnexpectedEvent)?;
+            .map_err(|_| UserOldPictureObjectDeletionSagaError::UnexpectedEvent)?;
         let UserEventPayload::PictureChanged { old_picture, .. } = event.payload() else {
-            return Err(UserPictureChangedSagaError::UnexpectedEvent);
+            return Err(UserOldPictureObjectDeletionSagaError::UnexpectedEvent);
         };
 
-        let state = UserPictureSagaState::new(event.aggregate_id());
+        let state = UserOldPictureObjectDeletionSagaState::new(event.aggregate_id());
         *instance.state_mut() = Some(state);
         let Some(object_name) = old_picture
             .as_ref()
             .and_then(|picture| picture.as_object_name())
             .cloned()
         else {
+            instance.succeed();
             return Ok(());
         };
 
@@ -40,7 +44,8 @@ impl Saga for UserPictureChangedSaga {
                 event_envelope,
                 &UserPictureObjectDeleteCommand { object_name },
             )
-            .map_err(|_| UserPictureChangedSagaError::UnexpectedEvent)?;
+            .map_err(|_| UserOldPictureObjectDeletionSagaError::UnexpectedEvent)?;
+        instance.succeed();
 
         Ok(())
     }

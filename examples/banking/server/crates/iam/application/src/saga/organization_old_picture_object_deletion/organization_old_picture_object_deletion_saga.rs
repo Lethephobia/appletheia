@@ -5,16 +5,16 @@ use banking_iam_domain::{Organization, OrganizationEventPayload};
 use crate::command::OrganizationPictureObjectDeleteCommand;
 
 use super::{
-    OrganizationPictureChangedSagaError, OrganizationPictureChangedSagaSpec,
-    OrganizationPictureSagaState,
+    OrganizationOldPictureObjectDeletionSagaError, OrganizationOldPictureObjectDeletionSagaSpec,
+    OrganizationOldPictureObjectDeletionSagaState,
 };
 
-/// Coordinates organization picture changes into old picture object deletion.
-pub struct OrganizationPictureChangedSaga;
+/// Coordinates old organization picture object deletion after picture changes.
+pub struct OrganizationOldPictureObjectDeletionSaga;
 
-impl Saga for OrganizationPictureChangedSaga {
-    type Spec = OrganizationPictureChangedSagaSpec;
-    type Error = OrganizationPictureChangedSagaError;
+impl Saga for OrganizationOldPictureObjectDeletionSaga {
+    type Spec = OrganizationOldPictureObjectDeletionSagaSpec;
+    type Error = OrganizationOldPictureObjectDeletionSagaError;
 
     fn on_event(
         &self,
@@ -23,18 +23,19 @@ impl Saga for OrganizationPictureChangedSaga {
     ) -> Result<(), Self::Error> {
         let event = event_envelope
             .try_into_domain_event::<Organization>()
-            .map_err(|_| OrganizationPictureChangedSagaError::UnexpectedEvent)?;
+            .map_err(|_| OrganizationOldPictureObjectDeletionSagaError::UnexpectedEvent)?;
         let OrganizationEventPayload::PictureChanged { old_picture, .. } = event.payload() else {
-            return Err(OrganizationPictureChangedSagaError::UnexpectedEvent);
+            return Err(OrganizationOldPictureObjectDeletionSagaError::UnexpectedEvent);
         };
 
-        let state = OrganizationPictureSagaState::new(event.aggregate_id());
+        let state = OrganizationOldPictureObjectDeletionSagaState::new(event.aggregate_id());
         *instance.state_mut() = Some(state);
         let Some(object_name) = old_picture
             .as_ref()
             .and_then(|picture| picture.as_object_name())
             .cloned()
         else {
+            instance.succeed();
             return Ok(());
         };
 
@@ -43,7 +44,8 @@ impl Saga for OrganizationPictureChangedSaga {
                 event_envelope,
                 &OrganizationPictureObjectDeleteCommand { object_name },
             )
-            .map_err(|_| OrganizationPictureChangedSagaError::UnexpectedEvent)?;
+            .map_err(|_| OrganizationOldPictureObjectDeletionSagaError::UnexpectedEvent)?;
+        instance.succeed();
 
         Ok(())
     }

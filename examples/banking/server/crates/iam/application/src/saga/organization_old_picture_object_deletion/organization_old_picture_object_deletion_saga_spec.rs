@@ -4,16 +4,16 @@ use appletheia::application::saga::{SagaDescriptor, SagaName, SagaSpec};
 use appletheia::domain::Aggregate;
 use banking_iam_domain::{Organization, OrganizationEventPayload};
 
-use super::OrganizationPictureSagaState;
+use super::OrganizationOldPictureObjectDeletionSagaState;
 
-/// Declares the descriptor and state for the organization picture saga.
-pub struct OrganizationPictureChangedSagaSpec;
+/// Declares the descriptor and state for the organization old picture object deletion saga.
+pub struct OrganizationOldPictureObjectDeletionSagaSpec;
 
-impl SagaSpec for OrganizationPictureChangedSagaSpec {
-    type State = OrganizationPictureSagaState;
+impl SagaSpec for OrganizationOldPictureObjectDeletionSagaSpec {
+    type State = OrganizationOldPictureObjectDeletionSagaState;
 
     const DESCRIPTOR: SagaDescriptor = SagaDescriptor::new(
-        SagaName::new("organization_picture_changed"),
+        SagaName::new("organization_old_picture_object_deletion"),
         EventSelector::new(
             Organization::TYPE,
             OrganizationEventPayload::PICTURE_CHANGED,

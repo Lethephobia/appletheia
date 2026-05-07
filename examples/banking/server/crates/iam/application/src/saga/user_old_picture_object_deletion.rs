@@ -1,0 +1,9 @@
+mod user_old_picture_object_deletion_saga;
+mod user_old_picture_object_deletion_saga_error;
+mod user_old_picture_object_deletion_saga_spec;
+mod user_old_picture_object_deletion_saga_state;
+
+pub use user_old_picture_object_deletion_saga::UserOldPictureObjectDeletionSaga;
+pub use user_old_picture_object_deletion_saga_error::UserOldPictureObjectDeletionSagaError;
+pub use user_old_picture_object_deletion_saga_spec::UserOldPictureObjectDeletionSagaSpec;
+pub use user_old_picture_object_deletion_saga_state::UserOldPictureObjectDeletionSagaState;
