@@ -1,5 +1,5 @@
 use appletheia::aggregate_state;
-use appletheia::domain::{AggregateId, UniqueValue, UniqueValuePart, UniqueValues};
+use appletheia::domain::{AggregateId, UniqueValue};
 use appletheia::reference_indexes;
 use appletheia::unique_constraints;
 
@@ -13,7 +13,7 @@ use super::{
 /// Stores the materialized state of an `OrganizationInvitation` aggregate.
 #[aggregate_state(error = OrganizationInvitationStateError)]
 #[unique_constraints(
-    entry(key = "organization_invitee", values = organization_invitee_values)
+    entry(key = "organization_invitee", value = organization_invitee_value)
 )]
 #[reference_indexes()]
 pub struct OrganizationInvitationState {
@@ -45,21 +45,18 @@ impl OrganizationInvitationState {
     }
 }
 
-fn organization_invitee_values(
+fn organization_invitee_value(
     state: &OrganizationInvitationState,
-) -> Result<Option<UniqueValues>, OrganizationInvitationStateError> {
+) -> Result<Option<UniqueValue>, OrganizationInvitationStateError> {
     if !state.status.is_pending() {
         return Ok(None);
     }
 
     let organization_id = state.organization_id.value().to_string();
     let invitee_id = state.invitee_id.value().to_string();
-    let organization_part = UniqueValuePart::try_from(organization_id.as_str())?;
-    let invitee_part = UniqueValuePart::try_from(invitee_id.as_str())?;
-    let value = UniqueValue::new(vec![organization_part, invitee_part])?;
-    let values = UniqueValues::new(vec![value])?;
+    let value = UniqueValue::from_strings([organization_id.as_str(), invitee_id.as_str()])?;
 
-    Ok(Some(values))
+    Ok(Some(value))
 }
 
 #[cfg(test)]

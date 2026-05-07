@@ -1,5 +1,5 @@
 use appletheia::aggregate_state;
-use appletheia::domain::{AggregateId, UniqueValue, UniqueValuePart, UniqueValues};
+use appletheia::domain::{AggregateId, UniqueValue};
 use appletheia::reference_indexes;
 use appletheia::unique_constraints;
 
@@ -12,7 +12,7 @@ use super::{
 /// Stores the materialized state of an `OrganizationJoinRequest` aggregate.
 #[aggregate_state(error = OrganizationJoinRequestStateError)]
 #[unique_constraints(
-    entry(key = "organization_requester", values = organization_requester_values)
+    entry(key = "organization_requester", value = organization_requester_value)
 )]
 #[reference_indexes()]
 pub struct OrganizationJoinRequestState {
@@ -38,21 +38,18 @@ impl OrganizationJoinRequestState {
     }
 }
 
-fn organization_requester_values(
+fn organization_requester_value(
     state: &OrganizationJoinRequestState,
-) -> Result<Option<UniqueValues>, OrganizationJoinRequestStateError> {
+) -> Result<Option<UniqueValue>, OrganizationJoinRequestStateError> {
     if !state.status.is_pending() {
         return Ok(None);
     }
 
     let organization_id = state.organization_id.value().to_string();
     let requester_id = state.requester_id.value().to_string();
-    let organization_part = UniqueValuePart::try_from(organization_id.as_str())?;
-    let requester_part = UniqueValuePart::try_from(requester_id.as_str())?;
-    let value = UniqueValue::new(vec![organization_part, requester_part])?;
-    let values = UniqueValues::new(vec![value])?;
+    let value = UniqueValue::from_strings([organization_id.as_str(), requester_id.as_str()])?;
 
-    Ok(Some(values))
+    Ok(Some(value))
 }
 
 #[cfg(test)]

@@ -1,4 +1,4 @@
-use appletheia::domain::{UniqueValue, UniqueValues};
+use appletheia::domain::UniqueValue;
 use appletheia::{aggregate_state, reference_indexes, unique_constraints};
 
 use crate::core::CurrencyAmount;
@@ -10,7 +10,7 @@ use super::{
 
 /// Stores the materialized state of a `Currency` aggregate.
 #[aggregate_state(error = CurrencyStateError)]
-#[unique_constraints(entry(key = "symbol", values = symbol_values))]
+#[unique_constraints(entry(key = "symbol", value = symbol_value))]
 #[reference_indexes()]
 pub struct CurrencyState {
     pub(super) id: CurrencyId,
@@ -43,15 +43,14 @@ impl CurrencyState {
     }
 }
 
-fn symbol_values(state: &CurrencyState) -> Result<Option<UniqueValues>, CurrencyStateError> {
+fn symbol_value(state: &CurrencyState) -> Result<Option<UniqueValue>, CurrencyStateError> {
     if state.status.is_removed() {
         return Ok(None);
     }
 
     let value = UniqueValue::from_strings([state.symbol.as_ref()])?;
-    let values = UniqueValues::new(vec![value])?;
 
-    Ok(Some(values))
+    Ok(Some(value))
 }
 
 #[cfg(test)]

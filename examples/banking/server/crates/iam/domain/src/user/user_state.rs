@@ -11,7 +11,7 @@ use super::{
 /// Stores the materialized state of a `User` aggregate.
 #[aggregate_state(error = UserStateError)]
 #[unique_constraints(
-    entry(key = "username", values = username_values),
+    entry(key = "username", value = username_value),
     entry(key = "provider_subject", values = provider_subject_values)
 )]
 #[reference_indexes()]
@@ -40,7 +40,7 @@ impl UserState {
     }
 }
 
-fn username_values(state: &UserState) -> Result<Option<UniqueValues>, UserStateError> {
+fn username_value(state: &UserState) -> Result<Option<UniqueValue>, UserStateError> {
     if state.status.is_removed() {
         return Ok(None);
     }
@@ -50,9 +50,8 @@ fn username_values(state: &UserState) -> Result<Option<UniqueValues>, UserStateE
     };
 
     let value = UniqueValue::from_strings([username.as_ref()])?;
-    let values = UniqueValues::new(vec![value])?;
 
-    Ok(Some(values))
+    Ok(Some(value))
 }
 
 fn provider_subject_values(state: &UserState) -> Result<Option<UniqueValues>, UserStateError> {
