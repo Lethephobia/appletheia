@@ -5,9 +5,10 @@ use appletheia::unique_constraints;
 
 use super::{
     OrganizationDescription, OrganizationDisplayName, OrganizationHandle, OrganizationId,
-    OrganizationOwner, OrganizationPictureRef, OrganizationStateError, OrganizationStatus, UserId,
+    OrganizationOwner, OrganizationPictureRef, OrganizationStateError, OrganizationStatus,
     OrganizationWebsiteUrl,
 };
+use crate::UserId;
 
 /// Stores the materialized state of an `Organization` aggregate.
 #[aggregate_state(error = OrganizationStateError)]
@@ -58,9 +59,7 @@ fn handle_value(state: &OrganizationState) -> Result<Option<UniqueValue>, Organi
     Ok(Some(value))
 }
 
-fn owner_user_value(
-    state: &OrganizationState,
-) -> Result<Option<UserId>, OrganizationStateError> {
+fn owner_user_value(state: &OrganizationState) -> Result<Option<UserId>, OrganizationStateError> {
     let user_id = match state.owner {
         OrganizationOwner::User(user_id) => user_id,
     };

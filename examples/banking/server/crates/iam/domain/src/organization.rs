@@ -339,8 +339,9 @@ mod tests {
     use super::{
         Organization, OrganizationDescription, OrganizationDisplayName, OrganizationEventPayload,
         OrganizationHandle, OrganizationOwner, OrganizationPictureRef, OrganizationPictureUrl,
-        OrganizationWebsiteUrl, UserId,
+        OrganizationWebsiteUrl,
     };
+    use crate::UserId;
 
     fn owner() -> OrganizationOwner {
         OrganizationOwner::User(UserId::new())
