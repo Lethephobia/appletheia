@@ -60,9 +60,7 @@ fn handle_value(state: &OrganizationState) -> Result<Option<UniqueValue>, Organi
 }
 
 fn owner_user_value(state: &OrganizationState) -> Result<Option<UserId>, OrganizationStateError> {
-    let user_id = match state.owner {
-        OrganizationOwner::User(user_id) => user_id,
-    };
+    let OrganizationOwner::User(user_id) = state.owner;
 
     Ok(Some(user_id))
 }
