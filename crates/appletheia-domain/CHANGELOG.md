@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0](https://github.com/Lethephobia/appletheia/compare/appletheia-domain-v0.4.0...appletheia-domain-v0.5.0) - 2026-05-08
+
+### Added
+
+- *(domain)* simplify unique and reference index values
+- *(repository)* [**breaking**] add aggregate reference indexes
+
 ## [0.4.0](https://github.com/Lethephobia/appletheia/compare/appletheia-domain-v0.3.3...appletheia-domain-v0.4.0) - 2026-05-06
 
 ### Other
