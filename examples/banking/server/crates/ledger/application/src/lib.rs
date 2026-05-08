@@ -41,10 +41,21 @@ pub use command::{
     CurrencyRemoveOutput, CurrencySupplyDecreaseCommand, CurrencySupplyDecreaseCommandHandler,
     CurrencySupplyDecreaseOutput, CurrencySupplyIncreaseCommand,
     CurrencySupplyIncreaseCommandHandler, CurrencySupplyIncreaseOutput, CurrencyUpdateCommand,
-    CurrencyUpdateCommandHandler, CurrencyUpdateOutput, TransferCompleteCommand,
-    TransferCompleteCommandHandler, TransferCompleteOutput, TransferFailCommand,
-    TransferFailCommandHandler, TransferFailOutput, TransferRequestCommand,
-    TransferRequestCommandHandler, TransferRequestOutput,
+    CurrencyUpdateCommandHandler, CurrencyUpdateOutput,
+    OwnedAccountClosureAccountCloseRecordCommand,
+    OwnedAccountClosureAccountCloseRecordCommandHandler,
+    OwnedAccountClosureAccountCloseRecordOutput,
+    OwnedAccountClosureAccountCloseRejectionRecordCommand,
+    OwnedAccountClosureAccountCloseRejectionRecordCommandHandler,
+    OwnedAccountClosureAccountCloseRejectionRecordOutput, OwnedAccountClosureCompleteCommand,
+    OwnedAccountClosureCompleteCommandHandler, OwnedAccountClosureCompleteOutput,
+    OwnedAccountClosureFailCommand, OwnedAccountClosureFailCommandHandler,
+    OwnedAccountClosureFailOutput, OwnedAccountClosurePageLoadCommand,
+    OwnedAccountClosurePageLoadCommandHandler, OwnedAccountClosurePageLoadOutput,
+    OwnedAccountClosureRequestCommand, OwnedAccountClosureRequestCommandHandler,
+    OwnedAccountClosureRequestOutput, TransferCompleteCommand, TransferCompleteCommandHandler,
+    TransferCompleteOutput, TransferFailCommand, TransferFailCommandHandler, TransferFailOutput,
+    TransferRequestCommand, TransferRequestCommandHandler, TransferRequestOutput,
 };
 pub use pagination::{CursorOptions, Page, PageSize, PageSizeError, SortDirection};
 pub use projection::{
@@ -87,6 +98,8 @@ pub use read_model::{
 pub use repository::{AccountEventSaveHook, CurrencyEventSaveHook};
 pub use saga::{
     CurrencyIssuanceSaga, CurrencyIssuanceSagaError, CurrencyIssuanceSagaSpec,
-    CurrencyIssuanceSagaState, CurrencyIssuanceSagaStatus, TransferSaga, TransferSagaError,
-    TransferSagaSpec, TransferSagaState, TransferSagaStatus,
+    CurrencyIssuanceSagaState, CurrencyIssuanceSagaStatus, OwnedAccountClosureSaga,
+    OwnedAccountClosureSagaError, OwnedAccountClosureSagaSpec, OwnedAccountClosureSagaState,
+    OwnedAccountClosureSagaStatus, TransferSaga, TransferSagaError, TransferSagaSpec,
+    TransferSagaState, TransferSagaStatus,
 };

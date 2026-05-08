@@ -1,6 +1,7 @@
 pub mod account;
 pub mod currency;
 pub mod currency_issuance;
+pub mod owned_account_closure;
 pub mod transfer;
 
 pub use account::{
@@ -35,6 +36,24 @@ pub use currency_issuance::{
     CurrencyIssuanceFailCommand, CurrencyIssuanceFailCommandHandler,
     CurrencyIssuanceFailCommandHandlerError, CurrencyIssuanceFailOutput, CurrencyIssueCommand,
     CurrencyIssueCommandHandler, CurrencyIssueCommandHandlerError, CurrencyIssueOutput,
+};
+pub use owned_account_closure::{
+    OwnedAccountClosureAccountCloseRecordCommand,
+    OwnedAccountClosureAccountCloseRecordCommandHandler,
+    OwnedAccountClosureAccountCloseRecordCommandHandlerError,
+    OwnedAccountClosureAccountCloseRecordOutput,
+    OwnedAccountClosureAccountCloseRejectionRecordCommand,
+    OwnedAccountClosureAccountCloseRejectionRecordCommandHandler,
+    OwnedAccountClosureAccountCloseRejectionRecordCommandHandlerError,
+    OwnedAccountClosureAccountCloseRejectionRecordOutput, OwnedAccountClosureCompleteCommand,
+    OwnedAccountClosureCompleteCommandHandler, OwnedAccountClosureCompleteCommandHandlerError,
+    OwnedAccountClosureCompleteOutput, OwnedAccountClosureFailCommand,
+    OwnedAccountClosureFailCommandHandler, OwnedAccountClosureFailCommandHandlerError,
+    OwnedAccountClosureFailOutput, OwnedAccountClosurePageLoadCommand,
+    OwnedAccountClosurePageLoadCommandHandler, OwnedAccountClosurePageLoadCommandHandlerError,
+    OwnedAccountClosurePageLoadOutput, OwnedAccountClosureRequestCommand,
+    OwnedAccountClosureRequestCommandHandler, OwnedAccountClosureRequestCommandHandlerError,
+    OwnedAccountClosureRequestOutput,
 };
 pub use transfer::{
     TransferCompleteCommand, TransferCompleteCommandHandler, TransferCompleteOutput,

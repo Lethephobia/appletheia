@@ -30,4 +30,7 @@ pub enum CurrencyIssueCommandHandlerError {
 
     #[error("currency was not found")]
     CurrencyNotFound,
+
+    #[error("currency issuance id was missing after issue")]
+    MissingCurrencyIssuanceId,
 }

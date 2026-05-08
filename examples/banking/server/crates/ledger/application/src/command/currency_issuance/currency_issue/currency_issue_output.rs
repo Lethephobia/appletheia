@@ -1,6 +1,5 @@
 use banking_ledger_domain::currency_issuance::{
     CurrencyIssuanceId, CurrencyIssuanceIssueRejectResult, CurrencyIssuanceIssueRejectionReason,
-    CurrencyIssuanceIssueResult,
 };
 use serde::{Deserialize, Serialize};
 
@@ -14,19 +13,6 @@ pub enum CurrencyIssueOutput {
     Rejected {
         reason: CurrencyIssuanceIssueRejectionReason,
     },
-}
-
-impl From<CurrencyIssuanceIssueResult> for CurrencyIssueOutput {
-    fn from(value: CurrencyIssuanceIssueResult) -> Self {
-        match value {
-            CurrencyIssuanceIssueResult::Issued {
-                currency_issuance_id,
-            } => Self::Issued {
-                currency_issuance_id,
-            },
-            CurrencyIssuanceIssueResult::Rejected { reason } => Self::Rejected { reason },
-        }
-    }
 }
 
 impl From<CurrencyIssuanceIssueRejectResult> for CurrencyIssueOutput {

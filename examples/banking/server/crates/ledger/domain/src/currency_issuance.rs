@@ -95,9 +95,7 @@ impl CurrencyIssuance {
             amount,
         })?;
 
-        Ok(CurrencyIssuanceIssueResult::Issued {
-            currency_issuance_id: id,
-        })
+        Ok(CurrencyIssuanceIssueResult::Issued)
     }
 
     /// Rejects a new issuance workflow.
