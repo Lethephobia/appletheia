@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 use std::ops::Bound;
 
 use appletheia_domain::{
-    Aggregate, AggregateError, AggregateState, AggregateVersion, AggregateVersionRange,
+    Aggregate, AggregateError, AggregateVersion, AggregateVersionRange, ReferenceIndexes,
     UniqueConstraints,
 };
 
@@ -12,14 +12,13 @@ use crate::snapshot::{SnapshotPolicy, SnapshotReader, SnapshotWriter};
 use crate::unit_of_work::UnitOfWork;
 
 use super::{
-    DefaultRepositoryDependencies, EventSaveHook, Repository, RepositoryConfig, RepositoryError,
-    UniqueKeyReservationStore, UniqueValueOwnerLookup,
+    DefaultRepositoryDependencies, EventSaveHook, ReferenceIndexStore, Repository,
+    RepositoryConfig, RepositoryError, UniqueKeyReservationStore, UniqueValueOwnerLookup,
 };
 
-pub struct DefaultRepository<A, ER, EW, SR, SW, UVOL, UKS, ESH, Uow>
+pub struct DefaultRepository<A, ER, EW, SR, SW, UVOL, UKS, RIS, ESH, Uow>
 where
     A: Aggregate,
-    A::State: UniqueConstraints<<A::State as AggregateState>::Error>,
     Uow: UnitOfWork,
     ER: EventReader<A, Uow = Uow>,
     EW: EventWriter<A, Uow = Uow>,
@@ -27,6 +26,7 @@ where
     SW: SnapshotWriter<A, Uow = Uow>,
     UVOL: UniqueValueOwnerLookup<Uow = Uow>,
     UKS: UniqueKeyReservationStore<Uow = Uow>,
+    RIS: ReferenceIndexStore<Uow = Uow>,
     ESH: EventSaveHook<A, Uow = Uow>,
 {
     config: RepositoryConfig,
@@ -36,15 +36,15 @@ where
     snapshot_writer: SW,
     unique_value_owner_lookup: UVOL,
     unique_key_reservation_store: UKS,
+    reference_index_store: RIS,
     event_save_hook: ESH,
     _marker: PhantomData<fn() -> A>,
 }
 
-impl<A, ER, EW, SR, SW, UVOL, UKS, ESH, Uow>
-    DefaultRepository<A, ER, EW, SR, SW, UVOL, UKS, ESH, Uow>
+impl<A, ER, EW, SR, SW, UVOL, UKS, RIS, ESH, Uow>
+    DefaultRepository<A, ER, EW, SR, SW, UVOL, UKS, RIS, ESH, Uow>
 where
     A: Aggregate,
-    A::State: UniqueConstraints<<A::State as AggregateState>::Error>,
     Uow: UnitOfWork,
     ER: EventReader<A, Uow = Uow>,
     EW: EventWriter<A, Uow = Uow>,
@@ -52,11 +52,12 @@ where
     SW: SnapshotWriter<A, Uow = Uow>,
     UVOL: UniqueValueOwnerLookup<Uow = Uow>,
     UKS: UniqueKeyReservationStore<Uow = Uow>,
+    RIS: ReferenceIndexStore<Uow = Uow>,
     ESH: EventSaveHook<A, Uow = Uow>,
 {
     pub fn new(
         config: RepositoryConfig,
-        dependencies: DefaultRepositoryDependencies<ER, EW, SR, SW, UVOL, UKS, ESH>,
+        dependencies: DefaultRepositoryDependencies<ER, EW, SR, SW, UVOL, UKS, RIS, ESH>,
     ) -> Self {
         Self {
             config,
@@ -66,17 +67,17 @@ where
             snapshot_writer: dependencies.snapshot_writer,
             unique_value_owner_lookup: dependencies.unique_value_owner_lookup,
             unique_key_reservation_store: dependencies.unique_key_reservation_store,
+            reference_index_store: dependencies.reference_index_store,
             event_save_hook: dependencies.event_save_hook,
             _marker: PhantomData,
         }
     }
 }
 
-impl<A, ER, EW, SR, SW, UVOL, UKS, ESH, Uow> Repository<A>
-    for DefaultRepository<A, ER, EW, SR, SW, UVOL, UKS, ESH, Uow>
+impl<A, ER, EW, SR, SW, UVOL, UKS, RIS, ESH, Uow> Repository<A>
+    for DefaultRepository<A, ER, EW, SR, SW, UVOL, UKS, RIS, ESH, Uow>
 where
     A: Aggregate,
-    A::State: UniqueConstraints<<A::State as AggregateState>::Error>,
     Uow: UnitOfWork,
     ER: EventReader<A, Uow = Uow>,
     EW: EventWriter<A, Uow = Uow>,
@@ -84,6 +85,7 @@ where
     SW: SnapshotWriter<A, Uow = Uow>,
     UVOL: UniqueValueOwnerLookup<Uow = Uow>,
     UKS: UniqueKeyReservationStore<Uow = Uow>,
+    RIS: ReferenceIndexStore<Uow = Uow>,
     ESH: EventSaveHook<A, Uow = Uow>,
 {
     type Uow = Uow;
@@ -157,6 +159,10 @@ where
         self.unique_key_reservation_store
             .replace(uow, A::TYPE, aggregate_id, &unique_entries)
             .await?;
+        let reference_entries = state.reference_entries().map_err(RepositoryError::State)?;
+        self.reference_index_store
+            .replace(uow, A::TYPE, aggregate_id, &reference_entries)
+            .await?;
 
         let events = aggregate.uncommitted_events();
         self.event_writer
@@ -203,9 +209,10 @@ mod tests {
     use super::DefaultRepository;
     use crate::event::{EventReader, EventReaderError, EventWriter, EventWriterError};
     use crate::repository::{
-        DefaultRepositoryDependencies, NoopEventSaveHook, Repository, RepositoryConfig,
-        RepositoryError, UniqueKeyReservationStore, UniqueKeyReservationStoreError,
-        UniqueValueOwnerLookup, UniqueValueOwnerLookupError,
+        DefaultRepositoryDependencies, NoopEventSaveHook, ReferenceIndexStore,
+        ReferenceIndexStoreError, Repository, RepositoryConfig, RepositoryError,
+        UniqueKeyReservationStore, UniqueKeyReservationStoreError, UniqueValueOwnerLookup,
+        UniqueValueOwnerLookupError,
     };
     use crate::request_context::{CorrelationId, MessageId, Principal, RequestContext};
     use crate::snapshot::{
@@ -215,8 +222,8 @@ mod tests {
     use appletheia_domain::{
         Aggregate, AggregateApply, AggregateCore, AggregateError, AggregateId, AggregateState,
         AggregateStateError, AggregateType, AggregateVersion, AggregateVersionRange, Event,
-        EventName, EventPayload, Snapshot, UniqueConstraints, UniqueEntries, UniqueKey,
-        UniqueValue, UniqueValuePart, UniqueValues, UniqueValuesError,
+        EventName, EventPayload, ReferenceEntries, ReferenceIndexes, Snapshot, UniqueConstraints,
+        UniqueEntries, UniqueKey, UniqueValue, UniqueValuePart, UniqueValues, UniqueValuesError,
     };
     use serde::{Deserialize, Serialize};
     use std::fmt::{self, Display};
@@ -297,6 +304,8 @@ mod tests {
             Ok(unique_keys)
         }
     }
+
+    impl ReferenceIndexes<CounterStateError> for CounterState {}
 
     impl AggregateState for CounterState {
         type Id = CounterId;
@@ -541,6 +550,39 @@ mod tests {
         }
     }
 
+    #[derive(Debug)]
+    struct RecordingReferenceIndexStore {
+        log: Arc<Mutex<Vec<String>>>,
+    }
+
+    impl ReferenceIndexStore for RecordingReferenceIndexStore {
+        type Uow = TestUnitOfWork;
+
+        async fn replace<I>(
+            &self,
+            _uow: &mut Self::Uow,
+            _aggregate_type: AggregateType,
+            source_aggregate_id: I,
+            reference_entries: &ReferenceEntries,
+        ) -> Result<(), ReferenceIndexStoreError>
+        where
+            I: AggregateId,
+        {
+            let entry_count = reference_entries.iter().count();
+            let value_count: usize = reference_entries
+                .iter()
+                .map(|(_, values)| values.len())
+                .sum();
+            self.log
+                .lock()
+                .expect("reference index log should be lockable")
+                .push(format!("replace_refs:{entry_count}:{value_count}"));
+
+            let _ = source_aggregate_id.value();
+            Ok(())
+        }
+    }
+
     fn repository(
         log: Arc<Mutex<Vec<String>>>,
         fail_with_conflict: bool,
@@ -552,6 +594,7 @@ mod tests {
         RecordingSnapshotWriter,
         RecordingUniqueValueOwnerLookup,
         RecordingUniqueKeyReservationStore,
+        RecordingReferenceIndexStore,
         NoopEventSaveHook<TestUnitOfWork>,
         TestUnitOfWork,
     > {
@@ -573,8 +616,9 @@ mod tests {
                 },
                 unique_key_reservation_store: RecordingUniqueKeyReservationStore {
                     fail_with_conflict,
-                    log,
+                    log: Arc::clone(&log),
                 },
+                reference_index_store: RecordingReferenceIndexStore { log },
                 event_save_hook: NoopEventSaveHook::new(),
             },
         )
@@ -614,6 +658,7 @@ mod tests {
         RecordingSnapshotWriter,
         RecordingUniqueValueOwnerLookup,
         RecordingUniqueKeyReservationStore,
+        RecordingReferenceIndexStore,
         NoopEventSaveHook<TestUnitOfWork>,
         TestUnitOfWork,
     > {
@@ -635,8 +680,9 @@ mod tests {
                 },
                 unique_key_reservation_store: RecordingUniqueKeyReservationStore {
                     fail_with_conflict: false,
-                    log,
+                    log: Arc::clone(&log),
                 },
+                reference_index_store: RecordingReferenceIndexStore { log },
                 event_save_hook: NoopEventSaveHook::new(),
             },
         )
@@ -657,7 +703,11 @@ mod tests {
 
         assert_eq!(
             *log.lock().expect("log should be lockable"),
-            vec!["replace:1:1".to_owned(), "write_events:1".to_owned()]
+            vec![
+                "replace:1:1".to_owned(),
+                "replace_refs:0:0".to_owned(),
+                "write_events:1".to_owned()
+            ]
         );
         assert!(aggregate.uncommitted_events().is_empty());
     }
@@ -677,7 +727,11 @@ mod tests {
 
         assert_eq!(
             *log.lock().expect("log should be lockable"),
-            vec!["replace:0:0".to_owned(), "write_events:1".to_owned()]
+            vec![
+                "replace:0:0".to_owned(),
+                "replace_refs:0:0".to_owned(),
+                "write_events:1".to_owned()
+            ]
         );
     }
 

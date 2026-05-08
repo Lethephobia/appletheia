@@ -7,6 +7,7 @@ use appletheia_domain::aggregate::{AggregateId, AggregateType, UniqueEntries, Un
 use sqlx::{Postgres, QueryBuilder};
 use uuid::Uuid;
 
+use crate::postgresql::repository::PgUniqueKeyReservationStoreError;
 use crate::postgresql::unit_of_work::PgUnitOfWork;
 
 pub struct PgUniqueKeyReservationStore;
@@ -105,15 +106,16 @@ impl UniqueKeyReservationStore for PgUniqueKeyReservationStore {
         }
 
         let inserted_keys = inserted_rows.into_iter().collect::<HashSet<_>>();
-        let conflicting_entry = flattened_entries
-            .iter()
-            .find(|entry| {
-                !inserted_keys.contains(&(
-                    entry.namespace.value().to_owned(),
-                    entry.normalized_value.clone(),
-                ))
-            })
-            .expect("missing inserted entry should identify a conflict");
+        let Some(conflicting_entry) = flattened_entries.iter().find(|entry| {
+            !inserted_keys.contains(&(
+                entry.namespace.value().to_owned(),
+                entry.normalized_value.clone(),
+            ))
+        }) else {
+            return Err(UniqueKeyReservationStoreError::Persistence(Box::new(
+                PgUniqueKeyReservationStoreError::UnidentifiedConflict,
+            )));
+        };
 
         Err(UniqueKeyReservationStoreError::conflict(
             aggregate_type,

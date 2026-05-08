@@ -1,7 +1,7 @@
 use appletheia::query;
 use banking_ledger_domain::account::AccountOwner;
 
-use crate::pagination::{CursorOptions, PageLimit};
+use crate::pagination::{CursorOptions, PageSize};
 use crate::read_model::{
     OwnedAccountTransactionListItemCriteria, OwnedAccountTransactionListItemCursor,
     OwnedAccountTransactionListItemSortKey,
@@ -19,5 +19,5 @@ pub struct OwnedAccountTransactionListQuery {
             OwnedAccountTransactionListItemCursor,
         >,
     >,
-    pub limit: PageLimit,
+    pub limit: PageSize,
 }

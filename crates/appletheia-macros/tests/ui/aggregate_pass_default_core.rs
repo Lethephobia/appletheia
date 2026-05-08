@@ -8,7 +8,7 @@ use uuid::Uuid;
 
 use appletheia_domain::{
     Aggregate, AggregateApply, AggregateCore, AggregateError, AggregateId, AggregateState, EventName,
-    AggregateStateError, EventPayload, UniqueConstraints, UniqueValuesError,
+    AggregateStateError, EventPayload, ReferenceIndexes, UniqueConstraints, UniqueValuesError,
 };
 use appletheia_macros::aggregate;
 
@@ -53,6 +53,7 @@ enum CounterStateError {
 }
 
 impl UniqueConstraints<CounterStateError> for CounterState {}
+impl ReferenceIndexes<CounterStateError> for CounterState {}
 
 impl AggregateState for CounterState {
     type Id = CounterId;

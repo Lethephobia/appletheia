@@ -1,5 +1,6 @@
 use appletheia::aggregate_state;
-use appletheia::domain::{UniqueValue, UniqueValuePart, UniqueValues};
+use appletheia::domain::UniqueValue;
+use appletheia::reference_indexes;
 use appletheia::unique_constraints;
 
 use super::{
@@ -7,10 +8,12 @@ use super::{
     OrganizationOwner, OrganizationPictureRef, OrganizationStateError, OrganizationStatus,
     OrganizationWebsiteUrl,
 };
+use crate::UserId;
 
 /// Stores the materialized state of an `Organization` aggregate.
 #[aggregate_state(error = OrganizationStateError)]
-#[unique_constraints(entry(key = "handle", values = handle_values))]
+#[unique_constraints(entry(key = "handle", value = handle_value))]
+#[reference_indexes(entry(key = "owner_user", value = owner_user_value))]
 pub struct OrganizationState {
     pub(super) id: OrganizationId,
     pub(super) owner: OrganizationOwner,
@@ -46,27 +49,31 @@ impl OrganizationState {
     }
 }
 
-fn handle_values(
-    state: &OrganizationState,
-) -> Result<Option<UniqueValues>, OrganizationStateError> {
+fn handle_value(state: &OrganizationState) -> Result<Option<UniqueValue>, OrganizationStateError> {
     if state.status.is_removed() {
         return Ok(None);
     }
 
-    let part = UniqueValuePart::try_from(state.handle.as_ref())?;
-    let value = UniqueValue::new(vec![part])?;
-    let values = UniqueValues::new(vec![value])?;
+    let value = UniqueValue::from_strings([state.handle.as_ref()])?;
 
-    Ok(Some(values))
+    Ok(Some(value))
+}
+
+fn owner_user_value(state: &OrganizationState) -> Result<Option<UserId>, OrganizationStateError> {
+    let OrganizationOwner::User(user_id) = state.owner;
+
+    Ok(Some(user_id))
 }
 
 #[cfg(test)]
 mod tests {
-    use appletheia::domain::{AggregateState, UniqueConstraints, UniqueValues};
+    use appletheia::domain::{
+        AggregateState, ReferenceIndexes, ReferenceValues, UniqueConstraints, UniqueValues,
+    };
 
     use crate::{
         OrganizationDescription, OrganizationDisplayName, OrganizationPictureRef,
-        OrganizationPictureUrl, OrganizationWebsiteUrl,
+        OrganizationPictureUrl, OrganizationWebsiteUrl, UserId,
     };
 
     use super::{
@@ -81,7 +88,7 @@ mod tests {
     #[test]
     fn exposes_id_via_aggregate_state_trait() {
         let id = OrganizationId::new();
-        let owner = OrganizationOwner::User(crate::UserId::new());
+        let owner = OrganizationOwner::User(UserId::new());
         let handle = OrganizationHandle::try_from("acme-labs").expect("handle should be valid");
         let state =
             OrganizationState::new(id, owner, handle.clone(), display_name(), None, None, None);
@@ -95,7 +102,7 @@ mod tests {
     fn state_can_store_profile_attributes() {
         let state = OrganizationState::new(
             OrganizationId::new(),
-            OrganizationOwner::User(crate::UserId::new()),
+            OrganizationOwner::User(UserId::new()),
             OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
             display_name(),
             Some(
@@ -122,7 +129,7 @@ mod tests {
     fn active_state_returns_unique_entries_for_handle() {
         let state = OrganizationState::new(
             OrganizationId::new(),
-            OrganizationOwner::User(crate::UserId::new()),
+            OrganizationOwner::User(UserId::new()),
             OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
             display_name(),
             None,
@@ -144,7 +151,7 @@ mod tests {
     fn removed_state_has_no_handle_unique_entry() {
         let mut state = OrganizationState::new(
             OrganizationId::new(),
-            OrganizationOwner::User(crate::UserId::new()),
+            OrganizationOwner::User(UserId::new()),
             OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
             display_name(),
             None,
@@ -160,6 +167,31 @@ mod tests {
                 .get(OrganizationState::HANDLE_KEY)
                 .map(UniqueValues::len),
             None
+        );
+    }
+
+    #[test]
+    fn returns_reference_entry_for_owner_user() {
+        let owner = OrganizationOwner::User(UserId::new());
+        let state = OrganizationState::new(
+            OrganizationId::new(),
+            owner,
+            OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
+            display_name(),
+            None,
+            None,
+            None,
+        );
+
+        let entries = state
+            .reference_entries()
+            .expect("reference entries should build");
+
+        assert_eq!(
+            entries
+                .get(OrganizationState::OWNER_USER_REF)
+                .map(ReferenceValues::len),
+            Some(1)
         );
     }
 }

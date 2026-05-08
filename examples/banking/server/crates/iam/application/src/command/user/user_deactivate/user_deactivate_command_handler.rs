@@ -61,12 +61,12 @@ where
             return Err(UserDeactivateCommandHandlerError::TargetUserNotFound);
         };
 
-        user.deactivate()?;
+        let result = user.deactivate()?;
 
         self.user_repository
             .save(uow, request_context, &mut user)
             .await?;
 
-        Ok(CommandHandled::same(UserDeactivateOutput))
+        Ok(CommandHandled::same(result.into()))
     }
 }

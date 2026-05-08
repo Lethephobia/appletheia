@@ -85,11 +85,9 @@ good:
 pub fn register(
     &mut self,
     username: Username,
-) -> Result<UserRegisterResult, UserError> {
+) -> Result<RegisterUserResult, UserError> {
     if self.state().is_some() {
-        let reason = UserRegisterRejectionReason::AlreadyRegistered;
-        self.append_event(UserEventPayload::RegisterRejected { username, reason })?;
-        return Ok(UserRegisterResult::Rejected { reason });
+        return Err(UserError::AlreadyRegistered);
     }
 
     let id = UserId::new();
@@ -97,7 +95,7 @@ pub fn register(
         id,
         username,
     })?;
-    Ok(UserRegisterResult::Registered { user_id: id })
+    Ok(RegisterUserResult::Registered { user_id: id })
 }
 ```
 
@@ -166,6 +164,58 @@ pub fn reserve_funds(&mut self, amount: Money) -> Result<(), AccountError> {
     }
 
     self.append_event(AccountEventPayload::FundsReserved { amount })
+}
+```
+
+### DO reject duplicate child additions in command methods, not apply methods
+
+When an aggregate owns a child collection and a command would add a child that is already present,
+detect the duplicate in the command method, append a rejection event, and return a rejected command
+result. Keep `apply` as a direct state transition for the event fact. Do not hide duplicates in
+`apply` with no-op checks such as `if !items.contains(...) { push(...) }`.
+
+good:
+```rust
+pub fn link_identity(
+    &mut self,
+    identity: UserIdentity,
+) -> Result<UserIdentityLinkResult, UserError> {
+    if self.state_required()?.identities.contains(&identity) {
+        let reason = UserIdentityLinkRejectionReason::AlreadyLinked;
+        self.append_event(UserEventPayload::IdentityLinkRejected { identity, reason })?;
+        return Ok(UserIdentityLinkResult::Rejected { reason });
+    }
+
+    self.append_event(UserEventPayload::IdentityLinked { identity })?;
+    Ok(UserIdentityLinkResult::Linked)
+}
+
+fn apply(&mut self, payload: &UserEventPayload) -> Result<(), UserError> {
+    match payload {
+        UserEventPayload::IdentityLinked { identity } => {
+            self.state_required_mut()?.identities.push(identity.clone());
+        }
+        UserEventPayload::IdentityLinkRejected { .. } => {}
+    }
+
+    Ok(())
+}
+```
+
+bad:
+```rust
+fn apply(&mut self, payload: &UserEventPayload) -> Result<(), UserError> {
+    match payload {
+        UserEventPayload::IdentityLinked { identity } => {
+            let state = self.state_required_mut()?;
+            if !state.identities.contains(identity) {
+                state.identities.push(identity.clone());
+            }
+        }
+        UserEventPayload::IdentityLinkRejected { .. } => {}
+    }
+
+    Ok(())
 }
 ```
 

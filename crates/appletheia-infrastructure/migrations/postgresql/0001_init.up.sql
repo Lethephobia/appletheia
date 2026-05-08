@@ -59,6 +59,30 @@ CREATE INDEX IF NOT EXISTS idx_unique_key_reservations_owner
 
 COMMENT ON TABLE unique_key_reservations IS 'Current unique-value reservations keyed by aggregate owner.';
 
+-- aggregate reference indexes
+CREATE TABLE IF NOT EXISTS aggregate_reference_indexes (
+  id                    UUID PRIMARY KEY,
+  source_aggregate_type TEXT NOT NULL,
+  source_aggregate_id   UUID NOT NULL,
+  namespace             TEXT NOT NULL,
+  target_aggregate_id   UUID NOT NULL,
+
+  UNIQUE (source_aggregate_type, source_aggregate_id, namespace, target_aggregate_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_aggregate_reference_indexes_target
+  ON aggregate_reference_indexes (source_aggregate_type, namespace, target_aggregate_id);
+
+CREATE INDEX IF NOT EXISTS idx_aggregate_reference_indexes_lookup_page
+  ON aggregate_reference_indexes (
+    source_aggregate_type,
+    namespace,
+    target_aggregate_id,
+    source_aggregate_id
+  );
+
+COMMENT ON TABLE aggregate_reference_indexes IS 'Current aggregate reference indexes keyed by source aggregate.';
+
 -- event_outbox
 CREATE TABLE IF NOT EXISTS event_outbox (
   id                   UUID        PRIMARY KEY,

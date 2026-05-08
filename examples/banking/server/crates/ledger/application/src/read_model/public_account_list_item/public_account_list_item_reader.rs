@@ -1,6 +1,6 @@
 use appletheia::application::unit_of_work::UnitOfWork;
 
-use crate::pagination::{CursorOptions, Page, PageLimit};
+use crate::pagination::{CursorOptions, Page, PageSize};
 
 use super::{
     PublicAccountListItem, PublicAccountListItemCriteria, PublicAccountListItemCursor,
@@ -19,7 +19,7 @@ pub trait PublicAccountListItemReader: Send + Sync {
         cursor_options: Option<
             CursorOptions<PublicAccountListItemSortKey, PublicAccountListItemCursor>,
         >,
-        limit: PageLimit,
+        limit: PageSize,
     ) -> Result<
         Page<PublicAccountListItem, PublicAccountListItemCursor>,
         PublicAccountListItemReaderError,

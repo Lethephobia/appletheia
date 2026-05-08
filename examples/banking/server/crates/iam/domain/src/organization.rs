@@ -341,9 +341,10 @@ mod tests {
         OrganizationHandle, OrganizationOwner, OrganizationPictureRef, OrganizationPictureUrl,
         OrganizationWebsiteUrl,
     };
+    use crate::UserId;
 
     fn owner() -> OrganizationOwner {
-        OrganizationOwner::User(crate::UserId::new())
+        OrganizationOwner::User(UserId::new())
     }
 
     fn display_name() -> OrganizationDisplayName {

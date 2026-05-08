@@ -61,7 +61,7 @@ where
         let saga_name = SagaNameOwned::from(descriptor.name);
         let correlation_id = event.correlation_id;
 
-        let mut instance = if descriptor.start_event.matches(event) {
+        let mut instance = if descriptor.start_events.matches(event) {
             self.saga_instance_store
                 .find_by_correlation_id::<<SG::Spec as SagaSpec>::State>(
                     uow,
@@ -187,7 +187,7 @@ mod tests {
     use crate::saga::{
         Saga, SagaDescriptor, SagaInstance, SagaInstanceStore, SagaInstanceStoreError, SagaName,
         SagaNameOwned, SagaProcessedEventStore, SagaProcessedEventStoreError, SagaRunReport,
-        SagaRunner, SagaSpec, SagaState, SagaStatus,
+        SagaRunner, SagaSpec, SagaStartEvents, SagaState, SagaStatus,
     };
     use crate::unit_of_work::{
         UnitOfWork, UnitOfWorkError, UnitOfWorkFactory, UnitOfWorkFactoryError,
@@ -294,10 +294,10 @@ mod tests {
 
         const DESCRIPTOR: SagaDescriptor = SagaDescriptor::new(
             SagaName::new("test_saga"),
-            EventSelector::new(
+            SagaStartEvents::new(&[EventSelector::new(
                 appletheia_domain::AggregateType::new("user"),
                 appletheia_domain::EventName::new("user_registered"),
-            ),
+            )]),
             Subscription::All,
         );
     }

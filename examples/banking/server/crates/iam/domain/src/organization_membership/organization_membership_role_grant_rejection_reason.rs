@@ -6,4 +6,5 @@ use serde::{Deserialize, Serialize};
 pub enum OrganizationMembershipRoleGrantRejectionReason {
     Inactive,
     Removed,
+    AlreadyGranted,
 }

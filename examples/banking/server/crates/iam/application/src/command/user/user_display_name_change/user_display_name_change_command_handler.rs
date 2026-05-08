@@ -63,12 +63,12 @@ where
             return Err(UserDisplayNameChangeCommandHandlerError::UserNotFound);
         };
 
-        user.change_display_name(command.display_name.clone())?;
+        let result = user.change_display_name(command.display_name.clone())?;
 
         self.user_repository
             .save(uow, request_context, &mut user)
             .await?;
 
-        Ok(CommandHandled::same(UserDisplayNameChangeOutput))
+        Ok(CommandHandled::same(result.into()))
     }
 }

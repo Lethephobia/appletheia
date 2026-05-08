@@ -1,6 +1,6 @@
 use appletheia::query;
 
-use crate::pagination::{CursorOptions, PageLimit};
+use crate::pagination::{CursorOptions, PageSize};
 use crate::read_model::{
     PublicAccountListItemCriteria, PublicAccountListItemCursor, PublicAccountListItemSortKey,
 };
@@ -12,5 +12,5 @@ pub struct PublicAccountListQuery {
     pub criteria: PublicAccountListItemCriteria,
     pub cursor_options:
         Option<CursorOptions<PublicAccountListItemSortKey, PublicAccountListItemCursor>>,
-    pub limit: PageLimit,
+    pub limit: PageSize,
 }

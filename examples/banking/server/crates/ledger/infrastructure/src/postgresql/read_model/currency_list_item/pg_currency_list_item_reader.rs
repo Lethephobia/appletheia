@@ -3,7 +3,7 @@ use appletheia::infrastructure::postgresql::PgUnitOfWork;
 use banking_ledger_application::{
     CurrencyListItem, CurrencyListItemCriteria, CurrencyListItemCursor, CurrencyListItemReader,
     CurrencyListItemReaderError, CurrencyListItemSortKey, CurrencyListItemStatus, CursorOptions,
-    Page, PageLimit, SortDirection,
+    Page, PageSize, SortDirection,
 };
 use sqlx::{Postgres, QueryBuilder};
 
@@ -39,9 +39,9 @@ impl CurrencyListItemReader for PgCurrencyListItemReader {
         uow: &mut Self::Uow,
         criteria: CurrencyListItemCriteria,
         cursor_options: Option<CursorOptions<CurrencyListItemSortKey, CurrencyListItemCursor>>,
-        page_limit: PageLimit,
+        page_size: PageSize,
     ) -> Result<Page<CurrencyListItem, CurrencyListItemCursor>, CurrencyListItemReaderError> {
-        let limit = i64::from(page_limit.value()) + 1;
+        let limit = i64::from(page_size.value()) + 1;
 
         let mut builder = QueryBuilder::<Postgres>::new(
             r#"
@@ -135,7 +135,7 @@ impl CurrencyListItemReader for PgCurrencyListItemReader {
             .await
             .map_err(|e| CurrencyListItemReaderError::Persistence(Box::new(e)))?;
 
-        let limit = page_limit.value() as usize;
+        let limit = page_size.value() as usize;
         let has_next = rows.len() > limit;
         let items = rows
             .into_iter()

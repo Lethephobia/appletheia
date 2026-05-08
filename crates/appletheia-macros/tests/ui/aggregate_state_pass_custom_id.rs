@@ -3,7 +3,8 @@
 use std::convert::Infallible;
 
 use appletheia_domain::{
-    AggregateId, AggregateState, AggregateStateError, UniqueConstraints, UniqueValuesError,
+    AggregateId, AggregateState, AggregateStateError, ReferenceIndexes, UniqueConstraints,
+    UniqueValuesError,
 };
 use appletheia_macros::{aggregate_id, aggregate_state};
 use thiserror::Error;
@@ -28,6 +29,7 @@ struct CounterState {
 }
 
 impl UniqueConstraints<CounterStateError> for CounterState {}
+impl ReferenceIndexes<CounterStateError> for CounterState {}
 
 fn assert_aggregate_state<T: AggregateState<Id = CounterId, Error = CounterStateError>>() {}
 

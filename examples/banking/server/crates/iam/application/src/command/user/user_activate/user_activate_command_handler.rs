@@ -61,12 +61,12 @@ where
             return Err(UserActivateCommandHandlerError::TargetUserNotFound);
         };
 
-        user.activate()?;
+        let result = user.activate()?;
 
         self.user_repository
             .save(uow, request_context, &mut user)
             .await?;
 
-        Ok(CommandHandled::same(UserActivateOutput))
+        Ok(CommandHandled::same(result.into()))
     }
 }

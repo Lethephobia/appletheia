@@ -12,21 +12,6 @@ pub enum UserError {
     #[error("user is already registered")]
     AlreadyRegistered,
 
-    #[error("user is inactive")]
-    Inactive,
-
-    #[error("user is removed")]
-    Removed,
-
-    #[error("user identity is already linked")]
-    IdentityAlreadyLinked,
-
-    #[error("user identity count limit exceeded")]
-    IdentityCountLimitExceeded,
-
-    #[error("user identity was not found")]
-    IdentityNotFound,
-
     #[error("user identity state is invalid")]
     InvalidIdentityState,
 }

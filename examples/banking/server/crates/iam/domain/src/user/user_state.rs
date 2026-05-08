@@ -1,5 +1,6 @@
 use appletheia::aggregate_state;
-use appletheia::domain::{UniqueValue, UniqueValuePart, UniqueValues};
+use appletheia::domain::{UniqueValue, UniqueValues};
+use appletheia::reference_indexes;
 use appletheia::unique_constraints;
 
 use super::{
@@ -10,9 +11,10 @@ use super::{
 /// Stores the materialized state of a `User` aggregate.
 #[aggregate_state(error = UserStateError)]
 #[unique_constraints(
-    entry(key = "username", values = username_values),
+    entry(key = "username", value = username_value),
     entry(key = "provider_subject", values = provider_subject_values)
 )]
+#[reference_indexes()]
 pub struct UserState {
     pub(super) id: UserId,
     pub(super) identities: Vec<UserIdentity>,
@@ -38,7 +40,7 @@ impl UserState {
     }
 }
 
-fn username_values(state: &UserState) -> Result<Option<UniqueValues>, UserStateError> {
+fn username_value(state: &UserState) -> Result<Option<UniqueValue>, UserStateError> {
     if state.status.is_removed() {
         return Ok(None);
     }
@@ -47,11 +49,9 @@ fn username_values(state: &UserState) -> Result<Option<UniqueValues>, UserStateE
         return Ok(None);
     };
 
-    let part = UniqueValuePart::try_from(username.as_ref())?;
-    let value = UniqueValue::new(vec![part])?;
-    let values = UniqueValues::new(vec![value])?;
+    let value = UniqueValue::from_strings([username.as_ref()])?;
 
-    Ok(Some(values))
+    Ok(Some(value))
 }
 
 fn provider_subject_values(state: &UserState) -> Result<Option<UniqueValues>, UserStateError> {
@@ -63,9 +63,10 @@ fn provider_subject_values(state: &UserState) -> Result<Option<UniqueValues>, Us
         .identities
         .iter()
         .map(|identity| {
-            let provider = UniqueValuePart::try_from(identity.provider().as_ref())?;
-            let subject = UniqueValuePart::try_from(identity.subject().as_ref())?;
-            UniqueValue::new(vec![provider, subject]).map_err(UserStateError::from)
+            Ok(UniqueValue::from_strings([
+                identity.provider().as_ref(),
+                identity.subject().as_ref(),
+            ])?)
         })
         .collect::<Result<Vec<_>, UserStateError>>()?;
     let values = UniqueValues::new(values)?;

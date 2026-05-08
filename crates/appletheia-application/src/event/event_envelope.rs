@@ -78,7 +78,7 @@ mod tests {
     use crate::request_context::{MessageId, Principal};
     use appletheia_domain::{
         AggregateApply, AggregateCore, AggregateError, AggregateId, AggregateState,
-        AggregateStateError, AggregateType, EventName, UniqueConstraints,
+        AggregateStateError, AggregateType, EventName, ReferenceIndexes, UniqueConstraints,
     };
 
     #[derive(Debug, Error)]
@@ -125,6 +125,7 @@ mod tests {
     }
 
     impl UniqueConstraints<CounterStateError> for CounterState {}
+    impl ReferenceIndexes<CounterStateError> for CounterState {}
 
     impl AggregateState for CounterState {
         type Id = CounterId;

@@ -11,7 +11,4 @@ pub enum OrganizationJoinRequestError {
 
     #[error("organization join request is already requested")]
     AlreadyRequested,
-
-    #[error("organization join request is not pending")]
-    NotPending,
 }

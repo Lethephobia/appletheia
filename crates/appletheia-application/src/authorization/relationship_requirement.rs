@@ -38,7 +38,7 @@ mod tests {
     use appletheia_domain::AggregateType;
     use appletheia_domain::aggregate::{
         AggregateCore, AggregateError, AggregateId, AggregateState, AggregateStateError,
-        UniqueConstraints,
+        ReferenceIndexes, UniqueConstraints,
     };
     use appletheia_domain::event::{EventName, EventPayload};
     use appletheia_domain::{Aggregate, AggregateApply};
@@ -116,6 +116,7 @@ mod tests {
     }
 
     impl UniqueConstraints<TestStateError> for TestState {}
+    impl ReferenceIndexes<TestStateError> for TestState {}
 
     impl AggregateState for TestState {
         type Id = TestId;

@@ -20,6 +20,20 @@ impl UniqueValue {
         Ok(Self { parts })
     }
 
+    /// Creates a value from one or more normalized string parts.
+    pub fn from_strings<I, S>(parts: I) -> Result<Self, UniqueValueError>
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        let parts = parts
+            .into_iter()
+            .map(|part| UniqueValuePart::try_from(part.into()))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Self::new(parts)
+    }
+
     /// Returns the normalized parts of this value.
     pub fn parts(&self) -> &[UniqueValuePart] {
         &self.parts
@@ -54,6 +68,22 @@ mod tests {
         let error = UniqueValue::new(Vec::new()).expect_err("empty parts should fail");
 
         assert!(matches!(error, UniqueValueError::EmptyParts));
+    }
+
+    #[test]
+    fn builds_from_string_parts() {
+        let value = UniqueValue::from_strings(["tenant_123", "foo@example.com"])
+            .expect("valid string parts should build value");
+
+        assert_eq!(value.normalized_key(), "10:tenant_123|15:foo@example.com");
+    }
+
+    #[test]
+    fn rejects_empty_string_part() {
+        let error = UniqueValue::from_strings(["tenant_123", ""])
+            .expect_err("empty string part should fail");
+
+        assert!(matches!(error, UniqueValueError::Part(_)));
     }
 
     #[test]

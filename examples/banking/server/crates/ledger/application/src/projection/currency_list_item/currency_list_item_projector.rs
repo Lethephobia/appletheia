@@ -82,10 +82,19 @@ where
                         .await?;
                 }
                 UserEventPayload::IdentityLinked { .. }
+                | UserEventPayload::IdentityLinkRejected { .. }
                 | UserEventPayload::IdentityEmailChanged { .. }
+                | UserEventPayload::IdentityEmailChangeRejected { .. }
                 | UserEventPayload::BioChanged { .. }
+                | UserEventPayload::BioChangeRejected { .. }
+                | UserEventPayload::UsernameChangeRejected { .. }
+                | UserEventPayload::DisplayNameChangeRejected { .. }
+                | UserEventPayload::PictureChangeRejected { .. }
                 | UserEventPayload::Activated
-                | UserEventPayload::Inactivated => {}
+                | UserEventPayload::ActivateRejected { .. }
+                | UserEventPayload::Inactivated
+                | UserEventPayload::DeactivateRejected { .. }
+                | UserEventPayload::RemoveRejected { .. } => {}
             }
 
             return Ok(());

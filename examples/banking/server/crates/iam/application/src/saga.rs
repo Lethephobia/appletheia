@@ -1,12 +1,8 @@
-mod organization;
 mod organization_invitation;
 mod organization_join_request;
-mod user;
+mod organization_old_picture_object_deletion;
+mod user_old_picture_object_deletion;
 
-pub use organization::{
-    OrganizationPictureChangedSaga, OrganizationPictureChangedSagaError,
-    OrganizationPictureChangedSagaSpec, OrganizationPictureSagaState,
-};
 pub use organization_invitation::{
     OrganizationInvitationSaga, OrganizationInvitationSagaError, OrganizationInvitationSagaSpec,
     OrganizationInvitationSagaState,
@@ -15,7 +11,11 @@ pub use organization_join_request::{
     OrganizationJoinRequestSaga, OrganizationJoinRequestSagaError, OrganizationJoinRequestSagaSpec,
     OrganizationJoinRequestSagaState,
 };
-pub use user::{
-    UserPictureChangedSaga, UserPictureChangedSagaError, UserPictureChangedSagaSpec,
-    UserPictureSagaState,
+pub use organization_old_picture_object_deletion::{
+    OrganizationOldPictureObjectDeletionSaga, OrganizationOldPictureObjectDeletionSagaError,
+    OrganizationOldPictureObjectDeletionSagaSpec, OrganizationOldPictureObjectDeletionSagaState,
+};
+pub use user_old_picture_object_deletion::{
+    UserOldPictureObjectDeletionSaga, UserOldPictureObjectDeletionSagaError,
+    UserOldPictureObjectDeletionSagaSpec, UserOldPictureObjectDeletionSagaState,
 };

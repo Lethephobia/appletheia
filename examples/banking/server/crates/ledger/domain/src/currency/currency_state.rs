@@ -1,5 +1,5 @@
-use appletheia::domain::{UniqueValue, UniqueValuePart, UniqueValues};
-use appletheia::{aggregate_state, unique_constraints};
+use appletheia::domain::UniqueValue;
+use appletheia::{aggregate_state, reference_indexes, unique_constraints};
 
 use crate::core::CurrencyAmount;
 
@@ -10,7 +10,11 @@ use super::{
 
 /// Stores the materialized state of a `Currency` aggregate.
 #[aggregate_state(error = CurrencyStateError)]
-#[unique_constraints(entry(key = "symbol", values = symbol_values))]
+#[unique_constraints(entry(key = "symbol", value = symbol_value))]
+#[reference_indexes(
+    entry(key = "owner_user", value = owner_user_value),
+    entry(key = "owner_organization", value = owner_organization_value)
+)]
 pub struct CurrencyState {
     pub(super) id: CurrencyId,
     pub(super) owner: CurrencyOwner,
@@ -42,22 +46,35 @@ impl CurrencyState {
     }
 }
 
-fn symbol_values(state: &CurrencyState) -> Result<Option<UniqueValues>, CurrencyStateError> {
+fn symbol_value(state: &CurrencyState) -> Result<Option<UniqueValue>, CurrencyStateError> {
     if state.status.is_removed() {
         return Ok(None);
     }
 
-    let part = UniqueValuePart::try_from(state.symbol.as_ref())?;
-    let value = UniqueValue::new(vec![part])?;
-    let values = UniqueValues::new(vec![value])?;
+    let value = UniqueValue::from_strings([state.symbol.as_ref()])?;
 
-    Ok(Some(values))
+    Ok(Some(value))
+}
+
+fn owner_user_value(
+    state: &CurrencyState,
+) -> Result<Option<banking_iam_domain::UserId>, CurrencyStateError> {
+    Ok(state.owner.user_id().copied())
+}
+
+fn owner_organization_value(
+    state: &CurrencyState,
+) -> Result<Option<banking_iam_domain::OrganizationId>, CurrencyStateError> {
+    Ok(state.owner.organization_id().copied())
 }
 
 #[cfg(test)]
 mod tests {
-    use appletheia::domain::{AggregateState, UniqueConstraints, UniqueKey, UniqueValues};
-    use banking_iam_domain::UserId;
+    use appletheia::domain::{
+        AggregateState, ReferenceIndexes, ReferenceValues, UniqueConstraints, UniqueKey,
+        UniqueValues,
+    };
+    use banking_iam_domain::{OrganizationId, UserId};
 
     use crate::core::CurrencyAmount;
 
@@ -115,6 +132,62 @@ mod tests {
         assert_eq!(
             entries.get(UniqueKey::new("symbol")).map(UniqueValues::len),
             None
+        );
+    }
+
+    #[test]
+    fn user_owned_currency_returns_user_reference_entry() {
+        let state = CurrencyState::new(
+            CurrencyId::new(),
+            CurrencyOwner::User(UserId::new()),
+            CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
+            CurrencyName::try_from("USD Coin").expect("name should be valid"),
+            CurrencyDecimals::new(6),
+        );
+
+        let entries = state
+            .reference_entries()
+            .expect("reference entries should build");
+
+        assert_eq!(
+            entries
+                .get(CurrencyState::OWNER_USER_REF)
+                .map(ReferenceValues::len),
+            Some(1)
+        );
+        assert_eq!(
+            entries
+                .get(CurrencyState::OWNER_ORGANIZATION_REF)
+                .map(ReferenceValues::len),
+            None
+        );
+    }
+
+    #[test]
+    fn organization_owned_currency_returns_organization_reference_entry() {
+        let state = CurrencyState::new(
+            CurrencyId::new(),
+            CurrencyOwner::Organization(OrganizationId::new()),
+            CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
+            CurrencyName::try_from("USD Coin").expect("name should be valid"),
+            CurrencyDecimals::new(6),
+        );
+
+        let entries = state
+            .reference_entries()
+            .expect("reference entries should build");
+
+        assert_eq!(
+            entries
+                .get(CurrencyState::OWNER_USER_REF)
+                .map(ReferenceValues::len),
+            None
+        );
+        assert_eq!(
+            entries
+                .get(CurrencyState::OWNER_ORGANIZATION_REF)
+                .map(ReferenceValues::len),
+            Some(1)
         );
     }
 }

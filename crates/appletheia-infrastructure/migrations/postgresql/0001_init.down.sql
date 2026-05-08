@@ -47,6 +47,10 @@ DROP TABLE IF EXISTS event_dead_letters;
 -- event_outbox
 DROP TABLE IF EXISTS event_outbox;
 
+-- aggregate reference indexes
+DROP INDEX IF EXISTS idx_aggregate_reference_indexes_lookup_page;
+DROP TABLE IF EXISTS aggregate_reference_indexes;
+
 -- unique key reservations
 DROP TABLE IF EXISTS unique_key_reservations;
 

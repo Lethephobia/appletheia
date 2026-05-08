@@ -11,7 +11,4 @@ pub enum OrganizationError {
 
     #[error("organization is already created")]
     AlreadyCreated,
-
-    #[error("organization is removed")]
-    Removed,
 }

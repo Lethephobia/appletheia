@@ -16,7 +16,7 @@ pub mod infrastructure {
 #[cfg(feature = "macros-domain")]
 pub use appletheia_macros::{
     Aggregate, AggregateId, AggregateState, EventPayload, aggregate, aggregate_id, aggregate_state,
-    event_payload, unique_constraints,
+    event_payload, reference_indexes, unique_constraints,
 };
 
 #[cfg(feature = "macros-application")]

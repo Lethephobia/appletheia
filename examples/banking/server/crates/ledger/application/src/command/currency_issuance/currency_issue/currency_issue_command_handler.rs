@@ -4,10 +4,11 @@ use appletheia::application::authorization::{
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
+use appletheia::domain::Aggregate;
 use banking_ledger_domain::account::Account;
 use banking_ledger_domain::currency::Currency;
 use banking_ledger_domain::currency_issuance::{
-    CurrencyIssuance, CurrencyIssuanceIssueRejectionReason,
+    CurrencyIssuance, CurrencyIssuanceIssueRejectionReason, CurrencyIssuanceIssueResult,
 };
 
 use super::{CurrencyIssueCommand, CurrencyIssueCommandHandlerError, CurrencyIssueOutput};
@@ -107,11 +108,24 @@ where
                 CurrencyIssuanceIssueRejectionReason::CurrencyInactive,
             )?)
         } else {
-            CurrencyIssueOutput::from(currency_issuance.issue(
+            let result = currency_issuance.issue(
                 command.currency_id,
                 command.destination_account_id,
                 command.amount,
-            )?)
+            )?;
+            match result {
+                CurrencyIssuanceIssueResult::Issued => {
+                    let currency_issuance_id = currency_issuance
+                        .aggregate_id()
+                        .ok_or(CurrencyIssueCommandHandlerError::MissingCurrencyIssuanceId)?;
+                    CurrencyIssueOutput::Issued {
+                        currency_issuance_id,
+                    }
+                }
+                CurrencyIssuanceIssueResult::Rejected { reason } => {
+                    CurrencyIssueOutput::Rejected { reason }
+                }
+            }
         };
 
         self.currency_issuance_repository

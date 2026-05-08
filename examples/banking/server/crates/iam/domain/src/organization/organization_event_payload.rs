@@ -74,7 +74,7 @@ pub enum OrganizationEventPayload {
 mod tests {
     use appletheia::domain::EventPayload;
 
-    use crate::{OrganizationDisplayName, OrganizationWebsiteUrl};
+    use crate::{OrganizationDisplayName, OrganizationWebsiteUrl, UserId};
 
     use super::{OrganizationEventPayload, OrganizationHandle, OrganizationId, OrganizationOwner};
 
@@ -180,7 +180,7 @@ mod tests {
     fn serializes_created_payload_to_json() {
         let payload = OrganizationEventPayload::Created {
             id: OrganizationId::new(),
-            owner: OrganizationOwner::User(crate::UserId::new()),
+            owner: OrganizationOwner::User(UserId::new()),
             handle: OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
             display_name: display_name(),
             description: None,

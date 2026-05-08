@@ -60,12 +60,12 @@ where
             return Err(UserBioChangeCommandHandlerError::UserNotFound);
         };
 
-        user.change_bio(command.bio.clone())?;
+        let result = user.change_bio(command.bio.clone())?;
 
         self.user_repository
             .save(uow, request_context, &mut user)
             .await?;
 
-        Ok(CommandHandled::same(UserBioChangeOutput))
+        Ok(CommandHandled::same(result.into()))
     }
 }

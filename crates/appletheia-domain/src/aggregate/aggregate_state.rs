@@ -4,7 +4,7 @@ use serde::Serialize;
 
 use serde::de::DeserializeOwned;
 
-use super::{AggregateId, AggregateStateError, UniqueConstraints};
+use super::{AggregateId, AggregateStateError, ReferenceIndexes, UniqueConstraints};
 
 /// Represents the persisted state of an aggregate.
 ///
@@ -13,6 +13,7 @@ use super::{AggregateId, AggregateStateError, UniqueConstraints};
 /// boundaries.
 pub trait AggregateState:
     UniqueConstraints<Self::Error>
+    + ReferenceIndexes<Self::Error>
     + Clone
     + Debug
     + Eq
@@ -48,7 +49,7 @@ mod tests {
 
     use super::AggregateState;
     use crate::aggregate::{
-        AggregateId, AggregateStateError, UniqueConstraints, UniqueValuesError,
+        AggregateId, AggregateStateError, ReferenceIndexes, UniqueConstraints, UniqueValuesError,
     };
 
     #[derive(Debug, Error, Eq, PartialEq)]
@@ -98,6 +99,7 @@ mod tests {
     }
 
     impl UniqueConstraints<CounterStateError> for CounterState {}
+    impl ReferenceIndexes<CounterStateError> for CounterState {}
 
     impl AggregateState for CounterState {
         type Id = CounterId;

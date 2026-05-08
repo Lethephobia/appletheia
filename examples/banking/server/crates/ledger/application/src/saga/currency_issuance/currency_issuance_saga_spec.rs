@@ -1,6 +1,6 @@
 use appletheia::application::event::EventSelector;
 use appletheia::application::messaging::Subscription;
-use appletheia::application::saga::{SagaDescriptor, SagaName, SagaSpec};
+use appletheia::application::saga::{SagaDescriptor, SagaName, SagaSpec, SagaStartEvents};
 use appletheia::domain::Aggregate;
 use banking_ledger_domain::account::{Account, AccountEventPayload};
 use banking_ledger_domain::currency::{Currency, CurrencyEventPayload};
@@ -16,7 +16,10 @@ impl SagaSpec for CurrencyIssuanceSagaSpec {
 
     const DESCRIPTOR: SagaDescriptor = SagaDescriptor::new(
         SagaName::new("currency_issuance"),
-        EventSelector::new(CurrencyIssuance::TYPE, CurrencyIssuanceEventPayload::ISSUED),
+        SagaStartEvents::new(&[EventSelector::new(
+            CurrencyIssuance::TYPE,
+            CurrencyIssuanceEventPayload::ISSUED,
+        )]),
         Subscription::AnyOf(&[
             EventSelector::new(CurrencyIssuance::TYPE, CurrencyIssuanceEventPayload::ISSUED),
             EventSelector::new(
