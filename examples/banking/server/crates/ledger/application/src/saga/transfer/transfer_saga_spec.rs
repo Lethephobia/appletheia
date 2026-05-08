@@ -1,6 +1,6 @@
 use appletheia::application::event::EventSelector;
 use appletheia::application::messaging::Subscription;
-use appletheia::application::saga::{SagaDescriptor, SagaName, SagaSpec};
+use appletheia::application::saga::{SagaDescriptor, SagaName, SagaSpec, SagaStartEvents};
 use appletheia::domain::Aggregate;
 use banking_ledger_domain::account::Account;
 use banking_ledger_domain::account::AccountEventPayload;
@@ -16,7 +16,10 @@ impl SagaSpec for TransferSagaSpec {
 
     const DESCRIPTOR: SagaDescriptor = SagaDescriptor::new(
         SagaName::new("transfer"),
-        EventSelector::new(Transfer::TYPE, TransferEventPayload::REQUESTED),
+        SagaStartEvents::new(&[EventSelector::new(
+            Transfer::TYPE,
+            TransferEventPayload::REQUESTED,
+        )]),
         Subscription::AnyOf(&[
             EventSelector::new(Transfer::TYPE, TransferEventPayload::REQUESTED),
             EventSelector::new(Account::TYPE, AccountEventPayload::FUNDS_RESERVED),

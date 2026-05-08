@@ -1,6 +1,6 @@
 use appletheia::application::event::EventSelector;
 use appletheia::application::messaging::Subscription;
-use appletheia::application::saga::{SagaDescriptor, SagaName, SagaSpec};
+use appletheia::application::saga::{SagaDescriptor, SagaName, SagaSpec, SagaStartEvents};
 use appletheia::domain::Aggregate;
 use banking_iam_domain::{Organization, OrganizationEventPayload};
 
@@ -14,10 +14,10 @@ impl SagaSpec for OrganizationOldPictureObjectDeletionSagaSpec {
 
     const DESCRIPTOR: SagaDescriptor = SagaDescriptor::new(
         SagaName::new("organization_old_picture_object_deletion"),
-        EventSelector::new(
+        SagaStartEvents::new(&[EventSelector::new(
             Organization::TYPE,
             OrganizationEventPayload::PICTURE_CHANGED,
-        ),
+        )]),
         Subscription::One(&EventSelector::new(
             Organization::TYPE,
             OrganizationEventPayload::PICTURE_CHANGED,
