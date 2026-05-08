@@ -59,6 +59,10 @@ impl SagaSpec for OwnedAccountClosureSagaSpec {
             ),
             EventSelector::new(
                 OwnedAccountClosure::TYPE,
+                OwnedAccountClosureEventPayload::COMPLETE_REJECTED,
+            ),
+            EventSelector::new(
+                OwnedAccountClosure::TYPE,
                 OwnedAccountClosureEventPayload::FAILED,
             ),
             EventSelector::new(
