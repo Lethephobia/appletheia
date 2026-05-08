@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.0](https://github.com/Lethephobia/appletheia/compare/appletheia-infrastructure-v0.15.0...appletheia-infrastructure-v0.16.0) - 2026-05-08
+
+### Added
+
+- *(repository)* [**breaking**] add paged reference index lookup
+- *(repository)* [**breaking**] add aggregate reference indexes
+
+### Other
+
+- *(repository)* align reference lookup cursor naming
+
 ## [0.15.0](https://github.com/Lethephobia/appletheia/compare/appletheia-infrastructure-v0.14.0...appletheia-infrastructure-v0.15.0) - 2026-05-06
 
 ### Added
