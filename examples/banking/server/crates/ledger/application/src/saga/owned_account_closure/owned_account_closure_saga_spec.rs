@@ -1,7 +1,6 @@
 use appletheia::application::event::EventSelector;
 use appletheia::application::messaging::Subscription;
 use appletheia::application::saga::{SagaDescriptor, SagaName, SagaSpec, SagaStartEvents};
-use appletheia::domain::Aggregate;
 use banking_iam_domain::{Organization, OrganizationEventPayload, User, UserEventPayload};
 use banking_ledger_domain::account::{Account, AccountEventPayload};
 use banking_ledger_domain::owned_account_closure::{
@@ -19,58 +18,39 @@ impl SagaSpec for OwnedAccountClosureSagaSpec {
     const DESCRIPTOR: SagaDescriptor = SagaDescriptor::new(
         SagaName::new("owned_account_closure"),
         SagaStartEvents::new(&[
-            EventSelector::new(User::TYPE, UserEventPayload::REMOVED),
-            EventSelector::new(Organization::TYPE, OrganizationEventPayload::REMOVED),
+            EventSelector::new::<User>(UserEventPayload::REMOVED),
+            EventSelector::new::<Organization>(OrganizationEventPayload::REMOVED),
         ]),
         Subscription::AnyOf(&[
-            EventSelector::new(User::TYPE, UserEventPayload::REMOVED),
-            EventSelector::new(Organization::TYPE, OrganizationEventPayload::REMOVED),
-            EventSelector::new(
-                OwnedAccountClosure::TYPE,
-                OwnedAccountClosureEventPayload::REQUESTED,
-            ),
-            EventSelector::new(
-                OwnedAccountClosure::TYPE,
-                OwnedAccountClosureEventPayload::PAGE_LOADED,
-            ),
-            EventSelector::new(
-                OwnedAccountClosure::TYPE,
+            EventSelector::new::<User>(UserEventPayload::REMOVED),
+            EventSelector::new::<Organization>(OrganizationEventPayload::REMOVED),
+            EventSelector::new::<OwnedAccountClosure>(OwnedAccountClosureEventPayload::REQUESTED),
+            EventSelector::new::<OwnedAccountClosure>(OwnedAccountClosureEventPayload::PAGE_LOADED),
+            EventSelector::new::<OwnedAccountClosure>(
                 OwnedAccountClosureEventPayload::PAGE_LOAD_REJECTED,
             ),
-            EventSelector::new(
-                OwnedAccountClosure::TYPE,
+            EventSelector::new::<OwnedAccountClosure>(
                 OwnedAccountClosureEventPayload::ACCOUNT_CLOSE_RECORDED,
             ),
-            EventSelector::new(
-                OwnedAccountClosure::TYPE,
+            EventSelector::new::<OwnedAccountClosure>(
                 OwnedAccountClosureEventPayload::ACCOUNT_CLOSE_RECORD_REJECTED,
             ),
-            EventSelector::new(
-                OwnedAccountClosure::TYPE,
+            EventSelector::new::<OwnedAccountClosure>(
                 OwnedAccountClosureEventPayload::ACCOUNT_CLOSE_REJECTION_RECORDED,
             ),
-            EventSelector::new(
-                OwnedAccountClosure::TYPE,
+            EventSelector::new::<OwnedAccountClosure>(
                 OwnedAccountClosureEventPayload::ACCOUNT_CLOSE_REJECTION_RECORD_REJECTED,
             ),
-            EventSelector::new(
-                OwnedAccountClosure::TYPE,
-                OwnedAccountClosureEventPayload::COMPLETED,
-            ),
-            EventSelector::new(
-                OwnedAccountClosure::TYPE,
+            EventSelector::new::<OwnedAccountClosure>(OwnedAccountClosureEventPayload::COMPLETED),
+            EventSelector::new::<OwnedAccountClosure>(
                 OwnedAccountClosureEventPayload::COMPLETE_REJECTED,
             ),
-            EventSelector::new(
-                OwnedAccountClosure::TYPE,
-                OwnedAccountClosureEventPayload::FAILED,
-            ),
-            EventSelector::new(
-                OwnedAccountClosure::TYPE,
+            EventSelector::new::<OwnedAccountClosure>(OwnedAccountClosureEventPayload::FAILED),
+            EventSelector::new::<OwnedAccountClosure>(
                 OwnedAccountClosureEventPayload::FAIL_REJECTED,
             ),
-            EventSelector::new(Account::TYPE, AccountEventPayload::CLOSED),
-            EventSelector::new(Account::TYPE, AccountEventPayload::CLOSE_REJECTED),
+            EventSelector::new::<Account>(AccountEventPayload::CLOSED),
+            EventSelector::new::<Account>(AccountEventPayload::CLOSE_REJECTED),
         ]),
     );
 }

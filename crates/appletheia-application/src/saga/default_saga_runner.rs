@@ -294,7 +294,7 @@ mod tests {
 
         const DESCRIPTOR: SagaDescriptor = SagaDescriptor::new(
             SagaName::new("test_saga"),
-            SagaStartEvents::new(&[EventSelector::new(
+            SagaStartEvents::new(&[EventSelector::from_parts(
                 appletheia_domain::AggregateType::new("user"),
                 appletheia_domain::EventName::new("user_registered"),
             )]),

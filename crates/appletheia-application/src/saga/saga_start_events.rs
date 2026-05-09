@@ -64,12 +64,12 @@ mod tests {
     use crate::messaging::Subscription;
 
     const USER_DELETED: EventSelector =
-        EventSelector::new(AggregateType::new("user"), EventName::new("user_deleted"));
-    const ORGANIZATION_DELETED: EventSelector = EventSelector::new(
+        EventSelector::from_parts(AggregateType::new("user"), EventName::new("user_deleted"));
+    const ORGANIZATION_DELETED: EventSelector = EventSelector::from_parts(
         AggregateType::new("organization"),
         EventName::new("organization_deleted"),
     );
-    const ACCOUNT_CLOSED: EventSelector = EventSelector::new(
+    const ACCOUNT_CLOSED: EventSelector = EventSelector::from_parts(
         AggregateType::new("account"),
         EventName::new("account_closed"),
     );

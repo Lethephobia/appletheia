@@ -265,8 +265,8 @@ mod tests {
     use crate::unit_of_work::{UnitOfWorkError, UnitOfWorkFactoryError};
 
     const REGISTERED_SELECTOR: EventSelector =
-        EventSelector::new(AggregateType::new("user"), EventName::new("registered"));
-    const PROFILE_READIED_SELECTOR: EventSelector = EventSelector::new(
+        EventSelector::from_parts(AggregateType::new("user"), EventName::new("registered"));
+    const PROFILE_READIED_SELECTOR: EventSelector = EventSelector::from_parts(
         AggregateType::new("user"),
         EventName::new("profile_readied"),
     );

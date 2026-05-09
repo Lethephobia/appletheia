@@ -1,4 +1,4 @@
-use appletheia_domain::{AggregateType, EventName};
+use appletheia_domain::{Aggregate, AggregateType, EventName};
 
 use crate::event::EventEnvelope;
 use crate::messaging::Selector as MessageSelector;
@@ -10,7 +10,14 @@ pub struct EventSelector {
 }
 
 impl EventSelector {
-    pub const fn new(aggregate_type: AggregateType, event_name: EventName) -> Self {
+    pub const fn new<A: Aggregate>(event_name: EventName) -> Self {
+        Self {
+            aggregate_type: A::TYPE,
+            event_name,
+        }
+    }
+
+    pub const fn from_parts(aggregate_type: AggregateType, event_name: EventName) -> Self {
         Self {
             aggregate_type,
             event_name,

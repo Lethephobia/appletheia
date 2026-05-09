@@ -1,7 +1,6 @@
 use appletheia::application::event::EventSelector;
 use appletheia::application::messaging::Subscription;
 use appletheia::application::projection::{ProjectorDescriptor, ProjectorName, ProjectorSpec};
-use appletheia::domain::Aggregate;
 use banking_iam_domain::{User, UserEventPayload};
 
 /// Projector specification for user-private information read models.
@@ -12,16 +11,16 @@ impl ProjectorSpec for UserPrivateInfoProjectorSpec {
     const DESCRIPTOR: ProjectorDescriptor = ProjectorDescriptor::new(
         ProjectorName::new("user_private_info"),
         Subscription::AnyOf(&[
-            EventSelector::new(User::TYPE, UserEventPayload::REGISTERED),
-            EventSelector::new(User::TYPE, UserEventPayload::IDENTITY_LINKED),
-            EventSelector::new(User::TYPE, UserEventPayload::IDENTITY_EMAIL_CHANGED),
-            EventSelector::new(User::TYPE, UserEventPayload::USERNAME_CHANGED),
-            EventSelector::new(User::TYPE, UserEventPayload::DISPLAY_NAME_CHANGED),
-            EventSelector::new(User::TYPE, UserEventPayload::BIO_CHANGED),
-            EventSelector::new(User::TYPE, UserEventPayload::PICTURE_CHANGED),
-            EventSelector::new(User::TYPE, UserEventPayload::ACTIVATED),
-            EventSelector::new(User::TYPE, UserEventPayload::INACTIVATED),
-            EventSelector::new(User::TYPE, UserEventPayload::REMOVED),
+            EventSelector::new::<User>(UserEventPayload::REGISTERED),
+            EventSelector::new::<User>(UserEventPayload::IDENTITY_LINKED),
+            EventSelector::new::<User>(UserEventPayload::IDENTITY_EMAIL_CHANGED),
+            EventSelector::new::<User>(UserEventPayload::USERNAME_CHANGED),
+            EventSelector::new::<User>(UserEventPayload::DISPLAY_NAME_CHANGED),
+            EventSelector::new::<User>(UserEventPayload::BIO_CHANGED),
+            EventSelector::new::<User>(UserEventPayload::PICTURE_CHANGED),
+            EventSelector::new::<User>(UserEventPayload::ACTIVATED),
+            EventSelector::new::<User>(UserEventPayload::INACTIVATED),
+            EventSelector::new::<User>(UserEventPayload::REMOVED),
         ]),
     );
 }
