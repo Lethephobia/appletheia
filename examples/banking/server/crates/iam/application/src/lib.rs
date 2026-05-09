@@ -2,6 +2,8 @@ pub mod authorization;
 pub mod command;
 pub mod oidc;
 pub mod projection;
+pub mod query;
+pub mod read_model;
 pub mod repository;
 pub mod saga;
 
@@ -87,6 +89,16 @@ pub use command::{
     UserUsernameChangeCommand, UserUsernameChangeCommandHandler, UserUsernameChangeOutput,
 };
 pub use oidc::{OidcCompletionPurpose, OidcCompletionRedirectUri, OidcContinuationPayload};
+pub use projection::{
+    UserPrivateInfoProjector, UserPrivateInfoProjectorError, UserPrivateInfoProjectorSpec,
+};
+pub use query::{
+    UserPrivateInfoQuery, UserPrivateInfoQueryHandler, UserPrivateInfoQueryHandlerError,
+};
+pub use read_model::{
+    UserPrivateInfo, UserPrivateInfoIdentity, UserPrivateInfoReader, UserPrivateInfoReaderError,
+    UserPrivateInfoStatus, UserPrivateInfoWriter, UserPrivateInfoWriterError,
+};
 pub use repository::{
     OrganizationEventSaveHook, OrganizationInvitationEventSaveHook,
     OrganizationJoinRequestEventSaveHook, OrganizationMembershipEventSaveHook, UserEventSaveHook,
