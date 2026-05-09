@@ -2,51 +2,48 @@ use appletheia::application::event::EventSequence;
 use appletheia::domain::{AggregateId, EventOccurredAt};
 use appletheia::infrastructure::postgresql::PgUnitOfWork;
 use banking_iam_application::{
-    UserPrivateInfoStatus, UserPrivateInfoWriter, UserPrivateInfoWriterError,
+    UserPublicProfileStatus, UserPublicProfileWriter, UserPublicProfileWriterError,
 };
-use banking_iam_domain::{
-    UserBio, UserDisplayName, UserId, UserIdentityProvider, UserIdentitySubject, UserPictureRef,
-    Username, core::Email,
-};
+use banking_iam_domain::{UserBio, UserDisplayName, UserId, UserPictureRef, Username};
 
 use super::super::pg_user_picture_ref_columns::PgUserPictureRefColumns;
 
-/// PostgreSQL-backed user-private information writer.
-pub struct PgUserPrivateInfoWriter;
+/// PostgreSQL-backed public user profile writer.
+pub struct PgUserPublicProfileWriter;
 
-impl PgUserPrivateInfoWriter {
+impl PgUserPublicProfileWriter {
     pub fn new() -> Self {
         Self
     }
 
-    fn status_name(status: UserPrivateInfoStatus) -> &'static str {
+    fn status_name(status: UserPublicProfileStatus) -> &'static str {
         match status {
-            UserPrivateInfoStatus::Active => "active",
-            UserPrivateInfoStatus::Inactive => "inactive",
+            UserPublicProfileStatus::Active => "active",
+            UserPublicProfileStatus::Inactive => "inactive",
         }
     }
 }
 
-impl Default for PgUserPrivateInfoWriter {
+impl Default for PgUserPublicProfileWriter {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl UserPrivateInfoWriter for PgUserPrivateInfoWriter {
+impl UserPublicProfileWriter for PgUserPublicProfileWriter {
     type Uow = PgUnitOfWork;
 
     async fn upsert_user(
         &self,
         uow: &mut Self::Uow,
         id: UserId,
-        status: UserPrivateInfoStatus,
+        status: UserPublicProfileStatus,
         event_sequence: EventSequence,
         occurred_at: EventOccurredAt,
-    ) -> Result<(), UserPrivateInfoWriterError> {
+    ) -> Result<(), UserPublicProfileWriterError> {
         sqlx::query(
             r#"
-            INSERT INTO user_private_infos (
+            INSERT INTO user_public_profiles (
                 id, status, updated_at, created_at, updated_event_sequence
             )
             VALUES ($1, $2, $3, $4, $5)
@@ -54,7 +51,7 @@ impl UserPrivateInfoWriter for PgUserPrivateInfoWriter {
                 status = EXCLUDED.status,
                 updated_at = EXCLUDED.updated_at,
                 updated_event_sequence = EXCLUDED.updated_event_sequence
-            WHERE user_private_infos.updated_event_sequence < EXCLUDED.updated_event_sequence
+            WHERE user_public_profiles.updated_event_sequence < EXCLUDED.updated_event_sequence
             "#,
         )
         .bind(id.value())
@@ -64,78 +61,7 @@ impl UserPrivateInfoWriter for PgUserPrivateInfoWriter {
         .bind(event_sequence.value())
         .execute(uow.transaction_mut().as_mut())
         .await
-        .map_err(|e| UserPrivateInfoWriterError::Persistence(Box::new(e)))?;
-
-        Ok(())
-    }
-
-    async fn upsert_identity(
-        &self,
-        uow: &mut Self::Uow,
-        user_id: UserId,
-        provider: UserIdentityProvider,
-        subject: UserIdentitySubject,
-        email: Option<Email>,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
-    ) -> Result<(), UserPrivateInfoWriterError> {
-        sqlx::query(
-            r#"
-            INSERT INTO user_private_info_identities (
-                user_id, provider, subject, email, updated_at, created_at, updated_event_sequence
-            )
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
-            ON CONFLICT (user_id, provider, subject) DO UPDATE SET
-                email = EXCLUDED.email,
-                updated_at = EXCLUDED.updated_at,
-                updated_event_sequence = EXCLUDED.updated_event_sequence
-            WHERE user_private_info_identities.updated_event_sequence < EXCLUDED.updated_event_sequence
-            "#,
-        )
-        .bind(user_id.value())
-        .bind(provider.value())
-        .bind(subject.value())
-        .bind(email.as_ref().map(Email::value))
-        .bind(occurred_at.value())
-        .bind(occurred_at.value())
-        .bind(event_sequence.value())
-        .execute(uow.transaction_mut().as_mut())
-        .await
-        .map_err(|e| UserPrivateInfoWriterError::Persistence(Box::new(e)))?;
-
-        Ok(())
-    }
-
-    async fn update_identity_email(
-        &self,
-        uow: &mut Self::Uow,
-        user_id: UserId,
-        provider: UserIdentityProvider,
-        subject: UserIdentitySubject,
-        email: Option<Email>,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
-    ) -> Result<(), UserPrivateInfoWriterError> {
-        sqlx::query(
-            r#"
-            UPDATE user_private_info_identities
-               SET email = $4, updated_at = $5,
-                   updated_event_sequence = $6
-             WHERE user_id = $1
-               AND provider = $2
-               AND subject = $3
-               AND updated_event_sequence < $6
-            "#,
-        )
-        .bind(user_id.value())
-        .bind(provider.value())
-        .bind(subject.value())
-        .bind(email.as_ref().map(Email::value))
-        .bind(occurred_at.value())
-        .bind(event_sequence.value())
-        .execute(uow.transaction_mut().as_mut())
-        .await
-        .map_err(|e| UserPrivateInfoWriterError::Persistence(Box::new(e)))?;
+        .map_err(|e| UserPublicProfileWriterError::Persistence(Box::new(e)))?;
 
         Ok(())
     }
@@ -147,10 +73,10 @@ impl UserPrivateInfoWriter for PgUserPrivateInfoWriter {
         username: Username,
         event_sequence: EventSequence,
         occurred_at: EventOccurredAt,
-    ) -> Result<(), UserPrivateInfoWriterError> {
+    ) -> Result<(), UserPublicProfileWriterError> {
         sqlx::query(
             r#"
-            UPDATE user_private_infos
+            UPDATE user_public_profiles
                SET username = $2, updated_at = $3,
                    updated_event_sequence = $4
              WHERE id = $1 AND updated_event_sequence < $4
@@ -162,7 +88,7 @@ impl UserPrivateInfoWriter for PgUserPrivateInfoWriter {
         .bind(event_sequence.value())
         .execute(uow.transaction_mut().as_mut())
         .await
-        .map_err(|e| UserPrivateInfoWriterError::Persistence(Box::new(e)))?;
+        .map_err(|e| UserPublicProfileWriterError::Persistence(Box::new(e)))?;
 
         Ok(())
     }
@@ -174,10 +100,10 @@ impl UserPrivateInfoWriter for PgUserPrivateInfoWriter {
         display_name: UserDisplayName,
         event_sequence: EventSequence,
         occurred_at: EventOccurredAt,
-    ) -> Result<(), UserPrivateInfoWriterError> {
+    ) -> Result<(), UserPublicProfileWriterError> {
         sqlx::query(
             r#"
-            UPDATE user_private_infos
+            UPDATE user_public_profiles
                SET display_name = $2, updated_at = $3,
                    updated_event_sequence = $4
              WHERE id = $1 AND updated_event_sequence < $4
@@ -189,7 +115,7 @@ impl UserPrivateInfoWriter for PgUserPrivateInfoWriter {
         .bind(event_sequence.value())
         .execute(uow.transaction_mut().as_mut())
         .await
-        .map_err(|e| UserPrivateInfoWriterError::Persistence(Box::new(e)))?;
+        .map_err(|e| UserPublicProfileWriterError::Persistence(Box::new(e)))?;
 
         Ok(())
     }
@@ -201,10 +127,10 @@ impl UserPrivateInfoWriter for PgUserPrivateInfoWriter {
         bio: Option<UserBio>,
         event_sequence: EventSequence,
         occurred_at: EventOccurredAt,
-    ) -> Result<(), UserPrivateInfoWriterError> {
+    ) -> Result<(), UserPublicProfileWriterError> {
         sqlx::query(
             r#"
-            UPDATE user_private_infos
+            UPDATE user_public_profiles
                SET bio = $2, updated_at = $3,
                    updated_event_sequence = $4
              WHERE id = $1 AND updated_event_sequence < $4
@@ -216,7 +142,7 @@ impl UserPrivateInfoWriter for PgUserPrivateInfoWriter {
         .bind(event_sequence.value())
         .execute(uow.transaction_mut().as_mut())
         .await
-        .map_err(|e| UserPrivateInfoWriterError::Persistence(Box::new(e)))?;
+        .map_err(|e| UserPublicProfileWriterError::Persistence(Box::new(e)))?;
 
         Ok(())
     }
@@ -228,13 +154,13 @@ impl UserPrivateInfoWriter for PgUserPrivateInfoWriter {
         picture: Option<UserPictureRef>,
         event_sequence: EventSequence,
         occurred_at: EventOccurredAt,
-    ) -> Result<(), UserPrivateInfoWriterError> {
+    ) -> Result<(), UserPublicProfileWriterError> {
         let (picture_type, object_name, external_url) =
             PgUserPictureRefColumns::from_picture(picture.as_ref());
 
         sqlx::query(
             r#"
-            UPDATE user_private_infos
+            UPDATE user_public_profiles
                SET picture_type = $2,
                    picture_object_name = $3,
                    picture_external_url = $4,
@@ -251,7 +177,7 @@ impl UserPrivateInfoWriter for PgUserPrivateInfoWriter {
         .bind(event_sequence.value())
         .execute(uow.transaction_mut().as_mut())
         .await
-        .map_err(|e| UserPrivateInfoWriterError::Persistence(Box::new(e)))?;
+        .map_err(|e| UserPublicProfileWriterError::Persistence(Box::new(e)))?;
 
         Ok(())
     }
@@ -260,13 +186,13 @@ impl UserPrivateInfoWriter for PgUserPrivateInfoWriter {
         &self,
         uow: &mut Self::Uow,
         id: UserId,
-        status: UserPrivateInfoStatus,
+        status: UserPublicProfileStatus,
         event_sequence: EventSequence,
         occurred_at: EventOccurredAt,
-    ) -> Result<(), UserPrivateInfoWriterError> {
+    ) -> Result<(), UserPublicProfileWriterError> {
         sqlx::query(
             r#"
-            UPDATE user_private_infos
+            UPDATE user_public_profiles
                SET status = $2, updated_at = $3,
                    updated_event_sequence = $4
              WHERE id = $1 AND updated_event_sequence < $4
@@ -278,7 +204,7 @@ impl UserPrivateInfoWriter for PgUserPrivateInfoWriter {
         .bind(event_sequence.value())
         .execute(uow.transaction_mut().as_mut())
         .await
-        .map_err(|e| UserPrivateInfoWriterError::Persistence(Box::new(e)))?;
+        .map_err(|e| UserPublicProfileWriterError::Persistence(Box::new(e)))?;
 
         Ok(())
     }
@@ -289,22 +215,10 @@ impl UserPrivateInfoWriter for PgUserPrivateInfoWriter {
         id: UserId,
         event_sequence: EventSequence,
         _occurred_at: EventOccurredAt,
-    ) -> Result<(), UserPrivateInfoWriterError> {
+    ) -> Result<(), UserPublicProfileWriterError> {
         sqlx::query(
             r#"
-            DELETE FROM user_private_info_identities
-             WHERE user_id = $1 AND updated_event_sequence < $2
-            "#,
-        )
-        .bind(id.value())
-        .bind(event_sequence.value())
-        .execute(uow.transaction_mut().as_mut())
-        .await
-        .map_err(|e| UserPrivateInfoWriterError::Persistence(Box::new(e)))?;
-
-        sqlx::query(
-            r#"
-            DELETE FROM user_private_infos
+            DELETE FROM user_public_profiles
              WHERE id = $1 AND updated_event_sequence < $2
             "#,
         )
@@ -312,7 +226,7 @@ impl UserPrivateInfoWriter for PgUserPrivateInfoWriter {
         .bind(event_sequence.value())
         .execute(uow.transaction_mut().as_mut())
         .await
-        .map_err(|e| UserPrivateInfoWriterError::Persistence(Box::new(e)))?;
+        .map_err(|e| UserPublicProfileWriterError::Persistence(Box::new(e)))?;
 
         Ok(())
     }

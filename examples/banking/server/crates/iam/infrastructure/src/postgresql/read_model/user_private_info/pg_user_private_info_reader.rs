@@ -1,8 +1,6 @@
 use appletheia::domain::AggregateId;
 use appletheia::infrastructure::postgresql::PgUnitOfWork;
-use banking_iam_application::{
-    UserPrivateInfo, UserPrivateInfoIdentity, UserPrivateInfoReader, UserPrivateInfoReaderError,
-};
+use banking_iam_application::{UserPrivateInfo, UserPrivateInfoReader, UserPrivateInfoReaderError};
 use banking_iam_domain::UserId;
 
 use super::pg_user_private_info_identity_row::PgUserPrivateInfoIdentityRow;
@@ -33,7 +31,16 @@ impl UserPrivateInfoReader for PgUserPrivateInfoReader {
     ) -> Result<Option<UserPrivateInfo>, UserPrivateInfoReaderError> {
         let user_row = sqlx::query_as::<_, PgUserPrivateInfoRow>(
             r#"
-            SELECT id, username, display_name, bio, picture, status, created_at
+            SELECT
+                id,
+                username,
+                display_name,
+                bio,
+                picture_type,
+                picture_object_name,
+                picture_external_url,
+                status,
+                created_at
               FROM user_private_infos
              WHERE id = $1
             "#,
@@ -60,14 +67,8 @@ impl UserPrivateInfoReader for PgUserPrivateInfoReader {
         .await
         .map_err(|e| UserPrivateInfoReaderError::Persistence(Box::new(e)))?;
 
-        let identities = identity_rows
-            .into_iter()
-            .map(UserPrivateInfoIdentity::try_from)
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|e| UserPrivateInfoReaderError::Persistence(Box::new(e)))?;
-
         let user_private_info = user_row
-            .into_user_private_info(identities)
+            .into_user_private_info(identity_rows)
             .map_err(|e| UserPrivateInfoReaderError::Persistence(Box::new(e)))?;
 
         Ok(Some(user_private_info))

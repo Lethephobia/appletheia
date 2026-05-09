@@ -1,8 +1,10 @@
 use appletheia::domain::{AggregateId, EventOccurredAt};
-use banking_iam_application::{UserPrivateInfo, UserPrivateInfoIdentity, UserPrivateInfoStatus};
-use banking_iam_domain::{UserBio, UserDisplayName, UserId, UserPictureRef, Username};
+use banking_iam_application::{UserPrivateInfo, UserPrivateInfoStatus};
+use banking_iam_domain::{UserBio, UserDisplayName, UserId, Username};
 use sqlx::types::chrono::{DateTime, Utc};
 
+use super::super::pg_user_picture_ref_columns::PgUserPictureRefColumns;
+use super::pg_user_private_info_identity_row::PgUserPrivateInfoIdentityRow;
 use super::pg_user_private_info_row_error::PgUserPrivateInfoRowError;
 
 #[derive(Debug, sqlx::FromRow)]
@@ -11,7 +13,9 @@ pub struct PgUserPrivateInfoRow {
     pub username: Option<String>,
     pub display_name: Option<String>,
     pub bio: Option<String>,
-    pub picture: Option<sqlx::types::Json<UserPictureRef>>,
+    pub picture_type: Option<String>,
+    pub picture_object_name: Option<String>,
+    pub picture_external_url: Option<String>,
     pub status: String,
     pub created_at: DateTime<Utc>,
 }
@@ -19,8 +23,13 @@ pub struct PgUserPrivateInfoRow {
 impl PgUserPrivateInfoRow {
     pub fn into_user_private_info(
         self,
-        identities: Vec<UserPrivateInfoIdentity>,
+        identity_rows: Vec<PgUserPrivateInfoIdentityRow>,
     ) -> Result<UserPrivateInfo, PgUserPrivateInfoRowError> {
+        let identities = identity_rows
+            .into_iter()
+            .map(TryInto::try_into)
+            .collect::<Result<Vec<_>, _>>()?;
+
         Ok(UserPrivateInfo {
             id: UserId::try_from_uuid(self.id)
                 .map_err(|error| PgUserPrivateInfoRowError::InvalidUserId(Box::new(error)))?,
@@ -28,7 +37,13 @@ impl PgUserPrivateInfoRow {
             username: Self::optional_username(self.username)?,
             display_name: Self::optional_display_name(self.display_name)?,
             bio: Self::optional_bio(self.bio)?,
-            picture: self.picture.map(|value| value.0),
+            picture: PgUserPictureRefColumns {
+                picture_type: self.picture_type,
+                object_name: self.picture_object_name,
+                external_url: self.picture_external_url,
+            }
+            .into_picture()
+            .map_err(|error| PgUserPrivateInfoRowError::InvalidUserPicture(Box::new(error)))?,
             status: Self::status(self.status)?,
             created_at: EventOccurredAt::from(self.created_at),
         })

@@ -91,13 +91,17 @@ pub use command::{
 pub use oidc::{OidcCompletionPurpose, OidcCompletionRedirectUri, OidcContinuationPayload};
 pub use projection::{
     UserPrivateInfoProjector, UserPrivateInfoProjectorError, UserPrivateInfoProjectorSpec,
+    UserPublicProfileProjector, UserPublicProfileProjectorError, UserPublicProfileProjectorSpec,
 };
 pub use query::{
     UserPrivateInfoQuery, UserPrivateInfoQueryHandler, UserPrivateInfoQueryHandlerError,
+    UserPublicProfileQuery, UserPublicProfileQueryHandler, UserPublicProfileQueryHandlerError,
 };
 pub use read_model::{
     UserPrivateInfo, UserPrivateInfoIdentity, UserPrivateInfoReader, UserPrivateInfoReaderError,
-    UserPrivateInfoStatus, UserPrivateInfoWriter, UserPrivateInfoWriterError,
+    UserPrivateInfoStatus, UserPrivateInfoWriter, UserPrivateInfoWriterError, UserPublicProfile,
+    UserPublicProfileReader, UserPublicProfileReaderError, UserPublicProfileStatus,
+    UserPublicProfileWriter, UserPublicProfileWriterError,
 };
 pub use repository::{
     OrganizationEventSaveHook, OrganizationInvitationEventSaveHook,

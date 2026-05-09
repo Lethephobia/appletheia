@@ -18,6 +18,9 @@ pub enum PgUserPrivateInfoRowError {
     #[error("invalid user bio")]
     InvalidUserBio(#[source] Box<dyn std::error::Error + Send + Sync>),
 
+    #[error("invalid user picture")]
+    InvalidUserPicture(#[source] Box<dyn std::error::Error + Send + Sync>),
+
     #[error("invalid user identity provider")]
     InvalidUserIdentityProvider(#[source] Box<dyn std::error::Error + Send + Sync>),
 
