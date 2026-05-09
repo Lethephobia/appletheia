@@ -48,7 +48,6 @@ where
         let OrganizationOwner::User(owner) = command.owner;
 
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
-            PrincipalRequirement::System,
             PrincipalRequirement::AuthenticatedWithRelationship(RelationshipRequirement::check::<
                 User,
             >(
@@ -196,17 +195,8 @@ mod tests {
         )
     }
 
-    fn system_request_context() -> RequestContext {
-        RequestContext::new(
-            CorrelationId::from(Uuid::now_v7()),
-            MessageId::new(),
-            Principal::System,
-        )
-        .expect("request context should be valid")
-    }
-
     #[test]
-    fn authorization_plan_requires_authenticated_or_system_principal() {
+    fn authorization_plan_requires_user_owner_relationship() {
         let repository = TestOrganizationRepository::default();
         let handler = OrganizationCreateCommandHandler::new(repository);
 
@@ -225,7 +215,6 @@ mod tests {
         assert_eq!(
             plan,
             AuthorizationPlan::OnlyPrincipals(vec![
-                PrincipalRequirement::System,
                 PrincipalRequirement::AuthenticatedWithRelationship(
                     RelationshipRequirement::check::<User>(
                         owner,
@@ -276,40 +265,6 @@ mod tests {
         assert_eq!(
             saved.owner().expect("owner should exist"),
             OrganizationOwner::User(user_id)
-        );
-        assert_eq!(saved.uncommitted_events().len(), 1);
-    }
-
-    #[tokio::test]
-    async fn handle_allows_system_principal() {
-        let repository = TestOrganizationRepository::default();
-        let handler = OrganizationCreateCommandHandler::new(repository.clone());
-        let mut uow = TestUow;
-
-        let handled = handler
-            .handle(
-                &mut uow,
-                &system_request_context(),
-                &OrganizationCreateCommand {
-                    owner: OrganizationOwner::User(UserId::new()),
-                    handle: OrganizationHandle::try_from("acme-labs")
-                        .expect("handle should be valid"),
-                    display_name: display_name(),
-                    description: None,
-                    website_url: None,
-                    picture: None,
-                },
-            )
-            .await
-            .expect("command should succeed");
-
-        let output = handled.into_output();
-        let saved = repository.organization.lock().expect("lock").clone();
-        let saved = saved.expect("organization should be saved");
-
-        assert_eq!(
-            output,
-            OrganizationCreateOutput::new(saved.aggregate_id().expect("id"))
         );
         assert_eq!(saved.uncommitted_events().len(), 1);
     }

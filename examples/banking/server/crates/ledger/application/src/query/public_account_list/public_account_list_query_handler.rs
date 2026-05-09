@@ -42,7 +42,6 @@ where
 
     fn authorization_plan(&self, _query: &Self::Query) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
-            PrincipalRequirement::System,
             PrincipalRequirement::Authenticated,
         ]))
     }

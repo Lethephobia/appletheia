@@ -51,7 +51,6 @@ where
         command: &Self::Command,
     ) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
-            PrincipalRequirement::System,
             PrincipalRequirement::AuthenticatedWithRelationship(RelationshipRequirement::check::<
                 OrganizationMembership,
             >(
@@ -309,7 +308,6 @@ mod tests {
         assert_eq!(
             plan,
             AuthorizationPlan::OnlyPrincipals(vec![
-                PrincipalRequirement::System,
                 PrincipalRequirement::AuthenticatedWithRelationship(
                     RelationshipRequirement::check::<OrganizationMembership>(
                         organization_membership_id,

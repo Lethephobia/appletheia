@@ -46,14 +46,12 @@ where
     ) -> Result<AuthorizationPlan, Self::Error> {
         match command.owner {
             AccountOwner::User(user_id) => Ok(AuthorizationPlan::OnlyPrincipals(vec![
-                PrincipalRequirement::System,
                 PrincipalRequirement::AuthenticatedWithRelationship(
                     RelationshipRequirement::check::<User>(user_id, UserOwnerRelation::REF),
                 ),
             ])),
             AccountOwner::Organization(organization_id) => {
                 Ok(AuthorizationPlan::OnlyPrincipals(vec![
-                    PrincipalRequirement::System,
                     PrincipalRequirement::AuthenticatedWithRelationship(
                         RelationshipRequirement::check::<Organization>(
                             organization_id,
@@ -194,7 +192,7 @@ mod tests {
     }
 
     #[test]
-    fn authorization_plan_allows_system_or_target_owner() {
+    fn authorization_plan_requires_target_user_owner() {
         let handler = AccountOpenCommandHandler::new(TestAccountRepository::default());
         let owner = account_owner();
         let name = account_name();
@@ -210,7 +208,6 @@ mod tests {
         assert_eq!(
             plan,
             AuthorizationPlan::OnlyPrincipals(vec![
-                PrincipalRequirement::System,
                 PrincipalRequirement::AuthenticatedWithRelationship(
                     RelationshipRequirement::check::<User>(
                         owner.user_id().copied().expect("user owner expected"),
@@ -222,7 +219,7 @@ mod tests {
     }
 
     #[test]
-    fn authorization_plan_allows_system_or_organization_account_opener() {
+    fn authorization_plan_requires_organization_finance_manager() {
         let handler = AccountOpenCommandHandler::new(TestAccountRepository::default());
         let owner = organization_owner();
         let name = account_name();
@@ -238,7 +235,6 @@ mod tests {
         assert_eq!(
             plan,
             AuthorizationPlan::OnlyPrincipals(vec![
-                PrincipalRequirement::System,
                 PrincipalRequirement::AuthenticatedWithRelationship(
                     RelationshipRequirement::check::<Organization>(
                         owner

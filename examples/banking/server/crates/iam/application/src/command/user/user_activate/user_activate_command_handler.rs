@@ -41,7 +41,6 @@ where
         command: &Self::Command,
     ) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
-            PrincipalRequirement::System,
             PrincipalRequirement::AuthenticatedWithRelationship(RelationshipRequirement::check::<
                 User,
             >(

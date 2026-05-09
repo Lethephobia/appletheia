@@ -50,14 +50,12 @@ where
     fn authorization_plan(&self, query: &Self::Query) -> Result<AuthorizationPlan, Self::Error> {
         match query.owner {
             AccountOwner::User(user_id) => Ok(AuthorizationPlan::OnlyPrincipals(vec![
-                PrincipalRequirement::System,
                 PrincipalRequirement::AuthenticatedWithRelationship(
                     RelationshipRequirement::check::<User>(user_id, UserOwnerRelation::REF),
                 ),
             ])),
             AccountOwner::Organization(organization_id) => {
                 Ok(AuthorizationPlan::OnlyPrincipals(vec![
-                    PrincipalRequirement::System,
                     PrincipalRequirement::AuthenticatedWithRelationship(
                         RelationshipRequirement::check::<Organization>(
                             organization_id,

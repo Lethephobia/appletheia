@@ -43,7 +43,6 @@ where
         command: &Self::Command,
     ) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
-            PrincipalRequirement::System,
             PrincipalRequirement::AuthenticatedWithRelationship(RelationshipRequirement::check::<
                 Account,
             >(
@@ -194,7 +193,7 @@ mod tests {
     }
 
     #[test]
-    fn authorization_plan_allows_system_or_account_owner() {
+    fn authorization_plan_requires_account_name_changer() {
         let handler = AccountNameChangeCommandHandler::new(TestAccountRepository::default());
         let account_id = AccountId::new();
 
@@ -208,7 +207,6 @@ mod tests {
         assert_eq!(
             plan,
             AuthorizationPlan::OnlyPrincipals(vec![
-                PrincipalRequirement::System,
                 PrincipalRequirement::AuthenticatedWithRelationship(
                     RelationshipRequirement::check::<Account>(
                         account_id,
