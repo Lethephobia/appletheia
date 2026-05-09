@@ -1,4 +1,4 @@
-use banking_iam_domain::user::{UserProfileChangeRejectionReason, UserProfileChangeResult};
+use banking_iam_domain::user::{UserPictureChangeRejectionReason, UserPictureChangeResult};
 use serde::{Deserialize, Serialize};
 
 /// Returned after a user picture change request is applied.
@@ -7,15 +7,15 @@ use serde::{Deserialize, Serialize};
 pub enum UserPictureChangeOutput {
     Changed,
     Rejected {
-        reason: UserProfileChangeRejectionReason,
+        reason: UserPictureChangeRejectionReason,
     },
 }
 
-impl From<UserProfileChangeResult> for UserPictureChangeOutput {
-    fn from(value: UserProfileChangeResult) -> Self {
+impl From<UserPictureChangeResult> for UserPictureChangeOutput {
+    fn from(value: UserPictureChangeResult) -> Self {
         match value {
-            UserProfileChangeResult::Changed => Self::Changed,
-            UserProfileChangeResult::Rejected { reason } => Self::Rejected { reason },
+            UserPictureChangeResult::Changed => Self::Changed,
+            UserPictureChangeResult::Rejected { reason } => Self::Rejected { reason },
         }
     }
 }

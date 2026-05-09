@@ -1,34 +1,44 @@
 mod user_activate_result;
 mod user_bio;
+mod user_bio_change_rejection_reason;
+mod user_bio_change_result;
 mod user_bio_error;
 mod user_deactivate_result;
 mod user_display_name;
+mod user_display_name_change_rejection_reason;
+mod user_display_name_change_result;
 mod user_display_name_error;
 mod user_error;
 mod user_event_payload;
 mod user_event_payload_error;
 mod user_id;
 mod user_identity;
+mod user_picture_change_rejection_reason;
+mod user_picture_change_result;
 mod user_picture_object_name;
 mod user_picture_object_name_error;
 mod user_picture_ref;
 mod user_picture_url;
 mod user_picture_url_error;
-mod user_profile_change_rejection_reason;
-mod user_profile_change_result;
 mod user_remove_result;
 mod user_state;
 mod user_state_error;
 mod user_status;
 mod user_status_rejection_reason;
+mod user_username_change_rejection_reason;
+mod user_username_change_result;
 mod username;
 mod username_error;
 
 pub use user_activate_result::UserActivateResult;
 pub use user_bio::UserBio;
+pub use user_bio_change_rejection_reason::UserBioChangeRejectionReason;
+pub use user_bio_change_result::UserBioChangeResult;
 pub use user_bio_error::UserBioError;
 pub use user_deactivate_result::UserDeactivateResult;
 pub use user_display_name::UserDisplayName;
+pub use user_display_name_change_rejection_reason::UserDisplayNameChangeRejectionReason;
+pub use user_display_name_change_result::UserDisplayNameChangeResult;
 pub use user_display_name_error::UserDisplayNameError;
 pub use user_error::UserError;
 pub use user_event_payload::UserEventPayload;
@@ -39,18 +49,20 @@ pub use user_identity::{
     UserIdentityLinkRejectionReason, UserIdentityLinkResult, UserIdentityProvider,
     UserIdentityProviderError, UserIdentitySubject, UserIdentitySubjectError,
 };
+pub use user_picture_change_rejection_reason::UserPictureChangeRejectionReason;
+pub use user_picture_change_result::UserPictureChangeResult;
 pub use user_picture_object_name::UserPictureObjectName;
 pub use user_picture_object_name_error::UserPictureObjectNameError;
 pub use user_picture_ref::UserPictureRef;
 pub use user_picture_url::UserPictureUrl;
 pub use user_picture_url_error::UserPictureUrlError;
-pub use user_profile_change_rejection_reason::UserProfileChangeRejectionReason;
-pub use user_profile_change_result::UserProfileChangeResult;
 pub use user_remove_result::UserRemoveResult;
 pub use user_state::UserState;
 pub use user_state_error::UserStateError;
 pub use user_status::UserStatus;
 pub use user_status_rejection_reason::UserStatusRejectionReason;
+pub use user_username_change_rejection_reason::UserUsernameChangeRejectionReason;
+pub use user_username_change_result::UserUsernameChangeResult;
 pub use username::Username;
 pub use username_error::UsernameError;
 
@@ -236,71 +248,68 @@ impl User {
     pub fn change_username(
         &mut self,
         username: Username,
-    ) -> Result<UserProfileChangeResult, UserError> {
-        if let Some(reason) = self.profile_change_rejection_reason()? {
+    ) -> Result<UserUsernameChangeResult, UserError> {
+        if let Some(reason) = self.username_change_rejection_reason()? {
             self.append_event(UserEventPayload::UsernameChangeRejected { username, reason })?;
-            return Ok(UserProfileChangeResult::Rejected { reason });
+            return Ok(UserUsernameChangeResult::Rejected { reason });
         }
 
         if self.state_required()?.username.as_ref() == Some(&username) {
-            return Ok(UserProfileChangeResult::Changed);
+            return Ok(UserUsernameChangeResult::Changed);
         }
 
         self.append_event(UserEventPayload::UsernameChanged { username })?;
-        Ok(UserProfileChangeResult::Changed)
+        Ok(UserUsernameChangeResult::Changed)
     }
 
     /// Changes the current display name.
     pub fn change_display_name(
         &mut self,
         display_name: UserDisplayName,
-    ) -> Result<UserProfileChangeResult, UserError> {
-        if let Some(reason) = self.profile_change_rejection_reason()? {
+    ) -> Result<UserDisplayNameChangeResult, UserError> {
+        if let Some(reason) = self.display_name_change_rejection_reason()? {
             self.append_event(UserEventPayload::DisplayNameChangeRejected {
                 display_name,
                 reason,
             })?;
-            return Ok(UserProfileChangeResult::Rejected { reason });
+            return Ok(UserDisplayNameChangeResult::Rejected { reason });
         }
 
         if self.state_required()?.display_name.as_ref() == Some(&display_name) {
-            return Ok(UserProfileChangeResult::Changed);
+            return Ok(UserDisplayNameChangeResult::Changed);
         }
 
         self.append_event(UserEventPayload::DisplayNameChanged { display_name })?;
-        Ok(UserProfileChangeResult::Changed)
+        Ok(UserDisplayNameChangeResult::Changed)
     }
 
     /// Changes the current bio.
-    pub fn change_bio(
-        &mut self,
-        bio: Option<UserBio>,
-    ) -> Result<UserProfileChangeResult, UserError> {
-        if let Some(reason) = self.profile_change_rejection_reason()? {
+    pub fn change_bio(&mut self, bio: Option<UserBio>) -> Result<UserBioChangeResult, UserError> {
+        if let Some(reason) = self.bio_change_rejection_reason()? {
             self.append_event(UserEventPayload::BioChangeRejected { bio, reason })?;
-            return Ok(UserProfileChangeResult::Rejected { reason });
+            return Ok(UserBioChangeResult::Rejected { reason });
         }
 
         if self.state_required()?.bio == bio {
-            return Ok(UserProfileChangeResult::Changed);
+            return Ok(UserBioChangeResult::Changed);
         }
 
         self.append_event(UserEventPayload::BioChanged { bio })?;
-        Ok(UserProfileChangeResult::Changed)
+        Ok(UserBioChangeResult::Changed)
     }
 
     /// Changes the current picture.
     pub fn change_picture(
         &mut self,
         picture: Option<UserPictureRef>,
-    ) -> Result<UserProfileChangeResult, UserError> {
-        if let Some(reason) = self.profile_change_rejection_reason()? {
+    ) -> Result<UserPictureChangeResult, UserError> {
+        if let Some(reason) = self.picture_change_rejection_reason()? {
             self.append_event(UserEventPayload::PictureChangeRejected { picture, reason })?;
-            return Ok(UserProfileChangeResult::Rejected { reason });
+            return Ok(UserPictureChangeResult::Rejected { reason });
         }
 
         if self.state_required()?.picture == picture {
-            return Ok(UserProfileChangeResult::Changed);
+            return Ok(UserPictureChangeResult::Changed);
         }
 
         let old_picture = self.state_required()?.picture.clone();
@@ -309,7 +318,7 @@ impl User {
             picture,
             old_picture,
         })?;
-        Ok(UserProfileChangeResult::Changed)
+        Ok(UserPictureChangeResult::Changed)
     }
 
     /// Activates an inactive user.
@@ -384,15 +393,57 @@ impl User {
         Ok(None)
     }
 
-    fn profile_change_rejection_reason(
+    fn username_change_rejection_reason(
         &self,
-    ) -> Result<Option<UserProfileChangeRejectionReason>, UserError> {
+    ) -> Result<Option<UserUsernameChangeRejectionReason>, UserError> {
         if self.state_required()?.status.is_removed() {
-            return Ok(Some(UserProfileChangeRejectionReason::Removed));
+            return Ok(Some(UserUsernameChangeRejectionReason::Removed));
         }
 
         if self.state_required()?.status.is_inactive() {
-            return Ok(Some(UserProfileChangeRejectionReason::Inactive));
+            return Ok(Some(UserUsernameChangeRejectionReason::Inactive));
+        }
+
+        Ok(None)
+    }
+
+    fn display_name_change_rejection_reason(
+        &self,
+    ) -> Result<Option<UserDisplayNameChangeRejectionReason>, UserError> {
+        if self.state_required()?.status.is_removed() {
+            return Ok(Some(UserDisplayNameChangeRejectionReason::Removed));
+        }
+
+        if self.state_required()?.status.is_inactive() {
+            return Ok(Some(UserDisplayNameChangeRejectionReason::Inactive));
+        }
+
+        Ok(None)
+    }
+
+    fn bio_change_rejection_reason(
+        &self,
+    ) -> Result<Option<UserBioChangeRejectionReason>, UserError> {
+        if self.state_required()?.status.is_removed() {
+            return Ok(Some(UserBioChangeRejectionReason::Removed));
+        }
+
+        if self.state_required()?.status.is_inactive() {
+            return Ok(Some(UserBioChangeRejectionReason::Inactive));
+        }
+
+        Ok(None)
+    }
+
+    fn picture_change_rejection_reason(
+        &self,
+    ) -> Result<Option<UserPictureChangeRejectionReason>, UserError> {
+        if self.state_required()?.status.is_removed() {
+            return Ok(Some(UserPictureChangeRejectionReason::Removed));
+        }
+
+        if self.state_required()?.status.is_inactive() {
+            return Ok(Some(UserPictureChangeRejectionReason::Inactive));
         }
 
         Ok(None)
@@ -470,10 +521,11 @@ mod tests {
     use appletheia::domain::{Aggregate, EventPayload};
 
     use super::{
-        User, UserBio, UserDisplayName, UserEventPayload, UserIdentityEmailChangeRejectionReason,
+        User, UserBio, UserDisplayName, UserDisplayNameChangeRejectionReason,
+        UserDisplayNameChangeResult, UserEventPayload, UserIdentityEmailChangeRejectionReason,
         UserIdentityEmailChangeResult, UserIdentityLinkRejectionReason, UserIdentityLinkResult,
-        UserIdentityProvider, UserIdentitySubject, UserPictureRef, UserPictureUrl,
-        UserProfileChangeRejectionReason, UserProfileChangeResult, UserStatus, Username,
+        UserIdentityProvider, UserIdentitySubject, UserPictureRef, UserPictureUrl, UserStatus,
+        UserUsernameChangeRejectionReason, UserUsernameChangeResult, Username,
     };
 
     fn register_user(user: &mut User) {
@@ -633,14 +685,14 @@ mod tests {
 
         assert!(matches!(
             username_result,
-            UserProfileChangeResult::Rejected {
-                reason: UserProfileChangeRejectionReason::Inactive
+            UserUsernameChangeResult::Rejected {
+                reason: UserUsernameChangeRejectionReason::Inactive
             }
         ));
         assert!(matches!(
             display_name_result,
-            UserProfileChangeResult::Rejected {
-                reason: UserProfileChangeRejectionReason::Inactive
+            UserDisplayNameChangeResult::Rejected {
+                reason: UserDisplayNameChangeRejectionReason::Inactive
             }
         ));
     }

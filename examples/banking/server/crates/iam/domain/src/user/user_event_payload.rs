@@ -3,10 +3,11 @@ use appletheia::event_payload;
 use crate::core::Email;
 
 use super::{
-    UserBio, UserDisplayName, UserEventPayloadError, UserId,
-    UserIdentityEmailChangeRejectionReason, UserIdentityLinkRejectionReason, UserIdentityProvider,
-    UserIdentitySubject, UserPictureRef, UserProfileChangeRejectionReason,
-    UserStatusRejectionReason, Username,
+    UserBio, UserBioChangeRejectionReason, UserDisplayName, UserDisplayNameChangeRejectionReason,
+    UserEventPayloadError, UserId, UserIdentityEmailChangeRejectionReason,
+    UserIdentityLinkRejectionReason, UserIdentityProvider, UserIdentitySubject,
+    UserPictureChangeRejectionReason, UserPictureRef, UserStatusRejectionReason,
+    UserUsernameChangeRejectionReason, Username,
 };
 
 /// Represents the domain events emitted by a `User` aggregate.
@@ -42,21 +43,21 @@ pub enum UserEventPayload {
     },
     UsernameChangeRejected {
         username: Username,
-        reason: UserProfileChangeRejectionReason,
+        reason: UserUsernameChangeRejectionReason,
     },
     DisplayNameChanged {
         display_name: UserDisplayName,
     },
     DisplayNameChangeRejected {
         display_name: UserDisplayName,
-        reason: UserProfileChangeRejectionReason,
+        reason: UserDisplayNameChangeRejectionReason,
     },
     BioChanged {
         bio: Option<UserBio>,
     },
     BioChangeRejected {
         bio: Option<UserBio>,
-        reason: UserProfileChangeRejectionReason,
+        reason: UserBioChangeRejectionReason,
     },
     PictureChanged {
         picture: Option<UserPictureRef>,
@@ -64,7 +65,7 @@ pub enum UserEventPayload {
     },
     PictureChangeRejected {
         picture: Option<UserPictureRef>,
-        reason: UserProfileChangeRejectionReason,
+        reason: UserPictureChangeRejectionReason,
     },
     Activated,
     ActivateRejected {
