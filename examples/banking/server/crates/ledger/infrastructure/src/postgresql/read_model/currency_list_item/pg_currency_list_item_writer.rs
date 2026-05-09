@@ -13,6 +13,9 @@ use banking_ledger_domain::currency::{
     CurrencyDecimals, CurrencyId, CurrencyName, CurrencyOwner, CurrencySymbol,
 };
 
+use super::super::pg_organization_picture_ref_columns::PgOrganizationPictureRefColumns;
+use super::super::pg_user_picture_ref_columns::PgUserPictureRefColumns;
+
 /// PostgreSQL-backed currency list item writer.
 pub struct PgCurrencyListItemWriter;
 
@@ -369,16 +372,24 @@ impl CurrencyListItemWriter for PgCurrencyListItemWriter {
         event_sequence: EventSequence,
         occurred_at: EventOccurredAt,
     ) -> Result<(), CurrencyListItemWriterError> {
+        let (picture_type, object_name, external_url) =
+            PgUserPictureRefColumns::from_picture(picture.as_ref());
+
         sqlx::query(
             r#"
             UPDATE currency_list_item_owner_users
-               SET picture = $2, updated_at = $3,
-                   updated_event_sequence = $4
-             WHERE id = $1 AND updated_event_sequence < $4
+               SET picture_type = $2,
+                   picture_object_name = $3,
+                   picture_external_url = $4,
+                   updated_at = $5,
+                   updated_event_sequence = $6
+             WHERE id = $1 AND updated_event_sequence < $6
             "#,
         )
         .bind(id.value())
-        .bind(picture.map(sqlx::types::Json))
+        .bind(picture_type)
+        .bind(object_name)
+        .bind(external_url)
         .bind(occurred_at.value())
         .bind(event_sequence.value())
         .execute(uow.transaction_mut().as_mut())
@@ -432,16 +443,22 @@ impl CurrencyListItemWriter for PgCurrencyListItemWriter {
         event_sequence: EventSequence,
         occurred_at: EventOccurredAt,
     ) -> Result<(), CurrencyListItemWriterError> {
+        let (picture_type, object_name, external_url) =
+            PgOrganizationPictureRefColumns::from_picture(picture.as_ref());
+
         sqlx::query(
             r#"
             INSERT INTO currency_list_item_owner_organizations (
-                id, handle, display_name, picture, updated_at, created_at, updated_event_sequence
+                id, handle, display_name, picture_type, picture_object_name, picture_external_url,
+                updated_at, created_at, updated_event_sequence
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             ON CONFLICT (id) DO UPDATE SET
                 handle = EXCLUDED.handle,
                 display_name = EXCLUDED.display_name,
-                picture = EXCLUDED.picture,
+                picture_type = EXCLUDED.picture_type,
+                picture_object_name = EXCLUDED.picture_object_name,
+                picture_external_url = EXCLUDED.picture_external_url,
                 updated_at = EXCLUDED.updated_at,
                 updated_event_sequence = EXCLUDED.updated_event_sequence
             WHERE currency_list_item_owner_organizations.updated_event_sequence < EXCLUDED.updated_event_sequence
@@ -450,7 +467,9 @@ impl CurrencyListItemWriter for PgCurrencyListItemWriter {
         .bind(id.value())
         .bind(handle.value())
         .bind(display_name.value())
-        .bind(picture.map(sqlx::types::Json))
+        .bind(picture_type)
+        .bind(object_name)
+        .bind(external_url)
         .bind(occurred_at.value())
         .bind(occurred_at.value())
         .bind(event_sequence.value())
@@ -520,16 +539,24 @@ impl CurrencyListItemWriter for PgCurrencyListItemWriter {
         event_sequence: EventSequence,
         occurred_at: EventOccurredAt,
     ) -> Result<(), CurrencyListItemWriterError> {
+        let (picture_type, object_name, external_url) =
+            PgOrganizationPictureRefColumns::from_picture(picture.as_ref());
+
         sqlx::query(
             r#"
             UPDATE currency_list_item_owner_organizations
-               SET picture = $2, updated_at = $3,
-                   updated_event_sequence = $4
-             WHERE id = $1 AND updated_event_sequence < $4
+               SET picture_type = $2,
+                   picture_object_name = $3,
+                   picture_external_url = $4,
+                   updated_at = $5,
+                   updated_event_sequence = $6
+             WHERE id = $1 AND updated_event_sequence < $6
             "#,
         )
         .bind(id.value())
-        .bind(picture.map(sqlx::types::Json))
+        .bind(picture_type)
+        .bind(object_name)
+        .bind(external_url)
         .bind(occurred_at.value())
         .bind(event_sequence.value())
         .execute(uow.transaction_mut().as_mut())

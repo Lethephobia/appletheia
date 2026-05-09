@@ -1,7 +1,6 @@
 use appletheia::domain::{AggregateId, EventId, EventOccurredAt};
 use banking_iam_domain::{
-    OrganizationDisplayName, OrganizationHandle, OrganizationId, OrganizationPictureRef,
-    UserDisplayName, UserId, UserPictureRef, Username,
+    OrganizationDisplayName, OrganizationHandle, OrganizationId, UserDisplayName, UserId, Username,
 };
 use banking_ledger_application::{
     OwnedAccountTransactionListItem, OwnedAccountTransactionListItemCounterpartyAccount,
@@ -17,6 +16,8 @@ use banking_ledger_domain::currency::{CurrencyDecimals, CurrencyId, CurrencyName
 use banking_ledger_domain::transfer::TransferId;
 use sqlx::types::chrono::{DateTime, Utc};
 
+use super::super::pg_organization_picture_ref_columns::PgOrganizationPictureRefColumns;
+use super::super::pg_user_picture_ref_columns::PgUserPictureRefColumns;
 use super::pg_owned_account_transaction_list_item_row_error::PgOwnedAccountTransactionListItemRowError;
 
 #[derive(Debug, sqlx::FromRow)]
@@ -31,10 +32,14 @@ pub struct PgOwnedAccountTransactionListItemRow {
     pub counterparty_owner_id: Option<uuid::Uuid>,
     pub counterparty_owner_user_username: Option<String>,
     pub counterparty_owner_user_display_name: Option<String>,
-    pub counterparty_owner_user_picture: Option<sqlx::types::Json<UserPictureRef>>,
+    pub counterparty_owner_user_picture_type: Option<String>,
+    pub counterparty_owner_user_picture_object_name: Option<String>,
+    pub counterparty_owner_user_picture_external_url: Option<String>,
     pub counterparty_owner_organization_handle: Option<String>,
     pub counterparty_owner_organization_display_name: Option<String>,
-    pub counterparty_owner_organization_picture: Option<sqlx::types::Json<OrganizationPictureRef>>,
+    pub counterparty_owner_organization_picture_type: Option<String>,
+    pub counterparty_owner_organization_picture_object_name: Option<String>,
+    pub counterparty_owner_organization_picture_external_url: Option<String>,
     pub currency_id: uuid::Uuid,
     pub currency_symbol: String,
     pub currency_name: String,
@@ -166,10 +171,17 @@ impl PgOwnedAccountTransactionListItemRow {
                         display_name: Self::optional_user_display_name(
                             row.counterparty_owner_user_display_name.clone(),
                         )?,
-                        picture: row
-                            .counterparty_owner_user_picture
-                            .clone()
-                            .map(|value| value.0),
+                        picture: PgUserPictureRefColumns {
+                            picture_type: row.counterparty_owner_user_picture_type.clone(),
+                            object_name: row.counterparty_owner_user_picture_object_name.clone(),
+                            external_url: row.counterparty_owner_user_picture_external_url.clone(),
+                        }
+                        .into_picture()
+                        .map_err(|error| {
+                            PgOwnedAccountTransactionListItemRowError::InvalidUserPicture(Box::new(
+                                error,
+                            ))
+                        })?,
                     },
                 ),
             ),
@@ -202,10 +214,23 @@ impl PgOwnedAccountTransactionListItemRow {
                                 )
                             },
                         )?,
-                        picture: row
-                            .counterparty_owner_organization_picture
-                            .clone()
-                            .map(|value| value.0),
+                        picture: PgOrganizationPictureRefColumns {
+                            picture_type: row
+                                .counterparty_owner_organization_picture_type
+                                .clone(),
+                            object_name: row
+                                .counterparty_owner_organization_picture_object_name
+                                .clone(),
+                            external_url: row
+                                .counterparty_owner_organization_picture_external_url
+                                .clone(),
+                        }
+                        .into_picture()
+                        .map_err(|error| {
+                            PgOwnedAccountTransactionListItemRowError::InvalidOrganizationPicture(
+                                Box::new(error),
+                            )
+                        })?,
                     },
                 ))
             }

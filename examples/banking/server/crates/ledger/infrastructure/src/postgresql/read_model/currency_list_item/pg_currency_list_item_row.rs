@@ -1,7 +1,6 @@
 use appletheia::domain::{AggregateId, EventOccurredAt};
 use banking_iam_domain::{
-    OrganizationDisplayName, OrganizationHandle, OrganizationId, OrganizationPictureRef,
-    UserDisplayName, UserId, UserPictureRef, Username,
+    OrganizationDisplayName, OrganizationHandle, OrganizationId, UserDisplayName, UserId, Username,
 };
 use banking_ledger_application::{
     CurrencyListItem, CurrencyListItemOwner, CurrencyListItemOwnerOrganization,
@@ -11,6 +10,8 @@ use banking_ledger_domain::core::CurrencyAmount;
 use banking_ledger_domain::currency::{CurrencyDecimals, CurrencyId, CurrencyName, CurrencySymbol};
 use sqlx::types::chrono::{DateTime, Utc};
 
+use super::super::pg_organization_picture_ref_columns::PgOrganizationPictureRefColumns;
+use super::super::pg_user_picture_ref_columns::PgUserPictureRefColumns;
 use super::pg_currency_list_item_row_error::PgCurrencyListItemRowError;
 
 #[derive(Debug, sqlx::FromRow)]
@@ -20,10 +21,14 @@ pub struct PgCurrencyListItemRow {
     pub owner_id: uuid::Uuid,
     pub owner_user_username: Option<String>,
     pub owner_user_display_name: Option<String>,
-    pub owner_user_picture: Option<sqlx::types::Json<UserPictureRef>>,
+    pub owner_user_picture_type: Option<String>,
+    pub owner_user_picture_object_name: Option<String>,
+    pub owner_user_picture_external_url: Option<String>,
     pub owner_organization_handle: Option<String>,
     pub owner_organization_display_name: Option<String>,
-    pub owner_organization_picture: Option<sqlx::types::Json<OrganizationPictureRef>>,
+    pub owner_organization_picture_type: Option<String>,
+    pub owner_organization_picture_object_name: Option<String>,
+    pub owner_organization_picture_external_url: Option<String>,
     pub symbol: String,
     pub name: String,
     pub decimals: i16,
@@ -76,7 +81,13 @@ impl PgCurrencyListItemRow {
                 display_name: Self::optional_user_display_name(
                     self.owner_user_display_name.clone(),
                 )?,
-                picture: self.owner_user_picture.clone().map(|value| value.0),
+                picture: PgUserPictureRefColumns {
+                    picture_type: self.owner_user_picture_type.clone(),
+                    object_name: self.owner_user_picture_object_name.clone(),
+                    external_url: self.owner_user_picture_external_url.clone(),
+                }
+                .into_picture()
+                .map_err(|error| PgCurrencyListItemRowError::InvalidUserPicture(Box::new(error)))?,
             })),
             "organization" => {
                 let handle = self
@@ -103,7 +114,15 @@ impl PgCurrencyListItemRow {
                                 )
                             },
                         )?,
-                        picture: self.owner_organization_picture.clone().map(|value| value.0),
+                        picture: PgOrganizationPictureRefColumns {
+                            picture_type: self.owner_organization_picture_type.clone(),
+                            object_name: self.owner_organization_picture_object_name.clone(),
+                            external_url: self.owner_organization_picture_external_url.clone(),
+                        }
+                        .into_picture()
+                        .map_err(|error| {
+                            PgCurrencyListItemRowError::InvalidOrganizationPicture(Box::new(error))
+                        })?,
                     },
                 ))
             }

@@ -4,6 +4,6 @@ use thiserror::Error;
 /// Error returned while handling account list queries.
 #[derive(Debug, Error)]
 pub enum OwnedAccountListQueryHandlerError {
-    #[error("account list store failed")]
-    Store(#[from] OwnedAccountListItemReaderError),
+    #[error("account list reader failed")]
+    Reader(#[from] OwnedAccountListItemReaderError),
 }

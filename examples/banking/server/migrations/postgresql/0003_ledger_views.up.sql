@@ -45,20 +45,54 @@ CREATE TABLE IF NOT EXISTS currency_list_item_owner_users (
     id uuid PRIMARY KEY,
     username text,
     display_name text,
-    picture jsonb,
+    picture_type text,
+    picture_object_name text,
+    picture_external_url text,
     updated_at timestamptz NOT NULL,
     created_at timestamptz NOT NULL,
-    updated_event_sequence bigint NOT NULL
+    updated_event_sequence bigint NOT NULL,
+    CONSTRAINT currency_list_item_owner_users_picture_check CHECK (
+        (picture_type IS NULL AND picture_object_name IS NULL AND picture_external_url IS NULL)
+        OR (
+            picture_type IS NOT NULL
+            AND picture_type = 'object_name'
+            AND picture_object_name IS NOT NULL
+            AND picture_external_url IS NULL
+        )
+        OR (
+            picture_type IS NOT NULL
+            AND picture_type = 'external_url'
+            AND picture_object_name IS NULL
+            AND picture_external_url IS NOT NULL
+        )
+    )
 );
 
 CREATE TABLE IF NOT EXISTS currency_list_item_owner_organizations (
     id uuid PRIMARY KEY,
     handle text NOT NULL,
     display_name text NOT NULL,
-    picture jsonb,
+    picture_type text,
+    picture_object_name text,
+    picture_external_url text,
     updated_at timestamptz NOT NULL,
     created_at timestamptz NOT NULL,
-    updated_event_sequence bigint NOT NULL
+    updated_event_sequence bigint NOT NULL,
+    CONSTRAINT currency_list_item_owner_organizations_picture_check CHECK (
+        (picture_type IS NULL AND picture_object_name IS NULL AND picture_external_url IS NULL)
+        OR (
+            picture_type IS NOT NULL
+            AND picture_type = 'object_name'
+            AND picture_object_name IS NOT NULL
+            AND picture_external_url IS NULL
+        )
+        OR (
+            picture_type IS NOT NULL
+            AND picture_type = 'external_url'
+            AND picture_object_name IS NULL
+            AND picture_external_url IS NOT NULL
+        )
+    )
 );
 
 CREATE TABLE IF NOT EXISTS currency_list_items (
@@ -110,20 +144,54 @@ CREATE TABLE IF NOT EXISTS owned_account_transaction_list_item_owner_users (
     id uuid PRIMARY KEY,
     username text,
     display_name text,
-    picture jsonb,
+    picture_type text,
+    picture_object_name text,
+    picture_external_url text,
     updated_at timestamptz NOT NULL,
     created_at timestamptz NOT NULL,
-    updated_event_sequence bigint NOT NULL
+    updated_event_sequence bigint NOT NULL,
+    CONSTRAINT owned_account_transaction_list_item_owner_users_picture_check CHECK (
+        (picture_type IS NULL AND picture_object_name IS NULL AND picture_external_url IS NULL)
+        OR (
+            picture_type IS NOT NULL
+            AND picture_type = 'object_name'
+            AND picture_object_name IS NOT NULL
+            AND picture_external_url IS NULL
+        )
+        OR (
+            picture_type IS NOT NULL
+            AND picture_type = 'external_url'
+            AND picture_object_name IS NULL
+            AND picture_external_url IS NOT NULL
+        )
+    )
 );
 
 CREATE TABLE IF NOT EXISTS owned_account_transaction_list_item_owner_organizations (
     id uuid PRIMARY KEY,
     handle text NOT NULL,
     display_name text NOT NULL,
-    picture jsonb,
+    picture_type text,
+    picture_object_name text,
+    picture_external_url text,
     updated_at timestamptz NOT NULL,
     created_at timestamptz NOT NULL,
-    updated_event_sequence bigint NOT NULL
+    updated_event_sequence bigint NOT NULL,
+    CONSTRAINT owned_account_transaction_list_item_owner_organizations_picture_check CHECK (
+        (picture_type IS NULL AND picture_object_name IS NULL AND picture_external_url IS NULL)
+        OR (
+            picture_type IS NOT NULL
+            AND picture_type = 'object_name'
+            AND picture_object_name IS NOT NULL
+            AND picture_external_url IS NULL
+        )
+        OR (
+            picture_type IS NOT NULL
+            AND picture_type = 'external_url'
+            AND picture_object_name IS NULL
+            AND picture_external_url IS NOT NULL
+        )
+    )
 );
 
 CREATE TABLE IF NOT EXISTS owned_account_transaction_list_transfers (

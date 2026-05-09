@@ -1,4 +1,4 @@
-use appletheia::application::authorization::{AuthorizationPlan, PrincipalRequirement};
+use appletheia::application::authorization::AuthorizationPlan;
 use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::query::QueryHandler;
 use appletheia::application::request_context::RequestContext;
@@ -41,9 +41,7 @@ where
         ProjectorDependencies::Some(&[PublicAccountListItemProjectorSpec::DESCRIPTOR]);
 
     fn authorization_plan(&self, _query: &Self::Query) -> Result<AuthorizationPlan, Self::Error> {
-        Ok(AuthorizationPlan::OnlyPrincipals(vec![
-            PrincipalRequirement::Authenticated,
-        ]))
+        Ok(AuthorizationPlan::None)
     }
 
     async fn handle(

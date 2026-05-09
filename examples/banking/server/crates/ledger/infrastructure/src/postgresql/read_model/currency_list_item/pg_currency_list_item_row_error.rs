@@ -27,11 +27,17 @@ pub enum PgCurrencyListItemRowError {
     #[error("invalid user display name")]
     InvalidUserDisplayName(#[source] Box<dyn std::error::Error + Send + Sync>),
 
+    #[error("invalid user picture")]
+    InvalidUserPicture(#[source] Box<dyn std::error::Error + Send + Sync>),
+
     #[error("invalid organization handle")]
     InvalidOrganizationHandle(#[source] Box<dyn std::error::Error + Send + Sync>),
 
     #[error("invalid organization display name")]
     InvalidOrganizationDisplayName(#[source] Box<dyn std::error::Error + Send + Sync>),
+
+    #[error("invalid organization picture")]
+    InvalidOrganizationPicture(#[source] Box<dyn std::error::Error + Send + Sync>),
 
     #[error("invalid currency symbol")]
     InvalidCurrencySymbol(#[source] Box<dyn std::error::Error + Send + Sync>),
