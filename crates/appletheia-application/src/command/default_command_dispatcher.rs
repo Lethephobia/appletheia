@@ -1,59 +1,52 @@
 use crate::authorization::Authorizer;
 use crate::command::{
-    Command, CommandConsistency, CommandDispatchResult, CommandDispatcher, CommandDispatcherError,
-    CommandHandler, CommandHasher, CommandOptions, IdempotencyBeginResult, IdempotencyService,
+    Command, CommandDispatchResult, CommandDispatcher, CommandDispatcherError, CommandHandler,
+    CommandHasher, CommandOptions, IdempotencyBeginResult, IdempotencyService,
 };
-use crate::projection::ReadYourWritesWaiter;
 use crate::request_context::RequestContext;
 use crate::unit_of_work::UnitOfWork;
 use crate::unit_of_work::UnitOfWorkFactory;
 
-pub struct DefaultCommandDispatcher<CH, IS, W, U, AZ>
+pub struct DefaultCommandDispatcher<CH, IS, U, AZ>
 where
     CH: CommandHasher,
     IS: IdempotencyService,
     IS::Uow: UnitOfWork,
-    W: ReadYourWritesWaiter,
     U: UnitOfWorkFactory<Uow = IS::Uow>,
     AZ: Authorizer,
 {
     command_hasher: CH,
     idempotency_service: IS,
-    read_your_writes_waiter: W,
     uow_factory: U,
     authorizer: AZ,
 }
 
-impl<CH, IS, W, U, AZ> DefaultCommandDispatcher<CH, IS, W, U, AZ>
+impl<CH, IS, U, AZ> DefaultCommandDispatcher<CH, IS, U, AZ>
 where
     CH: CommandHasher,
     IS: IdempotencyService,
-    W: ReadYourWritesWaiter,
     U: UnitOfWorkFactory<Uow = IS::Uow>,
     AZ: Authorizer,
 {
     pub fn new(
         command_hasher: CH,
         idempotency_service: IS,
-        read_your_writes_waiter: W,
         uow_factory: U,
         authorizer: AZ,
     ) -> Self {
         Self {
             command_hasher,
             idempotency_service,
-            read_your_writes_waiter,
             uow_factory,
             authorizer,
         }
     }
 }
 
-impl<CH, IS, W, U, AZ> CommandDispatcher for DefaultCommandDispatcher<CH, IS, W, U, AZ>
+impl<CH, IS, U, AZ> CommandDispatcher for DefaultCommandDispatcher<CH, IS, U, AZ>
 where
     CH: CommandHasher,
     IS: IdempotencyService,
-    W: ReadYourWritesWaiter,
     U: UnitOfWorkFactory<Uow = IS::Uow>,
     AZ: Authorizer,
 {
@@ -64,7 +57,7 @@ where
         handler: &H,
         request_context: &RequestContext,
         command: H::Command,
-        options: CommandOptions,
+        _options: CommandOptions,
     ) -> Result<CommandDispatchResult<H::Output, H::ReplayOutput>, CommandDispatcherError<H::Error>>
     where
         H: CommandHandler<Uow = Self::Uow>,
@@ -77,19 +70,6 @@ where
         self.authorizer
             .authorize(&request_context.principal, &authorization_plan)
             .await?;
-
-        match options.consistency {
-            CommandConsistency::Eventual => {}
-            CommandConsistency::ReadYourWrites {
-                target,
-                timeout,
-                poll_interval,
-            } => {
-                self.read_your_writes_waiter
-                    .wait(target, timeout, poll_interval, H::PROJECTOR_DEPENDENCIES)
-                    .await?;
-            }
-        }
 
         let command_hash = self.command_hasher.command_hash(&command)?;
         let message_id = request_context.message_id;
@@ -166,30 +146,11 @@ mod tests {
         CommandHash, CommandHasher, CommandHasherError, CommandName, CommandOptions,
         IdempotencyBeginResult, IdempotencyOutput, IdempotencyService, IdempotencyServiceError,
     };
-    use crate::projection::ReadYourWritesTarget;
-    use crate::projection::{
-        ProjectorDependencies, ReadYourWritesPollInterval, ReadYourWritesTimeout,
-        ReadYourWritesWaitError, ReadYourWritesWaiter,
-    };
     use crate::request_context::MessageId;
     use crate::request_context::Principal;
     use crate::unit_of_work::{
         UnitOfWork, UnitOfWorkError, UnitOfWorkFactory, UnitOfWorkFactoryError,
     };
-
-    struct TestWaiter;
-
-    impl ReadYourWritesWaiter for TestWaiter {
-        async fn wait(
-            &self,
-            _target: ReadYourWritesTarget,
-            _timeout: ReadYourWritesTimeout,
-            _poll_interval: ReadYourWritesPollInterval,
-            _projector_dependencies: ProjectorDependencies<'_>,
-        ) -> Result<(), ReadYourWritesWaitError> {
-            Ok(())
-        }
-    }
 
     #[derive(Default)]
     struct TestUow;
@@ -297,7 +258,6 @@ mod tests {
         let dispatcher = DefaultCommandDispatcher::new(
             TestCommandHasher,
             TestNewIdempotencyService,
-            TestWaiter,
             TestUowFactory,
             TestAuthorizer,
         );

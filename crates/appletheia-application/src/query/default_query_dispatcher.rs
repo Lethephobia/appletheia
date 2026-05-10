@@ -61,12 +61,17 @@ where
         match options.consistency {
             QueryConsistency::Eventual => {}
             QueryConsistency::ReadYourWrites {
-                target,
+                message_id,
                 timeout,
                 poll_interval,
             } => {
                 self.read_your_writes_waiter
-                    .wait(target, timeout, poll_interval, H::PROJECTOR_DEPENDENCIES)
+                    .wait(
+                        message_id,
+                        timeout,
+                        poll_interval,
+                        H::PROJECTOR_DEPENDENCIES,
+                    )
                     .await?;
             }
         }

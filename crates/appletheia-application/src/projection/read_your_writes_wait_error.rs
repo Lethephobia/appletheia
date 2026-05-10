@@ -3,10 +3,10 @@ use thiserror::Error;
 use crate::event::EventLookupError;
 use crate::projection::ProjectorNameOwned;
 use crate::projection::ProjectorProcessedEventStoreError;
-use crate::request_context::{CorrelationId, MessageId};
+use crate::request_context::MessageId;
 use crate::unit_of_work::{UnitOfWorkError, UnitOfWorkFactoryError};
 
-use super::{ReadYourWritesTarget, ReadYourWritesTimeout};
+use super::ReadYourWritesTimeout;
 
 #[derive(Debug, Error)]
 pub enum ReadYourWritesWaitError {
@@ -25,14 +25,11 @@ pub enum ReadYourWritesWaitError {
     #[error("no event found for message id: {message_id}")]
     UnknownMessageId { message_id: MessageId },
 
-    #[error("no event found for correlation id: {correlation_id}")]
-    UnknownCorrelationId { correlation_id: CorrelationId },
-
     #[error(
-        "read-your-writes timed out (target={target:?}, pending_projectors={pending_projectors:?}, timeout={timeout:?})"
+        "read-your-writes timed out (message_id={message_id}, pending_projectors={pending_projectors:?}, timeout={timeout:?})"
     )]
     Timeout {
-        target: ReadYourWritesTarget,
+        message_id: MessageId,
         pending_projectors: Vec<ProjectorNameOwned>,
         timeout: ReadYourWritesTimeout,
     },

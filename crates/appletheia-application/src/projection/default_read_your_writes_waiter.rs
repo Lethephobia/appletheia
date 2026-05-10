@@ -5,13 +5,13 @@ use tokio::time::Instant;
 use appletheia_domain::EventId;
 
 use crate::event::{EventEnvelope, EventLookup};
-use crate::request_context::{CausationId, CorrelationId, MessageId};
+use crate::request_context::{CausationId, MessageId};
 use crate::unit_of_work::{UnitOfWork, UnitOfWorkFactory};
 
 use super::{
     ProjectorDependencies, ProjectorNameOwned, ProjectorProcessedEventStore,
-    ReadYourWritesPollInterval, ReadYourWritesTarget, ReadYourWritesTimeout,
-    ReadYourWritesWaitError, ReadYourWritesWaiter,
+    ReadYourWritesPollInterval, ReadYourWritesTimeout, ReadYourWritesWaitError,
+    ReadYourWritesWaiter,
 };
 
 pub struct DefaultReadYourWritesWaiter<U, L, P>
@@ -66,31 +66,6 @@ where
         Ok(events)
     }
 
-    async fn correlation_events(
-        &self,
-        correlation_id: CorrelationId,
-    ) -> Result<Vec<EventEnvelope>, ReadYourWritesWaitError> {
-        let mut uow = self.uow_factory.begin().await?;
-        let events = self
-            .lookup
-            .events_by_correlation_id(&mut uow, correlation_id)
-            .await;
-        let events = match events {
-            Ok(value) => value,
-            Err(operation_error) => {
-                let operation_error = uow.rollback_with_operation_error(operation_error).await?;
-                return Err(operation_error.into());
-            }
-        };
-        uow.commit().await?;
-
-        if events.is_empty() {
-            return Err(ReadYourWritesWaitError::UnknownCorrelationId { correlation_id });
-        }
-
-        Ok(events)
-    }
-
     fn projector_targets(
         &self,
         projector_dependencies: ProjectorDependencies<'_>,
@@ -120,7 +95,7 @@ where
 
     async fn wait_for_projectors(
         &self,
-        target: ReadYourWritesTarget,
+        message_id: MessageId,
         timeout: ReadYourWritesTimeout,
         poll_duration: StdDuration,
         deadline: Instant,
@@ -167,7 +142,7 @@ where
             let now = Instant::now();
             if now >= deadline {
                 return Err(ReadYourWritesWaitError::Timeout {
-                    target,
+                    message_id,
                     pending_projectors,
                     timeout,
                 });
@@ -196,7 +171,7 @@ where
 {
     async fn wait(
         &self,
-        target: ReadYourWritesTarget,
+        message_id: MessageId,
         timeout: ReadYourWritesTimeout,
         poll_interval: ReadYourWritesPollInterval,
         projector_dependencies: ProjectorDependencies<'_>,
@@ -204,40 +179,20 @@ where
         let deadline = Instant::now() + StdDuration::from(timeout);
         let poll_duration = StdDuration::from(poll_interval);
 
-        match target {
-            ReadYourWritesTarget::Message(message_id) => {
-                if projector_dependencies.as_slice().is_empty() {
-                    return Ok(());
-                }
-
-                let causation_events = self.causation_events(message_id).await?;
-                self.wait_for_projectors(
-                    target,
-                    timeout,
-                    poll_duration,
-                    deadline,
-                    projector_dependencies,
-                    &causation_events,
-                )
-                .await
-            }
-            ReadYourWritesTarget::Correlation(correlation_id) => {
-                if projector_dependencies.as_slice().is_empty() {
-                    return Ok(());
-                }
-
-                let correlation_events = self.correlation_events(correlation_id).await?;
-                self.wait_for_projectors(
-                    target,
-                    timeout,
-                    poll_duration,
-                    deadline,
-                    projector_dependencies,
-                    &correlation_events,
-                )
-                .await
-            }
+        if projector_dependencies.as_slice().is_empty() {
+            return Ok(());
         }
+
+        let causation_events = self.causation_events(message_id).await?;
+        self.wait_for_projectors(
+            message_id,
+            timeout,
+            poll_duration,
+            deadline,
+            projector_dependencies,
+            &causation_events,
+        )
+        .await
     }
 }
 
@@ -258,9 +213,7 @@ mod tests {
         EventSelector, EventSequence, SerializedEventPayload,
     };
     use crate::messaging::Subscription;
-    use crate::projection::{
-        ProjectorDependencies, ProjectorDescriptor, ProjectorName, ReadYourWritesTarget,
-    };
+    use crate::projection::{ProjectorDependencies, ProjectorDescriptor, ProjectorName};
     use crate::request_context::{CorrelationId, Principal, RequestContext};
     use crate::unit_of_work::{UnitOfWorkError, UnitOfWorkFactoryError};
 
@@ -343,19 +296,6 @@ mod tests {
                 .events
                 .iter()
                 .filter(|event| event.causation_id == causation_id)
-                .cloned()
-                .collect())
-        }
-
-        async fn events_by_correlation_id(
-            &self,
-            _uow: &mut Self::Uow,
-            correlation_id: CorrelationId,
-        ) -> Result<Vec<EventEnvelope>, EventLookupError> {
-            Ok(self
-                .events
-                .iter()
-                .filter(|event| event.correlation_id == correlation_id)
                 .cloned()
                 .collect())
         }
@@ -512,7 +452,7 @@ mod tests {
 
         let result = waiter
             .wait(
-                ReadYourWritesTarget::Message(message_id),
+                message_id,
                 ReadYourWritesTimeout::from(Duration::ZERO),
                 ReadYourWritesPollInterval::from(Duration::ZERO),
                 ProjectorDependencies::Some(&[REGISTERED_PROJECTOR]),
@@ -543,7 +483,7 @@ mod tests {
 
         let result = waiter
             .wait(
-                ReadYourWritesTarget::Message(message_id),
+                message_id,
                 ReadYourWritesTimeout::from(Duration::ZERO),
                 ReadYourWritesPollInterval::from(Duration::ZERO),
                 ProjectorDependencies::Some(&[REGISTERED_PROJECTOR]),
@@ -569,7 +509,7 @@ mod tests {
 
         let result = waiter
             .wait(
-                ReadYourWritesTarget::Message(message_id),
+                message_id,
                 ReadYourWritesTimeout::from(Duration::ZERO),
                 ReadYourWritesPollInterval::from(Duration::ZERO),
                 ProjectorDependencies::Some(&[REGISTERED_PROJECTOR]),
@@ -579,10 +519,10 @@ mod tests {
         assert!(matches!(
             result,
             Err(ReadYourWritesWaitError::Timeout {
-                target,
+                message_id: returned_message_id,
                 pending_projectors,
                 ..
-            }) if target == ReadYourWritesTarget::Message(message_id)
+            }) if returned_message_id == message_id
                 && pending_projectors == vec![ProjectorNameOwned::from(REGISTERED_PROJECTOR.name)]
         ));
     }
@@ -621,7 +561,7 @@ mod tests {
 
         let result = waiter
             .wait(
-                ReadYourWritesTarget::Message(message_id),
+                message_id,
                 ReadYourWritesTimeout::from(Duration::from_millis(10)),
                 ReadYourWritesPollInterval::from(Duration::ZERO),
                 ProjectorDependencies::Some(&[REGISTERED_PROJECTOR, PROFILE_PROJECTOR]),
@@ -632,7 +572,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn wait_succeeds_when_correlation_projector_is_caught_up() {
+    async fn wait_succeeds_when_requested_projector_is_caught_up() {
         let correlation_id = CorrelationId::from(Uuid::now_v7());
         let message_id = MessageId::from(Uuid::now_v7());
         let registered_event_id = EventId::try_from(Uuid::now_v7()).expect("event id");
@@ -662,7 +602,7 @@ mod tests {
 
         let result = waiter
             .wait(
-                ReadYourWritesTarget::Correlation(correlation_id),
+                message_id,
                 ReadYourWritesTimeout::from(Duration::from_millis(10)),
                 ReadYourWritesPollInterval::from(Duration::ZERO),
                 ProjectorDependencies::Some(&[PROFILE_PROJECTOR]),
