@@ -3,25 +3,22 @@ use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::query::QueryHandler;
 use appletheia::application::request_context::RequestContext;
 
-use crate::pagination::Page;
-use crate::projection::PublicAccountListItemProjectorSpec;
-use crate::read_model::{
-    PublicAccountListItem, PublicAccountListItemCursor, PublicAccountListItemReader,
-};
+use crate::projection::PublicAccountListProjectorSpec;
+use crate::read_model::{PublicAccountList, PublicAccountListReader};
 
 use super::{PublicAccountListQuery, PublicAccountListQueryHandlerError};
 
 /// Handles public account list queries.
 pub struct PublicAccountListQueryHandler<S>
 where
-    S: PublicAccountListItemReader,
+    S: PublicAccountListReader,
 {
     store: S,
 }
 
 impl<S> PublicAccountListQueryHandler<S>
 where
-    S: PublicAccountListItemReader,
+    S: PublicAccountListReader,
 {
     pub fn new(store: S) -> Self {
         Self { store }
@@ -30,15 +27,15 @@ where
 
 impl<S> QueryHandler for PublicAccountListQueryHandler<S>
 where
-    S: PublicAccountListItemReader,
+    S: PublicAccountListReader,
 {
     type Query = PublicAccountListQuery;
-    type Output = Page<PublicAccountListItem, PublicAccountListItemCursor>;
+    type Output = PublicAccountList;
     type Error = PublicAccountListQueryHandlerError;
     type Uow = S::Uow;
 
     const PROJECTOR_DEPENDENCIES: ProjectorDependencies<'static> =
-        ProjectorDependencies::Some(&[PublicAccountListItemProjectorSpec::DESCRIPTOR]);
+        ProjectorDependencies::Some(&[PublicAccountListProjectorSpec::DESCRIPTOR]);
 
     fn authorization_plan(&self, _query: &Self::Query) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::None)

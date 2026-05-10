@@ -1,20 +1,18 @@
-mod currency_list_item;
-mod owned_account_list_item;
-mod owned_account_transaction_list_item;
-mod public_account_list_item;
+mod currency_list;
+mod owned_account_list;
+mod owned_account_transaction_list;
+mod public_account_list;
 
-pub use currency_list_item::{
-    CurrencyListItemProjector, CurrencyListItemProjectorError, CurrencyListItemProjectorSpec,
+pub use currency_list::{
+    CurrencyListProjector, CurrencyListProjectorError, CurrencyListProjectorSpec,
 };
-pub use owned_account_list_item::{
-    OwnedAccountListItemProjector, OwnedAccountListItemProjectorError,
-    OwnedAccountListItemProjectorSpec,
+pub use owned_account_list::{
+    OwnedAccountListProjector, OwnedAccountListProjectorError, OwnedAccountListProjectorSpec,
 };
-pub use owned_account_transaction_list_item::{
-    OwnedAccountTransactionListItemProjector, OwnedAccountTransactionListItemProjectorError,
-    OwnedAccountTransactionListItemProjectorSpec,
+pub use owned_account_transaction_list::{
+    OwnedAccountTransactionListProjector, OwnedAccountTransactionListProjectorError,
+    OwnedAccountTransactionListProjectorSpec,
 };
-pub use public_account_list_item::{
-    PublicAccountListItemProjector, PublicAccountListItemProjectorError,
-    PublicAccountListItemProjectorSpec,
+pub use public_account_list::{
+    PublicAccountListProjector, PublicAccountListProjectorError, PublicAccountListProjectorSpec,
 };

@@ -3,23 +3,22 @@ use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::query::QueryHandler;
 use appletheia::application::request_context::RequestContext;
 
-use crate::pagination::Page;
-use crate::projection::CurrencyListItemProjectorSpec;
-use crate::read_model::{CurrencyListItem, CurrencyListItemCursor, CurrencyListItemReader};
+use crate::projection::CurrencyListProjectorSpec;
+use crate::read_model::{CurrencyList, CurrencyListReader};
 
 use super::{CurrencyListQuery, CurrencyListQueryHandlerError};
 
 /// Handles public currency list queries.
 pub struct CurrencyListQueryHandler<S>
 where
-    S: CurrencyListItemReader,
+    S: CurrencyListReader,
 {
     store: S,
 }
 
 impl<S> CurrencyListQueryHandler<S>
 where
-    S: CurrencyListItemReader,
+    S: CurrencyListReader,
 {
     pub fn new(store: S) -> Self {
         Self { store }
@@ -28,15 +27,15 @@ where
 
 impl<S> QueryHandler for CurrencyListQueryHandler<S>
 where
-    S: CurrencyListItemReader,
+    S: CurrencyListReader,
 {
     type Query = CurrencyListQuery;
-    type Output = Page<CurrencyListItem, CurrencyListItemCursor>;
+    type Output = CurrencyList;
     type Error = CurrencyListQueryHandlerError;
     type Uow = S::Uow;
 
     const PROJECTOR_DEPENDENCIES: ProjectorDependencies<'static> =
-        ProjectorDependencies::Some(&[CurrencyListItemProjectorSpec::DESCRIPTOR]);
+        ProjectorDependencies::Some(&[CurrencyListProjectorSpec::DESCRIPTOR]);
 
     fn authorization_plan(&self, _query: &Self::Query) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::None)

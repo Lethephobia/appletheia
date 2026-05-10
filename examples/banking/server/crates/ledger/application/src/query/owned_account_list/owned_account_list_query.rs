@@ -1,9 +1,9 @@
 use appletheia::query;
 use banking_ledger_domain::account::AccountOwner;
 
-use crate::pagination::{CursorOptions, PageSize};
+use crate::read_model::{CursorOptions, PageSize};
 use crate::read_model::{
-    OwnedAccountListItemCriteria, OwnedAccountListItemCursor, OwnedAccountListItemSortKey,
+    OwnedAccountListCriteria, OwnedAccountListCursor, OwnedAccountListSortKey,
 };
 
 /// Query parameters for account list reads.
@@ -11,8 +11,7 @@ use crate::read_model::{
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct OwnedAccountListQuery {
     pub owner: AccountOwner,
-    pub criteria: OwnedAccountListItemCriteria,
-    pub cursor_options:
-        Option<CursorOptions<OwnedAccountListItemSortKey, OwnedAccountListItemCursor>>,
+    pub criteria: OwnedAccountListCriteria,
+    pub cursor_options: Option<CursorOptions<OwnedAccountListSortKey, OwnedAccountListCursor>>,
     pub limit: PageSize,
 }

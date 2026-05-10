@@ -10,25 +10,22 @@ use banking_iam_application::authorization::{
 use banking_iam_domain::{Organization, User};
 use banking_ledger_domain::account::AccountOwner;
 
-use crate::pagination::Page;
-use crate::projection::OwnedAccountListItemProjectorSpec;
-use crate::read_model::{
-    OwnedAccountListItem, OwnedAccountListItemCursor, OwnedAccountListItemReader,
-};
+use crate::projection::OwnedAccountListProjectorSpec;
+use crate::read_model::{OwnedAccountList, OwnedAccountListReader};
 
 use super::{OwnedAccountListQuery, OwnedAccountListQueryHandlerError};
 
 /// Handles account list queries.
 pub struct OwnedAccountListQueryHandler<S>
 where
-    S: OwnedAccountListItemReader,
+    S: OwnedAccountListReader,
 {
     store: S,
 }
 
 impl<S> OwnedAccountListQueryHandler<S>
 where
-    S: OwnedAccountListItemReader,
+    S: OwnedAccountListReader,
 {
     pub fn new(store: S) -> Self {
         Self { store }
@@ -37,15 +34,15 @@ where
 
 impl<S> QueryHandler for OwnedAccountListQueryHandler<S>
 where
-    S: OwnedAccountListItemReader,
+    S: OwnedAccountListReader,
 {
     type Query = OwnedAccountListQuery;
-    type Output = Page<OwnedAccountListItem, OwnedAccountListItemCursor>;
+    type Output = OwnedAccountList;
     type Error = OwnedAccountListQueryHandlerError;
     type Uow = S::Uow;
 
     const PROJECTOR_DEPENDENCIES: ProjectorDependencies<'static> =
-        ProjectorDependencies::Some(&[OwnedAccountListItemProjectorSpec::DESCRIPTOR]);
+        ProjectorDependencies::Some(&[OwnedAccountListProjectorSpec::DESCRIPTOR]);
 
     fn authorization_plan(&self, query: &Self::Query) -> Result<AuthorizationPlan, Self::Error> {
         match query.owner {

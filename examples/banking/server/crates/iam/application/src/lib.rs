@@ -98,7 +98,8 @@ pub use query::{
     UserPublicProfileQuery, UserPublicProfileQueryHandler, UserPublicProfileQueryHandlerError,
 };
 pub use read_model::{
-    UserPrivateInfo, UserPrivateInfoIdentity, UserPrivateInfoReader, UserPrivateInfoReaderError,
+    CursorOptions, PageSize, PageSizeError, SortDirection, UserPrivateInfo,
+    UserPrivateInfoIdentity, UserPrivateInfoReader, UserPrivateInfoReaderError,
     UserPrivateInfoStatus, UserPrivateInfoWriter, UserPrivateInfoWriterError, UserPublicProfile,
     UserPublicProfileReader, UserPublicProfileReaderError, UserPublicProfileStatus,
     UserPublicProfileWriter, UserPublicProfileWriterError,
