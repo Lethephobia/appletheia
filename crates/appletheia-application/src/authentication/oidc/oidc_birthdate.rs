@@ -46,6 +46,22 @@ impl OidcBirthdate {
     pub fn is_valid(value: &str) -> bool {
         Self::from_str(value).is_ok()
     }
+
+    fn parse_year(value: &str) -> Result<OidcBirthYear, OidcBirthdateError> {
+        let value = value
+            .parse()
+            .map_err(|_| OidcBirthYearError::InvalidFormat)?;
+
+        Ok(OidcBirthYear::new(value))
+    }
+
+    fn parse_month(value: &str) -> Result<OidcBirthMonth, OidcBirthdateError> {
+        let value = value
+            .parse()
+            .map_err(|_| OidcBirthdateError::InvalidFormat)?;
+
+        Ok(OidcBirthMonth::new(value)?)
+    }
 }
 
 impl Display for OidcBirthdate {
@@ -63,7 +79,9 @@ impl FromStr for OidcBirthdate {
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value.len() {
-            4 if value.chars().all(|ch| ch.is_ascii_digit()) => Ok(Self::Year(parse_year(value)?)),
+            4 if value.chars().all(|ch| ch.is_ascii_digit()) => {
+                Ok(Self::Year(Self::parse_year(value)?))
+            }
             7 => {
                 let (year_part, month_part) = value.split_at(4);
                 if !year_part.chars().all(|ch| ch.is_ascii_digit())
@@ -73,8 +91,8 @@ impl FromStr for OidcBirthdate {
                     return Err(OidcBirthdateError::InvalidFormat);
                 }
 
-                let year = parse_year(year_part)?;
-                let month = parse_month(&month_part[1..])?;
+                let year = Self::parse_year(year_part)?;
+                let month = Self::parse_month(&month_part[1..])?;
 
                 Ok(Self::YearMonth { year, month })
             }
@@ -92,8 +110,8 @@ impl FromStr for OidcBirthdate {
                     return Err(OidcBirthdateError::InvalidFormat);
                 }
 
-                let year = parse_year(year_part)?;
-                let month = parse_month(month_part)?;
+                let year = Self::parse_year(year_part)?;
+                let month = Self::parse_month(month_part)?;
                 let day = day_part
                     .parse()
                     .map_err(|_| OidcBirthdateError::InvalidFormat)?;
@@ -118,22 +136,6 @@ impl From<OidcBirthdate> for String {
     fn from(value: OidcBirthdate) -> Self {
         value.to_string()
     }
-}
-
-fn parse_year(value: &str) -> Result<OidcBirthYear, OidcBirthdateError> {
-    let value = value
-        .parse()
-        .map_err(|_| OidcBirthYearError::InvalidFormat)?;
-
-    Ok(OidcBirthYear::new(value))
-}
-
-fn parse_month(value: &str) -> Result<OidcBirthMonth, OidcBirthdateError> {
-    let value = value
-        .parse()
-        .map_err(|_| OidcBirthdateError::InvalidFormat)?;
-
-    Ok(OidcBirthMonth::new(value)?)
 }
 
 #[cfg(test)]
