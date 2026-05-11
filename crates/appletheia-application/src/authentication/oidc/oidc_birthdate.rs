@@ -34,7 +34,7 @@ impl OidcBirthdate {
     }
 
     /// Creates a birthdate claim with full date precision.
-    pub fn full_date(year: u16, month: u8, day: u8) -> Result<Self, OidcBirthdateError> {
+    pub fn full(year: u16, month: u8, day: u8) -> Result<Self, OidcBirthdateError> {
         let year = OidcBirthYear::new(year);
         let month = OidcBirthMonth::new(month)?;
         let full = OidcBirthdateFull::new(year, month, day)?;
@@ -146,7 +146,7 @@ mod tests {
     use crate::authentication::oidc::OidcBirthdateFullError;
 
     #[test]
-    fn accepts_full_date_birthdate() {
+    fn accepts_full_birthdate() {
         let birthdate =
             OidcBirthdate::try_from("0000-10-11".to_owned()).expect("birthdate should be valid");
 
