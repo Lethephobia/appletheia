@@ -23,40 +23,6 @@ pub struct CurrencyIssuanceState {
     pub(super) status: CurrencyIssuanceStatus,
 }
 
-impl CurrencyIssuanceState {
-    /// Creates a new issuance state.
-    pub(super) fn new(
-        id: CurrencyIssuanceId,
-        currency_id: CurrencyId,
-        destination_account_id: AccountId,
-        amount: CurrencyAmount,
-    ) -> Self {
-        Self {
-            id,
-            currency_id,
-            destination_account_id,
-            amount,
-            status: CurrencyIssuanceStatus::Pending,
-        }
-    }
-
-    /// Creates a new rejected issuance state.
-    pub(super) fn rejected(
-        id: CurrencyIssuanceId,
-        currency_id: CurrencyId,
-        destination_account_id: AccountId,
-        amount: CurrencyAmount,
-    ) -> Self {
-        Self {
-            id,
-            currency_id,
-            destination_account_id,
-            amount,
-            status: CurrencyIssuanceStatus::Rejected,
-        }
-    }
-}
-
 fn currency_value(
     state: &CurrencyIssuanceState,
 ) -> Result<Option<CurrencyId>, CurrencyIssuanceStateError> {
@@ -82,12 +48,13 @@ mod tests {
     #[test]
     fn exposes_id_via_aggregate_state_trait() {
         let id = CurrencyIssuanceId::new();
-        let state = CurrencyIssuanceState::new(
+        let state = CurrencyIssuanceState {
             id,
-            CurrencyId::new(),
-            AccountId::new(),
-            CurrencyAmount::new(1),
-        );
+            currency_id: CurrencyId::new(),
+            destination_account_id: AccountId::new(),
+            amount: CurrencyAmount::new(1),
+            status: CurrencyIssuanceStatus::Pending,
+        };
 
         assert_eq!(state.id(), id);
         assert_eq!(state.status, CurrencyIssuanceStatus::Pending);
@@ -95,12 +62,13 @@ mod tests {
 
     #[test]
     fn returns_reference_entries_for_currency_and_destination_account() {
-        let state = CurrencyIssuanceState::new(
-            CurrencyIssuanceId::new(),
-            CurrencyId::new(),
-            AccountId::new(),
-            CurrencyAmount::new(1),
-        );
+        let state = CurrencyIssuanceState {
+            id: CurrencyIssuanceId::new(),
+            currency_id: CurrencyId::new(),
+            destination_account_id: AccountId::new(),
+            amount: CurrencyAmount::new(1),
+            status: CurrencyIssuanceStatus::Pending,
+        };
 
         let entries = state
             .reference_entries()

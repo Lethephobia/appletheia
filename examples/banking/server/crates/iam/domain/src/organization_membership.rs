@@ -95,6 +95,8 @@ impl OrganizationMembership {
             id: OrganizationMembershipId::new(),
             organization_id,
             user_id,
+            roles: OrganizationMembershipRoles::default(),
+            status: OrganizationMembershipStatus::Active,
         })
     }
 
@@ -221,13 +223,16 @@ impl AggregateApply<OrganizationMembershipEventPayload, OrganizationMembershipEr
                 id,
                 organization_id,
                 user_id,
+                roles,
+                status,
             } => {
-                self.set_state(Some(OrganizationMembershipState::new(
-                    *id,
-                    *organization_id,
-                    *user_id,
-                    OrganizationMembershipRoles::default(),
-                )));
+                self.set_state(Some(OrganizationMembershipState {
+                    id: *id,
+                    organization_id: *organization_id,
+                    user_id: *user_id,
+                    roles: roles.clone(),
+                    status: *status,
+                }));
             }
             OrganizationMembershipEventPayload::RolesChanged { roles, .. } => {
                 self.state_required_mut()?.roles = roles.clone();

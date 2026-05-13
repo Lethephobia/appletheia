@@ -5,7 +5,11 @@ use banking_ledger_domain::account::{Account, AccountEventPayload};
 use banking_ledger_domain::currency::{Currency, CurrencyEventPayload};
 
 use super::{PublicAccountListProjectorError, PublicAccountListProjectorSpec};
-use crate::read_model::{PublicAccountListItemStatus, PublicAccountListWriter};
+use crate::read_model::{
+    PublicAccountListAccountUpsert, PublicAccountListCurrencyUpsert, PublicAccountListItemStatus,
+    PublicAccountListOwnerOrganizationUpsert, PublicAccountListOwnerUserUpsert,
+    PublicAccountListWriter,
+};
 
 /// Projects account and currency events into public account list read models.
 pub struct PublicAccountListProjector<W>
@@ -38,9 +42,24 @@ where
             let user_id = domain_event.aggregate_id();
 
             match domain_event.payload() {
-                UserEventPayload::Registered { .. } => {
+                UserEventPayload::Registered {
+                    username,
+                    display_name,
+                    picture,
+                    ..
+                } => {
                     self.writer
-                        .upsert_owner_user(uow, user_id, event.event_sequence, event.occurred_at)
+                        .upsert_owner_user(
+                            uow,
+                            PublicAccountListOwnerUserUpsert {
+                                id: user_id,
+                                username: username.clone(),
+                                display_name: display_name.clone(),
+                                picture: picture.clone(),
+                                event_sequence: event.event_sequence,
+                                occurred_at: event.occurred_at,
+                            },
+                        )
                         .await?;
                 }
                 UserEventPayload::UsernameChanged { username } => {
@@ -114,12 +133,14 @@ where
                     self.writer
                         .upsert_owner_organization(
                             uow,
-                            organization_id,
-                            handle.clone(),
-                            display_name.clone(),
-                            picture.clone(),
-                            event.event_sequence,
-                            event.occurred_at,
+                            PublicAccountListOwnerOrganizationUpsert {
+                                id: organization_id,
+                                handle: handle.clone(),
+                                display_name: display_name.clone(),
+                                picture: picture.clone(),
+                                event_sequence: event.event_sequence,
+                                occurred_at: event.occurred_at,
+                            },
                         )
                         .await?;
                 }
@@ -187,17 +208,22 @@ where
 
             match domain_event.payload() {
                 AccountEventPayload::Opened {
-                    owner, currency_id, ..
+                    owner,
+                    currency_id,
+                    status,
+                    ..
                 } => {
                     self.writer
                         .upsert_account(
                             uow,
-                            account_id,
-                            *owner,
-                            *currency_id,
-                            PublicAccountListItemStatus::Active,
-                            event.event_sequence,
-                            event.occurred_at,
+                            PublicAccountListAccountUpsert {
+                                id: account_id,
+                                owner: *owner,
+                                currency_id: *currency_id,
+                                status: PublicAccountListItemStatus::try_from(*status)?,
+                                event_sequence: event.event_sequence,
+                                occurred_at: event.occurred_at,
+                            },
                         )
                         .await?;
                 }
@@ -273,12 +299,14 @@ where
                 self.writer
                     .upsert_currency(
                         uow,
-                        currency_id,
-                        symbol.clone(),
-                        name.clone(),
-                        *decimals,
-                        event.event_sequence,
-                        event.occurred_at,
+                        PublicAccountListCurrencyUpsert {
+                            id: currency_id,
+                            symbol: symbol.clone(),
+                            name: name.clone(),
+                            decimals: *decimals,
+                            event_sequence: event.event_sequence,
+                            occurred_at: event.occurred_at,
+                        },
                     )
                     .await?;
             }

@@ -1,37 +1,29 @@
 use appletheia::application::event::EventSequence;
-use appletheia::application::request_context::CorrelationId;
 use appletheia::application::unit_of_work::UnitOfWork;
 use appletheia::domain::EventOccurredAt;
 use banking_iam_domain::{
     OrganizationDisplayName, OrganizationHandle, OrganizationId, OrganizationPictureRef,
     UserDisplayName, UserId, UserPictureRef, Username,
 };
-use banking_ledger_domain::account::AccountId;
-use banking_ledger_domain::core::CurrencyAmount;
-use banking_ledger_domain::currency::{CurrencyDecimals, CurrencyId, CurrencyName, CurrencySymbol};
+use banking_ledger_domain::currency::{CurrencyId, CurrencyName, CurrencySymbol};
 use banking_ledger_domain::currency_issuance::CurrencyIssuanceId;
 use banking_ledger_domain::transfer::{TransferFailureReason, TransferId};
 
 use super::{
-    OwnedAccountTransactionId, OwnedAccountTransactionListItemDirection,
-    OwnedAccountTransactionListItemKind, OwnedAccountTransactionListItemStatus,
-    OwnedAccountTransactionListWriterError,
+    OwnedAccountTransactionId, OwnedAccountTransactionListCurrencyIssuanceIssuedRecord,
+    OwnedAccountTransactionListCurrencyUpsert, OwnedAccountTransactionListItemInsert,
+    OwnedAccountTransactionListOwnerOrganizationUpsert, OwnedAccountTransactionListOwnerUserUpsert,
+    OwnedAccountTransactionListTransferRequestedRecord, OwnedAccountTransactionListWriterError,
 };
 
-/// Writes owned account transaction list read models.
-#[allow(async_fn_in_trait, clippy::too_many_arguments)]
+#[allow(async_fn_in_trait)]
 pub trait OwnedAccountTransactionListWriter: Send + Sync {
     type Uow: UnitOfWork;
 
     async fn upsert_currency(
         &self,
         uow: &mut Self::Uow,
-        id: CurrencyId,
-        symbol: CurrencySymbol,
-        name: CurrencyName,
-        decimals: CurrencyDecimals,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
+        upsert: OwnedAccountTransactionListCurrencyUpsert,
     ) -> Result<(), OwnedAccountTransactionListWriterError>;
 
     async fn update_currency_symbol(
@@ -62,9 +54,7 @@ pub trait OwnedAccountTransactionListWriter: Send + Sync {
     async fn upsert_owner_user(
         &self,
         uow: &mut Self::Uow,
-        id: UserId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
+        upsert: OwnedAccountTransactionListOwnerUserUpsert,
     ) -> Result<(), OwnedAccountTransactionListWriterError>;
 
     async fn update_owner_user_username(
@@ -104,12 +94,7 @@ pub trait OwnedAccountTransactionListWriter: Send + Sync {
     async fn upsert_owner_organization(
         &self,
         uow: &mut Self::Uow,
-        id: OrganizationId,
-        handle: OrganizationHandle,
-        display_name: OrganizationDisplayName,
-        picture: Option<OrganizationPictureRef>,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
+        upsert: OwnedAccountTransactionListOwnerOrganizationUpsert,
     ) -> Result<(), OwnedAccountTransactionListWriterError>;
 
     async fn update_owner_organization_handle(
@@ -149,28 +134,13 @@ pub trait OwnedAccountTransactionListWriter: Send + Sync {
     async fn insert_account_transaction(
         &self,
         uow: &mut Self::Uow,
-        transaction_id: OwnedAccountTransactionId,
-        correlation_id: CorrelationId,
-        account_id: AccountId,
-        counterparty_account_id: Option<AccountId>,
-        amount: CurrencyAmount,
-        direction: OwnedAccountTransactionListItemDirection,
-        kind: OwnedAccountTransactionListItemKind,
-        status: OwnedAccountTransactionListItemStatus,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
+        insert: OwnedAccountTransactionListItemInsert,
     ) -> Result<(), OwnedAccountTransactionListWriterError>;
 
     async fn record_transfer_requested(
         &self,
         uow: &mut Self::Uow,
-        id: TransferId,
-        correlation_id: CorrelationId,
-        from_account_id: AccountId,
-        to_account_id: AccountId,
-        amount: CurrencyAmount,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
+        record: OwnedAccountTransactionListTransferRequestedRecord,
     ) -> Result<(), OwnedAccountTransactionListWriterError>;
 
     async fn complete_transfer(
@@ -194,12 +164,7 @@ pub trait OwnedAccountTransactionListWriter: Send + Sync {
     async fn record_currency_issuance_issued(
         &self,
         uow: &mut Self::Uow,
-        id: CurrencyIssuanceId,
-        destination_account_id: AccountId,
-        currency_id: CurrencyId,
-        amount: CurrencyAmount,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
+        record: OwnedAccountTransactionListCurrencyIssuanceIssuedRecord,
     ) -> Result<(), OwnedAccountTransactionListWriterError>;
 
     async fn complete_currency_issuance(

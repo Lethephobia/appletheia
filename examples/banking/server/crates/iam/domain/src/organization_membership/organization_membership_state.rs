@@ -25,24 +25,6 @@ pub struct OrganizationMembershipState {
     pub(super) status: OrganizationMembershipStatus,
 }
 
-impl OrganizationMembershipState {
-    /// Creates a new organization membership state.
-    pub(super) fn new(
-        id: OrganizationMembershipId,
-        organization_id: OrganizationId,
-        user_id: UserId,
-        roles: OrganizationMembershipRoles,
-    ) -> Self {
-        Self {
-            id,
-            organization_id,
-            user_id,
-            roles,
-            status: OrganizationMembershipStatus::Active,
-        }
-    }
-}
-
 fn organization_user_value(
     state: &OrganizationMembershipState,
 ) -> Result<Option<UniqueValue>, OrganizationMembershipStateError> {
@@ -86,12 +68,13 @@ mod tests {
     fn exposes_id_via_aggregate_state_trait() {
         let id = OrganizationMembershipId::new();
         let roles = OrganizationMembershipRoles::new([OrganizationRole::FinanceManager]);
-        let state = OrganizationMembershipState::new(
+        let state = OrganizationMembershipState {
             id,
-            OrganizationId::new(),
-            UserId::new(),
-            roles.clone(),
-        );
+            organization_id: OrganizationId::new(),
+            user_id: UserId::new(),
+            roles: roles.clone(),
+            status: OrganizationMembershipStatus::Active,
+        };
 
         assert_eq!(state.id(), id);
         assert_eq!(state.roles, roles);
@@ -99,12 +82,13 @@ mod tests {
 
     #[test]
     fn active_state_returns_unique_entries_for_organization_and_user() {
-        let state = OrganizationMembershipState::new(
-            OrganizationMembershipId::new(),
-            OrganizationId::new(),
-            UserId::new(),
-            OrganizationMembershipRoles::default(),
-        );
+        let state = OrganizationMembershipState {
+            id: OrganizationMembershipId::new(),
+            organization_id: OrganizationId::new(),
+            user_id: UserId::new(),
+            roles: OrganizationMembershipRoles::default(),
+            status: OrganizationMembershipStatus::Active,
+        };
 
         let entries = state.unique_entries().expect("unique entries should build");
 
@@ -118,12 +102,13 @@ mod tests {
 
     #[test]
     fn removed_state_has_no_unique_entry() {
-        let mut state = OrganizationMembershipState::new(
-            OrganizationMembershipId::new(),
-            OrganizationId::new(),
-            UserId::new(),
-            OrganizationMembershipRoles::default(),
-        );
+        let mut state = OrganizationMembershipState {
+            id: OrganizationMembershipId::new(),
+            organization_id: OrganizationId::new(),
+            user_id: UserId::new(),
+            roles: OrganizationMembershipRoles::default(),
+            status: OrganizationMembershipStatus::Active,
+        };
         state.status = OrganizationMembershipStatus::Removed;
 
         let entries = state.unique_entries().expect("unique entries should build");
@@ -140,12 +125,13 @@ mod tests {
     fn returns_reference_entries_for_organization_and_user() {
         let organization_id = OrganizationId::new();
         let user_id = UserId::new();
-        let state = OrganizationMembershipState::new(
-            OrganizationMembershipId::new(),
+        let state = OrganizationMembershipState {
+            id: OrganizationMembershipId::new(),
             organization_id,
             user_id,
-            OrganizationMembershipRoles::default(),
-        );
+            roles: OrganizationMembershipRoles::default(),
+            status: OrganizationMembershipStatus::Active,
+        };
 
         let entries = state
             .reference_entries()

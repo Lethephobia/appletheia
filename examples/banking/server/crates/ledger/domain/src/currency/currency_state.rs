@@ -25,27 +25,6 @@ pub struct CurrencyState {
     pub(super) status: CurrencyStatus,
 }
 
-impl CurrencyState {
-    /// Creates a new currency state.
-    pub(super) fn new(
-        id: CurrencyId,
-        owner: CurrencyOwner,
-        symbol: CurrencySymbol,
-        name: CurrencyName,
-        decimals: CurrencyDecimals,
-    ) -> Self {
-        Self {
-            id,
-            owner,
-            symbol,
-            name,
-            decimals,
-            supply: CurrencyAmount::zero(),
-            status: CurrencyStatus::Active,
-        }
-    }
-}
-
 fn symbol_value(state: &CurrencyState) -> Result<Option<UniqueValue>, CurrencyStateError> {
     if state.status.is_removed() {
         return Ok(None);
@@ -85,13 +64,15 @@ mod tests {
 
     #[test]
     fn returns_unique_entries_for_symbol() {
-        let state = CurrencyState::new(
-            CurrencyId::new(),
-            CurrencyOwner::User(UserId::new()),
-            CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
-            CurrencyName::try_from("USD Coin").expect("name should be valid"),
-            CurrencyDecimals::new(6),
-        );
+        let state = CurrencyState {
+            id: CurrencyId::new(),
+            owner: CurrencyOwner::User(UserId::new()),
+            symbol: CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
+            name: CurrencyName::try_from("USD Coin").expect("name should be valid"),
+            decimals: CurrencyDecimals::new(6),
+            supply: CurrencyAmount::zero(),
+            status: CurrencyStatus::Active,
+        };
 
         let entries = state.unique_entries().expect("unique entries should build");
 
@@ -104,13 +85,15 @@ mod tests {
     #[test]
     fn exposes_id_via_aggregate_state_trait() {
         let id = CurrencyId::new();
-        let state = CurrencyState::new(
+        let state = CurrencyState {
             id,
-            CurrencyOwner::User(UserId::new()),
-            CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
-            CurrencyName::try_from("USD Coin").expect("name should be valid"),
-            CurrencyDecimals::new(6),
-        );
+            owner: CurrencyOwner::User(UserId::new()),
+            symbol: CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
+            name: CurrencyName::try_from("USD Coin").expect("name should be valid"),
+            decimals: CurrencyDecimals::new(6),
+            supply: CurrencyAmount::zero(),
+            status: CurrencyStatus::Active,
+        };
 
         assert_eq!(state.id(), id);
         assert_eq!(state.supply, CurrencyAmount::zero());
@@ -118,13 +101,15 @@ mod tests {
 
     #[test]
     fn removed_state_has_no_symbol_unique_entry() {
-        let mut state = CurrencyState::new(
-            CurrencyId::new(),
-            CurrencyOwner::User(UserId::new()),
-            CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
-            CurrencyName::try_from("USD Coin").expect("name should be valid"),
-            CurrencyDecimals::new(6),
-        );
+        let mut state = CurrencyState {
+            id: CurrencyId::new(),
+            owner: CurrencyOwner::User(UserId::new()),
+            symbol: CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
+            name: CurrencyName::try_from("USD Coin").expect("name should be valid"),
+            decimals: CurrencyDecimals::new(6),
+            supply: CurrencyAmount::zero(),
+            status: CurrencyStatus::Active,
+        };
         state.status = CurrencyStatus::Removed;
 
         let entries = state.unique_entries().expect("unique entries should build");
@@ -137,13 +122,15 @@ mod tests {
 
     #[test]
     fn user_owned_currency_returns_user_reference_entry() {
-        let state = CurrencyState::new(
-            CurrencyId::new(),
-            CurrencyOwner::User(UserId::new()),
-            CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
-            CurrencyName::try_from("USD Coin").expect("name should be valid"),
-            CurrencyDecimals::new(6),
-        );
+        let state = CurrencyState {
+            id: CurrencyId::new(),
+            owner: CurrencyOwner::User(UserId::new()),
+            symbol: CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
+            name: CurrencyName::try_from("USD Coin").expect("name should be valid"),
+            decimals: CurrencyDecimals::new(6),
+            supply: CurrencyAmount::zero(),
+            status: CurrencyStatus::Active,
+        };
 
         let entries = state
             .reference_entries()
@@ -165,13 +152,15 @@ mod tests {
 
     #[test]
     fn organization_owned_currency_returns_organization_reference_entry() {
-        let state = CurrencyState::new(
-            CurrencyId::new(),
-            CurrencyOwner::Organization(OrganizationId::new()),
-            CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
-            CurrencyName::try_from("USD Coin").expect("name should be valid"),
-            CurrencyDecimals::new(6),
-        );
+        let state = CurrencyState {
+            id: CurrencyId::new(),
+            owner: CurrencyOwner::Organization(OrganizationId::new()),
+            symbol: CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
+            name: CurrencyName::try_from("USD Coin").expect("name should be valid"),
+            decimals: CurrencyDecimals::new(6),
+            supply: CurrencyAmount::zero(),
+            status: CurrencyStatus::Active,
+        };
 
         let entries = state
             .reference_entries()

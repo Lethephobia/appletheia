@@ -5,7 +5,7 @@ use crate::{OrganizationId, UserId};
 use super::{
     OrganizationJoinRequestApproveRejectionReason, OrganizationJoinRequestCancelRejectionReason,
     OrganizationJoinRequestEventPayloadError, OrganizationJoinRequestId,
-    OrganizationJoinRequestRejectRejectionReason,
+    OrganizationJoinRequestRejectRejectionReason, OrganizationJoinRequestStatus,
 };
 
 /// Represents the domain events emitted by an `OrganizationJoinRequest` aggregate.
@@ -15,6 +15,7 @@ pub enum OrganizationJoinRequestEventPayload {
         id: OrganizationJoinRequestId,
         organization_id: OrganizationId,
         requester_id: UserId,
+        status: OrganizationJoinRequestStatus,
     },
     Approved {
         organization_id: OrganizationId,
@@ -49,7 +50,10 @@ pub enum OrganizationJoinRequestEventPayload {
 mod tests {
     use appletheia::domain::EventPayload;
 
-    use super::{OrganizationJoinRequestEventPayload, OrganizationJoinRequestId};
+    use super::{
+        OrganizationJoinRequestEventPayload, OrganizationJoinRequestId,
+        OrganizationJoinRequestStatus,
+    };
     use crate::{OrganizationId, UserId};
 
     #[test]
@@ -90,6 +94,7 @@ mod tests {
             id: OrganizationJoinRequestId::new(),
             organization_id: OrganizationId::new(),
             requester_id: UserId::new(),
+            status: OrganizationJoinRequestStatus::Pending,
         };
 
         assert_eq!(
@@ -143,6 +148,7 @@ mod tests {
             id: OrganizationJoinRequestId::new(),
             organization_id: OrganizationId::new(),
             requester_id: UserId::new(),
+            status: OrganizationJoinRequestStatus::Pending,
         };
 
         let value = payload.into_json_value().expect("payload should serialize");

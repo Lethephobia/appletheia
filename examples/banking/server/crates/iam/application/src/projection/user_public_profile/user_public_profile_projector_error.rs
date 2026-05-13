@@ -1,7 +1,7 @@
 use appletheia::application::event::EventEnvelopeError;
 use thiserror::Error;
 
-use crate::read_model::UserPublicProfileWriterError;
+use crate::read_model::{UserPublicProfileStatusError, UserPublicProfileWriterError};
 
 /// Error returned while projecting public user profiles.
 #[derive(Debug, Error)]
@@ -11,4 +11,7 @@ pub enum UserPublicProfileProjectorError {
 
     #[error(transparent)]
     Writer(#[from] UserPublicProfileWriterError),
+
+    #[error(transparent)]
+    Status(#[from] UserPublicProfileStatusError),
 }

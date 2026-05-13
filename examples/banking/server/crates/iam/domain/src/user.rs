@@ -144,7 +144,15 @@ impl User {
             return Err(UserError::AlreadyRegistered);
         }
 
-        self.append_event(UserEventPayload::Registered { id: UserId::new() })
+        self.append_event(UserEventPayload::Registered {
+            id: UserId::new(),
+            identities: Vec::new(),
+            username: None,
+            display_name: None,
+            bio: None,
+            picture: None,
+            status: UserStatus::Active,
+        })
     }
 
     /// Links an additional external identity.
@@ -453,7 +461,23 @@ impl User {
 impl AggregateApply<UserEventPayload, UserError> for User {
     fn apply(&mut self, payload: &UserEventPayload) -> Result<(), UserError> {
         match payload {
-            UserEventPayload::Registered { id } => self.set_state(Some(UserState::new(*id))),
+            UserEventPayload::Registered {
+                id,
+                identities,
+                username,
+                display_name,
+                bio,
+                picture,
+                status,
+            } => self.set_state(Some(UserState {
+                id: *id,
+                identities: identities.clone(),
+                username: username.clone(),
+                display_name: display_name.clone(),
+                bio: bio.clone(),
+                picture: picture.clone(),
+                status: *status,
+            })),
             UserEventPayload::IdentityLinked {
                 provider,
                 subject,

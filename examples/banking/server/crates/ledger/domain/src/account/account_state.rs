@@ -25,26 +25,6 @@ pub struct AccountState {
     pub(super) status: AccountStatus,
 }
 
-impl AccountState {
-    /// Creates a new account state.
-    pub(super) fn new(
-        id: AccountId,
-        owner: AccountOwner,
-        name: AccountName,
-        currency_id: CurrencyId,
-    ) -> Self {
-        Self {
-            id,
-            owner,
-            name,
-            currency_id,
-            balance: CurrencyAmount::zero(),
-            reserved_balance: CurrencyAmount::zero(),
-            status: AccountStatus::Active,
-        }
-    }
-}
-
 fn owner_user_value(
     state: &AccountState,
 ) -> Result<Option<banking_iam_domain::UserId>, AccountStateError> {
@@ -81,7 +61,15 @@ mod tests {
     fn exposes_id_via_aggregate_state_trait() {
         let id = AccountId::new();
         let owner = AccountOwner::User(UserId::new());
-        let state = AccountState::new(id, owner, account_name(), CurrencyId::new());
+        let state = AccountState {
+            id,
+            owner,
+            name: account_name(),
+            currency_id: CurrencyId::new(),
+            balance: CurrencyAmount::zero(),
+            reserved_balance: CurrencyAmount::zero(),
+            status: AccountStatus::Active,
+        };
 
         assert_eq!(state.id(), id);
         assert_eq!(state.owner, owner);
@@ -90,7 +78,15 @@ mod tests {
     #[test]
     fn new_initializes_zero_balances_and_active_status() {
         let owner = AccountOwner::User(UserId::new());
-        let state = AccountState::new(AccountId::new(), owner, account_name(), CurrencyId::new());
+        let state = AccountState {
+            id: AccountId::new(),
+            owner,
+            name: account_name(),
+            currency_id: CurrencyId::new(),
+            balance: CurrencyAmount::zero(),
+            reserved_balance: CurrencyAmount::zero(),
+            status: AccountStatus::Active,
+        };
 
         assert_eq!(state.balance, CurrencyAmount::zero());
         assert_eq!(state.reserved_balance, CurrencyAmount::zero());
@@ -101,19 +97,30 @@ mod tests {
     #[test]
     fn new_accepts_organization_owner() {
         let owner = AccountOwner::Organization(OrganizationId::new());
-        let state = AccountState::new(AccountId::new(), owner, account_name(), CurrencyId::new());
+        let state = AccountState {
+            id: AccountId::new(),
+            owner,
+            name: account_name(),
+            currency_id: CurrencyId::new(),
+            balance: CurrencyAmount::zero(),
+            reserved_balance: CurrencyAmount::zero(),
+            status: AccountStatus::Active,
+        };
 
         assert_eq!(state.owner, owner);
     }
 
     #[test]
     fn user_owned_account_returns_user_and_currency_reference_entries() {
-        let state = AccountState::new(
-            AccountId::new(),
-            AccountOwner::User(UserId::new()),
-            account_name(),
-            CurrencyId::new(),
-        );
+        let state = AccountState {
+            id: AccountId::new(),
+            owner: AccountOwner::User(UserId::new()),
+            name: account_name(),
+            currency_id: CurrencyId::new(),
+            balance: CurrencyAmount::zero(),
+            reserved_balance: CurrencyAmount::zero(),
+            status: AccountStatus::Active,
+        };
 
         let entries = state
             .reference_entries()
@@ -141,12 +148,15 @@ mod tests {
 
     #[test]
     fn organization_owned_account_returns_organization_and_currency_reference_entries() {
-        let state = AccountState::new(
-            AccountId::new(),
-            AccountOwner::Organization(OrganizationId::new()),
-            account_name(),
-            CurrencyId::new(),
-        );
+        let state = AccountState {
+            id: AccountId::new(),
+            owner: AccountOwner::Organization(OrganizationId::new()),
+            name: account_name(),
+            currency_id: CurrencyId::new(),
+            balance: CurrencyAmount::zero(),
+            reserved_balance: CurrencyAmount::zero(),
+            status: AccountStatus::Active,
+        };
 
         let entries = state
             .reference_entries()

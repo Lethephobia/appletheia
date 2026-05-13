@@ -1,7 +1,7 @@
 use appletheia::application::event::EventEnvelopeError;
 use thiserror::Error;
 
-use crate::read_model::OwnedAccountListWriterError;
+use crate::read_model::{OwnedAccountListItemStatusError, OwnedAccountListWriterError};
 
 /// Error returned while projecting owned account lists.
 #[derive(Debug, Error)]
@@ -11,4 +11,7 @@ pub enum OwnedAccountListProjectorError {
 
     #[error(transparent)]
     Writer(#[from] OwnedAccountListWriterError),
+
+    #[error(transparent)]
+    Status(#[from] OwnedAccountListItemStatusError),
 }

@@ -1,7 +1,7 @@
 use appletheia::application::event::EventEnvelopeError;
 use thiserror::Error;
 
-use crate::read_model::PublicAccountListWriterError;
+use crate::read_model::{PublicAccountListItemStatusError, PublicAccountListWriterError};
 
 #[derive(Debug, Error)]
 pub enum PublicAccountListProjectorError {
@@ -10,4 +10,7 @@ pub enum PublicAccountListProjectorError {
 
     #[error(transparent)]
     Writer(#[from] PublicAccountListWriterError),
+
+    #[error(transparent)]
+    Status(#[from] PublicAccountListItemStatusError),
 }

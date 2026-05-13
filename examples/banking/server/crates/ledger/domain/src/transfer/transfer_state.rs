@@ -22,40 +22,6 @@ pub struct TransferState {
     pub(super) status: TransferStatus,
 }
 
-impl TransferState {
-    /// Creates a new transfer state.
-    pub(super) fn new(
-        id: TransferId,
-        from_account_id: AccountId,
-        to_account_id: AccountId,
-        amount: CurrencyAmount,
-    ) -> Self {
-        Self {
-            id,
-            from_account_id,
-            to_account_id,
-            amount,
-            status: TransferStatus::Pending,
-        }
-    }
-
-    /// Creates a new rejected transfer state.
-    pub(super) fn rejected(
-        id: TransferId,
-        from_account_id: AccountId,
-        to_account_id: AccountId,
-        amount: CurrencyAmount,
-    ) -> Self {
-        Self {
-            id,
-            from_account_id,
-            to_account_id,
-            amount,
-            status: TransferStatus::Rejected,
-        }
-    }
-}
-
 fn from_account_value(state: &TransferState) -> Result<Option<AccountId>, TransferStateError> {
     Ok(Some(state.from_account_id))
 }
@@ -76,12 +42,13 @@ mod tests {
     #[test]
     fn exposes_id_via_aggregate_state_trait() {
         let id = TransferId::new();
-        let state = TransferState::new(
+        let state = TransferState {
             id,
-            AccountId::new(),
-            AccountId::new(),
-            CurrencyAmount::new(1),
-        );
+            from_account_id: AccountId::new(),
+            to_account_id: AccountId::new(),
+            amount: CurrencyAmount::new(1),
+            status: TransferStatus::Pending,
+        };
 
         assert_eq!(state.id(), id);
         assert_eq!(state.status, TransferStatus::Pending);
@@ -89,12 +56,13 @@ mod tests {
 
     #[test]
     fn returns_reference_entries_for_source_and_destination_accounts() {
-        let state = TransferState::new(
-            TransferId::new(),
-            AccountId::new(),
-            AccountId::new(),
-            CurrencyAmount::new(1),
-        );
+        let state = TransferState {
+            id: TransferId::new(),
+            from_account_id: AccountId::new(),
+            to_account_id: AccountId::new(),
+            amount: CurrencyAmount::new(1),
+            status: TransferStatus::Pending,
+        };
 
         let entries = state
             .reference_entries()

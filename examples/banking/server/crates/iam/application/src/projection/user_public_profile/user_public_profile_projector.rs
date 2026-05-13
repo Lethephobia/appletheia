@@ -2,7 +2,9 @@ use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
 use banking_iam_domain::{User, UserEventPayload};
 
-use crate::read_model::{UserPublicProfileStatus, UserPublicProfileWriter};
+use crate::read_model::{
+    UserPublicProfileStatus, UserPublicProfileUserUpsert, UserPublicProfileWriter,
+};
 
 use super::{UserPublicProfileProjectorError, UserPublicProfileProjectorSpec};
 
@@ -36,14 +38,27 @@ where
         let user_id = domain_event.aggregate_id();
 
         match domain_event.payload() {
-            UserEventPayload::Registered { .. } => {
+            UserEventPayload::Registered {
+                username,
+                display_name,
+                bio,
+                picture,
+                status,
+                ..
+            } => {
                 self.writer
                     .upsert_user(
                         uow,
-                        user_id,
-                        UserPublicProfileStatus::Active,
-                        event.event_sequence,
-                        event.occurred_at,
+                        UserPublicProfileUserUpsert {
+                            id: user_id,
+                            username: username.clone(),
+                            display_name: display_name.clone(),
+                            bio: bio.clone(),
+                            picture: picture.clone(),
+                            status: UserPublicProfileStatus::try_from(*status)?,
+                            event_sequence: event.event_sequence,
+                            occurred_at: event.occurred_at,
+                        },
                     )
                     .await?;
             }

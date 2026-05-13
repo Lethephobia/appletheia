@@ -393,6 +393,9 @@ mod tests {
                 OwnedAccountClosureEventPayload::Requested {
                     id: closure_id,
                     owner,
+                    closed_account_count: 0,
+                    rejected_account_count: 0,
+                    status: banking_ledger_domain::owned_account_closure::OwnedAccountClosureStatus::Requested,
                 },
             ),
         )

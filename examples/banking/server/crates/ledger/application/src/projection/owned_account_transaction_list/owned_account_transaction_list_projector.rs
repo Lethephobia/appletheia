@@ -8,8 +8,11 @@ use banking_ledger_domain::transfer::{Transfer, TransferEventPayload};
 
 use super::{OwnedAccountTransactionListProjectorError, OwnedAccountTransactionListProjectorSpec};
 use crate::read_model::{
-    OwnedAccountTransactionId, OwnedAccountTransactionListItemDirection,
-    OwnedAccountTransactionListItemKind, OwnedAccountTransactionListItemStatus,
+    OwnedAccountTransactionId, OwnedAccountTransactionListCurrencyIssuanceIssuedRecord,
+    OwnedAccountTransactionListCurrencyUpsert, OwnedAccountTransactionListItemDirection,
+    OwnedAccountTransactionListItemInsert, OwnedAccountTransactionListItemKind,
+    OwnedAccountTransactionListItemStatus, OwnedAccountTransactionListOwnerOrganizationUpsert,
+    OwnedAccountTransactionListOwnerUserUpsert, OwnedAccountTransactionListTransferRequestedRecord,
     OwnedAccountTransactionListWriter,
 };
 
@@ -44,9 +47,24 @@ where
             let user_id = domain_event.aggregate_id();
 
             match domain_event.payload() {
-                UserEventPayload::Registered { .. } => {
+                UserEventPayload::Registered {
+                    username,
+                    display_name,
+                    picture,
+                    ..
+                } => {
                     self.writer
-                        .upsert_owner_user(uow, user_id, event.event_sequence, event.occurred_at)
+                        .upsert_owner_user(
+                            uow,
+                            OwnedAccountTransactionListOwnerUserUpsert {
+                                id: user_id,
+                                username: username.clone(),
+                                display_name: display_name.clone(),
+                                picture: picture.clone(),
+                                event_sequence: event.event_sequence,
+                                occurred_at: event.occurred_at,
+                            },
+                        )
                         .await?;
                 }
                 UserEventPayload::UsernameChanged { username } => {
@@ -116,12 +134,14 @@ where
                     self.writer
                         .upsert_owner_organization(
                             uow,
-                            organization_id,
-                            handle.clone(),
-                            display_name.clone(),
-                            picture.clone(),
-                            event.event_sequence,
-                            event.occurred_at,
+                            OwnedAccountTransactionListOwnerOrganizationUpsert {
+                                id: organization_id,
+                                handle: handle.clone(),
+                                display_name: display_name.clone(),
+                                picture: picture.clone(),
+                                event_sequence: event.event_sequence,
+                                occurred_at: event.occurred_at,
+                            },
                         )
                         .await?;
                 }
@@ -183,16 +203,20 @@ where
                     self.writer
                         .insert_account_transaction(
                             uow,
-                            OwnedAccountTransactionId::from(event.event_id.value()),
-                            event.correlation_id,
-                            account_id,
-                            None,
-                            *amount,
-                            OwnedAccountTransactionListItemDirection::Incoming,
-                            OwnedAccountTransactionListItemKind::Deposit,
-                            OwnedAccountTransactionListItemStatus::Completed,
-                            event.event_sequence,
-                            event.occurred_at,
+                            OwnedAccountTransactionListItemInsert {
+                                transaction_id: OwnedAccountTransactionId::from(
+                                    event.event_id.value(),
+                                ),
+                                correlation_id: event.correlation_id,
+                                account_id,
+                                counterparty_account_id: None,
+                                amount: *amount,
+                                direction: OwnedAccountTransactionListItemDirection::Incoming,
+                                kind: OwnedAccountTransactionListItemKind::Deposit,
+                                status: OwnedAccountTransactionListItemStatus::Completed,
+                                event_sequence: event.event_sequence,
+                                occurred_at: event.occurred_at,
+                            },
                         )
                         .await?;
                 }
@@ -200,16 +224,20 @@ where
                     self.writer
                         .insert_account_transaction(
                             uow,
-                            OwnedAccountTransactionId::from(event.event_id.value()),
-                            event.correlation_id,
-                            account_id,
-                            None,
-                            *amount,
-                            OwnedAccountTransactionListItemDirection::Outgoing,
-                            OwnedAccountTransactionListItemKind::Withdrawal,
-                            OwnedAccountTransactionListItemStatus::Completed,
-                            event.event_sequence,
-                            event.occurred_at,
+                            OwnedAccountTransactionListItemInsert {
+                                transaction_id: OwnedAccountTransactionId::from(
+                                    event.event_id.value(),
+                                ),
+                                correlation_id: event.correlation_id,
+                                account_id,
+                                counterparty_account_id: None,
+                                amount: *amount,
+                                direction: OwnedAccountTransactionListItemDirection::Outgoing,
+                                kind: OwnedAccountTransactionListItemKind::Withdrawal,
+                                status: OwnedAccountTransactionListItemStatus::Completed,
+                                event_sequence: event.event_sequence,
+                                occurred_at: event.occurred_at,
+                            },
                         )
                         .await?;
                 }
@@ -233,12 +261,14 @@ where
                     self.writer
                         .upsert_currency(
                             uow,
-                            currency_id,
-                            symbol.clone(),
-                            name.clone(),
-                            *decimals,
-                            event.event_sequence,
-                            event.occurred_at,
+                            OwnedAccountTransactionListCurrencyUpsert {
+                                id: currency_id,
+                                symbol: symbol.clone(),
+                                name: name.clone(),
+                                decimals: *decimals,
+                                event_sequence: event.event_sequence,
+                                occurred_at: event.occurred_at,
+                            },
                         )
                         .await?;
                 }
@@ -289,13 +319,15 @@ where
                     self.writer
                         .record_transfer_requested(
                             uow,
-                            transfer_id,
-                            event.correlation_id,
-                            *from_account_id,
-                            *to_account_id,
-                            *amount,
-                            event.event_sequence,
-                            event.occurred_at,
+                            OwnedAccountTransactionListTransferRequestedRecord {
+                                id: transfer_id,
+                                correlation_id: event.correlation_id,
+                                from_account_id: *from_account_id,
+                                to_account_id: *to_account_id,
+                                amount: *amount,
+                                event_sequence: event.event_sequence,
+                                occurred_at: event.occurred_at,
+                            },
                         )
                         .await?;
                 }
@@ -340,12 +372,14 @@ where
                 self.writer
                     .record_currency_issuance_issued(
                         uow,
-                        currency_issuance_id,
-                        *destination_account_id,
-                        *currency_id,
-                        *amount,
-                        event.event_sequence,
-                        event.occurred_at,
+                        OwnedAccountTransactionListCurrencyIssuanceIssuedRecord {
+                            id: currency_issuance_id,
+                            destination_account_id: *destination_account_id,
+                            currency_id: *currency_id,
+                            amount: *amount,
+                            event_sequence: event.event_sequence,
+                            occurred_at: event.occurred_at,
+                        },
                     )
                     .await?;
             }

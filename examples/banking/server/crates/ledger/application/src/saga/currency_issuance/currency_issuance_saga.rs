@@ -35,6 +35,7 @@ impl Saga for CurrencyIssuanceSaga {
                     currency_id,
                     destination_account_id,
                     amount,
+                    ..
                 } => {
                     *instance.state_mut() = Some(CurrencyIssuanceSagaState::new(
                         *id,

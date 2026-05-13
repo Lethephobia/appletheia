@@ -3,7 +3,7 @@ use appletheia::application::unit_of_work::UnitOfWork;
 use appletheia::domain::EventOccurredAt;
 use banking_iam_domain::{UserBio, UserDisplayName, UserId, UserPictureRef, Username};
 
-use super::{UserPublicProfileStatus, UserPublicProfileWriterError};
+use super::{UserPublicProfileStatus, UserPublicProfileUserUpsert, UserPublicProfileWriterError};
 
 #[allow(async_fn_in_trait)]
 pub trait UserPublicProfileWriter: Send + Sync {
@@ -12,10 +12,7 @@ pub trait UserPublicProfileWriter: Send + Sync {
     async fn upsert_user(
         &self,
         uow: &mut Self::Uow,
-        id: UserId,
-        status: UserPublicProfileStatus,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
+        upsert: UserPublicProfileUserUpsert,
     ) -> Result<(), UserPublicProfileWriterError>;
 
     async fn update_username(

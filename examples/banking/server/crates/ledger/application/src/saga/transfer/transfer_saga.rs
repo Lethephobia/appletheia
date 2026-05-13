@@ -30,6 +30,7 @@ impl Saga for TransferSaga {
                     from_account_id,
                     to_account_id,
                     amount,
+                    ..
                 } => {
                     *instance.state_mut() = Some(TransferSagaState::new(
                         *id,
@@ -318,6 +319,7 @@ mod tests {
                     from_account_id,
                     to_account_id,
                     amount,
+                    status: banking_ledger_domain::transfer::TransferStatus::Pending,
                 },
             ),
         )
@@ -364,6 +366,7 @@ mod tests {
                     from_account_id,
                     to_account_id,
                     amount,
+                    status: banking_ledger_domain::transfer::TransferStatus::Pending,
                 },
             ),
         )

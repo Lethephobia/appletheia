@@ -6,28 +6,21 @@ use banking_iam_domain::{
     UserDisplayName, UserId, UserPictureRef, Username,
 };
 use banking_ledger_domain::core::CurrencyAmount;
-use banking_ledger_domain::currency::{
-    CurrencyDecimals, CurrencyId, CurrencyName, CurrencyOwner, CurrencySymbol,
+use banking_ledger_domain::currency::{CurrencyId, CurrencyName, CurrencyOwner, CurrencySymbol};
+
+use super::{
+    CurrencyListCurrencyUpsert, CurrencyListItemStatus, CurrencyListOwnerOrganizationUpsert,
+    CurrencyListOwnerUserUpsert, CurrencyListWriterError,
 };
 
-use super::{CurrencyListItemStatus, CurrencyListWriterError};
-
-#[allow(async_fn_in_trait, clippy::too_many_arguments)]
+#[allow(async_fn_in_trait)]
 pub trait CurrencyListWriter: Send + Sync {
     type Uow: UnitOfWork;
 
     async fn upsert_currency(
         &self,
         uow: &mut Self::Uow,
-        id: CurrencyId,
-        owner: CurrencyOwner,
-        symbol: CurrencySymbol,
-        name: CurrencyName,
-        decimals: CurrencyDecimals,
-        supply: CurrencyAmount,
-        status: CurrencyListItemStatus,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
+        upsert: CurrencyListCurrencyUpsert,
     ) -> Result<(), CurrencyListWriterError>;
 
     async fn update_currency_owner(
@@ -95,9 +88,7 @@ pub trait CurrencyListWriter: Send + Sync {
     async fn upsert_owner_user(
         &self,
         uow: &mut Self::Uow,
-        id: UserId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
+        upsert: CurrencyListOwnerUserUpsert,
     ) -> Result<(), CurrencyListWriterError>;
 
     async fn update_owner_user_username(
@@ -138,12 +129,7 @@ pub trait CurrencyListWriter: Send + Sync {
     async fn upsert_owner_organization(
         &self,
         uow: &mut Self::Uow,
-        id: OrganizationId,
-        handle: OrganizationHandle,
-        display_name: OrganizationDisplayName,
-        picture: Option<OrganizationPictureRef>,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
+        upsert: CurrencyListOwnerOrganizationUpsert,
     ) -> Result<(), CurrencyListWriterError>;
 
     async fn update_owner_organization_handle(

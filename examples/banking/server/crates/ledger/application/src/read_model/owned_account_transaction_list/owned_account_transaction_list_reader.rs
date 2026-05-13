@@ -10,7 +10,7 @@ use super::{
 };
 
 /// Loads owned account transaction list read models.
-#[allow(async_fn_in_trait, clippy::too_many_arguments)]
+#[allow(async_fn_in_trait)]
 pub trait OwnedAccountTransactionListReader: Send + Sync {
     type Uow: UnitOfWork;
 

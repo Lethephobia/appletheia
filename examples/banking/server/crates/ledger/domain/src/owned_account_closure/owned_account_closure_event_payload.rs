@@ -6,7 +6,7 @@ use super::{
     OwnedAccountClosureCompleteRejectionReason, OwnedAccountClosureEventPayloadError,
     OwnedAccountClosureFailRejectionReason, OwnedAccountClosureFailureReason,
     OwnedAccountClosureId, OwnedAccountClosurePageLoadRejectionReason,
-    OwnedAccountClosureRecordRejectionReason,
+    OwnedAccountClosureRecordRejectionReason, OwnedAccountClosureStatus,
 };
 
 /// Represents the domain events emitted by an `OwnedAccountClosure` aggregate.
@@ -15,6 +15,9 @@ pub enum OwnedAccountClosureEventPayload {
     Requested {
         id: OwnedAccountClosureId,
         owner: AccountOwner,
+        closed_account_count: u32,
+        rejected_account_count: u32,
+        status: OwnedAccountClosureStatus,
     },
     PageLoaded {
         account_ids: Vec<AccountId>,

@@ -1,11 +1,13 @@
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
 use banking_iam_domain::{Organization, OrganizationEventPayload, User, UserEventPayload};
-use banking_ledger_domain::core::CurrencyAmount;
 use banking_ledger_domain::currency::{Currency, CurrencyEventPayload};
 
 use super::{CurrencyListProjectorError, CurrencyListProjectorSpec};
-use crate::read_model::{CurrencyListItemStatus, CurrencyListWriter};
+use crate::read_model::{
+    CurrencyListCurrencyUpsert, CurrencyListItemStatus, CurrencyListOwnerOrganizationUpsert,
+    CurrencyListOwnerUserUpsert, CurrencyListWriter,
+};
 
 /// Projects currency events into currency list read models.
 pub struct CurrencyListProjector<W>
@@ -38,9 +40,24 @@ where
             let user_id = domain_event.aggregate_id();
 
             match domain_event.payload() {
-                UserEventPayload::Registered { .. } => {
+                UserEventPayload::Registered {
+                    username,
+                    display_name,
+                    picture,
+                    ..
+                } => {
                     self.writer
-                        .upsert_owner_user(uow, user_id, event.event_sequence, event.occurred_at)
+                        .upsert_owner_user(
+                            uow,
+                            CurrencyListOwnerUserUpsert {
+                                id: user_id,
+                                username: username.clone(),
+                                display_name: display_name.clone(),
+                                picture: picture.clone(),
+                                event_sequence: event.event_sequence,
+                                occurred_at: event.occurred_at,
+                            },
+                        )
                         .await?;
                 }
                 UserEventPayload::UsernameChanged { username } => {
@@ -114,12 +131,14 @@ where
                     self.writer
                         .upsert_owner_organization(
                             uow,
-                            organization_id,
-                            handle.clone(),
-                            display_name.clone(),
-                            picture.clone(),
-                            event.event_sequence,
-                            event.occurred_at,
+                            CurrencyListOwnerOrganizationUpsert {
+                                id: organization_id,
+                                handle: handle.clone(),
+                                display_name: display_name.clone(),
+                                picture: picture.clone(),
+                                event_sequence: event.event_sequence,
+                                occurred_at: event.occurred_at,
+                            },
                         )
                         .await?;
                 }
@@ -190,20 +209,24 @@ where
                 symbol,
                 name,
                 decimals,
+                supply,
+                status,
                 ..
             } => {
                 self.writer
                     .upsert_currency(
                         uow,
-                        currency_id,
-                        *owner,
-                        symbol.clone(),
-                        name.clone(),
-                        *decimals,
-                        CurrencyAmount::zero(),
-                        CurrencyListItemStatus::Active,
-                        event.event_sequence,
-                        event.occurred_at,
+                        CurrencyListCurrencyUpsert {
+                            id: currency_id,
+                            owner: *owner,
+                            symbol: symbol.clone(),
+                            name: name.clone(),
+                            decimals: *decimals,
+                            supply: *supply,
+                            status: CurrencyListItemStatus::try_from(*status)?,
+                            event_sequence: event.event_sequence,
+                            occurred_at: event.occurred_at,
+                        },
                     )
                     .await?;
             }

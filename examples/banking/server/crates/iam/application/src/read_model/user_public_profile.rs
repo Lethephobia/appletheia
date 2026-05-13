@@ -4,12 +4,16 @@ use banking_iam_domain::{UserBio, UserDisplayName, UserId, UserPictureRef, Usern
 mod user_public_profile_reader;
 mod user_public_profile_reader_error;
 mod user_public_profile_status;
+mod user_public_profile_status_error;
+mod user_public_profile_user_upsert;
 mod user_public_profile_writer;
 mod user_public_profile_writer_error;
 
 pub use user_public_profile_reader::UserPublicProfileReader;
 pub use user_public_profile_reader_error::UserPublicProfileReaderError;
 pub use user_public_profile_status::UserPublicProfileStatus;
+pub use user_public_profile_status_error::UserPublicProfileStatusError;
+pub use user_public_profile_user_upsert::UserPublicProfileUserUpsert;
 pub use user_public_profile_writer::UserPublicProfileWriter;
 pub use user_public_profile_writer_error::UserPublicProfileWriterError;
 

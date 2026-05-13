@@ -8,7 +8,7 @@ use super::{
     AccountFreezeRejectionReason, AccountFundsReserveRejectionReason, AccountId, AccountName,
     AccountNameChangeRejectionReason, AccountOwner, AccountOwnershipTransferRejectionReason,
     AccountReservedFundsCommitRejectionReason, AccountReservedFundsReleaseRejectionReason,
-    AccountThawRejectionReason, AccountWithdrawRejectionReason,
+    AccountStatus, AccountThawRejectionReason, AccountWithdrawRejectionReason,
 };
 
 /// Represents the domain events emitted by an `Account` aggregate.
@@ -19,6 +19,9 @@ pub enum AccountEventPayload {
         owner: AccountOwner,
         name: AccountName,
         currency_id: CurrencyId,
+        balance: CurrencyAmount,
+        reserved_balance: CurrencyAmount,
+        status: AccountStatus,
     },
     OwnershipTransferred {
         owner: AccountOwner,
@@ -89,7 +92,9 @@ mod tests {
 
     use crate::currency::CurrencyId;
 
-    use super::{AccountEventPayload, AccountId, AccountName, AccountOwner, CurrencyAmount};
+    use super::{
+        AccountEventPayload, AccountId, AccountName, AccountOwner, AccountStatus, CurrencyAmount,
+    };
 
     #[test]
     fn returns_stable_event_names() {
@@ -193,6 +198,9 @@ mod tests {
             owner: AccountOwner::User(banking_iam_domain::UserId::new()),
             name: AccountName::try_from("main").expect("account name should be valid"),
             currency_id: CurrencyId::new(),
+            balance: CurrencyAmount::zero(),
+            reserved_balance: CurrencyAmount::zero(),
+            status: AccountStatus::Active,
         };
 
         let value = payload.into_json_value().expect("payload should serialize");
@@ -208,6 +216,9 @@ mod tests {
             owner: AccountOwner::Organization(banking_iam_domain::OrganizationId::new()),
             name: AccountName::try_from("ops").expect("account name should be valid"),
             currency_id: CurrencyId::new(),
+            balance: CurrencyAmount::zero(),
+            reserved_balance: CurrencyAmount::zero(),
+            status: AccountStatus::Active,
         };
 
         let value = payload.into_json_value().expect("payload should serialize");

@@ -7,26 +7,22 @@ use banking_iam_domain::{
 };
 use banking_ledger_domain::account::{AccountId, AccountName, AccountOwner};
 use banking_ledger_domain::core::CurrencyAmount;
-use banking_ledger_domain::currency::{CurrencyDecimals, CurrencyId, CurrencyName, CurrencySymbol};
+use banking_ledger_domain::currency::{CurrencyId, CurrencyName, CurrencySymbol};
 
-use super::{OwnedAccountListItemStatus, OwnedAccountListWriterError};
+use super::{
+    OwnedAccountListAccountUpsert, OwnedAccountListCurrencyUpsert, OwnedAccountListItemStatus,
+    OwnedAccountListOwnerOrganizationUpsert, OwnedAccountListOwnerUserUpsert,
+    OwnedAccountListWriterError,
+};
 
-#[allow(async_fn_in_trait, clippy::too_many_arguments)]
+#[allow(async_fn_in_trait)]
 pub trait OwnedAccountListWriter: Send + Sync {
     type Uow: UnitOfWork;
 
     async fn upsert_account(
         &self,
         uow: &mut Self::Uow,
-        id: AccountId,
-        owner: AccountOwner,
-        name: AccountName,
-        currency_id: CurrencyId,
-        balance: CurrencyAmount,
-        reserved_balance: CurrencyAmount,
-        status: OwnedAccountListItemStatus,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
+        upsert: OwnedAccountListAccountUpsert,
     ) -> Result<(), OwnedAccountListWriterError>;
 
     async fn update_account_owner(
@@ -112,12 +108,7 @@ pub trait OwnedAccountListWriter: Send + Sync {
     async fn upsert_currency(
         &self,
         uow: &mut Self::Uow,
-        id: CurrencyId,
-        symbol: CurrencySymbol,
-        name: CurrencyName,
-        decimals: CurrencyDecimals,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
+        upsert: OwnedAccountListCurrencyUpsert,
     ) -> Result<(), OwnedAccountListWriterError>;
 
     async fn update_currency_symbol(
@@ -149,9 +140,7 @@ pub trait OwnedAccountListWriter: Send + Sync {
     async fn upsert_owner_user(
         &self,
         uow: &mut Self::Uow,
-        id: UserId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
+        upsert: OwnedAccountListOwnerUserUpsert,
     ) -> Result<(), OwnedAccountListWriterError>;
 
     async fn update_owner_user_username(
@@ -191,12 +180,7 @@ pub trait OwnedAccountListWriter: Send + Sync {
     async fn upsert_owner_organization(
         &self,
         uow: &mut Self::Uow,
-        id: OrganizationId,
-        handle: OrganizationHandle,
-        display_name: OrganizationDisplayName,
-        picture: Option<OrganizationPictureRef>,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
+        upsert: OwnedAccountListOwnerOrganizationUpsert,
     ) -> Result<(), OwnedAccountListWriterError>;
 
     async fn update_owner_organization_handle(

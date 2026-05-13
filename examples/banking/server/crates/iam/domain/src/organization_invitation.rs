@@ -120,6 +120,7 @@ impl OrganizationInvitation {
                 invitee_id,
                 issuer,
                 expires_at,
+                status: OrganizationInvitationStatus::Rejected,
                 reason,
             })?;
             return Ok(OrganizationInvitationIssueResult::Rejected { reason });
@@ -132,6 +133,7 @@ impl OrganizationInvitation {
             invitee_id,
             issuer,
             expires_at,
+            status: OrganizationInvitationStatus::Pending,
         })?;
         Ok(OrganizationInvitationIssueResult::Issued {
             organization_invitation_id: id,
@@ -243,14 +245,16 @@ impl AggregateApply<OrganizationInvitationEventPayload, OrganizationInvitationEr
                 invitee_id,
                 issuer,
                 expires_at,
+                status,
             } => {
-                self.set_state(Some(OrganizationInvitationState::new(
-                    *id,
-                    *organization_id,
-                    *invitee_id,
-                    *issuer,
-                    *expires_at,
-                )));
+                self.set_state(Some(OrganizationInvitationState {
+                    id: *id,
+                    organization_id: *organization_id,
+                    invitee_id: *invitee_id,
+                    issuer: *issuer,
+                    expires_at: *expires_at,
+                    status: *status,
+                }));
             }
             OrganizationInvitationEventPayload::IssueRejected {
                 id,
@@ -258,17 +262,17 @@ impl AggregateApply<OrganizationInvitationEventPayload, OrganizationInvitationEr
                 invitee_id,
                 issuer,
                 expires_at,
+                status,
                 ..
             } => {
-                let mut state = OrganizationInvitationState::new(
-                    *id,
-                    *organization_id,
-                    *invitee_id,
-                    *issuer,
-                    *expires_at,
-                );
-                state.status = OrganizationInvitationStatus::Rejected;
-                self.set_state(Some(state));
+                self.set_state(Some(OrganizationInvitationState {
+                    id: *id,
+                    organization_id: *organization_id,
+                    invitee_id: *invitee_id,
+                    issuer: *issuer,
+                    expires_at: *expires_at,
+                    status: *status,
+                }));
             }
             OrganizationInvitationEventPayload::Accepted { .. } => {
                 self.state_required_mut()?.status = OrganizationInvitationStatus::Accepted;
@@ -467,6 +471,7 @@ mod tests {
                 invitee_id,
                 issuer,
                 expires_at,
+                status: super::OrganizationInvitationStatus::Pending,
             })
             .expect("setup event should succeed");
 

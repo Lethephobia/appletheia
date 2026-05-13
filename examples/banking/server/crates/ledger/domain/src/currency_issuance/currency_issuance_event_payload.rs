@@ -7,7 +7,7 @@ use crate::currency::CurrencyId;
 use super::{
     CurrencyIssuanceCompleteRejectionReason, CurrencyIssuanceEventPayloadError,
     CurrencyIssuanceFailRejectionReason, CurrencyIssuanceFailureReason, CurrencyIssuanceId,
-    CurrencyIssuanceIssueRejectionReason,
+    CurrencyIssuanceIssueRejectionReason, CurrencyIssuanceStatus,
 };
 
 /// Represents the domain events emitted by a `CurrencyIssuance` aggregate.
@@ -18,12 +18,14 @@ pub enum CurrencyIssuanceEventPayload {
         currency_id: CurrencyId,
         destination_account_id: AccountId,
         amount: CurrencyAmount,
+        status: CurrencyIssuanceStatus,
     },
     IssueRejected {
         id: CurrencyIssuanceId,
         currency_id: CurrencyId,
         destination_account_id: AccountId,
         amount: CurrencyAmount,
+        status: CurrencyIssuanceStatus,
         reason: CurrencyIssuanceIssueRejectionReason,
     },
     Completed,
@@ -83,6 +85,7 @@ mod tests {
             currency_id: CurrencyId::new(),
             destination_account_id: AccountId::new(),
             amount: CurrencyAmount::new(100),
+            status: super::CurrencyIssuanceStatus::Pending,
         };
 
         let value = payload.into_json_value().expect("payload should serialize");

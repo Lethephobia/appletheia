@@ -29,26 +29,6 @@ pub struct OrganizationInvitationState {
     pub(super) status: OrganizationInvitationStatus,
 }
 
-impl OrganizationInvitationState {
-    /// Creates a new organization invitation state.
-    pub(super) fn new(
-        id: OrganizationInvitationId,
-        organization_id: OrganizationId,
-        invitee_id: UserId,
-        issuer: OrganizationInvitationIssuer,
-        expires_at: OrganizationInvitationExpiresAt,
-    ) -> Self {
-        Self {
-            id,
-            organization_id,
-            invitee_id,
-            issuer,
-            expires_at,
-            status: OrganizationInvitationStatus::Pending,
-        }
-    }
-}
-
 fn organization_invitee_value(
     state: &OrganizationInvitationState,
 ) -> Result<Option<UniqueValue>, OrganizationInvitationStateError> {
@@ -107,26 +87,28 @@ mod tests {
     #[test]
     fn exposes_id_via_aggregate_state_trait() {
         let id = OrganizationInvitationId::new();
-        let state = OrganizationInvitationState::new(
+        let state = OrganizationInvitationState {
             id,
-            OrganizationId::new(),
-            UserId::new(),
-            OrganizationInvitationIssuer::User(UserId::new()),
-            expires_at(),
-        );
+            organization_id: OrganizationId::new(),
+            invitee_id: UserId::new(),
+            issuer: OrganizationInvitationIssuer::User(UserId::new()),
+            expires_at: expires_at(),
+            status: OrganizationInvitationStatus::Pending,
+        };
 
         assert_eq!(state.id(), id);
     }
 
     #[test]
     fn pending_state_returns_unique_entries_for_organization_and_invitee() {
-        let state = OrganizationInvitationState::new(
-            OrganizationInvitationId::new(),
-            OrganizationId::new(),
-            UserId::new(),
-            OrganizationInvitationIssuer::User(UserId::new()),
-            expires_at(),
-        );
+        let state = OrganizationInvitationState {
+            id: OrganizationInvitationId::new(),
+            organization_id: OrganizationId::new(),
+            invitee_id: UserId::new(),
+            issuer: OrganizationInvitationIssuer::User(UserId::new()),
+            expires_at: expires_at(),
+            status: OrganizationInvitationStatus::Pending,
+        };
 
         let entries = state.unique_entries().expect("unique entries should build");
 
@@ -140,13 +122,14 @@ mod tests {
 
     #[test]
     fn non_pending_state_has_no_unique_entry() {
-        let mut state = OrganizationInvitationState::new(
-            OrganizationInvitationId::new(),
-            OrganizationId::new(),
-            UserId::new(),
-            OrganizationInvitationIssuer::User(UserId::new()),
-            expires_at(),
-        );
+        let mut state = OrganizationInvitationState {
+            id: OrganizationInvitationId::new(),
+            organization_id: OrganizationId::new(),
+            invitee_id: UserId::new(),
+            issuer: OrganizationInvitationIssuer::User(UserId::new()),
+            expires_at: expires_at(),
+            status: OrganizationInvitationStatus::Pending,
+        };
         state.status = OrganizationInvitationStatus::Accepted;
 
         let entries = state.unique_entries().expect("unique entries should build");
@@ -164,13 +147,14 @@ mod tests {
         let organization_id = OrganizationId::new();
         let invitee_id = UserId::new();
         let issuer_id = UserId::new();
-        let state = OrganizationInvitationState::new(
-            OrganizationInvitationId::new(),
+        let state = OrganizationInvitationState {
+            id: OrganizationInvitationId::new(),
             organization_id,
             invitee_id,
-            OrganizationInvitationIssuer::User(issuer_id),
-            expires_at(),
-        );
+            issuer: OrganizationInvitationIssuer::User(issuer_id),
+            expires_at: expires_at(),
+            status: OrganizationInvitationStatus::Pending,
+        };
 
         let entries = state
             .reference_entries()
@@ -198,13 +182,14 @@ mod tests {
 
     #[test]
     fn system_issued_invitation_has_no_issuer_reference_entry() {
-        let state = OrganizationInvitationState::new(
-            OrganizationInvitationId::new(),
-            OrganizationId::new(),
-            UserId::new(),
-            OrganizationInvitationIssuer::System,
-            expires_at(),
-        );
+        let state = OrganizationInvitationState {
+            id: OrganizationInvitationId::new(),
+            organization_id: OrganizationId::new(),
+            invitee_id: UserId::new(),
+            issuer: OrganizationInvitationIssuer::System,
+            expires_at: expires_at(),
+            status: OrganizationInvitationStatus::Pending,
+        };
 
         let entries = state
             .reference_entries()

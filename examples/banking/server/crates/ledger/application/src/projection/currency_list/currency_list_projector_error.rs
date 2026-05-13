@@ -1,7 +1,7 @@
 use appletheia::application::event::EventEnvelopeError;
 use thiserror::Error;
 
-use crate::read_model::CurrencyListWriterError;
+use crate::read_model::{CurrencyListItemStatusError, CurrencyListWriterError};
 
 /// Error returned while projecting currency lists.
 #[derive(Debug, Error)]
@@ -11,4 +11,7 @@ pub enum CurrencyListProjectorError {
 
     #[error("currency list writer failed")]
     Writer(#[from] CurrencyListWriterError),
+
+    #[error(transparent)]
+    Status(#[from] CurrencyListItemStatusError),
 }

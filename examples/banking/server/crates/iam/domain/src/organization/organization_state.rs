@@ -25,30 +25,6 @@ pub struct OrganizationState {
     pub(super) status: OrganizationStatus,
 }
 
-impl OrganizationState {
-    /// Creates a new organization state.
-    pub(super) fn new(
-        id: OrganizationId,
-        owner: OrganizationOwner,
-        handle: OrganizationHandle,
-        display_name: OrganizationDisplayName,
-        description: Option<OrganizationDescription>,
-        website_url: Option<OrganizationWebsiteUrl>,
-        picture: Option<OrganizationPictureRef>,
-    ) -> Self {
-        Self {
-            id,
-            owner,
-            handle,
-            display_name,
-            description,
-            website_url,
-            picture,
-            status: OrganizationStatus::Active,
-        }
-    }
-}
-
 fn handle_value(state: &OrganizationState) -> Result<Option<UniqueValue>, OrganizationStateError> {
     if state.status.is_removed() {
         return Ok(None);
@@ -90,8 +66,16 @@ mod tests {
         let id = OrganizationId::new();
         let owner = OrganizationOwner::User(UserId::new());
         let handle = OrganizationHandle::try_from("acme-labs").expect("handle should be valid");
-        let state =
-            OrganizationState::new(id, owner, handle.clone(), display_name(), None, None, None);
+        let state = OrganizationState {
+            id,
+            owner,
+            handle: handle.clone(),
+            display_name: display_name(),
+            description: None,
+            website_url: None,
+            picture: None,
+            status: OrganizationStatus::Active,
+        };
 
         assert_eq!(state.id(), id);
         assert_eq!(state.handle, handle);
@@ -100,24 +84,25 @@ mod tests {
 
     #[test]
     fn state_can_store_profile_attributes() {
-        let state = OrganizationState::new(
-            OrganizationId::new(),
-            OrganizationOwner::User(UserId::new()),
-            OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
-            display_name(),
-            Some(
+        let state = OrganizationState {
+            id: OrganizationId::new(),
+            owner: OrganizationOwner::User(UserId::new()),
+            handle: OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
+            display_name: display_name(),
+            description: Some(
                 OrganizationDescription::try_from("Independent research lab")
                     .expect("description should be valid"),
             ),
-            Some(
+            website_url: Some(
                 OrganizationWebsiteUrl::try_from("https://acme.example.com")
                     .expect("website URL should be valid"),
             ),
-            Some(OrganizationPictureRef::external_url(
+            picture: Some(OrganizationPictureRef::external_url(
                 OrganizationPictureUrl::try_from("https://cdn.example.com/acme.png")
                     .expect("picture URL should be valid"),
             )),
-        );
+            status: OrganizationStatus::Active,
+        };
 
         assert_eq!(state.display_name.value(), "Acme Labs");
         assert!(state.description.is_some());
@@ -127,15 +112,16 @@ mod tests {
 
     #[test]
     fn active_state_returns_unique_entries_for_handle() {
-        let state = OrganizationState::new(
-            OrganizationId::new(),
-            OrganizationOwner::User(UserId::new()),
-            OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
-            display_name(),
-            None,
-            None,
-            None,
-        );
+        let state = OrganizationState {
+            id: OrganizationId::new(),
+            owner: OrganizationOwner::User(UserId::new()),
+            handle: OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
+            display_name: display_name(),
+            description: None,
+            website_url: None,
+            picture: None,
+            status: OrganizationStatus::Active,
+        };
 
         let entries = state.unique_entries().expect("unique entries should build");
 
@@ -149,15 +135,16 @@ mod tests {
 
     #[test]
     fn removed_state_has_no_handle_unique_entry() {
-        let mut state = OrganizationState::new(
-            OrganizationId::new(),
-            OrganizationOwner::User(UserId::new()),
-            OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
-            display_name(),
-            None,
-            None,
-            None,
-        );
+        let mut state = OrganizationState {
+            id: OrganizationId::new(),
+            owner: OrganizationOwner::User(UserId::new()),
+            handle: OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
+            display_name: display_name(),
+            description: None,
+            website_url: None,
+            picture: None,
+            status: OrganizationStatus::Active,
+        };
         state.status = OrganizationStatus::Removed;
 
         let entries = state.unique_entries().expect("unique entries should build");
@@ -173,15 +160,16 @@ mod tests {
     #[test]
     fn returns_reference_entry_for_owner_user() {
         let owner = OrganizationOwner::User(UserId::new());
-        let state = OrganizationState::new(
-            OrganizationId::new(),
+        let state = OrganizationState {
+            id: OrganizationId::new(),
             owner,
-            OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
-            display_name(),
-            None,
-            None,
-            None,
-        );
+            handle: OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
+            display_name: display_name(),
+            description: None,
+            website_url: None,
+            picture: None,
+            status: OrganizationStatus::Active,
+        };
 
         let entries = state
             .reference_entries()

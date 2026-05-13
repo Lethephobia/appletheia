@@ -19,17 +19,6 @@ pub struct OwnedAccountClosureState {
 }
 
 impl OwnedAccountClosureState {
-    /// Creates a new owned account closure state.
-    pub(super) fn new(id: OwnedAccountClosureId, owner: AccountOwner) -> Self {
-        Self {
-            id,
-            owner,
-            closed_account_count: 0,
-            rejected_account_count: 0,
-            status: OwnedAccountClosureStatus::Requested,
-        }
-    }
-
     pub(super) fn closed_account_count(&self) -> u32 {
         self.closed_account_count
     }

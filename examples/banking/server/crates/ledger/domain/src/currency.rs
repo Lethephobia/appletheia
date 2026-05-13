@@ -123,6 +123,8 @@ impl Currency {
             symbol,
             name,
             decimals,
+            supply: CurrencyAmount::zero(),
+            status: CurrencyStatus::Active,
         })
     }
 
@@ -261,10 +263,18 @@ impl AggregateApply<CurrencyEventPayload, CurrencyError> for Currency {
                 symbol,
                 name,
                 decimals,
+                supply,
+                status,
             } => {
-                let state =
-                    CurrencyState::new(*id, *owner, symbol.clone(), name.clone(), *decimals);
-                self.set_state(Some(state));
+                self.set_state(Some(CurrencyState {
+                    id: *id,
+                    owner: *owner,
+                    symbol: symbol.clone(),
+                    name: name.clone(),
+                    decimals: *decimals,
+                    supply: *supply,
+                    status: *status,
+                }));
             }
             CurrencyEventPayload::OwnershipTransferred { owner } => {
                 self.state_required_mut()?.owner = *owner;
@@ -377,6 +387,8 @@ mod tests {
                 symbol,
                 name,
                 decimals,
+                supply: CurrencyAmount::zero(),
+                status: CurrencyStatus::Active,
             }
         );
     }
@@ -504,6 +516,8 @@ mod tests {
                 symbol: CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
                 name: CurrencyName::try_from("USD Coin").expect("name should be valid"),
                 decimals: CurrencyDecimals::new(6),
+                supply: CurrencyAmount::zero(),
+                status: CurrencyStatus::Active,
             },
         );
         let deactivated = Event::new(

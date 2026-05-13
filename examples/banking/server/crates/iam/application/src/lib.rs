@@ -97,9 +97,11 @@ pub use query::{
 };
 pub use read_model::{
     CursorOptions, PageSize, PageSizeError, SortDirection, UserPrivateInfo,
-    UserPrivateInfoIdentity, UserPrivateInfoReader, UserPrivateInfoReaderError,
-    UserPrivateInfoStatus, UserPrivateInfoWriter, UserPrivateInfoWriterError, UserPublicProfile,
-    UserPublicProfileReader, UserPublicProfileReaderError, UserPublicProfileStatus,
+    UserPrivateInfoIdentity, UserPrivateInfoIdentityUpsert, UserPrivateInfoReader,
+    UserPrivateInfoReaderError, UserPrivateInfoStatus, UserPrivateInfoStatusError,
+    UserPrivateInfoUserUpsert, UserPrivateInfoWriter, UserPrivateInfoWriterError,
+    UserPublicProfile, UserPublicProfileReader, UserPublicProfileReaderError,
+    UserPublicProfileStatus, UserPublicProfileStatusError, UserPublicProfileUserUpsert,
     UserPublicProfileWriter, UserPublicProfileWriterError,
 };
 pub use repository::{

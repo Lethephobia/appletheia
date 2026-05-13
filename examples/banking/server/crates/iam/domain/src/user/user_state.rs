@@ -25,21 +25,6 @@ pub struct UserState {
     pub(super) status: UserStatus,
 }
 
-impl UserState {
-    /// Creates a new user state.
-    pub(super) fn new(id: UserId) -> Self {
-        Self {
-            id,
-            identities: Vec::new(),
-            username: None,
-            display_name: None,
-            bio: None,
-            picture: None,
-            status: UserStatus::Active,
-        }
-    }
-}
-
 fn username_value(state: &UserState) -> Result<Option<UniqueValue>, UserStateError> {
     if state.status.is_removed() {
         return Ok(None);
@@ -94,7 +79,15 @@ mod tests {
 
     #[test]
     fn pending_username_has_no_unique_entry() {
-        let state = UserState::new(UserId::new());
+        let state = UserState {
+            id: UserId::new(),
+            identities: Vec::new(),
+            username: None,
+            display_name: None,
+            bio: None,
+            picture: None,
+            status: UserStatus::Active,
+        };
 
         let entries = state.unique_entries().expect("unique entries should build");
 
@@ -106,7 +99,15 @@ mod tests {
 
     #[test]
     fn configured_username_returns_unique_entries() {
-        let mut state = UserState::new(UserId::new());
+        let mut state = UserState {
+            id: UserId::new(),
+            identities: Vec::new(),
+            username: None,
+            display_name: None,
+            bio: None,
+            picture: None,
+            status: UserStatus::Active,
+        };
         state.username = Some(Username::try_from("alice").expect("username should be valid"));
         state.display_name =
             Some(UserDisplayName::try_from("Alice Example").expect("display name should be valid"));
@@ -125,7 +126,15 @@ mod tests {
 
     #[test]
     fn identities_return_unique_entries_for_provider_subject() {
-        let mut state = UserState::new(UserId::new());
+        let mut state = UserState {
+            id: UserId::new(),
+            identities: Vec::new(),
+            username: None,
+            display_name: None,
+            bio: None,
+            picture: None,
+            status: UserStatus::Active,
+        };
         state.identities.push(identity());
         state.identities.push(UserIdentity::new(
             UserIdentityProvider::try_from("https://login.example.com")
@@ -146,7 +155,15 @@ mod tests {
 
     #[test]
     fn removed_state_has_no_unique_entries() {
-        let mut state = UserState::new(UserId::new());
+        let mut state = UserState {
+            id: UserId::new(),
+            identities: Vec::new(),
+            username: None,
+            display_name: None,
+            bio: None,
+            picture: None,
+            status: UserStatus::Active,
+        };
         state.identities.push(identity());
         state.username = Some(Username::try_from("alice").expect("username should be valid"));
         state.status = UserStatus::Removed;

@@ -25,22 +25,6 @@ pub struct OrganizationJoinRequestState {
     pub(super) status: OrganizationJoinRequestStatus,
 }
 
-impl OrganizationJoinRequestState {
-    /// Creates a new organization join request state.
-    pub(super) fn new(
-        id: OrganizationJoinRequestId,
-        organization_id: OrganizationId,
-        requester_id: UserId,
-    ) -> Self {
-        Self {
-            id,
-            organization_id,
-            requester_id,
-            status: OrganizationJoinRequestStatus::Pending,
-        }
-    }
-}
-
 fn organization_requester_value(
     state: &OrganizationJoinRequestState,
 ) -> Result<Option<UniqueValue>, OrganizationJoinRequestStateError> {
@@ -82,18 +66,24 @@ mod tests {
     #[test]
     fn exposes_id_via_aggregate_state_trait() {
         let id = OrganizationJoinRequestId::new();
-        let state = OrganizationJoinRequestState::new(id, OrganizationId::new(), UserId::new());
+        let state = OrganizationJoinRequestState {
+            id,
+            organization_id: OrganizationId::new(),
+            requester_id: UserId::new(),
+            status: OrganizationJoinRequestStatus::Pending,
+        };
 
         assert_eq!(state.id(), id);
     }
 
     #[test]
     fn pending_state_returns_unique_entries_for_organization_and_requester() {
-        let state = OrganizationJoinRequestState::new(
-            OrganizationJoinRequestId::new(),
-            OrganizationId::new(),
-            UserId::new(),
-        );
+        let state = OrganizationJoinRequestState {
+            id: OrganizationJoinRequestId::new(),
+            organization_id: OrganizationId::new(),
+            requester_id: UserId::new(),
+            status: OrganizationJoinRequestStatus::Pending,
+        };
 
         let entries = state.unique_entries().expect("unique entries should build");
 
@@ -107,11 +97,12 @@ mod tests {
 
     #[test]
     fn non_pending_state_has_no_unique_entry() {
-        let mut state = OrganizationJoinRequestState::new(
-            OrganizationJoinRequestId::new(),
-            OrganizationId::new(),
-            UserId::new(),
-        );
+        let mut state = OrganizationJoinRequestState {
+            id: OrganizationJoinRequestId::new(),
+            organization_id: OrganizationId::new(),
+            requester_id: UserId::new(),
+            status: OrganizationJoinRequestStatus::Pending,
+        };
         state.status = OrganizationJoinRequestStatus::Approved;
 
         let entries = state.unique_entries().expect("unique entries should build");
@@ -128,11 +119,12 @@ mod tests {
     fn returns_reference_entries_for_organization_and_requester() {
         let organization_id = OrganizationId::new();
         let requester_id = UserId::new();
-        let state = OrganizationJoinRequestState::new(
-            OrganizationJoinRequestId::new(),
+        let state = OrganizationJoinRequestState {
+            id: OrganizationJoinRequestId::new(),
             organization_id,
             requester_id,
-        );
+            status: OrganizationJoinRequestStatus::Pending,
+        };
 
         let entries = state
             .reference_entries()

@@ -2,7 +2,8 @@ use appletheia::application::event::EventSequence;
 use appletheia::domain::{AggregateId, EventOccurredAt};
 use appletheia::infrastructure::postgresql::PgUnitOfWork;
 use banking_iam_application::{
-    UserPublicProfileStatus, UserPublicProfileWriter, UserPublicProfileWriterError,
+    UserPublicProfileStatus, UserPublicProfileUserUpsert, UserPublicProfileWriter,
+    UserPublicProfileWriterError,
 };
 use banking_iam_domain::{UserBio, UserDisplayName, UserId, UserPictureRef, Username};
 
@@ -36,29 +37,42 @@ impl UserPublicProfileWriter for PgUserPublicProfileWriter {
     async fn upsert_user(
         &self,
         uow: &mut Self::Uow,
-        id: UserId,
-        status: UserPublicProfileStatus,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
+        upsert: UserPublicProfileUserUpsert,
     ) -> Result<(), UserPublicProfileWriterError> {
+        let (picture_type, object_name, external_url) =
+            PgUserPictureRefColumns::from_picture(upsert.picture.as_ref());
+
         sqlx::query(
             r#"
             INSERT INTO user_public_profiles (
-                id, status, updated_at, created_at, updated_event_sequence
+                id, username, display_name, bio, picture_type, picture_object_name,
+                picture_external_url, status, updated_at, created_at, updated_event_sequence
             )
-            VALUES ($1, $2, $3, $4, $5)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
             ON CONFLICT (id) DO UPDATE SET
+                username = EXCLUDED.username,
+                display_name = EXCLUDED.display_name,
+                bio = EXCLUDED.bio,
+                picture_type = EXCLUDED.picture_type,
+                picture_object_name = EXCLUDED.picture_object_name,
+                picture_external_url = EXCLUDED.picture_external_url,
                 status = EXCLUDED.status,
                 updated_at = EXCLUDED.updated_at,
                 updated_event_sequence = EXCLUDED.updated_event_sequence
             WHERE user_public_profiles.updated_event_sequence < EXCLUDED.updated_event_sequence
             "#,
         )
-        .bind(id.value())
-        .bind(Self::status_name(status))
-        .bind(occurred_at.value())
-        .bind(occurred_at.value())
-        .bind(event_sequence.value())
+        .bind(upsert.id.value())
+        .bind(upsert.username.as_ref().map(Username::value))
+        .bind(upsert.display_name.as_ref().map(UserDisplayName::value))
+        .bind(upsert.bio.as_ref().map(UserBio::value))
+        .bind(picture_type)
+        .bind(object_name)
+        .bind(external_url)
+        .bind(Self::status_name(upsert.status))
+        .bind(upsert.occurred_at.value())
+        .bind(upsert.occurred_at.value())
+        .bind(upsert.event_sequence.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| UserPublicProfileWriterError::Persistence(Box::new(e)))?;

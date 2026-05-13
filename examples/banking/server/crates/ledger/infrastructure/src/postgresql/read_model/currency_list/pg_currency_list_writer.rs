@@ -6,12 +6,11 @@ use banking_iam_domain::{
     UserDisplayName, UserId, UserPictureRef, Username,
 };
 use banking_ledger_application::{
-    CurrencyListItemStatus, CurrencyListWriter, CurrencyListWriterError,
+    CurrencyListCurrencyUpsert, CurrencyListItemStatus, CurrencyListOwnerOrganizationUpsert,
+    CurrencyListOwnerUserUpsert, CurrencyListWriter, CurrencyListWriterError,
 };
 use banking_ledger_domain::core::CurrencyAmount;
-use banking_ledger_domain::currency::{
-    CurrencyDecimals, CurrencyId, CurrencyName, CurrencyOwner, CurrencySymbol,
-};
+use banking_ledger_domain::currency::{CurrencyId, CurrencyName, CurrencyOwner, CurrencySymbol};
 
 use super::super::pg_organization_picture_ref_columns::PgOrganizationPictureRefColumns;
 use super::super::pg_user_picture_ref_columns::PgUserPictureRefColumns;
@@ -53,17 +52,9 @@ impl CurrencyListWriter for PgCurrencyListWriter {
     async fn upsert_currency(
         &self,
         uow: &mut Self::Uow,
-        id: CurrencyId,
-        owner: CurrencyOwner,
-        symbol: CurrencySymbol,
-        name: CurrencyName,
-        decimals: CurrencyDecimals,
-        supply: CurrencyAmount,
-        status: CurrencyListItemStatus,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
+        upsert: CurrencyListCurrencyUpsert,
     ) -> Result<(), CurrencyListWriterError> {
-        let (owner_type, owner_id) = Self::owner_parts(owner);
+        let (owner_type, owner_id) = Self::owner_parts(upsert.owner);
 
         sqlx::query(
             r#"
@@ -84,17 +75,17 @@ impl CurrencyListWriter for PgCurrencyListWriter {
             WHERE currency_list_items.updated_event_sequence < EXCLUDED.updated_event_sequence
             "#,
         )
-        .bind(id.value())
+        .bind(upsert.id.value())
         .bind(owner_type)
         .bind(owner_id)
-        .bind(symbol.value())
-        .bind(name.value())
-        .bind(i16::from(decimals.value()))
-        .bind(supply.value().to_string())
-        .bind(Self::status_name(status))
-        .bind(occurred_at.value())
-        .bind(occurred_at.value())
-        .bind(event_sequence.value())
+        .bind(upsert.symbol.value())
+        .bind(upsert.name.value())
+        .bind(i16::from(upsert.decimals.value()))
+        .bind(upsert.supply.value().to_string())
+        .bind(Self::status_name(upsert.status))
+        .bind(upsert.occurred_at.value())
+        .bind(upsert.occurred_at.value())
+        .bind(upsert.event_sequence.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| CurrencyListWriterError::Persistence(Box::new(e)))?;
@@ -286,26 +277,38 @@ impl CurrencyListWriter for PgCurrencyListWriter {
     async fn upsert_owner_user(
         &self,
         uow: &mut Self::Uow,
-        id: UserId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
+        upsert: CurrencyListOwnerUserUpsert,
     ) -> Result<(), CurrencyListWriterError> {
+        let (picture_type, object_name, external_url) =
+            PgUserPictureRefColumns::from_picture(upsert.picture.as_ref());
+
         sqlx::query(
             r#"
             INSERT INTO currency_list_item_owner_users (
-                id, updated_at, created_at, updated_event_sequence
+                id, username, display_name, picture_type, picture_object_name,
+                picture_external_url, updated_at, created_at, updated_event_sequence
             )
-            VALUES ($1, $2, $3, $4)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             ON CONFLICT (id) DO UPDATE SET
+                username = EXCLUDED.username,
+                display_name = EXCLUDED.display_name,
+                picture_type = EXCLUDED.picture_type,
+                picture_object_name = EXCLUDED.picture_object_name,
+                picture_external_url = EXCLUDED.picture_external_url,
                 updated_at = EXCLUDED.updated_at,
                 updated_event_sequence = EXCLUDED.updated_event_sequence
             WHERE currency_list_item_owner_users.updated_event_sequence < EXCLUDED.updated_event_sequence
             "#,
         )
-        .bind(id.value())
-        .bind(occurred_at.value())
-        .bind(occurred_at.value())
-        .bind(event_sequence.value())
+        .bind(upsert.id.value())
+        .bind(upsert.username.as_ref().map(Username::value))
+        .bind(upsert.display_name.as_ref().map(UserDisplayName::value))
+        .bind(picture_type)
+        .bind(object_name)
+        .bind(external_url)
+        .bind(upsert.occurred_at.value())
+        .bind(upsert.occurred_at.value())
+        .bind(upsert.event_sequence.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| CurrencyListWriterError::Persistence(Box::new(e)))?;
@@ -436,15 +439,10 @@ impl CurrencyListWriter for PgCurrencyListWriter {
     async fn upsert_owner_organization(
         &self,
         uow: &mut Self::Uow,
-        id: OrganizationId,
-        handle: OrganizationHandle,
-        display_name: OrganizationDisplayName,
-        picture: Option<OrganizationPictureRef>,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
+        upsert: CurrencyListOwnerOrganizationUpsert,
     ) -> Result<(), CurrencyListWriterError> {
         let (picture_type, object_name, external_url) =
-            PgOrganizationPictureRefColumns::from_picture(picture.as_ref());
+            PgOrganizationPictureRefColumns::from_picture(upsert.picture.as_ref());
 
         sqlx::query(
             r#"
@@ -464,15 +462,15 @@ impl CurrencyListWriter for PgCurrencyListWriter {
             WHERE currency_list_item_owner_organizations.updated_event_sequence < EXCLUDED.updated_event_sequence
             "#,
         )
-        .bind(id.value())
-        .bind(handle.value())
-        .bind(display_name.value())
+        .bind(upsert.id.value())
+        .bind(upsert.handle.value())
+        .bind(upsert.display_name.value())
         .bind(picture_type)
         .bind(object_name)
         .bind(external_url)
-        .bind(occurred_at.value())
-        .bind(occurred_at.value())
-        .bind(event_sequence.value())
+        .bind(upsert.occurred_at.value())
+        .bind(upsert.occurred_at.value())
+        .bind(upsert.event_sequence.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| CurrencyListWriterError::Persistence(Box::new(e)))?;

@@ -155,6 +155,7 @@ impl Organization {
             description,
             website_url,
             picture,
+            status: OrganizationStatus::Active,
         })
     }
 
@@ -289,15 +290,17 @@ impl AggregateApply<OrganizationEventPayload, OrganizationError> for Organizatio
                 description,
                 website_url,
                 picture,
-            } => self.set_state(Some(OrganizationState::new(
-                *id,
-                *owner,
-                handle.clone(),
-                display_name.clone(),
-                description.clone(),
-                website_url.clone(),
-                picture.clone(),
-            ))),
+                status,
+            } => self.set_state(Some(OrganizationState {
+                id: *id,
+                owner: *owner,
+                handle: handle.clone(),
+                display_name: display_name.clone(),
+                description: description.clone(),
+                website_url: website_url.clone(),
+                picture: picture.clone(),
+                status: *status,
+            })),
             OrganizationEventPayload::OwnershipTransferred { owner } => {
                 self.state_required_mut()?.owner = *owner;
             }

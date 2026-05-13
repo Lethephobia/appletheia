@@ -1,46 +1,33 @@
 use appletheia::application::event::EventSequence;
 use appletheia::application::unit_of_work::UnitOfWork;
 use appletheia::domain::EventOccurredAt;
-use banking_iam_domain::{
-    UserBio, UserDisplayName, UserId, UserIdentityProvider, UserIdentitySubject, UserPictureRef,
-    Username, core::Email,
+use banking_iam_domain::{UserBio, UserDisplayName, UserId, UserPictureRef, Username};
+
+use super::{
+    UserPrivateInfoIdentityUpsert, UserPrivateInfoStatus, UserPrivateInfoUserUpsert,
+    UserPrivateInfoWriterError,
 };
 
-use super::{UserPrivateInfoStatus, UserPrivateInfoWriterError};
-
-#[allow(async_fn_in_trait, clippy::too_many_arguments)]
+#[allow(async_fn_in_trait)]
 pub trait UserPrivateInfoWriter: Send + Sync {
     type Uow: UnitOfWork;
 
     async fn upsert_user(
         &self,
         uow: &mut Self::Uow,
-        id: UserId,
-        status: UserPrivateInfoStatus,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
+        upsert: UserPrivateInfoUserUpsert,
     ) -> Result<(), UserPrivateInfoWriterError>;
 
     async fn upsert_identity(
         &self,
         uow: &mut Self::Uow,
-        user_id: UserId,
-        provider: UserIdentityProvider,
-        subject: UserIdentitySubject,
-        email: Option<Email>,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
+        upsert: UserPrivateInfoIdentityUpsert,
     ) -> Result<(), UserPrivateInfoWriterError>;
 
     async fn update_identity_email(
         &self,
         uow: &mut Self::Uow,
-        user_id: UserId,
-        provider: UserIdentityProvider,
-        subject: UserIdentitySubject,
-        email: Option<Email>,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
+        update: UserPrivateInfoIdentityUpsert,
     ) -> Result<(), UserPrivateInfoWriterError>;
 
     async fn update_username(

@@ -2,7 +2,10 @@ use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
 use banking_iam_domain::{User, UserEventPayload};
 
-use crate::read_model::{UserPrivateInfoStatus, UserPrivateInfoWriter};
+use crate::read_model::{
+    UserPrivateInfoIdentityUpsert, UserPrivateInfoStatus, UserPrivateInfoUserUpsert,
+    UserPrivateInfoWriter,
+};
 
 use super::{UserPrivateInfoProjectorError, UserPrivateInfoProjectorSpec};
 
@@ -36,16 +39,45 @@ where
         let user_id = domain_event.aggregate_id();
 
         match domain_event.payload() {
-            UserEventPayload::Registered { .. } => {
+            UserEventPayload::Registered {
+                identities,
+                username,
+                display_name,
+                bio,
+                picture,
+                status,
+                ..
+            } => {
                 self.writer
                     .upsert_user(
                         uow,
-                        user_id,
-                        UserPrivateInfoStatus::Active,
-                        event.event_sequence,
-                        event.occurred_at,
+                        UserPrivateInfoUserUpsert {
+                            id: user_id,
+                            username: username.clone(),
+                            display_name: display_name.clone(),
+                            bio: bio.clone(),
+                            picture: picture.clone(),
+                            status: UserPrivateInfoStatus::try_from(*status)?,
+                            event_sequence: event.event_sequence,
+                            occurred_at: event.occurred_at,
+                        },
                     )
                     .await?;
+                for identity in identities {
+                    self.writer
+                        .upsert_identity(
+                            uow,
+                            UserPrivateInfoIdentityUpsert {
+                                user_id,
+                                provider: identity.provider().clone(),
+                                subject: identity.subject().clone(),
+                                email: identity.email().cloned(),
+                                event_sequence: event.event_sequence,
+                                occurred_at: event.occurred_at,
+                            },
+                        )
+                        .await?;
+                }
             }
             UserEventPayload::IdentityLinked {
                 provider,
@@ -55,12 +87,14 @@ where
                 self.writer
                     .upsert_identity(
                         uow,
-                        user_id,
-                        provider.clone(),
-                        subject.clone(),
-                        email.clone(),
-                        event.event_sequence,
-                        event.occurred_at,
+                        UserPrivateInfoIdentityUpsert {
+                            user_id,
+                            provider: provider.clone(),
+                            subject: subject.clone(),
+                            email: email.clone(),
+                            event_sequence: event.event_sequence,
+                            occurred_at: event.occurred_at,
+                        },
                     )
                     .await?;
             }
@@ -72,12 +106,14 @@ where
                 self.writer
                     .update_identity_email(
                         uow,
-                        user_id,
-                        provider.clone(),
-                        subject.clone(),
-                        email.clone(),
-                        event.event_sequence,
-                        event.occurred_at,
+                        UserPrivateInfoIdentityUpsert {
+                            user_id,
+                            provider: provider.clone(),
+                            subject: subject.clone(),
+                            email: email.clone(),
+                            event_sequence: event.event_sequence,
+                            occurred_at: event.occurred_at,
+                        },
                     )
                     .await?;
             }

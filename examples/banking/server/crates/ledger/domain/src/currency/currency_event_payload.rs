@@ -6,8 +6,8 @@ use super::{
     CurrencyActivateRejectionReason, CurrencyDeactivateRejectionReason, CurrencyDecimals,
     CurrencyEventPayloadError, CurrencyId, CurrencyName, CurrencyNameChangeRejectionReason,
     CurrencyOwner, CurrencyOwnershipTransferRejectionReason, CurrencyRemoveRejectionReason,
-    CurrencySupplyDecreaseRejectionReason, CurrencySupplyIncreaseRejectionReason, CurrencySymbol,
-    CurrencySymbolChangeRejectionReason,
+    CurrencyStatus, CurrencySupplyDecreaseRejectionReason, CurrencySupplyIncreaseRejectionReason,
+    CurrencySymbol, CurrencySymbolChangeRejectionReason,
 };
 
 /// Represents the domain events emitted by a `Currency` aggregate.
@@ -19,6 +19,8 @@ pub enum CurrencyEventPayload {
         symbol: CurrencySymbol,
         name: CurrencyName,
         decimals: CurrencyDecimals,
+        supply: CurrencyAmount,
+        status: CurrencyStatus,
     },
     OwnershipTransferred {
         owner: CurrencyOwner,
@@ -164,6 +166,8 @@ mod tests {
             symbol: super::CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
             name: super::CurrencyName::try_from("USD Coin").expect("name should be valid"),
             decimals: super::CurrencyDecimals::new(6),
+            supply: super::CurrencyAmount::zero(),
+            status: super::CurrencyStatus::Active,
         };
 
         let value = payload.into_json_value().expect("payload should serialize");

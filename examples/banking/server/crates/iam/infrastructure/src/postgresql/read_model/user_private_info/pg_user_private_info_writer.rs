@@ -2,12 +2,10 @@ use appletheia::application::event::EventSequence;
 use appletheia::domain::{AggregateId, EventOccurredAt};
 use appletheia::infrastructure::postgresql::PgUnitOfWork;
 use banking_iam_application::{
-    UserPrivateInfoStatus, UserPrivateInfoWriter, UserPrivateInfoWriterError,
+    UserPrivateInfoIdentityUpsert, UserPrivateInfoStatus, UserPrivateInfoUserUpsert,
+    UserPrivateInfoWriter, UserPrivateInfoWriterError,
 };
-use banking_iam_domain::{
-    UserBio, UserDisplayName, UserId, UserIdentityProvider, UserIdentitySubject, UserPictureRef,
-    Username, core::Email,
-};
+use banking_iam_domain::{UserBio, UserDisplayName, UserId, UserPictureRef, Username, core::Email};
 
 use super::super::pg_user_picture_ref_columns::PgUserPictureRefColumns;
 
@@ -39,29 +37,42 @@ impl UserPrivateInfoWriter for PgUserPrivateInfoWriter {
     async fn upsert_user(
         &self,
         uow: &mut Self::Uow,
-        id: UserId,
-        status: UserPrivateInfoStatus,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
+        upsert: UserPrivateInfoUserUpsert,
     ) -> Result<(), UserPrivateInfoWriterError> {
+        let (picture_type, object_name, external_url) =
+            PgUserPictureRefColumns::from_picture(upsert.picture.as_ref());
+
         sqlx::query(
             r#"
             INSERT INTO user_private_infos (
-                id, status, updated_at, created_at, updated_event_sequence
+                id, username, display_name, bio, picture_type, picture_object_name,
+                picture_external_url, status, updated_at, created_at, updated_event_sequence
             )
-            VALUES ($1, $2, $3, $4, $5)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
             ON CONFLICT (id) DO UPDATE SET
+                username = EXCLUDED.username,
+                display_name = EXCLUDED.display_name,
+                bio = EXCLUDED.bio,
+                picture_type = EXCLUDED.picture_type,
+                picture_object_name = EXCLUDED.picture_object_name,
+                picture_external_url = EXCLUDED.picture_external_url,
                 status = EXCLUDED.status,
                 updated_at = EXCLUDED.updated_at,
                 updated_event_sequence = EXCLUDED.updated_event_sequence
             WHERE user_private_infos.updated_event_sequence < EXCLUDED.updated_event_sequence
             "#,
         )
-        .bind(id.value())
-        .bind(Self::status_name(status))
-        .bind(occurred_at.value())
-        .bind(occurred_at.value())
-        .bind(event_sequence.value())
+        .bind(upsert.id.value())
+        .bind(upsert.username.as_ref().map(Username::value))
+        .bind(upsert.display_name.as_ref().map(UserDisplayName::value))
+        .bind(upsert.bio.as_ref().map(UserBio::value))
+        .bind(picture_type)
+        .bind(object_name)
+        .bind(external_url)
+        .bind(Self::status_name(upsert.status))
+        .bind(upsert.occurred_at.value())
+        .bind(upsert.occurred_at.value())
+        .bind(upsert.event_sequence.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| UserPrivateInfoWriterError::Persistence(Box::new(e)))?;
@@ -72,12 +83,7 @@ impl UserPrivateInfoWriter for PgUserPrivateInfoWriter {
     async fn upsert_identity(
         &self,
         uow: &mut Self::Uow,
-        user_id: UserId,
-        provider: UserIdentityProvider,
-        subject: UserIdentitySubject,
-        email: Option<Email>,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
+        upsert: UserPrivateInfoIdentityUpsert,
     ) -> Result<(), UserPrivateInfoWriterError> {
         sqlx::query(
             r#"
@@ -92,13 +98,13 @@ impl UserPrivateInfoWriter for PgUserPrivateInfoWriter {
             WHERE user_private_info_identities.updated_event_sequence < EXCLUDED.updated_event_sequence
             "#,
         )
-        .bind(user_id.value())
-        .bind(provider.value())
-        .bind(subject.value())
-        .bind(email.as_ref().map(Email::value))
-        .bind(occurred_at.value())
-        .bind(occurred_at.value())
-        .bind(event_sequence.value())
+        .bind(upsert.user_id.value())
+        .bind(upsert.provider.value())
+        .bind(upsert.subject.value())
+        .bind(upsert.email.as_ref().map(Email::value))
+        .bind(upsert.occurred_at.value())
+        .bind(upsert.occurred_at.value())
+        .bind(upsert.event_sequence.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| UserPrivateInfoWriterError::Persistence(Box::new(e)))?;
@@ -109,12 +115,7 @@ impl UserPrivateInfoWriter for PgUserPrivateInfoWriter {
     async fn update_identity_email(
         &self,
         uow: &mut Self::Uow,
-        user_id: UserId,
-        provider: UserIdentityProvider,
-        subject: UserIdentitySubject,
-        email: Option<Email>,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
+        update: UserPrivateInfoIdentityUpsert,
     ) -> Result<(), UserPrivateInfoWriterError> {
         sqlx::query(
             r#"
@@ -127,12 +128,12 @@ impl UserPrivateInfoWriter for PgUserPrivateInfoWriter {
                AND updated_event_sequence < $6
             "#,
         )
-        .bind(user_id.value())
-        .bind(provider.value())
-        .bind(subject.value())
-        .bind(email.as_ref().map(Email::value))
-        .bind(occurred_at.value())
-        .bind(event_sequence.value())
+        .bind(update.user_id.value())
+        .bind(update.provider.value())
+        .bind(update.subject.value())
+        .bind(update.email.as_ref().map(Email::value))
+        .bind(update.occurred_at.value())
+        .bind(update.event_sequence.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| UserPrivateInfoWriterError::Persistence(Box::new(e)))?;
