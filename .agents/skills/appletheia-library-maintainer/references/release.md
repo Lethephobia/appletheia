@@ -27,6 +27,7 @@ Use the repository convention instead of ad hoc prefixes, emoji, or free-form su
 
 Use the crate name when the change is clearly confined to one crate.
 
-### CONSIDER calling out breaking changes explicitly
+### CONSIDER calling out breaking changes explicitly for library-facing changes
 
-Use `!` or a `BREAKING CHANGE:` footer when the change affects downstream crates.
+Use `!` or a `BREAKING CHANGE:` footer when the change affects downstream crates. Example-only
+fixture and documentation refactors do not need compatibility framing beyond a clear subject.

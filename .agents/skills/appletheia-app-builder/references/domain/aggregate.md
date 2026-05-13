@@ -50,10 +50,12 @@ pub fn issue(
     if self.state().is_some() {
         let reason = OrganizationInvitationIssueRejectionReason::AlreadyIssued;
         self.append_event(OrganizationInvitationEventPayload::IssueRejected {
+            id: OrganizationInvitationId::new(),
             organization_id,
             invitee_id,
             issuer,
             expires_at,
+            status: OrganizationInvitationStatus::Rejected,
             reason,
         })?;
         return Ok(());
@@ -65,6 +67,7 @@ pub fn issue(
         invitee_id,
         issuer,
         expires_at,
+        status: OrganizationInvitationStatus::Pending,
     })
 }
 ```
@@ -94,6 +97,11 @@ pub fn register(
     self.append_event(UserEventPayload::Registered {
         id,
         username,
+        identities: Vec::new(),
+        display_name: None,
+        bio: None,
+        picture: None,
+        status: UserStatus::Active,
     })?;
     Ok(RegisterUserResult::Registered { user_id: id })
 }
@@ -548,6 +556,7 @@ pub fn create(
         id,
         handle,
         name,
+        status: OrganizationStatus::Active,
     })?;
     Ok(OrganizationCreateResult::Created { organization_id: id })
 }
@@ -582,6 +591,8 @@ pub fn create(
         id: OrganizationMembershipId::new(),
         organization_id,
         user_id,
+        roles: OrganizationMembershipRoles::default(),
+        status: OrganizationMembershipStatus::Active,
     })
 }
 ```
@@ -708,6 +719,7 @@ pub fn issue(
         invitee_id,
         issuer,
         expires_at,
+        status: OrganizationInvitationStatus::Pending,
     })
 }
 ```
@@ -730,12 +742,18 @@ fn apply(&mut self, payload: &OrganizationEventPayload) -> Result<(), Organizati
             self.state_required_mut()?.name = name.clone();
             Ok(())
         }
-        OrganizationEventPayload::Created { id, handle, name } => {
-            self.state = Some(OrganizationState::new(
-                *id,
-                handle.clone(),
-                name.clone(),
-            ));
+        OrganizationEventPayload::Created {
+            id,
+            handle,
+            name,
+            status,
+        } => {
+            self.state = Some(OrganizationState {
+                id: *id,
+                handle: handle.clone(),
+                name: name.clone(),
+                status: *status,
+            });
             Ok(())
         }
         _ => Ok(()),
@@ -747,12 +765,18 @@ good:
 ```rust
 fn apply(&mut self, payload: &OrganizationEventPayload) -> Result<(), OrganizationError> {
     match payload {
-        OrganizationEventPayload::Created { id, handle, name } => {
-            self.state = Some(OrganizationState::new(
-                *id,
-                handle.clone(),
-                name.clone(),
-            ));
+        OrganizationEventPayload::Created {
+            id,
+            handle,
+            name,
+            status,
+        } => {
+            self.state = Some(OrganizationState {
+                id: *id,
+                handle: handle.clone(),
+                name: name.clone(),
+                status: *status,
+            });
             Ok(())
         }
         OrganizationEventPayload::HandleChanged { handle } => {
@@ -786,8 +810,12 @@ fn apply(&mut self, event: ExampleEventPayload) -> Result<(), ExampleError> {
 
             Ok(())
         }
-        ExampleEventPayload::Opened { id, name } => {
-            self.state = Some(ExampleState::new(id, name));
+        ExampleEventPayload::Opened { id, name, status } => {
+            self.state = Some(ExampleState {
+                id: *id,
+                name: name.clone(),
+                status: *status,
+            });
             Ok(())
         }
     }
@@ -803,12 +831,18 @@ fn apply(&mut self, payload: &OrganizationEventPayload) -> Result<(), Organizati
             state.name = name.clone();
             Ok(())
         }
-        OrganizationEventPayload::Created { id, handle, name } => {
-            self.state = Some(OrganizationState::new(
-                *id,
-                handle.clone(),
-                name.clone(),
-            ));
+        OrganizationEventPayload::Created {
+            id,
+            handle,
+            name,
+            status,
+        } => {
+            self.state = Some(OrganizationState {
+                id: *id,
+                handle: handle.clone(),
+                name: name.clone(),
+                status: *status,
+            });
             Ok(())
         }
         OrganizationEventPayload::HandleChanged { handle } => {
@@ -849,39 +883,44 @@ pub struct OrganizationState {
 }
 ```
 
-### PREFER provide a constructor when the state has a default value
+### DON'T hide default state in `AggregateState` constructors
 
-Use a constructor to capture default state in one place.
+Put every initial state value into the first event payload and construct the state directly from
+that payload in `apply`.
 
 good:
 ```rust
-impl OrganizationState {
-    pub(super) fn new(
-        id: OrganizationId,
-        handle: OrganizationHandle,
-        name: OrganizationName,
-    ) -> Self {
-        Self {
-            id,
-            status: OrganizationStatus::Active,
-            handle,
-            name,
-        }
-    }
+pub fn create(
+    &mut self,
+    handle: OrganizationHandle,
+    name: OrganizationName,
+) -> Result<(), OrganizationError> {
+    self.append_event(OrganizationEventPayload::Created {
+        id: OrganizationId::new(),
+        handle,
+        name,
+        status: OrganizationStatus::Active,
+    })
 }
 ```
 
 bad:
 ```rust
-pub(super) struct OrganizationState {
-    pub(super) id: OrganizationId,
-    pub(super) handle: OrganizationHandle,
-    pub(super) name: OrganizationName,
-    pub(super) status: OrganizationStatus,
+fn apply_created(
+    id: OrganizationId,
+    handle: OrganizationHandle,
+    name: OrganizationName,
+) -> OrganizationState {
+    OrganizationState {
+        id,
+        handle,
+        name,
+        status: OrganizationStatus::Active,
+    }
 }
 ```
 
-### AVOID define methods other than constructors on `AggregateState`, and keep logic out of it
+### AVOID define methods on `AggregateState`, and keep logic out of it
 
 Keep `AggregateState` as a data container and update it directly from `AggregateApply`.
 
@@ -989,6 +1028,7 @@ pub enum OrganizationEventPayload {
         id: OrganizationId,
         handle: OrganizationHandle,
         name: OrganizationName,
+        status: OrganizationStatus,
     },
     HandleChanged {
         handle: OrganizationHandle,
@@ -1024,6 +1064,7 @@ pub enum OrganizationInvitationEventPayload {
         invitee_id: UserId,
         issuer: OrganizationInvitationIssuer,
         expires_at: OrganizationInvitationExpiresAt,
+        status: OrganizationInvitationStatus,
     },
     Accepted {
         organization_id: OrganizationId,
