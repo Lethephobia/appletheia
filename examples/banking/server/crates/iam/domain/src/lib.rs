@@ -48,10 +48,10 @@ pub use organization_membership::{
     OrganizationMembershipDeactivateResult, OrganizationMembershipError,
     OrganizationMembershipEventPayload, OrganizationMembershipEventPayloadError,
     OrganizationMembershipId, OrganizationMembershipRemoveRejectionReason,
-    OrganizationMembershipRemoveResult, OrganizationMembershipRoleGrantRejectionReason,
-    OrganizationMembershipRoleGrantResult, OrganizationMembershipRoleRevokeRejectionReason,
-    OrganizationMembershipRoleRevokeResult, OrganizationMembershipState,
-    OrganizationMembershipStateError, OrganizationMembershipStatus, OrganizationRole,
+    OrganizationMembershipRemoveResult, OrganizationMembershipRoles,
+    OrganizationMembershipRolesChangeRejectionReason, OrganizationMembershipRolesChangeResult,
+    OrganizationMembershipState, OrganizationMembershipStateError, OrganizationMembershipStatus,
+    OrganizationRole,
 };
 pub use user::{
     User, UserBio, UserBioError, UserDisplayName, UserDisplayNameError, UserError,

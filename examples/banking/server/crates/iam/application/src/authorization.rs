@@ -27,8 +27,7 @@ pub use organization_membership::{
     DefaultOrganizationMembershipRelationshipUpdater, OrganizationMembershipActivatorRelation,
     OrganizationMembershipDeactivatorRelation, OrganizationMembershipOrganizationRelation,
     OrganizationMembershipRelationshipUpdater, OrganizationMembershipRelationshipUpdaterError,
-    OrganizationMembershipRemoverRelation, OrganizationMembershipRoleGranterRelation,
-    OrganizationMembershipRoleManagerRelation, OrganizationMembershipRoleRevokerRelation,
+    OrganizationMembershipRemoverRelation, OrganizationMembershipRoleManagerRelation,
     OrganizationMembershipStatusManagerRelation,
 };
 pub use user::{

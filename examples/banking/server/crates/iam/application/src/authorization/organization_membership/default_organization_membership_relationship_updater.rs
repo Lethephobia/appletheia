@@ -4,7 +4,7 @@ use appletheia::application::authorization::{
 };
 use banking_iam_domain::{
     Organization, OrganizationId, OrganizationMembership, OrganizationMembershipId,
-    OrganizationRole, User, UserId,
+    OrganizationMembershipRoles, OrganizationRole, User, UserId,
 };
 
 use super::{
@@ -42,19 +42,11 @@ where
     fn role_upserts(
         organization_id: OrganizationId,
         user_id: UserId,
-        roles: &[OrganizationRole],
+        roles: &OrganizationMembershipRoles,
     ) -> Vec<RelationshipChange> {
-        let mut deduplicated_roles = Vec::with_capacity(roles.len());
-        for role in roles {
-            if deduplicated_roles.contains(role) {
-                continue;
-            }
-
-            deduplicated_roles.push(*role);
-        }
-
-        deduplicated_roles
-            .into_iter()
+        roles
+            .iter()
+            .copied()
             .map(|role| {
                 RelationshipChange::Upsert(Relationship::new::<Organization>(
                     organization_id,
@@ -186,64 +178,16 @@ where
         Ok(())
     }
 
-    async fn upsert_roles(
+    async fn replace_roles(
         &self,
         uow: &mut Self::Uow,
         organization_id: OrganizationId,
         user_id: UserId,
-        roles: &[OrganizationRole],
+        roles: &OrganizationMembershipRoles,
     ) -> Result<(), OrganizationMembershipRelationshipUpdaterError> {
-        let changes = Self::role_upserts(organization_id, user_id, roles);
-        if !changes.is_empty() {
-            self.relationship_store.apply_changes(uow, &changes).await?;
-        }
-
-        Ok(())
-    }
-
-    async fn upsert_role(
-        &self,
-        uow: &mut Self::Uow,
-        organization_id: OrganizationId,
-        user_id: UserId,
-        role: OrganizationRole,
-    ) -> Result<(), OrganizationMembershipRelationshipUpdaterError> {
-        self.relationship_store
-            .apply_changes(
-                uow,
-                &[RelationshipChange::Upsert(
-                    Relationship::new::<Organization>(
-                        organization_id,
-                        Self::relation_for_role(role),
-                        RelationshipSubject::aggregate::<User>(user_id),
-                    ),
-                )],
-            )
-            .await?;
-
-        Ok(())
-    }
-
-    async fn remove_role(
-        &self,
-        uow: &mut Self::Uow,
-        organization_id: OrganizationId,
-        user_id: UserId,
-        role: OrganizationRole,
-    ) -> Result<(), OrganizationMembershipRelationshipUpdaterError> {
-        self.relationship_store
-            .apply_changes(
-                uow,
-                &[RelationshipChange::Delete(
-                    Relationship::new::<Organization>(
-                        organization_id,
-                        Self::relation_for_role(role),
-                        RelationshipSubject::aggregate::<User>(user_id),
-                    ),
-                )],
-            )
-            .await?;
-
+        let mut changes = Self::all_role_deletes(organization_id, user_id);
+        changes.extend(Self::role_upserts(organization_id, user_id, roles));
+        self.relationship_store.apply_changes(uow, &changes).await?;
         Ok(())
     }
 

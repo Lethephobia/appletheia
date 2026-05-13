@@ -4,9 +4,9 @@ use banking_iam_domain::{
 };
 use thiserror::Error;
 
-/// Represents errors returned while revoking a role from an organization membership.
+/// Represents errors returned while changing organization membership roles.
 #[derive(Debug, Error)]
-pub enum OrganizationMembershipRoleRevokeCommandHandlerError {
+pub enum OrganizationMembershipRolesChangeCommandHandlerError {
     #[error("organization repository failed")]
     OrganizationRepository(#[from] RepositoryError<Organization>),
 

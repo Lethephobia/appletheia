@@ -2,6 +2,7 @@ use appletheia::application::repository::EventSaveHook;
 use appletheia::domain::Event;
 use banking_iam_domain::{
     OrganizationMembership, OrganizationMembershipEventPayload, OrganizationMembershipId,
+    OrganizationMembershipRoles,
 };
 
 use crate::authorization::{
@@ -46,6 +47,7 @@ where
                 user_id,
                 ..
             } => {
+                let roles = OrganizationMembershipRoles::default();
                 updater
                     .upsert_organization(uow, event.aggregate_id(), *organization_id)
                     .await?;
@@ -53,7 +55,7 @@ where
                     .upsert_member(uow, *organization_id, *user_id)
                     .await?;
                 updater
-                    .upsert_roles(uow, *organization_id, *user_id, &[])
+                    .replace_roles(uow, *organization_id, *user_id, &roles)
                     .await?;
             }
             OrganizationMembershipEventPayload::Activated {
@@ -65,7 +67,7 @@ where
                     .upsert_member(uow, *organization_id, *user_id)
                     .await?;
                 updater
-                    .upsert_roles(uow, *organization_id, *user_id, roles)
+                    .replace_roles(uow, *organization_id, *user_id, roles)
                     .await?;
             }
             OrganizationMembershipEventPayload::Inactivated {
@@ -79,22 +81,13 @@ where
                     .remove_all_roles(uow, *organization_id, *user_id)
                     .await?;
             }
-            OrganizationMembershipEventPayload::RoleGranted {
+            OrganizationMembershipEventPayload::RolesChanged {
                 organization_id,
                 user_id,
-                role,
+                roles,
             } => {
                 updater
-                    .upsert_role(uow, *organization_id, *user_id, *role)
-                    .await?;
-            }
-            OrganizationMembershipEventPayload::RoleRevoked {
-                organization_id,
-                user_id,
-                role,
-            } => {
-                updater
-                    .remove_role(uow, *organization_id, *user_id, *role)
+                    .replace_roles(uow, *organization_id, *user_id, roles)
                     .await?;
             }
             OrganizationMembershipEventPayload::Removed {

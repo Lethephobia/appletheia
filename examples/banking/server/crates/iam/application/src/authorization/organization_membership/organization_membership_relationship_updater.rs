@@ -1,5 +1,7 @@
 use appletheia::application::unit_of_work::UnitOfWork;
-use banking_iam_domain::{OrganizationId, OrganizationMembershipId, OrganizationRole, UserId};
+use banking_iam_domain::{
+    OrganizationId, OrganizationMembershipId, OrganizationMembershipRoles, UserId,
+};
 
 use super::OrganizationMembershipRelationshipUpdaterError;
 
@@ -34,28 +36,12 @@ pub trait OrganizationMembershipRelationshipUpdater: Send + Sync {
         user_id: UserId,
     ) -> Result<(), OrganizationMembershipRelationshipUpdaterError>;
 
-    async fn upsert_roles(
+    async fn replace_roles(
         &self,
         uow: &mut Self::Uow,
         organization_id: OrganizationId,
         user_id: UserId,
-        roles: &[OrganizationRole],
-    ) -> Result<(), OrganizationMembershipRelationshipUpdaterError>;
-
-    async fn upsert_role(
-        &self,
-        uow: &mut Self::Uow,
-        organization_id: OrganizationId,
-        user_id: UserId,
-        role: OrganizationRole,
-    ) -> Result<(), OrganizationMembershipRelationshipUpdaterError>;
-
-    async fn remove_role(
-        &self,
-        uow: &mut Self::Uow,
-        organization_id: OrganizationId,
-        user_id: UserId,
-        role: OrganizationRole,
+        roles: &OrganizationMembershipRoles,
     ) -> Result<(), OrganizationMembershipRelationshipUpdaterError>;
 
     async fn remove_all_roles(

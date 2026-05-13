@@ -50,9 +50,8 @@ pub use organization_membership::{
     OrganizationMembershipDeactivateCommand, OrganizationMembershipDeactivateCommandHandler,
     OrganizationMembershipDeactivateOutput, OrganizationMembershipRemoveCommand,
     OrganizationMembershipRemoveCommandHandler, OrganizationMembershipRemoveOutput,
-    OrganizationMembershipRoleGrantCommand, OrganizationMembershipRoleGrantCommandHandler,
-    OrganizationMembershipRoleGrantOutput, OrganizationMembershipRoleRevokeCommand,
-    OrganizationMembershipRoleRevokeCommandHandler, OrganizationMembershipRoleRevokeOutput,
+    OrganizationMembershipRolesChangeCommand, OrganizationMembershipRolesChangeCommandHandler,
+    OrganizationMembershipRolesChangeOutput,
 };
 pub use user::{
     LogoutAllSessionsCommand, LogoutAllSessionsCommandHandler, LogoutAllSessionsOutput,

@@ -7,13 +7,13 @@ use appletheia::application::request_context::RequestContext;
 use banking_iam_domain::{Organization, OrganizationMembership};
 
 use super::{
-    OrganizationMembershipRoleRevokeCommand, OrganizationMembershipRoleRevokeCommandHandlerError,
-    OrganizationMembershipRoleRevokeOutput,
+    OrganizationMembershipRolesChangeCommand, OrganizationMembershipRolesChangeCommandHandlerError,
+    OrganizationMembershipRolesChangeOutput,
 };
-use crate::authorization::OrganizationMembershipRoleRevokerRelation;
+use crate::authorization::OrganizationMembershipRoleManagerRelation;
 
-/// Handles `OrganizationMembershipRoleRevokeCommand`.
-pub struct OrganizationMembershipRoleRevokeCommandHandler<ORG, MR>
+/// Handles `OrganizationMembershipRolesChangeCommand`.
+pub struct OrganizationMembershipRolesChangeCommandHandler<ORG, MR>
 where
     ORG: Repository<Organization>,
     MR: Repository<OrganizationMembership, Uow = ORG::Uow>,
@@ -22,7 +22,7 @@ where
     organization_membership_repository: MR,
 }
 
-impl<ORG, MR> OrganizationMembershipRoleRevokeCommandHandler<ORG, MR>
+impl<ORG, MR> OrganizationMembershipRolesChangeCommandHandler<ORG, MR>
 where
     ORG: Repository<Organization>,
     MR: Repository<OrganizationMembership, Uow = ORG::Uow>,
@@ -35,15 +35,15 @@ where
     }
 }
 
-impl<ORG, MR> CommandHandler for OrganizationMembershipRoleRevokeCommandHandler<ORG, MR>
+impl<ORG, MR> CommandHandler for OrganizationMembershipRolesChangeCommandHandler<ORG, MR>
 where
     ORG: Repository<Organization>,
     MR: Repository<OrganizationMembership, Uow = ORG::Uow>,
 {
-    type Command = OrganizationMembershipRoleRevokeCommand;
-    type Output = OrganizationMembershipRoleRevokeOutput;
-    type ReplayOutput = OrganizationMembershipRoleRevokeOutput;
-    type Error = OrganizationMembershipRoleRevokeCommandHandlerError;
+    type Command = OrganizationMembershipRolesChangeCommand;
+    type Output = OrganizationMembershipRolesChangeOutput;
+    type ReplayOutput = OrganizationMembershipRolesChangeOutput;
+    type Error = OrganizationMembershipRolesChangeCommandHandlerError;
     type Uow = ORG::Uow;
 
     fn authorization_plan(
@@ -55,7 +55,7 @@ where
                 OrganizationMembership,
             >(
                 command.organization_membership_id,
-                OrganizationMembershipRoleRevokerRelation::REF,
+                OrganizationMembershipRoleManagerRelation::REF,
             )),
         ]))
     }
@@ -72,7 +72,7 @@ where
             .await?
         else {
             return Err(
-                OrganizationMembershipRoleRevokeCommandHandlerError::TargetOrganizationMembershipNotFound,
+                OrganizationMembershipRolesChangeCommandHandlerError::TargetOrganizationMembershipNotFound,
             );
         };
 
@@ -81,21 +81,21 @@ where
             .find(uow, *organization_membership.organization_id()?)
             .await?
         else {
-            return Err(OrganizationMembershipRoleRevokeCommandHandlerError::OrganizationNotFound);
+            return Err(OrganizationMembershipRolesChangeCommandHandlerError::OrganizationNotFound);
         };
 
         if organization.is_removed()? {
-            return Err(OrganizationMembershipRoleRevokeCommandHandlerError::OrganizationRemoved);
+            return Err(OrganizationMembershipRolesChangeCommandHandlerError::OrganizationRemoved);
         }
 
-        let result = organization_membership.revoke_role(command.role)?;
+        let result = organization_membership.change_roles(command.roles.clone())?;
 
         self.organization_membership_repository
             .save(uow, request_context, &mut organization_membership)
             .await?;
 
         Ok(CommandHandled::same(
-            OrganizationMembershipRoleRevokeOutput::from(result),
+            OrganizationMembershipRolesChangeOutput::from(result),
         ))
     }
 }
@@ -117,16 +117,16 @@ mod tests {
     use appletheia::domain::Aggregate;
     use banking_iam_domain::{
         Organization, OrganizationHandle, OrganizationId, OrganizationMembership,
-        OrganizationMembershipId, OrganizationMembershipStatus, OrganizationName,
-        OrganizationOwner, OrganizationRole, UserId,
+        OrganizationMembershipId, OrganizationMembershipRoles, OrganizationMembershipStatus,
+        OrganizationName, OrganizationOwner, OrganizationRole, UserId,
     };
     use uuid::Uuid;
 
     use super::{
-        OrganizationMembershipRoleRevokeCommand, OrganizationMembershipRoleRevokeCommandHandler,
-        OrganizationMembershipRoleRevokeOutput,
+        OrganizationMembershipRolesChangeCommand, OrganizationMembershipRolesChangeCommandHandler,
+        OrganizationMembershipRolesChangeOutput,
     };
-    use crate::authorization::OrganizationMembershipRoleRevokerRelation;
+    use crate::authorization::OrganizationMembershipRoleManagerRelation;
 
     #[derive(Default)]
     struct TestUow;
@@ -286,25 +286,22 @@ mod tests {
             .create(organization_id, UserId::new())
             .expect("organization membership should create");
         organization_membership
-            .grant_role(OrganizationRole::FinanceManager)
-            .expect("organization membership should grant role");
-        organization_membership
     }
 
     #[test]
-    fn authorization_plan_requires_role_revoker_relationship() {
+    fn authorization_plan_requires_role_manager_relationship() {
         let organization_repository = TestOrganizationRepository::default();
         let organization_membership_repository = TestOrganizationMembershipRepository::default();
-        let handler = OrganizationMembershipRoleRevokeCommandHandler::new(
+        let handler = OrganizationMembershipRolesChangeCommandHandler::new(
             organization_repository,
             organization_membership_repository,
         );
         let organization_membership_id = OrganizationMembershipId::new();
 
         let plan = handler
-            .authorization_plan(&OrganizationMembershipRoleRevokeCommand {
+            .authorization_plan(&OrganizationMembershipRolesChangeCommand {
                 organization_membership_id,
-                role: OrganizationRole::FinanceManager,
+                roles: OrganizationMembershipRoles::new([OrganizationRole::FinanceManager]),
             })
             .expect("authorization plan should build");
 
@@ -314,7 +311,7 @@ mod tests {
                 PrincipalRequirement::AuthenticatedWithRelationship(
                     RelationshipRequirement::check::<OrganizationMembership>(
                         organization_membership_id,
-                        OrganizationMembershipRoleRevokerRelation::REF,
+                        OrganizationMembershipRoleManagerRelation::REF,
                     )
                 ),
             ])
@@ -322,7 +319,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn handle_revokes_role_and_returns_output() {
+    async fn handle_changes_roles_and_returns_output() {
         let organization = organization();
         let organization_id = organization
             .aggregate_id()
@@ -334,19 +331,20 @@ mod tests {
             .expect("organization membership id should exist");
         let organization_membership_repository =
             TestOrganizationMembershipRepository::new(organization_membership);
-        let handler = OrganizationMembershipRoleRevokeCommandHandler::new(
+        let handler = OrganizationMembershipRolesChangeCommandHandler::new(
             organization_repository,
             organization_membership_repository.clone(),
         );
         let mut uow = TestUow;
+        let roles = OrganizationMembershipRoles::new([OrganizationRole::FinanceManager]);
 
         let handled = handler
             .handle(
                 &mut uow,
                 &request_context(),
-                &OrganizationMembershipRoleRevokeCommand {
+                &OrganizationMembershipRolesChangeCommand {
                     organization_membership_id,
-                    role: OrganizationRole::FinanceManager,
+                    roles: roles.clone(),
                 },
             )
             .await
@@ -360,16 +358,11 @@ mod tests {
             .clone()
             .expect("organization membership should be saved");
 
-        assert_eq!(output, OrganizationMembershipRoleRevokeOutput::Revoked);
+        assert_eq!(output, OrganizationMembershipRolesChangeOutput::Changed);
         assert_eq!(
             saved.status().expect("status should exist"),
             OrganizationMembershipStatus::Active
         );
-        assert!(
-            !saved
-                .roles()
-                .expect("roles should exist")
-                .contains(&OrganizationRole::FinanceManager)
-        );
+        assert_eq!(saved.roles().expect("roles should exist"), &roles);
     }
 }
