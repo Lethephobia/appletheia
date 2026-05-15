@@ -3,7 +3,7 @@ use std::error::Error as StdError;
 use thiserror::Error;
 
 use crate::authorization::AuthorizerError;
-use crate::projection::ReadYourWritesWaitError;
+use crate::projection::ProjectionConsistencyWaitError;
 use crate::unit_of_work::{UnitOfWorkError, UnitOfWorkFactoryError};
 
 #[derive(Debug, Error)]
@@ -18,7 +18,7 @@ where
     UnitOfWork(#[from] UnitOfWorkError),
 
     #[error(transparent)]
-    ReadYourWrites(#[from] ReadYourWritesWaitError),
+    ProjectionConsistency(#[from] ProjectionConsistencyWaitError),
 
     #[error("query handler error: {0}")]
     Handler(#[source] HE),

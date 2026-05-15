@@ -1,5 +1,7 @@
-use appletheia::domain::EventOccurredAt;
+use appletheia::domain::{EventId, EventOccurredAt};
 use banking_iam_domain::{UserBio, UserDisplayName, UserId, UserPictureRef, Username};
+
+use super::ReadModelObservation;
 
 mod user_public_profile_reader;
 mod user_public_profile_reader_error;
@@ -26,4 +28,11 @@ pub struct UserPublicProfile {
     pub bio: Option<UserBio>,
     pub picture: Option<UserPictureRef>,
     pub created_at: EventOccurredAt,
+    pub observation: ReadModelObservation,
+}
+
+impl UserPublicProfile {
+    pub fn observed_event_ids(&self) -> Vec<EventId> {
+        self.observation.event_ids().collect()
+    }
 }

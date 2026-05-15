@@ -1,7 +1,7 @@
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum ReadYourWritesTimeoutError {
+pub enum ProjectionConsistencyTimeoutError {
     #[error("duration must be non-negative")]
     Negative,
 

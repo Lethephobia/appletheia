@@ -56,6 +56,7 @@ where
                             bio: bio.clone(),
                             picture: picture.clone(),
                             status: UserPublicProfileStatus::try_from(*status)?,
+                            event_id: event.event_id,
                             event_sequence: event.event_sequence,
                             occurred_at: event.occurred_at,
                         },
@@ -68,6 +69,7 @@ where
                         uow,
                         user_id,
                         username.clone(),
+                        event.event_id,
                         event.event_sequence,
                         event.occurred_at,
                     )
@@ -79,6 +81,7 @@ where
                         uow,
                         user_id,
                         display_name.clone(),
+                        event.event_id,
                         event.event_sequence,
                         event.occurred_at,
                     )
@@ -90,6 +93,7 @@ where
                         uow,
                         user_id,
                         bio.clone(),
+                        event.event_id,
                         event.event_sequence,
                         event.occurred_at,
                     )
@@ -101,6 +105,7 @@ where
                         uow,
                         user_id,
                         picture.clone(),
+                        event.event_id,
                         event.event_sequence,
                         event.occurred_at,
                     )
@@ -112,6 +117,7 @@ where
                         uow,
                         user_id,
                         UserPublicProfileStatus::Active,
+                        event.event_id,
                         event.event_sequence,
                         event.occurred_at,
                     )
@@ -123,6 +129,7 @@ where
                         uow,
                         user_id,
                         UserPublicProfileStatus::Inactive,
+                        event.event_id,
                         event.event_sequence,
                         event.occurred_at,
                     )
@@ -130,7 +137,13 @@ where
             }
             UserEventPayload::Removed => {
                 self.writer
-                    .delete_user(uow, user_id, event.event_sequence, event.occurred_at)
+                    .delete_user(
+                        uow,
+                        user_id,
+                        event.event_id,
+                        event.event_sequence,
+                        event.occurred_at,
+                    )
                     .await?;
             }
             UserEventPayload::IdentityLinked { .. }

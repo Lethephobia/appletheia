@@ -1,5 +1,6 @@
 use appletheia::application::event::EventSequence;
 use appletheia::application::request_context::CorrelationId;
+use appletheia::domain::EventId;
 use appletheia::domain::EventOccurredAt;
 use banking_ledger_domain::account::AccountId;
 use banking_ledger_domain::core::CurrencyAmount;
@@ -19,6 +20,7 @@ pub struct OwnedAccountTransactionListItemInsert {
     pub direction: OwnedAccountTransactionListItemDirection,
     pub kind: OwnedAccountTransactionListItemKind,
     pub status: OwnedAccountTransactionListItemStatus,
+    pub event_id: EventId,
     pub event_sequence: EventSequence,
     pub occurred_at: EventOccurredAt,
 }

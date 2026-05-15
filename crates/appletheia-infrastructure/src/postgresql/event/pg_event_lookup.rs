@@ -1,8 +1,6 @@
 use sqlx::Postgres;
 
-use appletheia_application::event::{
-    EventEnvelope, EventLookup, EventLookupError, EventSequence, EventSequenceError,
-};
+use appletheia_application::event::{EventEnvelope, EventLookup, EventLookupError};
 use appletheia_application::request_context::CausationId;
 use appletheia_domain::EventId;
 
@@ -26,66 +24,6 @@ impl Default for PgEventLookup {
 
 impl EventLookup for PgEventLookup {
     type Uow = PgUnitOfWork;
-
-    async fn max_event_sequence_by_causation_id(
-        &self,
-        uow: &mut Self::Uow,
-        causation_id: CausationId,
-    ) -> Result<Option<EventSequence>, EventLookupError> {
-        let transaction = uow.transaction_mut();
-
-        let row: (Option<i64>,) = sqlx::query_as::<Postgres, (Option<i64>,)>(
-            r#"
-            SELECT max(event_sequence)
-              FROM events
-             WHERE causation_id = $1
-            "#,
-        )
-        .bind(causation_id.value())
-        .fetch_one(transaction.as_mut())
-        .await
-        .map_err(|source| EventLookupError::Persistence(Box::new(source)))?;
-
-        let Some(max) = row.0 else {
-            return Ok(None);
-        };
-
-        let seq = EventSequence::try_from(max)
-            .map_err(|e: EventSequenceError| EventLookupError::Persistence(Box::new(e)))?;
-
-        Ok(Some(seq))
-    }
-
-    async fn last_event_id_by_causation_id(
-        &self,
-        uow: &mut Self::Uow,
-        causation_id: CausationId,
-    ) -> Result<Option<EventId>, EventLookupError> {
-        let transaction = uow.transaction_mut();
-
-        let row: Option<(uuid::Uuid,)> = sqlx::query_as::<Postgres, (uuid::Uuid,)>(
-            r#"
-            SELECT event_id
-              FROM events
-             WHERE causation_id = $1
-             ORDER BY aggregate_version DESC
-             LIMIT 1
-            "#,
-        )
-        .bind(causation_id.value())
-        .fetch_optional(transaction.as_mut())
-        .await
-        .map_err(|source| EventLookupError::Persistence(Box::new(source)))?;
-
-        let Some(row) = row else {
-            return Ok(None);
-        };
-
-        let event_id =
-            EventId::try_from(row.0).map_err(|e| EventLookupError::Persistence(Box::new(e)))?;
-
-        Ok(Some(event_id))
-    }
 
     async fn events_by_causation_id(
         &self,
@@ -114,6 +52,49 @@ impl EventLookup for PgEventLookup {
             "#,
         )
         .bind(causation_id.value())
+        .fetch_all(transaction.as_mut())
+        .await
+        .map_err(|source| EventLookupError::Persistence(Box::new(source)))?;
+
+        rows.into_iter()
+            .map(PgEventRow::try_into_event_envelope)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|source| EventLookupError::MappingFailed(Box::new(source)))
+    }
+
+    async fn events_by_event_ids(
+        &self,
+        uow: &mut Self::Uow,
+        event_ids: &[EventId],
+    ) -> Result<Vec<EventEnvelope>, EventLookupError> {
+        if event_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let transaction = uow.transaction_mut();
+        let event_id_values: Vec<uuid::Uuid> =
+            event_ids.iter().map(|event_id| event_id.value()).collect();
+
+        let rows: Vec<PgEventRow> = sqlx::query_as::<Postgres, PgEventRow>(
+            r#"
+            SELECT
+              event_sequence,
+              id,
+              aggregate_type,
+              aggregate_id,
+              aggregate_version,
+              event_name,
+              payload,
+              occurred_at,
+              correlation_id,
+              causation_id,
+              context
+              FROM events
+             WHERE id = ANY($1)
+             ORDER BY event_sequence ASC
+            "#,
+        )
+        .bind(event_id_values)
         .fetch_all(transaction.as_mut())
         .await
         .map_err(|source| EventLookupError::Persistence(Box::new(source)))?;

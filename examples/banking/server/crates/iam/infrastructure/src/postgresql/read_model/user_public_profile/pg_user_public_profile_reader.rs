@@ -40,9 +40,11 @@ impl UserPublicProfileReader for PgUserPublicProfileReader {
                 picture_type,
                 picture_object_name,
                 picture_external_url,
-                created_at
-              FROM user_public_profiles
-             WHERE id = $1 AND status = 'active'
+                created_at,
+                u.source_event_id,
+                u.updated_event_id
+              FROM user_public_profiles u
+             WHERE u.id = $1 AND u.status = 'active'
             "#,
         )
         .bind(user_id.value())

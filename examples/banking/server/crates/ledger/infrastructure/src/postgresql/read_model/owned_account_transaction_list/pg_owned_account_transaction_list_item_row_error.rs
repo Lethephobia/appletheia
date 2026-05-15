@@ -21,11 +21,23 @@ pub enum PgOwnedAccountTransactionListItemRowError {
     #[error("organization counterparty account owner is missing handle or display name")]
     MissingCounterpartyAccountOwnerOrganization,
 
+    #[error("counterparty account source is missing")]
+    MissingCounterpartyAccountSource,
+
+    #[error("counterparty account owner source is missing")]
+    MissingCounterpartyAccountOwnerSource,
+
     #[error("non-transfer transaction has transfer attributes")]
     UnexpectedTransferAttributes,
 
     #[error("unknown transaction status: {0}")]
     UnknownStatus(String),
+
+    #[error("invalid source event id")]
+    InvalidSourceEventId(#[source] Box<dyn std::error::Error + Send + Sync>),
+
+    #[error("invalid updated event id")]
+    InvalidUpdatedEventId(#[source] Box<dyn std::error::Error + Send + Sync>),
 
     #[error("invalid transfer id")]
     InvalidTransferId(#[source] Box<dyn std::error::Error + Send + Sync>),

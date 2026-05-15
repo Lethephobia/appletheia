@@ -1,4 +1,5 @@
 use appletheia::application::event::EventSequence;
+use appletheia::domain::EventId;
 use appletheia::domain::EventOccurredAt;
 use banking_ledger_domain::core::CurrencyAmount;
 use banking_ledger_domain::currency::{
@@ -16,6 +17,7 @@ pub struct CurrencyListCurrencyUpsert {
     pub decimals: CurrencyDecimals,
     pub supply: CurrencyAmount,
     pub status: CurrencyListItemStatus,
+    pub event_id: EventId,
     pub event_sequence: EventSequence,
     pub occurred_at: EventOccurredAt,
 }

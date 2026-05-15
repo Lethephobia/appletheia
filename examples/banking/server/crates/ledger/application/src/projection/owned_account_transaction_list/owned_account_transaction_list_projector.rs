@@ -61,6 +61,7 @@ where
                                 username: username.clone(),
                                 display_name: display_name.clone(),
                                 picture: picture.clone(),
+                                event_id: event.event_id,
                                 event_sequence: event.event_sequence,
                                 occurred_at: event.occurred_at,
                             },
@@ -73,6 +74,7 @@ where
                             uow,
                             user_id,
                             username.clone(),
+                            event.event_id,
                             event.event_sequence,
                             event.occurred_at,
                         )
@@ -84,6 +86,7 @@ where
                             uow,
                             user_id,
                             display_name.clone(),
+                            event.event_id,
                             event.event_sequence,
                             event.occurred_at,
                         )
@@ -95,6 +98,7 @@ where
                             uow,
                             user_id,
                             picture.clone(),
+                            event.event_id,
                             event.event_sequence,
                             event.occurred_at,
                         )
@@ -139,6 +143,7 @@ where
                                 handle: handle.clone(),
                                 display_name: display_name.clone(),
                                 picture: picture.clone(),
+                                event_id: event.event_id,
                                 event_sequence: event.event_sequence,
                                 occurred_at: event.occurred_at,
                             },
@@ -151,6 +156,7 @@ where
                             uow,
                             organization_id,
                             handle.clone(),
+                            event.event_id,
                             event.event_sequence,
                             event.occurred_at,
                         )
@@ -162,6 +168,7 @@ where
                             uow,
                             organization_id,
                             display_name.clone(),
+                            event.event_id,
                             event.event_sequence,
                             event.occurred_at,
                         )
@@ -173,6 +180,7 @@ where
                             uow,
                             organization_id,
                             picture.clone(),
+                            event.event_id,
                             event.event_sequence,
                             event.occurred_at,
                         )
@@ -214,6 +222,7 @@ where
                                 direction: OwnedAccountTransactionListItemDirection::Incoming,
                                 kind: OwnedAccountTransactionListItemKind::Deposit,
                                 status: OwnedAccountTransactionListItemStatus::Completed,
+                                event_id: event.event_id,
                                 event_sequence: event.event_sequence,
                                 occurred_at: event.occurred_at,
                             },
@@ -235,6 +244,7 @@ where
                                 direction: OwnedAccountTransactionListItemDirection::Outgoing,
                                 kind: OwnedAccountTransactionListItemKind::Withdrawal,
                                 status: OwnedAccountTransactionListItemStatus::Completed,
+                                event_id: event.event_id,
                                 event_sequence: event.event_sequence,
                                 occurred_at: event.occurred_at,
                             },
@@ -266,6 +276,7 @@ where
                                 symbol: symbol.clone(),
                                 name: name.clone(),
                                 decimals: *decimals,
+                                event_id: event.event_id,
                                 event_sequence: event.event_sequence,
                                 occurred_at: event.occurred_at,
                             },
@@ -278,6 +289,7 @@ where
                             uow,
                             currency_id,
                             symbol.clone(),
+                            event.event_id,
                             event.event_sequence,
                             event.occurred_at,
                         )
@@ -289,6 +301,7 @@ where
                             uow,
                             currency_id,
                             name.clone(),
+                            event.event_id,
                             event.event_sequence,
                             event.occurred_at,
                         )
@@ -296,7 +309,7 @@ where
                 }
                 CurrencyEventPayload::Removed => {
                     self.writer
-                        .delete_currency(uow, currency_id, event.event_sequence)
+                        .delete_currency(uow, currency_id, event.event_id, event.event_sequence)
                         .await?;
                 }
                 _ => {}
@@ -325,6 +338,7 @@ where
                                 from_account_id: *from_account_id,
                                 to_account_id: *to_account_id,
                                 amount: *amount,
+                                event_id: event.event_id,
                                 event_sequence: event.event_sequence,
                                 occurred_at: event.occurred_at,
                             },
@@ -337,6 +351,7 @@ where
                             uow,
                             transfer_id,
                             OwnedAccountTransactionId::from(event.event_id.value()),
+                            event.event_id,
                             event.event_sequence,
                             event.occurred_at,
                         )
@@ -348,6 +363,7 @@ where
                             uow,
                             transfer_id,
                             *reason,
+                            event.event_id,
                             event.event_sequence,
                             event.occurred_at,
                         )
@@ -377,6 +393,7 @@ where
                             destination_account_id: *destination_account_id,
                             currency_id: *currency_id,
                             amount: *amount,
+                            event_id: event.event_id,
                             event_sequence: event.event_sequence,
                             occurred_at: event.occurred_at,
                         },
@@ -389,6 +406,7 @@ where
                         uow,
                         currency_issuance_id,
                         OwnedAccountTransactionId::from(event.event_id.value()),
+                        event.event_id,
                         event.event_sequence,
                         event.occurred_at,
                     )
@@ -396,7 +414,12 @@ where
             }
             CurrencyIssuanceEventPayload::Failed { .. } => {
                 self.writer
-                    .fail_currency_issuance(uow, currency_issuance_id, event.event_sequence)
+                    .fail_currency_issuance(
+                        uow,
+                        currency_issuance_id,
+                        event.event_id,
+                        event.event_sequence,
+                    )
                     .await?;
             }
             _ => {}

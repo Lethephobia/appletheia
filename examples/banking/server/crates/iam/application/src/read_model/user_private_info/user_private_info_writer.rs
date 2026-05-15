@@ -1,5 +1,6 @@
 use appletheia::application::event::EventSequence;
 use appletheia::application::unit_of_work::UnitOfWork;
+use appletheia::domain::EventId;
 use appletheia::domain::EventOccurredAt;
 use banking_iam_domain::{UserBio, UserDisplayName, UserId, UserPictureRef, Username};
 
@@ -35,6 +36,7 @@ pub trait UserPrivateInfoWriter: Send + Sync {
         uow: &mut Self::Uow,
         id: UserId,
         username: Username,
+        event_id: EventId,
         event_sequence: EventSequence,
         occurred_at: EventOccurredAt,
     ) -> Result<(), UserPrivateInfoWriterError>;
@@ -44,6 +46,7 @@ pub trait UserPrivateInfoWriter: Send + Sync {
         uow: &mut Self::Uow,
         id: UserId,
         display_name: UserDisplayName,
+        event_id: EventId,
         event_sequence: EventSequence,
         occurred_at: EventOccurredAt,
     ) -> Result<(), UserPrivateInfoWriterError>;
@@ -53,6 +56,7 @@ pub trait UserPrivateInfoWriter: Send + Sync {
         uow: &mut Self::Uow,
         id: UserId,
         bio: Option<UserBio>,
+        event_id: EventId,
         event_sequence: EventSequence,
         occurred_at: EventOccurredAt,
     ) -> Result<(), UserPrivateInfoWriterError>;
@@ -62,6 +66,7 @@ pub trait UserPrivateInfoWriter: Send + Sync {
         uow: &mut Self::Uow,
         id: UserId,
         picture: Option<UserPictureRef>,
+        event_id: EventId,
         event_sequence: EventSequence,
         occurred_at: EventOccurredAt,
     ) -> Result<(), UserPrivateInfoWriterError>;
@@ -71,6 +76,7 @@ pub trait UserPrivateInfoWriter: Send + Sync {
         uow: &mut Self::Uow,
         id: UserId,
         status: UserPrivateInfoStatus,
+        event_id: EventId,
         event_sequence: EventSequence,
         occurred_at: EventOccurredAt,
     ) -> Result<(), UserPrivateInfoWriterError>;
@@ -79,6 +85,7 @@ pub trait UserPrivateInfoWriter: Send + Sync {
         &self,
         uow: &mut Self::Uow,
         id: UserId,
+        event_id: EventId,
         event_sequence: EventSequence,
         occurred_at: EventOccurredAt,
     ) -> Result<(), UserPrivateInfoWriterError>;

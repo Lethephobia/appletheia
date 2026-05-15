@@ -6,6 +6,12 @@ pub enum PgOwnedAccountListItemRowError {
     #[error("unknown account status: {0}")]
     UnknownStatus(String),
 
+    #[error("invalid source event id")]
+    InvalidSourceEventId(#[source] Box<dyn std::error::Error + Send + Sync>),
+
+    #[error("invalid updated event id")]
+    InvalidUpdatedEventId(#[source] Box<dyn std::error::Error + Send + Sync>),
+
     #[error("invalid account id")]
     InvalidAccountId(#[source] Box<dyn std::error::Error + Send + Sync>),
 

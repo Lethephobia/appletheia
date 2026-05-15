@@ -6,7 +6,10 @@ CREATE TABLE IF NOT EXISTS owned_account_list_item_currencies (
     decimals smallint NOT NULL,
     updated_at timestamptz NOT NULL,
     created_at timestamptz NOT NULL,
-    updated_event_sequence bigint NOT NULL
+    source_event_sequence bigint NOT NULL,
+    updated_event_sequence bigint NOT NULL,
+    source_event_id uuid NOT NULL,
+    updated_event_id uuid NOT NULL
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS owned_account_list_item_currencies_symbol_idx
@@ -21,7 +24,10 @@ CREATE TABLE IF NOT EXISTS owned_account_list_owner_users (
     picture_external_url text,
     updated_at timestamptz NOT NULL,
     created_at timestamptz NOT NULL,
+    source_event_sequence bigint NOT NULL,
     updated_event_sequence bigint NOT NULL,
+    source_event_id uuid NOT NULL,
+    updated_event_id uuid NOT NULL,
     CONSTRAINT owned_account_list_owner_users_picture_check CHECK (
         (picture_type IS NULL AND picture_object_name IS NULL AND picture_external_url IS NULL)
         OR (
@@ -48,7 +54,10 @@ CREATE TABLE IF NOT EXISTS owned_account_list_owner_organizations (
     picture_external_url text,
     updated_at timestamptz NOT NULL,
     created_at timestamptz NOT NULL,
+    source_event_sequence bigint NOT NULL,
     updated_event_sequence bigint NOT NULL,
+    source_event_id uuid NOT NULL,
+    updated_event_id uuid NOT NULL,
     CONSTRAINT owned_account_list_owner_organizations_picture_check CHECK (
         (picture_type IS NULL AND picture_object_name IS NULL AND picture_external_url IS NULL)
         OR (
@@ -77,7 +86,10 @@ CREATE TABLE IF NOT EXISTS owned_account_list_items (
     status text NOT NULL,
     updated_at timestamptz NOT NULL,
     created_at timestamptz NOT NULL,
+    source_event_sequence bigint NOT NULL,
     updated_event_sequence bigint NOT NULL,
+    source_event_id uuid NOT NULL,
+    updated_event_id uuid NOT NULL,
     CONSTRAINT owned_account_list_items_owner_type_check CHECK (owner_type IN ('user', 'organization')),
     CONSTRAINT owned_account_list_items_status_check CHECK (status IN ('active', 'frozen'))
 );
@@ -104,7 +116,10 @@ CREATE TABLE IF NOT EXISTS currency_list_item_owner_users (
     picture_external_url text,
     updated_at timestamptz NOT NULL,
     created_at timestamptz NOT NULL,
+    source_event_sequence bigint NOT NULL,
     updated_event_sequence bigint NOT NULL,
+    source_event_id uuid NOT NULL,
+    updated_event_id uuid NOT NULL,
     CONSTRAINT currency_list_item_owner_users_picture_check CHECK (
         (picture_type IS NULL AND picture_object_name IS NULL AND picture_external_url IS NULL)
         OR (
@@ -131,7 +146,10 @@ CREATE TABLE IF NOT EXISTS currency_list_item_owner_organizations (
     picture_external_url text,
     updated_at timestamptz NOT NULL,
     created_at timestamptz NOT NULL,
+    source_event_sequence bigint NOT NULL,
     updated_event_sequence bigint NOT NULL,
+    source_event_id uuid NOT NULL,
+    updated_event_id uuid NOT NULL,
     CONSTRAINT currency_list_item_owner_organizations_picture_check CHECK (
         (picture_type IS NULL AND picture_object_name IS NULL AND picture_external_url IS NULL)
         OR (
@@ -160,7 +178,10 @@ CREATE TABLE IF NOT EXISTS currency_list_items (
     status text NOT NULL,
     updated_at timestamptz NOT NULL,
     created_at timestamptz NOT NULL,
+    source_event_sequence bigint NOT NULL,
     updated_event_sequence bigint NOT NULL,
+    source_event_id uuid NOT NULL,
+    updated_event_id uuid NOT NULL,
     CONSTRAINT currency_list_items_owner_type_check CHECK (owner_type IN ('user', 'organization')),
     CONSTRAINT currency_list_items_status_check CHECK (status IN ('active', 'inactive'))
 );
@@ -188,7 +209,10 @@ CREATE TABLE IF NOT EXISTS owned_account_transaction_list_item_currencies (
     decimals smallint NOT NULL,
     updated_at timestamptz NOT NULL,
     created_at timestamptz NOT NULL,
-    updated_event_sequence bigint NOT NULL
+    source_event_sequence bigint NOT NULL,
+    updated_event_sequence bigint NOT NULL,
+    source_event_id uuid NOT NULL,
+    updated_event_id uuid NOT NULL
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS owned_account_transaction_list_item_currencies_symbol_idx
@@ -203,7 +227,10 @@ CREATE TABLE IF NOT EXISTS owned_account_transaction_list_owner_users (
     picture_external_url text,
     updated_at timestamptz NOT NULL,
     created_at timestamptz NOT NULL,
+    source_event_sequence bigint NOT NULL,
     updated_event_sequence bigint NOT NULL,
+    source_event_id uuid NOT NULL,
+    updated_event_id uuid NOT NULL,
     CONSTRAINT owned_account_transaction_list_owner_users_picture_check CHECK (
         (picture_type IS NULL AND picture_object_name IS NULL AND picture_external_url IS NULL)
         OR (
@@ -230,7 +257,10 @@ CREATE TABLE IF NOT EXISTS owned_account_transaction_list_owner_organizations (
     picture_external_url text,
     updated_at timestamptz NOT NULL,
     created_at timestamptz NOT NULL,
+    source_event_sequence bigint NOT NULL,
     updated_event_sequence bigint NOT NULL,
+    source_event_id uuid NOT NULL,
+    updated_event_id uuid NOT NULL,
     CONSTRAINT owned_account_transaction_list_owner_organizations_picture_check CHECK (
         (picture_type IS NULL AND picture_object_name IS NULL AND picture_external_url IS NULL)
         OR (
@@ -257,7 +287,10 @@ CREATE TABLE IF NOT EXISTS owned_account_transaction_list_transfers (
     amount numeric(39, 0) NOT NULL,
     updated_at timestamptz NOT NULL,
     created_at timestamptz NOT NULL,
-    updated_event_sequence bigint NOT NULL
+    source_event_sequence bigint NOT NULL,
+    updated_event_sequence bigint NOT NULL,
+    source_event_id uuid NOT NULL,
+    updated_event_id uuid NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS owned_account_transaction_list_transfers_correlation_idx
@@ -270,7 +303,10 @@ CREATE TABLE IF NOT EXISTS owned_account_transaction_list_currency_issuances (
     amount numeric(39, 0) NOT NULL,
     updated_at timestamptz NOT NULL,
     created_at timestamptz NOT NULL,
-    updated_event_sequence bigint NOT NULL
+    source_event_sequence bigint NOT NULL,
+    updated_event_sequence bigint NOT NULL,
+    source_event_id uuid NOT NULL,
+    updated_event_id uuid NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS owned_account_transaction_list_items (
@@ -288,7 +324,10 @@ CREATE TABLE IF NOT EXISTS owned_account_transaction_list_items (
     occurred_at timestamptz NOT NULL,
     updated_at timestamptz NOT NULL,
     created_at timestamptz NOT NULL,
+    source_event_sequence bigint NOT NULL,
     updated_event_sequence bigint NOT NULL,
+    source_event_id uuid NOT NULL,
+    updated_event_id uuid NOT NULL,
     CONSTRAINT owned_account_transaction_list_items_owner_type_check CHECK (owner_type IN ('user', 'organization')),
     CONSTRAINT owned_account_transaction_list_items_direction_check CHECK (direction IN ('incoming', 'outgoing')),
     CONSTRAINT owned_account_transaction_list_items_kind_check CHECK (
@@ -322,7 +361,10 @@ CREATE TABLE IF NOT EXISTS public_account_list_item_currencies (
     decimals smallint NOT NULL,
     updated_at timestamptz NOT NULL,
     created_at timestamptz NOT NULL,
-    updated_event_sequence bigint NOT NULL
+    source_event_sequence bigint NOT NULL,
+    updated_event_sequence bigint NOT NULL,
+    source_event_id uuid NOT NULL,
+    updated_event_id uuid NOT NULL
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS public_account_list_item_currencies_symbol_idx
@@ -337,7 +379,10 @@ CREATE TABLE IF NOT EXISTS public_account_list_item_owner_users (
     picture_external_url text,
     updated_at timestamptz NOT NULL,
     created_at timestamptz NOT NULL,
+    source_event_sequence bigint NOT NULL,
     updated_event_sequence bigint NOT NULL,
+    source_event_id uuid NOT NULL,
+    updated_event_id uuid NOT NULL,
     CONSTRAINT public_account_list_item_owner_users_picture_check CHECK (
         (picture_type IS NULL AND picture_object_name IS NULL AND picture_external_url IS NULL)
         OR (
@@ -364,7 +409,10 @@ CREATE TABLE IF NOT EXISTS public_account_list_item_owner_organizations (
     picture_external_url text,
     updated_at timestamptz NOT NULL,
     created_at timestamptz NOT NULL,
+    source_event_sequence bigint NOT NULL,
     updated_event_sequence bigint NOT NULL,
+    source_event_id uuid NOT NULL,
+    updated_event_id uuid NOT NULL,
     CONSTRAINT public_account_list_item_owner_organizations_picture_check CHECK (
         (picture_type IS NULL AND picture_object_name IS NULL AND picture_external_url IS NULL)
         OR (
@@ -390,7 +438,10 @@ CREATE TABLE IF NOT EXISTS public_account_list_items (
     status text NOT NULL,
     updated_at timestamptz NOT NULL,
     created_at timestamptz NOT NULL,
+    source_event_sequence bigint NOT NULL,
     updated_event_sequence bigint NOT NULL,
+    source_event_id uuid NOT NULL,
+    updated_event_id uuid NOT NULL,
     CONSTRAINT public_account_list_items_owner_type_check CHECK (owner_type IN ('user', 'organization')),
     CONSTRAINT public_account_list_items_status_check CHECK (status IN ('active', 'frozen'))
 );

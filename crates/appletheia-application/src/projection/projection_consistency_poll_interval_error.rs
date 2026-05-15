@@ -1,7 +1,7 @@
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum ReadYourWritesPollIntervalError {
+pub enum ProjectionConsistencyPollIntervalError {
     #[error("duration must be non-negative")]
     Negative,
 

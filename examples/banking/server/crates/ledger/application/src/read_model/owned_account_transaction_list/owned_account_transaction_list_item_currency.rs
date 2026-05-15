@@ -1,5 +1,7 @@
 use banking_ledger_domain::currency::{CurrencyDecimals, CurrencyId, CurrencyName, CurrencySymbol};
 
+use crate::read_model::ReadModelObservation;
+
 /// Currency snapshot for owned account transaction list rows.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct OwnedAccountTransactionListItemCurrency {
@@ -7,4 +9,5 @@ pub struct OwnedAccountTransactionListItemCurrency {
     pub symbol: CurrencySymbol,
     pub name: CurrencyName,
     pub decimals: CurrencyDecimals,
+    pub observation: ReadModelObservation,
 }

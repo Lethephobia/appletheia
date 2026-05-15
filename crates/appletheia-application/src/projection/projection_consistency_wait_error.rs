@@ -5,11 +5,12 @@ use crate::projection::ProjectorNameOwned;
 use crate::projection::ProjectorProcessedEventStoreError;
 use crate::request_context::MessageId;
 use crate::unit_of_work::{UnitOfWorkError, UnitOfWorkFactoryError};
+use appletheia_domain::EventId;
 
-use super::ReadYourWritesTimeout;
+use super::ProjectionConsistencyTimeout;
 
 #[derive(Debug, Error)]
-pub enum ReadYourWritesWaitError {
+pub enum ProjectionConsistencyWaitError {
     #[error("unit of work factory error: {0}")]
     UnitOfWorkFactory(#[from] UnitOfWorkFactoryError),
 
@@ -25,12 +26,14 @@ pub enum ReadYourWritesWaitError {
     #[error("no event found for message id: {message_id}")]
     UnknownMessageId { message_id: MessageId },
 
+    #[error("no event found for event ids: {event_ids:?}")]
+    UnknownEventIds { event_ids: Vec<EventId> },
+
     #[error(
-        "read-your-writes timed out (message_id={message_id}, pending_projectors={pending_projectors:?}, timeout={timeout:?})"
+        "projection consistency timed out (pending_projectors={pending_projectors:?}, timeout={timeout:?})"
     )]
     Timeout {
-        message_id: MessageId,
         pending_projectors: Vec<ProjectorNameOwned>,
-        timeout: ReadYourWritesTimeout,
+        timeout: ProjectionConsistencyTimeout,
     },
 }

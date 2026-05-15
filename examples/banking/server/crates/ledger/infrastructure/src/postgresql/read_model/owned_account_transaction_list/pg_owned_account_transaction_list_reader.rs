@@ -61,7 +61,9 @@ impl PgOwnedAccountTransactionListReader {
                 o.display_name AS owner_organization_display_name,
                 o.picture_type AS owner_organization_picture_type,
                 o.picture_object_name AS owner_organization_picture_object_name,
-                o.picture_external_url AS owner_organization_picture_external_url
+                o.picture_external_url AS owner_organization_picture_external_url,
+                COALESCE(u.source_event_id, o.source_event_id) AS source_event_id,
+                COALESCE(u.updated_event_id, o.updated_event_id) AS updated_event_id
             FROM owner_ref
             LEFT JOIN owned_account_transaction_list_owner_users u
                    ON owner_ref.owner_type = 'user'
@@ -124,16 +126,24 @@ impl OwnedAccountTransactionListReader for PgOwnedAccountTransactionListReader {
                 co.picture_type AS counterparty_owner_organization_picture_type,
                 co.picture_object_name AS counterparty_owner_organization_picture_object_name,
                 co.picture_external_url AS counterparty_owner_organization_picture_external_url,
+                COALESCE(cu.source_event_id, co.source_event_id) AS counterparty_owner_source_event_id,
+                COALESCE(cu.updated_event_id, co.updated_event_id) AS counterparty_owner_updated_event_id,
+                ca.source_event_id AS counterparty_account_source_event_id,
+                ca.updated_event_id AS counterparty_account_updated_event_id,
                 i.currency_id,
                 c.symbol AS currency_symbol,
                 c.name AS currency_name,
                 c.decimals AS currency_decimals,
+                c.source_event_id AS currency_source_event_id,
+                c.updated_event_id AS currency_updated_event_id,
                 i.amount::text AS amount,
                 i.direction,
                 i.kind,
                 i.status,
                 i.occurred_at,
-                i.created_at
+                i.created_at,
+                i.source_event_id,
+                i.updated_event_id
             FROM owned_account_transaction_list_items i
             INNER JOIN owned_account_transaction_list_item_currencies c ON c.id = i.currency_id
             LEFT JOIN owned_account_list_items ca ON ca.id = i.counterparty_account_id

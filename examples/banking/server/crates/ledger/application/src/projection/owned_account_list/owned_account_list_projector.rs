@@ -56,6 +56,7 @@ where
                                 username: username.clone(),
                                 display_name: display_name.clone(),
                                 picture: picture.clone(),
+                                event_id: event.event_id,
                                 event_sequence: event.event_sequence,
                                 occurred_at: event.occurred_at,
                             },
@@ -68,6 +69,7 @@ where
                             uow,
                             user_id,
                             username.clone(),
+                            event.event_id,
                             event.event_sequence,
                             event.occurred_at,
                         )
@@ -79,6 +81,7 @@ where
                             uow,
                             user_id,
                             display_name.clone(),
+                            event.event_id,
                             event.event_sequence,
                             event.occurred_at,
                         )
@@ -90,6 +93,7 @@ where
                             uow,
                             user_id,
                             picture.clone(),
+                            event.event_id,
                             event.event_sequence,
                             event.occurred_at,
                         )
@@ -97,7 +101,7 @@ where
                 }
                 UserEventPayload::Removed => {
                     self.writer
-                        .delete_owner_user(uow, user_id, event.event_sequence)
+                        .delete_owner_user(uow, user_id, event.event_id, event.event_sequence)
                         .await?;
                 }
                 UserEventPayload::IdentityLinked { .. }
@@ -138,6 +142,7 @@ where
                                 handle: handle.clone(),
                                 display_name: display_name.clone(),
                                 picture: picture.clone(),
+                                event_id: event.event_id,
                                 event_sequence: event.event_sequence,
                                 occurred_at: event.occurred_at,
                             },
@@ -150,6 +155,7 @@ where
                             uow,
                             organization_id,
                             handle.clone(),
+                            event.event_id,
                             event.event_sequence,
                             event.occurred_at,
                         )
@@ -161,6 +167,7 @@ where
                             uow,
                             organization_id,
                             display_name.clone(),
+                            event.event_id,
                             event.event_sequence,
                             event.occurred_at,
                         )
@@ -172,6 +179,7 @@ where
                             uow,
                             organization_id,
                             picture.clone(),
+                            event.event_id,
                             event.event_sequence,
                             event.occurred_at,
                         )
@@ -179,7 +187,12 @@ where
                 }
                 OrganizationEventPayload::Removed => {
                     self.writer
-                        .delete_owner_organization(uow, organization_id, event.event_sequence)
+                        .delete_owner_organization(
+                            uow,
+                            organization_id,
+                            event.event_id,
+                            event.event_sequence,
+                        )
                         .await?;
                 }
                 OrganizationEventPayload::OwnershipTransferred { .. }
@@ -222,6 +235,7 @@ where
                                 balance: *balance,
                                 reserved_balance: *reserved_balance,
                                 status: OwnedAccountListItemStatus::try_from(*status)?,
+                                event_id: event.event_id,
                                 event_sequence: event.event_sequence,
                                 occurred_at: event.occurred_at,
                             },
@@ -234,6 +248,7 @@ where
                             uow,
                             account_id,
                             *owner,
+                            event.event_id,
                             event.event_sequence,
                             event.occurred_at,
                         )
@@ -245,6 +260,7 @@ where
                             uow,
                             account_id,
                             name.clone(),
+                            event.event_id,
                             event.event_sequence,
                             event.occurred_at,
                         )
@@ -256,6 +272,7 @@ where
                             uow,
                             account_id,
                             *amount,
+                            event.event_id,
                             event.event_sequence,
                             event.occurred_at,
                         )
@@ -267,6 +284,7 @@ where
                             uow,
                             account_id,
                             *amount,
+                            event.event_id,
                             event.event_sequence,
                             event.occurred_at,
                         )
@@ -278,6 +296,7 @@ where
                             uow,
                             account_id,
                             *amount,
+                            event.event_id,
                             event.event_sequence,
                             event.occurred_at,
                         )
@@ -289,6 +308,7 @@ where
                             uow,
                             account_id,
                             *amount,
+                            event.event_id,
                             event.event_sequence,
                             event.occurred_at,
                         )
@@ -300,6 +320,7 @@ where
                             uow,
                             account_id,
                             *amount,
+                            event.event_id,
                             event.event_sequence,
                             event.occurred_at,
                         )
@@ -311,6 +332,7 @@ where
                             uow,
                             account_id,
                             OwnedAccountListItemStatus::Frozen,
+                            event.event_id,
                             event.event_sequence,
                             event.occurred_at,
                         )
@@ -322,6 +344,7 @@ where
                             uow,
                             account_id,
                             OwnedAccountListItemStatus::Active,
+                            event.event_id,
                             event.event_sequence,
                             event.occurred_at,
                         )
@@ -329,7 +352,13 @@ where
                 }
                 AccountEventPayload::Closed => {
                     self.writer
-                        .delete_account(uow, account_id, event.event_sequence, event.occurred_at)
+                        .delete_account(
+                            uow,
+                            account_id,
+                            event.event_id,
+                            event.event_sequence,
+                            event.occurred_at,
+                        )
                         .await?;
                 }
                 AccountEventPayload::OwnershipTransferRejected { .. }
@@ -365,6 +394,7 @@ where
                             symbol: symbol.clone(),
                             name: name.clone(),
                             decimals: *decimals,
+                            event_id: event.event_id,
                             event_sequence: event.event_sequence,
                             occurred_at: event.occurred_at,
                         },
@@ -377,6 +407,7 @@ where
                         uow,
                         currency_id,
                         symbol.clone(),
+                        event.event_id,
                         event.event_sequence,
                         event.occurred_at,
                     )
@@ -388,6 +419,7 @@ where
                         uow,
                         currency_id,
                         name.clone(),
+                        event.event_id,
                         event.event_sequence,
                         event.occurred_at,
                     )
@@ -395,7 +427,13 @@ where
             }
             CurrencyEventPayload::Removed => {
                 self.writer
-                    .delete_currency(uow, currency_id, event.event_sequence, event.occurred_at)
+                    .delete_currency(
+                        uow,
+                        currency_id,
+                        event.event_id,
+                        event.event_sequence,
+                        event.occurred_at,
+                    )
                     .await?;
             }
             CurrencyEventPayload::OwnershipTransferred { .. }

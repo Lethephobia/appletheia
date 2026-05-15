@@ -10,7 +10,10 @@ CREATE TABLE IF NOT EXISTS user_private_infos (
     status text NOT NULL,
     updated_at timestamptz NOT NULL,
     created_at timestamptz NOT NULL,
+    source_event_sequence bigint NOT NULL,
     updated_event_sequence bigint NOT NULL,
+    source_event_id uuid NOT NULL,
+    updated_event_id uuid NOT NULL,
     CONSTRAINT user_private_infos_status_check CHECK (status IN ('active', 'inactive')),
     CONSTRAINT user_private_infos_picture_check CHECK (
         (picture_type IS NULL AND picture_object_name IS NULL AND picture_external_url IS NULL)
@@ -43,7 +46,10 @@ CREATE TABLE IF NOT EXISTS user_private_info_identities (
     email text,
     updated_at timestamptz NOT NULL,
     created_at timestamptz NOT NULL,
+    source_event_sequence bigint NOT NULL,
     updated_event_sequence bigint NOT NULL,
+    source_event_id uuid NOT NULL,
+    updated_event_id uuid NOT NULL,
     PRIMARY KEY (user_id, provider, subject)
 );
 
@@ -66,7 +72,10 @@ CREATE TABLE IF NOT EXISTS user_public_profiles (
     status text NOT NULL,
     updated_at timestamptz NOT NULL,
     created_at timestamptz NOT NULL,
+    source_event_sequence bigint NOT NULL,
     updated_event_sequence bigint NOT NULL,
+    source_event_id uuid NOT NULL,
+    updated_event_id uuid NOT NULL,
     CONSTRAINT user_public_profiles_status_check CHECK (status IN ('active', 'inactive')),
     CONSTRAINT user_public_profiles_picture_check CHECK (
         (picture_type IS NULL AND picture_object_name IS NULL AND picture_external_url IS NULL)

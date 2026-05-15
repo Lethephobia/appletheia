@@ -1,8 +1,9 @@
-use appletheia::domain::EventOccurredAt;
+use appletheia::domain::{EventId, EventOccurredAt};
 use banking_ledger_domain::core::CurrencyAmount;
 use banking_ledger_domain::currency::{CurrencyDecimals, CurrencyId, CurrencyName, CurrencySymbol};
 
 use super::{CurrencyListItemOwner, CurrencyListItemStatus};
+use crate::read_model::ReadModelObservation;
 
 /// Read model for one public currency list row.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -15,4 +16,15 @@ pub struct CurrencyListItem {
     pub supply: CurrencyAmount,
     pub status: CurrencyListItemStatus,
     pub created_at: EventOccurredAt,
+    pub observation: ReadModelObservation,
+}
+
+impl CurrencyListItem {
+    pub fn observed_event_ids(&self) -> Vec<EventId> {
+        ReadModelObservation::collect_event_ids(
+            self.observation
+                .event_ids()
+                .chain(self.owner.observed_event_ids()),
+        )
+    }
 }

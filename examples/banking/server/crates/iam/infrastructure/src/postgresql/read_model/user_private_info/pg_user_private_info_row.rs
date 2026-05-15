@@ -1,5 +1,5 @@
-use appletheia::domain::{AggregateId, EventOccurredAt};
-use banking_iam_application::{UserPrivateInfo, UserPrivateInfoStatus};
+use appletheia::domain::{AggregateId, EventId, EventOccurredAt};
+use banking_iam_application::{ReadModelObservation, UserPrivateInfo, UserPrivateInfoStatus};
 use banking_iam_domain::{UserBio, UserDisplayName, UserId, Username};
 use sqlx::types::chrono::{DateTime, Utc};
 
@@ -18,6 +18,8 @@ pub struct PgUserPrivateInfoRow {
     pub picture_external_url: Option<String>,
     pub status: String,
     pub created_at: DateTime<Utc>,
+    pub source_event_id: uuid::Uuid,
+    pub updated_event_id: uuid::Uuid,
 }
 
 impl PgUserPrivateInfoRow {
@@ -46,6 +48,14 @@ impl PgUserPrivateInfoRow {
             .map_err(|error| PgUserPrivateInfoRowError::InvalidUserPicture(Box::new(error)))?,
             status: Self::status(self.status)?,
             created_at: EventOccurredAt::from(self.created_at),
+            observation: ReadModelObservation::new(
+                EventId::try_from(self.source_event_id).map_err(|error| {
+                    PgUserPrivateInfoRowError::InvalidSourceEventId(Box::new(error))
+                })?,
+                EventId::try_from(self.updated_event_id).map_err(|error| {
+                    PgUserPrivateInfoRowError::InvalidUpdatedEventId(Box::new(error))
+                })?,
+            ),
         })
     }
 

@@ -3,6 +3,7 @@ mod owned_account_list;
 mod owned_account_transaction_list;
 mod pagination;
 mod public_account_list;
+mod read_model_observation;
 
 pub use currency_list::{
     CurrencyList, CurrencyListCriteria, CurrencyListCurrencyUpsert, CurrencyListCursor,
@@ -49,3 +50,4 @@ pub use public_account_list::{
     PublicAccountListReader, PublicAccountListReaderError, PublicAccountListSortKey,
     PublicAccountListWriter, PublicAccountListWriterError,
 };
+pub use read_model_observation::ReadModelObservation;

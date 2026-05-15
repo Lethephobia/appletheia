@@ -1,3 +1,5 @@
+use appletheia::domain::EventId;
+use banking_iam_application::ReadModelObservation;
 use banking_iam_application::UserPrivateInfoIdentity;
 use banking_iam_domain::{UserIdentityProvider, UserIdentitySubject, core::Email};
 
@@ -8,6 +10,8 @@ pub struct PgUserPrivateInfoIdentityRow {
     pub provider: String,
     pub subject: String,
     pub email: Option<String>,
+    pub source_event_id: uuid::Uuid,
+    pub updated_event_id: uuid::Uuid,
 }
 
 impl PgUserPrivateInfoIdentityRow {
@@ -31,6 +35,14 @@ impl TryFrom<PgUserPrivateInfoIdentityRow> for UserPrivateInfoIdentity {
                 PgUserPrivateInfoRowError::InvalidUserIdentitySubject(Box::new(error))
             })?,
             email: PgUserPrivateInfoIdentityRow::optional_email(row.email)?,
+            observation: ReadModelObservation::new(
+                EventId::try_from(row.source_event_id).map_err(|error| {
+                    PgUserPrivateInfoRowError::InvalidSourceEventId(Box::new(error))
+                })?,
+                EventId::try_from(row.updated_event_id).map_err(|error| {
+                    PgUserPrivateInfoRowError::InvalidUpdatedEventId(Box::new(error))
+                })?,
+            ),
         })
     }
 }

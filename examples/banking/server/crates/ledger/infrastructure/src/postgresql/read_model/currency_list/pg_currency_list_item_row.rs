@@ -1,10 +1,10 @@
-use appletheia::domain::{AggregateId, EventOccurredAt};
+use appletheia::domain::{AggregateId, EventId, EventOccurredAt};
 use banking_iam_domain::{
     OrganizationDisplayName, OrganizationHandle, OrganizationId, UserDisplayName, UserId, Username,
 };
 use banking_ledger_application::{
     CurrencyListItem, CurrencyListItemOwner, CurrencyListItemOwnerOrganization,
-    CurrencyListItemOwnerUser, CurrencyListItemStatus,
+    CurrencyListItemOwnerUser, CurrencyListItemStatus, ReadModelObservation,
 };
 use banking_ledger_domain::core::CurrencyAmount;
 use banking_ledger_domain::currency::{CurrencyDecimals, CurrencyId, CurrencyName, CurrencySymbol};
@@ -29,15 +29,51 @@ pub struct PgCurrencyListItemRow {
     pub owner_organization_picture_type: Option<String>,
     pub owner_organization_picture_object_name: Option<String>,
     pub owner_organization_picture_external_url: Option<String>,
+    pub owner_source_event_id: Option<uuid::Uuid>,
+    pub owner_updated_event_id: Option<uuid::Uuid>,
     pub symbol: String,
     pub name: String,
     pub decimals: i16,
     pub supply: String,
     pub status: String,
     pub created_at: DateTime<Utc>,
+    pub source_event_id: uuid::Uuid,
+    pub updated_event_id: uuid::Uuid,
 }
 
 impl PgCurrencyListItemRow {
+    fn observation(
+        source_event_id: uuid::Uuid,
+        updated_event_id: uuid::Uuid,
+    ) -> Result<ReadModelObservation, PgCurrencyListItemRowError> {
+        Ok(ReadModelObservation::new(
+            EventId::try_from(source_event_id).map_err(|error| {
+                PgCurrencyListItemRowError::InvalidSourceEventId(Box::new(error))
+            })?,
+            EventId::try_from(updated_event_id).map_err(|error| {
+                PgCurrencyListItemRowError::InvalidUpdatedEventId(Box::new(error))
+            })?,
+        ))
+    }
+
+    fn owner_observation(&self) -> Result<ReadModelObservation, PgCurrencyListItemRowError> {
+        let source_event_id =
+            self.owner_source_event_id
+                .ok_or_else(|| match self.owner_type.as_str() {
+                    "user" => PgCurrencyListItemRowError::MissingUserOwner,
+                    "organization" => PgCurrencyListItemRowError::MissingOrganizationOwner,
+                    _ => PgCurrencyListItemRowError::UnknownOwnerType(self.owner_type.clone()),
+                })?;
+        let updated_event_id =
+            self.owner_updated_event_id
+                .ok_or_else(|| match self.owner_type.as_str() {
+                    "user" => PgCurrencyListItemRowError::MissingUserOwner,
+                    "organization" => PgCurrencyListItemRowError::MissingOrganizationOwner,
+                    _ => PgCurrencyListItemRowError::UnknownOwnerType(self.owner_type.clone()),
+                })?;
+        Self::observation(source_event_id, updated_event_id)
+    }
+
     fn status(value: String) -> Result<CurrencyListItemStatus, PgCurrencyListItemRowError> {
         match value.as_str() {
             "active" => Ok(CurrencyListItemStatus::Active),
@@ -88,6 +124,7 @@ impl PgCurrencyListItemRow {
                 }
                 .into_picture()
                 .map_err(|error| PgCurrencyListItemRowError::InvalidUserPicture(Box::new(error)))?,
+                observation: self.owner_observation()?,
             })),
             "organization" => {
                 let handle = self
@@ -123,6 +160,7 @@ impl PgCurrencyListItemRow {
                         .map_err(|error| {
                             PgCurrencyListItemRowError::InvalidOrganizationPicture(Box::new(error))
                         })?,
+                        observation: self.owner_observation()?,
                     },
                 ))
             }
@@ -155,6 +193,10 @@ impl TryFrom<PgCurrencyListItemRow> for CurrencyListItem {
             supply: PgCurrencyListItemRow::amount(row.supply)?,
             status: PgCurrencyListItemRow::status(row.status)?,
             created_at: EventOccurredAt::from(row.created_at),
+            observation: PgCurrencyListItemRow::observation(
+                row.source_event_id,
+                row.updated_event_id,
+            )?,
         })
     }
 }

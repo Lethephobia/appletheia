@@ -62,11 +62,17 @@ impl PublicAccountListReader for PgPublicAccountListReader {
                 o.picture_type AS owner_organization_picture_type,
                 o.picture_object_name AS owner_organization_picture_object_name,
                 o.picture_external_url AS owner_organization_picture_external_url,
+                COALESCE(u.source_event_id, o.source_event_id) AS owner_source_event_id,
+                COALESCE(u.updated_event_id, o.updated_event_id) AS owner_updated_event_id,
                 c.id AS currency_id,
                 c.symbol AS currency_symbol,
                 c.name AS currency_name,
                 c.decimals AS currency_decimals,
-                a.created_at
+                c.source_event_id AS currency_source_event_id,
+                c.updated_event_id AS currency_updated_event_id,
+                a.created_at,
+                a.source_event_id,
+                a.updated_event_id
               FROM public_account_list_items a
               INNER JOIN public_account_list_item_currencies c
                       ON c.id = a.currency_id

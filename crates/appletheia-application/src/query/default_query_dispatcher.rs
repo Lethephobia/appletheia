@@ -1,5 +1,5 @@
 use crate::authorization::Authorizer;
-use crate::projection::ReadYourWritesWaiter;
+use crate::projection::ProjectionConsistencyWaiter;
 use crate::request_context::RequestContext;
 use crate::unit_of_work::{UnitOfWork, UnitOfWorkFactory};
 
@@ -7,25 +7,25 @@ use super::{QueryConsistency, QueryDispatcher, QueryDispatcherError, QueryHandle
 
 pub struct DefaultQueryDispatcher<W, U, AZ>
 where
-    W: ReadYourWritesWaiter,
+    W: ProjectionConsistencyWaiter,
     U: UnitOfWorkFactory,
     U::Uow: UnitOfWork,
 {
-    read_your_writes_waiter: W,
+    projection_consistency_waiter: W,
     uow_factory: U,
     authorizer: AZ,
 }
 
 impl<W, U, AZ> DefaultQueryDispatcher<W, U, AZ>
 where
-    W: ReadYourWritesWaiter,
+    W: ProjectionConsistencyWaiter,
     U: UnitOfWorkFactory,
     U::Uow: UnitOfWork,
     AZ: Authorizer,
 {
-    pub fn new(read_your_writes_waiter: W, uow_factory: U, authorizer: AZ) -> Self {
+    pub fn new(projection_consistency_waiter: W, uow_factory: U, authorizer: AZ) -> Self {
         Self {
-            read_your_writes_waiter,
+            projection_consistency_waiter,
             uow_factory,
             authorizer,
         }
@@ -34,7 +34,7 @@ where
 
 impl<W, U, AZ> QueryDispatcher for DefaultQueryDispatcher<W, U, AZ>
 where
-    W: ReadYourWritesWaiter,
+    W: ProjectionConsistencyWaiter,
     U: UnitOfWorkFactory,
     U::Uow: UnitOfWork,
     AZ: Authorizer,
@@ -60,14 +60,28 @@ where
 
         match options.consistency {
             QueryConsistency::Eventual => {}
-            QueryConsistency::ReadYourWrites {
+            QueryConsistency::AfterMessage {
                 message_id,
                 timeout,
                 poll_interval,
             } => {
-                self.read_your_writes_waiter
-                    .wait(
+                self.projection_consistency_waiter
+                    .wait_for_message(
                         message_id,
+                        timeout,
+                        poll_interval,
+                        H::PROJECTOR_DEPENDENCIES,
+                    )
+                    .await?;
+            }
+            QueryConsistency::AfterEvents {
+                event_ids,
+                timeout,
+                poll_interval,
+            } => {
+                self.projection_consistency_waiter
+                    .wait_for_events(
+                        &event_ids,
                         timeout,
                         poll_interval,
                         H::PROJECTOR_DEPENDENCIES,

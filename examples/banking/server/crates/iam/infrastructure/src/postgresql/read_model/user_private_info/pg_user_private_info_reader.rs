@@ -40,9 +40,11 @@ impl UserPrivateInfoReader for PgUserPrivateInfoReader {
                 picture_object_name,
                 picture_external_url,
                 status,
-                created_at
-              FROM user_private_infos
-             WHERE id = $1
+                created_at,
+                u.source_event_id,
+                u.updated_event_id
+              FROM user_private_infos u
+             WHERE u.id = $1
             "#,
         )
         .bind(user_id.value())
@@ -56,10 +58,15 @@ impl UserPrivateInfoReader for PgUserPrivateInfoReader {
 
         let identity_rows = sqlx::query_as::<_, PgUserPrivateInfoIdentityRow>(
             r#"
-            SELECT provider, subject, email
-              FROM user_private_info_identities
-             WHERE user_id = $1
-             ORDER BY provider ASC, subject ASC
+            SELECT
+                i.provider,
+                i.subject,
+                i.email,
+                i.source_event_id,
+                i.updated_event_id
+              FROM user_private_info_identities i
+             WHERE i.user_id = $1
+             ORDER BY i.provider ASC, i.subject ASC
             "#,
         )
         .bind(user_id.value())

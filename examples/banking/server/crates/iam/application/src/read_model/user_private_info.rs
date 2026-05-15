@@ -1,5 +1,7 @@
-use appletheia::domain::EventOccurredAt;
+use appletheia::domain::{EventId, EventOccurredAt};
 use banking_iam_domain::{UserBio, UserDisplayName, UserId, UserPictureRef, Username};
+
+use super::ReadModelObservation;
 
 mod user_private_info_identity;
 mod user_private_info_identity_upsert;
@@ -32,4 +34,17 @@ pub struct UserPrivateInfo {
     pub picture: Option<UserPictureRef>,
     pub status: UserPrivateInfoStatus,
     pub created_at: EventOccurredAt,
+    pub observation: ReadModelObservation,
+}
+
+impl UserPrivateInfo {
+    pub fn observed_event_ids(&self) -> Vec<EventId> {
+        ReadModelObservation::collect_event_ids(
+            self.observation.event_ids().chain(
+                self.identities
+                    .iter()
+                    .flat_map(|identity| identity.observation.event_ids()),
+            ),
+        )
+    }
 }

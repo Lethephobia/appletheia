@@ -1,5 +1,4 @@
-use appletheia::domain::AggregateId;
-use appletheia::domain::EventOccurredAt;
+use appletheia::domain::{AggregateId, EventId, EventOccurredAt};
 use banking_iam_domain::{
     OrganizationDisplayName, OrganizationHandle, OrganizationId, UserDisplayName, UserId, Username,
 };
@@ -11,6 +10,7 @@ use banking_ledger_application::{
     OwnedAccountTransactionListItemCounterpartyAccountOwnerUser,
     OwnedAccountTransactionListItemCurrency, OwnedAccountTransactionListItemDirection,
     OwnedAccountTransactionListItemKind, OwnedAccountTransactionListItemStatus,
+    ReadModelObservation,
 };
 use banking_ledger_domain::account::AccountId;
 use banking_ledger_domain::core::CurrencyAmount;
@@ -40,19 +40,41 @@ pub struct PgOwnedAccountTransactionListItemRow {
     pub counterparty_owner_organization_picture_type: Option<String>,
     pub counterparty_owner_organization_picture_object_name: Option<String>,
     pub counterparty_owner_organization_picture_external_url: Option<String>,
+    pub counterparty_owner_source_event_id: Option<uuid::Uuid>,
+    pub counterparty_owner_updated_event_id: Option<uuid::Uuid>,
+    pub counterparty_account_source_event_id: Option<uuid::Uuid>,
+    pub counterparty_account_updated_event_id: Option<uuid::Uuid>,
     pub currency_id: uuid::Uuid,
     pub currency_symbol: String,
     pub currency_name: String,
     pub currency_decimals: i16,
+    pub currency_source_event_id: uuid::Uuid,
+    pub currency_updated_event_id: uuid::Uuid,
     pub amount: String,
     pub direction: String,
     pub kind: String,
     pub status: String,
     pub occurred_at: DateTime<Utc>,
     pub created_at: DateTime<Utc>,
+    pub source_event_id: uuid::Uuid,
+    pub updated_event_id: uuid::Uuid,
 }
 
 impl PgOwnedAccountTransactionListItemRow {
+    fn observation(
+        source_event_id: uuid::Uuid,
+        updated_event_id: uuid::Uuid,
+    ) -> Result<ReadModelObservation, PgOwnedAccountTransactionListItemRowError> {
+        Ok(ReadModelObservation::new(
+            EventId::try_from(source_event_id).map_err(|error| {
+                PgOwnedAccountTransactionListItemRowError::InvalidSourceEventId(Box::new(error))
+            })?,
+            EventId::try_from(updated_event_id).map_err(|error| {
+                PgOwnedAccountTransactionListItemRowError::InvalidUpdatedEventId(Box::new(error))
+            })?,
+        ))
+    }
+
     fn direction(
         value: String,
     ) -> Result<OwnedAccountTransactionListItemDirection, PgOwnedAccountTransactionListItemRowError>
@@ -81,7 +103,7 @@ impl PgOwnedAccountTransactionListItemRow {
             }
             "transfer" => Ok(OwnedAccountTransactionListItemKind::Transfer {
                 transfer_id: Self::transfer_id(row.transfer_id)?,
-                counterparty_account: Self::counterparty_account(row)?,
+                counterparty_account: Box::new(Self::counterparty_account(row)?),
             }),
             "currency_issuance" => {
                 Self::ensure_no_transfer_attributes(row)?;
@@ -118,6 +140,14 @@ impl PgOwnedAccountTransactionListItemRow {
                 PgOwnedAccountTransactionListItemRowError::InvalidAccountId(Box::new(error))
             })?,
             owner: Self::counterparty_account_owner(row)?,
+            observation: Self::observation(
+                row.counterparty_account_source_event_id.ok_or(
+                    PgOwnedAccountTransactionListItemRowError::MissingCounterpartyAccountSource,
+                )?,
+                row.counterparty_account_updated_event_id.ok_or(
+                    PgOwnedAccountTransactionListItemRowError::MissingCounterpartyAccountSource,
+                )?,
+            )?,
         })
     }
 
@@ -161,6 +191,14 @@ impl PgOwnedAccountTransactionListItemRow {
                                 error,
                             ))
                         })?,
+                        observation: Self::observation(
+                            row.counterparty_owner_source_event_id.ok_or(
+                                PgOwnedAccountTransactionListItemRowError::MissingCounterpartyAccountOwnerSource,
+                            )?,
+                            row.counterparty_owner_updated_event_id.ok_or(
+                                PgOwnedAccountTransactionListItemRowError::MissingCounterpartyAccountOwnerSource,
+                            )?,
+                        )?,
                     },
                 ),
             ),
@@ -210,6 +248,14 @@ impl PgOwnedAccountTransactionListItemRow {
                                 Box::new(error),
                             )
                         })?,
+                        observation: Self::observation(
+                            row.counterparty_owner_source_event_id.ok_or(
+                                PgOwnedAccountTransactionListItemRowError::MissingCounterpartyAccountOwnerSource,
+                            )?,
+                            row.counterparty_owner_updated_event_id.ok_or(
+                                PgOwnedAccountTransactionListItemRowError::MissingCounterpartyAccountOwnerSource,
+                            )?,
+                        )?,
                     },
                 ))
             }
@@ -243,8 +289,12 @@ impl PgOwnedAccountTransactionListItemRow {
     ) -> Result<(), PgOwnedAccountTransactionListItemRowError> {
         if row.transfer_id.is_some()
             || row.counterparty_account_id.is_some()
+            || row.counterparty_account_source_event_id.is_some()
+            || row.counterparty_account_updated_event_id.is_some()
             || row.counterparty_owner_type.is_some()
             || row.counterparty_owner_id.is_some()
+            || row.counterparty_owner_source_event_id.is_some()
+            || row.counterparty_owner_updated_event_id.is_some()
         {
             return Err(PgOwnedAccountTransactionListItemRowError::UnexpectedTransferAttributes);
         }
@@ -301,6 +351,10 @@ impl TryFrom<PgOwnedAccountTransactionListItemRow> for OwnedAccountTransactionLi
                     PgOwnedAccountTransactionListItemRowError::InvalidCurrencyName(Box::new(error))
                 })?,
                 decimals: CurrencyDecimals::new(currency_decimals),
+                observation: PgOwnedAccountTransactionListItemRow::observation(
+                    row.currency_source_event_id,
+                    row.currency_updated_event_id,
+                )?,
             },
             amount: PgOwnedAccountTransactionListItemRow::amount(row.amount.clone())?,
             direction: PgOwnedAccountTransactionListItemRow::direction(row.direction.clone())?,
@@ -308,6 +362,10 @@ impl TryFrom<PgOwnedAccountTransactionListItemRow> for OwnedAccountTransactionLi
             status: PgOwnedAccountTransactionListItemRow::status(row.status.clone())?,
             occurred_at: EventOccurredAt::from(row.occurred_at),
             created_at: EventOccurredAt::from(row.created_at),
+            observation: PgOwnedAccountTransactionListItemRow::observation(
+                row.source_event_id,
+                row.updated_event_id,
+            )?,
         })
     }
 }

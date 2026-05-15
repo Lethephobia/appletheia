@@ -1,4 +1,5 @@
 use appletheia::application::event::EventSequence;
+use appletheia::domain::EventId;
 use appletheia::domain::EventOccurredAt;
 use banking_iam_domain::{UserId, UserIdentityProvider, UserIdentitySubject, core::Email};
 
@@ -8,6 +9,7 @@ pub struct UserPrivateInfoIdentityUpsert {
     pub provider: UserIdentityProvider,
     pub subject: UserIdentitySubject,
     pub email: Option<Email>,
+    pub event_id: EventId,
     pub event_sequence: EventSequence,
     pub occurred_at: EventOccurredAt,
 }

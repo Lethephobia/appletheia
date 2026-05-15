@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::time::Duration as StdDuration;
 
 use tokio::time::Instant;
@@ -9,12 +10,12 @@ use crate::request_context::{CausationId, MessageId};
 use crate::unit_of_work::{UnitOfWork, UnitOfWorkFactory};
 
 use super::{
-    ProjectorDependencies, ProjectorNameOwned, ProjectorProcessedEventStore,
-    ReadYourWritesPollInterval, ReadYourWritesTimeout, ReadYourWritesWaitError,
-    ReadYourWritesWaiter,
+    ProjectionConsistencyPollInterval, ProjectionConsistencyTimeout,
+    ProjectionConsistencyWaitError, ProjectionConsistencyWaiter, ProjectorDependencies,
+    ProjectorNameOwned, ProjectorProcessedEventStore,
 };
 
-pub struct DefaultReadYourWritesWaiter<U, L, P>
+pub struct DefaultProjectionConsistencyWaiter<U, L, P>
 where
     U: UnitOfWorkFactory,
     U::Uow: UnitOfWork,
@@ -26,7 +27,7 @@ where
     projector_processed_event_store: P,
 }
 
-impl<U, L, P> DefaultReadYourWritesWaiter<U, L, P>
+impl<U, L, P> DefaultProjectionConsistencyWaiter<U, L, P>
 where
     U: UnitOfWorkFactory,
     U::Uow: UnitOfWork,
@@ -43,7 +44,7 @@ where
     async fn causation_events(
         &self,
         message_id: MessageId,
-    ) -> Result<Vec<EventEnvelope>, ReadYourWritesWaitError> {
+    ) -> Result<Vec<EventEnvelope>, ProjectionConsistencyWaitError> {
         let mut uow = self.uow_factory.begin().await?;
         let causation_id = CausationId::from(message_id);
         let events = self
@@ -60,7 +61,42 @@ where
         uow.commit().await?;
 
         if events.is_empty() {
-            return Err(ReadYourWritesWaitError::UnknownMessageId { message_id });
+            return Err(ProjectionConsistencyWaitError::UnknownMessageId { message_id });
+        }
+
+        Ok(events)
+    }
+
+    async fn event_id_events(
+        &self,
+        event_ids: &[EventId],
+    ) -> Result<Vec<EventEnvelope>, ProjectionConsistencyWaitError> {
+        if event_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let mut uow = self.uow_factory.begin().await?;
+        let events = self.lookup.events_by_event_ids(&mut uow, event_ids).await;
+        let events = match events {
+            Ok(value) => value,
+            Err(operation_error) => {
+                let operation_error = uow.rollback_with_operation_error(operation_error).await?;
+                return Err(operation_error.into());
+            }
+        };
+        uow.commit().await?;
+
+        let found_event_ids: HashSet<EventId> = events.iter().map(|event| event.event_id).collect();
+        let missing_event_ids: Vec<EventId> = event_ids
+            .iter()
+            .copied()
+            .filter(|event_id| !found_event_ids.contains(event_id))
+            .collect();
+
+        if !missing_event_ids.is_empty() {
+            return Err(ProjectionConsistencyWaitError::UnknownEventIds {
+                event_ids: missing_event_ids,
+            });
         }
 
         Ok(events)
@@ -95,13 +131,12 @@ where
 
     async fn wait_for_projectors(
         &self,
-        message_id: MessageId,
-        timeout: ReadYourWritesTimeout,
+        timeout: ProjectionConsistencyTimeout,
         poll_duration: StdDuration,
         deadline: Instant,
         projector_dependencies: ProjectorDependencies<'_>,
         events: &[EventEnvelope],
-    ) -> Result<(), ReadYourWritesWaitError> {
+    ) -> Result<(), ProjectionConsistencyWaitError> {
         let projector_targets = self.projector_targets(projector_dependencies, events);
         if projector_targets.is_empty() {
             return Ok(());
@@ -141,8 +176,7 @@ where
 
             let now = Instant::now();
             if now >= deadline {
-                return Err(ReadYourWritesWaitError::Timeout {
-                    message_id,
+                return Err(ProjectionConsistencyWaitError::Timeout {
                     pending_projectors,
                     timeout,
                 });
@@ -162,20 +196,20 @@ where
     }
 }
 
-impl<U, L, P> ReadYourWritesWaiter for DefaultReadYourWritesWaiter<U, L, P>
+impl<U, L, P> ProjectionConsistencyWaiter for DefaultProjectionConsistencyWaiter<U, L, P>
 where
     U: UnitOfWorkFactory,
     U::Uow: UnitOfWork,
     L: EventLookup<Uow = U::Uow>,
     P: ProjectorProcessedEventStore<Uow = U::Uow>,
 {
-    async fn wait(
+    async fn wait_for_message(
         &self,
         message_id: MessageId,
-        timeout: ReadYourWritesTimeout,
-        poll_interval: ReadYourWritesPollInterval,
+        timeout: ProjectionConsistencyTimeout,
+        poll_interval: ProjectionConsistencyPollInterval,
         projector_dependencies: ProjectorDependencies<'_>,
-    ) -> Result<(), ReadYourWritesWaitError> {
+    ) -> Result<(), ProjectionConsistencyWaitError> {
         let deadline = Instant::now() + StdDuration::from(timeout);
         let poll_duration = StdDuration::from(poll_interval);
 
@@ -185,12 +219,36 @@ where
 
         let causation_events = self.causation_events(message_id).await?;
         self.wait_for_projectors(
-            message_id,
             timeout,
             poll_duration,
             deadline,
             projector_dependencies,
             &causation_events,
+        )
+        .await
+    }
+
+    async fn wait_for_events(
+        &self,
+        event_ids: &[EventId],
+        timeout: ProjectionConsistencyTimeout,
+        poll_interval: ProjectionConsistencyPollInterval,
+        projector_dependencies: ProjectorDependencies<'_>,
+    ) -> Result<(), ProjectionConsistencyWaitError> {
+        let deadline = Instant::now() + StdDuration::from(timeout);
+        let poll_duration = StdDuration::from(poll_interval);
+
+        if event_ids.is_empty() || projector_dependencies.as_slice().is_empty() {
+            return Ok(());
+        }
+
+        let events = self.event_id_events(event_ids).await?;
+        self.wait_for_projectors(
+            timeout,
+            poll_duration,
+            deadline,
+            projector_dependencies,
+            &events,
         )
         .await
     }
@@ -271,22 +329,6 @@ mod tests {
     impl EventLookup for TestEventLookup {
         type Uow = TestUnitOfWork;
 
-        async fn max_event_sequence_by_causation_id(
-            &self,
-            _uow: &mut Self::Uow,
-            _causation_id: CausationId,
-        ) -> Result<Option<EventSequence>, EventLookupError> {
-            Ok(self.events.last().map(|event| event.event_sequence))
-        }
-
-        async fn last_event_id_by_causation_id(
-            &self,
-            _uow: &mut Self::Uow,
-            _causation_id: CausationId,
-        ) -> Result<Option<EventId>, EventLookupError> {
-            Ok(self.events.last().map(|event| event.event_id))
-        }
-
         async fn events_by_causation_id(
             &self,
             _uow: &mut Self::Uow,
@@ -296,6 +338,21 @@ mod tests {
                 .events
                 .iter()
                 .filter(|event| event.causation_id == causation_id)
+                .cloned()
+                .collect())
+        }
+
+        async fn events_by_event_ids(
+            &self,
+            _uow: &mut Self::Uow,
+            event_ids: &[EventId],
+        ) -> Result<Vec<EventEnvelope>, EventLookupError> {
+            let event_ids: HashSet<EventId> = event_ids.iter().copied().collect();
+
+            Ok(self
+                .events
+                .iter()
+                .filter(|event| event_ids.contains(&event.event_id))
                 .cloned()
                 .collect())
         }
@@ -391,12 +448,12 @@ mod tests {
     fn test_waiter(
         events: Vec<EventEnvelope>,
         projector_processed_events: impl IntoIterator<Item = (ProjectorNameOwned, EventId)>,
-    ) -> DefaultReadYourWritesWaiter<
+    ) -> DefaultProjectionConsistencyWaiter<
         TestUnitOfWorkFactory,
         TestEventLookup,
         TestProjectorProcessedEventStore,
     > {
-        DefaultReadYourWritesWaiter::new(
+        DefaultProjectionConsistencyWaiter::new(
             TestUnitOfWorkFactory,
             TestEventLookup::new(events),
             TestProjectorProcessedEventStore::with_projector_processed_events(
@@ -451,19 +508,40 @@ mod tests {
         let waiter = test_waiter(Vec::new(), Vec::new());
 
         let result = waiter
-            .wait(
+            .wait_for_message(
                 message_id,
-                ReadYourWritesTimeout::from(Duration::ZERO),
-                ReadYourWritesPollInterval::from(Duration::ZERO),
+                ProjectionConsistencyTimeout::from(Duration::ZERO),
+                ProjectionConsistencyPollInterval::from(Duration::ZERO),
                 ProjectorDependencies::Some(&[REGISTERED_PROJECTOR]),
             )
             .await;
 
         assert!(matches!(
             result,
-            Err(ReadYourWritesWaitError::UnknownMessageId {
+            Err(ProjectionConsistencyWaitError::UnknownMessageId {
                 message_id: returned
             }) if returned == message_id
+        ));
+    }
+
+    #[tokio::test]
+    async fn wait_for_events_returns_unknown_event_ids_when_event_does_not_exist() {
+        let event_id = EventId::try_from(Uuid::now_v7()).expect("event id");
+        let waiter = test_waiter(Vec::new(), Vec::new());
+
+        let result = waiter
+            .wait_for_events(
+                &[event_id],
+                ProjectionConsistencyTimeout::from(Duration::ZERO),
+                ProjectionConsistencyPollInterval::from(Duration::ZERO),
+                ProjectorDependencies::Some(&[REGISTERED_PROJECTOR]),
+            )
+            .await;
+
+        assert!(matches!(
+            result,
+            Err(ProjectionConsistencyWaitError::UnknownEventIds { event_ids })
+                if event_ids == vec![event_id]
         ));
     }
 
@@ -482,10 +560,10 @@ mod tests {
         );
 
         let result = waiter
-            .wait(
+            .wait_for_message(
                 message_id,
-                ReadYourWritesTimeout::from(Duration::ZERO),
-                ReadYourWritesPollInterval::from(Duration::ZERO),
+                ProjectionConsistencyTimeout::from(Duration::ZERO),
+                ProjectionConsistencyPollInterval::from(Duration::ZERO),
                 ProjectorDependencies::Some(&[REGISTERED_PROJECTOR]),
             )
             .await;
@@ -508,22 +586,20 @@ mod tests {
         );
 
         let result = waiter
-            .wait(
+            .wait_for_message(
                 message_id,
-                ReadYourWritesTimeout::from(Duration::ZERO),
-                ReadYourWritesPollInterval::from(Duration::ZERO),
+                ProjectionConsistencyTimeout::from(Duration::ZERO),
+                ProjectionConsistencyPollInterval::from(Duration::ZERO),
                 ProjectorDependencies::Some(&[REGISTERED_PROJECTOR]),
             )
             .await;
 
         assert!(matches!(
             result,
-            Err(ReadYourWritesWaitError::Timeout {
-                message_id: returned_message_id,
+            Err(ProjectionConsistencyWaitError::Timeout {
                 pending_projectors,
                 ..
-            }) if returned_message_id == message_id
-                && pending_projectors == vec![ProjectorNameOwned::from(REGISTERED_PROJECTOR.name)]
+            }) if pending_projectors == vec![ProjectorNameOwned::from(REGISTERED_PROJECTOR.name)]
         ));
     }
 
@@ -560,11 +636,40 @@ mod tests {
         );
 
         let result = waiter
-            .wait(
+            .wait_for_message(
                 message_id,
-                ReadYourWritesTimeout::from(Duration::from_millis(10)),
-                ReadYourWritesPollInterval::from(Duration::ZERO),
+                ProjectionConsistencyTimeout::from(Duration::from_millis(10)),
+                ProjectionConsistencyPollInterval::from(Duration::ZERO),
                 ProjectorDependencies::Some(&[REGISTERED_PROJECTOR, PROFILE_PROJECTOR]),
+            )
+            .await;
+
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn wait_for_events_succeeds_when_all_relevant_events_are_processed() {
+        let message_id = MessageId::from(Uuid::now_v7());
+        let registered_event_id = EventId::try_from(Uuid::now_v7()).expect("event id");
+        let waiter = test_waiter(
+            vec![event_envelope(
+                1,
+                registered_event_id,
+                EventName::new("registered"),
+                message_id,
+            )],
+            vec![(
+                ProjectorNameOwned::from(REGISTERED_PROJECTOR.name),
+                registered_event_id,
+            )],
+        );
+
+        let result = waiter
+            .wait_for_events(
+                &[registered_event_id],
+                ProjectionConsistencyTimeout::from(Duration::from_millis(10)),
+                ProjectionConsistencyPollInterval::from(Duration::ZERO),
+                ProjectorDependencies::Some(&[REGISTERED_PROJECTOR]),
             )
             .await;
 
@@ -601,10 +706,10 @@ mod tests {
         );
 
         let result = waiter
-            .wait(
+            .wait_for_message(
                 message_id,
-                ReadYourWritesTimeout::from(Duration::from_millis(10)),
-                ReadYourWritesPollInterval::from(Duration::ZERO),
+                ProjectionConsistencyTimeout::from(Duration::from_millis(10)),
+                ProjectionConsistencyPollInterval::from(Duration::ZERO),
                 ProjectorDependencies::Some(&[PROFILE_PROJECTOR]),
             )
             .await;

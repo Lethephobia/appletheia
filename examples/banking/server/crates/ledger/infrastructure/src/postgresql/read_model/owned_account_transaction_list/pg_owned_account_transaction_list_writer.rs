@@ -1,5 +1,5 @@
 use appletheia::application::event::EventSequence;
-use appletheia::domain::{AggregateId, EventOccurredAt};
+use appletheia::domain::{AggregateId, EventId, EventOccurredAt};
 use appletheia::infrastructure::postgresql::PgUnitOfWork;
 use banking_iam_domain::{
     OrganizationDisplayName, OrganizationHandle, OrganizationId, OrganizationPictureRef,
@@ -86,14 +86,15 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
         sqlx::query(
             r#"
             INSERT INTO owned_account_transaction_list_item_currencies (
-                id, symbol, name, decimals, updated_at, created_at, updated_event_sequence
+                id, symbol, name, decimals, updated_at, created_at, source_event_sequence, updated_event_sequence, source_event_id, updated_event_id
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $7, $8, $8)
             ON CONFLICT (id) DO UPDATE SET
                 symbol = EXCLUDED.symbol,
                 name = EXCLUDED.name,
                 decimals = EXCLUDED.decimals,
                 updated_at = EXCLUDED.updated_at,
+                updated_event_id = EXCLUDED.updated_event_id,
                 updated_event_sequence = EXCLUDED.updated_event_sequence
             WHERE owned_account_transaction_list_item_currencies.updated_event_sequence < EXCLUDED.updated_event_sequence
             "#,
@@ -105,6 +106,7 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
         .bind(upsert.occurred_at.value())
         .bind(upsert.occurred_at.value())
         .bind(upsert.event_sequence.value())
+        .bind(upsert.event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| OwnedAccountTransactionListWriterError::Persistence(Box::new(e)))?;
@@ -116,6 +118,7 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
         uow: &mut Self::Uow,
         id: CurrencyId,
         symbol: CurrencySymbol,
+        event_id: EventId,
         event_sequence: EventSequence,
         occurred_at: EventOccurredAt,
     ) -> Result<(), OwnedAccountTransactionListWriterError> {
@@ -123,7 +126,8 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
             r#"
             UPDATE owned_account_transaction_list_item_currencies
                SET symbol = $2, updated_at = $3,
-                   updated_event_sequence = $4
+                   updated_event_sequence = $4,
+                   updated_event_id = $5
              WHERE id = $1 AND updated_event_sequence < $4
             "#,
         )
@@ -131,6 +135,7 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
         .bind(symbol.value())
         .bind(occurred_at.value())
         .bind(event_sequence.value())
+        .bind(event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| OwnedAccountTransactionListWriterError::Persistence(Box::new(e)))?;
@@ -142,6 +147,7 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
         uow: &mut Self::Uow,
         id: CurrencyId,
         name: CurrencyName,
+        event_id: EventId,
         event_sequence: EventSequence,
         occurred_at: EventOccurredAt,
     ) -> Result<(), OwnedAccountTransactionListWriterError> {
@@ -149,7 +155,8 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
             r#"
             UPDATE owned_account_transaction_list_item_currencies
                SET name = $2, updated_at = $3,
-                   updated_event_sequence = $4
+                   updated_event_sequence = $4,
+                   updated_event_id = $5
              WHERE id = $1 AND updated_event_sequence < $4
             "#,
         )
@@ -157,6 +164,7 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
         .bind(name.value())
         .bind(occurred_at.value())
         .bind(event_sequence.value())
+        .bind(event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| OwnedAccountTransactionListWriterError::Persistence(Box::new(e)))?;
@@ -167,6 +175,7 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
         &self,
         uow: &mut Self::Uow,
         id: CurrencyId,
+        _event_id: EventId,
         event_sequence: EventSequence,
     ) -> Result<(), OwnedAccountTransactionListWriterError> {
         sqlx::query(
@@ -207,9 +216,9 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
             r#"
             INSERT INTO owned_account_transaction_list_owner_users (
                 id, username, display_name, picture_type, picture_object_name,
-                picture_external_url, updated_at, created_at, updated_event_sequence
+                picture_external_url, updated_at, created_at, source_event_sequence, updated_event_sequence, source_event_id, updated_event_id
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9, $10, $10)
             ON CONFLICT (id) DO UPDATE SET
                 username = EXCLUDED.username,
                 display_name = EXCLUDED.display_name,
@@ -217,6 +226,7 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
                 picture_object_name = EXCLUDED.picture_object_name,
                 picture_external_url = EXCLUDED.picture_external_url,
                 updated_at = EXCLUDED.updated_at,
+                updated_event_id = EXCLUDED.updated_event_id,
                 updated_event_sequence = EXCLUDED.updated_event_sequence
             WHERE owned_account_transaction_list_owner_users.updated_event_sequence < EXCLUDED.updated_event_sequence
             "#,
@@ -230,6 +240,7 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
         .bind(upsert.occurred_at.value())
         .bind(upsert.occurred_at.value())
         .bind(upsert.event_sequence.value())
+        .bind(upsert.event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| OwnedAccountTransactionListWriterError::Persistence(Box::new(e)))?;
@@ -241,6 +252,7 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
         uow: &mut Self::Uow,
         id: UserId,
         username: Username,
+        event_id: EventId,
         event_sequence: EventSequence,
         occurred_at: EventOccurredAt,
     ) -> Result<(), OwnedAccountTransactionListWriterError> {
@@ -248,7 +260,8 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
             r#"
             UPDATE owned_account_transaction_list_owner_users
                SET username = $2, updated_at = $3,
-                   updated_event_sequence = $4
+                   updated_event_sequence = $4,
+                   updated_event_id = $5
              WHERE id = $1 AND updated_event_sequence < $4
             "#,
         )
@@ -256,6 +269,7 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
         .bind(username.value())
         .bind(occurred_at.value())
         .bind(event_sequence.value())
+        .bind(event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| OwnedAccountTransactionListWriterError::Persistence(Box::new(e)))?;
@@ -267,6 +281,7 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
         uow: &mut Self::Uow,
         id: UserId,
         display_name: UserDisplayName,
+        event_id: EventId,
         event_sequence: EventSequence,
         occurred_at: EventOccurredAt,
     ) -> Result<(), OwnedAccountTransactionListWriterError> {
@@ -274,7 +289,8 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
             r#"
             UPDATE owned_account_transaction_list_owner_users
                SET display_name = $2, updated_at = $3,
-                   updated_event_sequence = $4
+                   updated_event_sequence = $4,
+                   updated_event_id = $5
              WHERE id = $1 AND updated_event_sequence < $4
             "#,
         )
@@ -282,6 +298,7 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
         .bind(display_name.value())
         .bind(occurred_at.value())
         .bind(event_sequence.value())
+        .bind(event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| OwnedAccountTransactionListWriterError::Persistence(Box::new(e)))?;
@@ -293,6 +310,7 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
         uow: &mut Self::Uow,
         id: UserId,
         picture: Option<UserPictureRef>,
+        event_id: EventId,
         event_sequence: EventSequence,
         occurred_at: EventOccurredAt,
     ) -> Result<(), OwnedAccountTransactionListWriterError> {
@@ -306,7 +324,8 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
                    picture_object_name = $3,
                    picture_external_url = $4,
                    updated_at = $5,
-                   updated_event_sequence = $6
+                   updated_event_sequence = $6,
+                   updated_event_id = $7
              WHERE id = $1 AND updated_event_sequence < $6
             "#,
         )
@@ -316,6 +335,7 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
         .bind(external_url)
         .bind(occurred_at.value())
         .bind(event_sequence.value())
+        .bind(event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| OwnedAccountTransactionListWriterError::Persistence(Box::new(e)))?;
@@ -326,6 +346,7 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
         &self,
         uow: &mut Self::Uow,
         id: UserId,
+        _event_id: EventId,
         event_sequence: EventSequence,
     ) -> Result<(), OwnedAccountTransactionListWriterError> {
         sqlx::query(
@@ -354,9 +375,9 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
             r#"
             INSERT INTO owned_account_transaction_list_owner_organizations (
                 id, handle, display_name, picture_type, picture_object_name, picture_external_url,
-                updated_at, created_at, updated_event_sequence
+                updated_at, created_at, source_event_sequence, updated_event_sequence, source_event_id, updated_event_id
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9, $10, $10)
             ON CONFLICT (id) DO UPDATE SET
                 handle = EXCLUDED.handle,
                 display_name = EXCLUDED.display_name,
@@ -364,6 +385,7 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
                 picture_object_name = EXCLUDED.picture_object_name,
                 picture_external_url = EXCLUDED.picture_external_url,
                 updated_at = EXCLUDED.updated_at,
+                updated_event_id = EXCLUDED.updated_event_id,
                 updated_event_sequence = EXCLUDED.updated_event_sequence
             WHERE owned_account_transaction_list_owner_organizations.updated_event_sequence < EXCLUDED.updated_event_sequence
             "#,
@@ -377,6 +399,7 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
         .bind(upsert.occurred_at.value())
         .bind(upsert.occurred_at.value())
         .bind(upsert.event_sequence.value())
+        .bind(upsert.event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| OwnedAccountTransactionListWriterError::Persistence(Box::new(e)))?;
@@ -388,6 +411,7 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
         uow: &mut Self::Uow,
         id: OrganizationId,
         handle: OrganizationHandle,
+        event_id: EventId,
         event_sequence: EventSequence,
         occurred_at: EventOccurredAt,
     ) -> Result<(), OwnedAccountTransactionListWriterError> {
@@ -395,7 +419,8 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
             r#"
             UPDATE owned_account_transaction_list_owner_organizations
                SET handle = $2, updated_at = $3,
-                   updated_event_sequence = $4
+                   updated_event_sequence = $4,
+                   updated_event_id = $5
              WHERE id = $1 AND updated_event_sequence < $4
             "#,
         )
@@ -403,6 +428,7 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
         .bind(handle.value())
         .bind(occurred_at.value())
         .bind(event_sequence.value())
+        .bind(event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| OwnedAccountTransactionListWriterError::Persistence(Box::new(e)))?;
@@ -414,6 +440,7 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
         uow: &mut Self::Uow,
         id: OrganizationId,
         display_name: OrganizationDisplayName,
+        event_id: EventId,
         event_sequence: EventSequence,
         occurred_at: EventOccurredAt,
     ) -> Result<(), OwnedAccountTransactionListWriterError> {
@@ -421,7 +448,8 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
             r#"
             UPDATE owned_account_transaction_list_owner_organizations
                SET display_name = $2, updated_at = $3,
-                   updated_event_sequence = $4
+                   updated_event_sequence = $4,
+                   updated_event_id = $5
              WHERE id = $1 AND updated_event_sequence < $4
             "#,
         )
@@ -429,6 +457,7 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
         .bind(display_name.value())
         .bind(occurred_at.value())
         .bind(event_sequence.value())
+        .bind(event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| OwnedAccountTransactionListWriterError::Persistence(Box::new(e)))?;
@@ -440,6 +469,7 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
         uow: &mut Self::Uow,
         id: OrganizationId,
         picture: Option<OrganizationPictureRef>,
+        event_id: EventId,
         event_sequence: EventSequence,
         occurred_at: EventOccurredAt,
     ) -> Result<(), OwnedAccountTransactionListWriterError> {
@@ -453,7 +483,8 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
                    picture_object_name = $3,
                    picture_external_url = $4,
                    updated_at = $5,
-                   updated_event_sequence = $6
+                   updated_event_sequence = $6,
+                   updated_event_id = $7
              WHERE id = $1 AND updated_event_sequence < $6
             "#,
         )
@@ -463,6 +494,7 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
         .bind(external_url)
         .bind(occurred_at.value())
         .bind(event_sequence.value())
+        .bind(event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| OwnedAccountTransactionListWriterError::Persistence(Box::new(e)))?;
@@ -473,6 +505,7 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
         &self,
         uow: &mut Self::Uow,
         id: OrganizationId,
+        _event_id: EventId,
         event_sequence: EventSequence,
     ) -> Result<(), OwnedAccountTransactionListWriterError> {
         sqlx::query(
@@ -499,17 +532,17 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
             INSERT INTO owned_account_transaction_list_items (
                 id, transfer_id, owner_type, owner_id, account_id, counterparty_account_id,
                 currency_id, amount, direction, kind, status, occurred_at, updated_at,
-                created_at, updated_event_sequence
+                created_at, source_event_sequence, updated_event_sequence, source_event_id, updated_event_id
             )
             SELECT
                 $1, NULL, a.owner_type, a.owner_id, a.id, $3, a.currency_id,
-                $4, $5, $6, $7, $8, $8, $8, $9
+                $4, $5, $6, $7, $8, $8, $8, $9, $9, $10, $10
               FROM owned_account_list_items a
              WHERE a.id = $2
                AND NOT EXISTS (
                    SELECT 1
                      FROM owned_account_transaction_list_transfers t
-                    WHERE t.correlation_id = $10
+                    WHERE t.correlation_id = $11
                       AND t.to_account_id = $2
                )
             ON CONFLICT (id) DO UPDATE SET
@@ -524,6 +557,7 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
                 status = EXCLUDED.status,
                 occurred_at = EXCLUDED.occurred_at,
                 updated_at = EXCLUDED.updated_at,
+                updated_event_id = EXCLUDED.updated_event_id,
                 updated_event_sequence = EXCLUDED.updated_event_sequence
             WHERE owned_account_transaction_list_items.updated_event_sequence < EXCLUDED.updated_event_sequence
             "#,
@@ -537,6 +571,7 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
         .bind(Self::status_name(insert.status))
         .bind(insert.occurred_at.value())
         .bind(insert.event_sequence.value())
+        .bind(insert.event_id.value())
         .bind(insert.correlation_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
@@ -553,11 +588,11 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
             r#"
             INSERT INTO owned_account_transaction_list_transfers (
                 id, correlation_id, from_account_id, to_account_id, currency_id, amount,
-                updated_at, created_at, updated_event_sequence
+                updated_at, created_at, source_event_sequence, updated_event_sequence, source_event_id, updated_event_id
             )
-            SELECT $1, $2, a.id, $3, a.currency_id, $4, $5, $5, $6
+            SELECT $1, $2, a.id, $3, a.currency_id, $4, $5, $5, $6, $6, $7, $7
               FROM owned_account_list_items a
-             WHERE a.id = $7
+             WHERE a.id = $8
             ON CONFLICT (id) DO UPDATE SET
                 correlation_id = EXCLUDED.correlation_id,
                 from_account_id = EXCLUDED.from_account_id,
@@ -565,6 +600,7 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
                 currency_id = EXCLUDED.currency_id,
                 amount = EXCLUDED.amount,
                 updated_at = EXCLUDED.updated_at,
+                updated_event_id = EXCLUDED.updated_event_id,
                 updated_event_sequence = EXCLUDED.updated_event_sequence
             WHERE owned_account_transaction_list_transfers.updated_event_sequence < EXCLUDED.updated_event_sequence
             "#,
@@ -575,6 +611,7 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
         .bind(record.amount.value().to_string())
         .bind(record.occurred_at.value())
         .bind(record.event_sequence.value())
+        .bind(record.event_id.value())
         .bind(record.from_account_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
@@ -585,13 +622,13 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
             INSERT INTO owned_account_transaction_list_items (
                 id, transfer_id, owner_type, owner_id, account_id, counterparty_account_id,
                 currency_id, amount, direction, kind, status, occurred_at, updated_at,
-                created_at, updated_event_sequence
+                created_at, source_event_sequence, updated_event_sequence, source_event_id, updated_event_id
             )
             SELECT
                 $1, $1, a.owner_type, a.owner_id, a.id, $2, a.currency_id, $3,
-                'outgoing', 'transfer', 'pending', $4, $4, $4, $5
+                'outgoing', 'transfer', 'pending', $4, $4, $4, $5, $5, $6, $6
               FROM owned_account_list_items a
-             WHERE a.id = $6
+             WHERE a.id = $7
             ON CONFLICT (id) DO UPDATE SET
                 owner_type = EXCLUDED.owner_type,
                 owner_id = EXCLUDED.owner_id,
@@ -604,6 +641,7 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
                 status = EXCLUDED.status,
                 occurred_at = EXCLUDED.occurred_at,
                 updated_at = EXCLUDED.updated_at,
+                updated_event_id = EXCLUDED.updated_event_id,
                 updated_event_sequence = EXCLUDED.updated_event_sequence
             WHERE owned_account_transaction_list_items.updated_event_sequence < EXCLUDED.updated_event_sequence
             "#,
@@ -613,6 +651,7 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
         .bind(record.amount.value().to_string())
         .bind(record.occurred_at.value())
         .bind(record.event_sequence.value())
+        .bind(record.event_id.value())
         .bind(record.from_account_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
@@ -625,6 +664,7 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
         uow: &mut Self::Uow,
         id: TransferId,
         transaction_id: OwnedAccountTransactionId,
+        event_id: EventId,
         event_sequence: EventSequence,
         occurred_at: EventOccurredAt,
     ) -> Result<(), OwnedAccountTransactionListWriterError> {
@@ -633,13 +673,15 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
             UPDATE owned_account_transaction_list_items
                SET status = 'completed',
                    updated_at = $2,
-                   updated_event_sequence = $3
+                   updated_event_sequence = $3,
+                   updated_event_id = $4
              WHERE id = $1 AND updated_event_sequence < $3
             "#,
         )
         .bind(id.value())
         .bind(occurred_at.value())
         .bind(event_sequence.value())
+        .bind(event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| OwnedAccountTransactionListWriterError::Persistence(Box::new(e)))?;
@@ -649,15 +691,15 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
             INSERT INTO owned_account_transaction_list_items (
                 id, transfer_id, owner_type, owner_id, account_id, counterparty_account_id,
                 currency_id, amount, direction, kind, status, occurred_at, updated_at,
-                created_at, updated_event_sequence
+                created_at, source_event_sequence, updated_event_sequence, source_event_id, updated_event_id
             )
             SELECT
                 $1, t.id, a.owner_type, a.owner_id, a.id, t.from_account_id,
                 t.currency_id, t.amount, 'incoming', 'transfer', 'completed',
-                $2, $2, $2, $3
+                $2, $2, $2, $3, $3, $4, $4
               FROM owned_account_transaction_list_transfers t
               INNER JOIN owned_account_list_items a ON a.id = t.to_account_id
-             WHERE t.id = $4
+             WHERE t.id = $5
             ON CONFLICT (id) DO UPDATE SET
                 owner_type = EXCLUDED.owner_type,
                 owner_id = EXCLUDED.owner_id,
@@ -670,6 +712,7 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
                 status = EXCLUDED.status,
                 occurred_at = EXCLUDED.occurred_at,
                 updated_at = EXCLUDED.updated_at,
+                updated_event_id = EXCLUDED.updated_event_id,
                 updated_event_sequence = EXCLUDED.updated_event_sequence
             WHERE owned_account_transaction_list_items.updated_event_sequence < EXCLUDED.updated_event_sequence
             "#,
@@ -677,6 +720,7 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
         .bind(transaction_id.value())
         .bind(occurred_at.value())
         .bind(event_sequence.value())
+        .bind(event_id.value())
         .bind(id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
@@ -689,6 +733,7 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
         uow: &mut Self::Uow,
         id: TransferId,
         reason: TransferFailureReason,
+        event_id: EventId,
         event_sequence: EventSequence,
         occurred_at: EventOccurredAt,
     ) -> Result<(), OwnedAccountTransactionListWriterError> {
@@ -698,7 +743,8 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
             UPDATE owned_account_transaction_list_items
                SET status = $2,
                    updated_at = $3,
-                   updated_event_sequence = $4
+                   updated_event_sequence = $4,
+                   updated_event_id = $5
              WHERE id = $1 AND updated_event_sequence < $4
             "#,
         )
@@ -706,6 +752,7 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
         .bind(status)
         .bind(occurred_at.value())
         .bind(event_sequence.value())
+        .bind(event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| OwnedAccountTransactionListWriterError::Persistence(Box::new(e)))?;
@@ -721,14 +768,15 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
             r#"
             INSERT INTO owned_account_transaction_list_currency_issuances (
                 id, destination_account_id, currency_id, amount,
-                updated_at, created_at, updated_event_sequence
+                updated_at, created_at, source_event_sequence, updated_event_sequence, source_event_id, updated_event_id
             )
-            VALUES ($1, $2, $3, $4, $5, $5, $6)
+            VALUES ($1, $2, $3, $4, $5, $5, $6, $6, $7, $7)
             ON CONFLICT (id) DO UPDATE SET
                 destination_account_id = EXCLUDED.destination_account_id,
                 currency_id = EXCLUDED.currency_id,
                 amount = EXCLUDED.amount,
                 updated_at = EXCLUDED.updated_at,
+                updated_event_id = EXCLUDED.updated_event_id,
                 updated_event_sequence = EXCLUDED.updated_event_sequence
             WHERE owned_account_transaction_list_currency_issuances.updated_event_sequence < EXCLUDED.updated_event_sequence
             "#,
@@ -739,6 +787,7 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
         .bind(record.amount.value().to_string())
         .bind(record.occurred_at.value())
         .bind(record.event_sequence.value())
+        .bind(record.event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| OwnedAccountTransactionListWriterError::Persistence(Box::new(e)))?;
@@ -750,6 +799,7 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
         uow: &mut Self::Uow,
         id: CurrencyIssuanceId,
         transaction_id: OwnedAccountTransactionId,
+        event_id: EventId,
         event_sequence: EventSequence,
         occurred_at: EventOccurredAt,
     ) -> Result<(), OwnedAccountTransactionListWriterError> {
@@ -758,15 +808,15 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
             INSERT INTO owned_account_transaction_list_items (
                 id, transfer_id, owner_type, owner_id, account_id, counterparty_account_id,
                 currency_id, amount, direction, kind, status, occurred_at, updated_at,
-                created_at, updated_event_sequence
+                created_at, source_event_sequence, updated_event_sequence, source_event_id, updated_event_id
             )
             SELECT
                 $1, NULL, a.owner_type, a.owner_id, a.id, NULL,
                 i.currency_id, i.amount, 'incoming', 'currency_issuance', 'completed',
-                $2, $2, $2, $3
+                $2, $2, $2, $3, $3, $4, $4
               FROM owned_account_transaction_list_currency_issuances i
               INNER JOIN owned_account_list_items a ON a.id = i.destination_account_id
-             WHERE i.id = $4
+             WHERE i.id = $5
             ON CONFLICT (id) DO UPDATE SET
                 owner_type = EXCLUDED.owner_type,
                 owner_id = EXCLUDED.owner_id,
@@ -778,6 +828,7 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
                 status = EXCLUDED.status,
                 occurred_at = EXCLUDED.occurred_at,
                 updated_at = EXCLUDED.updated_at,
+                updated_event_id = EXCLUDED.updated_event_id,
                 updated_event_sequence = EXCLUDED.updated_event_sequence
             WHERE owned_account_transaction_list_items.updated_event_sequence < EXCLUDED.updated_event_sequence
             "#,
@@ -785,6 +836,7 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
         .bind(transaction_id.value())
         .bind(occurred_at.value())
         .bind(event_sequence.value())
+        .bind(event_id.value())
         .bind(id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
@@ -796,6 +848,7 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
         &self,
         uow: &mut Self::Uow,
         id: CurrencyIssuanceId,
+        _event_id: EventId,
         event_sequence: EventSequence,
     ) -> Result<(), OwnedAccountTransactionListWriterError> {
         sqlx::query(

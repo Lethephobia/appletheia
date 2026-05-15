@@ -1,5 +1,6 @@
 use appletheia::application::event::EventSequence;
 use appletheia::application::unit_of_work::UnitOfWork;
+use appletheia::domain::EventId;
 use appletheia::domain::EventOccurredAt;
 use banking_iam_domain::{
     OrganizationDisplayName, OrganizationHandle, OrganizationId, OrganizationPictureRef,
@@ -29,6 +30,7 @@ pub trait PublicAccountListWriter: Send + Sync {
         uow: &mut Self::Uow,
         id: AccountId,
         owner: AccountOwner,
+        event_id: EventId,
         event_sequence: EventSequence,
         occurred_at: EventOccurredAt,
     ) -> Result<(), PublicAccountListWriterError>;
@@ -38,6 +40,7 @@ pub trait PublicAccountListWriter: Send + Sync {
         uow: &mut Self::Uow,
         id: AccountId,
         status: PublicAccountListItemStatus,
+        event_id: EventId,
         event_sequence: EventSequence,
         occurred_at: EventOccurredAt,
     ) -> Result<(), PublicAccountListWriterError>;
@@ -46,6 +49,7 @@ pub trait PublicAccountListWriter: Send + Sync {
         &self,
         uow: &mut Self::Uow,
         id: AccountId,
+        event_id: EventId,
         event_sequence: EventSequence,
     ) -> Result<(), PublicAccountListWriterError>;
 
@@ -60,6 +64,7 @@ pub trait PublicAccountListWriter: Send + Sync {
         uow: &mut Self::Uow,
         id: CurrencyId,
         symbol: CurrencySymbol,
+        event_id: EventId,
         event_sequence: EventSequence,
         occurred_at: EventOccurredAt,
     ) -> Result<(), PublicAccountListWriterError>;
@@ -69,6 +74,7 @@ pub trait PublicAccountListWriter: Send + Sync {
         uow: &mut Self::Uow,
         id: CurrencyId,
         name: CurrencyName,
+        event_id: EventId,
         event_sequence: EventSequence,
         occurred_at: EventOccurredAt,
     ) -> Result<(), PublicAccountListWriterError>;
@@ -77,6 +83,7 @@ pub trait PublicAccountListWriter: Send + Sync {
         &self,
         uow: &mut Self::Uow,
         id: CurrencyId,
+        event_id: EventId,
         event_sequence: EventSequence,
     ) -> Result<(), PublicAccountListWriterError>;
 
@@ -91,6 +98,7 @@ pub trait PublicAccountListWriter: Send + Sync {
         uow: &mut Self::Uow,
         id: UserId,
         username: Username,
+        event_id: EventId,
         event_sequence: EventSequence,
         occurred_at: EventOccurredAt,
     ) -> Result<(), PublicAccountListWriterError>;
@@ -100,6 +108,7 @@ pub trait PublicAccountListWriter: Send + Sync {
         uow: &mut Self::Uow,
         id: UserId,
         display_name: UserDisplayName,
+        event_id: EventId,
         event_sequence: EventSequence,
         occurred_at: EventOccurredAt,
     ) -> Result<(), PublicAccountListWriterError>;
@@ -109,6 +118,7 @@ pub trait PublicAccountListWriter: Send + Sync {
         uow: &mut Self::Uow,
         id: UserId,
         picture: Option<UserPictureRef>,
+        event_id: EventId,
         event_sequence: EventSequence,
         occurred_at: EventOccurredAt,
     ) -> Result<(), PublicAccountListWriterError>;
@@ -117,6 +127,7 @@ pub trait PublicAccountListWriter: Send + Sync {
         &self,
         uow: &mut Self::Uow,
         id: UserId,
+        event_id: EventId,
         event_sequence: EventSequence,
         occurred_at: EventOccurredAt,
     ) -> Result<(), PublicAccountListWriterError>;
@@ -132,6 +143,7 @@ pub trait PublicAccountListWriter: Send + Sync {
         uow: &mut Self::Uow,
         id: OrganizationId,
         handle: OrganizationHandle,
+        event_id: EventId,
         event_sequence: EventSequence,
         occurred_at: EventOccurredAt,
     ) -> Result<(), PublicAccountListWriterError>;
@@ -141,6 +153,7 @@ pub trait PublicAccountListWriter: Send + Sync {
         uow: &mut Self::Uow,
         id: OrganizationId,
         display_name: OrganizationDisplayName,
+        event_id: EventId,
         event_sequence: EventSequence,
         occurred_at: EventOccurredAt,
     ) -> Result<(), PublicAccountListWriterError>;
@@ -150,6 +163,7 @@ pub trait PublicAccountListWriter: Send + Sync {
         uow: &mut Self::Uow,
         id: OrganizationId,
         picture: Option<OrganizationPictureRef>,
+        event_id: EventId,
         event_sequence: EventSequence,
         occurred_at: EventOccurredAt,
     ) -> Result<(), PublicAccountListWriterError>;
@@ -158,6 +172,7 @@ pub trait PublicAccountListWriter: Send + Sync {
         &self,
         uow: &mut Self::Uow,
         id: OrganizationId,
+        event_id: EventId,
         event_sequence: EventSequence,
         occurred_at: EventOccurredAt,
     ) -> Result<(), PublicAccountListWriterError>;

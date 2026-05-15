@@ -59,12 +59,16 @@ impl CurrencyListReader for PgCurrencyListReader {
                 o.picture_type AS owner_organization_picture_type,
                 o.picture_object_name AS owner_organization_picture_object_name,
                 o.picture_external_url AS owner_organization_picture_external_url,
+                COALESCE(u.source_event_id, o.source_event_id) AS owner_source_event_id,
+                COALESCE(u.updated_event_id, o.updated_event_id) AS owner_updated_event_id,
                 i.symbol,
                 i.name,
                 i.decimals,
                 i.supply::text AS supply,
                 i.status,
-                i.created_at
+                i.created_at,
+                i.source_event_id,
+                i.updated_event_id
             FROM currency_list_items i
             LEFT JOIN currency_list_item_owner_users u
                    ON i.owner_type = 'user'
