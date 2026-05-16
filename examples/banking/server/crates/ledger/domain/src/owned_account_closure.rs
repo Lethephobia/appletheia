@@ -56,13 +56,7 @@ impl OwnedAccountClosure {
         }
 
         let id = OwnedAccountClosureId::new();
-        self.append_event(OwnedAccountClosureEventPayload::Requested {
-            id,
-            owner,
-            closed_account_count: 0,
-            rejected_account_count: 0,
-            status: OwnedAccountClosureStatus::Requested,
-        })?;
+        self.append_event(OwnedAccountClosureEventPayload::Requested { id, owner })?;
         Ok(())
     }
 
@@ -204,19 +198,13 @@ impl AggregateApply<OwnedAccountClosureEventPayload, OwnedAccountClosureError>
         payload: &OwnedAccountClosureEventPayload,
     ) -> Result<(), OwnedAccountClosureError> {
         match payload {
-            OwnedAccountClosureEventPayload::Requested {
-                id,
-                owner,
-                closed_account_count,
-                rejected_account_count,
-                status,
-            } => {
+            OwnedAccountClosureEventPayload::Requested { id, owner } => {
                 self.set_state(Some(OwnedAccountClosureState {
                     id: *id,
                     owner: *owner,
-                    closed_account_count: *closed_account_count,
-                    rejected_account_count: *rejected_account_count,
-                    status: *status,
+                    closed_account_count: 0,
+                    rejected_account_count: 0,
+                    status: OwnedAccountClosureStatus::Requested,
                 }));
             }
             OwnedAccountClosureEventPayload::PageLoaded { .. } => {

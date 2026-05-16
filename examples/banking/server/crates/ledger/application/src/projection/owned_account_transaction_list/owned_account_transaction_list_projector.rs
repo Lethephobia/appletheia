@@ -47,20 +47,15 @@ where
             let user_id = domain_event.aggregate_id();
 
             match domain_event.payload() {
-                UserEventPayload::Registered {
-                    username,
-                    display_name,
-                    picture,
-                    ..
-                } => {
+                UserEventPayload::Registered { .. } => {
                     self.writer
                         .upsert_owner_user(
                             uow,
                             OwnedAccountTransactionListOwnerUserUpsert {
                                 id: user_id,
-                                username: username.clone(),
-                                display_name: display_name.clone(),
-                                picture: picture.clone(),
+                                username: None,
+                                display_name: None,
+                                picture: None,
                                 event_id: event.event_id,
                                 event_sequence: event.event_sequence,
                                 occurred_at: event.occurred_at,

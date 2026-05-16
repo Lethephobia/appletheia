@@ -1,6 +1,7 @@
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
 use banking_iam_domain::{Organization, OrganizationEventPayload, User, UserEventPayload};
+use banking_ledger_domain::core::CurrencyAmount;
 use banking_ledger_domain::currency::{Currency, CurrencyEventPayload};
 
 use super::{CurrencyListProjectorError, CurrencyListProjectorSpec};
@@ -40,20 +41,15 @@ where
             let user_id = domain_event.aggregate_id();
 
             match domain_event.payload() {
-                UserEventPayload::Registered {
-                    username,
-                    display_name,
-                    picture,
-                    ..
-                } => {
+                UserEventPayload::Registered { .. } => {
                     self.writer
                         .upsert_owner_user(
                             uow,
                             CurrencyListOwnerUserUpsert {
                                 id: user_id,
-                                username: username.clone(),
-                                display_name: display_name.clone(),
-                                picture: picture.clone(),
+                                username: None,
+                                display_name: None,
+                                picture: None,
                                 event_id: event.event_id,
                                 event_sequence: event.event_sequence,
                                 occurred_at: event.occurred_at,
@@ -224,8 +220,6 @@ where
                 symbol,
                 name,
                 decimals,
-                supply,
-                status,
                 ..
             } => {
                 self.writer
@@ -237,8 +231,8 @@ where
                             symbol: symbol.clone(),
                             name: name.clone(),
                             decimals: *decimals,
-                            supply: *supply,
-                            status: CurrencyListItemStatus::try_from(*status)?,
+                            supply: CurrencyAmount::zero(),
+                            status: CurrencyListItemStatus::Active,
                             event_id: event.event_id,
                             event_sequence: event.event_sequence,
                             occurred_at: event.occurred_at,

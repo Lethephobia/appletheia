@@ -39,47 +39,23 @@ where
         let user_id = domain_event.aggregate_id();
 
         match domain_event.payload() {
-            UserEventPayload::Registered {
-                identities,
-                username,
-                display_name,
-                bio,
-                picture,
-                status,
-                ..
-            } => {
+            UserEventPayload::Registered { .. } => {
                 self.writer
                     .upsert_user(
                         uow,
                         UserPrivateInfoUserUpsert {
                             id: user_id,
-                            username: username.clone(),
-                            display_name: display_name.clone(),
-                            bio: bio.clone(),
-                            picture: picture.clone(),
-                            status: UserPrivateInfoStatus::try_from(*status)?,
+                            username: None,
+                            display_name: None,
+                            bio: None,
+                            picture: None,
+                            status: UserPrivateInfoStatus::Active,
                             event_id: event.event_id,
                             event_sequence: event.event_sequence,
                             occurred_at: event.occurred_at,
                         },
                     )
                     .await?;
-                for identity in identities {
-                    self.writer
-                        .upsert_identity(
-                            uow,
-                            UserPrivateInfoIdentityUpsert {
-                                user_id,
-                                provider: identity.provider().clone(),
-                                subject: identity.subject().clone(),
-                                email: identity.email().cloned(),
-                                event_id: event.event_id,
-                                event_sequence: event.event_sequence,
-                                occurred_at: event.occurred_at,
-                            },
-                        )
-                        .await?;
-                }
             }
             UserEventPayload::IdentityLinked {
                 provider,

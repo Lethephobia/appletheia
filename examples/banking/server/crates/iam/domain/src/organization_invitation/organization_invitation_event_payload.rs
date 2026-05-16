@@ -7,7 +7,6 @@ use super::{
     OrganizationInvitationDeclineRejectionReason, OrganizationInvitationEventPayloadError,
     OrganizationInvitationExpiresAt, OrganizationInvitationId,
     OrganizationInvitationIssueRejectionReason, OrganizationInvitationIssuer,
-    OrganizationInvitationStatus,
 };
 
 /// Represents the domain events emitted by an `OrganizationInvitation` aggregate.
@@ -19,7 +18,6 @@ pub enum OrganizationInvitationEventPayload {
         invitee_id: UserId,
         issuer: OrganizationInvitationIssuer,
         expires_at: OrganizationInvitationExpiresAt,
-        status: OrganizationInvitationStatus,
     },
     IssueRejected {
         id: OrganizationInvitationId,
@@ -27,7 +25,6 @@ pub enum OrganizationInvitationEventPayload {
         invitee_id: UserId,
         issuer: OrganizationInvitationIssuer,
         expires_at: OrganizationInvitationExpiresAt,
-        status: OrganizationInvitationStatus,
         reason: OrganizationInvitationIssueRejectionReason,
     },
     Accepted {
@@ -66,7 +63,6 @@ mod tests {
 
     use super::{
         OrganizationInvitationEventPayload, OrganizationInvitationId, OrganizationInvitationIssuer,
-        OrganizationInvitationStatus,
     };
     use crate::{OrganizationId, UserId};
 
@@ -118,7 +114,6 @@ mod tests {
             invitee_id: UserId::new(),
             issuer: OrganizationInvitationIssuer::User(UserId::new()),
             expires_at: expires_at(),
-            status: OrganizationInvitationStatus::Pending,
         };
 
         assert_eq!(payload.name(), OrganizationInvitationEventPayload::ISSUED);
@@ -162,7 +157,6 @@ mod tests {
             invitee_id: UserId::new(),
             issuer: OrganizationInvitationIssuer::User(UserId::new()),
             expires_at: expires_at(),
-            status: OrganizationInvitationStatus::Pending,
         };
 
         let value = payload.into_json_value().expect("payload should serialize");

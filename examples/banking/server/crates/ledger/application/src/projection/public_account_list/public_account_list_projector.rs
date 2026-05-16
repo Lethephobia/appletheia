@@ -42,20 +42,15 @@ where
             let user_id = domain_event.aggregate_id();
 
             match domain_event.payload() {
-                UserEventPayload::Registered {
-                    username,
-                    display_name,
-                    picture,
-                    ..
-                } => {
+                UserEventPayload::Registered { .. } => {
                     self.writer
                         .upsert_owner_user(
                             uow,
                             PublicAccountListOwnerUserUpsert {
                                 id: user_id,
-                                username: username.clone(),
-                                display_name: display_name.clone(),
-                                picture: picture.clone(),
+                                username: None,
+                                display_name: None,
+                                picture: None,
                                 event_id: event.event_id,
                                 event_sequence: event.event_sequence,
                                 occurred_at: event.occurred_at,
@@ -223,10 +218,7 @@ where
 
             match domain_event.payload() {
                 AccountEventPayload::Opened {
-                    owner,
-                    currency_id,
-                    status,
-                    ..
+                    owner, currency_id, ..
                 } => {
                     self.writer
                         .upsert_account(
@@ -235,7 +227,7 @@ where
                                 id: account_id,
                                 owner: *owner,
                                 currency_id: *currency_id,
-                                status: PublicAccountListItemStatus::try_from(*status)?,
+                                status: PublicAccountListItemStatus::Active,
                                 event_id: event.event_id,
                                 event_sequence: event.event_sequence,
                                 occurred_at: event.occurred_at,

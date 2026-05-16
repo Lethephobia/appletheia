@@ -4,9 +4,9 @@ use crate::core::Email;
 
 use super::{
     UserBio, UserBioChangeRejectionReason, UserDisplayName, UserDisplayNameChangeRejectionReason,
-    UserEventPayloadError, UserId, UserIdentity, UserIdentityEmailChangeRejectionReason,
+    UserEventPayloadError, UserId, UserIdentityEmailChangeRejectionReason,
     UserIdentityLinkRejectionReason, UserIdentityProvider, UserIdentitySubject,
-    UserPictureChangeRejectionReason, UserPictureRef, UserStatus, UserStatusRejectionReason,
+    UserPictureChangeRejectionReason, UserPictureRef, UserStatusRejectionReason,
     UserUsernameChangeRejectionReason, Username,
 };
 
@@ -15,12 +15,6 @@ use super::{
 pub enum UserEventPayload {
     Registered {
         id: UserId,
-        identities: Vec<UserIdentity>,
-        username: Option<Username>,
-        display_name: Option<UserDisplayName>,
-        bio: Option<UserBio>,
-        picture: Option<UserPictureRef>,
-        status: UserStatus,
     },
     IdentityLinked {
         provider: UserIdentityProvider,
@@ -94,7 +88,7 @@ mod tests {
     use crate::core::Email;
     use crate::{UserBio, UserDisplayName, UserPictureRef, UserPictureUrl};
 
-    use super::{UserEventPayload, UserId, UserIdentityProvider, UserIdentitySubject, UserStatus};
+    use super::{UserEventPayload, UserId, UserIdentityProvider, UserIdentitySubject};
 
     #[test]
     fn returns_stable_event_names() {
@@ -250,15 +244,7 @@ mod tests {
 
     #[test]
     fn serializes_registered_payload_to_json() {
-        let payload = UserEventPayload::Registered {
-            id: UserId::new(),
-            identities: Vec::new(),
-            username: None,
-            display_name: None,
-            bio: None,
-            picture: None,
-            status: UserStatus::Active,
-        };
+        let payload = UserEventPayload::Registered { id: UserId::new() };
 
         let value = payload.into_json_value().expect("payload should serialize");
 

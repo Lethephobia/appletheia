@@ -6,7 +6,7 @@ use super::{
     OrganizationMembershipActivateRejectionReason, OrganizationMembershipDeactivateRejectionReason,
     OrganizationMembershipEventPayloadError, OrganizationMembershipId,
     OrganizationMembershipRemoveRejectionReason, OrganizationMembershipRoles,
-    OrganizationMembershipRolesChangeRejectionReason, OrganizationMembershipStatus,
+    OrganizationMembershipRolesChangeRejectionReason,
 };
 
 /// Represents the domain events emitted by an `OrganizationMembership` aggregate.
@@ -16,8 +16,6 @@ pub enum OrganizationMembershipEventPayload {
         id: OrganizationMembershipId,
         organization_id: OrganizationId,
         user_id: UserId,
-        roles: OrganizationMembershipRoles,
-        status: OrganizationMembershipStatus,
     },
     RolesChanged {
         organization_id: OrganizationId,
@@ -64,7 +62,6 @@ pub enum OrganizationMembershipEventPayload {
 mod tests {
     use appletheia::domain::EventPayload;
 
-    use super::OrganizationMembershipStatus;
     use super::{
         OrganizationMembershipEventPayload, OrganizationMembershipId, OrganizationMembershipRoles,
     };
@@ -116,8 +113,6 @@ mod tests {
             id: OrganizationMembershipId::new(),
             organization_id: OrganizationId::new(),
             user_id: UserId::new(),
-            roles: OrganizationMembershipRoles::default(),
-            status: OrganizationMembershipStatus::Active,
         };
 
         assert_eq!(payload.name(), OrganizationMembershipEventPayload::CREATED);
@@ -180,8 +175,6 @@ mod tests {
             id: OrganizationMembershipId::new(),
             organization_id: OrganizationId::new(),
             user_id: UserId::new(),
-            roles: OrganizationMembershipRoles::default(),
-            status: OrganizationMembershipStatus::Active,
         };
 
         let value = payload.into_json_value().expect("payload should serialize");

@@ -2,6 +2,7 @@ use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
 use banking_iam_domain::{Organization, OrganizationEventPayload, User, UserEventPayload};
 use banking_ledger_domain::account::{Account, AccountEventPayload};
+use banking_ledger_domain::core::CurrencyAmount;
 use banking_ledger_domain::currency::{Currency, CurrencyEventPayload};
 
 use super::{OwnedAccountListProjectorError, OwnedAccountListProjectorSpec};
@@ -42,20 +43,15 @@ where
             let user_id = domain_event.aggregate_id();
 
             match domain_event.payload() {
-                UserEventPayload::Registered {
-                    username,
-                    display_name,
-                    picture,
-                    ..
-                } => {
+                UserEventPayload::Registered { .. } => {
                     self.writer
                         .upsert_owner_user(
                             uow,
                             OwnedAccountListOwnerUserUpsert {
                                 id: user_id,
-                                username: username.clone(),
-                                display_name: display_name.clone(),
-                                picture: picture.clone(),
+                                username: None,
+                                display_name: None,
+                                picture: None,
                                 event_id: event.event_id,
                                 event_sequence: event.event_sequence,
                                 occurred_at: event.occurred_at,
@@ -219,9 +215,6 @@ where
                     owner,
                     name,
                     currency_id,
-                    balance,
-                    reserved_balance,
-                    status,
                     ..
                 } => {
                     self.writer
@@ -232,9 +225,9 @@ where
                                 owner: *owner,
                                 name: name.clone(),
                                 currency_id: *currency_id,
-                                balance: *balance,
-                                reserved_balance: *reserved_balance,
-                                status: OwnedAccountListItemStatus::try_from(*status)?,
+                                balance: CurrencyAmount::zero(),
+                                reserved_balance: CurrencyAmount::zero(),
+                                status: OwnedAccountListItemStatus::Active,
                                 event_id: event.event_id,
                                 event_sequence: event.event_sequence,
                                 occurred_at: event.occurred_at,

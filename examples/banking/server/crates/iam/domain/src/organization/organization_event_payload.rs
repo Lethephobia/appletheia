@@ -5,8 +5,8 @@ use super::{
     OrganizationDisplayNameChangeRejectionReason, OrganizationEventPayloadError,
     OrganizationHandle, OrganizationHandleChangeRejectionReason, OrganizationId, OrganizationOwner,
     OrganizationOwnershipTransferRejectionReason, OrganizationPictureChangeRejectionReason,
-    OrganizationPictureRef, OrganizationRemoveRejectionReason, OrganizationStatus,
-    OrganizationWebsiteUrl, OrganizationWebsiteUrlChangeRejectionReason,
+    OrganizationPictureRef, OrganizationRemoveRejectionReason, OrganizationWebsiteUrl,
+    OrganizationWebsiteUrlChangeRejectionReason,
 };
 
 /// Represents the domain events emitted by an `Organization` aggregate.
@@ -20,7 +20,6 @@ pub enum OrganizationEventPayload {
         description: Option<OrganizationDescription>,
         website_url: Option<OrganizationWebsiteUrl>,
         picture: Option<OrganizationPictureRef>,
-        status: OrganizationStatus,
     },
     OwnershipTransferred {
         owner: OrganizationOwner,
@@ -77,10 +76,7 @@ mod tests {
 
     use crate::{OrganizationDisplayName, OrganizationWebsiteUrl, UserId};
 
-    use super::{
-        OrganizationEventPayload, OrganizationHandle, OrganizationId, OrganizationOwner,
-        OrganizationStatus,
-    };
+    use super::{OrganizationEventPayload, OrganizationHandle, OrganizationId, OrganizationOwner};
 
     fn display_name() -> OrganizationDisplayName {
         OrganizationDisplayName::try_from("Acme Labs").expect("display name should be valid")
@@ -190,7 +186,6 @@ mod tests {
             description: None,
             website_url: None,
             picture: None,
-            status: OrganizationStatus::Active,
         };
 
         let value = payload.into_json_value().expect("payload should serialize");

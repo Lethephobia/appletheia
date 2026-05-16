@@ -79,7 +79,6 @@ impl Transfer {
                 from_account_id,
                 to_account_id,
                 amount,
-                status: TransferStatus::Rejected,
                 reason,
             })?;
 
@@ -93,7 +92,6 @@ impl Transfer {
                 from_account_id,
                 to_account_id,
                 amount,
-                status: TransferStatus::Rejected,
                 reason,
             })?;
 
@@ -106,7 +104,6 @@ impl Transfer {
             from_account_id,
             to_account_id,
             amount,
-            status: TransferStatus::Pending,
         })?;
 
         Ok(TransferRequestResult::Requested { transfer_id: id })
@@ -182,27 +179,25 @@ impl AggregateApply<TransferEventPayload, TransferError> for Transfer {
                 from_account_id,
                 to_account_id,
                 amount,
-                status,
             } => self.set_state(Some(TransferState {
                 id: *id,
                 from_account_id: *from_account_id,
                 to_account_id: *to_account_id,
                 amount: *amount,
-                status: *status,
+                status: TransferStatus::Pending,
             })),
             TransferEventPayload::RequestRejected {
                 id,
                 from_account_id,
                 to_account_id,
                 amount,
-                status,
                 ..
             } => self.set_state(Some(TransferState {
                 id: *id,
                 from_account_id: *from_account_id,
                 to_account_id: *to_account_id,
                 amount: *amount,
-                status: *status,
+                status: TransferStatus::Rejected,
             })),
             TransferEventPayload::Completed => {
                 self.state_required_mut()?.status = TransferStatus::Completed;
@@ -376,7 +371,6 @@ mod tests {
                 from_account_id,
                 to_account_id,
                 amount: CurrencyAmount::new(100),
-                status: TransferStatus::Pending,
             },
         );
         let completed = Event::new(

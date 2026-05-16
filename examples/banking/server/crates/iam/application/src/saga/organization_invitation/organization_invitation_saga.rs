@@ -125,8 +125,6 @@ mod tests {
             id: membership_id,
             organization_id: OrganizationId::new(),
             user_id: UserId::new(),
-            roles: banking_iam_domain::OrganizationMembershipRoles::default(),
-            status: banking_iam_domain::OrganizationMembershipStatus::Active,
         };
 
         EventEnvelope {

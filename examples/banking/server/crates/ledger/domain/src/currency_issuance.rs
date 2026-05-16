@@ -93,7 +93,6 @@ impl CurrencyIssuance {
             currency_id,
             destination_account_id,
             amount,
-            status: CurrencyIssuanceStatus::Pending,
         })?;
 
         Ok(CurrencyIssuanceIssueResult::Issued)
@@ -113,7 +112,6 @@ impl CurrencyIssuance {
             currency_id,
             destination_account_id,
             amount,
-            status: CurrencyIssuanceStatus::Rejected,
             reason,
         })?;
 
@@ -185,27 +183,25 @@ impl AggregateApply<CurrencyIssuanceEventPayload, CurrencyIssuanceError> for Cur
                 currency_id,
                 destination_account_id,
                 amount,
-                status,
             } => self.set_state(Some(CurrencyIssuanceState {
                 id: *id,
                 currency_id: *currency_id,
                 destination_account_id: *destination_account_id,
                 amount: *amount,
-                status: *status,
+                status: CurrencyIssuanceStatus::Pending,
             })),
             CurrencyIssuanceEventPayload::IssueRejected {
                 id,
                 currency_id,
                 destination_account_id,
                 amount,
-                status,
                 ..
             } => self.set_state(Some(CurrencyIssuanceState {
                 id: *id,
                 currency_id: *currency_id,
                 destination_account_id: *destination_account_id,
                 amount: *amount,
-                status: *status,
+                status: CurrencyIssuanceStatus::Rejected,
             })),
             CurrencyIssuanceEventPayload::Completed => {
                 self.state_required_mut()?.status = CurrencyIssuanceStatus::Completed;
@@ -360,7 +356,6 @@ mod tests {
                 currency_id,
                 destination_account_id,
                 amount: CurrencyAmount::new(100),
-                status: CurrencyIssuanceStatus::Pending,
             },
         );
         let completed = Event::new(

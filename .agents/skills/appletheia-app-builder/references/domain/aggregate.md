@@ -55,7 +55,6 @@ pub fn issue(
             invitee_id,
             issuer,
             expires_at,
-            status: OrganizationInvitationStatus::Rejected,
             reason,
         })?;
         return Ok(());
@@ -67,7 +66,6 @@ pub fn issue(
         invitee_id,
         issuer,
         expires_at,
-        status: OrganizationInvitationStatus::Pending,
     })
 }
 ```
@@ -97,11 +95,6 @@ pub fn register(
     self.append_event(UserEventPayload::Registered {
         id,
         username,
-        identities: Vec::new(),
-        display_name: None,
-        bio: None,
-        picture: None,
-        status: UserStatus::Active,
     })?;
     Ok(RegisterUserResult::Registered { user_id: id })
 }
@@ -556,7 +549,6 @@ pub fn create(
         id,
         handle,
         name,
-        status: OrganizationStatus::Active,
     })?;
     Ok(OrganizationCreateResult::Created { organization_id: id })
 }
@@ -591,8 +583,6 @@ pub fn create(
         id: OrganizationMembershipId::new(),
         organization_id,
         user_id,
-        roles: OrganizationMembershipRoles::default(),
-        status: OrganizationMembershipStatus::Active,
     })
 }
 ```
@@ -719,7 +709,6 @@ pub fn issue(
         invitee_id,
         issuer,
         expires_at,
-        status: OrganizationInvitationStatus::Pending,
     })
 }
 ```
@@ -746,13 +735,12 @@ fn apply(&mut self, payload: &OrganizationEventPayload) -> Result<(), Organizati
             id,
             handle,
             name,
-            status,
         } => {
             self.state = Some(OrganizationState {
                 id: *id,
                 handle: handle.clone(),
                 name: name.clone(),
-                status: *status,
+                status: OrganizationStatus::Active,
             });
             Ok(())
         }
@@ -769,13 +757,12 @@ fn apply(&mut self, payload: &OrganizationEventPayload) -> Result<(), Organizati
             id,
             handle,
             name,
-            status,
         } => {
             self.state = Some(OrganizationState {
                 id: *id,
                 handle: handle.clone(),
                 name: name.clone(),
-                status: *status,
+                status: OrganizationStatus::Active,
             });
             Ok(())
         }
@@ -810,11 +797,11 @@ fn apply(&mut self, event: ExampleEventPayload) -> Result<(), ExampleError> {
 
             Ok(())
         }
-        ExampleEventPayload::Opened { id, name, status } => {
+        ExampleEventPayload::Opened { id, name } => {
             self.state = Some(ExampleState {
                 id: *id,
                 name: name.clone(),
-                status: *status,
+                status: ExampleStatus::Active,
             });
             Ok(())
         }
@@ -835,13 +822,12 @@ fn apply(&mut self, payload: &OrganizationEventPayload) -> Result<(), Organizati
             id,
             handle,
             name,
-            status,
         } => {
             self.state = Some(OrganizationState {
                 id: *id,
                 handle: handle.clone(),
                 name: name.clone(),
-                status: *status,
+                status: OrganizationStatus::Active,
             });
             Ok(())
         }
@@ -883,10 +869,11 @@ pub struct OrganizationState {
 }
 ```
 
-### DON'T hide default state in `AggregateState` constructors
+### DON'T use initial events as state snapshots
 
-Put every initial state value into the first event payload and construct the state directly from
-that payload in `apply`.
+Keep initial event payloads focused on the fact that happened and the values decided by that fact.
+Do not add fields only because the aggregate state needs a default value. When a value is fully
+implied by the event variant, initialize it in `apply`.
 
 good:
 ```rust
@@ -899,24 +886,38 @@ pub fn create(
         id: OrganizationId::new(),
         handle,
         name,
-        status: OrganizationStatus::Active,
     })
+}
+
+fn apply(&mut self, payload: &OrganizationEventPayload) -> Result<(), OrganizationError> {
+    match payload {
+        OrganizationEventPayload::Created { id, handle, name } => {
+            self.state = Some(OrganizationState {
+                id: *id,
+                handle: handle.clone(),
+                name: name.clone(),
+                status: OrganizationStatus::Active,
+            });
+        }
+        OrganizationEventPayload::Removed => {
+            self.state_required_mut()?.status = OrganizationStatus::Removed;
+        }
+    }
+
+    Ok(())
 }
 ```
 
 bad:
 ```rust
-fn apply_created(
-    id: OrganizationId,
-    handle: OrganizationHandle,
-    name: OrganizationName,
-) -> OrganizationState {
-    OrganizationState {
-        id,
-        handle,
-        name,
-        status: OrganizationStatus::Active,
-    }
+pub enum OrganizationEventPayload {
+    Created {
+        id: OrganizationId,
+        handle: OrganizationHandle,
+        name: OrganizationName,
+        status: OrganizationStatus,
+        member_count: u32,
+    },
 }
 ```
 
@@ -1028,7 +1029,6 @@ pub enum OrganizationEventPayload {
         id: OrganizationId,
         handle: OrganizationHandle,
         name: OrganizationName,
-        status: OrganizationStatus,
     },
     HandleChanged {
         handle: OrganizationHandle,
@@ -1064,7 +1064,6 @@ pub enum OrganizationInvitationEventPayload {
         invitee_id: UserId,
         issuer: OrganizationInvitationIssuer,
         expires_at: OrganizationInvitationExpiresAt,
-        status: OrganizationInvitationStatus,
     },
     Accepted {
         organization_id: OrganizationId,

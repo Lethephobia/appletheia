@@ -142,9 +142,6 @@ impl Account {
             owner,
             name,
             currency_id,
-            balance: CurrencyAmount::zero(),
-            reserved_balance: CurrencyAmount::zero(),
-            status: AccountStatus::Active,
         })
     }
 
@@ -408,18 +405,15 @@ impl AggregateApply<AccountEventPayload, AccountError> for Account {
                 owner,
                 name,
                 currency_id,
-                balance,
-                reserved_balance,
-                status,
             } => {
                 self.set_state(Some(AccountState {
                     id: *id,
                     owner: *owner,
                     name: name.clone(),
                     currency_id: *currency_id,
-                    balance: *balance,
-                    reserved_balance: *reserved_balance,
-                    status: *status,
+                    balance: CurrencyAmount::zero(),
+                    reserved_balance: CurrencyAmount::zero(),
+                    status: AccountStatus::Active,
                 }));
             }
             AccountEventPayload::OwnershipTransferred { owner } => {
@@ -559,9 +553,6 @@ mod tests {
                 owner,
                 name,
                 currency_id,
-                balance: CurrencyAmount::zero(),
-                reserved_balance: CurrencyAmount::zero(),
-                status: AccountStatus::Active,
             }
         );
     }
@@ -767,9 +758,6 @@ mod tests {
                 owner,
                 name: name.clone(),
                 currency_id,
-                balance: CurrencyAmount::zero(),
-                reserved_balance: CurrencyAmount::zero(),
-                status: AccountStatus::Active,
             },
         );
         let closed = Event::new(
@@ -816,9 +804,6 @@ mod tests {
                 owner,
                 name: name.clone(),
                 currency_id,
-                balance: CurrencyAmount::zero(),
-                reserved_balance: CurrencyAmount::zero(),
-                status: AccountStatus::Active,
             },
         );
         let name_changed = Event::new(

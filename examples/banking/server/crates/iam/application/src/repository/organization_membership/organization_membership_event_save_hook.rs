@@ -2,6 +2,7 @@ use appletheia::application::repository::EventSaveHook;
 use appletheia::domain::Event;
 use banking_iam_domain::{
     OrganizationMembership, OrganizationMembershipEventPayload, OrganizationMembershipId,
+    OrganizationMembershipRoles,
 };
 
 use crate::authorization::{
@@ -44,7 +45,6 @@ where
             OrganizationMembershipEventPayload::Created {
                 organization_id,
                 user_id,
-                roles,
                 ..
             } => {
                 updater
@@ -53,8 +53,9 @@ where
                 updater
                     .upsert_member(uow, *organization_id, *user_id)
                     .await?;
+                let roles = OrganizationMembershipRoles::default();
                 updater
-                    .replace_roles(uow, *organization_id, *user_id, roles)
+                    .replace_roles(uow, *organization_id, *user_id, &roles)
                     .await?;
             }
             OrganizationMembershipEventPayload::Activated {

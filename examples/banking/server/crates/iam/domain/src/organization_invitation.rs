@@ -120,7 +120,6 @@ impl OrganizationInvitation {
                 invitee_id,
                 issuer,
                 expires_at,
-                status: OrganizationInvitationStatus::Rejected,
                 reason,
             })?;
             return Ok(OrganizationInvitationIssueResult::Rejected { reason });
@@ -133,7 +132,6 @@ impl OrganizationInvitation {
             invitee_id,
             issuer,
             expires_at,
-            status: OrganizationInvitationStatus::Pending,
         })?;
         Ok(OrganizationInvitationIssueResult::Issued {
             organization_invitation_id: id,
@@ -245,7 +243,6 @@ impl AggregateApply<OrganizationInvitationEventPayload, OrganizationInvitationEr
                 invitee_id,
                 issuer,
                 expires_at,
-                status,
             } => {
                 self.set_state(Some(OrganizationInvitationState {
                     id: *id,
@@ -253,7 +250,7 @@ impl AggregateApply<OrganizationInvitationEventPayload, OrganizationInvitationEr
                     invitee_id: *invitee_id,
                     issuer: *issuer,
                     expires_at: *expires_at,
-                    status: *status,
+                    status: OrganizationInvitationStatus::Pending,
                 }));
             }
             OrganizationInvitationEventPayload::IssueRejected {
@@ -262,7 +259,6 @@ impl AggregateApply<OrganizationInvitationEventPayload, OrganizationInvitationEr
                 invitee_id,
                 issuer,
                 expires_at,
-                status,
                 ..
             } => {
                 self.set_state(Some(OrganizationInvitationState {
@@ -271,7 +267,7 @@ impl AggregateApply<OrganizationInvitationEventPayload, OrganizationInvitationEr
                     invitee_id: *invitee_id,
                     issuer: *issuer,
                     expires_at: *expires_at,
-                    status: *status,
+                    status: OrganizationInvitationStatus::Rejected,
                 }));
             }
             OrganizationInvitationEventPayload::Accepted { .. } => {
@@ -471,7 +467,6 @@ mod tests {
                 invitee_id,
                 issuer,
                 expires_at,
-                status: super::OrganizationInvitationStatus::Pending,
             })
             .expect("setup event should succeed");
 

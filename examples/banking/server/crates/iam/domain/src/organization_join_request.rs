@@ -87,7 +87,6 @@ impl OrganizationJoinRequest {
             id: OrganizationJoinRequestId::new(),
             organization_id,
             requester_id,
-            status: OrganizationJoinRequestStatus::Pending,
         })
     }
 
@@ -167,13 +166,12 @@ impl AggregateApply<OrganizationJoinRequestEventPayload, OrganizationJoinRequest
                 id,
                 organization_id,
                 requester_id,
-                status,
             } => {
                 self.set_state(Some(OrganizationJoinRequestState {
                     id: *id,
                     organization_id: *organization_id,
                     requester_id: *requester_id,
-                    status: *status,
+                    status: OrganizationJoinRequestStatus::Pending,
                 }));
             }
             OrganizationJoinRequestEventPayload::Approved { .. } => {

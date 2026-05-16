@@ -5,7 +5,7 @@ use crate::core::CurrencyAmount;
 
 use super::{
     TransferCompleteRejectionReason, TransferEventPayloadError, TransferFailRejectionReason,
-    TransferFailureReason, TransferId, TransferRequestRejectionReason, TransferStatus,
+    TransferFailureReason, TransferId, TransferRequestRejectionReason,
 };
 
 /// Represents the domain events emitted by a `Transfer` aggregate.
@@ -16,14 +16,12 @@ pub enum TransferEventPayload {
         from_account_id: AccountId,
         to_account_id: AccountId,
         amount: CurrencyAmount,
-        status: TransferStatus,
     },
     RequestRejected {
         id: TransferId,
         from_account_id: AccountId,
         to_account_id: AccountId,
         amount: CurrencyAmount,
-        status: TransferStatus,
         reason: TransferRequestRejectionReason,
     },
     Completed,
@@ -89,7 +87,6 @@ mod tests {
             from_account_id: AccountId::new(),
             to_account_id: AccountId::new(),
             amount: CurrencyAmount::new(100),
-            status: super::TransferStatus::Pending,
         };
 
         let value = payload.into_json_value().expect("payload should serialize");
