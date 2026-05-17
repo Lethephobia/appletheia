@@ -4,8 +4,8 @@ use appletheia::{aggregate_state, reference_indexes, unique_constraints};
 use crate::core::CurrencyAmount;
 
 use super::{
-    CurrencyDecimals, CurrencyDescription, CurrencyId, CurrencyImageRef, CurrencyName,
-    CurrencyOwner, CurrencyStateError, CurrencyStatus, CurrencySymbol,
+    CurrencyDecimals, CurrencyDescription, CurrencyId, CurrencyImageRef, CurrencyMintAccount,
+    CurrencyName, CurrencyOwner, CurrencyStateError, CurrencyStatus, CurrencySymbol,
 };
 
 /// Stores the materialized state of a `Currency` aggregate.
@@ -23,6 +23,7 @@ pub struct CurrencyState {
     pub(super) decimals: CurrencyDecimals,
     pub(super) description: Option<CurrencyDescription>,
     pub(super) image: Option<CurrencyImageRef>,
+    pub(super) mint_account: Option<CurrencyMintAccount>,
     pub(super) supply: CurrencyAmount,
     pub(super) status: CurrencyStatus,
 }
@@ -74,6 +75,7 @@ mod tests {
             decimals: CurrencyDecimals::new(6),
             description: None,
             image: None,
+            mint_account: None,
             supply: CurrencyAmount::zero(),
             status: CurrencyStatus::Active,
         };
@@ -97,6 +99,7 @@ mod tests {
             decimals: CurrencyDecimals::new(6),
             description: None,
             image: None,
+            mint_account: None,
             supply: CurrencyAmount::zero(),
             status: CurrencyStatus::Active,
         };
@@ -115,6 +118,7 @@ mod tests {
             decimals: CurrencyDecimals::new(6),
             description: None,
             image: None,
+            mint_account: None,
             supply: CurrencyAmount::zero(),
             status: CurrencyStatus::Active,
         };
@@ -138,6 +142,7 @@ mod tests {
             decimals: CurrencyDecimals::new(6),
             description: None,
             image: None,
+            mint_account: None,
             supply: CurrencyAmount::zero(),
             status: CurrencyStatus::Active,
         };
@@ -170,6 +175,7 @@ mod tests {
             decimals: CurrencyDecimals::new(6),
             description: None,
             image: None,
+            mint_account: None,
             supply: CurrencyAmount::zero(),
             status: CurrencyStatus::Active,
         };

@@ -3,7 +3,7 @@ use appletheia::application::authorization::{
 };
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::object_storage::{
-    ObjectName, ObjectUploadRequest, ObjectUploadSigner,
+    ObjectName, ObjectUploadSignRequest, ObjectUploadSigner,
 };
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
@@ -102,7 +102,7 @@ where
         let picture_object_name = UserPictureObjectName::new(command.user_id);
         let picture = UserPictureRef::object_name(picture_object_name.clone());
         let object_name = ObjectName::new(picture_object_name.value().to_owned())?;
-        let request = ObjectUploadRequest::new(
+        let request = ObjectUploadSignRequest::new(
             self.config.bucket_name().clone(),
             object_name,
             command.content_type.clone(),
@@ -110,8 +110,8 @@ where
         )
         .with_content_length(command.content_length)
         .with_checksum(command.checksum.clone());
-        let signed_upload_request = self.object_upload_signer.sign(request).await?;
-        let output = UserPictureUploadPrepareOutput::new(picture, signed_upload_request);
+        let signed_upload = self.object_upload_signer.sign(request).await?;
+        let output = UserPictureUploadPrepareOutput::new(picture, signed_upload);
 
         Ok(CommandHandled::same(output))
     }
@@ -128,8 +128,8 @@ mod tests {
     use appletheia::application::object_storage::{
         ObjectBucketName, ObjectChecksum, ObjectChecksumAlgorithm, ObjectChecksumValue,
         ObjectContentLength, ObjectContentType, ObjectContentTypes, ObjectUploadExpiresIn,
-        ObjectUploadHeaders, ObjectUploadRequest, ObjectUploadSigner, ObjectUploadSignerError,
-        SignedObjectUploadRequest, SignedObjectUploadUrl,
+        ObjectUploadHeaders, ObjectUploadSignRequest, ObjectUploadSigner, ObjectUploadSignerError,
+        SignedObjectUpload, SignedObjectUploadUrl,
     };
 
     use appletheia::application::repository::{Repository, RepositoryError};
@@ -215,15 +215,15 @@ mod tests {
 
     #[derive(Clone)]
     struct TestObjectUploadSigner {
-        request: Arc<Mutex<Option<ObjectUploadRequest>>>,
-        signed_upload_request: SignedObjectUploadRequest,
+        request: Arc<Mutex<Option<ObjectUploadSignRequest>>>,
+        signed_upload: SignedObjectUpload,
     }
 
     impl TestObjectUploadSigner {
-        fn new(signed_upload_request: SignedObjectUploadRequest) -> Self {
+        fn new(signed_upload: SignedObjectUpload) -> Self {
             Self {
                 request: Arc::new(Mutex::new(None)),
-                signed_upload_request,
+                signed_upload,
             }
         }
     }
@@ -231,10 +231,10 @@ mod tests {
     impl ObjectUploadSigner for TestObjectUploadSigner {
         async fn sign(
             &self,
-            request: ObjectUploadRequest,
-        ) -> Result<SignedObjectUploadRequest, ObjectUploadSignerError> {
+            request: ObjectUploadSignRequest,
+        ) -> Result<SignedObjectUpload, ObjectUploadSignerError> {
             *self.request.lock().expect("lock") = Some(request);
-            Ok(self.signed_upload_request.clone())
+            Ok(self.signed_upload.clone())
         }
     }
 
@@ -262,8 +262,8 @@ mod tests {
         user
     }
 
-    fn signed_upload_request(expires_in: ObjectUploadExpiresIn) -> SignedObjectUploadRequest {
-        SignedObjectUploadRequest::new(
+    fn signed_upload(expires_in: ObjectUploadExpiresIn) -> SignedObjectUpload {
+        SignedObjectUpload::new(
             appletheia::application::object_storage::ObjectUploadMethod::Put,
             SignedObjectUploadUrl::try_from("https://storage.example.com/upload")
                 .expect("signed URL should be valid"),
@@ -295,7 +295,7 @@ mod tests {
             ObjectUploadExpiresIn::new(Duration::minutes(10)).expect("expiration should be valid");
         let handler = UserPictureUploadPrepareCommandHandler::new(
             repository,
-            TestObjectUploadSigner::new(signed_upload_request(expires_in)),
+            TestObjectUploadSigner::new(signed_upload(expires_in)),
             UserPictureUploadPrepareCommandHandlerConfig::new(
                 ObjectBucketName::new("pictures".to_owned()).expect("bucket name should be valid"),
                 expires_in,
@@ -328,13 +328,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn handle_returns_picture_ref_and_signed_upload_request() {
+    async fn handle_returns_picture_ref_and_signed_upload() {
         let user = registered_user();
         let user_id = user.aggregate_id().expect("user id should exist");
         let repository = TestUserRepository::new(user);
         let expires_in =
             ObjectUploadExpiresIn::new(Duration::minutes(10)).expect("expiration should be valid");
-        let signer = TestObjectUploadSigner::new(signed_upload_request(expires_in));
+        let signer = TestObjectUploadSigner::new(signed_upload(expires_in));
         let signer_requests = signer.request.clone();
         let handler = UserPictureUploadPrepareCommandHandler::new(
             repository,
@@ -369,10 +369,7 @@ mod tests {
             .clone()
             .expect("signer should receive request");
 
-        assert_eq!(
-            output.signed_upload_request,
-            signed_upload_request(expires_in)
-        );
+        assert_eq!(output.signed_upload, signed_upload(expires_in));
         assert_eq!(request.bucket_name().as_str(), "pictures");
         assert_eq!(request.content_type().as_str(), "image/png");
         assert_eq!(
@@ -405,7 +402,7 @@ mod tests {
             ObjectUploadExpiresIn::new(Duration::minutes(10)).expect("expiration should be valid");
         let handler = UserPictureUploadPrepareCommandHandler::new(
             repository,
-            TestObjectUploadSigner::new(signed_upload_request(expires_in)),
+            TestObjectUploadSigner::new(signed_upload(expires_in)),
             UserPictureUploadPrepareCommandHandlerConfig::new(
                 ObjectBucketName::new("pictures".to_owned()).expect("bucket name should be valid"),
                 expires_in,
@@ -444,7 +441,7 @@ mod tests {
             ObjectUploadExpiresIn::new(Duration::minutes(10)).expect("expiration should be valid");
         let handler = UserPictureUploadPrepareCommandHandler::new(
             repository,
-            TestObjectUploadSigner::new(signed_upload_request(expires_in)),
+            TestObjectUploadSigner::new(signed_upload(expires_in)),
             UserPictureUploadPrepareCommandHandlerConfig::new(
                 ObjectBucketName::new("pictures".to_owned()).expect("bucket name should be valid"),
                 expires_in,
@@ -483,7 +480,7 @@ mod tests {
             ObjectUploadExpiresIn::new(Duration::minutes(10)).expect("expiration should be valid");
         let handler = UserPictureUploadPrepareCommandHandler::new(
             repository,
-            TestObjectUploadSigner::new(signed_upload_request(expires_in)),
+            TestObjectUploadSigner::new(signed_upload(expires_in)),
             UserPictureUploadPrepareCommandHandlerConfig::new(
                 ObjectBucketName::new("pictures".to_owned()).expect("bucket name should be valid"),
                 expires_in,

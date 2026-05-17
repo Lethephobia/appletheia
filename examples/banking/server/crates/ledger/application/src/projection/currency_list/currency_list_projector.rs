@@ -368,6 +368,8 @@ where
             | CurrencyEventPayload::NameChangeRejected { .. }
             | CurrencyEventPayload::DescriptionChangeRejected { .. }
             | CurrencyEventPayload::ImageChangeRejected { .. }
+            | CurrencyEventPayload::MintAccountRecorded { .. }
+            | CurrencyEventPayload::MintAccountRecordRejected { .. }
             | CurrencyEventPayload::SupplyIncreaseRejected { .. }
             | CurrencyEventPayload::SupplyDecreaseRejected { .. }
             | CurrencyEventPayload::ActivateRejected { .. }

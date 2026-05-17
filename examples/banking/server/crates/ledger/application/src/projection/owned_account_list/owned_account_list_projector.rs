@@ -437,6 +437,8 @@ where
             | CurrencyEventPayload::DescriptionChangeRejected { .. }
             | CurrencyEventPayload::ImageChanged { .. }
             | CurrencyEventPayload::ImageChangeRejected { .. }
+            | CurrencyEventPayload::MintAccountRecorded { .. }
+            | CurrencyEventPayload::MintAccountRecordRejected { .. }
             | CurrencyEventPayload::SupplyIncreased { .. }
             | CurrencyEventPayload::SupplyIncreaseRejected { .. }
             | CurrencyEventPayload::SupplyDecreased { .. }

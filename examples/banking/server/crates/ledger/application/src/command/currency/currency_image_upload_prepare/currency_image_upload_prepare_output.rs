@@ -1,4 +1,4 @@
-use appletheia::application::object_storage::SignedObjectUploadRequest;
+use appletheia::application::object_storage::SignedObjectUpload;
 use banking_ledger_domain::currency::CurrencyImageRef;
 use serde::{Deserialize, Serialize};
 
@@ -6,15 +6,15 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CurrencyImageUploadPrepareOutput {
     pub image: CurrencyImageRef,
-    pub signed_upload_request: SignedObjectUploadRequest,
+    pub signed_upload: SignedObjectUpload,
 }
 
 impl CurrencyImageUploadPrepareOutput {
     /// Creates a new currency-image-upload-prepare output.
-    pub fn new(image: CurrencyImageRef, signed_upload_request: SignedObjectUploadRequest) -> Self {
+    pub fn new(image: CurrencyImageRef, signed_upload: SignedObjectUpload) -> Self {
         Self {
             image,
-            signed_upload_request,
+            signed_upload,
         }
     }
 }

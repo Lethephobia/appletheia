@@ -6,6 +6,7 @@ pub mod http_oidc_user_info_client;
 pub mod http_oidc_user_info_client_error;
 pub mod oidc_provider_metadata_body;
 pub mod oidc_provider_metadata_body_error;
+mod oidc_token_response_body;
 pub mod oidc_user_info_body;
 pub mod oidc_user_info_body_error;
 

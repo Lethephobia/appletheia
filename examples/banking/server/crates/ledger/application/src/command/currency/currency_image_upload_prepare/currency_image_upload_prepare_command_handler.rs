@@ -3,7 +3,7 @@ use appletheia::application::authorization::{
 };
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::object_storage::{
-    ObjectName, ObjectUploadRequest, ObjectUploadSigner,
+    ObjectName, ObjectUploadSignRequest, ObjectUploadSigner,
 };
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
@@ -102,7 +102,7 @@ where
         let image_object_name = CurrencyImageObjectName::new(command.currency_id);
         let image = CurrencyImageRef::object_name(image_object_name.clone());
         let object_name = ObjectName::new(image_object_name.value().to_owned())?;
-        let request = ObjectUploadRequest::new(
+        let request = ObjectUploadSignRequest::new(
             self.config.bucket_name().clone(),
             object_name,
             command.content_type.clone(),
@@ -110,8 +110,8 @@ where
         )
         .with_content_length(command.content_length)
         .with_checksum(command.checksum.clone());
-        let signed_upload_request = self.object_upload_signer.sign(request).await?;
-        let output = CurrencyImageUploadPrepareOutput::new(image, signed_upload_request);
+        let signed_upload = self.object_upload_signer.sign(request).await?;
+        let output = CurrencyImageUploadPrepareOutput::new(image, signed_upload);
 
         Ok(CommandHandled::same(output))
     }

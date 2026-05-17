@@ -5,10 +5,11 @@ use crate::core::CurrencyAmount;
 use super::{
     CurrencyActivateRejectionReason, CurrencyDeactivateRejectionReason, CurrencyDecimals,
     CurrencyDescription, CurrencyDescriptionChangeRejectionReason, CurrencyEventPayloadError,
-    CurrencyId, CurrencyImageChangeRejectionReason, CurrencyImageRef, CurrencyName,
-    CurrencyNameChangeRejectionReason, CurrencyOwner, CurrencyOwnershipTransferRejectionReason,
-    CurrencyRemoveRejectionReason, CurrencySupplyDecreaseRejectionReason,
-    CurrencySupplyIncreaseRejectionReason, CurrencySymbol, CurrencySymbolChangeRejectionReason,
+    CurrencyId, CurrencyImageChangeRejectionReason, CurrencyImageRef, CurrencyMintAccount,
+    CurrencyMintAccountRecordRejectionReason, CurrencyName, CurrencyNameChangeRejectionReason,
+    CurrencyOwner, CurrencyOwnershipTransferRejectionReason, CurrencyRemoveRejectionReason,
+    CurrencySupplyDecreaseRejectionReason, CurrencySupplyIncreaseRejectionReason, CurrencySymbol,
+    CurrencySymbolChangeRejectionReason,
 };
 
 /// Represents the domain events emitted by a `Currency` aggregate.
@@ -58,6 +59,13 @@ pub enum CurrencyEventPayload {
     ImageChangeRejected {
         image: Option<CurrencyImageRef>,
         reason: CurrencyImageChangeRejectionReason,
+    },
+    MintAccountRecorded {
+        mint_account: CurrencyMintAccount,
+    },
+    MintAccountRecordRejected {
+        mint_account: Option<CurrencyMintAccount>,
+        reason: CurrencyMintAccountRecordRejectionReason,
     },
     SupplyIncreased {
         amount: CurrencyAmount,
@@ -140,6 +148,14 @@ mod tests {
         assert_eq!(
             CurrencyEventPayload::IMAGE_CHANGE_REJECTED,
             appletheia::domain::EventName::new("image_change_rejected")
+        );
+        assert_eq!(
+            CurrencyEventPayload::MINT_ACCOUNT_RECORDED,
+            appletheia::domain::EventName::new("mint_account_recorded")
+        );
+        assert_eq!(
+            CurrencyEventPayload::MINT_ACCOUNT_RECORD_REJECTED,
+            appletheia::domain::EventName::new("mint_account_record_rejected")
         );
         assert_eq!(
             CurrencyEventPayload::SUPPLY_INCREASED,

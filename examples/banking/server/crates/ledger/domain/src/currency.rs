@@ -18,6 +18,14 @@ mod currency_image_object_name_error;
 mod currency_image_ref;
 mod currency_image_url;
 mod currency_image_url_error;
+mod currency_mint_account;
+mod currency_mint_account_address;
+mod currency_mint_account_address_error;
+mod currency_mint_account_record_preparation_result;
+mod currency_mint_account_record_rejection_reason;
+mod currency_mint_account_record_result;
+mod currency_mint_token_program_id;
+mod currency_mint_token_program_id_error;
 mod currency_name;
 mod currency_name_change_rejection_reason;
 mod currency_name_change_result;
@@ -59,6 +67,14 @@ pub use currency_image_object_name_error::CurrencyImageObjectNameError;
 pub use currency_image_ref::CurrencyImageRef;
 pub use currency_image_url::CurrencyImageUrl;
 pub use currency_image_url_error::CurrencyImageUrlError;
+pub use currency_mint_account::CurrencyMintAccount;
+pub use currency_mint_account_address::CurrencyMintAccountAddress;
+pub use currency_mint_account_address_error::CurrencyMintAccountAddressError;
+pub use currency_mint_account_record_preparation_result::CurrencyMintAccountRecordPreparationResult;
+pub use currency_mint_account_record_rejection_reason::CurrencyMintAccountRecordRejectionReason;
+pub use currency_mint_account_record_result::CurrencyMintAccountRecordResult;
+pub use currency_mint_token_program_id::CurrencyMintTokenProgramId;
+pub use currency_mint_token_program_id_error::CurrencyMintTokenProgramIdError;
 pub use currency_name::CurrencyName;
 pub use currency_name_change_rejection_reason::CurrencyNameChangeRejectionReason;
 pub use currency_name_change_result::CurrencyNameChangeResult;
@@ -120,6 +136,11 @@ impl Currency {
     /// Returns the current image reference.
     pub fn image(&self) -> Result<Option<&CurrencyImageRef>, CurrencyError> {
         Ok(self.state_required()?.image.as_ref())
+    }
+
+    /// Returns the linked on-chain mint account.
+    pub fn mint_account(&self) -> Result<Option<&CurrencyMintAccount>, CurrencyError> {
+        Ok(self.state_required()?.mint_account.as_ref())
     }
 
     /// Returns the total supply.
@@ -246,6 +267,60 @@ impl Currency {
         Ok(CurrencyImageChangeResult::Changed)
     }
 
+    /// Prepares to record the on-chain mint account linked to this currency.
+    pub fn prepare_mint_account_record(
+        &mut self,
+    ) -> Result<CurrencyMintAccountRecordPreparationResult, CurrencyError> {
+        if self.state_required()?.status.is_removed() {
+            let reason = CurrencyMintAccountRecordRejectionReason::Removed;
+            self.append_event(CurrencyEventPayload::MintAccountRecordRejected {
+                mint_account: None,
+                reason,
+            })?;
+            return Ok(CurrencyMintAccountRecordPreparationResult::Rejected { reason });
+        }
+
+        if self.state_required()?.mint_account.is_some() {
+            let reason = CurrencyMintAccountRecordRejectionReason::AlreadyRecorded;
+            self.append_event(CurrencyEventPayload::MintAccountRecordRejected {
+                mint_account: None,
+                reason,
+            })?;
+            return Ok(CurrencyMintAccountRecordPreparationResult::Rejected { reason });
+        }
+
+        Ok(CurrencyMintAccountRecordPreparationResult::Ready)
+    }
+
+    /// Records the on-chain mint account linked to this currency.
+    pub fn record_mint_account(
+        &mut self,
+        mint_account: CurrencyMintAccount,
+    ) -> Result<CurrencyMintAccountRecordResult, CurrencyError> {
+        if self.state_required()?.status.is_removed() {
+            let reason = CurrencyMintAccountRecordRejectionReason::Removed;
+            self.append_event(CurrencyEventPayload::MintAccountRecordRejected {
+                mint_account: Some(mint_account),
+                reason,
+            })?;
+            return Ok(CurrencyMintAccountRecordResult::Rejected { reason });
+        }
+
+        if self.state_required()?.mint_account.is_some() {
+            let reason = CurrencyMintAccountRecordRejectionReason::AlreadyRecorded;
+            self.append_event(CurrencyEventPayload::MintAccountRecordRejected {
+                mint_account: Some(mint_account),
+                reason,
+            })?;
+            return Ok(CurrencyMintAccountRecordResult::Rejected { reason });
+        }
+
+        self.append_event(CurrencyEventPayload::MintAccountRecorded {
+            mint_account: mint_account.clone(),
+        })?;
+        Ok(CurrencyMintAccountRecordResult::Recorded { mint_account })
+    }
+
     /// Increases the total supply.
     pub fn increase_supply(
         &mut self,
@@ -347,6 +422,7 @@ impl AggregateApply<CurrencyEventPayload, CurrencyError> for Currency {
                     decimals: *decimals,
                     description: description.clone(),
                     image: image.clone(),
+                    mint_account: None,
                     supply: CurrencyAmount::zero(),
                     status: CurrencyStatus::Active,
                 }));
@@ -371,6 +447,10 @@ impl AggregateApply<CurrencyEventPayload, CurrencyError> for Currency {
                 self.state_required_mut()?.image = image.clone();
             }
             CurrencyEventPayload::ImageChangeRejected { .. } => {}
+            CurrencyEventPayload::MintAccountRecorded { mint_account } => {
+                self.state_required_mut()?.mint_account = Some(mint_account.clone());
+            }
+            CurrencyEventPayload::MintAccountRecordRejected { .. } => {}
             CurrencyEventPayload::SupplyIncreased { amount } => {
                 let state = self.state_required_mut()?;
                 state.supply = state.supply.try_add(*amount).map_err(|error| match error {
@@ -414,8 +494,8 @@ mod tests {
 
     use super::{
         Currency, CurrencyDecimals, CurrencyDescription, CurrencyEventPayload, CurrencyId,
-        CurrencyImageRef, CurrencyImageUrl, CurrencyName, CurrencyOwner, CurrencyStatus,
-        CurrencySymbol,
+        CurrencyImageRef, CurrencyImageUrl, CurrencyMintAccount, CurrencyMintAccountAddress,
+        CurrencyMintTokenProgramId, CurrencyName, CurrencyOwner, CurrencyStatus, CurrencySymbol,
     };
 
     fn user_owner() -> CurrencyOwner {
@@ -424,6 +504,15 @@ mod tests {
 
     fn organization_owner() -> CurrencyOwner {
         CurrencyOwner::organization(OrganizationId::new())
+    }
+
+    fn make_mint_account(value: &str) -> CurrencyMintAccount {
+        CurrencyMintAccount::new(
+            CurrencyMintAccountAddress::try_from(value)
+                .expect("mint account address should be valid"),
+            CurrencyMintTokenProgramId::try_from("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb")
+                .expect("token program ID should be valid"),
+        )
     }
 
     #[test]
@@ -735,6 +824,209 @@ mod tests {
             &CurrencyAmount::new(60)
         );
         assert_eq!(currency.uncommitted_events().len(), 3);
+    }
+
+    #[test]
+    fn record_mint_account_updates_state_and_records_event() {
+        let owner = user_owner();
+        let mint_account = make_mint_account("Mint111111111111111111111111111111111111");
+        let mut currency = Currency::default();
+        currency
+            .define(
+                owner,
+                CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
+                CurrencyName::try_from("USD Coin").expect("name should be valid"),
+                CurrencyDecimals::new(6),
+                None,
+                None,
+            )
+            .expect("definition should succeed");
+
+        let result = currency
+            .record_mint_account(mint_account.clone())
+            .expect("mint account record should succeed");
+
+        assert!(matches!(
+            result,
+            super::CurrencyMintAccountRecordResult::Recorded {
+                mint_account: recorded
+            } if recorded == mint_account
+        ));
+        assert_eq!(
+            currency.mint_account().expect("mint account should exist"),
+            Some(&mint_account)
+        );
+        assert_eq!(
+            currency.uncommitted_events()[1].payload().name(),
+            CurrencyEventPayload::MINT_ACCOUNT_RECORDED
+        );
+    }
+
+    #[test]
+    fn prepare_mint_account_record_is_ready_when_recordable() {
+        let owner = user_owner();
+        let mut currency = Currency::default();
+        currency
+            .define(
+                owner,
+                CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
+                CurrencyName::try_from("USD Coin").expect("name should be valid"),
+                CurrencyDecimals::new(6),
+                None,
+                None,
+            )
+            .expect("definition should succeed");
+
+        let result = currency
+            .prepare_mint_account_record()
+            .expect("preparation should succeed");
+
+        assert!(matches!(
+            result,
+            super::CurrencyMintAccountRecordPreparationResult::Ready
+        ));
+        assert_eq!(currency.uncommitted_events().len(), 1);
+    }
+
+    #[test]
+    fn prepare_mint_account_record_rejects_duplicate_with_event() {
+        let owner = user_owner();
+        let mint_account = make_mint_account("Mint111111111111111111111111111111111111");
+        let mut currency = Currency::default();
+        currency
+            .define(
+                owner,
+                CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
+                CurrencyName::try_from("USD Coin").expect("name should be valid"),
+                CurrencyDecimals::new(6),
+                None,
+                None,
+            )
+            .expect("definition should succeed");
+        currency
+            .record_mint_account(mint_account)
+            .expect("mint account record should succeed");
+
+        let result = currency
+            .prepare_mint_account_record()
+            .expect("preparation should complete with a rejection event");
+
+        assert!(matches!(
+            result,
+            super::CurrencyMintAccountRecordPreparationResult::Rejected {
+                reason: super::CurrencyMintAccountRecordRejectionReason::AlreadyRecorded
+            }
+        ));
+        assert_eq!(
+            currency.uncommitted_events()[2].payload().name(),
+            CurrencyEventPayload::MINT_ACCOUNT_RECORD_REJECTED
+        );
+    }
+
+    #[test]
+    fn prepare_mint_account_record_rejects_removed_currency_with_event() {
+        let owner = user_owner();
+        let mut currency = Currency::default();
+        currency
+            .define(
+                owner,
+                CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
+                CurrencyName::try_from("USD Coin").expect("name should be valid"),
+                CurrencyDecimals::new(6),
+                None,
+                None,
+            )
+            .expect("definition should succeed");
+        currency.remove().expect("remove should succeed");
+
+        let result = currency
+            .prepare_mint_account_record()
+            .expect("preparation should complete with a rejection event");
+
+        assert!(matches!(
+            result,
+            super::CurrencyMintAccountRecordPreparationResult::Rejected {
+                reason: super::CurrencyMintAccountRecordRejectionReason::Removed
+            }
+        ));
+        assert_eq!(
+            currency.uncommitted_events()[2].payload().name(),
+            CurrencyEventPayload::MINT_ACCOUNT_RECORD_REJECTED
+        );
+    }
+
+    #[test]
+    fn record_mint_account_rejects_duplicate_with_event() {
+        let owner = user_owner();
+        let mint_account = make_mint_account("Mint111111111111111111111111111111111111");
+        let duplicate_mint_account = make_mint_account("Mint222222222222222222222222222222222222");
+        let mut currency = Currency::default();
+        currency
+            .define(
+                owner,
+                CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
+                CurrencyName::try_from("USD Coin").expect("name should be valid"),
+                CurrencyDecimals::new(6),
+                None,
+                None,
+            )
+            .expect("definition should succeed");
+        currency
+            .record_mint_account(mint_account.clone())
+            .expect("mint account record should succeed");
+
+        let result = currency
+            .record_mint_account(duplicate_mint_account)
+            .expect("duplicate mint account record should complete with a rejection event");
+
+        assert!(matches!(
+            result,
+            super::CurrencyMintAccountRecordResult::Rejected {
+                reason: super::CurrencyMintAccountRecordRejectionReason::AlreadyRecorded
+            }
+        ));
+        assert_eq!(
+            currency.mint_account().expect("mint account should exist"),
+            Some(&mint_account)
+        );
+        assert_eq!(
+            currency.uncommitted_events()[2].payload().name(),
+            CurrencyEventPayload::MINT_ACCOUNT_RECORD_REJECTED
+        );
+    }
+
+    #[test]
+    fn record_mint_account_rejects_removed_currency_with_event() {
+        let owner = user_owner();
+        let mut currency = Currency::default();
+        currency
+            .define(
+                owner,
+                CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
+                CurrencyName::try_from("USD Coin").expect("name should be valid"),
+                CurrencyDecimals::new(6),
+                None,
+                None,
+            )
+            .expect("definition should succeed");
+        currency.remove().expect("remove should succeed");
+
+        let result = currency
+            .record_mint_account(make_mint_account(
+                "Mint111111111111111111111111111111111111",
+            ))
+            .expect("removed mint account record should complete with a rejection event");
+
+        assert!(matches!(
+            result,
+            super::CurrencyMintAccountRecordResult::Rejected {
+                reason: super::CurrencyMintAccountRecordRejectionReason::Removed
+            }
+        ));
+        assert_eq!(
+            currency.uncommitted_events()[2].payload().name(),
+            CurrencyEventPayload::MINT_ACCOUNT_RECORD_REJECTED
+        );
     }
 
     #[test]

@@ -1,5 +1,6 @@
 pub mod authorization;
 pub mod command;
+pub mod onchain;
 pub mod projection;
 pub mod query;
 pub mod read_model;
@@ -41,6 +42,8 @@ pub use command::{
     CurrencyIssuanceCompleteCommandHandler, CurrencyIssuanceCompleteOutput,
     CurrencyIssuanceFailCommand, CurrencyIssuanceFailCommandHandler, CurrencyIssuanceFailOutput,
     CurrencyIssueCommand, CurrencyIssueCommandHandler, CurrencyIssueOutput,
+    CurrencyMintAccountCreateCommand, CurrencyMintAccountCreateCommandHandler,
+    CurrencyMintAccountCreateCommandHandlerConfig, CurrencyMintAccountCreateOutput,
     CurrencyNameChangeCommand, CurrencyNameChangeCommandHandler, CurrencyNameChangeOutput,
     CurrencyOwnershipTransferCommand, CurrencyOwnershipTransferCommandHandler,
     CurrencyOwnershipTransferOutput, CurrencyRemoveCommand, CurrencyRemoveCommandHandler,
@@ -62,6 +65,19 @@ pub use command::{
     OwnedAccountClosureRequestOutput, TransferCompleteCommand, TransferCompleteCommandHandler,
     TransferCompleteOutput, TransferFailCommand, TransferFailCommandHandler, TransferFailOutput,
     TransferRequestCommand, TransferRequestCommandHandler, TransferRequestOutput,
+};
+pub use onchain::{
+    MintAccountAddress, MintAccountAddressError, MintAccountCreateReceipt,
+    MintAccountCreateReceiptError, MintAccountCreateRequest, MintAccountCreator,
+    MintAccountCreatorError, MintAccountMetadata, MintAccountSeed, MintAccountSeedError,
+    MintMetadataDescription, MintMetadataDescriptionError, MintMetadataDocument, MintMetadataImage,
+    MintMetadataImageObjectName, MintMetadataImageObjectNameError, MintMetadataName,
+    MintMetadataNameError, MintMetadataObjectName, MintMetadataObjectNameError,
+    MintMetadataPublicBaseUrl, MintMetadataPublicBaseUrlError, MintMetadataPublishRequest,
+    MintMetadataPublisher, MintMetadataPublisherError, MintMetadataSymbol, MintMetadataSymbolError,
+    MintMetadataUri, MintMetadataUriError, ObjectStorageMintMetadataPublisher,
+    ObjectStorageMintMetadataPublisherConfig, ObjectStorageMintMetadataPublisherError,
+    OnchainAccountAddress, OnchainAccountAddressError, TokenProgramId, TokenProgramIdError,
 };
 pub use projection::{
     CurrencyListProjector, CurrencyListProjectorError, CurrencyListProjectorSpec,
@@ -117,7 +133,9 @@ pub use read_model::{
 pub use repository::{AccountEventSaveHook, CurrencyEventSaveHook};
 pub use saga::{
     CurrencyIssuanceSaga, CurrencyIssuanceSagaError, CurrencyIssuanceSagaSpec,
-    CurrencyIssuanceSagaState, CurrencyIssuanceSagaStatus, CurrencyOldImageObjectDeletionSaga,
+    CurrencyIssuanceSagaState, CurrencyIssuanceSagaStatus, CurrencyMintAccountCreationSaga,
+    CurrencyMintAccountCreationSagaError, CurrencyMintAccountCreationSagaSpec,
+    CurrencyMintAccountCreationSagaState, CurrencyOldImageObjectDeletionSaga,
     CurrencyOldImageObjectDeletionSagaError, CurrencyOldImageObjectDeletionSagaSpec,
     CurrencyOldImageObjectDeletionSagaState, OwnedAccountClosureSaga, OwnedAccountClosureSagaError,
     OwnedAccountClosureSagaSpec, OwnedAccountClosureSagaState, OwnedAccountClosureSagaStatus,

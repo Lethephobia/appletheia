@@ -1,0 +1,240 @@
+use appletheia::application::object_storage::{
+    ObjectContentType, ObjectName, ObjectUploadBody, ObjectUploadRequest, ObjectUploader,
+};
+
+use crate::onchain::{
+    MintMetadataDocument, MintMetadataImage, MintMetadataPublishRequest, MintMetadataPublisher,
+    MintMetadataPublisherError, MintMetadataUri,
+};
+
+use super::{
+    MintMetadataObjectName, ObjectStorageMintMetadataPublisherConfig,
+    ObjectStorageMintMetadataPublisherError, mint_metadata_body::MintMetadataBody,
+};
+
+#[derive(Clone, Debug)]
+pub struct ObjectStorageMintMetadataPublisher<U>
+where
+    U: ObjectUploader,
+{
+    object_uploader: U,
+    config: ObjectStorageMintMetadataPublisherConfig,
+}
+
+impl<U> ObjectStorageMintMetadataPublisher<U>
+where
+    U: ObjectUploader,
+{
+    pub fn new(object_uploader: U, config: ObjectStorageMintMetadataPublisherConfig) -> Self {
+        Self {
+            object_uploader,
+            config,
+        }
+    }
+
+    fn image_uri(
+        &self,
+        image: Option<&MintMetadataImage>,
+    ) -> Result<Option<String>, ObjectStorageMintMetadataPublisherError> {
+        match image {
+            Some(MintMetadataImage::ObjectName(object_name)) => Ok(Some(
+                self.config
+                    .image_public_base_url()
+                    .resolve(object_name.value())?
+                    .to_string(),
+            )),
+            Some(MintMetadataImage::Uri(uri)) => Ok(Some(uri.to_string())),
+            None => Ok(None),
+        }
+    }
+
+    fn metadata_json(
+        &self,
+        document: &MintMetadataDocument,
+    ) -> Result<Vec<u8>, ObjectStorageMintMetadataPublisherError> {
+        let body = MintMetadataBody::new(
+            document.name().value(),
+            document.symbol().value(),
+            document.description().map(|value| value.value()),
+            self.image_uri(document.image())?,
+        );
+
+        serde_json::to_vec(&body).map_err(ObjectStorageMintMetadataPublisherError::Serialize)
+    }
+
+    async fn publish_inner(
+        &self,
+        request: MintMetadataPublishRequest,
+    ) -> Result<MintMetadataUri, ObjectStorageMintMetadataPublisherError> {
+        let object_name = MintMetadataObjectName::new(request.seed());
+        let metadata_uri = self
+            .config
+            .metadata_public_base_url()
+            .resolve(object_name.value())?;
+        let body = self.metadata_json(request.document())?;
+        let request = ObjectUploadRequest::new(
+            self.config.bucket_name().clone(),
+            ObjectName::new(object_name.value().to_owned())?,
+            ObjectContentType::json(),
+            ObjectUploadBody::new(body),
+        );
+
+        self.object_uploader.upload(request).await?;
+
+        Ok(metadata_uri)
+    }
+}
+
+impl<U> MintMetadataPublisher for ObjectStorageMintMetadataPublisher<U>
+where
+    U: ObjectUploader,
+{
+    async fn publish(
+        &self,
+        request: MintMetadataPublishRequest,
+    ) -> Result<MintMetadataUri, MintMetadataPublisherError> {
+        self.publish_inner(request)
+            .await
+            .map_err(|error| MintMetadataPublisherError::Backend(Box::new(error)))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::{Arc, Mutex};
+
+    use appletheia::application::object_storage::{
+        ObjectBucketName, ObjectUploadRequest, ObjectUploader, ObjectUploaderError,
+    };
+    use serde_json::json;
+
+    use crate::onchain::{
+        MintAccountSeed, MintMetadataDescription, MintMetadataDocument, MintMetadataImage,
+        MintMetadataImageObjectName, MintMetadataName, MintMetadataPublishRequest,
+        MintMetadataPublisher, MintMetadataSymbol,
+    };
+    use crate::onchain::{
+        MintMetadataPublicBaseUrl, ObjectStorageMintMetadataPublisher,
+        ObjectStorageMintMetadataPublisherConfig,
+    };
+
+    #[derive(Clone, Default)]
+    struct TestObjectUploader {
+        request: Arc<Mutex<Option<ObjectUploadRequest>>>,
+    }
+
+    impl ObjectUploader for TestObjectUploader {
+        async fn upload(&self, request: ObjectUploadRequest) -> Result<(), ObjectUploaderError> {
+            *self.request.lock().expect("lock") = Some(request);
+            Ok(())
+        }
+    }
+
+    fn publisher() -> (
+        ObjectStorageMintMetadataPublisher<TestObjectUploader>,
+        Arc<Mutex<Option<ObjectUploadRequest>>>,
+    ) {
+        let object_uploader = TestObjectUploader::default();
+        let request = object_uploader.request.clone();
+        let publisher = ObjectStorageMintMetadataPublisher::new(
+            object_uploader,
+            ObjectStorageMintMetadataPublisherConfig::new(
+                ObjectBucketName::new("metadata".to_owned()).expect("bucket name should be valid"),
+                MintMetadataPublicBaseUrl::try_from("https://storage.example.com/metadata/")
+                    .expect("base URL should be valid"),
+                MintMetadataPublicBaseUrl::try_from("https://assets.example.com/")
+                    .expect("base URL should be valid"),
+            ),
+        );
+
+        (publisher, request)
+    }
+
+    #[tokio::test]
+    async fn publish_uploads_metadata_json_and_returns_uri() {
+        let (publisher, uploaded_request) = publisher();
+        let seed = MintAccountSeed::try_from("00000000000000000000000000000000")
+            .expect("seed should be valid");
+        let document = MintMetadataDocument::new(
+            MintMetadataName::try_from("USD Coin").expect("name should be valid"),
+            MintMetadataSymbol::try_from("USDC").expect("symbol should be valid"),
+            Some(
+                MintMetadataDescription::try_from("Stablecoin backed by USD")
+                    .expect("description should be valid"),
+            ),
+            Some(MintMetadataImage::object_name(
+                MintMetadataImageObjectName::try_from(
+                    "currencies/00000000-0000-0000-0000-000000000001/images/00000000-0000-0000-0000-000000000002",
+                )
+                .expect("image object name should be valid"),
+            )),
+        );
+
+        let uri = publisher
+            .publish(MintMetadataPublishRequest::new(seed, document))
+            .await
+            .expect("metadata should be published");
+
+        assert_eq!(
+            uri.value().as_str(),
+            "https://storage.example.com/metadata/currencies/00000000000000000000000000000000/mint/metadata.json"
+        );
+
+        let request = uploaded_request
+            .lock()
+            .expect("lock")
+            .clone()
+            .expect("object should be uploaded");
+        assert_eq!(request.bucket_name().as_str(), "metadata");
+        assert_eq!(
+            request.object_name().as_str(),
+            "currencies/00000000000000000000000000000000/mint/metadata.json"
+        );
+        assert_eq!(request.content_type().as_str(), "application/json");
+
+        let json: serde_json::Value =
+            serde_json::from_slice(request.body().as_slice()).expect("body should be JSON");
+        assert_eq!(
+            json,
+            json!({
+                "name": "USD Coin",
+                "symbol": "USDC",
+                "description": "Stablecoin backed by USD",
+                "image": "https://assets.example.com/currencies/00000000-0000-0000-0000-000000000001/images/00000000-0000-0000-0000-000000000002"
+            })
+        );
+    }
+
+    #[tokio::test]
+    async fn publish_omits_absent_optional_metadata_fields() {
+        let (publisher, uploaded_request) = publisher();
+        let seed = MintAccountSeed::try_from("00000000000000000000000000000000")
+            .expect("seed should be valid");
+        let document = MintMetadataDocument::new(
+            MintMetadataName::try_from("USD Coin").expect("name should be valid"),
+            MintMetadataSymbol::try_from("USDC").expect("symbol should be valid"),
+            None,
+            None,
+        );
+
+        publisher
+            .publish(MintMetadataPublishRequest::new(seed, document))
+            .await
+            .expect("metadata should be published");
+
+        let request = uploaded_request
+            .lock()
+            .expect("lock")
+            .clone()
+            .expect("object should be uploaded");
+        let json: serde_json::Value =
+            serde_json::from_slice(request.body().as_slice()).expect("body should be JSON");
+        assert_eq!(
+            json,
+            json!({
+                "name": "USD Coin",
+                "symbol": "USDC"
+            })
+        );
+    }
+}
