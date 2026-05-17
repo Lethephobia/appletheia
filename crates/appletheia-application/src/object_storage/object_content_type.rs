@@ -33,6 +33,10 @@ impl ObjectContentType {
         Self("image/webp".to_owned())
     }
 
+    pub fn json() -> Self {
+        Self("application/json".to_owned())
+    }
+
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -105,6 +109,7 @@ mod tests {
         assert_eq!(ObjectContentType::png().as_str(), "image/png");
         assert_eq!(ObjectContentType::jpeg().as_str(), "image/jpeg");
         assert_eq!(ObjectContentType::webp().as_str(), "image/webp");
+        assert_eq!(ObjectContentType::json().as_str(), "application/json");
     }
 
     #[test]

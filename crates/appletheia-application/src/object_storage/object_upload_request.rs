@@ -2,18 +2,16 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     ObjectBucketName, ObjectChecksum, ObjectContentLength, ObjectContentType, ObjectName,
-    ObjectUploadExpiresIn, ObjectUploadMethod,
+    ObjectUploadBody,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct ObjectUploadRequest {
-    method: ObjectUploadMethod,
     bucket_name: ObjectBucketName,
     object_name: ObjectName,
     content_type: ObjectContentType,
-    content_length: Option<ObjectContentLength>,
+    body: ObjectUploadBody,
     checksum: Option<ObjectChecksum>,
-    expires_in: ObjectUploadExpiresIn,
 }
 
 impl ObjectUploadRequest {
@@ -21,31 +19,20 @@ impl ObjectUploadRequest {
         bucket_name: ObjectBucketName,
         object_name: ObjectName,
         content_type: ObjectContentType,
-        expires_in: ObjectUploadExpiresIn,
+        body: ObjectUploadBody,
     ) -> Self {
         Self {
-            method: ObjectUploadMethod::Put,
             bucket_name,
             object_name,
             content_type,
-            content_length: None,
+            body,
             checksum: None,
-            expires_in,
         }
-    }
-
-    pub fn with_content_length(mut self, content_length: ObjectContentLength) -> Self {
-        self.content_length = Some(content_length);
-        self
     }
 
     pub fn with_checksum(mut self, checksum: ObjectChecksum) -> Self {
         self.checksum = Some(checksum);
         self
-    }
-
-    pub fn method(&self) -> ObjectUploadMethod {
-        self.method
     }
 
     pub fn bucket_name(&self) -> &ObjectBucketName {
@@ -60,15 +47,52 @@ impl ObjectUploadRequest {
         &self.content_type
     }
 
-    pub fn content_length(&self) -> Option<ObjectContentLength> {
-        self.content_length
+    pub fn content_length(&self) -> ObjectContentLength {
+        self.body.content_length()
+    }
+
+    pub fn body(&self) -> &ObjectUploadBody {
+        &self.body
     }
 
     pub fn checksum(&self) -> Option<&ObjectChecksum> {
         self.checksum.as_ref()
     }
 
-    pub fn expires_in(&self) -> ObjectUploadExpiresIn {
-        self.expires_in
+    pub fn into_parts(
+        self,
+    ) -> (
+        ObjectBucketName,
+        ObjectName,
+        ObjectContentType,
+        ObjectUploadBody,
+        Option<ObjectChecksum>,
+    ) {
+        (
+            self.bucket_name,
+            self.object_name,
+            self.content_type,
+            self.body,
+            self.checksum,
+        )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        ObjectBucketName, ObjectContentType, ObjectName, ObjectUploadBody, ObjectUploadRequest,
+    };
+
+    #[test]
+    fn content_length_is_derived_from_body() {
+        let request = ObjectUploadRequest::new(
+            ObjectBucketName::new("bucket".to_owned()).expect("bucket should be valid"),
+            ObjectName::new("object.json".to_owned()).expect("object name should be valid"),
+            ObjectContentType::json(),
+            ObjectUploadBody::new(br#"{"ok":true}"#.to_vec()),
+        );
+
+        assert_eq!(request.content_length().value(), 11);
     }
 }

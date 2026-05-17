@@ -5,14 +5,14 @@ use super::{
 };
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
-pub struct SignedObjectUploadRequest {
+pub struct SignedObjectUpload {
     method: ObjectUploadMethod,
     url: SignedObjectUploadUrl,
     expires_in: ObjectUploadExpiresIn,
     headers: ObjectUploadHeaders,
 }
 
-impl SignedObjectUploadRequest {
+impl SignedObjectUpload {
     pub fn new(
         method: ObjectUploadMethod,
         url: SignedObjectUploadUrl,
