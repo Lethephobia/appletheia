@@ -3,6 +3,8 @@ mod currency_deactivate;
 mod currency_define;
 mod currency_description_change;
 mod currency_image_change;
+mod currency_image_object_delete;
+mod currency_image_upload_prepare;
 mod currency_name_change;
 mod currency_ownership_transfer;
 mod currency_remove;
@@ -29,6 +31,15 @@ pub use currency_description_change::{
 pub use currency_image_change::{
     CurrencyImageChangeCommand, CurrencyImageChangeCommandHandler,
     CurrencyImageChangeCommandHandlerError, CurrencyImageChangeOutput,
+};
+pub use currency_image_object_delete::{
+    CurrencyImageObjectDeleteCommand, CurrencyImageObjectDeleteCommandHandler,
+    CurrencyImageObjectDeleteCommandHandlerError, CurrencyImageObjectDeleteOutput,
+};
+pub use currency_image_upload_prepare::{
+    CurrencyImageUploadPrepareCommand, CurrencyImageUploadPrepareCommandHandler,
+    CurrencyImageUploadPrepareCommandHandlerConfig, CurrencyImageUploadPrepareCommandHandlerError,
+    CurrencyImageUploadPrepareOutput,
 };
 pub use currency_name_change::{
     CurrencyNameChangeCommand, CurrencyNameChangeCommandHandler,

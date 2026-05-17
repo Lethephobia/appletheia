@@ -137,6 +137,11 @@ impl Currency {
         Ok(self.state_required()?.status.is_active())
     }
 
+    /// Returns whether the currency is removed.
+    pub fn is_removed(&self) -> Result<bool, CurrencyError> {
+        Ok(self.state_required()?.status.is_removed())
+    }
+
     /// Defines a new currency.
     pub fn define(
         &mut self,

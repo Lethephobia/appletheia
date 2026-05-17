@@ -1,10 +1,15 @@
 mod currency_issuance;
+mod currency_old_image_object_deletion;
 mod owned_account_closure;
 mod transfer;
 
 pub use currency_issuance::{
     CurrencyIssuanceSaga, CurrencyIssuanceSagaError, CurrencyIssuanceSagaSpec,
     CurrencyIssuanceSagaState, CurrencyIssuanceSagaStatus,
+};
+pub use currency_old_image_object_deletion::{
+    CurrencyOldImageObjectDeletionSaga, CurrencyOldImageObjectDeletionSagaError,
+    CurrencyOldImageObjectDeletionSagaSpec, CurrencyOldImageObjectDeletionSagaState,
 };
 pub use owned_account_closure::{
     OwnedAccountClosureSaga, OwnedAccountClosureSagaError, OwnedAccountClosureSagaSpec,

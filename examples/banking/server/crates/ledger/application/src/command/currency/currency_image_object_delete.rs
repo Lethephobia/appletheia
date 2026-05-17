@@ -1,0 +1,9 @@
+mod currency_image_object_delete_command;
+mod currency_image_object_delete_command_handler;
+mod currency_image_object_delete_command_handler_error;
+mod currency_image_object_delete_output;
+
+pub use currency_image_object_delete_command::CurrencyImageObjectDeleteCommand;
+pub use currency_image_object_delete_command_handler::CurrencyImageObjectDeleteCommandHandler;
+pub use currency_image_object_delete_command_handler_error::CurrencyImageObjectDeleteCommandHandlerError;
+pub use currency_image_object_delete_output::CurrencyImageObjectDeleteOutput;
