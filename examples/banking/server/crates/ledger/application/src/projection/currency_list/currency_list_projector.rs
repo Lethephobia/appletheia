@@ -220,6 +220,8 @@ where
                 symbol,
                 name,
                 decimals,
+                description,
+                image,
                 ..
             } => {
                 self.writer
@@ -231,6 +233,8 @@ where
                             symbol: symbol.clone(),
                             name: name.clone(),
                             decimals: *decimals,
+                            description: description.clone(),
+                            image: image.clone(),
                             supply: CurrencyAmount::zero(),
                             status: CurrencyListItemStatus::Active,
                             event_id: event.event_id,
@@ -270,6 +274,30 @@ where
                         uow,
                         currency_id,
                         name.clone(),
+                        event.event_id,
+                        event.event_sequence,
+                        event.occurred_at,
+                    )
+                    .await?;
+            }
+            CurrencyEventPayload::DescriptionChanged { description } => {
+                self.writer
+                    .update_currency_description(
+                        uow,
+                        currency_id,
+                        description.clone(),
+                        event.event_id,
+                        event.event_sequence,
+                        event.occurred_at,
+                    )
+                    .await?;
+            }
+            CurrencyEventPayload::ImageChanged { image, .. } => {
+                self.writer
+                    .update_currency_image(
+                        uow,
+                        currency_id,
+                        image.clone(),
                         event.event_id,
                         event.event_sequence,
                         event.occurred_at,
@@ -338,6 +366,8 @@ where
             CurrencyEventPayload::OwnershipTransferRejected { .. }
             | CurrencyEventPayload::SymbolChangeRejected { .. }
             | CurrencyEventPayload::NameChangeRejected { .. }
+            | CurrencyEventPayload::DescriptionChangeRejected { .. }
+            | CurrencyEventPayload::ImageChangeRejected { .. }
             | CurrencyEventPayload::SupplyIncreaseRejected { .. }
             | CurrencyEventPayload::SupplyDecreaseRejected { .. }
             | CurrencyEventPayload::ActivateRejected { .. }

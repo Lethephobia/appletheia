@@ -7,9 +7,12 @@ use banking_ledger_application::{
     CurrencyListItemOwnerUser, CurrencyListItemStatus, ReadModelObservation,
 };
 use banking_ledger_domain::core::CurrencyAmount;
-use banking_ledger_domain::currency::{CurrencyDecimals, CurrencyId, CurrencyName, CurrencySymbol};
+use banking_ledger_domain::currency::{
+    CurrencyDecimals, CurrencyDescription, CurrencyId, CurrencyName, CurrencySymbol,
+};
 use sqlx::types::chrono::{DateTime, Utc};
 
+use super::super::pg_currency_image_ref_columns::PgCurrencyImageRefColumns;
 use super::super::pg_organization_picture_ref_columns::PgOrganizationPictureRefColumns;
 use super::super::pg_user_picture_ref_columns::PgUserPictureRefColumns;
 use super::pg_currency_list_item_row_error::PgCurrencyListItemRowError;
@@ -34,6 +37,10 @@ pub struct PgCurrencyListItemRow {
     pub symbol: String,
     pub name: String,
     pub decimals: i16,
+    pub description: Option<String>,
+    pub image_type: Option<String>,
+    pub image_object_name: Option<String>,
+    pub image_external_url: Option<String>,
     pub supply: String,
     pub status: String,
     pub created_at: DateTime<Utc>,
@@ -190,6 +197,20 @@ impl TryFrom<PgCurrencyListItemRow> for CurrencyListItem {
                 PgCurrencyListItemRowError::InvalidCurrencyName(Box::new(error))
             })?,
             decimals: CurrencyDecimals::new(currency_decimals),
+            description: row
+                .description
+                .map(CurrencyDescription::try_from)
+                .transpose()
+                .map_err(|error| {
+                    PgCurrencyListItemRowError::InvalidCurrencyDescription(Box::new(error))
+                })?,
+            image: PgCurrencyImageRefColumns {
+                image_type: row.image_type,
+                object_name: row.image_object_name,
+                external_url: row.image_external_url,
+            }
+            .into_image()
+            .map_err(|error| PgCurrencyListItemRowError::InvalidCurrencyImage(Box::new(error)))?,
             supply: PgCurrencyListItemRow::amount(row.supply)?,
             status: PgCurrencyListItemRow::status(row.status)?,
             created_at: EventOccurredAt::from(row.created_at),

@@ -2,9 +2,9 @@ use appletheia::application::repository::RepositoryError;
 use banking_ledger_domain::currency::{Currency, CurrencyError};
 use thiserror::Error;
 
-/// Represents errors returned while updating a currency.
+/// Represents errors returned while changing a currency image.
 #[derive(Debug, Error)]
-pub enum CurrencyUpdateCommandHandlerError {
+pub enum CurrencyImageChangeCommandHandlerError {
     #[error("currency repository failed")]
     CurrencyRepository(#[from] RepositoryError<Currency>),
 

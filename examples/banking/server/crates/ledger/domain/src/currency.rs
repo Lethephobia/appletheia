@@ -3,10 +3,21 @@ mod currency_activate_result;
 mod currency_deactivate_rejection_reason;
 mod currency_deactivate_result;
 mod currency_decimals;
+mod currency_description;
+mod currency_description_change_rejection_reason;
+mod currency_description_change_result;
+mod currency_description_error;
 mod currency_error;
 mod currency_event_payload;
 mod currency_event_payload_error;
 mod currency_id;
+mod currency_image_change_rejection_reason;
+mod currency_image_change_result;
+mod currency_image_object_name;
+mod currency_image_object_name_error;
+mod currency_image_ref;
+mod currency_image_url;
+mod currency_image_url_error;
 mod currency_name;
 mod currency_name_change_rejection_reason;
 mod currency_name_change_result;
@@ -33,10 +44,21 @@ pub use currency_activate_result::CurrencyActivateResult;
 pub use currency_deactivate_rejection_reason::CurrencyDeactivateRejectionReason;
 pub use currency_deactivate_result::CurrencyDeactivateResult;
 pub use currency_decimals::CurrencyDecimals;
+pub use currency_description::CurrencyDescription;
+pub use currency_description_change_rejection_reason::CurrencyDescriptionChangeRejectionReason;
+pub use currency_description_change_result::CurrencyDescriptionChangeResult;
+pub use currency_description_error::CurrencyDescriptionError;
 pub use currency_error::CurrencyError;
 pub use currency_event_payload::CurrencyEventPayload;
 pub use currency_event_payload_error::CurrencyEventPayloadError;
 pub use currency_id::CurrencyId;
+pub use currency_image_change_rejection_reason::CurrencyImageChangeRejectionReason;
+pub use currency_image_change_result::CurrencyImageChangeResult;
+pub use currency_image_object_name::CurrencyImageObjectName;
+pub use currency_image_object_name_error::CurrencyImageObjectNameError;
+pub use currency_image_ref::CurrencyImageRef;
+pub use currency_image_url::CurrencyImageUrl;
+pub use currency_image_url_error::CurrencyImageUrlError;
 pub use currency_name::CurrencyName;
 pub use currency_name_change_rejection_reason::CurrencyNameChangeRejectionReason;
 pub use currency_name_change_result::CurrencyNameChangeResult;
@@ -90,6 +112,16 @@ impl Currency {
         Ok(&self.state_required()?.decimals)
     }
 
+    /// Returns the current description.
+    pub fn description(&self) -> Result<Option<&CurrencyDescription>, CurrencyError> {
+        Ok(self.state_required()?.description.as_ref())
+    }
+
+    /// Returns the current image reference.
+    pub fn image(&self) -> Result<Option<&CurrencyImageRef>, CurrencyError> {
+        Ok(self.state_required()?.image.as_ref())
+    }
+
     /// Returns the total supply.
     pub fn supply(&self) -> Result<&CurrencyAmount, CurrencyError> {
         Ok(&self.state_required()?.supply)
@@ -112,6 +144,8 @@ impl Currency {
         symbol: CurrencySymbol,
         name: CurrencyName,
         decimals: CurrencyDecimals,
+        description: Option<CurrencyDescription>,
+        image: Option<CurrencyImageRef>,
     ) -> Result<(), CurrencyError> {
         if self.state().is_some() {
             return Err(CurrencyError::AlreadyDefined);
@@ -123,6 +157,8 @@ impl Currency {
             symbol,
             name,
             decimals,
+            description,
+            image,
         })
     }
 
@@ -169,6 +205,40 @@ impl Currency {
 
         self.append_event(CurrencyEventPayload::NameChanged { name })?;
         Ok(CurrencyNameChangeResult::Changed)
+    }
+
+    /// Changes the current currency description.
+    pub fn change_description(
+        &mut self,
+        description: Option<CurrencyDescription>,
+    ) -> Result<CurrencyDescriptionChangeResult, CurrencyError> {
+        if self.state_required()?.status.is_removed() {
+            let reason = CurrencyDescriptionChangeRejectionReason::Removed;
+            self.append_event(CurrencyEventPayload::DescriptionChangeRejected {
+                description,
+                reason,
+            })?;
+            return Ok(CurrencyDescriptionChangeResult::Rejected { reason });
+        }
+
+        self.append_event(CurrencyEventPayload::DescriptionChanged { description })?;
+        Ok(CurrencyDescriptionChangeResult::Changed)
+    }
+
+    /// Changes the current currency image reference.
+    pub fn change_image(
+        &mut self,
+        image: Option<CurrencyImageRef>,
+    ) -> Result<CurrencyImageChangeResult, CurrencyError> {
+        if self.state_required()?.status.is_removed() {
+            let reason = CurrencyImageChangeRejectionReason::Removed;
+            self.append_event(CurrencyEventPayload::ImageChangeRejected { image, reason })?;
+            return Ok(CurrencyImageChangeResult::Rejected { reason });
+        }
+
+        let old_image = self.state_required()?.image.clone();
+        self.append_event(CurrencyEventPayload::ImageChanged { image, old_image })?;
+        Ok(CurrencyImageChangeResult::Changed)
     }
 
     /// Increases the total supply.
@@ -261,6 +331,8 @@ impl AggregateApply<CurrencyEventPayload, CurrencyError> for Currency {
                 symbol,
                 name,
                 decimals,
+                description,
+                image,
             } => {
                 self.set_state(Some(CurrencyState {
                     id: *id,
@@ -268,6 +340,8 @@ impl AggregateApply<CurrencyEventPayload, CurrencyError> for Currency {
                     symbol: symbol.clone(),
                     name: name.clone(),
                     decimals: *decimals,
+                    description: description.clone(),
+                    image: image.clone(),
                     supply: CurrencyAmount::zero(),
                     status: CurrencyStatus::Active,
                 }));
@@ -284,6 +358,14 @@ impl AggregateApply<CurrencyEventPayload, CurrencyError> for Currency {
                 self.state_required_mut()?.name = name.clone();
             }
             CurrencyEventPayload::NameChangeRejected { .. } => {}
+            CurrencyEventPayload::DescriptionChanged { description } => {
+                self.state_required_mut()?.description = description.clone();
+            }
+            CurrencyEventPayload::DescriptionChangeRejected { .. } => {}
+            CurrencyEventPayload::ImageChanged { image, .. } => {
+                self.state_required_mut()?.image = image.clone();
+            }
+            CurrencyEventPayload::ImageChangeRejected { .. } => {}
             CurrencyEventPayload::SupplyIncreased { amount } => {
                 let state = self.state_required_mut()?;
                 state.supply = state.supply.try_add(*amount).map_err(|error| match error {
@@ -326,8 +408,9 @@ mod tests {
     use banking_iam_domain::{OrganizationId, UserId};
 
     use super::{
-        Currency, CurrencyDecimals, CurrencyEventPayload, CurrencyId, CurrencyName, CurrencyOwner,
-        CurrencyStatus, CurrencySymbol,
+        Currency, CurrencyDecimals, CurrencyDescription, CurrencyEventPayload, CurrencyId,
+        CurrencyImageRef, CurrencyImageUrl, CurrencyName, CurrencyOwner, CurrencyStatus,
+        CurrencySymbol,
     };
 
     fn user_owner() -> CurrencyOwner {
@@ -347,7 +430,20 @@ mod tests {
         let mut currency = Currency::default();
 
         currency
-            .define(owner, symbol.clone(), name.clone(), decimals)
+            .define(
+                owner,
+                symbol.clone(),
+                name.clone(),
+                decimals,
+                Some(
+                    CurrencyDescription::try_from("Stablecoin backed by USD")
+                        .expect("description should be valid"),
+                ),
+                Some(CurrencyImageRef::external_url(
+                    CurrencyImageUrl::try_from("https://cdn.example.com/currencies/usdc.png")
+                        .expect("image URL should be valid"),
+                )),
+            )
             .expect("definition should succeed");
 
         assert_eq!(
@@ -360,6 +456,21 @@ mod tests {
         assert_eq!(
             currency.decimals().expect("decimals should exist"),
             &decimals
+        );
+        assert_eq!(
+            currency
+                .description()
+                .expect("description should exist")
+                .map(CurrencyDescription::value),
+            Some("Stablecoin backed by USD")
+        );
+        assert_eq!(
+            currency
+                .image()
+                .expect("image should exist")
+                .and_then(CurrencyImageRef::as_external_url)
+                .map(|value| value.value().as_str()),
+            Some("https://cdn.example.com/currencies/usdc.png")
         );
         assert!(currency.is_active().expect("active state should exist"));
         assert_eq!(
@@ -383,6 +494,14 @@ mod tests {
                 symbol,
                 name,
                 decimals,
+                description: Some(
+                    CurrencyDescription::try_from("Stablecoin backed by USD")
+                        .expect("description should be valid"),
+                ),
+                image: Some(CurrencyImageRef::external_url(
+                    CurrencyImageUrl::try_from("https://cdn.example.com/currencies/usdc.png")
+                        .expect("image URL should be valid"),
+                )),
             }
         );
     }
@@ -395,7 +514,7 @@ mod tests {
         let decimals = CurrencyDecimals::new(6);
         let mut currency = Currency::default();
         currency
-            .define(owner, symbol.clone(), name.clone(), decimals)
+            .define(owner, symbol.clone(), name.clone(), decimals, None, None)
             .expect("definition should succeed");
 
         currency
@@ -419,6 +538,8 @@ mod tests {
                 CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
                 CurrencyName::try_from("USD Coin").expect("name should be valid"),
                 CurrencyDecimals::new(6),
+                None,
+                None,
             )
             .expect("definition should succeed");
 
@@ -444,6 +565,8 @@ mod tests {
                 initial_symbol,
                 initial_name,
                 CurrencyDecimals::new(6),
+                None,
+                None,
             )
             .expect("definition should succeed");
 
@@ -479,6 +602,8 @@ mod tests {
                 CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
                 CurrencyName::try_from("USD Coin").expect("name should be valid"),
                 CurrencyDecimals::new(6),
+                None,
+                None,
             )
             .expect("definition should succeed");
 
@@ -510,6 +635,8 @@ mod tests {
                 symbol: CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
                 name: CurrencyName::try_from("USD Coin").expect("name should be valid"),
                 decimals: CurrencyDecimals::new(6),
+                description: None,
+                image: None,
             },
         );
         let deactivated = Event::new(
@@ -541,7 +668,7 @@ mod tests {
         let mut currency = Currency::default();
 
         currency
-            .define(owner, symbol, name, CurrencyDecimals::new(6))
+            .define(owner, symbol, name, CurrencyDecimals::new(6), None, None)
             .expect("definition should succeed");
 
         assert_eq!(currency.owner().expect("owner should exist"), owner);
@@ -557,6 +684,8 @@ mod tests {
                 CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
                 CurrencyName::try_from("USD Coin").expect("name should be valid"),
                 CurrencyDecimals::new(6),
+                None,
+                None,
             )
             .expect("definition should succeed");
 
@@ -566,6 +695,8 @@ mod tests {
                 CurrencySymbol::try_from("sol").expect("symbol should be valid"),
                 CurrencyName::try_from("Solana").expect("name should be valid"),
                 CurrencyDecimals::new(9),
+                None,
+                None,
             )
             .expect_err("duplicate definition should fail");
 
@@ -582,6 +713,8 @@ mod tests {
                 CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
                 CurrencyName::try_from("USD Coin").expect("name should be valid"),
                 CurrencyDecimals::new(6),
+                None,
+                None,
             )
             .expect("definition should succeed");
 
@@ -609,6 +742,8 @@ mod tests {
                 CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
                 CurrencyName::try_from("USD Coin").expect("name should be valid"),
                 CurrencyDecimals::new(6),
+                None,
+                None,
             )
             .expect("definition should succeed");
         currency.deactivate().expect("deactivate should succeed");
@@ -639,6 +774,8 @@ mod tests {
                 CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
                 CurrencyName::try_from("USD Coin").expect("name should be valid"),
                 CurrencyDecimals::new(6),
+                None,
+                None,
             )
             .expect("definition should succeed");
 
@@ -678,6 +815,8 @@ mod tests {
                 CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
                 CurrencyName::try_from("USD Coin").expect("name should be valid"),
                 CurrencyDecimals::new(6),
+                None,
+                None,
             )
             .expect("definition should succeed");
         currency.remove().expect("remove should succeed");

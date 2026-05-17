@@ -54,6 +54,12 @@ pub enum PgCurrencyListItemRowError {
     #[error("invalid currency name")]
     InvalidCurrencyName(#[source] Box<dyn std::error::Error + Send + Sync>),
 
+    #[error("invalid currency description")]
+    InvalidCurrencyDescription(#[source] Box<dyn std::error::Error + Send + Sync>),
+
+    #[error("invalid currency image")]
+    InvalidCurrencyImage(#[source] Box<dyn std::error::Error + Send + Sync>),
+
     #[error("invalid currency decimals")]
     InvalidCurrencyDecimals(#[source] Box<dyn std::error::Error + Send + Sync>),
 

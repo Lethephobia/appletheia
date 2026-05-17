@@ -4,10 +4,11 @@ use crate::core::CurrencyAmount;
 
 use super::{
     CurrencyActivateRejectionReason, CurrencyDeactivateRejectionReason, CurrencyDecimals,
-    CurrencyEventPayloadError, CurrencyId, CurrencyName, CurrencyNameChangeRejectionReason,
-    CurrencyOwner, CurrencyOwnershipTransferRejectionReason, CurrencyRemoveRejectionReason,
-    CurrencySupplyDecreaseRejectionReason, CurrencySupplyIncreaseRejectionReason, CurrencySymbol,
-    CurrencySymbolChangeRejectionReason,
+    CurrencyDescription, CurrencyDescriptionChangeRejectionReason, CurrencyEventPayloadError,
+    CurrencyId, CurrencyImageChangeRejectionReason, CurrencyImageRef, CurrencyName,
+    CurrencyNameChangeRejectionReason, CurrencyOwner, CurrencyOwnershipTransferRejectionReason,
+    CurrencyRemoveRejectionReason, CurrencySupplyDecreaseRejectionReason,
+    CurrencySupplyIncreaseRejectionReason, CurrencySymbol, CurrencySymbolChangeRejectionReason,
 };
 
 /// Represents the domain events emitted by a `Currency` aggregate.
@@ -19,6 +20,8 @@ pub enum CurrencyEventPayload {
         symbol: CurrencySymbol,
         name: CurrencyName,
         decimals: CurrencyDecimals,
+        description: Option<CurrencyDescription>,
+        image: Option<CurrencyImageRef>,
     },
     OwnershipTransferred {
         owner: CurrencyOwner,
@@ -40,6 +43,21 @@ pub enum CurrencyEventPayload {
     NameChangeRejected {
         name: CurrencyName,
         reason: CurrencyNameChangeRejectionReason,
+    },
+    DescriptionChanged {
+        description: Option<CurrencyDescription>,
+    },
+    DescriptionChangeRejected {
+        description: Option<CurrencyDescription>,
+        reason: CurrencyDescriptionChangeRejectionReason,
+    },
+    ImageChanged {
+        image: Option<CurrencyImageRef>,
+        old_image: Option<CurrencyImageRef>,
+    },
+    ImageChangeRejected {
+        image: Option<CurrencyImageRef>,
+        reason: CurrencyImageChangeRejectionReason,
     },
     SupplyIncreased {
         amount: CurrencyAmount,
@@ -108,6 +126,22 @@ mod tests {
             appletheia::domain::EventName::new("name_change_rejected")
         );
         assert_eq!(
+            CurrencyEventPayload::DESCRIPTION_CHANGED,
+            appletheia::domain::EventName::new("description_changed")
+        );
+        assert_eq!(
+            CurrencyEventPayload::DESCRIPTION_CHANGE_REJECTED,
+            appletheia::domain::EventName::new("description_change_rejected")
+        );
+        assert_eq!(
+            CurrencyEventPayload::IMAGE_CHANGED,
+            appletheia::domain::EventName::new("image_changed")
+        );
+        assert_eq!(
+            CurrencyEventPayload::IMAGE_CHANGE_REJECTED,
+            appletheia::domain::EventName::new("image_change_rejected")
+        );
+        assert_eq!(
             CurrencyEventPayload::SUPPLY_INCREASED,
             appletheia::domain::EventName::new("supply_increased")
         );
@@ -164,6 +198,8 @@ mod tests {
             symbol: super::CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
             name: super::CurrencyName::try_from("USD Coin").expect("name should be valid"),
             decimals: super::CurrencyDecimals::new(6),
+            description: None,
+            image: None,
         };
 
         let value = payload.into_json_value().expect("payload should serialize");

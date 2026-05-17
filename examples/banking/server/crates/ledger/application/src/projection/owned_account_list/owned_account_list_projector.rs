@@ -433,6 +433,10 @@ where
             | CurrencyEventPayload::OwnershipTransferRejected { .. }
             | CurrencyEventPayload::SymbolChangeRejected { .. }
             | CurrencyEventPayload::NameChangeRejected { .. }
+            | CurrencyEventPayload::DescriptionChanged { .. }
+            | CurrencyEventPayload::DescriptionChangeRejected { .. }
+            | CurrencyEventPayload::ImageChanged { .. }
+            | CurrencyEventPayload::ImageChangeRejected { .. }
             | CurrencyEventPayload::SupplyIncreased { .. }
             | CurrencyEventPayload::SupplyIncreaseRejected { .. }
             | CurrencyEventPayload::SupplyDecreased { .. }

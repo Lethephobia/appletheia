@@ -1,0 +1,9 @@
+mod currency_description_change_command;
+mod currency_description_change_command_handler;
+mod currency_description_change_command_handler_error;
+mod currency_description_change_output;
+
+pub use currency_description_change_command::CurrencyDescriptionChangeCommand;
+pub use currency_description_change_command_handler::CurrencyDescriptionChangeCommandHandler;
+pub use currency_description_change_command_handler_error::CurrencyDescriptionChangeCommandHandlerError;
+pub use currency_description_change_output::CurrencyDescriptionChangeOutput;

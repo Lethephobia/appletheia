@@ -76,9 +76,11 @@ where
             symbol,
             name,
             decimals,
+            description,
+            image,
         } = command.clone();
         let mut currency = Currency::default();
-        currency.define(owner, symbol, name, decimals)?;
+        currency.define(owner, symbol, name, decimals, description, image)?;
 
         self.currency_repository
             .save(uow, request_context, &mut currency)
@@ -213,6 +215,8 @@ mod tests {
                 symbol: CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
                 name: CurrencyName::try_from("USD Coin").expect("name should be valid"),
                 decimals: CurrencyDecimals::new(6),
+                description: None,
+                image: None,
             })
             .expect("authorization plan should build");
 
@@ -239,6 +243,8 @@ mod tests {
                 symbol: CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
                 name: CurrencyName::try_from("USD Coin").expect("name should be valid"),
                 decimals: CurrencyDecimals::new(6),
+                description: None,
+                image: None,
             })
             .expect("authorization plan should build");
 
@@ -272,6 +278,8 @@ mod tests {
                     symbol: CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
                     name: CurrencyName::try_from("USD Coin").expect("name should be valid"),
                     decimals: CurrencyDecimals::new(6),
+                    description: None,
+                    image: None,
                 },
             )
             .await
@@ -311,6 +319,8 @@ mod tests {
                     symbol: CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
                     name: CurrencyName::try_from("USD Coin").expect("name should be valid"),
                     decimals: CurrencyDecimals::new(6),
+                    description: None,
+                    image: None,
                 },
             )
             .await

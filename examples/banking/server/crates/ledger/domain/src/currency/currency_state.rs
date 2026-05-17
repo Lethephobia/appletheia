@@ -4,8 +4,8 @@ use appletheia::{aggregate_state, reference_indexes, unique_constraints};
 use crate::core::CurrencyAmount;
 
 use super::{
-    CurrencyDecimals, CurrencyId, CurrencyName, CurrencyOwner, CurrencyStateError, CurrencyStatus,
-    CurrencySymbol,
+    CurrencyDecimals, CurrencyDescription, CurrencyId, CurrencyImageRef, CurrencyName,
+    CurrencyOwner, CurrencyStateError, CurrencyStatus, CurrencySymbol,
 };
 
 /// Stores the materialized state of a `Currency` aggregate.
@@ -21,6 +21,8 @@ pub struct CurrencyState {
     pub(super) symbol: CurrencySymbol,
     pub(super) name: CurrencyName,
     pub(super) decimals: CurrencyDecimals,
+    pub(super) description: Option<CurrencyDescription>,
+    pub(super) image: Option<CurrencyImageRef>,
     pub(super) supply: CurrencyAmount,
     pub(super) status: CurrencyStatus,
 }
@@ -70,6 +72,8 @@ mod tests {
             symbol: CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
             name: CurrencyName::try_from("USD Coin").expect("name should be valid"),
             decimals: CurrencyDecimals::new(6),
+            description: None,
+            image: None,
             supply: CurrencyAmount::zero(),
             status: CurrencyStatus::Active,
         };
@@ -91,6 +95,8 @@ mod tests {
             symbol: CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
             name: CurrencyName::try_from("USD Coin").expect("name should be valid"),
             decimals: CurrencyDecimals::new(6),
+            description: None,
+            image: None,
             supply: CurrencyAmount::zero(),
             status: CurrencyStatus::Active,
         };
@@ -107,6 +113,8 @@ mod tests {
             symbol: CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
             name: CurrencyName::try_from("USD Coin").expect("name should be valid"),
             decimals: CurrencyDecimals::new(6),
+            description: None,
+            image: None,
             supply: CurrencyAmount::zero(),
             status: CurrencyStatus::Active,
         };
@@ -128,6 +136,8 @@ mod tests {
             symbol: CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
             name: CurrencyName::try_from("USD Coin").expect("name should be valid"),
             decimals: CurrencyDecimals::new(6),
+            description: None,
+            image: None,
             supply: CurrencyAmount::zero(),
             status: CurrencyStatus::Active,
         };
@@ -158,6 +168,8 @@ mod tests {
             symbol: CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
             name: CurrencyName::try_from("USD Coin").expect("name should be valid"),
             decimals: CurrencyDecimals::new(6),
+            description: None,
+            image: None,
             supply: CurrencyAmount::zero(),
             status: CurrencyStatus::Active,
         };

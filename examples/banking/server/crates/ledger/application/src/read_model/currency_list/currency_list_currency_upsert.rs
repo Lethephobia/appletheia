@@ -3,7 +3,8 @@ use appletheia::domain::EventId;
 use appletheia::domain::EventOccurredAt;
 use banking_ledger_domain::core::CurrencyAmount;
 use banking_ledger_domain::currency::{
-    CurrencyDecimals, CurrencyId, CurrencyName, CurrencyOwner, CurrencySymbol,
+    CurrencyDecimals, CurrencyDescription, CurrencyId, CurrencyImageRef, CurrencyName,
+    CurrencyOwner, CurrencySymbol,
 };
 
 use super::CurrencyListItemStatus;
@@ -15,6 +16,8 @@ pub struct CurrencyListCurrencyUpsert {
     pub symbol: CurrencySymbol,
     pub name: CurrencyName,
     pub decimals: CurrencyDecimals,
+    pub description: Option<CurrencyDescription>,
+    pub image: Option<CurrencyImageRef>,
     pub supply: CurrencyAmount,
     pub status: CurrencyListItemStatus,
     pub event_id: EventId,

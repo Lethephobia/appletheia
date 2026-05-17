@@ -174,6 +174,10 @@ CREATE TABLE IF NOT EXISTS currency_list_items (
     symbol text NOT NULL,
     name text NOT NULL,
     decimals smallint NOT NULL,
+    description text,
+    image_type text,
+    image_object_name text,
+    image_external_url text,
     supply numeric(39, 0) NOT NULL,
     status text NOT NULL,
     updated_at timestamptz NOT NULL,
@@ -183,7 +187,22 @@ CREATE TABLE IF NOT EXISTS currency_list_items (
     source_event_id uuid NOT NULL,
     updated_event_id uuid NOT NULL,
     CONSTRAINT currency_list_items_owner_type_check CHECK (owner_type IN ('user', 'organization')),
-    CONSTRAINT currency_list_items_status_check CHECK (status IN ('active', 'inactive'))
+    CONSTRAINT currency_list_items_status_check CHECK (status IN ('active', 'inactive')),
+    CONSTRAINT currency_list_items_image_check CHECK (
+        (image_type IS NULL AND image_object_name IS NULL AND image_external_url IS NULL)
+        OR (
+            image_type IS NOT NULL
+            AND image_type = 'object_name'
+            AND image_object_name IS NOT NULL
+            AND image_external_url IS NULL
+        )
+        OR (
+            image_type IS NOT NULL
+            AND image_type = 'external_url'
+            AND image_object_name IS NULL
+            AND image_external_url IS NOT NULL
+        )
+    )
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS currency_list_items_symbol_idx

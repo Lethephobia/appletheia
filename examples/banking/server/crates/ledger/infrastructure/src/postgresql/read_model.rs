@@ -1,6 +1,8 @@
 mod currency_list;
 mod owned_account_list;
 mod owned_account_transaction_list;
+mod pg_currency_image_ref_columns;
+mod pg_currency_image_ref_columns_error;
 mod pg_organization_picture_ref_columns;
 mod pg_organization_picture_ref_columns_error;
 mod pg_user_picture_ref_columns;

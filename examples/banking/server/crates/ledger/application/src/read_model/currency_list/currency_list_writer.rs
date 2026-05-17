@@ -7,7 +7,9 @@ use banking_iam_domain::{
     UserDisplayName, UserId, UserPictureRef, Username,
 };
 use banking_ledger_domain::core::CurrencyAmount;
-use banking_ledger_domain::currency::{CurrencyId, CurrencyName, CurrencyOwner, CurrencySymbol};
+use banking_ledger_domain::currency::{
+    CurrencyDescription, CurrencyId, CurrencyImageRef, CurrencyName, CurrencyOwner, CurrencySymbol,
+};
 
 use super::{
     CurrencyListCurrencyUpsert, CurrencyListItemStatus, CurrencyListOwnerOrganizationUpsert,
@@ -49,6 +51,26 @@ pub trait CurrencyListWriter: Send + Sync {
         uow: &mut Self::Uow,
         id: CurrencyId,
         name: CurrencyName,
+        event_id: EventId,
+        event_sequence: EventSequence,
+        occurred_at: EventOccurredAt,
+    ) -> Result<(), CurrencyListWriterError>;
+
+    async fn update_currency_description(
+        &self,
+        uow: &mut Self::Uow,
+        id: CurrencyId,
+        description: Option<CurrencyDescription>,
+        event_id: EventId,
+        event_sequence: EventSequence,
+        occurred_at: EventOccurredAt,
+    ) -> Result<(), CurrencyListWriterError>;
+
+    async fn update_currency_image(
+        &self,
+        uow: &mut Self::Uow,
+        id: CurrencyId,
+        image: Option<CurrencyImageRef>,
         event_id: EventId,
         event_sequence: EventSequence,
         occurred_at: EventOccurredAt,

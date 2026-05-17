@@ -1,6 +1,9 @@
 use appletheia::domain::{EventId, EventOccurredAt};
 use banking_ledger_domain::core::CurrencyAmount;
-use banking_ledger_domain::currency::{CurrencyDecimals, CurrencyId, CurrencyName, CurrencySymbol};
+use banking_ledger_domain::currency::{
+    CurrencyDecimals, CurrencyDescription, CurrencyId, CurrencyImageRef, CurrencyName,
+    CurrencySymbol,
+};
 
 use super::{CurrencyListItemOwner, CurrencyListItemStatus};
 use crate::read_model::ReadModelObservation;
@@ -13,6 +16,8 @@ pub struct CurrencyListItem {
     pub symbol: CurrencySymbol,
     pub name: CurrencyName,
     pub decimals: CurrencyDecimals,
+    pub description: Option<CurrencyDescription>,
+    pub image: Option<CurrencyImageRef>,
     pub supply: CurrencyAmount,
     pub status: CurrencyListItemStatus,
     pub created_at: EventOccurredAt,
