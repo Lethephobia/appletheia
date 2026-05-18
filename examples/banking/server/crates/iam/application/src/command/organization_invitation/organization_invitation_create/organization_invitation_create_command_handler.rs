@@ -151,6 +151,7 @@ where
         let result = organization_invitation.issue(
             command.organization_id,
             command.invitee_id,
+            command.roles.clone(),
             issuer,
             command.expires_at,
             CurrentDateTime::from(Utc::now()),

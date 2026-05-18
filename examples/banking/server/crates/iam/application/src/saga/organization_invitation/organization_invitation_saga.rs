@@ -2,7 +2,7 @@ use appletheia::application::event::EventEnvelope;
 use appletheia::application::saga::{Saga, SagaInstance, SagaSpec};
 use banking_iam_domain::{
     OrganizationInvitation, OrganizationInvitationEventPayload, OrganizationMembership,
-    OrganizationMembershipEventPayload, OrganizationMembershipRoles,
+    OrganizationMembershipEventPayload,
 };
 
 use crate::command::OrganizationMembershipCreateCommand;
@@ -29,6 +29,7 @@ impl Saga for OrganizationInvitationSaga {
             if let OrganizationInvitationEventPayload::Accepted {
                 organization_id,
                 invitee_id,
+                roles,
             } = invitation_event.payload()
             {
                 *instance.state_mut() = Some(OrganizationInvitationSagaState::new(
@@ -40,7 +41,7 @@ impl Saga for OrganizationInvitationSaga {
                     &OrganizationMembershipCreateCommand {
                         organization_id: *organization_id,
                         user_id: *invitee_id,
-                        roles: OrganizationMembershipRoles::default(),
+                        roles: roles.clone(),
                     },
                 )?;
             }
@@ -95,10 +96,12 @@ mod tests {
         organization_id: OrganizationId,
         invitation_id: OrganizationInvitationId,
         invitee_id: UserId,
+        roles: OrganizationMembershipRoles,
     ) -> EventEnvelope {
         let payload = OrganizationInvitationEventPayload::Accepted {
             organization_id,
             invitee_id,
+            roles,
         };
 
         EventEnvelope {
@@ -155,6 +158,7 @@ mod tests {
         let organization_id = OrganizationId::new();
         let invitation_id = OrganizationInvitationId::new();
         let invitee_id = UserId::new();
+        let roles = OrganizationMembershipRoles::default();
         let mut instance = SagaInstance::<<OrganizationInvitationSagaSpec as SagaSpec>::State>::new(
             SagaNameOwned::from(OrganizationInvitationSagaSpec::DESCRIPTOR.name),
             correlation_id,
@@ -168,6 +172,7 @@ mod tests {
                 organization_id,
                 invitation_id,
                 invitee_id,
+                roles.clone(),
             ),
         )
         .expect("accepted event should be handled");
@@ -179,7 +184,7 @@ mod tests {
             .expect("command should deserialize");
         assert_eq!(command.organization_id, organization_id);
         assert_eq!(command.user_id, invitee_id);
-        assert_eq!(command.roles, OrganizationMembershipRoles::default());
+        assert_eq!(command.roles, roles);
     }
 
     #[test]
@@ -189,6 +194,7 @@ mod tests {
         let organization_id = OrganizationId::new();
         let invitation_id = OrganizationInvitationId::new();
         let invitee_id = UserId::new();
+        let roles = OrganizationMembershipRoles::default();
         let mut instance = SagaInstance::<<OrganizationInvitationSagaSpec as SagaSpec>::State>::new(
             SagaNameOwned::from(OrganizationInvitationSagaSpec::DESCRIPTOR.name),
             correlation_id,
@@ -202,6 +208,7 @@ mod tests {
                 organization_id,
                 invitation_id,
                 invitee_id,
+                roles,
             ),
         )
         .expect("accepted event should be handled");

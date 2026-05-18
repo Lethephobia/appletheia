@@ -20,6 +20,12 @@ impl CurrentDateTime {
     }
 }
 
+impl Default for CurrentDateTime {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl From<DateTime<Utc>> for CurrentDateTime {
     fn from(value: DateTime<Utc>) -> Self {
         Self(value)

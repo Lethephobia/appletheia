@@ -37,7 +37,7 @@ pub use organization_invitation_status::OrganizationInvitationStatus;
 use appletheia::aggregate;
 use appletheia::domain::{Aggregate, AggregateApply, AggregateCore};
 
-use crate::{CurrentDateTime, OrganizationId, UserId};
+use crate::{CurrentDateTime, OrganizationId, OrganizationMembershipRoles, UserId};
 
 /// Represents the `OrganizationInvitation` aggregate root.
 #[aggregate(type = "organization_invitation", error = OrganizationInvitationError)]
@@ -54,6 +54,11 @@ impl OrganizationInvitation {
     /// Returns the invited user.
     pub fn invitee_id(&self) -> Result<&UserId, OrganizationInvitationError> {
         Ok(&self.state_required()?.invitee_id)
+    }
+
+    /// Returns the membership roles granted by accepting the invitation.
+    pub fn roles(&self) -> Result<&OrganizationMembershipRoles, OrganizationInvitationError> {
+        Ok(&self.state_required()?.roles)
     }
 
     /// Returns who issued the invitation.
@@ -103,6 +108,7 @@ impl OrganizationInvitation {
         &mut self,
         organization_id: OrganizationId,
         invitee_id: UserId,
+        roles: OrganizationMembershipRoles,
         issuer: OrganizationInvitationIssuer,
         expires_at: OrganizationInvitationExpiresAt,
         now: CurrentDateTime,
@@ -118,6 +124,7 @@ impl OrganizationInvitation {
                 id,
                 organization_id,
                 invitee_id,
+                roles,
                 issuer,
                 expires_at,
                 reason,
@@ -130,6 +137,7 @@ impl OrganizationInvitation {
             id,
             organization_id,
             invitee_id,
+            roles,
             issuer,
             expires_at,
         })?;
@@ -165,6 +173,7 @@ impl OrganizationInvitation {
         self.append_event(OrganizationInvitationEventPayload::Accepted {
             organization_id: state.organization_id,
             invitee_id: state.invitee_id,
+            roles: state.roles.clone(),
         })?;
         Ok(OrganizationInvitationAcceptResult::Accepted)
     }
@@ -244,6 +253,7 @@ impl AggregateApply<OrganizationInvitationEventPayload, OrganizationInvitationEr
                 id,
                 organization_id,
                 invitee_id,
+                roles,
                 issuer,
                 expires_at,
             } => {
@@ -251,6 +261,7 @@ impl AggregateApply<OrganizationInvitationEventPayload, OrganizationInvitationEr
                     id: *id,
                     organization_id: *organization_id,
                     invitee_id: *invitee_id,
+                    roles: roles.clone(),
                     issuer: *issuer,
                     expires_at: *expires_at,
                     status: OrganizationInvitationStatus::Pending,
@@ -260,6 +271,7 @@ impl AggregateApply<OrganizationInvitationEventPayload, OrganizationInvitationEr
                 id,
                 organization_id,
                 invitee_id,
+                roles,
                 issuer,
                 expires_at,
                 ..
@@ -268,6 +280,7 @@ impl AggregateApply<OrganizationInvitationEventPayload, OrganizationInvitationEr
                     id: *id,
                     organization_id: *organization_id,
                     invitee_id: *invitee_id,
+                    roles: roles.clone(),
                     issuer: *issuer,
                     expires_at: *expires_at,
                     status: OrganizationInvitationStatus::Rejected,
@@ -302,7 +315,7 @@ mod tests {
         OrganizationInvitationExpiresAt, OrganizationInvitationIssuer,
         OrganizationInvitationStatus,
     };
-    use crate::{CurrentDateTime, OrganizationId, UserId};
+    use crate::{CurrentDateTime, OrganizationId, OrganizationMembershipRoles, UserId};
 
     fn organization_id() -> OrganizationId {
         OrganizationId::new()
@@ -310,6 +323,10 @@ mod tests {
 
     fn user_id() -> UserId {
         UserId::new()
+    }
+
+    fn roles() -> OrganizationMembershipRoles {
+        OrganizationMembershipRoles::default()
     }
 
     fn future_expires_at() -> OrganizationInvitationExpiresAt {
@@ -332,6 +349,7 @@ mod tests {
             .issue(
                 organization_id,
                 invitee_id,
+                roles(),
                 issuer,
                 expires_at,
                 CurrentDateTime::from(Utc::now()),
@@ -357,6 +375,7 @@ mod tests {
             invitation.expires_at().expect("expires at should exist"),
             &expires_at
         );
+        assert_eq!(invitation.roles().expect("roles should exist"), &roles());
         assert_eq!(
             invitation.status().expect("status should exist"),
             OrganizationInvitationStatus::Pending
@@ -379,6 +398,7 @@ mod tests {
             .issue(
                 organization_id,
                 invitee_id,
+                roles(),
                 issuer,
                 expires_at,
                 CurrentDateTime::from(Utc::now()),
@@ -411,6 +431,7 @@ mod tests {
             .issue(
                 organization_id,
                 invitee_id,
+                roles(),
                 issuer,
                 expires_at,
                 CurrentDateTime::from(Utc::now()),
@@ -443,6 +464,7 @@ mod tests {
             .issue(
                 organization_id,
                 invitee_id,
+                roles(),
                 issuer,
                 expires_at,
                 CurrentDateTime::from(Utc::now()),
@@ -472,6 +494,7 @@ mod tests {
             .issue(
                 organization_id(),
                 user_id(),
+                roles(),
                 OrganizationInvitationIssuer::User(user_id()),
                 past_expires_at(),
                 CurrentDateTime::from(Utc::now()),
@@ -499,6 +522,7 @@ mod tests {
                 id: super::OrganizationInvitationId::new(),
                 organization_id,
                 invitee_id,
+                roles: roles(),
                 issuer,
                 expires_at,
             })
@@ -526,6 +550,7 @@ mod tests {
             .issue(
                 organization_id,
                 invitee_id,
+                roles(),
                 issuer,
                 expires_at,
                 CurrentDateTime::from(Utc::now()),
