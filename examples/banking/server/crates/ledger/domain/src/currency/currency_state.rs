@@ -10,10 +10,10 @@ use super::{
 
 /// Stores the materialized state of a `Currency` aggregate.
 #[aggregate_state(error = CurrencyStateError)]
-#[unique_constraints(entry(key = "symbol", value = symbol_value))]
+#[unique_constraints(entry(key = "symbol", value = symbol_unique_value))]
 #[reference_indexes(
-    entry(key = "owner_user", value = owner_user_value),
-    entry(key = "owner_organization", value = owner_organization_value)
+    entry(key = "owner_user", value = owner_user_ref_value),
+    entry(key = "owner_organization", value = owner_organization_ref_value)
 )]
 pub struct CurrencyState {
     pub(super) id: CurrencyId,
@@ -28,7 +28,7 @@ pub struct CurrencyState {
     pub(super) status: CurrencyStatus,
 }
 
-fn symbol_value(state: &CurrencyState) -> Result<Option<UniqueValue>, CurrencyStateError> {
+fn symbol_unique_value(state: &CurrencyState) -> Result<Option<UniqueValue>, CurrencyStateError> {
     if state.status.is_removed() {
         return Ok(None);
     }
@@ -38,13 +38,13 @@ fn symbol_value(state: &CurrencyState) -> Result<Option<UniqueValue>, CurrencySt
     Ok(Some(value))
 }
 
-fn owner_user_value(
+fn owner_user_ref_value(
     state: &CurrencyState,
 ) -> Result<Option<banking_iam_domain::UserId>, CurrencyStateError> {
     Ok(state.owner.user_id().copied())
 }
 
-fn owner_organization_value(
+fn owner_organization_ref_value(
     state: &CurrencyState,
 ) -> Result<Option<banking_iam_domain::OrganizationId>, CurrencyStateError> {
     Ok(state.owner.organization_id().copied())

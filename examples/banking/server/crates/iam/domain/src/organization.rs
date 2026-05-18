@@ -98,11 +98,6 @@ impl Organization {
         Ok(&self.state_required()?.display_name)
     }
 
-    /// Returns the current organization display name.
-    pub fn name(&self) -> Result<&OrganizationDisplayName, OrganizationError> {
-        self.display_name()
-    }
-
     /// Returns the current organization description.
     pub fn description(&self) -> Result<Option<&OrganizationDescription>, OrganizationError> {
         Ok(self.state_required()?.description.as_ref())

@@ -12,8 +12,8 @@ use super::{CurrencyIssuanceId, CurrencyIssuanceStateError, CurrencyIssuanceStat
 #[aggregate_state(error = CurrencyIssuanceStateError)]
 #[unique_constraints()]
 #[reference_indexes(
-    entry(key = "currency", value = currency_value),
-    entry(key = "destination_account", value = destination_account_value)
+    entry(key = "currency", value = currency_ref_value),
+    entry(key = "destination_account", value = destination_account_ref_value)
 )]
 pub struct CurrencyIssuanceState {
     pub(super) id: CurrencyIssuanceId,
@@ -23,13 +23,13 @@ pub struct CurrencyIssuanceState {
     pub(super) status: CurrencyIssuanceStatus,
 }
 
-fn currency_value(
+fn currency_ref_value(
     state: &CurrencyIssuanceState,
 ) -> Result<Option<CurrencyId>, CurrencyIssuanceStateError> {
     Ok(Some(state.currency_id))
 }
 
-fn destination_account_value(
+fn destination_account_ref_value(
     state: &CurrencyIssuanceState,
 ) -> Result<Option<AccountId>, CurrencyIssuanceStateError> {
     Ok(Some(state.destination_account_id))

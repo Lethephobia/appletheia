@@ -11,9 +11,9 @@ use super::{AccountId, AccountName, AccountOwner, AccountStateError, AccountStat
 #[aggregate_state(error = AccountStateError)]
 #[unique_constraints()]
 #[reference_indexes(
-    entry(key = "owner_user", value = owner_user_value),
-    entry(key = "owner_organization", value = owner_organization_value),
-    entry(key = "currency", value = currency_value)
+    entry(key = "owner_user", value = owner_user_ref_value),
+    entry(key = "owner_organization", value = owner_organization_ref_value),
+    entry(key = "currency", value = currency_ref_value)
 )]
 pub struct AccountState {
     pub(super) id: AccountId,
@@ -25,19 +25,19 @@ pub struct AccountState {
     pub(super) status: AccountStatus,
 }
 
-fn owner_user_value(
+fn owner_user_ref_value(
     state: &AccountState,
 ) -> Result<Option<banking_iam_domain::UserId>, AccountStateError> {
     Ok(state.owner.user_id().copied())
 }
 
-fn owner_organization_value(
+fn owner_organization_ref_value(
     state: &AccountState,
 ) -> Result<Option<banking_iam_domain::OrganizationId>, AccountStateError> {
     Ok(state.owner.organization_id().copied())
 }
 
-fn currency_value(state: &AccountState) -> Result<Option<CurrencyId>, AccountStateError> {
+fn currency_ref_value(state: &AccountState) -> Result<Option<CurrencyId>, AccountStateError> {
     Ok(Some(state.currency_id))
 }
 

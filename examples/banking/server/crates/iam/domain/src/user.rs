@@ -244,7 +244,7 @@ impl User {
             UserStatus::Active => {}
         }
 
-        let Some(identity) = self
+        let Some(_) = self
             .state_required()?
             .identities
             .iter()
@@ -259,10 +259,6 @@ impl User {
             })?;
             return Ok(UserIdentityEmailChangeResult::Rejected { reason });
         };
-
-        if identity.email() == email.as_ref() {
-            return Ok(UserIdentityEmailChangeResult::Changed);
-        }
 
         self.append_event(UserEventPayload::IdentityEmailChanged {
             provider: provider.clone(),
@@ -289,10 +285,6 @@ impl User {
                 return Ok(UserUsernameChangeResult::Rejected { reason });
             }
             UserStatus::Active => {}
-        }
-
-        if self.state_required()?.username.as_ref() == Some(&username) {
-            return Ok(UserUsernameChangeResult::Changed);
         }
 
         self.append_event(UserEventPayload::UsernameChanged { username })?;
@@ -324,10 +316,6 @@ impl User {
             UserStatus::Active => {}
         }
 
-        if self.state_required()?.display_name.as_ref() == Some(&display_name) {
-            return Ok(UserDisplayNameChangeResult::Changed);
-        }
-
         self.append_event(UserEventPayload::DisplayNameChanged { display_name })?;
         Ok(UserDisplayNameChangeResult::Changed)
     }
@@ -346,10 +334,6 @@ impl User {
                 return Ok(UserBioChangeResult::Rejected { reason });
             }
             UserStatus::Active => {}
-        }
-
-        if self.state_required()?.bio == bio {
-            return Ok(UserBioChangeResult::Changed);
         }
 
         self.append_event(UserEventPayload::BioChanged { bio })?;
@@ -375,10 +359,6 @@ impl User {
             UserStatus::Active => {}
         }
 
-        if self.state_required()?.picture == picture {
-            return Ok(UserPictureChangeResult::Changed);
-        }
-
         let old_picture = self.state_required()?.picture.clone();
 
         self.append_event(UserEventPayload::PictureChanged {
@@ -396,10 +376,6 @@ impl User {
             return Ok(UserActivateResult::Rejected { reason });
         }
 
-        if self.state_required()?.status.is_active() {
-            return Ok(UserActivateResult::Activated);
-        }
-
         self.append_event(UserEventPayload::Activated)?;
         Ok(UserActivateResult::Activated)
     }
@@ -410,10 +386,6 @@ impl User {
             let reason = UserStatusRejectionReason::Removed;
             self.append_event(UserEventPayload::DeactivateRejected { reason })?;
             return Ok(UserDeactivateResult::Rejected { reason });
-        }
-
-        if self.state_required()?.status.is_inactive() {
-            return Ok(UserDeactivateResult::Deactivated);
         }
 
         self.append_event(UserEventPayload::Inactivated)?;
@@ -512,7 +484,7 @@ mod tests {
     use appletheia::domain::{Aggregate, EventPayload};
 
     use super::{
-        User, UserBio, UserDisplayName, UserDisplayNameChangeRejectionReason,
+        Email, User, UserBio, UserDisplayName, UserDisplayNameChangeRejectionReason,
         UserDisplayNameChangeResult, UserEventPayload, UserIdentityEmailChangeRejectionReason,
         UserIdentityEmailChangeResult, UserIdentityLinkRejectionReason, UserIdentityLinkResult,
         UserIdentityProvider, UserIdentitySubject, UserPictureRef, UserPictureUrl, UserStatus,
@@ -591,7 +563,7 @@ mod tests {
     }
 
     #[test]
-    fn identical_username_change_is_a_no_op() {
+    fn identical_username_change_appends_success_event() {
         let mut user = User::default();
         let username = Username::try_from("alice").expect("username should be valid");
         register_user(&mut user);
@@ -601,11 +573,15 @@ mod tests {
         user.change_username(username)
             .expect("idempotent change should succeed");
 
-        assert_eq!(user.uncommitted_events().len(), 2);
+        assert_eq!(user.uncommitted_events().len(), 3);
+        assert_eq!(
+            user.uncommitted_events()[2].payload().name(),
+            UserEventPayload::USERNAME_CHANGED
+        );
     }
 
     #[test]
-    fn identical_display_name_change_is_a_no_op() {
+    fn identical_display_name_change_appends_success_event() {
         let mut user = User::default();
         let display_name = display_name();
         register_user(&mut user);
@@ -615,7 +591,55 @@ mod tests {
         user.change_display_name(display_name)
             .expect("idempotent display name change should succeed");
 
-        assert_eq!(user.uncommitted_events().len(), 2);
+        assert_eq!(user.uncommitted_events().len(), 3);
+        assert_eq!(
+            user.uncommitted_events()[2].payload().name(),
+            UserEventPayload::DISPLAY_NAME_CHANGED
+        );
+    }
+
+    #[test]
+    fn identical_identity_email_change_appends_success_event() {
+        let mut user = User::default();
+        let provider = UserIdentityProvider::try_from("https://accounts.example.com")
+            .expect("provider should be valid");
+        let subject = UserIdentitySubject::try_from("user-123").expect("subject should be valid");
+        let email = Some(Email::try_from("alice@example.com").expect("email should be valid"));
+        register_user(&mut user);
+        user.link_identity(provider.clone(), subject.clone(), email.clone())
+            .expect("identity should link");
+
+        user.change_identity_email(&provider, &subject, email)
+            .expect("idempotent identity email change should succeed");
+
+        assert_eq!(
+            user.uncommitted_events()[2].payload().name(),
+            UserEventPayload::IDENTITY_EMAIL_CHANGED
+        );
+    }
+
+    #[test]
+    fn repeated_activation_and_deactivation_append_success_events() {
+        let mut user = User::default();
+        register_user(&mut user);
+
+        user.activate().expect("activation should succeed");
+        user.deactivate().expect("deactivation should succeed");
+        user.deactivate()
+            .expect("repeated deactivation should succeed");
+
+        assert_eq!(
+            user.uncommitted_events()[1].payload().name(),
+            UserEventPayload::ACTIVATED
+        );
+        assert_eq!(
+            user.uncommitted_events()[2].payload().name(),
+            UserEventPayload::INACTIVATED
+        );
+        assert_eq!(
+            user.uncommitted_events()[3].payload().name(),
+            UserEventPayload::INACTIVATED
+        );
     }
 
     #[test]

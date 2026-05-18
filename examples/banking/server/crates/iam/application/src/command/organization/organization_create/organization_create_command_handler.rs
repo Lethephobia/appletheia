@@ -257,7 +257,10 @@ mod tests {
             output,
             OrganizationCreateOutput::new(saved.aggregate_id().expect("id"))
         );
-        assert_eq!(saved.name().expect("name should exist"), &display_name());
+        assert_eq!(
+            saved.display_name().expect("display name should exist"),
+            &display_name()
+        );
         assert_eq!(
             saved.handle().expect("handle should exist"),
             &OrganizationHandle::try_from("acme-labs").expect("handle should be valid")

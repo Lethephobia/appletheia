@@ -12,11 +12,11 @@ use super::{
 /// Stores the materialized state of an `OrganizationJoinRequest` aggregate.
 #[aggregate_state(error = OrganizationJoinRequestStateError)]
 #[unique_constraints(
-    entry(key = "organization_requester", value = organization_requester_value)
+    entry(key = "organization_requester", value = organization_requester_unique_value)
 )]
 #[reference_indexes(
-    entry(key = "organization", value = organization_value),
-    entry(key = "requester", value = requester_value)
+    entry(key = "organization", value = organization_ref_value),
+    entry(key = "requester", value = requester_ref_value)
 )]
 pub struct OrganizationJoinRequestState {
     pub(super) id: OrganizationJoinRequestId,
@@ -25,7 +25,7 @@ pub struct OrganizationJoinRequestState {
     pub(super) status: OrganizationJoinRequestStatus,
 }
 
-fn organization_requester_value(
+fn organization_requester_unique_value(
     state: &OrganizationJoinRequestState,
 ) -> Result<Option<UniqueValue>, OrganizationJoinRequestStateError> {
     if !state.status.is_pending() {
@@ -39,13 +39,13 @@ fn organization_requester_value(
     Ok(Some(value))
 }
 
-fn organization_value(
+fn organization_ref_value(
     state: &OrganizationJoinRequestState,
 ) -> Result<Option<OrganizationId>, OrganizationJoinRequestStateError> {
     Ok(Some(state.organization_id))
 }
 
-fn requester_value(
+fn requester_ref_value(
     state: &OrganizationJoinRequestState,
 ) -> Result<Option<UserId>, OrganizationJoinRequestStateError> {
     Ok(Some(state.requester_id))

@@ -11,8 +11,8 @@ use super::{TransferId, TransferStateError, TransferStatus};
 #[aggregate_state(error = TransferStateError)]
 #[unique_constraints()]
 #[reference_indexes(
-    entry(key = "from_account", value = from_account_value),
-    entry(key = "to_account", value = to_account_value)
+    entry(key = "from_account", value = from_account_ref_value),
+    entry(key = "to_account", value = to_account_ref_value)
 )]
 pub struct TransferState {
     pub(super) id: TransferId,
@@ -22,11 +22,11 @@ pub struct TransferState {
     pub(super) status: TransferStatus,
 }
 
-fn from_account_value(state: &TransferState) -> Result<Option<AccountId>, TransferStateError> {
+fn from_account_ref_value(state: &TransferState) -> Result<Option<AccountId>, TransferStateError> {
     Ok(Some(state.from_account_id))
 }
 
-fn to_account_value(state: &TransferState) -> Result<Option<AccountId>, TransferStateError> {
+fn to_account_ref_value(state: &TransferState) -> Result<Option<AccountId>, TransferStateError> {
     Ok(Some(state.to_account_id))
 }
 

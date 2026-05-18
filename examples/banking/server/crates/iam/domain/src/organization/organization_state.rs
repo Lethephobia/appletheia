@@ -12,8 +12,8 @@ use crate::UserId;
 
 /// Stores the materialized state of an `Organization` aggregate.
 #[aggregate_state(error = OrganizationStateError)]
-#[unique_constraints(entry(key = "handle", value = handle_value))]
-#[reference_indexes(entry(key = "owner_user", value = owner_user_value))]
+#[unique_constraints(entry(key = "handle", value = handle_unique_value))]
+#[reference_indexes(entry(key = "owner_user", value = owner_user_ref_value))]
 pub struct OrganizationState {
     pub(super) id: OrganizationId,
     pub(super) owner: OrganizationOwner,
@@ -25,7 +25,9 @@ pub struct OrganizationState {
     pub(super) status: OrganizationStatus,
 }
 
-fn handle_value(state: &OrganizationState) -> Result<Option<UniqueValue>, OrganizationStateError> {
+fn handle_unique_value(
+    state: &OrganizationState,
+) -> Result<Option<UniqueValue>, OrganizationStateError> {
     if state.status.is_removed() {
         return Ok(None);
     }
@@ -35,7 +37,9 @@ fn handle_value(state: &OrganizationState) -> Result<Option<UniqueValue>, Organi
     Ok(Some(value))
 }
 
-fn owner_user_value(state: &OrganizationState) -> Result<Option<UserId>, OrganizationStateError> {
+fn owner_user_ref_value(
+    state: &OrganizationState,
+) -> Result<Option<UserId>, OrganizationStateError> {
     let OrganizationOwner::User(user_id) = state.owner;
 
     Ok(Some(user_id))

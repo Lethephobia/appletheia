@@ -12,10 +12,10 @@ use super::{
 
 /// Stores the materialized state of an `OrganizationMembership` aggregate.
 #[aggregate_state(error = OrganizationMembershipStateError)]
-#[unique_constraints(entry(key = "organization_user", value = organization_user_value))]
+#[unique_constraints(entry(key = "organization_user", value = organization_user_unique_value))]
 #[reference_indexes(
-    entry(key = "organization", value = organization_value),
-    entry(key = "user", value = user_value)
+    entry(key = "organization", value = organization_ref_value),
+    entry(key = "user", value = user_ref_value)
 )]
 pub struct OrganizationMembershipState {
     pub(super) id: OrganizationMembershipId,
@@ -25,7 +25,7 @@ pub struct OrganizationMembershipState {
     pub(super) status: OrganizationMembershipStatus,
 }
 
-fn organization_user_value(
+fn organization_user_unique_value(
     state: &OrganizationMembershipState,
 ) -> Result<Option<UniqueValue>, OrganizationMembershipStateError> {
     if state.status.is_removed() {
@@ -39,13 +39,13 @@ fn organization_user_value(
     Ok(Some(value))
 }
 
-fn organization_value(
+fn organization_ref_value(
     state: &OrganizationMembershipState,
 ) -> Result<Option<OrganizationId>, OrganizationMembershipStateError> {
     Ok(Some(state.organization_id))
 }
 
-fn user_value(
+fn user_ref_value(
     state: &OrganizationMembershipState,
 ) -> Result<Option<UserId>, OrganizationMembershipStateError> {
     Ok(Some(state.user_id))

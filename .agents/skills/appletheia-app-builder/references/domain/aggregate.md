@@ -20,10 +20,6 @@ pub fn rename(&mut self, name: AccountName) -> Result<AccountRenameResult, Accou
         return Ok(AccountRenameResult::Rejected { reason });
     }
 
-    if self.state_required()?.name == name {
-        return Ok(AccountRenameResult::Renamed);
-    }
-
     self.append_event(AccountEventPayload::Renamed { name })?;
     Ok(AccountRenameResult::Renamed)
 }
@@ -286,10 +282,6 @@ pub fn change_profile(
         return Ok(OrganizationChangeProfileResult::Rejected { reason });
     }
 
-    if self.state_required()?.profile == profile {
-        return Ok(OrganizationChangeProfileResult::Changed);
-    }
-
     self.append_event(OrganizationEventPayload::ProfileChanged { profile })?;
     Ok(OrganizationChangeProfileResult::Changed)
 }
@@ -443,10 +435,6 @@ pub fn reserve_funds(&mut self, amount: Money) -> Result<ReserveFundsResult, Acc
         return Ok(ReserveFundsResult::Rejected { reason });
     }
 
-    if amount.is_zero() {
-        return Ok(ReserveFundsResult::Reserved);
-    }
-
     self.append_event(AccountEventPayload::FundsReserved { amount })?;
     Ok(ReserveFundsResult::Reserved)
 }
@@ -463,8 +451,9 @@ pub fn rename(&mut self, name: ExampleName) -> Result<(), ExampleError> {
 
 If a command is accepted, append the corresponding success event and return the success result even
 when replaying that event leaves the aggregate state unchanged. This keeps command acceptance
-observable for sagas and projections. Use command idempotency to suppress duplicate command messages;
-do not hide accepted commands inside aggregate no-ops.
+observable for sagas and projections, and prevents workflows from stalling while they wait for an
+accepted command event that was never persisted. Use command idempotency to suppress duplicate
+command messages; do not hide accepted commands inside aggregate no-ops.
 
 good:
 ```rust

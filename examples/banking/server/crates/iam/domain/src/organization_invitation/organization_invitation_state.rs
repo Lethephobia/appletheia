@@ -13,12 +13,12 @@ use super::{
 /// Stores the materialized state of an `OrganizationInvitation` aggregate.
 #[aggregate_state(error = OrganizationInvitationStateError)]
 #[unique_constraints(
-    entry(key = "organization_invitee", value = organization_invitee_value)
+    entry(key = "organization_invitee", value = organization_invitee_unique_value)
 )]
 #[reference_indexes(
-    entry(key = "organization", value = organization_value),
-    entry(key = "invitee", value = invitee_value),
-    entry(key = "issuer_user", value = issuer_user_value)
+    entry(key = "organization", value = organization_ref_value),
+    entry(key = "invitee", value = invitee_ref_value),
+    entry(key = "issuer_user", value = issuer_user_ref_value)
 )]
 pub struct OrganizationInvitationState {
     pub(super) id: OrganizationInvitationId,
@@ -29,7 +29,7 @@ pub struct OrganizationInvitationState {
     pub(super) status: OrganizationInvitationStatus,
 }
 
-fn organization_invitee_value(
+fn organization_invitee_unique_value(
     state: &OrganizationInvitationState,
 ) -> Result<Option<UniqueValue>, OrganizationInvitationStateError> {
     if !state.status.is_pending() {
@@ -43,19 +43,19 @@ fn organization_invitee_value(
     Ok(Some(value))
 }
 
-fn organization_value(
+fn organization_ref_value(
     state: &OrganizationInvitationState,
 ) -> Result<Option<OrganizationId>, OrganizationInvitationStateError> {
     Ok(Some(state.organization_id))
 }
 
-fn invitee_value(
+fn invitee_ref_value(
     state: &OrganizationInvitationState,
 ) -> Result<Option<UserId>, OrganizationInvitationStateError> {
     Ok(Some(state.invitee_id))
 }
 
-fn issuer_user_value(
+fn issuer_user_ref_value(
     state: &OrganizationInvitationState,
 ) -> Result<Option<UserId>, OrganizationInvitationStateError> {
     let user_id = match state.issuer {
