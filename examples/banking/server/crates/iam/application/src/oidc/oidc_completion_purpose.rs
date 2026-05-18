@@ -1,3 +1,4 @@
+use banking_iam_domain::UserId;
 use serde::{Deserialize, Serialize};
 
 /// Represents why an OIDC completion flow is being performed.
@@ -6,5 +7,5 @@ use serde::{Deserialize, Serialize};
 pub enum OidcCompletionPurpose {
     Token,
     ExchangeCode,
-    LinkIdentity,
+    LinkIdentity { user_id: UserId },
 }

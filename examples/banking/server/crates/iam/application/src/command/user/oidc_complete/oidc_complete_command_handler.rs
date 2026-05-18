@@ -103,7 +103,7 @@ where
     async fn resolve_link_identity_user(
         &self,
         uow: &mut OLF::Uow,
-        principal_user_id: UserId,
+        user_id: UserId,
         provider: &UserIdentityProvider,
         subject: &UserIdentitySubject,
         email: Option<Email>,
@@ -116,7 +116,7 @@ where
             .await?
         {
             Some(mut user) => {
-                if user.aggregate_id() != Some(principal_user_id) {
+                if user.aggregate_id() != Some(user_id) {
                     return Err(
                         OidcCompleteCommandHandlerError::IdentityAlreadyLinkedToAnotherUser,
                     );
@@ -126,8 +126,7 @@ where
                 Ok(user)
             }
             None => {
-                let Some(mut user) = self.user_repository.find(uow, principal_user_id).await?
-                else {
+                let Some(mut user) = self.user_repository.find(uow, user_id).await? else {
                     return Err(OidcCompleteCommandHandlerError::AuthenticatedUserNotFound);
                 };
 
@@ -196,7 +195,6 @@ where
             completion_purpose,
             completion_redirect_uri,
             code_challenge,
-            principal_user_id,
         } = continuation.into_payload();
 
         let mut user = match completion_purpose {
@@ -204,18 +202,9 @@ where
                 self.resolve_sign_in_user(uow, &provider, &subject, email.clone())
                     .await?
             }
-            OidcCompletionPurpose::LinkIdentity => {
-                let principal_user_id = principal_user_id.ok_or(
-                    OidcCompleteCommandHandlerError::LinkIdentityRequiresAuthenticatedPrincipal,
-                )?;
-                self.resolve_link_identity_user(
-                    uow,
-                    principal_user_id,
-                    &provider,
-                    &subject,
-                    email.clone(),
-                )
-                .await?
+            OidcCompletionPurpose::LinkIdentity { user_id } => {
+                self.resolve_link_identity_user(uow, user_id, &provider, &subject, email.clone())
+                    .await?
             }
         };
 
@@ -262,7 +251,7 @@ where
                     auth_token_exchange_code_expires_at: result.expires_at(),
                 }
             }
-            OidcCompletionPurpose::LinkIdentity => OidcCompleteOutput::IdentityLinked {
+            OidcCompletionPurpose::LinkIdentity { .. } => OidcCompleteOutput::IdentityLinked {
                 completion_redirect_uri,
                 oidc_tokens: complete_result.tokens,
             },
