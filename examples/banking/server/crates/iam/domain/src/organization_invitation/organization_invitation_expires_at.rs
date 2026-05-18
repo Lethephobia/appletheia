@@ -3,6 +3,8 @@ use std::{fmt, fmt::Display};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+use crate::CurrentDateTime;
+
 /// Represents when an organization invitation expires.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -17,6 +19,11 @@ impl OrganizationInvitationExpiresAt {
     /// Returns the underlying UTC timestamp.
     pub fn value(&self) -> DateTime<Utc> {
         self.0
+    }
+
+    /// Returns whether the invitation is expired at the provided time.
+    pub fn is_expired(&self, now: CurrentDateTime) -> bool {
+        self.0 <= now.value()
     }
 }
 
@@ -43,6 +50,7 @@ mod tests {
     use chrono::{DateTime, TimeZone, Utc};
 
     use super::OrganizationInvitationExpiresAt;
+    use crate::CurrentDateTime;
 
     #[test]
     fn value_returns_inner_datetime() {
@@ -67,5 +75,19 @@ mod tests {
         let expires_at = OrganizationInvitationExpiresAt::from(timestamp);
 
         assert_eq!(expires_at.to_string(), timestamp.to_string());
+    }
+
+    #[test]
+    fn is_expired_compares_against_provided_time() {
+        let expires_at = OrganizationInvitationExpiresAt::from(
+            Utc.with_ymd_and_hms(2024, 1, 2, 3, 4, 5).unwrap(),
+        );
+
+        assert!(!expires_at.is_expired(CurrentDateTime::from(
+            Utc.with_ymd_and_hms(2024, 1, 2, 3, 4, 4).unwrap(),
+        )));
+        assert!(expires_at.is_expired(CurrentDateTime::from(
+            Utc.with_ymd_and_hms(2024, 1, 2, 3, 4, 5).unwrap(),
+        )));
     }
 }

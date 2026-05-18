@@ -36,9 +36,8 @@ pub use organization_invitation_status::OrganizationInvitationStatus;
 
 use appletheia::aggregate;
 use appletheia::domain::{Aggregate, AggregateApply, AggregateCore};
-use chrono::Utc;
 
-use crate::{OrganizationId, UserId};
+use crate::{CurrentDateTime, OrganizationId, UserId};
 
 /// Represents the `OrganizationInvitation` aggregate root.
 #[aggregate(type = "organization_invitation", error = OrganizationInvitationError)]
@@ -95,8 +94,8 @@ impl OrganizationInvitation {
     }
 
     /// Returns whether the invitation is expired.
-    pub fn is_expired(&self) -> Result<bool, OrganizationInvitationError> {
-        Ok(self.state_required()?.expires_at.value() <= Utc::now())
+    pub fn is_expired(&self, now: CurrentDateTime) -> Result<bool, OrganizationInvitationError> {
+        Ok(self.state_required()?.expires_at.is_expired(now))
     }
 
     /// Issues a new organization invitation.
@@ -106,12 +105,13 @@ impl OrganizationInvitation {
         invitee_id: UserId,
         issuer: OrganizationInvitationIssuer,
         expires_at: OrganizationInvitationExpiresAt,
+        now: CurrentDateTime,
     ) -> Result<OrganizationInvitationIssueResult, OrganizationInvitationError> {
         if self.state().is_some() {
             return Err(OrganizationInvitationError::AlreadyIssued);
         }
 
-        if expires_at.value() <= Utc::now() {
+        if expires_at.is_expired(now) {
             let reason = OrganizationInvitationIssueRejectionReason::Expired;
             let id = OrganizationInvitationId::new();
             self.append_event(OrganizationInvitationEventPayload::IssueRejected {
@@ -141,9 +141,10 @@ impl OrganizationInvitation {
     /// Accepts the invitation.
     pub fn accept(
         &mut self,
+        now: CurrentDateTime,
     ) -> Result<OrganizationInvitationAcceptResult, OrganizationInvitationError> {
         let state = self.state_required()?;
-        if self.is_expired()? {
+        if self.is_expired(now)? {
             let reason = OrganizationInvitationAcceptRejectionReason::Expired;
             self.append_event(OrganizationInvitationEventPayload::AcceptRejected {
                 organization_id: state.organization_id,
@@ -171,9 +172,10 @@ impl OrganizationInvitation {
     /// Declines the invitation.
     pub fn decline(
         &mut self,
+        now: CurrentDateTime,
     ) -> Result<OrganizationInvitationDeclineResult, OrganizationInvitationError> {
         let state = self.state_required()?;
-        if self.is_expired()? {
+        if self.is_expired(now)? {
             let reason = OrganizationInvitationDeclineRejectionReason::Expired;
             self.append_event(OrganizationInvitationEventPayload::DeclineRejected {
                 organization_id: state.organization_id,
@@ -201,9 +203,10 @@ impl OrganizationInvitation {
     /// Cancels the invitation.
     pub fn cancel(
         &mut self,
+        now: CurrentDateTime,
     ) -> Result<OrganizationInvitationCancelResult, OrganizationInvitationError> {
         let state = self.state_required()?;
-        if self.is_expired()? {
+        if self.is_expired(now)? {
             let reason = OrganizationInvitationCancelRejectionReason::Expired;
             self.append_event(OrganizationInvitationEventPayload::CancelRejected {
                 organization_id: state.organization_id,
@@ -299,7 +302,7 @@ mod tests {
         OrganizationInvitationExpiresAt, OrganizationInvitationIssuer,
         OrganizationInvitationStatus,
     };
-    use crate::{OrganizationId, UserId};
+    use crate::{CurrentDateTime, OrganizationId, UserId};
 
     fn organization_id() -> OrganizationId {
         OrganizationId::new()
@@ -326,7 +329,13 @@ mod tests {
         let mut invitation = OrganizationInvitation::default();
 
         invitation
-            .issue(organization_id, invitee_id, issuer, expires_at)
+            .issue(
+                organization_id,
+                invitee_id,
+                issuer,
+                expires_at,
+                CurrentDateTime::from(Utc::now()),
+            )
             .expect("issue should succeed");
 
         let aggregate_id = invitation
@@ -367,10 +376,18 @@ mod tests {
         let expires_at = future_expires_at();
         let mut invitation = OrganizationInvitation::default();
         invitation
-            .issue(organization_id, invitee_id, issuer, expires_at)
+            .issue(
+                organization_id,
+                invitee_id,
+                issuer,
+                expires_at,
+                CurrentDateTime::from(Utc::now()),
+            )
             .expect("issue should succeed");
 
-        invitation.accept().expect("accept should succeed");
+        invitation
+            .accept(CurrentDateTime::from(Utc::now()))
+            .expect("accept should succeed");
 
         assert_eq!(
             invitation.status().expect("status should exist"),
@@ -391,10 +408,18 @@ mod tests {
         let expires_at = future_expires_at();
         let mut invitation = OrganizationInvitation::default();
         invitation
-            .issue(organization_id, invitee_id, issuer, expires_at)
+            .issue(
+                organization_id,
+                invitee_id,
+                issuer,
+                expires_at,
+                CurrentDateTime::from(Utc::now()),
+            )
             .expect("issue should succeed");
 
-        invitation.decline().expect("decline should succeed");
+        invitation
+            .decline(CurrentDateTime::from(Utc::now()))
+            .expect("decline should succeed");
 
         assert_eq!(
             invitation.status().expect("status should exist"),
@@ -415,10 +440,18 @@ mod tests {
         let expires_at = future_expires_at();
         let mut invitation = OrganizationInvitation::default();
         invitation
-            .issue(organization_id, invitee_id, issuer, expires_at)
+            .issue(
+                organization_id,
+                invitee_id,
+                issuer,
+                expires_at,
+                CurrentDateTime::from(Utc::now()),
+            )
             .expect("issue should succeed");
 
-        invitation.cancel().expect("cancel should succeed");
+        invitation
+            .cancel(CurrentDateTime::from(Utc::now()))
+            .expect("cancel should succeed");
 
         assert_eq!(
             invitation.status().expect("status should exist"),
@@ -441,6 +474,7 @@ mod tests {
                 user_id(),
                 OrganizationInvitationIssuer::User(user_id()),
                 past_expires_at(),
+                CurrentDateTime::from(Utc::now()),
             )
             .expect("expired invitation should complete with a rejection event");
 
@@ -471,7 +505,7 @@ mod tests {
             .expect("setup event should succeed");
 
         let result = invitation
-            .accept()
+            .accept(CurrentDateTime::from(Utc::now()))
             .expect("expired invitation should complete with a rejection event");
         assert!(matches!(
             result,
@@ -489,12 +523,20 @@ mod tests {
         let expires_at = future_expires_at();
         let mut invitation = OrganizationInvitation::default();
         invitation
-            .issue(organization_id, invitee_id, issuer, expires_at)
+            .issue(
+                organization_id,
+                invitee_id,
+                issuer,
+                expires_at,
+                CurrentDateTime::from(Utc::now()),
+            )
             .expect("issue should succeed");
-        invitation.accept().expect("accept should succeed");
+        invitation
+            .accept(CurrentDateTime::from(Utc::now()))
+            .expect("accept should succeed");
 
         let result = invitation
-            .accept()
+            .accept(CurrentDateTime::from(Utc::now()))
             .expect("second accept should complete with a rejection event");
         assert!(matches!(
             result,

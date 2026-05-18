@@ -111,7 +111,7 @@ where
                 | UserEventPayload::PictureChangeRejected { .. }
                 | UserEventPayload::Activated
                 | UserEventPayload::ActivateRejected { .. }
-                | UserEventPayload::Inactivated
+                | UserEventPayload::Deactivated
                 | UserEventPayload::DeactivateRejected { .. }
                 | UserEventPayload::RemoveRejected { .. } => {}
             }

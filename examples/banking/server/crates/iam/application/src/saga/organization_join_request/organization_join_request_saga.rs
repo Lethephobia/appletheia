@@ -2,7 +2,7 @@ use appletheia::application::event::EventEnvelope;
 use appletheia::application::saga::{Saga, SagaInstance, SagaSpec};
 use banking_iam_domain::{
     OrganizationJoinRequest, OrganizationJoinRequestEventPayload, OrganizationMembership,
-    OrganizationMembershipEventPayload,
+    OrganizationMembershipEventPayload, OrganizationMembershipRoles,
 };
 
 use crate::command::OrganizationMembershipCreateCommand;
@@ -40,6 +40,7 @@ impl Saga for OrganizationJoinRequestSaga {
                     &OrganizationMembershipCreateCommand {
                         organization_id: *organization_id,
                         user_id: *requester_id,
+                        roles: OrganizationMembershipRoles::default(),
                     },
                 )?;
             }

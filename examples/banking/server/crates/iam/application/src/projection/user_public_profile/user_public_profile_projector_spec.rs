@@ -17,7 +17,7 @@ impl ProjectorSpec for UserPublicProfileProjectorSpec {
             EventSelector::new::<User>(UserEventPayload::BIO_CHANGED),
             EventSelector::new::<User>(UserEventPayload::PICTURE_CHANGED),
             EventSelector::new::<User>(UserEventPayload::ACTIVATED),
-            EventSelector::new::<User>(UserEventPayload::INACTIVATED),
+            EventSelector::new::<User>(UserEventPayload::DEACTIVATED),
             EventSelector::new::<User>(UserEventPayload::REMOVED),
         ]),
     );

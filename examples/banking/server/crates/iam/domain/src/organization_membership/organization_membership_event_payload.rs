@@ -16,6 +16,7 @@ pub enum OrganizationMembershipEventPayload {
         id: OrganizationMembershipId,
         organization_id: OrganizationId,
         user_id: UserId,
+        roles: OrganizationMembershipRoles,
     },
     RolesChanged {
         organization_id: OrganizationId,
@@ -38,7 +39,7 @@ pub enum OrganizationMembershipEventPayload {
         user_id: UserId,
         reason: OrganizationMembershipActivateRejectionReason,
     },
-    Inactivated {
+    Deactivated {
         organization_id: OrganizationId,
         user_id: UserId,
     },
@@ -90,8 +91,8 @@ mod tests {
             appletheia::domain::EventName::new("activate_rejected")
         );
         assert_eq!(
-            OrganizationMembershipEventPayload::INACTIVATED,
-            appletheia::domain::EventName::new("inactivated")
+            OrganizationMembershipEventPayload::DEACTIVATED,
+            appletheia::domain::EventName::new("deactivated")
         );
         assert_eq!(
             OrganizationMembershipEventPayload::DEACTIVATE_REJECTED,
@@ -113,6 +114,7 @@ mod tests {
             id: OrganizationMembershipId::new(),
             organization_id: OrganizationId::new(),
             user_id: UserId::new(),
+            roles: OrganizationMembershipRoles::new([OrganizationRole::Admin]),
         };
 
         assert_eq!(payload.name(), OrganizationMembershipEventPayload::CREATED);
@@ -133,15 +135,15 @@ mod tests {
     }
 
     #[test]
-    fn inactivated_payload_name_matches_variant() {
-        let payload = OrganizationMembershipEventPayload::Inactivated {
+    fn deactivated_payload_name_matches_variant() {
+        let payload = OrganizationMembershipEventPayload::Deactivated {
             organization_id: OrganizationId::new(),
             user_id: UserId::new(),
         };
 
         assert_eq!(
             payload.name(),
-            OrganizationMembershipEventPayload::INACTIVATED
+            OrganizationMembershipEventPayload::DEACTIVATED
         );
     }
 
@@ -175,11 +177,16 @@ mod tests {
             id: OrganizationMembershipId::new(),
             organization_id: OrganizationId::new(),
             user_id: UserId::new(),
+            roles: OrganizationMembershipRoles::new([OrganizationRole::FinanceManager]),
         };
 
         let value = payload.into_json_value().expect("payload should serialize");
 
         assert_eq!(value["type"], serde_json::json!("created"));
+        assert_eq!(
+            value["data"]["roles"],
+            serde_json::json!([{ "type": "finance_manager" }])
+        );
     }
 
     #[test]

@@ -6,9 +6,11 @@ use appletheia::application::repository::Repository;
 use appletheia::application::request_context::{Principal, RequestContext};
 use appletheia::domain::{Aggregate, AggregateId, UniqueValue, UniqueValuePart};
 use banking_iam_domain::{
-    Organization, OrganizationId, OrganizationInvitation, OrganizationInvitationIssuer,
-    OrganizationMembership, OrganizationMembershipState, User, UserId,
+    CurrentDateTime, Organization, OrganizationId, OrganizationInvitation,
+    OrganizationInvitationIssuer, OrganizationMembership, OrganizationMembershipState, User,
+    UserId,
 };
+use chrono::Utc;
 
 use crate::authorization::OrganizationInviterRelation;
 
@@ -151,6 +153,7 @@ where
             command.invitee_id,
             issuer,
             command.expires_at,
+            CurrentDateTime::from(Utc::now()),
         )?;
 
         self.organization_invitation_repository

@@ -388,7 +388,7 @@ impl User {
             return Ok(UserDeactivateResult::Rejected { reason });
         }
 
-        self.append_event(UserEventPayload::Inactivated)?;
+        self.append_event(UserEventPayload::Deactivated)?;
         Ok(UserDeactivateResult::Deactivated)
     }
 
@@ -465,7 +465,7 @@ impl AggregateApply<UserEventPayload, UserError> for User {
                 self.state_required_mut()?.status = UserStatus::Active;
             }
             UserEventPayload::ActivateRejected { .. } => {}
-            UserEventPayload::Inactivated => {
+            UserEventPayload::Deactivated => {
                 self.state_required_mut()?.status = UserStatus::Inactive;
             }
             UserEventPayload::DeactivateRejected { .. } => {}
@@ -634,11 +634,11 @@ mod tests {
         );
         assert_eq!(
             user.uncommitted_events()[2].payload().name(),
-            UserEventPayload::INACTIVATED
+            UserEventPayload::DEACTIVATED
         );
         assert_eq!(
             user.uncommitted_events()[3].payload().name(),
-            UserEventPayload::INACTIVATED
+            UserEventPayload::DEACTIVATED
         );
     }
 

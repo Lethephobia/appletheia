@@ -116,7 +116,7 @@ where
                     )
                     .await?;
             }
-            UserEventPayload::Inactivated => {
+            UserEventPayload::Deactivated => {
                 self.writer
                     .update_status(
                         uow,

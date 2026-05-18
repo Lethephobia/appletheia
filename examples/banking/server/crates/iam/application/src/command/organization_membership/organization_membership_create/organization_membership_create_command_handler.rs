@@ -74,9 +74,10 @@ where
         let OrganizationMembershipCreateCommand {
             organization_id,
             user_id,
+            roles,
         } = command.clone();
         let mut organization_membership = OrganizationMembership::default();
-        organization_membership.create(organization_id, user_id)?;
+        organization_membership.create(organization_id, user_id, roles)?;
 
         self.organization_membership_repository
             .save(uow, request_context, &mut organization_membership)

@@ -283,7 +283,11 @@ mod tests {
     fn organization_membership(organization_id: OrganizationId) -> OrganizationMembership {
         let mut organization_membership = OrganizationMembership::default();
         organization_membership
-            .create(organization_id, UserId::new())
+            .create(
+                organization_id,
+                UserId::new(),
+                OrganizationMembershipRoles::default(),
+            )
             .expect("organization membership should create");
         organization_membership
     }

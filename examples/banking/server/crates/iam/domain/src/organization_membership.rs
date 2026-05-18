@@ -86,6 +86,7 @@ impl OrganizationMembership {
         &mut self,
         organization_id: OrganizationId,
         user_id: UserId,
+        roles: OrganizationMembershipRoles,
     ) -> Result<(), OrganizationMembershipError> {
         if self.state().is_some() {
             return Err(OrganizationMembershipError::AlreadyCreated);
@@ -95,6 +96,7 @@ impl OrganizationMembership {
             id: OrganizationMembershipId::new(),
             organization_id,
             user_id,
+            roles,
         })
     }
 
@@ -178,7 +180,7 @@ impl OrganizationMembership {
         }
 
         let state = self.state_required()?;
-        self.append_event(OrganizationMembershipEventPayload::Inactivated {
+        self.append_event(OrganizationMembershipEventPayload::Deactivated {
             organization_id: state.organization_id,
             user_id: state.user_id,
         })?;
@@ -221,12 +223,13 @@ impl AggregateApply<OrganizationMembershipEventPayload, OrganizationMembershipEr
                 id,
                 organization_id,
                 user_id,
+                roles,
             } => {
                 self.set_state(Some(OrganizationMembershipState {
                     id: *id,
                     organization_id: *organization_id,
                     user_id: *user_id,
-                    roles: OrganizationMembershipRoles::default(),
+                    roles: roles.clone(),
                     status: OrganizationMembershipStatus::Active,
                 }));
             }
@@ -240,7 +243,7 @@ impl AggregateApply<OrganizationMembershipEventPayload, OrganizationMembershipEr
                 state.roles = roles.clone();
             }
             OrganizationMembershipEventPayload::ActivateRejected { .. } => {}
-            OrganizationMembershipEventPayload::Inactivated { .. } => {
+            OrganizationMembershipEventPayload::Deactivated { .. } => {
                 self.state_required_mut()?.status = OrganizationMembershipStatus::Inactive;
             }
             OrganizationMembershipEventPayload::DeactivateRejected { .. } => {}
@@ -256,7 +259,7 @@ impl AggregateApply<OrganizationMembershipEventPayload, OrganizationMembershipEr
 
 #[cfg(test)]
 mod tests {
-    use appletheia::domain::{Aggregate, AggregateId, EventPayload};
+    use appletheia::domain::{Aggregate, AggregateId};
 
     use super::{
         OrganizationMembership, OrganizationMembershipEventPayload, OrganizationMembershipRoles,
@@ -276,10 +279,11 @@ mod tests {
     fn create_initializes_state_and_records_event() {
         let organization_id = organization_id();
         let user_id = user_id();
+        let roles = OrganizationMembershipRoles::new([OrganizationRole::Admin]);
         let mut membership = OrganizationMembership::default();
 
         membership
-            .create(organization_id, user_id)
+            .create(organization_id, user_id, roles.clone())
             .expect("creation should succeed");
 
         let aggregate_id = membership
@@ -300,14 +304,16 @@ mod tests {
             membership.status().expect("status should exist"),
             OrganizationMembershipStatus::Active
         );
-        assert_eq!(
-            membership.roles().expect("roles should exist"),
-            &OrganizationMembershipRoles::default()
-        );
+        assert_eq!(membership.roles().expect("roles should exist"), &roles);
         assert_eq!(membership.uncommitted_events().len(), 1);
         assert_eq!(
-            membership.uncommitted_events()[0].payload().name(),
-            OrganizationMembershipEventPayload::CREATED
+            membership.uncommitted_events()[0].payload(),
+            &OrganizationMembershipEventPayload::Created {
+                id: aggregate_id,
+                organization_id,
+                user_id,
+                roles,
+            }
         );
     }
 
@@ -318,7 +324,11 @@ mod tests {
         let roles = OrganizationMembershipRoles::new([OrganizationRole::Treasurer]);
         let mut membership = OrganizationMembership::default();
         membership
-            .create(organization_id_value, user_id_value)
+            .create(
+                organization_id_value,
+                user_id_value,
+                OrganizationMembershipRoles::default(),
+            )
             .expect("creation should succeed");
         membership
             .change_roles(roles.clone())
@@ -338,7 +348,7 @@ mod tests {
         assert_eq!(membership.uncommitted_events().len(), 4);
         assert_eq!(
             membership.uncommitted_events()[2].payload(),
-            &OrganizationMembershipEventPayload::Inactivated {
+            &OrganizationMembershipEventPayload::Deactivated {
                 organization_id: organization_id_value,
                 user_id: user_id_value,
             }
@@ -360,7 +370,11 @@ mod tests {
         let roles = OrganizationMembershipRoles::new([OrganizationRole::FinanceManager]);
         let mut membership = OrganizationMembership::default();
         membership
-            .create(organization_id_value, user_id_value)
+            .create(
+                organization_id_value,
+                user_id_value,
+                OrganizationMembershipRoles::default(),
+            )
             .expect("creation should succeed");
 
         membership
@@ -407,7 +421,11 @@ mod tests {
         let user_id_value = user_id();
         let mut membership = OrganizationMembership::default();
         membership
-            .create(organization_id_value, user_id_value)
+            .create(
+                organization_id_value,
+                user_id_value,
+                OrganizationMembershipRoles::default(),
+            )
             .expect("creation should succeed");
 
         membership.remove().expect("remove should succeed");
@@ -439,7 +457,11 @@ mod tests {
     fn removed_membership_rejects_status_changes() {
         let mut membership = OrganizationMembership::default();
         membership
-            .create(organization_id(), user_id())
+            .create(
+                organization_id(),
+                user_id(),
+                OrganizationMembershipRoles::default(),
+            )
             .expect("creation should succeed");
         membership.remove().expect("remove should succeed");
 
@@ -488,7 +510,11 @@ mod tests {
     fn inactive_membership_rejects_role_changes() {
         let mut membership = OrganizationMembership::default();
         membership
-            .create(organization_id(), user_id())
+            .create(
+                organization_id(),
+                user_id(),
+                OrganizationMembershipRoles::default(),
+            )
             .expect("creation should succeed");
         membership.deactivate().expect("deactivate should succeed");
 
@@ -507,7 +533,11 @@ mod tests {
     fn change_roles_normalizes_duplicates_and_sorts_roles() {
         let mut membership = OrganizationMembership::default();
         membership
-            .create(organization_id(), user_id())
+            .create(
+                organization_id(),
+                user_id(),
+                OrganizationMembershipRoles::default(),
+            )
             .expect("creation should succeed");
         membership
             .change_roles(OrganizationMembershipRoles::new([
@@ -535,7 +565,11 @@ mod tests {
         ]);
         let mut membership = OrganizationMembership::default();
         membership
-            .create(organization_id_value, user_id_value)
+            .create(
+                organization_id_value,
+                user_id_value,
+                OrganizationMembershipRoles::default(),
+            )
             .expect("creation should succeed");
         membership
             .change_roles(OrganizationMembershipRoles::new([

@@ -5,7 +5,7 @@ pub mod organization_join_request;
 pub mod organization_membership;
 pub mod user;
 
-pub use core::{Email, EmailError};
+pub use core::{CurrentDateTime, Email, EmailError};
 pub use organization::{
     Organization, OrganizationDescription, OrganizationDescriptionChangeRejectionReason,
     OrganizationDescriptionChangeResult, OrganizationDescriptionError, OrganizationDisplayName,

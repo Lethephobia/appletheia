@@ -71,7 +71,7 @@ pub enum UserEventPayload {
     ActivateRejected {
         reason: UserStatusRejectionReason,
     },
-    Inactivated,
+    Deactivated,
     DeactivateRejected {
         reason: UserStatusRejectionReason,
     },
@@ -153,8 +153,8 @@ mod tests {
             appletheia::domain::EventName::new("activate_rejected")
         );
         assert_eq!(
-            UserEventPayload::INACTIVATED,
-            appletheia::domain::EventName::new("inactivated")
+            UserEventPayload::DEACTIVATED,
+            appletheia::domain::EventName::new("deactivated")
         );
         assert_eq!(
             UserEventPayload::DEACTIVATE_REJECTED,

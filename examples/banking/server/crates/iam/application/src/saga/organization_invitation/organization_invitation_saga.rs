@@ -2,7 +2,7 @@ use appletheia::application::event::EventEnvelope;
 use appletheia::application::saga::{Saga, SagaInstance, SagaSpec};
 use banking_iam_domain::{
     OrganizationInvitation, OrganizationInvitationEventPayload, OrganizationMembership,
-    OrganizationMembershipEventPayload,
+    OrganizationMembershipEventPayload, OrganizationMembershipRoles,
 };
 
 use crate::command::OrganizationMembershipCreateCommand;
@@ -40,6 +40,7 @@ impl Saga for OrganizationInvitationSaga {
                     &OrganizationMembershipCreateCommand {
                         organization_id: *organization_id,
                         user_id: *invitee_id,
+                        roles: OrganizationMembershipRoles::default(),
                     },
                 )?;
             }
@@ -70,7 +71,7 @@ mod tests {
     use banking_iam_domain::{
         OrganizationId, OrganizationInvitation, OrganizationInvitationEventPayload,
         OrganizationInvitationId, OrganizationMembership, OrganizationMembershipEventPayload,
-        OrganizationMembershipId, User, UserId,
+        OrganizationMembershipId, OrganizationMembershipRoles, User, UserId,
     };
 
     use crate::command::OrganizationMembershipCreateCommand;
@@ -125,6 +126,7 @@ mod tests {
             id: membership_id,
             organization_id: OrganizationId::new(),
             user_id: UserId::new(),
+            roles: OrganizationMembershipRoles::default(),
         };
 
         EventEnvelope {
@@ -177,6 +179,7 @@ mod tests {
             .expect("command should deserialize");
         assert_eq!(command.organization_id, organization_id);
         assert_eq!(command.user_id, invitee_id);
+        assert_eq!(command.roles, OrganizationMembershipRoles::default());
     }
 
     #[test]
