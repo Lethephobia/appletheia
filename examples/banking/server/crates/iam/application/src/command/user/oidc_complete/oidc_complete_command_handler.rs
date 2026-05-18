@@ -13,7 +13,7 @@ use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use appletheia::domain::{Aggregate, UniqueValue, UniqueValuePart};
 use banking_iam_domain::{
-    Email, User, UserId, UserIdentity, UserIdentityProvider, UserIdentitySubject, UserState,
+    Email, User, UserId, UserIdentityProvider, UserIdentitySubject, UserState,
 };
 
 use crate::oidc::{OidcCompletionPurpose, OidcContinuationPayload};
@@ -64,10 +64,11 @@ where
     }
 
     fn provider_subject_unique_value(
-        identity: &UserIdentity,
+        provider: &UserIdentityProvider,
+        subject: &UserIdentitySubject,
     ) -> Result<UniqueValue, OidcCompleteCommandHandlerError> {
-        let provider_part = UniqueValuePart::try_from(identity.provider().as_ref())?;
-        let subject_part = UniqueValuePart::try_from(identity.subject().as_ref())?;
+        let provider_part = UniqueValuePart::try_from(provider.as_ref())?;
+        let subject_part = UniqueValuePart::try_from(subject.as_ref())?;
 
         Ok(UniqueValue::new(vec![provider_part, subject_part])?)
     }
@@ -75,9 +76,11 @@ where
     async fn resolve_sign_in_user(
         &self,
         uow: &mut OLF::Uow,
-        identity: &UserIdentity,
+        provider: &UserIdentityProvider,
+        subject: &UserIdentitySubject,
+        email: Option<Email>,
     ) -> Result<User, OidcCompleteCommandHandlerError> {
-        let unique_value = Self::provider_subject_unique_value(identity)?;
+        let unique_value = Self::provider_subject_unique_value(provider, subject)?;
 
         match self
             .user_repository
@@ -85,21 +88,13 @@ where
             .await?
         {
             Some(mut user) => {
-                user.change_identity_email(
-                    identity.provider(),
-                    identity.subject(),
-                    identity.email().cloned(),
-                )?;
+                user.change_identity_email(provider, subject, email)?;
                 Ok(user)
             }
             None => {
                 let mut user = User::default();
                 user.register()?;
-                user.link_identity(
-                    identity.provider().clone(),
-                    identity.subject().clone(),
-                    identity.email().cloned(),
-                )?;
+                user.link_identity(provider.clone(), subject.clone(), email)?;
                 Ok(user)
             }
         }
@@ -109,9 +104,11 @@ where
         &self,
         uow: &mut OLF::Uow,
         principal_user_id: UserId,
-        identity: &UserIdentity,
+        provider: &UserIdentityProvider,
+        subject: &UserIdentitySubject,
+        email: Option<Email>,
     ) -> Result<User, OidcCompleteCommandHandlerError> {
-        let unique_value = Self::provider_subject_unique_value(identity)?;
+        let unique_value = Self::provider_subject_unique_value(provider, subject)?;
 
         match self
             .user_repository
@@ -125,11 +122,7 @@ where
                     );
                 }
 
-                user.change_identity_email(
-                    identity.provider(),
-                    identity.subject(),
-                    identity.email().cloned(),
-                )?;
+                user.change_identity_email(provider, subject, email)?;
                 Ok(user)
             }
             None => {
@@ -138,11 +131,7 @@ where
                     return Err(OidcCompleteCommandHandlerError::AuthenticatedUserNotFound);
                 };
 
-                user.link_identity(
-                    identity.provider().clone(),
-                    identity.subject().clone(),
-                    identity.email().cloned(),
-                )?;
+                user.link_identity(provider.clone(), subject.clone(), email)?;
                 Ok(user)
             }
         }
@@ -202,7 +191,6 @@ where
         let subject = UserIdentitySubject::try_from(
             complete_result.id_token_claims.subject.value().to_owned(),
         )?;
-        let identity = UserIdentity::new(provider.clone(), subject.clone(), email.clone());
 
         let OidcContinuationPayload {
             completion_purpose,
@@ -213,14 +201,21 @@ where
 
         let mut user = match completion_purpose {
             OidcCompletionPurpose::Token | OidcCompletionPurpose::ExchangeCode => {
-                self.resolve_sign_in_user(uow, &identity).await?
+                self.resolve_sign_in_user(uow, &provider, &subject, email.clone())
+                    .await?
             }
             OidcCompletionPurpose::LinkIdentity => {
                 let principal_user_id = principal_user_id.ok_or(
                     OidcCompleteCommandHandlerError::LinkIdentityRequiresAuthenticatedPrincipal,
                 )?;
-                self.resolve_link_identity_user(uow, principal_user_id, &identity)
-                    .await?
+                self.resolve_link_identity_user(
+                    uow,
+                    principal_user_id,
+                    &provider,
+                    &subject,
+                    email.clone(),
+                )
+                .await?
             }
         };
 
