@@ -154,14 +154,28 @@ impl User {
         subject: UserIdentitySubject,
         email: Option<Email>,
     ) -> Result<UserIdentityLinkResult, UserError> {
-        if let Some(reason) = self.identity_link_rejection_reason()? {
-            self.append_event(UserEventPayload::IdentityLinkRejected {
-                provider,
-                subject,
-                email,
-                reason,
-            })?;
-            return Ok(UserIdentityLinkResult::Rejected { reason });
+        match self.state_required()?.status {
+            UserStatus::Removed => {
+                let reason = UserIdentityLinkRejectionReason::Removed;
+                self.append_event(UserEventPayload::IdentityLinkRejected {
+                    provider,
+                    subject,
+                    email,
+                    reason,
+                })?;
+                return Ok(UserIdentityLinkResult::Rejected { reason });
+            }
+            UserStatus::Inactive => {
+                let reason = UserIdentityLinkRejectionReason::Inactive;
+                self.append_event(UserEventPayload::IdentityLinkRejected {
+                    provider,
+                    subject,
+                    email,
+                    reason,
+                })?;
+                return Ok(UserIdentityLinkResult::Rejected { reason });
+            }
+            UserStatus::Active => {}
         }
 
         if self
@@ -206,14 +220,28 @@ impl User {
         subject: &UserIdentitySubject,
         email: Option<Email>,
     ) -> Result<UserIdentityEmailChangeResult, UserError> {
-        if let Some(reason) = self.identity_email_change_rejection_reason()? {
-            self.append_event(UserEventPayload::IdentityEmailChangeRejected {
-                provider: provider.clone(),
-                subject: subject.clone(),
-                email,
-                reason,
-            })?;
-            return Ok(UserIdentityEmailChangeResult::Rejected { reason });
+        match self.state_required()?.status {
+            UserStatus::Removed => {
+                let reason = UserIdentityEmailChangeRejectionReason::Removed;
+                self.append_event(UserEventPayload::IdentityEmailChangeRejected {
+                    provider: provider.clone(),
+                    subject: subject.clone(),
+                    email,
+                    reason,
+                })?;
+                return Ok(UserIdentityEmailChangeResult::Rejected { reason });
+            }
+            UserStatus::Inactive => {
+                let reason = UserIdentityEmailChangeRejectionReason::Inactive;
+                self.append_event(UserEventPayload::IdentityEmailChangeRejected {
+                    provider: provider.clone(),
+                    subject: subject.clone(),
+                    email,
+                    reason,
+                })?;
+                return Ok(UserIdentityEmailChangeResult::Rejected { reason });
+            }
+            UserStatus::Active => {}
         }
 
         let Some(identity) = self
@@ -249,9 +277,18 @@ impl User {
         &mut self,
         username: Username,
     ) -> Result<UserUsernameChangeResult, UserError> {
-        if let Some(reason) = self.username_change_rejection_reason()? {
-            self.append_event(UserEventPayload::UsernameChangeRejected { username, reason })?;
-            return Ok(UserUsernameChangeResult::Rejected { reason });
+        match self.state_required()?.status {
+            UserStatus::Removed => {
+                let reason = UserUsernameChangeRejectionReason::Removed;
+                self.append_event(UserEventPayload::UsernameChangeRejected { username, reason })?;
+                return Ok(UserUsernameChangeResult::Rejected { reason });
+            }
+            UserStatus::Inactive => {
+                let reason = UserUsernameChangeRejectionReason::Inactive;
+                self.append_event(UserEventPayload::UsernameChangeRejected { username, reason })?;
+                return Ok(UserUsernameChangeResult::Rejected { reason });
+            }
+            UserStatus::Active => {}
         }
 
         if self.state_required()?.username.as_ref() == Some(&username) {
@@ -267,12 +304,24 @@ impl User {
         &mut self,
         display_name: UserDisplayName,
     ) -> Result<UserDisplayNameChangeResult, UserError> {
-        if let Some(reason) = self.display_name_change_rejection_reason()? {
-            self.append_event(UserEventPayload::DisplayNameChangeRejected {
-                display_name,
-                reason,
-            })?;
-            return Ok(UserDisplayNameChangeResult::Rejected { reason });
+        match self.state_required()?.status {
+            UserStatus::Removed => {
+                let reason = UserDisplayNameChangeRejectionReason::Removed;
+                self.append_event(UserEventPayload::DisplayNameChangeRejected {
+                    display_name,
+                    reason,
+                })?;
+                return Ok(UserDisplayNameChangeResult::Rejected { reason });
+            }
+            UserStatus::Inactive => {
+                let reason = UserDisplayNameChangeRejectionReason::Inactive;
+                self.append_event(UserEventPayload::DisplayNameChangeRejected {
+                    display_name,
+                    reason,
+                })?;
+                return Ok(UserDisplayNameChangeResult::Rejected { reason });
+            }
+            UserStatus::Active => {}
         }
 
         if self.state_required()?.display_name.as_ref() == Some(&display_name) {
@@ -285,9 +334,18 @@ impl User {
 
     /// Changes the current bio.
     pub fn change_bio(&mut self, bio: Option<UserBio>) -> Result<UserBioChangeResult, UserError> {
-        if let Some(reason) = self.bio_change_rejection_reason()? {
-            self.append_event(UserEventPayload::BioChangeRejected { bio, reason })?;
-            return Ok(UserBioChangeResult::Rejected { reason });
+        match self.state_required()?.status {
+            UserStatus::Removed => {
+                let reason = UserBioChangeRejectionReason::Removed;
+                self.append_event(UserEventPayload::BioChangeRejected { bio, reason })?;
+                return Ok(UserBioChangeResult::Rejected { reason });
+            }
+            UserStatus::Inactive => {
+                let reason = UserBioChangeRejectionReason::Inactive;
+                self.append_event(UserEventPayload::BioChangeRejected { bio, reason })?;
+                return Ok(UserBioChangeResult::Rejected { reason });
+            }
+            UserStatus::Active => {}
         }
 
         if self.state_required()?.bio == bio {
@@ -303,9 +361,18 @@ impl User {
         &mut self,
         picture: Option<UserPictureRef>,
     ) -> Result<UserPictureChangeResult, UserError> {
-        if let Some(reason) = self.picture_change_rejection_reason()? {
-            self.append_event(UserEventPayload::PictureChangeRejected { picture, reason })?;
-            return Ok(UserPictureChangeResult::Rejected { reason });
+        match self.state_required()?.status {
+            UserStatus::Removed => {
+                let reason = UserPictureChangeRejectionReason::Removed;
+                self.append_event(UserEventPayload::PictureChangeRejected { picture, reason })?;
+                return Ok(UserPictureChangeResult::Rejected { reason });
+            }
+            UserStatus::Inactive => {
+                let reason = UserPictureChangeRejectionReason::Inactive;
+                self.append_event(UserEventPayload::PictureChangeRejected { picture, reason })?;
+                return Ok(UserPictureChangeResult::Rejected { reason });
+            }
+            UserStatus::Active => {}
         }
 
         if self.state_required()?.picture == picture {
@@ -363,90 +430,6 @@ impl User {
 
         self.append_event(UserEventPayload::Removed)?;
         Ok(UserRemoveResult::Removed)
-    }
-
-    fn identity_link_rejection_reason(
-        &self,
-    ) -> Result<Option<UserIdentityLinkRejectionReason>, UserError> {
-        if self.state_required()?.status.is_removed() {
-            return Ok(Some(UserIdentityLinkRejectionReason::Removed));
-        }
-
-        if self.state_required()?.status.is_inactive() {
-            return Ok(Some(UserIdentityLinkRejectionReason::Inactive));
-        }
-
-        Ok(None)
-    }
-
-    fn identity_email_change_rejection_reason(
-        &self,
-    ) -> Result<Option<UserIdentityEmailChangeRejectionReason>, UserError> {
-        if self.state_required()?.status.is_removed() {
-            return Ok(Some(UserIdentityEmailChangeRejectionReason::Removed));
-        }
-
-        if self.state_required()?.status.is_inactive() {
-            return Ok(Some(UserIdentityEmailChangeRejectionReason::Inactive));
-        }
-
-        Ok(None)
-    }
-
-    fn username_change_rejection_reason(
-        &self,
-    ) -> Result<Option<UserUsernameChangeRejectionReason>, UserError> {
-        if self.state_required()?.status.is_removed() {
-            return Ok(Some(UserUsernameChangeRejectionReason::Removed));
-        }
-
-        if self.state_required()?.status.is_inactive() {
-            return Ok(Some(UserUsernameChangeRejectionReason::Inactive));
-        }
-
-        Ok(None)
-    }
-
-    fn display_name_change_rejection_reason(
-        &self,
-    ) -> Result<Option<UserDisplayNameChangeRejectionReason>, UserError> {
-        if self.state_required()?.status.is_removed() {
-            return Ok(Some(UserDisplayNameChangeRejectionReason::Removed));
-        }
-
-        if self.state_required()?.status.is_inactive() {
-            return Ok(Some(UserDisplayNameChangeRejectionReason::Inactive));
-        }
-
-        Ok(None)
-    }
-
-    fn bio_change_rejection_reason(
-        &self,
-    ) -> Result<Option<UserBioChangeRejectionReason>, UserError> {
-        if self.state_required()?.status.is_removed() {
-            return Ok(Some(UserBioChangeRejectionReason::Removed));
-        }
-
-        if self.state_required()?.status.is_inactive() {
-            return Ok(Some(UserBioChangeRejectionReason::Inactive));
-        }
-
-        Ok(None)
-    }
-
-    fn picture_change_rejection_reason(
-        &self,
-    ) -> Result<Option<UserPictureChangeRejectionReason>, UserError> {
-        if self.state_required()?.status.is_removed() {
-            return Ok(Some(UserPictureChangeRejectionReason::Removed));
-        }
-
-        if self.state_required()?.status.is_inactive() {
-            return Ok(Some(UserPictureChangeRejectionReason::Inactive));
-        }
-
-        Ok(None)
     }
 }
 
