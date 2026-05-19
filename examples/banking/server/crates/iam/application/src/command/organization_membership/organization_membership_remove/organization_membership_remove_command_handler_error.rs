@@ -24,7 +24,4 @@ pub enum OrganizationMembershipRemoveCommandHandlerError {
 
     #[error("organization is not found")]
     OrganizationNotFound,
-
-    #[error("organization is removed")]
-    OrganizationRemoved,
 }

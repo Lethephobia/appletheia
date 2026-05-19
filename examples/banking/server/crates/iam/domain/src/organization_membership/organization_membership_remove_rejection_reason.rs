@@ -5,4 +5,5 @@ use serde::{Deserialize, Serialize};
 #[serde(tag = "type", content = "data", rename_all = "snake_case")]
 pub enum OrganizationMembershipRemoveRejectionReason {
     Removed,
+    OrganizationRemoved,
 }

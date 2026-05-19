@@ -39,12 +39,14 @@ pub use organization_join_request::{
     OrganizationJoinRequestCancelResult, OrganizationJoinRequestError,
     OrganizationJoinRequestEventPayload, OrganizationJoinRequestEventPayloadError,
     OrganizationJoinRequestId, OrganizationJoinRequestRejectRejectionReason,
-    OrganizationJoinRequestRejectResult, OrganizationJoinRequestState,
+    OrganizationJoinRequestRejectResult, OrganizationJoinRequestRequestRejectionReason,
+    OrganizationJoinRequestRequestResult, OrganizationJoinRequestState,
     OrganizationJoinRequestStateError, OrganizationJoinRequestStatus,
 };
 pub use organization_membership::{
     OrganizationMembership, OrganizationMembershipActivateRejectionReason,
-    OrganizationMembershipActivateResult, OrganizationMembershipDeactivateRejectionReason,
+    OrganizationMembershipActivateResult, OrganizationMembershipCreateRejectionReason,
+    OrganizationMembershipCreateResult, OrganizationMembershipDeactivateRejectionReason,
     OrganizationMembershipDeactivateResult, OrganizationMembershipError,
     OrganizationMembershipEventPayload, OrganizationMembershipEventPayloadError,
     OrganizationMembershipId, OrganizationMembershipRemoveRejectionReason,

@@ -8,6 +8,8 @@ mod organization_join_request_event_payload_error;
 mod organization_join_request_id;
 mod organization_join_request_reject_rejection_reason;
 mod organization_join_request_reject_result;
+mod organization_join_request_request_rejection_reason;
+mod organization_join_request_request_result;
 mod organization_join_request_state;
 mod organization_join_request_state_error;
 mod organization_join_request_status;
@@ -22,6 +24,8 @@ pub use organization_join_request_event_payload_error::OrganizationJoinRequestEv
 pub use organization_join_request_id::OrganizationJoinRequestId;
 pub use organization_join_request_reject_rejection_reason::OrganizationJoinRequestRejectRejectionReason;
 pub use organization_join_request_reject_result::OrganizationJoinRequestRejectResult;
+pub use organization_join_request_request_rejection_reason::OrganizationJoinRequestRequestRejectionReason;
+pub use organization_join_request_request_result::OrganizationJoinRequestRequestResult;
 pub use organization_join_request_state::OrganizationJoinRequestState;
 pub use organization_join_request_state_error::OrganizationJoinRequestStateError;
 pub use organization_join_request_status::OrganizationJoinRequestStatus;
@@ -78,16 +82,37 @@ impl OrganizationJoinRequest {
         &mut self,
         organization_id: OrganizationId,
         requester_id: UserId,
-    ) -> Result<(), OrganizationJoinRequestError> {
+    ) -> Result<OrganizationJoinRequestRequestResult, OrganizationJoinRequestError> {
         if self.state().is_some() {
             return Err(OrganizationJoinRequestError::AlreadyRequested);
         }
 
+        let id = OrganizationJoinRequestId::new();
         self.append_event(OrganizationJoinRequestEventPayload::Requested {
-            id: OrganizationJoinRequestId::new(),
+            id,
             organization_id,
             requester_id,
+        })?;
+        Ok(OrganizationJoinRequestRequestResult::Requested {
+            organization_join_request_id: id,
         })
+    }
+
+    /// Rejects a join request creation attempt.
+    pub fn reject_request(
+        &mut self,
+        organization_id: OrganizationId,
+        requester_id: UserId,
+        reason: OrganizationJoinRequestRequestRejectionReason,
+    ) -> Result<OrganizationJoinRequestRequestResult, OrganizationJoinRequestError> {
+        let id = OrganizationJoinRequestId::new();
+        self.append_event(OrganizationJoinRequestEventPayload::RequestRejected {
+            id,
+            organization_id,
+            requester_id,
+            reason,
+        })?;
+        Ok(OrganizationJoinRequestRequestResult::Rejected { reason })
     }
 
     /// Approves the join request.
@@ -201,6 +226,7 @@ impl AggregateApply<OrganizationJoinRequestEventPayload, OrganizationJoinRequest
                     status: OrganizationJoinRequestStatus::Pending,
                 }));
             }
+            OrganizationJoinRequestEventPayload::RequestRejected { .. } => {}
             OrganizationJoinRequestEventPayload::Approved { .. } => {
                 self.state_required_mut()?.status = OrganizationJoinRequestStatus::Approved;
             }

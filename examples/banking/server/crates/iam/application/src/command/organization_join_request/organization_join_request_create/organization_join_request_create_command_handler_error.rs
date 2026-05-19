@@ -30,18 +30,6 @@ pub enum OrganizationJoinRequestCreateCommandHandlerError {
     #[error("unique value is invalid")]
     UniqueValue(#[from] UniqueValueError),
 
-    #[error("organization join request id is missing after request")]
-    MissingOrganizationJoinRequestId,
-
-    #[error("requester is already a member of the organization")]
-    RequesterAlreadyMember,
-
-    #[error("join request is already pending")]
-    JoinRequestAlreadyRequested,
-
     #[error("organization is not found")]
     OrganizationNotFound,
-
-    #[error("organization is removed")]
-    OrganizationRemoved,
 }

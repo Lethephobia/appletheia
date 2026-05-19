@@ -2,8 +2,9 @@ use appletheia::application::authorization::{AuthorizationPlan, PrincipalRequire
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use appletheia::domain::Aggregate;
-use banking_iam_domain::{Organization, OrganizationMembership};
+use banking_iam_domain::{
+    Organization, OrganizationMembership, OrganizationMembershipCreateRejectionReason,
+};
 
 use super::{
     OrganizationMembershipCreateCommand, OrganizationMembershipCreateCommandHandlerError,
@@ -67,27 +68,27 @@ where
             return Err(OrganizationMembershipCreateCommandHandlerError::OrganizationNotFound);
         };
 
-        if organization.is_removed()? {
-            return Err(OrganizationMembershipCreateCommandHandlerError::OrganizationRemoved);
-        }
-
         let OrganizationMembershipCreateCommand {
             organization_id,
             user_id,
             roles,
         } = command.clone();
         let mut organization_membership = OrganizationMembership::default();
-        organization_membership.create(organization_id, user_id, roles)?;
+        let result = if organization.is_removed()? {
+            organization_membership.reject_create(
+                organization_id,
+                user_id,
+                roles,
+                OrganizationMembershipCreateRejectionReason::OrganizationRemoved,
+            )?
+        } else {
+            organization_membership.create(organization_id, user_id, roles)?
+        };
 
         self.organization_membership_repository
             .save(uow, request_context, &mut organization_membership)
             .await?;
 
-        let organization_membership_id = organization_membership.aggregate_id().ok_or(
-            OrganizationMembershipCreateCommandHandlerError::MissingOrganizationMembershipId,
-        )?;
-        let output = OrganizationMembershipCreateOutput::new(organization_membership_id);
-
-        Ok(CommandHandled::same(output))
+        Ok(CommandHandled::same(result.into()))
     }
 }

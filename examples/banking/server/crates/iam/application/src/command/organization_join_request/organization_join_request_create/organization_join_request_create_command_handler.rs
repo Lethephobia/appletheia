@@ -4,9 +4,10 @@ use appletheia::application::authorization::{
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use appletheia::domain::{Aggregate, AggregateId, UniqueValue, UniqueValuePart};
+use appletheia::domain::{AggregateId, UniqueValue, UniqueValuePart};
 use banking_iam_domain::{
-    Organization, OrganizationId, OrganizationJoinRequest, OrganizationJoinRequestState,
+    Organization, OrganizationId, OrganizationJoinRequest,
+    OrganizationJoinRequestRequestRejectionReason, OrganizationJoinRequestState,
     OrganizationMembership, OrganizationMembershipState, User, UserId,
 };
 
@@ -98,16 +99,18 @@ where
             return Err(OrganizationJoinRequestCreateCommandHandlerError::OrganizationNotFound);
         };
 
-        if organization.is_removed()? {
-            return Err(OrganizationJoinRequestCreateCommandHandlerError::OrganizationRemoved);
-        }
-
         let unique_value = Self::organization_requester_unique_value(
             command.organization_id,
             command.requester_id,
         )?;
-
-        if self
+        let mut organization_join_request = OrganizationJoinRequest::default();
+        let result = if organization.is_removed()? {
+            organization_join_request.reject_request(
+                command.organization_id,
+                command.requester_id,
+                OrganizationJoinRequestRequestRejectionReason::OrganizationRemoved,
+            )?
+        } else if self
             .organization_membership_repository
             .find_by_unique_value(
                 uow,
@@ -117,10 +120,12 @@ where
             .await?
             .is_some()
         {
-            return Err(OrganizationJoinRequestCreateCommandHandlerError::RequesterAlreadyMember);
-        }
-
-        if self
+            organization_join_request.reject_request(
+                command.organization_id,
+                command.requester_id,
+                OrganizationJoinRequestRequestRejectionReason::RequesterAlreadyMember,
+            )?
+        } else if self
             .organization_join_request_repository
             .find_by_unique_value(
                 uow,
@@ -130,24 +135,19 @@ where
             .await?
             .is_some()
         {
-            return Err(
-                OrganizationJoinRequestCreateCommandHandlerError::JoinRequestAlreadyRequested,
-            );
-        }
-
-        let mut organization_join_request = OrganizationJoinRequest::default();
-        organization_join_request.request(command.organization_id, command.requester_id)?;
+            organization_join_request.reject_request(
+                command.organization_id,
+                command.requester_id,
+                OrganizationJoinRequestRequestRejectionReason::AlreadyRequested,
+            )?
+        } else {
+            organization_join_request.request(command.organization_id, command.requester_id)?
+        };
 
         self.organization_join_request_repository
             .save(uow, request_context, &mut organization_join_request)
             .await?;
 
-        let organization_join_request_id = organization_join_request.aggregate_id().ok_or(
-            OrganizationJoinRequestCreateCommandHandlerError::MissingOrganizationJoinRequestId,
-        )?;
-
-        Ok(CommandHandled::same(
-            OrganizationJoinRequestCreateOutput::new(organization_join_request_id),
-        ))
+        Ok(CommandHandled::same(result.into()))
     }
 }

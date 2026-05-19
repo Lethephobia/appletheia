@@ -7,8 +7,8 @@ use appletheia::application::request_context::RequestContext;
 use appletheia::domain::{AggregateId, UniqueValue, UniqueValuePart};
 use banking_iam_domain::{
     CurrentDateTime, Organization, OrganizationId, OrganizationInvitation,
-    OrganizationInvitationIssuer, OrganizationMembership, OrganizationMembershipState, User,
-    UserId,
+    OrganizationInvitationIssueRejectionReason, OrganizationInvitationIssuer,
+    OrganizationMembership, OrganizationMembershipState, User, UserId,
 };
 
 use crate::authorization::{OrganizationInviterRelation, UserOwnerRelation};
@@ -110,13 +110,19 @@ where
             return Err(OrganizationInvitationIssueCommandHandlerError::OrganizationNotFound);
         };
 
-        if organization.is_removed()? {
-            return Err(OrganizationInvitationIssueCommandHandlerError::OrganizationRemoved);
-        }
-
         let invitee_unique_value =
             Self::organization_user_unique_value(command.organization_id, command.invitee_id)?;
-        if self
+        let mut organization_invitation = OrganizationInvitation::default();
+        let result = if organization.is_removed()? {
+            organization_invitation.reject_issue(
+                command.organization_id,
+                command.invitee_id,
+                command.roles.clone(),
+                command.issuer,
+                command.expires_at,
+                OrganizationInvitationIssueRejectionReason::OrganizationRemoved,
+            )?
+        } else if self
             .organization_membership_repository
             .find_by_unique_value(
                 uow,
@@ -126,18 +132,24 @@ where
             .await?
             .is_some()
         {
-            return Err(OrganizationInvitationIssueCommandHandlerError::InviteeAlreadyMember);
-        }
-
-        let mut organization_invitation = OrganizationInvitation::default();
-        let result = organization_invitation.issue(
-            command.organization_id,
-            command.invitee_id,
-            command.roles.clone(),
-            command.issuer,
-            command.expires_at,
-            CurrentDateTime::new(),
-        )?;
+            organization_invitation.reject_issue(
+                command.organization_id,
+                command.invitee_id,
+                command.roles.clone(),
+                command.issuer,
+                command.expires_at,
+                OrganizationInvitationIssueRejectionReason::InviteeAlreadyMember,
+            )?
+        } else {
+            organization_invitation.issue(
+                command.organization_id,
+                command.invitee_id,
+                command.roles.clone(),
+                command.issuer,
+                command.expires_at,
+                CurrentDateTime::new(),
+            )?
+        };
 
         self.organization_invitation_repository
             .save(uow, request_context, &mut organization_invitation)

@@ -4,7 +4,10 @@ use appletheia::application::authorization::{
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_iam_domain::{CurrentDateTime, Organization, OrganizationInvitation};
+use banking_iam_domain::{
+    CurrentDateTime, Organization, OrganizationInvitation,
+    OrganizationInvitationAcceptRejectionReason,
+};
 
 use crate::authorization::OrganizationInvitationInviteeRelation;
 
@@ -85,11 +88,12 @@ where
             return Err(OrganizationInvitationAcceptCommandHandlerError::OrganizationNotFound);
         };
 
-        if organization.is_removed()? {
-            return Err(OrganizationInvitationAcceptCommandHandlerError::OrganizationRemoved);
-        }
-
-        let result = organization_invitation.accept(CurrentDateTime::new())?;
+        let result = if organization.is_removed()? {
+            organization_invitation
+                .reject_accept(OrganizationInvitationAcceptRejectionReason::OrganizationRemoved)?
+        } else {
+            organization_invitation.accept(CurrentDateTime::new())?
+        };
 
         self.organization_invitation_repository
             .save(uow, _request_context, &mut organization_invitation)

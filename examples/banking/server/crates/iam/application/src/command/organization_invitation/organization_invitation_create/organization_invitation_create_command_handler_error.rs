@@ -33,12 +33,6 @@ pub enum OrganizationInvitationIssueCommandHandlerError {
     #[error("organization invitation id is missing after issue")]
     MissingOrganizationInvitationId,
 
-    #[error("invitee is already a member of the organization")]
-    InviteeAlreadyMember,
-
     #[error("organization is not found")]
     OrganizationNotFound,
-
-    #[error("organization is removed")]
-    OrganizationRemoved,
 }

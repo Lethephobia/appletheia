@@ -5,7 +5,7 @@ use crate::{OrganizationId, UserId};
 use super::{
     OrganizationJoinRequestApproveRejectionReason, OrganizationJoinRequestCancelRejectionReason,
     OrganizationJoinRequestEventPayloadError, OrganizationJoinRequestId,
-    OrganizationJoinRequestRejectRejectionReason,
+    OrganizationJoinRequestRejectRejectionReason, OrganizationJoinRequestRequestRejectionReason,
 };
 
 /// Represents the domain events emitted by an `OrganizationJoinRequest` aggregate.
@@ -15,6 +15,12 @@ pub enum OrganizationJoinRequestEventPayload {
         id: OrganizationJoinRequestId,
         organization_id: OrganizationId,
         requester_id: UserId,
+    },
+    RequestRejected {
+        id: OrganizationJoinRequestId,
+        organization_id: OrganizationId,
+        requester_id: UserId,
+        reason: OrganizationJoinRequestRequestRejectionReason,
     },
     Approved {
         organization_id: OrganizationId,
@@ -63,6 +69,10 @@ mod tests {
             appletheia::domain::EventName::new("approved")
         );
         assert_eq!(
+            OrganizationJoinRequestEventPayload::REQUEST_REJECTED,
+            appletheia::domain::EventName::new("request_rejected")
+        );
+        assert_eq!(
             OrganizationJoinRequestEventPayload::APPROVE_REJECTED,
             appletheia::domain::EventName::new("approve_rejected")
         );
@@ -108,6 +118,21 @@ mod tests {
         assert_eq!(
             payload.name(),
             OrganizationJoinRequestEventPayload::APPROVED
+        );
+    }
+
+    #[test]
+    fn request_rejected_payload_name_matches_variant() {
+        let payload = OrganizationJoinRequestEventPayload::RequestRejected {
+            id: OrganizationJoinRequestId::new(),
+            organization_id: OrganizationId::new(),
+            requester_id: UserId::new(),
+            reason: super::OrganizationJoinRequestRequestRejectionReason::AlreadyRequested,
+        };
+
+        assert_eq!(
+            payload.name(),
+            OrganizationJoinRequestEventPayload::REQUEST_REJECTED
         );
     }
 

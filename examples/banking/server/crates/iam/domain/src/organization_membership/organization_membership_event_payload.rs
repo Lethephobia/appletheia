@@ -3,10 +3,10 @@ use appletheia::event_payload;
 use crate::{OrganizationId, UserId};
 
 use super::{
-    OrganizationMembershipActivateRejectionReason, OrganizationMembershipDeactivateRejectionReason,
-    OrganizationMembershipEventPayloadError, OrganizationMembershipId,
-    OrganizationMembershipRemoveRejectionReason, OrganizationMembershipRoles,
-    OrganizationMembershipRolesChangeRejectionReason,
+    OrganizationMembershipActivateRejectionReason, OrganizationMembershipCreateRejectionReason,
+    OrganizationMembershipDeactivateRejectionReason, OrganizationMembershipEventPayloadError,
+    OrganizationMembershipId, OrganizationMembershipRemoveRejectionReason,
+    OrganizationMembershipRoles, OrganizationMembershipRolesChangeRejectionReason,
 };
 
 /// Represents the domain events emitted by an `OrganizationMembership` aggregate.
@@ -17,6 +17,13 @@ pub enum OrganizationMembershipEventPayload {
         organization_id: OrganizationId,
         user_id: UserId,
         roles: OrganizationMembershipRoles,
+    },
+    CreateRejected {
+        id: OrganizationMembershipId,
+        organization_id: OrganizationId,
+        user_id: UserId,
+        roles: OrganizationMembershipRoles,
+        reason: OrganizationMembershipCreateRejectionReason,
     },
     RolesChanged {
         organization_id: OrganizationId,
@@ -79,6 +86,10 @@ mod tests {
             appletheia::domain::EventName::new("roles_changed")
         );
         assert_eq!(
+            OrganizationMembershipEventPayload::CREATE_REJECTED,
+            appletheia::domain::EventName::new("create_rejected")
+        );
+        assert_eq!(
             OrganizationMembershipEventPayload::ROLES_CHANGE_REJECTED,
             appletheia::domain::EventName::new("roles_change_rejected")
         );
@@ -131,6 +142,22 @@ mod tests {
         assert_eq!(
             payload.name(),
             OrganizationMembershipEventPayload::ACTIVATED
+        );
+    }
+
+    #[test]
+    fn create_rejected_payload_name_matches_variant() {
+        let payload = OrganizationMembershipEventPayload::CreateRejected {
+            id: OrganizationMembershipId::new(),
+            organization_id: OrganizationId::new(),
+            user_id: UserId::new(),
+            roles: OrganizationMembershipRoles::default(),
+            reason: super::OrganizationMembershipCreateRejectionReason::OrganizationRemoved,
+        };
+
+        assert_eq!(
+            payload.name(),
+            OrganizationMembershipEventPayload::CREATE_REJECTED
         );
     }
 

@@ -6,4 +6,5 @@ use serde::{Deserialize, Serialize};
 pub enum OrganizationMembershipRolesChangeRejectionReason {
     Inactive,
     Removed,
+    OrganizationRemoved,
 }

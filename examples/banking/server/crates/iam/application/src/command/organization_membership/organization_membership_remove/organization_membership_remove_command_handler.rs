@@ -4,7 +4,9 @@ use appletheia::application::authorization::{
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_iam_domain::{Organization, OrganizationMembership};
+use banking_iam_domain::{
+    Organization, OrganizationMembership, OrganizationMembershipRemoveRejectionReason,
+};
 
 use super::{
     OrganizationMembershipRemoveCommand, OrganizationMembershipRemoveCommandHandlerError,
@@ -84,11 +86,12 @@ where
             return Err(OrganizationMembershipRemoveCommandHandlerError::OrganizationNotFound);
         };
 
-        if organization.is_removed()? {
-            return Err(OrganizationMembershipRemoveCommandHandlerError::OrganizationRemoved);
-        }
-
-        let result = organization_membership.remove()?;
+        let result = if organization.is_removed()? {
+            organization_membership
+                .reject_remove(OrganizationMembershipRemoveRejectionReason::OrganizationRemoved)?
+        } else {
+            organization_membership.remove()?
+        };
 
         self.organization_membership_repository
             .save(uow, request_context, &mut organization_membership)

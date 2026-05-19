@@ -4,7 +4,9 @@ use appletheia::application::authorization::{
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_iam_domain::{Organization, OrganizationJoinRequest};
+use banking_iam_domain::{
+    Organization, OrganizationJoinRequest, OrganizationJoinRequestRejectRejectionReason,
+};
 
 use crate::authorization::OrganizationJoinRequestRejecterRelation;
 
@@ -85,11 +87,13 @@ where
             return Err(OrganizationJoinRequestRejectCommandHandlerError::OrganizationNotFound);
         };
 
-        if organization.is_removed()? {
-            return Err(OrganizationJoinRequestRejectCommandHandlerError::OrganizationRemoved);
-        }
-
-        let result = organization_join_request.reject()?;
+        let result = if organization.is_removed()? {
+            organization_join_request.reject_rejection(
+                OrganizationJoinRequestRejectRejectionReason::OrganizationRemoved,
+            )?
+        } else {
+            organization_join_request.reject()?
+        };
 
         self.organization_join_request_repository
             .save(uow, _request_context, &mut organization_join_request)

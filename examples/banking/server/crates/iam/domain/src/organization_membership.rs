@@ -1,5 +1,7 @@
 mod organization_membership_activate_rejection_reason;
 mod organization_membership_activate_result;
+mod organization_membership_create_rejection_reason;
+mod organization_membership_create_result;
 mod organization_membership_deactivate_rejection_reason;
 mod organization_membership_deactivate_result;
 mod organization_membership_error;
@@ -18,6 +20,8 @@ mod organization_role;
 
 pub use organization_membership_activate_rejection_reason::OrganizationMembershipActivateRejectionReason;
 pub use organization_membership_activate_result::OrganizationMembershipActivateResult;
+pub use organization_membership_create_rejection_reason::OrganizationMembershipCreateRejectionReason;
+pub use organization_membership_create_result::OrganizationMembershipCreateResult;
 pub use organization_membership_deactivate_rejection_reason::OrganizationMembershipDeactivateRejectionReason;
 pub use organization_membership_deactivate_result::OrganizationMembershipDeactivateResult;
 pub use organization_membership_error::OrganizationMembershipError;
@@ -87,17 +91,40 @@ impl OrganizationMembership {
         organization_id: OrganizationId,
         user_id: UserId,
         roles: OrganizationMembershipRoles,
-    ) -> Result<(), OrganizationMembershipError> {
+    ) -> Result<OrganizationMembershipCreateResult, OrganizationMembershipError> {
         if self.state().is_some() {
             return Err(OrganizationMembershipError::AlreadyCreated);
         }
 
+        let id = OrganizationMembershipId::new();
         self.append_event(OrganizationMembershipEventPayload::Created {
-            id: OrganizationMembershipId::new(),
+            id,
             organization_id,
             user_id,
             roles,
+        })?;
+        Ok(OrganizationMembershipCreateResult::Created {
+            organization_membership_id: id,
         })
+    }
+
+    /// Rejects an organization membership creation attempt.
+    pub fn reject_create(
+        &mut self,
+        organization_id: OrganizationId,
+        user_id: UserId,
+        roles: OrganizationMembershipRoles,
+        reason: OrganizationMembershipCreateRejectionReason,
+    ) -> Result<OrganizationMembershipCreateResult, OrganizationMembershipError> {
+        let id = OrganizationMembershipId::new();
+        self.append_event(OrganizationMembershipEventPayload::CreateRejected {
+            id,
+            organization_id,
+            user_id,
+            roles,
+            reason,
+        })?;
+        Ok(OrganizationMembershipCreateResult::Rejected { reason })
     }
 
     /// Changes the roles of an active membership.
@@ -259,6 +286,7 @@ impl AggregateApply<OrganizationMembershipEventPayload, OrganizationMembershipEr
                     status: OrganizationMembershipStatus::Active,
                 }));
             }
+            OrganizationMembershipEventPayload::CreateRejected { .. } => {}
             OrganizationMembershipEventPayload::RolesChanged { roles, .. } => {
                 self.state_required_mut()?.roles = roles.clone();
             }
