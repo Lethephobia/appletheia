@@ -1,4 +1,4 @@
-use appletheia::application::authorization::AuthorizationPlan;
+use appletheia::application::authorization::{AuthorizationPlan, PrincipalRequirement};
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
@@ -49,7 +49,7 @@ where
         _command: &Self::Command,
     ) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
-            appletheia::application::authorization::PrincipalRequirement::System,
+            PrincipalRequirement::System,
         ]))
     }
 
