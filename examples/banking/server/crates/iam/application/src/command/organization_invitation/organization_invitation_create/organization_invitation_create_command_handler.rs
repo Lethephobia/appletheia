@@ -91,7 +91,9 @@ where
             }
         };
 
-        Ok(AuthorizationPlan::OnlyPrincipals(vec![principal_requirement]))
+        Ok(AuthorizationPlan::OnlyPrincipals(vec![
+            principal_requirement,
+        ]))
     }
 
     async fn handle(
