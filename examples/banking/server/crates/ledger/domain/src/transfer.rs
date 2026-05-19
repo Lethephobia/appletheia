@@ -74,28 +74,12 @@ impl Transfer {
 
         if from_account_id == to_account_id {
             let reason = TransferRequestRejectionReason::SameAccount;
-            self.append_event(TransferEventPayload::RequestRejected {
-                id: TransferId::new(),
-                from_account_id,
-                to_account_id,
-                amount,
-                reason,
-            })?;
-
-            return Ok(TransferRequestResult::Rejected { reason });
+            return self.reject_request(from_account_id, to_account_id, amount, reason);
         }
 
         if amount.is_zero() {
             let reason = TransferRequestRejectionReason::ZeroAmount;
-            self.append_event(TransferEventPayload::RequestRejected {
-                id: TransferId::new(),
-                from_account_id,
-                to_account_id,
-                amount,
-                reason,
-            })?;
-
-            return Ok(TransferRequestResult::Rejected { reason });
+            return self.reject_request(from_account_id, to_account_id, amount, reason);
         }
 
         let id = TransferId::new();
@@ -109,33 +93,56 @@ impl Transfer {
         Ok(TransferRequestResult::Requested { transfer_id: id })
     }
 
+    /// Rejects a transfer request.
+    pub fn reject_request(
+        &mut self,
+        from_account_id: AccountId,
+        to_account_id: AccountId,
+        amount: CurrencyAmount,
+        reason: TransferRequestRejectionReason,
+    ) -> Result<TransferRequestResult, TransferError> {
+        self.append_event(TransferEventPayload::RequestRejected {
+            id: TransferId::new(),
+            from_account_id,
+            to_account_id,
+            amount,
+            reason,
+        })?;
+
+        Ok(TransferRequestResult::Rejected { reason })
+    }
+
     /// Completes the transfer.
     pub fn complete(&mut self) -> Result<TransferCompleteResult, TransferError> {
         match self.state_required()?.status {
             TransferStatus::Pending => {}
             TransferStatus::Completed => {
                 let reason = TransferCompleteRejectionReason::AlreadyCompleted;
-                self.append_event(TransferEventPayload::CompleteRejected { reason })?;
-
-                return Ok(TransferCompleteResult::Rejected { reason });
+                return self.reject_complete(reason);
             }
             TransferStatus::Failed => {
                 let reason = TransferCompleteRejectionReason::AlreadyFailed;
-                self.append_event(TransferEventPayload::CompleteRejected { reason })?;
-
-                return Ok(TransferCompleteResult::Rejected { reason });
+                return self.reject_complete(reason);
             }
             TransferStatus::Rejected => {
                 let reason = TransferCompleteRejectionReason::AlreadyRejected;
-                self.append_event(TransferEventPayload::CompleteRejected { reason })?;
-
-                return Ok(TransferCompleteResult::Rejected { reason });
+                return self.reject_complete(reason);
             }
         }
 
         self.append_event(TransferEventPayload::Completed)?;
 
         Ok(TransferCompleteResult::Completed)
+    }
+
+    /// Rejects completing a transfer.
+    pub fn reject_complete(
+        &mut self,
+        reason: TransferCompleteRejectionReason,
+    ) -> Result<TransferCompleteResult, TransferError> {
+        self.append_event(TransferEventPayload::CompleteRejected { reason })?;
+
+        Ok(TransferCompleteResult::Rejected { reason })
     }
 
     /// Fails the transfer.
@@ -147,27 +154,31 @@ impl Transfer {
             TransferStatus::Pending => {}
             TransferStatus::Completed => {
                 let reason = TransferFailRejectionReason::AlreadyCompleted;
-                self.append_event(TransferEventPayload::FailRejected { reason })?;
-
-                return Ok(TransferFailResult::Rejected { reason });
+                return self.reject_fail(reason);
             }
             TransferStatus::Failed => {
                 let reason = TransferFailRejectionReason::AlreadyFailed;
-                self.append_event(TransferEventPayload::FailRejected { reason })?;
-
-                return Ok(TransferFailResult::Rejected { reason });
+                return self.reject_fail(reason);
             }
             TransferStatus::Rejected => {
                 let reason = TransferFailRejectionReason::AlreadyRejected;
-                self.append_event(TransferEventPayload::FailRejected { reason })?;
-
-                return Ok(TransferFailResult::Rejected { reason });
+                return self.reject_fail(reason);
             }
         }
 
         self.append_event(TransferEventPayload::Failed { reason })?;
 
         Ok(TransferFailResult::Failed)
+    }
+
+    /// Rejects failing a transfer.
+    pub fn reject_fail(
+        &mut self,
+        reason: TransferFailRejectionReason,
+    ) -> Result<TransferFailResult, TransferError> {
+        self.append_event(TransferEventPayload::FailRejected { reason })?;
+
+        Ok(TransferFailResult::Rejected { reason })
     }
 }
 

@@ -195,12 +195,21 @@ impl Currency {
     ) -> Result<CurrencyOwnershipTransferResult, CurrencyError> {
         if self.state_required()?.status.is_removed() {
             let reason = CurrencyOwnershipTransferRejectionReason::Removed;
-            self.append_event(CurrencyEventPayload::OwnershipTransferRejected { owner, reason })?;
-            return Ok(CurrencyOwnershipTransferResult::Rejected { reason });
+            return self.reject_transfer_ownership(owner, reason);
         }
 
         self.append_event(CurrencyEventPayload::OwnershipTransferred { owner })?;
         Ok(CurrencyOwnershipTransferResult::Transferred)
+    }
+
+    /// Rejects a currency ownership transfer attempt.
+    pub fn reject_transfer_ownership(
+        &mut self,
+        owner: CurrencyOwner,
+        reason: CurrencyOwnershipTransferRejectionReason,
+    ) -> Result<CurrencyOwnershipTransferResult, CurrencyError> {
+        self.append_event(CurrencyEventPayload::OwnershipTransferRejected { owner, reason })?;
+        Ok(CurrencyOwnershipTransferResult::Rejected { reason })
     }
 
     /// Changes the current currency symbol.
@@ -210,12 +219,21 @@ impl Currency {
     ) -> Result<CurrencySymbolChangeResult, CurrencyError> {
         if self.state_required()?.status.is_removed() {
             let reason = CurrencySymbolChangeRejectionReason::Removed;
-            self.append_event(CurrencyEventPayload::SymbolChangeRejected { symbol, reason })?;
-            return Ok(CurrencySymbolChangeResult::Rejected { reason });
+            return self.reject_change_symbol(symbol, reason);
         }
 
         self.append_event(CurrencyEventPayload::SymbolChanged { symbol })?;
         Ok(CurrencySymbolChangeResult::Changed)
+    }
+
+    /// Rejects a currency symbol change attempt.
+    pub fn reject_change_symbol(
+        &mut self,
+        symbol: CurrencySymbol,
+        reason: CurrencySymbolChangeRejectionReason,
+    ) -> Result<CurrencySymbolChangeResult, CurrencyError> {
+        self.append_event(CurrencyEventPayload::SymbolChangeRejected { symbol, reason })?;
+        Ok(CurrencySymbolChangeResult::Rejected { reason })
     }
 
     /// Changes the current currency name.
@@ -225,12 +243,21 @@ impl Currency {
     ) -> Result<CurrencyNameChangeResult, CurrencyError> {
         if self.state_required()?.status.is_removed() {
             let reason = CurrencyNameChangeRejectionReason::Removed;
-            self.append_event(CurrencyEventPayload::NameChangeRejected { name, reason })?;
-            return Ok(CurrencyNameChangeResult::Rejected { reason });
+            return self.reject_change_name(name, reason);
         }
 
         self.append_event(CurrencyEventPayload::NameChanged { name })?;
         Ok(CurrencyNameChangeResult::Changed)
+    }
+
+    /// Rejects a currency name change attempt.
+    pub fn reject_change_name(
+        &mut self,
+        name: CurrencyName,
+        reason: CurrencyNameChangeRejectionReason,
+    ) -> Result<CurrencyNameChangeResult, CurrencyError> {
+        self.append_event(CurrencyEventPayload::NameChangeRejected { name, reason })?;
+        Ok(CurrencyNameChangeResult::Rejected { reason })
     }
 
     /// Changes the current currency description.
@@ -240,15 +267,24 @@ impl Currency {
     ) -> Result<CurrencyDescriptionChangeResult, CurrencyError> {
         if self.state_required()?.status.is_removed() {
             let reason = CurrencyDescriptionChangeRejectionReason::Removed;
-            self.append_event(CurrencyEventPayload::DescriptionChangeRejected {
-                description,
-                reason,
-            })?;
-            return Ok(CurrencyDescriptionChangeResult::Rejected { reason });
+            return self.reject_change_description(description, reason);
         }
 
         self.append_event(CurrencyEventPayload::DescriptionChanged { description })?;
         Ok(CurrencyDescriptionChangeResult::Changed)
+    }
+
+    /// Rejects a currency description change attempt.
+    pub fn reject_change_description(
+        &mut self,
+        description: Option<CurrencyDescription>,
+        reason: CurrencyDescriptionChangeRejectionReason,
+    ) -> Result<CurrencyDescriptionChangeResult, CurrencyError> {
+        self.append_event(CurrencyEventPayload::DescriptionChangeRejected {
+            description,
+            reason,
+        })?;
+        Ok(CurrencyDescriptionChangeResult::Rejected { reason })
     }
 
     /// Changes the current currency image reference.
@@ -258,13 +294,22 @@ impl Currency {
     ) -> Result<CurrencyImageChangeResult, CurrencyError> {
         if self.state_required()?.status.is_removed() {
             let reason = CurrencyImageChangeRejectionReason::Removed;
-            self.append_event(CurrencyEventPayload::ImageChangeRejected { image, reason })?;
-            return Ok(CurrencyImageChangeResult::Rejected { reason });
+            return self.reject_change_image(image, reason);
         }
 
         let old_image = self.state_required()?.image.clone();
         self.append_event(CurrencyEventPayload::ImageChanged { image, old_image })?;
         Ok(CurrencyImageChangeResult::Changed)
+    }
+
+    /// Rejects a currency image change attempt.
+    pub fn reject_change_image(
+        &mut self,
+        image: Option<CurrencyImageRef>,
+        reason: CurrencyImageChangeRejectionReason,
+    ) -> Result<CurrencyImageChangeResult, CurrencyError> {
+        self.append_event(CurrencyEventPayload::ImageChangeRejected { image, reason })?;
+        Ok(CurrencyImageChangeResult::Rejected { reason })
     }
 
     /// Prepares to record the on-chain mint account linked to this currency.
@@ -273,23 +318,27 @@ impl Currency {
     ) -> Result<CurrencyMintAccountRecordPreparationResult, CurrencyError> {
         if self.state_required()?.status.is_removed() {
             let reason = CurrencyMintAccountRecordRejectionReason::Removed;
-            self.append_event(CurrencyEventPayload::MintAccountRecordRejected {
-                mint_account: None,
-                reason,
-            })?;
-            return Ok(CurrencyMintAccountRecordPreparationResult::Rejected { reason });
+            return self.reject_prepare_mint_account_record(reason);
         }
 
         if self.state_required()?.mint_account.is_some() {
             let reason = CurrencyMintAccountRecordRejectionReason::AlreadyRecorded;
-            self.append_event(CurrencyEventPayload::MintAccountRecordRejected {
-                mint_account: None,
-                reason,
-            })?;
-            return Ok(CurrencyMintAccountRecordPreparationResult::Rejected { reason });
+            return self.reject_prepare_mint_account_record(reason);
         }
 
         Ok(CurrencyMintAccountRecordPreparationResult::Ready)
+    }
+
+    /// Rejects preparation for mint account recording.
+    pub fn reject_prepare_mint_account_record(
+        &mut self,
+        reason: CurrencyMintAccountRecordRejectionReason,
+    ) -> Result<CurrencyMintAccountRecordPreparationResult, CurrencyError> {
+        self.append_event(CurrencyEventPayload::MintAccountRecordRejected {
+            mint_account: None,
+            reason,
+        })?;
+        Ok(CurrencyMintAccountRecordPreparationResult::Rejected { reason })
     }
 
     /// Records the on-chain mint account linked to this currency.
@@ -299,26 +348,31 @@ impl Currency {
     ) -> Result<CurrencyMintAccountRecordResult, CurrencyError> {
         if self.state_required()?.status.is_removed() {
             let reason = CurrencyMintAccountRecordRejectionReason::Removed;
-            self.append_event(CurrencyEventPayload::MintAccountRecordRejected {
-                mint_account: Some(mint_account),
-                reason,
-            })?;
-            return Ok(CurrencyMintAccountRecordResult::Rejected { reason });
+            return self.reject_record_mint_account(Some(mint_account), reason);
         }
 
         if self.state_required()?.mint_account.is_some() {
             let reason = CurrencyMintAccountRecordRejectionReason::AlreadyRecorded;
-            self.append_event(CurrencyEventPayload::MintAccountRecordRejected {
-                mint_account: Some(mint_account),
-                reason,
-            })?;
-            return Ok(CurrencyMintAccountRecordResult::Rejected { reason });
+            return self.reject_record_mint_account(Some(mint_account), reason);
         }
 
         self.append_event(CurrencyEventPayload::MintAccountRecorded {
             mint_account: mint_account.clone(),
         })?;
         Ok(CurrencyMintAccountRecordResult::Recorded { mint_account })
+    }
+
+    /// Rejects mint account recording.
+    pub fn reject_record_mint_account(
+        &mut self,
+        mint_account: Option<CurrencyMintAccount>,
+        reason: CurrencyMintAccountRecordRejectionReason,
+    ) -> Result<CurrencyMintAccountRecordResult, CurrencyError> {
+        self.append_event(CurrencyEventPayload::MintAccountRecordRejected {
+            mint_account,
+            reason,
+        })?;
+        Ok(CurrencyMintAccountRecordResult::Rejected { reason })
     }
 
     /// Increases the total supply.
@@ -330,18 +384,26 @@ impl Currency {
             CurrencyStatus::Active => {}
             CurrencyStatus::Inactive => {
                 let reason = CurrencySupplyIncreaseRejectionReason::Inactive;
-                self.append_event(CurrencyEventPayload::SupplyIncreaseRejected { amount, reason })?;
-                return Ok(CurrencySupplyIncreaseResult::Rejected { reason });
+                return self.reject_increase_supply(amount, reason);
             }
             CurrencyStatus::Removed => {
                 let reason = CurrencySupplyIncreaseRejectionReason::Removed;
-                self.append_event(CurrencyEventPayload::SupplyIncreaseRejected { amount, reason })?;
-                return Ok(CurrencySupplyIncreaseResult::Rejected { reason });
+                return self.reject_increase_supply(amount, reason);
             }
         }
 
         self.append_event(CurrencyEventPayload::SupplyIncreased { amount })?;
         Ok(CurrencySupplyIncreaseResult::Increased)
+    }
+
+    /// Rejects a currency supply increase attempt.
+    pub fn reject_increase_supply(
+        &mut self,
+        amount: CurrencyAmount,
+        reason: CurrencySupplyIncreaseRejectionReason,
+    ) -> Result<CurrencySupplyIncreaseResult, CurrencyError> {
+        self.append_event(CurrencyEventPayload::SupplyIncreaseRejected { amount, reason })?;
+        Ok(CurrencySupplyIncreaseResult::Rejected { reason })
     }
 
     /// Decreases the total supply.
@@ -351,54 +413,86 @@ impl Currency {
     ) -> Result<CurrencySupplyDecreaseResult, CurrencyError> {
         if self.state_required()?.status.is_removed() {
             let reason = CurrencySupplyDecreaseRejectionReason::Removed;
-            self.append_event(CurrencyEventPayload::SupplyDecreaseRejected { amount, reason })?;
-            return Ok(CurrencySupplyDecreaseResult::Rejected { reason });
+            return self.reject_decrease_supply(amount, reason);
         }
 
         if self.state_required()?.supply.value() < amount.value() {
             let reason = CurrencySupplyDecreaseRejectionReason::InsufficientSupply;
-            self.append_event(CurrencyEventPayload::SupplyDecreaseRejected { amount, reason })?;
-            return Ok(CurrencySupplyDecreaseResult::Rejected { reason });
+            return self.reject_decrease_supply(amount, reason);
         }
 
         self.append_event(CurrencyEventPayload::SupplyDecreased { amount })?;
         Ok(CurrencySupplyDecreaseResult::Decreased)
     }
 
+    /// Rejects a currency supply decrease attempt.
+    pub fn reject_decrease_supply(
+        &mut self,
+        amount: CurrencyAmount,
+        reason: CurrencySupplyDecreaseRejectionReason,
+    ) -> Result<CurrencySupplyDecreaseResult, CurrencyError> {
+        self.append_event(CurrencyEventPayload::SupplyDecreaseRejected { amount, reason })?;
+        Ok(CurrencySupplyDecreaseResult::Rejected { reason })
+    }
+
     /// Activates the currency.
     pub fn activate(&mut self) -> Result<CurrencyActivateResult, CurrencyError> {
         if self.state_required()?.status.is_removed() {
             let reason = CurrencyActivateRejectionReason::Removed;
-            self.append_event(CurrencyEventPayload::ActivateRejected { reason })?;
-            return Ok(CurrencyActivateResult::Rejected { reason });
+            return self.reject_activate(reason);
         }
 
         self.append_event(CurrencyEventPayload::Activated)?;
         Ok(CurrencyActivateResult::Activated)
     }
 
+    /// Rejects a currency activation attempt.
+    pub fn reject_activate(
+        &mut self,
+        reason: CurrencyActivateRejectionReason,
+    ) -> Result<CurrencyActivateResult, CurrencyError> {
+        self.append_event(CurrencyEventPayload::ActivateRejected { reason })?;
+        Ok(CurrencyActivateResult::Rejected { reason })
+    }
+
     /// Deactivates the currency.
     pub fn deactivate(&mut self) -> Result<CurrencyDeactivateResult, CurrencyError> {
         if self.state_required()?.status.is_removed() {
             let reason = CurrencyDeactivateRejectionReason::Removed;
-            self.append_event(CurrencyEventPayload::DeactivateRejected { reason })?;
-            return Ok(CurrencyDeactivateResult::Rejected { reason });
+            return self.reject_deactivate(reason);
         }
 
         self.append_event(CurrencyEventPayload::Deactivated)?;
         Ok(CurrencyDeactivateResult::Deactivated)
     }
 
+    /// Rejects a currency deactivation attempt.
+    pub fn reject_deactivate(
+        &mut self,
+        reason: CurrencyDeactivateRejectionReason,
+    ) -> Result<CurrencyDeactivateResult, CurrencyError> {
+        self.append_event(CurrencyEventPayload::DeactivateRejected { reason })?;
+        Ok(CurrencyDeactivateResult::Rejected { reason })
+    }
+
     /// Permanently removes the currency.
     pub fn remove(&mut self) -> Result<CurrencyRemoveResult, CurrencyError> {
         if self.state_required()?.status.is_removed() {
             let reason = CurrencyRemoveRejectionReason::Removed;
-            self.append_event(CurrencyEventPayload::RemoveRejected { reason })?;
-            return Ok(CurrencyRemoveResult::Rejected { reason });
+            return self.reject_remove(reason);
         }
 
         self.append_event(CurrencyEventPayload::Removed)?;
         Ok(CurrencyRemoveResult::Removed)
+    }
+
+    /// Rejects a currency removal attempt.
+    pub fn reject_remove(
+        &mut self,
+        reason: CurrencyRemoveRejectionReason,
+    ) -> Result<CurrencyRemoveResult, CurrencyError> {
+        self.append_event(CurrencyEventPayload::RemoveRejected { reason })?;
+        Ok(CurrencyRemoveResult::Rejected { reason })
     }
 }
 
