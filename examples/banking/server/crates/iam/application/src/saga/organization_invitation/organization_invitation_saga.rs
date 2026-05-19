@@ -49,8 +49,10 @@ impl Saga for OrganizationInvitationSaga {
             return Ok(());
         } else if event.is_for_aggregate::<OrganizationMembership>() {
             let membership_event = event.try_into_domain_event::<OrganizationMembership>()?;
-            if let OrganizationMembershipEventPayload::Created { .. } = membership_event.payload() {
-                instance.succeed();
+            match membership_event.payload() {
+                OrganizationMembershipEventPayload::Created { .. } => instance.succeed(),
+                OrganizationMembershipEventPayload::CreateRejected { .. } => instance.fail(),
+                _ => {}
             }
         }
 
@@ -71,7 +73,8 @@ mod tests {
     use appletheia::domain::{Aggregate, AggregateId, EventId, EventOccurredAt, EventPayload};
     use banking_iam_domain::{
         OrganizationId, OrganizationInvitation, OrganizationInvitationEventPayload,
-        OrganizationInvitationId, OrganizationMembership, OrganizationMembershipEventPayload,
+        OrganizationInvitationId, OrganizationMembership,
+        OrganizationMembershipCreateRejectionReason, OrganizationMembershipEventPayload,
         OrganizationMembershipId, OrganizationMembershipRoles, User, UserId,
     };
 
@@ -130,6 +133,35 @@ mod tests {
             organization_id: OrganizationId::new(),
             user_id: UserId::new(),
             roles: OrganizationMembershipRoles::default(),
+        };
+
+        EventEnvelope {
+            event_sequence: EventSequence::try_from(2).expect("sequence should be valid"),
+            event_id: EventId::new(),
+            aggregate_type: AggregateTypeOwned::from(OrganizationMembership::TYPE),
+            aggregate_id: AggregateIdValue::from(membership_id.value()),
+            aggregate_version: appletheia::domain::AggregateVersion::try_from(1)
+                .expect("version should be valid"),
+            event_name: EventNameOwned::from(payload.name()),
+            payload: SerializedEventPayload::try_from(
+                payload.into_json_value().expect("payload should serialize"),
+            )
+            .expect("payload should be valid"),
+            occurred_at: EventOccurredAt::now(),
+            correlation_id,
+            causation_id: CausationId::from(MessageId::new()),
+            context: request_context(correlation_id),
+        }
+    }
+
+    fn membership_create_rejected_event_envelope(correlation_id: CorrelationId) -> EventEnvelope {
+        let membership_id = OrganizationMembershipId::new();
+        let payload = OrganizationMembershipEventPayload::CreateRejected {
+            id: membership_id,
+            organization_id: OrganizationId::new(),
+            user_id: UserId::new(),
+            roles: OrganizationMembershipRoles::default(),
+            reason: OrganizationMembershipCreateRejectionReason::OrganizationRemoved,
         };
 
         EventEnvelope {
@@ -219,6 +251,41 @@ mod tests {
         .expect("membership created event should be handled");
 
         assert_eq!(instance.status, SagaStatus::Succeeded);
+        assert!(instance.uncommitted_commands().is_empty());
+    }
+
+    #[test]
+    fn create_rejected_membership_fails_saga() {
+        let saga = OrganizationInvitationSaga;
+        let correlation_id = CorrelationId::from(uuid::Uuid::now_v7());
+        let organization_id = OrganizationId::new();
+        let invitation_id = OrganizationInvitationId::new();
+        let invitee_id = UserId::new();
+        let roles = OrganizationMembershipRoles::default();
+        let mut instance = SagaInstance::<<OrganizationInvitationSagaSpec as SagaSpec>::State>::new(
+            SagaNameOwned::from(OrganizationInvitationSagaSpec::DESCRIPTOR.name),
+            correlation_id,
+            EventId::new(),
+        );
+
+        saga.on_event(
+            &mut instance,
+            &invitation_accepted_event_envelope(
+                correlation_id,
+                organization_id,
+                invitation_id,
+                invitee_id,
+                roles,
+            ),
+        )
+        .expect("accepted event should be handled");
+        saga.on_event(
+            &mut instance,
+            &membership_create_rejected_event_envelope(correlation_id),
+        )
+        .expect("membership create rejected event should be handled");
+
+        assert_eq!(instance.status, SagaStatus::Failed);
         assert!(instance.uncommitted_commands().is_empty());
     }
 }

@@ -48,11 +48,238 @@ impl Saga for OrganizationJoinRequestSaga {
             return Ok(());
         } else if event.is_for_aggregate::<OrganizationMembership>() {
             let membership_event = event.try_into_domain_event::<OrganizationMembership>()?;
-            if let OrganizationMembershipEventPayload::Created { .. } = membership_event.payload() {
-                instance.succeed();
+            match membership_event.payload() {
+                OrganizationMembershipEventPayload::Created { .. } => instance.succeed(),
+                OrganizationMembershipEventPayload::CreateRejected { .. } => instance.fail(),
+                _ => {}
             }
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use appletheia::application::event::{
+        AggregateIdValue, AggregateTypeOwned, EventEnvelope, EventNameOwned, EventSequence,
+        SerializedEventPayload,
+    };
+    use appletheia::application::request_context::{
+        CausationId, CorrelationId, MessageId, Principal, RequestContext,
+    };
+    use appletheia::application::saga::{Saga, SagaInstance, SagaNameOwned, SagaSpec, SagaStatus};
+    use appletheia::domain::{Aggregate, AggregateId, EventId, EventOccurredAt, EventPayload};
+    use banking_iam_domain::{
+        OrganizationId, OrganizationJoinRequest, OrganizationJoinRequestEventPayload,
+        OrganizationJoinRequestId, OrganizationMembership,
+        OrganizationMembershipCreateRejectionReason, OrganizationMembershipEventPayload,
+        OrganizationMembershipId, OrganizationMembershipRoles, User, UserId,
+    };
+
+    use crate::command::OrganizationMembershipCreateCommand;
+
+    use super::{OrganizationJoinRequestSaga, OrganizationJoinRequestSagaSpec};
+
+    fn request_context(correlation_id: CorrelationId) -> RequestContext {
+        let subject =
+            appletheia::application::authorization::AggregateRef::from_id::<User>(UserId::new());
+
+        RequestContext::new(
+            correlation_id,
+            MessageId::new(),
+            Principal::Authenticated { subject },
+        )
+        .expect("request context should be valid")
+    }
+
+    fn join_request_approved_event_envelope(
+        correlation_id: CorrelationId,
+        organization_id: OrganizationId,
+        join_request_id: OrganizationJoinRequestId,
+        requester_id: UserId,
+    ) -> EventEnvelope {
+        let payload = OrganizationJoinRequestEventPayload::Approved {
+            organization_id,
+            requester_id,
+        };
+
+        EventEnvelope {
+            event_sequence: EventSequence::try_from(1).expect("sequence should be valid"),
+            event_id: EventId::new(),
+            aggregate_type: AggregateTypeOwned::from(OrganizationJoinRequest::TYPE),
+            aggregate_id: AggregateIdValue::from(join_request_id.value()),
+            aggregate_version: appletheia::domain::AggregateVersion::try_from(1)
+                .expect("version should be valid"),
+            event_name: EventNameOwned::from(payload.name()),
+            payload: SerializedEventPayload::try_from(
+                payload.into_json_value().expect("payload should serialize"),
+            )
+            .expect("payload should be valid"),
+            occurred_at: EventOccurredAt::now(),
+            correlation_id,
+            causation_id: CausationId::from(MessageId::new()),
+            context: request_context(correlation_id),
+        }
+    }
+
+    fn membership_created_event_envelope(correlation_id: CorrelationId) -> EventEnvelope {
+        let membership_id = OrganizationMembershipId::new();
+        let payload = OrganizationMembershipEventPayload::Created {
+            id: membership_id,
+            organization_id: OrganizationId::new(),
+            user_id: UserId::new(),
+            roles: OrganizationMembershipRoles::default(),
+        };
+
+        EventEnvelope {
+            event_sequence: EventSequence::try_from(2).expect("sequence should be valid"),
+            event_id: EventId::new(),
+            aggregate_type: AggregateTypeOwned::from(OrganizationMembership::TYPE),
+            aggregate_id: AggregateIdValue::from(membership_id.value()),
+            aggregate_version: appletheia::domain::AggregateVersion::try_from(1)
+                .expect("version should be valid"),
+            event_name: EventNameOwned::from(payload.name()),
+            payload: SerializedEventPayload::try_from(
+                payload.into_json_value().expect("payload should serialize"),
+            )
+            .expect("payload should be valid"),
+            occurred_at: EventOccurredAt::now(),
+            correlation_id,
+            causation_id: CausationId::from(MessageId::new()),
+            context: request_context(correlation_id),
+        }
+    }
+
+    fn membership_create_rejected_event_envelope(correlation_id: CorrelationId) -> EventEnvelope {
+        let membership_id = OrganizationMembershipId::new();
+        let payload = OrganizationMembershipEventPayload::CreateRejected {
+            id: membership_id,
+            organization_id: OrganizationId::new(),
+            user_id: UserId::new(),
+            roles: OrganizationMembershipRoles::default(),
+            reason: OrganizationMembershipCreateRejectionReason::OrganizationRemoved,
+        };
+
+        EventEnvelope {
+            event_sequence: EventSequence::try_from(2).expect("sequence should be valid"),
+            event_id: EventId::new(),
+            aggregate_type: AggregateTypeOwned::from(OrganizationMembership::TYPE),
+            aggregate_id: AggregateIdValue::from(membership_id.value()),
+            aggregate_version: appletheia::domain::AggregateVersion::try_from(1)
+                .expect("version should be valid"),
+            event_name: EventNameOwned::from(payload.name()),
+            payload: SerializedEventPayload::try_from(
+                payload.into_json_value().expect("payload should serialize"),
+            )
+            .expect("payload should be valid"),
+            occurred_at: EventOccurredAt::now(),
+            correlation_id,
+            causation_id: CausationId::from(MessageId::new()),
+            context: request_context(correlation_id),
+        }
+    }
+
+    #[test]
+    fn approved_event_appends_membership_create_command() {
+        let saga = OrganizationJoinRequestSaga;
+        let correlation_id = CorrelationId::from(uuid::Uuid::now_v7());
+        let organization_id = OrganizationId::new();
+        let join_request_id = OrganizationJoinRequestId::new();
+        let requester_id = UserId::new();
+        let mut instance =
+            SagaInstance::<<OrganizationJoinRequestSagaSpec as SagaSpec>::State>::new(
+                SagaNameOwned::from(OrganizationJoinRequestSagaSpec::DESCRIPTOR.name),
+                correlation_id,
+                EventId::new(),
+            );
+
+        saga.on_event(
+            &mut instance,
+            &join_request_approved_event_envelope(
+                correlation_id,
+                organization_id,
+                join_request_id,
+                requester_id,
+            ),
+        )
+        .expect("approved event should be handled");
+
+        assert_eq!(instance.status, SagaStatus::InProgress);
+        assert_eq!(instance.uncommitted_commands().len(), 1);
+        let command: OrganizationMembershipCreateCommand = instance.uncommitted_commands()[0]
+            .try_into_command()
+            .expect("command should deserialize");
+        assert_eq!(command.organization_id, organization_id);
+        assert_eq!(command.user_id, requester_id);
+        assert_eq!(command.roles, OrganizationMembershipRoles::default());
+    }
+
+    #[test]
+    fn created_membership_completes_saga() {
+        let saga = OrganizationJoinRequestSaga;
+        let correlation_id = CorrelationId::from(uuid::Uuid::now_v7());
+        let organization_id = OrganizationId::new();
+        let join_request_id = OrganizationJoinRequestId::new();
+        let requester_id = UserId::new();
+        let mut instance =
+            SagaInstance::<<OrganizationJoinRequestSagaSpec as SagaSpec>::State>::new(
+                SagaNameOwned::from(OrganizationJoinRequestSagaSpec::DESCRIPTOR.name),
+                correlation_id,
+                EventId::new(),
+            );
+
+        saga.on_event(
+            &mut instance,
+            &join_request_approved_event_envelope(
+                correlation_id,
+                organization_id,
+                join_request_id,
+                requester_id,
+            ),
+        )
+        .expect("approved event should be handled");
+        saga.on_event(
+            &mut instance,
+            &membership_created_event_envelope(correlation_id),
+        )
+        .expect("membership created event should be handled");
+
+        assert_eq!(instance.status, SagaStatus::Succeeded);
+        assert!(instance.uncommitted_commands().is_empty());
+    }
+
+    #[test]
+    fn create_rejected_membership_fails_saga() {
+        let saga = OrganizationJoinRequestSaga;
+        let correlation_id = CorrelationId::from(uuid::Uuid::now_v7());
+        let organization_id = OrganizationId::new();
+        let join_request_id = OrganizationJoinRequestId::new();
+        let requester_id = UserId::new();
+        let mut instance =
+            SagaInstance::<<OrganizationJoinRequestSagaSpec as SagaSpec>::State>::new(
+                SagaNameOwned::from(OrganizationJoinRequestSagaSpec::DESCRIPTOR.name),
+                correlation_id,
+                EventId::new(),
+            );
+
+        saga.on_event(
+            &mut instance,
+            &join_request_approved_event_envelope(
+                correlation_id,
+                organization_id,
+                join_request_id,
+                requester_id,
+            ),
+        )
+        .expect("approved event should be handled");
+        saga.on_event(
+            &mut instance,
+            &membership_create_rejected_event_envelope(correlation_id),
+        )
+        .expect("membership create rejected event should be handled");
+
+        assert_eq!(instance.status, SagaStatus::Failed);
+        assert!(instance.uncommitted_commands().is_empty());
     }
 }
