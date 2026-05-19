@@ -18,7 +18,8 @@ pub use logout_all_sessions::{
 };
 pub use oidc_begin::{OidcBeginCommand, OidcBeginCommandHandler, OidcBeginOutput};
 pub use oidc_complete::{
-    OidcCompleteCommand, OidcCompleteCommandHandler, OidcCompleteOutput, OidcCompleteReplayOutput,
+    OidcCompleteCommand, OidcCompleteCommandHandler, OidcCompleteOutput,
+    OidcCompleteRejectionReason, OidcCompleteReplayOutput,
 };
 pub use user_activate::{UserActivateCommand, UserActivateCommandHandler, UserActivateOutput};
 pub use user_bio_change::{UserBioChangeCommand, UserBioChangeCommandHandler, UserBioChangeOutput};

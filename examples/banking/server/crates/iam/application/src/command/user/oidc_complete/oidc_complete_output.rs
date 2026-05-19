@@ -5,6 +5,8 @@ use appletheia::application::authentication::{
 
 use crate::oidc::OidcCompletionRedirectUri;
 
+use super::OidcCompleteRejectionReason;
+
 /// Represents the result returned after completing an OIDC flow.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum OidcCompleteOutput {
@@ -22,5 +24,9 @@ pub enum OidcCompleteOutput {
     IdentityLinked {
         completion_redirect_uri: OidcCompletionRedirectUri,
         oidc_tokens: OidcTokens,
+    },
+    Rejected {
+        completion_redirect_uri: OidcCompletionRedirectUri,
+        reason: OidcCompleteRejectionReason,
     },
 }

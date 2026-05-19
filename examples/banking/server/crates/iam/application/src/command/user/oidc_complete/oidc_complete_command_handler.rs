@@ -12,6 +12,9 @@ use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use appletheia::domain::{Aggregate, UniqueValue, UniqueValuePart};
+use banking_iam_domain::user::{
+    UserIdentityEmailChangeResult, UserIdentityLinkRejectionReason, UserIdentityLinkResult,
+};
 use banking_iam_domain::{
     Email, User, UserId, UserIdentityProvider, UserIdentitySubject, UserState,
 };
@@ -20,7 +23,7 @@ use crate::oidc::{OidcCompletionPurpose, OidcContinuationPayload};
 
 use super::{
     OidcCompleteCommand, OidcCompleteCommandHandlerError, OidcCompleteOutput,
-    OidcCompleteReplayOutput,
+    OidcCompleteRejectionReason, OidcCompleteReplayOutput,
 };
 
 /// Handles `OidcCompleteCommand`.
@@ -79,7 +82,7 @@ where
         provider: &UserIdentityProvider,
         subject: &UserIdentitySubject,
         email: Option<Email>,
-    ) -> Result<User, OidcCompleteCommandHandlerError> {
+    ) -> Result<(User, Option<OidcCompleteRejectionReason>), OidcCompleteCommandHandlerError> {
         let unique_value = Self::provider_subject_unique_value(provider, subject)?;
 
         match self
@@ -88,14 +91,27 @@ where
             .await?
         {
             Some(mut user) => {
-                user.change_identity_email(provider, subject, email)?;
-                Ok(user)
+                let rejection_reason = match user.change_identity_email(provider, subject, email)? {
+                    UserIdentityEmailChangeResult::Changed => None,
+                    UserIdentityEmailChangeResult::Rejected { reason } => {
+                        Some(OidcCompleteRejectionReason::IdentityEmailChange { reason })
+                    }
+                };
+
+                Ok((user, rejection_reason))
             }
             None => {
                 let mut user = User::default();
                 user.register()?;
-                user.link_identity(provider.clone(), subject.clone(), email)?;
-                Ok(user)
+                let rejection_reason =
+                    match user.link_identity(provider.clone(), subject.clone(), email)? {
+                        UserIdentityLinkResult::Linked => None,
+                        UserIdentityLinkResult::Rejected { reason } => {
+                            Some(OidcCompleteRejectionReason::IdentityLink { reason })
+                        }
+                    };
+
+                Ok((user, rejection_reason))
             }
         }
     }
@@ -107,7 +123,7 @@ where
         provider: &UserIdentityProvider,
         subject: &UserIdentitySubject,
         email: Option<Email>,
-    ) -> Result<User, OidcCompleteCommandHandlerError> {
+    ) -> Result<(User, Option<OidcCompleteRejectionReason>), OidcCompleteCommandHandlerError> {
         let unique_value = Self::provider_subject_unique_value(provider, subject)?;
 
         match self
@@ -117,21 +133,50 @@ where
         {
             Some(mut user) => {
                 if user.aggregate_id() != Some(user_id) {
-                    return Err(
-                        OidcCompleteCommandHandlerError::IdentityAlreadyLinkedToAnotherUser,
-                    );
+                    let Some(mut authenticated_user) =
+                        self.user_repository.find(uow, user_id).await?
+                    else {
+                        return Err(OidcCompleteCommandHandlerError::AuthenticatedUserNotFound);
+                    };
+
+                    let rejection_reason = match authenticated_user.reject_link_identity(
+                        provider.clone(),
+                        subject.clone(),
+                        email,
+                        UserIdentityLinkRejectionReason::AlreadyLinked,
+                    )? {
+                        UserIdentityLinkResult::Linked => None,
+                        UserIdentityLinkResult::Rejected { reason } => {
+                            Some(OidcCompleteRejectionReason::IdentityLink { reason })
+                        }
+                    };
+
+                    return Ok((authenticated_user, rejection_reason));
                 }
 
-                user.change_identity_email(provider, subject, email)?;
-                Ok(user)
+                let rejection_reason = match user.change_identity_email(provider, subject, email)? {
+                    UserIdentityEmailChangeResult::Changed => None,
+                    UserIdentityEmailChangeResult::Rejected { reason } => {
+                        Some(OidcCompleteRejectionReason::IdentityEmailChange { reason })
+                    }
+                };
+
+                Ok((user, rejection_reason))
             }
             None => {
                 let Some(mut user) = self.user_repository.find(uow, user_id).await? else {
                     return Err(OidcCompleteCommandHandlerError::AuthenticatedUserNotFound);
                 };
 
-                user.link_identity(provider.clone(), subject.clone(), email)?;
-                Ok(user)
+                let rejection_reason =
+                    match user.link_identity(provider.clone(), subject.clone(), email)? {
+                        UserIdentityLinkResult::Linked => None,
+                        UserIdentityLinkResult::Rejected { reason } => {
+                            Some(OidcCompleteRejectionReason::IdentityLink { reason })
+                        }
+                    };
+
+                Ok((user, rejection_reason))
             }
         }
     }
@@ -197,7 +242,7 @@ where
             code_challenge,
         } = continuation.into_payload();
 
-        let mut user = match completion_purpose {
+        let (mut user, rejection_reason) = match completion_purpose {
             OidcCompletionPurpose::Token | OidcCompletionPurpose::ExchangeCode => {
                 self.resolve_sign_in_user(uow, &provider, &subject, email.clone())
                     .await?
@@ -215,7 +260,17 @@ where
         let replay_output = OidcCompleteReplayOutput {
             completion_purpose,
             completion_redirect_uri: completion_redirect_uri.clone(),
+            rejection_reason: rejection_reason.clone(),
         };
+
+        if let Some(reason) = rejection_reason {
+            let output = OidcCompleteOutput::Rejected {
+                completion_redirect_uri,
+                reason,
+            };
+
+            return Ok(CommandHandled::new(output, replay_output));
+        }
 
         let output = match completion_purpose {
             OidcCompletionPurpose::Token => {

@@ -56,7 +56,4 @@ pub enum OidcCompleteCommandHandlerError {
 
     #[error("authenticated user was not found")]
     AuthenticatedUserNotFound,
-
-    #[error("identity is already linked to another user")]
-    IdentityAlreadyLinkedToAnotherUser,
 }
