@@ -5,7 +5,6 @@ use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_iam_domain::{CurrentDateTime, Organization, OrganizationInvitation};
-use chrono::Utc;
 
 use crate::authorization::OrganizationInvitationInviteeRelation;
 
@@ -90,7 +89,7 @@ where
             return Err(OrganizationInvitationAcceptCommandHandlerError::OrganizationRemoved);
         }
 
-        let result = organization_invitation.accept(CurrentDateTime::from(Utc::now()))?;
+        let result = organization_invitation.accept(CurrentDateTime::new())?;
 
         self.organization_invitation_repository
             .save(uow, _request_context, &mut organization_invitation)

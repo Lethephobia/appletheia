@@ -352,7 +352,7 @@ mod tests {
                 roles(),
                 issuer,
                 expires_at,
-                CurrentDateTime::from(Utc::now()),
+                CurrentDateTime::new(),
             )
             .expect("issue should succeed");
 
@@ -401,12 +401,12 @@ mod tests {
                 roles(),
                 issuer,
                 expires_at,
-                CurrentDateTime::from(Utc::now()),
+                CurrentDateTime::new(),
             )
             .expect("issue should succeed");
 
         invitation
-            .accept(CurrentDateTime::from(Utc::now()))
+            .accept(CurrentDateTime::new())
             .expect("accept should succeed");
 
         assert_eq!(
@@ -434,12 +434,12 @@ mod tests {
                 roles(),
                 issuer,
                 expires_at,
-                CurrentDateTime::from(Utc::now()),
+                CurrentDateTime::new(),
             )
             .expect("issue should succeed");
 
         invitation
-            .decline(CurrentDateTime::from(Utc::now()))
+            .decline(CurrentDateTime::new())
             .expect("decline should succeed");
 
         assert_eq!(
@@ -467,12 +467,12 @@ mod tests {
                 roles(),
                 issuer,
                 expires_at,
-                CurrentDateTime::from(Utc::now()),
+                CurrentDateTime::new(),
             )
             .expect("issue should succeed");
 
         invitation
-            .cancel(CurrentDateTime::from(Utc::now()))
+            .cancel(CurrentDateTime::new())
             .expect("cancel should succeed");
 
         assert_eq!(
@@ -497,7 +497,7 @@ mod tests {
                 roles(),
                 OrganizationInvitationIssuer::User(user_id()),
                 past_expires_at(),
-                CurrentDateTime::from(Utc::now()),
+                CurrentDateTime::new(),
             )
             .expect("expired invitation should complete with a rejection event");
 
@@ -529,7 +529,7 @@ mod tests {
             .expect("setup event should succeed");
 
         let result = invitation
-            .accept(CurrentDateTime::from(Utc::now()))
+            .accept(CurrentDateTime::new())
             .expect("expired invitation should complete with a rejection event");
         assert!(matches!(
             result,
@@ -553,15 +553,15 @@ mod tests {
                 roles(),
                 issuer,
                 expires_at,
-                CurrentDateTime::from(Utc::now()),
+                CurrentDateTime::new(),
             )
             .expect("issue should succeed");
         invitation
-            .accept(CurrentDateTime::from(Utc::now()))
+            .accept(CurrentDateTime::new())
             .expect("accept should succeed");
 
         let result = invitation
-            .accept(CurrentDateTime::from(Utc::now()))
+            .accept(CurrentDateTime::new())
             .expect("second accept should complete with a rejection event");
         assert!(matches!(
             result,
