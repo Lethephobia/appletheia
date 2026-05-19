@@ -1,8 +1,8 @@
 use appletheia::application::repository::RepositoryError;
-use appletheia::domain::{AggregateId, UniqueValueError, UniqueValuePartError};
+use appletheia::domain::{UniqueValueError, UniqueValuePartError};
 use banking_iam_domain::{
     Organization, OrganizationError, OrganizationInvitation, OrganizationInvitationError,
-    OrganizationMembership, UserId,
+    OrganizationMembership,
 };
 use thiserror::Error;
 
@@ -32,15 +32,6 @@ pub enum OrganizationInvitationIssueCommandHandlerError {
 
     #[error("organization invitation id is missing after issue")]
     MissingOrganizationInvitationId,
-
-    #[error("invitation issuer principal must be available")]
-    InvitationIssuerRequiresPrincipal,
-
-    #[error("invitation issuer principal must be a user")]
-    InvitationIssuerRequiresUserPrincipal,
-
-    #[error("invitation issuer principal contains an invalid user id")]
-    InvalidInvitationIssuerUserId(#[source] <UserId as AggregateId>::Error),
 
     #[error("invitee is already a member of the organization")]
     InviteeAlreadyMember,

@@ -1,5 +1,5 @@
 use appletheia::command;
-use banking_iam_domain::OrganizationId;
+use banking_iam_domain::{OrganizationId, UserId};
 use serde::{Deserialize, Serialize};
 
 /// Creates an organization join request.
@@ -7,4 +7,5 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OrganizationJoinRequestCreateCommand {
     pub organization_id: OrganizationId,
+    pub requester_id: UserId,
 }

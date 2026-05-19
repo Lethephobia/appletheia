@@ -3,16 +3,15 @@ use appletheia::application::authorization::{
 };
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
-use appletheia::application::request_context::{Principal, RequestContext};
-use appletheia::domain::{Aggregate, AggregateId, UniqueValue, UniqueValuePart};
+use appletheia::application::request_context::RequestContext;
+use appletheia::domain::{AggregateId, UniqueValue, UniqueValuePart};
 use banking_iam_domain::{
     CurrentDateTime, Organization, OrganizationId, OrganizationInvitation,
     OrganizationInvitationIssuer, OrganizationMembership, OrganizationMembershipState, User,
     UserId,
 };
-use chrono::Utc;
 
-use crate::authorization::OrganizationInviterRelation;
+use crate::authorization::{OrganizationInviterRelation, UserOwnerRelation};
 
 use super::{
     OrganizationInvitationIssueCommand, OrganizationInvitationIssueCommandHandlerError,
@@ -49,30 +48,6 @@ where
         }
     }
 
-    fn issuer(
-        request_context: &RequestContext,
-    ) -> Result<OrganizationInvitationIssuer, OrganizationInvitationIssueCommandHandlerError> {
-        match &request_context.principal {
-            Principal::System => Ok(OrganizationInvitationIssuer::System),
-            Principal::Authenticated { subject } => {
-                if subject.aggregate_type.value() != User::TYPE.value() {
-                    return Err(
-                        OrganizationInvitationIssueCommandHandlerError::InvitationIssuerRequiresUserPrincipal,
-                    );
-                }
-
-                Ok(OrganizationInvitationIssuer::User(
-                    UserId::try_from_uuid(subject.aggregate_id.value()).map_err(
-                        OrganizationInvitationIssueCommandHandlerError::InvalidInvitationIssuerUserId,
-                    )?,
-                ))
-            }
-            Principal::Anonymous | Principal::Unavailable => Err(
-                OrganizationInvitationIssueCommandHandlerError::InvitationIssuerRequiresPrincipal,
-            ),
-        }
-    }
-
     fn organization_user_unique_value(
         organization_id: OrganizationId,
         invitee_id: UserId,
@@ -99,17 +74,24 @@ where
 
     fn authorization_plan(
         &self,
-        _command: &Self::Command,
+        command: &Self::Command,
     ) -> Result<AuthorizationPlan, Self::Error> {
-        Ok(AuthorizationPlan::OnlyPrincipals(vec![
-            PrincipalRequirement::System,
-            PrincipalRequirement::AuthenticatedWithRelationship(RelationshipRequirement::check::<
-                Organization,
-            >(
-                _command.organization_id,
-                OrganizationInviterRelation::REF,
-            )),
-        ]))
+        let principal_requirement = match command.issuer {
+            OrganizationInvitationIssuer::System => PrincipalRequirement::System,
+            OrganizationInvitationIssuer::User(user_id) => {
+                PrincipalRequirement::AuthenticatedWithRelationship(RelationshipRequirement::All(
+                    vec![
+                        RelationshipRequirement::check::<User>(user_id, UserOwnerRelation::REF),
+                        RelationshipRequirement::check::<Organization>(
+                            command.organization_id,
+                            OrganizationInviterRelation::REF,
+                        ),
+                    ],
+                ))
+            }
+        };
+
+        Ok(AuthorizationPlan::OnlyPrincipals(vec![principal_requirement]))
     }
 
     async fn handle(
@@ -145,16 +127,14 @@ where
             return Err(OrganizationInvitationIssueCommandHandlerError::InviteeAlreadyMember);
         }
 
-        let issuer = Self::issuer(request_context)?;
-
         let mut organization_invitation = OrganizationInvitation::default();
         let result = organization_invitation.issue(
             command.organization_id,
             command.invitee_id,
             command.roles.clone(),
-            issuer,
+            command.issuer,
             command.expires_at,
-            CurrentDateTime::from(Utc::now()),
+            CurrentDateTime::new(),
         )?;
 
         self.organization_invitation_repository

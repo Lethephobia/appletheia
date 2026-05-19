@@ -1,7 +1,9 @@
-use appletheia::application::authorization::AuthorizationPlan;
+use appletheia::application::authorization::{
+    AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
+};
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
-use appletheia::application::request_context::{Principal, RequestContext};
+use appletheia::application::request_context::RequestContext;
 use appletheia::domain::{Aggregate, AggregateId, UniqueValue, UniqueValuePart};
 use banking_iam_domain::{
     Organization, OrganizationId, OrganizationJoinRequest, OrganizationJoinRequestState,
@@ -12,6 +14,7 @@ use super::{
     OrganizationJoinRequestCreateCommand, OrganizationJoinRequestCreateCommandHandlerError,
     OrganizationJoinRequestCreateOutput,
 };
+use crate::authorization::UserOwnerRelation;
 
 /// Handles `OrganizationJoinRequestCreateCommand`.
 pub struct OrganizationJoinRequestCreateCommandHandler<OR, JR, MR>
@@ -43,25 +46,6 @@ where
         }
     }
 
-    fn requester_id(
-        request_context: &RequestContext,
-    ) -> Result<UserId, OrganizationJoinRequestCreateCommandHandlerError> {
-        let Principal::Authenticated { subject } = &request_context.principal else {
-            return Err(
-                OrganizationJoinRequestCreateCommandHandlerError::JoinRequesterRequiresPrincipal,
-            );
-        };
-
-        if subject.aggregate_type.value() != User::TYPE.value() {
-            return Err(
-                OrganizationJoinRequestCreateCommandHandlerError::JoinRequesterRequiresUserPrincipal,
-            );
-        }
-
-        UserId::try_from_uuid(subject.aggregate_id.value())
-            .map_err(OrganizationJoinRequestCreateCommandHandlerError::InvalidJoinRequesterUserId)
-    }
-
     fn organization_requester_unique_value(
         organization_id: OrganizationId,
         requester_id: UserId,
@@ -88,10 +72,15 @@ where
 
     fn authorization_plan(
         &self,
-        _command: &Self::Command,
+        command: &Self::Command,
     ) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
-            appletheia::application::authorization::PrincipalRequirement::Authenticated,
+            PrincipalRequirement::AuthenticatedWithRelationship(RelationshipRequirement::check::<
+                User,
+            >(
+                command.requester_id,
+                UserOwnerRelation::REF,
+            )),
         ]))
     }
 
@@ -101,8 +90,6 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
-        let requester_id = Self::requester_id(request_context)?;
-
         let Some(organization) = self
             .organization_repository
             .find(uow, command.organization_id)
@@ -115,8 +102,10 @@ where
             return Err(OrganizationJoinRequestCreateCommandHandlerError::OrganizationRemoved);
         }
 
-        let unique_value =
-            Self::organization_requester_unique_value(command.organization_id, requester_id)?;
+        let unique_value = Self::organization_requester_unique_value(
+            command.organization_id,
+            command.requester_id,
+        )?;
 
         if self
             .organization_membership_repository
@@ -147,7 +136,7 @@ where
         }
 
         let mut organization_join_request = OrganizationJoinRequest::default();
-        organization_join_request.request(command.organization_id, requester_id)?;
+        organization_join_request.request(command.organization_id, command.requester_id)?;
 
         self.organization_join_request_repository
             .save(uow, request_context, &mut organization_join_request)

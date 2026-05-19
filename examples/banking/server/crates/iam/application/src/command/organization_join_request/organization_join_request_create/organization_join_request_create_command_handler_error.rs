@@ -1,8 +1,8 @@
 use appletheia::application::repository::RepositoryError;
-use appletheia::domain::{AggregateId, UniqueValueError, UniqueValuePartError};
+use appletheia::domain::{UniqueValueError, UniqueValuePartError};
 use banking_iam_domain::{
     Organization, OrganizationError, OrganizationJoinRequest, OrganizationJoinRequestError,
-    OrganizationMembership, UserId,
+    OrganizationMembership,
 };
 use thiserror::Error;
 
@@ -32,15 +32,6 @@ pub enum OrganizationJoinRequestCreateCommandHandlerError {
 
     #[error("organization join request id is missing after request")]
     MissingOrganizationJoinRequestId,
-
-    #[error("join requester principal must be available")]
-    JoinRequesterRequiresPrincipal,
-
-    #[error("join requester principal must be a user")]
-    JoinRequesterRequiresUserPrincipal,
-
-    #[error("join requester principal contains an invalid user id")]
-    InvalidJoinRequesterUserId(#[source] <UserId as AggregateId>::Error),
 
     #[error("requester is already a member of the organization")]
     RequesterAlreadyMember,
