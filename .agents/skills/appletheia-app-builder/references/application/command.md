@@ -54,8 +54,14 @@ good:
 ```rust
 let result = account.reserve_funds(command.amount)?;
 repository.save(uow, request_context, &mut account).await?;
+let output = match result {
+    AccountReserveFundsResult::Reserved => AccountReserveFundsOutput::Reserved,
+    AccountReserveFundsResult::Rejected { reason } => {
+        AccountReserveFundsOutput::Rejected { reason }
+    }
+};
 
-Ok(CommandHandled::same(AccountReserveFundsOutput::from(result)))
+Ok(CommandHandled::same(output))
 ```
 
 bad:
@@ -83,7 +89,13 @@ good:
 ```rust
 let result = account.reserve_funds(command.amount)?;
 repository.save(uow, request_context, &mut account).await?;
-Ok(CommandHandled::same(AccountReserveFundsOutput::from(result)))
+let output = match result {
+    AccountReserveFundsResult::Reserved => AccountReserveFundsOutput::Reserved,
+    AccountReserveFundsResult::Rejected { reason } => {
+        AccountReserveFundsOutput::Rejected { reason }
+    }
+};
+Ok(CommandHandled::same(output))
 ```
 
 ### DON'T touch `RequestContext.actor` in command handlers
@@ -127,18 +139,60 @@ failures that should roll back and retry.
 good:
 ```rust
 let currency = currency_repository.find_by_id(uow, command.currency_id).await?;
-let mut issuance = currency_issuance_repository.find_by_id(uow, command.currency_issuance_id).await?;
+let mut issuance = CurrencyIssuance::default();
 
-let result = if issuance.currency_id() != currency.id() {
-    issuance.reject_issue(CurrencyIssuanceIssueRejectionReason::CurrencyMismatch)?
+let result = if destination_account.currency_id()? != &command.currency_id {
+    let reason = CurrencyIssuanceIssueRejectionReason::CurrencyMismatch;
+    let currency_issuance_id = issuance.reject_issue(
+        command.currency_id,
+        command.destination_account_id,
+        command.amount,
+        reason,
+    )?;
+    CurrencyIssuanceIssueResult::Rejected {
+        currency_issuance_id,
+        reason,
+    }
 } else if !currency.is_active() {
-    issuance.reject_issue(CurrencyIssuanceIssueRejectionReason::CurrencyInactive)?
+    let reason = CurrencyIssuanceIssueRejectionReason::CurrencyInactive;
+    let currency_issuance_id = issuance.reject_issue(
+        command.currency_id,
+        command.destination_account_id,
+        command.amount,
+        reason,
+    )?;
+    CurrencyIssuanceIssueResult::Rejected {
+        currency_issuance_id,
+        reason,
+    }
 } else {
-    issuance.issue(command.amount)?
+    issuance.issue(
+        command.currency_id,
+        command.destination_account_id,
+        command.amount,
+    )?
 };
 
-currency_issuance_repository.save(uow, request_context, &mut issuance).await?;
-Ok(CommandHandled::same(CurrencyIssuanceIssueOutput::from(result)))
+currency_issuance_repository
+    .save(uow, request_context, &mut issuance)
+    .await?;
+
+let output = match result {
+    CurrencyIssuanceIssueResult::Issued {
+        currency_issuance_id,
+    } => CurrencyIssuanceIssueOutput::Issued {
+        currency_issuance_id,
+    },
+    CurrencyIssuanceIssueResult::Rejected {
+        currency_issuance_id,
+        reason,
+    } => CurrencyIssuanceIssueOutput::Rejected {
+        currency_issuance_id,
+        reason,
+    },
+};
+
+Ok(CommandHandled::same(output))
 ```
 
 good:

@@ -42,27 +42,52 @@ pub fn issue(
     invitee_id: UserId,
     issuer: OrganizationInvitationIssuer,
     expires_at: OrganizationInvitationExpiresAt,
-) -> Result<(), OrganizationInvitationError> {
+) -> Result<OrganizationInvitationIssueResult, OrganizationInvitationError> {
     if self.state().is_some() {
-        let reason = OrganizationInvitationIssueRejectionReason::AlreadyIssued;
-        self.append_event(OrganizationInvitationEventPayload::IssueRejected {
-            id: OrganizationInvitationId::new(),
-            organization_id,
-            invitee_id,
-            issuer,
-            expires_at,
-            reason,
-        })?;
-        return Ok(());
+        return Err(OrganizationInvitationError::AlreadyIssued);
     }
 
+    if expires_at.is_expired(now) {
+        let reason = OrganizationInvitationIssueRejectionReason::Expired;
+        let organization_invitation_id =
+            self.reject_issue(organization_id, invitee_id, issuer, expires_at, reason)?;
+        return Ok(OrganizationInvitationIssueResult::Rejected {
+            organization_invitation_id,
+            reason,
+        });
+    }
+
+    let organization_invitation_id = OrganizationInvitationId::new();
     self.append_event(OrganizationInvitationEventPayload::Issued {
-        id: OrganizationInvitationId::new(),
+        id: organization_invitation_id,
         organization_id,
         invitee_id,
         issuer,
         expires_at,
+    })?;
+    Ok(OrganizationInvitationIssueResult::Issued {
+        organization_invitation_id,
     })
+}
+
+pub fn reject_issue(
+    &mut self,
+    organization_id: OrganizationId,
+    invitee_id: UserId,
+    issuer: OrganizationInvitationIssuer,
+    expires_at: OrganizationInvitationExpiresAt,
+    reason: OrganizationInvitationIssueRejectionReason,
+) -> Result<OrganizationInvitationId, OrganizationInvitationError> {
+    let organization_invitation_id = OrganizationInvitationId::new();
+    self.append_event(OrganizationInvitationEventPayload::IssueRejected {
+        id: organization_invitation_id,
+        organization_id,
+        invitee_id,
+        issuer,
+        expires_at,
+        reason,
+    })?;
+    Ok(organization_invitation_id)
 }
 ```
 
@@ -87,12 +112,12 @@ pub fn register(
         return Err(UserError::AlreadyRegistered);
     }
 
-    let id = UserId::new();
+    let user_id = UserId::new();
     self.append_event(UserEventPayload::Registered {
-        id,
+        id: user_id,
         username,
     })?;
-    Ok(RegisterUserResult::Registered { user_id: id })
+    Ok(RegisterUserResult::Registered { user_id })
 }
 ```
 
@@ -514,11 +539,12 @@ if self.state_required()?.status.is_closed() {
 }
 ```
 
-### DO reject repeated one-shot methods when repetition is a business outcome
+### DO return `Err` when a create-like aggregate command is called twice on the same aggregate instance
 
-When repetition is observable domain behavior, append a rejection event instead of silently treating
-it as a success event. Use `Err` only when the repeated call is command misuse that should roll back and not
-be projected.
+When the aggregate itself owns its creation lifecycle, calling `create`, `open`, `register`, or
+similar one-shot methods twice on the same instance is aggregate misuse, not a business rejection.
+Reserve rejection events for business outcomes on the aggregate being created, typically triggered
+by cross-aggregate validation in a handler.
 
 good:
 ```rust
@@ -528,18 +554,16 @@ pub fn create(
     name: OrganizationName,
 ) -> Result<OrganizationCreateResult, OrganizationError> {
     if self.state().is_some() {
-        let reason = OrganizationCreateRejectionReason::AlreadyCreated;
-        self.append_event(OrganizationEventPayload::CreateRejected { handle, name, reason })?;
-        return Ok(OrganizationCreateResult::Rejected { reason });
+        return Err(OrganizationError::AlreadyCreated);
     }
 
-    let id = OrganizationId::new();
+    let organization_id = OrganizationId::new();
     self.append_event(OrganizationEventPayload::Created {
-        id,
+        id: organization_id,
         handle,
         name,
     })?;
-    Ok(OrganizationCreateResult::Created { organization_id: id })
+    Ok(OrganizationCreateResult::Created { organization_id })
 }
 ```
 
@@ -567,11 +591,15 @@ pub fn create(
     &mut self,
     organization_id: OrganizationId,
     user_id: UserId,
-) -> Result<(), OrganizationMembershipError> {
+) -> Result<OrganizationMembershipCreateResult, OrganizationMembershipError> {
+    let organization_membership_id = OrganizationMembershipId::new();
     self.append_event(OrganizationMembershipEventPayload::Created {
-        id: OrganizationMembershipId::new(),
+        id: organization_membership_id,
         organization_id,
         user_id,
+    })?;
+    Ok(OrganizationMembershipCreateResult::Created {
+        organization_membership_id,
     })
 }
 ```
@@ -655,12 +683,32 @@ impl OrganizationMembership {
         &mut self,
         organization_id: OrganizationId,
         user_id: UserId,
-    ) -> Result<(), OrganizationMembershipError> {
+    ) -> Result<OrganizationMembershipCreateResult, OrganizationMembershipError> {
+        let organization_membership_id = OrganizationMembershipId::new();
         self.append_event(OrganizationMembershipEventPayload::Created {
-            id: OrganizationMembershipId::new(),
+            id: organization_membership_id,
             organization_id,
             user_id,
+        })?;
+        Ok(OrganizationMembershipCreateResult::Created {
+            organization_membership_id,
         })
+    }
+
+    pub fn reject_create(
+        &mut self,
+        organization_id: OrganizationId,
+        user_id: UserId,
+        reason: OrganizationMembershipCreateRejectionReason,
+    ) -> Result<OrganizationMembershipId, OrganizationMembershipError> {
+        let organization_membership_id = OrganizationMembershipId::new();
+        self.append_event(OrganizationMembershipEventPayload::CreateRejected {
+            id: organization_membership_id,
+            organization_id,
+            user_id,
+            reason,
+        })?;
+        Ok(organization_membership_id)
     }
 }
 ```
@@ -691,13 +739,17 @@ pub fn issue(
     invitee_id: UserId,
     issuer: OrganizationInvitationIssuer,
     expires_at: OrganizationInvitationExpiresAt,
-) -> Result<(), OrganizationInvitationError> {
+) -> Result<OrganizationInvitationIssueResult, OrganizationInvitationError> {
+    let organization_invitation_id = OrganizationInvitationId::new();
     self.append_event(OrganizationInvitationEventPayload::Issued {
-        id: OrganizationInvitationId::new(),
+        id: organization_invitation_id,
         organization_id,
         invitee_id,
         issuer,
         expires_at,
+    })?;
+    Ok(OrganizationInvitationIssueResult::Issued {
+        organization_invitation_id,
     })
 }
 ```
