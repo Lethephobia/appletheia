@@ -1,6 +1,4 @@
-use banking_ledger_domain::account::{
-    AccountFundsReserveRejectionReason, AccountFundsReserveResult,
-};
+use banking_ledger_domain::account::AccountFundsReserveRejectionReason;
 use serde::{Deserialize, Serialize};
 
 /// Returned after reserving funds in an account.
@@ -11,13 +9,4 @@ pub enum AccountFundsReserveOutput {
     Rejected {
         reason: AccountFundsReserveRejectionReason,
     },
-}
-
-impl From<AccountFundsReserveResult> for AccountFundsReserveOutput {
-    fn from(value: AccountFundsReserveResult) -> Self {
-        match value {
-            AccountFundsReserveResult::Reserved => Self::Reserved,
-            AccountFundsReserveResult::Rejected { reason } => Self::Rejected { reason },
-        }
-    }
 }

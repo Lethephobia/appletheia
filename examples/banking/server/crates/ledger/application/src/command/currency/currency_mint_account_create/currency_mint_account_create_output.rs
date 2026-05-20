@@ -1,5 +1,5 @@
 use banking_ledger_domain::currency::{
-    CurrencyMintAccount, CurrencyMintAccountRecordRejectionReason, CurrencyMintAccountRecordResult,
+    CurrencyMintAccount, CurrencyMintAccountRecordRejectionReason,
 };
 use serde::{Deserialize, Serialize};
 
@@ -13,15 +13,4 @@ pub enum CurrencyMintAccountCreateOutput {
     Rejected {
         reason: CurrencyMintAccountRecordRejectionReason,
     },
-}
-
-impl From<CurrencyMintAccountRecordResult> for CurrencyMintAccountCreateOutput {
-    fn from(value: CurrencyMintAccountRecordResult) -> Self {
-        match value {
-            CurrencyMintAccountRecordResult::Recorded { mint_account } => {
-                Self::Created { mint_account }
-            }
-            CurrencyMintAccountRecordResult::Rejected { reason } => Self::Rejected { reason },
-        }
-    }
 }

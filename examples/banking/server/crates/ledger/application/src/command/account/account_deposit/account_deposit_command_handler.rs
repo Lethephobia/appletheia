@@ -2,7 +2,7 @@ use appletheia::application::authorization::{AuthorizationPlan, PrincipalRequire
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_ledger_domain::account::Account;
+use banking_ledger_domain::account::{Account, AccountDepositResult};
 
 use super::{AccountDepositCommand, AccountDepositCommandHandlerError, AccountDepositOutput};
 
@@ -61,6 +61,11 @@ where
             .save(uow, request_context, &mut account)
             .await?;
 
-        Ok(CommandHandled::same(AccountDepositOutput::from(result)))
+        let output = match result {
+            AccountDepositResult::Deposited => AccountDepositOutput::Deposited,
+            AccountDepositResult::Rejected { reason } => AccountDepositOutput::Rejected { reason },
+        };
+
+        Ok(CommandHandled::same(output))
     }
 }

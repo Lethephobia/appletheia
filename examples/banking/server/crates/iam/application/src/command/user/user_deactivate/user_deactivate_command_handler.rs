@@ -5,6 +5,7 @@ use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_iam_domain::User;
+use banking_iam_domain::user::UserDeactivateResult;
 
 use super::{UserDeactivateCommand, UserDeactivateCommandHandlerError, UserDeactivateOutput};
 use crate::authorization::UserDeactivatorRelation;
@@ -66,6 +67,11 @@ where
             .save(uow, request_context, &mut user)
             .await?;
 
-        Ok(CommandHandled::same(result.into()))
+        let output = match result {
+            UserDeactivateResult::Deactivated => UserDeactivateOutput::Deactivated,
+            UserDeactivateResult::Rejected { reason } => UserDeactivateOutput::Rejected { reason },
+        };
+
+        Ok(CommandHandled::same(output))
     }
 }

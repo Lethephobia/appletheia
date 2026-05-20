@@ -14,6 +14,7 @@ mod account_name;
 mod account_name_change_rejection_reason;
 mod account_name_change_result;
 mod account_name_error;
+mod account_open_result;
 mod account_owner;
 mod account_ownership_transfer_rejection_reason;
 mod account_ownership_transfer_result;
@@ -45,6 +46,7 @@ pub use account_name::AccountName;
 pub use account_name_change_rejection_reason::AccountNameChangeRejectionReason;
 pub use account_name_change_result::AccountNameChangeResult;
 pub use account_name_error::AccountNameError;
+pub use account_open_result::AccountOpenResult;
 pub use account_owner::AccountOwner;
 pub use account_ownership_transfer_rejection_reason::AccountOwnershipTransferRejectionReason;
 pub use account_ownership_transfer_result::AccountOwnershipTransferResult;
@@ -132,17 +134,20 @@ impl Account {
         owner: AccountOwner,
         name: AccountName,
         currency_id: CurrencyId,
-    ) -> Result<(), AccountError> {
+    ) -> Result<AccountOpenResult, AccountError> {
         if self.state().is_some() {
             return Err(AccountError::AlreadyOpened);
         }
 
+        let account_id = AccountId::new();
         self.append_event(AccountEventPayload::Opened {
-            id: AccountId::new(),
+            id: account_id,
             owner,
             name,
             currency_id,
-        })
+        })?;
+
+        Ok(AccountOpenResult::Opened { account_id })
     }
 
     /// Transfers ownership of the account.
@@ -152,7 +157,8 @@ impl Account {
     ) -> Result<AccountOwnershipTransferResult, AccountError> {
         if self.state_required()?.status.is_closed() {
             let reason = AccountOwnershipTransferRejectionReason::Closed;
-            return self.reject_transfer_ownership(owner, reason);
+            self.reject_transfer_ownership(owner, reason)?;
+            return Ok(AccountOwnershipTransferResult::Rejected { reason });
         }
 
         self.append_event(AccountEventPayload::OwnershipTransferred { owner })?;
@@ -164,9 +170,9 @@ impl Account {
         &mut self,
         owner: AccountOwner,
         reason: AccountOwnershipTransferRejectionReason,
-    ) -> Result<AccountOwnershipTransferResult, AccountError> {
+    ) -> Result<(), AccountError> {
         self.append_event(AccountEventPayload::OwnershipTransferRejected { owner, reason })?;
-        Ok(AccountOwnershipTransferResult::Rejected { reason })
+        Ok(())
     }
 
     /// Changes the account name.
@@ -176,7 +182,8 @@ impl Account {
     ) -> Result<AccountNameChangeResult, AccountError> {
         if self.state_required()?.status.is_closed() {
             let reason = AccountNameChangeRejectionReason::Closed;
-            return self.reject_change_name(name, reason);
+            self.reject_change_name(name, reason)?;
+            return Ok(AccountNameChangeResult::Rejected { reason });
         }
 
         self.append_event(AccountEventPayload::NameChanged { name })?;
@@ -188,9 +195,9 @@ impl Account {
         &mut self,
         name: AccountName,
         reason: AccountNameChangeRejectionReason,
-    ) -> Result<AccountNameChangeResult, AccountError> {
+    ) -> Result<(), AccountError> {
         self.append_event(AccountEventPayload::NameChangeRejected { name, reason })?;
-        Ok(AccountNameChangeResult::Rejected { reason })
+        Ok(())
     }
 
     /// Deposits balance into the account.
@@ -202,11 +209,13 @@ impl Account {
             AccountStatus::Active => {}
             AccountStatus::Frozen => {
                 let reason = AccountDepositRejectionReason::Frozen;
-                return self.reject_deposit(amount, reason);
+                self.reject_deposit(amount, reason)?;
+                return Ok(AccountDepositResult::Rejected { reason });
             }
             AccountStatus::Closed => {
                 let reason = AccountDepositRejectionReason::Closed;
-                return self.reject_deposit(amount, reason);
+                self.reject_deposit(amount, reason)?;
+                return Ok(AccountDepositResult::Rejected { reason });
             }
         }
 
@@ -220,9 +229,9 @@ impl Account {
         &mut self,
         amount: CurrencyAmount,
         reason: AccountDepositRejectionReason,
-    ) -> Result<AccountDepositResult, AccountError> {
+    ) -> Result<(), AccountError> {
         self.append_event(AccountEventPayload::DepositRejected { amount, reason })?;
-        Ok(AccountDepositResult::Rejected { reason })
+        Ok(())
     }
 
     /// Withdraws balance from the account.
@@ -234,17 +243,20 @@ impl Account {
             AccountStatus::Active => {}
             AccountStatus::Frozen => {
                 let reason = AccountWithdrawRejectionReason::Frozen;
-                return self.reject_withdraw(amount, reason);
+                self.reject_withdraw(amount, reason)?;
+                return Ok(AccountWithdrawResult::Rejected { reason });
             }
             AccountStatus::Closed => {
                 let reason = AccountWithdrawRejectionReason::Closed;
-                return self.reject_withdraw(amount, reason);
+                self.reject_withdraw(amount, reason)?;
+                return Ok(AccountWithdrawResult::Rejected { reason });
             }
         }
 
         if self.available_balance()?.value() < amount.value() {
             let reason = AccountWithdrawRejectionReason::InsufficientBalance;
-            return self.reject_withdraw(amount, reason);
+            self.reject_withdraw(amount, reason)?;
+            return Ok(AccountWithdrawResult::Rejected { reason });
         }
 
         self.append_event(AccountEventPayload::Withdrawn { amount })?;
@@ -256,9 +268,9 @@ impl Account {
         &mut self,
         amount: CurrencyAmount,
         reason: AccountWithdrawRejectionReason,
-    ) -> Result<AccountWithdrawResult, AccountError> {
+    ) -> Result<(), AccountError> {
         self.append_event(AccountEventPayload::WithdrawRejected { amount, reason })?;
-        Ok(AccountWithdrawResult::Rejected { reason })
+        Ok(())
     }
 
     /// Reserves funds in the account.
@@ -270,17 +282,20 @@ impl Account {
             AccountStatus::Active => {}
             AccountStatus::Frozen => {
                 let reason = AccountFundsReserveRejectionReason::Frozen;
-                return self.reject_reserve_funds(amount, reason);
+                self.reject_reserve_funds(amount, reason)?;
+                return Ok(AccountFundsReserveResult::Rejected { reason });
             }
             AccountStatus::Closed => {
                 let reason = AccountFundsReserveRejectionReason::Closed;
-                return self.reject_reserve_funds(amount, reason);
+                self.reject_reserve_funds(amount, reason)?;
+                return Ok(AccountFundsReserveResult::Rejected { reason });
             }
         }
 
         if self.available_balance()?.value() < amount.value() {
             let reason = AccountFundsReserveRejectionReason::InsufficientAvailableBalance;
-            return self.reject_reserve_funds(amount, reason);
+            self.reject_reserve_funds(amount, reason)?;
+            return Ok(AccountFundsReserveResult::Rejected { reason });
         }
 
         self.append_event(AccountEventPayload::FundsReserved { amount })?;
@@ -293,9 +308,9 @@ impl Account {
         &mut self,
         amount: CurrencyAmount,
         reason: AccountFundsReserveRejectionReason,
-    ) -> Result<AccountFundsReserveResult, AccountError> {
+    ) -> Result<(), AccountError> {
         self.append_event(AccountEventPayload::FundsReserveRejected { amount, reason })?;
-        Ok(AccountFundsReserveResult::Rejected { reason })
+        Ok(())
     }
 
     /// Releases reserved funds in the account.
@@ -307,17 +322,20 @@ impl Account {
             AccountStatus::Active => {}
             AccountStatus::Frozen => {
                 let reason = AccountReservedFundsReleaseRejectionReason::Frozen;
-                return self.reject_release_reserved_funds(amount, reason);
+                self.reject_release_reserved_funds(amount, reason)?;
+                return Ok(AccountReservedFundsReleaseResult::Rejected { reason });
             }
             AccountStatus::Closed => {
                 let reason = AccountReservedFundsReleaseRejectionReason::Closed;
-                return self.reject_release_reserved_funds(amount, reason);
+                self.reject_release_reserved_funds(amount, reason)?;
+                return Ok(AccountReservedFundsReleaseResult::Rejected { reason });
             }
         }
 
         if self.state_required()?.reserved_balance.value() < amount.value() {
             let reason = AccountReservedFundsReleaseRejectionReason::InsufficientReservedBalance;
-            return self.reject_release_reserved_funds(amount, reason);
+            self.reject_release_reserved_funds(amount, reason)?;
+            return Ok(AccountReservedFundsReleaseResult::Rejected { reason });
         }
 
         self.append_event(AccountEventPayload::ReservedFundsReleased { amount })?;
@@ -330,9 +348,9 @@ impl Account {
         &mut self,
         amount: CurrencyAmount,
         reason: AccountReservedFundsReleaseRejectionReason,
-    ) -> Result<AccountReservedFundsReleaseResult, AccountError> {
+    ) -> Result<(), AccountError> {
         self.append_event(AccountEventPayload::ReservedFundsReleaseRejected { amount, reason })?;
-        Ok(AccountReservedFundsReleaseResult::Rejected { reason })
+        Ok(())
     }
 
     /// Commits reserved funds and deducts them from the account.
@@ -344,17 +362,20 @@ impl Account {
             AccountStatus::Active => {}
             AccountStatus::Frozen => {
                 let reason = AccountReservedFundsCommitRejectionReason::Frozen;
-                return self.reject_commit_reserved_funds(amount, reason);
+                self.reject_commit_reserved_funds(amount, reason)?;
+                return Ok(AccountReservedFundsCommitResult::Rejected { reason });
             }
             AccountStatus::Closed => {
                 let reason = AccountReservedFundsCommitRejectionReason::Closed;
-                return self.reject_commit_reserved_funds(amount, reason);
+                self.reject_commit_reserved_funds(amount, reason)?;
+                return Ok(AccountReservedFundsCommitResult::Rejected { reason });
             }
         }
 
         if self.state_required()?.reserved_balance.value() < amount.value() {
             let reason = AccountReservedFundsCommitRejectionReason::InsufficientReservedBalance;
-            return self.reject_commit_reserved_funds(amount, reason);
+            self.reject_commit_reserved_funds(amount, reason)?;
+            return Ok(AccountReservedFundsCommitResult::Rejected { reason });
         }
 
         self.append_event(AccountEventPayload::ReservedFundsCommitted { amount })?;
@@ -367,16 +388,17 @@ impl Account {
         &mut self,
         amount: CurrencyAmount,
         reason: AccountReservedFundsCommitRejectionReason,
-    ) -> Result<AccountReservedFundsCommitResult, AccountError> {
+    ) -> Result<(), AccountError> {
         self.append_event(AccountEventPayload::ReservedFundsCommitRejected { amount, reason })?;
-        Ok(AccountReservedFundsCommitResult::Rejected { reason })
+        Ok(())
     }
 
     /// Freezes the account.
     pub fn freeze(&mut self) -> Result<AccountFreezeResult, AccountError> {
         if self.state_required()?.status.is_closed() {
             let reason = AccountFreezeRejectionReason::Closed;
-            return self.reject_freeze(reason);
+            self.reject_freeze(reason)?;
+            return Ok(AccountFreezeResult::Rejected { reason });
         }
 
         self.append_event(AccountEventPayload::Frozen)?;
@@ -387,16 +409,17 @@ impl Account {
     pub fn reject_freeze(
         &mut self,
         reason: AccountFreezeRejectionReason,
-    ) -> Result<AccountFreezeResult, AccountError> {
+    ) -> Result<(), AccountError> {
         self.append_event(AccountEventPayload::FreezeRejected { reason })?;
-        Ok(AccountFreezeResult::Rejected { reason })
+        Ok(())
     }
 
     /// Thaws the account.
     pub fn thaw(&mut self) -> Result<AccountThawResult, AccountError> {
         if self.state_required()?.status.is_closed() {
             let reason = AccountThawRejectionReason::Closed;
-            return self.reject_thaw(reason);
+            self.reject_thaw(reason)?;
+            return Ok(AccountThawResult::Rejected { reason });
         }
 
         self.append_event(AccountEventPayload::Thawed)?;
@@ -404,30 +427,30 @@ impl Account {
     }
 
     /// Rejects an account thaw attempt.
-    pub fn reject_thaw(
-        &mut self,
-        reason: AccountThawRejectionReason,
-    ) -> Result<AccountThawResult, AccountError> {
+    pub fn reject_thaw(&mut self, reason: AccountThawRejectionReason) -> Result<(), AccountError> {
         self.append_event(AccountEventPayload::ThawRejected { reason })?;
-        Ok(AccountThawResult::Rejected { reason })
+        Ok(())
     }
 
     /// Closes the account permanently.
     pub fn close(&mut self) -> Result<AccountCloseResult, AccountError> {
         if self.state_required()?.status.is_closed() {
             let reason = AccountCloseRejectionReason::AlreadyClosed;
-            return self.reject_close(reason);
+            self.reject_close(reason)?;
+            return Ok(AccountCloseResult::Rejected { reason });
         }
 
         let state = self.state_required()?;
         if !state.reserved_balance.is_zero() {
             let reason = AccountCloseRejectionReason::ReservedBalanceRemaining;
-            return self.reject_close(reason);
+            self.reject_close(reason)?;
+            return Ok(AccountCloseResult::Rejected { reason });
         }
 
         if !state.balance.is_zero() {
             let reason = AccountCloseRejectionReason::BalanceRemaining;
-            return self.reject_close(reason);
+            self.reject_close(reason)?;
+            return Ok(AccountCloseResult::Rejected { reason });
         }
 
         self.append_event(AccountEventPayload::Closed)?;
@@ -438,9 +461,9 @@ impl Account {
     pub fn reject_close(
         &mut self,
         reason: AccountCloseRejectionReason,
-    ) -> Result<AccountCloseResult, AccountError> {
+    ) -> Result<(), AccountError> {
         self.append_event(AccountEventPayload::CloseRejected { reason })?;
-        Ok(AccountCloseResult::Rejected { reason })
+        Ok(())
     }
 }
 

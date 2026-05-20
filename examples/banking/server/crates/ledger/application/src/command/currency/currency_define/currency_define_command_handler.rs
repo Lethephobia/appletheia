@@ -4,12 +4,11 @@ use appletheia::application::authorization::{
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use appletheia::domain::Aggregate;
 use banking_iam_application::authorization::{
     OrganizationFinanceManagerRelation, UserOwnerRelation,
 };
 use banking_iam_domain::{Organization, User};
-use banking_ledger_domain::currency::{Currency, CurrencyOwner};
+use banking_ledger_domain::currency::{Currency, CurrencyDefineResult, CurrencyOwner};
 
 use super::{CurrencyDefineCommand, CurrencyDefineCommandHandlerError, CurrencyDefineOutput};
 
@@ -80,16 +79,15 @@ where
             image,
         } = command.clone();
         let mut currency = Currency::default();
-        currency.define(owner, symbol, name, decimals, description, image)?;
+        let result = currency.define(owner, symbol, name, decimals, description, image)?;
 
         self.currency_repository
             .save(uow, request_context, &mut currency)
             .await?;
 
-        let currency_id = currency
-            .aggregate_id()
-            .ok_or(CurrencyDefineCommandHandlerError::MissingCurrencyId)?;
-        let output = CurrencyDefineOutput::new(currency_id);
+        let output = match result {
+            CurrencyDefineResult::Defined { currency_id } => CurrencyDefineOutput::new(currency_id),
+        };
 
         Ok(CommandHandled::same(output))
     }

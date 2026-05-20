@@ -10,7 +10,4 @@ pub enum OrganizationCreateCommandHandlerError {
 
     #[error("organization aggregate failed")]
     Organization(#[from] OrganizationError),
-
-    #[error("organization id is missing after create")]
-    MissingOrganizationId,
 }

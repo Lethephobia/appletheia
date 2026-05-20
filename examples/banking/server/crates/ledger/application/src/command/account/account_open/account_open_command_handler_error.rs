@@ -10,7 +10,4 @@ pub enum AccountOpenCommandHandlerError {
 
     #[error("account aggregate failed")]
     Account(#[from] AccountError),
-
-    #[error("account id is missing after open")]
-    MissingAccountId,
 }

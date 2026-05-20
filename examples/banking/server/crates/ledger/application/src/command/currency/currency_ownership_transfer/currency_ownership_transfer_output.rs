@@ -1,6 +1,4 @@
-use banking_ledger_domain::currency::{
-    CurrencyOwnershipTransferRejectionReason, CurrencyOwnershipTransferResult,
-};
+use banking_ledger_domain::currency::CurrencyOwnershipTransferRejectionReason;
 use serde::{Deserialize, Serialize};
 
 /// The output returned after transferring currency ownership.
@@ -11,13 +9,4 @@ pub enum CurrencyOwnershipTransferOutput {
     Rejected {
         reason: CurrencyOwnershipTransferRejectionReason,
     },
-}
-
-impl From<CurrencyOwnershipTransferResult> for CurrencyOwnershipTransferOutput {
-    fn from(value: CurrencyOwnershipTransferResult) -> Self {
-        match value {
-            CurrencyOwnershipTransferResult::Transferred => Self::Transferred,
-            CurrencyOwnershipTransferResult::Rejected { reason } => Self::Rejected { reason },
-        }
-    }
 }

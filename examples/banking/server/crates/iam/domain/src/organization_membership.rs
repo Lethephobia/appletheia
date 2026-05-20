@@ -96,15 +96,15 @@ impl OrganizationMembership {
             return Err(OrganizationMembershipError::AlreadyCreated);
         }
 
-        let id = OrganizationMembershipId::new();
+        let organization_membership_id = OrganizationMembershipId::new();
         self.append_event(OrganizationMembershipEventPayload::Created {
-            id,
+            id: organization_membership_id,
             organization_id,
             user_id,
             roles,
         })?;
         Ok(OrganizationMembershipCreateResult::Created {
-            organization_membership_id: id,
+            organization_membership_id,
         })
     }
 
@@ -115,16 +115,16 @@ impl OrganizationMembership {
         user_id: UserId,
         roles: OrganizationMembershipRoles,
         reason: OrganizationMembershipCreateRejectionReason,
-    ) -> Result<OrganizationMembershipCreateResult, OrganizationMembershipError> {
-        let id = OrganizationMembershipId::new();
+    ) -> Result<OrganizationMembershipId, OrganizationMembershipError> {
+        let organization_membership_id = OrganizationMembershipId::new();
         self.append_event(OrganizationMembershipEventPayload::CreateRejected {
-            id,
+            id: organization_membership_id,
             organization_id,
             user_id,
             roles,
             reason,
         })?;
-        Ok(OrganizationMembershipCreateResult::Rejected { reason })
+        Ok(organization_membership_id)
     }
 
     /// Changes the roles of an active membership.
@@ -136,11 +136,13 @@ impl OrganizationMembership {
             OrganizationMembershipStatus::Active => {}
             OrganizationMembershipStatus::Inactive => {
                 let reason = OrganizationMembershipRolesChangeRejectionReason::Inactive;
-                return self.reject_change_roles(roles, reason);
+                self.reject_change_roles(roles, reason)?;
+                return Ok(OrganizationMembershipRolesChangeResult::Rejected { reason });
             }
             OrganizationMembershipStatus::Removed => {
                 let reason = OrganizationMembershipRolesChangeRejectionReason::Removed;
-                return self.reject_change_roles(roles, reason);
+                self.reject_change_roles(roles, reason)?;
+                return Ok(OrganizationMembershipRolesChangeResult::Rejected { reason });
             }
         }
 
@@ -158,7 +160,7 @@ impl OrganizationMembership {
         &mut self,
         roles: OrganizationMembershipRoles,
         reason: OrganizationMembershipRolesChangeRejectionReason,
-    ) -> Result<OrganizationMembershipRolesChangeResult, OrganizationMembershipError> {
+    ) -> Result<(), OrganizationMembershipError> {
         let state = self.state_required()?;
         self.append_event(OrganizationMembershipEventPayload::RolesChangeRejected {
             organization_id: state.organization_id,
@@ -166,7 +168,7 @@ impl OrganizationMembership {
             roles,
             reason,
         })?;
-        Ok(OrganizationMembershipRolesChangeResult::Rejected { reason })
+        Ok(())
     }
 
     /// Activates an inactive membership.
@@ -175,7 +177,8 @@ impl OrganizationMembership {
     ) -> Result<OrganizationMembershipActivateResult, OrganizationMembershipError> {
         if self.state_required()?.status.is_removed() {
             let reason = OrganizationMembershipActivateRejectionReason::Removed;
-            return self.reject_activate(reason);
+            self.reject_activate(reason)?;
+            return Ok(OrganizationMembershipActivateResult::Rejected { reason });
         }
 
         let state = self.state_required()?;
@@ -191,14 +194,14 @@ impl OrganizationMembership {
     pub fn reject_activate(
         &mut self,
         reason: OrganizationMembershipActivateRejectionReason,
-    ) -> Result<OrganizationMembershipActivateResult, OrganizationMembershipError> {
+    ) -> Result<(), OrganizationMembershipError> {
         let state = self.state_required()?;
         self.append_event(OrganizationMembershipEventPayload::ActivateRejected {
             organization_id: state.organization_id,
             user_id: state.user_id,
             reason,
         })?;
-        Ok(OrganizationMembershipActivateResult::Rejected { reason })
+        Ok(())
     }
 
     /// Deactivates an active membership.
@@ -207,7 +210,8 @@ impl OrganizationMembership {
     ) -> Result<OrganizationMembershipDeactivateResult, OrganizationMembershipError> {
         if self.state_required()?.status.is_removed() {
             let reason = OrganizationMembershipDeactivateRejectionReason::Removed;
-            return self.reject_deactivate(reason);
+            self.reject_deactivate(reason)?;
+            return Ok(OrganizationMembershipDeactivateResult::Rejected { reason });
         }
 
         let state = self.state_required()?;
@@ -222,14 +226,14 @@ impl OrganizationMembership {
     pub fn reject_deactivate(
         &mut self,
         reason: OrganizationMembershipDeactivateRejectionReason,
-    ) -> Result<OrganizationMembershipDeactivateResult, OrganizationMembershipError> {
+    ) -> Result<(), OrganizationMembershipError> {
         let state = self.state_required()?;
         self.append_event(OrganizationMembershipEventPayload::DeactivateRejected {
             organization_id: state.organization_id,
             user_id: state.user_id,
             reason,
         })?;
-        Ok(OrganizationMembershipDeactivateResult::Rejected { reason })
+        Ok(())
     }
 
     /// Permanently removes the membership.
@@ -238,7 +242,8 @@ impl OrganizationMembership {
     ) -> Result<OrganizationMembershipRemoveResult, OrganizationMembershipError> {
         if self.state_required()?.status.is_removed() {
             let reason = OrganizationMembershipRemoveRejectionReason::Removed;
-            return self.reject_remove(reason);
+            self.reject_remove(reason)?;
+            return Ok(OrganizationMembershipRemoveResult::Rejected { reason });
         }
 
         let state = self.state_required()?;
@@ -253,14 +258,14 @@ impl OrganizationMembership {
     pub fn reject_remove(
         &mut self,
         reason: OrganizationMembershipRemoveRejectionReason,
-    ) -> Result<OrganizationMembershipRemoveResult, OrganizationMembershipError> {
+    ) -> Result<(), OrganizationMembershipError> {
         let state = self.state_required()?;
         self.append_event(OrganizationMembershipEventPayload::RemoveRejected {
             organization_id: state.organization_id,
             user_id: state.user_id,
             reason,
         })?;
-        Ok(OrganizationMembershipRemoveResult::Rejected { reason })
+        Ok(())
     }
 }
 

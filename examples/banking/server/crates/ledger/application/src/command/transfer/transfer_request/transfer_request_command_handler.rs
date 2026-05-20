@@ -5,7 +5,7 @@ use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_ledger_domain::account::Account;
-use banking_ledger_domain::transfer::Transfer;
+use banking_ledger_domain::transfer::{Transfer, TransferRequestResult};
 
 use crate::authorization::AccountTransferRequesterRelation;
 
@@ -95,7 +95,20 @@ where
             .save(uow, request_context, &mut transfer)
             .await?;
 
-        Ok(CommandHandled::same(TransferRequestOutput::from(result)))
+        let output = match result {
+            TransferRequestResult::Requested { transfer_id } => {
+                TransferRequestOutput::Requested { transfer_id }
+            }
+            TransferRequestResult::Rejected {
+                transfer_id,
+                reason,
+            } => TransferRequestOutput::Rejected {
+                transfer_id,
+                reason,
+            },
+        };
+
+        Ok(CommandHandled::same(output))
     }
 }
 
@@ -127,6 +140,7 @@ mod tests {
 
     use super::{
         TransferRequestCommand, TransferRequestCommandHandler, TransferRequestCommandHandlerError,
+        TransferRequestOutput,
     };
 
     fn account_name() -> AccountName {
@@ -334,5 +348,54 @@ mod tests {
             error,
             TransferRequestCommandHandlerError::CurrencyMismatch
         ));
+    }
+
+    #[tokio::test]
+    async fn handle_returns_transfer_id_for_requested_transfer() {
+        let currency_id = CurrencyId::new();
+        let account_repository = TestAccountRepository::default();
+        let source = opened_account(currency_id);
+        let destination = opened_account(currency_id);
+        let source_account_id = source.aggregate_id().expect("account id should exist");
+        let destination_account_id = destination.aggregate_id().expect("account id should exist");
+        account_repository.insert(source);
+        account_repository.insert(destination);
+
+        let transfer_repository = TestTransferRepository::default();
+        let handler = TransferRequestCommandHandler::new(
+            account_repository.clone(),
+            transfer_repository.clone(),
+        );
+        let mut uow = TestUow;
+
+        let handled = handler
+            .handle(
+                &mut uow,
+                &request_context(),
+                &TransferRequestCommand {
+                    from_account_id: source_account_id,
+                    to_account_id: destination_account_id,
+                    amount: CurrencyAmount::new(10),
+                },
+            )
+            .await
+            .expect("matching currencies should succeed");
+
+        let TransferRequestOutput::Requested { transfer_id } = handled.into_output() else {
+            panic!("expected requested output");
+        };
+
+        let saved_transfer = transfer_repository
+            .transfer
+            .lock()
+            .expect("lock")
+            .clone()
+            .expect("transfer should be saved");
+        assert_eq!(
+            saved_transfer
+                .aggregate_id()
+                .expect("transfer id should exist"),
+            transfer_id
+        );
     }
 }

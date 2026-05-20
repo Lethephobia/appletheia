@@ -3,7 +3,7 @@ use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_ledger_domain::currency::{
-    Currency, CurrencyImageRef, CurrencyMintAccount, CurrencyMintAccountRecordPreparationResult,
+    Currency, CurrencyImageRef, CurrencyMintAccount, CurrencyMintAccountRecordRejectionReason,
     CurrencyMintAccountRecordResult,
 };
 
@@ -112,15 +112,26 @@ where
             return Err(CurrencyMintAccountCreateCommandHandlerError::CurrencyNotFound);
         };
 
-        if let CurrencyMintAccountRecordPreparationResult::Rejected { reason } =
-            currency.prepare_mint_account_record()?
-        {
+        if currency.is_removed()? {
+            let reason = CurrencyMintAccountRecordRejectionReason::Removed;
+            currency.reject_record_mint_account(None, reason)?;
             self.currency_repository
                 .save(uow, request_context, &mut currency)
                 .await?;
-            return Ok(CommandHandled::same(CurrencyMintAccountCreateOutput::from(
-                CurrencyMintAccountRecordResult::Rejected { reason },
-            )));
+            return Ok(CommandHandled::same(
+                CurrencyMintAccountCreateOutput::Rejected { reason },
+            ));
+        }
+
+        if currency.mint_account()?.is_some() {
+            let reason = CurrencyMintAccountRecordRejectionReason::AlreadyRecorded;
+            currency.reject_record_mint_account(None, reason)?;
+            self.currency_repository
+                .save(uow, request_context, &mut currency)
+                .await?;
+            return Ok(CommandHandled::same(
+                CurrencyMintAccountCreateOutput::Rejected { reason },
+            ));
         }
 
         let seed = MintAccountSeed::try_from(command.currency_id)?;
@@ -150,9 +161,16 @@ where
             .save(uow, request_context, &mut currency)
             .await?;
 
-        Ok(CommandHandled::same(CurrencyMintAccountCreateOutput::from(
-            result,
-        )))
+        let output = match result {
+            CurrencyMintAccountRecordResult::Recorded { mint_account } => {
+                CurrencyMintAccountCreateOutput::Created { mint_account }
+            }
+            CurrencyMintAccountRecordResult::Rejected { reason } => {
+                CurrencyMintAccountCreateOutput::Rejected { reason }
+            }
+        };
+
+        Ok(CommandHandled::same(output))
     }
 }
 
@@ -415,8 +433,11 @@ mod tests {
             .expect("currency should be saved");
         assert_eq!(saved.uncommitted_events().len(), 1);
         assert_eq!(
-            saved.uncommitted_events()[0].payload().name(),
-            CurrencyEventPayload::MINT_ACCOUNT_RECORD_REJECTED
+            saved.uncommitted_events()[0].payload(),
+            &CurrencyEventPayload::MintAccountRecordRejected {
+                mint_account: None,
+                reason: CurrencyMintAccountRecordRejectionReason::AlreadyRecorded,
+            }
         );
     }
 
@@ -460,8 +481,11 @@ mod tests {
             .expect("currency should be saved");
         assert_eq!(saved.uncommitted_events().len(), 1);
         assert_eq!(
-            saved.uncommitted_events()[0].payload().name(),
-            CurrencyEventPayload::MINT_ACCOUNT_RECORD_REJECTED
+            saved.uncommitted_events()[0].payload(),
+            &CurrencyEventPayload::MintAccountRecordRejected {
+                mint_account: None,
+                reason: CurrencyMintAccountRecordRejectionReason::Removed,
+            }
         );
     }
 

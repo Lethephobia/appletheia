@@ -102,7 +102,7 @@ where
             }
             None => {
                 let mut user = User::default();
-                user.register()?;
+                let _ = user.register()?;
                 let rejection_reason =
                     match user.link_identity(provider.clone(), subject.clone(), email)? {
                         UserIdentityLinkResult::Linked => None,
@@ -139,17 +139,15 @@ where
                         return Err(OidcCompleteCommandHandlerError::AuthenticatedUserNotFound);
                     };
 
-                    let rejection_reason = match authenticated_user.reject_link_identity(
+                    let reason = UserIdentityLinkRejectionReason::AlreadyLinked;
+                    authenticated_user.reject_link_identity(
                         provider.clone(),
                         subject.clone(),
                         email,
-                        UserIdentityLinkRejectionReason::AlreadyLinked,
-                    )? {
-                        UserIdentityLinkResult::Linked => None,
-                        UserIdentityLinkResult::Rejected { reason } => {
-                            Some(OidcCompleteRejectionReason::IdentityLink { reason })
-                        }
-                    };
+                        reason,
+                    )?;
+                    let rejection_reason =
+                        Some(OidcCompleteRejectionReason::IdentityLink { reason });
 
                     return Ok((authenticated_user, rejection_reason));
                 }

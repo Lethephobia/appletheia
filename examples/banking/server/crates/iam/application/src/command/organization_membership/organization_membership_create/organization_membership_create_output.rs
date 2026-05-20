@@ -1,7 +1,4 @@
-use banking_iam_domain::{
-    OrganizationMembershipCreateRejectionReason, OrganizationMembershipCreateResult,
-    OrganizationMembershipId,
-};
+use banking_iam_domain::{OrganizationMembershipCreateRejectionReason, OrganizationMembershipId};
 use serde::{Deserialize, Serialize};
 
 /// The output returned after creating an organization membership.
@@ -12,19 +9,7 @@ pub enum OrganizationMembershipCreateOutput {
         organization_membership_id: OrganizationMembershipId,
     },
     Rejected {
+        organization_membership_id: OrganizationMembershipId,
         reason: OrganizationMembershipCreateRejectionReason,
     },
-}
-
-impl From<OrganizationMembershipCreateResult> for OrganizationMembershipCreateOutput {
-    fn from(value: OrganizationMembershipCreateResult) -> Self {
-        match value {
-            OrganizationMembershipCreateResult::Created {
-                organization_membership_id,
-            } => Self::Created {
-                organization_membership_id,
-            },
-            OrganizationMembershipCreateResult::Rejected { reason } => Self::Rejected { reason },
-        }
-    }
 }

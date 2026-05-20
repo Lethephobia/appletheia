@@ -4,7 +4,7 @@ use appletheia::application::authorization::{
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_iam_domain::Organization;
+use banking_iam_domain::{Organization, OrganizationHandleChangeResult};
 
 use super::{
     OrganizationHandleChangeCommand, OrganizationHandleChangeCommandHandlerError,
@@ -75,9 +75,14 @@ where
             .save(uow, request_context, &mut organization)
             .await?;
 
-        Ok(CommandHandled::same(OrganizationHandleChangeOutput::from(
-            result,
-        )))
+        let output = match result {
+            OrganizationHandleChangeResult::Changed => OrganizationHandleChangeOutput::Changed,
+            OrganizationHandleChangeResult::Rejected { reason } => {
+                OrganizationHandleChangeOutput::Rejected { reason }
+            }
+        };
+
+        Ok(CommandHandled::same(output))
     }
 }
 

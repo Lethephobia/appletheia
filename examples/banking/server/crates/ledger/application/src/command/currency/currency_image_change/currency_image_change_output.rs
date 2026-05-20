@@ -1,6 +1,4 @@
-use banking_ledger_domain::currency::{
-    CurrencyImageChangeRejectionReason, CurrencyImageChangeResult,
-};
+use banking_ledger_domain::currency::CurrencyImageChangeRejectionReason;
 use serde::{Deserialize, Serialize};
 
 /// The output returned after changing a currency image.
@@ -11,13 +9,4 @@ pub enum CurrencyImageChangeOutput {
     Rejected {
         reason: CurrencyImageChangeRejectionReason,
     },
-}
-
-impl From<CurrencyImageChangeResult> for CurrencyImageChangeOutput {
-    fn from(value: CurrencyImageChangeResult) -> Self {
-        match value {
-            CurrencyImageChangeResult::Changed => Self::Changed,
-            CurrencyImageChangeResult::Rejected { reason } => Self::Rejected { reason },
-        }
-    }
 }

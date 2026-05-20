@@ -105,11 +105,16 @@ where
         )?;
         let mut organization_join_request = OrganizationJoinRequest::default();
         let result = if organization.is_removed()? {
-            organization_join_request.reject_request(
+            let reason = OrganizationJoinRequestRequestRejectionReason::OrganizationRemoved;
+            let organization_join_request_id = organization_join_request.reject_request(
                 command.organization_id,
                 command.requester_id,
-                OrganizationJoinRequestRequestRejectionReason::OrganizationRemoved,
-            )?
+                reason,
+            )?;
+            banking_iam_domain::OrganizationJoinRequestRequestResult::Rejected {
+                organization_join_request_id,
+                reason,
+            }
         } else if self
             .organization_membership_repository
             .find_by_unique_value(
@@ -120,11 +125,16 @@ where
             .await?
             .is_some()
         {
-            organization_join_request.reject_request(
+            let reason = OrganizationJoinRequestRequestRejectionReason::RequesterAlreadyMember;
+            let organization_join_request_id = organization_join_request.reject_request(
                 command.organization_id,
                 command.requester_id,
-                OrganizationJoinRequestRequestRejectionReason::RequesterAlreadyMember,
-            )?
+                reason,
+            )?;
+            banking_iam_domain::OrganizationJoinRequestRequestResult::Rejected {
+                organization_join_request_id,
+                reason,
+            }
         } else if self
             .organization_join_request_repository
             .find_by_unique_value(
@@ -135,11 +145,16 @@ where
             .await?
             .is_some()
         {
-            organization_join_request.reject_request(
+            let reason = OrganizationJoinRequestRequestRejectionReason::AlreadyRequested;
+            let organization_join_request_id = organization_join_request.reject_request(
                 command.organization_id,
                 command.requester_id,
-                OrganizationJoinRequestRequestRejectionReason::AlreadyRequested,
-            )?
+                reason,
+            )?;
+            banking_iam_domain::OrganizationJoinRequestRequestResult::Rejected {
+                organization_join_request_id,
+                reason,
+            }
         } else {
             organization_join_request.request(command.organization_id, command.requester_id)?
         };
@@ -148,6 +163,21 @@ where
             .save(uow, request_context, &mut organization_join_request)
             .await?;
 
-        Ok(CommandHandled::same(result.into()))
+        let output = match result {
+            banking_iam_domain::OrganizationJoinRequestRequestResult::Requested {
+                organization_join_request_id,
+            } => OrganizationJoinRequestCreateOutput::Requested {
+                organization_join_request_id,
+            },
+            banking_iam_domain::OrganizationJoinRequestRequestResult::Rejected {
+                organization_join_request_id,
+                reason,
+            } => OrganizationJoinRequestCreateOutput::Rejected {
+                organization_join_request_id,
+                reason,
+            },
+        };
+
+        Ok(CommandHandled::same(output))
     }
 }

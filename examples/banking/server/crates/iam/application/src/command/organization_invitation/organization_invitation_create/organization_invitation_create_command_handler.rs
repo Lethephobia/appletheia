@@ -114,14 +114,19 @@ where
             Self::organization_user_unique_value(command.organization_id, command.invitee_id)?;
         let mut organization_invitation = OrganizationInvitation::default();
         let result = if organization.is_removed()? {
-            organization_invitation.reject_issue(
+            let reason = OrganizationInvitationIssueRejectionReason::OrganizationRemoved;
+            let organization_invitation_id = organization_invitation.reject_issue(
                 command.organization_id,
                 command.invitee_id,
                 command.roles.clone(),
                 command.issuer,
                 command.expires_at,
-                OrganizationInvitationIssueRejectionReason::OrganizationRemoved,
-            )?
+                reason,
+            )?;
+            banking_iam_domain::OrganizationInvitationIssueResult::Rejected {
+                organization_invitation_id,
+                reason,
+            }
         } else if self
             .organization_membership_repository
             .find_by_unique_value(
@@ -132,14 +137,19 @@ where
             .await?
             .is_some()
         {
-            organization_invitation.reject_issue(
+            let reason = OrganizationInvitationIssueRejectionReason::InviteeAlreadyMember;
+            let organization_invitation_id = organization_invitation.reject_issue(
                 command.organization_id,
                 command.invitee_id,
                 command.roles.clone(),
                 command.issuer,
                 command.expires_at,
-                OrganizationInvitationIssueRejectionReason::InviteeAlreadyMember,
-            )?
+                reason,
+            )?;
+            banking_iam_domain::OrganizationInvitationIssueResult::Rejected {
+                organization_invitation_id,
+                reason,
+            }
         } else {
             organization_invitation.issue(
                 command.organization_id,
@@ -155,8 +165,21 @@ where
             .save(uow, request_context, &mut organization_invitation)
             .await?;
 
-        Ok(CommandHandled::same(
-            OrganizationInvitationIssueOutput::from(result),
-        ))
+        let output = match result {
+            banking_iam_domain::OrganizationInvitationIssueResult::Issued {
+                organization_invitation_id,
+            } => OrganizationInvitationIssueOutput::Issued {
+                organization_invitation_id,
+            },
+            banking_iam_domain::OrganizationInvitationIssueResult::Rejected {
+                organization_invitation_id,
+                reason,
+            } => OrganizationInvitationIssueOutput::Rejected {
+                organization_invitation_id,
+                reason,
+            },
+        };
+
+        Ok(CommandHandled::same(output))
     }
 }

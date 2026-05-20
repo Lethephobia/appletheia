@@ -1,3 +1,4 @@
+mod organization_create_result;
 mod organization_description;
 mod organization_description_change_rejection_reason;
 mod organization_description_change_result;
@@ -34,6 +35,7 @@ mod organization_website_url_change_rejection_reason;
 mod organization_website_url_change_result;
 mod organization_website_url_error;
 
+pub use organization_create_result::OrganizationCreateResult;
 pub use organization_description::OrganizationDescription;
 pub use organization_description_change_rejection_reason::OrganizationDescriptionChangeRejectionReason;
 pub use organization_description_change_result::OrganizationDescriptionChangeResult;
@@ -137,20 +139,23 @@ impl Organization {
         description: Option<OrganizationDescription>,
         website_url: Option<OrganizationWebsiteUrl>,
         picture: Option<OrganizationPictureRef>,
-    ) -> Result<(), OrganizationError> {
+    ) -> Result<OrganizationCreateResult, OrganizationError> {
         if self.state().is_some() {
             return Err(OrganizationError::AlreadyCreated);
         }
 
+        let organization_id = OrganizationId::new();
         self.append_event(OrganizationEventPayload::Created {
-            id: OrganizationId::new(),
+            id: organization_id,
             owner,
             handle,
             display_name,
             description,
             website_url,
             picture,
-        })
+        })?;
+
+        Ok(OrganizationCreateResult::Created { organization_id })
     }
 
     /// Transfers ownership of the organization.
@@ -160,7 +165,8 @@ impl Organization {
     ) -> Result<OrganizationOwnershipTransferResult, OrganizationError> {
         if self.state_required()?.status.is_removed() {
             let reason = OrganizationOwnershipTransferRejectionReason::Removed;
-            return self.reject_transfer_ownership(owner, reason);
+            self.reject_transfer_ownership(owner, reason)?;
+            return Ok(OrganizationOwnershipTransferResult::Rejected { reason });
         }
 
         self.append_event(OrganizationEventPayload::OwnershipTransferred { owner })?;
@@ -172,9 +178,9 @@ impl Organization {
         &mut self,
         owner: OrganizationOwner,
         reason: OrganizationOwnershipTransferRejectionReason,
-    ) -> Result<OrganizationOwnershipTransferResult, OrganizationError> {
+    ) -> Result<(), OrganizationError> {
         self.append_event(OrganizationEventPayload::OwnershipTransferRejected { owner, reason })?;
-        Ok(OrganizationOwnershipTransferResult::Rejected { reason })
+        Ok(())
     }
 
     /// Changes the current organization handle.
@@ -184,7 +190,8 @@ impl Organization {
     ) -> Result<OrganizationHandleChangeResult, OrganizationError> {
         if self.state_required()?.status.is_removed() {
             let reason = OrganizationHandleChangeRejectionReason::Removed;
-            return self.reject_change_handle(handle, reason);
+            self.reject_change_handle(handle, reason)?;
+            return Ok(OrganizationHandleChangeResult::Rejected { reason });
         }
 
         self.append_event(OrganizationEventPayload::HandleChanged { handle })?;
@@ -196,9 +203,9 @@ impl Organization {
         &mut self,
         handle: OrganizationHandle,
         reason: OrganizationHandleChangeRejectionReason,
-    ) -> Result<OrganizationHandleChangeResult, OrganizationError> {
+    ) -> Result<(), OrganizationError> {
         self.append_event(OrganizationEventPayload::HandleChangeRejected { handle, reason })?;
-        Ok(OrganizationHandleChangeResult::Rejected { reason })
+        Ok(())
     }
 
     /// Changes the current organization display name.
@@ -208,7 +215,8 @@ impl Organization {
     ) -> Result<OrganizationDisplayNameChangeResult, OrganizationError> {
         if self.state_required()?.status.is_removed() {
             let reason = OrganizationDisplayNameChangeRejectionReason::Removed;
-            return self.reject_change_display_name(display_name, reason);
+            self.reject_change_display_name(display_name, reason)?;
+            return Ok(OrganizationDisplayNameChangeResult::Rejected { reason });
         }
 
         self.append_event(OrganizationEventPayload::DisplayNameChanged { display_name })?;
@@ -220,12 +228,12 @@ impl Organization {
         &mut self,
         display_name: OrganizationDisplayName,
         reason: OrganizationDisplayNameChangeRejectionReason,
-    ) -> Result<OrganizationDisplayNameChangeResult, OrganizationError> {
+    ) -> Result<(), OrganizationError> {
         self.append_event(OrganizationEventPayload::DisplayNameChangeRejected {
             display_name,
             reason,
         })?;
-        Ok(OrganizationDisplayNameChangeResult::Rejected { reason })
+        Ok(())
     }
 
     /// Changes the current organization description.
@@ -235,7 +243,8 @@ impl Organization {
     ) -> Result<OrganizationDescriptionChangeResult, OrganizationError> {
         if self.state_required()?.status.is_removed() {
             let reason = OrganizationDescriptionChangeRejectionReason::Removed;
-            return self.reject_change_description(description, reason);
+            self.reject_change_description(description, reason)?;
+            return Ok(OrganizationDescriptionChangeResult::Rejected { reason });
         }
 
         self.append_event(OrganizationEventPayload::DescriptionChanged { description })?;
@@ -247,12 +256,12 @@ impl Organization {
         &mut self,
         description: Option<OrganizationDescription>,
         reason: OrganizationDescriptionChangeRejectionReason,
-    ) -> Result<OrganizationDescriptionChangeResult, OrganizationError> {
+    ) -> Result<(), OrganizationError> {
         self.append_event(OrganizationEventPayload::DescriptionChangeRejected {
             description,
             reason,
         })?;
-        Ok(OrganizationDescriptionChangeResult::Rejected { reason })
+        Ok(())
     }
 
     /// Changes the current organization website URL.
@@ -262,7 +271,8 @@ impl Organization {
     ) -> Result<OrganizationWebsiteUrlChangeResult, OrganizationError> {
         if self.state_required()?.status.is_removed() {
             let reason = OrganizationWebsiteUrlChangeRejectionReason::Removed;
-            return self.reject_change_website_url(website_url, reason);
+            self.reject_change_website_url(website_url, reason)?;
+            return Ok(OrganizationWebsiteUrlChangeResult::Rejected { reason });
         }
 
         self.append_event(OrganizationEventPayload::WebsiteUrlChanged { website_url })?;
@@ -274,12 +284,12 @@ impl Organization {
         &mut self,
         website_url: Option<OrganizationWebsiteUrl>,
         reason: OrganizationWebsiteUrlChangeRejectionReason,
-    ) -> Result<OrganizationWebsiteUrlChangeResult, OrganizationError> {
+    ) -> Result<(), OrganizationError> {
         self.append_event(OrganizationEventPayload::WebsiteUrlChangeRejected {
             website_url,
             reason,
         })?;
-        Ok(OrganizationWebsiteUrlChangeResult::Rejected { reason })
+        Ok(())
     }
 
     /// Changes the current organization picture.
@@ -289,7 +299,8 @@ impl Organization {
     ) -> Result<OrganizationPictureChangeResult, OrganizationError> {
         if self.state_required()?.status.is_removed() {
             let reason = OrganizationPictureChangeRejectionReason::Removed;
-            return self.reject_change_picture(picture, reason);
+            self.reject_change_picture(picture, reason)?;
+            return Ok(OrganizationPictureChangeResult::Rejected { reason });
         }
 
         let old_picture = self.state_required()?.picture.clone();
@@ -306,16 +317,17 @@ impl Organization {
         &mut self,
         picture: Option<OrganizationPictureRef>,
         reason: OrganizationPictureChangeRejectionReason,
-    ) -> Result<OrganizationPictureChangeResult, OrganizationError> {
+    ) -> Result<(), OrganizationError> {
         self.append_event(OrganizationEventPayload::PictureChangeRejected { picture, reason })?;
-        Ok(OrganizationPictureChangeResult::Rejected { reason })
+        Ok(())
     }
 
     /// Permanently removes the organization.
     pub fn remove(&mut self) -> Result<OrganizationRemoveResult, OrganizationError> {
         if self.state_required()?.status.is_removed() {
             let reason = OrganizationRemoveRejectionReason::Removed;
-            return self.reject_remove(reason);
+            self.reject_remove(reason)?;
+            return Ok(OrganizationRemoveResult::Rejected { reason });
         }
 
         self.append_event(OrganizationEventPayload::Removed)?;
@@ -326,9 +338,9 @@ impl Organization {
     pub fn reject_remove(
         &mut self,
         reason: OrganizationRemoveRejectionReason,
-    ) -> Result<OrganizationRemoveResult, OrganizationError> {
+    ) -> Result<(), OrganizationError> {
         self.append_event(OrganizationEventPayload::RemoveRejected { reason })?;
-        Ok(OrganizationRemoveResult::Rejected { reason })
+        Ok(())
     }
 }
 

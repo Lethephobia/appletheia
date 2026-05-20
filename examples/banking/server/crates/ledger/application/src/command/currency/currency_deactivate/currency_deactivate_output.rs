@@ -1,6 +1,4 @@
-use banking_ledger_domain::currency::{
-    CurrencyDeactivateRejectionReason, CurrencyDeactivateResult,
-};
+use banking_ledger_domain::currency::CurrencyDeactivateRejectionReason;
 use serde::{Deserialize, Serialize};
 
 /// Returned after a currency deactivation request is applied.
@@ -11,13 +9,4 @@ pub enum CurrencyDeactivateOutput {
     Rejected {
         reason: CurrencyDeactivateRejectionReason,
     },
-}
-
-impl From<CurrencyDeactivateResult> for CurrencyDeactivateOutput {
-    fn from(value: CurrencyDeactivateResult) -> Self {
-        match value {
-            CurrencyDeactivateResult::Deactivated => Self::Deactivated,
-            CurrencyDeactivateResult::Rejected { reason } => Self::Rejected { reason },
-        }
-    }
 }

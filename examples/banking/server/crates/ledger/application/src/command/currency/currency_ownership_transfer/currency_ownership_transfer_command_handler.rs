@@ -4,7 +4,7 @@ use appletheia::application::authorization::{
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_ledger_domain::currency::Currency;
+use banking_ledger_domain::currency::{Currency, CurrencyOwnershipTransferResult};
 
 use super::{
     CurrencyOwnershipTransferCommand, CurrencyOwnershipTransferCommandHandlerError,
@@ -75,8 +75,15 @@ where
             .save(uow, request_context, &mut currency)
             .await?;
 
-        Ok(CommandHandled::same(CurrencyOwnershipTransferOutput::from(
-            result,
-        )))
+        let output = match result {
+            CurrencyOwnershipTransferResult::Transferred => {
+                CurrencyOwnershipTransferOutput::Transferred
+            }
+            CurrencyOwnershipTransferResult::Rejected { reason } => {
+                CurrencyOwnershipTransferOutput::Rejected { reason }
+            }
+        };
+
+        Ok(CommandHandled::same(output))
     }
 }

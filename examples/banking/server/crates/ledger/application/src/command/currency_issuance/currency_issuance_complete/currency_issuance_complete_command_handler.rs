@@ -2,7 +2,7 @@ use appletheia::application::authorization::{AuthorizationPlan, PrincipalRequire
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_ledger_domain::currency_issuance::CurrencyIssuance;
+use banking_ledger_domain::currency_issuance::{CurrencyIssuance, CurrencyIssuanceCompleteResult};
 
 use super::{
     CurrencyIssuanceCompleteCommand, CurrencyIssuanceCompleteCommandHandlerError,
@@ -66,8 +66,13 @@ where
             .save(uow, request_context, &mut currency_issuance)
             .await?;
 
-        Ok(CommandHandled::same(CurrencyIssuanceCompleteOutput::from(
-            result,
-        )))
+        let output = match result {
+            CurrencyIssuanceCompleteResult::Completed => CurrencyIssuanceCompleteOutput::Completed,
+            CurrencyIssuanceCompleteResult::Rejected { reason } => {
+                CurrencyIssuanceCompleteOutput::Rejected { reason }
+            }
+        };
+
+        Ok(CommandHandled::same(output))
     }
 }

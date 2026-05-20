@@ -1,6 +1,4 @@
-use banking_ledger_domain::currency::{
-    CurrencyNameChangeRejectionReason, CurrencyNameChangeResult,
-};
+use banking_ledger_domain::currency::CurrencyNameChangeRejectionReason;
 use serde::{Deserialize, Serialize};
 
 /// The output returned after changing a currency name.
@@ -11,13 +9,4 @@ pub enum CurrencyNameChangeOutput {
     Rejected {
         reason: CurrencyNameChangeRejectionReason,
     },
-}
-
-impl From<CurrencyNameChangeResult> for CurrencyNameChangeOutput {
-    fn from(value: CurrencyNameChangeResult) -> Self {
-        match value {
-            CurrencyNameChangeResult::Changed => Self::Changed,
-            CurrencyNameChangeResult::Rejected { reason } => Self::Rejected { reason },
-        }
-    }
 }

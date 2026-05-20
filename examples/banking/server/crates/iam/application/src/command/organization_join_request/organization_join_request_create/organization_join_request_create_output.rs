@@ -1,6 +1,5 @@
 use banking_iam_domain::{
     OrganizationJoinRequestId, OrganizationJoinRequestRequestRejectionReason,
-    OrganizationJoinRequestRequestResult,
 };
 use serde::{Deserialize, Serialize};
 
@@ -12,19 +11,7 @@ pub enum OrganizationJoinRequestCreateOutput {
         organization_join_request_id: OrganizationJoinRequestId,
     },
     Rejected {
+        organization_join_request_id: OrganizationJoinRequestId,
         reason: OrganizationJoinRequestRequestRejectionReason,
     },
-}
-
-impl From<OrganizationJoinRequestRequestResult> for OrganizationJoinRequestCreateOutput {
-    fn from(value: OrganizationJoinRequestRequestResult) -> Self {
-        match value {
-            OrganizationJoinRequestRequestResult::Requested {
-                organization_join_request_id,
-            } => Self::Requested {
-                organization_join_request_id,
-            },
-            OrganizationJoinRequestRequestResult::Rejected { reason } => Self::Rejected { reason },
-        }
-    }
 }

@@ -7,8 +7,9 @@ pub mod user;
 
 pub use core::{CurrentDateTime, Email, EmailError};
 pub use organization::{
-    Organization, OrganizationDescription, OrganizationDescriptionChangeRejectionReason,
-    OrganizationDescriptionChangeResult, OrganizationDescriptionError, OrganizationDisplayName,
+    Organization, OrganizationCreateResult, OrganizationDescription,
+    OrganizationDescriptionChangeRejectionReason, OrganizationDescriptionChangeResult,
+    OrganizationDescriptionError, OrganizationDisplayName,
     OrganizationDisplayNameChangeRejectionReason, OrganizationDisplayNameChangeResult,
     OrganizationDisplayNameError, OrganizationError, OrganizationEventPayload,
     OrganizationEventPayloadError, OrganizationHandle, OrganizationHandleChangeRejectionReason,
@@ -60,5 +61,6 @@ pub use user::{
     UserEventPayload, UserEventPayloadError, UserId, UserIdentity, UserIdentityProvider,
     UserIdentityProviderError, UserIdentitySubject, UserIdentitySubjectError,
     UserPictureObjectName, UserPictureObjectNameError, UserPictureRef, UserPictureUrl,
-    UserPictureUrlError, UserState, UserStateError, UserStatus, Username, UsernameError,
+    UserPictureUrlError, UserRegisterResult, UserState, UserStateError, UserStatus, Username,
+    UsernameError,
 };

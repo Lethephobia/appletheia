@@ -6,6 +6,7 @@ pub enum OrganizationJoinRequestRequestResult {
         organization_join_request_id: OrganizationJoinRequestId,
     },
     Rejected {
+        organization_join_request_id: OrganizationJoinRequestId,
         reason: OrganizationJoinRequestRequestRejectionReason,
     },
 }

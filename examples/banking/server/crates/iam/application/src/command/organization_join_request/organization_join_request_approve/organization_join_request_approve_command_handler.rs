@@ -6,6 +6,7 @@ use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_iam_domain::{
     Organization, OrganizationJoinRequest, OrganizationJoinRequestApproveRejectionReason,
+    OrganizationJoinRequestApproveResult,
 };
 
 use crate::authorization::OrganizationJoinRequestApproverRelation;
@@ -88,9 +89,9 @@ where
         };
 
         let result = if organization.is_removed()? {
-            organization_join_request.reject_approve(
-                OrganizationJoinRequestApproveRejectionReason::OrganizationRemoved,
-            )?
+            let reason = OrganizationJoinRequestApproveRejectionReason::OrganizationRemoved;
+            organization_join_request.reject_approve(reason)?;
+            OrganizationJoinRequestApproveResult::Rejected { reason }
         } else {
             organization_join_request.approve()?
         };
@@ -99,8 +100,15 @@ where
             .save(uow, _request_context, &mut organization_join_request)
             .await?;
 
-        Ok(CommandHandled::same(
-            OrganizationJoinRequestApproveOutput::from(result),
-        ))
+        let output = match result {
+            OrganizationJoinRequestApproveResult::Approved => {
+                OrganizationJoinRequestApproveOutput::Approved
+            }
+            OrganizationJoinRequestApproveResult::Rejected { reason } => {
+                OrganizationJoinRequestApproveOutput::Rejected { reason }
+            }
+        };
+
+        Ok(CommandHandled::same(output))
     }
 }

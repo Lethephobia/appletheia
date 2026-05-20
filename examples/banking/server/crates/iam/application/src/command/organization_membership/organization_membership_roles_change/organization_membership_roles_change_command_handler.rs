@@ -6,6 +6,7 @@ use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_iam_domain::{
     Organization, OrganizationMembership, OrganizationMembershipRolesChangeRejectionReason,
+    OrganizationMembershipRolesChangeResult,
 };
 
 use super::{
@@ -87,10 +88,9 @@ where
         };
 
         let result = if organization.is_removed()? {
-            organization_membership.reject_change_roles(
-                command.roles.clone(),
-                OrganizationMembershipRolesChangeRejectionReason::OrganizationRemoved,
-            )?
+            let reason = OrganizationMembershipRolesChangeRejectionReason::OrganizationRemoved;
+            organization_membership.reject_change_roles(command.roles.clone(), reason)?;
+            OrganizationMembershipRolesChangeResult::Rejected { reason }
         } else {
             organization_membership.change_roles(command.roles.clone())?
         };
@@ -99,9 +99,16 @@ where
             .save(uow, request_context, &mut organization_membership)
             .await?;
 
-        Ok(CommandHandled::same(
-            OrganizationMembershipRolesChangeOutput::from(result),
-        ))
+        let output = match result {
+            OrganizationMembershipRolesChangeResult::Changed => {
+                OrganizationMembershipRolesChangeOutput::Changed
+            }
+            OrganizationMembershipRolesChangeResult::Rejected { reason } => {
+                OrganizationMembershipRolesChangeOutput::Rejected { reason }
+            }
+        };
+
+        Ok(CommandHandled::same(output))
     }
 }
 

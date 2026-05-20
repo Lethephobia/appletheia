@@ -6,7 +6,7 @@ use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_iam_domain::{
     CurrentDateTime, Organization, OrganizationInvitation,
-    OrganizationInvitationAcceptRejectionReason,
+    OrganizationInvitationAcceptRejectionReason, OrganizationInvitationAcceptResult,
 };
 
 use crate::authorization::OrganizationInvitationInviteeRelation;
@@ -89,8 +89,9 @@ where
         };
 
         let result = if organization.is_removed()? {
-            organization_invitation
-                .reject_accept(OrganizationInvitationAcceptRejectionReason::OrganizationRemoved)?
+            let reason = OrganizationInvitationAcceptRejectionReason::OrganizationRemoved;
+            organization_invitation.reject_accept(reason)?;
+            OrganizationInvitationAcceptResult::Rejected { reason }
         } else {
             organization_invitation.accept(CurrentDateTime::new())?
         };
@@ -99,8 +100,15 @@ where
             .save(uow, _request_context, &mut organization_invitation)
             .await?;
 
-        Ok(CommandHandled::same(
-            OrganizationInvitationAcceptOutput::from(result),
-        ))
+        let output = match result {
+            OrganizationInvitationAcceptResult::Accepted => {
+                OrganizationInvitationAcceptOutput::Accepted
+            }
+            OrganizationInvitationAcceptResult::Rejected { reason } => {
+                OrganizationInvitationAcceptOutput::Rejected { reason }
+            }
+        };
+
+        Ok(CommandHandled::same(output))
     }
 }

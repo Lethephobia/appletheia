@@ -1,6 +1,4 @@
-use banking_ledger_domain::currency::{
-    CurrencySupplyDecreaseRejectionReason, CurrencySupplyDecreaseResult,
-};
+use banking_ledger_domain::currency::CurrencySupplyDecreaseRejectionReason;
 use serde::{Deserialize, Serialize};
 
 /// Returned after decreasing currency supply.
@@ -11,13 +9,4 @@ pub enum CurrencySupplyDecreaseOutput {
     Rejected {
         reason: CurrencySupplyDecreaseRejectionReason,
     },
-}
-
-impl From<CurrencySupplyDecreaseResult> for CurrencySupplyDecreaseOutput {
-    fn from(value: CurrencySupplyDecreaseResult) -> Self {
-        match value {
-            CurrencySupplyDecreaseResult::Decreased => Self::Decreased,
-            CurrencySupplyDecreaseResult::Rejected { reason } => Self::Rejected { reason },
-        }
-    }
 }

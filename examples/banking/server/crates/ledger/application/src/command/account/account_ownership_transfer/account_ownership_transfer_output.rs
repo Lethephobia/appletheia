@@ -1,6 +1,4 @@
-use banking_ledger_domain::account::{
-    AccountOwnershipTransferRejectionReason, AccountOwnershipTransferResult,
-};
+use banking_ledger_domain::account::AccountOwnershipTransferRejectionReason;
 use serde::{Deserialize, Serialize};
 
 /// The output returned after transferring account ownership.
@@ -11,13 +9,4 @@ pub enum AccountOwnershipTransferOutput {
     Rejected {
         reason: AccountOwnershipTransferRejectionReason,
     },
-}
-
-impl From<AccountOwnershipTransferResult> for AccountOwnershipTransferOutput {
-    fn from(value: AccountOwnershipTransferResult) -> Self {
-        match value {
-            AccountOwnershipTransferResult::Transferred => Self::Transferred,
-            AccountOwnershipTransferResult::Rejected { reason } => Self::Rejected { reason },
-        }
-    }
 }

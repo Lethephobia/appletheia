@@ -7,6 +7,7 @@ pub enum TransferRequestResult {
         transfer_id: TransferId,
     },
     Rejected {
+        transfer_id: TransferId,
         reason: TransferRequestRejectionReason,
     },
 }

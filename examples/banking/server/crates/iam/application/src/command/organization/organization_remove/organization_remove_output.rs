@@ -1,4 +1,4 @@
-use banking_iam_domain::{OrganizationRemoveRejectionReason, OrganizationRemoveResult};
+use banking_iam_domain::OrganizationRemoveRejectionReason;
 use serde::{Deserialize, Serialize};
 
 /// Returned after an organization operation is handled.
@@ -9,13 +9,4 @@ pub enum OrganizationRemoveOutput {
     Rejected {
         reason: OrganizationRemoveRejectionReason,
     },
-}
-
-impl From<OrganizationRemoveResult> for OrganizationRemoveOutput {
-    fn from(value: OrganizationRemoveResult) -> Self {
-        match value {
-            OrganizationRemoveResult::Removed => Self::Removed,
-            OrganizationRemoveResult::Rejected { reason } => Self::Rejected { reason },
-        }
-    }
 }

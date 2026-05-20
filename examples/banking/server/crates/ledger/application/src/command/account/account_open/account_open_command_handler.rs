@@ -4,12 +4,11 @@ use appletheia::application::authorization::{
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use appletheia::domain::Aggregate;
 use banking_iam_application::authorization::{
     OrganizationFinanceManagerRelation, UserOwnerRelation,
 };
 use banking_iam_domain::{Organization, User};
-use banking_ledger_domain::account::{Account, AccountOwner};
+use banking_ledger_domain::account::{Account, AccountOpenResult, AccountOwner};
 
 use super::{AccountOpenCommand, AccountOpenCommandHandlerError, AccountOpenOutput};
 
@@ -70,17 +69,17 @@ where
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
         let mut account = Account::default();
-        account.open(command.owner, command.name.clone(), command.currency_id)?;
+        let result = account.open(command.owner, command.name.clone(), command.currency_id)?;
 
         self.account_repository
             .save(uow, request_context, &mut account)
             .await?;
 
-        let account_id = account
-            .aggregate_id()
-            .ok_or(AccountOpenCommandHandlerError::MissingAccountId)?;
+        let output = match result {
+            AccountOpenResult::Opened { account_id } => AccountOpenOutput::new(account_id),
+        };
 
-        Ok(CommandHandled::same(AccountOpenOutput::new(account_id)))
+        Ok(CommandHandled::same(output))
     }
 }
 

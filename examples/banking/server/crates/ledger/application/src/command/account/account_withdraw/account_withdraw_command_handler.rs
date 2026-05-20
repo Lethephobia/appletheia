@@ -2,7 +2,7 @@ use appletheia::application::authorization::{AuthorizationPlan, PrincipalRequire
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_ledger_domain::account::Account;
+use banking_ledger_domain::account::{Account, AccountWithdrawResult};
 
 use super::{AccountWithdrawCommand, AccountWithdrawCommandHandlerError, AccountWithdrawOutput};
 
@@ -61,6 +61,13 @@ where
             .save(uow, request_context, &mut account)
             .await?;
 
-        Ok(CommandHandled::same(AccountWithdrawOutput::from(result)))
+        let output = match result {
+            AccountWithdrawResult::Withdrawn => AccountWithdrawOutput::Withdrawn,
+            AccountWithdrawResult::Rejected { reason } => {
+                AccountWithdrawOutput::Rejected { reason }
+            }
+        };
+
+        Ok(CommandHandled::same(output))
     }
 }

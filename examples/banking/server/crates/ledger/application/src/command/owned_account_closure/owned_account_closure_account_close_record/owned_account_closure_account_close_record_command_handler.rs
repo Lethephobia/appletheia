@@ -2,7 +2,9 @@ use appletheia::application::authorization::{AuthorizationPlan, PrincipalRequire
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_ledger_domain::owned_account_closure::OwnedAccountClosure;
+use banking_ledger_domain::owned_account_closure::{
+    OwnedAccountClosure, OwnedAccountClosureRecordResult,
+};
 
 use super::{
     OwnedAccountClosureAccountCloseRecordCommand,
@@ -69,8 +71,15 @@ where
             .save(uow, request_context, &mut owned_account_closure)
             .await?;
 
-        Ok(CommandHandled::same(
-            OwnedAccountClosureAccountCloseRecordOutput::from(result),
-        ))
+        let output = match result {
+            OwnedAccountClosureRecordResult::Recorded => {
+                OwnedAccountClosureAccountCloseRecordOutput::Recorded
+            }
+            OwnedAccountClosureRecordResult::Rejected { reason } => {
+                OwnedAccountClosureAccountCloseRecordOutput::Rejected { reason }
+            }
+        };
+
+        Ok(CommandHandled::same(output))
     }
 }

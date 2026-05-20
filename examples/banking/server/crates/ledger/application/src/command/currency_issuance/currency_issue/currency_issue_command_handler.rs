@@ -4,7 +4,6 @@ use appletheia::application::authorization::{
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use appletheia::domain::Aggregate;
 use banking_ledger_domain::account::Account;
 use banking_ledger_domain::currency::Currency;
 use banking_ledger_domain::currency_issuance::{
@@ -94,37 +93,47 @@ where
 
         let mut currency_issuance = CurrencyIssuance::default();
         let output = if destination_account.currency_id()? != &command.currency_id {
-            CurrencyIssueOutput::from(currency_issuance.reject_issue(
+            let reason = CurrencyIssuanceIssueRejectionReason::CurrencyMismatch;
+            let currency_issuance_id = currency_issuance.reject_issue(
                 command.currency_id,
                 command.destination_account_id,
                 command.amount,
-                CurrencyIssuanceIssueRejectionReason::CurrencyMismatch,
-            )?)
-        } else if !currency.is_active()? {
-            CurrencyIssueOutput::from(currency_issuance.reject_issue(
-                command.currency_id,
-                command.destination_account_id,
-                command.amount,
-                CurrencyIssuanceIssueRejectionReason::CurrencyInactive,
-            )?)
-        } else {
-            let result = currency_issuance.issue(
-                command.currency_id,
-                command.destination_account_id,
-                command.amount,
+                reason,
             )?;
-            match result {
-                CurrencyIssuanceIssueResult::Issued => {
-                    let currency_issuance_id = currency_issuance
-                        .aggregate_id()
-                        .ok_or(CurrencyIssueCommandHandlerError::MissingCurrencyIssuanceId)?;
-                    CurrencyIssueOutput::Issued {
-                        currency_issuance_id,
-                    }
-                }
-                CurrencyIssuanceIssueResult::Rejected { reason } => {
-                    CurrencyIssueOutput::Rejected { reason }
-                }
+            CurrencyIssueOutput::Rejected {
+                currency_issuance_id,
+                reason,
+            }
+        } else if !currency.is_active()? {
+            let reason = CurrencyIssuanceIssueRejectionReason::CurrencyInactive;
+            let currency_issuance_id = currency_issuance.reject_issue(
+                command.currency_id,
+                command.destination_account_id,
+                command.amount,
+                reason,
+            )?;
+            CurrencyIssueOutput::Rejected {
+                currency_issuance_id,
+                reason,
+            }
+        } else {
+            match currency_issuance.issue(
+                command.currency_id,
+                command.destination_account_id,
+                command.amount,
+            )? {
+                CurrencyIssuanceIssueResult::Issued {
+                    currency_issuance_id,
+                } => CurrencyIssueOutput::Issued {
+                    currency_issuance_id,
+                },
+                CurrencyIssuanceIssueResult::Rejected {
+                    currency_issuance_id,
+                    reason,
+                } => CurrencyIssueOutput::Rejected {
+                    currency_issuance_id,
+                    reason,
+                },
             }
         };
 

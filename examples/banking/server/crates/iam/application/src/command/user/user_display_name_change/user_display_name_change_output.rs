@@ -1,4 +1,4 @@
-use banking_iam_domain::user::{UserDisplayNameChangeRejectionReason, UserDisplayNameChangeResult};
+use banking_iam_domain::user::UserDisplayNameChangeRejectionReason;
 use serde::{Deserialize, Serialize};
 
 /// Returned after a user display name change request is applied.
@@ -9,13 +9,4 @@ pub enum UserDisplayNameChangeOutput {
     Rejected {
         reason: UserDisplayNameChangeRejectionReason,
     },
-}
-
-impl From<UserDisplayNameChangeResult> for UserDisplayNameChangeOutput {
-    fn from(value: UserDisplayNameChangeResult) -> Self {
-        match value {
-            UserDisplayNameChangeResult::Changed => Self::Changed,
-            UserDisplayNameChangeResult::Rejected { reason } => Self::Rejected { reason },
-        }
-    }
 }

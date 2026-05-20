@@ -4,8 +4,7 @@ use appletheia::application::authorization::{
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use appletheia::domain::Aggregate;
-use banking_iam_domain::{Organization, OrganizationOwner, User};
+use banking_iam_domain::{Organization, OrganizationCreateResult, OrganizationOwner, User};
 
 use super::{
     OrganizationCreateCommand, OrganizationCreateCommandHandlerError, OrganizationCreateOutput,
@@ -71,7 +70,7 @@ where
             picture,
         } = command.clone();
         let mut organization = Organization::default();
-        organization.create(
+        let result = organization.create(
             owner,
             handle,
             display_name,
@@ -84,10 +83,11 @@ where
             .save(uow, request_context, &mut organization)
             .await?;
 
-        let organization_id = organization
-            .aggregate_id()
-            .ok_or(OrganizationCreateCommandHandlerError::MissingOrganizationId)?;
-        let output = OrganizationCreateOutput::new(organization_id);
+        let output = match result {
+            OrganizationCreateResult::Created { organization_id } => {
+                OrganizationCreateOutput::new(organization_id)
+            }
+        };
 
         Ok(CommandHandled::same(output))
     }

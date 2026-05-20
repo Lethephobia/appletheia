@@ -1,4 +1,4 @@
-use banking_ledger_domain::transfer::{TransferCompleteRejectionReason, TransferCompleteResult};
+use banking_ledger_domain::transfer::TransferCompleteRejectionReason;
 use serde::{Deserialize, Serialize};
 
 /// Returned after completing a transfer.
@@ -9,13 +9,4 @@ pub enum TransferCompleteOutput {
     Rejected {
         reason: TransferCompleteRejectionReason,
     },
-}
-
-impl From<TransferCompleteResult> for TransferCompleteOutput {
-    fn from(value: TransferCompleteResult) -> Self {
-        match value {
-            TransferCompleteResult::Completed => Self::Completed,
-            TransferCompleteResult::Rejected { reason } => Self::Rejected { reason },
-        }
-    }
 }

@@ -30,9 +30,6 @@ pub enum OrganizationInvitationIssueCommandHandlerError {
     #[error("unique value is invalid")]
     UniqueValue(#[from] UniqueValueError),
 
-    #[error("organization invitation id is missing after issue")]
-    MissingOrganizationInvitationId,
-
     #[error("organization is not found")]
     OrganizationNotFound,
 }

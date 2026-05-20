@@ -75,12 +75,13 @@ where
         } = command.clone();
         let mut organization_membership = OrganizationMembership::default();
         let result = if organization.is_removed()? {
-            organization_membership.reject_create(
-                organization_id,
-                user_id,
-                roles,
-                OrganizationMembershipCreateRejectionReason::OrganizationRemoved,
-            )?
+            let reason = OrganizationMembershipCreateRejectionReason::OrganizationRemoved;
+            let organization_membership_id =
+                organization_membership.reject_create(organization_id, user_id, roles, reason)?;
+            banking_iam_domain::OrganizationMembershipCreateResult::Rejected {
+                organization_membership_id,
+                reason,
+            }
         } else {
             organization_membership.create(organization_id, user_id, roles)?
         };
@@ -89,6 +90,21 @@ where
             .save(uow, request_context, &mut organization_membership)
             .await?;
 
-        Ok(CommandHandled::same(result.into()))
+        let output = match result {
+            banking_iam_domain::OrganizationMembershipCreateResult::Created {
+                organization_membership_id,
+            } => OrganizationMembershipCreateOutput::Created {
+                organization_membership_id,
+            },
+            banking_iam_domain::OrganizationMembershipCreateResult::Rejected {
+                organization_membership_id,
+                reason,
+            } => OrganizationMembershipCreateOutput::Rejected {
+                organization_membership_id,
+                reason,
+            },
+        };
+
+        Ok(CommandHandled::same(output))
     }
 }

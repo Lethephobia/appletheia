@@ -7,6 +7,7 @@ pub enum OrganizationInvitationIssueResult {
         organization_invitation_id: OrganizationInvitationId,
     },
     Rejected {
+        organization_invitation_id: OrganizationInvitationId,
         reason: OrganizationInvitationIssueRejectionReason,
     },
 }

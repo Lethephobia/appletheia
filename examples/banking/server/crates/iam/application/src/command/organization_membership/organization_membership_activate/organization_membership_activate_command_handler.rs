@@ -6,6 +6,7 @@ use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_iam_domain::{
     Organization, OrganizationMembership, OrganizationMembershipActivateRejectionReason,
+    OrganizationMembershipActivateResult,
 };
 
 use super::{
@@ -87,9 +88,9 @@ where
         };
 
         let result = if organization.is_removed()? {
-            organization_membership.reject_activate(
-                OrganizationMembershipActivateRejectionReason::OrganizationRemoved,
-            )?
+            let reason = OrganizationMembershipActivateRejectionReason::OrganizationRemoved;
+            organization_membership.reject_activate(reason)?;
+            OrganizationMembershipActivateResult::Rejected { reason }
         } else {
             organization_membership.activate()?
         };
@@ -98,8 +99,15 @@ where
             .save(uow, request_context, &mut organization_membership)
             .await?;
 
-        Ok(CommandHandled::same(
-            OrganizationMembershipActivateOutput::from(result),
-        ))
+        let output = match result {
+            OrganizationMembershipActivateResult::Activated => {
+                OrganizationMembershipActivateOutput::Activated
+            }
+            OrganizationMembershipActivateResult::Rejected { reason } => {
+                OrganizationMembershipActivateOutput::Rejected { reason }
+            }
+        };
+
+        Ok(CommandHandled::same(output))
     }
 }

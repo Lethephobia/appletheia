@@ -7,6 +7,7 @@ pub enum OrganizationMembershipCreateResult {
         organization_membership_id: OrganizationMembershipId,
     },
     Rejected {
+        organization_membership_id: OrganizationMembershipId,
         reason: OrganizationMembershipCreateRejectionReason,
     },
 }

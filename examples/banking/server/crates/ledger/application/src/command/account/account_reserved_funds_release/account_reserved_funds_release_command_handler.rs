@@ -2,7 +2,7 @@ use appletheia::application::authorization::{AuthorizationPlan, PrincipalRequire
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_ledger_domain::account::Account;
+use banking_ledger_domain::account::{Account, AccountReservedFundsReleaseResult};
 
 use super::{
     AccountReservedFundsReleaseCommand, AccountReservedFundsReleaseCommandHandlerError,
@@ -64,8 +64,15 @@ where
             .save(uow, request_context, &mut account)
             .await?;
 
-        Ok(CommandHandled::same(
-            AccountReservedFundsReleaseOutput::from(result),
-        ))
+        let output = match result {
+            AccountReservedFundsReleaseResult::Released => {
+                AccountReservedFundsReleaseOutput::Released
+            }
+            AccountReservedFundsReleaseResult::Rejected { reason } => {
+                AccountReservedFundsReleaseOutput::Rejected { reason }
+            }
+        };
+
+        Ok(CommandHandled::same(output))
     }
 }

@@ -1,4 +1,4 @@
-use banking_ledger_domain::account::{AccountWithdrawRejectionReason, AccountWithdrawResult};
+use banking_ledger_domain::account::AccountWithdrawRejectionReason;
 use serde::{Deserialize, Serialize};
 
 /// Returned after an account withdraw request is applied.
@@ -9,13 +9,4 @@ pub enum AccountWithdrawOutput {
     Rejected {
         reason: AccountWithdrawRejectionReason,
     },
-}
-
-impl From<AccountWithdrawResult> for AccountWithdrawOutput {
-    fn from(value: AccountWithdrawResult) -> Self {
-        match value {
-            AccountWithdrawResult::Withdrawn => Self::Withdrawn,
-            AccountWithdrawResult::Rejected { reason } => Self::Rejected { reason },
-        }
-    }
 }

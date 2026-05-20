@@ -5,6 +5,7 @@ use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_iam_domain::User;
+use banking_iam_domain::user::UserDisplayNameChangeResult;
 
 use super::{
     UserDisplayNameChangeCommand, UserDisplayNameChangeCommandHandlerError,
@@ -69,6 +70,13 @@ where
             .save(uow, request_context, &mut user)
             .await?;
 
-        Ok(CommandHandled::same(result.into()))
+        let output = match result {
+            UserDisplayNameChangeResult::Changed => UserDisplayNameChangeOutput::Changed,
+            UserDisplayNameChangeResult::Rejected { reason } => {
+                UserDisplayNameChangeOutput::Rejected { reason }
+            }
+        };
+
+        Ok(CommandHandled::same(output))
     }
 }

@@ -1,6 +1,4 @@
-use banking_ledger_domain::owned_account_closure::{
-    OwnedAccountClosureRecordRejectionReason, OwnedAccountClosureRecordResult,
-};
+use banking_ledger_domain::owned_account_closure::OwnedAccountClosureRecordRejectionReason;
 use serde::{Deserialize, Serialize};
 
 /// Returned after recording an account close result.
@@ -11,13 +9,4 @@ pub enum OwnedAccountClosureAccountCloseRecordOutput {
     Rejected {
         reason: OwnedAccountClosureRecordRejectionReason,
     },
-}
-
-impl From<OwnedAccountClosureRecordResult> for OwnedAccountClosureAccountCloseRecordOutput {
-    fn from(value: OwnedAccountClosureRecordResult) -> Self {
-        match value {
-            OwnedAccountClosureRecordResult::Recorded => Self::Recorded,
-            OwnedAccountClosureRecordResult::Rejected { reason } => Self::Rejected { reason },
-        }
-    }
 }

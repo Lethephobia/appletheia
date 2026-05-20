@@ -1,6 +1,4 @@
-use banking_iam_domain::{
-    OrganizationPictureChangeRejectionReason, OrganizationPictureChangeResult,
-};
+use banking_iam_domain::OrganizationPictureChangeRejectionReason;
 use serde::{Deserialize, Serialize};
 
 /// Returned after an organization operation is handled.
@@ -11,13 +9,4 @@ pub enum OrganizationPictureChangeOutput {
     Rejected {
         reason: OrganizationPictureChangeRejectionReason,
     },
-}
-
-impl From<OrganizationPictureChangeResult> for OrganizationPictureChangeOutput {
-    fn from(value: OrganizationPictureChangeResult) -> Self {
-        match value {
-            OrganizationPictureChangeResult::Changed => Self::Changed,
-            OrganizationPictureChangeResult::Rejected { reason } => Self::Rejected { reason },
-        }
-    }
 }

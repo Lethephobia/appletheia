@@ -1,6 +1,4 @@
-use banking_iam_domain::{
-    OrganizationMembershipActivateRejectionReason, OrganizationMembershipActivateResult,
-};
+use banking_iam_domain::OrganizationMembershipActivateRejectionReason;
 use serde::{Deserialize, Serialize};
 
 /// Returned after an organization membership operation is handled.
@@ -11,13 +9,4 @@ pub enum OrganizationMembershipActivateOutput {
     Rejected {
         reason: OrganizationMembershipActivateRejectionReason,
     },
-}
-
-impl From<OrganizationMembershipActivateResult> for OrganizationMembershipActivateOutput {
-    fn from(value: OrganizationMembershipActivateResult) -> Self {
-        match value {
-            OrganizationMembershipActivateResult::Activated => Self::Activated,
-            OrganizationMembershipActivateResult::Rejected { reason } => Self::Rejected { reason },
-        }
-    }
 }

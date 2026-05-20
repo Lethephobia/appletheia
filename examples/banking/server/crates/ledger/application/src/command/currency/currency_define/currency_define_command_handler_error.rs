@@ -10,7 +10,4 @@ pub enum CurrencyDefineCommandHandlerError {
 
     #[error("currency aggregate failed")]
     Currency(#[from] CurrencyError),
-
-    #[error("currency id is missing after define")]
-    MissingCurrencyId,
 }

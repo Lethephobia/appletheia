@@ -4,7 +4,7 @@ use appletheia::application::authorization::{
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_ledger_domain::currency::Currency;
+use banking_ledger_domain::currency::{Currency, CurrencyDeactivateResult};
 
 use super::{
     CurrencyDeactivateCommand, CurrencyDeactivateCommandHandlerError, CurrencyDeactivateOutput,
@@ -74,6 +74,13 @@ where
             .save(uow, request_context, &mut currency)
             .await?;
 
-        Ok(CommandHandled::same(CurrencyDeactivateOutput::from(result)))
+        let output = match result {
+            CurrencyDeactivateResult::Deactivated => CurrencyDeactivateOutput::Deactivated,
+            CurrencyDeactivateResult::Rejected { reason } => {
+                CurrencyDeactivateOutput::Rejected { reason }
+            }
+        };
+
+        Ok(CommandHandled::same(output))
     }
 }

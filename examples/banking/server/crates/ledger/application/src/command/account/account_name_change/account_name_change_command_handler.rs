@@ -4,7 +4,7 @@ use appletheia::application::authorization::{
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_ledger_domain::account::Account;
+use banking_ledger_domain::account::{Account, AccountNameChangeResult};
 
 use super::{
     AccountNameChangeCommand, AccountNameChangeCommandHandlerError, AccountNameChangeOutput,
@@ -72,7 +72,14 @@ where
             .save(uow, request_context, &mut account)
             .await?;
 
-        Ok(CommandHandled::same(AccountNameChangeOutput::from(result)))
+        let output = match result {
+            AccountNameChangeResult::Changed => AccountNameChangeOutput::Changed,
+            AccountNameChangeResult::Rejected { reason } => {
+                AccountNameChangeOutput::Rejected { reason }
+            }
+        };
+
+        Ok(CommandHandled::same(output))
     }
 }
 
