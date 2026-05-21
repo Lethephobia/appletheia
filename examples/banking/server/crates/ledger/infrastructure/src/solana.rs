@@ -1,5 +1,7 @@
 mod solana_mint_account_creator;
+mod solana_mint_account_creator_config;
 mod solana_mint_account_creator_error;
 
 pub use solana_mint_account_creator::SolanaMintAccountCreator;
+pub use solana_mint_account_creator_config::SolanaMintAccountCreatorConfig;
 pub use solana_mint_account_creator_error::SolanaMintAccountCreatorError;

@@ -22,6 +22,8 @@ mod currency_image_url_error;
 mod currency_mint_account;
 mod currency_mint_account_address;
 mod currency_mint_account_address_error;
+mod currency_mint_account_creation_request_rejection_reason;
+mod currency_mint_account_creation_request_result;
 mod currency_mint_account_record_rejection_reason;
 mod currency_mint_account_record_result;
 mod currency_mint_token_program_id;
@@ -71,6 +73,8 @@ pub use currency_image_url_error::CurrencyImageUrlError;
 pub use currency_mint_account::CurrencyMintAccount;
 pub use currency_mint_account_address::CurrencyMintAccountAddress;
 pub use currency_mint_account_address_error::CurrencyMintAccountAddressError;
+pub use currency_mint_account_creation_request_rejection_reason::CurrencyMintAccountCreationRequestRejectionReason;
+pub use currency_mint_account_creation_request_result::CurrencyMintAccountCreationRequestResult;
 pub use currency_mint_account_record_rejection_reason::CurrencyMintAccountRecordRejectionReason;
 pub use currency_mint_account_record_result::CurrencyMintAccountRecordResult;
 pub use currency_mint_token_program_id::CurrencyMintTokenProgramId;
@@ -141,6 +145,11 @@ impl Currency {
     /// Returns the linked on-chain mint account.
     pub fn mint_account(&self) -> Result<Option<&CurrencyMintAccount>, CurrencyError> {
         Ok(self.state_required()?.mint_account.as_ref())
+    }
+
+    /// Returns whether mint account creation has been requested.
+    pub fn is_mint_account_creation_requested(&self) -> Result<bool, CurrencyError> {
+        Ok(self.state_required()?.mint_account_creation_requested)
     }
 
     /// Returns the total supply.
@@ -317,6 +326,41 @@ impl Currency {
         reason: CurrencyImageChangeRejectionReason,
     ) -> Result<(), CurrencyError> {
         self.append_event(CurrencyEventPayload::ImageChangeRejected { image, reason })?;
+        Ok(())
+    }
+
+    /// Requests creation of the on-chain mint account linked to this currency.
+    pub fn request_mint_account_creation(
+        &mut self,
+    ) -> Result<CurrencyMintAccountCreationRequestResult, CurrencyError> {
+        if self.state_required()?.status.is_removed() {
+            let reason = CurrencyMintAccountCreationRequestRejectionReason::Removed;
+            self.reject_request_mint_account_creation(reason)?;
+            return Ok(CurrencyMintAccountCreationRequestResult::Rejected { reason });
+        }
+
+        if self.state_required()?.mint_account.is_some() {
+            let reason = CurrencyMintAccountCreationRequestRejectionReason::AlreadyRecorded;
+            self.reject_request_mint_account_creation(reason)?;
+            return Ok(CurrencyMintAccountCreationRequestResult::Rejected { reason });
+        }
+
+        if self.state_required()?.mint_account_creation_requested {
+            let reason = CurrencyMintAccountCreationRequestRejectionReason::AlreadyRequested;
+            self.reject_request_mint_account_creation(reason)?;
+            return Ok(CurrencyMintAccountCreationRequestResult::Rejected { reason });
+        }
+
+        self.append_event(CurrencyEventPayload::MintAccountCreationRequested)?;
+        Ok(CurrencyMintAccountCreationRequestResult::Requested)
+    }
+
+    /// Rejects a mint account creation request.
+    pub fn reject_request_mint_account_creation(
+        &mut self,
+        reason: CurrencyMintAccountCreationRequestRejectionReason,
+    ) -> Result<(), CurrencyError> {
+        self.append_event(CurrencyEventPayload::MintAccountCreationRequestRejected { reason })?;
         Ok(())
     }
 
@@ -504,6 +548,7 @@ impl AggregateApply<CurrencyEventPayload, CurrencyError> for Currency {
                     decimals: *decimals,
                     description: description.clone(),
                     image: image.clone(),
+                    mint_account_creation_requested: false,
                     mint_account: None,
                     supply: CurrencyAmount::zero(),
                     status: CurrencyStatus::Active,
@@ -529,10 +574,18 @@ impl AggregateApply<CurrencyEventPayload, CurrencyError> for Currency {
                 self.state_required_mut()?.image = image.clone();
             }
             CurrencyEventPayload::ImageChangeRejected { .. } => {}
-            CurrencyEventPayload::MintAccountRecorded { mint_account } => {
-                self.state_required_mut()?.mint_account = Some(mint_account.clone());
+            CurrencyEventPayload::MintAccountCreationRequested => {
+                self.state_required_mut()?.mint_account_creation_requested = true;
             }
-            CurrencyEventPayload::MintAccountRecordRejected { .. } => {}
+            CurrencyEventPayload::MintAccountCreationRequestRejected { .. } => {}
+            CurrencyEventPayload::MintAccountRecorded { mint_account } => {
+                let state = self.state_required_mut()?;
+                state.mint_account_creation_requested = false;
+                state.mint_account = Some(mint_account.clone());
+            }
+            CurrencyEventPayload::MintAccountRecordRejected { .. } => {
+                self.state_required_mut()?.mint_account_creation_requested = false;
+            }
             CurrencyEventPayload::SupplyIncreased { amount } => {
                 let state = self.state_required_mut()?;
                 state.supply = state.supply.try_add(*amount).map_err(|error| match error {
@@ -577,7 +630,8 @@ mod tests {
     use super::{
         Currency, CurrencyDecimals, CurrencyDescription, CurrencyEventPayload, CurrencyId,
         CurrencyImageRef, CurrencyImageUrl, CurrencyMintAccount, CurrencyMintAccountAddress,
-        CurrencyMintTokenProgramId, CurrencyName, CurrencyOwner, CurrencyStatus, CurrencySymbol,
+        CurrencyMintAccountCreationRequestRejectionReason, CurrencyMintTokenProgramId,
+        CurrencyName, CurrencyOwner, CurrencyStatus, CurrencySymbol,
     };
 
     fn user_owner() -> CurrencyOwner {
@@ -656,6 +710,11 @@ mod tests {
         assert_eq!(
             currency.status().expect("status should exist"),
             CurrencyStatus::Active
+        );
+        assert!(
+            !currency
+                .is_mint_account_creation_requested()
+                .expect("mint account creation request state should exist")
         );
         assert_eq!(currency.uncommitted_events().len(), 1);
         assert_eq!(
@@ -909,6 +968,151 @@ mod tests {
     }
 
     #[test]
+    fn request_mint_account_creation_records_event_and_updates_state() {
+        let owner = user_owner();
+        let mut currency = Currency::default();
+        currency
+            .define(
+                owner,
+                CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
+                CurrencyName::try_from("USD Coin").expect("name should be valid"),
+                CurrencyDecimals::new(6),
+                None,
+                None,
+            )
+            .expect("definition should succeed");
+
+        let result = currency
+            .request_mint_account_creation()
+            .expect("mint account creation request should succeed");
+
+        assert_eq!(
+            result,
+            super::CurrencyMintAccountCreationRequestResult::Requested
+        );
+        assert!(
+            currency
+                .is_mint_account_creation_requested()
+                .expect("mint account creation request state should exist")
+        );
+        assert_eq!(
+            currency.uncommitted_events()[1].payload(),
+            &CurrencyEventPayload::MintAccountCreationRequested
+        );
+    }
+
+    #[test]
+    fn request_mint_account_creation_is_idempotent_after_already_requested() {
+        let owner = user_owner();
+        let mut currency = Currency::default();
+        currency
+            .define(
+                owner,
+                CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
+                CurrencyName::try_from("USD Coin").expect("name should be valid"),
+                CurrencyDecimals::new(6),
+                None,
+                None,
+            )
+            .expect("definition should succeed");
+        currency
+            .request_mint_account_creation()
+            .expect("initial request should succeed");
+        currency.core_mut().clear_uncommitted_events();
+
+        let result = currency
+            .request_mint_account_creation()
+            .expect("duplicate request should succeed");
+
+        assert_eq!(
+            result,
+            super::CurrencyMintAccountCreationRequestResult::Rejected {
+                reason: CurrencyMintAccountCreationRequestRejectionReason::AlreadyRequested,
+            }
+        );
+        assert_eq!(
+            currency.uncommitted_events()[0].payload(),
+            &CurrencyEventPayload::MintAccountCreationRequestRejected {
+                reason: CurrencyMintAccountCreationRequestRejectionReason::AlreadyRequested,
+            }
+        );
+    }
+
+    #[test]
+    fn request_mint_account_creation_rejects_removed_currency_with_event() {
+        let owner = user_owner();
+        let mut currency = Currency::default();
+        currency
+            .define(
+                owner,
+                CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
+                CurrencyName::try_from("USD Coin").expect("name should be valid"),
+                CurrencyDecimals::new(6),
+                None,
+                None,
+            )
+            .expect("definition should succeed");
+        currency.remove().expect("remove should succeed");
+        currency.core_mut().clear_uncommitted_events();
+
+        let result = currency
+            .request_mint_account_creation()
+            .expect("request should complete");
+
+        assert_eq!(
+            result,
+            super::CurrencyMintAccountCreationRequestResult::Rejected {
+                reason: CurrencyMintAccountCreationRequestRejectionReason::Removed,
+            }
+        );
+        assert_eq!(
+            currency.uncommitted_events()[0].payload(),
+            &CurrencyEventPayload::MintAccountCreationRequestRejected {
+                reason: CurrencyMintAccountCreationRequestRejectionReason::Removed,
+            }
+        );
+    }
+
+    #[test]
+    fn request_mint_account_creation_rejects_already_recorded_currency_with_event() {
+        let owner = user_owner();
+        let mut currency = Currency::default();
+        currency
+            .define(
+                owner,
+                CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
+                CurrencyName::try_from("USD Coin").expect("name should be valid"),
+                CurrencyDecimals::new(6),
+                None,
+                None,
+            )
+            .expect("definition should succeed");
+        currency
+            .record_mint_account(make_mint_account(
+                "Mint111111111111111111111111111111111111",
+            ))
+            .expect("mint account should be recorded");
+        currency.core_mut().clear_uncommitted_events();
+
+        let result = currency
+            .request_mint_account_creation()
+            .expect("request should complete");
+
+        assert_eq!(
+            result,
+            super::CurrencyMintAccountCreationRequestResult::Rejected {
+                reason: CurrencyMintAccountCreationRequestRejectionReason::AlreadyRecorded,
+            }
+        );
+        assert_eq!(
+            currency.uncommitted_events()[0].payload(),
+            &CurrencyEventPayload::MintAccountCreationRequestRejected {
+                reason: CurrencyMintAccountCreationRequestRejectionReason::AlreadyRecorded,
+            }
+        );
+    }
+
+    #[test]
     fn record_mint_account_updates_state_and_records_event() {
         let owner = user_owner();
         let mint_account = make_mint_account("Mint111111111111111111111111111111111111");
@@ -923,6 +1127,10 @@ mod tests {
                 None,
             )
             .expect("definition should succeed");
+        currency
+            .request_mint_account_creation()
+            .expect("mint account creation request should succeed");
+        currency.core_mut().clear_uncommitted_events();
 
         let result = currency
             .record_mint_account(mint_account.clone())
@@ -938,8 +1146,13 @@ mod tests {
             currency.mint_account().expect("mint account should exist"),
             Some(&mint_account)
         );
+        assert!(
+            !currency
+                .is_mint_account_creation_requested()
+                .expect("mint account creation request state should exist")
+        );
         assert_eq!(
-            currency.uncommitted_events()[1].payload().name(),
+            currency.uncommitted_events()[0].payload().name(),
             CurrencyEventPayload::MINT_ACCOUNT_RECORDED
         );
     }

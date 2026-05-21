@@ -33,6 +33,8 @@ pub use currency::{
     CurrencyImageUploadPrepareOutput, CurrencyMintAccountCreateCommand,
     CurrencyMintAccountCreateCommandHandler, CurrencyMintAccountCreateCommandHandlerConfig,
     CurrencyMintAccountCreateCommandHandlerError, CurrencyMintAccountCreateOutput,
+    CurrencyMintAccountRequestCommand, CurrencyMintAccountRequestCommandHandler,
+    CurrencyMintAccountRequestCommandHandlerError, CurrencyMintAccountRequestOutput,
     CurrencyNameChangeCommand, CurrencyNameChangeCommandHandler,
     CurrencyNameChangeCommandHandlerError, CurrencyNameChangeOutput,
     CurrencyOwnershipTransferCommand, CurrencyOwnershipTransferCommandHandler,

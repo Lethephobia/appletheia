@@ -3,13 +3,12 @@ use appletheia::application::object_storage::{
 };
 
 use crate::onchain::{
-    MintMetadataDocument, MintMetadataImage, MintMetadataPublishRequest, MintMetadataPublisher,
-    MintMetadataPublisherError, MintMetadataUri,
+    MintMetadataPublishRequest, MintMetadataPublisher, MintMetadataPublisherError, MintMetadataUri,
 };
 
 use super::{
     MintMetadataObjectName, ObjectStorageMintMetadataPublisherConfig,
-    ObjectStorageMintMetadataPublisherError, mint_metadata_body::MintMetadataBody,
+    mint_metadata_body::MintMetadataBody,
 };
 
 #[derive(Clone, Debug)]
@@ -31,58 +30,6 @@ where
             config,
         }
     }
-
-    fn image_uri(
-        &self,
-        image: Option<&MintMetadataImage>,
-    ) -> Result<Option<String>, ObjectStorageMintMetadataPublisherError> {
-        match image {
-            Some(MintMetadataImage::ObjectName(object_name)) => Ok(Some(
-                self.config
-                    .image_public_base_url()
-                    .resolve(object_name.value())?
-                    .to_string(),
-            )),
-            Some(MintMetadataImage::Uri(uri)) => Ok(Some(uri.to_string())),
-            None => Ok(None),
-        }
-    }
-
-    fn metadata_json(
-        &self,
-        document: &MintMetadataDocument,
-    ) -> Result<Vec<u8>, ObjectStorageMintMetadataPublisherError> {
-        let body = MintMetadataBody::new(
-            document.name().value(),
-            document.symbol().value(),
-            document.description().map(|value| value.value()),
-            self.image_uri(document.image())?,
-        );
-
-        serde_json::to_vec(&body).map_err(ObjectStorageMintMetadataPublisherError::Serialize)
-    }
-
-    async fn publish_inner(
-        &self,
-        request: MintMetadataPublishRequest,
-    ) -> Result<MintMetadataUri, ObjectStorageMintMetadataPublisherError> {
-        let object_name = MintMetadataObjectName::new(request.seed());
-        let metadata_uri = self
-            .config
-            .metadata_public_base_url()
-            .resolve(object_name.value())?;
-        let body = self.metadata_json(request.document())?;
-        let request = ObjectUploadRequest::new(
-            self.config.bucket_name().clone(),
-            ObjectName::new(object_name.value().to_owned())?,
-            ObjectContentType::json(),
-            ObjectUploadBody::new(body),
-        );
-
-        self.object_uploader.upload(request).await?;
-
-        Ok(metadata_uri)
-    }
 }
 
 impl<U> MintMetadataPublisher for ObjectStorageMintMetadataPublisher<U>
@@ -93,9 +40,28 @@ where
         &self,
         request: MintMetadataPublishRequest,
     ) -> Result<MintMetadataUri, MintMetadataPublisherError> {
-        self.publish_inner(request)
+        let object_name = MintMetadataObjectName::new(request.seed());
+        let metadata_uri = self
+            .config
+            .metadata_public_base_url()
+            .resolve(&object_name)
+            .map_err(|error| MintMetadataPublisherError::Backend(Box::new(error)))?;
+        let body = serde_json::to_vec(&MintMetadataBody::from(request.document()))
+            .map_err(|error| MintMetadataPublisherError::Backend(Box::new(error)))?;
+        let request = ObjectUploadRequest::new(
+            self.config.bucket_name().clone(),
+            ObjectName::new(object_name.value().to_owned())
+                .map_err(|error| MintMetadataPublisherError::Backend(Box::new(error)))?,
+            ObjectContentType::json(),
+            ObjectUploadBody::new(body),
+        );
+
+        self.object_uploader
+            .upload(request)
             .await
-            .map_err(|error| MintMetadataPublisherError::Backend(Box::new(error)))
+            .map_err(|error| MintMetadataPublisherError::Backend(Box::new(error)))?;
+
+        Ok(metadata_uri)
     }
 }
 
@@ -106,12 +72,12 @@ mod tests {
     use appletheia::application::object_storage::{
         ObjectBucketName, ObjectUploadRequest, ObjectUploader, ObjectUploaderError,
     };
+    use banking_ledger_domain::currency::CurrencyImageUrl;
     use serde_json::json;
 
     use crate::onchain::{
-        MintAccountSeed, MintMetadataDescription, MintMetadataDocument, MintMetadataImage,
-        MintMetadataImageObjectName, MintMetadataName, MintMetadataPublishRequest,
-        MintMetadataPublisher, MintMetadataSymbol,
+        MintAccountSeed, MintMetadataDescription, MintMetadataDocument, MintMetadataImageUri,
+        MintMetadataName, MintMetadataPublishRequest, MintMetadataPublisher, MintMetadataSymbol,
     };
     use crate::onchain::{
         MintMetadataPublicBaseUrl, ObjectStorageMintMetadataPublisher,
@@ -142,8 +108,6 @@ mod tests {
                 ObjectBucketName::new("metadata".to_owned()).expect("bucket name should be valid"),
                 MintMetadataPublicBaseUrl::try_from("https://storage.example.com/metadata/")
                     .expect("base URL should be valid"),
-                MintMetadataPublicBaseUrl::try_from("https://assets.example.com/")
-                    .expect("base URL should be valid"),
             ),
         );
 
@@ -162,12 +126,15 @@ mod tests {
                 MintMetadataDescription::try_from("Stablecoin backed by USD")
                     .expect("description should be valid"),
             ),
-            Some(MintMetadataImage::object_name(
-                MintMetadataImageObjectName::try_from(
-                    "currencies/00000000-0000-0000-0000-000000000001/images/00000000-0000-0000-0000-000000000002",
+            Some(
+                MintMetadataImageUri::try_from(
+                    CurrencyImageUrl::try_from(
+                        "https://assets.example.com/currencies/00000000-0000-0000-0000-000000000001/images/00000000-0000-0000-0000-000000000002",
+                    )
+                    .expect("image URL should be valid"),
                 )
-                .expect("image object name should be valid"),
-            )),
+                .expect("image URI should be valid"),
+            ),
         );
 
         let uri = publisher

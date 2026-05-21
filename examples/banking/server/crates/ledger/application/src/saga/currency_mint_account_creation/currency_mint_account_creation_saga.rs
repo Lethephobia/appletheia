@@ -1,12 +1,15 @@
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::saga::{Saga, SagaInstance, SagaSpec};
-use banking_ledger_domain::currency::{Currency, CurrencyEventPayload};
+use banking_ledger_domain::currency::{
+    Currency, CurrencyEventPayload, CurrencyMintAccountCreationRequestRejectionReason,
+    CurrencyMintAccountRecordRejectionReason,
+};
 
-use crate::command::CurrencyMintAccountCreateCommand;
+use crate::command::{CurrencyMintAccountCreateCommand, CurrencyMintAccountRequestCommand};
 
 use super::{
     CurrencyMintAccountCreationSagaError, CurrencyMintAccountCreationSagaSpec,
-    CurrencyMintAccountCreationSagaState,
+    CurrencyMintAccountCreationSagaState, CurrencyMintAccountCreationSagaStatus,
 };
 
 /// Coordinates mint account creation after a currency is defined.
@@ -21,24 +24,70 @@ impl Saga for CurrencyMintAccountCreationSaga {
         instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State>,
         event_envelope: &EventEnvelope,
     ) -> Result<(), Self::Error> {
-        let event = event_envelope
-            .try_into_domain_event::<Currency>()
-            .map_err(|_| CurrencyMintAccountCreationSagaError::UnexpectedEvent)?;
-        let CurrencyEventPayload::Defined { .. } = event.payload() else {
-            return Err(CurrencyMintAccountCreationSagaError::UnexpectedEvent);
-        };
-
-        let state = CurrencyMintAccountCreationSagaState::new(event.aggregate_id());
-        *instance.state_mut() = Some(state);
-        instance
-            .append_command(
-                event_envelope,
-                &CurrencyMintAccountCreateCommand {
-                    currency_id: event.aggregate_id(),
-                },
-            )
-            .map_err(|_| CurrencyMintAccountCreationSagaError::UnexpectedEvent)?;
-        instance.succeed();
+        let event = event_envelope.try_into_domain_event::<Currency>()?;
+        match event.payload() {
+            CurrencyEventPayload::Defined { .. } => {
+                *instance.state_mut() = Some(CurrencyMintAccountCreationSagaState::new(
+                    event.aggregate_id(),
+                ));
+                instance.append_command(
+                    event_envelope,
+                    &CurrencyMintAccountRequestCommand {
+                        currency_id: event.aggregate_id(),
+                    },
+                )?;
+            }
+            CurrencyEventPayload::MintAccountCreationRequested => {
+                let state = instance.state_required_mut()?;
+                state.status = CurrencyMintAccountCreationSagaStatus::RequestPersisted;
+                instance.append_command(
+                    event_envelope,
+                    &CurrencyMintAccountCreateCommand {
+                        currency_id: event.aggregate_id(),
+                    },
+                )?;
+            }
+            CurrencyEventPayload::MintAccountRecorded { .. } => {
+                instance.state_required_mut()?.status =
+                    CurrencyMintAccountCreationSagaStatus::Completed;
+                instance.succeed();
+            }
+            CurrencyEventPayload::MintAccountCreationRequestRejected { reason } => match reason {
+                CurrencyMintAccountCreationRequestRejectionReason::AlreadyRequested => {
+                    let state = instance.state_required_mut()?;
+                    state.status = CurrencyMintAccountCreationSagaStatus::RequestPersisted;
+                    instance.append_command(
+                        event_envelope,
+                        &CurrencyMintAccountCreateCommand {
+                            currency_id: event.aggregate_id(),
+                        },
+                    )?;
+                }
+                CurrencyMintAccountCreationRequestRejectionReason::AlreadyRecorded => {
+                    instance.state_required_mut()?.status =
+                        CurrencyMintAccountCreationSagaStatus::Completed;
+                    instance.succeed();
+                }
+                CurrencyMintAccountCreationRequestRejectionReason::Removed => {
+                    instance.state_required_mut()?.status =
+                        CurrencyMintAccountCreationSagaStatus::Failed;
+                    instance.fail();
+                }
+            },
+            CurrencyEventPayload::MintAccountRecordRejected { reason, .. } => match reason {
+                CurrencyMintAccountRecordRejectionReason::AlreadyRecorded => {
+                    instance.state_required_mut()?.status =
+                        CurrencyMintAccountCreationSagaStatus::Completed;
+                    instance.succeed();
+                }
+                CurrencyMintAccountRecordRejectionReason::Removed => {
+                    instance.state_required_mut()?.status =
+                        CurrencyMintAccountCreationSagaStatus::Failed;
+                    instance.fail();
+                }
+            },
+            _ => return Err(CurrencyMintAccountCreationSagaError::UnexpectedEvent),
+        }
 
         Ok(())
     }

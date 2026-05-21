@@ -4,7 +4,7 @@ use thiserror::Error;
 
 use crate::onchain::{
     MintAccountCreateReceiptError, MintAccountCreatorError, MintAccountSeedError,
-    MintMetadataPublisherError, MintMetadataUriError,
+    MintMetadataImagePublicBaseUrlError, MintMetadataImageUriError, MintMetadataPublisherError,
 };
 
 /// Represents errors returned while creating a currency mint account.
@@ -19,8 +19,11 @@ pub enum CurrencyMintAccountCreateCommandHandlerError {
     #[error("mint account seed is invalid")]
     MintAccountSeed(#[from] MintAccountSeedError),
 
-    #[error("mint metadata URI is invalid")]
-    MintMetadataUri(#[from] MintMetadataUriError),
+    #[error("mint metadata image public base URL is invalid")]
+    MintMetadataImagePublicBaseUrl(#[from] MintMetadataImagePublicBaseUrlError),
+
+    #[error("mint metadata image URI is invalid")]
+    MintMetadataImageUri(#[from] MintMetadataImageUriError),
 
     #[error("mint metadata publisher failed")]
     MintMetadataPublisher(#[from] MintMetadataPublisherError),
@@ -33,4 +36,7 @@ pub enum CurrencyMintAccountCreateCommandHandlerError {
 
     #[error("currency was not found")]
     CurrencyNotFound,
+
+    #[error("currency mint account creation was not requested")]
+    MintAccountCreationNotRequested,
 }

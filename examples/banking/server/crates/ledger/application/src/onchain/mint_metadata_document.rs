@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::{MintMetadataDescription, MintMetadataImage, MintMetadataName, MintMetadataSymbol};
+use super::{MintMetadataDescription, MintMetadataImageUri, MintMetadataName, MintMetadataSymbol};
 
 /// Off-chain metadata document for an on-chain mint account.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -8,7 +8,7 @@ pub struct MintMetadataDocument {
     name: MintMetadataName,
     symbol: MintMetadataSymbol,
     description: Option<MintMetadataDescription>,
-    image: Option<MintMetadataImage>,
+    image: Option<MintMetadataImageUri>,
 }
 
 impl MintMetadataDocument {
@@ -16,7 +16,7 @@ impl MintMetadataDocument {
         name: MintMetadataName,
         symbol: MintMetadataSymbol,
         description: Option<MintMetadataDescription>,
-        image: Option<MintMetadataImage>,
+        image: Option<MintMetadataImageUri>,
     ) -> Self {
         Self {
             name,
@@ -38,7 +38,7 @@ impl MintMetadataDocument {
         self.description.as_ref()
     }
 
-    pub fn image(&self) -> Option<&MintMetadataImage> {
+    pub fn image(&self) -> Option<&MintMetadataImageUri> {
         self.image.as_ref()
     }
 }

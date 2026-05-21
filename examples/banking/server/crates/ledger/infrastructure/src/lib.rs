@@ -6,4 +6,6 @@ pub use postgresql::{
     PgOwnedAccountTransactionListReader, PgOwnedAccountTransactionListWriter,
     PgPublicAccountListReader, PgPublicAccountListWriter,
 };
-pub use solana::{SolanaMintAccountCreator, SolanaMintAccountCreatorError};
+pub use solana::{
+    SolanaMintAccountCreator, SolanaMintAccountCreatorConfig, SolanaMintAccountCreatorError,
+};

@@ -12,10 +12,10 @@ use super::{
     CurrencyMintAccountCreateCommandHandlerError, CurrencyMintAccountCreateOutput,
 };
 use crate::onchain::{
-    MintAccountCreateRequest, MintAccountCreator, MintAccountMetadata, MintAccountSeed,
-    MintMetadataDescription, MintMetadataDocument, MintMetadataImage, MintMetadataImageObjectName,
-    MintMetadataName, MintMetadataPublishRequest, MintMetadataPublisher, MintMetadataSymbol,
-    MintMetadataUri,
+    MintAccountCreateReceiptError, MintAccountCreateRequest, MintAccountCreator,
+    MintAccountDecimals, MintAccountMetadata, MintAccountSeed, MintMetadataDescription,
+    MintMetadataDocument, MintMetadataImageUri, MintMetadataName, MintMetadataPublishRequest,
+    MintMetadataPublisher, MintMetadataSymbol,
 };
 
 /// Handles `CurrencyMintAccountCreateCommand`.
@@ -52,28 +52,15 @@ where
     }
 
     fn mint_metadata_image(
-        image: Option<&CurrencyImageRef>,
-    ) -> Result<Option<MintMetadataImage>, CurrencyMintAccountCreateCommandHandlerError> {
+        &self,
+        image: &CurrencyImageRef,
+    ) -> Result<MintMetadataImageUri, CurrencyMintAccountCreateCommandHandlerError> {
         match image {
-            Some(CurrencyImageRef::ObjectName(object_name)) => Ok(Some(
-                MintMetadataImage::object_name(MintMetadataImageObjectName::from(object_name)),
-            )),
-            Some(CurrencyImageRef::ExternalUrl(url)) => Ok(Some(MintMetadataImage::uri(
-                MintMetadataUri::try_from(url.value().as_str())?,
-            ))),
-            None => Ok(None),
+            CurrencyImageRef::ObjectName(object_name) => {
+                Ok(self.config.image_public_base_url().resolve(object_name)?)
+            }
+            CurrencyImageRef::ExternalUrl(url) => Ok(MintMetadataImageUri::try_from(url)?),
         }
-    }
-
-    fn mint_metadata_document(
-        currency: &Currency,
-    ) -> Result<MintMetadataDocument, CurrencyMintAccountCreateCommandHandlerError> {
-        let name = MintMetadataName::from(currency.name()?);
-        let symbol = MintMetadataSymbol::from(currency.symbol()?);
-        let description = currency.description()?.map(MintMetadataDescription::from);
-        let image = Self::mint_metadata_image(currency.image()?)?;
-
-        Ok(MintMetadataDocument::new(name, symbol, description, image))
     }
 }
 
@@ -134,10 +121,26 @@ where
             ));
         }
 
+        if !currency.is_mint_account_creation_requested()? {
+            return Err(
+                CurrencyMintAccountCreateCommandHandlerError::MintAccountCreationNotRequested,
+            );
+        }
+
         let seed = MintAccountSeed::try_from(command.currency_id)?;
-        let document = Self::mint_metadata_document(&currency)?;
-        let metadata_name = document.name().clone();
-        let metadata_symbol = document.symbol().clone();
+        let metadata_name = MintMetadataName::from(currency.name()?);
+        let metadata_symbol = MintMetadataSymbol::from(currency.symbol()?);
+        let description = currency.description()?.map(MintMetadataDescription::from);
+        let image = currency
+            .image()?
+            .map(|image| self.mint_metadata_image(image))
+            .transpose()?;
+        let document = MintMetadataDocument::new(
+            metadata_name.clone(),
+            metadata_symbol.clone(),
+            description,
+            image,
+        );
         let metadata_uri = self
             .mint_metadata_publisher
             .publish(MintMetadataPublishRequest::new(seed.clone(), document))
@@ -147,14 +150,22 @@ where
             .mint_account_creator
             .create_or_get(MintAccountCreateRequest::new(
                 seed,
-                currency.decimals()?.value(),
-                self.config.token_program_id().clone(),
-                self.config.mint_authority().clone(),
-                self.config.freeze_authority().cloned(),
+                MintAccountDecimals::from(currency.decimals()?),
                 metadata,
             ))
             .await?;
-        let mint_account = CurrencyMintAccount::try_from(receipt)?;
+        let mint_account = CurrencyMintAccount::new(
+            receipt
+                .address()
+                .clone()
+                .try_into()
+                .map_err(MintAccountCreateReceiptError::from)?,
+            receipt
+                .token_program_id()
+                .clone()
+                .try_into()
+                .map_err(MintAccountCreateReceiptError::from)?,
+        );
         let result = currency.record_mint_account(mint_account)?;
 
         self.currency_repository
@@ -189,21 +200,23 @@ mod tests {
     };
     use banking_iam_domain::UserId;
     use banking_ledger_domain::currency::{
-        Currency, CurrencyDecimals, CurrencyEventPayload, CurrencyId, CurrencyMintAccount,
-        CurrencyMintAccountAddress, CurrencyMintAccountRecordRejectionReason,
-        CurrencyMintTokenProgramId, CurrencyName, CurrencyOwner, CurrencySymbol,
+        Currency, CurrencyDecimals, CurrencyEventPayload, CurrencyId, CurrencyImageObjectName,
+        CurrencyImageRef, CurrencyImageUrl, CurrencyMintAccount, CurrencyMintAccountAddress,
+        CurrencyMintAccountRecordRejectionReason, CurrencyMintTokenProgramId, CurrencyName,
+        CurrencyOwner, CurrencySymbol,
     };
     use uuid::Uuid;
 
     use super::{
         CurrencyMintAccountCreateCommand, CurrencyMintAccountCreateCommandHandler,
-        CurrencyMintAccountCreateCommandHandlerConfig, CurrencyMintAccountCreateOutput,
+        CurrencyMintAccountCreateCommandHandlerConfig,
+        CurrencyMintAccountCreateCommandHandlerError, CurrencyMintAccountCreateOutput,
     };
     use crate::onchain::{
         MintAccountAddress, MintAccountCreateReceipt, MintAccountCreateRequest, MintAccountCreator,
-        MintAccountCreatorError, MintAccountSeed, MintMetadataPublishRequest,
-        MintMetadataPublisher, MintMetadataPublisherError, MintMetadataUri, OnchainAccountAddress,
-        TokenProgramId,
+        MintAccountCreatorError, MintAccountSeed, MintMetadataImagePublicBaseUrl,
+        MintMetadataPublishRequest, MintMetadataPublisher, MintMetadataPublisherError,
+        MintMetadataUri, TokenProgramId,
     };
 
     const TOKEN_PROGRAM_ID: &str = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
@@ -280,12 +293,14 @@ mod tests {
     #[derive(Clone)]
     struct TestMintMetadataPublisher {
         calls: Arc<Mutex<usize>>,
+        request: Arc<Mutex<Option<MintMetadataPublishRequest>>>,
     }
 
     impl TestMintMetadataPublisher {
         fn new() -> Self {
             Self {
                 calls: Arc::new(Mutex::new(0)),
+                request: Arc::new(Mutex::new(None)),
             }
         }
     }
@@ -293,9 +308,10 @@ mod tests {
     impl MintMetadataPublisher for TestMintMetadataPublisher {
         async fn publish(
             &self,
-            _request: MintMetadataPublishRequest,
+            request: MintMetadataPublishRequest,
         ) -> Result<MintMetadataUri, MintMetadataPublisherError> {
             *self.calls.lock().expect("lock") += 1;
+            *self.request.lock().expect("lock") = Some(request);
             Ok(MintMetadataUri::try_from(
                 "https://metadata.example.com/currencies/test/mint/metadata.json",
             )
@@ -338,6 +354,10 @@ mod tests {
     }
 
     fn defined_currency() -> Currency {
+        defined_currency_with_image(None)
+    }
+
+    fn defined_currency_with_image(image: Option<CurrencyImageRef>) -> Currency {
         let mut currency = Currency::default();
         currency
             .define(
@@ -346,9 +366,18 @@ mod tests {
                 CurrencyName::try_from("USD Coin").expect("name should be valid"),
                 CurrencyDecimals::new(6),
                 None,
-                None,
+                image,
             )
             .expect("currency should be defined");
+        currency.core_mut().clear_uncommitted_events();
+        currency
+    }
+
+    fn requested_currency() -> Currency {
+        let mut currency = defined_currency();
+        currency
+            .request_mint_account_creation()
+            .expect("mint account creation should be requested");
         currency.core_mut().clear_uncommitted_events();
         currency
     }
@@ -372,10 +401,8 @@ mod tests {
 
     fn config() -> CurrencyMintAccountCreateCommandHandlerConfig {
         CurrencyMintAccountCreateCommandHandlerConfig::new(
-            TokenProgramId::try_from(TOKEN_PROGRAM_ID).expect("token program ID should be valid"),
-            OnchainAccountAddress::try_from("Authority111111111111111111111111111111")
-                .expect("authority address should be valid"),
-            None,
+            MintMetadataImagePublicBaseUrl::try_from("https://assets.example.com/")
+                .expect("image base URL should be valid"),
         )
     }
 
@@ -393,7 +420,7 @@ mod tests {
 
     #[tokio::test]
     async fn handle_rejects_already_recorded_without_external_side_effects() {
-        let mut currency = defined_currency();
+        let mut currency = requested_currency();
         let currency_id = currency.aggregate_id().expect("currency id should exist");
         currency
             .record_mint_account(mint_account())
@@ -424,7 +451,6 @@ mod tests {
         );
         assert_eq!(*publisher_calls.lock().expect("lock"), 0);
         assert_eq!(*creator_calls.lock().expect("lock"), 0);
-
         let saved = repository
             .saved
             .lock()
@@ -443,7 +469,7 @@ mod tests {
 
     #[tokio::test]
     async fn handle_rejects_removed_currency_without_external_side_effects() {
-        let mut currency = defined_currency();
+        let mut currency = requested_currency();
         let currency_id = currency.aggregate_id().expect("currency id should exist");
         currency.remove().expect("currency should be removed");
         currency.core_mut().clear_uncommitted_events();
@@ -490,12 +516,38 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn handle_publishes_metadata_creates_mint_and_records_receipt() {
+    async fn handle_requires_persisted_mint_creation_request() {
         let currency = defined_currency();
         let currency_id = currency.aggregate_id().expect("currency id should exist");
         let repository = TestCurrencyRepository::new(currency);
         let publisher = TestMintMetadataPublisher::new();
+        let creator = TestMintAccountCreator::new(receipt());
+        let handler = handler(repository, publisher, creator);
+        let mut uow = TestUow;
+
+        let error = handler
+            .handle(
+                &mut uow,
+                &request_context(),
+                &CurrencyMintAccountCreateCommand { currency_id },
+            )
+            .await
+            .expect_err("command should fail without a request");
+
+        assert!(matches!(
+            error,
+            CurrencyMintAccountCreateCommandHandlerError::MintAccountCreationNotRequested
+        ));
+    }
+
+    #[tokio::test]
+    async fn handle_publishes_metadata_creates_mint_and_records_receipt() {
+        let currency = requested_currency();
+        let currency_id = currency.aggregate_id().expect("currency id should exist");
+        let repository = TestCurrencyRepository::new(currency);
+        let publisher = TestMintMetadataPublisher::new();
         let publisher_calls = publisher.calls.clone();
+        let published_request = publisher.request.clone();
         let creator = TestMintAccountCreator::new(receipt());
         let creator_calls = creator.calls.clone();
         let handler = handler(repository.clone(), publisher, creator);
@@ -516,6 +568,16 @@ mod tests {
         ));
         assert_eq!(*publisher_calls.lock().expect("lock"), 1);
         assert_eq!(*creator_calls.lock().expect("lock"), 1);
+        assert_eq!(
+            published_request
+                .lock()
+                .expect("lock")
+                .clone()
+                .expect("metadata request should be captured")
+                .document()
+                .image(),
+            None
+        );
 
         let saved = repository
             .saved
@@ -533,6 +595,94 @@ mod tests {
                 .mint_account()
                 .expect("mint account should be readable")
                 .is_some()
+        );
+    }
+
+    #[tokio::test]
+    async fn handle_resolves_object_storage_image_to_public_uri_before_publishing_metadata() {
+        let image = CurrencyImageRef::object_name(
+            CurrencyImageObjectName::try_from(
+                "currencies/00000000-0000-0000-0000-000000000001/images/00000000-0000-0000-0000-000000000002",
+            )
+            .expect("image object name should be valid"),
+        );
+        let mut currency = defined_currency_with_image(Some(image));
+        currency
+            .request_mint_account_creation()
+            .expect("mint account creation should be requested");
+        currency.core_mut().clear_uncommitted_events();
+        let currency_id = currency.aggregate_id().expect("currency id should exist");
+        let repository = TestCurrencyRepository::new(currency);
+        let publisher = TestMintMetadataPublisher::new();
+        let published_request = publisher.request.clone();
+        let creator = TestMintAccountCreator::new(receipt());
+        let handler = handler(repository, publisher, creator);
+        let mut uow = TestUow;
+
+        handler
+            .handle(
+                &mut uow,
+                &request_context(),
+                &CurrencyMintAccountCreateCommand { currency_id },
+            )
+            .await
+            .expect("command should be handled");
+
+        let request = published_request
+            .lock()
+            .expect("lock")
+            .clone()
+            .expect("metadata request should be captured");
+        assert_eq!(
+            request
+                .document()
+                .image()
+                .map(|value| value.value().as_str()),
+            Some(
+                "https://assets.example.com/currencies/00000000-0000-0000-0000-000000000001/images/00000000-0000-0000-0000-000000000002"
+            )
+        );
+    }
+
+    #[tokio::test]
+    async fn handle_preserves_external_image_uri_when_publishing_metadata() {
+        let image = CurrencyImageRef::external_url(
+            CurrencyImageUrl::try_from("https://cdn.example.com/currencies/usdc.png")
+                .expect("image URL should be valid"),
+        );
+        let mut currency = defined_currency_with_image(Some(image));
+        currency
+            .request_mint_account_creation()
+            .expect("mint account creation should be requested");
+        currency.core_mut().clear_uncommitted_events();
+        let currency_id = currency.aggregate_id().expect("currency id should exist");
+        let repository = TestCurrencyRepository::new(currency);
+        let publisher = TestMintMetadataPublisher::new();
+        let published_request = publisher.request.clone();
+        let creator = TestMintAccountCreator::new(receipt());
+        let handler = handler(repository, publisher, creator);
+        let mut uow = TestUow;
+
+        handler
+            .handle(
+                &mut uow,
+                &request_context(),
+                &CurrencyMintAccountCreateCommand { currency_id },
+            )
+            .await
+            .expect("command should be handled");
+
+        let request = published_request
+            .lock()
+            .expect("lock")
+            .clone()
+            .expect("metadata request should be captured");
+        assert_eq!(
+            request
+                .document()
+                .image()
+                .map(|value| value.value().as_str()),
+            Some("https://cdn.example.com/currencies/usdc.png")
         );
     }
 

@@ -1,28 +1,13 @@
-use banking_ledger_application::MintAccountAddressError;
+use banking_ledger_application::{MintAccountAddressError, TokenProgramIdError};
 use solana_client::client_error::ClientError as SolanaRpcClientError;
-use solana_sdk::{
-    program_error::ProgramError,
-    pubkey::{ParsePubkeyError, PubkeyError},
-    signer::SignerError,
-};
+use solana_sdk::{program_error::ProgramError, pubkey::PubkeyError, signer::SignerError};
 use thiserror::Error;
 
 /// Represents Solana adapter errors while creating a mint account.
 #[derive(Debug, Error)]
 pub enum SolanaMintAccountCreatorError {
     #[error("Solana token program ID is invalid")]
-    InvalidTokenProgramId(#[source] ParsePubkeyError),
-
-    #[error("Solana mint authority address is invalid")]
-    InvalidMintAuthority(#[source] ParsePubkeyError),
-
-    #[error("Solana freeze authority address is invalid")]
-    InvalidFreezeAuthority(#[source] ParsePubkeyError),
-
-    #[error(
-        "Solana mint authority signer does not match request authority: signer={signer}, request={request}"
-    )]
-    MintAuthorityMismatch { signer: String, request: String },
+    InvalidTokenProgramId(#[source] TokenProgramIdError),
 
     #[error("Solana mint account address could not be derived from seed")]
     MintAccountAddressDerivation(#[source] PubkeyError),

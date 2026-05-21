@@ -1,15 +1,9 @@
-use std::sync::Arc;
-
 use banking_ledger_application::{
     MintAccountAddress, MintAccountCreateReceipt, MintAccountCreateRequest, MintAccountCreator,
-    MintAccountCreatorError,
+    MintAccountCreatorError, MintAccountMetadata, TokenProgramId,
 };
 use solana_client::nonblocking::rpc_client::RpcClient;
-use solana_sdk::{
-    program_error::ProgramError,
-    pubkey::Pubkey,
-    signature::{Keypair, Signer},
-};
+use solana_sdk::{program_error::ProgramError, pubkey::Pubkey, signature::Signer};
 use solana_system_interface::instruction as system_instruction;
 use solana_transaction::Transaction;
 use spl_token_2022_interface::extension::{
@@ -17,68 +11,33 @@ use spl_token_2022_interface::extension::{
     metadata_pointer::MetadataPointer,
 };
 use spl_token_2022_interface::instruction as token_instruction;
-use spl_token_2022_interface::pod::{PodCOption, PodMint};
+use spl_token_2022_interface::pod::PodMint;
 use spl_token_metadata_interface::instruction as token_metadata_instruction;
 use spl_token_metadata_interface::state::TokenMetadata;
 
-use super::SolanaMintAccountCreatorError;
+use super::{SolanaMintAccountCreatorConfig, SolanaMintAccountCreatorError};
 
 /// Solana implementation of `MintAccountCreator`.
 pub struct SolanaMintAccountCreator {
     rpc_client: RpcClient,
-    payer: Arc<Keypair>,
-    mint_authority: Arc<Keypair>,
+    config: SolanaMintAccountCreatorConfig,
 }
 
 impl SolanaMintAccountCreator {
-    pub fn new(rpc_client: RpcClient, payer: Arc<Keypair>, mint_authority: Arc<Keypair>) -> Self {
-        Self {
-            rpc_client,
-            payer,
-            mint_authority,
-        }
+    pub fn new(rpc_client: RpcClient, config: SolanaMintAccountCreatorConfig) -> Self {
+        Self { rpc_client, config }
     }
 
-    pub fn new_with_rpc_url(
-        rpc_url: String,
-        payer: Arc<Keypair>,
-        mint_authority: Arc<Keypair>,
-    ) -> Self {
-        Self::new(RpcClient::new(rpc_url), payer, mint_authority)
-    }
-
-    fn parse_token_program_id(
-        request: &MintAccountCreateRequest,
-    ) -> Result<Pubkey, SolanaMintAccountCreatorError> {
-        request
-            .token_program_id()
-            .value()
-            .parse()
-            .map_err(SolanaMintAccountCreatorError::InvalidTokenProgramId)
-    }
-
-    fn parse_mint_authority(
-        request: &MintAccountCreateRequest,
-    ) -> Result<Pubkey, SolanaMintAccountCreatorError> {
-        request
-            .mint_authority()
-            .value()
-            .parse()
-            .map_err(SolanaMintAccountCreatorError::InvalidMintAuthority)
-    }
-
-    fn parse_freeze_authority(
-        request: &MintAccountCreateRequest,
-    ) -> Result<Option<Pubkey>, SolanaMintAccountCreatorError> {
-        request
-            .freeze_authority()
-            .map(|value| {
-                value
-                    .value()
-                    .parse()
-                    .map_err(SolanaMintAccountCreatorError::InvalidFreezeAuthority)
-            })
-            .transpose()
+    fn receipt(
+        mint_address: &Pubkey,
+        token_program_id: &Pubkey,
+    ) -> Result<MintAccountCreateReceipt, SolanaMintAccountCreatorError> {
+        Ok(MintAccountCreateReceipt::new(
+            MintAccountAddress::try_from(mint_address.to_string())
+                .map_err(SolanaMintAccountCreatorError::MintAccountAddress)?,
+            TokenProgramId::try_from(token_program_id.to_string())
+                .map_err(SolanaMintAccountCreatorError::InvalidTokenProgramId)?,
+        ))
     }
 
     fn mint_address(
@@ -93,16 +52,16 @@ impl SolanaMintAccountCreator {
     fn metadata_size(
         mint_address: &Pubkey,
         mint_authority: &Pubkey,
-        request: &MintAccountCreateRequest,
+        metadata: &MintAccountMetadata,
     ) -> Result<usize, SolanaMintAccountCreatorError> {
         let metadata = TokenMetadata {
             update_authority: Some(*mint_authority).try_into().map_err(|_| {
                 SolanaMintAccountCreatorError::MetadataSize(ProgramError::InvalidArgument)
             })?,
             mint: *mint_address,
-            name: request.metadata().name().value().to_owned(),
-            symbol: request.metadata().symbol().value().to_owned(),
-            uri: request.metadata().uri().to_string(),
+            name: metadata.name().value().to_owned(),
+            symbol: metadata.symbol().value().to_owned(),
+            uri: metadata.uri().to_string(),
             additional_metadata: Vec::new(),
         };
 
@@ -114,41 +73,16 @@ impl SolanaMintAccountCreator {
     fn mint_account_size(
         mint_address: &Pubkey,
         mint_authority: &Pubkey,
-        request: &MintAccountCreateRequest,
+        metadata: &MintAccountMetadata,
     ) -> Result<usize, SolanaMintAccountCreatorError> {
         let base_mint_size =
             ExtensionType::try_calculate_account_len::<PodMint>(&[ExtensionType::MetadataPointer])
                 .map_err(SolanaMintAccountCreatorError::MintAccountSize)?;
-        let metadata_size = Self::metadata_size(mint_address, mint_authority, request)?;
+        let metadata_size = Self::metadata_size(mint_address, mint_authority, metadata)?;
 
         base_mint_size
             .checked_add(metadata_size)
             .ok_or(SolanaMintAccountCreatorError::MintAccountSizeOverflow)
-    }
-
-    fn receipt(
-        mint_address: &Pubkey,
-        request: &MintAccountCreateRequest,
-    ) -> Result<MintAccountCreateReceipt, SolanaMintAccountCreatorError> {
-        Ok(MintAccountCreateReceipt::new(
-            MintAccountAddress::try_from(mint_address.to_string())
-                .map_err(SolanaMintAccountCreatorError::MintAccountAddress)?,
-            request.token_program_id().clone(),
-        ))
-    }
-
-    fn optional_pubkey(value: PodCOption<Pubkey>) -> Option<Pubkey> {
-        if value.is_some() {
-            Some(value.value)
-        } else {
-            None
-        }
-    }
-
-    fn optional_pubkey_string(value: Option<Pubkey>) -> String {
-        value
-            .map(|value| value.to_string())
-            .unwrap_or_else(|| "none".to_owned())
     }
 
     fn validate_existing_value(
@@ -186,19 +120,29 @@ impl SolanaMintAccountCreator {
             mint_address,
             "decimals",
             state.base.decimals.to_string(),
-            request.decimals().to_string(),
+            request.decimals().value().to_string(),
         )?;
         Self::validate_existing_value(
             mint_address,
             "mint_authority",
-            Self::optional_pubkey_string(Self::optional_pubkey(state.base.mint_authority)),
-            Self::optional_pubkey_string(Some(*mint_authority)),
+            if state.base.mint_authority.is_some() {
+                state.base.mint_authority.value.to_string()
+            } else {
+                "none".to_owned()
+            },
+            mint_authority.to_string(),
         )?;
         Self::validate_existing_value(
             mint_address,
             "freeze_authority",
-            Self::optional_pubkey_string(Self::optional_pubkey(state.base.freeze_authority)),
-            Self::optional_pubkey_string(freeze_authority),
+            if state.base.freeze_authority.is_some() {
+                state.base.freeze_authority.value.to_string()
+            } else {
+                "none".to_owned()
+            },
+            freeze_authority
+                .map(|value| value.to_string())
+                .unwrap_or_else(|| "none".to_owned()),
         )?;
 
         let metadata_pointer = state.get_extension::<MetadataPointer>().map_err(|source| {
@@ -210,14 +154,22 @@ impl SolanaMintAccountCreator {
         Self::validate_existing_value(
             mint_address,
             "metadata_pointer_authority",
-            Self::optional_pubkey_string(metadata_pointer.authority.copied()),
-            Self::optional_pubkey_string(Some(*mint_authority)),
+            metadata_pointer
+                .authority
+                .copied()
+                .map(|value| value.to_string())
+                .unwrap_or_else(|| "none".to_owned()),
+            mint_authority.to_string(),
         )?;
         Self::validate_existing_value(
             mint_address,
             "metadata_pointer_address",
-            Self::optional_pubkey_string(metadata_pointer.metadata_address.copied()),
-            Self::optional_pubkey_string(Some(*mint_address)),
+            metadata_pointer
+                .metadata_address
+                .copied()
+                .map(|value| value.to_string())
+                .unwrap_or_else(|| "none".to_owned()),
+            mint_address.to_string(),
         )?;
 
         let metadata = state
@@ -231,8 +183,12 @@ impl SolanaMintAccountCreator {
         Self::validate_existing_value(
             mint_address,
             "metadata_update_authority",
-            Self::optional_pubkey_string(metadata.update_authority.copied()),
-            Self::optional_pubkey_string(Some(*mint_authority)),
+            metadata
+                .update_authority
+                .copied()
+                .map(|value| value.to_string())
+                .unwrap_or_else(|| "none".to_owned()),
+            mint_authority.to_string(),
         )?;
         Self::validate_existing_value(
             mint_address,
@@ -240,32 +196,6 @@ impl SolanaMintAccountCreator {
             metadata.mint.to_string(),
             mint_address.to_string(),
         )?;
-        Self::validate_existing_value(
-            mint_address,
-            "metadata_name",
-            metadata.name,
-            request.metadata().name().value().to_owned(),
-        )?;
-        Self::validate_existing_value(
-            mint_address,
-            "metadata_symbol",
-            metadata.symbol,
-            request.metadata().symbol().value().to_owned(),
-        )?;
-        Self::validate_existing_value(
-            mint_address,
-            "metadata_uri",
-            metadata.uri,
-            request.metadata().uri().to_string(),
-        )?;
-        if !metadata.additional_metadata.is_empty() {
-            return Err(SolanaMintAccountCreatorError::MintAccountUnexpectedValue {
-                address: mint_address.to_string(),
-                field: "metadata_additional_metadata",
-                actual: format!("{} entries", metadata.additional_metadata.len()),
-                expected: "0 entries".to_owned(),
-            });
-        }
 
         Ok(())
     }
@@ -303,26 +233,23 @@ impl SolanaMintAccountCreator {
             &account.data,
         )?;
 
-        Self::receipt(mint_address, request).map(Some)
+        Self::receipt(mint_address, token_program_id).map(Some)
     }
+}
 
-    async fn create_or_get_inner(
+impl MintAccountCreator for SolanaMintAccountCreator {
+    // This adapter still reconciles against an existing mint because on-chain creation can
+    // succeed while local persistence fails and the workflow is retried later.
+    async fn create_or_get(
         &self,
         request: MintAccountCreateRequest,
-    ) -> Result<MintAccountCreateReceipt, SolanaMintAccountCreatorError> {
-        let token_program_id = Self::parse_token_program_id(&request)?;
-        let request_mint_authority = Self::parse_mint_authority(&request)?;
-        let freeze_authority = Self::parse_freeze_authority(&request)?;
-        let mint_authority = self.mint_authority.pubkey();
+    ) -> Result<MintAccountCreateReceipt, MintAccountCreatorError> {
+        let token_program_id = spl_token_2022_interface::id();
+        let mint_authority = self.config.mint_authority().pubkey();
+        let freeze_authority = self.config.freeze_authority();
 
-        if request_mint_authority != mint_authority {
-            return Err(SolanaMintAccountCreatorError::MintAuthorityMismatch {
-                signer: mint_authority.to_string(),
-                request: request_mint_authority.to_string(),
-            });
-        }
-
-        let mint_address = Self::mint_address(&mint_authority, &request, &token_program_id)?;
+        let mint_address = Self::mint_address(&mint_authority, &request, &token_program_id)
+            .map_err(|error| MintAccountCreatorError::Backend(Box::new(error)))?;
 
         if let Some(receipt) = self
             .find_existing_receipt(
@@ -332,17 +259,21 @@ impl SolanaMintAccountCreator {
                 freeze_authority,
                 &request,
             )
-            .await?
+            .await
+            .map_err(|error| MintAccountCreatorError::Backend(Box::new(error)))?
         {
             return Ok(receipt);
         }
 
-        let space = Self::mint_account_size(&mint_address, &mint_authority, &request)?;
+        let space = Self::mint_account_size(&mint_address, &mint_authority, request.metadata())
+            .map_err(|error| MintAccountCreatorError::Backend(Box::new(error)))?;
         let lamports = self
             .rpc_client
             .get_minimum_balance_for_rent_exemption(space)
-            .await?;
-        let payer = self.payer.pubkey();
+            .await
+            .map_err(SolanaMintAccountCreatorError::from)
+            .map_err(|error| MintAccountCreatorError::Backend(Box::new(error)))?;
+        let payer = self.config.payer().pubkey();
         let create_mint_account = system_instruction::create_account_with_seed(
             &payer,
             &mint_address,
@@ -358,15 +289,17 @@ impl SolanaMintAccountCreator {
             Some(mint_authority),
             Some(mint_address),
         )
-        .map_err(SolanaMintAccountCreatorError::MetadataPointerInstruction)?;
+        .map_err(SolanaMintAccountCreatorError::MetadataPointerInstruction)
+        .map_err(|error| MintAccountCreatorError::Backend(Box::new(error)))?;
         let initialize_mint = token_instruction::initialize_mint2(
             &token_program_id,
             &mint_address,
             &mint_authority,
             freeze_authority.as_ref(),
-            request.decimals(),
+            request.decimals().value(),
         )
-        .map_err(SolanaMintAccountCreatorError::InitializeMintInstruction)?;
+        .map_err(SolanaMintAccountCreatorError::InitializeMintInstruction)
+        .map_err(|error| MintAccountCreatorError::Backend(Box::new(error)))?;
         let initialize_metadata = token_metadata_instruction::initialize(
             &token_program_id,
             &mint_address,
@@ -383,17 +316,25 @@ impl SolanaMintAccountCreator {
             initialize_mint,
             initialize_metadata,
         ];
-        let blockhash = self.rpc_client.get_latest_blockhash().await?;
+        let blockhash = self
+            .rpc_client
+            .get_latest_blockhash()
+            .await
+            .map_err(SolanaMintAccountCreatorError::from)
+            .map_err(|error| MintAccountCreatorError::Backend(Box::new(error)))?;
         let transaction = {
-            let payer = self.payer.as_ref();
-            let mint_authority = self.mint_authority.as_ref();
+            let payer = self.config.payer().as_ref();
+            let mint_authority = self.config.mint_authority().as_ref();
             let signers: Vec<&dyn Signer> = if payer.pubkey() == mint_authority.pubkey() {
                 vec![payer]
             } else {
                 vec![payer, mint_authority]
             };
             let mut transaction = Transaction::new_with_payer(&instructions, Some(&payer.pubkey()));
-            transaction.try_sign(&signers, blockhash)?;
+            transaction
+                .try_sign(&signers, blockhash)
+                .map_err(SolanaMintAccountCreatorError::from)
+                .map_err(|error| MintAccountCreatorError::Backend(Box::new(error)))?;
             transaction
         };
 
@@ -402,7 +343,9 @@ impl SolanaMintAccountCreator {
             .send_and_confirm_transaction(&transaction)
             .await
         {
-            if let Some(receipt) = self
+            let send_error = SolanaMintAccountCreatorError::from(error);
+
+            if let Ok(Some(receipt)) = self
                 .find_existing_receipt(
                     &mint_address,
                     &token_program_id,
@@ -410,25 +353,15 @@ impl SolanaMintAccountCreator {
                     freeze_authority,
                     &request,
                 )
-                .await?
+                .await
             {
                 return Ok(receipt);
             }
 
-            return Err(error.into());
+            return Err(MintAccountCreatorError::Backend(Box::new(send_error)));
         }
 
-        Self::receipt(&mint_address, &request)
-    }
-}
-
-impl MintAccountCreator for SolanaMintAccountCreator {
-    async fn create_or_get(
-        &self,
-        request: MintAccountCreateRequest,
-    ) -> Result<MintAccountCreateReceipt, MintAccountCreatorError> {
-        self.create_or_get_inner(request)
-            .await
+        Self::receipt(&mint_address, &token_program_id)
             .map_err(|error| MintAccountCreatorError::Backend(Box::new(error)))
     }
 }
@@ -436,8 +369,8 @@ impl MintAccountCreator for SolanaMintAccountCreator {
 #[cfg(test)]
 mod tests {
     use banking_ledger_application::{
-        MintAccountMetadata, MintAccountSeed, MintMetadataName, MintMetadataSymbol,
-        MintMetadataUri, OnchainAccountAddress, TokenProgramId,
+        MintAccountDecimals, MintAccountMetadata, MintAccountSeed, MintMetadataName,
+        MintMetadataSymbol, MintMetadataUri,
     };
     use solana_sdk::pubkey::Pubkey;
     use spl_token_2022_interface::extension::{
@@ -449,24 +382,12 @@ mod tests {
 
     use super::{SolanaMintAccountCreator, SolanaMintAccountCreatorError};
 
-    const TOKEN_PROGRAM_ID: &str = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
     const METADATA_URI: &str = "https://metadata.example.com/currencies/test/mint/metadata.json";
 
-    fn request(
-        seed: MintAccountSeed,
-        mint_authority: &Pubkey,
-        freeze_authority: Option<&Pubkey>,
-    ) -> banking_ledger_application::MintAccountCreateRequest {
+    fn request(seed: MintAccountSeed) -> banking_ledger_application::MintAccountCreateRequest {
         banking_ledger_application::MintAccountCreateRequest::new(
             seed,
-            6,
-            TokenProgramId::try_from(TOKEN_PROGRAM_ID).expect("token program ID should be valid"),
-            OnchainAccountAddress::try_from(mint_authority.to_string())
-                .expect("mint authority should be valid"),
-            freeze_authority.map(|value| {
-                OnchainAccountAddress::try_from(value.to_string())
-                    .expect("freeze authority should be valid")
-            }),
+            MintAccountDecimals::new(6),
             MintAccountMetadata::new(
                 MintMetadataName::try_from("USD Coin").expect("metadata name should be valid"),
                 MintMetadataSymbol::try_from("USDC").expect("metadata symbol should be valid"),
@@ -479,11 +400,7 @@ mod tests {
         mint_authority: &Pubkey,
         request: &banking_ledger_application::MintAccountCreateRequest,
     ) -> Pubkey {
-        let token_program_id = request
-            .token_program_id()
-            .value()
-            .parse()
-            .expect("token program ID should parse");
+        let token_program_id = spl_token_2022_interface::id();
 
         Pubkey::create_with_seed(mint_authority, request.seed().value(), &token_program_id)
             .expect("mint address should derive")
@@ -495,16 +412,19 @@ mod tests {
         freeze_authority: Option<Pubkey>,
         request: &banking_ledger_application::MintAccountCreateRequest,
     ) -> Vec<u8> {
-        let space =
-            SolanaMintAccountCreator::mint_account_size(mint_address, mint_authority, request)
-                .expect("mint account size should be calculated");
+        let space = SolanaMintAccountCreator::mint_account_size(
+            mint_address,
+            mint_authority,
+            request.metadata(),
+        )
+        .expect("mint account size should be calculated");
         let mut buffer = vec![0; space];
         let mut state = PodStateWithExtensionsMut::<PodMint>::unpack_uninitialized(&mut buffer)
             .expect("mint state should unpack");
         *state.base = PodMint {
             mint_authority: PodCOption::some(*mint_authority),
             supply: 0.into(),
-            decimals: request.decimals(),
+            decimals: request.decimals().value(),
             is_initialized: true.into(),
             freeze_authority: freeze_authority
                 .map(PodCOption::some)
@@ -547,7 +467,7 @@ mod tests {
             .expect("seed should be valid");
         let mint_authority = Pubkey::new_unique();
         let freeze_authority = Some(Pubkey::new_unique());
-        let request = request(seed, &mint_authority, freeze_authority.as_ref());
+        let request = request(seed);
         let mint_address = mint_address(&mint_authority, &request);
         let account_data =
             matching_mint_account_data(&mint_address, &mint_authority, freeze_authority, &request);
@@ -563,44 +483,29 @@ mod tests {
     }
 
     #[test]
-    fn validate_existing_mint_account_rejects_metadata_uri_mismatch() {
+    fn validate_existing_mint_account_rejects_freeze_authority_mismatch() {
         let seed = MintAccountSeed::try_from("00000000000000000000000000000000")
             .expect("seed should be valid");
         let mint_authority = Pubkey::new_unique();
-        let request = request(seed, &mint_authority, None);
+        let freeze_authority = Some(Pubkey::new_unique());
+        let request = request(seed);
         let mint_address = mint_address(&mint_authority, &request);
         let account_data =
-            matching_mint_account_data(&mint_address, &mint_authority, None, &request);
-        let mut mismatched_request = request.clone();
-        mismatched_request = banking_ledger_application::MintAccountCreateRequest::new(
-            mismatched_request.seed().clone(),
-            mismatched_request.decimals(),
-            mismatched_request.token_program_id().clone(),
-            mismatched_request.mint_authority().clone(),
-            mismatched_request.freeze_authority().cloned(),
-            MintAccountMetadata::new(
-                mismatched_request.metadata().name().clone(),
-                mismatched_request.metadata().symbol().clone(),
-                MintMetadataUri::try_from(
-                    "https://metadata.example.com/currencies/test/mint/changed.json",
-                )
-                .expect("metadata URI should be valid"),
-            ),
-        );
+            matching_mint_account_data(&mint_address, &mint_authority, freeze_authority, &request);
 
         let error = SolanaMintAccountCreator::validate_existing_mint_account(
             &mint_address,
             &mint_authority,
-            None,
-            &mismatched_request,
+            Some(Pubkey::new_unique()),
+            &request,
             &account_data,
         )
-        .expect_err("metadata URI mismatch should be rejected");
+        .expect_err("freeze authority mismatch should be rejected");
 
         assert!(matches!(
             error,
             SolanaMintAccountCreatorError::MintAccountUnexpectedValue {
-                field: "metadata_uri",
+                field: "freeze_authority",
                 ..
             }
         ));
@@ -611,7 +516,7 @@ mod tests {
         let seed = MintAccountSeed::try_from("00000000000000000000000000000000")
             .expect("seed should be valid");
         let mint_authority = Pubkey::new_unique();
-        let request = request(seed, &mint_authority, None);
+        let request = request(seed);
         let mint_address = mint_address(&mint_authority, &request);
         let space = ExtensionType::try_calculate_account_len::<PodMint>(&[])
             .expect("mint account size should be calculated");
@@ -622,7 +527,7 @@ mod tests {
         *state.base = PodMint {
             mint_authority: PodCOption::some(mint_authority),
             supply: 0.into(),
-            decimals: request.decimals(),
+            decimals: request.decimals().value(),
             is_initialized: true.into(),
             freeze_authority: PodCOption::none(),
         };

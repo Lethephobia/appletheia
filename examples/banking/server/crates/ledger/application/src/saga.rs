@@ -11,6 +11,7 @@ pub use currency_issuance::{
 pub use currency_mint_account_creation::{
     CurrencyMintAccountCreationSaga, CurrencyMintAccountCreationSagaError,
     CurrencyMintAccountCreationSagaSpec, CurrencyMintAccountCreationSagaState,
+    CurrencyMintAccountCreationSagaStatus,
 };
 pub use currency_old_image_object_deletion::{
     CurrencyOldImageObjectDeletionSaga, CurrencyOldImageObjectDeletionSagaError,

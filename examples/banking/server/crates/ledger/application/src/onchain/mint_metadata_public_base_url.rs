@@ -6,7 +6,7 @@ use url::Url;
 
 use crate::onchain::MintMetadataUri;
 
-use super::MintMetadataPublicBaseUrlError;
+use super::{MintMetadataObjectName, MintMetadataPublicBaseUrlError};
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
@@ -32,9 +32,9 @@ impl MintMetadataPublicBaseUrl {
 
     pub fn resolve(
         &self,
-        object_name: impl AsRef<str>,
+        object_name: &MintMetadataObjectName,
     ) -> Result<MintMetadataUri, MintMetadataPublicBaseUrlError> {
-        Ok(MintMetadataUri::new(self.0.join(object_name.as_ref())?))
+        Ok(MintMetadataUri::new(self.0.join(object_name.value())?))
     }
 }
 
@@ -76,7 +76,7 @@ impl From<MintMetadataPublicBaseUrl> for String {
 
 #[cfg(test)]
 mod tests {
-    use super::MintMetadataPublicBaseUrl;
+    use super::{MintMetadataObjectName, MintMetadataPublicBaseUrl};
 
     #[test]
     fn normalizes_to_trailing_slash() {
@@ -93,10 +93,10 @@ mod tests {
     fn resolves_object_name_under_base_url() {
         let base_url = MintMetadataPublicBaseUrl::try_from("https://storage.example.com/bucket/")
             .expect("base URL should be valid");
+        let object_name = MintMetadataObjectName::try_from("currencies/metadata.json")
+            .expect("object name should be valid");
 
-        let uri = base_url
-            .resolve("currencies/metadata.json")
-            .expect("URI should resolve");
+        let uri = base_url.resolve(&object_name).expect("URI should resolve");
 
         assert_eq!(
             uri.value().as_str(),

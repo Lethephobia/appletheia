@@ -1,35 +1,19 @@
-use crate::onchain::{OnchainAccountAddress, TokenProgramId};
+use crate::onchain::MintMetadataImagePublicBaseUrl;
 
 /// Configuration for `CurrencyMintAccountCreateCommandHandler`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CurrencyMintAccountCreateCommandHandlerConfig {
-    token_program_id: TokenProgramId,
-    mint_authority: OnchainAccountAddress,
-    freeze_authority: Option<OnchainAccountAddress>,
+    image_public_base_url: MintMetadataImagePublicBaseUrl,
 }
 
 impl CurrencyMintAccountCreateCommandHandlerConfig {
-    pub fn new(
-        token_program_id: TokenProgramId,
-        mint_authority: OnchainAccountAddress,
-        freeze_authority: Option<OnchainAccountAddress>,
-    ) -> Self {
+    pub fn new(image_public_base_url: MintMetadataImagePublicBaseUrl) -> Self {
         Self {
-            token_program_id,
-            mint_authority,
-            freeze_authority,
+            image_public_base_url,
         }
     }
 
-    pub fn token_program_id(&self) -> &TokenProgramId {
-        &self.token_program_id
-    }
-
-    pub fn mint_authority(&self) -> &OnchainAccountAddress {
-        &self.mint_authority
-    }
-
-    pub fn freeze_authority(&self) -> Option<&OnchainAccountAddress> {
-        self.freeze_authority.as_ref()
+    pub fn image_public_base_url(&self) -> &MintMetadataImagePublicBaseUrl {
+        &self.image_public_base_url
     }
 }
