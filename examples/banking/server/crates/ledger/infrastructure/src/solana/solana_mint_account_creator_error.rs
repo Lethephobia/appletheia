@@ -31,16 +31,6 @@ pub enum SolanaMintAccountCreatorError {
         source: ProgramError,
     },
 
-    #[error(
-        "Solana mint account value is unexpected: address={address}, field={field}, actual={actual}, expected={expected}"
-    )]
-    MintAccountUnexpectedValue {
-        address: String,
-        field: &'static str,
-        actual: String,
-        expected: String,
-    },
-
     #[error("Solana mint account size could not be calculated")]
     MintAccountSize(#[source] ProgramError),
 
