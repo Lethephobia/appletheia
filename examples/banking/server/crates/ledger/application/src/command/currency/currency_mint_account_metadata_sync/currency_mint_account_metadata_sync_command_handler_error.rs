@@ -3,13 +3,13 @@ use banking_ledger_domain::currency::{Currency, CurrencyError};
 use thiserror::Error;
 
 use crate::mint::{
-    MintAccountCreateReceiptError, MintAccountCreatorError, MintAccountSeedError,
-    MintMetadataImagePublicBaseUrlError, MintMetadataImageUriError, MintMetadataPublisherError,
+    MintAccountMetadataUpdaterError, MintAccountSeedError, MintMetadataImagePublicBaseUrlError,
+    MintMetadataImageUriError, MintMetadataPublisherError,
 };
 
-/// Represents errors returned while creating a currency mint account.
+/// Represents errors returned while synchronizing currency mint metadata.
 #[derive(Debug, Error)]
-pub enum CurrencyMintAccountCreateCommandHandlerError {
+pub enum CurrencyMintAccountMetadataSyncCommandHandlerError {
     #[error("currency repository failed")]
     CurrencyRepository(#[from] RepositoryError<Currency>),
 
@@ -28,11 +28,8 @@ pub enum CurrencyMintAccountCreateCommandHandlerError {
     #[error("mint metadata publisher failed")]
     MintMetadataPublisher(#[from] MintMetadataPublisherError),
 
-    #[error("mint account creator failed")]
-    MintAccountCreator(#[from] MintAccountCreatorError),
-
-    #[error("mint account creation receipt is invalid")]
-    MintAccountCreateReceipt(#[from] MintAccountCreateReceiptError),
+    #[error("mint account metadata updater failed")]
+    MintAccountMetadataUpdater(#[from] MintAccountMetadataUpdaterError),
 
     #[error("currency was not found")]
     CurrencyNotFound,

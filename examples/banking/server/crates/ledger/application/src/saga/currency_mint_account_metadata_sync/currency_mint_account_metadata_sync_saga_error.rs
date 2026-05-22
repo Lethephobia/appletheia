@@ -3,13 +3,13 @@ use appletheia::application::saga::SagaInstanceError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum CurrencyOldImageObjectDeletionSagaError {
+pub enum CurrencyMintAccountMetadataSyncSagaError {
     #[error("failed to decode currency event envelope")]
     EventEnvelope(#[from] EventEnvelopeError),
 
-    #[error("failed to append currency old image object deletion saga command")]
+    #[error("failed to append currency mint account metadata sync saga command")]
     SagaInstance(#[from] SagaInstanceError),
 
-    #[error("unexpected currency old image object deletion saga event")]
+    #[error("unexpected currency mint account metadata sync saga event")]
     UnexpectedEvent,
 }

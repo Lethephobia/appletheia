@@ -2,7 +2,7 @@ use appletheia::application::object_storage::{
     ObjectContentType, ObjectName, ObjectUploadBody, ObjectUploadRequest, ObjectUploader,
 };
 
-use crate::onchain::{
+use crate::mint::{
     MintMetadataPublishRequest, MintMetadataPublisher, MintMetadataPublisherError, MintMetadataUri,
 };
 
@@ -75,11 +75,11 @@ mod tests {
     use banking_ledger_domain::currency::CurrencyImageUrl;
     use serde_json::json;
 
-    use crate::onchain::{
+    use crate::mint::{
         MintAccountSeed, MintMetadataDescription, MintMetadataDocument, MintMetadataImageUri,
         MintMetadataName, MintMetadataPublishRequest, MintMetadataPublisher, MintMetadataSymbol,
     };
-    use crate::onchain::{
+    use crate::mint::{
         MintMetadataPublicBaseUrl, ObjectStorageMintMetadataPublisher,
         ObjectStorageMintMetadataPublisherConfig,
     };

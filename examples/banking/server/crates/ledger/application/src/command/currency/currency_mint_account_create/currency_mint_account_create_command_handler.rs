@@ -11,7 +11,7 @@ use super::{
     CurrencyMintAccountCreateCommand, CurrencyMintAccountCreateCommandHandlerConfig,
     CurrencyMintAccountCreateCommandHandlerError, CurrencyMintAccountCreateOutput,
 };
-use crate::onchain::{
+use crate::mint::{
     MintAccountCreateReceiptError, MintAccountCreateRequest, MintAccountCreator,
     MintAccountDecimals, MintAccountMetadata, MintAccountSeed, MintMetadataDescription,
     MintMetadataDocument, MintMetadataImageUri, MintMetadataName, MintMetadataPublishRequest,
@@ -205,7 +205,7 @@ mod tests {
         CurrencyMintAccountCreateCommand, CurrencyMintAccountCreateCommandHandler,
         CurrencyMintAccountCreateCommandHandlerConfig, CurrencyMintAccountCreateOutput,
     };
-    use crate::onchain::{
+    use crate::mint::{
         MintAccountAddress, MintAccountCreateReceipt, MintAccountCreateRequest, MintAccountCreator,
         MintAccountCreatorError, MintAccountSeed, MintMetadataImagePublicBaseUrl,
         MintMetadataPublishRequest, MintMetadataPublisher, MintMetadataPublisherError,

@@ -3,7 +3,7 @@ use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
 
-use crate::onchain::MintAccountSeed;
+use crate::mint::MintAccountSeed;
 
 use super::MintMetadataObjectNameError;
 
@@ -73,7 +73,7 @@ impl From<MintMetadataObjectName> for String {
 
 #[cfg(test)]
 mod tests {
-    use crate::onchain::MintAccountSeed;
+    use crate::mint::MintAccountSeed;
 
     use super::{MintMetadataObjectName, MintMetadataObjectNameError};
 

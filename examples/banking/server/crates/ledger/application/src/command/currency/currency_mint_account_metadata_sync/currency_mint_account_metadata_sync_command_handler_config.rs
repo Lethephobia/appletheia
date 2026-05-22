@@ -1,12 +1,12 @@
 use crate::mint::MintMetadataImagePublicBaseUrl;
 
-/// Configuration for `CurrencyMintAccountCreateCommandHandler`.
+/// Configuration for `CurrencyMintAccountMetadataSyncCommandHandler`.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct CurrencyMintAccountCreateCommandHandlerConfig {
+pub struct CurrencyMintAccountMetadataSyncCommandHandlerConfig {
     image_public_base_url: MintMetadataImagePublicBaseUrl,
 }
 
-impl CurrencyMintAccountCreateCommandHandlerConfig {
+impl CurrencyMintAccountMetadataSyncCommandHandlerConfig {
     pub fn new(image_public_base_url: MintMetadataImagePublicBaseUrl) -> Self {
         Self {
             image_public_base_url,

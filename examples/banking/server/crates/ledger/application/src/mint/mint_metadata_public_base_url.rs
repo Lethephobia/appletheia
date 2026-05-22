@@ -4,7 +4,7 @@ use std::str::FromStr;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::onchain::MintMetadataUri;
+use crate::mint::MintMetadataUri;
 
 use super::{MintMetadataObjectName, MintMetadataPublicBaseUrlError};
 

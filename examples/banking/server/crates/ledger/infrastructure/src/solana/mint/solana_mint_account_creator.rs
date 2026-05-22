@@ -4,7 +4,8 @@ use banking_ledger_application::{
 };
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::{
-    program_error::ProgramError, pubkey::Pubkey, pubkey::PubkeyError, signature::Signer,
+    instruction::Instruction, program_error::ProgramError, pubkey::Pubkey, pubkey::PubkeyError,
+    signature::Signer,
 };
 use solana_system_interface::instruction as system_instruction;
 use solana_transaction::Transaction;
@@ -103,6 +104,31 @@ impl SolanaMintAccountCreator {
 
         Ok(true)
     }
+
+    async fn send_transaction(
+        &self,
+        instructions: Vec<Instruction>,
+    ) -> Result<(), SolanaMintAccountCreatorError> {
+        let blockhash = self.rpc_client.get_latest_blockhash().await?;
+        let transaction = {
+            let payer = self.config.payer().as_ref();
+            let mint_authority = self.config.mint_authority().as_ref();
+            let signers: Vec<&dyn Signer> = if payer.pubkey() == mint_authority.pubkey() {
+                vec![payer]
+            } else {
+                vec![payer, mint_authority]
+            };
+            let mut transaction = Transaction::new_with_payer(&instructions, Some(&payer.pubkey()));
+            transaction.try_sign(&signers, blockhash)?;
+            transaction
+        };
+
+        self.rpc_client
+            .send_and_confirm_transaction(&transaction)
+            .await?;
+
+        Ok(())
+    }
 }
 
 impl MintAccountCreator for SolanaMintAccountCreator {
@@ -179,31 +205,7 @@ impl MintAccountCreator for SolanaMintAccountCreator {
             initialize_mint,
             initialize_metadata,
         ];
-        let blockhash = self
-            .rpc_client
-            .get_latest_blockhash()
-            .await
-            .map_err(|error| MintAccountCreatorError::Backend(Box::new(error)))?;
-        let transaction = {
-            let payer = self.config.payer().as_ref();
-            let mint_authority = self.config.mint_authority().as_ref();
-            let signers: Vec<&dyn Signer> = if payer.pubkey() == mint_authority.pubkey() {
-                vec![payer]
-            } else {
-                vec![payer, mint_authority]
-            };
-            let mut transaction = Transaction::new_with_payer(&instructions, Some(&payer.pubkey()));
-            transaction
-                .try_sign(&signers, blockhash)
-                .map_err(|error| MintAccountCreatorError::Backend(Box::new(error)))?;
-            transaction
-        };
-
-        if let Err(error) = self
-            .rpc_client
-            .send_and_confirm_transaction(&transaction)
-            .await
-        {
+        if let Err(error) = self.send_transaction(instructions).await {
             if let Ok(true) = self
                 .mint_account_exists(&mint_address, &token_program_id)
                 .await

@@ -46,7 +46,7 @@ mod tests {
     use serde_json::json;
 
     use super::MintMetadataBody;
-    use crate::onchain::{
+    use crate::mint::{
         MintMetadataDescription, MintMetadataDocument, MintMetadataImageUri, MintMetadataName,
         MintMetadataSymbol,
     };

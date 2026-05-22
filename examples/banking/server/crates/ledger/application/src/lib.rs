@@ -1,6 +1,6 @@
 pub mod authorization;
 pub mod command;
-pub mod onchain;
+pub mod mint;
 pub mod projection;
 pub mod query;
 pub mod read_model;
@@ -44,6 +44,8 @@ pub use command::{
     CurrencyIssueCommand, CurrencyIssueCommandHandler, CurrencyIssueOutput,
     CurrencyMintAccountCreateCommand, CurrencyMintAccountCreateCommandHandler,
     CurrencyMintAccountCreateCommandHandlerConfig, CurrencyMintAccountCreateOutput,
+    CurrencyMintAccountMetadataSyncCommand, CurrencyMintAccountMetadataSyncCommandHandler,
+    CurrencyMintAccountMetadataSyncCommandHandlerConfig, CurrencyMintAccountMetadataSyncOutput,
     CurrencyNameChangeCommand, CurrencyNameChangeCommandHandler, CurrencyNameChangeOutput,
     CurrencyOwnershipTransferCommand, CurrencyOwnershipTransferCommandHandler,
     CurrencyOwnershipTransferOutput, CurrencyRemoveCommand, CurrencyRemoveCommandHandler,
@@ -66,11 +68,12 @@ pub use command::{
     TransferCompleteOutput, TransferFailCommand, TransferFailCommandHandler, TransferFailOutput,
     TransferRequestCommand, TransferRequestCommandHandler, TransferRequestOutput,
 };
-pub use onchain::{
+pub use mint::{
     MintAccountAddress, MintAccountAddressError, MintAccountCreateReceipt,
     MintAccountCreateReceiptError, MintAccountCreateRequest, MintAccountCreator,
-    MintAccountCreatorError, MintAccountDecimals, MintAccountMetadata, MintAccountSeed,
-    MintAccountSeedError, MintMetadataDescription, MintMetadataDescriptionError,
+    MintAccountCreatorError, MintAccountDecimals, MintAccountMetadata,
+    MintAccountMetadataUpdateRequest, MintAccountMetadataUpdater, MintAccountMetadataUpdaterError,
+    MintAccountSeed, MintAccountSeedError, MintMetadataDescription, MintMetadataDescriptionError,
     MintMetadataDocument, MintMetadataImagePublicBaseUrl, MintMetadataImagePublicBaseUrlError,
     MintMetadataImageUri, MintMetadataImageUriError, MintMetadataName, MintMetadataNameError,
     MintMetadataObjectName, MintMetadataObjectNameError, MintMetadataPublicBaseUrl,
@@ -137,6 +140,8 @@ pub use saga::{
     CurrencyIssuanceSagaState, CurrencyIssuanceSagaStatus, CurrencyMintAccountCreationSaga,
     CurrencyMintAccountCreationSagaError, CurrencyMintAccountCreationSagaSpec,
     CurrencyMintAccountCreationSagaState, CurrencyMintAccountCreationSagaStatus,
+    CurrencyMintAccountMetadataSyncSaga, CurrencyMintAccountMetadataSyncSagaError,
+    CurrencyMintAccountMetadataSyncSagaSpec, CurrencyMintAccountMetadataSyncSagaState,
     CurrencyOldImageObjectDeletionSaga, CurrencyOldImageObjectDeletionSagaError,
     CurrencyOldImageObjectDeletionSagaSpec, CurrencyOldImageObjectDeletionSagaState,
     OwnedAccountClosureSaga, OwnedAccountClosureSagaError, OwnedAccountClosureSagaSpec,
