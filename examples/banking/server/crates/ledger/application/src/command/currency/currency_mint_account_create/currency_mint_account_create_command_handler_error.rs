@@ -36,7 +36,4 @@ pub enum CurrencyMintAccountCreateCommandHandlerError {
 
     #[error("currency was not found")]
     CurrencyNotFound,
-
-    #[error("currency mint account creation was not requested")]
-    MintAccountCreationNotRequested,
 }

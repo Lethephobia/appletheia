@@ -121,12 +121,6 @@ where
             ));
         }
 
-        if !currency.is_mint_account_creation_requested()? {
-            return Err(
-                CurrencyMintAccountCreateCommandHandlerError::MintAccountCreationNotRequested,
-            );
-        }
-
         let seed = MintAccountSeed::try_from(command.currency_id)?;
         let metadata_name = MintMetadataName::from(currency.name()?);
         let metadata_symbol = MintMetadataSymbol::from(currency.symbol()?);
@@ -209,8 +203,7 @@ mod tests {
 
     use super::{
         CurrencyMintAccountCreateCommand, CurrencyMintAccountCreateCommandHandler,
-        CurrencyMintAccountCreateCommandHandlerConfig,
-        CurrencyMintAccountCreateCommandHandlerError, CurrencyMintAccountCreateOutput,
+        CurrencyMintAccountCreateCommandHandlerConfig, CurrencyMintAccountCreateOutput,
     };
     use crate::onchain::{
         MintAccountAddress, MintAccountCreateReceipt, MintAccountCreateRequest, MintAccountCreator,
@@ -373,15 +366,6 @@ mod tests {
         currency
     }
 
-    fn requested_currency() -> Currency {
-        let mut currency = defined_currency();
-        currency
-            .request_mint_account_creation()
-            .expect("mint account creation should be requested");
-        currency.core_mut().clear_uncommitted_events();
-        currency
-    }
-
     fn mint_account() -> CurrencyMintAccount {
         CurrencyMintAccount::new(
             CurrencyMintAccountAddress::try_from("Mint111111111111111111111111111111111111")
@@ -420,7 +404,7 @@ mod tests {
 
     #[tokio::test]
     async fn handle_rejects_already_recorded_without_external_side_effects() {
-        let mut currency = requested_currency();
+        let mut currency = defined_currency();
         let currency_id = currency.aggregate_id().expect("currency id should exist");
         currency
             .record_mint_account(mint_account())
@@ -469,7 +453,7 @@ mod tests {
 
     #[tokio::test]
     async fn handle_rejects_removed_currency_without_external_side_effects() {
-        let mut currency = requested_currency();
+        let mut currency = defined_currency();
         let currency_id = currency.aggregate_id().expect("currency id should exist");
         currency.remove().expect("currency should be removed");
         currency.core_mut().clear_uncommitted_events();
@@ -516,33 +500,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn handle_requires_persisted_mint_creation_request() {
-        let currency = defined_currency();
-        let currency_id = currency.aggregate_id().expect("currency id should exist");
-        let repository = TestCurrencyRepository::new(currency);
-        let publisher = TestMintMetadataPublisher::new();
-        let creator = TestMintAccountCreator::new(receipt());
-        let handler = handler(repository, publisher, creator);
-        let mut uow = TestUow;
-
-        let error = handler
-            .handle(
-                &mut uow,
-                &request_context(),
-                &CurrencyMintAccountCreateCommand { currency_id },
-            )
-            .await
-            .expect_err("command should fail without a request");
-
-        assert!(matches!(
-            error,
-            CurrencyMintAccountCreateCommandHandlerError::MintAccountCreationNotRequested
-        ));
-    }
-
-    #[tokio::test]
     async fn handle_publishes_metadata_creates_mint_and_records_receipt() {
-        let currency = requested_currency();
+        let currency = defined_currency();
         let currency_id = currency.aggregate_id().expect("currency id should exist");
         let repository = TestCurrencyRepository::new(currency);
         let publisher = TestMintMetadataPublisher::new();
@@ -606,11 +565,7 @@ mod tests {
             )
             .expect("image object name should be valid"),
         );
-        let mut currency = defined_currency_with_image(Some(image));
-        currency
-            .request_mint_account_creation()
-            .expect("mint account creation should be requested");
-        currency.core_mut().clear_uncommitted_events();
+        let currency = defined_currency_with_image(Some(image));
         let currency_id = currency.aggregate_id().expect("currency id should exist");
         let repository = TestCurrencyRepository::new(currency);
         let publisher = TestMintMetadataPublisher::new();
@@ -650,11 +605,7 @@ mod tests {
             CurrencyImageUrl::try_from("https://cdn.example.com/currencies/usdc.png")
                 .expect("image URL should be valid"),
         );
-        let mut currency = defined_currency_with_image(Some(image));
-        currency
-            .request_mint_account_creation()
-            .expect("mint account creation should be requested");
-        currency.core_mut().clear_uncommitted_events();
+        let currency = defined_currency_with_image(Some(image));
         let currency_id = currency.aggregate_id().expect("currency id should exist");
         let repository = TestCurrencyRepository::new(currency);
         let publisher = TestMintMetadataPublisher::new();

@@ -6,7 +6,6 @@ pub enum CurrencyMintAccountCreationSagaStatus {
     #[default]
     Initial,
     Defined,
-    RequestPersisted,
     Completed,
     Failed,
 }

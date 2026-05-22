@@ -6,9 +6,8 @@ use super::{
     CurrencyActivateRejectionReason, CurrencyDeactivateRejectionReason, CurrencyDecimals,
     CurrencyDescription, CurrencyDescriptionChangeRejectionReason, CurrencyEventPayloadError,
     CurrencyId, CurrencyImageChangeRejectionReason, CurrencyImageRef, CurrencyMintAccount,
-    CurrencyMintAccountCreationRequestRejectionReason, CurrencyMintAccountRecordRejectionReason,
-    CurrencyName, CurrencyNameChangeRejectionReason, CurrencyOwner,
-    CurrencyOwnershipTransferRejectionReason, CurrencyRemoveRejectionReason,
+    CurrencyMintAccountRecordRejectionReason, CurrencyName, CurrencyNameChangeRejectionReason,
+    CurrencyOwner, CurrencyOwnershipTransferRejectionReason, CurrencyRemoveRejectionReason,
     CurrencySupplyDecreaseRejectionReason, CurrencySupplyIncreaseRejectionReason, CurrencySymbol,
     CurrencySymbolChangeRejectionReason,
 };
@@ -60,10 +59,6 @@ pub enum CurrencyEventPayload {
     ImageChangeRejected {
         image: Option<CurrencyImageRef>,
         reason: CurrencyImageChangeRejectionReason,
-    },
-    MintAccountCreationRequested,
-    MintAccountCreationRequestRejected {
-        reason: CurrencyMintAccountCreationRequestRejectionReason,
     },
     MintAccountRecorded {
         mint_account: CurrencyMintAccount,
@@ -153,14 +148,6 @@ mod tests {
         assert_eq!(
             CurrencyEventPayload::IMAGE_CHANGE_REJECTED,
             appletheia::domain::EventName::new("image_change_rejected")
-        );
-        assert_eq!(
-            CurrencyEventPayload::MINT_ACCOUNT_CREATION_REQUESTED,
-            appletheia::domain::EventName::new("mint_account_creation_requested")
-        );
-        assert_eq!(
-            CurrencyEventPayload::MINT_ACCOUNT_CREATION_REQUEST_REJECTED,
-            appletheia::domain::EventName::new("mint_account_creation_request_rejected")
         );
         assert_eq!(
             CurrencyEventPayload::MINT_ACCOUNT_RECORDED,

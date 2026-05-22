@@ -6,7 +6,6 @@ mod currency_image_change;
 mod currency_image_object_delete;
 mod currency_image_upload_prepare;
 mod currency_mint_account_create;
-mod currency_mint_account_request;
 mod currency_name_change;
 mod currency_ownership_transfer;
 mod currency_remove;
@@ -47,10 +46,6 @@ pub use currency_mint_account_create::{
     CurrencyMintAccountCreateCommand, CurrencyMintAccountCreateCommandHandler,
     CurrencyMintAccountCreateCommandHandlerConfig, CurrencyMintAccountCreateCommandHandlerError,
     CurrencyMintAccountCreateOutput,
-};
-pub use currency_mint_account_request::{
-    CurrencyMintAccountRequestCommand, CurrencyMintAccountRequestCommandHandler,
-    CurrencyMintAccountRequestCommandHandlerError, CurrencyMintAccountRequestOutput,
 };
 pub use currency_name_change::{
     CurrencyNameChangeCommand, CurrencyNameChangeCommandHandler,

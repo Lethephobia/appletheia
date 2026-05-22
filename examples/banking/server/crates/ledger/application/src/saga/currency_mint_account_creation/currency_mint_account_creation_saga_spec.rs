@@ -5,10 +5,8 @@ use banking_ledger_domain::currency::{Currency, CurrencyEventPayload};
 
 use super::CurrencyMintAccountCreationSagaState;
 
-const EVENT_SELECTORS: [EventSelector; 5] = [
+const EVENT_SELECTORS: [EventSelector; 3] = [
     EventSelector::new::<Currency>(CurrencyEventPayload::DEFINED),
-    EventSelector::new::<Currency>(CurrencyEventPayload::MINT_ACCOUNT_CREATION_REQUESTED),
-    EventSelector::new::<Currency>(CurrencyEventPayload::MINT_ACCOUNT_CREATION_REQUEST_REJECTED),
     EventSelector::new::<Currency>(CurrencyEventPayload::MINT_ACCOUNT_RECORDED),
     EventSelector::new::<Currency>(CurrencyEventPayload::MINT_ACCOUNT_RECORD_REJECTED),
 ];
