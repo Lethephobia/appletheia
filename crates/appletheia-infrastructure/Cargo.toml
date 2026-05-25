@@ -13,7 +13,7 @@ keywords = ["appletheia", "ddd", "event-sourcing", "cqrs"]
 appletheia-domain = { workspace = true }
 appletheia-application = { workspace = true }
 thiserror = { workspace = true }
-sqlx = { version = "0.8.6", features = [
+sqlx = { version = "0.9.0", features = [
     "runtime-tokio",
     "postgres",
     "uuid",
