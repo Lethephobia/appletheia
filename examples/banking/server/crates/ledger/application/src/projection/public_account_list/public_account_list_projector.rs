@@ -359,12 +359,17 @@ where
             | CurrencyEventPayload::DescriptionChangeRejected { .. }
             | CurrencyEventPayload::ImageChanged { .. }
             | CurrencyEventPayload::ImageChangeRejected { .. }
-            | CurrencyEventPayload::MintAccountRecorded { .. }
-            | CurrencyEventPayload::MintAccountRecordRejected { .. }
-            | CurrencyEventPayload::SupplyIncreased { .. }
-            | CurrencyEventPayload::SupplyIncreaseRejected { .. }
-            | CurrencyEventPayload::SupplyDecreased { .. }
-            | CurrencyEventPayload::SupplyDecreaseRejected { .. }
+            | CurrencyEventPayload::MintAccountMetadataSynced
+            | CurrencyEventPayload::MintAccountMetadataSyncRejected { .. }
+            | CurrencyEventPayload::Provisioned { .. }
+            | CurrencyEventPayload::ProvisionRejected { .. }
+            | CurrencyEventPayload::MintSupplySynced { .. }
+            | CurrencyEventPayload::SupplyReserved { .. }
+            | CurrencyEventPayload::SupplyReserveRejected { .. }
+            | CurrencyEventPayload::SupplyCommitted { .. }
+            | CurrencyEventPayload::SupplyCommitRejected { .. }
+            | CurrencyEventPayload::SupplyReleased { .. }
+            | CurrencyEventPayload::SupplyReleaseRejected { .. }
             | CurrencyEventPayload::Activated
             | CurrencyEventPayload::ActivateRejected { .. }
             | CurrencyEventPayload::Deactivated

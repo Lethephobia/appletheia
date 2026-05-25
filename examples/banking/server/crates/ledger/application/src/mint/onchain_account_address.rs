@@ -1,6 +1,9 @@
 use std::fmt::{self, Display};
 use std::str::FromStr;
 
+use banking_ledger_domain::currency::{
+    CurrencyPoolAccountAddress, CurrencyPoolAccountAddressError,
+};
 use serde::{Deserialize, Serialize};
 
 use super::OnchainAccountAddressError;
@@ -68,6 +71,14 @@ impl TryFrom<String> for OnchainAccountAddress {
     }
 }
 
+impl TryFrom<OnchainAccountAddress> for CurrencyPoolAccountAddress {
+    type Error = CurrencyPoolAccountAddressError;
+
+    fn try_from(value: OnchainAccountAddress) -> Result<Self, Self::Error> {
+        Self::try_from(value.0)
+    }
+}
+
 impl From<OnchainAccountAddress> for String {
     fn from(value: OnchainAccountAddress) -> Self {
         value.0
@@ -76,6 +87,8 @@ impl From<OnchainAccountAddress> for String {
 
 #[cfg(test)]
 mod tests {
+    use banking_ledger_domain::currency::CurrencyPoolAccountAddress;
+
     use super::{OnchainAccountAddress, OnchainAccountAddressError};
 
     #[test]
@@ -99,5 +112,19 @@ mod tests {
             .expect_err("invalid address should fail");
 
         assert!(matches!(error, OnchainAccountAddressError::InvalidFormat));
+    }
+
+    #[test]
+    fn converts_to_domain_currency_pool_account_address() {
+        let address = OnchainAccountAddress::try_from("Pool111111111111111111111111111111111111")
+            .expect("address should be valid");
+
+        let domain_address =
+            CurrencyPoolAccountAddress::try_from(address).expect("domain address should be valid");
+
+        assert_eq!(
+            domain_address.value(),
+            "Pool111111111111111111111111111111111111"
+        );
     }
 }

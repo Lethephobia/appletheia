@@ -17,4 +17,7 @@ pub enum CurrencyError {
 
     #[error("currency supply is insufficient")]
     InsufficientSupply,
+
+    #[error("currency pending supply is insufficient")]
+    InsufficientPendingSupply,
 }

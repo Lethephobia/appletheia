@@ -6,10 +6,13 @@ pub enum CurrencyIssuanceSagaStatus {
     #[default]
     Initial,
     Issued,
-    SupplyIncreased,
+    SupplyReserved,
+    MintSupplySynced,
     Deposited,
-    SupplyDecreaseRequested,
-    SupplyDecreased,
+    SupplyCommitRequested,
+    SupplyCommitted,
+    SupplyReleaseRequested,
+    SupplyReleased,
     Completed,
     Failed,
 }

@@ -12,7 +12,8 @@ use super::{
 };
 use crate::command::{
     AccountDepositCommand, CurrencyIssuanceCompleteCommand, CurrencyIssuanceFailCommand,
-    CurrencySupplyDecreaseCommand, CurrencySupplyIncreaseCommand,
+    CurrencyMintSupplySyncCommand, CurrencySupplyCommitCommand, CurrencySupplyReleaseCommand,
+    CurrencySupplyReserveCommand,
 };
 
 /// Coordinates the currency issuance flow.
@@ -46,7 +47,7 @@ impl Saga for CurrencyIssuanceSaga {
 
                     instance.append_command(
                         event,
-                        &CurrencySupplyIncreaseCommand {
+                        &CurrencySupplyReserveCommand {
                             currency_id: *currency_id,
                             amount: *amount,
                         },
@@ -77,43 +78,97 @@ impl Saga for CurrencyIssuanceSaga {
         } else if event.is_for_aggregate::<Currency>() {
             let currency_event = event.try_into_domain_event::<Currency>()?;
             match currency_event.payload() {
-                CurrencyEventPayload::SupplyIncreased { .. } => {
+                CurrencyEventPayload::SupplyReserved { .. } => {
                     let state = instance.state_required_mut()?;
-                    state.status = CurrencyIssuanceSagaStatus::SupplyIncreased;
-                    let destination_account_id = state.destination_account_id;
-                    let amount = state.amount;
+                    state.status = CurrencyIssuanceSagaStatus::SupplyReserved;
+                    let currency_id = state.currency_id;
 
-                    instance.append_command(
-                        event,
-                        &AccountDepositCommand {
-                            account_id: destination_account_id,
-                            amount,
-                        },
-                    )?;
+                    instance
+                        .append_command(event, &CurrencyMintSupplySyncCommand { currency_id })?;
                 }
-                CurrencyEventPayload::SupplyDecreased { .. } => {
+                CurrencyEventPayload::SupplyReserveRejected { .. } => {
                     let state = instance.state_required_mut()?;
-                    state.status = CurrencyIssuanceSagaStatus::SupplyDecreased;
                     let currency_issuance_id = state.currency_issuance_id;
 
                     instance.append_command(
                         event,
                         &CurrencyIssuanceFailCommand {
                             currency_issuance_id,
-                            reason: CurrencyIssuanceFailureReason::DepositRejected,
+                            reason: CurrencyIssuanceFailureReason::SupplyReserveRejected,
                         },
                     )?;
                 }
-                CurrencyEventPayload::SupplyDecreaseRejected { .. } => {
+                CurrencyEventPayload::MintSupplySynced { .. } => {
                     let state = instance.state_required_mut()?;
-                    state.status = CurrencyIssuanceSagaStatus::Failed;
+                    match state.status {
+                        CurrencyIssuanceSagaStatus::SupplyReserved => {
+                            state.status = CurrencyIssuanceSagaStatus::MintSupplySynced;
+                            let destination_account_id = state.destination_account_id;
+                            let amount = state.amount;
+
+                            instance.append_command(
+                                event,
+                                &AccountDepositCommand {
+                                    account_id: destination_account_id,
+                                    amount,
+                                },
+                            )?;
+                        }
+                        CurrencyIssuanceSagaStatus::SupplyReleased => {
+                            let currency_issuance_id = state.currency_issuance_id;
+
+                            instance.append_command(
+                                event,
+                                &CurrencyIssuanceFailCommand {
+                                    currency_issuance_id,
+                                    reason: CurrencyIssuanceFailureReason::DepositRejected,
+                                },
+                            )?;
+                        }
+                        _ => {}
+                    }
+                }
+                CurrencyEventPayload::SupplyCommitted { .. } => {
+                    let state = instance.state_required_mut()?;
+                    state.status = CurrencyIssuanceSagaStatus::SupplyCommitted;
+                    let currency_issuance_id = state.currency_issuance_id;
+
+                    instance.append_command(
+                        event,
+                        &CurrencyIssuanceCompleteCommand {
+                            currency_issuance_id,
+                        },
+                    )?;
+                }
+                CurrencyEventPayload::SupplyCommitRejected { .. } => {
+                    let state = instance.state_required_mut()?;
                     let currency_issuance_id = state.currency_issuance_id;
 
                     instance.append_command(
                         event,
                         &CurrencyIssuanceFailCommand {
                             currency_issuance_id,
-                            reason: CurrencyIssuanceFailureReason::SupplyDecreaseRejected,
+                            reason: CurrencyIssuanceFailureReason::SupplyCommitRejected,
+                        },
+                    )?;
+                }
+                CurrencyEventPayload::SupplyReleased { .. } => {
+                    let state = instance.state_required_mut()?;
+                    state.status = CurrencyIssuanceSagaStatus::SupplyReleased;
+                    let currency_id = state.currency_id;
+
+                    instance
+                        .append_command(event, &CurrencyMintSupplySyncCommand { currency_id })?;
+                }
+                CurrencyEventPayload::SupplyReleaseRejected { .. } => {
+                    let state = instance.state_required_mut()?;
+                    let currency_issuance_id = state.currency_issuance_id;
+
+                    instance.append_command(
+                        event,
+                        &CurrencyIssuanceFailCommand {
+                            currency_issuance_id,
+                            reason: CurrencyIssuanceFailureReason::SupplyReleaseRejected,
                         },
                     )?;
                 }
@@ -127,24 +182,26 @@ impl Saga for CurrencyIssuanceSaga {
                 AccountEventPayload::Deposited { .. } => {
                     let state = instance.state_required_mut()?;
                     state.status = CurrencyIssuanceSagaStatus::Deposited;
-                    let currency_issuance_id = state.currency_issuance_id;
-
-                    instance.append_command(
-                        event,
-                        &CurrencyIssuanceCompleteCommand {
-                            currency_issuance_id,
-                        },
-                    )?;
-                }
-                AccountEventPayload::DepositRejected { .. } => {
-                    let state = instance.state_required_mut()?;
-                    state.status = CurrencyIssuanceSagaStatus::SupplyDecreaseRequested;
                     let currency_id = state.currency_id;
                     let amount = state.amount;
 
                     instance.append_command(
                         event,
-                        &CurrencySupplyDecreaseCommand {
+                        &CurrencySupplyCommitCommand {
+                            currency_id,
+                            amount,
+                        },
+                    )?;
+                }
+                AccountEventPayload::DepositRejected { .. } => {
+                    let state = instance.state_required_mut()?;
+                    state.status = CurrencyIssuanceSagaStatus::SupplyReleaseRequested;
+                    let currency_id = state.currency_id;
+                    let amount = state.amount;
+
+                    instance.append_command(
+                        event,
+                        &CurrencySupplyReleaseCommand {
                             currency_id,
                             amount,
                         },

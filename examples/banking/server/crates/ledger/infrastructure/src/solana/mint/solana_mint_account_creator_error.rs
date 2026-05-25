@@ -12,6 +12,9 @@ pub enum SolanaMintAccountCreatorError {
     #[error("Solana mint account address could not be derived from seed")]
     MintAccountAddressDerivation(#[source] PubkeyError),
 
+    #[error("Solana pool token account address could not be derived from seed")]
+    PoolAccountAddressDerivation(#[source] PubkeyError),
+
     #[error("Solana mint account address returned by the adapter is invalid")]
     MintAccountAddress(#[source] MintAccountAddressError),
 
@@ -24,8 +27,24 @@ pub enum SolanaMintAccountCreatorError {
         expected_owner: String,
     },
 
+    #[error(
+        "Solana pool token account already exists with unexpected owner: address={address}, owner={owner}, expected_owner={expected_owner}"
+    )]
+    PoolAccountUnexpectedOwner {
+        address: String,
+        owner: String,
+        expected_owner: String,
+    },
+
     #[error("Solana mint account data is invalid: address={address}")]
     MintAccountInvalidData {
+        address: String,
+        #[source]
+        source: ProgramError,
+    },
+
+    #[error("Solana pool token account data is invalid: address={address}")]
+    PoolAccountInvalidData {
         address: String,
         #[source]
         source: ProgramError,
@@ -45,6 +64,9 @@ pub enum SolanaMintAccountCreatorError {
 
     #[error("Solana initialize mint instruction could not be built")]
     InitializeMintInstruction(#[source] ProgramError),
+
+    #[error("Solana initialize pool account instruction could not be built")]
+    InitializePoolAccountInstruction(#[source] ProgramError),
 
     #[error("Solana transaction signing failed")]
     Sign(#[from] SignerError),

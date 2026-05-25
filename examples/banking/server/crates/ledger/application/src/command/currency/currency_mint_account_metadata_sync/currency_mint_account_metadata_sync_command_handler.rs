@@ -2,7 +2,9 @@ use appletheia::application::authorization::{AuthorizationPlan, PrincipalRequire
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_ledger_domain::currency::{Currency, CurrencyImageRef};
+use banking_ledger_domain::currency::{
+    Currency, CurrencyImageRef, CurrencyMintAccountMetadataSyncRejectionReason,
+};
 
 use super::{
     CurrencyMintAccountMetadataSyncCommand, CurrencyMintAccountMetadataSyncCommandHandlerConfig,
@@ -84,10 +86,10 @@ where
     async fn handle(
         &self,
         uow: &mut Self::Uow,
-        _request_context: &RequestContext,
+        request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
-        let Some(currency) = self
+        let Some(mut currency) = self
             .currency_repository
             .find(uow, command.currency_id)
             .await?
@@ -95,34 +97,42 @@ where
             return Err(CurrencyMintAccountMetadataSyncCommandHandlerError::CurrencyNotFound);
         };
 
-        if currency.mint_account()?.is_none() {
-            return Ok(CommandHandled::same(CurrencyMintAccountMetadataSyncOutput));
-        }
+        let output = if currency.mint_account()?.is_some() {
+            let seed = MintAccountSeed::try_from(command.currency_id)?;
+            let metadata_name = MintMetadataName::from(currency.name()?);
+            let metadata_symbol = MintMetadataSymbol::from(currency.symbol()?);
+            let description = currency.description()?.map(MintMetadataDescription::from);
+            let image = currency
+                .image()?
+                .map(|image| self.mint_metadata_image(image))
+                .transpose()?;
+            let document = MintMetadataDocument::new(
+                metadata_name.clone(),
+                metadata_symbol.clone(),
+                description,
+                image,
+            );
+            let metadata_uri = self
+                .mint_metadata_publisher
+                .publish(MintMetadataPublishRequest::new(seed.clone(), document))
+                .await?;
+            let metadata = MintAccountMetadata::new(metadata_name, metadata_symbol, metadata_uri);
+            self.mint_account_metadata_updater
+                .update(MintAccountMetadataUpdateRequest::new(seed, metadata))
+                .await?;
+            currency.record_mint_account_metadata_synced()?;
+            CurrencyMintAccountMetadataSyncOutput::Synced
+        } else {
+            let reason = CurrencyMintAccountMetadataSyncRejectionReason::NotProvisioned;
+            currency.reject_mint_account_metadata_sync(reason)?;
+            CurrencyMintAccountMetadataSyncOutput::Rejected { reason }
+        };
 
-        let seed = MintAccountSeed::try_from(command.currency_id)?;
-        let metadata_name = MintMetadataName::from(currency.name()?);
-        let metadata_symbol = MintMetadataSymbol::from(currency.symbol()?);
-        let description = currency.description()?.map(MintMetadataDescription::from);
-        let image = currency
-            .image()?
-            .map(|image| self.mint_metadata_image(image))
-            .transpose()?;
-        let document = MintMetadataDocument::new(
-            metadata_name.clone(),
-            metadata_symbol.clone(),
-            description,
-            image,
-        );
-        let metadata_uri = self
-            .mint_metadata_publisher
-            .publish(MintMetadataPublishRequest::new(seed.clone(), document))
-            .await?;
-        let metadata = MintAccountMetadata::new(metadata_name, metadata_symbol, metadata_uri);
-        self.mint_account_metadata_updater
-            .update(MintAccountMetadataUpdateRequest::new(seed, metadata))
+        self.currency_repository
+            .save(uow, request_context, &mut currency)
             .await?;
 
-        Ok(CommandHandled::same(CurrencyMintAccountMetadataSyncOutput))
+        Ok(CommandHandled::same(output))
     }
 }
 
@@ -139,9 +149,10 @@ mod tests {
     use appletheia::domain::{Aggregate, AggregateVersion, UniqueKey, UniqueValue};
     use banking_iam_domain::UserId;
     use banking_ledger_domain::currency::{
-        Currency, CurrencyDecimals, CurrencyId, CurrencyImageObjectName, CurrencyImageRef,
-        CurrencyImageUrl, CurrencyMintAccount, CurrencyMintAccountAddress,
-        CurrencyMintTokenProgramId, CurrencyName, CurrencyOwner, CurrencySymbol,
+        Currency, CurrencyDecimals, CurrencyEventPayload, CurrencyId, CurrencyImageObjectName,
+        CurrencyImageRef, CurrencyImageUrl, CurrencyMintAccount, CurrencyMintAccountAddress,
+        CurrencyMintAccountMetadataSyncRejectionReason, CurrencyMintTokenProgramId, CurrencyName,
+        CurrencyOwner, CurrencyPoolAccountAddress, CurrencySymbol,
     };
     use uuid::Uuid;
 
@@ -175,12 +186,14 @@ mod tests {
     #[derive(Clone)]
     struct TestCurrencyRepository {
         currency: Arc<Mutex<Option<Currency>>>,
+        saved_currency: Arc<Mutex<Option<Currency>>>,
     }
 
     impl TestCurrencyRepository {
         fn new(currency: Currency) -> Self {
             Self {
                 currency: Arc::new(Mutex::new(Some(currency))),
+                saved_currency: Arc::new(Mutex::new(None)),
             }
         }
     }
@@ -218,9 +231,12 @@ mod tests {
             &self,
             _uow: &mut Self::Uow,
             _request_context: &RequestContext,
-            _aggregate: &mut Currency,
+            aggregate: &mut Currency,
         ) -> Result<(), RepositoryError<Currency>> {
-            panic!("save should not be called");
+            let aggregate = aggregate.clone();
+            *self.saved_currency.lock().expect("lock") = Some(aggregate.clone());
+            *self.currency.lock().expect("lock") = Some(aggregate);
+            Ok(())
         }
     }
 
@@ -311,8 +327,8 @@ mod tests {
             .expect("currency should be defined");
         if with_mint_account {
             currency
-                .record_mint_account(mint_account())
-                .expect("mint account should be recorded");
+                .provision(mint_account())
+                .expect("currency should be provisioned");
         }
         currency.core_mut().clear_uncommitted_events();
         currency
@@ -322,6 +338,8 @@ mod tests {
         CurrencyMintAccount::new(
             CurrencyMintAccountAddress::try_from("Mint111111111111111111111111111111111111")
                 .expect("mint account address should be valid"),
+            CurrencyPoolAccountAddress::try_from("Pool111111111111111111111111111111111111")
+                .expect("pool account address should be valid"),
             CurrencyMintTokenProgramId::try_from(TOKEN_PROGRAM_ID)
                 .expect("token program ID should be valid"),
         )
@@ -347,10 +365,11 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn handle_is_noop_when_mint_account_is_not_recorded() {
+    async fn handle_rejects_when_mint_account_is_not_recorded() {
         let currency = defined_currency(None, false);
         let currency_id = currency.aggregate_id().expect("currency id should exist");
         let repository = TestCurrencyRepository::new(currency);
+        let saved_currency = repository.saved_currency.clone();
         let publisher = TestMintMetadataPublisher::new();
         let publisher_calls = publisher.calls.clone();
         let updater = TestMintAccountMetadataUpdater::new();
@@ -367,9 +386,27 @@ mod tests {
             .await
             .expect("command should be handled");
 
-        assert_eq!(handled.into_output(), CurrencyMintAccountMetadataSyncOutput);
+        assert_eq!(
+            handled.into_output(),
+            CurrencyMintAccountMetadataSyncOutput::Rejected {
+                reason: CurrencyMintAccountMetadataSyncRejectionReason::NotProvisioned,
+            }
+        );
         assert_eq!(*publisher_calls.lock().expect("lock"), 0);
         assert_eq!(*updater_calls.lock().expect("lock"), 0);
+
+        let saved = saved_currency
+            .lock()
+            .expect("lock")
+            .clone()
+            .expect("currency should be saved");
+        assert_eq!(saved.uncommitted_events().len(), 1);
+        assert_eq!(
+            saved.uncommitted_events()[0].payload(),
+            &CurrencyEventPayload::MintAccountMetadataSyncRejected {
+                reason: CurrencyMintAccountMetadataSyncRejectionReason::NotProvisioned,
+            }
+        );
     }
 
     #[tokio::test]
@@ -377,6 +414,7 @@ mod tests {
         let currency = defined_currency_with_mint_account();
         let currency_id = currency.aggregate_id().expect("currency id should exist");
         let repository = TestCurrencyRepository::new(currency);
+        let saved_currency = repository.saved_currency.clone();
         let publisher = TestMintMetadataPublisher::new();
         let published_request = publisher.request.clone();
         let publisher_calls = publisher.calls.clone();
@@ -395,7 +433,10 @@ mod tests {
             .await
             .expect("command should be handled");
 
-        assert_eq!(handled.into_output(), CurrencyMintAccountMetadataSyncOutput);
+        assert_eq!(
+            handled.into_output(),
+            CurrencyMintAccountMetadataSyncOutput::Synced
+        );
         assert_eq!(*publisher_calls.lock().expect("lock"), 1);
         assert_eq!(*updater_calls.lock().expect("lock"), 1);
 
@@ -435,6 +476,17 @@ mod tests {
                     .expect("metadata URI should be valid"),
                 ),
             )
+        );
+
+        let saved = saved_currency
+            .lock()
+            .expect("lock")
+            .clone()
+            .expect("currency should be saved");
+        assert_eq!(saved.uncommitted_events().len(), 1);
+        assert_eq!(
+            saved.uncommitted_events()[0].payload(),
+            &CurrencyEventPayload::MintAccountMetadataSynced
         );
     }
 

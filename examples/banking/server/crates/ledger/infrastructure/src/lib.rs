@@ -9,5 +9,6 @@ pub use postgresql::{
 pub use solana::{
     SolanaMintAccountCreator, SolanaMintAccountCreatorConfig, SolanaMintAccountCreatorError,
     SolanaMintAccountMetadataUpdater, SolanaMintAccountMetadataUpdaterConfig,
-    SolanaMintAccountMetadataUpdaterError,
+    SolanaMintAccountMetadataUpdaterError, SolanaMintSupplySynchronizer,
+    SolanaMintSupplySynchronizerConfig, SolanaMintSupplySynchronizerError,
 };

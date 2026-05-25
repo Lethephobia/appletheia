@@ -1,6 +1,8 @@
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::saga::{Saga, SagaInstance, SagaSpec};
-use banking_ledger_domain::currency::{Currency, CurrencyEventPayload};
+use banking_ledger_domain::currency::{
+    Currency, CurrencyEventPayload, CurrencyMintAccountMetadataSyncRejectionReason,
+};
 
 use super::{
     CurrencyMintAccountMetadataSyncSagaError, CurrencyMintAccountMetadataSyncSagaSpec,
@@ -36,7 +38,18 @@ impl Saga for CurrencyMintAccountMetadataSyncSaga {
                         currency_id: event.aggregate_id(),
                     },
                 )?;
+                Ok(())
+            }
+            CurrencyEventPayload::MintAccountMetadataSynced => {
                 instance.succeed();
+                Ok(())
+            }
+            CurrencyEventPayload::MintAccountMetadataSyncRejected { reason } => {
+                match reason {
+                    CurrencyMintAccountMetadataSyncRejectionReason::NotProvisioned => {
+                        instance.succeed();
+                    }
+                }
                 Ok(())
             }
             _ => Err(CurrencyMintAccountMetadataSyncSagaError::UnexpectedEvent),

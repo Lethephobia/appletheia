@@ -6,5 +6,6 @@ use serde::{Deserialize, Serialize};
 pub enum CurrencyIssuanceIssueRejectionReason {
     ZeroAmount,
     CurrencyMismatch,
+    CurrencyProvisioningPending,
     CurrencyInactive,
 }

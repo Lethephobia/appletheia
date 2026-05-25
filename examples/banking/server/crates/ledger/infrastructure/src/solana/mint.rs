@@ -4,6 +4,9 @@ mod solana_mint_account_creator_error;
 mod solana_mint_account_metadata_updater;
 mod solana_mint_account_metadata_updater_config;
 mod solana_mint_account_metadata_updater_error;
+mod solana_mint_supply_synchronizer;
+mod solana_mint_supply_synchronizer_config;
+mod solana_mint_supply_synchronizer_error;
 
 pub use solana_mint_account_creator::SolanaMintAccountCreator;
 pub use solana_mint_account_creator_config::SolanaMintAccountCreatorConfig;
@@ -11,3 +14,6 @@ pub use solana_mint_account_creator_error::SolanaMintAccountCreatorError;
 pub use solana_mint_account_metadata_updater::SolanaMintAccountMetadataUpdater;
 pub use solana_mint_account_metadata_updater_config::SolanaMintAccountMetadataUpdaterConfig;
 pub use solana_mint_account_metadata_updater_error::SolanaMintAccountMetadataUpdaterError;
+pub use solana_mint_supply_synchronizer::SolanaMintSupplySynchronizer;
+pub use solana_mint_supply_synchronizer_config::SolanaMintSupplySynchronizerConfig;
+pub use solana_mint_supply_synchronizer_error::SolanaMintSupplySynchronizerError;

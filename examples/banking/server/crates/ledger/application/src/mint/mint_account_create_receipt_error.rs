@@ -1,5 +1,6 @@
 use banking_ledger_domain::currency::{
     CurrencyMintAccountAddressError, CurrencyMintTokenProgramIdError,
+    CurrencyPoolAccountAddressError,
 };
 use thiserror::Error;
 
@@ -11,4 +12,7 @@ pub enum MintAccountCreateReceiptError {
 
     #[error("token program ID is invalid")]
     TokenProgramId(#[from] CurrencyMintTokenProgramIdError),
+
+    #[error("pool account address is invalid")]
+    PoolAddress(#[from] CurrencyPoolAccountAddressError),
 }

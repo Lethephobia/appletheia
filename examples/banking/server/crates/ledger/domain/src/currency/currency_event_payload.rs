@@ -6,10 +6,11 @@ use super::{
     CurrencyActivateRejectionReason, CurrencyDeactivateRejectionReason, CurrencyDecimals,
     CurrencyDescription, CurrencyDescriptionChangeRejectionReason, CurrencyEventPayloadError,
     CurrencyId, CurrencyImageChangeRejectionReason, CurrencyImageRef, CurrencyMintAccount,
-    CurrencyMintAccountRecordRejectionReason, CurrencyName, CurrencyNameChangeRejectionReason,
-    CurrencyOwner, CurrencyOwnershipTransferRejectionReason, CurrencyRemoveRejectionReason,
-    CurrencySupplyDecreaseRejectionReason, CurrencySupplyIncreaseRejectionReason, CurrencySymbol,
-    CurrencySymbolChangeRejectionReason,
+    CurrencyMintAccountMetadataSyncRejectionReason, CurrencyName,
+    CurrencyNameChangeRejectionReason, CurrencyOwner, CurrencyOwnershipTransferRejectionReason,
+    CurrencyProvisionRejectionReason, CurrencyRemoveRejectionReason,
+    CurrencySupplyCommitRejectionReason, CurrencySupplyReleaseRejectionReason,
+    CurrencySupplyReserveRejectionReason, CurrencySymbol, CurrencySymbolChangeRejectionReason,
 };
 
 /// Represents the domain events emitted by a `Currency` aggregate.
@@ -23,6 +24,13 @@ pub enum CurrencyEventPayload {
         decimals: CurrencyDecimals,
         description: Option<CurrencyDescription>,
         image: Option<CurrencyImageRef>,
+    },
+    Provisioned {
+        mint_account: CurrencyMintAccount,
+    },
+    ProvisionRejected {
+        mint_account: Option<CurrencyMintAccount>,
+        reason: CurrencyProvisionRejectionReason,
     },
     OwnershipTransferred {
         owner: CurrencyOwner,
@@ -60,26 +68,33 @@ pub enum CurrencyEventPayload {
         image: Option<CurrencyImageRef>,
         reason: CurrencyImageChangeRejectionReason,
     },
-    MintAccountRecorded {
-        mint_account: CurrencyMintAccount,
+    MintAccountMetadataSynced,
+    MintAccountMetadataSyncRejected {
+        reason: CurrencyMintAccountMetadataSyncRejectionReason,
     },
-    MintAccountRecordRejected {
-        mint_account: Option<CurrencyMintAccount>,
-        reason: CurrencyMintAccountRecordRejectionReason,
-    },
-    SupplyIncreased {
+    SupplyReserved {
         amount: CurrencyAmount,
     },
-    SupplyIncreaseRejected {
+    SupplyReserveRejected {
         amount: CurrencyAmount,
-        reason: CurrencySupplyIncreaseRejectionReason,
+        reason: CurrencySupplyReserveRejectionReason,
     },
-    SupplyDecreased {
+    MintSupplySynced {
+        supply: CurrencyAmount,
+    },
+    SupplyCommitted {
         amount: CurrencyAmount,
     },
-    SupplyDecreaseRejected {
+    SupplyCommitRejected {
         amount: CurrencyAmount,
-        reason: CurrencySupplyDecreaseRejectionReason,
+        reason: CurrencySupplyCommitRejectionReason,
+    },
+    SupplyReleased {
+        amount: CurrencyAmount,
+    },
+    SupplyReleaseRejected {
+        amount: CurrencyAmount,
+        reason: CurrencySupplyReleaseRejectionReason,
     },
     Activated,
     ActivateRejected {
@@ -108,6 +123,14 @@ mod tests {
         assert_eq!(
             CurrencyEventPayload::DEFINED,
             appletheia::domain::EventName::new("defined")
+        );
+        assert_eq!(
+            CurrencyEventPayload::PROVISIONED,
+            appletheia::domain::EventName::new("provisioned")
+        );
+        assert_eq!(
+            CurrencyEventPayload::PROVISION_REJECTED,
+            appletheia::domain::EventName::new("provision_rejected")
         );
         assert_eq!(
             CurrencyEventPayload::OWNERSHIP_TRANSFERRED,
@@ -150,28 +173,40 @@ mod tests {
             appletheia::domain::EventName::new("image_change_rejected")
         );
         assert_eq!(
-            CurrencyEventPayload::MINT_ACCOUNT_RECORDED,
-            appletheia::domain::EventName::new("mint_account_recorded")
+            CurrencyEventPayload::MINT_ACCOUNT_METADATA_SYNCED,
+            appletheia::domain::EventName::new("mint_account_metadata_synced")
         );
         assert_eq!(
-            CurrencyEventPayload::MINT_ACCOUNT_RECORD_REJECTED,
-            appletheia::domain::EventName::new("mint_account_record_rejected")
+            CurrencyEventPayload::MINT_ACCOUNT_METADATA_SYNC_REJECTED,
+            appletheia::domain::EventName::new("mint_account_metadata_sync_rejected")
         );
         assert_eq!(
-            CurrencyEventPayload::SUPPLY_INCREASED,
-            appletheia::domain::EventName::new("supply_increased")
+            CurrencyEventPayload::SUPPLY_RESERVED,
+            appletheia::domain::EventName::new("supply_reserved")
         );
         assert_eq!(
-            CurrencyEventPayload::SUPPLY_INCREASE_REJECTED,
-            appletheia::domain::EventName::new("supply_increase_rejected")
+            CurrencyEventPayload::SUPPLY_RESERVE_REJECTED,
+            appletheia::domain::EventName::new("supply_reserve_rejected")
         );
         assert_eq!(
-            CurrencyEventPayload::SUPPLY_DECREASED,
-            appletheia::domain::EventName::new("supply_decreased")
+            CurrencyEventPayload::MINT_SUPPLY_SYNCED,
+            appletheia::domain::EventName::new("mint_supply_synced")
         );
         assert_eq!(
-            CurrencyEventPayload::SUPPLY_DECREASE_REJECTED,
-            appletheia::domain::EventName::new("supply_decrease_rejected")
+            CurrencyEventPayload::SUPPLY_COMMITTED,
+            appletheia::domain::EventName::new("supply_committed")
+        );
+        assert_eq!(
+            CurrencyEventPayload::SUPPLY_COMMIT_REJECTED,
+            appletheia::domain::EventName::new("supply_commit_rejected")
+        );
+        assert_eq!(
+            CurrencyEventPayload::SUPPLY_RELEASED,
+            appletheia::domain::EventName::new("supply_released")
+        );
+        assert_eq!(
+            CurrencyEventPayload::SUPPLY_RELEASE_REJECTED,
+            appletheia::domain::EventName::new("supply_release_rejected")
         );
         assert_eq!(
             CurrencyEventPayload::ACTIVATED,

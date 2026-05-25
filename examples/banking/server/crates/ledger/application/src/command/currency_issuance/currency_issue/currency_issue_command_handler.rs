@@ -104,6 +104,18 @@ where
                 currency_issuance_id,
                 reason,
             }
+        } else if !currency.is_provisioned()? {
+            let reason = CurrencyIssuanceIssueRejectionReason::CurrencyProvisioningPending;
+            let currency_issuance_id = currency_issuance.reject_issue(
+                command.currency_id,
+                command.destination_account_id,
+                command.amount,
+                reason,
+            )?;
+            CurrencyIssueOutput::Rejected {
+                currency_issuance_id,
+                reason,
+            }
         } else if !currency.is_active()? {
             let reason = CurrencyIssuanceIssueRejectionReason::CurrencyInactive;
             let currency_issuance_id = currency_issuance.reject_issue(

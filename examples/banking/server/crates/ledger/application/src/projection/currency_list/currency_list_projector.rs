@@ -304,21 +304,9 @@ where
                     )
                     .await?;
             }
-            CurrencyEventPayload::SupplyIncreased { amount } => {
+            CurrencyEventPayload::SupplyCommitted { amount } => {
                 self.writer
                     .increase_currency_supply(
-                        uow,
-                        currency_id,
-                        *amount,
-                        event.event_id,
-                        event.event_sequence,
-                        event.occurred_at,
-                    )
-                    .await?;
-            }
-            CurrencyEventPayload::SupplyDecreased { amount } => {
-                self.writer
-                    .decrease_currency_supply(
                         uow,
                         currency_id,
                         *amount,
@@ -368,10 +356,16 @@ where
             | CurrencyEventPayload::NameChangeRejected { .. }
             | CurrencyEventPayload::DescriptionChangeRejected { .. }
             | CurrencyEventPayload::ImageChangeRejected { .. }
-            | CurrencyEventPayload::MintAccountRecorded { .. }
-            | CurrencyEventPayload::MintAccountRecordRejected { .. }
-            | CurrencyEventPayload::SupplyIncreaseRejected { .. }
-            | CurrencyEventPayload::SupplyDecreaseRejected { .. }
+            | CurrencyEventPayload::MintAccountMetadataSynced
+            | CurrencyEventPayload::MintAccountMetadataSyncRejected { .. }
+            | CurrencyEventPayload::Provisioned { .. }
+            | CurrencyEventPayload::ProvisionRejected { .. }
+            | CurrencyEventPayload::SupplyReserved { .. }
+            | CurrencyEventPayload::SupplyReserveRejected { .. }
+            | CurrencyEventPayload::MintSupplySynced { .. }
+            | CurrencyEventPayload::SupplyCommitRejected { .. }
+            | CurrencyEventPayload::SupplyReleased { .. }
+            | CurrencyEventPayload::SupplyReleaseRejected { .. }
             | CurrencyEventPayload::ActivateRejected { .. }
             | CurrencyEventPayload::DeactivateRejected { .. }
             | CurrencyEventPayload::RemoveRejected { .. } => {}

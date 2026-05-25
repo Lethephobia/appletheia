@@ -24,6 +24,10 @@ impl SagaSpec for CurrencyMintAccountMetadataSyncSagaSpec {
             EventSelector::new::<Currency>(CurrencyEventPayload::NAME_CHANGED),
             EventSelector::new::<Currency>(CurrencyEventPayload::DESCRIPTION_CHANGED),
             EventSelector::new::<Currency>(CurrencyEventPayload::IMAGE_CHANGED),
+            EventSelector::new::<Currency>(CurrencyEventPayload::MINT_ACCOUNT_METADATA_SYNCED),
+            EventSelector::new::<Currency>(
+                CurrencyEventPayload::MINT_ACCOUNT_METADATA_SYNC_REJECTED,
+            ),
         ]),
     );
 }

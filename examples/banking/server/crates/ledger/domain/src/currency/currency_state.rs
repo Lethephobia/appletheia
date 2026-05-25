@@ -4,8 +4,8 @@ use appletheia::{aggregate_state, reference_indexes, unique_constraints};
 use crate::core::CurrencyAmount;
 
 use super::{
-    CurrencyDecimals, CurrencyDescription, CurrencyId, CurrencyImageRef, CurrencyMintAccount,
-    CurrencyName, CurrencyOwner, CurrencyStateError, CurrencyStatus, CurrencySymbol,
+    CurrencyDecimals, CurrencyDescription, CurrencyId, CurrencyImageRef, CurrencyName,
+    CurrencyOwner, CurrencyProvisioningStatus, CurrencyStateError, CurrencyStatus, CurrencySymbol,
 };
 
 /// Stores the materialized state of a `Currency` aggregate.
@@ -23,8 +23,9 @@ pub struct CurrencyState {
     pub(super) decimals: CurrencyDecimals,
     pub(super) description: Option<CurrencyDescription>,
     pub(super) image: Option<CurrencyImageRef>,
-    pub(super) mint_account: Option<CurrencyMintAccount>,
     pub(super) supply: CurrencyAmount,
+    pub(super) pending_supply: CurrencyAmount,
+    pub(super) provisioning_status: CurrencyProvisioningStatus,
     pub(super) status: CurrencyStatus,
 }
 
@@ -61,8 +62,8 @@ mod tests {
     use crate::core::CurrencyAmount;
 
     use super::{
-        CurrencyDecimals, CurrencyId, CurrencyName, CurrencyOwner, CurrencyState, CurrencyStatus,
-        CurrencySymbol,
+        CurrencyDecimals, CurrencyId, CurrencyName, CurrencyOwner, CurrencyProvisioningStatus,
+        CurrencyState, CurrencyStatus, CurrencySymbol,
     };
 
     #[test]
@@ -75,8 +76,9 @@ mod tests {
             decimals: CurrencyDecimals::new(6),
             description: None,
             image: None,
-            mint_account: None,
             supply: CurrencyAmount::zero(),
+            pending_supply: CurrencyAmount::zero(),
+            provisioning_status: CurrencyProvisioningStatus::Pending,
             status: CurrencyStatus::Active,
         };
 
@@ -99,8 +101,9 @@ mod tests {
             decimals: CurrencyDecimals::new(6),
             description: None,
             image: None,
-            mint_account: None,
             supply: CurrencyAmount::zero(),
+            pending_supply: CurrencyAmount::zero(),
+            provisioning_status: CurrencyProvisioningStatus::Pending,
             status: CurrencyStatus::Active,
         };
 
@@ -118,8 +121,9 @@ mod tests {
             decimals: CurrencyDecimals::new(6),
             description: None,
             image: None,
-            mint_account: None,
             supply: CurrencyAmount::zero(),
+            pending_supply: CurrencyAmount::zero(),
+            provisioning_status: CurrencyProvisioningStatus::Pending,
             status: CurrencyStatus::Active,
         };
         state.status = CurrencyStatus::Removed;
@@ -142,8 +146,9 @@ mod tests {
             decimals: CurrencyDecimals::new(6),
             description: None,
             image: None,
-            mint_account: None,
             supply: CurrencyAmount::zero(),
+            pending_supply: CurrencyAmount::zero(),
+            provisioning_status: CurrencyProvisioningStatus::Pending,
             status: CurrencyStatus::Active,
         };
 
@@ -175,8 +180,9 @@ mod tests {
             decimals: CurrencyDecimals::new(6),
             description: None,
             image: None,
-            mint_account: None,
             supply: CurrencyAmount::zero(),
+            pending_supply: CurrencyAmount::zero(),
+            provisioning_status: CurrencyProvisioningStatus::Pending,
             status: CurrencyStatus::Active,
         };
 

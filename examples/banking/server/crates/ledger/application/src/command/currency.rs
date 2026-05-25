@@ -5,13 +5,15 @@ mod currency_description_change;
 mod currency_image_change;
 mod currency_image_object_delete;
 mod currency_image_upload_prepare;
-mod currency_mint_account_create;
 mod currency_mint_account_metadata_sync;
+mod currency_mint_supply_sync;
 mod currency_name_change;
 mod currency_ownership_transfer;
+mod currency_provision;
 mod currency_remove;
-mod currency_supply_decrease;
-mod currency_supply_increase;
+mod currency_supply_commit;
+mod currency_supply_release;
+mod currency_supply_reserve;
 mod currency_symbol_change;
 
 pub use currency_activate::{
@@ -43,15 +45,14 @@ pub use currency_image_upload_prepare::{
     CurrencyImageUploadPrepareCommandHandlerConfig, CurrencyImageUploadPrepareCommandHandlerError,
     CurrencyImageUploadPrepareOutput,
 };
-pub use currency_mint_account_create::{
-    CurrencyMintAccountCreateCommand, CurrencyMintAccountCreateCommandHandler,
-    CurrencyMintAccountCreateCommandHandlerConfig, CurrencyMintAccountCreateCommandHandlerError,
-    CurrencyMintAccountCreateOutput,
-};
 pub use currency_mint_account_metadata_sync::{
     CurrencyMintAccountMetadataSyncCommand, CurrencyMintAccountMetadataSyncCommandHandler,
     CurrencyMintAccountMetadataSyncCommandHandlerConfig,
     CurrencyMintAccountMetadataSyncCommandHandlerError, CurrencyMintAccountMetadataSyncOutput,
+};
+pub use currency_mint_supply_sync::{
+    CurrencyMintSupplySyncCommand, CurrencyMintSupplySyncCommandHandler,
+    CurrencyMintSupplySyncCommandHandlerError, CurrencyMintSupplySyncOutput,
 };
 pub use currency_name_change::{
     CurrencyNameChangeCommand, CurrencyNameChangeCommandHandler,
@@ -61,17 +62,26 @@ pub use currency_ownership_transfer::{
     CurrencyOwnershipTransferCommand, CurrencyOwnershipTransferCommandHandler,
     CurrencyOwnershipTransferCommandHandlerError, CurrencyOwnershipTransferOutput,
 };
+pub use currency_provision::{
+    CurrencyProvisionCommand, CurrencyProvisionCommandHandler,
+    CurrencyProvisionCommandHandlerConfig, CurrencyProvisionCommandHandlerError,
+    CurrencyProvisionOutput,
+};
 pub use currency_remove::{
     CurrencyRemoveCommand, CurrencyRemoveCommandHandler, CurrencyRemoveCommandHandlerError,
     CurrencyRemoveOutput,
 };
-pub use currency_supply_decrease::{
-    CurrencySupplyDecreaseCommand, CurrencySupplyDecreaseCommandHandler,
-    CurrencySupplyDecreaseCommandHandlerError, CurrencySupplyDecreaseOutput,
+pub use currency_supply_commit::{
+    CurrencySupplyCommitCommand, CurrencySupplyCommitCommandHandler,
+    CurrencySupplyCommitCommandHandlerError, CurrencySupplyCommitOutput,
 };
-pub use currency_supply_increase::{
-    CurrencySupplyIncreaseCommand, CurrencySupplyIncreaseCommandHandler,
-    CurrencySupplyIncreaseCommandHandlerError, CurrencySupplyIncreaseOutput,
+pub use currency_supply_release::{
+    CurrencySupplyReleaseCommand, CurrencySupplyReleaseCommandHandler,
+    CurrencySupplyReleaseCommandHandlerError, CurrencySupplyReleaseOutput,
+};
+pub use currency_supply_reserve::{
+    CurrencySupplyReserveCommand, CurrencySupplyReserveCommandHandler,
+    CurrencySupplyReserveCommandHandlerError, CurrencySupplyReserveOutput,
 };
 pub use currency_symbol_change::{
     CurrencySymbolChangeCommand, CurrencySymbolChangeCommandHandler,
