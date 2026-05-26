@@ -6,14 +6,14 @@ use thiserror::Error;
 /// Represents Solana adapter errors while creating a mint account.
 #[derive(Debug, Error)]
 pub enum SolanaMintAccountCreatorError {
-    #[error("Solana token program ID is invalid")]
+    #[error("Solana mint token program ID is invalid")]
     InvalidTokenProgramId(#[source] TokenProgramIdError),
 
     #[error("Solana mint account address could not be derived from seed")]
     MintAccountAddressDerivation(#[source] PubkeyError),
 
     #[error("Solana pool token account address could not be derived from seed")]
-    PoolAccountAddressDerivation(#[source] PubkeyError),
+    PoolTokenAccountAddressDerivation(#[source] PubkeyError),
 
     #[error("Solana mint account address returned by the adapter is invalid")]
     MintAccountAddress(#[source] MintAccountAddressError),
@@ -30,7 +30,7 @@ pub enum SolanaMintAccountCreatorError {
     #[error(
         "Solana pool token account already exists with unexpected owner: address={address}, owner={owner}, expected_owner={expected_owner}"
     )]
-    PoolAccountUnexpectedOwner {
+    PoolTokenAccountUnexpectedOwner {
         address: String,
         owner: String,
         expected_owner: String,
@@ -44,7 +44,7 @@ pub enum SolanaMintAccountCreatorError {
     },
 
     #[error("Solana pool token account data is invalid: address={address}")]
-    PoolAccountInvalidData {
+    PoolTokenAccountInvalidData {
         address: String,
         #[source]
         source: ProgramError,

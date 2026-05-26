@@ -1,41 +1,41 @@
 use serde::{Deserialize, Serialize};
 
-use super::{CurrencyMintAccountAddress, CurrencyMintTokenProgramId, CurrencyPoolAccountAddress};
+use super::{CurrencyMintAccountAddress, CurrencyPoolTokenAccountAddress, CurrencyTokenProgramId};
 
 /// Represents the on-chain mint account linked to a currency.
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct CurrencyMintAccount {
-    address: CurrencyMintAccountAddress,
-    pool_address: CurrencyPoolAccountAddress,
-    token_program_id: CurrencyMintTokenProgramId,
+    mint_account_address: CurrencyMintAccountAddress,
+    pool_token_account_address: CurrencyPoolTokenAccountAddress,
+    token_program_id: CurrencyTokenProgramId,
 }
 
 impl CurrencyMintAccount {
     /// Creates a currency mint account reference.
     pub fn new(
-        address: CurrencyMintAccountAddress,
-        pool_address: CurrencyPoolAccountAddress,
-        token_program_id: CurrencyMintTokenProgramId,
+        mint_account_address: CurrencyMintAccountAddress,
+        pool_token_account_address: CurrencyPoolTokenAccountAddress,
+        token_program_id: CurrencyTokenProgramId,
     ) -> Self {
         Self {
-            address,
-            pool_address,
+            mint_account_address,
+            pool_token_account_address,
             token_program_id,
         }
     }
 
     /// Returns the mint account address.
-    pub fn address(&self) -> &CurrencyMintAccountAddress {
-        &self.address
+    pub fn mint_account_address(&self) -> &CurrencyMintAccountAddress {
+        &self.mint_account_address
     }
 
     /// Returns the pool token account address.
-    pub fn pool_address(&self) -> &CurrencyPoolAccountAddress {
-        &self.pool_address
+    pub fn pool_token_account_address(&self) -> &CurrencyPoolTokenAccountAddress {
+        &self.pool_token_account_address
     }
 
     /// Returns the token program ID.
-    pub fn token_program_id(&self) -> &CurrencyMintTokenProgramId {
+    pub fn token_program_id(&self) -> &CurrencyTokenProgramId {
         &self.token_program_id
     }
 }

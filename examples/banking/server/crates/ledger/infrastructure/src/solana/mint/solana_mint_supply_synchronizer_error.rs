@@ -9,7 +9,7 @@ pub enum SolanaMintSupplySynchronizerError {
     MintAccountAddressDerivation(#[source] PubkeyError),
 
     #[error("Solana pool token account address could not be derived from seed")]
-    PoolAccountAddressDerivation(#[source] PubkeyError),
+    PoolTokenAccountAddressDerivation(#[source] PubkeyError),
 
     #[error(
         "Solana mint account already exists with unexpected owner: address={address}, owner={owner}, expected_owner={expected_owner}"

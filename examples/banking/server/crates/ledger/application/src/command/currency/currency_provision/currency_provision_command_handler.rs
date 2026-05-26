@@ -150,12 +150,12 @@ where
             .await?;
         let mint_account = CurrencyMintAccount::new(
             receipt
-                .address()
+                .mint_account_address()
                 .clone()
                 .try_into()
                 .map_err(MintAccountCreateReceiptError::from)?,
             receipt
-                .pool_address()
+                .pool_token_account_address()
                 .clone()
                 .try_into()
                 .map_err(MintAccountCreateReceiptError::from)?,
@@ -201,8 +201,8 @@ mod tests {
     use banking_ledger_domain::currency::{
         Currency, CurrencyDecimals, CurrencyEventPayload, CurrencyId, CurrencyImageObjectName,
         CurrencyImageRef, CurrencyImageUrl, CurrencyMintAccount, CurrencyMintAccountAddress,
-        CurrencyMintTokenProgramId, CurrencyName, CurrencyOwner, CurrencyPoolAccountAddress,
-        CurrencyProvisionRejectionReason, CurrencySymbol,
+        CurrencyName, CurrencyOwner, CurrencyPoolTokenAccountAddress,
+        CurrencyProvisionRejectionReason, CurrencySymbol, CurrencyTokenProgramId,
     };
     use uuid::Uuid;
 
@@ -214,7 +214,7 @@ mod tests {
         MintAccountAddress, MintAccountCreateReceipt, MintAccountCreateRequest, MintAccountCreator,
         MintAccountCreatorError, MintAccountSeed, MintMetadataImagePublicBaseUrl,
         MintMetadataPublishRequest, MintMetadataPublisher, MintMetadataPublisherError,
-        MintMetadataUri, OnchainAccountAddress, TokenProgramId,
+        MintMetadataUri, PoolTokenAccountAddress, TokenProgramId,
     };
 
     const TOKEN_PROGRAM_ID: &str = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
@@ -375,9 +375,9 @@ mod tests {
         CurrencyMintAccount::new(
             CurrencyMintAccountAddress::try_from("Mint111111111111111111111111111111111111")
                 .expect("mint account address should be valid"),
-            CurrencyPoolAccountAddress::try_from("Pool111111111111111111111111111111111111")
+            CurrencyPoolTokenAccountAddress::try_from("Pool111111111111111111111111111111111111")
                 .expect("pool account address should be valid"),
-            CurrencyMintTokenProgramId::try_from(TOKEN_PROGRAM_ID)
+            CurrencyTokenProgramId::try_from(TOKEN_PROGRAM_ID)
                 .expect("token program ID should be valid"),
         )
     }
@@ -386,7 +386,7 @@ mod tests {
         MintAccountCreateReceipt::new(
             MintAccountAddress::try_from("Mint111111111111111111111111111111111111")
                 .expect("mint account address should be valid"),
-            OnchainAccountAddress::try_from("Pool111111111111111111111111111111111111")
+            PoolTokenAccountAddress::try_from("Pool111111111111111111111111111111111111")
                 .expect("pool account address should be valid"),
             TokenProgramId::try_from(TOKEN_PROGRAM_ID).expect("token program ID should be valid"),
         )

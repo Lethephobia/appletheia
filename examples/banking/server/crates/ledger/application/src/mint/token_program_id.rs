@@ -1,9 +1,7 @@
 use std::fmt::{self, Display};
 use std::str::FromStr;
 
-use banking_ledger_domain::currency::{
-    CurrencyMintTokenProgramId, CurrencyMintTokenProgramIdError,
-};
+use banking_ledger_domain::currency::{CurrencyTokenProgramId, CurrencyTokenProgramIdError};
 use serde::{Deserialize, Serialize};
 
 use super::TokenProgramIdError;
@@ -71,8 +69,8 @@ impl TryFrom<String> for TokenProgramId {
     }
 }
 
-impl TryFrom<TokenProgramId> for CurrencyMintTokenProgramId {
-    type Error = CurrencyMintTokenProgramIdError;
+impl TryFrom<TokenProgramId> for CurrencyTokenProgramId {
+    type Error = CurrencyTokenProgramIdError;
 
     fn try_from(value: TokenProgramId) -> Result<Self, Self::Error> {
         Self::try_from(value.0)
@@ -87,7 +85,7 @@ impl From<TokenProgramId> for String {
 
 #[cfg(test)]
 mod tests {
-    use banking_ledger_domain::currency::CurrencyMintTokenProgramId;
+    use banking_ledger_domain::currency::CurrencyTokenProgramId;
 
     use super::{TokenProgramId, TokenProgramIdError};
 
@@ -104,12 +102,12 @@ mod tests {
     }
 
     #[test]
-    fn converts_to_domain_currency_mint_token_program_id() {
+    fn converts_to_domain_currency_token_program_id() {
         let token_program_id =
             TokenProgramId::try_from("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb")
                 .expect("token program ID should be valid");
 
-        let domain_token_program_id = CurrencyMintTokenProgramId::try_from(token_program_id)
+        let domain_token_program_id = CurrencyTokenProgramId::try_from(token_program_id)
             .expect("domain token program ID should be valid");
 
         assert_eq!(

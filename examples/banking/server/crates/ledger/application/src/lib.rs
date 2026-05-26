@@ -84,7 +84,7 @@ pub use mint::{
     MintMetadataUriError, MintSupplySyncRequest, MintSupplySynchronizer,
     MintSupplySynchronizerError, ObjectStorageMintMetadataPublisher,
     ObjectStorageMintMetadataPublisherConfig, ObjectStorageMintMetadataPublisherError,
-    OnchainAccountAddress, OnchainAccountAddressError, TokenProgramId, TokenProgramIdError,
+    PoolTokenAccountAddress, PoolTokenAccountAddressError, TokenProgramId, TokenProgramIdError,
 };
 pub use projection::{
     CurrencyListProjector, CurrencyListProjectorError, CurrencyListProjectorSpec,

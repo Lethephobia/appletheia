@@ -151,8 +151,8 @@ mod tests {
     use banking_ledger_domain::currency::{
         Currency, CurrencyDecimals, CurrencyEventPayload, CurrencyId, CurrencyImageObjectName,
         CurrencyImageRef, CurrencyImageUrl, CurrencyMintAccount, CurrencyMintAccountAddress,
-        CurrencyMintAccountMetadataSyncRejectionReason, CurrencyMintTokenProgramId, CurrencyName,
-        CurrencyOwner, CurrencyPoolAccountAddress, CurrencySymbol,
+        CurrencyMintAccountMetadataSyncRejectionReason, CurrencyName, CurrencyOwner,
+        CurrencyPoolTokenAccountAddress, CurrencySymbol, CurrencyTokenProgramId,
     };
     use uuid::Uuid;
 
@@ -338,9 +338,9 @@ mod tests {
         CurrencyMintAccount::new(
             CurrencyMintAccountAddress::try_from("Mint111111111111111111111111111111111111")
                 .expect("mint account address should be valid"),
-            CurrencyPoolAccountAddress::try_from("Pool111111111111111111111111111111111111")
+            CurrencyPoolTokenAccountAddress::try_from("Pool111111111111111111111111111111111111")
                 .expect("pool account address should be valid"),
-            CurrencyMintTokenProgramId::try_from(TOKEN_PROGRAM_ID)
+            CurrencyTokenProgramId::try_from(TOKEN_PROGRAM_ID)
                 .expect("token program ID should be valid"),
         )
     }

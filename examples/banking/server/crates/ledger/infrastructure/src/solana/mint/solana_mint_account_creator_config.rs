@@ -6,7 +6,7 @@ use solana_sdk::{pubkey::Pubkey, signature::Keypair};
 pub struct SolanaMintAccountCreatorConfig {
     payer: Arc<Keypair>,
     mint_authority: Arc<Keypair>,
-    pool_account_owner: Arc<Keypair>,
+    pool_token_account_owner_address: Pubkey,
     freeze_authority: Option<Pubkey>,
 }
 
@@ -14,13 +14,13 @@ impl SolanaMintAccountCreatorConfig {
     pub fn new(
         payer: Arc<Keypair>,
         mint_authority: Arc<Keypair>,
-        pool_account_owner: Arc<Keypair>,
+        pool_token_account_owner_address: Pubkey,
         freeze_authority: Option<Pubkey>,
     ) -> Self {
         Self {
             payer,
             mint_authority,
-            pool_account_owner,
+            pool_token_account_owner_address,
             freeze_authority,
         }
     }
@@ -33,8 +33,8 @@ impl SolanaMintAccountCreatorConfig {
         &self.mint_authority
     }
 
-    pub fn pool_account_owner(&self) -> &Arc<Keypair> {
-        &self.pool_account_owner
+    pub fn pool_token_account_owner_address(&self) -> &Pubkey {
+        &self.pool_token_account_owner_address
     }
 
     pub fn freeze_authority(&self) -> Option<Pubkey> {

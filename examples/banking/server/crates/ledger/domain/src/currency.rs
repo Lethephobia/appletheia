@@ -23,8 +23,6 @@ mod currency_mint_account;
 mod currency_mint_account_address;
 mod currency_mint_account_address_error;
 mod currency_mint_account_metadata_sync_rejection_reason;
-mod currency_mint_token_program_id;
-mod currency_mint_token_program_id_error;
 mod currency_name;
 mod currency_name_change_rejection_reason;
 mod currency_name_change_result;
@@ -32,8 +30,8 @@ mod currency_name_error;
 mod currency_owner;
 mod currency_ownership_transfer_rejection_reason;
 mod currency_ownership_transfer_result;
-mod currency_pool_account_address;
-mod currency_pool_account_address_error;
+mod currency_pool_token_account_address;
+mod currency_pool_token_account_address_error;
 mod currency_provision_rejection_reason;
 mod currency_provision_result;
 mod currency_provisioning_status;
@@ -52,6 +50,8 @@ mod currency_symbol;
 mod currency_symbol_change_rejection_reason;
 mod currency_symbol_change_result;
 mod currency_symbol_error;
+mod currency_token_program_id;
+mod currency_token_program_id_error;
 
 pub use currency_activate_rejection_reason::CurrencyActivateRejectionReason;
 pub use currency_activate_result::CurrencyActivateResult;
@@ -78,8 +78,6 @@ pub use currency_mint_account::CurrencyMintAccount;
 pub use currency_mint_account_address::CurrencyMintAccountAddress;
 pub use currency_mint_account_address_error::CurrencyMintAccountAddressError;
 pub use currency_mint_account_metadata_sync_rejection_reason::CurrencyMintAccountMetadataSyncRejectionReason;
-pub use currency_mint_token_program_id::CurrencyMintTokenProgramId;
-pub use currency_mint_token_program_id_error::CurrencyMintTokenProgramIdError;
 pub use currency_name::CurrencyName;
 pub use currency_name_change_rejection_reason::CurrencyNameChangeRejectionReason;
 pub use currency_name_change_result::CurrencyNameChangeResult;
@@ -87,8 +85,8 @@ pub use currency_name_error::CurrencyNameError;
 pub use currency_owner::CurrencyOwner;
 pub use currency_ownership_transfer_rejection_reason::CurrencyOwnershipTransferRejectionReason;
 pub use currency_ownership_transfer_result::CurrencyOwnershipTransferResult;
-pub use currency_pool_account_address::CurrencyPoolAccountAddress;
-pub use currency_pool_account_address_error::CurrencyPoolAccountAddressError;
+pub use currency_pool_token_account_address::CurrencyPoolTokenAccountAddress;
+pub use currency_pool_token_account_address_error::CurrencyPoolTokenAccountAddressError;
 pub use currency_provision_rejection_reason::CurrencyProvisionRejectionReason;
 pub use currency_provision_result::CurrencyProvisionResult;
 pub use currency_provisioning_status::CurrencyProvisioningStatus;
@@ -107,6 +105,8 @@ pub use currency_symbol::CurrencySymbol;
 pub use currency_symbol_change_rejection_reason::CurrencySymbolChangeRejectionReason;
 pub use currency_symbol_change_result::CurrencySymbolChangeResult;
 pub use currency_symbol_error::CurrencySymbolError;
+pub use currency_token_program_id::CurrencyTokenProgramId;
+pub use currency_token_program_id_error::CurrencyTokenProgramIdError;
 
 use appletheia::aggregate;
 use appletheia::domain::{Aggregate, AggregateApply, AggregateCore};
@@ -718,9 +718,9 @@ mod tests {
     use super::{
         Currency, CurrencyDecimals, CurrencyDescription, CurrencyEventPayload, CurrencyId,
         CurrencyImageRef, CurrencyImageUrl, CurrencyMintAccount, CurrencyMintAccountAddress,
-        CurrencyMintAccountMetadataSyncRejectionReason, CurrencyMintTokenProgramId, CurrencyName,
-        CurrencyOwner, CurrencyPoolAccountAddress, CurrencyProvisioningStatus, CurrencyStatus,
-        CurrencySymbol,
+        CurrencyMintAccountMetadataSyncRejectionReason, CurrencyName, CurrencyOwner,
+        CurrencyPoolTokenAccountAddress, CurrencyProvisioningStatus, CurrencyStatus,
+        CurrencySymbol, CurrencyTokenProgramId,
     };
 
     fn user_owner() -> CurrencyOwner {
@@ -735,9 +735,9 @@ mod tests {
         CurrencyMintAccount::new(
             CurrencyMintAccountAddress::try_from(value)
                 .expect("mint account address should be valid"),
-            CurrencyPoolAccountAddress::try_from("Pool111111111111111111111111111111111111")
+            CurrencyPoolTokenAccountAddress::try_from("Pool111111111111111111111111111111111111")
                 .expect("pool account address should be valid"),
-            CurrencyMintTokenProgramId::try_from("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb")
+            CurrencyTokenProgramId::try_from("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb")
                 .expect("token program ID should be valid"),
         )
     }

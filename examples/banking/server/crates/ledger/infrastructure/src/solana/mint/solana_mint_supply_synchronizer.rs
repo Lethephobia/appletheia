@@ -7,6 +7,7 @@ use solana_sdk::{
     signature::Signer,
 };
 use solana_transaction::Transaction;
+use spl_associated_token_account_interface::address as associated_token_address;
 use spl_token_2022_interface::extension::PodStateWithExtensions;
 use spl_token_2022_interface::instruction as token_instruction;
 use spl_token_2022_interface::pod::PodMint;
@@ -32,12 +33,16 @@ impl SolanaMintSupplySynchronizer {
         Pubkey::create_with_seed(mint_authority, seed.value(), token_program_id)
     }
 
-    fn pool_address(
+    fn pool_token_account_address(
         pool_account_owner: &Pubkey,
-        seed: &MintAccountSeed,
+        mint_address: &Pubkey,
         token_program_id: &Pubkey,
-    ) -> Result<Pubkey, PubkeyError> {
-        Pubkey::create_with_seed(pool_account_owner, seed.value(), token_program_id)
+    ) -> Pubkey {
+        associated_token_address::get_associated_token_address_with_program_id(
+            pool_account_owner,
+            mint_address,
+            token_program_id,
+        )
     }
 
     async fn current_supply(
@@ -109,14 +114,8 @@ impl MintSupplySynchronizer for SolanaMintSupplySynchronizer {
                 SolanaMintSupplySynchronizerError::MintAccountAddressDerivation(error),
             ))
         })?;
-        let pool_address =
-            Self::pool_address(&pool_account_owner, request.seed(), &token_program_id).map_err(
-                |error| {
-                    MintSupplySynchronizerError::Backend(Box::new(
-                        SolanaMintSupplySynchronizerError::PoolAccountAddressDerivation(error),
-                    ))
-                },
-            )?;
+        let pool_token_account_address =
+            Self::pool_token_account_address(&pool_account_owner, &mint_address, &token_program_id);
         let target_supply = u64::try_from(request.target_supply()).map_err(|_| {
             MintSupplySynchronizerError::Backend(Box::new(
                 SolanaMintSupplySynchronizerError::TargetSupplyOverflow,
@@ -140,7 +139,7 @@ impl MintSupplySynchronizer for SolanaMintSupplySynchronizer {
                 let instruction = token_instruction::mint_to_checked(
                     &token_program_id,
                     &mint_address,
-                    &pool_address,
+                    &pool_token_account_address,
                     &mint_authority,
                     &[],
                     mint_amount,
@@ -160,7 +159,7 @@ impl MintSupplySynchronizer for SolanaMintSupplySynchronizer {
                 let burn_amount = current_supply - target_supply;
                 let instruction = token_instruction::burn_checked(
                     &token_program_id,
-                    &pool_address,
+                    &pool_token_account_address,
                     &mint_address,
                     &pool_account_owner,
                     &[],
