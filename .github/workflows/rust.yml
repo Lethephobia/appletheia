@@ -26,3 +26,9 @@ jobs:
       run: cargo build --manifest-path examples/banking/server/Cargo.toml --verbose
     - name: Run banking server workspace tests
       run: cargo test --manifest-path examples/banking/server/Cargo.toml --verbose
+    - name: Build banking onchain workspace
+      working-directory: examples/banking/onchain
+      run: cargo build --verbose
+    - name: Run banking onchain workspace library tests
+      working-directory: examples/banking/onchain
+      run: cargo test --lib --verbose

@@ -1,0 +1,24 @@
+services:
+  solana-localnet:
+    build:
+      context: docker/solana-localnet
+      args:
+        AGAVE_VERSION: v3.0.13
+    ports:
+      - "127.0.0.1:18899:8899"
+      - "127.0.0.1:18900:8900"
+      - "127.0.0.1:19900:9900"
+    volumes:
+      - solana-ledger:/var/lib/solana/ledger
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "HOST=$$(hostname -i); curl -fsS -X POST -H 'Content-Type: application/json' -d '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"getHealth\"}' http://$${HOST%% *}:8899 | grep -q '\"result\":\"ok\"'",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+volumes:
+  solana-ledger:
