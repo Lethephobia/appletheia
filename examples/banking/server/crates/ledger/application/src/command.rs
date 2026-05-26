@@ -2,7 +2,9 @@ pub mod account;
 pub mod currency;
 pub mod currency_issuance;
 pub mod owned_account_closure;
+pub mod payout_destination;
 pub mod transfer;
+pub mod withdrawal;
 
 pub use account::{
     AccountCloseCommand, AccountCloseCommandHandler, AccountCloseOutput, AccountDepositCommand,
@@ -76,8 +78,21 @@ pub use owned_account_closure::{
     OwnedAccountClosureRequestCommandHandler, OwnedAccountClosureRequestCommandHandlerError,
     OwnedAccountClosureRequestOutput,
 };
+pub use payout_destination::{
+    PayoutDestinationRegisterCommand, PayoutDestinationRegisterCommandHandler,
+    PayoutDestinationRegisterCommandHandlerError, PayoutDestinationRegisterOutput,
+    PayoutDestinationRemoveCommand, PayoutDestinationRemoveCommandHandler,
+    PayoutDestinationRemoveCommandHandlerError, PayoutDestinationRemoveOutput,
+};
 pub use transfer::{
     TransferCompleteCommand, TransferCompleteCommandHandler, TransferCompleteOutput,
     TransferFailCommand, TransferFailCommandHandler, TransferFailOutput, TransferRequestCommand,
     TransferRequestCommandHandler, TransferRequestOutput,
+};
+pub use withdrawal::{
+    WithdrawalCompleteCommand, WithdrawalCompleteCommandHandler, WithdrawalCompleteOutput,
+    WithdrawalFailCommand, WithdrawalFailCommandHandler, WithdrawalFailOutput,
+    WithdrawalRequestCommand, WithdrawalRequestCommandHandler, WithdrawalRequestOutput,
+    WithdrawalTokenTransferCommand, WithdrawalTokenTransferCommandHandler,
+    WithdrawalTokenTransferOutput,
 };

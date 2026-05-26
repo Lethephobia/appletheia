@@ -8,7 +8,10 @@ use super::{
     CurrencyMintSupplySyncCommand, CurrencyMintSupplySyncCommandHandlerError,
     CurrencyMintSupplySyncOutput,
 };
-use crate::mint::{MintAccountSeed, MintSupplySyncRequest, MintSupplySynchronizer};
+use crate::mint::{
+    MintAccountDecimals, MintAccountSeed, MintSupplySyncRequest, MintSupplySynchronizer,
+    TokenAmount,
+};
 
 /// Handles `CurrencyMintSupplySyncCommand`.
 pub struct CurrencyMintSupplySyncCommandHandler<CR, MSS>
@@ -76,8 +79,8 @@ where
         self.mint_supply_synchronizer
             .sync_supply(MintSupplySyncRequest::new(
                 seed,
-                currency.decimals()?.value(),
-                target_supply.value(),
+                MintAccountDecimals::from(currency.decimals()?),
+                TokenAmount::new(target_supply.value()),
             ))
             .await?;
 
@@ -114,7 +117,10 @@ mod tests {
         CurrencyMintSupplySyncCommand, CurrencyMintSupplySyncCommandHandler,
         CurrencyMintSupplySyncCommandHandlerError, CurrencyMintSupplySyncOutput,
     };
-    use crate::mint::{MintSupplySyncRequest, MintSupplySynchronizer, MintSupplySynchronizerError};
+    use crate::mint::{
+        MintAccountDecimals, MintSupplySyncRequest, MintSupplySynchronizer,
+        MintSupplySynchronizerError, TokenAmount,
+    };
 
     const TOKEN_PROGRAM_ID: &str = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
 
@@ -270,8 +276,8 @@ mod tests {
             request_log.lock().expect("lock").clone(),
             Some(MintSupplySyncRequest::new(
                 crate::mint::MintAccountSeed::try_from(currency_id).expect("seed should be valid"),
-                6,
-                100,
+                MintAccountDecimals::new(6),
+                TokenAmount::new(100),
             ))
         );
 

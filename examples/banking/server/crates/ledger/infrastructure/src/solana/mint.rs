@@ -7,6 +7,10 @@ mod solana_mint_account_metadata_updater_error;
 mod solana_mint_supply_synchronizer;
 mod solana_mint_supply_synchronizer_config;
 mod solana_mint_supply_synchronizer_error;
+mod solana_pool_token_transfer_executor;
+mod solana_pool_token_transfer_executor_config;
+mod solana_pool_token_transfer_executor_error;
+mod solana_token_account_owner_address_validator;
 
 pub use solana_mint_account_creator::SolanaMintAccountCreator;
 pub use solana_mint_account_creator_config::SolanaMintAccountCreatorConfig;
@@ -17,3 +21,7 @@ pub use solana_mint_account_metadata_updater_error::SolanaMintAccountMetadataUpd
 pub use solana_mint_supply_synchronizer::SolanaMintSupplySynchronizer;
 pub use solana_mint_supply_synchronizer_config::SolanaMintSupplySynchronizerConfig;
 pub use solana_mint_supply_synchronizer_error::SolanaMintSupplySynchronizerError;
+pub use solana_pool_token_transfer_executor::SolanaPoolTokenTransferExecutor;
+pub use solana_pool_token_transfer_executor_config::SolanaPoolTokenTransferExecutorConfig;
+pub use solana_pool_token_transfer_executor_error::SolanaPoolTokenTransferExecutorError;
+pub use solana_token_account_owner_address_validator::SolanaTokenAccountOwnerAddressValidator;

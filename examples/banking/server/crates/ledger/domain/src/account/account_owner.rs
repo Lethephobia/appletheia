@@ -1,6 +1,8 @@
 use banking_iam_domain::{OrganizationId, UserId};
 use serde::{Deserialize, Serialize};
 
+use crate::payout_destination::PayoutDestinationOwner;
+
 /// Identifies the owner of an `Account`.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 #[serde(tag = "type", content = "value", rename_all = "snake_case")]
@@ -46,6 +48,17 @@ impl From<UserId> for AccountOwner {
 impl From<OrganizationId> for AccountOwner {
     fn from(value: OrganizationId) -> Self {
         Self::Organization(value)
+    }
+}
+
+impl From<PayoutDestinationOwner> for AccountOwner {
+    fn from(value: PayoutDestinationOwner) -> Self {
+        match value {
+            PayoutDestinationOwner::User(user_id) => Self::User(user_id),
+            PayoutDestinationOwner::Organization(organization_id) => {
+                Self::Organization(organization_id)
+            }
+        }
     }
 }
 

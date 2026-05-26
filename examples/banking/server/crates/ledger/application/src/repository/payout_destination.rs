@@ -1,0 +1,3 @@
+mod payout_destination_event_save_hook;
+
+pub use payout_destination_event_save_hook::PayoutDestinationEventSaveHook;

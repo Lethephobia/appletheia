@@ -1,0 +1,13 @@
+use banking_ledger_domain::payout_destination::PayoutDestination;
+
+mod default_payout_destination_relationship_updater;
+mod payout_destination_owner_relation;
+mod payout_destination_relationship_updater;
+mod payout_destination_relationship_updater_error;
+mod payout_destination_remover_relation;
+
+pub use default_payout_destination_relationship_updater::DefaultPayoutDestinationRelationshipUpdater;
+pub use payout_destination_owner_relation::PayoutDestinationOwnerRelation;
+pub use payout_destination_relationship_updater::PayoutDestinationRelationshipUpdater;
+pub use payout_destination_relationship_updater_error::PayoutDestinationRelationshipUpdaterError;
+pub use payout_destination_remover_relation::PayoutDestinationRemoverRelation;

@@ -5,4 +5,6 @@ pub use mint::{
     SolanaMintAccountMetadataUpdater, SolanaMintAccountMetadataUpdaterConfig,
     SolanaMintAccountMetadataUpdaterError, SolanaMintSupplySynchronizer,
     SolanaMintSupplySynchronizerConfig, SolanaMintSupplySynchronizerError,
+    SolanaPoolTokenTransferExecutor, SolanaPoolTokenTransferExecutorConfig,
+    SolanaPoolTokenTransferExecutorError, SolanaTokenAccountOwnerAddressValidator,
 };

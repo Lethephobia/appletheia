@@ -11,11 +11,14 @@ pub use authorization::{
     AccountCloserRelation, AccountFreezerRelation, AccountNameChangerRelation,
     AccountOwnerRelation, AccountOwnershipTransfererRelation, AccountRelationshipUpdater,
     AccountRelationshipUpdaterError, AccountStatusManagerRelation, AccountThawerRelation,
-    AccountTransferRequesterRelation, CurrencyActivatorRelation, CurrencyDeactivatorRelation,
-    CurrencyIssuerRelation, CurrencyOwnerRelation, CurrencyOwnershipTransfererRelation,
-    CurrencyRelationshipUpdater, CurrencyRelationshipUpdaterError, CurrencyRemoverRelation,
-    CurrencyStatusManagerRelation, CurrencyUpdaterRelation, DefaultAccountRelationshipUpdater,
-    DefaultCurrencyRelationshipUpdater,
+    AccountTransferRequesterRelation, AccountWithdrawalRequesterRelation,
+    CurrencyActivatorRelation, CurrencyDeactivatorRelation, CurrencyIssuerRelation,
+    CurrencyOwnerRelation, CurrencyOwnershipTransfererRelation, CurrencyRelationshipUpdater,
+    CurrencyRelationshipUpdaterError, CurrencyRemoverRelation, CurrencyStatusManagerRelation,
+    CurrencyUpdaterRelation, DefaultAccountRelationshipUpdater, DefaultCurrencyRelationshipUpdater,
+    DefaultPayoutDestinationRelationshipUpdater, PayoutDestinationOwnerRelation,
+    PayoutDestinationRelationshipUpdater, PayoutDestinationRelationshipUpdaterError,
+    PayoutDestinationRemoverRelation,
 };
 pub use command::{
     AccountCloseCommand, AccountCloseCommandHandler, AccountCloseOutput, AccountDepositCommand,
@@ -66,9 +69,17 @@ pub use command::{
     OwnedAccountClosureFailOutput, OwnedAccountClosurePageLoadCommand,
     OwnedAccountClosurePageLoadCommandHandler, OwnedAccountClosurePageLoadOutput,
     OwnedAccountClosureRequestCommand, OwnedAccountClosureRequestCommandHandler,
-    OwnedAccountClosureRequestOutput, TransferCompleteCommand, TransferCompleteCommandHandler,
+    OwnedAccountClosureRequestOutput, PayoutDestinationRegisterCommand,
+    PayoutDestinationRegisterCommandHandler, PayoutDestinationRegisterOutput,
+    PayoutDestinationRemoveCommand, PayoutDestinationRemoveCommandHandler,
+    PayoutDestinationRemoveOutput, TransferCompleteCommand, TransferCompleteCommandHandler,
     TransferCompleteOutput, TransferFailCommand, TransferFailCommandHandler, TransferFailOutput,
     TransferRequestCommand, TransferRequestCommandHandler, TransferRequestOutput,
+    WithdrawalCompleteCommand, WithdrawalCompleteCommandHandler, WithdrawalCompleteOutput,
+    WithdrawalFailCommand, WithdrawalFailCommandHandler, WithdrawalFailOutput,
+    WithdrawalRequestCommand, WithdrawalRequestCommandHandler, WithdrawalRequestOutput,
+    WithdrawalTokenTransferCommand, WithdrawalTokenTransferCommandHandler,
+    WithdrawalTokenTransferOutput,
 };
 pub use mint::{
     MintAccountAddress, MintAccountAddressError, MintAccountCreateReceipt,
@@ -84,7 +95,11 @@ pub use mint::{
     MintMetadataUriError, MintSupplySyncRequest, MintSupplySynchronizer,
     MintSupplySynchronizerError, ObjectStorageMintMetadataPublisher,
     ObjectStorageMintMetadataPublisherConfig, ObjectStorageMintMetadataPublisherError,
-    PoolTokenAccountAddress, PoolTokenAccountAddressError, TokenProgramId, TokenProgramIdError,
+    OnchainTransactionId, PoolTokenAccountAddress, PoolTokenAccountAddressError,
+    PoolTokenTransferExecutor, PoolTokenTransferExecutorError, PoolTokenTransferMarkerSeed,
+    PoolTokenTransferMarkerSeedError, PoolTokenTransferReceipt, PoolTokenTransferRequest,
+    TokenAccountOwnerAddress, TokenAccountOwnerAddressError, TokenAccountOwnerAddressValidator,
+    TokenAccountOwnerAddressValidatorError, TokenAmount, TokenProgramId, TokenProgramIdError,
 };
 pub use projection::{
     CurrencyListProjector, CurrencyListProjectorError, CurrencyListProjectorSpec,
@@ -137,7 +152,7 @@ pub use read_model::{
     PublicAccountListReader, PublicAccountListReaderError, PublicAccountListSortKey,
     PublicAccountListWriter, PublicAccountListWriterError, ReadModelObservation, SortDirection,
 };
-pub use repository::{AccountEventSaveHook, CurrencyEventSaveHook};
+pub use repository::{AccountEventSaveHook, CurrencyEventSaveHook, PayoutDestinationEventSaveHook};
 pub use saga::{
     CurrencyIssuanceSaga, CurrencyIssuanceSagaError, CurrencyIssuanceSagaSpec,
     CurrencyIssuanceSagaState, CurrencyIssuanceSagaStatus, CurrencyMintAccountMetadataSyncSaga,
@@ -149,4 +164,6 @@ pub use saga::{
     CurrencyProvisioningSagaStatus, OwnedAccountClosureSaga, OwnedAccountClosureSagaError,
     OwnedAccountClosureSagaSpec, OwnedAccountClosureSagaState, OwnedAccountClosureSagaStatus,
     TransferSaga, TransferSagaError, TransferSagaSpec, TransferSagaState, TransferSagaStatus,
+    WithdrawalSaga, WithdrawalSagaError, WithdrawalSagaSpec, WithdrawalSagaState,
+    WithdrawalSagaStatus,
 };

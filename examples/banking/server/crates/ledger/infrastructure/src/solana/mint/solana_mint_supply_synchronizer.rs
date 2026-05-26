@@ -116,7 +116,7 @@ impl MintSupplySynchronizer for SolanaMintSupplySynchronizer {
         })?;
         let pool_token_account_address =
             Self::pool_token_account_address(&pool_account_owner, &mint_address, &token_program_id);
-        let target_supply = u64::try_from(request.target_supply()).map_err(|_| {
+        let target_supply = u64::try_from(request.target_supply().value()).map_err(|_| {
             MintSupplySynchronizerError::Backend(Box::new(
                 SolanaMintSupplySynchronizerError::TargetSupplyOverflow,
             ))
@@ -143,7 +143,7 @@ impl MintSupplySynchronizer for SolanaMintSupplySynchronizer {
                     &mint_authority,
                     &[],
                     mint_amount,
-                    request.decimals(),
+                    request.decimals().value(),
                 )
                 .map_err(|error| {
                     MintSupplySynchronizerError::Backend(Box::new(
@@ -164,7 +164,7 @@ impl MintSupplySynchronizer for SolanaMintSupplySynchronizer {
                     &pool_account_owner,
                     &[],
                     burn_amount,
-                    request.decimals(),
+                    request.decimals().value(),
                 )
                 .map_err(|error| {
                     MintSupplySynchronizerError::Backend(Box::new(

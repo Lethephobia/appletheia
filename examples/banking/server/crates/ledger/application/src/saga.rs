@@ -4,6 +4,7 @@ mod currency_old_image_object_deletion;
 mod currency_provisioning;
 mod owned_account_closure;
 mod transfer;
+mod withdrawal;
 
 pub use currency_issuance::{
     CurrencyIssuanceSaga, CurrencyIssuanceSagaError, CurrencyIssuanceSagaSpec,
@@ -27,4 +28,8 @@ pub use owned_account_closure::{
 };
 pub use transfer::{
     TransferSaga, TransferSagaError, TransferSagaSpec, TransferSagaState, TransferSagaStatus,
+};
+pub use withdrawal::{
+    WithdrawalSaga, WithdrawalSagaError, WithdrawalSagaSpec, WithdrawalSagaState,
+    WithdrawalSagaStatus,
 };
