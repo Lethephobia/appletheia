@@ -140,38 +140,41 @@ good:
 ```rust
 let currency = currency_repository.find_by_id(uow, command.currency_id).await?;
 let mut issuance = CurrencyIssuance::default();
-
-let result = if destination_account.currency_id()? != &command.currency_id {
-    let reason = CurrencyIssuanceIssueRejectionReason::CurrencyMismatch;
-    let currency_issuance_id = issuance.reject_issue(
-        command.currency_id,
-        command.destination_account_id,
-        command.amount,
-        reason,
-    )?;
-    CurrencyIssuanceIssueResult::Rejected {
-        currency_issuance_id,
-        reason,
-    }
-} else if !currency.is_active() {
-    let reason = CurrencyIssuanceIssueRejectionReason::CurrencyInactive;
-    let currency_issuance_id = issuance.reject_issue(
-        command.currency_id,
-        command.destination_account_id,
-        command.amount,
-        reason,
-    )?;
-    CurrencyIssuanceIssueResult::Rejected {
-        currency_issuance_id,
-        reason,
-    }
-} else {
-    issuance.issue(
-        command.currency_id,
-        command.destination_account_id,
-        command.amount,
-    )?
+let request = CurrencyIssuanceRequest {
+    currency_id: command.currency_id,
+    destination_account_id: command.destination_account_id,
+    amount: command.amount,
 };
+
+if destination_account.currency_id()? != &command.currency_id {
+    let reason = CurrencyIssuanceIssueRejectionReason::CurrencyMismatch;
+    let currency_issuance_id = issuance.reject_issue(request, reason)?;
+
+    currency_issuance_repository
+        .save(uow, request_context, &mut issuance)
+        .await?;
+
+    return Ok(CommandHandled::same(CurrencyIssueOutput::Rejected {
+        currency_issuance_id,
+        reason,
+    }));
+}
+
+if !currency.is_active() {
+    let reason = CurrencyIssuanceIssueRejectionReason::CurrencyInactive;
+    let currency_issuance_id = issuance.reject_issue(request, reason)?;
+
+    currency_issuance_repository
+        .save(uow, request_context, &mut issuance)
+        .await?;
+
+    return Ok(CommandHandled::same(CurrencyIssueOutput::Rejected {
+        currency_issuance_id,
+        reason,
+    }));
+}
+
+let result = issuance.issue(request)?;
 
 currency_issuance_repository
     .save(uow, request_context, &mut issuance)
@@ -180,13 +183,13 @@ currency_issuance_repository
 let output = match result {
     CurrencyIssuanceIssueResult::Issued {
         currency_issuance_id,
-    } => CurrencyIssuanceIssueOutput::Issued {
+    } => CurrencyIssueOutput::Issued {
         currency_issuance_id,
     },
     CurrencyIssuanceIssueResult::Rejected {
         currency_issuance_id,
         reason,
-    } => CurrencyIssuanceIssueOutput::Rejected {
+    } => CurrencyIssueOutput::Rejected {
         currency_issuance_id,
         reason,
     },

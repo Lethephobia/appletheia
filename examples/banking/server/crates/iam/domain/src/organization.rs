@@ -1,4 +1,5 @@
 mod organization_create_result;
+mod organization_creation;
 mod organization_description;
 mod organization_description_change_rejection_reason;
 mod organization_description_change_result;
@@ -36,6 +37,7 @@ mod organization_website_url_change_result;
 mod organization_website_url_error;
 
 pub use organization_create_result::OrganizationCreateResult;
+pub use organization_creation::OrganizationCreation;
 pub use organization_description::OrganizationDescription;
 pub use organization_description_change_rejection_reason::OrganizationDescriptionChangeRejectionReason;
 pub use organization_description_change_result::OrganizationDescriptionChangeResult;
@@ -133,18 +135,15 @@ impl Organization {
     /// Creates a new organization.
     pub fn create(
         &mut self,
-        owner: OrganizationOwner,
-        handle: OrganizationHandle,
-        display_name: OrganizationDisplayName,
-        description: Option<OrganizationDescription>,
-        website_url: Option<OrganizationWebsiteUrl>,
-        picture: Option<OrganizationPictureRef>,
+        creation: OrganizationCreation,
     ) -> Result<OrganizationCreateResult, OrganizationError> {
         if self.state().is_some() {
             return Err(OrganizationError::AlreadyCreated);
         }
 
         let organization_id = OrganizationId::new();
+        let (owner, handle, display_name, description, website_url, picture) =
+            creation.into_parts();
         self.append_event(OrganizationEventPayload::Created {
             id: organization_id,
             owner,
@@ -404,9 +403,9 @@ mod tests {
     use appletheia::domain::{Aggregate, EventPayload};
 
     use super::{
-        Organization, OrganizationDescription, OrganizationDisplayName, OrganizationEventPayload,
-        OrganizationHandle, OrganizationOwner, OrganizationPictureRef, OrganizationPictureUrl,
-        OrganizationWebsiteUrl,
+        Organization, OrganizationCreation, OrganizationDescription, OrganizationDisplayName,
+        OrganizationEventPayload, OrganizationHandle, OrganizationOwner, OrganizationPictureRef,
+        OrganizationPictureUrl, OrganizationWebsiteUrl,
     };
     use crate::UserId;
 
@@ -438,14 +437,14 @@ mod tests {
     fn organization() -> Organization {
         let mut organization = Organization::default();
         organization
-            .create(
-                owner(),
-                OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
-                display_name(),
-                None,
-                None,
-                None,
-            )
+            .create(OrganizationCreation {
+                owner: owner(),
+                handle: OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
+                display_name: display_name(),
+                description: None,
+                website_url: None,
+                picture: None,
+            })
             .expect("creation should succeed");
         organization
     }

@@ -7,8 +7,9 @@ use appletheia::application::request_context::RequestContext;
 use appletheia::domain::{AggregateId, UniqueValue, UniqueValuePart};
 use banking_iam_domain::{
     CurrentDateTime, Organization, OrganizationId, OrganizationInvitation,
-    OrganizationInvitationIssueRejectionReason, OrganizationInvitationIssuer,
-    OrganizationMembership, OrganizationMembershipState, User, UserId,
+    OrganizationInvitationIssuance, OrganizationInvitationIssueRejectionReason,
+    OrganizationInvitationIssuer, OrganizationMembership, OrganizationMembershipState, User,
+    UserId,
 };
 
 use crate::authorization::{OrganizationInviterRelation, UserOwnerRelation};
@@ -113,21 +114,32 @@ where
         let invitee_unique_value =
             Self::organization_user_unique_value(command.organization_id, command.invitee_id)?;
         let mut organization_invitation = OrganizationInvitation::default();
-        let result = if organization.is_removed()? {
+        let issuance = OrganizationInvitationIssuance {
+            organization_id: command.organization_id,
+            invitee_id: command.invitee_id,
+            roles: command.roles.clone(),
+            issuer: command.issuer,
+            expires_at: command.expires_at,
+        };
+
+        if organization.is_removed()? {
             let reason = OrganizationInvitationIssueRejectionReason::OrganizationRemoved;
-            let organization_invitation_id = organization_invitation.reject_issue(
-                command.organization_id,
-                command.invitee_id,
-                command.roles.clone(),
-                command.issuer,
-                command.expires_at,
-                reason,
-            )?;
-            banking_iam_domain::OrganizationInvitationIssueResult::Rejected {
-                organization_invitation_id,
-                reason,
-            }
-        } else if self
+            let organization_invitation_id =
+                organization_invitation.reject_issue(issuance, reason)?;
+
+            self.organization_invitation_repository
+                .save(uow, request_context, &mut organization_invitation)
+                .await?;
+
+            return Ok(CommandHandled::same(
+                OrganizationInvitationIssueOutput::Rejected {
+                    organization_invitation_id,
+                    reason,
+                },
+            ));
+        }
+
+        if self
             .organization_membership_repository
             .find_by_unique_value(
                 uow,
@@ -138,28 +150,22 @@ where
             .is_some()
         {
             let reason = OrganizationInvitationIssueRejectionReason::InviteeAlreadyMember;
-            let organization_invitation_id = organization_invitation.reject_issue(
-                command.organization_id,
-                command.invitee_id,
-                command.roles.clone(),
-                command.issuer,
-                command.expires_at,
-                reason,
-            )?;
-            banking_iam_domain::OrganizationInvitationIssueResult::Rejected {
-                organization_invitation_id,
-                reason,
-            }
-        } else {
-            organization_invitation.issue(
-                command.organization_id,
-                command.invitee_id,
-                command.roles.clone(),
-                command.issuer,
-                command.expires_at,
-                CurrentDateTime::new(),
-            )?
-        };
+            let organization_invitation_id =
+                organization_invitation.reject_issue(issuance, reason)?;
+
+            self.organization_invitation_repository
+                .save(uow, request_context, &mut organization_invitation)
+                .await?;
+
+            return Ok(CommandHandled::same(
+                OrganizationInvitationIssueOutput::Rejected {
+                    organization_invitation_id,
+                    reason,
+                },
+            ));
+        }
+
+        let result = organization_invitation.issue(issuance, CurrentDateTime::new())?;
 
         self.organization_invitation_repository
             .save(uow, request_context, &mut organization_invitation)

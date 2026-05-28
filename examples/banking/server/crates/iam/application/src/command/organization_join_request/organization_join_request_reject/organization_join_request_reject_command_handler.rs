@@ -88,13 +88,20 @@ where
             return Err(OrganizationJoinRequestRejectCommandHandlerError::OrganizationNotFound);
         };
 
-        let result = if organization.is_removed()? {
+        if organization.is_removed()? {
             let reason = OrganizationJoinRequestRejectRejectionReason::OrganizationRemoved;
             organization_join_request.reject_rejection(reason)?;
-            OrganizationJoinRequestRejectResult::RejectionRejected { reason }
-        } else {
-            organization_join_request.reject()?
-        };
+
+            self.organization_join_request_repository
+                .save(uow, _request_context, &mut organization_join_request)
+                .await?;
+
+            return Ok(CommandHandled::same(
+                OrganizationJoinRequestRejectOutput::RejectionRejected { reason },
+            ));
+        }
+
+        let result = organization_join_request.reject()?;
 
         self.organization_join_request_repository
             .save(uow, _request_context, &mut organization_join_request)

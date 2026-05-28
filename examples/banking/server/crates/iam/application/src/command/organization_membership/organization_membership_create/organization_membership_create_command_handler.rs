@@ -4,6 +4,7 @@ use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_iam_domain::{
     Organization, OrganizationMembership, OrganizationMembershipCreateRejectionReason,
+    OrganizationMembershipCreation,
 };
 
 use super::{
@@ -74,17 +75,30 @@ where
             roles,
         } = command.clone();
         let mut organization_membership = OrganizationMembership::default();
-        let result = if organization.is_removed()? {
+        let creation = OrganizationMembershipCreation {
+            organization_id,
+            user_id,
+            roles,
+        };
+
+        if organization.is_removed()? {
             let reason = OrganizationMembershipCreateRejectionReason::OrganizationRemoved;
             let organization_membership_id =
-                organization_membership.reject_create(organization_id, user_id, roles, reason)?;
-            banking_iam_domain::OrganizationMembershipCreateResult::Rejected {
-                organization_membership_id,
-                reason,
-            }
-        } else {
-            organization_membership.create(organization_id, user_id, roles)?
-        };
+                organization_membership.reject_create(creation, reason)?;
+
+            self.organization_membership_repository
+                .save(uow, request_context, &mut organization_membership)
+                .await?;
+
+            return Ok(CommandHandled::same(
+                OrganizationMembershipCreateOutput::Rejected {
+                    organization_membership_id,
+                    reason,
+                },
+            ));
+        }
+
+        let result = organization_membership.create(creation)?;
 
         self.organization_membership_repository
             .save(uow, request_context, &mut organization_membership)

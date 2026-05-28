@@ -5,7 +5,7 @@ use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_ledger_domain::account::Account;
-use banking_ledger_domain::transfer::{Transfer, TransferRequestResult};
+use banking_ledger_domain::transfer::{Transfer, TransferRequest, TransferRequestResult};
 
 use crate::authorization::AccountTransferRequesterRelation;
 
@@ -85,11 +85,11 @@ where
         }
 
         let mut transfer = Transfer::default();
-        let result = transfer.request(
-            command.from_account_id,
-            command.to_account_id,
-            command.amount,
-        )?;
+        let result = transfer.request(TransferRequest {
+            from_account_id: command.from_account_id,
+            to_account_id: command.to_account_id,
+            amount: command.amount,
+        })?;
 
         self.transfer_repository
             .save(uow, request_context, &mut transfer)
@@ -130,7 +130,9 @@ mod tests {
     use appletheia::domain::{Aggregate, AggregateVersion, UniqueKey, UniqueValue};
 
     use banking_iam_domain::{User, UserId};
-    use banking_ledger_domain::account::{Account, AccountId, AccountName, AccountOwner};
+    use banking_ledger_domain::account::{
+        Account, AccountId, AccountName, AccountOpening, AccountOwner,
+    };
     use banking_ledger_domain::core::CurrencyAmount;
     use banking_ledger_domain::currency::CurrencyId;
     use banking_ledger_domain::transfer::{Transfer, TransferId};
@@ -282,7 +284,11 @@ mod tests {
     fn opened_account(currency_id: CurrencyId) -> Account {
         let mut account = Account::default();
         account
-            .open(account_owner(), account_name(), currency_id)
+            .open(AccountOpening {
+                owner: account_owner(),
+                name: account_name(),
+                currency_id,
+            })
             .expect("open should succeed");
 
         account

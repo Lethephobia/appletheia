@@ -3,7 +3,7 @@ use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_ledger_domain::owned_account_closure::{
-    OwnedAccountClosure, OwnedAccountClosureRequestResult,
+    OwnedAccountClosure, OwnedAccountClosureRequest, OwnedAccountClosureRequestResult,
 };
 
 use super::{
@@ -56,7 +56,9 @@ where
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
         let mut owned_account_closure = OwnedAccountClosure::default();
-        let result = owned_account_closure.request(command.owner)?;
+        let result = owned_account_closure.request(OwnedAccountClosureRequest {
+            owner: command.owner,
+        })?;
 
         self.owned_account_closure_repository
             .save(uow, request_context, &mut owned_account_closure)

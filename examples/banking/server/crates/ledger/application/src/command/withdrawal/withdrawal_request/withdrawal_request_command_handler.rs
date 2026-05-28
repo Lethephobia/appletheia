@@ -10,7 +10,7 @@ use banking_ledger_domain::payout_destination::{
     PayoutDestination, PayoutDestinationOwner, PayoutDestinationStatus,
 };
 use banking_ledger_domain::withdrawal::{
-    Withdrawal, WithdrawalRequestRejectionReason, WithdrawalRequestResult,
+    Withdrawal, WithdrawalRequest, WithdrawalRequestRejectionReason, WithdrawalRequestResult,
 };
 
 use crate::authorization::AccountWithdrawalRequesterRelation;
@@ -115,17 +115,17 @@ where
         let currency_id = *account.currency_id()?;
         let payout_destination_id = command.payout_destination_id;
         let amount = command.amount;
+        let request = WithdrawalRequest {
+            account_id,
+            currency_id,
+            payout_destination_id,
+            amount,
+        };
 
         if PayoutDestinationOwner::from(account.owner()?) != *payout_destination.owner()? {
             let reason = WithdrawalRequestRejectionReason::PayoutDestinationOwnerMismatch;
             let output = WithdrawalRequestOutput::Rejected {
-                withdrawal_id: withdrawal.reject_request(
-                    account_id,
-                    currency_id,
-                    payout_destination_id,
-                    amount,
-                    reason,
-                )?,
+                withdrawal_id: withdrawal.reject_request(request, reason)?,
                 reason,
             };
             self.withdrawal_repository
@@ -137,13 +137,7 @@ where
         if payout_destination.status()? != &PayoutDestinationStatus::Active {
             let reason = WithdrawalRequestRejectionReason::PayoutDestinationRemoved;
             let output = WithdrawalRequestOutput::Rejected {
-                withdrawal_id: withdrawal.reject_request(
-                    account_id,
-                    currency_id,
-                    payout_destination_id,
-                    amount,
-                    reason,
-                )?,
+                withdrawal_id: withdrawal.reject_request(request, reason)?,
                 reason,
             };
             self.withdrawal_repository
@@ -155,13 +149,7 @@ where
         if !currency.is_active()? {
             let reason = WithdrawalRequestRejectionReason::CurrencyInactive;
             let output = WithdrawalRequestOutput::Rejected {
-                withdrawal_id: withdrawal.reject_request(
-                    account_id,
-                    currency_id,
-                    payout_destination_id,
-                    amount,
-                    reason,
-                )?,
+                withdrawal_id: withdrawal.reject_request(request, reason)?,
                 reason,
             };
             self.withdrawal_repository
@@ -173,13 +161,7 @@ where
         if currency.mint_account()?.is_none() {
             let reason = WithdrawalRequestRejectionReason::CurrencyUnprovisioned;
             let output = WithdrawalRequestOutput::Rejected {
-                withdrawal_id: withdrawal.reject_request(
-                    account_id,
-                    currency_id,
-                    payout_destination_id,
-                    amount,
-                    reason,
-                )?,
+                withdrawal_id: withdrawal.reject_request(request, reason)?,
                 reason,
             };
             self.withdrawal_repository
@@ -188,7 +170,7 @@ where
             return Ok(CommandHandled::same(output));
         }
 
-        let result = withdrawal.request(account_id, currency_id, payout_destination_id, amount)?;
+        let result = withdrawal.request(request)?;
 
         self.withdrawal_repository
             .save(uow, request_context, &mut withdrawal)
@@ -227,7 +209,9 @@ mod tests {
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::{Aggregate, AggregateVersion, UniqueKey, UniqueValue};
     use banking_iam_domain::{User, UserId};
-    use banking_ledger_domain::account::{Account, AccountId, AccountName, AccountOwner};
+    use banking_ledger_domain::account::{
+        Account, AccountId, AccountName, AccountOpening, AccountOwner,
+    };
     use banking_ledger_domain::core::CurrencyAmount;
     use banking_ledger_domain::currency::{
         Currency, CurrencyDecimals, CurrencyId, CurrencyMintAccount, CurrencyMintAccountAddress,
@@ -236,7 +220,7 @@ mod tests {
     };
     use banking_ledger_domain::payout_destination::{
         PayoutDestination, PayoutDestinationId, PayoutDestinationOwner,
-        PayoutDestinationTokenAccountOwnerAddress,
+        PayoutDestinationRegistration, PayoutDestinationTokenAccountOwnerAddress,
     };
     use banking_ledger_domain::withdrawal::{
         Withdrawal, WithdrawalId, WithdrawalRequestRejectionReason, WithdrawalStatus,
@@ -516,7 +500,11 @@ mod tests {
     fn opened_account(owner: AccountOwner, currency_id: CurrencyId) -> Account {
         let mut account = Account::default();
         account
-            .open(owner, account_name(), currency_id)
+            .open(AccountOpening {
+                owner,
+                name: account_name(),
+                currency_id,
+            })
             .expect("account should open");
         account.core_mut().clear_uncommitted_events();
         account
@@ -544,7 +532,10 @@ mod tests {
     fn registered_payout_destination(owner: PayoutDestinationOwner) -> PayoutDestination {
         let mut payout_destination = PayoutDestination::default();
         payout_destination
-            .register(owner, payout_destination_token_account_owner_address())
+            .register(PayoutDestinationRegistration {
+                owner,
+                token_account_owner_address: payout_destination_token_account_owner_address(),
+            })
             .expect("payout destination should register");
         payout_destination.core_mut().clear_uncommitted_events();
         payout_destination

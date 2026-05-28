@@ -8,7 +8,7 @@ use banking_iam_application::authorization::{
     OrganizationFinanceManagerRelation, UserOwnerRelation,
 };
 use banking_iam_domain::{Organization, User};
-use banking_ledger_domain::account::{Account, AccountOpenResult, AccountOwner};
+use banking_ledger_domain::account::{Account, AccountOpenResult, AccountOpening, AccountOwner};
 
 use super::{AccountOpenCommand, AccountOpenCommandHandlerError, AccountOpenOutput};
 
@@ -69,7 +69,11 @@ where
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
         let mut account = Account::default();
-        let result = account.open(command.owner, command.name.clone(), command.currency_id)?;
+        let result = account.open(AccountOpening {
+            owner: command.owner,
+            name: command.name.clone(),
+            currency_id: command.currency_id,
+        })?;
 
         self.account_repository
             .save(uow, request_context, &mut account)

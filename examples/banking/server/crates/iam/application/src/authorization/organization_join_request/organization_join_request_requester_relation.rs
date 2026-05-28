@@ -3,7 +3,7 @@ use appletheia::domain::Aggregate;
 
 use super::OrganizationJoinRequest;
 
-/// Links a join request to the user who requested membership.
+/// Links a join request to the user who submitted membership.
 pub struct OrganizationJoinRequestRequesterRelation;
 
 impl Relation for OrganizationJoinRequestRequesterRelation {

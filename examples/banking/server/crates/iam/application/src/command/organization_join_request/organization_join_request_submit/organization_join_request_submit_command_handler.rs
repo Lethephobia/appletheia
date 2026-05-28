@@ -6,19 +6,19 @@ use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use appletheia::domain::{AggregateId, UniqueValue, UniqueValuePart};
 use banking_iam_domain::{
-    Organization, OrganizationId, OrganizationJoinRequest,
-    OrganizationJoinRequestRequestRejectionReason, OrganizationJoinRequestState,
+    Organization, OrganizationId, OrganizationJoinRequest, OrganizationJoinRequestState,
+    OrganizationJoinRequestSubmission, OrganizationJoinRequestSubmitRejectionReason,
     OrganizationMembership, OrganizationMembershipState, User, UserId,
 };
 
 use super::{
-    OrganizationJoinRequestCreateCommand, OrganizationJoinRequestCreateCommandHandlerError,
-    OrganizationJoinRequestCreateOutput,
+    OrganizationJoinRequestSubmitCommand, OrganizationJoinRequestSubmitCommandHandlerError,
+    OrganizationJoinRequestSubmitOutput,
 };
 use crate::authorization::UserOwnerRelation;
 
-/// Handles `OrganizationJoinRequestCreateCommand`.
-pub struct OrganizationJoinRequestCreateCommandHandler<OR, JR, MR>
+/// Handles `OrganizationJoinRequestSubmitCommand`.
+pub struct OrganizationJoinRequestSubmitCommandHandler<OR, JR, MR>
 where
     OR: Repository<Organization>,
     JR: Repository<OrganizationJoinRequest, Uow = OR::Uow>,
@@ -29,7 +29,7 @@ where
     organization_membership_repository: MR,
 }
 
-impl<OR, JR, MR> OrganizationJoinRequestCreateCommandHandler<OR, JR, MR>
+impl<OR, JR, MR> OrganizationJoinRequestSubmitCommandHandler<OR, JR, MR>
 where
     OR: Repository<Organization>,
     JR: Repository<OrganizationJoinRequest, Uow = OR::Uow>,
@@ -50,7 +50,7 @@ where
     fn organization_requester_unique_value(
         organization_id: OrganizationId,
         requester_id: UserId,
-    ) -> Result<UniqueValue, OrganizationJoinRequestCreateCommandHandlerError> {
+    ) -> Result<UniqueValue, OrganizationJoinRequestSubmitCommandHandlerError> {
         let organization_value = organization_id.value().to_string();
         let requester_value = requester_id.value().to_string();
         let organization_part = UniqueValuePart::try_from(organization_value.as_str())?;
@@ -59,16 +59,16 @@ where
     }
 }
 
-impl<OR, JR, MR> CommandHandler for OrganizationJoinRequestCreateCommandHandler<OR, JR, MR>
+impl<OR, JR, MR> CommandHandler for OrganizationJoinRequestSubmitCommandHandler<OR, JR, MR>
 where
     OR: Repository<Organization>,
     JR: Repository<OrganizationJoinRequest, Uow = OR::Uow>,
     MR: Repository<OrganizationMembership, Uow = OR::Uow>,
 {
-    type Command = OrganizationJoinRequestCreateCommand;
-    type Output = OrganizationJoinRequestCreateOutput;
-    type ReplayOutput = OrganizationJoinRequestCreateOutput;
-    type Error = OrganizationJoinRequestCreateCommandHandlerError;
+    type Command = OrganizationJoinRequestSubmitCommand;
+    type Output = OrganizationJoinRequestSubmitOutput;
+    type ReplayOutput = OrganizationJoinRequestSubmitOutput;
+    type Error = OrganizationJoinRequestSubmitCommandHandlerError;
     type Uow = OR::Uow;
 
     fn authorization_plan(
@@ -96,7 +96,7 @@ where
             .find(uow, command.organization_id)
             .await?
         else {
-            return Err(OrganizationJoinRequestCreateCommandHandlerError::OrganizationNotFound);
+            return Err(OrganizationJoinRequestSubmitCommandHandlerError::OrganizationNotFound);
         };
 
         let unique_value = Self::organization_requester_unique_value(
@@ -104,18 +104,29 @@ where
             command.requester_id,
         )?;
         let mut organization_join_request = OrganizationJoinRequest::default();
-        let result = if organization.is_removed()? {
-            let reason = OrganizationJoinRequestRequestRejectionReason::OrganizationRemoved;
-            let organization_join_request_id = organization_join_request.reject_request(
-                command.organization_id,
-                command.requester_id,
-                reason,
-            )?;
-            banking_iam_domain::OrganizationJoinRequestRequestResult::Rejected {
-                organization_join_request_id,
-                reason,
-            }
-        } else if self
+        let submission = OrganizationJoinRequestSubmission {
+            organization_id: command.organization_id,
+            requester_id: command.requester_id,
+        };
+
+        if organization.is_removed()? {
+            let reason = OrganizationJoinRequestSubmitRejectionReason::OrganizationRemoved;
+            let organization_join_request_id =
+                organization_join_request.reject_submit(submission, reason)?;
+
+            self.organization_join_request_repository
+                .save(uow, request_context, &mut organization_join_request)
+                .await?;
+
+            return Ok(CommandHandled::same(
+                OrganizationJoinRequestSubmitOutput::Rejected {
+                    organization_join_request_id,
+                    reason,
+                },
+            ));
+        }
+
+        if self
             .organization_membership_repository
             .find_by_unique_value(
                 uow,
@@ -125,17 +136,23 @@ where
             .await?
             .is_some()
         {
-            let reason = OrganizationJoinRequestRequestRejectionReason::RequesterAlreadyMember;
-            let organization_join_request_id = organization_join_request.reject_request(
-                command.organization_id,
-                command.requester_id,
-                reason,
-            )?;
-            banking_iam_domain::OrganizationJoinRequestRequestResult::Rejected {
-                organization_join_request_id,
-                reason,
-            }
-        } else if self
+            let reason = OrganizationJoinRequestSubmitRejectionReason::RequesterAlreadyMember;
+            let organization_join_request_id =
+                organization_join_request.reject_submit(submission, reason)?;
+
+            self.organization_join_request_repository
+                .save(uow, request_context, &mut organization_join_request)
+                .await?;
+
+            return Ok(CommandHandled::same(
+                OrganizationJoinRequestSubmitOutput::Rejected {
+                    organization_join_request_id,
+                    reason,
+                },
+            ));
+        }
+
+        if self
             .organization_join_request_repository
             .find_by_unique_value(
                 uow,
@@ -145,34 +162,38 @@ where
             .await?
             .is_some()
         {
-            let reason = OrganizationJoinRequestRequestRejectionReason::AlreadyRequested;
-            let organization_join_request_id = organization_join_request.reject_request(
-                command.organization_id,
-                command.requester_id,
-                reason,
-            )?;
-            banking_iam_domain::OrganizationJoinRequestRequestResult::Rejected {
-                organization_join_request_id,
-                reason,
-            }
-        } else {
-            organization_join_request.request(command.organization_id, command.requester_id)?
-        };
+            let reason = OrganizationJoinRequestSubmitRejectionReason::AlreadySubmitted;
+            let organization_join_request_id =
+                organization_join_request.reject_submit(submission, reason)?;
+
+            self.organization_join_request_repository
+                .save(uow, request_context, &mut organization_join_request)
+                .await?;
+
+            return Ok(CommandHandled::same(
+                OrganizationJoinRequestSubmitOutput::Rejected {
+                    organization_join_request_id,
+                    reason,
+                },
+            ));
+        }
+
+        let result = organization_join_request.submit(submission)?;
 
         self.organization_join_request_repository
             .save(uow, request_context, &mut organization_join_request)
             .await?;
 
         let output = match result {
-            banking_iam_domain::OrganizationJoinRequestRequestResult::Requested {
+            banking_iam_domain::OrganizationJoinRequestSubmitResult::Submitted {
                 organization_join_request_id,
-            } => OrganizationJoinRequestCreateOutput::Requested {
+            } => OrganizationJoinRequestSubmitOutput::Submitted {
                 organization_join_request_id,
             },
-            banking_iam_domain::OrganizationJoinRequestRequestResult::Rejected {
+            banking_iam_domain::OrganizationJoinRequestSubmitResult::Rejected {
                 organization_join_request_id,
                 reason,
-            } => OrganizationJoinRequestCreateOutput::Rejected {
+            } => OrganizationJoinRequestSubmitOutput::Rejected {
                 organization_join_request_id,
                 reason,
             },

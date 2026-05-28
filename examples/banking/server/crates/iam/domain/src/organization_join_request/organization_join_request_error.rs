@@ -9,6 +9,6 @@ pub enum OrganizationJoinRequestError {
     #[error(transparent)]
     Aggregate(#[from] AggregateError<OrganizationJoinRequestId>),
 
-    #[error("organization join request is already requested")]
-    AlreadyRequested,
+    #[error("organization join request is already submitted")]
+    AlreadySubmitted,
 }

@@ -88,13 +88,20 @@ where
             return Err(OrganizationInvitationCancelCommandHandlerError::OrganizationNotFound);
         };
 
-        let result = if organization.is_removed()? {
+        if organization.is_removed()? {
             let reason = OrganizationInvitationCancelRejectionReason::OrganizationRemoved;
             organization_invitation.reject_cancel(reason)?;
-            OrganizationInvitationCancelResult::Rejected { reason }
-        } else {
-            organization_invitation.cancel(CurrentDateTime::new())?
-        };
+
+            self.organization_invitation_repository
+                .save(uow, request_context, &mut organization_invitation)
+                .await?;
+
+            return Ok(CommandHandled::same(
+                OrganizationInvitationCancelOutput::Rejected { reason },
+            ));
+        }
+
+        let result = organization_invitation.cancel(CurrentDateTime::new())?;
 
         self.organization_invitation_repository
             .save(uow, request_context, &mut organization_invitation)

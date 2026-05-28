@@ -1,6 +1,6 @@
 use super::PageSizeError;
 
-/// Maximum number of items requested from a paginated query.
+/// Maximum number of items submitted from a paginated query.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct PageSize(u32);
 

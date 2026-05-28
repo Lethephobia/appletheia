@@ -10,6 +10,7 @@ use banking_iam_application::authorization::{
 use banking_iam_domain::{Organization, User};
 use banking_ledger_domain::payout_destination::{
     PayoutDestination, PayoutDestinationOwner, PayoutDestinationRegisterResult,
+    PayoutDestinationRegistration,
 };
 
 use super::{
@@ -91,8 +92,10 @@ where
             .await?;
 
         let mut payout_destination = PayoutDestination::default();
-        let result = payout_destination
-            .register(command.owner, command.token_account_owner_address.clone())?;
+        let result = payout_destination.register(PayoutDestinationRegistration {
+            owner: command.owner,
+            token_account_owner_address: command.token_account_owner_address.clone(),
+        })?;
 
         self.payout_destination_repository
             .save(uow, request_context, &mut payout_destination)

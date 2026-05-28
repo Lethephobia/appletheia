@@ -4,7 +4,7 @@ use crate::core::Email;
 
 use super::{
     UserBio, UserBioChangeRejectionReason, UserDisplayName, UserDisplayNameChangeRejectionReason,
-    UserEventPayloadError, UserId, UserIdentityEmailChangeRejectionReason,
+    UserEventPayloadError, UserId, UserIdentityData, UserIdentityEmailChangeRejectionReason,
     UserIdentityLinkRejectionReason, UserIdentityProvider, UserIdentitySubject,
     UserPictureChangeRejectionReason, UserPictureRef, UserStatusRejectionReason,
     UserUsernameChangeRejectionReason, Username,
@@ -15,16 +15,13 @@ use super::{
 pub enum UserEventPayload {
     Registered {
         id: UserId,
+        initial_identity: Option<UserIdentityData>,
     },
     IdentityLinked {
-        provider: UserIdentityProvider,
-        subject: UserIdentitySubject,
-        email: Option<Email>,
+        identity: UserIdentityData,
     },
     IdentityLinkRejected {
-        provider: UserIdentityProvider,
-        subject: UserIdentitySubject,
-        email: Option<Email>,
+        identity: UserIdentityData,
         reason: UserIdentityLinkRejectionReason,
     },
     IdentityEmailChanged {
@@ -86,9 +83,12 @@ mod tests {
     use appletheia::domain::EventPayload;
 
     use crate::core::Email;
-    use crate::{UserBio, UserDisplayName, UserPictureRef, UserPictureUrl};
+    use crate::{
+        UserBio, UserDisplayName, UserIdentityProvider, UserIdentitySubject, UserPictureRef,
+        UserPictureUrl,
+    };
 
-    use super::{UserEventPayload, UserId, UserIdentityProvider, UserIdentitySubject};
+    use super::{UserEventPayload, UserId, UserIdentityData};
 
     #[test]
     fn returns_stable_event_names() {
@@ -227,24 +227,29 @@ mod tests {
     #[test]
     fn serializes_identity_linked_payload_to_json() {
         let payload = UserEventPayload::IdentityLinked {
-            provider: UserIdentityProvider::try_from("https://accounts.example.com")
-                .expect("provider should be valid"),
-            subject: UserIdentitySubject::try_from("user-123").expect("subject should be valid"),
-            email: Some(Email::try_from("alice@example.com").expect("email should be valid")),
+            identity: UserIdentityData::new(
+                UserIdentityProvider::try_from("https://accounts.example.com")
+                    .expect("provider should be valid"),
+                UserIdentitySubject::try_from("user-123").expect("subject should be valid"),
+                Some(Email::try_from("alice@example.com").expect("email should be valid")),
+            ),
         };
 
         let value = payload.into_json_value().expect("payload should serialize");
 
         assert_eq!(value["type"], serde_json::json!("identity_linked"));
         assert_eq!(
-            value["data"]["provider"],
+            value["data"]["identity"]["provider"],
             serde_json::json!("https://accounts.example.com")
         );
     }
 
     #[test]
     fn serializes_registered_payload_to_json() {
-        let payload = UserEventPayload::Registered { id: UserId::new() };
+        let payload = UserEventPayload::Registered {
+            id: UserId::new(),
+            initial_identity: None,
+        };
 
         let value = payload.into_json_value().expect("payload should serialize");
 

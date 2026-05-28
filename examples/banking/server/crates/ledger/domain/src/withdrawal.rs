@@ -8,6 +8,7 @@ mod withdrawal_fail_result;
 mod withdrawal_failure_reason;
 mod withdrawal_id;
 mod withdrawal_onchain_transaction_id;
+mod withdrawal_request;
 mod withdrawal_request_rejection_reason;
 mod withdrawal_request_result;
 mod withdrawal_state;
@@ -26,6 +27,7 @@ pub use withdrawal_fail_result::WithdrawalFailResult;
 pub use withdrawal_failure_reason::WithdrawalFailureReason;
 pub use withdrawal_id::WithdrawalId;
 pub use withdrawal_onchain_transaction_id::WithdrawalOnchainTransactionId;
+pub use withdrawal_request::WithdrawalRequest;
 pub use withdrawal_request_rejection_reason::WithdrawalRequestRejectionReason;
 pub use withdrawal_request_result::WithdrawalRequestResult;
 pub use withdrawal_state::WithdrawalState;
@@ -84,24 +86,15 @@ impl Withdrawal {
     /// Requests a new withdrawal workflow.
     pub fn request(
         &mut self,
-        account_id: AccountId,
-        currency_id: CurrencyId,
-        payout_destination_id: PayoutDestinationId,
-        amount: CurrencyAmount,
+        request: WithdrawalRequest,
     ) -> Result<WithdrawalRequestResult, WithdrawalError> {
         if self.state().is_some() {
             return Err(WithdrawalError::AlreadyRequested);
         }
 
-        if amount.is_zero() {
+        if request.amount().is_zero() {
             let reason = WithdrawalRequestRejectionReason::ZeroAmount;
-            let withdrawal_id = self.reject_request(
-                account_id,
-                currency_id,
-                payout_destination_id,
-                amount,
-                reason,
-            )?;
+            let withdrawal_id = self.reject_request(request, reason)?;
             return Ok(WithdrawalRequestResult::Rejected {
                 withdrawal_id,
                 reason,
@@ -109,6 +102,7 @@ impl Withdrawal {
         }
 
         let withdrawal_id = WithdrawalId::new();
+        let (account_id, currency_id, payout_destination_id, amount) = request.into_parts();
         self.append_event(WithdrawalEventPayload::Requested {
             id: withdrawal_id,
             account_id,
@@ -123,13 +117,11 @@ impl Withdrawal {
     /// Rejects a withdrawal request.
     pub fn reject_request(
         &mut self,
-        account_id: AccountId,
-        currency_id: CurrencyId,
-        payout_destination_id: PayoutDestinationId,
-        amount: CurrencyAmount,
+        request: WithdrawalRequest,
         reason: WithdrawalRequestRejectionReason,
     ) -> Result<WithdrawalId, WithdrawalError> {
         let withdrawal_id = WithdrawalId::new();
+        let (account_id, currency_id, payout_destination_id, amount) = request.into_parts();
         self.append_event(WithdrawalEventPayload::RequestRejected {
             id: withdrawal_id,
             account_id,
@@ -335,9 +327,9 @@ mod tests {
 
     use super::{
         Withdrawal, WithdrawalCompleteResult, WithdrawalEventPayload, WithdrawalFailResult,
-        WithdrawalFailureReason, WithdrawalOnchainTransactionId, WithdrawalRequestRejectionReason,
-        WithdrawalRequestResult, WithdrawalStatus, WithdrawalTokenTransferRejectionReason,
-        WithdrawalTokenTransferResult,
+        WithdrawalFailureReason, WithdrawalOnchainTransactionId, WithdrawalRequest,
+        WithdrawalRequestRejectionReason, WithdrawalRequestResult, WithdrawalStatus,
+        WithdrawalTokenTransferRejectionReason, WithdrawalTokenTransferResult,
     };
 
     #[test]
@@ -349,7 +341,12 @@ mod tests {
         let mut withdrawal = Withdrawal::default();
 
         let result = withdrawal
-            .request(account_id, currency_id, payout_destination_id, amount)
+            .request(WithdrawalRequest {
+                account_id,
+                currency_id,
+                payout_destination_id,
+                amount,
+            })
             .expect("request should succeed");
 
         assert!(matches!(result, WithdrawalRequestResult::Requested { .. }));
@@ -377,12 +374,12 @@ mod tests {
         let mut withdrawal = Withdrawal::default();
 
         let result = withdrawal
-            .request(
-                AccountId::new(),
-                CurrencyId::new(),
-                PayoutDestinationId::new(),
-                CurrencyAmount::zero(),
-            )
+            .request(WithdrawalRequest {
+                account_id: AccountId::new(),
+                currency_id: CurrencyId::new(),
+                payout_destination_id: PayoutDestinationId::new(),
+                amount: CurrencyAmount::zero(),
+            })
             .expect("request should succeed");
 
         assert_eq!(
@@ -475,12 +472,12 @@ mod tests {
     fn requested_withdrawal() -> Withdrawal {
         let mut withdrawal = Withdrawal::default();
         withdrawal
-            .request(
-                AccountId::new(),
-                CurrencyId::new(),
-                PayoutDestinationId::new(),
-                CurrencyAmount::new(100),
-            )
+            .request(WithdrawalRequest {
+                account_id: AccountId::new(),
+                currency_id: CurrencyId::new(),
+                payout_destination_id: PayoutDestinationId::new(),
+                amount: CurrencyAmount::new(100),
+            })
             .expect("request should succeed");
         withdrawal
     }

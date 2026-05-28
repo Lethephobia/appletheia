@@ -16,7 +16,8 @@ use banking_iam_domain::user::{
     UserIdentityEmailChangeResult, UserIdentityLinkRejectionReason, UserIdentityLinkResult,
 };
 use banking_iam_domain::{
-    Email, User, UserId, UserIdentityProvider, UserIdentitySubject, UserState,
+    Email, User, UserId, UserIdentityProvider, UserIdentityRegistration, UserIdentitySubject,
+    UserRegistration, UserState,
 };
 
 use crate::oidc::{OidcCompletionPurpose, OidcContinuationPayload};
@@ -102,14 +103,14 @@ where
             }
             None => {
                 let mut user = User::default();
-                let _ = user.register()?;
-                let rejection_reason =
-                    match user.link_identity(provider.clone(), subject.clone(), email)? {
-                        UserIdentityLinkResult::Linked => None,
-                        UserIdentityLinkResult::Rejected { reason } => {
-                            Some(OidcCompleteRejectionReason::IdentityLink { reason })
-                        }
-                    };
+                let _ = user.register(UserRegistration {
+                    initial_identity: Some(UserIdentityRegistration {
+                        provider: provider.clone(),
+                        subject: subject.clone(),
+                        email,
+                    }),
+                })?;
+                let rejection_reason = None;
 
                 Ok((user, rejection_reason))
             }
@@ -141,9 +142,11 @@ where
 
                     let reason = UserIdentityLinkRejectionReason::AlreadyLinked;
                     authenticated_user.reject_link_identity(
-                        provider.clone(),
-                        subject.clone(),
-                        email,
+                        UserIdentityRegistration {
+                            provider: provider.clone(),
+                            subject: subject.clone(),
+                            email,
+                        },
                         reason,
                     )?;
                     let rejection_reason =
@@ -166,13 +169,16 @@ where
                     return Err(OidcCompleteCommandHandlerError::AuthenticatedUserNotFound);
                 };
 
-                let rejection_reason =
-                    match user.link_identity(provider.clone(), subject.clone(), email)? {
-                        UserIdentityLinkResult::Linked => None,
-                        UserIdentityLinkResult::Rejected { reason } => {
-                            Some(OidcCompleteRejectionReason::IdentityLink { reason })
-                        }
-                    };
+                let rejection_reason = match user.link_identity(UserIdentityRegistration {
+                    provider: provider.clone(),
+                    subject: subject.clone(),
+                    email,
+                })? {
+                    UserIdentityLinkResult::Linked => None,
+                    UserIdentityLinkResult::Rejected { reason } => {
+                        Some(OidcCompleteRejectionReason::IdentityLink { reason })
+                    }
+                };
 
                 Ok((user, rejection_reason))
             }

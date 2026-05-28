@@ -15,6 +15,7 @@ mod account_name_change_rejection_reason;
 mod account_name_change_result;
 mod account_name_error;
 mod account_open_result;
+mod account_opening;
 mod account_owner;
 mod account_ownership_transfer_rejection_reason;
 mod account_ownership_transfer_result;
@@ -47,6 +48,7 @@ pub use account_name_change_rejection_reason::AccountNameChangeRejectionReason;
 pub use account_name_change_result::AccountNameChangeResult;
 pub use account_name_error::AccountNameError;
 pub use account_open_result::AccountOpenResult;
+pub use account_opening::AccountOpening;
 pub use account_owner::AccountOwner;
 pub use account_ownership_transfer_rejection_reason::AccountOwnershipTransferRejectionReason;
 pub use account_ownership_transfer_result::AccountOwnershipTransferResult;
@@ -129,17 +131,13 @@ impl Account {
     }
 
     /// Opens a new account.
-    pub fn open(
-        &mut self,
-        owner: AccountOwner,
-        name: AccountName,
-        currency_id: CurrencyId,
-    ) -> Result<AccountOpenResult, AccountError> {
+    pub fn open(&mut self, opening: AccountOpening) -> Result<AccountOpenResult, AccountError> {
         if self.state().is_some() {
             return Err(AccountError::AlreadyOpened);
         }
 
         let account_id = AccountId::new();
+        let (owner, name, currency_id) = opening.into_parts();
         self.append_event(AccountEventPayload::Opened {
             id: account_id,
             owner,
@@ -566,7 +564,8 @@ mod tests {
     use crate::currency::CurrencyId;
 
     use super::{
-        Account, AccountEventPayload, AccountId, AccountName, AccountOwner, AccountStatus,
+        Account, AccountEventPayload, AccountId, AccountName, AccountOpening, AccountOwner,
+        AccountStatus,
     };
 
     fn account_name() -> AccountName {
@@ -585,7 +584,11 @@ mod tests {
         let mut account = Account::default();
 
         account
-            .open(owner, name.clone(), currency_id)
+            .open(AccountOpening {
+                owner,
+                name: name.clone(),
+                currency_id,
+            })
             .expect("open should succeed");
 
         assert_eq!(
@@ -634,7 +637,11 @@ mod tests {
         let name_changed = AccountName::try_from("savings").expect("account name should be valid");
         let mut account = Account::default();
         account
-            .open(owner, original_name.clone(), CurrencyId::new())
+            .open(AccountOpening {
+                owner,
+                name: original_name.clone(),
+                currency_id: CurrencyId::new(),
+            })
             .expect("open should succeed");
 
         account
@@ -656,7 +663,11 @@ mod tests {
             AccountOwner::Organization(banking_iam_domain::OrganizationId::new());
         let mut account = Account::default();
         account
-            .open(original_owner, account_name(), CurrencyId::new())
+            .open(AccountOpening {
+                owner: original_owner,
+                name: account_name(),
+                currency_id: CurrencyId::new(),
+            })
             .expect("open should succeed");
 
         account
@@ -678,7 +689,11 @@ mod tests {
     fn changing_to_same_name_appends_success_event() {
         let mut account = Account::default();
         account
-            .open(account_owner(), account_name(), CurrencyId::new())
+            .open(AccountOpening {
+                owner: account_owner(),
+                name: account_name(),
+                currency_id: CurrencyId::new(),
+            })
             .expect("open should succeed");
 
         account
@@ -693,7 +708,11 @@ mod tests {
         let owner = account_owner();
         let mut account = Account::default();
         account
-            .open(owner, account_name(), CurrencyId::new())
+            .open(AccountOpening {
+                owner,
+                name: account_name(),
+                currency_id: CurrencyId::new(),
+            })
             .expect("open should succeed");
 
         account
@@ -707,7 +726,11 @@ mod tests {
     fn changing_to_same_status_appends_success_event() {
         let mut account = Account::default();
         account
-            .open(account_owner(), account_name(), CurrencyId::new())
+            .open(AccountOpening {
+                owner: account_owner(),
+                name: account_name(),
+                currency_id: CurrencyId::new(),
+            })
             .expect("open should succeed");
 
         account.thaw().expect("thaw should succeed");
@@ -719,7 +742,11 @@ mod tests {
     fn freeze_and_thaw_update_state() {
         let mut account = Account::default();
         account
-            .open(account_owner(), account_name(), CurrencyId::new())
+            .open(AccountOpening {
+                owner: account_owner(),
+                name: account_name(),
+                currency_id: CurrencyId::new(),
+            })
             .expect("open should succeed");
 
         account.freeze().expect("freeze should succeed");
@@ -741,7 +768,11 @@ mod tests {
     fn close_updates_state_to_closed() {
         let mut account = Account::default();
         account
-            .open(account_owner(), account_name(), CurrencyId::new())
+            .open(AccountOpening {
+                owner: account_owner(),
+                name: account_name(),
+                currency_id: CurrencyId::new(),
+            })
             .expect("open should succeed");
 
         account.close().expect("close should succeed");
@@ -771,7 +802,11 @@ mod tests {
     fn close_rejects_non_zero_balance() {
         let mut account = Account::default();
         account
-            .open(account_owner(), account_name(), CurrencyId::new())
+            .open(AccountOpening {
+                owner: account_owner(),
+                name: account_name(),
+                currency_id: CurrencyId::new(),
+            })
             .expect("open should succeed");
         account
             .deposit(CurrencyAmount::new(1))
@@ -793,7 +828,11 @@ mod tests {
     fn close_rejects_reserved_balance_remaining() {
         let mut account = Account::default();
         account
-            .open(account_owner(), account_name(), CurrencyId::new())
+            .open(AccountOpening {
+                owner: account_owner(),
+                name: account_name(),
+                currency_id: CurrencyId::new(),
+            })
             .expect("open should succeed");
         account
             .deposit(CurrencyAmount::new(1))
@@ -923,11 +962,19 @@ mod tests {
     fn open_rejects_already_opened_account() {
         let mut account = Account::default();
         account
-            .open(account_owner(), account_name(), CurrencyId::new())
+            .open(AccountOpening {
+                owner: account_owner(),
+                name: account_name(),
+                currency_id: CurrencyId::new(),
+            })
             .expect("open should succeed");
 
         let error = account
-            .open(account_owner(), account_name(), CurrencyId::new())
+            .open(AccountOpening {
+                owner: account_owner(),
+                name: account_name(),
+                currency_id: CurrencyId::new(),
+            })
             .expect_err("duplicate open should fail");
 
         assert!(matches!(error, super::AccountError::AlreadyOpened));
@@ -937,7 +984,11 @@ mod tests {
     fn deposit_and_withdraw_update_balance() {
         let mut account = Account::default();
         account
-            .open(account_owner(), account_name(), CurrencyId::new())
+            .open(AccountOpening {
+                owner: account_owner(),
+                name: account_name(),
+                currency_id: CurrencyId::new(),
+            })
             .expect("open should succeed");
 
         account
@@ -972,7 +1023,11 @@ mod tests {
     fn withdraw_rejects_insufficient_balance() {
         let mut account = Account::default();
         account
-            .open(account_owner(), account_name(), CurrencyId::new())
+            .open(AccountOpening {
+                owner: account_owner(),
+                name: account_name(),
+                currency_id: CurrencyId::new(),
+            })
             .expect("open should succeed");
 
         let result = account
@@ -995,7 +1050,11 @@ mod tests {
     fn movement_rejects_frozen_account() {
         let mut account = Account::default();
         account
-            .open(account_owner(), account_name(), CurrencyId::new())
+            .open(AccountOpening {
+                owner: account_owner(),
+                name: account_name(),
+                currency_id: CurrencyId::new(),
+            })
             .expect("open should succeed");
         account.freeze().expect("freeze should succeed");
 
@@ -1028,7 +1087,11 @@ mod tests {
     fn operations_reject_closed_account() {
         let mut account = Account::default();
         account
-            .open(account_owner(), account_name(), CurrencyId::new())
+            .open(AccountOpening {
+                owner: account_owner(),
+                name: account_name(),
+                currency_id: CurrencyId::new(),
+            })
             .expect("open should succeed");
         account.close().expect("close should succeed");
 
@@ -1111,7 +1174,11 @@ mod tests {
     fn reserve_release_and_commit_update_reserved_balance() {
         let mut account = Account::default();
         account
-            .open(account_owner(), account_name(), CurrencyId::new())
+            .open(AccountOpening {
+                owner: account_owner(),
+                name: account_name(),
+                currency_id: CurrencyId::new(),
+            })
             .expect("open should succeed");
         account
             .deposit(CurrencyAmount::new(150))
@@ -1162,7 +1229,11 @@ mod tests {
     fn reserve_rejects_insufficient_available_balance() {
         let mut account = Account::default();
         account
-            .open(account_owner(), account_name(), CurrencyId::new())
+            .open(AccountOpening {
+                owner: account_owner(),
+                name: account_name(),
+                currency_id: CurrencyId::new(),
+            })
             .expect("open should succeed");
         account
             .deposit(CurrencyAmount::new(100))

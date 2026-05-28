@@ -87,13 +87,20 @@ where
             return Err(OrganizationMembershipRemoveCommandHandlerError::OrganizationNotFound);
         };
 
-        let result = if organization.is_removed()? {
+        if organization.is_removed()? {
             let reason = OrganizationMembershipRemoveRejectionReason::OrganizationRemoved;
             organization_membership.reject_remove(reason)?;
-            OrganizationMembershipRemoveResult::Rejected { reason }
-        } else {
-            organization_membership.remove()?
-        };
+
+            self.organization_membership_repository
+                .save(uow, request_context, &mut organization_membership)
+                .await?;
+
+            return Ok(CommandHandled::same(
+                OrganizationMembershipRemoveOutput::Rejected { reason },
+            ));
+        }
+
+        let result = organization_membership.remove()?;
 
         self.organization_membership_repository
             .save(uow, request_context, &mut organization_membership)

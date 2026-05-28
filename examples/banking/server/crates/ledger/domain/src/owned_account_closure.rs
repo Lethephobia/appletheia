@@ -11,6 +11,7 @@ mod owned_account_closure_page_load_rejection_reason;
 mod owned_account_closure_page_load_result;
 mod owned_account_closure_record_rejection_reason;
 mod owned_account_closure_record_result;
+mod owned_account_closure_request;
 mod owned_account_closure_request_result;
 mod owned_account_closure_state;
 mod owned_account_closure_state_error;
@@ -29,6 +30,7 @@ pub use owned_account_closure_page_load_rejection_reason::OwnedAccountClosurePag
 pub use owned_account_closure_page_load_result::OwnedAccountClosurePageLoadResult;
 pub use owned_account_closure_record_rejection_reason::OwnedAccountClosureRecordRejectionReason;
 pub use owned_account_closure_record_result::OwnedAccountClosureRecordResult;
+pub use owned_account_closure_request::OwnedAccountClosureRequest;
 pub use owned_account_closure_request_result::OwnedAccountClosureRequestResult;
 pub use owned_account_closure_state::OwnedAccountClosureState;
 pub use owned_account_closure_state_error::OwnedAccountClosureStateError;
@@ -54,13 +56,14 @@ impl OwnedAccountClosure {
     /// Starts a workflow that closes every account owned by the owner.
     pub fn request(
         &mut self,
-        owner: AccountOwner,
+        request: OwnedAccountClosureRequest,
     ) -> Result<OwnedAccountClosureRequestResult, OwnedAccountClosureError> {
         if self.state().is_some() {
             return Err(OwnedAccountClosureError::AlreadyRequested);
         }
 
         let owned_account_closure_id = OwnedAccountClosureId::new();
+        let owner = request.into_owner();
         self.append_event(OwnedAccountClosureEventPayload::Requested {
             id: owned_account_closure_id,
             owner,
@@ -301,7 +304,7 @@ mod tests {
     use super::{
         OwnedAccountClosure, OwnedAccountClosureCompleteRejectionReason,
         OwnedAccountClosureCompleteResult, OwnedAccountClosureEventPayload,
-        OwnedAccountClosureRecordResult,
+        OwnedAccountClosureRecordResult, OwnedAccountClosureRequest,
     };
 
     fn user_owner() -> AccountOwner {
@@ -312,7 +315,9 @@ mod tests {
     fn complete_rejects_before_any_page_is_loaded() {
         let mut closure = OwnedAccountClosure::default();
         closure
-            .request(user_owner())
+            .request(OwnedAccountClosureRequest {
+                owner: user_owner(),
+            })
             .expect("request should succeed");
 
         let result = closure
@@ -335,7 +340,9 @@ mod tests {
     fn complete_succeeds_after_an_empty_page_is_loaded() {
         let mut closure = OwnedAccountClosure::default();
         closure
-            .request(user_owner())
+            .request(OwnedAccountClosureRequest {
+                owner: user_owner(),
+            })
             .expect("request should succeed");
         closure
             .load_page(Vec::new(), None)
@@ -358,7 +365,9 @@ mod tests {
         let account_id = AccountId::new();
         let mut closure = OwnedAccountClosure::default();
         closure
-            .request(user_owner())
+            .request(OwnedAccountClosureRequest {
+                owner: user_owner(),
+            })
             .expect("request should succeed");
         closure
             .load_page(vec![account_id], None)

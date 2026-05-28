@@ -39,7 +39,9 @@ where
         let user_id = domain_event.aggregate_id();
 
         match domain_event.payload() {
-            UserEventPayload::Registered { .. } => {
+            UserEventPayload::Registered {
+                initial_identity, ..
+            } => {
                 self.writer
                     .upsert_user(
                         uow,
@@ -56,20 +58,33 @@ where
                         },
                     )
                     .await?;
+
+                if let Some(identity) = initial_identity {
+                    self.writer
+                        .upsert_identity(
+                            uow,
+                            UserPrivateInfoIdentityUpsert {
+                                user_id,
+                                provider: identity.provider().clone(),
+                                subject: identity.subject().clone(),
+                                email: identity.email().cloned(),
+                                event_id: event.event_id,
+                                event_sequence: event.event_sequence,
+                                occurred_at: event.occurred_at,
+                            },
+                        )
+                        .await?;
+                }
             }
-            UserEventPayload::IdentityLinked {
-                provider,
-                subject,
-                email,
-            } => {
+            UserEventPayload::IdentityLinked { identity } => {
                 self.writer
                     .upsert_identity(
                         uow,
                         UserPrivateInfoIdentityUpsert {
                             user_id,
-                            provider: provider.clone(),
-                            subject: subject.clone(),
-                            email: email.clone(),
+                            provider: identity.provider().clone(),
+                            subject: identity.subject().clone(),
+                            email: identity.email().cloned(),
                             event_id: event.event_id,
                             event_sequence: event.event_sequence,
                             occurred_at: event.occurred_at,

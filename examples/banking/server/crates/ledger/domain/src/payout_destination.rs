@@ -4,6 +4,7 @@ mod payout_destination_event_payload_error;
 mod payout_destination_id;
 mod payout_destination_owner;
 mod payout_destination_register_result;
+mod payout_destination_registration;
 mod payout_destination_remove_rejection_reason;
 mod payout_destination_remove_result;
 mod payout_destination_state;
@@ -18,6 +19,7 @@ pub use payout_destination_event_payload_error::PayoutDestinationEventPayloadErr
 pub use payout_destination_id::PayoutDestinationId;
 pub use payout_destination_owner::PayoutDestinationOwner;
 pub use payout_destination_register_result::PayoutDestinationRegisterResult;
+pub use payout_destination_registration::PayoutDestinationRegistration;
 pub use payout_destination_remove_rejection_reason::PayoutDestinationRemoveRejectionReason;
 pub use payout_destination_remove_result::PayoutDestinationRemoveResult;
 pub use payout_destination_state::PayoutDestinationState;
@@ -56,14 +58,14 @@ impl PayoutDestination {
     /// Registers a payout destination.
     pub fn register(
         &mut self,
-        owner: PayoutDestinationOwner,
-        token_account_owner_address: PayoutDestinationTokenAccountOwnerAddress,
+        registration: PayoutDestinationRegistration,
     ) -> Result<PayoutDestinationRegisterResult, PayoutDestinationError> {
         if self.state().is_some() {
             return Err(PayoutDestinationError::AlreadyRegistered);
         }
 
         let payout_destination_id = PayoutDestinationId::new();
+        let (owner, token_account_owner_address) = registration.into_parts();
         self.append_event(PayoutDestinationEventPayload::Registered {
             id: payout_destination_id,
             owner,
@@ -133,8 +135,9 @@ mod tests {
 
     use super::{
         PayoutDestination, PayoutDestinationEventPayload, PayoutDestinationOwner,
-        PayoutDestinationRemoveRejectionReason, PayoutDestinationRemoveResult,
-        PayoutDestinationStatus, PayoutDestinationTokenAccountOwnerAddress,
+        PayoutDestinationRegistration, PayoutDestinationRemoveRejectionReason,
+        PayoutDestinationRemoveResult, PayoutDestinationStatus,
+        PayoutDestinationTokenAccountOwnerAddress,
     };
 
     fn payout_destination_token_account_owner_address() -> PayoutDestinationTokenAccountOwnerAddress
@@ -154,7 +157,10 @@ mod tests {
         let mut payout_destination = PayoutDestination::default();
 
         payout_destination
-            .register(owner, token_account_owner_address.clone())
+            .register(PayoutDestinationRegistration {
+                owner,
+                token_account_owner_address: token_account_owner_address.clone(),
+            })
             .expect("register should succeed");
 
         assert_eq!(
@@ -186,7 +192,10 @@ mod tests {
         let token_account_owner_address = payout_destination_token_account_owner_address();
         let mut payout_destination = PayoutDestination::default();
         payout_destination
-            .register(owner, token_account_owner_address)
+            .register(PayoutDestinationRegistration {
+                owner,
+                token_account_owner_address,
+            })
             .expect("register should succeed");
         payout_destination.core_mut().clear_uncommitted_events();
 
@@ -211,7 +220,10 @@ mod tests {
         let token_account_owner_address = payout_destination_token_account_owner_address();
         let mut payout_destination = PayoutDestination::default();
         payout_destination
-            .register(owner, token_account_owner_address)
+            .register(PayoutDestinationRegistration {
+                owner,
+                token_account_owner_address,
+            })
             .expect("register should succeed");
         payout_destination.core_mut().clear_uncommitted_events();
         payout_destination

@@ -6,9 +6,9 @@ use banking_iam_domain::{
 };
 use thiserror::Error;
 
-/// Represents errors returned while creating an organization join request.
+/// Represents errors returned while submitting an organization join request.
 #[derive(Debug, Error)]
-pub enum OrganizationJoinRequestCreateCommandHandlerError {
+pub enum OrganizationJoinRequestSubmitCommandHandlerError {
     #[error("organization repository failed")]
     OrganizationRepository(#[from] RepositoryError<Organization>),
 

@@ -4,7 +4,9 @@ use appletheia::application::authorization::{
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_iam_domain::{Organization, OrganizationCreateResult, OrganizationOwner, User};
+use banking_iam_domain::{
+    Organization, OrganizationCreateResult, OrganizationCreation, OrganizationOwner, User,
+};
 
 use super::{
     OrganizationCreateCommand, OrganizationCreateCommandHandlerError, OrganizationCreateOutput,
@@ -70,14 +72,14 @@ where
             picture,
         } = command.clone();
         let mut organization = Organization::default();
-        let result = organization.create(
+        let result = organization.create(OrganizationCreation {
             owner,
             handle,
             display_name,
             description,
             website_url,
             picture,
-        )?;
+        })?;
 
         self.organization_repository
             .save(uow, request_context, &mut organization)

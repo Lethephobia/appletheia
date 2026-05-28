@@ -8,11 +8,12 @@ mod organization_join_request_event_payload_error;
 mod organization_join_request_id;
 mod organization_join_request_reject_rejection_reason;
 mod organization_join_request_reject_result;
-mod organization_join_request_request_rejection_reason;
-mod organization_join_request_request_result;
 mod organization_join_request_state;
 mod organization_join_request_state_error;
 mod organization_join_request_status;
+mod organization_join_request_submission;
+mod organization_join_request_submit_rejection_reason;
+mod organization_join_request_submit_result;
 
 pub use organization_join_request_approve_rejection_reason::OrganizationJoinRequestApproveRejectionReason;
 pub use organization_join_request_approve_result::OrganizationJoinRequestApproveResult;
@@ -24,11 +25,12 @@ pub use organization_join_request_event_payload_error::OrganizationJoinRequestEv
 pub use organization_join_request_id::OrganizationJoinRequestId;
 pub use organization_join_request_reject_rejection_reason::OrganizationJoinRequestRejectRejectionReason;
 pub use organization_join_request_reject_result::OrganizationJoinRequestRejectResult;
-pub use organization_join_request_request_rejection_reason::OrganizationJoinRequestRequestRejectionReason;
-pub use organization_join_request_request_result::OrganizationJoinRequestRequestResult;
 pub use organization_join_request_state::OrganizationJoinRequestState;
 pub use organization_join_request_state_error::OrganizationJoinRequestStateError;
 pub use organization_join_request_status::OrganizationJoinRequestStatus;
+pub use organization_join_request_submission::OrganizationJoinRequestSubmission;
+pub use organization_join_request_submit_rejection_reason::OrganizationJoinRequestSubmitRejectionReason;
+pub use organization_join_request_submit_result::OrganizationJoinRequestSubmitResult;
 
 use appletheia::aggregate;
 use appletheia::domain::{Aggregate, AggregateApply, AggregateCore};
@@ -77,36 +79,36 @@ impl OrganizationJoinRequest {
         Ok(self.state_required()?.status.is_canceled())
     }
 
-    /// Requests to join an organization.
-    pub fn request(
+    /// Submits a request to join an organization.
+    pub fn submit(
         &mut self,
-        organization_id: OrganizationId,
-        requester_id: UserId,
-    ) -> Result<OrganizationJoinRequestRequestResult, OrganizationJoinRequestError> {
+        submission: OrganizationJoinRequestSubmission,
+    ) -> Result<OrganizationJoinRequestSubmitResult, OrganizationJoinRequestError> {
         if self.state().is_some() {
-            return Err(OrganizationJoinRequestError::AlreadyRequested);
+            return Err(OrganizationJoinRequestError::AlreadySubmitted);
         }
 
         let organization_join_request_id = OrganizationJoinRequestId::new();
-        self.append_event(OrganizationJoinRequestEventPayload::Requested {
+        let (organization_id, requester_id) = submission.into_parts();
+        self.append_event(OrganizationJoinRequestEventPayload::Submitted {
             id: organization_join_request_id,
             organization_id,
             requester_id,
         })?;
-        Ok(OrganizationJoinRequestRequestResult::Requested {
+        Ok(OrganizationJoinRequestSubmitResult::Submitted {
             organization_join_request_id,
         })
     }
 
-    /// Rejects a join request creation attempt.
-    pub fn reject_request(
+    /// Rejects a join request submission attempt.
+    pub fn reject_submit(
         &mut self,
-        organization_id: OrganizationId,
-        requester_id: UserId,
-        reason: OrganizationJoinRequestRequestRejectionReason,
+        submission: OrganizationJoinRequestSubmission,
+        reason: OrganizationJoinRequestSubmitRejectionReason,
     ) -> Result<OrganizationJoinRequestId, OrganizationJoinRequestError> {
         let organization_join_request_id = OrganizationJoinRequestId::new();
-        self.append_event(OrganizationJoinRequestEventPayload::RequestRejected {
+        let (organization_id, requester_id) = submission.into_parts();
+        self.append_event(OrganizationJoinRequestEventPayload::SubmitRejected {
             id: organization_join_request_id,
             organization_id,
             requester_id,
@@ -217,7 +219,7 @@ impl AggregateApply<OrganizationJoinRequestEventPayload, OrganizationJoinRequest
         payload: &OrganizationJoinRequestEventPayload,
     ) -> Result<(), OrganizationJoinRequestError> {
         match payload {
-            OrganizationJoinRequestEventPayload::Requested {
+            OrganizationJoinRequestEventPayload::Submitted {
                 id,
                 organization_id,
                 requester_id,
@@ -229,7 +231,7 @@ impl AggregateApply<OrganizationJoinRequestEventPayload, OrganizationJoinRequest
                     status: OrganizationJoinRequestStatus::Pending,
                 }));
             }
-            OrganizationJoinRequestEventPayload::RequestRejected { .. } => {}
+            OrganizationJoinRequestEventPayload::SubmitRejected { .. } => {}
             OrganizationJoinRequestEventPayload::Approved { .. } => {
                 self.state_required_mut()?.status = OrganizationJoinRequestStatus::Approved;
             }
@@ -253,7 +255,8 @@ mod tests {
     use appletheia::domain::{Aggregate, AggregateId, EventPayload};
 
     use super::{
-        OrganizationJoinRequest, OrganizationJoinRequestEventPayload, OrganizationJoinRequestStatus,
+        OrganizationJoinRequest, OrganizationJoinRequestEventPayload,
+        OrganizationJoinRequestStatus, OrganizationJoinRequestSubmission,
     };
     use crate::{OrganizationId, UserId};
 
@@ -266,14 +269,17 @@ mod tests {
     }
 
     #[test]
-    fn request_initializes_state_and_records_event() {
+    fn submit_initializes_state_and_records_event() {
         let organization_id = organization_id();
         let requester_id = requester_id();
         let mut join_request = OrganizationJoinRequest::default();
 
         join_request
-            .request(organization_id, requester_id)
-            .expect("request should succeed");
+            .submit(OrganizationJoinRequestSubmission {
+                organization_id,
+                requester_id,
+            })
+            .expect("submit should succeed");
 
         let aggregate_id = join_request
             .aggregate_id()
@@ -298,18 +304,21 @@ mod tests {
         assert_eq!(join_request.uncommitted_events().len(), 1);
         assert_eq!(
             join_request.uncommitted_events()[0].payload().name(),
-            OrganizationJoinRequestEventPayload::REQUESTED
+            OrganizationJoinRequestEventPayload::SUBMITTED
         );
     }
 
     #[test]
-    fn approving_request_updates_status_and_records_event() {
+    fn approving_submitted_request_updates_status_and_records_event() {
         let organization_id = organization_id();
         let requester_id = requester_id();
         let mut join_request = OrganizationJoinRequest::default();
         join_request
-            .request(organization_id, requester_id)
-            .expect("request should succeed");
+            .submit(OrganizationJoinRequestSubmission {
+                organization_id,
+                requester_id,
+            })
+            .expect("submit should succeed");
 
         join_request.approve().expect("approve should succeed");
 
@@ -325,13 +334,16 @@ mod tests {
     }
 
     #[test]
-    fn rejecting_request_updates_status_and_records_event() {
+    fn rejecting_submitted_request_updates_status_and_records_event() {
         let organization_id = organization_id();
         let requester_id = requester_id();
         let mut join_request = OrganizationJoinRequest::default();
         join_request
-            .request(organization_id, requester_id)
-            .expect("request should succeed");
+            .submit(OrganizationJoinRequestSubmission {
+                organization_id,
+                requester_id,
+            })
+            .expect("submit should succeed");
 
         join_request.reject().expect("reject should succeed");
 
@@ -347,13 +359,16 @@ mod tests {
     }
 
     #[test]
-    fn canceling_request_updates_status_and_records_event() {
+    fn canceling_submitted_request_updates_status_and_records_event() {
         let organization_id = organization_id();
         let requester_id = requester_id();
         let mut join_request = OrganizationJoinRequest::default();
         join_request
-            .request(organization_id, requester_id)
-            .expect("request should succeed");
+            .submit(OrganizationJoinRequestSubmission {
+                organization_id,
+                requester_id,
+            })
+            .expect("submit should succeed");
 
         join_request.cancel().expect("cancel should succeed");
 

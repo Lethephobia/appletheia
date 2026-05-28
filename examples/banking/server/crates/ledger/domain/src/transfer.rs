@@ -7,6 +7,7 @@ mod transfer_fail_rejection_reason;
 mod transfer_fail_result;
 mod transfer_failure_reason;
 mod transfer_id;
+mod transfer_request;
 mod transfer_request_rejection_reason;
 mod transfer_request_result;
 mod transfer_state;
@@ -22,6 +23,7 @@ pub use transfer_fail_rejection_reason::TransferFailRejectionReason;
 pub use transfer_fail_result::TransferFailResult;
 pub use transfer_failure_reason::TransferFailureReason;
 pub use transfer_id::TransferId;
+pub use transfer_request::TransferRequest;
 pub use transfer_request_rejection_reason::TransferRequestRejectionReason;
 pub use transfer_request_result::TransferRequestResult;
 pub use transfer_state::TransferState;
@@ -64,28 +66,24 @@ impl Transfer {
     /// Requests a new transfer.
     pub fn request(
         &mut self,
-        from_account_id: AccountId,
-        to_account_id: AccountId,
-        amount: CurrencyAmount,
+        request: TransferRequest,
     ) -> Result<TransferRequestResult, TransferError> {
         if self.state().is_some() {
             return Err(TransferError::AlreadyRequested);
         }
 
-        if from_account_id == to_account_id {
+        if request.is_same_account() {
             let reason = TransferRequestRejectionReason::SameAccount;
-            let transfer_id =
-                self.reject_request(from_account_id, to_account_id, amount, reason)?;
+            let transfer_id = self.reject_request(request, reason)?;
             return Ok(TransferRequestResult::Rejected {
                 transfer_id,
                 reason,
             });
         }
 
-        if amount.is_zero() {
+        if request.amount().is_zero() {
             let reason = TransferRequestRejectionReason::ZeroAmount;
-            let transfer_id =
-                self.reject_request(from_account_id, to_account_id, amount, reason)?;
+            let transfer_id = self.reject_request(request, reason)?;
             return Ok(TransferRequestResult::Rejected {
                 transfer_id,
                 reason,
@@ -93,6 +91,7 @@ impl Transfer {
         }
 
         let transfer_id = TransferId::new();
+        let (from_account_id, to_account_id, amount) = request.into_parts();
         self.append_event(TransferEventPayload::Requested {
             id: transfer_id,
             from_account_id,
@@ -106,12 +105,11 @@ impl Transfer {
     /// Rejects a transfer request.
     pub fn reject_request(
         &mut self,
-        from_account_id: AccountId,
-        to_account_id: AccountId,
-        amount: CurrencyAmount,
+        request: TransferRequest,
         reason: TransferRequestRejectionReason,
     ) -> Result<TransferId, TransferError> {
         let transfer_id = TransferId::new();
+        let (from_account_id, to_account_id, amount) = request.into_parts();
         self.append_event(TransferEventPayload::RequestRejected {
             id: transfer_id,
             from_account_id,
@@ -245,7 +243,7 @@ mod tests {
     use crate::account::AccountId;
     use crate::core::CurrencyAmount;
 
-    use super::{Transfer, TransferEventPayload, TransferId, TransferStatus};
+    use super::{Transfer, TransferEventPayload, TransferId, TransferRequest, TransferStatus};
 
     #[test]
     fn request_initializes_state_and_records_event() {
@@ -255,7 +253,11 @@ mod tests {
         let mut transfer = Transfer::default();
 
         transfer
-            .request(from_account_id, to_account_id, amount)
+            .request(TransferRequest {
+                from_account_id,
+                to_account_id,
+                amount,
+            })
             .expect("request should succeed");
 
         assert_eq!(
@@ -292,7 +294,11 @@ mod tests {
         let mut transfer = Transfer::default();
 
         let result = transfer
-            .request(account_id, account_id, CurrencyAmount::new(1))
+            .request(TransferRequest {
+                from_account_id: account_id,
+                to_account_id: account_id,
+                amount: CurrencyAmount::new(1),
+            })
             .expect("same-account transfer should complete with a rejection event");
 
         assert!(matches!(
@@ -320,11 +326,19 @@ mod tests {
         let mut transfer = Transfer::default();
 
         transfer
-            .request(from_account_id, to_account_id, amount)
+            .request(TransferRequest {
+                from_account_id,
+                to_account_id,
+                amount,
+            })
             .expect("initial request should succeed");
 
         let error = transfer
-            .request(from_account_id, to_account_id, amount)
+            .request(TransferRequest {
+                from_account_id,
+                to_account_id,
+                amount,
+            })
             .expect_err("second request should be an unexpected processing error");
 
         assert!(matches!(error, super::TransferError::AlreadyRequested));
@@ -336,7 +350,11 @@ mod tests {
         let from_account_id = AccountId::new();
         let to_account_id = AccountId::new();
         transfer
-            .request(from_account_id, to_account_id, CurrencyAmount::new(100))
+            .request(TransferRequest {
+                from_account_id,
+                to_account_id,
+                amount: CurrencyAmount::new(100),
+            })
             .expect("request should succeed");
 
         transfer.complete().expect("complete should succeed");
@@ -362,7 +380,11 @@ mod tests {
         let from_account_id = AccountId::new();
         let to_account_id = AccountId::new();
         transfer
-            .request(from_account_id, to_account_id, CurrencyAmount::new(100))
+            .request(TransferRequest {
+                from_account_id,
+                to_account_id,
+                amount: CurrencyAmount::new(100),
+            })
             .expect("request should succeed");
 
         transfer

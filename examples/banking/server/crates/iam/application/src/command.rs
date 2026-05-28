@@ -38,10 +38,10 @@ pub use organization_join_request::{
     OrganizationJoinRequestApproveCommandHandlerError, OrganizationJoinRequestApproveOutput,
     OrganizationJoinRequestCancelCommand, OrganizationJoinRequestCancelCommandHandler,
     OrganizationJoinRequestCancelCommandHandlerError, OrganizationJoinRequestCancelOutput,
-    OrganizationJoinRequestCreateCommand, OrganizationJoinRequestCreateCommandHandler,
-    OrganizationJoinRequestCreateCommandHandlerError, OrganizationJoinRequestCreateOutput,
     OrganizationJoinRequestRejectCommand, OrganizationJoinRequestRejectCommandHandler,
     OrganizationJoinRequestRejectCommandHandlerError, OrganizationJoinRequestRejectOutput,
+    OrganizationJoinRequestSubmitCommand, OrganizationJoinRequestSubmitCommandHandler,
+    OrganizationJoinRequestSubmitCommandHandlerError, OrganizationJoinRequestSubmitOutput,
 };
 pub use organization_membership::{
     OrganizationMembershipActivateCommand, OrganizationMembershipActivateCommandHandler,

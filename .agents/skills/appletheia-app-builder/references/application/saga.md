@@ -364,7 +364,7 @@ Subscription::AnyOf(&[
     EventSelector::new(OrganizationInvitation::TYPE, OrganizationInvitationEventPayload::CANCELED),
     EventSelector::new(OrganizationMembership::TYPE, OrganizationMembershipEventPayload::CREATED),
     EventSelector::new(OrganizationMembership::TYPE, OrganizationMembershipEventPayload::ACTIVATED),
-    EventSelector::new(OrganizationMembership::TYPE, OrganizationMembershipEventPayload::INACTIVATED),
+    EventSelector::new(OrganizationMembership::TYPE, OrganizationMembershipEventPayload::DEACTIVATED),
     EventSelector::new(OrganizationMembership::TYPE, OrganizationMembershipEventPayload::REMOVED),
 ])
 ```

@@ -97,42 +97,50 @@ where
             return Err(CurrencyMintAccountMetadataSyncCommandHandlerError::CurrencyNotFound);
         };
 
-        let output = if currency.mint_account()?.is_some() {
-            let seed = MintAccountSeed::try_from(command.currency_id)?;
-            let metadata_name = MintMetadataName::from(currency.name()?);
-            let metadata_symbol = MintMetadataSymbol::from(currency.symbol()?);
-            let description = currency.description()?.map(MintMetadataDescription::from);
-            let image = currency
-                .image()?
-                .map(|image| self.mint_metadata_image(image))
-                .transpose()?;
-            let document = MintMetadataDocument::new(
-                metadata_name.clone(),
-                metadata_symbol.clone(),
-                description,
-                image,
-            );
-            let metadata_uri = self
-                .mint_metadata_publisher
-                .publish(MintMetadataPublishRequest::new(seed.clone(), document))
-                .await?;
-            let metadata = MintAccountMetadata::new(metadata_name, metadata_symbol, metadata_uri);
-            self.mint_account_metadata_updater
-                .update(MintAccountMetadataUpdateRequest::new(seed, metadata))
-                .await?;
-            currency.record_mint_account_metadata_synced()?;
-            CurrencyMintAccountMetadataSyncOutput::Synced
-        } else {
+        if currency.mint_account()?.is_none() {
             let reason = CurrencyMintAccountMetadataSyncRejectionReason::NotProvisioned;
             currency.reject_mint_account_metadata_sync(reason)?;
-            CurrencyMintAccountMetadataSyncOutput::Rejected { reason }
-        };
+
+            self.currency_repository
+                .save(uow, request_context, &mut currency)
+                .await?;
+
+            return Ok(CommandHandled::same(
+                CurrencyMintAccountMetadataSyncOutput::Rejected { reason },
+            ));
+        }
+
+        let seed = MintAccountSeed::try_from(command.currency_id)?;
+        let metadata_name = MintMetadataName::from(currency.name()?);
+        let metadata_symbol = MintMetadataSymbol::from(currency.symbol()?);
+        let description = currency.description()?.map(MintMetadataDescription::from);
+        let image = currency
+            .image()?
+            .map(|image| self.mint_metadata_image(image))
+            .transpose()?;
+        let document = MintMetadataDocument::new(
+            metadata_name.clone(),
+            metadata_symbol.clone(),
+            description,
+            image,
+        );
+        let metadata_uri = self
+            .mint_metadata_publisher
+            .publish(MintMetadataPublishRequest::new(seed.clone(), document))
+            .await?;
+        let metadata = MintAccountMetadata::new(metadata_name, metadata_symbol, metadata_uri);
+        self.mint_account_metadata_updater
+            .update(MintAccountMetadataUpdateRequest::new(seed, metadata))
+            .await?;
+        currency.record_mint_account_metadata_synced()?;
 
         self.currency_repository
             .save(uow, request_context, &mut currency)
             .await?;
 
-        Ok(CommandHandled::same(output))
+        Ok(CommandHandled::same(
+            CurrencyMintAccountMetadataSyncOutput::Synced,
+        ))
     }
 }
 

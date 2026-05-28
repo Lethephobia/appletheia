@@ -9,6 +9,7 @@ mod organization_invitation_event_payload;
 mod organization_invitation_event_payload_error;
 mod organization_invitation_expires_at;
 mod organization_invitation_id;
+mod organization_invitation_issuance;
 mod organization_invitation_issue_rejection_reason;
 mod organization_invitation_issue_result;
 mod organization_invitation_issuer;
@@ -27,6 +28,7 @@ pub use organization_invitation_event_payload::OrganizationInvitationEventPayloa
 pub use organization_invitation_event_payload_error::OrganizationInvitationEventPayloadError;
 pub use organization_invitation_expires_at::OrganizationInvitationExpiresAt;
 pub use organization_invitation_id::OrganizationInvitationId;
+pub use organization_invitation_issuance::OrganizationInvitationIssuance;
 pub use organization_invitation_issue_rejection_reason::OrganizationInvitationIssueRejectionReason;
 pub use organization_invitation_issue_result::OrganizationInvitationIssueResult;
 pub use organization_invitation_issuer::OrganizationInvitationIssuer;
@@ -106,27 +108,16 @@ impl OrganizationInvitation {
     /// Issues a new organization invitation.
     pub fn issue(
         &mut self,
-        organization_id: OrganizationId,
-        invitee_id: UserId,
-        roles: OrganizationMembershipRoles,
-        issuer: OrganizationInvitationIssuer,
-        expires_at: OrganizationInvitationExpiresAt,
+        issuance: OrganizationInvitationIssuance,
         now: CurrentDateTime,
     ) -> Result<OrganizationInvitationIssueResult, OrganizationInvitationError> {
         if self.state().is_some() {
             return Err(OrganizationInvitationError::AlreadyIssued);
         }
 
-        if expires_at.is_expired(now) {
+        if issuance.expires_at().is_expired(now) {
             let reason = OrganizationInvitationIssueRejectionReason::Expired;
-            let organization_invitation_id = self.reject_issue(
-                organization_id,
-                invitee_id,
-                roles,
-                issuer,
-                expires_at,
-                reason,
-            )?;
+            let organization_invitation_id = self.reject_issue(issuance, reason)?;
             return Ok(OrganizationInvitationIssueResult::Rejected {
                 organization_invitation_id,
                 reason,
@@ -134,6 +125,7 @@ impl OrganizationInvitation {
         }
 
         let organization_invitation_id = OrganizationInvitationId::new();
+        let (organization_id, invitee_id, roles, issuer, expires_at) = issuance.into_parts();
         self.append_event(OrganizationInvitationEventPayload::Issued {
             id: organization_invitation_id,
             organization_id,
@@ -150,14 +142,11 @@ impl OrganizationInvitation {
     /// Rejects an invitation issue attempt.
     pub fn reject_issue(
         &mut self,
-        organization_id: OrganizationId,
-        invitee_id: UserId,
-        roles: OrganizationMembershipRoles,
-        issuer: OrganizationInvitationIssuer,
-        expires_at: OrganizationInvitationExpiresAt,
+        issuance: OrganizationInvitationIssuance,
         reason: OrganizationInvitationIssueRejectionReason,
     ) -> Result<OrganizationInvitationId, OrganizationInvitationError> {
         let organization_invitation_id = OrganizationInvitationId::new();
+        let (organization_id, invitee_id, roles, issuer, expires_at) = issuance.into_parts();
         self.append_event(OrganizationInvitationEventPayload::IssueRejected {
             id: organization_invitation_id,
             organization_id,
@@ -354,8 +343,8 @@ mod tests {
 
     use super::{
         OrganizationInvitation, OrganizationInvitationEventPayload,
-        OrganizationInvitationExpiresAt, OrganizationInvitationIssuer,
-        OrganizationInvitationStatus,
+        OrganizationInvitationExpiresAt, OrganizationInvitationIssuance,
+        OrganizationInvitationIssuer, OrganizationInvitationStatus,
     };
     use crate::{CurrentDateTime, OrganizationId, OrganizationMembershipRoles, UserId};
 
@@ -389,11 +378,13 @@ mod tests {
 
         invitation
             .issue(
-                organization_id,
-                invitee_id,
-                roles(),
-                issuer,
-                expires_at,
+                OrganizationInvitationIssuance {
+                    organization_id,
+                    invitee_id,
+                    roles: roles(),
+                    issuer,
+                    expires_at,
+                },
                 CurrentDateTime::new(),
             )
             .expect("issue should succeed");
@@ -438,11 +429,13 @@ mod tests {
         let mut invitation = OrganizationInvitation::default();
         invitation
             .issue(
-                organization_id,
-                invitee_id,
-                roles(),
-                issuer,
-                expires_at,
+                OrganizationInvitationIssuance {
+                    organization_id,
+                    invitee_id,
+                    roles: roles(),
+                    issuer,
+                    expires_at,
+                },
                 CurrentDateTime::new(),
             )
             .expect("issue should succeed");
@@ -471,11 +464,13 @@ mod tests {
         let mut invitation = OrganizationInvitation::default();
         invitation
             .issue(
-                organization_id,
-                invitee_id,
-                roles(),
-                issuer,
-                expires_at,
+                OrganizationInvitationIssuance {
+                    organization_id,
+                    invitee_id,
+                    roles: roles(),
+                    issuer,
+                    expires_at,
+                },
                 CurrentDateTime::new(),
             )
             .expect("issue should succeed");
@@ -504,11 +499,13 @@ mod tests {
         let mut invitation = OrganizationInvitation::default();
         invitation
             .issue(
-                organization_id,
-                invitee_id,
-                roles(),
-                issuer,
-                expires_at,
+                OrganizationInvitationIssuance {
+                    organization_id,
+                    invitee_id,
+                    roles: roles(),
+                    issuer,
+                    expires_at,
+                },
                 CurrentDateTime::new(),
             )
             .expect("issue should succeed");
@@ -534,11 +531,13 @@ mod tests {
 
         let result = invitation
             .issue(
-                organization_id(),
-                user_id(),
-                roles(),
-                OrganizationInvitationIssuer::User(user_id()),
-                past_expires_at(),
+                OrganizationInvitationIssuance {
+                    organization_id: organization_id(),
+                    invitee_id: user_id(),
+                    roles: roles(),
+                    issuer: OrganizationInvitationIssuer::User(user_id()),
+                    expires_at: past_expires_at(),
+                },
                 CurrentDateTime::new(),
             )
             .expect("expired invitation should complete with a rejection event");
@@ -591,11 +590,13 @@ mod tests {
         let mut invitation = OrganizationInvitation::default();
         invitation
             .issue(
-                organization_id,
-                invitee_id,
-                roles(),
-                issuer,
-                expires_at,
+                OrganizationInvitationIssuance {
+                    organization_id,
+                    invitee_id,
+                    roles: roles(),
+                    issuer,
+                    expires_at,
+                },
                 CurrentDateTime::new(),
             )
             .expect("issue should succeed");

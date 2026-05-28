@@ -87,13 +87,20 @@ where
             return Err(OrganizationMembershipRolesChangeCommandHandlerError::OrganizationNotFound);
         };
 
-        let result = if organization.is_removed()? {
+        if organization.is_removed()? {
             let reason = OrganizationMembershipRolesChangeRejectionReason::OrganizationRemoved;
             organization_membership.reject_change_roles(command.roles.clone(), reason)?;
-            OrganizationMembershipRolesChangeResult::Rejected { reason }
-        } else {
-            organization_membership.change_roles(command.roles.clone())?
-        };
+
+            self.organization_membership_repository
+                .save(uow, request_context, &mut organization_membership)
+                .await?;
+
+            return Ok(CommandHandled::same(
+                OrganizationMembershipRolesChangeOutput::Rejected { reason },
+            ));
+        }
+
+        let result = organization_membership.change_roles(command.roles.clone())?;
 
         self.organization_membership_repository
             .save(uow, request_context, &mut organization_membership)
@@ -128,9 +135,10 @@ mod tests {
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::Aggregate;
     use banking_iam_domain::{
-        Organization, OrganizationHandle, OrganizationId, OrganizationMembership,
-        OrganizationMembershipId, OrganizationMembershipRoles, OrganizationMembershipStatus,
-        OrganizationName, OrganizationOwner, OrganizationRole, UserId,
+        Organization, OrganizationCreation, OrganizationHandle, OrganizationId,
+        OrganizationMembership, OrganizationMembershipCreation, OrganizationMembershipId,
+        OrganizationMembershipRoles, OrganizationMembershipStatus, OrganizationName,
+        OrganizationOwner, OrganizationRole, UserId,
     };
     use uuid::Uuid;
 
@@ -280,14 +288,15 @@ mod tests {
     fn organization() -> Organization {
         let mut organization = Organization::default();
         organization
-            .create(
-                OrganizationOwner::User(UserId::new()),
-                OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
-                OrganizationName::try_from("Acme Labs").expect("name should be valid"),
-                None,
-                None,
-                None,
-            )
+            .create(OrganizationCreation {
+                owner: OrganizationOwner::User(UserId::new()),
+                handle: OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
+                display_name: OrganizationName::try_from("Acme Labs")
+                    .expect("name should be valid"),
+                description: None,
+                website_url: None,
+                picture: None,
+            })
             .expect("organization should create");
         organization
     }
@@ -295,11 +304,11 @@ mod tests {
     fn organization_membership(organization_id: OrganizationId) -> OrganizationMembership {
         let mut organization_membership = OrganizationMembership::default();
         organization_membership
-            .create(
+            .create(OrganizationMembershipCreation {
                 organization_id,
-                UserId::new(),
-                OrganizationMembershipRoles::default(),
-            )
+                user_id: UserId::new(),
+                roles: OrganizationMembershipRoles::default(),
+            })
             .expect("organization membership should create");
         organization_membership
     }

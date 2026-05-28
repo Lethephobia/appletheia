@@ -1,18 +1,22 @@
+mod user_identity_data;
 mod user_identity_email_change_rejection_reason;
 mod user_identity_email_change_result;
 mod user_identity_link_rejection_reason;
 mod user_identity_link_result;
 mod user_identity_provider;
 mod user_identity_provider_error;
+mod user_identity_registration;
 mod user_identity_subject;
 mod user_identity_subject_error;
 
+pub use user_identity_data::UserIdentityData;
 pub use user_identity_email_change_rejection_reason::UserIdentityEmailChangeRejectionReason;
 pub use user_identity_email_change_result::UserIdentityEmailChangeResult;
 pub use user_identity_link_rejection_reason::UserIdentityLinkRejectionReason;
 pub use user_identity_link_result::UserIdentityLinkResult;
 pub use user_identity_provider::UserIdentityProvider;
 pub use user_identity_provider_error::UserIdentityProviderError;
+pub use user_identity_registration::UserIdentityRegistration;
 pub use user_identity_subject::UserIdentitySubject;
 pub use user_identity_subject_error::UserIdentitySubjectError;
 
