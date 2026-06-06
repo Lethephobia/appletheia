@@ -1,7 +1,6 @@
 pub mod organization;
 pub mod organization_invitation;
 pub mod organization_join_request;
-pub mod organization_membership;
 pub mod user;
 
 pub use organization::{
@@ -43,16 +42,6 @@ pub use organization_join_request::{
     OrganizationJoinRequestSubmitCommand, OrganizationJoinRequestSubmitCommandHandler,
     OrganizationJoinRequestSubmitCommandHandlerError, OrganizationJoinRequestSubmitOutput,
 };
-pub use organization_membership::{
-    OrganizationMembershipActivateCommand, OrganizationMembershipActivateCommandHandler,
-    OrganizationMembershipActivateOutput, OrganizationMembershipCreateCommand,
-    OrganizationMembershipCreateCommandHandler, OrganizationMembershipCreateOutput,
-    OrganizationMembershipDeactivateCommand, OrganizationMembershipDeactivateCommandHandler,
-    OrganizationMembershipDeactivateOutput, OrganizationMembershipRemoveCommand,
-    OrganizationMembershipRemoveCommandHandler, OrganizationMembershipRemoveOutput,
-    OrganizationMembershipRolesChangeCommand, OrganizationMembershipRolesChangeCommandHandler,
-    OrganizationMembershipRolesChangeOutput,
-};
 pub use user::{
     LogoutAllSessionsCommand, LogoutAllSessionsCommandHandler, LogoutAllSessionsOutput,
     LogoutCommand, LogoutCommandHandler, LogoutOutput, OidcBeginCommand, OidcBeginCommandHandler,
@@ -61,7 +50,15 @@ pub use user::{
     UserActivateCommandHandler, UserActivateOutput, UserBioChangeCommand,
     UserBioChangeCommandHandler, UserBioChangeOutput, UserDeactivateCommand,
     UserDeactivateCommandHandler, UserDeactivateOutput, UserDisplayNameChangeCommand,
-    UserDisplayNameChangeCommandHandler, UserDisplayNameChangeOutput, UserPictureChangeCommand,
+    UserDisplayNameChangeCommandHandler, UserDisplayNameChangeOutput,
+    UserOrganizationMembershipGrantCommand, UserOrganizationMembershipGrantCommandHandler,
+    UserOrganizationMembershipGrantCommandHandlerError, UserOrganizationMembershipGrantOutput,
+    UserOrganizationMembershipRemoveCommand, UserOrganizationMembershipRemoveCommandHandler,
+    UserOrganizationMembershipRemoveCommandHandlerError, UserOrganizationMembershipRemoveOutput,
+    UserOrganizationMembershipRolesChangeCommand,
+    UserOrganizationMembershipRolesChangeCommandHandler,
+    UserOrganizationMembershipRolesChangeCommandHandlerError,
+    UserOrganizationMembershipRolesChangeOutput, UserPictureChangeCommand,
     UserPictureChangeCommandHandler, UserPictureChangeOutput, UserPictureObjectDeleteCommand,
     UserPictureObjectDeleteCommandHandler, UserPictureObjectDeleteCommandHandlerError,
     UserPictureObjectDeleteOutput, UserPictureUploadPrepareCommand,

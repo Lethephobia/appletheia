@@ -39,7 +39,7 @@ pub use organization_invitation_status::OrganizationInvitationStatus;
 use appletheia::aggregate;
 use appletheia::domain::{Aggregate, AggregateApply, AggregateCore};
 
-use crate::{CurrentDateTime, OrganizationId, OrganizationMembershipRoles, UserId};
+use crate::{CurrentDateTime, OrganizationId, OrganizationRoles, UserId};
 
 /// Represents the `OrganizationInvitation` aggregate root.
 #[aggregate(type = "organization_invitation", error = OrganizationInvitationError)]
@@ -59,7 +59,7 @@ impl OrganizationInvitation {
     }
 
     /// Returns the membership roles granted by accepting the invitation.
-    pub fn roles(&self) -> Result<&OrganizationMembershipRoles, OrganizationInvitationError> {
+    pub fn roles(&self) -> Result<&OrganizationRoles, OrganizationInvitationError> {
         Ok(&self.state_required()?.roles)
     }
 
@@ -346,7 +346,7 @@ mod tests {
         OrganizationInvitationExpiresAt, OrganizationInvitationIssuance,
         OrganizationInvitationIssuer, OrganizationInvitationStatus,
     };
-    use crate::{CurrentDateTime, OrganizationId, OrganizationMembershipRoles, UserId};
+    use crate::{CurrentDateTime, OrganizationId, OrganizationRoles, UserId};
 
     fn organization_id() -> OrganizationId {
         OrganizationId::new()
@@ -356,8 +356,8 @@ mod tests {
         UserId::new()
     }
 
-    fn roles() -> OrganizationMembershipRoles {
-        OrganizationMembershipRoles::default()
+    fn roles() -> OrganizationRoles {
+        OrganizationRoles::default()
     }
 
     fn future_expires_at() -> OrganizationInvitationExpiresAt {

@@ -113,7 +113,13 @@ where
                 | UserEventPayload::Deactivated
                 | UserEventPayload::DeactivateRejected { .. }
                 | UserEventPayload::RemoveRejected { .. }
-                | UserEventPayload::Removed => {}
+                | UserEventPayload::Removed
+                | UserEventPayload::OrganizationMembershipGranted { .. }
+                | UserEventPayload::OrganizationMembershipGrantRejected { .. }
+                | UserEventPayload::OrganizationMembershipRolesChanged { .. }
+                | UserEventPayload::OrganizationMembershipRolesChangeRejected { .. }
+                | UserEventPayload::OrganizationMembershipRemoved { .. }
+                | UserEventPayload::OrganizationMembershipRemoveRejected { .. } => {}
             }
 
             return Ok(());

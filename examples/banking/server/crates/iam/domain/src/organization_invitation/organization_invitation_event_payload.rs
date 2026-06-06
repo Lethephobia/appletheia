@@ -1,6 +1,6 @@
 use appletheia::event_payload;
 
-use crate::{OrganizationId, OrganizationMembershipRoles, UserId};
+use crate::{OrganizationId, OrganizationRoles, UserId};
 
 use super::{
     OrganizationInvitationAcceptRejectionReason, OrganizationInvitationCancelRejectionReason,
@@ -16,7 +16,7 @@ pub enum OrganizationInvitationEventPayload {
         id: OrganizationInvitationId,
         organization_id: OrganizationId,
         invitee_id: UserId,
-        roles: OrganizationMembershipRoles,
+        roles: OrganizationRoles,
         issuer: OrganizationInvitationIssuer,
         expires_at: OrganizationInvitationExpiresAt,
     },
@@ -24,7 +24,7 @@ pub enum OrganizationInvitationEventPayload {
         id: OrganizationInvitationId,
         organization_id: OrganizationId,
         invitee_id: UserId,
-        roles: OrganizationMembershipRoles,
+        roles: OrganizationRoles,
         issuer: OrganizationInvitationIssuer,
         expires_at: OrganizationInvitationExpiresAt,
         reason: OrganizationInvitationIssueRejectionReason,
@@ -32,7 +32,7 @@ pub enum OrganizationInvitationEventPayload {
     Accepted {
         organization_id: OrganizationId,
         invitee_id: UserId,
-        roles: OrganizationMembershipRoles,
+        roles: OrganizationRoles,
     },
     AcceptRejected {
         organization_id: OrganizationId,
@@ -67,7 +67,7 @@ mod tests {
     use super::{
         OrganizationInvitationEventPayload, OrganizationInvitationId, OrganizationInvitationIssuer,
     };
-    use crate::{OrganizationId, OrganizationMembershipRoles, UserId};
+    use crate::{OrganizationId, OrganizationRoles, UserId};
 
     fn expires_at() -> super::OrganizationInvitationExpiresAt {
         super::OrganizationInvitationExpiresAt::from(Utc::now() + Duration::minutes(10))
@@ -115,7 +115,7 @@ mod tests {
             id: OrganizationInvitationId::new(),
             organization_id: OrganizationId::new(),
             invitee_id: UserId::new(),
-            roles: OrganizationMembershipRoles::default(),
+            roles: OrganizationRoles::default(),
             issuer: OrganizationInvitationIssuer::User(UserId::new()),
             expires_at: expires_at(),
         };
@@ -128,7 +128,7 @@ mod tests {
         let payload = OrganizationInvitationEventPayload::Accepted {
             organization_id: OrganizationId::new(),
             invitee_id: UserId::new(),
-            roles: OrganizationMembershipRoles::default(),
+            roles: OrganizationRoles::default(),
         };
 
         assert_eq!(payload.name(), OrganizationInvitationEventPayload::ACCEPTED);
@@ -160,7 +160,7 @@ mod tests {
             id: OrganizationInvitationId::new(),
             organization_id: OrganizationId::new(),
             invitee_id: UserId::new(),
-            roles: OrganizationMembershipRoles::default(),
+            roles: OrganizationRoles::default(),
             issuer: OrganizationInvitationIssuer::User(UserId::new()),
             expires_at: expires_at(),
         };

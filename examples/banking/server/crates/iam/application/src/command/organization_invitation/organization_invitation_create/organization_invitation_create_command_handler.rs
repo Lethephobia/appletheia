@@ -4,12 +4,9 @@ use appletheia::application::authorization::{
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use appletheia::domain::{AggregateId, UniqueValue, UniqueValuePart};
 use banking_iam_domain::{
-    CurrentDateTime, Organization, OrganizationId, OrganizationInvitation,
-    OrganizationInvitationIssuance, OrganizationInvitationIssueRejectionReason,
-    OrganizationInvitationIssuer, OrganizationMembership, OrganizationMembershipState, User,
-    UserId,
+    CurrentDateTime, Organization, OrganizationInvitation, OrganizationInvitationIssuance,
+    OrganizationInvitationIssueRejectionReason, OrganizationInvitationIssuer, User,
 };
 
 use crate::authorization::{OrganizationInviterRelation, UserOwnerRelation};
@@ -20,52 +17,41 @@ use super::{
 };
 
 /// Handles `OrganizationInvitationIssueCommand`.
-pub struct OrganizationInvitationIssueCommandHandler<ORG, IR, MR>
+pub struct OrganizationInvitationIssueCommandHandler<ORG, IR, UR>
 where
     ORG: Repository<Organization>,
     IR: Repository<OrganizationInvitation, Uow = ORG::Uow>,
-    MR: Repository<OrganizationMembership, Uow = ORG::Uow>,
+    UR: Repository<User, Uow = ORG::Uow>,
 {
     organization_repository: ORG,
     organization_invitation_repository: IR,
-    organization_membership_repository: MR,
+    user_repository: UR,
 }
 
-impl<ORG, IR, MR> OrganizationInvitationIssueCommandHandler<ORG, IR, MR>
+impl<ORG, IR, UR> OrganizationInvitationIssueCommandHandler<ORG, IR, UR>
 where
     ORG: Repository<Organization>,
     IR: Repository<OrganizationInvitation, Uow = ORG::Uow>,
-    MR: Repository<OrganizationMembership, Uow = ORG::Uow>,
+    UR: Repository<User, Uow = ORG::Uow>,
 {
     pub fn new(
         organization_repository: ORG,
         organization_invitation_repository: IR,
-        organization_membership_repository: MR,
+        user_repository: UR,
     ) -> Self {
         Self {
             organization_repository,
             organization_invitation_repository,
-            organization_membership_repository,
+            user_repository,
         }
-    }
-
-    fn organization_user_unique_value(
-        organization_id: OrganizationId,
-        invitee_id: UserId,
-    ) -> Result<UniqueValue, OrganizationInvitationIssueCommandHandlerError> {
-        let organization_value = organization_id.value().to_string();
-        let invitee_value = invitee_id.value().to_string();
-        let organization_part = UniqueValuePart::try_from(organization_value.as_str())?;
-        let invitee_part = UniqueValuePart::try_from(invitee_value.as_str())?;
-        Ok(UniqueValue::new(vec![organization_part, invitee_part])?)
     }
 }
 
-impl<ORG, IR, MR> CommandHandler for OrganizationInvitationIssueCommandHandler<ORG, IR, MR>
+impl<ORG, IR, UR> CommandHandler for OrganizationInvitationIssueCommandHandler<ORG, IR, UR>
 where
     ORG: Repository<Organization>,
     IR: Repository<OrganizationInvitation, Uow = ORG::Uow>,
-    MR: Repository<OrganizationMembership, Uow = ORG::Uow>,
+    UR: Repository<User, Uow = ORG::Uow>,
 {
     type Command = OrganizationInvitationIssueCommand;
     type Output = OrganizationInvitationIssueOutput;
@@ -111,8 +97,10 @@ where
             return Err(OrganizationInvitationIssueCommandHandlerError::OrganizationNotFound);
         };
 
-        let invitee_unique_value =
-            Self::organization_user_unique_value(command.organization_id, command.invitee_id)?;
+        let Some(invitee) = self.user_repository.find(uow, command.invitee_id).await? else {
+            return Err(OrganizationInvitationIssueCommandHandlerError::InviteeNotFound);
+        };
+
         let mut organization_invitation = OrganizationInvitation::default();
         let issuance = OrganizationInvitationIssuance {
             organization_id: command.organization_id,
@@ -139,16 +127,7 @@ where
             ));
         }
 
-        if self
-            .organization_membership_repository
-            .find_by_unique_value(
-                uow,
-                OrganizationMembershipState::ORGANIZATION_USER_KEY,
-                &invitee_unique_value,
-            )
-            .await?
-            .is_some()
-        {
+        if invitee.is_organization_member(command.organization_id)? {
             let reason = OrganizationInvitationIssueRejectionReason::InviteeAlreadyMember;
             let organization_invitation_id =
                 organization_invitation.reject_issue(issuance, reason)?;

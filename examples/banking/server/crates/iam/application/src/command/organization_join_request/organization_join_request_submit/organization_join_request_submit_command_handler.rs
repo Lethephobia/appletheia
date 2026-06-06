@@ -7,8 +7,7 @@ use appletheia::application::request_context::RequestContext;
 use appletheia::domain::{AggregateId, UniqueValue, UniqueValuePart};
 use banking_iam_domain::{
     Organization, OrganizationId, OrganizationJoinRequest, OrganizationJoinRequestState,
-    OrganizationJoinRequestSubmission, OrganizationJoinRequestSubmitRejectionReason,
-    OrganizationMembership, OrganizationMembershipState, User, UserId,
+    OrganizationJoinRequestSubmission, OrganizationJoinRequestSubmitRejectionReason, User, UserId,
 };
 
 use super::{
@@ -18,32 +17,32 @@ use super::{
 use crate::authorization::UserOwnerRelation;
 
 /// Handles `OrganizationJoinRequestSubmitCommand`.
-pub struct OrganizationJoinRequestSubmitCommandHandler<OR, JR, MR>
+pub struct OrganizationJoinRequestSubmitCommandHandler<OR, JR, UR>
 where
     OR: Repository<Organization>,
     JR: Repository<OrganizationJoinRequest, Uow = OR::Uow>,
-    MR: Repository<OrganizationMembership, Uow = OR::Uow>,
+    UR: Repository<User, Uow = OR::Uow>,
 {
     organization_repository: OR,
     organization_join_request_repository: JR,
-    organization_membership_repository: MR,
+    user_repository: UR,
 }
 
-impl<OR, JR, MR> OrganizationJoinRequestSubmitCommandHandler<OR, JR, MR>
+impl<OR, JR, UR> OrganizationJoinRequestSubmitCommandHandler<OR, JR, UR>
 where
     OR: Repository<Organization>,
     JR: Repository<OrganizationJoinRequest, Uow = OR::Uow>,
-    MR: Repository<OrganizationMembership, Uow = OR::Uow>,
+    UR: Repository<User, Uow = OR::Uow>,
 {
     pub fn new(
         organization_repository: OR,
         organization_join_request_repository: JR,
-        organization_membership_repository: MR,
+        user_repository: UR,
     ) -> Self {
         Self {
             organization_repository,
             organization_join_request_repository,
-            organization_membership_repository,
+            user_repository,
         }
     }
 
@@ -59,11 +58,11 @@ where
     }
 }
 
-impl<OR, JR, MR> CommandHandler for OrganizationJoinRequestSubmitCommandHandler<OR, JR, MR>
+impl<OR, JR, UR> CommandHandler for OrganizationJoinRequestSubmitCommandHandler<OR, JR, UR>
 where
     OR: Repository<Organization>,
     JR: Repository<OrganizationJoinRequest, Uow = OR::Uow>,
-    MR: Repository<OrganizationMembership, Uow = OR::Uow>,
+    UR: Repository<User, Uow = OR::Uow>,
 {
     type Command = OrganizationJoinRequestSubmitCommand;
     type Output = OrganizationJoinRequestSubmitOutput;
@@ -103,6 +102,10 @@ where
             command.organization_id,
             command.requester_id,
         )?;
+        let Some(requester) = self.user_repository.find(uow, command.requester_id).await? else {
+            return Err(OrganizationJoinRequestSubmitCommandHandlerError::RequesterNotFound);
+        };
+
         let mut organization_join_request = OrganizationJoinRequest::default();
         let submission = OrganizationJoinRequestSubmission {
             organization_id: command.organization_id,
@@ -126,16 +129,7 @@ where
             ));
         }
 
-        if self
-            .organization_membership_repository
-            .find_by_unique_value(
-                uow,
-                OrganizationMembershipState::ORGANIZATION_USER_KEY,
-                &unique_value,
-            )
-            .await?
-            .is_some()
-        {
+        if requester.is_organization_member(command.organization_id)? {
             let reason = OrganizationJoinRequestSubmitRejectionReason::RequesterAlreadyMember;
             let organization_join_request_id =
                 organization_join_request.reject_submit(submission, reason)?;

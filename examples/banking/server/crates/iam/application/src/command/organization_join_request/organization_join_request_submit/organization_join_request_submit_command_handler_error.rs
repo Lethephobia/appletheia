@@ -1,8 +1,8 @@
 use appletheia::application::repository::RepositoryError;
 use appletheia::domain::{UniqueValueError, UniqueValuePartError};
 use banking_iam_domain::{
-    Organization, OrganizationError, OrganizationJoinRequest, OrganizationJoinRequestError,
-    OrganizationMembership,
+    Organization, OrganizationError, OrganizationJoinRequest, OrganizationJoinRequestError, User,
+    UserError,
 };
 use thiserror::Error;
 
@@ -15,14 +15,17 @@ pub enum OrganizationJoinRequestSubmitCommandHandlerError {
     #[error("organization join request repository failed")]
     OrganizationJoinRequestRepository(#[from] RepositoryError<OrganizationJoinRequest>),
 
-    #[error("organization membership repository failed")]
-    OrganizationMembershipRepository(#[from] RepositoryError<OrganizationMembership>),
+    #[error("user repository failed")]
+    UserRepository(#[from] RepositoryError<User>),
 
     #[error("organization join request aggregate failed")]
     OrganizationJoinRequest(#[from] OrganizationJoinRequestError),
 
     #[error("organization aggregate failed")]
     Organization(#[from] OrganizationError),
+
+    #[error("user aggregate failed")]
+    User(#[from] UserError),
 
     #[error("unique value part is invalid")]
     UniqueValuePart(#[from] UniqueValuePartError),
@@ -32,4 +35,7 @@ pub enum OrganizationJoinRequestSubmitCommandHandlerError {
 
     #[error("organization is not found")]
     OrganizationNotFound,
+
+    #[error("requester is not found")]
+    RequesterNotFound,
 }

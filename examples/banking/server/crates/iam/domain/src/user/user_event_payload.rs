@@ -1,13 +1,15 @@
 use appletheia::event_payload;
 
 use crate::core::Email;
+use crate::{OrganizationId, OrganizationRoles};
 
 use super::{
-    UserBio, UserBioChangeRejectionReason, UserDisplayName, UserDisplayNameChangeRejectionReason,
-    UserEventPayloadError, UserId, UserIdentityData, UserIdentityEmailChangeRejectionReason,
-    UserIdentityLinkRejectionReason, UserIdentityProvider, UserIdentitySubject,
-    UserPictureChangeRejectionReason, UserPictureRef, UserStatusRejectionReason,
-    UserUsernameChangeRejectionReason, Username,
+    OrganizationMembershipGrantRejectionReason, OrganizationMembershipRemoveRejectionReason,
+    OrganizationMembershipRolesChangeRejectionReason, UserBio, UserBioChangeRejectionReason,
+    UserDisplayName, UserDisplayNameChangeRejectionReason, UserEventPayloadError, UserId,
+    UserIdentityData, UserIdentityEmailChangeRejectionReason, UserIdentityLinkRejectionReason,
+    UserIdentityProvider, UserIdentitySubject, UserPictureChangeRejectionReason, UserPictureRef,
+    UserStatusRejectionReason, UserUsernameChangeRejectionReason, Username,
 };
 
 /// Represents the domain events emitted by a `User` aggregate.
@@ -64,6 +66,31 @@ pub enum UserEventPayload {
         picture: Option<UserPictureRef>,
         reason: UserPictureChangeRejectionReason,
     },
+    OrganizationMembershipGranted {
+        organization_id: OrganizationId,
+        roles: OrganizationRoles,
+    },
+    OrganizationMembershipGrantRejected {
+        organization_id: OrganizationId,
+        roles: OrganizationRoles,
+        reason: OrganizationMembershipGrantRejectionReason,
+    },
+    OrganizationMembershipRolesChanged {
+        organization_id: OrganizationId,
+        roles: OrganizationRoles,
+    },
+    OrganizationMembershipRolesChangeRejected {
+        organization_id: OrganizationId,
+        roles: OrganizationRoles,
+        reason: OrganizationMembershipRolesChangeRejectionReason,
+    },
+    OrganizationMembershipRemoved {
+        organization_id: OrganizationId,
+    },
+    OrganizationMembershipRemoveRejected {
+        organization_id: OrganizationId,
+        reason: OrganizationMembershipRemoveRejectionReason,
+    },
     Activated,
     ActivateRejected {
         reason: UserStatusRejectionReason,
@@ -84,8 +111,8 @@ mod tests {
 
     use crate::core::Email;
     use crate::{
-        UserBio, UserDisplayName, UserIdentityProvider, UserIdentitySubject, UserPictureRef,
-        UserPictureUrl,
+        OrganizationId, OrganizationRoles, UserBio, UserDisplayName, UserIdentityProvider,
+        UserIdentitySubject, UserPictureRef, UserPictureUrl,
     };
 
     use super::{UserEventPayload, UserId, UserIdentityData};
@@ -143,6 +170,30 @@ mod tests {
         assert_eq!(
             UserEventPayload::PICTURE_CHANGE_REJECTED,
             appletheia::domain::EventName::new("picture_change_rejected")
+        );
+        assert_eq!(
+            UserEventPayload::ORGANIZATION_MEMBERSHIP_GRANTED,
+            appletheia::domain::EventName::new("organization_membership_granted")
+        );
+        assert_eq!(
+            UserEventPayload::ORGANIZATION_MEMBERSHIP_GRANT_REJECTED,
+            appletheia::domain::EventName::new("organization_membership_grant_rejected")
+        );
+        assert_eq!(
+            UserEventPayload::ORGANIZATION_MEMBERSHIP_ROLES_CHANGED,
+            appletheia::domain::EventName::new("organization_membership_roles_changed")
+        );
+        assert_eq!(
+            UserEventPayload::ORGANIZATION_MEMBERSHIP_ROLES_CHANGE_REJECTED,
+            appletheia::domain::EventName::new("organization_membership_roles_change_rejected")
+        );
+        assert_eq!(
+            UserEventPayload::ORGANIZATION_MEMBERSHIP_REMOVED,
+            appletheia::domain::EventName::new("organization_membership_removed")
+        );
+        assert_eq!(
+            UserEventPayload::ORGANIZATION_MEMBERSHIP_REMOVE_REJECTED,
+            appletheia::domain::EventName::new("organization_membership_remove_rejected")
         );
         assert_eq!(
             UserEventPayload::ACTIVATED,
@@ -222,6 +273,19 @@ mod tests {
         };
 
         assert_eq!(payload.name(), UserEventPayload::IDENTITY_EMAIL_CHANGED);
+    }
+
+    #[test]
+    fn organization_membership_granted_payload_name_matches_variant() {
+        let payload = UserEventPayload::OrganizationMembershipGranted {
+            organization_id: OrganizationId::new(),
+            roles: OrganizationRoles::default(),
+        };
+
+        assert_eq!(
+            payload.name(),
+            UserEventPayload::ORGANIZATION_MEMBERSHIP_GRANTED
+        );
     }
 
     #[test]

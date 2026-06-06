@@ -3,7 +3,7 @@ use appletheia::domain::{AggregateId, UniqueValue};
 use appletheia::reference_indexes;
 use appletheia::unique_constraints;
 
-use crate::{OrganizationId, OrganizationMembershipRoles, UserId};
+use crate::{OrganizationId, OrganizationRoles, UserId};
 
 use super::{
     OrganizationInvitationExpiresAt, OrganizationInvitationId, OrganizationInvitationIssuer,
@@ -24,7 +24,7 @@ pub struct OrganizationInvitationState {
     pub(super) id: OrganizationInvitationId,
     pub(super) organization_id: OrganizationId,
     pub(super) invitee_id: UserId,
-    pub(super) roles: OrganizationMembershipRoles,
+    pub(super) roles: OrganizationRoles,
     pub(super) issuer: OrganizationInvitationIssuer,
     pub(super) expires_at: OrganizationInvitationExpiresAt,
     pub(super) status: OrganizationInvitationStatus,
@@ -74,7 +74,7 @@ mod tests {
     };
     use chrono::{Duration, Utc};
 
-    use crate::{OrganizationId, OrganizationMembershipRoles, UserId};
+    use crate::{OrganizationId, OrganizationRoles, UserId};
 
     use super::{
         OrganizationInvitationExpiresAt, OrganizationInvitationId, OrganizationInvitationIssuer,
@@ -92,7 +92,7 @@ mod tests {
             id,
             organization_id: OrganizationId::new(),
             invitee_id: UserId::new(),
-            roles: OrganizationMembershipRoles::default(),
+            roles: OrganizationRoles::default(),
             issuer: OrganizationInvitationIssuer::User(UserId::new()),
             expires_at: expires_at(),
             status: OrganizationInvitationStatus::Pending,
@@ -107,7 +107,7 @@ mod tests {
             id: OrganizationInvitationId::new(),
             organization_id: OrganizationId::new(),
             invitee_id: UserId::new(),
-            roles: OrganizationMembershipRoles::default(),
+            roles: OrganizationRoles::default(),
             issuer: OrganizationInvitationIssuer::User(UserId::new()),
             expires_at: expires_at(),
             status: OrganizationInvitationStatus::Pending,
@@ -129,7 +129,7 @@ mod tests {
             id: OrganizationInvitationId::new(),
             organization_id: OrganizationId::new(),
             invitee_id: UserId::new(),
-            roles: OrganizationMembershipRoles::default(),
+            roles: OrganizationRoles::default(),
             issuer: OrganizationInvitationIssuer::User(UserId::new()),
             expires_at: expires_at(),
             status: OrganizationInvitationStatus::Pending,
@@ -155,7 +155,7 @@ mod tests {
             id: OrganizationInvitationId::new(),
             organization_id,
             invitee_id,
-            roles: OrganizationMembershipRoles::default(),
+            roles: OrganizationRoles::default(),
             issuer: OrganizationInvitationIssuer::User(issuer_id),
             expires_at: expires_at(),
             status: OrganizationInvitationStatus::Pending,
@@ -191,7 +191,7 @@ mod tests {
             id: OrganizationInvitationId::new(),
             organization_id: OrganizationId::new(),
             invitee_id: UserId::new(),
-            roles: OrganizationMembershipRoles::default(),
+            roles: OrganizationRoles::default(),
             issuer: OrganizationInvitationIssuer::System,
             expires_at: expires_at(),
             status: OrganizationInvitationStatus::Pending,

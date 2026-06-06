@@ -2,7 +2,6 @@ pub mod core;
 pub mod organization;
 pub mod organization_invitation;
 pub mod organization_join_request;
-pub mod organization_membership;
 pub mod user;
 
 pub use core::{CurrentDateTime, Email, EmailError};
@@ -45,23 +44,16 @@ pub use organization_join_request::{
     OrganizationJoinRequestSubmission, OrganizationJoinRequestSubmitRejectionReason,
     OrganizationJoinRequestSubmitResult,
 };
-pub use organization_membership::{
-    OrganizationMembership, OrganizationMembershipActivateRejectionReason,
-    OrganizationMembershipActivateResult, OrganizationMembershipCreateRejectionReason,
-    OrganizationMembershipCreateResult, OrganizationMembershipCreation,
-    OrganizationMembershipDeactivateRejectionReason, OrganizationMembershipDeactivateResult,
-    OrganizationMembershipError, OrganizationMembershipEventPayload,
-    OrganizationMembershipEventPayloadError, OrganizationMembershipId,
-    OrganizationMembershipRemoveRejectionReason, OrganizationMembershipRemoveResult,
-    OrganizationMembershipRoles, OrganizationMembershipRolesChangeRejectionReason,
-    OrganizationMembershipRolesChangeResult, OrganizationMembershipState,
-    OrganizationMembershipStateError, OrganizationMembershipStatus, OrganizationRole,
-};
 pub use user::{
-    User, UserBio, UserBioError, UserDisplayName, UserDisplayNameError, UserError,
-    UserEventPayload, UserEventPayloadError, UserId, UserIdentity, UserIdentityData,
-    UserIdentityProvider, UserIdentityProviderError, UserIdentityRegistration, UserIdentitySubject,
-    UserIdentitySubjectError, UserPictureObjectName, UserPictureObjectNameError, UserPictureRef,
-    UserPictureUrl, UserPictureUrlError, UserRegisterResult, UserRegistration, UserState,
-    UserStateError, UserStatus, Username, UsernameError,
+    OrganizationMembership, OrganizationMembershipGrant,
+    OrganizationMembershipGrantRejectionReason, OrganizationMembershipGrantResult,
+    OrganizationMembershipRemoveRejectionReason, OrganizationMembershipRemoveResult,
+    OrganizationMembershipRolesChangeRejectionReason, OrganizationMembershipRolesChangeResult,
+    OrganizationRole, OrganizationRoles, User, UserBio, UserBioError, UserDisplayName,
+    UserDisplayNameError, UserError, UserEventPayload, UserEventPayloadError, UserId, UserIdentity,
+    UserIdentityData, UserIdentityProvider, UserIdentityProviderError, UserIdentityRegistration,
+    UserIdentitySubject, UserIdentitySubjectError, UserPictureObjectName,
+    UserPictureObjectNameError, UserPictureRef, UserPictureUrl, UserPictureUrlError,
+    UserRegisterResult, UserRegistration, UserState, UserStateError, UserStatus, Username,
+    UsernameError,
 };

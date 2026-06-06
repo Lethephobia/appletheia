@@ -118,7 +118,13 @@ where
                 | UserEventPayload::ActivateRejected { .. }
                 | UserEventPayload::Deactivated
                 | UserEventPayload::DeactivateRejected { .. }
-                | UserEventPayload::RemoveRejected { .. } => {}
+                | UserEventPayload::RemoveRejected { .. }
+                | UserEventPayload::OrganizationMembershipGranted { .. }
+                | UserEventPayload::OrganizationMembershipGrantRejected { .. }
+                | UserEventPayload::OrganizationMembershipRolesChanged { .. }
+                | UserEventPayload::OrganizationMembershipRolesChangeRejected { .. }
+                | UserEventPayload::OrganizationMembershipRemoved { .. }
+                | UserEventPayload::OrganizationMembershipRemoveRejected { .. } => {}
             }
 
             return Ok(());

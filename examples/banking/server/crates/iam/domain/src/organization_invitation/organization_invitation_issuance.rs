@@ -1,4 +1,4 @@
-use crate::{OrganizationId, OrganizationMembershipRoles, UserId};
+use crate::{OrganizationId, OrganizationRoles, UserId};
 
 use super::{OrganizationInvitationExpiresAt, OrganizationInvitationIssuer};
 
@@ -7,7 +7,7 @@ use super::{OrganizationInvitationExpiresAt, OrganizationInvitationIssuer};
 pub struct OrganizationInvitationIssuance {
     pub organization_id: OrganizationId,
     pub invitee_id: UserId,
-    pub roles: OrganizationMembershipRoles,
+    pub roles: OrganizationRoles,
     pub issuer: OrganizationInvitationIssuer,
     pub expires_at: OrganizationInvitationExpiresAt,
 }
@@ -23,7 +23,7 @@ impl OrganizationInvitationIssuance {
     ) -> (
         OrganizationId,
         UserId,
-        OrganizationMembershipRoles,
+        OrganizationRoles,
         OrganizationInvitationIssuer,
         OrganizationInvitationExpiresAt,
     ) {
