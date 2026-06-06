@@ -13,7 +13,7 @@ keywords = ["appletheia", "ddd", "event-sourcing", "cqrs"]
 appletheia-domain = { workspace = true }
 appletheia-application = { workspace = true }
 thiserror = { workspace = true }
-sqlx = { version = "0.8.6", features = [
+sqlx = { version = "0.9.0", features = [
     "runtime-tokio",
     "postgres",
     "uuid",
@@ -24,19 +24,20 @@ uuid = { workspace = true, features = ["serde", "v7"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 chrono = { workspace = true }
-google-cloud-pubsub = "0.33.0"
-google-cloud-gax = "1.9.1"
-google-cloud-auth = "1.9.0"
-google-cloud-storage = "1.11.0"
-futures-util = "0.3.31"
-jsonwebtoken = { version = "10.3.0", features = ["rust_crypto"] }
-reqwest = { version = "0.13.2", default-features = false, features = ["rustls", "gzip"] }
+google-cloud-pubsub = "1.1.0"
+google-cloud-gax = "1.11.0"
+google-cloud-auth = "1.12.0"
+google-cloud-storage = "1.14.0"
+futures-util = "0.3.32"
+jsonwebtoken = { version = "10.4.0", features = ["rust_crypto"] }
+reqwest = { version = "0.13.4", default-features = false, features = ["rustls", "gzip"] }
 httpdate = "1.0.3"
 url = { workspace = true }
 base64 = { workspace = true }
 bytes = { workspace = true }
 sha2 = { workspace = true }
-aes-gcm = { version = "0.10.3", features = ["std"] }
+aes-gcm = { version = "0.11.0-rc.4", features = ["rand_core"] }
+getrandom = "0.4.2"
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt", "macros"] }

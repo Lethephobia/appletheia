@@ -1,4 +1,4 @@
-use aes_gcm::aead::{Aead, OsRng, rand_core::RngCore};
+use aes_gcm::aead::Aead;
 use aes_gcm::{Aes256Gcm, KeyInit, Nonce};
 use appletheia_application::authentication::{
     AuthTokenExchangeGrant, AuthTokenExchangeGrantCipher, AuthTokenExchangeGrantCipherError,
@@ -44,7 +44,8 @@ impl AuthTokenExchangeGrantCipher for Aes256GcmAuthTokenExchangeGrantCipher {
         let plaintext = serde_json::to_vec(&AuthTokenExchangeGrantJson::from_grant(grant))
             .map_err(|source| AuthTokenExchangeGrantCipherError::Backend(Box::new(source)))?;
         let mut nonce_bytes = [0u8; Self::NONCE_LENGTH];
-        OsRng.fill_bytes(&mut nonce_bytes);
+        getrandom::fill(&mut nonce_bytes)
+            .map_err(|source| AuthTokenExchangeGrantCipherError::Backend(Box::new(source)))?;
 
         let nonce = Nonce::from(nonce_bytes);
         let ciphertext = self

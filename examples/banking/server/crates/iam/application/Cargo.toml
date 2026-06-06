@@ -8,8 +8,8 @@ appletheia = { workspace = true, features = ["application", "domain", "macros-ap
 banking-iam-domain = { workspace = true }
 chrono = { workspace = true }
 serde = { version = "1.0.228", features = ["derive"] }
-thiserror = "2.0.17"
-url = { version = "2.5.7", features = ["serde"] }
+thiserror = "2.0.18"
+url = { version = "2.5.8", features = ["serde"] }
 uuid = { version = "1", features = ["v7"] }
 
 [dev-dependencies]
