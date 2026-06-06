@@ -1,4 +1,5 @@
 use appletheia::application::repository::RepositoryError;
+use appletheia::domain::UniqueValueError;
 use banking_iam_domain::{
     Organization, OrganizationError, OrganizationInvitation, OrganizationInvitationError, User,
     UserError,
@@ -25,6 +26,9 @@ pub enum OrganizationInvitationIssueCommandHandlerError {
 
     #[error("user aggregate failed")]
     User(#[from] UserError),
+
+    #[error("unique value failed")]
+    UniqueValue(#[from] UniqueValueError),
 
     #[error("organization is not found")]
     OrganizationNotFound,

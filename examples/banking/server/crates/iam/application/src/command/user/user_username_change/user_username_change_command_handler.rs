@@ -4,8 +4,10 @@ use appletheia::application::authorization::{
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_iam_domain::User;
+use appletheia::domain::{Aggregate, UniqueValue};
+use banking_iam_domain::user::UserUsernameChangeRejectionReason;
 use banking_iam_domain::user::UserUsernameChangeResult;
+use banking_iam_domain::{User, UserState, Username};
 
 use super::{
     UserUsernameChangeCommand, UserUsernameChangeCommandHandlerError, UserUsernameChangeOutput,
@@ -26,6 +28,12 @@ where
 {
     pub fn new(user_repository: UR) -> Self {
         Self { user_repository }
+    }
+
+    fn username_unique_value(
+        username: &Username,
+    ) -> Result<UniqueValue, UserUsernameChangeCommandHandlerError> {
+        Ok(UniqueValue::from_strings([username.as_ref()])?)
     }
 }
 
@@ -62,6 +70,25 @@ where
         let Some(mut user) = self.user_repository.find(uow, command.user_id).await? else {
             return Err(UserUsernameChangeCommandHandlerError::UserNotFound);
         };
+
+        let unique_value = Self::username_unique_value(&command.username)?;
+        if self
+            .user_repository
+            .find_by_unique_value(uow, UserState::USERNAME_KEY, &unique_value)
+            .await?
+            .is_some_and(|existing| existing.aggregate_id() != Some(command.user_id))
+        {
+            let reason = UserUsernameChangeRejectionReason::AlreadyTaken;
+            user.reject_change_username(command.username.clone(), reason)?;
+
+            self.user_repository
+                .save(uow, request_context, &mut user)
+                .await?;
+
+            return Ok(CommandHandled::same(UserUsernameChangeOutput::Rejected {
+                reason,
+            }));
+        }
 
         let result = user.change_username(command.username.clone())?;
 

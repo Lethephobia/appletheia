@@ -4,7 +4,11 @@ use appletheia::application::authorization::{
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_iam_domain::{Organization, OrganizationHandleChangeResult};
+use appletheia::domain::{Aggregate, UniqueValue};
+use banking_iam_domain::{
+    Organization, OrganizationHandle, OrganizationHandleChangeRejectionReason,
+    OrganizationHandleChangeResult, OrganizationState,
+};
 
 use super::{
     OrganizationHandleChangeCommand, OrganizationHandleChangeCommandHandlerError,
@@ -28,6 +32,12 @@ where
         Self {
             organization_repository,
         }
+    }
+
+    fn handle_unique_value(
+        handle: &OrganizationHandle,
+    ) -> Result<UniqueValue, OrganizationHandleChangeCommandHandlerError> {
+        Ok(UniqueValue::from_strings([handle.as_ref()])?)
     }
 }
 
@@ -68,6 +78,25 @@ where
         else {
             return Err(OrganizationHandleChangeCommandHandlerError::OrganizationNotFound);
         };
+
+        let unique_value = Self::handle_unique_value(&command.handle)?;
+        if self
+            .organization_repository
+            .find_by_unique_value(uow, OrganizationState::HANDLE_KEY, &unique_value)
+            .await?
+            .is_some_and(|existing| existing.aggregate_id() != Some(command.organization_id))
+        {
+            let reason = OrganizationHandleChangeRejectionReason::AlreadyTaken;
+            organization.reject_change_handle(command.handle.clone(), reason)?;
+
+            self.organization_repository
+                .save(uow, request_context, &mut organization)
+                .await?;
+
+            return Ok(CommandHandled::same(
+                OrganizationHandleChangeOutput::Rejected { reason },
+            ));
+        }
 
         let result = organization.change_handle(command.handle.clone())?;
 

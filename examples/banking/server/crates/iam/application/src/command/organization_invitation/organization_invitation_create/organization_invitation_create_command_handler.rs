@@ -4,9 +4,11 @@ use appletheia::application::authorization::{
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
+use appletheia::domain::{AggregateId, UniqueValue};
 use banking_iam_domain::{
     CurrentDateTime, Organization, OrganizationInvitation, OrganizationInvitationIssuance,
-    OrganizationInvitationIssueRejectionReason, OrganizationInvitationIssuer, User,
+    OrganizationInvitationIssueRejectionReason, OrganizationInvitationIssuer,
+    OrganizationInvitationState, User,
 };
 
 use crate::authorization::{OrganizationInviterRelation, UserOwnerRelation};
@@ -44,6 +46,17 @@ where
             organization_invitation_repository,
             user_repository,
         }
+    }
+
+    fn organization_invitee_unique_value(
+        command: &OrganizationInvitationIssueCommand,
+    ) -> Result<UniqueValue, OrganizationInvitationIssueCommandHandlerError> {
+        let organization_id = command.organization_id.value().to_string();
+        let invitee_id = command.invitee_id.value().to_string();
+        Ok(UniqueValue::from_strings([
+            organization_id.as_str(),
+            invitee_id.as_str(),
+        ])?)
     }
 }
 
@@ -101,6 +114,7 @@ where
             return Err(OrganizationInvitationIssueCommandHandlerError::InviteeNotFound);
         };
 
+        let unique_value = Self::organization_invitee_unique_value(command)?;
         let mut organization_invitation = OrganizationInvitation::default();
         let issuance = OrganizationInvitationIssuance {
             organization_id: command.organization_id,
@@ -129,6 +143,32 @@ where
 
         if invitee.is_organization_member(command.organization_id)? {
             let reason = OrganizationInvitationIssueRejectionReason::InviteeAlreadyMember;
+            let organization_invitation_id =
+                organization_invitation.reject_issue(issuance, reason)?;
+
+            self.organization_invitation_repository
+                .save(uow, request_context, &mut organization_invitation)
+                .await?;
+
+            return Ok(CommandHandled::same(
+                OrganizationInvitationIssueOutput::Rejected {
+                    organization_invitation_id,
+                    reason,
+                },
+            ));
+        }
+
+        if self
+            .organization_invitation_repository
+            .find_by_unique_value(
+                uow,
+                OrganizationInvitationState::ORGANIZATION_INVITEE_KEY,
+                &unique_value,
+            )
+            .await?
+            .is_some()
+        {
+            let reason = OrganizationInvitationIssueRejectionReason::AlreadyIssued;
             let organization_invitation_id =
                 organization_invitation.reject_issue(issuance, reason)?;
 

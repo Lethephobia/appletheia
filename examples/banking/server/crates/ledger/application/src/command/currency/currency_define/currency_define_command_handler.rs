@@ -4,11 +4,14 @@ use appletheia::application::authorization::{
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
+use appletheia::domain::UniqueValue;
 use banking_iam_application::authorization::{
     OrganizationFinanceManagerRelation, UserOwnerRelation,
 };
 use banking_iam_domain::{Organization, User};
-use banking_ledger_domain::currency::{Currency, CurrencyDefineResult, CurrencyOwner};
+use banking_ledger_domain::currency::{
+    Currency, CurrencyDefineResult, CurrencyError, CurrencyOwner, CurrencyState, CurrencySymbol,
+};
 
 use super::{CurrencyDefineCommand, CurrencyDefineCommandHandlerError, CurrencyDefineOutput};
 
@@ -28,6 +31,12 @@ where
         Self {
             currency_repository,
         }
+    }
+
+    fn symbol_unique_value(
+        symbol: &CurrencySymbol,
+    ) -> Result<UniqueValue, CurrencyDefineCommandHandlerError> {
+        Ok(UniqueValue::from_strings([symbol.as_ref()])?)
     }
 }
 
@@ -78,6 +87,17 @@ where
             description,
             image,
         } = command.clone();
+
+        let unique_value = Self::symbol_unique_value(&symbol)?;
+        if self
+            .currency_repository
+            .find_by_unique_value(uow, CurrencyState::SYMBOL_KEY, &unique_value)
+            .await?
+            .is_some()
+        {
+            return Err(CurrencyError::SymbolAlreadyTaken.into());
+        }
+
         let mut currency = Currency::default();
         let result = currency.define(owner, symbol, name, decimals, description, image)?;
 

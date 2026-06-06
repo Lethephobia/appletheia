@@ -6,4 +6,5 @@ use serde::{Deserialize, Serialize};
 pub enum UserUsernameChangeRejectionReason {
     Inactive,
     Removed,
+    AlreadyTaken,
 }

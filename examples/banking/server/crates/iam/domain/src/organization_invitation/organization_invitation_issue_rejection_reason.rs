@@ -7,4 +7,5 @@ pub enum OrganizationInvitationIssueRejectionReason {
     Expired,
     OrganizationRemoved,
     InviteeAlreadyMember,
+    AlreadyIssued,
 }

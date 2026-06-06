@@ -1,4 +1,5 @@
 use appletheia::application::repository::RepositoryError;
+use appletheia::domain::UniqueValueError;
 use banking_ledger_domain::currency::{Currency, CurrencyError};
 use thiserror::Error;
 
@@ -10,4 +11,7 @@ pub enum CurrencyDefineCommandHandlerError {
 
     #[error("currency aggregate failed")]
     Currency(#[from] CurrencyError),
+
+    #[error("unique value failed")]
+    UniqueValue(#[from] UniqueValueError),
 }

@@ -4,8 +4,10 @@ use appletheia::application::authorization::{
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
+use appletheia::domain::UniqueValue;
 use banking_iam_domain::{
-    Organization, OrganizationCreateResult, OrganizationCreation, OrganizationOwner, User,
+    Organization, OrganizationCreateResult, OrganizationCreation, OrganizationError,
+    OrganizationHandle, OrganizationOwner, OrganizationState, User,
 };
 
 use super::{
@@ -29,6 +31,12 @@ where
         Self {
             organization_repository,
         }
+    }
+
+    fn handle_unique_value(
+        handle: &OrganizationHandle,
+    ) -> Result<UniqueValue, OrganizationCreateCommandHandlerError> {
+        Ok(UniqueValue::from_strings([handle.as_ref()])?)
     }
 }
 
@@ -71,6 +79,17 @@ where
             website_url,
             picture,
         } = command.clone();
+
+        let unique_value = Self::handle_unique_value(&handle)?;
+        if self
+            .organization_repository
+            .find_by_unique_value(uow, OrganizationState::HANDLE_KEY, &unique_value)
+            .await?
+            .is_some()
+        {
+            return Err(OrganizationError::HandleAlreadyTaken.into());
+        }
+
         let mut organization = Organization::default();
         let result = organization.create(OrganizationCreation {
             owner,

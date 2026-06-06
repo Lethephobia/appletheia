@@ -4,7 +4,11 @@ use appletheia::application::authorization::{
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_ledger_domain::currency::{Currency, CurrencySymbolChangeResult};
+use appletheia::domain::{Aggregate, UniqueValue};
+use banking_ledger_domain::currency::{
+    Currency, CurrencyState, CurrencySymbol, CurrencySymbolChangeRejectionReason,
+    CurrencySymbolChangeResult,
+};
 
 use super::{
     CurrencySymbolChangeCommand, CurrencySymbolChangeCommandHandlerError,
@@ -28,6 +32,12 @@ where
         Self {
             currency_repository,
         }
+    }
+
+    fn symbol_unique_value(
+        symbol: &CurrencySymbol,
+    ) -> Result<UniqueValue, CurrencySymbolChangeCommandHandlerError> {
+        Ok(UniqueValue::from_strings([symbol.as_ref()])?)
     }
 }
 
@@ -68,6 +78,25 @@ where
         else {
             return Err(CurrencySymbolChangeCommandHandlerError::CurrencyNotFound);
         };
+
+        let unique_value = Self::symbol_unique_value(&command.symbol)?;
+        if self
+            .currency_repository
+            .find_by_unique_value(uow, CurrencyState::SYMBOL_KEY, &unique_value)
+            .await?
+            .is_some_and(|existing| existing.aggregate_id() != Some(command.currency_id))
+        {
+            let reason = CurrencySymbolChangeRejectionReason::AlreadyTaken;
+            currency.reject_change_symbol(command.symbol.clone(), reason)?;
+
+            self.currency_repository
+                .save(uow, request_context, &mut currency)
+                .await?;
+
+            return Ok(CommandHandled::same(CurrencySymbolChangeOutput::Rejected {
+                reason,
+            }));
+        }
 
         let result = currency.change_symbol(command.symbol.clone())?;
 
