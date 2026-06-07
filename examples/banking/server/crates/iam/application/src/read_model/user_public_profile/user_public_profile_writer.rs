@@ -1,8 +1,7 @@
-use appletheia::application::event::EventSequence;
 use appletheia::application::unit_of_work::UnitOfWork;
-use appletheia::domain::EventId;
-use appletheia::domain::EventOccurredAt;
 use banking_iam_domain::{UserBio, UserDisplayName, UserId, UserPictureRef, Username};
+
+use crate::read_model::ReadModelEventContext;
 
 use super::{UserPublicProfileStatus, UserPublicProfileUserUpsert, UserPublicProfileWriterError};
 
@@ -13,65 +12,54 @@ pub trait UserPublicProfileWriter: Send + Sync {
     async fn upsert_user(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         upsert: UserPublicProfileUserUpsert,
     ) -> Result<(), UserPublicProfileWriterError>;
 
     async fn update_username(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: UserId,
         username: Username,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), UserPublicProfileWriterError>;
 
     async fn update_display_name(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: UserId,
         display_name: UserDisplayName,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), UserPublicProfileWriterError>;
 
     async fn update_bio(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: UserId,
         bio: Option<UserBio>,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), UserPublicProfileWriterError>;
 
     async fn update_picture(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: UserId,
         picture: Option<UserPictureRef>,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), UserPublicProfileWriterError>;
 
     async fn update_status(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: UserId,
         status: UserPublicProfileStatus,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), UserPublicProfileWriterError>;
 
     async fn delete_user(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: UserId,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), UserPublicProfileWriterError>;
 }

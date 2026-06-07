@@ -150,7 +150,8 @@ pub use read_model::{
     PublicAccountListItemOwnerUser, PublicAccountListItemStatus, PublicAccountListItemStatusError,
     PublicAccountListOwnerOrganizationUpsert, PublicAccountListOwnerUserUpsert,
     PublicAccountListReader, PublicAccountListReaderError, PublicAccountListSortKey,
-    PublicAccountListWriter, PublicAccountListWriterError, ReadModelObservation, SortDirection,
+    PublicAccountListWriter, PublicAccountListWriterError, ReadModelEventContext,
+    ReadModelObservation, SortDirection,
 };
 pub use repository::{AccountEventSaveHook, CurrencyEventSaveHook, PayoutDestinationEventSaveHook};
 pub use saga::{

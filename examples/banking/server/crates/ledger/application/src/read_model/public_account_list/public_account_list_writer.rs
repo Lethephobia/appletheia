@@ -1,7 +1,6 @@
-use appletheia::application::event::EventSequence;
 use appletheia::application::unit_of_work::UnitOfWork;
-use appletheia::domain::EventId;
-use appletheia::domain::EventOccurredAt;
+
+use crate::read_model::ReadModelEventContext;
 use banking_iam_domain::{
     OrganizationDisplayName, OrganizationHandle, OrganizationId, OrganizationPictureRef,
     UserDisplayName, UserId, UserPictureRef, Username,
@@ -22,158 +21,136 @@ pub trait PublicAccountListWriter: Send + Sync {
     async fn upsert_account(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         upsert: PublicAccountListAccountUpsert,
     ) -> Result<(), PublicAccountListWriterError>;
 
     async fn update_account_owner(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: AccountId,
         owner: AccountOwner,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), PublicAccountListWriterError>;
 
     async fn update_account_status(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: AccountId,
         status: PublicAccountListItemStatus,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), PublicAccountListWriterError>;
 
     async fn delete_account(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: AccountId,
-        event_id: EventId,
-        event_sequence: EventSequence,
     ) -> Result<(), PublicAccountListWriterError>;
 
     async fn upsert_currency(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         upsert: PublicAccountListCurrencyUpsert,
     ) -> Result<(), PublicAccountListWriterError>;
 
     async fn update_currency_symbol(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: CurrencyId,
         symbol: CurrencySymbol,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), PublicAccountListWriterError>;
 
     async fn update_currency_name(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: CurrencyId,
         name: CurrencyName,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), PublicAccountListWriterError>;
 
     async fn delete_currency(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: CurrencyId,
-        event_id: EventId,
-        event_sequence: EventSequence,
     ) -> Result<(), PublicAccountListWriterError>;
 
     async fn upsert_owner_user(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         upsert: PublicAccountListOwnerUserUpsert,
     ) -> Result<(), PublicAccountListWriterError>;
 
     async fn update_owner_user_username(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: UserId,
         username: Username,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), PublicAccountListWriterError>;
 
     async fn update_owner_user_display_name(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: UserId,
         display_name: UserDisplayName,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), PublicAccountListWriterError>;
 
     async fn update_owner_user_picture(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: UserId,
         picture: Option<UserPictureRef>,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), PublicAccountListWriterError>;
 
     async fn delete_owner_user(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: UserId,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), PublicAccountListWriterError>;
 
     async fn upsert_owner_organization(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         upsert: PublicAccountListOwnerOrganizationUpsert,
     ) -> Result<(), PublicAccountListWriterError>;
 
     async fn update_owner_organization_handle(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: OrganizationId,
         handle: OrganizationHandle,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), PublicAccountListWriterError>;
 
     async fn update_owner_organization_display_name(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: OrganizationId,
         display_name: OrganizationDisplayName,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), PublicAccountListWriterError>;
 
     async fn update_owner_organization_picture(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: OrganizationId,
         picture: Option<OrganizationPictureRef>,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), PublicAccountListWriterError>;
 
     async fn delete_owner_organization(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: OrganizationId,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), PublicAccountListWriterError>;
 }

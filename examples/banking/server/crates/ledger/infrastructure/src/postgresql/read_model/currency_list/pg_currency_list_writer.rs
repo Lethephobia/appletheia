@@ -1,5 +1,4 @@
-use appletheia::application::event::EventSequence;
-use appletheia::domain::{AggregateId, EventId, EventOccurredAt};
+use appletheia::domain::AggregateId;
 use appletheia::infrastructure::postgresql::PgUnitOfWork;
 use banking_iam_domain::{
     OrganizationDisplayName, OrganizationHandle, OrganizationId, OrganizationPictureRef,
@@ -8,6 +7,7 @@ use banking_iam_domain::{
 use banking_ledger_application::{
     CurrencyListCurrencyUpsert, CurrencyListItemStatus, CurrencyListOwnerOrganizationUpsert,
     CurrencyListOwnerUserUpsert, CurrencyListWriter, CurrencyListWriterError,
+    ReadModelEventContext,
 };
 use banking_ledger_domain::core::CurrencyAmount;
 use banking_ledger_domain::currency::{
@@ -55,6 +55,7 @@ impl CurrencyListWriter for PgCurrencyListWriter {
     async fn upsert_currency(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         upsert: CurrencyListCurrencyUpsert,
     ) -> Result<(), CurrencyListWriterError> {
         let (owner_type, owner_id) = Self::owner_parts(upsert.owner);
@@ -99,10 +100,10 @@ impl CurrencyListWriter for PgCurrencyListWriter {
         .bind(image_external_url)
         .bind(upsert.supply.value().to_string())
         .bind(Self::status_name(upsert.status))
-        .bind(upsert.occurred_at.value())
-        .bind(upsert.occurred_at.value())
-        .bind(upsert.event_sequence.value())
-        .bind(upsert.event_id.value())
+        .bind(event_context.occurred_at.value())
+        .bind(event_context.occurred_at.value())
+        .bind(event_context.event_sequence.value())
+        .bind(event_context.event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| CurrencyListWriterError::Persistence(Box::new(e)))?;
@@ -113,11 +114,9 @@ impl CurrencyListWriter for PgCurrencyListWriter {
     async fn update_currency_owner(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: CurrencyId,
         owner: CurrencyOwner,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), CurrencyListWriterError> {
         let (owner_type, owner_id) = Self::owner_parts(owner);
         sqlx::query(
@@ -132,9 +131,9 @@ impl CurrencyListWriter for PgCurrencyListWriter {
         .bind(id.value())
         .bind(owner_type)
         .bind(owner_id)
-        .bind(occurred_at.value())
-        .bind(event_sequence.value())
-        .bind(event_id.value())
+        .bind(event_context.occurred_at.value())
+        .bind(event_context.event_sequence.value())
+        .bind(event_context.event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| CurrencyListWriterError::Persistence(Box::new(e)))?;
@@ -144,11 +143,9 @@ impl CurrencyListWriter for PgCurrencyListWriter {
     async fn update_currency_symbol(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: CurrencyId,
         symbol: CurrencySymbol,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), CurrencyListWriterError> {
         sqlx::query(
             r#"
@@ -161,9 +158,9 @@ impl CurrencyListWriter for PgCurrencyListWriter {
         )
         .bind(id.value())
         .bind(symbol.value())
-        .bind(occurred_at.value())
-        .bind(event_sequence.value())
-        .bind(event_id.value())
+        .bind(event_context.occurred_at.value())
+        .bind(event_context.event_sequence.value())
+        .bind(event_context.event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| CurrencyListWriterError::Persistence(Box::new(e)))?;
@@ -173,11 +170,9 @@ impl CurrencyListWriter for PgCurrencyListWriter {
     async fn update_currency_name(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: CurrencyId,
         name: CurrencyName,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), CurrencyListWriterError> {
         sqlx::query(
             r#"
@@ -190,9 +185,9 @@ impl CurrencyListWriter for PgCurrencyListWriter {
         )
         .bind(id.value())
         .bind(name.value())
-        .bind(occurred_at.value())
-        .bind(event_sequence.value())
-        .bind(event_id.value())
+        .bind(event_context.occurred_at.value())
+        .bind(event_context.event_sequence.value())
+        .bind(event_context.event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| CurrencyListWriterError::Persistence(Box::new(e)))?;
@@ -202,11 +197,9 @@ impl CurrencyListWriter for PgCurrencyListWriter {
     async fn update_currency_description(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: CurrencyId,
         description: Option<CurrencyDescription>,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), CurrencyListWriterError> {
         sqlx::query(
             r#"
@@ -219,9 +212,9 @@ impl CurrencyListWriter for PgCurrencyListWriter {
         )
         .bind(id.value())
         .bind(description.as_ref().map(CurrencyDescription::value))
-        .bind(occurred_at.value())
-        .bind(event_sequence.value())
-        .bind(event_id.value())
+        .bind(event_context.occurred_at.value())
+        .bind(event_context.event_sequence.value())
+        .bind(event_context.event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| CurrencyListWriterError::Persistence(Box::new(e)))?;
@@ -231,11 +224,9 @@ impl CurrencyListWriter for PgCurrencyListWriter {
     async fn update_currency_image(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: CurrencyId,
         image: Option<CurrencyImageRef>,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), CurrencyListWriterError> {
         let (image_type, image_object_name, image_external_url) =
             PgCurrencyImageRefColumns::from_image(image.as_ref());
@@ -256,9 +247,9 @@ impl CurrencyListWriter for PgCurrencyListWriter {
         .bind(image_type)
         .bind(image_object_name)
         .bind(image_external_url)
-        .bind(occurred_at.value())
-        .bind(event_sequence.value())
-        .bind(event_id.value())
+        .bind(event_context.occurred_at.value())
+        .bind(event_context.event_sequence.value())
+        .bind(event_context.event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| CurrencyListWriterError::Persistence(Box::new(e)))?;
@@ -268,11 +259,9 @@ impl CurrencyListWriter for PgCurrencyListWriter {
     async fn increase_currency_supply(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: CurrencyId,
         amount: CurrencyAmount,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), CurrencyListWriterError> {
         sqlx::query(
             r#"
@@ -286,9 +275,9 @@ impl CurrencyListWriter for PgCurrencyListWriter {
         )
         .bind(id.value())
         .bind(amount.value().to_string())
-        .bind(occurred_at.value())
-        .bind(event_sequence.value())
-        .bind(event_id.value())
+        .bind(event_context.occurred_at.value())
+        .bind(event_context.event_sequence.value())
+        .bind(event_context.event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| CurrencyListWriterError::Persistence(Box::new(e)))?;
@@ -298,11 +287,9 @@ impl CurrencyListWriter for PgCurrencyListWriter {
     async fn decrease_currency_supply(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: CurrencyId,
         amount: CurrencyAmount,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), CurrencyListWriterError> {
         sqlx::query(
             r#"
@@ -316,9 +303,9 @@ impl CurrencyListWriter for PgCurrencyListWriter {
         )
         .bind(id.value())
         .bind(amount.value().to_string())
-        .bind(occurred_at.value())
-        .bind(event_sequence.value())
-        .bind(event_id.value())
+        .bind(event_context.occurred_at.value())
+        .bind(event_context.event_sequence.value())
+        .bind(event_context.event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| CurrencyListWriterError::Persistence(Box::new(e)))?;
@@ -328,11 +315,9 @@ impl CurrencyListWriter for PgCurrencyListWriter {
     async fn update_currency_status(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: CurrencyId,
         status: CurrencyListItemStatus,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), CurrencyListWriterError> {
         sqlx::query(
             r#"
@@ -345,9 +330,9 @@ impl CurrencyListWriter for PgCurrencyListWriter {
         )
         .bind(id.value())
         .bind(Self::status_name(status))
-        .bind(occurred_at.value())
-        .bind(event_sequence.value())
-        .bind(event_id.value())
+        .bind(event_context.occurred_at.value())
+        .bind(event_context.event_sequence.value())
+        .bind(event_context.event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| CurrencyListWriterError::Persistence(Box::new(e)))?;
@@ -357,10 +342,8 @@ impl CurrencyListWriter for PgCurrencyListWriter {
     async fn delete_currency(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: CurrencyId,
-        _event_id: EventId,
-        event_sequence: EventSequence,
-        _occurred_at: EventOccurredAt,
     ) -> Result<(), CurrencyListWriterError> {
         sqlx::query(
             r#"
@@ -369,7 +352,7 @@ impl CurrencyListWriter for PgCurrencyListWriter {
             "#,
         )
         .bind(id.value())
-        .bind(event_sequence.value())
+        .bind(event_context.event_sequence.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| CurrencyListWriterError::Persistence(Box::new(e)))?;
@@ -379,6 +362,7 @@ impl CurrencyListWriter for PgCurrencyListWriter {
     async fn upsert_owner_user(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         upsert: CurrencyListOwnerUserUpsert,
     ) -> Result<(), CurrencyListWriterError> {
         let (picture_type, object_name, external_url) =
@@ -409,10 +393,10 @@ impl CurrencyListWriter for PgCurrencyListWriter {
         .bind(picture_type)
         .bind(object_name)
         .bind(external_url)
-        .bind(upsert.occurred_at.value())
-        .bind(upsert.occurred_at.value())
-        .bind(upsert.event_sequence.value())
-        .bind(upsert.event_id.value())
+        .bind(event_context.occurred_at.value())
+        .bind(event_context.occurred_at.value())
+        .bind(event_context.event_sequence.value())
+        .bind(event_context.event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| CurrencyListWriterError::Persistence(Box::new(e)))?;
@@ -422,11 +406,9 @@ impl CurrencyListWriter for PgCurrencyListWriter {
     async fn update_owner_user_username(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: UserId,
         username: Username,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), CurrencyListWriterError> {
         sqlx::query(
             r#"
@@ -439,9 +421,9 @@ impl CurrencyListWriter for PgCurrencyListWriter {
         )
         .bind(id.value())
         .bind(username.value())
-        .bind(occurred_at.value())
-        .bind(event_sequence.value())
-        .bind(event_id.value())
+        .bind(event_context.occurred_at.value())
+        .bind(event_context.event_sequence.value())
+        .bind(event_context.event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| CurrencyListWriterError::Persistence(Box::new(e)))?;
@@ -451,11 +433,9 @@ impl CurrencyListWriter for PgCurrencyListWriter {
     async fn update_owner_user_display_name(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: UserId,
         display_name: UserDisplayName,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), CurrencyListWriterError> {
         sqlx::query(
             r#"
@@ -468,9 +448,9 @@ impl CurrencyListWriter for PgCurrencyListWriter {
         )
         .bind(id.value())
         .bind(display_name.value())
-        .bind(occurred_at.value())
-        .bind(event_sequence.value())
-        .bind(event_id.value())
+        .bind(event_context.occurred_at.value())
+        .bind(event_context.event_sequence.value())
+        .bind(event_context.event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| CurrencyListWriterError::Persistence(Box::new(e)))?;
@@ -480,11 +460,9 @@ impl CurrencyListWriter for PgCurrencyListWriter {
     async fn update_owner_user_picture(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: UserId,
         picture: Option<UserPictureRef>,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), CurrencyListWriterError> {
         let (picture_type, object_name, external_url) =
             PgUserPictureRefColumns::from_picture(picture.as_ref());
@@ -505,9 +483,9 @@ impl CurrencyListWriter for PgCurrencyListWriter {
         .bind(picture_type)
         .bind(object_name)
         .bind(external_url)
-        .bind(occurred_at.value())
-        .bind(event_sequence.value())
-        .bind(event_id.value())
+        .bind(event_context.occurred_at.value())
+        .bind(event_context.event_sequence.value())
+        .bind(event_context.event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| CurrencyListWriterError::Persistence(Box::new(e)))?;
@@ -517,10 +495,8 @@ impl CurrencyListWriter for PgCurrencyListWriter {
     async fn delete_owner_user(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: UserId,
-        _event_id: EventId,
-        event_sequence: EventSequence,
-        _occurred_at: EventOccurredAt,
     ) -> Result<(), CurrencyListWriterError> {
         sqlx::query(
             r#"
@@ -531,7 +507,7 @@ impl CurrencyListWriter for PgCurrencyListWriter {
             "#,
         )
         .bind(id.value())
-        .bind(event_sequence.value())
+        .bind(event_context.event_sequence.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| CurrencyListWriterError::Persistence(Box::new(e)))?;
@@ -543,7 +519,7 @@ impl CurrencyListWriter for PgCurrencyListWriter {
             "#,
         )
         .bind(id.value())
-        .bind(event_sequence.value())
+        .bind(event_context.event_sequence.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| CurrencyListWriterError::Persistence(Box::new(e)))?;
@@ -553,6 +529,7 @@ impl CurrencyListWriter for PgCurrencyListWriter {
     async fn upsert_owner_organization(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         upsert: CurrencyListOwnerOrganizationUpsert,
     ) -> Result<(), CurrencyListWriterError> {
         let (picture_type, object_name, external_url) =
@@ -583,10 +560,10 @@ impl CurrencyListWriter for PgCurrencyListWriter {
         .bind(picture_type)
         .bind(object_name)
         .bind(external_url)
-        .bind(upsert.occurred_at.value())
-        .bind(upsert.occurred_at.value())
-        .bind(upsert.event_sequence.value())
-        .bind(upsert.event_id.value())
+        .bind(event_context.occurred_at.value())
+        .bind(event_context.occurred_at.value())
+        .bind(event_context.event_sequence.value())
+        .bind(event_context.event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| CurrencyListWriterError::Persistence(Box::new(e)))?;
@@ -596,11 +573,9 @@ impl CurrencyListWriter for PgCurrencyListWriter {
     async fn update_owner_organization_handle(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: OrganizationId,
         handle: OrganizationHandle,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), CurrencyListWriterError> {
         sqlx::query(
             r#"
@@ -613,9 +588,9 @@ impl CurrencyListWriter for PgCurrencyListWriter {
         )
         .bind(id.value())
         .bind(handle.value())
-        .bind(occurred_at.value())
-        .bind(event_sequence.value())
-        .bind(event_id.value())
+        .bind(event_context.occurred_at.value())
+        .bind(event_context.event_sequence.value())
+        .bind(event_context.event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| CurrencyListWriterError::Persistence(Box::new(e)))?;
@@ -625,11 +600,9 @@ impl CurrencyListWriter for PgCurrencyListWriter {
     async fn update_owner_organization_display_name(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: OrganizationId,
         display_name: OrganizationDisplayName,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), CurrencyListWriterError> {
         sqlx::query(
             r#"
@@ -642,9 +615,9 @@ impl CurrencyListWriter for PgCurrencyListWriter {
         )
         .bind(id.value())
         .bind(display_name.value())
-        .bind(occurred_at.value())
-        .bind(event_sequence.value())
-        .bind(event_id.value())
+        .bind(event_context.occurred_at.value())
+        .bind(event_context.event_sequence.value())
+        .bind(event_context.event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| CurrencyListWriterError::Persistence(Box::new(e)))?;
@@ -654,11 +627,9 @@ impl CurrencyListWriter for PgCurrencyListWriter {
     async fn update_owner_organization_picture(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: OrganizationId,
         picture: Option<OrganizationPictureRef>,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), CurrencyListWriterError> {
         let (picture_type, object_name, external_url) =
             PgOrganizationPictureRefColumns::from_picture(picture.as_ref());
@@ -679,9 +650,9 @@ impl CurrencyListWriter for PgCurrencyListWriter {
         .bind(picture_type)
         .bind(object_name)
         .bind(external_url)
-        .bind(occurred_at.value())
-        .bind(event_sequence.value())
-        .bind(event_id.value())
+        .bind(event_context.occurred_at.value())
+        .bind(event_context.event_sequence.value())
+        .bind(event_context.event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| CurrencyListWriterError::Persistence(Box::new(e)))?;
@@ -691,10 +662,8 @@ impl CurrencyListWriter for PgCurrencyListWriter {
     async fn delete_owner_organization(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: OrganizationId,
-        _event_id: EventId,
-        event_sequence: EventSequence,
-        _occurred_at: EventOccurredAt,
     ) -> Result<(), CurrencyListWriterError> {
         sqlx::query(
             r#"
@@ -705,7 +674,7 @@ impl CurrencyListWriter for PgCurrencyListWriter {
             "#,
         )
         .bind(id.value())
-        .bind(event_sequence.value())
+        .bind(event_context.event_sequence.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| CurrencyListWriterError::Persistence(Box::new(e)))?;
@@ -717,7 +686,7 @@ impl CurrencyListWriter for PgCurrencyListWriter {
             "#,
         )
         .bind(id.value())
-        .bind(event_sequence.value())
+        .bind(event_context.event_sequence.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| CurrencyListWriterError::Persistence(Box::new(e)))?;

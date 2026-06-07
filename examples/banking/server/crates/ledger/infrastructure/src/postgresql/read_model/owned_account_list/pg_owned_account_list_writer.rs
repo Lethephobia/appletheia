@@ -1,5 +1,4 @@
-use appletheia::application::event::EventSequence;
-use appletheia::domain::{AggregateId, EventId, EventOccurredAt};
+use appletheia::domain::AggregateId;
 use appletheia::infrastructure::postgresql::PgUnitOfWork;
 use banking_iam_domain::{
     OrganizationDisplayName, OrganizationHandle, OrganizationId, OrganizationPictureRef,
@@ -8,7 +7,7 @@ use banking_iam_domain::{
 use banking_ledger_application::{
     OwnedAccountListAccountUpsert, OwnedAccountListCurrencyUpsert, OwnedAccountListItemStatus,
     OwnedAccountListOwnerOrganizationUpsert, OwnedAccountListOwnerUserUpsert,
-    OwnedAccountListWriter, OwnedAccountListWriterError,
+    OwnedAccountListWriter, OwnedAccountListWriterError, ReadModelEventContext,
 };
 use banking_ledger_domain::account::{AccountId, AccountName, AccountOwner};
 use banking_ledger_domain::core::CurrencyAmount;
@@ -54,6 +53,7 @@ impl OwnedAccountListWriter for PgOwnedAccountListWriter {
     async fn upsert_account(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         upsert: OwnedAccountListAccountUpsert,
     ) -> Result<(), OwnedAccountListWriterError> {
         let (owner_type, owner_id) = Self::owner_parts(upsert.owner);
@@ -86,10 +86,10 @@ impl OwnedAccountListWriter for PgOwnedAccountListWriter {
         .bind(upsert.balance.value().to_string())
         .bind(upsert.reserved_balance.value().to_string())
         .bind(Self::status_name(upsert.status))
-        .bind(upsert.occurred_at.value())
-        .bind(upsert.occurred_at.value())
-        .bind(upsert.event_sequence.value())
-        .bind(upsert.event_id.value())
+        .bind(event_context.occurred_at.value())
+        .bind(event_context.occurred_at.value())
+        .bind(event_context.event_sequence.value())
+        .bind(event_context.event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| OwnedAccountListWriterError::Persistence(Box::new(e)))?;
@@ -100,11 +100,9 @@ impl OwnedAccountListWriter for PgOwnedAccountListWriter {
     async fn update_account_owner(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: AccountId,
         owner: AccountOwner,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), OwnedAccountListWriterError> {
         let (owner_type, owner_id) = Self::owner_parts(owner);
 
@@ -120,9 +118,9 @@ impl OwnedAccountListWriter for PgOwnedAccountListWriter {
         .bind(id.value())
         .bind(owner_type)
         .bind(owner_id)
-        .bind(occurred_at.value())
-        .bind(event_sequence.value())
-        .bind(event_id.value())
+        .bind(event_context.occurred_at.value())
+        .bind(event_context.event_sequence.value())
+        .bind(event_context.event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| OwnedAccountListWriterError::Persistence(Box::new(e)))?;
@@ -132,11 +130,9 @@ impl OwnedAccountListWriter for PgOwnedAccountListWriter {
     async fn update_account_name(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: AccountId,
         name: AccountName,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), OwnedAccountListWriterError> {
         sqlx::query(
             r#"
@@ -149,9 +145,9 @@ impl OwnedAccountListWriter for PgOwnedAccountListWriter {
         )
         .bind(id.value())
         .bind(name.value())
-        .bind(occurred_at.value())
-        .bind(event_sequence.value())
-        .bind(event_id.value())
+        .bind(event_context.occurred_at.value())
+        .bind(event_context.event_sequence.value())
+        .bind(event_context.event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| OwnedAccountListWriterError::Persistence(Box::new(e)))?;
@@ -161,11 +157,9 @@ impl OwnedAccountListWriter for PgOwnedAccountListWriter {
     async fn increase_balance(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: AccountId,
         amount: CurrencyAmount,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), OwnedAccountListWriterError> {
         sqlx::query(
             r#"
@@ -179,9 +173,9 @@ impl OwnedAccountListWriter for PgOwnedAccountListWriter {
         )
         .bind(id.value())
         .bind(amount.value().to_string())
-        .bind(occurred_at.value())
-        .bind(event_sequence.value())
-        .bind(event_id.value())
+        .bind(event_context.occurred_at.value())
+        .bind(event_context.event_sequence.value())
+        .bind(event_context.event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| OwnedAccountListWriterError::Persistence(Box::new(e)))?;
@@ -191,11 +185,9 @@ impl OwnedAccountListWriter for PgOwnedAccountListWriter {
     async fn decrease_balance(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: AccountId,
         amount: CurrencyAmount,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), OwnedAccountListWriterError> {
         sqlx::query(
             r#"
@@ -209,9 +201,9 @@ impl OwnedAccountListWriter for PgOwnedAccountListWriter {
         )
         .bind(id.value())
         .bind(amount.value().to_string())
-        .bind(occurred_at.value())
-        .bind(event_sequence.value())
-        .bind(event_id.value())
+        .bind(event_context.occurred_at.value())
+        .bind(event_context.event_sequence.value())
+        .bind(event_context.event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| OwnedAccountListWriterError::Persistence(Box::new(e)))?;
@@ -221,11 +213,9 @@ impl OwnedAccountListWriter for PgOwnedAccountListWriter {
     async fn reserve_balance(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: AccountId,
         amount: CurrencyAmount,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), OwnedAccountListWriterError> {
         sqlx::query(
             r#"
@@ -240,9 +230,9 @@ impl OwnedAccountListWriter for PgOwnedAccountListWriter {
         )
         .bind(id.value())
         .bind(amount.value().to_string())
-        .bind(occurred_at.value())
-        .bind(event_sequence.value())
-        .bind(event_id.value())
+        .bind(event_context.occurred_at.value())
+        .bind(event_context.event_sequence.value())
+        .bind(event_context.event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| OwnedAccountListWriterError::Persistence(Box::new(e)))?;
@@ -252,11 +242,9 @@ impl OwnedAccountListWriter for PgOwnedAccountListWriter {
     async fn release_reserved_balance(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: AccountId,
         amount: CurrencyAmount,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), OwnedAccountListWriterError> {
         sqlx::query(
             r#"
@@ -271,9 +259,9 @@ impl OwnedAccountListWriter for PgOwnedAccountListWriter {
         )
         .bind(id.value())
         .bind(amount.value().to_string())
-        .bind(occurred_at.value())
-        .bind(event_sequence.value())
-        .bind(event_id.value())
+        .bind(event_context.occurred_at.value())
+        .bind(event_context.event_sequence.value())
+        .bind(event_context.event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| OwnedAccountListWriterError::Persistence(Box::new(e)))?;
@@ -283,11 +271,9 @@ impl OwnedAccountListWriter for PgOwnedAccountListWriter {
     async fn commit_reserved_balance(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: AccountId,
         amount: CurrencyAmount,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), OwnedAccountListWriterError> {
         sqlx::query(
             r#"
@@ -301,9 +287,9 @@ impl OwnedAccountListWriter for PgOwnedAccountListWriter {
         )
         .bind(id.value())
         .bind(amount.value().to_string())
-        .bind(occurred_at.value())
-        .bind(event_sequence.value())
-        .bind(event_id.value())
+        .bind(event_context.occurred_at.value())
+        .bind(event_context.event_sequence.value())
+        .bind(event_context.event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| OwnedAccountListWriterError::Persistence(Box::new(e)))?;
@@ -313,11 +299,9 @@ impl OwnedAccountListWriter for PgOwnedAccountListWriter {
     async fn update_account_status(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: AccountId,
         status: OwnedAccountListItemStatus,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), OwnedAccountListWriterError> {
         sqlx::query(
             r#"
@@ -330,9 +314,9 @@ impl OwnedAccountListWriter for PgOwnedAccountListWriter {
         )
         .bind(id.value())
         .bind(Self::status_name(status))
-        .bind(occurred_at.value())
-        .bind(event_sequence.value())
-        .bind(event_id.value())
+        .bind(event_context.occurred_at.value())
+        .bind(event_context.event_sequence.value())
+        .bind(event_context.event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| OwnedAccountListWriterError::Persistence(Box::new(e)))?;
@@ -342,10 +326,8 @@ impl OwnedAccountListWriter for PgOwnedAccountListWriter {
     async fn delete_account(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: AccountId,
-        _event_id: EventId,
-        event_sequence: EventSequence,
-        _occurred_at: EventOccurredAt,
     ) -> Result<(), OwnedAccountListWriterError> {
         sqlx::query(
             r#"
@@ -354,7 +336,7 @@ impl OwnedAccountListWriter for PgOwnedAccountListWriter {
             "#,
         )
         .bind(id.value())
-        .bind(event_sequence.value())
+        .bind(event_context.event_sequence.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| OwnedAccountListWriterError::Persistence(Box::new(e)))?;
@@ -364,6 +346,7 @@ impl OwnedAccountListWriter for PgOwnedAccountListWriter {
     async fn upsert_currency(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         upsert: OwnedAccountListCurrencyUpsert,
     ) -> Result<(), OwnedAccountListWriterError> {
         sqlx::query(
@@ -386,10 +369,10 @@ impl OwnedAccountListWriter for PgOwnedAccountListWriter {
         .bind(upsert.symbol.value())
         .bind(upsert.name.value())
         .bind(i16::from(upsert.decimals.value()))
-        .bind(upsert.occurred_at.value())
-        .bind(upsert.occurred_at.value())
-        .bind(upsert.event_sequence.value())
-        .bind(upsert.event_id.value())
+        .bind(event_context.occurred_at.value())
+        .bind(event_context.occurred_at.value())
+        .bind(event_context.event_sequence.value())
+        .bind(event_context.event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| OwnedAccountListWriterError::Persistence(Box::new(e)))?;
@@ -399,11 +382,9 @@ impl OwnedAccountListWriter for PgOwnedAccountListWriter {
     async fn update_currency_symbol(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: CurrencyId,
         symbol: CurrencySymbol,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), OwnedAccountListWriterError> {
         sqlx::query(
             r#"
@@ -416,9 +397,9 @@ impl OwnedAccountListWriter for PgOwnedAccountListWriter {
         )
         .bind(id.value())
         .bind(symbol.value())
-        .bind(occurred_at.value())
-        .bind(event_sequence.value())
-        .bind(event_id.value())
+        .bind(event_context.occurred_at.value())
+        .bind(event_context.event_sequence.value())
+        .bind(event_context.event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| OwnedAccountListWriterError::Persistence(Box::new(e)))?;
@@ -428,11 +409,9 @@ impl OwnedAccountListWriter for PgOwnedAccountListWriter {
     async fn update_currency_name(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: CurrencyId,
         name: CurrencyName,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), OwnedAccountListWriterError> {
         sqlx::query(
             r#"
@@ -445,9 +424,9 @@ impl OwnedAccountListWriter for PgOwnedAccountListWriter {
         )
         .bind(id.value())
         .bind(name.value())
-        .bind(occurred_at.value())
-        .bind(event_sequence.value())
-        .bind(event_id.value())
+        .bind(event_context.occurred_at.value())
+        .bind(event_context.event_sequence.value())
+        .bind(event_context.event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| OwnedAccountListWriterError::Persistence(Box::new(e)))?;
@@ -457,10 +436,8 @@ impl OwnedAccountListWriter for PgOwnedAccountListWriter {
     async fn delete_currency(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: CurrencyId,
-        _event_id: EventId,
-        event_sequence: EventSequence,
-        _occurred_at: EventOccurredAt,
     ) -> Result<(), OwnedAccountListWriterError> {
         sqlx::query(
             r#"
@@ -469,7 +446,7 @@ impl OwnedAccountListWriter for PgOwnedAccountListWriter {
             "#,
         )
         .bind(id.value())
-        .bind(event_sequence.value())
+        .bind(event_context.event_sequence.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| OwnedAccountListWriterError::Persistence(Box::new(e)))?;
@@ -481,7 +458,7 @@ impl OwnedAccountListWriter for PgOwnedAccountListWriter {
             "#,
         )
         .bind(id.value())
-        .bind(event_sequence.value())
+        .bind(event_context.event_sequence.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| OwnedAccountListWriterError::Persistence(Box::new(e)))?;
@@ -491,6 +468,7 @@ impl OwnedAccountListWriter for PgOwnedAccountListWriter {
     async fn upsert_owner_user(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         upsert: OwnedAccountListOwnerUserUpsert,
     ) -> Result<(), OwnedAccountListWriterError> {
         let (picture_type, object_name, external_url) =
@@ -521,10 +499,10 @@ impl OwnedAccountListWriter for PgOwnedAccountListWriter {
         .bind(picture_type)
         .bind(object_name)
         .bind(external_url)
-        .bind(upsert.occurred_at.value())
-        .bind(upsert.occurred_at.value())
-        .bind(upsert.event_sequence.value())
-        .bind(upsert.event_id.value())
+        .bind(event_context.occurred_at.value())
+        .bind(event_context.occurred_at.value())
+        .bind(event_context.event_sequence.value())
+        .bind(event_context.event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| OwnedAccountListWriterError::Persistence(Box::new(e)))?;
@@ -534,11 +512,9 @@ impl OwnedAccountListWriter for PgOwnedAccountListWriter {
     async fn update_owner_user_username(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: UserId,
         username: Username,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), OwnedAccountListWriterError> {
         sqlx::query(
             r#"
@@ -551,9 +527,9 @@ impl OwnedAccountListWriter for PgOwnedAccountListWriter {
         )
         .bind(id.value())
         .bind(username.value())
-        .bind(occurred_at.value())
-        .bind(event_sequence.value())
-        .bind(event_id.value())
+        .bind(event_context.occurred_at.value())
+        .bind(event_context.event_sequence.value())
+        .bind(event_context.event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| OwnedAccountListWriterError::Persistence(Box::new(e)))?;
@@ -563,11 +539,9 @@ impl OwnedAccountListWriter for PgOwnedAccountListWriter {
     async fn update_owner_user_display_name(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: UserId,
         display_name: UserDisplayName,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), OwnedAccountListWriterError> {
         sqlx::query(
             r#"
@@ -580,9 +554,9 @@ impl OwnedAccountListWriter for PgOwnedAccountListWriter {
         )
         .bind(id.value())
         .bind(display_name.value())
-        .bind(occurred_at.value())
-        .bind(event_sequence.value())
-        .bind(event_id.value())
+        .bind(event_context.occurred_at.value())
+        .bind(event_context.event_sequence.value())
+        .bind(event_context.event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| OwnedAccountListWriterError::Persistence(Box::new(e)))?;
@@ -592,11 +566,9 @@ impl OwnedAccountListWriter for PgOwnedAccountListWriter {
     async fn update_owner_user_picture(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: UserId,
         picture: Option<UserPictureRef>,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), OwnedAccountListWriterError> {
         let (picture_type, object_name, external_url) =
             PgUserPictureRefColumns::from_picture(picture.as_ref());
@@ -617,9 +589,9 @@ impl OwnedAccountListWriter for PgOwnedAccountListWriter {
         .bind(picture_type)
         .bind(object_name)
         .bind(external_url)
-        .bind(occurred_at.value())
-        .bind(event_sequence.value())
-        .bind(event_id.value())
+        .bind(event_context.occurred_at.value())
+        .bind(event_context.event_sequence.value())
+        .bind(event_context.event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| OwnedAccountListWriterError::Persistence(Box::new(e)))?;
@@ -629,9 +601,8 @@ impl OwnedAccountListWriter for PgOwnedAccountListWriter {
     async fn delete_owner_user(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: UserId,
-        _event_id: EventId,
-        event_sequence: EventSequence,
     ) -> Result<(), OwnedAccountListWriterError> {
         sqlx::query(
             r#"
@@ -640,7 +611,7 @@ impl OwnedAccountListWriter for PgOwnedAccountListWriter {
             "#,
         )
         .bind(id.value())
-        .bind(event_sequence.value())
+        .bind(event_context.event_sequence.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| OwnedAccountListWriterError::Persistence(Box::new(e)))?;
@@ -650,6 +621,7 @@ impl OwnedAccountListWriter for PgOwnedAccountListWriter {
     async fn upsert_owner_organization(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         upsert: OwnedAccountListOwnerOrganizationUpsert,
     ) -> Result<(), OwnedAccountListWriterError> {
         let (picture_type, object_name, external_url) =
@@ -680,10 +652,10 @@ impl OwnedAccountListWriter for PgOwnedAccountListWriter {
         .bind(picture_type)
         .bind(object_name)
         .bind(external_url)
-        .bind(upsert.occurred_at.value())
-        .bind(upsert.occurred_at.value())
-        .bind(upsert.event_sequence.value())
-        .bind(upsert.event_id.value())
+        .bind(event_context.occurred_at.value())
+        .bind(event_context.occurred_at.value())
+        .bind(event_context.event_sequence.value())
+        .bind(event_context.event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| OwnedAccountListWriterError::Persistence(Box::new(e)))?;
@@ -693,11 +665,9 @@ impl OwnedAccountListWriter for PgOwnedAccountListWriter {
     async fn update_owner_organization_handle(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: OrganizationId,
         handle: OrganizationHandle,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), OwnedAccountListWriterError> {
         sqlx::query(
             r#"
@@ -710,9 +680,9 @@ impl OwnedAccountListWriter for PgOwnedAccountListWriter {
         )
         .bind(id.value())
         .bind(handle.value())
-        .bind(occurred_at.value())
-        .bind(event_sequence.value())
-        .bind(event_id.value())
+        .bind(event_context.occurred_at.value())
+        .bind(event_context.event_sequence.value())
+        .bind(event_context.event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| OwnedAccountListWriterError::Persistence(Box::new(e)))?;
@@ -722,11 +692,9 @@ impl OwnedAccountListWriter for PgOwnedAccountListWriter {
     async fn update_owner_organization_display_name(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: OrganizationId,
         display_name: OrganizationDisplayName,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), OwnedAccountListWriterError> {
         sqlx::query(
             r#"
@@ -739,9 +707,9 @@ impl OwnedAccountListWriter for PgOwnedAccountListWriter {
         )
         .bind(id.value())
         .bind(display_name.value())
-        .bind(occurred_at.value())
-        .bind(event_sequence.value())
-        .bind(event_id.value())
+        .bind(event_context.occurred_at.value())
+        .bind(event_context.event_sequence.value())
+        .bind(event_context.event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| OwnedAccountListWriterError::Persistence(Box::new(e)))?;
@@ -751,11 +719,9 @@ impl OwnedAccountListWriter for PgOwnedAccountListWriter {
     async fn update_owner_organization_picture(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: OrganizationId,
         picture: Option<OrganizationPictureRef>,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), OwnedAccountListWriterError> {
         let (picture_type, object_name, external_url) =
             PgOrganizationPictureRefColumns::from_picture(picture.as_ref());
@@ -776,9 +742,9 @@ impl OwnedAccountListWriter for PgOwnedAccountListWriter {
         .bind(picture_type)
         .bind(object_name)
         .bind(external_url)
-        .bind(occurred_at.value())
-        .bind(event_sequence.value())
-        .bind(event_id.value())
+        .bind(event_context.occurred_at.value())
+        .bind(event_context.event_sequence.value())
+        .bind(event_context.event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| OwnedAccountListWriterError::Persistence(Box::new(e)))?;
@@ -788,9 +754,8 @@ impl OwnedAccountListWriter for PgOwnedAccountListWriter {
     async fn delete_owner_organization(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: OrganizationId,
-        _event_id: EventId,
-        event_sequence: EventSequence,
     ) -> Result<(), OwnedAccountListWriterError> {
         sqlx::query(
             r#"
@@ -799,7 +764,7 @@ impl OwnedAccountListWriter for PgOwnedAccountListWriter {
             "#,
         )
         .bind(id.value())
-        .bind(event_sequence.value())
+        .bind(event_context.event_sequence.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| OwnedAccountListWriterError::Persistence(Box::new(e)))?;

@@ -1,7 +1,6 @@
-use appletheia::application::event::EventSequence;
 use appletheia::application::unit_of_work::UnitOfWork;
-use appletheia::domain::EventId;
-use appletheia::domain::EventOccurredAt;
+
+use crate::read_model::ReadModelEventContext;
 use banking_iam_domain::{
     OrganizationDisplayName, OrganizationHandle, OrganizationId, OrganizationPictureRef,
     UserDisplayName, UserId, UserPictureRef, Username,
@@ -24,178 +23,158 @@ pub trait OwnedAccountTransactionListWriter: Send + Sync {
     async fn upsert_currency(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         upsert: OwnedAccountTransactionListCurrencyUpsert,
     ) -> Result<(), OwnedAccountTransactionListWriterError>;
 
     async fn update_currency_symbol(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: CurrencyId,
         symbol: CurrencySymbol,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), OwnedAccountTransactionListWriterError>;
 
     async fn update_currency_name(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: CurrencyId,
         name: CurrencyName,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), OwnedAccountTransactionListWriterError>;
 
     async fn delete_currency(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: CurrencyId,
-        event_id: EventId,
-        event_sequence: EventSequence,
     ) -> Result<(), OwnedAccountTransactionListWriterError>;
 
     async fn upsert_owner_user(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         upsert: OwnedAccountTransactionListOwnerUserUpsert,
     ) -> Result<(), OwnedAccountTransactionListWriterError>;
 
     async fn update_owner_user_username(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: UserId,
         username: Username,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), OwnedAccountTransactionListWriterError>;
 
     async fn update_owner_user_display_name(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: UserId,
         display_name: UserDisplayName,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), OwnedAccountTransactionListWriterError>;
 
     async fn update_owner_user_picture(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: UserId,
         picture: Option<UserPictureRef>,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), OwnedAccountTransactionListWriterError>;
 
     async fn delete_owner_user(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: UserId,
-        event_id: EventId,
-        event_sequence: EventSequence,
     ) -> Result<(), OwnedAccountTransactionListWriterError>;
 
     async fn upsert_owner_organization(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         upsert: OwnedAccountTransactionListOwnerOrganizationUpsert,
     ) -> Result<(), OwnedAccountTransactionListWriterError>;
 
     async fn update_owner_organization_handle(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: OrganizationId,
         handle: OrganizationHandle,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), OwnedAccountTransactionListWriterError>;
 
     async fn update_owner_organization_display_name(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: OrganizationId,
         display_name: OrganizationDisplayName,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), OwnedAccountTransactionListWriterError>;
 
     async fn update_owner_organization_picture(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: OrganizationId,
         picture: Option<OrganizationPictureRef>,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), OwnedAccountTransactionListWriterError>;
 
     async fn delete_owner_organization(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: OrganizationId,
-        event_id: EventId,
-        event_sequence: EventSequence,
     ) -> Result<(), OwnedAccountTransactionListWriterError>;
 
     async fn insert_account_transaction(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         insert: OwnedAccountTransactionListItemInsert,
     ) -> Result<(), OwnedAccountTransactionListWriterError>;
 
     async fn record_transfer_requested(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         record: OwnedAccountTransactionListTransferRequestedRecord,
     ) -> Result<(), OwnedAccountTransactionListWriterError>;
 
     async fn complete_transfer(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: TransferId,
         transaction_id: OwnedAccountTransactionId,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), OwnedAccountTransactionListWriterError>;
 
     async fn fail_transfer(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: TransferId,
         reason: TransferFailureReason,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), OwnedAccountTransactionListWriterError>;
 
     async fn record_currency_issuance_issued(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         record: OwnedAccountTransactionListCurrencyIssuanceIssuedRecord,
     ) -> Result<(), OwnedAccountTransactionListWriterError>;
 
     async fn complete_currency_issuance(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: CurrencyIssuanceId,
         transaction_id: OwnedAccountTransactionId,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), OwnedAccountTransactionListWriterError>;
 
     async fn fail_currency_issuance(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: CurrencyIssuanceId,
-        event_id: EventId,
-        event_sequence: EventSequence,
     ) -> Result<(), OwnedAccountTransactionListWriterError>;
 }

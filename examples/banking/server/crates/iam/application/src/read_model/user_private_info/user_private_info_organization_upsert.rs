@@ -3,7 +3,7 @@ use banking_iam_domain::{
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct CurrencyListOwnerOrganizationUpsert {
+pub struct UserPrivateInfoOrganizationUpsert {
     pub id: OrganizationId,
     pub handle: OrganizationHandle,
     pub display_name: OrganizationDisplayName,

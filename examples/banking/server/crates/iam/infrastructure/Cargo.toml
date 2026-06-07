@@ -8,5 +8,6 @@ appletheia = { workspace = true, features = ["application", "domain", "infrastru
 banking-iam-domain = { workspace = true }
 banking-iam-application = { workspace = true }
 sqlx = { version = "0.9.0", features = ["runtime-tokio", "postgres", "uuid", "chrono"] }
+serde_json = "1.0.150"
 thiserror = "2.0.18"
 uuid = { version = "1.23.2" }

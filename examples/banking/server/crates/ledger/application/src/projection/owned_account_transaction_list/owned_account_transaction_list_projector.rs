@@ -13,7 +13,7 @@ use crate::read_model::{
     OwnedAccountTransactionListItemInsert, OwnedAccountTransactionListItemKind,
     OwnedAccountTransactionListItemStatus, OwnedAccountTransactionListOwnerOrganizationUpsert,
     OwnedAccountTransactionListOwnerUserUpsert, OwnedAccountTransactionListTransferRequestedRecord,
-    OwnedAccountTransactionListWriter,
+    OwnedAccountTransactionListWriter, ReadModelEventContext,
 };
 
 /// Projects ledger events into owned account transaction list read models.
@@ -42,6 +42,7 @@ where
     type Error = OwnedAccountTransactionListProjectorError;
 
     async fn project(&self, uow: &mut Self::Uow, event: &EventEnvelope) -> Result<(), Self::Error> {
+        let event_context = ReadModelEventContext::from(event);
         if event.is_for_aggregate::<User>() {
             let domain_event = event.try_into_domain_event::<User>()?;
             let user_id = domain_event.aggregate_id();
@@ -51,52 +52,34 @@ where
                     self.writer
                         .upsert_owner_user(
                             uow,
+                            event_context,
                             OwnedAccountTransactionListOwnerUserUpsert {
                                 id: user_id,
                                 username: None,
                                 display_name: None,
                                 picture: None,
-                                event_id: event.event_id,
-                                event_sequence: event.event_sequence,
-                                occurred_at: event.occurred_at,
                             },
                         )
                         .await?;
                 }
                 UserEventPayload::UsernameChanged { username } => {
                     self.writer
-                        .update_owner_user_username(
-                            uow,
-                            user_id,
-                            username.clone(),
-                            event.event_id,
-                            event.event_sequence,
-                            event.occurred_at,
-                        )
+                        .update_owner_user_username(uow, event_context, user_id, username.clone())
                         .await?;
                 }
                 UserEventPayload::DisplayNameChanged { display_name } => {
                     self.writer
                         .update_owner_user_display_name(
                             uow,
+                            event_context,
                             user_id,
                             display_name.clone(),
-                            event.event_id,
-                            event.event_sequence,
-                            event.occurred_at,
                         )
                         .await?;
                 }
                 UserEventPayload::PictureChanged { picture, .. } => {
                     self.writer
-                        .update_owner_user_picture(
-                            uow,
-                            user_id,
-                            picture.clone(),
-                            event.event_id,
-                            event.event_sequence,
-                            event.occurred_at,
-                        )
+                        .update_owner_user_picture(uow, event_context, user_id, picture.clone())
                         .await?;
                 }
                 UserEventPayload::IdentityLinked { .. }
@@ -139,14 +122,12 @@ where
                     self.writer
                         .upsert_owner_organization(
                             uow,
+                            event_context,
                             OwnedAccountTransactionListOwnerOrganizationUpsert {
                                 id: organization_id,
                                 handle: handle.clone(),
                                 display_name: display_name.clone(),
                                 picture: picture.clone(),
-                                event_id: event.event_id,
-                                event_sequence: event.event_sequence,
-                                occurred_at: event.occurred_at,
                             },
                         )
                         .await?;
@@ -155,11 +136,9 @@ where
                     self.writer
                         .update_owner_organization_handle(
                             uow,
+                            event_context,
                             organization_id,
                             handle.clone(),
-                            event.event_id,
-                            event.event_sequence,
-                            event.occurred_at,
                         )
                         .await?;
                 }
@@ -167,11 +146,9 @@ where
                     self.writer
                         .update_owner_organization_display_name(
                             uow,
+                            event_context,
                             organization_id,
                             display_name.clone(),
-                            event.event_id,
-                            event.event_sequence,
-                            event.occurred_at,
                         )
                         .await?;
                 }
@@ -179,11 +156,9 @@ where
                     self.writer
                         .update_owner_organization_picture(
                             uow,
+                            event_context,
                             organization_id,
                             picture.clone(),
-                            event.event_id,
-                            event.event_sequence,
-                            event.occurred_at,
                         )
                         .await?;
                 }
@@ -212,6 +187,7 @@ where
                     self.writer
                         .insert_account_transaction(
                             uow,
+                            event_context,
                             OwnedAccountTransactionListItemInsert {
                                 transaction_id: OwnedAccountTransactionId::from(
                                     event.event_id.value(),
@@ -223,9 +199,6 @@ where
                                 direction: OwnedAccountTransactionListItemDirection::Incoming,
                                 kind: OwnedAccountTransactionListItemKind::Deposit,
                                 status: OwnedAccountTransactionListItemStatus::Completed,
-                                event_id: event.event_id,
-                                event_sequence: event.event_sequence,
-                                occurred_at: event.occurred_at,
                             },
                         )
                         .await?;
@@ -234,6 +207,7 @@ where
                     self.writer
                         .insert_account_transaction(
                             uow,
+                            event_context,
                             OwnedAccountTransactionListItemInsert {
                                 transaction_id: OwnedAccountTransactionId::from(
                                     event.event_id.value(),
@@ -245,9 +219,6 @@ where
                                 direction: OwnedAccountTransactionListItemDirection::Outgoing,
                                 kind: OwnedAccountTransactionListItemKind::Withdrawal,
                                 status: OwnedAccountTransactionListItemStatus::Completed,
-                                event_id: event.event_id,
-                                event_sequence: event.event_sequence,
-                                occurred_at: event.occurred_at,
                             },
                         )
                         .await?;
@@ -272,45 +243,29 @@ where
                     self.writer
                         .upsert_currency(
                             uow,
+                            event_context,
                             OwnedAccountTransactionListCurrencyUpsert {
                                 id: currency_id,
                                 symbol: symbol.clone(),
                                 name: name.clone(),
                                 decimals: *decimals,
-                                event_id: event.event_id,
-                                event_sequence: event.event_sequence,
-                                occurred_at: event.occurred_at,
                             },
                         )
                         .await?;
                 }
                 CurrencyEventPayload::SymbolChanged { symbol } => {
                     self.writer
-                        .update_currency_symbol(
-                            uow,
-                            currency_id,
-                            symbol.clone(),
-                            event.event_id,
-                            event.event_sequence,
-                            event.occurred_at,
-                        )
+                        .update_currency_symbol(uow, event_context, currency_id, symbol.clone())
                         .await?;
                 }
                 CurrencyEventPayload::NameChanged { name } => {
                     self.writer
-                        .update_currency_name(
-                            uow,
-                            currency_id,
-                            name.clone(),
-                            event.event_id,
-                            event.event_sequence,
-                            event.occurred_at,
-                        )
+                        .update_currency_name(uow, event_context, currency_id, name.clone())
                         .await?;
                 }
                 CurrencyEventPayload::Removed => {
                     self.writer
-                        .delete_currency(uow, currency_id, event.event_id, event.event_sequence)
+                        .delete_currency(uow, event_context, currency_id)
                         .await?;
                 }
                 _ => {}
@@ -333,15 +288,13 @@ where
                     self.writer
                         .record_transfer_requested(
                             uow,
+                            event_context,
                             OwnedAccountTransactionListTransferRequestedRecord {
                                 id: transfer_id,
                                 correlation_id: event.correlation_id,
                                 from_account_id: *from_account_id,
                                 to_account_id: *to_account_id,
                                 amount: *amount,
-                                event_id: event.event_id,
-                                event_sequence: event.event_sequence,
-                                occurred_at: event.occurred_at,
                             },
                         )
                         .await?;
@@ -350,24 +303,15 @@ where
                     self.writer
                         .complete_transfer(
                             uow,
+                            event_context,
                             transfer_id,
                             OwnedAccountTransactionId::from(event.event_id.value()),
-                            event.event_id,
-                            event.event_sequence,
-                            event.occurred_at,
                         )
                         .await?;
                 }
                 TransferEventPayload::Failed { reason } => {
                     self.writer
-                        .fail_transfer(
-                            uow,
-                            transfer_id,
-                            *reason,
-                            event.event_id,
-                            event.event_sequence,
-                            event.occurred_at,
-                        )
+                        .fail_transfer(uow, event_context, transfer_id, *reason)
                         .await?;
                 }
                 _ => {}
@@ -389,14 +333,12 @@ where
                 self.writer
                     .record_currency_issuance_issued(
                         uow,
+                        event_context,
                         OwnedAccountTransactionListCurrencyIssuanceIssuedRecord {
                             id: currency_issuance_id,
                             destination_account_id: *destination_account_id,
                             currency_id: *currency_id,
                             amount: *amount,
-                            event_id: event.event_id,
-                            event_sequence: event.event_sequence,
-                            occurred_at: event.occurred_at,
                         },
                     )
                     .await?;
@@ -405,22 +347,15 @@ where
                 self.writer
                     .complete_currency_issuance(
                         uow,
+                        event_context,
                         currency_issuance_id,
                         OwnedAccountTransactionId::from(event.event_id.value()),
-                        event.event_id,
-                        event.event_sequence,
-                        event.occurred_at,
                     )
                     .await?;
             }
             CurrencyIssuanceEventPayload::Failed { .. } => {
                 self.writer
-                    .fail_currency_issuance(
-                        uow,
-                        currency_issuance_id,
-                        event.event_id,
-                        event.event_sequence,
-                    )
+                    .fail_currency_issuance(uow, event_context, currency_issuance_id)
                     .await?;
             }
             _ => {}

@@ -1,4 +1,5 @@
 mod pg_user_private_info_identity_row;
+mod pg_user_private_info_organization_membership_row;
 mod pg_user_private_info_reader;
 mod pg_user_private_info_row;
 mod pg_user_private_info_row_error;

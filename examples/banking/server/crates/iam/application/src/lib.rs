@@ -92,13 +92,15 @@ pub use query::{
     UserPublicProfileQuery, UserPublicProfileQueryHandler, UserPublicProfileQueryHandlerError,
 };
 pub use read_model::{
-    CursorOptions, PageSize, PageSizeError, ReadModelObservation, SortDirection, UserPrivateInfo,
-    UserPrivateInfoIdentity, UserPrivateInfoIdentityUpsert, UserPrivateInfoReader,
-    UserPrivateInfoReaderError, UserPrivateInfoStatus, UserPrivateInfoStatusError,
-    UserPrivateInfoUserUpsert, UserPrivateInfoWriter, UserPrivateInfoWriterError,
-    UserPublicProfile, UserPublicProfileReader, UserPublicProfileReaderError,
-    UserPublicProfileStatus, UserPublicProfileStatusError, UserPublicProfileUserUpsert,
-    UserPublicProfileWriter, UserPublicProfileWriterError,
+    CursorOptions, PageSize, PageSizeError, ReadModelEventContext, ReadModelObservation,
+    SortDirection, UserPrivateInfo, UserPrivateInfoIdentity, UserPrivateInfoIdentityUpsert,
+    UserPrivateInfoOrganization, UserPrivateInfoOrganizationMembership,
+    UserPrivateInfoOrganizationMembershipUpsert, UserPrivateInfoOrganizationUpsert,
+    UserPrivateInfoReader, UserPrivateInfoReaderError, UserPrivateInfoStatus,
+    UserPrivateInfoStatusError, UserPrivateInfoUserUpsert, UserPrivateInfoWriter,
+    UserPrivateInfoWriterError, UserPublicProfile, UserPublicProfileReader,
+    UserPublicProfileReaderError, UserPublicProfileStatus, UserPublicProfileStatusError,
+    UserPublicProfileUserUpsert, UserPublicProfileWriter, UserPublicProfileWriterError,
 };
 pub use repository::{
     OrganizationEventSaveHook, OrganizationInvitationEventSaveHook,

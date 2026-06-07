@@ -7,7 +7,7 @@ use banking_ledger_domain::currency::{Currency, CurrencyEventPayload};
 use super::{CurrencyListProjectorError, CurrencyListProjectorSpec};
 use crate::read_model::{
     CurrencyListCurrencyUpsert, CurrencyListItemStatus, CurrencyListOwnerOrganizationUpsert,
-    CurrencyListOwnerUserUpsert, CurrencyListWriter,
+    CurrencyListOwnerUserUpsert, CurrencyListWriter, ReadModelEventContext,
 };
 
 /// Projects currency events into currency list read models.
@@ -36,6 +36,7 @@ where
     type Error = CurrencyListProjectorError;
 
     async fn project(&self, uow: &mut Self::Uow, event: &EventEnvelope) -> Result<(), Self::Error> {
+        let event_context = ReadModelEventContext::from(event);
         if event.is_for_aggregate::<User>() {
             let domain_event = event.try_into_domain_event::<User>()?;
             let user_id = domain_event.aggregate_id();
@@ -45,63 +46,39 @@ where
                     self.writer
                         .upsert_owner_user(
                             uow,
+                            event_context,
                             CurrencyListOwnerUserUpsert {
                                 id: user_id,
                                 username: None,
                                 display_name: None,
                                 picture: None,
-                                event_id: event.event_id,
-                                event_sequence: event.event_sequence,
-                                occurred_at: event.occurred_at,
                             },
                         )
                         .await?;
                 }
                 UserEventPayload::UsernameChanged { username } => {
                     self.writer
-                        .update_owner_user_username(
-                            uow,
-                            user_id,
-                            username.clone(),
-                            event.event_id,
-                            event.event_sequence,
-                            event.occurred_at,
-                        )
+                        .update_owner_user_username(uow, event_context, user_id, username.clone())
                         .await?;
                 }
                 UserEventPayload::DisplayNameChanged { display_name } => {
                     self.writer
                         .update_owner_user_display_name(
                             uow,
+                            event_context,
                             user_id,
                             display_name.clone(),
-                            event.event_id,
-                            event.event_sequence,
-                            event.occurred_at,
                         )
                         .await?;
                 }
                 UserEventPayload::PictureChanged { picture, .. } => {
                     self.writer
-                        .update_owner_user_picture(
-                            uow,
-                            user_id,
-                            picture.clone(),
-                            event.event_id,
-                            event.event_sequence,
-                            event.occurred_at,
-                        )
+                        .update_owner_user_picture(uow, event_context, user_id, picture.clone())
                         .await?;
                 }
                 UserEventPayload::Removed => {
                     self.writer
-                        .delete_owner_user(
-                            uow,
-                            user_id,
-                            event.event_id,
-                            event.event_sequence,
-                            event.occurred_at,
-                        )
+                        .delete_owner_user(uow, event_context, user_id)
                         .await?;
                 }
                 UserEventPayload::IdentityLinked { .. }
@@ -143,14 +120,12 @@ where
                     self.writer
                         .upsert_owner_organization(
                             uow,
+                            event_context,
                             CurrencyListOwnerOrganizationUpsert {
                                 id: organization_id,
                                 handle: handle.clone(),
                                 display_name: display_name.clone(),
                                 picture: picture.clone(),
-                                event_id: event.event_id,
-                                event_sequence: event.event_sequence,
-                                occurred_at: event.occurred_at,
                             },
                         )
                         .await?;
@@ -159,11 +134,9 @@ where
                     self.writer
                         .update_owner_organization_handle(
                             uow,
+                            event_context,
                             organization_id,
                             handle.clone(),
-                            event.event_id,
-                            event.event_sequence,
-                            event.occurred_at,
                         )
                         .await?;
                 }
@@ -171,11 +144,9 @@ where
                     self.writer
                         .update_owner_organization_display_name(
                             uow,
+                            event_context,
                             organization_id,
                             display_name.clone(),
-                            event.event_id,
-                            event.event_sequence,
-                            event.occurred_at,
                         )
                         .await?;
                 }
@@ -183,23 +154,15 @@ where
                     self.writer
                         .update_owner_organization_picture(
                             uow,
+                            event_context,
                             organization_id,
                             picture.clone(),
-                            event.event_id,
-                            event.event_sequence,
-                            event.occurred_at,
                         )
                         .await?;
                 }
                 OrganizationEventPayload::Removed => {
                     self.writer
-                        .delete_owner_organization(
-                            uow,
-                            organization_id,
-                            event.event_id,
-                            event.event_sequence,
-                            event.occurred_at,
-                        )
+                        .delete_owner_organization(uow, event_context, organization_id)
                         .await?;
                 }
                 OrganizationEventPayload::OwnershipTransferred { .. }
@@ -233,6 +196,7 @@ where
                 self.writer
                     .upsert_currency(
                         uow,
+                        event_context,
                         CurrencyListCurrencyUpsert {
                             id: currency_id,
                             owner: *owner,
@@ -243,94 +207,52 @@ where
                             image: image.clone(),
                             supply: CurrencyAmount::zero(),
                             status: CurrencyListItemStatus::Active,
-                            event_id: event.event_id,
-                            event_sequence: event.event_sequence,
-                            occurred_at: event.occurred_at,
                         },
                     )
                     .await?;
             }
             CurrencyEventPayload::OwnershipTransferred { owner } => {
                 self.writer
-                    .update_currency_owner(
-                        uow,
-                        currency_id,
-                        *owner,
-                        event.event_id,
-                        event.event_sequence,
-                        event.occurred_at,
-                    )
+                    .update_currency_owner(uow, event_context, currency_id, *owner)
                     .await?;
             }
             CurrencyEventPayload::SymbolChanged { symbol } => {
                 self.writer
-                    .update_currency_symbol(
-                        uow,
-                        currency_id,
-                        symbol.clone(),
-                        event.event_id,
-                        event.event_sequence,
-                        event.occurred_at,
-                    )
+                    .update_currency_symbol(uow, event_context, currency_id, symbol.clone())
                     .await?;
             }
             CurrencyEventPayload::NameChanged { name } => {
                 self.writer
-                    .update_currency_name(
-                        uow,
-                        currency_id,
-                        name.clone(),
-                        event.event_id,
-                        event.event_sequence,
-                        event.occurred_at,
-                    )
+                    .update_currency_name(uow, event_context, currency_id, name.clone())
                     .await?;
             }
             CurrencyEventPayload::DescriptionChanged { description } => {
                 self.writer
                     .update_currency_description(
                         uow,
+                        event_context,
                         currency_id,
                         description.clone(),
-                        event.event_id,
-                        event.event_sequence,
-                        event.occurred_at,
                     )
                     .await?;
             }
             CurrencyEventPayload::ImageChanged { image, .. } => {
                 self.writer
-                    .update_currency_image(
-                        uow,
-                        currency_id,
-                        image.clone(),
-                        event.event_id,
-                        event.event_sequence,
-                        event.occurred_at,
-                    )
+                    .update_currency_image(uow, event_context, currency_id, image.clone())
                     .await?;
             }
             CurrencyEventPayload::SupplyCommitted { amount } => {
                 self.writer
-                    .increase_currency_supply(
-                        uow,
-                        currency_id,
-                        *amount,
-                        event.event_id,
-                        event.event_sequence,
-                        event.occurred_at,
-                    )
+                    .increase_currency_supply(uow, event_context, currency_id, *amount)
                     .await?;
             }
             CurrencyEventPayload::Activated => {
                 self.writer
                     .update_currency_status(
                         uow,
+                        event_context,
                         currency_id,
                         CurrencyListItemStatus::Active,
-                        event.event_id,
-                        event.event_sequence,
-                        event.occurred_at,
                     )
                     .await?;
             }
@@ -338,23 +260,15 @@ where
                 self.writer
                     .update_currency_status(
                         uow,
+                        event_context,
                         currency_id,
                         CurrencyListItemStatus::Inactive,
-                        event.event_id,
-                        event.event_sequence,
-                        event.occurred_at,
                     )
                     .await?;
             }
             CurrencyEventPayload::Removed => {
                 self.writer
-                    .delete_currency(
-                        uow,
-                        currency_id,
-                        event.event_id,
-                        event.event_sequence,
-                        event.occurred_at,
-                    )
+                    .delete_currency(uow, event_context, currency_id)
                     .await?;
             }
             CurrencyEventPayload::OwnershipTransferRejected { .. }

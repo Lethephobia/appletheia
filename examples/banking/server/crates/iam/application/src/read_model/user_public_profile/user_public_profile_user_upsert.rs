@@ -1,6 +1,3 @@
-use appletheia::application::event::EventSequence;
-use appletheia::domain::EventId;
-use appletheia::domain::EventOccurredAt;
 use banking_iam_domain::{UserBio, UserDisplayName, UserId, UserPictureRef, Username};
 
 use super::UserPublicProfileStatus;
@@ -13,7 +10,4 @@ pub struct UserPublicProfileUserUpsert {
     pub bio: Option<UserBio>,
     pub picture: Option<UserPictureRef>,
     pub status: UserPublicProfileStatus,
-    pub event_id: EventId,
-    pub event_sequence: EventSequence,
-    pub occurred_at: EventOccurredAt,
 }

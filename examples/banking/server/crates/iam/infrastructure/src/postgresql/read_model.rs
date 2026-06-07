@@ -1,3 +1,5 @@
+mod pg_organization_picture_ref_columns;
+mod pg_organization_picture_ref_columns_error;
 mod pg_user_picture_ref_columns;
 mod pg_user_picture_ref_columns_error;
 mod user_private_info;

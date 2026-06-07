@@ -5,6 +5,7 @@ use sqlx::types::chrono::{DateTime, Utc};
 
 use super::super::pg_user_picture_ref_columns::PgUserPictureRefColumns;
 use super::pg_user_private_info_identity_row::PgUserPrivateInfoIdentityRow;
+use super::pg_user_private_info_organization_membership_row::PgUserPrivateInfoOrganizationMembershipRow;
 use super::pg_user_private_info_row_error::PgUserPrivateInfoRowError;
 
 #[derive(Debug, sqlx::FromRow)]
@@ -26,8 +27,13 @@ impl PgUserPrivateInfoRow {
     pub fn into_user_private_info(
         self,
         identity_rows: Vec<PgUserPrivateInfoIdentityRow>,
+        organization_membership_rows: Vec<PgUserPrivateInfoOrganizationMembershipRow>,
     ) -> Result<UserPrivateInfo, PgUserPrivateInfoRowError> {
         let identities = identity_rows
+            .into_iter()
+            .map(TryInto::try_into)
+            .collect::<Result<Vec<_>, _>>()?;
+        let organization_memberships = organization_membership_rows
             .into_iter()
             .map(TryInto::try_into)
             .collect::<Result<Vec<_>, _>>()?;
@@ -36,6 +42,7 @@ impl PgUserPrivateInfoRow {
             id: UserId::try_from_uuid(self.id)
                 .map_err(|error| PgUserPrivateInfoRowError::InvalidUserId(Box::new(error)))?,
             identities,
+            organization_memberships,
             username: Self::optional_username(self.username)?,
             display_name: Self::optional_display_name(self.display_name)?,
             bio: Self::optional_bio(self.bio)?,

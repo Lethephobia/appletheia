@@ -1,7 +1,7 @@
 use appletheia::application::event::EventSelector;
 use appletheia::application::messaging::Subscription;
 use appletheia::application::projection::{ProjectorDescriptor, ProjectorName, ProjectorSpec};
-use banking_iam_domain::{User, UserEventPayload};
+use banking_iam_domain::{Organization, OrganizationEventPayload, User, UserEventPayload};
 
 /// Projector specification for user-private information read models.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
@@ -21,6 +21,14 @@ impl ProjectorSpec for UserPrivateInfoProjectorSpec {
             EventSelector::new::<User>(UserEventPayload::ACTIVATED),
             EventSelector::new::<User>(UserEventPayload::DEACTIVATED),
             EventSelector::new::<User>(UserEventPayload::REMOVED),
+            EventSelector::new::<User>(UserEventPayload::ORGANIZATION_MEMBERSHIP_GRANTED),
+            EventSelector::new::<User>(UserEventPayload::ORGANIZATION_MEMBERSHIP_ROLES_CHANGED),
+            EventSelector::new::<User>(UserEventPayload::ORGANIZATION_MEMBERSHIP_REMOVED),
+            EventSelector::new::<Organization>(OrganizationEventPayload::CREATED),
+            EventSelector::new::<Organization>(OrganizationEventPayload::HANDLE_CHANGED),
+            EventSelector::new::<Organization>(OrganizationEventPayload::DISPLAY_NAME_CHANGED),
+            EventSelector::new::<Organization>(OrganizationEventPayload::PICTURE_CHANGED),
+            EventSelector::new::<Organization>(OrganizationEventPayload::REMOVED),
         ]),
     );
 }

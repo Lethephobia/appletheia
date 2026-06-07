@@ -1,9 +1,8 @@
-use appletheia::application::event::EventSequence;
-use appletheia::domain::{AggregateId, EventId, EventOccurredAt};
+use appletheia::domain::AggregateId;
 use appletheia::infrastructure::postgresql::PgUnitOfWork;
 use banking_iam_application::{
-    UserPublicProfileStatus, UserPublicProfileUserUpsert, UserPublicProfileWriter,
-    UserPublicProfileWriterError,
+    ReadModelEventContext, UserPublicProfileStatus, UserPublicProfileUserUpsert,
+    UserPublicProfileWriter, UserPublicProfileWriterError,
 };
 use banking_iam_domain::{UserBio, UserDisplayName, UserId, UserPictureRef, Username};
 
@@ -37,6 +36,7 @@ impl UserPublicProfileWriter for PgUserPublicProfileWriter {
     async fn upsert_user(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         upsert: UserPublicProfileUserUpsert,
     ) -> Result<(), UserPublicProfileWriterError> {
         let (picture_type, object_name, external_url) =
@@ -71,10 +71,10 @@ impl UserPublicProfileWriter for PgUserPublicProfileWriter {
         .bind(object_name)
         .bind(external_url)
         .bind(Self::status_name(upsert.status))
-        .bind(upsert.occurred_at.value())
-        .bind(upsert.occurred_at.value())
-        .bind(upsert.event_sequence.value())
-        .bind(upsert.event_id.value())
+        .bind(event_context.occurred_at.value())
+        .bind(event_context.occurred_at.value())
+        .bind(event_context.event_sequence.value())
+        .bind(event_context.event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| UserPublicProfileWriterError::Persistence(Box::new(e)))?;
@@ -85,11 +85,9 @@ impl UserPublicProfileWriter for PgUserPublicProfileWriter {
     async fn update_username(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: UserId,
         username: Username,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), UserPublicProfileWriterError> {
         sqlx::query(
             r#"
@@ -102,9 +100,9 @@ impl UserPublicProfileWriter for PgUserPublicProfileWriter {
         )
         .bind(id.value())
         .bind(username.value())
-        .bind(occurred_at.value())
-        .bind(event_sequence.value())
-        .bind(event_id.value())
+        .bind(event_context.occurred_at.value())
+        .bind(event_context.event_sequence.value())
+        .bind(event_context.event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| UserPublicProfileWriterError::Persistence(Box::new(e)))?;
@@ -115,11 +113,9 @@ impl UserPublicProfileWriter for PgUserPublicProfileWriter {
     async fn update_display_name(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: UserId,
         display_name: UserDisplayName,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), UserPublicProfileWriterError> {
         sqlx::query(
             r#"
@@ -132,9 +128,9 @@ impl UserPublicProfileWriter for PgUserPublicProfileWriter {
         )
         .bind(id.value())
         .bind(display_name.value())
-        .bind(occurred_at.value())
-        .bind(event_sequence.value())
-        .bind(event_id.value())
+        .bind(event_context.occurred_at.value())
+        .bind(event_context.event_sequence.value())
+        .bind(event_context.event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| UserPublicProfileWriterError::Persistence(Box::new(e)))?;
@@ -145,11 +141,9 @@ impl UserPublicProfileWriter for PgUserPublicProfileWriter {
     async fn update_bio(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: UserId,
         bio: Option<UserBio>,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), UserPublicProfileWriterError> {
         sqlx::query(
             r#"
@@ -162,9 +156,9 @@ impl UserPublicProfileWriter for PgUserPublicProfileWriter {
         )
         .bind(id.value())
         .bind(bio.as_ref().map(UserBio::value))
-        .bind(occurred_at.value())
-        .bind(event_sequence.value())
-        .bind(event_id.value())
+        .bind(event_context.occurred_at.value())
+        .bind(event_context.event_sequence.value())
+        .bind(event_context.event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| UserPublicProfileWriterError::Persistence(Box::new(e)))?;
@@ -175,11 +169,9 @@ impl UserPublicProfileWriter for PgUserPublicProfileWriter {
     async fn update_picture(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: UserId,
         picture: Option<UserPictureRef>,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), UserPublicProfileWriterError> {
         let (picture_type, object_name, external_url) =
             PgUserPictureRefColumns::from_picture(picture.as_ref());
@@ -200,9 +192,9 @@ impl UserPublicProfileWriter for PgUserPublicProfileWriter {
         .bind(picture_type)
         .bind(object_name)
         .bind(external_url)
-        .bind(occurred_at.value())
-        .bind(event_sequence.value())
-        .bind(event_id.value())
+        .bind(event_context.occurred_at.value())
+        .bind(event_context.event_sequence.value())
+        .bind(event_context.event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| UserPublicProfileWriterError::Persistence(Box::new(e)))?;
@@ -213,11 +205,9 @@ impl UserPublicProfileWriter for PgUserPublicProfileWriter {
     async fn update_status(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: UserId,
         status: UserPublicProfileStatus,
-        event_id: EventId,
-        event_sequence: EventSequence,
-        occurred_at: EventOccurredAt,
     ) -> Result<(), UserPublicProfileWriterError> {
         sqlx::query(
             r#"
@@ -230,9 +220,9 @@ impl UserPublicProfileWriter for PgUserPublicProfileWriter {
         )
         .bind(id.value())
         .bind(Self::status_name(status))
-        .bind(occurred_at.value())
-        .bind(event_sequence.value())
-        .bind(event_id.value())
+        .bind(event_context.occurred_at.value())
+        .bind(event_context.event_sequence.value())
+        .bind(event_context.event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| UserPublicProfileWriterError::Persistence(Box::new(e)))?;
@@ -243,10 +233,8 @@ impl UserPublicProfileWriter for PgUserPublicProfileWriter {
     async fn delete_user(
         &self,
         uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
         id: UserId,
-        _event_id: EventId,
-        event_sequence: EventSequence,
-        _occurred_at: EventOccurredAt,
     ) -> Result<(), UserPublicProfileWriterError> {
         sqlx::query(
             r#"
@@ -255,7 +243,7 @@ impl UserPublicProfileWriter for PgUserPublicProfileWriter {
             "#,
         )
         .bind(id.value())
-        .bind(event_sequence.value())
+        .bind(event_context.event_sequence.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| UserPublicProfileWriterError::Persistence(Box::new(e)))?;

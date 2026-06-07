@@ -1,6 +1,3 @@
-use appletheia::application::event::EventSequence;
-use appletheia::domain::EventId;
-use appletheia::domain::EventOccurredAt;
 use banking_ledger_domain::account::{AccountId, AccountName, AccountOwner};
 use banking_ledger_domain::core::CurrencyAmount;
 use banking_ledger_domain::currency::CurrencyId;
@@ -16,7 +13,4 @@ pub struct OwnedAccountListAccountUpsert {
     pub balance: CurrencyAmount,
     pub reserved_balance: CurrencyAmount,
     pub status: OwnedAccountListItemStatus,
-    pub event_id: EventId,
-    pub event_sequence: EventSequence,
-    pub occurred_at: EventOccurredAt,
 }

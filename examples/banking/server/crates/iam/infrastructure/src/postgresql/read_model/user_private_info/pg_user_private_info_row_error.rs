@@ -9,6 +9,24 @@ pub enum PgUserPrivateInfoRowError {
     #[error("invalid user id")]
     InvalidUserId(#[source] Box<dyn std::error::Error + Send + Sync>),
 
+    #[error("invalid organization id")]
+    InvalidOrganizationId(#[source] Box<dyn std::error::Error + Send + Sync>),
+
+    #[error("missing organization")]
+    MissingOrganization,
+
+    #[error("invalid organization handle")]
+    InvalidOrganizationHandle(#[source] Box<dyn std::error::Error + Send + Sync>),
+
+    #[error("invalid organization display name")]
+    InvalidOrganizationDisplayName(#[source] Box<dyn std::error::Error + Send + Sync>),
+
+    #[error("invalid organization picture")]
+    InvalidOrganizationPicture(#[source] Box<dyn std::error::Error + Send + Sync>),
+
+    #[error("invalid organization roles")]
+    InvalidOrganizationRoles(#[source] Box<dyn std::error::Error + Send + Sync>),
+
     #[error("invalid username")]
     InvalidUsername(#[source] Box<dyn std::error::Error + Send + Sync>),
 
