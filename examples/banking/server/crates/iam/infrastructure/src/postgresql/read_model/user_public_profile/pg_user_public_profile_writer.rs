@@ -1,10 +1,11 @@
 use appletheia::domain::AggregateId;
 use appletheia::infrastructure::postgresql::PgUnitOfWork;
 use banking_iam_application::{
-    ReadModelEventContext, UserPublicProfileStatus, UserPublicProfileUserUpsert,
-    UserPublicProfileWriter, UserPublicProfileWriterError,
+    UserPublicProfileStatus, UserPublicProfileUserUpsert, UserPublicProfileWriter,
+    UserPublicProfileWriterError,
 };
 use banking_iam_domain::{UserBio, UserDisplayName, UserId, UserPictureRef, Username};
+use banking_shared_kernel_application::read_model::ReadModelEventContext;
 
 use super::super::pg_user_picture_ref_columns::PgUserPictureRefColumns;
 

@@ -4,12 +4,13 @@ use banking_iam_domain::{Organization, OrganizationEventPayload, User, UserEvent
 use banking_ledger_domain::account::{Account, AccountEventPayload};
 use banking_ledger_domain::core::CurrencyAmount;
 use banking_ledger_domain::currency::{Currency, CurrencyEventPayload};
+use banking_shared_kernel_application::read_model::ReadModelEventContext;
 
 use super::{OwnedAccountListProjectorError, OwnedAccountListProjectorSpec};
 use crate::read_model::{
     OwnedAccountListAccountUpsert, OwnedAccountListCurrencyUpsert, OwnedAccountListItemStatus,
     OwnedAccountListOwnerOrganizationUpsert, OwnedAccountListOwnerUserUpsert,
-    OwnedAccountListWriter, ReadModelEventContext,
+    OwnedAccountListWriter,
 };
 
 /// Projects account and currency events into owned account list read models.

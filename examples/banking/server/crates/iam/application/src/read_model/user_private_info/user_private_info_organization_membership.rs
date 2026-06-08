@@ -1,7 +1,6 @@
 use appletheia::domain::EventId;
 use banking_iam_domain::OrganizationRoles;
-
-use crate::read_model::ReadModelObservation;
+use banking_shared_kernel_application::read_model::ReadModelObservation;
 
 use super::UserPrivateInfoOrganization;
 

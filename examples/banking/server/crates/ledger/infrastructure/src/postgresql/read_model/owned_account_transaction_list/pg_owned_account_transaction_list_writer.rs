@@ -11,11 +11,11 @@ use banking_ledger_application::{
     OwnedAccountTransactionListItemStatus, OwnedAccountTransactionListOwnerOrganizationUpsert,
     OwnedAccountTransactionListOwnerUserUpsert, OwnedAccountTransactionListTransferRequestedRecord,
     OwnedAccountTransactionListWriter, OwnedAccountTransactionListWriterError,
-    ReadModelEventContext,
 };
 use banking_ledger_domain::currency::{CurrencyId, CurrencyName, CurrencySymbol};
 use banking_ledger_domain::currency_issuance::CurrencyIssuanceId;
 use banking_ledger_domain::transfer::{TransferFailureReason, TransferId};
+use banking_shared_kernel_application::read_model::ReadModelEventContext;
 
 use super::super::pg_organization_picture_ref_columns::PgOrganizationPictureRefColumns;
 use super::super::pg_user_picture_ref_columns::PgUserPictureRefColumns;

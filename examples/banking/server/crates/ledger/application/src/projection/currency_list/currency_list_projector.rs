@@ -3,11 +3,12 @@ use appletheia::application::projection::Projector;
 use banking_iam_domain::{Organization, OrganizationEventPayload, User, UserEventPayload};
 use banking_ledger_domain::core::CurrencyAmount;
 use banking_ledger_domain::currency::{Currency, CurrencyEventPayload};
+use banking_shared_kernel_application::read_model::ReadModelEventContext;
 
 use super::{CurrencyListProjectorError, CurrencyListProjectorSpec};
 use crate::read_model::{
     CurrencyListCurrencyUpsert, CurrencyListItemStatus, CurrencyListOwnerOrganizationUpsert,
-    CurrencyListOwnerUserUpsert, CurrencyListWriter, ReadModelEventContext,
+    CurrencyListOwnerUserUpsert, CurrencyListWriter,
 };
 
 /// Projects currency events into currency list read models.

@@ -81,8 +81,9 @@ pub use username_error::UsernameError;
 
 use appletheia::aggregate;
 use appletheia::domain::{Aggregate, AggregateApply, AggregateCore};
+use banking_shared_kernel_domain::contact::Email;
 
-use crate::{OrganizationId, core::Email};
+use crate::OrganizationId;
 
 /// Represents the `User` aggregate root.
 #[aggregate(type = "user", error = UserError)]

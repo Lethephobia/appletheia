@@ -1,7 +1,7 @@
 use appletheia::query;
 
 use crate::read_model::{CurrencyListCriteria, CurrencyListCursor, CurrencyListSortKey};
-use crate::read_model::{CursorOptions, PageSize};
+use banking_shared_kernel_application::read_model::{CursorOptions, PageSize};
 
 /// Query parameters for public currency list reads.
 #[query(name = "currency_list")]

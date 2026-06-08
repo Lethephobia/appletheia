@@ -3,12 +3,13 @@ use appletheia::application::projection::Projector;
 use banking_iam_domain::{Organization, OrganizationEventPayload, User, UserEventPayload};
 use banking_ledger_domain::account::{Account, AccountEventPayload};
 use banking_ledger_domain::currency::{Currency, CurrencyEventPayload};
+use banking_shared_kernel_application::read_model::ReadModelEventContext;
 
 use super::{PublicAccountListProjectorError, PublicAccountListProjectorSpec};
 use crate::read_model::{
     PublicAccountListAccountUpsert, PublicAccountListCurrencyUpsert, PublicAccountListItemStatus,
     PublicAccountListOwnerOrganizationUpsert, PublicAccountListOwnerUserUpsert,
-    PublicAccountListWriter, ReadModelEventContext,
+    PublicAccountListWriter,
 };
 
 /// Projects account and currency events into public account list read models.

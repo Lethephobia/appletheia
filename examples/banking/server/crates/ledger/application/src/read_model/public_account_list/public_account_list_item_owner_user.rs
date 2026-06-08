@@ -1,6 +1,6 @@
 use banking_iam_domain::{UserDisplayName, UserId, UserPictureRef, Username};
 
-use crate::read_model::ReadModelObservation;
+use banking_shared_kernel_application::read_model::ReadModelObservation;
 
 /// User owner fields exposed in public account list items.
 #[derive(Clone, Debug, Eq, PartialEq)]

@@ -20,9 +20,8 @@ pub use user_identity_registration::UserIdentityRegistration;
 pub use user_identity_subject::UserIdentitySubject;
 pub use user_identity_subject_error::UserIdentitySubjectError;
 
+use banking_shared_kernel_domain::contact::Email;
 use serde::{Deserialize, Serialize};
-
-use crate::core::Email;
 
 /// Represents an external identity linked to a `User`.
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
@@ -74,7 +73,7 @@ impl UserIdentity {
 
 #[cfg(test)]
 mod tests {
-    use crate::core::Email;
+    use banking_shared_kernel_domain::contact::Email;
 
     use super::{UserIdentity, UserIdentityProvider, UserIdentitySubject};
 

@@ -1,6 +1,6 @@
 use banking_ledger_domain::currency::{CurrencyDecimals, CurrencyId, CurrencyName, CurrencySymbol};
 
-use crate::read_model::ReadModelObservation;
+use banking_shared_kernel_application::read_model::ReadModelObservation;
 
 /// Currency part of an owned account list item.
 #[derive(Clone, Debug, Eq, PartialEq)]

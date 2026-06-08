@@ -16,9 +16,10 @@ use banking_iam_domain::user::{
     UserIdentityEmailChangeResult, UserIdentityLinkRejectionReason, UserIdentityLinkResult,
 };
 use banking_iam_domain::{
-    Email, User, UserId, UserIdentityProvider, UserIdentityRegistration, UserIdentitySubject,
+    User, UserId, UserIdentityProvider, UserIdentityRegistration, UserIdentitySubject,
     UserRegistration, UserState,
 };
+use banking_shared_kernel_domain::contact::Email;
 
 use crate::oidc::{OidcCompletionPurpose, OidcContinuationPayload};
 

@@ -1,10 +1,9 @@
 use appletheia::domain::{AggregateId, EventId};
-use banking_iam_application::{
-    ReadModelObservation, UserPrivateInfoOrganization, UserPrivateInfoOrganizationMembership,
-};
+use banking_iam_application::{UserPrivateInfoOrganization, UserPrivateInfoOrganizationMembership};
 use banking_iam_domain::{
     OrganizationDisplayName, OrganizationHandle, OrganizationId, OrganizationRoles,
 };
+use banking_shared_kernel_application::read_model::ReadModelObservation;
 
 use super::super::pg_organization_picture_ref_columns::PgOrganizationPictureRefColumns;
 use super::pg_user_private_info_row_error::PgUserPrivateInfoRowError;

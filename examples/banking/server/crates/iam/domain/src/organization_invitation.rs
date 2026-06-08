@@ -38,8 +38,9 @@ pub use organization_invitation_status::OrganizationInvitationStatus;
 
 use appletheia::aggregate;
 use appletheia::domain::{Aggregate, AggregateApply, AggregateCore};
+use banking_shared_kernel_domain::timestamps::CurrentDateTime;
 
-use crate::{CurrentDateTime, OrganizationId, OrganizationRoles, UserId};
+use crate::{OrganizationId, OrganizationRoles, UserId};
 
 /// Represents the `OrganizationInvitation` aggregate root.
 #[aggregate(type = "organization_invitation", error = OrganizationInvitationError)]
@@ -346,7 +347,8 @@ mod tests {
         OrganizationInvitationExpiresAt, OrganizationInvitationIssuance,
         OrganizationInvitationIssuer, OrganizationInvitationStatus,
     };
-    use crate::{CurrentDateTime, OrganizationId, OrganizationRoles, UserId};
+    use crate::{OrganizationId, OrganizationRoles, UserId};
+    use banking_shared_kernel_domain::timestamps::CurrentDateTime;
 
     fn organization_id() -> OrganizationId {
         OrganizationId::new()

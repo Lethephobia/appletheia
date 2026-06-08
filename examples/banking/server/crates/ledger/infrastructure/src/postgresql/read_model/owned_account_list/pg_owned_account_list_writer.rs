@@ -7,11 +7,12 @@ use banking_iam_domain::{
 use banking_ledger_application::{
     OwnedAccountListAccountUpsert, OwnedAccountListCurrencyUpsert, OwnedAccountListItemStatus,
     OwnedAccountListOwnerOrganizationUpsert, OwnedAccountListOwnerUserUpsert,
-    OwnedAccountListWriter, OwnedAccountListWriterError, ReadModelEventContext,
+    OwnedAccountListWriter, OwnedAccountListWriterError,
 };
 use banking_ledger_domain::account::{AccountId, AccountName, AccountOwner};
 use banking_ledger_domain::core::CurrencyAmount;
 use banking_ledger_domain::currency::{CurrencyId, CurrencyName, CurrencySymbol};
+use banking_shared_kernel_application::read_model::ReadModelEventContext;
 
 use super::super::pg_organization_picture_ref_columns::PgOrganizationPictureRefColumns;
 use super::super::pg_user_picture_ref_columns::PgUserPictureRefColumns;

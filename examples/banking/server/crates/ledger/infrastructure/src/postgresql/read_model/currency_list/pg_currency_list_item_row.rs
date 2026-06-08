@@ -4,12 +4,13 @@ use banking_iam_domain::{
 };
 use banking_ledger_application::{
     CurrencyListItem, CurrencyListItemOwner, CurrencyListItemOwnerOrganization,
-    CurrencyListItemOwnerUser, CurrencyListItemStatus, ReadModelObservation,
+    CurrencyListItemOwnerUser, CurrencyListItemStatus,
 };
 use banking_ledger_domain::core::CurrencyAmount;
 use banking_ledger_domain::currency::{
     CurrencyDecimals, CurrencyDescription, CurrencyId, CurrencyName, CurrencySymbol,
 };
+use banking_shared_kernel_application::read_model::ReadModelObservation;
 use sqlx::types::chrono::{DateTime, Utc};
 
 use super::super::pg_currency_image_ref_columns::PgCurrencyImageRefColumns;

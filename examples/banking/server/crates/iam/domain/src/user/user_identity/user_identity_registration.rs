@@ -1,6 +1,5 @@
+use banking_shared_kernel_domain::contact::Email;
 use serde::{Deserialize, Serialize};
-
-use crate::core::Email;
 
 use super::{UserIdentityProvider, UserIdentitySubject};
 

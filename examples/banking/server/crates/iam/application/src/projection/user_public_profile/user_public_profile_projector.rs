@@ -1,10 +1,10 @@
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
 use banking_iam_domain::{User, UserEventPayload};
+use banking_shared_kernel_application::read_model::ReadModelEventContext;
 
 use crate::read_model::{
-    ReadModelEventContext, UserPublicProfileStatus, UserPublicProfileUserUpsert,
-    UserPublicProfileWriter,
+    UserPublicProfileStatus, UserPublicProfileUserUpsert, UserPublicProfileWriter,
 };
 
 use super::{UserPublicProfileProjectorError, UserPublicProfileProjectorSpec};

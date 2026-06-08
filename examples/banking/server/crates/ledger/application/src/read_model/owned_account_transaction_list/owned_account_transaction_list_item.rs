@@ -7,7 +7,7 @@ use super::{
     OwnedAccountTransactionListItemDirection, OwnedAccountTransactionListItemKind,
     OwnedAccountTransactionListItemStatus,
 };
-use crate::read_model::ReadModelObservation;
+use banking_shared_kernel_application::read_model::ReadModelObservation;
 
 /// Read model for one owned account transaction list row.
 #[derive(Clone, Debug, Eq, PartialEq)]

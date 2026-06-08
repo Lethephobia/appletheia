@@ -2,7 +2,7 @@ use appletheia::domain::EventId;
 use banking_ledger_domain::account::AccountId;
 
 use super::OwnedAccountTransactionListItemCounterpartyAccountOwner;
-use crate::read_model::ReadModelObservation;
+use banking_shared_kernel_application::read_model::ReadModelObservation;
 
 /// Counterparty account shown in a transfer transaction list item.
 #[derive(Clone, Debug, Eq, PartialEq)]

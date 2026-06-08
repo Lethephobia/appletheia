@@ -1,7 +1,6 @@
 use appletheia::domain::{EventId, EventOccurredAt};
 use banking_iam_domain::{UserBio, UserDisplayName, UserId, UserPictureRef, Username};
-
-use super::ReadModelObservation;
+use banking_shared_kernel_application::read_model::ReadModelObservation;
 
 mod user_private_info_identity;
 mod user_private_info_identity_upsert;

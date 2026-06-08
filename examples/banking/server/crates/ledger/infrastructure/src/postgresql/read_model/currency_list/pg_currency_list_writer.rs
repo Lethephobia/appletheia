@@ -7,12 +7,12 @@ use banking_iam_domain::{
 use banking_ledger_application::{
     CurrencyListCurrencyUpsert, CurrencyListItemStatus, CurrencyListOwnerOrganizationUpsert,
     CurrencyListOwnerUserUpsert, CurrencyListWriter, CurrencyListWriterError,
-    ReadModelEventContext,
 };
 use banking_ledger_domain::core::CurrencyAmount;
 use banking_ledger_domain::currency::{
     CurrencyDescription, CurrencyId, CurrencyImageRef, CurrencyName, CurrencyOwner, CurrencySymbol,
 };
+use banking_shared_kernel_application::read_model::ReadModelEventContext;
 
 use super::super::pg_currency_image_ref_columns::PgCurrencyImageRefColumns;
 use super::super::pg_organization_picture_ref_columns::PgOrganizationPictureRefColumns;

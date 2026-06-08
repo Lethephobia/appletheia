@@ -8,6 +8,7 @@ appletheia = { workspace = true, features = ["application", "macros-application"
 banking-iam-application = { workspace = true }
 banking-iam-domain = { workspace = true }
 banking-ledger-domain = { workspace = true }
+banking-shared-kernel-application = { workspace = true }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.150"
 thiserror = "2.0.18"

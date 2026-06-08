@@ -110,11 +110,12 @@ mod tests {
     use appletheia::domain::{
         ReferenceIndexes, ReferenceValues, UniqueConstraints, UniqueKey, UniqueValues,
     };
+    use banking_shared_kernel_domain::contact::Email;
 
     use crate::{
         OrganizationId, OrganizationMembership, OrganizationRoles, UserDisplayName, UserId,
         UserIdentity, UserIdentityProvider, UserIdentitySubject, UserPictureRef, UserPictureUrl,
-        UserState, UserStatus, Username, core::Email,
+        UserState, UserStatus, Username,
     };
 
     fn identity() -> UserIdentity {

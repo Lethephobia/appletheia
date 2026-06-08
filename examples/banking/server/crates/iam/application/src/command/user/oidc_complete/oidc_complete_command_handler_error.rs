@@ -7,9 +7,8 @@ use appletheia::application::authentication::{
 use appletheia::application::authorization::AggregateRefError;
 use appletheia::application::repository::RepositoryError;
 use appletheia::domain::{UniqueValueError, UniqueValuePartError};
-use banking_iam_domain::{
-    EmailError, User, UserError, UserIdentityProviderError, UserIdentitySubjectError,
-};
+use banking_iam_domain::{User, UserError, UserIdentityProviderError, UserIdentitySubjectError};
+use banking_shared_kernel_domain::contact::EmailError;
 use thiserror::Error;
 
 /// Represents errors returned while completing an OIDC flow.

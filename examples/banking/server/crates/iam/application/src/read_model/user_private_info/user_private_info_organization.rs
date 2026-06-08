@@ -1,8 +1,7 @@
 use banking_iam_domain::{
     OrganizationDisplayName, OrganizationHandle, OrganizationId, OrganizationPictureRef,
 };
-
-use crate::read_model::ReadModelObservation;
+use banking_shared_kernel_application::read_model::ReadModelObservation;
 
 /// Organization snapshot shown in user-private information.
 #[derive(Clone, Debug, Eq, PartialEq)]

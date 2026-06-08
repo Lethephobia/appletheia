@@ -10,12 +10,12 @@ use banking_ledger_application::{
     OwnedAccountTransactionListItemCounterpartyAccountOwnerUser,
     OwnedAccountTransactionListItemCurrency, OwnedAccountTransactionListItemDirection,
     OwnedAccountTransactionListItemKind, OwnedAccountTransactionListItemStatus,
-    ReadModelObservation,
 };
 use banking_ledger_domain::account::AccountId;
 use banking_ledger_domain::core::CurrencyAmount;
 use banking_ledger_domain::currency::{CurrencyDecimals, CurrencyId, CurrencyName, CurrencySymbol};
 use banking_ledger_domain::transfer::TransferId;
+use banking_shared_kernel_application::read_model::ReadModelObservation;
 use sqlx::types::chrono::{DateTime, Utc};
 
 use super::super::pg_organization_picture_ref_columns::PgOrganizationPictureRefColumns;

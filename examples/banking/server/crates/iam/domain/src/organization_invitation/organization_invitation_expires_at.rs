@@ -1,9 +1,8 @@
 use std::{fmt, fmt::Display};
 
+use banking_shared_kernel_domain::timestamps::CurrentDateTime;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-
-use crate::CurrentDateTime;
 
 /// Represents when an organization invitation expires.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
@@ -47,10 +46,10 @@ impl Display for OrganizationInvitationExpiresAt {
 
 #[cfg(test)]
 mod tests {
+    use banking_shared_kernel_domain::timestamps::CurrentDateTime;
     use chrono::{DateTime, TimeZone, Utc};
 
     use super::OrganizationInvitationExpiresAt;
-    use crate::CurrentDateTime;
 
     #[test]
     fn value_returns_inner_datetime() {

@@ -6,7 +6,7 @@ use banking_ledger_domain::currency::{
 };
 
 use super::{CurrencyListItemOwner, CurrencyListItemStatus};
-use crate::read_model::ReadModelObservation;
+use banking_shared_kernel_application::read_model::ReadModelObservation;
 
 /// Read model for one public currency list row.
 #[derive(Clone, Debug, Eq, PartialEq)]

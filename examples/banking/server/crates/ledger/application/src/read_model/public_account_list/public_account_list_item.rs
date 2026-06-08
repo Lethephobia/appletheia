@@ -2,7 +2,7 @@ use appletheia::domain::{EventId, EventOccurredAt};
 use banking_ledger_domain::account::AccountId;
 
 use super::{PublicAccountListItemCurrency, PublicAccountListItemOwner};
-use crate::read_model::ReadModelObservation;
+use banking_shared_kernel_application::read_model::ReadModelObservation;
 
 /// Read model for one public account list row.
 #[derive(Clone, Debug, Eq, PartialEq)]

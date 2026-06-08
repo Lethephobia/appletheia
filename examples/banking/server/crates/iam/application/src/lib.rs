@@ -92,8 +92,7 @@ pub use query::{
     UserPublicProfileQuery, UserPublicProfileQueryHandler, UserPublicProfileQueryHandlerError,
 };
 pub use read_model::{
-    CursorOptions, PageSize, PageSizeError, ReadModelEventContext, ReadModelObservation,
-    SortDirection, UserPrivateInfo, UserPrivateInfoIdentity, UserPrivateInfoIdentityUpsert,
+    UserPrivateInfo, UserPrivateInfoIdentity, UserPrivateInfoIdentityUpsert,
     UserPrivateInfoOrganization, UserPrivateInfoOrganizationMembership,
     UserPrivateInfoOrganizationMembershipUpsert, UserPrivateInfoOrganizationUpsert,
     UserPrivateInfoReader, UserPrivateInfoReaderError, UserPrivateInfoStatus,

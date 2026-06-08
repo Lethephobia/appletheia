@@ -3,7 +3,7 @@ use banking_ledger_domain::account::{AccountId, AccountName};
 use banking_ledger_domain::core::CurrencyAmount;
 
 use super::{OwnedAccountListItemCurrency, OwnedAccountListItemStatus};
-use crate::read_model::ReadModelObservation;
+use banking_shared_kernel_application::read_model::ReadModelObservation;
 
 /// Read model for one account list row.
 #[derive(Clone, Debug, Eq, PartialEq)]

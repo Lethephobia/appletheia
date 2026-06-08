@@ -6,10 +6,11 @@ use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use appletheia::domain::{AggregateId, UniqueValue};
 use banking_iam_domain::{
-    CurrentDateTime, Organization, OrganizationInvitation, OrganizationInvitationIssuance,
+    Organization, OrganizationInvitation, OrganizationInvitationIssuance,
     OrganizationInvitationIssueRejectionReason, OrganizationInvitationIssuer,
     OrganizationInvitationState, User,
 };
+use banking_shared_kernel_domain::timestamps::CurrentDateTime;
 
 use crate::authorization::{OrganizationInviterRelation, UserOwnerRelation};
 

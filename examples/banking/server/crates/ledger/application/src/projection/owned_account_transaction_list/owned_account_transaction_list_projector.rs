@@ -5,6 +5,7 @@ use banking_ledger_domain::account::{Account, AccountEventPayload};
 use banking_ledger_domain::currency::{Currency, CurrencyEventPayload};
 use banking_ledger_domain::currency_issuance::{CurrencyIssuance, CurrencyIssuanceEventPayload};
 use banking_ledger_domain::transfer::{Transfer, TransferEventPayload};
+use banking_shared_kernel_application::read_model::ReadModelEventContext;
 
 use super::{OwnedAccountTransactionListProjectorError, OwnedAccountTransactionListProjectorSpec};
 use crate::read_model::{
@@ -13,7 +14,7 @@ use crate::read_model::{
     OwnedAccountTransactionListItemInsert, OwnedAccountTransactionListItemKind,
     OwnedAccountTransactionListItemStatus, OwnedAccountTransactionListOwnerOrganizationUpsert,
     OwnedAccountTransactionListOwnerUserUpsert, OwnedAccountTransactionListTransferRequestedRecord,
-    OwnedAccountTransactionListWriter, ReadModelEventContext,
+    OwnedAccountTransactionListWriter,
 };
 
 /// Projects ledger events into owned account transaction list read models.

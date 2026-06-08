@@ -4,10 +4,11 @@ use banking_iam_domain::{
 };
 use banking_ledger_application::{
     PublicAccountListItem, PublicAccountListItemCurrency, PublicAccountListItemOwner,
-    PublicAccountListItemOwnerOrganization, PublicAccountListItemOwnerUser, ReadModelObservation,
+    PublicAccountListItemOwnerOrganization, PublicAccountListItemOwnerUser,
 };
 use banking_ledger_domain::account::AccountId;
 use banking_ledger_domain::currency::{CurrencyDecimals, CurrencyId, CurrencyName, CurrencySymbol};
+use banking_shared_kernel_application::read_model::ReadModelObservation;
 use sqlx::types::chrono::{DateTime, Utc};
 
 use super::super::pg_organization_picture_ref_columns::PgOrganizationPictureRefColumns;

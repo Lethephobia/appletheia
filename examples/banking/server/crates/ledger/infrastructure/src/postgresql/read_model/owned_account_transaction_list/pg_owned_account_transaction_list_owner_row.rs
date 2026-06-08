@@ -4,8 +4,9 @@ use banking_iam_domain::{
 };
 use banking_ledger_application::{
     OwnedAccountTransactionListOwner, OwnedAccountTransactionListOwnerOrganization,
-    OwnedAccountTransactionListOwnerUser, ReadModelObservation,
+    OwnedAccountTransactionListOwnerUser,
 };
+use banking_shared_kernel_application::read_model::ReadModelObservation;
 
 use super::super::pg_organization_picture_ref_columns::PgOrganizationPictureRefColumns;
 use super::super::pg_user_picture_ref_columns::PgUserPictureRefColumns;

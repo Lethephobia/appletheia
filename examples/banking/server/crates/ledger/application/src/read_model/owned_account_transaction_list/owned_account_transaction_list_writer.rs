@@ -1,6 +1,5 @@
 use appletheia::application::unit_of_work::UnitOfWork;
 
-use crate::read_model::ReadModelEventContext;
 use banking_iam_domain::{
     OrganizationDisplayName, OrganizationHandle, OrganizationId, OrganizationPictureRef,
     UserDisplayName, UserId, UserPictureRef, Username,
@@ -8,6 +7,7 @@ use banking_iam_domain::{
 use banking_ledger_domain::currency::{CurrencyId, CurrencyName, CurrencySymbol};
 use banking_ledger_domain::currency_issuance::CurrencyIssuanceId;
 use banking_ledger_domain::transfer::{TransferFailureReason, TransferId};
+use banking_shared_kernel_application::read_model::ReadModelEventContext;
 
 use super::{
     OwnedAccountTransactionId, OwnedAccountTransactionListCurrencyIssuanceIssuedRecord,

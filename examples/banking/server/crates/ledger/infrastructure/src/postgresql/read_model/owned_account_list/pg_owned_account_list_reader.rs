@@ -1,12 +1,12 @@
 use appletheia::domain::AggregateId;
 use appletheia::infrastructure::postgresql::PgUnitOfWork;
 use banking_ledger_application::{
-    CursorOptions, OwnedAccountList, OwnedAccountListCriteria, OwnedAccountListCursor,
-    OwnedAccountListItem, OwnedAccountListItemStatus, OwnedAccountListOwner,
-    OwnedAccountListReader, OwnedAccountListReaderError, OwnedAccountListSortKey, PageSize,
-    SortDirection,
+    OwnedAccountList, OwnedAccountListCriteria, OwnedAccountListCursor, OwnedAccountListItem,
+    OwnedAccountListItemStatus, OwnedAccountListOwner, OwnedAccountListReader,
+    OwnedAccountListReaderError, OwnedAccountListSortKey,
 };
 use banking_ledger_domain::account::AccountOwner;
+use banking_shared_kernel_application::read_model::{CursorOptions, PageSize, SortDirection};
 use sqlx::{Postgres, QueryBuilder};
 
 use super::pg_owned_account_list_item_row::PgOwnedAccountListItemRow;

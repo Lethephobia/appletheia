@@ -1,6 +1,5 @@
 use appletheia::application::unit_of_work::UnitOfWork;
 
-use crate::read_model::ReadModelEventContext;
 use banking_iam_domain::{
     OrganizationDisplayName, OrganizationHandle, OrganizationId, OrganizationPictureRef,
     UserDisplayName, UserId, UserPictureRef, Username,
@@ -9,6 +8,7 @@ use banking_ledger_domain::core::CurrencyAmount;
 use banking_ledger_domain::currency::{
     CurrencyDescription, CurrencyId, CurrencyImageRef, CurrencyName, CurrencyOwner, CurrencySymbol,
 };
+use banking_shared_kernel_application::read_model::ReadModelEventContext;
 
 use super::{
     CurrencyListCurrencyUpsert, CurrencyListItemStatus, CurrencyListOwnerOrganizationUpsert,

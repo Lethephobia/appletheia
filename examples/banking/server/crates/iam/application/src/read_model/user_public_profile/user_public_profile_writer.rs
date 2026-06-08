@@ -1,7 +1,6 @@
 use appletheia::application::unit_of_work::UnitOfWork;
 use banking_iam_domain::{UserBio, UserDisplayName, UserId, UserPictureRef, Username};
-
-use crate::read_model::ReadModelEventContext;
+use banking_shared_kernel_application::read_model::ReadModelEventContext;
 
 use super::{UserPublicProfileStatus, UserPublicProfileUserUpsert, UserPublicProfileWriterError};
 

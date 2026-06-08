@@ -1,7 +1,8 @@
 use appletheia::domain::EventId;
-use banking_iam_application::ReadModelObservation;
 use banking_iam_application::UserPrivateInfoIdentity;
-use banking_iam_domain::{UserIdentityProvider, UserIdentitySubject, core::Email};
+use banking_iam_domain::{UserIdentityProvider, UserIdentitySubject};
+use banking_shared_kernel_application::read_model::ReadModelObservation;
+use banking_shared_kernel_domain::contact::Email;
 
 use super::pg_user_private_info_row_error::PgUserPrivateInfoRowError;
 

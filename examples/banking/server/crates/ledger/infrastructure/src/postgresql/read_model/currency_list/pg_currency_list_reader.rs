@@ -3,8 +3,8 @@ use appletheia::infrastructure::postgresql::PgUnitOfWork;
 use banking_ledger_application::{
     CurrencyList, CurrencyListCriteria, CurrencyListCursor, CurrencyListItem,
     CurrencyListItemStatus, CurrencyListReader, CurrencyListReaderError, CurrencyListSortKey,
-    CursorOptions, PageSize, SortDirection,
 };
+use banking_shared_kernel_application::read_model::{CursorOptions, PageSize, SortDirection};
 use sqlx::{Postgres, QueryBuilder};
 
 use super::pg_currency_list_item_row::PgCurrencyListItemRow;

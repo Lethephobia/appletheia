@@ -2,7 +2,7 @@ use banking_iam_domain::{
     OrganizationDisplayName, OrganizationHandle, OrganizationId, OrganizationPictureRef,
 };
 
-use crate::read_model::ReadModelObservation;
+use banking_shared_kernel_application::read_model::ReadModelObservation;
 
 /// Organization owner shown in a currency list item.
 #[derive(Clone, Debug, Eq, PartialEq)]

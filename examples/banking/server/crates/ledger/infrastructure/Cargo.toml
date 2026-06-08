@@ -8,6 +8,7 @@ appletheia = { workspace = true, features = ["infrastructure"] }
 banking-iam-domain = { workspace = true }
 banking-ledger-application = { workspace = true }
 banking-ledger-domain = { workspace = true }
+banking-shared-kernel-application = { workspace = true }
 solana-client = "4.1.0-beta.3"
 solana-sdk = "4.0.1"
 solana-system-interface = { version = "3.2.0", features = ["bincode"] }

@@ -1,11 +1,11 @@
 use appletheia::domain::{AggregateId, EventId, EventOccurredAt};
 use banking_ledger_application::{
     OwnedAccountListItem, OwnedAccountListItemCurrency, OwnedAccountListItemStatus,
-    ReadModelObservation,
 };
 use banking_ledger_domain::account::{AccountId, AccountName};
 use banking_ledger_domain::core::CurrencyAmount;
 use banking_ledger_domain::currency::{CurrencyDecimals, CurrencyId, CurrencyName, CurrencySymbol};
+use banking_shared_kernel_application::read_model::ReadModelObservation;
 use sqlx::types::chrono::{DateTime, Utc};
 
 use super::pg_owned_account_list_item_row_error::PgOwnedAccountListItemRowError;

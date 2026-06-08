@@ -1,6 +1,6 @@
 use appletheia::application::unit_of_work::UnitOfWork;
 
-use crate::read_model::{CursorOptions, PageSize};
+use banking_shared_kernel_application::read_model::{CursorOptions, PageSize};
 
 use super::{
     PublicAccountList, PublicAccountListCriteria, PublicAccountListCursor,

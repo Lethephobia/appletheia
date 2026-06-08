@@ -3,10 +3,9 @@ use banking_iam_domain::OrganizationRoles;
 use banking_iam_domain::{
     OrganizationDisplayName, OrganizationHandle, OrganizationId, OrganizationPictureRef, UserBio,
     UserDisplayName, UserId, UserIdentityProvider, UserIdentitySubject, UserPictureRef, Username,
-    core::Email,
 };
-
-use crate::read_model::ReadModelEventContext;
+use banking_shared_kernel_application::read_model::ReadModelEventContext;
+use banking_shared_kernel_domain::contact::Email;
 
 use super::{
     UserPrivateInfoIdentityUpsert, UserPrivateInfoOrganizationMembershipUpsert,

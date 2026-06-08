@@ -1,6 +1,6 @@
 use appletheia::event_payload;
+use banking_shared_kernel_domain::contact::Email;
 
-use crate::core::Email;
 use crate::{OrganizationId, OrganizationRoles};
 
 use super::{
@@ -108,8 +108,8 @@ pub enum UserEventPayload {
 #[cfg(test)]
 mod tests {
     use appletheia::domain::EventPayload;
+    use banking_shared_kernel_domain::contact::Email;
 
-    use crate::core::Email;
     use crate::{
         OrganizationId, OrganizationRoles, UserBio, UserDisplayName, UserIdentityProvider,
         UserIdentitySubject, UserPictureRef, UserPictureUrl,

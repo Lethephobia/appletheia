@@ -1,16 +1,17 @@
 use appletheia::domain::AggregateId;
 use appletheia::infrastructure::postgresql::PgUnitOfWork;
 use banking_iam_application::{
-    ReadModelEventContext, UserPrivateInfoIdentityUpsert,
-    UserPrivateInfoOrganizationMembershipUpsert, UserPrivateInfoOrganizationUpsert,
-    UserPrivateInfoStatus, UserPrivateInfoUserUpsert, UserPrivateInfoWriter,
-    UserPrivateInfoWriterError,
+    UserPrivateInfoIdentityUpsert, UserPrivateInfoOrganizationMembershipUpsert,
+    UserPrivateInfoOrganizationUpsert, UserPrivateInfoStatus, UserPrivateInfoUserUpsert,
+    UserPrivateInfoWriter, UserPrivateInfoWriterError,
 };
 use banking_iam_domain::{
     OrganizationDisplayName, OrganizationHandle, OrganizationId, OrganizationPictureRef,
     OrganizationRoles, UserBio, UserDisplayName, UserId, UserIdentityProvider, UserIdentitySubject,
-    UserPictureRef, Username, core::Email,
+    UserPictureRef, Username,
 };
+use banking_shared_kernel_application::read_model::ReadModelEventContext;
+use banking_shared_kernel_domain::contact::Email;
 
 use super::super::pg_organization_picture_ref_columns::PgOrganizationPictureRefColumns;
 use super::super::pg_user_picture_ref_columns::PgUserPictureRefColumns;

@@ -1,6 +1,7 @@
 use appletheia::domain::{AggregateId, EventId, EventOccurredAt};
-use banking_iam_application::{ReadModelObservation, UserPublicProfile};
+use banking_iam_application::UserPublicProfile;
 use banking_iam_domain::{UserBio, UserDisplayName, UserId, Username};
+use banking_shared_kernel_application::read_model::ReadModelObservation;
 use sqlx::types::chrono::{DateTime, Utc};
 
 use super::super::pg_user_picture_ref_columns::PgUserPictureRefColumns;
