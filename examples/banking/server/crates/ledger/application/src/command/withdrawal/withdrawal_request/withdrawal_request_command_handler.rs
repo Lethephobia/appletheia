@@ -88,27 +88,18 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
-        let Some(account) = self
+        let account = self
             .account_repository
-            .find(uow, command.account_id)
-            .await?
-        else {
-            return Err(WithdrawalRequestCommandHandlerError::AccountNotFound);
-        };
-        let Some(payout_destination) = self
+            .read(uow, command.account_id)
+            .await?;
+        let payout_destination = self
             .payout_destination_repository
-            .find(uow, command.payout_destination_id)
-            .await?
-        else {
-            return Err(WithdrawalRequestCommandHandlerError::PayoutDestinationNotFound);
-        };
-        let Some(currency) = self
+            .read(uow, command.payout_destination_id)
+            .await?;
+        let currency = self
             .currency_repository
-            .find(uow, *account.currency_id()?)
-            .await?
-        else {
-            return Err(WithdrawalRequestCommandHandlerError::CurrencyNotFound);
-        };
+            .read(uow, *account.currency_id()?)
+            .await?;
 
         let mut withdrawal = Withdrawal::default();
         let account_id = command.account_id;
@@ -264,21 +255,37 @@ mod tests {
     impl Repository<Account> for TestAccountRepository {
         type Uow = TestUow;
 
-        async fn find(
+        async fn read(
             &self,
             _uow: &mut Self::Uow,
             id: AccountId,
-        ) -> Result<Option<Account>, RepositoryError<Account>> {
-            Ok(self.items.lock().expect("lock").get(&id).cloned())
+        ) -> Result<Account, RepositoryError<Account>> {
+            self.items
+                .lock()
+                .expect("lock")
+                .get(&id)
+                .cloned()
+                .ok_or_else(|| RepositoryError::NotFound {
+                    aggregate_type: Account::TYPE,
+                    aggregate_id: id,
+                })
         }
 
-        async fn find_at_version(
+        async fn read_at_version(
             &self,
             _uow: &mut Self::Uow,
             id: AccountId,
-            _at: Option<AggregateVersion>,
-        ) -> Result<Option<Account>, RepositoryError<Account>> {
-            Ok(self.items.lock().expect("lock").get(&id).cloned())
+            _at: AggregateVersion,
+        ) -> Result<Account, RepositoryError<Account>> {
+            self.items
+                .lock()
+                .expect("lock")
+                .get(&id)
+                .cloned()
+                .ok_or_else(|| RepositoryError::NotFound {
+                    aggregate_type: Account::TYPE,
+                    aggregate_id: id,
+                })
         }
 
         async fn find_by_unique_value(
@@ -320,21 +327,37 @@ mod tests {
     impl Repository<Currency> for TestCurrencyRepository {
         type Uow = TestUow;
 
-        async fn find(
+        async fn read(
             &self,
             _uow: &mut Self::Uow,
             id: CurrencyId,
-        ) -> Result<Option<Currency>, RepositoryError<Currency>> {
-            Ok(self.items.lock().expect("lock").get(&id).cloned())
+        ) -> Result<Currency, RepositoryError<Currency>> {
+            self.items
+                .lock()
+                .expect("lock")
+                .get(&id)
+                .cloned()
+                .ok_or_else(|| RepositoryError::NotFound {
+                    aggregate_type: Currency::TYPE,
+                    aggregate_id: id,
+                })
         }
 
-        async fn find_at_version(
+        async fn read_at_version(
             &self,
             _uow: &mut Self::Uow,
             id: CurrencyId,
-            _at: Option<AggregateVersion>,
-        ) -> Result<Option<Currency>, RepositoryError<Currency>> {
-            Ok(self.items.lock().expect("lock").get(&id).cloned())
+            _at: AggregateVersion,
+        ) -> Result<Currency, RepositoryError<Currency>> {
+            self.items
+                .lock()
+                .expect("lock")
+                .get(&id)
+                .cloned()
+                .ok_or_else(|| RepositoryError::NotFound {
+                    aggregate_type: Currency::TYPE,
+                    aggregate_id: id,
+                })
         }
 
         async fn find_by_unique_value(
@@ -378,21 +401,37 @@ mod tests {
     impl Repository<PayoutDestination> for TestPayoutDestinationRepository {
         type Uow = TestUow;
 
-        async fn find(
+        async fn read(
             &self,
             _uow: &mut Self::Uow,
             id: PayoutDestinationId,
-        ) -> Result<Option<PayoutDestination>, RepositoryError<PayoutDestination>> {
-            Ok(self.items.lock().expect("lock").get(&id).cloned())
+        ) -> Result<PayoutDestination, RepositoryError<PayoutDestination>> {
+            self.items
+                .lock()
+                .expect("lock")
+                .get(&id)
+                .cloned()
+                .ok_or_else(|| RepositoryError::NotFound {
+                    aggregate_type: PayoutDestination::TYPE,
+                    aggregate_id: id,
+                })
         }
 
-        async fn find_at_version(
+        async fn read_at_version(
             &self,
             _uow: &mut Self::Uow,
             id: PayoutDestinationId,
-            _at: Option<AggregateVersion>,
-        ) -> Result<Option<PayoutDestination>, RepositoryError<PayoutDestination>> {
-            Ok(self.items.lock().expect("lock").get(&id).cloned())
+            _at: AggregateVersion,
+        ) -> Result<PayoutDestination, RepositoryError<PayoutDestination>> {
+            self.items
+                .lock()
+                .expect("lock")
+                .get(&id)
+                .cloned()
+                .ok_or_else(|| RepositoryError::NotFound {
+                    aggregate_type: PayoutDestination::TYPE,
+                    aggregate_id: id,
+                })
         }
 
         async fn find_by_unique_value(
@@ -429,21 +468,35 @@ mod tests {
     impl Repository<Withdrawal> for TestWithdrawalRepository {
         type Uow = TestUow;
 
-        async fn find(
+        async fn read(
             &self,
             _uow: &mut Self::Uow,
             _id: WithdrawalId,
-        ) -> Result<Option<Withdrawal>, RepositoryError<Withdrawal>> {
-            Ok(self.saved.lock().expect("lock").clone())
+        ) -> Result<Withdrawal, RepositoryError<Withdrawal>> {
+            self.saved
+                .lock()
+                .expect("lock")
+                .clone()
+                .ok_or_else(|| RepositoryError::NotFound {
+                    aggregate_type: Withdrawal::TYPE,
+                    aggregate_id: _id,
+                })
         }
 
-        async fn find_at_version(
+        async fn read_at_version(
             &self,
             _uow: &mut Self::Uow,
             _id: WithdrawalId,
-            _at: Option<AggregateVersion>,
-        ) -> Result<Option<Withdrawal>, RepositoryError<Withdrawal>> {
-            Ok(self.saved.lock().expect("lock").clone())
+            _at: AggregateVersion,
+        ) -> Result<Withdrawal, RepositoryError<Withdrawal>> {
+            self.saved
+                .lock()
+                .expect("lock")
+                .clone()
+                .ok_or_else(|| RepositoryError::NotFound {
+                    aggregate_type: Withdrawal::TYPE,
+                    aggregate_id: _id,
+                })
         }
 
         async fn find_by_unique_value(
@@ -733,7 +786,9 @@ mod tests {
 
         assert!(matches!(
             error,
-            WithdrawalRequestCommandHandlerError::AccountNotFound
+            WithdrawalRequestCommandHandlerError::AccountRepository(
+                RepositoryError::NotFound { .. }
+            )
         ));
     }
 }

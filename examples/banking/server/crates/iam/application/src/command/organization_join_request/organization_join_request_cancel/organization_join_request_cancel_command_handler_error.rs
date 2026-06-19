@@ -18,10 +18,4 @@ pub enum OrganizationJoinRequestCancelCommandHandlerError {
 
     #[error("organization aggregate failed")]
     Organization(#[from] OrganizationError),
-
-    #[error("target organization join request was not found")]
-    TargetOrganizationJoinRequestNotFound,
-
-    #[error("organization is not found")]
-    OrganizationNotFound,
 }

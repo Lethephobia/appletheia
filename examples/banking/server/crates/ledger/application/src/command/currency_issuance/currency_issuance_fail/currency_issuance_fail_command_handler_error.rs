@@ -10,7 +10,4 @@ pub enum CurrencyIssuanceFailCommandHandlerError {
 
     #[error("currency issuance aggregate failed")]
     CurrencyIssuance(#[from] CurrencyIssuanceError),
-
-    #[error("currency issuance was not found")]
-    CurrencyIssuanceNotFound,
 }

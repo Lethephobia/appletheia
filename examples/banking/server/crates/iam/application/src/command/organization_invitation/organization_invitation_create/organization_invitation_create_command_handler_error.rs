@@ -29,10 +29,4 @@ pub enum OrganizationInvitationIssueCommandHandlerError {
 
     #[error("unique value failed")]
     UniqueValue(#[from] UniqueValueError),
-
-    #[error("organization is not found")]
-    OrganizationNotFound,
-
-    #[error("invitee is not found")]
-    InviteeNotFound,
 }

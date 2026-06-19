@@ -10,7 +10,4 @@ pub enum CurrencySupplyReserveCommandHandlerError {
 
     #[error("currency aggregate failed")]
     Currency(#[from] CurrencyError),
-
-    #[error("currency was not found")]
-    CurrencyNotFound,
 }

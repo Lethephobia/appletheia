@@ -30,7 +30,4 @@ pub enum CurrencyMintAccountMetadataSyncCommandHandlerError {
 
     #[error("mint account metadata updater failed")]
     MintAccountMetadataUpdater(#[from] MintAccountMetadataUpdaterError),
-
-    #[error("currency was not found")]
-    CurrencyNotFound,
 }

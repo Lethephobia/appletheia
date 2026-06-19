@@ -3,7 +3,7 @@ use std::fmt::Debug;
 
 use thiserror::Error;
 
-use appletheia_domain::{Aggregate, AggregateState};
+use appletheia_domain::{Aggregate, AggregateState, AggregateType};
 
 use crate::event::{EventReaderError, EventWriterError};
 use crate::snapshot::{SnapshotReaderError, SnapshotWriterError};
@@ -14,6 +14,12 @@ use super::{
 
 #[derive(Debug, Error)]
 pub enum RepositoryError<A: Aggregate> {
+    #[error("aggregate not found: {aggregate_type} {aggregate_id:?}")]
+    NotFound {
+        aggregate_type: AggregateType,
+        aggregate_id: A::Id,
+    },
+
     #[error("aggregate error: {0}")]
     Aggregate(#[source] A::Error),
 
@@ -43,13 +49,4 @@ pub enum RepositoryError<A: Aggregate> {
 
     #[error("snapshot writer error: {0}")]
     SnapshotWriter(#[from] SnapshotWriterError),
-}
-
-impl<A: Aggregate> RepositoryError<A> {
-    pub fn event_save_hook<E>(error: E) -> Self
-    where
-        E: Error + Send + Sync + 'static,
-    {
-        Self::EventSaveHook(Box::new(error))
-    }
 }

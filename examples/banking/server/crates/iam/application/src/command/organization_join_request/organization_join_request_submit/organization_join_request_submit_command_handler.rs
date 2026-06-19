@@ -90,21 +90,16 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
-        let Some(organization) = self
+        let organization = self
             .organization_repository
-            .find(uow, command.organization_id)
-            .await?
-        else {
-            return Err(OrganizationJoinRequestSubmitCommandHandlerError::OrganizationNotFound);
-        };
+            .read(uow, command.organization_id)
+            .await?;
 
         let unique_value = Self::organization_requester_unique_value(
             command.organization_id,
             command.requester_id,
         )?;
-        let Some(requester) = self.user_repository.find(uow, command.requester_id).await? else {
-            return Err(OrganizationJoinRequestSubmitCommandHandlerError::RequesterNotFound);
-        };
+        let requester = self.user_repository.read(uow, command.requester_id).await?;
 
         let mut organization_join_request = OrganizationJoinRequest::default();
         let submission = OrganizationJoinRequestSubmission {

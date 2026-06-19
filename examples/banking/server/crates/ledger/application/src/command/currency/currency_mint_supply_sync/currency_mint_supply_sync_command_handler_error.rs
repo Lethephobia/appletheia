@@ -19,9 +19,6 @@ pub enum CurrencyMintSupplySyncCommandHandlerError {
     #[error("mint supply synchronizer failed")]
     MintSupplySynchronizer(#[from] MintSupplySynchronizerError),
 
-    #[error("currency was not found")]
-    CurrencyNotFound,
-
     #[error("currency mint account has not been recorded yet")]
     MintAccountNotRecorded,
 }

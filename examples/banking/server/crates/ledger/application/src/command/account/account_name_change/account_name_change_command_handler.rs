@@ -58,13 +58,10 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
-        let Some(mut account) = self
+        let mut account = self
             .account_repository
-            .find(uow, command.account_id)
-            .await?
-        else {
-            return Err(AccountNameChangeCommandHandlerError::AccountNotFound);
-        };
+            .read(uow, command.account_id)
+            .await?;
 
         let result = account.change_name(command.name.clone())?;
 
@@ -139,21 +136,35 @@ mod tests {
     impl Repository<Account> for TestAccountRepository {
         type Uow = TestUow;
 
-        async fn find(
+        async fn read(
             &self,
             _uow: &mut Self::Uow,
             _id: AccountId,
-        ) -> Result<Option<Account>, RepositoryError<Account>> {
-            Ok(self.account.lock().expect("lock").clone())
+        ) -> Result<Account, RepositoryError<Account>> {
+            self.account
+                .lock()
+                .expect("lock")
+                .clone()
+                .ok_or_else(|| RepositoryError::NotFound {
+                    aggregate_type: Account::TYPE,
+                    aggregate_id: _id,
+                })
         }
 
-        async fn find_at_version(
+        async fn read_at_version(
             &self,
             _uow: &mut Self::Uow,
             _id: AccountId,
-            _at: Option<appletheia::domain::AggregateVersion>,
-        ) -> Result<Option<Account>, RepositoryError<Account>> {
-            Ok(self.account.lock().expect("lock").clone())
+            _at: appletheia::domain::AggregateVersion,
+        ) -> Result<Account, RepositoryError<Account>> {
+            self.account
+                .lock()
+                .expect("lock")
+                .clone()
+                .ok_or_else(|| RepositoryError::NotFound {
+                    aggregate_type: Account::TYPE,
+                    aggregate_id: _id,
+                })
         }
 
         async fn find_by_unique_value(

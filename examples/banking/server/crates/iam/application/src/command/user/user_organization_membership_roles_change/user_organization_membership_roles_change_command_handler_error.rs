@@ -16,10 +16,4 @@ pub enum UserOrganizationMembershipRolesChangeCommandHandlerError {
 
     #[error("user aggregate failed")]
     User(#[from] UserError),
-
-    #[error("organization was not found")]
-    OrganizationNotFound,
-
-    #[error("user was not found")]
-    UserNotFound,
 }

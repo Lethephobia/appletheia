@@ -32,10 +32,4 @@ pub enum OrganizationJoinRequestSubmitCommandHandlerError {
 
     #[error("unique value is invalid")]
     UniqueValue(#[from] UniqueValueError),
-
-    #[error("organization is not found")]
-    OrganizationNotFound,
-
-    #[error("requester is not found")]
-    RequesterNotFound,
 }

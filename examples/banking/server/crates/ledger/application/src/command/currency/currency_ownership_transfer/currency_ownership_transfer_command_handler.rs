@@ -61,13 +61,10 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
-        let Some(mut currency) = self
+        let mut currency = self
             .currency_repository
-            .find(uow, command.currency_id)
-            .await?
-        else {
-            return Err(CurrencyOwnershipTransferCommandHandlerError::CurrencyNotFound);
-        };
+            .read(uow, command.currency_id)
+            .await?;
 
         let result = currency.transfer_ownership(command.owner)?;
 

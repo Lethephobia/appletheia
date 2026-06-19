@@ -61,13 +61,10 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
-        let Some(mut currency) = self
+        let mut currency = self
             .currency_repository
-            .find(uow, command.currency_id)
-            .await?
-        else {
-            return Err(CurrencyDescriptionChangeCommandHandlerError::CurrencyNotFound);
-        };
+            .read(uow, command.currency_id)
+            .await?;
 
         let result = currency.change_description(command.description.clone())?;
 

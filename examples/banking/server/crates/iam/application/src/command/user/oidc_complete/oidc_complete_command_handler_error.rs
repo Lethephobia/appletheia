@@ -52,7 +52,4 @@ pub enum OidcCompleteCommandHandlerError {
 
     #[error("aggregate ref is invalid")]
     AggregateRef(#[from] AggregateRefError),
-
-    #[error("authenticated user was not found")]
-    AuthenticatedUserNotFound,
 }

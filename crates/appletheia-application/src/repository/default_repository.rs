@@ -72,6 +72,41 @@ where
             _marker: PhantomData,
         }
     }
+
+    async fn read_at_version_or_latest(
+        &self,
+        uow: &mut Uow,
+        id: A::Id,
+        at: Option<AggregateVersion>,
+    ) -> Result<A, RepositoryError<A>> {
+        let snapshot = self
+            .snapshot_reader
+            .read_latest_snapshot(uow, id, at)
+            .await?;
+        let events = {
+            let start = snapshot
+                .as_ref()
+                .map(|s| Bound::Excluded(s.aggregate_version()))
+                .unwrap_or(Bound::Unbounded);
+            let end = at.map(Bound::Included).unwrap_or(Bound::Unbounded);
+            let range = AggregateVersionRange::new(start, end);
+            self.event_reader.read_events(uow, id, range).await?
+        };
+
+        if events.is_empty() && snapshot.is_none() {
+            return Err(RepositoryError::NotFound {
+                aggregate_type: A::TYPE,
+                aggregate_id: id,
+            });
+        }
+
+        let mut aggregate = A::default();
+        aggregate
+            .replay_events(events, snapshot)
+            .map_err(RepositoryError::Aggregate)?;
+
+        Ok(aggregate)
+    }
 }
 
 impl<A, ER, EW, SR, SW, UVOL, UKS, RIS, ESH, Uow> Repository<A>
@@ -90,40 +125,17 @@ where
 {
     type Uow = Uow;
 
-    async fn find(&self, uow: &mut Self::Uow, id: A::Id) -> Result<Option<A>, RepositoryError<A>> {
-        self.find_at_version(uow, id, None).await
+    async fn read(&self, uow: &mut Self::Uow, id: A::Id) -> Result<A, RepositoryError<A>> {
+        self.read_at_version_or_latest(uow, id, None).await
     }
 
-    async fn find_at_version(
+    async fn read_at_version(
         &self,
         uow: &mut Self::Uow,
         id: A::Id,
-        at: Option<AggregateVersion>,
-    ) -> Result<Option<A>, RepositoryError<A>> {
-        let snapshot = self
-            .snapshot_reader
-            .read_latest_snapshot(uow, id, at)
-            .await?;
-        let events = {
-            let start = snapshot
-                .as_ref()
-                .map(|s| Bound::Excluded(s.aggregate_version()))
-                .unwrap_or(Bound::Unbounded);
-            let end = at.map(Bound::Included).unwrap_or(Bound::Unbounded);
-            let range = AggregateVersionRange::new(start, end);
-            self.event_reader.read_events(uow, id, range).await?
-        };
-
-        if events.is_empty() && snapshot.is_none() {
-            return Ok(None);
-        }
-
-        let mut aggregate = A::default();
-        aggregate
-            .replay_events(events, snapshot)
-            .map_err(RepositoryError::Aggregate)?;
-
-        Ok(Some(aggregate))
+        at: AggregateVersion,
+    ) -> Result<A, RepositoryError<A>> {
+        self.read_at_version_or_latest(uow, id, Some(at)).await
     }
 
     async fn find_by_unique_value(
@@ -140,7 +152,9 @@ where
             return Ok(None);
         };
 
-        self.find(uow, aggregate_id).await
+        self.read_at_version_or_latest(uow, aggregate_id, None)
+            .await
+            .map(Some)
     }
 
     async fn save(
@@ -173,7 +187,7 @@ where
             self.event_save_hook
                 .after_event_saved(uow, event)
                 .await
-                .map_err(RepositoryError::event_save_hook)?;
+                .map_err(|error| RepositoryError::EventSaveHook(Box::new(error)))?;
         }
 
         match self.config.snapshot_policy {
@@ -761,6 +775,28 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn read_returns_not_found_when_no_snapshot_or_events_exist() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let repository = repository(Arc::clone(&log), false);
+        let mut uow = TestUnitOfWork;
+        let aggregate_id =
+            CounterId::try_from_uuid(Uuid::now_v7()).expect("valid uuid should be accepted");
+
+        let error = repository
+            .read(&mut uow, aggregate_id)
+            .await
+            .expect_err("missing aggregate should fail");
+
+        assert!(matches!(
+            error,
+            RepositoryError::NotFound {
+                aggregate_type,
+                aggregate_id: error_aggregate_id,
+            } if aggregate_type == Counter::TYPE && error_aggregate_id == aggregate_id
+        ));
+    }
+
+    #[tokio::test]
     async fn find_by_unique_value_returns_none_when_lookup_misses() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let repository = repository_with_lookup(Arc::clone(&log), None, false);
@@ -798,5 +834,35 @@ mod tests {
             .expect_err("lookup failure should be returned");
 
         assert!(matches!(error, RepositoryError::UniqueValueOwnerLookup(_)));
+    }
+
+    #[tokio::test]
+    async fn find_by_unique_value_returns_not_found_when_lookup_owner_is_missing() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let aggregate_id =
+            CounterId::try_from_uuid(Uuid::now_v7()).expect("valid uuid should be accepted");
+        let repository = repository_with_lookup(Arc::clone(&log), Some(aggregate_id), false);
+        let mut uow = TestUnitOfWork;
+        let unique_value = UniqueValue::new(vec![
+            UniqueValuePart::try_from("foo@example.com").expect("unique part should be valid"),
+        ])
+        .expect("unique value should be valid");
+
+        let error = repository
+            .find_by_unique_value(&mut uow, UniqueKey::new("email"), &unique_value)
+            .await
+            .expect_err("missing owner aggregate should fail");
+
+        assert!(matches!(
+            error,
+            RepositoryError::NotFound {
+                aggregate_type,
+                aggregate_id: error_aggregate_id,
+            } if aggregate_type == Counter::TYPE && error_aggregate_id == aggregate_id
+        ));
+        assert_eq!(
+            *log.lock().expect("log should be lockable"),
+            vec!["lookup:counter:email:15:foo@example.com".to_owned()]
+        );
     }
 }

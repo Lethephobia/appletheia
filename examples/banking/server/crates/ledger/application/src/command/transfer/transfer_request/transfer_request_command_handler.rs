@@ -65,20 +65,14 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
-        let Some(source_account) = self
+        let source_account = self
             .account_repository
-            .find(uow, command.from_account_id)
-            .await?
-        else {
-            return Err(TransferRequestCommandHandlerError::SourceAccountNotFound);
-        };
-        let Some(destination_account) = self
+            .read(uow, command.from_account_id)
+            .await?;
+        let destination_account = self
             .account_repository
-            .find(uow, command.to_account_id)
-            .await?
-        else {
-            return Err(TransferRequestCommandHandlerError::DestinationAccountNotFound);
-        };
+            .read(uow, command.to_account_id)
+            .await?;
 
         if source_account.currency_id()? != destination_account.currency_id()? {
             return Err(TransferRequestCommandHandlerError::CurrencyMismatch);
@@ -184,21 +178,37 @@ mod tests {
     impl Repository<Account> for TestAccountRepository {
         type Uow = TestUow;
 
-        async fn find(
+        async fn read(
             &self,
             _uow: &mut Self::Uow,
             id: AccountId,
-        ) -> Result<Option<Account>, RepositoryError<Account>> {
-            Ok(self.accounts.lock().expect("lock").get(&id).cloned())
+        ) -> Result<Account, RepositoryError<Account>> {
+            self.accounts
+                .lock()
+                .expect("lock")
+                .get(&id)
+                .cloned()
+                .ok_or_else(|| RepositoryError::NotFound {
+                    aggregate_type: Account::TYPE,
+                    aggregate_id: id,
+                })
         }
 
-        async fn find_at_version(
+        async fn read_at_version(
             &self,
             _uow: &mut Self::Uow,
             id: AccountId,
-            _at: Option<AggregateVersion>,
-        ) -> Result<Option<Account>, RepositoryError<Account>> {
-            Ok(self.accounts.lock().expect("lock").get(&id).cloned())
+            _at: AggregateVersion,
+        ) -> Result<Account, RepositoryError<Account>> {
+            self.accounts
+                .lock()
+                .expect("lock")
+                .get(&id)
+                .cloned()
+                .ok_or_else(|| RepositoryError::NotFound {
+                    aggregate_type: Account::TYPE,
+                    aggregate_id: id,
+                })
         }
 
         async fn find_by_unique_value(
@@ -233,21 +243,35 @@ mod tests {
     impl Repository<Transfer> for TestTransferRepository {
         type Uow = TestUow;
 
-        async fn find(
+        async fn read(
             &self,
             _uow: &mut Self::Uow,
             _id: TransferId,
-        ) -> Result<Option<Transfer>, RepositoryError<Transfer>> {
-            Ok(self.transfer.lock().expect("lock").clone())
+        ) -> Result<Transfer, RepositoryError<Transfer>> {
+            self.transfer
+                .lock()
+                .expect("lock")
+                .clone()
+                .ok_or_else(|| RepositoryError::NotFound {
+                    aggregate_type: Transfer::TYPE,
+                    aggregate_id: _id,
+                })
         }
 
-        async fn find_at_version(
+        async fn read_at_version(
             &self,
             _uow: &mut Self::Uow,
             _id: TransferId,
-            _at: Option<AggregateVersion>,
-        ) -> Result<Option<Transfer>, RepositoryError<Transfer>> {
-            Ok(self.transfer.lock().expect("lock").clone())
+            _at: AggregateVersion,
+        ) -> Result<Transfer, RepositoryError<Transfer>> {
+            self.transfer
+                .lock()
+                .expect("lock")
+                .clone()
+                .ok_or_else(|| RepositoryError::NotFound {
+                    aggregate_type: Transfer::TYPE,
+                    aggregate_id: _id,
+                })
         }
 
         async fn find_by_unique_value(

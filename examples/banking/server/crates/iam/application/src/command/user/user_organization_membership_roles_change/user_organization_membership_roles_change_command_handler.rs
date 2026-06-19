@@ -70,19 +70,12 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
-        let Some(organization) = self
+        let organization = self
             .organization_repository
-            .find(uow, command.organization_id)
-            .await?
-        else {
-            return Err(
-                UserOrganizationMembershipRolesChangeCommandHandlerError::OrganizationNotFound,
-            );
-        };
+            .read(uow, command.organization_id)
+            .await?;
 
-        let Some(mut user) = self.user_repository.find(uow, command.user_id).await? else {
-            return Err(UserOrganizationMembershipRolesChangeCommandHandlerError::UserNotFound);
-        };
+        let mut user = self.user_repository.read(uow, command.user_id).await?;
 
         if organization.is_removed()? {
             let reason = OrganizationMembershipRolesChangeRejectionReason::OrganizationRemoved;

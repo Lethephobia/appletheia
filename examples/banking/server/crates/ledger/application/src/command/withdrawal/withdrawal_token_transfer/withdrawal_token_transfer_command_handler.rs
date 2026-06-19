@@ -83,27 +83,18 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
-        let Some(mut withdrawal) = self
+        let mut withdrawal = self
             .withdrawal_repository
-            .find(uow, command.withdrawal_id)
-            .await?
-        else {
-            return Err(WithdrawalTokenTransferCommandHandlerError::WithdrawalNotFound);
-        };
-        let Some(payout_destination) = self
+            .read(uow, command.withdrawal_id)
+            .await?;
+        let payout_destination = self
             .payout_destination_repository
-            .find(uow, *withdrawal.payout_destination_id()?)
-            .await?
-        else {
-            return Err(WithdrawalTokenTransferCommandHandlerError::PayoutDestinationNotFound);
-        };
-        let Some(currency) = self
+            .read(uow, *withdrawal.payout_destination_id()?)
+            .await?;
+        let currency = self
             .currency_repository
-            .find(uow, *withdrawal.currency_id()?)
-            .await?
-        else {
-            return Err(WithdrawalTokenTransferCommandHandlerError::CurrencyNotFound);
-        };
+            .read(uow, *withdrawal.currency_id()?)
+            .await?;
         let Some(mint_account) = currency.mint_account()? else {
             return Err(WithdrawalTokenTransferCommandHandlerError::CurrencyUnprovisioned);
         };

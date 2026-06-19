@@ -50,13 +50,10 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
-        let Some(mut transfer) = self
+        let mut transfer = self
             .transfer_repository
-            .find(uow, command.transfer_id)
-            .await?
-        else {
-            return Err(TransferFailCommandHandlerError::TransferNotFound);
-        };
+            .read(uow, command.transfer_id)
+            .await?;
 
         let result = transfer.fail(command.reason)?;
         self.transfer_repository

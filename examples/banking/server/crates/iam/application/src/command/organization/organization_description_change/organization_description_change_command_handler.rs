@@ -61,13 +61,10 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
-        let Some(mut organization) = self
+        let mut organization = self
             .organization_repository
-            .find(uow, command.organization_id)
-            .await?
-        else {
-            return Err(OrganizationDescriptionChangeCommandHandlerError::OrganizationNotFound);
-        };
+            .read(uow, command.organization_id)
+            .await?;
 
         let result = organization.change_description(command.description.clone())?;
 

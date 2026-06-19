@@ -166,21 +166,35 @@ mod tests {
     impl Repository<PayoutDestination> for TestPayoutDestinationRepository {
         type Uow = TestUow;
 
-        async fn find(
+        async fn read(
             &self,
             _uow: &mut Self::Uow,
             _id: PayoutDestinationId,
-        ) -> Result<Option<PayoutDestination>, RepositoryError<PayoutDestination>> {
-            Ok(self.payout_destination.lock().expect("lock").clone())
+        ) -> Result<PayoutDestination, RepositoryError<PayoutDestination>> {
+            self.payout_destination
+                .lock()
+                .expect("lock")
+                .clone()
+                .ok_or_else(|| RepositoryError::NotFound {
+                    aggregate_type: PayoutDestination::TYPE,
+                    aggregate_id: _id,
+                })
         }
 
-        async fn find_at_version(
+        async fn read_at_version(
             &self,
             _uow: &mut Self::Uow,
             _id: PayoutDestinationId,
-            _at: Option<appletheia::domain::AggregateVersion>,
-        ) -> Result<Option<PayoutDestination>, RepositoryError<PayoutDestination>> {
-            Ok(self.payout_destination.lock().expect("lock").clone())
+            _at: appletheia::domain::AggregateVersion,
+        ) -> Result<PayoutDestination, RepositoryError<PayoutDestination>> {
+            self.payout_destination
+                .lock()
+                .expect("lock")
+                .clone()
+                .ok_or_else(|| RepositoryError::NotFound {
+                    aggregate_type: PayoutDestination::TYPE,
+                    aggregate_id: _id,
+                })
         }
 
         async fn find_by_unique_value(

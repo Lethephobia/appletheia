@@ -14,7 +14,4 @@ pub enum UserUsernameChangeCommandHandlerError {
 
     #[error("unique value failed")]
     UniqueValue(#[from] UniqueValueError),
-
-    #[error("user was not found")]
-    UserNotFound,
 }

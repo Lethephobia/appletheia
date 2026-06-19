@@ -10,7 +10,4 @@ pub enum PayoutDestinationRemoveCommandHandlerError {
 
     #[error("payout destination aggregate failed")]
     PayoutDestination(#[from] PayoutDestinationError),
-
-    #[error("payout destination was not found")]
-    PayoutDestinationNotFound,
 }

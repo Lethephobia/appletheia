@@ -61,13 +61,10 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
-        let Some(mut payout_destination) = self
+        let mut payout_destination = self
             .payout_destination_repository
-            .find(uow, command.payout_destination_id)
-            .await?
-        else {
-            return Err(PayoutDestinationRemoveCommandHandlerError::PayoutDestinationNotFound);
-        };
+            .read(uow, command.payout_destination_id)
+            .await?;
 
         let result = payout_destination.remove()?;
 

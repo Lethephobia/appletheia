@@ -70,23 +70,15 @@ where
         _request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
-        let Some(mut organization_join_request) = self
+        let mut organization_join_request = self
             .organization_join_request_repository
-            .find(uow, command.organization_join_request_id)
-            .await?
-        else {
-            return Err(
-                OrganizationJoinRequestCancelCommandHandlerError::TargetOrganizationJoinRequestNotFound,
-            );
-        };
+            .read(uow, command.organization_join_request_id)
+            .await?;
 
-        let Some(organization) = self
+        let organization = self
             .organization_repository
-            .find(uow, *organization_join_request.organization_id()?)
-            .await?
-        else {
-            return Err(OrganizationJoinRequestCancelCommandHandlerError::OrganizationNotFound);
-        };
+            .read(uow, *organization_join_request.organization_id()?)
+            .await?;
 
         if organization.is_removed()? {
             let reason = OrganizationJoinRequestCancelRejectionReason::OrganizationRemoved;

@@ -14,7 +14,4 @@ pub enum CurrencySymbolChangeCommandHandlerError {
 
     #[error("unique value failed")]
     UniqueValue(#[from] UniqueValueError),
-
-    #[error("currency was not found")]
-    CurrencyNotFound,
 }

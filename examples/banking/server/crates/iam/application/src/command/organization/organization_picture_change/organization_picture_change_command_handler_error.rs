@@ -10,7 +10,4 @@ pub enum OrganizationPictureChangeCommandHandlerError {
 
     #[error("organization aggregate failed")]
     Organization(#[from] OrganizationError),
-
-    #[error("organization was not found")]
-    OrganizationNotFound,
 }

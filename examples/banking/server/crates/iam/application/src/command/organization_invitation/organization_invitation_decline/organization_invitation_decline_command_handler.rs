@@ -71,23 +71,15 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
-        let Some(mut organization_invitation) = self
+        let mut organization_invitation = self
             .organization_invitation_repository
-            .find(uow, command.organization_invitation_id)
-            .await?
-        else {
-            return Err(
-                OrganizationInvitationDeclineCommandHandlerError::TargetOrganizationInvitationNotFound,
-            );
-        };
+            .read(uow, command.organization_invitation_id)
+            .await?;
 
-        let Some(organization) = self
+        let organization = self
             .organization_repository
-            .find(uow, *organization_invitation.organization_id()?)
-            .await?
-        else {
-            return Err(OrganizationInvitationDeclineCommandHandlerError::OrganizationNotFound);
-        };
+            .read(uow, *organization_invitation.organization_id()?)
+            .await?;
 
         if organization.is_removed()? {
             let reason = OrganizationInvitationDeclineRejectionReason::OrganizationRemoved;

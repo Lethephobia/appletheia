@@ -10,7 +10,4 @@ pub enum AccountFreezeCommandHandlerError {
 
     #[error("account aggregate failed")]
     Account(#[from] AccountError),
-
-    #[error("account was not found")]
-    AccountNotFound,
 }

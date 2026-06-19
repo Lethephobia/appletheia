@@ -75,13 +75,10 @@ where
         _request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
-        let Some(currency) = self
+        let currency = self
             .currency_repository
-            .find(uow, command.currency_id)
-            .await?
-        else {
-            return Err(CurrencyImageUploadPrepareCommandHandlerError::CurrencyNotFound);
-        };
+            .read(uow, command.currency_id)
+            .await?;
 
         if currency.is_removed()? {
             return Err(CurrencyImageUploadPrepareCommandHandlerError::CurrencyRemoved);

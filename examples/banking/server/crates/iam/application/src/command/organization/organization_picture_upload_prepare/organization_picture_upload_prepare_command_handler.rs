@@ -75,13 +75,10 @@ where
         _request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
-        let Some(organization) = self
+        let organization = self
             .organization_repository
-            .find(uow, command.organization_id)
-            .await?
-        else {
-            return Err(OrganizationPictureUploadPrepareCommandHandlerError::OrganizationNotFound);
-        };
+            .read(uow, command.organization_id)
+            .await?;
 
         if organization.is_removed()? {
             return Err(OrganizationPictureUploadPrepareCommandHandlerError::OrganizationRemoved);
@@ -180,21 +177,35 @@ mod tests {
     impl Repository<Organization> for TestOrganizationRepository {
         type Uow = TestUow;
 
-        async fn find(
+        async fn read(
             &self,
             _uow: &mut Self::Uow,
             _id: OrganizationId,
-        ) -> Result<Option<Organization>, RepositoryError<Organization>> {
-            Ok(self.organization.lock().expect("lock").clone())
+        ) -> Result<Organization, RepositoryError<Organization>> {
+            self.organization
+                .lock()
+                .expect("lock")
+                .clone()
+                .ok_or_else(|| RepositoryError::NotFound {
+                    aggregate_type: Organization::TYPE,
+                    aggregate_id: _id,
+                })
         }
 
-        async fn find_at_version(
+        async fn read_at_version(
             &self,
             _uow: &mut Self::Uow,
             _id: OrganizationId,
-            _at: Option<appletheia::domain::AggregateVersion>,
-        ) -> Result<Option<Organization>, RepositoryError<Organization>> {
-            Ok(self.organization.lock().expect("lock").clone())
+            _at: appletheia::domain::AggregateVersion,
+        ) -> Result<Organization, RepositoryError<Organization>> {
+            self.organization
+                .lock()
+                .expect("lock")
+                .clone()
+                .ok_or_else(|| RepositoryError::NotFound {
+                    aggregate_type: Organization::TYPE,
+                    aggregate_id: _id,
+                })
         }
 
         async fn find_by_unique_value(

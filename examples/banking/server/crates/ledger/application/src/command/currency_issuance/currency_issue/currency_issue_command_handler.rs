@@ -77,20 +77,14 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
-        let Some(destination_account) = self
+        let destination_account = self
             .account_repository
-            .find(uow, command.destination_account_id)
-            .await?
-        else {
-            return Err(CurrencyIssueCommandHandlerError::DestinationAccountNotFound);
-        };
-        let Some(currency) = self
+            .read(uow, command.destination_account_id)
+            .await?;
+        let currency = self
             .currency_repository
-            .find(uow, command.currency_id)
-            .await?
-        else {
-            return Err(CurrencyIssueCommandHandlerError::CurrencyNotFound);
-        };
+            .read(uow, command.currency_id)
+            .await?;
 
         let mut currency_issuance = CurrencyIssuance::default();
         let request = CurrencyIssuanceRequest {

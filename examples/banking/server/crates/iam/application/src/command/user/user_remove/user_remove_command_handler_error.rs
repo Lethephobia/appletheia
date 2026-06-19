@@ -10,7 +10,4 @@ pub enum UserRemoveCommandHandlerError {
 
     #[error("user aggregate failed")]
     User(#[from] UserError),
-
-    #[error("target user was not found")]
-    TargetUserNotFound,
 }

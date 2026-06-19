@@ -75,9 +75,7 @@ where
         _request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
-        let Some(user) = self.user_repository.find(uow, command.user_id).await? else {
-            return Err(UserPictureUploadPrepareCommandHandlerError::UserNotFound);
-        };
+        let user = self.user_repository.read(uow, command.user_id).await?;
 
         if user.is_removed()? {
             return Err(UserPictureUploadPrepareCommandHandlerError::UserRemoved);
@@ -179,21 +177,35 @@ mod tests {
     impl Repository<User> for TestUserRepository {
         type Uow = TestUow;
 
-        async fn find(
+        async fn read(
             &self,
             _uow: &mut Self::Uow,
             _id: UserId,
-        ) -> Result<Option<User>, RepositoryError<User>> {
-            Ok(self.user.lock().expect("lock").clone())
+        ) -> Result<User, RepositoryError<User>> {
+            self.user
+                .lock()
+                .expect("lock")
+                .clone()
+                .ok_or_else(|| RepositoryError::NotFound {
+                    aggregate_type: User::TYPE,
+                    aggregate_id: _id,
+                })
         }
 
-        async fn find_at_version(
+        async fn read_at_version(
             &self,
             _uow: &mut Self::Uow,
             _id: UserId,
-            _at: Option<appletheia::domain::AggregateVersion>,
-        ) -> Result<Option<User>, RepositoryError<User>> {
-            Ok(self.user.lock().expect("lock").clone())
+            _at: appletheia::domain::AggregateVersion,
+        ) -> Result<User, RepositoryError<User>> {
+            self.user
+                .lock()
+                .expect("lock")
+                .clone()
+                .ok_or_else(|| RepositoryError::NotFound {
+                    aggregate_type: User::TYPE,
+                    aggregate_id: _id,
+                })
         }
 
         async fn find_by_unique_value(

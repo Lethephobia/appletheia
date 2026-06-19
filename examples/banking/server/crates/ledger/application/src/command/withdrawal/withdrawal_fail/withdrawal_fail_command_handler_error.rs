@@ -10,7 +10,4 @@ pub enum WithdrawalFailCommandHandlerError {
 
     #[error("withdrawal aggregate failed")]
     Withdrawal(#[from] WithdrawalError),
-
-    #[error("withdrawal was not found")]
-    WithdrawalNotFound,
 }

@@ -18,10 +18,4 @@ pub enum OrganizationInvitationDeclineCommandHandlerError {
 
     #[error("organization aggregate failed")]
     Organization(#[from] OrganizationError),
-
-    #[error("target organization invitation was not found")]
-    TargetOrganizationInvitationNotFound,
-
-    #[error("organization is not found")]
-    OrganizationNotFound,
 }

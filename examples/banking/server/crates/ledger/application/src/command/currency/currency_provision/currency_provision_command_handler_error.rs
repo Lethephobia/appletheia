@@ -33,7 +33,4 @@ pub enum CurrencyProvisionCommandHandlerError {
 
     #[error("mint account creation receipt is invalid")]
     MintAccountCreateReceipt(#[from] MintAccountCreateReceiptError),
-
-    #[error("currency was not found")]
-    CurrencyNotFound,
 }

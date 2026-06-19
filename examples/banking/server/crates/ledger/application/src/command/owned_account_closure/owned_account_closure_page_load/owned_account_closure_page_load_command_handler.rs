@@ -66,15 +66,10 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
-        let Some(mut owned_account_closure) = self
+        let mut owned_account_closure = self
             .owned_account_closure_repository
-            .find(uow, command.owned_account_closure_id)
-            .await?
-        else {
-            return Err(
-                OwnedAccountClosurePageLoadCommandHandlerError::OwnedAccountClosureNotFound,
-            );
-        };
+            .read(uow, command.owned_account_closure_id)
+            .await?;
 
         let owner = owned_account_closure.owner()?;
         let page_size = ReferenceIndexLookupPageSize::new(

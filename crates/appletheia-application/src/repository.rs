@@ -40,14 +40,14 @@ use appletheia_domain::{Aggregate, AggregateVersion, UniqueKey, UniqueValue};
 pub trait Repository<A: Aggregate>: Send + Sync {
     type Uow: UnitOfWork;
 
-    async fn find(&self, uow: &mut Self::Uow, id: A::Id) -> Result<Option<A>, RepositoryError<A>>;
+    async fn read(&self, uow: &mut Self::Uow, id: A::Id) -> Result<A, RepositoryError<A>>;
 
-    async fn find_at_version(
+    async fn read_at_version(
         &self,
         uow: &mut Self::Uow,
         id: A::Id,
-        at: Option<AggregateVersion>,
-    ) -> Result<Option<A>, RepositoryError<A>>;
+        at: AggregateVersion,
+    ) -> Result<A, RepositoryError<A>>;
 
     async fn find_by_unique_value(
         &self,

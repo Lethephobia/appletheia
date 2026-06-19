@@ -53,13 +53,10 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
-        let Some(mut currency_issuance) = self
+        let mut currency_issuance = self
             .currency_issuance_repository
-            .find(uow, command.currency_issuance_id)
-            .await?
-        else {
-            return Err(CurrencyIssuanceFailCommandHandlerError::CurrencyIssuanceNotFound);
-        };
+            .read(uow, command.currency_issuance_id)
+            .await?;
 
         let result = currency_issuance.fail(command.reason)?;
         self.currency_issuance_repository

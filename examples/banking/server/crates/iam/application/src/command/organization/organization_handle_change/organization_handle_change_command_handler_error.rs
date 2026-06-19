@@ -14,7 +14,4 @@ pub enum OrganizationHandleChangeCommandHandlerError {
 
     #[error("unique value failed")]
     UniqueValue(#[from] UniqueValueError),
-
-    #[error("organization was not found")]
-    OrganizationNotFound,
 }

@@ -56,13 +56,10 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
-        let Some(mut owned_account_closure) = self
+        let mut owned_account_closure = self
             .owned_account_closure_repository
-            .find(uow, command.owned_account_closure_id)
-            .await?
-        else {
-            return Err(OwnedAccountClosureAccountCloseRejectionRecordCommandHandlerError::OwnedAccountClosureNotFound);
-        };
+            .read(uow, command.owned_account_closure_id)
+            .await?;
 
         let result = owned_account_closure
             .record_account_close_rejection(command.account_id, command.reason)?;

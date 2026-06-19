@@ -60,9 +60,7 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
-        let Some(mut user) = self.user_repository.find(uow, command.user_id).await? else {
-            return Err(UserDisplayNameChangeCommandHandlerError::UserNotFound);
-        };
+        let mut user = self.user_repository.read(uow, command.user_id).await?;
 
         let result = user.change_display_name(command.display_name.clone())?;
 

@@ -91,13 +91,10 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
-        let Some(mut currency) = self
+        let mut currency = self
             .currency_repository
-            .find(uow, command.currency_id)
-            .await?
-        else {
-            return Err(CurrencyProvisionCommandHandlerError::CurrencyNotFound);
-        };
+            .read(uow, command.currency_id)
+            .await?;
 
         if currency.is_removed()? {
             let reason = CurrencyProvisionRejectionReason::Removed;
@@ -250,21 +247,35 @@ mod tests {
     impl Repository<Currency> for TestCurrencyRepository {
         type Uow = TestUow;
 
-        async fn find(
+        async fn read(
             &self,
             _uow: &mut Self::Uow,
             _id: CurrencyId,
-        ) -> Result<Option<Currency>, RepositoryError<Currency>> {
-            Ok(self.currency.lock().expect("lock").clone())
+        ) -> Result<Currency, RepositoryError<Currency>> {
+            self.currency
+                .lock()
+                .expect("lock")
+                .clone()
+                .ok_or_else(|| RepositoryError::NotFound {
+                    aggregate_type: Currency::TYPE,
+                    aggregate_id: _id,
+                })
         }
 
-        async fn find_at_version(
+        async fn read_at_version(
             &self,
             _uow: &mut Self::Uow,
             _id: CurrencyId,
-            _at: Option<AggregateVersion>,
-        ) -> Result<Option<Currency>, RepositoryError<Currency>> {
-            Ok(self.currency.lock().expect("lock").clone())
+            _at: AggregateVersion,
+        ) -> Result<Currency, RepositoryError<Currency>> {
+            self.currency
+                .lock()
+                .expect("lock")
+                .clone()
+                .ok_or_else(|| RepositoryError::NotFound {
+                    aggregate_type: Currency::TYPE,
+                    aggregate_id: _id,
+                })
         }
 
         async fn find_by_unique_value(

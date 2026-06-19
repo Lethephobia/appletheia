@@ -56,13 +56,10 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
-        let Some(mut account) = self
+        let mut account = self
             .account_repository
-            .find(uow, command.account_id)
-            .await?
-        else {
-            return Err(AccountFreezeCommandHandlerError::AccountNotFound);
-        };
+            .read(uow, command.account_id)
+            .await?;
 
         let result = account.freeze()?;
         self.account_repository

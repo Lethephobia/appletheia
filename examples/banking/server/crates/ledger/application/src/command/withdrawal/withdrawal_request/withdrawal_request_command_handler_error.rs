@@ -31,13 +31,4 @@ pub enum WithdrawalRequestCommandHandlerError {
 
     #[error("withdrawal aggregate failed")]
     Withdrawal(#[from] WithdrawalError),
-
-    #[error("account was not found")]
-    AccountNotFound,
-
-    #[error("payout destination was not found")]
-    PayoutDestinationNotFound,
-
-    #[error("currency was not found")]
-    CurrencyNotFound,
 }

@@ -135,11 +135,7 @@ where
         {
             Some(mut user) => {
                 if user.aggregate_id() != Some(user_id) {
-                    let Some(mut authenticated_user) =
-                        self.user_repository.find(uow, user_id).await?
-                    else {
-                        return Err(OidcCompleteCommandHandlerError::AuthenticatedUserNotFound);
-                    };
+                    let mut authenticated_user = self.user_repository.read(uow, user_id).await?;
 
                     let reason = UserIdentityLinkRejectionReason::AlreadyLinked;
                     authenticated_user.reject_link_identity(
@@ -166,9 +162,7 @@ where
                 Ok((user, rejection_reason))
             }
             None => {
-                let Some(mut user) = self.user_repository.find(uow, user_id).await? else {
-                    return Err(OidcCompleteCommandHandlerError::AuthenticatedUserNotFound);
-                };
+                let mut user = self.user_repository.read(uow, user_id).await?;
 
                 let rejection_reason = match user.link_identity(UserIdentityRegistration {
                     provider: provider.clone(),

@@ -52,13 +52,10 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
-        let Some(mut withdrawal) = self
+        let mut withdrawal = self
             .withdrawal_repository
-            .find(uow, command.withdrawal_id)
-            .await?
-        else {
-            return Err(WithdrawalCompleteCommandHandlerError::WithdrawalNotFound);
-        };
+            .read(uow, command.withdrawal_id)
+            .await?;
 
         let result = withdrawal.complete()?;
         self.withdrawal_repository

@@ -18,9 +18,6 @@ pub enum CurrencyImageUploadPrepareCommandHandlerError {
     #[error("object upload signer failed")]
     ObjectUploadSigner(#[from] ObjectUploadSignerError),
 
-    #[error("currency was not found")]
-    CurrencyNotFound,
-
     #[error("removed currencies cannot prepare image uploads")]
     CurrencyRemoved,
 

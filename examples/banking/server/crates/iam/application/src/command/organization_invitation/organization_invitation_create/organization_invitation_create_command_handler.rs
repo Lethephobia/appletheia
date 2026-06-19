@@ -103,17 +103,12 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
-        let Some(organization) = self
+        let organization = self
             .organization_repository
-            .find(uow, command.organization_id)
-            .await?
-        else {
-            return Err(OrganizationInvitationIssueCommandHandlerError::OrganizationNotFound);
-        };
+            .read(uow, command.organization_id)
+            .await?;
 
-        let Some(invitee) = self.user_repository.find(uow, command.invitee_id).await? else {
-            return Err(OrganizationInvitationIssueCommandHandlerError::InviteeNotFound);
-        };
+        let invitee = self.user_repository.read(uow, command.invitee_id).await?;
 
         let unique_value = Self::organization_invitee_unique_value(command)?;
         let mut organization_invitation = OrganizationInvitation::default();

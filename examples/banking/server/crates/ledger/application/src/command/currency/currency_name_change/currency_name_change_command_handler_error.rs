@@ -10,7 +10,4 @@ pub enum CurrencyNameChangeCommandHandlerError {
 
     #[error("currency aggregate failed")]
     Currency(#[from] CurrencyError),
-
-    #[error("currency was not found")]
-    CurrencyNotFound,
 }

@@ -10,7 +10,4 @@ pub enum OrganizationWebsiteUrlChangeCommandHandlerError {
 
     #[error("organization aggregate failed")]
     Organization(#[from] OrganizationError),
-
-    #[error("organization was not found")]
-    OrganizationNotFound,
 }
