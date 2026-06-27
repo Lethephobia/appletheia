@@ -10,6 +10,11 @@ release = true
 semver_check = true
 
 [[package]]
+name = "appletheia-anchor"
+release = true
+semver_check = true
+
+[[package]]
 name = "appletheia-domain"
 release = true
 semver_check = true

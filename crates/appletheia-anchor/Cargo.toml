@@ -1,0 +1,13 @@
+[package]
+name = "appletheia-anchor"
+description = "Anchor support for Appletheia"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+include = ["src/**", "Cargo.toml", "README.md", "LICENSE"]
+authors = ["pbandj082 <pbandj082@gmail.com>"]
+repository = "https://github.com/Lethephobia/appletheia"
+keywords = ["appletheia", "anchor", "solana", "onchain"]
+
+[dependencies]
+anchor-lang = { workspace = true }
