@@ -8,10 +8,9 @@ use banking_ledger_domain::withdrawal::{
     Withdrawal, WithdrawalOnchainTransactionId, WithdrawalTokenTransferResult,
 };
 
-use crate::mint::{
+use crate::banking_ledger::{
     MintAccountAddress, MintAccountDecimals, PoolTokenAccountAddress, PoolTokenTransferExecutor,
     PoolTokenTransferMarkerSeed, PoolTokenTransferRequest, TokenAccountOwnerAddress, TokenAmount,
-    TokenProgramId,
 };
 
 use super::{
@@ -103,7 +102,6 @@ where
             PoolTokenTransferMarkerSeed::try_from(command.withdrawal_id)?,
             MintAccountAddress::try_from(mint_account.mint_account_address().value())?,
             PoolTokenAccountAddress::try_from(mint_account.pool_token_account_address().value())?,
-            TokenProgramId::try_from(mint_account.token_program_id().value())?,
             TokenAccountOwnerAddress::try_from(
                 payout_destination.token_account_owner_address()?.value(),
             )?,

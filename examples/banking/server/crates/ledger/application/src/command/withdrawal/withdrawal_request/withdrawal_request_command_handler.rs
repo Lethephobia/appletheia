@@ -207,7 +207,6 @@ mod tests {
     use banking_ledger_domain::currency::{
         Currency, CurrencyDecimals, CurrencyId, CurrencyMintAccount, CurrencyMintAccountAddress,
         CurrencyName, CurrencyOwner, CurrencyPoolTokenAccountAddress, CurrencySymbol,
-        CurrencyTokenProgramId,
     };
     use banking_ledger_domain::payout_destination::{
         PayoutDestination, PayoutDestinationId, PayoutDestinationOwner,
@@ -224,8 +223,6 @@ mod tests {
         WithdrawalRequestCommand, WithdrawalRequestCommandHandler,
         WithdrawalRequestCommandHandlerError, WithdrawalRequestOutput,
     };
-
-    const TOKEN_PROGRAM_ID: &str = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
 
     #[derive(Default)]
     struct TestUow;
@@ -545,8 +542,6 @@ mod tests {
                 .expect("mint account address should be valid"),
             CurrencyPoolTokenAccountAddress::try_from("Pool111111111111111111111111111111111111")
                 .expect("pool token account address should be valid"),
-            CurrencyTokenProgramId::try_from(TOKEN_PROGRAM_ID)
-                .expect("token program ID should be valid"),
         )
     }
 

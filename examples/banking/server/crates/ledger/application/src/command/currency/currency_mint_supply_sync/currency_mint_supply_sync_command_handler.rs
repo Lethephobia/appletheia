@@ -8,9 +8,8 @@ use super::{
     CurrencyMintSupplySyncCommand, CurrencyMintSupplySyncCommandHandlerError,
     CurrencyMintSupplySyncOutput,
 };
-use crate::mint::{
-    MintAccountDecimals, MintAccountSeed, MintSupplySyncRequest, MintSupplySynchronizer,
-    TokenAmount,
+use crate::banking_ledger::{
+    MintAccountDecimals, MintId, MintSupplySyncRequest, MintSupplySynchronizer, TokenAmount,
 };
 
 /// Handles `CurrencyMintSupplySyncCommand`.
@@ -71,11 +70,11 @@ where
             return Err(CurrencyMintSupplySyncCommandHandlerError::MintAccountNotRecorded);
         }
 
-        let seed = MintAccountSeed::try_from(command.currency_id)?;
+        let mint_id = MintId::try_from(command.currency_id)?;
         let target_supply = currency.target_supply()?;
         self.mint_supply_synchronizer
             .sync_supply(MintSupplySyncRequest::new(
-                seed,
+                mint_id,
                 MintAccountDecimals::from(currency.decimals()?),
                 TokenAmount::new(target_supply.value()),
             ))
@@ -106,7 +105,7 @@ mod tests {
     use banking_ledger_domain::currency::{
         Currency, CurrencyDecimals, CurrencyEventPayload, CurrencyId, CurrencyMintAccount,
         CurrencyMintAccountAddress, CurrencyName, CurrencyOwner, CurrencyPoolTokenAccountAddress,
-        CurrencySymbol, CurrencyTokenProgramId,
+        CurrencySymbol,
     };
     use uuid::Uuid;
 
@@ -114,12 +113,10 @@ mod tests {
         CurrencyMintSupplySyncCommand, CurrencyMintSupplySyncCommandHandler,
         CurrencyMintSupplySyncCommandHandlerError, CurrencyMintSupplySyncOutput,
     };
-    use crate::mint::{
+    use crate::banking_ledger::{
         MintAccountDecimals, MintSupplySyncRequest, MintSupplySynchronizer,
         MintSupplySynchronizerError, TokenAmount,
     };
-
-    const TOKEN_PROGRAM_ID: &str = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
 
     #[derive(Default)]
     struct TestUow;
@@ -251,8 +248,6 @@ mod tests {
                 .expect("mint account address should be valid"),
             CurrencyPoolTokenAccountAddress::try_from("Pool111111111111111111111111111111111111")
                 .expect("pool account address should be valid"),
-            CurrencyTokenProgramId::try_from(TOKEN_PROGRAM_ID)
-                .expect("token program ID should be valid"),
         )
     }
 
@@ -286,7 +281,8 @@ mod tests {
         assert_eq!(
             request_log.lock().expect("lock").clone(),
             Some(MintSupplySyncRequest::new(
-                crate::mint::MintAccountSeed::try_from(currency_id).expect("seed should be valid"),
+                crate::banking_ledger::MintId::try_from(currency_id)
+                    .expect("mint ID should be valid"),
                 MintAccountDecimals::new(6),
                 TokenAmount::new(100),
             ))

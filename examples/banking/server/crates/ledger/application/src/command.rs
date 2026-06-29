@@ -21,6 +21,8 @@ pub use account::{
     AccountWithdrawCommandHandler, AccountWithdrawOutput,
 };
 pub use currency::{
+    BankingLedgerConfigConfigureCommand, BankingLedgerConfigConfigureCommandHandler,
+    BankingLedgerConfigConfigureCommandHandlerError, BankingLedgerConfigConfigureOutput,
     CurrencyActivateCommand, CurrencyActivateCommandHandler, CurrencyActivateOutput,
     CurrencyDeactivateCommand, CurrencyDeactivateCommandHandler, CurrencyDeactivateOutput,
     CurrencyDefineCommand, CurrencyDefineCommandHandler, CurrencyDefineOutput,

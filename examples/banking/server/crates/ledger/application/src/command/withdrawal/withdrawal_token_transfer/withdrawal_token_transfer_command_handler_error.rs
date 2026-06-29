@@ -4,9 +4,9 @@ use banking_ledger_domain::payout_destination::{PayoutDestination, PayoutDestina
 use banking_ledger_domain::withdrawal::{Withdrawal, WithdrawalError};
 use thiserror::Error;
 
-use crate::mint::{
+use crate::banking_ledger::{
     MintAccountAddressError, PoolTokenAccountAddressError, PoolTokenTransferExecutorError,
-    PoolTokenTransferMarkerSeedError, TokenAccountOwnerAddressError, TokenProgramIdError,
+    PoolTokenTransferMarkerSeedError, TokenAccountOwnerAddressError,
 };
 
 /// Represents errors returned while executing a withdrawal pool token transfer.
@@ -38,9 +38,6 @@ pub enum WithdrawalTokenTransferCommandHandlerError {
 
     #[error("pool token transfer marker seed is invalid")]
     PoolTokenTransferMarkerSeed(#[from] PoolTokenTransferMarkerSeedError),
-
-    #[error("token program ID is invalid")]
-    TokenProgramId(#[from] TokenProgramIdError),
 
     #[error("token account owner address is invalid")]
     TokenAccountOwnerAddress(#[from] TokenAccountOwnerAddressError),

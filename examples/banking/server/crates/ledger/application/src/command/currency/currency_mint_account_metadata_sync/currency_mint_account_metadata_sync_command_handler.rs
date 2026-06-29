@@ -10,10 +10,10 @@ use super::{
     CurrencyMintAccountMetadataSyncCommand, CurrencyMintAccountMetadataSyncCommandHandlerConfig,
     CurrencyMintAccountMetadataSyncCommandHandlerError, CurrencyMintAccountMetadataSyncOutput,
 };
-use crate::mint::{
-    MintAccountMetadata, MintAccountMetadataUpdateRequest, MintAccountMetadataUpdater,
-    MintAccountSeed, MintMetadataDescription, MintMetadataDocument, MintMetadataImageUri,
-    MintMetadataName, MintMetadataPublishRequest, MintMetadataPublisher, MintMetadataSymbol,
+use crate::banking_ledger::{
+    MintAccountMetadata, MintAccountMetadataUpdateRequest, MintAccountMetadataUpdater, MintId,
+    MintMetadataDescription, MintMetadataDocument, MintMetadataImageUri, MintMetadataName,
+    MintMetadataPublishRequest, MintMetadataPublisher, MintMetadataSymbol,
 };
 
 /// Handles `CurrencyMintAccountMetadataSyncCommand`.
@@ -107,7 +107,7 @@ where
             ));
         }
 
-        let seed = MintAccountSeed::try_from(command.currency_id)?;
+        let mint_id = MintId::try_from(command.currency_id)?;
         let metadata_name = MintMetadataName::from(currency.name()?);
         let metadata_symbol = MintMetadataSymbol::from(currency.symbol()?);
         let description = currency.description()?.map(MintMetadataDescription::from);
@@ -123,11 +123,11 @@ where
         );
         let metadata_uri = self
             .mint_metadata_publisher
-            .publish(MintMetadataPublishRequest::new(seed.clone(), document))
+            .publish(MintMetadataPublishRequest::new(mint_id.clone(), document))
             .await?;
         let metadata = MintAccountMetadata::new(metadata_name, metadata_symbol, metadata_uri);
         self.mint_account_metadata_updater
-            .update(MintAccountMetadataUpdateRequest::new(seed, metadata))
+            .update(MintAccountMetadataUpdateRequest::new(mint_id, metadata))
             .await?;
         currency.record_mint_account_metadata_synced()?;
 
@@ -157,7 +157,7 @@ mod tests {
         Currency, CurrencyDecimals, CurrencyEventPayload, CurrencyId, CurrencyImageObjectName,
         CurrencyImageRef, CurrencyImageUrl, CurrencyMintAccount, CurrencyMintAccountAddress,
         CurrencyMintAccountMetadataSyncRejectionReason, CurrencyName, CurrencyOwner,
-        CurrencyPoolTokenAccountAddress, CurrencySymbol, CurrencyTokenProgramId,
+        CurrencyPoolTokenAccountAddress, CurrencySymbol,
     };
     use uuid::Uuid;
 
@@ -165,15 +165,12 @@ mod tests {
         CurrencyMintAccountMetadataSyncCommand, CurrencyMintAccountMetadataSyncCommandHandler,
         CurrencyMintAccountMetadataSyncCommandHandlerConfig, CurrencyMintAccountMetadataSyncOutput,
     };
-    use crate::mint::{
+    use crate::banking_ledger::{
         MintAccountMetadata, MintAccountMetadataUpdateRequest, MintAccountMetadataUpdater,
-        MintAccountMetadataUpdaterError, MintAccountSeed, MintMetadataDescription,
-        MintMetadataDocument, MintMetadataImagePublicBaseUrl, MintMetadataName,
-        MintMetadataPublishRequest, MintMetadataPublisher, MintMetadataPublisherError,
-        MintMetadataSymbol, MintMetadataUri,
+        MintAccountMetadataUpdaterError, MintId, MintMetadataDescription, MintMetadataDocument,
+        MintMetadataImagePublicBaseUrl, MintMetadataName, MintMetadataPublishRequest,
+        MintMetadataPublisher, MintMetadataPublisherError, MintMetadataSymbol, MintMetadataUri,
     };
-
-    const TOKEN_PROGRAM_ID: &str = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
 
     #[derive(Default)]
     struct TestUow;
@@ -359,8 +356,6 @@ mod tests {
                 .expect("mint account address should be valid"),
             CurrencyPoolTokenAccountAddress::try_from("Pool111111111111111111111111111111111111")
                 .expect("pool account address should be valid"),
-            CurrencyTokenProgramId::try_from(TOKEN_PROGRAM_ID)
-                .expect("token program ID should be valid"),
         )
     }
 
@@ -485,7 +480,7 @@ mod tests {
         assert_eq!(
             update_request,
             MintAccountMetadataUpdateRequest::new(
-                MintAccountSeed::try_from(currency_id).expect("seed should be valid"),
+                MintId::try_from(currency_id).expect("mint ID should be valid"),
                 MintAccountMetadata::new(
                     MintMetadataName::try_from("USD Coin").expect("name should be valid"),
                     MintMetadataSymbol::try_from("USDC").expect("symbol should be valid"),

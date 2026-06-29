@@ -1,0 +1,9 @@
+pub mod pool_token_account_ensure_instruction_accounts;
+pub mod pool_token_account_ensure_instruction_args;
+pub mod pool_token_account_ensure_instruction_error;
+pub mod pool_token_account_ensure_instruction_handler;
+
+pub use pool_token_account_ensure_instruction_accounts::PoolTokenAccountEnsureInstructionAccounts;
+pub use pool_token_account_ensure_instruction_args::PoolTokenAccountEnsureInstructionArgs;
+pub use pool_token_account_ensure_instruction_error::PoolTokenAccountEnsureInstructionError;
+pub(crate) use pool_token_account_ensure_instruction_handler::PoolTokenAccountEnsureInstructionHandler;

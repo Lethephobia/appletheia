@@ -1,3 +1,4 @@
+mod banking_ledger_config_configure;
 mod currency_activate;
 mod currency_deactivate;
 mod currency_define;
@@ -16,6 +17,10 @@ mod currency_supply_release;
 mod currency_supply_reserve;
 mod currency_symbol_change;
 
+pub use banking_ledger_config_configure::{
+    BankingLedgerConfigConfigureCommand, BankingLedgerConfigConfigureCommandHandler,
+    BankingLedgerConfigConfigureCommandHandlerError, BankingLedgerConfigConfigureOutput,
+};
 pub use currency_activate::{
     CurrencyActivateCommand, CurrencyActivateCommandHandler, CurrencyActivateCommandHandlerError,
     CurrencyActivateOutput,

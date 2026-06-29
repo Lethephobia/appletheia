@@ -17,7 +17,7 @@ use super::{
     PayoutDestinationRegisterCommand, PayoutDestinationRegisterCommandHandlerError,
     PayoutDestinationRegisterOutput,
 };
-use crate::mint::{TokenAccountOwnerAddress, TokenAccountOwnerAddressValidator};
+use crate::banking_ledger::{TokenAccountOwnerAddress, TokenAccountOwnerAddressValidator};
 
 /// Handles `PayoutDestinationRegisterCommand`.
 pub struct PayoutDestinationRegisterCommandHandler<PDR, PDAV>
@@ -135,7 +135,7 @@ mod tests {
     };
     use uuid::Uuid;
 
-    use crate::mint::{
+    use crate::banking_ledger::{
         TokenAccountOwnerAddress, TokenAccountOwnerAddressValidator,
         TokenAccountOwnerAddressValidatorError,
     };

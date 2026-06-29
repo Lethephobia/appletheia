@@ -2,7 +2,9 @@ use appletheia::application::repository::RepositoryError;
 use banking_ledger_domain::payout_destination::{PayoutDestination, PayoutDestinationError};
 use thiserror::Error;
 
-use crate::mint::{TokenAccountOwnerAddressError, TokenAccountOwnerAddressValidatorError};
+use crate::banking_ledger::{
+    TokenAccountOwnerAddressError, TokenAccountOwnerAddressValidatorError,
+};
 
 /// Represents errors returned while registering a payout destination.
 #[derive(Debug, Error)]

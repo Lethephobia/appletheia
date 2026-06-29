@@ -50,8 +50,6 @@ mod currency_symbol;
 mod currency_symbol_change_rejection_reason;
 mod currency_symbol_change_result;
 mod currency_symbol_error;
-mod currency_token_program_id;
-mod currency_token_program_id_error;
 
 pub use currency_activate_rejection_reason::CurrencyActivateRejectionReason;
 pub use currency_activate_result::CurrencyActivateResult;
@@ -105,8 +103,6 @@ pub use currency_symbol::CurrencySymbol;
 pub use currency_symbol_change_rejection_reason::CurrencySymbolChangeRejectionReason;
 pub use currency_symbol_change_result::CurrencySymbolChangeResult;
 pub use currency_symbol_error::CurrencySymbolError;
-pub use currency_token_program_id::CurrencyTokenProgramId;
-pub use currency_token_program_id_error::CurrencyTokenProgramIdError;
 
 use appletheia::aggregate;
 use appletheia::domain::{Aggregate, AggregateApply, AggregateCore};
@@ -720,7 +716,7 @@ mod tests {
         CurrencyImageRef, CurrencyImageUrl, CurrencyMintAccount, CurrencyMintAccountAddress,
         CurrencyMintAccountMetadataSyncRejectionReason, CurrencyName, CurrencyOwner,
         CurrencyPoolTokenAccountAddress, CurrencyProvisioningStatus, CurrencyStatus,
-        CurrencySymbol, CurrencyTokenProgramId,
+        CurrencySymbol,
     };
 
     fn user_owner() -> CurrencyOwner {
@@ -737,8 +733,6 @@ mod tests {
                 .expect("mint account address should be valid"),
             CurrencyPoolTokenAccountAddress::try_from("Pool111111111111111111111111111111111111")
                 .expect("pool account address should be valid"),
-            CurrencyTokenProgramId::try_from("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb")
-                .expect("token program ID should be valid"),
         )
     }
 

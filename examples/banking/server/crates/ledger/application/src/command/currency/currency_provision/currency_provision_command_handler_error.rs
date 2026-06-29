@@ -2,9 +2,9 @@ use appletheia::application::repository::RepositoryError;
 use banking_ledger_domain::currency::{Currency, CurrencyError};
 use thiserror::Error;
 
-use crate::mint::{
-    MintAccountCreateReceiptError, MintAccountCreatorError, MintAccountSeedError,
-    MintMetadataImagePublicBaseUrlError, MintMetadataImageUriError, MintMetadataPublisherError,
+use crate::banking_ledger::{
+    MintIdError, MintMetadataImagePublicBaseUrlError, MintMetadataImageUriError,
+    MintMetadataPublisherError, MintProvisionReceiptError, MintProvisionerError,
 };
 
 /// Represents errors returned while provisioning a currency.
@@ -16,8 +16,8 @@ pub enum CurrencyProvisionCommandHandlerError {
     #[error("currency aggregate failed")]
     Currency(#[from] CurrencyError),
 
-    #[error("mint account seed is invalid")]
-    MintAccountSeed(#[from] MintAccountSeedError),
+    #[error("mint ID is invalid")]
+    MintId(#[from] MintIdError),
 
     #[error("mint metadata image public base URL is invalid")]
     MintMetadataImagePublicBaseUrl(#[from] MintMetadataImagePublicBaseUrlError),
@@ -28,9 +28,9 @@ pub enum CurrencyProvisionCommandHandlerError {
     #[error("mint metadata publisher failed")]
     MintMetadataPublisher(#[from] MintMetadataPublisherError),
 
-    #[error("mint account creator failed")]
-    MintAccountCreator(#[from] MintAccountCreatorError),
+    #[error("mint provisioner failed")]
+    MintProvisioner(#[from] MintProvisionerError),
 
-    #[error("mint account creation receipt is invalid")]
-    MintAccountCreateReceipt(#[from] MintAccountCreateReceiptError),
+    #[error("mint provision receipt is invalid")]
+    MintProvisionReceipt(#[from] MintProvisionReceiptError),
 }

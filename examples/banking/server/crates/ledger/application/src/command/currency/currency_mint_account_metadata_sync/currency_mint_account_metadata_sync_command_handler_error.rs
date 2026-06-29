@@ -2,8 +2,8 @@ use appletheia::application::repository::RepositoryError;
 use banking_ledger_domain::currency::{Currency, CurrencyError};
 use thiserror::Error;
 
-use crate::mint::{
-    MintAccountMetadataUpdaterError, MintAccountSeedError, MintMetadataImagePublicBaseUrlError,
+use crate::banking_ledger::{
+    MintAccountMetadataUpdaterError, MintIdError, MintMetadataImagePublicBaseUrlError,
     MintMetadataImageUriError, MintMetadataPublisherError,
 };
 
@@ -16,8 +16,8 @@ pub enum CurrencyMintAccountMetadataSyncCommandHandlerError {
     #[error("currency aggregate failed")]
     Currency(#[from] CurrencyError),
 
-    #[error("mint account seed is invalid")]
-    MintAccountSeed(#[from] MintAccountSeedError),
+    #[error("mint ID is invalid")]
+    MintId(#[from] MintIdError),
 
     #[error("mint metadata image public base URL is invalid")]
     MintMetadataImagePublicBaseUrl(#[from] MintMetadataImagePublicBaseUrlError),

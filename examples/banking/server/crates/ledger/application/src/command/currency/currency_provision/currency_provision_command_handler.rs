@@ -11,42 +11,42 @@ use super::{
     CurrencyProvisionCommand, CurrencyProvisionCommandHandlerConfig,
     CurrencyProvisionCommandHandlerError, CurrencyProvisionOutput,
 };
-use crate::mint::{
-    MintAccountCreateReceiptError, MintAccountCreateRequest, MintAccountCreator,
-    MintAccountDecimals, MintAccountMetadata, MintAccountSeed, MintMetadataDescription,
+use crate::banking_ledger::{
+    MintAccountDecimals, MintAccountMetadata, MintId, MintMetadataDescription,
     MintMetadataDocument, MintMetadataImageUri, MintMetadataName, MintMetadataPublishRequest,
-    MintMetadataPublisher, MintMetadataSymbol,
+    MintMetadataPublisher, MintMetadataSymbol, MintProvisionReceiptError, MintProvisionRequest,
+    MintProvisioner,
 };
 
 /// Handles `CurrencyProvisionCommand`.
-pub struct CurrencyProvisionCommandHandler<CR, MMP, MAC>
+pub struct CurrencyProvisionCommandHandler<CR, MMP, MI>
 where
     CR: Repository<Currency>,
     MMP: MintMetadataPublisher,
-    MAC: MintAccountCreator,
+    MI: MintProvisioner,
 {
     currency_repository: CR,
     mint_metadata_publisher: MMP,
-    mint_account_creator: MAC,
+    mint_provisioner: MI,
     config: CurrencyProvisionCommandHandlerConfig,
 }
 
-impl<CR, MMP, MAC> CurrencyProvisionCommandHandler<CR, MMP, MAC>
+impl<CR, MMP, MI> CurrencyProvisionCommandHandler<CR, MMP, MI>
 where
     CR: Repository<Currency>,
     MMP: MintMetadataPublisher,
-    MAC: MintAccountCreator,
+    MI: MintProvisioner,
 {
     pub fn new(
         currency_repository: CR,
         mint_metadata_publisher: MMP,
-        mint_account_creator: MAC,
+        mint_provisioner: MI,
         config: CurrencyProvisionCommandHandlerConfig,
     ) -> Self {
         Self {
             currency_repository,
             mint_metadata_publisher,
-            mint_account_creator,
+            mint_provisioner,
             config,
         }
     }
@@ -64,11 +64,11 @@ where
     }
 }
 
-impl<CR, MMP, MAC> CommandHandler for CurrencyProvisionCommandHandler<CR, MMP, MAC>
+impl<CR, MMP, MI> CommandHandler for CurrencyProvisionCommandHandler<CR, MMP, MI>
 where
     CR: Repository<Currency>,
     MMP: MintMetadataPublisher,
-    MAC: MintAccountCreator,
+    MI: MintProvisioner,
 {
     type Command = CurrencyProvisionCommand;
     type Output = CurrencyProvisionOutput;
@@ -118,7 +118,7 @@ where
             }));
         }
 
-        let seed = MintAccountSeed::try_from(command.currency_id)?;
+        let mint_id = MintId::try_from(command.currency_id)?;
         let metadata_name = MintMetadataName::from(currency.name()?);
         let metadata_symbol = MintMetadataSymbol::from(currency.symbol()?);
         let description = currency.description()?.map(MintMetadataDescription::from);
@@ -134,13 +134,13 @@ where
         );
         let metadata_uri = self
             .mint_metadata_publisher
-            .publish(MintMetadataPublishRequest::new(seed.clone(), document))
+            .publish(MintMetadataPublishRequest::new(mint_id.clone(), document))
             .await?;
         let metadata = MintAccountMetadata::new(metadata_name, metadata_symbol, metadata_uri);
         let receipt = self
-            .mint_account_creator
-            .create_or_get(MintAccountCreateRequest::new(
-                seed,
+            .mint_provisioner
+            .provision(MintProvisionRequest::new(
+                mint_id,
                 MintAccountDecimals::from(currency.decimals()?),
                 metadata,
             ))
@@ -150,17 +150,12 @@ where
                 .mint_account_address()
                 .clone()
                 .try_into()
-                .map_err(MintAccountCreateReceiptError::from)?,
+                .map_err(MintProvisionReceiptError::from)?,
             receipt
                 .pool_token_account_address()
                 .clone()
                 .try_into()
-                .map_err(MintAccountCreateReceiptError::from)?,
-            receipt
-                .token_program_id()
-                .clone()
-                .try_into()
-                .map_err(MintAccountCreateReceiptError::from)?,
+                .map_err(MintProvisionReceiptError::from)?,
         );
         let result = currency.provision(mint_account)?;
 
@@ -199,7 +194,7 @@ mod tests {
         Currency, CurrencyDecimals, CurrencyEventPayload, CurrencyId, CurrencyImageObjectName,
         CurrencyImageRef, CurrencyImageUrl, CurrencyMintAccount, CurrencyMintAccountAddress,
         CurrencyName, CurrencyOwner, CurrencyPoolTokenAccountAddress,
-        CurrencyProvisionRejectionReason, CurrencySymbol, CurrencyTokenProgramId,
+        CurrencyProvisionRejectionReason, CurrencySymbol,
     };
     use uuid::Uuid;
 
@@ -207,14 +202,11 @@ mod tests {
         CurrencyProvisionCommand, CurrencyProvisionCommandHandler,
         CurrencyProvisionCommandHandlerConfig, CurrencyProvisionOutput,
     };
-    use crate::mint::{
-        MintAccountAddress, MintAccountCreateReceipt, MintAccountCreateRequest, MintAccountCreator,
-        MintAccountCreatorError, MintAccountSeed, MintMetadataImagePublicBaseUrl,
-        MintMetadataPublishRequest, MintMetadataPublisher, MintMetadataPublisherError,
-        MintMetadataUri, PoolTokenAccountAddress, TokenProgramId,
+    use crate::banking_ledger::{
+        MintAccountAddress, MintId, MintMetadataImagePublicBaseUrl, MintMetadataPublishRequest,
+        MintMetadataPublisher, MintMetadataPublisherError, MintMetadataUri, MintProvisionReceipt,
+        MintProvisionRequest, MintProvisioner, MintProvisionerError, PoolTokenAccountAddress,
     };
-
-    const TOKEN_PROGRAM_ID: &str = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
 
     #[derive(Default)]
     struct TestUow;
@@ -329,13 +321,13 @@ mod tests {
     }
 
     #[derive(Clone)]
-    struct TestMintAccountCreator {
+    struct TestMintProvisioner {
         calls: Arc<Mutex<usize>>,
-        receipt: MintAccountCreateReceipt,
+        receipt: MintProvisionReceipt,
     }
 
-    impl TestMintAccountCreator {
-        fn new(receipt: MintAccountCreateReceipt) -> Self {
+    impl TestMintProvisioner {
+        fn new(receipt: MintProvisionReceipt) -> Self {
             Self {
                 calls: Arc::new(Mutex::new(0)),
                 receipt,
@@ -343,11 +335,11 @@ mod tests {
         }
     }
 
-    impl MintAccountCreator for TestMintAccountCreator {
-        async fn create_or_get(
+    impl MintProvisioner for TestMintProvisioner {
+        async fn provision(
             &self,
-            _request: MintAccountCreateRequest,
-        ) -> Result<MintAccountCreateReceipt, MintAccountCreatorError> {
+            _request: MintProvisionRequest,
+        ) -> Result<MintProvisionReceipt, MintProvisionerError> {
             *self.calls.lock().expect("lock") += 1;
             Ok(self.receipt.clone())
         }
@@ -388,18 +380,15 @@ mod tests {
                 .expect("mint account address should be valid"),
             CurrencyPoolTokenAccountAddress::try_from("Pool111111111111111111111111111111111111")
                 .expect("pool account address should be valid"),
-            CurrencyTokenProgramId::try_from(TOKEN_PROGRAM_ID)
-                .expect("token program ID should be valid"),
         )
     }
 
-    fn receipt() -> MintAccountCreateReceipt {
-        MintAccountCreateReceipt::new(
+    fn receipt() -> MintProvisionReceipt {
+        MintProvisionReceipt::new(
             MintAccountAddress::try_from("Mint111111111111111111111111111111111111")
                 .expect("mint account address should be valid"),
             PoolTokenAccountAddress::try_from("Pool111111111111111111111111111111111111")
                 .expect("pool account address should be valid"),
-            TokenProgramId::try_from(TOKEN_PROGRAM_ID).expect("token program ID should be valid"),
         )
     }
 
@@ -413,13 +402,13 @@ mod tests {
     fn handler(
         repository: TestCurrencyRepository,
         publisher: TestMintMetadataPublisher,
-        creator: TestMintAccountCreator,
+        provisioner: TestMintProvisioner,
     ) -> CurrencyProvisionCommandHandler<
         TestCurrencyRepository,
         TestMintMetadataPublisher,
-        TestMintAccountCreator,
+        TestMintProvisioner,
     > {
-        CurrencyProvisionCommandHandler::new(repository, publisher, creator, config())
+        CurrencyProvisionCommandHandler::new(repository, publisher, provisioner, config())
     }
 
     #[tokio::test]
@@ -433,9 +422,9 @@ mod tests {
         let repository = TestCurrencyRepository::new(currency);
         let publisher = TestMintMetadataPublisher::new();
         let publisher_calls = publisher.calls.clone();
-        let creator = TestMintAccountCreator::new(receipt());
-        let creator_calls = creator.calls.clone();
-        let handler = handler(repository.clone(), publisher, creator);
+        let provisioner = TestMintProvisioner::new(receipt());
+        let provisioner_calls = provisioner.calls.clone();
+        let handler = handler(repository.clone(), publisher, provisioner);
         let mut uow = TestUow;
 
         let handled = handler
@@ -454,7 +443,7 @@ mod tests {
             }
         );
         assert_eq!(*publisher_calls.lock().expect("lock"), 0);
-        assert_eq!(*creator_calls.lock().expect("lock"), 0);
+        assert_eq!(*provisioner_calls.lock().expect("lock"), 0);
         let saved = repository
             .saved
             .lock()
@@ -480,9 +469,9 @@ mod tests {
         let repository = TestCurrencyRepository::new(currency);
         let publisher = TestMintMetadataPublisher::new();
         let publisher_calls = publisher.calls.clone();
-        let creator = TestMintAccountCreator::new(receipt());
-        let creator_calls = creator.calls.clone();
-        let handler = handler(repository.clone(), publisher, creator);
+        let provisioner = TestMintProvisioner::new(receipt());
+        let provisioner_calls = provisioner.calls.clone();
+        let handler = handler(repository.clone(), publisher, provisioner);
         let mut uow = TestUow;
 
         let handled = handler
@@ -501,7 +490,7 @@ mod tests {
             }
         );
         assert_eq!(*publisher_calls.lock().expect("lock"), 0);
-        assert_eq!(*creator_calls.lock().expect("lock"), 0);
+        assert_eq!(*provisioner_calls.lock().expect("lock"), 0);
 
         let saved = repository
             .saved
@@ -520,16 +509,16 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn handle_publishes_metadata_creates_mint_and_provisions_currency() {
+    async fn handle_publishes_metadata_provisions_mint_for_currency() {
         let currency = defined_currency();
         let currency_id = currency.aggregate_id().expect("currency id should exist");
         let repository = TestCurrencyRepository::new(currency);
         let publisher = TestMintMetadataPublisher::new();
         let publisher_calls = publisher.calls.clone();
         let published_request = publisher.request.clone();
-        let creator = TestMintAccountCreator::new(receipt());
-        let creator_calls = creator.calls.clone();
-        let handler = handler(repository.clone(), publisher, creator);
+        let provisioner = TestMintProvisioner::new(receipt());
+        let provisioner_calls = provisioner.calls.clone();
+        let handler = handler(repository.clone(), publisher, provisioner);
         let mut uow = TestUow;
 
         let handled = handler
@@ -546,7 +535,7 @@ mod tests {
             CurrencyProvisionOutput::Provisioned { .. }
         ));
         assert_eq!(*publisher_calls.lock().expect("lock"), 1);
-        assert_eq!(*creator_calls.lock().expect("lock"), 1);
+        assert_eq!(*provisioner_calls.lock().expect("lock"), 1);
         assert_eq!(
             published_request
                 .lock()
@@ -590,8 +579,8 @@ mod tests {
         let repository = TestCurrencyRepository::new(currency);
         let publisher = TestMintMetadataPublisher::new();
         let published_request = publisher.request.clone();
-        let creator = TestMintAccountCreator::new(receipt());
-        let handler = handler(repository, publisher, creator);
+        let provisioner = TestMintProvisioner::new(receipt());
+        let handler = handler(repository, publisher, provisioner);
         let mut uow = TestUow;
 
         handler
@@ -630,8 +619,8 @@ mod tests {
         let repository = TestCurrencyRepository::new(currency);
         let publisher = TestMintMetadataPublisher::new();
         let published_request = publisher.request.clone();
-        let creator = TestMintAccountCreator::new(receipt());
-        let handler = handler(repository, publisher, creator);
+        let provisioner = TestMintProvisioner::new(receipt());
+        let handler = handler(repository, publisher, provisioner);
         let mut uow = TestUow;
 
         handler
@@ -658,11 +647,11 @@ mod tests {
     }
 
     #[test]
-    fn mint_account_seed_is_derived_from_currency_id() {
+    fn mint_id_is_derived_from_currency_id() {
         let currency_id = CurrencyId::new();
 
-        let seed = MintAccountSeed::try_from(currency_id).expect("seed should be valid");
+        let mint_id = MintId::try_from(currency_id).expect("mint ID should be valid");
 
-        assert_eq!(seed.value(), currency_id.value().as_simple().to_string());
+        assert_eq!(mint_id.value(), currency_id.value().as_simple().to_string());
     }
 }

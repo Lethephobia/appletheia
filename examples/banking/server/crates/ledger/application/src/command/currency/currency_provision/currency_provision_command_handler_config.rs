@@ -1,4 +1,4 @@
-use crate::mint::MintMetadataImagePublicBaseUrl;
+use crate::banking_ledger::MintMetadataImagePublicBaseUrl;
 
 /// Configuration for `CurrencyProvisionCommandHandler`.
 #[derive(Clone, Debug, PartialEq, Eq)]

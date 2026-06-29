@@ -1,12 +1,36 @@
-pub mod constants;
-pub mod error;
-pub mod instructions;
-pub mod state;
+#![allow(clippy::diverging_sub_expression)]
+
+pub mod account;
+pub mod instruction_handler;
 
 use anchor_lang::prelude::*;
+use appletheia_anchor::instruction::InstructionHandler;
 
-pub use constants::*;
-pub use instructions::*;
+use instruction_handler::banking_ledger_config_configure::BankingLedgerConfigConfigureInstructionHandler;
+use instruction_handler::mint_upsert::MintUpsertInstructionHandler;
+use instruction_handler::pool_token_account_ensure::PoolTokenAccountEnsureInstructionHandler;
+
+pub use account::{BankingLedgerConfig, Mint, MintMetadata, MintState, ProgramAuthority};
+pub use instruction_handler::{
+    BankingLedgerConfigConfigureInstructionAccounts, BankingLedgerConfigConfigureInstructionArgs,
+    BankingLedgerConfigConfigureInstructionError, MintUpsertInstructionAccounts,
+    MintUpsertInstructionArgs, MintUpsertInstructionError,
+    PoolTokenAccountEnsureInstructionAccounts, PoolTokenAccountEnsureInstructionArgs,
+    PoolTokenAccountEnsureInstructionError,
+};
+
+#[doc(hidden)]
+pub(crate) use instruction_handler::banking_ledger_config_configure::banking_ledger_config_configure_instruction_accounts::__client_accounts_banking_ledger_config_configure_instruction_accounts;
+#[doc(hidden)]
+pub(crate) use instruction_handler::banking_ledger_config_configure::banking_ledger_config_configure_instruction_accounts::__cpi_client_accounts_banking_ledger_config_configure_instruction_accounts;
+#[doc(hidden)]
+pub(crate) use instruction_handler::mint_upsert::mint_upsert_instruction_accounts::__client_accounts_mint_upsert_instruction_accounts;
+#[doc(hidden)]
+pub(crate) use instruction_handler::mint_upsert::mint_upsert_instruction_accounts::__cpi_client_accounts_mint_upsert_instruction_accounts;
+#[doc(hidden)]
+pub(crate) use instruction_handler::pool_token_account_ensure::pool_token_account_ensure_instruction_accounts::__client_accounts_pool_token_account_ensure_instruction_accounts;
+#[doc(hidden)]
+pub(crate) use instruction_handler::pool_token_account_ensure::pool_token_account_ensure_instruction_accounts::__cpi_client_accounts_pool_token_account_ensure_instruction_accounts;
 
 declare_id!("DzYXFRU9PyJiEWLGaTQ8FA35urAtTkLH3G3QvQqMB2tZ");
 
@@ -14,7 +38,39 @@ declare_id!("DzYXFRU9PyJiEWLGaTQ8FA35urAtTkLH3G3QvQqMB2tZ");
 pub mod banking_ledger {
     use super::*;
 
-    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
-        initialize::handler(ctx)
+    pub fn configure_banking_ledger_config(
+        ctx: Context<BankingLedgerConfigConfigureInstructionAccounts>,
+    ) -> Result<()> {
+        let args = BankingLedgerConfigConfigureInstructionArgs;
+
+        BankingLedgerConfigConfigureInstructionHandler::handle(ctx, args)
+    }
+
+    pub fn upsert_mint(
+        ctx: Context<MintUpsertInstructionAccounts>,
+        mint_id: [u8; 16],
+        decimals: u8,
+        name: String,
+        symbol: String,
+        uri: String,
+    ) -> Result<()> {
+        let args = MintUpsertInstructionArgs {
+            mint_id,
+            decimals,
+            name,
+            symbol,
+            uri,
+        };
+
+        MintUpsertInstructionHandler::handle(ctx, args)
+    }
+
+    pub fn ensure_pool_token_account(
+        ctx: Context<PoolTokenAccountEnsureInstructionAccounts>,
+        mint_id: [u8; 16],
+    ) -> Result<()> {
+        let args = PoolTokenAccountEnsureInstructionArgs { mint_id };
+
+        PoolTokenAccountEnsureInstructionHandler::handle(ctx, args)
     }
 }
