@@ -6,7 +6,7 @@ use crate::command::OrganizationPictureObjectDeleteCommand;
 
 use super::{
     OrganizationOldPictureObjectDeletionSagaError, OrganizationOldPictureObjectDeletionSagaSpec,
-    OrganizationOldPictureObjectDeletionSagaState,
+    OrganizationOldPictureObjectDeletionSagaState, OrganizationOldPictureObjectDeletionSagaStatus,
 };
 
 /// Coordinates old organization picture object deletion after picture changes.
@@ -35,6 +35,9 @@ impl Saga for OrganizationOldPictureObjectDeletionSaga {
             .and_then(|picture| picture.as_object_name())
             .cloned()
         else {
+            if let Some(state) = instance.state_mut().as_mut() {
+                state.status = OrganizationOldPictureObjectDeletionSagaStatus::Skipped;
+            }
             instance.succeed();
             return Ok(());
         };

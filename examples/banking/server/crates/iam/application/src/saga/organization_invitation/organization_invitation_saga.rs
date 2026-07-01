@@ -9,7 +9,7 @@ use crate::command::UserOrganizationMembershipGrantCommand;
 
 use super::{
     OrganizationInvitationSagaError, OrganizationInvitationSagaSpec,
-    OrganizationInvitationSagaState,
+    OrganizationInvitationSagaState, OrganizationInvitationSagaStatus,
 };
 
 /// Coordinates organization invitation workflow into organization membership grant.
@@ -50,11 +50,22 @@ impl Saga for OrganizationInvitationSaga {
         } else if event.is_for_aggregate::<User>() {
             let user_event = event.try_into_domain_event::<User>()?;
             match user_event.payload() {
-                UserEventPayload::OrganizationMembershipGranted { .. } => instance.succeed(),
+                UserEventPayload::OrganizationMembershipGranted { .. } => {
+                    if let Some(state) = instance.state_mut().as_mut() {
+                        state.status = OrganizationInvitationSagaStatus::MembershipGranted;
+                    }
+                    instance.succeed();
+                }
                 UserEventPayload::OrganizationMembershipGrantRejected { reason, .. } => {
                     if *reason == OrganizationMembershipGrantRejectionReason::AlreadyMember {
+                        if let Some(state) = instance.state_mut().as_mut() {
+                            state.status = OrganizationInvitationSagaStatus::AlreadyMember;
+                        }
                         instance.succeed();
                     } else {
+                        if let Some(state) = instance.state_mut().as_mut() {
+                            state.status = OrganizationInvitationSagaStatus::Failed;
+                        }
                         instance.fail();
                     }
                 }
