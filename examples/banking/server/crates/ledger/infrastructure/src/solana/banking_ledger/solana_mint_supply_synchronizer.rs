@@ -1,16 +1,15 @@
+use anchor_lang::{InstructionData, ToAccountMetas};
+use banking_ledger::{
+    BankingLedgerConfig, Mint, MintState, ProgramAuthority,
+    accounts::MintSupplySyncInstructionAccounts, instruction::SyncMintSupply,
+};
 use banking_ledger_application::{
-    MintId, MintSupplySyncRequest, MintSupplySynchronizer, MintSupplySynchronizerError,
+    MintSupplySyncRequest, MintSupplySynchronizer, MintSupplySynchronizerError,
 };
 use solana_client::nonblocking::rpc_client::RpcClient;
-use solana_sdk::{
-    instruction::Instruction, program_error::ProgramError, pubkey::Pubkey, pubkey::PubkeyError,
-    signature::Signer,
-};
+use solana_sdk::{instruction::Instruction, pubkey::Pubkey, signature::Signer};
 use solana_transaction::Transaction;
 use spl_associated_token_account_interface::address as associated_token_address;
-use spl_token_2022_interface::extension::PodStateWithExtensions;
-use spl_token_2022_interface::instruction as token_instruction;
-use spl_token_2022_interface::pod::PodMint;
 
 use super::{SolanaMintSupplySynchronizerConfig, SolanaMintSupplySynchronizerError};
 
@@ -25,61 +24,32 @@ impl SolanaMintSupplySynchronizer {
         Self { rpc_client, config }
     }
 
-    fn mint_address(
-        mint_authority: &Pubkey,
-        mint_id: &MintId,
-        token_program_id: &Pubkey,
-    ) -> Result<Pubkey, PubkeyError> {
-        Pubkey::create_with_seed(mint_authority, mint_id.value(), token_program_id)
+    fn banking_ledger_config_address(&self) -> Pubkey {
+        Pubkey::find_program_address(&[BankingLedgerConfig::SEED], self.config.program_id()).0
+    }
+
+    fn mint_state_address(&self, mint_id: &[u8; 16]) -> Pubkey {
+        Pubkey::find_program_address(&[MintState::SEED, mint_id], self.config.program_id()).0
+    }
+
+    fn mint_address(&self, mint_id: &[u8; 16]) -> Pubkey {
+        Pubkey::find_program_address(&[Mint::SEED, mint_id], self.config.program_id()).0
+    }
+
+    fn program_authority_address(&self) -> Pubkey {
+        Pubkey::find_program_address(&[ProgramAuthority::SEED], self.config.program_id()).0
     }
 
     fn pool_token_account_address(
-        pool_account_owner: &Pubkey,
+        program_authority_address: &Pubkey,
         mint_address: &Pubkey,
         token_program_id: &Pubkey,
     ) -> Pubkey {
         associated_token_address::get_associated_token_address_with_program_id(
-            pool_account_owner,
+            program_authority_address,
             mint_address,
             token_program_id,
         )
-    }
-
-    async fn current_supply(
-        &self,
-        mint_address: &Pubkey,
-        token_program_id: &Pubkey,
-    ) -> Result<u64, SolanaMintSupplySynchronizerError> {
-        let account = self
-            .rpc_client
-            .get_account_with_commitment(mint_address, self.rpc_client.commitment())
-            .await?
-            .value
-            .ok_or_else(
-                || SolanaMintSupplySynchronizerError::MintAccountInvalidData {
-                    address: mint_address.to_string(),
-                    source: ProgramError::UninitializedAccount,
-                },
-            )?;
-
-        if account.owner != *token_program_id {
-            return Err(
-                SolanaMintSupplySynchronizerError::MintAccountUnexpectedOwner {
-                    address: mint_address.to_string(),
-                    owner: account.owner.to_string(),
-                    expected_owner: token_program_id.to_string(),
-                },
-            );
-        }
-
-        let state = PodStateWithExtensions::<PodMint>::unpack(&account.data).map_err(|source| {
-            SolanaMintSupplySynchronizerError::MintAccountInvalidData {
-                address: mint_address.to_string(),
-                source,
-            }
-        })?;
-
-        Ok(u64::from(state.base.supply))
     }
 
     async fn send_transaction(
@@ -98,6 +68,20 @@ impl SolanaMintSupplySynchronizer {
 
         Ok(())
     }
+
+    fn unique_signers<'a>(&self, signers: &[&'a dyn Signer]) -> Vec<&'a dyn Signer> {
+        let mut unique: Vec<&dyn Signer> = Vec::new();
+        for signer in signers {
+            if unique
+                .iter()
+                .all(|existing| existing.pubkey() != signer.pubkey())
+            {
+                unique.push(*signer);
+            }
+        }
+
+        unique
+    }
 }
 
 impl MintSupplySynchronizer for SolanaMintSupplySynchronizer {
@@ -106,79 +90,47 @@ impl MintSupplySynchronizer for SolanaMintSupplySynchronizer {
         request: MintSupplySyncRequest,
     ) -> Result<(), MintSupplySynchronizerError> {
         let token_program_id = spl_token_2022_interface::id();
-        let mint_authority = self.config.mint_authority().pubkey();
-        let pool_account_owner = self.config.pool_account_owner().pubkey();
-        let mint_address =
-            Self::mint_address(&mint_authority, request.mint_id(), &token_program_id).map_err(
-                |error| {
-                    MintSupplySynchronizerError::Backend(Box::new(
-                        SolanaMintSupplySynchronizerError::MintAccountAddressDerivation(error),
-                    ))
-                },
-            )?;
-        let pool_token_account_address =
-            Self::pool_token_account_address(&pool_account_owner, &mint_address, &token_program_id);
+        let associated_token_program_id = spl_associated_token_account_interface::program::id();
+        let program_id = *self.config.program_id();
+        let operator = self.config.operator().pubkey();
+        let mint_id = request.mint_id().bytes();
+        let banking_ledger_config_address = self.banking_ledger_config_address();
+        let mint_state_address = self.mint_state_address(&mint_id);
+        let program_authority_address = self.program_authority_address();
+        let mint_address = self.mint_address(&mint_id);
+        let pool_token_account_address = Self::pool_token_account_address(
+            &program_authority_address,
+            &mint_address,
+            &token_program_id,
+        );
         let target_supply = u64::try_from(request.target_supply().value()).map_err(|_| {
             MintSupplySynchronizerError::Backend(Box::new(
                 SolanaMintSupplySynchronizerError::TargetSupplyOverflow,
             ))
         })?;
-        let current_supply = self
-            .current_supply(&mint_address, &token_program_id)
-            .await
-            .map_err(|error| MintSupplySynchronizerError::Backend(Box::new(error)))?;
 
-        if current_supply == target_supply {
-            return Ok(());
-        }
-
+        let instruction = Instruction {
+            program_id,
+            accounts: MintSupplySyncInstructionAccounts {
+                banking_ledger_config: banking_ledger_config_address,
+                operator,
+                mint_state: mint_state_address,
+                program_authority: program_authority_address,
+                mint: mint_address,
+                pool_token_account: pool_token_account_address,
+                token_program: token_program_id,
+                associated_token_program: associated_token_program_id,
+            }
+            .to_account_metas(None),
+            data: SyncMintSupply {
+                mint_id,
+                target_supply,
+            }
+            .data(),
+        };
         let payer = self.config.payer().as_ref();
-        let mint_authority_signer = self.config.mint_authority().as_ref();
-        let pool_account_owner_signer = self.config.pool_account_owner().as_ref();
-        let (instruction, signers): (Instruction, Vec<&dyn Signer>) =
-            if current_supply < target_supply {
-                let mint_amount = target_supply - current_supply;
-                let instruction = token_instruction::mint_to_checked(
-                    &token_program_id,
-                    &mint_address,
-                    &pool_token_account_address,
-                    &mint_authority,
-                    &[],
-                    mint_amount,
-                    request.decimals().value(),
-                )
-                .map_err(|error| {
-                    MintSupplySynchronizerError::Backend(Box::new(
-                        SolanaMintSupplySynchronizerError::MintToInstruction(error),
-                    ))
-                })?;
-                let mut signers: Vec<&dyn Signer> = vec![payer];
-                if payer.pubkey() != mint_authority_signer.pubkey() {
-                    signers.push(mint_authority_signer);
-                }
-                (instruction, signers)
-            } else {
-                let burn_amount = current_supply - target_supply;
-                let instruction = token_instruction::burn_checked(
-                    &token_program_id,
-                    &pool_token_account_address,
-                    &mint_address,
-                    &pool_account_owner,
-                    &[],
-                    burn_amount,
-                    request.decimals().value(),
-                )
-                .map_err(|error| {
-                    MintSupplySynchronizerError::Backend(Box::new(
-                        SolanaMintSupplySynchronizerError::BurnInstruction(error),
-                    ))
-                })?;
-                let mut signers: Vec<&dyn Signer> = vec![payer];
-                if payer.pubkey() != pool_account_owner_signer.pubkey() {
-                    signers.push(pool_account_owner_signer);
-                }
-                (instruction, signers)
-            };
+        let operator = self.config.operator().as_ref();
+        let signers = self.unique_signers(&[payer, operator]);
 
         self.send_transaction(vec![instruction], signers)
             .await

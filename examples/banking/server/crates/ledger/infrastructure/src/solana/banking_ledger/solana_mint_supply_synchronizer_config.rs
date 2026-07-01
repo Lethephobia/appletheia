@@ -1,24 +1,20 @@
 use std::sync::Arc;
 
-use solana_sdk::signature::Keypair;
+use solana_sdk::{pubkey::Pubkey, signature::Keypair};
 
 /// Configuration for `SolanaMintSupplySynchronizer`.
 pub struct SolanaMintSupplySynchronizerConfig {
     payer: Arc<Keypair>,
-    mint_authority: Arc<Keypair>,
-    pool_account_owner: Arc<Keypair>,
+    operator: Arc<Keypair>,
+    program_id: Pubkey,
 }
 
 impl SolanaMintSupplySynchronizerConfig {
-    pub fn new(
-        payer: Arc<Keypair>,
-        mint_authority: Arc<Keypair>,
-        pool_account_owner: Arc<Keypair>,
-    ) -> Self {
+    pub fn new(payer: Arc<Keypair>, operator: Arc<Keypair>, program_id: Pubkey) -> Self {
         Self {
             payer,
-            mint_authority,
-            pool_account_owner,
+            operator,
+            program_id,
         }
     }
 
@@ -26,11 +22,11 @@ impl SolanaMintSupplySynchronizerConfig {
         &self.payer
     }
 
-    pub fn mint_authority(&self) -> &Arc<Keypair> {
-        &self.mint_authority
+    pub fn operator(&self) -> &Arc<Keypair> {
+        &self.operator
     }
 
-    pub fn pool_account_owner(&self) -> &Arc<Keypair> {
-        &self.pool_account_owner
+    pub fn program_id(&self) -> &Pubkey {
+        &self.program_id
     }
 }
