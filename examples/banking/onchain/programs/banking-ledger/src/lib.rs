@@ -7,28 +7,38 @@ use anchor_lang::prelude::*;
 use appletheia_anchor::instruction::InstructionHandler;
 
 use instruction_handler::banking_ledger_config_configure::BankingLedgerConfigConfigureInstructionHandler;
+use instruction_handler::mint_metadata_update::MintMetadataUpdateInstructionHandler;
 use instruction_handler::mint_upsert::MintUpsertInstructionHandler;
 use instruction_handler::pool_token_account_ensure::PoolTokenAccountEnsureInstructionHandler;
 
 pub use account::{BankingLedgerConfig, Mint, MintMetadata, MintState, ProgramAuthority};
 pub use instruction_handler::{
     BankingLedgerConfigConfigureInstructionAccounts, BankingLedgerConfigConfigureInstructionArgs,
-    BankingLedgerConfigConfigureInstructionError, MintUpsertInstructionAccounts,
-    MintUpsertInstructionArgs, MintUpsertInstructionError,
+    BankingLedgerConfigConfigureInstructionError, MintMetadataUpdateInstructionAccounts,
+    MintMetadataUpdateInstructionArgs, MintMetadataUpdateInstructionError,
+    MintUpsertInstructionAccounts, MintUpsertInstructionArgs, MintUpsertInstructionError,
     PoolTokenAccountEnsureInstructionAccounts, PoolTokenAccountEnsureInstructionArgs,
     PoolTokenAccountEnsureInstructionError,
 };
 
 #[doc(hidden)]
 pub(crate) use instruction_handler::banking_ledger_config_configure::banking_ledger_config_configure_instruction_accounts::__client_accounts_banking_ledger_config_configure_instruction_accounts;
+#[cfg(feature = "cpi")]
 #[doc(hidden)]
 pub(crate) use instruction_handler::banking_ledger_config_configure::banking_ledger_config_configure_instruction_accounts::__cpi_client_accounts_banking_ledger_config_configure_instruction_accounts;
 #[doc(hidden)]
+pub(crate) use instruction_handler::mint_metadata_update::mint_metadata_update_instruction_accounts::__client_accounts_mint_metadata_update_instruction_accounts;
+#[cfg(feature = "cpi")]
+#[doc(hidden)]
+pub(crate) use instruction_handler::mint_metadata_update::mint_metadata_update_instruction_accounts::__cpi_client_accounts_mint_metadata_update_instruction_accounts;
+#[doc(hidden)]
 pub(crate) use instruction_handler::mint_upsert::mint_upsert_instruction_accounts::__client_accounts_mint_upsert_instruction_accounts;
+#[cfg(feature = "cpi")]
 #[doc(hidden)]
 pub(crate) use instruction_handler::mint_upsert::mint_upsert_instruction_accounts::__cpi_client_accounts_mint_upsert_instruction_accounts;
 #[doc(hidden)]
 pub(crate) use instruction_handler::pool_token_account_ensure::pool_token_account_ensure_instruction_accounts::__client_accounts_pool_token_account_ensure_instruction_accounts;
+#[cfg(feature = "cpi")]
 #[doc(hidden)]
 pub(crate) use instruction_handler::pool_token_account_ensure::pool_token_account_ensure_instruction_accounts::__cpi_client_accounts_pool_token_account_ensure_instruction_accounts;
 
@@ -63,6 +73,23 @@ pub mod banking_ledger {
         };
 
         MintUpsertInstructionHandler::handle(ctx, args)
+    }
+
+    pub fn update_mint_metadata(
+        ctx: Context<MintMetadataUpdateInstructionAccounts>,
+        mint_id: [u8; 16],
+        name: String,
+        symbol: String,
+        uri: String,
+    ) -> Result<()> {
+        let args = MintMetadataUpdateInstructionArgs {
+            mint_id,
+            name,
+            symbol,
+            uri,
+        };
+
+        MintMetadataUpdateInstructionHandler::handle(ctx, args)
     }
 
     pub fn ensure_pool_token_account(

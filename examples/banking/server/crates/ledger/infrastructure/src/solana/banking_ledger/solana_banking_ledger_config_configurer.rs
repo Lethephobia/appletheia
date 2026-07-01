@@ -25,8 +25,8 @@ impl SolanaBankingLedgerConfigConfigurer {
         Self { rpc_client, config }
     }
 
-    fn banking_ledger_config_address(program_id: &Pubkey) -> Pubkey {
-        Pubkey::find_program_address(&[BankingLedgerConfig::SEED], program_id).0
+    fn banking_ledger_config_address(&self) -> Pubkey {
+        Pubkey::find_program_address(&[BankingLedgerConfig::SEED], self.config.program_id()).0
     }
 
     async fn send_transaction(
@@ -48,12 +48,26 @@ impl SolanaBankingLedgerConfigConfigurer {
 
         Ok(())
     }
+
+    fn unique_signers<'a>(&self, signers: &[&'a dyn Signer]) -> Vec<&'a dyn Signer> {
+        let mut unique: Vec<&dyn Signer> = Vec::new();
+        for signer in signers {
+            if unique
+                .iter()
+                .all(|existing| existing.pubkey() != signer.pubkey())
+            {
+                unique.push(*signer);
+            }
+        }
+
+        unique
+    }
 }
 
 impl BankingLedgerConfigConfigurer for SolanaBankingLedgerConfigConfigurer {
     async fn configure(&self) -> Result<(), BankingLedgerConfigConfigurerError> {
         let program_id = *self.config.program_id();
-        let banking_ledger_config_address = Self::banking_ledger_config_address(&program_id);
+        let banking_ledger_config_address = self.banking_ledger_config_address();
         let payer = self.config.payer().as_ref();
         let operator = *self.config.operator();
         let upgrade_authority = self.config.upgrade_authority().as_ref();
@@ -72,7 +86,7 @@ impl BankingLedgerConfigConfigurer for SolanaBankingLedgerConfigConfigurer {
             .to_account_metas(None),
             data: ConfigureBankingLedgerConfig.data(),
         };
-        let signers = unique_signers(&[payer, upgrade_authority]);
+        let signers = self.unique_signers(&[payer, upgrade_authority]);
 
         self.send_transaction(vec![instruction], signers)
             .await
@@ -80,18 +94,4 @@ impl BankingLedgerConfigConfigurer for SolanaBankingLedgerConfigConfigurer {
 
         Ok(())
     }
-}
-
-fn unique_signers<'a>(signers: &[&'a dyn Signer]) -> Vec<&'a dyn Signer> {
-    let mut unique: Vec<&dyn Signer> = Vec::new();
-    for signer in signers {
-        if unique
-            .iter()
-            .all(|existing| existing.pubkey() != signer.pubkey())
-        {
-            unique.push(*signer);
-        }
-    }
-
-    unique
 }

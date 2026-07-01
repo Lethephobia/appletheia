@@ -27,24 +27,24 @@ impl SolanaMintProvisioner {
         Self { rpc_client, config }
     }
 
-    fn banking_ledger_config_address(program_id: &Pubkey) -> Pubkey {
-        Pubkey::find_program_address(&[BankingLedgerConfig::SEED], program_id).0
+    fn banking_ledger_config_address(&self) -> Pubkey {
+        Pubkey::find_program_address(&[BankingLedgerConfig::SEED], self.config.program_id()).0
     }
 
-    fn mint_state_address(mint_id: &[u8; 16], program_id: &Pubkey) -> Pubkey {
-        Pubkey::find_program_address(&[MintState::SEED, mint_id], program_id).0
+    fn mint_state_address(&self, mint_id: &[u8; 16]) -> Pubkey {
+        Pubkey::find_program_address(&[MintState::SEED, mint_id], self.config.program_id()).0
     }
 
-    fn mint_address(mint_id: &[u8; 16], program_id: &Pubkey) -> Pubkey {
-        Pubkey::find_program_address(&[Mint::SEED, mint_id], program_id).0
+    fn mint_address(&self, mint_id: &[u8; 16]) -> Pubkey {
+        Pubkey::find_program_address(&[Mint::SEED, mint_id], self.config.program_id()).0
     }
 
-    fn mint_metadata_address(mint_id: &[u8; 16], program_id: &Pubkey) -> Pubkey {
-        Pubkey::find_program_address(&[MintMetadata::SEED, mint_id], program_id).0
+    fn mint_metadata_address(&self, mint_id: &[u8; 16]) -> Pubkey {
+        Pubkey::find_program_address(&[MintMetadata::SEED, mint_id], self.config.program_id()).0
     }
 
-    fn program_authority_address(program_id: &Pubkey) -> Pubkey {
-        Pubkey::find_program_address(&[ProgramAuthority::SEED], program_id).0
+    fn program_authority_address(&self) -> Pubkey {
+        Pubkey::find_program_address(&[ProgramAuthority::SEED], self.config.program_id()).0
     }
 
     fn pool_token_account_address(
@@ -98,6 +98,20 @@ impl SolanaMintProvisioner {
             )?,
         ))
     }
+
+    fn unique_signers<'a>(&self, signers: &[&'a dyn Signer]) -> Vec<&'a dyn Signer> {
+        let mut unique: Vec<&dyn Signer> = Vec::new();
+        for signer in signers {
+            if unique
+                .iter()
+                .all(|existing| existing.pubkey() != signer.pubkey())
+            {
+                unique.push(*signer);
+            }
+        }
+
+        unique
+    }
 }
 
 impl MintProvisioner for SolanaMintProvisioner {
@@ -110,11 +124,11 @@ impl MintProvisioner for SolanaMintProvisioner {
         let program_id = *self.config.program_id();
         let operator = self.config.operator().pubkey();
         let mint_id = request.mint_id().bytes();
-        let banking_ledger_config_address = Self::banking_ledger_config_address(&program_id);
-        let mint_state_address = Self::mint_state_address(&mint_id, &program_id);
-        let program_authority_address = Self::program_authority_address(&program_id);
-        let mint_address = Self::mint_address(&mint_id, &program_id);
-        let mint_metadata_address = Self::mint_metadata_address(&mint_id, &program_id);
+        let banking_ledger_config_address = self.banking_ledger_config_address();
+        let mint_state_address = self.mint_state_address(&mint_id);
+        let program_authority_address = self.program_authority_address();
+        let mint_address = self.mint_address(&mint_id);
+        let mint_metadata_address = self.mint_metadata_address(&mint_id);
         let pool_token_account_address = Self::pool_token_account_address(
             &program_authority_address,
             &mint_address,
@@ -162,7 +176,7 @@ impl MintProvisioner for SolanaMintProvisioner {
         };
         let payer = self.config.payer().as_ref();
         let operator = self.config.operator().as_ref();
-        let signers = unique_signers(&[payer, operator]);
+        let signers = self.unique_signers(&[payer, operator]);
 
         self.send_transaction(
             vec![
@@ -176,17 +190,4 @@ impl MintProvisioner for SolanaMintProvisioner {
 
         Self::receipt(mint_address, pool_token_account_address)
     }
-}
-
-fn unique_signers<'a>(signers: &[&'a dyn Signer]) -> Vec<&'a dyn Signer> {
-    let mut unique: Vec<&dyn Signer> = Vec::new();
-    for signer in signers {
-        if unique
-            .iter()
-            .all(|existing| existing.pubkey() != signer.pubkey())
-        {
-            unique.push(*signer);
-        }
-    }
-    unique
 }
