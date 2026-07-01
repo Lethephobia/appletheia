@@ -23,6 +23,8 @@ mod currency_mint_account;
 mod currency_mint_account_address;
 mod currency_mint_account_address_error;
 mod currency_mint_account_metadata_sync_rejection_reason;
+mod currency_mint_account_metadata_sync_result;
+mod currency_mint_supply_sync_result;
 mod currency_name;
 mod currency_name_change_rejection_reason;
 mod currency_name_change_result;
@@ -75,6 +77,8 @@ pub use currency_mint_account::CurrencyMintAccount;
 pub use currency_mint_account_address::CurrencyMintAccountAddress;
 pub use currency_mint_account_address_error::CurrencyMintAccountAddressError;
 pub use currency_mint_account_metadata_sync_rejection_reason::CurrencyMintAccountMetadataSyncRejectionReason;
+pub use currency_mint_account_metadata_sync_result::CurrencyMintAccountMetadataSyncResult;
+pub use currency_mint_supply_sync_result::CurrencyMintSupplySyncResult;
 pub use currency_name::CurrencyName;
 pub use currency_name_change_rejection_reason::CurrencyNameChangeRejectionReason;
 pub use currency_name_change_result::CurrencyNameChangeResult;
@@ -379,9 +383,11 @@ impl Currency {
     }
 
     /// Records that mint account metadata has been synced to the current currency metadata.
-    pub fn record_mint_account_metadata_synced(&mut self) -> Result<(), CurrencyError> {
+    pub fn record_mint_account_metadata_synced(
+        &mut self,
+    ) -> Result<CurrencyMintAccountMetadataSyncResult, CurrencyError> {
         self.append_event(CurrencyEventPayload::MintAccountMetadataSynced)?;
-        Ok(())
+        Ok(CurrencyMintAccountMetadataSyncResult::Synced)
     }
 
     /// Rejects a mint account metadata sync attempt.
@@ -441,9 +447,9 @@ impl Currency {
     pub fn record_mint_supply_synced(
         &mut self,
         supply: CurrencyAmount,
-    ) -> Result<(), CurrencyError> {
+    ) -> Result<CurrencyMintSupplySyncResult, CurrencyError> {
         self.append_event(CurrencyEventPayload::MintSupplySynced { supply })?;
-        Ok(())
+        Ok(CurrencyMintSupplySyncResult::Synced)
     }
 
     /// Commits previously reserved supply into confirmed supply.
@@ -704,8 +710,9 @@ mod tests {
     use super::{
         Currency, CurrencyDecimals, CurrencyDescription, CurrencyEventPayload, CurrencyId,
         CurrencyImageRef, CurrencyImageUrl, CurrencyMintAccount, CurrencyMintAccountAddress,
-        CurrencyMintAccountMetadataSyncRejectionReason, CurrencyName, CurrencyOwner,
-        CurrencyPoolTokenAccountAddress, CurrencyStatus, CurrencySymbol,
+        CurrencyMintAccountMetadataSyncRejectionReason, CurrencyMintAccountMetadataSyncResult,
+        CurrencyMintSupplySyncResult, CurrencyName, CurrencyOwner, CurrencyPoolTokenAccountAddress,
+        CurrencyStatus, CurrencySymbol,
     };
 
     fn user_owner() -> CurrencyOwner {
@@ -1099,10 +1106,11 @@ mod tests {
             .expect("definition should succeed");
         currency.core_mut().clear_uncommitted_events();
 
-        currency
+        let result = currency
             .record_mint_supply_synced(CurrencyAmount::new(100))
             .expect("mint supply sync record should succeed");
 
+        assert_eq!(result, CurrencyMintSupplySyncResult::Synced);
         assert_eq!(
             currency.uncommitted_events()[0].payload(),
             &CurrencyEventPayload::MintSupplySynced {
@@ -1127,10 +1135,11 @@ mod tests {
             .expect("definition should succeed");
         currency.core_mut().clear_uncommitted_events();
 
-        currency
+        let result = currency
             .record_mint_account_metadata_synced()
             .expect("metadata sync record should succeed");
 
+        assert_eq!(result, CurrencyMintAccountMetadataSyncResult::Synced);
         assert_eq!(
             currency.uncommitted_events()[0].payload(),
             &CurrencyEventPayload::MintAccountMetadataSynced
