@@ -13,15 +13,15 @@ pub struct UserPublicProfileQueryHandler<S>
 where
     S: UserPublicProfileReader,
 {
-    store: S,
+    reader: S,
 }
 
 impl<S> UserPublicProfileQueryHandler<S>
 where
     S: UserPublicProfileReader,
 {
-    pub fn new(store: S) -> Self {
-        Self { store }
+    pub fn new(reader: S) -> Self {
+        Self { reader }
     }
 }
 
@@ -47,7 +47,7 @@ where
         _request_context: &RequestContext,
         query: Self::Query,
     ) -> Result<Self::Output, Self::Error> {
-        Ok(self.store.find(uow, query.user_id).await?)
+        Ok(self.reader.find(uow, query.user_id).await?)
     }
 }
 

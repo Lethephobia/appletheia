@@ -17,15 +17,15 @@ pub struct UserPrivateInfoQueryHandler<S>
 where
     S: UserPrivateInfoReader,
 {
-    store: S,
+    reader: S,
 }
 
 impl<S> UserPrivateInfoQueryHandler<S>
 where
     S: UserPrivateInfoReader,
 {
-    pub fn new(store: S) -> Self {
-        Self { store }
+    pub fn new(reader: S) -> Self {
+        Self { reader }
     }
 }
 
@@ -58,7 +58,7 @@ where
         _request_context: &RequestContext,
         query: Self::Query,
     ) -> Result<Self::Output, Self::Error> {
-        Ok(self.store.find(uow, query.user_id).await?)
+        Ok(self.reader.find(uow, query.user_id).await?)
     }
 }
 

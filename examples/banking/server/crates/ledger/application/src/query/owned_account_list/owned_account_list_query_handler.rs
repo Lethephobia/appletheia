@@ -20,15 +20,15 @@ pub struct OwnedAccountListQueryHandler<S>
 where
     S: OwnedAccountListReader,
 {
-    store: S,
+    reader: S,
 }
 
 impl<S> OwnedAccountListQueryHandler<S>
 where
     S: OwnedAccountListReader,
 {
-    pub fn new(store: S) -> Self {
-        Self { store }
+    pub fn new(reader: S) -> Self {
+        Self { reader }
     }
 }
 
@@ -71,7 +71,7 @@ where
         query: Self::Query,
     ) -> Result<Self::Output, Self::Error> {
         Ok(self
-            .store
+            .reader
             .list(
                 uow,
                 query.owner,

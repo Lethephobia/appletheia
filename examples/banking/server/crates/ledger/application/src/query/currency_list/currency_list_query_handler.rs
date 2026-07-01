@@ -13,15 +13,15 @@ pub struct CurrencyListQueryHandler<S>
 where
     S: CurrencyListReader,
 {
-    store: S,
+    reader: S,
 }
 
 impl<S> CurrencyListQueryHandler<S>
 where
     S: CurrencyListReader,
 {
-    pub fn new(store: S) -> Self {
-        Self { store }
+    pub fn new(reader: S) -> Self {
+        Self { reader }
     }
 }
 
@@ -48,7 +48,7 @@ where
         query: Self::Query,
     ) -> Result<Self::Output, Self::Error> {
         Ok(self
-            .store
+            .reader
             .list(uow, query.criteria, query.cursor_options, query.limit)
             .await?)
     }
