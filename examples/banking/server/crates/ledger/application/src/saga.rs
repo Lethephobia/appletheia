@@ -13,10 +13,12 @@ pub use currency_issuance::{
 pub use currency_mint_account_metadata_sync::{
     CurrencyMintAccountMetadataSyncSaga, CurrencyMintAccountMetadataSyncSagaError,
     CurrencyMintAccountMetadataSyncSagaSpec, CurrencyMintAccountMetadataSyncSagaState,
+    CurrencyMintAccountMetadataSyncSagaStatus,
 };
 pub use currency_old_image_object_deletion::{
     CurrencyOldImageObjectDeletionSaga, CurrencyOldImageObjectDeletionSagaError,
     CurrencyOldImageObjectDeletionSagaSpec, CurrencyOldImageObjectDeletionSagaState,
+    CurrencyOldImageObjectDeletionSagaStatus,
 };
 pub use currency_provisioning::{
     CurrencyProvisioningSaga, CurrencyProvisioningSagaError, CurrencyProvisioningSagaSpec,

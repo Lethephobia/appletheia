@@ -28,6 +28,9 @@ impl Saga for CurrencyProvisioningSaga {
             CurrencyEventPayload::Defined { .. } => {
                 *instance.state_mut() =
                     Some(CurrencyProvisioningSagaState::new(event.aggregate_id()));
+                instance.state_required_mut()?.status =
+                    CurrencyProvisioningSagaStatus::ProvisionRequested;
+
                 instance.append_command(
                     event_envelope,
                     &CurrencyProvisionCommand {

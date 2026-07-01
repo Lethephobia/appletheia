@@ -6,6 +6,7 @@ pub enum CurrencyProvisioningSagaStatus {
     #[default]
     Initial,
     Defined,
+    ProvisionRequested,
     Completed,
     Failed,
 }

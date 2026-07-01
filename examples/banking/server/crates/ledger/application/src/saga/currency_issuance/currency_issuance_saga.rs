@@ -45,6 +45,9 @@ impl Saga for CurrencyIssuanceSaga {
                         *amount,
                     ));
 
+                    let state = instance.state_required_mut()?;
+                    state.status = CurrencyIssuanceSagaStatus::SupplyReserveRequested;
+
                     instance.append_command(
                         event,
                         &CurrencySupplyReserveCommand {
@@ -82,6 +85,7 @@ impl Saga for CurrencyIssuanceSaga {
                     let state = instance.state_required_mut()?;
                     state.status = CurrencyIssuanceSagaStatus::SupplyReserved;
                     let currency_id = state.currency_id;
+                    state.status = CurrencyIssuanceSagaStatus::MintSupplySyncRequested;
 
                     instance
                         .append_command(event, &CurrencyMintSupplySyncCommand { currency_id })?;
@@ -89,6 +93,7 @@ impl Saga for CurrencyIssuanceSaga {
                 CurrencyEventPayload::SupplyReserveRejected { .. } => {
                     let state = instance.state_required_mut()?;
                     let currency_issuance_id = state.currency_issuance_id;
+                    state.status = CurrencyIssuanceSagaStatus::FailRequested;
 
                     instance.append_command(
                         event,
@@ -101,10 +106,12 @@ impl Saga for CurrencyIssuanceSaga {
                 CurrencyEventPayload::MintSupplySynced { .. } => {
                     let state = instance.state_required_mut()?;
                     match state.status {
-                        CurrencyIssuanceSagaStatus::SupplyReserved => {
+                        CurrencyIssuanceSagaStatus::SupplyReserved
+                        | CurrencyIssuanceSagaStatus::MintSupplySyncRequested => {
                             state.status = CurrencyIssuanceSagaStatus::MintSupplySynced;
                             let destination_account_id = state.destination_account_id;
                             let amount = state.amount;
+                            state.status = CurrencyIssuanceSagaStatus::DepositRequested;
 
                             instance.append_command(
                                 event,
@@ -114,8 +121,10 @@ impl Saga for CurrencyIssuanceSaga {
                                 },
                             )?;
                         }
-                        CurrencyIssuanceSagaStatus::SupplyReleased => {
+                        CurrencyIssuanceSagaStatus::SupplyReleased
+                        | CurrencyIssuanceSagaStatus::SupplyReleaseMintSupplySyncRequested => {
                             let currency_issuance_id = state.currency_issuance_id;
+                            state.status = CurrencyIssuanceSagaStatus::FailRequested;
 
                             instance.append_command(
                                 event,
@@ -132,6 +141,7 @@ impl Saga for CurrencyIssuanceSaga {
                     let state = instance.state_required_mut()?;
                     state.status = CurrencyIssuanceSagaStatus::SupplyCommitted;
                     let currency_issuance_id = state.currency_issuance_id;
+                    state.status = CurrencyIssuanceSagaStatus::CompleteRequested;
 
                     instance.append_command(
                         event,
@@ -143,6 +153,7 @@ impl Saga for CurrencyIssuanceSaga {
                 CurrencyEventPayload::SupplyCommitRejected { .. } => {
                     let state = instance.state_required_mut()?;
                     let currency_issuance_id = state.currency_issuance_id;
+                    state.status = CurrencyIssuanceSagaStatus::FailRequested;
 
                     instance.append_command(
                         event,
@@ -156,6 +167,7 @@ impl Saga for CurrencyIssuanceSaga {
                     let state = instance.state_required_mut()?;
                     state.status = CurrencyIssuanceSagaStatus::SupplyReleased;
                     let currency_id = state.currency_id;
+                    state.status = CurrencyIssuanceSagaStatus::SupplyReleaseMintSupplySyncRequested;
 
                     instance
                         .append_command(event, &CurrencyMintSupplySyncCommand { currency_id })?;
@@ -163,6 +175,7 @@ impl Saga for CurrencyIssuanceSaga {
                 CurrencyEventPayload::SupplyReleaseRejected { .. } => {
                     let state = instance.state_required_mut()?;
                     let currency_issuance_id = state.currency_issuance_id;
+                    state.status = CurrencyIssuanceSagaStatus::FailRequested;
 
                     instance.append_command(
                         event,
@@ -184,6 +197,7 @@ impl Saga for CurrencyIssuanceSaga {
                     state.status = CurrencyIssuanceSagaStatus::Deposited;
                     let currency_id = state.currency_id;
                     let amount = state.amount;
+                    state.status = CurrencyIssuanceSagaStatus::SupplyCommitRequested;
 
                     instance.append_command(
                         event,
@@ -195,9 +209,9 @@ impl Saga for CurrencyIssuanceSaga {
                 }
                 AccountEventPayload::DepositRejected { .. } => {
                     let state = instance.state_required_mut()?;
-                    state.status = CurrencyIssuanceSagaStatus::SupplyReleaseRequested;
                     let currency_id = state.currency_id;
                     let amount = state.amount;
+                    state.status = CurrencyIssuanceSagaStatus::SupplyReleaseRequested;
 
                     instance.append_command(
                         event,

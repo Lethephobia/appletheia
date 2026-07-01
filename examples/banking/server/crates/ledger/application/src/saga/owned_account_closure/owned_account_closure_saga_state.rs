@@ -39,6 +39,9 @@ impl OwnedAccountClosureSagaState {
     pub fn remove_pending_account(&mut self, account_id: AccountId) {
         self.pending_account_ids
             .retain(|pending_account_id| *pending_account_id != account_id);
+        if self.has_pending_accounts() {
+            self.status = OwnedAccountClosureSagaStatus::AccountCloseRequested;
+        }
     }
 
     pub fn has_pending_accounts(&self) -> bool {

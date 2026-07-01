@@ -6,7 +6,7 @@ use crate::command::CurrencyImageObjectDeleteCommand;
 
 use super::{
     CurrencyOldImageObjectDeletionSagaError, CurrencyOldImageObjectDeletionSagaSpec,
-    CurrencyOldImageObjectDeletionSagaState,
+    CurrencyOldImageObjectDeletionSagaState, CurrencyOldImageObjectDeletionSagaStatus,
 };
 
 /// Coordinates old currency image object deletion after image changes.
@@ -33,6 +33,8 @@ impl Saga for CurrencyOldImageObjectDeletionSaga {
             .and_then(|image| image.as_object_name())
             .cloned()
         else {
+            instance.state_required_mut()?.status =
+                CurrencyOldImageObjectDeletionSagaStatus::Skipped;
             instance.succeed();
             return Ok(());
         };

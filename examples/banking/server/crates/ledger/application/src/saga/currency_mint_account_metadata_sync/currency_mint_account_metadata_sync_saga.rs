@@ -6,7 +6,7 @@ use banking_ledger_domain::currency::{
 
 use super::{
     CurrencyMintAccountMetadataSyncSagaError, CurrencyMintAccountMetadataSyncSagaSpec,
-    CurrencyMintAccountMetadataSyncSagaState,
+    CurrencyMintAccountMetadataSyncSagaState, CurrencyMintAccountMetadataSyncSagaStatus,
 };
 use crate::command::CurrencyMintAccountMetadataSyncCommand;
 
@@ -41,12 +41,16 @@ impl Saga for CurrencyMintAccountMetadataSyncSaga {
                 Ok(())
             }
             CurrencyEventPayload::MintAccountMetadataSynced => {
+                instance.state_required_mut()?.status =
+                    CurrencyMintAccountMetadataSyncSagaStatus::Synced;
                 instance.succeed();
                 Ok(())
             }
             CurrencyEventPayload::MintAccountMetadataSyncRejected { reason } => {
                 match reason {
                     CurrencyMintAccountMetadataSyncRejectionReason::NotProvisioned => {
+                        instance.state_required_mut()?.status =
+                            CurrencyMintAccountMetadataSyncSagaStatus::NotProvisioned;
                         instance.succeed();
                     }
                 }
