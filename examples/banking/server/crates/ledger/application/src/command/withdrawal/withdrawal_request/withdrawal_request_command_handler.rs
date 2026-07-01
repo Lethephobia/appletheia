@@ -5,7 +5,7 @@ use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_ledger_domain::account::Account;
-use banking_ledger_domain::currency::Currency;
+use banking_ledger_domain::currency::{Currency, CurrencyStatus};
 use banking_ledger_domain::payout_destination::{
     PayoutDestination, PayoutDestinationOwner, PayoutDestinationStatus,
 };
@@ -137,8 +137,11 @@ where
             return Ok(CommandHandled::same(output));
         }
 
-        if !currency.is_active()? {
-            let reason = WithdrawalRequestRejectionReason::CurrencyInactive;
+        if matches!(
+            currency.status()?,
+            CurrencyStatus::Provisioning | CurrencyStatus::ProvisioningFailed
+        ) {
+            let reason = WithdrawalRequestRejectionReason::CurrencyUnprovisioned;
             let output = WithdrawalRequestOutput::Rejected {
                 withdrawal_id: withdrawal.reject_request(request, reason)?,
                 reason,
@@ -149,8 +152,8 @@ where
             return Ok(CommandHandled::same(output));
         }
 
-        if currency.mint_account()?.is_none() {
-            let reason = WithdrawalRequestRejectionReason::CurrencyUnprovisioned;
+        if !currency.is_active()? {
+            let reason = WithdrawalRequestRejectionReason::CurrencyInactive;
             let output = WithdrawalRequestOutput::Rejected {
                 withdrawal_id: withdrawal.reject_request(request, reason)?,
                 reason,

@@ -8,7 +8,8 @@ use banking_ledger_application::{
 };
 use banking_ledger_domain::core::CurrencyAmount;
 use banking_ledger_domain::currency::{
-    CurrencyDecimals, CurrencyDescription, CurrencyId, CurrencyName, CurrencySymbol,
+    CurrencyDecimals, CurrencyDescription, CurrencyId, CurrencyMintAccountAddress, CurrencyName,
+    CurrencySymbol,
 };
 use banking_shared_kernel_application::read_model::ReadModelObservation;
 use sqlx::types::chrono::{DateTime, Utc};
@@ -42,6 +43,7 @@ pub struct PgCurrencyListItemRow {
     pub image_type: Option<String>,
     pub image_object_name: Option<String>,
     pub image_external_url: Option<String>,
+    pub mint_account_address: Option<String>,
     pub supply: String,
     pub status: String,
     pub created_at: DateTime<Utc>,
@@ -84,8 +86,10 @@ impl PgCurrencyListItemRow {
 
     fn status(value: String) -> Result<CurrencyListItemStatus, PgCurrencyListItemRowError> {
         match value.as_str() {
+            "provisioning" => Ok(CurrencyListItemStatus::Provisioning),
             "active" => Ok(CurrencyListItemStatus::Active),
             "inactive" => Ok(CurrencyListItemStatus::Inactive),
+            "provisioning_failed" => Ok(CurrencyListItemStatus::ProvisioningFailed),
             value => Err(PgCurrencyListItemRowError::UnknownStatus(value.to_owned())),
         }
     }
@@ -212,6 +216,13 @@ impl TryFrom<PgCurrencyListItemRow> for CurrencyListItem {
             }
             .into_image()
             .map_err(|error| PgCurrencyListItemRowError::InvalidCurrencyImage(Box::new(error)))?,
+            mint_account_address: row
+                .mint_account_address
+                .map(CurrencyMintAccountAddress::try_from)
+                .transpose()
+                .map_err(|error| {
+                    PgCurrencyListItemRowError::InvalidCurrencyMintAccountAddress(Box::new(error))
+                })?,
             supply: PgCurrencyListItemRow::amount(row.supply)?,
             status: PgCurrencyListItemRow::status(row.status)?,
             created_at: EventOccurredAt::from(row.created_at),

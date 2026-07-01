@@ -60,6 +60,9 @@ pub enum PgCurrencyListItemRowError {
     #[error("invalid currency image")]
     InvalidCurrencyImage(#[source] Box<dyn std::error::Error + Send + Sync>),
 
+    #[error("invalid currency mint account address")]
+    InvalidCurrencyMintAccountAddress(#[source] Box<dyn std::error::Error + Send + Sync>),
+
     #[error("invalid currency decimals")]
     InvalidCurrencyDecimals(#[source] Box<dyn std::error::Error + Send + Sync>),
 

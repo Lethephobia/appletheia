@@ -4,8 +4,8 @@ use appletheia::{aggregate_state, reference_indexes, unique_constraints};
 use crate::core::CurrencyAmount;
 
 use super::{
-    CurrencyDecimals, CurrencyDescription, CurrencyId, CurrencyImageRef, CurrencyName,
-    CurrencyOwner, CurrencyProvisioningStatus, CurrencyStateError, CurrencyStatus, CurrencySymbol,
+    CurrencyDecimals, CurrencyDescription, CurrencyId, CurrencyImageRef, CurrencyMintAccount,
+    CurrencyName, CurrencyOwner, CurrencyStateError, CurrencyStatus, CurrencySymbol,
 };
 
 /// Stores the materialized state of a `Currency` aggregate.
@@ -25,7 +25,7 @@ pub struct CurrencyState {
     pub(super) image: Option<CurrencyImageRef>,
     pub(super) supply: CurrencyAmount,
     pub(super) pending_supply: CurrencyAmount,
-    pub(super) provisioning_status: CurrencyProvisioningStatus,
+    pub(super) mint_account: Option<CurrencyMintAccount>,
     pub(super) status: CurrencyStatus,
 }
 
@@ -62,8 +62,8 @@ mod tests {
     use crate::core::CurrencyAmount;
 
     use super::{
-        CurrencyDecimals, CurrencyId, CurrencyName, CurrencyOwner, CurrencyProvisioningStatus,
-        CurrencyState, CurrencyStatus, CurrencySymbol,
+        CurrencyDecimals, CurrencyId, CurrencyName, CurrencyOwner, CurrencyState, CurrencyStatus,
+        CurrencySymbol,
     };
 
     #[test]
@@ -78,8 +78,8 @@ mod tests {
             image: None,
             supply: CurrencyAmount::zero(),
             pending_supply: CurrencyAmount::zero(),
-            provisioning_status: CurrencyProvisioningStatus::Pending,
-            status: CurrencyStatus::Active,
+            mint_account: None,
+            status: CurrencyStatus::Provisioning,
         };
 
         let entries = state.unique_entries().expect("unique entries should build");
@@ -103,8 +103,8 @@ mod tests {
             image: None,
             supply: CurrencyAmount::zero(),
             pending_supply: CurrencyAmount::zero(),
-            provisioning_status: CurrencyProvisioningStatus::Pending,
-            status: CurrencyStatus::Active,
+            mint_account: None,
+            status: CurrencyStatus::Provisioning,
         };
 
         assert_eq!(state.id(), id);
@@ -123,8 +123,8 @@ mod tests {
             image: None,
             supply: CurrencyAmount::zero(),
             pending_supply: CurrencyAmount::zero(),
-            provisioning_status: CurrencyProvisioningStatus::Pending,
-            status: CurrencyStatus::Active,
+            mint_account: None,
+            status: CurrencyStatus::Provisioning,
         };
         state.status = CurrencyStatus::Removed;
 
@@ -148,8 +148,8 @@ mod tests {
             image: None,
             supply: CurrencyAmount::zero(),
             pending_supply: CurrencyAmount::zero(),
-            provisioning_status: CurrencyProvisioningStatus::Pending,
-            status: CurrencyStatus::Active,
+            mint_account: None,
+            status: CurrencyStatus::Provisioning,
         };
 
         let entries = state
@@ -182,8 +182,8 @@ mod tests {
             image: None,
             supply: CurrencyAmount::zero(),
             pending_supply: CurrencyAmount::zero(),
-            provisioning_status: CurrencyProvisioningStatus::Pending,
-            status: CurrencyStatus::Active,
+            mint_account: None,
+            status: CurrencyStatus::Provisioning,
         };
 
         let entries = state

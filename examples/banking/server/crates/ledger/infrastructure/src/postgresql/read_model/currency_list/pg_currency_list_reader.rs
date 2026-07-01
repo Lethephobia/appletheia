@@ -19,8 +19,10 @@ impl PgCurrencyListReader {
 
     fn status_name(status: CurrencyListItemStatus) -> &'static str {
         match status {
+            CurrencyListItemStatus::Provisioning => "provisioning",
             CurrencyListItemStatus::Active => "active",
             CurrencyListItemStatus::Inactive => "inactive",
+            CurrencyListItemStatus::ProvisioningFailed => "provisioning_failed",
         }
     }
 }
@@ -68,6 +70,7 @@ impl CurrencyListReader for PgCurrencyListReader {
                 i.image_type,
                 i.image_object_name,
                 i.image_external_url,
+                i.mint_account_address,
                 i.supply::text AS supply,
                 i.status,
                 i.created_at,

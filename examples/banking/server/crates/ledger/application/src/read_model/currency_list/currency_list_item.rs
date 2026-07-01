@@ -1,8 +1,8 @@
 use appletheia::domain::{EventId, EventOccurredAt};
 use banking_ledger_domain::core::CurrencyAmount;
 use banking_ledger_domain::currency::{
-    CurrencyDecimals, CurrencyDescription, CurrencyId, CurrencyImageRef, CurrencyName,
-    CurrencySymbol,
+    CurrencyDecimals, CurrencyDescription, CurrencyId, CurrencyImageRef,
+    CurrencyMintAccountAddress, CurrencyName, CurrencySymbol,
 };
 
 use super::{CurrencyListItemOwner, CurrencyListItemStatus};
@@ -18,6 +18,7 @@ pub struct CurrencyListItem {
     pub decimals: CurrencyDecimals,
     pub description: Option<CurrencyDescription>,
     pub image: Option<CurrencyImageRef>,
+    pub mint_account_address: Option<CurrencyMintAccountAddress>,
     pub supply: CurrencyAmount,
     pub status: CurrencyListItemStatus,
     pub created_at: EventOccurredAt,

@@ -10,7 +10,8 @@ use banking_ledger_application::{
 };
 use banking_ledger_domain::core::CurrencyAmount;
 use banking_ledger_domain::currency::{
-    CurrencyDescription, CurrencyId, CurrencyImageRef, CurrencyName, CurrencyOwner, CurrencySymbol,
+    CurrencyDescription, CurrencyId, CurrencyImageRef, CurrencyMintAccountAddress, CurrencyName,
+    CurrencyOwner, CurrencySymbol,
 };
 use banking_shared_kernel_application::read_model::ReadModelEventContext;
 
@@ -37,8 +38,10 @@ impl PgCurrencyListWriter {
 
     fn status_name(status: CurrencyListItemStatus) -> &'static str {
         match status {
+            CurrencyListItemStatus::Provisioning => "provisioning",
             CurrencyListItemStatus::Active => "active",
             CurrencyListItemStatus::Inactive => "inactive",
+            CurrencyListItemStatus::ProvisioningFailed => "provisioning_failed",
         }
     }
 }
@@ -66,10 +69,10 @@ impl CurrencyListWriter for PgCurrencyListWriter {
             r#"
             INSERT INTO currency_list_items (
                 id, owner_type, owner_id, symbol, name, decimals, description, image_type,
-                image_object_name, image_external_url, supply, status, updated_at, created_at,
+                image_object_name, image_external_url, mint_account_address, supply, status, updated_at, created_at,
                 source_event_sequence, updated_event_sequence, source_event_id, updated_event_id
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $15, $16, $16)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $16, $17, $17)
             ON CONFLICT (id) DO UPDATE SET
                 owner_type = EXCLUDED.owner_type,
                 owner_id = EXCLUDED.owner_id,
@@ -80,6 +83,7 @@ impl CurrencyListWriter for PgCurrencyListWriter {
                 image_type = EXCLUDED.image_type,
                 image_object_name = EXCLUDED.image_object_name,
                 image_external_url = EXCLUDED.image_external_url,
+                mint_account_address = EXCLUDED.mint_account_address,
                 supply = EXCLUDED.supply,
                 status = EXCLUDED.status,
                 updated_at = EXCLUDED.updated_at,
@@ -98,6 +102,12 @@ impl CurrencyListWriter for PgCurrencyListWriter {
         .bind(image_type)
         .bind(image_object_name)
         .bind(image_external_url)
+        .bind(
+            upsert
+                .mint_account_address
+                .as_ref()
+                .map(CurrencyMintAccountAddress::value),
+        )
         .bind(upsert.supply.value().to_string())
         .bind(Self::status_name(upsert.status))
         .bind(event_context.occurred_at.value())
@@ -247,6 +257,34 @@ impl CurrencyListWriter for PgCurrencyListWriter {
         .bind(image_type)
         .bind(image_object_name)
         .bind(image_external_url)
+        .bind(event_context.occurred_at.value())
+        .bind(event_context.event_sequence.value())
+        .bind(event_context.event_id.value())
+        .execute(uow.transaction_mut().as_mut())
+        .await
+        .map_err(|e| CurrencyListWriterError::Persistence(Box::new(e)))?;
+        Ok(())
+    }
+
+    async fn update_currency_mint_account_address(
+        &self,
+        uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
+        id: CurrencyId,
+        mint_account_address: CurrencyMintAccountAddress,
+    ) -> Result<(), CurrencyListWriterError> {
+        sqlx::query(
+            r#"
+            UPDATE currency_list_items
+               SET mint_account_address = $2,
+                   updated_at = $3,
+                   updated_event_sequence = $4,
+                   updated_event_id = $5
+             WHERE id = $1 AND updated_event_sequence < $4
+            "#,
+        )
+        .bind(id.value())
+        .bind(mint_account_address.value())
         .bind(event_context.occurred_at.value())
         .bind(event_context.event_sequence.value())
         .bind(event_context.event_id.value())

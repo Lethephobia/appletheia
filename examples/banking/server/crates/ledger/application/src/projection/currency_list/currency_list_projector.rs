@@ -206,9 +206,28 @@ where
                             decimals: *decimals,
                             description: description.clone(),
                             image: image.clone(),
+                            mint_account_address: None,
                             supply: CurrencyAmount::zero(),
-                            status: CurrencyListItemStatus::Active,
+                            status: CurrencyListItemStatus::Provisioning,
                         },
+                    )
+                    .await?;
+            }
+            CurrencyEventPayload::Provisioned { mint_account } => {
+                self.writer
+                    .update_currency_mint_account_address(
+                        uow,
+                        event_context,
+                        currency_id,
+                        mint_account.mint_account_address().clone(),
+                    )
+                    .await?;
+                self.writer
+                    .update_currency_status(
+                        uow,
+                        event_context,
+                        currency_id,
+                        CurrencyListItemStatus::Active,
                     )
                     .await?;
             }
@@ -273,14 +292,13 @@ where
                     .await?;
             }
             CurrencyEventPayload::OwnershipTransferRejected { .. }
+            | CurrencyEventPayload::ProvisionRejected { .. }
             | CurrencyEventPayload::SymbolChangeRejected { .. }
             | CurrencyEventPayload::NameChangeRejected { .. }
             | CurrencyEventPayload::DescriptionChangeRejected { .. }
             | CurrencyEventPayload::ImageChangeRejected { .. }
             | CurrencyEventPayload::MintAccountMetadataSynced
             | CurrencyEventPayload::MintAccountMetadataSyncRejected { .. }
-            | CurrencyEventPayload::Provisioned { .. }
-            | CurrencyEventPayload::ProvisionRejected { .. }
             | CurrencyEventPayload::SupplyReserved { .. }
             | CurrencyEventPayload::SupplyReserveRejected { .. }
             | CurrencyEventPayload::MintSupplySynced { .. }

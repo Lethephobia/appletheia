@@ -6,7 +6,8 @@ use banking_iam_domain::{
 };
 use banking_ledger_domain::core::CurrencyAmount;
 use banking_ledger_domain::currency::{
-    CurrencyDescription, CurrencyId, CurrencyImageRef, CurrencyName, CurrencyOwner, CurrencySymbol,
+    CurrencyDescription, CurrencyId, CurrencyImageRef, CurrencyMintAccountAddress, CurrencyName,
+    CurrencyOwner, CurrencySymbol,
 };
 use banking_shared_kernel_application::read_model::ReadModelEventContext;
 
@@ -64,6 +65,14 @@ pub trait CurrencyListWriter: Send + Sync {
         event_context: ReadModelEventContext,
         id: CurrencyId,
         image: Option<CurrencyImageRef>,
+    ) -> Result<(), CurrencyListWriterError>;
+
+    async fn update_currency_mint_account_address(
+        &self,
+        uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
+        id: CurrencyId,
+        mint_account_address: CurrencyMintAccountAddress,
     ) -> Result<(), CurrencyListWriterError>;
 
     async fn increase_currency_supply(

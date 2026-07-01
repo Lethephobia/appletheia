@@ -34,7 +34,6 @@ mod currency_pool_token_account_address;
 mod currency_pool_token_account_address_error;
 mod currency_provision_rejection_reason;
 mod currency_provision_result;
-mod currency_provisioning_status;
 mod currency_remove_rejection_reason;
 mod currency_remove_result;
 mod currency_state;
@@ -87,7 +86,6 @@ pub use currency_pool_token_account_address::CurrencyPoolTokenAccountAddress;
 pub use currency_pool_token_account_address_error::CurrencyPoolTokenAccountAddressError;
 pub use currency_provision_rejection_reason::CurrencyProvisionRejectionReason;
 pub use currency_provision_result::CurrencyProvisionResult;
-pub use currency_provisioning_status::CurrencyProvisioningStatus;
 pub use currency_remove_rejection_reason::CurrencyRemoveRejectionReason;
 pub use currency_remove_result::CurrencyRemoveResult;
 pub use currency_state::CurrencyState;
@@ -148,7 +146,7 @@ impl Currency {
 
     /// Returns the linked on-chain mint account.
     pub fn mint_account(&self) -> Result<Option<&CurrencyMintAccount>, CurrencyError> {
-        Ok(self.state_required()?.provisioning_status.mint_account())
+        Ok(self.state_required()?.mint_account.as_ref())
     }
 
     /// Returns the total supply.
@@ -172,11 +170,6 @@ impl Currency {
             })
     }
 
-    /// Returns the current provisioning status.
-    pub fn provisioning_status(&self) -> Result<CurrencyProvisioningStatus, CurrencyError> {
-        Ok(self.state_required()?.provisioning_status.clone())
-    }
-
     /// Returns the current status.
     pub fn status(&self) -> Result<CurrencyStatus, CurrencyError> {
         Ok(self.state_required()?.status)
@@ -190,16 +183,6 @@ impl Currency {
     /// Returns whether the currency is removed.
     pub fn is_removed(&self) -> Result<bool, CurrencyError> {
         Ok(self.state_required()?.status.is_removed())
-    }
-
-    /// Returns whether the currency has completed provisioning.
-    pub fn is_provisioned(&self) -> Result<bool, CurrencyError> {
-        Ok(self.state_required()?.provisioning_status.is_provisioned())
-    }
-
-    /// Returns whether the currency provisioning has failed.
-    pub fn is_provisioning_failed(&self) -> Result<bool, CurrencyError> {
-        Ok(self.state_required()?.provisioning_status.is_failed())
     }
 
     /// Defines a new currency.
@@ -241,7 +224,7 @@ impl Currency {
             return Ok(CurrencyProvisionResult::Rejected { reason });
         }
 
-        if self.state_required()?.provisioning_status.is_provisioned() {
+        if self.state_required()?.mint_account.is_some() {
             let reason = CurrencyProvisionRejectionReason::AlreadyProvisioned;
             self.reject_provision(Some(mint_account), reason)?;
             return Ok(CurrencyProvisionResult::Rejected { reason });
@@ -415,13 +398,12 @@ impl Currency {
         &mut self,
         amount: CurrencyAmount,
     ) -> Result<CurrencySupplyReserveResult, CurrencyError> {
-        if !self.state_required()?.provisioning_status.is_provisioned() {
-            let reason = CurrencySupplyReserveRejectionReason::ProvisioningPending;
-            self.reject_reserve_supply(amount, reason)?;
-            return Ok(CurrencySupplyReserveResult::Rejected { reason });
-        }
-
         match self.state_required()?.status {
+            CurrencyStatus::Provisioning | CurrencyStatus::ProvisioningFailed => {
+                let reason = CurrencySupplyReserveRejectionReason::ProvisioningPending;
+                self.reject_reserve_supply(amount, reason)?;
+                return Ok(CurrencySupplyReserveResult::Rejected { reason });
+            }
             CurrencyStatus::Active => {}
             CurrencyStatus::Inactive => {
                 let reason = CurrencySupplyReserveRejectionReason::Inactive;
@@ -516,8 +498,14 @@ impl Currency {
 
     /// Activates the currency.
     pub fn activate(&mut self) -> Result<CurrencyActivateResult, CurrencyError> {
-        if self.state_required()?.status.is_removed() {
-            let reason = CurrencyActivateRejectionReason::Removed;
+        let reason = match self.state_required()?.status {
+            CurrencyStatus::Provisioning | CurrencyStatus::ProvisioningFailed => {
+                Some(CurrencyActivateRejectionReason::Provisioning)
+            }
+            CurrencyStatus::Active | CurrencyStatus::Inactive => None,
+            CurrencyStatus::Removed => Some(CurrencyActivateRejectionReason::Removed),
+        };
+        if let Some(reason) = reason {
             self.reject_activate(reason)?;
             return Ok(CurrencyActivateResult::Rejected { reason });
         }
@@ -537,8 +525,14 @@ impl Currency {
 
     /// Deactivates the currency.
     pub fn deactivate(&mut self) -> Result<CurrencyDeactivateResult, CurrencyError> {
-        if self.state_required()?.status.is_removed() {
-            let reason = CurrencyDeactivateRejectionReason::Removed;
+        let reason = match self.state_required()?.status {
+            CurrencyStatus::Provisioning | CurrencyStatus::ProvisioningFailed => {
+                Some(CurrencyDeactivateRejectionReason::Provisioning)
+            }
+            CurrencyStatus::Active | CurrencyStatus::Inactive => None,
+            CurrencyStatus::Removed => Some(CurrencyDeactivateRejectionReason::Removed),
+        };
+        if let Some(reason) = reason {
             self.reject_deactivate(reason)?;
             return Ok(CurrencyDeactivateResult::Rejected { reason });
         }
@@ -600,22 +594,18 @@ impl AggregateApply<CurrencyEventPayload, CurrencyError> for Currency {
                     image: image.clone(),
                     supply: CurrencyAmount::zero(),
                     pending_supply: CurrencyAmount::zero(),
-                    provisioning_status: CurrencyProvisioningStatus::Pending,
-                    status: CurrencyStatus::Active,
+                    mint_account: None,
+                    status: CurrencyStatus::Provisioning,
                 }));
             }
             CurrencyEventPayload::Provisioned { mint_account } => {
                 let state = self.state_required_mut()?;
-                state.provisioning_status = CurrencyProvisioningStatus::Provisioned {
-                    mint_account: mint_account.clone(),
-                };
+                state.mint_account = Some(mint_account.clone());
+                state.status = CurrencyStatus::Active;
             }
             CurrencyEventPayload::ProvisionRejected { reason, .. } => match reason {
                 CurrencyProvisionRejectionReason::AlreadyProvisioned => {}
-                CurrencyProvisionRejectionReason::Removed => {
-                    self.state_required_mut()?.provisioning_status =
-                        CurrencyProvisioningStatus::Failed;
-                }
+                CurrencyProvisionRejectionReason::Removed => {}
             },
             CurrencyEventPayload::OwnershipTransferred { owner } => {
                 self.state_required_mut()?.owner = *owner;
@@ -715,8 +705,7 @@ mod tests {
         Currency, CurrencyDecimals, CurrencyDescription, CurrencyEventPayload, CurrencyId,
         CurrencyImageRef, CurrencyImageUrl, CurrencyMintAccount, CurrencyMintAccountAddress,
         CurrencyMintAccountMetadataSyncRejectionReason, CurrencyName, CurrencyOwner,
-        CurrencyPoolTokenAccountAddress, CurrencyProvisioningStatus, CurrencyStatus,
-        CurrencySymbol,
+        CurrencyPoolTokenAccountAddress, CurrencyStatus, CurrencySymbol,
     };
 
     fn user_owner() -> CurrencyOwner {
@@ -787,20 +776,18 @@ mod tests {
                 .map(|value| value.value().as_str()),
             Some("https://cdn.example.com/currencies/usdc.png")
         );
-        assert!(currency.is_active().expect("active state should exist"));
+        assert!(!currency.is_active().expect("active state should exist"));
         assert_eq!(
             currency.supply().expect("supply should exist"),
             &CurrencyAmount::zero()
         );
         assert_eq!(
             currency.status().expect("status should exist"),
-            CurrencyStatus::Active
+            CurrencyStatus::Provisioning
         );
         assert_eq!(
-            currency
-                .provisioning_status()
-                .expect("provisioning status should exist"),
-            CurrencyProvisioningStatus::Pending
+            currency.mint_account().expect("mint account should exist"),
+            None
         );
         assert_eq!(currency.uncommitted_events().len(), 1);
         assert_eq!(
@@ -837,6 +824,12 @@ mod tests {
         currency
             .define(owner, symbol.clone(), name.clone(), decimals, None, None)
             .expect("definition should succeed");
+        currency
+            .provision(make_mint_account(
+                "Mint111111111111111111111111111111111111",
+            ))
+            .expect("provision should succeed");
+        currency.core_mut().clear_uncommitted_events();
 
         currency
             .change_symbol(symbol)
@@ -846,7 +839,7 @@ mod tests {
             .expect("name change should succeed");
         currency.activate().expect("activation should succeed");
 
-        assert_eq!(currency.uncommitted_events().len(), 4);
+        assert_eq!(currency.uncommitted_events().len(), 3);
     }
 
     #[test]
@@ -890,6 +883,12 @@ mod tests {
                 None,
             )
             .expect("definition should succeed");
+        currency
+            .provision(make_mint_account(
+                "Mint111111111111111111111111111111111111",
+            ))
+            .expect("provision should succeed");
+        currency.core_mut().clear_uncommitted_events();
 
         currency
             .change_symbol(changed_symbol.clone())
@@ -909,7 +908,7 @@ mod tests {
             &CurrencyDecimals::new(6)
         );
         assert!(!currency.is_active().expect("active state should exist"));
-        assert_eq!(currency.uncommitted_events().len(), 4);
+        assert_eq!(currency.uncommitted_events().len(), 3);
     }
 
     #[test]
@@ -962,13 +961,21 @@ mod tests {
         );
         let deactivated = Event::new(
             id,
-            appletheia::domain::AggregateVersion::try_from(2).expect("version should be valid"),
+            appletheia::domain::AggregateVersion::try_from(3).expect("version should be valid"),
             CurrencyEventPayload::Deactivated,
+        );
+        let mint_account = make_mint_account("Mint111111111111111111111111111111111111");
+        let provisioned = Event::new(
+            id,
+            appletheia::domain::AggregateVersion::try_from(2).expect("version should be valid"),
+            CurrencyEventPayload::Provisioned {
+                mint_account: mint_account.clone(),
+            },
         );
         let mut currency = Currency::default();
 
         currency
-            .replay_events(vec![defined, deactivated], None)
+            .replay_events(vec![defined, provisioned, deactivated], None)
             .expect("events should replay");
 
         assert_eq!(
@@ -978,12 +985,14 @@ mod tests {
         assert_eq!(currency.owner().expect("owner should exist"), owner);
         assert!(!currency.is_active().expect("active state should exist"));
         assert_eq!(
-            currency
-                .provisioning_status()
-                .expect("provisioning status should exist"),
-            CurrencyProvisioningStatus::Pending
+            currency.status().expect("status should exist"),
+            CurrencyStatus::Inactive
         );
-        assert_eq!(currency.version().value(), 2);
+        assert_eq!(
+            currency.mint_account().expect("mint account should exist"),
+            Some(&mint_account)
+        );
+        assert_eq!(currency.version().value(), 3);
         assert!(currency.uncommitted_events().is_empty());
     }
 
@@ -1190,12 +1199,8 @@ mod tests {
             Some(&mint_account)
         );
         assert_eq!(
-            currency
-                .provisioning_status()
-                .expect("provisioning status should exist"),
-            CurrencyProvisioningStatus::Provisioned {
-                mint_account: mint_account.clone(),
-            }
+            currency.status().expect("status should exist"),
+            CurrencyStatus::Active
         );
         assert_eq!(
             currency.uncommitted_events()[0].payload().name(),
@@ -1272,10 +1277,8 @@ mod tests {
             }
         ));
         assert_eq!(
-            currency
-                .provisioning_status()
-                .expect("provisioning status should exist"),
-            CurrencyProvisioningStatus::Failed
+            currency.status().expect("status should exist"),
+            CurrencyStatus::Removed
         );
         assert_eq!(
             currency.mint_account().expect("mint account should exist"),

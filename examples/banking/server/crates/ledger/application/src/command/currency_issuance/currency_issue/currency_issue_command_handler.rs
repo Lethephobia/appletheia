@@ -5,7 +5,7 @@ use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_ledger_domain::account::Account;
-use banking_ledger_domain::currency::Currency;
+use banking_ledger_domain::currency::{Currency, CurrencyStatus};
 use banking_ledger_domain::currency_issuance::{
     CurrencyIssuance, CurrencyIssuanceIssueRejectionReason, CurrencyIssuanceIssueResult,
     CurrencyIssuanceRequest,
@@ -107,7 +107,10 @@ where
             }));
         }
 
-        if !currency.is_provisioned()? {
+        if matches!(
+            currency.status()?,
+            CurrencyStatus::Provisioning | CurrencyStatus::ProvisioningFailed
+        ) {
             let reason = CurrencyIssuanceIssueRejectionReason::CurrencyProvisioningPending;
             let currency_issuance_id = currency_issuance.reject_issue(request, reason)?;
 
