@@ -29,7 +29,7 @@ impl CurrencyIssuanceSagaState {
             destination_account_id,
             amount,
             currency_issuance_id,
-            status: CurrencyIssuanceSagaStatus::Issued,
+            status: CurrencyIssuanceSagaStatus::SupplyReserveRequested,
         }
     }
 }

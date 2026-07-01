@@ -39,9 +39,6 @@ impl Saga for TransferSaga {
                         *amount,
                     ));
 
-                    let state = instance.state_required_mut()?;
-                    state.status = TransferSagaStatus::FundsReserveRequested;
-
                     instance.append_command(
                         event,
                         &AccountFundsReserveCommand {
@@ -51,15 +48,11 @@ impl Saga for TransferSaga {
                     )?;
                 }
                 TransferEventPayload::Completed => {
-                    if let Some(state) = instance.state_mut().as_mut() {
-                        state.status = TransferSagaStatus::Completed;
-                    }
+                    instance.state_required_mut()?.status = TransferSagaStatus::Completed;
                     instance.succeed();
                 }
                 TransferEventPayload::Failed { .. } => {
-                    if let Some(state) = instance.state_mut().as_mut() {
-                        state.status = TransferSagaStatus::Failed;
-                    }
+                    instance.state_required_mut()?.status = TransferSagaStatus::Failed;
                     instance.fail();
                 }
                 _ => {}
@@ -71,7 +64,6 @@ impl Saga for TransferSaga {
             match account_event.payload() {
                 AccountEventPayload::FundsReserved { .. } => {
                     let state = instance.state_required_mut()?;
-                    state.status = TransferSagaStatus::FundsReserved;
                     let to_account_id = state.to_account_id;
                     let amount = state.amount;
                     state.status = TransferSagaStatus::DepositRequested;
@@ -99,7 +91,6 @@ impl Saga for TransferSaga {
                 }
                 AccountEventPayload::Deposited { .. } => {
                     let state = instance.state_required_mut()?;
-                    state.status = TransferSagaStatus::Deposited;
                     let from_account_id = state.from_account_id;
                     let amount = state.amount;
                     state.status = TransferSagaStatus::ReservedFundsCommitRequested;
@@ -128,7 +119,6 @@ impl Saga for TransferSaga {
                 }
                 AccountEventPayload::ReservedFundsReleased { .. } => {
                     let state = instance.state_required_mut()?;
-                    state.status = TransferSagaStatus::ReservedFundsReleased;
                     let transfer_id = state.transfer_id;
                     state.status = TransferSagaStatus::FailRequested;
 
@@ -142,7 +132,6 @@ impl Saga for TransferSaga {
                 }
                 AccountEventPayload::ReservedFundsReleaseRejected { .. } => {
                     let state = instance.state_required_mut()?;
-                    state.status = TransferSagaStatus::ReservedFundsReleaseRejected;
                     let transfer_id = state.transfer_id;
                     state.status = TransferSagaStatus::FailRequested;
 
@@ -156,7 +145,6 @@ impl Saga for TransferSaga {
                 }
                 AccountEventPayload::ReservedFundsCommitted { .. } => {
                     let state = instance.state_required_mut()?;
-                    state.status = TransferSagaStatus::ReservedFundsCommitted;
                     let transfer_id = state.transfer_id;
                     state.status = TransferSagaStatus::CompleteRequested;
 
@@ -164,7 +152,6 @@ impl Saga for TransferSaga {
                 }
                 AccountEventPayload::ReservedFundsCommitRejected { .. } => {
                     let state = instance.state_required_mut()?;
-                    state.status = TransferSagaStatus::ReservedFundsCommitRejected;
                     let to_account_id = state.to_account_id;
                     let amount = state.amount;
                     state.status = TransferSagaStatus::DepositedFundsWithdrawRequested;
@@ -181,10 +168,8 @@ impl Saga for TransferSaga {
                     let state = instance.state_required_mut()?;
                     if matches!(
                         state.status,
-                        TransferSagaStatus::ReservedFundsCommitRejected
-                            | TransferSagaStatus::DepositedFundsWithdrawRequested
+                        TransferSagaStatus::DepositedFundsWithdrawRequested
                     ) {
-                        state.status = TransferSagaStatus::DepositedFundsWithdrawn;
                         let transfer_id = state.transfer_id;
                         state.status = TransferSagaStatus::FailRequested;
 
@@ -201,10 +186,8 @@ impl Saga for TransferSaga {
                     let state = instance.state_required_mut()?;
                     if matches!(
                         state.status,
-                        TransferSagaStatus::ReservedFundsCommitRejected
-                            | TransferSagaStatus::DepositedFundsWithdrawRequested
+                        TransferSagaStatus::DepositedFundsWithdrawRequested
                     ) {
-                        state.status = TransferSagaStatus::DepositedFundsWithdrawn;
                         let transfer_id = state.transfer_id;
                         state.status = TransferSagaStatus::FailRequested;
 
@@ -501,7 +484,7 @@ mod tests {
             to_account_id,
             amount,
             transfer_id,
-            status: TransferSagaStatus::FundsReserved,
+            status: TransferSagaStatus::ReservedFundsReleaseRequested,
         });
 
         saga.on_event(
@@ -549,7 +532,7 @@ mod tests {
             to_account_id,
             amount,
             transfer_id,
-            status: TransferSagaStatus::FundsReserved,
+            status: TransferSagaStatus::DepositRequested,
         });
 
         saga.on_event(
@@ -600,7 +583,7 @@ mod tests {
             to_account_id,
             amount,
             transfer_id,
-            status: TransferSagaStatus::Requested,
+            status: TransferSagaStatus::FundsReserveRequested,
         });
 
         saga.on_event(
@@ -702,7 +685,7 @@ mod tests {
             to_account_id,
             amount,
             transfer_id,
-            status: TransferSagaStatus::Deposited,
+            status: TransferSagaStatus::ReservedFundsCommitRequested,
         });
 
         saga.on_event(
@@ -753,7 +736,7 @@ mod tests {
             to_account_id,
             amount,
             transfer_id,
-            status: TransferSagaStatus::ReservedFundsCommitRejected,
+            status: TransferSagaStatus::DepositedFundsWithdrawRequested,
         });
 
         saga.on_event(
@@ -786,12 +769,23 @@ mod tests {
     fn failed_transfer_marks_saga_failed() {
         let saga = TransferSaga;
         let correlation_id = CorrelationId::from(uuid::Uuid::now_v7());
+        let from_account_id = AccountId::new();
+        let to_account_id = AccountId::new();
         let transfer_id = TransferId::new();
+        let amount = CurrencyAmount::new(100);
         let mut instance = SagaInstance::<TransferSagaState>::new(
             SagaNameOwned::from(TransferSagaSpec::DESCRIPTOR.name),
             correlation_id,
             EventId::new(),
         );
+
+        *instance.state_mut() = Some(TransferSagaState {
+            from_account_id,
+            to_account_id,
+            amount,
+            transfer_id,
+            status: TransferSagaStatus::FailRequested,
+        });
 
         saga.on_event(
             &mut instance,

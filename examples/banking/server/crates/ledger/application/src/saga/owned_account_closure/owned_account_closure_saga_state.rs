@@ -26,7 +26,7 @@ impl OwnedAccountClosureSagaState {
             pending_account_ids: Vec::new(),
             closed_account_count: 0,
             rejected_account_count: 0,
-            status: OwnedAccountClosureSagaStatus::Requested,
+            status: OwnedAccountClosureSagaStatus::ClosureRequestRequested,
         }
     }
 

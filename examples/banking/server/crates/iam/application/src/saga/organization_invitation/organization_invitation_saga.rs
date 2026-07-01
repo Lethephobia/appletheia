@@ -51,21 +51,18 @@ impl Saga for OrganizationInvitationSaga {
             let user_event = event.try_into_domain_event::<User>()?;
             match user_event.payload() {
                 UserEventPayload::OrganizationMembershipGranted { .. } => {
-                    if let Some(state) = instance.state_mut().as_mut() {
-                        state.status = OrganizationInvitationSagaStatus::MembershipGranted;
-                    }
+                    instance.state_required_mut()?.status =
+                        OrganizationInvitationSagaStatus::MembershipGranted;
                     instance.succeed();
                 }
                 UserEventPayload::OrganizationMembershipGrantRejected { reason, .. } => {
                     if *reason == OrganizationMembershipGrantRejectionReason::AlreadyMember {
-                        if let Some(state) = instance.state_mut().as_mut() {
-                            state.status = OrganizationInvitationSagaStatus::AlreadyMember;
-                        }
+                        instance.state_required_mut()?.status =
+                            OrganizationInvitationSagaStatus::AlreadyMember;
                         instance.succeed();
                     } else {
-                        if let Some(state) = instance.state_mut().as_mut() {
-                            state.status = OrganizationInvitationSagaStatus::Failed;
-                        }
+                        instance.state_required_mut()?.status =
+                            OrganizationInvitationSagaStatus::Failed;
                         instance.fail();
                     }
                 }

@@ -35,8 +35,6 @@ impl Saga for WithdrawalSaga {
                 } => {
                     *instance.state_mut() =
                         Some(WithdrawalSagaState::new(*id, *account_id, *amount));
-                    let state = instance.state_required_mut()?;
-                    state.status = WithdrawalSagaStatus::FundsReserveRequested;
 
                     instance.append_command(
                         event,
@@ -48,7 +46,6 @@ impl Saga for WithdrawalSaga {
                 }
                 WithdrawalEventPayload::TokenTransferred { .. } => {
                     let state = instance.state_required_mut()?;
-                    state.status = WithdrawalSagaStatus::TokenTransferred;
                     let account_id = state.account_id;
                     let amount = state.amount;
                     state.status = WithdrawalSagaStatus::ReservedFundsCommitRequested;
@@ -59,18 +56,12 @@ impl Saga for WithdrawalSaga {
                     )?;
                 }
                 WithdrawalEventPayload::Completed => {
-                    if let Some(state) = instance.state_mut().as_mut() {
-                        state.status = WithdrawalSagaStatus::Completed;
-                    }
+                    instance.state_required_mut()?.status = WithdrawalSagaStatus::Completed;
                     instance.succeed();
                 }
                 WithdrawalEventPayload::Failed { .. } => {
                     let state = instance.state_required_mut()?;
-                    if matches!(
-                        state.status,
-                        WithdrawalSagaStatus::FundsReserved
-                            | WithdrawalSagaStatus::TokenTransferRequested
-                    ) {
+                    if matches!(state.status, WithdrawalSagaStatus::TokenTransferRequested) {
                         state.status = WithdrawalSagaStatus::ReservedFundsReleaseRequested;
                         let account_id = state.account_id;
                         let amount = state.amount;
@@ -92,7 +83,6 @@ impl Saga for WithdrawalSaga {
             match account_event.payload() {
                 AccountEventPayload::FundsReserved { .. } => {
                     let state = instance.state_required_mut()?;
-                    state.status = WithdrawalSagaStatus::FundsReserved;
                     let withdrawal_id = state.withdrawal_id;
                     state.status = WithdrawalSagaStatus::TokenTransferRequested;
 
@@ -127,7 +117,6 @@ impl Saga for WithdrawalSaga {
                 }
                 AccountEventPayload::ReservedFundsCommitted { .. } => {
                     let state = instance.state_required_mut()?;
-                    state.status = WithdrawalSagaStatus::ReservedFundsCommitted;
                     let withdrawal_id = state.withdrawal_id;
                     state.status = WithdrawalSagaStatus::CompleteRequested;
 

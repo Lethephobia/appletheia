@@ -5,16 +5,12 @@ use serde::{Deserialize, Serialize};
 pub enum WithdrawalSagaStatus {
     #[default]
     Initial,
-    Requested,
     FundsReserveRequested,
-    FundsReserved,
     TokenTransferRequested,
-    TokenTransferred,
     ReservedFundsReleaseRequested,
     ReservedFundsReleased,
     ReservedFundsReleaseRejected,
     ReservedFundsCommitRequested,
-    ReservedFundsCommitted,
     CompleteRequested,
     FailRequested,
     Completed,

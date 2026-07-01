@@ -21,7 +21,7 @@ impl WithdrawalSagaState {
             account_id,
             amount,
             withdrawal_id,
-            status: WithdrawalSagaStatus::Requested,
+            status: WithdrawalSagaStatus::FundsReserveRequested,
         }
     }
 }

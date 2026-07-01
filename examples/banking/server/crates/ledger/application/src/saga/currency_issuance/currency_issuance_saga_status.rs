@@ -5,17 +5,11 @@ use serde::{Deserialize, Serialize};
 pub enum CurrencyIssuanceSagaStatus {
     #[default]
     Initial,
-    Issued,
     SupplyReserveRequested,
-    SupplyReserved,
     MintSupplySyncRequested,
-    MintSupplySynced,
     DepositRequested,
-    Deposited,
     SupplyCommitRequested,
-    SupplyCommitted,
     SupplyReleaseRequested,
-    SupplyReleased,
     SupplyReleaseMintSupplySyncRequested,
     CompleteRequested,
     FailRequested,

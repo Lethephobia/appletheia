@@ -35,9 +35,8 @@ impl Saga for OrganizationOldPictureObjectDeletionSaga {
             .and_then(|picture| picture.as_object_name())
             .cloned()
         else {
-            if let Some(state) = instance.state_mut().as_mut() {
-                state.status = OrganizationOldPictureObjectDeletionSagaStatus::Skipped;
-            }
+            instance.state_required_mut()?.status =
+                OrganizationOldPictureObjectDeletionSagaStatus::Skipped;
             instance.succeed();
             return Ok(());
         };

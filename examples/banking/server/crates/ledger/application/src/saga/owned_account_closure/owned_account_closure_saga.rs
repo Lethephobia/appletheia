@@ -84,8 +84,6 @@ impl Saga for OwnedAccountClosureSaga {
             if let UserEventPayload::Removed = user_event.payload() {
                 let owner = AccountOwner::User(user_event.aggregate_id());
                 *instance.state_mut() = Some(OwnedAccountClosureSagaState::new(owner));
-                instance.state_required_mut()?.status =
-                    OwnedAccountClosureSagaStatus::ClosureRequestRequested;
                 instance.append_command(event, &OwnedAccountClosureRequestCommand { owner })?;
             }
 
@@ -95,8 +93,6 @@ impl Saga for OwnedAccountClosureSaga {
             if let OrganizationEventPayload::Removed = organization_event.payload() {
                 let owner = AccountOwner::Organization(organization_event.aggregate_id());
                 *instance.state_mut() = Some(OwnedAccountClosureSagaState::new(owner));
-                instance.state_required_mut()?.status =
-                    OwnedAccountClosureSagaStatus::ClosureRequestRequested;
                 instance.append_command(event, &OwnedAccountClosureRequestCommand { owner })?;
             }
 
@@ -194,27 +190,20 @@ impl Saga for OwnedAccountClosureSaga {
                     )?;
                 }
                 OwnedAccountClosureEventPayload::Completed { .. } => {
-                    if let Some(state) = instance.state_mut().as_mut() {
-                        state.status = OwnedAccountClosureSagaStatus::Completed;
-                    }
+                    instance.state_required_mut()?.status =
+                        OwnedAccountClosureSagaStatus::Completed;
                     instance.succeed();
                 }
                 OwnedAccountClosureEventPayload::Failed { .. } => {
-                    if let Some(state) = instance.state_mut().as_mut() {
-                        state.status = OwnedAccountClosureSagaStatus::Failed;
-                    }
+                    instance.state_required_mut()?.status = OwnedAccountClosureSagaStatus::Failed;
                     instance.fail();
                 }
                 OwnedAccountClosureEventPayload::CompleteRejected { .. } => {
-                    if let Some(state) = instance.state_mut().as_mut() {
-                        state.status = OwnedAccountClosureSagaStatus::Failed;
-                    }
+                    instance.state_required_mut()?.status = OwnedAccountClosureSagaStatus::Failed;
                     instance.fail();
                 }
                 OwnedAccountClosureEventPayload::FailRejected { .. } => {
-                    if let Some(state) = instance.state_mut().as_mut() {
-                        state.status = OwnedAccountClosureSagaStatus::Failed;
-                    }
+                    instance.state_required_mut()?.status = OwnedAccountClosureSagaStatus::Failed;
                     instance.fail();
                 }
             }
