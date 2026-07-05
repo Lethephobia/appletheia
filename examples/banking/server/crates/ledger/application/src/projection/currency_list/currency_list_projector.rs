@@ -215,7 +215,7 @@ where
             }
             CurrencyEventPayload::Provisioned { mint_account } => {
                 self.writer
-                    .update_currency_mint_account_address(
+                    .update_mint_account_address(
                         uow,
                         event_context,
                         currency_id,
@@ -297,8 +297,8 @@ where
             | CurrencyEventPayload::NameChangeRejected { .. }
             | CurrencyEventPayload::DescriptionChangeRejected { .. }
             | CurrencyEventPayload::ImageChangeRejected { .. }
-            | CurrencyEventPayload::MintAccountMetadataSynced
-            | CurrencyEventPayload::MintAccountMetadataSyncRejected { .. }
+            | CurrencyEventPayload::MintMetadataSynced
+            | CurrencyEventPayload::MintMetadataSyncRejected { .. }
             | CurrencyEventPayload::SupplyReserved { .. }
             | CurrencyEventPayload::SupplyReserveRejected { .. }
             | CurrencyEventPayload::MintSupplySynced { .. }

@@ -10,8 +10,8 @@ use banking_ledger_application::{
 };
 use banking_ledger_domain::core::CurrencyAmount;
 use banking_ledger_domain::currency::{
-    CurrencyDescription, CurrencyId, CurrencyImageRef, CurrencyMintAccountAddress, CurrencyName,
-    CurrencyOwner, CurrencySymbol,
+    CurrencyDescription, CurrencyId, CurrencyImageRef, CurrencyName, CurrencyOwner, CurrencySymbol,
+    MintAccountAddress,
 };
 use banking_shared_kernel_application::read_model::ReadModelEventContext;
 
@@ -106,7 +106,7 @@ impl CurrencyListWriter for PgCurrencyListWriter {
             upsert
                 .mint_account_address
                 .as_ref()
-                .map(CurrencyMintAccountAddress::value),
+                .map(MintAccountAddress::value),
         )
         .bind(upsert.supply.value().to_string())
         .bind(Self::status_name(upsert.status))
@@ -266,12 +266,12 @@ impl CurrencyListWriter for PgCurrencyListWriter {
         Ok(())
     }
 
-    async fn update_currency_mint_account_address(
+    async fn update_mint_account_address(
         &self,
         uow: &mut Self::Uow,
         event_context: ReadModelEventContext,
         id: CurrencyId,
-        mint_account_address: CurrencyMintAccountAddress,
+        mint_account_address: MintAccountAddress,
     ) -> Result<(), CurrencyListWriterError> {
         sqlx::query(
             r#"

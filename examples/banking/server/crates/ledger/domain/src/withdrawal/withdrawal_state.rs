@@ -7,7 +7,9 @@ use crate::{
     payout_destination::PayoutDestinationId,
 };
 
-use super::{WithdrawalId, WithdrawalOnchainTransactionId, WithdrawalStateError, WithdrawalStatus};
+use crate::core::OnchainTransactionId;
+
+use super::{WithdrawalId, WithdrawalStateError, WithdrawalStatus};
 
 /// Stores the materialized state of a `Withdrawal` aggregate.
 #[aggregate_state(error = WithdrawalStateError)]
@@ -22,7 +24,7 @@ pub struct WithdrawalState {
     pub(super) currency_id: CurrencyId,
     pub(super) payout_destination_id: PayoutDestinationId,
     pub(super) amount: CurrencyAmount,
-    pub(super) onchain_transaction_id: Option<WithdrawalOnchainTransactionId>,
+    pub(super) onchain_transaction_id: Option<OnchainTransactionId>,
     pub(super) status: WithdrawalStatus,
 }
 

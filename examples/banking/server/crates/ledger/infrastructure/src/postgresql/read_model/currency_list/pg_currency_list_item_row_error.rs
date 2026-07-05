@@ -61,7 +61,7 @@ pub enum PgCurrencyListItemRowError {
     InvalidCurrencyImage(#[source] Box<dyn std::error::Error + Send + Sync>),
 
     #[error("invalid currency mint account address")]
-    InvalidCurrencyMintAccountAddress(#[source] Box<dyn std::error::Error + Send + Sync>),
+    InvalidMintAccountAddress(#[source] Box<dyn std::error::Error + Send + Sync>),
 
     #[error("invalid currency decimals")]
     InvalidCurrencyDecimals(#[source] Box<dyn std::error::Error + Send + Sync>),

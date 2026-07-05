@@ -300,8 +300,8 @@ where
             | CurrencyEventPayload::DescriptionChangeRejected { .. }
             | CurrencyEventPayload::ImageChanged { .. }
             | CurrencyEventPayload::ImageChangeRejected { .. }
-            | CurrencyEventPayload::MintAccountMetadataSynced
-            | CurrencyEventPayload::MintAccountMetadataSyncRejected { .. }
+            | CurrencyEventPayload::MintMetadataSynced
+            | CurrencyEventPayload::MintMetadataSyncRejected { .. }
             | CurrencyEventPayload::Provisioned { .. }
             | CurrencyEventPayload::ProvisionRejected { .. }
             | CurrencyEventPayload::MintSupplySynced { .. }

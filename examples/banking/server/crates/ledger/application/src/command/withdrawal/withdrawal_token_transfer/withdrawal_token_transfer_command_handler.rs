@@ -1,3 +1,6 @@
+use crate::mint::{
+    PoolTokenTransferExecutor, PoolTokenTransferExecutorError, PoolTokenTransferRequest,
+};
 use appletheia::application::authorization::{AuthorizationPlan, PrincipalRequirement};
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
@@ -5,12 +8,7 @@ use appletheia::application::request_context::RequestContext;
 use banking_ledger_domain::currency::Currency;
 use banking_ledger_domain::payout_destination::PayoutDestination;
 use banking_ledger_domain::withdrawal::{
-    Withdrawal, WithdrawalOnchainTransactionId, WithdrawalTokenTransferResult,
-};
-
-use crate::banking_ledger::{
-    MintAccountAddress, MintAccountDecimals, PoolTokenAccountAddress, PoolTokenTransferExecutor,
-    PoolTokenTransferMarkerSeed, PoolTokenTransferRequest, TokenAccountOwnerAddress, TokenAmount,
+    Withdrawal, WithdrawalFailureReason, WithdrawalTokenTransferResult,
 };
 
 use super::{
@@ -99,21 +97,28 @@ where
         };
 
         let request = PoolTokenTransferRequest::new(
-            PoolTokenTransferMarkerSeed::try_from(command.withdrawal_id)?,
-            MintAccountAddress::try_from(mint_account.mint_account_address().value())?,
-            PoolTokenAccountAddress::try_from(mint_account.pool_token_account_address().value())?,
-            TokenAccountOwnerAddress::try_from(
-                payout_destination.token_account_owner_address()?.value(),
-            )?,
-            TokenAmount::new(withdrawal.amount()?.value()),
-            MintAccountDecimals::from(currency.decimals()?),
+            command.withdrawal_id,
+            mint_account.clone(),
+            payout_destination.token_account_owner_address()?.clone(),
+            *withdrawal.amount()?,
+            *currency.decimals()?,
         );
 
-        let receipt = self.pool_token_transfer_executor.execute(request).await?;
-        let onchain_transaction_id = WithdrawalOnchainTransactionId::new(
-            receipt.onchain_transaction_id().value().to_owned(),
-        )
-        .ok_or(WithdrawalTokenTransferCommandHandlerError::InvalidOnchainTransactionId)?;
+        let receipt = match self.pool_token_transfer_executor.execute(request).await {
+            Ok(receipt) => receipt,
+            Err(PoolTokenTransferExecutorError::Rejected) => {
+                withdrawal.fail(WithdrawalFailureReason::TokenTransferRejected)?;
+                self.withdrawal_repository
+                    .save(uow, request_context, &mut withdrawal)
+                    .await?;
+
+                return Ok(CommandHandled::same(
+                    WithdrawalTokenTransferOutput::Rejected,
+                ));
+            }
+            Err(error) => return Err(error.into()),
+        };
+        let onchain_transaction_id = receipt.into_onchain_transaction_id();
         let result = withdrawal.record_token_transfer(onchain_transaction_id.clone())?;
         self.withdrawal_repository
             .save(uow, request_context, &mut withdrawal)
@@ -130,5 +135,514 @@ where
         };
 
         Ok(CommandHandled::same(output))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::{Arc, Mutex};
+
+    use appletheia::application::command::CommandHandler;
+    use appletheia::application::repository::{Repository, RepositoryError};
+    use appletheia::application::request_context::{
+        CorrelationId, MessageId, Principal, RequestContext,
+    };
+    use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
+    use appletheia::domain::{Aggregate, AggregateVersion, EventPayload, UniqueKey, UniqueValue};
+    use banking_iam_domain::UserId;
+    use banking_ledger_domain::account::AccountId;
+    use banking_ledger_domain::core::{CurrencyAmount, OnchainTransactionId};
+    use banking_ledger_domain::currency::{
+        Currency, CurrencyDecimals, CurrencyId, CurrencyName, CurrencyOwner, CurrencySymbol,
+        MintAccount, MintAccountAddress, PoolTokenAccountAddress,
+    };
+    use banking_ledger_domain::payout_destination::{
+        PayoutDestination, PayoutDestinationId, PayoutDestinationOwner,
+        PayoutDestinationRegistration, TokenAccountOwnerAddress,
+    };
+    use banking_ledger_domain::withdrawal::{
+        Withdrawal, WithdrawalEventPayload, WithdrawalFailureReason, WithdrawalId,
+        WithdrawalRequest, WithdrawalStatus,
+    };
+    use thiserror::Error;
+    use uuid::Uuid;
+
+    use super::{
+        WithdrawalTokenTransferCommand, WithdrawalTokenTransferCommandHandler,
+        WithdrawalTokenTransferCommandHandlerError, WithdrawalTokenTransferOutput,
+    };
+    use crate::mint::{
+        PoolTokenTransferExecutor, PoolTokenTransferExecutorError, PoolTokenTransferReceipt,
+        PoolTokenTransferRequest,
+    };
+
+    #[derive(Default)]
+    struct TestUow;
+
+    impl UnitOfWork for TestUow {
+        async fn commit(self) -> Result<(), UnitOfWorkError> {
+            Ok(())
+        }
+
+        async fn rollback(self) -> Result<(), UnitOfWorkError> {
+            Ok(())
+        }
+    }
+
+    #[derive(Clone)]
+    struct TestWithdrawalRepository {
+        item: Arc<Mutex<Option<Withdrawal>>>,
+        saved: Arc<Mutex<Option<Withdrawal>>>,
+    }
+
+    impl TestWithdrawalRepository {
+        fn new(withdrawal: Withdrawal) -> Self {
+            Self {
+                item: Arc::new(Mutex::new(Some(withdrawal))),
+                saved: Arc::new(Mutex::new(None)),
+            }
+        }
+    }
+
+    impl Repository<Withdrawal> for TestWithdrawalRepository {
+        type Uow = TestUow;
+
+        async fn read(
+            &self,
+            _uow: &mut Self::Uow,
+            id: WithdrawalId,
+        ) -> Result<Withdrawal, RepositoryError<Withdrawal>> {
+            self.item
+                .lock()
+                .expect("lock")
+                .clone()
+                .ok_or_else(|| RepositoryError::NotFound {
+                    aggregate_type: Withdrawal::TYPE,
+                    aggregate_id: id,
+                })
+        }
+
+        async fn read_at_version(
+            &self,
+            _uow: &mut Self::Uow,
+            id: WithdrawalId,
+            _at: AggregateVersion,
+        ) -> Result<Withdrawal, RepositoryError<Withdrawal>> {
+            self.read(_uow, id).await
+        }
+
+        async fn find_by_unique_value(
+            &self,
+            _uow: &mut Self::Uow,
+            _unique_key: UniqueKey,
+            _unique_value: &UniqueValue,
+        ) -> Result<Option<Withdrawal>, RepositoryError<Withdrawal>> {
+            Ok(None)
+        }
+
+        async fn save(
+            &self,
+            _uow: &mut Self::Uow,
+            _request_context: &RequestContext,
+            aggregate: &mut Withdrawal,
+        ) -> Result<(), RepositoryError<Withdrawal>> {
+            *self.item.lock().expect("lock") = Some(aggregate.clone());
+            *self.saved.lock().expect("lock") = Some(aggregate.clone());
+            Ok(())
+        }
+    }
+
+    #[derive(Clone)]
+    struct TestCurrencyRepository {
+        item: Arc<Mutex<Option<Currency>>>,
+    }
+
+    impl TestCurrencyRepository {
+        fn new(currency: Currency) -> Self {
+            Self {
+                item: Arc::new(Mutex::new(Some(currency))),
+            }
+        }
+    }
+
+    impl Repository<Currency> for TestCurrencyRepository {
+        type Uow = TestUow;
+
+        async fn read(
+            &self,
+            _uow: &mut Self::Uow,
+            id: CurrencyId,
+        ) -> Result<Currency, RepositoryError<Currency>> {
+            self.item
+                .lock()
+                .expect("lock")
+                .clone()
+                .ok_or_else(|| RepositoryError::NotFound {
+                    aggregate_type: Currency::TYPE,
+                    aggregate_id: id,
+                })
+        }
+
+        async fn read_at_version(
+            &self,
+            _uow: &mut Self::Uow,
+            id: CurrencyId,
+            _at: AggregateVersion,
+        ) -> Result<Currency, RepositoryError<Currency>> {
+            self.read(_uow, id).await
+        }
+
+        async fn find_by_unique_value(
+            &self,
+            _uow: &mut Self::Uow,
+            _unique_key: UniqueKey,
+            _unique_value: &UniqueValue,
+        ) -> Result<Option<Currency>, RepositoryError<Currency>> {
+            Ok(None)
+        }
+
+        async fn save(
+            &self,
+            _uow: &mut Self::Uow,
+            _request_context: &RequestContext,
+            aggregate: &mut Currency,
+        ) -> Result<(), RepositoryError<Currency>> {
+            *self.item.lock().expect("lock") = Some(aggregate.clone());
+            Ok(())
+        }
+    }
+
+    #[derive(Clone)]
+    struct TestPayoutDestinationRepository {
+        item: Arc<Mutex<Option<PayoutDestination>>>,
+    }
+
+    impl TestPayoutDestinationRepository {
+        fn new(payout_destination: PayoutDestination) -> Self {
+            Self {
+                item: Arc::new(Mutex::new(Some(payout_destination))),
+            }
+        }
+    }
+
+    impl Repository<PayoutDestination> for TestPayoutDestinationRepository {
+        type Uow = TestUow;
+
+        async fn read(
+            &self,
+            _uow: &mut Self::Uow,
+            id: PayoutDestinationId,
+        ) -> Result<PayoutDestination, RepositoryError<PayoutDestination>> {
+            self.item
+                .lock()
+                .expect("lock")
+                .clone()
+                .ok_or_else(|| RepositoryError::NotFound {
+                    aggregate_type: PayoutDestination::TYPE,
+                    aggregate_id: id,
+                })
+        }
+
+        async fn read_at_version(
+            &self,
+            _uow: &mut Self::Uow,
+            id: PayoutDestinationId,
+            _at: AggregateVersion,
+        ) -> Result<PayoutDestination, RepositoryError<PayoutDestination>> {
+            self.read(_uow, id).await
+        }
+
+        async fn find_by_unique_value(
+            &self,
+            _uow: &mut Self::Uow,
+            _unique_key: UniqueKey,
+            _unique_value: &UniqueValue,
+        ) -> Result<Option<PayoutDestination>, RepositoryError<PayoutDestination>> {
+            Ok(None)
+        }
+
+        async fn save(
+            &self,
+            _uow: &mut Self::Uow,
+            _request_context: &RequestContext,
+            aggregate: &mut PayoutDestination,
+        ) -> Result<(), RepositoryError<PayoutDestination>> {
+            *self.item.lock().expect("lock") = Some(aggregate.clone());
+            Ok(())
+        }
+    }
+
+    #[derive(Clone)]
+    struct TestPoolTokenTransferExecutor {
+        outcome: TestPoolTokenTransferOutcome,
+        request: Arc<Mutex<Option<PoolTokenTransferRequest>>>,
+    }
+
+    impl TestPoolTokenTransferExecutor {
+        fn new(outcome: TestPoolTokenTransferOutcome) -> Self {
+            Self {
+                outcome,
+                request: Arc::new(Mutex::new(None)),
+            }
+        }
+    }
+
+    impl PoolTokenTransferExecutor for TestPoolTokenTransferExecutor {
+        async fn execute(
+            &self,
+            request: PoolTokenTransferRequest,
+        ) -> Result<PoolTokenTransferReceipt, PoolTokenTransferExecutorError> {
+            *self.request.lock().expect("lock") = Some(request);
+            match self.outcome {
+                TestPoolTokenTransferOutcome::Transferred => {
+                    Ok(PoolTokenTransferReceipt::new(onchain_transaction_id()))
+                }
+                TestPoolTokenTransferOutcome::Rejected => {
+                    Err(PoolTokenTransferExecutorError::Rejected)
+                }
+                TestPoolTokenTransferOutcome::BackendFailed => Err(
+                    PoolTokenTransferExecutorError::Backend(Box::new(TestBackendError)),
+                ),
+            }
+        }
+    }
+
+    #[derive(Clone, Copy)]
+    enum TestPoolTokenTransferOutcome {
+        Transferred,
+        Rejected,
+        BackendFailed,
+    }
+
+    #[derive(Debug, Error)]
+    #[error("test backend error")]
+    struct TestBackendError;
+
+    fn request_context() -> RequestContext {
+        RequestContext::new(
+            CorrelationId::from(Uuid::now_v7()),
+            MessageId::new(),
+            Principal::System,
+        )
+        .expect("request context should be valid")
+    }
+
+    fn onchain_transaction_id() -> OnchainTransactionId {
+        OnchainTransactionId::try_from("tx111111111111111111111111111111111")
+            .expect("transaction id should be valid")
+    }
+
+    fn token_account_owner_address() -> TokenAccountOwnerAddress {
+        TokenAccountOwnerAddress::try_from("11111111111111111111111111111111")
+            .expect("token account owner address should be valid")
+    }
+
+    fn mint_account() -> MintAccount {
+        MintAccount::new(
+            MintAccountAddress::try_from("Mint111111111111111111111111111111111111")
+                .expect("mint account address should be valid"),
+            PoolTokenAccountAddress::try_from("Pool111111111111111111111111111111111111")
+                .expect("pool token account address should be valid"),
+        )
+    }
+
+    fn provisioned_currency() -> Currency {
+        let mut currency = Currency::default();
+        currency
+            .define(
+                CurrencyOwner::from(UserId::new()),
+                CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
+                CurrencyName::try_from("USD Coin").expect("name should be valid"),
+                CurrencyDecimals::new(6),
+                None,
+                None,
+            )
+            .expect("currency should define");
+        currency
+            .provision(mint_account())
+            .expect("currency should provision");
+        currency.core_mut().clear_uncommitted_events();
+        currency
+    }
+
+    fn registered_payout_destination() -> PayoutDestination {
+        let mut payout_destination = PayoutDestination::default();
+        payout_destination
+            .register(PayoutDestinationRegistration {
+                owner: PayoutDestinationOwner::from(UserId::new()),
+                token_account_owner_address: token_account_owner_address(),
+            })
+            .expect("payout destination should register");
+        payout_destination.core_mut().clear_uncommitted_events();
+        payout_destination
+    }
+
+    fn requested_withdrawal(
+        currency_id: CurrencyId,
+        payout_destination_id: PayoutDestinationId,
+    ) -> Withdrawal {
+        let mut withdrawal = Withdrawal::default();
+        withdrawal
+            .request(WithdrawalRequest {
+                account_id: AccountId::new(),
+                currency_id,
+                payout_destination_id,
+                amount: CurrencyAmount::new(100),
+            })
+            .expect("withdrawal should be requested");
+        withdrawal.core_mut().clear_uncommitted_events();
+        withdrawal
+    }
+
+    #[tokio::test]
+    async fn handle_records_successful_token_transfer() {
+        let currency = provisioned_currency();
+        let currency_id = currency.aggregate_id().expect("currency id should exist");
+        let payout_destination = registered_payout_destination();
+        let payout_destination_id = payout_destination
+            .aggregate_id()
+            .expect("payout destination id should exist");
+        let withdrawal = requested_withdrawal(currency_id, payout_destination_id);
+        let withdrawal_id = withdrawal
+            .aggregate_id()
+            .expect("withdrawal id should exist");
+        let withdrawal_repository = TestWithdrawalRepository::new(withdrawal);
+        let pool_token_transfer_executor =
+            TestPoolTokenTransferExecutor::new(TestPoolTokenTransferOutcome::Transferred);
+        let handler = WithdrawalTokenTransferCommandHandler::new(
+            withdrawal_repository.clone(),
+            TestPayoutDestinationRepository::new(payout_destination),
+            TestCurrencyRepository::new(currency),
+            pool_token_transfer_executor,
+        );
+        let mut uow = TestUow;
+
+        let handled = handler
+            .handle(
+                &mut uow,
+                &request_context(),
+                &WithdrawalTokenTransferCommand { withdrawal_id },
+            )
+            .await
+            .expect("token transfer should succeed");
+
+        assert_eq!(
+            handled.into_output(),
+            WithdrawalTokenTransferOutput::TokenTransferred {
+                onchain_transaction_id: OnchainTransactionId::new(
+                    onchain_transaction_id().value().to_owned()
+                )
+                .expect("withdrawal transaction id should be valid"),
+            }
+        );
+        let saved = withdrawal_repository
+            .saved
+            .lock()
+            .expect("lock")
+            .clone()
+            .expect("withdrawal should be saved");
+        assert_eq!(
+            saved.status().expect("status should exist"),
+            &WithdrawalStatus::TokenTransferred
+        );
+        assert_eq!(
+            saved.uncommitted_events()[0].payload().name(),
+            WithdrawalEventPayload::TOKEN_TRANSFERRED
+        );
+    }
+
+    #[tokio::test]
+    async fn handle_records_withdrawal_failure_when_token_transfer_is_rejected() {
+        let currency = provisioned_currency();
+        let currency_id = currency.aggregate_id().expect("currency id should exist");
+        let payout_destination = registered_payout_destination();
+        let payout_destination_id = payout_destination
+            .aggregate_id()
+            .expect("payout destination id should exist");
+        let withdrawal = requested_withdrawal(currency_id, payout_destination_id);
+        let withdrawal_id = withdrawal
+            .aggregate_id()
+            .expect("withdrawal id should exist");
+        let withdrawal_repository = TestWithdrawalRepository::new(withdrawal);
+        let pool_token_transfer_executor =
+            TestPoolTokenTransferExecutor::new(TestPoolTokenTransferOutcome::Rejected);
+        let handler = WithdrawalTokenTransferCommandHandler::new(
+            withdrawal_repository.clone(),
+            TestPayoutDestinationRepository::new(payout_destination),
+            TestCurrencyRepository::new(currency),
+            pool_token_transfer_executor,
+        );
+        let mut uow = TestUow;
+
+        let handled = handler
+            .handle(
+                &mut uow,
+                &request_context(),
+                &WithdrawalTokenTransferCommand { withdrawal_id },
+            )
+            .await
+            .expect("token transfer rejection should be recorded");
+
+        assert_eq!(
+            handled.into_output(),
+            WithdrawalTokenTransferOutput::Rejected
+        );
+        let saved = withdrawal_repository
+            .saved
+            .lock()
+            .expect("lock")
+            .clone()
+            .expect("withdrawal should be saved");
+        assert_eq!(
+            saved.status().expect("status should exist"),
+            &WithdrawalStatus::Failed
+        );
+        assert_eq!(
+            saved.uncommitted_events()[0].payload(),
+            &WithdrawalEventPayload::Failed {
+                reason: WithdrawalFailureReason::TokenTransferRejected,
+            }
+        );
+    }
+
+    #[tokio::test]
+    async fn handle_keeps_backend_error_retryable_without_saving_withdrawal() {
+        let currency = provisioned_currency();
+        let currency_id = currency.aggregate_id().expect("currency id should exist");
+        let payout_destination = registered_payout_destination();
+        let payout_destination_id = payout_destination
+            .aggregate_id()
+            .expect("payout destination id should exist");
+        let withdrawal = requested_withdrawal(currency_id, payout_destination_id);
+        let withdrawal_id = withdrawal
+            .aggregate_id()
+            .expect("withdrawal id should exist");
+        let withdrawal_repository = TestWithdrawalRepository::new(withdrawal);
+        let pool_token_transfer_executor =
+            TestPoolTokenTransferExecutor::new(TestPoolTokenTransferOutcome::BackendFailed);
+        let handler = WithdrawalTokenTransferCommandHandler::new(
+            withdrawal_repository.clone(),
+            TestPayoutDestinationRepository::new(payout_destination),
+            TestCurrencyRepository::new(currency),
+            pool_token_transfer_executor,
+        );
+        let mut uow = TestUow;
+
+        let error = handler
+            .handle(
+                &mut uow,
+                &request_context(),
+                &WithdrawalTokenTransferCommand { withdrawal_id },
+            )
+            .await
+            .expect_err("backend failure should stay retryable");
+
+        assert!(matches!(
+            error,
+            WithdrawalTokenTransferCommandHandlerError::PoolTokenTransferExecutor(
+                PoolTokenTransferExecutorError::Backend(_)
+            )
+        ));
+        assert!(withdrawal_repository.saved.lock().expect("lock").is_none());
     }
 }

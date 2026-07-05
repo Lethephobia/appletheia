@@ -4,8 +4,8 @@ use appletheia::{aggregate_state, reference_indexes, unique_constraints};
 use crate::core::CurrencyAmount;
 
 use super::{
-    CurrencyDecimals, CurrencyDescription, CurrencyId, CurrencyImageRef, CurrencyMintAccount,
-    CurrencyName, CurrencyOwner, CurrencyStateError, CurrencyStatus, CurrencySymbol,
+    CurrencyDecimals, CurrencyDescription, CurrencyId, CurrencyImageRef, CurrencyName,
+    CurrencyOwner, CurrencyStateError, CurrencyStatus, CurrencySymbol, MintAccount,
 };
 
 /// Stores the materialized state of a `Currency` aggregate.
@@ -25,7 +25,7 @@ pub struct CurrencyState {
     pub(super) image: Option<CurrencyImageRef>,
     pub(super) supply: CurrencyAmount,
     pub(super) pending_supply: CurrencyAmount,
-    pub(super) mint_account: Option<CurrencyMintAccount>,
+    pub(super) mint_account: Option<MintAccount>,
     pub(super) status: CurrencyStatus,
 }
 

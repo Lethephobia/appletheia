@@ -5,7 +5,7 @@ use banking_iam_domain::{OrganizationId, UserId};
 
 use super::{
     PayoutDestinationId, PayoutDestinationOwner, PayoutDestinationStateError,
-    PayoutDestinationStatus, PayoutDestinationTokenAccountOwnerAddress,
+    PayoutDestinationStatus, TokenAccountOwnerAddress,
 };
 
 /// Stores the materialized state of a `PayoutDestination` aggregate.
@@ -18,7 +18,7 @@ use super::{
 pub struct PayoutDestinationState {
     pub(super) id: PayoutDestinationId,
     pub(super) owner: PayoutDestinationOwner,
-    pub(super) token_account_owner_address: PayoutDestinationTokenAccountOwnerAddress,
+    pub(super) token_account_owner_address: TokenAccountOwnerAddress,
     pub(super) status: PayoutDestinationStatus,
 }
 

@@ -10,8 +10,8 @@ mod payout_destination_remove_result;
 mod payout_destination_state;
 mod payout_destination_state_error;
 mod payout_destination_status;
-mod payout_destination_token_account_owner_address;
-mod payout_destination_token_account_owner_address_error;
+mod token_account_owner_address;
+mod token_account_owner_address_error;
 
 pub use payout_destination_error::PayoutDestinationError;
 pub use payout_destination_event_payload::PayoutDestinationEventPayload;
@@ -25,8 +25,8 @@ pub use payout_destination_remove_result::PayoutDestinationRemoveResult;
 pub use payout_destination_state::PayoutDestinationState;
 pub use payout_destination_state_error::PayoutDestinationStateError;
 pub use payout_destination_status::PayoutDestinationStatus;
-pub use payout_destination_token_account_owner_address::PayoutDestinationTokenAccountOwnerAddress;
-pub use payout_destination_token_account_owner_address_error::PayoutDestinationTokenAccountOwnerAddressError;
+pub use token_account_owner_address::TokenAccountOwnerAddress;
+pub use token_account_owner_address_error::TokenAccountOwnerAddressError;
 
 use appletheia::aggregate;
 use appletheia::domain::{Aggregate, AggregateApply, AggregateCore};
@@ -46,7 +46,7 @@ impl PayoutDestination {
     /// Returns the payout destination token account owner address.
     pub fn token_account_owner_address(
         &self,
-    ) -> Result<&PayoutDestinationTokenAccountOwnerAddress, PayoutDestinationError> {
+    ) -> Result<&TokenAccountOwnerAddress, PayoutDestinationError> {
         Ok(&self.state_required()?.token_account_owner_address)
     }
 
@@ -136,13 +136,11 @@ mod tests {
     use super::{
         PayoutDestination, PayoutDestinationEventPayload, PayoutDestinationOwner,
         PayoutDestinationRegistration, PayoutDestinationRemoveRejectionReason,
-        PayoutDestinationRemoveResult, PayoutDestinationStatus,
-        PayoutDestinationTokenAccountOwnerAddress,
+        PayoutDestinationRemoveResult, PayoutDestinationStatus, TokenAccountOwnerAddress,
     };
 
-    fn payout_destination_token_account_owner_address() -> PayoutDestinationTokenAccountOwnerAddress
-    {
-        PayoutDestinationTokenAccountOwnerAddress::try_from("11111111111111111111111111111111")
+    fn token_account_owner_address() -> TokenAccountOwnerAddress {
+        TokenAccountOwnerAddress::try_from("11111111111111111111111111111111")
             .expect("address should be valid")
     }
 
@@ -153,7 +151,7 @@ mod tests {
     #[test]
     fn register_initializes_state_and_records_event() {
         let owner = payout_destination_owner();
-        let token_account_owner_address = payout_destination_token_account_owner_address();
+        let token_account_owner_address = token_account_owner_address();
         let mut payout_destination = PayoutDestination::default();
 
         payout_destination
@@ -189,7 +187,7 @@ mod tests {
     #[test]
     fn remove_marks_destination_removed() {
         let owner = payout_destination_owner();
-        let token_account_owner_address = payout_destination_token_account_owner_address();
+        let token_account_owner_address = token_account_owner_address();
         let mut payout_destination = PayoutDestination::default();
         payout_destination
             .register(PayoutDestinationRegistration {
@@ -217,7 +215,7 @@ mod tests {
     #[test]
     fn remove_rejects_when_already_removed() {
         let owner = payout_destination_owner();
-        let token_account_owner_address = payout_destination_token_account_owner_address();
+        let token_account_owner_address = token_account_owner_address();
         let mut payout_destination = PayoutDestination::default();
         payout_destination
             .register(PayoutDestinationRegistration {

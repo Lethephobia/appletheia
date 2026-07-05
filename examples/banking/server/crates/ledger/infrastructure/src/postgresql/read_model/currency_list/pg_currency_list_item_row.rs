@@ -8,8 +8,8 @@ use banking_ledger_application::{
 };
 use banking_ledger_domain::core::CurrencyAmount;
 use banking_ledger_domain::currency::{
-    CurrencyDecimals, CurrencyDescription, CurrencyId, CurrencyMintAccountAddress, CurrencyName,
-    CurrencySymbol,
+    CurrencyDecimals, CurrencyDescription, CurrencyId, CurrencyName, CurrencySymbol,
+    MintAccountAddress,
 };
 use banking_shared_kernel_application::read_model::ReadModelObservation;
 use sqlx::types::chrono::{DateTime, Utc};
@@ -218,10 +218,10 @@ impl TryFrom<PgCurrencyListItemRow> for CurrencyListItem {
             .map_err(|error| PgCurrencyListItemRowError::InvalidCurrencyImage(Box::new(error)))?,
             mint_account_address: row
                 .mint_account_address
-                .map(CurrencyMintAccountAddress::try_from)
+                .map(MintAccountAddress::try_from)
                 .transpose()
                 .map_err(|error| {
-                    PgCurrencyListItemRowError::InvalidCurrencyMintAccountAddress(Box::new(error))
+                    PgCurrencyListItemRowError::InvalidMintAccountAddress(Box::new(error))
                 })?,
             supply: PgCurrencyListItemRow::amount(row.supply)?,
             status: PgCurrencyListItemRow::status(row.status)?,

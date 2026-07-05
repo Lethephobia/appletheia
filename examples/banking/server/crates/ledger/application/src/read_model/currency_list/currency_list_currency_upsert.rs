@@ -1,7 +1,7 @@
 use banking_ledger_domain::core::CurrencyAmount;
 use banking_ledger_domain::currency::{
-    CurrencyDecimals, CurrencyDescription, CurrencyId, CurrencyImageRef,
-    CurrencyMintAccountAddress, CurrencyName, CurrencyOwner, CurrencySymbol,
+    CurrencyDecimals, CurrencyDescription, CurrencyId, CurrencyImageRef, CurrencyName,
+    CurrencyOwner, CurrencySymbol, MintAccountAddress,
 };
 
 use super::CurrencyListItemStatus;
@@ -15,7 +15,7 @@ pub struct CurrencyListCurrencyUpsert {
     pub decimals: CurrencyDecimals,
     pub description: Option<CurrencyDescription>,
     pub image: Option<CurrencyImageRef>,
-    pub mint_account_address: Option<CurrencyMintAccountAddress>,
+    pub mint_account_address: Option<MintAccountAddress>,
     pub supply: CurrencyAmount,
     pub status: CurrencyListItemStatus,
 }

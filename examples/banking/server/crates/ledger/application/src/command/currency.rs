@@ -1,4 +1,3 @@
-mod banking_ledger_config_configure;
 mod currency_activate;
 mod currency_deactivate;
 mod currency_define;
@@ -6,8 +5,6 @@ mod currency_description_change;
 mod currency_image_change;
 mod currency_image_object_delete;
 mod currency_image_upload_prepare;
-mod currency_mint_account_metadata_sync;
-mod currency_mint_supply_sync;
 mod currency_name_change;
 mod currency_ownership_transfer;
 mod currency_provision;
@@ -16,11 +13,10 @@ mod currency_supply_commit;
 mod currency_supply_release;
 mod currency_supply_reserve;
 mod currency_symbol_change;
+mod mint_metadata_sync;
+mod mint_supply_sync;
+mod onchain_configure;
 
-pub use banking_ledger_config_configure::{
-    BankingLedgerConfigConfigureCommand, BankingLedgerConfigConfigureCommandHandler,
-    BankingLedgerConfigConfigureCommandHandlerError, BankingLedgerConfigConfigureOutput,
-};
 pub use currency_activate::{
     CurrencyActivateCommand, CurrencyActivateCommandHandler, CurrencyActivateCommandHandlerError,
     CurrencyActivateOutput,
@@ -50,15 +46,6 @@ pub use currency_image_upload_prepare::{
     CurrencyImageUploadPrepareCommandHandlerConfig, CurrencyImageUploadPrepareCommandHandlerError,
     CurrencyImageUploadPrepareOutput,
 };
-pub use currency_mint_account_metadata_sync::{
-    CurrencyMintAccountMetadataSyncCommand, CurrencyMintAccountMetadataSyncCommandHandler,
-    CurrencyMintAccountMetadataSyncCommandHandlerConfig,
-    CurrencyMintAccountMetadataSyncCommandHandlerError, CurrencyMintAccountMetadataSyncOutput,
-};
-pub use currency_mint_supply_sync::{
-    CurrencyMintSupplySyncCommand, CurrencyMintSupplySyncCommandHandler,
-    CurrencyMintSupplySyncCommandHandlerError, CurrencyMintSupplySyncOutput,
-};
 pub use currency_name_change::{
     CurrencyNameChangeCommand, CurrencyNameChangeCommandHandler,
     CurrencyNameChangeCommandHandlerError, CurrencyNameChangeOutput,
@@ -69,8 +56,7 @@ pub use currency_ownership_transfer::{
 };
 pub use currency_provision::{
     CurrencyProvisionCommand, CurrencyProvisionCommandHandler,
-    CurrencyProvisionCommandHandlerConfig, CurrencyProvisionCommandHandlerError,
-    CurrencyProvisionOutput,
+    CurrencyProvisionCommandHandlerError, CurrencyProvisionOutput,
 };
 pub use currency_remove::{
     CurrencyRemoveCommand, CurrencyRemoveCommandHandler, CurrencyRemoveCommandHandlerError,
@@ -91,4 +77,16 @@ pub use currency_supply_reserve::{
 pub use currency_symbol_change::{
     CurrencySymbolChangeCommand, CurrencySymbolChangeCommandHandler,
     CurrencySymbolChangeCommandHandlerError, CurrencySymbolChangeOutput,
+};
+pub use mint_metadata_sync::{
+    MintMetadataSyncCommand, MintMetadataSyncCommandHandler, MintMetadataSyncCommandHandlerError,
+    MintMetadataSyncOutput,
+};
+pub use mint_supply_sync::{
+    MintSupplySyncCommand, MintSupplySyncCommandHandler, MintSupplySyncCommandHandlerError,
+    MintSupplySyncOutput,
+};
+pub use onchain_configure::{
+    OnchainConfigureCommand, OnchainConfigureCommandHandler, OnchainConfigureCommandHandlerError,
+    OnchainConfigureOutput,
 };

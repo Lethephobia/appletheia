@@ -1,4 +1,4 @@
-use banking_ledger_domain::withdrawal::WithdrawalOnchainTransactionId;
+use banking_ledger_domain::core::OnchainTransactionId;
 use serde::{Deserialize, Serialize};
 
 /// Returned after an external withdrawal token transfer attempt is applied.
@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 #[serde(tag = "type", content = "data", rename_all = "snake_case")]
 pub enum WithdrawalTokenTransferOutput {
     TokenTransferred {
-        onchain_transaction_id: WithdrawalOnchainTransactionId,
+        onchain_transaction_id: OnchainTransactionId,
     },
     Rejected,
 }

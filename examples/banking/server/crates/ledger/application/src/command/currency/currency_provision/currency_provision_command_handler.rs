@@ -1,74 +1,43 @@
+use crate::mint::{MintProvisionRequest, MintProvisioner};
 use appletheia::application::authorization::{AuthorizationPlan, PrincipalRequirement};
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_ledger_domain::currency::{
-    Currency, CurrencyImageRef, CurrencyMintAccount, CurrencyProvisionRejectionReason,
-    CurrencyProvisionResult,
+    Currency, CurrencyProvisionRejectionReason, CurrencyProvisionResult,
 };
 
 use super::{
-    CurrencyProvisionCommand, CurrencyProvisionCommandHandlerConfig,
-    CurrencyProvisionCommandHandlerError, CurrencyProvisionOutput,
-};
-use crate::banking_ledger::{
-    MintAccountDecimals, MintAccountMetadata, MintId, MintMetadataDescription,
-    MintMetadataDocument, MintMetadataImageUri, MintMetadataName, MintMetadataPublishRequest,
-    MintMetadataPublisher, MintMetadataSymbol, MintProvisionReceiptError, MintProvisionRequest,
-    MintProvisioner,
+    CurrencyProvisionCommand, CurrencyProvisionCommandHandlerError, CurrencyProvisionOutput,
 };
 
 /// Handles `CurrencyProvisionCommand`.
-pub struct CurrencyProvisionCommandHandler<CR, MMP, MI>
+pub struct CurrencyProvisionCommandHandler<CR, MP>
 where
     CR: Repository<Currency>,
-    MMP: MintMetadataPublisher,
-    MI: MintProvisioner,
+    MP: MintProvisioner,
 {
     currency_repository: CR,
-    mint_metadata_publisher: MMP,
-    mint_provisioner: MI,
-    config: CurrencyProvisionCommandHandlerConfig,
+    mint_provisioner: MP,
 }
 
-impl<CR, MMP, MI> CurrencyProvisionCommandHandler<CR, MMP, MI>
+impl<CR, MP> CurrencyProvisionCommandHandler<CR, MP>
 where
     CR: Repository<Currency>,
-    MMP: MintMetadataPublisher,
-    MI: MintProvisioner,
+    MP: MintProvisioner,
 {
-    pub fn new(
-        currency_repository: CR,
-        mint_metadata_publisher: MMP,
-        mint_provisioner: MI,
-        config: CurrencyProvisionCommandHandlerConfig,
-    ) -> Self {
+    pub fn new(currency_repository: CR, mint_provisioner: MP) -> Self {
         Self {
             currency_repository,
-            mint_metadata_publisher,
             mint_provisioner,
-            config,
-        }
-    }
-
-    fn mint_metadata_image(
-        &self,
-        image: &CurrencyImageRef,
-    ) -> Result<MintMetadataImageUri, CurrencyProvisionCommandHandlerError> {
-        match image {
-            CurrencyImageRef::ObjectName(object_name) => {
-                Ok(self.config.image_public_base_url().resolve(object_name)?)
-            }
-            CurrencyImageRef::ExternalUrl(url) => Ok(MintMetadataImageUri::try_from(url)?),
         }
     }
 }
 
-impl<CR, MMP, MI> CommandHandler for CurrencyProvisionCommandHandler<CR, MMP, MI>
+impl<CR, MP> CommandHandler for CurrencyProvisionCommandHandler<CR, MP>
 where
     CR: Repository<Currency>,
-    MMP: MintMetadataPublisher,
-    MI: MintProvisioner,
+    MP: MintProvisioner,
 {
     type Command = CurrencyProvisionCommand;
     type Output = CurrencyProvisionOutput;
@@ -118,46 +87,18 @@ where
             }));
         }
 
-        let mint_id = MintId::try_from(command.currency_id)?;
-        let metadata_name = MintMetadataName::from(currency.name()?);
-        let metadata_symbol = MintMetadataSymbol::from(currency.symbol()?);
-        let description = currency.description()?.map(MintMetadataDescription::from);
-        let image = currency
-            .image()?
-            .map(|image| self.mint_metadata_image(image))
-            .transpose()?;
-        let document = MintMetadataDocument::new(
-            metadata_name.clone(),
-            metadata_symbol.clone(),
-            description,
-            image,
-        );
-        let metadata_uri = self
-            .mint_metadata_publisher
-            .publish(MintMetadataPublishRequest::new(mint_id.clone(), document))
-            .await?;
-        let metadata = MintAccountMetadata::new(metadata_name, metadata_symbol, metadata_uri);
         let receipt = self
             .mint_provisioner
             .provision(MintProvisionRequest::new(
-                mint_id,
-                MintAccountDecimals::from(currency.decimals()?),
-                metadata,
+                command.currency_id,
+                *currency.decimals()?,
+                currency.name()?.clone(),
+                currency.symbol()?.clone(),
+                currency.description()?.cloned(),
+                currency.image()?.cloned(),
             ))
             .await?;
-        let mint_account = CurrencyMintAccount::new(
-            receipt
-                .mint_account_address()
-                .clone()
-                .try_into()
-                .map_err(MintProvisionReceiptError::from)?,
-            receipt
-                .pool_token_account_address()
-                .clone()
-                .try_into()
-                .map_err(MintProvisionReceiptError::from)?,
-        );
-        let result = currency.provision(mint_account)?;
+        let result = currency.provision(receipt.into_mint_account())?;
 
         self.currency_repository
             .save(uow, request_context, &mut currency)
@@ -186,26 +127,21 @@ mod tests {
         CorrelationId, MessageId, Principal, RequestContext,
     };
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
-    use appletheia::domain::{
-        Aggregate, AggregateId, AggregateVersion, EventPayload, UniqueKey, UniqueValue,
-    };
+    use appletheia::domain::{Aggregate, AggregateVersion, EventPayload, UniqueKey, UniqueValue};
     use banking_iam_domain::UserId;
     use banking_ledger_domain::currency::{
         Currency, CurrencyDecimals, CurrencyEventPayload, CurrencyId, CurrencyImageObjectName,
-        CurrencyImageRef, CurrencyImageUrl, CurrencyMintAccount, CurrencyMintAccountAddress,
-        CurrencyName, CurrencyOwner, CurrencyPoolTokenAccountAddress,
-        CurrencyProvisionRejectionReason, CurrencySymbol,
+        CurrencyImageRef, CurrencyImageUrl, CurrencyName, CurrencyOwner,
+        CurrencyProvisionRejectionReason, CurrencySymbol, MintAccount, MintAccountAddress,
+        PoolTokenAccountAddress,
     };
     use uuid::Uuid;
 
     use super::{
-        CurrencyProvisionCommand, CurrencyProvisionCommandHandler,
-        CurrencyProvisionCommandHandlerConfig, CurrencyProvisionOutput,
+        CurrencyProvisionCommand, CurrencyProvisionCommandHandler, CurrencyProvisionOutput,
     };
-    use crate::banking_ledger::{
-        MintAccountAddress, MintId, MintMetadataImagePublicBaseUrl, MintMetadataPublishRequest,
-        MintMetadataPublisher, MintMetadataPublisherError, MintMetadataUri, MintProvisionReceipt,
-        MintProvisionRequest, MintProvisioner, MintProvisionerError, PoolTokenAccountAddress,
+    use crate::mint::{
+        MintProvisionReceipt, MintProvisionRequest, MintProvisioner, MintProvisionerError,
     };
 
     #[derive(Default)]
@@ -292,37 +228,9 @@ mod tests {
     }
 
     #[derive(Clone)]
-    struct TestMintMetadataPublisher {
-        calls: Arc<Mutex<usize>>,
-        request: Arc<Mutex<Option<MintMetadataPublishRequest>>>,
-    }
-
-    impl TestMintMetadataPublisher {
-        fn new() -> Self {
-            Self {
-                calls: Arc::new(Mutex::new(0)),
-                request: Arc::new(Mutex::new(None)),
-            }
-        }
-    }
-
-    impl MintMetadataPublisher for TestMintMetadataPublisher {
-        async fn publish(
-            &self,
-            request: MintMetadataPublishRequest,
-        ) -> Result<MintMetadataUri, MintMetadataPublisherError> {
-            *self.calls.lock().expect("lock") += 1;
-            *self.request.lock().expect("lock") = Some(request);
-            Ok(MintMetadataUri::try_from(
-                "https://metadata.example.com/currencies/test/mint/metadata.json",
-            )
-            .expect("metadata URI should be valid"))
-        }
-    }
-
-    #[derive(Clone)]
     struct TestMintProvisioner {
         calls: Arc<Mutex<usize>>,
+        request: Arc<Mutex<Option<MintProvisionRequest>>>,
         receipt: MintProvisionReceipt,
     }
 
@@ -330,6 +238,7 @@ mod tests {
         fn new(receipt: MintProvisionReceipt) -> Self {
             Self {
                 calls: Arc::new(Mutex::new(0)),
+                request: Arc::new(Mutex::new(None)),
                 receipt,
             }
         }
@@ -338,9 +247,10 @@ mod tests {
     impl MintProvisioner for TestMintProvisioner {
         async fn provision(
             &self,
-            _request: MintProvisionRequest,
+            request: MintProvisionRequest,
         ) -> Result<MintProvisionReceipt, MintProvisionerError> {
             *self.calls.lock().expect("lock") += 1;
+            *self.request.lock().expect("lock") = Some(request);
             Ok(self.receipt.clone())
         }
     }
@@ -374,17 +284,8 @@ mod tests {
         currency
     }
 
-    fn mint_account() -> CurrencyMintAccount {
-        CurrencyMintAccount::new(
-            CurrencyMintAccountAddress::try_from("Mint111111111111111111111111111111111111")
-                .expect("mint account address should be valid"),
-            CurrencyPoolTokenAccountAddress::try_from("Pool111111111111111111111111111111111111")
-                .expect("pool account address should be valid"),
-        )
-    }
-
-    fn receipt() -> MintProvisionReceipt {
-        MintProvisionReceipt::new(
+    fn mint_account() -> MintAccount {
+        MintAccount::new(
             MintAccountAddress::try_from("Mint111111111111111111111111111111111111")
                 .expect("mint account address should be valid"),
             PoolTokenAccountAddress::try_from("Pool111111111111111111111111111111111111")
@@ -392,23 +293,15 @@ mod tests {
         )
     }
 
-    fn config() -> CurrencyProvisionCommandHandlerConfig {
-        CurrencyProvisionCommandHandlerConfig::new(
-            MintMetadataImagePublicBaseUrl::try_from("https://assets.example.com/")
-                .expect("image base URL should be valid"),
-        )
+    fn receipt() -> MintProvisionReceipt {
+        MintProvisionReceipt::new(mint_account())
     }
 
     fn handler(
         repository: TestCurrencyRepository,
-        publisher: TestMintMetadataPublisher,
         provisioner: TestMintProvisioner,
-    ) -> CurrencyProvisionCommandHandler<
-        TestCurrencyRepository,
-        TestMintMetadataPublisher,
-        TestMintProvisioner,
-    > {
-        CurrencyProvisionCommandHandler::new(repository, publisher, provisioner, config())
+    ) -> CurrencyProvisionCommandHandler<TestCurrencyRepository, TestMintProvisioner> {
+        CurrencyProvisionCommandHandler::new(repository, provisioner)
     }
 
     #[tokio::test]
@@ -420,11 +313,9 @@ mod tests {
             .expect("currency should be provisioned");
         currency.core_mut().clear_uncommitted_events();
         let repository = TestCurrencyRepository::new(currency);
-        let publisher = TestMintMetadataPublisher::new();
-        let publisher_calls = publisher.calls.clone();
         let provisioner = TestMintProvisioner::new(receipt());
         let provisioner_calls = provisioner.calls.clone();
-        let handler = handler(repository.clone(), publisher, provisioner);
+        let handler = handler(repository.clone(), provisioner);
         let mut uow = TestUow;
 
         let handled = handler
@@ -442,7 +333,6 @@ mod tests {
                 reason: CurrencyProvisionRejectionReason::AlreadyProvisioned
             }
         );
-        assert_eq!(*publisher_calls.lock().expect("lock"), 0);
         assert_eq!(*provisioner_calls.lock().expect("lock"), 0);
         let saved = repository
             .saved
@@ -467,11 +357,9 @@ mod tests {
         currency.remove().expect("currency should be removed");
         currency.core_mut().clear_uncommitted_events();
         let repository = TestCurrencyRepository::new(currency);
-        let publisher = TestMintMetadataPublisher::new();
-        let publisher_calls = publisher.calls.clone();
         let provisioner = TestMintProvisioner::new(receipt());
         let provisioner_calls = provisioner.calls.clone();
-        let handler = handler(repository.clone(), publisher, provisioner);
+        let handler = handler(repository.clone(), provisioner);
         let mut uow = TestUow;
 
         let handled = handler
@@ -489,7 +377,6 @@ mod tests {
                 reason: CurrencyProvisionRejectionReason::Removed
             }
         );
-        assert_eq!(*publisher_calls.lock().expect("lock"), 0);
         assert_eq!(*provisioner_calls.lock().expect("lock"), 0);
 
         let saved = repository
@@ -509,16 +396,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn handle_publishes_metadata_provisions_mint_for_currency() {
+    async fn handle_provisions_mint_for_currency() {
         let currency = defined_currency();
         let currency_id = currency.aggregate_id().expect("currency id should exist");
         let repository = TestCurrencyRepository::new(currency);
-        let publisher = TestMintMetadataPublisher::new();
-        let publisher_calls = publisher.calls.clone();
-        let published_request = publisher.request.clone();
         let provisioner = TestMintProvisioner::new(receipt());
         let provisioner_calls = provisioner.calls.clone();
-        let handler = handler(repository.clone(), publisher, provisioner);
+        let provision_request = provisioner.request.clone();
+        let handler = handler(repository.clone(), provisioner);
         let mut uow = TestUow;
 
         let handled = handler
@@ -534,15 +419,13 @@ mod tests {
             handled.into_output(),
             CurrencyProvisionOutput::Provisioned { .. }
         ));
-        assert_eq!(*publisher_calls.lock().expect("lock"), 1);
         assert_eq!(*provisioner_calls.lock().expect("lock"), 1);
         assert_eq!(
-            published_request
+            provision_request
                 .lock()
                 .expect("lock")
                 .clone()
-                .expect("metadata request should be captured")
-                .document()
+                .expect("mint provision request should be captured")
                 .image(),
             None
         );
@@ -567,7 +450,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn handle_resolves_object_storage_image_to_public_uri_before_publishing_metadata() {
+    async fn handle_passes_object_storage_image_to_mint_provisioner() {
         let image = CurrencyImageRef::object_name(
             CurrencyImageObjectName::try_from(
                 "currencies/00000000-0000-0000-0000-000000000001/images/00000000-0000-0000-0000-000000000002",
@@ -577,10 +460,9 @@ mod tests {
         let currency = defined_currency_with_image(Some(image));
         let currency_id = currency.aggregate_id().expect("currency id should exist");
         let repository = TestCurrencyRepository::new(currency);
-        let publisher = TestMintMetadataPublisher::new();
-        let published_request = publisher.request.clone();
         let provisioner = TestMintProvisioner::new(receipt());
-        let handler = handler(repository, publisher, provisioner);
+        let provision_request = provisioner.request.clone();
+        let handler = handler(repository, provisioner);
         let mut uow = TestUow;
 
         handler
@@ -592,24 +474,24 @@ mod tests {
             .await
             .expect("command should be handled");
 
-        let request = published_request
+        let request = provision_request
             .lock()
             .expect("lock")
             .clone()
-            .expect("metadata request should be captured");
+            .expect("mint provision request should be captured");
         assert_eq!(
-            request
-                .document()
-                .image()
-                .map(|value| value.value().as_str()),
+            request.image().and_then(CurrencyImageRef::as_object_name),
             Some(
-                "https://assets.example.com/currencies/00000000-0000-0000-0000-000000000001/images/00000000-0000-0000-0000-000000000002"
+                &CurrencyImageObjectName::try_from(
+                    "currencies/00000000-0000-0000-0000-000000000001/images/00000000-0000-0000-0000-000000000002",
+                )
+                .expect("image object name should be valid")
             )
         );
     }
 
     #[tokio::test]
-    async fn handle_preserves_external_image_uri_when_publishing_metadata() {
+    async fn handle_passes_external_image_to_mint_provisioner() {
         let image = CurrencyImageRef::external_url(
             CurrencyImageUrl::try_from("https://cdn.example.com/currencies/usdc.png")
                 .expect("image URL should be valid"),
@@ -617,10 +499,9 @@ mod tests {
         let currency = defined_currency_with_image(Some(image));
         let currency_id = currency.aggregate_id().expect("currency id should exist");
         let repository = TestCurrencyRepository::new(currency);
-        let publisher = TestMintMetadataPublisher::new();
-        let published_request = publisher.request.clone();
         let provisioner = TestMintProvisioner::new(receipt());
-        let handler = handler(repository, publisher, provisioner);
+        let provision_request = provisioner.request.clone();
+        let handler = handler(repository, provisioner);
         let mut uow = TestUow;
 
         handler
@@ -632,26 +513,17 @@ mod tests {
             .await
             .expect("command should be handled");
 
-        let request = published_request
+        let request = provision_request
             .lock()
             .expect("lock")
             .clone()
-            .expect("metadata request should be captured");
+            .expect("mint provision request should be captured");
         assert_eq!(
             request
-                .document()
                 .image()
+                .and_then(CurrencyImageRef::as_external_url)
                 .map(|value| value.value().as_str()),
             Some("https://cdn.example.com/currencies/usdc.png")
         );
-    }
-
-    #[test]
-    fn mint_id_is_derived_from_currency_id() {
-        let currency_id = CurrencyId::new();
-
-        let mint_id = MintId::try_from(currency_id).expect("mint ID should be valid");
-
-        assert_eq!(mint_id.value(), currency_id.value().as_simple().to_string());
     }
 }

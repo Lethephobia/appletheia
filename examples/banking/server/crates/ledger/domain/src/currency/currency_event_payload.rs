@@ -5,12 +5,12 @@ use crate::core::CurrencyAmount;
 use super::{
     CurrencyActivateRejectionReason, CurrencyDeactivateRejectionReason, CurrencyDecimals,
     CurrencyDescription, CurrencyDescriptionChangeRejectionReason, CurrencyEventPayloadError,
-    CurrencyId, CurrencyImageChangeRejectionReason, CurrencyImageRef, CurrencyMintAccount,
-    CurrencyMintAccountMetadataSyncRejectionReason, CurrencyName,
+    CurrencyId, CurrencyImageChangeRejectionReason, CurrencyImageRef, CurrencyName,
     CurrencyNameChangeRejectionReason, CurrencyOwner, CurrencyOwnershipTransferRejectionReason,
     CurrencyProvisionRejectionReason, CurrencyRemoveRejectionReason,
     CurrencySupplyCommitRejectionReason, CurrencySupplyReleaseRejectionReason,
     CurrencySupplyReserveRejectionReason, CurrencySymbol, CurrencySymbolChangeRejectionReason,
+    MintAccount, MintMetadataSyncRejectionReason,
 };
 
 /// Represents the domain events emitted by a `Currency` aggregate.
@@ -26,10 +26,10 @@ pub enum CurrencyEventPayload {
         image: Option<CurrencyImageRef>,
     },
     Provisioned {
-        mint_account: CurrencyMintAccount,
+        mint_account: MintAccount,
     },
     ProvisionRejected {
-        mint_account: Option<CurrencyMintAccount>,
+        mint_account: Option<MintAccount>,
         reason: CurrencyProvisionRejectionReason,
     },
     OwnershipTransferred {
@@ -68,9 +68,9 @@ pub enum CurrencyEventPayload {
         image: Option<CurrencyImageRef>,
         reason: CurrencyImageChangeRejectionReason,
     },
-    MintAccountMetadataSynced,
-    MintAccountMetadataSyncRejected {
-        reason: CurrencyMintAccountMetadataSyncRejectionReason,
+    MintMetadataSynced,
+    MintMetadataSyncRejected {
+        reason: MintMetadataSyncRejectionReason,
     },
     SupplyReserved {
         amount: CurrencyAmount,
@@ -173,12 +173,12 @@ mod tests {
             appletheia::domain::EventName::new("image_change_rejected")
         );
         assert_eq!(
-            CurrencyEventPayload::MINT_ACCOUNT_METADATA_SYNCED,
-            appletheia::domain::EventName::new("mint_account_metadata_synced")
+            CurrencyEventPayload::MINT_METADATA_SYNCED,
+            appletheia::domain::EventName::new("mint_metadata_synced")
         );
         assert_eq!(
-            CurrencyEventPayload::MINT_ACCOUNT_METADATA_SYNC_REJECTED,
-            appletheia::domain::EventName::new("mint_account_metadata_sync_rejected")
+            CurrencyEventPayload::MINT_METADATA_SYNC_REJECTED,
+            appletheia::domain::EventName::new("mint_metadata_sync_rejected")
         );
         assert_eq!(
             CurrencyEventPayload::SUPPLY_RESERVED,

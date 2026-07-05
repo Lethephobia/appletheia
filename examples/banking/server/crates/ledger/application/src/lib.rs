@@ -1,6 +1,7 @@
 pub mod authorization;
-pub mod banking_ledger;
 pub mod command;
+pub mod config;
+pub mod mint;
 pub mod projection;
 pub mod query;
 pub mod read_model;
@@ -20,26 +21,6 @@ pub use authorization::{
     PayoutDestinationRelationshipUpdater, PayoutDestinationRelationshipUpdaterError,
     PayoutDestinationRemoverRelation,
 };
-pub use banking_ledger::{
-    BankingLedgerConfigConfigurer, BankingLedgerConfigConfigurerError, MintAccountAddress,
-    MintAccountAddressError, MintAccountDecimals, MintAccountMetadata,
-    MintAccountMetadataUpdateRequest, MintAccountMetadataUpdater, MintAccountMetadataUpdaterError,
-    MintId, MintIdError, MintMetadataDescription, MintMetadataDescriptionError,
-    MintMetadataDocument, MintMetadataImagePublicBaseUrl, MintMetadataImagePublicBaseUrlError,
-    MintMetadataImageUri, MintMetadataImageUriError, MintMetadataName, MintMetadataNameError,
-    MintMetadataObjectName, MintMetadataObjectNameError, MintMetadataPublicBaseUrl,
-    MintMetadataPublicBaseUrlError, MintMetadataPublishRequest, MintMetadataPublisher,
-    MintMetadataPublisherError, MintMetadataSymbol, MintMetadataSymbolError, MintMetadataUri,
-    MintMetadataUriError, MintProvisionReceipt, MintProvisionReceiptError, MintProvisionRequest,
-    MintProvisioner, MintProvisionerError, MintSupplySyncRequest, MintSupplySynchronizer,
-    MintSupplySynchronizerError, ObjectStorageMintMetadataPublisher,
-    ObjectStorageMintMetadataPublisherConfig, ObjectStorageMintMetadataPublisherError,
-    OnchainTransactionId, PoolTokenAccountAddress, PoolTokenAccountAddressError,
-    PoolTokenTransferExecutor, PoolTokenTransferExecutorError, PoolTokenTransferMarkerSeed,
-    PoolTokenTransferMarkerSeedError, PoolTokenTransferReceipt, PoolTokenTransferRequest,
-    TokenAccountOwnerAddress, TokenAccountOwnerAddressError, TokenAccountOwnerAddressValidator,
-    TokenAccountOwnerAddressValidatorError, TokenAmount,
-};
 pub use command::{
     AccountCloseCommand, AccountCloseCommandHandler, AccountCloseOutput, AccountDepositCommand,
     AccountDepositCommandHandler, AccountDepositOutput, AccountFreezeCommand,
@@ -52,12 +33,10 @@ pub use command::{
     AccountReservedFundsCommitOutput, AccountReservedFundsReleaseCommand,
     AccountReservedFundsReleaseCommandHandler, AccountReservedFundsReleaseOutput,
     AccountThawCommand, AccountThawCommandHandler, AccountThawOutput, AccountWithdrawCommand,
-    AccountWithdrawCommandHandler, AccountWithdrawOutput, BankingLedgerConfigConfigureCommand,
-    BankingLedgerConfigConfigureCommandHandler, BankingLedgerConfigConfigureCommandHandlerError,
-    BankingLedgerConfigConfigureOutput, CurrencyActivateCommand, CurrencyActivateCommandHandler,
-    CurrencyActivateOutput, CurrencyDeactivateCommand, CurrencyDeactivateCommandHandler,
-    CurrencyDeactivateOutput, CurrencyDefineCommand, CurrencyDefineCommandHandler,
-    CurrencyDefineOutput, CurrencyDescriptionChangeCommand,
+    AccountWithdrawCommandHandler, AccountWithdrawOutput, CurrencyActivateCommand,
+    CurrencyActivateCommandHandler, CurrencyActivateOutput, CurrencyDeactivateCommand,
+    CurrencyDeactivateCommandHandler, CurrencyDeactivateOutput, CurrencyDefineCommand,
+    CurrencyDefineCommandHandler, CurrencyDefineOutput, CurrencyDescriptionChangeCommand,
     CurrencyDescriptionChangeCommandHandler, CurrencyDescriptionChangeOutput,
     CurrencyImageChangeCommand, CurrencyImageChangeCommandHandler, CurrencyImageChangeOutput,
     CurrencyImageObjectDeleteCommand, CurrencyImageObjectDeleteCommandHandler,
@@ -67,19 +46,18 @@ pub use command::{
     CurrencyIssuanceCompleteCommandHandler, CurrencyIssuanceCompleteOutput,
     CurrencyIssuanceFailCommand, CurrencyIssuanceFailCommandHandler, CurrencyIssuanceFailOutput,
     CurrencyIssueCommand, CurrencyIssueCommandHandler, CurrencyIssueOutput,
-    CurrencyMintAccountMetadataSyncCommand, CurrencyMintAccountMetadataSyncCommandHandler,
-    CurrencyMintAccountMetadataSyncCommandHandlerConfig, CurrencyMintAccountMetadataSyncOutput,
-    CurrencyMintSupplySyncCommand, CurrencyMintSupplySyncCommandHandler,
-    CurrencyMintSupplySyncCommandHandlerError, CurrencyMintSupplySyncOutput,
     CurrencyNameChangeCommand, CurrencyNameChangeCommandHandler, CurrencyNameChangeOutput,
     CurrencyOwnershipTransferCommand, CurrencyOwnershipTransferCommandHandler,
     CurrencyOwnershipTransferOutput, CurrencyProvisionCommand, CurrencyProvisionCommandHandler,
-    CurrencyProvisionCommandHandlerConfig, CurrencyProvisionOutput, CurrencyRemoveCommand,
-    CurrencyRemoveCommandHandler, CurrencyRemoveOutput, CurrencySupplyCommitCommand,
-    CurrencySupplyCommitCommandHandler, CurrencySupplyCommitOutput, CurrencySupplyReleaseCommand,
-    CurrencySupplyReleaseCommandHandler, CurrencySupplyReleaseOutput, CurrencySupplyReserveCommand,
-    CurrencySupplyReserveCommandHandler, CurrencySupplyReserveOutput, CurrencySymbolChangeCommand,
-    CurrencySymbolChangeCommandHandler, CurrencySymbolChangeOutput,
+    CurrencyProvisionOutput, CurrencyRemoveCommand, CurrencyRemoveCommandHandler,
+    CurrencyRemoveOutput, CurrencySupplyCommitCommand, CurrencySupplyCommitCommandHandler,
+    CurrencySupplyCommitOutput, CurrencySupplyReleaseCommand, CurrencySupplyReleaseCommandHandler,
+    CurrencySupplyReleaseOutput, CurrencySupplyReserveCommand, CurrencySupplyReserveCommandHandler,
+    CurrencySupplyReserveOutput, CurrencySymbolChangeCommand, CurrencySymbolChangeCommandHandler,
+    CurrencySymbolChangeOutput, MintMetadataSyncCommand, MintMetadataSyncCommandHandler,
+    MintMetadataSyncOutput, MintSupplySyncCommand, MintSupplySyncCommandHandler,
+    MintSupplySyncCommandHandlerError, MintSupplySyncOutput, OnchainConfigureCommand,
+    OnchainConfigureCommandHandler, OnchainConfigureCommandHandlerError, OnchainConfigureOutput,
     OwnedAccountClosureAccountCloseRecordCommand,
     OwnedAccountClosureAccountCloseRecordCommandHandler,
     OwnedAccountClosureAccountCloseRecordOutput,
@@ -102,6 +80,14 @@ pub use command::{
     WithdrawalRequestCommand, WithdrawalRequestCommandHandler, WithdrawalRequestOutput,
     WithdrawalTokenTransferCommand, WithdrawalTokenTransferCommandHandler,
     WithdrawalTokenTransferOutput,
+};
+pub use config::{OnchainConfigurer, OnchainConfigurerError};
+pub use mint::{
+    MintMetadataUpdateRequest, MintMetadataUpdater, MintMetadataUpdaterError, MintProvisionReceipt,
+    MintProvisionRequest, MintProvisioner, MintProvisionerError, MintSupplySyncRequest,
+    MintSupplySynchronizer, MintSupplySynchronizerError, PoolTokenTransferExecutor,
+    PoolTokenTransferExecutorError, PoolTokenTransferReceipt, PoolTokenTransferRequest,
+    TokenAccountOwnerAddressValidator, TokenAccountOwnerAddressValidatorError,
 };
 pub use projection::{
     CurrencyListProjector, CurrencyListProjectorError, CurrencyListProjectorSpec,
@@ -157,14 +143,13 @@ pub use read_model::{
 pub use repository::{AccountEventSaveHook, CurrencyEventSaveHook, PayoutDestinationEventSaveHook};
 pub use saga::{
     CurrencyIssuanceSaga, CurrencyIssuanceSagaError, CurrencyIssuanceSagaSpec,
-    CurrencyIssuanceSagaState, CurrencyIssuanceSagaStatus, CurrencyMintAccountMetadataSyncSaga,
-    CurrencyMintAccountMetadataSyncSagaError, CurrencyMintAccountMetadataSyncSagaSpec,
-    CurrencyMintAccountMetadataSyncSagaState, CurrencyMintAccountMetadataSyncSagaStatus,
-    CurrencyOldImageObjectDeletionSaga, CurrencyOldImageObjectDeletionSagaError,
-    CurrencyOldImageObjectDeletionSagaSpec, CurrencyOldImageObjectDeletionSagaState,
-    CurrencyOldImageObjectDeletionSagaStatus, CurrencyProvisioningSaga,
-    CurrencyProvisioningSagaError, CurrencyProvisioningSagaSpec, CurrencyProvisioningSagaState,
-    CurrencyProvisioningSagaStatus, OwnedAccountClosureSaga, OwnedAccountClosureSagaError,
+    CurrencyIssuanceSagaState, CurrencyIssuanceSagaStatus, CurrencyOldImageObjectDeletionSaga,
+    CurrencyOldImageObjectDeletionSagaError, CurrencyOldImageObjectDeletionSagaSpec,
+    CurrencyOldImageObjectDeletionSagaState, CurrencyOldImageObjectDeletionSagaStatus,
+    CurrencyProvisioningSaga, CurrencyProvisioningSagaError, CurrencyProvisioningSagaSpec,
+    CurrencyProvisioningSagaState, CurrencyProvisioningSagaStatus, MintMetadataSyncSaga,
+    MintMetadataSyncSagaError, MintMetadataSyncSagaSpec, MintMetadataSyncSagaState,
+    MintMetadataSyncSagaStatus, OwnedAccountClosureSaga, OwnedAccountClosureSagaError,
     OwnedAccountClosureSagaSpec, OwnedAccountClosureSagaState, OwnedAccountClosureSagaStatus,
     TransferSaga, TransferSagaError, TransferSagaSpec, TransferSagaState, TransferSagaStatus,
     WithdrawalSaga, WithdrawalSagaError, WithdrawalSagaSpec, WithdrawalSagaState,

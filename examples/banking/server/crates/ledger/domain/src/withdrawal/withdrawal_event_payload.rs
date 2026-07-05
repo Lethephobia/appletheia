@@ -5,10 +5,12 @@ use crate::{
     payout_destination::PayoutDestinationId,
 };
 
+use crate::core::OnchainTransactionId;
+
 use super::{
     WithdrawalCompleteRejectionReason, WithdrawalEventPayloadError, WithdrawalFailRejectionReason,
-    WithdrawalFailureReason, WithdrawalId, WithdrawalOnchainTransactionId,
-    WithdrawalRequestRejectionReason, WithdrawalTokenTransferRejectionReason,
+    WithdrawalFailureReason, WithdrawalId, WithdrawalRequestRejectionReason,
+    WithdrawalTokenTransferRejectionReason,
 };
 
 /// Represents the domain events emitted by a `Withdrawal` aggregate.
@@ -30,7 +32,7 @@ pub enum WithdrawalEventPayload {
         reason: WithdrawalRequestRejectionReason,
     },
     TokenTransferred {
-        onchain_transaction_id: WithdrawalOnchainTransactionId,
+        onchain_transaction_id: OnchainTransactionId,
     },
     TokenTransferRejected {
         reason: WithdrawalTokenTransferRejectionReason,

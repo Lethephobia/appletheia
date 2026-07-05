@@ -157,10 +157,9 @@ mod tests {
     use banking_ledger_domain::account::{
         Account, AccountEventPayload, AccountFundsReserveRejectionReason, AccountId,
     };
-    use banking_ledger_domain::core::CurrencyAmount;
+    use banking_ledger_domain::core::{CurrencyAmount, OnchainTransactionId};
     use banking_ledger_domain::withdrawal::{
         Withdrawal, WithdrawalEventPayload, WithdrawalFailureReason, WithdrawalId,
-        WithdrawalOnchainTransactionId,
     };
 
     use super::{WithdrawalSaga, WithdrawalSagaSpec, WithdrawalSagaState, WithdrawalSagaStatus};
@@ -278,8 +277,8 @@ mod tests {
         let account_id = AccountId::new();
         let withdrawal_id = WithdrawalId::new();
         let amount = CurrencyAmount::new(100);
-        let onchain_transaction_id = WithdrawalOnchainTransactionId::try_from("signature-1")
-            .expect("on-chain transaction id valid");
+        let onchain_transaction_id =
+            OnchainTransactionId::try_from("signature-1").expect("on-chain transaction id valid");
         let mut instance = SagaInstance::<WithdrawalSagaState>::new(
             SagaNameOwned::from(WithdrawalSagaSpec::DESCRIPTOR.name),
             correlation_id,

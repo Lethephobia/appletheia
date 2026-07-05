@@ -1,4 +1,4 @@
-use banking_ledger_domain::currency::{CurrencyMintAccount, CurrencyProvisionRejectionReason};
+use banking_ledger_domain::currency::{CurrencyProvisionRejectionReason, MintAccount};
 use serde::{Deserialize, Serialize};
 
 /// Returned after attempting to provision a currency.
@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 #[serde(tag = "type", content = "data", rename_all = "snake_case")]
 pub enum CurrencyProvisionOutput {
     Provisioned {
-        mint_account: CurrencyMintAccount,
+        mint_account: MintAccount,
     },
     Rejected {
         reason: CurrencyProvisionRejectionReason,

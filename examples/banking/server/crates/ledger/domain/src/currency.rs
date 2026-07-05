@@ -19,12 +19,6 @@ mod currency_image_object_name_error;
 mod currency_image_ref;
 mod currency_image_url;
 mod currency_image_url_error;
-mod currency_mint_account;
-mod currency_mint_account_address;
-mod currency_mint_account_address_error;
-mod currency_mint_account_metadata_sync_rejection_reason;
-mod currency_mint_account_metadata_sync_result;
-mod currency_mint_supply_sync_result;
 mod currency_name;
 mod currency_name_change_rejection_reason;
 mod currency_name_change_result;
@@ -32,8 +26,6 @@ mod currency_name_error;
 mod currency_owner;
 mod currency_ownership_transfer_rejection_reason;
 mod currency_ownership_transfer_result;
-mod currency_pool_token_account_address;
-mod currency_pool_token_account_address_error;
 mod currency_provision_rejection_reason;
 mod currency_provision_result;
 mod currency_remove_rejection_reason;
@@ -51,6 +43,14 @@ mod currency_symbol;
 mod currency_symbol_change_rejection_reason;
 mod currency_symbol_change_result;
 mod currency_symbol_error;
+mod mint_account;
+mod mint_account_address;
+mod mint_account_address_error;
+mod mint_metadata_sync_rejection_reason;
+mod mint_metadata_sync_result;
+mod mint_supply_sync_result;
+mod pool_token_account_address;
+mod pool_token_account_address_error;
 
 pub use currency_activate_rejection_reason::CurrencyActivateRejectionReason;
 pub use currency_activate_result::CurrencyActivateResult;
@@ -73,12 +73,6 @@ pub use currency_image_object_name_error::CurrencyImageObjectNameError;
 pub use currency_image_ref::CurrencyImageRef;
 pub use currency_image_url::CurrencyImageUrl;
 pub use currency_image_url_error::CurrencyImageUrlError;
-pub use currency_mint_account::CurrencyMintAccount;
-pub use currency_mint_account_address::CurrencyMintAccountAddress;
-pub use currency_mint_account_address_error::CurrencyMintAccountAddressError;
-pub use currency_mint_account_metadata_sync_rejection_reason::CurrencyMintAccountMetadataSyncRejectionReason;
-pub use currency_mint_account_metadata_sync_result::CurrencyMintAccountMetadataSyncResult;
-pub use currency_mint_supply_sync_result::CurrencyMintSupplySyncResult;
 pub use currency_name::CurrencyName;
 pub use currency_name_change_rejection_reason::CurrencyNameChangeRejectionReason;
 pub use currency_name_change_result::CurrencyNameChangeResult;
@@ -86,8 +80,6 @@ pub use currency_name_error::CurrencyNameError;
 pub use currency_owner::CurrencyOwner;
 pub use currency_ownership_transfer_rejection_reason::CurrencyOwnershipTransferRejectionReason;
 pub use currency_ownership_transfer_result::CurrencyOwnershipTransferResult;
-pub use currency_pool_token_account_address::CurrencyPoolTokenAccountAddress;
-pub use currency_pool_token_account_address_error::CurrencyPoolTokenAccountAddressError;
 pub use currency_provision_rejection_reason::CurrencyProvisionRejectionReason;
 pub use currency_provision_result::CurrencyProvisionResult;
 pub use currency_remove_rejection_reason::CurrencyRemoveRejectionReason;
@@ -105,6 +97,14 @@ pub use currency_symbol::CurrencySymbol;
 pub use currency_symbol_change_rejection_reason::CurrencySymbolChangeRejectionReason;
 pub use currency_symbol_change_result::CurrencySymbolChangeResult;
 pub use currency_symbol_error::CurrencySymbolError;
+pub use mint_account::MintAccount;
+pub use mint_account_address::MintAccountAddress;
+pub use mint_account_address_error::MintAccountAddressError;
+pub use mint_metadata_sync_rejection_reason::MintMetadataSyncRejectionReason;
+pub use mint_metadata_sync_result::MintMetadataSyncResult;
+pub use mint_supply_sync_result::MintSupplySyncResult;
+pub use pool_token_account_address::PoolTokenAccountAddress;
+pub use pool_token_account_address_error::PoolTokenAccountAddressError;
 
 use appletheia::aggregate;
 use appletheia::domain::{Aggregate, AggregateApply, AggregateCore};
@@ -149,7 +149,7 @@ impl Currency {
     }
 
     /// Returns the linked on-chain mint account.
-    pub fn mint_account(&self) -> Result<Option<&CurrencyMintAccount>, CurrencyError> {
+    pub fn mint_account(&self) -> Result<Option<&MintAccount>, CurrencyError> {
         Ok(self.state_required()?.mint_account.as_ref())
     }
 
@@ -220,7 +220,7 @@ impl Currency {
     /// Completes currency provisioning with the created on-chain mint account.
     pub fn provision(
         &mut self,
-        mint_account: CurrencyMintAccount,
+        mint_account: MintAccount,
     ) -> Result<CurrencyProvisionResult, CurrencyError> {
         if self.state_required()?.status.is_removed() {
             let reason = CurrencyProvisionRejectionReason::Removed;
@@ -243,7 +243,7 @@ impl Currency {
     /// Rejects currency provisioning.
     pub fn reject_provision(
         &mut self,
-        mint_account: Option<CurrencyMintAccount>,
+        mint_account: Option<MintAccount>,
         reason: CurrencyProvisionRejectionReason,
     ) -> Result<(), CurrencyError> {
         self.append_event(CurrencyEventPayload::ProvisionRejected {
@@ -382,20 +382,18 @@ impl Currency {
         Ok(())
     }
 
-    /// Records that mint account metadata has been synced to the current currency metadata.
-    pub fn record_mint_account_metadata_synced(
-        &mut self,
-    ) -> Result<CurrencyMintAccountMetadataSyncResult, CurrencyError> {
-        self.append_event(CurrencyEventPayload::MintAccountMetadataSynced)?;
-        Ok(CurrencyMintAccountMetadataSyncResult::Synced)
+    /// Records that mint metadata has been synced to the current currency metadata.
+    pub fn record_mint_metadata_synced(&mut self) -> Result<MintMetadataSyncResult, CurrencyError> {
+        self.append_event(CurrencyEventPayload::MintMetadataSynced)?;
+        Ok(MintMetadataSyncResult::Synced)
     }
 
-    /// Rejects a mint account metadata sync attempt.
-    pub fn reject_mint_account_metadata_sync(
+    /// Rejects a mint metadata sync attempt.
+    pub fn reject_mint_metadata_sync(
         &mut self,
-        reason: CurrencyMintAccountMetadataSyncRejectionReason,
+        reason: MintMetadataSyncRejectionReason,
     ) -> Result<(), CurrencyError> {
-        self.append_event(CurrencyEventPayload::MintAccountMetadataSyncRejected { reason })?;
+        self.append_event(CurrencyEventPayload::MintMetadataSyncRejected { reason })?;
         Ok(())
     }
 
@@ -447,9 +445,9 @@ impl Currency {
     pub fn record_mint_supply_synced(
         &mut self,
         supply: CurrencyAmount,
-    ) -> Result<CurrencyMintSupplySyncResult, CurrencyError> {
+    ) -> Result<MintSupplySyncResult, CurrencyError> {
         self.append_event(CurrencyEventPayload::MintSupplySynced { supply })?;
-        Ok(CurrencyMintSupplySyncResult::Synced)
+        Ok(MintSupplySyncResult::Synced)
     }
 
     /// Commits previously reserved supply into confirmed supply.
@@ -633,8 +631,8 @@ impl AggregateApply<CurrencyEventPayload, CurrencyError> for Currency {
                 self.state_required_mut()?.image = image.clone();
             }
             CurrencyEventPayload::ImageChangeRejected { .. } => {}
-            CurrencyEventPayload::MintAccountMetadataSynced => {}
-            CurrencyEventPayload::MintAccountMetadataSyncRejected { .. } => {}
+            CurrencyEventPayload::MintMetadataSynced => {}
+            CurrencyEventPayload::MintMetadataSyncRejected { .. } => {}
             CurrencyEventPayload::SupplyReserved { amount } => {
                 let state = self.state_required_mut()?;
                 state.pending_supply =
@@ -709,10 +707,9 @@ mod tests {
 
     use super::{
         Currency, CurrencyDecimals, CurrencyDescription, CurrencyEventPayload, CurrencyId,
-        CurrencyImageRef, CurrencyImageUrl, CurrencyMintAccount, CurrencyMintAccountAddress,
-        CurrencyMintAccountMetadataSyncRejectionReason, CurrencyMintAccountMetadataSyncResult,
-        CurrencyMintSupplySyncResult, CurrencyName, CurrencyOwner, CurrencyPoolTokenAccountAddress,
-        CurrencyStatus, CurrencySymbol,
+        CurrencyImageRef, CurrencyImageUrl, CurrencyName, CurrencyOwner, CurrencyStatus,
+        CurrencySymbol, MintAccount, MintAccountAddress, MintMetadataSyncRejectionReason,
+        MintMetadataSyncResult, MintSupplySyncResult, PoolTokenAccountAddress,
     };
 
     fn user_owner() -> CurrencyOwner {
@@ -723,11 +720,10 @@ mod tests {
         CurrencyOwner::organization(OrganizationId::new())
     }
 
-    fn make_mint_account(value: &str) -> CurrencyMintAccount {
-        CurrencyMintAccount::new(
-            CurrencyMintAccountAddress::try_from(value)
-                .expect("mint account address should be valid"),
-            CurrencyPoolTokenAccountAddress::try_from("Pool111111111111111111111111111111111111")
+    fn make_mint_account(value: &str) -> MintAccount {
+        MintAccount::new(
+            MintAccountAddress::try_from(value).expect("mint account address should be valid"),
+            PoolTokenAccountAddress::try_from("Pool111111111111111111111111111111111111")
                 .expect("pool account address should be valid"),
         )
     }
@@ -1110,7 +1106,7 @@ mod tests {
             .record_mint_supply_synced(CurrencyAmount::new(100))
             .expect("mint supply sync record should succeed");
 
-        assert_eq!(result, CurrencyMintSupplySyncResult::Synced);
+        assert_eq!(result, MintSupplySyncResult::Synced);
         assert_eq!(
             currency.uncommitted_events()[0].payload(),
             &CurrencyEventPayload::MintSupplySynced {
@@ -1120,7 +1116,7 @@ mod tests {
     }
 
     #[test]
-    fn record_mint_account_metadata_synced_records_event() {
+    fn record_mint_metadata_synced_records_event() {
         let owner = user_owner();
         let mut currency = Currency::default();
         currency
@@ -1136,18 +1132,18 @@ mod tests {
         currency.core_mut().clear_uncommitted_events();
 
         let result = currency
-            .record_mint_account_metadata_synced()
+            .record_mint_metadata_synced()
             .expect("metadata sync record should succeed");
 
-        assert_eq!(result, CurrencyMintAccountMetadataSyncResult::Synced);
+        assert_eq!(result, MintMetadataSyncResult::Synced);
         assert_eq!(
             currency.uncommitted_events()[0].payload(),
-            &CurrencyEventPayload::MintAccountMetadataSynced
+            &CurrencyEventPayload::MintMetadataSynced
         );
     }
 
     #[test]
-    fn reject_mint_account_metadata_sync_records_event() {
+    fn reject_mint_metadata_sync_records_event() {
         let owner = user_owner();
         let mut currency = Currency::default();
         currency
@@ -1163,15 +1159,13 @@ mod tests {
         currency.core_mut().clear_uncommitted_events();
 
         currency
-            .reject_mint_account_metadata_sync(
-                CurrencyMintAccountMetadataSyncRejectionReason::NotProvisioned,
-            )
+            .reject_mint_metadata_sync(MintMetadataSyncRejectionReason::NotProvisioned)
             .expect("metadata sync rejection should succeed");
 
         assert_eq!(
             currency.uncommitted_events()[0].payload(),
-            &CurrencyEventPayload::MintAccountMetadataSyncRejected {
-                reason: CurrencyMintAccountMetadataSyncRejectionReason::NotProvisioned,
+            &CurrencyEventPayload::MintMetadataSyncRejected {
+                reason: MintMetadataSyncRejectionReason::NotProvisioned,
             }
         );
     }

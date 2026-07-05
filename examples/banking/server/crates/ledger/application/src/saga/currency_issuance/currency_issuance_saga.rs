@@ -12,8 +12,8 @@ use super::{
 };
 use crate::command::{
     AccountDepositCommand, CurrencyIssuanceCompleteCommand, CurrencyIssuanceFailCommand,
-    CurrencyMintSupplySyncCommand, CurrencySupplyCommitCommand, CurrencySupplyReleaseCommand,
-    CurrencySupplyReserveCommand,
+    CurrencySupplyCommitCommand, CurrencySupplyReleaseCommand, CurrencySupplyReserveCommand,
+    MintSupplySyncCommand,
 };
 
 /// Coordinates the currency issuance flow.
@@ -77,8 +77,7 @@ impl Saga for CurrencyIssuanceSaga {
                     let currency_id = state.currency_id;
                     state.status = CurrencyIssuanceSagaStatus::MintSupplySyncRequested;
 
-                    instance
-                        .append_command(event, &CurrencyMintSupplySyncCommand { currency_id })?;
+                    instance.append_command(event, &MintSupplySyncCommand { currency_id })?;
                 }
                 CurrencyEventPayload::SupplyReserveRejected { .. } => {
                     let state = instance.state_required_mut()?;
@@ -154,8 +153,7 @@ impl Saga for CurrencyIssuanceSaga {
                     let currency_id = state.currency_id;
                     state.status = CurrencyIssuanceSagaStatus::SupplyReleaseMintSupplySyncRequested;
 
-                    instance
-                        .append_command(event, &CurrencyMintSupplySyncCommand { currency_id })?;
+                    instance.append_command(event, &MintSupplySyncCommand { currency_id })?;
                 }
                 CurrencyEventPayload::SupplyReleaseRejected { .. } => {
                     let state = instance.state_required_mut()?;

@@ -7,7 +7,6 @@ mod withdrawal_fail_rejection_reason;
 mod withdrawal_fail_result;
 mod withdrawal_failure_reason;
 mod withdrawal_id;
-mod withdrawal_onchain_transaction_id;
 mod withdrawal_request;
 mod withdrawal_request_rejection_reason;
 mod withdrawal_request_result;
@@ -26,7 +25,6 @@ pub use withdrawal_fail_rejection_reason::WithdrawalFailRejectionReason;
 pub use withdrawal_fail_result::WithdrawalFailResult;
 pub use withdrawal_failure_reason::WithdrawalFailureReason;
 pub use withdrawal_id::WithdrawalId;
-pub use withdrawal_onchain_transaction_id::WithdrawalOnchainTransactionId;
 pub use withdrawal_request::WithdrawalRequest;
 pub use withdrawal_request_rejection_reason::WithdrawalRequestRejectionReason;
 pub use withdrawal_request_result::WithdrawalRequestResult;
@@ -40,7 +38,7 @@ use appletheia::aggregate;
 use appletheia::domain::{Aggregate, AggregateApply, AggregateCore};
 
 use crate::account::AccountId;
-use crate::core::CurrencyAmount;
+use crate::core::{CurrencyAmount, OnchainTransactionId};
 use crate::currency::CurrencyId;
 use crate::payout_destination::PayoutDestinationId;
 
@@ -72,9 +70,7 @@ impl Withdrawal {
     }
 
     /// Returns the recorded token transfer on-chain transaction id when present.
-    pub fn onchain_transaction_id(
-        &self,
-    ) -> Result<Option<&WithdrawalOnchainTransactionId>, WithdrawalError> {
+    pub fn onchain_transaction_id(&self) -> Result<Option<&OnchainTransactionId>, WithdrawalError> {
         Ok(self.state_required()?.onchain_transaction_id.as_ref())
     }
 
@@ -136,7 +132,7 @@ impl Withdrawal {
     /// Records a successful external token transfer.
     pub fn record_token_transfer(
         &mut self,
-        onchain_transaction_id: WithdrawalOnchainTransactionId,
+        onchain_transaction_id: OnchainTransactionId,
     ) -> Result<WithdrawalTokenTransferResult, WithdrawalError> {
         match self.state_required()?.status {
             WithdrawalStatus::Pending => {}
@@ -321,15 +317,17 @@ mod tests {
     use appletheia::domain::{Aggregate, EventPayload};
 
     use crate::{
-        account::AccountId, core::CurrencyAmount, currency::CurrencyId,
+        account::AccountId,
+        core::{CurrencyAmount, OnchainTransactionId},
+        currency::CurrencyId,
         payout_destination::PayoutDestinationId,
     };
 
     use super::{
         Withdrawal, WithdrawalCompleteResult, WithdrawalEventPayload, WithdrawalFailResult,
-        WithdrawalFailureReason, WithdrawalOnchainTransactionId, WithdrawalRequest,
-        WithdrawalRequestRejectionReason, WithdrawalRequestResult, WithdrawalStatus,
-        WithdrawalTokenTransferRejectionReason, WithdrawalTokenTransferResult,
+        WithdrawalFailureReason, WithdrawalRequest, WithdrawalRequestRejectionReason,
+        WithdrawalRequestResult, WithdrawalStatus, WithdrawalTokenTransferRejectionReason,
+        WithdrawalTokenTransferResult,
     };
 
     #[test]
@@ -399,8 +397,8 @@ mod tests {
     fn record_token_transfer_updates_transaction_id_and_status() {
         let mut withdrawal = requested_withdrawal();
         withdrawal.core_mut().clear_uncommitted_events();
-        let onchain_transaction_id = WithdrawalOnchainTransactionId::try_from("sig-123")
-            .expect("on-chain transaction id valid");
+        let onchain_transaction_id =
+            OnchainTransactionId::try_from("sig-123").expect("on-chain transaction id valid");
 
         let result = withdrawal
             .record_token_transfer(onchain_transaction_id.clone())

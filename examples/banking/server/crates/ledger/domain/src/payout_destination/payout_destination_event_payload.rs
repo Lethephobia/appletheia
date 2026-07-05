@@ -2,7 +2,7 @@ use appletheia::event_payload;
 
 use super::{
     PayoutDestinationEventPayloadError, PayoutDestinationId, PayoutDestinationOwner,
-    PayoutDestinationRemoveRejectionReason, PayoutDestinationTokenAccountOwnerAddress,
+    PayoutDestinationRemoveRejectionReason, TokenAccountOwnerAddress,
 };
 
 /// Represents the domain events emitted by a `PayoutDestination` aggregate.
@@ -11,7 +11,7 @@ pub enum PayoutDestinationEventPayload {
     Registered {
         id: PayoutDestinationId,
         owner: PayoutDestinationOwner,
-        token_account_owner_address: PayoutDestinationTokenAccountOwnerAddress,
+        token_account_owner_address: TokenAccountOwnerAddress,
     },
     Removed,
     RemoveRejected {
@@ -26,7 +26,7 @@ mod tests {
 
     use super::{
         PayoutDestinationEventPayload, PayoutDestinationId, PayoutDestinationOwner,
-        PayoutDestinationTokenAccountOwnerAddress,
+        TokenAccountOwnerAddress,
     };
 
     #[test]
@@ -57,7 +57,7 @@ mod tests {
         let payload = PayoutDestinationEventPayload::Registered {
             id: PayoutDestinationId::new(),
             owner: PayoutDestinationOwner::User(UserId::new()),
-            token_account_owner_address: PayoutDestinationTokenAccountOwnerAddress::try_from(
+            token_account_owner_address: TokenAccountOwnerAddress::try_from(
                 "11111111111111111111111111111111",
             )
             .expect("address should be valid"),

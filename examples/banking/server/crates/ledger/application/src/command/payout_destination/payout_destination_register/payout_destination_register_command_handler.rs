@@ -17,7 +17,7 @@ use super::{
     PayoutDestinationRegisterCommand, PayoutDestinationRegisterCommandHandlerError,
     PayoutDestinationRegisterOutput,
 };
-use crate::banking_ledger::{TokenAccountOwnerAddress, TokenAccountOwnerAddressValidator};
+use crate::mint::TokenAccountOwnerAddressValidator;
 
 /// Handles `PayoutDestinationRegisterCommand`.
 pub struct PayoutDestinationRegisterCommandHandler<PDR, PDAV>
@@ -86,9 +86,7 @@ where
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
         self.token_account_owner_address_validator
-            .validate(&TokenAccountOwnerAddress::from(
-                command.token_account_owner_address.clone(),
-            ))
+            .validate(&command.token_account_owner_address)
             .await?;
 
         let mut payout_destination = PayoutDestination::default();
@@ -130,20 +128,15 @@ mod tests {
     };
     use banking_iam_domain::{Organization, OrganizationId, User, UserId};
     use banking_ledger_domain::payout_destination::{
-        PayoutDestination, PayoutDestinationId, PayoutDestinationOwner,
-        PayoutDestinationTokenAccountOwnerAddress,
+        PayoutDestination, PayoutDestinationId, PayoutDestinationOwner, TokenAccountOwnerAddress,
     };
     use uuid::Uuid;
-
-    use crate::banking_ledger::{
-        TokenAccountOwnerAddress, TokenAccountOwnerAddressValidator,
-        TokenAccountOwnerAddressValidatorError,
-    };
 
     use super::{
         PayoutDestinationRegisterCommand, PayoutDestinationRegisterCommandHandler,
         PayoutDestinationRegisterCommandHandlerError, PayoutDestinationRegisterOutput,
     };
+    use crate::mint::{TokenAccountOwnerAddressValidator, TokenAccountOwnerAddressValidatorError};
 
     #[derive(Default)]
     struct TestUow;
@@ -252,9 +245,8 @@ mod tests {
         .expect("request context should be valid")
     }
 
-    fn token_account_owner_address() -> PayoutDestinationTokenAccountOwnerAddress {
-        PayoutDestinationTokenAccountOwnerAddress::try_from("wallet-123")
-            .expect("address should be valid")
+    fn token_account_owner_address() -> TokenAccountOwnerAddress {
+        TokenAccountOwnerAddress::try_from("wallet-123").expect("address should be valid")
     }
 
     #[test]

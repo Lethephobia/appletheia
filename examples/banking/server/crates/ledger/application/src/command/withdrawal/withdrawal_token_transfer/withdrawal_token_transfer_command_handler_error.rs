@@ -1,13 +1,9 @@
+use crate::mint::PoolTokenTransferExecutorError;
 use appletheia::application::repository::RepositoryError;
 use banking_ledger_domain::currency::{Currency, CurrencyError};
 use banking_ledger_domain::payout_destination::{PayoutDestination, PayoutDestinationError};
 use banking_ledger_domain::withdrawal::{Withdrawal, WithdrawalError};
 use thiserror::Error;
-
-use crate::banking_ledger::{
-    MintAccountAddressError, PoolTokenAccountAddressError, PoolTokenTransferExecutorError,
-    PoolTokenTransferMarkerSeedError, TokenAccountOwnerAddressError,
-};
 
 /// Represents errors returned while executing a withdrawal pool token transfer.
 #[derive(Debug, Error)]
@@ -30,24 +26,9 @@ pub enum WithdrawalTokenTransferCommandHandlerError {
     #[error("withdrawal aggregate failed")]
     Withdrawal(#[from] WithdrawalError),
 
-    #[error("mint account address is invalid")]
-    MintAccountAddress(#[from] MintAccountAddressError),
-
-    #[error("pool token account address is invalid")]
-    PoolTokenAccountAddress(#[from] PoolTokenAccountAddressError),
-
-    #[error("pool token transfer marker seed is invalid")]
-    PoolTokenTransferMarkerSeed(#[from] PoolTokenTransferMarkerSeedError),
-
-    #[error("token account owner address is invalid")]
-    TokenAccountOwnerAddress(#[from] TokenAccountOwnerAddressError),
-
     #[error("pool token transfer executor failed")]
     PoolTokenTransferExecutor(#[from] PoolTokenTransferExecutorError),
 
     #[error("currency is not provisioned for on-chain transfer")]
     CurrencyUnprovisioned,
-
-    #[error("pool token transfer executor returned an invalid on-chain transaction ID")]
-    InvalidOnchainTransactionId,
 }

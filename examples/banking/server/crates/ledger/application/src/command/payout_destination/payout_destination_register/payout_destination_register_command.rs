@@ -1,7 +1,5 @@
 use appletheia::command;
-use banking_ledger_domain::payout_destination::{
-    PayoutDestinationOwner, PayoutDestinationTokenAccountOwnerAddress,
-};
+use banking_ledger_domain::payout_destination::{PayoutDestinationOwner, TokenAccountOwnerAddress};
 use serde::{Deserialize, Serialize};
 
 /// Registers a payout destination.
@@ -9,5 +7,5 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PayoutDestinationRegisterCommand {
     pub owner: PayoutDestinationOwner,
-    pub token_account_owner_address: PayoutDestinationTokenAccountOwnerAddress,
+    pub token_account_owner_address: TokenAccountOwnerAddress,
 }

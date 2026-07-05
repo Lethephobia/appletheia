@@ -208,12 +208,12 @@ mod tests {
     };
     use banking_ledger_domain::core::CurrencyAmount;
     use banking_ledger_domain::currency::{
-        Currency, CurrencyDecimals, CurrencyId, CurrencyMintAccount, CurrencyMintAccountAddress,
-        CurrencyName, CurrencyOwner, CurrencyPoolTokenAccountAddress, CurrencySymbol,
+        Currency, CurrencyDecimals, CurrencyId, CurrencyName, CurrencyOwner, CurrencySymbol,
+        MintAccount, MintAccountAddress, PoolTokenAccountAddress,
     };
     use banking_ledger_domain::payout_destination::{
         PayoutDestination, PayoutDestinationId, PayoutDestinationOwner,
-        PayoutDestinationRegistration, PayoutDestinationTokenAccountOwnerAddress,
+        PayoutDestinationRegistration, TokenAccountOwnerAddress,
     };
     use banking_ledger_domain::withdrawal::{
         Withdrawal, WithdrawalId, WithdrawalRequestRejectionReason, WithdrawalStatus,
@@ -533,17 +533,16 @@ mod tests {
         AccountName::try_from("main").expect("account name should be valid")
     }
 
-    fn payout_destination_token_account_owner_address() -> PayoutDestinationTokenAccountOwnerAddress
-    {
-        PayoutDestinationTokenAccountOwnerAddress::try_from("11111111111111111111111111111111")
+    fn token_account_owner_address() -> TokenAccountOwnerAddress {
+        TokenAccountOwnerAddress::try_from("11111111111111111111111111111111")
             .expect("payout destination address should be valid")
     }
 
-    fn mint_account() -> CurrencyMintAccount {
-        CurrencyMintAccount::new(
-            CurrencyMintAccountAddress::try_from("Mint111111111111111111111111111111111111")
+    fn mint_account() -> MintAccount {
+        MintAccount::new(
+            MintAccountAddress::try_from("Mint111111111111111111111111111111111111")
                 .expect("mint account address should be valid"),
-            CurrencyPoolTokenAccountAddress::try_from("Pool111111111111111111111111111111111111")
+            PoolTokenAccountAddress::try_from("Pool111111111111111111111111111111111111")
                 .expect("pool token account address should be valid"),
         )
     }
@@ -585,7 +584,7 @@ mod tests {
         payout_destination
             .register(PayoutDestinationRegistration {
                 owner,
-                token_account_owner_address: payout_destination_token_account_owner_address(),
+                token_account_owner_address: token_account_owner_address(),
             })
             .expect("payout destination should register");
         payout_destination.core_mut().clear_uncommitted_events();
