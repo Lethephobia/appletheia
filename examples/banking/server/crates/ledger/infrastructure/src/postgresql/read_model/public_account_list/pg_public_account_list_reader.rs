@@ -68,6 +68,7 @@ impl PublicAccountListReader for PgPublicAccountListReader {
                 c.symbol AS currency_symbol,
                 c.name AS currency_name,
                 c.decimals AS currency_decimals,
+                c.mint_account_address AS currency_mint_account_address,
                 c.source_event_id AS currency_source_event_id,
                 c.updated_event_id AS currency_updated_event_id,
                 a.created_at,

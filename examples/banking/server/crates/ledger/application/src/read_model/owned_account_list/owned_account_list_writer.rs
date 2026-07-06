@@ -6,7 +6,9 @@ use banking_iam_domain::{
 };
 use banking_ledger_domain::account::{AccountId, AccountName, AccountOwner};
 use banking_ledger_domain::core::CurrencyAmount;
-use banking_ledger_domain::currency::{CurrencyId, CurrencyName, CurrencySymbol};
+use banking_ledger_domain::currency::{
+    CurrencyId, CurrencyName, CurrencySymbol, MintAccountAddress,
+};
 use banking_shared_kernel_application::read_model::ReadModelEventContext;
 
 use super::{
@@ -118,6 +120,14 @@ pub trait OwnedAccountListWriter: Send + Sync {
         event_context: ReadModelEventContext,
         id: CurrencyId,
         name: CurrencyName,
+    ) -> Result<(), OwnedAccountListWriterError>;
+
+    async fn update_mint_account_address(
+        &self,
+        uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
+        id: CurrencyId,
+        mint_account_address: MintAccountAddress,
     ) -> Result<(), OwnedAccountListWriterError>;
 
     async fn delete_currency(

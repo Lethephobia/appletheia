@@ -250,7 +250,18 @@ where
                                 symbol: symbol.clone(),
                                 name: name.clone(),
                                 decimals: *decimals,
+                                mint_account_address: None,
                             },
+                        )
+                        .await?;
+                }
+                CurrencyEventPayload::Provisioned { mint_account } => {
+                    self.writer
+                        .update_mint_account_address(
+                            uow,
+                            event_context,
+                            currency_id,
+                            mint_account.mint_account_address().clone(),
                         )
                         .await?;
                 }

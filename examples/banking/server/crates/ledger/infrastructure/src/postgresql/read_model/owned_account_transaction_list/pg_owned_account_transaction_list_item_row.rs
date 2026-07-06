@@ -13,7 +13,9 @@ use banking_ledger_application::{
 };
 use banking_ledger_domain::account::AccountId;
 use banking_ledger_domain::core::CurrencyAmount;
-use banking_ledger_domain::currency::{CurrencyDecimals, CurrencyId, CurrencyName, CurrencySymbol};
+use banking_ledger_domain::currency::{
+    CurrencyDecimals, CurrencyId, CurrencyName, CurrencySymbol, MintAccountAddress,
+};
 use banking_ledger_domain::transfer::TransferId;
 use banking_shared_kernel_application::read_model::ReadModelObservation;
 use sqlx::types::chrono::{DateTime, Utc};
@@ -48,6 +50,7 @@ pub struct PgOwnedAccountTransactionListItemRow {
     pub currency_symbol: String,
     pub currency_name: String,
     pub currency_decimals: i16,
+    pub currency_mint_account_address: Option<String>,
     pub currency_source_event_id: uuid::Uuid,
     pub currency_updated_event_id: uuid::Uuid,
     pub amount: String,
@@ -351,6 +354,16 @@ impl TryFrom<PgOwnedAccountTransactionListItemRow> for OwnedAccountTransactionLi
                     PgOwnedAccountTransactionListItemRowError::InvalidCurrencyName(Box::new(error))
                 })?,
                 decimals: CurrencyDecimals::new(currency_decimals),
+                mint_account_address: row
+                    .currency_mint_account_address
+                    .clone()
+                    .map(MintAccountAddress::try_from)
+                    .transpose()
+                    .map_err(|error| {
+                        PgOwnedAccountTransactionListItemRowError::InvalidMintAccountAddress(
+                            Box::new(error),
+                        )
+                    })?,
                 observation: PgOwnedAccountTransactionListItemRow::observation(
                     row.currency_source_event_id,
                     row.currency_updated_event_id,

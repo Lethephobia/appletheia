@@ -4,7 +4,9 @@ use banking_ledger_application::{
 };
 use banking_ledger_domain::account::{AccountId, AccountName};
 use banking_ledger_domain::core::CurrencyAmount;
-use banking_ledger_domain::currency::{CurrencyDecimals, CurrencyId, CurrencyName, CurrencySymbol};
+use banking_ledger_domain::currency::{
+    CurrencyDecimals, CurrencyId, CurrencyName, CurrencySymbol, MintAccountAddress,
+};
 use banking_shared_kernel_application::read_model::ReadModelObservation;
 use sqlx::types::chrono::{DateTime, Utc};
 
@@ -18,6 +20,7 @@ pub struct PgOwnedAccountListItemRow {
     pub currency_symbol: String,
     pub currency_name: String,
     pub currency_decimals: i16,
+    pub currency_mint_account_address: Option<String>,
     pub currency_source_event_id: uuid::Uuid,
     pub currency_updated_event_id: uuid::Uuid,
     pub balance: String,
@@ -87,6 +90,13 @@ impl TryFrom<PgOwnedAccountListItemRow> for OwnedAccountListItem {
                     PgOwnedAccountListItemRowError::InvalidCurrencyName(Box::new(error))
                 })?,
                 decimals: CurrencyDecimals::new(currency_decimals),
+                mint_account_address: row
+                    .currency_mint_account_address
+                    .map(MintAccountAddress::try_from)
+                    .transpose()
+                    .map_err(|error| {
+                        PgOwnedAccountListItemRowError::InvalidMintAccountAddress(Box::new(error))
+                    })?,
                 observation: PgOwnedAccountListItemRow::observation(
                     row.currency_source_event_id,
                     row.currency_updated_event_id,

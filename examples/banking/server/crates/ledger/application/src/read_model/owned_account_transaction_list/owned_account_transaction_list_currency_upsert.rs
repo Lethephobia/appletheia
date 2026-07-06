@@ -1,4 +1,6 @@
-use banking_ledger_domain::currency::{CurrencyDecimals, CurrencyId, CurrencyName, CurrencySymbol};
+use banking_ledger_domain::currency::{
+    CurrencyDecimals, CurrencyId, CurrencyName, CurrencySymbol, MintAccountAddress,
+};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct OwnedAccountTransactionListCurrencyUpsert {
@@ -6,4 +8,5 @@ pub struct OwnedAccountTransactionListCurrencyUpsert {
     pub symbol: CurrencySymbol,
     pub name: CurrencyName,
     pub decimals: CurrencyDecimals,
+    pub mint_account_address: Option<MintAccountAddress>,
 }

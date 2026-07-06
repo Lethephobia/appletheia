@@ -11,7 +11,9 @@ use banking_ledger_application::{
 };
 use banking_ledger_domain::account::{AccountId, AccountName, AccountOwner};
 use banking_ledger_domain::core::CurrencyAmount;
-use banking_ledger_domain::currency::{CurrencyId, CurrencyName, CurrencySymbol};
+use banking_ledger_domain::currency::{
+    CurrencyId, CurrencyName, CurrencySymbol, MintAccountAddress,
+};
 use banking_shared_kernel_application::read_model::ReadModelEventContext;
 
 use super::super::pg_organization_picture_ref_columns::PgOrganizationPictureRefColumns;
@@ -353,13 +355,14 @@ impl OwnedAccountListWriter for PgOwnedAccountListWriter {
         sqlx::query(
             r#"
             INSERT INTO owned_account_list_item_currencies (
-                id, symbol, name, decimals, updated_at, created_at, source_event_sequence, updated_event_sequence, source_event_id, updated_event_id
+                id, symbol, name, decimals, mint_account_address, updated_at, created_at, source_event_sequence, updated_event_sequence, source_event_id, updated_event_id
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $7, $8, $8)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8, $9, $9)
             ON CONFLICT (id) DO UPDATE SET
                 symbol = EXCLUDED.symbol,
                 name = EXCLUDED.name,
                 decimals = EXCLUDED.decimals,
+                mint_account_address = EXCLUDED.mint_account_address,
                 updated_at = EXCLUDED.updated_at,
                 updated_event_id = EXCLUDED.updated_event_id,
                 updated_event_sequence = EXCLUDED.updated_event_sequence
@@ -370,6 +373,12 @@ impl OwnedAccountListWriter for PgOwnedAccountListWriter {
         .bind(upsert.symbol.value())
         .bind(upsert.name.value())
         .bind(i16::from(upsert.decimals.value()))
+        .bind(
+            upsert
+                .mint_account_address
+                .as_ref()
+                .map(MintAccountAddress::value),
+        )
         .bind(event_context.occurred_at.value())
         .bind(event_context.occurred_at.value())
         .bind(event_context.event_sequence.value())
@@ -425,6 +434,34 @@ impl OwnedAccountListWriter for PgOwnedAccountListWriter {
         )
         .bind(id.value())
         .bind(name.value())
+        .bind(event_context.occurred_at.value())
+        .bind(event_context.event_sequence.value())
+        .bind(event_context.event_id.value())
+        .execute(uow.transaction_mut().as_mut())
+        .await
+        .map_err(|e| OwnedAccountListWriterError::Persistence(Box::new(e)))?;
+        Ok(())
+    }
+
+    async fn update_mint_account_address(
+        &self,
+        uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
+        id: CurrencyId,
+        mint_account_address: MintAccountAddress,
+    ) -> Result<(), OwnedAccountListWriterError> {
+        sqlx::query(
+            r#"
+            UPDATE owned_account_list_item_currencies
+               SET mint_account_address = $2,
+                   updated_at = $3,
+                   updated_event_sequence = $4,
+                   updated_event_id = $5
+             WHERE id = $1 AND updated_event_sequence < $4
+            "#,
+        )
+        .bind(id.value())
+        .bind(mint_account_address.value())
         .bind(event_context.occurred_at.value())
         .bind(event_context.event_sequence.value())
         .bind(event_context.event_id.value())

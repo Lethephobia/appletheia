@@ -84,6 +84,9 @@ pub enum PgOwnedAccountTransactionListItemRowError {
     #[error("invalid currency decimals")]
     InvalidCurrencyDecimals(#[source] Box<dyn std::error::Error + Send + Sync>),
 
+    #[error("invalid currency mint account address")]
+    InvalidMintAccountAddress(#[source] Box<dyn std::error::Error + Send + Sync>),
+
     #[error("invalid currency amount")]
     InvalidCurrencyAmount(#[source] std::num::ParseIntError),
 }

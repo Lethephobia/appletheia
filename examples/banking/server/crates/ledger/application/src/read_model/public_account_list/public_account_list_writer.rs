@@ -5,7 +5,9 @@ use banking_iam_domain::{
     UserDisplayName, UserId, UserPictureRef, Username,
 };
 use banking_ledger_domain::account::{AccountId, AccountOwner};
-use banking_ledger_domain::currency::{CurrencyId, CurrencyName, CurrencySymbol};
+use banking_ledger_domain::currency::{
+    CurrencyId, CurrencyName, CurrencySymbol, MintAccountAddress,
+};
 use banking_shared_kernel_application::read_model::ReadModelEventContext;
 
 use super::{
@@ -69,6 +71,14 @@ pub trait PublicAccountListWriter: Send + Sync {
         event_context: ReadModelEventContext,
         id: CurrencyId,
         name: CurrencyName,
+    ) -> Result<(), PublicAccountListWriterError>;
+
+    async fn update_mint_account_address(
+        &self,
+        uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
+        id: CurrencyId,
+        mint_account_address: MintAccountAddress,
     ) -> Result<(), PublicAccountListWriterError>;
 
     async fn delete_currency(

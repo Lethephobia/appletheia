@@ -4,7 +4,9 @@ use banking_iam_domain::{
     OrganizationDisplayName, OrganizationHandle, OrganizationId, OrganizationPictureRef,
     UserDisplayName, UserId, UserPictureRef, Username,
 };
-use banking_ledger_domain::currency::{CurrencyId, CurrencyName, CurrencySymbol};
+use banking_ledger_domain::currency::{
+    CurrencyId, CurrencyName, CurrencySymbol, MintAccountAddress,
+};
 use banking_ledger_domain::currency_issuance::CurrencyIssuanceId;
 use banking_ledger_domain::transfer::{TransferFailureReason, TransferId};
 use banking_shared_kernel_application::read_model::ReadModelEventContext;
@@ -41,6 +43,14 @@ pub trait OwnedAccountTransactionListWriter: Send + Sync {
         event_context: ReadModelEventContext,
         id: CurrencyId,
         name: CurrencyName,
+    ) -> Result<(), OwnedAccountTransactionListWriterError>;
+
+    async fn update_mint_account_address(
+        &self,
+        uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
+        id: CurrencyId,
+        mint_account_address: MintAccountAddress,
     ) -> Result<(), OwnedAccountTransactionListWriterError>;
 
     async fn delete_currency(
