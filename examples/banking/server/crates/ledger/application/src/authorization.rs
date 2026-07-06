@@ -1,6 +1,6 @@
 mod account;
 mod currency;
-mod payout_destination;
+mod wallet_bookmark;
 
 pub use account::{
     AccountCloserRelation, AccountFreezerRelation, AccountNameChangerRelation,
@@ -15,8 +15,8 @@ pub use currency::{
     CurrencyRelationshipUpdaterError, CurrencyRemoverRelation, CurrencyStatusManagerRelation,
     CurrencyUpdaterRelation, DefaultCurrencyRelationshipUpdater,
 };
-pub use payout_destination::{
-    DefaultPayoutDestinationRelationshipUpdater, PayoutDestinationOwnerRelation,
-    PayoutDestinationRelationshipUpdater, PayoutDestinationRelationshipUpdaterError,
-    PayoutDestinationRemoverRelation,
+pub use wallet_bookmark::{
+    DefaultWalletBookmarkRelationshipUpdater, WalletBookmarkOwnerRelation,
+    WalletBookmarkRelationshipUpdater, WalletBookmarkRelationshipUpdaterError,
+    WalletBookmarkRemoverRelation, WalletBookmarkUpdaterRelation,
 };

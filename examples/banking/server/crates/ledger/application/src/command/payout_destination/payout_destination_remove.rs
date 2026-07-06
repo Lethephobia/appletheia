@@ -1,9 +1,0 @@
-mod payout_destination_remove_command;
-mod payout_destination_remove_command_handler;
-mod payout_destination_remove_command_handler_error;
-mod payout_destination_remove_output;
-
-pub use payout_destination_remove_command::PayoutDestinationRemoveCommand;
-pub use payout_destination_remove_command_handler::PayoutDestinationRemoveCommandHandler;
-pub use payout_destination_remove_command_handler_error::PayoutDestinationRemoveCommandHandlerError;
-pub use payout_destination_remove_output::PayoutDestinationRemoveOutput;

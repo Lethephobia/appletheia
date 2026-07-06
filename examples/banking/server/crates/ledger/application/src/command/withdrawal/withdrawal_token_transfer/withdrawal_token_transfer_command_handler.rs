@@ -6,7 +6,6 @@ use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_ledger_domain::currency::Currency;
-use banking_ledger_domain::payout_destination::PayoutDestination;
 use banking_ledger_domain::withdrawal::{
     Withdrawal, WithdrawalFailureReason, WithdrawalTokenTransferResult,
 };
@@ -17,45 +16,39 @@ use super::{
 };
 
 /// Handles `WithdrawalTokenTransferCommand`.
-pub struct WithdrawalTokenTransferCommandHandler<WR, PDR, CR, PTTE>
+pub struct WithdrawalTokenTransferCommandHandler<WR, CR, PTTE>
 where
     WR: Repository<Withdrawal>,
-    PDR: Repository<PayoutDestination, Uow = WR::Uow>,
     CR: Repository<Currency, Uow = WR::Uow>,
     PTTE: PoolTokenTransferExecutor,
 {
     withdrawal_repository: WR,
-    payout_destination_repository: PDR,
     currency_repository: CR,
     pool_token_transfer_executor: PTTE,
 }
 
-impl<WR, PDR, CR, PTTE> WithdrawalTokenTransferCommandHandler<WR, PDR, CR, PTTE>
+impl<WR, CR, PTTE> WithdrawalTokenTransferCommandHandler<WR, CR, PTTE>
 where
     WR: Repository<Withdrawal>,
-    PDR: Repository<PayoutDestination, Uow = WR::Uow>,
     CR: Repository<Currency, Uow = WR::Uow>,
     PTTE: PoolTokenTransferExecutor,
 {
     pub fn new(
         withdrawal_repository: WR,
-        payout_destination_repository: PDR,
         currency_repository: CR,
         pool_token_transfer_executor: PTTE,
     ) -> Self {
         Self {
             withdrawal_repository,
-            payout_destination_repository,
             currency_repository,
             pool_token_transfer_executor,
         }
     }
 }
 
-impl<WR, PDR, CR, PTTE> CommandHandler for WithdrawalTokenTransferCommandHandler<WR, PDR, CR, PTTE>
+impl<WR, CR, PTTE> CommandHandler for WithdrawalTokenTransferCommandHandler<WR, CR, PTTE>
 where
     WR: Repository<Withdrawal>,
-    PDR: Repository<PayoutDestination, Uow = WR::Uow>,
     CR: Repository<Currency, Uow = WR::Uow>,
     PTTE: PoolTokenTransferExecutor,
 {
@@ -84,10 +77,6 @@ where
             .withdrawal_repository
             .read(uow, command.withdrawal_id)
             .await?;
-        let payout_destination = self
-            .payout_destination_repository
-            .read(uow, *withdrawal.payout_destination_id()?)
-            .await?;
         let currency = self
             .currency_repository
             .read(uow, *withdrawal.currency_id()?)
@@ -99,7 +88,7 @@ where
         let request = PoolTokenTransferRequest::new(
             command.withdrawal_id,
             mint_account.clone(),
-            payout_destination.token_account_owner_address()?.clone(),
+            withdrawal.token_account_owner_address()?.clone(),
             *withdrawal.amount()?,
             *currency.decimals()?,
         );
@@ -151,14 +140,12 @@ mod tests {
     use appletheia::domain::{Aggregate, AggregateVersion, EventPayload, UniqueKey, UniqueValue};
     use banking_iam_domain::UserId;
     use banking_ledger_domain::account::AccountId;
-    use banking_ledger_domain::core::{CurrencyAmount, OnchainTransactionId};
+    use banking_ledger_domain::core::{
+        CurrencyAmount, OnchainTransactionId, TokenAccountOwnerAddress,
+    };
     use banking_ledger_domain::currency::{
         Currency, CurrencyDecimals, CurrencyId, CurrencyName, CurrencyOwner, CurrencySymbol,
         MintAccount, MintAccountAddress, PoolTokenAccountAddress,
-    };
-    use banking_ledger_domain::payout_destination::{
-        PayoutDestination, PayoutDestinationId, PayoutDestinationOwner,
-        PayoutDestinationRegistration, TokenAccountOwnerAddress,
     };
     use banking_ledger_domain::withdrawal::{
         Withdrawal, WithdrawalEventPayload, WithdrawalFailureReason, WithdrawalId,
@@ -313,66 +300,6 @@ mod tests {
     }
 
     #[derive(Clone)]
-    struct TestPayoutDestinationRepository {
-        item: Arc<Mutex<Option<PayoutDestination>>>,
-    }
-
-    impl TestPayoutDestinationRepository {
-        fn new(payout_destination: PayoutDestination) -> Self {
-            Self {
-                item: Arc::new(Mutex::new(Some(payout_destination))),
-            }
-        }
-    }
-
-    impl Repository<PayoutDestination> for TestPayoutDestinationRepository {
-        type Uow = TestUow;
-
-        async fn read(
-            &self,
-            _uow: &mut Self::Uow,
-            id: PayoutDestinationId,
-        ) -> Result<PayoutDestination, RepositoryError<PayoutDestination>> {
-            self.item
-                .lock()
-                .expect("lock")
-                .clone()
-                .ok_or_else(|| RepositoryError::NotFound {
-                    aggregate_type: PayoutDestination::TYPE,
-                    aggregate_id: id,
-                })
-        }
-
-        async fn read_at_version(
-            &self,
-            _uow: &mut Self::Uow,
-            id: PayoutDestinationId,
-            _at: AggregateVersion,
-        ) -> Result<PayoutDestination, RepositoryError<PayoutDestination>> {
-            self.read(_uow, id).await
-        }
-
-        async fn find_by_unique_value(
-            &self,
-            _uow: &mut Self::Uow,
-            _unique_key: UniqueKey,
-            _unique_value: &UniqueValue,
-        ) -> Result<Option<PayoutDestination>, RepositoryError<PayoutDestination>> {
-            Ok(None)
-        }
-
-        async fn save(
-            &self,
-            _uow: &mut Self::Uow,
-            _request_context: &RequestContext,
-            aggregate: &mut PayoutDestination,
-        ) -> Result<(), RepositoryError<PayoutDestination>> {
-            *self.item.lock().expect("lock") = Some(aggregate.clone());
-            Ok(())
-        }
-    }
-
-    #[derive(Clone)]
     struct TestPoolTokenTransferExecutor {
         outcome: TestPoolTokenTransferOutcome,
         request: Arc<Mutex<Option<PoolTokenTransferRequest>>>,
@@ -465,28 +392,13 @@ mod tests {
         currency
     }
 
-    fn registered_payout_destination() -> PayoutDestination {
-        let mut payout_destination = PayoutDestination::default();
-        payout_destination
-            .register(PayoutDestinationRegistration {
-                owner: PayoutDestinationOwner::from(UserId::new()),
-                token_account_owner_address: token_account_owner_address(),
-            })
-            .expect("payout destination should register");
-        payout_destination.core_mut().clear_uncommitted_events();
-        payout_destination
-    }
-
-    fn requested_withdrawal(
-        currency_id: CurrencyId,
-        payout_destination_id: PayoutDestinationId,
-    ) -> Withdrawal {
+    fn requested_withdrawal(currency_id: CurrencyId) -> Withdrawal {
         let mut withdrawal = Withdrawal::default();
         withdrawal
             .request(WithdrawalRequest {
                 account_id: AccountId::new(),
                 currency_id,
-                payout_destination_id,
+                token_account_owner_address: token_account_owner_address(),
                 amount: CurrencyAmount::new(100),
             })
             .expect("withdrawal should be requested");
@@ -498,11 +410,7 @@ mod tests {
     async fn handle_records_successful_token_transfer() {
         let currency = provisioned_currency();
         let currency_id = currency.aggregate_id().expect("currency id should exist");
-        let payout_destination = registered_payout_destination();
-        let payout_destination_id = payout_destination
-            .aggregate_id()
-            .expect("payout destination id should exist");
-        let withdrawal = requested_withdrawal(currency_id, payout_destination_id);
+        let withdrawal = requested_withdrawal(currency_id);
         let withdrawal_id = withdrawal
             .aggregate_id()
             .expect("withdrawal id should exist");
@@ -511,7 +419,6 @@ mod tests {
             TestPoolTokenTransferExecutor::new(TestPoolTokenTransferOutcome::Transferred);
         let handler = WithdrawalTokenTransferCommandHandler::new(
             withdrawal_repository.clone(),
-            TestPayoutDestinationRepository::new(payout_destination),
             TestCurrencyRepository::new(currency),
             pool_token_transfer_executor,
         );
@@ -555,11 +462,7 @@ mod tests {
     async fn handle_records_withdrawal_failure_when_token_transfer_is_rejected() {
         let currency = provisioned_currency();
         let currency_id = currency.aggregate_id().expect("currency id should exist");
-        let payout_destination = registered_payout_destination();
-        let payout_destination_id = payout_destination
-            .aggregate_id()
-            .expect("payout destination id should exist");
-        let withdrawal = requested_withdrawal(currency_id, payout_destination_id);
+        let withdrawal = requested_withdrawal(currency_id);
         let withdrawal_id = withdrawal
             .aggregate_id()
             .expect("withdrawal id should exist");
@@ -568,7 +471,6 @@ mod tests {
             TestPoolTokenTransferExecutor::new(TestPoolTokenTransferOutcome::Rejected);
         let handler = WithdrawalTokenTransferCommandHandler::new(
             withdrawal_repository.clone(),
-            TestPayoutDestinationRepository::new(payout_destination),
             TestCurrencyRepository::new(currency),
             pool_token_transfer_executor,
         );
@@ -609,11 +511,7 @@ mod tests {
     async fn handle_keeps_backend_error_retryable_without_saving_withdrawal() {
         let currency = provisioned_currency();
         let currency_id = currency.aggregate_id().expect("currency id should exist");
-        let payout_destination = registered_payout_destination();
-        let payout_destination_id = payout_destination
-            .aggregate_id()
-            .expect("payout destination id should exist");
-        let withdrawal = requested_withdrawal(currency_id, payout_destination_id);
+        let withdrawal = requested_withdrawal(currency_id);
         let withdrawal_id = withdrawal
             .aggregate_id()
             .expect("withdrawal id should exist");
@@ -622,7 +520,6 @@ mod tests {
             TestPoolTokenTransferExecutor::new(TestPoolTokenTransferOutcome::BackendFailed);
         let handler = WithdrawalTokenTransferCommandHandler::new(
             withdrawal_repository.clone(),
-            TestPayoutDestinationRepository::new(payout_destination),
             TestCurrencyRepository::new(currency),
             pool_token_transfer_executor,
         );

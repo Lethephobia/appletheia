@@ -1,14 +1,13 @@
 use crate::account::AccountId;
-use crate::core::CurrencyAmount;
+use crate::core::{CurrencyAmount, TokenAccountOwnerAddress};
 use crate::currency::CurrencyId;
-use crate::payout_destination::PayoutDestinationId;
 
 /// Describes a withdrawal request.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct WithdrawalRequest {
     pub account_id: AccountId,
     pub currency_id: CurrencyId,
-    pub payout_destination_id: PayoutDestinationId,
+    pub token_account_owner_address: TokenAccountOwnerAddress,
     pub amount: CurrencyAmount,
 }
 
@@ -18,11 +17,18 @@ impl WithdrawalRequest {
         self.amount
     }
 
-    pub(super) fn into_parts(self) -> (AccountId, CurrencyId, PayoutDestinationId, CurrencyAmount) {
+    pub(super) fn into_parts(
+        self,
+    ) -> (
+        AccountId,
+        CurrencyId,
+        TokenAccountOwnerAddress,
+        CurrencyAmount,
+    ) {
         (
             self.account_id,
             self.currency_id,
-            self.payout_destination_id,
+            self.token_account_owner_address,
             self.amount,
         )
     }

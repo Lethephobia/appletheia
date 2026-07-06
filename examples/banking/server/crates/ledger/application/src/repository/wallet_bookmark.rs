@@ -1,0 +1,3 @@
+mod wallet_bookmark_event_save_hook;
+
+pub use wallet_bookmark_event_save_hook::WalletBookmarkEventSaveHook;

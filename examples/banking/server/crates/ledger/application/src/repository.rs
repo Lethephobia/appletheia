@@ -1,7 +1,7 @@
 mod account;
 mod currency;
-mod payout_destination;
+mod wallet_bookmark;
 
 pub use account::AccountEventSaveHook;
 pub use currency::CurrencyEventSaveHook;
-pub use payout_destination::PayoutDestinationEventSaveHook;
+pub use wallet_bookmark::WalletBookmarkEventSaveHook;

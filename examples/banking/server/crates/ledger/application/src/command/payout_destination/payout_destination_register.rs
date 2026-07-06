@@ -1,9 +1,0 @@
-mod payout_destination_register_command;
-mod payout_destination_register_command_handler;
-mod payout_destination_register_command_handler_error;
-mod payout_destination_register_output;
-
-pub use payout_destination_register_command::PayoutDestinationRegisterCommand;
-pub use payout_destination_register_command_handler::PayoutDestinationRegisterCommandHandler;
-pub use payout_destination_register_command_handler_error::PayoutDestinationRegisterCommandHandlerError;
-pub use payout_destination_register_output::PayoutDestinationRegisterOutput;

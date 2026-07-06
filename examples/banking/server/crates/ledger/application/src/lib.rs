@@ -17,9 +17,9 @@ pub use authorization::{
     CurrencyOwnerRelation, CurrencyOwnershipTransfererRelation, CurrencyRelationshipUpdater,
     CurrencyRelationshipUpdaterError, CurrencyRemoverRelation, CurrencyStatusManagerRelation,
     CurrencyUpdaterRelation, DefaultAccountRelationshipUpdater, DefaultCurrencyRelationshipUpdater,
-    DefaultPayoutDestinationRelationshipUpdater, PayoutDestinationOwnerRelation,
-    PayoutDestinationRelationshipUpdater, PayoutDestinationRelationshipUpdaterError,
-    PayoutDestinationRemoverRelation,
+    DefaultWalletBookmarkRelationshipUpdater, WalletBookmarkOwnerRelation,
+    WalletBookmarkRelationshipUpdater, WalletBookmarkRelationshipUpdaterError,
+    WalletBookmarkRemoverRelation, WalletBookmarkUpdaterRelation,
 };
 pub use command::{
     AccountCloseCommand, AccountCloseCommandHandler, AccountCloseOutput, AccountDepositCommand,
@@ -69,16 +69,18 @@ pub use command::{
     OwnedAccountClosureFailOutput, OwnedAccountClosurePageLoadCommand,
     OwnedAccountClosurePageLoadCommandHandler, OwnedAccountClosurePageLoadOutput,
     OwnedAccountClosureRequestCommand, OwnedAccountClosureRequestCommandHandler,
-    OwnedAccountClosureRequestOutput, PayoutDestinationRegisterCommand,
-    PayoutDestinationRegisterCommandHandler, PayoutDestinationRegisterOutput,
-    PayoutDestinationRemoveCommand, PayoutDestinationRemoveCommandHandler,
-    PayoutDestinationRemoveOutput, TransferCompleteCommand, TransferCompleteCommandHandler,
+    OwnedAccountClosureRequestOutput, TransferCompleteCommand, TransferCompleteCommandHandler,
     TransferCompleteOutput, TransferFailCommand, TransferFailCommandHandler, TransferFailOutput,
     TransferRequestCommand, TransferRequestCommandHandler, TransferRequestOutput,
-    WithdrawalCompleteCommand, WithdrawalCompleteCommandHandler, WithdrawalCompleteOutput,
-    WithdrawalFailCommand, WithdrawalFailCommandHandler, WithdrawalFailOutput,
-    WithdrawalRequestCommand, WithdrawalRequestCommandHandler, WithdrawalRequestOutput,
-    WithdrawalTokenTransferCommand, WithdrawalTokenTransferCommandHandler,
+    WalletBookmarkDescriptionChangeCommand, WalletBookmarkDescriptionChangeCommandHandler,
+    WalletBookmarkDescriptionChangeOutput, WalletBookmarkDisplayNameChangeCommand,
+    WalletBookmarkDisplayNameChangeCommandHandler, WalletBookmarkDisplayNameChangeOutput,
+    WalletBookmarkRegisterCommand, WalletBookmarkRegisterCommandHandler,
+    WalletBookmarkRegisterOutput, WalletBookmarkRemoveCommand, WalletBookmarkRemoveCommandHandler,
+    WalletBookmarkRemoveOutput, WithdrawalCompleteCommand, WithdrawalCompleteCommandHandler,
+    WithdrawalCompleteOutput, WithdrawalFailCommand, WithdrawalFailCommandHandler,
+    WithdrawalFailOutput, WithdrawalRequestCommand, WithdrawalRequestCommandHandler,
+    WithdrawalRequestOutput, WithdrawalTokenTransferCommand, WithdrawalTokenTransferCommandHandler,
     WithdrawalTokenTransferOutput,
 };
 pub use config::{OnchainConfigurer, OnchainConfigurerError};
@@ -94,14 +96,16 @@ pub use projection::{
     OwnedAccountListProjector, OwnedAccountListProjectorError, OwnedAccountListProjectorSpec,
     OwnedAccountTransactionListProjector, OwnedAccountTransactionListProjectorError,
     OwnedAccountTransactionListProjectorSpec, PublicAccountListProjector,
-    PublicAccountListProjectorError, PublicAccountListProjectorSpec,
+    PublicAccountListProjectorError, PublicAccountListProjectorSpec, WalletBookmarkListProjector,
+    WalletBookmarkListProjectorError, WalletBookmarkListProjectorSpec,
 };
 pub use query::{
     CurrencyListQuery, CurrencyListQueryHandler, CurrencyListQueryHandlerError,
     OwnedAccountListQuery, OwnedAccountListQueryHandler, OwnedAccountListQueryHandlerError,
     OwnedAccountTransactionListQuery, OwnedAccountTransactionListQueryHandler,
     OwnedAccountTransactionListQueryHandlerError, PublicAccountListQuery,
-    PublicAccountListQueryHandler, PublicAccountListQueryHandlerError,
+    PublicAccountListQueryHandler, PublicAccountListQueryHandlerError, WalletBookmarkListQuery,
+    WalletBookmarkListQueryHandler, WalletBookmarkListQueryHandlerError,
 };
 pub use read_model::{
     CurrencyList, CurrencyListCriteria, CurrencyListCurrencyUpsert, CurrencyListCursor,
@@ -138,9 +142,12 @@ pub use read_model::{
     PublicAccountListItemStatus, PublicAccountListItemStatusError,
     PublicAccountListOwnerOrganizationUpsert, PublicAccountListOwnerUserUpsert,
     PublicAccountListReader, PublicAccountListReaderError, PublicAccountListSortKey,
-    PublicAccountListWriter, PublicAccountListWriterError,
+    PublicAccountListWriter, PublicAccountListWriterError, WalletBookmarkList,
+    WalletBookmarkListCriteria, WalletBookmarkListCursor, WalletBookmarkListItem,
+    WalletBookmarkListReader, WalletBookmarkListReaderError, WalletBookmarkListSortKey,
+    WalletBookmarkListUpsert, WalletBookmarkListWriter, WalletBookmarkListWriterError,
 };
-pub use repository::{AccountEventSaveHook, CurrencyEventSaveHook, PayoutDestinationEventSaveHook};
+pub use repository::{AccountEventSaveHook, CurrencyEventSaveHook, WalletBookmarkEventSaveHook};
 pub use saga::{
     CurrencyIssuanceSaga, CurrencyIssuanceSagaError, CurrencyIssuanceSagaSpec,
     CurrencyIssuanceSagaState, CurrencyIssuanceSagaStatus, CurrencyOldImageObjectDeletionSaga,

@@ -8,7 +8,8 @@ pub use object_storage::{
 pub use postgresql::{
     PgCurrencyListReader, PgCurrencyListWriter, PgOwnedAccountListReader, PgOwnedAccountListWriter,
     PgOwnedAccountTransactionListReader, PgOwnedAccountTransactionListWriter,
-    PgPublicAccountListReader, PgPublicAccountListWriter,
+    PgPublicAccountListReader, PgPublicAccountListWriter, PgWalletBookmarkListReader,
+    PgWalletBookmarkListWriter,
 };
 pub use solana::{
     MintMetadataPublishRequest, MintMetadataPublisher, MintMetadataPublisherError,

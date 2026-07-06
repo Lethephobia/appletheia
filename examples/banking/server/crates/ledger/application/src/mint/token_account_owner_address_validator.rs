@@ -1,4 +1,4 @@
-use banking_ledger_domain::payout_destination::TokenAccountOwnerAddress;
+use banking_ledger_domain::core::TokenAccountOwnerAddress;
 
 use super::TokenAccountOwnerAddressValidatorError;
 

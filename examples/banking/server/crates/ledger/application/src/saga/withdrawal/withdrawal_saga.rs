@@ -157,7 +157,9 @@ mod tests {
     use banking_ledger_domain::account::{
         Account, AccountEventPayload, AccountFundsReserveRejectionReason, AccountId,
     };
-    use banking_ledger_domain::core::{CurrencyAmount, OnchainTransactionId};
+    use banking_ledger_domain::core::{
+        CurrencyAmount, OnchainTransactionId, TokenAccountOwnerAddress,
+    };
     use banking_ledger_domain::withdrawal::{
         Withdrawal, WithdrawalEventPayload, WithdrawalFailureReason, WithdrawalId,
     };
@@ -229,6 +231,11 @@ mod tests {
         }
     }
 
+    fn token_account_owner_address() -> TokenAccountOwnerAddress {
+        TokenAccountOwnerAddress::try_from("11111111111111111111111111111111")
+            .expect("token account owner address should be valid")
+    }
+
     #[test]
     fn withdrawal_requested_appends_account_funds_reserve_command() {
         let saga = WithdrawalSaga;
@@ -251,8 +258,7 @@ mod tests {
                     id: withdrawal_id,
                     account_id,
                     currency_id: banking_ledger_domain::currency::CurrencyId::new(),
-                    payout_destination_id:
-                        banking_ledger_domain::payout_destination::PayoutDestinationId::new(),
+                    token_account_owner_address: token_account_owner_address(),
                     amount,
                 },
             ),
@@ -294,8 +300,7 @@ mod tests {
                     id: withdrawal_id,
                     account_id,
                     currency_id: banking_ledger_domain::currency::CurrencyId::new(),
-                    payout_destination_id:
-                        banking_ledger_domain::payout_destination::PayoutDestinationId::new(),
+                    token_account_owner_address: token_account_owner_address(),
                     amount,
                 },
             ),
@@ -396,8 +401,7 @@ mod tests {
                     id: withdrawal_id,
                     account_id,
                     currency_id: banking_ledger_domain::currency::CurrencyId::new(),
-                    payout_destination_id:
-                        banking_ledger_domain::payout_destination::PayoutDestinationId::new(),
+                    token_account_owner_address: token_account_owner_address(),
                     amount,
                 },
             ),
@@ -456,8 +460,7 @@ mod tests {
                     id: withdrawal_id,
                     account_id,
                     currency_id: banking_ledger_domain::currency::CurrencyId::new(),
-                    payout_destination_id:
-                        banking_ledger_domain::payout_destination::PayoutDestinationId::new(),
+                    token_account_owner_address: token_account_owner_address(),
                     amount,
                 },
             ),

@@ -11,6 +11,11 @@ DROP TABLE IF EXISTS public_account_list_item_owner_users;
 DROP INDEX IF EXISTS public_account_list_item_currencies_symbol_idx;
 DROP TABLE IF EXISTS public_account_list_item_currencies;
 
+-- wallet_bookmark_list read model
+DROP INDEX IF EXISTS wallet_bookmark_list_items_owner_created_at_idx;
+DROP INDEX IF EXISTS wallet_bookmark_list_items_owner_idx;
+DROP TABLE IF EXISTS wallet_bookmark_list_items;
+
 -- owned_account_transaction_list read model
 DROP INDEX IF EXISTS owned_account_transaction_list_items_status_idx;
 DROP INDEX IF EXISTS owned_account_transaction_list_items_currency_idx;

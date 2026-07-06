@@ -1,6 +1,5 @@
-use banking_ledger_domain::core::CurrencyAmount;
+use banking_ledger_domain::core::{CurrencyAmount, TokenAccountOwnerAddress};
 use banking_ledger_domain::currency::{CurrencyDecimals, MintAccount};
-use banking_ledger_domain::payout_destination::TokenAccountOwnerAddress;
 use banking_ledger_domain::withdrawal::WithdrawalId;
 
 #[derive(Clone, Debug, Eq, PartialEq)]

@@ -2,8 +2,8 @@ pub mod account;
 pub mod currency;
 pub mod currency_issuance;
 pub mod owned_account_closure;
-pub mod payout_destination;
 pub mod transfer;
+pub mod wallet_bookmark;
 pub mod withdrawal;
 
 pub use account::{
@@ -75,16 +75,20 @@ pub use owned_account_closure::{
     OwnedAccountClosureRequestCommandHandler, OwnedAccountClosureRequestCommandHandlerError,
     OwnedAccountClosureRequestOutput,
 };
-pub use payout_destination::{
-    PayoutDestinationRegisterCommand, PayoutDestinationRegisterCommandHandler,
-    PayoutDestinationRegisterCommandHandlerError, PayoutDestinationRegisterOutput,
-    PayoutDestinationRemoveCommand, PayoutDestinationRemoveCommandHandler,
-    PayoutDestinationRemoveCommandHandlerError, PayoutDestinationRemoveOutput,
-};
 pub use transfer::{
     TransferCompleteCommand, TransferCompleteCommandHandler, TransferCompleteOutput,
     TransferFailCommand, TransferFailCommandHandler, TransferFailOutput, TransferRequestCommand,
     TransferRequestCommandHandler, TransferRequestOutput,
+};
+pub use wallet_bookmark::{
+    WalletBookmarkDescriptionChangeCommand, WalletBookmarkDescriptionChangeCommandHandler,
+    WalletBookmarkDescriptionChangeCommandHandlerError, WalletBookmarkDescriptionChangeOutput,
+    WalletBookmarkDisplayNameChangeCommand, WalletBookmarkDisplayNameChangeCommandHandler,
+    WalletBookmarkDisplayNameChangeCommandHandlerError, WalletBookmarkDisplayNameChangeOutput,
+    WalletBookmarkRegisterCommand, WalletBookmarkRegisterCommandHandler,
+    WalletBookmarkRegisterCommandHandlerError, WalletBookmarkRegisterOutput,
+    WalletBookmarkRemoveCommand, WalletBookmarkRemoveCommandHandler,
+    WalletBookmarkRemoveCommandHandlerError, WalletBookmarkRemoveOutput,
 };
 pub use withdrawal::{
     WithdrawalCompleteCommand, WithdrawalCompleteCommandHandler, WithdrawalCompleteOutput,

@@ -1,11 +1,8 @@
 use appletheia::event_payload;
 
-use crate::{
-    account::AccountId, core::CurrencyAmount, currency::CurrencyId,
-    payout_destination::PayoutDestinationId,
-};
-
-use crate::core::OnchainTransactionId;
+use crate::account::AccountId;
+use crate::core::{CurrencyAmount, OnchainTransactionId, TokenAccountOwnerAddress};
+use crate::currency::CurrencyId;
 
 use super::{
     WithdrawalCompleteRejectionReason, WithdrawalEventPayloadError, WithdrawalFailRejectionReason,
@@ -20,14 +17,14 @@ pub enum WithdrawalEventPayload {
         id: WithdrawalId,
         account_id: AccountId,
         currency_id: CurrencyId,
-        payout_destination_id: PayoutDestinationId,
+        token_account_owner_address: TokenAccountOwnerAddress,
         amount: CurrencyAmount,
     },
     RequestRejected {
         id: WithdrawalId,
         account_id: AccountId,
         currency_id: CurrencyId,
-        payout_destination_id: PayoutDestinationId,
+        token_account_owner_address: TokenAccountOwnerAddress,
         amount: CurrencyAmount,
         reason: WithdrawalRequestRejectionReason,
     },
@@ -53,10 +50,9 @@ pub enum WithdrawalEventPayload {
 mod tests {
     use appletheia::domain::EventPayload;
 
-    use crate::{
-        account::AccountId, core::CurrencyAmount, currency::CurrencyId,
-        payout_destination::PayoutDestinationId,
-    };
+    use crate::account::AccountId;
+    use crate::core::{CurrencyAmount, TokenAccountOwnerAddress};
+    use crate::currency::CurrencyId;
 
     use super::{WithdrawalEventPayload, WithdrawalId};
 
@@ -102,7 +98,10 @@ mod tests {
             id: WithdrawalId::new(),
             account_id: AccountId::new(),
             currency_id: CurrencyId::new(),
-            payout_destination_id: PayoutDestinationId::new(),
+            token_account_owner_address: TokenAccountOwnerAddress::try_from(
+                "11111111111111111111111111111111",
+            )
+            .expect("token account owner address should be valid"),
             amount: CurrencyAmount::new(100),
         };
 

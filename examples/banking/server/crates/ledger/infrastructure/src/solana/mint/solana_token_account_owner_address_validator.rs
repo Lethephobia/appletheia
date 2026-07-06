@@ -3,7 +3,7 @@ use std::str::FromStr;
 use banking_ledger_application::mint::{
     TokenAccountOwnerAddressValidator, TokenAccountOwnerAddressValidatorError,
 };
-use banking_ledger_domain::payout_destination::TokenAccountOwnerAddress;
+use banking_ledger_domain::core::TokenAccountOwnerAddress;
 use solana_sdk::pubkey::Pubkey;
 
 /// Validates token account owner addresses as Solana public keys.

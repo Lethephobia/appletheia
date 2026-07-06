@@ -1,7 +1,6 @@
 use crate::mint::PoolTokenTransferExecutorError;
 use appletheia::application::repository::RepositoryError;
 use banking_ledger_domain::currency::{Currency, CurrencyError};
-use banking_ledger_domain::payout_destination::{PayoutDestination, PayoutDestinationError};
 use banking_ledger_domain::withdrawal::{Withdrawal, WithdrawalError};
 use thiserror::Error;
 
@@ -13,12 +12,6 @@ pub enum WithdrawalTokenTransferCommandHandlerError {
 
     #[error("currency aggregate failed")]
     Currency(#[from] CurrencyError),
-
-    #[error("payout destination repository failed")]
-    PayoutDestinationRepository(#[from] RepositoryError<PayoutDestination>),
-
-    #[error("payout destination aggregate failed")]
-    PayoutDestination(#[from] PayoutDestinationError),
 
     #[error("withdrawal repository failed")]
     WithdrawalRepository(#[from] RepositoryError<Withdrawal>),

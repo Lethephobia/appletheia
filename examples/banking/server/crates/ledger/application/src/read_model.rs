@@ -2,6 +2,7 @@ mod currency_list;
 mod owned_account_list;
 mod owned_account_transaction_list;
 mod public_account_list;
+mod wallet_bookmark_list;
 pub use currency_list::{
     CurrencyList, CurrencyListCriteria, CurrencyListCurrencyUpsert, CurrencyListCursor,
     CurrencyListItem, CurrencyListItemOwner, CurrencyListItemOwnerOrganization,
@@ -45,4 +46,10 @@ pub use public_account_list::{
     PublicAccountListOwnerOrganizationUpsert, PublicAccountListOwnerUserUpsert,
     PublicAccountListReader, PublicAccountListReaderError, PublicAccountListSortKey,
     PublicAccountListWriter, PublicAccountListWriterError,
+};
+pub use wallet_bookmark_list::{
+    WalletBookmarkList, WalletBookmarkListCriteria, WalletBookmarkListCursor,
+    WalletBookmarkListItem, WalletBookmarkListReader, WalletBookmarkListReaderError,
+    WalletBookmarkListSortKey, WalletBookmarkListUpsert, WalletBookmarkListWriter,
+    WalletBookmarkListWriterError,
 };

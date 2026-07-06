@@ -38,9 +38,8 @@ use appletheia::aggregate;
 use appletheia::domain::{Aggregate, AggregateApply, AggregateCore};
 
 use crate::account::AccountId;
-use crate::core::{CurrencyAmount, OnchainTransactionId};
+use crate::core::{CurrencyAmount, OnchainTransactionId, TokenAccountOwnerAddress};
 use crate::currency::CurrencyId;
-use crate::payout_destination::PayoutDestinationId;
 
 /// Represents the `Withdrawal` aggregate root.
 #[aggregate(type = "withdrawal", error = WithdrawalError)]
@@ -59,9 +58,11 @@ impl Withdrawal {
         Ok(&self.state_required()?.currency_id)
     }
 
-    /// Returns the selected payout destination.
-    pub fn payout_destination_id(&self) -> Result<&PayoutDestinationId, WithdrawalError> {
-        Ok(&self.state_required()?.payout_destination_id)
+    /// Returns the token account owner address.
+    pub fn token_account_owner_address(
+        &self,
+    ) -> Result<&TokenAccountOwnerAddress, WithdrawalError> {
+        Ok(&self.state_required()?.token_account_owner_address)
     }
 
     /// Returns the withdrawal amount.
@@ -98,12 +99,12 @@ impl Withdrawal {
         }
 
         let withdrawal_id = WithdrawalId::new();
-        let (account_id, currency_id, payout_destination_id, amount) = request.into_parts();
+        let (account_id, currency_id, token_account_owner_address, amount) = request.into_parts();
         self.append_event(WithdrawalEventPayload::Requested {
             id: withdrawal_id,
             account_id,
             currency_id,
-            payout_destination_id,
+            token_account_owner_address,
             amount,
         })?;
 
@@ -117,12 +118,12 @@ impl Withdrawal {
         reason: WithdrawalRequestRejectionReason,
     ) -> Result<WithdrawalId, WithdrawalError> {
         let withdrawal_id = WithdrawalId::new();
-        let (account_id, currency_id, payout_destination_id, amount) = request.into_parts();
+        let (account_id, currency_id, token_account_owner_address, amount) = request.into_parts();
         self.append_event(WithdrawalEventPayload::RequestRejected {
             id: withdrawal_id,
             account_id,
             currency_id,
-            payout_destination_id,
+            token_account_owner_address,
             amount,
             reason,
         })?;
@@ -263,13 +264,13 @@ impl AggregateApply<WithdrawalEventPayload, WithdrawalError> for Withdrawal {
                 id,
                 account_id,
                 currency_id,
-                payout_destination_id,
+                token_account_owner_address,
                 amount,
             } => self.set_state(Some(WithdrawalState {
                 id: *id,
                 account_id: *account_id,
                 currency_id: *currency_id,
-                payout_destination_id: *payout_destination_id,
+                token_account_owner_address: token_account_owner_address.clone(),
                 amount: *amount,
                 onchain_transaction_id: None,
                 status: WithdrawalStatus::Pending,
@@ -278,14 +279,14 @@ impl AggregateApply<WithdrawalEventPayload, WithdrawalError> for Withdrawal {
                 id,
                 account_id,
                 currency_id,
-                payout_destination_id,
+                token_account_owner_address,
                 amount,
                 ..
             } => self.set_state(Some(WithdrawalState {
                 id: *id,
                 account_id: *account_id,
                 currency_id: *currency_id,
-                payout_destination_id: *payout_destination_id,
+                token_account_owner_address: token_account_owner_address.clone(),
                 amount: *amount,
                 onchain_transaction_id: None,
                 status: WithdrawalStatus::Rejected,
@@ -318,9 +319,8 @@ mod tests {
 
     use crate::{
         account::AccountId,
-        core::{CurrencyAmount, OnchainTransactionId},
+        core::{CurrencyAmount, OnchainTransactionId, TokenAccountOwnerAddress},
         currency::CurrencyId,
-        payout_destination::PayoutDestinationId,
     };
 
     use super::{
@@ -334,7 +334,7 @@ mod tests {
     fn request_initializes_state_and_records_event() {
         let account_id = AccountId::new();
         let currency_id = CurrencyId::new();
-        let payout_destination_id = PayoutDestinationId::new();
+        let token_account_owner_address = token_account_owner_address();
         let amount = CurrencyAmount::new(100);
         let mut withdrawal = Withdrawal::default();
 
@@ -342,7 +342,7 @@ mod tests {
             .request(WithdrawalRequest {
                 account_id,
                 currency_id,
-                payout_destination_id,
+                token_account_owner_address: token_account_owner_address.clone(),
                 amount,
             })
             .expect("request should succeed");
@@ -352,9 +352,9 @@ mod tests {
         assert_eq!(withdrawal.currency_id().expect("currency id"), &currency_id);
         assert_eq!(
             withdrawal
-                .payout_destination_id()
-                .expect("payout destination id"),
-            &payout_destination_id
+                .token_account_owner_address()
+                .expect("token account owner address"),
+            &token_account_owner_address
         );
         assert_eq!(withdrawal.amount().expect("amount"), &amount);
         assert_eq!(
@@ -375,7 +375,7 @@ mod tests {
             .request(WithdrawalRequest {
                 account_id: AccountId::new(),
                 currency_id: CurrencyId::new(),
-                payout_destination_id: PayoutDestinationId::new(),
+                token_account_owner_address: token_account_owner_address(),
                 amount: CurrencyAmount::zero(),
             })
             .expect("request should succeed");
@@ -467,13 +467,18 @@ mod tests {
         );
     }
 
+    fn token_account_owner_address() -> TokenAccountOwnerAddress {
+        TokenAccountOwnerAddress::try_from("11111111111111111111111111111111")
+            .expect("token account owner address should be valid")
+    }
+
     fn requested_withdrawal() -> Withdrawal {
         let mut withdrawal = Withdrawal::default();
         withdrawal
             .request(WithdrawalRequest {
                 account_id: AccountId::new(),
                 currency_id: CurrencyId::new(),
-                payout_destination_id: PayoutDestinationId::new(),
+                token_account_owner_address: token_account_owner_address(),
                 amount: CurrencyAmount::new(100),
             })
             .expect("request should succeed");

@@ -1,0 +1,9 @@
+mod wallet_bookmark_remove_command;
+mod wallet_bookmark_remove_command_handler;
+mod wallet_bookmark_remove_command_handler_error;
+mod wallet_bookmark_remove_output;
+
+pub use wallet_bookmark_remove_command::WalletBookmarkRemoveCommand;
+pub use wallet_bookmark_remove_command_handler::WalletBookmarkRemoveCommandHandler;
+pub use wallet_bookmark_remove_command_handler_error::WalletBookmarkRemoveCommandHandlerError;
+pub use wallet_bookmark_remove_output::WalletBookmarkRemoveOutput;

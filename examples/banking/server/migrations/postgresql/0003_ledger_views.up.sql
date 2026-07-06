@@ -222,6 +222,29 @@ CREATE INDEX IF NOT EXISTS currency_list_items_created_at_idx
 CREATE INDEX IF NOT EXISTS currency_list_items_status_created_at_idx
     ON currency_list_items (status, created_at DESC, id DESC);
 
+-- wallet_bookmark_list read model
+CREATE TABLE IF NOT EXISTS wallet_bookmark_list_items (
+    id uuid PRIMARY KEY,
+    owner_type text NOT NULL,
+    owner_id uuid NOT NULL,
+    display_name text,
+    description text,
+    token_account_owner_address text NOT NULL,
+    updated_at timestamptz NOT NULL,
+    created_at timestamptz NOT NULL,
+    source_event_sequence bigint NOT NULL,
+    updated_event_sequence bigint NOT NULL,
+    source_event_id uuid NOT NULL,
+    updated_event_id uuid NOT NULL,
+    CONSTRAINT wallet_bookmark_list_items_owner_type_check CHECK (owner_type IN ('user', 'organization'))
+);
+
+CREATE INDEX IF NOT EXISTS wallet_bookmark_list_items_owner_idx
+    ON wallet_bookmark_list_items (owner_type, owner_id);
+
+CREATE INDEX IF NOT EXISTS wallet_bookmark_list_items_owner_created_at_idx
+    ON wallet_bookmark_list_items (owner_type, owner_id, created_at DESC, id DESC);
+
 -- owned_account_transaction_list read model
 CREATE TABLE IF NOT EXISTS owned_account_transaction_list_item_currencies (
     id uuid PRIMARY KEY,

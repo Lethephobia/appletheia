@@ -1,0 +1,9 @@
+mod wallet_bookmark_register_command;
+mod wallet_bookmark_register_command_handler;
+mod wallet_bookmark_register_command_handler_error;
+mod wallet_bookmark_register_output;
+
+pub use wallet_bookmark_register_command::WalletBookmarkRegisterCommand;
+pub use wallet_bookmark_register_command_handler::WalletBookmarkRegisterCommandHandler;
+pub use wallet_bookmark_register_command_handler_error::WalletBookmarkRegisterCommandHandlerError;
+pub use wallet_bookmark_register_output::WalletBookmarkRegisterOutput;
