@@ -6,5 +6,6 @@ use serde::{Deserialize, Serialize};
 pub enum WithdrawalFailureReason {
     FundsReserveRejected,
     TokenTransferRejected,
+    ReservedFundsReleaseRejected,
     ReservedFundsCommitRejected,
 }

@@ -29,7 +29,6 @@ pub struct PoolTokenAccountEnsureInstructionAccounts<'info> {
         constraint = mint_state.is_initialized()
             @ PoolTokenAccountEnsureInstructionError::MintStateNotInitialized,
         constraint = mint_state.version == MintState::VERSION
-            && mint_state.mint_id == mint_id
             @ PoolTokenAccountEnsureInstructionError::MintStateConflict,
     )]
     pub mint_state: Account<'info, MintState>,

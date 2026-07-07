@@ -1,18 +1,20 @@
 use std::sync::Arc;
 
-use solana_sdk::signature::Keypair;
+use solana_sdk::{pubkey::Pubkey, signature::Keypair};
 
 /// Configuration for `SolanaPoolTokenTransferExecutor`.
 pub struct SolanaPoolTokenTransferExecutorConfig {
     payer: Arc<Keypair>,
-    pool_token_account_owner: Arc<Keypair>,
+    operator: Arc<Keypair>,
+    program_id: Pubkey,
 }
 
 impl SolanaPoolTokenTransferExecutorConfig {
-    pub fn new(payer: Arc<Keypair>, pool_token_account_owner: Arc<Keypair>) -> Self {
+    pub fn new(payer: Arc<Keypair>, operator: Arc<Keypair>, program_id: Pubkey) -> Self {
         Self {
             payer,
-            pool_token_account_owner,
+            operator,
+            program_id,
         }
     }
 
@@ -20,7 +22,11 @@ impl SolanaPoolTokenTransferExecutorConfig {
         &self.payer
     }
 
-    pub fn pool_token_account_owner(&self) -> &Arc<Keypair> {
-        &self.pool_token_account_owner
+    pub fn operator(&self) -> &Arc<Keypair> {
+        &self.operator
+    }
+
+    pub fn program_id(&self) -> &Pubkey {
+        &self.program_id
     }
 }

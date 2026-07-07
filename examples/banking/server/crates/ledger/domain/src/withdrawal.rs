@@ -38,7 +38,7 @@ use appletheia::aggregate;
 use appletheia::domain::{Aggregate, AggregateApply, AggregateCore};
 
 use crate::account::AccountId;
-use crate::core::{CurrencyAmount, OnchainTransactionId, TokenAccountOwnerAddress};
+use crate::core::{CurrencyAmount, TokenAccountOwnerAddress};
 use crate::currency::CurrencyId;
 
 /// Represents the `Withdrawal` aggregate root.
@@ -68,11 +68,6 @@ impl Withdrawal {
     /// Returns the withdrawal amount.
     pub fn amount(&self) -> Result<&CurrencyAmount, WithdrawalError> {
         Ok(&self.state_required()?.amount)
-    }
-
-    /// Returns the recorded token transfer on-chain transaction id when present.
-    pub fn onchain_transaction_id(&self) -> Result<Option<&OnchainTransactionId>, WithdrawalError> {
-        Ok(self.state_required()?.onchain_transaction_id.as_ref())
     }
 
     /// Returns the current status.
@@ -133,7 +128,6 @@ impl Withdrawal {
     /// Records a successful external token transfer.
     pub fn record_token_transfer(
         &mut self,
-        onchain_transaction_id: OnchainTransactionId,
     ) -> Result<WithdrawalTokenTransferResult, WithdrawalError> {
         match self.state_required()?.status {
             WithdrawalStatus::Pending => {}
@@ -159,9 +153,7 @@ impl Withdrawal {
             }
         }
 
-        self.append_event(WithdrawalEventPayload::TokenTransferred {
-            onchain_transaction_id,
-        })?;
+        self.append_event(WithdrawalEventPayload::TokenTransferred)?;
         Ok(WithdrawalTokenTransferResult::TokenTransferred)
     }
 
@@ -272,7 +264,6 @@ impl AggregateApply<WithdrawalEventPayload, WithdrawalError> for Withdrawal {
                 currency_id: *currency_id,
                 token_account_owner_address: token_account_owner_address.clone(),
                 amount: *amount,
-                onchain_transaction_id: None,
                 status: WithdrawalStatus::Pending,
             })),
             WithdrawalEventPayload::RequestRejected {
@@ -288,15 +279,10 @@ impl AggregateApply<WithdrawalEventPayload, WithdrawalError> for Withdrawal {
                 currency_id: *currency_id,
                 token_account_owner_address: token_account_owner_address.clone(),
                 amount: *amount,
-                onchain_transaction_id: None,
                 status: WithdrawalStatus::Rejected,
             })),
-            WithdrawalEventPayload::TokenTransferred {
-                onchain_transaction_id,
-            } => {
-                let state = self.state_required_mut()?;
-                state.onchain_transaction_id = Some(onchain_transaction_id.clone());
-                state.status = WithdrawalStatus::TokenTransferred;
+            WithdrawalEventPayload::TokenTransferred => {
+                self.state_required_mut()?.status = WithdrawalStatus::TokenTransferred;
             }
             WithdrawalEventPayload::TokenTransferRejected { .. } => {}
             WithdrawalEventPayload::Completed => {
@@ -319,7 +305,7 @@ mod tests {
 
     use crate::{
         account::AccountId,
-        core::{CurrencyAmount, OnchainTransactionId, TokenAccountOwnerAddress},
+        core::{CurrencyAmount, TokenAccountOwnerAddress},
         currency::CurrencyId,
     };
 
@@ -394,23 +380,15 @@ mod tests {
     }
 
     #[test]
-    fn record_token_transfer_updates_transaction_id_and_status() {
+    fn record_token_transfer_updates_status() {
         let mut withdrawal = requested_withdrawal();
         withdrawal.core_mut().clear_uncommitted_events();
-        let onchain_transaction_id =
-            OnchainTransactionId::try_from("sig-123").expect("on-chain transaction id valid");
 
         let result = withdrawal
-            .record_token_transfer(onchain_transaction_id.clone())
+            .record_token_transfer()
             .expect("record token transfer should succeed");
 
         assert_eq!(result, WithdrawalTokenTransferResult::TokenTransferred);
-        assert_eq!(
-            withdrawal
-                .onchain_transaction_id()
-                .expect("on-chain transaction id"),
-            Some(&onchain_transaction_id)
-        );
         assert_eq!(
             withdrawal.status().expect("status"),
             &WithdrawalStatus::TokenTransferred

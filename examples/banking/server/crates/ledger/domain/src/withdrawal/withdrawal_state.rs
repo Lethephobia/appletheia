@@ -3,7 +3,7 @@ use appletheia::reference_indexes;
 use appletheia::unique_constraints;
 
 use crate::account::AccountId;
-use crate::core::{CurrencyAmount, OnchainTransactionId, TokenAccountOwnerAddress};
+use crate::core::{CurrencyAmount, TokenAccountOwnerAddress};
 use crate::currency::CurrencyId;
 
 use super::{WithdrawalId, WithdrawalStateError, WithdrawalStatus};
@@ -18,7 +18,6 @@ pub struct WithdrawalState {
     pub(super) currency_id: CurrencyId,
     pub(super) token_account_owner_address: TokenAccountOwnerAddress,
     pub(super) amount: CurrencyAmount,
-    pub(super) onchain_transaction_id: Option<OnchainTransactionId>,
     pub(super) status: WithdrawalStatus,
 }
 

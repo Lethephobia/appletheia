@@ -8,8 +8,6 @@ pub enum WithdrawalSagaStatus {
     FundsReserveRequested,
     TokenTransferRequested,
     ReservedFundsReleaseRequested,
-    ReservedFundsReleased,
-    ReservedFundsReleaseRejected,
     ReservedFundsCommitRequested,
     CompleteRequested,
     FailRequested,

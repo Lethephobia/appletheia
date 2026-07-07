@@ -23,7 +23,6 @@ pub struct MintMetadataUpdateInstructionAccounts<'info> {
         constraint = mint_state.is_initialized()
             @ MintMetadataUpdateInstructionError::MintStateNotInitialized,
         constraint = mint_state.version == MintState::VERSION
-            && mint_state.mint_id == mint_id
             @ MintMetadataUpdateInstructionError::MintStateConflict,
     )]
     pub mint_state: Account<'info, MintState>,

@@ -11,8 +11,11 @@ use instruction_handler::mint_metadata_update::MintMetadataUpdateInstructionHand
 use instruction_handler::mint_supply_sync::MintSupplySyncInstructionHandler;
 use instruction_handler::mint_upsert::MintUpsertInstructionHandler;
 use instruction_handler::pool_token_account_ensure::PoolTokenAccountEnsureInstructionHandler;
+use instruction_handler::pool_token_transfer::PoolTokenTransferInstructionHandler;
 
-pub use account::{BankingLedgerConfig, Mint, MintMetadata, MintState, ProgramAuthority};
+pub use account::{
+    BankingLedgerConfig, Mint, MintMetadata, MintState, PoolTokenTransferMarker, ProgramAuthority,
+};
 pub use instruction_handler::{
     BankingLedgerConfigConfigureInstructionAccounts, BankingLedgerConfigConfigureInstructionArgs,
     BankingLedgerConfigConfigureInstructionError, MintMetadataUpdateInstructionAccounts,
@@ -21,6 +24,8 @@ pub use instruction_handler::{
     MintSupplySyncInstructionError, MintUpsertInstructionAccounts, MintUpsertInstructionArgs,
     MintUpsertInstructionError, PoolTokenAccountEnsureInstructionAccounts,
     PoolTokenAccountEnsureInstructionArgs, PoolTokenAccountEnsureInstructionError,
+    PoolTokenTransferInstructionAccounts, PoolTokenTransferInstructionArgs,
+    PoolTokenTransferInstructionError,
 };
 
 #[doc(hidden)]
@@ -48,6 +53,11 @@ pub(crate) use instruction_handler::pool_token_account_ensure::pool_token_accoun
 #[cfg(feature = "cpi")]
 #[doc(hidden)]
 pub(crate) use instruction_handler::pool_token_account_ensure::pool_token_account_ensure_instruction_accounts::__cpi_client_accounts_pool_token_account_ensure_instruction_accounts;
+#[doc(hidden)]
+pub(crate) use instruction_handler::pool_token_transfer::pool_token_transfer_instruction_accounts::__client_accounts_pool_token_transfer_instruction_accounts;
+#[cfg(feature = "cpi")]
+#[doc(hidden)]
+pub(crate) use instruction_handler::pool_token_transfer::pool_token_transfer_instruction_accounts::__cpi_client_accounts_pool_token_transfer_instruction_accounts;
 
 declare_id!("DzYXFRU9PyJiEWLGaTQ8FA35urAtTkLH3G3QvQqMB2tZ");
 
@@ -119,5 +129,20 @@ pub mod banking_ledger {
         let args = PoolTokenAccountEnsureInstructionArgs { mint_id };
 
         PoolTokenAccountEnsureInstructionHandler::handle(ctx, args)
+    }
+
+    pub fn transfer_pool_token(
+        ctx: Context<PoolTokenTransferInstructionAccounts>,
+        idempotency_key: [u8; 16],
+        mint_id: [u8; 16],
+        amount: u64,
+    ) -> Result<()> {
+        let args = PoolTokenTransferInstructionArgs {
+            idempotency_key,
+            mint_id,
+            amount,
+        };
+
+        PoolTokenTransferInstructionHandler::handle(ctx, args)
     }
 }

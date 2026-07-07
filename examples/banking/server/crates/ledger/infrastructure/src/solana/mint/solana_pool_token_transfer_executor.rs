@@ -1,18 +1,19 @@
 use std::str::FromStr;
 
+use anchor_lang::{InstructionData, ToAccountMetas};
 use appletheia::domain::AggregateId;
-use banking_ledger_application::mint::{
-    PoolTokenTransferExecutor, PoolTokenTransferExecutorError, PoolTokenTransferReceipt,
-    PoolTokenTransferRequest,
+use banking_ledger::{
+    BankingLedgerConfig, MintState, PoolTokenTransferMarker, ProgramAuthority,
+    accounts::PoolTokenTransferInstructionAccounts, instruction::TransferPoolToken,
 };
-use banking_ledger_domain::core::OnchainTransactionId;
+use banking_ledger_application::mint::{
+    PoolTokenTransferExecutor, PoolTokenTransferExecutorError, PoolTokenTransferRequest,
+};
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::{instruction::Instruction, pubkey::Pubkey, signature::Signer};
-use solana_system_interface::{instruction as system_instruction, program as system_program};
+use solana_system_interface::program as system_program;
 use solana_transaction::Transaction;
 use spl_associated_token_account_interface::address as associated_token_address;
-use spl_associated_token_account_interface::instruction as associated_token_instruction;
-use spl_token_2022_interface::instruction as token_instruction;
 
 use super::{SolanaPoolTokenTransferExecutorConfig, SolanaPoolTokenTransferExecutorError};
 
@@ -27,87 +28,42 @@ impl SolanaPoolTokenTransferExecutor {
         Self { rpc_client, config }
     }
 
-    fn pool_token_account_address(
-        pool_token_account_owner_address: &Pubkey,
-        mint_account_address: &Pubkey,
-        token_program_id: &Pubkey,
-    ) -> Pubkey {
-        associated_token_address::get_associated_token_address_with_program_id(
-            pool_token_account_owner_address,
-            mint_account_address,
-            token_program_id,
+    fn banking_ledger_config_address(&self) -> Pubkey {
+        Pubkey::find_program_address(&[BankingLedgerConfig::SEED], self.config.program_id()).0
+    }
+
+    fn mint_state_address(&self, mint_id: &[u8; 16]) -> Pubkey {
+        Pubkey::find_program_address(&[MintState::SEED, mint_id], self.config.program_id()).0
+    }
+
+    fn pool_token_transfer_marker_address(&self, idempotency_key: &[u8; 16]) -> Pubkey {
+        Pubkey::find_program_address(
+            &[PoolTokenTransferMarker::SEED, idempotency_key],
+            self.config.program_id(),
         )
+        .0
+    }
+
+    fn program_authority_address(&self) -> Pubkey {
+        Pubkey::find_program_address(&[ProgramAuthority::SEED], self.config.program_id()).0
     }
 
     fn destination_token_account_address(
         destination_owner_address: &Pubkey,
-        mint_account_address: &Pubkey,
+        mint_address: &Pubkey,
         token_program_id: &Pubkey,
     ) -> Pubkey {
         associated_token_address::get_associated_token_address_with_program_id(
             destination_owner_address,
-            mint_account_address,
+            mint_address,
             token_program_id,
         )
-    }
-
-    fn marker_account_address(
-        pool_token_account_owner_address: &Pubkey,
-        request: &PoolTokenTransferRequest,
-    ) -> Result<Pubkey, PoolTokenTransferExecutorError> {
-        let marker_seed = request.withdrawal_id().value().as_simple().to_string();
-        Pubkey::create_with_seed(
-            pool_token_account_owner_address,
-            &marker_seed,
-            &system_program::id(),
-        )
-        .map_err(|error| {
-            PoolTokenTransferExecutorError::Backend(Box::new(
-                SolanaPoolTokenTransferExecutorError::MarkerAccountAddress(error),
-            ))
-        })
-    }
-
-    async fn recover_onchain_transaction_id(
-        &self,
-        marker_account_address: &Pubkey,
-    ) -> Result<Option<OnchainTransactionId>, PoolTokenTransferExecutorError> {
-        let Some(_) = self
-            .rpc_client
-            .get_account_with_commitment(marker_account_address, self.rpc_client.commitment())
-            .await
-            .map_err(|error| PoolTokenTransferExecutorError::Backend(Box::new(error)))?
-            .value
-        else {
-            return Ok(None);
-        };
-
-        let signatures = self
-            .rpc_client
-            .get_signatures_for_address(marker_account_address)
-            .await
-            .map_err(|error| PoolTokenTransferExecutorError::Backend(Box::new(error)))?;
-        let Some(signature) = signatures.first().map(|status| status.signature.clone()) else {
-            return Err(PoolTokenTransferExecutorError::Backend(Box::new(
-                SolanaPoolTokenTransferExecutorError::MarkerAccountSignatureMissing {
-                    marker_account_address: marker_account_address.to_string(),
-                },
-            )));
-        };
-
-        let onchain_transaction_id = OnchainTransactionId::new(signature.clone()).ok_or(
-            PoolTokenTransferExecutorError::Backend(Box::new(
-                SolanaPoolTokenTransferExecutorError::InvalidOnchainTransactionId { signature },
-            )),
-        )?;
-
-        Ok(Some(onchain_transaction_id))
     }
 
     async fn send_transaction(
         &self,
         instructions: Vec<Instruction>,
-    ) -> Result<solana_sdk::signature::Signature, PoolTokenTransferExecutorError> {
+    ) -> Result<(), PoolTokenTransferExecutorError> {
         let blockhash = self
             .rpc_client
             .get_latest_blockhash()
@@ -115,11 +71,8 @@ impl SolanaPoolTokenTransferExecutor {
             .map_err(|error| PoolTokenTransferExecutorError::Backend(Box::new(error)))?;
 
         let payer = self.config.payer().as_ref();
-        let pool_token_account_owner = self.config.pool_token_account_owner().as_ref();
-        let mut signers: Vec<&dyn Signer> = vec![payer];
-        if payer.pubkey() != pool_token_account_owner.pubkey() {
-            signers.push(pool_token_account_owner);
-        }
+        let operator = self.config.operator().as_ref();
+        let signers = self.unique_signers(&[payer, operator]);
 
         let mut transaction = Transaction::new_with_payer(&instructions, Some(&payer.pubkey()));
         transaction.try_sign(&signers, blockhash).map_err(|error| {
@@ -131,7 +84,23 @@ impl SolanaPoolTokenTransferExecutor {
         self.rpc_client
             .send_and_confirm_transaction(&transaction)
             .await
-            .map_err(|error| PoolTokenTransferExecutorError::Backend(Box::new(error)))
+            .map_err(|error| PoolTokenTransferExecutorError::Backend(Box::new(error)))?;
+
+        Ok(())
+    }
+
+    fn unique_signers<'a>(&self, signers: &[&'a dyn Signer]) -> Vec<&'a dyn Signer> {
+        let mut unique: Vec<&dyn Signer> = Vec::new();
+        for signer in signers {
+            if unique
+                .iter()
+                .all(|existing| existing.pubkey() != signer.pubkey())
+            {
+                unique.push(*signer);
+            }
+        }
+
+        unique
     }
 }
 
@@ -139,17 +108,15 @@ impl PoolTokenTransferExecutor for SolanaPoolTokenTransferExecutor {
     async fn execute(
         &self,
         request: PoolTokenTransferRequest,
-    ) -> Result<PoolTokenTransferReceipt, PoolTokenTransferExecutorError> {
-        let pool_token_account_owner_address = self.config.pool_token_account_owner().pubkey();
+    ) -> Result<(), PoolTokenTransferExecutorError> {
         let payer = self.config.payer().pubkey();
-        let marker_account_address =
-            Self::marker_account_address(&pool_token_account_owner_address, &request)?;
-        if let Some(onchain_transaction_id) = self
-            .recover_onchain_transaction_id(&marker_account_address)
-            .await?
-        {
-            return Ok(PoolTokenTransferReceipt::new(onchain_transaction_id));
-        }
+        let operator = self.config.operator().pubkey();
+        let program_id = *self.config.program_id();
+        let token_program_id = spl_token_2022_interface::id();
+        let associated_token_program_id = spl_associated_token_account_interface::program::id();
+        let idempotency_key = *request.withdrawal_id().value().as_bytes();
+        let mint_id = *request.currency_id().value().as_bytes();
+        let marker_account_address = self.pool_token_transfer_marker_address(&idempotency_key);
 
         let mint_account_address = Pubkey::from_str(
             request.mint_account().mint_account_address().value(),
@@ -181,7 +148,6 @@ impl PoolTokenTransferExecutor for SolanaPoolTokenTransferExecutor {
                 },
             ))
         })?;
-        let token_program_id = spl_token_2022_interface::id();
         let destination_owner_address =
             Pubkey::from_str(request.token_account_owner_address().value()).map_err(|_| {
                 PoolTokenTransferExecutorError::Backend(Box::new(
@@ -191,19 +157,9 @@ impl PoolTokenTransferExecutor for SolanaPoolTokenTransferExecutor {
                     },
                 ))
             })?;
-        let expected_pool_token_account_address = Self::pool_token_account_address(
-            &pool_token_account_owner_address,
-            &mint_account_address,
-            &token_program_id,
-        );
-        if pool_token_account_address != expected_pool_token_account_address {
-            return Err(PoolTokenTransferExecutorError::Backend(Box::new(
-                SolanaPoolTokenTransferExecutorError::PoolTokenAccountAddressMismatch {
-                    expected: expected_pool_token_account_address.to_string(),
-                    provided: pool_token_account_address.to_string(),
-                },
-            )));
-        }
+        let banking_ledger_config_address = self.banking_ledger_config_address();
+        let mint_state_address = self.mint_state_address(&mint_id);
+        let program_authority_address = self.program_authority_address();
         let destination_token_account_address = Self::destination_token_account_address(
             &destination_owner_address,
             &mint_account_address,
@@ -214,62 +170,33 @@ impl PoolTokenTransferExecutor for SolanaPoolTokenTransferExecutor {
                 SolanaPoolTokenTransferExecutorError::AmountOverflow,
             ))
         })?;
-        let marker_account_lamports = self
-            .rpc_client
-            .get_minimum_balance_for_rent_exemption(0)
-            .await
-            .map_err(|error| PoolTokenTransferExecutorError::Backend(Box::new(error)))?;
 
-        let instructions = vec![
-            system_instruction::create_account_with_seed(
-                &payer,
-                &marker_account_address,
-                &pool_token_account_owner_address,
-                &request.withdrawal_id().value().as_simple().to_string(),
-                marker_account_lamports,
-                0,
-                &system_program::id(),
-            ),
-            associated_token_instruction::create_associated_token_account_idempotent(
-                &payer,
-                &destination_owner_address,
-                &mint_account_address,
-                &token_program_id,
-            ),
-            token_instruction::transfer_checked(
-                &token_program_id,
-                &pool_token_account_address,
-                &mint_account_address,
-                &destination_token_account_address,
-                &pool_token_account_owner_address,
-                &[],
-                amount,
-                request.decimals().value(),
-            )
-            .map_err(|error| {
-                PoolTokenTransferExecutorError::Backend(Box::new(
-                    SolanaPoolTokenTransferExecutorError::TransferInstruction(error),
-                ))
-            })?,
-        ];
-
-        let signature = match self.send_transaction(instructions).await {
-            Ok(signature) => signature.to_string(),
-            Err(error) => {
-                if let Some(onchain_transaction_id) = self
-                    .recover_onchain_transaction_id(&marker_account_address)
-                    .await?
-                {
-                    return Ok(PoolTokenTransferReceipt::new(onchain_transaction_id));
-                }
-                return Err(error);
+        let instructions = vec![Instruction {
+            program_id,
+            accounts: PoolTokenTransferInstructionAccounts {
+                payer,
+                banking_ledger_config: banking_ledger_config_address,
+                operator,
+                mint_state: mint_state_address,
+                pool_token_transfer_marker: marker_account_address,
+                program_authority: program_authority_address,
+                mint: mint_account_address,
+                pool_token_account: pool_token_account_address,
+                token_account_owner: destination_owner_address,
+                destination_token_account: destination_token_account_address,
+                system_program: system_program::id(),
+                token_program: token_program_id,
+                associated_token_program: associated_token_program_id,
             }
-        };
-        let onchain_transaction_id = OnchainTransactionId::new(signature.clone()).ok_or(
-            PoolTokenTransferExecutorError::Backend(Box::new(
-                SolanaPoolTokenTransferExecutorError::InvalidOnchainTransactionId { signature },
-            )),
-        )?;
-        Ok(PoolTokenTransferReceipt::new(onchain_transaction_id))
+            .to_account_metas(None),
+            data: TransferPoolToken {
+                idempotency_key,
+                mint_id,
+                amount,
+            }
+            .data(),
+        }];
+
+        self.send_transaction(instructions).await
     }
 }

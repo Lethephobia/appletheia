@@ -88,8 +88,8 @@ pub use mint::{
     MintMetadataUpdateRequest, MintMetadataUpdater, MintMetadataUpdaterError, MintProvisionReceipt,
     MintProvisionRequest, MintProvisioner, MintProvisionerError, MintSupplySyncRequest,
     MintSupplySynchronizer, MintSupplySynchronizerError, PoolTokenTransferExecutor,
-    PoolTokenTransferExecutorError, PoolTokenTransferReceipt, PoolTokenTransferRequest,
-    TokenAccountOwnerAddressValidator, TokenAccountOwnerAddressValidatorError,
+    PoolTokenTransferExecutorError, PoolTokenTransferRequest, TokenAccountOwnerAddressValidator,
+    TokenAccountOwnerAddressValidatorError,
 };
 pub use projection::{
     CurrencyListProjector, CurrencyListProjectorError, CurrencyListProjectorSpec,

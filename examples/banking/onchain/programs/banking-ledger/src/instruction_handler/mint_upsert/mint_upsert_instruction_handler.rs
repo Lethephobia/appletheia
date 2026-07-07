@@ -54,7 +54,7 @@ impl InstructionHandler for MintUpsertInstructionHandler {
         args: Self::Args,
     ) -> Result<()> {
         let MintUpsertInstructionArgs {
-            mint_id,
+            mint_id: _,
             decimals: _,
             name,
             symbol,
@@ -128,7 +128,6 @@ impl InstructionHandler for MintUpsertInstructionHandler {
         }
 
         ctx.accounts.mint_state.initialize(MintStateInitialization {
-            mint_id,
             bump: ctx.bumps.mint_state,
             mint_bump: ctx.bumps.mint,
             mint_metadata_bump: ctx.bumps.mint_metadata,

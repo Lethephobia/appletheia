@@ -1,14 +1,10 @@
-use crate::mint::{
-    PoolTokenTransferExecutor, PoolTokenTransferExecutorError, PoolTokenTransferRequest,
-};
+use crate::mint::{PoolTokenTransferExecutor, PoolTokenTransferRequest};
 use appletheia::application::authorization::{AuthorizationPlan, PrincipalRequirement};
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_ledger_domain::currency::Currency;
-use banking_ledger_domain::withdrawal::{
-    Withdrawal, WithdrawalFailureReason, WithdrawalTokenTransferResult,
-};
+use banking_ledger_domain::withdrawal::{Withdrawal, WithdrawalTokenTransferResult};
 
 use super::{
     WithdrawalTokenTransferCommand, WithdrawalTokenTransferCommandHandlerError,
@@ -77,46 +73,28 @@ where
             .withdrawal_repository
             .read(uow, command.withdrawal_id)
             .await?;
-        let currency = self
-            .currency_repository
-            .read(uow, *withdrawal.currency_id()?)
-            .await?;
+        let currency_id = *withdrawal.currency_id()?;
+        let currency = self.currency_repository.read(uow, currency_id).await?;
         let Some(mint_account) = currency.mint_account()? else {
             return Err(WithdrawalTokenTransferCommandHandlerError::CurrencyUnprovisioned);
         };
 
         let request = PoolTokenTransferRequest::new(
             command.withdrawal_id,
+            currency_id,
             mint_account.clone(),
             withdrawal.token_account_owner_address()?.clone(),
             *withdrawal.amount()?,
-            *currency.decimals()?,
         );
 
-        let receipt = match self.pool_token_transfer_executor.execute(request).await {
-            Ok(receipt) => receipt,
-            Err(PoolTokenTransferExecutorError::Rejected) => {
-                withdrawal.fail(WithdrawalFailureReason::TokenTransferRejected)?;
-                self.withdrawal_repository
-                    .save(uow, request_context, &mut withdrawal)
-                    .await?;
-
-                return Ok(CommandHandled::same(
-                    WithdrawalTokenTransferOutput::Rejected,
-                ));
-            }
-            Err(error) => return Err(error.into()),
-        };
-        let onchain_transaction_id = receipt.into_onchain_transaction_id();
-        let result = withdrawal.record_token_transfer(onchain_transaction_id.clone())?;
+        self.pool_token_transfer_executor.execute(request).await?;
+        let result = withdrawal.record_token_transfer()?;
         self.withdrawal_repository
             .save(uow, request_context, &mut withdrawal)
             .await?;
         let output = match result {
             WithdrawalTokenTransferResult::TokenTransferred => {
-                WithdrawalTokenTransferOutput::TokenTransferred {
-                    onchain_transaction_id,
-                }
+                WithdrawalTokenTransferOutput::TokenTransferred
             }
             WithdrawalTokenTransferResult::Rejected { .. } => {
                 WithdrawalTokenTransferOutput::Rejected
@@ -140,16 +118,13 @@ mod tests {
     use appletheia::domain::{Aggregate, AggregateVersion, EventPayload, UniqueKey, UniqueValue};
     use banking_iam_domain::UserId;
     use banking_ledger_domain::account::AccountId;
-    use banking_ledger_domain::core::{
-        CurrencyAmount, OnchainTransactionId, TokenAccountOwnerAddress,
-    };
+    use banking_ledger_domain::core::{CurrencyAmount, TokenAccountOwnerAddress};
     use banking_ledger_domain::currency::{
         Currency, CurrencyDecimals, CurrencyId, CurrencyName, CurrencyOwner, CurrencySymbol,
         MintAccount, MintAccountAddress, PoolTokenAccountAddress,
     };
     use banking_ledger_domain::withdrawal::{
-        Withdrawal, WithdrawalEventPayload, WithdrawalFailureReason, WithdrawalId,
-        WithdrawalRequest, WithdrawalStatus,
+        Withdrawal, WithdrawalEventPayload, WithdrawalId, WithdrawalRequest, WithdrawalStatus,
     };
     use thiserror::Error;
     use uuid::Uuid;
@@ -159,8 +134,7 @@ mod tests {
         WithdrawalTokenTransferCommandHandlerError, WithdrawalTokenTransferOutput,
     };
     use crate::mint::{
-        PoolTokenTransferExecutor, PoolTokenTransferExecutorError, PoolTokenTransferReceipt,
-        PoolTokenTransferRequest,
+        PoolTokenTransferExecutor, PoolTokenTransferExecutorError, PoolTokenTransferRequest,
     };
 
     #[derive(Default)]
@@ -318,15 +292,10 @@ mod tests {
         async fn execute(
             &self,
             request: PoolTokenTransferRequest,
-        ) -> Result<PoolTokenTransferReceipt, PoolTokenTransferExecutorError> {
+        ) -> Result<(), PoolTokenTransferExecutorError> {
             *self.request.lock().expect("lock") = Some(request);
             match self.outcome {
-                TestPoolTokenTransferOutcome::Transferred => {
-                    Ok(PoolTokenTransferReceipt::new(onchain_transaction_id()))
-                }
-                TestPoolTokenTransferOutcome::Rejected => {
-                    Err(PoolTokenTransferExecutorError::Rejected)
-                }
+                TestPoolTokenTransferOutcome::Transferred => Ok(()),
                 TestPoolTokenTransferOutcome::BackendFailed => Err(
                     PoolTokenTransferExecutorError::Backend(Box::new(TestBackendError)),
                 ),
@@ -337,7 +306,6 @@ mod tests {
     #[derive(Clone, Copy)]
     enum TestPoolTokenTransferOutcome {
         Transferred,
-        Rejected,
         BackendFailed,
     }
 
@@ -352,11 +320,6 @@ mod tests {
             Principal::System,
         )
         .expect("request context should be valid")
-    }
-
-    fn onchain_transaction_id() -> OnchainTransactionId {
-        OnchainTransactionId::try_from("tx111111111111111111111111111111111")
-            .expect("transaction id should be valid")
     }
 
     fn token_account_owner_address() -> TokenAccountOwnerAddress {
@@ -435,12 +398,7 @@ mod tests {
 
         assert_eq!(
             handled.into_output(),
-            WithdrawalTokenTransferOutput::TokenTransferred {
-                onchain_transaction_id: OnchainTransactionId::new(
-                    onchain_transaction_id().value().to_owned()
-                )
-                .expect("withdrawal transaction id should be valid"),
-            }
+            WithdrawalTokenTransferOutput::TokenTransferred
         );
         let saved = withdrawal_repository
             .saved
@@ -455,55 +413,6 @@ mod tests {
         assert_eq!(
             saved.uncommitted_events()[0].payload().name(),
             WithdrawalEventPayload::TOKEN_TRANSFERRED
-        );
-    }
-
-    #[tokio::test]
-    async fn handle_records_withdrawal_failure_when_token_transfer_is_rejected() {
-        let currency = provisioned_currency();
-        let currency_id = currency.aggregate_id().expect("currency id should exist");
-        let withdrawal = requested_withdrawal(currency_id);
-        let withdrawal_id = withdrawal
-            .aggregate_id()
-            .expect("withdrawal id should exist");
-        let withdrawal_repository = TestWithdrawalRepository::new(withdrawal);
-        let pool_token_transfer_executor =
-            TestPoolTokenTransferExecutor::new(TestPoolTokenTransferOutcome::Rejected);
-        let handler = WithdrawalTokenTransferCommandHandler::new(
-            withdrawal_repository.clone(),
-            TestCurrencyRepository::new(currency),
-            pool_token_transfer_executor,
-        );
-        let mut uow = TestUow;
-
-        let handled = handler
-            .handle(
-                &mut uow,
-                &request_context(),
-                &WithdrawalTokenTransferCommand { withdrawal_id },
-            )
-            .await
-            .expect("token transfer rejection should be recorded");
-
-        assert_eq!(
-            handled.into_output(),
-            WithdrawalTokenTransferOutput::Rejected
-        );
-        let saved = withdrawal_repository
-            .saved
-            .lock()
-            .expect("lock")
-            .clone()
-            .expect("withdrawal should be saved");
-        assert_eq!(
-            saved.status().expect("status should exist"),
-            &WithdrawalStatus::Failed
-        );
-        assert_eq!(
-            saved.uncommitted_events()[0].payload(),
-            &WithdrawalEventPayload::Failed {
-                reason: WithdrawalFailureReason::TokenTransferRejected,
-            }
         );
     }
 

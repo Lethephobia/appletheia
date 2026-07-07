@@ -1,7 +1,7 @@
 use appletheia::event_payload;
 
 use crate::account::AccountId;
-use crate::core::{CurrencyAmount, OnchainTransactionId, TokenAccountOwnerAddress};
+use crate::core::{CurrencyAmount, TokenAccountOwnerAddress};
 use crate::currency::CurrencyId;
 
 use super::{
@@ -28,9 +28,7 @@ pub enum WithdrawalEventPayload {
         amount: CurrencyAmount,
         reason: WithdrawalRequestRejectionReason,
     },
-    TokenTransferred {
-        onchain_transaction_id: OnchainTransactionId,
-    },
+    TokenTransferred,
     TokenTransferRejected {
         reason: WithdrawalTokenTransferRejectionReason,
     },
