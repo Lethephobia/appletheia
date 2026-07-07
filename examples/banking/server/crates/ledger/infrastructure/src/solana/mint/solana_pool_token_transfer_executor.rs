@@ -1,7 +1,6 @@
 use std::str::FromStr;
 
 use anchor_lang::{InstructionData, ToAccountMetas};
-use appletheia::domain::AggregateId;
 use banking_ledger::{
     BankingLedgerConfig, MintState, PoolTokenTransferMarker, ProgramAuthority,
     accounts::PoolTokenTransferInstructionAccounts, instruction::TransferPoolToken,
@@ -15,7 +14,10 @@ use solana_system_interface::program as system_program;
 use solana_transaction::Transaction;
 use spl_associated_token_account_interface::address as associated_token_address;
 
-use super::{SolanaPoolTokenTransferExecutorConfig, SolanaPoolTokenTransferExecutorError};
+use super::{
+    BankingLedgerMintId, PoolTokenTransferIdempotencyKey, SolanaPoolTokenTransferExecutorConfig,
+    SolanaPoolTokenTransferExecutorError,
+};
 
 /// Solana implementation of `PoolTokenTransferExecutor`.
 pub struct SolanaPoolTokenTransferExecutor {
@@ -114,8 +116,9 @@ impl PoolTokenTransferExecutor for SolanaPoolTokenTransferExecutor {
         let program_id = *self.config.program_id();
         let token_program_id = spl_token_2022_interface::id();
         let associated_token_program_id = spl_associated_token_account_interface::program::id();
-        let idempotency_key = *request.withdrawal_id().value().as_bytes();
-        let mint_id = *request.currency_id().value().as_bytes();
+        let idempotency_key =
+            PoolTokenTransferIdempotencyKey::from(request.withdrawal_id()).into_bytes();
+        let mint_id = BankingLedgerMintId::from(request.currency_id()).into_bytes();
         let marker_account_address = self.pool_token_transfer_marker_address(&idempotency_key);
 
         let mint_account_address = Pubkey::from_str(

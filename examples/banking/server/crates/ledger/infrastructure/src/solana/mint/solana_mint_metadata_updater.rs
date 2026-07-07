@@ -1,5 +1,4 @@
 use anchor_lang::{InstructionData, ToAccountMetas};
-use appletheia::domain::AggregateId;
 use banking_ledger::{
     BankingLedgerConfig, MintMetadata, MintState, ProgramAuthority,
     accounts::MintMetadataUpdateInstructionAccounts, instruction::UpdateMintMetadata,
@@ -12,8 +11,8 @@ use solana_sdk::{instruction::Instruction, pubkey::Pubkey, signature::Signer};
 use solana_transaction::Transaction;
 
 use super::{
-    MintMetadataPublishRequest, MintMetadataPublisher, SolanaMintMetadataUpdaterConfig,
-    SolanaMintMetadataUpdaterError,
+    BankingLedgerMintId, MintMetadataPublishRequest, MintMetadataPublisher,
+    SolanaMintMetadataUpdaterConfig, SolanaMintMetadataUpdaterError,
 };
 
 /// Solana implementation of `MintMetadataUpdater`.
@@ -120,7 +119,7 @@ where
         let token_program_id = spl_token_2022_interface::id();
         let program_id = *self.config.program_id();
         let operator = self.config.operator().pubkey();
-        let mint_id = *request.currency_id().value().as_bytes();
+        let mint_id = BankingLedgerMintId::from(request.currency_id()).into_bytes();
         let metadata_uri = self.publish_metadata(&request).await?;
         let banking_ledger_config_address = self.banking_ledger_config_address();
         let mint_state_address = self.mint_state_address(&mint_id);

@@ -1,5 +1,4 @@
 use anchor_lang::{InstructionData, ToAccountMetas};
-use appletheia::domain::AggregateId;
 use banking_ledger::{
     BankingLedgerConfig, Mint, MintState, ProgramAuthority,
     accounts::MintSupplySyncInstructionAccounts, instruction::SyncMintSupply,
@@ -12,7 +11,9 @@ use solana_sdk::{instruction::Instruction, pubkey::Pubkey, signature::Signer};
 use solana_transaction::Transaction;
 use spl_associated_token_account_interface::address as associated_token_address;
 
-use super::{SolanaMintSupplySynchronizerConfig, SolanaMintSupplySynchronizerError};
+use super::{
+    BankingLedgerMintId, SolanaMintSupplySynchronizerConfig, SolanaMintSupplySynchronizerError,
+};
 
 /// Solana implementation of `MintSupplySynchronizer`.
 pub struct SolanaMintSupplySynchronizer {
@@ -94,7 +95,7 @@ impl MintSupplySynchronizer for SolanaMintSupplySynchronizer {
         let associated_token_program_id = spl_associated_token_account_interface::program::id();
         let program_id = *self.config.program_id();
         let operator = self.config.operator().pubkey();
-        let mint_id = *request.currency_id().value().as_bytes();
+        let mint_id = BankingLedgerMintId::from(request.currency_id()).into_bytes();
         let banking_ledger_config_address = self.banking_ledger_config_address();
         let mint_state_address = self.mint_state_address(&mint_id);
         let program_authority_address = self.program_authority_address();
