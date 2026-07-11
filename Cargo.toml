@@ -3,7 +3,6 @@ resolver = "3"
 
 members = [
     "crates/appletheia",
-    "crates/appletheia-anchor",
     "crates/appletheia-domain",
     "crates/appletheia-application",
     "crates/appletheia-infrastructure",
@@ -24,8 +23,6 @@ appletheia-domain = { version = "0.5.0", path = "crates/appletheia-domain" }
 appletheia-application = { version = "0.25.0", path = "crates/appletheia-application" }
 appletheia-infrastructure = { version = "0.16.0", path = "crates/appletheia-infrastructure" }
 appletheia-macros = { version = "0.3.0", path = "crates/appletheia-macros" }
-appletheia-anchor = { version = "0.1.0", path = "crates/appletheia-anchor" }
-anchor-lang = "1.0.2"
 base64 = "0.22.1"
 bytes = "1.11.1"
 chrono = "0.4.45"

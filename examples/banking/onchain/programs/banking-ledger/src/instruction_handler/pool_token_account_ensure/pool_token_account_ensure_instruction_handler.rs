@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use appletheia_anchor::instruction::InstructionHandler;
+use banking_anchor::instruction::InstructionHandler;
 
 use crate::instruction_handler::{
     PoolTokenAccountEnsureInstructionAccounts, PoolTokenAccountEnsureInstructionArgs,

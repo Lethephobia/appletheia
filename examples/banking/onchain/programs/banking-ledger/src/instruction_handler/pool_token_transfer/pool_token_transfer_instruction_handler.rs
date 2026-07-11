@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token_2022::{transfer_checked, TransferChecked};
-use appletheia_anchor::instruction::InstructionHandler;
+use banking_anchor::instruction::InstructionHandler;
 
 use crate::account::{
     PoolTokenTransferMarker, PoolTokenTransferMarkerInitialization, ProgramAuthority,

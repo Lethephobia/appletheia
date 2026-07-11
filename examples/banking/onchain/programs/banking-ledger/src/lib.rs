@@ -4,7 +4,7 @@ pub mod account;
 pub mod instruction_handler;
 
 use anchor_lang::prelude::*;
-use appletheia_anchor::instruction::InstructionHandler;
+use banking_anchor::instruction::InstructionHandler;
 
 use instruction_handler::banking_ledger_config_configure::BankingLedgerConfigConfigureInstructionHandler;
 use instruction_handler::mint_metadata_update::MintMetadataUpdateInstructionHandler;

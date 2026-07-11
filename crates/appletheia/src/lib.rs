@@ -1,8 +1,3 @@
-#[cfg(feature = "anchor")]
-pub mod anchor {
-    pub use appletheia_anchor::*;
-}
-
 #[cfg(feature = "application")]
 pub mod application {
     pub use appletheia_application::*;

@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::program::invoke_signed;
-use appletheia_anchor::instruction::InstructionHandler;
+use banking_anchor::instruction::InstructionHandler;
 use spl_token_metadata_interface::instruction as token_metadata_instruction;
 use spl_token_metadata_interface::state::Field;
 

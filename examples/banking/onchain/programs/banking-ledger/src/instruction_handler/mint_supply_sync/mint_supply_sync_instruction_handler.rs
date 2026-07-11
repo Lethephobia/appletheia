@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token_2022::{burn_checked, mint_to_checked, BurnChecked, MintToChecked};
-use appletheia_anchor::instruction::InstructionHandler;
+use banking_anchor::instruction::InstructionHandler;
 
 use crate::account::ProgramAuthority;
 use crate::instruction_handler::{
