@@ -1,10 +1,14 @@
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
+use appletheia::domain::AggregateId;
 use banking_iam_domain::{Organization, OrganizationEventPayload, User, UserEventPayload};
-use banking_ledger_domain::account::{Account, AccountEventPayload};
 use banking_ledger_domain::currency::{Currency, CurrencyEventPayload};
 use banking_ledger_domain::currency_issuance::{CurrencyIssuance, CurrencyIssuanceEventPayload};
+use banking_ledger_domain::deposit::{Deposit, DepositEventPayload};
 use banking_ledger_domain::transfer::{Transfer, TransferEventPayload};
+use banking_ledger_domain::withdrawal::{
+    Withdrawal, WithdrawalEventPayload, WithdrawalFailureReason,
+};
 use banking_shared_kernel_application::read_model::ReadModelEventContext;
 
 use super::{OwnedAccountTransactionListProjectorError, OwnedAccountTransactionListProjectorSpec};
@@ -179,48 +183,109 @@ where
             return Ok(());
         }
 
-        if event.is_for_aggregate::<Account>() {
-            let domain_event = event.try_into_domain_event::<Account>()?;
-            let account_id = domain_event.aggregate_id();
+        if event.is_for_aggregate::<Deposit>() {
+            let domain_event = event.try_into_domain_event::<Deposit>()?;
+            let deposit_id = domain_event.aggregate_id();
+            let transaction_id = OwnedAccountTransactionId::from(deposit_id.value());
 
             match domain_event.payload() {
-                AccountEventPayload::Deposited { amount } => {
+                DepositEventPayload::Requested {
+                    account_id, amount, ..
+                } => {
                     self.writer
                         .insert_account_transaction(
                             uow,
                             event_context,
                             OwnedAccountTransactionListItemInsert {
-                                transaction_id: OwnedAccountTransactionId::from(
-                                    event.event_id.value(),
-                                ),
-                                correlation_id: event.correlation_id,
-                                account_id,
+                                transaction_id,
+                                account_id: *account_id,
                                 counterparty_account_id: None,
                                 amount: *amount,
                                 direction: OwnedAccountTransactionListItemDirection::Incoming,
                                 kind: OwnedAccountTransactionListItemKind::Deposit,
-                                status: OwnedAccountTransactionListItemStatus::Completed,
+                                status: OwnedAccountTransactionListItemStatus::Pending,
                             },
                         )
                         .await?;
                 }
-                AccountEventPayload::Withdrawn { amount } => {
+                DepositEventPayload::Completed => {
+                    self.writer
+                        .update_account_transaction_status(
+                            uow,
+                            event_context,
+                            transaction_id,
+                            OwnedAccountTransactionListItemStatus::Completed,
+                        )
+                        .await?;
+                }
+                DepositEventPayload::Failed { .. } => {
+                    self.writer
+                        .update_account_transaction_status(
+                            uow,
+                            event_context,
+                            transaction_id,
+                            OwnedAccountTransactionListItemStatus::Failed,
+                        )
+                        .await?;
+                }
+                _ => {}
+            }
+
+            return Ok(());
+        }
+
+        if event.is_for_aggregate::<Withdrawal>() {
+            let domain_event = event.try_into_domain_event::<Withdrawal>()?;
+            let withdrawal_id = domain_event.aggregate_id();
+            let transaction_id = OwnedAccountTransactionId::from(withdrawal_id.value());
+
+            match domain_event.payload() {
+                WithdrawalEventPayload::Requested {
+                    account_id, amount, ..
+                } => {
                     self.writer
                         .insert_account_transaction(
                             uow,
                             event_context,
                             OwnedAccountTransactionListItemInsert {
-                                transaction_id: OwnedAccountTransactionId::from(
-                                    event.event_id.value(),
-                                ),
-                                correlation_id: event.correlation_id,
-                                account_id,
+                                transaction_id,
+                                account_id: *account_id,
                                 counterparty_account_id: None,
                                 amount: *amount,
                                 direction: OwnedAccountTransactionListItemDirection::Outgoing,
                                 kind: OwnedAccountTransactionListItemKind::Withdrawal,
-                                status: OwnedAccountTransactionListItemStatus::Completed,
+                                status: OwnedAccountTransactionListItemStatus::Pending,
                             },
+                        )
+                        .await?;
+                }
+                WithdrawalEventPayload::Completed => {
+                    self.writer
+                        .update_account_transaction_status(
+                            uow,
+                            event_context,
+                            transaction_id,
+                            OwnedAccountTransactionListItemStatus::Completed,
+                        )
+                        .await?;
+                }
+                WithdrawalEventPayload::Failed { reason } => {
+                    let status = match reason {
+                        WithdrawalFailureReason::FundsReserveRejected
+                        | WithdrawalFailureReason::TokenTransferRejected => {
+                            OwnedAccountTransactionListItemStatus::Failed
+                        }
+                        WithdrawalFailureReason::ReservedFundsReleaseRejected
+                        | WithdrawalFailureReason::ReservedFundsCommitRejected => {
+                            OwnedAccountTransactionListItemStatus::RequiresReview
+                        }
+                    };
+                    self.writer
+                        .update_account_transaction_status(
+                            uow,
+                            event_context,
+                            transaction_id,
+                            status,
                         )
                         .await?;
                 }

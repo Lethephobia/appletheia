@@ -561,12 +561,6 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
                 $4, $5, $6, $7, $8, $8, $8, $9, $9, $10, $10
               FROM owned_account_list_items a
              WHERE a.id = $2
-               AND NOT EXISTS (
-                   SELECT 1
-                     FROM owned_account_transaction_list_transfers t
-                    WHERE t.correlation_id = $11
-                      AND t.to_account_id = $2
-               )
             ON CONFLICT (id) DO UPDATE SET
                 owner_type = EXCLUDED.owner_type,
                 owner_id = EXCLUDED.owner_id,
@@ -594,7 +588,34 @@ impl OwnedAccountTransactionListWriter for PgOwnedAccountTransactionListWriter {
         .bind(event_context.occurred_at.value())
         .bind(event_context.event_sequence.value())
         .bind(event_context.event_id.value())
-        .bind(insert.correlation_id.value())
+        .execute(uow.transaction_mut().as_mut())
+        .await
+        .map_err(|e| OwnedAccountTransactionListWriterError::Persistence(Box::new(e)))?;
+        Ok(())
+    }
+
+    async fn update_account_transaction_status(
+        &self,
+        uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
+        id: OwnedAccountTransactionId,
+        status: OwnedAccountTransactionListItemStatus,
+    ) -> Result<(), OwnedAccountTransactionListWriterError> {
+        sqlx::query(
+            r#"
+            UPDATE owned_account_transaction_list_items
+               SET status = $2,
+                   updated_at = $3,
+                   updated_event_sequence = $4,
+                   updated_event_id = $5
+             WHERE id = $1 AND updated_event_sequence < $4
+            "#,
+        )
+        .bind(id.value())
+        .bind(Self::status_name(status))
+        .bind(event_context.occurred_at.value())
+        .bind(event_context.event_sequence.value())
+        .bind(event_context.event_id.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|e| OwnedAccountTransactionListWriterError::Persistence(Box::new(e)))?;

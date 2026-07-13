@@ -2,10 +2,11 @@ use appletheia::application::event::EventSelector;
 use appletheia::application::messaging::Subscription;
 use appletheia::application::projection::{ProjectorDescriptor, ProjectorName, ProjectorSpec};
 use banking_iam_domain::{Organization, OrganizationEventPayload, User, UserEventPayload};
-use banking_ledger_domain::account::{Account, AccountEventPayload};
 use banking_ledger_domain::currency::{Currency, CurrencyEventPayload};
 use banking_ledger_domain::currency_issuance::{CurrencyIssuance, CurrencyIssuanceEventPayload};
+use banking_ledger_domain::deposit::{Deposit, DepositEventPayload};
 use banking_ledger_domain::transfer::{Transfer, TransferEventPayload};
+use banking_ledger_domain::withdrawal::{Withdrawal, WithdrawalEventPayload};
 
 /// Projector specification for owned account transaction list read models.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
@@ -15,8 +16,12 @@ impl ProjectorSpec for OwnedAccountTransactionListProjectorSpec {
     const DESCRIPTOR: ProjectorDescriptor = ProjectorDescriptor::new(
         ProjectorName::new("owned_account_transaction_list"),
         Subscription::AnyOf(&[
-            EventSelector::new::<Account>(AccountEventPayload::DEPOSITED),
-            EventSelector::new::<Account>(AccountEventPayload::WITHDRAWN),
+            EventSelector::new::<Deposit>(DepositEventPayload::REQUESTED),
+            EventSelector::new::<Deposit>(DepositEventPayload::COMPLETED),
+            EventSelector::new::<Deposit>(DepositEventPayload::FAILED),
+            EventSelector::new::<Withdrawal>(WithdrawalEventPayload::REQUESTED),
+            EventSelector::new::<Withdrawal>(WithdrawalEventPayload::COMPLETED),
+            EventSelector::new::<Withdrawal>(WithdrawalEventPayload::FAILED),
             EventSelector::new::<User>(UserEventPayload::REGISTERED),
             EventSelector::new::<User>(UserEventPayload::USERNAME_CHANGED),
             EventSelector::new::<User>(UserEventPayload::DISPLAY_NAME_CHANGED),

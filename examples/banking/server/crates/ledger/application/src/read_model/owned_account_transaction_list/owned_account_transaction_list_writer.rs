@@ -14,8 +14,9 @@ use banking_shared_kernel_application::read_model::ReadModelEventContext;
 use super::{
     OwnedAccountTransactionId, OwnedAccountTransactionListCurrencyIssuanceIssuedRecord,
     OwnedAccountTransactionListCurrencyUpsert, OwnedAccountTransactionListItemInsert,
-    OwnedAccountTransactionListOwnerOrganizationUpsert, OwnedAccountTransactionListOwnerUserUpsert,
-    OwnedAccountTransactionListTransferRequestedRecord, OwnedAccountTransactionListWriterError,
+    OwnedAccountTransactionListItemStatus, OwnedAccountTransactionListOwnerOrganizationUpsert,
+    OwnedAccountTransactionListOwnerUserUpsert, OwnedAccountTransactionListTransferRequestedRecord,
+    OwnedAccountTransactionListWriterError,
 };
 
 #[allow(async_fn_in_trait)]
@@ -141,6 +142,14 @@ pub trait OwnedAccountTransactionListWriter: Send + Sync {
         uow: &mut Self::Uow,
         event_context: ReadModelEventContext,
         insert: OwnedAccountTransactionListItemInsert,
+    ) -> Result<(), OwnedAccountTransactionListWriterError>;
+
+    async fn update_account_transaction_status(
+        &self,
+        uow: &mut Self::Uow,
+        event_context: ReadModelEventContext,
+        id: OwnedAccountTransactionId,
+        status: OwnedAccountTransactionListItemStatus,
     ) -> Result<(), OwnedAccountTransactionListWriterError>;
 
     async fn record_transfer_requested(
