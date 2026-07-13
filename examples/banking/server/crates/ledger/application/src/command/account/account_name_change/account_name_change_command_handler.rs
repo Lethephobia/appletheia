@@ -205,7 +205,7 @@ mod tests {
     }
 
     fn opened_account() -> Account {
-        let mut account = Account::default();
+        let mut account = Account::new();
         account
             .open(AccountOpening {
                 owner: account_owner(),

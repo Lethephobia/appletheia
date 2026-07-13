@@ -249,7 +249,7 @@ mod tests {
         let currency_id = CurrencyId::new();
         let destination_account_id = AccountId::new();
         let amount = CurrencyAmount::new(100);
-        let mut issuance = CurrencyIssuance::default();
+        let mut issuance = CurrencyIssuance::new();
 
         issuance
             .issue(CurrencyIssuanceRequest {
@@ -282,7 +282,7 @@ mod tests {
 
     #[test]
     fn issue_rejects_zero_amount() {
-        let mut issuance = CurrencyIssuance::default();
+        let mut issuance = CurrencyIssuance::new();
 
         let result = issuance
             .issue(CurrencyIssuanceRequest {
@@ -307,7 +307,7 @@ mod tests {
 
     #[test]
     fn issue_errors_when_issuance_is_already_issued() {
-        let mut issuance = CurrencyIssuance::default();
+        let mut issuance = CurrencyIssuance::new();
         issuance
             .issue(CurrencyIssuanceRequest {
                 currency_id: CurrencyId::new(),
@@ -329,7 +329,7 @@ mod tests {
 
     #[test]
     fn complete_updates_status() {
-        let mut issuance = CurrencyIssuance::default();
+        let mut issuance = CurrencyIssuance::new();
         issuance
             .issue(CurrencyIssuanceRequest {
                 currency_id: CurrencyId::new(),
@@ -348,7 +348,7 @@ mod tests {
 
     #[test]
     fn fail_updates_status() {
-        let mut issuance = CurrencyIssuance::default();
+        let mut issuance = CurrencyIssuance::new();
         issuance
             .issue(CurrencyIssuanceRequest {
                 currency_id: CurrencyId::new(),
@@ -387,7 +387,7 @@ mod tests {
             appletheia::domain::AggregateVersion::try_from(2).expect("version should be valid"),
             CurrencyIssuanceEventPayload::Completed,
         );
-        let mut issuance = CurrencyIssuance::default();
+        let mut issuance = CurrencyIssuance::new();
 
         issuance
             .replay_events(vec![issued, completed], None)

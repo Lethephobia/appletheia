@@ -4,6 +4,7 @@ use appletheia::application::authorization::{
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
+use appletheia::domain::Aggregate;
 use banking_iam_application::authorization::{
     OrganizationFinanceManagerRelation, UserOwnerRelation,
 };
@@ -88,7 +89,7 @@ where
             .validate(&command.token_account_owner_address)
             .await?;
 
-        let mut wallet_bookmark = WalletBookmark::default();
+        let mut wallet_bookmark = WalletBookmark::new();
         let result = wallet_bookmark.register(WalletBookmarkRegistration {
             owner: command.owner,
             display_name: command.display_name.clone(),

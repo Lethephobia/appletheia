@@ -734,7 +734,7 @@ mod tests {
         let symbol = CurrencySymbol::try_from("usdc").expect("symbol should be valid");
         let name = CurrencyName::try_from("USD Coin").expect("name should be valid");
         let decimals = CurrencyDecimals::new(6);
-        let mut currency = Currency::default();
+        let mut currency = Currency::new();
 
         currency
             .define(
@@ -823,7 +823,7 @@ mod tests {
         let symbol = CurrencySymbol::try_from("usdc").expect("symbol should be valid");
         let name = CurrencyName::try_from("USD Coin").expect("name should be valid");
         let decimals = CurrencyDecimals::new(6);
-        let mut currency = Currency::default();
+        let mut currency = Currency::new();
         currency
             .define(owner, symbol.clone(), name.clone(), decimals, None, None)
             .expect("definition should succeed");
@@ -848,7 +848,7 @@ mod tests {
     #[test]
     fn transferring_to_same_owner_appends_success_event() {
         let owner = user_owner();
-        let mut currency = Currency::default();
+        let mut currency = Currency::new();
         currency
             .define(
                 owner,
@@ -875,7 +875,7 @@ mod tests {
         let changed_symbol = CurrencySymbol::try_from("usdce").expect("symbol should be valid");
         let changed_name =
             CurrencyName::try_from("USD Coin Example").expect("name should be valid");
-        let mut currency = Currency::default();
+        let mut currency = Currency::new();
         currency
             .define(
                 owner,
@@ -918,7 +918,7 @@ mod tests {
     fn transfer_ownership_updates_owner_and_records_event() {
         let original_owner = user_owner();
         let transferred_owner = organization_owner();
-        let mut currency = Currency::default();
+        let mut currency = Currency::new();
         currency
             .define(
                 original_owner,
@@ -975,7 +975,7 @@ mod tests {
                 mint_account: mint_account.clone(),
             },
         );
-        let mut currency = Currency::default();
+        let mut currency = Currency::new();
 
         currency
             .replay_events(vec![defined, provisioned, deactivated], None)
@@ -1004,7 +1004,7 @@ mod tests {
         let owner = organization_owner();
         let symbol = CurrencySymbol::try_from("usdc").expect("symbol should be valid");
         let name = CurrencyName::try_from("USD Coin").expect("name should be valid");
-        let mut currency = Currency::default();
+        let mut currency = Currency::new();
 
         currency
             .define(owner, symbol, name, CurrencyDecimals::new(6), None, None)
@@ -1016,7 +1016,7 @@ mod tests {
     #[test]
     fn define_rejects_already_defined_currency() {
         let owner = user_owner();
-        let mut currency = Currency::default();
+        let mut currency = Currency::new();
         currency
             .define(
                 owner,
@@ -1045,7 +1045,7 @@ mod tests {
     #[test]
     fn supply_methods_update_supply_and_pending_supply() {
         let owner = user_owner();
-        let mut currency = Currency::default();
+        let mut currency = Currency::new();
         currency
             .define(
                 owner,
@@ -1089,7 +1089,7 @@ mod tests {
     #[test]
     fn record_mint_supply_synced_records_event() {
         let owner = user_owner();
-        let mut currency = Currency::default();
+        let mut currency = Currency::new();
         currency
             .define(
                 owner,
@@ -1118,7 +1118,7 @@ mod tests {
     #[test]
     fn record_mint_metadata_synced_records_event() {
         let owner = user_owner();
-        let mut currency = Currency::default();
+        let mut currency = Currency::new();
         currency
             .define(
                 owner,
@@ -1145,7 +1145,7 @@ mod tests {
     #[test]
     fn reject_mint_metadata_sync_records_event() {
         let owner = user_owner();
-        let mut currency = Currency::default();
+        let mut currency = Currency::new();
         currency
             .define(
                 owner,
@@ -1174,7 +1174,7 @@ mod tests {
     fn provision_updates_state_and_records_event() {
         let owner = user_owner();
         let mint_account = make_mint_account("Mint111111111111111111111111111111111111");
-        let mut currency = Currency::default();
+        let mut currency = Currency::new();
         currency
             .define(
                 owner,
@@ -1216,7 +1216,7 @@ mod tests {
         let owner = user_owner();
         let mint_account = make_mint_account("Mint111111111111111111111111111111111111");
         let duplicate_mint_account = make_mint_account("Mint222222222222222222222222222222222222");
-        let mut currency = Currency::default();
+        let mut currency = Currency::new();
         currency
             .define(
                 owner,
@@ -1254,7 +1254,7 @@ mod tests {
     #[test]
     fn provision_rejects_removed_currency_with_event() {
         let owner = user_owner();
-        let mut currency = Currency::default();
+        let mut currency = Currency::new();
         currency
             .define(
                 owner,
@@ -1296,7 +1296,7 @@ mod tests {
     #[test]
     fn reserve_supply_rejects_unprovisioned_currency() {
         let owner = user_owner();
-        let mut currency = Currency::default();
+        let mut currency = Currency::new();
         currency
             .define(
                 owner,
@@ -1326,7 +1326,7 @@ mod tests {
     #[test]
     fn reserve_supply_rejects_inactive_currency() {
         let owner = user_owner();
-        let mut currency = Currency::default();
+        let mut currency = Currency::new();
         currency
             .define(
                 owner,
@@ -1363,7 +1363,7 @@ mod tests {
     #[test]
     fn remove_updates_status_to_removed() {
         let owner = user_owner();
-        let mut currency = Currency::default();
+        let mut currency = Currency::new();
         currency
             .define(
                 owner,
@@ -1404,7 +1404,7 @@ mod tests {
     #[test]
     fn operations_reject_removed_currency() {
         let owner = user_owner();
-        let mut currency = Currency::default();
+        let mut currency = Currency::new();
         currency
             .define(
                 owner,

@@ -581,7 +581,7 @@ mod tests {
         let owner = account_owner();
         let name = account_name();
         let currency_id = CurrencyId::new();
-        let mut account = Account::default();
+        let mut account = Account::new();
 
         account
             .open(AccountOpening {
@@ -635,7 +635,7 @@ mod tests {
         let owner = account_owner();
         let original_name = account_name();
         let name_changed = AccountName::try_from("savings").expect("account name should be valid");
-        let mut account = Account::default();
+        let mut account = Account::new();
         account
             .open(AccountOpening {
                 owner,
@@ -661,7 +661,7 @@ mod tests {
         let original_owner = account_owner();
         let transferred_owner =
             AccountOwner::Organization(banking_iam_domain::OrganizationId::new());
-        let mut account = Account::default();
+        let mut account = Account::new();
         account
             .open(AccountOpening {
                 owner: original_owner,
@@ -687,7 +687,7 @@ mod tests {
 
     #[test]
     fn changing_to_same_name_appends_success_event() {
-        let mut account = Account::default();
+        let mut account = Account::new();
         account
             .open(AccountOpening {
                 owner: account_owner(),
@@ -706,7 +706,7 @@ mod tests {
     #[test]
     fn transferring_to_same_owner_appends_success_event() {
         let owner = account_owner();
-        let mut account = Account::default();
+        let mut account = Account::new();
         account
             .open(AccountOpening {
                 owner,
@@ -724,7 +724,7 @@ mod tests {
 
     #[test]
     fn changing_to_same_status_appends_success_event() {
-        let mut account = Account::default();
+        let mut account = Account::new();
         account
             .open(AccountOpening {
                 owner: account_owner(),
@@ -740,7 +740,7 @@ mod tests {
 
     #[test]
     fn freeze_and_thaw_update_state() {
-        let mut account = Account::default();
+        let mut account = Account::new();
         account
             .open(AccountOpening {
                 owner: account_owner(),
@@ -766,7 +766,7 @@ mod tests {
 
     #[test]
     fn close_updates_state_to_closed() {
-        let mut account = Account::default();
+        let mut account = Account::new();
         account
             .open(AccountOpening {
                 owner: account_owner(),
@@ -800,7 +800,7 @@ mod tests {
 
     #[test]
     fn close_rejects_non_zero_balance() {
-        let mut account = Account::default();
+        let mut account = Account::new();
         account
             .open(AccountOpening {
                 owner: account_owner(),
@@ -826,7 +826,7 @@ mod tests {
 
     #[test]
     fn close_rejects_reserved_balance_remaining() {
-        let mut account = Account::default();
+        let mut account = Account::new();
         account
             .open(AccountOpening {
                 owner: account_owner(),
@@ -881,7 +881,7 @@ mod tests {
                 name: AccountName::try_from("archived").expect("account name should be valid"),
             },
         );
-        let mut account = Account::default();
+        let mut account = Account::new();
 
         account
             .replay_events(vec![opened, closed, name_changed], None)
@@ -934,7 +934,7 @@ mod tests {
             appletheia::domain::AggregateVersion::try_from(4).expect("version should be valid"),
             AccountEventPayload::Frozen,
         );
-        let mut account = Account::default();
+        let mut account = Account::new();
 
         account
             .replay_events(vec![opened, name_changed, deposited, frozen], None)
@@ -960,7 +960,7 @@ mod tests {
 
     #[test]
     fn open_rejects_already_opened_account() {
-        let mut account = Account::default();
+        let mut account = Account::new();
         account
             .open(AccountOpening {
                 owner: account_owner(),
@@ -982,7 +982,7 @@ mod tests {
 
     #[test]
     fn deposit_and_withdraw_update_balance() {
-        let mut account = Account::default();
+        let mut account = Account::new();
         account
             .open(AccountOpening {
                 owner: account_owner(),
@@ -1021,7 +1021,7 @@ mod tests {
 
     #[test]
     fn withdraw_rejects_insufficient_balance() {
-        let mut account = Account::default();
+        let mut account = Account::new();
         account
             .open(AccountOpening {
                 owner: account_owner(),
@@ -1048,7 +1048,7 @@ mod tests {
 
     #[test]
     fn movement_rejects_frozen_account() {
-        let mut account = Account::default();
+        let mut account = Account::new();
         account
             .open(AccountOpening {
                 owner: account_owner(),
@@ -1085,7 +1085,7 @@ mod tests {
 
     #[test]
     fn operations_reject_closed_account() {
-        let mut account = Account::default();
+        let mut account = Account::new();
         account
             .open(AccountOpening {
                 owner: account_owner(),
@@ -1172,7 +1172,7 @@ mod tests {
 
     #[test]
     fn reserve_release_and_commit_update_reserved_balance() {
-        let mut account = Account::default();
+        let mut account = Account::new();
         account
             .open(AccountOpening {
                 owner: account_owner(),
@@ -1227,7 +1227,7 @@ mod tests {
 
     #[test]
     fn reserve_rejects_insufficient_available_balance() {
-        let mut account = Account::default();
+        let mut account = Account::new();
         account
             .open(AccountOpening {
                 owner: account_owner(),

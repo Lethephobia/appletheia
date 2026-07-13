@@ -4,6 +4,7 @@ use appletheia::application::authorization::{
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
+use appletheia::domain::Aggregate;
 use banking_ledger_domain::account::Account;
 use banking_ledger_domain::currency::Currency;
 use banking_ledger_domain::deposit::{Deposit, DepositRequest, DepositRequestResult};
@@ -102,7 +103,7 @@ where
             .await?;
         let currency_id = *account.currency_id()?;
 
-        let mut deposit = Deposit::default();
+        let mut deposit = Deposit::new();
         let result = deposit.request(DepositRequest {
             account_id: command.account_id,
             currency_id,

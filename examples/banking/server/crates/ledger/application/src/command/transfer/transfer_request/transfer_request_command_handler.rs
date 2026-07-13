@@ -4,6 +4,7 @@ use appletheia::application::authorization::{
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
+use appletheia::domain::Aggregate;
 use banking_ledger_domain::account::Account;
 use banking_ledger_domain::transfer::{Transfer, TransferRequest, TransferRequestResult};
 
@@ -78,7 +79,7 @@ where
             return Err(TransferRequestCommandHandlerError::CurrencyMismatch);
         }
 
-        let mut transfer = Transfer::default();
+        let mut transfer = Transfer::new();
         let result = transfer.request(TransferRequest {
             from_account_id: command.from_account_id,
             to_account_id: command.to_account_id,
@@ -306,7 +307,7 @@ mod tests {
     }
 
     fn opened_account(currency_id: CurrencyId) -> Account {
-        let mut account = Account::default();
+        let mut account = Account::new();
         account
             .open(AccountOpening {
                 owner: account_owner(),

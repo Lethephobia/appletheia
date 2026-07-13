@@ -67,6 +67,11 @@ pub trait Aggregate:
 
     const TYPE: AggregateType;
 
+    /// Creates a new, uninitialized aggregate.
+    fn new() -> Self {
+        Self::default()
+    }
+
     /// Returns the shared aggregate core.
     fn core(&self) -> &AggregateCore<Self::State, Self::EventPayload>;
 
@@ -355,18 +360,12 @@ mod tests {
 
     impl Eq for CounterError {}
 
-    #[derive(Clone, Debug)]
+    #[derive(Clone, Debug, Default)]
     struct Counter {
         core: AggregateCore<CounterState, CounterEventPayload>,
     }
 
     impl Counter {
-        pub fn new() -> Self {
-            Self {
-                core: AggregateCore::new(),
-            }
-        }
-
         pub fn create(&mut self) -> Result<(), CounterError> {
             let id =
                 CounterId::try_from_uuid(Uuid::now_v7()).expect("valid uuid should be accepted");
@@ -382,12 +381,6 @@ mod tests {
         pub fn decrement(&mut self, delta: i32) -> Result<(), CounterError> {
             self.append_event(CounterEventPayload::Decrement(delta))?;
             Ok(())
-        }
-    }
-
-    impl Default for Counter {
-        fn default() -> Self {
-            Self::new()
         }
     }
 

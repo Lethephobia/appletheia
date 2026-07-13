@@ -2,6 +2,7 @@ use appletheia::application::authorization::{AuthorizationPlan, PrincipalRequire
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
+use appletheia::domain::Aggregate;
 use banking_ledger_domain::owned_account_closure::{
     OwnedAccountClosure, OwnedAccountClosureRequest, OwnedAccountClosureRequestResult,
 };
@@ -55,7 +56,7 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
-        let mut owned_account_closure = OwnedAccountClosure::default();
+        let mut owned_account_closure = OwnedAccountClosure::new();
         let result = owned_account_closure.request(OwnedAccountClosureRequest {
             owner: command.owner,
         })?;

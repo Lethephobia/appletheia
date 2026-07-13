@@ -4,6 +4,7 @@ use appletheia::application::authorization::{
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
+use appletheia::domain::Aggregate;
 use banking_ledger_domain::account::Account;
 use banking_ledger_domain::currency::{Currency, CurrencyStatus};
 use banking_ledger_domain::currency_issuance::{
@@ -86,7 +87,7 @@ where
             .read(uow, command.currency_id)
             .await?;
 
-        let mut currency_issuance = CurrencyIssuance::default();
+        let mut currency_issuance = CurrencyIssuance::new();
         let request = CurrencyIssuanceRequest {
             currency_id: command.currency_id,
             destination_account_id: command.destination_account_id,

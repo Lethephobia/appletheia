@@ -239,7 +239,7 @@ mod tests {
     }
 
     fn defined_currency(image: Option<CurrencyImageRef>, with_mint_account: bool) -> Currency {
-        let mut currency = Currency::default();
+        let mut currency = Currency::new();
         currency
             .define(
                 CurrencyOwner::User(UserId::new()),

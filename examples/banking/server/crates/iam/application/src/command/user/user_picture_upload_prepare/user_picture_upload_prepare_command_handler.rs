@@ -265,7 +265,7 @@ mod tests {
     }
 
     fn registered_user() -> User {
-        let mut user = User::default();
+        let mut user = User::new();
         user.register(UserRegistration {
             initial_identity: None,
         })

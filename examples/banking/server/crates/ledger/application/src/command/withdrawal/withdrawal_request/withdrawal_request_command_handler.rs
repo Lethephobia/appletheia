@@ -4,6 +4,7 @@ use appletheia::application::authorization::{
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
+use appletheia::domain::Aggregate;
 use banking_ledger_domain::account::Account;
 use banking_ledger_domain::currency::{Currency, CurrencyStatus};
 use banking_ledger_domain::withdrawal::{
@@ -98,7 +99,7 @@ where
             .read(uow, *account.currency_id()?)
             .await?;
 
-        let mut withdrawal = Withdrawal::default();
+        let mut withdrawal = Withdrawal::new();
         let account_id = command.account_id;
         let currency_id = *account.currency_id()?;
         let token_account_owner_address = command.token_account_owner_address.clone();
@@ -452,7 +453,7 @@ mod tests {
     }
 
     fn opened_account(owner: AccountOwner, currency_id: CurrencyId) -> Account {
-        let mut account = Account::default();
+        let mut account = Account::new();
         account
             .open(AccountOpening {
                 owner,
@@ -465,7 +466,7 @@ mod tests {
     }
 
     fn provisioned_currency(owner: CurrencyOwner) -> Currency {
-        let mut currency = Currency::default();
+        let mut currency = Currency::new();
         currency
             .define(
                 owner,

@@ -313,7 +313,7 @@ mod tests {
 
     #[test]
     fn complete_rejects_before_any_page_is_loaded() {
-        let mut closure = OwnedAccountClosure::default();
+        let mut closure = OwnedAccountClosure::new();
         closure
             .request(OwnedAccountClosureRequest {
                 owner: user_owner(),
@@ -338,7 +338,7 @@ mod tests {
 
     #[test]
     fn complete_succeeds_after_an_empty_page_is_loaded() {
-        let mut closure = OwnedAccountClosure::default();
+        let mut closure = OwnedAccountClosure::new();
         closure
             .request(OwnedAccountClosureRequest {
                 owner: user_owner(),
@@ -363,7 +363,7 @@ mod tests {
     #[test]
     fn complete_rejects_when_any_account_close_was_rejected() {
         let account_id = AccountId::new();
-        let mut closure = OwnedAccountClosure::default();
+        let mut closure = OwnedAccountClosure::new();
         closure
             .request(OwnedAccountClosureRequest {
                 owner: user_owner(),

@@ -845,7 +845,7 @@ mod tests {
 
     #[test]
     fn register_initializes_state_and_records_event() {
-        let mut user = User::default();
+        let mut user = User::new();
 
         register_user(&mut user);
 
@@ -868,7 +868,7 @@ mod tests {
 
     #[test]
     fn register_can_attach_initial_identity() {
-        let mut user = User::default();
+        let mut user = User::new();
         let provider = UserIdentityProvider::try_from("https://accounts.example.com")
             .expect("provider should be valid");
         let subject = UserIdentitySubject::try_from("user-123").expect("subject should be valid");
@@ -895,7 +895,7 @@ mod tests {
 
     #[test]
     fn change_username_sets_username() {
-        let mut user = User::default();
+        let mut user = User::new();
         register_user(&mut user);
 
         user.change_username(Username::try_from("alice").expect("username should be valid"))
@@ -909,7 +909,7 @@ mod tests {
 
     #[test]
     fn change_display_name_sets_display_name() {
-        let mut user = User::default();
+        let mut user = User::new();
         let display_name = display_name();
         register_user(&mut user);
 
@@ -924,7 +924,7 @@ mod tests {
 
     #[test]
     fn identical_username_change_appends_success_event() {
-        let mut user = User::default();
+        let mut user = User::new();
         let username = Username::try_from("alice").expect("username should be valid");
         register_user(&mut user);
         user.change_username(username.clone())
@@ -942,7 +942,7 @@ mod tests {
 
     #[test]
     fn identical_display_name_change_appends_success_event() {
-        let mut user = User::default();
+        let mut user = User::new();
         let display_name = display_name();
         register_user(&mut user);
         user.change_display_name(display_name.clone())
@@ -960,7 +960,7 @@ mod tests {
 
     #[test]
     fn identical_identity_email_change_appends_success_event() {
-        let mut user = User::default();
+        let mut user = User::new();
         let provider = UserIdentityProvider::try_from("https://accounts.example.com")
             .expect("provider should be valid");
         let subject = UserIdentitySubject::try_from("user-123").expect("subject should be valid");
@@ -984,7 +984,7 @@ mod tests {
 
     #[test]
     fn repeated_activation_and_deactivation_append_success_events() {
-        let mut user = User::default();
+        let mut user = User::new();
         register_user(&mut user);
 
         user.activate().expect("activation should succeed");
@@ -1008,7 +1008,7 @@ mod tests {
 
     #[test]
     fn bio_and_picture_changes_update_state() {
-        let mut user = User::default();
+        let mut user = User::new();
         register_user(&mut user);
 
         user.change_bio(Some(bio()))
@@ -1025,7 +1025,7 @@ mod tests {
 
     #[test]
     fn picture_changed_event_records_old_picture_after_current_picture() {
-        let mut user = User::default();
+        let mut user = User::new();
         let first_picture = picture();
         let second_picture = UserPictureRef::external_url(
             UserPictureUrl::try_from("https://cdn.example.com/alice-updated.png")
@@ -1051,7 +1051,7 @@ mod tests {
 
     #[test]
     fn display_name_and_username_changes_reject_inactive_user() {
-        let mut user = User::default();
+        let mut user = User::new();
         register_user(&mut user);
         user.deactivate().expect("user should deactivate");
 
@@ -1078,7 +1078,7 @@ mod tests {
 
     #[test]
     fn identity_email_change_rejects_unknown_identity() {
-        let mut user = User::default();
+        let mut user = User::new();
         register_user(&mut user);
 
         let result = user
@@ -1100,7 +1100,7 @@ mod tests {
 
     #[test]
     fn link_identity_rejects_identity_count_over_limit() {
-        let mut user = User::default();
+        let mut user = User::new();
         register_user(&mut user);
 
         for index in 0..User::MAX_IDENTITY_COUNT {
@@ -1136,7 +1136,7 @@ mod tests {
 
     #[test]
     fn link_identity_rejects_already_linked_identity() {
-        let mut user = User::default();
+        let mut user = User::new();
         let provider = UserIdentityProvider::try_from("https://accounts.example.com")
             .expect("provider should be valid");
         let subject = UserIdentitySubject::try_from("user-123").expect("subject should be valid");
@@ -1171,7 +1171,7 @@ mod tests {
 
     #[test]
     fn remove_updates_status_to_removed() {
-        let mut user = User::default();
+        let mut user = User::new();
         register_user(&mut user);
 
         user.remove().expect("remove should succeed");

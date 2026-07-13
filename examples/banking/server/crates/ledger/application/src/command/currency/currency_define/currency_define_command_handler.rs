@@ -4,6 +4,7 @@ use appletheia::application::authorization::{
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
+use appletheia::domain::Aggregate;
 use appletheia::domain::UniqueValue;
 use banking_iam_application::authorization::{
     OrganizationFinanceManagerRelation, UserOwnerRelation,
@@ -98,7 +99,7 @@ where
             return Err(CurrencyError::SymbolAlreadyTaken.into());
         }
 
-        let mut currency = Currency::default();
+        let mut currency = Currency::new();
         let result = currency.define(owner, symbol, name, decimals, description, image)?;
 
         self.currency_repository

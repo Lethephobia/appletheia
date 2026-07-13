@@ -103,7 +103,7 @@ where
                 Ok((user, rejection_reason))
             }
             None => {
-                let mut user = User::default();
+                let mut user = User::new();
                 let _ = user.register(UserRegistration {
                     initial_identity: Some(UserIdentityRegistration {
                         provider: provider.clone(),

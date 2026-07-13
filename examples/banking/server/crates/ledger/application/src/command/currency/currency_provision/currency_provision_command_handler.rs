@@ -269,7 +269,7 @@ mod tests {
     }
 
     fn defined_currency_with_image(image: Option<CurrencyImageRef>) -> Currency {
-        let mut currency = Currency::default();
+        let mut currency = Currency::new();
         currency
             .define(
                 CurrencyOwner::User(UserId::new()),

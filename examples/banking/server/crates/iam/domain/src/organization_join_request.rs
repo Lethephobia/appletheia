@@ -272,7 +272,7 @@ mod tests {
     fn submit_initializes_state_and_records_event() {
         let organization_id = organization_id();
         let requester_id = requester_id();
-        let mut join_request = OrganizationJoinRequest::default();
+        let mut join_request = OrganizationJoinRequest::new();
 
         join_request
             .submit(OrganizationJoinRequestSubmission {
@@ -312,7 +312,7 @@ mod tests {
     fn approving_submitted_request_updates_status_and_records_event() {
         let organization_id = organization_id();
         let requester_id = requester_id();
-        let mut join_request = OrganizationJoinRequest::default();
+        let mut join_request = OrganizationJoinRequest::new();
         join_request
             .submit(OrganizationJoinRequestSubmission {
                 organization_id,
@@ -337,7 +337,7 @@ mod tests {
     fn rejecting_submitted_request_updates_status_and_records_event() {
         let organization_id = organization_id();
         let requester_id = requester_id();
-        let mut join_request = OrganizationJoinRequest::default();
+        let mut join_request = OrganizationJoinRequest::new();
         join_request
             .submit(OrganizationJoinRequestSubmission {
                 organization_id,
@@ -362,7 +362,7 @@ mod tests {
     fn canceling_submitted_request_updates_status_and_records_event() {
         let organization_id = organization_id();
         let requester_id = requester_id();
-        let mut join_request = OrganizationJoinRequest::default();
+        let mut join_request = OrganizationJoinRequest::new();
         join_request
             .submit(OrganizationJoinRequestSubmission {
                 organization_id,

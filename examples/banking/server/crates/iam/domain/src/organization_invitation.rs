@@ -376,7 +376,7 @@ mod tests {
         let invitee_id = user_id();
         let issuer = OrganizationInvitationIssuer::User(user_id());
         let expires_at = future_expires_at();
-        let mut invitation = OrganizationInvitation::default();
+        let mut invitation = OrganizationInvitation::new();
 
         invitation
             .issue(
@@ -428,7 +428,7 @@ mod tests {
         let invitee_id = user_id();
         let issuer = OrganizationInvitationIssuer::User(user_id());
         let expires_at = future_expires_at();
-        let mut invitation = OrganizationInvitation::default();
+        let mut invitation = OrganizationInvitation::new();
         invitation
             .issue(
                 OrganizationInvitationIssuance {
@@ -463,7 +463,7 @@ mod tests {
         let invitee_id = user_id();
         let issuer = OrganizationInvitationIssuer::User(user_id());
         let expires_at = future_expires_at();
-        let mut invitation = OrganizationInvitation::default();
+        let mut invitation = OrganizationInvitation::new();
         invitation
             .issue(
                 OrganizationInvitationIssuance {
@@ -498,7 +498,7 @@ mod tests {
         let invitee_id = user_id();
         let issuer = OrganizationInvitationIssuer::User(user_id());
         let expires_at = future_expires_at();
-        let mut invitation = OrganizationInvitation::default();
+        let mut invitation = OrganizationInvitation::new();
         invitation
             .issue(
                 OrganizationInvitationIssuance {
@@ -529,7 +529,7 @@ mod tests {
 
     #[test]
     fn expired_invitation_rejects_issue() {
-        let mut invitation = OrganizationInvitation::default();
+        let mut invitation = OrganizationInvitation::new();
 
         let result = invitation
             .issue(
@@ -559,7 +559,7 @@ mod tests {
         let invitee_id = user_id();
         let issuer = OrganizationInvitationIssuer::User(user_id());
         let expires_at = past_expires_at();
-        let mut invitation = OrganizationInvitation::default();
+        let mut invitation = OrganizationInvitation::new();
 
         invitation
             .append_event(OrganizationInvitationEventPayload::Issued {
@@ -589,7 +589,7 @@ mod tests {
         let invitee_id = user_id();
         let issuer = OrganizationInvitationIssuer::User(user_id());
         let expires_at = future_expires_at();
-        let mut invitation = OrganizationInvitation::default();
+        let mut invitation = OrganizationInvitation::new();
         invitation
             .issue(
                 OrganizationInvitationIssuance {

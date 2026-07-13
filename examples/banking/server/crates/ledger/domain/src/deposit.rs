@@ -304,7 +304,7 @@ mod tests {
         let currency_id = CurrencyId::new();
         let token_account_owner_address = token_account_owner_address();
         let amount = CurrencyAmount::new(100);
-        let mut deposit = Deposit::default();
+        let mut deposit = Deposit::new();
         let result = deposit
             .request(DepositRequest {
                 account_id,
@@ -358,7 +358,7 @@ mod tests {
 
     #[test]
     fn request_rejects_zero_amount() {
-        let mut deposit = Deposit::default();
+        let mut deposit = Deposit::new();
 
         let result = deposit
             .request(DepositRequest {
@@ -400,7 +400,7 @@ mod tests {
     }
 
     fn requested_deposit() -> Deposit {
-        let mut deposit = Deposit::default();
+        let mut deposit = Deposit::new();
         deposit
             .request(DepositRequest {
                 account_id: AccountId::new(),

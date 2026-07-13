@@ -261,7 +261,7 @@ mod tests {
         let display_name = wallet_bookmark_display_name();
         let description = wallet_bookmark_description();
         let token_account_owner_address = token_account_owner_address();
-        let mut wallet_bookmark = WalletBookmark::default();
+        let mut wallet_bookmark = WalletBookmark::new();
 
         wallet_bookmark
             .register(WalletBookmarkRegistration {
@@ -310,7 +310,7 @@ mod tests {
         let display_name = wallet_bookmark_display_name();
         let description = wallet_bookmark_description();
         let token_account_owner_address = token_account_owner_address();
-        let mut wallet_bookmark = WalletBookmark::default();
+        let mut wallet_bookmark = WalletBookmark::new();
         wallet_bookmark
             .register(WalletBookmarkRegistration {
                 owner,
@@ -342,7 +342,7 @@ mod tests {
         let display_name = wallet_bookmark_display_name();
         let description = wallet_bookmark_description();
         let token_account_owner_address = token_account_owner_address();
-        let mut wallet_bookmark = WalletBookmark::default();
+        let mut wallet_bookmark = WalletBookmark::new();
         wallet_bookmark
             .register(WalletBookmarkRegistration {
                 owner,

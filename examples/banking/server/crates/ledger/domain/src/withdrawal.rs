@@ -322,7 +322,7 @@ mod tests {
         let currency_id = CurrencyId::new();
         let token_account_owner_address = token_account_owner_address();
         let amount = CurrencyAmount::new(100);
-        let mut withdrawal = Withdrawal::default();
+        let mut withdrawal = Withdrawal::new();
 
         let result = withdrawal
             .request(WithdrawalRequest {
@@ -355,7 +355,7 @@ mod tests {
 
     #[test]
     fn request_rejects_zero_amount() {
-        let mut withdrawal = Withdrawal::default();
+        let mut withdrawal = Withdrawal::new();
 
         let result = withdrawal
             .request(WithdrawalRequest {
@@ -451,7 +451,7 @@ mod tests {
     }
 
     fn requested_withdrawal() -> Withdrawal {
-        let mut withdrawal = Withdrawal::default();
+        let mut withdrawal = Withdrawal::new();
         withdrawal
             .request(WithdrawalRequest {
                 account_id: AccountId::new(),

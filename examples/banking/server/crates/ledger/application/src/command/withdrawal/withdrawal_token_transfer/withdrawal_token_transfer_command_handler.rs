@@ -337,7 +337,7 @@ mod tests {
     }
 
     fn provisioned_currency() -> Currency {
-        let mut currency = Currency::default();
+        let mut currency = Currency::new();
         currency
             .define(
                 CurrencyOwner::from(UserId::new()),
@@ -356,7 +356,7 @@ mod tests {
     }
 
     fn requested_withdrawal(currency_id: CurrencyId) -> Withdrawal {
-        let mut withdrawal = Withdrawal::default();
+        let mut withdrawal = Withdrawal::new();
         withdrawal
             .request(WithdrawalRequest {
                 account_id: AccountId::new(),

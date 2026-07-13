@@ -4,6 +4,7 @@ use appletheia::application::authorization::{
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
+use appletheia::domain::Aggregate;
 use appletheia::domain::{AggregateId, UniqueValue, UniqueValuePart};
 use banking_iam_domain::{
     Organization, OrganizationId, OrganizationJoinRequest, OrganizationJoinRequestState,
@@ -101,7 +102,7 @@ where
         )?;
         let requester = self.user_repository.read(uow, command.requester_id).await?;
 
-        let mut organization_join_request = OrganizationJoinRequest::default();
+        let mut organization_join_request = OrganizationJoinRequest::new();
         let submission = OrganizationJoinRequestSubmission {
             organization_id: command.organization_id,
             requester_id: command.requester_id,

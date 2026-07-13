@@ -4,6 +4,7 @@ use appletheia::application::authorization::{
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
+use appletheia::domain::Aggregate;
 use appletheia::domain::{AggregateId, UniqueValue};
 use banking_iam_domain::{
     Organization, OrganizationInvitation, OrganizationInvitationIssuance,
@@ -111,7 +112,7 @@ where
         let invitee = self.user_repository.read(uow, command.invitee_id).await?;
 
         let unique_value = Self::organization_invitee_unique_value(command)?;
-        let mut organization_invitation = OrganizationInvitation::default();
+        let mut organization_invitation = OrganizationInvitation::new();
         let issuance = OrganizationInvitationIssuance {
             organization_id: command.organization_id,
             invitee_id: command.invitee_id,

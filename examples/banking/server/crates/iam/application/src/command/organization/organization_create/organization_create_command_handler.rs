@@ -4,7 +4,7 @@ use appletheia::application::authorization::{
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use appletheia::domain::UniqueValue;
+use appletheia::domain::{Aggregate, UniqueValue};
 use banking_iam_domain::{
     Organization, OrganizationCreateResult, OrganizationCreation, OrganizationError,
     OrganizationHandle, OrganizationOwner, OrganizationState, User,
@@ -90,7 +90,7 @@ where
             return Err(OrganizationError::HandleAlreadyTaken.into());
         }
 
-        let mut organization = Organization::default();
+        let mut organization = Organization::new();
         let result = organization.create(OrganizationCreation {
             owner,
             handle,

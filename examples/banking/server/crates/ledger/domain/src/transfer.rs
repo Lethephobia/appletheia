@@ -250,7 +250,7 @@ mod tests {
         let from_account_id = AccountId::new();
         let to_account_id = AccountId::new();
         let amount = CurrencyAmount::new(100);
-        let mut transfer = Transfer::default();
+        let mut transfer = Transfer::new();
 
         transfer
             .request(TransferRequest {
@@ -291,7 +291,7 @@ mod tests {
     #[test]
     fn request_rejects_same_account_transfer() {
         let account_id = AccountId::new();
-        let mut transfer = Transfer::default();
+        let mut transfer = Transfer::new();
 
         let result = transfer
             .request(TransferRequest {
@@ -323,7 +323,7 @@ mod tests {
         let from_account_id = AccountId::new();
         let to_account_id = AccountId::new();
         let amount = CurrencyAmount::new(100);
-        let mut transfer = Transfer::default();
+        let mut transfer = Transfer::new();
 
         transfer
             .request(TransferRequest {
@@ -346,7 +346,7 @@ mod tests {
 
     #[test]
     fn complete_updates_status() {
-        let mut transfer = Transfer::default();
+        let mut transfer = Transfer::new();
         let from_account_id = AccountId::new();
         let to_account_id = AccountId::new();
         transfer
@@ -376,7 +376,7 @@ mod tests {
 
     #[test]
     fn fail_updates_status() {
-        let mut transfer = Transfer::default();
+        let mut transfer = Transfer::new();
         let from_account_id = AccountId::new();
         let to_account_id = AccountId::new();
         transfer
@@ -426,7 +426,7 @@ mod tests {
             appletheia::domain::AggregateVersion::try_from(2).expect("version should be valid"),
             TransferEventPayload::Completed,
         );
-        let mut transfer = Transfer::default();
+        let mut transfer = Transfer::new();
 
         transfer
             .replay_events(vec![requested, completed], None)

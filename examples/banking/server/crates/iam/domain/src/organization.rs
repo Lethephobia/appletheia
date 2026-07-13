@@ -435,7 +435,7 @@ mod tests {
     }
 
     fn organization() -> Organization {
-        let mut organization = Organization::default();
+        let mut organization = Organization::new();
         organization
             .create(OrganizationCreation {
                 owner: owner(),
