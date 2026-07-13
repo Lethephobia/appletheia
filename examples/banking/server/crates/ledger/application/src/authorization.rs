@@ -3,10 +3,10 @@ mod currency;
 mod wallet_bookmark;
 
 pub use account::{
-    AccountCloserRelation, AccountFreezerRelation, AccountNameChangerRelation,
-    AccountOwnerRelation, AccountOwnershipTransfererRelation, AccountRelationshipUpdater,
-    AccountRelationshipUpdaterError, AccountStatusManagerRelation, AccountThawerRelation,
-    AccountTransferRequesterRelation, AccountWithdrawalRequesterRelation,
+    AccountCloserRelation, AccountDepositRequesterRelation, AccountFreezerRelation,
+    AccountNameChangerRelation, AccountOwnerRelation, AccountOwnershipTransfererRelation,
+    AccountRelationshipUpdater, AccountRelationshipUpdaterError, AccountStatusManagerRelation,
+    AccountThawerRelation, AccountTransferRequesterRelation, AccountWithdrawalRequesterRelation,
     DefaultAccountRelationshipUpdater,
 };
 pub use currency::{

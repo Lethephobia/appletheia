@@ -11,5 +11,7 @@ pub use mint::{
     SolanaMintSupplySynchronizer, SolanaMintSupplySynchronizerConfig,
     SolanaMintSupplySynchronizerError, SolanaPoolTokenTransferExecutor,
     SolanaPoolTokenTransferExecutorConfig, SolanaPoolTokenTransferExecutorError,
-    SolanaTokenAccountOwnerAddressValidator,
+    SolanaTokenAccountOwnerAddressValidator, SolanaTokenDepositPreparer,
+    SolanaTokenDepositPreparerConfig, SolanaTokenDepositPreparerError, SolanaTokenDepositVerifier,
+    SolanaTokenDepositVerifierConfig, SolanaTokenDepositVerifierError,
 };

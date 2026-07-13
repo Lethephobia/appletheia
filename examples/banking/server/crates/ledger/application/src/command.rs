@@ -1,6 +1,7 @@
 pub mod account;
 pub mod currency;
 pub mod currency_issuance;
+pub mod deposit;
 pub mod owned_account_closure;
 pub mod transfer;
 pub mod wallet_bookmark;
@@ -56,6 +57,15 @@ pub use currency_issuance::{
     CurrencyIssuanceFailCommand, CurrencyIssuanceFailCommandHandler,
     CurrencyIssuanceFailCommandHandlerError, CurrencyIssuanceFailOutput, CurrencyIssueCommand,
     CurrencyIssueCommandHandler, CurrencyIssueCommandHandlerError, CurrencyIssueOutput,
+};
+pub use deposit::{
+    DepositCompleteCommand, DepositCompleteCommandHandler, DepositCompleteCommandHandlerError,
+    DepositCompleteOutput, DepositFailCommand, DepositFailCommandHandler,
+    DepositFailCommandHandlerError, DepositFailOutput, DepositTokenTransferPrepareCommand,
+    DepositTokenTransferPrepareCommandHandler, DepositTokenTransferPrepareCommandHandlerError,
+    DepositTokenTransferPrepareOutput, DepositTokenTransferRecordCommand,
+    DepositTokenTransferRecordCommandHandler, DepositTokenTransferRecordCommandHandlerError,
+    DepositTokenTransferRecordOutput,
 };
 pub use owned_account_closure::{
     OwnedAccountClosureAccountCloseRecordCommand,

@@ -1,6 +1,7 @@
 mod currency_issuance;
 mod currency_old_image_object_deletion;
 mod currency_provisioning;
+mod deposit;
 mod mint_metadata_sync;
 mod owned_account_closure;
 mod transfer;
@@ -18,6 +19,9 @@ pub use currency_old_image_object_deletion::{
 pub use currency_provisioning::{
     CurrencyProvisioningSaga, CurrencyProvisioningSagaError, CurrencyProvisioningSagaSpec,
     CurrencyProvisioningSagaState, CurrencyProvisioningSagaStatus,
+};
+pub use deposit::{
+    DepositSaga, DepositSagaError, DepositSagaSpec, DepositSagaState, DepositSagaStatus,
 };
 pub use mint_metadata_sync::{
     MintMetadataSyncSaga, MintMetadataSyncSagaError, MintMetadataSyncSagaSpec,

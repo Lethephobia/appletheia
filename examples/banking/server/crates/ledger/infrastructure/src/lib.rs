@@ -19,5 +19,7 @@ pub use solana::{
     SolanaMintSupplySynchronizerError, SolanaOnchainConfigurer, SolanaOnchainConfigurerConfig,
     SolanaOnchainConfigurerError, SolanaPoolTokenTransferExecutor,
     SolanaPoolTokenTransferExecutorConfig, SolanaPoolTokenTransferExecutorError,
-    SolanaTokenAccountOwnerAddressValidator,
+    SolanaTokenAccountOwnerAddressValidator, SolanaTokenDepositPreparer,
+    SolanaTokenDepositPreparerConfig, SolanaTokenDepositPreparerError, SolanaTokenDepositVerifier,
+    SolanaTokenDepositVerifierConfig, SolanaTokenDepositVerifierError,
 };
