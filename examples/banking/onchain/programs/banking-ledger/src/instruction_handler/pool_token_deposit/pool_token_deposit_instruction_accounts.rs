@@ -7,12 +7,12 @@ use anchor_spl::{
 };
 
 use crate::account::{
-    BankingLedgerConfig, Mint, MintState, PoolTokenDepositMarker, ProgramAuthority,
+    BankingLedgerConfig, Mint, MintState, PoolTokenDepositReceipt, ProgramAuthority,
 };
 use crate::instruction_handler::PoolTokenDepositInstructionError;
 
 #[derive(Accounts)]
-#[instruction(idempotency_key: [u8; 16], mint_id: [u8; 16])]
+#[instruction(pool_token_deposit_id: [u8; 16], mint_id: [u8; 16])]
 pub struct PoolTokenDepositInstructionAccounts<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
@@ -38,11 +38,11 @@ pub struct PoolTokenDepositInstructionAccounts<'info> {
     #[account(
         init_if_needed,
         payer = payer,
-        space = 8 + PoolTokenDepositMarker::LEN,
-        seeds = [PoolTokenDepositMarker::SEED, idempotency_key.as_ref()],
+        space = 8 + PoolTokenDepositReceipt::LEN,
+        seeds = [PoolTokenDepositReceipt::SEED, pool_token_deposit_id.as_ref()],
         bump,
     )]
-    pub pool_token_deposit_marker: Account<'info, PoolTokenDepositMarker>,
+    pub pool_token_deposit_receipt: Account<'info, PoolTokenDepositReceipt>,
     /// CHECK: PDA validated by seeds and used as the program-controlled authority.
     #[account(
         seeds = [ProgramAuthority::SEED],

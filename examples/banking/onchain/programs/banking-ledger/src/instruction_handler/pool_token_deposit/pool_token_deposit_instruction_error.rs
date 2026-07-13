@@ -10,6 +10,6 @@ pub enum PoolTokenDepositInstructionError {
     MintStateConflict,
     #[msg("mint account conflicts with mint state")]
     MintAccountConflict,
-    #[msg("pool token deposit marker conflicts with this deposit")]
-    PoolTokenDepositMarkerConflict,
+    #[msg("pool token deposit receipt conflicts with this deposit")]
+    PoolTokenDepositReceiptConflict,
 }

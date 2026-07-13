@@ -1,11 +1,11 @@
 use anchor_lang::prelude::*;
 
-pub mod pool_token_deposit_marker_initialization;
+pub mod pool_token_deposit_receipt_initialization;
 
-pub use pool_token_deposit_marker_initialization::PoolTokenDepositMarkerInitialization;
+pub use pool_token_deposit_receipt_initialization::PoolTokenDepositReceiptInitialization;
 
 #[account]
-pub struct PoolTokenDepositMarker {
+pub struct PoolTokenDepositReceipt {
     pub version: u8,
     pub mint_id: [u8; 16],
     pub token_account_owner: Pubkey,
@@ -13,13 +13,13 @@ pub struct PoolTokenDepositMarker {
     pub bump: u8,
 }
 
-impl PoolTokenDepositMarker {
-    pub const SEED: &[u8] = b"pool_token_deposit_marker";
+impl PoolTokenDepositReceipt {
+    pub const SEED: &[u8] = b"pool_token_deposit_receipt";
     pub const VERSION: u8 = 1;
     pub const LEN: usize = 1 + 16 + 32 + 8 + 1;
 
-    pub fn initialize(&mut self, initialization: PoolTokenDepositMarkerInitialization) {
-        let PoolTokenDepositMarkerInitialization {
+    pub fn initialize(&mut self, initialization: PoolTokenDepositReceiptInitialization) {
+        let PoolTokenDepositReceiptInitialization {
             mint_id,
             token_account_owner,
             amount,

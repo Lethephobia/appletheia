@@ -15,7 +15,7 @@ use instruction_handler::pool_token_deposit::PoolTokenDepositInstructionHandler;
 use instruction_handler::pool_token_transfer::PoolTokenTransferInstructionHandler;
 
 pub use account::{
-    BankingLedgerConfig, Mint, MintMetadata, MintState, PoolTokenDepositMarker,
+    BankingLedgerConfig, Mint, MintMetadata, MintState, PoolTokenDepositReceipt,
     PoolTokenTransferMarker, ProgramAuthority,
 };
 pub use instruction_handler::{
@@ -156,12 +156,12 @@ pub mod banking_ledger {
 
     pub fn deposit_pool_token(
         ctx: Context<PoolTokenDepositInstructionAccounts>,
-        idempotency_key: [u8; 16],
+        pool_token_deposit_id: [u8; 16],
         mint_id: [u8; 16],
         amount: u64,
     ) -> Result<()> {
         let args = PoolTokenDepositInstructionArgs {
-            idempotency_key,
+            pool_token_deposit_id,
             mint_id,
             amount,
         };

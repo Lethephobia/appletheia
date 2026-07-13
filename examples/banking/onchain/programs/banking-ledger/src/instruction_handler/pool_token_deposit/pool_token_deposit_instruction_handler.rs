@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::token_2022::{transfer_checked, TransferChecked};
 use banking_anchor::instruction::InstructionHandler;
 
-use crate::account::{PoolTokenDepositMarker, PoolTokenDepositMarkerInitialization};
+use crate::account::{PoolTokenDepositReceipt, PoolTokenDepositReceiptInitialization};
 use crate::instruction_handler::{
     PoolTokenDepositInstructionAccounts, PoolTokenDepositInstructionArgs,
     PoolTokenDepositInstructionError,
@@ -36,19 +36,19 @@ impl InstructionHandler for PoolTokenDepositInstructionHandler {
         args: Self::Args,
     ) -> Result<()> {
         let PoolTokenDepositInstructionArgs {
-            idempotency_key: _,
+            pool_token_deposit_id: _,
             mint_id,
             amount,
         } = args;
 
-        if ctx.accounts.pool_token_deposit_marker.is_initialized() {
+        if ctx.accounts.pool_token_deposit_receipt.is_initialized() {
             require!(
-                ctx.accounts.pool_token_deposit_marker.version == PoolTokenDepositMarker::VERSION
-                    && ctx.accounts.pool_token_deposit_marker.mint_id == mint_id
-                    && ctx.accounts.pool_token_deposit_marker.token_account_owner
+                ctx.accounts.pool_token_deposit_receipt.version == PoolTokenDepositReceipt::VERSION
+                    && ctx.accounts.pool_token_deposit_receipt.mint_id == mint_id
+                    && ctx.accounts.pool_token_deposit_receipt.token_account_owner
                         == ctx.accounts.token_account_owner.key()
-                    && ctx.accounts.pool_token_deposit_marker.amount == amount,
-                PoolTokenDepositInstructionError::PoolTokenDepositMarkerConflict
+                    && ctx.accounts.pool_token_deposit_receipt.amount == amount,
+                PoolTokenDepositInstructionError::PoolTokenDepositReceiptConflict
             );
 
             return Ok(());
@@ -57,12 +57,12 @@ impl InstructionHandler for PoolTokenDepositInstructionHandler {
         Self::transfer_to_pool(&ctx, amount)?;
 
         ctx.accounts
-            .pool_token_deposit_marker
-            .initialize(PoolTokenDepositMarkerInitialization {
+            .pool_token_deposit_receipt
+            .initialize(PoolTokenDepositReceiptInitialization {
                 mint_id,
                 token_account_owner: ctx.accounts.token_account_owner.key(),
                 amount,
-                bump: ctx.bumps.pool_token_deposit_marker,
+                bump: ctx.bumps.pool_token_deposit_receipt,
             });
 
         Ok(())
