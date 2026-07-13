@@ -25,7 +25,7 @@ pub struct PoolTokenDepositInstructionAccounts<'info> {
         constraint = operator.key() == banking_ledger_config.operator
             @ PoolTokenDepositInstructionError::UnauthorizedOperator,
     )]
-    pub operator: UncheckedAccount<'info>,
+    pub operator: Signer<'info>,
     #[account(
         seeds = [MintState::SEED, mint_id.as_ref()],
         bump = mint_state.bump,
