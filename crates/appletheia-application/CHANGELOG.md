@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.26.0](https://github.com/Lethephobia/appletheia/compare/appletheia-application-v0.25.0...appletheia-application-v0.26.0) - 2026-07-15
+
+### Added
+
+- *(aggregate)* [**breaking**] make aggregate identifiers intrinsic
+- *(repository)* [**breaking**] make aggregate reads return not found errors
+- *(object-storage)* [**breaking**] add direct object uploader
+- *(projection)* [**breaking**] generalize projection consistency waiting
+
+### Fixed
+
+- *(repository)* persist events without aggregate state
+
+### Other
+
+- *(application-oidc)* rename OidcBirthdate full constructor
+- *(application)* keep birthdate parsers scoped
+- *(application)* [**breaking**] split OIDC birthdate value objects
+- *(application)* adjust checksum algorithm string conversion
+- *(application)* [**breaking**] simplify read-your-writes consistency
+- *(application)* [**breaking**] infer event selector aggregate type
+
 ## [0.25.0](https://github.com/Lethephobia/appletheia/compare/appletheia-application-v0.24.0...appletheia-application-v0.25.0) - 2026-05-08
 
 ### Added
