@@ -1,4 +1,5 @@
 use super::UniqueEntries;
+use uuid::Uuid;
 
 /// Describes the namespace-scoped unique keys derived from aggregate state.
 pub trait UniqueConstraints<E>: Send + Sync
@@ -6,7 +7,7 @@ where
     E: std::error::Error + Send + Sync + 'static,
 {
     /// Returns the unique-key definitions derived from the current state.
-    fn unique_entries(&self) -> Result<UniqueEntries, E> {
+    fn unique_entries(&self, _aggregate_id: Uuid) -> Result<UniqueEntries, E> {
         Ok(UniqueEntries::new())
     }
 }
@@ -16,6 +17,7 @@ mod tests {
     use super::UniqueConstraints;
     use crate::aggregate::{UniqueEntries, UniqueKey, UniqueValue, UniqueValuePart, UniqueValues};
     use thiserror::Error;
+    use uuid::Uuid;
 
     #[derive(Debug, Error)]
     #[error("constraint error")]
@@ -28,7 +30,7 @@ mod tests {
     struct WithUniqueKeys;
 
     impl UniqueConstraints<ConstraintError> for WithUniqueKeys {
-        fn unique_entries(&self) -> Result<UniqueEntries, ConstraintError> {
+        fn unique_entries(&self, _aggregate_id: Uuid) -> Result<UniqueEntries, ConstraintError> {
             let value = UniqueValue::new(vec![
                 UniqueValuePart::try_from("tenant_123").expect("valid part"),
                 UniqueValuePart::try_from("foo@example.com").expect("valid part"),
@@ -46,7 +48,7 @@ mod tests {
     fn accepts_empty_constraints_by_default() {
         let constraints = EmptyConstraints;
         let unique_keys = constraints
-            .unique_entries()
+            .unique_entries(Uuid::now_v7())
             .expect("empty constraints should succeed");
 
         assert!(unique_keys.is_empty());
@@ -56,7 +58,7 @@ mod tests {
     fn returns_inserted_unique_keys() {
         let constraints = WithUniqueKeys;
         let unique_keys = constraints
-            .unique_entries()
+            .unique_entries(Uuid::now_v7())
             .expect("declared keys should succeed");
 
         assert_eq!(

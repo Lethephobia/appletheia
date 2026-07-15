@@ -85,6 +85,10 @@ mod tests {
     impl AggregateId for TestId {
         type Error = TestIdError;
 
+        fn new() -> Self {
+            Self(uuid::Uuid::now_v7())
+        }
+
         fn value(&self) -> uuid::Uuid {
             self.0
         }
@@ -119,12 +123,7 @@ mod tests {
     impl ReferenceIndexes<TestStateError> for TestState {}
 
     impl AggregateState for TestState {
-        type Id = TestId;
         type Error = TestStateError;
-
-        fn id(&self) -> Self::Id {
-            self.id
-        }
     }
 
     #[derive(Debug, Error)]
@@ -150,11 +149,14 @@ mod tests {
     enum TestAggregateError {
         #[error(transparent)]
         Aggregate(#[from] AggregateError<TestId>),
+
+        #[error(transparent)]
+        State(#[from] TestStateError),
     }
 
     #[derive(Clone, Debug, Default)]
     struct TestAggregate {
-        core: AggregateCore<TestState, TestPayload>,
+        core: AggregateCore<TestId, TestState, TestPayload>,
     }
 
     impl AggregateApply<TestPayload, TestAggregateError> for TestAggregate {
@@ -171,11 +173,23 @@ mod tests {
 
         const TYPE: AggregateType = TEST_AGGREGATE_TYPE;
 
-        fn core(&self) -> &AggregateCore<Self::State, Self::EventPayload> {
+        fn new() -> Self {
+            Self {
+                core: AggregateCore::new(),
+            }
+        }
+
+        fn from_id(id: Self::Id) -> Self {
+            Self {
+                core: AggregateCore::from_id(id),
+            }
+        }
+
+        fn core(&self) -> &AggregateCore<Self::Id, Self::State, Self::EventPayload> {
             &self.core
         }
 
-        fn core_mut(&mut self) -> &mut AggregateCore<Self::State, Self::EventPayload> {
+        fn core_mut(&mut self) -> &mut AggregateCore<Self::Id, Self::State, Self::EventPayload> {
             &mut self.core
         }
     }

@@ -5,7 +5,7 @@ use syn::{Item, ItemStruct, Result};
 use super::reference_indexes_attribute_args::{
     ReferenceIndexEntrySourceArg, ReferenceIndexesAttributeArgs,
 };
-use crate::utils::crate_path::resolve_domain_path;
+use crate::utils::crate_path::{resolve_domain_path, resolve_uuid_root};
 
 pub(crate) fn expand_reference_indexes_attribute(
     attr: proc_macro::TokenStream,
@@ -28,6 +28,7 @@ fn expand_reference_indexes_impl(
     args: ReferenceIndexesAttributeArgs,
 ) -> Result<TokenStream> {
     let domain = resolve_domain_path()?;
+    let uuid = resolve_uuid_root()?;
 
     let name = &item_struct.ident;
     let generics = &item_struct.generics;
@@ -37,12 +38,12 @@ fn expand_reference_indexes_impl(
         let key = &entry.key;
         match &entry.source {
             ReferenceIndexEntrySourceArg::Values(values) => quote! {
-                if let Some(values) = #values(self)? {
+                if let Some(values) = #values(self, aggregate_id)? {
                     let _ = entries.insert(#domain::ReferenceKey::new(#key), values);
                 }
             },
             ReferenceIndexEntrySourceArg::Value(value) => quote! {
-                if let Some(value) = #value(self)? {
+                if let Some(value) = #value(self, aggregate_id)? {
                     let values = #domain::ReferenceValues::new(vec![value])?;
                     let _ = entries.insert(#domain::ReferenceKey::new(#key), values);
                 }
@@ -73,6 +74,7 @@ fn expand_reference_indexes_impl(
         {
             fn reference_entries(
                 &self,
+                aggregate_id: #uuid::Uuid,
             ) -> ::std::result::Result<
                 #domain::ReferenceEntries,
                 <#name #ty_generics as #domain::AggregateState>::Error,

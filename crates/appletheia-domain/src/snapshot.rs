@@ -6,24 +6,24 @@ pub use snapshot_id::SnapshotId;
 pub use snapshot_id_error::SnapshotIdError;
 pub use snapshot_materialized_at::SnapshotMaterializedAt;
 
-use crate::aggregate::{AggregateState, AggregateVersion};
+use crate::aggregate::{AggregateId, AggregateState, AggregateVersion};
 
 /// Represents a materialized snapshot of aggregate state at a specific version.
 ///
 /// A snapshot captures the aggregate identifier, the version at which the state
 /// was materialized, the serialized state itself, and snapshot metadata.
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub struct Snapshot<S: AggregateState> {
+pub struct Snapshot<I: AggregateId, S: AggregateState> {
     id: SnapshotId,
-    aggregate_id: S::Id,
+    aggregate_id: I,
     aggregate_version: AggregateVersion,
     state: S,
     materialized_at: SnapshotMaterializedAt,
 }
 
-impl<S: AggregateState> Snapshot<S> {
+impl<I: AggregateId, S: AggregateState> Snapshot<I, S> {
     /// Creates a new snapshot with a fresh snapshot ID and the current timestamp.
-    pub fn new(aggregate_id: S::Id, aggregate_version: AggregateVersion, state: S) -> Self {
+    pub fn new(aggregate_id: I, aggregate_version: AggregateVersion, state: S) -> Self {
         Self {
             id: SnapshotId::new(),
             aggregate_id,
@@ -36,7 +36,7 @@ impl<S: AggregateState> Snapshot<S> {
     /// Rebuilds a snapshot from already persisted values.
     pub fn from_persisted(
         id: SnapshotId,
-        aggregate_id: S::Id,
+        aggregate_id: I,
         aggregate_version: AggregateVersion,
         state: S,
         materialized_at: SnapshotMaterializedAt,
@@ -56,7 +56,7 @@ impl<S: AggregateState> Snapshot<S> {
     }
 
     /// Returns the identifier of the aggregate represented by the snapshot.
-    pub fn aggregate_id(&self) -> S::Id {
+    pub fn aggregate_id(&self) -> I {
         self.aggregate_id
     }
 
@@ -115,6 +115,10 @@ mod tests {
     impl AggregateId for CounterId {
         type Error = CounterIdError;
 
+        fn new() -> Self {
+            Self(Uuid::now_v7())
+        }
+
         fn value(&self) -> Uuid {
             self.0
         }
@@ -141,12 +145,7 @@ mod tests {
     impl ReferenceIndexes<CounterStateError> for CounterState {}
 
     impl AggregateState for CounterState {
-        type Id = CounterId;
         type Error = CounterStateError;
-
-        fn id(&self) -> Self::Id {
-            self.id
-        }
     }
 
     #[test]

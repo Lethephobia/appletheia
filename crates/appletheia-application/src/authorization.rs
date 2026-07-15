@@ -1,5 +1,4 @@
 pub mod aggregate_ref;
-pub mod aggregate_ref_error;
 pub mod authorization_model;
 pub mod authorization_model_error;
 pub mod authorization_plan;
@@ -36,7 +35,6 @@ pub mod userset_expr_eval_depth;
 pub mod userset_expr_owned;
 
 pub use aggregate_ref::AggregateRef;
-pub use aggregate_ref_error::AggregateRefError;
 pub use authorization_model::AuthorizationModel;
 pub use authorization_model_error::AuthorizationModelError;
 pub use authorization_plan::AuthorizationPlan;

@@ -31,13 +31,12 @@ struct CounterState {
 impl UniqueConstraints<CounterStateError> for CounterState {}
 impl ReferenceIndexes<CounterStateError> for CounterState {}
 
-fn assert_aggregate_state<T: AggregateState<Id = CounterId>>() {}
+fn assert_aggregate_state<T: AggregateState<Error = CounterStateError>>() {}
 
 fn main() {
     assert_aggregate_state::<CounterState>();
-    let state = CounterState {
+    let _state = CounterState {
         id: CounterId::try_from_uuid(Uuid::nil()).unwrap(),
         counter: 1,
     };
-    let _ = state.id();
 }

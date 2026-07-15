@@ -22,7 +22,7 @@ enum CounterStateError {
 #[aggregate_id(error = Infallible)]
 struct CounterId(Uuid);
 
-#[aggregate_state(id = aggregate_id, error = CounterStateError)]
+#[aggregate_state(error = CounterStateError)]
 struct CounterState {
     aggregate_id: CounterId,
     counter: i32,
@@ -31,13 +31,12 @@ struct CounterState {
 impl UniqueConstraints<CounterStateError> for CounterState {}
 impl ReferenceIndexes<CounterStateError> for CounterState {}
 
-fn assert_aggregate_state<T: AggregateState<Id = CounterId, Error = CounterStateError>>() {}
+fn assert_aggregate_state<T: AggregateState<Error = CounterStateError>>() {}
 
 fn main() {
     assert_aggregate_state::<CounterState>();
-    let state = CounterState {
+    let _state = CounterState {
         aggregate_id: CounterId::try_from_uuid(Uuid::nil()).unwrap(),
         counter: 1,
     };
-    let _ = state.id();
 }

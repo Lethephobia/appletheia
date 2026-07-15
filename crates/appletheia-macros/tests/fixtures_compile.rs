@@ -1,6 +1,6 @@
 use std::fs;
 use std::io::ErrorKind;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 fn run_cargo_check(manifest_path: PathBuf) {
@@ -25,7 +25,7 @@ fn run_cargo_check(manifest_path: PathBuf) {
     }
 }
 
-fn remove_fixture_lockfile(manifest_path: &PathBuf) {
+fn remove_fixture_lockfile(manifest_path: &Path) {
     let Some(fixture_dir) = manifest_path.parent() else {
         return;
     };

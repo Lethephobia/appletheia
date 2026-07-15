@@ -36,6 +36,10 @@ pub(crate) fn expand_aggregate_id_derive(
         impl #impl_generics #domain::AggregateId for #name #ty_generics #where_clause {
             type Error = #error_ty;
 
+            fn new() -> Self {
+                Self(#uuid::Uuid::now_v7())
+            }
+
             fn value(&self) -> #uuid::Uuid {
                 self.0
             }

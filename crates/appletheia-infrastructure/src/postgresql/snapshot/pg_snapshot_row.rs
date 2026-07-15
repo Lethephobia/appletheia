@@ -20,7 +20,9 @@ pub(crate) struct PgSnapshotRow {
 }
 
 impl PgSnapshotRow {
-    pub fn try_into_snapshot<A: Aggregate>(self) -> Result<Snapshot<A::State>, PgSnapshotError<A>> {
+    pub fn try_into_snapshot<A: Aggregate>(
+        self,
+    ) -> Result<Snapshot<A::Id, A::State>, PgSnapshotError<A>> {
         let id = SnapshotId::try_from(self.id).map_err(PgSnapshotError::SnapshotId)?;
         let aggregate_id =
             A::Id::try_from_uuid(self.aggregate_id).map_err(PgSnapshotError::AggregateId)?;

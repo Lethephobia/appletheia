@@ -1,10 +1,7 @@
 use std::marker::PhantomData;
 use std::ops::Bound;
 
-use appletheia_domain::{
-    Aggregate, AggregateError, AggregateVersion, AggregateVersionRange, ReferenceIndexes,
-    UniqueConstraints,
-};
+use appletheia_domain::{Aggregate, AggregateVersion, AggregateVersionRange};
 
 use crate::event::{EventReader, EventWriter};
 use crate::request_context::RequestContext;
@@ -100,7 +97,7 @@ where
             });
         }
 
-        let mut aggregate = A::default();
+        let mut aggregate = A::from_id(id);
         aggregate
             .replay_events(events, snapshot)
             .map_err(RepositoryError::Aggregate)?;
@@ -163,17 +160,16 @@ where
         request_context: &RequestContext,
         aggregate: &mut A,
     ) -> Result<(), RepositoryError<A>> {
-        let aggregate_id = aggregate
-            .aggregate_id()
-            .ok_or_else(|| RepositoryError::Aggregate(AggregateError::<A::Id>::NoState.into()))?;
-        let state = aggregate
-            .state_required()
+        let aggregate_id = aggregate.aggregate_id();
+        let unique_entries = aggregate
+            .unique_entries()
             .map_err(RepositoryError::Aggregate)?;
-        let unique_entries = state.unique_entries().map_err(RepositoryError::State)?;
         self.unique_key_reservation_store
             .replace(uow, A::TYPE, aggregate_id, &unique_entries)
             .await?;
-        let reference_entries = state.reference_entries().map_err(RepositoryError::State)?;
+        let reference_entries = aggregate
+            .reference_entries()
+            .map_err(RepositoryError::Aggregate)?;
         self.reference_index_store
             .replace(uow, A::TYPE, aggregate_id, &reference_entries)
             .await?;
@@ -277,6 +273,10 @@ mod tests {
     impl AggregateId for CounterId {
         type Error = CounterIdError;
 
+        fn new() -> Self {
+            Self(Uuid::now_v7())
+        }
+
         fn value(&self) -> Uuid {
             self.0
         }
@@ -306,7 +306,10 @@ mod tests {
     }
 
     impl UniqueConstraints<CounterStateError> for CounterState {
-        fn unique_entries(&self) -> Result<UniqueEntries, CounterStateError> {
+        fn unique_entries(
+            &self,
+            _aggregate_id: uuid::Uuid,
+        ) -> Result<UniqueEntries, CounterStateError> {
             let mut unique_keys = UniqueEntries::new();
             if let Some(email) = self.email.as_deref() {
                 let part = UniqueValuePart::try_from(email).expect("email should be non-empty");
@@ -322,12 +325,7 @@ mod tests {
     impl ReferenceIndexes<CounterStateError> for CounterState {}
 
     impl AggregateState for CounterState {
-        type Id = CounterId;
         type Error = CounterStateError;
-
-        fn id(&self) -> Self::Id {
-            self.id
-        }
     }
 
     #[derive(Debug, Error)]
@@ -363,11 +361,14 @@ mod tests {
     enum CounterError {
         #[error(transparent)]
         Aggregate(#[from] AggregateError<CounterId>),
+
+        #[error(transparent)]
+        State(#[from] CounterStateError),
     }
 
     #[derive(Clone, Debug, Default)]
     struct Counter {
-        core: AggregateCore<CounterState, CounterEventPayload>,
+        core: AggregateCore<CounterId, CounterState, CounterEventPayload>,
     }
 
     impl AggregateApply<CounterEventPayload, CounterError> for Counter {
@@ -393,11 +394,23 @@ mod tests {
 
         const TYPE: AggregateType = AggregateType::new("counter");
 
-        fn core(&self) -> &AggregateCore<Self::State, Self::EventPayload> {
+        fn new() -> Self {
+            Self {
+                core: AggregateCore::new(),
+            }
+        }
+
+        fn from_id(id: Self::Id) -> Self {
+            Self {
+                core: AggregateCore::from_id(id),
+            }
+        }
+
+        fn core(&self) -> &AggregateCore<Self::Id, Self::State, Self::EventPayload> {
             &self.core
         }
 
-        fn core_mut(&mut self) -> &mut AggregateCore<Self::State, Self::EventPayload> {
+        fn core_mut(&mut self) -> &mut AggregateCore<Self::Id, Self::State, Self::EventPayload> {
             &mut self.core
         }
     }
@@ -452,7 +465,7 @@ mod tests {
             _uow: &mut Self::Uow,
             _aggregate_id: CounterId,
             _as_of: Option<AggregateVersion>,
-        ) -> Result<Option<Snapshot<CounterState>>, SnapshotReaderError> {
+        ) -> Result<Option<Snapshot<CounterId, CounterState>>, SnapshotReaderError> {
             Ok(None)
         }
     }
@@ -466,7 +479,7 @@ mod tests {
         async fn write_snapshot(
             &self,
             _uow: &mut Self::Uow,
-            _snapshot: &Snapshot<CounterState>,
+            _snapshot: &Snapshot<CounterId, CounterState>,
         ) -> Result<(), SnapshotWriterError> {
             Ok(())
         }

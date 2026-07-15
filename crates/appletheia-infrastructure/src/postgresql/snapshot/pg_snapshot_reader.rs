@@ -34,7 +34,7 @@ impl<A: Aggregate> SnapshotReader<A> for PgSnapshotReader<A> {
         uow: &mut Self::Uow,
         aggregate_id: A::Id,
         as_of: Option<AggregateVersion>,
-    ) -> Result<Option<Snapshot<A::State>>, SnapshotReaderError> {
+    ) -> Result<Option<Snapshot<A::Id, A::State>>, SnapshotReaderError> {
         let mut query: QueryBuilder<Postgres> = QueryBuilder::new(
             r#"
             SELECT id, aggregate_type, aggregate_id, aggregate_version, state, materialized_at
