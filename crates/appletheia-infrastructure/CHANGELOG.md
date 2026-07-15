@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.0](https://github.com/Lethephobia/appletheia/compare/appletheia-infrastructure-v0.16.0...appletheia-infrastructure-v0.17.0) - 2026-07-15
+
+### Added
+
+- *(aggregate)* [**breaking**] make aggregate identifiers intrinsic
+- *(examples)* add currency mint account creation
+- *(object-storage)* [**breaking**] add direct object uploader
+- *(projection)* [**breaking**] generalize projection consistency waiting
+
+### Other
+
+- *(deps)* update infrastructure dependencies
+- *(application)* [**breaking**] simplify read-your-writes consistency
+
 ## [0.16.0](https://github.com/Lethephobia/appletheia/compare/appletheia-infrastructure-v0.15.0...appletheia-infrastructure-v0.16.0) - 2026-05-08
 
 ### Added

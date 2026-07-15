@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0](https://github.com/Lethephobia/appletheia/compare/appletheia-domain-v0.5.0...appletheia-domain-v0.6.0) - 2026-07-15
+
+### Added
+
+- *(aggregate)* [**breaking**] make aggregate identifiers intrinsic
+- *(domain)* add aggregate constructor
+
+### Fixed
+
+- *(repository)* persist events without aggregate state
+
 ## [0.5.0](https://github.com/Lethephobia/appletheia/compare/appletheia-domain-v0.4.0...appletheia-domain-v0.5.0) - 2026-05-08
 
 ### Added
