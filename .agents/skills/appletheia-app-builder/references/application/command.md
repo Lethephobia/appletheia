@@ -139,7 +139,8 @@ failures that should roll back and retry.
 good:
 ```rust
 let currency = currency_repository.find_by_id(uow, command.currency_id).await?;
-let mut issuance = CurrencyIssuance::default();
+let mut issuance = CurrencyIssuance::new();
+let currency_issuance_id = issuance.aggregate_id();
 let request = CurrencyIssuanceRequest {
     currency_id: command.currency_id,
     destination_account_id: command.destination_account_id,
@@ -148,7 +149,7 @@ let request = CurrencyIssuanceRequest {
 
 if destination_account.currency_id()? != &command.currency_id {
     let reason = CurrencyIssuanceIssueRejectionReason::CurrencyMismatch;
-    let currency_issuance_id = issuance.reject_issue(request, reason)?;
+    issuance.reject_issue(request, reason)?;
 
     currency_issuance_repository
         .save(uow, request_context, &mut issuance)
@@ -162,7 +163,7 @@ if destination_account.currency_id()? != &command.currency_id {
 
 if !currency.is_active() {
     let reason = CurrencyIssuanceIssueRejectionReason::CurrencyInactive;
-    let currency_issuance_id = issuance.reject_issue(request, reason)?;
+    issuance.reject_issue(request, reason)?;
 
     currency_issuance_repository
         .save(uow, request_context, &mut issuance)
@@ -181,15 +182,10 @@ currency_issuance_repository
     .await?;
 
 let output = match result {
-    CurrencyIssuanceIssueResult::Issued {
-        currency_issuance_id,
-    } => CurrencyIssueOutput::Issued {
+    CurrencyIssuanceIssueResult::Issued => CurrencyIssueOutput::Issued {
         currency_issuance_id,
     },
-    CurrencyIssuanceIssueResult::Rejected {
-        currency_issuance_id,
-        reason,
-    } => CurrencyIssueOutput::Rejected {
+    CurrencyIssuanceIssueResult::Rejected { reason } => CurrencyIssueOutput::Rejected {
         currency_issuance_id,
         reason,
     },

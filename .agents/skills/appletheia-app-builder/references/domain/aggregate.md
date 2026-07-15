@@ -49,25 +49,17 @@ pub fn issue(
 
     if expires_at.is_expired(now) {
         let reason = OrganizationInvitationIssueRejectionReason::Expired;
-        let organization_invitation_id =
-            self.reject_issue(organization_id, invitee_id, issuer, expires_at, reason)?;
-        return Ok(OrganizationInvitationIssueResult::Rejected {
-            organization_invitation_id,
-            reason,
-        });
+        self.reject_issue(organization_id, invitee_id, issuer, expires_at, reason)?;
+        return Ok(OrganizationInvitationIssueResult::Rejected { reason });
     }
 
-    let organization_invitation_id = OrganizationInvitationId::new();
     self.append_event(OrganizationInvitationEventPayload::Issued {
-        id: organization_invitation_id,
         organization_id,
         invitee_id,
         issuer,
         expires_at,
     })?;
-    Ok(OrganizationInvitationIssueResult::Issued {
-        organization_invitation_id,
-    })
+    Ok(OrganizationInvitationIssueResult::Issued)
 }
 
 pub fn reject_issue(
@@ -77,17 +69,14 @@ pub fn reject_issue(
     issuer: OrganizationInvitationIssuer,
     expires_at: OrganizationInvitationExpiresAt,
     reason: OrganizationInvitationIssueRejectionReason,
-) -> Result<OrganizationInvitationId, OrganizationInvitationError> {
-    let organization_invitation_id = OrganizationInvitationId::new();
+) -> Result<(), OrganizationInvitationError> {
     self.append_event(OrganizationInvitationEventPayload::IssueRejected {
-        id: organization_invitation_id,
         organization_id,
         invitee_id,
         issuer,
         expires_at,
         reason,
-    })?;
-    Ok(organization_invitation_id)
+    })
 }
 ```
 
@@ -112,12 +101,8 @@ pub fn register(
         return Err(UserError::AlreadyRegistered);
     }
 
-    let user_id = UserId::new();
-    self.append_event(UserEventPayload::Registered {
-        id: user_id,
-        username,
-    })?;
-    Ok(RegisterUserResult::Registered { user_id })
+    self.append_event(UserEventPayload::Registered { username })?;
+    Ok(RegisterUserResult::Registered)
 }
 ```
 
@@ -127,10 +112,7 @@ pub fn register(
     &mut self,
     username: Username,
 ) -> Result<(), UserError> {
-    self.append_event(UserEventPayload::Registered {
-        id: UserId::new(),
-        username,
-    })?;
+    self.append_event(UserEventPayload::Registered { username })?;
     self.append_event(ExampleEventPayload::SomethingElse { owner: UserId::new() })
 }
 ```
@@ -557,13 +539,11 @@ pub fn create(
         return Err(OrganizationError::AlreadyCreated);
     }
 
-    let organization_id = OrganizationId::new();
     self.append_event(OrganizationEventPayload::Created {
-        id: organization_id,
         handle,
         name,
     })?;
-    Ok(OrganizationCreateResult::Created { organization_id })
+    Ok(OrganizationCreateResult::Created)
 }
 ```
 
@@ -574,41 +554,67 @@ pub fn open(&mut self, name: ExampleName) -> Result<(), ExampleError> {
         return Ok(());
     }
 
-    self.append_event(ExampleEventPayload::Opened {
-        id: ExampleId::new(),
-        name,
-    })
+    self.append_event(ExampleEventPayload::Opened { name })
 }
 ```
 
-### DO generate the aggregate's own `AggregateId` inside the aggregate's own command method
+### DO let `Aggregate::new()` generate the aggregate's own `AggregateId`
 
-Keep identity creation within the aggregate boundary.
+The aggregate ID exists before the first event. Read it through `aggregate_id()` and do not copy
+the aggregate's own ID into state, event payloads, or command results. Application handlers can
+read the ID directly from the aggregate when building their output. Other aggregate IDs remain
+normal domain data. Define the ID type on `AggregateCore` and let `#[aggregate]` implement `new()`
+and `from_id()`; do not add mutable aggregate-ID setters or duplicate constructors by hand.
 
 good:
 ```rust
+#[aggregate(type = "organization_membership", error = OrganizationMembershipError)]
+pub struct OrganizationMembership {
+    core: AggregateCore<
+        OrganizationMembershipId,
+        OrganizationMembershipState,
+        OrganizationMembershipEventPayload,
+    >,
+}
+
 pub fn create(
     &mut self,
     organization_id: OrganizationId,
     user_id: UserId,
 ) -> Result<OrganizationMembershipCreateResult, OrganizationMembershipError> {
-    let organization_membership_id = OrganizationMembershipId::new();
     self.append_event(OrganizationMembershipEventPayload::Created {
-        id: organization_membership_id,
         organization_id,
         user_id,
     })?;
-    Ok(OrganizationMembershipCreateResult::Created {
-        organization_membership_id,
-    })
+    Ok(OrganizationMembershipCreateResult::Created)
 }
 ```
 
 bad:
 ```rust
-pub fn open(&mut self, id: ExampleId, name: ExampleName) -> Result<(), ExampleError> {
+pub fn open(&mut self, name: ExampleName) -> Result<(), ExampleError> {
+    let id = ExampleId::new();
     self.append_event(ExampleEventPayload::Opened { id, name })
 }
+```
+
+### DO derive unique and reference entries through the aggregate
+
+Call `aggregate.unique_entries()` and `aggregate.reference_entries()` when persistence code needs
+the current indexes. The aggregate combines its immutable identifier with its state, so callers do
+not need to pass the identifier into state-level index definitions themselves. Aggregate errors
+must support conversion from the corresponding aggregate-state error.
+
+good:
+```rust
+let unique_entries = aggregate.unique_entries()?;
+let reference_entries = aggregate.reference_entries()?;
+```
+
+bad:
+```rust
+let state = aggregate.state_required()?;
+let unique_entries = state.unique_entries(aggregate.aggregate_id().value())?;
 ```
 
 ### PREFER expose state attributes and computed values through getters
@@ -642,7 +648,7 @@ Keep aggregate data inside `AggregateCore` and the aggregate state.
 bad:
 ```rust
 pub struct ExampleAggregate {
-    core: AggregateCore<ExampleState, ExampleEventPayload>,
+    core: AggregateCore<ExampleId, ExampleState, ExampleEventPayload>,
     name: ExampleName,
 }
 ```
@@ -650,7 +656,7 @@ pub struct ExampleAggregate {
 good:
 ```rust
 pub struct Organization {
-    core: AggregateCore<OrganizationState, OrganizationEventPayload>,
+    core: AggregateCore<OrganizationId, OrganizationState, OrganizationEventPayload>,
 }
 ```
 
@@ -668,10 +674,7 @@ impl Parent {
 
 impl Child {
     pub fn open(&mut self, name: ChildName) -> Result<(), ChildError> {
-        self.append_event(ChildEventPayload::Opened {
-            id: ChildId::new(),
-            name,
-        })
+        self.append_event(ChildEventPayload::Opened { name })
     }
 }
 ```
@@ -684,15 +687,11 @@ impl OrganizationMembership {
         organization_id: OrganizationId,
         user_id: UserId,
     ) -> Result<OrganizationMembershipCreateResult, OrganizationMembershipError> {
-        let organization_membership_id = OrganizationMembershipId::new();
         self.append_event(OrganizationMembershipEventPayload::Created {
-            id: organization_membership_id,
             organization_id,
             user_id,
         })?;
-        Ok(OrganizationMembershipCreateResult::Created {
-            organization_membership_id,
-        })
+        Ok(OrganizationMembershipCreateResult::Created)
     }
 
     pub fn reject_create(
@@ -700,15 +699,12 @@ impl OrganizationMembership {
         organization_id: OrganizationId,
         user_id: UserId,
         reason: OrganizationMembershipCreateRejectionReason,
-    ) -> Result<OrganizationMembershipId, OrganizationMembershipError> {
-        let organization_membership_id = OrganizationMembershipId::new();
+    ) -> Result<(), OrganizationMembershipError> {
         self.append_event(OrganizationMembershipEventPayload::CreateRejected {
-            id: organization_membership_id,
             organization_id,
             user_id,
             reason,
-        })?;
-        Ok(organization_membership_id)
+        })
     }
 }
 ```
@@ -740,17 +736,13 @@ pub fn issue(
     issuer: OrganizationInvitationIssuer,
     expires_at: OrganizationInvitationExpiresAt,
 ) -> Result<OrganizationInvitationIssueResult, OrganizationInvitationError> {
-    let organization_invitation_id = OrganizationInvitationId::new();
     self.append_event(OrganizationInvitationEventPayload::Issued {
-        id: organization_invitation_id,
         organization_id,
         invitee_id,
         issuer,
         expires_at,
     })?;
-    Ok(OrganizationInvitationIssueResult::Issued {
-        organization_invitation_id,
-    })
+    Ok(OrganizationInvitationIssueResult::Issued)
 }
 ```
 
@@ -772,17 +764,12 @@ fn apply(&mut self, payload: &OrganizationEventPayload) -> Result<(), Organizati
             self.state_required_mut()?.name = name.clone();
             Ok(())
         }
-        OrganizationEventPayload::Created {
-            id,
-            handle,
-            name,
-        } => {
-            self.state = Some(OrganizationState {
-                id: *id,
+        OrganizationEventPayload::Created { handle, name } => {
+            self.set_state(Some(OrganizationState {
                 handle: handle.clone(),
                 name: name.clone(),
                 status: OrganizationStatus::Active,
-            });
+            }));
             Ok(())
         }
         _ => Ok(()),
@@ -794,17 +781,12 @@ good:
 ```rust
 fn apply(&mut self, payload: &OrganizationEventPayload) -> Result<(), OrganizationError> {
     match payload {
-        OrganizationEventPayload::Created {
-            id,
-            handle,
-            name,
-        } => {
-            self.state = Some(OrganizationState {
-                id: *id,
+        OrganizationEventPayload::Created { handle, name } => {
+            self.set_state(Some(OrganizationState {
                 handle: handle.clone(),
                 name: name.clone(),
                 status: OrganizationStatus::Active,
-            });
+            }));
             Ok(())
         }
         OrganizationEventPayload::HandleChanged { handle } => {
@@ -838,12 +820,11 @@ fn apply(&mut self, event: ExampleEventPayload) -> Result<(), ExampleError> {
 
             Ok(())
         }
-        ExampleEventPayload::Opened { id, name } => {
-            self.state = Some(ExampleState {
-                id: *id,
+        ExampleEventPayload::Opened { name } => {
+            self.set_state(Some(ExampleState {
                 name: name.clone(),
                 status: ExampleStatus::Active,
-            });
+            }));
             Ok(())
         }
     }
@@ -859,17 +840,12 @@ fn apply(&mut self, payload: &OrganizationEventPayload) -> Result<(), Organizati
             state.name = name.clone();
             Ok(())
         }
-        OrganizationEventPayload::Created {
-            id,
-            handle,
-            name,
-        } => {
-            self.state = Some(OrganizationState {
-                id: *id,
+        OrganizationEventPayload::Created { handle, name } => {
+            self.set_state(Some(OrganizationState {
                 handle: handle.clone(),
                 name: name.clone(),
                 status: OrganizationStatus::Active,
-            });
+            }));
             Ok(())
         }
         OrganizationEventPayload::HandleChanged { handle } => {
@@ -886,6 +862,38 @@ fn apply(&mut self, payload: &OrganizationEventPayload) -> Result<(), Organizati
 
 ## AggregateState
 
+### DO use the aggregate ID supplied to unique and reference index callbacks
+
+`AggregateState` does not store the aggregate's own ID. When an index includes that ID, use the
+`aggregate_id` argument supplied by the generated callback contract. Import concrete types such as
+`Uuid` and use their short names instead of writing fully qualified paths in signatures.
+
+good:
+```rust
+use uuid::Uuid;
+
+fn organization_user_unique_values(
+    _state: &UserState,
+    aggregate_id: Uuid,
+) -> Result<Option<UniqueValues>, UserStateError> {
+    let user_id = aggregate_id.to_string();
+    let value = UniqueValue::from_strings([user_id.as_str()])?;
+
+    Ok(Some(UniqueValues::new([value])?))
+}
+```
+
+bad:
+```rust
+fn organization_user_unique_values(
+    state: &UserState,
+    aggregate_id: uuid::Uuid,
+) -> Result<Option<UniqueValues>, UserStateError> {
+    // Do not recover or duplicate the aggregate ID from state.
+    todo!()
+}
+```
+
 ### PREFER keep `AggregateState` fields `pub(super)` or `pub(crate)` at most
 
 Limit field visibility to the aggregate module or its parent when possible.
@@ -893,7 +901,6 @@ Limit field visibility to the aggregate module or its parent when possible.
 good:
 ```rust
 pub(super) struct OrganizationState {
-    pub(super) id: OrganizationId,
     pub(super) status: OrganizationStatus,
     pub(super) handle: OrganizationHandle,
     pub(super) name: OrganizationName,
@@ -903,7 +910,6 @@ pub(super) struct OrganizationState {
 bad:
 ```rust
 pub struct OrganizationState {
-    pub id: OrganizationId,
     pub handle: OrganizationHandle,
     pub name: OrganizationName,
     pub status: OrganizationStatus,
@@ -923,22 +929,17 @@ pub fn create(
     handle: OrganizationHandle,
     name: OrganizationName,
 ) -> Result<(), OrganizationError> {
-    self.append_event(OrganizationEventPayload::Created {
-        id: OrganizationId::new(),
-        handle,
-        name,
-    })
+    self.append_event(OrganizationEventPayload::Created { handle, name })
 }
 
 fn apply(&mut self, payload: &OrganizationEventPayload) -> Result<(), OrganizationError> {
     match payload {
-        OrganizationEventPayload::Created { id, handle, name } => {
-            self.state = Some(OrganizationState {
-                id: *id,
+        OrganizationEventPayload::Created { handle, name } => {
+            self.set_state(Some(OrganizationState {
                 handle: handle.clone(),
                 name: name.clone(),
                 status: OrganizationStatus::Active,
-            });
+            }));
         }
         OrganizationEventPayload::Removed => {
             self.state_required_mut()?.status = OrganizationStatus::Removed;
@@ -953,7 +954,6 @@ bad:
 ```rust
 pub enum OrganizationEventPayload {
     Created {
-        id: OrganizationId,
         handle: OrganizationHandle,
         name: OrganizationName,
         status: OrganizationStatus,
@@ -1067,7 +1067,6 @@ good:
 #[event_payload(error = OrganizationEventPayloadError)]
 pub enum OrganizationEventPayload {
     Created {
-        id: OrganizationId,
         handle: OrganizationHandle,
         name: OrganizationName,
     },
@@ -1086,7 +1085,6 @@ bad:
 #[derive(Serialize, Deserialize)]
 pub struct OrganizationEventPayload {
     pub kind: String,
-    pub id: Option<OrganizationId>,
     pub handle: Option<OrganizationHandle>,
     pub name: Option<OrganizationName>,
 }
@@ -1100,7 +1098,6 @@ good:
 ```rust
 pub enum OrganizationInvitationEventPayload {
     Issued {
-        id: OrganizationInvitationId,
         organization_id: OrganizationId,
         invitee_id: UserId,
         issuer: OrganizationInvitationIssuer,
@@ -1125,7 +1122,6 @@ bad:
 ```rust
 pub enum OrganizationInvitationEventPayload {
     Issue {
-        id: OrganizationInvitationId,
         organization_id: OrganizationId,
         invitee_id: UserId,
     },

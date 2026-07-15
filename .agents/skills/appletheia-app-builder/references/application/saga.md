@@ -170,11 +170,12 @@ WorkflowSaga
 ### DO use `SagaInstance` to carry state, queued commands, and terminal status
 
 Let the saga implementation use the instance as the single place for in-flight workflow bookkeeping.
+Read the triggering aggregate's own ID from the domain event, not from its payload.
 
 good:
 ```rust
 *instance.state_mut() = Some(TransferSagaState::new(
-    *id,
+    transfer_event.aggregate_id(),
     *from_account_id,
     *to_account_id,
     *amount,
@@ -192,6 +193,37 @@ instance.append_command(
 bad:
 ```rust
 command_bus.send(AccountFundsReserveCommand { .. });
+```
+
+### DON'T duplicate an aggregate's own ID in an event payload
+
+The event already carries its aggregate ID. Use `domain_event.aggregate_id()` when initializing
+saga state or building a follow-up command. Keep payload IDs only for references to other
+aggregates.
+
+good:
+```rust
+let transfer_event = event.try_into_domain_event::<Transfer>()?;
+if let TransferEventPayload::Requested {
+    from_account_id,
+    to_account_id,
+    amount,
+} = transfer_event.payload()
+{
+    *instance.state_mut() = Some(TransferSagaState::new(
+        transfer_event.aggregate_id(),
+        *from_account_id,
+        *to_account_id,
+        *amount,
+    ));
+}
+```
+
+bad:
+```rust
+if let TransferEventPayload::Requested { transfer_id, .. } = transfer_event.payload() {
+    // `transfer_id` duplicates the ID already carried by `transfer_event`.
+}
 ```
 
 ### DO use `append_command_with_options` only when command options differ from defaults

@@ -61,15 +61,18 @@ Bring commonly used external types into scope once, then refer to them by bare n
 good:
 ```rust
 use banking_iam_domain::{Organization, OrganizationId, UserId};
+use uuid::Uuid;
 
 let organization = AggregateRef::from_id::<Organization>(organization_id);
 let user_id = UserId::new();
+let correlation_id = Uuid::now_v7();
 ```
 
 bad:
 ```rust
 let organization = AggregateRef::from_id::<banking_iam_domain::Organization>(organization_id);
 let user_id = banking_iam_domain::UserId::new();
+let correlation_id = uuid::Uuid::now_v7();
 ```
 
 ### PREFER keep related items together when they form a small unit
