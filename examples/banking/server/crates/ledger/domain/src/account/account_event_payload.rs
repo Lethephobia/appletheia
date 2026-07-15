@@ -5,7 +5,7 @@ use crate::currency::CurrencyId;
 
 use super::{
     AccountCloseRejectionReason, AccountDepositRejectionReason, AccountEventPayloadError,
-    AccountFreezeRejectionReason, AccountFundsReserveRejectionReason, AccountId, AccountName,
+    AccountFreezeRejectionReason, AccountFundsReserveRejectionReason, AccountName,
     AccountNameChangeRejectionReason, AccountOwner, AccountOwnershipTransferRejectionReason,
     AccountReservedFundsCommitRejectionReason, AccountReservedFundsReleaseRejectionReason,
     AccountThawRejectionReason, AccountWithdrawRejectionReason,
@@ -15,7 +15,6 @@ use super::{
 #[event_payload(error = AccountEventPayloadError)]
 pub enum AccountEventPayload {
     Opened {
-        id: AccountId,
         owner: AccountOwner,
         name: AccountName,
         currency_id: CurrencyId,
@@ -85,97 +84,80 @@ pub enum AccountEventPayload {
 
 #[cfg(test)]
 mod tests {
-    use appletheia::domain::EventPayload;
+    use appletheia::domain::{EventName, EventPayload};
+    use banking_iam_domain::{OrganizationId, UserId};
 
     use crate::currency::CurrencyId;
 
-    use super::{AccountEventPayload, AccountId, AccountName, AccountOwner, CurrencyAmount};
+    use super::{AccountEventPayload, AccountName, AccountOwner, CurrencyAmount};
 
     #[test]
     fn returns_stable_event_names() {
-        assert_eq!(
-            AccountEventPayload::OPENED,
-            appletheia::domain::EventName::new("opened")
-        );
+        assert_eq!(AccountEventPayload::OPENED, EventName::new("opened"));
         assert_eq!(
             AccountEventPayload::OWNERSHIP_TRANSFERRED,
-            appletheia::domain::EventName::new("ownership_transferred")
+            EventName::new("ownership_transferred")
         );
         assert_eq!(
             AccountEventPayload::OWNERSHIP_TRANSFER_REJECTED,
-            appletheia::domain::EventName::new("ownership_transfer_rejected")
+            EventName::new("ownership_transfer_rejected")
         );
         assert_eq!(
             AccountEventPayload::NAME_CHANGED,
-            appletheia::domain::EventName::new("name_changed")
+            EventName::new("name_changed")
         );
         assert_eq!(
             AccountEventPayload::NAME_CHANGE_REJECTED,
-            appletheia::domain::EventName::new("name_change_rejected")
+            EventName::new("name_change_rejected")
         );
-        assert_eq!(
-            AccountEventPayload::DEPOSITED,
-            appletheia::domain::EventName::new("deposited")
-        );
+        assert_eq!(AccountEventPayload::DEPOSITED, EventName::new("deposited"));
         assert_eq!(
             AccountEventPayload::DEPOSIT_REJECTED,
-            appletheia::domain::EventName::new("deposit_rejected")
+            EventName::new("deposit_rejected")
         );
-        assert_eq!(
-            AccountEventPayload::WITHDRAWN,
-            appletheia::domain::EventName::new("withdrawn")
-        );
+        assert_eq!(AccountEventPayload::WITHDRAWN, EventName::new("withdrawn"));
         assert_eq!(
             AccountEventPayload::WITHDRAW_REJECTED,
-            appletheia::domain::EventName::new("withdraw_rejected")
+            EventName::new("withdraw_rejected")
         );
         assert_eq!(
             AccountEventPayload::FUNDS_RESERVED,
-            appletheia::domain::EventName::new("funds_reserved")
+            EventName::new("funds_reserved")
         );
         assert_eq!(
             AccountEventPayload::FUNDS_RESERVE_REJECTED,
-            appletheia::domain::EventName::new("funds_reserve_rejected")
+            EventName::new("funds_reserve_rejected")
         );
         assert_eq!(
             AccountEventPayload::RESERVED_FUNDS_RELEASED,
-            appletheia::domain::EventName::new("reserved_funds_released")
+            EventName::new("reserved_funds_released")
         );
         assert_eq!(
             AccountEventPayload::RESERVED_FUNDS_RELEASE_REJECTED,
-            appletheia::domain::EventName::new("reserved_funds_release_rejected")
+            EventName::new("reserved_funds_release_rejected")
         );
         assert_eq!(
             AccountEventPayload::RESERVED_FUNDS_COMMITTED,
-            appletheia::domain::EventName::new("reserved_funds_committed")
+            EventName::new("reserved_funds_committed")
         );
         assert_eq!(
             AccountEventPayload::RESERVED_FUNDS_COMMIT_REJECTED,
-            appletheia::domain::EventName::new("reserved_funds_commit_rejected")
+            EventName::new("reserved_funds_commit_rejected")
         );
-        assert_eq!(
-            AccountEventPayload::FROZEN,
-            appletheia::domain::EventName::new("frozen")
-        );
+        assert_eq!(AccountEventPayload::FROZEN, EventName::new("frozen"));
         assert_eq!(
             AccountEventPayload::FREEZE_REJECTED,
-            appletheia::domain::EventName::new("freeze_rejected")
+            EventName::new("freeze_rejected")
         );
-        assert_eq!(
-            AccountEventPayload::THAWED,
-            appletheia::domain::EventName::new("thawed")
-        );
+        assert_eq!(AccountEventPayload::THAWED, EventName::new("thawed"));
         assert_eq!(
             AccountEventPayload::THAW_REJECTED,
-            appletheia::domain::EventName::new("thaw_rejected")
+            EventName::new("thaw_rejected")
         );
-        assert_eq!(
-            AccountEventPayload::CLOSED,
-            appletheia::domain::EventName::new("closed")
-        );
+        assert_eq!(AccountEventPayload::CLOSED, EventName::new("closed"));
         assert_eq!(
             AccountEventPayload::CLOSE_REJECTED,
-            appletheia::domain::EventName::new("close_rejected")
+            EventName::new("close_rejected")
         );
     }
 
@@ -189,8 +171,7 @@ mod tests {
     #[test]
     fn serializes_payload_to_json() {
         let payload = AccountEventPayload::Opened {
-            id: AccountId::new(),
-            owner: AccountOwner::User(banking_iam_domain::UserId::new()),
+            owner: AccountOwner::User(UserId::new()),
             name: AccountName::try_from("main").expect("account name should be valid"),
             currency_id: CurrencyId::new(),
         };
@@ -204,8 +185,7 @@ mod tests {
     #[test]
     fn serializes_organization_owned_payload_to_json() {
         let payload = AccountEventPayload::Opened {
-            id: AccountId::new(),
-            owner: AccountOwner::Organization(banking_iam_domain::OrganizationId::new()),
+            owner: AccountOwner::Organization(OrganizationId::new()),
             name: AccountName::try_from("ops").expect("account name should be valid"),
             currency_id: CurrencyId::new(),
         };
@@ -221,7 +201,7 @@ mod tests {
     #[test]
     fn serializes_ownership_transferred_payload_to_json() {
         let payload = AccountEventPayload::OwnershipTransferred {
-            owner: AccountOwner::User(banking_iam_domain::UserId::new()),
+            owner: AccountOwner::User(UserId::new()),
         };
 
         let value = payload.into_json_value().expect("payload should serialize");

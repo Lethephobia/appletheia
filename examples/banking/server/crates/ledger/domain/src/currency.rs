@@ -3,10 +3,22 @@ mod currency_activate_result;
 mod currency_deactivate_rejection_reason;
 mod currency_deactivate_result;
 mod currency_decimals;
+mod currency_define_result;
+mod currency_description;
+mod currency_description_change_rejection_reason;
+mod currency_description_change_result;
+mod currency_description_error;
 mod currency_error;
 mod currency_event_payload;
 mod currency_event_payload_error;
 mod currency_id;
+mod currency_image_change_rejection_reason;
+mod currency_image_change_result;
+mod currency_image_object_name;
+mod currency_image_object_name_error;
+mod currency_image_ref;
+mod currency_image_url;
+mod currency_image_url_error;
 mod currency_name;
 mod currency_name_change_rejection_reason;
 mod currency_name_change_result;
@@ -14,29 +26,53 @@ mod currency_name_error;
 mod currency_owner;
 mod currency_ownership_transfer_rejection_reason;
 mod currency_ownership_transfer_result;
+mod currency_provision_rejection_reason;
+mod currency_provision_result;
 mod currency_remove_rejection_reason;
 mod currency_remove_result;
 mod currency_state;
 mod currency_state_error;
 mod currency_status;
-mod currency_supply_decrease_rejection_reason;
-mod currency_supply_decrease_result;
-mod currency_supply_increase_rejection_reason;
-mod currency_supply_increase_result;
+mod currency_supply_commit_rejection_reason;
+mod currency_supply_commit_result;
+mod currency_supply_release_rejection_reason;
+mod currency_supply_release_result;
+mod currency_supply_reserve_rejection_reason;
+mod currency_supply_reserve_result;
 mod currency_symbol;
 mod currency_symbol_change_rejection_reason;
 mod currency_symbol_change_result;
 mod currency_symbol_error;
+mod mint_account;
+mod mint_account_address;
+mod mint_account_address_error;
+mod mint_metadata_sync_rejection_reason;
+mod mint_metadata_sync_result;
+mod mint_supply_sync_result;
+mod pool_token_account_address;
+mod pool_token_account_address_error;
 
 pub use currency_activate_rejection_reason::CurrencyActivateRejectionReason;
 pub use currency_activate_result::CurrencyActivateResult;
 pub use currency_deactivate_rejection_reason::CurrencyDeactivateRejectionReason;
 pub use currency_deactivate_result::CurrencyDeactivateResult;
 pub use currency_decimals::CurrencyDecimals;
+pub use currency_define_result::CurrencyDefineResult;
+pub use currency_description::CurrencyDescription;
+pub use currency_description_change_rejection_reason::CurrencyDescriptionChangeRejectionReason;
+pub use currency_description_change_result::CurrencyDescriptionChangeResult;
+pub use currency_description_error::CurrencyDescriptionError;
 pub use currency_error::CurrencyError;
 pub use currency_event_payload::CurrencyEventPayload;
 pub use currency_event_payload_error::CurrencyEventPayloadError;
 pub use currency_id::CurrencyId;
+pub use currency_image_change_rejection_reason::CurrencyImageChangeRejectionReason;
+pub use currency_image_change_result::CurrencyImageChangeResult;
+pub use currency_image_object_name::CurrencyImageObjectName;
+pub use currency_image_object_name_error::CurrencyImageObjectNameError;
+pub use currency_image_ref::CurrencyImageRef;
+pub use currency_image_url::CurrencyImageUrl;
+pub use currency_image_url_error::CurrencyImageUrlError;
 pub use currency_name::CurrencyName;
 pub use currency_name_change_rejection_reason::CurrencyNameChangeRejectionReason;
 pub use currency_name_change_result::CurrencyNameChangeResult;
@@ -44,19 +80,31 @@ pub use currency_name_error::CurrencyNameError;
 pub use currency_owner::CurrencyOwner;
 pub use currency_ownership_transfer_rejection_reason::CurrencyOwnershipTransferRejectionReason;
 pub use currency_ownership_transfer_result::CurrencyOwnershipTransferResult;
+pub use currency_provision_rejection_reason::CurrencyProvisionRejectionReason;
+pub use currency_provision_result::CurrencyProvisionResult;
 pub use currency_remove_rejection_reason::CurrencyRemoveRejectionReason;
 pub use currency_remove_result::CurrencyRemoveResult;
 pub use currency_state::CurrencyState;
 pub use currency_state_error::CurrencyStateError;
 pub use currency_status::CurrencyStatus;
-pub use currency_supply_decrease_rejection_reason::CurrencySupplyDecreaseRejectionReason;
-pub use currency_supply_decrease_result::CurrencySupplyDecreaseResult;
-pub use currency_supply_increase_rejection_reason::CurrencySupplyIncreaseRejectionReason;
-pub use currency_supply_increase_result::CurrencySupplyIncreaseResult;
+pub use currency_supply_commit_rejection_reason::CurrencySupplyCommitRejectionReason;
+pub use currency_supply_commit_result::CurrencySupplyCommitResult;
+pub use currency_supply_release_rejection_reason::CurrencySupplyReleaseRejectionReason;
+pub use currency_supply_release_result::CurrencySupplyReleaseResult;
+pub use currency_supply_reserve_rejection_reason::CurrencySupplyReserveRejectionReason;
+pub use currency_supply_reserve_result::CurrencySupplyReserveResult;
 pub use currency_symbol::CurrencySymbol;
 pub use currency_symbol_change_rejection_reason::CurrencySymbolChangeRejectionReason;
 pub use currency_symbol_change_result::CurrencySymbolChangeResult;
 pub use currency_symbol_error::CurrencySymbolError;
+pub use mint_account::MintAccount;
+pub use mint_account_address::MintAccountAddress;
+pub use mint_account_address_error::MintAccountAddressError;
+pub use mint_metadata_sync_rejection_reason::MintMetadataSyncRejectionReason;
+pub use mint_metadata_sync_result::MintMetadataSyncResult;
+pub use mint_supply_sync_result::MintSupplySyncResult;
+pub use pool_token_account_address::PoolTokenAccountAddress;
+pub use pool_token_account_address_error::PoolTokenAccountAddressError;
 
 use appletheia::aggregate;
 use appletheia::domain::{Aggregate, AggregateApply, AggregateCore};
@@ -66,7 +114,7 @@ use crate::core::{CurrencyAmount, CurrencyAmountError};
 /// Represents the `Currency` aggregate root.
 #[aggregate(type = "currency", error = CurrencyError)]
 pub struct Currency {
-    core: AggregateCore<CurrencyState, CurrencyEventPayload>,
+    core: AggregateCore<CurrencyId, CurrencyState, CurrencyEventPayload>,
 }
 
 impl Currency {
@@ -90,9 +138,40 @@ impl Currency {
         Ok(&self.state_required()?.decimals)
     }
 
+    /// Returns the current description.
+    pub fn description(&self) -> Result<Option<&CurrencyDescription>, CurrencyError> {
+        Ok(self.state_required()?.description.as_ref())
+    }
+
+    /// Returns the current image reference.
+    pub fn image(&self) -> Result<Option<&CurrencyImageRef>, CurrencyError> {
+        Ok(self.state_required()?.image.as_ref())
+    }
+
+    /// Returns the linked on-chain mint account.
+    pub fn mint_account(&self) -> Result<Option<&MintAccount>, CurrencyError> {
+        Ok(self.state_required()?.mint_account.as_ref())
+    }
+
     /// Returns the total supply.
     pub fn supply(&self) -> Result<&CurrencyAmount, CurrencyError> {
         Ok(&self.state_required()?.supply)
+    }
+
+    /// Returns the pending supply that has not yet been committed.
+    pub fn pending_supply(&self) -> Result<&CurrencyAmount, CurrencyError> {
+        Ok(&self.state_required()?.pending_supply)
+    }
+
+    /// Returns the target on-chain supply derived from confirmed and pending supply.
+    pub fn target_supply(&self) -> Result<CurrencyAmount, CurrencyError> {
+        self.state_required()?
+            .supply
+            .try_add(self.state_required()?.pending_supply)
+            .map_err(|error| match error {
+                CurrencyAmountError::BalanceOverflow => CurrencyError::SupplyOverflow,
+                CurrencyAmountError::InsufficientBalance => CurrencyError::InsufficientSupply,
+            })
     }
 
     /// Returns the current status.
@@ -105,6 +184,11 @@ impl Currency {
         Ok(self.state_required()?.status.is_active())
     }
 
+    /// Returns whether the currency is removed.
+    pub fn is_removed(&self) -> Result<bool, CurrencyError> {
+        Ok(self.state_required()?.status.is_removed())
+    }
+
     /// Defines a new currency.
     pub fn define(
         &mut self,
@@ -112,18 +196,58 @@ impl Currency {
         symbol: CurrencySymbol,
         name: CurrencyName,
         decimals: CurrencyDecimals,
-    ) -> Result<(), CurrencyError> {
+        description: Option<CurrencyDescription>,
+        image: Option<CurrencyImageRef>,
+    ) -> Result<CurrencyDefineResult, CurrencyError> {
         if self.state().is_some() {
             return Err(CurrencyError::AlreadyDefined);
         }
-
         self.append_event(CurrencyEventPayload::Defined {
-            id: CurrencyId::new(),
             owner,
             symbol,
             name,
             decimals,
-        })
+            description,
+            image,
+        })?;
+
+        Ok(CurrencyDefineResult::Defined)
+    }
+
+    /// Completes currency provisioning with the created on-chain mint account.
+    pub fn provision(
+        &mut self,
+        mint_account: MintAccount,
+    ) -> Result<CurrencyProvisionResult, CurrencyError> {
+        if self.state_required()?.status.is_removed() {
+            let reason = CurrencyProvisionRejectionReason::Removed;
+            self.reject_provision(Some(mint_account), reason)?;
+            return Ok(CurrencyProvisionResult::Rejected { reason });
+        }
+
+        if self.state_required()?.mint_account.is_some() {
+            let reason = CurrencyProvisionRejectionReason::AlreadyProvisioned;
+            self.reject_provision(Some(mint_account), reason)?;
+            return Ok(CurrencyProvisionResult::Rejected { reason });
+        }
+
+        self.append_event(CurrencyEventPayload::Provisioned {
+            mint_account: mint_account.clone(),
+        })?;
+        Ok(CurrencyProvisionResult::Provisioned { mint_account })
+    }
+
+    /// Rejects currency provisioning.
+    pub fn reject_provision(
+        &mut self,
+        mint_account: Option<MintAccount>,
+        reason: CurrencyProvisionRejectionReason,
+    ) -> Result<(), CurrencyError> {
+        self.append_event(CurrencyEventPayload::ProvisionRejected {
+            mint_account,
+            reason,
+        })?;
+        Ok(())
     }
 
     /// Transfers ownership of the currency.
@@ -133,12 +257,22 @@ impl Currency {
     ) -> Result<CurrencyOwnershipTransferResult, CurrencyError> {
         if self.state_required()?.status.is_removed() {
             let reason = CurrencyOwnershipTransferRejectionReason::Removed;
-            self.append_event(CurrencyEventPayload::OwnershipTransferRejected { owner, reason })?;
+            self.reject_transfer_ownership(owner, reason)?;
             return Ok(CurrencyOwnershipTransferResult::Rejected { reason });
         }
 
         self.append_event(CurrencyEventPayload::OwnershipTransferred { owner })?;
         Ok(CurrencyOwnershipTransferResult::Transferred)
+    }
+
+    /// Rejects a currency ownership transfer attempt.
+    pub fn reject_transfer_ownership(
+        &mut self,
+        owner: CurrencyOwner,
+        reason: CurrencyOwnershipTransferRejectionReason,
+    ) -> Result<(), CurrencyError> {
+        self.append_event(CurrencyEventPayload::OwnershipTransferRejected { owner, reason })?;
+        Ok(())
     }
 
     /// Changes the current currency symbol.
@@ -148,12 +282,22 @@ impl Currency {
     ) -> Result<CurrencySymbolChangeResult, CurrencyError> {
         if self.state_required()?.status.is_removed() {
             let reason = CurrencySymbolChangeRejectionReason::Removed;
-            self.append_event(CurrencyEventPayload::SymbolChangeRejected { symbol, reason })?;
+            self.reject_change_symbol(symbol, reason)?;
             return Ok(CurrencySymbolChangeResult::Rejected { reason });
         }
 
         self.append_event(CurrencyEventPayload::SymbolChanged { symbol })?;
         Ok(CurrencySymbolChangeResult::Changed)
+    }
+
+    /// Rejects a currency symbol change attempt.
+    pub fn reject_change_symbol(
+        &mut self,
+        symbol: CurrencySymbol,
+        reason: CurrencySymbolChangeRejectionReason,
+    ) -> Result<(), CurrencyError> {
+        self.append_event(CurrencyEventPayload::SymbolChangeRejected { symbol, reason })?;
+        Ok(())
     }
 
     /// Changes the current currency name.
@@ -163,7 +307,7 @@ impl Currency {
     ) -> Result<CurrencyNameChangeResult, CurrencyError> {
         if self.state_required()?.status.is_removed() {
             let reason = CurrencyNameChangeRejectionReason::Removed;
-            self.append_event(CurrencyEventPayload::NameChangeRejected { name, reason })?;
+            self.reject_change_name(name, reason)?;
             return Ok(CurrencyNameChangeResult::Rejected { reason });
         }
 
@@ -171,55 +315,199 @@ impl Currency {
         Ok(CurrencyNameChangeResult::Changed)
     }
 
-    /// Increases the total supply.
-    pub fn increase_supply(
+    /// Rejects a currency name change attempt.
+    pub fn reject_change_name(
         &mut self,
-        amount: CurrencyAmount,
-    ) -> Result<CurrencySupplyIncreaseResult, CurrencyError> {
-        match self.state_required()?.status {
-            CurrencyStatus::Active => {}
-            CurrencyStatus::Inactive => {
-                let reason = CurrencySupplyIncreaseRejectionReason::Inactive;
-                self.append_event(CurrencyEventPayload::SupplyIncreaseRejected { amount, reason })?;
-                return Ok(CurrencySupplyIncreaseResult::Rejected { reason });
-            }
-            CurrencyStatus::Removed => {
-                let reason = CurrencySupplyIncreaseRejectionReason::Removed;
-                self.append_event(CurrencyEventPayload::SupplyIncreaseRejected { amount, reason })?;
-                return Ok(CurrencySupplyIncreaseResult::Rejected { reason });
-            }
-        }
-
-        self.append_event(CurrencyEventPayload::SupplyIncreased { amount })?;
-        Ok(CurrencySupplyIncreaseResult::Increased)
+        name: CurrencyName,
+        reason: CurrencyNameChangeRejectionReason,
+    ) -> Result<(), CurrencyError> {
+        self.append_event(CurrencyEventPayload::NameChangeRejected { name, reason })?;
+        Ok(())
     }
 
-    /// Decreases the total supply.
-    pub fn decrease_supply(
+    /// Changes the current currency description.
+    pub fn change_description(
+        &mut self,
+        description: Option<CurrencyDescription>,
+    ) -> Result<CurrencyDescriptionChangeResult, CurrencyError> {
+        if self.state_required()?.status.is_removed() {
+            let reason = CurrencyDescriptionChangeRejectionReason::Removed;
+            self.reject_change_description(description, reason)?;
+            return Ok(CurrencyDescriptionChangeResult::Rejected { reason });
+        }
+
+        self.append_event(CurrencyEventPayload::DescriptionChanged { description })?;
+        Ok(CurrencyDescriptionChangeResult::Changed)
+    }
+
+    /// Rejects a currency description change attempt.
+    pub fn reject_change_description(
+        &mut self,
+        description: Option<CurrencyDescription>,
+        reason: CurrencyDescriptionChangeRejectionReason,
+    ) -> Result<(), CurrencyError> {
+        self.append_event(CurrencyEventPayload::DescriptionChangeRejected {
+            description,
+            reason,
+        })?;
+        Ok(())
+    }
+
+    /// Changes the current currency image reference.
+    pub fn change_image(
+        &mut self,
+        image: Option<CurrencyImageRef>,
+    ) -> Result<CurrencyImageChangeResult, CurrencyError> {
+        if self.state_required()?.status.is_removed() {
+            let reason = CurrencyImageChangeRejectionReason::Removed;
+            self.reject_change_image(image, reason)?;
+            return Ok(CurrencyImageChangeResult::Rejected { reason });
+        }
+
+        let old_image = self.state_required()?.image.clone();
+        self.append_event(CurrencyEventPayload::ImageChanged { image, old_image })?;
+        Ok(CurrencyImageChangeResult::Changed)
+    }
+
+    /// Rejects a currency image change attempt.
+    pub fn reject_change_image(
+        &mut self,
+        image: Option<CurrencyImageRef>,
+        reason: CurrencyImageChangeRejectionReason,
+    ) -> Result<(), CurrencyError> {
+        self.append_event(CurrencyEventPayload::ImageChangeRejected { image, reason })?;
+        Ok(())
+    }
+
+    /// Records that mint metadata has been synced to the current currency metadata.
+    pub fn record_mint_metadata_synced(&mut self) -> Result<MintMetadataSyncResult, CurrencyError> {
+        self.append_event(CurrencyEventPayload::MintMetadataSynced)?;
+        Ok(MintMetadataSyncResult::Synced)
+    }
+
+    /// Rejects a mint metadata sync attempt.
+    pub fn reject_mint_metadata_sync(
+        &mut self,
+        reason: MintMetadataSyncRejectionReason,
+    ) -> Result<(), CurrencyError> {
+        self.append_event(CurrencyEventPayload::MintMetadataSyncRejected { reason })?;
+        Ok(())
+    }
+
+    /// Reserves supply for an in-flight issuance before it is committed.
+    pub fn reserve_supply(
         &mut self,
         amount: CurrencyAmount,
-    ) -> Result<CurrencySupplyDecreaseResult, CurrencyError> {
-        if self.state_required()?.status.is_removed() {
-            let reason = CurrencySupplyDecreaseRejectionReason::Removed;
-            self.append_event(CurrencyEventPayload::SupplyDecreaseRejected { amount, reason })?;
-            return Ok(CurrencySupplyDecreaseResult::Rejected { reason });
+    ) -> Result<CurrencySupplyReserveResult, CurrencyError> {
+        match self.state_required()?.status {
+            CurrencyStatus::Provisioning | CurrencyStatus::ProvisioningFailed => {
+                let reason = CurrencySupplyReserveRejectionReason::ProvisioningPending;
+                self.reject_reserve_supply(amount, reason)?;
+                return Ok(CurrencySupplyReserveResult::Rejected { reason });
+            }
+            CurrencyStatus::Active => {}
+            CurrencyStatus::Inactive => {
+                let reason = CurrencySupplyReserveRejectionReason::Inactive;
+                self.reject_reserve_supply(amount, reason)?;
+                return Ok(CurrencySupplyReserveResult::Rejected { reason });
+            }
+            CurrencyStatus::Removed => {
+                let reason = CurrencySupplyReserveRejectionReason::Removed;
+                self.reject_reserve_supply(amount, reason)?;
+                return Ok(CurrencySupplyReserveResult::Rejected { reason });
+            }
         }
 
-        if self.state_required()?.supply.value() < amount.value() {
-            let reason = CurrencySupplyDecreaseRejectionReason::InsufficientSupply;
-            self.append_event(CurrencyEventPayload::SupplyDecreaseRejected { amount, reason })?;
-            return Ok(CurrencySupplyDecreaseResult::Rejected { reason });
+        if self.target_supply()?.try_add(amount).is_err() {
+            let reason = CurrencySupplyReserveRejectionReason::SupplyOverflow;
+            self.reject_reserve_supply(amount, reason)?;
+            return Ok(CurrencySupplyReserveResult::Rejected { reason });
         }
 
-        self.append_event(CurrencyEventPayload::SupplyDecreased { amount })?;
-        Ok(CurrencySupplyDecreaseResult::Decreased)
+        self.append_event(CurrencyEventPayload::SupplyReserved { amount })?;
+        Ok(CurrencySupplyReserveResult::Reserved)
+    }
+
+    /// Rejects a currency supply reservation attempt.
+    pub fn reject_reserve_supply(
+        &mut self,
+        amount: CurrencyAmount,
+        reason: CurrencySupplyReserveRejectionReason,
+    ) -> Result<(), CurrencyError> {
+        self.append_event(CurrencyEventPayload::SupplyReserveRejected { amount, reason })?;
+        Ok(())
+    }
+
+    /// Records that on-chain mint supply has been synced to the current target supply.
+    pub fn record_mint_supply_synced(
+        &mut self,
+        supply: CurrencyAmount,
+    ) -> Result<MintSupplySyncResult, CurrencyError> {
+        self.append_event(CurrencyEventPayload::MintSupplySynced { supply })?;
+        Ok(MintSupplySyncResult::Synced)
+    }
+
+    /// Commits previously reserved supply into confirmed supply.
+    pub fn commit_supply(
+        &mut self,
+        amount: CurrencyAmount,
+    ) -> Result<CurrencySupplyCommitResult, CurrencyError> {
+        if self.state_required()?.pending_supply.value() < amount.value() {
+            let reason = CurrencySupplyCommitRejectionReason::InsufficientPendingSupply;
+            self.reject_commit_supply(amount, reason)?;
+            return Ok(CurrencySupplyCommitResult::Rejected { reason });
+        }
+
+        self.append_event(CurrencyEventPayload::SupplyCommitted { amount })?;
+        Ok(CurrencySupplyCommitResult::Committed)
+    }
+
+    /// Rejects a currency supply commit attempt.
+    pub fn reject_commit_supply(
+        &mut self,
+        amount: CurrencyAmount,
+        reason: CurrencySupplyCommitRejectionReason,
+    ) -> Result<(), CurrencyError> {
+        self.append_event(CurrencyEventPayload::SupplyCommitRejected { amount, reason })?;
+        Ok(())
+    }
+
+    /// Releases previously reserved supply without changing confirmed supply.
+    pub fn release_supply(
+        &mut self,
+        amount: CurrencyAmount,
+    ) -> Result<CurrencySupplyReleaseResult, CurrencyError> {
+        if self.state_required()?.pending_supply.value() < amount.value() {
+            let reason = CurrencySupplyReleaseRejectionReason::InsufficientPendingSupply;
+            self.reject_release_supply(amount, reason)?;
+            return Ok(CurrencySupplyReleaseResult::Rejected { reason });
+        }
+
+        self.append_event(CurrencyEventPayload::SupplyReleased { amount })?;
+        Ok(CurrencySupplyReleaseResult::Released)
+    }
+
+    /// Rejects a currency supply release attempt.
+    pub fn reject_release_supply(
+        &mut self,
+        amount: CurrencyAmount,
+        reason: CurrencySupplyReleaseRejectionReason,
+    ) -> Result<(), CurrencyError> {
+        self.append_event(CurrencyEventPayload::SupplyReleaseRejected { amount, reason })?;
+        Ok(())
     }
 
     /// Activates the currency.
     pub fn activate(&mut self) -> Result<CurrencyActivateResult, CurrencyError> {
-        if self.state_required()?.status.is_removed() {
-            let reason = CurrencyActivateRejectionReason::Removed;
-            self.append_event(CurrencyEventPayload::ActivateRejected { reason })?;
+        let reason = match self.state_required()?.status {
+            CurrencyStatus::Provisioning | CurrencyStatus::ProvisioningFailed => {
+                Some(CurrencyActivateRejectionReason::Provisioning)
+            }
+            CurrencyStatus::Active | CurrencyStatus::Inactive => None,
+            CurrencyStatus::Removed => Some(CurrencyActivateRejectionReason::Removed),
+        };
+        if let Some(reason) = reason {
+            self.reject_activate(reason)?;
             return Ok(CurrencyActivateResult::Rejected { reason });
         }
 
@@ -227,11 +515,26 @@ impl Currency {
         Ok(CurrencyActivateResult::Activated)
     }
 
+    /// Rejects a currency activation attempt.
+    pub fn reject_activate(
+        &mut self,
+        reason: CurrencyActivateRejectionReason,
+    ) -> Result<(), CurrencyError> {
+        self.append_event(CurrencyEventPayload::ActivateRejected { reason })?;
+        Ok(())
+    }
+
     /// Deactivates the currency.
     pub fn deactivate(&mut self) -> Result<CurrencyDeactivateResult, CurrencyError> {
-        if self.state_required()?.status.is_removed() {
-            let reason = CurrencyDeactivateRejectionReason::Removed;
-            self.append_event(CurrencyEventPayload::DeactivateRejected { reason })?;
+        let reason = match self.state_required()?.status {
+            CurrencyStatus::Provisioning | CurrencyStatus::ProvisioningFailed => {
+                Some(CurrencyDeactivateRejectionReason::Provisioning)
+            }
+            CurrencyStatus::Active | CurrencyStatus::Inactive => None,
+            CurrencyStatus::Removed => Some(CurrencyDeactivateRejectionReason::Removed),
+        };
+        if let Some(reason) = reason {
+            self.reject_deactivate(reason)?;
             return Ok(CurrencyDeactivateResult::Rejected { reason });
         }
 
@@ -239,16 +542,34 @@ impl Currency {
         Ok(CurrencyDeactivateResult::Deactivated)
     }
 
+    /// Rejects a currency deactivation attempt.
+    pub fn reject_deactivate(
+        &mut self,
+        reason: CurrencyDeactivateRejectionReason,
+    ) -> Result<(), CurrencyError> {
+        self.append_event(CurrencyEventPayload::DeactivateRejected { reason })?;
+        Ok(())
+    }
+
     /// Permanently removes the currency.
     pub fn remove(&mut self) -> Result<CurrencyRemoveResult, CurrencyError> {
         if self.state_required()?.status.is_removed() {
             let reason = CurrencyRemoveRejectionReason::Removed;
-            self.append_event(CurrencyEventPayload::RemoveRejected { reason })?;
+            self.reject_remove(reason)?;
             return Ok(CurrencyRemoveResult::Rejected { reason });
         }
 
         self.append_event(CurrencyEventPayload::Removed)?;
         Ok(CurrencyRemoveResult::Removed)
+    }
+
+    /// Rejects a currency removal attempt.
+    pub fn reject_remove(
+        &mut self,
+        reason: CurrencyRemoveRejectionReason,
+    ) -> Result<(), CurrencyError> {
+        self.append_event(CurrencyEventPayload::RemoveRejected { reason })?;
+        Ok(())
     }
 }
 
@@ -256,16 +577,35 @@ impl AggregateApply<CurrencyEventPayload, CurrencyError> for Currency {
     fn apply(&mut self, payload: &CurrencyEventPayload) -> Result<(), CurrencyError> {
         match payload {
             CurrencyEventPayload::Defined {
-                id,
                 owner,
                 symbol,
                 name,
                 decimals,
+                description,
+                image,
             } => {
-                let state =
-                    CurrencyState::new(*id, *owner, symbol.clone(), name.clone(), *decimals);
-                self.set_state(Some(state));
+                self.set_state(Some(CurrencyState {
+                    owner: *owner,
+                    symbol: symbol.clone(),
+                    name: name.clone(),
+                    decimals: *decimals,
+                    description: description.clone(),
+                    image: image.clone(),
+                    supply: CurrencyAmount::zero(),
+                    pending_supply: CurrencyAmount::zero(),
+                    mint_account: None,
+                    status: CurrencyStatus::Provisioning,
+                }));
             }
+            CurrencyEventPayload::Provisioned { mint_account } => {
+                let state = self.state_required_mut()?;
+                state.mint_account = Some(mint_account.clone());
+                state.status = CurrencyStatus::Active;
+            }
+            CurrencyEventPayload::ProvisionRejected { reason, .. } => match reason {
+                CurrencyProvisionRejectionReason::AlreadyProvisioned => {}
+                CurrencyProvisionRejectionReason::Removed => {}
+            },
             CurrencyEventPayload::OwnershipTransferred { owner } => {
                 self.state_required_mut()?.owner = *owner;
             }
@@ -278,22 +618,63 @@ impl AggregateApply<CurrencyEventPayload, CurrencyError> for Currency {
                 self.state_required_mut()?.name = name.clone();
             }
             CurrencyEventPayload::NameChangeRejected { .. } => {}
-            CurrencyEventPayload::SupplyIncreased { amount } => {
+            CurrencyEventPayload::DescriptionChanged { description } => {
+                self.state_required_mut()?.description = description.clone();
+            }
+            CurrencyEventPayload::DescriptionChangeRejected { .. } => {}
+            CurrencyEventPayload::ImageChanged { image, .. } => {
+                self.state_required_mut()?.image = image.clone();
+            }
+            CurrencyEventPayload::ImageChangeRejected { .. } => {}
+            CurrencyEventPayload::MintMetadataSynced => {}
+            CurrencyEventPayload::MintMetadataSyncRejected { .. } => {}
+            CurrencyEventPayload::SupplyReserved { amount } => {
                 let state = self.state_required_mut()?;
+                state.pending_supply =
+                    state
+                        .pending_supply
+                        .try_add(*amount)
+                        .map_err(|error| match error {
+                            CurrencyAmountError::BalanceOverflow => CurrencyError::SupplyOverflow,
+                            CurrencyAmountError::InsufficientBalance => {
+                                CurrencyError::InsufficientPendingSupply
+                            }
+                        })?;
+            }
+            CurrencyEventPayload::SupplyReserveRejected { .. } => {}
+            CurrencyEventPayload::MintSupplySynced { .. } => {}
+            CurrencyEventPayload::SupplyCommitted { amount } => {
+                let state = self.state_required_mut()?;
+                state.pending_supply =
+                    state
+                        .pending_supply
+                        .try_sub(*amount)
+                        .map_err(|error| match error {
+                            CurrencyAmountError::BalanceOverflow => CurrencyError::SupplyOverflow,
+                            CurrencyAmountError::InsufficientBalance => {
+                                CurrencyError::InsufficientPendingSupply
+                            }
+                        })?;
                 state.supply = state.supply.try_add(*amount).map_err(|error| match error {
                     CurrencyAmountError::BalanceOverflow => CurrencyError::SupplyOverflow,
                     CurrencyAmountError::InsufficientBalance => CurrencyError::InsufficientSupply,
                 })?;
             }
-            CurrencyEventPayload::SupplyIncreaseRejected { .. } => {}
-            CurrencyEventPayload::SupplyDecreased { amount } => {
+            CurrencyEventPayload::SupplyCommitRejected { .. } => {}
+            CurrencyEventPayload::SupplyReleased { amount } => {
                 let state = self.state_required_mut()?;
-                state.supply = state.supply.try_sub(*amount).map_err(|error| match error {
-                    CurrencyAmountError::BalanceOverflow => CurrencyError::SupplyOverflow,
-                    CurrencyAmountError::InsufficientBalance => CurrencyError::InsufficientSupply,
-                })?;
+                state.pending_supply =
+                    state
+                        .pending_supply
+                        .try_sub(*amount)
+                        .map_err(|error| match error {
+                            CurrencyAmountError::BalanceOverflow => CurrencyError::SupplyOverflow,
+                            CurrencyAmountError::InsufficientBalance => {
+                                CurrencyError::InsufficientPendingSupply
+                            }
+                        })?;
             }
-            CurrencyEventPayload::SupplyDecreaseRejected { .. } => {}
+            CurrencyEventPayload::SupplyReleaseRejected { .. } => {}
             CurrencyEventPayload::Activated => {
                 self.state_required_mut()?.status = CurrencyStatus::Active;
             }
@@ -320,8 +701,10 @@ mod tests {
     use banking_iam_domain::{OrganizationId, UserId};
 
     use super::{
-        Currency, CurrencyDecimals, CurrencyEventPayload, CurrencyId, CurrencyName, CurrencyOwner,
-        CurrencyStatus, CurrencySymbol,
+        Currency, CurrencyDecimals, CurrencyDescription, CurrencyEventPayload, CurrencyId,
+        CurrencyImageRef, CurrencyImageUrl, CurrencyName, CurrencyOwner, CurrencyStatus,
+        CurrencySymbol, MintAccount, MintAccountAddress, MintMetadataSyncRejectionReason,
+        MintMetadataSyncResult, MintSupplySyncResult, PoolTokenAccountAddress,
     };
 
     fn user_owner() -> CurrencyOwner {
@@ -332,22 +715,40 @@ mod tests {
         CurrencyOwner::organization(OrganizationId::new())
     }
 
+    fn make_mint_account(value: &str) -> MintAccount {
+        MintAccount::new(
+            MintAccountAddress::try_from(value).expect("mint account address should be valid"),
+            PoolTokenAccountAddress::try_from("Pool111111111111111111111111111111111111")
+                .expect("pool account address should be valid"),
+        )
+    }
+
     #[test]
     fn define_initializes_state_and_records_event() {
         let owner = user_owner();
         let symbol = CurrencySymbol::try_from("usdc").expect("symbol should be valid");
         let name = CurrencyName::try_from("USD Coin").expect("name should be valid");
         let decimals = CurrencyDecimals::new(6);
-        let mut currency = Currency::default();
+        let mut currency = Currency::new();
 
         currency
-            .define(owner, symbol.clone(), name.clone(), decimals)
+            .define(
+                owner,
+                symbol.clone(),
+                name.clone(),
+                decimals,
+                Some(
+                    CurrencyDescription::try_from("Stablecoin backed by USD")
+                        .expect("description should be valid"),
+                ),
+                Some(CurrencyImageRef::external_url(
+                    CurrencyImageUrl::try_from("https://cdn.example.com/currencies/usdc.png")
+                        .expect("image URL should be valid"),
+                )),
+            )
             .expect("definition should succeed");
 
-        assert_eq!(
-            currency.aggregate_id().expect("aggregate id should exist"),
-            currency.aggregate_id().expect("aggregate id should exist")
-        );
+        assert_eq!(currency.aggregate_id(), currency.aggregate_id());
         assert_eq!(currency.symbol().expect("symbol should exist"), &symbol);
         assert_eq!(currency.name().expect("name should exist"), &name);
         assert_eq!(currency.owner().expect("owner should exist"), owner);
@@ -355,14 +756,33 @@ mod tests {
             currency.decimals().expect("decimals should exist"),
             &decimals
         );
-        assert!(currency.is_active().expect("active state should exist"));
+        assert_eq!(
+            currency
+                .description()
+                .expect("description should exist")
+                .map(CurrencyDescription::value),
+            Some("Stablecoin backed by USD")
+        );
+        assert_eq!(
+            currency
+                .image()
+                .expect("image should exist")
+                .and_then(CurrencyImageRef::as_external_url)
+                .map(|value| value.value().as_str()),
+            Some("https://cdn.example.com/currencies/usdc.png")
+        );
+        assert!(!currency.is_active().expect("active state should exist"));
         assert_eq!(
             currency.supply().expect("supply should exist"),
             &CurrencyAmount::zero()
         );
         assert_eq!(
             currency.status().expect("status should exist"),
-            CurrencyStatus::Active
+            CurrencyStatus::Provisioning
+        );
+        assert_eq!(
+            currency.mint_account().expect("mint account should exist"),
+            None
         );
         assert_eq!(currency.uncommitted_events().len(), 1);
         assert_eq!(
@@ -372,12 +792,23 @@ mod tests {
         assert_eq!(
             currency.uncommitted_events()[0].payload(),
             &CurrencyEventPayload::Defined {
-                id: currency.aggregate_id().expect("aggregate id should exist"),
                 owner,
                 symbol,
                 name,
                 decimals,
+                description: Some(
+                    CurrencyDescription::try_from("Stablecoin backed by USD")
+                        .expect("description should be valid"),
+                ),
+                image: Some(CurrencyImageRef::external_url(
+                    CurrencyImageUrl::try_from("https://cdn.example.com/currencies/usdc.png")
+                        .expect("image URL should be valid"),
+                )),
             }
+        );
+        assert_eq!(
+            currency.uncommitted_events()[0].aggregate_id(),
+            currency.aggregate_id()
         );
     }
 
@@ -387,10 +818,16 @@ mod tests {
         let symbol = CurrencySymbol::try_from("usdc").expect("symbol should be valid");
         let name = CurrencyName::try_from("USD Coin").expect("name should be valid");
         let decimals = CurrencyDecimals::new(6);
-        let mut currency = Currency::default();
+        let mut currency = Currency::new();
         currency
-            .define(owner, symbol.clone(), name.clone(), decimals)
+            .define(owner, symbol.clone(), name.clone(), decimals, None, None)
             .expect("definition should succeed");
+        currency
+            .provision(make_mint_account(
+                "Mint111111111111111111111111111111111111",
+            ))
+            .expect("provision should succeed");
+        currency.core_mut().clear_uncommitted_events();
 
         currency
             .change_symbol(symbol)
@@ -400,19 +837,21 @@ mod tests {
             .expect("name change should succeed");
         currency.activate().expect("activation should succeed");
 
-        assert_eq!(currency.uncommitted_events().len(), 4);
+        assert_eq!(currency.uncommitted_events().len(), 3);
     }
 
     #[test]
     fn transferring_to_same_owner_appends_success_event() {
         let owner = user_owner();
-        let mut currency = Currency::default();
+        let mut currency = Currency::new();
         currency
             .define(
                 owner,
                 CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
                 CurrencyName::try_from("USD Coin").expect("name should be valid"),
                 CurrencyDecimals::new(6),
+                None,
+                None,
             )
             .expect("definition should succeed");
 
@@ -431,15 +870,23 @@ mod tests {
         let changed_symbol = CurrencySymbol::try_from("usdce").expect("symbol should be valid");
         let changed_name =
             CurrencyName::try_from("USD Coin Example").expect("name should be valid");
-        let mut currency = Currency::default();
+        let mut currency = Currency::new();
         currency
             .define(
                 owner,
                 initial_symbol,
                 initial_name,
                 CurrencyDecimals::new(6),
+                None,
+                None,
             )
             .expect("definition should succeed");
+        currency
+            .provision(make_mint_account(
+                "Mint111111111111111111111111111111111111",
+            ))
+            .expect("provision should succeed");
+        currency.core_mut().clear_uncommitted_events();
 
         currency
             .change_symbol(changed_symbol.clone())
@@ -459,20 +906,22 @@ mod tests {
             &CurrencyDecimals::new(6)
         );
         assert!(!currency.is_active().expect("active state should exist"));
-        assert_eq!(currency.uncommitted_events().len(), 4);
+        assert_eq!(currency.uncommitted_events().len(), 3);
     }
 
     #[test]
     fn transfer_ownership_updates_owner_and_records_event() {
         let original_owner = user_owner();
         let transferred_owner = organization_owner();
-        let mut currency = Currency::default();
+        let mut currency = Currency::new();
         currency
             .define(
                 original_owner,
                 CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
                 CurrencyName::try_from("USD Coin").expect("name should be valid"),
                 CurrencyDecimals::new(6),
+                None,
+                None,
             )
             .expect("definition should succeed");
 
@@ -499,22 +948,31 @@ mod tests {
             id,
             appletheia::domain::AggregateVersion::try_from(1).expect("version should be valid"),
             CurrencyEventPayload::Defined {
-                id,
                 owner,
                 symbol: CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
                 name: CurrencyName::try_from("USD Coin").expect("name should be valid"),
                 decimals: CurrencyDecimals::new(6),
+                description: None,
+                image: None,
             },
         );
         let deactivated = Event::new(
             id,
-            appletheia::domain::AggregateVersion::try_from(2).expect("version should be valid"),
+            appletheia::domain::AggregateVersion::try_from(3).expect("version should be valid"),
             CurrencyEventPayload::Deactivated,
         );
-        let mut currency = Currency::default();
+        let mint_account = make_mint_account("Mint111111111111111111111111111111111111");
+        let provisioned = Event::new(
+            id,
+            appletheia::domain::AggregateVersion::try_from(2).expect("version should be valid"),
+            CurrencyEventPayload::Provisioned {
+                mint_account: mint_account.clone(),
+            },
+        );
+        let mut currency = Currency::from_id(id);
 
         currency
-            .replay_events(vec![defined, deactivated], None)
+            .replay_events(vec![defined, provisioned, deactivated], None)
             .expect("events should replay");
 
         assert_eq!(
@@ -523,7 +981,15 @@ mod tests {
         );
         assert_eq!(currency.owner().expect("owner should exist"), owner);
         assert!(!currency.is_active().expect("active state should exist"));
-        assert_eq!(currency.version().value(), 2);
+        assert_eq!(
+            currency.status().expect("status should exist"),
+            CurrencyStatus::Inactive
+        );
+        assert_eq!(
+            currency.mint_account().expect("mint account should exist"),
+            Some(&mint_account)
+        );
+        assert_eq!(currency.version().value(), 3);
         assert!(currency.uncommitted_events().is_empty());
     }
 
@@ -532,10 +998,10 @@ mod tests {
         let owner = organization_owner();
         let symbol = CurrencySymbol::try_from("usdc").expect("symbol should be valid");
         let name = CurrencyName::try_from("USD Coin").expect("name should be valid");
-        let mut currency = Currency::default();
+        let mut currency = Currency::new();
 
         currency
-            .define(owner, symbol, name, CurrencyDecimals::new(6))
+            .define(owner, symbol, name, CurrencyDecimals::new(6), None, None)
             .expect("definition should succeed");
 
         assert_eq!(currency.owner().expect("owner should exist"), owner);
@@ -544,13 +1010,15 @@ mod tests {
     #[test]
     fn define_rejects_already_defined_currency() {
         let owner = user_owner();
-        let mut currency = Currency::default();
+        let mut currency = Currency::new();
         currency
             .define(
                 owner,
                 CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
                 CurrencyName::try_from("USD Coin").expect("name should be valid"),
                 CurrencyDecimals::new(6),
+                None,
+                None,
             )
             .expect("definition should succeed");
 
@@ -560,6 +1028,8 @@ mod tests {
                 CurrencySymbol::try_from("sol").expect("symbol should be valid"),
                 CurrencyName::try_from("Solana").expect("name should be valid"),
                 CurrencyDecimals::new(9),
+                None,
+                None,
             )
             .expect_err("duplicate definition should fail");
 
@@ -567,72 +1037,335 @@ mod tests {
     }
 
     #[test]
-    fn supply_methods_update_supply() {
+    fn supply_methods_update_supply_and_pending_supply() {
         let owner = user_owner();
-        let mut currency = Currency::default();
+        let mut currency = Currency::new();
         currency
             .define(
                 owner,
                 CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
                 CurrencyName::try_from("USD Coin").expect("name should be valid"),
                 CurrencyDecimals::new(6),
+                None,
+                None,
             )
             .expect("definition should succeed");
 
         currency
-            .increase_supply(CurrencyAmount::new(100))
-            .expect("increase should succeed");
+            .provision(make_mint_account(
+                "Mint111111111111111111111111111111111111",
+            ))
+            .expect("provision should succeed");
+
         currency
-            .decrease_supply(CurrencyAmount::new(40))
-            .expect("decrease should succeed");
+            .reserve_supply(CurrencyAmount::new(100))
+            .expect("reserve should succeed");
+        currency
+            .commit_supply(CurrencyAmount::new(60))
+            .expect("commit should succeed");
+        currency
+            .release_supply(CurrencyAmount::new(40))
+            .expect("release should succeed");
 
         assert_eq!(
             currency.supply().expect("supply should exist"),
             &CurrencyAmount::new(60)
         );
-        assert_eq!(currency.uncommitted_events().len(), 3);
+        assert_eq!(
+            currency
+                .pending_supply()
+                .expect("pending supply should exist"),
+            &CurrencyAmount::zero()
+        );
+        assert_eq!(currency.uncommitted_events().len(), 5);
     }
 
     #[test]
-    fn increase_supply_rejects_inactive_currency() {
+    fn record_mint_supply_synced_records_event() {
         let owner = user_owner();
-        let mut currency = Currency::default();
+        let mut currency = Currency::new();
         currency
             .define(
                 owner,
                 CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
                 CurrencyName::try_from("USD Coin").expect("name should be valid"),
                 CurrencyDecimals::new(6),
+                None,
+                None,
             )
             .expect("definition should succeed");
-        currency.deactivate().expect("deactivate should succeed");
+        currency.core_mut().clear_uncommitted_events();
 
         let result = currency
-            .increase_supply(CurrencyAmount::new(1))
-            .expect("increase should complete with a rejection event");
+            .record_mint_supply_synced(CurrencyAmount::new(100))
+            .expect("mint supply sync record should succeed");
+
+        assert_eq!(result, MintSupplySyncResult::Synced);
+        assert_eq!(
+            currency.uncommitted_events()[0].payload(),
+            &CurrencyEventPayload::MintSupplySynced {
+                supply: CurrencyAmount::new(100),
+            }
+        );
+    }
+
+    #[test]
+    fn record_mint_metadata_synced_records_event() {
+        let owner = user_owner();
+        let mut currency = Currency::new();
+        currency
+            .define(
+                owner,
+                CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
+                CurrencyName::try_from("USD Coin").expect("name should be valid"),
+                CurrencyDecimals::new(6),
+                None,
+                None,
+            )
+            .expect("definition should succeed");
+        currency.core_mut().clear_uncommitted_events();
+
+        let result = currency
+            .record_mint_metadata_synced()
+            .expect("metadata sync record should succeed");
+
+        assert_eq!(result, MintMetadataSyncResult::Synced);
+        assert_eq!(
+            currency.uncommitted_events()[0].payload(),
+            &CurrencyEventPayload::MintMetadataSynced
+        );
+    }
+
+    #[test]
+    fn reject_mint_metadata_sync_records_event() {
+        let owner = user_owner();
+        let mut currency = Currency::new();
+        currency
+            .define(
+                owner,
+                CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
+                CurrencyName::try_from("USD Coin").expect("name should be valid"),
+                CurrencyDecimals::new(6),
+                None,
+                None,
+            )
+            .expect("definition should succeed");
+        currency.core_mut().clear_uncommitted_events();
+
+        currency
+            .reject_mint_metadata_sync(MintMetadataSyncRejectionReason::NotProvisioned)
+            .expect("metadata sync rejection should succeed");
+
+        assert_eq!(
+            currency.uncommitted_events()[0].payload(),
+            &CurrencyEventPayload::MintMetadataSyncRejected {
+                reason: MintMetadataSyncRejectionReason::NotProvisioned,
+            }
+        );
+    }
+
+    #[test]
+    fn provision_updates_state_and_records_event() {
+        let owner = user_owner();
+        let mint_account = make_mint_account("Mint111111111111111111111111111111111111");
+        let mut currency = Currency::new();
+        currency
+            .define(
+                owner,
+                CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
+                CurrencyName::try_from("USD Coin").expect("name should be valid"),
+                CurrencyDecimals::new(6),
+                None,
+                None,
+            )
+            .expect("definition should succeed");
+        currency.core_mut().clear_uncommitted_events();
+
+        let result = currency
+            .provision(mint_account.clone())
+            .expect("provision should succeed");
 
         assert!(matches!(
             result,
-            super::CurrencySupplyIncreaseResult::Rejected {
-                reason: super::CurrencySupplyIncreaseRejectionReason::Inactive
+            super::CurrencyProvisionResult::Provisioned {
+                mint_account: recorded
+            } if recorded == mint_account
+        ));
+        assert_eq!(
+            currency.mint_account().expect("mint account should exist"),
+            Some(&mint_account)
+        );
+        assert_eq!(
+            currency.status().expect("status should exist"),
+            CurrencyStatus::Active
+        );
+        assert_eq!(
+            currency.uncommitted_events()[0].payload().name(),
+            CurrencyEventPayload::PROVISIONED
+        );
+    }
+
+    #[test]
+    fn provision_rejects_duplicate_with_event() {
+        let owner = user_owner();
+        let mint_account = make_mint_account("Mint111111111111111111111111111111111111");
+        let duplicate_mint_account = make_mint_account("Mint222222222222222222222222222222222222");
+        let mut currency = Currency::new();
+        currency
+            .define(
+                owner,
+                CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
+                CurrencyName::try_from("USD Coin").expect("name should be valid"),
+                CurrencyDecimals::new(6),
+                None,
+                None,
+            )
+            .expect("definition should succeed");
+        currency
+            .provision(mint_account.clone())
+            .expect("provision should succeed");
+
+        let result = currency
+            .provision(duplicate_mint_account)
+            .expect("duplicate provision should complete with a rejection event");
+
+        assert!(matches!(
+            result,
+            super::CurrencyProvisionResult::Rejected {
+                reason: super::CurrencyProvisionRejectionReason::AlreadyProvisioned
             }
         ));
         assert_eq!(
+            currency.mint_account().expect("mint account should exist"),
+            Some(&mint_account)
+        );
+        assert_eq!(
             currency.uncommitted_events()[2].payload().name(),
-            CurrencyEventPayload::SUPPLY_INCREASE_REJECTED
+            CurrencyEventPayload::PROVISION_REJECTED
+        );
+    }
+
+    #[test]
+    fn provision_rejects_removed_currency_with_event() {
+        let owner = user_owner();
+        let mut currency = Currency::new();
+        currency
+            .define(
+                owner,
+                CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
+                CurrencyName::try_from("USD Coin").expect("name should be valid"),
+                CurrencyDecimals::new(6),
+                None,
+                None,
+            )
+            .expect("definition should succeed");
+        currency.remove().expect("remove should succeed");
+
+        let result = currency
+            .provision(make_mint_account(
+                "Mint111111111111111111111111111111111111",
+            ))
+            .expect("removed provision should complete with a rejection event");
+
+        assert!(matches!(
+            result,
+            super::CurrencyProvisionResult::Rejected {
+                reason: super::CurrencyProvisionRejectionReason::Removed
+            }
+        ));
+        assert_eq!(
+            currency.status().expect("status should exist"),
+            CurrencyStatus::Removed
+        );
+        assert_eq!(
+            currency.mint_account().expect("mint account should exist"),
+            None
+        );
+        assert_eq!(
+            currency.uncommitted_events()[2].payload().name(),
+            CurrencyEventPayload::PROVISION_REJECTED
+        );
+    }
+
+    #[test]
+    fn reserve_supply_rejects_unprovisioned_currency() {
+        let owner = user_owner();
+        let mut currency = Currency::new();
+        currency
+            .define(
+                owner,
+                CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
+                CurrencyName::try_from("USD Coin").expect("name should be valid"),
+                CurrencyDecimals::new(6),
+                None,
+                None,
+            )
+            .expect("definition should succeed");
+        let result = currency
+            .reserve_supply(CurrencyAmount::new(1))
+            .expect("reserve should complete with a rejection event");
+
+        assert!(matches!(
+            result,
+            super::CurrencySupplyReserveResult::Rejected {
+                reason: super::CurrencySupplyReserveRejectionReason::ProvisioningPending
+            }
+        ));
+        assert_eq!(
+            currency.uncommitted_events()[1].payload().name(),
+            CurrencyEventPayload::SUPPLY_RESERVE_REJECTED
+        );
+    }
+
+    #[test]
+    fn reserve_supply_rejects_inactive_currency() {
+        let owner = user_owner();
+        let mut currency = Currency::new();
+        currency
+            .define(
+                owner,
+                CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
+                CurrencyName::try_from("USD Coin").expect("name should be valid"),
+                CurrencyDecimals::new(6),
+                None,
+                None,
+            )
+            .expect("definition should succeed");
+        currency
+            .provision(make_mint_account(
+                "Mint111111111111111111111111111111111111",
+            ))
+            .expect("provision should succeed");
+        currency.deactivate().expect("deactivate should succeed");
+
+        let result = currency
+            .reserve_supply(CurrencyAmount::new(1))
+            .expect("reserve should complete with a rejection event");
+
+        assert!(matches!(
+            result,
+            super::CurrencySupplyReserveResult::Rejected {
+                reason: super::CurrencySupplyReserveRejectionReason::Inactive
+            }
+        ));
+        assert_eq!(
+            currency.uncommitted_events()[3].payload().name(),
+            CurrencyEventPayload::SUPPLY_RESERVE_REJECTED
         );
     }
 
     #[test]
     fn remove_updates_status_to_removed() {
         let owner = user_owner();
-        let mut currency = Currency::default();
+        let mut currency = Currency::new();
         currency
             .define(
                 owner,
                 CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
                 CurrencyName::try_from("USD Coin").expect("name should be valid"),
                 CurrencyDecimals::new(6),
+                None,
+                None,
             )
             .expect("definition should succeed");
 
@@ -665,13 +1398,15 @@ mod tests {
     #[test]
     fn operations_reject_removed_currency() {
         let owner = user_owner();
-        let mut currency = Currency::default();
+        let mut currency = Currency::new();
         currency
             .define(
                 owner,
                 CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
                 CurrencyName::try_from("USD Coin").expect("name should be valid"),
                 CurrencyDecimals::new(6),
+                None,
+                None,
             )
             .expect("definition should succeed");
         currency.remove().expect("remove should succeed");

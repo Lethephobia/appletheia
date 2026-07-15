@@ -5,7 +5,7 @@ use syn::{Item, ItemStruct, Result};
 use super::unique_constraints_attribute_args::{
     UniqueConstraintEntrySourceArg, UniqueConstraintsAttributeArgs,
 };
-use crate::utils::crate_path::resolve_domain_path;
+use crate::utils::crate_path::{resolve_domain_path, resolve_uuid_root};
 
 pub(crate) fn expand_unique_constraints_attribute(
     attr: proc_macro::TokenStream,
@@ -28,6 +28,7 @@ fn expand_unique_constraints_impl(
     args: UniqueConstraintsAttributeArgs,
 ) -> Result<TokenStream> {
     let domain = resolve_domain_path()?;
+    let uuid = resolve_uuid_root()?;
 
     let name = &item_struct.ident;
     let generics = &item_struct.generics;
@@ -37,12 +38,12 @@ fn expand_unique_constraints_impl(
         let key = &entry.key;
         match &entry.source {
             UniqueConstraintEntrySourceArg::Values(values) => quote! {
-                if let Some(values) = #values(self)? {
+                if let Some(values) = #values(self, aggregate_id)? {
                     let _ = entries.insert(#domain::UniqueKey::new(#key), values);
                 }
             },
             UniqueConstraintEntrySourceArg::Value(value) => quote! {
-                if let Some(value) = #value(self)? {
+                if let Some(value) = #value(self, aggregate_id)? {
                     let values = #domain::UniqueValues::new(vec![value])?;
                     let _ = entries.insert(#domain::UniqueKey::new(#key), values);
                 }
@@ -73,6 +74,7 @@ fn expand_unique_constraints_impl(
         {
             fn unique_entries(
                 &self,
+                aggregate_id: #uuid::Uuid,
             ) -> ::std::result::Result<
                 #domain::UniqueEntries,
                 <#name #ty_generics as #domain::AggregateState>::Error,

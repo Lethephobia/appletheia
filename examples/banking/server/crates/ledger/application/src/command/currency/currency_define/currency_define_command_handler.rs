@@ -5,11 +5,14 @@ use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use appletheia::domain::Aggregate;
+use appletheia::domain::UniqueValue;
 use banking_iam_application::authorization::{
     OrganizationFinanceManagerRelation, UserOwnerRelation,
 };
 use banking_iam_domain::{Organization, User};
-use banking_ledger_domain::currency::{Currency, CurrencyOwner};
+use banking_ledger_domain::currency::{
+    Currency, CurrencyDefineResult, CurrencyError, CurrencyOwner, CurrencyState, CurrencySymbol,
+};
 
 use super::{CurrencyDefineCommand, CurrencyDefineCommandHandlerError, CurrencyDefineOutput};
 
@@ -29,6 +32,12 @@ where
         Self {
             currency_repository,
         }
+    }
+
+    fn symbol_unique_value(
+        symbol: &CurrencySymbol,
+    ) -> Result<UniqueValue, CurrencyDefineCommandHandlerError> {
+        Ok(UniqueValue::from_strings([symbol.as_ref()])?)
     }
 }
 
@@ -76,18 +85,31 @@ where
             symbol,
             name,
             decimals,
+            description,
+            image,
         } = command.clone();
-        let mut currency = Currency::default();
-        currency.define(owner, symbol, name, decimals)?;
+
+        let unique_value = Self::symbol_unique_value(&symbol)?;
+        if self
+            .currency_repository
+            .find_by_unique_value(uow, CurrencyState::SYMBOL_KEY, &unique_value)
+            .await?
+            .is_some()
+        {
+            return Err(CurrencyError::SymbolAlreadyTaken.into());
+        }
+
+        let mut currency = Currency::new();
+        let currency_id = currency.aggregate_id();
+        let result = currency.define(owner, symbol, name, decimals, description, image)?;
 
         self.currency_repository
             .save(uow, request_context, &mut currency)
             .await?;
 
-        let currency_id = currency
-            .aggregate_id()
-            .ok_or(CurrencyDefineCommandHandlerError::MissingCurrencyId)?;
-        let output = CurrencyDefineOutput::new(currency_id);
+        let output = match result {
+            CurrencyDefineResult::Defined => CurrencyDefineOutput::new(currency_id),
+        };
 
         Ok(CommandHandled::same(output))
     }
@@ -141,21 +163,35 @@ mod tests {
     impl Repository<Currency> for TestCurrencyRepository {
         type Uow = TestUow;
 
-        async fn find(
+        async fn read(
             &self,
             _uow: &mut Self::Uow,
             _id: CurrencyId,
-        ) -> Result<Option<Currency>, RepositoryError<Currency>> {
-            Ok(self.currency.lock().expect("lock").clone())
+        ) -> Result<Currency, RepositoryError<Currency>> {
+            self.currency
+                .lock()
+                .expect("lock")
+                .clone()
+                .ok_or_else(|| RepositoryError::NotFound {
+                    aggregate_type: Currency::TYPE,
+                    aggregate_id: _id,
+                })
         }
 
-        async fn find_at_version(
+        async fn read_at_version(
             &self,
             _uow: &mut Self::Uow,
             _id: CurrencyId,
-            _at: Option<appletheia::domain::AggregateVersion>,
-        ) -> Result<Option<Currency>, RepositoryError<Currency>> {
-            Ok(self.currency.lock().expect("lock").clone())
+            _at: appletheia::domain::AggregateVersion,
+        ) -> Result<Currency, RepositoryError<Currency>> {
+            self.currency
+                .lock()
+                .expect("lock")
+                .clone()
+                .ok_or_else(|| RepositoryError::NotFound {
+                    aggregate_type: Currency::TYPE,
+                    aggregate_id: _id,
+                })
         }
 
         async fn find_by_unique_value(
@@ -213,6 +249,8 @@ mod tests {
                 symbol: CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
                 name: CurrencyName::try_from("USD Coin").expect("name should be valid"),
                 decimals: CurrencyDecimals::new(6),
+                description: None,
+                image: None,
             })
             .expect("authorization plan should build");
 
@@ -239,6 +277,8 @@ mod tests {
                 symbol: CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
                 name: CurrencyName::try_from("USD Coin").expect("name should be valid"),
                 decimals: CurrencyDecimals::new(6),
+                description: None,
+                image: None,
             })
             .expect("authorization plan should build");
 
@@ -272,6 +312,8 @@ mod tests {
                     symbol: CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
                     name: CurrencyName::try_from("USD Coin").expect("name should be valid"),
                     decimals: CurrencyDecimals::new(6),
+                    description: None,
+                    image: None,
                 },
             )
             .await
@@ -284,7 +326,7 @@ mod tests {
             .expect("lock")
             .clone()
             .expect("currency should be saved");
-        let saved_id = saved.aggregate_id().expect("currency id should exist");
+        let saved_id = saved.aggregate_id();
 
         assert_eq!(output, CurrencyDefineOutput::new(saved_id));
         assert_eq!(saved.symbol().expect("symbol should exist").value(), "USDC");
@@ -311,6 +353,8 @@ mod tests {
                     symbol: CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
                     name: CurrencyName::try_from("USD Coin").expect("name should be valid"),
                     decimals: CurrencyDecimals::new(6),
+                    description: None,
+                    image: None,
                 },
             )
             .await
@@ -323,7 +367,7 @@ mod tests {
             .expect("lock")
             .clone()
             .expect("currency should be saved");
-        let saved_id = saved.aggregate_id().expect("currency id should exist");
+        let saved_id = saved.aggregate_id();
 
         assert_eq!(output, CurrencyDefineOutput::new(saved_id));
         assert_eq!(saved.owner().expect("owner should exist"), expected_owner);

@@ -94,6 +94,10 @@ mod tests {
     impl AggregateId for CounterId {
         type Error = CounterIdError;
 
+        fn new() -> Self {
+            Self(Uuid::now_v7())
+        }
+
         fn value(&self) -> Uuid {
             self.0
         }
@@ -128,12 +132,7 @@ mod tests {
     impl ReferenceIndexes<CounterStateError> for CounterState {}
 
     impl AggregateState for CounterState {
-        type Id = CounterId;
         type Error = CounterStateError;
-
-        fn id(&self) -> Self::Id {
-            self.id
-        }
     }
 
     #[derive(Debug, Error)]
@@ -162,11 +161,14 @@ mod tests {
     enum CounterError {
         #[error(transparent)]
         Aggregate(#[from] AggregateError<CounterId>),
+
+        #[error(transparent)]
+        State(#[from] CounterStateError),
     }
 
     #[derive(Clone, Debug, Default)]
     struct Counter {
-        core: AggregateCore<CounterState, CounterEventPayload>,
+        core: AggregateCore<CounterId, CounterState, CounterEventPayload>,
     }
 
     impl AggregateApply<CounterEventPayload, CounterError> for Counter {
@@ -192,11 +194,23 @@ mod tests {
 
         const TYPE: AggregateType = AggregateType::new("counter");
 
-        fn core(&self) -> &AggregateCore<Self::State, Self::EventPayload> {
+        fn new() -> Self {
+            Self {
+                core: AggregateCore::new(),
+            }
+        }
+
+        fn from_id(id: Self::Id) -> Self {
+            Self {
+                core: AggregateCore::from_id(id),
+            }
+        }
+
+        fn core(&self) -> &AggregateCore<Self::Id, Self::State, Self::EventPayload> {
             &self.core
         }
 
-        fn core_mut(&mut self) -> &mut AggregateCore<Self::State, Self::EventPayload> {
+        fn core_mut(&mut self) -> &mut AggregateCore<Self::Id, Self::State, Self::EventPayload> {
             &mut self.core
         }
     }
@@ -218,11 +232,19 @@ mod tests {
 
         const TYPE: AggregateType = AggregateType::new("other_counter");
 
-        fn core(&self) -> &AggregateCore<Self::State, Self::EventPayload> {
+        fn new() -> Self {
+            Self
+        }
+
+        fn from_id(_id: Self::Id) -> Self {
+            Self
+        }
+
+        fn core(&self) -> &AggregateCore<Self::Id, Self::State, Self::EventPayload> {
             panic!("test aggregate should not access core")
         }
 
-        fn core_mut(&mut self) -> &mut AggregateCore<Self::State, Self::EventPayload> {
+        fn core_mut(&mut self) -> &mut AggregateCore<Self::Id, Self::State, Self::EventPayload> {
             panic!("test aggregate should not access core")
         }
     }

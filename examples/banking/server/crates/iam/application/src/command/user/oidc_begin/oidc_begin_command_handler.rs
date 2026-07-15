@@ -2,12 +2,14 @@ use appletheia::application::authentication::oidc::{
     OidcBeginOptions, OidcContinuation, OidcContinuationExpiresAt, OidcContinuationStore,
     OidcLoginFlow,
 };
-use appletheia::application::authorization::{AuthorizationPlan, PrincipalRequirement};
+use appletheia::application::authorization::{
+    AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
+};
 use appletheia::application::command::{CommandHandled, CommandHandler};
-use appletheia::application::request_context::{Principal, RequestContext};
-use appletheia::domain::{Aggregate, AggregateId};
-use banking_iam_domain::{User, UserId};
+use appletheia::application::request_context::RequestContext;
+use banking_iam_domain::User;
 
+use crate::authorization::UserOwnerRelation;
 use crate::oidc::{OidcCompletionPurpose, OidcContinuationPayload};
 
 use super::{OidcBeginCommand, OidcBeginCommandHandlerError, OidcBeginOutput};
@@ -33,22 +35,6 @@ where
             oidc_continuation_store,
         }
     }
-
-    fn principal_user_id(
-        request_context: &RequestContext,
-    ) -> Result<Option<UserId>, OidcBeginCommandHandlerError> {
-        let Principal::Authenticated { subject } = &request_context.principal else {
-            return Ok(None);
-        };
-
-        if subject.aggregate_type.value() != User::TYPE.value() {
-            return Ok(None);
-        }
-
-        UserId::try_from_uuid(subject.aggregate_id.value())
-            .map(Some)
-            .map_err(OidcBeginCommandHandlerError::InvalidAuthenticatedPrincipalUserId)
-    }
 }
 
 impl<OLF, OCS> CommandHandler for OidcBeginCommandHandler<OLF, OCS>
@@ -67,7 +53,11 @@ where
         command: &Self::Command,
     ) -> Result<AuthorizationPlan, Self::Error> {
         let principal_requirements = match command.completion_purpose {
-            OidcCompletionPurpose::LinkIdentity => vec![PrincipalRequirement::Authenticated],
+            OidcCompletionPurpose::LinkIdentity { user_id } => {
+                vec![PrincipalRequirement::AuthenticatedWithRelationship(
+                    RelationshipRequirement::check::<User>(user_id, UserOwnerRelation::REF),
+                )]
+            }
             OidcCompletionPurpose::Token | OidcCompletionPurpose::ExchangeCode => vec![
                 PrincipalRequirement::Anonymous,
                 PrincipalRequirement::Authenticated,
@@ -80,7 +70,7 @@ where
     async fn handle(
         &self,
         uow: &mut Self::Uow,
-        request_context: &RequestContext,
+        _request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
         let OidcBeginCommand {
@@ -105,7 +95,6 @@ where
             completion_purpose,
             completion_redirect_uri,
             code_challenge,
-            principal_user_id: Self::principal_user_id(request_context)?,
         };
         let continuation = OidcContinuation::new(
             begin_result.state.clone(),

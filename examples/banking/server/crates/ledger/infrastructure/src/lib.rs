@@ -1,8 +1,25 @@
+pub mod object_storage;
 pub mod postgresql;
+pub mod solana;
 
+pub use object_storage::{
+    ObjectStorageMintMetadataPublisher, ObjectStorageMintMetadataPublisherConfig,
+};
 pub use postgresql::{
-    PgCurrencyListItemReader, PgCurrencyListItemWriter, PgOwnedAccountListItemReader,
-    PgOwnedAccountListItemWriter, PgOwnedAccountTransactionListItemReader,
-    PgOwnedAccountTransactionListItemWriter, PgPublicAccountListItemReader,
-    PgPublicAccountListItemWriter,
+    PgCurrencyListReader, PgCurrencyListWriter, PgOwnedAccountListReader, PgOwnedAccountListWriter,
+    PgOwnedAccountTransactionListReader, PgOwnedAccountTransactionListWriter,
+    PgPublicAccountListReader, PgPublicAccountListWriter, PgWalletBookmarkListReader,
+    PgWalletBookmarkListWriter,
+};
+pub use solana::{
+    MintMetadataPublishRequest, MintMetadataPublisher, MintMetadataPublisherError,
+    SolanaMintMetadataUpdater, SolanaMintMetadataUpdaterConfig, SolanaMintMetadataUpdaterError,
+    SolanaMintProvisioner, SolanaMintProvisionerConfig, SolanaMintProvisionerError,
+    SolanaMintSupplySynchronizer, SolanaMintSupplySynchronizerConfig,
+    SolanaMintSupplySynchronizerError, SolanaOnchainConfigurer, SolanaOnchainConfigurerConfig,
+    SolanaOnchainConfigurerError, SolanaPoolTokenTransferExecutor,
+    SolanaPoolTokenTransferExecutorConfig, SolanaPoolTokenTransferExecutorError,
+    SolanaTokenAccountOwnerAddressValidator, SolanaTokenDepositPreparer,
+    SolanaTokenDepositPreparerConfig, SolanaTokenDepositPreparerError, SolanaTokenDepositVerifier,
+    SolanaTokenDepositVerifierConfig, SolanaTokenDepositVerifierError,
 };

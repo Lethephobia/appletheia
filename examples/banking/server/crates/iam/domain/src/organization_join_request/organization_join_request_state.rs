@@ -2,47 +2,30 @@ use appletheia::aggregate_state;
 use appletheia::domain::{AggregateId, UniqueValue};
 use appletheia::reference_indexes;
 use appletheia::unique_constraints;
+use uuid::Uuid;
 
 use crate::{OrganizationId, UserId};
 
-use super::{
-    OrganizationJoinRequestId, OrganizationJoinRequestStateError, OrganizationJoinRequestStatus,
-};
+use super::{OrganizationJoinRequestStateError, OrganizationJoinRequestStatus};
 
 /// Stores the materialized state of an `OrganizationJoinRequest` aggregate.
 #[aggregate_state(error = OrganizationJoinRequestStateError)]
 #[unique_constraints(
-    entry(key = "organization_requester", value = organization_requester_value)
+    entry(key = "organization_requester", value = organization_requester_unique_value)
 )]
 #[reference_indexes(
-    entry(key = "organization", value = organization_value),
-    entry(key = "requester", value = requester_value)
+    entry(key = "organization", value = organization_ref_value),
+    entry(key = "requester", value = requester_ref_value)
 )]
 pub struct OrganizationJoinRequestState {
-    pub(super) id: OrganizationJoinRequestId,
     pub(super) organization_id: OrganizationId,
     pub(super) requester_id: UserId,
     pub(super) status: OrganizationJoinRequestStatus,
 }
 
-impl OrganizationJoinRequestState {
-    /// Creates a new organization join request state.
-    pub(super) fn new(
-        id: OrganizationJoinRequestId,
-        organization_id: OrganizationId,
-        requester_id: UserId,
-    ) -> Self {
-        Self {
-            id,
-            organization_id,
-            requester_id,
-            status: OrganizationJoinRequestStatus::Pending,
-        }
-    }
-}
-
-fn organization_requester_value(
+fn organization_requester_unique_value(
     state: &OrganizationJoinRequestState,
+    _aggregate_id: Uuid,
 ) -> Result<Option<UniqueValue>, OrganizationJoinRequestStateError> {
     if !state.status.is_pending() {
         return Ok(None);
@@ -55,47 +38,49 @@ fn organization_requester_value(
     Ok(Some(value))
 }
 
-fn organization_value(
+fn organization_ref_value(
     state: &OrganizationJoinRequestState,
+    _aggregate_id: Uuid,
 ) -> Result<Option<OrganizationId>, OrganizationJoinRequestStateError> {
     Ok(Some(state.organization_id))
 }
 
-fn requester_value(
+fn requester_ref_value(
     state: &OrganizationJoinRequestState,
+    _aggregate_id: Uuid,
 ) -> Result<Option<UserId>, OrganizationJoinRequestStateError> {
     Ok(Some(state.requester_id))
 }
 
 #[cfg(test)]
 mod tests {
-    use appletheia::domain::{
-        AggregateState, ReferenceIndexes, ReferenceValues, UniqueConstraints, UniqueValues,
-    };
+    use appletheia::domain::{ReferenceIndexes, ReferenceValues, UniqueConstraints, UniqueValues};
+    use uuid::Uuid;
 
     use crate::{OrganizationId, UserId};
 
-    use super::{
-        OrganizationJoinRequestId, OrganizationJoinRequestState, OrganizationJoinRequestStatus,
-    };
+    use super::{OrganizationJoinRequestState, OrganizationJoinRequestStatus};
 
     #[test]
-    fn exposes_id_via_aggregate_state_trait() {
-        let id = OrganizationJoinRequestId::new();
-        let state = OrganizationJoinRequestState::new(id, OrganizationId::new(), UserId::new());
-
-        assert_eq!(state.id(), id);
+    fn state_stores_domain_attributes() {
+        let _state = OrganizationJoinRequestState {
+            organization_id: OrganizationId::new(),
+            requester_id: UserId::new(),
+            status: OrganizationJoinRequestStatus::Pending,
+        };
     }
 
     #[test]
     fn pending_state_returns_unique_entries_for_organization_and_requester() {
-        let state = OrganizationJoinRequestState::new(
-            OrganizationJoinRequestId::new(),
-            OrganizationId::new(),
-            UserId::new(),
-        );
+        let state = OrganizationJoinRequestState {
+            organization_id: OrganizationId::new(),
+            requester_id: UserId::new(),
+            status: OrganizationJoinRequestStatus::Pending,
+        };
 
-        let entries = state.unique_entries().expect("unique entries should build");
+        let entries = state
+            .unique_entries(Uuid::now_v7())
+            .expect("unique entries should build");
 
         assert_eq!(
             entries
@@ -107,14 +92,16 @@ mod tests {
 
     #[test]
     fn non_pending_state_has_no_unique_entry() {
-        let mut state = OrganizationJoinRequestState::new(
-            OrganizationJoinRequestId::new(),
-            OrganizationId::new(),
-            UserId::new(),
-        );
+        let mut state = OrganizationJoinRequestState {
+            organization_id: OrganizationId::new(),
+            requester_id: UserId::new(),
+            status: OrganizationJoinRequestStatus::Pending,
+        };
         state.status = OrganizationJoinRequestStatus::Approved;
 
-        let entries = state.unique_entries().expect("unique entries should build");
+        let entries = state
+            .unique_entries(Uuid::now_v7())
+            .expect("unique entries should build");
 
         assert_eq!(
             entries
@@ -128,14 +115,14 @@ mod tests {
     fn returns_reference_entries_for_organization_and_requester() {
         let organization_id = OrganizationId::new();
         let requester_id = UserId::new();
-        let state = OrganizationJoinRequestState::new(
-            OrganizationJoinRequestId::new(),
+        let state = OrganizationJoinRequestState {
             organization_id,
             requester_id,
-        );
+            status: OrganizationJoinRequestStatus::Pending,
+        };
 
         let entries = state
-            .reference_entries()
+            .reference_entries(Uuid::now_v7())
             .expect("reference entries should build");
 
         assert_eq!(

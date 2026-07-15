@@ -2,7 +2,9 @@ use appletheia::application::authorization::{AuthorizationPlan, PrincipalRequire
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_ledger_domain::owned_account_closure::OwnedAccountClosure;
+use banking_ledger_domain::owned_account_closure::{
+    OwnedAccountClosure, OwnedAccountClosureRecordResult,
+};
 
 use super::{
     OwnedAccountClosureAccountCloseRecordCommand,
@@ -54,23 +56,25 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
-        let Some(mut owned_account_closure) = self
+        let mut owned_account_closure = self
             .owned_account_closure_repository
-            .find(uow, command.owned_account_closure_id)
-            .await?
-        else {
-            return Err(
-                OwnedAccountClosureAccountCloseRecordCommandHandlerError::OwnedAccountClosureNotFound,
-            );
-        };
+            .read(uow, command.owned_account_closure_id)
+            .await?;
 
         let result = owned_account_closure.record_account_close(command.account_id)?;
         self.owned_account_closure_repository
             .save(uow, request_context, &mut owned_account_closure)
             .await?;
 
-        Ok(CommandHandled::same(
-            OwnedAccountClosureAccountCloseRecordOutput::from(result),
-        ))
+        let output = match result {
+            OwnedAccountClosureRecordResult::Recorded => {
+                OwnedAccountClosureAccountCloseRecordOutput::Recorded
+            }
+            OwnedAccountClosureRecordResult::Rejected { reason } => {
+                OwnedAccountClosureAccountCloseRecordOutput::Rejected { reason }
+            }
+        };
+
+        Ok(CommandHandled::same(output))
     }
 }

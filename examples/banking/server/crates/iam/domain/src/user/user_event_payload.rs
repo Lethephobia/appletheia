@@ -1,29 +1,28 @@
 use appletheia::event_payload;
+use banking_shared_kernel_domain::contact::Email;
 
-use crate::core::Email;
+use crate::{OrganizationId, OrganizationRoles};
 
 use super::{
-    UserBio, UserDisplayName, UserEventPayloadError, UserId,
+    OrganizationMembershipGrantRejectionReason, OrganizationMembershipRemoveRejectionReason,
+    OrganizationMembershipRolesChangeRejectionReason, UserBio, UserBioChangeRejectionReason,
+    UserDisplayName, UserDisplayNameChangeRejectionReason, UserEventPayloadError, UserIdentityData,
     UserIdentityEmailChangeRejectionReason, UserIdentityLinkRejectionReason, UserIdentityProvider,
-    UserIdentitySubject, UserPictureRef, UserProfileChangeRejectionReason,
-    UserStatusRejectionReason, Username,
+    UserIdentitySubject, UserPictureChangeRejectionReason, UserPictureRef,
+    UserStatusRejectionReason, UserUsernameChangeRejectionReason, Username,
 };
 
 /// Represents the domain events emitted by a `User` aggregate.
 #[event_payload(error = UserEventPayloadError)]
 pub enum UserEventPayload {
     Registered {
-        id: UserId,
+        initial_identity: Option<UserIdentityData>,
     },
     IdentityLinked {
-        provider: UserIdentityProvider,
-        subject: UserIdentitySubject,
-        email: Option<Email>,
+        identity: UserIdentityData,
     },
     IdentityLinkRejected {
-        provider: UserIdentityProvider,
-        subject: UserIdentitySubject,
-        email: Option<Email>,
+        identity: UserIdentityData,
         reason: UserIdentityLinkRejectionReason,
     },
     IdentityEmailChanged {
@@ -42,21 +41,21 @@ pub enum UserEventPayload {
     },
     UsernameChangeRejected {
         username: Username,
-        reason: UserProfileChangeRejectionReason,
+        reason: UserUsernameChangeRejectionReason,
     },
     DisplayNameChanged {
         display_name: UserDisplayName,
     },
     DisplayNameChangeRejected {
         display_name: UserDisplayName,
-        reason: UserProfileChangeRejectionReason,
+        reason: UserDisplayNameChangeRejectionReason,
     },
     BioChanged {
         bio: Option<UserBio>,
     },
     BioChangeRejected {
         bio: Option<UserBio>,
-        reason: UserProfileChangeRejectionReason,
+        reason: UserBioChangeRejectionReason,
     },
     PictureChanged {
         picture: Option<UserPictureRef>,
@@ -64,13 +63,38 @@ pub enum UserEventPayload {
     },
     PictureChangeRejected {
         picture: Option<UserPictureRef>,
-        reason: UserProfileChangeRejectionReason,
+        reason: UserPictureChangeRejectionReason,
+    },
+    OrganizationMembershipGranted {
+        organization_id: OrganizationId,
+        roles: OrganizationRoles,
+    },
+    OrganizationMembershipGrantRejected {
+        organization_id: OrganizationId,
+        roles: OrganizationRoles,
+        reason: OrganizationMembershipGrantRejectionReason,
+    },
+    OrganizationMembershipRolesChanged {
+        organization_id: OrganizationId,
+        roles: OrganizationRoles,
+    },
+    OrganizationMembershipRolesChangeRejected {
+        organization_id: OrganizationId,
+        roles: OrganizationRoles,
+        reason: OrganizationMembershipRolesChangeRejectionReason,
+    },
+    OrganizationMembershipRemoved {
+        organization_id: OrganizationId,
+    },
+    OrganizationMembershipRemoveRejected {
+        organization_id: OrganizationId,
+        reason: OrganizationMembershipRemoveRejectionReason,
     },
     Activated,
     ActivateRejected {
         reason: UserStatusRejectionReason,
     },
-    Inactivated,
+    Deactivated,
     DeactivateRejected {
         reason: UserStatusRejectionReason,
     },
@@ -83,11 +107,14 @@ pub enum UserEventPayload {
 #[cfg(test)]
 mod tests {
     use appletheia::domain::EventPayload;
+    use banking_shared_kernel_domain::contact::Email;
 
-    use crate::core::Email;
-    use crate::{UserBio, UserDisplayName, UserPictureRef, UserPictureUrl};
+    use crate::{
+        OrganizationId, OrganizationRoles, UserBio, UserDisplayName, UserIdentityProvider,
+        UserIdentitySubject, UserPictureRef, UserPictureUrl,
+    };
 
-    use super::{UserEventPayload, UserId, UserIdentityProvider, UserIdentitySubject};
+    use super::{UserEventPayload, UserIdentityData};
 
     #[test]
     fn returns_stable_event_names() {
@@ -144,6 +171,30 @@ mod tests {
             appletheia::domain::EventName::new("picture_change_rejected")
         );
         assert_eq!(
+            UserEventPayload::ORGANIZATION_MEMBERSHIP_GRANTED,
+            appletheia::domain::EventName::new("organization_membership_granted")
+        );
+        assert_eq!(
+            UserEventPayload::ORGANIZATION_MEMBERSHIP_GRANT_REJECTED,
+            appletheia::domain::EventName::new("organization_membership_grant_rejected")
+        );
+        assert_eq!(
+            UserEventPayload::ORGANIZATION_MEMBERSHIP_ROLES_CHANGED,
+            appletheia::domain::EventName::new("organization_membership_roles_changed")
+        );
+        assert_eq!(
+            UserEventPayload::ORGANIZATION_MEMBERSHIP_ROLES_CHANGE_REJECTED,
+            appletheia::domain::EventName::new("organization_membership_roles_change_rejected")
+        );
+        assert_eq!(
+            UserEventPayload::ORGANIZATION_MEMBERSHIP_REMOVED,
+            appletheia::domain::EventName::new("organization_membership_removed")
+        );
+        assert_eq!(
+            UserEventPayload::ORGANIZATION_MEMBERSHIP_REMOVE_REJECTED,
+            appletheia::domain::EventName::new("organization_membership_remove_rejected")
+        );
+        assert_eq!(
             UserEventPayload::ACTIVATED,
             appletheia::domain::EventName::new("activated")
         );
@@ -152,8 +203,8 @@ mod tests {
             appletheia::domain::EventName::new("activate_rejected")
         );
         assert_eq!(
-            UserEventPayload::INACTIVATED,
-            appletheia::domain::EventName::new("inactivated")
+            UserEventPayload::DEACTIVATED,
+            appletheia::domain::EventName::new("deactivated")
         );
         assert_eq!(
             UserEventPayload::DEACTIVATE_REJECTED,
@@ -224,30 +275,47 @@ mod tests {
     }
 
     #[test]
+    fn organization_membership_granted_payload_name_matches_variant() {
+        let payload = UserEventPayload::OrganizationMembershipGranted {
+            organization_id: OrganizationId::new(),
+            roles: OrganizationRoles::default(),
+        };
+
+        assert_eq!(
+            payload.name(),
+            UserEventPayload::ORGANIZATION_MEMBERSHIP_GRANTED
+        );
+    }
+
+    #[test]
     fn serializes_identity_linked_payload_to_json() {
         let payload = UserEventPayload::IdentityLinked {
-            provider: UserIdentityProvider::try_from("https://accounts.example.com")
-                .expect("provider should be valid"),
-            subject: UserIdentitySubject::try_from("user-123").expect("subject should be valid"),
-            email: Some(Email::try_from("alice@example.com").expect("email should be valid")),
+            identity: UserIdentityData::new(
+                UserIdentityProvider::try_from("https://accounts.example.com")
+                    .expect("provider should be valid"),
+                UserIdentitySubject::try_from("user-123").expect("subject should be valid"),
+                Some(Email::try_from("alice@example.com").expect("email should be valid")),
+            ),
         };
 
         let value = payload.into_json_value().expect("payload should serialize");
 
         assert_eq!(value["type"], serde_json::json!("identity_linked"));
         assert_eq!(
-            value["data"]["provider"],
+            value["data"]["identity"]["provider"],
             serde_json::json!("https://accounts.example.com")
         );
     }
 
     #[test]
     fn serializes_registered_payload_to_json() {
-        let payload = UserEventPayload::Registered { id: UserId::new() };
+        let payload = UserEventPayload::Registered {
+            initial_identity: None,
+        };
 
         let value = payload.into_json_value().expect("payload should serialize");
 
         assert_eq!(value["type"], serde_json::json!("registered"));
-        assert!(value["data"]["id"].is_string());
+        assert!(value["data"].get("id").is_none());
     }
 }

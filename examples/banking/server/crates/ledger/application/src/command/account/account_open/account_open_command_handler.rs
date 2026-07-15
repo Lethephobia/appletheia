@@ -9,7 +9,7 @@ use banking_iam_application::authorization::{
     OrganizationFinanceManagerRelation, UserOwnerRelation,
 };
 use banking_iam_domain::{Organization, User};
-use banking_ledger_domain::account::{Account, AccountOwner};
+use banking_ledger_domain::account::{Account, AccountOpenResult, AccountOpening, AccountOwner};
 
 use super::{AccountOpenCommand, AccountOpenCommandHandlerError, AccountOpenOutput};
 
@@ -46,14 +46,12 @@ where
     ) -> Result<AuthorizationPlan, Self::Error> {
         match command.owner {
             AccountOwner::User(user_id) => Ok(AuthorizationPlan::OnlyPrincipals(vec![
-                PrincipalRequirement::System,
                 PrincipalRequirement::AuthenticatedWithRelationship(
                     RelationshipRequirement::check::<User>(user_id, UserOwnerRelation::REF),
                 ),
             ])),
             AccountOwner::Organization(organization_id) => {
                 Ok(AuthorizationPlan::OnlyPrincipals(vec![
-                    PrincipalRequirement::System,
                     PrincipalRequirement::AuthenticatedWithRelationship(
                         RelationshipRequirement::check::<Organization>(
                             organization_id,
@@ -71,18 +69,23 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
-        let mut account = Account::default();
-        account.open(command.owner, command.name.clone(), command.currency_id)?;
+        let mut account = Account::new();
+        let account_id = account.aggregate_id();
+        let result = account.open(AccountOpening {
+            owner: command.owner,
+            name: command.name.clone(),
+            currency_id: command.currency_id,
+        })?;
 
         self.account_repository
             .save(uow, request_context, &mut account)
             .await?;
 
-        let account_id = account
-            .aggregate_id()
-            .ok_or(AccountOpenCommandHandlerError::MissingAccountId)?;
+        let output = match result {
+            AccountOpenResult::Opened => AccountOpenOutput::new(account_id),
+        };
 
-        Ok(CommandHandled::same(AccountOpenOutput::new(account_id)))
+        Ok(CommandHandled::same(output))
     }
 }
 
@@ -145,21 +148,35 @@ mod tests {
     impl Repository<Account> for TestAccountRepository {
         type Uow = TestUow;
 
-        async fn find(
+        async fn read(
             &self,
             _uow: &mut Self::Uow,
             _id: AccountId,
-        ) -> Result<Option<Account>, RepositoryError<Account>> {
-            Ok(self.account.lock().expect("lock").clone())
+        ) -> Result<Account, RepositoryError<Account>> {
+            self.account
+                .lock()
+                .expect("lock")
+                .clone()
+                .ok_or_else(|| RepositoryError::NotFound {
+                    aggregate_type: Account::TYPE,
+                    aggregate_id: _id,
+                })
         }
 
-        async fn find_at_version(
+        async fn read_at_version(
             &self,
             _uow: &mut Self::Uow,
             _id: AccountId,
-            _at: Option<appletheia::domain::AggregateVersion>,
-        ) -> Result<Option<Account>, RepositoryError<Account>> {
-            Ok(self.account.lock().expect("lock").clone())
+            _at: appletheia::domain::AggregateVersion,
+        ) -> Result<Account, RepositoryError<Account>> {
+            self.account
+                .lock()
+                .expect("lock")
+                .clone()
+                .ok_or_else(|| RepositoryError::NotFound {
+                    aggregate_type: Account::TYPE,
+                    aggregate_id: _id,
+                })
         }
 
         async fn find_by_unique_value(
@@ -194,7 +211,7 @@ mod tests {
     }
 
     #[test]
-    fn authorization_plan_allows_system_or_target_owner() {
+    fn authorization_plan_requires_target_user_owner() {
         let handler = AccountOpenCommandHandler::new(TestAccountRepository::default());
         let owner = account_owner();
         let name = account_name();
@@ -210,7 +227,6 @@ mod tests {
         assert_eq!(
             plan,
             AuthorizationPlan::OnlyPrincipals(vec![
-                PrincipalRequirement::System,
                 PrincipalRequirement::AuthenticatedWithRelationship(
                     RelationshipRequirement::check::<User>(
                         owner.user_id().copied().expect("user owner expected"),
@@ -222,7 +238,7 @@ mod tests {
     }
 
     #[test]
-    fn authorization_plan_allows_system_or_organization_account_opener() {
+    fn authorization_plan_requires_organization_finance_manager() {
         let handler = AccountOpenCommandHandler::new(TestAccountRepository::default());
         let owner = organization_owner();
         let name = account_name();
@@ -238,7 +254,6 @@ mod tests {
         assert_eq!(
             plan,
             AuthorizationPlan::OnlyPrincipals(vec![
-                PrincipalRequirement::System,
                 PrincipalRequirement::AuthenticatedWithRelationship(
                     RelationshipRequirement::check::<Organization>(
                         owner
@@ -279,7 +294,7 @@ mod tests {
             .expect("lock")
             .clone()
             .expect("account should be saved");
-        let account_id = saved.aggregate_id().expect("account id should exist");
+        let account_id = saved.aggregate_id();
         assert_eq!(saved.owner().expect("owner should exist"), owner);
         assert_eq!(saved.name().expect("name should exist"), &name);
 
@@ -313,7 +328,7 @@ mod tests {
             .expect("lock")
             .clone()
             .expect("account should be saved");
-        let account_id = saved.aggregate_id().expect("account id should exist");
+        let account_id = saved.aggregate_id();
         assert_eq!(saved.owner().expect("owner should exist"), owner);
         assert_eq!(saved.name().expect("name should exist"), &name);
 

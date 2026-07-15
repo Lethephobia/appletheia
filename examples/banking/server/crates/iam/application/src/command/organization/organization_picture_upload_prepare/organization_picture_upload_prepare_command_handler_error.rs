@@ -21,9 +21,6 @@ pub enum OrganizationPictureUploadPrepareCommandHandlerError {
     #[error("object upload signer failed")]
     ObjectUploadSigner(#[from] ObjectUploadSignerError),
 
-    #[error("organization was not found")]
-    OrganizationNotFound,
-
     #[error("removed organizations cannot prepare picture uploads")]
     OrganizationRemoved,
 

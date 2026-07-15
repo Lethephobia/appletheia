@@ -1,6 +1,8 @@
 use banking_iam_domain::{OrganizationId, UserId};
 use serde::{Deserialize, Serialize};
 
+use crate::wallet_bookmark::WalletBookmarkOwner;
+
 /// Identifies the owner of an `Account`.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 #[serde(tag = "type", content = "value", rename_all = "snake_case")]
@@ -46,6 +48,17 @@ impl From<UserId> for AccountOwner {
 impl From<OrganizationId> for AccountOwner {
     fn from(value: OrganizationId) -> Self {
         Self::Organization(value)
+    }
+}
+
+impl From<WalletBookmarkOwner> for AccountOwner {
+    fn from(value: WalletBookmarkOwner) -> Self {
+        match value {
+            WalletBookmarkOwner::User(user_id) => Self::User(user_id),
+            WalletBookmarkOwner::Organization(organization_id) => {
+                Self::Organization(organization_id)
+            }
+        }
     }
 }
 

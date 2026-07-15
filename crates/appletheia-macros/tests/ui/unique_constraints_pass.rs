@@ -37,21 +37,21 @@ struct CounterState {
 
 impl ReferenceIndexes<CounterStateError> for CounterState {}
 
-fn email_values(state: &CounterState) -> Result<Option<UniqueValues>, CounterStateError> {
+fn email_values(state: &CounterState, _aggregate_id: uuid::Uuid) -> Result<Option<UniqueValues>, CounterStateError> {
     match state.email.as_deref() {
         Some(email) => Ok(Some(single_value(email))),
         None => Ok(None),
     }
 }
 
-fn phone_number_values(state: &CounterState) -> Result<Option<UniqueValues>, CounterStateError> {
+fn phone_number_values(state: &CounterState, _aggregate_id: uuid::Uuid) -> Result<Option<UniqueValues>, CounterStateError> {
     match state.phone_number.as_deref() {
         Some(phone_number) => Ok(Some(single_value(phone_number))),
         None => Ok(None),
     }
 }
 
-fn username_value(state: &CounterState) -> Result<Option<UniqueValue>, CounterStateError> {
+fn username_value(state: &CounterState, _aggregate_id: uuid::Uuid) -> Result<Option<UniqueValue>, CounterStateError> {
     Ok(state
         .username
         .as_deref()
@@ -63,7 +63,7 @@ fn single_value(input: &str) -> UniqueValues {
     UniqueValues::new(vec![value]).expect("unique values should be valid")
 }
 
-fn assert_aggregate_state<T: AggregateState<Id = CounterId, Error = CounterStateError>>() {}
+fn assert_aggregate_state<T: AggregateState<Error = CounterStateError>>() {}
 
 fn main() {
     assert_aggregate_state::<CounterState>();
@@ -75,7 +75,7 @@ fn main() {
         phone_number: None,
     };
 
-    let unique_entries = state.unique_entries().unwrap();
+    let unique_entries = state.unique_entries(uuid::Uuid::now_v7()).unwrap();
 
     assert_eq!(CounterState::EMAIL_KEY, UniqueKey::new("email"));
     assert_eq!(CounterState::USERNAME_KEY, UniqueKey::new("username"));

@@ -1,72 +1,99 @@
+mod organization_membership;
 mod user_activate_result;
 mod user_bio;
+mod user_bio_change_rejection_reason;
+mod user_bio_change_result;
 mod user_bio_error;
 mod user_deactivate_result;
 mod user_display_name;
+mod user_display_name_change_rejection_reason;
+mod user_display_name_change_result;
 mod user_display_name_error;
 mod user_error;
 mod user_event_payload;
 mod user_event_payload_error;
 mod user_id;
 mod user_identity;
+mod user_picture_change_rejection_reason;
+mod user_picture_change_result;
 mod user_picture_object_name;
 mod user_picture_object_name_error;
 mod user_picture_ref;
 mod user_picture_url;
 mod user_picture_url_error;
-mod user_profile_change_rejection_reason;
-mod user_profile_change_result;
+mod user_register_result;
+mod user_registration;
 mod user_remove_result;
 mod user_state;
 mod user_state_error;
 mod user_status;
 mod user_status_rejection_reason;
+mod user_username_change_rejection_reason;
+mod user_username_change_result;
 mod username;
 mod username_error;
 
+pub use organization_membership::{
+    OrganizationMembership, OrganizationMembershipGrant,
+    OrganizationMembershipGrantRejectionReason, OrganizationMembershipGrantResult,
+    OrganizationMembershipRemoveRejectionReason, OrganizationMembershipRemoveResult,
+    OrganizationMembershipRolesChangeRejectionReason, OrganizationMembershipRolesChangeResult,
+    OrganizationRole, OrganizationRoles,
+};
 pub use user_activate_result::UserActivateResult;
 pub use user_bio::UserBio;
+pub use user_bio_change_rejection_reason::UserBioChangeRejectionReason;
+pub use user_bio_change_result::UserBioChangeResult;
 pub use user_bio_error::UserBioError;
 pub use user_deactivate_result::UserDeactivateResult;
 pub use user_display_name::UserDisplayName;
+pub use user_display_name_change_rejection_reason::UserDisplayNameChangeRejectionReason;
+pub use user_display_name_change_result::UserDisplayNameChangeResult;
 pub use user_display_name_error::UserDisplayNameError;
 pub use user_error::UserError;
 pub use user_event_payload::UserEventPayload;
 pub use user_event_payload_error::UserEventPayloadError;
 pub use user_id::UserId;
 pub use user_identity::{
-    UserIdentity, UserIdentityEmailChangeRejectionReason, UserIdentityEmailChangeResult,
-    UserIdentityLinkRejectionReason, UserIdentityLinkResult, UserIdentityProvider,
-    UserIdentityProviderError, UserIdentitySubject, UserIdentitySubjectError,
+    UserIdentity, UserIdentityData, UserIdentityEmailChangeRejectionReason,
+    UserIdentityEmailChangeResult, UserIdentityLinkRejectionReason, UserIdentityLinkResult,
+    UserIdentityProvider, UserIdentityProviderError, UserIdentityRegistration, UserIdentitySubject,
+    UserIdentitySubjectError,
 };
+pub use user_picture_change_rejection_reason::UserPictureChangeRejectionReason;
+pub use user_picture_change_result::UserPictureChangeResult;
 pub use user_picture_object_name::UserPictureObjectName;
 pub use user_picture_object_name_error::UserPictureObjectNameError;
 pub use user_picture_ref::UserPictureRef;
 pub use user_picture_url::UserPictureUrl;
 pub use user_picture_url_error::UserPictureUrlError;
-pub use user_profile_change_rejection_reason::UserProfileChangeRejectionReason;
-pub use user_profile_change_result::UserProfileChangeResult;
+pub use user_register_result::UserRegisterResult;
+pub use user_registration::UserRegistration;
 pub use user_remove_result::UserRemoveResult;
 pub use user_state::UserState;
 pub use user_state_error::UserStateError;
 pub use user_status::UserStatus;
 pub use user_status_rejection_reason::UserStatusRejectionReason;
+pub use user_username_change_rejection_reason::UserUsernameChangeRejectionReason;
+pub use user_username_change_result::UserUsernameChangeResult;
 pub use username::Username;
 pub use username_error::UsernameError;
 
 use appletheia::aggregate;
 use appletheia::domain::{Aggregate, AggregateApply, AggregateCore};
+use banking_shared_kernel_domain::contact::Email;
 
-use crate::core::Email;
+use crate::OrganizationId;
 
 /// Represents the `User` aggregate root.
 #[aggregate(type = "user", error = UserError)]
 pub struct User {
-    core: AggregateCore<UserState, UserEventPayload>,
+    core: AggregateCore<UserId, UserState, UserEventPayload>,
 }
 
 impl User {
     pub const MAX_IDENTITY_COUNT: usize = 32;
+    pub const MAX_ORGANIZATION_MEMBERSHIP_COUNT: usize = 32;
 
     /// Returns the linked external identities.
     pub fn identities(&self) -> Result<&[UserIdentity], UserError> {
@@ -84,6 +111,31 @@ impl User {
             .identities
             .iter()
             .find(|identity| identity.matches(provider, subject)))
+    }
+
+    /// Returns the organization memberships owned by this user.
+    pub fn organization_memberships(&self) -> Result<&[OrganizationMembership], UserError> {
+        Ok(&self.state_required()?.organization_memberships)
+    }
+
+    /// Returns an organization membership by organization id.
+    pub fn organization_membership(
+        &self,
+        organization_id: OrganizationId,
+    ) -> Result<Option<&OrganizationMembership>, UserError> {
+        Ok(self
+            .state_required()?
+            .organization_memberships
+            .iter()
+            .find(|membership| membership.organization_id() == organization_id))
+    }
+
+    /// Returns whether the user belongs to an organization.
+    pub fn is_organization_member(
+        &self,
+        organization_id: OrganizationId,
+    ) -> Result<bool, UserError> {
+        Ok(self.organization_membership(organization_id)?.is_some())
     }
 
     /// Returns the current username.
@@ -127,64 +179,87 @@ impl User {
     }
 
     /// Registers a new user.
-    pub fn register(&mut self) -> Result<(), UserError> {
+    pub fn register(
+        &mut self,
+        registration: UserRegistration,
+    ) -> Result<UserRegisterResult, UserError> {
         if self.state().is_some() {
             return Err(UserError::AlreadyRegistered);
         }
 
-        self.append_event(UserEventPayload::Registered { id: UserId::new() })
+        let initial_identity = registration.initial_identity.as_ref().map(|identity| {
+            UserIdentityData::new(
+                identity.provider.clone(),
+                identity.subject.clone(),
+                identity.email.clone(),
+            )
+        });
+
+        self.append_event(UserEventPayload::Registered { initial_identity })?;
+        Ok(UserRegisterResult::Registered)
     }
 
     /// Links an additional external identity.
     pub fn link_identity(
         &mut self,
-        provider: UserIdentityProvider,
-        subject: UserIdentitySubject,
-        email: Option<Email>,
+        identity: UserIdentityRegistration,
     ) -> Result<UserIdentityLinkResult, UserError> {
-        if let Some(reason) = self.identity_link_rejection_reason()? {
-            self.append_event(UserEventPayload::IdentityLinkRejected {
-                provider,
-                subject,
-                email,
-                reason,
-            })?;
-            return Ok(UserIdentityLinkResult::Rejected { reason });
+        match self.state_required()?.status {
+            UserStatus::Removed => {
+                let reason = UserIdentityLinkRejectionReason::Removed;
+                self.reject_link_identity(identity, reason)?;
+                return Ok(UserIdentityLinkResult::Rejected { reason });
+            }
+            UserStatus::Inactive => {
+                let reason = UserIdentityLinkRejectionReason::Inactive;
+                self.reject_link_identity(identity, reason)?;
+                return Ok(UserIdentityLinkResult::Rejected { reason });
+            }
+            UserStatus::Active => {}
         }
 
         if self
             .state_required()?
             .identities
             .iter()
-            .any(|current_identity| current_identity.matches(&provider, &subject))
+            .any(|current_identity| current_identity.matches(&identity.provider, &identity.subject))
         {
             let reason = UserIdentityLinkRejectionReason::AlreadyLinked;
-            self.append_event(UserEventPayload::IdentityLinkRejected {
-                provider,
-                subject,
-                email,
-                reason,
-            })?;
+            self.reject_link_identity(identity, reason)?;
             return Ok(UserIdentityLinkResult::Rejected { reason });
         }
 
         if self.state_required()?.identities.len() >= Self::MAX_IDENTITY_COUNT {
             let reason = UserIdentityLinkRejectionReason::CountLimitExceeded;
-            self.append_event(UserEventPayload::IdentityLinkRejected {
-                provider,
-                subject,
-                email,
-                reason,
-            })?;
+            self.reject_link_identity(identity, reason)?;
             return Ok(UserIdentityLinkResult::Rejected { reason });
         }
 
         self.append_event(UserEventPayload::IdentityLinked {
-            provider,
-            subject,
-            email,
+            identity: UserIdentityData::new(
+                identity.provider.clone(),
+                identity.subject.clone(),
+                identity.email.clone(),
+            ),
         })?;
         Ok(UserIdentityLinkResult::Linked)
+    }
+
+    /// Rejects an identity link attempt.
+    pub fn reject_link_identity(
+        &mut self,
+        identity: UserIdentityRegistration,
+        reason: UserIdentityLinkRejectionReason,
+    ) -> Result<(), UserError> {
+        self.append_event(UserEventPayload::IdentityLinkRejected {
+            identity: UserIdentityData::new(
+                identity.provider.clone(),
+                identity.subject.clone(),
+                identity.email.clone(),
+            ),
+            reason,
+        })?;
+        Ok(())
     }
 
     /// Changes the email snapshot for a linked identity.
@@ -194,35 +269,40 @@ impl User {
         subject: &UserIdentitySubject,
         email: Option<Email>,
     ) -> Result<UserIdentityEmailChangeResult, UserError> {
-        if let Some(reason) = self.identity_email_change_rejection_reason()? {
-            self.append_event(UserEventPayload::IdentityEmailChangeRejected {
-                provider: provider.clone(),
-                subject: subject.clone(),
-                email,
-                reason,
-            })?;
-            return Ok(UserIdentityEmailChangeResult::Rejected { reason });
+        match self.state_required()?.status {
+            UserStatus::Removed => {
+                let reason = UserIdentityEmailChangeRejectionReason::Removed;
+                self.reject_change_identity_email(
+                    provider.clone(),
+                    subject.clone(),
+                    email,
+                    reason,
+                )?;
+                return Ok(UserIdentityEmailChangeResult::Rejected { reason });
+            }
+            UserStatus::Inactive => {
+                let reason = UserIdentityEmailChangeRejectionReason::Inactive;
+                self.reject_change_identity_email(
+                    provider.clone(),
+                    subject.clone(),
+                    email,
+                    reason,
+                )?;
+                return Ok(UserIdentityEmailChangeResult::Rejected { reason });
+            }
+            UserStatus::Active => {}
         }
 
-        let Some(identity) = self
+        let Some(_) = self
             .state_required()?
             .identities
             .iter()
             .find(|identity| identity.matches(provider, subject))
         else {
             let reason = UserIdentityEmailChangeRejectionReason::NotFound;
-            self.append_event(UserEventPayload::IdentityEmailChangeRejected {
-                provider: provider.clone(),
-                subject: subject.clone(),
-                email,
-                reason,
-            })?;
+            self.reject_change_identity_email(provider.clone(), subject.clone(), email, reason)?;
             return Ok(UserIdentityEmailChangeResult::Rejected { reason });
         };
-
-        if identity.email() == email.as_ref() {
-            return Ok(UserIdentityEmailChangeResult::Changed);
-        }
 
         self.append_event(UserEventPayload::IdentityEmailChanged {
             provider: provider.clone(),
@@ -232,75 +312,139 @@ impl User {
         Ok(UserIdentityEmailChangeResult::Changed)
     }
 
+    /// Rejects an identity email change attempt.
+    pub fn reject_change_identity_email(
+        &mut self,
+        provider: UserIdentityProvider,
+        subject: UserIdentitySubject,
+        email: Option<Email>,
+        reason: UserIdentityEmailChangeRejectionReason,
+    ) -> Result<(), UserError> {
+        self.append_event(UserEventPayload::IdentityEmailChangeRejected {
+            provider,
+            subject,
+            email,
+            reason,
+        })?;
+        Ok(())
+    }
+
     /// Changes the current username.
     pub fn change_username(
         &mut self,
         username: Username,
-    ) -> Result<UserProfileChangeResult, UserError> {
-        if let Some(reason) = self.profile_change_rejection_reason()? {
-            self.append_event(UserEventPayload::UsernameChangeRejected { username, reason })?;
-            return Ok(UserProfileChangeResult::Rejected { reason });
-        }
-
-        if self.state_required()?.username.as_ref() == Some(&username) {
-            return Ok(UserProfileChangeResult::Changed);
+    ) -> Result<UserUsernameChangeResult, UserError> {
+        match self.state_required()?.status {
+            UserStatus::Removed => {
+                let reason = UserUsernameChangeRejectionReason::Removed;
+                self.reject_change_username(username, reason)?;
+                return Ok(UserUsernameChangeResult::Rejected { reason });
+            }
+            UserStatus::Inactive => {
+                let reason = UserUsernameChangeRejectionReason::Inactive;
+                self.reject_change_username(username, reason)?;
+                return Ok(UserUsernameChangeResult::Rejected { reason });
+            }
+            UserStatus::Active => {}
         }
 
         self.append_event(UserEventPayload::UsernameChanged { username })?;
-        Ok(UserProfileChangeResult::Changed)
+        Ok(UserUsernameChangeResult::Changed)
+    }
+
+    /// Rejects a username change attempt.
+    pub fn reject_change_username(
+        &mut self,
+        username: Username,
+        reason: UserUsernameChangeRejectionReason,
+    ) -> Result<(), UserError> {
+        self.append_event(UserEventPayload::UsernameChangeRejected { username, reason })?;
+        Ok(())
     }
 
     /// Changes the current display name.
     pub fn change_display_name(
         &mut self,
         display_name: UserDisplayName,
-    ) -> Result<UserProfileChangeResult, UserError> {
-        if let Some(reason) = self.profile_change_rejection_reason()? {
-            self.append_event(UserEventPayload::DisplayNameChangeRejected {
-                display_name,
-                reason,
-            })?;
-            return Ok(UserProfileChangeResult::Rejected { reason });
-        }
-
-        if self.state_required()?.display_name.as_ref() == Some(&display_name) {
-            return Ok(UserProfileChangeResult::Changed);
+    ) -> Result<UserDisplayNameChangeResult, UserError> {
+        match self.state_required()?.status {
+            UserStatus::Removed => {
+                let reason = UserDisplayNameChangeRejectionReason::Removed;
+                self.reject_change_display_name(display_name, reason)?;
+                return Ok(UserDisplayNameChangeResult::Rejected { reason });
+            }
+            UserStatus::Inactive => {
+                let reason = UserDisplayNameChangeRejectionReason::Inactive;
+                self.reject_change_display_name(display_name, reason)?;
+                return Ok(UserDisplayNameChangeResult::Rejected { reason });
+            }
+            UserStatus::Active => {}
         }
 
         self.append_event(UserEventPayload::DisplayNameChanged { display_name })?;
-        Ok(UserProfileChangeResult::Changed)
+        Ok(UserDisplayNameChangeResult::Changed)
+    }
+
+    /// Rejects a display name change attempt.
+    pub fn reject_change_display_name(
+        &mut self,
+        display_name: UserDisplayName,
+        reason: UserDisplayNameChangeRejectionReason,
+    ) -> Result<(), UserError> {
+        self.append_event(UserEventPayload::DisplayNameChangeRejected {
+            display_name,
+            reason,
+        })?;
+        Ok(())
     }
 
     /// Changes the current bio.
-    pub fn change_bio(
-        &mut self,
-        bio: Option<UserBio>,
-    ) -> Result<UserProfileChangeResult, UserError> {
-        if let Some(reason) = self.profile_change_rejection_reason()? {
-            self.append_event(UserEventPayload::BioChangeRejected { bio, reason })?;
-            return Ok(UserProfileChangeResult::Rejected { reason });
-        }
-
-        if self.state_required()?.bio == bio {
-            return Ok(UserProfileChangeResult::Changed);
+    pub fn change_bio(&mut self, bio: Option<UserBio>) -> Result<UserBioChangeResult, UserError> {
+        match self.state_required()?.status {
+            UserStatus::Removed => {
+                let reason = UserBioChangeRejectionReason::Removed;
+                self.reject_change_bio(bio, reason)?;
+                return Ok(UserBioChangeResult::Rejected { reason });
+            }
+            UserStatus::Inactive => {
+                let reason = UserBioChangeRejectionReason::Inactive;
+                self.reject_change_bio(bio, reason)?;
+                return Ok(UserBioChangeResult::Rejected { reason });
+            }
+            UserStatus::Active => {}
         }
 
         self.append_event(UserEventPayload::BioChanged { bio })?;
-        Ok(UserProfileChangeResult::Changed)
+        Ok(UserBioChangeResult::Changed)
+    }
+
+    /// Rejects a bio change attempt.
+    pub fn reject_change_bio(
+        &mut self,
+        bio: Option<UserBio>,
+        reason: UserBioChangeRejectionReason,
+    ) -> Result<(), UserError> {
+        self.append_event(UserEventPayload::BioChangeRejected { bio, reason })?;
+        Ok(())
     }
 
     /// Changes the current picture.
     pub fn change_picture(
         &mut self,
         picture: Option<UserPictureRef>,
-    ) -> Result<UserProfileChangeResult, UserError> {
-        if let Some(reason) = self.profile_change_rejection_reason()? {
-            self.append_event(UserEventPayload::PictureChangeRejected { picture, reason })?;
-            return Ok(UserProfileChangeResult::Rejected { reason });
-        }
-
-        if self.state_required()?.picture == picture {
-            return Ok(UserProfileChangeResult::Changed);
+    ) -> Result<UserPictureChangeResult, UserError> {
+        match self.state_required()?.status {
+            UserStatus::Removed => {
+                let reason = UserPictureChangeRejectionReason::Removed;
+                self.reject_change_picture(picture, reason)?;
+                return Ok(UserPictureChangeResult::Rejected { reason });
+            }
+            UserStatus::Inactive => {
+                let reason = UserPictureChangeRejectionReason::Inactive;
+                self.reject_change_picture(picture, reason)?;
+                return Ok(UserPictureChangeResult::Rejected { reason });
+            }
+            UserStatus::Active => {}
         }
 
         let old_picture = self.state_required()?.picture.clone();
@@ -309,46 +453,228 @@ impl User {
             picture,
             old_picture,
         })?;
-        Ok(UserProfileChangeResult::Changed)
+        Ok(UserPictureChangeResult::Changed)
+    }
+
+    /// Rejects a picture change attempt.
+    pub fn reject_change_picture(
+        &mut self,
+        picture: Option<UserPictureRef>,
+        reason: UserPictureChangeRejectionReason,
+    ) -> Result<(), UserError> {
+        self.append_event(UserEventPayload::PictureChangeRejected { picture, reason })?;
+        Ok(())
+    }
+
+    /// Grants an organization membership to this user.
+    pub fn grant_organization_membership(
+        &mut self,
+        grant: OrganizationMembershipGrant,
+    ) -> Result<OrganizationMembershipGrantResult, UserError> {
+        let organization_id = grant.organization_id;
+
+        match self.state_required()?.status {
+            UserStatus::Removed => {
+                let reason = OrganizationMembershipGrantRejectionReason::Removed;
+                self.reject_grant_organization_membership(grant, reason)?;
+                return Ok(OrganizationMembershipGrantResult::Rejected { reason });
+            }
+            UserStatus::Inactive => {
+                let reason = OrganizationMembershipGrantRejectionReason::Inactive;
+                self.reject_grant_organization_membership(grant, reason)?;
+                return Ok(OrganizationMembershipGrantResult::Rejected { reason });
+            }
+            UserStatus::Active => {}
+        }
+
+        if self
+            .state_required()?
+            .organization_memberships
+            .iter()
+            .any(|membership| membership.organization_id() == organization_id)
+        {
+            let reason = OrganizationMembershipGrantRejectionReason::AlreadyMember;
+            self.reject_grant_organization_membership(grant, reason)?;
+            return Ok(OrganizationMembershipGrantResult::Rejected { reason });
+        }
+
+        if self.state_required()?.organization_memberships.len()
+            >= Self::MAX_ORGANIZATION_MEMBERSHIP_COUNT
+        {
+            let reason = OrganizationMembershipGrantRejectionReason::CountLimitExceeded;
+            self.reject_grant_organization_membership(grant, reason)?;
+            return Ok(OrganizationMembershipGrantResult::Rejected { reason });
+        }
+
+        let (organization_id, roles) = grant.into_parts();
+        self.append_event(UserEventPayload::OrganizationMembershipGranted {
+            organization_id,
+            roles,
+        })?;
+        Ok(OrganizationMembershipGrantResult::Granted)
+    }
+
+    /// Rejects an organization membership grant attempt.
+    pub fn reject_grant_organization_membership(
+        &mut self,
+        grant: OrganizationMembershipGrant,
+        reason: OrganizationMembershipGrantRejectionReason,
+    ) -> Result<(), UserError> {
+        let (organization_id, roles) = grant.into_parts();
+        self.append_event(UserEventPayload::OrganizationMembershipGrantRejected {
+            organization_id,
+            roles,
+            reason,
+        })?;
+        Ok(())
+    }
+
+    /// Changes roles for an organization membership.
+    pub fn change_organization_membership_roles(
+        &mut self,
+        organization_id: OrganizationId,
+        roles: OrganizationRoles,
+    ) -> Result<OrganizationMembershipRolesChangeResult, UserError> {
+        match self.state_required()?.status {
+            UserStatus::Removed => {
+                let reason = OrganizationMembershipRolesChangeRejectionReason::Removed;
+                self.reject_change_organization_membership_roles(organization_id, roles, reason)?;
+                return Ok(OrganizationMembershipRolesChangeResult::Rejected { reason });
+            }
+            UserStatus::Inactive => {
+                let reason = OrganizationMembershipRolesChangeRejectionReason::Inactive;
+                self.reject_change_organization_membership_roles(organization_id, roles, reason)?;
+                return Ok(OrganizationMembershipRolesChangeResult::Rejected { reason });
+            }
+            UserStatus::Active => {}
+        }
+
+        if self
+            .state_required()?
+            .organization_memberships
+            .iter()
+            .all(|membership| membership.organization_id() != organization_id)
+        {
+            let reason = OrganizationMembershipRolesChangeRejectionReason::NotMember;
+            self.reject_change_organization_membership_roles(organization_id, roles, reason)?;
+            return Ok(OrganizationMembershipRolesChangeResult::Rejected { reason });
+        }
+
+        self.append_event(UserEventPayload::OrganizationMembershipRolesChanged {
+            organization_id,
+            roles,
+        })?;
+        Ok(OrganizationMembershipRolesChangeResult::Changed)
+    }
+
+    /// Rejects an organization membership roles change attempt.
+    pub fn reject_change_organization_membership_roles(
+        &mut self,
+        organization_id: OrganizationId,
+        roles: OrganizationRoles,
+        reason: OrganizationMembershipRolesChangeRejectionReason,
+    ) -> Result<(), UserError> {
+        self.append_event(
+            UserEventPayload::OrganizationMembershipRolesChangeRejected {
+                organization_id,
+                roles,
+                reason,
+            },
+        )?;
+        Ok(())
+    }
+
+    /// Removes an organization membership from this user.
+    pub fn remove_organization_membership(
+        &mut self,
+        organization_id: OrganizationId,
+    ) -> Result<OrganizationMembershipRemoveResult, UserError> {
+        match self.state_required()?.status {
+            UserStatus::Removed => {
+                let reason = OrganizationMembershipRemoveRejectionReason::Removed;
+                self.reject_remove_organization_membership(organization_id, reason)?;
+                return Ok(OrganizationMembershipRemoveResult::Rejected { reason });
+            }
+            UserStatus::Inactive => {
+                let reason = OrganizationMembershipRemoveRejectionReason::Inactive;
+                self.reject_remove_organization_membership(organization_id, reason)?;
+                return Ok(OrganizationMembershipRemoveResult::Rejected { reason });
+            }
+            UserStatus::Active => {}
+        }
+
+        if self
+            .state_required()?
+            .organization_memberships
+            .iter()
+            .all(|membership| membership.organization_id() != organization_id)
+        {
+            let reason = OrganizationMembershipRemoveRejectionReason::NotMember;
+            self.reject_remove_organization_membership(organization_id, reason)?;
+            return Ok(OrganizationMembershipRemoveResult::Rejected { reason });
+        }
+
+        self.append_event(UserEventPayload::OrganizationMembershipRemoved { organization_id })?;
+        Ok(OrganizationMembershipRemoveResult::Removed)
+    }
+
+    /// Rejects an organization membership remove attempt.
+    pub fn reject_remove_organization_membership(
+        &mut self,
+        organization_id: OrganizationId,
+        reason: OrganizationMembershipRemoveRejectionReason,
+    ) -> Result<(), UserError> {
+        self.append_event(UserEventPayload::OrganizationMembershipRemoveRejected {
+            organization_id,
+            reason,
+        })?;
+        Ok(())
     }
 
     /// Activates an inactive user.
     pub fn activate(&mut self) -> Result<UserActivateResult, UserError> {
         if self.state_required()?.status.is_removed() {
             let reason = UserStatusRejectionReason::Removed;
-            self.append_event(UserEventPayload::ActivateRejected { reason })?;
+            self.reject_activate(reason)?;
             return Ok(UserActivateResult::Rejected { reason });
-        }
-
-        if self.state_required()?.status.is_active() {
-            return Ok(UserActivateResult::Activated);
         }
 
         self.append_event(UserEventPayload::Activated)?;
         Ok(UserActivateResult::Activated)
     }
 
+    /// Rejects a user activation attempt.
+    pub fn reject_activate(&mut self, reason: UserStatusRejectionReason) -> Result<(), UserError> {
+        self.append_event(UserEventPayload::ActivateRejected { reason })?;
+        Ok(())
+    }
+
     /// Deactivates an active user.
     pub fn deactivate(&mut self) -> Result<UserDeactivateResult, UserError> {
         if self.state_required()?.status.is_removed() {
             let reason = UserStatusRejectionReason::Removed;
-            self.append_event(UserEventPayload::DeactivateRejected { reason })?;
+            self.reject_deactivate(reason)?;
             return Ok(UserDeactivateResult::Rejected { reason });
         }
 
-        if self.state_required()?.status.is_inactive() {
-            return Ok(UserDeactivateResult::Deactivated);
-        }
-
-        self.append_event(UserEventPayload::Inactivated)?;
+        self.append_event(UserEventPayload::Deactivated)?;
         Ok(UserDeactivateResult::Deactivated)
+    }
+
+    /// Rejects a user deactivation attempt.
+    pub fn reject_deactivate(
+        &mut self,
+        reason: UserStatusRejectionReason,
+    ) -> Result<(), UserError> {
+        self.append_event(UserEventPayload::DeactivateRejected { reason })?;
+        Ok(())
     }
 
     /// Permanently removes a user.
     pub fn remove(&mut self) -> Result<UserRemoveResult, UserError> {
         if self.state_required()?.status.is_removed() {
             let reason = UserStatusRejectionReason::Removed;
-            self.append_event(UserEventPayload::RemoveRejected { reason })?;
+            self.reject_remove(reason)?;
             return Ok(UserRemoveResult::Rejected { reason });
         }
 
@@ -356,64 +682,42 @@ impl User {
         Ok(UserRemoveResult::Removed)
     }
 
-    fn identity_link_rejection_reason(
-        &self,
-    ) -> Result<Option<UserIdentityLinkRejectionReason>, UserError> {
-        if self.state_required()?.status.is_removed() {
-            return Ok(Some(UserIdentityLinkRejectionReason::Removed));
-        }
-
-        if self.state_required()?.status.is_inactive() {
-            return Ok(Some(UserIdentityLinkRejectionReason::Inactive));
-        }
-
-        Ok(None)
-    }
-
-    fn identity_email_change_rejection_reason(
-        &self,
-    ) -> Result<Option<UserIdentityEmailChangeRejectionReason>, UserError> {
-        if self.state_required()?.status.is_removed() {
-            return Ok(Some(UserIdentityEmailChangeRejectionReason::Removed));
-        }
-
-        if self.state_required()?.status.is_inactive() {
-            return Ok(Some(UserIdentityEmailChangeRejectionReason::Inactive));
-        }
-
-        Ok(None)
-    }
-
-    fn profile_change_rejection_reason(
-        &self,
-    ) -> Result<Option<UserProfileChangeRejectionReason>, UserError> {
-        if self.state_required()?.status.is_removed() {
-            return Ok(Some(UserProfileChangeRejectionReason::Removed));
-        }
-
-        if self.state_required()?.status.is_inactive() {
-            return Ok(Some(UserProfileChangeRejectionReason::Inactive));
-        }
-
-        Ok(None)
+    /// Rejects a user removal attempt.
+    pub fn reject_remove(&mut self, reason: UserStatusRejectionReason) -> Result<(), UserError> {
+        self.append_event(UserEventPayload::RemoveRejected { reason })?;
+        Ok(())
     }
 }
 
 impl AggregateApply<UserEventPayload, UserError> for User {
     fn apply(&mut self, payload: &UserEventPayload) -> Result<(), UserError> {
         match payload {
-            UserEventPayload::Registered { id } => self.set_state(Some(UserState::new(*id))),
-            UserEventPayload::IdentityLinked {
-                provider,
-                subject,
-                email,
-            } => {
+            UserEventPayload::Registered { initial_identity } => self.set_state(Some(UserState {
+                identities: initial_identity
+                    .as_ref()
+                    .map(|identity| {
+                        UserIdentity::new(
+                            identity.provider().clone(),
+                            identity.subject().clone(),
+                            identity.email().cloned(),
+                        )
+                    })
+                    .into_iter()
+                    .collect(),
+                username: None,
+                display_name: None,
+                bio: None,
+                picture: None,
+                organization_memberships: Vec::new(),
+                status: UserStatus::Active,
+            })),
+            UserEventPayload::IdentityLinked { identity } => {
                 self.state_required_mut()?
                     .identities
                     .push(UserIdentity::new(
-                        provider.clone(),
-                        subject.clone(),
-                        email.clone(),
+                        identity.provider().clone(),
+                        identity.subject().clone(),
+                        identity.email().cloned(),
                     ));
             }
             UserEventPayload::IdentityLinkRejected { .. } => {}
@@ -447,11 +751,42 @@ impl AggregateApply<UserEventPayload, UserError> for User {
                 self.state_required_mut()?.picture = picture.clone();
             }
             UserEventPayload::PictureChangeRejected { .. } => {}
+            UserEventPayload::OrganizationMembershipGranted {
+                organization_id,
+                roles,
+            } => {
+                self.state_required_mut()?
+                    .organization_memberships
+                    .push(OrganizationMembership::new(*organization_id, roles.clone()));
+            }
+            UserEventPayload::OrganizationMembershipGrantRejected { .. } => {}
+            UserEventPayload::OrganizationMembershipRolesChanged {
+                organization_id,
+                roles,
+            } => {
+                let membership = self
+                    .state_required_mut()?
+                    .organization_memberships
+                    .iter_mut()
+                    .find(|membership| membership.organization_id() == *organization_id)
+                    .ok_or(UserError::InvalidOrganizationMembershipState)?;
+                membership.change_roles(roles.clone());
+            }
+            UserEventPayload::OrganizationMembershipRolesChangeRejected { .. } => {}
+            UserEventPayload::OrganizationMembershipRemoved { organization_id } => {
+                let memberships = &mut self.state_required_mut()?.organization_memberships;
+                let index = memberships
+                    .iter()
+                    .position(|membership| membership.organization_id() == *organization_id)
+                    .ok_or(UserError::InvalidOrganizationMembershipState)?;
+                let _ = memberships.remove(index);
+            }
+            UserEventPayload::OrganizationMembershipRemoveRejected { .. } => {}
             UserEventPayload::Activated => {
                 self.state_required_mut()?.status = UserStatus::Active;
             }
             UserEventPayload::ActivateRejected { .. } => {}
-            UserEventPayload::Inactivated => {
+            UserEventPayload::Deactivated => {
                 self.state_required_mut()?.status = UserStatus::Inactive;
             }
             UserEventPayload::DeactivateRejected { .. } => {}
@@ -470,14 +805,19 @@ mod tests {
     use appletheia::domain::{Aggregate, EventPayload};
 
     use super::{
-        User, UserBio, UserDisplayName, UserEventPayload, UserIdentityEmailChangeRejectionReason,
+        Email, User, UserBio, UserDisplayName, UserDisplayNameChangeRejectionReason,
+        UserDisplayNameChangeResult, UserEventPayload, UserIdentityEmailChangeRejectionReason,
         UserIdentityEmailChangeResult, UserIdentityLinkRejectionReason, UserIdentityLinkResult,
-        UserIdentityProvider, UserIdentitySubject, UserPictureRef, UserPictureUrl,
-        UserProfileChangeRejectionReason, UserProfileChangeResult, UserStatus, Username,
+        UserIdentityProvider, UserIdentityRegistration, UserIdentitySubject, UserPictureRef,
+        UserPictureUrl, UserRegistration, UserStatus, UserUsernameChangeRejectionReason,
+        UserUsernameChangeResult, Username,
     };
 
     fn register_user(user: &mut User) {
-        user.register().expect("user should register");
+        user.register(UserRegistration {
+            initial_identity: None,
+        })
+        .expect("user should register");
     }
 
     fn display_name() -> UserDisplayName {
@@ -497,7 +837,7 @@ mod tests {
 
     #[test]
     fn register_initializes_state_and_records_event() {
-        let mut user = User::default();
+        let mut user = User::new();
 
         register_user(&mut user);
 
@@ -519,8 +859,35 @@ mod tests {
     }
 
     #[test]
+    fn register_can_attach_initial_identity() {
+        let mut user = User::new();
+        let provider = UserIdentityProvider::try_from("https://accounts.example.com")
+            .expect("provider should be valid");
+        let subject = UserIdentitySubject::try_from("user-123").expect("subject should be valid");
+        let email = Some(Email::try_from("alice@example.com").expect("email should be valid"));
+
+        user.register(UserRegistration {
+            initial_identity: Some(UserIdentityRegistration {
+                provider: provider.clone(),
+                subject: subject.clone(),
+                email: email.clone(),
+            }),
+        })
+        .expect("user should register with an initial identity");
+
+        let identities = user.identities().expect("identities should exist");
+        assert_eq!(identities.len(), 1);
+        assert!(identities[0].matches(&provider, &subject));
+        assert_eq!(identities[0].email(), email.as_ref());
+        assert_eq!(
+            user.uncommitted_events()[0].payload().name(),
+            UserEventPayload::REGISTERED
+        );
+    }
+
+    #[test]
     fn change_username_sets_username() {
-        let mut user = User::default();
+        let mut user = User::new();
         register_user(&mut user);
 
         user.change_username(Username::try_from("alice").expect("username should be valid"))
@@ -534,7 +901,7 @@ mod tests {
 
     #[test]
     fn change_display_name_sets_display_name() {
-        let mut user = User::default();
+        let mut user = User::new();
         let display_name = display_name();
         register_user(&mut user);
 
@@ -548,8 +915,8 @@ mod tests {
     }
 
     #[test]
-    fn identical_username_change_is_a_no_op() {
-        let mut user = User::default();
+    fn identical_username_change_appends_success_event() {
+        let mut user = User::new();
         let username = Username::try_from("alice").expect("username should be valid");
         register_user(&mut user);
         user.change_username(username.clone())
@@ -558,12 +925,16 @@ mod tests {
         user.change_username(username)
             .expect("idempotent change should succeed");
 
-        assert_eq!(user.uncommitted_events().len(), 2);
+        assert_eq!(user.uncommitted_events().len(), 3);
+        assert_eq!(
+            user.uncommitted_events()[2].payload().name(),
+            UserEventPayload::USERNAME_CHANGED
+        );
     }
 
     #[test]
-    fn identical_display_name_change_is_a_no_op() {
-        let mut user = User::default();
+    fn identical_display_name_change_appends_success_event() {
+        let mut user = User::new();
         let display_name = display_name();
         register_user(&mut user);
         user.change_display_name(display_name.clone())
@@ -572,12 +943,64 @@ mod tests {
         user.change_display_name(display_name)
             .expect("idempotent display name change should succeed");
 
-        assert_eq!(user.uncommitted_events().len(), 2);
+        assert_eq!(user.uncommitted_events().len(), 3);
+        assert_eq!(
+            user.uncommitted_events()[2].payload().name(),
+            UserEventPayload::DISPLAY_NAME_CHANGED
+        );
+    }
+
+    #[test]
+    fn identical_identity_email_change_appends_success_event() {
+        let mut user = User::new();
+        let provider = UserIdentityProvider::try_from("https://accounts.example.com")
+            .expect("provider should be valid");
+        let subject = UserIdentitySubject::try_from("user-123").expect("subject should be valid");
+        let email = Some(Email::try_from("alice@example.com").expect("email should be valid"));
+        register_user(&mut user);
+        user.link_identity(UserIdentityRegistration {
+            provider: provider.clone(),
+            subject: subject.clone(),
+            email: email.clone(),
+        })
+        .expect("identity should link");
+
+        user.change_identity_email(&provider, &subject, email)
+            .expect("idempotent identity email change should succeed");
+
+        assert_eq!(
+            user.uncommitted_events()[2].payload().name(),
+            UserEventPayload::IDENTITY_EMAIL_CHANGED
+        );
+    }
+
+    #[test]
+    fn repeated_activation_and_deactivation_append_success_events() {
+        let mut user = User::new();
+        register_user(&mut user);
+
+        user.activate().expect("activation should succeed");
+        user.deactivate().expect("deactivation should succeed");
+        user.deactivate()
+            .expect("repeated deactivation should succeed");
+
+        assert_eq!(
+            user.uncommitted_events()[1].payload().name(),
+            UserEventPayload::ACTIVATED
+        );
+        assert_eq!(
+            user.uncommitted_events()[2].payload().name(),
+            UserEventPayload::DEACTIVATED
+        );
+        assert_eq!(
+            user.uncommitted_events()[3].payload().name(),
+            UserEventPayload::DEACTIVATED
+        );
     }
 
     #[test]
     fn bio_and_picture_changes_update_state() {
-        let mut user = User::default();
+        let mut user = User::new();
         register_user(&mut user);
 
         user.change_bio(Some(bio()))
@@ -594,7 +1017,7 @@ mod tests {
 
     #[test]
     fn picture_changed_event_records_old_picture_after_current_picture() {
-        let mut user = User::default();
+        let mut user = User::new();
         let first_picture = picture();
         let second_picture = UserPictureRef::external_url(
             UserPictureUrl::try_from("https://cdn.example.com/alice-updated.png")
@@ -620,7 +1043,7 @@ mod tests {
 
     #[test]
     fn display_name_and_username_changes_reject_inactive_user() {
-        let mut user = User::default();
+        let mut user = User::new();
         register_user(&mut user);
         user.deactivate().expect("user should deactivate");
 
@@ -633,21 +1056,21 @@ mod tests {
 
         assert!(matches!(
             username_result,
-            UserProfileChangeResult::Rejected {
-                reason: UserProfileChangeRejectionReason::Inactive
+            UserUsernameChangeResult::Rejected {
+                reason: UserUsernameChangeRejectionReason::Inactive
             }
         ));
         assert!(matches!(
             display_name_result,
-            UserProfileChangeResult::Rejected {
-                reason: UserProfileChangeRejectionReason::Inactive
+            UserDisplayNameChangeResult::Rejected {
+                reason: UserDisplayNameChangeRejectionReason::Inactive
             }
         ));
     }
 
     #[test]
     fn identity_email_change_rejects_unknown_identity() {
-        let mut user = User::default();
+        let mut user = User::new();
         register_user(&mut user);
 
         let result = user
@@ -669,27 +1092,30 @@ mod tests {
 
     #[test]
     fn link_identity_rejects_identity_count_over_limit() {
-        let mut user = User::default();
+        let mut user = User::new();
         register_user(&mut user);
 
         for index in 0..User::MAX_IDENTITY_COUNT {
-            user.link_identity(
-                UserIdentityProvider::try_from(format!("https://accounts-{index}.example.com"))
-                    .expect("provider should be valid"),
-                UserIdentitySubject::try_from(format!("user-{index}"))
+            user.link_identity(UserIdentityRegistration {
+                provider: UserIdentityProvider::try_from(format!(
+                    "https://accounts-{index}.example.com"
+                ))
+                .expect("provider should be valid"),
+                subject: UserIdentitySubject::try_from(format!("user-{index}"))
                     .expect("subject should be valid"),
-                None,
-            )
+                email: None,
+            })
             .expect("identity should link");
         }
 
         let result = user
-            .link_identity(
-                UserIdentityProvider::try_from("https://accounts-over-limit.example.com")
+            .link_identity(UserIdentityRegistration {
+                provider: UserIdentityProvider::try_from("https://accounts-over-limit.example.com")
                     .expect("provider should be valid"),
-                UserIdentitySubject::try_from("user-over-limit").expect("subject should be valid"),
-                None,
-            )
+                subject: UserIdentitySubject::try_from("user-over-limit")
+                    .expect("subject should be valid"),
+                email: None,
+            })
             .expect("identity count over limit rejection should be recorded");
 
         assert!(matches!(
@@ -702,16 +1128,24 @@ mod tests {
 
     #[test]
     fn link_identity_rejects_already_linked_identity() {
-        let mut user = User::default();
+        let mut user = User::new();
         let provider = UserIdentityProvider::try_from("https://accounts.example.com")
             .expect("provider should be valid");
         let subject = UserIdentitySubject::try_from("user-123").expect("subject should be valid");
         register_user(&mut user);
-        user.link_identity(provider.clone(), subject.clone(), None)
-            .expect("identity should link");
+        user.link_identity(UserIdentityRegistration {
+            provider: provider.clone(),
+            subject: subject.clone(),
+            email: None,
+        })
+        .expect("identity should link");
 
         let result = user
-            .link_identity(provider, subject, None)
+            .link_identity(UserIdentityRegistration {
+                provider,
+                subject,
+                email: None,
+            })
             .expect("duplicate identity rejection should be recorded");
 
         assert!(matches!(
@@ -729,7 +1163,7 @@ mod tests {
 
     #[test]
     fn remove_updates_status_to_removed() {
-        let mut user = User::default();
+        let mut user = User::new();
         register_user(&mut user);
 
         user.remove().expect("remove should succeed");

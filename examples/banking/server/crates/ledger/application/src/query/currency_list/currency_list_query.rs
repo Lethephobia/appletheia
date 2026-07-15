@@ -1,15 +1,13 @@
 use appletheia::query;
 
-use crate::pagination::{CursorOptions, PageSize};
-use crate::read_model::{
-    CurrencyListItemCriteria, CurrencyListItemCursor, CurrencyListItemSortKey,
-};
+use crate::read_model::{CurrencyListCriteria, CurrencyListCursor, CurrencyListSortKey};
+use banking_shared_kernel_application::read_model::{CursorOptions, PageSize};
 
 /// Query parameters for public currency list reads.
 #[query(name = "currency_list")]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CurrencyListQuery {
-    pub criteria: CurrencyListItemCriteria,
-    pub cursor_options: Option<CursorOptions<CurrencyListItemSortKey, CurrencyListItemCursor>>,
+    pub criteria: CurrencyListCriteria,
+    pub cursor_options: Option<CursorOptions<CurrencyListSortKey, CurrencyListCursor>>,
     pub limit: PageSize,
 }

@@ -6,9 +6,10 @@ use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use appletheia::domain::Aggregate;
 use banking_ledger_domain::account::Account;
-use banking_ledger_domain::currency::Currency;
+use banking_ledger_domain::currency::{Currency, CurrencyStatus};
 use banking_ledger_domain::currency_issuance::{
     CurrencyIssuance, CurrencyIssuanceIssueRejectionReason, CurrencyIssuanceIssueResult,
+    CurrencyIssuanceRequest,
 };
 
 use super::{CurrencyIssueCommand, CurrencyIssueCommandHandlerError, CurrencyIssueOutput};
@@ -77,55 +78,76 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
-        let Some(destination_account) = self
+        let destination_account = self
             .account_repository
-            .find(uow, command.destination_account_id)
-            .await?
-        else {
-            return Err(CurrencyIssueCommandHandlerError::DestinationAccountNotFound);
-        };
-        let Some(currency) = self
+            .read(uow, command.destination_account_id)
+            .await?;
+        let currency = self
             .currency_repository
-            .find(uow, command.currency_id)
-            .await?
-        else {
-            return Err(CurrencyIssueCommandHandlerError::CurrencyNotFound);
+            .read(uow, command.currency_id)
+            .await?;
+
+        let mut currency_issuance = CurrencyIssuance::new();
+        let currency_issuance_id = currency_issuance.aggregate_id();
+        let request = CurrencyIssuanceRequest {
+            currency_id: command.currency_id,
+            destination_account_id: command.destination_account_id,
+            amount: command.amount,
         };
 
-        let mut currency_issuance = CurrencyIssuance::default();
-        let output = if destination_account.currency_id()? != &command.currency_id {
-            CurrencyIssueOutput::from(currency_issuance.reject_issue(
-                command.currency_id,
-                command.destination_account_id,
-                command.amount,
-                CurrencyIssuanceIssueRejectionReason::CurrencyMismatch,
-            )?)
-        } else if !currency.is_active()? {
-            CurrencyIssueOutput::from(currency_issuance.reject_issue(
-                command.currency_id,
-                command.destination_account_id,
-                command.amount,
-                CurrencyIssuanceIssueRejectionReason::CurrencyInactive,
-            )?)
-        } else {
-            let result = currency_issuance.issue(
-                command.currency_id,
-                command.destination_account_id,
-                command.amount,
-            )?;
-            match result {
-                CurrencyIssuanceIssueResult::Issued => {
-                    let currency_issuance_id = currency_issuance
-                        .aggregate_id()
-                        .ok_or(CurrencyIssueCommandHandlerError::MissingCurrencyIssuanceId)?;
-                    CurrencyIssueOutput::Issued {
-                        currency_issuance_id,
-                    }
-                }
-                CurrencyIssuanceIssueResult::Rejected { reason } => {
-                    CurrencyIssueOutput::Rejected { reason }
-                }
-            }
+        if destination_account.currency_id()? != &command.currency_id {
+            let reason = CurrencyIssuanceIssueRejectionReason::CurrencyMismatch;
+            currency_issuance.reject_issue(request, reason)?;
+
+            self.currency_issuance_repository
+                .save(uow, request_context, &mut currency_issuance)
+                .await?;
+
+            return Ok(CommandHandled::same(CurrencyIssueOutput::Rejected {
+                currency_issuance_id,
+                reason,
+            }));
+        }
+
+        if matches!(
+            currency.status()?,
+            CurrencyStatus::Provisioning | CurrencyStatus::ProvisioningFailed
+        ) {
+            let reason = CurrencyIssuanceIssueRejectionReason::CurrencyProvisioningPending;
+            currency_issuance.reject_issue(request, reason)?;
+
+            self.currency_issuance_repository
+                .save(uow, request_context, &mut currency_issuance)
+                .await?;
+
+            return Ok(CommandHandled::same(CurrencyIssueOutput::Rejected {
+                currency_issuance_id,
+                reason,
+            }));
+        }
+
+        if !currency.is_active()? {
+            let reason = CurrencyIssuanceIssueRejectionReason::CurrencyInactive;
+            currency_issuance.reject_issue(request, reason)?;
+
+            self.currency_issuance_repository
+                .save(uow, request_context, &mut currency_issuance)
+                .await?;
+
+            return Ok(CommandHandled::same(CurrencyIssueOutput::Rejected {
+                currency_issuance_id,
+                reason,
+            }));
+        }
+
+        let output = match currency_issuance.issue(request)? {
+            CurrencyIssuanceIssueResult::Issued => CurrencyIssueOutput::Issued {
+                currency_issuance_id,
+            },
+            CurrencyIssuanceIssueResult::Rejected { reason } => CurrencyIssueOutput::Rejected {
+                currency_issuance_id,
+                reason,
+            },
         };
 
         self.currency_issuance_repository

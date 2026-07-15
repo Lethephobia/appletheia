@@ -10,7 +10,4 @@ pub enum UserDisplayNameChangeCommandHandlerError {
 
     #[error("user aggregate failed")]
     User(#[from] UserError),
-
-    #[error("user was not found")]
-    UserNotFound,
 }

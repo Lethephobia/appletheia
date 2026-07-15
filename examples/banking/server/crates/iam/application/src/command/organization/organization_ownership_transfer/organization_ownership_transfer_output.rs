@@ -1,6 +1,4 @@
-use banking_iam_domain::{
-    OrganizationOwnershipTransferRejectionReason, OrganizationOwnershipTransferResult,
-};
+use banking_iam_domain::OrganizationOwnershipTransferRejectionReason;
 use serde::{Deserialize, Serialize};
 
 /// Returned after an organization operation is handled.
@@ -11,13 +9,4 @@ pub enum OrganizationOwnershipTransferOutput {
     Rejected {
         reason: OrganizationOwnershipTransferRejectionReason,
     },
-}
-
-impl From<OrganizationOwnershipTransferResult> for OrganizationOwnershipTransferOutput {
-    fn from(value: OrganizationOwnershipTransferResult) -> Self {
-        match value {
-            OrganizationOwnershipTransferResult::Transferred => Self::Transferred,
-            OrganizationOwnershipTransferResult::Rejected { reason } => Self::Rejected { reason },
-        }
-    }
 }

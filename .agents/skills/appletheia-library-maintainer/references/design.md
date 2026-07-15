@@ -118,26 +118,29 @@ Prefer a smaller expansion when it keeps the contract easier to reason about.
 
 Keep the release story aligned with the API change.
 
-### DO verify replay and snapshot restore after event-sourced changes
+### DO verify replay and snapshot restore against the current model after event-sourced changes
 
-Make sure persisted data still loads correctly after the change.
+Keep tests and examples aligned with the current design, even when that means rewriting fixture
+event shapes.
 
-### DON'T assume old serialized data will continue to work forever
+### DON'T keep compatibility scaffolding in example crates when it obscures the intended design
 
-Persisted shapes need a compatibility strategy when they evolve.
+Examples should show the current model directly instead of carrying migrations, upcasters, or
+legacy payload branches.
 
-### PREFER reviewing compatibility before merge
+### PREFER reviewing contract impact before merge
 
-Check the impact before the change reaches main.
+Be explicit about what changed, but optimize examples for clarity over historical compatibility.
 
-### PREFER preserving semver where possible and calling out breaks explicitly
+### PREFER preserving semver in library crates, but allow example fixtures to break when the design improves
 
-Make compatibility expectations visible when a change is not additive.
+Library APIs still need compatibility review. Example domains and their serialized payloads do not
+need legacy-preserving glue.
 
-### AVOID changing serialized shape without a migration or upcaster plan
+### AVOID adding migrations or upcasters to examples unless the example is specifically about migration
 
-Preserve old data until you have a deliberate transition path.
+Keep example event payloads simple and current.
 
-### CONSIDER versioned payloads when the model must evolve in place
+### CONSIDER versioned payloads only for real library or production contracts
 
-Use versioning when additive changes are no longer enough.
+Do not add versioning noise to examples just to preserve old fixture data.

@@ -1,4 +1,3 @@
-pub mod command_consistency;
 pub mod command_dispatch_result;
 pub mod command_dispatcher;
 pub mod command_dispatcher_error;
@@ -26,7 +25,6 @@ pub mod idempotency_output_error;
 pub mod idempotency_service;
 pub mod idempotency_service_error;
 
-pub use command_consistency::CommandConsistency;
 pub use command_dispatch_result::CommandDispatchResult;
 pub use command_dispatcher::CommandDispatcher;
 pub use command_dispatcher_error::CommandDispatcherError;

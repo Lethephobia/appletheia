@@ -1,6 +1,4 @@
-use banking_ledger_domain::currency_issuance::{
-    CurrencyIssuanceFailRejectionReason, CurrencyIssuanceFailResult,
-};
+use banking_ledger_domain::currency_issuance::CurrencyIssuanceFailRejectionReason;
 use serde::{Deserialize, Serialize};
 
 /// Returned after failing a currency issuance.
@@ -11,13 +9,4 @@ pub enum CurrencyIssuanceFailOutput {
     Rejected {
         reason: CurrencyIssuanceFailRejectionReason,
     },
-}
-
-impl From<CurrencyIssuanceFailResult> for CurrencyIssuanceFailOutput {
-    fn from(value: CurrencyIssuanceFailResult) -> Self {
-        match value {
-            CurrencyIssuanceFailResult::Failed => Self::Failed,
-            CurrencyIssuanceFailResult::Rejected { reason } => Self::Rejected { reason },
-        }
-    }
 }

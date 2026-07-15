@@ -28,7 +28,7 @@ impl TransferSagaState {
             to_account_id,
             amount,
             transfer_id,
-            status: TransferSagaStatus::Requested,
+            status: TransferSagaStatus::FundsReserveRequested,
         }
     }
 }

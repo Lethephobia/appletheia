@@ -2,7 +2,7 @@ use appletheia::application::authorization::{AuthorizationPlan, PrincipalRequire
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_ledger_domain::currency_issuance::CurrencyIssuance;
+use banking_ledger_domain::currency_issuance::{CurrencyIssuance, CurrencyIssuanceCompleteResult};
 
 use super::{
     CurrencyIssuanceCompleteCommand, CurrencyIssuanceCompleteCommandHandlerError,
@@ -53,21 +53,23 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
-        let Some(mut currency_issuance) = self
+        let mut currency_issuance = self
             .currency_issuance_repository
-            .find(uow, command.currency_issuance_id)
-            .await?
-        else {
-            return Err(CurrencyIssuanceCompleteCommandHandlerError::CurrencyIssuanceNotFound);
-        };
+            .read(uow, command.currency_issuance_id)
+            .await?;
 
         let result = currency_issuance.complete()?;
         self.currency_issuance_repository
             .save(uow, request_context, &mut currency_issuance)
             .await?;
 
-        Ok(CommandHandled::same(CurrencyIssuanceCompleteOutput::from(
-            result,
-        )))
+        let output = match result {
+            CurrencyIssuanceCompleteResult::Completed => CurrencyIssuanceCompleteOutput::Completed,
+            CurrencyIssuanceCompleteResult::Rejected { reason } => {
+                CurrencyIssuanceCompleteOutput::Rejected { reason }
+            }
+        };
+
+        Ok(CommandHandled::same(output))
     }
 }

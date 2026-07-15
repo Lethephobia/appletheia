@@ -11,6 +11,6 @@ pub trait SnapshotWriter<A: Aggregate>: Send + Sync {
     async fn write_snapshot(
         &self,
         uow: &mut Self::Uow,
-        snapshot: &Snapshot<A::State>,
+        snapshot: &Snapshot<A::Id, A::State>,
     ) -> Result<(), SnapshotWriterError>;
 }

@@ -1,7 +1,6 @@
 mod organization;
 mod organization_invitation;
 mod organization_join_request;
-mod organization_membership;
 mod user;
 
 pub use organization::{
@@ -22,14 +21,6 @@ pub use organization_join_request::{
     OrganizationJoinRequestCancelerRelation, OrganizationJoinRequestOrganizationRelation,
     OrganizationJoinRequestRejecterRelation, OrganizationJoinRequestRelationshipUpdater,
     OrganizationJoinRequestRelationshipUpdaterError, OrganizationJoinRequestRequesterRelation,
-};
-pub use organization_membership::{
-    DefaultOrganizationMembershipRelationshipUpdater, OrganizationMembershipActivatorRelation,
-    OrganizationMembershipDeactivatorRelation, OrganizationMembershipOrganizationRelation,
-    OrganizationMembershipRelationshipUpdater, OrganizationMembershipRelationshipUpdaterError,
-    OrganizationMembershipRemoverRelation, OrganizationMembershipRoleGranterRelation,
-    OrganizationMembershipRoleManagerRelation, OrganizationMembershipRoleRevokerRelation,
-    OrganizationMembershipStatusManagerRelation,
 };
 pub use user::{
     DefaultUserRelationshipUpdater, UserActivatorRelation, UserDeactivatorRelation,

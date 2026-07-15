@@ -1,0 +1,13 @@
+use banking_iam_domain::{UserDisplayName, UserId, UserPictureRef, Username};
+
+use banking_shared_kernel_application::read_model::ReadModelObservation;
+
+/// User owner shown for a counterparty account.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct OwnedAccountTransactionListItemCounterpartyAccountOwnerUser {
+    pub id: UserId,
+    pub username: Option<Username>,
+    pub display_name: Option<UserDisplayName>,
+    pub picture: Option<UserPictureRef>,
+    pub observation: ReadModelObservation,
+}

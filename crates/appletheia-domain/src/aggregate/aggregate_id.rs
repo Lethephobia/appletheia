@@ -14,6 +14,9 @@ pub trait AggregateId:
 {
     type Error: Error + Send + Sync + 'static;
 
+    /// Creates a new aggregate ID.
+    fn new() -> Self;
+
     /// Returns the raw `Uuid` used for persistence and external I/O.
     fn value(&self) -> Uuid;
 
@@ -43,6 +46,10 @@ mod tests {
 
     impl AggregateId for CounterId {
         type Error = CounterIdError;
+
+        fn new() -> Self {
+            Self(Uuid::now_v7())
+        }
 
         fn value(&self) -> Uuid {
             self.0

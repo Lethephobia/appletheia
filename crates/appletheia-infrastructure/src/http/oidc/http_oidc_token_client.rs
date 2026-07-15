@@ -7,6 +7,7 @@ use base64::engine::general_purpose::STANDARD;
 use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE};
 
 use super::http_oidc_token_client_error::HttpOidcTokenClientError;
+use super::oidc_token_response_body::OidcTokenResponseBody;
 
 #[derive(Debug, Clone)]
 pub struct HttpOidcTokenClient {
@@ -116,15 +117,7 @@ impl OidcTokenClient for HttpOidcTokenClient {
             return Err(OidcTokenClientError::Backend(Box::new(error)));
         }
 
-        #[derive(Debug, serde::Deserialize)]
-        struct TokenResponseBody {
-            id_token: Option<String>,
-            access_token: Option<String>,
-            refresh_token: Option<String>,
-            expires_in: Option<u64>,
-        }
-
-        let decoded: TokenResponseBody = serde_json::from_slice(&bytes)
+        let decoded: OidcTokenResponseBody = serde_json::from_slice(&bytes)
             .map_err(|source| OidcTokenClientError::Backend(Box::new(source)))?;
 
         let expires_in = match decoded.expires_in {

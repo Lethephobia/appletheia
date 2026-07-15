@@ -4,10 +4,26 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-appletheia = { workspace = true, features = ["infrastructure"] }
+anchor-lang = "1.0.2"
+appletheia = { workspace = true, features = ["application", "infrastructure"] }
+banking-ledger = { path = "../../../../onchain/programs/banking-ledger", features = ["no-entrypoint"] }
 banking-iam-domain = { workspace = true }
 banking-ledger-application = { workspace = true }
 banking-ledger-domain = { workspace = true }
-sqlx = { version = "0.8.6", features = ["runtime-tokio", "postgres", "uuid", "chrono"] }
-thiserror = "2.0.17"
-uuid = { version = "1" }
+banking-shared-kernel-application = { workspace = true }
+base64 = "0.22.1"
+bincode = "1.3.3"
+solana-client = "4.1.0-beta.3"
+solana-loader-v3-interface = "7.0.0"
+solana-sdk = "4.0.1"
+solana-system-interface = { version = "3.2.0", features = ["bincode"] }
+solana-transaction = "4.1.2"
+spl-associated-token-account-interface = "2.0.0"
+spl-token-2022-interface = "3.0.1"
+spl-token-metadata-interface = "1.0.0"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.150"
+sqlx = { version = "0.9.0", features = ["runtime-tokio", "postgres", "uuid", "chrono"] }
+thiserror = "2.0.18"
+url = { version = "2", features = ["serde"] }
+uuid = { version = "1.23.2" }

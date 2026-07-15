@@ -8,11 +8,14 @@ members = [
 
 [workspace.dependencies]
 appletheia = { path = "../../../crates/appletheia" }
+banking-shared-kernel-domain = { path = "crates/shared-kernel/domain" }
+banking-shared-kernel-application = { path = "crates/shared-kernel/application" }
+banking-shared-kernel-infrastructure = { path = "crates/shared-kernel/infrastructure" }
 banking-iam-domain = { path = "crates/iam/domain" }
 banking-iam-application = { path = "crates/iam/application" }
 banking-iam-infrastructure = { path = "crates/iam/infrastructure" }
 banking-ledger-domain = { path = "crates/ledger/domain" }
 banking-ledger-application = { path = "crates/ledger/application" }
 banking-ledger-infrastructure = { path = "crates/ledger/infrastructure" }
-chrono = { version = "0.4.42" }
-tokio = "1"
+chrono = { version = "0.4.45" }
+tokio = "1.52.3"

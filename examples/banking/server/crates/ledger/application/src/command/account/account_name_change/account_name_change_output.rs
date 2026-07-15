@@ -1,4 +1,4 @@
-use banking_ledger_domain::account::{AccountNameChangeRejectionReason, AccountNameChangeResult};
+use banking_ledger_domain::account::AccountNameChangeRejectionReason;
 use serde::{Deserialize, Serialize};
 
 /// The output returned after changing an account name.
@@ -9,13 +9,4 @@ pub enum AccountNameChangeOutput {
     Rejected {
         reason: AccountNameChangeRejectionReason,
     },
-}
-
-impl From<AccountNameChangeResult> for AccountNameChangeOutput {
-    fn from(value: AccountNameChangeResult) -> Self {
-        match value {
-            AccountNameChangeResult::Changed => Self::Changed,
-            AccountNameChangeResult::Rejected { reason } => Self::Rejected { reason },
-        }
-    }
 }

@@ -2,55 +2,37 @@ use appletheia::aggregate_state;
 use appletheia::domain::{AggregateId, UniqueValue};
 use appletheia::reference_indexes;
 use appletheia::unique_constraints;
+use uuid::Uuid;
 
-use crate::{OrganizationId, UserId};
+use crate::{OrganizationId, OrganizationRoles, UserId};
 
 use super::{
-    OrganizationInvitationExpiresAt, OrganizationInvitationId, OrganizationInvitationIssuer,
+    OrganizationInvitationExpiresAt, OrganizationInvitationIssuer,
     OrganizationInvitationStateError, OrganizationInvitationStatus,
 };
 
 /// Stores the materialized state of an `OrganizationInvitation` aggregate.
 #[aggregate_state(error = OrganizationInvitationStateError)]
 #[unique_constraints(
-    entry(key = "organization_invitee", value = organization_invitee_value)
+    entry(key = "organization_invitee", value = organization_invitee_unique_value)
 )]
 #[reference_indexes(
-    entry(key = "organization", value = organization_value),
-    entry(key = "invitee", value = invitee_value),
-    entry(key = "issuer_user", value = issuer_user_value)
+    entry(key = "organization", value = organization_ref_value),
+    entry(key = "invitee", value = invitee_ref_value),
+    entry(key = "issuer_user", value = issuer_user_ref_value)
 )]
 pub struct OrganizationInvitationState {
-    pub(super) id: OrganizationInvitationId,
     pub(super) organization_id: OrganizationId,
     pub(super) invitee_id: UserId,
+    pub(super) roles: OrganizationRoles,
     pub(super) issuer: OrganizationInvitationIssuer,
     pub(super) expires_at: OrganizationInvitationExpiresAt,
     pub(super) status: OrganizationInvitationStatus,
 }
 
-impl OrganizationInvitationState {
-    /// Creates a new organization invitation state.
-    pub(super) fn new(
-        id: OrganizationInvitationId,
-        organization_id: OrganizationId,
-        invitee_id: UserId,
-        issuer: OrganizationInvitationIssuer,
-        expires_at: OrganizationInvitationExpiresAt,
-    ) -> Self {
-        Self {
-            id,
-            organization_id,
-            invitee_id,
-            issuer,
-            expires_at,
-            status: OrganizationInvitationStatus::Pending,
-        }
-    }
-}
-
-fn organization_invitee_value(
+fn organization_invitee_unique_value(
     state: &OrganizationInvitationState,
+    _aggregate_id: Uuid,
 ) -> Result<Option<UniqueValue>, OrganizationInvitationStateError> {
     if !state.status.is_pending() {
         return Ok(None);
@@ -63,20 +45,23 @@ fn organization_invitee_value(
     Ok(Some(value))
 }
 
-fn organization_value(
+fn organization_ref_value(
     state: &OrganizationInvitationState,
+    _aggregate_id: Uuid,
 ) -> Result<Option<OrganizationId>, OrganizationInvitationStateError> {
     Ok(Some(state.organization_id))
 }
 
-fn invitee_value(
+fn invitee_ref_value(
     state: &OrganizationInvitationState,
+    _aggregate_id: Uuid,
 ) -> Result<Option<UserId>, OrganizationInvitationStateError> {
     Ok(Some(state.invitee_id))
 }
 
-fn issuer_user_value(
+fn issuer_user_ref_value(
     state: &OrganizationInvitationState,
+    _aggregate_id: Uuid,
 ) -> Result<Option<UserId>, OrganizationInvitationStateError> {
     let user_id = match state.issuer {
         OrganizationInvitationIssuer::User(user_id) => Some(user_id),
@@ -88,16 +73,15 @@ fn issuer_user_value(
 
 #[cfg(test)]
 mod tests {
-    use appletheia::domain::{
-        AggregateState, ReferenceIndexes, ReferenceValues, UniqueConstraints, UniqueValues,
-    };
+    use appletheia::domain::{ReferenceIndexes, ReferenceValues, UniqueConstraints, UniqueValues};
     use chrono::{Duration, Utc};
+    use uuid::Uuid;
 
-    use crate::{OrganizationId, UserId};
+    use crate::{OrganizationId, OrganizationRoles, UserId};
 
     use super::{
-        OrganizationInvitationExpiresAt, OrganizationInvitationId, OrganizationInvitationIssuer,
-        OrganizationInvitationState, OrganizationInvitationStatus,
+        OrganizationInvitationExpiresAt, OrganizationInvitationIssuer, OrganizationInvitationState,
+        OrganizationInvitationStatus,
     };
 
     fn expires_at() -> OrganizationInvitationExpiresAt {
@@ -105,30 +89,31 @@ mod tests {
     }
 
     #[test]
-    fn exposes_id_via_aggregate_state_trait() {
-        let id = OrganizationInvitationId::new();
-        let state = OrganizationInvitationState::new(
-            id,
-            OrganizationId::new(),
-            UserId::new(),
-            OrganizationInvitationIssuer::User(UserId::new()),
-            expires_at(),
-        );
-
-        assert_eq!(state.id(), id);
+    fn state_stores_domain_attributes() {
+        let _state = OrganizationInvitationState {
+            organization_id: OrganizationId::new(),
+            invitee_id: UserId::new(),
+            roles: OrganizationRoles::default(),
+            issuer: OrganizationInvitationIssuer::User(UserId::new()),
+            expires_at: expires_at(),
+            status: OrganizationInvitationStatus::Pending,
+        };
     }
 
     #[test]
     fn pending_state_returns_unique_entries_for_organization_and_invitee() {
-        let state = OrganizationInvitationState::new(
-            OrganizationInvitationId::new(),
-            OrganizationId::new(),
-            UserId::new(),
-            OrganizationInvitationIssuer::User(UserId::new()),
-            expires_at(),
-        );
+        let state = OrganizationInvitationState {
+            organization_id: OrganizationId::new(),
+            invitee_id: UserId::new(),
+            roles: OrganizationRoles::default(),
+            issuer: OrganizationInvitationIssuer::User(UserId::new()),
+            expires_at: expires_at(),
+            status: OrganizationInvitationStatus::Pending,
+        };
 
-        let entries = state.unique_entries().expect("unique entries should build");
+        let entries = state
+            .unique_entries(Uuid::now_v7())
+            .expect("unique entries should build");
 
         assert_eq!(
             entries
@@ -140,16 +125,19 @@ mod tests {
 
     #[test]
     fn non_pending_state_has_no_unique_entry() {
-        let mut state = OrganizationInvitationState::new(
-            OrganizationInvitationId::new(),
-            OrganizationId::new(),
-            UserId::new(),
-            OrganizationInvitationIssuer::User(UserId::new()),
-            expires_at(),
-        );
+        let mut state = OrganizationInvitationState {
+            organization_id: OrganizationId::new(),
+            invitee_id: UserId::new(),
+            roles: OrganizationRoles::default(),
+            issuer: OrganizationInvitationIssuer::User(UserId::new()),
+            expires_at: expires_at(),
+            status: OrganizationInvitationStatus::Pending,
+        };
         state.status = OrganizationInvitationStatus::Accepted;
 
-        let entries = state.unique_entries().expect("unique entries should build");
+        let entries = state
+            .unique_entries(Uuid::now_v7())
+            .expect("unique entries should build");
 
         assert_eq!(
             entries
@@ -164,16 +152,17 @@ mod tests {
         let organization_id = OrganizationId::new();
         let invitee_id = UserId::new();
         let issuer_id = UserId::new();
-        let state = OrganizationInvitationState::new(
-            OrganizationInvitationId::new(),
+        let state = OrganizationInvitationState {
             organization_id,
             invitee_id,
-            OrganizationInvitationIssuer::User(issuer_id),
-            expires_at(),
-        );
+            roles: OrganizationRoles::default(),
+            issuer: OrganizationInvitationIssuer::User(issuer_id),
+            expires_at: expires_at(),
+            status: OrganizationInvitationStatus::Pending,
+        };
 
         let entries = state
-            .reference_entries()
+            .reference_entries(Uuid::now_v7())
             .expect("reference entries should build");
 
         assert_eq!(
@@ -198,16 +187,17 @@ mod tests {
 
     #[test]
     fn system_issued_invitation_has_no_issuer_reference_entry() {
-        let state = OrganizationInvitationState::new(
-            OrganizationInvitationId::new(),
-            OrganizationId::new(),
-            UserId::new(),
-            OrganizationInvitationIssuer::System,
-            expires_at(),
-        );
+        let state = OrganizationInvitationState {
+            organization_id: OrganizationId::new(),
+            invitee_id: UserId::new(),
+            roles: OrganizationRoles::default(),
+            issuer: OrganizationInvitationIssuer::System,
+            expires_at: expires_at(),
+            status: OrganizationInvitationStatus::Pending,
+        };
 
         let entries = state
-            .reference_entries()
+            .reference_entries(Uuid::now_v7())
             .expect("reference entries should build");
 
         assert_eq!(

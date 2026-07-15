@@ -1,28 +1,28 @@
 use appletheia::event_payload;
 
-use crate::{OrganizationId, UserId};
+use crate::{OrganizationId, OrganizationRoles, UserId};
 
 use super::{
     OrganizationInvitationAcceptRejectionReason, OrganizationInvitationCancelRejectionReason,
     OrganizationInvitationDeclineRejectionReason, OrganizationInvitationEventPayloadError,
-    OrganizationInvitationExpiresAt, OrganizationInvitationId,
-    OrganizationInvitationIssueRejectionReason, OrganizationInvitationIssuer,
+    OrganizationInvitationExpiresAt, OrganizationInvitationIssueRejectionReason,
+    OrganizationInvitationIssuer,
 };
 
 /// Represents the domain events emitted by an `OrganizationInvitation` aggregate.
 #[event_payload(error = OrganizationInvitationEventPayloadError)]
 pub enum OrganizationInvitationEventPayload {
     Issued {
-        id: OrganizationInvitationId,
         organization_id: OrganizationId,
         invitee_id: UserId,
+        roles: OrganizationRoles,
         issuer: OrganizationInvitationIssuer,
         expires_at: OrganizationInvitationExpiresAt,
     },
     IssueRejected {
-        id: OrganizationInvitationId,
         organization_id: OrganizationId,
         invitee_id: UserId,
+        roles: OrganizationRoles,
         issuer: OrganizationInvitationIssuer,
         expires_at: OrganizationInvitationExpiresAt,
         reason: OrganizationInvitationIssueRejectionReason,
@@ -30,6 +30,7 @@ pub enum OrganizationInvitationEventPayload {
     Accepted {
         organization_id: OrganizationId,
         invitee_id: UserId,
+        roles: OrganizationRoles,
     },
     AcceptRejected {
         organization_id: OrganizationId,
@@ -61,10 +62,8 @@ mod tests {
     use appletheia::domain::EventPayload;
     use chrono::{Duration, Utc};
 
-    use super::{
-        OrganizationInvitationEventPayload, OrganizationInvitationId, OrganizationInvitationIssuer,
-    };
-    use crate::{OrganizationId, UserId};
+    use super::{OrganizationInvitationEventPayload, OrganizationInvitationIssuer};
+    use crate::{OrganizationId, OrganizationRoles, UserId};
 
     fn expires_at() -> super::OrganizationInvitationExpiresAt {
         super::OrganizationInvitationExpiresAt::from(Utc::now() + Duration::minutes(10))
@@ -109,9 +108,9 @@ mod tests {
     #[test]
     fn issued_payload_name_matches_variant() {
         let payload = OrganizationInvitationEventPayload::Issued {
-            id: OrganizationInvitationId::new(),
             organization_id: OrganizationId::new(),
             invitee_id: UserId::new(),
+            roles: OrganizationRoles::default(),
             issuer: OrganizationInvitationIssuer::User(UserId::new()),
             expires_at: expires_at(),
         };
@@ -124,6 +123,7 @@ mod tests {
         let payload = OrganizationInvitationEventPayload::Accepted {
             organization_id: OrganizationId::new(),
             invitee_id: UserId::new(),
+            roles: OrganizationRoles::default(),
         };
 
         assert_eq!(payload.name(), OrganizationInvitationEventPayload::ACCEPTED);
@@ -152,9 +152,9 @@ mod tests {
     #[test]
     fn serializes_payload_to_json() {
         let payload = OrganizationInvitationEventPayload::Issued {
-            id: OrganizationInvitationId::new(),
             organization_id: OrganizationId::new(),
             invitee_id: UserId::new(),
+            roles: OrganizationRoles::default(),
             issuer: OrganizationInvitationIssuer::User(UserId::new()),
             expires_at: expires_at(),
         };

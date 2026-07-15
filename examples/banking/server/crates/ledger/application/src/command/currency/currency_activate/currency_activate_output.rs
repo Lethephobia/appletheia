@@ -1,4 +1,4 @@
-use banking_ledger_domain::currency::{CurrencyActivateRejectionReason, CurrencyActivateResult};
+use banking_ledger_domain::currency::CurrencyActivateRejectionReason;
 use serde::{Deserialize, Serialize};
 
 /// Returned after a currency activation request is applied.
@@ -9,13 +9,4 @@ pub enum CurrencyActivateOutput {
     Rejected {
         reason: CurrencyActivateRejectionReason,
     },
-}
-
-impl From<CurrencyActivateResult> for CurrencyActivateOutput {
-    fn from(value: CurrencyActivateResult) -> Self {
-        match value {
-            CurrencyActivateResult::Activated => Self::Activated,
-            CurrencyActivateResult::Rejected { reason } => Self::Rejected { reason },
-        }
-    }
 }

@@ -1,8 +1,8 @@
 use appletheia::application::repository::RepositoryError;
-use appletheia::domain::{AggregateId, UniqueValueError, UniqueValuePartError};
+use appletheia::domain::UniqueValueError;
 use banking_iam_domain::{
-    Organization, OrganizationError, OrganizationInvitation, OrganizationInvitationError,
-    OrganizationMembership, UserId,
+    Organization, OrganizationError, OrganizationInvitation, OrganizationInvitationError, User,
+    UserError,
 };
 use thiserror::Error;
 
@@ -15,8 +15,8 @@ pub enum OrganizationInvitationIssueCommandHandlerError {
     #[error("organization invitation repository failed")]
     OrganizationInvitationRepository(#[from] RepositoryError<OrganizationInvitation>),
 
-    #[error("organization membership repository failed")]
-    OrganizationMembershipRepository(#[from] RepositoryError<OrganizationMembership>),
+    #[error("user repository failed")]
+    UserRepository(#[from] RepositoryError<User>),
 
     #[error("organization invitation aggregate failed")]
     OrganizationInvitation(#[from] OrganizationInvitationError),
@@ -24,30 +24,9 @@ pub enum OrganizationInvitationIssueCommandHandlerError {
     #[error("organization aggregate failed")]
     Organization(#[from] OrganizationError),
 
-    #[error("unique value part is invalid")]
-    UniqueValuePart(#[from] UniqueValuePartError),
+    #[error("user aggregate failed")]
+    User(#[from] UserError),
 
-    #[error("unique value is invalid")]
+    #[error("unique value failed")]
     UniqueValue(#[from] UniqueValueError),
-
-    #[error("organization invitation id is missing after issue")]
-    MissingOrganizationInvitationId,
-
-    #[error("invitation issuer principal must be available")]
-    InvitationIssuerRequiresPrincipal,
-
-    #[error("invitation issuer principal must be a user")]
-    InvitationIssuerRequiresUserPrincipal,
-
-    #[error("invitation issuer principal contains an invalid user id")]
-    InvalidInvitationIssuerUserId(#[source] <UserId as AggregateId>::Error),
-
-    #[error("invitee is already a member of the organization")]
-    InviteeAlreadyMember,
-
-    #[error("organization is not found")]
-    OrganizationNotFound,
-
-    #[error("organization is removed")]
-    OrganizationRemoved,
 }

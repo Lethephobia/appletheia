@@ -1,7 +1,0 @@
-mod owned_account_list_item_projector;
-mod owned_account_list_item_projector_error;
-mod owned_account_list_item_projector_spec;
-
-pub use owned_account_list_item_projector::OwnedAccountListItemProjector;
-pub use owned_account_list_item_projector_error::OwnedAccountListItemProjectorError;
-pub use owned_account_list_item_projector_spec::OwnedAccountListItemProjectorSpec;

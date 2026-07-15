@@ -1,6 +1,4 @@
-use banking_iam_domain::{
-    OrganizationInvitationCancelRejectionReason, OrganizationInvitationCancelResult,
-};
+use banking_iam_domain::OrganizationInvitationCancelRejectionReason;
 use serde::{Deserialize, Serialize};
 
 /// The output returned after canceling an organization invitation.
@@ -11,13 +9,4 @@ pub enum OrganizationInvitationCancelOutput {
     Rejected {
         reason: OrganizationInvitationCancelRejectionReason,
     },
-}
-
-impl From<OrganizationInvitationCancelResult> for OrganizationInvitationCancelOutput {
-    fn from(value: OrganizationInvitationCancelResult) -> Self {
-        match value {
-            OrganizationInvitationCancelResult::Canceled => Self::Canceled,
-            OrganizationInvitationCancelResult::Rejected { reason } => Self::Rejected { reason },
-        }
-    }
 }

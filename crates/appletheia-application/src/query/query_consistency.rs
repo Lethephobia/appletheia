@@ -1,12 +1,20 @@
-use crate::projection::{ReadYourWritesPollInterval, ReadYourWritesTarget, ReadYourWritesTimeout};
+use appletheia_domain::EventId;
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Default)]
+use crate::projection::{ProjectionConsistencyPollInterval, ProjectionConsistencyTimeout};
+use crate::request_context::MessageId;
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub enum QueryConsistency {
     #[default]
     Eventual,
-    ReadYourWrites {
-        target: ReadYourWritesTarget,
-        timeout: ReadYourWritesTimeout,
-        poll_interval: ReadYourWritesPollInterval,
+    AfterMessage {
+        message_id: MessageId,
+        timeout: ProjectionConsistencyTimeout,
+        poll_interval: ProjectionConsistencyPollInterval,
+    },
+    AfterEvents {
+        event_ids: Vec<EventId>,
+        timeout: ProjectionConsistencyTimeout,
+        poll_interval: ProjectionConsistencyPollInterval,
     },
 }

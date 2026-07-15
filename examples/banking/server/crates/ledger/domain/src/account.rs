@@ -14,6 +14,8 @@ mod account_name;
 mod account_name_change_rejection_reason;
 mod account_name_change_result;
 mod account_name_error;
+mod account_open_result;
+mod account_opening;
 mod account_owner;
 mod account_ownership_transfer_rejection_reason;
 mod account_ownership_transfer_result;
@@ -45,6 +47,8 @@ pub use account_name::AccountName;
 pub use account_name_change_rejection_reason::AccountNameChangeRejectionReason;
 pub use account_name_change_result::AccountNameChangeResult;
 pub use account_name_error::AccountNameError;
+pub use account_open_result::AccountOpenResult;
+pub use account_opening::AccountOpening;
 pub use account_owner::AccountOwner;
 pub use account_ownership_transfer_rejection_reason::AccountOwnershipTransferRejectionReason;
 pub use account_ownership_transfer_result::AccountOwnershipTransferResult;
@@ -69,7 +73,7 @@ use crate::currency::CurrencyId;
 /// Represents the `Account` aggregate root.
 #[aggregate(type = "account", error = AccountError)]
 pub struct Account {
-    core: AggregateCore<AccountState, AccountEventPayload>,
+    core: AggregateCore<AccountId, AccountState, AccountEventPayload>,
 }
 
 impl Account {
@@ -127,22 +131,19 @@ impl Account {
     }
 
     /// Opens a new account.
-    pub fn open(
-        &mut self,
-        owner: AccountOwner,
-        name: AccountName,
-        currency_id: CurrencyId,
-    ) -> Result<(), AccountError> {
+    pub fn open(&mut self, opening: AccountOpening) -> Result<AccountOpenResult, AccountError> {
         if self.state().is_some() {
             return Err(AccountError::AlreadyOpened);
         }
 
+        let (owner, name, currency_id) = opening.into_parts();
         self.append_event(AccountEventPayload::Opened {
-            id: AccountId::new(),
             owner,
             name,
             currency_id,
-        })
+        })?;
+
+        Ok(AccountOpenResult::Opened)
     }
 
     /// Transfers ownership of the account.
@@ -152,12 +153,22 @@ impl Account {
     ) -> Result<AccountOwnershipTransferResult, AccountError> {
         if self.state_required()?.status.is_closed() {
             let reason = AccountOwnershipTransferRejectionReason::Closed;
-            self.append_event(AccountEventPayload::OwnershipTransferRejected { owner, reason })?;
+            self.reject_transfer_ownership(owner, reason)?;
             return Ok(AccountOwnershipTransferResult::Rejected { reason });
         }
 
         self.append_event(AccountEventPayload::OwnershipTransferred { owner })?;
         Ok(AccountOwnershipTransferResult::Transferred)
+    }
+
+    /// Rejects an account ownership transfer attempt.
+    pub fn reject_transfer_ownership(
+        &mut self,
+        owner: AccountOwner,
+        reason: AccountOwnershipTransferRejectionReason,
+    ) -> Result<(), AccountError> {
+        self.append_event(AccountEventPayload::OwnershipTransferRejected { owner, reason })?;
+        Ok(())
     }
 
     /// Changes the account name.
@@ -167,15 +178,22 @@ impl Account {
     ) -> Result<AccountNameChangeResult, AccountError> {
         if self.state_required()?.status.is_closed() {
             let reason = AccountNameChangeRejectionReason::Closed;
-            self.append_event(AccountEventPayload::NameChangeRejected {
-                name: name.clone(),
-                reason,
-            })?;
+            self.reject_change_name(name, reason)?;
             return Ok(AccountNameChangeResult::Rejected { reason });
         }
 
         self.append_event(AccountEventPayload::NameChanged { name })?;
         Ok(AccountNameChangeResult::Changed)
+    }
+
+    /// Rejects an account name change attempt.
+    pub fn reject_change_name(
+        &mut self,
+        name: AccountName,
+        reason: AccountNameChangeRejectionReason,
+    ) -> Result<(), AccountError> {
+        self.append_event(AccountEventPayload::NameChangeRejected { name, reason })?;
+        Ok(())
     }
 
     /// Deposits balance into the account.
@@ -187,14 +205,12 @@ impl Account {
             AccountStatus::Active => {}
             AccountStatus::Frozen => {
                 let reason = AccountDepositRejectionReason::Frozen;
-                self.append_event(AccountEventPayload::DepositRejected { amount, reason })?;
-
+                self.reject_deposit(amount, reason)?;
                 return Ok(AccountDepositResult::Rejected { reason });
             }
             AccountStatus::Closed => {
                 let reason = AccountDepositRejectionReason::Closed;
-                self.append_event(AccountEventPayload::DepositRejected { amount, reason })?;
-
+                self.reject_deposit(amount, reason)?;
                 return Ok(AccountDepositResult::Rejected { reason });
             }
         }
@@ -202,6 +218,16 @@ impl Account {
         self.append_event(AccountEventPayload::Deposited { amount })?;
 
         Ok(AccountDepositResult::Deposited)
+    }
+
+    /// Rejects an account deposit attempt.
+    pub fn reject_deposit(
+        &mut self,
+        amount: CurrencyAmount,
+        reason: AccountDepositRejectionReason,
+    ) -> Result<(), AccountError> {
+        self.append_event(AccountEventPayload::DepositRejected { amount, reason })?;
+        Ok(())
     }
 
     /// Withdraws balance from the account.
@@ -213,24 +239,34 @@ impl Account {
             AccountStatus::Active => {}
             AccountStatus::Frozen => {
                 let reason = AccountWithdrawRejectionReason::Frozen;
-                self.append_event(AccountEventPayload::WithdrawRejected { amount, reason })?;
+                self.reject_withdraw(amount, reason)?;
                 return Ok(AccountWithdrawResult::Rejected { reason });
             }
             AccountStatus::Closed => {
                 let reason = AccountWithdrawRejectionReason::Closed;
-                self.append_event(AccountEventPayload::WithdrawRejected { amount, reason })?;
+                self.reject_withdraw(amount, reason)?;
                 return Ok(AccountWithdrawResult::Rejected { reason });
             }
         }
 
         if self.available_balance()?.value() < amount.value() {
             let reason = AccountWithdrawRejectionReason::InsufficientBalance;
-            self.append_event(AccountEventPayload::WithdrawRejected { amount, reason })?;
+            self.reject_withdraw(amount, reason)?;
             return Ok(AccountWithdrawResult::Rejected { reason });
         }
 
         self.append_event(AccountEventPayload::Withdrawn { amount })?;
         Ok(AccountWithdrawResult::Withdrawn)
+    }
+
+    /// Rejects an account withdrawal attempt.
+    pub fn reject_withdraw(
+        &mut self,
+        amount: CurrencyAmount,
+        reason: AccountWithdrawRejectionReason,
+    ) -> Result<(), AccountError> {
+        self.append_event(AccountEventPayload::WithdrawRejected { amount, reason })?;
+        Ok(())
     }
 
     /// Reserves funds in the account.
@@ -242,28 +278,35 @@ impl Account {
             AccountStatus::Active => {}
             AccountStatus::Frozen => {
                 let reason = AccountFundsReserveRejectionReason::Frozen;
-                self.append_event(AccountEventPayload::FundsReserveRejected { amount, reason })?;
-
+                self.reject_reserve_funds(amount, reason)?;
                 return Ok(AccountFundsReserveResult::Rejected { reason });
             }
             AccountStatus::Closed => {
                 let reason = AccountFundsReserveRejectionReason::Closed;
-                self.append_event(AccountEventPayload::FundsReserveRejected { amount, reason })?;
-
+                self.reject_reserve_funds(amount, reason)?;
                 return Ok(AccountFundsReserveResult::Rejected { reason });
             }
         }
 
         if self.available_balance()?.value() < amount.value() {
             let reason = AccountFundsReserveRejectionReason::InsufficientAvailableBalance;
-            self.append_event(AccountEventPayload::FundsReserveRejected { amount, reason })?;
-
+            self.reject_reserve_funds(amount, reason)?;
             return Ok(AccountFundsReserveResult::Rejected { reason });
         }
 
         self.append_event(AccountEventPayload::FundsReserved { amount })?;
 
         Ok(AccountFundsReserveResult::Reserved)
+    }
+
+    /// Rejects an account funds reservation attempt.
+    pub fn reject_reserve_funds(
+        &mut self,
+        amount: CurrencyAmount,
+        reason: AccountFundsReserveRejectionReason,
+    ) -> Result<(), AccountError> {
+        self.append_event(AccountEventPayload::FundsReserveRejected { amount, reason })?;
+        Ok(())
     }
 
     /// Releases reserved funds in the account.
@@ -275,37 +318,35 @@ impl Account {
             AccountStatus::Active => {}
             AccountStatus::Frozen => {
                 let reason = AccountReservedFundsReleaseRejectionReason::Frozen;
-                self.append_event(AccountEventPayload::ReservedFundsReleaseRejected {
-                    amount,
-                    reason,
-                })?;
-
+                self.reject_release_reserved_funds(amount, reason)?;
                 return Ok(AccountReservedFundsReleaseResult::Rejected { reason });
             }
             AccountStatus::Closed => {
                 let reason = AccountReservedFundsReleaseRejectionReason::Closed;
-                self.append_event(AccountEventPayload::ReservedFundsReleaseRejected {
-                    amount,
-                    reason,
-                })?;
-
+                self.reject_release_reserved_funds(amount, reason)?;
                 return Ok(AccountReservedFundsReleaseResult::Rejected { reason });
             }
         }
 
         if self.state_required()?.reserved_balance.value() < amount.value() {
             let reason = AccountReservedFundsReleaseRejectionReason::InsufficientReservedBalance;
-            self.append_event(AccountEventPayload::ReservedFundsReleaseRejected {
-                amount,
-                reason,
-            })?;
-
+            self.reject_release_reserved_funds(amount, reason)?;
             return Ok(AccountReservedFundsReleaseResult::Rejected { reason });
         }
 
         self.append_event(AccountEventPayload::ReservedFundsReleased { amount })?;
 
         Ok(AccountReservedFundsReleaseResult::Released)
+    }
+
+    /// Rejects a reserved funds release attempt.
+    pub fn reject_release_reserved_funds(
+        &mut self,
+        amount: CurrencyAmount,
+        reason: AccountReservedFundsReleaseRejectionReason,
+    ) -> Result<(), AccountError> {
+        self.append_event(AccountEventPayload::ReservedFundsReleaseRejected { amount, reason })?;
+        Ok(())
     }
 
     /// Commits reserved funds and deducts them from the account.
@@ -317,28 +358,19 @@ impl Account {
             AccountStatus::Active => {}
             AccountStatus::Frozen => {
                 let reason = AccountReservedFundsCommitRejectionReason::Frozen;
-                self.append_event(AccountEventPayload::ReservedFundsCommitRejected {
-                    amount,
-                    reason,
-                })?;
-
+                self.reject_commit_reserved_funds(amount, reason)?;
                 return Ok(AccountReservedFundsCommitResult::Rejected { reason });
             }
             AccountStatus::Closed => {
                 let reason = AccountReservedFundsCommitRejectionReason::Closed;
-                self.append_event(AccountEventPayload::ReservedFundsCommitRejected {
-                    amount,
-                    reason,
-                })?;
-
+                self.reject_commit_reserved_funds(amount, reason)?;
                 return Ok(AccountReservedFundsCommitResult::Rejected { reason });
             }
         }
 
         if self.state_required()?.reserved_balance.value() < amount.value() {
             let reason = AccountReservedFundsCommitRejectionReason::InsufficientReservedBalance;
-            self.append_event(AccountEventPayload::ReservedFundsCommitRejected { amount, reason })?;
-
+            self.reject_commit_reserved_funds(amount, reason)?;
             return Ok(AccountReservedFundsCommitResult::Rejected { reason });
         }
 
@@ -347,11 +379,21 @@ impl Account {
         Ok(AccountReservedFundsCommitResult::Committed)
     }
 
+    /// Rejects a reserved funds commit attempt.
+    pub fn reject_commit_reserved_funds(
+        &mut self,
+        amount: CurrencyAmount,
+        reason: AccountReservedFundsCommitRejectionReason,
+    ) -> Result<(), AccountError> {
+        self.append_event(AccountEventPayload::ReservedFundsCommitRejected { amount, reason })?;
+        Ok(())
+    }
+
     /// Freezes the account.
     pub fn freeze(&mut self) -> Result<AccountFreezeResult, AccountError> {
         if self.state_required()?.status.is_closed() {
             let reason = AccountFreezeRejectionReason::Closed;
-            self.append_event(AccountEventPayload::FreezeRejected { reason })?;
+            self.reject_freeze(reason)?;
             return Ok(AccountFreezeResult::Rejected { reason });
         }
 
@@ -359,11 +401,20 @@ impl Account {
         Ok(AccountFreezeResult::Frozen)
     }
 
+    /// Rejects an account freeze attempt.
+    pub fn reject_freeze(
+        &mut self,
+        reason: AccountFreezeRejectionReason,
+    ) -> Result<(), AccountError> {
+        self.append_event(AccountEventPayload::FreezeRejected { reason })?;
+        Ok(())
+    }
+
     /// Thaws the account.
     pub fn thaw(&mut self) -> Result<AccountThawResult, AccountError> {
         if self.state_required()?.status.is_closed() {
             let reason = AccountThawRejectionReason::Closed;
-            self.append_event(AccountEventPayload::ThawRejected { reason })?;
+            self.reject_thaw(reason)?;
             return Ok(AccountThawResult::Rejected { reason });
         }
 
@@ -371,29 +422,44 @@ impl Account {
         Ok(AccountThawResult::Thawed)
     }
 
+    /// Rejects an account thaw attempt.
+    pub fn reject_thaw(&mut self, reason: AccountThawRejectionReason) -> Result<(), AccountError> {
+        self.append_event(AccountEventPayload::ThawRejected { reason })?;
+        Ok(())
+    }
+
     /// Closes the account permanently.
     pub fn close(&mut self) -> Result<AccountCloseResult, AccountError> {
         if self.state_required()?.status.is_closed() {
             let reason = AccountCloseRejectionReason::AlreadyClosed;
-            self.append_event(AccountEventPayload::CloseRejected { reason })?;
+            self.reject_close(reason)?;
             return Ok(AccountCloseResult::Rejected { reason });
         }
 
         let state = self.state_required()?;
         if !state.reserved_balance.is_zero() {
             let reason = AccountCloseRejectionReason::ReservedBalanceRemaining;
-            self.append_event(AccountEventPayload::CloseRejected { reason })?;
+            self.reject_close(reason)?;
             return Ok(AccountCloseResult::Rejected { reason });
         }
 
         if !state.balance.is_zero() {
             let reason = AccountCloseRejectionReason::BalanceRemaining;
-            self.append_event(AccountEventPayload::CloseRejected { reason })?;
+            self.reject_close(reason)?;
             return Ok(AccountCloseResult::Rejected { reason });
         }
 
         self.append_event(AccountEventPayload::Closed)?;
         Ok(AccountCloseResult::Closed)
+    }
+
+    /// Rejects an account close attempt.
+    pub fn reject_close(
+        &mut self,
+        reason: AccountCloseRejectionReason,
+    ) -> Result<(), AccountError> {
+        self.append_event(AccountEventPayload::CloseRejected { reason })?;
+        Ok(())
     }
 }
 
@@ -401,13 +467,18 @@ impl AggregateApply<AccountEventPayload, AccountError> for Account {
     fn apply(&mut self, payload: &AccountEventPayload) -> Result<(), AccountError> {
         match payload {
             AccountEventPayload::Opened {
-                id,
                 owner,
                 name,
                 currency_id,
             } => {
-                let state = AccountState::new(*id, *owner, name.clone(), *currency_id);
-                self.set_state(Some(state));
+                self.set_state(Some(AccountState {
+                    owner: *owner,
+                    name: name.clone(),
+                    currency_id: *currency_id,
+                    balance: CurrencyAmount::zero(),
+                    reserved_balance: CurrencyAmount::zero(),
+                    status: AccountStatus::Active,
+                }));
             }
             AccountEventPayload::OwnershipTransferred { owner } => {
                 self.state_required_mut()?.owner = *owner;
@@ -484,12 +555,14 @@ impl AggregateApply<AccountEventPayload, AccountError> for Account {
 #[cfg(test)]
 mod tests {
     use appletheia::domain::{Aggregate, Event, EventPayload};
+    use banking_iam_domain::{OrganizationId, UserId};
 
     use crate::core::CurrencyAmount;
     use crate::currency::CurrencyId;
 
     use super::{
-        Account, AccountEventPayload, AccountId, AccountName, AccountOwner, AccountStatus,
+        Account, AccountEventPayload, AccountId, AccountName, AccountOpening, AccountOwner,
+        AccountStatus,
     };
 
     fn account_name() -> AccountName {
@@ -497,7 +570,7 @@ mod tests {
     }
 
     fn account_owner() -> AccountOwner {
-        AccountOwner::from(banking_iam_domain::UserId::new())
+        AccountOwner::from(UserId::new())
     }
 
     #[test]
@@ -505,16 +578,17 @@ mod tests {
         let owner = account_owner();
         let name = account_name();
         let currency_id = CurrencyId::new();
-        let mut account = Account::default();
+        let mut account = Account::new();
 
         account
-            .open(owner, name.clone(), currency_id)
+            .open(AccountOpening {
+                owner,
+                name: name.clone(),
+                currency_id,
+            })
             .expect("open should succeed");
 
-        assert_eq!(
-            account.aggregate_id().expect("aggregate id should exist"),
-            account.aggregate_id().expect("aggregate id should exist")
-        );
+        assert_eq!(account.aggregate_id(), account.aggregate_id());
         assert_eq!(account.owner().expect("owner should exist"), owner);
         assert_eq!(
             account.currency_id().expect("currency id should exist"),
@@ -542,11 +616,14 @@ mod tests {
         assert_eq!(
             account.uncommitted_events()[0].payload(),
             &AccountEventPayload::Opened {
-                id: account.aggregate_id().expect("aggregate id should exist"),
                 owner,
                 name,
                 currency_id,
             }
+        );
+        assert_eq!(
+            account.uncommitted_events()[0].aggregate_id(),
+            account.aggregate_id()
         );
     }
 
@@ -555,9 +632,13 @@ mod tests {
         let owner = account_owner();
         let original_name = account_name();
         let name_changed = AccountName::try_from("savings").expect("account name should be valid");
-        let mut account = Account::default();
+        let mut account = Account::new();
         account
-            .open(owner, original_name.clone(), CurrencyId::new())
+            .open(AccountOpening {
+                owner,
+                name: original_name.clone(),
+                currency_id: CurrencyId::new(),
+            })
             .expect("open should succeed");
 
         account
@@ -575,11 +656,14 @@ mod tests {
     #[test]
     fn transfer_ownership_updates_owner_and_records_event() {
         let original_owner = account_owner();
-        let transferred_owner =
-            AccountOwner::Organization(banking_iam_domain::OrganizationId::new());
-        let mut account = Account::default();
+        let transferred_owner = AccountOwner::Organization(OrganizationId::new());
+        let mut account = Account::new();
         account
-            .open(original_owner, account_name(), CurrencyId::new())
+            .open(AccountOpening {
+                owner: original_owner,
+                name: account_name(),
+                currency_id: CurrencyId::new(),
+            })
             .expect("open should succeed");
 
         account
@@ -599,9 +683,13 @@ mod tests {
 
     #[test]
     fn changing_to_same_name_appends_success_event() {
-        let mut account = Account::default();
+        let mut account = Account::new();
         account
-            .open(account_owner(), account_name(), CurrencyId::new())
+            .open(AccountOpening {
+                owner: account_owner(),
+                name: account_name(),
+                currency_id: CurrencyId::new(),
+            })
             .expect("open should succeed");
 
         account
@@ -614,9 +702,13 @@ mod tests {
     #[test]
     fn transferring_to_same_owner_appends_success_event() {
         let owner = account_owner();
-        let mut account = Account::default();
+        let mut account = Account::new();
         account
-            .open(owner, account_name(), CurrencyId::new())
+            .open(AccountOpening {
+                owner,
+                name: account_name(),
+                currency_id: CurrencyId::new(),
+            })
             .expect("open should succeed");
 
         account
@@ -628,9 +720,13 @@ mod tests {
 
     #[test]
     fn changing_to_same_status_appends_success_event() {
-        let mut account = Account::default();
+        let mut account = Account::new();
         account
-            .open(account_owner(), account_name(), CurrencyId::new())
+            .open(AccountOpening {
+                owner: account_owner(),
+                name: account_name(),
+                currency_id: CurrencyId::new(),
+            })
             .expect("open should succeed");
 
         account.thaw().expect("thaw should succeed");
@@ -640,9 +736,13 @@ mod tests {
 
     #[test]
     fn freeze_and_thaw_update_state() {
-        let mut account = Account::default();
+        let mut account = Account::new();
         account
-            .open(account_owner(), account_name(), CurrencyId::new())
+            .open(AccountOpening {
+                owner: account_owner(),
+                name: account_name(),
+                currency_id: CurrencyId::new(),
+            })
             .expect("open should succeed");
 
         account.freeze().expect("freeze should succeed");
@@ -662,9 +762,13 @@ mod tests {
 
     #[test]
     fn close_updates_state_to_closed() {
-        let mut account = Account::default();
+        let mut account = Account::new();
         account
-            .open(account_owner(), account_name(), CurrencyId::new())
+            .open(AccountOpening {
+                owner: account_owner(),
+                name: account_name(),
+                currency_id: CurrencyId::new(),
+            })
             .expect("open should succeed");
 
         account.close().expect("close should succeed");
@@ -692,9 +796,13 @@ mod tests {
 
     #[test]
     fn close_rejects_non_zero_balance() {
-        let mut account = Account::default();
+        let mut account = Account::new();
         account
-            .open(account_owner(), account_name(), CurrencyId::new())
+            .open(AccountOpening {
+                owner: account_owner(),
+                name: account_name(),
+                currency_id: CurrencyId::new(),
+            })
             .expect("open should succeed");
         account
             .deposit(CurrencyAmount::new(1))
@@ -714,9 +822,13 @@ mod tests {
 
     #[test]
     fn close_rejects_reserved_balance_remaining() {
-        let mut account = Account::default();
+        let mut account = Account::new();
         account
-            .open(account_owner(), account_name(), CurrencyId::new())
+            .open(AccountOpening {
+                owner: account_owner(),
+                name: account_name(),
+                currency_id: CurrencyId::new(),
+            })
             .expect("open should succeed");
         account
             .deposit(CurrencyAmount::new(1))
@@ -747,7 +859,6 @@ mod tests {
             id,
             appletheia::domain::AggregateVersion::try_from(1).expect("version should be valid"),
             AccountEventPayload::Opened {
-                id,
                 owner,
                 name: name.clone(),
                 currency_id,
@@ -765,7 +876,7 @@ mod tests {
                 name: AccountName::try_from("archived").expect("account name should be valid"),
             },
         );
-        let mut account = Account::default();
+        let mut account = Account::from_id(id);
 
         account
             .replay_events(vec![opened, closed, name_changed], None)
@@ -793,7 +904,6 @@ mod tests {
             id,
             appletheia::domain::AggregateVersion::try_from(1).expect("version should be valid"),
             AccountEventPayload::Opened {
-                id,
                 owner,
                 name: name.clone(),
                 currency_id,
@@ -818,7 +928,7 @@ mod tests {
             appletheia::domain::AggregateVersion::try_from(4).expect("version should be valid"),
             AccountEventPayload::Frozen,
         );
-        let mut account = Account::default();
+        let mut account = Account::from_id(id);
 
         account
             .replay_events(vec![opened, name_changed, deposited, frozen], None)
@@ -844,13 +954,21 @@ mod tests {
 
     #[test]
     fn open_rejects_already_opened_account() {
-        let mut account = Account::default();
+        let mut account = Account::new();
         account
-            .open(account_owner(), account_name(), CurrencyId::new())
+            .open(AccountOpening {
+                owner: account_owner(),
+                name: account_name(),
+                currency_id: CurrencyId::new(),
+            })
             .expect("open should succeed");
 
         let error = account
-            .open(account_owner(), account_name(), CurrencyId::new())
+            .open(AccountOpening {
+                owner: account_owner(),
+                name: account_name(),
+                currency_id: CurrencyId::new(),
+            })
             .expect_err("duplicate open should fail");
 
         assert!(matches!(error, super::AccountError::AlreadyOpened));
@@ -858,9 +976,13 @@ mod tests {
 
     #[test]
     fn deposit_and_withdraw_update_balance() {
-        let mut account = Account::default();
+        let mut account = Account::new();
         account
-            .open(account_owner(), account_name(), CurrencyId::new())
+            .open(AccountOpening {
+                owner: account_owner(),
+                name: account_name(),
+                currency_id: CurrencyId::new(),
+            })
             .expect("open should succeed");
 
         account
@@ -893,9 +1015,13 @@ mod tests {
 
     #[test]
     fn withdraw_rejects_insufficient_balance() {
-        let mut account = Account::default();
+        let mut account = Account::new();
         account
-            .open(account_owner(), account_name(), CurrencyId::new())
+            .open(AccountOpening {
+                owner: account_owner(),
+                name: account_name(),
+                currency_id: CurrencyId::new(),
+            })
             .expect("open should succeed");
 
         let result = account
@@ -916,9 +1042,13 @@ mod tests {
 
     #[test]
     fn movement_rejects_frozen_account() {
-        let mut account = Account::default();
+        let mut account = Account::new();
         account
-            .open(account_owner(), account_name(), CurrencyId::new())
+            .open(AccountOpening {
+                owner: account_owner(),
+                name: account_name(),
+                currency_id: CurrencyId::new(),
+            })
             .expect("open should succeed");
         account.freeze().expect("freeze should succeed");
 
@@ -949,9 +1079,13 @@ mod tests {
 
     #[test]
     fn operations_reject_closed_account() {
-        let mut account = Account::default();
+        let mut account = Account::new();
         account
-            .open(account_owner(), account_name(), CurrencyId::new())
+            .open(AccountOpening {
+                owner: account_owner(),
+                name: account_name(),
+                currency_id: CurrencyId::new(),
+            })
             .expect("open should succeed");
         account.close().expect("close should succeed");
 
@@ -1032,9 +1166,13 @@ mod tests {
 
     #[test]
     fn reserve_release_and_commit_update_reserved_balance() {
-        let mut account = Account::default();
+        let mut account = Account::new();
         account
-            .open(account_owner(), account_name(), CurrencyId::new())
+            .open(AccountOpening {
+                owner: account_owner(),
+                name: account_name(),
+                currency_id: CurrencyId::new(),
+            })
             .expect("open should succeed");
         account
             .deposit(CurrencyAmount::new(150))
@@ -1083,9 +1221,13 @@ mod tests {
 
     #[test]
     fn reserve_rejects_insufficient_available_balance() {
-        let mut account = Account::default();
+        let mut account = Account::new();
         account
-            .open(account_owner(), account_name(), CurrencyId::new())
+            .open(AccountOpening {
+                owner: account_owner(),
+                name: account_name(),
+                currency_id: CurrencyId::new(),
+            })
             .expect("open should succeed");
         account
             .deposit(CurrencyAmount::new(100))

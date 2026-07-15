@@ -8,7 +8,9 @@ use appletheia::application::repository::{
 use appletheia::application::request_context::RequestContext;
 use appletheia::domain::Aggregate;
 use banking_ledger_domain::account::{Account, AccountId, AccountOwner, AccountState};
-use banking_ledger_domain::owned_account_closure::OwnedAccountClosure;
+use banking_ledger_domain::owned_account_closure::{
+    OwnedAccountClosure, OwnedAccountClosurePageLoadResult,
+};
 
 use super::{
     OwnedAccountClosurePageLoadCommand, OwnedAccountClosurePageLoadCommandHandlerError,
@@ -64,15 +66,10 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
-        let Some(mut owned_account_closure) = self
+        let mut owned_account_closure = self
             .owned_account_closure_repository
-            .find(uow, command.owned_account_closure_id)
-            .await?
-        else {
-            return Err(
-                OwnedAccountClosurePageLoadCommandHandlerError::OwnedAccountClosureNotFound,
-            );
-        };
+            .read(uow, command.owned_account_closure_id)
+            .await?;
 
         let owner = owned_account_closure.owner()?;
         let page_size = ReferenceIndexLookupPageSize::new(
@@ -112,8 +109,13 @@ where
             .save(uow, request_context, &mut owned_account_closure)
             .await?;
 
-        Ok(CommandHandled::same(
-            OwnedAccountClosurePageLoadOutput::from(result),
-        ))
+        let output = match result {
+            OwnedAccountClosurePageLoadResult::Loaded => OwnedAccountClosurePageLoadOutput::Loaded,
+            OwnedAccountClosurePageLoadResult::Rejected { reason } => {
+                OwnedAccountClosurePageLoadOutput::Rejected { reason }
+            }
+        };
+
+        Ok(CommandHandled::same(output))
     }
 }

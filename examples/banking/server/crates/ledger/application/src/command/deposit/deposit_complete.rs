@@ -1,0 +1,9 @@
+mod deposit_complete_command;
+mod deposit_complete_command_handler;
+mod deposit_complete_command_handler_error;
+mod deposit_complete_output;
+
+pub use deposit_complete_command::DepositCompleteCommand;
+pub use deposit_complete_command_handler::DepositCompleteCommandHandler;
+pub use deposit_complete_command_handler_error::DepositCompleteCommandHandlerError;
+pub use deposit_complete_output::DepositCompleteOutput;

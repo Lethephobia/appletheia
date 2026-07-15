@@ -1,4 +1,4 @@
-use banking_iam_domain::user::{UserActivateResult, UserStatusRejectionReason};
+use banking_iam_domain::user::UserStatusRejectionReason;
 use serde::{Deserialize, Serialize};
 
 /// Returned after a user activation request is applied.
@@ -7,13 +7,4 @@ use serde::{Deserialize, Serialize};
 pub enum UserActivateOutput {
     Activated,
     Rejected { reason: UserStatusRejectionReason },
-}
-
-impl From<UserActivateResult> for UserActivateOutput {
-    fn from(value: UserActivateResult) -> Self {
-        match value {
-            UserActivateResult::Activated => Self::Activated,
-            UserActivateResult::Rejected { reason } => Self::Rejected { reason },
-        }
-    }
 }

@@ -38,18 +38,18 @@ struct CounterState {
 
 impl UniqueConstraints<CounterStateError> for CounterState {}
 
-fn owner_user_values(state: &CounterState) -> Result<Option<ReferenceValues>, CounterStateError> {
+fn owner_user_values(state: &CounterState, _aggregate_id: uuid::Uuid) -> Result<Option<ReferenceValues>, CounterStateError> {
     Ok(state
         .owner_id
         .map(|owner_id| ReferenceValues::new(vec![owner_id]))
         .transpose()?)
 }
 
-fn approver_user_value(state: &CounterState) -> Result<Option<OwnerId>, CounterStateError> {
+fn approver_user_value(state: &CounterState, _aggregate_id: uuid::Uuid) -> Result<Option<OwnerId>, CounterStateError> {
     Ok(state.approver_id)
 }
 
-fn assert_aggregate_state<T: AggregateState<Id = CounterId, Error = CounterStateError>>() {}
+fn assert_aggregate_state<T: AggregateState<Error = CounterStateError>>() {}
 
 fn main() {
     assert_aggregate_state::<CounterState>();
@@ -62,7 +62,7 @@ fn main() {
         approver_id: Some(approver_id),
     };
 
-    let reference_entries = state.reference_entries().unwrap();
+    let reference_entries = state.reference_entries(uuid::Uuid::now_v7()).unwrap();
 
     assert_eq!(CounterState::OWNER_USER_REF, ReferenceKey::new("owner_user"));
     assert_eq!(

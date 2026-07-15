@@ -1,16 +1,15 @@
 use appletheia::query;
 
-use crate::pagination::{CursorOptions, PageSize};
 use crate::read_model::{
-    PublicAccountListItemCriteria, PublicAccountListItemCursor, PublicAccountListItemSortKey,
+    PublicAccountListCriteria, PublicAccountListCursor, PublicAccountListSortKey,
 };
+use banking_shared_kernel_application::read_model::{CursorOptions, PageSize};
 
 /// Query parameters for public account list reads.
 #[query(name = "public_account_list")]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PublicAccountListQuery {
-    pub criteria: PublicAccountListItemCriteria,
-    pub cursor_options:
-        Option<CursorOptions<PublicAccountListItemSortKey, PublicAccountListItemCursor>>,
+    pub criteria: PublicAccountListCriteria,
+    pub cursor_options: Option<CursorOptions<PublicAccountListSortKey, PublicAccountListCursor>>,
     pub limit: PageSize,
 }

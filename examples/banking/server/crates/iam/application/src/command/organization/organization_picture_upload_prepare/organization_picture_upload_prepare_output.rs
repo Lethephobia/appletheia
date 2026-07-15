@@ -1,4 +1,4 @@
-use appletheia::application::object_storage::SignedObjectUploadRequest;
+use appletheia::application::object_storage::SignedObjectUpload;
 use banking_iam_domain::OrganizationPictureRef;
 use serde::{Deserialize, Serialize};
 
@@ -6,18 +6,15 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OrganizationPictureUploadPrepareOutput {
     pub picture: OrganizationPictureRef,
-    pub signed_upload_request: SignedObjectUploadRequest,
+    pub signed_upload: SignedObjectUpload,
 }
 
 impl OrganizationPictureUploadPrepareOutput {
     /// Creates a new organization-picture-upload-prepare output.
-    pub fn new(
-        picture: OrganizationPictureRef,
-        signed_upload_request: SignedObjectUploadRequest,
-    ) -> Self {
+    pub fn new(picture: OrganizationPictureRef, signed_upload: SignedObjectUpload) -> Self {
         Self {
             picture,
-            signed_upload_request,
+            signed_upload,
         }
     }
 }

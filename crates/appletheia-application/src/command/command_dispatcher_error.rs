@@ -4,7 +4,6 @@ use thiserror::Error;
 
 use crate::authorization::AuthorizerError;
 use crate::command::{CommandHasherError, IdempotencyServiceError};
-use crate::projection::ReadYourWritesWaitError;
 use crate::request_context::MessageId;
 use crate::unit_of_work::UnitOfWorkError;
 use crate::unit_of_work::UnitOfWorkFactoryError;
@@ -19,9 +18,6 @@ where
 
     #[error("unit of work error: {0}")]
     UnitOfWork(#[from] UnitOfWorkError),
-
-    #[error(transparent)]
-    ReadYourWrites(#[from] ReadYourWritesWaitError),
 
     #[error("idempotency error: {0}")]
     Idempotency(#[from] IdempotencyServiceError),

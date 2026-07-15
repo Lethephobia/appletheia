@@ -4,7 +4,10 @@ use appletheia::application::authorization::{
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_iam_domain::User;
+use appletheia::domain::{Aggregate, UniqueValue};
+use banking_iam_domain::user::UserUsernameChangeRejectionReason;
+use banking_iam_domain::user::UserUsernameChangeResult;
+use banking_iam_domain::{User, UserState, Username};
 
 use super::{
     UserUsernameChangeCommand, UserUsernameChangeCommandHandlerError, UserUsernameChangeOutput,
@@ -25,6 +28,12 @@ where
 {
     pub fn new(user_repository: UR) -> Self {
         Self { user_repository }
+    }
+
+    fn username_unique_value(
+        username: &Username,
+    ) -> Result<UniqueValue, UserUsernameChangeCommandHandlerError> {
+        Ok(UniqueValue::from_strings([username.as_ref()])?)
     }
 }
 
@@ -58,9 +67,26 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
-        let Some(mut user) = self.user_repository.find(uow, command.user_id).await? else {
-            return Err(UserUsernameChangeCommandHandlerError::UserNotFound);
-        };
+        let mut user = self.user_repository.read(uow, command.user_id).await?;
+
+        let unique_value = Self::username_unique_value(&command.username)?;
+        if self
+            .user_repository
+            .find_by_unique_value(uow, UserState::USERNAME_KEY, &unique_value)
+            .await?
+            .is_some_and(|existing| existing.aggregate_id() != command.user_id)
+        {
+            let reason = UserUsernameChangeRejectionReason::AlreadyTaken;
+            user.reject_change_username(command.username.clone(), reason)?;
+
+            self.user_repository
+                .save(uow, request_context, &mut user)
+                .await?;
+
+            return Ok(CommandHandled::same(UserUsernameChangeOutput::Rejected {
+                reason,
+            }));
+        }
 
         let result = user.change_username(command.username.clone())?;
 
@@ -68,7 +94,14 @@ where
             .save(uow, request_context, &mut user)
             .await?;
 
-        Ok(CommandHandled::same(result.into()))
+        let output = match result {
+            UserUsernameChangeResult::Changed => UserUsernameChangeOutput::Changed,
+            UserUsernameChangeResult::Rejected { reason } => {
+                UserUsernameChangeOutput::Rejected { reason }
+            }
+        };
+
+        Ok(CommandHandled::same(output))
     }
 }
 
@@ -84,7 +117,10 @@ mod tests {
     };
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::Aggregate;
-    use banking_iam_domain::{User, UserId, UserIdentityProvider, UserIdentitySubject, Username};
+    use banking_iam_domain::{
+        User, UserId, UserIdentityProvider, UserIdentityRegistration, UserIdentitySubject,
+        UserRegistration, Username,
+    };
     use uuid::Uuid;
 
     use super::{
@@ -115,20 +151,34 @@ mod tests {
     }
     impl Repository<User> for TestUserRepository {
         type Uow = TestUow;
-        async fn find(
+        async fn read(
             &self,
             _uow: &mut Self::Uow,
             _id: UserId,
-        ) -> Result<Option<User>, RepositoryError<User>> {
-            Ok(self.user.lock().expect("lock").clone())
+        ) -> Result<User, RepositoryError<User>> {
+            self.user
+                .lock()
+                .expect("lock")
+                .clone()
+                .ok_or_else(|| RepositoryError::NotFound {
+                    aggregate_type: User::TYPE,
+                    aggregate_id: _id,
+                })
         }
-        async fn find_at_version(
+        async fn read_at_version(
             &self,
             _uow: &mut Self::Uow,
             _id: UserId,
-            _at: Option<appletheia::domain::AggregateVersion>,
-        ) -> Result<Option<User>, RepositoryError<User>> {
-            Ok(self.user.lock().expect("lock").clone())
+            _at: appletheia::domain::AggregateVersion,
+        ) -> Result<User, RepositoryError<User>> {
+            self.user
+                .lock()
+                .expect("lock")
+                .clone()
+                .ok_or_else(|| RepositoryError::NotFound {
+                    aggregate_type: User::TYPE,
+                    aggregate_id: _id,
+                })
         }
         async fn find_by_unique_value(
             &self,
@@ -161,14 +211,17 @@ mod tests {
     }
 
     fn registered_user() -> User {
-        let mut user = User::default();
-        user.register().expect("user should register");
-        user.link_identity(
-            UserIdentityProvider::try_from("https://accounts.example.com")
+        let mut user = User::new();
+        user.register(UserRegistration {
+            initial_identity: None,
+        })
+        .expect("user should register");
+        user.link_identity(UserIdentityRegistration {
+            provider: UserIdentityProvider::try_from("https://accounts.example.com")
                 .expect("provider should be valid"),
-            UserIdentitySubject::try_from("user-123").expect("subject should be valid"),
-            None,
-        )
+            subject: UserIdentitySubject::try_from("user-123").expect("subject should be valid"),
+            email: None,
+        })
         .expect("identity should link");
         user
     }
@@ -176,7 +229,7 @@ mod tests {
     #[tokio::test]
     async fn handle_changes_username() {
         let user = registered_user();
-        let user_id = user.aggregate_id().expect("user id should exist");
+        let user_id = user.aggregate_id();
         let repository = TestUserRepository::new(user);
         let handler = UserUsernameChangeCommandHandler::new(repository);
         let mut uow = TestUow;

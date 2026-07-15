@@ -10,7 +10,4 @@ pub enum AccountCloseCommandHandlerError {
 
     #[error("account aggregate failed")]
     Account(#[from] AccountError),
-
-    #[error("account was not found")]
-    AccountNotFound,
 }

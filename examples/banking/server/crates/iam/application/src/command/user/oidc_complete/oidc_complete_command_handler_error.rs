@@ -4,12 +4,10 @@ use appletheia::application::authentication::oidc::{
 use appletheia::application::authentication::{
     AuthTokenClaimsError, AuthTokenExchangeCodeIssuerError, AuthTokenIssuerError,
 };
-use appletheia::application::authorization::AggregateRefError;
 use appletheia::application::repository::RepositoryError;
 use appletheia::domain::{UniqueValueError, UniqueValuePartError};
-use banking_iam_domain::{
-    EmailError, User, UserError, UserIdentityProviderError, UserIdentitySubjectError,
-};
+use banking_iam_domain::{User, UserError, UserIdentityProviderError, UserIdentitySubjectError};
+use banking_shared_kernel_domain::contact::EmailError;
 use thiserror::Error;
 
 /// Represents errors returned while completing an OIDC flow.
@@ -50,19 +48,4 @@ pub enum OidcCompleteCommandHandlerError {
 
     #[error("auth token exchange code issue failed")]
     AuthTokenExchangeCodeIssuer(#[from] AuthTokenExchangeCodeIssuerError),
-
-    #[error("aggregate ref is invalid")]
-    AggregateRef(#[from] AggregateRefError),
-
-    #[error("identity linking requires an authenticated principal at OIDC begin time")]
-    LinkIdentityRequiresAuthenticatedPrincipal,
-
-    #[error("identity linking requires a user principal")]
-    LinkIdentityRequiresUserPrincipal,
-
-    #[error("authenticated user was not found")]
-    AuthenticatedUserNotFound,
-
-    #[error("identity is already linked to another user")]
-    IdentityAlreadyLinkedToAnotherUser,
 }

@@ -29,7 +29,7 @@ impl<A: Aggregate> SnapshotWriter<A> for PgSnapshotWriter<A> {
     async fn write_snapshot(
         &self,
         uow: &mut Self::Uow,
-        snapshot: &Snapshot<A::State>,
+        snapshot: &Snapshot<A::Id, A::State>,
     ) -> Result<(), SnapshotWriterError> {
         let snapshot_id = snapshot.id().value();
         let state = serde_json::to_value(snapshot.state()).map_err(SnapshotWriterError::Json)?;

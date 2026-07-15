@@ -5,6 +5,7 @@ use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_iam_domain::User;
+use banking_iam_domain::user::UserPictureChangeResult;
 
 use super::{
     UserPictureChangeCommand, UserPictureChangeCommandHandlerError, UserPictureChangeOutput,
@@ -58,9 +59,7 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
-        let Some(mut user) = self.user_repository.find(uow, command.user_id).await? else {
-            return Err(UserPictureChangeCommandHandlerError::UserNotFound);
-        };
+        let mut user = self.user_repository.read(uow, command.user_id).await?;
 
         let result = user.change_picture(command.picture.clone())?;
 
@@ -68,6 +67,13 @@ where
             .save(uow, request_context, &mut user)
             .await?;
 
-        Ok(CommandHandled::same(result.into()))
+        let output = match result {
+            UserPictureChangeResult::Changed => UserPictureChangeOutput::Changed,
+            UserPictureChangeResult::Rejected { reason } => {
+                UserPictureChangeOutput::Rejected { reason }
+            }
+        };
+
+        Ok(CommandHandled::same(output))
     }
 }

@@ -1,6 +1,4 @@
-use banking_iam_domain::{
-    OrganizationJoinRequestRejectRejectionReason, OrganizationJoinRequestRejectResult,
-};
+use banking_iam_domain::OrganizationJoinRequestRejectRejectionReason;
 use serde::{Deserialize, Serialize};
 
 /// The output returned after rejecting an organization join request.
@@ -11,15 +9,4 @@ pub enum OrganizationJoinRequestRejectOutput {
     RejectionRejected {
         reason: OrganizationJoinRequestRejectRejectionReason,
     },
-}
-
-impl From<OrganizationJoinRequestRejectResult> for OrganizationJoinRequestRejectOutput {
-    fn from(value: OrganizationJoinRequestRejectResult) -> Self {
-        match value {
-            OrganizationJoinRequestRejectResult::Rejected => Self::Rejected,
-            OrganizationJoinRequestRejectResult::RejectionRejected { reason } => {
-                Self::RejectionRejected { reason }
-            }
-        }
-    }
 }

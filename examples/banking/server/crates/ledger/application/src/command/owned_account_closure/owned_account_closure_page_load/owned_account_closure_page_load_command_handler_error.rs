@@ -14,9 +14,6 @@ pub enum OwnedAccountClosurePageLoadCommandHandlerError {
     #[error("owned account closure aggregate failed")]
     OwnedAccountClosure(#[from] OwnedAccountClosureError),
 
-    #[error("owned account closure was not found")]
-    OwnedAccountClosureNotFound,
-
     #[error("page size must not be zero")]
     ZeroPageSize,
 }

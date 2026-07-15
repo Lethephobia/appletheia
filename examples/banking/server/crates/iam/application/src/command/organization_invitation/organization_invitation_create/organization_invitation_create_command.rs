@@ -1,5 +1,8 @@
 use appletheia::command;
-use banking_iam_domain::{OrganizationId, OrganizationInvitationExpiresAt, UserId};
+use banking_iam_domain::{
+    OrganizationId, OrganizationInvitationExpiresAt, OrganizationInvitationIssuer,
+    OrganizationRoles, UserId,
+};
 use serde::{Deserialize, Serialize};
 
 /// Issues an organization invitation.
@@ -8,5 +11,7 @@ use serde::{Deserialize, Serialize};
 pub struct OrganizationInvitationIssueCommand {
     pub organization_id: OrganizationId,
     pub invitee_id: UserId,
+    pub issuer: OrganizationInvitationIssuer,
+    pub roles: OrganizationRoles,
     pub expires_at: OrganizationInvitationExpiresAt,
 }

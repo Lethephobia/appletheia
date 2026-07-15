@@ -1,7 +1,6 @@
 use appletheia_domain::{Aggregate, AggregateId};
 use serde::{Deserialize, Serialize};
 
-use super::AggregateRefError;
 use crate::event::{AggregateIdValue, AggregateTypeOwned};
 
 /// References an aggregate by type and identifier.
@@ -35,14 +34,8 @@ impl AggregateRef {
 
     /// Builds an aggregate reference from an aggregate instance.
     ///
-    /// Returns `AggregateRefError::MissingAggregateId` when the aggregate has
-    /// not been initialized with state yet.
-    pub fn try_from_aggregate<A: Aggregate>(value: &A) -> Result<Self, AggregateRefError> {
-        let Some(id) = value.aggregate_id() else {
-            return Err(AggregateRefError::MissingAggregateId);
-        };
-
-        Ok(Self::from_id::<A>(id))
+    pub fn from_aggregate<A: Aggregate>(value: &A) -> Self {
+        Self::from_id::<A>(value.aggregate_id())
     }
 }
 
@@ -60,7 +53,6 @@ mod tests {
     use uuid::Uuid;
 
     use super::AggregateRef;
-    use crate::authorization::AggregateRefError;
     use crate::event::{AggregateIdValue, AggregateTypeOwned};
 
     #[derive(Debug, Error, Eq, PartialEq)]
@@ -75,6 +67,10 @@ mod tests {
 
     impl AggregateId for CounterId {
         type Error = CounterIdError;
+
+        fn new() -> Self {
+            Self(Uuid::now_v7())
+        }
 
         fn value(&self) -> Uuid {
             self.0
@@ -110,12 +106,7 @@ mod tests {
     impl ReferenceIndexes<CounterStateError> for CounterState {}
 
     impl AggregateState for CounterState {
-        type Id = CounterId;
         type Error = CounterStateError;
-
-        fn id(&self) -> Self::Id {
-            self.id
-        }
     }
 
     #[derive(Debug, Error)]
@@ -143,11 +134,14 @@ mod tests {
     enum CounterError {
         #[error("aggregate error: {0}")]
         Aggregate(#[from] AggregateError<CounterId>),
+
+        #[error(transparent)]
+        State(#[from] CounterStateError),
     }
 
     #[derive(Clone, Debug, Default)]
     struct CounterAggregate {
-        core: AggregateCore<CounterState, CounterEventPayload>,
+        core: AggregateCore<CounterId, CounterState, CounterEventPayload>,
     }
 
     impl AggregateApply<CounterEventPayload, CounterError> for CounterAggregate {
@@ -164,24 +158,34 @@ mod tests {
 
         const TYPE: AggregateType = AggregateType::new("counter");
 
-        fn core(&self) -> &AggregateCore<Self::State, Self::EventPayload> {
+        fn new() -> Self {
+            Self {
+                core: AggregateCore::new(),
+            }
+        }
+
+        fn from_id(id: Self::Id) -> Self {
+            Self {
+                core: AggregateCore::from_id(id),
+            }
+        }
+
+        fn core(&self) -> &AggregateCore<Self::Id, Self::State, Self::EventPayload> {
             &self.core
         }
 
-        fn core_mut(&mut self) -> &mut AggregateCore<Self::State, Self::EventPayload> {
+        fn core_mut(&mut self) -> &mut AggregateCore<Self::Id, Self::State, Self::EventPayload> {
             &mut self.core
         }
     }
 
     #[test]
-    fn try_from_aggregate_returns_type_and_id() {
+    fn from_aggregate_returns_type_and_id() {
         let aggregate_id =
             CounterId::try_from_uuid(Uuid::now_v7()).expect("valid uuid should be accepted");
-        let mut aggregate = CounterAggregate::default();
-        aggregate.set_state(Some(CounterState { id: aggregate_id }));
+        let aggregate = CounterAggregate::from_id(aggregate_id);
 
-        let aggregate_ref =
-            AggregateRef::try_from_aggregate(&aggregate).expect("initialized aggregate");
+        let aggregate_ref = AggregateRef::from_aggregate(&aggregate);
 
         assert_eq!(aggregate_ref.aggregate_type.value(), "counter");
         assert_eq!(aggregate_ref.aggregate_id.value(), aggregate_id.value());
@@ -207,15 +211,5 @@ mod tests {
 
         assert_eq!(aggregate_ref.aggregate_type.value(), "counter");
         assert_eq!(aggregate_ref.aggregate_id.value(), aggregate_id.value());
-    }
-
-    #[test]
-    fn try_from_aggregate_returns_error_when_id_is_missing() {
-        let aggregate = CounterAggregate::default();
-
-        let error = AggregateRef::try_from_aggregate(&aggregate)
-            .expect_err("aggregate without state should be rejected");
-
-        assert!(matches!(error, AggregateRefError::MissingAggregateId));
     }
 }

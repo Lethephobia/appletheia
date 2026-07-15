@@ -4,7 +4,7 @@ use appletheia::application::authorization::{
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_ledger_domain::account::Account;
+use banking_ledger_domain::account::{Account, AccountOwnershipTransferResult};
 
 use super::{
     AccountOwnershipTransferCommand, AccountOwnershipTransferCommandHandlerError,
@@ -44,7 +44,6 @@ where
         command: &Self::Command,
     ) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
-            PrincipalRequirement::System,
             PrincipalRequirement::AuthenticatedWithRelationship(RelationshipRequirement::check::<
                 Account,
             >(
@@ -60,13 +59,10 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
-        let Some(mut account) = self
+        let mut account = self
             .account_repository
-            .find(uow, command.account_id)
-            .await?
-        else {
-            return Err(AccountOwnershipTransferCommandHandlerError::AccountNotFound);
-        };
+            .read(uow, command.account_id)
+            .await?;
 
         let result = account.transfer_ownership(command.owner)?;
 
@@ -74,8 +70,15 @@ where
             .save(uow, request_context, &mut account)
             .await?;
 
-        Ok(CommandHandled::same(AccountOwnershipTransferOutput::from(
-            result,
-        )))
+        let output = match result {
+            AccountOwnershipTransferResult::Transferred => {
+                AccountOwnershipTransferOutput::Transferred
+            }
+            AccountOwnershipTransferResult::Rejected { reason } => {
+                AccountOwnershipTransferOutput::Rejected { reason }
+            }
+        };
+
+        Ok(CommandHandled::same(output))
     }
 }

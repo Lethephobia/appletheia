@@ -1,4 +1,5 @@
 use appletheia::application::repository::RepositoryError;
+use appletheia::domain::UniqueValueError;
 use banking_iam_domain::{User, UserError};
 use thiserror::Error;
 
@@ -11,6 +12,6 @@ pub enum UserUsernameChangeCommandHandlerError {
     #[error("user aggregate failed")]
     User(#[from] UserError),
 
-    #[error("user was not found")]
-    UserNotFound,
+    #[error("unique value failed")]
+    UniqueValue(#[from] UniqueValueError),
 }

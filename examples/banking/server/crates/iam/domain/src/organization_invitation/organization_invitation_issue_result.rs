@@ -1,11 +1,9 @@
-use super::{OrganizationInvitationId, OrganizationInvitationIssueRejectionReason};
+use super::OrganizationInvitationIssueRejectionReason;
 
 /// Describes the domain outcome of an organization invitation issue request.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum OrganizationInvitationIssueResult {
-    Issued {
-        organization_invitation_id: OrganizationInvitationId,
-    },
+    Issued,
     Rejected {
         reason: OrganizationInvitationIssueRejectionReason,
     },

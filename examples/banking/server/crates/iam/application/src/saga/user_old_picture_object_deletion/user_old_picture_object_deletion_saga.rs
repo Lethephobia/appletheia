@@ -6,7 +6,7 @@ use crate::command::UserPictureObjectDeleteCommand;
 
 use super::{
     UserOldPictureObjectDeletionSagaError, UserOldPictureObjectDeletionSagaSpec,
-    UserOldPictureObjectDeletionSagaState,
+    UserOldPictureObjectDeletionSagaState, UserOldPictureObjectDeletionSagaStatus,
 };
 
 /// Coordinates old user picture object deletion after picture changes.
@@ -35,6 +35,7 @@ impl Saga for UserOldPictureObjectDeletionSaga {
             .and_then(|picture| picture.as_object_name())
             .cloned()
         else {
+            instance.state_required_mut()?.status = UserOldPictureObjectDeletionSagaStatus::Skipped;
             instance.succeed();
             return Ok(());
         };

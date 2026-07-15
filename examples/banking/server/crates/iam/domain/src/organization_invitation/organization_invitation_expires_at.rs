@@ -1,5 +1,6 @@
 use std::{fmt, fmt::Display};
 
+use banking_shared_kernel_domain::timestamps::CurrentDateTime;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -17,6 +18,11 @@ impl OrganizationInvitationExpiresAt {
     /// Returns the underlying UTC timestamp.
     pub fn value(&self) -> DateTime<Utc> {
         self.0
+    }
+
+    /// Returns whether the invitation is expired at the provided time.
+    pub fn is_expired(&self, now: CurrentDateTime) -> bool {
+        self.0 <= now.value()
     }
 }
 
@@ -40,6 +46,7 @@ impl Display for OrganizationInvitationExpiresAt {
 
 #[cfg(test)]
 mod tests {
+    use banking_shared_kernel_domain::timestamps::CurrentDateTime;
     use chrono::{DateTime, TimeZone, Utc};
 
     use super::OrganizationInvitationExpiresAt;
@@ -67,5 +74,19 @@ mod tests {
         let expires_at = OrganizationInvitationExpiresAt::from(timestamp);
 
         assert_eq!(expires_at.to_string(), timestamp.to_string());
+    }
+
+    #[test]
+    fn is_expired_compares_against_provided_time() {
+        let expires_at = OrganizationInvitationExpiresAt::from(
+            Utc.with_ymd_and_hms(2024, 1, 2, 3, 4, 5).unwrap(),
+        );
+
+        assert!(!expires_at.is_expired(CurrentDateTime::from(
+            Utc.with_ymd_and_hms(2024, 1, 2, 3, 4, 4).unwrap(),
+        )));
+        assert!(expires_at.is_expired(CurrentDateTime::from(
+            Utc.with_ymd_and_hms(2024, 1, 2, 3, 4, 5).unwrap(),
+        )));
     }
 }

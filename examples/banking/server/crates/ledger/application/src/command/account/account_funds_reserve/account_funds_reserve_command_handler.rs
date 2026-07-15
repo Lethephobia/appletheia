@@ -2,7 +2,7 @@ use appletheia::application::authorization::{AuthorizationPlan, PrincipalRequire
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_ledger_domain::account::Account;
+use banking_ledger_domain::account::{Account, AccountFundsReserveResult};
 
 use super::{
     AccountFundsReserveCommand, AccountFundsReserveCommandHandlerError, AccountFundsReserveOutput,
@@ -50,21 +50,23 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
-        let Some(mut account) = self
+        let mut account = self
             .account_repository
-            .find(uow, command.account_id)
-            .await?
-        else {
-            return Err(AccountFundsReserveCommandHandlerError::AccountNotFound);
-        };
+            .read(uow, command.account_id)
+            .await?;
 
         let result = account.reserve_funds(command.amount)?;
         self.account_repository
             .save(uow, request_context, &mut account)
             .await?;
 
-        Ok(CommandHandled::same(AccountFundsReserveOutput::from(
-            result,
-        )))
+        let output = match result {
+            AccountFundsReserveResult::Reserved => AccountFundsReserveOutput::Reserved,
+            AccountFundsReserveResult::Rejected { reason } => {
+                AccountFundsReserveOutput::Rejected { reason }
+            }
+        };
+
+        Ok(CommandHandled::same(output))
     }
 }

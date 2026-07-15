@@ -76,6 +76,10 @@ mod tests {
     impl AggregateId for TestId {
         type Error = TestIdError;
 
+        fn new() -> Self {
+            Self(Uuid::now_v7())
+        }
+
         fn value(&self) -> Uuid {
             self.0
         }

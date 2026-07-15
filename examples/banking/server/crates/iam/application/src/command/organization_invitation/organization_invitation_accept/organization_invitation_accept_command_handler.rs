@@ -4,7 +4,11 @@ use appletheia::application::authorization::{
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_iam_domain::{Organization, OrganizationInvitation};
+use banking_iam_domain::{
+    Organization, OrganizationInvitation, OrganizationInvitationAcceptRejectionReason,
+    OrganizationInvitationAcceptResult,
+};
+use banking_shared_kernel_domain::timestamps::CurrentDateTime;
 
 use crate::authorization::OrganizationInvitationInviteeRelation;
 
@@ -67,36 +71,44 @@ where
         _request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
-        let Some(mut organization_invitation) = self
+        let mut organization_invitation = self
             .organization_invitation_repository
-            .find(uow, command.organization_invitation_id)
-            .await?
-        else {
-            return Err(
-                OrganizationInvitationAcceptCommandHandlerError::TargetOrganizationInvitationNotFound,
-            );
-        };
+            .read(uow, command.organization_invitation_id)
+            .await?;
 
-        let Some(organization) = self
+        let organization = self
             .organization_repository
-            .find(uow, *organization_invitation.organization_id()?)
-            .await?
-        else {
-            return Err(OrganizationInvitationAcceptCommandHandlerError::OrganizationNotFound);
-        };
+            .read(uow, *organization_invitation.organization_id()?)
+            .await?;
 
         if organization.is_removed()? {
-            return Err(OrganizationInvitationAcceptCommandHandlerError::OrganizationRemoved);
+            let reason = OrganizationInvitationAcceptRejectionReason::OrganizationRemoved;
+            organization_invitation.reject_accept(reason)?;
+
+            self.organization_invitation_repository
+                .save(uow, _request_context, &mut organization_invitation)
+                .await?;
+
+            return Ok(CommandHandled::same(
+                OrganizationInvitationAcceptOutput::Rejected { reason },
+            ));
         }
 
-        let result = organization_invitation.accept()?;
+        let result = organization_invitation.accept(CurrentDateTime::new())?;
 
         self.organization_invitation_repository
             .save(uow, _request_context, &mut organization_invitation)
             .await?;
 
-        Ok(CommandHandled::same(
-            OrganizationInvitationAcceptOutput::from(result),
-        ))
+        let output = match result {
+            OrganizationInvitationAcceptResult::Accepted => {
+                OrganizationInvitationAcceptOutput::Accepted
+            }
+            OrganizationInvitationAcceptResult::Rejected { reason } => {
+                OrganizationInvitationAcceptOutput::Rejected { reason }
+            }
+        };
+
+        Ok(CommandHandled::same(output))
     }
 }

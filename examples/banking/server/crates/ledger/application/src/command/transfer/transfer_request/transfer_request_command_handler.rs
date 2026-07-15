@@ -4,8 +4,9 @@ use appletheia::application::authorization::{
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
+use appletheia::domain::Aggregate;
 use banking_ledger_domain::account::Account;
-use banking_ledger_domain::transfer::Transfer;
+use banking_ledger_domain::transfer::{Transfer, TransferRequest, TransferRequestResult};
 
 use crate::authorization::AccountTransferRequesterRelation;
 
@@ -65,37 +66,40 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
-        let Some(source_account) = self
+        let source_account = self
             .account_repository
-            .find(uow, command.from_account_id)
-            .await?
-        else {
-            return Err(TransferRequestCommandHandlerError::SourceAccountNotFound);
-        };
-        let Some(destination_account) = self
+            .read(uow, command.from_account_id)
+            .await?;
+        let destination_account = self
             .account_repository
-            .find(uow, command.to_account_id)
-            .await?
-        else {
-            return Err(TransferRequestCommandHandlerError::DestinationAccountNotFound);
-        };
+            .read(uow, command.to_account_id)
+            .await?;
 
         if source_account.currency_id()? != destination_account.currency_id()? {
             return Err(TransferRequestCommandHandlerError::CurrencyMismatch);
         }
 
-        let mut transfer = Transfer::default();
-        let result = transfer.request(
-            command.from_account_id,
-            command.to_account_id,
-            command.amount,
-        )?;
+        let mut transfer = Transfer::new();
+        let transfer_id = transfer.aggregate_id();
+        let result = transfer.request(TransferRequest {
+            from_account_id: command.from_account_id,
+            to_account_id: command.to_account_id,
+            amount: command.amount,
+        })?;
 
         self.transfer_repository
             .save(uow, request_context, &mut transfer)
             .await?;
 
-        Ok(CommandHandled::same(TransferRequestOutput::from(result)))
+        let output = match result {
+            TransferRequestResult::Requested => TransferRequestOutput::Requested { transfer_id },
+            TransferRequestResult::Rejected { reason } => TransferRequestOutput::Rejected {
+                transfer_id,
+                reason,
+            },
+        };
+
+        Ok(CommandHandled::same(output))
     }
 }
 
@@ -117,7 +121,9 @@ mod tests {
     use appletheia::domain::{Aggregate, AggregateVersion, UniqueKey, UniqueValue};
 
     use banking_iam_domain::{User, UserId};
-    use banking_ledger_domain::account::{Account, AccountId, AccountName, AccountOwner};
+    use banking_ledger_domain::account::{
+        Account, AccountId, AccountName, AccountOpening, AccountOwner,
+    };
     use banking_ledger_domain::core::CurrencyAmount;
     use banking_ledger_domain::currency::CurrencyId;
     use banking_ledger_domain::transfer::{Transfer, TransferId};
@@ -127,6 +133,7 @@ mod tests {
 
     use super::{
         TransferRequestCommand, TransferRequestCommandHandler, TransferRequestCommandHandlerError,
+        TransferRequestOutput,
     };
 
     fn account_name() -> AccountName {
@@ -157,7 +164,7 @@ mod tests {
 
     impl TestAccountRepository {
         fn insert(&self, account: Account) {
-            let account_id = account.aggregate_id().expect("account id should exist");
+            let account_id = account.aggregate_id();
             self.accounts
                 .lock()
                 .expect("lock")
@@ -168,21 +175,37 @@ mod tests {
     impl Repository<Account> for TestAccountRepository {
         type Uow = TestUow;
 
-        async fn find(
+        async fn read(
             &self,
             _uow: &mut Self::Uow,
             id: AccountId,
-        ) -> Result<Option<Account>, RepositoryError<Account>> {
-            Ok(self.accounts.lock().expect("lock").get(&id).cloned())
+        ) -> Result<Account, RepositoryError<Account>> {
+            self.accounts
+                .lock()
+                .expect("lock")
+                .get(&id)
+                .cloned()
+                .ok_or_else(|| RepositoryError::NotFound {
+                    aggregate_type: Account::TYPE,
+                    aggregate_id: id,
+                })
         }
 
-        async fn find_at_version(
+        async fn read_at_version(
             &self,
             _uow: &mut Self::Uow,
             id: AccountId,
-            _at: Option<AggregateVersion>,
-        ) -> Result<Option<Account>, RepositoryError<Account>> {
-            Ok(self.accounts.lock().expect("lock").get(&id).cloned())
+            _at: AggregateVersion,
+        ) -> Result<Account, RepositoryError<Account>> {
+            self.accounts
+                .lock()
+                .expect("lock")
+                .get(&id)
+                .cloned()
+                .ok_or_else(|| RepositoryError::NotFound {
+                    aggregate_type: Account::TYPE,
+                    aggregate_id: id,
+                })
         }
 
         async fn find_by_unique_value(
@@ -200,7 +223,7 @@ mod tests {
             _request_context: &RequestContext,
             aggregate: &mut Account,
         ) -> Result<(), RepositoryError<Account>> {
-            let account_id = aggregate.aggregate_id().expect("account id should exist");
+            let account_id = aggregate.aggregate_id();
             self.accounts
                 .lock()
                 .expect("lock")
@@ -217,21 +240,35 @@ mod tests {
     impl Repository<Transfer> for TestTransferRepository {
         type Uow = TestUow;
 
-        async fn find(
+        async fn read(
             &self,
             _uow: &mut Self::Uow,
             _id: TransferId,
-        ) -> Result<Option<Transfer>, RepositoryError<Transfer>> {
-            Ok(self.transfer.lock().expect("lock").clone())
+        ) -> Result<Transfer, RepositoryError<Transfer>> {
+            self.transfer
+                .lock()
+                .expect("lock")
+                .clone()
+                .ok_or_else(|| RepositoryError::NotFound {
+                    aggregate_type: Transfer::TYPE,
+                    aggregate_id: _id,
+                })
         }
 
-        async fn find_at_version(
+        async fn read_at_version(
             &self,
             _uow: &mut Self::Uow,
             _id: TransferId,
-            _at: Option<AggregateVersion>,
-        ) -> Result<Option<Transfer>, RepositoryError<Transfer>> {
-            Ok(self.transfer.lock().expect("lock").clone())
+            _at: AggregateVersion,
+        ) -> Result<Transfer, RepositoryError<Transfer>> {
+            self.transfer
+                .lock()
+                .expect("lock")
+                .clone()
+                .ok_or_else(|| RepositoryError::NotFound {
+                    aggregate_type: Transfer::TYPE,
+                    aggregate_id: _id,
+                })
         }
 
         async fn find_by_unique_value(
@@ -266,9 +303,13 @@ mod tests {
     }
 
     fn opened_account(currency_id: CurrencyId) -> Account {
-        let mut account = Account::default();
+        let mut account = Account::new();
         account
-            .open(account_owner(), account_name(), currency_id)
+            .open(AccountOpening {
+                owner: account_owner(),
+                name: account_name(),
+                currency_id,
+            })
             .expect("open should succeed");
 
         account
@@ -308,8 +349,8 @@ mod tests {
         let account_repository = TestAccountRepository::default();
         let source = opened_account(CurrencyId::new());
         let destination = opened_account(CurrencyId::new());
-        let source_account_id = source.aggregate_id().expect("account id should exist");
-        let destination_account_id = destination.aggregate_id().expect("account id should exist");
+        let source_account_id = source.aggregate_id();
+        let destination_account_id = destination.aggregate_id();
         account_repository.insert(source);
         account_repository.insert(destination);
 
@@ -334,5 +375,49 @@ mod tests {
             error,
             TransferRequestCommandHandlerError::CurrencyMismatch
         ));
+    }
+
+    #[tokio::test]
+    async fn handle_returns_transfer_id_for_requested_transfer() {
+        let currency_id = CurrencyId::new();
+        let account_repository = TestAccountRepository::default();
+        let source = opened_account(currency_id);
+        let destination = opened_account(currency_id);
+        let source_account_id = source.aggregate_id();
+        let destination_account_id = destination.aggregate_id();
+        account_repository.insert(source);
+        account_repository.insert(destination);
+
+        let transfer_repository = TestTransferRepository::default();
+        let handler = TransferRequestCommandHandler::new(
+            account_repository.clone(),
+            transfer_repository.clone(),
+        );
+        let mut uow = TestUow;
+
+        let handled = handler
+            .handle(
+                &mut uow,
+                &request_context(),
+                &TransferRequestCommand {
+                    from_account_id: source_account_id,
+                    to_account_id: destination_account_id,
+                    amount: CurrencyAmount::new(10),
+                },
+            )
+            .await
+            .expect("matching currencies should succeed");
+
+        let TransferRequestOutput::Requested { transfer_id } = handled.into_output() else {
+            panic!("expected requested output");
+        };
+
+        let saved_transfer = transfer_repository
+            .transfer
+            .lock()
+            .expect("lock")
+            .clone()
+            .expect("transfer should be saved");
+        assert_eq!(saved_transfer.aggregate_id(), transfer_id);
     }
 }

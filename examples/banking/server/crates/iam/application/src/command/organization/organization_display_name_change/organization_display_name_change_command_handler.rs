@@ -4,7 +4,7 @@ use appletheia::application::authorization::{
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_iam_domain::Organization;
+use banking_iam_domain::{Organization, OrganizationDisplayNameChangeResult};
 
 use super::{
     OrganizationDisplayNameChangeCommand, OrganizationDisplayNameChangeCommandHandlerError,
@@ -61,13 +61,10 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
-        let Some(mut organization) = self
+        let mut organization = self
             .organization_repository
-            .find(uow, command.organization_id)
-            .await?
-        else {
-            return Err(OrganizationDisplayNameChangeCommandHandlerError::OrganizationNotFound);
-        };
+            .read(uow, command.organization_id)
+            .await?;
 
         let result = organization.change_display_name(command.display_name.clone())?;
 
@@ -75,8 +72,15 @@ where
             .save(uow, request_context, &mut organization)
             .await?;
 
-        Ok(CommandHandled::same(
-            OrganizationDisplayNameChangeOutput::from(result),
-        ))
+        let output = match result {
+            OrganizationDisplayNameChangeResult::Changed => {
+                OrganizationDisplayNameChangeOutput::Changed
+            }
+            OrganizationDisplayNameChangeResult::Rejected { reason } => {
+                OrganizationDisplayNameChangeOutput::Rejected { reason }
+            }
+        };
+
+        Ok(CommandHandled::same(output))
     }
 }

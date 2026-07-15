@@ -3,7 +3,7 @@ use appletheia::application::authorization::{
 };
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::object_storage::{
-    ObjectName, ObjectUploadRequest, ObjectUploadSigner,
+    ObjectName, ObjectUploadSignRequest, ObjectUploadSigner,
 };
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
@@ -75,9 +75,7 @@ where
         _request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
-        let Some(user) = self.user_repository.find(uow, command.user_id).await? else {
-            return Err(UserPictureUploadPrepareCommandHandlerError::UserNotFound);
-        };
+        let user = self.user_repository.read(uow, command.user_id).await?;
 
         if user.is_removed()? {
             return Err(UserPictureUploadPrepareCommandHandlerError::UserRemoved);
@@ -102,7 +100,7 @@ where
         let picture_object_name = UserPictureObjectName::new(command.user_id);
         let picture = UserPictureRef::object_name(picture_object_name.clone());
         let object_name = ObjectName::new(picture_object_name.value().to_owned())?;
-        let request = ObjectUploadRequest::new(
+        let request = ObjectUploadSignRequest::new(
             self.config.bucket_name().clone(),
             object_name,
             command.content_type.clone(),
@@ -110,8 +108,8 @@ where
         )
         .with_content_length(command.content_length)
         .with_checksum(command.checksum.clone());
-        let signed_upload_request = self.object_upload_signer.sign(request).await?;
-        let output = UserPictureUploadPrepareOutput::new(picture, signed_upload_request);
+        let signed_upload = self.object_upload_signer.sign(request).await?;
+        let output = UserPictureUploadPrepareOutput::new(picture, signed_upload);
 
         Ok(CommandHandled::same(output))
     }
@@ -128,8 +126,8 @@ mod tests {
     use appletheia::application::object_storage::{
         ObjectBucketName, ObjectChecksum, ObjectChecksumAlgorithm, ObjectChecksumValue,
         ObjectContentLength, ObjectContentType, ObjectContentTypes, ObjectUploadExpiresIn,
-        ObjectUploadHeaders, ObjectUploadRequest, ObjectUploadSigner, ObjectUploadSignerError,
-        SignedObjectUploadRequest, SignedObjectUploadUrl,
+        ObjectUploadHeaders, ObjectUploadSignRequest, ObjectUploadSigner, ObjectUploadSignerError,
+        SignedObjectUpload, SignedObjectUploadUrl,
     };
 
     use appletheia::application::repository::{Repository, RepositoryError};
@@ -138,7 +136,10 @@ mod tests {
     };
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::Aggregate;
-    use banking_iam_domain::{User, UserId, UserIdentityProvider, UserIdentitySubject};
+    use banking_iam_domain::{
+        User, UserId, UserIdentityProvider, UserIdentityRegistration, UserIdentitySubject,
+        UserRegistration,
+    };
     use chrono::Duration;
     use uuid::Uuid;
 
@@ -176,21 +177,35 @@ mod tests {
     impl Repository<User> for TestUserRepository {
         type Uow = TestUow;
 
-        async fn find(
+        async fn read(
             &self,
             _uow: &mut Self::Uow,
             _id: UserId,
-        ) -> Result<Option<User>, RepositoryError<User>> {
-            Ok(self.user.lock().expect("lock").clone())
+        ) -> Result<User, RepositoryError<User>> {
+            self.user
+                .lock()
+                .expect("lock")
+                .clone()
+                .ok_or_else(|| RepositoryError::NotFound {
+                    aggregate_type: User::TYPE,
+                    aggregate_id: _id,
+                })
         }
 
-        async fn find_at_version(
+        async fn read_at_version(
             &self,
             _uow: &mut Self::Uow,
             _id: UserId,
-            _at: Option<appletheia::domain::AggregateVersion>,
-        ) -> Result<Option<User>, RepositoryError<User>> {
-            Ok(self.user.lock().expect("lock").clone())
+            _at: appletheia::domain::AggregateVersion,
+        ) -> Result<User, RepositoryError<User>> {
+            self.user
+                .lock()
+                .expect("lock")
+                .clone()
+                .ok_or_else(|| RepositoryError::NotFound {
+                    aggregate_type: User::TYPE,
+                    aggregate_id: _id,
+                })
         }
 
         async fn find_by_unique_value(
@@ -215,15 +230,15 @@ mod tests {
 
     #[derive(Clone)]
     struct TestObjectUploadSigner {
-        request: Arc<Mutex<Option<ObjectUploadRequest>>>,
-        signed_upload_request: SignedObjectUploadRequest,
+        request: Arc<Mutex<Option<ObjectUploadSignRequest>>>,
+        signed_upload: SignedObjectUpload,
     }
 
     impl TestObjectUploadSigner {
-        fn new(signed_upload_request: SignedObjectUploadRequest) -> Self {
+        fn new(signed_upload: SignedObjectUpload) -> Self {
             Self {
                 request: Arc::new(Mutex::new(None)),
-                signed_upload_request,
+                signed_upload,
             }
         }
     }
@@ -231,10 +246,10 @@ mod tests {
     impl ObjectUploadSigner for TestObjectUploadSigner {
         async fn sign(
             &self,
-            request: ObjectUploadRequest,
-        ) -> Result<SignedObjectUploadRequest, ObjectUploadSignerError> {
+            request: ObjectUploadSignRequest,
+        ) -> Result<SignedObjectUpload, ObjectUploadSignerError> {
             *self.request.lock().expect("lock") = Some(request);
-            Ok(self.signed_upload_request.clone())
+            Ok(self.signed_upload.clone())
         }
     }
 
@@ -250,20 +265,23 @@ mod tests {
     }
 
     fn registered_user() -> User {
-        let mut user = User::default();
-        user.register().expect("user should register");
-        user.link_identity(
-            UserIdentityProvider::try_from("https://accounts.example.com")
+        let mut user = User::new();
+        user.register(UserRegistration {
+            initial_identity: None,
+        })
+        .expect("user should register");
+        user.link_identity(UserIdentityRegistration {
+            provider: UserIdentityProvider::try_from("https://accounts.example.com")
                 .expect("provider should be valid"),
-            UserIdentitySubject::try_from("user-123").expect("subject should be valid"),
-            None,
-        )
+            subject: UserIdentitySubject::try_from("user-123").expect("subject should be valid"),
+            email: None,
+        })
         .expect("identity should link");
         user
     }
 
-    fn signed_upload_request(expires_in: ObjectUploadExpiresIn) -> SignedObjectUploadRequest {
-        SignedObjectUploadRequest::new(
+    fn signed_upload(expires_in: ObjectUploadExpiresIn) -> SignedObjectUpload {
+        SignedObjectUpload::new(
             appletheia::application::object_storage::ObjectUploadMethod::Put,
             SignedObjectUploadUrl::try_from("https://storage.example.com/upload")
                 .expect("signed URL should be valid"),
@@ -295,7 +313,7 @@ mod tests {
             ObjectUploadExpiresIn::new(Duration::minutes(10)).expect("expiration should be valid");
         let handler = UserPictureUploadPrepareCommandHandler::new(
             repository,
-            TestObjectUploadSigner::new(signed_upload_request(expires_in)),
+            TestObjectUploadSigner::new(signed_upload(expires_in)),
             UserPictureUploadPrepareCommandHandlerConfig::new(
                 ObjectBucketName::new("pictures".to_owned()).expect("bucket name should be valid"),
                 expires_in,
@@ -328,13 +346,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn handle_returns_picture_ref_and_signed_upload_request() {
+    async fn handle_returns_picture_ref_and_signed_upload() {
         let user = registered_user();
-        let user_id = user.aggregate_id().expect("user id should exist");
+        let user_id = user.aggregate_id();
         let repository = TestUserRepository::new(user);
         let expires_in =
             ObjectUploadExpiresIn::new(Duration::minutes(10)).expect("expiration should be valid");
-        let signer = TestObjectUploadSigner::new(signed_upload_request(expires_in));
+        let signer = TestObjectUploadSigner::new(signed_upload(expires_in));
         let signer_requests = signer.request.clone();
         let handler = UserPictureUploadPrepareCommandHandler::new(
             repository,
@@ -369,10 +387,7 @@ mod tests {
             .clone()
             .expect("signer should receive request");
 
-        assert_eq!(
-            output.signed_upload_request,
-            signed_upload_request(expires_in)
-        );
+        assert_eq!(output.signed_upload, signed_upload(expires_in));
         assert_eq!(request.bucket_name().as_str(), "pictures");
         assert_eq!(request.content_type().as_str(), "image/png");
         assert_eq!(
@@ -399,13 +414,13 @@ mod tests {
     async fn handle_rejects_inactive_user() {
         let mut user = registered_user();
         user.deactivate().expect("user should deactivate");
-        let user_id = user.aggregate_id().expect("user id should exist");
+        let user_id = user.aggregate_id();
         let repository = TestUserRepository::new(user);
         let expires_in =
             ObjectUploadExpiresIn::new(Duration::minutes(10)).expect("expiration should be valid");
         let handler = UserPictureUploadPrepareCommandHandler::new(
             repository,
-            TestObjectUploadSigner::new(signed_upload_request(expires_in)),
+            TestObjectUploadSigner::new(signed_upload(expires_in)),
             UserPictureUploadPrepareCommandHandlerConfig::new(
                 ObjectBucketName::new("pictures".to_owned()).expect("bucket name should be valid"),
                 expires_in,
@@ -438,13 +453,13 @@ mod tests {
     #[tokio::test]
     async fn handle_rejects_content_length_over_maximum() {
         let user = registered_user();
-        let user_id = user.aggregate_id().expect("user id should exist");
+        let user_id = user.aggregate_id();
         let repository = TestUserRepository::new(user);
         let expires_in =
             ObjectUploadExpiresIn::new(Duration::minutes(10)).expect("expiration should be valid");
         let handler = UserPictureUploadPrepareCommandHandler::new(
             repository,
-            TestObjectUploadSigner::new(signed_upload_request(expires_in)),
+            TestObjectUploadSigner::new(signed_upload(expires_in)),
             UserPictureUploadPrepareCommandHandlerConfig::new(
                 ObjectBucketName::new("pictures".to_owned()).expect("bucket name should be valid"),
                 expires_in,
@@ -477,13 +492,13 @@ mod tests {
     #[tokio::test]
     async fn handle_rejects_disallowed_content_type() {
         let user = registered_user();
-        let user_id = user.aggregate_id().expect("user id should exist");
+        let user_id = user.aggregate_id();
         let repository = TestUserRepository::new(user);
         let expires_in =
             ObjectUploadExpiresIn::new(Duration::minutes(10)).expect("expiration should be valid");
         let handler = UserPictureUploadPrepareCommandHandler::new(
             repository,
-            TestObjectUploadSigner::new(signed_upload_request(expires_in)),
+            TestObjectUploadSigner::new(signed_upload(expires_in)),
             UserPictureUploadPrepareCommandHandlerConfig::new(
                 ObjectBucketName::new("pictures".to_owned()).expect("bucket name should be valid"),
                 expires_in,

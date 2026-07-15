@@ -10,7 +10,4 @@ pub enum UserPictureChangeCommandHandlerError {
 
     #[error("user aggregate failed")]
     User(#[from] UserError),
-
-    #[error("user was not found")]
-    UserNotFound,
 }

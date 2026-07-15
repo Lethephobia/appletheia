@@ -4,7 +4,7 @@ use appletheia::application::authorization::{
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_ledger_domain::currency::Currency;
+use banking_ledger_domain::currency::{Currency, CurrencyOwnershipTransferResult};
 
 use super::{
     CurrencyOwnershipTransferCommand, CurrencyOwnershipTransferCommandHandlerError,
@@ -61,13 +61,10 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
-        let Some(mut currency) = self
+        let mut currency = self
             .currency_repository
-            .find(uow, command.currency_id)
-            .await?
-        else {
-            return Err(CurrencyOwnershipTransferCommandHandlerError::CurrencyNotFound);
-        };
+            .read(uow, command.currency_id)
+            .await?;
 
         let result = currency.transfer_ownership(command.owner)?;
 
@@ -75,8 +72,15 @@ where
             .save(uow, request_context, &mut currency)
             .await?;
 
-        Ok(CommandHandled::same(CurrencyOwnershipTransferOutput::from(
-            result,
-        )))
+        let output = match result {
+            CurrencyOwnershipTransferResult::Transferred => {
+                CurrencyOwnershipTransferOutput::Transferred
+            }
+            CurrencyOwnershipTransferResult::Rejected { reason } => {
+                CurrencyOwnershipTransferOutput::Rejected { reason }
+            }
+        };
+
+        Ok(CommandHandled::same(output))
     }
 }

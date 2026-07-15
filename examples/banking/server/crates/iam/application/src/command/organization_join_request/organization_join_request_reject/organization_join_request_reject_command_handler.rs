@@ -4,7 +4,10 @@ use appletheia::application::authorization::{
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_iam_domain::{Organization, OrganizationJoinRequest};
+use banking_iam_domain::{
+    Organization, OrganizationJoinRequest, OrganizationJoinRequestRejectRejectionReason,
+    OrganizationJoinRequestRejectResult,
+};
 
 use crate::authorization::OrganizationJoinRequestRejecterRelation;
 
@@ -67,26 +70,27 @@ where
         _request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
-        let Some(mut organization_join_request) = self
+        let mut organization_join_request = self
             .organization_join_request_repository
-            .find(uow, command.organization_join_request_id)
-            .await?
-        else {
-            return Err(
-                OrganizationJoinRequestRejectCommandHandlerError::TargetOrganizationJoinRequestNotFound,
-            );
-        };
+            .read(uow, command.organization_join_request_id)
+            .await?;
 
-        let Some(organization) = self
+        let organization = self
             .organization_repository
-            .find(uow, *organization_join_request.organization_id()?)
-            .await?
-        else {
-            return Err(OrganizationJoinRequestRejectCommandHandlerError::OrganizationNotFound);
-        };
+            .read(uow, *organization_join_request.organization_id()?)
+            .await?;
 
         if organization.is_removed()? {
-            return Err(OrganizationJoinRequestRejectCommandHandlerError::OrganizationRemoved);
+            let reason = OrganizationJoinRequestRejectRejectionReason::OrganizationRemoved;
+            organization_join_request.reject_rejection(reason)?;
+
+            self.organization_join_request_repository
+                .save(uow, _request_context, &mut organization_join_request)
+                .await?;
+
+            return Ok(CommandHandled::same(
+                OrganizationJoinRequestRejectOutput::RejectionRejected { reason },
+            ));
         }
 
         let result = organization_join_request.reject()?;
@@ -95,8 +99,15 @@ where
             .save(uow, _request_context, &mut organization_join_request)
             .await?;
 
-        Ok(CommandHandled::same(
-            OrganizationJoinRequestRejectOutput::from(result),
-        ))
+        let output = match result {
+            OrganizationJoinRequestRejectResult::Rejected => {
+                OrganizationJoinRequestRejectOutput::Rejected
+            }
+            OrganizationJoinRequestRejectResult::RejectionRejected { reason } => {
+                OrganizationJoinRequestRejectOutput::RejectionRejected { reason }
+            }
+        };
+
+        Ok(CommandHandled::same(output))
     }
 }

@@ -1,4 +1,5 @@
 use appletheia::application::repository::RepositoryError;
+use appletheia::domain::UniqueValueError;
 use banking_iam_domain::{Organization, OrganizationError};
 use thiserror::Error;
 
@@ -11,6 +12,6 @@ pub enum OrganizationHandleChangeCommandHandlerError {
     #[error("organization aggregate failed")]
     Organization(#[from] OrganizationError),
 
-    #[error("organization was not found")]
-    OrganizationNotFound,
+    #[error("unique value failed")]
+    UniqueValue(#[from] UniqueValueError),
 }

@@ -1,6 +1,4 @@
-use banking_ledger_domain::transfer::{
-    TransferId, TransferRequestRejectionReason, TransferRequestResult,
-};
+use banking_ledger_domain::transfer::{TransferId, TransferRequestRejectionReason};
 use serde::{Deserialize, Serialize};
 
 /// The output returned after requesting a transfer.
@@ -11,15 +9,7 @@ pub enum TransferRequestOutput {
         transfer_id: TransferId,
     },
     Rejected {
+        transfer_id: TransferId,
         reason: TransferRequestRejectionReason,
     },
-}
-
-impl From<TransferRequestResult> for TransferRequestOutput {
-    fn from(value: TransferRequestResult) -> Self {
-        match value {
-            TransferRequestResult::Requested { transfer_id } => Self::Requested { transfer_id },
-            TransferRequestResult::Rejected { reason } => Self::Rejected { reason },
-        }
-    }
 }

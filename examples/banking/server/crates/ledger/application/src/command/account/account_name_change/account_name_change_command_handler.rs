@@ -4,7 +4,7 @@ use appletheia::application::authorization::{
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_ledger_domain::account::Account;
+use banking_ledger_domain::account::{Account, AccountNameChangeResult};
 
 use super::{
     AccountNameChangeCommand, AccountNameChangeCommandHandlerError, AccountNameChangeOutput,
@@ -43,7 +43,6 @@ where
         command: &Self::Command,
     ) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
-            PrincipalRequirement::System,
             PrincipalRequirement::AuthenticatedWithRelationship(RelationshipRequirement::check::<
                 Account,
             >(
@@ -59,13 +58,10 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
-        let Some(mut account) = self
+        let mut account = self
             .account_repository
-            .find(uow, command.account_id)
-            .await?
-        else {
-            return Err(AccountNameChangeCommandHandlerError::AccountNotFound);
-        };
+            .read(uow, command.account_id)
+            .await?;
 
         let result = account.change_name(command.name.clone())?;
 
@@ -73,7 +69,14 @@ where
             .save(uow, request_context, &mut account)
             .await?;
 
-        Ok(CommandHandled::same(AccountNameChangeOutput::from(result)))
+        let output = match result {
+            AccountNameChangeResult::Changed => AccountNameChangeOutput::Changed,
+            AccountNameChangeResult::Rejected { reason } => {
+                AccountNameChangeOutput::Rejected { reason }
+            }
+        };
+
+        Ok(CommandHandled::same(output))
     }
 }
 
@@ -93,7 +96,9 @@ mod tests {
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::Aggregate;
 
-    use banking_ledger_domain::account::{Account, AccountId, AccountName, AccountOwner};
+    use banking_ledger_domain::account::{
+        Account, AccountId, AccountName, AccountOpening, AccountOwner,
+    };
     use banking_ledger_domain::currency::CurrencyId;
     use uuid::Uuid;
 
@@ -131,21 +136,35 @@ mod tests {
     impl Repository<Account> for TestAccountRepository {
         type Uow = TestUow;
 
-        async fn find(
+        async fn read(
             &self,
             _uow: &mut Self::Uow,
             _id: AccountId,
-        ) -> Result<Option<Account>, RepositoryError<Account>> {
-            Ok(self.account.lock().expect("lock").clone())
+        ) -> Result<Account, RepositoryError<Account>> {
+            self.account
+                .lock()
+                .expect("lock")
+                .clone()
+                .ok_or_else(|| RepositoryError::NotFound {
+                    aggregate_type: Account::TYPE,
+                    aggregate_id: _id,
+                })
         }
 
-        async fn find_at_version(
+        async fn read_at_version(
             &self,
             _uow: &mut Self::Uow,
             _id: AccountId,
-            _at: Option<appletheia::domain::AggregateVersion>,
-        ) -> Result<Option<Account>, RepositoryError<Account>> {
-            Ok(self.account.lock().expect("lock").clone())
+            _at: appletheia::domain::AggregateVersion,
+        ) -> Result<Account, RepositoryError<Account>> {
+            self.account
+                .lock()
+                .expect("lock")
+                .clone()
+                .ok_or_else(|| RepositoryError::NotFound {
+                    aggregate_type: Account::TYPE,
+                    aggregate_id: _id,
+                })
         }
 
         async fn find_by_unique_value(
@@ -186,15 +205,19 @@ mod tests {
     }
 
     fn opened_account() -> Account {
-        let mut account = Account::default();
+        let mut account = Account::new();
         account
-            .open(account_owner(), account_name("main"), CurrencyId::new())
+            .open(AccountOpening {
+                owner: account_owner(),
+                name: account_name("main"),
+                currency_id: CurrencyId::new(),
+            })
             .expect("open should succeed");
         account
     }
 
     #[test]
-    fn authorization_plan_allows_system_or_account_owner() {
+    fn authorization_plan_requires_account_name_changer() {
         let handler = AccountNameChangeCommandHandler::new(TestAccountRepository::default());
         let account_id = AccountId::new();
 
@@ -208,7 +231,6 @@ mod tests {
         assert_eq!(
             plan,
             AuthorizationPlan::OnlyPrincipals(vec![
-                PrincipalRequirement::System,
                 PrincipalRequirement::AuthenticatedWithRelationship(
                     RelationshipRequirement::check::<Account>(
                         account_id,
@@ -231,8 +253,7 @@ mod tests {
             .expect("lock")
             .as_ref()
             .expect("account should exist")
-            .aggregate_id()
-            .expect("account id should exist");
+            .aggregate_id();
         let name = account_name("savings");
 
         let handled = handler

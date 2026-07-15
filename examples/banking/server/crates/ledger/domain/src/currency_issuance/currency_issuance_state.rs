@@ -1,109 +1,75 @@
 use appletheia::aggregate_state;
 use appletheia::reference_indexes;
 use appletheia::unique_constraints;
+use uuid::Uuid;
 
 use crate::account::AccountId;
 use crate::core::CurrencyAmount;
 use crate::currency::CurrencyId;
 
-use super::{CurrencyIssuanceId, CurrencyIssuanceStateError, CurrencyIssuanceStatus};
+use super::{CurrencyIssuanceStateError, CurrencyIssuanceStatus};
 
 /// Stores the materialized state of a `CurrencyIssuance` aggregate.
 #[aggregate_state(error = CurrencyIssuanceStateError)]
 #[unique_constraints()]
 #[reference_indexes(
-    entry(key = "currency", value = currency_value),
-    entry(key = "destination_account", value = destination_account_value)
+    entry(key = "currency", value = currency_ref_value),
+    entry(key = "destination_account", value = destination_account_ref_value)
 )]
 pub struct CurrencyIssuanceState {
-    pub(super) id: CurrencyIssuanceId,
     pub(super) currency_id: CurrencyId,
     pub(super) destination_account_id: AccountId,
     pub(super) amount: CurrencyAmount,
     pub(super) status: CurrencyIssuanceStatus,
 }
 
-impl CurrencyIssuanceState {
-    /// Creates a new issuance state.
-    pub(super) fn new(
-        id: CurrencyIssuanceId,
-        currency_id: CurrencyId,
-        destination_account_id: AccountId,
-        amount: CurrencyAmount,
-    ) -> Self {
-        Self {
-            id,
-            currency_id,
-            destination_account_id,
-            amount,
-            status: CurrencyIssuanceStatus::Pending,
-        }
-    }
-
-    /// Creates a new rejected issuance state.
-    pub(super) fn rejected(
-        id: CurrencyIssuanceId,
-        currency_id: CurrencyId,
-        destination_account_id: AccountId,
-        amount: CurrencyAmount,
-    ) -> Self {
-        Self {
-            id,
-            currency_id,
-            destination_account_id,
-            amount,
-            status: CurrencyIssuanceStatus::Rejected,
-        }
-    }
-}
-
-fn currency_value(
+fn currency_ref_value(
     state: &CurrencyIssuanceState,
+    _aggregate_id: Uuid,
 ) -> Result<Option<CurrencyId>, CurrencyIssuanceStateError> {
     Ok(Some(state.currency_id))
 }
 
-fn destination_account_value(
+fn destination_account_ref_value(
     state: &CurrencyIssuanceState,
+    _aggregate_id: Uuid,
 ) -> Result<Option<AccountId>, CurrencyIssuanceStateError> {
     Ok(Some(state.destination_account_id))
 }
 
 #[cfg(test)]
 mod tests {
-    use appletheia::domain::{AggregateState, ReferenceIndexes, ReferenceValues};
+    use appletheia::domain::{ReferenceIndexes, ReferenceValues};
+    use uuid::Uuid;
 
     use crate::account::AccountId;
     use crate::core::CurrencyAmount;
     use crate::currency::CurrencyId;
 
-    use super::{CurrencyIssuanceId, CurrencyIssuanceState, CurrencyIssuanceStatus};
+    use super::{CurrencyIssuanceState, CurrencyIssuanceStatus};
 
     #[test]
-    fn exposes_id_via_aggregate_state_trait() {
-        let id = CurrencyIssuanceId::new();
-        let state = CurrencyIssuanceState::new(
-            id,
-            CurrencyId::new(),
-            AccountId::new(),
-            CurrencyAmount::new(1),
-        );
-
-        assert_eq!(state.id(), id);
+    fn state_stores_domain_attributes() {
+        let state = CurrencyIssuanceState {
+            currency_id: CurrencyId::new(),
+            destination_account_id: AccountId::new(),
+            amount: CurrencyAmount::new(1),
+            status: CurrencyIssuanceStatus::Pending,
+        };
         assert_eq!(state.status, CurrencyIssuanceStatus::Pending);
     }
 
     #[test]
     fn returns_reference_entries_for_currency_and_destination_account() {
-        let state = CurrencyIssuanceState::new(
-            CurrencyIssuanceId::new(),
-            CurrencyId::new(),
-            AccountId::new(),
-            CurrencyAmount::new(1),
-        );
+        let state = CurrencyIssuanceState {
+            currency_id: CurrencyId::new(),
+            destination_account_id: AccountId::new(),
+            amount: CurrencyAmount::new(1),
+            status: CurrencyIssuanceStatus::Pending,
+        };
 
         let entries = state
-            .reference_entries()
+            .reference_entries(Uuid::now_v7())
             .expect("reference entries should build");
 
         assert_eq!(

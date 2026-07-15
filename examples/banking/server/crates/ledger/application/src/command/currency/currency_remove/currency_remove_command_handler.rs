@@ -4,7 +4,7 @@ use appletheia::application::authorization::{
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_ledger_domain::currency::Currency;
+use banking_ledger_domain::currency::{Currency, CurrencyRemoveResult};
 
 use super::{CurrencyRemoveCommand, CurrencyRemoveCommandHandlerError, CurrencyRemoveOutput};
 use crate::authorization::CurrencyRemoverRelation;
@@ -58,13 +58,10 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
-        let Some(mut currency) = self
+        let mut currency = self
             .currency_repository
-            .find(uow, command.currency_id)
-            .await?
-        else {
-            return Err(CurrencyRemoveCommandHandlerError::CurrencyNotFound);
-        };
+            .read(uow, command.currency_id)
+            .await?;
 
         let result = currency.remove()?;
 
@@ -72,6 +69,11 @@ where
             .save(uow, request_context, &mut currency)
             .await?;
 
-        Ok(CommandHandled::same(CurrencyRemoveOutput::from(result)))
+        let output = match result {
+            CurrencyRemoveResult::Removed => CurrencyRemoveOutput::Removed,
+            CurrencyRemoveResult::Rejected { reason } => CurrencyRemoveOutput::Rejected { reason },
+        };
+
+        Ok(CommandHandled::same(output))
     }
 }

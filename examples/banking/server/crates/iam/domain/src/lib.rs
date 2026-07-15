@@ -1,14 +1,11 @@
-pub mod core;
 pub mod organization;
 pub mod organization_invitation;
 pub mod organization_join_request;
-pub mod organization_membership;
 pub mod user;
-
-pub use core::{Email, EmailError};
 pub use organization::{
-    Organization, OrganizationDescription, OrganizationDescriptionChangeRejectionReason,
-    OrganizationDescriptionChangeResult, OrganizationDescriptionError, OrganizationDisplayName,
+    Organization, OrganizationCreateResult, OrganizationCreation, OrganizationDescription,
+    OrganizationDescriptionChangeRejectionReason, OrganizationDescriptionChangeResult,
+    OrganizationDescriptionError, OrganizationDisplayName,
     OrganizationDisplayNameChangeRejectionReason, OrganizationDisplayNameChangeResult,
     OrganizationDisplayNameError, OrganizationError, OrganizationEventPayload,
     OrganizationEventPayloadError, OrganizationHandle, OrganizationHandleChangeRejectionReason,
@@ -28,7 +25,7 @@ pub use organization_invitation::{
     OrganizationInvitationCancelResult, OrganizationInvitationDeclineRejectionReason,
     OrganizationInvitationDeclineResult, OrganizationInvitationError,
     OrganizationInvitationEventPayload, OrganizationInvitationEventPayloadError,
-    OrganizationInvitationExpiresAt, OrganizationInvitationId,
+    OrganizationInvitationExpiresAt, OrganizationInvitationId, OrganizationInvitationIssuance,
     OrganizationInvitationIssueRejectionReason, OrganizationInvitationIssueResult,
     OrganizationInvitationIssuer, OrganizationInvitationState, OrganizationInvitationStateError,
     OrganizationInvitationStatus,
@@ -41,22 +38,19 @@ pub use organization_join_request::{
     OrganizationJoinRequestId, OrganizationJoinRequestRejectRejectionReason,
     OrganizationJoinRequestRejectResult, OrganizationJoinRequestState,
     OrganizationJoinRequestStateError, OrganizationJoinRequestStatus,
-};
-pub use organization_membership::{
-    OrganizationMembership, OrganizationMembershipActivateRejectionReason,
-    OrganizationMembershipActivateResult, OrganizationMembershipDeactivateRejectionReason,
-    OrganizationMembershipDeactivateResult, OrganizationMembershipError,
-    OrganizationMembershipEventPayload, OrganizationMembershipEventPayloadError,
-    OrganizationMembershipId, OrganizationMembershipRemoveRejectionReason,
-    OrganizationMembershipRemoveResult, OrganizationMembershipRoleGrantRejectionReason,
-    OrganizationMembershipRoleGrantResult, OrganizationMembershipRoleRevokeRejectionReason,
-    OrganizationMembershipRoleRevokeResult, OrganizationMembershipState,
-    OrganizationMembershipStateError, OrganizationMembershipStatus, OrganizationRole,
+    OrganizationJoinRequestSubmission, OrganizationJoinRequestSubmitRejectionReason,
+    OrganizationJoinRequestSubmitResult,
 };
 pub use user::{
-    User, UserBio, UserBioError, UserDisplayName, UserDisplayNameError, UserError,
-    UserEventPayload, UserEventPayloadError, UserId, UserIdentity, UserIdentityProvider,
-    UserIdentityProviderError, UserIdentitySubject, UserIdentitySubjectError,
-    UserPictureObjectName, UserPictureObjectNameError, UserPictureRef, UserPictureUrl,
-    UserPictureUrlError, UserState, UserStateError, UserStatus, Username, UsernameError,
+    OrganizationMembership, OrganizationMembershipGrant,
+    OrganizationMembershipGrantRejectionReason, OrganizationMembershipGrantResult,
+    OrganizationMembershipRemoveRejectionReason, OrganizationMembershipRemoveResult,
+    OrganizationMembershipRolesChangeRejectionReason, OrganizationMembershipRolesChangeResult,
+    OrganizationRole, OrganizationRoles, User, UserBio, UserBioError, UserDisplayName,
+    UserDisplayNameError, UserError, UserEventPayload, UserEventPayloadError, UserId, UserIdentity,
+    UserIdentityData, UserIdentityProvider, UserIdentityProviderError, UserIdentityRegistration,
+    UserIdentitySubject, UserIdentitySubjectError, UserPictureObjectName,
+    UserPictureObjectNameError, UserPictureRef, UserPictureUrl, UserPictureUrlError,
+    UserRegisterResult, UserRegistration, UserState, UserStateError, UserStatus, Username,
+    UsernameError,
 };

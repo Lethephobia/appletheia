@@ -1,10 +1,8 @@
 use appletheia::application::event::EventSelector;
 use appletheia::application::messaging::Subscription;
 use appletheia::application::saga::{SagaDescriptor, SagaName, SagaSpec, SagaStartEvents};
-use appletheia::domain::Aggregate;
 use banking_iam_domain::{
-    OrganizationInvitation, OrganizationInvitationEventPayload, OrganizationMembership,
-    OrganizationMembershipEventPayload,
+    OrganizationInvitation, OrganizationInvitationEventPayload, User, UserEventPayload,
 };
 
 use super::OrganizationInvitationSagaState;
@@ -17,19 +15,15 @@ impl SagaSpec for OrganizationInvitationSagaSpec {
 
     const DESCRIPTOR: SagaDescriptor = SagaDescriptor::new(
         SagaName::new("organization_invitation"),
-        SagaStartEvents::new(&[EventSelector::new(
-            OrganizationInvitation::TYPE,
+        SagaStartEvents::new(&[EventSelector::new::<OrganizationInvitation>(
             OrganizationInvitationEventPayload::ACCEPTED,
         )]),
         Subscription::AnyOf(&[
-            EventSelector::new(
-                OrganizationInvitation::TYPE,
+            EventSelector::new::<OrganizationInvitation>(
                 OrganizationInvitationEventPayload::ACCEPTED,
             ),
-            EventSelector::new(
-                OrganizationMembership::TYPE,
-                OrganizationMembershipEventPayload::CREATED,
-            ),
+            EventSelector::new::<User>(UserEventPayload::ORGANIZATION_MEMBERSHIP_GRANTED),
+            EventSelector::new::<User>(UserEventPayload::ORGANIZATION_MEMBERSHIP_GRANT_REJECTED),
         ]),
     );
 }

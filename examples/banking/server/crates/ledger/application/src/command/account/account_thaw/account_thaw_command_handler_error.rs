@@ -10,7 +10,4 @@ pub enum AccountThawCommandHandlerError {
 
     #[error("account aggregate failed")]
     Account(#[from] AccountError),
-
-    #[error("account was not found")]
-    AccountNotFound,
 }

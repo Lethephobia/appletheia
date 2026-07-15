@@ -1,34 +1,48 @@
 use crate::event::{Event, EventPayload};
 
-use super::{AggregateState, AggregateVersion, AggregateVersionError};
+use super::{AggregateId, AggregateState, AggregateVersion, AggregateVersionError};
 
 /// Stores the mutable bookkeeping shared by aggregate implementations.
 ///
-/// The core tracks the current state, the latest aggregate version, and the
-/// list of uncommitted events produced since the last persistence boundary.
+/// The core tracks the mandatory aggregate identifier, current state, latest
+/// aggregate version, and uncommitted events produced since the last persistence boundary.
 #[derive(Clone, Debug)]
-pub struct AggregateCore<S, P>
+pub struct AggregateCore<I, S, P>
 where
+    I: AggregateId,
     S: AggregateState,
     P: EventPayload,
 {
+    aggregate_id: I,
     state: Option<S>,
     version: AggregateVersion,
-    uncommitted_events: Vec<Event<S::Id, P>>,
+    uncommitted_events: Vec<Event<I, P>>,
 }
 
-impl<S, P> AggregateCore<S, P>
+impl<I, S, P> AggregateCore<I, S, P>
 where
+    I: AggregateId,
     S: AggregateState,
     P: EventPayload,
 {
-    /// Creates an empty aggregate core with no state, version `0`, and no uncommitted events.
+    /// Creates an aggregate core with a fresh ID, no state, version `0`, and no events.
     pub fn new() -> Self {
+        Self::from_id(I::new())
+    }
+
+    /// Creates an empty aggregate core for an existing aggregate ID.
+    pub fn from_id(aggregate_id: I) -> Self {
         Self {
+            aggregate_id,
             state: None,
             version: AggregateVersion::new(),
             uncommitted_events: Vec::new(),
         }
+    }
+
+    /// Returns the aggregate identifier.
+    pub fn aggregate_id(&self) -> I {
+        self.aggregate_id
     }
 
     /// Returns the current aggregate state, if it has been initialized.
@@ -64,12 +78,12 @@ where
     }
 
     /// Returns the currently recorded uncommitted events.
-    pub fn uncommitted_events(&self) -> &[Event<S::Id, P>] {
+    pub fn uncommitted_events(&self) -> &[Event<I, P>] {
         &self.uncommitted_events
     }
 
     /// Records an uncommitted event.
-    pub fn record_uncommitted_event(&mut self, event: Event<S::Id, P>) {
+    pub fn record_uncommitted_event(&mut self, event: Event<I, P>) {
         self.uncommitted_events.push(event);
     }
 
@@ -79,8 +93,9 @@ where
     }
 }
 
-impl<S, P> Default for AggregateCore<S, P>
+impl<I, S, P> Default for AggregateCore<I, S, P>
 where
+    I: AggregateId,
     S: AggregateState,
     P: EventPayload,
 {
@@ -124,6 +139,10 @@ mod tests {
     impl AggregateId for CounterId {
         type Error = CounterIdError;
 
+        fn new() -> Self {
+            Self(Uuid::now_v7())
+        }
+
         fn value(&self) -> Uuid {
             self.0
         }
@@ -150,12 +169,7 @@ mod tests {
     impl ReferenceIndexes<CounterStateError> for CounterState {}
 
     impl AggregateState for CounterState {
-        type Id = CounterId;
         type Error = CounterStateError;
-
-        fn id(&self) -> Self::Id {
-            self.id
-        }
     }
 
     #[derive(Debug, Error)]
@@ -182,7 +196,7 @@ mod tests {
 
     #[test]
     fn new_initializes_empty_core() {
-        let core = AggregateCore::<CounterState, CounterEventPayload>::new();
+        let core = AggregateCore::<CounterId, CounterState, CounterEventPayload>::new();
 
         assert!(core.state().is_none());
         assert_eq!(core.version(), AggregateVersion::new());
@@ -191,8 +205,20 @@ mod tests {
 
     #[test]
     fn default_matches_new() {
-        let core = AggregateCore::<CounterState, CounterEventPayload>::default();
+        let core = AggregateCore::<CounterId, CounterState, CounterEventPayload>::default();
 
+        assert!(core.state().is_none());
+        assert_eq!(core.version(), AggregateVersion::new());
+        assert!(core.uncommitted_events().is_empty());
+    }
+
+    #[test]
+    fn from_id_initializes_core_with_provided_id() {
+        let aggregate_id = CounterId::new();
+        let core =
+            AggregateCore::<CounterId, CounterState, CounterEventPayload>::from_id(aggregate_id);
+
+        assert_eq!(core.aggregate_id(), aggregate_id);
         assert!(core.state().is_none());
         assert_eq!(core.version(), AggregateVersion::new());
         assert!(core.uncommitted_events().is_empty());
@@ -202,7 +228,7 @@ mod tests {
     fn state_accessors_read_and_update_state() {
         let aggregate_id =
             CounterId::try_from_uuid(Uuid::now_v7()).expect("valid uuid should be accepted");
-        let mut core = AggregateCore::<CounterState, CounterEventPayload>::new();
+        let mut core = AggregateCore::<CounterId, CounterState, CounterEventPayload>::new();
 
         core.set_state(Some(CounterState {
             id: aggregate_id,
@@ -219,7 +245,7 @@ mod tests {
 
     #[test]
     fn set_version_and_bump_version_update_version() {
-        let mut core = AggregateCore::<CounterState, CounterEventPayload>::new();
+        let mut core = AggregateCore::<CounterId, CounterState, CounterEventPayload>::new();
         let version = AggregateVersion::try_from(3).expect("version should be valid");
 
         core.set_version(version);
@@ -230,7 +256,7 @@ mod tests {
 
     #[test]
     fn bump_version_returns_error_on_overflow() {
-        let mut core = AggregateCore::<CounterState, CounterEventPayload>::new();
+        let mut core = AggregateCore::<CounterId, CounterState, CounterEventPayload>::new();
         let max_version = AggregateVersion::try_from(i64::MAX).expect("version should be valid");
         core.set_version(max_version);
 
@@ -246,7 +272,7 @@ mod tests {
     fn records_and_clears_uncommitted_events() {
         let aggregate_id =
             CounterId::try_from_uuid(Uuid::now_v7()).expect("valid uuid should be accepted");
-        let mut core = AggregateCore::<CounterState, CounterEventPayload>::new();
+        let mut core = AggregateCore::<CounterId, CounterState, CounterEventPayload>::new();
         let event = Event::new(
             aggregate_id,
             AggregateVersion::try_from(1).expect("version should be valid"),

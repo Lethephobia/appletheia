@@ -10,7 +10,4 @@ pub enum TransferFailCommandHandlerError {
 
     #[error("transfer aggregate failed")]
     Transfer(#[from] TransferError),
-
-    #[error("transfer was not found")]
-    TransferNotFound,
 }

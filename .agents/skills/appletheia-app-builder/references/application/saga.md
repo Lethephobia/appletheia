@@ -11,7 +11,7 @@ Use sagas to connect domain events to follow-up commands across aggregate bounda
 good:
 ```rust
 if let TransferEventPayload::Requested { .. } = transfer_event.payload() {
-    instance.append_command(event, &AccountReserveFundsCommand { .. })?;
+    instance.append_command(event, &AccountFundsReserveCommand { .. })?;
 }
 ```
 
@@ -55,7 +55,7 @@ by the command dispatcher and worker.
 good:
 ```rust
 match account_event.payload() {
-    AccountEventPayload::FundsReservationRejected { .. } => {
+    AccountEventPayload::FundsReserveRejected { .. } => {
         let state = instance.state_required_mut()?;
         state.status = TransferSagaStatus::FailRequested;
         instance.append_command(event, &TransferFailCommand {
@@ -83,12 +83,20 @@ For a single-path workflow, store progress in one status enum and include comman
 when they prevent duplicate follow-up commands. Use booleans or sets only for parallel branches or
 independent facts that cannot be represented by one current status.
 
+Prefer statuses that describe the command most recently requested by the saga, not the event that
+just arrived, when the event immediately triggers another command. Use observed or terminal
+statuses only when the saga is intentionally waiting, succeeding, or failing at that point.
+
 good:
 ```rust
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TransferSagaStatus {
-    Requested,
-    FundsReserved,
+    #[default]
+    Initial,
+    FundsReserveRequested,
     DepositRequested,
+    ReservedFundsCommitRequested,
+    CompleteRequested,
     FailRequested,
     Completed,
     Failed,
@@ -119,7 +127,7 @@ account.reserve_funds(command.amount)?;
 good:
 ```rust
 if let TransferEventPayload::Requested { .. } = transfer_event.payload() {
-    instance.append_command(event, &AccountReserveFundsCommand { .. })?;
+    instance.append_command(event, &AccountFundsReserveCommand { .. })?;
 }
 ```
 
@@ -162,11 +170,12 @@ WorkflowSaga
 ### DO use `SagaInstance` to carry state, queued commands, and terminal status
 
 Let the saga implementation use the instance as the single place for in-flight workflow bookkeeping.
+Read the triggering aggregate's own ID from the domain event, not from its payload.
 
 good:
 ```rust
 *instance.state_mut() = Some(TransferSagaState::new(
-    *id,
+    transfer_event.aggregate_id(),
     *from_account_id,
     *to_account_id,
     *amount,
@@ -174,7 +183,7 @@ good:
 
 instance.append_command(
     event,
-    &AccountReserveFundsCommand {
+    &AccountFundsReserveCommand {
         account_id: *from_account_id,
         amount: *amount,
     },
@@ -183,7 +192,38 @@ instance.append_command(
 
 bad:
 ```rust
-command_bus.send(AccountReserveFundsCommand { .. });
+command_bus.send(AccountFundsReserveCommand { .. });
+```
+
+### DON'T duplicate an aggregate's own ID in an event payload
+
+The event already carries its aggregate ID. Use `domain_event.aggregate_id()` when initializing
+saga state or building a follow-up command. Keep payload IDs only for references to other
+aggregates.
+
+good:
+```rust
+let transfer_event = event.try_into_domain_event::<Transfer>()?;
+if let TransferEventPayload::Requested {
+    from_account_id,
+    to_account_id,
+    amount,
+} = transfer_event.payload()
+{
+    *instance.state_mut() = Some(TransferSagaState::new(
+        transfer_event.aggregate_id(),
+        *from_account_id,
+        *to_account_id,
+        *amount,
+    ));
+}
+```
+
+bad:
+```rust
+if let TransferEventPayload::Requested { transfer_id, .. } = transfer_event.payload() {
+    // `transfer_id` duplicates the ID already carried by `transfer_event`.
+}
 ```
 
 ### DO use `append_command_with_options` only when command options differ from defaults
@@ -223,8 +263,14 @@ Use explicit terminal transitions when the workflow completes or aborts.
 good:
 ```rust
 match transfer_event.payload() {
-    TransferEventPayload::Completed => instance.succeed(),
-    TransferEventPayload::Failed => instance.fail(),
+    TransferEventPayload::Completed => {
+        instance.state_required_mut()?.status = TransferSagaStatus::Completed;
+        instance.succeed();
+    }
+    TransferEventPayload::Failed { .. } => {
+        instance.state_required_mut()?.status = TransferSagaStatus::Failed;
+        instance.fail();
+    }
     _ => {}
 }
 ```
@@ -233,7 +279,7 @@ bad:
 ```rust
 match transfer_event.payload() {
     TransferEventPayload::Completed => {}
-    TransferEventPayload::Failed => {}
+    TransferEventPayload::Failed { .. } => {}
     _ => {}
 }
 ```
@@ -265,20 +311,22 @@ same workflow.
 good:
 ```rust
 let state = instance.state_required_mut()?;
-state.status = TransferSagaStatus::FundsReserved;
+let to_account_id = state.to_account_id;
+let amount = state.amount;
+state.status = TransferSagaStatus::DepositRequested;
 
 instance.append_command(
     event,
     &AccountDepositCommand {
-        account_id: state.to_account_id,
-        amount: state.amount,
+        account_id: to_account_id,
+        amount,
     },
 )?;
 ```
 
 bad:
 ```rust
-if state.status != TransferSagaStatus::Requested {
+if state.status != TransferSagaStatus::FundsReserveRequested {
     return Err(TransferSagaError::UnexpectedStatus);
 }
 
@@ -312,10 +360,12 @@ good:
 ```rust
 const DESCRIPTOR: SagaDescriptor = SagaDescriptor::new(
     SagaName::new("transfer"),
-    EventSelector::new(Transfer::TYPE, TransferEventPayload::REQUESTED),
+    SagaStartEvents::new(&[EventSelector::new::<Transfer>(
+        TransferEventPayload::REQUESTED,
+    )]),
     Subscription::AnyOf(&[
-        EventSelector::new(Transfer::TYPE, TransferEventPayload::REQUESTED),
-        EventSelector::new(Account::TYPE, AccountEventPayload::FUNDS_RESERVED),
+        EventSelector::new::<Transfer>(TransferEventPayload::REQUESTED),
+        EventSelector::new::<Account>(AccountEventPayload::FUNDS_RESERVED),
     ]),
 );
 ```
@@ -324,7 +374,9 @@ bad:
 ```rust
 const DESCRIPTOR: SagaDescriptor = SagaDescriptor::new(
     SagaName::new("transfer"),
-    EventSelector::new(Transfer::TYPE, TransferEventPayload::REQUESTED),
+    SagaStartEvents::new(&[EventSelector::new::<Transfer>(
+        TransferEventPayload::REQUESTED,
+    )]),
     Subscription::All,
 );
 ```
@@ -350,22 +402,22 @@ Subscribe to the exact events the saga consumes.
 good:
 ```rust
 Subscription::AnyOf(&[
-    EventSelector::new(OrganizationInvitation::TYPE, OrganizationInvitationEventPayload::ACCEPTED),
-    EventSelector::new(OrganizationMembership::TYPE, OrganizationMembershipEventPayload::CREATED),
+    EventSelector::new::<OrganizationInvitation>(OrganizationInvitationEventPayload::ACCEPTED),
+    EventSelector::new::<User>(UserEventPayload::ORGANIZATION_MEMBERSHIP_GRANTED),
+    EventSelector::new::<User>(UserEventPayload::ORGANIZATION_MEMBERSHIP_GRANT_REJECTED),
 ])
 ```
 
 bad:
 ```rust
 Subscription::AnyOf(&[
-    EventSelector::new(OrganizationInvitation::TYPE, OrganizationInvitationEventPayload::ISSUED),
-    EventSelector::new(OrganizationInvitation::TYPE, OrganizationInvitationEventPayload::ACCEPTED),
-    EventSelector::new(OrganizationInvitation::TYPE, OrganizationInvitationEventPayload::DECLINED),
-    EventSelector::new(OrganizationInvitation::TYPE, OrganizationInvitationEventPayload::CANCELED),
-    EventSelector::new(OrganizationMembership::TYPE, OrganizationMembershipEventPayload::CREATED),
-    EventSelector::new(OrganizationMembership::TYPE, OrganizationMembershipEventPayload::ACTIVATED),
-    EventSelector::new(OrganizationMembership::TYPE, OrganizationMembershipEventPayload::INACTIVATED),
-    EventSelector::new(OrganizationMembership::TYPE, OrganizationMembershipEventPayload::REMOVED),
+    EventSelector::new::<OrganizationInvitation>(OrganizationInvitationEventPayload::ISSUED),
+    EventSelector::new::<OrganizationInvitation>(OrganizationInvitationEventPayload::ACCEPTED),
+    EventSelector::new::<OrganizationInvitation>(OrganizationInvitationEventPayload::DECLINED),
+    EventSelector::new::<OrganizationInvitation>(OrganizationInvitationEventPayload::CANCELED),
+    EventSelector::new::<User>(UserEventPayload::ORGANIZATION_MEMBERSHIP_GRANTED),
+    EventSelector::new::<User>(UserEventPayload::ORGANIZATION_MEMBERSHIP_GRANT_REJECTED),
+    EventSelector::new::<User>(UserEventPayload::EMAIL_CHANGED),
 ])
 ```
 
@@ -415,9 +467,12 @@ pub struct TransferSagaState {
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TransferSagaStatus {
     #[default]
-    Requested,
-    FundsReserved,
-    Deposited,
+    Initial,
+    FundsReserveRequested,
+    DepositRequested,
+    ReservedFundsCommitRequested,
+    CompleteRequested,
+    FailRequested,
     Completed,
     Failed,
 }

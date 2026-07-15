@@ -1,4 +1,4 @@
-use banking_ledger_domain::account::{AccountFreezeRejectionReason, AccountFreezeResult};
+use banking_ledger_domain::account::AccountFreezeRejectionReason;
 use serde::{Deserialize, Serialize};
 
 /// Returned after an account freeze request is applied.
@@ -9,13 +9,4 @@ pub enum AccountFreezeOutput {
     Rejected {
         reason: AccountFreezeRejectionReason,
     },
-}
-
-impl From<AccountFreezeResult> for AccountFreezeOutput {
-    fn from(value: AccountFreezeResult) -> Self {
-        match value {
-            AccountFreezeResult::Frozen => Self::Frozen,
-            AccountFreezeResult::Rejected { reason } => Self::Rejected { reason },
-        }
-    }
 }

@@ -1,6 +1,4 @@
-use banking_iam_domain::{
-    OrganizationDisplayNameChangeRejectionReason, OrganizationDisplayNameChangeResult,
-};
+use banking_iam_domain::OrganizationDisplayNameChangeRejectionReason;
 use serde::{Deserialize, Serialize};
 
 /// Returned after an organization operation is handled.
@@ -11,13 +9,4 @@ pub enum OrganizationDisplayNameChangeOutput {
     Rejected {
         reason: OrganizationDisplayNameChangeRejectionReason,
     },
-}
-
-impl From<OrganizationDisplayNameChangeResult> for OrganizationDisplayNameChangeOutput {
-    fn from(value: OrganizationDisplayNameChangeResult) -> Self {
-        match value {
-            OrganizationDisplayNameChangeResult::Changed => Self::Changed,
-            OrganizationDisplayNameChangeResult::Rejected { reason } => Self::Rejected { reason },
-        }
-    }
 }

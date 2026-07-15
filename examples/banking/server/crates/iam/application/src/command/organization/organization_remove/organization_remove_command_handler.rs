@@ -4,7 +4,7 @@ use appletheia::application::authorization::{
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_iam_domain::Organization;
+use banking_iam_domain::{Organization, OrganizationRemoveResult};
 
 use super::{
     OrganizationRemoveCommand, OrganizationRemoveCommandHandlerError, OrganizationRemoveOutput,
@@ -60,13 +60,10 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
-        let Some(mut organization) = self
+        let mut organization = self
             .organization_repository
-            .find(uow, command.organization_id)
-            .await?
-        else {
-            return Err(OrganizationRemoveCommandHandlerError::OrganizationNotFound);
-        };
+            .read(uow, command.organization_id)
+            .await?;
 
         let result = organization.remove()?;
 
@@ -74,7 +71,14 @@ where
             .save(uow, request_context, &mut organization)
             .await?;
 
-        Ok(CommandHandled::same(OrganizationRemoveOutput::from(result)))
+        let output = match result {
+            OrganizationRemoveResult::Removed => OrganizationRemoveOutput::Removed,
+            OrganizationRemoveResult::Rejected { reason } => {
+                OrganizationRemoveOutput::Rejected { reason }
+            }
+        };
+
+        Ok(CommandHandled::same(output))
     }
 }
 
@@ -94,8 +98,8 @@ mod tests {
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::Aggregate;
     use banking_iam_domain::{
-        Organization, OrganizationHandle, OrganizationId, OrganizationName, OrganizationOwner,
-        UserId,
+        Organization, OrganizationCreation, OrganizationHandle, OrganizationId, OrganizationName,
+        OrganizationOwner, UserId,
     };
     use uuid::Uuid;
 
@@ -133,21 +137,35 @@ mod tests {
     impl Repository<Organization> for TestOrganizationRepository {
         type Uow = TestUow;
 
-        async fn find(
+        async fn read(
             &self,
             _uow: &mut Self::Uow,
             _id: OrganizationId,
-        ) -> Result<Option<Organization>, RepositoryError<Organization>> {
-            Ok(self.organization.lock().expect("lock").clone())
+        ) -> Result<Organization, RepositoryError<Organization>> {
+            self.organization
+                .lock()
+                .expect("lock")
+                .clone()
+                .ok_or_else(|| RepositoryError::NotFound {
+                    aggregate_type: Organization::TYPE,
+                    aggregate_id: _id,
+                })
         }
 
-        async fn find_at_version(
+        async fn read_at_version(
             &self,
             _uow: &mut Self::Uow,
             _id: OrganizationId,
-            _at: Option<appletheia::domain::AggregateVersion>,
-        ) -> Result<Option<Organization>, RepositoryError<Organization>> {
-            Ok(self.organization.lock().expect("lock").clone())
+            _at: appletheia::domain::AggregateVersion,
+        ) -> Result<Organization, RepositoryError<Organization>> {
+            self.organization
+                .lock()
+                .expect("lock")
+                .clone()
+                .ok_or_else(|| RepositoryError::NotFound {
+                    aggregate_type: Organization::TYPE,
+                    aggregate_id: _id,
+                })
         }
 
         async fn find_by_unique_value(
@@ -186,16 +204,17 @@ mod tests {
     }
 
     fn organization() -> Organization {
-        let mut organization = Organization::default();
+        let mut organization = Organization::new();
         organization
-            .create(
-                OrganizationOwner::User(UserId::new()),
-                OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
-                OrganizationName::try_from("Acme Labs").expect("name should be valid"),
-                None,
-                None,
-                None,
-            )
+            .create(OrganizationCreation {
+                owner: OrganizationOwner::User(UserId::new()),
+                handle: OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
+                display_name: OrganizationName::try_from("Acme Labs")
+                    .expect("name should be valid"),
+                description: None,
+                website_url: None,
+                picture: None,
+            })
             .expect("organization should create");
         organization
     }
@@ -226,9 +245,7 @@ mod tests {
     #[tokio::test]
     async fn handle_removes_organization_and_returns_output() {
         let organization = organization();
-        let organization_id = organization
-            .aggregate_id()
-            .expect("organization id should exist");
+        let organization_id = organization.aggregate_id();
         let repository = TestOrganizationRepository::new(organization);
         let handler = OrganizationRemoveCommandHandler::new(repository.clone());
         let mut uow = TestUow;

@@ -1,7 +1,6 @@
 use appletheia::application::event::EventSelector;
 use appletheia::application::messaging::Subscription;
 use appletheia::application::saga::{SagaDescriptor, SagaName, SagaSpec, SagaStartEvents};
-use appletheia::domain::Aggregate;
 use banking_ledger_domain::account::{Account, AccountEventPayload};
 use banking_ledger_domain::currency::{Currency, CurrencyEventPayload};
 use banking_ledger_domain::currency_issuance::{CurrencyIssuance, CurrencyIssuanceEventPayload};
@@ -16,29 +15,23 @@ impl SagaSpec for CurrencyIssuanceSagaSpec {
 
     const DESCRIPTOR: SagaDescriptor = SagaDescriptor::new(
         SagaName::new("currency_issuance"),
-        SagaStartEvents::new(&[EventSelector::new(
-            CurrencyIssuance::TYPE,
+        SagaStartEvents::new(&[EventSelector::new::<CurrencyIssuance>(
             CurrencyIssuanceEventPayload::ISSUED,
         )]),
         Subscription::AnyOf(&[
-            EventSelector::new(CurrencyIssuance::TYPE, CurrencyIssuanceEventPayload::ISSUED),
-            EventSelector::new(
-                CurrencyIssuance::TYPE,
-                CurrencyIssuanceEventPayload::ISSUE_REJECTED,
-            ),
-            EventSelector::new(Currency::TYPE, CurrencyEventPayload::SUPPLY_INCREASED),
-            EventSelector::new(Account::TYPE, AccountEventPayload::DEPOSITED),
-            EventSelector::new(Account::TYPE, AccountEventPayload::DEPOSIT_REJECTED),
-            EventSelector::new(Currency::TYPE, CurrencyEventPayload::SUPPLY_DECREASED),
-            EventSelector::new(
-                Currency::TYPE,
-                CurrencyEventPayload::SUPPLY_DECREASE_REJECTED,
-            ),
-            EventSelector::new(
-                CurrencyIssuance::TYPE,
-                CurrencyIssuanceEventPayload::COMPLETED,
-            ),
-            EventSelector::new(CurrencyIssuance::TYPE, CurrencyIssuanceEventPayload::FAILED),
+            EventSelector::new::<CurrencyIssuance>(CurrencyIssuanceEventPayload::ISSUED),
+            EventSelector::new::<CurrencyIssuance>(CurrencyIssuanceEventPayload::ISSUE_REJECTED),
+            EventSelector::new::<Currency>(CurrencyEventPayload::SUPPLY_RESERVED),
+            EventSelector::new::<Currency>(CurrencyEventPayload::SUPPLY_RESERVE_REJECTED),
+            EventSelector::new::<Currency>(CurrencyEventPayload::MINT_SUPPLY_SYNCED),
+            EventSelector::new::<Account>(AccountEventPayload::DEPOSITED),
+            EventSelector::new::<Account>(AccountEventPayload::DEPOSIT_REJECTED),
+            EventSelector::new::<Currency>(CurrencyEventPayload::SUPPLY_COMMITTED),
+            EventSelector::new::<Currency>(CurrencyEventPayload::SUPPLY_COMMIT_REJECTED),
+            EventSelector::new::<Currency>(CurrencyEventPayload::SUPPLY_RELEASED),
+            EventSelector::new::<Currency>(CurrencyEventPayload::SUPPLY_RELEASE_REJECTED),
+            EventSelector::new::<CurrencyIssuance>(CurrencyIssuanceEventPayload::COMPLETED),
+            EventSelector::new::<CurrencyIssuance>(CurrencyIssuanceEventPayload::FAILED),
         ]),
     );
 }

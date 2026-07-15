@@ -18,12 +18,6 @@ pub enum TransferRequestCommandHandlerError {
     #[error("transfer aggregate failed")]
     Transfer(#[from] TransferError),
 
-    #[error("source account was not found")]
-    SourceAccountNotFound,
-
-    #[error("destination account was not found")]
-    DestinationAccountNotFound,
-
     #[error("source and destination accounts use different currencies")]
     CurrencyMismatch,
 }

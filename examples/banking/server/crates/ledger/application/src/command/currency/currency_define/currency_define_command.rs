@@ -1,6 +1,7 @@
 use appletheia::command;
 use banking_ledger_domain::currency::{
-    CurrencyDecimals, CurrencyName, CurrencyOwner, CurrencySymbol,
+    CurrencyDecimals, CurrencyDescription, CurrencyImageRef, CurrencyName, CurrencyOwner,
+    CurrencySymbol,
 };
 use serde::{Deserialize, Serialize};
 
@@ -12,4 +13,6 @@ pub struct CurrencyDefineCommand {
     pub symbol: CurrencySymbol,
     pub name: CurrencyName,
     pub decimals: CurrencyDecimals,
+    pub description: Option<CurrencyDescription>,
+    pub image: Option<CurrencyImageRef>,
 }

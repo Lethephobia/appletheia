@@ -1,4 +1,4 @@
-use banking_ledger_domain::currency::{CurrencyRemoveRejectionReason, CurrencyRemoveResult};
+use banking_ledger_domain::currency::CurrencyRemoveRejectionReason;
 use serde::{Deserialize, Serialize};
 
 /// Returned after a currency removal request is applied.
@@ -9,13 +9,4 @@ pub enum CurrencyRemoveOutput {
     Rejected {
         reason: CurrencyRemoveRejectionReason,
     },
-}
-
-impl From<CurrencyRemoveResult> for CurrencyRemoveOutput {
-    fn from(value: CurrencyRemoveResult) -> Self {
-        match value {
-            CurrencyRemoveResult::Removed => Self::Removed,
-            CurrencyRemoveResult::Rejected { reason } => Self::Rejected { reason },
-        }
-    }
 }

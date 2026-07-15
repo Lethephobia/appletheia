@@ -1,7 +1,6 @@
 use appletheia::application::event::EventSelector;
 use appletheia::application::messaging::Subscription;
 use appletheia::application::saga::{SagaDescriptor, SagaName, SagaSpec, SagaStartEvents};
-use appletheia::domain::Aggregate;
 use banking_ledger_domain::account::Account;
 use banking_ledger_domain::account::AccountEventPayload;
 use banking_ledger_domain::transfer::{Transfer, TransferEventPayload};
@@ -16,30 +15,23 @@ impl SagaSpec for TransferSagaSpec {
 
     const DESCRIPTOR: SagaDescriptor = SagaDescriptor::new(
         SagaName::new("transfer"),
-        SagaStartEvents::new(&[EventSelector::new(
-            Transfer::TYPE,
+        SagaStartEvents::new(&[EventSelector::new::<Transfer>(
             TransferEventPayload::REQUESTED,
         )]),
         Subscription::AnyOf(&[
-            EventSelector::new(Transfer::TYPE, TransferEventPayload::REQUESTED),
-            EventSelector::new(Account::TYPE, AccountEventPayload::FUNDS_RESERVED),
-            EventSelector::new(Account::TYPE, AccountEventPayload::FUNDS_RESERVE_REJECTED),
-            EventSelector::new(Account::TYPE, AccountEventPayload::DEPOSITED),
-            EventSelector::new(Account::TYPE, AccountEventPayload::DEPOSIT_REJECTED),
-            EventSelector::new(Account::TYPE, AccountEventPayload::RESERVED_FUNDS_RELEASED),
-            EventSelector::new(
-                Account::TYPE,
-                AccountEventPayload::RESERVED_FUNDS_RELEASE_REJECTED,
-            ),
-            EventSelector::new(Account::TYPE, AccountEventPayload::RESERVED_FUNDS_COMMITTED),
-            EventSelector::new(
-                Account::TYPE,
-                AccountEventPayload::RESERVED_FUNDS_COMMIT_REJECTED,
-            ),
-            EventSelector::new(Account::TYPE, AccountEventPayload::WITHDRAWN),
-            EventSelector::new(Account::TYPE, AccountEventPayload::WITHDRAW_REJECTED),
-            EventSelector::new(Transfer::TYPE, TransferEventPayload::COMPLETED),
-            EventSelector::new(Transfer::TYPE, TransferEventPayload::FAILED),
+            EventSelector::new::<Transfer>(TransferEventPayload::REQUESTED),
+            EventSelector::new::<Account>(AccountEventPayload::FUNDS_RESERVED),
+            EventSelector::new::<Account>(AccountEventPayload::FUNDS_RESERVE_REJECTED),
+            EventSelector::new::<Account>(AccountEventPayload::DEPOSITED),
+            EventSelector::new::<Account>(AccountEventPayload::DEPOSIT_REJECTED),
+            EventSelector::new::<Account>(AccountEventPayload::RESERVED_FUNDS_RELEASED),
+            EventSelector::new::<Account>(AccountEventPayload::RESERVED_FUNDS_RELEASE_REJECTED),
+            EventSelector::new::<Account>(AccountEventPayload::RESERVED_FUNDS_COMMITTED),
+            EventSelector::new::<Account>(AccountEventPayload::RESERVED_FUNDS_COMMIT_REJECTED),
+            EventSelector::new::<Account>(AccountEventPayload::WITHDRAWN),
+            EventSelector::new::<Account>(AccountEventPayload::WITHDRAW_REJECTED),
+            EventSelector::new::<Transfer>(TransferEventPayload::COMPLETED),
+            EventSelector::new::<Transfer>(TransferEventPayload::FAILED),
         ]),
     );
 }

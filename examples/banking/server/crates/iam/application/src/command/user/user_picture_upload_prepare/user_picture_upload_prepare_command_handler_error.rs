@@ -21,9 +21,6 @@ pub enum UserPictureUploadPrepareCommandHandlerError {
     #[error("object upload signer failed")]
     ObjectUploadSigner(#[from] ObjectUploadSignerError),
 
-    #[error("user was not found")]
-    UserNotFound,
-
     #[error("inactive users cannot prepare picture uploads")]
     UserInactive,
 

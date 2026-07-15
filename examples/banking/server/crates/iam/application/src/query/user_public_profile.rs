@@ -1,0 +1,7 @@
+mod user_public_profile_query;
+mod user_public_profile_query_handler;
+mod user_public_profile_query_handler_error;
+
+pub use user_public_profile_query::UserPublicProfileQuery;
+pub use user_public_profile_query_handler::UserPublicProfileQueryHandler;
+pub use user_public_profile_query_handler_error::UserPublicProfileQueryHandlerError;

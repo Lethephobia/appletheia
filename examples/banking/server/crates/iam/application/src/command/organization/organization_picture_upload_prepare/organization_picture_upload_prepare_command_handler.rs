@@ -3,7 +3,7 @@ use appletheia::application::authorization::{
 };
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::object_storage::{
-    ObjectName, ObjectUploadRequest, ObjectUploadSigner,
+    ObjectName, ObjectUploadSignRequest, ObjectUploadSigner,
 };
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
@@ -75,13 +75,10 @@ where
         _request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
-        let Some(organization) = self
+        let organization = self
             .organization_repository
-            .find(uow, command.organization_id)
-            .await?
-        else {
-            return Err(OrganizationPictureUploadPrepareCommandHandlerError::OrganizationNotFound);
-        };
+            .read(uow, command.organization_id)
+            .await?;
 
         if organization.is_removed()? {
             return Err(OrganizationPictureUploadPrepareCommandHandlerError::OrganizationRemoved);
@@ -102,7 +99,7 @@ where
         let picture_object_name = OrganizationPictureObjectName::new(command.organization_id);
         let picture = OrganizationPictureRef::object_name(picture_object_name.clone());
         let object_name = ObjectName::new(picture_object_name.value().to_owned())?;
-        let request = ObjectUploadRequest::new(
+        let request = ObjectUploadSignRequest::new(
             self.config.bucket_name().clone(),
             object_name,
             command.content_type.clone(),
@@ -110,8 +107,8 @@ where
         )
         .with_content_length(command.content_length)
         .with_checksum(command.checksum.clone());
-        let signed_upload_request = self.object_upload_signer.sign(request).await?;
-        let output = OrganizationPictureUploadPrepareOutput::new(picture, signed_upload_request);
+        let signed_upload = self.object_upload_signer.sign(request).await?;
+        let output = OrganizationPictureUploadPrepareOutput::new(picture, signed_upload);
 
         Ok(CommandHandled::same(output))
     }
@@ -128,8 +125,8 @@ mod tests {
     use appletheia::application::object_storage::{
         ObjectBucketName, ObjectChecksum, ObjectChecksumAlgorithm, ObjectChecksumValue,
         ObjectContentLength, ObjectContentType, ObjectContentTypes, ObjectUploadExpiresIn,
-        ObjectUploadHeaders, ObjectUploadRequest, ObjectUploadSigner, ObjectUploadSignerError,
-        SignedObjectUploadRequest, SignedObjectUploadUrl,
+        ObjectUploadHeaders, ObjectUploadSignRequest, ObjectUploadSigner, ObjectUploadSignerError,
+        SignedObjectUpload, SignedObjectUploadUrl,
     };
 
     use appletheia::application::repository::{Repository, RepositoryError};
@@ -139,8 +136,8 @@ mod tests {
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::Aggregate;
     use banking_iam_domain::{
-        Organization, OrganizationDisplayName, OrganizationHandle, OrganizationId,
-        OrganizationOwner, UserId,
+        Organization, OrganizationCreation, OrganizationDisplayName, OrganizationHandle,
+        OrganizationId, OrganizationOwner, UserId,
     };
     use chrono::Duration;
     use uuid::Uuid;
@@ -180,21 +177,35 @@ mod tests {
     impl Repository<Organization> for TestOrganizationRepository {
         type Uow = TestUow;
 
-        async fn find(
+        async fn read(
             &self,
             _uow: &mut Self::Uow,
             _id: OrganizationId,
-        ) -> Result<Option<Organization>, RepositoryError<Organization>> {
-            Ok(self.organization.lock().expect("lock").clone())
+        ) -> Result<Organization, RepositoryError<Organization>> {
+            self.organization
+                .lock()
+                .expect("lock")
+                .clone()
+                .ok_or_else(|| RepositoryError::NotFound {
+                    aggregate_type: Organization::TYPE,
+                    aggregate_id: _id,
+                })
         }
 
-        async fn find_at_version(
+        async fn read_at_version(
             &self,
             _uow: &mut Self::Uow,
             _id: OrganizationId,
-            _at: Option<appletheia::domain::AggregateVersion>,
-        ) -> Result<Option<Organization>, RepositoryError<Organization>> {
-            Ok(self.organization.lock().expect("lock").clone())
+            _at: appletheia::domain::AggregateVersion,
+        ) -> Result<Organization, RepositoryError<Organization>> {
+            self.organization
+                .lock()
+                .expect("lock")
+                .clone()
+                .ok_or_else(|| RepositoryError::NotFound {
+                    aggregate_type: Organization::TYPE,
+                    aggregate_id: _id,
+                })
         }
 
         async fn find_by_unique_value(
@@ -219,15 +230,15 @@ mod tests {
 
     #[derive(Clone)]
     struct TestObjectUploadSigner {
-        request: Arc<Mutex<Option<ObjectUploadRequest>>>,
-        signed_upload_request: SignedObjectUploadRequest,
+        request: Arc<Mutex<Option<ObjectUploadSignRequest>>>,
+        signed_upload: SignedObjectUpload,
     }
 
     impl TestObjectUploadSigner {
-        fn new(signed_upload_request: SignedObjectUploadRequest) -> Self {
+        fn new(signed_upload: SignedObjectUpload) -> Self {
             Self {
                 request: Arc::new(Mutex::new(None)),
-                signed_upload_request,
+                signed_upload,
             }
         }
     }
@@ -235,10 +246,10 @@ mod tests {
     impl ObjectUploadSigner for TestObjectUploadSigner {
         async fn sign(
             &self,
-            request: ObjectUploadRequest,
-        ) -> Result<SignedObjectUploadRequest, ObjectUploadSignerError> {
+            request: ObjectUploadSignRequest,
+        ) -> Result<SignedObjectUpload, ObjectUploadSignerError> {
             *self.request.lock().expect("lock") = Some(request);
-            Ok(self.signed_upload_request.clone())
+            Ok(self.signed_upload.clone())
         }
     }
 
@@ -258,23 +269,23 @@ mod tests {
     }
 
     fn organization() -> Organization {
-        let mut organization = Organization::default();
+        let mut organization = Organization::new();
         organization
-            .create(
-                OrganizationOwner::User(UserId::new()),
-                OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
-                OrganizationDisplayName::try_from("Acme Labs")
+            .create(OrganizationCreation {
+                owner: OrganizationOwner::User(UserId::new()),
+                handle: OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
+                display_name: OrganizationDisplayName::try_from("Acme Labs")
                     .expect("display name should be valid"),
-                None,
-                None,
-                None,
-            )
+                description: None,
+                website_url: None,
+                picture: None,
+            })
             .expect("organization should create");
         organization
     }
 
-    fn signed_upload_request(expires_in: ObjectUploadExpiresIn) -> SignedObjectUploadRequest {
-        SignedObjectUploadRequest::new(
+    fn signed_upload(expires_in: ObjectUploadExpiresIn) -> SignedObjectUpload {
+        SignedObjectUpload::new(
             appletheia::application::object_storage::ObjectUploadMethod::Put,
             SignedObjectUploadUrl::try_from("https://storage.example.com/upload")
                 .expect("signed URL should be valid"),
@@ -306,7 +317,7 @@ mod tests {
             ObjectUploadExpiresIn::new(Duration::minutes(10)).expect("expiration should be valid");
         let handler = OrganizationPictureUploadPrepareCommandHandler::new(
             repository,
-            TestObjectUploadSigner::new(signed_upload_request(expires_in)),
+            TestObjectUploadSigner::new(signed_upload(expires_in)),
             OrganizationPictureUploadPrepareCommandHandlerConfig::new(
                 ObjectBucketName::new("pictures".to_owned()).expect("bucket name should be valid"),
                 expires_in,
@@ -339,15 +350,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn handle_returns_picture_ref_and_signed_upload_request() {
+    async fn handle_returns_picture_ref_and_signed_upload() {
         let organization = organization();
-        let organization_id = organization
-            .aggregate_id()
-            .expect("organization id should exist");
+        let organization_id = organization.aggregate_id();
         let repository = TestOrganizationRepository::new(organization);
         let expires_in =
             ObjectUploadExpiresIn::new(Duration::minutes(10)).expect("expiration should be valid");
-        let signer = TestObjectUploadSigner::new(signed_upload_request(expires_in));
+        let signer = TestObjectUploadSigner::new(signed_upload(expires_in));
         let signer_requests = signer.request.clone();
         let handler = OrganizationPictureUploadPrepareCommandHandler::new(
             repository,
@@ -382,10 +391,7 @@ mod tests {
             .clone()
             .expect("signer should receive request");
 
-        assert_eq!(
-            output.signed_upload_request,
-            signed_upload_request(expires_in)
-        );
+        assert_eq!(output.signed_upload, signed_upload(expires_in));
         assert_eq!(request.bucket_name().as_str(), "pictures");
         assert_eq!(request.content_type().as_str(), "image/png");
         assert_eq!(
@@ -412,15 +418,13 @@ mod tests {
     async fn handle_rejects_removed_organization() {
         let mut organization = organization();
         organization.remove().expect("organization should remove");
-        let organization_id = organization
-            .aggregate_id()
-            .expect("organization id should exist");
+        let organization_id = organization.aggregate_id();
         let repository = TestOrganizationRepository::new(organization);
         let expires_in =
             ObjectUploadExpiresIn::new(Duration::minutes(10)).expect("expiration should be valid");
         let handler = OrganizationPictureUploadPrepareCommandHandler::new(
             repository,
-            TestObjectUploadSigner::new(signed_upload_request(expires_in)),
+            TestObjectUploadSigner::new(signed_upload(expires_in)),
             OrganizationPictureUploadPrepareCommandHandlerConfig::new(
                 ObjectBucketName::new("pictures".to_owned()).expect("bucket name should be valid"),
                 expires_in,
@@ -453,15 +457,13 @@ mod tests {
     #[tokio::test]
     async fn handle_rejects_content_length_over_maximum() {
         let organization = organization();
-        let organization_id = organization
-            .aggregate_id()
-            .expect("organization id should exist");
+        let organization_id = organization.aggregate_id();
         let repository = TestOrganizationRepository::new(organization);
         let expires_in =
             ObjectUploadExpiresIn::new(Duration::minutes(10)).expect("expiration should be valid");
         let handler = OrganizationPictureUploadPrepareCommandHandler::new(
             repository,
-            TestObjectUploadSigner::new(signed_upload_request(expires_in)),
+            TestObjectUploadSigner::new(signed_upload(expires_in)),
             OrganizationPictureUploadPrepareCommandHandlerConfig::new(
                 ObjectBucketName::new("pictures".to_owned()).expect("bucket name should be valid"),
                 expires_in,
@@ -494,15 +496,13 @@ mod tests {
     #[tokio::test]
     async fn handle_rejects_disallowed_content_type() {
         let organization = organization();
-        let organization_id = organization
-            .aggregate_id()
-            .expect("organization id should exist");
+        let organization_id = organization.aggregate_id();
         let repository = TestOrganizationRepository::new(organization);
         let expires_in =
             ObjectUploadExpiresIn::new(Duration::minutes(10)).expect("expiration should be valid");
         let handler = OrganizationPictureUploadPrepareCommandHandler::new(
             repository,
-            TestObjectUploadSigner::new(signed_upload_request(expires_in)),
+            TestObjectUploadSigner::new(signed_upload(expires_in)),
             OrganizationPictureUploadPrepareCommandHandlerConfig::new(
                 ObjectBucketName::new("pictures".to_owned()).expect("bucket name should be valid"),
                 expires_in,

@@ -4,17 +4,21 @@ use crate::{OrganizationId, UserId};
 
 use super::{
     OrganizationJoinRequestApproveRejectionReason, OrganizationJoinRequestCancelRejectionReason,
-    OrganizationJoinRequestEventPayloadError, OrganizationJoinRequestId,
-    OrganizationJoinRequestRejectRejectionReason,
+    OrganizationJoinRequestEventPayloadError, OrganizationJoinRequestRejectRejectionReason,
+    OrganizationJoinRequestSubmitRejectionReason,
 };
 
 /// Represents the domain events emitted by an `OrganizationJoinRequest` aggregate.
 #[event_payload(error = OrganizationJoinRequestEventPayloadError)]
 pub enum OrganizationJoinRequestEventPayload {
-    Requested {
-        id: OrganizationJoinRequestId,
+    Submitted {
         organization_id: OrganizationId,
         requester_id: UserId,
+    },
+    SubmitRejected {
+        organization_id: OrganizationId,
+        requester_id: UserId,
+        reason: OrganizationJoinRequestSubmitRejectionReason,
     },
     Approved {
         organization_id: OrganizationId,
@@ -49,18 +53,22 @@ pub enum OrganizationJoinRequestEventPayload {
 mod tests {
     use appletheia::domain::EventPayload;
 
-    use super::{OrganizationJoinRequestEventPayload, OrganizationJoinRequestId};
+    use super::OrganizationJoinRequestEventPayload;
     use crate::{OrganizationId, UserId};
 
     #[test]
     fn returns_stable_event_names() {
         assert_eq!(
-            OrganizationJoinRequestEventPayload::REQUESTED,
-            appletheia::domain::EventName::new("requested")
+            OrganizationJoinRequestEventPayload::SUBMITTED,
+            appletheia::domain::EventName::new("submitted")
         );
         assert_eq!(
             OrganizationJoinRequestEventPayload::APPROVED,
             appletheia::domain::EventName::new("approved")
+        );
+        assert_eq!(
+            OrganizationJoinRequestEventPayload::SUBMIT_REJECTED,
+            appletheia::domain::EventName::new("submit_rejected")
         );
         assert_eq!(
             OrganizationJoinRequestEventPayload::APPROVE_REJECTED,
@@ -85,16 +93,15 @@ mod tests {
     }
 
     #[test]
-    fn requested_payload_name_matches_variant() {
-        let payload = OrganizationJoinRequestEventPayload::Requested {
-            id: OrganizationJoinRequestId::new(),
+    fn submitted_payload_name_matches_variant() {
+        let payload = OrganizationJoinRequestEventPayload::Submitted {
             organization_id: OrganizationId::new(),
             requester_id: UserId::new(),
         };
 
         assert_eq!(
             payload.name(),
-            OrganizationJoinRequestEventPayload::REQUESTED
+            OrganizationJoinRequestEventPayload::SUBMITTED
         );
     }
 
@@ -108,6 +115,20 @@ mod tests {
         assert_eq!(
             payload.name(),
             OrganizationJoinRequestEventPayload::APPROVED
+        );
+    }
+
+    #[test]
+    fn submit_rejected_payload_name_matches_variant() {
+        let payload = OrganizationJoinRequestEventPayload::SubmitRejected {
+            organization_id: OrganizationId::new(),
+            requester_id: UserId::new(),
+            reason: super::OrganizationJoinRequestSubmitRejectionReason::AlreadySubmitted,
+        };
+
+        assert_eq!(
+            payload.name(),
+            OrganizationJoinRequestEventPayload::SUBMIT_REJECTED
         );
     }
 
@@ -139,14 +160,13 @@ mod tests {
 
     #[test]
     fn serializes_payload_to_json() {
-        let payload = OrganizationJoinRequestEventPayload::Requested {
-            id: OrganizationJoinRequestId::new(),
+        let payload = OrganizationJoinRequestEventPayload::Submitted {
             organization_id: OrganizationId::new(),
             requester_id: UserId::new(),
         };
 
         let value = payload.into_json_value().expect("payload should serialize");
 
-        assert_eq!(value["type"], serde_json::json!("requested"));
+        assert_eq!(value["type"], serde_json::json!("submitted"));
     }
 }

@@ -1,6 +1,4 @@
-use banking_ledger_domain::owned_account_closure::{
-    OwnedAccountClosureCompleteRejectionReason, OwnedAccountClosureCompleteResult,
-};
+use banking_ledger_domain::owned_account_closure::OwnedAccountClosureCompleteRejectionReason;
 use serde::{Deserialize, Serialize};
 
 /// Returned after an owned account closure complete request is applied.
@@ -11,13 +9,4 @@ pub enum OwnedAccountClosureCompleteOutput {
     Rejected {
         reason: OwnedAccountClosureCompleteRejectionReason,
     },
-}
-
-impl From<OwnedAccountClosureCompleteResult> for OwnedAccountClosureCompleteOutput {
-    fn from(value: OwnedAccountClosureCompleteResult) -> Self {
-        match value {
-            OwnedAccountClosureCompleteResult::Completed => Self::Completed,
-            OwnedAccountClosureCompleteResult::Rejected { reason } => Self::Rejected { reason },
-        }
-    }
 }

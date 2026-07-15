@@ -10,7 +10,4 @@ pub enum OwnedAccountClosureFailCommandHandlerError {
 
     #[error("owned account closure aggregate failed")]
     OwnedAccountClosure(#[from] OwnedAccountClosureError),
-
-    #[error("owned account closure was not found")]
-    OwnedAccountClosureNotFound,
 }

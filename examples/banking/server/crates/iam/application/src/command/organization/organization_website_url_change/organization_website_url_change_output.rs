@@ -1,6 +1,4 @@
-use banking_iam_domain::{
-    OrganizationWebsiteUrlChangeRejectionReason, OrganizationWebsiteUrlChangeResult,
-};
+use banking_iam_domain::OrganizationWebsiteUrlChangeRejectionReason;
 use serde::{Deserialize, Serialize};
 
 /// Returned after an organization operation is handled.
@@ -11,13 +9,4 @@ pub enum OrganizationWebsiteUrlChangeOutput {
     Rejected {
         reason: OrganizationWebsiteUrlChangeRejectionReason,
     },
-}
-
-impl From<OrganizationWebsiteUrlChangeResult> for OrganizationWebsiteUrlChangeOutput {
-    fn from(value: OrganizationWebsiteUrlChangeResult) -> Self {
-        match value {
-            OrganizationWebsiteUrlChangeResult::Changed => Self::Changed,
-            OrganizationWebsiteUrlChangeResult::Rejected { reason } => Self::Rejected { reason },
-        }
-    }
 }

@@ -38,7 +38,7 @@ where
         uow: &mut Self::Uow,
         event: &Event<OrganizationJoinRequestId, OrganizationJoinRequestEventPayload>,
     ) -> Result<(), Self::Error> {
-        if let OrganizationJoinRequestEventPayload::Requested {
+        if let OrganizationJoinRequestEventPayload::Submitted {
             organization_id,
             requester_id,
             ..

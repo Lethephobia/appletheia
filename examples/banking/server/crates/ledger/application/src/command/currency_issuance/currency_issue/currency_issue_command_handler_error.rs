@@ -24,13 +24,4 @@ pub enum CurrencyIssueCommandHandlerError {
 
     #[error("currency issuance aggregate failed")]
     CurrencyIssuance(#[from] CurrencyIssuanceError),
-
-    #[error("destination account was not found")]
-    DestinationAccountNotFound,
-
-    #[error("currency was not found")]
-    CurrencyNotFound,
-
-    #[error("currency issuance id was missing after issue")]
-    MissingCurrencyIssuanceId,
 }

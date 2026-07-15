@@ -22,7 +22,7 @@ pub(crate) fn expand_aggregate_derive(
         .core_field
         .unwrap_or_else(|| Ident::new("core", proc_macro2::Span::call_site()));
 
-    let (state_ty, payload_ty) = extract_core_generics(&input.data, &core_field)?;
+    let (id_ty, state_ty, payload_ty) = extract_core_generics(&input.data, &core_field)?;
 
     let aggregate_type = args.aggregate_type;
     let error_ty = args.error;
@@ -30,18 +30,30 @@ pub(crate) fn expand_aggregate_derive(
     let expanded = quote! {
         #[automatically_derived]
         impl #impl_generics #domain::Aggregate for #name #ty_generics #where_clause {
-            type Id = <#state_ty as #domain::AggregateState>::Id;
+            type Id = #id_ty;
             type State = #state_ty;
             type EventPayload = #payload_ty;
             type Error = #error_ty;
 
             const TYPE: #domain::AggregateType = #domain::AggregateType::new(#aggregate_type);
 
-            fn core(&self) -> &#domain::AggregateCore<Self::State, Self::EventPayload> {
+            fn new() -> Self {
+                Self {
+                    #core_field: #domain::AggregateCore::new(),
+                }
+            }
+
+            fn from_id(id: Self::Id) -> Self {
+                Self {
+                    #core_field: #domain::AggregateCore::from_id(id),
+                }
+            }
+
+            fn core(&self) -> &#domain::AggregateCore<Self::Id, Self::State, Self::EventPayload> {
                 &self.#core_field
             }
 
-            fn core_mut(&mut self) -> &mut #domain::AggregateCore<Self::State, Self::EventPayload> {
+            fn core_mut(&mut self) -> &mut #domain::AggregateCore<Self::Id, Self::State, Self::EventPayload> {
                 &mut self.#core_field
             }
         }
@@ -50,7 +62,7 @@ pub(crate) fn expand_aggregate_derive(
     Ok(expanded)
 }
 
-fn extract_core_generics(data: &Data, core_field: &Ident) -> Result<(Type, Type)> {
+fn extract_core_generics(data: &Data, core_field: &Ident) -> Result<(Type, Type, Type)> {
     let fields = match data {
         Data::Struct(data) => &data.fields,
         _ => {
@@ -88,28 +100,28 @@ fn extract_core_generics(data: &Data, core_field: &Ident) -> Result<(Type, Type)
     let Type::Path(TypePath { path, .. }) = &core.ty else {
         return Err(syn::Error::new(
             core.ty.span(),
-            "`core` field must be `AggregateCore<State, Payload>`",
+            "`core` field must be `AggregateCore<Id, State, Payload>`",
         ));
     };
 
     let last = path.segments.last().ok_or_else(|| {
         syn::Error::new(
             core.ty.span(),
-            "`core` field must be `AggregateCore<State, Payload>`",
+            "`core` field must be `AggregateCore<Id, State, Payload>`",
         )
     })?;
 
     if last.ident != "AggregateCore" {
         return Err(syn::Error::new(
             last.ident.span(),
-            "`core` field must be `AggregateCore<State, Payload>`",
+            "`core` field must be `AggregateCore<Id, State, Payload>`",
         ));
     }
 
     let PathArguments::AngleBracketed(args) = &last.arguments else {
         return Err(syn::Error::new(
             last.arguments.span(),
-            "`AggregateCore` must have generic arguments: `AggregateCore<State, Payload>`",
+            "`AggregateCore` must have generic arguments: `AggregateCore<Id, State, Payload>`",
         ));
     };
 
@@ -118,19 +130,26 @@ fn extract_core_generics(data: &Data, core_field: &Ident) -> Result<(Type, Type)
         _ => None,
     });
 
+    let id_ty = ty_args.next().ok_or_else(|| {
+        syn::Error::new(
+            args.span(),
+            "`AggregateCore` must be `AggregateCore<Id, State, Payload>`",
+        )
+    })?;
+
     let state_ty = ty_args.next().ok_or_else(|| {
         syn::Error::new(
             args.span(),
-            "`AggregateCore` must be `AggregateCore<State, Payload>`",
+            "`AggregateCore` must be `AggregateCore<Id, State, Payload>`",
         )
     })?;
 
     let payload_ty = ty_args.next().ok_or_else(|| {
         syn::Error::new(
             args.span(),
-            "`AggregateCore` must be `AggregateCore<State, Payload>`",
+            "`AggregateCore` must be `AggregateCore<Id, State, Payload>`",
         )
     })?;
 
-    Ok((state_ty, payload_ty))
+    Ok((id_ty, state_ty, payload_ty))
 }

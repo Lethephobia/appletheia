@@ -9,8 +9,8 @@ use appletheia_macros::{aggregate, reference_indexes, unique_constraints};
 
 use domain::{
     Aggregate, AggregateApply, AggregateCore, AggregateError, AggregateId, AggregateState,
-    AggregateStateError, AggregateType, EventName, EventPayload, ReferenceIndexes, UniqueConstraints,
-    UniqueValuesError,
+    AggregateStateError, AggregateType, EventName, EventPayload, ReferenceIndexes,
+    UniqueConstraints, UniqueValuesError,
 };
 
 #[derive(Debug, Error)]
@@ -31,6 +31,10 @@ impl Display for CounterId {
 
 impl AggregateId for CounterId {
     type Error = CounterIdError;
+
+    fn new() -> Self {
+        Self(Uuid::now_v7())
+    }
 
     fn try_from_uuid(value: Uuid) -> Result<Self, Self::Error> {
         Ok(Self(value))
@@ -54,23 +58,17 @@ enum CounterStateError {
 #[reference_indexes()]
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 struct CounterState {
-    id: CounterId,
     counter: i32,
 }
 
 impl CounterState {
-    fn new(id: CounterId, counter: i32) -> Self {
-        Self { id, counter }
+    fn new(counter: i32) -> Self {
+        Self { counter }
     }
 }
 
 impl AggregateState for CounterState {
-    type Id = CounterId;
     type Error = CounterStateError;
-
-    fn id(&self) -> Self::Id {
-        self.id
-    }
 }
 
 #[derive(Debug, Error)]
@@ -82,7 +80,7 @@ enum CounterEventPayloadError {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", content = "data", rename_all = "snake_case")]
 enum CounterEventPayload {
-    Created { id: CounterId },
+    Created,
     Increment(i32),
 }
 
@@ -96,7 +94,7 @@ impl EventPayload for CounterEventPayload {
 
     fn name(&self) -> EventName {
         match self {
-            Self::Created { .. } => Self::CREATED,
+            Self::Created => Self::CREATED,
             Self::Increment(_) => Self::INCREMENT,
         }
     }
@@ -107,23 +105,26 @@ enum CounterError {
     #[error(transparent)]
     Aggregate(#[from] AggregateError<CounterId>),
 
+    #[error(transparent)]
+    State(#[from] CounterStateError),
+
     #[error("invalid event payload")]
     InvalidEventPayload,
 }
 
 #[aggregate(type = "counter", core = "core", error = CounterError)]
 struct Counter {
-    core: AggregateCore<CounterState, CounterEventPayload>,
+    core: AggregateCore<CounterId, CounterState, CounterEventPayload>,
 }
 
 impl AggregateApply<CounterEventPayload, CounterError> for Counter {
     fn apply(&mut self, payload: &CounterEventPayload) -> Result<(), CounterError> {
         match payload {
-            CounterEventPayload::Created { id } => {
+            CounterEventPayload::Created => {
                 if self.state().is_some() {
                     return Err(CounterError::InvalidEventPayload);
                 }
-                self.set_state(Some(CounterState::new(*id, 0)));
+                self.set_state(Some(CounterState::new(0)));
             }
             CounterEventPayload::Increment(delta) => {
                 let state = self.state_required_mut()?;
@@ -135,5 +136,8 @@ impl AggregateApply<CounterEventPayload, CounterError> for Counter {
 }
 
 fn main() {
-    let _ = Counter::default();
+    let _ = Counter::new();
+    let aggregate_id = CounterId::new();
+    let aggregate = Counter::from_id(aggregate_id);
+    assert_eq!(aggregate.aggregate_id(), aggregate_id);
 }
