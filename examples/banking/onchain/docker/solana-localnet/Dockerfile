@@ -1,4 +1,4 @@
-FROM rust:1.86-bookworm AS builder
+FROM rust:1.97-bookworm AS builder
 
 ARG AGAVE_VERSION=v3.0.13
 
