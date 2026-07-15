@@ -2,10 +2,11 @@ use appletheia::aggregate_state;
 use appletheia::domain::{AggregateId, ReferenceValues, UniqueValue, UniqueValues};
 use appletheia::reference_indexes;
 use appletheia::unique_constraints;
+use uuid::Uuid;
 
 use super::{
-    OrganizationMembership, UserBio, UserDisplayName, UserId, UserIdentity, UserPictureRef,
-    UserStateError, UserStatus, Username,
+    OrganizationMembership, UserBio, UserDisplayName, UserIdentity, UserPictureRef, UserStateError,
+    UserStatus, Username,
 };
 use crate::OrganizationId;
 
@@ -20,7 +21,6 @@ use crate::OrganizationId;
     entry(key = "organization", values = organization_ref_values)
 )]
 pub struct UserState {
-    pub(super) id: UserId,
     pub(super) identities: Vec<UserIdentity>,
     pub(super) username: Option<Username>,
     pub(super) display_name: Option<UserDisplayName>,
@@ -30,7 +30,10 @@ pub struct UserState {
     pub(super) status: UserStatus,
 }
 
-fn username_unique_value(state: &UserState) -> Result<Option<UniqueValue>, UserStateError> {
+fn username_unique_value(
+    state: &UserState,
+    _aggregate_id: Uuid,
+) -> Result<Option<UniqueValue>, UserStateError> {
     if state.status.is_removed() {
         return Ok(None);
     }
@@ -46,6 +49,7 @@ fn username_unique_value(state: &UserState) -> Result<Option<UniqueValue>, UserS
 
 fn provider_subject_unique_values(
     state: &UserState,
+    _aggregate_id: Uuid,
 ) -> Result<Option<UniqueValues>, UserStateError> {
     if state.status.is_removed() || state.identities.is_empty() {
         return Ok(None);
@@ -68,12 +72,13 @@ fn provider_subject_unique_values(
 
 fn organization_user_unique_values(
     state: &UserState,
+    aggregate_id: Uuid,
 ) -> Result<Option<UniqueValues>, UserStateError> {
     if state.status.is_removed() || state.organization_memberships.is_empty() {
         return Ok(None);
     }
 
-    let user_id = state.id.value().to_string();
+    let user_id = aggregate_id.to_string();
     let values = state
         .organization_memberships
         .iter()
@@ -90,7 +95,10 @@ fn organization_user_unique_values(
     Ok(Some(values))
 }
 
-fn organization_ref_values(state: &UserState) -> Result<Option<ReferenceValues>, UserStateError> {
+fn organization_ref_values(
+    state: &UserState,
+    _aggregate_id: Uuid,
+) -> Result<Option<ReferenceValues>, UserStateError> {
     if state.organization_memberships.is_empty() {
         return Ok(None);
     }
@@ -111,11 +119,12 @@ mod tests {
         ReferenceIndexes, ReferenceValues, UniqueConstraints, UniqueKey, UniqueValues,
     };
     use banking_shared_kernel_domain::contact::Email;
+    use uuid::Uuid;
 
     use crate::{
-        OrganizationId, OrganizationMembership, OrganizationRoles, UserDisplayName, UserId,
-        UserIdentity, UserIdentityProvider, UserIdentitySubject, UserPictureRef, UserPictureUrl,
-        UserState, UserStatus, Username,
+        OrganizationId, OrganizationMembership, OrganizationRoles, UserDisplayName, UserIdentity,
+        UserIdentityProvider, UserIdentitySubject, UserPictureRef, UserPictureUrl, UserState,
+        UserStatus, Username,
     };
 
     fn identity() -> UserIdentity {
@@ -130,7 +139,6 @@ mod tests {
     #[test]
     fn pending_username_has_no_unique_entry() {
         let state = UserState {
-            id: UserId::new(),
             identities: Vec::new(),
             username: None,
             display_name: None,
@@ -140,7 +148,9 @@ mod tests {
             status: UserStatus::Active,
         };
 
-        let entries = state.unique_entries().expect("unique entries should build");
+        let entries = state
+            .unique_entries(Uuid::now_v7())
+            .expect("unique entries should build");
 
         assert_eq!(
             entries.get(UserState::USERNAME_KEY).map(UniqueValues::len),
@@ -151,7 +161,6 @@ mod tests {
     #[test]
     fn configured_username_returns_unique_entries() {
         let mut state = UserState {
-            id: UserId::new(),
             identities: Vec::new(),
             username: None,
             display_name: None,
@@ -168,7 +177,9 @@ mod tests {
                 .expect("picture URL should be valid"),
         ));
 
-        let entries = state.unique_entries().expect("unique entries should build");
+        let entries = state
+            .unique_entries(Uuid::now_v7())
+            .expect("unique entries should build");
 
         assert_eq!(
             entries.get(UserState::USERNAME_KEY).map(UniqueValues::len),
@@ -179,7 +190,6 @@ mod tests {
     #[test]
     fn identities_return_unique_entries_for_provider_subject() {
         let mut state = UserState {
-            id: UserId::new(),
             identities: Vec::new(),
             username: None,
             display_name: None,
@@ -196,7 +206,9 @@ mod tests {
             None,
         ));
 
-        let entries = state.unique_entries().expect("unique entries should build");
+        let entries = state
+            .unique_entries(Uuid::now_v7())
+            .expect("unique entries should build");
 
         assert_eq!(
             entries
@@ -209,7 +221,6 @@ mod tests {
     #[test]
     fn removed_state_has_no_unique_entries() {
         let mut state = UserState {
-            id: UserId::new(),
             identities: Vec::new(),
             username: None,
             display_name: None,
@@ -222,7 +233,9 @@ mod tests {
         state.username = Some(Username::try_from("alice").expect("username should be valid"));
         state.status = UserStatus::Removed;
 
-        let entries = state.unique_entries().expect("unique entries should build");
+        let entries = state
+            .unique_entries(Uuid::now_v7())
+            .expect("unique entries should build");
 
         assert_eq!(
             entries.get(UserState::USERNAME_KEY).map(UniqueValues::len),
@@ -259,7 +272,6 @@ mod tests {
     fn memberships_return_unique_and_reference_entries() {
         let organization_id = OrganizationId::new();
         let mut state = UserState {
-            id: UserId::new(),
             identities: Vec::new(),
             username: None,
             display_name: None,
@@ -272,7 +284,9 @@ mod tests {
             status: UserStatus::Active,
         };
 
-        let unique_entries = state.unique_entries().expect("unique entries should build");
+        let unique_entries = state
+            .unique_entries(Uuid::now_v7())
+            .expect("unique entries should build");
         assert_eq!(
             unique_entries
                 .get(UserState::ORGANIZATION_USER_KEY)
@@ -281,7 +295,7 @@ mod tests {
         );
 
         let reference_entries = state
-            .reference_entries()
+            .reference_entries(Uuid::now_v7())
             .expect("reference entries should build");
         assert_eq!(
             reference_entries
@@ -291,7 +305,9 @@ mod tests {
         );
 
         state.status = UserStatus::Removed;
-        let removed_unique_entries = state.unique_entries().expect("unique entries should build");
+        let removed_unique_entries = state
+            .unique_entries(Uuid::now_v7())
+            .expect("unique entries should build");
         assert_eq!(
             removed_unique_entries
                 .get(UserState::ORGANIZATION_USER_KEY)

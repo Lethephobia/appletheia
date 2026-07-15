@@ -3,13 +3,16 @@ use thiserror::Error;
 
 use crate::core::CurrencyAmountError;
 
-use super::AccountId;
+use super::{AccountId, AccountStateError};
 
 /// Describes why an `Account` aggregate operation failed.
 #[derive(Debug, Error)]
 pub enum AccountError {
     #[error(transparent)]
     Aggregate(#[from] AggregateError<AccountId>),
+
+    #[error(transparent)]
+    State(#[from] AccountStateError),
 
     #[error("account is already opened")]
     AlreadyOpened,

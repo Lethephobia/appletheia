@@ -4,20 +4,18 @@ use crate::{OrganizationId, UserId};
 
 use super::{
     OrganizationJoinRequestApproveRejectionReason, OrganizationJoinRequestCancelRejectionReason,
-    OrganizationJoinRequestEventPayloadError, OrganizationJoinRequestId,
-    OrganizationJoinRequestRejectRejectionReason, OrganizationJoinRequestSubmitRejectionReason,
+    OrganizationJoinRequestEventPayloadError, OrganizationJoinRequestRejectRejectionReason,
+    OrganizationJoinRequestSubmitRejectionReason,
 };
 
 /// Represents the domain events emitted by an `OrganizationJoinRequest` aggregate.
 #[event_payload(error = OrganizationJoinRequestEventPayloadError)]
 pub enum OrganizationJoinRequestEventPayload {
     Submitted {
-        id: OrganizationJoinRequestId,
         organization_id: OrganizationId,
         requester_id: UserId,
     },
     SubmitRejected {
-        id: OrganizationJoinRequestId,
         organization_id: OrganizationId,
         requester_id: UserId,
         reason: OrganizationJoinRequestSubmitRejectionReason,
@@ -55,7 +53,7 @@ pub enum OrganizationJoinRequestEventPayload {
 mod tests {
     use appletheia::domain::EventPayload;
 
-    use super::{OrganizationJoinRequestEventPayload, OrganizationJoinRequestId};
+    use super::OrganizationJoinRequestEventPayload;
     use crate::{OrganizationId, UserId};
 
     #[test]
@@ -97,7 +95,6 @@ mod tests {
     #[test]
     fn submitted_payload_name_matches_variant() {
         let payload = OrganizationJoinRequestEventPayload::Submitted {
-            id: OrganizationJoinRequestId::new(),
             organization_id: OrganizationId::new(),
             requester_id: UserId::new(),
         };
@@ -124,7 +121,6 @@ mod tests {
     #[test]
     fn submit_rejected_payload_name_matches_variant() {
         let payload = OrganizationJoinRequestEventPayload::SubmitRejected {
-            id: OrganizationJoinRequestId::new(),
             organization_id: OrganizationId::new(),
             requester_id: UserId::new(),
             reason: super::OrganizationJoinRequestSubmitRejectionReason::AlreadySubmitted,
@@ -165,7 +161,6 @@ mod tests {
     #[test]
     fn serializes_payload_to_json() {
         let payload = OrganizationJoinRequestEventPayload::Submitted {
-            id: OrganizationJoinRequestId::new(),
             organization_id: OrganizationId::new(),
             requester_id: UserId::new(),
         };

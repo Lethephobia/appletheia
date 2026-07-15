@@ -7,6 +7,7 @@ use banking_ledger_application::{
 use banking_ledger_domain::account::AccountOwner;
 use banking_shared_kernel_application::read_model::{CursorOptions, PageSize, SortDirection};
 use sqlx::{Postgres, QueryBuilder};
+use uuid::Uuid;
 
 use super::pg_public_account_list_item_row::PgPublicAccountListItemRow;
 
@@ -18,7 +19,7 @@ impl PgPublicAccountListReader {
         Self
     }
 
-    fn owner_parts(owner: AccountOwner) -> (&'static str, uuid::Uuid) {
+    fn owner_parts(owner: AccountOwner) -> (&'static str, Uuid) {
         match owner {
             AccountOwner::User(user_id) => ("user", user_id.value()),
             AccountOwner::Organization(organization_id) => {

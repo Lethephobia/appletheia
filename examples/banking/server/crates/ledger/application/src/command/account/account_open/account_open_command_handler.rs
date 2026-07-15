@@ -70,6 +70,7 @@ where
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
         let mut account = Account::new();
+        let account_id = account.aggregate_id();
         let result = account.open(AccountOpening {
             owner: command.owner,
             name: command.name.clone(),
@@ -81,7 +82,7 @@ where
             .await?;
 
         let output = match result {
-            AccountOpenResult::Opened { account_id } => AccountOpenOutput::new(account_id),
+            AccountOpenResult::Opened => AccountOpenOutput::new(account_id),
         };
 
         Ok(CommandHandled::same(output))
@@ -293,7 +294,7 @@ mod tests {
             .expect("lock")
             .clone()
             .expect("account should be saved");
-        let account_id = saved.aggregate_id().expect("account id should exist");
+        let account_id = saved.aggregate_id();
         assert_eq!(saved.owner().expect("owner should exist"), owner);
         assert_eq!(saved.name().expect("name should exist"), &name);
 
@@ -327,7 +328,7 @@ mod tests {
             .expect("lock")
             .clone()
             .expect("account should be saved");
-        let account_id = saved.aggregate_id().expect("account id should exist");
+        let account_id = saved.aggregate_id();
         assert_eq!(saved.owner().expect("owner should exist"), owner);
         assert_eq!(saved.name().expect("name should exist"), &name);
 

@@ -90,6 +90,7 @@ where
             .await?;
 
         let mut wallet_bookmark = WalletBookmark::new();
+        let wallet_bookmark_id = wallet_bookmark.aggregate_id();
         let result = wallet_bookmark.register(WalletBookmarkRegistration {
             owner: command.owner,
             display_name: command.display_name.clone(),
@@ -102,7 +103,7 @@ where
             .await?;
 
         let output = match result {
-            WalletBookmarkRegisterResult::Registered { wallet_bookmark_id } => {
+            WalletBookmarkRegisterResult::Registered => {
                 WalletBookmarkRegisterOutput::new(wallet_bookmark_id)
             }
         };
@@ -351,9 +352,7 @@ mod tests {
 
         assert_eq!(
             output,
-            WalletBookmarkRegisterOutput::new(
-                aggregate.aggregate_id().expect("aggregate id should exist")
-            )
+            WalletBookmarkRegisterOutput::new(aggregate.aggregate_id())
         );
     }
 

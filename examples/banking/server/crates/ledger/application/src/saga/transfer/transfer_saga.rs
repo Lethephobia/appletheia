@@ -1,14 +1,13 @@
-use appletheia::application::event::EventEnvelope;
-use appletheia::application::saga::{Saga, SagaInstance, SagaSpec};
-use banking_ledger_domain::account::{Account, AccountEventPayload};
-use banking_ledger_domain::transfer::{Transfer, TransferEventPayload, TransferFailureReason};
-
 use super::{TransferSagaError, TransferSagaSpec, TransferSagaState, TransferSagaStatus};
 use crate::command::{
     AccountDepositCommand, AccountFundsReserveCommand, AccountReservedFundsCommitCommand,
     AccountReservedFundsReleaseCommand, AccountWithdrawCommand, TransferCompleteCommand,
     TransferFailCommand,
 };
+use appletheia::application::event::EventEnvelope;
+use appletheia::application::saga::{Saga, SagaInstance, SagaSpec};
+use banking_ledger_domain::account::{Account, AccountEventPayload};
+use banking_ledger_domain::transfer::{Transfer, TransferEventPayload, TransferFailureReason};
 
 /// Coordinates the transfer flow.
 pub struct TransferSaga;
@@ -26,14 +25,13 @@ impl Saga for TransferSaga {
             let transfer_event = event.try_into_domain_event::<Transfer>()?;
             match transfer_event.payload() {
                 TransferEventPayload::Requested {
-                    id,
                     from_account_id,
                     to_account_id,
                     amount,
                     ..
                 } => {
                     *instance.state_mut() = Some(TransferSagaState::new(
-                        *id,
+                        transfer_event.aggregate_id(),
                         *from_account_id,
                         *to_account_id,
                         *amount,
@@ -210,6 +208,8 @@ impl Saga for TransferSaga {
 
 #[cfg(test)]
 mod tests {
+    use uuid::Uuid;
+
     use appletheia::application::event::{
         AggregateIdValue, AggregateTypeOwned, EventEnvelope, EventNameOwned, EventSequence,
         SerializedEventPayload,
@@ -300,7 +300,7 @@ mod tests {
     #[test]
     fn transfer_requested_appends_account_funds_reserve_command() {
         let saga = TransferSaga;
-        let correlation_id = CorrelationId::from(uuid::Uuid::now_v7());
+        let correlation_id = CorrelationId::from(Uuid::now_v7());
         let from_account_id = AccountId::new();
         let to_account_id = AccountId::new();
         let transfer_id = TransferId::new();
@@ -317,7 +317,6 @@ mod tests {
                 correlation_id,
                 transfer_id,
                 TransferEventPayload::Requested {
-                    id: transfer_id,
                     from_account_id,
                     to_account_id,
                     amount,
@@ -346,7 +345,7 @@ mod tests {
     #[test]
     fn success_path_appends_expected_follow_up_commands_and_succeeds() {
         let saga = TransferSaga;
-        let correlation_id = CorrelationId::from(uuid::Uuid::now_v7());
+        let correlation_id = CorrelationId::from(Uuid::now_v7());
         let from_account_id = AccountId::new();
         let to_account_id = AccountId::new();
         let transfer_id = TransferId::new();
@@ -363,7 +362,6 @@ mod tests {
                 correlation_id,
                 transfer_id,
                 TransferEventPayload::Requested {
-                    id: transfer_id,
                     from_account_id,
                     to_account_id,
                     amount,
@@ -468,7 +466,7 @@ mod tests {
     #[test]
     fn reserved_funds_released_appends_transfer_fail_command() {
         let saga = TransferSaga;
-        let correlation_id = CorrelationId::from(uuid::Uuid::now_v7());
+        let correlation_id = CorrelationId::from(Uuid::now_v7());
         let from_account_id = AccountId::new();
         let to_account_id = AccountId::new();
         let transfer_id = TransferId::new();
@@ -516,7 +514,7 @@ mod tests {
     #[test]
     fn deposit_rejected_appends_release_reserved_funds_command() {
         let saga = TransferSaga;
-        let correlation_id = CorrelationId::from(uuid::Uuid::now_v7());
+        let correlation_id = CorrelationId::from(Uuid::now_v7());
         let from_account_id = AccountId::new();
         let to_account_id = AccountId::new();
         let transfer_id = TransferId::new();
@@ -567,7 +565,7 @@ mod tests {
     #[test]
     fn funds_reserve_rejected_appends_transfer_fail_command() {
         let saga = TransferSaga;
-        let correlation_id = CorrelationId::from(uuid::Uuid::now_v7());
+        let correlation_id = CorrelationId::from(Uuid::now_v7());
         let from_account_id = AccountId::new();
         let to_account_id = AccountId::new();
         let transfer_id = TransferId::new();
@@ -618,7 +616,7 @@ mod tests {
     #[test]
     fn reserved_funds_release_rejected_appends_transfer_fail_command() {
         let saga = TransferSaga;
-        let correlation_id = CorrelationId::from(uuid::Uuid::now_v7());
+        let correlation_id = CorrelationId::from(Uuid::now_v7());
         let from_account_id = AccountId::new();
         let to_account_id = AccountId::new();
         let transfer_id = TransferId::new();
@@ -669,7 +667,7 @@ mod tests {
     #[test]
     fn reserved_funds_commit_rejected_appends_deposit_compensation_command() {
         let saga = TransferSaga;
-        let correlation_id = CorrelationId::from(uuid::Uuid::now_v7());
+        let correlation_id = CorrelationId::from(Uuid::now_v7());
         let from_account_id = AccountId::new();
         let to_account_id = AccountId::new();
         let transfer_id = TransferId::new();
@@ -720,7 +718,7 @@ mod tests {
     #[test]
     fn withdrawn_after_commit_rejection_appends_transfer_fail_command() {
         let saga = TransferSaga;
-        let correlation_id = CorrelationId::from(uuid::Uuid::now_v7());
+        let correlation_id = CorrelationId::from(Uuid::now_v7());
         let from_account_id = AccountId::new();
         let to_account_id = AccountId::new();
         let transfer_id = TransferId::new();
@@ -768,7 +766,7 @@ mod tests {
     #[test]
     fn failed_transfer_marks_saga_failed() {
         let saga = TransferSaga;
-        let correlation_id = CorrelationId::from(uuid::Uuid::now_v7());
+        let correlation_id = CorrelationId::from(Uuid::now_v7());
         let from_account_id = AccountId::new();
         let to_account_id = AccountId::new();
         let transfer_id = TransferId::new();

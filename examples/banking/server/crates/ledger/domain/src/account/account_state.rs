@@ -1,11 +1,13 @@
 use appletheia::aggregate_state;
 use appletheia::reference_indexes;
 use appletheia::unique_constraints;
+use banking_iam_domain::{OrganizationId, UserId};
+use uuid::Uuid;
 
 use crate::core::CurrencyAmount;
 use crate::currency::CurrencyId;
 
-use super::{AccountId, AccountName, AccountOwner, AccountStateError, AccountStatus};
+use super::{AccountName, AccountOwner, AccountStateError, AccountStatus};
 
 /// Stores the materialized state of an `Account` aggregate.
 #[aggregate_state(error = AccountStateError)]
@@ -16,7 +18,6 @@ use super::{AccountId, AccountName, AccountOwner, AccountStateError, AccountStat
     entry(key = "currency", value = currency_ref_value)
 )]
 pub struct AccountState {
-    pub(super) id: AccountId,
     pub(super) owner: AccountOwner,
     pub(super) name: AccountName,
     pub(super) currency_id: CurrencyId,
@@ -27,42 +28,44 @@ pub struct AccountState {
 
 fn owner_user_ref_value(
     state: &AccountState,
-) -> Result<Option<banking_iam_domain::UserId>, AccountStateError> {
+    _aggregate_id: Uuid,
+) -> Result<Option<UserId>, AccountStateError> {
     Ok(state.owner.user_id().copied())
 }
 
 fn owner_organization_ref_value(
     state: &AccountState,
-) -> Result<Option<banking_iam_domain::OrganizationId>, AccountStateError> {
+    _aggregate_id: Uuid,
+) -> Result<Option<OrganizationId>, AccountStateError> {
     Ok(state.owner.organization_id().copied())
 }
 
-fn currency_ref_value(state: &AccountState) -> Result<Option<CurrencyId>, AccountStateError> {
+fn currency_ref_value(
+    state: &AccountState,
+    _aggregate_id: Uuid,
+) -> Result<Option<CurrencyId>, AccountStateError> {
     Ok(Some(state.currency_id))
 }
 
 #[cfg(test)]
 mod tests {
-    use appletheia::domain::{AggregateState, ReferenceIndexes, ReferenceValues};
+    use appletheia::domain::{ReferenceIndexes, ReferenceValues};
+    use uuid::Uuid;
 
     use banking_iam_domain::{OrganizationId, UserId};
 
     use crate::currency::CurrencyId;
 
-    use super::{
-        AccountId, AccountName, AccountOwner, AccountState, AccountStatus, CurrencyAmount,
-    };
+    use super::{AccountName, AccountOwner, AccountState, AccountStatus, CurrencyAmount};
 
     fn account_name() -> AccountName {
         AccountName::try_from("main").expect("account name should be valid")
     }
 
     #[test]
-    fn exposes_id_via_aggregate_state_trait() {
-        let id = AccountId::new();
+    fn state_stores_domain_attributes() {
         let owner = AccountOwner::User(UserId::new());
         let state = AccountState {
-            id,
             owner,
             name: account_name(),
             currency_id: CurrencyId::new(),
@@ -70,8 +73,6 @@ mod tests {
             reserved_balance: CurrencyAmount::zero(),
             status: AccountStatus::Active,
         };
-
-        assert_eq!(state.id(), id);
         assert_eq!(state.owner, owner);
     }
 
@@ -79,7 +80,6 @@ mod tests {
     fn new_initializes_zero_balances_and_active_status() {
         let owner = AccountOwner::User(UserId::new());
         let state = AccountState {
-            id: AccountId::new(),
             owner,
             name: account_name(),
             currency_id: CurrencyId::new(),
@@ -98,7 +98,6 @@ mod tests {
     fn new_accepts_organization_owner() {
         let owner = AccountOwner::Organization(OrganizationId::new());
         let state = AccountState {
-            id: AccountId::new(),
             owner,
             name: account_name(),
             currency_id: CurrencyId::new(),
@@ -113,7 +112,6 @@ mod tests {
     #[test]
     fn user_owned_account_returns_user_and_currency_reference_entries() {
         let state = AccountState {
-            id: AccountId::new(),
             owner: AccountOwner::User(UserId::new()),
             name: account_name(),
             currency_id: CurrencyId::new(),
@@ -123,7 +121,7 @@ mod tests {
         };
 
         let entries = state
-            .reference_entries()
+            .reference_entries(Uuid::now_v7())
             .expect("reference entries should build");
 
         assert_eq!(
@@ -149,7 +147,6 @@ mod tests {
     #[test]
     fn organization_owned_account_returns_organization_and_currency_reference_entries() {
         let state = AccountState {
-            id: AccountId::new(),
             owner: AccountOwner::Organization(OrganizationId::new()),
             name: account_name(),
             currency_id: CurrencyId::new(),
@@ -159,7 +156,7 @@ mod tests {
         };
 
         let entries = state
-            .reference_entries()
+            .reference_entries(Uuid::now_v7())
             .expect("reference entries should build");
 
         assert_eq!(

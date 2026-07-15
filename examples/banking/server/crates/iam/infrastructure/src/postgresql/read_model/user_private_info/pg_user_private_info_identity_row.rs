@@ -3,6 +3,7 @@ use banking_iam_application::UserPrivateInfoIdentity;
 use banking_iam_domain::{UserIdentityProvider, UserIdentitySubject};
 use banking_shared_kernel_application::read_model::ReadModelObservation;
 use banking_shared_kernel_domain::contact::Email;
+use uuid::Uuid;
 
 use super::pg_user_private_info_row_error::PgUserPrivateInfoRowError;
 
@@ -11,8 +12,8 @@ pub struct PgUserPrivateInfoIdentityRow {
     pub provider: String,
     pub subject: String,
     pub email: Option<String>,
-    pub source_event_id: uuid::Uuid,
-    pub updated_event_id: uuid::Uuid,
+    pub source_event_id: Uuid,
+    pub updated_event_id: Uuid,
 }
 
 impl PgUserPrivateInfoIdentityRow {

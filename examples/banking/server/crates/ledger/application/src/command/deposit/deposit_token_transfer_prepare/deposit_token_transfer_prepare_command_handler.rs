@@ -104,15 +104,16 @@ where
         let currency_id = *account.currency_id()?;
 
         let mut deposit = Deposit::new();
+        let deposit_id = deposit.aggregate_id();
         let result = deposit.request(DepositRequest {
             account_id: command.account_id,
             currency_id,
             token_account_owner_address: command.token_account_owner_address.clone(),
             amount: command.amount,
         })?;
-        let deposit_id = match result {
-            DepositRequestResult::Requested { deposit_id } => deposit_id,
-            DepositRequestResult::Rejected { deposit_id, reason } => {
+        match result {
+            DepositRequestResult::Requested => {}
+            DepositRequestResult::Rejected { reason } => {
                 self.deposit_repository
                     .save(uow, request_context, &mut deposit)
                     .await?;
@@ -120,7 +121,7 @@ where
                     DepositTokenTransferPrepareOutput::Rejected { deposit_id, reason },
                 ));
             }
-        };
+        }
 
         let currency = self.currency_repository.read(uow, currency_id).await?;
         let Some(mint_account) = currency.mint_account()? else {

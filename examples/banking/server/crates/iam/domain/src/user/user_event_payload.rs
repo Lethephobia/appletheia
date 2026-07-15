@@ -6,9 +6,9 @@ use crate::{OrganizationId, OrganizationRoles};
 use super::{
     OrganizationMembershipGrantRejectionReason, OrganizationMembershipRemoveRejectionReason,
     OrganizationMembershipRolesChangeRejectionReason, UserBio, UserBioChangeRejectionReason,
-    UserDisplayName, UserDisplayNameChangeRejectionReason, UserEventPayloadError, UserId,
-    UserIdentityData, UserIdentityEmailChangeRejectionReason, UserIdentityLinkRejectionReason,
-    UserIdentityProvider, UserIdentitySubject, UserPictureChangeRejectionReason, UserPictureRef,
+    UserDisplayName, UserDisplayNameChangeRejectionReason, UserEventPayloadError, UserIdentityData,
+    UserIdentityEmailChangeRejectionReason, UserIdentityLinkRejectionReason, UserIdentityProvider,
+    UserIdentitySubject, UserPictureChangeRejectionReason, UserPictureRef,
     UserStatusRejectionReason, UserUsernameChangeRejectionReason, Username,
 };
 
@@ -16,7 +16,6 @@ use super::{
 #[event_payload(error = UserEventPayloadError)]
 pub enum UserEventPayload {
     Registered {
-        id: UserId,
         initial_identity: Option<UserIdentityData>,
     },
     IdentityLinked {
@@ -115,7 +114,7 @@ mod tests {
         UserIdentitySubject, UserPictureRef, UserPictureUrl,
     };
 
-    use super::{UserEventPayload, UserId, UserIdentityData};
+    use super::{UserEventPayload, UserIdentityData};
 
     #[test]
     fn returns_stable_event_names() {
@@ -311,13 +310,12 @@ mod tests {
     #[test]
     fn serializes_registered_payload_to_json() {
         let payload = UserEventPayload::Registered {
-            id: UserId::new(),
             initial_identity: None,
         };
 
         let value = payload.into_json_value().expect("payload should serialize");
 
         assert_eq!(value["type"], serde_json::json!("registered"));
-        assert!(value["data"]["id"].is_string());
+        assert!(value["data"].get("id").is_none());
     }
 }

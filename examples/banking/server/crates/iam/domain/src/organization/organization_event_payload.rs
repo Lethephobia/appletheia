@@ -3,7 +3,7 @@ use appletheia::event_payload;
 use super::{
     OrganizationDescription, OrganizationDescriptionChangeRejectionReason, OrganizationDisplayName,
     OrganizationDisplayNameChangeRejectionReason, OrganizationEventPayloadError,
-    OrganizationHandle, OrganizationHandleChangeRejectionReason, OrganizationId, OrganizationOwner,
+    OrganizationHandle, OrganizationHandleChangeRejectionReason, OrganizationOwner,
     OrganizationOwnershipTransferRejectionReason, OrganizationPictureChangeRejectionReason,
     OrganizationPictureRef, OrganizationRemoveRejectionReason, OrganizationWebsiteUrl,
     OrganizationWebsiteUrlChangeRejectionReason,
@@ -13,7 +13,6 @@ use super::{
 #[event_payload(error = OrganizationEventPayloadError)]
 pub enum OrganizationEventPayload {
     Created {
-        id: OrganizationId,
         owner: OrganizationOwner,
         handle: OrganizationHandle,
         display_name: OrganizationDisplayName,
@@ -76,7 +75,7 @@ mod tests {
 
     use crate::{OrganizationDisplayName, OrganizationWebsiteUrl, UserId};
 
-    use super::{OrganizationEventPayload, OrganizationHandle, OrganizationId, OrganizationOwner};
+    use super::{OrganizationEventPayload, OrganizationHandle, OrganizationOwner};
 
     fn display_name() -> OrganizationDisplayName {
         OrganizationDisplayName::try_from("Acme Labs").expect("display name should be valid")
@@ -179,7 +178,6 @@ mod tests {
     #[test]
     fn serializes_created_payload_to_json() {
         let payload = OrganizationEventPayload::Created {
-            id: OrganizationId::new(),
             owner: OrganizationOwner::User(UserId::new()),
             handle: OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
             display_name: display_name(),

@@ -88,7 +88,7 @@ use crate::OrganizationId;
 /// Represents the `User` aggregate root.
 #[aggregate(type = "user", error = UserError)]
 pub struct User {
-    core: AggregateCore<UserState, UserEventPayload>,
+    core: AggregateCore<UserId, UserState, UserEventPayload>,
 }
 
 impl User {
@@ -187,7 +187,6 @@ impl User {
             return Err(UserError::AlreadyRegistered);
         }
 
-        let user_id = UserId::new();
         let initial_identity = registration.initial_identity.as_ref().map(|identity| {
             UserIdentityData::new(
                 identity.provider.clone(),
@@ -196,11 +195,8 @@ impl User {
             )
         });
 
-        self.append_event(UserEventPayload::Registered {
-            id: user_id,
-            initial_identity,
-        })?;
-        Ok(UserRegisterResult::Registered { user_id })
+        self.append_event(UserEventPayload::Registered { initial_identity })?;
+        Ok(UserRegisterResult::Registered)
     }
 
     /// Links an additional external identity.
@@ -696,11 +692,7 @@ impl User {
 impl AggregateApply<UserEventPayload, UserError> for User {
     fn apply(&mut self, payload: &UserEventPayload) -> Result<(), UserError> {
         match payload {
-            UserEventPayload::Registered {
-                id,
-                initial_identity,
-            } => self.set_state(Some(UserState {
-                id: *id,
+            UserEventPayload::Registered { initial_identity } => self.set_state(Some(UserState {
                 identities: initial_identity
                     .as_ref()
                     .map(|identity| {

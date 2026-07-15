@@ -91,6 +91,7 @@ where
         }
 
         let mut organization = Organization::new();
+        let organization_id = organization.aggregate_id();
         let result = organization.create(OrganizationCreation {
             owner,
             handle,
@@ -105,9 +106,7 @@ where
             .await?;
 
         let output = match result {
-            OrganizationCreateResult::Created { organization_id } => {
-                OrganizationCreateOutput::new(organization_id)
-            }
+            OrganizationCreateResult::Created => OrganizationCreateOutput::new(organization_id),
         };
 
         Ok(CommandHandled::same(output))
@@ -288,10 +287,7 @@ mod tests {
         let saved = repository.organization.lock().expect("lock").clone();
         let saved = saved.expect("organization should be saved");
 
-        assert_eq!(
-            output,
-            OrganizationCreateOutput::new(saved.aggregate_id().expect("id"))
-        );
+        assert_eq!(output, OrganizationCreateOutput::new(saved.aggregate_id()));
         assert_eq!(
             saved.display_name().expect("display name should exist"),
             &display_name()

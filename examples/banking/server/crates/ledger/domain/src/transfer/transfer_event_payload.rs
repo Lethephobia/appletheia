@@ -5,20 +5,18 @@ use crate::core::CurrencyAmount;
 
 use super::{
     TransferCompleteRejectionReason, TransferEventPayloadError, TransferFailRejectionReason,
-    TransferFailureReason, TransferId, TransferRequestRejectionReason,
+    TransferFailureReason, TransferRequestRejectionReason,
 };
 
 /// Represents the domain events emitted by a `Transfer` aggregate.
 #[event_payload(error = TransferEventPayloadError)]
 pub enum TransferEventPayload {
     Requested {
-        id: TransferId,
         from_account_id: AccountId,
         to_account_id: AccountId,
         amount: CurrencyAmount,
     },
     RequestRejected {
-        id: TransferId,
         from_account_id: AccountId,
         to_account_id: AccountId,
         amount: CurrencyAmount,
@@ -43,7 +41,7 @@ mod tests {
     use crate::account::AccountId;
     use crate::core::CurrencyAmount;
 
-    use super::{TransferEventPayload, TransferId};
+    use super::TransferEventPayload;
 
     #[test]
     fn returns_stable_event_names() {
@@ -83,7 +81,6 @@ mod tests {
     #[test]
     fn serializes_payload_to_json() {
         let payload = TransferEventPayload::Requested {
-            id: TransferId::new(),
             from_account_id: AccountId::new(),
             to_account_id: AccountId::new(),
             amount: CurrencyAmount::new(100),

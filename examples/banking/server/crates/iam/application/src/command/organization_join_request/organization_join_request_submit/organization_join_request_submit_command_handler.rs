@@ -8,7 +8,8 @@ use appletheia::domain::Aggregate;
 use appletheia::domain::{AggregateId, UniqueValue, UniqueValuePart};
 use banking_iam_domain::{
     Organization, OrganizationId, OrganizationJoinRequest, OrganizationJoinRequestState,
-    OrganizationJoinRequestSubmission, OrganizationJoinRequestSubmitRejectionReason, User, UserId,
+    OrganizationJoinRequestSubmission, OrganizationJoinRequestSubmitRejectionReason,
+    OrganizationJoinRequestSubmitResult, User, UserId,
 };
 
 use super::{
@@ -103,6 +104,7 @@ where
         let requester = self.user_repository.read(uow, command.requester_id).await?;
 
         let mut organization_join_request = OrganizationJoinRequest::new();
+        let organization_join_request_id = organization_join_request.aggregate_id();
         let submission = OrganizationJoinRequestSubmission {
             organization_id: command.organization_id,
             requester_id: command.requester_id,
@@ -110,8 +112,7 @@ where
 
         if organization.is_removed()? {
             let reason = OrganizationJoinRequestSubmitRejectionReason::OrganizationRemoved;
-            let organization_join_request_id =
-                organization_join_request.reject_submit(submission, reason)?;
+            organization_join_request.reject_submit(submission, reason)?;
 
             self.organization_join_request_repository
                 .save(uow, request_context, &mut organization_join_request)
@@ -127,8 +128,7 @@ where
 
         if requester.is_organization_member(command.organization_id)? {
             let reason = OrganizationJoinRequestSubmitRejectionReason::RequesterAlreadyMember;
-            let organization_join_request_id =
-                organization_join_request.reject_submit(submission, reason)?;
+            organization_join_request.reject_submit(submission, reason)?;
 
             self.organization_join_request_repository
                 .save(uow, request_context, &mut organization_join_request)
@@ -153,8 +153,7 @@ where
             .is_some()
         {
             let reason = OrganizationJoinRequestSubmitRejectionReason::AlreadySubmitted;
-            let organization_join_request_id =
-                organization_join_request.reject_submit(submission, reason)?;
+            organization_join_request.reject_submit(submission, reason)?;
 
             self.organization_join_request_repository
                 .save(uow, request_context, &mut organization_join_request)
@@ -175,18 +174,17 @@ where
             .await?;
 
         let output = match result {
-            banking_iam_domain::OrganizationJoinRequestSubmitResult::Submitted {
-                organization_join_request_id,
-            } => OrganizationJoinRequestSubmitOutput::Submitted {
-                organization_join_request_id,
-            },
-            banking_iam_domain::OrganizationJoinRequestSubmitResult::Rejected {
-                organization_join_request_id,
-                reason,
-            } => OrganizationJoinRequestSubmitOutput::Rejected {
-                organization_join_request_id,
-                reason,
-            },
+            OrganizationJoinRequestSubmitResult::Submitted => {
+                OrganizationJoinRequestSubmitOutput::Submitted {
+                    organization_join_request_id,
+                }
+            }
+            OrganizationJoinRequestSubmitResult::Rejected { reason } => {
+                OrganizationJoinRequestSubmitOutput::Rejected {
+                    organization_join_request_id,
+                    reason,
+                }
+            }
         };
 
         Ok(CommandHandled::same(output))

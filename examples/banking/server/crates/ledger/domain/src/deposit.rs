@@ -44,7 +44,7 @@ use crate::currency::CurrencyId;
 /// Represents the `Deposit` aggregate root.
 #[aggregate(type = "deposit", error = DepositError)]
 pub struct Deposit {
-    core: AggregateCore<DepositState, DepositEventPayload>,
+    core: AggregateCore<DepositId, DepositState, DepositEventPayload>,
 }
 
 impl Deposit {
@@ -84,21 +84,19 @@ impl Deposit {
 
         if request.amount.is_zero() {
             let reason = DepositRequestRejectionReason::ZeroAmount;
-            let deposit_id = self.reject_request(request, reason)?;
-            return Ok(DepositRequestResult::Rejected { deposit_id, reason });
+            self.reject_request(request, reason)?;
+            return Ok(DepositRequestResult::Rejected { reason });
         }
 
-        let deposit_id = DepositId::new();
         let (account_id, currency_id, token_account_owner_address, amount) = request.into_parts();
         self.append_event(DepositEventPayload::Requested {
-            id: deposit_id,
             account_id,
             currency_id,
             token_account_owner_address,
             amount,
         })?;
 
-        Ok(DepositRequestResult::Requested { deposit_id })
+        Ok(DepositRequestResult::Requested)
     }
 
     /// Rejects a deposit request.
@@ -106,18 +104,16 @@ impl Deposit {
         &mut self,
         request: DepositRequest,
         reason: DepositRequestRejectionReason,
-    ) -> Result<DepositId, DepositError> {
-        let deposit_id = DepositId::new();
+    ) -> Result<(), DepositError> {
         let (account_id, currency_id, token_account_owner_address, amount) = request.into_parts();
         self.append_event(DepositEventPayload::RequestRejected {
-            id: deposit_id,
             account_id,
             currency_id,
             token_account_owner_address,
             amount,
             reason,
         })?;
-        Ok(deposit_id)
+        Ok(())
     }
 
     /// Records the verified on-chain token transfer.
@@ -148,7 +144,6 @@ impl Deposit {
         }
 
         self.append_event(DepositEventPayload::TokenTransferred {
-            id: state.id,
             account_id: state.account_id,
             amount: state.amount,
         })?;
@@ -236,13 +231,11 @@ impl AggregateApply<DepositEventPayload, DepositError> for Deposit {
     fn apply(&mut self, payload: &DepositEventPayload) -> Result<(), DepositError> {
         match payload {
             DepositEventPayload::Requested {
-                id,
                 account_id,
                 currency_id,
                 token_account_owner_address,
                 amount,
             } => self.set_state(Some(DepositState {
-                id: *id,
                 account_id: *account_id,
                 currency_id: *currency_id,
                 token_account_owner_address: token_account_owner_address.clone(),
@@ -250,14 +243,12 @@ impl AggregateApply<DepositEventPayload, DepositError> for Deposit {
                 status: DepositStatus::Requested,
             })),
             DepositEventPayload::RequestRejected {
-                id,
                 account_id,
                 currency_id,
                 token_account_owner_address,
                 amount,
                 ..
             } => self.set_state(Some(DepositState {
-                id: *id,
                 account_id: *account_id,
                 currency_id: *currency_id,
                 token_account_owner_address: token_account_owner_address.clone(),
@@ -313,13 +304,11 @@ mod tests {
                 amount,
             })
             .expect("deposit should be requested");
-        let DepositRequestResult::Requested { deposit_id } = result else {
-            panic!("positive deposit should be requested");
-        };
+        assert_eq!(result, DepositRequestResult::Requested);
 
         assert!(matches!(
             deposit.uncommitted_events()[0].payload(),
-            DepositEventPayload::Requested { id, .. } if *id == deposit_id
+            DepositEventPayload::Requested { .. }
         ));
         assert_eq!(deposit.account_id().expect("account id"), &account_id);
         assert_eq!(deposit.currency_id().expect("currency id"), &currency_id);

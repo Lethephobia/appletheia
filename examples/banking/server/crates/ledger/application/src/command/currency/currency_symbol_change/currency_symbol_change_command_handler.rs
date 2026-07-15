@@ -81,7 +81,7 @@ where
             .currency_repository
             .find_by_unique_value(uow, CurrencyState::SYMBOL_KEY, &unique_value)
             .await?
-            .is_some_and(|existing| existing.aggregate_id() != Some(command.currency_id))
+            .is_some_and(|existing| existing.aggregate_id() != command.currency_id)
         {
             let reason = CurrencySymbolChangeRejectionReason::AlreadyTaken;
             currency.reject_change_symbol(command.symbol.clone(), reason)?;

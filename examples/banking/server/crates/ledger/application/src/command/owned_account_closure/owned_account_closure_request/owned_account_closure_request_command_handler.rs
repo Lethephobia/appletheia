@@ -57,6 +57,7 @@ where
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
         let mut owned_account_closure = OwnedAccountClosure::new();
+        let owned_account_closure_id = owned_account_closure.aggregate_id();
         let result = owned_account_closure.request(OwnedAccountClosureRequest {
             owner: command.owner,
         })?;
@@ -66,9 +67,7 @@ where
             .await?;
 
         let output = match result {
-            OwnedAccountClosureRequestResult::Requested {
-                owned_account_closure_id,
-            } => OwnedAccountClosureRequestOutput {
+            OwnedAccountClosureRequestResult::Requested => OwnedAccountClosureRequestOutput {
                 owned_account_closure_id,
             },
         };

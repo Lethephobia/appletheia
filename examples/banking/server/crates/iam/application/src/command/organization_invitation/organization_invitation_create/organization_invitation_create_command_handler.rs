@@ -8,8 +8,8 @@ use appletheia::domain::Aggregate;
 use appletheia::domain::{AggregateId, UniqueValue};
 use banking_iam_domain::{
     Organization, OrganizationInvitation, OrganizationInvitationIssuance,
-    OrganizationInvitationIssueRejectionReason, OrganizationInvitationIssuer,
-    OrganizationInvitationState, User,
+    OrganizationInvitationIssueRejectionReason, OrganizationInvitationIssueResult,
+    OrganizationInvitationIssuer, OrganizationInvitationState, User,
 };
 use banking_shared_kernel_domain::timestamps::CurrentDateTime;
 
@@ -113,6 +113,7 @@ where
 
         let unique_value = Self::organization_invitee_unique_value(command)?;
         let mut organization_invitation = OrganizationInvitation::new();
+        let organization_invitation_id = organization_invitation.aggregate_id();
         let issuance = OrganizationInvitationIssuance {
             organization_id: command.organization_id,
             invitee_id: command.invitee_id,
@@ -123,8 +124,7 @@ where
 
         if organization.is_removed()? {
             let reason = OrganizationInvitationIssueRejectionReason::OrganizationRemoved;
-            let organization_invitation_id =
-                organization_invitation.reject_issue(issuance, reason)?;
+            organization_invitation.reject_issue(issuance, reason)?;
 
             self.organization_invitation_repository
                 .save(uow, request_context, &mut organization_invitation)
@@ -140,8 +140,7 @@ where
 
         if invitee.is_organization_member(command.organization_id)? {
             let reason = OrganizationInvitationIssueRejectionReason::InviteeAlreadyMember;
-            let organization_invitation_id =
-                organization_invitation.reject_issue(issuance, reason)?;
+            organization_invitation.reject_issue(issuance, reason)?;
 
             self.organization_invitation_repository
                 .save(uow, request_context, &mut organization_invitation)
@@ -166,8 +165,7 @@ where
             .is_some()
         {
             let reason = OrganizationInvitationIssueRejectionReason::AlreadyIssued;
-            let organization_invitation_id =
-                organization_invitation.reject_issue(issuance, reason)?;
+            organization_invitation.reject_issue(issuance, reason)?;
 
             self.organization_invitation_repository
                 .save(uow, request_context, &mut organization_invitation)
@@ -188,18 +186,17 @@ where
             .await?;
 
         let output = match result {
-            banking_iam_domain::OrganizationInvitationIssueResult::Issued {
-                organization_invitation_id,
-            } => OrganizationInvitationIssueOutput::Issued {
-                organization_invitation_id,
-            },
-            banking_iam_domain::OrganizationInvitationIssueResult::Rejected {
-                organization_invitation_id,
-                reason,
-            } => OrganizationInvitationIssueOutput::Rejected {
-                organization_invitation_id,
-                reason,
-            },
+            OrganizationInvitationIssueResult::Issued => {
+                OrganizationInvitationIssueOutput::Issued {
+                    organization_invitation_id,
+                }
+            }
+            OrganizationInvitationIssueResult::Rejected { reason } => {
+                OrganizationInvitationIssueOutput::Rejected {
+                    organization_invitation_id,
+                    reason,
+                }
+            }
         };
 
         Ok(CommandHandled::same(output))

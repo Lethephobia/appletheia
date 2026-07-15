@@ -81,7 +81,7 @@ where
             .organization_repository
             .find_by_unique_value(uow, OrganizationState::HANDLE_KEY, &unique_value)
             .await?
-            .is_some_and(|existing| existing.aggregate_id() != Some(command.organization_id))
+            .is_some_and(|existing| existing.aggregate_id() != command.organization_id)
         {
             let reason = OrganizationHandleChangeRejectionReason::AlreadyTaken;
             organization.reject_change_handle(command.handle.clone(), reason)?;
@@ -280,9 +280,7 @@ mod tests {
     #[tokio::test]
     async fn handle_changes_organization_handle_and_returns_output() {
         let organization = organization();
-        let organization_id = organization
-            .aggregate_id()
-            .expect("organization id should exist");
+        let organization_id = organization.aggregate_id();
         let repository = TestOrganizationRepository::new(organization);
         let handler = OrganizationHandleChangeCommandHandler::new(repository.clone());
         let mut uow = TestUow;

@@ -3,13 +3,14 @@ use banking_iam_application::UserPublicProfile;
 use banking_iam_domain::{UserBio, UserDisplayName, UserId, Username};
 use banking_shared_kernel_application::read_model::ReadModelObservation;
 use sqlx::types::chrono::{DateTime, Utc};
+use uuid::Uuid;
 
 use super::super::pg_user_picture_ref_columns::PgUserPictureRefColumns;
 use super::pg_user_public_profile_row_error::PgUserPublicProfileRowError;
 
 #[derive(Debug, sqlx::FromRow)]
 pub struct PgUserPublicProfileRow {
-    pub id: uuid::Uuid,
+    pub id: Uuid,
     pub username: Option<String>,
     pub display_name: Option<String>,
     pub bio: Option<String>,
@@ -17,8 +18,8 @@ pub struct PgUserPublicProfileRow {
     pub picture_object_name: Option<String>,
     pub picture_external_url: Option<String>,
     pub created_at: DateTime<Utc>,
-    pub source_event_id: uuid::Uuid,
-    pub updated_event_id: uuid::Uuid,
+    pub source_event_id: Uuid,
+    pub updated_event_id: Uuid,
 }
 
 impl PgUserPublicProfileRow {

@@ -245,9 +245,7 @@ mod tests {
     #[tokio::test]
     async fn handle_removes_organization_and_returns_output() {
         let organization = organization();
-        let organization_id = organization
-            .aggregate_id()
-            .expect("organization id should exist");
+        let organization_id = organization.aggregate_id();
         let repository = TestOrganizationRepository::new(organization);
         let handler = OrganizationRemoveCommandHandler::new(repository.clone());
         let mut uow = TestUow;

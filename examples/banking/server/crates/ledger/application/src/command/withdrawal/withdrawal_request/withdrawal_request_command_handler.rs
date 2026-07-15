@@ -100,6 +100,7 @@ where
             .await?;
 
         let mut withdrawal = Withdrawal::new();
+        let withdrawal_id = withdrawal.aggregate_id();
         let account_id = command.account_id;
         let currency_id = *account.currency_id()?;
         let token_account_owner_address = command.token_account_owner_address.clone();
@@ -116,8 +117,9 @@ where
             CurrencyStatus::Provisioning | CurrencyStatus::ProvisioningFailed
         ) {
             let reason = WithdrawalRequestRejectionReason::CurrencyUnprovisioned;
+            withdrawal.reject_request(request, reason)?;
             let output = WithdrawalRequestOutput::Rejected {
-                withdrawal_id: withdrawal.reject_request(request, reason)?,
+                withdrawal_id,
                 reason,
             };
             self.withdrawal_repository
@@ -128,8 +130,9 @@ where
 
         if !currency.is_active()? {
             let reason = WithdrawalRequestRejectionReason::CurrencyInactive;
+            withdrawal.reject_request(request, reason)?;
             let output = WithdrawalRequestOutput::Rejected {
-                withdrawal_id: withdrawal.reject_request(request, reason)?,
+                withdrawal_id,
                 reason,
             };
             self.withdrawal_repository
@@ -145,13 +148,10 @@ where
             .await?;
 
         let output = match result {
-            WithdrawalRequestResult::Requested { withdrawal_id } => {
+            WithdrawalRequestResult::Requested => {
                 WithdrawalRequestOutput::Requested { withdrawal_id }
             }
-            WithdrawalRequestResult::Rejected {
-                withdrawal_id,
-                reason,
-            } => WithdrawalRequestOutput::Rejected {
+            WithdrawalRequestResult::Rejected { reason } => WithdrawalRequestOutput::Rejected {
                 withdrawal_id,
                 reason,
             },
@@ -228,7 +228,7 @@ mod tests {
 
     impl TestAccountRepository {
         fn insert(&self, aggregate: Account) {
-            let id = aggregate.aggregate_id().expect("account id should exist");
+            let id = aggregate.aggregate_id();
             self.items.lock().expect("lock").insert(id, aggregate);
         }
     }
@@ -284,7 +284,7 @@ mod tests {
             _request_context: &RequestContext,
             aggregate: &mut Account,
         ) -> Result<(), RepositoryError<Account>> {
-            let id = aggregate.aggregate_id().expect("account id should exist");
+            let id = aggregate.aggregate_id();
             self.items
                 .lock()
                 .expect("lock")
@@ -300,7 +300,7 @@ mod tests {
 
     impl TestCurrencyRepository {
         fn insert(&self, aggregate: Currency) {
-            let id = aggregate.aggregate_id().expect("currency id should exist");
+            let id = aggregate.aggregate_id();
             self.items.lock().expect("lock").insert(id, aggregate);
         }
     }
@@ -356,7 +356,7 @@ mod tests {
             _request_context: &RequestContext,
             aggregate: &mut Currency,
         ) -> Result<(), RepositoryError<Currency>> {
-            let id = aggregate.aggregate_id().expect("currency id should exist");
+            let id = aggregate.aggregate_id();
             self.items
                 .lock()
                 .expect("lock")
@@ -522,9 +522,9 @@ mod tests {
         let currency_owner = CurrencyOwner::from(user_id);
         let token_account_owner_address = token_account_owner_address();
         let currency = provisioned_currency(currency_owner);
-        let currency_id = currency.aggregate_id().expect("currency id should exist");
+        let currency_id = currency.aggregate_id();
         let account = opened_account(account_owner, currency_id);
-        let account_id = account.aggregate_id().expect("account id should exist");
+        let account_id = account.aggregate_id();
         let account_repository = TestAccountRepository::default();
         account_repository.insert(account);
         let currency_repository = TestCurrencyRepository::default();
@@ -562,7 +562,7 @@ mod tests {
             .clone()
             .expect("withdrawal should be saved");
 
-        assert_eq!(saved.aggregate_id(), Some(withdrawal_id));
+        assert_eq!(saved.aggregate_id(), withdrawal_id);
         assert_eq!(
             saved.account_id().expect("account id should exist"),
             &account_id

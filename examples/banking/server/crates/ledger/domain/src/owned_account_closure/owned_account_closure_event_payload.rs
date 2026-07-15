@@ -5,15 +5,13 @@ use crate::account::{AccountCloseRejectionReason, AccountId, AccountOwner};
 use super::{
     OwnedAccountClosureCompleteRejectionReason, OwnedAccountClosureEventPayloadError,
     OwnedAccountClosureFailRejectionReason, OwnedAccountClosureFailureReason,
-    OwnedAccountClosureId, OwnedAccountClosurePageLoadRejectionReason,
-    OwnedAccountClosureRecordRejectionReason,
+    OwnedAccountClosurePageLoadRejectionReason, OwnedAccountClosureRecordRejectionReason,
 };
 
 /// Represents the domain events emitted by an `OwnedAccountClosure` aggregate.
 #[event_payload(error = OwnedAccountClosureEventPayloadError)]
 pub enum OwnedAccountClosureEventPayload {
     Requested {
-        id: OwnedAccountClosureId,
         owner: AccountOwner,
     },
     PageLoaded {

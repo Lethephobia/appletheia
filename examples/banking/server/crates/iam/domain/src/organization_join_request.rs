@@ -40,7 +40,11 @@ use crate::{OrganizationId, UserId};
 /// Represents the `OrganizationJoinRequest` aggregate root.
 #[aggregate(type = "organization_join_request", error = OrganizationJoinRequestError)]
 pub struct OrganizationJoinRequest {
-    core: AggregateCore<OrganizationJoinRequestState, OrganizationJoinRequestEventPayload>,
+    core: AggregateCore<
+        OrganizationJoinRequestId,
+        OrganizationJoinRequestState,
+        OrganizationJoinRequestEventPayload,
+    >,
 }
 
 impl OrganizationJoinRequest {
@@ -88,16 +92,12 @@ impl OrganizationJoinRequest {
             return Err(OrganizationJoinRequestError::AlreadySubmitted);
         }
 
-        let organization_join_request_id = OrganizationJoinRequestId::new();
         let (organization_id, requester_id) = submission.into_parts();
         self.append_event(OrganizationJoinRequestEventPayload::Submitted {
-            id: organization_join_request_id,
             organization_id,
             requester_id,
         })?;
-        Ok(OrganizationJoinRequestSubmitResult::Submitted {
-            organization_join_request_id,
-        })
+        Ok(OrganizationJoinRequestSubmitResult::Submitted)
     }
 
     /// Rejects a join request submission attempt.
@@ -105,16 +105,14 @@ impl OrganizationJoinRequest {
         &mut self,
         submission: OrganizationJoinRequestSubmission,
         reason: OrganizationJoinRequestSubmitRejectionReason,
-    ) -> Result<OrganizationJoinRequestId, OrganizationJoinRequestError> {
-        let organization_join_request_id = OrganizationJoinRequestId::new();
+    ) -> Result<(), OrganizationJoinRequestError> {
         let (organization_id, requester_id) = submission.into_parts();
         self.append_event(OrganizationJoinRequestEventPayload::SubmitRejected {
-            id: organization_join_request_id,
             organization_id,
             requester_id,
             reason,
         })?;
-        Ok(organization_join_request_id)
+        Ok(())
     }
 
     /// Approves the join request.
@@ -220,12 +218,10 @@ impl AggregateApply<OrganizationJoinRequestEventPayload, OrganizationJoinRequest
     ) -> Result<(), OrganizationJoinRequestError> {
         match payload {
             OrganizationJoinRequestEventPayload::Submitted {
-                id,
                 organization_id,
                 requester_id,
             } => {
                 self.set_state(Some(OrganizationJoinRequestState {
-                    id: *id,
                     organization_id: *organization_id,
                     requester_id: *requester_id,
                     status: OrganizationJoinRequestStatus::Pending,
@@ -281,9 +277,7 @@ mod tests {
             })
             .expect("submit should succeed");
 
-        let aggregate_id = join_request
-            .aggregate_id()
-            .expect("aggregate id should exist");
+        let aggregate_id = join_request.aggregate_id();
         assert!(!aggregate_id.value().is_nil());
         assert_eq!(
             join_request

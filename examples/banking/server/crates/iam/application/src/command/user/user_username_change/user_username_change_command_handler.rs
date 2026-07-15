@@ -74,7 +74,7 @@ where
             .user_repository
             .find_by_unique_value(uow, UserState::USERNAME_KEY, &unique_value)
             .await?
-            .is_some_and(|existing| existing.aggregate_id() != Some(command.user_id))
+            .is_some_and(|existing| existing.aggregate_id() != command.user_id)
         {
             let reason = UserUsernameChangeRejectionReason::AlreadyTaken;
             user.reject_change_username(command.username.clone(), reason)?;
@@ -229,7 +229,7 @@ mod tests {
     #[tokio::test]
     async fn handle_changes_username() {
         let user = registered_user();
-        let user_id = user.aggregate_id().expect("user id should exist");
+        let user_id = user.aggregate_id();
         let repository = TestUserRepository::new(user);
         let handler = UserUsernameChangeCommandHandler::new(repository);
         let mut uow = TestUow;

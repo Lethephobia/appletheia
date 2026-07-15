@@ -114,7 +114,7 @@ use crate::core::{CurrencyAmount, CurrencyAmountError};
 /// Represents the `Currency` aggregate root.
 #[aggregate(type = "currency", error = CurrencyError)]
 pub struct Currency {
-    core: AggregateCore<CurrencyState, CurrencyEventPayload>,
+    core: AggregateCore<CurrencyId, CurrencyState, CurrencyEventPayload>,
 }
 
 impl Currency {
@@ -202,10 +202,7 @@ impl Currency {
         if self.state().is_some() {
             return Err(CurrencyError::AlreadyDefined);
         }
-        let currency_id = CurrencyId::new();
-
         self.append_event(CurrencyEventPayload::Defined {
-            id: currency_id,
             owner,
             symbol,
             name,
@@ -214,7 +211,7 @@ impl Currency {
             image,
         })?;
 
-        Ok(CurrencyDefineResult::Defined { currency_id })
+        Ok(CurrencyDefineResult::Defined)
     }
 
     /// Completes currency provisioning with the created on-chain mint account.
@@ -580,7 +577,6 @@ impl AggregateApply<CurrencyEventPayload, CurrencyError> for Currency {
     fn apply(&mut self, payload: &CurrencyEventPayload) -> Result<(), CurrencyError> {
         match payload {
             CurrencyEventPayload::Defined {
-                id,
                 owner,
                 symbol,
                 name,
@@ -589,7 +585,6 @@ impl AggregateApply<CurrencyEventPayload, CurrencyError> for Currency {
                 image,
             } => {
                 self.set_state(Some(CurrencyState {
-                    id: *id,
                     owner: *owner,
                     symbol: symbol.clone(),
                     name: name.clone(),
@@ -753,10 +748,7 @@ mod tests {
             )
             .expect("definition should succeed");
 
-        assert_eq!(
-            currency.aggregate_id().expect("aggregate id should exist"),
-            currency.aggregate_id().expect("aggregate id should exist")
-        );
+        assert_eq!(currency.aggregate_id(), currency.aggregate_id());
         assert_eq!(currency.symbol().expect("symbol should exist"), &symbol);
         assert_eq!(currency.name().expect("name should exist"), &name);
         assert_eq!(currency.owner().expect("owner should exist"), owner);
@@ -800,7 +792,6 @@ mod tests {
         assert_eq!(
             currency.uncommitted_events()[0].payload(),
             &CurrencyEventPayload::Defined {
-                id: currency.aggregate_id().expect("aggregate id should exist"),
                 owner,
                 symbol,
                 name,
@@ -814,6 +805,10 @@ mod tests {
                         .expect("image URL should be valid"),
                 )),
             }
+        );
+        assert_eq!(
+            currency.uncommitted_events()[0].aggregate_id(),
+            currency.aggregate_id()
         );
     }
 
@@ -953,7 +948,6 @@ mod tests {
             id,
             appletheia::domain::AggregateVersion::try_from(1).expect("version should be valid"),
             CurrencyEventPayload::Defined {
-                id,
                 owner,
                 symbol: CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
                 name: CurrencyName::try_from("USD Coin").expect("name should be valid"),
@@ -975,7 +969,7 @@ mod tests {
                 mint_account: mint_account.clone(),
             },
         );
-        let mut currency = Currency::new();
+        let mut currency = Currency::from_id(id);
 
         currency
             .replay_events(vec![defined, provisioned, deactivated], None)

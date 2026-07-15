@@ -307,7 +307,7 @@ mod tests {
     #[tokio::test]
     async fn handle_rejects_already_provisioned_without_external_side_effects() {
         let mut currency = defined_currency();
-        let currency_id = currency.aggregate_id().expect("currency id should exist");
+        let currency_id = currency.aggregate_id();
         currency
             .provision(mint_account())
             .expect("currency should be provisioned");
@@ -353,7 +353,7 @@ mod tests {
     #[tokio::test]
     async fn handle_rejects_removed_currency_without_external_side_effects() {
         let mut currency = defined_currency();
-        let currency_id = currency.aggregate_id().expect("currency id should exist");
+        let currency_id = currency.aggregate_id();
         currency.remove().expect("currency should be removed");
         currency.core_mut().clear_uncommitted_events();
         let repository = TestCurrencyRepository::new(currency);
@@ -398,7 +398,7 @@ mod tests {
     #[tokio::test]
     async fn handle_provisions_mint_for_currency() {
         let currency = defined_currency();
-        let currency_id = currency.aggregate_id().expect("currency id should exist");
+        let currency_id = currency.aggregate_id();
         let repository = TestCurrencyRepository::new(currency);
         let provisioner = TestMintProvisioner::new(receipt());
         let provisioner_calls = provisioner.calls.clone();
@@ -458,7 +458,7 @@ mod tests {
             .expect("image object name should be valid"),
         );
         let currency = defined_currency_with_image(Some(image));
-        let currency_id = currency.aggregate_id().expect("currency id should exist");
+        let currency_id = currency.aggregate_id();
         let repository = TestCurrencyRepository::new(currency);
         let provisioner = TestMintProvisioner::new(receipt());
         let provision_request = provisioner.request.clone();
@@ -497,7 +497,7 @@ mod tests {
                 .expect("image URL should be valid"),
         );
         let currency = defined_currency_with_image(Some(image));
-        let currency_id = currency.aggregate_id().expect("currency id should exist");
+        let currency_id = currency.aggregate_id();
         let repository = TestCurrencyRepository::new(currency);
         let provisioner = TestMintProvisioner::new(receipt());
         let provision_request = provisioner.request.clone();

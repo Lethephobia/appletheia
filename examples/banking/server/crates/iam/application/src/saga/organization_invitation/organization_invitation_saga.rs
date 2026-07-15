@@ -1,11 +1,10 @@
+use crate::command::UserOrganizationMembershipGrantCommand;
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::saga::{Saga, SagaInstance, SagaSpec};
 use banking_iam_domain::{
     OrganizationInvitation, OrganizationInvitationEventPayload,
     OrganizationMembershipGrantRejectionReason, User, UserEventPayload,
 };
-
-use crate::command::UserOrganizationMembershipGrantCommand;
 
 use super::{
     OrganizationInvitationSagaError, OrganizationInvitationSagaSpec,
@@ -76,6 +75,8 @@ impl Saga for OrganizationInvitationSaga {
 
 #[cfg(test)]
 mod tests {
+    use uuid::Uuid;
+
     use appletheia::application::event::{
         AggregateIdValue, AggregateTypeOwned, EventEnvelope, EventNameOwned, EventSequence,
         SerializedEventPayload,
@@ -197,7 +198,7 @@ mod tests {
     #[test]
     fn accepted_event_appends_user_membership_grant_command() {
         let saga = OrganizationInvitationSaga;
-        let correlation_id = CorrelationId::from(uuid::Uuid::now_v7());
+        let correlation_id = CorrelationId::from(Uuid::now_v7());
         let organization_id = OrganizationId::new();
         let invitation_id = OrganizationInvitationId::new();
         let invitee_id = UserId::new();
@@ -233,7 +234,7 @@ mod tests {
     #[test]
     fn granted_user_membership_completes_saga() {
         let saga = OrganizationInvitationSaga;
-        let correlation_id = CorrelationId::from(uuid::Uuid::now_v7());
+        let correlation_id = CorrelationId::from(Uuid::now_v7());
         let organization_id = OrganizationId::new();
         let invitation_id = OrganizationInvitationId::new();
         let invitee_id = UserId::new();
@@ -268,7 +269,7 @@ mod tests {
     #[test]
     fn grant_rejected_user_membership_fails_saga() {
         let saga = OrganizationInvitationSaga;
-        let correlation_id = CorrelationId::from(uuid::Uuid::now_v7());
+        let correlation_id = CorrelationId::from(Uuid::now_v7());
         let organization_id = OrganizationId::new();
         let invitation_id = OrganizationInvitationId::new();
         let invitee_id = UserId::new();

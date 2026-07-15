@@ -6,7 +6,7 @@ use crate::currency::CurrencyId;
 
 use super::{
     WithdrawalCompleteRejectionReason, WithdrawalEventPayloadError, WithdrawalFailRejectionReason,
-    WithdrawalFailureReason, WithdrawalId, WithdrawalRequestRejectionReason,
+    WithdrawalFailureReason, WithdrawalRequestRejectionReason,
     WithdrawalTokenTransferRejectionReason,
 };
 
@@ -14,14 +14,12 @@ use super::{
 #[event_payload(error = WithdrawalEventPayloadError)]
 pub enum WithdrawalEventPayload {
     Requested {
-        id: WithdrawalId,
         account_id: AccountId,
         currency_id: CurrencyId,
         token_account_owner_address: TokenAccountOwnerAddress,
         amount: CurrencyAmount,
     },
     RequestRejected {
-        id: WithdrawalId,
         account_id: AccountId,
         currency_id: CurrencyId,
         token_account_owner_address: TokenAccountOwnerAddress,
@@ -52,7 +50,7 @@ mod tests {
     use crate::core::{CurrencyAmount, TokenAccountOwnerAddress};
     use crate::currency::CurrencyId;
 
-    use super::{WithdrawalEventPayload, WithdrawalId};
+    use super::WithdrawalEventPayload;
 
     #[test]
     fn returns_stable_event_names() {
@@ -93,7 +91,6 @@ mod tests {
     #[test]
     fn serializes_payload_to_json() {
         let payload = WithdrawalEventPayload::Requested {
-            id: WithdrawalId::new(),
             account_id: AccountId::new(),
             currency_id: CurrencyId::new(),
             token_account_owner_address: TokenAccountOwnerAddress::try_from(

@@ -40,7 +40,7 @@ use crate::currency::CurrencyId;
 /// Represents the `CurrencyIssuance` aggregate root.
 #[aggregate(type = "currency_issuance", error = CurrencyIssuanceError)]
 pub struct CurrencyIssuance {
-    core: AggregateCore<CurrencyIssuanceState, CurrencyIssuanceEventPayload>,
+    core: AggregateCore<CurrencyIssuanceId, CurrencyIssuanceState, CurrencyIssuanceEventPayload>,
 }
 
 impl CurrencyIssuance {
@@ -75,25 +75,18 @@ impl CurrencyIssuance {
 
         if request.amount().is_zero() {
             let reason = CurrencyIssuanceIssueRejectionReason::ZeroAmount;
-            let currency_issuance_id = self.reject_issue(request, reason)?;
-            return Ok(CurrencyIssuanceIssueResult::Rejected {
-                currency_issuance_id,
-                reason,
-            });
+            self.reject_issue(request, reason)?;
+            return Ok(CurrencyIssuanceIssueResult::Rejected { reason });
         }
 
-        let currency_issuance_id = CurrencyIssuanceId::new();
         let (currency_id, destination_account_id, amount) = request.into_parts();
         self.append_event(CurrencyIssuanceEventPayload::Issued {
-            id: currency_issuance_id,
             currency_id,
             destination_account_id,
             amount,
         })?;
 
-        Ok(CurrencyIssuanceIssueResult::Issued {
-            currency_issuance_id,
-        })
+        Ok(CurrencyIssuanceIssueResult::Issued)
     }
 
     /// Rejects a new issuance workflow.
@@ -101,17 +94,15 @@ impl CurrencyIssuance {
         &mut self,
         request: CurrencyIssuanceRequest,
         reason: CurrencyIssuanceIssueRejectionReason,
-    ) -> Result<CurrencyIssuanceId, CurrencyIssuanceError> {
-        let currency_issuance_id = CurrencyIssuanceId::new();
+    ) -> Result<(), CurrencyIssuanceError> {
         let (currency_id, destination_account_id, amount) = request.into_parts();
         self.append_event(CurrencyIssuanceEventPayload::IssueRejected {
-            id: currency_issuance_id,
             currency_id,
             destination_account_id,
             amount,
             reason,
         })?;
-        Ok(currency_issuance_id)
+        Ok(())
     }
 
     /// Marks the issuance completed.
@@ -193,25 +184,21 @@ impl AggregateApply<CurrencyIssuanceEventPayload, CurrencyIssuanceError> for Cur
     ) -> Result<(), CurrencyIssuanceError> {
         match payload {
             CurrencyIssuanceEventPayload::Issued {
-                id,
                 currency_id,
                 destination_account_id,
                 amount,
             } => self.set_state(Some(CurrencyIssuanceState {
-                id: *id,
                 currency_id: *currency_id,
                 destination_account_id: *destination_account_id,
                 amount: *amount,
                 status: CurrencyIssuanceStatus::Pending,
             })),
             CurrencyIssuanceEventPayload::IssueRejected {
-                id,
                 currency_id,
                 destination_account_id,
                 amount,
                 ..
             } => self.set_state(Some(CurrencyIssuanceState {
-                id: *id,
                 currency_id: *currency_id,
                 destination_account_id: *destination_account_id,
                 amount: *amount,
@@ -376,7 +363,6 @@ mod tests {
             id,
             appletheia::domain::AggregateVersion::try_from(1).expect("version should be valid"),
             CurrencyIssuanceEventPayload::Issued {
-                id,
                 currency_id,
                 destination_account_id,
                 amount: CurrencyAmount::new(100),
@@ -387,7 +373,7 @@ mod tests {
             appletheia::domain::AggregateVersion::try_from(2).expect("version should be valid"),
             CurrencyIssuanceEventPayload::Completed,
         );
-        let mut issuance = CurrencyIssuance::new();
+        let mut issuance = CurrencyIssuance::from_id(id);
 
         issuance
             .replay_events(vec![issued, completed], None)

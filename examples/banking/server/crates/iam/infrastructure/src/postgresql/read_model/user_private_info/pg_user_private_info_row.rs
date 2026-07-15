@@ -3,6 +3,7 @@ use banking_iam_application::{UserPrivateInfo, UserPrivateInfoStatus};
 use banking_iam_domain::{UserBio, UserDisplayName, UserId, Username};
 use banking_shared_kernel_application::read_model::ReadModelObservation;
 use sqlx::types::chrono::{DateTime, Utc};
+use uuid::Uuid;
 
 use super::super::pg_user_picture_ref_columns::PgUserPictureRefColumns;
 use super::pg_user_private_info_identity_row::PgUserPrivateInfoIdentityRow;
@@ -11,7 +12,7 @@ use super::pg_user_private_info_row_error::PgUserPrivateInfoRowError;
 
 #[derive(Debug, sqlx::FromRow)]
 pub struct PgUserPrivateInfoRow {
-    pub id: uuid::Uuid,
+    pub id: Uuid,
     pub username: Option<String>,
     pub display_name: Option<String>,
     pub bio: Option<String>,
@@ -20,8 +21,8 @@ pub struct PgUserPrivateInfoRow {
     pub picture_external_url: Option<String>,
     pub status: String,
     pub created_at: DateTime<Utc>,
-    pub source_event_id: uuid::Uuid,
-    pub updated_event_id: uuid::Uuid,
+    pub source_event_id: Uuid,
+    pub updated_event_id: Uuid,
 }
 
 impl PgUserPrivateInfoRow {

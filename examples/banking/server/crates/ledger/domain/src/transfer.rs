@@ -39,7 +39,7 @@ use crate::core::CurrencyAmount;
 /// Represents the `Transfer` aggregate root.
 #[aggregate(type = "transfer", error = TransferError)]
 pub struct Transfer {
-    core: AggregateCore<TransferState, TransferEventPayload>,
+    core: AggregateCore<TransferId, TransferState, TransferEventPayload>,
 }
 
 impl Transfer {
@@ -74,32 +74,24 @@ impl Transfer {
 
         if request.is_same_account() {
             let reason = TransferRequestRejectionReason::SameAccount;
-            let transfer_id = self.reject_request(request, reason)?;
-            return Ok(TransferRequestResult::Rejected {
-                transfer_id,
-                reason,
-            });
+            self.reject_request(request, reason)?;
+            return Ok(TransferRequestResult::Rejected { reason });
         }
 
         if request.amount().is_zero() {
             let reason = TransferRequestRejectionReason::ZeroAmount;
-            let transfer_id = self.reject_request(request, reason)?;
-            return Ok(TransferRequestResult::Rejected {
-                transfer_id,
-                reason,
-            });
+            self.reject_request(request, reason)?;
+            return Ok(TransferRequestResult::Rejected { reason });
         }
 
-        let transfer_id = TransferId::new();
         let (from_account_id, to_account_id, amount) = request.into_parts();
         self.append_event(TransferEventPayload::Requested {
-            id: transfer_id,
             from_account_id,
             to_account_id,
             amount,
         })?;
 
-        Ok(TransferRequestResult::Requested { transfer_id })
+        Ok(TransferRequestResult::Requested)
     }
 
     /// Rejects a transfer request.
@@ -107,17 +99,15 @@ impl Transfer {
         &mut self,
         request: TransferRequest,
         reason: TransferRequestRejectionReason,
-    ) -> Result<TransferId, TransferError> {
-        let transfer_id = TransferId::new();
+    ) -> Result<(), TransferError> {
         let (from_account_id, to_account_id, amount) = request.into_parts();
         self.append_event(TransferEventPayload::RequestRejected {
-            id: transfer_id,
             from_account_id,
             to_account_id,
             amount,
             reason,
         })?;
-        Ok(transfer_id)
+        Ok(())
     }
 
     /// Completes the transfer.
@@ -198,25 +188,21 @@ impl AggregateApply<TransferEventPayload, TransferError> for Transfer {
     fn apply(&mut self, payload: &TransferEventPayload) -> Result<(), TransferError> {
         match payload {
             TransferEventPayload::Requested {
-                id,
                 from_account_id,
                 to_account_id,
                 amount,
             } => self.set_state(Some(TransferState {
-                id: *id,
                 from_account_id: *from_account_id,
                 to_account_id: *to_account_id,
                 amount: *amount,
                 status: TransferStatus::Pending,
             })),
             TransferEventPayload::RequestRejected {
-                id,
                 from_account_id,
                 to_account_id,
                 amount,
                 ..
             } => self.set_state(Some(TransferState {
-                id: *id,
                 from_account_id: *from_account_id,
                 to_account_id: *to_account_id,
                 amount: *amount,
@@ -260,10 +246,7 @@ mod tests {
             })
             .expect("request should succeed");
 
-        assert_eq!(
-            transfer.aggregate_id().expect("aggregate id should exist"),
-            transfer.aggregate_id().expect("aggregate id should exist")
-        );
+        assert_eq!(transfer.aggregate_id(), transfer.aggregate_id());
         assert_eq!(
             transfer
                 .from_account_id()
@@ -415,7 +398,6 @@ mod tests {
             id,
             appletheia::domain::AggregateVersion::try_from(1).expect("version should be valid"),
             TransferEventPayload::Requested {
-                id,
                 from_account_id,
                 to_account_id,
                 amount: CurrencyAmount::new(100),
@@ -426,7 +408,7 @@ mod tests {
             appletheia::domain::AggregateVersion::try_from(2).expect("version should be valid"),
             TransferEventPayload::Completed,
         );
-        let mut transfer = Transfer::new();
+        let mut transfer = Transfer::from_id(id);
 
         transfer
             .replay_events(vec![requested, completed], None)

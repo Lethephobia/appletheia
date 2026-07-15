@@ -4,23 +4,24 @@ use banking_iam_domain::{
     OrganizationDisplayName, OrganizationHandle, OrganizationId, OrganizationRoles,
 };
 use banking_shared_kernel_application::read_model::ReadModelObservation;
+use uuid::Uuid;
 
 use super::super::pg_organization_picture_ref_columns::PgOrganizationPictureRefColumns;
 use super::pg_user_private_info_row_error::PgUserPrivateInfoRowError;
 
 #[derive(Debug, sqlx::FromRow)]
 pub struct PgUserPrivateInfoOrganizationMembershipRow {
-    pub organization_id: uuid::Uuid,
+    pub organization_id: Uuid,
     pub roles: String,
-    pub source_event_id: uuid::Uuid,
-    pub updated_event_id: uuid::Uuid,
+    pub source_event_id: Uuid,
+    pub updated_event_id: Uuid,
     pub organization_handle: Option<String>,
     pub organization_display_name: Option<String>,
     pub organization_picture_type: Option<String>,
     pub organization_picture_object_name: Option<String>,
     pub organization_picture_external_url: Option<String>,
-    pub organization_source_event_id: Option<uuid::Uuid>,
-    pub organization_updated_event_id: Option<uuid::Uuid>,
+    pub organization_source_event_id: Option<Uuid>,
+    pub organization_updated_event_id: Option<Uuid>,
 }
 
 impl PgUserPrivateInfoOrganizationMembershipRow {

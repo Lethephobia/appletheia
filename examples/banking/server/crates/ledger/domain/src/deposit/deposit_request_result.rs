@@ -1,13 +1,10 @@
-use super::{DepositId, DepositRequestRejectionReason};
+use super::DepositRequestRejectionReason;
 
 /// Describes the domain outcome of a deposit request.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum DepositRequestResult {
-    Requested {
-        deposit_id: DepositId,
-    },
+    Requested,
     Rejected {
-        deposit_id: DepositId,
         reason: DepositRequestRejectionReason,
     },
 }

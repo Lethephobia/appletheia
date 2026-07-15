@@ -2,11 +2,11 @@ use appletheia::aggregate_state;
 use appletheia::domain::UniqueValue;
 use appletheia::reference_indexes;
 use appletheia::unique_constraints;
+use uuid::Uuid;
 
 use super::{
-    OrganizationDescription, OrganizationDisplayName, OrganizationHandle, OrganizationId,
-    OrganizationOwner, OrganizationPictureRef, OrganizationStateError, OrganizationStatus,
-    OrganizationWebsiteUrl,
+    OrganizationDescription, OrganizationDisplayName, OrganizationHandle, OrganizationOwner,
+    OrganizationPictureRef, OrganizationStateError, OrganizationStatus, OrganizationWebsiteUrl,
 };
 use crate::UserId;
 
@@ -15,7 +15,6 @@ use crate::UserId;
 #[unique_constraints(entry(key = "handle", value = handle_unique_value))]
 #[reference_indexes(entry(key = "owner_user", value = owner_user_ref_value))]
 pub struct OrganizationState {
-    pub(super) id: OrganizationId,
     pub(super) owner: OrganizationOwner,
     pub(super) handle: OrganizationHandle,
     pub(super) display_name: OrganizationDisplayName,
@@ -27,6 +26,7 @@ pub struct OrganizationState {
 
 fn handle_unique_value(
     state: &OrganizationState,
+    _aggregate_id: Uuid,
 ) -> Result<Option<UniqueValue>, OrganizationStateError> {
     if state.status.is_removed() {
         return Ok(None);
@@ -39,6 +39,7 @@ fn handle_unique_value(
 
 fn owner_user_ref_value(
     state: &OrganizationState,
+    _aggregate_id: Uuid,
 ) -> Result<Option<UserId>, OrganizationStateError> {
     let OrganizationOwner::User(user_id) = state.owner;
 
@@ -47,31 +48,25 @@ fn owner_user_ref_value(
 
 #[cfg(test)]
 mod tests {
-    use appletheia::domain::{
-        AggregateState, ReferenceIndexes, ReferenceValues, UniqueConstraints, UniqueValues,
-    };
+    use appletheia::domain::{ReferenceIndexes, ReferenceValues, UniqueConstraints, UniqueValues};
+    use uuid::Uuid;
 
     use crate::{
         OrganizationDescription, OrganizationDisplayName, OrganizationPictureRef,
         OrganizationPictureUrl, OrganizationWebsiteUrl, UserId,
     };
 
-    use super::{
-        OrganizationHandle, OrganizationId, OrganizationOwner, OrganizationState,
-        OrganizationStatus,
-    };
+    use super::{OrganizationHandle, OrganizationOwner, OrganizationState, OrganizationStatus};
 
     fn display_name() -> OrganizationDisplayName {
         OrganizationDisplayName::try_from("Acme Labs").expect("display name should be valid")
     }
 
     #[test]
-    fn exposes_id_via_aggregate_state_trait() {
-        let id = OrganizationId::new();
+    fn state_stores_domain_attributes() {
         let owner = OrganizationOwner::User(UserId::new());
         let handle = OrganizationHandle::try_from("acme-labs").expect("handle should be valid");
         let state = OrganizationState {
-            id,
             owner,
             handle: handle.clone(),
             display_name: display_name(),
@@ -80,8 +75,6 @@ mod tests {
             picture: None,
             status: OrganizationStatus::Active,
         };
-
-        assert_eq!(state.id(), id);
         assert_eq!(state.handle, handle);
         assert_eq!(state.owner, owner);
     }
@@ -89,7 +82,6 @@ mod tests {
     #[test]
     fn state_can_store_profile_attributes() {
         let state = OrganizationState {
-            id: OrganizationId::new(),
             owner: OrganizationOwner::User(UserId::new()),
             handle: OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
             display_name: display_name(),
@@ -117,7 +109,6 @@ mod tests {
     #[test]
     fn active_state_returns_unique_entries_for_handle() {
         let state = OrganizationState {
-            id: OrganizationId::new(),
             owner: OrganizationOwner::User(UserId::new()),
             handle: OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
             display_name: display_name(),
@@ -127,7 +118,9 @@ mod tests {
             status: OrganizationStatus::Active,
         };
 
-        let entries = state.unique_entries().expect("unique entries should build");
+        let entries = state
+            .unique_entries(Uuid::now_v7())
+            .expect("unique entries should build");
 
         assert_eq!(
             entries
@@ -140,7 +133,6 @@ mod tests {
     #[test]
     fn removed_state_has_no_handle_unique_entry() {
         let mut state = OrganizationState {
-            id: OrganizationId::new(),
             owner: OrganizationOwner::User(UserId::new()),
             handle: OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
             display_name: display_name(),
@@ -151,7 +143,9 @@ mod tests {
         };
         state.status = OrganizationStatus::Removed;
 
-        let entries = state.unique_entries().expect("unique entries should build");
+        let entries = state
+            .unique_entries(Uuid::now_v7())
+            .expect("unique entries should build");
 
         assert_eq!(
             entries
@@ -165,7 +159,6 @@ mod tests {
     fn returns_reference_entry_for_owner_user() {
         let owner = OrganizationOwner::User(UserId::new());
         let state = OrganizationState {
-            id: OrganizationId::new(),
             owner,
             handle: OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
             display_name: display_name(),
@@ -176,7 +169,7 @@ mod tests {
         };
 
         let entries = state
-            .reference_entries()
+            .reference_entries(Uuid::now_v7())
             .expect("reference entries should build");
 
         assert_eq!(

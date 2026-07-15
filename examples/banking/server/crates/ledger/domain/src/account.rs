@@ -73,7 +73,7 @@ use crate::currency::CurrencyId;
 /// Represents the `Account` aggregate root.
 #[aggregate(type = "account", error = AccountError)]
 pub struct Account {
-    core: AggregateCore<AccountState, AccountEventPayload>,
+    core: AggregateCore<AccountId, AccountState, AccountEventPayload>,
 }
 
 impl Account {
@@ -136,16 +136,14 @@ impl Account {
             return Err(AccountError::AlreadyOpened);
         }
 
-        let account_id = AccountId::new();
         let (owner, name, currency_id) = opening.into_parts();
         self.append_event(AccountEventPayload::Opened {
-            id: account_id,
             owner,
             name,
             currency_id,
         })?;
 
-        Ok(AccountOpenResult::Opened { account_id })
+        Ok(AccountOpenResult::Opened)
     }
 
     /// Transfers ownership of the account.
@@ -469,13 +467,11 @@ impl AggregateApply<AccountEventPayload, AccountError> for Account {
     fn apply(&mut self, payload: &AccountEventPayload) -> Result<(), AccountError> {
         match payload {
             AccountEventPayload::Opened {
-                id,
                 owner,
                 name,
                 currency_id,
             } => {
                 self.set_state(Some(AccountState {
-                    id: *id,
                     owner: *owner,
                     name: name.clone(),
                     currency_id: *currency_id,
@@ -559,6 +555,7 @@ impl AggregateApply<AccountEventPayload, AccountError> for Account {
 #[cfg(test)]
 mod tests {
     use appletheia::domain::{Aggregate, Event, EventPayload};
+    use banking_iam_domain::{OrganizationId, UserId};
 
     use crate::core::CurrencyAmount;
     use crate::currency::CurrencyId;
@@ -573,7 +570,7 @@ mod tests {
     }
 
     fn account_owner() -> AccountOwner {
-        AccountOwner::from(banking_iam_domain::UserId::new())
+        AccountOwner::from(UserId::new())
     }
 
     #[test]
@@ -591,10 +588,7 @@ mod tests {
             })
             .expect("open should succeed");
 
-        assert_eq!(
-            account.aggregate_id().expect("aggregate id should exist"),
-            account.aggregate_id().expect("aggregate id should exist")
-        );
+        assert_eq!(account.aggregate_id(), account.aggregate_id());
         assert_eq!(account.owner().expect("owner should exist"), owner);
         assert_eq!(
             account.currency_id().expect("currency id should exist"),
@@ -622,11 +616,14 @@ mod tests {
         assert_eq!(
             account.uncommitted_events()[0].payload(),
             &AccountEventPayload::Opened {
-                id: account.aggregate_id().expect("aggregate id should exist"),
                 owner,
                 name,
                 currency_id,
             }
+        );
+        assert_eq!(
+            account.uncommitted_events()[0].aggregate_id(),
+            account.aggregate_id()
         );
     }
 
@@ -659,8 +656,7 @@ mod tests {
     #[test]
     fn transfer_ownership_updates_owner_and_records_event() {
         let original_owner = account_owner();
-        let transferred_owner =
-            AccountOwner::Organization(banking_iam_domain::OrganizationId::new());
+        let transferred_owner = AccountOwner::Organization(OrganizationId::new());
         let mut account = Account::new();
         account
             .open(AccountOpening {
@@ -863,7 +859,6 @@ mod tests {
             id,
             appletheia::domain::AggregateVersion::try_from(1).expect("version should be valid"),
             AccountEventPayload::Opened {
-                id,
                 owner,
                 name: name.clone(),
                 currency_id,
@@ -881,7 +876,7 @@ mod tests {
                 name: AccountName::try_from("archived").expect("account name should be valid"),
             },
         );
-        let mut account = Account::new();
+        let mut account = Account::from_id(id);
 
         account
             .replay_events(vec![opened, closed, name_changed], None)
@@ -909,7 +904,6 @@ mod tests {
             id,
             appletheia::domain::AggregateVersion::try_from(1).expect("version should be valid"),
             AccountEventPayload::Opened {
-                id,
                 owner,
                 name: name.clone(),
                 currency_id,
@@ -934,7 +928,7 @@ mod tests {
             appletheia::domain::AggregateVersion::try_from(4).expect("version should be valid"),
             AccountEventPayload::Frozen,
         );
-        let mut account = Account::new();
+        let mut account = Account::from_id(id);
 
         account
             .replay_events(vec![opened, name_changed, deposited, frozen], None)

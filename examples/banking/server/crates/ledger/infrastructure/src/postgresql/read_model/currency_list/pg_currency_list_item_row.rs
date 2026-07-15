@@ -13,6 +13,7 @@ use banking_ledger_domain::currency::{
 };
 use banking_shared_kernel_application::read_model::ReadModelObservation;
 use sqlx::types::chrono::{DateTime, Utc};
+use uuid::Uuid;
 
 use super::super::pg_currency_image_ref_columns::PgCurrencyImageRefColumns;
 use super::super::pg_organization_picture_ref_columns::PgOrganizationPictureRefColumns;
@@ -21,9 +22,9 @@ use super::pg_currency_list_item_row_error::PgCurrencyListItemRowError;
 
 #[derive(Debug, sqlx::FromRow)]
 pub struct PgCurrencyListItemRow {
-    pub currency_id: uuid::Uuid,
+    pub currency_id: Uuid,
     pub owner_type: String,
-    pub owner_id: uuid::Uuid,
+    pub owner_id: Uuid,
     pub owner_user_username: Option<String>,
     pub owner_user_display_name: Option<String>,
     pub owner_user_picture_type: Option<String>,
@@ -34,8 +35,8 @@ pub struct PgCurrencyListItemRow {
     pub owner_organization_picture_type: Option<String>,
     pub owner_organization_picture_object_name: Option<String>,
     pub owner_organization_picture_external_url: Option<String>,
-    pub owner_source_event_id: Option<uuid::Uuid>,
-    pub owner_updated_event_id: Option<uuid::Uuid>,
+    pub owner_source_event_id: Option<Uuid>,
+    pub owner_updated_event_id: Option<Uuid>,
     pub symbol: String,
     pub name: String,
     pub decimals: i16,
@@ -47,14 +48,14 @@ pub struct PgCurrencyListItemRow {
     pub supply: String,
     pub status: String,
     pub created_at: DateTime<Utc>,
-    pub source_event_id: uuid::Uuid,
-    pub updated_event_id: uuid::Uuid,
+    pub source_event_id: Uuid,
+    pub updated_event_id: Uuid,
 }
 
 impl PgCurrencyListItemRow {
     fn observation(
-        source_event_id: uuid::Uuid,
-        updated_event_id: uuid::Uuid,
+        source_event_id: Uuid,
+        updated_event_id: Uuid,
     ) -> Result<ReadModelObservation, PgCurrencyListItemRowError> {
         Ok(ReadModelObservation::new(
             EventId::try_from(source_event_id).map_err(|error| {

@@ -9,32 +9,33 @@ use banking_ledger_domain::currency::{
 };
 use banking_shared_kernel_application::read_model::ReadModelObservation;
 use sqlx::types::chrono::{DateTime, Utc};
+use uuid::Uuid;
 
 use super::pg_owned_account_list_item_row_error::PgOwnedAccountListItemRowError;
 
 #[derive(Debug, sqlx::FromRow)]
 pub struct PgOwnedAccountListItemRow {
-    pub account_id: uuid::Uuid,
+    pub account_id: Uuid,
     pub name: String,
-    pub currency_id: uuid::Uuid,
+    pub currency_id: Uuid,
     pub currency_symbol: String,
     pub currency_name: String,
     pub currency_decimals: i16,
     pub currency_mint_account_address: Option<String>,
-    pub currency_source_event_id: uuid::Uuid,
-    pub currency_updated_event_id: uuid::Uuid,
+    pub currency_source_event_id: Uuid,
+    pub currency_updated_event_id: Uuid,
     pub balance: String,
     pub reserved_balance: String,
     pub status: String,
     pub created_at: DateTime<Utc>,
-    pub source_event_id: uuid::Uuid,
-    pub updated_event_id: uuid::Uuid,
+    pub source_event_id: Uuid,
+    pub updated_event_id: Uuid,
 }
 
 impl PgOwnedAccountListItemRow {
     fn observation(
-        source_event_id: uuid::Uuid,
-        updated_event_id: uuid::Uuid,
+        source_event_id: Uuid,
+        updated_event_id: Uuid,
     ) -> Result<ReadModelObservation, PgOwnedAccountListItemRowError> {
         Ok(ReadModelObservation::new(
             EventId::try_from(source_event_id).map_err(|error| {

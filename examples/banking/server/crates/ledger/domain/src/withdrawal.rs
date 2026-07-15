@@ -44,7 +44,7 @@ use crate::currency::CurrencyId;
 /// Represents the `Withdrawal` aggregate root.
 #[aggregate(type = "withdrawal", error = WithdrawalError)]
 pub struct Withdrawal {
-    core: AggregateCore<WithdrawalState, WithdrawalEventPayload>,
+    core: AggregateCore<WithdrawalId, WithdrawalState, WithdrawalEventPayload>,
 }
 
 impl Withdrawal {
@@ -86,24 +86,19 @@ impl Withdrawal {
 
         if request.amount().is_zero() {
             let reason = WithdrawalRequestRejectionReason::ZeroAmount;
-            let withdrawal_id = self.reject_request(request, reason)?;
-            return Ok(WithdrawalRequestResult::Rejected {
-                withdrawal_id,
-                reason,
-            });
+            self.reject_request(request, reason)?;
+            return Ok(WithdrawalRequestResult::Rejected { reason });
         }
 
-        let withdrawal_id = WithdrawalId::new();
         let (account_id, currency_id, token_account_owner_address, amount) = request.into_parts();
         self.append_event(WithdrawalEventPayload::Requested {
-            id: withdrawal_id,
             account_id,
             currency_id,
             token_account_owner_address,
             amount,
         })?;
 
-        Ok(WithdrawalRequestResult::Requested { withdrawal_id })
+        Ok(WithdrawalRequestResult::Requested)
     }
 
     /// Rejects a withdrawal request.
@@ -111,18 +106,16 @@ impl Withdrawal {
         &mut self,
         request: WithdrawalRequest,
         reason: WithdrawalRequestRejectionReason,
-    ) -> Result<WithdrawalId, WithdrawalError> {
-        let withdrawal_id = WithdrawalId::new();
+    ) -> Result<(), WithdrawalError> {
         let (account_id, currency_id, token_account_owner_address, amount) = request.into_parts();
         self.append_event(WithdrawalEventPayload::RequestRejected {
-            id: withdrawal_id,
             account_id,
             currency_id,
             token_account_owner_address,
             amount,
             reason,
         })?;
-        Ok(withdrawal_id)
+        Ok(())
     }
 
     /// Records a successful external token transfer.
@@ -253,13 +246,11 @@ impl AggregateApply<WithdrawalEventPayload, WithdrawalError> for Withdrawal {
     fn apply(&mut self, payload: &WithdrawalEventPayload) -> Result<(), WithdrawalError> {
         match payload {
             WithdrawalEventPayload::Requested {
-                id,
                 account_id,
                 currency_id,
                 token_account_owner_address,
                 amount,
             } => self.set_state(Some(WithdrawalState {
-                id: *id,
                 account_id: *account_id,
                 currency_id: *currency_id,
                 token_account_owner_address: token_account_owner_address.clone(),
@@ -267,14 +258,12 @@ impl AggregateApply<WithdrawalEventPayload, WithdrawalError> for Withdrawal {
                 status: WithdrawalStatus::Pending,
             })),
             WithdrawalEventPayload::RequestRejected {
-                id,
                 account_id,
                 currency_id,
                 token_account_owner_address,
                 amount,
                 ..
             } => self.set_state(Some(WithdrawalState {
-                id: *id,
                 account_id: *account_id,
                 currency_id: *currency_id,
                 token_account_owner_address: token_account_owner_address.clone(),
@@ -333,7 +322,7 @@ mod tests {
             })
             .expect("request should succeed");
 
-        assert!(matches!(result, WithdrawalRequestResult::Requested { .. }));
+        assert_eq!(result, WithdrawalRequestResult::Requested);
         assert_eq!(withdrawal.account_id().expect("account id"), &account_id);
         assert_eq!(withdrawal.currency_id().expect("currency id"), &currency_id);
         assert_eq!(
@@ -369,7 +358,6 @@ mod tests {
         assert_eq!(
             result,
             WithdrawalRequestResult::Rejected {
-                withdrawal_id: withdrawal.aggregate_id().expect("id should exist"),
                 reason: WithdrawalRequestRejectionReason::ZeroAmount,
             }
         );

@@ -100,6 +100,7 @@ where
         }
 
         let mut currency = Currency::new();
+        let currency_id = currency.aggregate_id();
         let result = currency.define(owner, symbol, name, decimals, description, image)?;
 
         self.currency_repository
@@ -107,7 +108,7 @@ where
             .await?;
 
         let output = match result {
-            CurrencyDefineResult::Defined { currency_id } => CurrencyDefineOutput::new(currency_id),
+            CurrencyDefineResult::Defined => CurrencyDefineOutput::new(currency_id),
         };
 
         Ok(CommandHandled::same(output))
@@ -325,7 +326,7 @@ mod tests {
             .expect("lock")
             .clone()
             .expect("currency should be saved");
-        let saved_id = saved.aggregate_id().expect("currency id should exist");
+        let saved_id = saved.aggregate_id();
 
         assert_eq!(output, CurrencyDefineOutput::new(saved_id));
         assert_eq!(saved.symbol().expect("symbol should exist").value(), "USDC");
@@ -366,7 +367,7 @@ mod tests {
             .expect("lock")
             .clone()
             .expect("currency should be saved");
-        let saved_id = saved.aggregate_id().expect("currency id should exist");
+        let saved_id = saved.aggregate_id();
 
         assert_eq!(output, CurrencyDefineOutput::new(saved_id));
         assert_eq!(saved.owner().expect("owner should exist"), expected_owner);

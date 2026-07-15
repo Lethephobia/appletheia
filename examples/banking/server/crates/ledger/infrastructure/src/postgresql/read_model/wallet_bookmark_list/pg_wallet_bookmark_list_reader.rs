@@ -8,6 +8,7 @@ use banking_ledger_application::{
 use banking_ledger_domain::wallet_bookmark::WalletBookmarkOwner;
 use banking_shared_kernel_application::read_model::{CursorOptions, PageSize, SortDirection};
 use sqlx::{Postgres, QueryBuilder};
+use uuid::Uuid;
 
 use super::pg_wallet_bookmark_list_item_row::PgWalletBookmarkListItemRow;
 
@@ -19,7 +20,7 @@ impl PgWalletBookmarkListReader {
         Self
     }
 
-    fn owner_parts(owner: WalletBookmarkOwner) -> (&'static str, uuid::Uuid) {
+    fn owner_parts(owner: WalletBookmarkOwner) -> (&'static str, Uuid) {
         match owner {
             WalletBookmarkOwner::User(user_id) => ("user", user_id.value()),
             WalletBookmarkOwner::Organization(organization_id) => {

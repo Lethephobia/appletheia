@@ -1,12 +1,9 @@
-use super::{OrganizationJoinRequestId, OrganizationJoinRequestSubmitRejectionReason};
+use super::OrganizationJoinRequestSubmitRejectionReason;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum OrganizationJoinRequestSubmitResult {
-    Submitted {
-        organization_join_request_id: OrganizationJoinRequestId,
-    },
+    Submitted,
     Rejected {
-        organization_join_request_id: OrganizationJoinRequestId,
         reason: OrganizationJoinRequestSubmitRejectionReason,
     },
 }

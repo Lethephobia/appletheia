@@ -37,8 +37,8 @@ where
         let updater = &self.user_relationship_updater;
 
         match event.payload() {
-            UserEventPayload::Registered { id, .. } => {
-                updater.upsert_owner(uow, *id).await?;
+            UserEventPayload::Registered { .. } => {
+                updater.upsert_owner(uow, event.aggregate_id()).await?;
             }
             UserEventPayload::OrganizationMembershipGranted {
                 organization_id,

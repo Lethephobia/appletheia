@@ -6,6 +6,7 @@ use banking_ledger_application::{
     OwnedAccountListOwner, OwnedAccountListOwnerOrganization, OwnedAccountListOwnerUser,
 };
 use banking_shared_kernel_application::read_model::ReadModelObservation;
+use uuid::Uuid;
 
 use super::super::pg_organization_picture_ref_columns::PgOrganizationPictureRefColumns;
 use super::super::pg_user_picture_ref_columns::PgUserPictureRefColumns;
@@ -14,7 +15,7 @@ use super::pg_owned_account_list_owner_row_error::PgOwnedAccountListOwnerRowErro
 #[derive(Debug, sqlx::FromRow)]
 pub struct PgOwnedAccountListOwnerRow {
     pub owner_type: String,
-    pub owner_id: uuid::Uuid,
+    pub owner_id: Uuid,
     pub owner_user_username: Option<String>,
     pub owner_user_display_name: Option<String>,
     pub owner_user_picture_type: Option<String>,
@@ -25,8 +26,8 @@ pub struct PgOwnedAccountListOwnerRow {
     pub owner_organization_picture_type: Option<String>,
     pub owner_organization_picture_object_name: Option<String>,
     pub owner_organization_picture_external_url: Option<String>,
-    pub source_event_id: Option<uuid::Uuid>,
-    pub updated_event_id: Option<uuid::Uuid>,
+    pub source_event_id: Option<Uuid>,
+    pub updated_event_id: Option<Uuid>,
 }
 
 impl PgOwnedAccountListOwnerRow {

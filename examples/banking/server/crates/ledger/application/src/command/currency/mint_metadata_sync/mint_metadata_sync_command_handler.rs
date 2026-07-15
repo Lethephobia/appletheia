@@ -283,7 +283,7 @@ mod tests {
     #[tokio::test]
     async fn handle_rejects_when_mint_account_is_not_recorded() {
         let currency = defined_currency(None, false);
-        let currency_id = currency.aggregate_id().expect("currency id should exist");
+        let currency_id = currency.aggregate_id();
         let repository = TestCurrencyRepository::new(currency);
         let saved_currency = repository.saved_currency.clone();
         let updater = TestMintMetadataUpdater::new();
@@ -325,7 +325,7 @@ mod tests {
     #[tokio::test]
     async fn handle_updates_onchain_metadata() {
         let currency = defined_currency_with_mint_account();
-        let currency_id = currency.aggregate_id().expect("currency id should exist");
+        let currency_id = currency.aggregate_id();
         let repository = TestCurrencyRepository::new(currency);
         let saved_currency = repository.saved_currency.clone();
         let updater = TestMintMetadataUpdater::new();
@@ -388,7 +388,7 @@ mod tests {
             .expect("image object name should be valid"),
         );
         let currency = defined_currency(Some(image), true);
-        let currency_id = currency.aggregate_id().expect("currency id should exist");
+        let currency_id = currency.aggregate_id();
         let repository = TestCurrencyRepository::new(currency);
         let updater = TestMintMetadataUpdater::new();
         let update_request = updater.request.clone();
@@ -427,7 +427,7 @@ mod tests {
                 .expect("image URL should be valid"),
         );
         let currency = defined_currency(Some(image), true);
-        let currency_id = currency.aggregate_id().expect("currency id should exist");
+        let currency_id = currency.aggregate_id();
         let repository = TestCurrencyRepository::new(currency);
         let updater = TestMintMetadataUpdater::new();
         let update_request = updater.request.clone();

@@ -5,7 +5,7 @@ use crate::core::CurrencyAmount;
 use super::{
     CurrencyActivateRejectionReason, CurrencyDeactivateRejectionReason, CurrencyDecimals,
     CurrencyDescription, CurrencyDescriptionChangeRejectionReason, CurrencyEventPayloadError,
-    CurrencyId, CurrencyImageChangeRejectionReason, CurrencyImageRef, CurrencyName,
+    CurrencyImageChangeRejectionReason, CurrencyImageRef, CurrencyName,
     CurrencyNameChangeRejectionReason, CurrencyOwner, CurrencyOwnershipTransferRejectionReason,
     CurrencyProvisionRejectionReason, CurrencyRemoveRejectionReason,
     CurrencySupplyCommitRejectionReason, CurrencySupplyReleaseRejectionReason,
@@ -17,7 +17,6 @@ use super::{
 #[event_payload(error = CurrencyEventPayloadError)]
 pub enum CurrencyEventPayload {
     Defined {
-        id: CurrencyId,
         owner: CurrencyOwner,
         symbol: CurrencySymbol,
         name: CurrencyName,
@@ -244,7 +243,6 @@ mod tests {
     #[test]
     fn serializes_payload_to_json() {
         let payload = CurrencyEventPayload::Defined {
-            id: super::CurrencyId::new(),
             owner: CurrencyOwner::User(UserId::new()),
             symbol: super::CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
             name: super::CurrencyName::try_from("USD Coin").expect("name should be valid"),

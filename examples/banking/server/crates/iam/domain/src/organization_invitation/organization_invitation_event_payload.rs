@@ -5,15 +5,14 @@ use crate::{OrganizationId, OrganizationRoles, UserId};
 use super::{
     OrganizationInvitationAcceptRejectionReason, OrganizationInvitationCancelRejectionReason,
     OrganizationInvitationDeclineRejectionReason, OrganizationInvitationEventPayloadError,
-    OrganizationInvitationExpiresAt, OrganizationInvitationId,
-    OrganizationInvitationIssueRejectionReason, OrganizationInvitationIssuer,
+    OrganizationInvitationExpiresAt, OrganizationInvitationIssueRejectionReason,
+    OrganizationInvitationIssuer,
 };
 
 /// Represents the domain events emitted by an `OrganizationInvitation` aggregate.
 #[event_payload(error = OrganizationInvitationEventPayloadError)]
 pub enum OrganizationInvitationEventPayload {
     Issued {
-        id: OrganizationInvitationId,
         organization_id: OrganizationId,
         invitee_id: UserId,
         roles: OrganizationRoles,
@@ -21,7 +20,6 @@ pub enum OrganizationInvitationEventPayload {
         expires_at: OrganizationInvitationExpiresAt,
     },
     IssueRejected {
-        id: OrganizationInvitationId,
         organization_id: OrganizationId,
         invitee_id: UserId,
         roles: OrganizationRoles,
@@ -64,9 +62,7 @@ mod tests {
     use appletheia::domain::EventPayload;
     use chrono::{Duration, Utc};
 
-    use super::{
-        OrganizationInvitationEventPayload, OrganizationInvitationId, OrganizationInvitationIssuer,
-    };
+    use super::{OrganizationInvitationEventPayload, OrganizationInvitationIssuer};
     use crate::{OrganizationId, OrganizationRoles, UserId};
 
     fn expires_at() -> super::OrganizationInvitationExpiresAt {
@@ -112,7 +108,6 @@ mod tests {
     #[test]
     fn issued_payload_name_matches_variant() {
         let payload = OrganizationInvitationEventPayload::Issued {
-            id: OrganizationInvitationId::new(),
             organization_id: OrganizationId::new(),
             invitee_id: UserId::new(),
             roles: OrganizationRoles::default(),
@@ -157,7 +152,6 @@ mod tests {
     #[test]
     fn serializes_payload_to_json() {
         let payload = OrganizationInvitationEventPayload::Issued {
-            id: OrganizationInvitationId::new(),
             organization_id: OrganizationId::new(),
             invitee_id: UserId::new(),
             roles: OrganizationRoles::default(),

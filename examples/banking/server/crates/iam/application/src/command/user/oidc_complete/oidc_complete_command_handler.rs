@@ -134,7 +134,7 @@ where
             .await?
         {
             Some(mut user) => {
-                if user.aggregate_id() != Some(user_id) {
+                if user.aggregate_id() != user_id {
                     let mut authenticated_user = self.user_repository.read(uow, user_id).await?;
 
                     let reason = UserIdentityLinkRejectionReason::AlreadyLinked;
@@ -273,7 +273,7 @@ where
 
         let output = match completion_purpose {
             OidcCompletionPurpose::Token => {
-                let subject = AggregateRef::try_from_aggregate(&user)?;
+                let subject = AggregateRef::from_aggregate(&user);
                 let result = self
                     .auth_token_issuer
                     .issue(AuthTokenIssueRequest::new(subject))
@@ -287,7 +287,7 @@ where
                 }
             }
             OidcCompletionPurpose::ExchangeCode => {
-                let subject = AggregateRef::try_from_aggregate(&user)?;
+                let subject = AggregateRef::from_aggregate(&user);
                 let result = self
                     .auth_token_exchange_code_issuer
                     .issue(

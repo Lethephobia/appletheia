@@ -1,13 +1,10 @@
-use super::{TransferId, TransferRequestRejectionReason};
+use super::TransferRequestRejectionReason;
 
 /// Describes the domain outcome of a transfer request.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum TransferRequestResult {
-    Requested {
-        transfer_id: TransferId,
-    },
+    Requested,
     Rejected {
-        transfer_id: TransferId,
         reason: TransferRequestRejectionReason,
     },
 }

@@ -5,15 +5,13 @@ use crate::core::TokenAccountOwnerAddress;
 use super::{
     WalletBookmarkDescription, WalletBookmarkDescriptionChangeRejectionReason,
     WalletBookmarkDisplayName, WalletBookmarkDisplayNameChangeRejectionReason,
-    WalletBookmarkEventPayloadError, WalletBookmarkId, WalletBookmarkOwner,
-    WalletBookmarkRemoveRejectionReason,
+    WalletBookmarkEventPayloadError, WalletBookmarkOwner, WalletBookmarkRemoveRejectionReason,
 };
 
 /// Represents the domain events emitted by a `WalletBookmark` aggregate.
 #[event_payload(error = WalletBookmarkEventPayloadError)]
 pub enum WalletBookmarkEventPayload {
     Registered {
-        id: WalletBookmarkId,
         owner: WalletBookmarkOwner,
         display_name: Option<WalletBookmarkDisplayName>,
         description: Option<WalletBookmarkDescription>,
@@ -48,7 +46,7 @@ mod tests {
 
     use super::{
         WalletBookmarkDescription, WalletBookmarkDisplayName, WalletBookmarkEventPayload,
-        WalletBookmarkId, WalletBookmarkOwner,
+        WalletBookmarkOwner,
     };
 
     #[test]
@@ -93,7 +91,6 @@ mod tests {
     #[test]
     fn serializes_payload_to_json() {
         let payload = WalletBookmarkEventPayload::Registered {
-            id: WalletBookmarkId::new(),
             owner: WalletBookmarkOwner::User(UserId::new()),
             display_name: Some(
                 WalletBookmarkDisplayName::try_from("Main wallet")

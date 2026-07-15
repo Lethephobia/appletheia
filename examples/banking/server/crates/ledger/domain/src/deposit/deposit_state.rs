@@ -1,12 +1,13 @@
 use appletheia::aggregate_state;
 use appletheia::reference_indexes;
 use appletheia::unique_constraints;
+use uuid::Uuid;
 
 use crate::account::AccountId;
 use crate::core::{CurrencyAmount, TokenAccountOwnerAddress};
 use crate::currency::CurrencyId;
 
-use super::{DepositId, DepositStateError, DepositStatus};
+use super::{DepositStateError, DepositStatus};
 
 /// Stores the materialized state of a `Deposit` aggregate.
 #[aggregate_state(error = DepositStateError)]
@@ -16,7 +17,6 @@ use super::{DepositId, DepositStateError, DepositStatus};
     entry(key = "currency", value = currency_ref_value)
 )]
 pub struct DepositState {
-    pub(super) id: DepositId,
     pub(super) account_id: AccountId,
     pub(super) currency_id: CurrencyId,
     pub(super) token_account_owner_address: TokenAccountOwnerAddress,
@@ -24,30 +24,37 @@ pub struct DepositState {
     pub(super) status: DepositStatus,
 }
 
-fn account_ref_value(state: &DepositState) -> Result<Option<AccountId>, DepositStateError> {
+fn account_ref_value(
+    state: &DepositState,
+    _aggregate_id: Uuid,
+) -> Result<Option<AccountId>, DepositStateError> {
     Ok(Some(state.account_id))
 }
 
-fn currency_ref_value(state: &DepositState) -> Result<Option<CurrencyId>, DepositStateError> {
+fn currency_ref_value(
+    state: &DepositState,
+    _aggregate_id: Uuid,
+) -> Result<Option<CurrencyId>, DepositStateError> {
     Ok(Some(state.currency_id))
 }
 
 #[cfg(test)]
 mod tests {
     use appletheia::domain::{ReferenceIndexes, ReferenceValues};
+    use uuid::Uuid;
 
     use crate::account::AccountId;
     use crate::core::{CurrencyAmount, TokenAccountOwnerAddress};
     use crate::currency::CurrencyId;
 
-    use super::{DepositId, DepositState, DepositStatus};
+    use super::{DepositState, DepositStatus};
 
     #[test]
     fn returns_reference_entries_for_account_and_currency() {
         let state = deposit_state();
 
         let entries = state
-            .reference_entries()
+            .reference_entries(Uuid::now_v7())
             .expect("reference entries should build");
 
         assert_eq!(
@@ -66,7 +73,6 @@ mod tests {
 
     fn deposit_state() -> DepositState {
         DepositState {
-            id: DepositId::new(),
             account_id: AccountId::new(),
             currency_id: CurrencyId::new(),
             token_account_owner_address: TokenAccountOwnerAddress::try_from(

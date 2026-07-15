@@ -45,7 +45,11 @@ use crate::{OrganizationId, OrganizationRoles, UserId};
 /// Represents the `OrganizationInvitation` aggregate root.
 #[aggregate(type = "organization_invitation", error = OrganizationInvitationError)]
 pub struct OrganizationInvitation {
-    core: AggregateCore<OrganizationInvitationState, OrganizationInvitationEventPayload>,
+    core: AggregateCore<
+        OrganizationInvitationId,
+        OrganizationInvitationState,
+        OrganizationInvitationEventPayload,
+    >,
 }
 
 impl OrganizationInvitation {
@@ -118,26 +122,19 @@ impl OrganizationInvitation {
 
         if issuance.expires_at().is_expired(now) {
             let reason = OrganizationInvitationIssueRejectionReason::Expired;
-            let organization_invitation_id = self.reject_issue(issuance, reason)?;
-            return Ok(OrganizationInvitationIssueResult::Rejected {
-                organization_invitation_id,
-                reason,
-            });
+            self.reject_issue(issuance, reason)?;
+            return Ok(OrganizationInvitationIssueResult::Rejected { reason });
         }
 
-        let organization_invitation_id = OrganizationInvitationId::new();
         let (organization_id, invitee_id, roles, issuer, expires_at) = issuance.into_parts();
         self.append_event(OrganizationInvitationEventPayload::Issued {
-            id: organization_invitation_id,
             organization_id,
             invitee_id,
             roles,
             issuer,
             expires_at,
         })?;
-        Ok(OrganizationInvitationIssueResult::Issued {
-            organization_invitation_id,
-        })
+        Ok(OrganizationInvitationIssueResult::Issued)
     }
 
     /// Rejects an invitation issue attempt.
@@ -145,11 +142,9 @@ impl OrganizationInvitation {
         &mut self,
         issuance: OrganizationInvitationIssuance,
         reason: OrganizationInvitationIssueRejectionReason,
-    ) -> Result<OrganizationInvitationId, OrganizationInvitationError> {
-        let organization_invitation_id = OrganizationInvitationId::new();
+    ) -> Result<(), OrganizationInvitationError> {
         let (organization_id, invitee_id, roles, issuer, expires_at) = issuance.into_parts();
         self.append_event(OrganizationInvitationEventPayload::IssueRejected {
-            id: organization_invitation_id,
             organization_id,
             invitee_id,
             roles,
@@ -157,7 +152,7 @@ impl OrganizationInvitation {
             expires_at,
             reason,
         })?;
-        Ok(organization_invitation_id)
+        Ok(())
     }
 
     /// Accepts the invitation.
@@ -282,7 +277,6 @@ impl AggregateApply<OrganizationInvitationEventPayload, OrganizationInvitationEr
     ) -> Result<(), OrganizationInvitationError> {
         match payload {
             OrganizationInvitationEventPayload::Issued {
-                id,
                 organization_id,
                 invitee_id,
                 roles,
@@ -290,7 +284,6 @@ impl AggregateApply<OrganizationInvitationEventPayload, OrganizationInvitationEr
                 expires_at,
             } => {
                 self.set_state(Some(OrganizationInvitationState {
-                    id: *id,
                     organization_id: *organization_id,
                     invitee_id: *invitee_id,
                     roles: roles.clone(),
@@ -300,7 +293,6 @@ impl AggregateApply<OrganizationInvitationEventPayload, OrganizationInvitationEr
                 }));
             }
             OrganizationInvitationEventPayload::IssueRejected {
-                id,
                 organization_id,
                 invitee_id,
                 roles,
@@ -309,7 +301,6 @@ impl AggregateApply<OrganizationInvitationEventPayload, OrganizationInvitationEr
                 ..
             } => {
                 self.set_state(Some(OrganizationInvitationState {
-                    id: *id,
                     organization_id: *organization_id,
                     invitee_id: *invitee_id,
                     roles: roles.clone(),
@@ -391,9 +382,7 @@ mod tests {
             )
             .expect("issue should succeed");
 
-        let aggregate_id = invitation
-            .aggregate_id()
-            .expect("aggregate id should exist");
+        let aggregate_id = invitation.aggregate_id();
         assert!(!aggregate_id.value().is_nil());
         assert_eq!(
             invitation
@@ -563,7 +552,6 @@ mod tests {
 
         invitation
             .append_event(OrganizationInvitationEventPayload::Issued {
-                id: super::OrganizationInvitationId::new(),
                 organization_id,
                 invitee_id,
                 roles: roles(),

@@ -7,20 +7,21 @@ use banking_ledger_domain::wallet_bookmark::{
 };
 use banking_shared_kernel_application::read_model::ReadModelObservation;
 use sqlx::types::chrono::{DateTime, Utc};
+use uuid::Uuid;
 
 use super::pg_wallet_bookmark_list_item_row_error::PgWalletBookmarkListItemRowError;
 
 #[derive(Debug, sqlx::FromRow)]
 pub struct PgWalletBookmarkListItemRow {
-    pub wallet_bookmark_id: uuid::Uuid,
+    pub wallet_bookmark_id: Uuid,
     pub owner_type: String,
-    pub owner_id: uuid::Uuid,
+    pub owner_id: Uuid,
     pub display_name: Option<String>,
     pub description: Option<String>,
     pub token_account_owner_address: String,
     pub created_at: DateTime<Utc>,
-    pub source_event_id: uuid::Uuid,
-    pub updated_event_id: uuid::Uuid,
+    pub source_event_id: Uuid,
+    pub updated_event_id: Uuid,
 }
 
 impl PgWalletBookmarkListItemRow {

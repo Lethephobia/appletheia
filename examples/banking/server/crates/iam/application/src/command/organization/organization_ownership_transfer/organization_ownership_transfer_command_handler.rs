@@ -248,7 +248,7 @@ mod tests {
     #[tokio::test]
     async fn handle_transfers_ownership() {
         let organization = organization();
-        let organization_id = organization.aggregate_id().expect("id should exist");
+        let organization_id = organization.aggregate_id();
         let repository = TestOrganizationRepository::new(organization);
         let handler = OrganizationOwnershipTransferCommandHandler::new(repository.clone());
         let mut uow = TestUow;

@@ -22,12 +22,13 @@ impl Saga for DepositSaga {
             let deposit_event = event.try_into_domain_event::<Deposit>()?;
             match deposit_event.payload() {
                 DepositEventPayload::TokenTransferred {
-                    id,
-                    account_id,
-                    amount,
-                    ..
+                    account_id, amount, ..
                 } => {
-                    *instance.state_mut() = Some(DepositSagaState::new(*id, *account_id, *amount));
+                    *instance.state_mut() = Some(DepositSagaState::new(
+                        deposit_event.aggregate_id(),
+                        *account_id,
+                        *amount,
+                    ));
                     instance.append_command(
                         event,
                         &AccountDepositCommand {

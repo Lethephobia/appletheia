@@ -2,11 +2,12 @@ use appletheia::aggregate_state;
 use appletheia::reference_indexes;
 use appletheia::unique_constraints;
 use banking_iam_domain::{OrganizationId, UserId};
+use uuid::Uuid;
 
 use crate::core::TokenAccountOwnerAddress;
 
 use super::{
-    WalletBookmarkDescription, WalletBookmarkDisplayName, WalletBookmarkId, WalletBookmarkOwner,
+    WalletBookmarkDescription, WalletBookmarkDisplayName, WalletBookmarkOwner,
     WalletBookmarkStateError, WalletBookmarkStatus,
 };
 
@@ -18,7 +19,6 @@ use super::{
     entry(key = "organization_owner", value = organization_owner_ref_value)
 )]
 pub struct WalletBookmarkState {
-    pub(super) id: WalletBookmarkId,
     pub(super) owner: WalletBookmarkOwner,
     pub(super) display_name: Option<WalletBookmarkDisplayName>,
     pub(super) description: Option<WalletBookmarkDescription>,
@@ -28,12 +28,14 @@ pub struct WalletBookmarkState {
 
 fn user_owner_ref_value(
     state: &WalletBookmarkState,
+    _aggregate_id: Uuid,
 ) -> Result<Option<UserId>, WalletBookmarkStateError> {
     Ok(state.owner.user_id().copied())
 }
 
 fn organization_owner_ref_value(
     state: &WalletBookmarkState,
+    _aggregate_id: Uuid,
 ) -> Result<Option<OrganizationId>, WalletBookmarkStateError> {
     Ok(state.owner.organization_id().copied())
 }

@@ -32,14 +32,13 @@ impl Saga for CurrencyIssuanceSaga {
             let issuance_event = event.try_into_domain_event::<CurrencyIssuance>()?;
             match issuance_event.payload() {
                 CurrencyIssuanceEventPayload::Issued {
-                    id,
                     currency_id,
                     destination_account_id,
                     amount,
                     ..
                 } => {
                     *instance.state_mut() = Some(CurrencyIssuanceSagaState::new(
-                        *id,
+                        issuance_event.aggregate_id(),
                         *currency_id,
                         *destination_account_id,
                         *amount,

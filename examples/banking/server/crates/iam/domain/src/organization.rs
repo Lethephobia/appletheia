@@ -83,7 +83,7 @@ use appletheia::domain::{Aggregate, AggregateApply, AggregateCore};
 /// Represents the `Organization` aggregate root.
 #[aggregate(type = "organization", error = OrganizationError)]
 pub struct Organization {
-    core: AggregateCore<OrganizationState, OrganizationEventPayload>,
+    core: AggregateCore<OrganizationId, OrganizationState, OrganizationEventPayload>,
 }
 
 impl Organization {
@@ -141,11 +141,9 @@ impl Organization {
             return Err(OrganizationError::AlreadyCreated);
         }
 
-        let organization_id = OrganizationId::new();
         let (owner, handle, display_name, description, website_url, picture) =
             creation.into_parts();
         self.append_event(OrganizationEventPayload::Created {
-            id: organization_id,
             owner,
             handle,
             display_name,
@@ -154,7 +152,7 @@ impl Organization {
             picture,
         })?;
 
-        Ok(OrganizationCreateResult::Created { organization_id })
+        Ok(OrganizationCreateResult::Created)
     }
 
     /// Transfers ownership of the organization.
@@ -347,7 +345,6 @@ impl AggregateApply<OrganizationEventPayload, OrganizationError> for Organizatio
     fn apply(&mut self, payload: &OrganizationEventPayload) -> Result<(), OrganizationError> {
         match payload {
             OrganizationEventPayload::Created {
-                id,
                 owner,
                 handle,
                 display_name,
@@ -355,7 +352,6 @@ impl AggregateApply<OrganizationEventPayload, OrganizationError> for Organizatio
                 website_url,
                 picture,
             } => self.set_state(Some(OrganizationState {
-                id: *id,
                 owner: *owner,
                 handle: handle.clone(),
                 display_name: display_name.clone(),

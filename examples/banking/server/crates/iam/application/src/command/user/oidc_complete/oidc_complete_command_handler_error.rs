@@ -4,7 +4,6 @@ use appletheia::application::authentication::oidc::{
 use appletheia::application::authentication::{
     AuthTokenClaimsError, AuthTokenExchangeCodeIssuerError, AuthTokenIssuerError,
 };
-use appletheia::application::authorization::AggregateRefError;
 use appletheia::application::repository::RepositoryError;
 use appletheia::domain::{UniqueValueError, UniqueValuePartError};
 use banking_iam_domain::{User, UserError, UserIdentityProviderError, UserIdentitySubjectError};
@@ -49,7 +48,4 @@ pub enum OidcCompleteCommandHandlerError {
 
     #[error("auth token exchange code issue failed")]
     AuthTokenExchangeCodeIssuer(#[from] AuthTokenExchangeCodeIssuerError),
-
-    #[error("aggregate ref is invalid")]
-    AggregateRef(#[from] AggregateRefError),
 }

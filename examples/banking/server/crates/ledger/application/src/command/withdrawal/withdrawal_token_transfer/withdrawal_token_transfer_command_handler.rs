@@ -372,11 +372,9 @@ mod tests {
     #[tokio::test]
     async fn handle_records_successful_token_transfer() {
         let currency = provisioned_currency();
-        let currency_id = currency.aggregate_id().expect("currency id should exist");
+        let currency_id = currency.aggregate_id();
         let withdrawal = requested_withdrawal(currency_id);
-        let withdrawal_id = withdrawal
-            .aggregate_id()
-            .expect("withdrawal id should exist");
+        let withdrawal_id = withdrawal.aggregate_id();
         let withdrawal_repository = TestWithdrawalRepository::new(withdrawal);
         let pool_token_transfer_executor =
             TestPoolTokenTransferExecutor::new(TestPoolTokenTransferOutcome::Transferred);
@@ -419,11 +417,9 @@ mod tests {
     #[tokio::test]
     async fn handle_keeps_backend_error_retryable_without_saving_withdrawal() {
         let currency = provisioned_currency();
-        let currency_id = currency.aggregate_id().expect("currency id should exist");
+        let currency_id = currency.aggregate_id();
         let withdrawal = requested_withdrawal(currency_id);
-        let withdrawal_id = withdrawal
-            .aggregate_id()
-            .expect("withdrawal id should exist");
+        let withdrawal_id = withdrawal.aggregate_id();
         let withdrawal_repository = TestWithdrawalRepository::new(withdrawal);
         let pool_token_transfer_executor =
             TestPoolTokenTransferExecutor::new(TestPoolTokenTransferOutcome::BackendFailed);

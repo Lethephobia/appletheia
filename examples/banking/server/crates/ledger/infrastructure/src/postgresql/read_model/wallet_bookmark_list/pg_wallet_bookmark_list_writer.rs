@@ -7,6 +7,7 @@ use banking_ledger_domain::wallet_bookmark::{
     WalletBookmarkDescription, WalletBookmarkDisplayName, WalletBookmarkId, WalletBookmarkOwner,
 };
 use banking_shared_kernel_application::read_model::ReadModelEventContext;
+use uuid::Uuid;
 
 /// PostgreSQL-backed wallet bookmark list writer.
 pub struct PgWalletBookmarkListWriter;
@@ -16,7 +17,7 @@ impl PgWalletBookmarkListWriter {
         Self
     }
 
-    fn owner_parts(owner: WalletBookmarkOwner) -> (&'static str, uuid::Uuid) {
+    fn owner_parts(owner: WalletBookmarkOwner) -> (&'static str, Uuid) {
         match owner {
             WalletBookmarkOwner::User(user_id) => ("user", user_id.value()),
             WalletBookmarkOwner::Organization(organization_id) => {

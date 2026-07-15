@@ -44,7 +44,11 @@ use crate::account::{AccountCloseRejectionReason, AccountId, AccountOwner};
 /// Represents the `OwnedAccountClosure` process aggregate.
 #[aggregate(type = "owned_account_closure", error = OwnedAccountClosureError)]
 pub struct OwnedAccountClosure {
-    core: AggregateCore<OwnedAccountClosureState, OwnedAccountClosureEventPayload>,
+    core: AggregateCore<
+        OwnedAccountClosureId,
+        OwnedAccountClosureState,
+        OwnedAccountClosureEventPayload,
+    >,
 }
 
 impl OwnedAccountClosure {
@@ -62,16 +66,10 @@ impl OwnedAccountClosure {
             return Err(OwnedAccountClosureError::AlreadyRequested);
         }
 
-        let owned_account_closure_id = OwnedAccountClosureId::new();
         let owner = request.into_owner();
-        self.append_event(OwnedAccountClosureEventPayload::Requested {
-            id: owned_account_closure_id,
-            owner,
-        })?;
+        self.append_event(OwnedAccountClosureEventPayload::Requested { owner })?;
 
-        Ok(OwnedAccountClosureRequestResult::Requested {
-            owned_account_closure_id,
-        })
+        Ok(OwnedAccountClosureRequestResult::Requested)
     }
 
     /// Records one page of accounts owned by the workflow owner.
@@ -257,9 +255,8 @@ impl AggregateApply<OwnedAccountClosureEventPayload, OwnedAccountClosureError>
         payload: &OwnedAccountClosureEventPayload,
     ) -> Result<(), OwnedAccountClosureError> {
         match payload {
-            OwnedAccountClosureEventPayload::Requested { id, owner } => {
+            OwnedAccountClosureEventPayload::Requested { owner } => {
                 self.set_state(Some(OwnedAccountClosureState {
-                    id: *id,
                     owner: *owner,
                     closed_account_count: 0,
                     rejected_account_count: 0,

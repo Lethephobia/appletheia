@@ -48,7 +48,7 @@ use crate::core::TokenAccountOwnerAddress;
 /// Represents the `WalletBookmark` aggregate root.
 #[aggregate(type = "wallet_bookmark", error = WalletBookmarkError)]
 pub struct WalletBookmark {
-    core: AggregateCore<WalletBookmarkState, WalletBookmarkEventPayload>,
+    core: AggregateCore<WalletBookmarkId, WalletBookmarkState, WalletBookmarkEventPayload>,
 }
 
 impl WalletBookmark {
@@ -150,18 +150,16 @@ impl WalletBookmark {
             return Err(WalletBookmarkError::AlreadyRegistered);
         }
 
-        let wallet_bookmark_id = WalletBookmarkId::new();
         let (owner, display_name, description, token_account_owner_address) =
             registration.into_parts();
         self.append_event(WalletBookmarkEventPayload::Registered {
-            id: wallet_bookmark_id,
             owner,
             display_name,
             description,
             token_account_owner_address,
         })?;
 
-        Ok(WalletBookmarkRegisterResult::Registered { wallet_bookmark_id })
+        Ok(WalletBookmarkRegisterResult::Registered)
     }
 
     /// Removes a wallet bookmark.
@@ -193,13 +191,11 @@ impl AggregateApply<WalletBookmarkEventPayload, WalletBookmarkError> for WalletB
     fn apply(&mut self, payload: &WalletBookmarkEventPayload) -> Result<(), WalletBookmarkError> {
         match payload {
             WalletBookmarkEventPayload::Registered {
-                id,
                 owner,
                 display_name,
                 description,
                 token_account_owner_address,
             } => self.set_state(Some(WalletBookmarkState {
-                id: *id,
                 owner: *owner,
                 display_name: display_name.clone(),
                 description: description.clone(),

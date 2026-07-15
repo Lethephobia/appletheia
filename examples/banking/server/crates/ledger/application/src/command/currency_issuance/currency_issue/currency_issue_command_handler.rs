@@ -88,6 +88,7 @@ where
             .await?;
 
         let mut currency_issuance = CurrencyIssuance::new();
+        let currency_issuance_id = currency_issuance.aggregate_id();
         let request = CurrencyIssuanceRequest {
             currency_id: command.currency_id,
             destination_account_id: command.destination_account_id,
@@ -96,7 +97,7 @@ where
 
         if destination_account.currency_id()? != &command.currency_id {
             let reason = CurrencyIssuanceIssueRejectionReason::CurrencyMismatch;
-            let currency_issuance_id = currency_issuance.reject_issue(request, reason)?;
+            currency_issuance.reject_issue(request, reason)?;
 
             self.currency_issuance_repository
                 .save(uow, request_context, &mut currency_issuance)
@@ -113,7 +114,7 @@ where
             CurrencyStatus::Provisioning | CurrencyStatus::ProvisioningFailed
         ) {
             let reason = CurrencyIssuanceIssueRejectionReason::CurrencyProvisioningPending;
-            let currency_issuance_id = currency_issuance.reject_issue(request, reason)?;
+            currency_issuance.reject_issue(request, reason)?;
 
             self.currency_issuance_repository
                 .save(uow, request_context, &mut currency_issuance)
@@ -127,7 +128,7 @@ where
 
         if !currency.is_active()? {
             let reason = CurrencyIssuanceIssueRejectionReason::CurrencyInactive;
-            let currency_issuance_id = currency_issuance.reject_issue(request, reason)?;
+            currency_issuance.reject_issue(request, reason)?;
 
             self.currency_issuance_repository
                 .save(uow, request_context, &mut currency_issuance)
@@ -140,15 +141,10 @@ where
         }
 
         let output = match currency_issuance.issue(request)? {
-            CurrencyIssuanceIssueResult::Issued {
-                currency_issuance_id,
-            } => CurrencyIssueOutput::Issued {
+            CurrencyIssuanceIssueResult::Issued => CurrencyIssueOutput::Issued {
                 currency_issuance_id,
             },
-            CurrencyIssuanceIssueResult::Rejected {
-                currency_issuance_id,
-                reason,
-            } => CurrencyIssueOutput::Rejected {
+            CurrencyIssuanceIssueResult::Rejected { reason } => CurrencyIssueOutput::Rejected {
                 currency_issuance_id,
                 reason,
             },

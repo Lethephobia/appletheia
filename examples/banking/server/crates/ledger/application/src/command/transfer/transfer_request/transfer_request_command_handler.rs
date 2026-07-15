@@ -80,6 +80,7 @@ where
         }
 
         let mut transfer = Transfer::new();
+        let transfer_id = transfer.aggregate_id();
         let result = transfer.request(TransferRequest {
             from_account_id: command.from_account_id,
             to_account_id: command.to_account_id,
@@ -91,13 +92,8 @@ where
             .await?;
 
         let output = match result {
-            TransferRequestResult::Requested { transfer_id } => {
-                TransferRequestOutput::Requested { transfer_id }
-            }
-            TransferRequestResult::Rejected {
-                transfer_id,
-                reason,
-            } => TransferRequestOutput::Rejected {
+            TransferRequestResult::Requested => TransferRequestOutput::Requested { transfer_id },
+            TransferRequestResult::Rejected { reason } => TransferRequestOutput::Rejected {
                 transfer_id,
                 reason,
             },
@@ -168,7 +164,7 @@ mod tests {
 
     impl TestAccountRepository {
         fn insert(&self, account: Account) {
-            let account_id = account.aggregate_id().expect("account id should exist");
+            let account_id = account.aggregate_id();
             self.accounts
                 .lock()
                 .expect("lock")
@@ -227,7 +223,7 @@ mod tests {
             _request_context: &RequestContext,
             aggregate: &mut Account,
         ) -> Result<(), RepositoryError<Account>> {
-            let account_id = aggregate.aggregate_id().expect("account id should exist");
+            let account_id = aggregate.aggregate_id();
             self.accounts
                 .lock()
                 .expect("lock")
@@ -353,8 +349,8 @@ mod tests {
         let account_repository = TestAccountRepository::default();
         let source = opened_account(CurrencyId::new());
         let destination = opened_account(CurrencyId::new());
-        let source_account_id = source.aggregate_id().expect("account id should exist");
-        let destination_account_id = destination.aggregate_id().expect("account id should exist");
+        let source_account_id = source.aggregate_id();
+        let destination_account_id = destination.aggregate_id();
         account_repository.insert(source);
         account_repository.insert(destination);
 
@@ -387,8 +383,8 @@ mod tests {
         let account_repository = TestAccountRepository::default();
         let source = opened_account(currency_id);
         let destination = opened_account(currency_id);
-        let source_account_id = source.aggregate_id().expect("account id should exist");
-        let destination_account_id = destination.aggregate_id().expect("account id should exist");
+        let source_account_id = source.aggregate_id();
+        let destination_account_id = destination.aggregate_id();
         account_repository.insert(source);
         account_repository.insert(destination);
 
@@ -422,11 +418,6 @@ mod tests {
             .expect("lock")
             .clone()
             .expect("transfer should be saved");
-        assert_eq!(
-            saved_transfer
-                .aggregate_id()
-                .expect("transfer id should exist"),
-            transfer_id
-        );
+        assert_eq!(saved_transfer.aggregate_id(), transfer_id);
     }
 }

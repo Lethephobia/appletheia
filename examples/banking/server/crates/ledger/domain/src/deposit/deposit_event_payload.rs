@@ -6,22 +6,19 @@ use crate::currency::CurrencyId;
 
 use super::{
     DepositCompleteRejectionReason, DepositEventPayloadError, DepositFailRejectionReason,
-    DepositFailureReason, DepositId, DepositRequestRejectionReason,
-    DepositTokenTransferRecordRejectionReason,
+    DepositFailureReason, DepositRequestRejectionReason, DepositTokenTransferRecordRejectionReason,
 };
 
 /// Represents the domain events emitted by a `Deposit` aggregate.
 #[event_payload(error = DepositEventPayloadError)]
 pub enum DepositEventPayload {
     Requested {
-        id: DepositId,
         account_id: AccountId,
         currency_id: CurrencyId,
         token_account_owner_address: TokenAccountOwnerAddress,
         amount: CurrencyAmount,
     },
     RequestRejected {
-        id: DepositId,
         account_id: AccountId,
         currency_id: CurrencyId,
         token_account_owner_address: TokenAccountOwnerAddress,
@@ -29,7 +26,6 @@ pub enum DepositEventPayload {
         reason: DepositRequestRejectionReason,
     },
     TokenTransferred {
-        id: DepositId,
         account_id: AccountId,
         amount: CurrencyAmount,
     },

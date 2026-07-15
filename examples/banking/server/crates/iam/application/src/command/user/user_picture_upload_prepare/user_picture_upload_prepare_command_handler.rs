@@ -348,7 +348,7 @@ mod tests {
     #[tokio::test]
     async fn handle_returns_picture_ref_and_signed_upload() {
         let user = registered_user();
-        let user_id = user.aggregate_id().expect("user id should exist");
+        let user_id = user.aggregate_id();
         let repository = TestUserRepository::new(user);
         let expires_in =
             ObjectUploadExpiresIn::new(Duration::minutes(10)).expect("expiration should be valid");
@@ -414,7 +414,7 @@ mod tests {
     async fn handle_rejects_inactive_user() {
         let mut user = registered_user();
         user.deactivate().expect("user should deactivate");
-        let user_id = user.aggregate_id().expect("user id should exist");
+        let user_id = user.aggregate_id();
         let repository = TestUserRepository::new(user);
         let expires_in =
             ObjectUploadExpiresIn::new(Duration::minutes(10)).expect("expiration should be valid");
@@ -453,7 +453,7 @@ mod tests {
     #[tokio::test]
     async fn handle_rejects_content_length_over_maximum() {
         let user = registered_user();
-        let user_id = user.aggregate_id().expect("user id should exist");
+        let user_id = user.aggregate_id();
         let repository = TestUserRepository::new(user);
         let expires_in =
             ObjectUploadExpiresIn::new(Duration::minutes(10)).expect("expiration should be valid");
@@ -492,7 +492,7 @@ mod tests {
     #[tokio::test]
     async fn handle_rejects_disallowed_content_type() {
         let user = registered_user();
-        let user_id = user.aggregate_id().expect("user id should exist");
+        let user_id = user.aggregate_id();
         let repository = TestUserRepository::new(user);
         let expires_in =
             ObjectUploadExpiresIn::new(Duration::minutes(10)).expect("expiration should be valid");

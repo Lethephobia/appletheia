@@ -1,13 +1,10 @@
-use super::{WithdrawalId, WithdrawalRequestRejectionReason};
+use super::WithdrawalRequestRejectionReason;
 
 /// Describes the domain outcome of a withdrawal request.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum WithdrawalRequestResult {
-    Requested {
-        withdrawal_id: WithdrawalId,
-    },
+    Requested,
     Rejected {
-        withdrawal_id: WithdrawalId,
         reason: WithdrawalRequestRejectionReason,
     },
 }

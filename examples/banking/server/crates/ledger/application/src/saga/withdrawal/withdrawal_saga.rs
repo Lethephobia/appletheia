@@ -1,15 +1,14 @@
-use appletheia::application::event::EventEnvelope;
-use appletheia::application::saga::{Saga, SagaInstance, SagaSpec};
-use banking_ledger_domain::account::{Account, AccountEventPayload};
-use banking_ledger_domain::withdrawal::{
-    Withdrawal, WithdrawalEventPayload, WithdrawalFailureReason,
-};
-
 use super::{WithdrawalSagaError, WithdrawalSagaSpec, WithdrawalSagaState, WithdrawalSagaStatus};
 use crate::command::{
     AccountFundsReserveCommand, AccountReservedFundsCommitCommand,
     AccountReservedFundsReleaseCommand, WithdrawalCompleteCommand, WithdrawalFailCommand,
     WithdrawalTokenTransferCommand,
+};
+use appletheia::application::event::EventEnvelope;
+use appletheia::application::saga::{Saga, SagaInstance, SagaSpec};
+use banking_ledger_domain::account::{Account, AccountEventPayload};
+use banking_ledger_domain::withdrawal::{
+    Withdrawal, WithdrawalEventPayload, WithdrawalFailureReason,
 };
 
 /// Coordinates the withdrawal flow.
@@ -28,13 +27,13 @@ impl Saga for WithdrawalSaga {
             let withdrawal_event = event.try_into_domain_event::<Withdrawal>()?;
             match withdrawal_event.payload() {
                 WithdrawalEventPayload::Requested {
-                    id,
-                    account_id,
-                    amount,
-                    ..
+                    account_id, amount, ..
                 } => {
-                    *instance.state_mut() =
-                        Some(WithdrawalSagaState::new(*id, *account_id, *amount));
+                    *instance.state_mut() = Some(WithdrawalSagaState::new(
+                        withdrawal_event.aggregate_id(),
+                        *account_id,
+                        *amount,
+                    ));
 
                     instance.append_command(
                         event,
@@ -156,6 +155,8 @@ impl Saga for WithdrawalSaga {
 
 #[cfg(test)]
 mod tests {
+    use uuid::Uuid;
+
     use appletheia::application::event::{
         AggregateIdValue, AggregateTypeOwned, EventEnvelope, EventNameOwned, EventSequence,
         SerializedEventPayload,
@@ -251,7 +252,7 @@ mod tests {
     #[test]
     fn withdrawal_requested_appends_account_funds_reserve_command() {
         let saga = WithdrawalSaga;
-        let correlation_id = CorrelationId::from(uuid::Uuid::now_v7());
+        let correlation_id = CorrelationId::from(Uuid::now_v7());
         let account_id = AccountId::new();
         let withdrawal_id = WithdrawalId::new();
         let amount = CurrencyAmount::new(100);
@@ -267,7 +268,6 @@ mod tests {
                 correlation_id,
                 withdrawal_id,
                 WithdrawalEventPayload::Requested {
-                    id: withdrawal_id,
                     account_id,
                     currency_id: banking_ledger_domain::currency::CurrencyId::new(),
                     token_account_owner_address: token_account_owner_address(),
@@ -291,7 +291,7 @@ mod tests {
     #[test]
     fn success_path_appends_expected_follow_up_commands_and_succeeds() {
         let saga = WithdrawalSaga;
-        let correlation_id = CorrelationId::from(uuid::Uuid::now_v7());
+        let correlation_id = CorrelationId::from(Uuid::now_v7());
         let account_id = AccountId::new();
         let withdrawal_id = WithdrawalId::new();
         let amount = CurrencyAmount::new(100);
@@ -307,7 +307,6 @@ mod tests {
                 correlation_id,
                 withdrawal_id,
                 WithdrawalEventPayload::Requested {
-                    id: withdrawal_id,
                     account_id,
                     currency_id: banking_ledger_domain::currency::CurrencyId::new(),
                     token_account_owner_address: token_account_owner_address(),
@@ -390,7 +389,7 @@ mod tests {
     #[test]
     fn funds_reserve_rejected_appends_withdrawal_fail_command() {
         let saga = WithdrawalSaga;
-        let correlation_id = CorrelationId::from(uuid::Uuid::now_v7());
+        let correlation_id = CorrelationId::from(Uuid::now_v7());
         let account_id = AccountId::new();
         let withdrawal_id = WithdrawalId::new();
         let amount = CurrencyAmount::new(100);
@@ -406,7 +405,6 @@ mod tests {
                 correlation_id,
                 withdrawal_id,
                 WithdrawalEventPayload::Requested {
-                    id: withdrawal_id,
                     account_id,
                     currency_id: banking_ledger_domain::currency::CurrencyId::new(),
                     token_account_owner_address: token_account_owner_address(),
@@ -449,7 +447,7 @@ mod tests {
     #[test]
     fn token_transfer_rejected_requests_reserved_funds_release() {
         let saga = WithdrawalSaga;
-        let correlation_id = CorrelationId::from(uuid::Uuid::now_v7());
+        let correlation_id = CorrelationId::from(Uuid::now_v7());
         let account_id = AccountId::new();
         let withdrawal_id = WithdrawalId::new();
         let amount = CurrencyAmount::new(100);
@@ -465,7 +463,6 @@ mod tests {
                 correlation_id,
                 withdrawal_id,
                 WithdrawalEventPayload::Requested {
-                    id: withdrawal_id,
                     account_id,
                     currency_id: banking_ledger_domain::currency::CurrencyId::new(),
                     token_account_owner_address: token_account_owner_address(),
@@ -515,7 +512,7 @@ mod tests {
     #[test]
     fn reserved_funds_released_after_token_transfer_rejection_appends_withdrawal_fail_command() {
         let saga = WithdrawalSaga;
-        let correlation_id = CorrelationId::from(uuid::Uuid::now_v7());
+        let correlation_id = CorrelationId::from(Uuid::now_v7());
         let account_id = AccountId::new();
         let withdrawal_id = WithdrawalId::new();
         let amount = CurrencyAmount::new(100);
@@ -531,7 +528,6 @@ mod tests {
                 correlation_id,
                 withdrawal_id,
                 WithdrawalEventPayload::Requested {
-                    id: withdrawal_id,
                     account_id,
                     currency_id: banking_ledger_domain::currency::CurrencyId::new(),
                     token_account_owner_address: token_account_owner_address(),
@@ -596,7 +592,7 @@ mod tests {
     fn reserved_funds_release_rejected_after_token_transfer_rejection_appends_withdrawal_fail_command()
      {
         let saga = WithdrawalSaga;
-        let correlation_id = CorrelationId::from(uuid::Uuid::now_v7());
+        let correlation_id = CorrelationId::from(Uuid::now_v7());
         let account_id = AccountId::new();
         let withdrawal_id = WithdrawalId::new();
         let amount = CurrencyAmount::new(100);
@@ -612,7 +608,6 @@ mod tests {
                 correlation_id,
                 withdrawal_id,
                 WithdrawalEventPayload::Requested {
-                    id: withdrawal_id,
                     account_id,
                     currency_id: banking_ledger_domain::currency::CurrencyId::new(),
                     token_account_owner_address: token_account_owner_address(),
@@ -679,7 +674,7 @@ mod tests {
     #[test]
     fn withdrawal_failed_marks_saga_failed() {
         let saga = WithdrawalSaga;
-        let correlation_id = CorrelationId::from(uuid::Uuid::now_v7());
+        let correlation_id = CorrelationId::from(Uuid::now_v7());
         let account_id = AccountId::new();
         let withdrawal_id = WithdrawalId::new();
         let amount = CurrencyAmount::new(100);
@@ -695,7 +690,6 @@ mod tests {
                 correlation_id,
                 withdrawal_id,
                 WithdrawalEventPayload::Requested {
-                    id: withdrawal_id,
                     account_id,
                     currency_id: banking_ledger_domain::currency::CurrencyId::new(),
                     token_account_owner_address: token_account_owner_address(),

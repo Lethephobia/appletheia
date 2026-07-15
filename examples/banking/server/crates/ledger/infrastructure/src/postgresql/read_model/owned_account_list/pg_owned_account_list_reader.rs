@@ -8,6 +8,7 @@ use banking_ledger_application::{
 use banking_ledger_domain::account::AccountOwner;
 use banking_shared_kernel_application::read_model::{CursorOptions, PageSize, SortDirection};
 use sqlx::{Postgres, QueryBuilder};
+use uuid::Uuid;
 
 use super::pg_owned_account_list_item_row::PgOwnedAccountListItemRow;
 use super::pg_owned_account_list_owner_row::PgOwnedAccountListOwnerRow;
@@ -20,7 +21,7 @@ impl PgOwnedAccountListReader {
         Self
     }
 
-    fn owner_parts(owner: AccountOwner) -> (&'static str, uuid::Uuid) {
+    fn owner_parts(owner: AccountOwner) -> (&'static str, Uuid) {
         match owner {
             AccountOwner::User(user_id) => ("user", user_id.value()),
             AccountOwner::Organization(organization_id) => {
@@ -39,7 +40,7 @@ impl PgOwnedAccountListReader {
     async fn read_owner(
         uow: &mut PgUnitOfWork,
         owner_type: &'static str,
-        owner_id: uuid::Uuid,
+        owner_id: Uuid,
     ) -> Result<OwnedAccountListOwner, OwnedAccountListReaderError> {
         let row = sqlx::query_as::<_, PgOwnedAccountListOwnerRow>(
             r#"

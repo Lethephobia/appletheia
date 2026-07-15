@@ -12,6 +12,7 @@ use banking_ledger_domain::currency::{
 };
 use banking_shared_kernel_application::read_model::ReadModelObservation;
 use sqlx::types::chrono::{DateTime, Utc};
+use uuid::Uuid;
 
 use super::super::pg_organization_picture_ref_columns::PgOrganizationPictureRefColumns;
 use super::super::pg_user_picture_ref_columns::PgUserPictureRefColumns;
@@ -19,9 +20,9 @@ use super::pg_public_account_list_item_row_error::PgPublicAccountListItemRowErro
 
 #[derive(Debug, sqlx::FromRow)]
 pub struct PgPublicAccountListItemRow {
-    pub account_id: uuid::Uuid,
+    pub account_id: Uuid,
     pub owner_type: String,
-    pub owner_id: uuid::Uuid,
+    pub owner_id: Uuid,
     pub owner_user_username: Option<String>,
     pub owner_user_display_name: Option<String>,
     pub owner_user_picture_type: Option<String>,
@@ -32,24 +33,24 @@ pub struct PgPublicAccountListItemRow {
     pub owner_organization_picture_type: Option<String>,
     pub owner_organization_picture_object_name: Option<String>,
     pub owner_organization_picture_external_url: Option<String>,
-    pub owner_source_event_id: Option<uuid::Uuid>,
-    pub owner_updated_event_id: Option<uuid::Uuid>,
-    pub currency_id: uuid::Uuid,
+    pub owner_source_event_id: Option<Uuid>,
+    pub owner_updated_event_id: Option<Uuid>,
+    pub currency_id: Uuid,
     pub currency_symbol: String,
     pub currency_name: String,
     pub currency_decimals: i16,
     pub currency_mint_account_address: Option<String>,
-    pub currency_source_event_id: uuid::Uuid,
-    pub currency_updated_event_id: uuid::Uuid,
+    pub currency_source_event_id: Uuid,
+    pub currency_updated_event_id: Uuid,
     pub created_at: DateTime<Utc>,
-    pub source_event_id: uuid::Uuid,
-    pub updated_event_id: uuid::Uuid,
+    pub source_event_id: Uuid,
+    pub updated_event_id: Uuid,
 }
 
 impl PgPublicAccountListItemRow {
     fn observation(
-        source_event_id: uuid::Uuid,
-        updated_event_id: uuid::Uuid,
+        source_event_id: Uuid,
+        updated_event_id: Uuid,
     ) -> Result<ReadModelObservation, PgPublicAccountListItemRowError> {
         Ok(ReadModelObservation::new(
             EventId::try_from(source_event_id).map_err(|error| {

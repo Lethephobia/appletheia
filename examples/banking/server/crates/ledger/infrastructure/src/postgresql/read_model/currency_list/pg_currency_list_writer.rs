@@ -14,6 +14,7 @@ use banking_ledger_domain::currency::{
     MintAccountAddress,
 };
 use banking_shared_kernel_application::read_model::ReadModelEventContext;
+use uuid::Uuid;
 
 use super::super::pg_currency_image_ref_columns::PgCurrencyImageRefColumns;
 use super::super::pg_organization_picture_ref_columns::PgOrganizationPictureRefColumns;
@@ -27,7 +28,7 @@ impl PgCurrencyListWriter {
         Self
     }
 
-    fn owner_parts(owner: CurrencyOwner) -> (&'static str, uuid::Uuid) {
+    fn owner_parts(owner: CurrencyOwner) -> (&'static str, Uuid) {
         match owner {
             CurrencyOwner::User(user_id) => ("user", user_id.value()),
             CurrencyOwner::Organization(organization_id) => {

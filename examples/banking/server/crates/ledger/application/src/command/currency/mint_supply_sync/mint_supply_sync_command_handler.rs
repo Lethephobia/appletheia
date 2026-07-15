@@ -244,7 +244,7 @@ mod tests {
     #[tokio::test]
     async fn handle_syncs_supply_and_records_event() {
         let mut currency = defined_currency();
-        let currency_id = currency.aggregate_id().expect("currency id should exist");
+        let currency_id = currency.aggregate_id();
         currency
             .provision(mint_account())
             .expect("currency should be provisioned");
@@ -294,7 +294,7 @@ mod tests {
     #[tokio::test]
     async fn handle_errors_when_mint_account_is_missing() {
         let mut currency = defined_currency();
-        let currency_id = currency.aggregate_id().expect("currency id should exist");
+        let currency_id = currency.aggregate_id();
         currency.core_mut().clear_uncommitted_events();
         let repository = TestCurrencyRepository::new(currency);
         let handler =

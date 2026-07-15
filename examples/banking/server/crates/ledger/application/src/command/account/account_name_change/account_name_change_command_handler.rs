@@ -253,8 +253,7 @@ mod tests {
             .expect("lock")
             .as_ref()
             .expect("account should exist")
-            .aggregate_id()
-            .expect("account id should exist");
+            .aggregate_id();
         let name = account_name("savings");
 
         let handled = handler
