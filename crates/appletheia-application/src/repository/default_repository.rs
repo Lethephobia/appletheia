@@ -198,8 +198,9 @@ where
                     .map(|snapshot| snapshot.aggregate_version().as_u64())
                     .unwrap_or(0);
 
-                if current_version.saturating_sub(latest_snapshot_version)
-                    >= minimum_interval.as_u64()
+                if aggregate.state().is_some()
+                    && current_version.saturating_sub(latest_snapshot_version)
+                        >= minimum_interval.as_u64()
                 {
                     let snapshot = aggregate
                         .to_snapshot()
@@ -226,7 +227,8 @@ mod tests {
     };
     use crate::request_context::{CorrelationId, MessageId, Principal, RequestContext};
     use crate::snapshot::{
-        SnapshotPolicy, SnapshotReader, SnapshotReaderError, SnapshotWriter, SnapshotWriterError,
+        SnapshotInterval, SnapshotPolicy, SnapshotReader, SnapshotReaderError, SnapshotWriter,
+        SnapshotWriterError,
     };
     use crate::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia_domain::{
@@ -237,6 +239,7 @@ mod tests {
     };
     use serde::{Deserialize, Serialize};
     use std::fmt::{self, Display};
+    use std::num::NonZeroU32;
     use std::sync::{Arc, Mutex};
     use thiserror::Error;
     use uuid::Uuid;
@@ -341,6 +344,7 @@ mod tests {
             id: CounterId,
             email: Option<String>,
         },
+        RegistrationRejected,
     }
 
     impl CounterEventPayload {
@@ -353,6 +357,7 @@ mod tests {
         fn name(&self) -> EventName {
             match self {
                 Self::Registered { .. } => Self::REGISTERED,
+                Self::RegistrationRejected => EventName::new("registration_rejected"),
             }
         }
     }
@@ -380,6 +385,7 @@ mod tests {
                         email: email.clone(),
                     }));
                 }
+                CounterEventPayload::RegistrationRejected => {}
             }
 
             Ok(())
@@ -673,6 +679,54 @@ mod tests {
         aggregate
     }
 
+    fn rejected_counter() -> Counter {
+        let mut aggregate = Counter::new();
+        aggregate
+            .append_event(CounterEventPayload::RegistrationRejected)
+            .expect("rejection event should apply");
+
+        aggregate
+    }
+
+    fn repository_with_snapshot_policy(
+        log: Arc<Mutex<Vec<String>>>,
+        snapshot_policy: SnapshotPolicy,
+    ) -> DefaultRepository<
+        Counter,
+        RecordingEventReader,
+        RecordingEventWriter,
+        RecordingSnapshotReader,
+        RecordingSnapshotWriter,
+        RecordingUniqueValueOwnerLookup,
+        RecordingUniqueKeyReservationStore,
+        RecordingReferenceIndexStore,
+        NoopEventSaveHook<TestUnitOfWork>,
+        TestUnitOfWork,
+    > {
+        DefaultRepository::new(
+            RepositoryConfig { snapshot_policy },
+            DefaultRepositoryDependencies {
+                event_reader: RecordingEventReader,
+                event_writer: RecordingEventWriter {
+                    log: Arc::clone(&log),
+                },
+                snapshot_reader: RecordingSnapshotReader,
+                snapshot_writer: RecordingSnapshotWriter,
+                unique_value_owner_lookup: RecordingUniqueValueOwnerLookup {
+                    aggregate_id: None,
+                    fail: false,
+                    log: Arc::clone(&log),
+                },
+                unique_key_reservation_store: RecordingUniqueKeyReservationStore {
+                    fail_with_conflict: false,
+                    log: Arc::clone(&log),
+                },
+                reference_index_store: RecordingReferenceIndexStore { log },
+                event_save_hook: NoopEventSaveHook::new(),
+            },
+        )
+    }
+
     fn repository_with_lookup(
         log: Arc<Mutex<Vec<String>>>,
         aggregate_id: Option<CounterId>,
@@ -760,6 +814,62 @@ mod tests {
                 "write_events:1".to_owned()
             ]
         );
+    }
+
+    #[tokio::test]
+    async fn save_writes_event_when_aggregate_has_no_state() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let repository = repository(Arc::clone(&log), false);
+        let request_context = request_context();
+        let mut uow = TestUnitOfWork;
+        let mut aggregate = rejected_counter();
+
+        repository
+            .save(&mut uow, &request_context, &mut aggregate)
+            .await
+            .expect("state-less aggregate should save");
+
+        assert_eq!(
+            *log.lock().expect("log should be lockable"),
+            vec![
+                "replace:0:0".to_owned(),
+                "replace_refs:0:0".to_owned(),
+                "write_events:1".to_owned()
+            ]
+        );
+        assert!(aggregate.state().is_none());
+        assert!(aggregate.uncommitted_events().is_empty());
+    }
+
+    #[tokio::test]
+    async fn save_skips_snapshot_when_aggregate_has_no_state() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let repository = repository_with_snapshot_policy(
+            Arc::clone(&log),
+            SnapshotPolicy::AtLeast {
+                minimum_interval: SnapshotInterval::new(
+                    NonZeroU32::new(1).expect("interval should be non-zero"),
+                ),
+            },
+        );
+        let request_context = request_context();
+        let mut uow = TestUnitOfWork;
+        let mut aggregate = rejected_counter();
+
+        repository
+            .save(&mut uow, &request_context, &mut aggregate)
+            .await
+            .expect("state-less aggregate should save without snapshot");
+
+        assert_eq!(
+            *log.lock().expect("log should be lockable"),
+            vec![
+                "replace:0:0".to_owned(),
+                "replace_refs:0:0".to_owned(),
+                "write_events:1".to_owned()
+            ]
+        );
+        assert!(aggregate.uncommitted_events().is_empty());
     }
 
     #[tokio::test]

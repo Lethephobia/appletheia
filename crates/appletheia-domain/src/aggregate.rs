@@ -125,17 +125,25 @@ pub trait Aggregate:
     }
 
     /// Returns the unique-key entries derived from the aggregate state and identifier.
+    ///
+    /// Returns an empty set when the aggregate has not materialized state yet.
     fn unique_entries(&self) -> Result<UniqueEntries, Self::Error> {
-        Ok(self
-            .state_required()?
-            .unique_entries(self.aggregate_id().value())?)
+        let Some(state) = self.state() else {
+            return Ok(UniqueEntries::new());
+        };
+
+        Ok(state.unique_entries(self.aggregate_id().value())?)
     }
 
     /// Returns the reference-index entries derived from the aggregate state and identifier.
+    ///
+    /// Returns an empty set when the aggregate has not materialized state yet.
     fn reference_entries(&self) -> Result<ReferenceEntries, Self::Error> {
-        Ok(self
-            .state_required()?
-            .reference_entries(self.aggregate_id().value())?)
+        let Some(state) = self.state() else {
+            return Ok(ReferenceEntries::new());
+        };
+
+        Ok(state.reference_entries(self.aggregate_id().value())?)
     }
 
     /// Applies a new payload, bumps the aggregate version, and records the resulting event.
@@ -332,6 +340,7 @@ mod tests {
     #[serde(tag = "type", content = "data", rename_all = "snake_case")]
     enum CounterEventPayload {
         Created,
+        CreationRejected,
         Increment(i32),
         Decrement(i32),
     }
@@ -342,6 +351,7 @@ mod tests {
         fn name(&self) -> EventName {
             match self {
                 Self::Created => EventName::new("created"),
+                Self::CreationRejected => EventName::new("creation_rejected"),
                 Self::Increment(..) => EventName::new("increment"),
                 Self::Decrement(..) => EventName::new("decrement"),
             }
@@ -352,6 +362,7 @@ mod tests {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             match self {
                 CounterEventPayload::Created => write!(f, "created"),
+                CounterEventPayload::CreationRejected => write!(f, "creation_rejected"),
                 CounterEventPayload::Increment(delta) => write!(f, "increment({delta})"),
                 CounterEventPayload::Decrement(delta) => write!(f, "decrement({delta})"),
             }
@@ -398,6 +409,11 @@ mod tests {
             Ok(())
         }
 
+        pub fn reject_creation(&mut self) -> Result<(), CounterError> {
+            self.append_event(CounterEventPayload::CreationRejected)?;
+            Ok(())
+        }
+
         pub fn increment(&mut self, delta: i32) -> Result<(), CounterError> {
             self.append_event(CounterEventPayload::Increment(delta))?;
             Ok(())
@@ -418,6 +434,7 @@ mod tests {
                     }
                     self.set_state(Some(CounterState::new(0)));
                 }
+                CounterEventPayload::CreationRejected => {}
                 CounterEventPayload::Increment(delta) => {
                     let state = self.state_mut().ok_or(CounterError::StateMissing)?;
                     state.counter += delta;
@@ -482,6 +499,54 @@ mod tests {
         assert_eq!(event.aggregate_id(), counter.aggregate_id());
         assert_eq!(event.aggregate_version().value(), 1);
         assert_eq!(event.payload(), &CounterEventPayload::Created);
+    }
+
+    #[test]
+    fn creation_rejection_records_event_without_initializing_state() {
+        let mut counter = Counter::new();
+
+        counter
+            .reject_creation()
+            .expect("creation rejection should succeed");
+
+        assert!(counter.state().is_none());
+        assert!(
+            counter
+                .unique_entries()
+                .expect("entries should build")
+                .is_empty()
+        );
+        assert!(
+            counter
+                .reference_entries()
+                .expect("entries should build")
+                .is_empty()
+        );
+        assert_eq!(counter.version().value(), 1);
+        assert_eq!(counter.uncommitted_events().len(), 1);
+        assert_eq!(
+            counter.uncommitted_events()[0].payload(),
+            &CounterEventPayload::CreationRejected
+        );
+    }
+
+    #[test]
+    fn replay_creation_rejection_keeps_state_uninitialized() {
+        let aggregate_id = CounterId::new();
+        let event = Event::new(
+            aggregate_id,
+            AggregateVersion::try_from(1).expect("version should be valid"),
+            CounterEventPayload::CreationRejected,
+        );
+        let mut counter = Counter::from_id(aggregate_id);
+
+        counter
+            .replay_events([event], None)
+            .expect("creation rejection should replay");
+
+        assert!(counter.state().is_none());
+        assert_eq!(counter.version().value(), 1);
+        assert!(counter.uncommitted_events().is_empty());
     }
 
     #[test]
