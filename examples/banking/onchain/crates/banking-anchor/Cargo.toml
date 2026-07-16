@@ -5,6 +5,7 @@ description = "Anchor support for the banking on-chain example"
 edition = "2021"
 license = "MIT"
 publish = false
+workspace = "../.."
 
 [dependencies]
 anchor-lang = { workspace = true }
