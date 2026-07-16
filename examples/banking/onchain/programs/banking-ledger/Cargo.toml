@@ -22,19 +22,19 @@ custom-panic = []
 
 [dependencies]
 banking-anchor = { path = "../../crates/banking-anchor" }
-anchor-lang = { version = "1.0.2", features = ["init-if-needed"] }
-anchor-spl = { version = "1.0.2", default-features = false, features = ["associated_token", "token", "token_2022", "token_2022_extensions"] }
+anchor-lang = { version = "1.1.2", features = ["init-if-needed"] }
+anchor-spl = { version = "1.1.2", default-features = false, features = ["associated_token", "token", "token_2022", "token_2022_extensions"] }
 spl-associated-token-account-interface = "2.0.0"
 spl-type-length-value = "0.9.1"
-spl-token-2022-interface = "3.0.1"
-spl-token-metadata-interface = "1.0.0"
+spl-token-2022-interface = "3.1.1"
+spl-token-metadata-interface = "1.0.1"
 
 [dev-dependencies]
-litesvm = "0.10.0"
-solana-message = "3.0.1"
-solana-transaction = "3.0.2"
-solana-signer = "3.0.0"
-solana-keypair = "3.0.1"
+litesvm = "0.14.0"
+solana-message = "4.3.0"
+solana-transaction = "4.1.5"
+solana-signer = "3.0.1"
+solana-keypair = "3.1.2"
 
 
 [lints.rust]

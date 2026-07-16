@@ -3,7 +3,7 @@ services:
     build:
       context: docker/solana-localnet
       args:
-        AGAVE_VERSION: v3.0.13
+        AGAVE_VERSION: v4.1.2
     ports:
       - "127.0.0.1:18899:8899"
       - "127.0.0.1:18900:8900"
