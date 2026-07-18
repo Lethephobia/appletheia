@@ -1,5 +1,4 @@
-use std::error::Error;
-
+use crate::Retryability;
 use crate::authorization::AuthorizationPlan;
 use crate::command::{Command, CommandHandled};
 use crate::request_context::RequestContext;
@@ -16,7 +15,7 @@ pub trait CommandHandler: Send + Sync {
     type Command: Command;
     type Output: Send + 'static;
     type ReplayOutput: Serialize + DeserializeOwned + Send + 'static;
-    type Error: Error + Send + Sync + 'static;
+    type Error: Retryability;
     type Uow: UnitOfWork;
 
     /// Builds the authorization requirements for the incoming command.

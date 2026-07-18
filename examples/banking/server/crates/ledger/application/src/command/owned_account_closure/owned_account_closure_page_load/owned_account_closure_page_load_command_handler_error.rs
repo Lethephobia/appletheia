@@ -1,3 +1,5 @@
+use appletheia::application::Retryability;
+
 use appletheia::application::repository::{ReferenceIndexLookupError, RepositoryError};
 use banking_ledger_domain::owned_account_closure::{OwnedAccountClosure, OwnedAccountClosureError};
 use thiserror::Error;
@@ -16,4 +18,15 @@ pub enum OwnedAccountClosurePageLoadCommandHandlerError {
 
     #[error("page size must not be zero")]
     ZeroPageSize,
+}
+
+impl Retryability for OwnedAccountClosurePageLoadCommandHandlerError {
+    fn is_retryable(&self) -> bool {
+        match self {
+            Self::OwnedAccountClosureRepository(error) => error.is_retryable(),
+            Self::ReferenceIndexLookup(error) => error.is_retryable(),
+            Self::OwnedAccountClosure(_) => false,
+            Self::ZeroPageSize => false,
+        }
+    }
 }

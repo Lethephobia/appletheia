@@ -54,6 +54,35 @@ bad:
 let value = MaybeValue::try_from(input).expect("input should be valid");
 ```
 
+### DON'T shadow local bindings
+
+Give each intermediate value a distinct name that reflects its role. Keep the original binding
+available for review instead of redeclaring the same name after a conversion or match.
+
+good:
+```rust
+let begin_attempt = service.begin().await;
+let begin_result = match begin_attempt {
+    Ok(value) => value,
+    Err(operation_error) => {
+        let rolled_back_error = uow.rollback_with_operation_error(operation_error).await?;
+        return Err(rolled_back_error.into());
+    }
+};
+```
+
+bad:
+```rust
+let begin_result = service.begin().await;
+let begin_result = match begin_result {
+    Ok(value) => value,
+    Err(operation_error) => {
+        let operation_error = uow.rollback_with_operation_error(operation_error).await?;
+        return Err(operation_error.into());
+    }
+};
+```
+
 ### PREFER import concrete domain and application types instead of qualifying them through the crate name
 
 Bring commonly used external types into scope once, then refer to them by bare name in signatures and expressions.

@@ -1,3 +1,5 @@
+use appletheia::application::Retryability;
+
 use appletheia::application::repository::RepositoryError;
 use banking_iam_domain::{Organization, OrganizationError, User, UserError};
 use thiserror::Error;
@@ -16,4 +18,15 @@ pub enum UserOrganizationMembershipRemoveCommandHandlerError {
 
     #[error("user aggregate failed")]
     User(#[from] UserError),
+}
+
+impl Retryability for UserOrganizationMembershipRemoveCommandHandlerError {
+    fn is_retryable(&self) -> bool {
+        match self {
+            Self::OrganizationRepository(error) => error.is_retryable(),
+            Self::UserRepository(error) => error.is_retryable(),
+            Self::Organization(_) => false,
+            Self::User(_) => false,
+        }
+    }
 }

@@ -1,3 +1,5 @@
+use appletheia::application::Retryability;
+
 use appletheia::application::repository::RepositoryError;
 use banking_ledger_domain::account::{Account, AccountError};
 use banking_ledger_domain::currency::{Currency, CurrencyError};
@@ -32,4 +34,19 @@ pub enum DepositTokenTransferPrepareCommandHandlerError {
 
     #[error("token account owner address validation failed")]
     TokenAccountOwnerAddressValidator(#[from] TokenAccountOwnerAddressValidatorError),
+}
+
+impl Retryability for DepositTokenTransferPrepareCommandHandlerError {
+    fn is_retryable(&self) -> bool {
+        match self {
+            Self::AccountRepository(error) => error.is_retryable(),
+            Self::Account(_) => false,
+            Self::CurrencyRepository(error) => error.is_retryable(),
+            Self::Currency(_) => false,
+            Self::DepositRepository(error) => error.is_retryable(),
+            Self::Deposit(_) => false,
+            Self::TokenDepositPreparer(error) => error.is_retryable(),
+            Self::TokenAccountOwnerAddressValidator(error) => error.is_retryable(),
+        }
+    }
 }

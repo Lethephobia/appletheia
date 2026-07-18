@@ -5,6 +5,7 @@ use thiserror::Error;
 
 use appletheia_domain::{Aggregate, AggregateType};
 
+use crate::Retryability;
 use crate::event::{EventReaderError, EventWriterError};
 use crate::snapshot::{SnapshotReaderError, SnapshotWriterError};
 
@@ -46,4 +47,41 @@ pub enum RepositoryError<A: Aggregate> {
 
     #[error("snapshot writer error: {0}")]
     SnapshotWriter(#[from] SnapshotWriterError),
+}
+
+impl<A: Aggregate> Retryability for RepositoryError<A> {
+    fn is_retryable(&self) -> bool {
+        match self {
+            Self::NotFound { .. } | Self::Aggregate(_) => false,
+            Self::UniqueKeyReservationStore(error) => match error {
+                UniqueKeyReservationStoreError::Conflict { .. }
+                | UniqueKeyReservationStoreError::Persistence(_) => true,
+                UniqueKeyReservationStoreError::NamespaceMismatch { .. }
+                | UniqueKeyReservationStoreError::DuplicateKey { .. } => false,
+            },
+            Self::UniqueValueOwnerLookup(error) => match error {
+                UniqueValueOwnerLookupError::OwnerAggregateId(_) => false,
+                UniqueValueOwnerLookupError::Persistence(_) => true,
+            },
+            Self::ReferenceIndexStore(_) | Self::EventSaveHook(_) => true,
+            Self::EventReader(error) => match error {
+                EventReaderError::MappingFailed(_) | EventReaderError::NotInTransaction => false,
+                EventReaderError::Persistence(_) => true,
+            },
+            Self::SnapshotReader(error) => match error {
+                SnapshotReaderError::MappingFailed(_) | SnapshotReaderError::NotInTransaction => {
+                    false
+                }
+                SnapshotReaderError::Persistence(_) => true,
+            },
+            Self::EventWriter(error) => match error {
+                EventWriterError::NotInTransaction | EventWriterError::Json(_) => false,
+                EventWriterError::Persistence(_) => true,
+            },
+            Self::SnapshotWriter(error) => match error {
+                SnapshotWriterError::NotInTransaction | SnapshotWriterError::Json(_) => false,
+                SnapshotWriterError::Persistence(_) => true,
+            },
+        }
+    }
 }

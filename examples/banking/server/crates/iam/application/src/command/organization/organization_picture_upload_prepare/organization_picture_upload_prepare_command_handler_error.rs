@@ -1,3 +1,5 @@
+use appletheia::application::Retryability;
+
 use appletheia::application::object_storage::{ObjectNameError, ObjectUploadSignerError};
 use appletheia::application::repository::RepositoryError;
 use banking_iam_domain::{Organization, OrganizationError, OrganizationPictureObjectNameError};
@@ -20,4 +22,16 @@ pub enum OrganizationPictureUploadPrepareCommandHandlerError {
 
     #[error("object upload signer failed")]
     ObjectUploadSigner(#[from] ObjectUploadSignerError),
+}
+
+impl Retryability for OrganizationPictureUploadPrepareCommandHandlerError {
+    fn is_retryable(&self) -> bool {
+        match self {
+            Self::OrganizationRepository(error) => error.is_retryable(),
+            Self::Organization(_) => false,
+            Self::PictureObjectName(_) => false,
+            Self::ObjectName(_) => false,
+            Self::ObjectUploadSigner(error) => error.is_retryable(),
+        }
+    }
 }

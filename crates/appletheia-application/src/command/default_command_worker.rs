@@ -1,5 +1,6 @@
 use std::sync::atomic::{AtomicBool, Ordering as AtomicOrdering};
 
+use crate::Retryability;
 use crate::command::{Command, CommandDispatcher, CommandHandler, CommandSelector, CommandWorker};
 use crate::messaging::Subscription;
 use crate::outbox::command::{CommandEnvelope, CommandEnvelopeError};
@@ -72,7 +73,7 @@ where
         while !self.is_stop_requested() {
             let mut delivery = consumer.next().await?;
 
-            let command = match delivery.message().try_into_command::<H::Command>() {
+            let decoded_command = match delivery.message().try_into_command::<H::Command>() {
                 Ok(command) => Some(command),
                 Err(CommandEnvelopeError::CommandNameMismatch { .. }) => {
                     delivery.ack().await?;
@@ -84,7 +85,7 @@ where
                 }
             };
 
-            if let Some(command) = command {
+            if let Some(command) = decoded_command {
                 let envelope = delivery.message();
                 let request_context = RequestContext {
                     correlation_id: envelope.correlation_id,
@@ -106,7 +107,11 @@ where
                 match result {
                     Ok(_) => delivery.ack().await?,
                     Err(error) => {
-                        delivery.nack().await?;
+                        if error.is_retryable() {
+                            delivery.nack().await?;
+                        } else {
+                            delivery.ack().await?;
+                        }
                         return Err(CommandWorkerError::Dispatch(Box::new(error)));
                     }
                 }
@@ -114,5 +119,230 @@ where
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    use serde::{Deserialize, Serialize};
+    use uuid::Uuid;
+
+    use super::DefaultCommandWorker;
+    use crate::Retryability;
+    use crate::authorization::AuthorizationPlan;
+    use crate::command::{
+        Command, CommandDispatchResult, CommandDispatcher, CommandDispatcherError, CommandHandled,
+        CommandHandler, CommandName, CommandOptions, CommandWorker,
+    };
+    use crate::messaging::{
+        Consumer, ConsumerError, ConsumerGroup, Delivery, Subscriber, SubscriberError, Subscription,
+    };
+    use crate::outbox::command::CommandEnvelope;
+    use crate::request_context::{CausationId, CorrelationId, MessageId, RequestContext};
+    use crate::unit_of_work::{UnitOfWork, UnitOfWorkError};
+
+    struct TestUow;
+
+    impl UnitOfWork for TestUow {
+        async fn commit(self) -> Result<(), UnitOfWorkError> {
+            Ok(())
+        }
+
+        async fn rollback(self) -> Result<(), UnitOfWorkError> {
+            Ok(())
+        }
+    }
+
+    #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+    struct TestCommand {}
+
+    impl Command for TestCommand {
+        const NAME: CommandName = CommandName::new("test");
+    }
+
+    #[derive(Debug, thiserror::Error)]
+    #[error("test handler error")]
+    struct TestHandlerError {
+        retryable: bool,
+    }
+
+    impl Retryability for TestHandlerError {
+        fn is_retryable(&self) -> bool {
+            self.retryable
+        }
+    }
+
+    struct TestHandler {
+        retryable: bool,
+    }
+
+    impl CommandHandler for TestHandler {
+        type Command = TestCommand;
+        type Output = ();
+        type ReplayOutput = ();
+        type Error = TestHandlerError;
+        type Uow = TestUow;
+
+        fn authorization_plan(
+            &self,
+            _command: &Self::Command,
+        ) -> Result<AuthorizationPlan, Self::Error> {
+            Err(TestHandlerError {
+                retryable: self.retryable,
+            })
+        }
+
+        async fn handle(
+            &self,
+            _uow: &mut Self::Uow,
+            _request_context: &RequestContext,
+            _command: &Self::Command,
+        ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
+            unreachable!("test dispatcher does not call the handler")
+        }
+    }
+
+    struct TestDispatcher;
+
+    impl CommandDispatcher for TestDispatcher {
+        type Uow = TestUow;
+
+        async fn dispatch<H>(
+            &self,
+            handler: &H,
+            _request_context: &RequestContext,
+            command: H::Command,
+            _options: CommandOptions,
+        ) -> Result<
+            CommandDispatchResult<H::Output, H::ReplayOutput>,
+            CommandDispatcherError<H::Error>,
+        >
+        where
+            H: CommandHandler<Uow = Self::Uow>,
+            H::Command: Command,
+        {
+            match handler.authorization_plan(&command) {
+                Ok(_) => unreachable!("test handler should return an authorization error"),
+                Err(error) => Err(CommandDispatcherError::Handler(error)),
+            }
+        }
+    }
+
+    #[derive(Default)]
+    struct DeliveryState {
+        acknowledgements: AtomicUsize,
+        negative_acknowledgements: AtomicUsize,
+    }
+
+    struct TestDelivery {
+        envelope: CommandEnvelope,
+        state: Arc<DeliveryState>,
+    }
+
+    impl Delivery<CommandEnvelope> for TestDelivery {
+        fn message(&self) -> &CommandEnvelope {
+            &self.envelope
+        }
+
+        async fn ack(&mut self) -> Result<(), ConsumerError> {
+            self.state.acknowledgements.fetch_add(1, Ordering::SeqCst);
+            Ok(())
+        }
+
+        async fn nack(&mut self) -> Result<(), ConsumerError> {
+            self.state
+                .negative_acknowledgements
+                .fetch_add(1, Ordering::SeqCst);
+            Ok(())
+        }
+    }
+
+    struct TestConsumer {
+        delivery: Option<TestDelivery>,
+    }
+
+    impl Consumer<CommandEnvelope> for TestConsumer {
+        type Delivery = TestDelivery;
+
+        async fn next(&mut self) -> Result<Self::Delivery, ConsumerError> {
+            Ok(self.delivery.take().expect("test delivery should exist"))
+        }
+    }
+
+    struct TestSubscriber {
+        envelope: CommandEnvelope,
+        state: Arc<DeliveryState>,
+    }
+
+    impl Subscriber<CommandEnvelope> for TestSubscriber {
+        type Consumer = TestConsumer;
+        type Selector = crate::command::CommandSelector;
+
+        async fn subscribe(
+            &self,
+            _consumer_group: &ConsumerGroup,
+            _subscription: Subscription<'_, Self::Selector>,
+        ) -> Result<Self::Consumer, SubscriberError> {
+            Ok(TestConsumer {
+                delivery: Some(TestDelivery {
+                    envelope: self.envelope.clone(),
+                    state: Arc::clone(&self.state),
+                }),
+            })
+        }
+    }
+
+    fn build_worker(
+        retryable: bool,
+        state: Arc<DeliveryState>,
+    ) -> DefaultCommandWorker<TestHandler, TestDispatcher, TestSubscriber> {
+        let causation_message_id = MessageId::new();
+        let envelope = CommandEnvelope::new(
+            &TestCommand {},
+            CorrelationId::from(Uuid::now_v7()),
+            CausationId::from(causation_message_id),
+            CommandOptions::default(),
+        )
+        .expect("command envelope should be valid");
+        let consumer_group =
+            ConsumerGroup::new("test".to_owned()).expect("consumer group should be valid");
+
+        DefaultCommandWorker::new(
+            TestDispatcher,
+            TestHandler { retryable },
+            TestSubscriber { envelope, state },
+            consumer_group,
+        )
+    }
+
+    #[tokio::test]
+    async fn run_forever_nacks_retryable_dispatch_failure() {
+        let state = Arc::new(DeliveryState::default());
+        let mut command_worker = build_worker(true, Arc::clone(&state));
+
+        command_worker
+            .run_forever()
+            .await
+            .expect_err("dispatch failure should be returned");
+
+        assert_eq!(state.acknowledgements.load(Ordering::SeqCst), 0);
+        assert_eq!(state.negative_acknowledgements.load(Ordering::SeqCst), 1);
+    }
+
+    #[tokio::test]
+    async fn run_forever_acks_non_retryable_dispatch_failure() {
+        let state = Arc::new(DeliveryState::default());
+        let mut command_worker = build_worker(false, Arc::clone(&state));
+
+        command_worker
+            .run_forever()
+            .await
+            .expect_err("dispatch failure should be returned");
+
+        assert_eq!(state.acknowledgements.load(Ordering::SeqCst), 1);
+        assert_eq!(state.negative_acknowledgements.load(Ordering::SeqCst), 0);
     }
 }

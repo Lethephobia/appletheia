@@ -48,7 +48,8 @@ repository.save(uow, &organization).await?;
 
 When the aggregate command method returns a domain result such as `Accepted` or `Rejected`, save the
 aggregate and return the result through the command output. `CommandHandler::Error` is for processing
-failures that should roll back and retry, not for expected business outcomes.
+failures that should roll back, not for expected business outcomes. Implement `Retryability` on the
+error and use `is_retryable` to control automatic retry after rollback.
 
 good:
 ```rust
@@ -75,8 +76,9 @@ Ok(CommandHandled::same(AccountReserveFundsOutput))
 ### DON'T convert expected domain rejections into handler errors
 
 If a saga or projection must react to a refusal, that refusal must be a persisted domain event.
-Returning `Err` rolls back the event write and lets the command worker retry or dead-letter the
-message, so the saga will never observe the business failure.
+Returning `Err` rolls back the event write. The command worker negatively acknowledges errors for
+which `is_retryable` returns `true` and acknowledges errors for which it returns `false`, so the saga
+will never observe the business failure.
 
 bad:
 ```rust
@@ -96,6 +98,38 @@ let output = match result {
     }
 };
 Ok(CommandHandled::same(output))
+```
+
+### DO implement retryability close to the application error that owns it
+
+Implement `Retryability` on reusable repository, authentication, and other application-service
+errors when their classification is stable. The error type assigned to `CommandHandler::Error`
+must also implement `Retryability`; delegate to source application errors and classify domain errors
+at that outer boundary so the domain crate remains independent of application retry policy. An outer
+error may override a source error when its operation has different retry semantics.
+
+good:
+```rust
+impl Retryability for OrganizationCreateCommandHandlerError {
+    fn is_retryable(&self) -> bool {
+        match self {
+            Self::OrganizationRepository(error) => error.is_retryable(),
+            Self::Organization(_) => false,
+        }
+    }
+}
+```
+
+bad:
+```rust
+fn repository_error_retryability(error: &RepositoryError<Organization>) -> bool {
+    match error {
+        RepositoryError::NotFound { .. } => false,
+        RepositoryError::EventReader(_) => true,
+        // Repeated in every application that uses RepositoryError.
+        _ => false,
+    }
+}
 ```
 
 ### DON'T touch `RequestContext.actor` in command handlers
@@ -134,7 +168,7 @@ account.rename(command.name)?;
 Use the handler for lookups that span multiple aggregates or read models. If the failure can be
 recorded on the aggregate being commanded, call an aggregate command method that appends a rejection
 event and save it. Keep `Err` for missing aggregates, repository failures, and other processing
-failures that should roll back and retry.
+failures that should roll back. Classify automatic retry through `Retryability`.
 
 good:
 ```rust

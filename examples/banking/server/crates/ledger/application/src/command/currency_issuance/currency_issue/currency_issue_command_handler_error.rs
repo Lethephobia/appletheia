@@ -1,3 +1,5 @@
+use appletheia::application::Retryability;
+
 use appletheia::application::repository::RepositoryError;
 use banking_ledger_domain::account::{Account, AccountError};
 use banking_ledger_domain::currency::{Currency, CurrencyError};
@@ -24,4 +26,17 @@ pub enum CurrencyIssueCommandHandlerError {
 
     #[error("currency issuance aggregate failed")]
     CurrencyIssuance(#[from] CurrencyIssuanceError),
+}
+
+impl Retryability for CurrencyIssueCommandHandlerError {
+    fn is_retryable(&self) -> bool {
+        match self {
+            Self::AccountRepository(error) => error.is_retryable(),
+            Self::CurrencyRepository(error) => error.is_retryable(),
+            Self::CurrencyIssuanceRepository(error) => error.is_retryable(),
+            Self::Currency(_) => false,
+            Self::Account(_) => false,
+            Self::CurrencyIssuance(_) => false,
+        }
+    }
 }

@@ -1,3 +1,5 @@
+use appletheia::application::Retryability;
+
 use crate::mint::TokenAccountOwnerAddressValidatorError;
 use appletheia::application::repository::RepositoryError;
 use banking_ledger_domain::wallet_bookmark::{WalletBookmark, WalletBookmarkError};
@@ -14,4 +16,14 @@ pub enum WalletBookmarkRegisterCommandHandlerError {
 
     #[error("token account owner address validation failed")]
     TokenAccountOwnerAddressValidator(#[from] TokenAccountOwnerAddressValidatorError),
+}
+
+impl Retryability for WalletBookmarkRegisterCommandHandlerError {
+    fn is_retryable(&self) -> bool {
+        match self {
+            Self::WalletBookmarkRepository(error) => error.is_retryable(),
+            Self::WalletBookmark(_) => false,
+            Self::TokenAccountOwnerAddressValidator(error) => error.is_retryable(),
+        }
+    }
 }

@@ -1,3 +1,5 @@
+use appletheia::application::Retryability;
+
 use appletheia::application::authentication::oidc::{
     OidcContinuationStoreError, OidcLoginFlowError,
 };
@@ -11,4 +13,13 @@ pub enum OidcBeginCommandHandlerError {
 
     #[error("oidc continuation persistence failed")]
     OidcContinuationStore(#[from] OidcContinuationStoreError),
+}
+
+impl Retryability for OidcBeginCommandHandlerError {
+    fn is_retryable(&self) -> bool {
+        match self {
+            Self::OidcLoginFlow(error) => error.is_retryable(),
+            Self::OidcContinuationStore(error) => error.is_retryable(),
+        }
+    }
 }

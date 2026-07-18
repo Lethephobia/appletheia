@@ -1,3 +1,5 @@
+use appletheia::application::Retryability;
+
 use crate::mint::MintProvisionerError;
 use appletheia::application::repository::RepositoryError;
 use banking_ledger_domain::currency::{Currency, CurrencyError};
@@ -14,4 +16,14 @@ pub enum CurrencyProvisionCommandHandlerError {
 
     #[error("mint provisioner failed")]
     MintProvisioner(#[from] MintProvisionerError),
+}
+
+impl Retryability for CurrencyProvisionCommandHandlerError {
+    fn is_retryable(&self) -> bool {
+        match self {
+            Self::CurrencyRepository(error) => error.is_retryable(),
+            Self::Currency(_) => false,
+            Self::MintProvisioner(error) => error.is_retryable(),
+        }
+    }
 }

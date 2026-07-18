@@ -1,7 +1,6 @@
-use std::error::Error;
-
 use thiserror::Error;
 
+use crate::Retryability;
 use crate::authorization::AuthorizerError;
 use crate::command::{CommandHasherError, IdempotencyServiceError};
 use crate::request_context::MessageId;
@@ -11,7 +10,7 @@ use crate::unit_of_work::UnitOfWorkFactoryError;
 #[derive(Debug, Error)]
 pub enum CommandDispatcherError<HE>
 where
-    HE: Error + Send + Sync + 'static,
+    HE: Retryability,
 {
     #[error("unit of work factory error: {0}")]
     UnitOfWorkFactory(#[from] UnitOfWorkFactoryError),
@@ -36,4 +35,22 @@ where
 
     #[error("authorizer error: {0}")]
     Authorizer(#[from] AuthorizerError),
+}
+
+impl<HE> Retryability for CommandDispatcherError<HE>
+where
+    HE: Retryability,
+{
+    fn is_retryable(&self) -> bool {
+        match self {
+            Self::Handler(error) => error.is_retryable(),
+            Self::UnitOfWorkFactory(_)
+            | Self::UnitOfWork(_)
+            | Self::Idempotency(_)
+            | Self::InProgress { .. }
+            | Self::Hasher(_)
+            | Self::Json(_)
+            | Self::Authorizer(_) => true,
+        }
+    }
 }

@@ -1,3 +1,5 @@
+use appletheia::application::Retryability;
+
 use appletheia::application::repository::RepositoryError;
 use banking_iam_domain::{
     Organization, OrganizationError, OrganizationJoinRequest, OrganizationJoinRequestError,
@@ -18,4 +20,15 @@ pub enum OrganizationJoinRequestRejectCommandHandlerError {
 
     #[error("organization aggregate failed")]
     Organization(#[from] OrganizationError),
+}
+
+impl Retryability for OrganizationJoinRequestRejectCommandHandlerError {
+    fn is_retryable(&self) -> bool {
+        match self {
+            Self::OrganizationRepository(error) => error.is_retryable(),
+            Self::OrganizationJoinRequestRepository(error) => error.is_retryable(),
+            Self::OrganizationJoinRequest(_) => false,
+            Self::Organization(_) => false,
+        }
+    }
 }

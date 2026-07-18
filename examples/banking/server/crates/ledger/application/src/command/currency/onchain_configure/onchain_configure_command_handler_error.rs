@@ -1,3 +1,5 @@
+use appletheia::application::Retryability;
+
 use thiserror::Error;
 
 use crate::config::OnchainConfigurerError;
@@ -7,4 +9,12 @@ use crate::config::OnchainConfigurerError;
 pub enum OnchainConfigureCommandHandlerError {
     #[error("on-chain configurer failed")]
     OnchainConfigurer(#[from] OnchainConfigurerError),
+}
+
+impl Retryability for OnchainConfigureCommandHandlerError {
+    fn is_retryable(&self) -> bool {
+        match self {
+            Self::OnchainConfigurer(error) => error.is_retryable(),
+        }
+    }
 }

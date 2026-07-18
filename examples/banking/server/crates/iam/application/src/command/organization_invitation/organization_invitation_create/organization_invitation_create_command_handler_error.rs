@@ -1,3 +1,5 @@
+use appletheia::application::Retryability;
+
 use appletheia::application::repository::RepositoryError;
 use appletheia::domain::UniqueValueError;
 use banking_iam_domain::{
@@ -29,4 +31,18 @@ pub enum OrganizationInvitationIssueCommandHandlerError {
 
     #[error("unique value failed")]
     UniqueValue(#[from] UniqueValueError),
+}
+
+impl Retryability for OrganizationInvitationIssueCommandHandlerError {
+    fn is_retryable(&self) -> bool {
+        match self {
+            Self::OrganizationRepository(error) => error.is_retryable(),
+            Self::OrganizationInvitationRepository(error) => error.is_retryable(),
+            Self::UserRepository(error) => error.is_retryable(),
+            Self::OrganizationInvitation(_) => false,
+            Self::Organization(_) => false,
+            Self::User(_) => false,
+            Self::UniqueValue(_) => false,
+        }
+    }
 }

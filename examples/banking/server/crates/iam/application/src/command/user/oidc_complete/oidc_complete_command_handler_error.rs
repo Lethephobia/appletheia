@@ -1,3 +1,5 @@
+use appletheia::application::Retryability;
+
 use appletheia::application::authentication::oidc::{
     OidcContinuationStoreError, OidcLoginFlowError,
 };
@@ -48,4 +50,23 @@ pub enum OidcCompleteCommandHandlerError {
 
     #[error("auth token exchange code issue failed")]
     AuthTokenExchangeCodeIssuer(#[from] AuthTokenExchangeCodeIssuerError),
+}
+
+impl Retryability for OidcCompleteCommandHandlerError {
+    fn is_retryable(&self) -> bool {
+        match self {
+            Self::OidcLoginFlow(error) => error.is_retryable(),
+            Self::OidcContinuationStore(error) => error.is_retryable(),
+            Self::UserRepository(error) => error.is_retryable(),
+            Self::User(_) => false,
+            Self::UserIdentityProvider(_) => false,
+            Self::UserIdentitySubject(_) => false,
+            Self::Email(_) => false,
+            Self::UniqueValuePart(_) => false,
+            Self::UniqueValue(_) => false,
+            Self::AuthTokenIssuer(error) => error.is_retryable(),
+            Self::AuthTokenClaims(_) => false,
+            Self::AuthTokenExchangeCodeIssuer(error) => error.is_retryable(),
+        }
+    }
 }

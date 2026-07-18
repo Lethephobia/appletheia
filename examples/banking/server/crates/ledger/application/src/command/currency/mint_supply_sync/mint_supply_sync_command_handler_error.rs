@@ -1,3 +1,5 @@
+use appletheia::application::Retryability;
+
 use crate::mint::MintSupplySynchronizerError;
 use appletheia::application::repository::RepositoryError;
 use banking_ledger_domain::currency::{Currency, CurrencyError};
@@ -14,4 +16,14 @@ pub enum MintSupplySyncCommandHandlerError {
 
     #[error("mint supply synchronizer failed")]
     MintSupplySynchronizer(#[from] MintSupplySynchronizerError),
+}
+
+impl Retryability for MintSupplySyncCommandHandlerError {
+    fn is_retryable(&self) -> bool {
+        match self {
+            Self::CurrencyRepository(error) => error.is_retryable(),
+            Self::Currency(_) => false,
+            Self::MintSupplySynchronizer(error) => error.is_retryable(),
+        }
+    }
 }

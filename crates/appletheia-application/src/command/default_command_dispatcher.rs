@@ -73,19 +73,18 @@ where
 
         let command_hash = self.command_hasher.command_hash(&command)?;
         let message_id = request_context.message_id;
-
         let mut uow = self.uow_factory.begin().await?;
 
-        let idempotency_begin_result = self
+        let idempotency_begin_attempt = self
             .idempotency_service
             .begin(&mut uow, message_id, command_name, &command_hash)
             .await;
 
-        let idempotency_begin_result = match idempotency_begin_result {
+        let idempotency_begin_result = match idempotency_begin_attempt {
             Ok(value) => value,
             Err(operation_error) => {
-                let operation_error = uow.rollback_with_operation_error(operation_error).await?;
-                return Err(operation_error.into());
+                let rolled_back_error = uow.rollback_with_operation_error(operation_error).await?;
+                return Err(rolled_back_error.into());
             }
         };
 
@@ -114,21 +113,21 @@ where
                     .await
                 {
                     Ok(()) => {}
-                    Err(operation_error) => {
-                        let operation_error =
-                            uow.rollback_with_operation_error(operation_error).await?;
-                        return Err(operation_error.into());
+                    Err(completion_error) => {
+                        let rolled_back_error =
+                            uow.rollback_with_operation_error(completion_error).await?;
+                        return Err(rolled_back_error.into());
                     }
                 }
                 uow.commit().await?;
                 Ok(CommandDispatchResult::Executed(output))
             }
-            Err(operation_error) => {
-                let operation_error = uow
-                    .rollback_with_operation_error(operation_error)
+            Err(handler_error) => {
+                let rolled_back_handler_error = uow
+                    .rollback_with_operation_error(handler_error)
                     .await
                     .map_err(CommandDispatcherError::UnitOfWork)?;
-                Err(CommandDispatcherError::Handler(operation_error))
+                Err(CommandDispatcherError::Handler(rolled_back_handler_error))
             }
         }
     }
@@ -136,42 +135,61 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
     use serde::{Deserialize, Serialize};
     use uuid::Uuid;
 
     use super::DefaultCommandDispatcher;
+    use crate::Retryability;
     use crate::authorization::{AuthorizationPlan, Authorizer, AuthorizerError};
     use crate::command::{
         Command, CommandDispatcher, CommandDispatcherError, CommandHandled, CommandHandler,
         CommandHash, CommandHasher, CommandHasherError, CommandName, CommandOptions,
         IdempotencyBeginResult, IdempotencyOutput, IdempotencyService, IdempotencyServiceError,
     };
-    use crate::request_context::MessageId;
-    use crate::request_context::Principal;
+    use crate::request_context::{MessageId, Principal, RequestContext};
     use crate::unit_of_work::{
         UnitOfWork, UnitOfWorkError, UnitOfWorkFactory, UnitOfWorkFactoryError,
     };
 
     #[derive(Default)]
-    struct TestUow;
+    struct TestState {
+        begun: AtomicUsize,
+        committed: AtomicUsize,
+        rolled_back: AtomicUsize,
+        handler_calls: AtomicUsize,
+    }
+
+    struct TestUow {
+        state: Arc<TestState>,
+    }
 
     impl UnitOfWork for TestUow {
         async fn commit(self) -> Result<(), UnitOfWorkError> {
+            self.state.committed.fetch_add(1, Ordering::SeqCst);
             Ok(())
         }
 
         async fn rollback(self) -> Result<(), UnitOfWorkError> {
+            self.state.rolled_back.fetch_add(1, Ordering::SeqCst);
             Ok(())
         }
     }
 
-    struct TestUowFactory;
+    struct TestUowFactory {
+        state: Arc<TestState>,
+    }
 
     impl UnitOfWorkFactory for TestUowFactory {
         type Uow = TestUow;
 
         async fn begin(&self) -> Result<Self::Uow, UnitOfWorkFactoryError> {
-            Ok(TestUow)
+            self.state.begun.fetch_add(1, Ordering::SeqCst);
+            Ok(TestUow {
+                state: Arc::clone(&self.state),
+            })
         }
     }
 
@@ -231,10 +249,21 @@ mod tests {
     }
 
     #[derive(Debug, thiserror::Error)]
-    #[error("business rule failed")]
-    struct TestHandlerError;
+    #[error("handler failed")]
+    struct TestHandlerError {
+        retryable: bool,
+    }
 
-    struct TestCommandFailureHandler;
+    impl Retryability for TestHandlerError {
+        fn is_retryable(&self) -> bool {
+            self.retryable
+        }
+    }
+
+    struct TestCommandFailureHandler {
+        state: Arc<TestState>,
+        retryable: bool,
+    }
 
     impl CommandHandler for TestCommandFailureHandler {
         type Command = TestCommand;
@@ -249,34 +278,101 @@ mod tests {
             _request_context: &crate::request_context::RequestContext,
             _command: &Self::Command,
         ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
-            Err(TestHandlerError)
+            self.state.handler_calls.fetch_add(1, Ordering::SeqCst);
+            Err(TestHandlerError {
+                retryable: self.retryable,
+            })
         }
     }
 
+    fn request_context() -> RequestContext {
+        RequestContext::new(
+            crate::request_context::CorrelationId::from(Uuid::now_v7()),
+            MessageId::new(),
+            Principal::System,
+        )
+        .expect("request context should be valid")
+    }
+
     #[tokio::test]
-    async fn dispatch_rolls_back_command_failure() {
+    async fn dispatch_rolls_back_retryable_handler_failure() {
+        let state = Arc::new(TestState::default());
         let dispatcher = DefaultCommandDispatcher::new(
             TestCommandHasher,
             TestNewIdempotencyService,
-            TestUowFactory,
+            TestUowFactory {
+                state: Arc::clone(&state),
+            },
             TestAuthorizer,
         );
-        let request_context = crate::request_context::RequestContext::new(
-            crate::request_context::CorrelationId::from(Uuid::now_v7()),
-            crate::request_context::MessageId::new(),
-            Principal::System,
-        )
-        .expect("request context should be valid");
+        let request_context = request_context();
 
         let result = dispatcher
             .dispatch(
-                &TestCommandFailureHandler,
+                &TestCommandFailureHandler {
+                    state: Arc::clone(&state),
+                    retryable: true,
+                },
                 &request_context,
                 TestCommand {},
                 CommandOptions::default(),
             )
             .await;
 
-        assert!(matches!(result, Err(CommandDispatcherError::Handler(_))));
+        let error = result.expect_err("handler failure should be returned");
+        assert!(matches!(&error, CommandDispatcherError::Handler(_)));
+        assert!(error.is_retryable());
+        assert_eq!(state.begun.load(Ordering::SeqCst), 1);
+        assert_eq!(state.rolled_back.load(Ordering::SeqCst), 1);
+        assert_eq!(state.committed.load(Ordering::SeqCst), 0);
+        assert_eq!(state.handler_calls.load(Ordering::SeqCst), 1);
+    }
+
+    #[tokio::test]
+    async fn dispatch_reexecutes_non_retryable_failure_for_same_message_id() {
+        let state = Arc::new(TestState::default());
+        let dispatcher = DefaultCommandDispatcher::new(
+            TestCommandHasher,
+            TestNewIdempotencyService,
+            TestUowFactory {
+                state: Arc::clone(&state),
+            },
+            TestAuthorizer,
+        );
+        let request_context = request_context();
+
+        let first_result = dispatcher
+            .dispatch(
+                &TestCommandFailureHandler {
+                    state: Arc::clone(&state),
+                    retryable: false,
+                },
+                &request_context,
+                TestCommand {},
+                CommandOptions::default(),
+            )
+            .await;
+        let second_result = dispatcher
+            .dispatch(
+                &TestCommandFailureHandler {
+                    state: Arc::clone(&state),
+                    retryable: false,
+                },
+                &request_context,
+                TestCommand {},
+                CommandOptions::default(),
+            )
+            .await;
+
+        let first_error = first_result.expect_err("first handler failure should be returned");
+        let second_error = second_result.expect_err("second handler failure should be returned");
+        assert!(matches!(&first_error, CommandDispatcherError::Handler(_)));
+        assert!(matches!(&second_error, CommandDispatcherError::Handler(_)));
+        assert!(!first_error.is_retryable());
+        assert!(!second_error.is_retryable());
+        assert_eq!(state.begun.load(Ordering::SeqCst), 2);
+        assert_eq!(state.rolled_back.load(Ordering::SeqCst), 2);
+        assert_eq!(state.committed.load(Ordering::SeqCst), 0);
+        assert_eq!(state.handler_calls.load(Ordering::SeqCst), 2);
     }
 }
