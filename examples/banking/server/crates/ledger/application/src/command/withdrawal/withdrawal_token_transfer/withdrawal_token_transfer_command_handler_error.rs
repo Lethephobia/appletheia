@@ -21,7 +21,4 @@ pub enum WithdrawalTokenTransferCommandHandlerError {
 
     #[error("pool token transfer executor failed")]
     PoolTokenTransferExecutor(#[from] PoolTokenTransferExecutorError),
-
-    #[error("currency is not provisioned for on-chain transfer")]
-    CurrencyUnprovisioned,
 }

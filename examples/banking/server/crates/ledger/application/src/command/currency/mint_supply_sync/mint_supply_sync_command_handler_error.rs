@@ -14,7 +14,4 @@ pub enum MintSupplySyncCommandHandlerError {
 
     #[error("mint supply synchronizer failed")]
     MintSupplySynchronizer(#[from] MintSupplySynchronizerError),
-
-    #[error("currency mint account has not been recorded yet")]
-    MintAccountNotRecorded,
 }

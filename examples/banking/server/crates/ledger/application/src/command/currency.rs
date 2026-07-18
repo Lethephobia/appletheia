@@ -44,7 +44,7 @@ pub use currency_image_object_delete::{
 pub use currency_image_upload_prepare::{
     CurrencyImageUploadPrepareCommand, CurrencyImageUploadPrepareCommandHandler,
     CurrencyImageUploadPrepareCommandHandlerConfig, CurrencyImageUploadPrepareCommandHandlerError,
-    CurrencyImageUploadPrepareOutput,
+    CurrencyImageUploadPrepareOutput, CurrencyImageUploadPrepareRejectionReason,
 };
 pub use currency_name_change::{
     CurrencyNameChangeCommand, CurrencyNameChangeCommandHandler,

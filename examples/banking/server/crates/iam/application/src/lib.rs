@@ -60,7 +60,8 @@ pub use command::{
     OrganizationPictureUploadPrepareCommand, OrganizationPictureUploadPrepareCommandHandler,
     OrganizationPictureUploadPrepareCommandHandlerConfig,
     OrganizationPictureUploadPrepareCommandHandlerError, OrganizationPictureUploadPrepareOutput,
-    OrganizationRemoveCommand, OrganizationRemoveCommandHandler, OrganizationRemoveOutput,
+    OrganizationPictureUploadPrepareRejectionReason, OrganizationRemoveCommand,
+    OrganizationRemoveCommandHandler, OrganizationRemoveOutput,
     OrganizationWebsiteUrlChangeCommand, OrganizationWebsiteUrlChangeCommandHandler,
     OrganizationWebsiteUrlChangeOutput, UserActivateCommand, UserActivateCommandHandler,
     UserActivateOutput, UserBioChangeCommand, UserBioChangeCommandHandler, UserBioChangeOutput,
@@ -78,9 +79,10 @@ pub use command::{
     UserPictureObjectDeleteCommandHandler, UserPictureObjectDeleteCommandHandlerError,
     UserPictureObjectDeleteOutput, UserPictureUploadPrepareCommand,
     UserPictureUploadPrepareCommandHandler, UserPictureUploadPrepareCommandHandlerConfig,
-    UserPictureUploadPrepareCommandHandlerError, UserPictureUploadPrepareOutput, UserRemoveCommand,
-    UserRemoveCommandHandler, UserRemoveOutput, UserUsernameChangeCommand,
-    UserUsernameChangeCommandHandler, UserUsernameChangeOutput,
+    UserPictureUploadPrepareCommandHandlerError, UserPictureUploadPrepareOutput,
+    UserPictureUploadPrepareRejectionReason, UserRemoveCommand, UserRemoveCommandHandler,
+    UserRemoveOutput, UserUsernameChangeCommand, UserUsernameChangeCommandHandler,
+    UserUsernameChangeOutput,
 };
 pub use oidc::{OidcCompletionPurpose, OidcCompletionRedirectUri, OidcContinuationPayload};
 pub use projection::{

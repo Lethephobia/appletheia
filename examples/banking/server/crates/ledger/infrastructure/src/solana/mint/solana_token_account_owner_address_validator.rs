@@ -1,7 +1,8 @@
 use std::str::FromStr;
 
 use banking_ledger_application::mint::{
-    TokenAccountOwnerAddressValidator, TokenAccountOwnerAddressValidatorError,
+    TokenAccountOwnerAddressValidationResult, TokenAccountOwnerAddressValidator,
+    TokenAccountOwnerAddressValidatorError,
 };
 use banking_ledger_domain::core::TokenAccountOwnerAddress;
 use solana_sdk::pubkey::Pubkey;
@@ -14,10 +15,11 @@ impl TokenAccountOwnerAddressValidator for SolanaTokenAccountOwnerAddressValidat
     async fn validate(
         &self,
         address: &TokenAccountOwnerAddress,
-    ) -> Result<(), TokenAccountOwnerAddressValidatorError> {
-        Pubkey::from_str(address.value())
-            .map_err(|_| TokenAccountOwnerAddressValidatorError::InvalidAddress)?;
-
-        Ok(())
+    ) -> Result<TokenAccountOwnerAddressValidationResult, TokenAccountOwnerAddressValidatorError>
+    {
+        Ok(match Pubkey::from_str(address.value()) {
+            Ok(_) => TokenAccountOwnerAddressValidationResult::Valid,
+            Err(_) => TokenAccountOwnerAddressValidationResult::Invalid,
+        })
     }
 }

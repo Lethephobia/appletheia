@@ -6,8 +6,8 @@ use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use appletheia::domain::{Aggregate, UniqueValue};
 use banking_iam_domain::{
-    Organization, OrganizationCreateResult, OrganizationCreation, OrganizationError,
-    OrganizationHandle, OrganizationOwner, OrganizationState, User,
+    Organization, OrganizationCreateRejectionReason, OrganizationCreateResult,
+    OrganizationCreation, OrganizationHandle, OrganizationOwner, OrganizationState, User,
 };
 
 use super::{
@@ -80,33 +80,51 @@ where
             picture,
         } = command.clone();
 
-        let unique_value = Self::handle_unique_value(&handle)?;
-        if self
-            .organization_repository
-            .find_by_unique_value(uow, OrganizationState::HANDLE_KEY, &unique_value)
-            .await?
-            .is_some()
-        {
-            return Err(OrganizationError::HandleAlreadyTaken.into());
-        }
-
         let mut organization = Organization::new();
         let organization_id = organization.aggregate_id();
-        let result = organization.create(OrganizationCreation {
+        let creation = OrganizationCreation {
             owner,
             handle,
             display_name,
             description,
             website_url,
             picture,
-        })?;
+        };
+
+        let unique_value = Self::handle_unique_value(&creation.handle)?;
+        let handle_is_taken = self
+            .organization_repository
+            .find_by_unique_value(uow, OrganizationState::HANDLE_KEY, &unique_value)
+            .await?
+            .is_some();
+        if handle_is_taken {
+            let reason = OrganizationCreateRejectionReason::HandleAlreadyTaken;
+            organization.reject_create(creation, reason)?;
+
+            self.organization_repository
+                .save(uow, request_context, &mut organization)
+                .await?;
+
+            return Ok(CommandHandled::same(OrganizationCreateOutput::Rejected {
+                organization_id,
+                reason,
+            }));
+        }
+
+        let result = organization.create(creation)?;
 
         self.organization_repository
             .save(uow, request_context, &mut organization)
             .await?;
 
         let output = match result {
-            OrganizationCreateResult::Created => OrganizationCreateOutput::new(organization_id),
+            OrganizationCreateResult::Created => {
+                OrganizationCreateOutput::Created { organization_id }
+            }
+            OrganizationCreateResult::Rejected { reason } => OrganizationCreateOutput::Rejected {
+                organization_id,
+                reason,
+            },
         };
 
         Ok(CommandHandled::same(output))
@@ -129,7 +147,8 @@ mod tests {
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::Aggregate;
     use banking_iam_domain::{
-        Organization, OrganizationDisplayName, OrganizationHandle, OrganizationId,
+        Organization, OrganizationCreateRejectionReason, OrganizationCreation,
+        OrganizationDisplayName, OrganizationEventPayload, OrganizationHandle, OrganizationId,
         OrganizationOwner, User, UserId,
     };
     use uuid::Uuid;
@@ -158,6 +177,14 @@ mod tests {
     #[derive(Clone, Default)]
     struct TestOrganizationRepository {
         organization: Arc<Mutex<Option<Organization>>>,
+    }
+
+    impl TestOrganizationRepository {
+        fn new(organization: Organization) -> Self {
+            Self {
+                organization: Arc::new(Mutex::new(Some(organization))),
+            }
+        }
     }
 
     impl Repository<Organization> for TestOrganizationRepository {
@@ -200,7 +227,7 @@ mod tests {
             _unique_key: appletheia::domain::UniqueKey,
             _unique_value: &appletheia::domain::UniqueValue,
         ) -> Result<Option<Organization>, RepositoryError<Organization>> {
-            Ok(None)
+            Ok(self.organization.lock().expect("lock").clone())
         }
 
         async fn save(
@@ -287,7 +314,12 @@ mod tests {
         let saved = repository.organization.lock().expect("lock").clone();
         let saved = saved.expect("organization should be saved");
 
-        assert_eq!(output, OrganizationCreateOutput::new(saved.aggregate_id()));
+        assert_eq!(
+            output,
+            OrganizationCreateOutput::Created {
+                organization_id: saved.aggregate_id(),
+            }
+        );
         assert_eq!(
             saved.display_name().expect("display name should exist"),
             &display_name()
@@ -301,5 +333,64 @@ mod tests {
             OrganizationOwner::User(user_id)
         );
         assert_eq!(saved.uncommitted_events().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn handle_records_rejection_when_handle_is_taken() {
+        let mut existing = Organization::new();
+        existing
+            .create(OrganizationCreation {
+                owner: OrganizationOwner::User(UserId::new()),
+                handle: OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
+                display_name: display_name(),
+                description: None,
+                website_url: None,
+                picture: None,
+            })
+            .expect("existing organization should be created");
+        let repository = TestOrganizationRepository::new(existing);
+        let handler = OrganizationCreateCommandHandler::new(repository.clone());
+        let mut uow = TestUow;
+        let (request_context, user_id) = request_context();
+
+        let handled = handler
+            .handle(
+                &mut uow,
+                &request_context,
+                &OrganizationCreateCommand {
+                    owner: OrganizationOwner::User(user_id),
+                    handle: OrganizationHandle::try_from("acme-labs")
+                        .expect("handle should be valid"),
+                    display_name: display_name(),
+                    description: None,
+                    website_url: None,
+                    picture: None,
+                },
+            )
+            .await
+            .expect("duplicate handle should be rejected");
+
+        let saved = repository
+            .organization
+            .lock()
+            .expect("lock")
+            .clone()
+            .expect("rejected creation should be saved");
+        let reason = OrganizationCreateRejectionReason::HandleAlreadyTaken;
+        assert_eq!(
+            handled.into_output(),
+            OrganizationCreateOutput::Rejected {
+                organization_id: saved.aggregate_id(),
+                reason,
+            }
+        );
+        assert!(saved.state().is_none());
+        assert!(matches!(
+            saved.uncommitted_events()[0].payload(),
+            OrganizationEventPayload::CreateRejected {
+                reason: OrganizationCreateRejectionReason::HandleAlreadyTaken,
+                ..
+            }
+        ));
     }
 }

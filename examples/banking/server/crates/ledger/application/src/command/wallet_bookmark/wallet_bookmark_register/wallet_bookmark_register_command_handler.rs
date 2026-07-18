@@ -10,14 +10,18 @@ use banking_iam_application::authorization::{
 };
 use banking_iam_domain::{Organization, User};
 use banking_ledger_domain::wallet_bookmark::{
-    WalletBookmark, WalletBookmarkOwner, WalletBookmarkRegisterResult, WalletBookmarkRegistration,
+    WalletBookmark, WalletBookmarkOwner, WalletBookmarkRegisterRejectionReason,
+    WalletBookmarkRegisterResult, WalletBookmarkRegistration,
 };
 
 use super::{
     WalletBookmarkRegisterCommand, WalletBookmarkRegisterCommandHandlerError,
     WalletBookmarkRegisterOutput,
 };
-use crate::mint::TokenAccountOwnerAddressValidator;
+use crate::mint::{
+    TokenAccountOwnerAddressValidationResult, TokenAccountOwnerAddressValidator,
+    TokenAccountOwnerAddressValidatorError,
+};
 
 /// Handles `WalletBookmarkRegisterCommand`.
 pub struct WalletBookmarkRegisterCommandHandler<WBR, TAOV>
@@ -85,18 +89,40 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
-        self.token_account_owner_address_validator
-            .validate(&command.token_account_owner_address)
-            .await?;
-
         let mut wallet_bookmark = WalletBookmark::new();
         let wallet_bookmark_id = wallet_bookmark.aggregate_id();
-        let result = wallet_bookmark.register(WalletBookmarkRegistration {
+        let registration = WalletBookmarkRegistration {
             owner: command.owner,
             display_name: command.display_name.clone(),
             description: command.description.clone(),
             token_account_owner_address: command.token_account_owner_address.clone(),
-        })?;
+        };
+
+        match self
+            .token_account_owner_address_validator
+            .validate(&command.token_account_owner_address)
+            .await
+        {
+            Ok(TokenAccountOwnerAddressValidationResult::Valid) => {}
+            Ok(TokenAccountOwnerAddressValidationResult::Invalid) => {
+                let reason = WalletBookmarkRegisterRejectionReason::InvalidTokenAccountOwnerAddress;
+                wallet_bookmark.reject_register(registration, reason)?;
+                self.wallet_bookmark_repository
+                    .save(uow, request_context, &mut wallet_bookmark)
+                    .await?;
+                return Ok(CommandHandled::same(
+                    WalletBookmarkRegisterOutput::Rejected {
+                        wallet_bookmark_id,
+                        reason,
+                    },
+                ));
+            }
+            Err(error @ TokenAccountOwnerAddressValidatorError::Backend(_)) => {
+                return Err(error.into());
+            }
+        }
+
+        let result = wallet_bookmark.register(registration)?;
 
         self.wallet_bookmark_repository
             .save(uow, request_context, &mut wallet_bookmark)
@@ -104,7 +130,13 @@ where
 
         let output = match result {
             WalletBookmarkRegisterResult::Registered => {
-                WalletBookmarkRegisterOutput::new(wallet_bookmark_id)
+                WalletBookmarkRegisterOutput::Registered { wallet_bookmark_id }
+            }
+            WalletBookmarkRegisterResult::Rejected { reason } => {
+                WalletBookmarkRegisterOutput::Rejected {
+                    wallet_bookmark_id,
+                    reason,
+                }
             }
         };
 
@@ -125,15 +157,16 @@ mod tests {
         CorrelationId, MessageId, Principal, RequestContext,
     };
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
-    use appletheia::domain::Aggregate;
+    use appletheia::domain::{Aggregate, EventPayload};
     use banking_iam_application::authorization::{
         OrganizationFinanceManagerRelation, UserOwnerRelation,
     };
     use banking_iam_domain::{Organization, OrganizationId, User, UserId};
     use banking_ledger_domain::core::TokenAccountOwnerAddress;
     use banking_ledger_domain::wallet_bookmark::{
-        WalletBookmark, WalletBookmarkDescription, WalletBookmarkDisplayName, WalletBookmarkId,
-        WalletBookmarkOwner,
+        WalletBookmark, WalletBookmarkDescription, WalletBookmarkDisplayName,
+        WalletBookmarkEventPayload, WalletBookmarkId, WalletBookmarkOwner,
+        WalletBookmarkRegisterRejectionReason,
     };
     use uuid::Uuid;
 
@@ -141,7 +174,10 @@ mod tests {
         WalletBookmarkRegisterCommand, WalletBookmarkRegisterCommandHandler,
         WalletBookmarkRegisterCommandHandlerError, WalletBookmarkRegisterOutput,
     };
-    use crate::mint::{TokenAccountOwnerAddressValidator, TokenAccountOwnerAddressValidatorError};
+    use crate::mint::{
+        TokenAccountOwnerAddressValidationResult, TokenAccountOwnerAddressValidator,
+        TokenAccountOwnerAddressValidatorError,
+    };
 
     #[derive(Default)]
     struct TestUow;
@@ -222,8 +258,9 @@ mod tests {
         async fn validate(
             &self,
             _address: &TokenAccountOwnerAddress,
-        ) -> Result<(), TokenAccountOwnerAddressValidatorError> {
-            Ok(())
+        ) -> Result<TokenAccountOwnerAddressValidationResult, TokenAccountOwnerAddressValidatorError>
+        {
+            Ok(TokenAccountOwnerAddressValidationResult::Valid)
         }
     }
 
@@ -234,8 +271,24 @@ mod tests {
         async fn validate(
             &self,
             _address: &TokenAccountOwnerAddress,
-        ) -> Result<(), TokenAccountOwnerAddressValidatorError> {
-            Err(TokenAccountOwnerAddressValidatorError::InvalidAddress)
+        ) -> Result<TokenAccountOwnerAddressValidationResult, TokenAccountOwnerAddressValidatorError>
+        {
+            Ok(TokenAccountOwnerAddressValidationResult::Invalid)
+        }
+    }
+
+    #[derive(Clone, Copy, Default)]
+    struct FailingValidator;
+
+    impl TokenAccountOwnerAddressValidator for FailingValidator {
+        async fn validate(
+            &self,
+            _address: &TokenAccountOwnerAddress,
+        ) -> Result<TokenAccountOwnerAddressValidationResult, TokenAccountOwnerAddressValidatorError>
+        {
+            Err(TokenAccountOwnerAddressValidatorError::Backend(Box::new(
+                std::io::Error::other("validator unavailable"),
+            )))
         }
     }
 
@@ -352,19 +405,21 @@ mod tests {
 
         assert_eq!(
             output,
-            WalletBookmarkRegisterOutput::new(aggregate.aggregate_id())
+            WalletBookmarkRegisterOutput::Registered {
+                wallet_bookmark_id: aggregate.aggregate_id(),
+            }
         );
     }
 
     #[tokio::test]
-    async fn handle_returns_validation_error_when_address_is_invalid() {
+    async fn handle_rejects_when_address_is_invalid() {
         let repository = TestWalletBookmarkRepository::default();
         let handler =
             WalletBookmarkRegisterCommandHandler::new(repository.clone(), RejectingValidator);
         let user_id = UserId::new();
         let request_context = request_context(user_id);
 
-        let error = handler
+        let handled = handler
             .handle(
                 &mut TestUow,
                 &request_context,
@@ -376,12 +431,55 @@ mod tests {
                 },
             )
             .await
-            .expect_err("command should fail");
+            .expect("command should be handled");
+
+        let aggregate = repository
+            .wallet_bookmark
+            .lock()
+            .expect("lock")
+            .clone()
+            .expect("rejection should be saved");
+        let reason = WalletBookmarkRegisterRejectionReason::InvalidTokenAccountOwnerAddress;
+        assert_eq!(
+            handled.into_output(),
+            WalletBookmarkRegisterOutput::Rejected {
+                wallet_bookmark_id: aggregate.aggregate_id(),
+                reason,
+            }
+        );
+        let events = aggregate.uncommitted_events();
+        assert_eq!(events.len(), 1);
+        assert_eq!(
+            events[0].payload().name(),
+            WalletBookmarkEventPayload::REGISTER_REJECTED
+        );
+    }
+
+    #[tokio::test]
+    async fn handle_returns_error_when_address_validator_backend_fails() {
+        let repository = TestWalletBookmarkRepository::default();
+        let handler =
+            WalletBookmarkRegisterCommandHandler::new(repository.clone(), FailingValidator);
+        let user_id = UserId::new();
+
+        let error = handler
+            .handle(
+                &mut TestUow,
+                &request_context(user_id),
+                &WalletBookmarkRegisterCommand {
+                    owner: WalletBookmarkOwner::User(user_id),
+                    display_name: Some(wallet_bookmark_display_name()),
+                    description: Some(wallet_bookmark_description()),
+                    token_account_owner_address: token_account_owner_address(),
+                },
+            )
+            .await
+            .expect_err("backend failure should remain an error");
 
         assert!(matches!(
             error,
             WalletBookmarkRegisterCommandHandlerError::TokenAccountOwnerAddressValidator(
-                TokenAccountOwnerAddressValidatorError::InvalidAddress
+                TokenAccountOwnerAddressValidatorError::Backend(_)
             )
         ));
         assert!(repository.wallet_bookmark.lock().expect("lock").is_none());

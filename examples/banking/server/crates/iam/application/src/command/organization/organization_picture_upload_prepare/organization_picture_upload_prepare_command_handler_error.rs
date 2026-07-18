@@ -20,13 +20,4 @@ pub enum OrganizationPictureUploadPrepareCommandHandlerError {
 
     #[error("object upload signer failed")]
     ObjectUploadSigner(#[from] ObjectUploadSignerError),
-
-    #[error("removed organizations cannot prepare picture uploads")]
-    OrganizationRemoved,
-
-    #[error("picture content length exceeds the configured maximum")]
-    ContentLengthTooLarge,
-
-    #[error("picture content type is not allowed")]
-    ContentTypeNotAllowed,
 }

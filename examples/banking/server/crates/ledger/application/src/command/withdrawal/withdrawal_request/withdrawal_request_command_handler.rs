@@ -12,7 +12,10 @@ use banking_ledger_domain::withdrawal::{
 };
 
 use crate::authorization::AccountWithdrawalRequesterRelation;
-use crate::mint::TokenAccountOwnerAddressValidator;
+use crate::mint::{
+    TokenAccountOwnerAddressValidationResult, TokenAccountOwnerAddressValidator,
+    TokenAccountOwnerAddressValidatorError,
+};
 
 use super::{
     WithdrawalRequestCommand, WithdrawalRequestCommandHandlerError, WithdrawalRequestOutput,
@@ -91,13 +94,6 @@ where
             .account_repository
             .read(uow, command.account_id)
             .await?;
-        self.token_account_owner_address_validator
-            .validate(&command.token_account_owner_address)
-            .await?;
-        let currency = self
-            .currency_repository
-            .read(uow, *account.currency_id()?)
-            .await?;
 
         let mut withdrawal = Withdrawal::new();
         let withdrawal_id = withdrawal.aggregate_id();
@@ -111,6 +107,31 @@ where
             token_account_owner_address,
             amount,
         };
+
+        match self
+            .token_account_owner_address_validator
+            .validate(&command.token_account_owner_address)
+            .await
+        {
+            Ok(TokenAccountOwnerAddressValidationResult::Valid) => {}
+            Ok(TokenAccountOwnerAddressValidationResult::Invalid) => {
+                let reason = WithdrawalRequestRejectionReason::InvalidTokenAccountOwnerAddress;
+                withdrawal.reject_request(request, reason)?;
+                let output = WithdrawalRequestOutput::Rejected {
+                    withdrawal_id,
+                    reason,
+                };
+                self.withdrawal_repository
+                    .save(uow, request_context, &mut withdrawal)
+                    .await?;
+                return Ok(CommandHandled::same(output));
+            }
+            Err(error @ TokenAccountOwnerAddressValidatorError::Backend(_)) => {
+                return Err(error.into());
+            }
+        }
+
+        let currency = self.currency_repository.read(uow, currency_id).await?;
 
         if matches!(
             currency.status()?,
@@ -175,21 +196,27 @@ mod tests {
         CorrelationId, MessageId, Principal, RequestContext,
     };
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
-    use appletheia::domain::{Aggregate, AggregateVersion, UniqueKey, UniqueValue};
+    use appletheia::domain::{Aggregate, AggregateVersion, EventPayload, UniqueKey, UniqueValue};
     use banking_iam_domain::{User, UserId};
     use banking_ledger_domain::account::{
         Account, AccountId, AccountName, AccountOpening, AccountOwner,
     };
     use banking_ledger_domain::core::{CurrencyAmount, TokenAccountOwnerAddress};
     use banking_ledger_domain::currency::{
-        Currency, CurrencyDecimals, CurrencyId, CurrencyName, CurrencyOwner, CurrencySymbol,
-        MintAccount, MintAccountAddress, PoolTokenAccountAddress,
+        Currency, CurrencyDecimals, CurrencyDefinition, CurrencyId, CurrencyName, CurrencyOwner,
+        CurrencySymbol, MintAccount, MintAccountAddress, PoolTokenAccountAddress,
     };
-    use banking_ledger_domain::withdrawal::{Withdrawal, WithdrawalId, WithdrawalStatus};
+    use banking_ledger_domain::withdrawal::{
+        Withdrawal, WithdrawalEventPayload, WithdrawalId, WithdrawalRequestRejectionReason,
+        WithdrawalStatus,
+    };
     use uuid::Uuid;
 
     use crate::authorization::AccountWithdrawalRequesterRelation;
-    use crate::mint::{TokenAccountOwnerAddressValidator, TokenAccountOwnerAddressValidatorError};
+    use crate::mint::{
+        TokenAccountOwnerAddressValidationResult, TokenAccountOwnerAddressValidator,
+        TokenAccountOwnerAddressValidatorError,
+    };
 
     use super::{
         WithdrawalRequestCommand, WithdrawalRequestCommandHandler,
@@ -216,8 +243,22 @@ mod tests {
         async fn validate(
             &self,
             _address: &TokenAccountOwnerAddress,
-        ) -> Result<(), TokenAccountOwnerAddressValidatorError> {
-            Ok(())
+        ) -> Result<TokenAccountOwnerAddressValidationResult, TokenAccountOwnerAddressValidatorError>
+        {
+            Ok(TokenAccountOwnerAddressValidationResult::Valid)
+        }
+    }
+
+    #[derive(Clone, Copy)]
+    struct RejectingValidator;
+
+    impl TokenAccountOwnerAddressValidator for RejectingValidator {
+        async fn validate(
+            &self,
+            _address: &TokenAccountOwnerAddress,
+        ) -> Result<TokenAccountOwnerAddressValidationResult, TokenAccountOwnerAddressValidatorError>
+        {
+            Ok(TokenAccountOwnerAddressValidationResult::Invalid)
         }
     }
 
@@ -468,14 +509,14 @@ mod tests {
     fn provisioned_currency(owner: CurrencyOwner) -> Currency {
         let mut currency = Currency::new();
         currency
-            .define(
+            .define(CurrencyDefinition {
                 owner,
-                CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
-                CurrencyName::try_from("USD Coin").expect("name should be valid"),
-                CurrencyDecimals::new(6),
-                None,
-                None,
-            )
+                symbol: CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
+                name: CurrencyName::try_from("USD Coin").expect("name should be valid"),
+                decimals: CurrencyDecimals::new(6),
+                description: None,
+                image: None,
+            })
             .expect("currency should define");
         currency
             .provision(mint_account())
@@ -576,6 +617,57 @@ mod tests {
         assert_eq!(
             saved.status().expect("status should exist"),
             &WithdrawalStatus::Pending
+        );
+    }
+
+    #[tokio::test]
+    async fn handle_rejects_when_token_account_owner_address_is_invalid() {
+        let user_id = UserId::new();
+        let currency_id = CurrencyId::new();
+        let account = opened_account(AccountOwner::from(user_id), currency_id);
+        let account_id = account.aggregate_id();
+        let account_repository = TestAccountRepository::default();
+        account_repository.insert(account);
+        let withdrawal_repository = TestWithdrawalRepository::default();
+        let handler = WithdrawalRequestCommandHandler::new(
+            account_repository,
+            TestCurrencyRepository::default(),
+            RejectingValidator,
+            withdrawal_repository.clone(),
+        );
+
+        let handled = handler
+            .handle(
+                &mut TestUow,
+                &request_context(user_id),
+                &WithdrawalRequestCommand {
+                    account_id,
+                    token_account_owner_address: token_account_owner_address(),
+                    amount: CurrencyAmount::new(10),
+                },
+            )
+            .await
+            .expect("invalid address should be handled as a rejection");
+
+        let saved = withdrawal_repository
+            .saved
+            .lock()
+            .expect("lock")
+            .clone()
+            .expect("rejection should be saved");
+        let reason = WithdrawalRequestRejectionReason::InvalidTokenAccountOwnerAddress;
+        assert_eq!(
+            handled.into_output(),
+            WithdrawalRequestOutput::Rejected {
+                withdrawal_id: saved.aggregate_id(),
+                reason,
+            }
+        );
+        let events = saved.uncommitted_events();
+        assert_eq!(events.len(), 1);
+        assert_eq!(
+            events[0].payload().name(),
+            WithdrawalEventPayload::REQUEST_REJECTED
         );
     }
 

@@ -78,7 +78,8 @@ where
                     .delete_wallet_bookmark(uow, event_context, wallet_bookmark_id)
                     .await?;
             }
-            WalletBookmarkEventPayload::RemoveRejected { .. }
+            WalletBookmarkEventPayload::RegisterRejected { .. }
+            | WalletBookmarkEventPayload::RemoveRejected { .. }
             | WalletBookmarkEventPayload::DisplayNameChangeRejected { .. }
             | WalletBookmarkEventPayload::DescriptionChangeRejected { .. } => {}
         }

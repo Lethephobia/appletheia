@@ -82,7 +82,7 @@ where
             .await?;
 
         let output = match result {
-            AccountOpenResult::Opened => AccountOpenOutput::new(account_id),
+            AccountOpenResult::Opened => AccountOpenOutput { account_id },
         };
 
         Ok(CommandHandled::same(output))
@@ -298,7 +298,7 @@ mod tests {
         assert_eq!(saved.owner().expect("owner should exist"), owner);
         assert_eq!(saved.name().expect("name should exist"), &name);
 
-        assert_eq!(handled.into_output(), AccountOpenOutput::new(account_id));
+        assert_eq!(handled.into_output(), AccountOpenOutput { account_id });
     }
 
     #[tokio::test]
@@ -332,6 +332,6 @@ mod tests {
         assert_eq!(saved.owner().expect("owner should exist"), owner);
         assert_eq!(saved.name().expect("name should exist"), &name);
 
-        assert_eq!(handled.into_output(), AccountOpenOutput::new(account_id));
+        assert_eq!(handled.into_output(), AccountOpenOutput { account_id });
     }
 }

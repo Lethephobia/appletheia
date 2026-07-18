@@ -376,6 +376,33 @@ mod tests {
     }
 
     #[test]
+    fn reject_request_records_unprovisioned_currency() {
+        let mut deposit = Deposit::new();
+        let reason = DepositRequestRejectionReason::CurrencyUnprovisioned;
+
+        deposit
+            .reject_request(
+                DepositRequest {
+                    account_id: AccountId::new(),
+                    currency_id: CurrencyId::new(),
+                    token_account_owner_address: token_account_owner_address(),
+                    amount: CurrencyAmount::new(100),
+                },
+                reason,
+            )
+            .expect("unprovisioned currency rejection should be recorded");
+
+        assert_eq!(deposit.status().expect("status"), &DepositStatus::Rejected);
+        assert!(matches!(
+            deposit.uncommitted_events()[0].payload(),
+            DepositEventPayload::RequestRejected {
+                reason: DepositRequestRejectionReason::CurrencyUnprovisioned,
+                ..
+            }
+        ));
+    }
+
+    #[test]
     fn complete_succeeds_after_token_transfer_is_recorded() {
         let mut deposit = requested_deposit();
         deposit

@@ -1,3 +1,4 @@
+mod organization_create_rejection_reason;
 mod organization_create_result;
 mod organization_creation;
 mod organization_description;
@@ -36,6 +37,7 @@ mod organization_website_url_change_rejection_reason;
 mod organization_website_url_change_result;
 mod organization_website_url_error;
 
+pub use organization_create_rejection_reason::OrganizationCreateRejectionReason;
 pub use organization_create_result::OrganizationCreateResult;
 pub use organization_creation::OrganizationCreation;
 pub use organization_description::OrganizationDescription;
@@ -153,6 +155,26 @@ impl Organization {
         })?;
 
         Ok(OrganizationCreateResult::Created)
+    }
+
+    /// Rejects an organization creation attempt.
+    pub fn reject_create(
+        &mut self,
+        creation: OrganizationCreation,
+        reason: OrganizationCreateRejectionReason,
+    ) -> Result<(), OrganizationError> {
+        let (owner, handle, display_name, description, website_url, picture) =
+            creation.into_parts();
+        self.append_event(OrganizationEventPayload::CreateRejected {
+            owner,
+            handle,
+            display_name,
+            description,
+            website_url,
+            picture,
+            reason,
+        })?;
+        Ok(())
     }
 
     /// Transfers ownership of the organization.
@@ -360,6 +382,7 @@ impl AggregateApply<OrganizationEventPayload, OrganizationError> for Organizatio
                 picture: picture.clone(),
                 status: OrganizationStatus::Active,
             })),
+            OrganizationEventPayload::CreateRejected { .. } => {}
             OrganizationEventPayload::OwnershipTransferred { owner } => {
                 self.state_required_mut()?.owner = *owner;
             }
@@ -399,9 +422,10 @@ mod tests {
     use appletheia::domain::{Aggregate, EventPayload};
 
     use super::{
-        Organization, OrganizationCreation, OrganizationDescription, OrganizationDisplayName,
-        OrganizationEventPayload, OrganizationHandle, OrganizationOwner, OrganizationPictureRef,
-        OrganizationPictureUrl, OrganizationWebsiteUrl,
+        Organization, OrganizationCreateRejectionReason, OrganizationCreation,
+        OrganizationDescription, OrganizationDisplayName, OrganizationEventPayload,
+        OrganizationHandle, OrganizationOwner, OrganizationPictureRef, OrganizationPictureUrl,
+        OrganizationWebsiteUrl,
     };
     use crate::UserId;
 
@@ -459,6 +483,43 @@ mod tests {
         assert_eq!(
             organization.uncommitted_events()[0].payload().name(),
             OrganizationEventPayload::CREATED
+        );
+    }
+
+    #[test]
+    fn reject_create_records_event_without_initializing_state() {
+        let owner = owner();
+        let handle = OrganizationHandle::try_from("acme-labs").expect("handle should be valid");
+        let display_name = display_name();
+        let reason = OrganizationCreateRejectionReason::HandleAlreadyTaken;
+        let mut organization = Organization::new();
+
+        organization
+            .reject_create(
+                OrganizationCreation {
+                    owner,
+                    handle: handle.clone(),
+                    display_name: display_name.clone(),
+                    description: None,
+                    website_url: None,
+                    picture: None,
+                },
+                reason,
+            )
+            .expect("creation rejection should be recorded");
+
+        assert!(organization.state().is_none());
+        assert_eq!(
+            organization.uncommitted_events()[0].payload(),
+            &OrganizationEventPayload::CreateRejected {
+                owner,
+                handle,
+                display_name,
+                description: None,
+                website_url: None,
+                picture: None,
+                reason,
+            }
         );
     }
 

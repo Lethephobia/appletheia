@@ -256,7 +256,8 @@ where
                         .delete_organization(uow, event_context, organization_id)
                         .await?;
                 }
-                OrganizationEventPayload::OwnershipTransferred { .. }
+                OrganizationEventPayload::CreateRejected { .. }
+                | OrganizationEventPayload::OwnershipTransferred { .. }
                 | OrganizationEventPayload::OwnershipTransferRejected { .. }
                 | OrganizationEventPayload::HandleChangeRejected { .. }
                 | OrganizationEventPayload::DisplayNameChangeRejected { .. }

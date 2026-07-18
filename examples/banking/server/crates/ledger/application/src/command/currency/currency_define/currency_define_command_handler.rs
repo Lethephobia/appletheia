@@ -11,7 +11,8 @@ use banking_iam_application::authorization::{
 };
 use banking_iam_domain::{Organization, User};
 use banking_ledger_domain::currency::{
-    Currency, CurrencyDefineResult, CurrencyError, CurrencyOwner, CurrencyState, CurrencySymbol,
+    Currency, CurrencyDefineRejectionReason, CurrencyDefineResult, CurrencyDefinition,
+    CurrencyOwner, CurrencyState, CurrencySymbol,
 };
 
 use super::{CurrencyDefineCommand, CurrencyDefineCommandHandlerError, CurrencyDefineOutput};
@@ -89,26 +90,49 @@ where
             image,
         } = command.clone();
 
-        let unique_value = Self::symbol_unique_value(&symbol)?;
-        if self
+        let mut currency = Currency::new();
+        let currency_id = currency.aggregate_id();
+        let definition = CurrencyDefinition {
+            owner,
+            symbol,
+            name,
+            decimals,
+            description,
+            image,
+        };
+
+        let unique_value = Self::symbol_unique_value(&definition.symbol)?;
+        let symbol_is_taken = self
             .currency_repository
             .find_by_unique_value(uow, CurrencyState::SYMBOL_KEY, &unique_value)
             .await?
-            .is_some()
-        {
-            return Err(CurrencyError::SymbolAlreadyTaken.into());
+            .is_some();
+        if symbol_is_taken {
+            let reason = CurrencyDefineRejectionReason::SymbolAlreadyTaken;
+            currency.reject_define(definition, reason)?;
+
+            self.currency_repository
+                .save(uow, request_context, &mut currency)
+                .await?;
+
+            return Ok(CommandHandled::same(CurrencyDefineOutput::Rejected {
+                currency_id,
+                reason,
+            }));
         }
 
-        let mut currency = Currency::new();
-        let currency_id = currency.aggregate_id();
-        let result = currency.define(owner, symbol, name, decimals, description, image)?;
+        let result = currency.define(definition)?;
 
         self.currency_repository
             .save(uow, request_context, &mut currency)
             .await?;
 
         let output = match result {
-            CurrencyDefineResult::Defined => CurrencyDefineOutput::new(currency_id),
+            CurrencyDefineResult::Defined => CurrencyDefineOutput::Defined { currency_id },
+            CurrencyDefineResult::Rejected { reason } => CurrencyDefineOutput::Rejected {
+                currency_id,
+                reason,
+            },
         };
 
         Ok(CommandHandled::same(output))
@@ -136,7 +160,8 @@ mod tests {
 
     use banking_iam_domain::{Organization, OrganizationId, User, UserId};
     use banking_ledger_domain::currency::{
-        Currency, CurrencyDecimals, CurrencyId, CurrencyName, CurrencyOwner, CurrencySymbol,
+        Currency, CurrencyDecimals, CurrencyDefineRejectionReason, CurrencyDefinition,
+        CurrencyEventPayload, CurrencyId, CurrencyName, CurrencyOwner, CurrencySymbol,
     };
     use uuid::Uuid;
 
@@ -158,6 +183,14 @@ mod tests {
     #[derive(Clone, Default)]
     struct TestCurrencyRepository {
         currency: Arc<Mutex<Option<Currency>>>,
+    }
+
+    impl TestCurrencyRepository {
+        fn new(currency: Currency) -> Self {
+            Self {
+                currency: Arc::new(Mutex::new(Some(currency))),
+            }
+        }
     }
 
     impl Repository<Currency> for TestCurrencyRepository {
@@ -200,7 +233,7 @@ mod tests {
             _unique_key: appletheia::domain::UniqueKey,
             _unique_value: &appletheia::domain::UniqueValue,
         ) -> Result<Option<Currency>, RepositoryError<Currency>> {
-            Ok(None)
+            Ok(self.currency.lock().expect("lock").clone())
         }
 
         async fn save(
@@ -328,7 +361,12 @@ mod tests {
             .expect("currency should be saved");
         let saved_id = saved.aggregate_id();
 
-        assert_eq!(output, CurrencyDefineOutput::new(saved_id));
+        assert_eq!(
+            output,
+            CurrencyDefineOutput::Defined {
+                currency_id: saved_id
+            }
+        );
         assert_eq!(saved.symbol().expect("symbol should exist").value(), "USDC");
         assert_eq!(saved.name().expect("name should exist").value(), "USD Coin");
         assert_eq!(saved.decimals().expect("decimals should exist").value(), 6);
@@ -369,7 +407,70 @@ mod tests {
             .expect("currency should be saved");
         let saved_id = saved.aggregate_id();
 
-        assert_eq!(output, CurrencyDefineOutput::new(saved_id));
+        assert_eq!(
+            output,
+            CurrencyDefineOutput::Defined {
+                currency_id: saved_id
+            }
+        );
         assert_eq!(saved.owner().expect("owner should exist"), expected_owner);
+    }
+
+    #[tokio::test]
+    async fn handle_records_rejection_when_symbol_is_taken() {
+        let mut existing = Currency::new();
+        existing
+            .define(CurrencyDefinition {
+                owner: CurrencyOwner::User(UserId::new()),
+                symbol: CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
+                name: CurrencyName::try_from("Existing USD Coin").expect("name should be valid"),
+                decimals: CurrencyDecimals::new(6),
+                description: None,
+                image: None,
+            })
+            .expect("existing currency should be defined");
+        let repository = TestCurrencyRepository::new(existing);
+        let handler = CurrencyDefineCommandHandler::new(repository.clone());
+        let mut uow = TestUow;
+        let (request_context, user_id) = request_context();
+
+        let handled = handler
+            .handle(
+                &mut uow,
+                &request_context,
+                &CurrencyDefineCommand {
+                    owner: user_owner(user_id),
+                    symbol: CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
+                    name: CurrencyName::try_from("USD Coin").expect("name should be valid"),
+                    decimals: CurrencyDecimals::new(6),
+                    description: None,
+                    image: None,
+                },
+            )
+            .await
+            .expect("duplicate symbol should be rejected");
+
+        let saved = repository
+            .currency
+            .lock()
+            .expect("lock")
+            .clone()
+            .expect("rejected definition should be saved");
+        let reason = CurrencyDefineRejectionReason::SymbolAlreadyTaken;
+        assert_eq!(
+            handled.into_output(),
+            CurrencyDefineOutput::Rejected {
+                currency_id: saved.aggregate_id(),
+                reason,
+            }
+        );
+        assert!(saved.state().is_none());
+        assert!(matches!(
+            saved.uncommitted_events()[0].payload(),
+            CurrencyEventPayload::DefineRejected {
+                reason: CurrencyDefineRejectionReason::SymbolAlreadyTaken,
+                ..
+            }
+        ));
     }
 }

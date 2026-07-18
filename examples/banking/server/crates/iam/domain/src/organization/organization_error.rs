@@ -14,7 +14,4 @@ pub enum OrganizationError {
 
     #[error("organization is already created")]
     AlreadyCreated,
-
-    #[error("organization handle is already taken")]
-    HandleAlreadyTaken,
 }

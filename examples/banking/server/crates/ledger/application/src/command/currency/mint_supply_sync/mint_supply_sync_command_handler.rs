@@ -3,7 +3,7 @@ use appletheia::application::authorization::{AuthorizationPlan, PrincipalRequire
 use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_ledger_domain::currency::Currency;
+use banking_ledger_domain::currency::{Currency, MintSupplySyncRejectionReason};
 
 use super::{MintSupplySyncCommand, MintSupplySyncCommandHandlerError, MintSupplySyncOutput};
 
@@ -62,7 +62,16 @@ where
             .await?;
 
         if currency.mint_account()?.is_none() {
-            return Err(MintSupplySyncCommandHandlerError::MintAccountNotRecorded);
+            let reason = MintSupplySyncRejectionReason::NotProvisioned;
+            currency.reject_mint_supply_sync(reason)?;
+
+            self.currency_repository
+                .save(uow, request_context, &mut currency)
+                .await?;
+
+            return Ok(CommandHandled::same(MintSupplySyncOutput::Rejected {
+                reason,
+            }));
         }
 
         let target_supply = currency.target_supply()?;
@@ -79,7 +88,7 @@ where
             .save(uow, request_context, &mut currency)
             .await?;
 
-        Ok(CommandHandled::same(MintSupplySyncOutput))
+        Ok(CommandHandled::same(MintSupplySyncOutput::Synced))
     }
 }
 
@@ -97,15 +106,13 @@ mod tests {
     use banking_iam_domain::UserId;
     use banking_ledger_domain::core::CurrencyAmount;
     use banking_ledger_domain::currency::{
-        Currency, CurrencyDecimals, CurrencyEventPayload, CurrencyId, CurrencyName, CurrencyOwner,
-        CurrencySymbol, MintAccount, MintAccountAddress, PoolTokenAccountAddress,
+        Currency, CurrencyDecimals, CurrencyDefinition, CurrencyEventPayload, CurrencyId,
+        CurrencyName, CurrencyOwner, CurrencySymbol, MintAccount, MintAccountAddress,
+        MintSupplySyncRejectionReason, PoolTokenAccountAddress,
     };
     use uuid::Uuid;
 
-    use super::{
-        MintSupplySyncCommand, MintSupplySyncCommandHandler, MintSupplySyncCommandHandlerError,
-        MintSupplySyncOutput,
-    };
+    use super::{MintSupplySyncCommand, MintSupplySyncCommandHandler, MintSupplySyncOutput};
     use crate::mint::{MintSupplySyncRequest, MintSupplySynchronizer, MintSupplySynchronizerError};
 
     #[derive(Default)]
@@ -219,14 +226,14 @@ mod tests {
     fn defined_currency() -> Currency {
         let mut currency = Currency::new();
         currency
-            .define(
-                CurrencyOwner::User(UserId::new()),
-                CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
-                CurrencyName::try_from("USD Coin").expect("name should be valid"),
-                CurrencyDecimals::new(6),
-                None,
-                None,
-            )
+            .define(CurrencyDefinition {
+                owner: CurrencyOwner::User(UserId::new()),
+                symbol: CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
+                name: CurrencyName::try_from("USD Coin").expect("name should be valid"),
+                decimals: CurrencyDecimals::new(6),
+                description: None,
+                image: None,
+            })
             .expect("currency should be defined");
         currency.core_mut().clear_uncommitted_events();
         currency
@@ -267,7 +274,7 @@ mod tests {
             .await
             .expect("command should be handled");
 
-        assert_eq!(handled.into_output(), MintSupplySyncOutput);
+        assert_eq!(handled.into_output(), MintSupplySyncOutput::Synced);
         assert_eq!(
             request_log.lock().expect("lock").clone(),
             Some(MintSupplySyncRequest::new(
@@ -292,27 +299,40 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn handle_errors_when_mint_account_is_missing() {
+    async fn handle_rejects_when_mint_account_is_missing() {
         let mut currency = defined_currency();
         let currency_id = currency.aggregate_id();
         currency.core_mut().clear_uncommitted_events();
         let repository = TestCurrencyRepository::new(currency);
-        let handler =
-            MintSupplySyncCommandHandler::new(repository, TestMintSupplySynchronizer::default());
+        let handler = MintSupplySyncCommandHandler::new(
+            repository.clone(),
+            TestMintSupplySynchronizer::default(),
+        );
         let mut uow = TestUow;
 
-        let error = handler
+        let handled = handler
             .handle(
                 &mut uow,
                 &request_context(),
                 &MintSupplySyncCommand { currency_id },
             )
             .await
-            .expect_err("command should fail until mint account exists");
+            .expect("command should record a rejection until mint account exists");
 
-        assert!(matches!(
-            error,
-            MintSupplySyncCommandHandlerError::MintAccountNotRecorded
-        ));
+        let reason = MintSupplySyncRejectionReason::NotProvisioned;
+        assert_eq!(
+            handled.into_output(),
+            MintSupplySyncOutput::Rejected { reason }
+        );
+        let saved = repository
+            .saved
+            .lock()
+            .expect("lock")
+            .clone()
+            .expect("rejected sync should be saved");
+        assert_eq!(
+            saved.uncommitted_events()[0].payload(),
+            &CurrencyEventPayload::MintSupplySyncRejected { reason }
+        );
     }
 }

@@ -1,3 +1,4 @@
+use banking_ledger_domain::withdrawal::WithdrawalTokenTransferRejectionReason;
 use serde::{Deserialize, Serialize};
 
 /// Returned after an external withdrawal token transfer attempt is applied.
@@ -5,5 +6,7 @@ use serde::{Deserialize, Serialize};
 #[serde(tag = "type", content = "data", rename_all = "snake_case")]
 pub enum WithdrawalTokenTransferOutput {
     TokenTransferred,
-    Rejected,
+    Rejected {
+        reason: WithdrawalTokenTransferRejectionReason,
+    },
 }

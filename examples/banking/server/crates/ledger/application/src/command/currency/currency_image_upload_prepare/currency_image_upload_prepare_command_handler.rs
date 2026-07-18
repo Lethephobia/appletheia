@@ -12,6 +12,7 @@ use banking_ledger_domain::currency::{Currency, CurrencyImageObjectName, Currenc
 use super::{
     CurrencyImageUploadPrepareCommand, CurrencyImageUploadPrepareCommandHandlerConfig,
     CurrencyImageUploadPrepareCommandHandlerError, CurrencyImageUploadPrepareOutput,
+    CurrencyImageUploadPrepareRejectionReason,
 };
 use crate::authorization::CurrencyUpdaterRelation;
 
@@ -81,11 +82,19 @@ where
             .await?;
 
         if currency.is_removed()? {
-            return Err(CurrencyImageUploadPrepareCommandHandlerError::CurrencyRemoved);
+            return Ok(CommandHandled::same(
+                CurrencyImageUploadPrepareOutput::Rejected {
+                    reason: CurrencyImageUploadPrepareRejectionReason::CurrencyRemoved,
+                },
+            ));
         }
 
         if command.content_length.value() > self.config.max_content_length().value() {
-            return Err(CurrencyImageUploadPrepareCommandHandlerError::ContentLengthTooLarge);
+            return Ok(CommandHandled::same(
+                CurrencyImageUploadPrepareOutput::Rejected {
+                    reason: CurrencyImageUploadPrepareRejectionReason::ContentLengthTooLarge,
+                },
+            ));
         }
 
         if !self
@@ -93,7 +102,11 @@ where
             .allowed_content_types()
             .contains(&command.content_type)
         {
-            return Err(CurrencyImageUploadPrepareCommandHandlerError::ContentTypeNotAllowed);
+            return Ok(CommandHandled::same(
+                CurrencyImageUploadPrepareOutput::Rejected {
+                    reason: CurrencyImageUploadPrepareRejectionReason::ContentTypeNotAllowed,
+                },
+            ));
         }
 
         let image_object_name = CurrencyImageObjectName::new(command.currency_id);
@@ -108,7 +121,10 @@ where
         .with_content_length(command.content_length)
         .with_checksum(command.checksum.clone());
         let signed_upload = self.object_upload_signer.sign(request).await?;
-        let output = CurrencyImageUploadPrepareOutput::new(image, signed_upload);
+        let output = CurrencyImageUploadPrepareOutput::Prepared {
+            image,
+            signed_upload: Box::new(signed_upload),
+        };
 
         Ok(CommandHandled::same(output))
     }

@@ -166,7 +166,8 @@ where
                         .delete_owner_organization(uow, event_context, organization_id)
                         .await?;
                 }
-                OrganizationEventPayload::OwnershipTransferred { .. }
+                OrganizationEventPayload::CreateRejected { .. }
+                | OrganizationEventPayload::OwnershipTransferred { .. }
                 | OrganizationEventPayload::OwnershipTransferRejected { .. }
                 | OrganizationEventPayload::HandleChangeRejected { .. }
                 | OrganizationEventPayload::DisplayNameChangeRejected { .. }
@@ -291,7 +292,8 @@ where
                     .delete_currency(uow, event_context, currency_id)
                     .await?;
             }
-            CurrencyEventPayload::OwnershipTransferRejected { .. }
+            CurrencyEventPayload::DefineRejected { .. }
+            | CurrencyEventPayload::OwnershipTransferRejected { .. }
             | CurrencyEventPayload::ProvisionRejected { .. }
             | CurrencyEventPayload::SymbolChangeRejected { .. }
             | CurrencyEventPayload::NameChangeRejected { .. }
@@ -302,6 +304,7 @@ where
             | CurrencyEventPayload::SupplyReserved { .. }
             | CurrencyEventPayload::SupplyReserveRejected { .. }
             | CurrencyEventPayload::MintSupplySynced { .. }
+            | CurrencyEventPayload::MintSupplySyncRejected { .. }
             | CurrencyEventPayload::SupplyCommitRejected { .. }
             | CurrencyEventPayload::SupplyReleased { .. }
             | CurrencyEventPayload::SupplyReleaseRejected { .. }

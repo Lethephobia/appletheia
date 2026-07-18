@@ -4,13 +4,13 @@ use crate::core::CurrencyAmount;
 
 use super::{
     CurrencyActivateRejectionReason, CurrencyDeactivateRejectionReason, CurrencyDecimals,
-    CurrencyDescription, CurrencyDescriptionChangeRejectionReason, CurrencyEventPayloadError,
-    CurrencyImageChangeRejectionReason, CurrencyImageRef, CurrencyName,
+    CurrencyDefineRejectionReason, CurrencyDescription, CurrencyDescriptionChangeRejectionReason,
+    CurrencyEventPayloadError, CurrencyImageChangeRejectionReason, CurrencyImageRef, CurrencyName,
     CurrencyNameChangeRejectionReason, CurrencyOwner, CurrencyOwnershipTransferRejectionReason,
     CurrencyProvisionRejectionReason, CurrencyRemoveRejectionReason,
     CurrencySupplyCommitRejectionReason, CurrencySupplyReleaseRejectionReason,
     CurrencySupplyReserveRejectionReason, CurrencySymbol, CurrencySymbolChangeRejectionReason,
-    MintAccount, MintMetadataSyncRejectionReason,
+    MintAccount, MintMetadataSyncRejectionReason, MintSupplySyncRejectionReason,
 };
 
 /// Represents the domain events emitted by a `Currency` aggregate.
@@ -23,6 +23,15 @@ pub enum CurrencyEventPayload {
         decimals: CurrencyDecimals,
         description: Option<CurrencyDescription>,
         image: Option<CurrencyImageRef>,
+    },
+    DefineRejected {
+        owner: CurrencyOwner,
+        symbol: CurrencySymbol,
+        name: CurrencyName,
+        decimals: CurrencyDecimals,
+        description: Option<CurrencyDescription>,
+        image: Option<CurrencyImageRef>,
+        reason: CurrencyDefineRejectionReason,
     },
     Provisioned {
         mint_account: MintAccount,
@@ -81,6 +90,9 @@ pub enum CurrencyEventPayload {
     MintSupplySynced {
         supply: CurrencyAmount,
     },
+    MintSupplySyncRejected {
+        reason: MintSupplySyncRejectionReason,
+    },
     SupplyCommitted {
         amount: CurrencyAmount,
     },
@@ -122,6 +134,10 @@ mod tests {
         assert_eq!(
             CurrencyEventPayload::DEFINED,
             appletheia::domain::EventName::new("defined")
+        );
+        assert_eq!(
+            CurrencyEventPayload::DEFINE_REJECTED,
+            appletheia::domain::EventName::new("define_rejected")
         );
         assert_eq!(
             CurrencyEventPayload::PROVISIONED,
@@ -190,6 +206,10 @@ mod tests {
         assert_eq!(
             CurrencyEventPayload::MINT_SUPPLY_SYNCED,
             appletheia::domain::EventName::new("mint_supply_synced")
+        );
+        assert_eq!(
+            CurrencyEventPayload::MINT_SUPPLY_SYNC_REJECTED,
+            appletheia::domain::EventName::new("mint_supply_sync_rejected")
         );
         assert_eq!(
             CurrencyEventPayload::SUPPLY_COMMITTED,

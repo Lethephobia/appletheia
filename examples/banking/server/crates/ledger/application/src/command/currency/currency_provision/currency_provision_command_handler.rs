@@ -130,8 +130,8 @@ mod tests {
     use appletheia::domain::{Aggregate, AggregateVersion, EventPayload, UniqueKey, UniqueValue};
     use banking_iam_domain::UserId;
     use banking_ledger_domain::currency::{
-        Currency, CurrencyDecimals, CurrencyEventPayload, CurrencyId, CurrencyImageObjectName,
-        CurrencyImageRef, CurrencyImageUrl, CurrencyName, CurrencyOwner,
+        Currency, CurrencyDecimals, CurrencyDefinition, CurrencyEventPayload, CurrencyId,
+        CurrencyImageObjectName, CurrencyImageRef, CurrencyImageUrl, CurrencyName, CurrencyOwner,
         CurrencyProvisionRejectionReason, CurrencySymbol, MintAccount, MintAccountAddress,
         PoolTokenAccountAddress,
     };
@@ -271,14 +271,14 @@ mod tests {
     fn defined_currency_with_image(image: Option<CurrencyImageRef>) -> Currency {
         let mut currency = Currency::new();
         currency
-            .define(
-                CurrencyOwner::User(UserId::new()),
-                CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
-                CurrencyName::try_from("USD Coin").expect("name should be valid"),
-                CurrencyDecimals::new(6),
-                None,
+            .define(CurrencyDefinition {
+                owner: CurrencyOwner::User(UserId::new()),
+                symbol: CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
+                name: CurrencyName::try_from("USD Coin").expect("name should be valid"),
+                decimals: CurrencyDecimals::new(6),
+                description: None,
                 image,
-            )
+            })
             .expect("currency should be defined");
         currency.core_mut().clear_uncommitted_events();
         currency

@@ -106,9 +106,10 @@ mod tests {
     use appletheia::domain::{Aggregate, AggregateVersion, UniqueKey, UniqueValue};
     use banking_iam_domain::UserId;
     use banking_ledger_domain::currency::{
-        Currency, CurrencyDecimals, CurrencyEventPayload, CurrencyId, CurrencyImageObjectName,
-        CurrencyImageRef, CurrencyImageUrl, CurrencyName, CurrencyOwner, CurrencySymbol,
-        MintAccount, MintAccountAddress, MintMetadataSyncRejectionReason, PoolTokenAccountAddress,
+        Currency, CurrencyDecimals, CurrencyDefinition, CurrencyEventPayload, CurrencyId,
+        CurrencyImageObjectName, CurrencyImageRef, CurrencyImageUrl, CurrencyName, CurrencyOwner,
+        CurrencySymbol, MintAccount, MintAccountAddress, MintMetadataSyncRejectionReason,
+        PoolTokenAccountAddress,
     };
     use uuid::Uuid;
 
@@ -241,19 +242,19 @@ mod tests {
     fn defined_currency(image: Option<CurrencyImageRef>, with_mint_account: bool) -> Currency {
         let mut currency = Currency::new();
         currency
-            .define(
-                CurrencyOwner::User(UserId::new()),
-                CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
-                CurrencyName::try_from("USD Coin").expect("name should be valid"),
-                CurrencyDecimals::new(6),
-                Some(
+            .define(CurrencyDefinition {
+                owner: CurrencyOwner::User(UserId::new()),
+                symbol: CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
+                name: CurrencyName::try_from("USD Coin").expect("name should be valid"),
+                decimals: CurrencyDecimals::new(6),
+                description: Some(
                     banking_ledger_domain::currency::CurrencyDescription::try_from(
                         "Stablecoin backed by USD",
                     )
                     .expect("description should be valid"),
                 ),
                 image,
-            )
+            })
             .expect("currency should be defined");
         if with_mint_account {
             currency

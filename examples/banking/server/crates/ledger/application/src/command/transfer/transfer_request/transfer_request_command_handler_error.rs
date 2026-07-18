@@ -17,7 +17,4 @@ pub enum TransferRequestCommandHandlerError {
 
     #[error("transfer aggregate failed")]
     Transfer(#[from] TransferError),
-
-    #[error("source and destination accounts use different currencies")]
-    CurrencyMismatch,
 }

@@ -104,14 +104,6 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
-        let organization = self
-            .organization_repository
-            .read(uow, command.organization_id)
-            .await?;
-
-        let invitee = self.user_repository.read(uow, command.invitee_id).await?;
-
-        let unique_value = Self::organization_invitee_unique_value(command)?;
         let mut organization_invitation = OrganizationInvitation::new();
         let organization_invitation_id = organization_invitation.aggregate_id();
         let issuance = OrganizationInvitationIssuance {
@@ -122,6 +114,10 @@ where
             expires_at: command.expires_at,
         };
 
+        let organization = self
+            .organization_repository
+            .read(uow, command.organization_id)
+            .await?;
         if organization.is_removed()? {
             let reason = OrganizationInvitationIssueRejectionReason::OrganizationRemoved;
             organization_invitation.reject_issue(issuance, reason)?;
@@ -138,6 +134,7 @@ where
             ));
         }
 
+        let invitee = self.user_repository.read(uow, command.invitee_id).await?;
         if invitee.is_organization_member(command.organization_id)? {
             let reason = OrganizationInvitationIssueRejectionReason::InviteeAlreadyMember;
             organization_invitation.reject_issue(issuance, reason)?;
@@ -154,6 +151,7 @@ where
             ));
         }
 
+        let unique_value = Self::organization_invitee_unique_value(command)?;
         if self
             .organization_invitation_repository
             .find_by_unique_value(

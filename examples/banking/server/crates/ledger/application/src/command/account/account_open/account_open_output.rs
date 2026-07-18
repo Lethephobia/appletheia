@@ -6,10 +6,3 @@ use serde::{Deserialize, Serialize};
 pub struct AccountOpenOutput {
     pub account_id: AccountId,
 }
-
-impl AccountOpenOutput {
-    /// Creates a new account-open output.
-    pub fn new(account_id: AccountId) -> Self {
-        Self { account_id }
-    }
-}

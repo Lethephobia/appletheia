@@ -3,7 +3,9 @@ mod currency_activate_result;
 mod currency_deactivate_rejection_reason;
 mod currency_deactivate_result;
 mod currency_decimals;
+mod currency_define_rejection_reason;
 mod currency_define_result;
+mod currency_definition;
 mod currency_description;
 mod currency_description_change_rejection_reason;
 mod currency_description_change_result;
@@ -48,6 +50,7 @@ mod mint_account_address;
 mod mint_account_address_error;
 mod mint_metadata_sync_rejection_reason;
 mod mint_metadata_sync_result;
+mod mint_supply_sync_rejection_reason;
 mod mint_supply_sync_result;
 mod pool_token_account_address;
 mod pool_token_account_address_error;
@@ -57,7 +60,9 @@ pub use currency_activate_result::CurrencyActivateResult;
 pub use currency_deactivate_rejection_reason::CurrencyDeactivateRejectionReason;
 pub use currency_deactivate_result::CurrencyDeactivateResult;
 pub use currency_decimals::CurrencyDecimals;
+pub use currency_define_rejection_reason::CurrencyDefineRejectionReason;
 pub use currency_define_result::CurrencyDefineResult;
+pub use currency_definition::CurrencyDefinition;
 pub use currency_description::CurrencyDescription;
 pub use currency_description_change_rejection_reason::CurrencyDescriptionChangeRejectionReason;
 pub use currency_description_change_result::CurrencyDescriptionChangeResult;
@@ -102,6 +107,7 @@ pub use mint_account_address::MintAccountAddress;
 pub use mint_account_address_error::MintAccountAddressError;
 pub use mint_metadata_sync_rejection_reason::MintMetadataSyncRejectionReason;
 pub use mint_metadata_sync_result::MintMetadataSyncResult;
+pub use mint_supply_sync_rejection_reason::MintSupplySyncRejectionReason;
 pub use mint_supply_sync_result::MintSupplySyncResult;
 pub use pool_token_account_address::PoolTokenAccountAddress;
 pub use pool_token_account_address_error::PoolTokenAccountAddressError;
@@ -192,16 +198,12 @@ impl Currency {
     /// Defines a new currency.
     pub fn define(
         &mut self,
-        owner: CurrencyOwner,
-        symbol: CurrencySymbol,
-        name: CurrencyName,
-        decimals: CurrencyDecimals,
-        description: Option<CurrencyDescription>,
-        image: Option<CurrencyImageRef>,
+        definition: CurrencyDefinition,
     ) -> Result<CurrencyDefineResult, CurrencyError> {
         if self.state().is_some() {
             return Err(CurrencyError::AlreadyDefined);
         }
+        let (owner, symbol, name, decimals, description, image) = definition.into_parts();
         self.append_event(CurrencyEventPayload::Defined {
             owner,
             symbol,
@@ -212,6 +214,25 @@ impl Currency {
         })?;
 
         Ok(CurrencyDefineResult::Defined)
+    }
+
+    /// Rejects a currency definition attempt.
+    pub fn reject_define(
+        &mut self,
+        definition: CurrencyDefinition,
+        reason: CurrencyDefineRejectionReason,
+    ) -> Result<(), CurrencyError> {
+        let (owner, symbol, name, decimals, description, image) = definition.into_parts();
+        self.append_event(CurrencyEventPayload::DefineRejected {
+            owner,
+            symbol,
+            name,
+            decimals,
+            description,
+            image,
+            reason,
+        })?;
+        Ok(())
     }
 
     /// Completes currency provisioning with the created on-chain mint account.
@@ -447,6 +468,15 @@ impl Currency {
         Ok(MintSupplySyncResult::Synced)
     }
 
+    /// Rejects recording an on-chain mint supply sync.
+    pub fn reject_mint_supply_sync(
+        &mut self,
+        reason: MintSupplySyncRejectionReason,
+    ) -> Result<(), CurrencyError> {
+        self.append_event(CurrencyEventPayload::MintSupplySyncRejected { reason })?;
+        Ok(())
+    }
+
     /// Commits previously reserved supply into confirmed supply.
     pub fn commit_supply(
         &mut self,
@@ -597,6 +627,7 @@ impl AggregateApply<CurrencyEventPayload, CurrencyError> for Currency {
                     status: CurrencyStatus::Provisioning,
                 }));
             }
+            CurrencyEventPayload::DefineRejected { .. } => {}
             CurrencyEventPayload::Provisioned { mint_account } => {
                 let state = self.state_required_mut()?;
                 state.mint_account = Some(mint_account.clone());
@@ -643,6 +674,7 @@ impl AggregateApply<CurrencyEventPayload, CurrencyError> for Currency {
             }
             CurrencyEventPayload::SupplyReserveRejected { .. } => {}
             CurrencyEventPayload::MintSupplySynced { .. } => {}
+            CurrencyEventPayload::MintSupplySyncRejected { .. } => {}
             CurrencyEventPayload::SupplyCommitted { amount } => {
                 let state = self.state_required_mut()?;
                 state.pending_supply =
@@ -701,10 +733,11 @@ mod tests {
     use banking_iam_domain::{OrganizationId, UserId};
 
     use super::{
-        Currency, CurrencyDecimals, CurrencyDescription, CurrencyEventPayload, CurrencyId,
-        CurrencyImageRef, CurrencyImageUrl, CurrencyName, CurrencyOwner, CurrencyStatus,
-        CurrencySymbol, MintAccount, MintAccountAddress, MintMetadataSyncRejectionReason,
-        MintMetadataSyncResult, MintSupplySyncResult, PoolTokenAccountAddress,
+        Currency, CurrencyDecimals, CurrencyDefineRejectionReason, CurrencyDefinition,
+        CurrencyDescription, CurrencyEventPayload, CurrencyId, CurrencyImageRef, CurrencyImageUrl,
+        CurrencyName, CurrencyOwner, CurrencyStatus, CurrencySymbol, MintAccount,
+        MintAccountAddress, MintMetadataSyncRejectionReason, MintMetadataSyncResult,
+        MintSupplySyncRejectionReason, MintSupplySyncResult, PoolTokenAccountAddress,
     };
 
     fn user_owner() -> CurrencyOwner {
@@ -713,6 +746,22 @@ mod tests {
 
     fn organization_owner() -> CurrencyOwner {
         CurrencyOwner::organization(OrganizationId::new())
+    }
+
+    fn definition(
+        owner: CurrencyOwner,
+        symbol: CurrencySymbol,
+        name: CurrencyName,
+        decimals: CurrencyDecimals,
+    ) -> CurrencyDefinition {
+        CurrencyDefinition {
+            owner,
+            symbol,
+            name,
+            decimals,
+            description: None,
+            image: None,
+        }
     }
 
     fn make_mint_account(value: &str) -> MintAccount {
@@ -732,20 +781,20 @@ mod tests {
         let mut currency = Currency::new();
 
         currency
-            .define(
+            .define(CurrencyDefinition {
                 owner,
-                symbol.clone(),
-                name.clone(),
+                symbol: symbol.clone(),
+                name: name.clone(),
                 decimals,
-                Some(
+                description: Some(
                     CurrencyDescription::try_from("Stablecoin backed by USD")
                         .expect("description should be valid"),
                 ),
-                Some(CurrencyImageRef::external_url(
+                image: Some(CurrencyImageRef::external_url(
                     CurrencyImageUrl::try_from("https://cdn.example.com/currencies/usdc.png")
                         .expect("image URL should be valid"),
                 )),
-            )
+            })
             .expect("definition should succeed");
 
         assert_eq!(currency.aggregate_id(), currency.aggregate_id());
@@ -813,6 +862,44 @@ mod tests {
     }
 
     #[test]
+    fn reject_define_records_event_without_initializing_state() {
+        let owner = user_owner();
+        let symbol = CurrencySymbol::try_from("usdc").expect("symbol should be valid");
+        let name = CurrencyName::try_from("USD Coin").expect("name should be valid");
+        let decimals = CurrencyDecimals::new(6);
+        let reason = CurrencyDefineRejectionReason::SymbolAlreadyTaken;
+        let mut currency = Currency::new();
+
+        currency
+            .reject_define(
+                CurrencyDefinition {
+                    owner,
+                    symbol: symbol.clone(),
+                    name: name.clone(),
+                    decimals,
+                    description: None,
+                    image: None,
+                },
+                reason,
+            )
+            .expect("definition rejection should be recorded");
+
+        assert!(currency.state().is_none());
+        assert_eq!(
+            currency.uncommitted_events()[0].payload(),
+            &CurrencyEventPayload::DefineRejected {
+                owner,
+                symbol,
+                name,
+                decimals,
+                description: None,
+                image: None,
+                reason,
+            }
+        );
+    }
+
+    #[test]
     fn changing_to_same_values_and_same_status_appends_success_events() {
         let owner = user_owner();
         let symbol = CurrencySymbol::try_from("usdc").expect("symbol should be valid");
@@ -820,7 +907,7 @@ mod tests {
         let decimals = CurrencyDecimals::new(6);
         let mut currency = Currency::new();
         currency
-            .define(owner, symbol.clone(), name.clone(), decimals, None, None)
+            .define(definition(owner, symbol.clone(), name.clone(), decimals))
             .expect("definition should succeed");
         currency
             .provision(make_mint_account(
@@ -845,14 +932,12 @@ mod tests {
         let owner = user_owner();
         let mut currency = Currency::new();
         currency
-            .define(
+            .define(definition(
                 owner,
                 CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
                 CurrencyName::try_from("USD Coin").expect("name should be valid"),
                 CurrencyDecimals::new(6),
-                None,
-                None,
-            )
+            ))
             .expect("definition should succeed");
 
         currency
@@ -872,14 +957,12 @@ mod tests {
             CurrencyName::try_from("USD Coin Example").expect("name should be valid");
         let mut currency = Currency::new();
         currency
-            .define(
+            .define(definition(
                 owner,
                 initial_symbol,
                 initial_name,
                 CurrencyDecimals::new(6),
-                None,
-                None,
-            )
+            ))
             .expect("definition should succeed");
         currency
             .provision(make_mint_account(
@@ -915,14 +998,12 @@ mod tests {
         let transferred_owner = organization_owner();
         let mut currency = Currency::new();
         currency
-            .define(
+            .define(definition(
                 original_owner,
                 CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
                 CurrencyName::try_from("USD Coin").expect("name should be valid"),
                 CurrencyDecimals::new(6),
-                None,
-                None,
-            )
+            ))
             .expect("definition should succeed");
 
         currency
@@ -1001,7 +1082,7 @@ mod tests {
         let mut currency = Currency::new();
 
         currency
-            .define(owner, symbol, name, CurrencyDecimals::new(6), None, None)
+            .define(definition(owner, symbol, name, CurrencyDecimals::new(6)))
             .expect("definition should succeed");
 
         assert_eq!(currency.owner().expect("owner should exist"), owner);
@@ -1012,25 +1093,21 @@ mod tests {
         let owner = user_owner();
         let mut currency = Currency::new();
         currency
-            .define(
+            .define(definition(
                 owner,
                 CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
                 CurrencyName::try_from("USD Coin").expect("name should be valid"),
                 CurrencyDecimals::new(6),
-                None,
-                None,
-            )
+            ))
             .expect("definition should succeed");
 
         let error = currency
-            .define(
+            .define(definition(
                 owner,
                 CurrencySymbol::try_from("sol").expect("symbol should be valid"),
                 CurrencyName::try_from("Solana").expect("name should be valid"),
                 CurrencyDecimals::new(9),
-                None,
-                None,
-            )
+            ))
             .expect_err("duplicate definition should fail");
 
         assert!(matches!(error, super::CurrencyError::AlreadyDefined));
@@ -1041,14 +1118,12 @@ mod tests {
         let owner = user_owner();
         let mut currency = Currency::new();
         currency
-            .define(
+            .define(definition(
                 owner,
                 CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
                 CurrencyName::try_from("USD Coin").expect("name should be valid"),
                 CurrencyDecimals::new(6),
-                None,
-                None,
-            )
+            ))
             .expect("definition should succeed");
 
         currency
@@ -1085,14 +1160,12 @@ mod tests {
         let owner = user_owner();
         let mut currency = Currency::new();
         currency
-            .define(
+            .define(definition(
                 owner,
                 CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
                 CurrencyName::try_from("USD Coin").expect("name should be valid"),
                 CurrencyDecimals::new(6),
-                None,
-                None,
-            )
+            ))
             .expect("definition should succeed");
         currency.core_mut().clear_uncommitted_events();
 
@@ -1110,18 +1183,40 @@ mod tests {
     }
 
     #[test]
+    fn reject_mint_supply_sync_records_event() {
+        let mut currency = Currency::new();
+        currency
+            .define(definition(
+                user_owner(),
+                CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
+                CurrencyName::try_from("USD Coin").expect("name should be valid"),
+                CurrencyDecimals::new(6),
+            ))
+            .expect("definition should succeed");
+        currency.core_mut().clear_uncommitted_events();
+        let reason = MintSupplySyncRejectionReason::NotProvisioned;
+
+        currency
+            .reject_mint_supply_sync(reason)
+            .expect("mint supply sync rejection should be recorded");
+
+        assert_eq!(
+            currency.uncommitted_events()[0].payload(),
+            &CurrencyEventPayload::MintSupplySyncRejected { reason }
+        );
+    }
+
+    #[test]
     fn record_mint_metadata_synced_records_event() {
         let owner = user_owner();
         let mut currency = Currency::new();
         currency
-            .define(
+            .define(definition(
                 owner,
                 CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
                 CurrencyName::try_from("USD Coin").expect("name should be valid"),
                 CurrencyDecimals::new(6),
-                None,
-                None,
-            )
+            ))
             .expect("definition should succeed");
         currency.core_mut().clear_uncommitted_events();
 
@@ -1141,14 +1236,12 @@ mod tests {
         let owner = user_owner();
         let mut currency = Currency::new();
         currency
-            .define(
+            .define(definition(
                 owner,
                 CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
                 CurrencyName::try_from("USD Coin").expect("name should be valid"),
                 CurrencyDecimals::new(6),
-                None,
-                None,
-            )
+            ))
             .expect("definition should succeed");
         currency.core_mut().clear_uncommitted_events();
 
@@ -1170,14 +1263,12 @@ mod tests {
         let mint_account = make_mint_account("Mint111111111111111111111111111111111111");
         let mut currency = Currency::new();
         currency
-            .define(
+            .define(definition(
                 owner,
                 CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
                 CurrencyName::try_from("USD Coin").expect("name should be valid"),
                 CurrencyDecimals::new(6),
-                None,
-                None,
-            )
+            ))
             .expect("definition should succeed");
         currency.core_mut().clear_uncommitted_events();
 
@@ -1212,14 +1303,12 @@ mod tests {
         let duplicate_mint_account = make_mint_account("Mint222222222222222222222222222222222222");
         let mut currency = Currency::new();
         currency
-            .define(
+            .define(definition(
                 owner,
                 CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
                 CurrencyName::try_from("USD Coin").expect("name should be valid"),
                 CurrencyDecimals::new(6),
-                None,
-                None,
-            )
+            ))
             .expect("definition should succeed");
         currency
             .provision(mint_account.clone())
@@ -1250,14 +1339,12 @@ mod tests {
         let owner = user_owner();
         let mut currency = Currency::new();
         currency
-            .define(
+            .define(definition(
                 owner,
                 CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
                 CurrencyName::try_from("USD Coin").expect("name should be valid"),
                 CurrencyDecimals::new(6),
-                None,
-                None,
-            )
+            ))
             .expect("definition should succeed");
         currency.remove().expect("remove should succeed");
 
@@ -1292,14 +1379,12 @@ mod tests {
         let owner = user_owner();
         let mut currency = Currency::new();
         currency
-            .define(
+            .define(definition(
                 owner,
                 CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
                 CurrencyName::try_from("USD Coin").expect("name should be valid"),
                 CurrencyDecimals::new(6),
-                None,
-                None,
-            )
+            ))
             .expect("definition should succeed");
         let result = currency
             .reserve_supply(CurrencyAmount::new(1))
@@ -1322,14 +1407,12 @@ mod tests {
         let owner = user_owner();
         let mut currency = Currency::new();
         currency
-            .define(
+            .define(definition(
                 owner,
                 CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
                 CurrencyName::try_from("USD Coin").expect("name should be valid"),
                 CurrencyDecimals::new(6),
-                None,
-                None,
-            )
+            ))
             .expect("definition should succeed");
         currency
             .provision(make_mint_account(
@@ -1359,14 +1442,12 @@ mod tests {
         let owner = user_owner();
         let mut currency = Currency::new();
         currency
-            .define(
+            .define(definition(
                 owner,
                 CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
                 CurrencyName::try_from("USD Coin").expect("name should be valid"),
                 CurrencyDecimals::new(6),
-                None,
-                None,
-            )
+            ))
             .expect("definition should succeed");
 
         currency.remove().expect("remove should succeed");
@@ -1400,14 +1481,12 @@ mod tests {
         let owner = user_owner();
         let mut currency = Currency::new();
         currency
-            .define(
+            .define(definition(
                 owner,
                 CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
                 CurrencyName::try_from("USD Coin").expect("name should be valid"),
                 CurrencyDecimals::new(6),
-                None,
-                None,
-            )
+            ))
             .expect("definition should succeed");
         currency.remove().expect("remove should succeed");
 

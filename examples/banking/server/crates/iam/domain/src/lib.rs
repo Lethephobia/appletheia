@@ -3,9 +3,9 @@ pub mod organization_invitation;
 pub mod organization_join_request;
 pub mod user;
 pub use organization::{
-    Organization, OrganizationCreateResult, OrganizationCreation, OrganizationDescription,
-    OrganizationDescriptionChangeRejectionReason, OrganizationDescriptionChangeResult,
-    OrganizationDescriptionError, OrganizationDisplayName,
+    Organization, OrganizationCreateRejectionReason, OrganizationCreateResult,
+    OrganizationCreation, OrganizationDescription, OrganizationDescriptionChangeRejectionReason,
+    OrganizationDescriptionChangeResult, OrganizationDescriptionError, OrganizationDisplayName,
     OrganizationDisplayNameChangeRejectionReason, OrganizationDisplayNameChangeResult,
     OrganizationDisplayNameError, OrganizationError, OrganizationEventPayload,
     OrganizationEventPayloadError, OrganizationHandle, OrganizationHandleChangeRejectionReason,

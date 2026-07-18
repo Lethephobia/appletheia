@@ -20,16 +20,4 @@ pub enum UserPictureUploadPrepareCommandHandlerError {
 
     #[error("object upload signer failed")]
     ObjectUploadSigner(#[from] ObjectUploadSignerError),
-
-    #[error("inactive users cannot prepare picture uploads")]
-    UserInactive,
-
-    #[error("removed users cannot prepare picture uploads")]
-    UserRemoved,
-
-    #[error("picture content length exceeds the configured maximum")]
-    ContentLengthTooLarge,
-
-    #[error("picture content type is not allowed")]
-    ContentTypeNotAllowed,
 }

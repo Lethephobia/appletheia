@@ -10,15 +10,3 @@ pub struct OidcBeginOutput {
     pub authorization_url: OidcAuthorizationUrl,
     pub expires_at: OidcContinuationExpiresAt,
 }
-
-impl OidcBeginOutput {
-    pub fn new(
-        authorization_url: OidcAuthorizationUrl,
-        expires_at: OidcContinuationExpiresAt,
-    ) -> Self {
-        Self {
-            authorization_url,
-            expires_at,
-        }
-    }
-}

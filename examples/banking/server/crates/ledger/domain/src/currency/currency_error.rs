@@ -15,9 +15,6 @@ pub enum CurrencyError {
     #[error("currency is already defined")]
     AlreadyDefined,
 
-    #[error("currency symbol is already taken")]
-    SymbolAlreadyTaken,
-
     #[error("currency supply overflowed")]
     SupplyOverflow,
 

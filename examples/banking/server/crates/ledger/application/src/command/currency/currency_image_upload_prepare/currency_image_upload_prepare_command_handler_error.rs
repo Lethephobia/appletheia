@@ -17,13 +17,4 @@ pub enum CurrencyImageUploadPrepareCommandHandlerError {
 
     #[error("object upload signer failed")]
     ObjectUploadSigner(#[from] ObjectUploadSignerError),
-
-    #[error("removed currencies cannot prepare image uploads")]
-    CurrencyRemoved,
-
-    #[error("image content length exceeds the configured maximum")]
-    ContentLengthTooLarge,
-
-    #[error("image content type is not allowed")]
-    ContentTypeNotAllowed,
 }

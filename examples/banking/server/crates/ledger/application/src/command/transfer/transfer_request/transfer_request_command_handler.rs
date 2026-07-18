@@ -6,7 +6,9 @@ use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use appletheia::domain::Aggregate;
 use banking_ledger_domain::account::Account;
-use banking_ledger_domain::transfer::{Transfer, TransferRequest, TransferRequestResult};
+use banking_ledger_domain::transfer::{
+    Transfer, TransferRequest, TransferRequestRejectionReason, TransferRequestResult,
+};
 
 use crate::authorization::AccountTransferRequesterRelation;
 
@@ -75,17 +77,28 @@ where
             .read(uow, command.to_account_id)
             .await?;
 
-        if source_account.currency_id()? != destination_account.currency_id()? {
-            return Err(TransferRequestCommandHandlerError::CurrencyMismatch);
-        }
-
         let mut transfer = Transfer::new();
         let transfer_id = transfer.aggregate_id();
-        let result = transfer.request(TransferRequest {
+        let request = TransferRequest {
             from_account_id: command.from_account_id,
             to_account_id: command.to_account_id,
             amount: command.amount,
-        })?;
+        };
+        if source_account.currency_id()? != destination_account.currency_id()? {
+            let reason = TransferRequestRejectionReason::CurrencyMismatch;
+            transfer.reject_request(request, reason)?;
+
+            self.transfer_repository
+                .save(uow, request_context, &mut transfer)
+                .await?;
+
+            return Ok(CommandHandled::same(TransferRequestOutput::Rejected {
+                transfer_id,
+                reason,
+            }));
+        }
+
+        let result = transfer.request(request)?;
 
         self.transfer_repository
             .save(uow, request_context, &mut transfer)
@@ -126,15 +139,14 @@ mod tests {
     };
     use banking_ledger_domain::core::CurrencyAmount;
     use banking_ledger_domain::currency::CurrencyId;
-    use banking_ledger_domain::transfer::{Transfer, TransferId};
+    use banking_ledger_domain::transfer::{
+        Transfer, TransferEventPayload, TransferId, TransferRequestRejectionReason,
+    };
     use uuid::Uuid;
 
     use crate::authorization::AccountTransferRequesterRelation;
 
-    use super::{
-        TransferRequestCommand, TransferRequestCommandHandler, TransferRequestCommandHandlerError,
-        TransferRequestOutput,
-    };
+    use super::{TransferRequestCommand, TransferRequestCommandHandler, TransferRequestOutput};
 
     fn account_name() -> AccountName {
         AccountName::try_from("main").expect("account name should be valid")
@@ -355,10 +367,11 @@ mod tests {
         account_repository.insert(destination);
 
         let transfer_repository = TestTransferRepository::default();
-        let handler = TransferRequestCommandHandler::new(account_repository, transfer_repository);
+        let handler =
+            TransferRequestCommandHandler::new(account_repository, transfer_repository.clone());
         let mut uow = TestUow;
 
-        let error = handler
+        let handled = handler
             .handle(
                 &mut uow,
                 &request_context(),
@@ -369,11 +382,28 @@ mod tests {
                 },
             )
             .await
-            .expect_err("different currencies should fail");
+            .expect("different currencies should be rejected");
 
+        let saved = transfer_repository
+            .transfer
+            .lock()
+            .expect("lock")
+            .clone()
+            .expect("rejected transfer should be saved");
+        let reason = TransferRequestRejectionReason::CurrencyMismatch;
+        assert_eq!(
+            handled.into_output(),
+            TransferRequestOutput::Rejected {
+                transfer_id: saved.aggregate_id(),
+                reason,
+            }
+        );
         assert!(matches!(
-            error,
-            TransferRequestCommandHandlerError::CurrencyMismatch
+            saved.uncommitted_events()[0].payload(),
+            TransferEventPayload::RequestRejected {
+                reason: TransferRequestRejectionReason::CurrencyMismatch,
+                ..
+            }
         ));
     }
 

@@ -82,10 +82,6 @@ where
             .account_repository
             .read(uow, command.destination_account_id)
             .await?;
-        let currency = self
-            .currency_repository
-            .read(uow, command.currency_id)
-            .await?;
 
         let mut currency_issuance = CurrencyIssuance::new();
         let currency_issuance_id = currency_issuance.aggregate_id();
@@ -109,6 +105,10 @@ where
             }));
         }
 
+        let currency = self
+            .currency_repository
+            .read(uow, command.currency_id)
+            .await?;
         if matches!(
             currency.status()?,
             CurrencyStatus::Provisioning | CurrencyStatus::ProvisioningFailed

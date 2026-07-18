@@ -11,6 +11,7 @@ mod wallet_bookmark_event_payload;
 mod wallet_bookmark_event_payload_error;
 mod wallet_bookmark_id;
 mod wallet_bookmark_owner;
+mod wallet_bookmark_register_rejection_reason;
 mod wallet_bookmark_register_result;
 mod wallet_bookmark_registration;
 mod wallet_bookmark_remove_rejection_reason;
@@ -32,6 +33,7 @@ pub use wallet_bookmark_event_payload::WalletBookmarkEventPayload;
 pub use wallet_bookmark_event_payload_error::WalletBookmarkEventPayloadError;
 pub use wallet_bookmark_id::WalletBookmarkId;
 pub use wallet_bookmark_owner::WalletBookmarkOwner;
+pub use wallet_bookmark_register_rejection_reason::WalletBookmarkRegisterRejectionReason;
 pub use wallet_bookmark_register_result::WalletBookmarkRegisterResult;
 pub use wallet_bookmark_registration::WalletBookmarkRegistration;
 pub use wallet_bookmark_remove_rejection_reason::WalletBookmarkRemoveRejectionReason;
@@ -162,6 +164,24 @@ impl WalletBookmark {
         Ok(WalletBookmarkRegisterResult::Registered)
     }
 
+    /// Rejects a wallet bookmark registration attempt.
+    pub fn reject_register(
+        &mut self,
+        registration: WalletBookmarkRegistration,
+        reason: WalletBookmarkRegisterRejectionReason,
+    ) -> Result<(), WalletBookmarkError> {
+        let (owner, display_name, description, token_account_owner_address) =
+            registration.into_parts();
+        self.append_event(WalletBookmarkEventPayload::RegisterRejected {
+            owner,
+            display_name,
+            description,
+            token_account_owner_address,
+            reason,
+        })?;
+        Ok(())
+    }
+
     /// Removes a wallet bookmark.
     pub fn remove(&mut self) -> Result<WalletBookmarkRemoveResult, WalletBookmarkError> {
         match self.state_required()?.status {
@@ -202,6 +222,7 @@ impl AggregateApply<WalletBookmarkEventPayload, WalletBookmarkError> for WalletB
                 token_account_owner_address: token_account_owner_address.clone(),
                 status: WalletBookmarkStatus::Active,
             })),
+            WalletBookmarkEventPayload::RegisterRejected { .. } => {}
             WalletBookmarkEventPayload::Removed => {
                 self.state_required_mut()?.status = WalletBookmarkStatus::Removed;
             }
@@ -229,8 +250,9 @@ mod tests {
 
     use super::{
         WalletBookmark, WalletBookmarkDescription, WalletBookmarkDisplayName,
-        WalletBookmarkEventPayload, WalletBookmarkOwner, WalletBookmarkRegistration,
-        WalletBookmarkRemoveRejectionReason, WalletBookmarkRemoveResult, WalletBookmarkStatus,
+        WalletBookmarkEventPayload, WalletBookmarkOwner, WalletBookmarkRegisterRejectionReason,
+        WalletBookmarkRegistration, WalletBookmarkRemoveRejectionReason,
+        WalletBookmarkRemoveResult, WalletBookmarkStatus,
     };
 
     fn token_account_owner_address() -> TokenAccountOwnerAddress {
@@ -297,6 +319,32 @@ mod tests {
         assert_eq!(
             events[0].payload().name(),
             WalletBookmarkEventPayload::REGISTERED
+        );
+    }
+
+    #[test]
+    fn reject_register_records_rejection_without_initializing_state() {
+        let mut wallet_bookmark = WalletBookmark::new();
+        let reason = WalletBookmarkRegisterRejectionReason::InvalidTokenAccountOwnerAddress;
+
+        wallet_bookmark
+            .reject_register(
+                WalletBookmarkRegistration {
+                    owner: wallet_bookmark_owner(),
+                    display_name: Some(wallet_bookmark_display_name()),
+                    description: Some(wallet_bookmark_description()),
+                    token_account_owner_address: token_account_owner_address(),
+                },
+                reason,
+            )
+            .expect("rejection should be recorded");
+
+        assert!(wallet_bookmark.state().is_none());
+        let events = wallet_bookmark.uncommitted_events();
+        assert_eq!(events.len(), 1);
+        assert_eq!(
+            events[0].payload().name(),
+            WalletBookmarkEventPayload::REGISTER_REJECTED
         );
     }
 

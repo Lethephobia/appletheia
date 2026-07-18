@@ -7,7 +7,9 @@ use appletheia::application::request_context::RequestContext;
 use appletheia::domain::Aggregate;
 use banking_ledger_domain::account::Account;
 use banking_ledger_domain::currency::Currency;
-use banking_ledger_domain::deposit::{Deposit, DepositRequest, DepositRequestResult};
+use banking_ledger_domain::deposit::{
+    Deposit, DepositRequest, DepositRequestRejectionReason, DepositRequestResult,
+};
 
 use super::{
     DepositTokenTransferPrepareCommand, DepositTokenTransferPrepareCommandHandlerError,
@@ -15,7 +17,8 @@ use super::{
 };
 use crate::authorization::AccountDepositRequesterRelation;
 use crate::mint::{
-    TokenAccountOwnerAddressValidator, TokenDepositPrepareRequest, TokenDepositPreparer,
+    TokenAccountOwnerAddressValidationResult, TokenAccountOwnerAddressValidator,
+    TokenAccountOwnerAddressValidatorError, TokenDepositPrepareRequest, TokenDepositPreparer,
 };
 
 /// Handles `DepositTokenTransferPrepareCommand`.
@@ -98,19 +101,51 @@ where
             .account_repository
             .read(uow, command.account_id)
             .await?;
-        self.token_account_owner_address_validator
-            .validate(&command.token_account_owner_address)
-            .await?;
         let currency_id = *account.currency_id()?;
 
         let mut deposit = Deposit::new();
         let deposit_id = deposit.aggregate_id();
-        let result = deposit.request(DepositRequest {
+        let request = DepositRequest {
             account_id: command.account_id,
             currency_id,
             token_account_owner_address: command.token_account_owner_address.clone(),
             amount: command.amount,
-        })?;
+        };
+
+        match self
+            .token_account_owner_address_validator
+            .validate(&command.token_account_owner_address)
+            .await
+        {
+            Ok(TokenAccountOwnerAddressValidationResult::Valid) => {}
+            Ok(TokenAccountOwnerAddressValidationResult::Invalid) => {
+                let reason = DepositRequestRejectionReason::InvalidTokenAccountOwnerAddress;
+                deposit.reject_request(request, reason)?;
+                self.deposit_repository
+                    .save(uow, request_context, &mut deposit)
+                    .await?;
+                return Ok(CommandHandled::same(
+                    DepositTokenTransferPrepareOutput::Rejected { deposit_id, reason },
+                ));
+            }
+            Err(error @ TokenAccountOwnerAddressValidatorError::Backend(_)) => {
+                return Err(error.into());
+            }
+        }
+
+        let currency = self.currency_repository.read(uow, currency_id).await?;
+        let Some(mint_account) = currency.mint_account()? else {
+            let reason = DepositRequestRejectionReason::CurrencyUnprovisioned;
+            deposit.reject_request(request, reason)?;
+            self.deposit_repository
+                .save(uow, request_context, &mut deposit)
+                .await?;
+            return Ok(CommandHandled::same(
+                DepositTokenTransferPrepareOutput::Rejected { deposit_id, reason },
+            ));
+        };
+
+        let result = deposit.request(request)?;
         match result {
             DepositRequestResult::Requested => {}
             DepositRequestResult::Rejected { reason } => {
@@ -123,10 +158,6 @@ where
             }
         }
 
-        let currency = self.currency_repository.read(uow, currency_id).await?;
-        let Some(mint_account) = currency.mint_account()? else {
-            return Err(DepositTokenTransferPrepareCommandHandlerError::CurrencyUnprovisioned);
-        };
         let request = TokenDepositPrepareRequest::new(
             deposit_id,
             currency_id,

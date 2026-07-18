@@ -1,14 +1,17 @@
-use banking_ledger_domain::wallet_bookmark::WalletBookmarkId;
+use banking_ledger_domain::wallet_bookmark::{
+    WalletBookmarkId, WalletBookmarkRegisterRejectionReason,
+};
 use serde::{Deserialize, Serialize};
 
 /// Returned after a wallet bookmark registration request is applied.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct WalletBookmarkRegisterOutput {
-    pub wallet_bookmark_id: WalletBookmarkId,
-}
-
-impl WalletBookmarkRegisterOutput {
-    pub fn new(wallet_bookmark_id: WalletBookmarkId) -> Self {
-        Self { wallet_bookmark_id }
-    }
+#[serde(tag = "type", content = "data", rename_all = "snake_case")]
+pub enum WalletBookmarkRegisterOutput {
+    Registered {
+        wallet_bookmark_id: WalletBookmarkId,
+    },
+    Rejected {
+        wallet_bookmark_id: WalletBookmarkId,
+        reason: WalletBookmarkRegisterRejectionReason,
+    },
 }

@@ -92,17 +92,6 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
-        let organization = self
-            .organization_repository
-            .read(uow, command.organization_id)
-            .await?;
-
-        let unique_value = Self::organization_requester_unique_value(
-            command.organization_id,
-            command.requester_id,
-        )?;
-        let requester = self.user_repository.read(uow, command.requester_id).await?;
-
         let mut organization_join_request = OrganizationJoinRequest::new();
         let organization_join_request_id = organization_join_request.aggregate_id();
         let submission = OrganizationJoinRequestSubmission {
@@ -110,6 +99,10 @@ where
             requester_id: command.requester_id,
         };
 
+        let organization = self
+            .organization_repository
+            .read(uow, command.organization_id)
+            .await?;
         if organization.is_removed()? {
             let reason = OrganizationJoinRequestSubmitRejectionReason::OrganizationRemoved;
             organization_join_request.reject_submit(submission, reason)?;
@@ -126,6 +119,7 @@ where
             ));
         }
 
+        let requester = self.user_repository.read(uow, command.requester_id).await?;
         if requester.is_organization_member(command.organization_id)? {
             let reason = OrganizationJoinRequestSubmitRejectionReason::RequesterAlreadyMember;
             organization_join_request.reject_submit(submission, reason)?;
@@ -142,6 +136,10 @@ where
             ));
         }
 
+        let unique_value = Self::organization_requester_unique_value(
+            command.organization_id,
+            command.requester_id,
+        )?;
         if self
             .organization_join_request_repository
             .find_by_unique_value(

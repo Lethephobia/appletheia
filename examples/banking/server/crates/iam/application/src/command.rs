@@ -18,7 +18,8 @@ pub use organization::{
     OrganizationPictureUploadPrepareCommand, OrganizationPictureUploadPrepareCommandHandler,
     OrganizationPictureUploadPrepareCommandHandlerConfig,
     OrganizationPictureUploadPrepareCommandHandlerError, OrganizationPictureUploadPrepareOutput,
-    OrganizationRemoveCommand, OrganizationRemoveCommandHandler, OrganizationRemoveOutput,
+    OrganizationPictureUploadPrepareRejectionReason, OrganizationRemoveCommand,
+    OrganizationRemoveCommandHandler, OrganizationRemoveOutput,
     OrganizationWebsiteUrlChangeCommand, OrganizationWebsiteUrlChangeCommandHandler,
     OrganizationWebsiteUrlChangeOutput,
 };
@@ -63,7 +64,8 @@ pub use user::{
     UserPictureObjectDeleteCommandHandler, UserPictureObjectDeleteCommandHandlerError,
     UserPictureObjectDeleteOutput, UserPictureUploadPrepareCommand,
     UserPictureUploadPrepareCommandHandler, UserPictureUploadPrepareCommandHandlerConfig,
-    UserPictureUploadPrepareCommandHandlerError, UserPictureUploadPrepareOutput, UserRemoveCommand,
-    UserRemoveCommandHandler, UserRemoveOutput, UserUsernameChangeCommand,
-    UserUsernameChangeCommandHandler, UserUsernameChangeOutput,
+    UserPictureUploadPrepareCommandHandlerError, UserPictureUploadPrepareOutput,
+    UserPictureUploadPrepareRejectionReason, UserRemoveCommand, UserRemoveCommandHandler,
+    UserRemoveOutput, UserUsernameChangeCommand, UserUsernameChangeCommandHandler,
+    UserUsernameChangeOutput,
 };

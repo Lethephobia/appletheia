@@ -1,7 +1,8 @@
 use appletheia::event_payload;
 
 use super::{
-    OrganizationDescription, OrganizationDescriptionChangeRejectionReason, OrganizationDisplayName,
+    OrganizationCreateRejectionReason, OrganizationDescription,
+    OrganizationDescriptionChangeRejectionReason, OrganizationDisplayName,
     OrganizationDisplayNameChangeRejectionReason, OrganizationEventPayloadError,
     OrganizationHandle, OrganizationHandleChangeRejectionReason, OrganizationOwner,
     OrganizationOwnershipTransferRejectionReason, OrganizationPictureChangeRejectionReason,
@@ -19,6 +20,15 @@ pub enum OrganizationEventPayload {
         description: Option<OrganizationDescription>,
         website_url: Option<OrganizationWebsiteUrl>,
         picture: Option<OrganizationPictureRef>,
+    },
+    CreateRejected {
+        owner: OrganizationOwner,
+        handle: OrganizationHandle,
+        display_name: OrganizationDisplayName,
+        description: Option<OrganizationDescription>,
+        website_url: Option<OrganizationWebsiteUrl>,
+        picture: Option<OrganizationPictureRef>,
+        reason: OrganizationCreateRejectionReason,
     },
     OwnershipTransferred {
         owner: OrganizationOwner,
@@ -86,6 +96,10 @@ mod tests {
         assert_eq!(
             OrganizationEventPayload::CREATED,
             appletheia::domain::EventName::new("created")
+        );
+        assert_eq!(
+            OrganizationEventPayload::CREATE_REJECTED,
+            appletheia::domain::EventName::new("create_rejected")
         );
         assert_eq!(
             OrganizationEventPayload::OWNERSHIP_TRANSFERRED,

@@ -167,7 +167,8 @@ where
                         )
                         .await?;
                 }
-                OrganizationEventPayload::OwnershipTransferred { .. }
+                OrganizationEventPayload::CreateRejected { .. }
+                | OrganizationEventPayload::OwnershipTransferred { .. }
                 | OrganizationEventPayload::OwnershipTransferRejected { .. }
                 | OrganizationEventPayload::HandleChangeRejected { .. }
                 | OrganizationEventPayload::DisplayNameChangeRejected { .. }

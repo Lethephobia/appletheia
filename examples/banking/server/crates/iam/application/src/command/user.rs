@@ -56,7 +56,7 @@ pub use user_picture_object_delete::{
 pub use user_picture_upload_prepare::{
     UserPictureUploadPrepareCommand, UserPictureUploadPrepareCommandHandler,
     UserPictureUploadPrepareCommandHandlerConfig, UserPictureUploadPrepareCommandHandlerError,
-    UserPictureUploadPrepareOutput,
+    UserPictureUploadPrepareOutput, UserPictureUploadPrepareRejectionReason,
 };
 pub use user_remove::{UserRemoveCommand, UserRemoveCommandHandler, UserRemoveOutput};
 pub use user_username_change::{

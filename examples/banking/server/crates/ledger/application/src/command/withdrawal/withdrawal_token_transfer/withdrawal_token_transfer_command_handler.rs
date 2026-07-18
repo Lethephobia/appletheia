@@ -4,7 +4,9 @@ use appletheia::application::command::{CommandHandled, CommandHandler};
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_ledger_domain::currency::Currency;
-use banking_ledger_domain::withdrawal::{Withdrawal, WithdrawalTokenTransferResult};
+use banking_ledger_domain::withdrawal::{
+    Withdrawal, WithdrawalTokenTransferRejectionReason, WithdrawalTokenTransferResult,
+};
 
 use super::{
     WithdrawalTokenTransferCommand, WithdrawalTokenTransferCommandHandlerError,
@@ -76,7 +78,14 @@ where
         let currency_id = *withdrawal.currency_id()?;
         let currency = self.currency_repository.read(uow, currency_id).await?;
         let Some(mint_account) = currency.mint_account()? else {
-            return Err(WithdrawalTokenTransferCommandHandlerError::CurrencyUnprovisioned);
+            let reason = WithdrawalTokenTransferRejectionReason::CurrencyUnprovisioned;
+            withdrawal.reject_token_transfer(reason)?;
+            self.withdrawal_repository
+                .save(uow, request_context, &mut withdrawal)
+                .await?;
+            return Ok(CommandHandled::same(
+                WithdrawalTokenTransferOutput::Rejected { reason },
+            ));
         };
 
         let request = PoolTokenTransferRequest::new(
@@ -96,8 +105,8 @@ where
             WithdrawalTokenTransferResult::TokenTransferred => {
                 WithdrawalTokenTransferOutput::TokenTransferred
             }
-            WithdrawalTokenTransferResult::Rejected { .. } => {
-                WithdrawalTokenTransferOutput::Rejected
+            WithdrawalTokenTransferResult::Rejected { reason } => {
+                WithdrawalTokenTransferOutput::Rejected { reason }
             }
         };
 
@@ -120,11 +129,12 @@ mod tests {
     use banking_ledger_domain::account::AccountId;
     use banking_ledger_domain::core::{CurrencyAmount, TokenAccountOwnerAddress};
     use banking_ledger_domain::currency::{
-        Currency, CurrencyDecimals, CurrencyId, CurrencyName, CurrencyOwner, CurrencySymbol,
-        MintAccount, MintAccountAddress, PoolTokenAccountAddress,
+        Currency, CurrencyDecimals, CurrencyDefinition, CurrencyId, CurrencyName, CurrencyOwner,
+        CurrencySymbol, MintAccount, MintAccountAddress, PoolTokenAccountAddress,
     };
     use banking_ledger_domain::withdrawal::{
         Withdrawal, WithdrawalEventPayload, WithdrawalId, WithdrawalRequest, WithdrawalStatus,
+        WithdrawalTokenTransferRejectionReason,
     };
     use thiserror::Error;
     use uuid::Uuid;
@@ -339,18 +349,34 @@ mod tests {
     fn provisioned_currency() -> Currency {
         let mut currency = Currency::new();
         currency
-            .define(
-                CurrencyOwner::from(UserId::new()),
-                CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
-                CurrencyName::try_from("USD Coin").expect("name should be valid"),
-                CurrencyDecimals::new(6),
-                None,
-                None,
-            )
+            .define(CurrencyDefinition {
+                owner: CurrencyOwner::from(UserId::new()),
+                symbol: CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
+                name: CurrencyName::try_from("USD Coin").expect("name should be valid"),
+                decimals: CurrencyDecimals::new(6),
+                description: None,
+                image: None,
+            })
             .expect("currency should define");
         currency
             .provision(mint_account())
             .expect("currency should provision");
+        currency.core_mut().clear_uncommitted_events();
+        currency
+    }
+
+    fn unprovisioned_currency() -> Currency {
+        let mut currency = Currency::new();
+        currency
+            .define(CurrencyDefinition {
+                owner: CurrencyOwner::from(UserId::new()),
+                symbol: CurrencySymbol::try_from("usdc").expect("symbol should be valid"),
+                name: CurrencyName::try_from("USD Coin").expect("name should be valid"),
+                decimals: CurrencyDecimals::new(6),
+                description: None,
+                image: None,
+            })
+            .expect("currency should define");
         currency.core_mut().clear_uncommitted_events();
         currency
     }
@@ -411,6 +437,50 @@ mod tests {
         assert_eq!(
             saved.uncommitted_events()[0].payload().name(),
             WithdrawalEventPayload::TOKEN_TRANSFERRED
+        );
+    }
+
+    #[tokio::test]
+    async fn handle_records_rejection_when_currency_is_unprovisioned() {
+        let currency = unprovisioned_currency();
+        let currency_id = currency.aggregate_id();
+        let withdrawal = requested_withdrawal(currency_id);
+        let withdrawal_id = withdrawal.aggregate_id();
+        let withdrawal_repository = TestWithdrawalRepository::new(withdrawal);
+        let handler = WithdrawalTokenTransferCommandHandler::new(
+            withdrawal_repository.clone(),
+            TestCurrencyRepository::new(currency),
+            TestPoolTokenTransferExecutor::new(TestPoolTokenTransferOutcome::Transferred),
+        );
+        let mut uow = TestUow;
+
+        let handled = handler
+            .handle(
+                &mut uow,
+                &request_context(),
+                &WithdrawalTokenTransferCommand { withdrawal_id },
+            )
+            .await
+            .expect("unprovisioned currency should reject the token transfer");
+
+        let reason = WithdrawalTokenTransferRejectionReason::CurrencyUnprovisioned;
+        assert_eq!(
+            handled.into_output(),
+            WithdrawalTokenTransferOutput::Rejected { reason }
+        );
+        let saved = withdrawal_repository
+            .saved
+            .lock()
+            .expect("lock")
+            .clone()
+            .expect("rejected withdrawal should be saved");
+        assert_eq!(
+            saved.status().expect("status should exist"),
+            &WithdrawalStatus::Pending
+        );
+        assert_eq!(
+            saved.uncommitted_events()[0].payload(),
+            &WithdrawalEventPayload::TokenTransferRejected { reason }
         );
     }
 

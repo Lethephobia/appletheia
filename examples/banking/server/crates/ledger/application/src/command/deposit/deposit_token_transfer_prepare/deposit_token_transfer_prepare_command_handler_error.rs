@@ -32,7 +32,4 @@ pub enum DepositTokenTransferPrepareCommandHandlerError {
 
     #[error("token account owner address validation failed")]
     TokenAccountOwnerAddressValidator(#[from] TokenAccountOwnerAddressValidatorError),
-
-    #[error("currency is not provisioned for on-chain deposit")]
-    CurrencyUnprovisioned,
 }
