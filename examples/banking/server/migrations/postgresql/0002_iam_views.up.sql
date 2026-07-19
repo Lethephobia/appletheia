@@ -313,6 +313,372 @@ CREATE UNIQUE INDEX IF NOT EXISTS organization_management_infos_handle_idx
 CREATE INDEX IF NOT EXISTS organization_management_infos_owner_user_idx
     ON organization_management_infos (owner_user_id);
 
+-- organization_invitation_list read model
+CREATE TABLE IF NOT EXISTS organization_invitation_list_organizations (
+    organization_id uuid PRIMARY KEY,
+    handle text NOT NULL,
+    display_name text NOT NULL,
+    picture_type text,
+    picture_object_name text,
+    picture_external_url text,
+    updated_at timestamptz NOT NULL,
+    created_at timestamptz NOT NULL,
+    source_event_sequence bigint NOT NULL,
+    updated_event_sequence bigint NOT NULL,
+    source_event_id uuid NOT NULL,
+    updated_event_id uuid NOT NULL,
+    CONSTRAINT organization_invitation_list_orgs_picture_check CHECK (
+        (picture_type IS NULL AND picture_object_name IS NULL AND picture_external_url IS NULL)
+        OR (
+            picture_type IS NOT NULL
+            AND picture_type = 'object_name'
+            AND picture_object_name IS NOT NULL
+            AND picture_external_url IS NULL
+        )
+        OR (
+            picture_type IS NOT NULL
+            AND picture_type = 'external_url'
+            AND picture_object_name IS NULL
+            AND picture_external_url IS NOT NULL
+        )
+    )
+);
+
+CREATE TABLE IF NOT EXISTS organization_invitation_list_users (
+    user_id uuid PRIMARY KEY,
+    username text,
+    display_name text,
+    picture_type text,
+    picture_object_name text,
+    picture_external_url text,
+    updated_at timestamptz NOT NULL,
+    created_at timestamptz NOT NULL,
+    source_event_sequence bigint NOT NULL,
+    updated_event_sequence bigint NOT NULL,
+    source_event_id uuid NOT NULL,
+    updated_event_id uuid NOT NULL,
+    CONSTRAINT organization_invitation_list_users_picture_check CHECK (
+        (picture_type IS NULL AND picture_object_name IS NULL AND picture_external_url IS NULL)
+        OR (
+            picture_type IS NOT NULL
+            AND picture_type = 'object_name'
+            AND picture_object_name IS NOT NULL
+            AND picture_external_url IS NULL
+        )
+        OR (
+            picture_type IS NOT NULL
+            AND picture_type = 'external_url'
+            AND picture_object_name IS NULL
+            AND picture_external_url IS NOT NULL
+        )
+    )
+);
+
+CREATE TABLE IF NOT EXISTS organization_invitation_list_items (
+    id uuid PRIMARY KEY,
+    organization_id uuid NOT NULL,
+    invitee_user_id uuid NOT NULL,
+    roles jsonb NOT NULL,
+    issuer_type text NOT NULL,
+    issuer_user_id uuid,
+    expires_at timestamptz NOT NULL,
+    status text NOT NULL,
+    updated_at timestamptz NOT NULL,
+    created_at timestamptz NOT NULL,
+    source_event_sequence bigint NOT NULL,
+    updated_event_sequence bigint NOT NULL,
+    source_event_id uuid NOT NULL,
+    updated_event_id uuid NOT NULL,
+    CONSTRAINT organization_invitation_list_items_status_check CHECK (
+        status IN ('pending', 'accepted', 'declined', 'canceled', 'rejected')
+    ),
+    CONSTRAINT organization_invitation_list_items_issuer_check CHECK (
+        (issuer_type = 'user' AND issuer_user_id IS NOT NULL)
+        OR (issuer_type = 'system' AND issuer_user_id IS NULL)
+    )
+);
+
+CREATE INDEX IF NOT EXISTS organization_invitation_list_scope_created_at_idx
+    ON organization_invitation_list_items (organization_id, created_at DESC, id DESC);
+
+CREATE INDEX IF NOT EXISTS organization_invitation_list_scope_status_idx
+    ON organization_invitation_list_items (organization_id, status, created_at DESC, id DESC);
+
+CREATE INDEX IF NOT EXISTS organization_invitation_list_invitee_idx
+    ON organization_invitation_list_items (invitee_user_id);
+
+-- user_organization_invitation_list read model
+CREATE TABLE IF NOT EXISTS user_organization_invitation_list_users (
+    user_id uuid PRIMARY KEY,
+    username text,
+    display_name text,
+    picture_type text,
+    picture_object_name text,
+    picture_external_url text,
+    updated_at timestamptz NOT NULL,
+    created_at timestamptz NOT NULL,
+    source_event_sequence bigint NOT NULL,
+    updated_event_sequence bigint NOT NULL,
+    source_event_id uuid NOT NULL,
+    updated_event_id uuid NOT NULL,
+    CONSTRAINT user_organization_invitation_list_users_picture_check CHECK (
+        (picture_type IS NULL AND picture_object_name IS NULL AND picture_external_url IS NULL)
+        OR (
+            picture_type IS NOT NULL
+            AND picture_type = 'object_name'
+            AND picture_object_name IS NOT NULL
+            AND picture_external_url IS NULL
+        )
+        OR (
+            picture_type IS NOT NULL
+            AND picture_type = 'external_url'
+            AND picture_object_name IS NULL
+            AND picture_external_url IS NOT NULL
+        )
+    )
+);
+
+CREATE TABLE IF NOT EXISTS user_organization_invitation_list_organizations (
+    organization_id uuid PRIMARY KEY,
+    handle text NOT NULL,
+    display_name text NOT NULL,
+    picture_type text,
+    picture_object_name text,
+    picture_external_url text,
+    updated_at timestamptz NOT NULL,
+    created_at timestamptz NOT NULL,
+    source_event_sequence bigint NOT NULL,
+    updated_event_sequence bigint NOT NULL,
+    source_event_id uuid NOT NULL,
+    updated_event_id uuid NOT NULL,
+    CONSTRAINT user_org_invitation_list_orgs_picture_check CHECK (
+        (picture_type IS NULL AND picture_object_name IS NULL AND picture_external_url IS NULL)
+        OR (
+            picture_type IS NOT NULL
+            AND picture_type = 'object_name'
+            AND picture_object_name IS NOT NULL
+            AND picture_external_url IS NULL
+        )
+        OR (
+            picture_type IS NOT NULL
+            AND picture_type = 'external_url'
+            AND picture_object_name IS NULL
+            AND picture_external_url IS NOT NULL
+        )
+    )
+);
+
+CREATE TABLE IF NOT EXISTS user_organization_invitation_list_items (
+    id uuid PRIMARY KEY,
+    invitee_user_id uuid NOT NULL,
+    organization_id uuid NOT NULL,
+    roles jsonb NOT NULL,
+    issuer_type text NOT NULL,
+    issuer_user_id uuid,
+    expires_at timestamptz NOT NULL,
+    status text NOT NULL,
+    updated_at timestamptz NOT NULL,
+    created_at timestamptz NOT NULL,
+    source_event_sequence bigint NOT NULL,
+    updated_event_sequence bigint NOT NULL,
+    source_event_id uuid NOT NULL,
+    updated_event_id uuid NOT NULL,
+    CONSTRAINT user_org_invitation_list_items_status_check CHECK (
+        status IN ('pending', 'accepted', 'declined', 'canceled', 'rejected')
+    ),
+    CONSTRAINT user_org_invitation_list_items_issuer_check CHECK (
+        (issuer_type = 'user' AND issuer_user_id IS NOT NULL)
+        OR (issuer_type = 'system' AND issuer_user_id IS NULL)
+    )
+);
+
+CREATE INDEX IF NOT EXISTS user_org_invitation_list_scope_created_at_idx
+    ON user_organization_invitation_list_items (invitee_user_id, created_at DESC, id DESC);
+
+CREATE INDEX IF NOT EXISTS user_org_invitation_list_scope_status_idx
+    ON user_organization_invitation_list_items (
+        invitee_user_id, status, created_at DESC, id DESC
+    );
+
+CREATE INDEX IF NOT EXISTS user_organization_invitation_list_org_idx
+    ON user_organization_invitation_list_items (organization_id);
+
+-- organization_join_request_list read model
+CREATE TABLE IF NOT EXISTS organization_join_request_list_organizations (
+    organization_id uuid PRIMARY KEY,
+    handle text NOT NULL,
+    display_name text NOT NULL,
+    picture_type text,
+    picture_object_name text,
+    picture_external_url text,
+    updated_at timestamptz NOT NULL,
+    created_at timestamptz NOT NULL,
+    source_event_sequence bigint NOT NULL,
+    updated_event_sequence bigint NOT NULL,
+    source_event_id uuid NOT NULL,
+    updated_event_id uuid NOT NULL,
+    CONSTRAINT organization_join_request_list_orgs_picture_check CHECK (
+        (picture_type IS NULL AND picture_object_name IS NULL AND picture_external_url IS NULL)
+        OR (
+            picture_type IS NOT NULL
+            AND picture_type = 'object_name'
+            AND picture_object_name IS NOT NULL
+            AND picture_external_url IS NULL
+        )
+        OR (
+            picture_type IS NOT NULL
+            AND picture_type = 'external_url'
+            AND picture_object_name IS NULL
+            AND picture_external_url IS NOT NULL
+        )
+    )
+);
+
+CREATE TABLE IF NOT EXISTS organization_join_request_list_users (
+    user_id uuid PRIMARY KEY,
+    username text,
+    display_name text,
+    picture_type text,
+    picture_object_name text,
+    picture_external_url text,
+    updated_at timestamptz NOT NULL,
+    created_at timestamptz NOT NULL,
+    source_event_sequence bigint NOT NULL,
+    updated_event_sequence bigint NOT NULL,
+    source_event_id uuid NOT NULL,
+    updated_event_id uuid NOT NULL,
+    CONSTRAINT organization_join_request_list_users_picture_check CHECK (
+        (picture_type IS NULL AND picture_object_name IS NULL AND picture_external_url IS NULL)
+        OR (
+            picture_type IS NOT NULL
+            AND picture_type = 'object_name'
+            AND picture_object_name IS NOT NULL
+            AND picture_external_url IS NULL
+        )
+        OR (
+            picture_type IS NOT NULL
+            AND picture_type = 'external_url'
+            AND picture_object_name IS NULL
+            AND picture_external_url IS NOT NULL
+        )
+    )
+);
+
+CREATE TABLE IF NOT EXISTS organization_join_request_list_items (
+    id uuid PRIMARY KEY,
+    organization_id uuid NOT NULL,
+    requester_user_id uuid NOT NULL,
+    status text NOT NULL,
+    updated_at timestamptz NOT NULL,
+    created_at timestamptz NOT NULL,
+    source_event_sequence bigint NOT NULL,
+    updated_event_sequence bigint NOT NULL,
+    source_event_id uuid NOT NULL,
+    updated_event_id uuid NOT NULL,
+    CONSTRAINT organization_join_request_list_items_status_check CHECK (
+        status IN ('pending', 'approved', 'rejected', 'canceled')
+    )
+);
+
+CREATE INDEX IF NOT EXISTS organization_join_request_list_scope_created_at_idx
+    ON organization_join_request_list_items (organization_id, created_at DESC, id DESC);
+
+CREATE INDEX IF NOT EXISTS organization_join_request_list_scope_status_idx
+    ON organization_join_request_list_items (
+        organization_id, status, created_at DESC, id DESC
+    );
+
+CREATE INDEX IF NOT EXISTS organization_join_request_list_requester_idx
+    ON organization_join_request_list_items (requester_user_id);
+
+-- user_organization_join_request_list read model
+CREATE TABLE IF NOT EXISTS user_organization_join_request_list_users (
+    user_id uuid PRIMARY KEY,
+    username text,
+    display_name text,
+    picture_type text,
+    picture_object_name text,
+    picture_external_url text,
+    updated_at timestamptz NOT NULL,
+    created_at timestamptz NOT NULL,
+    source_event_sequence bigint NOT NULL,
+    updated_event_sequence bigint NOT NULL,
+    source_event_id uuid NOT NULL,
+    updated_event_id uuid NOT NULL,
+    CONSTRAINT user_organization_join_request_list_users_picture_check CHECK (
+        (picture_type IS NULL AND picture_object_name IS NULL AND picture_external_url IS NULL)
+        OR (
+            picture_type IS NOT NULL
+            AND picture_type = 'object_name'
+            AND picture_object_name IS NOT NULL
+            AND picture_external_url IS NULL
+        )
+        OR (
+            picture_type IS NOT NULL
+            AND picture_type = 'external_url'
+            AND picture_object_name IS NULL
+            AND picture_external_url IS NOT NULL
+        )
+    )
+);
+
+CREATE TABLE IF NOT EXISTS user_organization_join_request_list_organizations (
+    organization_id uuid PRIMARY KEY,
+    handle text NOT NULL,
+    display_name text NOT NULL,
+    picture_type text,
+    picture_object_name text,
+    picture_external_url text,
+    updated_at timestamptz NOT NULL,
+    created_at timestamptz NOT NULL,
+    source_event_sequence bigint NOT NULL,
+    updated_event_sequence bigint NOT NULL,
+    source_event_id uuid NOT NULL,
+    updated_event_id uuid NOT NULL,
+    CONSTRAINT user_org_join_request_list_orgs_picture_check CHECK (
+        (picture_type IS NULL AND picture_object_name IS NULL AND picture_external_url IS NULL)
+        OR (
+            picture_type IS NOT NULL
+            AND picture_type = 'object_name'
+            AND picture_object_name IS NOT NULL
+            AND picture_external_url IS NULL
+        )
+        OR (
+            picture_type IS NOT NULL
+            AND picture_type = 'external_url'
+            AND picture_object_name IS NULL
+            AND picture_external_url IS NOT NULL
+        )
+    )
+);
+
+CREATE TABLE IF NOT EXISTS user_organization_join_request_list_items (
+    id uuid PRIMARY KEY,
+    requester_user_id uuid NOT NULL,
+    organization_id uuid NOT NULL,
+    status text NOT NULL,
+    updated_at timestamptz NOT NULL,
+    created_at timestamptz NOT NULL,
+    source_event_sequence bigint NOT NULL,
+    updated_event_sequence bigint NOT NULL,
+    source_event_id uuid NOT NULL,
+    updated_event_id uuid NOT NULL,
+    CONSTRAINT user_org_join_request_list_items_status_check CHECK (
+        status IN ('pending', 'approved', 'rejected', 'canceled')
+    )
+);
+
+CREATE INDEX IF NOT EXISTS user_org_join_request_list_scope_created_at_idx
+    ON user_organization_join_request_list_items (requester_user_id, created_at DESC, id DESC);
+
+CREATE INDEX IF NOT EXISTS user_org_join_request_list_scope_status_idx
+    ON user_organization_join_request_list_items (
+        requester_user_id, status, created_at DESC, id DESC
+    );
+
+CREATE INDEX IF NOT EXISTS user_organization_join_request_list_org_idx
+    ON user_organization_join_request_list_items (organization_id);
+
 -- user_public_profile read model
 CREATE TABLE IF NOT EXISTS user_public_profiles (
     id uuid PRIMARY KEY,

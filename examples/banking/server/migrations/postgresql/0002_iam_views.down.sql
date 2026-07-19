@@ -3,6 +3,38 @@ DROP INDEX IF EXISTS user_public_profiles_status_idx;
 DROP INDEX IF EXISTS user_public_profiles_username_idx;
 DROP TABLE IF EXISTS user_public_profiles;
 
+-- user_organization_join_request_list read model
+DROP INDEX IF EXISTS user_organization_join_request_list_org_idx;
+DROP INDEX IF EXISTS user_org_join_request_list_scope_status_idx;
+DROP INDEX IF EXISTS user_org_join_request_list_scope_created_at_idx;
+DROP TABLE IF EXISTS user_organization_join_request_list_items;
+DROP TABLE IF EXISTS user_organization_join_request_list_organizations;
+DROP TABLE IF EXISTS user_organization_join_request_list_users;
+
+-- organization_join_request_list read model
+DROP INDEX IF EXISTS organization_join_request_list_requester_idx;
+DROP INDEX IF EXISTS organization_join_request_list_scope_status_idx;
+DROP INDEX IF EXISTS organization_join_request_list_scope_created_at_idx;
+DROP TABLE IF EXISTS organization_join_request_list_items;
+DROP TABLE IF EXISTS organization_join_request_list_users;
+DROP TABLE IF EXISTS organization_join_request_list_organizations;
+
+-- user_organization_invitation_list read model
+DROP INDEX IF EXISTS user_organization_invitation_list_org_idx;
+DROP INDEX IF EXISTS user_org_invitation_list_scope_status_idx;
+DROP INDEX IF EXISTS user_org_invitation_list_scope_created_at_idx;
+DROP TABLE IF EXISTS user_organization_invitation_list_items;
+DROP TABLE IF EXISTS user_organization_invitation_list_organizations;
+DROP TABLE IF EXISTS user_organization_invitation_list_users;
+
+-- organization_invitation_list read model
+DROP INDEX IF EXISTS organization_invitation_list_invitee_idx;
+DROP INDEX IF EXISTS organization_invitation_list_scope_status_idx;
+DROP INDEX IF EXISTS organization_invitation_list_scope_created_at_idx;
+DROP TABLE IF EXISTS organization_invitation_list_items;
+DROP TABLE IF EXISTS organization_invitation_list_users;
+DROP TABLE IF EXISTS organization_invitation_list_organizations;
+
 -- organization_management_info read model
 DROP INDEX IF EXISTS organization_management_infos_owner_user_idx;
 DROP INDEX IF EXISTS organization_management_infos_handle_idx;

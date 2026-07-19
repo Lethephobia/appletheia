@@ -1,0 +1,37 @@
+mod organization_join_request_list_criteria;
+mod organization_join_request_list_cursor;
+mod organization_join_request_list_item;
+mod organization_join_request_list_item_status;
+mod organization_join_request_list_organization;
+mod organization_join_request_list_organization_upsert;
+mod organization_join_request_list_reader;
+mod organization_join_request_list_reader_error;
+mod organization_join_request_list_requester;
+mod organization_join_request_list_requester_upsert;
+mod organization_join_request_list_sort_key;
+mod organization_join_request_list_upsert;
+mod organization_join_request_list_writer;
+mod organization_join_request_list_writer_error;
+
+pub use organization_join_request_list_criteria::OrganizationJoinRequestListCriteria;
+pub use organization_join_request_list_cursor::OrganizationJoinRequestListCursor;
+pub use organization_join_request_list_item::OrganizationJoinRequestListItem;
+pub use organization_join_request_list_item_status::OrganizationJoinRequestListItemStatus;
+pub use organization_join_request_list_organization::OrganizationJoinRequestListOrganization;
+pub use organization_join_request_list_organization_upsert::OrganizationJoinRequestListOrganizationUpsert;
+pub use organization_join_request_list_reader::OrganizationJoinRequestListReader;
+pub use organization_join_request_list_reader_error::OrganizationJoinRequestListReaderError;
+pub use organization_join_request_list_requester::OrganizationJoinRequestListRequester;
+pub use organization_join_request_list_requester_upsert::OrganizationJoinRequestListRequesterUpsert;
+pub use organization_join_request_list_sort_key::OrganizationJoinRequestListSortKey;
+pub use organization_join_request_list_upsert::OrganizationJoinRequestListUpsert;
+pub use organization_join_request_list_writer::OrganizationJoinRequestListWriter;
+pub use organization_join_request_list_writer_error::OrganizationJoinRequestListWriterError;
+
+/// Read model for organization-scoped join request list reads.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct OrganizationJoinRequestList {
+    pub organization: OrganizationJoinRequestListOrganization,
+    pub items: Vec<OrganizationJoinRequestListItem>,
+    pub next_cursor: Option<OrganizationJoinRequestListCursor>,
+}
