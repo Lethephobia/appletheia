@@ -159,6 +159,50 @@ CREATE INDEX IF NOT EXISTS public_user_list_items_username_contains_idx
 CREATE INDEX IF NOT EXISTS public_user_list_items_status_created_at_idx
     ON public_user_list_items (status, created_at DESC, id DESC);
 
+-- public_organization_list read model
+CREATE TABLE IF NOT EXISTS public_organization_list_items (
+    id uuid PRIMARY KEY,
+    handle text NOT NULL,
+    handle_search_text text GENERATED ALWAYS AS (
+        regexp_replace(lower(handle), '[[:space:]]+', '', 'g')
+    ) STORED,
+    display_name text NOT NULL,
+    picture_type text,
+    picture_object_name text,
+    picture_external_url text,
+    updated_at timestamptz NOT NULL,
+    created_at timestamptz NOT NULL,
+    source_event_sequence bigint NOT NULL,
+    updated_event_sequence bigint NOT NULL,
+    source_event_id uuid NOT NULL,
+    updated_event_id uuid NOT NULL,
+    CONSTRAINT public_organization_list_items_picture_check CHECK (
+        (picture_type IS NULL AND picture_object_name IS NULL AND picture_external_url IS NULL)
+        OR (
+            picture_type IS NOT NULL
+            AND picture_type = 'object_name'
+            AND picture_object_name IS NOT NULL
+            AND picture_external_url IS NULL
+        )
+        OR (
+            picture_type IS NOT NULL
+            AND picture_type = 'external_url'
+            AND picture_object_name IS NULL
+            AND picture_external_url IS NOT NULL
+        )
+    )
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS public_organization_list_items_handle_idx
+    ON public_organization_list_items (handle);
+
+CREATE INDEX IF NOT EXISTS public_organization_list_items_handle_contains_idx
+    ON public_organization_list_items USING gin (handle_search_text gin_bigm_ops)
+    WHERE handle_search_text IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS public_organization_list_items_created_at_idx
+    ON public_organization_list_items (created_at DESC, id DESC);
+
 -- user_public_profile read model
 CREATE TABLE IF NOT EXISTS user_public_profiles (
     id uuid PRIMARY KEY,

@@ -1,6 +1,13 @@
+mod public_organization_list;
 mod public_user_list;
 mod user_private_info;
 mod user_public_profile;
+pub use public_organization_list::{
+    PublicOrganizationList, PublicOrganizationListCriteria, PublicOrganizationListCursor,
+    PublicOrganizationListItem, PublicOrganizationListReader, PublicOrganizationListReaderError,
+    PublicOrganizationListSortKey, PublicOrganizationListUpsert, PublicOrganizationListWriter,
+    PublicOrganizationListWriterError,
+};
 pub use public_user_list::{
     PublicUserList, PublicUserListCriteria, PublicUserListCursor, PublicUserListItem,
     PublicUserListItemStatus, PublicUserListReader, PublicUserListReaderError,

@@ -3,6 +3,12 @@ DROP INDEX IF EXISTS user_public_profiles_status_idx;
 DROP INDEX IF EXISTS user_public_profiles_username_idx;
 DROP TABLE IF EXISTS user_public_profiles;
 
+-- public_organization_list read model
+DROP INDEX IF EXISTS public_organization_list_items_created_at_idx;
+DROP INDEX IF EXISTS public_organization_list_items_handle_contains_idx;
+DROP INDEX IF EXISTS public_organization_list_items_handle_idx;
+DROP TABLE IF EXISTS public_organization_list_items;
+
 -- public_user_list read model
 DROP INDEX IF EXISTS public_user_list_items_status_created_at_idx;
 DROP INDEX IF EXISTS public_user_list_items_username_contains_idx;
