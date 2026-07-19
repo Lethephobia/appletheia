@@ -45,9 +45,9 @@ impl WalletBookmarkListReader for PgWalletBookmarkListReader {
         owner: WalletBookmarkOwner,
         _criteria: WalletBookmarkListCriteria,
         cursor_options: Option<CursorOptions<WalletBookmarkListSortKey, WalletBookmarkListCursor>>,
-        page_size: PageSize,
+        limit: PageSize,
     ) -> Result<WalletBookmarkList, WalletBookmarkListReaderError> {
-        let limit = i64::from(page_size.value()) + 1;
+        let query_limit = i64::from(limit.value()) + 1;
 
         let mut builder = QueryBuilder::<Postgres>::new(
             r#"
@@ -125,7 +125,7 @@ impl WalletBookmarkListReader for PgWalletBookmarkListReader {
             }
         }
 
-        builder.push(" LIMIT ").push_bind(limit);
+        builder.push(" LIMIT ").push_bind(query_limit);
 
         let rows = builder
             .build_query_as::<PgWalletBookmarkListItemRow>()
@@ -133,11 +133,11 @@ impl WalletBookmarkListReader for PgWalletBookmarkListReader {
             .await
             .map_err(|e| WalletBookmarkListReaderError::Persistence(Box::new(e)))?;
 
-        let limit = page_size.value() as usize;
-        let has_next = rows.len() > limit;
+        let page_limit = limit.value() as usize;
+        let has_next = rows.len() > page_limit;
         let items = rows
             .into_iter()
-            .take(limit)
+            .take(page_limit)
             .map(WalletBookmarkListItem::try_from)
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| WalletBookmarkListReaderError::Persistence(Box::new(e)))?;

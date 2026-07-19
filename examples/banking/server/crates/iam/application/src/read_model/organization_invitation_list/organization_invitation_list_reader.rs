@@ -21,6 +21,6 @@ pub trait OrganizationInvitationListReader: Send + Sync {
         cursor_options: Option<
             CursorOptions<OrganizationInvitationListSortKey, OrganizationInvitationListCursor>,
         >,
-        page_size: PageSize,
+        limit: PageSize,
     ) -> Result<OrganizationInvitationList, OrganizationInvitationListReaderError>;
 }

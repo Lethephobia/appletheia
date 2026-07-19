@@ -118,7 +118,7 @@ mod tests {
                     UserOrganizationInvitationListCursor,
                 >,
             >,
-            _page_size: PageSize,
+            _limit: PageSize,
         ) -> Result<UserOrganizationInvitationList, UserOrganizationInvitationListReaderError>
         {
             panic!("reader is not exercised by this test")

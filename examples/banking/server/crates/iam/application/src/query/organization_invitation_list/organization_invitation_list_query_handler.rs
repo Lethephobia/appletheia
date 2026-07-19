@@ -115,7 +115,7 @@ mod tests {
             _cursor_options: Option<
                 CursorOptions<OrganizationInvitationListSortKey, OrganizationInvitationListCursor>,
             >,
-            _page_size: PageSize,
+            _limit: PageSize,
         ) -> Result<OrganizationInvitationList, OrganizationInvitationListReaderError> {
             panic!("reader is not exercised by this test")
         }

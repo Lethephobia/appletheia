@@ -24,6 +24,6 @@ pub trait UserOrganizationInvitationListReader: Send + Sync {
                 UserOrganizationInvitationListCursor,
             >,
         >,
-        page_size: PageSize,
+        limit: PageSize,
     ) -> Result<UserOrganizationInvitationList, UserOrganizationInvitationListReaderError>;
 }

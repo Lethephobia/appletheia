@@ -64,9 +64,9 @@ impl PublicOrganizationListReader for PgPublicOrganizationListReader {
         cursor_options: Option<
             CursorOptions<PublicOrganizationListSortKey, PublicOrganizationListCursor>,
         >,
-        page_size: PageSize,
+        limit: PageSize,
     ) -> Result<PublicOrganizationList, PublicOrganizationListReaderError> {
-        let query_limit = i64::from(page_size.value()) + 1;
+        let query_limit = i64::from(limit.value()) + 1;
         let sort_key = cursor_options
             .map(|options| options.sort_key)
             .unwrap_or(PublicOrganizationListSortKey::CreatedAt);
@@ -153,11 +153,11 @@ impl PublicOrganizationListReader for PgPublicOrganizationListReader {
             .await
             .map_err(|error| PublicOrganizationListReaderError::Persistence(Box::new(error)))?;
 
-        let output_limit = page_size.value() as usize;
-        let has_next = rows.len() > output_limit;
+        let page_limit = limit.value() as usize;
+        let has_next = rows.len() > page_limit;
         let items = rows
             .into_iter()
-            .take(output_limit)
+            .take(page_limit)
             .map(PublicOrganizationListItem::try_from)
             .collect::<Result<Vec<_>, _>>()
             .map_err(|error| PublicOrganizationListReaderError::Persistence(Box::new(error)))?;

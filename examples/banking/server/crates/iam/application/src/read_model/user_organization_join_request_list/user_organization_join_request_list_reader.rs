@@ -24,6 +24,6 @@ pub trait UserOrganizationJoinRequestListReader: Send + Sync {
                 UserOrganizationJoinRequestListCursor,
             >,
         >,
-        page_size: PageSize,
+        limit: PageSize,
     ) -> Result<UserOrganizationJoinRequestList, UserOrganizationJoinRequestListReaderError>;
 }

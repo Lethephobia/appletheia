@@ -103,11 +103,11 @@ impl OwnedAccountTransactionListReader for PgOwnedAccountTransactionListReader {
         cursor_options: Option<
             CursorOptions<OwnedAccountTransactionListSortKey, OwnedAccountTransactionListCursor>,
         >,
-        page_size: PageSize,
+        limit: PageSize,
     ) -> Result<OwnedAccountTransactionList, OwnedAccountTransactionListReaderError> {
         let (owner_type, owner_id) = Self::owner_parts(owner);
         let owner = Self::read_owner(uow, owner_type, owner_id).await?;
-        let limit = i64::from(page_size.value()) + 1;
+        let query_limit = i64::from(limit.value()) + 1;
 
         let mut builder = QueryBuilder::<Postgres>::new(
             r#"
@@ -234,7 +234,7 @@ impl OwnedAccountTransactionListReader for PgOwnedAccountTransactionListReader {
             }
         }
 
-        builder.push(" LIMIT ").push_bind(limit);
+        builder.push(" LIMIT ").push_bind(query_limit);
 
         let rows = builder
             .build_query_as::<PgOwnedAccountTransactionListItemRow>()
@@ -242,11 +242,11 @@ impl OwnedAccountTransactionListReader for PgOwnedAccountTransactionListReader {
             .await
             .map_err(|e| OwnedAccountTransactionListReaderError::Persistence(Box::new(e)))?;
 
-        let limit = page_size.value() as usize;
-        let has_next = rows.len() > limit;
+        let page_limit = limit.value() as usize;
+        let has_next = rows.len() > page_limit;
         let items = rows
             .into_iter()
-            .take(limit)
+            .take(page_limit)
             .map(OwnedAccountTransactionListItem::try_from)
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| OwnedAccountTransactionListReaderError::Persistence(Box::new(e)))?;

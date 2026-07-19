@@ -21,6 +21,6 @@ pub trait OrganizationJoinRequestListReader: Send + Sync {
         cursor_options: Option<
             CursorOptions<OrganizationJoinRequestListSortKey, OrganizationJoinRequestListCursor>,
         >,
-        page_size: PageSize,
+        limit: PageSize,
     ) -> Result<OrganizationJoinRequestList, OrganizationJoinRequestListReaderError>;
 }

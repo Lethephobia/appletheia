@@ -118,7 +118,7 @@ mod tests {
                     OrganizationJoinRequestListCursor,
                 >,
             >,
-            _page_size: PageSize,
+            _limit: PageSize,
         ) -> Result<OrganizationJoinRequestList, OrganizationJoinRequestListReaderError> {
             panic!("reader is not exercised by this test")
         }

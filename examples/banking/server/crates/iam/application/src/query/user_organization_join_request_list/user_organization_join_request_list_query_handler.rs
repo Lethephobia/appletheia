@@ -122,7 +122,7 @@ mod tests {
                     UserOrganizationJoinRequestListCursor,
                 >,
             >,
-            _page_size: PageSize,
+            _limit: PageSize,
         ) -> Result<UserOrganizationJoinRequestList, UserOrganizationJoinRequestListReaderError>
         {
             panic!("reader is not exercised by this test")

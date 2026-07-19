@@ -41,9 +41,9 @@ impl CurrencyListReader for PgCurrencyListReader {
         uow: &mut Self::Uow,
         criteria: CurrencyListCriteria,
         cursor_options: Option<CursorOptions<CurrencyListSortKey, CurrencyListCursor>>,
-        page_size: PageSize,
+        limit: PageSize,
     ) -> Result<CurrencyList, CurrencyListReaderError> {
-        let query_limit = i64::from(page_size.value()) + 1;
+        let query_limit = i64::from(limit.value()) + 1;
         let sort_key = cursor_options
             .map(|options| options.sort_key)
             .unwrap_or(CurrencyListSortKey::CreatedAt);
@@ -158,11 +158,11 @@ impl CurrencyListReader for PgCurrencyListReader {
             .await
             .map_err(|e| CurrencyListReaderError::Persistence(Box::new(e)))?;
 
-        let output_limit = page_size.value() as usize;
-        let has_next = rows.len() > output_limit;
+        let page_limit = limit.value() as usize;
+        let has_next = rows.len() > page_limit;
         let items = rows
             .into_iter()
-            .take(output_limit)
+            .take(page_limit)
             .map(CurrencyListItem::try_from)
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| CurrencyListReaderError::Persistence(Box::new(e)))?;

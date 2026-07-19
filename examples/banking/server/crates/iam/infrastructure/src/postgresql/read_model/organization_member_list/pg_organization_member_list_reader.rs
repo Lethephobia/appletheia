@@ -94,10 +94,10 @@ impl OrganizationMemberListReader for PgOrganizationMemberListReader {
         cursor_options: Option<
             CursorOptions<OrganizationMemberListSortKey, OrganizationMemberListCursor>,
         >,
-        page_size: PageSize,
+        limit: PageSize,
     ) -> Result<OrganizationMemberList, OrganizationMemberListReaderError> {
         let organization = Self::read_organization(uow, organization_id).await?;
-        let query_limit = i64::from(page_size.value()) + 1;
+        let query_limit = i64::from(limit.value()) + 1;
         let sort_key = cursor_options
             .map(|options| options.sort_key)
             .unwrap_or(OrganizationMemberListSortKey::JoinedAt);
@@ -225,11 +225,11 @@ impl OrganizationMemberListReader for PgOrganizationMemberListReader {
             .fetch_all(uow.transaction_mut().as_mut())
             .await
             .map_err(|error| OrganizationMemberListReaderError::Persistence(Box::new(error)))?;
-        let output_limit = page_size.value() as usize;
-        let has_next = rows.len() > output_limit;
+        let page_limit = limit.value() as usize;
+        let has_next = rows.len() > page_limit;
         let items = rows
             .into_iter()
-            .take(output_limit)
+            .take(page_limit)
             .map(OrganizationMemberListItem::try_from)
             .collect::<Result<Vec<_>, _>>()
             .map_err(|error| OrganizationMemberListReaderError::Persistence(Box::new(error)))?;

@@ -93,10 +93,10 @@ impl UserOrganizationJoinRequestListReader for PgUserOrganizationJoinRequestList
                 UserOrganizationJoinRequestListCursor,
             >,
         >,
-        page_size: PageSize,
+        limit: PageSize,
     ) -> Result<UserOrganizationJoinRequestList, UserOrganizationJoinRequestListReaderError> {
         let user = Self::read_user(uow, user_id).await?;
-        let query_limit = i64::from(page_size.value()) + 1;
+        let query_limit = i64::from(limit.value()) + 1;
         let sort_key = cursor_options
             .map(|options| options.sort_key)
             .unwrap_or(UserOrganizationJoinRequestListSortKey::CreatedAt);
@@ -182,11 +182,11 @@ impl UserOrganizationJoinRequestListReader for PgUserOrganizationJoinRequestList
             .map_err(|error| {
                 UserOrganizationJoinRequestListReaderError::Persistence(Box::new(error))
             })?;
-        let output_limit = page_size.value() as usize;
-        let has_next = rows.len() > output_limit;
+        let page_limit = limit.value() as usize;
+        let has_next = rows.len() > page_limit;
         let items = rows
             .into_iter()
-            .take(output_limit)
+            .take(page_limit)
             .map(UserOrganizationJoinRequestListItem::try_from)
             .collect::<Result<Vec<_>, _>>()
             .map_err(|error| {
