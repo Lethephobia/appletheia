@@ -26,6 +26,56 @@ pub struct OrganizationRemoveCommand {
 
 ## CommandHandler
 
+### DO classify command outcomes before choosing `Ok` or `Err`
+
+Use the following table to keep domain outcomes, rollback failures, persistence, replay, and
+consumer delivery behavior aligned.
+
+| Classification | Typical examples | Handler result and retryability | Persisted data and replay | Transaction | Consumer delivery |
+| --- | --- | --- | --- | --- | --- |
+| Successful domain outcome | Created, transferred, reserved | `Ok(CommandHandled)` | Save domain events when state changed and complete the idempotency record; replay returns the stored output | Commit | Ack |
+| Expected business rejection | Insufficient funds, handle already taken, cross-aggregate mismatch | `Ok(CommandHandled)` with `Rejected { reason }` | Save a rejected event when the refusal is a domain fact or must drive a saga/projection, then complete the idempotency record | Commit | Ack |
+| Non-retryable processing failure | Aggregate invariant violation, required aggregate not found, invalid persisted mapping, impossible application state | `Err`, with `is_retryable() == false` | Save neither pending domain events nor a completed idempotency result; an explicit future submission executes again | Roll back | Ack the current delivery |
+| Retryable processing failure | Temporary database, object-storage, network, or application-service failure | `Err`, with `is_retryable() == true` | Save neither pending domain events nor a completed idempotency result; broker redelivery executes again | Roll back | Nack; provider policy may eventually dead-letter |
+
+Treat `Retryability` as the automatic consumer-redelivery decision, not as a prohibition on an
+explicit future client submission. Let an outer application error override a lower-level default
+when the operation gives the same source error different retry semantics.
+
+good:
+```rust
+let result = transfer.request(request)?;
+transfer_repository
+    .save(uow, request_context, &mut transfer)
+    .await?;
+
+let output = match result {
+    TransferRequestResult::Requested => TransferRequestOutput::Requested { transfer_id },
+    TransferRequestResult::Rejected { reason } => {
+        TransferRequestOutput::Rejected { transfer_id, reason }
+    }
+};
+
+Ok(CommandHandled::same(output))
+```
+
+bad:
+```rust
+let result = transfer.request(request)?;
+transfer_repository
+    .save(uow, request_context, &mut transfer)
+    .await?;
+
+if let TransferRequestResult::Rejected { reason } = result {
+    // Returning Err rolls back the rejected event and misclassifies a business outcome.
+    return Err(TransferRequestCommandHandlerError::Rejected { reason });
+}
+
+Ok(CommandHandled::same(TransferRequestOutput::Requested {
+    transfer_id,
+}))
+```
+
 ### DO load the aggregate, invoke its command method, and save the result
 
 Keep state transitions inside the aggregate boundary.
