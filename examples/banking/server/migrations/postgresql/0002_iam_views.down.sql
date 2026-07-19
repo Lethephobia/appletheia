@@ -3,6 +3,17 @@ DROP INDEX IF EXISTS user_public_profiles_status_idx;
 DROP INDEX IF EXISTS user_public_profiles_username_idx;
 DROP TABLE IF EXISTS user_public_profiles;
 
+-- organization_management_info read model
+DROP INDEX IF EXISTS organization_management_infos_owner_user_idx;
+DROP INDEX IF EXISTS organization_management_infos_handle_idx;
+DROP TABLE IF EXISTS organization_management_infos;
+DROP INDEX IF EXISTS organization_management_info_owner_users_username_idx;
+DROP TABLE IF EXISTS organization_management_info_owner_users;
+
+-- organization_internal_info read model
+DROP INDEX IF EXISTS organization_internal_infos_handle_idx;
+DROP TABLE IF EXISTS organization_internal_infos;
+
 -- public_organization_list read model
 DROP INDEX IF EXISTS public_organization_list_items_created_at_idx;
 DROP INDEX IF EXISTS public_organization_list_items_handle_contains_idx;

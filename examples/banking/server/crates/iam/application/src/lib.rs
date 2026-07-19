@@ -89,6 +89,9 @@ pub use oidc::{
     OidcContinuationPayload,
 };
 pub use projection::{
+    OrganizationInternalInfoProjector, OrganizationInternalInfoProjectorError,
+    OrganizationInternalInfoProjectorSpec, OrganizationManagementInfoProjector,
+    OrganizationManagementInfoProjectorError, OrganizationManagementInfoProjectorSpec,
     PublicOrganizationListProjector, PublicOrganizationListProjectorError,
     PublicOrganizationListProjectorSpec, PublicUserListProjector, PublicUserListProjectorError,
     PublicUserListProjectorSpec, UserPrivateInfoProjector, UserPrivateInfoProjectorError,
@@ -96,6 +99,9 @@ pub use projection::{
     UserPublicProfileProjectorSpec,
 };
 pub use query::{
+    OrganizationInternalInfoQuery, OrganizationInternalInfoQueryHandler,
+    OrganizationInternalInfoQueryHandlerError, OrganizationManagementInfoQuery,
+    OrganizationManagementInfoQueryHandler, OrganizationManagementInfoQueryHandlerError,
     PublicOrganizationListQuery, PublicOrganizationListQueryHandler,
     PublicOrganizationListQueryHandlerError, PublicUserListQuery, PublicUserListQueryHandler,
     PublicUserListQueryHandlerError, UserPrivateInfoQuery, UserPrivateInfoQueryHandler,
@@ -103,13 +109,19 @@ pub use query::{
     UserPublicProfileQueryHandlerError,
 };
 pub use read_model::{
-    PublicOrganizationList, PublicOrganizationListCriteria, PublicOrganizationListCursor,
-    PublicOrganizationListItem, PublicOrganizationListReader, PublicOrganizationListReaderError,
-    PublicOrganizationListSortKey, PublicOrganizationListUpsert, PublicOrganizationListWriter,
-    PublicOrganizationListWriterError, PublicUserList, PublicUserListCriteria,
-    PublicUserListCursor, PublicUserListItem, PublicUserListItemStatus, PublicUserListReader,
-    PublicUserListReaderError, PublicUserListSortKey, PublicUserListUpsert, PublicUserListWriter,
-    PublicUserListWriterError, UserPrivateInfo, UserPrivateInfoIdentity,
+    OrganizationInternalInfo, OrganizationInternalInfoReader, OrganizationInternalInfoReaderError,
+    OrganizationInternalInfoUpsert, OrganizationInternalInfoWriter,
+    OrganizationInternalInfoWriterError, OrganizationManagementInfo,
+    OrganizationManagementInfoOwner, OrganizationManagementInfoOwnerUpsert,
+    OrganizationManagementInfoReader, OrganizationManagementInfoReaderError,
+    OrganizationManagementInfoUpsert, OrganizationManagementInfoWriter,
+    OrganizationManagementInfoWriterError, PublicOrganizationList, PublicOrganizationListCriteria,
+    PublicOrganizationListCursor, PublicOrganizationListItem, PublicOrganizationListReader,
+    PublicOrganizationListReaderError, PublicOrganizationListSortKey, PublicOrganizationListUpsert,
+    PublicOrganizationListWriter, PublicOrganizationListWriterError, PublicUserList,
+    PublicUserListCriteria, PublicUserListCursor, PublicUserListItem, PublicUserListItemStatus,
+    PublicUserListReader, PublicUserListReaderError, PublicUserListSortKey, PublicUserListUpsert,
+    PublicUserListWriter, PublicUserListWriterError, UserPrivateInfo, UserPrivateInfoIdentity,
     UserPrivateInfoIdentityUpsert, UserPrivateInfoOrganization,
     UserPrivateInfoOrganizationMembership, UserPrivateInfoOrganizationMembershipUpsert,
     UserPrivateInfoOrganizationUpsert, UserPrivateInfoReader, UserPrivateInfoReaderError,

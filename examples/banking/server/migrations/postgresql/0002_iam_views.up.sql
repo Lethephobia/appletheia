@@ -203,6 +203,116 @@ CREATE INDEX IF NOT EXISTS public_organization_list_items_handle_contains_idx
 CREATE INDEX IF NOT EXISTS public_organization_list_items_created_at_idx
     ON public_organization_list_items (created_at DESC, id DESC);
 
+-- organization_internal_info read model
+CREATE TABLE IF NOT EXISTS organization_internal_infos (
+    id uuid PRIMARY KEY,
+    handle text NOT NULL,
+    display_name text NOT NULL,
+    description text,
+    website_url text,
+    picture_type text,
+    picture_object_name text,
+    picture_external_url text,
+    updated_at timestamptz NOT NULL,
+    created_at timestamptz NOT NULL,
+    source_event_sequence bigint NOT NULL,
+    updated_event_sequence bigint NOT NULL,
+    source_event_id uuid NOT NULL,
+    updated_event_id uuid NOT NULL,
+    CONSTRAINT organization_internal_infos_picture_check CHECK (
+        (picture_type IS NULL AND picture_object_name IS NULL AND picture_external_url IS NULL)
+        OR (
+            picture_type IS NOT NULL
+            AND picture_type = 'object_name'
+            AND picture_object_name IS NOT NULL
+            AND picture_external_url IS NULL
+        )
+        OR (
+            picture_type IS NOT NULL
+            AND picture_type = 'external_url'
+            AND picture_object_name IS NULL
+            AND picture_external_url IS NOT NULL
+        )
+    )
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS organization_internal_infos_handle_idx
+    ON organization_internal_infos (handle);
+
+-- organization_management_info read model
+CREATE TABLE IF NOT EXISTS organization_management_info_owner_users (
+    user_id uuid PRIMARY KEY,
+    username text,
+    display_name text,
+    picture_type text,
+    picture_object_name text,
+    picture_external_url text,
+    updated_at timestamptz NOT NULL,
+    created_at timestamptz NOT NULL,
+    source_event_sequence bigint NOT NULL,
+    updated_event_sequence bigint NOT NULL,
+    source_event_id uuid NOT NULL,
+    updated_event_id uuid NOT NULL,
+    CONSTRAINT organization_management_info_owner_users_picture_check CHECK (
+        (picture_type IS NULL AND picture_object_name IS NULL AND picture_external_url IS NULL)
+        OR (
+            picture_type IS NOT NULL
+            AND picture_type = 'object_name'
+            AND picture_object_name IS NOT NULL
+            AND picture_external_url IS NULL
+        )
+        OR (
+            picture_type IS NOT NULL
+            AND picture_type = 'external_url'
+            AND picture_object_name IS NULL
+            AND picture_external_url IS NOT NULL
+        )
+    )
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS organization_management_info_owner_users_username_idx
+    ON organization_management_info_owner_users (username)
+    WHERE username IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS organization_management_infos (
+    id uuid PRIMARY KEY,
+    owner_user_id uuid NOT NULL,
+    handle text NOT NULL,
+    display_name text NOT NULL,
+    description text,
+    website_url text,
+    picture_type text,
+    picture_object_name text,
+    picture_external_url text,
+    updated_at timestamptz NOT NULL,
+    created_at timestamptz NOT NULL,
+    source_event_sequence bigint NOT NULL,
+    updated_event_sequence bigint NOT NULL,
+    source_event_id uuid NOT NULL,
+    updated_event_id uuid NOT NULL,
+    CONSTRAINT organization_management_infos_picture_check CHECK (
+        (picture_type IS NULL AND picture_object_name IS NULL AND picture_external_url IS NULL)
+        OR (
+            picture_type IS NOT NULL
+            AND picture_type = 'object_name'
+            AND picture_object_name IS NOT NULL
+            AND picture_external_url IS NULL
+        )
+        OR (
+            picture_type IS NOT NULL
+            AND picture_type = 'external_url'
+            AND picture_object_name IS NULL
+            AND picture_external_url IS NOT NULL
+        )
+    )
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS organization_management_infos_handle_idx
+    ON organization_management_infos (handle);
+
+CREATE INDEX IF NOT EXISTS organization_management_infos_owner_user_idx
+    ON organization_management_infos (owner_user_id);
+
 -- user_public_profile read model
 CREATE TABLE IF NOT EXISTS user_public_profiles (
     id uuid PRIMARY KEY,
