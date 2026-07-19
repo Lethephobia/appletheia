@@ -2,6 +2,7 @@ mod organization_internal_info;
 mod organization_invitation_list;
 mod organization_join_request_list;
 mod organization_management_info;
+mod organization_member_list;
 mod pg_organization_picture_ref_columns;
 mod pg_organization_picture_ref_columns_error;
 mod pg_user_picture_ref_columns;
@@ -24,6 +25,9 @@ pub use organization_join_request_list::{
 };
 pub use organization_management_info::{
     PgOrganizationManagementInfoReader, PgOrganizationManagementInfoWriter,
+};
+pub use organization_member_list::{
+    PgOrganizationMemberListReader, PgOrganizationMemberListWriter,
 };
 pub use public_organization_list::{
     PgPublicOrganizationListReader, PgPublicOrganizationListWriter,

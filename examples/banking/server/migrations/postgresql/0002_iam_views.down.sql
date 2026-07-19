@@ -35,6 +35,14 @@ DROP TABLE IF EXISTS organization_invitation_list_items;
 DROP TABLE IF EXISTS organization_invitation_list_users;
 DROP TABLE IF EXISTS organization_invitation_list_organizations;
 
+-- organization_member_list read model
+DROP INDEX IF EXISTS organization_member_list_memberships_user_idx;
+DROP INDEX IF EXISTS organization_member_list_memberships_scope_joined_at_idx;
+DROP TABLE IF EXISTS organization_member_list_memberships;
+DROP INDEX IF EXISTS organization_member_list_users_username_contains_idx;
+DROP TABLE IF EXISTS organization_member_list_users;
+DROP TABLE IF EXISTS organization_member_list_organizations;
+
 -- organization_management_info read model
 DROP INDEX IF EXISTS organization_management_infos_owner_user_idx;
 DROP INDEX IF EXISTS organization_management_infos_handle_idx;

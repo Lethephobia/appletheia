@@ -1,0 +1,57 @@
+use appletheia::domain::{AggregateId, EventId};
+use banking_iam_application::OrganizationMemberListOrganization;
+use banking_iam_domain::{OrganizationDisplayName, OrganizationHandle, OrganizationId};
+use banking_shared_kernel_application::read_model::ReadModelObservation;
+use uuid::Uuid;
+
+use super::super::pg_organization_picture_ref_columns::PgOrganizationPictureRefColumns;
+use super::pg_organization_member_list_organization_row_error::PgOrganizationMemberListOrganizationRowError;
+
+#[derive(Debug, sqlx::FromRow)]
+pub struct PgOrganizationMemberListOrganizationRow {
+    pub organization_id: Uuid,
+    pub handle: String,
+    pub display_name: String,
+    pub picture_type: Option<String>,
+    pub picture_object_name: Option<String>,
+    pub picture_external_url: Option<String>,
+    pub source_event_id: Uuid,
+    pub updated_event_id: Uuid,
+}
+
+impl TryFrom<PgOrganizationMemberListOrganizationRow> for OrganizationMemberListOrganization {
+    type Error = PgOrganizationMemberListOrganizationRowError;
+
+    fn try_from(row: PgOrganizationMemberListOrganizationRow) -> Result<Self, Self::Error> {
+        Ok(Self {
+            organization_id: OrganizationId::try_from_uuid(row.organization_id).map_err(
+                |error| {
+                    PgOrganizationMemberListOrganizationRowError::OrganizationId(Box::new(error))
+                },
+            )?,
+            handle: OrganizationHandle::try_from(row.handle).map_err(|error| {
+                PgOrganizationMemberListOrganizationRowError::Handle(Box::new(error))
+            })?,
+            display_name: OrganizationDisplayName::try_from(row.display_name).map_err(|error| {
+                PgOrganizationMemberListOrganizationRowError::DisplayName(Box::new(error))
+            })?,
+            picture: PgOrganizationPictureRefColumns {
+                picture_type: row.picture_type,
+                object_name: row.picture_object_name,
+                external_url: row.picture_external_url,
+            }
+            .into_picture()
+            .map_err(|error| {
+                PgOrganizationMemberListOrganizationRowError::Picture(Box::new(error))
+            })?,
+            observation: ReadModelObservation::new(
+                EventId::try_from(row.source_event_id).map_err(|error| {
+                    PgOrganizationMemberListOrganizationRowError::SourceEventId(Box::new(error))
+                })?,
+                EventId::try_from(row.updated_event_id).map_err(|error| {
+                    PgOrganizationMemberListOrganizationRowError::UpdatedEventId(Box::new(error))
+                })?,
+            ),
+        })
+    }
+}
