@@ -5,6 +5,7 @@ use banking_iam_application::{
     PublicUserListReader, PublicUserListReaderError, PublicUserListSortKey,
 };
 use banking_shared_kernel_application::read_model::{CursorOptions, PageSize, SortDirection};
+use sqlx::query_builder::Separated;
 use sqlx::{Postgres, QueryBuilder};
 
 use super::pg_public_user_list_item_row::PgPublicUserListItemRow;
@@ -17,7 +18,10 @@ impl PgPublicUserListReader {
         Self
     }
 
-    fn push_username_contains(builder: &mut QueryBuilder<Postgres>, username_contains: &[String]) {
+    fn push_username_contains(
+        predicates: &mut Separated<'_, Postgres, &'static str>,
+        username_contains: &[String],
+    ) {
         let mut pushed_predicate = false;
 
         for contains in username_contains
@@ -25,14 +29,14 @@ impl PgPublicUserListReader {
             .filter(|contains| contains.chars().any(|character| !character.is_whitespace()))
         {
             if !pushed_predicate {
-                builder.push(" AND username_search_text IS NOT NULL");
+                predicates.push("username_search_text IS NOT NULL");
                 pushed_predicate = true;
             }
 
-            builder
-                .push(" AND username_search_text LIKE likequery(regexp_replace(lower(")
-                .push_bind(contains.as_str())
-                .push("), '[[:space:]]+', '', 'g'))");
+            predicates
+                .push("username_search_text LIKE likequery(regexp_replace(lower(")
+                .push_bind_unseparated(contains.as_str())
+                .push_unseparated("), '[[:space:]]+', '', 'g'))");
         }
     }
 }
@@ -54,6 +58,13 @@ impl PublicUserListReader for PgPublicUserListReader {
         page_size: PageSize,
     ) -> Result<PublicUserList, PublicUserListReaderError> {
         let query_limit = i64::from(page_size.value()) + 1;
+        let sort_key = cursor_options
+            .map(|options| options.sort_key)
+            .unwrap_or(PublicUserListSortKey::CreatedAt);
+        let sort_direction = cursor_options
+            .map(|options| options.sort_direction)
+            .unwrap_or(SortDirection::Desc);
+        let cursor = cursor_options.and_then(|options| options.cursor);
 
         let mut builder = QueryBuilder::<Postgres>::new(
             r#"
@@ -68,42 +79,42 @@ impl PublicUserListReader for PgPublicUserListReader {
                 source_event_id,
                 updated_event_id
             FROM public_user_list_items
-            WHERE status = 'active'
             "#,
         );
 
-        Self::push_username_contains(&mut builder, &criteria.username_contains);
+        builder.push(" WHERE ");
+        let mut predicates = builder.separated(" AND ");
+        predicates.push("status = 'active'");
 
-        let sort_key = cursor_options
-            .map(|options| options.sort_key)
-            .unwrap_or(PublicUserListSortKey::CreatedAt);
-        let sort_direction = cursor_options
-            .map(|options| options.sort_direction)
-            .unwrap_or(SortDirection::Desc);
+        Self::push_username_contains(&mut predicates, &criteria.username_contains);
 
-        if let Some(cursor) = cursor_options.and_then(|options| options.cursor) {
+        if let Some(cursor) = cursor {
             match (sort_key, sort_direction) {
                 (PublicUserListSortKey::CreatedAt, SortDirection::Asc) => {
-                    builder
-                        .push(" AND (created_at, id) > (")
-                        .push_bind(cursor.created_at.value())
-                        .push(", ")
-                        .push_bind(cursor.user_id.value())
-                        .push(")");
+                    predicates
+                        .push("(created_at, id) > (")
+                        .push_bind_unseparated(cursor.created_at.value())
+                        .push_unseparated(", ")
+                        .push_bind_unseparated(cursor.user_id.value())
+                        .push_unseparated(")");
                 }
                 (PublicUserListSortKey::CreatedAt, SortDirection::Desc) => {
-                    builder
-                        .push(" AND (created_at, id) < (")
-                        .push_bind(cursor.created_at.value())
-                        .push(", ")
-                        .push_bind(cursor.user_id.value())
-                        .push(")");
+                    predicates
+                        .push("(created_at, id) < (")
+                        .push_bind_unseparated(cursor.created_at.value())
+                        .push_unseparated(", ")
+                        .push_bind_unseparated(cursor.user_id.value())
+                        .push_unseparated(")");
                 }
                 (PublicUserListSortKey::UserId, SortDirection::Asc) => {
-                    builder.push(" AND id > ").push_bind(cursor.user_id.value());
+                    predicates
+                        .push("id > ")
+                        .push_bind_unseparated(cursor.user_id.value());
                 }
                 (PublicUserListSortKey::UserId, SortDirection::Desc) => {
-                    builder.push(" AND id < ").push_bind(cursor.user_id.value());
+                    predicates
+                        .push("id < ")
+                        .push_bind_unseparated(cursor.user_id.value());
                 }
             }
         }
@@ -165,13 +176,15 @@ mod tests {
             "bob_smith".to_owned(),
             "   ".to_owned(),
         ];
-        let mut builder = QueryBuilder::<Postgres>::new("SELECT 1 WHERE TRUE");
+        let mut builder = QueryBuilder::<Postgres>::new("SELECT 1 WHERE ");
+        let mut predicates = builder.separated(" AND ");
+        predicates.push("status = 'active'");
 
-        PgPublicUserListReader::push_username_contains(&mut builder, &username_contains);
+        PgPublicUserListReader::push_username_contains(&mut predicates, &username_contains);
 
         let sql = builder.sql();
         let sql_text = sql.as_str();
-        assert!(sql_text.contains(" AND username_search_text IS NOT NULL"));
+        assert!(sql_text.contains("status = 'active' AND username_search_text IS NOT NULL"));
         assert_eq!(
             sql_text.matches(" AND username_search_text LIKE ").count(),
             2
@@ -183,10 +196,12 @@ mod tests {
     #[test]
     fn empty_username_contains_adds_no_predicate() {
         let username_contains = vec!["   ".to_owned()];
-        let mut builder = QueryBuilder::<Postgres>::new("SELECT 1 WHERE TRUE");
+        let mut builder = QueryBuilder::<Postgres>::new("SELECT 1 WHERE ");
+        let mut predicates = builder.separated(" AND ");
+        predicates.push("status = 'active'");
 
-        PgPublicUserListReader::push_username_contains(&mut builder, &username_contains);
+        PgPublicUserListReader::push_username_contains(&mut predicates, &username_contains);
 
-        assert_eq!(builder.sql(), "SELECT 1 WHERE TRUE");
+        assert_eq!(builder.sql(), "SELECT 1 WHERE status = 'active'");
     }
 }

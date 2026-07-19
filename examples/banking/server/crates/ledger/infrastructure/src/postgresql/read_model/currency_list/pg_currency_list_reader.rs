@@ -43,7 +43,14 @@ impl CurrencyListReader for PgCurrencyListReader {
         cursor_options: Option<CursorOptions<CurrencyListSortKey, CurrencyListCursor>>,
         page_size: PageSize,
     ) -> Result<CurrencyList, CurrencyListReaderError> {
-        let limit = i64::from(page_size.value()) + 1;
+        let query_limit = i64::from(page_size.value()) + 1;
+        let sort_key = cursor_options
+            .map(|options| options.sort_key)
+            .unwrap_or(CurrencyListSortKey::CreatedAt);
+        let sort_direction = cursor_options
+            .map(|options| options.sort_direction)
+            .unwrap_or(SortDirection::Desc);
+        let cursor = cursor_options.and_then(|options| options.cursor);
 
         let mut builder = QueryBuilder::<Postgres>::new(
             r#"
@@ -83,50 +90,47 @@ impl CurrencyListReader for PgCurrencyListReader {
             LEFT JOIN currency_list_item_owner_organizations o
                    ON i.owner_type = 'organization'
                   AND o.id = i.owner_id
-            WHERE TRUE
             "#,
         );
 
-        if let Some(status) = criteria.status {
-            builder
-                .push(" AND i.status = ")
-                .push_bind(Self::status_name(status));
-        }
+        if criteria.status.is_some() || cursor.is_some() {
+            builder.push(" WHERE ");
+            let mut predicates = builder.separated(" AND ");
 
-        let sort_key = cursor_options
-            .map(|options| options.sort_key)
-            .unwrap_or(CurrencyListSortKey::CreatedAt);
-        let sort_direction = cursor_options
-            .map(|options| options.sort_direction)
-            .unwrap_or(SortDirection::Desc);
+            if let Some(status) = criteria.status {
+                predicates
+                    .push("i.status = ")
+                    .push_bind_unseparated(Self::status_name(status));
+            }
 
-        if let Some(cursor) = cursor_options.and_then(|options| options.cursor) {
-            match (sort_key, sort_direction) {
-                (CurrencyListSortKey::CreatedAt, SortDirection::Asc) => {
-                    builder
-                        .push(" AND (i.created_at, i.id) > (")
-                        .push_bind(cursor.created_at.value())
-                        .push(", ")
-                        .push_bind(cursor.currency_id.value())
-                        .push(")");
-                }
-                (CurrencyListSortKey::CreatedAt, SortDirection::Desc) => {
-                    builder
-                        .push(" AND (i.created_at, i.id) < (")
-                        .push_bind(cursor.created_at.value())
-                        .push(", ")
-                        .push_bind(cursor.currency_id.value())
-                        .push(")");
-                }
-                (CurrencyListSortKey::CurrencyId, SortDirection::Asc) => {
-                    builder
-                        .push(" AND i.id > ")
-                        .push_bind(cursor.currency_id.value());
-                }
-                (CurrencyListSortKey::CurrencyId, SortDirection::Desc) => {
-                    builder
-                        .push(" AND i.id < ")
-                        .push_bind(cursor.currency_id.value());
+            if let Some(cursor) = cursor {
+                match (sort_key, sort_direction) {
+                    (CurrencyListSortKey::CreatedAt, SortDirection::Asc) => {
+                        predicates
+                            .push("(i.created_at, i.id) > (")
+                            .push_bind_unseparated(cursor.created_at.value())
+                            .push_unseparated(", ")
+                            .push_bind_unseparated(cursor.currency_id.value())
+                            .push_unseparated(")");
+                    }
+                    (CurrencyListSortKey::CreatedAt, SortDirection::Desc) => {
+                        predicates
+                            .push("(i.created_at, i.id) < (")
+                            .push_bind_unseparated(cursor.created_at.value())
+                            .push_unseparated(", ")
+                            .push_bind_unseparated(cursor.currency_id.value())
+                            .push_unseparated(")");
+                    }
+                    (CurrencyListSortKey::CurrencyId, SortDirection::Asc) => {
+                        predicates
+                            .push("i.id > ")
+                            .push_bind_unseparated(cursor.currency_id.value());
+                    }
+                    (CurrencyListSortKey::CurrencyId, SortDirection::Desc) => {
+                        predicates
+                            .push("i.id < ")
+                            .push_bind_unseparated(cursor.currency_id.value());
+                    }
                 }
             }
         }
@@ -146,7 +150,7 @@ impl CurrencyListReader for PgCurrencyListReader {
             }
         }
 
-        builder.push(" LIMIT ").push_bind(limit);
+        builder.push(" LIMIT ").push_bind(query_limit);
 
         let rows = builder
             .build_query_as::<PgCurrencyListItemRow>()
@@ -154,11 +158,11 @@ impl CurrencyListReader for PgCurrencyListReader {
             .await
             .map_err(|e| CurrencyListReaderError::Persistence(Box::new(e)))?;
 
-        let limit = page_size.value() as usize;
-        let has_next = rows.len() > limit;
+        let output_limit = page_size.value() as usize;
+        let has_next = rows.len() > output_limit;
         let items = rows
             .into_iter()
-            .take(limit)
+            .take(output_limit)
             .map(CurrencyListItem::try_from)
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| CurrencyListReaderError::Persistence(Box::new(e)))?;
