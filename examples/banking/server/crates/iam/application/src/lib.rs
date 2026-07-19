@@ -89,14 +89,19 @@ pub use oidc::{
     OidcContinuationPayload,
 };
 pub use projection::{
+    PublicUserListProjector, PublicUserListProjectorError, PublicUserListProjectorSpec,
     UserPrivateInfoProjector, UserPrivateInfoProjectorError, UserPrivateInfoProjectorSpec,
     UserPublicProfileProjector, UserPublicProfileProjectorError, UserPublicProfileProjectorSpec,
 };
 pub use query::{
+    PublicUserListQuery, PublicUserListQueryHandler, PublicUserListQueryHandlerError,
     UserPrivateInfoQuery, UserPrivateInfoQueryHandler, UserPrivateInfoQueryHandlerError,
     UserPublicProfileQuery, UserPublicProfileQueryHandler, UserPublicProfileQueryHandlerError,
 };
 pub use read_model::{
+    PublicUserList, PublicUserListCriteria, PublicUserListCursor, PublicUserListItem,
+    PublicUserListItemStatus, PublicUserListReader, PublicUserListReaderError,
+    PublicUserListSortKey, PublicUserListUpsert, PublicUserListWriter, PublicUserListWriterError,
     UserPrivateInfo, UserPrivateInfoIdentity, UserPrivateInfoIdentityUpsert,
     UserPrivateInfoOrganization, UserPrivateInfoOrganizationMembership,
     UserPrivateInfoOrganizationMembershipUpsert, UserPrivateInfoOrganizationUpsert,
