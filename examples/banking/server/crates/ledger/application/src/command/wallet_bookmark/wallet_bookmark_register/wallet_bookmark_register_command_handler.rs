@@ -91,12 +91,6 @@ where
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
         let mut wallet_bookmark = WalletBookmark::new();
         let wallet_bookmark_id = wallet_bookmark.aggregate_id();
-        let registration = WalletBookmarkRegistration {
-            owner: command.owner,
-            display_name: command.display_name.clone(),
-            description: command.description.clone(),
-            token_account_owner_address: command.token_account_owner_address.clone(),
-        };
 
         match self
             .token_account_owner_address_validator
@@ -106,10 +100,6 @@ where
             Ok(TokenAccountOwnerAddressValidationResult::Valid) => {}
             Ok(TokenAccountOwnerAddressValidationResult::Invalid) => {
                 let reason = WalletBookmarkRegisterRejectionReason::InvalidTokenAccountOwnerAddress;
-                wallet_bookmark.reject_register(registration, reason)?;
-                self.wallet_bookmark_repository
-                    .save(uow, request_context, &mut wallet_bookmark)
-                    .await?;
                 return Ok(CommandHandled::same(
                     WalletBookmarkRegisterOutput::Rejected {
                         wallet_bookmark_id,
@@ -122,6 +112,12 @@ where
             }
         }
 
+        let registration = WalletBookmarkRegistration {
+            owner: command.owner,
+            display_name: command.display_name.clone(),
+            description: command.description.clone(),
+            token_account_owner_address: command.token_account_owner_address.clone(),
+        };
         let result = wallet_bookmark.register(registration)?;
 
         self.wallet_bookmark_repository
@@ -157,16 +153,15 @@ mod tests {
         CorrelationId, MessageId, Principal, RequestContext,
     };
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
-    use appletheia::domain::{Aggregate, EventPayload};
+    use appletheia::domain::Aggregate;
     use banking_iam_application::authorization::{
         OrganizationFinanceManagerRelation, UserOwnerRelation,
     };
     use banking_iam_domain::{Organization, OrganizationId, User, UserId};
     use banking_ledger_domain::core::TokenAccountOwnerAddress;
     use banking_ledger_domain::wallet_bookmark::{
-        WalletBookmark, WalletBookmarkDescription, WalletBookmarkDisplayName,
-        WalletBookmarkEventPayload, WalletBookmarkId, WalletBookmarkOwner,
-        WalletBookmarkRegisterRejectionReason,
+        WalletBookmark, WalletBookmarkDescription, WalletBookmarkDisplayName, WalletBookmarkId,
+        WalletBookmarkOwner, WalletBookmarkRegisterRejectionReason,
     };
     use uuid::Uuid;
 
@@ -412,7 +407,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn handle_rejects_when_address_is_invalid() {
+    async fn handle_rejects_invalid_address_without_saving_wallet_bookmark() {
         let repository = TestWalletBookmarkRepository::default();
         let handler =
             WalletBookmarkRegisterCommandHandler::new(repository.clone(), RejectingValidator);
@@ -433,26 +428,15 @@ mod tests {
             .await
             .expect("command should be handled");
 
-        let aggregate = repository
-            .wallet_bookmark
-            .lock()
-            .expect("lock")
-            .clone()
-            .expect("rejection should be saved");
-        let reason = WalletBookmarkRegisterRejectionReason::InvalidTokenAccountOwnerAddress;
+        let output = handled.into_output();
+        let WalletBookmarkRegisterOutput::Rejected { reason, .. } = output else {
+            panic!("expected rejected output");
+        };
         assert_eq!(
-            handled.into_output(),
-            WalletBookmarkRegisterOutput::Rejected {
-                wallet_bookmark_id: aggregate.aggregate_id(),
-                reason,
-            }
+            reason,
+            WalletBookmarkRegisterRejectionReason::InvalidTokenAccountOwnerAddress
         );
-        let events = aggregate.uncommitted_events();
-        assert_eq!(events.len(), 1);
-        assert_eq!(
-            events[0].payload().name(),
-            WalletBookmarkEventPayload::REGISTER_REJECTED
-        );
+        assert!(repository.wallet_bookmark.lock().expect("lock").is_none());
     }
 
     #[tokio::test]

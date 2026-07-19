@@ -5,8 +5,7 @@ use crate::core::TokenAccountOwnerAddress;
 use super::{
     WalletBookmarkDescription, WalletBookmarkDescriptionChangeRejectionReason,
     WalletBookmarkDisplayName, WalletBookmarkDisplayNameChangeRejectionReason,
-    WalletBookmarkEventPayloadError, WalletBookmarkOwner, WalletBookmarkRegisterRejectionReason,
-    WalletBookmarkRemoveRejectionReason,
+    WalletBookmarkEventPayloadError, WalletBookmarkOwner, WalletBookmarkRemoveRejectionReason,
 };
 
 /// Represents the domain events emitted by a `WalletBookmark` aggregate.
@@ -17,13 +16,6 @@ pub enum WalletBookmarkEventPayload {
         display_name: Option<WalletBookmarkDisplayName>,
         description: Option<WalletBookmarkDescription>,
         token_account_owner_address: TokenAccountOwnerAddress,
-    },
-    RegisterRejected {
-        owner: WalletBookmarkOwner,
-        display_name: Option<WalletBookmarkDisplayName>,
-        description: Option<WalletBookmarkDescription>,
-        token_account_owner_address: TokenAccountOwnerAddress,
-        reason: WalletBookmarkRegisterRejectionReason,
     },
     Removed,
     RemoveRejected {
@@ -62,10 +54,6 @@ mod tests {
         assert_eq!(
             WalletBookmarkEventPayload::REGISTERED,
             appletheia::domain::EventName::new("registered")
-        );
-        assert_eq!(
-            WalletBookmarkEventPayload::REGISTER_REJECTED,
-            appletheia::domain::EventName::new("register_rejected")
         );
         assert_eq!(
             WalletBookmarkEventPayload::REMOVED,

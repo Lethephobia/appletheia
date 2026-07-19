@@ -90,13 +90,32 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
+        let mut withdrawal = Withdrawal::new();
+        let withdrawal_id = withdrawal.aggregate_id();
+
+        match self
+            .token_account_owner_address_validator
+            .validate(&command.token_account_owner_address)
+            .await
+        {
+            Ok(TokenAccountOwnerAddressValidationResult::Valid) => {}
+            Ok(TokenAccountOwnerAddressValidationResult::Invalid) => {
+                let reason = WithdrawalRequestRejectionReason::InvalidTokenAccountOwnerAddress;
+                let output = WithdrawalRequestOutput::Rejected {
+                    withdrawal_id,
+                    reason,
+                };
+                return Ok(CommandHandled::same(output));
+            }
+            Err(error @ TokenAccountOwnerAddressValidatorError::Backend(_)) => {
+                return Err(error.into());
+            }
+        }
+
         let account = self
             .account_repository
             .read(uow, command.account_id)
             .await?;
-
-        let mut withdrawal = Withdrawal::new();
-        let withdrawal_id = withdrawal.aggregate_id();
         let account_id = command.account_id;
         let currency_id = *account.currency_id()?;
         let token_account_owner_address = command.token_account_owner_address.clone();
@@ -107,29 +126,6 @@ where
             token_account_owner_address,
             amount,
         };
-
-        match self
-            .token_account_owner_address_validator
-            .validate(&command.token_account_owner_address)
-            .await
-        {
-            Ok(TokenAccountOwnerAddressValidationResult::Valid) => {}
-            Ok(TokenAccountOwnerAddressValidationResult::Invalid) => {
-                let reason = WithdrawalRequestRejectionReason::InvalidTokenAccountOwnerAddress;
-                withdrawal.reject_request(request, reason)?;
-                let output = WithdrawalRequestOutput::Rejected {
-                    withdrawal_id,
-                    reason,
-                };
-                self.withdrawal_repository
-                    .save(uow, request_context, &mut withdrawal)
-                    .await?;
-                return Ok(CommandHandled::same(output));
-            }
-            Err(error @ TokenAccountOwnerAddressValidatorError::Backend(_)) => {
-                return Err(error.into());
-            }
-        }
 
         let currency = self.currency_repository.read(uow, currency_id).await?;
 
@@ -196,7 +192,7 @@ mod tests {
         CorrelationId, MessageId, Principal, RequestContext,
     };
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
-    use appletheia::domain::{Aggregate, AggregateVersion, EventPayload, UniqueKey, UniqueValue};
+    use appletheia::domain::{Aggregate, AggregateVersion, UniqueKey, UniqueValue};
     use banking_iam_domain::{User, UserId};
     use banking_ledger_domain::account::{
         Account, AccountId, AccountName, AccountOpening, AccountOwner,
@@ -207,8 +203,7 @@ mod tests {
         CurrencySymbol, MintAccount, MintAccountAddress, PoolTokenAccountAddress,
     };
     use banking_ledger_domain::withdrawal::{
-        Withdrawal, WithdrawalEventPayload, WithdrawalId, WithdrawalRequestRejectionReason,
-        WithdrawalStatus,
+        Withdrawal, WithdrawalId, WithdrawalRequestRejectionReason, WithdrawalStatus,
     };
     use uuid::Uuid;
 
@@ -621,7 +616,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn handle_rejects_when_token_account_owner_address_is_invalid() {
+    async fn handle_rejects_invalid_address_without_saving_withdrawal() {
         let user_id = UserId::new();
         let currency_id = CurrencyId::new();
         let account = opened_account(AccountOwner::from(user_id), currency_id);
@@ -649,26 +644,15 @@ mod tests {
             .await
             .expect("invalid address should be handled as a rejection");
 
-        let saved = withdrawal_repository
-            .saved
-            .lock()
-            .expect("lock")
-            .clone()
-            .expect("rejection should be saved");
-        let reason = WithdrawalRequestRejectionReason::InvalidTokenAccountOwnerAddress;
+        let output = handled.into_output();
+        let WithdrawalRequestOutput::Rejected { reason, .. } = output else {
+            panic!("expected rejected output");
+        };
         assert_eq!(
-            handled.into_output(),
-            WithdrawalRequestOutput::Rejected {
-                withdrawal_id: saved.aggregate_id(),
-                reason,
-            }
+            reason,
+            WithdrawalRequestRejectionReason::InvalidTokenAccountOwnerAddress
         );
-        let events = saved.uncommitted_events();
-        assert_eq!(events.len(), 1);
-        assert_eq!(
-            events[0].payload().name(),
-            WithdrawalEventPayload::REQUEST_REJECTED
-        );
+        assert!(withdrawal_repository.saved.lock().expect("lock").is_none());
     }
 
     #[tokio::test]

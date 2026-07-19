@@ -34,7 +34,8 @@ consumer delivery behavior aligned.
 | Classification | Typical examples | Handler result and retryability | Persisted data and replay | Transaction | Consumer delivery |
 | --- | --- | --- | --- | --- | --- |
 | Successful domain outcome | Created, transferred, reserved | `Ok(CommandHandled)` | Save domain events when state changed and complete the idempotency record; replay returns the stored output | Commit | Ack |
-| Expected business rejection | Insufficient funds, handle already taken, cross-aggregate mismatch | `Ok(CommandHandled)` with `Rejected { reason }` | Save a rejected event when the refusal is a domain fact or must drive a saga/projection, then complete the idempotency record | Commit | Ack |
+| Expected persisted business rejection | Insufficient funds, handle already taken, cross-aggregate mismatch | `Ok(CommandHandled)` with `Rejected { reason }` | Save a rejected event when the refusal is a domain fact or must drive a saga/projection, then complete the idempotency record | Commit | Ack |
+| Expected non-persisted rejection | Invalid externally validated address, unsupported upload content type, policy refusal with no downstream reaction | `Ok(CommandHandled)` with `Rejected { reason }` | Save no domain event; complete the idempotency record so replay returns the same rejection | Commit | Ack |
 | Non-retryable processing failure | Aggregate invariant violation, required aggregate not found, invalid persisted mapping, impossible application state | `Err`, with `is_retryable() == false` | Save neither pending domain events nor a completed idempotency result; an explicit future submission executes again | Roll back | Ack the current delivery |
 | Retryable processing failure | Temporary database, object-storage, network, or application-service failure | `Err`, with `is_retryable() == true` | Save neither pending domain events nor a completed idempotency result; broker redelivery executes again | Roll back | Nack; provider policy may eventually dead-letter |
 
@@ -76,6 +77,46 @@ Ok(CommandHandled::same(TransferRequestOutput::Requested {
 }))
 ```
 
+### DO persist a rejection only when later behavior needs the fact
+
+Return an expected rejection through `CommandHandled` without appending an event when no aggregate
+state changes and no saga, projection, audit requirement, or later command depends on the refusal.
+The completed idempotency record is sufficient to replay the command output. Do not create an empty
+or uninitialized aggregate stream solely to persist a rejection reason.
+
+good:
+```rust
+let address_validation = address_validator.validate(&command.address).await?;
+if matches!(address_validation, AddressValidationResult::Invalid) {
+    return Ok(CommandHandled::same(RegisterOutput::Rejected {
+        registration_id,
+        reason: RegisterRejectionReason::InvalidAddress,
+    }));
+}
+
+registration.register(request)?;
+registration_repository
+    .save(uow, request_context, &mut registration)
+    .await?;
+```
+
+bad:
+```rust
+let address_validation = address_validator.validate(&command.address).await?;
+if matches!(address_validation, AddressValidationResult::Invalid) {
+    // Nothing consumes this event and the aggregate never becomes registered.
+    registration.reject_register(request, RegisterRejectionReason::InvalidAddress)?;
+    registration_repository
+        .save(uow, request_context, &mut registration)
+        .await?;
+
+    return Ok(CommandHandled::same(RegisterOutput::Rejected {
+        registration_id,
+        reason: RegisterRejectionReason::InvalidAddress,
+    }));
+}
+```
+
 ### DO load the aggregate, invoke its command method, and save the result
 
 Keep state transitions inside the aggregate boundary.
@@ -96,10 +137,12 @@ repository.save(uow, &organization).await?;
 
 ### DO treat domain rejections as successful command handling
 
-When the aggregate command method returns a domain result such as `Accepted` or `Rejected`, save the
-aggregate and return the result through the command output. `CommandHandler::Error` is for processing
-failures that should roll back, not for expected business outcomes. Implement `Retryability` on the
-error and use `is_retryable` to control automatic retry after rollback.
+When the aggregate command method appends events and returns a domain result such as `Accepted` or
+`Rejected`, save the aggregate and return the result through the command output. Handler-side
+validation may return an expected rejection without saving an event when the refusal has no later
+domain use. `CommandHandler::Error` is for processing failures that should roll back, not for
+expected business outcomes. Implement `Retryability` on the error and use `is_retryable` to control
+automatic retry after rollback.
 
 good:
 ```rust
@@ -215,10 +258,11 @@ account.rename(command.name)?;
 
 ### DO keep cross-aggregate validation in the handler when the rule cannot live inside one aggregate
 
-Use the handler for lookups that span multiple aggregates or read models. If the failure can be
+Use the handler for lookups that span multiple aggregates or read models. If the failure must be
 recorded on the aggregate being commanded, call an aggregate command method that appends a rejection
-event and save it. Keep `Err` for missing aggregates, repository failures, and other processing
-failures that should roll back. Classify automatic retry through `Retryability`.
+event and save it. Otherwise, return the rejection without creating an event. Keep `Err` for missing
+aggregates, repository failures, and other processing failures that should roll back. Classify
+automatic retry through `Retryability`.
 
 good:
 ```rust
