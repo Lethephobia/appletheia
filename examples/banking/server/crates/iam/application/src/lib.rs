@@ -86,7 +86,7 @@ pub use command::{
 };
 pub use oidc::{
     OidcCompletionPurpose, OidcCompletionRedirectUri, OidcCompletionRedirectUris,
-    OidcContinuationPayload,
+    OidcContinuationPayload, OidcReturnTo, OidcReturnToError,
 };
 pub use projection::{
     OrganizationInternalInfoProjector, OrganizationInternalInfoProjectorError,

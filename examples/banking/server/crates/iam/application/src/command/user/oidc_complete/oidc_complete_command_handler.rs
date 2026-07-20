@@ -238,6 +238,7 @@ where
         let OidcContinuationPayload {
             completion_purpose,
             completion_redirect_uri,
+            return_to,
             code_challenge,
         } = continuation.into_payload();
 
@@ -259,12 +260,14 @@ where
         let replay_output = OidcCompleteReplayOutput {
             completion_purpose,
             completion_redirect_uri: completion_redirect_uri.clone(),
+            return_to: return_to.clone(),
             rejection_reason: rejection_reason.clone(),
         };
 
         if let Some(reason) = rejection_reason {
             let output = OidcCompleteOutput::Rejected {
                 completion_redirect_uri,
+                return_to,
                 reason,
             };
 
@@ -281,6 +284,7 @@ where
 
                 OidcCompleteOutput::Token {
                     completion_redirect_uri,
+                    return_to,
                     auth_token: result.token().clone(),
                     auth_token_expires_in: result.expires_in()?,
                     oidc_tokens: complete_result.tokens,
@@ -301,12 +305,14 @@ where
 
                 OidcCompleteOutput::ExchangeCode {
                     completion_redirect_uri,
+                    return_to,
                     auth_token_exchange_code: result.code().clone(),
                     auth_token_exchange_code_expires_at: result.expires_at(),
                 }
             }
             OidcCompletionPurpose::LinkIdentity { .. } => OidcCompleteOutput::IdentityLinked {
                 completion_redirect_uri,
+                return_to,
                 oidc_tokens: complete_result.tokens,
             },
         };

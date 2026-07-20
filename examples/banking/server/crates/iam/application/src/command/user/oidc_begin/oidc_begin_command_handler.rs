@@ -84,6 +84,7 @@ where
         let OidcBeginCommand {
             completion_purpose,
             completion_redirect_uri,
+            return_to,
             code_challenge,
             scopes,
             display,
@@ -111,6 +112,7 @@ where
         let payload = OidcContinuationPayload {
             completion_purpose,
             completion_redirect_uri,
+            return_to,
             code_challenge,
         };
         let continuation = OidcContinuation::new(
@@ -154,7 +156,7 @@ mod tests {
 
     use crate::oidc::{
         OidcCompletionPurpose, OidcCompletionRedirectUri, OidcCompletionRedirectUris,
-        OidcContinuationPayload,
+        OidcContinuationPayload, OidcReturnTo,
     };
 
     use super::{
@@ -258,6 +260,10 @@ mod tests {
         OidcBeginCommand {
             completion_purpose: OidcCompletionPurpose::ExchangeCode,
             completion_redirect_uri,
+            return_to: Some(
+                OidcReturnTo::try_from("/organizations/123?tab=members")
+                    .expect("return destination should be valid"),
+            ),
             code_challenge: None,
             scopes: OidcScopes::default(),
             display: None,
@@ -317,6 +323,14 @@ mod tests {
         assert_eq!(
             saved[0].payload().completion_redirect_uri,
             allowed_redirect_uri
+        );
+        assert_eq!(
+            saved[0]
+                .payload()
+                .return_to
+                .as_ref()
+                .map(OidcReturnTo::value),
+            Some("/organizations/123?tab=members")
         );
     }
 

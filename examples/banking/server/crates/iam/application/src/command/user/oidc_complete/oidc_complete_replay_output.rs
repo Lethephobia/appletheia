@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::oidc::{OidcCompletionPurpose, OidcCompletionRedirectUri};
+use crate::oidc::{OidcCompletionPurpose, OidcCompletionRedirectUri, OidcReturnTo};
 
 use super::OidcCompleteRejectionReason;
 
@@ -9,5 +9,6 @@ use super::OidcCompleteRejectionReason;
 pub struct OidcCompleteReplayOutput {
     pub completion_purpose: OidcCompletionPurpose,
     pub completion_redirect_uri: OidcCompletionRedirectUri,
+    pub return_to: Option<OidcReturnTo>,
     pub rejection_reason: Option<OidcCompleteRejectionReason>,
 }
