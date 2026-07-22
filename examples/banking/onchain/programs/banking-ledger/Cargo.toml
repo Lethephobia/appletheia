@@ -24,7 +24,6 @@ custom-panic = []
 [dependencies]
 anchor-lang = { workspace = true, features = ["init-if-needed"] }
 anchor-spl = { workspace = true, features = ["associated_token", "token", "token_2022", "token_2022_extensions"] }
-banking-anchor = { workspace = true }
 spl-associated-token-account-interface = { workspace = true }
 spl-token-2022-interface = { workspace = true }
 spl-token-metadata-interface = { workspace = true }

@@ -1,13 +1,11 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::program::invoke_signed;
-use banking_anchor::instruction::InstructionHandler;
 use spl_token_metadata_interface::instruction as token_metadata_instruction;
 use spl_token_metadata_interface::state::Field;
 
 use crate::account::{MintMetadata, ProgramAuthority};
 use crate::instruction_handler::{
-    MintMetadataUpdateInstructionAccounts, MintMetadataUpdateInstructionArgs,
-    MintMetadataUpdateInstructionError,
+    MintMetadataUpdateInstructionAccounts, MintMetadataUpdateInstructionError,
 };
 
 pub(crate) struct MintMetadataUpdateInstructionHandler;
@@ -36,23 +34,14 @@ impl MintMetadataUpdateInstructionHandler {
 
         Ok(())
     }
-}
 
-impl InstructionHandler for MintMetadataUpdateInstructionHandler {
-    type Accounts<'info> = MintMetadataUpdateInstructionAccounts<'info>;
-    type Args = MintMetadataUpdateInstructionArgs;
-
-    fn handle<'context, 'info>(
-        ctx: Context<'context, Self::Accounts<'info>>,
-        args: Self::Args,
+    pub(crate) fn handle(
+        ctx: Context<MintMetadataUpdateInstructionAccounts>,
+        _mint_id: [u8; 16],
+        name: String,
+        symbol: String,
+        uri: String,
     ) -> Result<()> {
-        let MintMetadataUpdateInstructionArgs {
-            mint_id: _,
-            name,
-            symbol,
-            uri,
-        } = args;
-
         require!(
             name.len() <= MintMetadata::MAX_NAME_BYTES,
             MintMetadataUpdateInstructionError::MetadataNameTooLong

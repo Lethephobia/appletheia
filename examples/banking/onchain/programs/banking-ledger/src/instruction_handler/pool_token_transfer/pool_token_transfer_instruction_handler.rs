@@ -1,13 +1,11 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token_2022::{transfer_checked, TransferChecked};
-use banking_anchor::instruction::InstructionHandler;
 
 use crate::account::{
     PoolTokenTransferMarker, PoolTokenTransferMarkerInitialization, ProgramAuthority,
 };
 use crate::instruction_handler::{
-    PoolTokenTransferInstructionAccounts, PoolTokenTransferInstructionArgs,
-    PoolTokenTransferInstructionError,
+    PoolTokenTransferInstructionAccounts, PoolTokenTransferInstructionError,
 };
 
 pub(crate) struct PoolTokenTransferInstructionHandler;
@@ -29,22 +27,13 @@ impl PoolTokenTransferInstructionHandler {
 
         transfer_checked(cpi_context, amount, ctx.accounts.mint.decimals)
     }
-}
 
-impl InstructionHandler for PoolTokenTransferInstructionHandler {
-    type Accounts<'info> = PoolTokenTransferInstructionAccounts<'info>;
-    type Args = PoolTokenTransferInstructionArgs;
-
-    fn handle<'context, 'info>(
-        ctx: Context<'context, Self::Accounts<'info>>,
-        args: Self::Args,
+    pub(crate) fn handle(
+        ctx: Context<PoolTokenTransferInstructionAccounts>,
+        _idempotency_key: [u8; 16],
+        mint_id: [u8; 16],
+        amount: u64,
     ) -> Result<()> {
-        let PoolTokenTransferInstructionArgs {
-            idempotency_key: _,
-            mint_id,
-            amount,
-        } = args;
-
         if ctx.accounts.pool_token_transfer_marker.is_initialized() {
             require!(
                 ctx.accounts.pool_token_transfer_marker.version == PoolTokenTransferMarker::VERSION

@@ -1,14 +1,11 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::program::invoke_signed;
-use banking_anchor::instruction::InstructionHandler;
 use spl_token_metadata_interface::instruction as token_metadata_instruction;
 use spl_token_metadata_interface::state::{Field, TokenMetadata};
 use spl_type_length_value::state::{TlvState, TlvStateBorrowed};
 
 use crate::account::{MintMetadata, MintStateInitialization, ProgramAuthority};
-use crate::instruction_handler::{
-    MintUpsertInstructionAccounts, MintUpsertInstructionArgs, MintUpsertInstructionError,
-};
+use crate::instruction_handler::{MintUpsertInstructionAccounts, MintUpsertInstructionError};
 
 pub(crate) struct MintUpsertInstructionHandler;
 
@@ -43,24 +40,15 @@ impl MintUpsertInstructionHandler {
 
         Ok(())
     }
-}
 
-impl InstructionHandler for MintUpsertInstructionHandler {
-    type Accounts<'info> = MintUpsertInstructionAccounts<'info>;
-    type Args = MintUpsertInstructionArgs;
-
-    fn handle<'context, 'info>(
-        ctx: Context<'context, Self::Accounts<'info>>,
-        args: Self::Args,
+    pub(crate) fn handle(
+        ctx: Context<MintUpsertInstructionAccounts>,
+        _mint_id: [u8; 16],
+        _decimals: u8,
+        name: String,
+        symbol: String,
+        uri: String,
     ) -> Result<()> {
-        let MintUpsertInstructionArgs {
-            mint_id: _,
-            decimals: _,
-            name,
-            symbol,
-            uri,
-        } = args;
-
         require!(
             name.len() <= MintMetadata::MAX_NAME_BYTES,
             MintUpsertInstructionError::MetadataNameTooLong

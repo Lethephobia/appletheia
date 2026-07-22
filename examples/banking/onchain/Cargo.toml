@@ -1,6 +1,5 @@
 [workspace]
 members = [
-    "crates/*",
     "programs/*"
 ]
 resolver = "2"
@@ -8,7 +7,6 @@ resolver = "2"
 [workspace.dependencies]
 anchor-lang = "1.1.2"
 anchor-spl = { version = "1.1.2", default-features = false }
-banking-anchor = { path = "crates/banking-anchor" }
 litesvm = "0.14.0"
 solana-keypair = "3.1.2"
 solana-message = "4.3.0"

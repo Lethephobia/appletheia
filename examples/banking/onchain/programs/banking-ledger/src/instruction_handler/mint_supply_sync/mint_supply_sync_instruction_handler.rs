@@ -1,11 +1,8 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token_2022::{burn_checked, mint_to_checked, BurnChecked, MintToChecked};
-use banking_anchor::instruction::InstructionHandler;
 
 use crate::account::ProgramAuthority;
-use crate::instruction_handler::{
-    MintSupplySyncInstructionAccounts, MintSupplySyncInstructionArgs,
-};
+use crate::instruction_handler::MintSupplySyncInstructionAccounts;
 
 pub(crate) struct MintSupplySyncInstructionHandler;
 
@@ -41,18 +38,13 @@ impl MintSupplySyncInstructionHandler {
 
         burn_checked(cpi_context, amount, ctx.accounts.mint.decimals)
     }
-}
 
-impl InstructionHandler for MintSupplySyncInstructionHandler {
-    type Accounts<'info> = MintSupplySyncInstructionAccounts<'info>;
-    type Args = MintSupplySyncInstructionArgs;
-
-    fn handle<'context, 'info>(
-        ctx: Context<'context, Self::Accounts<'info>>,
-        args: Self::Args,
+    pub(crate) fn handle(
+        ctx: Context<MintSupplySyncInstructionAccounts>,
+        _mint_id: [u8; 16],
+        target_supply: u64,
     ) -> Result<()> {
         let current_supply = ctx.accounts.mint.supply;
-        let target_supply = args.target_supply;
 
         if current_supply == target_supply {
             return Ok(());

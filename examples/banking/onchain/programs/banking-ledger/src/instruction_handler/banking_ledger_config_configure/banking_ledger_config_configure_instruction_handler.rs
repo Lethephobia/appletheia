@@ -1,20 +1,13 @@
 use anchor_lang::prelude::*;
-use banking_anchor::instruction::InstructionHandler;
 
 use crate::account::BankingLedgerConfigInitialization;
-use crate::instruction_handler::{
-    BankingLedgerConfigConfigureInstructionAccounts, BankingLedgerConfigConfigureInstructionArgs,
-};
+use crate::instruction_handler::BankingLedgerConfigConfigureInstructionAccounts;
 
 pub(crate) struct BankingLedgerConfigConfigureInstructionHandler;
 
-impl InstructionHandler for BankingLedgerConfigConfigureInstructionHandler {
-    type Accounts<'info> = BankingLedgerConfigConfigureInstructionAccounts<'info>;
-    type Args = BankingLedgerConfigConfigureInstructionArgs;
-
-    fn handle<'context, 'info>(
-        ctx: Context<'context, Self::Accounts<'info>>,
-        _args: Self::Args,
+impl BankingLedgerConfigConfigureInstructionHandler {
+    pub(crate) fn handle(
+        ctx: Context<BankingLedgerConfigConfigureInstructionAccounts>,
     ) -> Result<()> {
         let operator = ctx.accounts.operator.key();
 

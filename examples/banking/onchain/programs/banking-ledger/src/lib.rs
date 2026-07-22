@@ -4,7 +4,6 @@ pub mod account;
 pub mod instruction_handler;
 
 use anchor_lang::prelude::*;
-use banking_anchor::instruction::InstructionHandler;
 
 use instruction_handler::banking_ledger_config_configure::BankingLedgerConfigConfigureInstructionHandler;
 use instruction_handler::mint_metadata_update::MintMetadataUpdateInstructionHandler;
@@ -19,16 +18,13 @@ pub use account::{
     PoolTokenTransferMarker, ProgramAuthority,
 };
 pub use instruction_handler::{
-    BankingLedgerConfigConfigureInstructionAccounts, BankingLedgerConfigConfigureInstructionArgs,
-    BankingLedgerConfigConfigureInstructionError, MintMetadataUpdateInstructionAccounts,
-    MintMetadataUpdateInstructionArgs, MintMetadataUpdateInstructionError,
-    MintSupplySyncInstructionAccounts, MintSupplySyncInstructionArgs,
-    MintSupplySyncInstructionError, MintUpsertInstructionAccounts, MintUpsertInstructionArgs,
-    MintUpsertInstructionError, PoolTokenAccountEnsureInstructionAccounts,
-    PoolTokenAccountEnsureInstructionArgs, PoolTokenAccountEnsureInstructionError,
-    PoolTokenDepositInstructionAccounts, PoolTokenDepositInstructionArgs,
-    PoolTokenDepositInstructionError, PoolTokenTransferInstructionAccounts,
-    PoolTokenTransferInstructionArgs, PoolTokenTransferInstructionError,
+    BankingLedgerConfigConfigureInstructionAccounts, BankingLedgerConfigConfigureInstructionError,
+    MintMetadataUpdateInstructionAccounts, MintMetadataUpdateInstructionError,
+    MintSupplySyncInstructionAccounts, MintSupplySyncInstructionError,
+    MintUpsertInstructionAccounts, MintUpsertInstructionError,
+    PoolTokenAccountEnsureInstructionAccounts, PoolTokenAccountEnsureInstructionError,
+    PoolTokenDepositInstructionAccounts, PoolTokenDepositInstructionError,
+    PoolTokenTransferInstructionAccounts, PoolTokenTransferInstructionError,
 };
 
 #[doc(hidden)]
@@ -76,9 +72,7 @@ pub mod banking_ledger {
     pub fn configure_banking_ledger_config(
         ctx: Context<BankingLedgerConfigConfigureInstructionAccounts>,
     ) -> Result<()> {
-        let args = BankingLedgerConfigConfigureInstructionArgs;
-
-        BankingLedgerConfigConfigureInstructionHandler::handle(ctx, args)
+        BankingLedgerConfigConfigureInstructionHandler::handle(ctx)
     }
 
     pub fn upsert_mint(
@@ -89,15 +83,7 @@ pub mod banking_ledger {
         symbol: String,
         uri: String,
     ) -> Result<()> {
-        let args = MintUpsertInstructionArgs {
-            mint_id,
-            decimals,
-            name,
-            symbol,
-            uri,
-        };
-
-        MintUpsertInstructionHandler::handle(ctx, args)
+        MintUpsertInstructionHandler::handle(ctx, mint_id, decimals, name, symbol, uri)
     }
 
     pub fn update_mint_metadata(
@@ -107,14 +93,7 @@ pub mod banking_ledger {
         symbol: String,
         uri: String,
     ) -> Result<()> {
-        let args = MintMetadataUpdateInstructionArgs {
-            mint_id,
-            name,
-            symbol,
-            uri,
-        };
-
-        MintMetadataUpdateInstructionHandler::handle(ctx, args)
+        MintMetadataUpdateInstructionHandler::handle(ctx, mint_id, name, symbol, uri)
     }
 
     pub fn sync_mint_supply(
@@ -122,21 +101,14 @@ pub mod banking_ledger {
         mint_id: [u8; 16],
         target_supply: u64,
     ) -> Result<()> {
-        let args = MintSupplySyncInstructionArgs {
-            mint_id,
-            target_supply,
-        };
-
-        MintSupplySyncInstructionHandler::handle(ctx, args)
+        MintSupplySyncInstructionHandler::handle(ctx, mint_id, target_supply)
     }
 
     pub fn ensure_pool_token_account(
         ctx: Context<PoolTokenAccountEnsureInstructionAccounts>,
         mint_id: [u8; 16],
     ) -> Result<()> {
-        let args = PoolTokenAccountEnsureInstructionArgs { mint_id };
-
-        PoolTokenAccountEnsureInstructionHandler::handle(ctx, args)
+        PoolTokenAccountEnsureInstructionHandler::handle(ctx, mint_id)
     }
 
     pub fn transfer_pool_token(
@@ -145,13 +117,7 @@ pub mod banking_ledger {
         mint_id: [u8; 16],
         amount: u64,
     ) -> Result<()> {
-        let args = PoolTokenTransferInstructionArgs {
-            idempotency_key,
-            mint_id,
-            amount,
-        };
-
-        PoolTokenTransferInstructionHandler::handle(ctx, args)
+        PoolTokenTransferInstructionHandler::handle(ctx, idempotency_key, mint_id, amount)
     }
 
     pub fn deposit_pool_token(
@@ -160,12 +126,6 @@ pub mod banking_ledger {
         mint_id: [u8; 16],
         amount: u64,
     ) -> Result<()> {
-        let args = PoolTokenDepositInstructionArgs {
-            pool_token_deposit_id,
-            mint_id,
-            amount,
-        };
-
-        PoolTokenDepositInstructionHandler::handle(ctx, args)
+        PoolTokenDepositInstructionHandler::handle(ctx, pool_token_deposit_id, mint_id, amount)
     }
 }

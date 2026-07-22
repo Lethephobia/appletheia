@@ -1,11 +1,9 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token_2022::{transfer_checked, TransferChecked};
-use banking_anchor::instruction::InstructionHandler;
 
 use crate::account::{PoolTokenDepositReceipt, PoolTokenDepositReceiptInitialization};
 use crate::instruction_handler::{
-    PoolTokenDepositInstructionAccounts, PoolTokenDepositInstructionArgs,
-    PoolTokenDepositInstructionError,
+    PoolTokenDepositInstructionAccounts, PoolTokenDepositInstructionError,
 };
 
 pub(crate) struct PoolTokenDepositInstructionHandler;
@@ -25,22 +23,13 @@ impl PoolTokenDepositInstructionHandler {
 
         transfer_checked(cpi_context, amount, ctx.accounts.mint.decimals)
     }
-}
 
-impl InstructionHandler for PoolTokenDepositInstructionHandler {
-    type Accounts<'info> = PoolTokenDepositInstructionAccounts<'info>;
-    type Args = PoolTokenDepositInstructionArgs;
-
-    fn handle<'context, 'info>(
-        ctx: Context<'context, Self::Accounts<'info>>,
-        args: Self::Args,
+    pub(crate) fn handle(
+        ctx: Context<PoolTokenDepositInstructionAccounts>,
+        _pool_token_deposit_id: [u8; 16],
+        _mint_id: [u8; 16],
+        amount: u64,
     ) -> Result<()> {
-        let PoolTokenDepositInstructionArgs {
-            pool_token_deposit_id: _,
-            mint_id: _,
-            amount,
-        } = args;
-
         if ctx.accounts.pool_token_deposit_receipt.is_initialized() {
             require!(
                 ctx.accounts.pool_token_deposit_receipt.version == PoolTokenDepositReceipt::VERSION
