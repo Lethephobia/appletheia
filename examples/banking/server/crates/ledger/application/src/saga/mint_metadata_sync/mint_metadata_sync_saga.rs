@@ -20,20 +20,21 @@ impl Saga for MintMetadataSyncSaga {
     fn on_event(
         &self,
         instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State>,
-        event_envelope: &EventEnvelope,
+        event: &EventEnvelope,
     ) -> Result<(), Self::Error> {
-        let event = event_envelope.try_into_domain_event::<Currency>()?;
+        let domain_event = event.try_into_domain_event::<Currency>()?;
 
-        match event.payload() {
+        match domain_event.payload() {
             CurrencyEventPayload::SymbolChanged { .. }
             | CurrencyEventPayload::NameChanged { .. }
             | CurrencyEventPayload::DescriptionChanged { .. }
             | CurrencyEventPayload::ImageChanged { .. } => {
-                *instance.state_mut() = Some(MintMetadataSyncSagaState::new(event.aggregate_id()));
+                *instance.state_mut() =
+                    Some(MintMetadataSyncSagaState::new(domain_event.aggregate_id()));
                 instance.append_command(
-                    event_envelope,
+                    event,
                     &MintMetadataSyncCommand {
-                        currency_id: event.aggregate_id(),
+                        currency_id: domain_event.aggregate_id(),
                     },
                 )?;
                 Ok(())

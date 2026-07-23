@@ -21,20 +21,21 @@ impl Saga for CurrencyProvisioningSaga {
     fn on_event(
         &self,
         instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State>,
-        event_envelope: &EventEnvelope,
+        event: &EventEnvelope,
     ) -> Result<(), Self::Error> {
-        let event = event_envelope.try_into_domain_event::<Currency>()?;
-        match event.payload() {
+        let domain_event = event.try_into_domain_event::<Currency>()?;
+        match domain_event.payload() {
             CurrencyEventPayload::Defined { .. } => {
-                *instance.state_mut() =
-                    Some(CurrencyProvisioningSagaState::new(event.aggregate_id()));
+                *instance.state_mut() = Some(CurrencyProvisioningSagaState::new(
+                    domain_event.aggregate_id(),
+                ));
                 instance.state_required_mut()?.status =
                     CurrencyProvisioningSagaStatus::ProvisionRequested;
 
                 instance.append_command(
-                    event_envelope,
+                    event,
                     &CurrencyProvisionCommand {
-                        currency_id: event.aggregate_id(),
+                        currency_id: domain_event.aggregate_id(),
                     },
                 )?;
             }

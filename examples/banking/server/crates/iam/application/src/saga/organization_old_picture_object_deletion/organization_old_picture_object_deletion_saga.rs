@@ -19,16 +19,17 @@ impl Saga for OrganizationOldPictureObjectDeletionSaga {
     fn on_event(
         &self,
         instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State>,
-        event_envelope: &EventEnvelope,
+        event: &EventEnvelope,
     ) -> Result<(), Self::Error> {
-        let event = event_envelope
+        let domain_event = event
             .try_into_domain_event::<Organization>()
             .map_err(|_| OrganizationOldPictureObjectDeletionSagaError::UnexpectedEvent)?;
-        let OrganizationEventPayload::PictureChanged { old_picture, .. } = event.payload() else {
+        let OrganizationEventPayload::PictureChanged { old_picture, .. } = domain_event.payload()
+        else {
             return Err(OrganizationOldPictureObjectDeletionSagaError::UnexpectedEvent);
         };
 
-        let state = OrganizationOldPictureObjectDeletionSagaState::new(event.aggregate_id());
+        let state = OrganizationOldPictureObjectDeletionSagaState::new(domain_event.aggregate_id());
         *instance.state_mut() = Some(state);
         let Some(object_name) = old_picture
             .as_ref()
@@ -43,7 +44,7 @@ impl Saga for OrganizationOldPictureObjectDeletionSaga {
 
         instance
             .append_command(
-                event_envelope,
+                event,
                 &OrganizationPictureObjectDeleteCommand { object_name },
             )
             .map_err(|_| OrganizationOldPictureObjectDeletionSagaError::UnexpectedEvent)?;

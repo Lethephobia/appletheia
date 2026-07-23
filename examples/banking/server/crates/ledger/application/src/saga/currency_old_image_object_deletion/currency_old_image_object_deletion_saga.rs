@@ -19,14 +19,14 @@ impl Saga for CurrencyOldImageObjectDeletionSaga {
     fn on_event(
         &self,
         instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State>,
-        event_envelope: &EventEnvelope,
+        event: &EventEnvelope,
     ) -> Result<(), Self::Error> {
-        let event = event_envelope.try_into_domain_event::<Currency>()?;
-        let CurrencyEventPayload::ImageChanged { old_image, .. } = event.payload() else {
+        let domain_event = event.try_into_domain_event::<Currency>()?;
+        let CurrencyEventPayload::ImageChanged { old_image, .. } = domain_event.payload() else {
             return Err(CurrencyOldImageObjectDeletionSagaError::UnexpectedEvent);
         };
 
-        let state = CurrencyOldImageObjectDeletionSagaState::new(event.aggregate_id());
+        let state = CurrencyOldImageObjectDeletionSagaState::new(domain_event.aggregate_id());
         *instance.state_mut() = Some(state);
         let Some(object_name) = old_image
             .as_ref()
@@ -39,10 +39,7 @@ impl Saga for CurrencyOldImageObjectDeletionSaga {
             return Ok(());
         };
 
-        instance.append_command(
-            event_envelope,
-            &CurrencyImageObjectDeleteCommand { object_name },
-        )?;
+        instance.append_command(event, &CurrencyImageObjectDeleteCommand { object_name })?;
         instance.succeed();
 
         Ok(())
