@@ -4,6 +4,7 @@ use std::ops::Bound;
 use appletheia_domain::{Aggregate, AggregateVersion, AggregateVersionRange};
 
 use crate::event::{EventReader, EventWriter};
+use crate::outbox::event::EventOutboxEnqueuer;
 use crate::request_context::RequestContext;
 use crate::snapshot::{SnapshotPolicy, SnapshotReader, SnapshotWriter};
 use crate::unit_of_work::UnitOfWork;
@@ -13,12 +14,13 @@ use super::{
     RepositoryConfig, RepositoryError, UniqueKeyReservationStore, UniqueValueOwnerLookup,
 };
 
-pub struct DefaultRepository<A, ER, EW, SR, SW, UVOL, UKS, RIS, ESH, Uow>
+pub struct DefaultRepository<A, ER, EW, EOE, SR, SW, UVOL, UKS, RIS, ESH, Uow>
 where
     A: Aggregate,
     Uow: UnitOfWork,
     ER: EventReader<A, Uow = Uow>,
     EW: EventWriter<A, Uow = Uow>,
+    EOE: EventOutboxEnqueuer<Uow = Uow>,
     SR: SnapshotReader<A, Uow = Uow>,
     SW: SnapshotWriter<A, Uow = Uow>,
     UVOL: UniqueValueOwnerLookup<Uow = Uow>,
@@ -30,6 +32,7 @@ where
     event_reader: ER,
     snapshot_reader: SR,
     event_writer: EW,
+    event_outbox_enqueuer: EOE,
     snapshot_writer: SW,
     unique_value_owner_lookup: UVOL,
     unique_key_reservation_store: UKS,
@@ -38,13 +41,14 @@ where
     _marker: PhantomData<fn() -> A>,
 }
 
-impl<A, ER, EW, SR, SW, UVOL, UKS, RIS, ESH, Uow>
-    DefaultRepository<A, ER, EW, SR, SW, UVOL, UKS, RIS, ESH, Uow>
+impl<A, ER, EW, EOE, SR, SW, UVOL, UKS, RIS, ESH, Uow>
+    DefaultRepository<A, ER, EW, EOE, SR, SW, UVOL, UKS, RIS, ESH, Uow>
 where
     A: Aggregate,
     Uow: UnitOfWork,
     ER: EventReader<A, Uow = Uow>,
     EW: EventWriter<A, Uow = Uow>,
+    EOE: EventOutboxEnqueuer<Uow = Uow>,
     SR: SnapshotReader<A, Uow = Uow>,
     SW: SnapshotWriter<A, Uow = Uow>,
     UVOL: UniqueValueOwnerLookup<Uow = Uow>,
@@ -54,13 +58,14 @@ where
 {
     pub fn new(
         config: RepositoryConfig,
-        dependencies: DefaultRepositoryDependencies<ER, EW, SR, SW, UVOL, UKS, RIS, ESH>,
+        dependencies: DefaultRepositoryDependencies<ER, EW, EOE, SR, SW, UVOL, UKS, RIS, ESH>,
     ) -> Self {
         Self {
             config,
             event_reader: dependencies.event_reader,
             snapshot_reader: dependencies.snapshot_reader,
             event_writer: dependencies.event_writer,
+            event_outbox_enqueuer: dependencies.event_outbox_enqueuer,
             snapshot_writer: dependencies.snapshot_writer,
             unique_value_owner_lookup: dependencies.unique_value_owner_lookup,
             unique_key_reservation_store: dependencies.unique_key_reservation_store,
@@ -106,13 +111,14 @@ where
     }
 }
 
-impl<A, ER, EW, SR, SW, UVOL, UKS, RIS, ESH, Uow> Repository<A>
-    for DefaultRepository<A, ER, EW, SR, SW, UVOL, UKS, RIS, ESH, Uow>
+impl<A, ER, EW, EOE, SR, SW, UVOL, UKS, RIS, ESH, Uow> Repository<A>
+    for DefaultRepository<A, ER, EW, EOE, SR, SW, UVOL, UKS, RIS, ESH, Uow>
 where
     A: Aggregate,
     Uow: UnitOfWork,
     ER: EventReader<A, Uow = Uow>,
     EW: EventWriter<A, Uow = Uow>,
+    EOE: EventOutboxEnqueuer<Uow = Uow>,
     SR: SnapshotReader<A, Uow = Uow>,
     SW: SnapshotWriter<A, Uow = Uow>,
     UVOL: UniqueValueOwnerLookup<Uow = Uow>,
@@ -175,8 +181,12 @@ where
             .await?;
 
         let events = aggregate.uncommitted_events();
-        self.event_writer
-            .write_events_and_outbox(uow, request_context, events)
+        let event_envelopes = self
+            .event_writer
+            .write_events(uow, request_context, events)
+            .await?;
+        self.event_outbox_enqueuer
+            .enqueue_events(uow, &event_envelopes)
             .await?;
 
         for event in events {
@@ -218,14 +228,20 @@ where
 #[cfg(test)]
 mod tests {
     use super::DefaultRepository;
-    use crate::event::{EventReader, EventReaderError, EventWriter, EventWriterError};
+    use crate::event::{
+        AggregateIdValue, AggregateTypeOwned, EventEnvelope, EventNameOwned, EventReader,
+        EventReaderError, EventSequence, EventWriter, EventWriterError, SerializedEventPayload,
+    };
+    use crate::outbox::event::{EventOutboxEnqueueError, EventOutboxEnqueuer};
     use crate::repository::{
         DefaultRepositoryDependencies, NoopEventSaveHook, ReferenceIndexStore,
         ReferenceIndexStoreError, Repository, RepositoryConfig, RepositoryError,
         UniqueKeyReservationStore, UniqueKeyReservationStoreError, UniqueValueOwnerLookup,
         UniqueValueOwnerLookupError,
     };
-    use crate::request_context::{CorrelationId, MessageId, Principal, RequestContext};
+    use crate::request_context::{
+        CausationId, CorrelationId, MessageId, Principal, RequestContext,
+    };
     use crate::snapshot::{
         SnapshotInterval, SnapshotPolicy, SnapshotReader, SnapshotReaderError, SnapshotWriter,
         SnapshotWriterError,
@@ -445,16 +461,63 @@ mod tests {
     impl EventWriter<Counter> for RecordingEventWriter {
         type Uow = TestUnitOfWork;
 
-        async fn write_events_and_outbox(
+        async fn write_events(
             &self,
             _uow: &mut Self::Uow,
-            _request_context: &RequestContext,
+            request_context: &RequestContext,
             events: &[Event<CounterId, CounterEventPayload>],
-        ) -> Result<(), EventWriterError> {
+        ) -> Result<Vec<EventEnvelope>, EventWriterError> {
             self.log
                 .lock()
                 .expect("event writer log should be lockable")
                 .push(format!("write_events:{}", events.len()));
+
+            events
+                .iter()
+                .enumerate()
+                .map(|(index, event)| {
+                    let sequence =
+                        i64::try_from(index + 1).expect("test event sequence should fit i64");
+                    let payload =
+                        serde_json::to_value(event.payload()).map_err(EventWriterError::Json)?;
+
+                    Ok(EventEnvelope {
+                        event_sequence: EventSequence::try_from(sequence)
+                            .expect("test event sequence should be valid"),
+                        event_id: event.id(),
+                        aggregate_type: AggregateTypeOwned::from(Counter::TYPE),
+                        aggregate_id: AggregateIdValue::from(event.aggregate_id().value()),
+                        aggregate_version: event.aggregate_version(),
+                        event_name: EventNameOwned::from(event.payload().name()),
+                        payload: SerializedEventPayload::try_from(payload)
+                            .expect("test payload should be valid"),
+                        occurred_at: event.occurred_at(),
+                        correlation_id: request_context.correlation_id,
+                        causation_id: CausationId::from(request_context.message_id),
+                        context: request_context.clone(),
+                    })
+                })
+                .collect()
+        }
+    }
+
+    #[derive(Debug)]
+    struct RecordingEventOutboxEnqueuer {
+        log: Arc<Mutex<Vec<String>>>,
+    }
+
+    impl EventOutboxEnqueuer for RecordingEventOutboxEnqueuer {
+        type Uow = TestUnitOfWork;
+
+        async fn enqueue_events(
+            &self,
+            _uow: &mut Self::Uow,
+            events: &[EventEnvelope],
+        ) -> Result<(), EventOutboxEnqueueError> {
+            self.log
+                .lock()
+                .expect("event outbox log should be lockable")
+                .push(format!("enqueue_events:{}", events.len()));
 
             Ok(())
         }
@@ -623,6 +686,7 @@ mod tests {
         Counter,
         RecordingEventReader,
         RecordingEventWriter,
+        RecordingEventOutboxEnqueuer,
         RecordingSnapshotReader,
         RecordingSnapshotWriter,
         RecordingUniqueValueOwnerLookup,
@@ -638,6 +702,9 @@ mod tests {
             DefaultRepositoryDependencies {
                 event_reader: RecordingEventReader,
                 event_writer: RecordingEventWriter {
+                    log: Arc::clone(&log),
+                },
+                event_outbox_enqueuer: RecordingEventOutboxEnqueuer {
                     log: Arc::clone(&log),
                 },
                 snapshot_reader: RecordingSnapshotReader,
@@ -695,6 +762,7 @@ mod tests {
         Counter,
         RecordingEventReader,
         RecordingEventWriter,
+        RecordingEventOutboxEnqueuer,
         RecordingSnapshotReader,
         RecordingSnapshotWriter,
         RecordingUniqueValueOwnerLookup,
@@ -708,6 +776,9 @@ mod tests {
             DefaultRepositoryDependencies {
                 event_reader: RecordingEventReader,
                 event_writer: RecordingEventWriter {
+                    log: Arc::clone(&log),
+                },
+                event_outbox_enqueuer: RecordingEventOutboxEnqueuer {
                     log: Arc::clone(&log),
                 },
                 snapshot_reader: RecordingSnapshotReader,
@@ -735,6 +806,7 @@ mod tests {
         Counter,
         RecordingEventReader,
         RecordingEventWriter,
+        RecordingEventOutboxEnqueuer,
         RecordingSnapshotReader,
         RecordingSnapshotWriter,
         RecordingUniqueValueOwnerLookup,
@@ -750,6 +822,9 @@ mod tests {
             DefaultRepositoryDependencies {
                 event_reader: RecordingEventReader,
                 event_writer: RecordingEventWriter {
+                    log: Arc::clone(&log),
+                },
+                event_outbox_enqueuer: RecordingEventOutboxEnqueuer {
                     log: Arc::clone(&log),
                 },
                 snapshot_reader: RecordingSnapshotReader,
@@ -787,7 +862,8 @@ mod tests {
             vec![
                 "replace:1:1".to_owned(),
                 "replace_refs:0:0".to_owned(),
-                "write_events:1".to_owned()
+                "write_events:1".to_owned(),
+                "enqueue_events:1".to_owned()
             ]
         );
         assert!(aggregate.uncommitted_events().is_empty());
@@ -811,7 +887,8 @@ mod tests {
             vec![
                 "replace:0:0".to_owned(),
                 "replace_refs:0:0".to_owned(),
-                "write_events:1".to_owned()
+                "write_events:1".to_owned(),
+                "enqueue_events:1".to_owned()
             ]
         );
     }
@@ -834,7 +911,8 @@ mod tests {
             vec![
                 "replace:0:0".to_owned(),
                 "replace_refs:0:0".to_owned(),
-                "write_events:1".to_owned()
+                "write_events:1".to_owned(),
+                "enqueue_events:1".to_owned()
             ]
         );
         assert!(aggregate.state().is_none());
@@ -866,7 +944,8 @@ mod tests {
             vec![
                 "replace:0:0".to_owned(),
                 "replace_refs:0:0".to_owned(),
-                "write_events:1".to_owned()
+                "write_events:1".to_owned(),
+                "enqueue_events:1".to_owned()
             ]
         );
         assert!(aggregate.uncommitted_events().is_empty());

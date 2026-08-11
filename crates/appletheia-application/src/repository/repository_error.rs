@@ -7,6 +7,7 @@ use appletheia_domain::{Aggregate, AggregateType};
 
 use crate::Retryability;
 use crate::event::{EventReaderError, EventWriterError};
+use crate::outbox::event::EventOutboxEnqueueError;
 use crate::snapshot::{SnapshotReaderError, SnapshotWriterError};
 
 use super::{
@@ -41,6 +42,9 @@ pub enum RepositoryError<A: Aggregate> {
 
     #[error("event writer error: {0}")]
     EventWriter(#[from] EventWriterError),
+
+    #[error("event outbox enqueue error: {0}")]
+    EventOutboxEnqueue(#[from] EventOutboxEnqueueError),
 
     #[error("event save hook error: {0}")]
     EventSaveHook(#[source] Box<dyn Error + Send + Sync>),
@@ -77,6 +81,10 @@ impl<A: Aggregate> Retryability for RepositoryError<A> {
             Self::EventWriter(error) => match error {
                 EventWriterError::NotInTransaction | EventWriterError::Json(_) => false,
                 EventWriterError::Persistence(_) => true,
+            },
+            Self::EventOutboxEnqueue(error) => match error {
+                EventOutboxEnqueueError::NotInTransaction => false,
+                EventOutboxEnqueueError::Persistence(_) => true,
             },
             Self::SnapshotWriter(error) => match error {
                 SnapshotWriterError::NotInTransaction | SnapshotWriterError::Json(_) => false,

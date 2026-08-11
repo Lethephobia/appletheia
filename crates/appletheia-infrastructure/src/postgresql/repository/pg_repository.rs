@@ -1,6 +1,7 @@
 use appletheia_application::repository::{DefaultRepository, NoopEventSaveHook};
 
 use crate::postgresql::event::{PgEventReader, PgEventWriter};
+use crate::postgresql::outbox::event::PgEventOutboxEnqueuer;
 use crate::postgresql::repository::{
     PgReferenceIndexStore, PgUniqueKeyReservationStore, PgUniqueValueOwnerLookup,
 };
@@ -11,6 +12,7 @@ pub type PgRepository<A, ESH = NoopEventSaveHook<PgUnitOfWork>> = DefaultReposit
     A,
     PgEventReader<A>,
     PgEventWriter<A>,
+    PgEventOutboxEnqueuer,
     PgSnapshotReader<A>,
     PgSnapshotWriter<A>,
     PgUniqueValueOwnerLookup,
