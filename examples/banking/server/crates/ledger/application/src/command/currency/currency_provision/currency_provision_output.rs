@@ -1,3 +1,4 @@
+use appletheia::application::command::{CommandOutput, CommandReplayOutput};
 use banking_ledger_domain::currency::{CurrencyProvisionRejectionReason, MintAccount};
 use serde::{Deserialize, Serialize};
 
@@ -11,4 +12,12 @@ pub enum CurrencyProvisionOutput {
     Rejected {
         reason: CurrencyProvisionRejectionReason,
     },
+}
+
+impl CommandOutput for CurrencyProvisionOutput {
+    type ReplayOutput = Self;
+
+    fn replay_output(&self) -> CommandReplayOutput<'_, Self::ReplayOutput> {
+        CommandReplayOutput::Borrowed(self)
+    }
 }

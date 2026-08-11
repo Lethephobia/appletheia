@@ -1,7 +1,7 @@
 use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
-use appletheia::application::command::{CommandHandled, CommandHandler};
+use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_ledger_domain::currency::{Currency, CurrencyRemoveResult};
@@ -34,7 +34,6 @@ where
 {
     type Command = CurrencyRemoveCommand;
     type Output = CurrencyRemoveOutput;
-    type ReplayOutput = CurrencyRemoveOutput;
     type Error = CurrencyRemoveCommandHandlerError;
     type Uow = CDR::Uow;
 
@@ -57,7 +56,7 @@ where
         uow: &mut Self::Uow,
         request_context: &RequestContext,
         command: &Self::Command,
-    ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
+    ) -> Result<Self::Output, Self::Error> {
         let mut currency = self
             .currency_repository
             .read(uow, command.currency_id)
@@ -74,6 +73,6 @@ where
             CurrencyRemoveResult::Rejected { reason } => CurrencyRemoveOutput::Rejected { reason },
         };
 
-        Ok(CommandHandled::same(output))
+        Ok(output)
     }
 }

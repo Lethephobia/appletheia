@@ -1,3 +1,4 @@
+use appletheia::application::command::{CommandOutput, CommandReplayOutput};
 use banking_ledger_domain::currency::CurrencySymbolChangeRejectionReason;
 use serde::{Deserialize, Serialize};
 
@@ -9,4 +10,12 @@ pub enum CurrencySymbolChangeOutput {
     Rejected {
         reason: CurrencySymbolChangeRejectionReason,
     },
+}
+
+impl CommandOutput for CurrencySymbolChangeOutput {
+    type ReplayOutput = Self;
+
+    fn replay_output(&self) -> CommandReplayOutput<'_, Self::ReplayOutput> {
+        CommandReplayOutput::Borrowed(self)
+    }
 }

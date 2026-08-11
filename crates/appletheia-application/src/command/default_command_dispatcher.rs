@@ -1,7 +1,8 @@
 use crate::authorization::Authorizer;
 use crate::command::{
     Command, CommandDispatchResult, CommandDispatcher, CommandDispatcherError, CommandHandler,
-    CommandHasher, CommandOptions, IdempotencyBeginResult, IdempotencyService,
+    CommandHasher, CommandOptions, CommandOutput, IdempotencyBeginResult, IdempotencyOutput,
+    IdempotencyService,
 };
 use crate::request_context::RequestContext;
 use crate::unit_of_work::UnitOfWork;
@@ -58,7 +59,10 @@ where
         request_context: &RequestContext,
         command: H::Command,
         _options: CommandOptions,
-    ) -> Result<CommandDispatchResult<H::Output, H::ReplayOutput>, CommandDispatcherError<H::Error>>
+    ) -> Result<
+        CommandDispatchResult<H::Output, <H::Output as CommandOutput>::ReplayOutput>,
+        CommandDispatcherError<H::Error>,
+    >
     where
         H: CommandHandler<Uow = Self::Uow>,
         H::Command: Command,
@@ -104,12 +108,12 @@ where
         let handler_result = handler.handle(&mut uow, request_context, &command).await;
 
         match handler_result {
-            Ok(handled) => {
-                let replay_output = handled.idempotency_output()?;
-                let output = handled.into_output();
+            Ok(output) => {
+                let replay_output = serde_json::to_value(output.replay_output())?;
+                let idempotency_output = IdempotencyOutput::from(replay_output);
                 match self
                     .idempotency_service
-                    .complete(&mut uow, message_id, replay_output)
+                    .complete(&mut uow, message_id, idempotency_output)
                     .await
                 {
                     Ok(()) => {}
@@ -135,8 +139,8 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
     use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::{Arc, Mutex};
 
     use serde::{Deserialize, Serialize};
     use uuid::Uuid;
@@ -145,9 +149,10 @@ mod tests {
     use crate::Retryability;
     use crate::authorization::{AuthorizationPlan, Authorizer, AuthorizerError};
     use crate::command::{
-        Command, CommandDispatcher, CommandDispatcherError, CommandHandled, CommandHandler,
-        CommandHash, CommandHasher, CommandHasherError, CommandName, CommandOptions,
-        IdempotencyBeginResult, IdempotencyOutput, IdempotencyService, IdempotencyServiceError,
+        Command, CommandDispatchResult, CommandDispatcher, CommandDispatcherError, CommandHandler,
+        CommandHash, CommandHasher, CommandHasherError, CommandName, CommandOptions, CommandOutput,
+        CommandReplayOutput, IdempotencyBeginResult, IdempotencyOutput, IdempotencyService,
+        IdempotencyServiceError,
     };
     use crate::request_context::{MessageId, Principal, RequestContext};
     use crate::unit_of_work::{
@@ -241,6 +246,66 @@ mod tests {
         }
     }
 
+    struct TestRecordingNewIdempotencyService {
+        completed_output: Arc<Mutex<Option<IdempotencyOutput>>>,
+    }
+
+    impl IdempotencyService for TestRecordingNewIdempotencyService {
+        type Uow = TestUow;
+
+        async fn begin(
+            &self,
+            _uow: &mut Self::Uow,
+            _message_id: MessageId,
+            _command_name: CommandName,
+            _command_hash: &CommandHash,
+        ) -> Result<IdempotencyBeginResult, IdempotencyServiceError> {
+            Ok(IdempotencyBeginResult::New)
+        }
+
+        async fn complete(
+            &self,
+            _uow: &mut Self::Uow,
+            _message_id: MessageId,
+            output: IdempotencyOutput,
+        ) -> Result<(), IdempotencyServiceError> {
+            *self
+                .completed_output
+                .lock()
+                .expect("completed output should be lockable") = Some(output);
+            Ok(())
+        }
+    }
+
+    struct TestExistingIdempotencyService;
+
+    impl IdempotencyService for TestExistingIdempotencyService {
+        type Uow = TestUow;
+
+        async fn begin(
+            &self,
+            _uow: &mut Self::Uow,
+            _message_id: MessageId,
+            _command_name: CommandName,
+            _command_hash: &CommandHash,
+        ) -> Result<IdempotencyBeginResult, IdempotencyServiceError> {
+            Ok(IdempotencyBeginResult::Existing {
+                output: IdempotencyOutput::from(serde_json::json!({
+                    "value": "replayed",
+                })),
+            })
+        }
+
+        async fn complete(
+            &self,
+            _uow: &mut Self::Uow,
+            _message_id: MessageId,
+            _output: IdempotencyOutput,
+        ) -> Result<(), IdempotencyServiceError> {
+            unreachable!("existing idempotency output should not be completed again")
+        }
+    }
+
     #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
     struct TestCommand {}
 
@@ -265,10 +330,45 @@ mod tests {
         retryable: bool,
     }
 
+    #[derive(Debug, Deserialize, Eq, PartialEq, Serialize)]
+    struct TestOutput {
+        value: String,
+    }
+
+    impl CommandOutput for TestOutput {
+        type ReplayOutput = Self;
+
+        fn replay_output(&self) -> CommandReplayOutput<'_, Self::ReplayOutput> {
+            CommandReplayOutput::Borrowed(self)
+        }
+    }
+
+    struct TestCommandSuccessHandler {
+        state: Arc<TestState>,
+    }
+
+    impl CommandHandler for TestCommandSuccessHandler {
+        type Command = TestCommand;
+        type Output = TestOutput;
+        type Error = TestHandlerError;
+        type Uow = TestUow;
+
+        async fn handle(
+            &self,
+            _uow: &mut Self::Uow,
+            _request_context: &RequestContext,
+            _command: &Self::Command,
+        ) -> Result<Self::Output, Self::Error> {
+            self.state.handler_calls.fetch_add(1, Ordering::SeqCst);
+            Ok(TestOutput {
+                value: "executed".to_owned(),
+            })
+        }
+    }
+
     impl CommandHandler for TestCommandFailureHandler {
         type Command = TestCommand;
-        type Output = ();
-        type ReplayOutput = ();
+        type Output = TestOutput;
         type Error = TestHandlerError;
         type Uow = TestUow;
 
@@ -277,7 +377,7 @@ mod tests {
             _uow: &mut Self::Uow,
             _request_context: &crate::request_context::RequestContext,
             _command: &Self::Command,
-        ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
+        ) -> Result<Self::Output, Self::Error> {
             self.state.handler_calls.fetch_add(1, Ordering::SeqCst);
             Err(TestHandlerError {
                 retryable: self.retryable,
@@ -292,6 +392,84 @@ mod tests {
             Principal::System,
         )
         .expect("request context should be valid")
+    }
+
+    #[tokio::test]
+    async fn dispatch_returns_immediate_output_and_persists_its_replay_json() {
+        let state = Arc::new(TestState::default());
+        let completed_output = Arc::new(Mutex::new(None));
+        let dispatcher = DefaultCommandDispatcher::new(
+            TestCommandHasher,
+            TestRecordingNewIdempotencyService {
+                completed_output: Arc::clone(&completed_output),
+            },
+            TestUowFactory {
+                state: Arc::clone(&state),
+            },
+            TestAuthorizer,
+        );
+
+        let result = dispatcher
+            .dispatch(
+                &TestCommandSuccessHandler {
+                    state: Arc::clone(&state),
+                },
+                &request_context(),
+                TestCommand {},
+                CommandOptions::default(),
+            )
+            .await
+            .expect("command should execute");
+
+        assert_eq!(
+            result,
+            CommandDispatchResult::Executed(TestOutput {
+                value: "executed".to_owned(),
+            })
+        );
+        assert_eq!(
+            completed_output
+                .lock()
+                .expect("completed output should be lockable")
+                .as_ref()
+                .expect("completed output should be recorded")
+                .value(),
+            &serde_json::json!({ "value": "executed" })
+        );
+        assert_eq!(state.handler_calls.load(Ordering::SeqCst), 1);
+    }
+
+    #[tokio::test]
+    async fn dispatch_returns_typed_replay_output_without_calling_the_handler() {
+        let state = Arc::new(TestState::default());
+        let dispatcher = DefaultCommandDispatcher::new(
+            TestCommandHasher,
+            TestExistingIdempotencyService,
+            TestUowFactory {
+                state: Arc::clone(&state),
+            },
+            TestAuthorizer,
+        );
+
+        let result = dispatcher
+            .dispatch(
+                &TestCommandSuccessHandler {
+                    state: Arc::clone(&state),
+                },
+                &request_context(),
+                TestCommand {},
+                CommandOptions::default(),
+            )
+            .await
+            .expect("command should replay");
+
+        assert_eq!(
+            result,
+            CommandDispatchResult::Replayed(TestOutput {
+                value: "replayed".to_owned(),
+            })
+        );
+        assert_eq!(state.handler_calls.load(Ordering::SeqCst), 0);
     }
 
     #[tokio::test]

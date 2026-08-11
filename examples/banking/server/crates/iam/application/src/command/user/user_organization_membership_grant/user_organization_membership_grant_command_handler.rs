@@ -1,5 +1,5 @@
 use appletheia::application::authorization::{AuthorizationPlan, PrincipalRequirement};
-use appletheia::application::command::{CommandHandled, CommandHandler};
+use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_iam_domain::{
@@ -42,7 +42,6 @@ where
 {
     type Command = UserOrganizationMembershipGrantCommand;
     type Output = UserOrganizationMembershipGrantOutput;
-    type ReplayOutput = UserOrganizationMembershipGrantOutput;
     type Error = UserOrganizationMembershipGrantCommandHandlerError;
     type Uow = ORG::Uow;
 
@@ -60,7 +59,7 @@ where
         uow: &mut Self::Uow,
         request_context: &RequestContext,
         command: &Self::Command,
-    ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
+    ) -> Result<Self::Output, Self::Error> {
         let organization = self
             .organization_repository
             .read(uow, command.organization_id)
@@ -81,9 +80,7 @@ where
                 .save(uow, request_context, &mut user)
                 .await?;
 
-            return Ok(CommandHandled::same(
-                UserOrganizationMembershipGrantOutput::Rejected { reason },
-            ));
+            return Ok(UserOrganizationMembershipGrantOutput::Rejected { reason });
         }
 
         let result = user.grant_organization_membership(grant)?;
@@ -101,6 +98,6 @@ where
             }
         };
 
-        Ok(CommandHandled::same(output))
+        Ok(output)
     }
 }

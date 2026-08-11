@@ -1,6 +1,6 @@
 use crate::mint::{MintMetadataUpdateRequest, MintMetadataUpdater};
 use appletheia::application::authorization::{AuthorizationPlan, PrincipalRequirement};
-use appletheia::application::command::{CommandHandled, CommandHandler};
+use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_ledger_domain::currency::{Currency, MintMetadataSyncRejectionReason};
@@ -37,7 +37,6 @@ where
 {
     type Command = MintMetadataSyncCommand;
     type Output = MintMetadataSyncOutput;
-    type ReplayOutput = MintMetadataSyncOutput;
     type Error = MintMetadataSyncCommandHandlerError;
     type Uow = CR::Uow;
 
@@ -55,7 +54,7 @@ where
         uow: &mut Self::Uow,
         request_context: &RequestContext,
         command: &Self::Command,
-    ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
+    ) -> Result<Self::Output, Self::Error> {
         let mut currency = self
             .currency_repository
             .read(uow, command.currency_id)
@@ -69,9 +68,7 @@ where
                 .save(uow, request_context, &mut currency)
                 .await?;
 
-            return Ok(CommandHandled::same(MintMetadataSyncOutput::Rejected {
-                reason,
-            }));
+            return Ok(MintMetadataSyncOutput::Rejected { reason });
         }
 
         self.mint_metadata_updater
@@ -89,7 +86,7 @@ where
             .save(uow, request_context, &mut currency)
             .await?;
 
-        Ok(CommandHandled::same(MintMetadataSyncOutput::Synced))
+        Ok(MintMetadataSyncOutput::Synced)
     }
 }
 
@@ -302,7 +299,7 @@ mod tests {
             .expect("command should be handled");
 
         assert_eq!(
-            handled.into_output(),
+            handled,
             MintMetadataSyncOutput::Rejected {
                 reason: MintMetadataSyncRejectionReason::NotProvisioned,
             }
@@ -344,7 +341,7 @@ mod tests {
             .await
             .expect("command should be handled");
 
-        assert_eq!(handled.into_output(), MintMetadataSyncOutput::Synced);
+        assert_eq!(handled, MintMetadataSyncOutput::Synced);
         assert_eq!(*updater_calls.lock().expect("lock"), 1);
 
         let update_request = update_request

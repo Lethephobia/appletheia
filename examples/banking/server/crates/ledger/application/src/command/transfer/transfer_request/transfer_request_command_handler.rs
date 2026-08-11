@@ -1,7 +1,7 @@
 use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
-use appletheia::application::command::{CommandHandled, CommandHandler};
+use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use appletheia::domain::Aggregate;
@@ -44,7 +44,6 @@ where
 {
     type Command = TransferRequestCommand;
     type Output = TransferRequestOutput;
-    type ReplayOutput = TransferRequestOutput;
     type Error = TransferRequestCommandHandlerError;
     type Uow = TR::Uow;
 
@@ -67,7 +66,7 @@ where
         uow: &mut Self::Uow,
         request_context: &RequestContext,
         command: &Self::Command,
-    ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
+    ) -> Result<Self::Output, Self::Error> {
         let source_account = self
             .account_repository
             .read(uow, command.from_account_id)
@@ -92,10 +91,10 @@ where
                 .save(uow, request_context, &mut transfer)
                 .await?;
 
-            return Ok(CommandHandled::same(TransferRequestOutput::Rejected {
+            return Ok(TransferRequestOutput::Rejected {
                 transfer_id,
                 reason,
-            }));
+            });
         }
 
         let result = transfer.request(request)?;
@@ -112,7 +111,7 @@ where
             },
         };
 
-        Ok(CommandHandled::same(output))
+        Ok(output)
     }
 }
 
@@ -392,7 +391,7 @@ mod tests {
             .expect("rejected transfer should be saved");
         let reason = TransferRequestRejectionReason::CurrencyMismatch;
         assert_eq!(
-            handled.into_output(),
+            handled,
             TransferRequestOutput::Rejected {
                 transfer_id: saved.aggregate_id(),
                 reason,
@@ -438,7 +437,7 @@ mod tests {
             .await
             .expect("matching currencies should succeed");
 
-        let TransferRequestOutput::Requested { transfer_id } = handled.into_output() else {
+        let TransferRequestOutput::Requested { transfer_id } = handled else {
             panic!("expected requested output");
         };
 

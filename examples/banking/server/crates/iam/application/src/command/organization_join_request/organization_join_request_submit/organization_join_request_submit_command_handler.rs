@@ -1,7 +1,7 @@
 use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
-use appletheia::application::command::{CommandHandled, CommandHandler};
+use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use appletheia::domain::Aggregate;
@@ -68,7 +68,6 @@ where
 {
     type Command = OrganizationJoinRequestSubmitCommand;
     type Output = OrganizationJoinRequestSubmitOutput;
-    type ReplayOutput = OrganizationJoinRequestSubmitOutput;
     type Error = OrganizationJoinRequestSubmitCommandHandlerError;
     type Uow = OR::Uow;
 
@@ -91,7 +90,7 @@ where
         uow: &mut Self::Uow,
         request_context: &RequestContext,
         command: &Self::Command,
-    ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
+    ) -> Result<Self::Output, Self::Error> {
         let mut organization_join_request = OrganizationJoinRequest::new();
         let organization_join_request_id = organization_join_request.aggregate_id();
         let submission = OrganizationJoinRequestSubmission {
@@ -111,12 +110,10 @@ where
                 .save(uow, request_context, &mut organization_join_request)
                 .await?;
 
-            return Ok(CommandHandled::same(
-                OrganizationJoinRequestSubmitOutput::Rejected {
-                    organization_join_request_id,
-                    reason,
-                },
-            ));
+            return Ok(OrganizationJoinRequestSubmitOutput::Rejected {
+                organization_join_request_id,
+                reason,
+            });
         }
 
         let requester = self.user_repository.read(uow, command.requester_id).await?;
@@ -128,12 +125,10 @@ where
                 .save(uow, request_context, &mut organization_join_request)
                 .await?;
 
-            return Ok(CommandHandled::same(
-                OrganizationJoinRequestSubmitOutput::Rejected {
-                    organization_join_request_id,
-                    reason,
-                },
-            ));
+            return Ok(OrganizationJoinRequestSubmitOutput::Rejected {
+                organization_join_request_id,
+                reason,
+            });
         }
 
         let unique_value = Self::organization_requester_unique_value(
@@ -157,12 +152,10 @@ where
                 .save(uow, request_context, &mut organization_join_request)
                 .await?;
 
-            return Ok(CommandHandled::same(
-                OrganizationJoinRequestSubmitOutput::Rejected {
-                    organization_join_request_id,
-                    reason,
-                },
-            ));
+            return Ok(OrganizationJoinRequestSubmitOutput::Rejected {
+                organization_join_request_id,
+                reason,
+            });
         }
 
         let result = organization_join_request.submit(submission)?;
@@ -185,6 +178,6 @@ where
             }
         };
 
-        Ok(CommandHandled::same(output))
+        Ok(output)
     }
 }

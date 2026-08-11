@@ -1,7 +1,7 @@
 use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
-use appletheia::application::command::{CommandHandled, CommandHandler};
+use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use appletheia::domain::Aggregate;
@@ -48,7 +48,6 @@ where
 {
     type Command = CurrencyDefineCommand;
     type Output = CurrencyDefineOutput;
-    type ReplayOutput = CurrencyDefineOutput;
     type Error = CurrencyDefineCommandHandlerError;
     type Uow = CDR::Uow;
 
@@ -80,7 +79,7 @@ where
         uow: &mut Self::Uow,
         request_context: &RequestContext,
         command: &Self::Command,
-    ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
+    ) -> Result<Self::Output, Self::Error> {
         let CurrencyDefineCommand {
             owner,
             symbol,
@@ -115,10 +114,10 @@ where
                 .save(uow, request_context, &mut currency)
                 .await?;
 
-            return Ok(CommandHandled::same(CurrencyDefineOutput::Rejected {
+            return Ok(CurrencyDefineOutput::Rejected {
                 currency_id,
                 reason,
-            }));
+            });
         }
 
         let result = currency.define(definition)?;
@@ -135,7 +134,7 @@ where
             },
         };
 
-        Ok(CommandHandled::same(output))
+        Ok(output)
     }
 }
 
@@ -352,7 +351,7 @@ mod tests {
             .await
             .expect("command should succeed");
 
-        let output = handled.into_output();
+        let output = handled;
         let saved = repository
             .currency
             .lock()
@@ -398,7 +397,7 @@ mod tests {
             .await
             .expect("command should succeed");
 
-        let output = handled.into_output();
+        let output = handled;
         let saved = repository
             .currency
             .lock()
@@ -458,7 +457,7 @@ mod tests {
             .expect("rejected definition should be saved");
         let reason = CurrencyDefineRejectionReason::SymbolAlreadyTaken;
         assert_eq!(
-            handled.into_output(),
+            handled,
             CurrencyDefineOutput::Rejected {
                 currency_id: saved.aggregate_id(),
                 reason,

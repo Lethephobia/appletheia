@@ -1,7 +1,7 @@
 use core::num::NonZeroU32;
 
 use appletheia::application::authorization::{AuthorizationPlan, PrincipalRequirement};
-use appletheia::application::command::{CommandHandled, CommandHandler};
+use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::{
     ReferenceIndexLookup, ReferenceIndexLookupPageSize, Repository,
 };
@@ -47,7 +47,6 @@ where
 {
     type Command = OwnedAccountClosurePageLoadCommand;
     type Output = OwnedAccountClosurePageLoadOutput;
-    type ReplayOutput = OwnedAccountClosurePageLoadOutput;
     type Error = OwnedAccountClosurePageLoadCommandHandlerError;
     type Uow = OACR::Uow;
 
@@ -65,7 +64,7 @@ where
         uow: &mut Self::Uow,
         request_context: &RequestContext,
         command: &Self::Command,
-    ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
+    ) -> Result<Self::Output, Self::Error> {
         let mut owned_account_closure = self
             .owned_account_closure_repository
             .read(uow, command.owned_account_closure_id)
@@ -116,6 +115,6 @@ where
             }
         };
 
-        Ok(CommandHandled::same(output))
+        Ok(output)
     }
 }

@@ -1,7 +1,7 @@
 use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
-use appletheia::application::command::{CommandHandled, CommandHandler};
+use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_iam_domain::{
@@ -45,7 +45,6 @@ where
 {
     type Command = UserOrganizationMembershipRemoveCommand;
     type Output = UserOrganizationMembershipRemoveOutput;
-    type ReplayOutput = UserOrganizationMembershipRemoveOutput;
     type Error = UserOrganizationMembershipRemoveCommandHandlerError;
     type Uow = ORG::Uow;
 
@@ -68,7 +67,7 @@ where
         uow: &mut Self::Uow,
         request_context: &RequestContext,
         command: &Self::Command,
-    ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
+    ) -> Result<Self::Output, Self::Error> {
         let organization = self
             .organization_repository
             .read(uow, command.organization_id)
@@ -84,9 +83,7 @@ where
                 .save(uow, request_context, &mut user)
                 .await?;
 
-            return Ok(CommandHandled::same(
-                UserOrganizationMembershipRemoveOutput::Rejected { reason },
-            ));
+            return Ok(UserOrganizationMembershipRemoveOutput::Rejected { reason });
         }
 
         let result = user.remove_organization_membership(command.organization_id)?;
@@ -104,6 +101,6 @@ where
             }
         };
 
-        Ok(CommandHandled::same(output))
+        Ok(output)
     }
 }

@@ -1,3 +1,4 @@
+use appletheia::application::command::{CommandOutput, CommandReplayOutput};
 use banking_iam_domain::user::UserStatusRejectionReason;
 use serde::{Deserialize, Serialize};
 
@@ -7,4 +8,12 @@ use serde::{Deserialize, Serialize};
 pub enum UserDeactivateOutput {
     Deactivated,
     Rejected { reason: UserStatusRejectionReason },
+}
+
+impl CommandOutput for UserDeactivateOutput {
+    type ReplayOutput = Self;
+
+    fn replay_output(&self) -> CommandReplayOutput<'_, Self::ReplayOutput> {
+        CommandReplayOutput::Borrowed(self)
+    }
 }

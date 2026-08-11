@@ -1,7 +1,7 @@
 use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
-use appletheia::application::command::{CommandHandled, CommandHandler};
+use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use appletheia::domain::Aggregate;
@@ -56,7 +56,6 @@ where
 {
     type Command = WalletBookmarkRegisterCommand;
     type Output = WalletBookmarkRegisterOutput;
-    type ReplayOutput = WalletBookmarkRegisterOutput;
     type Error = WalletBookmarkRegisterCommandHandlerError;
     type Uow = WBR::Uow;
 
@@ -88,7 +87,7 @@ where
         uow: &mut Self::Uow,
         request_context: &RequestContext,
         command: &Self::Command,
-    ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
+    ) -> Result<Self::Output, Self::Error> {
         let mut wallet_bookmark = WalletBookmark::new();
         let wallet_bookmark_id = wallet_bookmark.aggregate_id();
 
@@ -100,12 +99,10 @@ where
             Ok(TokenAccountOwnerAddressValidationResult::Valid) => {}
             Ok(TokenAccountOwnerAddressValidationResult::Invalid) => {
                 let reason = WalletBookmarkRegisterRejectionReason::InvalidTokenAccountOwnerAddress;
-                return Ok(CommandHandled::same(
-                    WalletBookmarkRegisterOutput::Rejected {
-                        wallet_bookmark_id,
-                        reason,
-                    },
-                ));
+                return Ok(WalletBookmarkRegisterOutput::Rejected {
+                    wallet_bookmark_id,
+                    reason,
+                });
             }
             Err(error @ TokenAccountOwnerAddressValidatorError::Backend(_)) => {
                 return Err(error.into());
@@ -136,7 +133,7 @@ where
             }
         };
 
-        Ok(CommandHandled::same(output))
+        Ok(output)
     }
 }
 
@@ -390,7 +387,7 @@ mod tests {
             .await
             .expect("command should succeed");
 
-        let output = handled.into_output();
+        let output = handled;
         let aggregate = repository
             .wallet_bookmark
             .lock()
@@ -428,7 +425,7 @@ mod tests {
             .await
             .expect("command should be handled");
 
-        let output = handled.into_output();
+        let output = handled;
         let WalletBookmarkRegisterOutput::Rejected { reason, .. } = output else {
             panic!("expected rejected output");
         };

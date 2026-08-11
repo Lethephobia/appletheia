@@ -1,7 +1,7 @@
 use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
-use appletheia::application::command::{CommandHandled, CommandHandler};
+use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_iam_domain::{
@@ -46,7 +46,6 @@ where
 {
     type Command = OrganizationJoinRequestCancelCommand;
     type Output = OrganizationJoinRequestCancelOutput;
-    type ReplayOutput = OrganizationJoinRequestCancelOutput;
     type Error = OrganizationJoinRequestCancelCommandHandlerError;
     type Uow = JR::Uow;
 
@@ -69,7 +68,7 @@ where
         uow: &mut Self::Uow,
         _request_context: &RequestContext,
         command: &Self::Command,
-    ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
+    ) -> Result<Self::Output, Self::Error> {
         let mut organization_join_request = self
             .organization_join_request_repository
             .read(uow, command.organization_join_request_id)
@@ -88,9 +87,7 @@ where
                 .save(uow, _request_context, &mut organization_join_request)
                 .await?;
 
-            return Ok(CommandHandled::same(
-                OrganizationJoinRequestCancelOutput::Rejected { reason },
-            ));
+            return Ok(OrganizationJoinRequestCancelOutput::Rejected { reason });
         }
 
         let result = organization_join_request.cancel()?;
@@ -108,6 +105,6 @@ where
             }
         };
 
-        Ok(CommandHandled::same(output))
+        Ok(output)
     }
 }

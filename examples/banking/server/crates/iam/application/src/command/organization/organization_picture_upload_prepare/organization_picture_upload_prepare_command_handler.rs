@@ -1,7 +1,7 @@
 use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
-use appletheia::application::command::{CommandHandled, CommandHandler};
+use appletheia::application::command::CommandHandler;
 use appletheia::application::object_storage::{
     ObjectName, ObjectUploadSignRequest, ObjectUploadSigner,
 };
@@ -52,7 +52,6 @@ where
 {
     type Command = OrganizationPictureUploadPrepareCommand;
     type Output = OrganizationPictureUploadPrepareOutput;
-    type ReplayOutput = OrganizationPictureUploadPrepareOutput;
     type Error = OrganizationPictureUploadPrepareCommandHandlerError;
     type Uow = OR::Uow;
 
@@ -75,26 +74,22 @@ where
         uow: &mut Self::Uow,
         _request_context: &RequestContext,
         command: &Self::Command,
-    ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
+    ) -> Result<Self::Output, Self::Error> {
         let organization = self
             .organization_repository
             .read(uow, command.organization_id)
             .await?;
 
         if organization.is_removed()? {
-            return Ok(CommandHandled::same(
-                OrganizationPictureUploadPrepareOutput::Rejected {
-                    reason: OrganizationPictureUploadPrepareRejectionReason::OrganizationRemoved,
-                },
-            ));
+            return Ok(OrganizationPictureUploadPrepareOutput::Rejected {
+                reason: OrganizationPictureUploadPrepareRejectionReason::OrganizationRemoved,
+            });
         }
 
         if command.content_length.value() > self.config.max_content_length().value() {
-            return Ok(CommandHandled::same(
-                OrganizationPictureUploadPrepareOutput::Rejected {
-                    reason: OrganizationPictureUploadPrepareRejectionReason::ContentLengthTooLarge,
-                },
-            ));
+            return Ok(OrganizationPictureUploadPrepareOutput::Rejected {
+                reason: OrganizationPictureUploadPrepareRejectionReason::ContentLengthTooLarge,
+            });
         }
 
         if !self
@@ -102,11 +97,9 @@ where
             .allowed_content_types()
             .contains(&command.content_type)
         {
-            return Ok(CommandHandled::same(
-                OrganizationPictureUploadPrepareOutput::Rejected {
-                    reason: OrganizationPictureUploadPrepareRejectionReason::ContentTypeNotAllowed,
-                },
-            ));
+            return Ok(OrganizationPictureUploadPrepareOutput::Rejected {
+                reason: OrganizationPictureUploadPrepareRejectionReason::ContentTypeNotAllowed,
+            });
         }
 
         let picture_object_name = OrganizationPictureObjectName::new(command.organization_id);
@@ -126,7 +119,7 @@ where
             signed_upload: Box::new(signed_upload),
         };
 
-        Ok(CommandHandled::same(output))
+        Ok(output)
     }
 }
 
@@ -400,7 +393,7 @@ mod tests {
             .await
             .expect("command should succeed");
 
-        let output = handled.into_output();
+        let output = handled;
         let OrganizationPictureUploadPrepareOutput::Prepared {
             picture,
             signed_upload: output_signed_upload,
@@ -472,7 +465,7 @@ mod tests {
             .expect("removed organization should be rejected as an outcome");
 
         assert_eq!(
-            handled.into_output(),
+            handled,
             OrganizationPictureUploadPrepareOutput::Rejected {
                 reason: OrganizationPictureUploadPrepareRejectionReason::OrganizationRemoved,
             }
@@ -513,7 +506,7 @@ mod tests {
             .expect("oversized content should be rejected as an outcome");
 
         assert_eq!(
-            handled.into_output(),
+            handled,
             OrganizationPictureUploadPrepareOutput::Rejected {
                 reason: OrganizationPictureUploadPrepareRejectionReason::ContentLengthTooLarge,
             }
@@ -555,7 +548,7 @@ mod tests {
             .expect("disallowed content type should be rejected as an outcome");
 
         assert_eq!(
-            handled.into_output(),
+            handled,
             OrganizationPictureUploadPrepareOutput::Rejected {
                 reason: OrganizationPictureUploadPrepareRejectionReason::ContentTypeNotAllowed,
             }

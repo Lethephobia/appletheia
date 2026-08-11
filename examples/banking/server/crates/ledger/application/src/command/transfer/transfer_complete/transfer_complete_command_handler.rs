@@ -1,5 +1,5 @@
 use appletheia::application::authorization::{AuthorizationPlan, PrincipalRequirement};
-use appletheia::application::command::{CommandHandled, CommandHandler};
+use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_ledger_domain::transfer::{Transfer, TransferCompleteResult};
@@ -31,7 +31,6 @@ where
 {
     type Command = TransferCompleteCommand;
     type Output = TransferCompleteOutput;
-    type ReplayOutput = TransferCompleteOutput;
     type Error = TransferCompleteCommandHandlerError;
     type Uow = TR::Uow;
 
@@ -49,7 +48,7 @@ where
         uow: &mut Self::Uow,
         request_context: &RequestContext,
         command: &Self::Command,
-    ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
+    ) -> Result<Self::Output, Self::Error> {
         let mut transfer = self
             .transfer_repository
             .read(uow, command.transfer_id)
@@ -67,6 +66,6 @@ where
             }
         };
 
-        Ok(CommandHandled::same(output))
+        Ok(output)
     }
 }

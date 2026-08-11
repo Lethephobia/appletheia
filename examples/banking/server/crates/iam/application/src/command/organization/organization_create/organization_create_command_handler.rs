@@ -1,7 +1,7 @@
 use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
-use appletheia::application::command::{CommandHandled, CommandHandler};
+use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use appletheia::domain::{Aggregate, UniqueValue};
@@ -46,7 +46,6 @@ where
 {
     type Command = OrganizationCreateCommand;
     type Output = OrganizationCreateOutput;
-    type ReplayOutput = OrganizationCreateOutput;
     type Error = OrganizationCreateCommandHandlerError;
     type Uow = OR::Uow;
 
@@ -70,7 +69,7 @@ where
         uow: &mut Self::Uow,
         request_context: &RequestContext,
         command: &Self::Command,
-    ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
+    ) -> Result<Self::Output, Self::Error> {
         let OrganizationCreateCommand {
             owner,
             handle,
@@ -105,10 +104,10 @@ where
                 .save(uow, request_context, &mut organization)
                 .await?;
 
-            return Ok(CommandHandled::same(OrganizationCreateOutput::Rejected {
+            return Ok(OrganizationCreateOutput::Rejected {
                 organization_id,
                 reason,
-            }));
+            });
         }
 
         let result = organization.create(creation)?;
@@ -127,7 +126,7 @@ where
             },
         };
 
-        Ok(CommandHandled::same(output))
+        Ok(output)
     }
 }
 
@@ -310,7 +309,7 @@ mod tests {
             .await
             .expect("command should succeed");
 
-        let output = handled.into_output();
+        let output = handled;
         let saved = repository.organization.lock().expect("lock").clone();
         let saved = saved.expect("organization should be saved");
 
@@ -378,7 +377,7 @@ mod tests {
             .expect("rejected creation should be saved");
         let reason = OrganizationCreateRejectionReason::HandleAlreadyTaken;
         assert_eq!(
-            handled.into_output(),
+            handled,
             OrganizationCreateOutput::Rejected {
                 organization_id: saved.aggregate_id(),
                 reason,

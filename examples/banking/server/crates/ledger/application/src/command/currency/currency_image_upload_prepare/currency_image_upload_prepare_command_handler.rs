@@ -1,7 +1,7 @@
 use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
-use appletheia::application::command::{CommandHandled, CommandHandler};
+use appletheia::application::command::CommandHandler;
 use appletheia::application::object_storage::{
     ObjectName, ObjectUploadSignRequest, ObjectUploadSigner,
 };
@@ -52,7 +52,6 @@ where
 {
     type Command = CurrencyImageUploadPrepareCommand;
     type Output = CurrencyImageUploadPrepareOutput;
-    type ReplayOutput = CurrencyImageUploadPrepareOutput;
     type Error = CurrencyImageUploadPrepareCommandHandlerError;
     type Uow = CR::Uow;
 
@@ -75,26 +74,22 @@ where
         uow: &mut Self::Uow,
         _request_context: &RequestContext,
         command: &Self::Command,
-    ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
+    ) -> Result<Self::Output, Self::Error> {
         let currency = self
             .currency_repository
             .read(uow, command.currency_id)
             .await?;
 
         if currency.is_removed()? {
-            return Ok(CommandHandled::same(
-                CurrencyImageUploadPrepareOutput::Rejected {
-                    reason: CurrencyImageUploadPrepareRejectionReason::CurrencyRemoved,
-                },
-            ));
+            return Ok(CurrencyImageUploadPrepareOutput::Rejected {
+                reason: CurrencyImageUploadPrepareRejectionReason::CurrencyRemoved,
+            });
         }
 
         if command.content_length.value() > self.config.max_content_length().value() {
-            return Ok(CommandHandled::same(
-                CurrencyImageUploadPrepareOutput::Rejected {
-                    reason: CurrencyImageUploadPrepareRejectionReason::ContentLengthTooLarge,
-                },
-            ));
+            return Ok(CurrencyImageUploadPrepareOutput::Rejected {
+                reason: CurrencyImageUploadPrepareRejectionReason::ContentLengthTooLarge,
+            });
         }
 
         if !self
@@ -102,11 +97,9 @@ where
             .allowed_content_types()
             .contains(&command.content_type)
         {
-            return Ok(CommandHandled::same(
-                CurrencyImageUploadPrepareOutput::Rejected {
-                    reason: CurrencyImageUploadPrepareRejectionReason::ContentTypeNotAllowed,
-                },
-            ));
+            return Ok(CurrencyImageUploadPrepareOutput::Rejected {
+                reason: CurrencyImageUploadPrepareRejectionReason::ContentTypeNotAllowed,
+            });
         }
 
         let image_object_name = CurrencyImageObjectName::new(command.currency_id);
@@ -126,6 +119,6 @@ where
             signed_upload: Box::new(signed_upload),
         };
 
-        Ok(CommandHandled::same(output))
+        Ok(output)
     }
 }

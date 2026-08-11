@@ -1,7 +1,7 @@
 use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
-use appletheia::application::command::{CommandHandled, CommandHandler};
+use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use appletheia::domain::Aggregate;
@@ -73,7 +73,6 @@ where
 {
     type Command = DepositTokenTransferPrepareCommand;
     type Output = DepositTokenTransferPrepareOutput;
-    type ReplayOutput = DepositTokenTransferPrepareOutput;
     type Error = DepositTokenTransferPrepareCommandHandlerError;
     type Uow = DR::Uow;
 
@@ -96,7 +95,7 @@ where
         uow: &mut Self::Uow,
         request_context: &RequestContext,
         command: &Self::Command,
-    ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
+    ) -> Result<Self::Output, Self::Error> {
         let mut deposit = Deposit::new();
         let deposit_id = deposit.aggregate_id();
 
@@ -108,9 +107,7 @@ where
             Ok(TokenAccountOwnerAddressValidationResult::Valid) => {}
             Ok(TokenAccountOwnerAddressValidationResult::Invalid) => {
                 let reason = DepositRequestRejectionReason::InvalidTokenAccountOwnerAddress;
-                return Ok(CommandHandled::same(
-                    DepositTokenTransferPrepareOutput::Rejected { deposit_id, reason },
-                ));
+                return Ok(DepositTokenTransferPrepareOutput::Rejected { deposit_id, reason });
             }
             Err(error @ TokenAccountOwnerAddressValidatorError::Backend(_)) => {
                 return Err(error.into());
@@ -136,9 +133,7 @@ where
             self.deposit_repository
                 .save(uow, request_context, &mut deposit)
                 .await?;
-            return Ok(CommandHandled::same(
-                DepositTokenTransferPrepareOutput::Rejected { deposit_id, reason },
-            ));
+            return Ok(DepositTokenTransferPrepareOutput::Rejected { deposit_id, reason });
         };
 
         let result = deposit.request(request)?;
@@ -148,9 +143,7 @@ where
                 self.deposit_repository
                     .save(uow, request_context, &mut deposit)
                     .await?;
-                return Ok(CommandHandled::same(
-                    DepositTokenTransferPrepareOutput::Rejected { deposit_id, reason },
-                ));
+                return Ok(DepositTokenTransferPrepareOutput::Rejected { deposit_id, reason });
             }
         }
 
@@ -166,12 +159,10 @@ where
             .save(uow, request_context, &mut deposit)
             .await?;
 
-        Ok(CommandHandled::same(
-            DepositTokenTransferPrepareOutput::Prepared {
-                deposit_id,
-                preparation,
-            },
-        ))
+        Ok(DepositTokenTransferPrepareOutput::Prepared {
+            deposit_id,
+            preparation,
+        })
     }
 }
 
@@ -424,7 +415,7 @@ mod tests {
             .await
             .expect("invalid address should be handled as a rejection");
 
-        let output = handled.into_output();
+        let output = handled;
         let DepositTokenTransferPrepareOutput::Rejected { reason, .. } = output else {
             panic!("expected rejected output");
         };

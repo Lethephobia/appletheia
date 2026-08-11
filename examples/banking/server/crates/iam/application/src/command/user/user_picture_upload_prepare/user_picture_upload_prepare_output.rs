@@ -1,3 +1,4 @@
+use appletheia::application::command::{CommandOutput, CommandReplayOutput};
 use appletheia::application::object_storage::SignedObjectUpload;
 use banking_iam_domain::UserPictureRef;
 use serde::{Deserialize, Serialize};
@@ -15,4 +16,12 @@ pub enum UserPictureUploadPrepareOutput {
     Rejected {
         reason: UserPictureUploadPrepareRejectionReason,
     },
+}
+
+impl CommandOutput for UserPictureUploadPrepareOutput {
+    type ReplayOutput = Self;
+
+    fn replay_output(&self) -> CommandReplayOutput<'_, Self::ReplayOutput> {
+        CommandReplayOutput::Borrowed(self)
+    }
 }

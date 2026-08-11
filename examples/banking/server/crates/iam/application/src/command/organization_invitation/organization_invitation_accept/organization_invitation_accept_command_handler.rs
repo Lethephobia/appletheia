@@ -1,7 +1,7 @@
 use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
-use appletheia::application::command::{CommandHandled, CommandHandler};
+use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_iam_domain::{
@@ -47,7 +47,6 @@ where
 {
     type Command = OrganizationInvitationAcceptCommand;
     type Output = OrganizationInvitationAcceptOutput;
-    type ReplayOutput = OrganizationInvitationAcceptOutput;
     type Error = OrganizationInvitationAcceptCommandHandlerError;
     type Uow = ORG::Uow;
 
@@ -70,7 +69,7 @@ where
         uow: &mut Self::Uow,
         _request_context: &RequestContext,
         command: &Self::Command,
-    ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
+    ) -> Result<Self::Output, Self::Error> {
         let mut organization_invitation = self
             .organization_invitation_repository
             .read(uow, command.organization_invitation_id)
@@ -89,9 +88,7 @@ where
                 .save(uow, _request_context, &mut organization_invitation)
                 .await?;
 
-            return Ok(CommandHandled::same(
-                OrganizationInvitationAcceptOutput::Rejected { reason },
-            ));
+            return Ok(OrganizationInvitationAcceptOutput::Rejected { reason });
         }
 
         let result = organization_invitation.accept(CurrentDateTime::new())?;
@@ -109,6 +106,6 @@ where
             }
         };
 
-        Ok(CommandHandled::same(output))
+        Ok(output)
     }
 }

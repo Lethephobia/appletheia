@@ -1,7 +1,7 @@
 use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
-use appletheia::application::command::{CommandHandled, CommandHandler};
+use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use appletheia::domain::Aggregate;
@@ -54,7 +54,6 @@ where
 {
     type Command = CurrencyIssueCommand;
     type Output = CurrencyIssueOutput;
-    type ReplayOutput = CurrencyIssueOutput;
     type Error = CurrencyIssueCommandHandlerError;
     type Uow = CIR::Uow;
 
@@ -77,7 +76,7 @@ where
         uow: &mut Self::Uow,
         request_context: &RequestContext,
         command: &Self::Command,
-    ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
+    ) -> Result<Self::Output, Self::Error> {
         let destination_account = self
             .account_repository
             .read(uow, command.destination_account_id)
@@ -99,10 +98,10 @@ where
                 .save(uow, request_context, &mut currency_issuance)
                 .await?;
 
-            return Ok(CommandHandled::same(CurrencyIssueOutput::Rejected {
+            return Ok(CurrencyIssueOutput::Rejected {
                 currency_issuance_id,
                 reason,
-            }));
+            });
         }
 
         let currency = self
@@ -120,10 +119,10 @@ where
                 .save(uow, request_context, &mut currency_issuance)
                 .await?;
 
-            return Ok(CommandHandled::same(CurrencyIssueOutput::Rejected {
+            return Ok(CurrencyIssueOutput::Rejected {
                 currency_issuance_id,
                 reason,
-            }));
+            });
         }
 
         if !currency.is_active()? {
@@ -134,10 +133,10 @@ where
                 .save(uow, request_context, &mut currency_issuance)
                 .await?;
 
-            return Ok(CommandHandled::same(CurrencyIssueOutput::Rejected {
+            return Ok(CurrencyIssueOutput::Rejected {
                 currency_issuance_id,
                 reason,
-            }));
+            });
         }
 
         let output = match currency_issuance.issue(request)? {
@@ -154,6 +153,6 @@ where
             .save(uow, request_context, &mut currency_issuance)
             .await?;
 
-        Ok(CommandHandled::same(output))
+        Ok(output)
     }
 }

@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use appletheia::application::authorization::{AuthorizationPlan, PrincipalRequirement};
-use appletheia::application::command::{CommandHandled, CommandHandler};
+use appletheia::application::command::CommandHandler;
 use appletheia::application::request_context::RequestContext;
 use appletheia::application::unit_of_work::UnitOfWork;
 
@@ -38,7 +38,6 @@ where
 {
     type Command = OnchainConfigureCommand;
     type Output = OnchainConfigureOutput;
-    type ReplayOutput = OnchainConfigureOutput;
     type Error = OnchainConfigureCommandHandlerError;
     type Uow = U;
 
@@ -56,10 +55,10 @@ where
         _uow: &mut Self::Uow,
         _request_context: &RequestContext,
         _command: &Self::Command,
-    ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
+    ) -> Result<Self::Output, Self::Error> {
         self.onchain_configurer.configure().await?;
 
-        Ok(CommandHandled::same(OnchainConfigureOutput))
+        Ok(OnchainConfigureOutput)
     }
 }
 
@@ -130,6 +129,6 @@ mod tests {
             .expect("command should be handled");
 
         assert_eq!(configurer.calls(), 1);
-        assert_eq!(handled.into_output(), OnchainConfigureOutput);
+        assert_eq!(handled, OnchainConfigureOutput);
     }
 }

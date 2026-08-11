@@ -1,6 +1,6 @@
 use crate::mint::{PoolTokenTransferExecutor, PoolTokenTransferRequest};
 use appletheia::application::authorization::{AuthorizationPlan, PrincipalRequirement};
-use appletheia::application::command::{CommandHandled, CommandHandler};
+use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_ledger_domain::currency::Currency;
@@ -52,7 +52,6 @@ where
 {
     type Command = WithdrawalTokenTransferCommand;
     type Output = WithdrawalTokenTransferOutput;
-    type ReplayOutput = WithdrawalTokenTransferOutput;
     type Error = WithdrawalTokenTransferCommandHandlerError;
     type Uow = WR::Uow;
 
@@ -70,7 +69,7 @@ where
         uow: &mut Self::Uow,
         request_context: &RequestContext,
         command: &Self::Command,
-    ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
+    ) -> Result<Self::Output, Self::Error> {
         let mut withdrawal = self
             .withdrawal_repository
             .read(uow, command.withdrawal_id)
@@ -83,9 +82,7 @@ where
             self.withdrawal_repository
                 .save(uow, request_context, &mut withdrawal)
                 .await?;
-            return Ok(CommandHandled::same(
-                WithdrawalTokenTransferOutput::Rejected { reason },
-            ));
+            return Ok(WithdrawalTokenTransferOutput::Rejected { reason });
         };
 
         let request = PoolTokenTransferRequest::new(
@@ -110,7 +107,7 @@ where
             }
         };
 
-        Ok(CommandHandled::same(output))
+        Ok(output)
     }
 }
 
@@ -420,10 +417,7 @@ mod tests {
             .await
             .expect("token transfer should succeed");
 
-        assert_eq!(
-            handled.into_output(),
-            WithdrawalTokenTransferOutput::TokenTransferred
-        );
+        assert_eq!(handled, WithdrawalTokenTransferOutput::TokenTransferred);
         let saved = withdrawal_repository
             .saved
             .lock()
@@ -464,10 +458,7 @@ mod tests {
             .expect("unprovisioned currency should reject the token transfer");
 
         let reason = WithdrawalTokenTransferRejectionReason::CurrencyUnprovisioned;
-        assert_eq!(
-            handled.into_output(),
-            WithdrawalTokenTransferOutput::Rejected { reason }
-        );
+        assert_eq!(handled, WithdrawalTokenTransferOutput::Rejected { reason });
         let saved = withdrawal_repository
             .saved
             .lock()

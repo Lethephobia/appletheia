@@ -1,5 +1,5 @@
 use appletheia::application::authorization::{AuthorizationPlan, PrincipalRequirement};
-use appletheia::application::command::{CommandHandled, CommandHandler};
+use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use appletheia::domain::Aggregate;
@@ -37,7 +37,6 @@ where
 {
     type Command = OwnedAccountClosureRequestCommand;
     type Output = OwnedAccountClosureRequestOutput;
-    type ReplayOutput = OwnedAccountClosureRequestOutput;
     type Error = OwnedAccountClosureRequestCommandHandlerError;
     type Uow = OACR::Uow;
 
@@ -55,7 +54,7 @@ where
         uow: &mut Self::Uow,
         request_context: &RequestContext,
         command: &Self::Command,
-    ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
+    ) -> Result<Self::Output, Self::Error> {
         let mut owned_account_closure = OwnedAccountClosure::new();
         let owned_account_closure_id = owned_account_closure.aggregate_id();
         let result = owned_account_closure.request(OwnedAccountClosureRequest {
@@ -72,6 +71,6 @@ where
             },
         };
 
-        Ok(CommandHandled::same(output))
+        Ok(output)
     }
 }

@@ -1,3 +1,4 @@
+use appletheia::application::command::{CommandOutput, CommandReplayOutput};
 use banking_ledger_domain::wallet_bookmark::WalletBookmarkDescriptionChangeRejectionReason;
 use serde::{Deserialize, Serialize};
 
@@ -9,4 +10,12 @@ pub enum WalletBookmarkDescriptionChangeOutput {
     Rejected {
         reason: WalletBookmarkDescriptionChangeRejectionReason,
     },
+}
+
+impl CommandOutput for WalletBookmarkDescriptionChangeOutput {
+    type ReplayOutput = Self;
+
+    fn replay_output(&self) -> CommandReplayOutput<'_, Self::ReplayOutput> {
+        CommandReplayOutput::Borrowed(self)
+    }
 }

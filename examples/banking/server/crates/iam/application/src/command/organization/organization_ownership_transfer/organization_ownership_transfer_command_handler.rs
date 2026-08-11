@@ -1,7 +1,7 @@
 use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
-use appletheia::application::command::{CommandHandled, CommandHandler};
+use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_iam_domain::{Organization, OrganizationOwnershipTransferResult};
@@ -37,7 +37,6 @@ where
 {
     type Command = OrganizationOwnershipTransferCommand;
     type Output = OrganizationOwnershipTransferOutput;
-    type ReplayOutput = OrganizationOwnershipTransferOutput;
     type Error = OrganizationOwnershipTransferCommandHandlerError;
     type Uow = OR::Uow;
 
@@ -60,7 +59,7 @@ where
         uow: &mut Self::Uow,
         request_context: &RequestContext,
         command: &Self::Command,
-    ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
+    ) -> Result<Self::Output, Self::Error> {
         let mut organization = self
             .organization_repository
             .read(uow, command.organization_id)
@@ -81,7 +80,7 @@ where
             }
         };
 
-        Ok(CommandHandled::same(output))
+        Ok(output)
     }
 }
 
@@ -266,10 +265,7 @@ mod tests {
             .await
             .expect("command should succeed");
 
-        assert_eq!(
-            handled.into_output(),
-            OrganizationOwnershipTransferOutput::Transferred
-        );
+        assert_eq!(handled, OrganizationOwnershipTransferOutput::Transferred);
         assert_eq!(
             repository
                 .organization

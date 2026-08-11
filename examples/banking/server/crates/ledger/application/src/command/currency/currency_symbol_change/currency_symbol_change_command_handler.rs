@@ -1,7 +1,7 @@
 use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
-use appletheia::application::command::{CommandHandled, CommandHandler};
+use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use appletheia::domain::{Aggregate, UniqueValue};
@@ -47,7 +47,6 @@ where
 {
     type Command = CurrencySymbolChangeCommand;
     type Output = CurrencySymbolChangeOutput;
-    type ReplayOutput = CurrencySymbolChangeOutput;
     type Error = CurrencySymbolChangeCommandHandlerError;
     type Uow = CR::Uow;
 
@@ -70,7 +69,7 @@ where
         uow: &mut Self::Uow,
         request_context: &RequestContext,
         command: &Self::Command,
-    ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
+    ) -> Result<Self::Output, Self::Error> {
         let mut currency = self
             .currency_repository
             .read(uow, command.currency_id)
@@ -90,9 +89,7 @@ where
                 .save(uow, request_context, &mut currency)
                 .await?;
 
-            return Ok(CommandHandled::same(CurrencySymbolChangeOutput::Rejected {
-                reason,
-            }));
+            return Ok(CurrencySymbolChangeOutput::Rejected { reason });
         }
 
         let result = currency.change_symbol(command.symbol.clone())?;
@@ -108,6 +105,6 @@ where
             }
         };
 
-        Ok(CommandHandled::same(output))
+        Ok(output)
     }
 }

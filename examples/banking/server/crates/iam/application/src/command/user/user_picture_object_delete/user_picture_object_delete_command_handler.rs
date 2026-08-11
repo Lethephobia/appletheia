@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use appletheia::application::authorization::{AuthorizationPlan, PrincipalRequirement};
-use appletheia::application::command::{CommandHandled, CommandHandler};
+use appletheia::application::command::CommandHandler;
 use appletheia::application::object_storage::{
     ObjectBucketName, ObjectDeleteRequest, ObjectDeleter, ObjectName,
 };
@@ -45,7 +45,6 @@ where
 {
     type Command = UserPictureObjectDeleteCommand;
     type Output = UserPictureObjectDeleteOutput;
-    type ReplayOutput = UserPictureObjectDeleteOutput;
     type Error = UserPictureObjectDeleteCommandHandlerError;
     type Uow = U;
 
@@ -63,13 +62,13 @@ where
         _uow: &mut Self::Uow,
         _request_context: &RequestContext,
         command: &Self::Command,
-    ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
+    ) -> Result<Self::Output, Self::Error> {
         let request = ObjectDeleteRequest::new(
             self.bucket_name.clone(),
             ObjectName::new(command.object_name.value().to_owned())?,
         );
         self.object_deleter.delete(request).await?;
 
-        Ok(CommandHandled::same(UserPictureObjectDeleteOutput))
+        Ok(UserPictureObjectDeleteOutput)
     }
 }

@@ -1,7 +1,7 @@
 use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
-use appletheia::application::command::{CommandHandled, CommandHandler};
+use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_ledger_domain::account::{Account, AccountOwnershipTransferResult};
@@ -35,7 +35,6 @@ where
 {
     type Command = AccountOwnershipTransferCommand;
     type Output = AccountOwnershipTransferOutput;
-    type ReplayOutput = AccountOwnershipTransferOutput;
     type Error = AccountOwnershipTransferCommandHandlerError;
     type Uow = AR::Uow;
 
@@ -58,7 +57,7 @@ where
         uow: &mut Self::Uow,
         request_context: &RequestContext,
         command: &Self::Command,
-    ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
+    ) -> Result<Self::Output, Self::Error> {
         let mut account = self
             .account_repository
             .read(uow, command.account_id)
@@ -79,6 +78,6 @@ where
             }
         };
 
-        Ok(CommandHandled::same(output))
+        Ok(output)
     }
 }

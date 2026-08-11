@@ -1,3 +1,4 @@
+use appletheia::application::command::{CommandOutput, CommandReplayOutput};
 use serde::{Deserialize, Serialize};
 
 /// Returned after recording a deposit token transfer attempt.
@@ -6,4 +7,12 @@ use serde::{Deserialize, Serialize};
 pub enum DepositTokenTransferRecordOutput {
     TokenTransferred,
     Rejected,
+}
+
+impl CommandOutput for DepositTokenTransferRecordOutput {
+    type ReplayOutput = Self;
+
+    fn replay_output(&self) -> CommandReplayOutput<'_, Self::ReplayOutput> {
+        CommandReplayOutput::Borrowed(self)
+    }
 }

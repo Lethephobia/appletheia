@@ -137,8 +137,8 @@ mod tests {
     use crate::authorization::AuthorizationPlan;
     use crate::command::CommandEnvelope;
     use crate::command::{
-        Command, CommandDispatchResult, CommandDispatcher, CommandDispatcherError, CommandHandled,
-        CommandHandler, CommandName, CommandOptions, CommandWorker,
+        Command, CommandDispatchResult, CommandDispatcher, CommandDispatcherError, CommandHandler,
+        CommandName, CommandOptions, CommandOutput, CommandReplayOutput, CommandWorker,
     };
     use crate::messaging::{
         Consumer, ConsumerError, ConsumerGroup, Delivery, Subscriber, SubscriberError, Subscription,
@@ -181,10 +181,20 @@ mod tests {
         retryable: bool,
     }
 
+    #[derive(Deserialize, Serialize)]
+    struct TestOutput;
+
+    impl CommandOutput for TestOutput {
+        type ReplayOutput = Self;
+
+        fn replay_output(&self) -> CommandReplayOutput<'_, Self::ReplayOutput> {
+            CommandReplayOutput::Borrowed(self)
+        }
+    }
+
     impl CommandHandler for TestHandler {
         type Command = TestCommand;
-        type Output = ();
-        type ReplayOutput = ();
+        type Output = TestOutput;
         type Error = TestHandlerError;
         type Uow = TestUow;
 
@@ -202,7 +212,7 @@ mod tests {
             _uow: &mut Self::Uow,
             _request_context: &RequestContext,
             _command: &Self::Command,
-        ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
+        ) -> Result<Self::Output, Self::Error> {
             unreachable!("test dispatcher does not call the handler")
         }
     }
@@ -219,7 +229,7 @@ mod tests {
             command: H::Command,
             _options: CommandOptions,
         ) -> Result<
-            CommandDispatchResult<H::Output, H::ReplayOutput>,
+            CommandDispatchResult<H::Output, <H::Output as CommandOutput>::ReplayOutput>,
             CommandDispatcherError<H::Error>,
         >
         where

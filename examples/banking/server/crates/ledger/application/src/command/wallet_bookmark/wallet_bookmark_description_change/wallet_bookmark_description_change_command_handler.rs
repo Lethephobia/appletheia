@@ -1,7 +1,7 @@
 use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
-use appletheia::application::command::{CommandHandled, CommandHandler};
+use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_ledger_domain::wallet_bookmark::{
@@ -39,7 +39,6 @@ where
 {
     type Command = WalletBookmarkDescriptionChangeCommand;
     type Output = WalletBookmarkDescriptionChangeOutput;
-    type ReplayOutput = WalletBookmarkDescriptionChangeOutput;
     type Error = WalletBookmarkDescriptionChangeCommandHandlerError;
     type Uow = WBR::Uow;
 
@@ -62,7 +61,7 @@ where
         uow: &mut Self::Uow,
         request_context: &RequestContext,
         command: &Self::Command,
-    ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
+    ) -> Result<Self::Output, Self::Error> {
         let mut wallet_bookmark = self
             .wallet_bookmark_repository
             .read(uow, command.wallet_bookmark_id)
@@ -83,6 +82,6 @@ where
             }
         };
 
-        Ok(CommandHandled::same(output))
+        Ok(output)
     }
 }

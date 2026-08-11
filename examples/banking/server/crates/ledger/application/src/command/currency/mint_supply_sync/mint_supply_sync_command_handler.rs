@@ -1,6 +1,6 @@
 use crate::mint::{MintSupplySyncRequest, MintSupplySynchronizer};
 use appletheia::application::authorization::{AuthorizationPlan, PrincipalRequirement};
-use appletheia::application::command::{CommandHandled, CommandHandler};
+use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_ledger_domain::currency::{Currency, MintSupplySyncRejectionReason};
@@ -37,7 +37,6 @@ where
 {
     type Command = MintSupplySyncCommand;
     type Output = MintSupplySyncOutput;
-    type ReplayOutput = MintSupplySyncOutput;
     type Error = MintSupplySyncCommandHandlerError;
     type Uow = CR::Uow;
 
@@ -55,7 +54,7 @@ where
         uow: &mut Self::Uow,
         request_context: &RequestContext,
         command: &Self::Command,
-    ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
+    ) -> Result<Self::Output, Self::Error> {
         let mut currency = self
             .currency_repository
             .read(uow, command.currency_id)
@@ -69,9 +68,7 @@ where
                 .save(uow, request_context, &mut currency)
                 .await?;
 
-            return Ok(CommandHandled::same(MintSupplySyncOutput::Rejected {
-                reason,
-            }));
+            return Ok(MintSupplySyncOutput::Rejected { reason });
         }
 
         let target_supply = currency.target_supply()?;
@@ -88,7 +85,7 @@ where
             .save(uow, request_context, &mut currency)
             .await?;
 
-        Ok(CommandHandled::same(MintSupplySyncOutput::Synced))
+        Ok(MintSupplySyncOutput::Synced)
     }
 }
 
@@ -274,7 +271,7 @@ mod tests {
             .await
             .expect("command should be handled");
 
-        assert_eq!(handled.into_output(), MintSupplySyncOutput::Synced);
+        assert_eq!(handled, MintSupplySyncOutput::Synced);
         assert_eq!(
             request_log.lock().expect("lock").clone(),
             Some(MintSupplySyncRequest::new(
@@ -320,10 +317,7 @@ mod tests {
             .expect("command should record a rejection until mint account exists");
 
         let reason = MintSupplySyncRejectionReason::NotProvisioned;
-        assert_eq!(
-            handled.into_output(),
-            MintSupplySyncOutput::Rejected { reason }
-        );
+        assert_eq!(handled, MintSupplySyncOutput::Rejected { reason });
         let saved = repository
             .saved
             .lock()

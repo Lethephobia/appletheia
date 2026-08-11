@@ -2,7 +2,7 @@ use appletheia::application::authentication::AuthTokenRevoker;
 use appletheia::application::authorization::{
     AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
-use appletheia::application::command::{CommandHandled, CommandHandler};
+use appletheia::application::command::CommandHandler;
 use appletheia::application::request_context::RequestContext;
 use banking_iam_domain::User;
 
@@ -34,7 +34,6 @@ where
 {
     type Command = LogoutAllSessionsCommand;
     type Output = LogoutAllSessionsOutput;
-    type ReplayOutput = LogoutAllSessionsOutput;
     type Error = LogoutAllSessionsCommandHandlerError;
     type Uow = ATR::Uow;
 
@@ -57,14 +56,14 @@ where
         uow: &mut Self::Uow,
         _request_context: &RequestContext,
         command: &Self::Command,
-    ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
+    ) -> Result<Self::Output, Self::Error> {
         let subject = AggregateRef::from_id::<User>(command.user_id);
 
         self.auth_token_revoker
             .advance_revocation_cutoff(uow, &subject, command.token_issued_at)
             .await?;
 
-        Ok(CommandHandled::same(LogoutAllSessionsOutput))
+        Ok(LogoutAllSessionsOutput)
     }
 }
 
@@ -192,7 +191,7 @@ mod tests {
             .await
             .expect("command should succeed");
 
-        assert_eq!(handled.into_output(), LogoutAllSessionsOutput);
+        assert_eq!(handled, LogoutAllSessionsOutput);
         assert_eq!(
             revoker.cutoff(),
             Some((AggregateRef::from_id::<User>(user_id), issued_at))

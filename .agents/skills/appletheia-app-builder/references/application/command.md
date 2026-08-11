@@ -26,6 +26,54 @@ pub struct OrganizationRemoveCommand {
 
 ## CommandHandler
 
+### DO make command outputs own their replay representation
+
+Implement `CommandOutput` directly on every immediate output. Use the output itself as
+`ReplayOutput` only when the complete value is safe to persist. When the immediate output contains
+credentials, tokens, exchange codes, or other secrets, use a distinct replay-safe type. Keep that
+conversion with the output type so every handler return path follows the same policy. Return a
+borrowed `CommandReplayOutput` for a self-replaying output and an owned one for a separately built
+replay DTO; the command dispatcher serializes that replay value for idempotency storage.
+
+good:
+```rust
+#[derive(Deserialize, Serialize)]
+struct AccountOpenOutput {
+    account_id: AccountId,
+}
+
+impl CommandOutput for AccountOpenOutput {
+    type ReplayOutput = Self;
+
+    fn replay_output(&self) -> CommandReplayOutput<'_, Self::ReplayOutput> {
+        CommandReplayOutput::Borrowed(self)
+    }
+}
+```
+
+good:
+```rust
+impl CommandOutput for OidcCompleteOutput {
+    type ReplayOutput = OidcCompleteReplayOutput;
+
+    fn replay_output(&self) -> CommandReplayOutput<'_, Self::ReplayOutput> {
+        CommandReplayOutput::Owned(self.replay_safe_output())
+    }
+}
+```
+
+bad:
+```rust
+// A secret-bearing output must not persist and replay itself.
+impl CommandOutput for OidcCompleteOutput {
+    type ReplayOutput = Self;
+
+    fn replay_output(&self) -> CommandReplayOutput<'_, Self::ReplayOutput> {
+        CommandReplayOutput::Borrowed(self)
+    }
+}
+```
+
 ### DO classify command outcomes before choosing `Ok` or `Err`
 
 Use the following table to keep domain outcomes, rollback failures, persistence, replay, and
@@ -33,9 +81,9 @@ consumer delivery behavior aligned.
 
 | Classification | Typical examples | Handler result and retryability | Persisted data and replay | Transaction | Consumer delivery |
 | --- | --- | --- | --- | --- | --- |
-| Successful domain outcome | Created, transferred, reserved | `Ok(CommandHandled)` | Save domain events when state changed and complete the idempotency record; replay returns the stored output | Commit | Ack |
-| Expected persisted business rejection | Insufficient funds, handle already taken, cross-aggregate mismatch | `Ok(CommandHandled)` with `Rejected { reason }` | Save a rejected event when the refusal is a domain fact or must drive a saga/projection, then complete the idempotency record | Commit | Ack |
-| Expected non-persisted rejection | Invalid externally validated address, unsupported upload content type, policy refusal with no downstream reaction | `Ok(CommandHandled)` with `Rejected { reason }` | Save no domain event; complete the idempotency record so replay returns the same rejection | Commit | Ack |
+| Successful domain outcome | Created, transferred, reserved | `Ok(Output)` | Save domain events when state changed and complete the idempotency record; replay returns the stored output | Commit | Ack |
+| Expected persisted business rejection | Insufficient funds, handle already taken, cross-aggregate mismatch | `Ok(Output)` with `Rejected { reason }` | Save a rejected event when the refusal is a domain fact or must drive a saga/projection, then complete the idempotency record | Commit | Ack |
+| Expected non-persisted rejection | Invalid externally validated address, unsupported upload content type, policy refusal with no downstream reaction | `Ok(Output)` with `Rejected { reason }` | Save no domain event; complete the idempotency record so replay returns the same rejection | Commit | Ack |
 | Non-retryable processing failure | Aggregate invariant violation, required aggregate not found, invalid persisted mapping, impossible application state | `Err`, with `is_retryable() == false` | Save neither pending domain events nor a completed idempotency result; an explicit future submission executes again | Roll back | Ack the current delivery |
 | Retryable processing failure | Temporary database, object-storage, network, or application-service failure | `Err`, with `is_retryable() == true` | Save neither pending domain events nor a completed idempotency result; broker redelivery executes again | Roll back | Nack; provider policy may eventually dead-letter |
 
@@ -57,7 +105,7 @@ let output = match result {
     }
 };
 
-Ok(CommandHandled::same(output))
+Ok(output)
 ```
 
 bad:
@@ -72,14 +120,14 @@ if let TransferRequestResult::Rejected { reason } = result {
     return Err(TransferRequestCommandHandlerError::Rejected { reason });
 }
 
-Ok(CommandHandled::same(TransferRequestOutput::Requested {
+Ok(TransferRequestOutput::Requested {
     transfer_id,
-}))
+})
 ```
 
 ### DO persist a rejection only when later behavior needs the fact
 
-Return an expected rejection through `CommandHandled` without appending an event when no aggregate
+Return an expected rejection through the command output without appending an event when no aggregate
 state changes and no saga, projection, audit requirement, or later command depends on the refusal.
 The completed idempotency record is sufficient to replay the command output. Do not create an empty
 or uninitialized aggregate stream solely to persist a rejection reason.
@@ -88,10 +136,10 @@ good:
 ```rust
 let address_validation = address_validator.validate(&command.address).await?;
 if matches!(address_validation, AddressValidationResult::Invalid) {
-    return Ok(CommandHandled::same(RegisterOutput::Rejected {
+    return Ok(RegisterOutput::Rejected {
         registration_id,
         reason: RegisterRejectionReason::InvalidAddress,
-    }));
+    });
 }
 
 registration.register(request)?;
@@ -110,10 +158,10 @@ if matches!(address_validation, AddressValidationResult::Invalid) {
         .save(uow, request_context, &mut registration)
         .await?;
 
-    return Ok(CommandHandled::same(RegisterOutput::Rejected {
+    return Ok(RegisterOutput::Rejected {
         registration_id,
         reason: RegisterRejectionReason::InvalidAddress,
-    }));
+    });
 }
 ```
 
@@ -155,7 +203,7 @@ let output = match result {
     }
 };
 
-Ok(CommandHandled::same(output))
+Ok(output)
 ```
 
 bad:
@@ -163,7 +211,7 @@ bad:
 account.reserve_funds(command.amount)?;
 repository.save(uow, request_context, &mut account).await?;
 
-Ok(CommandHandled::same(AccountReserveFundsOutput))
+Ok(AccountReserveFundsOutput)
 ```
 
 ### DON'T convert expected domain rejections into handler errors
@@ -190,7 +238,7 @@ let output = match result {
         AccountReserveFundsOutput::Rejected { reason }
     }
 };
-Ok(CommandHandled::same(output))
+Ok(output)
 ```
 
 ### DO implement retryability close to the application error that owns it
@@ -283,10 +331,10 @@ if destination_account.currency_id()? != &command.currency_id {
         .save(uow, request_context, &mut issuance)
         .await?;
 
-    return Ok(CommandHandled::same(CurrencyIssueOutput::Rejected {
+    return Ok(CurrencyIssueOutput::Rejected {
         currency_issuance_id,
         reason,
-    }));
+    });
 }
 
 if !currency.is_active() {
@@ -297,10 +345,10 @@ if !currency.is_active() {
         .save(uow, request_context, &mut issuance)
         .await?;
 
-    return Ok(CommandHandled::same(CurrencyIssueOutput::Rejected {
+    return Ok(CurrencyIssueOutput::Rejected {
         currency_issuance_id,
         reason,
-    }));
+    });
 }
 
 let result = issuance.issue(request)?;
@@ -319,7 +367,7 @@ let output = match result {
     },
 };
 
-Ok(CommandHandled::same(output))
+Ok(output)
 ```
 
 good:

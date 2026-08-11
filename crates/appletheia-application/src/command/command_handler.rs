@@ -1,20 +1,16 @@
 use crate::Retryability;
 use crate::authorization::AuthorizationPlan;
-use crate::command::{Command, CommandHandled};
+use crate::command::{Command, CommandOutput};
 use crate::request_context::RequestContext;
 use crate::unit_of_work::UnitOfWork;
-use serde::Serialize;
-use serde::de::DeserializeOwned;
 
 /// Handles a command within the application command pipeline.
 ///
-/// A handler returns an immediate `Output` for the current execution and a replay-safe
-/// `ReplayOutput` that can be persisted for idempotent replays.
+/// The output owns its conversion to the replay-safe representation persisted for idempotency.
 #[allow(async_fn_in_trait)]
 pub trait CommandHandler: Send + Sync {
     type Command: Command;
-    type Output: Send + 'static;
-    type ReplayOutput: Serialize + DeserializeOwned + Send + 'static;
+    type Output: CommandOutput;
     type Error: Retryability;
     type Uow: UnitOfWork;
 
@@ -26,11 +22,11 @@ pub trait CommandHandler: Send + Sync {
         Ok(AuthorizationPlan::default())
     }
 
-    /// Executes the command and returns both the immediate output and replay-safe output.
+    /// Executes the command and returns its immediate output.
     async fn handle(
         &self,
         uow: &mut Self::Uow,
         request_context: &RequestContext,
         command: &Self::Command,
-    ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error>;
+    ) -> Result<Self::Output, Self::Error>;
 }

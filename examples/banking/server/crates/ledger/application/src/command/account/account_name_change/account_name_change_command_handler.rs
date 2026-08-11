@@ -1,7 +1,7 @@
 use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
-use appletheia::application::command::{CommandHandled, CommandHandler};
+use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_ledger_domain::account::{Account, AccountNameChangeResult};
@@ -34,7 +34,6 @@ where
 {
     type Command = AccountNameChangeCommand;
     type Output = AccountNameChangeOutput;
-    type ReplayOutput = AccountNameChangeOutput;
     type Error = AccountNameChangeCommandHandlerError;
     type Uow = AR::Uow;
 
@@ -57,7 +56,7 @@ where
         uow: &mut Self::Uow,
         request_context: &RequestContext,
         command: &Self::Command,
-    ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
+    ) -> Result<Self::Output, Self::Error> {
         let mut account = self
             .account_repository
             .read(uow, command.account_id)
@@ -76,7 +75,7 @@ where
             }
         };
 
-        Ok(CommandHandled::same(output))
+        Ok(output)
     }
 }
 
@@ -276,6 +275,6 @@ mod tests {
             .expect("account should be saved");
         assert_eq!(saved.name().expect("name should exist"), &name);
 
-        assert_eq!(handled.into_output(), AccountNameChangeOutput::Changed);
+        assert_eq!(handled, AccountNameChangeOutput::Changed);
     }
 }

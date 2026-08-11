@@ -1,7 +1,7 @@
 use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
-use appletheia::application::command::{CommandHandled, CommandHandler};
+use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use appletheia::domain::{Aggregate, UniqueValue};
@@ -43,7 +43,6 @@ where
 {
     type Command = UserUsernameChangeCommand;
     type Output = UserUsernameChangeOutput;
-    type ReplayOutput = UserUsernameChangeOutput;
     type Error = UserUsernameChangeCommandHandlerError;
     type Uow = UR::Uow;
 
@@ -66,7 +65,7 @@ where
         uow: &mut Self::Uow,
         request_context: &RequestContext,
         command: &Self::Command,
-    ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
+    ) -> Result<Self::Output, Self::Error> {
         let mut user = self.user_repository.read(uow, command.user_id).await?;
 
         let unique_value = Self::username_unique_value(&command.username)?;
@@ -83,9 +82,7 @@ where
                 .save(uow, request_context, &mut user)
                 .await?;
 
-            return Ok(CommandHandled::same(UserUsernameChangeOutput::Rejected {
-                reason,
-            }));
+            return Ok(UserUsernameChangeOutput::Rejected { reason });
         }
 
         let result = user.change_username(command.username.clone())?;
@@ -101,7 +98,7 @@ where
             }
         };
 
-        Ok(CommandHandled::same(output))
+        Ok(output)
     }
 }
 
@@ -246,6 +243,6 @@ mod tests {
             .await
             .expect("command should succeed");
 
-        assert_eq!(handled.into_output(), UserUsernameChangeOutput::Changed);
+        assert_eq!(handled, UserUsernameChangeOutput::Changed);
     }
 }

@@ -1,3 +1,4 @@
+use appletheia::application::command::{CommandOutput, CommandReplayOutput};
 use banking_ledger_domain::transfer::{TransferId, TransferRequestRejectionReason};
 use serde::{Deserialize, Serialize};
 
@@ -12,4 +13,12 @@ pub enum TransferRequestOutput {
         transfer_id: TransferId,
         reason: TransferRequestRejectionReason,
     },
+}
+
+impl CommandOutput for TransferRequestOutput {
+    type ReplayOutput = Self;
+
+    fn replay_output(&self) -> CommandReplayOutput<'_, Self::ReplayOutput> {
+        CommandReplayOutput::Borrowed(self)
+    }
 }

@@ -1,3 +1,4 @@
+use appletheia::application::command::{CommandOutput, CommandReplayOutput};
 use appletheia::application::object_storage::SignedObjectUpload;
 use banking_ledger_domain::currency::CurrencyImageRef;
 use serde::{Deserialize, Serialize};
@@ -15,4 +16,12 @@ pub enum CurrencyImageUploadPrepareOutput {
     Rejected {
         reason: CurrencyImageUploadPrepareRejectionReason,
     },
+}
+
+impl CommandOutput for CurrencyImageUploadPrepareOutput {
+    type ReplayOutput = Self;
+
+    fn replay_output(&self) -> CommandReplayOutput<'_, Self::ReplayOutput> {
+        CommandReplayOutput::Borrowed(self)
+    }
 }

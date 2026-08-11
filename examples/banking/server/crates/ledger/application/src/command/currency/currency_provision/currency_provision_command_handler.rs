@@ -1,6 +1,6 @@
 use crate::mint::{MintProvisionRequest, MintProvisioner};
 use appletheia::application::authorization::{AuthorizationPlan, PrincipalRequirement};
-use appletheia::application::command::{CommandHandled, CommandHandler};
+use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_ledger_domain::currency::{
@@ -41,7 +41,6 @@ where
 {
     type Command = CurrencyProvisionCommand;
     type Output = CurrencyProvisionOutput;
-    type ReplayOutput = CurrencyProvisionOutput;
     type Error = CurrencyProvisionCommandHandlerError;
     type Uow = CR::Uow;
 
@@ -59,7 +58,7 @@ where
         uow: &mut Self::Uow,
         request_context: &RequestContext,
         command: &Self::Command,
-    ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
+    ) -> Result<Self::Output, Self::Error> {
         let mut currency = self
             .currency_repository
             .read(uow, command.currency_id)
@@ -71,9 +70,7 @@ where
             self.currency_repository
                 .save(uow, request_context, &mut currency)
                 .await?;
-            return Ok(CommandHandled::same(CurrencyProvisionOutput::Rejected {
-                reason,
-            }));
+            return Ok(CurrencyProvisionOutput::Rejected { reason });
         }
 
         if currency.mint_account()?.is_some() {
@@ -82,9 +79,7 @@ where
             self.currency_repository
                 .save(uow, request_context, &mut currency)
                 .await?;
-            return Ok(CommandHandled::same(CurrencyProvisionOutput::Rejected {
-                reason,
-            }));
+            return Ok(CurrencyProvisionOutput::Rejected { reason });
         }
 
         let receipt = self
@@ -113,7 +108,7 @@ where
             }
         };
 
-        Ok(CommandHandled::same(output))
+        Ok(output)
     }
 }
 
@@ -328,7 +323,7 @@ mod tests {
             .expect("command should be handled");
 
         assert_eq!(
-            handled.into_output(),
+            handled,
             CurrencyProvisionOutput::Rejected {
                 reason: CurrencyProvisionRejectionReason::AlreadyProvisioned
             }
@@ -372,7 +367,7 @@ mod tests {
             .expect("command should be handled");
 
         assert_eq!(
-            handled.into_output(),
+            handled,
             CurrencyProvisionOutput::Rejected {
                 reason: CurrencyProvisionRejectionReason::Removed
             }
@@ -416,7 +411,7 @@ mod tests {
             .expect("command should be handled");
 
         assert!(matches!(
-            handled.into_output(),
+            handled,
             CurrencyProvisionOutput::Provisioned { .. }
         ));
         assert_eq!(*provisioner_calls.lock().expect("lock"), 1);

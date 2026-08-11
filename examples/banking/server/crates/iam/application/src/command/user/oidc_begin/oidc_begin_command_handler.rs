@@ -5,7 +5,7 @@ use appletheia::application::authentication::oidc::{
 use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
-use appletheia::application::command::{CommandHandled, CommandHandler};
+use appletheia::application::command::CommandHandler;
 use appletheia::application::request_context::RequestContext;
 use banking_iam_domain::User;
 
@@ -52,7 +52,6 @@ where
 {
     type Command = OidcBeginCommand;
     type Output = OidcBeginOutput;
-    type ReplayOutput = OidcBeginOutput;
     type Error = OidcBeginCommandHandlerError;
     type Uow = OLF::Uow;
 
@@ -80,7 +79,7 @@ where
         uow: &mut Self::Uow,
         _request_context: &RequestContext,
         command: &Self::Command,
-    ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
+    ) -> Result<Self::Output, Self::Error> {
         let OidcBeginCommand {
             completion_purpose,
             completion_redirect_uri,
@@ -129,7 +128,7 @@ where
             expires_at: continuation.expires_at(),
         };
 
-        Ok(CommandHandled::same(output))
+        Ok(output)
     }
 }
 
@@ -305,7 +304,7 @@ mod tests {
             .await
             .expect("allowed completion redirect URI should be accepted");
 
-        let output = handled.into_output();
+        let output = handled;
         let saved = saved_continuations
             .lock()
             .expect("lock should be available");

@@ -1,3 +1,4 @@
+use appletheia::application::command::{CommandOutput, CommandReplayOutput};
 use banking_iam_domain::{OrganizationJoinRequestId, OrganizationJoinRequestSubmitRejectionReason};
 use serde::{Deserialize, Serialize};
 
@@ -12,4 +13,12 @@ pub enum OrganizationJoinRequestSubmitOutput {
         organization_join_request_id: OrganizationJoinRequestId,
         reason: OrganizationJoinRequestSubmitRejectionReason,
     },
+}
+
+impl CommandOutput for OrganizationJoinRequestSubmitOutput {
+    type ReplayOutput = Self;
+
+    fn replay_output(&self) -> CommandReplayOutput<'_, Self::ReplayOutput> {
+        CommandReplayOutput::Borrowed(self)
+    }
 }

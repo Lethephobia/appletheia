@@ -1,3 +1,4 @@
+use appletheia::application::command::{CommandOutput, CommandReplayOutput};
 use banking_ledger_domain::owned_account_closure::OwnedAccountClosureFailRejectionReason;
 use serde::{Deserialize, Serialize};
 
@@ -9,4 +10,12 @@ pub enum OwnedAccountClosureFailOutput {
     Rejected {
         reason: OwnedAccountClosureFailRejectionReason,
     },
+}
+
+impl CommandOutput for OwnedAccountClosureFailOutput {
+    type ReplayOutput = Self;
+
+    fn replay_output(&self) -> CommandReplayOutput<'_, Self::ReplayOutput> {
+        CommandReplayOutput::Borrowed(self)
+    }
 }

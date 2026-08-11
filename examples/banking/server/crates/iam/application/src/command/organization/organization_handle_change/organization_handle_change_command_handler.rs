@@ -1,7 +1,7 @@
 use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
-use appletheia::application::command::{CommandHandled, CommandHandler};
+use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use appletheia::domain::{Aggregate, UniqueValue};
@@ -47,7 +47,6 @@ where
 {
     type Command = OrganizationHandleChangeCommand;
     type Output = OrganizationHandleChangeOutput;
-    type ReplayOutput = OrganizationHandleChangeOutput;
     type Error = OrganizationHandleChangeCommandHandlerError;
     type Uow = OR::Uow;
 
@@ -70,7 +69,7 @@ where
         uow: &mut Self::Uow,
         request_context: &RequestContext,
         command: &Self::Command,
-    ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
+    ) -> Result<Self::Output, Self::Error> {
         let mut organization = self
             .organization_repository
             .read(uow, command.organization_id)
@@ -90,9 +89,7 @@ where
                 .save(uow, request_context, &mut organization)
                 .await?;
 
-            return Ok(CommandHandled::same(
-                OrganizationHandleChangeOutput::Rejected { reason },
-            ));
+            return Ok(OrganizationHandleChangeOutput::Rejected { reason });
         }
 
         let result = organization.change_handle(command.handle.clone())?;
@@ -108,7 +105,7 @@ where
             }
         };
 
-        Ok(CommandHandled::same(output))
+        Ok(output)
     }
 }
 
@@ -298,7 +295,7 @@ mod tests {
             .await
             .expect("command should succeed");
 
-        let output = handled.into_output();
+        let output = handled;
         let saved = repository.organization.lock().expect("lock").clone();
         let saved = saved.expect("organization should be saved");
 
