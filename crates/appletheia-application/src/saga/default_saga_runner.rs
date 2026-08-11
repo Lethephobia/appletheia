@@ -173,14 +173,13 @@ mod tests {
     use uuid::Uuid;
 
     use super::DefaultSagaRunner;
+    use crate::command::CommandEnvelope;
     use crate::event::{
         AggregateIdValue, AggregateTypeOwned, EventEnvelope, EventNameOwned, EventSelector,
         EventSequence, SerializedEventPayload,
     };
     use crate::messaging::Subscription;
-    use crate::outbox::command::{
-        CommandEnvelope, CommandOutboxEnqueueError, CommandOutboxEnqueuer,
-    };
+    use crate::outbox::command::{CommandOutboxEnqueueError, CommandOutboxEnqueuer};
     use crate::request_context::{
         CausationId, CorrelationId, MessageId, Principal, RequestContext,
     };

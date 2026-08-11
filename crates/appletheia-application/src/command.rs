@@ -1,6 +1,8 @@
 pub mod command_dispatch_result;
 pub mod command_dispatcher;
 pub mod command_dispatcher_error;
+pub mod command_envelope;
+pub mod command_envelope_error;
 pub mod command_handled;
 pub mod command_handler;
 pub mod command_hash;
@@ -24,10 +26,14 @@ pub mod idempotency_output;
 pub mod idempotency_output_error;
 pub mod idempotency_service;
 pub mod idempotency_service_error;
+pub mod serialized_command;
+pub mod serialized_command_error;
 
 pub use command_dispatch_result::CommandDispatchResult;
 pub use command_dispatcher::CommandDispatcher;
 pub use command_dispatcher_error::CommandDispatcherError;
+pub use command_envelope::CommandEnvelope;
+pub use command_envelope_error::CommandEnvelopeError;
 pub use command_handled::CommandHandled;
 pub use command_handler::CommandHandler;
 pub use command_hash::CommandHash;
@@ -51,6 +57,8 @@ pub use idempotency_output::IdempotencyOutput;
 pub use idempotency_output_error::IdempotencyOutputError;
 pub use idempotency_service::IdempotencyService;
 pub use idempotency_service_error::IdempotencyServiceError;
+pub use serialized_command::SerializedCommand;
+pub use serialized_command_error::SerializedCommandError;
 
 use serde::Serialize;
 use serde::de::DeserializeOwned;

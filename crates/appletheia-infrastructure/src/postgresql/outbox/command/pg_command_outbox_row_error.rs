@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-use appletheia_application::outbox::command::SerializedCommandError;
+use appletheia_application::command::SerializedCommandError;
 use appletheia_application::outbox::{
     OrderingKeyError, OutboxAttemptCountError, OutboxRelayInstanceError,
     command::CommandOutboxIdError,

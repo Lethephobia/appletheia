@@ -1,6 +1,7 @@
+use crate::command::CommandEnvelope;
 use crate::unit_of_work::UnitOfWork;
 
-use super::{CommandEnvelope, CommandOutboxEnqueueError};
+use super::CommandOutboxEnqueueError;
 
 #[allow(async_fn_in_trait)]
 pub trait CommandOutboxEnqueuer: Send + Sync {

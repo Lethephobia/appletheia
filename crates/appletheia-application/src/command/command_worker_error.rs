@@ -4,7 +4,8 @@ use thiserror::Error;
 
 use crate::messaging::ConsumerError;
 use crate::messaging::SubscriberError;
-use crate::outbox::command::CommandEnvelopeError;
+
+use super::CommandEnvelopeError;
 
 #[derive(Debug, Error)]
 pub enum CommandWorkerError {

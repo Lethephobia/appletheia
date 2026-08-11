@@ -4,9 +4,10 @@ use chrono::{DateTime, Utc};
 use sqlx::FromRow;
 use uuid::Uuid;
 
-use appletheia_application::command::{CommandNameOwned, CommandOptions};
+use appletheia_application::command::{
+    CommandEnvelope, CommandNameOwned, CommandOptions, SerializedCommand,
+};
 use appletheia_application::messaging::PublishDispatchError;
-use appletheia_application::outbox::command::{CommandEnvelope, SerializedCommand};
 use appletheia_application::outbox::{
     OutboxAttemptCount, OutboxLeaseExpiresAt, OutboxLifecycle, OutboxNextAttemptAt,
     OutboxPublishedAt, OutboxRelayInstance, OutboxState,

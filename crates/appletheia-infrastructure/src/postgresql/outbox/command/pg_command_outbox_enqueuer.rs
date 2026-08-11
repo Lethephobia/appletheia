@@ -2,9 +2,8 @@ use sqlx::{Postgres, QueryBuilder};
 use uuid::Uuid;
 
 use crate::postgresql::unit_of_work::PgUnitOfWork;
-use appletheia_application::outbox::command::{
-    CommandEnvelope, CommandOutboxEnqueueError, CommandOutboxEnqueuer,
-};
+use appletheia_application::command::CommandEnvelope;
+use appletheia_application::outbox::command::{CommandOutboxEnqueueError, CommandOutboxEnqueuer};
 
 pub struct PgCommandOutboxEnqueuer;
 

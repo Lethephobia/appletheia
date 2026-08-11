@@ -1,9 +1,8 @@
 use appletheia_application::ConsumerGroup;
 use appletheia_application::Subscriber;
 use appletheia_application::SubscriberError;
-use appletheia_application::command::CommandSelector;
+use appletheia_application::command::{CommandEnvelope, CommandSelector};
 use appletheia_application::messaging::{Subscription, TopicId};
-use appletheia_application::outbox::command::CommandEnvelope;
 use google_cloud_gax::error::rpc::Code;
 use google_cloud_pubsub::client::{Subscriber as GoogleSubscriber, SubscriptionAdmin};
 use google_cloud_pubsub::model::Subscription as PubsubSubscription;

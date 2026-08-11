@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
+use appletheia_application::command::CommandEnvelope;
 use appletheia_application::messaging::{
     PublishDispatchError, PublishResult, Publisher, PublisherError,
 };
 use appletheia_application::outbox::OrderingKey;
-use appletheia_application::outbox::command::CommandEnvelope;
 use google_cloud_gax::error::rpc::Code;
 use google_cloud_pubsub::client::Publisher as GooglePublisher;
 use google_cloud_pubsub::error::PublishError;

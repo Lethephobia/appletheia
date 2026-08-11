@@ -1,7 +1,6 @@
-use crate::outbox::command::CommandEnvelopeError;
 use thiserror::Error;
 
-use crate::outbox::command::SerializedCommandError;
+use crate::command::{CommandEnvelopeError, SerializedCommandError};
 
 #[derive(Debug, Error)]
 pub enum SagaInstanceError {

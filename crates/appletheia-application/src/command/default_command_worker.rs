@@ -1,9 +1,11 @@
 use std::sync::atomic::{AtomicBool, Ordering as AtomicOrdering};
 
 use crate::Retryability;
-use crate::command::{Command, CommandDispatcher, CommandHandler, CommandSelector, CommandWorker};
+use crate::command::{
+    Command, CommandDispatcher, CommandEnvelope, CommandEnvelopeError, CommandHandler,
+    CommandSelector, CommandWorker,
+};
 use crate::messaging::Subscription;
-use crate::outbox::command::{CommandEnvelope, CommandEnvelopeError};
 use crate::request_context::{ActorRef, Principal, RequestContext};
 use crate::{Consumer, ConsumerGroup, Delivery, Subscriber};
 
@@ -133,6 +135,7 @@ mod tests {
     use super::DefaultCommandWorker;
     use crate::Retryability;
     use crate::authorization::AuthorizationPlan;
+    use crate::command::CommandEnvelope;
     use crate::command::{
         Command, CommandDispatchResult, CommandDispatcher, CommandDispatcherError, CommandHandled,
         CommandHandler, CommandName, CommandOptions, CommandWorker,
@@ -140,7 +143,6 @@ mod tests {
     use crate::messaging::{
         Consumer, ConsumerError, ConsumerGroup, Delivery, Subscriber, SubscriberError, Subscription,
     };
-    use crate::outbox::command::CommandEnvelope;
     use crate::request_context::{CausationId, CorrelationId, MessageId, RequestContext};
     use crate::unit_of_work::{UnitOfWork, UnitOfWorkError};
 

@@ -1,6 +1,8 @@
-use super::{CommandEnvelope, CommandOutboxId};
+use crate::command::CommandEnvelope;
 use crate::messaging::PublishDispatchError;
 use crate::outbox::{OrderingKey, Outbox, OutboxLifecycle, OutboxState};
+
+use super::CommandOutboxId;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CommandOutbox {

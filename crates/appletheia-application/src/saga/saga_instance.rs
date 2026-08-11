@@ -1,14 +1,12 @@
 use appletheia_domain::EventId;
 
-use crate::request_context::{CorrelationId, MessageId};
+use crate::request_context::{CausationId, CorrelationId, MessageId};
 use crate::{
-    command::{Command, CommandOptions},
+    command::{Command, CommandEnvelope, CommandOptions},
     event::EventEnvelope,
 };
 
 use super::{SagaInstanceError, SagaInstanceId, SagaNameOwned, SagaState, SagaStatus};
-use crate::outbox::command::CommandEnvelope;
-use crate::request_context::CausationId;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct SagaInstance<S: SagaState> {
