@@ -1,19 +1,21 @@
-use appletheia::domain::EventId;
+use serde::{Deserialize, Serialize};
 
-use super::{CurrencyListItemOwnerOrganization, CurrencyListItemOwnerUser};
+use appletheia::application::read_model::{ReadModelObservation, ReadModelObservationSource};
+
+use super::{CurrencyListItemOwnerOrganizationPart, CurrencyListItemOwnerUserPart};
 
 /// Owner shown in a currency list item.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum CurrencyListItemOwner {
-    User(CurrencyListItemOwnerUser),
-    Organization(CurrencyListItemOwnerOrganization),
+    User(CurrencyListItemOwnerUserPart),
+    Organization(CurrencyListItemOwnerOrganizationPart),
 }
 
-impl CurrencyListItemOwner {
-    pub fn observed_event_ids(&self) -> Vec<EventId> {
+impl ReadModelObservationSource for CurrencyListItemOwner {
+    fn observations(&self) -> Vec<ReadModelObservation> {
         match self {
-            Self::User(owner) => owner.observation.event_ids().collect(),
-            Self::Organization(owner) => owner.observation.event_ids().collect(),
+            Self::User(owner) => vec![owner.observation],
+            Self::Organization(owner) => vec![owner.observation],
         }
     }
 }

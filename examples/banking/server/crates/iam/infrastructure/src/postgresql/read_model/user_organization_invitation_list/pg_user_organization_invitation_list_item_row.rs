@@ -1,18 +1,18 @@
+use appletheia::application::read_model::ReadModelObservation;
 use appletheia::domain::{AggregateId, EventId, EventOccurredAt};
 use banking_iam_application::{
-    UserOrganizationInvitationListIssuer, UserOrganizationInvitationListItem,
-    UserOrganizationInvitationListItemStatus, UserOrganizationInvitationListOrganization,
+    InternalOrganizationSummaryPart, UserOrganizationInvitationListItemPart,
 };
 use banking_iam_domain::{
     OrganizationDisplayName, OrganizationHandle, OrganizationId, OrganizationInvitationExpiresAt,
     OrganizationInvitationId, OrganizationRoles, UserId,
 };
-use banking_shared_kernel_application::read_model::ReadModelObservation;
+use banking_iam_domain::{OrganizationInvitationIssuer, OrganizationInvitationStatus};
 use sqlx::types::chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-use super::super::pg_organization_picture_ref_columns::PgOrganizationPictureRefColumns;
 use super::pg_user_organization_invitation_list_item_row_error::PgUserOrganizationInvitationListItemRowError;
+use crate::postgresql::pg_organization_picture_ref_columns::PgOrganizationPictureRefColumns;
 
 #[derive(Debug, sqlx::FromRow)]
 pub struct PgUserOrganizationInvitationListItemRow {
@@ -46,31 +46,27 @@ impl PgUserOrganizationInvitationListItemRow {
     fn issuer(
         issuer_type: String,
         issuer_user_id: Option<Uuid>,
-    ) -> Result<UserOrganizationInvitationListIssuer, PgUserOrganizationInvitationListItemRowError>
-    {
+    ) -> Result<OrganizationInvitationIssuer, PgUserOrganizationInvitationListItemRowError> {
         match (issuer_type.as_str(), issuer_user_id) {
-            ("user", Some(user_id)) => Ok(UserOrganizationInvitationListIssuer::User(
+            ("user", Some(user_id)) => Ok(OrganizationInvitationIssuer::User(
                 UserId::try_from_uuid(user_id).map_err(|error| {
                     PgUserOrganizationInvitationListItemRowError::IssuerUserId(Box::new(error))
                 })?,
             )),
-            ("system", None) => Ok(UserOrganizationInvitationListIssuer::System),
+            ("system", None) => Ok(OrganizationInvitationIssuer::System),
             _ => Err(PgUserOrganizationInvitationListItemRowError::Issuer),
         }
     }
 
     fn status(
         value: String,
-    ) -> Result<
-        UserOrganizationInvitationListItemStatus,
-        PgUserOrganizationInvitationListItemRowError,
-    > {
+    ) -> Result<OrganizationInvitationStatus, PgUserOrganizationInvitationListItemRowError> {
         match value.as_str() {
-            "pending" => Ok(UserOrganizationInvitationListItemStatus::Pending),
-            "accepted" => Ok(UserOrganizationInvitationListItemStatus::Accepted),
-            "declined" => Ok(UserOrganizationInvitationListItemStatus::Declined),
-            "canceled" => Ok(UserOrganizationInvitationListItemStatus::Canceled),
-            "rejected" => Ok(UserOrganizationInvitationListItemStatus::Rejected),
+            "pending" => Ok(OrganizationInvitationStatus::Pending),
+            "accepted" => Ok(OrganizationInvitationStatus::Accepted),
+            "declined" => Ok(OrganizationInvitationStatus::Declined),
+            "canceled" => Ok(OrganizationInvitationStatus::Canceled),
+            "rejected" => Ok(OrganizationInvitationStatus::Rejected),
             _ => Err(PgUserOrganizationInvitationListItemRowError::UnknownStatus(
                 value,
             )),
@@ -78,7 +74,7 @@ impl PgUserOrganizationInvitationListItemRow {
     }
 }
 
-impl TryFrom<PgUserOrganizationInvitationListItemRow> for UserOrganizationInvitationListItem {
+impl TryFrom<PgUserOrganizationInvitationListItemRow> for UserOrganizationInvitationListItemPart {
     type Error = PgUserOrganizationInvitationListItemRowError;
 
     fn try_from(row: PgUserOrganizationInvitationListItemRow) -> Result<Self, Self::Error> {
@@ -86,7 +82,7 @@ impl TryFrom<PgUserOrganizationInvitationListItemRow> for UserOrganizationInvita
             invitation_id: OrganizationInvitationId::try_from_uuid(row.invitation_id).map_err(
                 |error| PgUserOrganizationInvitationListItemRowError::InvitationId(Box::new(error)),
             )?,
-            organization: UserOrganizationInvitationListOrganization {
+            organization: InternalOrganizationSummaryPart {
                 organization_id: OrganizationId::try_from_uuid(row.organization_id).map_err(
                     |error| {
                         PgUserOrganizationInvitationListItemRowError::OrganizationId(Box::new(

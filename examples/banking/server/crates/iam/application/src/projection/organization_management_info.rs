@@ -1,7 +1,0 @@
-mod organization_management_info_projector;
-mod organization_management_info_projector_error;
-mod organization_management_info_projector_spec;
-
-pub use organization_management_info_projector::OrganizationManagementInfoProjector;
-pub use organization_management_info_projector_error::OrganizationManagementInfoProjectorError;
-pub use organization_management_info_projector_spec::OrganizationManagementInfoProjectorSpec;

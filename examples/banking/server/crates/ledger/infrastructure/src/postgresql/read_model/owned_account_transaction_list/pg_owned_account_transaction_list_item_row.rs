@@ -1,15 +1,16 @@
+use appletheia::application::read_model::ReadModelObservation;
 use appletheia::domain::{AggregateId, EventId, EventOccurredAt};
 use banking_iam_domain::{
     OrganizationDisplayName, OrganizationHandle, OrganizationId, UserDisplayName, UserId, Username,
 };
 use banking_ledger_application::{
-    OwnedAccountTransactionId, OwnedAccountTransactionListItem,
-    OwnedAccountTransactionListItemCounterpartyAccount,
+    AccountTransactionDirection, AccountTransactionId, AccountTransactionStatus,
     OwnedAccountTransactionListItemCounterpartyAccountOwner,
-    OwnedAccountTransactionListItemCounterpartyAccountOwnerOrganization,
-    OwnedAccountTransactionListItemCounterpartyAccountOwnerUser,
-    OwnedAccountTransactionListItemCurrency, OwnedAccountTransactionListItemDirection,
-    OwnedAccountTransactionListItemKind, OwnedAccountTransactionListItemStatus,
+    OwnedAccountTransactionListItemCounterpartyAccountOwnerOrganizationPart,
+    OwnedAccountTransactionListItemCounterpartyAccountOwnerUserPart,
+    OwnedAccountTransactionListItemCounterpartyAccountPart,
+    OwnedAccountTransactionListItemCurrencyPart, OwnedAccountTransactionListItemKind,
+    OwnedAccountTransactionListItemPart,
 };
 use banking_ledger_domain::account::AccountId;
 use banking_ledger_domain::core::CurrencyAmount;
@@ -17,7 +18,6 @@ use banking_ledger_domain::currency::{
     CurrencyDecimals, CurrencyId, CurrencyName, CurrencySymbol, MintAccountAddress,
 };
 use banking_ledger_domain::transfer::TransferId;
-use banking_shared_kernel_application::read_model::ReadModelObservation;
 use sqlx::types::chrono::{DateTime, Utc};
 use uuid::Uuid;
 
@@ -81,11 +81,10 @@ impl PgOwnedAccountTransactionListItemRow {
 
     fn direction(
         value: String,
-    ) -> Result<OwnedAccountTransactionListItemDirection, PgOwnedAccountTransactionListItemRowError>
-    {
+    ) -> Result<AccountTransactionDirection, PgOwnedAccountTransactionListItemRowError> {
         match value.as_str() {
-            "incoming" => Ok(OwnedAccountTransactionListItemDirection::Incoming),
-            "outgoing" => Ok(OwnedAccountTransactionListItemDirection::Outgoing),
+            "incoming" => Ok(AccountTransactionDirection::Incoming),
+            "outgoing" => Ok(AccountTransactionDirection::Outgoing),
             value => Err(PgOwnedAccountTransactionListItemRowError::UnknownDirection(
                 value.to_owned(),
             )),
@@ -132,14 +131,14 @@ impl PgOwnedAccountTransactionListItemRow {
     fn counterparty_account(
         row: &Self,
     ) -> Result<
-        OwnedAccountTransactionListItemCounterpartyAccount,
+        OwnedAccountTransactionListItemCounterpartyAccountPart,
         PgOwnedAccountTransactionListItemRowError,
     > {
         let account_id = row
             .counterparty_account_id
             .ok_or(PgOwnedAccountTransactionListItemRowError::MissingTransferAttributes)?;
 
-        Ok(OwnedAccountTransactionListItemCounterpartyAccount {
+        Ok(OwnedAccountTransactionListItemCounterpartyAccountPart {
             id: AccountId::try_from_uuid(account_id).map_err(|error| {
                 PgOwnedAccountTransactionListItemRowError::InvalidAccountId(Box::new(error))
             })?,
@@ -172,7 +171,7 @@ impl PgOwnedAccountTransactionListItemRow {
         match owner_type {
             "user" => Ok(
                 OwnedAccountTransactionListItemCounterpartyAccountOwner::User(
-                    OwnedAccountTransactionListItemCounterpartyAccountOwnerUser {
+                    OwnedAccountTransactionListItemCounterpartyAccountOwnerUserPart {
                         id: UserId::try_from_uuid(owner_id).map_err(|error| {
                             PgOwnedAccountTransactionListItemRowError::InvalidUserOwnerId(Box::new(
                                 error,
@@ -217,7 +216,7 @@ impl PgOwnedAccountTransactionListItemRow {
                     .ok_or(PgOwnedAccountTransactionListItemRowError::MissingCounterpartyAccountOwnerOrganization)?;
 
                 Ok(OwnedAccountTransactionListItemCounterpartyAccountOwner::Organization(
-                    OwnedAccountTransactionListItemCounterpartyAccountOwnerOrganization {
+                    OwnedAccountTransactionListItemCounterpartyAccountOwnerOrganizationPart {
                         id: OrganizationId::try_from_uuid(owner_id).map_err(|error| {
                             PgOwnedAccountTransactionListItemRowError::InvalidOrganizationOwnerId(
                                 Box::new(error),
@@ -308,13 +307,12 @@ impl PgOwnedAccountTransactionListItemRow {
 
     fn status(
         value: String,
-    ) -> Result<OwnedAccountTransactionListItemStatus, PgOwnedAccountTransactionListItemRowError>
-    {
+    ) -> Result<AccountTransactionStatus, PgOwnedAccountTransactionListItemRowError> {
         match value.as_str() {
-            "pending" => Ok(OwnedAccountTransactionListItemStatus::Pending),
-            "completed" => Ok(OwnedAccountTransactionListItemStatus::Completed),
-            "failed" => Ok(OwnedAccountTransactionListItemStatus::Failed),
-            "requires_review" => Ok(OwnedAccountTransactionListItemStatus::RequiresReview),
+            "pending" => Ok(AccountTransactionStatus::Pending),
+            "completed" => Ok(AccountTransactionStatus::Completed),
+            "failed" => Ok(AccountTransactionStatus::Failed),
+            "requires_review" => Ok(AccountTransactionStatus::RequiresReview),
             value => Err(PgOwnedAccountTransactionListItemRowError::UnknownStatus(
                 value.to_owned(),
             )),
@@ -329,7 +327,7 @@ impl PgOwnedAccountTransactionListItemRow {
     }
 }
 
-impl TryFrom<PgOwnedAccountTransactionListItemRow> for OwnedAccountTransactionListItem {
+impl TryFrom<PgOwnedAccountTransactionListItemRow> for OwnedAccountTransactionListItemPart {
     type Error = PgOwnedAccountTransactionListItemRowError;
 
     fn try_from(row: PgOwnedAccountTransactionListItemRow) -> Result<Self, Self::Error> {
@@ -338,11 +336,11 @@ impl TryFrom<PgOwnedAccountTransactionListItemRow> for OwnedAccountTransactionLi
         })?;
 
         Ok(Self {
-            transaction_id: OwnedAccountTransactionId::from(row.transaction_id),
+            transaction_id: AccountTransactionId::from(row.transaction_id),
             account_id: AccountId::try_from_uuid(row.account_id).map_err(|error| {
                 PgOwnedAccountTransactionListItemRowError::InvalidAccountId(Box::new(error))
             })?,
-            currency: OwnedAccountTransactionListItemCurrency {
+            currency: OwnedAccountTransactionListItemCurrencyPart {
                 id: CurrencyId::try_from_uuid(row.currency_id).map_err(|error| {
                     PgOwnedAccountTransactionListItemRowError::InvalidCurrencyId(Box::new(error))
                 })?,

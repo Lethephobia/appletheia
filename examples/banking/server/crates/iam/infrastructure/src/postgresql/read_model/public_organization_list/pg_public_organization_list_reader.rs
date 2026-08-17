@@ -1,11 +1,12 @@
+use appletheia::application::read_model::pagination::{CursorPage, Sort, SortDirection};
 use appletheia::domain::AggregateId;
 use appletheia::infrastructure::postgresql::PgUnitOfWork;
 use banking_iam_application::{
     PublicOrganizationList, PublicOrganizationListCriteria, PublicOrganizationListCursor,
-    PublicOrganizationListItem, PublicOrganizationListReader, PublicOrganizationListReaderError,
-    PublicOrganizationListSortKey,
+    PublicOrganizationListItemPart, PublicOrganizationListReader,
+    PublicOrganizationListReaderError, PublicOrganizationListSortKey,
 };
-use banking_shared_kernel_application::read_model::{CursorOptions, PageSize, SortDirection};
+use banking_shared_kernel_application::read_model::SearchTerm;
 use sqlx::query_builder::Separated;
 use sqlx::{Postgres, QueryBuilder};
 
@@ -19,31 +20,22 @@ impl PgPublicOrganizationListReader {
         Self
     }
 
-    fn has_handle_contains(handle_contains: &[String]) -> bool {
-        handle_contains
-            .iter()
-            .any(|contains| contains.chars().any(|character| !character.is_whitespace()))
-    }
-
     fn push_handle_contains(
         predicates: &mut Separated<'_, Postgres, &'static str>,
-        handle_contains: &[String],
+        handle_contains: &[SearchTerm],
     ) {
         let mut pushed_predicate = false;
 
-        for contains in handle_contains
-            .iter()
-            .filter(|contains| contains.chars().any(|character| !character.is_whitespace()))
-        {
+        for term in handle_contains {
             if !pushed_predicate {
                 predicates.push("handle_search_text IS NOT NULL");
                 pushed_predicate = true;
             }
 
             predicates
-                .push("handle_search_text LIKE likequery(regexp_replace(lower(")
-                .push_bind_unseparated(contains.as_str())
-                .push_unseparated("), '[[:space:]]+', '', 'g'))");
+                .push("handle_search_text LIKE likequery(")
+                .push_bind_unseparated(term.as_ref())
+                .push_unseparated(")");
         }
     }
 }
@@ -61,21 +53,10 @@ impl PublicOrganizationListReader for PgPublicOrganizationListReader {
         &self,
         uow: &mut Self::Uow,
         criteria: PublicOrganizationListCriteria,
-        cursor_options: Option<
-            CursorOptions<PublicOrganizationListSortKey, PublicOrganizationListCursor>,
-        >,
-        limit: PageSize,
+        sort: Sort<PublicOrganizationListSortKey>,
+        page: CursorPage<PublicOrganizationListCursor>,
     ) -> Result<PublicOrganizationList, PublicOrganizationListReaderError> {
-        let query_limit = i64::from(limit.value()) + 1;
-        let sort_key = cursor_options
-            .map(|options| options.sort_key)
-            .unwrap_or(PublicOrganizationListSortKey::CreatedAt);
-        let sort_direction = cursor_options
-            .map(|options| options.sort_direction)
-            .unwrap_or(SortDirection::Desc);
-        let cursor = cursor_options.and_then(|options| options.cursor);
-        let has_handle_contains = Self::has_handle_contains(&criteria.handle_contains);
-
+        let query_limit = i64::from(page.limit.value()) + 1;
         let mut builder = QueryBuilder::<Postgres>::new(
             r#"
             SELECT
@@ -88,18 +69,18 @@ impl PublicOrganizationListReader for PgPublicOrganizationListReader {
                 created_at,
                 source_event_id,
                 updated_event_id
-            FROM public_organization_list_items
+            FROM organization_fragments
             "#,
         );
 
-        if has_handle_contains || cursor.is_some() {
+        if !criteria.handle_contains.is_empty() || page.after.is_some() {
             builder.push(" WHERE ");
             let mut predicates = builder.separated(" AND ");
 
             Self::push_handle_contains(&mut predicates, &criteria.handle_contains);
 
-            if let Some(cursor) = cursor {
-                match (sort_key, sort_direction) {
+            if let Some(cursor) = page.after {
+                match (sort.key, sort.direction) {
                     (PublicOrganizationListSortKey::CreatedAt, SortDirection::Asc) => {
                         predicates
                             .push("(created_at, id) > (")
@@ -130,7 +111,7 @@ impl PublicOrganizationListReader for PgPublicOrganizationListReader {
             }
         }
 
-        match (sort_key, sort_direction) {
+        match (sort.key, sort.direction) {
             (PublicOrganizationListSortKey::CreatedAt, SortDirection::Asc) => {
                 builder.push(" ORDER BY created_at ASC, id ASC");
             }
@@ -153,12 +134,12 @@ impl PublicOrganizationListReader for PgPublicOrganizationListReader {
             .await
             .map_err(|error| PublicOrganizationListReaderError::Persistence(Box::new(error)))?;
 
-        let page_limit = limit.value() as usize;
+        let page_limit = page.limit.value() as usize;
         let has_next = rows.len() > page_limit;
         let items = rows
             .into_iter()
             .take(page_limit)
-            .map(PublicOrganizationListItem::try_from)
+            .map(PublicOrganizationListItemPart::try_from)
             .collect::<Result<Vec<_>, _>>()
             .map_err(|error| PublicOrganizationListReaderError::Persistence(Box::new(error)))?;
         let next_cursor = if has_next {
@@ -176,17 +157,18 @@ impl PublicOrganizationListReader for PgPublicOrganizationListReader {
 
 #[cfg(test)]
 mod tests {
+    use banking_shared_kernel_application::read_model::SearchTerm;
     use sqlx::{Postgres, QueryBuilder};
 
     use super::PgPublicOrganizationListReader;
 
+    fn search_term(value: &str) -> SearchTerm {
+        SearchTerm::try_from(value).expect("search term should be valid")
+    }
+
     #[test]
-    fn handle_contains_adds_one_and_predicate_per_non_blank_value() {
-        let handle_contains = vec![
-            " Alice ".to_owned(),
-            "bob_smith".to_owned(),
-            "   ".to_owned(),
-        ];
+    fn handle_contains_adds_one_and_predicate_per_term() {
+        let handle_contains = vec![search_term(" Alice "), search_term("bob_smith")];
         let mut builder = QueryBuilder::<Postgres>::new("SELECT 1 WHERE ");
         let mut predicates = builder.separated(" AND ");
 
@@ -196,16 +178,16 @@ mod tests {
         let sql_text = sql.as_str();
         assert!(sql_text.contains(" WHERE handle_search_text IS NOT NULL"));
         assert_eq!(sql_text.matches(" AND handle_search_text LIKE ").count(), 2);
-        assert!(sql_text.contains("lower($1)"));
-        assert!(sql_text.contains("lower($2)"));
+        assert!(sql_text.contains("likequery($1)"));
+        assert!(sql_text.contains("likequery($2)"));
     }
 
     #[test]
     fn empty_handle_contains_adds_no_predicate() {
-        let handle_contains = vec!["   ".to_owned()];
+        let handle_contains = Vec::new();
         let mut builder = QueryBuilder::<Postgres>::new("SELECT 1");
 
-        if PgPublicOrganizationListReader::has_handle_contains(&handle_contains) {
+        if !handle_contains.is_empty() {
             builder.push(" WHERE ");
             let mut predicates = builder.separated(" AND ");
             PgPublicOrganizationListReader::push_handle_contains(&mut predicates, &handle_contains);

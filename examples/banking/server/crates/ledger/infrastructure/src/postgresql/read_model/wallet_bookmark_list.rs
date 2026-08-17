@@ -1,7 +1,5 @@
 mod pg_wallet_bookmark_list_item_row;
 mod pg_wallet_bookmark_list_item_row_error;
 mod pg_wallet_bookmark_list_reader;
-mod pg_wallet_bookmark_list_writer;
 
 pub use pg_wallet_bookmark_list_reader::PgWalletBookmarkListReader;
-pub use pg_wallet_bookmark_list_writer::PgWalletBookmarkListWriter;

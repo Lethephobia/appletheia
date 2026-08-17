@@ -3,7 +3,5 @@ mod pg_organization_member_list_item_row_error;
 mod pg_organization_member_list_organization_row;
 mod pg_organization_member_list_organization_row_error;
 mod pg_organization_member_list_reader;
-mod pg_organization_member_list_writer;
 
 pub use pg_organization_member_list_reader::PgOrganizationMemberListReader;
-pub use pg_organization_member_list_writer::PgOrganizationMemberListWriter;

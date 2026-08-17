@@ -1,13 +1,13 @@
+use appletheia::application::read_model::ReadModelObservation;
 use appletheia::domain::{AggregateId, EventId, EventOccurredAt};
 use banking_ledger_application::{
-    OwnedAccountListItem, OwnedAccountListItemCurrency, OwnedAccountListItemStatus,
+    MaterializedAccountStatus, OwnedAccountListItemCurrencyPart, OwnedAccountListItemPart,
 };
 use banking_ledger_domain::account::{AccountId, AccountName};
 use banking_ledger_domain::core::CurrencyAmount;
 use banking_ledger_domain::currency::{
     CurrencyDecimals, CurrencyId, CurrencyName, CurrencySymbol, MintAccountAddress,
 };
-use banking_shared_kernel_application::read_model::ReadModelObservation;
 use sqlx::types::chrono::{DateTime, Utc};
 use uuid::Uuid;
 
@@ -47,10 +47,10 @@ impl PgOwnedAccountListItemRow {
         ))
     }
 
-    fn status(value: String) -> Result<OwnedAccountListItemStatus, PgOwnedAccountListItemRowError> {
+    fn status(value: String) -> Result<MaterializedAccountStatus, PgOwnedAccountListItemRowError> {
         match value.as_str() {
-            "active" => Ok(OwnedAccountListItemStatus::Active),
-            "frozen" => Ok(OwnedAccountListItemStatus::Frozen),
+            "active" => Ok(MaterializedAccountStatus::Active),
+            "frozen" => Ok(MaterializedAccountStatus::Frozen),
             value => Err(PgOwnedAccountListItemRowError::UnknownStatus(
                 value.to_owned(),
             )),
@@ -65,7 +65,7 @@ impl PgOwnedAccountListItemRow {
     }
 }
 
-impl TryFrom<PgOwnedAccountListItemRow> for OwnedAccountListItem {
+impl TryFrom<PgOwnedAccountListItemRow> for OwnedAccountListItemPart {
     type Error = PgOwnedAccountListItemRowError;
 
     fn try_from(row: PgOwnedAccountListItemRow) -> Result<Self, Self::Error> {
@@ -80,7 +80,7 @@ impl TryFrom<PgOwnedAccountListItemRow> for OwnedAccountListItem {
             name: AccountName::try_from(row.name).map_err(|error| {
                 PgOwnedAccountListItemRowError::InvalidAccountName(Box::new(error))
             })?,
-            currency: OwnedAccountListItemCurrency {
+            currency: OwnedAccountListItemCurrencyPart {
                 id: CurrencyId::try_from_uuid(row.currency_id).map_err(|error| {
                     PgOwnedAccountListItemRowError::InvalidCurrencyId(Box::new(error))
                 })?,

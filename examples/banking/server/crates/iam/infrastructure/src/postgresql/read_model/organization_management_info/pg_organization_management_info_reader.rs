@@ -45,7 +45,10 @@ impl OrganizationManagementInfoReader for PgOrganizationManagementInfoReader {
                 i.created_at,
                 i.source_event_id,
                 i.updated_event_id,
-                o.user_id AS owner_user_id,
+                i.owner_user_id,
+                i.owner_since,
+                i.owner_source_event_id AS ownership_source_event_id,
+                i.owner_updated_event_id AS ownership_updated_event_id,
                 o.username AS owner_username,
                 o.display_name AS owner_display_name,
                 o.picture_type AS owner_picture_type,
@@ -53,9 +56,9 @@ impl OrganizationManagementInfoReader for PgOrganizationManagementInfoReader {
                 o.picture_external_url AS owner_picture_external_url,
                 o.source_event_id AS owner_source_event_id,
                 o.updated_event_id AS owner_updated_event_id
-            FROM organization_management_infos AS i
-            INNER JOIN organization_management_info_owner_users AS o
-                    ON o.user_id = i.owner_user_id
+            FROM organization_fragments AS i
+            INNER JOIN user_fragments AS o
+                    ON o.id = i.owner_user_id
             WHERE i.id = $1
             "#,
         )

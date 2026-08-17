@@ -1,14 +1,14 @@
+use appletheia::application::read_model::ReadModelObservation;
 use appletheia::domain::{AggregateId, EventId, EventOccurredAt};
-use banking_iam_application::{UserPrivateInfo, UserPrivateInfoStatus};
+use banking_iam_application::{MaterializedUserStatus, PrivateUserDetailsPart, UserPrivateInfo};
 use banking_iam_domain::{UserBio, UserDisplayName, UserId, Username};
-use banking_shared_kernel_application::read_model::ReadModelObservation;
 use sqlx::types::chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-use super::super::pg_user_picture_ref_columns::PgUserPictureRefColumns;
 use super::pg_user_private_info_identity_row::PgUserPrivateInfoIdentityRow;
 use super::pg_user_private_info_organization_membership_row::PgUserPrivateInfoOrganizationMembershipRow;
 use super::pg_user_private_info_row_error::PgUserPrivateInfoRowError;
+use crate::postgresql::pg_user_picture_ref_columns::PgUserPictureRefColumns;
 
 #[derive(Debug, sqlx::FromRow)]
 pub struct PgUserPrivateInfoRow {
@@ -41,37 +41,39 @@ impl PgUserPrivateInfoRow {
             .collect::<Result<Vec<_>, _>>()?;
 
         Ok(UserPrivateInfo {
-            id: UserId::try_from_uuid(self.id)
-                .map_err(|error| PgUserPrivateInfoRowError::InvalidUserId(Box::new(error)))?,
+            user: PrivateUserDetailsPart {
+                user_id: UserId::try_from_uuid(self.id)
+                    .map_err(|error| PgUserPrivateInfoRowError::InvalidUserId(Box::new(error)))?,
+                username: Self::optional_username(self.username)?,
+                display_name: Self::optional_display_name(self.display_name)?,
+                picture: PgUserPictureRefColumns {
+                    picture_type: self.picture_type,
+                    object_name: self.picture_object_name,
+                    external_url: self.picture_external_url,
+                }
+                .into_picture()
+                .map_err(|error| PgUserPrivateInfoRowError::InvalidUserPicture(Box::new(error)))?,
+                status: Self::status(self.status)?,
+                created_at: EventOccurredAt::from(self.created_at),
+                observation: ReadModelObservation::new(
+                    EventId::try_from(self.source_event_id).map_err(|error| {
+                        PgUserPrivateInfoRowError::InvalidSourceEventId(Box::new(error))
+                    })?,
+                    EventId::try_from(self.updated_event_id).map_err(|error| {
+                        PgUserPrivateInfoRowError::InvalidUpdatedEventId(Box::new(error))
+                    })?,
+                ),
+                bio: Self::optional_bio(self.bio)?,
+            },
             identities,
             organization_memberships,
-            username: Self::optional_username(self.username)?,
-            display_name: Self::optional_display_name(self.display_name)?,
-            bio: Self::optional_bio(self.bio)?,
-            picture: PgUserPictureRefColumns {
-                picture_type: self.picture_type,
-                object_name: self.picture_object_name,
-                external_url: self.picture_external_url,
-            }
-            .into_picture()
-            .map_err(|error| PgUserPrivateInfoRowError::InvalidUserPicture(Box::new(error)))?,
-            status: Self::status(self.status)?,
-            created_at: EventOccurredAt::from(self.created_at),
-            observation: ReadModelObservation::new(
-                EventId::try_from(self.source_event_id).map_err(|error| {
-                    PgUserPrivateInfoRowError::InvalidSourceEventId(Box::new(error))
-                })?,
-                EventId::try_from(self.updated_event_id).map_err(|error| {
-                    PgUserPrivateInfoRowError::InvalidUpdatedEventId(Box::new(error))
-                })?,
-            ),
         })
     }
 
-    fn status(value: String) -> Result<UserPrivateInfoStatus, PgUserPrivateInfoRowError> {
+    fn status(value: String) -> Result<MaterializedUserStatus, PgUserPrivateInfoRowError> {
         match value.as_str() {
-            "active" => Ok(UserPrivateInfoStatus::Active),
-            "inactive" => Ok(UserPrivateInfoStatus::Inactive),
+            "active" => Ok(MaterializedUserStatus::Active),
+            "inactive" => Ok(MaterializedUserStatus::Inactive),
             value => Err(PgUserPrivateInfoRowError::UnknownStatus(value.to_owned())),
         }
     }

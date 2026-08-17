@@ -1,12 +1,12 @@
+use appletheia::application::read_model::ReadModelObservation;
 use appletheia::domain::{AggregateId, EventId, EventOccurredAt};
-use banking_iam_application::PublicOrganizationListItem;
+use banking_iam_application::PublicOrganizationListItemPart;
 use banking_iam_domain::{OrganizationDisplayName, OrganizationHandle, OrganizationId};
-use banking_shared_kernel_application::read_model::ReadModelObservation;
 use sqlx::types::chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-use super::super::pg_organization_picture_ref_columns::PgOrganizationPictureRefColumns;
 use super::pg_public_organization_list_item_row_error::PgPublicOrganizationListItemRowError;
+use crate::postgresql::pg_organization_picture_ref_columns::PgOrganizationPictureRefColumns;
 
 #[derive(Debug, sqlx::FromRow)]
 pub struct PgPublicOrganizationListItemRow {
@@ -21,7 +21,7 @@ pub struct PgPublicOrganizationListItemRow {
     pub updated_event_id: Uuid,
 }
 
-impl TryFrom<PgPublicOrganizationListItemRow> for PublicOrganizationListItem {
+impl TryFrom<PgPublicOrganizationListItemRow> for PublicOrganizationListItemPart {
     type Error = PgPublicOrganizationListItemRowError;
 
     fn try_from(row: PgPublicOrganizationListItemRow) -> Result<Self, Self::Error> {

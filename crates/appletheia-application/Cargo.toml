@@ -16,7 +16,7 @@ uuid = { workspace = true, features = ["serde", "v4", "v7"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 chrono = { workspace = true, features = ["serde"] }
-tokio = { workspace = true, features = ["time", "rt", "macros"] }
+tokio = { workspace = true, features = ["time", "rt", "macros", "sync"] }
 sha2 = { workspace = true }
 url = { workspace = true, features = ["serde"] }
 base64 = { workspace = true }

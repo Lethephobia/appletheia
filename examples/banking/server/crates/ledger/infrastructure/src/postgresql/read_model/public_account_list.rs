@@ -1,7 +1,5 @@
 mod pg_public_account_list_item_row;
 mod pg_public_account_list_item_row_error;
 mod pg_public_account_list_reader;
-mod pg_public_account_list_writer;
 
 pub use pg_public_account_list_reader::PgPublicAccountListReader;
-pub use pg_public_account_list_writer::PgPublicAccountListWriter;

@@ -1,6 +1,6 @@
+use appletheia::application::read_model::pagination::{CursorPage, Sort};
 use appletheia::query;
 use banking_iam_domain::UserId;
-use banking_shared_kernel_application::read_model::{CursorOptions, PageSize};
 
 use crate::read_model::{
     UserOrganizationInvitationListCriteria, UserOrganizationInvitationListCursor,
@@ -13,8 +13,6 @@ use crate::read_model::{
 pub struct UserOrganizationInvitationListQuery {
     pub user_id: UserId,
     pub criteria: UserOrganizationInvitationListCriteria,
-    pub cursor_options: Option<
-        CursorOptions<UserOrganizationInvitationListSortKey, UserOrganizationInvitationListCursor>,
-    >,
-    pub limit: PageSize,
+    pub sort: Sort<UserOrganizationInvitationListSortKey>,
+    pub page: CursorPage<UserOrganizationInvitationListCursor>,
 }

@@ -1,6 +1,6 @@
+use appletheia::application::read_model::pagination::{CursorPage, Sort};
 use appletheia::application::unit_of_work::UnitOfWork;
 use banking_ledger_domain::wallet_bookmark::WalletBookmarkOwner;
-use banking_shared_kernel_application::read_model::{CursorOptions, PageSize};
 
 use super::{
     WalletBookmarkList, WalletBookmarkListCriteria, WalletBookmarkListCursor,
@@ -17,7 +17,7 @@ pub trait WalletBookmarkListReader: Send + Sync {
         uow: &mut Self::Uow,
         owner: WalletBookmarkOwner,
         criteria: WalletBookmarkListCriteria,
-        cursor_options: Option<CursorOptions<WalletBookmarkListSortKey, WalletBookmarkListCursor>>,
-        limit: PageSize,
+        sort: Sort<WalletBookmarkListSortKey>,
+        page: CursorPage<WalletBookmarkListCursor>,
     ) -> Result<WalletBookmarkList, WalletBookmarkListReaderError>;
 }

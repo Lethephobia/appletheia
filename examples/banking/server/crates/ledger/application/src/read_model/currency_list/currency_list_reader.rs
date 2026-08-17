@@ -1,6 +1,5 @@
+use appletheia::application::read_model::pagination::{CursorPage, Sort};
 use appletheia::application::unit_of_work::UnitOfWork;
-
-use banking_shared_kernel_application::read_model::{CursorOptions, PageSize};
 
 use super::{
     CurrencyList, CurrencyListCriteria, CurrencyListCursor, CurrencyListReaderError,
@@ -16,7 +15,7 @@ pub trait CurrencyListReader: Send + Sync {
         &self,
         uow: &mut Self::Uow,
         criteria: CurrencyListCriteria,
-        cursor_options: Option<CursorOptions<CurrencyListSortKey, CurrencyListCursor>>,
-        limit: PageSize,
+        sort: Sort<CurrencyListSortKey>,
+        page: CursorPage<CurrencyListCursor>,
     ) -> Result<CurrencyList, CurrencyListReaderError>;
 }

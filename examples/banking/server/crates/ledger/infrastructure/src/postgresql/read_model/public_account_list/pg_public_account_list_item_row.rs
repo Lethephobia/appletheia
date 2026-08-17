@@ -1,16 +1,17 @@
+use appletheia::application::read_model::ReadModelObservation;
 use appletheia::domain::{AggregateId, EventId, EventOccurredAt};
 use banking_iam_domain::{
     OrganizationDisplayName, OrganizationHandle, OrganizationId, UserDisplayName, UserId, Username,
 };
 use banking_ledger_application::{
-    PublicAccountListItem, PublicAccountListItemCurrency, PublicAccountListItemOwner,
-    PublicAccountListItemOwnerOrganization, PublicAccountListItemOwnerUser,
+    MaterializedAccountStatus, PublicAccountListItemCurrencyPart, PublicAccountListItemOwner,
+    PublicAccountListItemOwnerOrganizationPart, PublicAccountListItemOwnerUserPart,
+    PublicAccountListItemPart,
 };
 use banking_ledger_domain::account::AccountId;
 use banking_ledger_domain::currency::{
     CurrencyDecimals, CurrencyId, CurrencyName, CurrencySymbol, MintAccountAddress,
 };
-use banking_shared_kernel_application::read_model::ReadModelObservation;
 use sqlx::types::chrono::{DateTime, Utc};
 use uuid::Uuid;
 
@@ -42,6 +43,7 @@ pub struct PgPublicAccountListItemRow {
     pub currency_mint_account_address: Option<String>,
     pub currency_source_event_id: Uuid,
     pub currency_updated_event_id: Uuid,
+    pub status: String,
     pub created_at: DateTime<Utc>,
     pub source_event_id: Uuid,
     pub updated_event_id: Uuid,
@@ -103,7 +105,7 @@ impl PgPublicAccountListItemRow {
     fn owner(&self) -> Result<PublicAccountListItemOwner, PgPublicAccountListItemRowError> {
         match self.owner_type.as_str() {
             "user" => Ok(PublicAccountListItemOwner::User(
-                PublicAccountListItemOwnerUser {
+                PublicAccountListItemOwnerUserPart {
                     id: UserId::try_from_uuid(self.owner_id).map_err(|error| {
                         PgPublicAccountListItemRowError::InvalidUserOwnerId(Box::new(error))
                     })?,
@@ -134,7 +136,7 @@ impl PgPublicAccountListItemRow {
                     .ok_or(PgPublicAccountListItemRowError::MissingOrganizationOwner)?;
 
                 Ok(PublicAccountListItemOwner::Organization(
-                    PublicAccountListItemOwnerOrganization {
+                    PublicAccountListItemOwnerOrganizationPart {
                         id: OrganizationId::try_from_uuid(self.owner_id).map_err(|error| {
                             PgPublicAccountListItemRowError::InvalidOrganizationOwnerId(Box::new(
                                 error,
@@ -174,7 +176,7 @@ impl PgPublicAccountListItemRow {
     }
 }
 
-impl TryFrom<PgPublicAccountListItemRow> for PublicAccountListItem {
+impl TryFrom<PgPublicAccountListItemRow> for PublicAccountListItemPart {
     type Error = PgPublicAccountListItemRowError;
 
     fn try_from(row: PgPublicAccountListItemRow) -> Result<Self, Self::Error> {
@@ -187,7 +189,7 @@ impl TryFrom<PgPublicAccountListItemRow> for PublicAccountListItem {
                 PgPublicAccountListItemRowError::InvalidAccountId(Box::new(error))
             })?,
             owner: row.owner()?,
-            currency: PublicAccountListItemCurrency {
+            currency: PublicAccountListItemCurrencyPart {
                 id: CurrencyId::try_from_uuid(row.currency_id).map_err(|error| {
                     PgPublicAccountListItemRowError::InvalidCurrencyId(Box::new(error))
                 })?,
@@ -209,6 +211,15 @@ impl TryFrom<PgPublicAccountListItemRow> for PublicAccountListItem {
                     row.currency_source_event_id,
                     row.currency_updated_event_id,
                 )?,
+            },
+            status: match row.status.as_str() {
+                "active" => MaterializedAccountStatus::Active,
+                "frozen" => MaterializedAccountStatus::Frozen,
+                value => {
+                    return Err(PgPublicAccountListItemRowError::UnknownAccountStatus(
+                        value.to_owned(),
+                    ));
+                }
             },
             created_at: EventOccurredAt::from(row.created_at),
             observation: PgPublicAccountListItemRow::observation(

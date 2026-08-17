@@ -3,7 +3,7 @@ use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::query::QueryHandler;
 use appletheia::application::request_context::RequestContext;
 
-use crate::projection::PublicOrganizationListProjectorSpec;
+use crate::projection::OrganizationFragmentProjectorSpec;
 use crate::read_model::{PublicOrganizationList, PublicOrganizationListReader};
 
 use super::{PublicOrganizationListQuery, PublicOrganizationListQueryHandlerError};
@@ -35,7 +35,7 @@ where
     type Uow = S::Uow;
 
     const PROJECTOR_DEPENDENCIES: ProjectorDependencies<'static> =
-        ProjectorDependencies::Some(&[PublicOrganizationListProjectorSpec::DESCRIPTOR]);
+        ProjectorDependencies::Some(&[OrganizationFragmentProjectorSpec::DESCRIPTOR]);
 
     fn authorization_plan(&self, _query: &Self::Query) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
@@ -51,7 +51,7 @@ where
     ) -> Result<Self::Output, Self::Error> {
         Ok(self
             .reader
-            .list(uow, query.criteria, query.cursor_options, query.limit)
+            .list(uow, query.criteria, query.sort, query.page)
             .await?)
     }
 }
@@ -60,8 +60,10 @@ where
 mod tests {
     use appletheia::application::authorization::{AuthorizationPlan, PrincipalRequirement};
     use appletheia::application::query::QueryHandler;
+    use appletheia::application::read_model::pagination::{
+        CursorPage, PageSize, Sort, SortDirection,
+    };
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
-    use banking_shared_kernel_application::read_model::{CursorOptions, PageSize};
 
     use crate::read_model::{
         PublicOrganizationList, PublicOrganizationListCriteria, PublicOrganizationListCursor,
@@ -94,10 +96,8 @@ mod tests {
             &self,
             _uow: &mut Self::Uow,
             _criteria: PublicOrganizationListCriteria,
-            _cursor_options: Option<
-                CursorOptions<PublicOrganizationListSortKey, PublicOrganizationListCursor>,
-            >,
-            _limit: PageSize,
+            _sort: Sort<PublicOrganizationListSortKey>,
+            _page: CursorPage<PublicOrganizationListCursor>,
         ) -> Result<PublicOrganizationList, PublicOrganizationListReaderError> {
             Ok(PublicOrganizationList {
                 items: Vec::new(),
@@ -111,8 +111,14 @@ mod tests {
         let handler = PublicOrganizationListQueryHandler::new(TestPublicOrganizationListReader);
         let query = PublicOrganizationListQuery {
             criteria: PublicOrganizationListCriteria::default(),
-            cursor_options: None,
-            limit: PageSize::new(20).expect("page size should be valid"),
+            sort: Sort {
+                key: PublicOrganizationListSortKey::CreatedAt,
+                direction: SortDirection::Desc,
+            },
+            page: CursorPage {
+                after: None,
+                limit: PageSize::new(20).expect("page size should be valid"),
+            },
         };
 
         let plan = handler

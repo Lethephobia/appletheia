@@ -44,7 +44,7 @@ impl OrganizationInternalInfoReader for PgOrganizationInternalInfoReader {
                 created_at,
                 source_event_id,
                 updated_event_id
-            FROM organization_internal_infos
+            FROM organization_fragments
             WHERE id = $1
             "#,
         )

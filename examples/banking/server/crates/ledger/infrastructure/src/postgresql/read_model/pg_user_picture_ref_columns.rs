@@ -14,20 +14,6 @@ impl PgUserPictureRefColumns {
     const EXTERNAL_URL: &'static str = "external_url";
     const OBJECT_NAME: &'static str = "object_name";
 
-    pub(crate) fn from_picture(
-        picture: Option<&UserPictureRef>,
-    ) -> (Option<&'static str>, Option<&str>, Option<&str>) {
-        match picture {
-            Some(UserPictureRef::ObjectName(object_name)) => {
-                (Some(Self::OBJECT_NAME), Some(object_name.value()), None)
-            }
-            Some(UserPictureRef::ExternalUrl(url)) => {
-                (Some(Self::EXTERNAL_URL), None, Some(url.value().as_str()))
-            }
-            None => (None, None, None),
-        }
-    }
-
     pub(crate) fn into_picture(
         self,
     ) -> Result<Option<UserPictureRef>, PgUserPictureRefColumnsError> {

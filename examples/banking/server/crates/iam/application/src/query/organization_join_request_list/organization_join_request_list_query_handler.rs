@@ -7,7 +7,10 @@ use appletheia::application::request_context::RequestContext;
 use banking_iam_domain::Organization;
 
 use crate::authorization::OrganizationAdminRelation;
-use crate::projection::OrganizationJoinRequestListProjectorSpec;
+use crate::projection::{
+    OrganizationFragmentProjectorSpec, OrganizationJoinRequestFragmentProjectorSpec,
+    UserFragmentProjectorSpec,
+};
 use crate::read_model::{OrganizationJoinRequestList, OrganizationJoinRequestListReader};
 
 use super::{OrganizationJoinRequestListQuery, OrganizationJoinRequestListQueryHandlerError};
@@ -38,8 +41,11 @@ where
     type Error = OrganizationJoinRequestListQueryHandlerError;
     type Uow = R::Uow;
 
-    const PROJECTOR_DEPENDENCIES: ProjectorDependencies<'static> =
-        ProjectorDependencies::Some(&[OrganizationJoinRequestListProjectorSpec::DESCRIPTOR]);
+    const PROJECTOR_DEPENDENCIES: ProjectorDependencies<'static> = ProjectorDependencies::Some(&[
+        OrganizationJoinRequestFragmentProjectorSpec::DESCRIPTOR,
+        OrganizationFragmentProjectorSpec::DESCRIPTOR,
+        UserFragmentProjectorSpec::DESCRIPTOR,
+    ]);
 
     fn authorization_plan(&self, query: &Self::Query) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
@@ -64,8 +70,8 @@ where
                 uow,
                 query.organization_id,
                 query.criteria,
-                query.cursor_options,
-                query.limit,
+                query.sort,
+                query.page,
             )
             .await?)
     }
@@ -77,9 +83,11 @@ mod tests {
         AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
     };
     use appletheia::application::query::QueryHandler;
+    use appletheia::application::read_model::pagination::{
+        CursorPage, PageSize, Sort, SortDirection,
+    };
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use banking_iam_domain::{Organization, OrganizationId};
-    use banking_shared_kernel_application::read_model::{CursorOptions, PageSize};
 
     use crate::authorization::OrganizationAdminRelation;
     use crate::read_model::{
@@ -112,13 +120,8 @@ mod tests {
             _uow: &mut Self::Uow,
             _scope_id: OrganizationId,
             _criteria: OrganizationJoinRequestListCriteria,
-            _cursor_options: Option<
-                CursorOptions<
-                    OrganizationJoinRequestListSortKey,
-                    OrganizationJoinRequestListCursor,
-                >,
-            >,
-            _limit: PageSize,
+            _sort: Sort<OrganizationJoinRequestListSortKey>,
+            _page: CursorPage<OrganizationJoinRequestListCursor>,
         ) -> Result<OrganizationJoinRequestList, OrganizationJoinRequestListReaderError> {
             panic!("reader is not exercised by this test")
         }
@@ -131,8 +134,14 @@ mod tests {
         let query = OrganizationJoinRequestListQuery {
             organization_id: scope_id,
             criteria: OrganizationJoinRequestListCriteria::default(),
-            cursor_options: None,
-            limit: PageSize::new(20).expect("page size should be valid"),
+            sort: Sort {
+                key: OrganizationJoinRequestListSortKey::CreatedAt,
+                direction: SortDirection::Desc,
+            },
+            page: CursorPage {
+                after: None,
+                limit: PageSize::new(20).expect("page size should be valid"),
+            },
         };
 
         let plan = handler

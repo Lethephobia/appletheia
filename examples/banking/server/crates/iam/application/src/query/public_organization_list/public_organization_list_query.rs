@@ -1,5 +1,5 @@
+use appletheia::application::read_model::pagination::{CursorPage, Sort};
 use appletheia::query;
-use banking_shared_kernel_application::read_model::{CursorOptions, PageSize};
 
 use crate::read_model::{
     PublicOrganizationListCriteria, PublicOrganizationListCursor, PublicOrganizationListSortKey,
@@ -10,7 +10,6 @@ use crate::read_model::{
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PublicOrganizationListQuery {
     pub criteria: PublicOrganizationListCriteria,
-    pub cursor_options:
-        Option<CursorOptions<PublicOrganizationListSortKey, PublicOrganizationListCursor>>,
-    pub limit: PageSize,
+    pub sort: Sort<PublicOrganizationListSortKey>,
+    pub page: CursorPage<PublicOrganizationListCursor>,
 }

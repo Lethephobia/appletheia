@@ -1,16 +1,19 @@
+use appletheia::application::read_model::ReadModelObservation;
 use appletheia::domain::{AggregateId, EventId};
-use banking_iam_application::{UserPrivateInfoOrganization, UserPrivateInfoOrganizationMembership};
-use banking_iam_domain::{
-    OrganizationDisplayName, OrganizationHandle, OrganizationId, OrganizationRoles,
+use banking_iam_application::{
+    InternalOrganizationSummaryPart, PrivateUserOrganizationMembershipPart,
 };
-use banking_shared_kernel_application::read_model::ReadModelObservation;
+use banking_iam_domain::{
+    OrganizationDisplayName, OrganizationHandle, OrganizationId, OrganizationRoles, UserId,
+};
 use uuid::Uuid;
 
-use super::super::pg_organization_picture_ref_columns::PgOrganizationPictureRefColumns;
 use super::pg_user_private_info_row_error::PgUserPrivateInfoRowError;
+use crate::postgresql::pg_organization_picture_ref_columns::PgOrganizationPictureRefColumns;
 
 #[derive(Debug, sqlx::FromRow)]
 pub struct PgUserPrivateInfoOrganizationMembershipRow {
+    pub user_id: Uuid,
     pub organization_id: Uuid,
     pub roles: String,
     pub source_event_id: Uuid,
@@ -31,7 +34,7 @@ impl PgUserPrivateInfoOrganizationMembershipRow {
     }
 }
 
-impl TryFrom<PgUserPrivateInfoOrganizationMembershipRow> for UserPrivateInfoOrganizationMembership {
+impl TryFrom<PgUserPrivateInfoOrganizationMembershipRow> for PrivateUserOrganizationMembershipPart {
     type Error = PgUserPrivateInfoRowError;
 
     fn try_from(row: PgUserPrivateInfoOrganizationMembershipRow) -> Result<Self, Self::Error> {
@@ -49,10 +52,12 @@ impl TryFrom<PgUserPrivateInfoOrganizationMembershipRow> for UserPrivateInfoOrga
             .ok_or(PgUserPrivateInfoRowError::MissingOrganization)?;
 
         Ok(Self {
-            organization: UserPrivateInfoOrganization {
-                id: OrganizationId::try_from_uuid(row.organization_id).map_err(|error| {
-                    PgUserPrivateInfoRowError::InvalidOrganizationId(Box::new(error))
-                })?,
+            user_id: UserId::try_from_uuid(row.user_id)
+                .map_err(|error| PgUserPrivateInfoRowError::InvalidUserId(Box::new(error)))?,
+            organization: InternalOrganizationSummaryPart {
+                organization_id: OrganizationId::try_from_uuid(row.organization_id).map_err(
+                    |error| PgUserPrivateInfoRowError::InvalidOrganizationId(Box::new(error)),
+                )?,
                 handle: OrganizationHandle::try_from(organization_handle).map_err(|error| {
                     PgUserPrivateInfoRowError::InvalidOrganizationHandle(Box::new(error))
                 })?,

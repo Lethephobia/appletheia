@@ -1,5 +1,6 @@
 pub mod command;
 pub mod event;
+pub mod read_model_fragment_change;
 
 mod default_outbox_relay;
 mod ordering_key;

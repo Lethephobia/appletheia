@@ -7,6 +7,7 @@ edition = "2024"
 anchor-lang = "1.0.2"
 appletheia = { workspace = true, features = ["application", "infrastructure"] }
 banking-ledger = { path = "../../../../onchain/programs/banking-ledger", features = ["no-entrypoint"] }
+banking-iam-application = { workspace = true }
 banking-iam-domain = { workspace = true }
 banking-ledger-application = { workspace = true }
 banking-ledger-domain = { workspace = true }

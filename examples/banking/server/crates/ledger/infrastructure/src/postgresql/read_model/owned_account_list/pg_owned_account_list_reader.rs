@@ -1,12 +1,12 @@
+use appletheia::application::read_model::pagination::{CursorPage, Sort, SortDirection};
 use appletheia::domain::AggregateId;
 use appletheia::infrastructure::postgresql::PgUnitOfWork;
 use banking_ledger_application::{
-    OwnedAccountList, OwnedAccountListCriteria, OwnedAccountListCursor, OwnedAccountListItem,
-    OwnedAccountListItemStatus, OwnedAccountListOwner, OwnedAccountListReader,
+    MaterializedAccountStatus, OwnedAccountList, OwnedAccountListCriteria, OwnedAccountListCursor,
+    OwnedAccountListItemPart, OwnedAccountListOwner, OwnedAccountListReader,
     OwnedAccountListReaderError, OwnedAccountListSortKey,
 };
 use banking_ledger_domain::account::AccountOwner;
-use banking_shared_kernel_application::read_model::{CursorOptions, PageSize, SortDirection};
 use sqlx::{Postgres, QueryBuilder};
 use uuid::Uuid;
 
@@ -30,11 +30,28 @@ impl PgOwnedAccountListReader {
         }
     }
 
-    fn status_name(status: OwnedAccountListItemStatus) -> &'static str {
+    fn status_name(status: MaterializedAccountStatus) -> &'static str {
         match status {
-            OwnedAccountListItemStatus::Active => "active",
-            OwnedAccountListItemStatus::Frozen => "frozen",
+            MaterializedAccountStatus::Active => "active",
+            MaterializedAccountStatus::Frozen => "frozen",
         }
+    }
+
+    fn push_status_in(
+        builder: &mut QueryBuilder<Postgres>,
+        status_in: &[MaterializedAccountStatus],
+    ) {
+        if status_in.is_empty() {
+            builder.push(" AND FALSE");
+            return;
+        }
+
+        builder.push(" AND a.status IN (");
+        let mut statuses = builder.separated(", ");
+        for status in status_in {
+            statuses.push_bind_unseparated(Self::status_name(*status));
+        }
+        statuses.push_unseparated(")");
     }
 
     async fn read_owner(
@@ -63,10 +80,10 @@ impl PgOwnedAccountListReader {
                 COALESCE(u.source_event_id, o.source_event_id) AS source_event_id,
                 COALESCE(u.updated_event_id, o.updated_event_id) AS updated_event_id
             FROM owner_ref
-            LEFT JOIN owned_account_list_owner_users u
+            LEFT JOIN user_fragments u
                    ON owner_ref.owner_type = 'user'
                   AND u.id = owner_ref.owner_id
-            LEFT JOIN owned_account_list_owner_organizations o
+            LEFT JOIN organization_fragments o
                    ON owner_ref.owner_type = 'organization'
                   AND o.id = owner_ref.owner_id
             "#,
@@ -96,12 +113,12 @@ impl OwnedAccountListReader for PgOwnedAccountListReader {
         uow: &mut Self::Uow,
         owner: AccountOwner,
         criteria: OwnedAccountListCriteria,
-        cursor_options: Option<CursorOptions<OwnedAccountListSortKey, OwnedAccountListCursor>>,
-        limit: PageSize,
+        sort: Sort<OwnedAccountListSortKey>,
+        page: CursorPage<OwnedAccountListCursor>,
     ) -> Result<OwnedAccountList, OwnedAccountListReaderError> {
         let (owner_type, owner_id) = Self::owner_parts(owner);
         let owner = Self::read_owner(uow, owner_type, owner_id).await?;
-        let query_limit = i64::from(limit.value()) + 1;
+        let query_limit = i64::from(page.limit.value()) + 1;
 
         let mut builder = QueryBuilder::<Postgres>::new(
             r#"
@@ -121,8 +138,8 @@ impl OwnedAccountListReader for PgOwnedAccountListReader {
                 a.created_at,
                 a.source_event_id,
                 a.updated_event_id
-            FROM owned_account_list_items a
-            INNER JOIN owned_account_list_item_currencies c ON c.id = a.currency_id
+            FROM account_fragments a
+            INNER JOIN currency_fragments c ON c.id = a.currency_id
             WHERE a.owner_type =
             "#,
         );
@@ -138,21 +155,12 @@ impl OwnedAccountListReader for PgOwnedAccountListReader {
                 .push_bind(currency_id.value());
         }
 
-        if let Some(status) = criteria.status {
-            builder
-                .push(" AND a.status = ")
-                .push_bind(Self::status_name(status));
+        if let Some(status_in) = criteria.status_in.as_deref() {
+            Self::push_status_in(&mut builder, status_in);
         }
 
-        let sort_key = cursor_options
-            .map(|options| options.sort_key)
-            .unwrap_or(OwnedAccountListSortKey::CreatedAt);
-        let sort_direction = cursor_options
-            .map(|options| options.sort_direction)
-            .unwrap_or(SortDirection::Desc);
-
-        if let Some(cursor) = cursor_options.and_then(|options| options.cursor) {
-            match (sort_key, sort_direction) {
+        if let Some(cursor) = page.after {
+            match (sort.key, sort.direction) {
                 (OwnedAccountListSortKey::CreatedAt, SortDirection::Asc) => {
                     builder
                         .push(" AND (a.created_at, a.id) > (")
@@ -182,7 +190,7 @@ impl OwnedAccountListReader for PgOwnedAccountListReader {
             }
         }
 
-        match (sort_key, sort_direction) {
+        match (sort.key, sort.direction) {
             (OwnedAccountListSortKey::CreatedAt, SortDirection::Asc) => {
                 builder.push(" ORDER BY a.created_at ASC, a.id ASC");
             }
@@ -205,12 +213,12 @@ impl OwnedAccountListReader for PgOwnedAccountListReader {
             .await
             .map_err(|e| OwnedAccountListReaderError::Persistence(Box::new(e)))?;
 
-        let page_limit = limit.value() as usize;
+        let page_limit = page.limit.value() as usize;
         let has_next = rows.len() > page_limit;
         let items = rows
             .into_iter()
             .take(page_limit)
-            .map(OwnedAccountListItem::try_from)
+            .map(OwnedAccountListItemPart::try_from)
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| OwnedAccountListReaderError::Persistence(Box::new(e)))?;
         let next_cursor = if has_next {

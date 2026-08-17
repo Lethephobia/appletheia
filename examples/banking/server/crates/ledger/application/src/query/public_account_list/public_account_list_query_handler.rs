@@ -2,8 +2,9 @@ use appletheia::application::authorization::AuthorizationPlan;
 use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::query::QueryHandler;
 use appletheia::application::request_context::RequestContext;
+use banking_iam_application::{OrganizationFragmentProjectorSpec, UserFragmentProjectorSpec};
 
-use crate::projection::PublicAccountListProjectorSpec;
+use crate::projection::{AccountFragmentProjectorSpec, CurrencyFragmentProjectorSpec};
 use crate::read_model::{PublicAccountList, PublicAccountListReader};
 
 use super::{PublicAccountListQuery, PublicAccountListQueryHandlerError};
@@ -34,8 +35,12 @@ where
     type Error = PublicAccountListQueryHandlerError;
     type Uow = S::Uow;
 
-    const PROJECTOR_DEPENDENCIES: ProjectorDependencies<'static> =
-        ProjectorDependencies::Some(&[PublicAccountListProjectorSpec::DESCRIPTOR]);
+    const PROJECTOR_DEPENDENCIES: ProjectorDependencies<'static> = ProjectorDependencies::Some(&[
+        AccountFragmentProjectorSpec::DESCRIPTOR,
+        CurrencyFragmentProjectorSpec::DESCRIPTOR,
+        UserFragmentProjectorSpec::DESCRIPTOR,
+        OrganizationFragmentProjectorSpec::DESCRIPTOR,
+    ]);
 
     fn authorization_plan(&self, _query: &Self::Query) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::None)
@@ -49,7 +54,7 @@ where
     ) -> Result<Self::Output, Self::Error> {
         Ok(self
             .reader
-            .list(uow, query.criteria, query.cursor_options, query.limit)
+            .list(uow, query.criteria, query.sort, query.page)
             .await?)
     }
 }

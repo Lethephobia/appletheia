@@ -1,11 +1,11 @@
+use appletheia::application::read_model::ReadModelObservation;
 use appletheia::domain::{AggregateId, EventId};
 use banking_iam_domain::{
     OrganizationDisplayName, OrganizationHandle, OrganizationId, UserDisplayName, UserId, Username,
 };
 use banking_ledger_application::{
-    OwnedAccountListOwner, OwnedAccountListOwnerOrganization, OwnedAccountListOwnerUser,
+    OwnedAccountListOwner, OwnedAccountListOwnerOrganizationPart, OwnedAccountListOwnerUserPart,
 };
-use banking_shared_kernel_application::read_model::ReadModelObservation;
 use uuid::Uuid;
 
 use super::super::pg_organization_picture_ref_columns::PgOrganizationPictureRefColumns;
@@ -84,7 +84,7 @@ impl TryFrom<PgOwnedAccountListOwnerRow> for OwnedAccountListOwner {
         let observation = row.observation()?;
 
         match row.owner_type.as_str() {
-            "user" => Ok(Self::User(OwnedAccountListOwnerUser {
+            "user" => Ok(Self::User(OwnedAccountListOwnerUserPart {
                 id: UserId::try_from_uuid(row.owner_id).map_err(|error| {
                     PgOwnedAccountListOwnerRowError::InvalidUserOwnerId(Box::new(error))
                 })?,
@@ -111,7 +111,7 @@ impl TryFrom<PgOwnedAccountListOwnerRow> for OwnedAccountListOwner {
                     .owner_organization_display_name
                     .ok_or(PgOwnedAccountListOwnerRowError::MissingOrganizationOwner)?;
 
-                Ok(Self::Organization(OwnedAccountListOwnerOrganization {
+                Ok(Self::Organization(OwnedAccountListOwnerOrganizationPart {
                     id: OrganizationId::try_from_uuid(row.owner_id).map_err(|error| {
                         PgOwnedAccountListOwnerRowError::InvalidOrganizationOwnerId(Box::new(error))
                     })?,

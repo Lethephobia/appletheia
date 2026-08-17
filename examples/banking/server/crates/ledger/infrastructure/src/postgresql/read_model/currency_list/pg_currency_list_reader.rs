@@ -1,10 +1,11 @@
+use appletheia::application::read_model::pagination::{CursorPage, Sort, SortDirection};
 use appletheia::domain::AggregateId;
 use appletheia::infrastructure::postgresql::PgUnitOfWork;
 use banking_ledger_application::{
-    CurrencyList, CurrencyListCriteria, CurrencyListCursor, CurrencyListItem,
-    CurrencyListItemStatus, CurrencyListReader, CurrencyListReaderError, CurrencyListSortKey,
+    CurrencyList, CurrencyListCriteria, CurrencyListCursor, CurrencyListItemPart,
+    CurrencyListReader, CurrencyListReaderError, CurrencyListSortKey, MaterializedCurrencyStatus,
 };
-use banking_shared_kernel_application::read_model::{CursorOptions, PageSize, SortDirection};
+use sqlx::query_builder::Separated;
 use sqlx::{Postgres, QueryBuilder};
 
 use super::pg_currency_list_item_row::PgCurrencyListItemRow;
@@ -17,13 +18,32 @@ impl PgCurrencyListReader {
         Self
     }
 
-    fn status_name(status: CurrencyListItemStatus) -> &'static str {
+    fn status_name(status: MaterializedCurrencyStatus) -> &'static str {
         match status {
-            CurrencyListItemStatus::Provisioning => "provisioning",
-            CurrencyListItemStatus::Active => "active",
-            CurrencyListItemStatus::Inactive => "inactive",
-            CurrencyListItemStatus::ProvisioningFailed => "provisioning_failed",
+            MaterializedCurrencyStatus::Provisioning => "provisioning",
+            MaterializedCurrencyStatus::Active => "active",
+            MaterializedCurrencyStatus::Inactive => "inactive",
+            MaterializedCurrencyStatus::ProvisioningFailed => "provisioning_failed",
         }
+    }
+
+    fn push_status_in(
+        predicates: &mut Separated<'_, Postgres, &'static str>,
+        status_in: &[MaterializedCurrencyStatus],
+    ) {
+        if status_in.is_empty() {
+            predicates.push("FALSE");
+            return;
+        }
+
+        let status_names = status_in
+            .iter()
+            .map(|status| Self::status_name(*status).to_owned())
+            .collect::<Vec<_>>();
+        predicates
+            .push("i.status = ANY(")
+            .push_bind_unseparated(status_names)
+            .push_unseparated(")");
     }
 }
 
@@ -40,17 +60,10 @@ impl CurrencyListReader for PgCurrencyListReader {
         &self,
         uow: &mut Self::Uow,
         criteria: CurrencyListCriteria,
-        cursor_options: Option<CursorOptions<CurrencyListSortKey, CurrencyListCursor>>,
-        limit: PageSize,
+        sort: Sort<CurrencyListSortKey>,
+        page: CursorPage<CurrencyListCursor>,
     ) -> Result<CurrencyList, CurrencyListReaderError> {
-        let query_limit = i64::from(limit.value()) + 1;
-        let sort_key = cursor_options
-            .map(|options| options.sort_key)
-            .unwrap_or(CurrencyListSortKey::CreatedAt);
-        let sort_direction = cursor_options
-            .map(|options| options.sort_direction)
-            .unwrap_or(SortDirection::Desc);
-        let cursor = cursor_options.and_then(|options| options.cursor);
+        let query_limit = i64::from(page.limit.value()) + 1;
 
         let mut builder = QueryBuilder::<Postgres>::new(
             r#"
@@ -83,28 +96,26 @@ impl CurrencyListReader for PgCurrencyListReader {
                 i.created_at,
                 i.source_event_id,
                 i.updated_event_id
-            FROM currency_list_items i
-            LEFT JOIN currency_list_item_owner_users u
+            FROM currency_fragments i
+            LEFT JOIN user_fragments u
                    ON i.owner_type = 'user'
                   AND u.id = i.owner_id
-            LEFT JOIN currency_list_item_owner_organizations o
+            LEFT JOIN organization_fragments o
                    ON i.owner_type = 'organization'
                   AND o.id = i.owner_id
             "#,
         );
 
-        if criteria.status.is_some() || cursor.is_some() {
+        if criteria.status_in.is_some() || page.after.is_some() {
             builder.push(" WHERE ");
             let mut predicates = builder.separated(" AND ");
 
-            if let Some(status) = criteria.status {
-                predicates
-                    .push("i.status = ")
-                    .push_bind_unseparated(Self::status_name(status));
+            if let Some(status_in) = criteria.status_in.as_deref() {
+                Self::push_status_in(&mut predicates, status_in);
             }
 
-            if let Some(cursor) = cursor {
-                match (sort_key, sort_direction) {
+            if let Some(cursor) = page.after {
+                match (sort.key, sort.direction) {
                     (CurrencyListSortKey::CreatedAt, SortDirection::Asc) => {
                         predicates
                             .push("(i.created_at, i.id) > (")
@@ -135,7 +146,7 @@ impl CurrencyListReader for PgCurrencyListReader {
             }
         }
 
-        match (sort_key, sort_direction) {
+        match (sort.key, sort.direction) {
             (CurrencyListSortKey::CreatedAt, SortDirection::Asc) => {
                 builder.push(" ORDER BY i.created_at ASC, i.id ASC");
             }
@@ -158,12 +169,12 @@ impl CurrencyListReader for PgCurrencyListReader {
             .await
             .map_err(|e| CurrencyListReaderError::Persistence(Box::new(e)))?;
 
-        let page_limit = limit.value() as usize;
+        let page_limit = page.limit.value() as usize;
         let has_next = rows.len() > page_limit;
         let items = rows
             .into_iter()
             .take(page_limit)
-            .map(CurrencyListItem::try_from)
+            .map(CurrencyListItemPart::try_from)
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| CurrencyListReaderError::Persistence(Box::new(e)))?;
         let next_cursor = if has_next {

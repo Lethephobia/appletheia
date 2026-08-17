@@ -7,7 +7,7 @@ use appletheia::application::request_context::RequestContext;
 use banking_iam_domain::Organization;
 
 use crate::authorization::OrganizationMemberRelation;
-use crate::projection::OrganizationInternalInfoProjectorSpec;
+use crate::projection::OrganizationFragmentProjectorSpec;
 use crate::read_model::{OrganizationInternalInfo, OrganizationInternalInfoReader};
 
 use super::{OrganizationInternalInfoQuery, OrganizationInternalInfoQueryHandlerError};
@@ -39,7 +39,7 @@ where
     type Uow = R::Uow;
 
     const PROJECTOR_DEPENDENCIES: ProjectorDependencies<'static> =
-        ProjectorDependencies::Some(&[OrganizationInternalInfoProjectorSpec::DESCRIPTOR]);
+        ProjectorDependencies::Some(&[OrganizationFragmentProjectorSpec::DESCRIPTOR]);
 
     fn authorization_plan(&self, query: &Self::Query) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::OnlyPrincipals(vec![

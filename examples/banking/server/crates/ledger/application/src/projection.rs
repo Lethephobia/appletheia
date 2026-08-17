@@ -1,22 +1,98 @@
-mod currency_list;
-mod owned_account_list;
-mod owned_account_transaction_list;
-mod public_account_list;
-mod wallet_bookmark_list;
+macro_rules! impl_observation_part {
+    ($type:ty, $name:literal, $source_fragment:ty, $key:expr) => {
+        impl ReadModelObservationSource for $type {
+            fn observations(&self) -> Vec<ReadModelObservation> {
+                vec![self.observation]
+            }
+        }
 
-pub use currency_list::{
-    CurrencyListProjector, CurrencyListProjectorError, CurrencyListProjectorSpec,
+        impl ReadModelPart for $type {
+            const NAME: ReadModelPartName = ReadModelPartName::new($name);
+
+            type SourceFragment = $source_fragment;
+
+            fn key(&self) -> <Self::SourceFragment as ReadModelFragment>::Key {
+                $key(self)
+            }
+        }
+    };
+}
+
+macro_rules! impl_part {
+    ($type:ty, $name:literal, $source_fragment:ty, $key:expr) => {
+        impl ReadModelPart for $type {
+            const NAME: ReadModelPartName = ReadModelPartName::new($name);
+
+            type SourceFragment = $source_fragment;
+
+            fn key(&self) -> <Self::SourceFragment as ReadModelFragment>::Key {
+                $key(self)
+            }
+        }
+    };
+}
+
+macro_rules! impl_composite_part {
+    ($type:ty, $name:literal, $source_fragment:ty, $key:expr, $parts:expr) => {
+        impl ReadModelPart for $type {
+            const NAME: ReadModelPartName = ReadModelPartName::new($name);
+
+            type SourceFragment = $source_fragment;
+
+            fn key(&self) -> <Self::SourceFragment as ReadModelFragment>::Key {
+                $key(self)
+            }
+
+            fn parts(part: Option<&Self>) -> Vec<ReadModelPartTree> {
+                $parts(part)
+            }
+        }
+    };
+}
+
+mod account;
+mod account_transaction;
+mod currency;
+mod fragment_owner;
+mod organization;
+mod user;
+mod wallet_bookmark;
+
+pub use account::{
+    AccountFragment, AccountFragmentProjector, AccountFragmentProjectorError,
+    AccountFragmentProjectorSpec, AccountFragmentUpsert, AccountFragmentWriter,
+    AccountFragmentWriterError, MaterializedAccountStatus, MaterializedAccountStatusError,
+    OwnedAccountListItemPart, OwnedAccountTransactionListItemCounterpartyAccountPart,
+    PublicAccountListItemPart,
 };
-pub use owned_account_list::{
-    OwnedAccountListProjector, OwnedAccountListProjectorError, OwnedAccountListProjectorSpec,
+pub use account_transaction::{
+    AccountTransactionCurrencyIssuanceIssuedRecord, AccountTransactionDirection,
+    AccountTransactionFragment, AccountTransactionFragmentInsert, AccountTransactionFragmentKind,
+    AccountTransactionFragmentProjector, AccountTransactionFragmentProjectorError,
+    AccountTransactionFragmentProjectorSpec, AccountTransactionFragmentWriter,
+    AccountTransactionFragmentWriterError, AccountTransactionId, AccountTransactionStatus,
+    AccountTransactionTransferRequestedRecord, OwnedAccountTransactionListItemPart,
 };
-pub use owned_account_transaction_list::{
-    OwnedAccountTransactionListProjector, OwnedAccountTransactionListProjectorError,
-    OwnedAccountTransactionListProjectorSpec,
+pub use currency::{
+    CurrencyFragment, CurrencyFragmentProjector, CurrencyFragmentProjectorError,
+    CurrencyFragmentProjectorSpec, CurrencyFragmentUpsert, CurrencyFragmentWriter,
+    CurrencyFragmentWriterError, CurrencyListItemPart, MaterializedCurrencyStatus,
+    MaterializedCurrencyStatusError, OwnedAccountListItemCurrencyPart,
+    OwnedAccountTransactionListItemCurrencyPart, PublicAccountListItemCurrencyPart,
 };
-pub use public_account_list::{
-    PublicAccountListProjector, PublicAccountListProjectorError, PublicAccountListProjectorSpec,
+pub use fragment_owner::FragmentOwner;
+pub use organization::{
+    CurrencyListItemOwnerOrganizationPart, OwnedAccountListOwnerOrganizationPart,
+    OwnedAccountTransactionListItemCounterpartyAccountOwnerOrganizationPart,
+    OwnedAccountTransactionListOwnerOrganizationPart, PublicAccountListItemOwnerOrganizationPart,
 };
-pub use wallet_bookmark_list::{
-    WalletBookmarkListProjector, WalletBookmarkListProjectorError, WalletBookmarkListProjectorSpec,
+pub use user::{
+    CurrencyListItemOwnerUserPart, OwnedAccountListOwnerUserPart,
+    OwnedAccountTransactionListItemCounterpartyAccountOwnerUserPart,
+    OwnedAccountTransactionListOwnerUserPart, PublicAccountListItemOwnerUserPart,
+};
+pub use wallet_bookmark::{
+    WalletBookmarkFragment, WalletBookmarkFragmentProjector, WalletBookmarkFragmentProjectorError,
+    WalletBookmarkFragmentProjectorSpec, WalletBookmarkFragmentUpsert,
+    WalletBookmarkFragmentWriter, WalletBookmarkFragmentWriterError, WalletBookmarkListItemPart,
 };

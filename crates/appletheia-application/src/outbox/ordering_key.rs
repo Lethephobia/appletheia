@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::event::{AggregateIdValue, AggregateTypeOwned};
+use crate::json::CanonicalJson;
+use crate::read_model::SerializedPartition;
 use crate::request_context::CorrelationId;
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize)]
@@ -62,6 +64,18 @@ impl From<CorrelationId> for OrderingKey {
     }
 }
 
+impl From<CanonicalJson> for OrderingKey {
+    fn from(value: CanonicalJson) -> Self {
+        Self(value.into_string())
+    }
+}
+
+impl From<&SerializedPartition> for OrderingKey {
+    fn from(partition: &SerializedPartition) -> Self {
+        Self::from(partition.canonical_json())
+    }
+}
+
 #[derive(Debug, Error)]
 pub enum OrderingKeyError {
     #[error("ordering key cannot be empty")]
@@ -82,5 +96,34 @@ mod tests {
     fn rejects_empty() {
         let err = OrderingKey::new("".to_string()).unwrap_err();
         assert!(matches!(err, OrderingKeyError::Empty));
+    }
+
+    #[test]
+    fn source_partition_builds_one_ordered_stream_key() {
+        let partition = SerializedPartition::try_from(serde_json::json!({
+            "fragment_name": "user",
+            "key": "019feb8c-d525-7b01-91d5-018b73dad7a7"
+        }))
+        .expect("partition should be valid");
+
+        let ordering_key = OrderingKey::from(&partition);
+
+        assert_eq!(ordering_key.as_str(), partition.canonical_json().as_str());
+    }
+
+    #[test]
+    fn source_partition_ordering_key_is_independent_of_object_key_order() {
+        let first = SerializedPartition::try_from(serde_json::json!({
+            "fragment_name": "organization",
+            "key": { "organization_id": "one", "user_id": "two" },
+        }))
+        .expect("first partition should be valid");
+        let second = SerializedPartition::try_from(serde_json::json!({
+            "key": { "user_id": "two", "organization_id": "one" },
+            "fragment_name": "organization",
+        }))
+        .expect("second partition should be valid");
+
+        assert_eq!(OrderingKey::from(&first), OrderingKey::from(&second));
     }
 }

@@ -1,0 +1,55 @@
+name: PostgreSQL Integration Tests
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+    - ".github/workflows/postgresql-integration-tests.yml"
+    - "crates/appletheia-domain/**"
+    - "crates/appletheia-application/**"
+    - "crates/appletheia-infrastructure/**"
+    - "Cargo.toml"
+    - "Cargo.lock"
+    - "rust-toolchain.toml"
+  pull_request:
+    branches: [ "main" ]
+    paths:
+    - ".github/workflows/postgresql-integration-tests.yml"
+    - "crates/appletheia-domain/**"
+    - "crates/appletheia-application/**"
+    - "crates/appletheia-infrastructure/**"
+    - "Cargo.toml"
+    - "Cargo.lock"
+    - "rust-toolchain.toml"
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+
+jobs:
+  postgresql-integration-tests:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+        - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Run PostgreSQL integration tests
+      run: >-
+        cargo test -p appletheia-infrastructure
+        --tests
+        -- --ignored

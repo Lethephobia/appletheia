@@ -1,11 +1,11 @@
+use appletheia::application::read_model::ReadModelObservation;
 use appletheia::domain::{AggregateId, EventId};
-use banking_iam_application::UserOrganizationJoinRequestListUser;
+use banking_iam_application::InternalUserSummaryPart;
 use banking_iam_domain::{UserDisplayName, UserId, Username};
-use banking_shared_kernel_application::read_model::ReadModelObservation;
 use uuid::Uuid;
 
-use super::super::pg_user_picture_ref_columns::PgUserPictureRefColumns;
 use super::pg_user_organization_join_request_list_user_row_error::PgUserOrganizationJoinRequestListUserRowError;
+use crate::postgresql::pg_user_picture_ref_columns::PgUserPictureRefColumns;
 
 #[derive(Debug, sqlx::FromRow)]
 pub struct PgUserOrganizationJoinRequestListUserRow {
@@ -19,7 +19,7 @@ pub struct PgUserOrganizationJoinRequestListUserRow {
     pub updated_event_id: Uuid,
 }
 
-impl TryFrom<PgUserOrganizationJoinRequestListUserRow> for UserOrganizationJoinRequestListUser {
+impl TryFrom<PgUserOrganizationJoinRequestListUserRow> for InternalUserSummaryPart {
     type Error = PgUserOrganizationJoinRequestListUserRowError;
 
     fn try_from(row: PgUserOrganizationJoinRequestListUserRow) -> Result<Self, Self::Error> {

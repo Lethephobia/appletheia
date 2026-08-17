@@ -1,7 +1,6 @@
+use appletheia::application::read_model::pagination::{CursorPage, Sort};
 use appletheia::application::unit_of_work::UnitOfWork;
 use banking_ledger_domain::account::AccountOwner;
-
-use banking_shared_kernel_application::read_model::{CursorOptions, PageSize};
 
 use super::{
     OwnedAccountList, OwnedAccountListCriteria, OwnedAccountListCursor,
@@ -18,7 +17,7 @@ pub trait OwnedAccountListReader: Send + Sync {
         uow: &mut Self::Uow,
         owner: AccountOwner,
         criteria: OwnedAccountListCriteria,
-        cursor_options: Option<CursorOptions<OwnedAccountListSortKey, OwnedAccountListCursor>>,
-        limit: PageSize,
+        sort: Sort<OwnedAccountListSortKey>,
+        page: CursorPage<OwnedAccountListCursor>,
     ) -> Result<OwnedAccountList, OwnedAccountListReaderError>;
 }

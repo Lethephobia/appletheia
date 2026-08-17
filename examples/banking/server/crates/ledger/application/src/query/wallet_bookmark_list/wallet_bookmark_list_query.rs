@@ -1,6 +1,6 @@
+use appletheia::application::read_model::pagination::{CursorPage, Sort};
 use appletheia::query;
 use banking_ledger_domain::wallet_bookmark::WalletBookmarkOwner;
-use banking_shared_kernel_application::read_model::{CursorOptions, PageSize};
 
 use crate::read_model::{
     WalletBookmarkListCriteria, WalletBookmarkListCursor, WalletBookmarkListSortKey,
@@ -12,6 +12,6 @@ use crate::read_model::{
 pub struct WalletBookmarkListQuery {
     pub owner: WalletBookmarkOwner,
     pub criteria: WalletBookmarkListCriteria,
-    pub cursor_options: Option<CursorOptions<WalletBookmarkListSortKey, WalletBookmarkListCursor>>,
-    pub limit: PageSize,
+    pub sort: Sort<WalletBookmarkListSortKey>,
+    pub page: CursorPage<WalletBookmarkListCursor>,
 }

@@ -1,0 +1,4 @@
+mod pg_wallet_bookmark_fragment_row;
+mod pg_wallet_bookmark_fragment_writer;
+
+pub use pg_wallet_bookmark_fragment_writer::PgWalletBookmarkFragmentWriter;

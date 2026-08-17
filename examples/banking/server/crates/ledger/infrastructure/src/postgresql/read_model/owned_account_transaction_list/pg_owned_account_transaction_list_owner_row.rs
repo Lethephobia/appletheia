@@ -1,12 +1,12 @@
+use appletheia::application::read_model::ReadModelObservation;
 use appletheia::domain::{AggregateId, EventId};
 use banking_iam_domain::{
     OrganizationDisplayName, OrganizationHandle, OrganizationId, UserDisplayName, UserId, Username,
 };
 use banking_ledger_application::{
-    OwnedAccountTransactionListOwner, OwnedAccountTransactionListOwnerOrganization,
-    OwnedAccountTransactionListOwnerUser,
+    OwnedAccountTransactionListOwner, OwnedAccountTransactionListOwnerOrganizationPart,
+    OwnedAccountTransactionListOwnerUserPart,
 };
-use banking_shared_kernel_application::read_model::ReadModelObservation;
 use uuid::Uuid;
 
 use super::super::pg_organization_picture_ref_columns::PgOrganizationPictureRefColumns;
@@ -94,7 +94,7 @@ impl TryFrom<PgOwnedAccountTransactionListOwnerRow> for OwnedAccountTransactionL
         let observation = row.observation()?;
 
         match row.owner_type.as_str() {
-            "user" => Ok(Self::User(OwnedAccountTransactionListOwnerUser {
+            "user" => Ok(Self::User(OwnedAccountTransactionListOwnerUserPart {
                 id: UserId::try_from_uuid(row.owner_id).map_err(|error| {
                     PgOwnedAccountTransactionListOwnerRowError::InvalidUserOwnerId(Box::new(error))
                 })?,
@@ -124,7 +124,7 @@ impl TryFrom<PgOwnedAccountTransactionListOwnerRow> for OwnedAccountTransactionL
                     .ok_or(PgOwnedAccountTransactionListOwnerRowError::MissingOrganizationOwner)?;
 
                 Ok(Self::Organization(
-                    OwnedAccountTransactionListOwnerOrganization {
+                    OwnedAccountTransactionListOwnerOrganizationPart {
                         id: OrganizationId::try_from_uuid(row.owner_id).map_err(|error| {
                             PgOwnedAccountTransactionListOwnerRowError::InvalidOrganizationOwnerId(
                                 Box::new(error),

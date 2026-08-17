@@ -1,53 +1,46 @@
-mod organization_internal_info;
-mod organization_invitation_list;
-mod organization_join_request_list;
-mod organization_management_info;
-mod organization_member_list;
-mod public_organization_list;
-mod public_user_list;
-mod user_organization_invitation_list;
-mod user_organization_join_request_list;
-mod user_private_info;
-mod user_public_profile;
+mod organization;
+mod organization_invitation;
+mod organization_join_request;
+mod organization_membership;
+mod user;
+mod user_identity;
 
-pub use organization_internal_info::{
-    OrganizationInternalInfoProjector, OrganizationInternalInfoProjectorError,
-    OrganizationInternalInfoProjectorSpec,
+pub use organization::{
+    InternalOrganizationDetailsPart, InternalOrganizationSummaryPart, OrganizationFragment,
+    OrganizationFragmentProjector, OrganizationFragmentProjectorError,
+    OrganizationFragmentProjectorSpec, OrganizationFragmentUpsert, OrganizationFragmentWriter,
+    OrganizationFragmentWriterError, PublicOrganizationListItemPart,
 };
-pub use organization_invitation_list::{
-    OrganizationInvitationListProjector, OrganizationInvitationListProjectorError,
-    OrganizationInvitationListProjectorSpec,
+pub use organization_invitation::{
+    OrganizationInvitationFragment, OrganizationInvitationFragmentProjector,
+    OrganizationInvitationFragmentProjectorError, OrganizationInvitationFragmentProjectorSpec,
+    OrganizationInvitationFragmentUpsert, OrganizationInvitationFragmentWriter,
+    OrganizationInvitationFragmentWriterError, OrganizationInvitationListItemPart,
+    UserOrganizationInvitationListItemPart,
 };
-pub use organization_join_request_list::{
-    OrganizationJoinRequestListProjector, OrganizationJoinRequestListProjectorError,
-    OrganizationJoinRequestListProjectorSpec,
+pub use organization_join_request::{
+    OrganizationJoinRequestFragment, OrganizationJoinRequestFragmentProjector,
+    OrganizationJoinRequestFragmentProjectorError, OrganizationJoinRequestFragmentProjectorSpec,
+    OrganizationJoinRequestFragmentUpsert, OrganizationJoinRequestFragmentWriter,
+    OrganizationJoinRequestFragmentWriterError, OrganizationJoinRequestListItemPart,
+    UserOrganizationJoinRequestListItemPart,
 };
-pub use organization_management_info::{
-    OrganizationManagementInfoProjector, OrganizationManagementInfoProjectorError,
-    OrganizationManagementInfoProjectorSpec,
+pub use organization_membership::{
+    OrganizationMemberListItemPart, OrganizationMembershipFragment,
+    OrganizationMembershipFragmentKey, OrganizationMembershipFragmentProjector,
+    OrganizationMembershipFragmentProjectorError, OrganizationMembershipFragmentProjectorSpec,
+    OrganizationMembershipFragmentUpsert, OrganizationMembershipFragmentWriter,
+    OrganizationMembershipFragmentWriterError, PrivateUserOrganizationMembershipPart,
 };
-pub use organization_member_list::{
-    OrganizationMemberListProjector, OrganizationMemberListProjectorError,
-    OrganizationMemberListProjectorSpec,
+pub use user::{
+    InternalUserSummaryPart, MaterializedUserStatus, MaterializedUserStatusError,
+    PrivateUserDetailsPart, PublicUserDetailsPart, PublicUserListItemPart, UserFragment,
+    UserFragmentProjector, UserFragmentProjectorError, UserFragmentProjectorSpec,
+    UserFragmentUpsert, UserFragmentWriter, UserFragmentWriterError,
 };
-pub use public_organization_list::{
-    PublicOrganizationListProjector, PublicOrganizationListProjectorError,
-    PublicOrganizationListProjectorSpec,
-};
-pub use public_user_list::{
-    PublicUserListProjector, PublicUserListProjectorError, PublicUserListProjectorSpec,
-};
-pub use user_organization_invitation_list::{
-    UserOrganizationInvitationListProjector, UserOrganizationInvitationListProjectorError,
-    UserOrganizationInvitationListProjectorSpec,
-};
-pub use user_organization_join_request_list::{
-    UserOrganizationJoinRequestListProjector, UserOrganizationJoinRequestListProjectorError,
-    UserOrganizationJoinRequestListProjectorSpec,
-};
-pub use user_private_info::{
-    UserPrivateInfoProjector, UserPrivateInfoProjectorError, UserPrivateInfoProjectorSpec,
-};
-pub use user_public_profile::{
-    UserPublicProfileProjector, UserPublicProfileProjectorError, UserPublicProfileProjectorSpec,
+pub use user_identity::{
+    PrivateUserIdentityPart, UserIdentityFragment, UserIdentityFragmentKey,
+    UserIdentityFragmentProjector, UserIdentityFragmentProjectorError,
+    UserIdentityFragmentProjectorSpec, UserIdentityFragmentUpsert, UserIdentityFragmentWriter,
+    UserIdentityFragmentWriterError,
 };

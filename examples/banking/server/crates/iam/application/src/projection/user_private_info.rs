@@ -1,7 +1,0 @@
-mod user_private_info_projector;
-mod user_private_info_projector_error;
-mod user_private_info_projector_spec;
-
-pub use user_private_info_projector::UserPrivateInfoProjector;
-pub use user_private_info_projector_error::UserPrivateInfoProjectorError;
-pub use user_private_info_projector_spec::UserPrivateInfoProjectorSpec;

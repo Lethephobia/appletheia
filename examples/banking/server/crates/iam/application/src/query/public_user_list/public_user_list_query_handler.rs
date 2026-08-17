@@ -3,7 +3,7 @@ use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::query::QueryHandler;
 use appletheia::application::request_context::RequestContext;
 
-use crate::projection::PublicUserListProjectorSpec;
+use crate::projection::UserFragmentProjectorSpec;
 use crate::read_model::{PublicUserList, PublicUserListReader};
 
 use super::{PublicUserListQuery, PublicUserListQueryHandlerError};
@@ -35,7 +35,7 @@ where
     type Uow = S::Uow;
 
     const PROJECTOR_DEPENDENCIES: ProjectorDependencies<'static> =
-        ProjectorDependencies::Some(&[PublicUserListProjectorSpec::DESCRIPTOR]);
+        ProjectorDependencies::Some(&[UserFragmentProjectorSpec::DESCRIPTOR]);
 
     fn authorization_plan(&self, _query: &Self::Query) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
@@ -51,7 +51,7 @@ where
     ) -> Result<Self::Output, Self::Error> {
         Ok(self
             .reader
-            .list(uow, query.criteria, query.cursor_options, query.limit)
+            .list(uow, query.criteria, query.sort, query.page)
             .await?)
     }
 }
@@ -60,8 +60,10 @@ where
 mod tests {
     use appletheia::application::authorization::{AuthorizationPlan, PrincipalRequirement};
     use appletheia::application::query::QueryHandler;
+    use appletheia::application::read_model::pagination::{
+        CursorPage, PageSize, Sort, SortDirection,
+    };
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
-    use banking_shared_kernel_application::read_model::{CursorOptions, PageSize};
 
     use crate::read_model::{
         PublicUserList, PublicUserListCriteria, PublicUserListCursor, PublicUserListReader,
@@ -93,8 +95,8 @@ mod tests {
             &self,
             _uow: &mut Self::Uow,
             _criteria: PublicUserListCriteria,
-            _cursor_options: Option<CursorOptions<PublicUserListSortKey, PublicUserListCursor>>,
-            _limit: PageSize,
+            _sort: Sort<PublicUserListSortKey>,
+            _page: CursorPage<PublicUserListCursor>,
         ) -> Result<PublicUserList, PublicUserListReaderError> {
             Ok(PublicUserList {
                 items: Vec::new(),
@@ -108,8 +110,14 @@ mod tests {
         let handler = PublicUserListQueryHandler::new(TestPublicUserListReader);
         let query = PublicUserListQuery {
             criteria: PublicUserListCriteria::default(),
-            cursor_options: None,
-            limit: PageSize::new(20).expect("page size should be valid"),
+            sort: Sort {
+                key: PublicUserListSortKey::CreatedAt,
+                direction: SortDirection::Desc,
+            },
+            page: CursorPage {
+                after: None,
+                limit: PageSize::new(20).expect("page size should be valid"),
+            },
         };
 
         let plan = handler

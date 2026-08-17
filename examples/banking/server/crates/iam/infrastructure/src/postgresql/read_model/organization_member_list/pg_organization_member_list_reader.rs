@@ -1,12 +1,13 @@
+use appletheia::application::read_model::pagination::{CursorPage, Sort, SortDirection};
 use appletheia::domain::AggregateId;
 use appletheia::infrastructure::postgresql::PgUnitOfWork;
 use banking_iam_application::{
-    OrganizationMemberList, OrganizationMemberListCriteria, OrganizationMemberListCursor,
-    OrganizationMemberListItem, OrganizationMemberListOrganization, OrganizationMemberListReader,
+    InternalOrganizationSummaryPart, OrganizationMemberList, OrganizationMemberListCriteria,
+    OrganizationMemberListCursor, OrganizationMemberListItemPart, OrganizationMemberListReader,
     OrganizationMemberListReaderError, OrganizationMemberListSortKey,
 };
 use banking_iam_domain::OrganizationId;
-use banking_shared_kernel_application::read_model::{CursorOptions, PageSize, SortDirection};
+use banking_shared_kernel_application::read_model::SearchTerm;
 use sqlx::{Postgres, QueryBuilder};
 
 use super::pg_organization_member_list_item_row::PgOrganizationMemberListItemRow;
@@ -32,14 +33,11 @@ impl PgOrganizationMemberListReader {
     fn push_username_contains(
         builder: &mut QueryBuilder<Postgres>,
         has_predicate: &mut bool,
-        username_contains: &[String],
+        username_contains: &[SearchTerm],
     ) {
         let mut pushed_search_presence = false;
 
-        for contains in username_contains
-            .iter()
-            .filter(|contains| contains.chars().any(|character| !character.is_whitespace()))
-        {
+        for term in username_contains {
             if !pushed_search_presence {
                 Self::push_predicate_prefix(builder, has_predicate);
                 builder.push("u.username_search_text IS NOT NULL");
@@ -48,23 +46,23 @@ impl PgOrganizationMemberListReader {
 
             Self::push_predicate_prefix(builder, has_predicate);
             builder
-                .push("u.username_search_text LIKE likequery(regexp_replace(lower(")
-                .push_bind(contains.as_str())
-                .push("), '[[:space:]]+', '', 'g'))");
+                .push("u.username_search_text LIKE likequery(")
+                .push_bind(term.as_ref())
+                .push(")");
         }
     }
 
     async fn read_organization(
         uow: &mut PgUnitOfWork,
         organization_id: OrganizationId,
-    ) -> Result<OrganizationMemberListOrganization, OrganizationMemberListReaderError> {
+    ) -> Result<InternalOrganizationSummaryPart, OrganizationMemberListReaderError> {
         let row = sqlx::query_as::<_, PgOrganizationMemberListOrganizationRow>(
             r#"
-            SELECT organization_id, handle, display_name, picture_type,
+            SELECT id AS organization_id, handle, display_name, picture_type,
                    picture_object_name, picture_external_url, source_event_id,
                    updated_event_id
-              FROM organization_member_list_organizations
-             WHERE organization_id = $1
+              FROM organization_fragments
+             WHERE id = $1
             "#,
         )
         .bind(organization_id.value())
@@ -72,7 +70,7 @@ impl PgOrganizationMemberListReader {
         .await
         .map_err(|error| OrganizationMemberListReaderError::Persistence(Box::new(error)))?;
 
-        OrganizationMemberListOrganization::try_from(row)
+        InternalOrganizationSummaryPart::try_from(row)
             .map_err(|error| OrganizationMemberListReaderError::Persistence(Box::new(error)))
     }
 }
@@ -91,34 +89,26 @@ impl OrganizationMemberListReader for PgOrganizationMemberListReader {
         uow: &mut Self::Uow,
         organization_id: OrganizationId,
         criteria: OrganizationMemberListCriteria,
-        cursor_options: Option<
-            CursorOptions<OrganizationMemberListSortKey, OrganizationMemberListCursor>,
-        >,
-        limit: PageSize,
+        sort: Sort<OrganizationMemberListSortKey>,
+        page: CursorPage<OrganizationMemberListCursor>,
     ) -> Result<OrganizationMemberList, OrganizationMemberListReaderError> {
         let organization = Self::read_organization(uow, organization_id).await?;
-        let query_limit = i64::from(limit.value()) + 1;
-        let sort_key = cursor_options
-            .map(|options| options.sort_key)
-            .unwrap_or(OrganizationMemberListSortKey::JoinedAt);
-        let sort_direction = cursor_options
-            .map(|options| options.sort_direction)
-            .unwrap_or(SortDirection::Desc);
-        let page_cursor = cursor_options.and_then(|options| options.cursor);
+        let query_limit = i64::from(page.limit.value()) + 1;
 
         let mut builder = QueryBuilder::<Postgres>::new(
             r#"
             WITH member_rows AS (
                 SELECT
+                    m.organization_id,
                     m.user_id,
                     m.roles::text AS roles,
                     m.user_id = o.owner_user_id AS is_owner,
-                    m.joined_at,
+                    m.created_at AS joined_at,
                     m.source_event_id,
                     m.updated_event_id
-                FROM organization_member_list_memberships AS m
-                INNER JOIN organization_member_list_organizations AS o
-                        ON o.organization_id = m.organization_id
+                FROM organization_membership_fragments AS m
+                INNER JOIN organization_fragments AS o
+                        ON o.id = m.organization_id
                 WHERE m.organization_id =
             "#,
         );
@@ -126,26 +116,28 @@ impl OrganizationMemberListReader for PgOrganizationMemberListReader {
             r#"
                 UNION ALL
                 SELECT
+                    o.id AS organization_id,
                     o.owner_user_id AS user_id,
                     '[]'::text AS roles,
                     TRUE AS is_owner,
                     o.owner_since AS joined_at,
                     o.owner_source_event_id AS source_event_id,
                     o.owner_updated_event_id AS updated_event_id
-                FROM organization_member_list_organizations AS o
-                WHERE o.organization_id =
+                FROM organization_fragments AS o
+                WHERE o.id =
             "#,
         );
         builder.push_bind(organization_id.value()).push(
             r#"
                   AND NOT EXISTS (
                       SELECT 1
-                      FROM organization_member_list_memberships AS m
-                      WHERE m.organization_id = o.organization_id
+                      FROM organization_membership_fragments AS m
+                      WHERE m.organization_id = o.id
                         AND m.user_id = o.owner_user_id
                   )
             )
             SELECT
+                r.organization_id,
                 r.user_id,
                 u.username,
                 u.display_name,
@@ -160,7 +152,7 @@ impl OrganizationMemberListReader for PgOrganizationMemberListReader {
                 u.source_event_id AS member_source_event_id,
                 u.updated_event_id AS member_updated_event_id
             FROM member_rows AS r
-            INNER JOIN organization_member_list_users AS u ON u.user_id = r.user_id
+            INNER JOIN user_fragments AS u ON u.id = r.user_id
             "#,
         );
 
@@ -171,9 +163,9 @@ impl OrganizationMemberListReader for PgOrganizationMemberListReader {
             &criteria.username_contains,
         );
 
-        if let Some(cursor) = page_cursor {
+        if let Some(cursor) = page.after {
             Self::push_predicate_prefix(&mut builder, &mut has_predicate);
-            match (sort_key, sort_direction) {
+            match (sort.key, sort.direction) {
                 (OrganizationMemberListSortKey::JoinedAt, SortDirection::Asc) => {
                     builder
                         .push("(r.joined_at, r.user_id) > (")
@@ -203,7 +195,7 @@ impl OrganizationMemberListReader for PgOrganizationMemberListReader {
             }
         }
 
-        match (sort_key, sort_direction) {
+        match (sort.key, sort.direction) {
             (OrganizationMemberListSortKey::JoinedAt, SortDirection::Asc) => {
                 builder.push(" ORDER BY r.joined_at ASC, r.user_id ASC");
             }
@@ -225,12 +217,12 @@ impl OrganizationMemberListReader for PgOrganizationMemberListReader {
             .fetch_all(uow.transaction_mut().as_mut())
             .await
             .map_err(|error| OrganizationMemberListReaderError::Persistence(Box::new(error)))?;
-        let page_limit = limit.value() as usize;
+        let page_limit = page.limit.value() as usize;
         let has_next = rows.len() > page_limit;
         let items = rows
             .into_iter()
             .take(page_limit)
-            .map(OrganizationMemberListItem::try_from)
+            .map(OrganizationMemberListItemPart::try_from)
             .collect::<Result<Vec<_>, _>>()
             .map_err(|error| OrganizationMemberListReaderError::Persistence(Box::new(error)))?;
         let next_cursor = if has_next {
@@ -252,17 +244,18 @@ impl OrganizationMemberListReader for PgOrganizationMemberListReader {
 
 #[cfg(test)]
 mod tests {
+    use banking_shared_kernel_application::read_model::SearchTerm;
     use sqlx::{Postgres, QueryBuilder};
 
     use super::PgOrganizationMemberListReader;
 
+    fn search_term(value: &str) -> SearchTerm {
+        SearchTerm::try_from(value).expect("search term should be valid")
+    }
+
     #[test]
-    fn username_contains_adds_one_and_predicate_per_non_blank_value() {
-        let username_contains = vec![
-            " Alice ".to_owned(),
-            "bob_smith".to_owned(),
-            "   ".to_owned(),
-        ];
+    fn username_contains_adds_one_and_predicate_per_term() {
+        let username_contains = vec![search_term(" Alice "), search_term("bob_smith")];
         let mut builder = QueryBuilder::<Postgres>::new("SELECT 1");
         let mut has_predicate = false;
 
@@ -281,13 +274,13 @@ mod tests {
                 .count(),
             2
         );
-        assert!(sql_text.contains("lower($1)"));
-        assert!(sql_text.contains("lower($2)"));
+        assert!(sql_text.contains("likequery($1)"));
+        assert!(sql_text.contains("likequery($2)"));
     }
 
     #[test]
     fn empty_username_contains_adds_no_predicate() {
-        let username_contains = vec!["   ".to_owned()];
+        let username_contains = Vec::new();
         let mut builder = QueryBuilder::<Postgres>::new("SELECT 1");
         let mut has_predicate = false;
 

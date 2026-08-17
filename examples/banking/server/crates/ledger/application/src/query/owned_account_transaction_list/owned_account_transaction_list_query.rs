@@ -1,3 +1,4 @@
+use appletheia::application::read_model::pagination::{CursorPage, Sort};
 use appletheia::query;
 use banking_ledger_domain::account::AccountOwner;
 
@@ -5,7 +6,6 @@ use crate::read_model::{
     OwnedAccountTransactionListCriteria, OwnedAccountTransactionListCursor,
     OwnedAccountTransactionListSortKey,
 };
-use banking_shared_kernel_application::read_model::{CursorOptions, PageSize};
 
 /// Query parameters for owned account transaction list reads.
 #[query(name = "owned_account_transaction_list")]
@@ -13,8 +13,6 @@ use banking_shared_kernel_application::read_model::{CursorOptions, PageSize};
 pub struct OwnedAccountTransactionListQuery {
     pub owner: AccountOwner,
     pub criteria: OwnedAccountTransactionListCriteria,
-    pub cursor_options: Option<
-        CursorOptions<OwnedAccountTransactionListSortKey, OwnedAccountTransactionListCursor>,
-    >,
-    pub limit: PageSize,
+    pub sort: Sort<OwnedAccountTransactionListSortKey>,
+    pub page: CursorPage<OwnedAccountTransactionListCursor>,
 }

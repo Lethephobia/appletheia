@@ -1,7 +1,0 @@
-mod organization_member_list_projector;
-mod organization_member_list_projector_error;
-mod organization_member_list_projector_spec;
-
-pub use organization_member_list_projector::OrganizationMemberListProjector;
-pub use organization_member_list_projector_error::OrganizationMemberListProjectorError;
-pub use organization_member_list_projector_spec::OrganizationMemberListProjectorSpec;

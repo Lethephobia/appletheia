@@ -1,5 +1,5 @@
+use appletheia::application::read_model::pagination::{CursorPage, Sort};
 use appletheia::application::unit_of_work::UnitOfWork;
-use banking_shared_kernel_application::read_model::{CursorOptions, PageSize};
 
 use super::{
     PublicUserList, PublicUserListCriteria, PublicUserListCursor, PublicUserListReaderError,
@@ -15,7 +15,7 @@ pub trait PublicUserListReader: Send + Sync {
         &self,
         uow: &mut Self::Uow,
         criteria: PublicUserListCriteria,
-        cursor_options: Option<CursorOptions<PublicUserListSortKey, PublicUserListCursor>>,
-        limit: PageSize,
+        sort: Sort<PublicUserListSortKey>,
+        page: CursorPage<PublicUserListCursor>,
     ) -> Result<PublicUserList, PublicUserListReaderError>;
 }

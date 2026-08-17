@@ -1,11 +1,11 @@
+use appletheia::application::read_model::ReadModelObservation;
 use appletheia::domain::{AggregateId, EventId, EventOccurredAt};
 use banking_iam_domain::{OrganizationId, UserId};
-use banking_ledger_application::WalletBookmarkListItem;
+use banking_ledger_application::WalletBookmarkListItemPart;
 use banking_ledger_domain::core::TokenAccountOwnerAddress;
 use banking_ledger_domain::wallet_bookmark::{
     WalletBookmarkDescription, WalletBookmarkDisplayName, WalletBookmarkId, WalletBookmarkOwner,
 };
-use banking_shared_kernel_application::read_model::ReadModelObservation;
 use sqlx::types::chrono::{DateTime, Utc};
 use uuid::Uuid;
 
@@ -55,7 +55,7 @@ impl PgWalletBookmarkListItemRow {
     }
 }
 
-impl TryFrom<PgWalletBookmarkListItemRow> for WalletBookmarkListItem {
+impl TryFrom<PgWalletBookmarkListItemRow> for WalletBookmarkListItemPart {
     type Error = PgWalletBookmarkListItemRowError;
 
     fn try_from(row: PgWalletBookmarkListItemRow) -> Result<Self, Self::Error> {

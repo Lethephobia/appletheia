@@ -4,6 +4,7 @@ use thiserror::Error;
 
 use crate::authorization::AuthorizerError;
 use crate::projection::ProjectionConsistencyWaitError;
+use crate::read_model::watch::{ReadModelWatchRegistrationError, ReadModelWatchSelectionError};
 use crate::unit_of_work::{UnitOfWorkError, UnitOfWorkFactoryError};
 
 #[derive(Debug, Error)]
@@ -25,4 +26,10 @@ where
 
     #[error("authorizer error: {0}")]
     Authorizer(#[from] AuthorizerError),
+
+    #[error(transparent)]
+    WatchSelection(#[from] ReadModelWatchSelectionError),
+
+    #[error(transparent)]
+    WatchRegistration(#[from] ReadModelWatchRegistrationError),
 }

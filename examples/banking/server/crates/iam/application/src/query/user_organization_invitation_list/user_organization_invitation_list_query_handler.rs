@@ -7,7 +7,10 @@ use appletheia::application::request_context::RequestContext;
 use banking_iam_domain::User;
 
 use crate::authorization::UserOwnerRelation;
-use crate::projection::UserOrganizationInvitationListProjectorSpec;
+use crate::projection::{
+    OrganizationFragmentProjectorSpec, OrganizationInvitationFragmentProjectorSpec,
+    UserFragmentProjectorSpec,
+};
 use crate::read_model::{UserOrganizationInvitationList, UserOrganizationInvitationListReader};
 
 use super::{UserOrganizationInvitationListQuery, UserOrganizationInvitationListQueryHandlerError};
@@ -38,8 +41,11 @@ where
     type Error = UserOrganizationInvitationListQueryHandlerError;
     type Uow = R::Uow;
 
-    const PROJECTOR_DEPENDENCIES: ProjectorDependencies<'static> =
-        ProjectorDependencies::Some(&[UserOrganizationInvitationListProjectorSpec::DESCRIPTOR]);
+    const PROJECTOR_DEPENDENCIES: ProjectorDependencies<'static> = ProjectorDependencies::Some(&[
+        OrganizationInvitationFragmentProjectorSpec::DESCRIPTOR,
+        OrganizationFragmentProjectorSpec::DESCRIPTOR,
+        UserFragmentProjectorSpec::DESCRIPTOR,
+    ]);
 
     fn authorization_plan(&self, query: &Self::Query) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
@@ -60,13 +66,7 @@ where
     ) -> Result<Self::Output, Self::Error> {
         Ok(self
             .reader
-            .list(
-                uow,
-                query.user_id,
-                query.criteria,
-                query.cursor_options,
-                query.limit,
-            )
+            .list(uow, query.user_id, query.criteria, query.sort, query.page)
             .await?)
     }
 }
@@ -77,9 +77,11 @@ mod tests {
         AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
     };
     use appletheia::application::query::QueryHandler;
+    use appletheia::application::read_model::pagination::{
+        CursorPage, PageSize, Sort, SortDirection,
+    };
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use banking_iam_domain::{User, UserId};
-    use banking_shared_kernel_application::read_model::{CursorOptions, PageSize};
 
     use crate::authorization::UserOwnerRelation;
     use crate::read_model::{
@@ -112,13 +114,8 @@ mod tests {
             _uow: &mut Self::Uow,
             _scope_id: UserId,
             _criteria: UserOrganizationInvitationListCriteria,
-            _cursor_options: Option<
-                CursorOptions<
-                    UserOrganizationInvitationListSortKey,
-                    UserOrganizationInvitationListCursor,
-                >,
-            >,
-            _limit: PageSize,
+            _sort: Sort<UserOrganizationInvitationListSortKey>,
+            _page: CursorPage<UserOrganizationInvitationListCursor>,
         ) -> Result<UserOrganizationInvitationList, UserOrganizationInvitationListReaderError>
         {
             panic!("reader is not exercised by this test")
@@ -132,8 +129,14 @@ mod tests {
         let query = UserOrganizationInvitationListQuery {
             user_id: scope_id,
             criteria: UserOrganizationInvitationListCriteria::default(),
-            cursor_options: None,
-            limit: PageSize::new(20).expect("page size should be valid"),
+            sort: Sort {
+                key: UserOrganizationInvitationListSortKey::CreatedAt,
+                direction: SortDirection::Desc,
+            },
+            page: CursorPage {
+                after: None,
+                limit: PageSize::new(20).expect("page size should be valid"),
+            },
         };
 
         let plan = handler

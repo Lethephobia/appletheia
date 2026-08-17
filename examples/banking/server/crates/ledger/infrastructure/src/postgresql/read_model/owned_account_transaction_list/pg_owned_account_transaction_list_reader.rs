@@ -1,14 +1,13 @@
+use appletheia::application::read_model::pagination::{CursorPage, Sort, SortDirection};
 use appletheia::domain::AggregateId;
 use appletheia::infrastructure::postgresql::PgUnitOfWork;
 use banking_ledger_application::{
-    OwnedAccountTransactionList, OwnedAccountTransactionListCriteria,
-    OwnedAccountTransactionListCursor, OwnedAccountTransactionListItem,
-    OwnedAccountTransactionListItemStatus, OwnedAccountTransactionListOwner,
-    OwnedAccountTransactionListReader, OwnedAccountTransactionListReaderError,
-    OwnedAccountTransactionListSortKey,
+    AccountTransactionStatus, OwnedAccountTransactionList, OwnedAccountTransactionListCriteria,
+    OwnedAccountTransactionListCursor, OwnedAccountTransactionListItemPart,
+    OwnedAccountTransactionListOwner, OwnedAccountTransactionListReader,
+    OwnedAccountTransactionListReaderError, OwnedAccountTransactionListSortKey,
 };
 use banking_ledger_domain::account::AccountOwner;
-use banking_shared_kernel_application::read_model::{CursorOptions, PageSize, SortDirection};
 use sqlx::{Postgres, QueryBuilder};
 use uuid::Uuid;
 
@@ -32,13 +31,30 @@ impl PgOwnedAccountTransactionListReader {
         }
     }
 
-    fn status_name(status: OwnedAccountTransactionListItemStatus) -> &'static str {
+    fn status_name(status: AccountTransactionStatus) -> &'static str {
         match status {
-            OwnedAccountTransactionListItemStatus::Pending => "pending",
-            OwnedAccountTransactionListItemStatus::Completed => "completed",
-            OwnedAccountTransactionListItemStatus::Failed => "failed",
-            OwnedAccountTransactionListItemStatus::RequiresReview => "requires_review",
+            AccountTransactionStatus::Pending => "pending",
+            AccountTransactionStatus::Completed => "completed",
+            AccountTransactionStatus::Failed => "failed",
+            AccountTransactionStatus::RequiresReview => "requires_review",
         }
+    }
+
+    fn push_status_in(
+        builder: &mut QueryBuilder<Postgres>,
+        status_in: &[AccountTransactionStatus],
+    ) {
+        if status_in.is_empty() {
+            builder.push(" AND FALSE");
+            return;
+        }
+
+        builder.push(" AND i.status IN (");
+        let mut statuses = builder.separated(", ");
+        for status in status_in {
+            statuses.push_bind_unseparated(Self::status_name(*status));
+        }
+        statuses.push_unseparated(")");
     }
 
     async fn read_owner(
@@ -67,10 +83,10 @@ impl PgOwnedAccountTransactionListReader {
                 COALESCE(u.source_event_id, o.source_event_id) AS source_event_id,
                 COALESCE(u.updated_event_id, o.updated_event_id) AS updated_event_id
             FROM owner_ref
-            LEFT JOIN owned_account_transaction_list_owner_users u
+            LEFT JOIN user_fragments u
                    ON owner_ref.owner_type = 'user'
                   AND u.id = owner_ref.owner_id
-            LEFT JOIN owned_account_transaction_list_owner_organizations o
+            LEFT JOIN organization_fragments o
                    ON owner_ref.owner_type = 'organization'
                   AND o.id = owner_ref.owner_id
             "#,
@@ -100,14 +116,12 @@ impl OwnedAccountTransactionListReader for PgOwnedAccountTransactionListReader {
         uow: &mut Self::Uow,
         owner: AccountOwner,
         criteria: OwnedAccountTransactionListCriteria,
-        cursor_options: Option<
-            CursorOptions<OwnedAccountTransactionListSortKey, OwnedAccountTransactionListCursor>,
-        >,
-        limit: PageSize,
+        sort: Sort<OwnedAccountTransactionListSortKey>,
+        page: CursorPage<OwnedAccountTransactionListCursor>,
     ) -> Result<OwnedAccountTransactionList, OwnedAccountTransactionListReaderError> {
         let (owner_type, owner_id) = Self::owner_parts(owner);
         let owner = Self::read_owner(uow, owner_type, owner_id).await?;
-        let query_limit = i64::from(limit.value()) + 1;
+        let query_limit = i64::from(page.limit.value()) + 1;
 
         let mut builder = QueryBuilder::<Postgres>::new(
             r#"
@@ -147,12 +161,12 @@ impl OwnedAccountTransactionListReader for PgOwnedAccountTransactionListReader {
                 i.created_at,
                 i.source_event_id,
                 i.updated_event_id
-            FROM owned_account_transaction_list_items i
-            INNER JOIN owned_account_transaction_list_item_currencies c ON c.id = i.currency_id
-            LEFT JOIN owned_account_list_items ca ON ca.id = i.counterparty_account_id
-            LEFT JOIN owned_account_transaction_list_owner_users cu
+            FROM account_transaction_fragments i
+            INNER JOIN currency_fragments c ON c.id = i.currency_id
+            LEFT JOIN account_fragments ca ON ca.id = i.counterparty_account_id
+            LEFT JOIN user_fragments cu
                 ON ca.owner_type = 'user' AND cu.id = ca.owner_id
-            LEFT JOIN owned_account_transaction_list_owner_organizations co
+            LEFT JOIN organization_fragments co
                 ON ca.owner_type = 'organization' AND co.id = ca.owner_id
             WHERE i.owner_type =
             "#,
@@ -175,21 +189,12 @@ impl OwnedAccountTransactionListReader for PgOwnedAccountTransactionListReader {
                 .push_bind(currency_id.value());
         }
 
-        if let Some(status) = criteria.status {
-            builder
-                .push(" AND i.status = ")
-                .push_bind(Self::status_name(status));
+        if let Some(status_in) = criteria.status_in.as_deref() {
+            Self::push_status_in(&mut builder, status_in);
         }
 
-        let sort_key = cursor_options
-            .map(|options| options.sort_key)
-            .unwrap_or(OwnedAccountTransactionListSortKey::OccurredAt);
-        let sort_direction = cursor_options
-            .map(|options| options.sort_direction)
-            .unwrap_or(SortDirection::Desc);
-
-        if let Some(cursor) = cursor_options.and_then(|options| options.cursor) {
-            match (sort_key, sort_direction) {
+        if let Some(cursor) = page.after {
+            match (sort.key, sort.direction) {
                 (OwnedAccountTransactionListSortKey::OccurredAt, SortDirection::Asc) => {
                     builder
                         .push(" AND (i.occurred_at, i.id) > (")
@@ -219,7 +224,7 @@ impl OwnedAccountTransactionListReader for PgOwnedAccountTransactionListReader {
             }
         }
 
-        match (sort_key, sort_direction) {
+        match (sort.key, sort.direction) {
             (OwnedAccountTransactionListSortKey::OccurredAt, SortDirection::Asc) => {
                 builder.push(" ORDER BY i.occurred_at ASC, i.id ASC");
             }
@@ -242,12 +247,12 @@ impl OwnedAccountTransactionListReader for PgOwnedAccountTransactionListReader {
             .await
             .map_err(|e| OwnedAccountTransactionListReaderError::Persistence(Box::new(e)))?;
 
-        let page_limit = limit.value() as usize;
+        let page_limit = page.limit.value() as usize;
         let has_next = rows.len() > page_limit;
         let items = rows
             .into_iter()
             .take(page_limit)
-            .map(OwnedAccountTransactionListItem::try_from)
+            .map(OwnedAccountTransactionListItemPart::try_from)
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| OwnedAccountTransactionListReaderError::Persistence(Box::new(e)))?;
         let next_cursor = if has_next {

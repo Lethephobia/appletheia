@@ -6,10 +6,9 @@ pub use object_storage::{
     ObjectStorageMintMetadataPublisher, ObjectStorageMintMetadataPublisherConfig,
 };
 pub use postgresql::{
-    PgCurrencyListReader, PgCurrencyListWriter, PgOwnedAccountListReader, PgOwnedAccountListWriter,
-    PgOwnedAccountTransactionListReader, PgOwnedAccountTransactionListWriter,
-    PgPublicAccountListReader, PgPublicAccountListWriter, PgWalletBookmarkListReader,
-    PgWalletBookmarkListWriter,
+    PgAccountFragmentWriter, PgAccountTransactionFragmentWriter, PgCurrencyFragmentWriter,
+    PgCurrencyListReader, PgOwnedAccountListReader, PgOwnedAccountTransactionListReader,
+    PgPublicAccountListReader, PgWalletBookmarkFragmentWriter, PgWalletBookmarkListReader,
 };
 pub use solana::{
     MintMetadataPublishRequest, MintMetadataPublisher, MintMetadataPublisherError,

@@ -1,16 +1,16 @@
 use std::sync::atomic::{AtomicBool, Ordering as AtomicOrdering};
 
 use crate::event::EventFeedReader;
-use crate::unit_of_work::UnitOfWork;
-use crate::unit_of_work::UnitOfWorkFactory;
+use crate::read_model::MaterializationEventContext;
+use crate::unit_of_work::{UnitOfWork, UnitOfWorkFactory};
 
-use super::ProcessedEventCount;
 use super::{
-    ProjectionCheckpointStore, Projector, ProjectorNameOwned, ProjectorProcessedEventStore,
-    ProjectorRebuildReport, ProjectorRebuilder, ProjectorRebuilderConfig, ProjectorRebuilderError,
-    ProjectorSpec,
+    ProcessedEventCount, ProjectionCheckpointStore, Projector, ProjectorNameOwned,
+    ProjectorProcessedEventStore, ProjectorRebuildReport, ProjectorRebuilder,
+    ProjectorRebuilderConfig, ProjectorRebuilderError, ProjectorSpec,
 };
 
+/// Replays a newly introduced projector without producing live delivery messages.
 pub struct DefaultProjectorRebuilder<F, C, P, U> {
     feed_reader: F,
     checkpoint_store: C,
@@ -62,13 +62,11 @@ where
     ) -> Result<ProjectorRebuildReport, ProjectorRebuilderError> {
         let descriptor = <PJ::Spec as ProjectorSpec>::DESCRIPTOR;
         let projector_name = ProjectorNameOwned::from(descriptor.name);
-
         let mut processed_event_count = ProcessedEventCount::zero();
 
         while !self.is_stop_requested() {
             let events = {
                 let mut uow = self.uow_factory.begin().await?;
-
                 let after = match self
                     .checkpoint_store
                     .load(&mut uow, projector_name.clone())
@@ -80,7 +78,6 @@ where
                         return Err(uow.rollback_with_operation_error(error).await?);
                     }
                 };
-
                 let events = match self
                     .feed_reader
                     .read_after(
@@ -97,7 +94,6 @@ where
                         return Err(uow.rollback_with_operation_error(error).await?);
                     }
                 };
-
                 uow.commit().await?;
                 events
             };
@@ -112,7 +108,6 @@ where
                 }
 
                 let mut uow = self.uow_factory.begin().await?;
-
                 let inserted = match self
                     .processed_event_store
                     .mark_processed(&mut uow, projector_name.clone(), event.event_id)
@@ -125,9 +120,17 @@ where
                     }
                 };
 
-                if inserted && let Err(source) = projector.project(&mut uow, &event).await {
-                    let error = ProjectorRebuilderError::Definition(Box::new(source));
-                    return Err(uow.rollback_with_operation_error(error).await?);
+                if inserted {
+                    let _fragment_changes = match projector
+                        .project(&mut uow, MaterializationEventContext::from(&event), &event)
+                        .await
+                    {
+                        Ok(fragment_changes) => fragment_changes,
+                        Err(source) => {
+                            let error = ProjectorRebuilderError::Definition(Box::new(source));
+                            return Err(uow.rollback_with_operation_error(error).await?);
+                        }
+                    };
                 }
 
                 if let Err(source) = self

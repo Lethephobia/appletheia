@@ -1,37 +1,43 @@
-use appletheia::domain::{EventId, EventOccurredAt};
-use banking_iam_domain::{UserBio, UserDisplayName, UserId, UserPictureRef, Username};
-use banking_shared_kernel_application::read_model::ReadModelObservation;
+use appletheia::application::read_model::{
+    ReadModel, ReadModelName, ReadModelObservation, ReadModelObservationSource, ReadModelPartTree,
+};
+use serde::{Deserialize, Serialize};
 
 mod user_public_profile_reader;
 mod user_public_profile_reader_error;
-mod user_public_profile_status;
-mod user_public_profile_status_error;
-mod user_public_profile_user_upsert;
-mod user_public_profile_writer;
-mod user_public_profile_writer_error;
 
 pub use user_public_profile_reader::UserPublicProfileReader;
 pub use user_public_profile_reader_error::UserPublicProfileReaderError;
-pub use user_public_profile_status::UserPublicProfileStatus;
-pub use user_public_profile_status_error::UserPublicProfileStatusError;
-pub use user_public_profile_user_upsert::UserPublicProfileUserUpsert;
-pub use user_public_profile_writer::UserPublicProfileWriter;
-pub use user_public_profile_writer_error::UserPublicProfileWriterError;
+
+use crate::projection::{PublicUserDetailsPart, UserFragment};
 
 /// Public profile information visible to any caller.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct UserPublicProfile {
-    pub id: UserId,
-    pub username: Option<Username>,
-    pub display_name: Option<UserDisplayName>,
-    pub bio: Option<UserBio>,
-    pub picture: Option<UserPictureRef>,
-    pub created_at: EventOccurredAt,
-    pub observation: ReadModelObservation,
+    pub user: PublicUserDetailsPart,
 }
 
-impl UserPublicProfile {
-    pub fn observed_event_ids(&self) -> Vec<EventId> {
-        self.observation.event_ids().collect()
+impl From<UserFragment> for UserPublicProfile {
+    fn from(fragment: UserFragment) -> Self {
+        Self {
+            user: fragment.into(),
+        }
+    }
+}
+
+impl ReadModelObservationSource for UserPublicProfile {
+    fn observations(&self) -> Vec<ReadModelObservation> {
+        self.user.observations()
+    }
+}
+
+impl ReadModel for UserPublicProfile {
+    const NAME: ReadModelName = ReadModelName::new("user_public_profile");
+
+    fn parts(read_model: Option<&Self>) -> Vec<ReadModelPartTree> {
+        vec![ReadModelPartTree::field::<PublicUserDetailsPart>(
+            "user",
+            read_model.map(|read_model| &read_model.user),
+        )]
     }
 }

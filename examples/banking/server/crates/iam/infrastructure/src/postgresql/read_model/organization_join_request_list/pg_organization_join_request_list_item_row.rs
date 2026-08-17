@@ -1,15 +1,13 @@
+use appletheia::application::read_model::ReadModelObservation;
 use appletheia::domain::{AggregateId, EventId, EventOccurredAt};
-use banking_iam_application::{
-    OrganizationJoinRequestListItem, OrganizationJoinRequestListItemStatus,
-    OrganizationJoinRequestListRequester,
-};
+use banking_iam_application::{InternalUserSummaryPart, OrganizationJoinRequestListItemPart};
+use banking_iam_domain::OrganizationJoinRequestStatus;
 use banking_iam_domain::{OrganizationJoinRequestId, UserDisplayName, UserId, Username};
-use banking_shared_kernel_application::read_model::ReadModelObservation;
 use sqlx::types::chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-use super::super::pg_user_picture_ref_columns::PgUserPictureRefColumns;
 use super::pg_organization_join_request_list_item_row_error::PgOrganizationJoinRequestListItemRowError;
+use crate::postgresql::pg_user_picture_ref_columns::PgUserPictureRefColumns;
 
 #[derive(Debug, sqlx::FromRow)]
 pub struct PgOrganizationJoinRequestListItemRow {
@@ -31,13 +29,12 @@ pub struct PgOrganizationJoinRequestListItemRow {
 impl PgOrganizationJoinRequestListItemRow {
     fn status(
         value: String,
-    ) -> Result<OrganizationJoinRequestListItemStatus, PgOrganizationJoinRequestListItemRowError>
-    {
+    ) -> Result<OrganizationJoinRequestStatus, PgOrganizationJoinRequestListItemRowError> {
         match value.as_str() {
-            "pending" => Ok(OrganizationJoinRequestListItemStatus::Pending),
-            "approved" => Ok(OrganizationJoinRequestListItemStatus::Approved),
-            "rejected" => Ok(OrganizationJoinRequestListItemStatus::Rejected),
-            "canceled" => Ok(OrganizationJoinRequestListItemStatus::Canceled),
+            "pending" => Ok(OrganizationJoinRequestStatus::Pending),
+            "approved" => Ok(OrganizationJoinRequestStatus::Approved),
+            "rejected" => Ok(OrganizationJoinRequestStatus::Rejected),
+            "canceled" => Ok(OrganizationJoinRequestStatus::Canceled),
             _ => Err(PgOrganizationJoinRequestListItemRowError::UnknownStatus(
                 value,
             )),
@@ -45,7 +42,7 @@ impl PgOrganizationJoinRequestListItemRow {
     }
 }
 
-impl TryFrom<PgOrganizationJoinRequestListItemRow> for OrganizationJoinRequestListItem {
+impl TryFrom<PgOrganizationJoinRequestListItemRow> for OrganizationJoinRequestListItemPart {
     type Error = PgOrganizationJoinRequestListItemRowError;
 
     fn try_from(row: PgOrganizationJoinRequestListItemRow) -> Result<Self, Self::Error> {
@@ -68,7 +65,7 @@ impl TryFrom<PgOrganizationJoinRequestListItemRow> for OrganizationJoinRequestLi
                 .map_err(|error| {
                     PgOrganizationJoinRequestListItemRowError::JoinRequestId(Box::new(error))
                 })?,
-            requester: OrganizationJoinRequestListRequester {
+            requester: InternalUserSummaryPart {
                 user_id: UserId::try_from_uuid(row.requester_user_id).map_err(|error| {
                     PgOrganizationJoinRequestListItemRowError::RequesterUserId(Box::new(error))
                 })?,

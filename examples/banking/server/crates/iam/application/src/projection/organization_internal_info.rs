@@ -1,7 +1,0 @@
-mod organization_internal_info_projector;
-mod organization_internal_info_projector_error;
-mod organization_internal_info_projector_spec;
-
-pub use organization_internal_info_projector::OrganizationInternalInfoProjector;
-pub use organization_internal_info_projector_error::OrganizationInternalInfoProjectorError;
-pub use organization_internal_info_projector_spec::OrganizationInternalInfoProjectorSpec;

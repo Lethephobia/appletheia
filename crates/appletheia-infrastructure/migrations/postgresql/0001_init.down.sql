@@ -44,6 +44,11 @@ DROP TABLE IF EXISTS command_outbox;
 -- event dead letters
 DROP TABLE IF EXISTS event_dead_letters;
 
+-- read model change outbox and resumable change log
+DROP TABLE IF EXISTS read_model_fragment_change_outbox;
+
+-- read model generations
+
 -- event_outbox
 DROP TABLE IF EXISTS event_outbox;
 

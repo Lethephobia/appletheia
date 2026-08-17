@@ -2,8 +2,9 @@ use appletheia::application::authorization::AuthorizationPlan;
 use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::query::QueryHandler;
 use appletheia::application::request_context::RequestContext;
+use banking_iam_application::{OrganizationFragmentProjectorSpec, UserFragmentProjectorSpec};
 
-use crate::projection::CurrencyListProjectorSpec;
+use crate::projection::CurrencyFragmentProjectorSpec;
 use crate::read_model::{CurrencyList, CurrencyListReader};
 
 use super::{CurrencyListQuery, CurrencyListQueryHandlerError};
@@ -34,8 +35,11 @@ where
     type Error = CurrencyListQueryHandlerError;
     type Uow = S::Uow;
 
-    const PROJECTOR_DEPENDENCIES: ProjectorDependencies<'static> =
-        ProjectorDependencies::Some(&[CurrencyListProjectorSpec::DESCRIPTOR]);
+    const PROJECTOR_DEPENDENCIES: ProjectorDependencies<'static> = ProjectorDependencies::Some(&[
+        CurrencyFragmentProjectorSpec::DESCRIPTOR,
+        UserFragmentProjectorSpec::DESCRIPTOR,
+        OrganizationFragmentProjectorSpec::DESCRIPTOR,
+    ]);
 
     fn authorization_plan(&self, _query: &Self::Query) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::None)
@@ -49,7 +53,7 @@ where
     ) -> Result<Self::Output, Self::Error> {
         Ok(self
             .reader
-            .list(uow, query.criteria, query.cursor_options, query.limit)
+            .list(uow, query.criteria, query.sort, query.page)
             .await?)
     }
 }

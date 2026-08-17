@@ -1,15 +1,16 @@
+use appletheia::application::read_model::ReadModelObservation;
 use appletheia::domain::{AggregateId, EventId, EventOccurredAt};
-use banking_iam_application::{OrganizationMemberListItem, OrganizationMemberListMember};
-use banking_iam_domain::{UserDisplayName, UserId, Username};
-use banking_shared_kernel_application::read_model::ReadModelObservation;
+use banking_iam_application::{InternalUserSummaryPart, OrganizationMemberListItemPart};
+use banking_iam_domain::{OrganizationId, UserDisplayName, UserId, Username};
 use sqlx::types::chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-use super::super::pg_user_picture_ref_columns::PgUserPictureRefColumns;
 use super::pg_organization_member_list_item_row_error::PgOrganizationMemberListItemRowError;
+use crate::postgresql::pg_user_picture_ref_columns::PgUserPictureRefColumns;
 
 #[derive(Debug, sqlx::FromRow)]
 pub struct PgOrganizationMemberListItemRow {
+    pub organization_id: Uuid,
     pub user_id: Uuid,
     pub username: Option<String>,
     pub display_name: Option<String>,
@@ -25,12 +26,15 @@ pub struct PgOrganizationMemberListItemRow {
     pub member_updated_event_id: Uuid,
 }
 
-impl TryFrom<PgOrganizationMemberListItemRow> for OrganizationMemberListItem {
+impl TryFrom<PgOrganizationMemberListItemRow> for OrganizationMemberListItemPart {
     type Error = PgOrganizationMemberListItemRowError;
 
     fn try_from(row: PgOrganizationMemberListItemRow) -> Result<Self, Self::Error> {
         Ok(Self {
-            member: OrganizationMemberListMember {
+            organization_id: OrganizationId::try_from_uuid(row.organization_id).map_err(
+                |error| PgOrganizationMemberListItemRowError::OrganizationId(Box::new(error)),
+            )?,
+            member: InternalUserSummaryPart {
                 user_id: UserId::try_from_uuid(row.user_id).map_err(|error| {
                     PgOrganizationMemberListItemRowError::UserId(Box::new(error))
                 })?,

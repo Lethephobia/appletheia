@@ -1,24 +1,24 @@
+use appletheia::application::read_model::ReadModelObservation;
 use appletheia::domain::{AggregateId, EventId, EventOccurredAt};
 use banking_iam_domain::{
     OrganizationDisplayName, OrganizationHandle, OrganizationId, UserDisplayName, UserId, Username,
 };
 use banking_ledger_application::{
-    CurrencyListItem, CurrencyListItemOwner, CurrencyListItemOwnerOrganization,
-    CurrencyListItemOwnerUser, CurrencyListItemStatus,
+    CurrencyListItemOwner, CurrencyListItemOwnerOrganizationPart, CurrencyListItemOwnerUserPart,
+    CurrencyListItemPart, MaterializedCurrencyStatus,
 };
 use banking_ledger_domain::core::CurrencyAmount;
 use banking_ledger_domain::currency::{
     CurrencyDecimals, CurrencyDescription, CurrencyId, CurrencyName, CurrencySymbol,
     MintAccountAddress,
 };
-use banking_shared_kernel_application::read_model::ReadModelObservation;
 use sqlx::types::chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-use super::super::pg_currency_image_ref_columns::PgCurrencyImageRefColumns;
 use super::super::pg_organization_picture_ref_columns::PgOrganizationPictureRefColumns;
 use super::super::pg_user_picture_ref_columns::PgUserPictureRefColumns;
 use super::pg_currency_list_item_row_error::PgCurrencyListItemRowError;
+use crate::postgresql::pg_currency_image_ref_columns::PgCurrencyImageRefColumns;
 
 #[derive(Debug, sqlx::FromRow)]
 pub struct PgCurrencyListItemRow {
@@ -85,12 +85,12 @@ impl PgCurrencyListItemRow {
         Self::observation(source_event_id, updated_event_id)
     }
 
-    fn status(value: String) -> Result<CurrencyListItemStatus, PgCurrencyListItemRowError> {
+    fn status(value: String) -> Result<MaterializedCurrencyStatus, PgCurrencyListItemRowError> {
         match value.as_str() {
-            "provisioning" => Ok(CurrencyListItemStatus::Provisioning),
-            "active" => Ok(CurrencyListItemStatus::Active),
-            "inactive" => Ok(CurrencyListItemStatus::Inactive),
-            "provisioning_failed" => Ok(CurrencyListItemStatus::ProvisioningFailed),
+            "provisioning" => Ok(MaterializedCurrencyStatus::Provisioning),
+            "active" => Ok(MaterializedCurrencyStatus::Active),
+            "inactive" => Ok(MaterializedCurrencyStatus::Inactive),
+            "provisioning_failed" => Ok(MaterializedCurrencyStatus::ProvisioningFailed),
             value => Err(PgCurrencyListItemRowError::UnknownStatus(value.to_owned())),
         }
     }
@@ -122,7 +122,7 @@ impl PgCurrencyListItemRow {
 
     fn owner(&self) -> Result<CurrencyListItemOwner, PgCurrencyListItemRowError> {
         match self.owner_type.as_str() {
-            "user" => Ok(CurrencyListItemOwner::User(CurrencyListItemOwnerUser {
+            "user" => Ok(CurrencyListItemOwner::User(CurrencyListItemOwnerUserPart {
                 id: UserId::try_from_uuid(self.owner_id).map_err(|error| {
                     PgCurrencyListItemRowError::InvalidUserOwnerId(Box::new(error))
                 })?,
@@ -150,7 +150,7 @@ impl PgCurrencyListItemRow {
                     .ok_or(PgCurrencyListItemRowError::MissingOrganizationOwner)?;
 
                 Ok(CurrencyListItemOwner::Organization(
-                    CurrencyListItemOwnerOrganization {
+                    CurrencyListItemOwnerOrganizationPart {
                         id: OrganizationId::try_from_uuid(self.owner_id).map_err(|error| {
                             PgCurrencyListItemRowError::InvalidOrganizationOwnerId(Box::new(error))
                         })?,
@@ -184,7 +184,7 @@ impl PgCurrencyListItemRow {
     }
 }
 
-impl TryFrom<PgCurrencyListItemRow> for CurrencyListItem {
+impl TryFrom<PgCurrencyListItemRow> for CurrencyListItemPart {
     type Error = PgCurrencyListItemRowError;
 
     fn try_from(row: PgCurrencyListItemRow) -> Result<Self, Self::Error> {

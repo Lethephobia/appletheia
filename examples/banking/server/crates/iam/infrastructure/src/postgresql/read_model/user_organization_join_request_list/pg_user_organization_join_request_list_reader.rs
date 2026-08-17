@@ -1,14 +1,14 @@
+use appletheia::application::read_model::pagination::{CursorPage, Sort, SortDirection};
 use appletheia::domain::AggregateId;
 use appletheia::infrastructure::postgresql::PgUnitOfWork;
 use banking_iam_application::{
-    UserOrganizationJoinRequestList, UserOrganizationJoinRequestListCriteria,
-    UserOrganizationJoinRequestListCursor, UserOrganizationJoinRequestListItem,
-    UserOrganizationJoinRequestListItemStatus, UserOrganizationJoinRequestListReader,
+    InternalUserSummaryPart, UserOrganizationJoinRequestList,
+    UserOrganizationJoinRequestListCriteria, UserOrganizationJoinRequestListCursor,
+    UserOrganizationJoinRequestListItemPart, UserOrganizationJoinRequestListReader,
     UserOrganizationJoinRequestListReaderError, UserOrganizationJoinRequestListSortKey,
-    UserOrganizationJoinRequestListUser,
 };
+use banking_iam_domain::OrganizationJoinRequestStatus;
 use banking_iam_domain::UserId;
-use banking_shared_kernel_application::read_model::{CursorOptions, PageSize, SortDirection};
 use sqlx::{Postgres, QueryBuilder};
 
 use super::pg_user_organization_join_request_list_item_row::PgUserOrganizationJoinRequestListItemRow;
@@ -22,26 +22,26 @@ impl PgUserOrganizationJoinRequestListReader {
         Self
     }
 
-    fn status_name(status: UserOrganizationJoinRequestListItemStatus) -> &'static str {
+    fn status_name(status: OrganizationJoinRequestStatus) -> &'static str {
         match status {
-            UserOrganizationJoinRequestListItemStatus::Pending => "pending",
-            UserOrganizationJoinRequestListItemStatus::Approved => "approved",
-            UserOrganizationJoinRequestListItemStatus::Rejected => "rejected",
-            UserOrganizationJoinRequestListItemStatus::Canceled => "canceled",
+            OrganizationJoinRequestStatus::Pending => "pending",
+            OrganizationJoinRequestStatus::Approved => "approved",
+            OrganizationJoinRequestStatus::Rejected => "rejected",
+            OrganizationJoinRequestStatus::Canceled => "canceled",
         }
     }
 
-    fn push_status_filter(
+    fn push_status_in(
         builder: &mut QueryBuilder<Postgres>,
-        statuses: &[UserOrganizationJoinRequestListItemStatus],
+        status_in: &[OrganizationJoinRequestStatus],
     ) {
-        if statuses.is_empty() {
+        if status_in.is_empty() {
             builder.push(" AND FALSE");
             return;
         }
         builder.push(" AND i.status IN (");
         let mut separated = builder.separated(", ");
-        for status in statuses {
+        for status in status_in {
             separated.push_bind_unseparated(Self::status_name(*status));
         }
         separated.push_unseparated(")");
@@ -50,14 +50,13 @@ impl PgUserOrganizationJoinRequestListReader {
     async fn read_user(
         uow: &mut PgUnitOfWork,
         user_id: UserId,
-    ) -> Result<UserOrganizationJoinRequestListUser, UserOrganizationJoinRequestListReaderError>
-    {
+    ) -> Result<InternalUserSummaryPart, UserOrganizationJoinRequestListReaderError> {
         let row = sqlx::query_as::<_, PgUserOrganizationJoinRequestListUserRow>(
             r#"
-            SELECT user_id, username, display_name, picture_type, picture_object_name,
+            SELECT id AS user_id, username, display_name, picture_type, picture_object_name,
                    picture_external_url, source_event_id, updated_event_id
-              FROM user_organization_join_request_list_users
-             WHERE user_id = $1
+              FROM user_fragments
+             WHERE id = $1
             "#,
         )
         .bind(user_id.value())
@@ -67,7 +66,7 @@ impl PgUserOrganizationJoinRequestListReader {
             UserOrganizationJoinRequestListReaderError::Persistence(Box::new(error))
         })?;
 
-        UserOrganizationJoinRequestListUser::try_from(row).map_err(|error| {
+        InternalUserSummaryPart::try_from(row).map_err(|error| {
             UserOrganizationJoinRequestListReaderError::Persistence(Box::new(error))
         })
     }
@@ -87,23 +86,11 @@ impl UserOrganizationJoinRequestListReader for PgUserOrganizationJoinRequestList
         uow: &mut Self::Uow,
         user_id: UserId,
         criteria: UserOrganizationJoinRequestListCriteria,
-        cursor_options: Option<
-            CursorOptions<
-                UserOrganizationJoinRequestListSortKey,
-                UserOrganizationJoinRequestListCursor,
-            >,
-        >,
-        limit: PageSize,
+        sort: Sort<UserOrganizationJoinRequestListSortKey>,
+        page: CursorPage<UserOrganizationJoinRequestListCursor>,
     ) -> Result<UserOrganizationJoinRequestList, UserOrganizationJoinRequestListReaderError> {
         let user = Self::read_user(uow, user_id).await?;
-        let query_limit = i64::from(limit.value()) + 1;
-        let sort_key = cursor_options
-            .map(|options| options.sort_key)
-            .unwrap_or(UserOrganizationJoinRequestListSortKey::CreatedAt);
-        let sort_direction = cursor_options
-            .map(|options| options.sort_direction)
-            .unwrap_or(SortDirection::Desc);
-        let page_cursor = cursor_options.and_then(|options| options.cursor);
+        let query_limit = i64::from(page.limit.value()) + 1;
         let mut builder = QueryBuilder::<Postgres>::new(
             r#"
             SELECT
@@ -120,18 +107,18 @@ impl UserOrganizationJoinRequestListReader for PgUserOrganizationJoinRequestList
                 o.picture_external_url AS organization_picture_external_url,
                 o.source_event_id AS organization_source_event_id,
                 o.updated_event_id AS organization_updated_event_id
-            FROM user_organization_join_request_list_items AS i
-            INNER JOIN user_organization_join_request_list_organizations AS o
-                    ON o.organization_id = i.organization_id
+            FROM organization_join_request_fragments AS i
+            INNER JOIN organization_fragments AS o
+                    ON o.id = i.organization_id
             WHERE i.requester_user_id =
             "#,
         );
         builder.push_bind(user_id.value());
-        if let Some(statuses) = criteria.statuses.as_deref() {
-            Self::push_status_filter(&mut builder, statuses);
+        if let Some(status_in) = criteria.status_in.as_deref() {
+            Self::push_status_in(&mut builder, status_in);
         }
-        if let Some(cursor) = page_cursor {
-            match (sort_key, sort_direction) {
+        if let Some(cursor) = page.after {
+            match (sort.key, sort.direction) {
                 (UserOrganizationJoinRequestListSortKey::CreatedAt, SortDirection::Asc) => {
                     builder
                         .push(" AND (i.created_at, i.id) > (")
@@ -160,7 +147,7 @@ impl UserOrganizationJoinRequestListReader for PgUserOrganizationJoinRequestList
                 }
             }
         }
-        match (sort_key, sort_direction) {
+        match (sort.key, sort.direction) {
             (UserOrganizationJoinRequestListSortKey::CreatedAt, SortDirection::Asc) => {
                 builder.push(" ORDER BY i.created_at ASC, i.id ASC");
             }
@@ -182,12 +169,12 @@ impl UserOrganizationJoinRequestListReader for PgUserOrganizationJoinRequestList
             .map_err(|error| {
                 UserOrganizationJoinRequestListReaderError::Persistence(Box::new(error))
             })?;
-        let page_limit = limit.value() as usize;
+        let page_limit = page.limit.value() as usize;
         let has_next = rows.len() > page_limit;
         let items = rows
             .into_iter()
             .take(page_limit)
-            .map(UserOrganizationJoinRequestListItem::try_from)
+            .map(UserOrganizationJoinRequestListItemPart::try_from)
             .collect::<Result<Vec<_>, _>>()
             .map_err(|error| {
                 UserOrganizationJoinRequestListReaderError::Persistence(Box::new(error))

@@ -44,7 +44,7 @@ impl UserPrivateInfoReader for PgUserPrivateInfoReader {
                 created_at,
                 u.source_event_id,
                 u.updated_event_id
-              FROM user_private_infos u
+              FROM user_fragments u
              WHERE u.id = $1
             "#,
         )
@@ -60,12 +60,13 @@ impl UserPrivateInfoReader for PgUserPrivateInfoReader {
         let identity_rows = sqlx::query_as::<_, PgUserPrivateInfoIdentityRow>(
             r#"
             SELECT
+                i.user_id,
                 i.provider,
                 i.subject,
                 i.email,
                 i.source_event_id,
                 i.updated_event_id
-              FROM user_private_info_identities i
+              FROM user_identity_fragments i
              WHERE i.user_id = $1
              ORDER BY i.provider ASC, i.subject ASC
             "#,
@@ -79,6 +80,7 @@ impl UserPrivateInfoReader for PgUserPrivateInfoReader {
             sqlx::query_as::<_, PgUserPrivateInfoOrganizationMembershipRow>(
                 r#"
             SELECT
+                m.user_id,
                 m.organization_id,
                 m.roles::text AS roles,
                 m.source_event_id,
@@ -90,8 +92,8 @@ impl UserPrivateInfoReader for PgUserPrivateInfoReader {
                 o.picture_external_url AS organization_picture_external_url,
                 o.source_event_id AS organization_source_event_id,
                 o.updated_event_id AS organization_updated_event_id
-              FROM user_private_info_organization_memberships m
-              LEFT JOIN user_private_info_organizations o ON o.id = m.organization_id
+              FROM organization_membership_fragments m
+              LEFT JOIN organization_fragments o ON o.id = m.organization_id
              WHERE m.user_id = $1
              ORDER BY o.handle ASC NULLS LAST, m.organization_id ASC
             "#,

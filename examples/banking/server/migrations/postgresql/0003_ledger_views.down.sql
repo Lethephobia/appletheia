@@ -1,53 +1,6 @@
--- public_account_list read model
-DROP INDEX IF EXISTS public_account_list_items_status_id_idx;
-DROP INDEX IF EXISTS public_account_list_items_status_currency_created_idx;
-DROP INDEX IF EXISTS public_account_list_items_status_created_at_idx;
-DROP INDEX IF EXISTS public_account_list_items_owner_status_id_idx;
-DROP INDEX IF EXISTS public_account_list_items_owner_status_currency_idx;
-DROP INDEX IF EXISTS public_account_list_items_owner_status_created_at_idx;
-DROP TABLE IF EXISTS public_account_list_items;
-DROP TABLE IF EXISTS public_account_list_item_owner_organizations;
-DROP TABLE IF EXISTS public_account_list_item_owner_users;
-DROP INDEX IF EXISTS public_account_list_item_currencies_symbol_idx;
-DROP TABLE IF EXISTS public_account_list_item_currencies;
-
--- wallet_bookmark_list read model
-DROP INDEX IF EXISTS wallet_bookmark_list_items_owner_created_at_idx;
-DROP INDEX IF EXISTS wallet_bookmark_list_items_owner_idx;
-DROP TABLE IF EXISTS wallet_bookmark_list_items;
-
--- owned_account_transaction_list read model
-DROP INDEX IF EXISTS owned_account_transaction_list_items_status_idx;
-DROP INDEX IF EXISTS owned_account_transaction_list_items_currency_idx;
-DROP INDEX IF EXISTS owned_account_transaction_list_items_account_idx;
-DROP INDEX IF EXISTS owned_account_transaction_list_items_owner_occurred_at_idx;
-DROP INDEX IF EXISTS owned_account_transaction_list_items_owner_idx;
-DROP TABLE IF EXISTS owned_account_transaction_list_items;
-DROP TABLE IF EXISTS owned_account_transaction_list_currency_issuances;
-DROP INDEX IF EXISTS owned_account_transaction_list_transfers_correlation_idx;
-DROP TABLE IF EXISTS owned_account_transaction_list_transfers;
-DROP INDEX IF EXISTS owned_account_transaction_list_item_currencies_symbol_idx;
-DROP TABLE IF EXISTS owned_account_transaction_list_owner_organizations;
-DROP TABLE IF EXISTS owned_account_transaction_list_owner_users;
-DROP TABLE IF EXISTS owned_account_transaction_list_item_currencies;
-
--- currency_list read model
-DROP INDEX IF EXISTS currency_list_items_status_created_at_idx;
-DROP INDEX IF EXISTS currency_list_items_created_at_idx;
-DROP INDEX IF EXISTS currency_list_items_status_idx;
-DROP INDEX IF EXISTS currency_list_items_owner_idx;
-DROP INDEX IF EXISTS currency_list_items_symbol_idx;
-DROP TABLE IF EXISTS currency_list_items;
-DROP TABLE IF EXISTS currency_list_item_owner_organizations;
-DROP TABLE IF EXISTS currency_list_item_owner_users;
-
--- owned_account_list read model
-DROP INDEX IF EXISTS owned_account_list_items_status_idx;
-DROP INDEX IF EXISTS owned_account_list_items_currency_idx;
-DROP INDEX IF EXISTS owned_account_list_items_owner_created_at_idx;
-DROP INDEX IF EXISTS owned_account_list_items_owner_idx;
-DROP TABLE IF EXISTS owned_account_list_items;
-DROP TABLE IF EXISTS owned_account_list_owner_organizations;
-DROP TABLE IF EXISTS owned_account_list_owner_users;
-DROP INDEX IF EXISTS owned_account_list_item_currencies_symbol_idx;
-DROP TABLE IF EXISTS owned_account_list_item_currencies;
+DROP TABLE IF EXISTS account_transaction_fragments;
+DROP TABLE IF EXISTS account_transaction_currency_issuance_fragments;
+DROP TABLE IF EXISTS account_transaction_transfer_fragments;
+DROP TABLE IF EXISTS wallet_bookmark_fragments;
+DROP TABLE IF EXISTS currency_fragments;
+DROP TABLE IF EXISTS account_fragments;

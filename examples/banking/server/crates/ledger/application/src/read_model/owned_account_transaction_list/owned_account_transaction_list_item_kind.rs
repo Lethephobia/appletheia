@@ -1,27 +1,29 @@
-use appletheia::domain::EventId;
+use serde::{Deserialize, Serialize};
+
+use appletheia::application::read_model::{ReadModelObservation, ReadModelObservationSource};
 use banking_ledger_domain::transfer::TransferId;
 
-use super::OwnedAccountTransactionListItemCounterpartyAccount;
+use super::OwnedAccountTransactionListItemCounterpartyAccountPart;
 
 /// Kind of transaction displayed in the owned account transaction list.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum OwnedAccountTransactionListItemKind {
     Deposit,
     Withdrawal,
     Transfer {
         transfer_id: TransferId,
-        counterparty_account: Box<OwnedAccountTransactionListItemCounterpartyAccount>,
+        counterparty_account: Box<OwnedAccountTransactionListItemCounterpartyAccountPart>,
     },
     CurrencyIssuance,
 }
 
-impl OwnedAccountTransactionListItemKind {
-    pub fn observed_event_ids(&self) -> Vec<EventId> {
+impl ReadModelObservationSource for OwnedAccountTransactionListItemKind {
+    fn observations(&self) -> Vec<ReadModelObservation> {
         match self {
             Self::Transfer {
                 counterparty_account,
                 ..
-            } => counterparty_account.observed_event_ids(),
+            } => counterparty_account.observations(),
             Self::Deposit | Self::Withdrawal | Self::CurrencyIssuance => Vec::new(),
         }
     }

@@ -1,0 +1,19 @@
+mod private_user_identity_part;
+mod user_identity_fragment;
+mod user_identity_fragment_key;
+mod user_identity_fragment_projector;
+mod user_identity_fragment_projector_error;
+mod user_identity_fragment_projector_spec;
+mod user_identity_fragment_upsert;
+mod user_identity_fragment_writer;
+mod user_identity_fragment_writer_error;
+
+pub use private_user_identity_part::PrivateUserIdentityPart;
+pub use user_identity_fragment::UserIdentityFragment;
+pub use user_identity_fragment_key::UserIdentityFragmentKey;
+pub use user_identity_fragment_projector::UserIdentityFragmentProjector;
+pub use user_identity_fragment_projector_error::UserIdentityFragmentProjectorError;
+pub use user_identity_fragment_projector_spec::UserIdentityFragmentProjectorSpec;
+pub use user_identity_fragment_upsert::UserIdentityFragmentUpsert;
+pub use user_identity_fragment_writer::UserIdentityFragmentWriter;
+pub use user_identity_fragment_writer_error::UserIdentityFragmentWriterError;

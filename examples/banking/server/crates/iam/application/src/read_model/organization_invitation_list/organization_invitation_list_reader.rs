@@ -1,6 +1,6 @@
+use appletheia::application::read_model::pagination::{CursorPage, Sort};
 use appletheia::application::unit_of_work::UnitOfWork;
 use banking_iam_domain::OrganizationId;
-use banking_shared_kernel_application::read_model::{CursorOptions, PageSize};
 
 use super::{
     OrganizationInvitationList, OrganizationInvitationListCriteria,
@@ -18,9 +18,7 @@ pub trait OrganizationInvitationListReader: Send + Sync {
         uow: &mut Self::Uow,
         organization_id: OrganizationId,
         criteria: OrganizationInvitationListCriteria,
-        cursor_options: Option<
-            CursorOptions<OrganizationInvitationListSortKey, OrganizationInvitationListCursor>,
-        >,
-        limit: PageSize,
+        sort: Sort<OrganizationInvitationListSortKey>,
+        page: CursorPage<OrganizationInvitationListCursor>,
     ) -> Result<OrganizationInvitationList, OrganizationInvitationListReaderError>;
 }
