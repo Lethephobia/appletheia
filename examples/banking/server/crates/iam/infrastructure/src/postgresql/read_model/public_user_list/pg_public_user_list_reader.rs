@@ -1,16 +1,15 @@
-use appletheia::application::read_model::pagination::{CursorPage, Sort, SortDirection};
+use appletheia::application::read_model::pagination::{CursorWindow, Sort, SortDirection};
 use appletheia::domain::AggregateId;
 use appletheia::infrastructure::postgresql::PgUnitOfWork;
 use banking_iam_application::{
     MaterializedUserStatus, PublicUserList, PublicUserListCriteria, PublicUserListCursor,
-    PublicUserListItemPart, PublicUserListReader, PublicUserListReaderError, PublicUserListSortKey,
-    UserFragment,
+    PublicUserListItem, PublicUserListReader, PublicUserListReaderError, PublicUserListSortKey,
 };
 use banking_shared_kernel_application::read_model::SearchTerm;
 use sqlx::query_builder::Separated;
 use sqlx::{Postgres, QueryBuilder};
 
-use super::super::super::projection::PgUserFragmentRow;
+use super::pg_public_user_list_item_row::PgPublicUserListItemRow;
 
 /// PostgreSQL-backed public user list reader.
 pub struct PgPublicUserListReader;
@@ -85,9 +84,10 @@ impl PublicUserListReader for PgPublicUserListReader {
         uow: &mut Self::Uow,
         criteria: PublicUserListCriteria,
         sort: Sort<PublicUserListSortKey>,
-        page: CursorPage<PublicUserListCursor>,
+        page: CursorWindow<PublicUserListCursor>,
     ) -> Result<PublicUserList, PublicUserListReaderError> {
-        let query_limit = i64::from(page.limit.value()) + 1;
+        let query_limit = i64::from(page.limit().value()) + 1;
+        let query_direction = page.query_direction(sort.direction);
 
         let mut builder = QueryBuilder::<Postgres>::new(
             r#"
@@ -95,11 +95,9 @@ impl PublicUserListReader for PgPublicUserListReader {
                 id AS user_id,
                 username,
                 display_name,
-                bio,
                 picture_type,
                 picture_object_name,
                 picture_external_url,
-                status,
                 created_at,
                 source_event_id,
                 updated_event_id
@@ -109,7 +107,7 @@ impl PublicUserListReader for PgPublicUserListReader {
 
         if criteria.status_in.is_some()
             || !criteria.username_contains.is_empty()
-            || page.after.is_some()
+            || page.boundary().is_some()
         {
             builder.push(" WHERE ");
             let mut predicates = builder.separated(" AND ");
@@ -120,8 +118,8 @@ impl PublicUserListReader for PgPublicUserListReader {
 
             Self::push_username_contains(&mut predicates, &criteria.username_contains);
 
-            if let Some(cursor) = page.after {
-                match (sort.key, sort.direction) {
+            if let Some(cursor) = page.boundary().copied() {
+                match (sort.key, query_direction) {
                     (PublicUserListSortKey::CreatedAt, SortDirection::Asc) => {
                         predicates
                             .push("(created_at, id) > (")
@@ -152,7 +150,7 @@ impl PublicUserListReader for PgPublicUserListReader {
             }
         }
 
-        match (sort.key, sort.direction) {
+        match (sort.key, query_direction) {
             (PublicUserListSortKey::CreatedAt, SortDirection::Asc) => {
                 builder.push(" ORDER BY created_at ASC, id ASC");
             }
@@ -170,27 +168,37 @@ impl PublicUserListReader for PgPublicUserListReader {
         builder.push(" LIMIT ").push_bind(query_limit);
 
         let rows = builder
-            .build_query_as::<PgUserFragmentRow>()
+            .build_query_as::<PgPublicUserListItemRow>()
             .fetch_all(uow.transaction_mut().as_mut())
             .await
             .map_err(|error| PublicUserListReaderError::Persistence(Box::new(error)))?;
 
-        let page_limit = page.limit.value() as usize;
-        let has_next = rows.len() > page_limit;
-        let items = rows
+        let page_limit = page.limit().value() as usize;
+        let has_more = rows.len() > page_limit;
+        let mut items = rows
             .into_iter()
             .take(page_limit)
-            .map(UserFragment::try_from)
-            .map(|fragment_result| fragment_result.map(PublicUserListItemPart::from))
+            .map(PublicUserListItem::try_from)
             .collect::<Result<Vec<_>, _>>()
             .map_err(|error| PublicUserListReaderError::Persistence(Box::new(error)))?;
-        let next_cursor = if has_next {
-            items.last().map(|item| sort.key.cursor_for_item(item))
+        if page.is_backward() {
+            items.reverse();
+        }
+        let start_cursor = items.first().map(|item| sort.key.cursor_for_item(item));
+        let end_cursor = items.last().map(|item| sort.key.cursor_for_item(item));
+        let (has_previous, has_next) = if page.is_backward() {
+            (has_more, !items.is_empty() && page.boundary().is_some())
         } else {
-            None
+            (!items.is_empty() && page.boundary().is_some(), has_more)
         };
 
-        Ok(PublicUserList { items, next_cursor })
+        Ok(PublicUserList {
+            items,
+            start_cursor,
+            end_cursor,
+            has_previous,
+            has_next,
+        })
     }
 }
 

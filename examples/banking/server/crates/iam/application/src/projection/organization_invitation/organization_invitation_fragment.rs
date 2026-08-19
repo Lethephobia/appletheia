@@ -4,18 +4,16 @@ use appletheia::application::read_model::{
 use appletheia::domain::EventOccurredAt;
 use banking_iam_domain::{
     OrganizationInvitationExpiresAt, OrganizationInvitationId, OrganizationInvitationIssuer,
-    OrganizationInvitationStatus, OrganizationRoles,
+    OrganizationId, OrganizationInvitationStatus, OrganizationRoles, UserId,
 };
 use serde::{Deserialize, Serialize};
 
-use super::{OrganizationFragment, UserFragment};
-
-/// Complete organization invitation fragment shared by read models.
+/// Normalized organization invitation fragment shared by read models.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct OrganizationInvitationFragment {
     pub invitation_id: OrganizationInvitationId,
-    pub organization: OrganizationFragment,
-    pub invitee: UserFragment,
+    pub organization_id: OrganizationId,
+    pub invitee_user_id: UserId,
     pub roles: OrganizationRoles,
     pub issuer: OrganizationInvitationIssuer,
     pub expires_at: OrganizationInvitationExpiresAt,
@@ -26,12 +24,7 @@ pub struct OrganizationInvitationFragment {
 
 impl ReadModelObservationSource for OrganizationInvitationFragment {
     fn observations(&self) -> Vec<ReadModelObservation> {
-        self.organization
-            .observations()
-            .into_iter()
-            .chain(self.invitee.observations())
-            .chain([self.observation])
-            .collect()
+        vec![self.observation]
     }
 }
 

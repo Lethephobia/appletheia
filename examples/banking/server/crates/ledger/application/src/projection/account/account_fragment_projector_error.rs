@@ -1,5 +1,4 @@
 use appletheia::application::event::EventEnvelopeError;
-use appletheia::application::read_model::ReadModelFragmentChangeError;
 use thiserror::Error;
 
 use crate::projection::{AccountFragmentWriterError, MaterializedAccountStatusError};
@@ -15,7 +14,4 @@ pub enum AccountFragmentProjectorError {
 
     #[error(transparent)]
     Status(#[from] MaterializedAccountStatusError),
-
-    #[error(transparent)]
-    FragmentChange(#[from] ReadModelFragmentChangeError),
 }

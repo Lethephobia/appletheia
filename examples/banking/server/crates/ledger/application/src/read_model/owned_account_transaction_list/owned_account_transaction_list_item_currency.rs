@@ -1,0 +1,18 @@
+use serde::Serialize;
+
+use banking_ledger_domain::currency::{
+    CurrencyDecimals, CurrencyId, CurrencyName, CurrencySymbol, MintAccountAddress,
+};
+
+use appletheia::application::read_model::ReadModelObservation;
+
+/// Currency snapshot for owned account transaction list rows.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct OwnedAccountTransactionListItemCurrency {
+    pub id: CurrencyId,
+    pub symbol: CurrencySymbol,
+    pub name: CurrencyName,
+    pub decimals: CurrencyDecimals,
+    pub mint_account_address: Option<MintAccountAddress>,
+    pub observation: ReadModelObservation,
+}

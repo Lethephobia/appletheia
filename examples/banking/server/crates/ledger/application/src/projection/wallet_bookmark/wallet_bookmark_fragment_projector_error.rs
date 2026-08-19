@@ -1,5 +1,4 @@
 use appletheia::application::event::EventEnvelopeError;
-use appletheia::application::read_model::ReadModelFragmentChangeError;
 use thiserror::Error;
 
 use crate::projection::WalletBookmarkFragmentWriterError;
@@ -12,7 +11,4 @@ pub enum WalletBookmarkFragmentProjectorError {
 
     #[error("wallet bookmark fragment writer failed")]
     Writer(#[from] WalletBookmarkFragmentWriterError),
-
-    #[error(transparent)]
-    FragmentChange(#[from] ReadModelFragmentChangeError),
 }

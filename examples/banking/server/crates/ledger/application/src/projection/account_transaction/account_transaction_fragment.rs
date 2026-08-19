@@ -2,22 +2,23 @@ use appletheia::application::read_model::{
     ReadModelFragment, ReadModelFragmentName, ReadModelObservation, ReadModelObservationSource,
 };
 use appletheia::domain::EventOccurredAt;
+use banking_ledger_domain::account::AccountId;
 use banking_ledger_domain::core::CurrencyAmount;
 use banking_ledger_domain::transfer::TransferId;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    AccountFragment, AccountTransactionDirection, AccountTransactionFragmentKind,
-    AccountTransactionId, AccountTransactionStatus,
+    AccountTransactionDirection, AccountTransactionFragmentKind, AccountTransactionId,
+    AccountTransactionStatus,
 };
 
-/// Complete account transaction fragment shared by read models.
+/// Normalized account transaction fragment shared by read models.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct AccountTransactionFragment {
     pub transaction_id: AccountTransactionId,
     pub transfer_id: Option<TransferId>,
-    pub account: AccountFragment,
-    pub counterparty_account: Option<AccountFragment>,
+    pub account_id: AccountId,
+    pub counterparty_account_id: Option<AccountId>,
     pub amount: CurrencyAmount,
     pub direction: AccountTransactionDirection,
     pub kind: AccountTransactionFragmentKind,
@@ -29,16 +30,7 @@ pub struct AccountTransactionFragment {
 
 impl ReadModelObservationSource for AccountTransactionFragment {
     fn observations(&self) -> Vec<ReadModelObservation> {
-        self.account
-            .observations()
-            .into_iter()
-            .chain(
-                self.counterparty_account
-                    .iter()
-                    .flat_map(ReadModelObservationSource::observations),
-            )
-            .chain([self.observation])
-            .collect()
+        vec![self.observation]
     }
 }
 

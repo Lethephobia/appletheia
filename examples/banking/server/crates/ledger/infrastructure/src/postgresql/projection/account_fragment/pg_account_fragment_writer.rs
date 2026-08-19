@@ -9,7 +9,6 @@ use banking_ledger_domain::account::{AccountId, AccountName, AccountOwner};
 use banking_ledger_domain::core::CurrencyAmount;
 use uuid::Uuid;
 
-use super::super::PgFragmentLoader;
 use super::pg_account_fragment_row::PgAccountFragmentRow;
 
 /// PostgreSQL-backed account fragment writer.
@@ -59,21 +58,7 @@ impl PgAccountFragmentWriter {
         .await
         .map_err(|error| AccountFragmentWriterError::Persistence(Box::new(error)))?;
 
-        let Some(account_row) = row else {
-            return Ok(None);
-        };
-        let owner =
-            PgFragmentLoader::load_owner(uow, &account_row.owner_type, account_row.owner_id)
-                .await
-                .map_err(AccountFragmentWriterError::Persistence)?;
-        let currency_id =
-            banking_ledger_domain::currency::CurrencyId::try_from_uuid(account_row.currency_id)
-                .map_err(|error| AccountFragmentWriterError::Persistence(Box::new(error)))?;
-        let currency = PgFragmentLoader::load_currency(uow, currency_id)
-            .await
-            .map_err(AccountFragmentWriterError::Persistence)?;
-
-        account_row.try_into_fragment(owner, currency).map(Some)
+        row.map(AccountFragment::try_from).transpose()
     }
 }
 

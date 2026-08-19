@@ -6,10 +6,21 @@ pub struct ReadModelPartition<K> {
     key: K,
 }
 
+/// Identifies one physical partition of a concrete Fragment type.
+pub type ReadModelFragmentPartition<F> = ReadModelPartition<<F as ReadModelFragment>::Key>;
+
 impl<K> ReadModelPartition<K> {
     /// Creates a partition from one physical fragment key.
     pub fn new(key: K) -> Self {
         Self { key }
+    }
+
+    /// Creates a partition from a Fragment's current key.
+    pub fn from_fragment<F>(fragment: &F) -> Self
+    where
+        F: ReadModelFragment<Key = K>,
+    {
+        Self::new(fragment.key())
     }
 
     /// Returns the physical fragment key.

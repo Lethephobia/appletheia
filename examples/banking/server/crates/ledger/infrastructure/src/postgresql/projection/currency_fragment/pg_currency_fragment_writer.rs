@@ -14,7 +14,6 @@ use uuid::Uuid;
 
 use crate::postgresql::pg_currency_image_ref_columns::PgCurrencyImageRefColumns;
 
-use super::super::PgFragmentLoader;
 use super::pg_currency_fragment_row::PgCurrencyFragmentRow;
 
 /// PostgreSQL-backed currency fragment writer.
@@ -67,15 +66,7 @@ impl PgCurrencyFragmentWriter {
         .await
         .map_err(|error| CurrencyFragmentWriterError::Persistence(Box::new(error)))?;
 
-        let Some(currency_row) = row else {
-            return Ok(None);
-        };
-        let owner =
-            PgFragmentLoader::load_owner(uow, &currency_row.owner_type, currency_row.owner_id)
-                .await
-                .map_err(CurrencyFragmentWriterError::Persistence)?;
-
-        currency_row.try_into_fragment(owner).map(Some)
+        row.map(CurrencyFragment::try_from).transpose()
     }
 }
 

@@ -10,7 +10,6 @@ use banking_ledger_application::{
 use banking_ledger_domain::currency_issuance::CurrencyIssuanceId;
 use banking_ledger_domain::transfer::{TransferFailureReason, TransferId};
 
-use super::super::PgFragmentLoader;
 use super::pg_account_transaction_fragment_row::PgAccountTransactionFragmentRow;
 
 /// PostgreSQL-backed account transaction fragment writer.
@@ -68,8 +67,8 @@ impl PgAccountTransactionFragmentWriter {
 
         let row = sqlx::query_as::<_, PgAccountTransactionFragmentRow>(
             r#"
-            SELECT id AS transaction_id, transfer_id, owner_type, owner_id, account_id,
-                   counterparty_account_id, currency_id, amount::text AS amount,
+            SELECT id AS transaction_id, transfer_id, account_id,
+                   counterparty_account_id, amount::text AS amount,
                    direction, kind, status, occurred_at, created_at,
                    source_event_id, updated_event_id
               FROM account_transaction_fragments
@@ -81,37 +80,7 @@ impl PgAccountTransactionFragmentWriter {
         .await
         .map_err(|error| AccountTransactionFragmentWriterError::Persistence(Box::new(error)))?;
 
-        let Some(transaction_row) = row else {
-            return Ok(None);
-        };
-        let account_id =
-            banking_ledger_domain::account::AccountId::try_from_uuid(transaction_row.account_id)
-                .map_err(|error| {
-                    AccountTransactionFragmentWriterError::Persistence(Box::new(error))
-                })?;
-        let account = PgFragmentLoader::load_account(uow, account_id)
-            .await
-            .map_err(AccountTransactionFragmentWriterError::Persistence)?;
-        let counterparty_account = match transaction_row.counterparty_account_id {
-            Some(counterparty_account_id) => {
-                let parsed_account_id = banking_ledger_domain::account::AccountId::try_from_uuid(
-                    counterparty_account_id,
-                )
-                .map_err(|error| {
-                    AccountTransactionFragmentWriterError::Persistence(Box::new(error))
-                })?;
-                Some(
-                    PgFragmentLoader::load_account(uow, parsed_account_id)
-                        .await
-                        .map_err(AccountTransactionFragmentWriterError::Persistence)?,
-                )
-            }
-            None => None,
-        };
-
-        transaction_row
-            .try_into_fragment(account, counterparty_account)
-            .map(Some)
+        row.map(AccountTransactionFragment::try_from).transpose()
     }
 }
 

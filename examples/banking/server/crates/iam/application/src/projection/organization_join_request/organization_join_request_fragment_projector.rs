@@ -1,6 +1,8 @@
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
-use appletheia::application::read_model::{MaterializationEventContext, ReadModelFragmentChange};
+use appletheia::application::read_model::{
+    MaterializationEventContext, ReadModelFragmentPartition, ReadModelPartition,
+};
 use banking_iam_domain::{
     OrganizationJoinRequest, OrganizationJoinRequestEventPayload, OrganizationJoinRequestStatus,
 };
@@ -47,8 +49,8 @@ where
         uow: &mut Self::Uow,
         event_context: MaterializationEventContext,
         event: &EventEnvelope,
-    ) -> Result<Vec<ReadModelFragmentChange<Self::Fragment>>, Self::Error> {
-        let mut fragment_changes = Vec::new();
+    ) -> Result<Vec<ReadModelFragmentPartition<Self::Fragment>>, Self::Error> {
+        let mut invalidated_partitions = Vec::new();
         let join_request_event = event.try_into_domain_event::<OrganizationJoinRequest>()?;
         let join_request_id = join_request_event.aggregate_id();
 
@@ -71,7 +73,7 @@ where
                     )
                     .await?
                 {
-                    fragment_changes.push(ReadModelFragmentChange::try_from_fragment(&fragment)?);
+                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                 }
             }
             OrganizationJoinRequestEventPayload::Approved { .. } => {
@@ -85,7 +87,7 @@ where
                     )
                     .await?
                 {
-                    fragment_changes.push(ReadModelFragmentChange::try_from_fragment(&fragment)?);
+                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                 }
             }
             OrganizationJoinRequestEventPayload::Rejected { .. } => {
@@ -99,7 +101,7 @@ where
                     )
                     .await?
                 {
-                    fragment_changes.push(ReadModelFragmentChange::try_from_fragment(&fragment)?);
+                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                 }
             }
             OrganizationJoinRequestEventPayload::Canceled { .. } => {
@@ -113,7 +115,7 @@ where
                     )
                     .await?
                 {
-                    fragment_changes.push(ReadModelFragmentChange::try_from_fragment(&fragment)?);
+                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                 }
             }
             OrganizationJoinRequestEventPayload::SubmitRejected { .. }
@@ -122,6 +124,6 @@ where
             | OrganizationJoinRequestEventPayload::CancelRejected { .. } => {}
         }
 
-        Ok(fragment_changes)
+        Ok(invalidated_partitions)
     }
 }

@@ -1,3 +1,0 @@
-mod pg_pubsub_read_model_fragment_change_outbox_relay;
-
-pub use pg_pubsub_read_model_fragment_change_outbox_relay::PgPubsubReadModelFragmentChangeOutboxRelay;

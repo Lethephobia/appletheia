@@ -1,6 +1,3 @@
-use super::{OrganizationFragment, UserFragment};
-
-mod organization_member_list_item_part;
 mod organization_membership_fragment;
 mod organization_membership_fragment_key;
 mod organization_membership_fragment_projector;
@@ -9,9 +6,7 @@ mod organization_membership_fragment_projector_spec;
 mod organization_membership_fragment_upsert;
 mod organization_membership_fragment_writer;
 mod organization_membership_fragment_writer_error;
-mod private_user_organization_membership_part;
 
-pub use organization_member_list_item_part::OrganizationMemberListItemPart;
 pub use organization_membership_fragment::OrganizationMembershipFragment;
 pub use organization_membership_fragment_key::OrganizationMembershipFragmentKey;
 pub use organization_membership_fragment_projector::OrganizationMembershipFragmentProjector;
@@ -20,4 +15,3 @@ pub use organization_membership_fragment_projector_spec::OrganizationMembershipF
 pub use organization_membership_fragment_upsert::OrganizationMembershipFragmentUpsert;
 pub use organization_membership_fragment_writer::OrganizationMembershipFragmentWriter;
 pub use organization_membership_fragment_writer_error::OrganizationMembershipFragmentWriterError;
-pub use private_user_organization_membership_part::PrivateUserOrganizationMembershipPart;

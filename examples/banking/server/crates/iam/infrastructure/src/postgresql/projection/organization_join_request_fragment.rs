@@ -9,7 +9,6 @@ use banking_iam_domain::{OrganizationJoinRequestId, OrganizationJoinRequestStatu
 
 mod pg_organization_join_request_fragment_row;
 
-use super::PgFragmentLoader;
 use pg_organization_join_request_fragment_row::PgOrganizationJoinRequestFragmentRow;
 
 /// PostgreSQL-backed organization join request fragment writer.
@@ -29,31 +28,14 @@ impl PgOrganizationJoinRequestFragmentWriter {
         }
     }
 
-    async fn map_row(
-        uow: &mut PgUnitOfWork,
+    fn map_row(
         row: Option<PgOrganizationJoinRequestFragmentRow>,
     ) -> Result<Option<OrganizationJoinRequestFragment>, OrganizationJoinRequestFragmentWriterError>
     {
         let Some(join_request_row) = row else {
             return Ok(None);
         };
-        let organization_id =
-            banking_iam_domain::OrganizationId::try_from_uuid(join_request_row.organization_id)
-                .map_err(persistence_error)?;
-        let requester_user_id =
-            banking_iam_domain::UserId::try_from_uuid(join_request_row.requester_user_id)
-                .map_err(persistence_error)?;
-        let organization = PgFragmentLoader::load_organization(uow, organization_id)
-            .await
-            .map_err(persistence_error)?
-            .ok_or_else(|| persistence_message("organization fragment dependency was not found"))?;
-        let requester = PgFragmentLoader::load_required_user(uow, requester_user_id)
-            .await
-            .map_err(persistence_error)?;
-
-        join_request_row
-            .try_into_fragment(organization, requester)
-            .map(Some)
+        OrganizationJoinRequestFragment::try_from(join_request_row).map(Some)
     }
 }
 
@@ -105,7 +87,7 @@ impl OrganizationJoinRequestFragmentWriter for PgOrganizationJoinRequestFragment
             OrganizationJoinRequestFragmentWriterError::Persistence(Box::new(error))
         })?;
 
-        Self::map_row(uow, row).await
+        Self::map_row(row)
     }
 
     async fn update_status(
@@ -137,18 +119,6 @@ impl OrganizationJoinRequestFragmentWriter for PgOrganizationJoinRequestFragment
             OrganizationJoinRequestFragmentWriterError::Persistence(Box::new(error))
         })?;
 
-        Self::map_row(uow, row).await
+        Self::map_row(row)
     }
-}
-
-fn persistence_error(
-    error: impl std::error::Error + Send + Sync + 'static,
-) -> OrganizationJoinRequestFragmentWriterError {
-    OrganizationJoinRequestFragmentWriterError::Persistence(Box::new(error))
-}
-
-fn persistence_message(message: &'static str) -> OrganizationJoinRequestFragmentWriterError {
-    OrganizationJoinRequestFragmentWriterError::Persistence(Box::new(std::io::Error::other(
-        message,
-    )))
 }

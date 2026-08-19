@@ -84,7 +84,7 @@ mod tests {
     };
     use appletheia::application::query::QueryHandler;
     use appletheia::application::read_model::pagination::{
-        CursorPage, PageSize, Sort, SortDirection,
+        CursorWindow, PageSize, Sort, SortDirection,
     };
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use banking_iam_domain::{Organization, OrganizationId};
@@ -121,7 +121,7 @@ mod tests {
             _organization_id: OrganizationId,
             _criteria: OrganizationMemberListCriteria,
             _sort: Sort<OrganizationMemberListSortKey>,
-            _page: CursorPage<OrganizationMemberListCursor>,
+            _page: CursorWindow<OrganizationMemberListCursor>,
         ) -> Result<OrganizationMemberList, OrganizationMemberListReaderError> {
             panic!("reader is not exercised by this test")
         }
@@ -138,7 +138,7 @@ mod tests {
                 key: OrganizationMemberListSortKey::JoinedAt,
                 direction: SortDirection::Desc,
             },
-            page: CursorPage {
+            page: CursorWindow::Forward {
                 after: None,
                 limit: PageSize::new(20).expect("page size should be valid"),
             },

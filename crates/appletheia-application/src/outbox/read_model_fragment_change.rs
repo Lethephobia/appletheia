@@ -1,7 +1,0 @@
-mod read_model_fragment_change_outbox;
-mod read_model_fragment_change_outbox_enqueue_error;
-mod read_model_fragment_change_outbox_enqueuer;
-
-pub use read_model_fragment_change_outbox::ReadModelFragmentChangeOutbox;
-pub use read_model_fragment_change_outbox_enqueue_error::ReadModelFragmentChangeOutboxEnqueueError;
-pub use read_model_fragment_change_outbox_enqueuer::ReadModelFragmentChangeOutboxEnqueuer;

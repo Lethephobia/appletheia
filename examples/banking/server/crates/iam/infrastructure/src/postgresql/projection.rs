@@ -8,8 +8,6 @@ mod organization_fragment;
 mod organization_invitation_fragment;
 mod organization_join_request_fragment;
 mod organization_membership_fragment;
-mod pg_fragment_loader;
-mod pg_fragment_loader_error;
 mod user_fragment;
 mod user_identity_fragment;
 
@@ -17,9 +15,6 @@ pub use organization_fragment::PgOrganizationFragmentWriter;
 pub use organization_invitation_fragment::PgOrganizationInvitationFragmentWriter;
 pub use organization_join_request_fragment::PgOrganizationJoinRequestFragmentWriter;
 pub use organization_membership_fragment::PgOrganizationMembershipFragmentWriter;
-pub(crate) use pg_fragment_loader::PgFragmentLoader;
-pub(crate) use pg_fragment_loader_error::PgFragmentLoaderError;
-pub(crate) use user_fragment::PgUserFragmentRow;
 pub use user_fragment::PgUserFragmentWriter;
 pub use user_identity_fragment::PgUserIdentityFragmentWriter;
 

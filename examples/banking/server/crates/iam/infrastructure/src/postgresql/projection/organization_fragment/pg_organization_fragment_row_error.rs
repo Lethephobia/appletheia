@@ -1,4 +1,3 @@
-use banking_iam_domain::UserId;
 use thiserror::Error;
 
 /// Error returned when a PostgreSQL row cannot materialize an organization fragment.
@@ -9,9 +8,6 @@ pub enum PgOrganizationFragmentRowError {
 
     #[error("organization fragment row has an invalid owner user id")]
     OwnerUserId(#[source] Box<dyn std::error::Error + Send + Sync>),
-
-    #[error("organization fragment row owner mismatch: expected {expected}, got {actual}")]
-    OwnerMismatch { expected: UserId, actual: UserId },
 
     #[error("organization fragment row has an invalid handle")]
     Handle(#[source] Box<dyn std::error::Error + Send + Sync>),

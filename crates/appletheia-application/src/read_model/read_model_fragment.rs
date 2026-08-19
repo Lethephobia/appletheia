@@ -3,9 +3,7 @@ use serde::{Serialize, de::DeserializeOwned};
 use super::{ReadModelFragmentName, ReadModelObservationSource, ReadModelPartition};
 
 /// Defines one independently stored read model fragment.
-pub trait ReadModelFragment:
-    ReadModelObservationSource + Serialize + DeserializeOwned + Send + Sync + Sized + 'static
-{
+pub trait ReadModelFragment: ReadModelObservationSource + Send + Sync + Sized + 'static {
     /// Identifies the physical fragment shared by read models.
     const NAME: ReadModelFragmentName;
 

@@ -1,6 +1,8 @@
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
-use appletheia::application::read_model::{MaterializationEventContext, ReadModelFragmentChange};
+use appletheia::application::read_model::{
+    MaterializationEventContext, ReadModelFragmentPartition, ReadModelPartition,
+};
 use banking_iam_domain::{Organization, OrganizationEventPayload, OrganizationOwner};
 
 use crate::projection::{
@@ -42,8 +44,8 @@ where
         uow: &mut Self::Uow,
         event_context: MaterializationEventContext,
         event: &EventEnvelope,
-    ) -> Result<Vec<ReadModelFragmentChange<Self::Fragment>>, Self::Error> {
-        let mut fragment_changes = Vec::new();
+    ) -> Result<Vec<ReadModelFragmentPartition<Self::Fragment>>, Self::Error> {
+        let mut invalidated_partitions = Vec::new();
         let organization_event = event.try_into_domain_event::<Organization>()?;
         let organization_id = organization_event.aggregate_id();
 
@@ -75,7 +77,7 @@ where
                     )
                     .await?
                 {
-                    fragment_changes.push(ReadModelFragmentChange::try_from_fragment(&fragment)?);
+                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                 }
             }
             OrganizationEventPayload::OwnershipTransferred { owner } => {
@@ -86,7 +88,7 @@ where
                     .update_owner(uow, event_context, organization_id, *owner_user_id)
                     .await?
                 {
-                    fragment_changes.push(ReadModelFragmentChange::try_from_fragment(&fragment)?);
+                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                 }
             }
             OrganizationEventPayload::HandleChanged { handle } => {
@@ -95,7 +97,7 @@ where
                     .update_handle(uow, event_context, organization_id, handle.clone())
                     .await?
                 {
-                    fragment_changes.push(ReadModelFragmentChange::try_from_fragment(&fragment)?);
+                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                 }
             }
             OrganizationEventPayload::DisplayNameChanged { display_name } => {
@@ -104,7 +106,7 @@ where
                     .update_display_name(uow, event_context, organization_id, display_name.clone())
                     .await?
                 {
-                    fragment_changes.push(ReadModelFragmentChange::try_from_fragment(&fragment)?);
+                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                 }
             }
             OrganizationEventPayload::DescriptionChanged { description } => {
@@ -113,7 +115,7 @@ where
                     .update_description(uow, event_context, organization_id, description.clone())
                     .await?
                 {
-                    fragment_changes.push(ReadModelFragmentChange::try_from_fragment(&fragment)?);
+                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                 }
             }
             OrganizationEventPayload::WebsiteUrlChanged { website_url } => {
@@ -122,7 +124,7 @@ where
                     .update_website_url(uow, event_context, organization_id, website_url.clone())
                     .await?
                 {
-                    fragment_changes.push(ReadModelFragmentChange::try_from_fragment(&fragment)?);
+                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                 }
             }
             OrganizationEventPayload::PictureChanged { picture, .. } => {
@@ -131,7 +133,7 @@ where
                     .update_picture(uow, event_context, organization_id, picture.clone())
                     .await?
                 {
-                    fragment_changes.push(ReadModelFragmentChange::try_from_fragment(&fragment)?);
+                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                 }
             }
             OrganizationEventPayload::Removed => {
@@ -140,7 +142,7 @@ where
                     .delete_organization(uow, event_context, organization_id)
                     .await?
                 {
-                    fragment_changes.push(ReadModelFragmentChange::try_removed(&organization_id)?);
+                    invalidated_partitions.push(ReadModelPartition::new(organization_id));
                 }
             }
             OrganizationEventPayload::CreateRejected { .. }
@@ -153,6 +155,6 @@ where
             | OrganizationEventPayload::RemoveRejected { .. } => {}
         }
 
-        Ok(fragment_changes)
+        Ok(invalidated_partitions)
     }
 }

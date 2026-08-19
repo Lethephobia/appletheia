@@ -1,4 +1,4 @@
-use appletheia::application::read_model::pagination::{CursorPage, Sort};
+use appletheia::application::read_model::pagination::{CursorWindow, Sort};
 use appletheia::query;
 use banking_ledger_domain::wallet_bookmark::WalletBookmarkOwner;
 
@@ -13,5 +13,5 @@ pub struct WalletBookmarkListQuery {
     pub owner: WalletBookmarkOwner,
     pub criteria: WalletBookmarkListCriteria,
     pub sort: Sort<WalletBookmarkListSortKey>,
-    pub page: CursorPage<WalletBookmarkListCursor>,
+    pub page: CursorWindow<WalletBookmarkListCursor>,
 }

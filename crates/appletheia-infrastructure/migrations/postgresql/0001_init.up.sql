@@ -116,19 +116,16 @@ CREATE INDEX IF NOT EXISTS idx_event_outbox_event_name           ON event_outbox
 
 COMMENT ON TABLE event_outbox IS 'Event outbox: events to be published; at-least-once delivery guarantee.';
 
--- read model fragment change outbox
-CREATE TABLE IF NOT EXISTS read_model_fragment_change_outbox (
+-- read model invalidation outbox
+CREATE TABLE IF NOT EXISTS read_model_invalidation_outbox (
   id                       UUID        PRIMARY KEY,
-  partition                JSONB       NOT NULL,
   source_projector_name    TEXT        NOT NULL,
   source_event_sequence    BIGINT      NOT NULL CHECK (source_event_sequence >= 0),
   source_event_id          UUID        NOT NULL,
-  source_aggregate_type    TEXT        NOT NULL,
-  source_aggregate_id      UUID        NOT NULL,
   occurred_at              TIMESTAMPTZ NOT NULL,
   correlation_id           UUID        NOT NULL,
   causation_id             UUID        NOT NULL,
-  changes                  JSONB       NOT NULL CHECK (jsonb_typeof(changes) = 'array' AND jsonb_array_length(changes) > 0),
+  invalidated_dependencies JSONB       NOT NULL CHECK (jsonb_typeof(invalidated_dependencies) = 'array' AND jsonb_array_length(invalidated_dependencies) > 0),
   recorded_at              TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
   published_at             TIMESTAMPTZ,
   attempt_count            BIGINT      NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
@@ -137,25 +134,22 @@ CREATE TABLE IF NOT EXISTS read_model_fragment_change_outbox (
   lease_until              TIMESTAMPTZ,
   last_error               JSONB,
   dead_lettered_at         TIMESTAMPTZ,
-  UNIQUE (partition, source_projector_name, source_event_id)
+  UNIQUE (source_projector_name, source_event_id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_read_model_fragment_change_outbox_pending
-  ON read_model_fragment_change_outbox (next_attempt_after, source_event_sequence)
+CREATE INDEX IF NOT EXISTS idx_read_model_invalidation_outbox_pending
+  ON read_model_invalidation_outbox (next_attempt_after, source_event_sequence)
   WHERE published_at IS NULL AND dead_lettered_at IS NULL;
-CREATE INDEX IF NOT EXISTS idx_read_model_fragment_change_outbox_lease_visible
-  ON read_model_fragment_change_outbox (lease_until)
+CREATE INDEX IF NOT EXISTS idx_read_model_invalidation_outbox_lease_visible
+  ON read_model_invalidation_outbox (lease_until)
   WHERE published_at IS NULL AND dead_lettered_at IS NULL;
-CREATE INDEX IF NOT EXISTS idx_read_model_fragment_change_outbox_partition
-  ON read_model_fragment_change_outbox USING GIN (partition);
-CREATE INDEX IF NOT EXISTS idx_read_model_fragment_change_outbox_source_aggregate
-  ON read_model_fragment_change_outbox (source_aggregate_type, source_aggregate_id, source_event_sequence)
-  WHERE published_at IS NULL AND dead_lettered_at IS NULL;
-CREATE INDEX IF NOT EXISTS idx_read_model_fragment_change_outbox_dead_lettered_at
-  ON read_model_fragment_change_outbox (dead_lettered_at)
+CREATE INDEX IF NOT EXISTS idx_read_model_invalidation_outbox_dependencies
+  ON read_model_invalidation_outbox USING GIN (invalidated_dependencies);
+CREATE INDEX IF NOT EXISTS idx_read_model_invalidation_outbox_dead_lettered_at
+  ON read_model_invalidation_outbox (dead_lettered_at)
   WHERE dead_lettered_at IS NOT NULL;
 
-COMMENT ON TABLE read_model_fragment_change_outbox IS 'Transactional outbox for one upstream delivery per changed source-fragment partition.';
+COMMENT ON TABLE read_model_invalidation_outbox IS 'Transactional outbox carrying dependency-only read-model invalidations.';
 
 -- event dead letters
 CREATE TABLE IF NOT EXISTS event_dead_letters (

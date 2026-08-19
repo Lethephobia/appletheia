@@ -1,8 +1,7 @@
-use appletheia::application::read_model::list::ReadModelListCriteria;
 use banking_shared_kernel_application::read_model::SearchTerm;
 use serde::{Deserialize, Serialize};
 
-use crate::projection::{MaterializedUserStatus, PublicUserListItemPart};
+use crate::projection::MaterializedUserStatus;
 
 /// Search criteria for public user list reads.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -18,35 +17,6 @@ impl Default for PublicUserListCriteria {
             username_contains: Vec::new(),
             status_in: Some(vec![MaterializedUserStatus::Active]),
         }
-    }
-}
-
-impl ReadModelListCriteria for PublicUserListCriteria {
-    type Candidate = PublicUserListItemPart;
-
-    fn matches(&self, candidate: &Self::Candidate) -> bool {
-        if !self.username_contains.is_empty() {
-            let username = match &candidate.username {
-                Some(username) => username,
-                None => return false,
-            };
-
-            if self
-                .username_contains
-                .iter()
-                .any(|term| !term.matches(username))
-            {
-                return false;
-            }
-        }
-
-        if let Some(status_in) = &self.status_in
-            && !status_in.contains(&candidate.status)
-        {
-            return false;
-        }
-
-        true
     }
 }
 

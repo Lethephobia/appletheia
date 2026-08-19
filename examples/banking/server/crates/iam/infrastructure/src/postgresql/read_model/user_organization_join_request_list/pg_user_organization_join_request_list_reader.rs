@@ -1,11 +1,11 @@
-use appletheia::application::read_model::pagination::{CursorPage, Sort, SortDirection};
+use appletheia::application::read_model::pagination::{CursorWindow, Sort, SortDirection};
 use appletheia::domain::AggregateId;
 use appletheia::infrastructure::postgresql::PgUnitOfWork;
 use banking_iam_application::{
-    InternalUserSummaryPart, UserOrganizationJoinRequestList,
-    UserOrganizationJoinRequestListCriteria, UserOrganizationJoinRequestListCursor,
-    UserOrganizationJoinRequestListItemPart, UserOrganizationJoinRequestListReader,
-    UserOrganizationJoinRequestListReaderError, UserOrganizationJoinRequestListSortKey,
+    UserOrganizationJoinRequestList, UserOrganizationJoinRequestListCriteria,
+    UserOrganizationJoinRequestListCursor, UserOrganizationJoinRequestListItem,
+    UserOrganizationJoinRequestListReader, UserOrganizationJoinRequestListReaderError,
+    UserOrganizationJoinRequestListSortKey, UserOrganizationJoinRequestListUser,
 };
 use banking_iam_domain::OrganizationJoinRequestStatus;
 use banking_iam_domain::UserId;
@@ -50,7 +50,8 @@ impl PgUserOrganizationJoinRequestListReader {
     async fn read_user(
         uow: &mut PgUnitOfWork,
         user_id: UserId,
-    ) -> Result<InternalUserSummaryPart, UserOrganizationJoinRequestListReaderError> {
+    ) -> Result<UserOrganizationJoinRequestListUser, UserOrganizationJoinRequestListReaderError>
+    {
         let row = sqlx::query_as::<_, PgUserOrganizationJoinRequestListUserRow>(
             r#"
             SELECT id AS user_id, username, display_name, picture_type, picture_object_name,
@@ -66,7 +67,7 @@ impl PgUserOrganizationJoinRequestListReader {
             UserOrganizationJoinRequestListReaderError::Persistence(Box::new(error))
         })?;
 
-        InternalUserSummaryPart::try_from(row).map_err(|error| {
+        UserOrganizationJoinRequestListUser::try_from(row).map_err(|error| {
             UserOrganizationJoinRequestListReaderError::Persistence(Box::new(error))
         })
     }
@@ -87,10 +88,11 @@ impl UserOrganizationJoinRequestListReader for PgUserOrganizationJoinRequestList
         user_id: UserId,
         criteria: UserOrganizationJoinRequestListCriteria,
         sort: Sort<UserOrganizationJoinRequestListSortKey>,
-        page: CursorPage<UserOrganizationJoinRequestListCursor>,
+        page: CursorWindow<UserOrganizationJoinRequestListCursor>,
     ) -> Result<UserOrganizationJoinRequestList, UserOrganizationJoinRequestListReaderError> {
         let user = Self::read_user(uow, user_id).await?;
-        let query_limit = i64::from(page.limit.value()) + 1;
+        let query_limit = i64::from(page.limit().value()) + 1;
+        let query_direction = page.query_direction(sort.direction);
         let mut builder = QueryBuilder::<Postgres>::new(
             r#"
             SELECT
@@ -117,8 +119,8 @@ impl UserOrganizationJoinRequestListReader for PgUserOrganizationJoinRequestList
         if let Some(status_in) = criteria.status_in.as_deref() {
             Self::push_status_in(&mut builder, status_in);
         }
-        if let Some(cursor) = page.after {
-            match (sort.key, sort.direction) {
+        if let Some(cursor) = page.boundary().copied() {
+            match (sort.key, query_direction) {
                 (UserOrganizationJoinRequestListSortKey::CreatedAt, SortDirection::Asc) => {
                     builder
                         .push(" AND (i.created_at, i.id) > (")
@@ -147,7 +149,7 @@ impl UserOrganizationJoinRequestListReader for PgUserOrganizationJoinRequestList
                 }
             }
         }
-        match (sort.key, sort.direction) {
+        match (sort.key, query_direction) {
             (UserOrganizationJoinRequestListSortKey::CreatedAt, SortDirection::Asc) => {
                 builder.push(" ORDER BY i.created_at ASC, i.id ASC");
             }
@@ -169,30 +171,43 @@ impl UserOrganizationJoinRequestListReader for PgUserOrganizationJoinRequestList
             .map_err(|error| {
                 UserOrganizationJoinRequestListReaderError::Persistence(Box::new(error))
             })?;
-        let page_limit = page.limit.value() as usize;
-        let has_next = rows.len() > page_limit;
-        let items = rows
+        let page_limit = page.limit().value() as usize;
+        let has_more = rows.len() > page_limit;
+        let mut items = rows
             .into_iter()
             .take(page_limit)
-            .map(UserOrganizationJoinRequestListItemPart::try_from)
+            .map(UserOrganizationJoinRequestListItem::try_from)
             .collect::<Result<Vec<_>, _>>()
             .map_err(|error| {
                 UserOrganizationJoinRequestListReaderError::Persistence(Box::new(error))
             })?;
-        let next_cursor = if has_next {
-            items
-                .last()
-                .map(|item| UserOrganizationJoinRequestListCursor {
-                    created_at: item.created_at,
-                    join_request_id: item.join_request_id,
-                })
+        if page.is_backward() {
+            items.reverse();
+        }
+        let start_cursor = items
+            .first()
+            .map(|item| UserOrganizationJoinRequestListCursor {
+                created_at: item.created_at,
+                join_request_id: item.join_request_id,
+            });
+        let end_cursor = items
+            .last()
+            .map(|item| UserOrganizationJoinRequestListCursor {
+                created_at: item.created_at,
+                join_request_id: item.join_request_id,
+            });
+        let (has_previous, has_next) = if page.is_backward() {
+            (has_more, !items.is_empty() && page.boundary().is_some())
         } else {
-            None
+            (!items.is_empty() && page.boundary().is_some(), has_more)
         };
         Ok(UserOrganizationJoinRequestList {
             user,
             items,
-            next_cursor,
+            start_cursor,
+            end_cursor,
+            has_previous,
+            has_next,
         })
     }
 }

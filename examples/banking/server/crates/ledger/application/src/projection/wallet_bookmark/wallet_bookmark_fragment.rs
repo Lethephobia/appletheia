@@ -4,17 +4,15 @@ use appletheia::application::read_model::{
 use appletheia::domain::EventOccurredAt;
 use banking_ledger_domain::core::TokenAccountOwnerAddress;
 use banking_ledger_domain::wallet_bookmark::{
-    WalletBookmarkDescription, WalletBookmarkDisplayName, WalletBookmarkId,
+    WalletBookmarkDescription, WalletBookmarkDisplayName, WalletBookmarkId, WalletBookmarkOwner,
 };
 use serde::{Deserialize, Serialize};
 
-use super::FragmentOwner;
-
-/// Complete wallet bookmark fragment shared by read models.
+/// Normalized wallet bookmark fragment shared by read models.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct WalletBookmarkFragment {
     pub wallet_bookmark_id: WalletBookmarkId,
-    pub owner: FragmentOwner,
+    pub owner: WalletBookmarkOwner,
     pub display_name: Option<WalletBookmarkDisplayName>,
     pub description: Option<WalletBookmarkDescription>,
     pub token_account_owner_address: TokenAccountOwnerAddress,
@@ -24,11 +22,7 @@ pub struct WalletBookmarkFragment {
 
 impl ReadModelObservationSource for WalletBookmarkFragment {
     fn observations(&self) -> Vec<ReadModelObservation> {
-        self.owner
-            .observations()
-            .into_iter()
-            .chain([self.observation])
-            .collect()
+        vec![self.observation]
     }
 }
 

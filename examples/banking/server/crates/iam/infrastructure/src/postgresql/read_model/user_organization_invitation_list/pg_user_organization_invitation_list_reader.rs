@@ -1,11 +1,11 @@
-use appletheia::application::read_model::pagination::{CursorPage, Sort, SortDirection};
+use appletheia::application::read_model::pagination::{CursorWindow, Sort, SortDirection};
 use appletheia::domain::AggregateId;
 use appletheia::infrastructure::postgresql::PgUnitOfWork;
 use banking_iam_application::{
-    InternalUserSummaryPart, UserOrganizationInvitationList,
-    UserOrganizationInvitationListCriteria, UserOrganizationInvitationListCursor,
-    UserOrganizationInvitationListItemPart, UserOrganizationInvitationListReader,
-    UserOrganizationInvitationListReaderError, UserOrganizationInvitationListSortKey,
+    UserOrganizationInvitationList, UserOrganizationInvitationListCriteria,
+    UserOrganizationInvitationListCursor, UserOrganizationInvitationListItem,
+    UserOrganizationInvitationListReader, UserOrganizationInvitationListReaderError,
+    UserOrganizationInvitationListSortKey, UserOrganizationInvitationListUser,
 };
 use banking_iam_domain::OrganizationInvitationStatus;
 use banking_iam_domain::UserId;
@@ -51,7 +51,7 @@ impl PgUserOrganizationInvitationListReader {
     async fn read_user(
         uow: &mut PgUnitOfWork,
         user_id: UserId,
-    ) -> Result<InternalUserSummaryPart, UserOrganizationInvitationListReaderError> {
+    ) -> Result<UserOrganizationInvitationListUser, UserOrganizationInvitationListReaderError> {
         let row = sqlx::query_as::<_, PgUserOrganizationInvitationListUserRow>(
             r#"
             SELECT id AS user_id, username, display_name, picture_type, picture_object_name,
@@ -65,7 +65,7 @@ impl PgUserOrganizationInvitationListReader {
         .await
         .map_err(|error| UserOrganizationInvitationListReaderError::Persistence(Box::new(error)))?;
 
-        InternalUserSummaryPart::try_from(row).map_err(|error| {
+        UserOrganizationInvitationListUser::try_from(row).map_err(|error| {
             UserOrganizationInvitationListReaderError::Persistence(Box::new(error))
         })
     }
@@ -86,10 +86,11 @@ impl UserOrganizationInvitationListReader for PgUserOrganizationInvitationListRe
         user_id: UserId,
         criteria: UserOrganizationInvitationListCriteria,
         sort: Sort<UserOrganizationInvitationListSortKey>,
-        page: CursorPage<UserOrganizationInvitationListCursor>,
+        page: CursorWindow<UserOrganizationInvitationListCursor>,
     ) -> Result<UserOrganizationInvitationList, UserOrganizationInvitationListReaderError> {
         let user = Self::read_user(uow, user_id).await?;
-        let query_limit = i64::from(page.limit.value()) + 1;
+        let query_limit = i64::from(page.limit().value()) + 1;
+        let query_direction = page.query_direction(sort.direction);
         let mut builder = QueryBuilder::<Postgres>::new(
             r#"
             SELECT
@@ -120,8 +121,8 @@ impl UserOrganizationInvitationListReader for PgUserOrganizationInvitationListRe
         if let Some(status_in) = criteria.status_in.as_deref() {
             Self::push_status_in(&mut builder, status_in);
         }
-        if let Some(cursor) = page.after {
-            match (sort.key, sort.direction) {
+        if let Some(cursor) = page.boundary().copied() {
+            match (sort.key, query_direction) {
                 (UserOrganizationInvitationListSortKey::CreatedAt, SortDirection::Asc) => {
                     builder
                         .push(" AND (i.created_at, i.id) > (")
@@ -150,7 +151,7 @@ impl UserOrganizationInvitationListReader for PgUserOrganizationInvitationListRe
                 }
             }
         }
-        match (sort.key, sort.direction) {
+        match (sort.key, query_direction) {
             (UserOrganizationInvitationListSortKey::CreatedAt, SortDirection::Asc) => {
                 builder.push(" ORDER BY i.created_at ASC, i.id ASC");
             }
@@ -172,30 +173,43 @@ impl UserOrganizationInvitationListReader for PgUserOrganizationInvitationListRe
             .map_err(|error| {
                 UserOrganizationInvitationListReaderError::Persistence(Box::new(error))
             })?;
-        let page_limit = page.limit.value() as usize;
-        let has_next = rows.len() > page_limit;
-        let items = rows
+        let page_limit = page.limit().value() as usize;
+        let has_more = rows.len() > page_limit;
+        let mut items = rows
             .into_iter()
             .take(page_limit)
-            .map(UserOrganizationInvitationListItemPart::try_from)
+            .map(UserOrganizationInvitationListItem::try_from)
             .collect::<Result<Vec<_>, _>>()
             .map_err(|error| {
                 UserOrganizationInvitationListReaderError::Persistence(Box::new(error))
             })?;
-        let next_cursor = if has_next {
-            items
-                .last()
-                .map(|item| UserOrganizationInvitationListCursor {
-                    created_at: item.created_at,
-                    invitation_id: item.invitation_id,
-                })
+        if page.is_backward() {
+            items.reverse();
+        }
+        let start_cursor = items
+            .first()
+            .map(|item| UserOrganizationInvitationListCursor {
+                created_at: item.created_at,
+                invitation_id: item.invitation_id,
+            });
+        let end_cursor = items
+            .last()
+            .map(|item| UserOrganizationInvitationListCursor {
+                created_at: item.created_at,
+                invitation_id: item.invitation_id,
+            });
+        let (has_previous, has_next) = if page.is_backward() {
+            (has_more, !items.is_empty() && page.boundary().is_some())
         } else {
-            None
+            (!items.is_empty() && page.boundary().is_some(), has_more)
         };
         Ok(UserOrganizationInvitationList {
             user,
             items,
-            next_cursor,
+            start_cursor,
+            end_cursor,
+            has_previous,
+            has_next,
         })
     }
 }

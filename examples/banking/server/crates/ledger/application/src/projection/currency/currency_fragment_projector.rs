@@ -1,6 +1,8 @@
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
-use appletheia::application::read_model::{MaterializationEventContext, ReadModelFragmentChange};
+use appletheia::application::read_model::{
+    MaterializationEventContext, ReadModelFragmentPartition, ReadModelPartition,
+};
 use banking_ledger_domain::core::CurrencyAmount;
 use banking_ledger_domain::currency::{Currency, CurrencyEventPayload};
 
@@ -42,8 +44,8 @@ where
         uow: &mut Self::Uow,
         event_context: MaterializationEventContext,
         event: &EventEnvelope,
-    ) -> Result<Vec<ReadModelFragmentChange<Self::Fragment>>, Self::Error> {
-        let mut fragment_changes = Vec::new();
+    ) -> Result<Vec<ReadModelFragmentPartition<Self::Fragment>>, Self::Error> {
+        let mut invalidated_partitions = Vec::new();
         let domain_event = event.try_into_domain_event::<Currency>()?;
         let currency_id = domain_event.aggregate_id();
 
@@ -77,7 +79,7 @@ where
                     )
                     .await?
                 {
-                    fragment_changes.push(ReadModelFragmentChange::try_from_fragment(&fragment)?);
+                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                 }
             }
             CurrencyEventPayload::Provisioned { mint_account } => {
@@ -91,7 +93,7 @@ where
                     )
                     .await?
                 {
-                    fragment_changes.push(ReadModelFragmentChange::try_from_fragment(&fragment)?);
+                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                 }
             }
             CurrencyEventPayload::OwnershipTransferred { owner } => {
@@ -100,7 +102,7 @@ where
                     .update_currency_owner(uow, event_context, currency_id, *owner)
                     .await?
                 {
-                    fragment_changes.push(ReadModelFragmentChange::try_from_fragment(&fragment)?);
+                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                 }
             }
             CurrencyEventPayload::SymbolChanged { symbol } => {
@@ -109,7 +111,7 @@ where
                     .update_currency_symbol(uow, event_context, currency_id, symbol.clone())
                     .await?
                 {
-                    fragment_changes.push(ReadModelFragmentChange::try_from_fragment(&fragment)?);
+                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                 }
             }
             CurrencyEventPayload::NameChanged { name } => {
@@ -118,7 +120,7 @@ where
                     .update_currency_name(uow, event_context, currency_id, name.clone())
                     .await?
                 {
-                    fragment_changes.push(ReadModelFragmentChange::try_from_fragment(&fragment)?);
+                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                 }
             }
             CurrencyEventPayload::DescriptionChanged { description } => {
@@ -132,7 +134,7 @@ where
                     )
                     .await?
                 {
-                    fragment_changes.push(ReadModelFragmentChange::try_from_fragment(&fragment)?);
+                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                 }
             }
             CurrencyEventPayload::ImageChanged { image, .. } => {
@@ -141,7 +143,7 @@ where
                     .update_currency_image(uow, event_context, currency_id, image.clone())
                     .await?
                 {
-                    fragment_changes.push(ReadModelFragmentChange::try_from_fragment(&fragment)?);
+                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                 }
             }
             CurrencyEventPayload::SupplyCommitted { amount } => {
@@ -150,7 +152,7 @@ where
                     .increase_currency_supply(uow, event_context, currency_id, *amount)
                     .await?
                 {
-                    fragment_changes.push(ReadModelFragmentChange::try_from_fragment(&fragment)?);
+                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                 }
             }
             CurrencyEventPayload::Activated => {
@@ -164,7 +166,7 @@ where
                     )
                     .await?
                 {
-                    fragment_changes.push(ReadModelFragmentChange::try_from_fragment(&fragment)?);
+                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                 }
             }
             CurrencyEventPayload::Deactivated => {
@@ -178,7 +180,7 @@ where
                     )
                     .await?
                 {
-                    fragment_changes.push(ReadModelFragmentChange::try_from_fragment(&fragment)?);
+                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                 }
             }
             CurrencyEventPayload::Removed => {
@@ -187,9 +189,7 @@ where
                     .delete_currency(uow, event_context, currency_id)
                     .await?
                 {
-                    fragment_changes.push(
-                        ReadModelFragmentChange::<CurrencyFragment>::try_removed(&currency_id)?,
-                    );
+                    invalidated_partitions.push(ReadModelPartition::new(currency_id));
                 }
             }
             CurrencyEventPayload::DefineRejected { .. }
@@ -213,6 +213,6 @@ where
             | CurrencyEventPayload::RemoveRejected { .. } => {}
         }
 
-        Ok(fragment_changes)
+        Ok(invalidated_partitions)
     }
 }

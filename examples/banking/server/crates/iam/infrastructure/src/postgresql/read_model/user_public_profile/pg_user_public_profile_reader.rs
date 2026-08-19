@@ -1,11 +1,11 @@
 use appletheia::domain::AggregateId;
 use appletheia::infrastructure::postgresql::PgUnitOfWork;
 use banking_iam_application::{
-    UserFragment, UserPublicProfile, UserPublicProfileReader, UserPublicProfileReaderError,
+    UserPublicProfile, UserPublicProfileReader, UserPublicProfileReaderError,
 };
 use banking_iam_domain::UserId;
 
-use super::super::super::projection::PgUserFragmentRow;
+use super::pg_user_public_profile_row::PgUserPublicProfileRow;
 
 /// PostgreSQL-backed public user profile reader.
 pub struct PgUserPublicProfileReader;
@@ -30,7 +30,7 @@ impl UserPublicProfileReader for PgUserPublicProfileReader {
         uow: &mut Self::Uow,
         user_id: UserId,
     ) -> Result<Option<UserPublicProfile>, UserPublicProfileReaderError> {
-        let row = sqlx::query_as::<_, PgUserFragmentRow>(
+        let row = sqlx::query_as::<_, PgUserPublicProfileRow>(
             r#"
             SELECT
                 id AS user_id,
@@ -40,7 +40,6 @@ impl UserPublicProfileReader for PgUserPublicProfileReader {
                 picture_type,
                 picture_object_name,
                 picture_external_url,
-                status,
                 created_at,
                 u.source_event_id,
                 u.updated_event_id
@@ -53,9 +52,8 @@ impl UserPublicProfileReader for PgUserPublicProfileReader {
         .await
         .map_err(|e| UserPublicProfileReaderError::Persistence(Box::new(e)))?;
 
-        row.map(UserFragment::try_from)
+        row.map(UserPublicProfile::try_from)
             .transpose()
-            .map(|fragment| fragment.map(UserPublicProfile::from))
             .map_err(|e| UserPublicProfileReaderError::Persistence(Box::new(e)))
     }
 }

@@ -1,10 +1,10 @@
-use appletheia::application::read_model::pagination::{CursorPage, Sort, SortDirection};
+use appletheia::application::read_model::pagination::{CursorWindow, Sort, SortDirection};
 use appletheia::domain::AggregateId;
 use appletheia::infrastructure::postgresql::PgUnitOfWork;
 use banking_iam_application::{
-    InternalOrganizationSummaryPart, OrganizationJoinRequestList,
-    OrganizationJoinRequestListCriteria, OrganizationJoinRequestListCursor,
-    OrganizationJoinRequestListItemPart, OrganizationJoinRequestListReader,
+    OrganizationJoinRequestList, OrganizationJoinRequestListCriteria,
+    OrganizationJoinRequestListCursor, OrganizationJoinRequestListItem,
+    OrganizationJoinRequestListOrganization, OrganizationJoinRequestListReader,
     OrganizationJoinRequestListReaderError, OrganizationJoinRequestListSortKey,
 };
 use banking_iam_domain::OrganizationId;
@@ -50,7 +50,8 @@ impl PgOrganizationJoinRequestListReader {
     async fn read_organization(
         uow: &mut PgUnitOfWork,
         organization_id: OrganizationId,
-    ) -> Result<InternalOrganizationSummaryPart, OrganizationJoinRequestListReaderError> {
+    ) -> Result<OrganizationJoinRequestListOrganization, OrganizationJoinRequestListReaderError>
+    {
         let row = sqlx::query_as::<_, PgOrganizationJoinRequestListOrganizationRow>(
             r#"
             SELECT id AS organization_id, handle, display_name, picture_type,
@@ -65,7 +66,7 @@ impl PgOrganizationJoinRequestListReader {
         .await
         .map_err(|error| OrganizationJoinRequestListReaderError::Persistence(Box::new(error)))?;
 
-        InternalOrganizationSummaryPart::try_from(row)
+        OrganizationJoinRequestListOrganization::try_from(row)
             .map_err(|error| OrganizationJoinRequestListReaderError::Persistence(Box::new(error)))
     }
 }
@@ -85,10 +86,11 @@ impl OrganizationJoinRequestListReader for PgOrganizationJoinRequestListReader {
         organization_id: OrganizationId,
         criteria: OrganizationJoinRequestListCriteria,
         sort: Sort<OrganizationJoinRequestListSortKey>,
-        page: CursorPage<OrganizationJoinRequestListCursor>,
+        page: CursorWindow<OrganizationJoinRequestListCursor>,
     ) -> Result<OrganizationJoinRequestList, OrganizationJoinRequestListReaderError> {
         let organization = Self::read_organization(uow, organization_id).await?;
-        let query_limit = i64::from(page.limit.value()) + 1;
+        let query_limit = i64::from(page.limit().value()) + 1;
+        let query_direction = page.query_direction(sort.direction);
         let mut builder = QueryBuilder::<Postgres>::new(
             r#"
             SELECT
@@ -115,8 +117,8 @@ impl OrganizationJoinRequestListReader for PgOrganizationJoinRequestListReader {
         if let Some(status_in) = criteria.status_in.as_deref() {
             Self::push_status_in(&mut builder, status_in);
         }
-        if let Some(cursor) = page.after {
-            match (sort.key, sort.direction) {
+        if let Some(cursor) = page.boundary().copied() {
+            match (sort.key, query_direction) {
                 (OrganizationJoinRequestListSortKey::CreatedAt, SortDirection::Asc) => {
                     builder
                         .push(" AND (i.created_at, i.id) > (")
@@ -145,7 +147,7 @@ impl OrganizationJoinRequestListReader for PgOrganizationJoinRequestListReader {
                 }
             }
         }
-        match (sort.key, sort.direction) {
+        match (sort.key, query_direction) {
             (OrganizationJoinRequestListSortKey::CreatedAt, SortDirection::Asc) => {
                 builder.push(" ORDER BY i.created_at ASC, i.id ASC");
             }
@@ -167,28 +169,39 @@ impl OrganizationJoinRequestListReader for PgOrganizationJoinRequestListReader {
             .map_err(|error| {
                 OrganizationJoinRequestListReaderError::Persistence(Box::new(error))
             })?;
-        let page_limit = page.limit.value() as usize;
-        let has_next = rows.len() > page_limit;
-        let items = rows
+        let page_limit = page.limit().value() as usize;
+        let has_more = rows.len() > page_limit;
+        let mut items = rows
             .into_iter()
             .take(page_limit)
-            .map(OrganizationJoinRequestListItemPart::try_from)
+            .map(OrganizationJoinRequestListItem::try_from)
             .collect::<Result<Vec<_>, _>>()
             .map_err(|error| {
                 OrganizationJoinRequestListReaderError::Persistence(Box::new(error))
             })?;
-        let next_cursor = if has_next {
-            items.last().map(|item| OrganizationJoinRequestListCursor {
-                created_at: item.created_at,
-                join_request_id: item.join_request_id,
-            })
+        if page.is_backward() {
+            items.reverse();
+        }
+        let start_cursor = items.first().map(|item| OrganizationJoinRequestListCursor {
+            created_at: item.created_at,
+            join_request_id: item.join_request_id,
+        });
+        let end_cursor = items.last().map(|item| OrganizationJoinRequestListCursor {
+            created_at: item.created_at,
+            join_request_id: item.join_request_id,
+        });
+        let (has_previous, has_next) = if page.is_backward() {
+            (has_more, !items.is_empty() && page.boundary().is_some())
         } else {
-            None
+            (!items.is_empty() && page.boundary().is_some(), has_more)
         };
         Ok(OrganizationJoinRequestList {
             organization,
             items,
-            next_cursor,
+            start_cursor,
+            end_cursor,
+            has_previous,
+            has_next,
         })
     }
 }

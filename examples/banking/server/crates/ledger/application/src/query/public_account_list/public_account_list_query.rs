@@ -1,4 +1,4 @@
-use appletheia::application::read_model::pagination::{CursorPage, Sort};
+use appletheia::application::read_model::pagination::{CursorWindow, Sort};
 use appletheia::query;
 
 use crate::read_model::{
@@ -11,5 +11,5 @@ use crate::read_model::{
 pub struct PublicAccountListQuery {
     pub criteria: PublicAccountListCriteria,
     pub sort: Sort<PublicAccountListSortKey>,
-    pub page: CursorPage<PublicAccountListCursor>,
+    pub page: CursorWindow<PublicAccountListCursor>,
 }

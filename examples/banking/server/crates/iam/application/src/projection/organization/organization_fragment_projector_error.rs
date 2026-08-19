@@ -1,5 +1,4 @@
 use appletheia::application::event::EventEnvelopeError;
-use appletheia::application::read_model::ReadModelFragmentChangeError;
 use thiserror::Error;
 
 use crate::projection::OrganizationFragmentWriterError;
@@ -12,7 +11,4 @@ pub enum OrganizationFragmentProjectorError {
 
     #[error("organization fragment writer failed")]
     Writer(#[from] OrganizationFragmentWriterError),
-
-    #[error("organization fragment change failed")]
-    FragmentChange(#[from] ReadModelFragmentChangeError),
 }

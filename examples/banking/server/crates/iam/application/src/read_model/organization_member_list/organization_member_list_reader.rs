@@ -1,4 +1,4 @@
-use appletheia::application::read_model::pagination::{CursorPage, Sort};
+use appletheia::application::read_model::pagination::{CursorWindow, Sort};
 use appletheia::application::unit_of_work::UnitOfWork;
 use banking_iam_domain::OrganizationId;
 
@@ -18,6 +18,6 @@ pub trait OrganizationMemberListReader: Send + Sync {
         organization_id: OrganizationId,
         criteria: OrganizationMemberListCriteria,
         sort: Sort<OrganizationMemberListSortKey>,
-        page: CursorPage<OrganizationMemberListCursor>,
+        page: CursorWindow<OrganizationMemberListCursor>,
     ) -> Result<OrganizationMemberList, OrganizationMemberListReaderError>;
 }

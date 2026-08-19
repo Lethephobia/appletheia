@@ -61,7 +61,7 @@ mod tests {
     use appletheia::application::authorization::{AuthorizationPlan, PrincipalRequirement};
     use appletheia::application::query::QueryHandler;
     use appletheia::application::read_model::pagination::{
-        CursorPage, PageSize, Sort, SortDirection,
+        CursorWindow, PageSize, Sort, SortDirection,
     };
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
 
@@ -97,11 +97,14 @@ mod tests {
             _uow: &mut Self::Uow,
             _criteria: PublicOrganizationListCriteria,
             _sort: Sort<PublicOrganizationListSortKey>,
-            _page: CursorPage<PublicOrganizationListCursor>,
+            _page: CursorWindow<PublicOrganizationListCursor>,
         ) -> Result<PublicOrganizationList, PublicOrganizationListReaderError> {
             Ok(PublicOrganizationList {
                 items: Vec::new(),
-                next_cursor: None,
+                start_cursor: None,
+                end_cursor: None,
+                has_previous: false,
+                has_next: false,
             })
         }
     }
@@ -115,7 +118,7 @@ mod tests {
                 key: PublicOrganizationListSortKey::CreatedAt,
                 direction: SortDirection::Desc,
             },
-            page: CursorPage {
+            page: CursorWindow::Forward {
                 after: None,
                 limit: PageSize::new(20).expect("page size should be valid"),
             },

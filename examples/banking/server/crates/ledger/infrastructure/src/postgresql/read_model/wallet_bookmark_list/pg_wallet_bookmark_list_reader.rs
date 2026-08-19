@@ -1,9 +1,9 @@
-use appletheia::application::read_model::pagination::{CursorPage, Sort, SortDirection};
+use appletheia::application::read_model::pagination::{CursorWindow, Sort, SortDirection};
 use appletheia::domain::AggregateId;
 use appletheia::infrastructure::postgresql::PgUnitOfWork;
 use banking_ledger_application::{
     WalletBookmarkList, WalletBookmarkListCriteria, WalletBookmarkListCursor,
-    WalletBookmarkListItemPart, WalletBookmarkListReader, WalletBookmarkListReaderError,
+    WalletBookmarkListItem, WalletBookmarkListReader, WalletBookmarkListReaderError,
     WalletBookmarkListSortKey,
 };
 use banking_ledger_domain::wallet_bookmark::WalletBookmarkOwner;
@@ -45,9 +45,10 @@ impl WalletBookmarkListReader for PgWalletBookmarkListReader {
         owner: WalletBookmarkOwner,
         _criteria: WalletBookmarkListCriteria,
         sort: Sort<WalletBookmarkListSortKey>,
-        page: CursorPage<WalletBookmarkListCursor>,
+        page: CursorWindow<WalletBookmarkListCursor>,
     ) -> Result<WalletBookmarkList, WalletBookmarkListReaderError> {
-        let query_limit = i64::from(page.limit.value()) + 1;
+        let query_limit = i64::from(page.limit().value()) + 1;
+        let query_direction = page.query_direction(sort.direction);
 
         let mut builder = QueryBuilder::<Postgres>::new(
             r#"
@@ -72,8 +73,8 @@ impl WalletBookmarkListReader for PgWalletBookmarkListReader {
             .push(" AND owner_id = ")
             .push_bind(owner_id);
 
-        if let Some(cursor) = page.after {
-            match (sort.key, sort.direction) {
+        if let Some(cursor) = page.boundary().copied() {
+            match (sort.key, query_direction) {
                 (WalletBookmarkListSortKey::CreatedAt, SortDirection::Asc) => {
                     builder
                         .push(" AND (created_at, id) > (")
@@ -103,7 +104,7 @@ impl WalletBookmarkListReader for PgWalletBookmarkListReader {
             }
         }
 
-        match (sort.key, sort.direction) {
+        match (sort.key, query_direction) {
             (WalletBookmarkListSortKey::CreatedAt, SortDirection::Asc) => {
                 builder.push(" ORDER BY created_at ASC, id ASC");
             }
@@ -126,27 +127,38 @@ impl WalletBookmarkListReader for PgWalletBookmarkListReader {
             .await
             .map_err(|e| WalletBookmarkListReaderError::Persistence(Box::new(e)))?;
 
-        let page_limit = page.limit.value() as usize;
-        let has_next = rows.len() > page_limit;
-        let items = rows
+        let page_limit = page.limit().value() as usize;
+        let has_more = rows.len() > page_limit;
+        let mut items = rows
             .into_iter()
             .take(page_limit)
-            .map(WalletBookmarkListItemPart::try_from)
+            .map(WalletBookmarkListItem::try_from)
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| WalletBookmarkListReaderError::Persistence(Box::new(e)))?;
-        let next_cursor = if has_next {
-            items.last().map(|item| WalletBookmarkListCursor {
-                created_at: item.created_at,
-                wallet_bookmark_id: item.wallet_bookmark_id,
-            })
+        if page.is_backward() {
+            items.reverse();
+        }
+        let start_cursor = items.first().map(|item| WalletBookmarkListCursor {
+            created_at: item.created_at,
+            wallet_bookmark_id: item.wallet_bookmark_id,
+        });
+        let end_cursor = items.last().map(|item| WalletBookmarkListCursor {
+            created_at: item.created_at,
+            wallet_bookmark_id: item.wallet_bookmark_id,
+        });
+        let (has_previous, has_next) = if page.is_backward() {
+            (has_more, !items.is_empty() && page.boundary().is_some())
         } else {
-            None
+            (!items.is_empty() && page.boundary().is_some(), has_more)
         };
 
         Ok(WalletBookmarkList {
             owner,
             items,
-            next_cursor,
+            start_cursor,
+            end_cursor,
+            has_previous,
+            has_next,
         })
     }
 }

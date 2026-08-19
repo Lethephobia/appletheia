@@ -1,11 +1,12 @@
 use appletheia::application::read_model::ReadModelObservation;
 use appletheia::domain::{AggregateId, EventId, EventOccurredAt};
 use banking_ledger_application::{
-    FragmentOwner, WalletBookmarkFragment, WalletBookmarkFragmentWriterError,
+    WalletBookmarkFragment, WalletBookmarkFragmentWriterError,
 };
+use banking_iam_domain::{OrganizationId, UserId};
 use banking_ledger_domain::core::TokenAccountOwnerAddress;
 use banking_ledger_domain::wallet_bookmark::{
-    WalletBookmarkDescription, WalletBookmarkDisplayName, WalletBookmarkId,
+    WalletBookmarkDescription, WalletBookmarkDisplayName, WalletBookmarkId, WalletBookmarkOwner,
 };
 use sqlx::types::chrono::{DateTime, Utc};
 use uuid::Uuid;
@@ -23,17 +24,22 @@ pub struct PgWalletBookmarkFragmentRow {
     pub updated_event_id: Uuid,
 }
 
-impl PgWalletBookmarkFragmentRow {
-    pub fn try_into_fragment(
-        self,
-        owner: FragmentOwner,
-    ) -> Result<WalletBookmarkFragment, WalletBookmarkFragmentWriterError> {
-        let row = self;
+impl TryFrom<PgWalletBookmarkFragmentRow> for WalletBookmarkFragment {
+    type Error = WalletBookmarkFragmentWriterError;
 
+    fn try_from(row: PgWalletBookmarkFragmentRow) -> Result<Self, Self::Error> {
         Ok(WalletBookmarkFragment {
             wallet_bookmark_id: WalletBookmarkId::try_from_uuid(row.wallet_bookmark_id)
                 .map_err(persistence_error)?,
-            owner,
+            owner: match row.owner_type.as_str() {
+                "user" => WalletBookmarkOwner::User(
+                    UserId::try_from_uuid(row.owner_id).map_err(persistence_error)?,
+                ),
+                "organization" => WalletBookmarkOwner::Organization(
+                    OrganizationId::try_from_uuid(row.owner_id).map_err(persistence_error)?,
+                ),
+                _ => return Err(persistence_message("unknown wallet bookmark owner type")),
+            },
             display_name: row
                 .display_name
                 .map(WalletBookmarkDisplayName::try_from)
@@ -55,6 +61,10 @@ impl PgWalletBookmarkFragmentRow {
             ),
         })
     }
+}
+
+fn persistence_message(message: &'static str) -> WalletBookmarkFragmentWriterError {
+    WalletBookmarkFragmentWriterError::Persistence(Box::new(std::io::Error::other(message)))
 }
 
 fn persistence_error(

@@ -11,7 +11,5 @@ mod wallet_bookmark_list;
 pub use currency_list::PgCurrencyListReader;
 pub use owned_account_list::PgOwnedAccountListReader;
 pub use owned_account_transaction_list::PgOwnedAccountTransactionListReader;
-pub(crate) use pg_organization_picture_ref_columns::PgOrganizationPictureRefColumns;
-pub(crate) use pg_user_picture_ref_columns::PgUserPictureRefColumns;
 pub use public_account_list::PgPublicAccountListReader;
 pub use wallet_bookmark_list::PgWalletBookmarkListReader;

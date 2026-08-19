@@ -1,9 +1,9 @@
-use appletheia::application::read_model::pagination::{CursorPage, Sort, SortDirection};
+use appletheia::application::read_model::pagination::{CursorWindow, Sort, SortDirection};
 use appletheia::domain::AggregateId;
 use appletheia::infrastructure::postgresql::PgUnitOfWork;
 use banking_ledger_application::{
     MaterializedAccountStatus, PublicAccountList, PublicAccountListCriteria,
-    PublicAccountListCursor, PublicAccountListItemPart, PublicAccountListReader,
+    PublicAccountListCursor, PublicAccountListItem, PublicAccountListReader,
     PublicAccountListReaderError, PublicAccountListSortKey,
 };
 use banking_ledger_domain::account::AccountOwner;
@@ -71,9 +71,10 @@ impl PublicAccountListReader for PgPublicAccountListReader {
         uow: &mut Self::Uow,
         criteria: PublicAccountListCriteria,
         sort: Sort<PublicAccountListSortKey>,
-        page: CursorPage<PublicAccountListCursor>,
+        page: CursorWindow<PublicAccountListCursor>,
     ) -> Result<PublicAccountList, PublicAccountListReaderError> {
-        let query_limit = i64::from(page.limit.value()) + 1;
+        let query_limit = i64::from(page.limit().value()) + 1;
+        let query_direction = page.query_direction(sort.direction);
 
         let mut builder = QueryBuilder::<Postgres>::new(
             r#"
@@ -119,7 +120,7 @@ impl PublicAccountListReader for PgPublicAccountListReader {
         if criteria.owner.is_some()
             || criteria.currency_id.is_some()
             || criteria.status_in.is_some()
-            || page.after.is_some()
+            || page.boundary().is_some()
         {
             builder.push(" WHERE ");
             let mut predicates = builder.separated(" AND ");
@@ -144,8 +145,8 @@ impl PublicAccountListReader for PgPublicAccountListReader {
                 Self::push_status_in(&mut predicates, status_in);
             }
 
-            if let Some(cursor) = page.after {
-                match (sort.key, sort.direction) {
+            if let Some(cursor) = page.boundary().copied() {
+                match (sort.key, query_direction) {
                     (PublicAccountListSortKey::CreatedAt, SortDirection::Asc) => {
                         predicates
                             .push("(a.created_at, a.id) > (")
@@ -176,7 +177,7 @@ impl PublicAccountListReader for PgPublicAccountListReader {
             }
         }
 
-        match (sort.key, sort.direction) {
+        match (sort.key, query_direction) {
             (PublicAccountListSortKey::CreatedAt, SortDirection::Asc) => {
                 builder.push(" ORDER BY a.created_at ASC, a.id ASC");
             }
@@ -199,24 +200,38 @@ impl PublicAccountListReader for PgPublicAccountListReader {
             .await
             .map_err(|e| PublicAccountListReaderError::Persistence(Box::new(e)))?;
 
-        let page_limit = page.limit.value() as usize;
-        let has_next = rows.len() > page_limit;
-        let items = rows
+        let page_limit = page.limit().value() as usize;
+        let has_more = rows.len() > page_limit;
+        let mut items = rows
             .into_iter()
             .take(page_limit)
-            .map(PublicAccountListItemPart::try_from)
+            .map(PublicAccountListItem::try_from)
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| PublicAccountListReaderError::Persistence(Box::new(e)))?;
-        let next_cursor = if has_next {
-            items.last().map(|item| PublicAccountListCursor {
-                created_at: item.created_at,
-                account_id: item.account_id,
-            })
+        if page.is_backward() {
+            items.reverse();
+        }
+        let start_cursor = items.first().map(|item| PublicAccountListCursor {
+            created_at: item.created_at,
+            account_id: item.account_id,
+        });
+        let end_cursor = items.last().map(|item| PublicAccountListCursor {
+            created_at: item.created_at,
+            account_id: item.account_id,
+        });
+        let (has_previous, has_next) = if page.is_backward() {
+            (has_more, !items.is_empty() && page.boundary().is_some())
         } else {
-            None
+            (!items.is_empty() && page.boundary().is_some(), has_more)
         };
 
-        Ok(PublicAccountList { items, next_cursor })
+        Ok(PublicAccountList {
+            items,
+            start_cursor,
+            end_cursor,
+            has_previous,
+            has_next,
+        })
     }
 }
 

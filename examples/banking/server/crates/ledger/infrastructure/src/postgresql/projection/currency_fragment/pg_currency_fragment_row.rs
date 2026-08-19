@@ -1,12 +1,13 @@
 use appletheia::application::read_model::ReadModelObservation;
 use appletheia::domain::{AggregateId, EventId, EventOccurredAt};
 use banking_ledger_application::{
-    CurrencyFragment, CurrencyFragmentWriterError, FragmentOwner, MaterializedCurrencyStatus,
+    CurrencyFragment, CurrencyFragmentWriterError, MaterializedCurrencyStatus,
 };
+use banking_iam_domain::{OrganizationId, UserId};
 use banking_ledger_domain::core::CurrencyAmount;
 use banking_ledger_domain::currency::{
     CurrencyDecimals, CurrencyDescription, CurrencyId, CurrencyName, CurrencySymbol,
-    MintAccountAddress,
+    CurrencyOwner, MintAccountAddress,
 };
 use sqlx::types::chrono::{DateTime, Utc};
 use uuid::Uuid;
@@ -33,12 +34,10 @@ pub struct PgCurrencyFragmentRow {
     pub updated_event_id: Uuid,
 }
 
-impl PgCurrencyFragmentRow {
-    pub fn try_into_fragment(
-        self,
-        owner: FragmentOwner,
-    ) -> Result<CurrencyFragment, CurrencyFragmentWriterError> {
-        let row = self;
+impl TryFrom<PgCurrencyFragmentRow> for CurrencyFragment {
+    type Error = CurrencyFragmentWriterError;
+
+    fn try_from(row: PgCurrencyFragmentRow) -> Result<Self, Self::Error> {
         let status = match row.status.as_str() {
             "provisioning" => MaterializedCurrencyStatus::Provisioning,
             "active" => MaterializedCurrencyStatus::Active,
@@ -50,7 +49,15 @@ impl PgCurrencyFragmentRow {
 
         Ok(CurrencyFragment {
             id: CurrencyId::try_from_uuid(row.id).map_err(persistence_error)?,
-            owner,
+            owner: match row.owner_type.as_str() {
+                "user" => CurrencyOwner::User(
+                    UserId::try_from_uuid(row.owner_id).map_err(persistence_error)?,
+                ),
+                "organization" => CurrencyOwner::Organization(
+                    OrganizationId::try_from_uuid(row.owner_id).map_err(persistence_error)?,
+                ),
+                _ => return Err(persistence_message("unknown currency fragment owner type")),
+            },
             symbol: CurrencySymbol::try_from(row.symbol).map_err(persistence_error)?,
             name: CurrencyName::try_from(row.name).map_err(persistence_error)?,
             decimals: CurrencyDecimals::new(decimals),

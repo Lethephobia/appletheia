@@ -1,4 +1,4 @@
-use appletheia::application::read_model::pagination::{CursorPage, Sort};
+use appletheia::application::read_model::pagination::{CursorWindow, Sort};
 use appletheia::application::unit_of_work::UnitOfWork;
 use banking_iam_domain::UserId;
 
@@ -19,6 +19,6 @@ pub trait UserOrganizationJoinRequestListReader: Send + Sync {
         user_id: UserId,
         criteria: UserOrganizationJoinRequestListCriteria,
         sort: Sort<UserOrganizationJoinRequestListSortKey>,
-        page: CursorPage<UserOrganizationJoinRequestListCursor>,
+        page: CursorWindow<UserOrganizationJoinRequestListCursor>,
     ) -> Result<UserOrganizationJoinRequestList, UserOrganizationJoinRequestListReaderError>;
 }

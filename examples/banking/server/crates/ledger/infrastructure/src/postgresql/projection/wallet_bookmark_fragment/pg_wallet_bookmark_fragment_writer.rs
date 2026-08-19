@@ -10,7 +10,6 @@ use banking_ledger_domain::wallet_bookmark::{
 };
 use uuid::Uuid;
 
-use super::super::PgFragmentLoader;
 use super::pg_wallet_bookmark_fragment_row::PgWalletBookmarkFragmentRow;
 
 /// PostgreSQL-backed wallet bookmark fragment writer.
@@ -53,18 +52,7 @@ impl PgWalletBookmarkFragmentWriter {
         .await
         .map_err(|error| WalletBookmarkFragmentWriterError::Persistence(Box::new(error)))?;
 
-        let Some(wallet_bookmark_row) = row else {
-            return Ok(None);
-        };
-        let owner = PgFragmentLoader::load_owner(
-            uow,
-            &wallet_bookmark_row.owner_type,
-            wallet_bookmark_row.owner_id,
-        )
-        .await
-        .map_err(WalletBookmarkFragmentWriterError::Persistence)?;
-
-        wallet_bookmark_row.try_into_fragment(owner).map(Some)
+        row.map(WalletBookmarkFragment::try_from).transpose()
     }
 }
 

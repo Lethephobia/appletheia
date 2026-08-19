@@ -10,7 +10,6 @@ use banking_iam_domain::{OrganizationId, OrganizationRoles, UserId};
 
 mod pg_organization_membership_fragment_row;
 
-use super::PgFragmentLoader;
 use pg_organization_membership_fragment_row::PgOrganizationMembershipFragmentRow;
 
 /// PostgreSQL-backed organization membership fragment writer.
@@ -29,28 +28,14 @@ impl PgOrganizationMembershipFragmentWriter {
         })
     }
 
-    async fn map_row(
-        uow: &mut PgUnitOfWork,
+    fn map_row(
         row: Option<PgOrganizationMembershipFragmentRow>,
     ) -> Result<Option<OrganizationMembershipFragment>, OrganizationMembershipFragmentWriterError>
     {
         let Some(membership_row) = row else {
             return Ok(None);
         };
-        let user_id = UserId::try_from_uuid(membership_row.user_id).map_err(persistence_error)?;
-        let organization_id = OrganizationId::try_from_uuid(membership_row.organization_id)
-            .map_err(persistence_error)?;
-        let user = PgFragmentLoader::load_required_user(uow, user_id)
-            .await
-            .map_err(persistence_error)?;
-        let organization = PgFragmentLoader::load_organization(uow, organization_id)
-            .await
-            .map_err(persistence_error)?
-            .ok_or_else(|| persistence_message("organization fragment dependency was not found"))?;
-
-        membership_row
-            .try_into_fragment(user, organization)
-            .map(Some)
+        OrganizationMembershipFragment::try_from(membership_row).map(Some)
     }
 }
 
@@ -101,7 +86,7 @@ impl OrganizationMembershipFragmentWriter for PgOrganizationMembershipFragmentWr
             OrganizationMembershipFragmentWriterError::Persistence(Box::new(error))
         })?;
 
-        Self::map_row(uow, row).await
+        Self::map_row(row)
     }
 
     async fn update_roles(
@@ -137,7 +122,7 @@ impl OrganizationMembershipFragmentWriter for PgOrganizationMembershipFragmentWr
         .await
         .map_err(|error| OrganizationMembershipFragmentWriterError::Persistence(Box::new(error)))?;
 
-        Self::map_row(uow, row).await
+        Self::map_row(row)
     }
 
     async fn delete(
@@ -197,14 +182,4 @@ impl OrganizationMembershipFragmentWriter for PgOrganizationMembershipFragmentWr
             })
             .collect()
     }
-}
-
-fn persistence_error(
-    error: impl std::error::Error + Send + Sync + 'static,
-) -> OrganizationMembershipFragmentWriterError {
-    OrganizationMembershipFragmentWriterError::Persistence(Box::new(error))
-}
-
-fn persistence_message(message: &'static str) -> OrganizationMembershipFragmentWriterError {
-    OrganizationMembershipFragmentWriterError::Persistence(Box::new(std::io::Error::other(message)))
 }

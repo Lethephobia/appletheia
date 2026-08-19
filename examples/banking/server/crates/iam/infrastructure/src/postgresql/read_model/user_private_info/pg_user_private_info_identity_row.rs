@@ -1,7 +1,7 @@
 use appletheia::application::read_model::ReadModelObservation;
-use appletheia::domain::{AggregateId, EventId};
-use banking_iam_application::PrivateUserIdentityPart;
-use banking_iam_domain::{UserId, UserIdentityProvider, UserIdentitySubject};
+use appletheia::domain::EventId;
+use banking_iam_application::UserPrivateInfoIdentity;
+use banking_iam_domain::{UserIdentityProvider, UserIdentitySubject};
 use banking_shared_kernel_domain::contact::Email;
 use uuid::Uuid;
 
@@ -9,7 +9,6 @@ use super::pg_user_private_info_row_error::PgUserPrivateInfoRowError;
 
 #[derive(Debug, sqlx::FromRow)]
 pub struct PgUserPrivateInfoIdentityRow {
-    pub user_id: Uuid,
     pub provider: String,
     pub subject: String,
     pub email: Option<String>,
@@ -26,13 +25,11 @@ impl PgUserPrivateInfoIdentityRow {
     }
 }
 
-impl TryFrom<PgUserPrivateInfoIdentityRow> for PrivateUserIdentityPart {
+impl TryFrom<PgUserPrivateInfoIdentityRow> for UserPrivateInfoIdentity {
     type Error = PgUserPrivateInfoRowError;
 
     fn try_from(row: PgUserPrivateInfoIdentityRow) -> Result<Self, Self::Error> {
         Ok(Self {
-            user_id: UserId::try_from_uuid(row.user_id)
-                .map_err(|error| PgUserPrivateInfoRowError::InvalidUserId(Box::new(error)))?,
             provider: UserIdentityProvider::try_from(row.provider).map_err(|error| {
                 PgUserPrivateInfoRowError::InvalidUserIdentityProvider(Box::new(error))
             })?,

@@ -2,17 +2,17 @@ use appletheia::application::read_model::{
     ReadModelFragment, ReadModelFragmentName, ReadModelObservation, ReadModelObservationSource,
 };
 use appletheia::domain::EventOccurredAt;
-use banking_iam_domain::{OrganizationJoinRequestId, OrganizationJoinRequestStatus};
+use banking_iam_domain::{
+    OrganizationId, OrganizationJoinRequestId, OrganizationJoinRequestStatus, UserId,
+};
 use serde::{Deserialize, Serialize};
 
-use super::{OrganizationFragment, UserFragment};
-
-/// Complete organization join request fragment shared by read models.
+/// Normalized organization join request fragment shared by read models.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct OrganizationJoinRequestFragment {
     pub join_request_id: OrganizationJoinRequestId,
-    pub organization: OrganizationFragment,
-    pub requester: UserFragment,
+    pub organization_id: OrganizationId,
+    pub requester_user_id: UserId,
     pub status: OrganizationJoinRequestStatus,
     pub created_at: EventOccurredAt,
     pub observation: ReadModelObservation,
@@ -20,12 +20,7 @@ pub struct OrganizationJoinRequestFragment {
 
 impl ReadModelObservationSource for OrganizationJoinRequestFragment {
     fn observations(&self) -> Vec<ReadModelObservation> {
-        self.organization
-            .observations()
-            .into_iter()
-            .chain(self.requester.observations())
-            .chain([self.observation])
-            .collect()
+        vec![self.observation]
     }
 }
 

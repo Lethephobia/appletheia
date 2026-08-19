@@ -1,7 +1,7 @@
 use thiserror::Error;
 
-use crate::outbox::read_model_fragment_change::ReadModelFragmentChangeOutboxEnqueueError;
-use crate::read_model::ReadModelFragmentChangeEnvelopeError;
+use crate::outbox::read_model_invalidation::ReadModelInvalidationOutboxEnqueueError;
+use crate::read_model::ReadModelInvalidationEnvelopeError;
 use crate::unit_of_work::{UnitOfWorkError, UnitOfWorkFactoryError};
 
 use super::ProjectorProcessedEventStoreError;
@@ -11,11 +11,11 @@ pub enum ProjectorRunnerError {
     #[error("processed event store failed: {0}")]
     ProcessedEventStore(#[from] ProjectorProcessedEventStoreError),
 
-    #[error("read model fragment change outbox enqueue failed: {0}")]
-    ReadModelFragmentChangeOutbox(#[from] ReadModelFragmentChangeOutboxEnqueueError),
+    #[error("read model invalidation outbox enqueue failed: {0}")]
+    ReadModelInvalidationOutbox(#[from] ReadModelInvalidationOutboxEnqueueError),
 
     #[error(transparent)]
-    ReadModelFragmentChangeEnvelope(#[from] ReadModelFragmentChangeEnvelopeError),
+    ReadModelInvalidationEnvelope(#[from] ReadModelInvalidationEnvelopeError),
 
     #[error("unit of work error: {0}")]
     UnitOfWork(#[from] UnitOfWorkError),

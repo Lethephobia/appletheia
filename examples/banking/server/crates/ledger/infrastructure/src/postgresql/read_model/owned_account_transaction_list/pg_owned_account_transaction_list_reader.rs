@@ -1,9 +1,9 @@
-use appletheia::application::read_model::pagination::{CursorPage, Sort, SortDirection};
+use appletheia::application::read_model::pagination::{CursorWindow, Sort, SortDirection};
 use appletheia::domain::AggregateId;
 use appletheia::infrastructure::postgresql::PgUnitOfWork;
 use banking_ledger_application::{
     AccountTransactionStatus, OwnedAccountTransactionList, OwnedAccountTransactionListCriteria,
-    OwnedAccountTransactionListCursor, OwnedAccountTransactionListItemPart,
+    OwnedAccountTransactionListCursor, OwnedAccountTransactionListItem,
     OwnedAccountTransactionListOwner, OwnedAccountTransactionListReader,
     OwnedAccountTransactionListReaderError, OwnedAccountTransactionListSortKey,
 };
@@ -117,11 +117,12 @@ impl OwnedAccountTransactionListReader for PgOwnedAccountTransactionListReader {
         owner: AccountOwner,
         criteria: OwnedAccountTransactionListCriteria,
         sort: Sort<OwnedAccountTransactionListSortKey>,
-        page: CursorPage<OwnedAccountTransactionListCursor>,
+        page: CursorWindow<OwnedAccountTransactionListCursor>,
     ) -> Result<OwnedAccountTransactionList, OwnedAccountTransactionListReaderError> {
         let (owner_type, owner_id) = Self::owner_parts(owner);
         let owner = Self::read_owner(uow, owner_type, owner_id).await?;
-        let query_limit = i64::from(page.limit.value()) + 1;
+        let query_limit = i64::from(page.limit().value()) + 1;
+        let query_direction = page.query_direction(sort.direction);
 
         let mut builder = QueryBuilder::<Postgres>::new(
             r#"
@@ -193,8 +194,8 @@ impl OwnedAccountTransactionListReader for PgOwnedAccountTransactionListReader {
             Self::push_status_in(&mut builder, status_in);
         }
 
-        if let Some(cursor) = page.after {
-            match (sort.key, sort.direction) {
+        if let Some(cursor) = page.boundary().copied() {
+            match (sort.key, query_direction) {
                 (OwnedAccountTransactionListSortKey::OccurredAt, SortDirection::Asc) => {
                     builder
                         .push(" AND (i.occurred_at, i.id) > (")
@@ -224,7 +225,7 @@ impl OwnedAccountTransactionListReader for PgOwnedAccountTransactionListReader {
             }
         }
 
-        match (sort.key, sort.direction) {
+        match (sort.key, query_direction) {
             (OwnedAccountTransactionListSortKey::OccurredAt, SortDirection::Asc) => {
                 builder.push(" ORDER BY i.occurred_at ASC, i.id ASC");
             }
@@ -247,27 +248,38 @@ impl OwnedAccountTransactionListReader for PgOwnedAccountTransactionListReader {
             .await
             .map_err(|e| OwnedAccountTransactionListReaderError::Persistence(Box::new(e)))?;
 
-        let page_limit = page.limit.value() as usize;
-        let has_next = rows.len() > page_limit;
-        let items = rows
+        let page_limit = page.limit().value() as usize;
+        let has_more = rows.len() > page_limit;
+        let mut items = rows
             .into_iter()
             .take(page_limit)
-            .map(OwnedAccountTransactionListItemPart::try_from)
+            .map(OwnedAccountTransactionListItem::try_from)
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| OwnedAccountTransactionListReaderError::Persistence(Box::new(e)))?;
-        let next_cursor = if has_next {
-            items.last().map(|item| OwnedAccountTransactionListCursor {
-                occurred_at: item.occurred_at,
-                transaction_id: item.transaction_id,
-            })
+        if page.is_backward() {
+            items.reverse();
+        }
+        let start_cursor = items.first().map(|item| OwnedAccountTransactionListCursor {
+            occurred_at: item.occurred_at,
+            transaction_id: item.transaction_id,
+        });
+        let end_cursor = items.last().map(|item| OwnedAccountTransactionListCursor {
+            occurred_at: item.occurred_at,
+            transaction_id: item.transaction_id,
+        });
+        let (has_previous, has_next) = if page.is_backward() {
+            (has_more, !items.is_empty() && page.boundary().is_some())
         } else {
-            None
+            (!items.is_empty() && page.boundary().is_some(), has_more)
         };
 
         Ok(OwnedAccountTransactionList {
             owner,
             items,
-            next_cursor,
+            start_cursor,
+            end_cursor,
+            has_previous,
+            has_next,
         })
     }
 }

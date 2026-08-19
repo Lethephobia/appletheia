@@ -1,6 +1,8 @@
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
-use appletheia::application::read_model::{MaterializationEventContext, ReadModelFragmentChange};
+use appletheia::application::read_model::{
+    MaterializationEventContext, ReadModelFragmentPartition, ReadModelPartition,
+};
 use banking_iam_domain::{
     OrganizationInvitation, OrganizationInvitationEventPayload, OrganizationInvitationStatus,
 };
@@ -47,8 +49,8 @@ where
         uow: &mut Self::Uow,
         event_context: MaterializationEventContext,
         event: &EventEnvelope,
-    ) -> Result<Vec<ReadModelFragmentChange<Self::Fragment>>, Self::Error> {
-        let mut fragment_changes = Vec::new();
+    ) -> Result<Vec<ReadModelFragmentPartition<Self::Fragment>>, Self::Error> {
+        let mut invalidated_partitions = Vec::new();
         let invitation_event = event.try_into_domain_event::<OrganizationInvitation>()?;
         let invitation_id = invitation_event.aggregate_id();
 
@@ -77,7 +79,7 @@ where
                     )
                     .await?
                 {
-                    fragment_changes.push(ReadModelFragmentChange::try_from_fragment(&fragment)?);
+                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                 }
             }
             OrganizationInvitationEventPayload::IssueRejected {
@@ -105,7 +107,7 @@ where
                     )
                     .await?
                 {
-                    fragment_changes.push(ReadModelFragmentChange::try_from_fragment(&fragment)?);
+                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                 }
             }
             OrganizationInvitationEventPayload::Accepted { .. } => {
@@ -119,7 +121,7 @@ where
                     )
                     .await?
                 {
-                    fragment_changes.push(ReadModelFragmentChange::try_from_fragment(&fragment)?);
+                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                 }
             }
             OrganizationInvitationEventPayload::Declined { .. } => {
@@ -133,7 +135,7 @@ where
                     )
                     .await?
                 {
-                    fragment_changes.push(ReadModelFragmentChange::try_from_fragment(&fragment)?);
+                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                 }
             }
             OrganizationInvitationEventPayload::Canceled { .. } => {
@@ -147,7 +149,7 @@ where
                     )
                     .await?
                 {
-                    fragment_changes.push(ReadModelFragmentChange::try_from_fragment(&fragment)?);
+                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                 }
             }
             OrganizationInvitationEventPayload::AcceptRejected { .. }
@@ -155,6 +157,6 @@ where
             | OrganizationInvitationEventPayload::CancelRejected { .. } => {}
         }
 
-        Ok(fragment_changes)
+        Ok(invalidated_partitions)
     }
 }

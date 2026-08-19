@@ -1,4 +1,4 @@
-use appletheia::application::read_model::pagination::{CursorPage, Sort};
+use appletheia::application::read_model::pagination::{CursorWindow, Sort};
 use appletheia::application::unit_of_work::UnitOfWork;
 use banking_ledger_domain::account::AccountOwner;
 
@@ -19,6 +19,6 @@ pub trait OwnedAccountTransactionListReader: Send + Sync {
         owner: AccountOwner,
         criteria: OwnedAccountTransactionListCriteria,
         sort: Sort<OwnedAccountTransactionListSortKey>,
-        page: CursorPage<OwnedAccountTransactionListCursor>,
+        page: CursorWindow<OwnedAccountTransactionListCursor>,
     ) -> Result<OwnedAccountTransactionList, OwnedAccountTransactionListReaderError>;
 }

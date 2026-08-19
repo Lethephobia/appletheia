@@ -1,30 +1,28 @@
 use crate::event::EventEnvelope;
-use crate::outbox::read_model_fragment_change::ReadModelFragmentChangeOutboxEnqueuer;
-use crate::read_model::MaterializationEventContext;
+use crate::outbox::read_model_invalidation::ReadModelInvalidationOutboxEnqueuer;
+use crate::read_model::{
+    MaterializationEventContext, ReadModelDependency, ReadModelDependencyTopic,
+    ReadModelInvalidationEnvelope,
+};
 use crate::unit_of_work::{UnitOfWork, UnitOfWorkFactory};
 
-use super::read_model_fragment_change_batches::ReadModelFragmentChangeBatches;
 use super::{
     Projector, ProjectorNameOwned, ProjectorProcessedEventStore, ProjectorRunReport,
     ProjectorRunner, ProjectorRunnerError, ProjectorSpec,
 };
 
-/// Persists fragment changes without coupling projection to any read model tree.
+/// Persists fragment updates and emits payload-free read-model invalidations.
 pub struct DefaultProjectorRunner<P, E, U> {
     processed_event_store: P,
-    fragment_change_outbox_enqueuer: E,
+    invalidation_outbox_enqueuer: E,
     uow_factory: U,
 }
 
 impl<P, E, U> DefaultProjectorRunner<P, E, U> {
-    pub fn new(
-        processed_event_store: P,
-        fragment_change_outbox_enqueuer: E,
-        uow_factory: U,
-    ) -> Self {
+    pub fn new(processed_event_store: P, invalidation_outbox_enqueuer: E, uow_factory: U) -> Self {
         Self {
             processed_event_store,
-            fragment_change_outbox_enqueuer,
+            invalidation_outbox_enqueuer,
             uow_factory,
         }
     }
@@ -38,7 +36,7 @@ impl<P, E, U> DefaultProjectorRunner<P, E, U> {
     where
         PJ: Projector<Uow = P::Uow>,
         P: ProjectorProcessedEventStore,
-        E: ReadModelFragmentChangeOutboxEnqueuer<Uow = P::Uow>,
+        E: ReadModelInvalidationOutboxEnqueuer<Uow = P::Uow>,
     {
         let descriptor = <PJ::Spec as ProjectorSpec>::DESCRIPTOR;
         let inserted = self
@@ -54,17 +52,31 @@ impl<P, E, U> DefaultProjectorRunner<P, E, U> {
             return Ok(ProjectorRunReport::SkippedAlreadyProcessed);
         }
 
-        let fragment_changes = projector
+        let invalidated_partitions = projector
             .project(uow, MaterializationEventContext::from(event), event)
             .await
             .map_err(|source| ProjectorRunnerError::Definition(Box::new(source)))?;
 
-        let batches = ReadModelFragmentChangeBatches::from_changes(fragment_changes)
-            .map_err(|source| ProjectorRunnerError::Definition(Box::new(source)))?;
-        let fragment_change_envelopes = batches.try_into_envelopes(event, descriptor.name)?;
-        if !fragment_change_envelopes.is_empty() {
-            self.fragment_change_outbox_enqueuer
-                .enqueue_fragment_changes(uow, &fragment_change_envelopes)
+        let mut invalidated_dependencies = invalidated_partitions
+            .into_iter()
+            .map(|partition| {
+                partition
+                    .try_into_serialized::<PJ::Fragment>()
+                    .map(ReadModelDependency::Partition)
+                    .map_err(|source| ProjectorRunnerError::Definition(Box::new(source)))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        if !invalidated_dependencies.is_empty() {
+            invalidated_dependencies.push(ReadModelDependency::Topic(
+                ReadModelDependencyTopic::all::<PJ::Fragment>(),
+            ));
+            let invalidation = ReadModelInvalidationEnvelope::try_new(
+                event,
+                descriptor.name,
+                invalidated_dependencies,
+            )?;
+            self.invalidation_outbox_enqueuer
+                .enqueue_invalidations(uow, std::slice::from_ref(&invalidation))
                 .await?;
         }
 
@@ -75,7 +87,7 @@ impl<P, E, U> DefaultProjectorRunner<P, E, U> {
 impl<P, E, U> ProjectorRunner for DefaultProjectorRunner<P, E, U>
 where
     P: ProjectorProcessedEventStore,
-    E: ReadModelFragmentChangeOutboxEnqueuer<Uow = P::Uow>,
+    E: ReadModelInvalidationOutboxEnqueuer<Uow = P::Uow>,
     U: UnitOfWorkFactory<Uow = P::Uow>,
 {
     type Uow = P::Uow;

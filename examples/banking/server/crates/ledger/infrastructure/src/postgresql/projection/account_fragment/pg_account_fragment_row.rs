@@ -1,11 +1,12 @@
 use appletheia::application::read_model::ReadModelObservation;
 use appletheia::domain::{AggregateId, EventId, EventOccurredAt};
 use banking_ledger_application::{
-    AccountFragment, AccountFragmentWriterError, CurrencyFragment, FragmentOwner,
-    MaterializedAccountStatus,
+    AccountFragment, AccountFragmentWriterError, MaterializedAccountStatus,
 };
-use banking_ledger_domain::account::{AccountId, AccountName};
+use banking_iam_domain::{OrganizationId, UserId};
+use banking_ledger_domain::account::{AccountId, AccountName, AccountOwner};
 use banking_ledger_domain::core::CurrencyAmount;
+use banking_ledger_domain::currency::CurrencyId;
 use sqlx::types::chrono::{DateTime, Utc};
 use uuid::Uuid;
 
@@ -24,13 +25,10 @@ pub struct PgAccountFragmentRow {
     pub updated_event_id: Uuid,
 }
 
-impl PgAccountFragmentRow {
-    pub fn try_into_fragment(
-        self,
-        owner: FragmentOwner,
-        currency: CurrencyFragment,
-    ) -> Result<AccountFragment, AccountFragmentWriterError> {
-        let row = self;
+impl TryFrom<PgAccountFragmentRow> for AccountFragment {
+    type Error = AccountFragmentWriterError;
+
+    fn try_from(row: PgAccountFragmentRow) -> Result<Self, Self::Error> {
         let status = match row.status.as_str() {
             "active" => MaterializedAccountStatus::Active,
             "frozen" => MaterializedAccountStatus::Frozen,
@@ -39,9 +37,17 @@ impl PgAccountFragmentRow {
 
         Ok(AccountFragment {
             id: AccountId::try_from_uuid(row.id).map_err(persistence_error)?,
-            owner,
+            owner: match row.owner_type.as_str() {
+                "user" => AccountOwner::User(
+                    UserId::try_from_uuid(row.owner_id).map_err(persistence_error)?,
+                ),
+                "organization" => AccountOwner::Organization(
+                    OrganizationId::try_from_uuid(row.owner_id).map_err(persistence_error)?,
+                ),
+                _ => return Err(persistence_message("unknown account fragment owner type")),
+            },
             name: AccountName::try_from(row.name).map_err(persistence_error)?,
-            currency,
+            currency_id: CurrencyId::try_from_uuid(row.currency_id).map_err(persistence_error)?,
             balance: amount(row.balance)?,
             reserved_balance: amount(row.reserved_balance)?,
             status,

@@ -1,4 +1,4 @@
-use appletheia::application::read_model::pagination::{CursorPage, Sort};
+use appletheia::application::read_model::pagination::{CursorWindow, Sort};
 use appletheia::query;
 use banking_ledger_domain::account::AccountOwner;
 
@@ -14,5 +14,5 @@ pub struct OwnedAccountTransactionListQuery {
     pub owner: AccountOwner,
     pub criteria: OwnedAccountTransactionListCriteria,
     pub sort: Sort<OwnedAccountTransactionListSortKey>,
-    pub page: CursorPage<OwnedAccountTransactionListCursor>,
+    pub page: CursorWindow<OwnedAccountTransactionListCursor>,
 }

@@ -1,4 +1,4 @@
-use appletheia::application::read_model::pagination::{CursorPage, Sort};
+use appletheia::application::read_model::pagination::{CursorWindow, Sort};
 use appletheia::query;
 use banking_iam_domain::OrganizationId;
 
@@ -14,5 +14,5 @@ pub struct OrganizationInvitationListQuery {
     pub organization_id: OrganizationId,
     pub criteria: OrganizationInvitationListCriteria,
     pub sort: Sort<OrganizationInvitationListSortKey>,
-    pub page: CursorPage<OrganizationInvitationListCursor>,
+    pub page: CursorWindow<OrganizationInvitationListCursor>,
 }

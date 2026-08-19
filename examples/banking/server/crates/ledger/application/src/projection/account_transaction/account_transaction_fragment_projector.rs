@@ -1,6 +1,8 @@
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
-use appletheia::application::read_model::{MaterializationEventContext, ReadModelFragmentChange};
+use appletheia::application::read_model::{
+    MaterializationEventContext, ReadModelFragmentPartition, ReadModelPartition,
+};
 use appletheia::domain::AggregateId;
 use banking_ledger_domain::currency_issuance::{CurrencyIssuance, CurrencyIssuanceEventPayload};
 use banking_ledger_domain::deposit::{Deposit, DepositEventPayload};
@@ -50,8 +52,8 @@ where
         uow: &mut Self::Uow,
         event_context: MaterializationEventContext,
         event: &EventEnvelope,
-    ) -> Result<Vec<ReadModelFragmentChange<Self::Fragment>>, Self::Error> {
-        let mut fragment_changes = Vec::new();
+    ) -> Result<Vec<ReadModelFragmentPartition<Self::Fragment>>, Self::Error> {
+        let mut invalidated_partitions = Vec::new();
         if event.is_for_aggregate::<Deposit>() {
             let domain_event = event.try_into_domain_event::<Deposit>()?;
             let deposit_id = domain_event.aggregate_id();
@@ -78,8 +80,7 @@ where
                         )
                         .await?
                     {
-                        fragment_changes
-                            .push(ReadModelFragmentChange::try_from_fragment(&fragment)?);
+                        invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                     }
                 }
                 DepositEventPayload::Completed => {
@@ -93,8 +94,7 @@ where
                         )
                         .await?
                     {
-                        fragment_changes
-                            .push(ReadModelFragmentChange::try_from_fragment(&fragment)?);
+                        invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                     }
                 }
                 DepositEventPayload::Failed { .. } => {
@@ -108,8 +108,7 @@ where
                         )
                         .await?
                     {
-                        fragment_changes
-                            .push(ReadModelFragmentChange::try_from_fragment(&fragment)?);
+                        invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                     }
                 }
                 _ => {}
@@ -140,8 +139,7 @@ where
                         )
                         .await?
                     {
-                        fragment_changes
-                            .push(ReadModelFragmentChange::try_from_fragment(&fragment)?);
+                        invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                     }
                 }
                 WithdrawalEventPayload::Completed => {
@@ -155,8 +153,7 @@ where
                         )
                         .await?
                     {
-                        fragment_changes
-                            .push(ReadModelFragmentChange::try_from_fragment(&fragment)?);
+                        invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                     }
                 }
                 WithdrawalEventPayload::Failed { reason } => {
@@ -180,8 +177,7 @@ where
                         )
                         .await?
                     {
-                        fragment_changes
-                            .push(ReadModelFragmentChange::try_from_fragment(&fragment)?);
+                        invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                     }
                 }
                 _ => {}
@@ -212,8 +208,7 @@ where
                         )
                         .await?
                     {
-                        fragment_changes
-                            .push(ReadModelFragmentChange::try_from_fragment(&fragment)?);
+                        invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                     }
                 }
                 TransferEventPayload::Completed => {
@@ -227,8 +222,7 @@ where
                         )
                         .await?;
                     for fragment in fragments {
-                        fragment_changes
-                            .push(ReadModelFragmentChange::try_from_fragment(&fragment)?);
+                        invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                     }
                 }
                 TransferEventPayload::Failed { reason } => {
@@ -237,8 +231,7 @@ where
                         .fail_transfer(uow, event_context, transfer_id, *reason)
                         .await?
                     {
-                        fragment_changes
-                            .push(ReadModelFragmentChange::try_from_fragment(&fragment)?);
+                        invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                     }
                 }
                 _ => {}
@@ -278,8 +271,7 @@ where
                         )
                         .await?
                     {
-                        fragment_changes
-                            .push(ReadModelFragmentChange::try_from_fragment(&fragment)?);
+                        invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                     }
                 }
                 CurrencyIssuanceEventPayload::Failed { .. } => {
@@ -291,6 +283,6 @@ where
             }
         }
 
-        Ok(fragment_changes)
+        Ok(invalidated_partitions)
     }
 }

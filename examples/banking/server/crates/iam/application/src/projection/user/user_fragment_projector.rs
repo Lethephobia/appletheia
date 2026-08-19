@@ -1,6 +1,8 @@
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
-use appletheia::application::read_model::{MaterializationEventContext, ReadModelFragmentChange};
+use appletheia::application::read_model::{
+    MaterializationEventContext, ReadModelFragmentPartition, ReadModelPartition,
+};
 use banking_iam_domain::{User, UserEventPayload};
 
 use crate::projection::{
@@ -42,8 +44,8 @@ where
         uow: &mut Self::Uow,
         event_context: MaterializationEventContext,
         event: &EventEnvelope,
-    ) -> Result<Vec<ReadModelFragmentChange<Self::Fragment>>, Self::Error> {
-        let mut fragment_changes = Vec::new();
+    ) -> Result<Vec<ReadModelFragmentPartition<Self::Fragment>>, Self::Error> {
+        let mut invalidated_partitions = Vec::new();
         let domain_event = event.try_into_domain_event::<User>()?;
         let user_id = domain_event.aggregate_id();
 
@@ -66,7 +68,7 @@ where
                     )
                     .await?
                 {
-                    fragment_changes.push(ReadModelFragmentChange::try_from_fragment(&fragment)?);
+                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                 }
             }
             UserEventPayload::UsernameChanged { username } => {
@@ -75,7 +77,7 @@ where
                     .update_username(uow, event_context, user_id, username.clone())
                     .await?
                 {
-                    fragment_changes.push(ReadModelFragmentChange::try_from_fragment(&fragment)?);
+                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                 }
             }
             UserEventPayload::DisplayNameChanged { display_name } => {
@@ -84,7 +86,7 @@ where
                     .update_display_name(uow, event_context, user_id, display_name.clone())
                     .await?
                 {
-                    fragment_changes.push(ReadModelFragmentChange::try_from_fragment(&fragment)?);
+                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                 }
             }
             UserEventPayload::BioChanged { bio } => {
@@ -93,7 +95,7 @@ where
                     .update_bio(uow, event_context, user_id, bio.clone())
                     .await?
                 {
-                    fragment_changes.push(ReadModelFragmentChange::try_from_fragment(&fragment)?);
+                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                 }
             }
             UserEventPayload::PictureChanged { picture, .. } => {
@@ -102,7 +104,7 @@ where
                     .update_picture(uow, event_context, user_id, picture.clone())
                     .await?
                 {
-                    fragment_changes.push(ReadModelFragmentChange::try_from_fragment(&fragment)?);
+                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                 }
             }
             UserEventPayload::Activated => {
@@ -111,7 +113,7 @@ where
                     .update_status(uow, event_context, user_id, MaterializedUserStatus::Active)
                     .await?
                 {
-                    fragment_changes.push(ReadModelFragmentChange::try_from_fragment(&fragment)?);
+                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                 }
             }
             UserEventPayload::Deactivated => {
@@ -125,7 +127,7 @@ where
                     )
                     .await?
                 {
-                    fragment_changes.push(ReadModelFragmentChange::try_from_fragment(&fragment)?);
+                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                 }
             }
             UserEventPayload::Removed => {
@@ -134,9 +136,7 @@ where
                     .delete(uow, event_context, user_id)
                     .await?
                 {
-                    fragment_changes.push(ReadModelFragmentChange::<UserFragment>::try_removed(
-                        &user_id,
-                    )?);
+                    invalidated_partitions.push(ReadModelPartition::new(user_id));
                 }
             }
             UserEventPayload::IdentityLinked { .. }
@@ -158,7 +158,7 @@ where
             | UserEventPayload::OrganizationMembershipRemoveRejected { .. } => {}
         }
 
-        Ok(fragment_changes)
+        Ok(invalidated_partitions)
     }
 }
 
@@ -172,13 +172,9 @@ mod tests {
         SerializedEventPayload,
     };
     use appletheia::application::projection::{Projector, ProjectorName};
-    use appletheia::application::read_model::watch::{
-        DefaultReadModelWatchChangeRouter, ReadModelTypedListWatch, ReadModelWatchPartitionState,
-    };
-    use appletheia::application::read_model::{MaterializationEventContext, ReadModelObservation};
     use appletheia::application::read_model::{
-        ReadModelFragment, ReadModelFragmentChange, ReadModelFragmentChangeEnvelope,
-        ReadModelPartTreeMapper, list::ReadModelListCoverage,
+        MaterializationEventContext, ReadModelDependency, ReadModelFragmentPartition,
+        ReadModelInvalidationEnvelope, ReadModelObservation,
     };
     use appletheia::application::request_context::{
         CausationId, CorrelationId, MessageId, Principal, RequestContext,
@@ -192,16 +188,11 @@ mod tests {
     };
     use uuid::Uuid;
 
-    use crate::projection::PublicUserListItemPart;
+    use super::UserFragmentProjector;
     use crate::projection::{
         MaterializedUserStatus, UserFragment, UserFragmentUpsert, UserFragmentWriter,
         UserFragmentWriterError,
     };
-    use crate::read_model::{
-        PublicUserList, PublicUserListMatcher, PublicUserListWatchQuery, UserPublicProfile,
-    };
-
-    use super::UserFragmentProjector;
 
     #[derive(Default)]
     struct TestUow;
@@ -377,16 +368,25 @@ mod tests {
         }
     }
 
-    fn fragment_change_envelope(
+    fn invalidation_envelope(
         event: &EventEnvelope,
-        changes: Vec<ReadModelFragmentChange<UserFragment>>,
-    ) -> ReadModelFragmentChangeEnvelope {
-        ReadModelFragmentChangeEnvelope::from_changes(
-            changes,
+        partitions: Vec<ReadModelFragmentPartition<UserFragment>>,
+    ) -> ReadModelInvalidationEnvelope {
+        let dependencies = partitions
+            .into_iter()
+            .map(|partition| {
+                partition
+                    .try_into_serialized::<UserFragment>()
+                    .map(ReadModelDependency::Partition)
+            })
+            .collect::<Result<Vec<_>, _>>()
+            .expect("partitions should serialize");
+        ReadModelInvalidationEnvelope::try_new(
             event,
             ProjectorName::new("user_fragment"),
+            dependencies,
         )
-        .expect("fragment change should finalize")
+        .expect("read-model invalidation should finalize")
     }
 
     fn activated_event_envelope(user_id: UserId) -> EventEnvelope {
@@ -420,80 +420,39 @@ mod tests {
         let event = removed_event_envelope(user_id);
         let event_context = MaterializationEventContext::from(&event);
 
-        let fragment_changes = projector
+        let invalidated_partitions = projector
             .project(&mut TestUow, event_context, &event)
             .await
             .expect("removed event should be projected");
 
         assert_eq!(*deleted_user_ids.lock().expect("lock"), vec![user_id]);
 
-        let recorded_envelope = fragment_change_envelope(&event, fragment_changes);
-        assert_eq!(
-            recorded_envelope.changes[0].fragment_name().value(),
-            UserFragment::NAME.value()
-        );
+        assert_eq!(invalidated_partitions.len(), 1);
+        assert_eq!(invalidated_partitions[0].key(), &user_id);
+        let recorded_envelope = invalidation_envelope(&event, invalidated_partitions);
         assert_eq!(
             recorded_envelope.source_event_sequence,
             event.event_sequence
         );
-        let watched_partition = recorded_envelope.partition.clone();
-        let partition_state = ReadModelWatchPartitionState::new([watched_partition], []);
-        let router = DefaultReadModelWatchChangeRouter::<PublicUserList>::new();
-        let matcher = PublicUserListMatcher::new();
-        let list_watch = ReadModelTypedListWatch {
-            query: PublicUserListWatchQuery::default(),
-            coverage: ReadModelListCoverage::Complete,
-        };
-        let route = router
-            .route_list(&recorded_envelope, &partition_state, &matcher, &list_watch)
-            .expect("recorded change should route");
-        let delivered_change = route.change.expect("removed item should be delivered");
-        assert_eq!(delivered_change.part_changes.len(), 1);
-        assert!(delivered_change.part_changes[0].removes::<PublicUserListItemPart>());
-        assert!(route.list_invalidated);
+        assert_eq!(recorded_envelope.invalidated_dependencies.len(), 1);
     }
 
     #[tokio::test]
-    async fn activated_event_publishes_a_complete_item_for_list_matching() {
+    async fn activated_event_invalidates_the_written_fragment_partition() {
         let user_fragment_writer = TestUserFragmentWriter::default();
         let projector = UserFragmentProjector::new(user_fragment_writer);
         let user_id = UserId::new();
         let event = activated_event_envelope(user_id);
         let event_context = MaterializationEventContext::from(&event);
 
-        let fragment_changes = projector
+        let invalidated_partitions = projector
             .project(&mut TestUow, event_context, &event)
             .await
             .expect("activated event should be projected");
 
-        let recorded_envelope = fragment_change_envelope(&event, fragment_changes);
-        let profile_changes = ReadModelPartTreeMapper::for_read_model::<UserPublicProfile>()
-            .map(&recorded_envelope)
-            .expect("the same fragment delivery should map to the public profile tree");
-        assert_eq!(profile_changes.len(), 1);
-        let router = DefaultReadModelWatchChangeRouter::<PublicUserList>::new();
-        let matcher = PublicUserListMatcher::new();
-        let partition_state = ReadModelWatchPartitionState::default();
-        let list_watch = ReadModelTypedListWatch {
-            query: PublicUserListWatchQuery::default(),
-            coverage: ReadModelListCoverage::Complete,
-        };
-        let route = router
-            .route_list(&recorded_envelope, &partition_state, &matcher, &list_watch)
-            .expect("activated item should route");
-
-        assert!(route.change.is_some());
-        assert!(!route.list_invalidated);
-        let delivered_change = route.change.expect("included item should be delivered");
-        let changed_item = delivered_change.part_changes[0]
-            .try_part::<PublicUserListItemPart>()
-            .expect("public user list item should deserialize")
-            .expect("change should replace the item");
-        assert_eq!(changed_item.user_id, user_id);
-        assert_eq!(changed_item.status, MaterializedUserStatus::Active);
-        assert_eq!(
-            route.partitions_to_add,
-            vec![delivered_change.part_changes[0].source_partition().clone()]
-        );
+        assert_eq!(invalidated_partitions.len(), 1);
+        assert_eq!(invalidated_partitions[0].key(), &user_id);
+        let recorded_envelope = invalidation_envelope(&event, invalidated_partitions);
+        assert_eq!(recorded_envelope.invalidated_dependencies.len(), 1);
     }
 }

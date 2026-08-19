@@ -13,7 +13,6 @@ use uuid::Uuid;
 
 mod pg_organization_invitation_fragment_row;
 
-use super::PgFragmentLoader;
 use pg_organization_invitation_fragment_row::PgOrganizationInvitationFragmentRow;
 
 /// PostgreSQL-backed organization invitation fragment writer.
@@ -49,31 +48,14 @@ impl PgOrganizationInvitationFragmentWriter {
         })
     }
 
-    async fn map_row(
-        uow: &mut PgUnitOfWork,
+    fn map_row(
         row: Option<PgOrganizationInvitationFragmentRow>,
     ) -> Result<Option<OrganizationInvitationFragment>, OrganizationInvitationFragmentWriterError>
     {
         let Some(invitation_row) = row else {
             return Ok(None);
         };
-        let organization_id =
-            banking_iam_domain::OrganizationId::try_from_uuid(invitation_row.organization_id)
-                .map_err(persistence_error)?;
-        let invitee_user_id =
-            banking_iam_domain::UserId::try_from_uuid(invitation_row.invitee_user_id)
-                .map_err(persistence_error)?;
-        let organization = PgFragmentLoader::load_organization(uow, organization_id)
-            .await
-            .map_err(persistence_error)?
-            .ok_or_else(|| persistence_message("organization fragment dependency was not found"))?;
-        let invitee = PgFragmentLoader::load_required_user(uow, invitee_user_id)
-            .await
-            .map_err(persistence_error)?;
-
-        invitation_row
-            .try_into_fragment(organization, invitee)
-            .map(Some)
+        OrganizationInvitationFragment::try_from(invitation_row).map(Some)
     }
 }
 
@@ -138,7 +120,7 @@ impl OrganizationInvitationFragmentWriter for PgOrganizationInvitationFragmentWr
             OrganizationInvitationFragmentWriterError::Persistence(Box::new(error))
         })?;
 
-        Self::map_row(uow, row).await
+        Self::map_row(row)
     }
 
     async fn update_status(
@@ -169,16 +151,6 @@ impl OrganizationInvitationFragmentWriter for PgOrganizationInvitationFragmentWr
         .await
         .map_err(|error| OrganizationInvitationFragmentWriterError::Persistence(Box::new(error)))?;
 
-        Self::map_row(uow, row).await
+        Self::map_row(row)
     }
-}
-
-fn persistence_error(
-    error: impl std::error::Error + Send + Sync + 'static,
-) -> OrganizationInvitationFragmentWriterError {
-    OrganizationInvitationFragmentWriterError::Persistence(Box::new(error))
-}
-
-fn persistence_message(message: &'static str) -> OrganizationInvitationFragmentWriterError {
-    OrganizationInvitationFragmentWriterError::Persistence(Box::new(std::io::Error::other(message)))
 }

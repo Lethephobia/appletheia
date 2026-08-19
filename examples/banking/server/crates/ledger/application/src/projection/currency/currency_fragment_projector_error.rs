@@ -1,5 +1,4 @@
 use appletheia::application::event::EventEnvelopeError;
-use appletheia::application::read_model::ReadModelFragmentChangeError;
 use thiserror::Error;
 
 use crate::projection::{CurrencyFragmentWriterError, MaterializedCurrencyStatusError};
@@ -15,7 +14,4 @@ pub enum CurrencyFragmentProjectorError {
 
     #[error(transparent)]
     Status(#[from] MaterializedCurrencyStatusError),
-
-    #[error(transparent)]
-    FragmentChange(#[from] ReadModelFragmentChangeError),
 }

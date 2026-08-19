@@ -1,6 +1,6 @@
 use appletheia::application::read_model::ReadModelObservation;
 use appletheia::domain::{AggregateId, EventId, EventOccurredAt};
-use banking_iam_application::{OrganizationFragment, UserFragment};
+use banking_iam_application::OrganizationFragment;
 use banking_iam_domain::{
     OrganizationDescription, OrganizationDisplayName, OrganizationHandle, OrganizationId,
     OrganizationWebsiteUrl, UserId,
@@ -31,12 +31,10 @@ pub struct PgOrganizationFragmentRow {
     pub updated_event_id: Uuid,
 }
 
-impl PgOrganizationFragmentRow {
-    pub fn try_into_fragment(
-        self,
-        owner: UserFragment,
-    ) -> Result<OrganizationFragment, PgOrganizationFragmentRowError> {
-        let row = self;
+impl TryFrom<PgOrganizationFragmentRow> for OrganizationFragment {
+    type Error = PgOrganizationFragmentRowError;
+
+    fn try_from(row: PgOrganizationFragmentRow) -> Result<Self, Self::Error> {
         let description = row
             .description
             .map(OrganizationDescription::try_from)
@@ -50,17 +48,10 @@ impl PgOrganizationFragmentRow {
 
         let owner_user_id = UserId::try_from_uuid(row.owner_user_id)
             .map_err(|error| PgOrganizationFragmentRowError::OwnerUserId(Box::new(error)))?;
-        if owner.id != owner_user_id {
-            return Err(PgOrganizationFragmentRowError::OwnerMismatch {
-                expected: owner_user_id,
-                actual: owner.id,
-            });
-        }
-
         Ok(OrganizationFragment {
             id: OrganizationId::try_from_uuid(row.id)
                 .map_err(|error| PgOrganizationFragmentRowError::OrganizationId(Box::new(error)))?,
-            owner,
+            owner_user_id,
             owner_since: EventOccurredAt::from(row.owner_since),
             owner_observation: ReadModelObservation::new(
                 EventId::try_from(row.owner_source_event_id).map_err(|error| {

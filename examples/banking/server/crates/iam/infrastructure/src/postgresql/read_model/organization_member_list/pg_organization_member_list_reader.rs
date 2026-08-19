@@ -1,9 +1,9 @@
-use appletheia::application::read_model::pagination::{CursorPage, Sort, SortDirection};
+use appletheia::application::read_model::pagination::{CursorWindow, Sort, SortDirection};
 use appletheia::domain::AggregateId;
 use appletheia::infrastructure::postgresql::PgUnitOfWork;
 use banking_iam_application::{
-    InternalOrganizationSummaryPart, OrganizationMemberList, OrganizationMemberListCriteria,
-    OrganizationMemberListCursor, OrganizationMemberListItemPart, OrganizationMemberListReader,
+    OrganizationMemberList, OrganizationMemberListCriteria, OrganizationMemberListCursor,
+    OrganizationMemberListItem, OrganizationMemberListOrganization, OrganizationMemberListReader,
     OrganizationMemberListReaderError, OrganizationMemberListSortKey,
 };
 use banking_iam_domain::OrganizationId;
@@ -55,7 +55,7 @@ impl PgOrganizationMemberListReader {
     async fn read_organization(
         uow: &mut PgUnitOfWork,
         organization_id: OrganizationId,
-    ) -> Result<InternalOrganizationSummaryPart, OrganizationMemberListReaderError> {
+    ) -> Result<OrganizationMemberListOrganization, OrganizationMemberListReaderError> {
         let row = sqlx::query_as::<_, PgOrganizationMemberListOrganizationRow>(
             r#"
             SELECT id AS organization_id, handle, display_name, picture_type,
@@ -70,7 +70,7 @@ impl PgOrganizationMemberListReader {
         .await
         .map_err(|error| OrganizationMemberListReaderError::Persistence(Box::new(error)))?;
 
-        InternalOrganizationSummaryPart::try_from(row)
+        OrganizationMemberListOrganization::try_from(row)
             .map_err(|error| OrganizationMemberListReaderError::Persistence(Box::new(error)))
     }
 }
@@ -90,10 +90,11 @@ impl OrganizationMemberListReader for PgOrganizationMemberListReader {
         organization_id: OrganizationId,
         criteria: OrganizationMemberListCriteria,
         sort: Sort<OrganizationMemberListSortKey>,
-        page: CursorPage<OrganizationMemberListCursor>,
+        page: CursorWindow<OrganizationMemberListCursor>,
     ) -> Result<OrganizationMemberList, OrganizationMemberListReaderError> {
         let organization = Self::read_organization(uow, organization_id).await?;
-        let query_limit = i64::from(page.limit.value()) + 1;
+        let query_limit = i64::from(page.limit().value()) + 1;
+        let query_direction = page.query_direction(sort.direction);
 
         let mut builder = QueryBuilder::<Postgres>::new(
             r#"
@@ -163,9 +164,9 @@ impl OrganizationMemberListReader for PgOrganizationMemberListReader {
             &criteria.username_contains,
         );
 
-        if let Some(cursor) = page.after {
+        if let Some(cursor) = page.boundary().copied() {
             Self::push_predicate_prefix(&mut builder, &mut has_predicate);
-            match (sort.key, sort.direction) {
+            match (sort.key, query_direction) {
                 (OrganizationMemberListSortKey::JoinedAt, SortDirection::Asc) => {
                     builder
                         .push("(r.joined_at, r.user_id) > (")
@@ -195,7 +196,7 @@ impl OrganizationMemberListReader for PgOrganizationMemberListReader {
             }
         }
 
-        match (sort.key, sort.direction) {
+        match (sort.key, query_direction) {
             (OrganizationMemberListSortKey::JoinedAt, SortDirection::Asc) => {
                 builder.push(" ORDER BY r.joined_at ASC, r.user_id ASC");
             }
@@ -217,27 +218,38 @@ impl OrganizationMemberListReader for PgOrganizationMemberListReader {
             .fetch_all(uow.transaction_mut().as_mut())
             .await
             .map_err(|error| OrganizationMemberListReaderError::Persistence(Box::new(error)))?;
-        let page_limit = page.limit.value() as usize;
-        let has_next = rows.len() > page_limit;
-        let items = rows
+        let page_limit = page.limit().value() as usize;
+        let has_more = rows.len() > page_limit;
+        let mut items = rows
             .into_iter()
             .take(page_limit)
-            .map(OrganizationMemberListItemPart::try_from)
+            .map(OrganizationMemberListItem::try_from)
             .collect::<Result<Vec<_>, _>>()
             .map_err(|error| OrganizationMemberListReaderError::Persistence(Box::new(error)))?;
-        let next_cursor = if has_next {
-            items.last().map(|item| OrganizationMemberListCursor {
-                joined_at: item.joined_at,
-                user_id: item.member.user_id,
-            })
+        if page.is_backward() {
+            items.reverse();
+        }
+        let start_cursor = items.first().map(|item| OrganizationMemberListCursor {
+            joined_at: item.joined_at,
+            user_id: item.member.user_id,
+        });
+        let end_cursor = items.last().map(|item| OrganizationMemberListCursor {
+            joined_at: item.joined_at,
+            user_id: item.member.user_id,
+        });
+        let (has_previous, has_next) = if page.is_backward() {
+            (has_more, !items.is_empty() && page.boundary().is_some())
         } else {
-            None
+            (!items.is_empty() && page.boundary().is_some(), has_more)
         };
 
         Ok(OrganizationMemberList {
             organization,
             items,
-            next_cursor,
+            start_cursor,
+            end_cursor,
+            has_previous,
+            has_next,
         })
     }
 }

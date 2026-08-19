@@ -1,10 +1,11 @@
 use appletheia::application::read_model::ReadModelObservation;
 use appletheia::domain::{AggregateId, EventId, EventOccurredAt};
 use banking_iam_application::{
-    OrganizationFragment, OrganizationJoinRequestFragment,
-    OrganizationJoinRequestFragmentWriterError, UserFragment,
+    OrganizationJoinRequestFragment, OrganizationJoinRequestFragmentWriterError,
 };
-use banking_iam_domain::{OrganizationJoinRequestId, OrganizationJoinRequestStatus};
+use banking_iam_domain::{
+    OrganizationId, OrganizationJoinRequestId, OrganizationJoinRequestStatus, UserId,
+};
 use sqlx::types::chrono::{DateTime, Utc};
 use uuid::Uuid;
 
@@ -19,13 +20,10 @@ pub struct PgOrganizationJoinRequestFragmentRow {
     pub updated_event_id: Uuid,
 }
 
-impl PgOrganizationJoinRequestFragmentRow {
-    pub fn try_into_fragment(
-        self,
-        organization: OrganizationFragment,
-        requester: UserFragment,
-    ) -> Result<OrganizationJoinRequestFragment, OrganizationJoinRequestFragmentWriterError> {
-        let row = self;
+impl TryFrom<PgOrganizationJoinRequestFragmentRow> for OrganizationJoinRequestFragment {
+    type Error = OrganizationJoinRequestFragmentWriterError;
+
+    fn try_from(row: PgOrganizationJoinRequestFragmentRow) -> Result<Self, Self::Error> {
         let status = match row.status.as_str() {
             "pending" => OrganizationJoinRequestStatus::Pending,
             "approved" => OrganizationJoinRequestStatus::Approved,
@@ -41,8 +39,10 @@ impl PgOrganizationJoinRequestFragmentRow {
         Ok(OrganizationJoinRequestFragment {
             join_request_id: OrganizationJoinRequestId::try_from_uuid(row.join_request_id)
                 .map_err(persistence_error)?,
-            organization,
-            requester,
+            organization_id: OrganizationId::try_from_uuid(row.organization_id)
+                .map_err(persistence_error)?,
+            requester_user_id: UserId::try_from_uuid(row.requester_user_id)
+                .map_err(persistence_error)?,
             status,
             created_at: EventOccurredAt::from(row.created_at),
             observation: ReadModelObservation::new(

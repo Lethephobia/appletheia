@@ -1,6 +1,8 @@
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
-use appletheia::application::read_model::{MaterializationEventContext, ReadModelFragmentChange};
+use appletheia::application::read_model::{
+    MaterializationEventContext, ReadModelFragmentPartition, ReadModelPartition,
+};
 use banking_ledger_domain::account::{Account, AccountEventPayload};
 use banking_ledger_domain::core::CurrencyAmount;
 
@@ -42,8 +44,8 @@ where
         uow: &mut Self::Uow,
         event_context: MaterializationEventContext,
         event: &EventEnvelope,
-    ) -> Result<Vec<ReadModelFragmentChange<Self::Fragment>>, Self::Error> {
-        let mut fragment_changes = Vec::new();
+    ) -> Result<Vec<ReadModelFragmentPartition<Self::Fragment>>, Self::Error> {
+        let mut invalidated_partitions = Vec::new();
         if event.is_for_aggregate::<Account>() {
             let domain_event = event.try_into_domain_event::<Account>()?;
             let account_id = domain_event.aggregate_id();
@@ -72,8 +74,7 @@ where
                         )
                         .await?
                     {
-                        fragment_changes
-                            .push(ReadModelFragmentChange::try_from_fragment(&fragment)?);
+                        invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                     }
                 }
                 AccountEventPayload::OwnershipTransferred { owner } => {
@@ -82,8 +83,7 @@ where
                         .update_account_owner(uow, event_context, account_id, *owner)
                         .await?
                     {
-                        fragment_changes
-                            .push(ReadModelFragmentChange::try_from_fragment(&fragment)?);
+                        invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                     }
                 }
                 AccountEventPayload::NameChanged { name } => {
@@ -92,8 +92,7 @@ where
                         .update_account_name(uow, event_context, account_id, name.clone())
                         .await?
                     {
-                        fragment_changes
-                            .push(ReadModelFragmentChange::try_from_fragment(&fragment)?);
+                        invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                     }
                 }
                 AccountEventPayload::Deposited { amount } => {
@@ -102,8 +101,7 @@ where
                         .increase_balance(uow, event_context, account_id, *amount)
                         .await?
                     {
-                        fragment_changes
-                            .push(ReadModelFragmentChange::try_from_fragment(&fragment)?);
+                        invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                     }
                 }
                 AccountEventPayload::Withdrawn { amount } => {
@@ -112,8 +110,7 @@ where
                         .decrease_balance(uow, event_context, account_id, *amount)
                         .await?
                     {
-                        fragment_changes
-                            .push(ReadModelFragmentChange::try_from_fragment(&fragment)?);
+                        invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                     }
                 }
                 AccountEventPayload::FundsReserved { amount } => {
@@ -122,8 +119,7 @@ where
                         .reserve_balance(uow, event_context, account_id, *amount)
                         .await?
                     {
-                        fragment_changes
-                            .push(ReadModelFragmentChange::try_from_fragment(&fragment)?);
+                        invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                     }
                 }
                 AccountEventPayload::ReservedFundsReleased { amount } => {
@@ -132,8 +128,7 @@ where
                         .release_reserved_balance(uow, event_context, account_id, *amount)
                         .await?
                     {
-                        fragment_changes
-                            .push(ReadModelFragmentChange::try_from_fragment(&fragment)?);
+                        invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                     }
                 }
                 AccountEventPayload::ReservedFundsCommitted { amount } => {
@@ -142,8 +137,7 @@ where
                         .commit_reserved_balance(uow, event_context, account_id, *amount)
                         .await?
                     {
-                        fragment_changes
-                            .push(ReadModelFragmentChange::try_from_fragment(&fragment)?);
+                        invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                     }
                 }
                 AccountEventPayload::Frozen => {
@@ -157,8 +151,7 @@ where
                         )
                         .await?
                     {
-                        fragment_changes
-                            .push(ReadModelFragmentChange::try_from_fragment(&fragment)?);
+                        invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                     }
                 }
                 AccountEventPayload::Thawed => {
@@ -172,8 +165,7 @@ where
                         )
                         .await?
                     {
-                        fragment_changes
-                            .push(ReadModelFragmentChange::try_from_fragment(&fragment)?);
+                        invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                     }
                 }
                 AccountEventPayload::Closed => {
@@ -182,7 +174,7 @@ where
                         .delete_account(uow, event_context, account_id)
                         .await?
                     {
-                        fragment_changes.push(ReadModelFragmentChange::try_removed(&account_id)?);
+                        invalidated_partitions.push(ReadModelPartition::new(account_id));
                     }
                 }
                 AccountEventPayload::OwnershipTransferRejected { .. }
@@ -198,6 +190,6 @@ where
             }
         }
 
-        Ok(fragment_changes)
+        Ok(invalidated_partitions)
     }
 }

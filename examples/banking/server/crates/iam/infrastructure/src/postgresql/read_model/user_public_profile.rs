@@ -1,3 +1,5 @@
 mod pg_user_public_profile_reader;
+mod pg_user_public_profile_row;
+mod pg_user_public_profile_row_error;
 
 pub use pg_user_public_profile_reader::PgUserPublicProfileReader;

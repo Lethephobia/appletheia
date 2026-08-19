@@ -5,17 +5,17 @@ use appletheia::domain::EventOccurredAt;
 use banking_ledger_domain::core::CurrencyAmount;
 use banking_ledger_domain::currency::{
     CurrencyDecimals, CurrencyDescription, CurrencyId, CurrencyImageRef, CurrencyName,
-    CurrencySymbol, MintAccountAddress,
+    CurrencyOwner, CurrencySymbol, MintAccountAddress,
 };
 use serde::{Deserialize, Serialize};
 
-use super::{FragmentOwner, MaterializedCurrencyStatus};
+use super::MaterializedCurrencyStatus;
 
-/// Complete currency fragment shared by read models.
+/// Normalized currency fragment shared by read models.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct CurrencyFragment {
     pub id: CurrencyId,
-    pub owner: FragmentOwner,
+    pub owner: CurrencyOwner,
     pub symbol: CurrencySymbol,
     pub name: CurrencyName,
     pub decimals: CurrencyDecimals,
@@ -30,11 +30,7 @@ pub struct CurrencyFragment {
 
 impl ReadModelObservationSource for CurrencyFragment {
     fn observations(&self) -> Vec<ReadModelObservation> {
-        self.owner
-            .observations()
-            .into_iter()
-            .chain([self.observation])
-            .collect()
+        vec![self.observation]
     }
 }
 

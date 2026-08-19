@@ -1,5 +1,4 @@
 use appletheia::application::event::EventEnvelopeError;
-use appletheia::application::read_model::ReadModelFragmentChangeError;
 use thiserror::Error;
 
 use crate::projection::UserFragmentWriterError;
@@ -12,7 +11,4 @@ pub enum UserFragmentProjectorError {
 
     #[error("public user fragment writer failed")]
     FragmentWriter(#[from] UserFragmentWriterError),
-
-    #[error("public user fragment change failed")]
-    FragmentChange(#[from] ReadModelFragmentChangeError),
 }

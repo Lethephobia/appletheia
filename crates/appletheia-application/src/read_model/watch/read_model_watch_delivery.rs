@@ -1,12 +1,12 @@
 use std::future::Future;
 
-use super::{ReadModelWatchDeliveryError, ReadModelWatchRoute, ReadModelWatchSessionId};
+use super::{ReadModelWatchDeliveryError, ReadModelWatchEvent, ReadModelWatchSessionId};
 
-/// Delivers one routed change to an already established client connection.
+/// Delivers one complete-snapshot protocol event to an established client connection.
 pub trait ReadModelWatchDelivery: Send + Sync + 'static {
     fn deliver(
         &self,
         session_id: &ReadModelWatchSessionId,
-        route: &ReadModelWatchRoute,
+        event: &ReadModelWatchEvent,
     ) -> impl Future<Output = Result<(), ReadModelWatchDeliveryError>> + Send;
 }

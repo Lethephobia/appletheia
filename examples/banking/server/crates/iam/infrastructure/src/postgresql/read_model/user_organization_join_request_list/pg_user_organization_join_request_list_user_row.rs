@@ -1,6 +1,6 @@
 use appletheia::application::read_model::ReadModelObservation;
 use appletheia::domain::{AggregateId, EventId};
-use banking_iam_application::InternalUserSummaryPart;
+use banking_iam_application::UserOrganizationJoinRequestListUser;
 use banking_iam_domain::{UserDisplayName, UserId, Username};
 use uuid::Uuid;
 
@@ -19,7 +19,7 @@ pub struct PgUserOrganizationJoinRequestListUserRow {
     pub updated_event_id: Uuid,
 }
 
-impl TryFrom<PgUserOrganizationJoinRequestListUserRow> for InternalUserSummaryPart {
+impl TryFrom<PgUserOrganizationJoinRequestListUserRow> for UserOrganizationJoinRequestListUser {
     type Error = PgUserOrganizationJoinRequestListUserRowError;
 
     fn try_from(row: PgUserOrganizationJoinRequestListUserRow) -> Result<Self, Self::Error> {

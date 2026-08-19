@@ -4,17 +4,15 @@ use appletheia::application::read_model::{
 use appletheia::domain::EventOccurredAt;
 use banking_iam_domain::{
     OrganizationDescription, OrganizationDisplayName, OrganizationHandle, OrganizationId,
-    OrganizationPictureRef, OrganizationWebsiteUrl,
+    OrganizationPictureRef, OrganizationWebsiteUrl, UserId,
 };
 use serde::{Deserialize, Serialize};
 
-use super::UserFragment;
-
-/// Complete organization fragment stored once and shared by read models.
+/// Normalized organization fragment stored once and shared by read models.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct OrganizationFragment {
     pub id: OrganizationId,
-    pub owner: UserFragment,
+    pub owner_user_id: UserId,
     pub owner_since: EventOccurredAt,
     pub owner_observation: ReadModelObservation,
     pub handle: OrganizationHandle,
@@ -28,11 +26,7 @@ pub struct OrganizationFragment {
 
 impl ReadModelObservationSource for OrganizationFragment {
     fn observations(&self) -> Vec<ReadModelObservation> {
-        self.owner
-            .observations()
-            .into_iter()
-            .chain([self.owner_observation, self.observation])
-            .collect()
+        vec![self.owner_observation, self.observation]
     }
 }
 

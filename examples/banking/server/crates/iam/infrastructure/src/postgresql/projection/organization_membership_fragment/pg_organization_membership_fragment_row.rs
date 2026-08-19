@@ -1,10 +1,9 @@
 use appletheia::application::read_model::ReadModelObservation;
-use appletheia::domain::{EventId, EventOccurredAt};
+use appletheia::domain::{AggregateId, EventId, EventOccurredAt};
 use banking_iam_application::{
-    OrganizationFragment, OrganizationMembershipFragment,
-    OrganizationMembershipFragmentWriterError, UserFragment,
+    OrganizationMembershipFragment, OrganizationMembershipFragmentWriterError,
 };
-use banking_iam_domain::OrganizationRoles;
+use banking_iam_domain::{OrganizationId, OrganizationRoles, UserId};
 use sqlx::types::Json;
 use sqlx::types::chrono::{DateTime, Utc};
 use uuid::Uuid;
@@ -19,16 +18,14 @@ pub struct PgOrganizationMembershipFragmentRow {
     pub updated_event_id: Uuid,
 }
 
-impl PgOrganizationMembershipFragmentRow {
-    pub fn try_into_fragment(
-        self,
-        user: UserFragment,
-        organization: OrganizationFragment,
-    ) -> Result<OrganizationMembershipFragment, OrganizationMembershipFragmentWriterError> {
-        let row = self;
+impl TryFrom<PgOrganizationMembershipFragmentRow> for OrganizationMembershipFragment {
+    type Error = OrganizationMembershipFragmentWriterError;
+
+    fn try_from(row: PgOrganizationMembershipFragmentRow) -> Result<Self, Self::Error> {
         Ok(OrganizationMembershipFragment {
-            user,
-            organization,
+            user_id: UserId::try_from_uuid(row.user_id).map_err(persistence_error)?,
+            organization_id: OrganizationId::try_from_uuid(row.organization_id)
+                .map_err(persistence_error)?,
             roles: row.roles.0,
             created_at: EventOccurredAt::from(row.created_at),
             observation: ReadModelObservation::new(

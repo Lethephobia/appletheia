@@ -1,14 +1,11 @@
 use appletheia::application::read_model::ReadModelObservation;
 use appletheia::domain::{AggregateId, EventId, EventOccurredAt};
-use banking_iam_domain::{OrganizationId, UserId};
 use banking_ledger_application::{
-    AccountFragment, AccountTransactionDirection, AccountTransactionFragment,
-    AccountTransactionFragmentKind, AccountTransactionFragmentWriterError, AccountTransactionId,
-    AccountTransactionStatus,
+    AccountTransactionDirection, AccountTransactionFragment, AccountTransactionFragmentKind,
+    AccountTransactionFragmentWriterError, AccountTransactionId, AccountTransactionStatus,
 };
-use banking_ledger_domain::account::{AccountId, AccountOwner};
+use banking_ledger_domain::account::AccountId;
 use banking_ledger_domain::core::CurrencyAmount;
-use banking_ledger_domain::currency::CurrencyId;
 use banking_ledger_domain::transfer::TransferId;
 use sqlx::types::chrono::{DateTime, Utc};
 use uuid::Uuid;
@@ -17,11 +14,8 @@ use uuid::Uuid;
 pub struct PgAccountTransactionFragmentRow {
     pub transaction_id: Uuid,
     pub transfer_id: Option<Uuid>,
-    pub owner_type: String,
-    pub owner_id: Uuid,
     pub account_id: Uuid,
     pub counterparty_account_id: Option<Uuid>,
-    pub currency_id: Uuid,
     pub amount: String,
     pub direction: String,
     pub kind: String,
@@ -32,57 +26,10 @@ pub struct PgAccountTransactionFragmentRow {
     pub updated_event_id: Uuid,
 }
 
-impl PgAccountTransactionFragmentRow {
-    pub fn try_into_fragment(
-        self,
-        account: AccountFragment,
-        counterparty_account: Option<AccountFragment>,
-    ) -> Result<AccountTransactionFragment, AccountTransactionFragmentWriterError> {
-        let row = self;
-        let row_account_id = AccountId::try_from_uuid(row.account_id).map_err(persistence_error)?;
-        if row_account_id != account.id {
-            return Err(persistence_message(
-                "account transaction account dependency mismatch",
-            ));
-        }
-        let row_currency_id =
-            CurrencyId::try_from_uuid(row.currency_id).map_err(persistence_error)?;
-        if row_currency_id != account.currency.id {
-            return Err(persistence_message(
-                "account transaction currency dependency mismatch",
-            ));
-        }
-        let row_owner = match row.owner_type.as_str() {
-            "user" => {
-                AccountOwner::User(UserId::try_from_uuid(row.owner_id).map_err(persistence_error)?)
-            }
-            "organization" => AccountOwner::Organization(
-                OrganizationId::try_from_uuid(row.owner_id).map_err(persistence_error)?,
-            ),
-            _ => {
-                return Err(persistence_message(
-                    "unknown account transaction owner type",
-                ));
-            }
-        };
-        if row_owner != account.owner.account_owner() {
-            return Err(persistence_message(
-                "account transaction owner dependency mismatch",
-            ));
-        }
-        let materialized_counterparty_id = counterparty_account
-            .as_ref()
-            .map(|counterparty| counterparty.id);
-        let row_counterparty_id = row
-            .counterparty_account_id
-            .map(AccountId::try_from_uuid)
-            .transpose()
-            .map_err(persistence_error)?;
-        if row_counterparty_id != materialized_counterparty_id {
-            return Err(persistence_message(
-                "account transaction counterparty dependency mismatch",
-            ));
-        }
+impl TryFrom<PgAccountTransactionFragmentRow> for AccountTransactionFragment {
+    type Error = AccountTransactionFragmentWriterError;
+
+    fn try_from(row: PgAccountTransactionFragmentRow) -> Result<Self, Self::Error> {
         let direction = match row.direction.as_str() {
             "incoming" => AccountTransactionDirection::Incoming,
             "outgoing" => AccountTransactionDirection::Outgoing,
@@ -110,8 +57,12 @@ impl PgAccountTransactionFragmentRow {
                 .map(TransferId::try_from_uuid)
                 .transpose()
                 .map_err(persistence_error)?,
-            account,
-            counterparty_account,
+            account_id: AccountId::try_from_uuid(row.account_id).map_err(persistence_error)?,
+            counterparty_account_id: row
+                .counterparty_account_id
+                .map(AccountId::try_from_uuid)
+                .transpose()
+                .map_err(persistence_error)?,
             amount: amount(row.amount)?,
             direction,
             kind,

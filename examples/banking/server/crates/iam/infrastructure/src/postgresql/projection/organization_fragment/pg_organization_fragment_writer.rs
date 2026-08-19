@@ -10,7 +10,6 @@ use banking_iam_domain::{
     OrganizationPictureRef, OrganizationWebsiteUrl, UserId,
 };
 
-use super::super::PgFragmentLoader;
 use super::PgOrganizationFragmentRow;
 use crate::postgresql::pg_organization_picture_ref_columns::PgOrganizationPictureRefColumns;
 
@@ -23,20 +22,13 @@ impl PgOrganizationFragmentWriter {
     }
 
     /// Maps the partition a write returned, or `None` when the guard rejected the event.
-    async fn map_organization(
-        uow: &mut PgUnitOfWork,
+    fn map_organization(
         organization_row: Option<PgOrganizationFragmentRow>,
     ) -> Result<Option<OrganizationFragment>, OrganizationFragmentWriterError> {
         let Some(row) = organization_row else {
             return Ok(None);
         };
-        let owner_user_id = UserId::try_from_uuid(row.owner_user_id)
-            .map_err(|error| OrganizationFragmentWriterError::Persistence(Box::new(error)))?;
-        let owner = PgFragmentLoader::load_required_user(uow, owner_user_id)
-            .await
-            .map_err(|error| OrganizationFragmentWriterError::Persistence(Box::new(error)))?;
-        let fragment = row
-            .try_into_fragment(owner)
+        let fragment = OrganizationFragment::try_from(row)
             .map_err(|error| OrganizationFragmentWriterError::Persistence(Box::new(error)))?;
 
         Ok(Some(fragment))
@@ -127,7 +119,7 @@ impl OrganizationFragmentWriter for PgOrganizationFragmentWriter {
         .await
         .map_err(|error| OrganizationFragmentWriterError::Persistence(Box::new(error)))?;
 
-        Self::map_organization(uow, upserted_row).await
+        Self::map_organization(upserted_row)
     }
 
     async fn update_owner(
@@ -171,7 +163,7 @@ impl OrganizationFragmentWriter for PgOrganizationFragmentWriter {
         .await
         .map_err(|error| OrganizationFragmentWriterError::Persistence(Box::new(error)))?;
 
-        Self::map_organization(uow, updated_row).await
+        Self::map_organization(updated_row)
     }
 
     async fn update_handle(
@@ -213,7 +205,7 @@ impl OrganizationFragmentWriter for PgOrganizationFragmentWriter {
         .await
         .map_err(|error| OrganizationFragmentWriterError::Persistence(Box::new(error)))?;
 
-        Self::map_organization(uow, updated_row).await
+        Self::map_organization(updated_row)
     }
 
     async fn update_display_name(
@@ -256,7 +248,7 @@ impl OrganizationFragmentWriter for PgOrganizationFragmentWriter {
         .await
         .map_err(|error| OrganizationFragmentWriterError::Persistence(Box::new(error)))?;
 
-        Self::map_organization(uow, updated_row).await
+        Self::map_organization(updated_row)
     }
 
     async fn update_description(
@@ -299,7 +291,7 @@ impl OrganizationFragmentWriter for PgOrganizationFragmentWriter {
         .await
         .map_err(|error| OrganizationFragmentWriterError::Persistence(Box::new(error)))?;
 
-        Self::map_organization(uow, updated_row).await
+        Self::map_organization(updated_row)
     }
 
     async fn update_website_url(
@@ -346,7 +338,7 @@ impl OrganizationFragmentWriter for PgOrganizationFragmentWriter {
         .await
         .map_err(|error| OrganizationFragmentWriterError::Persistence(Box::new(error)))?;
 
-        Self::map_organization(uow, updated_row).await
+        Self::map_organization(updated_row)
     }
 
     async fn update_picture(
@@ -394,7 +386,7 @@ impl OrganizationFragmentWriter for PgOrganizationFragmentWriter {
         .await
         .map_err(|error| OrganizationFragmentWriterError::Persistence(Box::new(error)))?;
 
-        Self::map_organization(uow, updated_row).await
+        Self::map_organization(updated_row)
     }
 
     async fn delete_organization(

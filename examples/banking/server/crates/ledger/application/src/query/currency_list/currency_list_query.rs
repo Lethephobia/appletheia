@@ -1,4 +1,4 @@
-use appletheia::application::read_model::pagination::{CursorPage, Sort};
+use appletheia::application::read_model::pagination::{CursorWindow, Sort};
 use appletheia::query;
 
 use crate::read_model::{CurrencyListCriteria, CurrencyListCursor, CurrencyListSortKey};
@@ -9,5 +9,5 @@ use crate::read_model::{CurrencyListCriteria, CurrencyListCursor, CurrencyListSo
 pub struct CurrencyListQuery {
     pub criteria: CurrencyListCriteria,
     pub sort: Sort<CurrencyListSortKey>,
-    pub page: CursorPage<CurrencyListCursor>,
+    pub page: CursorWindow<CurrencyListCursor>,
 }

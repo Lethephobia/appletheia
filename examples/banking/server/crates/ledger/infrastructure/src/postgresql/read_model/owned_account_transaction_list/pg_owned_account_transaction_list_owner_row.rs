@@ -4,8 +4,8 @@ use banking_iam_domain::{
     OrganizationDisplayName, OrganizationHandle, OrganizationId, UserDisplayName, UserId, Username,
 };
 use banking_ledger_application::{
-    OwnedAccountTransactionListOwner, OwnedAccountTransactionListOwnerOrganizationPart,
-    OwnedAccountTransactionListOwnerUserPart,
+    OwnedAccountTransactionListOwner, OwnedAccountTransactionListOwnerOrganization,
+    OwnedAccountTransactionListOwnerUser,
 };
 use uuid::Uuid;
 
@@ -94,7 +94,7 @@ impl TryFrom<PgOwnedAccountTransactionListOwnerRow> for OwnedAccountTransactionL
         let observation = row.observation()?;
 
         match row.owner_type.as_str() {
-            "user" => Ok(Self::User(OwnedAccountTransactionListOwnerUserPart {
+            "user" => Ok(Self::User(OwnedAccountTransactionListOwnerUser {
                 id: UserId::try_from_uuid(row.owner_id).map_err(|error| {
                     PgOwnedAccountTransactionListOwnerRowError::InvalidUserOwnerId(Box::new(error))
                 })?,
@@ -124,7 +124,7 @@ impl TryFrom<PgOwnedAccountTransactionListOwnerRow> for OwnedAccountTransactionL
                     .ok_or(PgOwnedAccountTransactionListOwnerRowError::MissingOrganizationOwner)?;
 
                 Ok(Self::Organization(
-                    OwnedAccountTransactionListOwnerOrganizationPart {
+                    OwnedAccountTransactionListOwnerOrganization {
                         id: OrganizationId::try_from_uuid(row.owner_id).map_err(|error| {
                             PgOwnedAccountTransactionListOwnerRowError::InvalidOrganizationOwnerId(
                                 Box::new(error),

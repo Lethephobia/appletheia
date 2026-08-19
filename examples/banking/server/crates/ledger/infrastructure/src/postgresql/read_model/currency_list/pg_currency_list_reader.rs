@@ -1,9 +1,9 @@
-use appletheia::application::read_model::pagination::{CursorPage, Sort, SortDirection};
+use appletheia::application::read_model::pagination::{CursorWindow, Sort, SortDirection};
 use appletheia::domain::AggregateId;
 use appletheia::infrastructure::postgresql::PgUnitOfWork;
 use banking_ledger_application::{
-    CurrencyList, CurrencyListCriteria, CurrencyListCursor, CurrencyListItemPart,
-    CurrencyListReader, CurrencyListReaderError, CurrencyListSortKey, MaterializedCurrencyStatus,
+    CurrencyList, CurrencyListCriteria, CurrencyListCursor, CurrencyListItem, CurrencyListReader,
+    CurrencyListReaderError, CurrencyListSortKey, MaterializedCurrencyStatus,
 };
 use sqlx::query_builder::Separated;
 use sqlx::{Postgres, QueryBuilder};
@@ -61,9 +61,10 @@ impl CurrencyListReader for PgCurrencyListReader {
         uow: &mut Self::Uow,
         criteria: CurrencyListCriteria,
         sort: Sort<CurrencyListSortKey>,
-        page: CursorPage<CurrencyListCursor>,
+        page: CursorWindow<CurrencyListCursor>,
     ) -> Result<CurrencyList, CurrencyListReaderError> {
-        let query_limit = i64::from(page.limit.value()) + 1;
+        let query_limit = i64::from(page.limit().value()) + 1;
+        let query_direction = page.query_direction(sort.direction);
 
         let mut builder = QueryBuilder::<Postgres>::new(
             r#"
@@ -106,7 +107,7 @@ impl CurrencyListReader for PgCurrencyListReader {
             "#,
         );
 
-        if criteria.status_in.is_some() || page.after.is_some() {
+        if criteria.status_in.is_some() || page.boundary().is_some() {
             builder.push(" WHERE ");
             let mut predicates = builder.separated(" AND ");
 
@@ -114,8 +115,8 @@ impl CurrencyListReader for PgCurrencyListReader {
                 Self::push_status_in(&mut predicates, status_in);
             }
 
-            if let Some(cursor) = page.after {
-                match (sort.key, sort.direction) {
+            if let Some(cursor) = page.boundary().copied() {
+                match (sort.key, query_direction) {
                     (CurrencyListSortKey::CreatedAt, SortDirection::Asc) => {
                         predicates
                             .push("(i.created_at, i.id) > (")
@@ -146,7 +147,7 @@ impl CurrencyListReader for PgCurrencyListReader {
             }
         }
 
-        match (sort.key, sort.direction) {
+        match (sort.key, query_direction) {
             (CurrencyListSortKey::CreatedAt, SortDirection::Asc) => {
                 builder.push(" ORDER BY i.created_at ASC, i.id ASC");
             }
@@ -169,23 +170,37 @@ impl CurrencyListReader for PgCurrencyListReader {
             .await
             .map_err(|e| CurrencyListReaderError::Persistence(Box::new(e)))?;
 
-        let page_limit = page.limit.value() as usize;
-        let has_next = rows.len() > page_limit;
-        let items = rows
+        let page_limit = page.limit().value() as usize;
+        let has_more = rows.len() > page_limit;
+        let mut items = rows
             .into_iter()
             .take(page_limit)
-            .map(CurrencyListItemPart::try_from)
+            .map(CurrencyListItem::try_from)
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| CurrencyListReaderError::Persistence(Box::new(e)))?;
-        let next_cursor = if has_next {
-            items.last().map(|item| CurrencyListCursor {
-                created_at: item.created_at,
-                currency_id: item.currency_id,
-            })
+        if page.is_backward() {
+            items.reverse();
+        }
+        let start_cursor = items.first().map(|item| CurrencyListCursor {
+            created_at: item.created_at,
+            currency_id: item.currency_id,
+        });
+        let end_cursor = items.last().map(|item| CurrencyListCursor {
+            created_at: item.created_at,
+            currency_id: item.currency_id,
+        });
+        let (has_previous, has_next) = if page.is_backward() {
+            (has_more, !items.is_empty() && page.boundary().is_some())
         } else {
-            None
+            (!items.is_empty() && page.boundary().is_some(), has_more)
         };
 
-        Ok(CurrencyList { items, next_cursor })
+        Ok(CurrencyList {
+            items,
+            start_cursor,
+            end_cursor,
+            has_previous,
+            has_next,
+        })
     }
 }

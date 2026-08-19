@@ -1,4 +1,4 @@
-use appletheia::application::read_model::pagination::{CursorPage, Sort};
+use appletheia::application::read_model::pagination::{CursorWindow, Sort};
 use appletheia::query;
 
 use crate::read_model::{PublicUserListCriteria, PublicUserListCursor, PublicUserListSortKey};
@@ -9,5 +9,5 @@ use crate::read_model::{PublicUserListCriteria, PublicUserListCursor, PublicUser
 pub struct PublicUserListQuery {
     pub criteria: PublicUserListCriteria,
     pub sort: Sort<PublicUserListSortKey>,
-    pub page: CursorPage<PublicUserListCursor>,
+    pub page: CursorWindow<PublicUserListCursor>,
 }

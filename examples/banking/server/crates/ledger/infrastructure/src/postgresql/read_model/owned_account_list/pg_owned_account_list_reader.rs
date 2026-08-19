@@ -1,9 +1,9 @@
-use appletheia::application::read_model::pagination::{CursorPage, Sort, SortDirection};
+use appletheia::application::read_model::pagination::{CursorWindow, Sort, SortDirection};
 use appletheia::domain::AggregateId;
 use appletheia::infrastructure::postgresql::PgUnitOfWork;
 use banking_ledger_application::{
     MaterializedAccountStatus, OwnedAccountList, OwnedAccountListCriteria, OwnedAccountListCursor,
-    OwnedAccountListItemPart, OwnedAccountListOwner, OwnedAccountListReader,
+    OwnedAccountListItem, OwnedAccountListOwner, OwnedAccountListReader,
     OwnedAccountListReaderError, OwnedAccountListSortKey,
 };
 use banking_ledger_domain::account::AccountOwner;
@@ -114,11 +114,12 @@ impl OwnedAccountListReader for PgOwnedAccountListReader {
         owner: AccountOwner,
         criteria: OwnedAccountListCriteria,
         sort: Sort<OwnedAccountListSortKey>,
-        page: CursorPage<OwnedAccountListCursor>,
+        page: CursorWindow<OwnedAccountListCursor>,
     ) -> Result<OwnedAccountList, OwnedAccountListReaderError> {
         let (owner_type, owner_id) = Self::owner_parts(owner);
         let owner = Self::read_owner(uow, owner_type, owner_id).await?;
-        let query_limit = i64::from(page.limit.value()) + 1;
+        let query_limit = i64::from(page.limit().value()) + 1;
+        let query_direction = page.query_direction(sort.direction);
 
         let mut builder = QueryBuilder::<Postgres>::new(
             r#"
@@ -159,8 +160,8 @@ impl OwnedAccountListReader for PgOwnedAccountListReader {
             Self::push_status_in(&mut builder, status_in);
         }
 
-        if let Some(cursor) = page.after {
-            match (sort.key, sort.direction) {
+        if let Some(cursor) = page.boundary().copied() {
+            match (sort.key, query_direction) {
                 (OwnedAccountListSortKey::CreatedAt, SortDirection::Asc) => {
                     builder
                         .push(" AND (a.created_at, a.id) > (")
@@ -190,7 +191,7 @@ impl OwnedAccountListReader for PgOwnedAccountListReader {
             }
         }
 
-        match (sort.key, sort.direction) {
+        match (sort.key, query_direction) {
             (OwnedAccountListSortKey::CreatedAt, SortDirection::Asc) => {
                 builder.push(" ORDER BY a.created_at ASC, a.id ASC");
             }
@@ -213,27 +214,38 @@ impl OwnedAccountListReader for PgOwnedAccountListReader {
             .await
             .map_err(|e| OwnedAccountListReaderError::Persistence(Box::new(e)))?;
 
-        let page_limit = page.limit.value() as usize;
-        let has_next = rows.len() > page_limit;
-        let items = rows
+        let page_limit = page.limit().value() as usize;
+        let has_more = rows.len() > page_limit;
+        let mut items = rows
             .into_iter()
             .take(page_limit)
-            .map(OwnedAccountListItemPart::try_from)
+            .map(OwnedAccountListItem::try_from)
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| OwnedAccountListReaderError::Persistence(Box::new(e)))?;
-        let next_cursor = if has_next {
-            items.last().map(|item| OwnedAccountListCursor {
-                created_at: item.created_at,
-                account_id: item.account_id,
-            })
+        if page.is_backward() {
+            items.reverse();
+        }
+        let start_cursor = items.first().map(|item| OwnedAccountListCursor {
+            created_at: item.created_at,
+            account_id: item.account_id,
+        });
+        let end_cursor = items.last().map(|item| OwnedAccountListCursor {
+            created_at: item.created_at,
+            account_id: item.account_id,
+        });
+        let (has_previous, has_next) = if page.is_backward() {
+            (has_more, !items.is_empty() && page.boundary().is_some())
         } else {
-            None
+            (!items.is_empty() && page.boundary().is_some(), has_more)
         };
 
         Ok(OwnedAccountList {
             owner,
             items,
-            next_cursor,
+            start_cursor,
+            end_cursor,
+            has_previous,
+            has_next,
         })
     }
 }

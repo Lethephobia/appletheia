@@ -1,5 +1,3 @@
-use super::{OrganizationFragment, UserFragment};
-
 mod organization_invitation_fragment;
 mod organization_invitation_fragment_projector;
 mod organization_invitation_fragment_projector_error;
@@ -7,8 +5,6 @@ mod organization_invitation_fragment_projector_spec;
 mod organization_invitation_fragment_upsert;
 mod organization_invitation_fragment_writer;
 mod organization_invitation_fragment_writer_error;
-mod organization_invitation_list_item_part;
-mod user_organization_invitation_list_item_part;
 
 pub use organization_invitation_fragment::OrganizationInvitationFragment;
 pub use organization_invitation_fragment_projector::OrganizationInvitationFragmentProjector;
@@ -17,5 +13,3 @@ pub use organization_invitation_fragment_projector_spec::OrganizationInvitationF
 pub use organization_invitation_fragment_upsert::OrganizationInvitationFragmentUpsert;
 pub use organization_invitation_fragment_writer::OrganizationInvitationFragmentWriter;
 pub use organization_invitation_fragment_writer_error::OrganizationInvitationFragmentWriterError;
-pub use organization_invitation_list_item_part::OrganizationInvitationListItemPart;
-pub use user_organization_invitation_list_item_part::UserOrganizationInvitationListItemPart;

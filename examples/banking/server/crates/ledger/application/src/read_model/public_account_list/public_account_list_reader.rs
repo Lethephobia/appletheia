@@ -1,4 +1,4 @@
-use appletheia::application::read_model::pagination::{CursorPage, Sort};
+use appletheia::application::read_model::pagination::{CursorWindow, Sort};
 use appletheia::application::unit_of_work::UnitOfWork;
 
 use super::{
@@ -16,6 +16,6 @@ pub trait PublicAccountListReader: Send + Sync {
         uow: &mut Self::Uow,
         criteria: PublicAccountListCriteria,
         sort: Sort<PublicAccountListSortKey>,
-        page: CursorPage<PublicAccountListCursor>,
+        page: CursorWindow<PublicAccountListCursor>,
     ) -> Result<PublicAccountList, PublicAccountListReaderError>;
 }

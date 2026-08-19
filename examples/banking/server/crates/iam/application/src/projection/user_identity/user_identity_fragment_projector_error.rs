@@ -1,5 +1,4 @@
 use appletheia::application::event::EventEnvelopeError;
-use appletheia::application::read_model::ReadModelFragmentChangeError;
 use thiserror::Error;
 
 use crate::projection::UserIdentityFragmentWriterError;
@@ -12,7 +11,4 @@ pub enum UserIdentityFragmentProjectorError {
 
     #[error(transparent)]
     Writer(#[from] UserIdentityFragmentWriterError),
-
-    #[error(transparent)]
-    FragmentChange(#[from] ReadModelFragmentChangeError),
 }

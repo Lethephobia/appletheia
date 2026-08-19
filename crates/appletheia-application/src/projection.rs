@@ -34,9 +34,6 @@ pub mod projector_spec;
 pub mod projector_worker;
 pub mod projector_worker_error;
 
-mod read_model_fragment_change_batch;
-mod read_model_fragment_change_batches;
-
 pub use default_projection_consistency_waiter::DefaultProjectionConsistencyWaiter;
 pub use default_projector_rebuilder::DefaultProjectorRebuilder;
 pub use default_projector_runner::DefaultProjectorRunner;

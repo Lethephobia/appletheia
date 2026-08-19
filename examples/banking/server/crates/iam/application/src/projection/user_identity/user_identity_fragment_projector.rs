@@ -1,6 +1,8 @@
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
-use appletheia::application::read_model::{MaterializationEventContext, ReadModelFragmentChange};
+use appletheia::application::read_model::{
+    MaterializationEventContext, ReadModelFragmentPartition, ReadModelPartition,
+};
 use banking_iam_domain::{User, UserEventPayload};
 
 use crate::projection::{
@@ -42,8 +44,8 @@ where
         uow: &mut Self::Uow,
         event_context: MaterializationEventContext,
         event: &EventEnvelope,
-    ) -> Result<Vec<ReadModelFragmentChange<Self::Fragment>>, Self::Error> {
-        let mut fragment_changes = Vec::new();
+    ) -> Result<Vec<ReadModelFragmentPartition<Self::Fragment>>, Self::Error> {
+        let mut invalidated_partitions = Vec::new();
         let user_event = event.try_into_domain_event::<User>()?;
         let user_id = user_event.aggregate_id();
 
@@ -67,7 +69,7 @@ where
                     )
                     .await?
                 {
-                    fragment_changes.push(ReadModelFragmentChange::try_from_fragment(&fragment)?);
+                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                 }
             }
             UserEventPayload::IdentityEmailChanged {
@@ -87,7 +89,7 @@ where
                     )
                     .await?
                 {
-                    fragment_changes.push(ReadModelFragmentChange::try_from_fragment(&fragment)?);
+                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                 }
             }
             UserEventPayload::Removed => {
@@ -96,8 +98,7 @@ where
                     .delete_for_user(uow, event_context, user_id)
                     .await?;
                 for key in removed_keys {
-                    fragment_changes
-                        .push(ReadModelFragmentChange::<UserIdentityFragment>::try_removed(&key)?);
+                    invalidated_partitions.push(ReadModelPartition::new(key));
                 }
             }
             UserEventPayload::Registered {
@@ -127,6 +128,6 @@ where
             | UserEventPayload::RemoveRejected { .. } => {}
         }
 
-        Ok(fragment_changes)
+        Ok(invalidated_partitions)
     }
 }

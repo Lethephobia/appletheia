@@ -1,10 +1,10 @@
-use appletheia::application::read_model::pagination::{CursorPage, Sort, SortDirection};
+use appletheia::application::read_model::pagination::{CursorWindow, Sort, SortDirection};
 use appletheia::domain::AggregateId;
 use appletheia::infrastructure::postgresql::PgUnitOfWork;
 use banking_iam_application::{
     PublicOrganizationList, PublicOrganizationListCriteria, PublicOrganizationListCursor,
-    PublicOrganizationListItemPart, PublicOrganizationListReader,
-    PublicOrganizationListReaderError, PublicOrganizationListSortKey,
+    PublicOrganizationListItem, PublicOrganizationListReader, PublicOrganizationListReaderError,
+    PublicOrganizationListSortKey,
 };
 use banking_shared_kernel_application::read_model::SearchTerm;
 use sqlx::query_builder::Separated;
@@ -54,9 +54,10 @@ impl PublicOrganizationListReader for PgPublicOrganizationListReader {
         uow: &mut Self::Uow,
         criteria: PublicOrganizationListCriteria,
         sort: Sort<PublicOrganizationListSortKey>,
-        page: CursorPage<PublicOrganizationListCursor>,
+        page: CursorWindow<PublicOrganizationListCursor>,
     ) -> Result<PublicOrganizationList, PublicOrganizationListReaderError> {
-        let query_limit = i64::from(page.limit.value()) + 1;
+        let query_limit = i64::from(page.limit().value()) + 1;
+        let query_direction = page.query_direction(sort.direction);
         let mut builder = QueryBuilder::<Postgres>::new(
             r#"
             SELECT
@@ -73,14 +74,14 @@ impl PublicOrganizationListReader for PgPublicOrganizationListReader {
             "#,
         );
 
-        if !criteria.handle_contains.is_empty() || page.after.is_some() {
+        if !criteria.handle_contains.is_empty() || page.boundary().is_some() {
             builder.push(" WHERE ");
             let mut predicates = builder.separated(" AND ");
 
             Self::push_handle_contains(&mut predicates, &criteria.handle_contains);
 
-            if let Some(cursor) = page.after {
-                match (sort.key, sort.direction) {
+            if let Some(cursor) = page.boundary().copied() {
+                match (sort.key, query_direction) {
                     (PublicOrganizationListSortKey::CreatedAt, SortDirection::Asc) => {
                         predicates
                             .push("(created_at, id) > (")
@@ -111,7 +112,7 @@ impl PublicOrganizationListReader for PgPublicOrganizationListReader {
             }
         }
 
-        match (sort.key, sort.direction) {
+        match (sort.key, query_direction) {
             (PublicOrganizationListSortKey::CreatedAt, SortDirection::Asc) => {
                 builder.push(" ORDER BY created_at ASC, id ASC");
             }
@@ -134,24 +135,38 @@ impl PublicOrganizationListReader for PgPublicOrganizationListReader {
             .await
             .map_err(|error| PublicOrganizationListReaderError::Persistence(Box::new(error)))?;
 
-        let page_limit = page.limit.value() as usize;
-        let has_next = rows.len() > page_limit;
-        let items = rows
+        let page_limit = page.limit().value() as usize;
+        let has_more = rows.len() > page_limit;
+        let mut items = rows
             .into_iter()
             .take(page_limit)
-            .map(PublicOrganizationListItemPart::try_from)
+            .map(PublicOrganizationListItem::try_from)
             .collect::<Result<Vec<_>, _>>()
             .map_err(|error| PublicOrganizationListReaderError::Persistence(Box::new(error)))?;
-        let next_cursor = if has_next {
-            items.last().map(|item| PublicOrganizationListCursor {
-                created_at: item.created_at,
-                organization_id: item.organization_id,
-            })
+        if page.is_backward() {
+            items.reverse();
+        }
+        let start_cursor = items.first().map(|item| PublicOrganizationListCursor {
+            created_at: item.created_at,
+            organization_id: item.organization_id,
+        });
+        let end_cursor = items.last().map(|item| PublicOrganizationListCursor {
+            created_at: item.created_at,
+            organization_id: item.organization_id,
+        });
+        let (has_previous, has_next) = if page.is_backward() {
+            (has_more, !items.is_empty() && page.boundary().is_some())
         } else {
-            None
+            (!items.is_empty() && page.boundary().is_some(), has_more)
         };
 
-        Ok(PublicOrganizationList { items, next_cursor })
+        Ok(PublicOrganizationList {
+            items,
+            start_cursor,
+            end_cursor,
+            has_previous,
+            has_next,
+        })
     }
 }
 

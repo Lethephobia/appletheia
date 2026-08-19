@@ -1,7 +1,9 @@
 use std::error::Error;
 
 use crate::event::EventEnvelope;
-use crate::read_model::{MaterializationEventContext, ReadModelFragment, ReadModelFragmentChange};
+use crate::read_model::{
+    MaterializationEventContext, ReadModelFragment, ReadModelFragmentPartition,
+};
 use crate::unit_of_work::UnitOfWork;
 
 use super::ProjectorSpec;
@@ -15,11 +17,11 @@ pub trait Projector: Send + Sync {
     type Uow: UnitOfWork;
     type Error: Error + Send + Sync + 'static;
 
-    /// Materializes one event and returns the physical fragment changes it produced.
+    /// Materializes one event and returns the physical partitions it invalidated.
     async fn project(
         &self,
         uow: &mut Self::Uow,
         event_context: MaterializationEventContext,
         event: &EventEnvelope,
-    ) -> Result<Vec<ReadModelFragmentChange<Self::Fragment>>, Self::Error>;
+    ) -> Result<Vec<ReadModelFragmentPartition<Self::Fragment>>, Self::Error>;
 }

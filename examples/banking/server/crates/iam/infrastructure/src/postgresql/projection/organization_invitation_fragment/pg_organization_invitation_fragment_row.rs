@@ -1,12 +1,11 @@
 use appletheia::application::read_model::ReadModelObservation;
 use appletheia::domain::{AggregateId, EventId, EventOccurredAt};
 use banking_iam_application::{
-    OrganizationFragment, OrganizationInvitationFragment,
-    OrganizationInvitationFragmentWriterError, UserFragment,
+    OrganizationInvitationFragment, OrganizationInvitationFragmentWriterError,
 };
 use banking_iam_domain::{
-    OrganizationInvitationExpiresAt, OrganizationInvitationId, OrganizationInvitationIssuer,
-    OrganizationInvitationStatus, OrganizationRoles, UserId,
+    OrganizationId, OrganizationInvitationExpiresAt, OrganizationInvitationId,
+    OrganizationInvitationIssuer, OrganizationInvitationStatus, OrganizationRoles, UserId,
 };
 use sqlx::types::chrono::{DateTime, Utc};
 use uuid::Uuid;
@@ -26,13 +25,10 @@ pub struct PgOrganizationInvitationFragmentRow {
     pub updated_event_id: Uuid,
 }
 
-impl PgOrganizationInvitationFragmentRow {
-    pub fn try_into_fragment(
-        self,
-        organization: OrganizationFragment,
-        invitee: UserFragment,
-    ) -> Result<OrganizationInvitationFragment, OrganizationInvitationFragmentWriterError> {
-        let row = self;
+impl TryFrom<PgOrganizationInvitationFragmentRow> for OrganizationInvitationFragment {
+    type Error = OrganizationInvitationFragmentWriterError;
+
+    fn try_from(row: PgOrganizationInvitationFragmentRow) -> Result<Self, Self::Error> {
         let issuer = match (row.issuer_type.as_str(), row.issuer_user_id) {
             ("user", Some(user_id)) => OrganizationInvitationIssuer::User(
                 UserId::try_from_uuid(user_id).map_err(persistence_error)?,
@@ -60,8 +56,10 @@ impl PgOrganizationInvitationFragmentRow {
         Ok(OrganizationInvitationFragment {
             invitation_id: OrganizationInvitationId::try_from_uuid(row.invitation_id)
                 .map_err(persistence_error)?,
-            organization,
-            invitee,
+            organization_id: OrganizationId::try_from_uuid(row.organization_id)
+                .map_err(persistence_error)?,
+            invitee_user_id: UserId::try_from_uuid(row.invitee_user_id)
+                .map_err(persistence_error)?,
             roles: serde_json::from_str::<OrganizationRoles>(&row.roles)
                 .map_err(persistence_error)?,
             issuer,

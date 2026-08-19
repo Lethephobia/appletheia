@@ -1,24 +1,24 @@
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
-use appletheia::application::read_model::{ReadModelObservation, ReadModelObservationSource};
+use appletheia::domain::EventId;
 
 use super::{
-    OwnedAccountTransactionListItemCounterpartyAccountOwnerOrganizationPart,
-    OwnedAccountTransactionListItemCounterpartyAccountOwnerUserPart,
+    OwnedAccountTransactionListItemCounterpartyAccountOwnerOrganization,
+    OwnedAccountTransactionListItemCounterpartyAccountOwnerUser,
 };
 
 /// Counterparty account owner shown in a transfer transaction list item.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub enum OwnedAccountTransactionListItemCounterpartyAccountOwner {
-    User(OwnedAccountTransactionListItemCounterpartyAccountOwnerUserPart),
-    Organization(OwnedAccountTransactionListItemCounterpartyAccountOwnerOrganizationPart),
+    User(OwnedAccountTransactionListItemCounterpartyAccountOwnerUser),
+    Organization(OwnedAccountTransactionListItemCounterpartyAccountOwnerOrganization),
 }
 
-impl ReadModelObservationSource for OwnedAccountTransactionListItemCounterpartyAccountOwner {
-    fn observations(&self) -> Vec<ReadModelObservation> {
+impl OwnedAccountTransactionListItemCounterpartyAccountOwner {
+    pub fn observed_event_ids(&self) -> Vec<EventId> {
         match self {
-            Self::User(owner) => vec![owner.observation],
-            Self::Organization(owner) => vec![owner.observation],
+            Self::User(owner) => owner.observation.event_ids().collect(),
+            Self::Organization(owner) => owner.observation.event_ids().collect(),
         }
     }
 }

@@ -4,8 +4,8 @@ use banking_iam_domain::{
     OrganizationDisplayName, OrganizationHandle, OrganizationId, UserDisplayName, UserId, Username,
 };
 use banking_ledger_application::{
-    CurrencyListItemOwner, CurrencyListItemOwnerOrganizationPart, CurrencyListItemOwnerUserPart,
-    CurrencyListItemPart, MaterializedCurrencyStatus,
+    CurrencyListItem, CurrencyListItemOwner, CurrencyListItemOwnerOrganization,
+    CurrencyListItemOwnerUser, CurrencyListItemStatus,
 };
 use banking_ledger_domain::core::CurrencyAmount;
 use banking_ledger_domain::currency::{
@@ -85,12 +85,12 @@ impl PgCurrencyListItemRow {
         Self::observation(source_event_id, updated_event_id)
     }
 
-    fn status(value: String) -> Result<MaterializedCurrencyStatus, PgCurrencyListItemRowError> {
+    fn status(value: String) -> Result<CurrencyListItemStatus, PgCurrencyListItemRowError> {
         match value.as_str() {
-            "provisioning" => Ok(MaterializedCurrencyStatus::Provisioning),
-            "active" => Ok(MaterializedCurrencyStatus::Active),
-            "inactive" => Ok(MaterializedCurrencyStatus::Inactive),
-            "provisioning_failed" => Ok(MaterializedCurrencyStatus::ProvisioningFailed),
+            "provisioning" => Ok(CurrencyListItemStatus::Provisioning),
+            "active" => Ok(CurrencyListItemStatus::Active),
+            "inactive" => Ok(CurrencyListItemStatus::Inactive),
+            "provisioning_failed" => Ok(CurrencyListItemStatus::ProvisioningFailed),
             value => Err(PgCurrencyListItemRowError::UnknownStatus(value.to_owned())),
         }
     }
@@ -122,7 +122,7 @@ impl PgCurrencyListItemRow {
 
     fn owner(&self) -> Result<CurrencyListItemOwner, PgCurrencyListItemRowError> {
         match self.owner_type.as_str() {
-            "user" => Ok(CurrencyListItemOwner::User(CurrencyListItemOwnerUserPart {
+            "user" => Ok(CurrencyListItemOwner::User(CurrencyListItemOwnerUser {
                 id: UserId::try_from_uuid(self.owner_id).map_err(|error| {
                     PgCurrencyListItemRowError::InvalidUserOwnerId(Box::new(error))
                 })?,
@@ -150,7 +150,7 @@ impl PgCurrencyListItemRow {
                     .ok_or(PgCurrencyListItemRowError::MissingOrganizationOwner)?;
 
                 Ok(CurrencyListItemOwner::Organization(
-                    CurrencyListItemOwnerOrganizationPart {
+                    CurrencyListItemOwnerOrganization {
                         id: OrganizationId::try_from_uuid(self.owner_id).map_err(|error| {
                             PgCurrencyListItemRowError::InvalidOrganizationOwnerId(Box::new(error))
                         })?,
@@ -184,7 +184,7 @@ impl PgCurrencyListItemRow {
     }
 }
 
-impl TryFrom<PgCurrencyListItemRow> for CurrencyListItemPart {
+impl TryFrom<PgCurrencyListItemRow> for CurrencyListItem {
     type Error = PgCurrencyListItemRowError;
 
     fn try_from(row: PgCurrencyListItemRow) -> Result<Self, Self::Error> {

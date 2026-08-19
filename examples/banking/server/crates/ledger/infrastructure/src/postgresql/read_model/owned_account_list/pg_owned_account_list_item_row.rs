@@ -1,7 +1,7 @@
 use appletheia::application::read_model::ReadModelObservation;
 use appletheia::domain::{AggregateId, EventId, EventOccurredAt};
 use banking_ledger_application::{
-    MaterializedAccountStatus, OwnedAccountListItemCurrencyPart, OwnedAccountListItemPart,
+    OwnedAccountListItem, OwnedAccountListItemCurrency, OwnedAccountListItemStatus,
 };
 use banking_ledger_domain::account::{AccountId, AccountName};
 use banking_ledger_domain::core::CurrencyAmount;
@@ -47,10 +47,10 @@ impl PgOwnedAccountListItemRow {
         ))
     }
 
-    fn status(value: String) -> Result<MaterializedAccountStatus, PgOwnedAccountListItemRowError> {
+    fn status(value: String) -> Result<OwnedAccountListItemStatus, PgOwnedAccountListItemRowError> {
         match value.as_str() {
-            "active" => Ok(MaterializedAccountStatus::Active),
-            "frozen" => Ok(MaterializedAccountStatus::Frozen),
+            "active" => Ok(OwnedAccountListItemStatus::Active),
+            "frozen" => Ok(OwnedAccountListItemStatus::Frozen),
             value => Err(PgOwnedAccountListItemRowError::UnknownStatus(
                 value.to_owned(),
             )),
@@ -65,7 +65,7 @@ impl PgOwnedAccountListItemRow {
     }
 }
 
-impl TryFrom<PgOwnedAccountListItemRow> for OwnedAccountListItemPart {
+impl TryFrom<PgOwnedAccountListItemRow> for OwnedAccountListItem {
     type Error = PgOwnedAccountListItemRowError;
 
     fn try_from(row: PgOwnedAccountListItemRow) -> Result<Self, Self::Error> {
@@ -80,7 +80,7 @@ impl TryFrom<PgOwnedAccountListItemRow> for OwnedAccountListItemPart {
             name: AccountName::try_from(row.name).map_err(|error| {
                 PgOwnedAccountListItemRowError::InvalidAccountName(Box::new(error))
             })?,
-            currency: OwnedAccountListItemCurrencyPart {
+            currency: OwnedAccountListItemCurrency {
                 id: CurrencyId::try_from_uuid(row.currency_id).map_err(|error| {
                     PgOwnedAccountListItemRowError::InvalidCurrencyId(Box::new(error))
                 })?,

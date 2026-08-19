@@ -1,5 +1,3 @@
-use super::{OrganizationFragment, UserFragment};
-
 mod organization_join_request_fragment;
 mod organization_join_request_fragment_projector;
 mod organization_join_request_fragment_projector_error;
@@ -7,8 +5,6 @@ mod organization_join_request_fragment_projector_spec;
 mod organization_join_request_fragment_upsert;
 mod organization_join_request_fragment_writer;
 mod organization_join_request_fragment_writer_error;
-mod organization_join_request_list_item_part;
-mod user_organization_join_request_list_item_part;
 
 pub use organization_join_request_fragment::OrganizationJoinRequestFragment;
 pub use organization_join_request_fragment_projector::OrganizationJoinRequestFragmentProjector;
@@ -17,5 +13,3 @@ pub use organization_join_request_fragment_projector_spec::OrganizationJoinReque
 pub use organization_join_request_fragment_upsert::OrganizationJoinRequestFragmentUpsert;
 pub use organization_join_request_fragment_writer::OrganizationJoinRequestFragmentWriter;
 pub use organization_join_request_fragment_writer_error::OrganizationJoinRequestFragmentWriterError;
-pub use organization_join_request_list_item_part::OrganizationJoinRequestListItemPart;
-pub use user_organization_join_request_list_item_part::UserOrganizationJoinRequestListItemPart;
