@@ -1,13 +1,13 @@
 use appletheia::application::read_model::ReadModelObservation;
 use appletheia::domain::{AggregateId, EventId, EventOccurredAt};
+use banking_iam_domain::{OrganizationId, UserId};
 use banking_ledger_application::{
     CurrencyFragment, CurrencyFragmentWriterError, MaterializedCurrencyStatus,
 };
-use banking_iam_domain::{OrganizationId, UserId};
 use banking_ledger_domain::core::CurrencyAmount;
 use banking_ledger_domain::currency::{
-    CurrencyDecimals, CurrencyDescription, CurrencyId, CurrencyName, CurrencySymbol,
-    CurrencyOwner, MintAccountAddress,
+    CurrencyDecimals, CurrencyDescription, CurrencyId, CurrencyName, CurrencyOwner, CurrencySymbol,
+    MintAccountAddress,
 };
 use sqlx::types::chrono::{DateTime, Utc};
 use uuid::Uuid;

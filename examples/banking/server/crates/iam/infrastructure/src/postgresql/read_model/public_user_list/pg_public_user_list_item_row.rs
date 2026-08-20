@@ -48,10 +48,12 @@ impl TryFrom<PgPublicUserListItemRow> for PublicUserListItem {
             .map_err(|error| PgPublicUserListItemRowError::Picture(Box::new(error)))?,
             created_at: EventOccurredAt::from(row.created_at),
             observation: ReadModelObservation::new(
-                EventId::try_from(row.source_event_id)
-                    .map_err(|error| PgPublicUserListItemRowError::SourceEventId(Box::new(error)))?,
-                EventId::try_from(row.updated_event_id)
-                    .map_err(|error| PgPublicUserListItemRowError::UpdatedEventId(Box::new(error)))?,
+                EventId::try_from(row.source_event_id).map_err(|error| {
+                    PgPublicUserListItemRowError::SourceEventId(Box::new(error))
+                })?,
+                EventId::try_from(row.updated_event_id).map_err(|error| {
+                    PgPublicUserListItemRowError::UpdatedEventId(Box::new(error))
+                })?,
             ),
         })
     }

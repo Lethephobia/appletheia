@@ -3,8 +3,8 @@ use appletheia::application::read_model::{
 };
 use appletheia::domain::EventOccurredAt;
 use banking_iam_domain::{
-    OrganizationInvitationExpiresAt, OrganizationInvitationId, OrganizationInvitationIssuer,
-    OrganizationId, OrganizationInvitationStatus, OrganizationRoles, UserId,
+    OrganizationId, OrganizationInvitationExpiresAt, OrganizationInvitationId,
+    OrganizationInvitationIssuer, OrganizationInvitationStatus, OrganizationRoles, UserId,
 };
 use serde::{Deserialize, Serialize};
 

@@ -1,9 +1,9 @@
 use appletheia::application::read_model::ReadModelObservation;
 use appletheia::domain::{AggregateId, EventId, EventOccurredAt};
+use banking_iam_domain::{OrganizationId, UserId};
 use banking_ledger_application::{
     AccountFragment, AccountFragmentWriterError, MaterializedAccountStatus,
 };
-use banking_iam_domain::{OrganizationId, UserId};
 use banking_ledger_domain::account::{AccountId, AccountName, AccountOwner};
 use banking_ledger_domain::core::CurrencyAmount;
 use banking_ledger_domain::currency::CurrencyId;

@@ -56,8 +56,9 @@ impl TryFrom<PgUserPublicProfileRow> for UserPublicProfile {
             observation: ReadModelObservation::new(
                 EventId::try_from(row.source_event_id)
                     .map_err(|error| PgUserPublicProfileRowError::SourceEventId(Box::new(error)))?,
-                EventId::try_from(row.updated_event_id)
-                    .map_err(|error| PgUserPublicProfileRowError::UpdatedEventId(Box::new(error)))?,
+                EventId::try_from(row.updated_event_id).map_err(|error| {
+                    PgUserPublicProfileRowError::UpdatedEventId(Box::new(error))
+                })?,
             ),
         })
     }
