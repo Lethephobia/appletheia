@@ -1,4 +1,6 @@
-use appletheia::application::authorization::{AuthorizationPlan, PrincipalRequirement};
+use appletheia::application::authorization::{
+    AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
+};
 use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
@@ -14,6 +16,7 @@ use super::{
     OrganizationMembershipCreateCommand, OrganizationMembershipCreateCommandHandlerError,
     OrganizationMembershipCreateOutput,
 };
+use crate::authorization::OrganizationMemberAdderRelation;
 
 /// Handles `OrganizationMembershipCreateCommand`.
 ///
@@ -71,12 +74,20 @@ where
     type Error = OrganizationMembershipCreateCommandHandlerError;
     type Uow = OR::Uow;
 
+    /// Accepts the invitation and join-request sagas as `System`, and
+    /// organization administrators adding a member directly.
     fn authorization_plan(
         &self,
-        _command: &Self::Command,
+        command: &Self::Command,
     ) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
             PrincipalRequirement::System,
+            PrincipalRequirement::AuthenticatedWithRelationship(RelationshipRequirement::check::<
+                Organization,
+            >(
+                command.organization_id,
+                OrganizationMemberAdderRelation::REF,
+            )),
         ]))
     }
 
@@ -189,5 +200,110 @@ where
         };
 
         Ok(output)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use appletheia::application::authorization::{
+        AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
+    };
+    use appletheia::application::command::CommandHandler;
+    use appletheia::application::repository::{Repository, RepositoryError};
+    use appletheia::application::request_context::RequestContext;
+    use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
+    use appletheia::domain::{Aggregate, AggregateVersion, UniqueKey, UniqueValue};
+    use banking_iam_domain::{Organization, OrganizationId, OrganizationRoles, UserId};
+
+    use super::{OrganizationMembershipCreateCommand, OrganizationMembershipCreateCommandHandler};
+    use crate::authorization::OrganizationMemberAdderRelation;
+
+    struct TestUow;
+
+    impl UnitOfWork for TestUow {
+        async fn commit(self) -> Result<(), UnitOfWorkError> {
+            Ok(())
+        }
+
+        async fn rollback(self) -> Result<(), UnitOfWorkError> {
+            Ok(())
+        }
+    }
+
+    /// Repositories are not exercised: `authorization_plan` reads only the command.
+    struct TestRepository;
+
+    impl<A> Repository<A> for TestRepository
+    where
+        A: Aggregate,
+    {
+        type Uow = TestUow;
+
+        async fn read(&self, _uow: &mut Self::Uow, _id: A::Id) -> Result<A, RepositoryError<A>> {
+            panic!("repository is not exercised by this test")
+        }
+
+        async fn read_at_version(
+            &self,
+            _uow: &mut Self::Uow,
+            _id: A::Id,
+            _at: AggregateVersion,
+        ) -> Result<A, RepositoryError<A>> {
+            panic!("repository is not exercised by this test")
+        }
+
+        async fn find_by_unique_value(
+            &self,
+            _uow: &mut Self::Uow,
+            _unique_key: UniqueKey,
+            _unique_value: &UniqueValue,
+        ) -> Result<Option<A>, RepositoryError<A>> {
+            panic!("repository is not exercised by this test")
+        }
+
+        async fn save(
+            &self,
+            _uow: &mut Self::Uow,
+            _request_context: &RequestContext,
+            _aggregate: &mut A,
+        ) -> Result<(), RepositoryError<A>> {
+            panic!("repository is not exercised by this test")
+        }
+    }
+
+    #[test]
+    fn authorization_plan_accepts_system_and_organization_admins() {
+        let handler: OrganizationMembershipCreateCommandHandler<
+            TestRepository,
+            TestRepository,
+            TestRepository,
+        > = OrganizationMembershipCreateCommandHandler::new(
+            TestRepository,
+            TestRepository,
+            TestRepository,
+        );
+        let organization_id = OrganizationId::new();
+        let command = OrganizationMembershipCreateCommand {
+            organization_id,
+            user_id: UserId::new(),
+            roles: OrganizationRoles::default(),
+        };
+
+        let plan = handler
+            .authorization_plan(&command)
+            .expect("authorization plan should build");
+
+        assert_eq!(
+            plan,
+            AuthorizationPlan::OnlyPrincipals(vec![
+                PrincipalRequirement::System,
+                PrincipalRequirement::AuthenticatedWithRelationship(
+                    RelationshipRequirement::check::<Organization>(
+                        organization_id,
+                        OrganizationMemberAdderRelation::REF,
+                    )
+                ),
+            ])
+        );
     }
 }

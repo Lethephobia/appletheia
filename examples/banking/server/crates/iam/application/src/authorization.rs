@@ -7,10 +7,11 @@ mod user;
 pub use organization::{
     DefaultOrganizationRelationshipUpdater, OrganizationAdminRelation,
     OrganizationFinanceManagerRelation, OrganizationHandleChangerRelation,
-    OrganizationInviterRelation, OrganizationMemberRelation, OrganizationOwnerRelation,
-    OrganizationOwnershipTransfererRelation, OrganizationProfileEditorRelation,
-    OrganizationRelationshipUpdater, OrganizationRelationshipUpdaterError,
-    OrganizationRemoverRelation, OrganizationTreasurerRelation,
+    OrganizationInviterRelation, OrganizationMemberAdderRelation, OrganizationMemberRelation,
+    OrganizationOwnerRelation, OrganizationOwnershipTransfererRelation,
+    OrganizationProfileEditorRelation, OrganizationRelationshipUpdater,
+    OrganizationRelationshipUpdaterError, OrganizationRemoverRelation,
+    OrganizationTreasurerRelation,
 };
 pub use organization_invitation::{
     DefaultOrganizationInvitationRelationshipUpdater, OrganizationInvitationCancelerRelation,
