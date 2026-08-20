@@ -23,6 +23,7 @@ CREATE INDEX IF NOT EXISTS user_identity_fragments_email_idx
 
 -- Shared organization membership fragments
 CREATE TABLE IF NOT EXISTS organization_membership_fragments (
+    organization_membership_id uuid NOT NULL,
     user_id uuid NOT NULL,
     organization_id uuid NOT NULL,
     roles jsonb NOT NULL,

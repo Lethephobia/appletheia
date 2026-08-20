@@ -7,6 +7,7 @@ mod public_organization_list;
 mod public_user_list;
 mod user_organization_invitation_list;
 mod user_organization_join_request_list;
+mod user_organization_membership_list;
 mod user_private_info;
 mod user_public_profile;
 
@@ -44,6 +45,10 @@ pub use user_organization_invitation_list::{
 pub use user_organization_join_request_list::{
     UserOrganizationJoinRequestListQuery, UserOrganizationJoinRequestListQueryHandler,
     UserOrganizationJoinRequestListQueryHandlerError,
+};
+pub use user_organization_membership_list::{
+    UserOrganizationMembershipListQuery, UserOrganizationMembershipListQueryHandler,
+    UserOrganizationMembershipListQueryHandlerError,
 };
 pub use user_private_info::{
     UserPrivateInfoQuery, UserPrivateInfoQueryHandler, UserPrivateInfoQueryHandlerError,

@@ -7,10 +7,7 @@ use appletheia::application::request_context::RequestContext;
 use banking_iam_domain::User;
 
 use crate::authorization::UserOwnerRelation;
-use crate::projection::{
-    OrganizationFragmentProjectorSpec, OrganizationMembershipFragmentProjectorSpec,
-    UserFragmentProjectorSpec, UserIdentityFragmentProjectorSpec,
-};
+use crate::projection::{UserFragmentProjectorSpec, UserIdentityFragmentProjectorSpec};
 use crate::read_model::{UserPrivateInfo, UserPrivateInfoReader};
 
 use super::{UserPrivateInfoQuery, UserPrivateInfoQueryHandlerError};
@@ -44,8 +41,6 @@ where
     const PROJECTOR_DEPENDENCIES: ProjectorDependencies<'static> = ProjectorDependencies::Some(&[
         UserFragmentProjectorSpec::DESCRIPTOR,
         UserIdentityFragmentProjectorSpec::DESCRIPTOR,
-        OrganizationMembershipFragmentProjectorSpec::DESCRIPTOR,
-        OrganizationFragmentProjectorSpec::DESCRIPTOR,
     ]);
 
     fn authorization_plan(&self, query: &Self::Query) -> Result<AuthorizationPlan, Self::Error> {

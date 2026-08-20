@@ -54,6 +54,7 @@ where
 
         if event.is_for_aggregate::<OrganizationMembership>() {
             let membership_event = event.try_into_domain_event::<OrganizationMembership>()?;
+            let organization_membership_id = membership_event.aggregate_id();
 
             match membership_event.payload() {
                 OrganizationMembershipEventPayload::Created {
@@ -67,6 +68,7 @@ where
                             uow,
                             event_context,
                             OrganizationMembershipFragmentUpsert {
+                                organization_membership_id,
                                 user_id: *user_id,
                                 organization_id: *organization_id,
                                 roles: roles.clone(),

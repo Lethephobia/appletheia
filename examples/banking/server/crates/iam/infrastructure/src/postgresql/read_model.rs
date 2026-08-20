@@ -7,6 +7,7 @@ mod public_organization_list;
 mod public_user_list;
 mod user_organization_invitation_list;
 mod user_organization_join_request_list;
+mod user_organization_membership_list;
 mod user_private_info;
 mod user_public_profile;
 
@@ -19,5 +20,6 @@ pub use public_organization_list::PgPublicOrganizationListReader;
 pub use public_user_list::PgPublicUserListReader;
 pub use user_organization_invitation_list::PgUserOrganizationInvitationListReader;
 pub use user_organization_join_request_list::PgUserOrganizationJoinRequestListReader;
+pub use user_organization_membership_list::PgUserOrganizationMembershipListReader;
 pub use user_private_info::PgUserPrivateInfoReader;
 pub use user_public_profile::PgUserPublicProfileReader;

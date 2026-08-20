@@ -3,13 +3,14 @@ use appletheia::domain::{AggregateId, EventId, EventOccurredAt};
 use banking_iam_application::{
     OrganizationMembershipFragment, OrganizationMembershipFragmentWriterError,
 };
-use banking_iam_domain::{OrganizationId, OrganizationRoles, UserId};
+use banking_iam_domain::{OrganizationId, OrganizationMembershipId, OrganizationRoles, UserId};
 use sqlx::types::Json;
 use sqlx::types::chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 #[derive(Debug, sqlx::FromRow)]
 pub struct PgOrganizationMembershipFragmentRow {
+    pub organization_membership_id: Uuid,
     pub user_id: Uuid,
     pub organization_id: Uuid,
     pub roles: Json<OrganizationRoles>,
@@ -23,6 +24,10 @@ impl TryFrom<PgOrganizationMembershipFragmentRow> for OrganizationMembershipFrag
 
     fn try_from(row: PgOrganizationMembershipFragmentRow) -> Result<Self, Self::Error> {
         Ok(OrganizationMembershipFragment {
+            organization_membership_id: OrganizationMembershipId::try_from_uuid(
+                row.organization_membership_id,
+            )
+            .map_err(persistence_error)?,
             user_id: UserId::try_from_uuid(row.user_id).map_err(persistence_error)?,
             organization_id: OrganizationId::try_from_uuid(row.organization_id)
                 .map_err(persistence_error)?,

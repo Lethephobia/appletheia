@@ -60,17 +60,19 @@ impl OrganizationMembershipFragmentWriter for PgOrganizationMembershipFragmentWr
         let row = sqlx::query_as::<_, PgOrganizationMembershipFragmentRow>(
             r#"
             INSERT INTO organization_membership_fragments (
-                user_id, organization_id, roles, updated_at, created_at,
-                source_event_sequence, updated_event_sequence, source_event_id, updated_event_id
+                organization_membership_id, user_id, organization_id, roles, updated_at,
+                created_at, source_event_sequence, updated_event_sequence, source_event_id,
+                updated_event_id
             )
-            VALUES ($1, $2, $3::jsonb, $4, $4, $5, $5, $6, $6)
+            VALUES ($7, $1, $2, $3::jsonb, $4, $4, $5, $5, $6, $6)
             ON CONFLICT (user_id, organization_id) DO UPDATE SET
+                organization_membership_id = EXCLUDED.organization_membership_id,
                 roles = EXCLUDED.roles,
                 updated_at = EXCLUDED.updated_at,
                 updated_event_id = EXCLUDED.updated_event_id,
                 updated_event_sequence = EXCLUDED.updated_event_sequence
             WHERE organization_membership_fragments.updated_event_sequence < EXCLUDED.updated_event_sequence
-            RETURNING user_id, organization_id, roles, created_at,
+            RETURNING organization_membership_id, user_id, organization_id, roles, created_at,
                       source_event_id, updated_event_id
             "#,
         )
@@ -80,6 +82,7 @@ impl OrganizationMembershipFragmentWriter for PgOrganizationMembershipFragmentWr
         .bind(event_context.occurred_at.value())
         .bind(event_context.event_sequence.value())
         .bind(event_context.event_id.value())
+        .bind(upsert.organization_membership_id.value())
         .fetch_optional(uow.transaction_mut().as_mut())
         .await
         .map_err(|error| {
@@ -108,7 +111,7 @@ impl OrganizationMembershipFragmentWriter for PgOrganizationMembershipFragmentWr
              WHERE user_id = $1
                AND organization_id = $2
                AND updated_event_sequence < $5
-            RETURNING user_id, organization_id, roles, created_at,
+            RETURNING organization_membership_id, user_id, organization_id, roles, created_at,
                       source_event_id, updated_event_id
             "#,
         )

@@ -2,7 +2,7 @@ use appletheia::application::read_model::{
     ReadModelFragment, ReadModelFragmentName, ReadModelObservation, ReadModelObservationSource,
 };
 use appletheia::domain::EventOccurredAt;
-use banking_iam_domain::{OrganizationId, OrganizationRoles, UserId};
+use banking_iam_domain::{OrganizationId, OrganizationMembershipId, OrganizationRoles, UserId};
 use serde::{Deserialize, Serialize};
 
 use super::OrganizationMembershipFragmentKey;
@@ -10,6 +10,7 @@ use super::OrganizationMembershipFragmentKey;
 /// Normalized organization membership fragment shared by read models.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct OrganizationMembershipFragment {
+    pub organization_membership_id: OrganizationMembershipId,
     pub user_id: UserId,
     pub organization_id: OrganizationId,
     pub roles: OrganizationRoles,

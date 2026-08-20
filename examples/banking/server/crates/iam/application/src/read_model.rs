@@ -7,6 +7,7 @@ mod public_organization_list;
 mod public_user_list;
 mod user_organization_invitation_list;
 mod user_organization_join_request_list;
+mod user_organization_membership_list;
 mod user_private_info;
 mod user_public_profile;
 pub use organization_internal_info::{
@@ -61,9 +62,14 @@ pub use user_organization_join_request_list::{
     UserOrganizationJoinRequestListReader, UserOrganizationJoinRequestListReaderError,
     UserOrganizationJoinRequestListSortKey, UserOrganizationJoinRequestListUser,
 };
+pub use user_organization_membership_list::{
+    UserOrganizationMembershipList, UserOrganizationMembershipListCursor,
+    UserOrganizationMembershipListItem, UserOrganizationMembershipListOrganization,
+    UserOrganizationMembershipListReader, UserOrganizationMembershipListReaderError,
+    UserOrganizationMembershipListSortKey, UserOrganizationMembershipListUser,
+};
 pub use user_private_info::{
-    UserPrivateInfo, UserPrivateInfoIdentity, UserPrivateInfoOrganization,
-    UserPrivateInfoOrganizationMembership, UserPrivateInfoReader, UserPrivateInfoReaderError,
+    UserPrivateInfo, UserPrivateInfoIdentity, UserPrivateInfoReader, UserPrivateInfoReaderError,
     UserPrivateInfoStatus, UserPrivateInfoStatusError,
 };
 pub use user_public_profile::{

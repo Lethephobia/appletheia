@@ -18,5 +18,5 @@ pub use read_model::{
     PgOrganizationJoinRequestListReader, PgOrganizationManagementInfoReader,
     PgOrganizationMemberListReader, PgPublicOrganizationListReader, PgPublicUserListReader,
     PgUserOrganizationInvitationListReader, PgUserOrganizationJoinRequestListReader,
-    PgUserPrivateInfoReader, PgUserPublicProfileReader,
+    PgUserOrganizationMembershipListReader, PgUserPrivateInfoReader, PgUserPublicProfileReader,
 };
