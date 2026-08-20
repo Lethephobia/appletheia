@@ -15,7 +15,7 @@ impl OrganizationInvitationSagaState {
     pub fn new(organization_invitation_id: OrganizationInvitationId) -> Self {
         Self {
             organization_invitation_id,
-            status: OrganizationInvitationSagaStatus::MembershipGrantRequested,
+            status: OrganizationInvitationSagaStatus::MembershipCreateRequested,
         }
     }
 }

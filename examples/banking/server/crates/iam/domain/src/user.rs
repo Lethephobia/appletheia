@@ -1,4 +1,3 @@
-mod organization_membership;
 mod user_activate_result;
 mod user_bio;
 mod user_bio_change_rejection_reason;
@@ -33,13 +32,6 @@ mod user_username_change_result;
 mod username;
 mod username_error;
 
-pub use organization_membership::{
-    OrganizationMembership, OrganizationMembershipGrant,
-    OrganizationMembershipGrantRejectionReason, OrganizationMembershipGrantResult,
-    OrganizationMembershipRemoveRejectionReason, OrganizationMembershipRemoveResult,
-    OrganizationMembershipRolesChangeRejectionReason, OrganizationMembershipRolesChangeResult,
-    OrganizationRole, OrganizationRoles,
-};
 pub use user_activate_result::UserActivateResult;
 pub use user_bio::UserBio;
 pub use user_bio_change_rejection_reason::UserBioChangeRejectionReason;
@@ -83,8 +75,6 @@ use appletheia::aggregate;
 use appletheia::domain::{Aggregate, AggregateApply, AggregateCore};
 use banking_shared_kernel_domain::contact::Email;
 
-use crate::OrganizationId;
-
 /// Represents the `User` aggregate root.
 #[aggregate(type = "user", error = UserError)]
 pub struct User {
@@ -93,7 +83,6 @@ pub struct User {
 
 impl User {
     pub const MAX_IDENTITY_COUNT: usize = 32;
-    pub const MAX_ORGANIZATION_MEMBERSHIP_COUNT: usize = 32;
 
     /// Returns the linked external identities.
     pub fn identities(&self) -> Result<&[UserIdentity], UserError> {
@@ -111,31 +100,6 @@ impl User {
             .identities
             .iter()
             .find(|identity| identity.matches(provider, subject)))
-    }
-
-    /// Returns the organization memberships owned by this user.
-    pub fn organization_memberships(&self) -> Result<&[OrganizationMembership], UserError> {
-        Ok(&self.state_required()?.organization_memberships)
-    }
-
-    /// Returns an organization membership by organization id.
-    pub fn organization_membership(
-        &self,
-        organization_id: OrganizationId,
-    ) -> Result<Option<&OrganizationMembership>, UserError> {
-        Ok(self
-            .state_required()?
-            .organization_memberships
-            .iter()
-            .find(|membership| membership.organization_id() == organization_id))
-    }
-
-    /// Returns whether the user belongs to an organization.
-    pub fn is_organization_member(
-        &self,
-        organization_id: OrganizationId,
-    ) -> Result<bool, UserError> {
-        Ok(self.organization_membership(organization_id)?.is_some())
     }
 
     /// Returns the current username.
@@ -466,171 +430,6 @@ impl User {
         Ok(())
     }
 
-    /// Grants an organization membership to this user.
-    pub fn grant_organization_membership(
-        &mut self,
-        grant: OrganizationMembershipGrant,
-    ) -> Result<OrganizationMembershipGrantResult, UserError> {
-        let organization_id = grant.organization_id;
-
-        match self.state_required()?.status {
-            UserStatus::Removed => {
-                let reason = OrganizationMembershipGrantRejectionReason::Removed;
-                self.reject_grant_organization_membership(grant, reason)?;
-                return Ok(OrganizationMembershipGrantResult::Rejected { reason });
-            }
-            UserStatus::Inactive => {
-                let reason = OrganizationMembershipGrantRejectionReason::Inactive;
-                self.reject_grant_organization_membership(grant, reason)?;
-                return Ok(OrganizationMembershipGrantResult::Rejected { reason });
-            }
-            UserStatus::Active => {}
-        }
-
-        if self
-            .state_required()?
-            .organization_memberships
-            .iter()
-            .any(|membership| membership.organization_id() == organization_id)
-        {
-            let reason = OrganizationMembershipGrantRejectionReason::AlreadyMember;
-            self.reject_grant_organization_membership(grant, reason)?;
-            return Ok(OrganizationMembershipGrantResult::Rejected { reason });
-        }
-
-        if self.state_required()?.organization_memberships.len()
-            >= Self::MAX_ORGANIZATION_MEMBERSHIP_COUNT
-        {
-            let reason = OrganizationMembershipGrantRejectionReason::CountLimitExceeded;
-            self.reject_grant_organization_membership(grant, reason)?;
-            return Ok(OrganizationMembershipGrantResult::Rejected { reason });
-        }
-
-        let (organization_id, roles) = grant.into_parts();
-        self.append_event(UserEventPayload::OrganizationMembershipGranted {
-            organization_id,
-            roles,
-        })?;
-        Ok(OrganizationMembershipGrantResult::Granted)
-    }
-
-    /// Rejects an organization membership grant attempt.
-    pub fn reject_grant_organization_membership(
-        &mut self,
-        grant: OrganizationMembershipGrant,
-        reason: OrganizationMembershipGrantRejectionReason,
-    ) -> Result<(), UserError> {
-        let (organization_id, roles) = grant.into_parts();
-        self.append_event(UserEventPayload::OrganizationMembershipGrantRejected {
-            organization_id,
-            roles,
-            reason,
-        })?;
-        Ok(())
-    }
-
-    /// Changes roles for an organization membership.
-    pub fn change_organization_membership_roles(
-        &mut self,
-        organization_id: OrganizationId,
-        roles: OrganizationRoles,
-    ) -> Result<OrganizationMembershipRolesChangeResult, UserError> {
-        match self.state_required()?.status {
-            UserStatus::Removed => {
-                let reason = OrganizationMembershipRolesChangeRejectionReason::Removed;
-                self.reject_change_organization_membership_roles(organization_id, roles, reason)?;
-                return Ok(OrganizationMembershipRolesChangeResult::Rejected { reason });
-            }
-            UserStatus::Inactive => {
-                let reason = OrganizationMembershipRolesChangeRejectionReason::Inactive;
-                self.reject_change_organization_membership_roles(organization_id, roles, reason)?;
-                return Ok(OrganizationMembershipRolesChangeResult::Rejected { reason });
-            }
-            UserStatus::Active => {}
-        }
-
-        if self
-            .state_required()?
-            .organization_memberships
-            .iter()
-            .all(|membership| membership.organization_id() != organization_id)
-        {
-            let reason = OrganizationMembershipRolesChangeRejectionReason::NotMember;
-            self.reject_change_organization_membership_roles(organization_id, roles, reason)?;
-            return Ok(OrganizationMembershipRolesChangeResult::Rejected { reason });
-        }
-
-        self.append_event(UserEventPayload::OrganizationMembershipRolesChanged {
-            organization_id,
-            roles,
-        })?;
-        Ok(OrganizationMembershipRolesChangeResult::Changed)
-    }
-
-    /// Rejects an organization membership roles change attempt.
-    pub fn reject_change_organization_membership_roles(
-        &mut self,
-        organization_id: OrganizationId,
-        roles: OrganizationRoles,
-        reason: OrganizationMembershipRolesChangeRejectionReason,
-    ) -> Result<(), UserError> {
-        self.append_event(
-            UserEventPayload::OrganizationMembershipRolesChangeRejected {
-                organization_id,
-                roles,
-                reason,
-            },
-        )?;
-        Ok(())
-    }
-
-    /// Removes an organization membership from this user.
-    pub fn remove_organization_membership(
-        &mut self,
-        organization_id: OrganizationId,
-    ) -> Result<OrganizationMembershipRemoveResult, UserError> {
-        match self.state_required()?.status {
-            UserStatus::Removed => {
-                let reason = OrganizationMembershipRemoveRejectionReason::Removed;
-                self.reject_remove_organization_membership(organization_id, reason)?;
-                return Ok(OrganizationMembershipRemoveResult::Rejected { reason });
-            }
-            UserStatus::Inactive => {
-                let reason = OrganizationMembershipRemoveRejectionReason::Inactive;
-                self.reject_remove_organization_membership(organization_id, reason)?;
-                return Ok(OrganizationMembershipRemoveResult::Rejected { reason });
-            }
-            UserStatus::Active => {}
-        }
-
-        if self
-            .state_required()?
-            .organization_memberships
-            .iter()
-            .all(|membership| membership.organization_id() != organization_id)
-        {
-            let reason = OrganizationMembershipRemoveRejectionReason::NotMember;
-            self.reject_remove_organization_membership(organization_id, reason)?;
-            return Ok(OrganizationMembershipRemoveResult::Rejected { reason });
-        }
-
-        self.append_event(UserEventPayload::OrganizationMembershipRemoved { organization_id })?;
-        Ok(OrganizationMembershipRemoveResult::Removed)
-    }
-
-    /// Rejects an organization membership remove attempt.
-    pub fn reject_remove_organization_membership(
-        &mut self,
-        organization_id: OrganizationId,
-        reason: OrganizationMembershipRemoveRejectionReason,
-    ) -> Result<(), UserError> {
-        self.append_event(UserEventPayload::OrganizationMembershipRemoveRejected {
-            organization_id,
-            reason,
-        })?;
-        Ok(())
-    }
-
     /// Activates an inactive user.
     pub fn activate(&mut self) -> Result<UserActivateResult, UserError> {
         if self.state_required()?.status.is_removed() {
@@ -708,7 +507,6 @@ impl AggregateApply<UserEventPayload, UserError> for User {
                 display_name: None,
                 bio: None,
                 picture: None,
-                organization_memberships: Vec::new(),
                 status: UserStatus::Active,
             })),
             UserEventPayload::IdentityLinked { identity } => {
@@ -751,37 +549,6 @@ impl AggregateApply<UserEventPayload, UserError> for User {
                 self.state_required_mut()?.picture = picture.clone();
             }
             UserEventPayload::PictureChangeRejected { .. } => {}
-            UserEventPayload::OrganizationMembershipGranted {
-                organization_id,
-                roles,
-            } => {
-                self.state_required_mut()?
-                    .organization_memberships
-                    .push(OrganizationMembership::new(*organization_id, roles.clone()));
-            }
-            UserEventPayload::OrganizationMembershipGrantRejected { .. } => {}
-            UserEventPayload::OrganizationMembershipRolesChanged {
-                organization_id,
-                roles,
-            } => {
-                let membership = self
-                    .state_required_mut()?
-                    .organization_memberships
-                    .iter_mut()
-                    .find(|membership| membership.organization_id() == *organization_id)
-                    .ok_or(UserError::InvalidOrganizationMembershipState)?;
-                membership.change_roles(roles.clone());
-            }
-            UserEventPayload::OrganizationMembershipRolesChangeRejected { .. } => {}
-            UserEventPayload::OrganizationMembershipRemoved { organization_id } => {
-                let memberships = &mut self.state_required_mut()?.organization_memberships;
-                let index = memberships
-                    .iter()
-                    .position(|membership| membership.organization_id() == *organization_id)
-                    .ok_or(UserError::InvalidOrganizationMembershipState)?;
-                let _ = memberships.remove(index);
-            }
-            UserEventPayload::OrganizationMembershipRemoveRejected { .. } => {}
             UserEventPayload::Activated => {
                 self.state_required_mut()?.status = UserStatus::Active;
             }

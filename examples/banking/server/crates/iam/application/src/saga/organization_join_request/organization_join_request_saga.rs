@@ -1,9 +1,10 @@
-use crate::command::UserOrganizationMembershipGrantCommand;
+use crate::command::OrganizationMembershipCreateCommand;
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::saga::{Saga, SagaInstance, SagaSpec};
 use banking_iam_domain::{
-    OrganizationJoinRequest, OrganizationJoinRequestEventPayload,
-    OrganizationMembershipGrantRejectionReason, OrganizationRoles, User, UserEventPayload,
+    OrganizationJoinRequest, OrganizationJoinRequestEventPayload, OrganizationMembership,
+    OrganizationMembershipCreateRejectionReason, OrganizationMembershipEventPayload,
+    OrganizationRoles,
 };
 
 use super::{
@@ -11,7 +12,7 @@ use super::{
     OrganizationJoinRequestSagaState, OrganizationJoinRequestSagaStatus,
 };
 
-/// Coordinates organization join request workflow into organization membership grant.
+/// Coordinates the organization join request workflow into organization membership creation.
 pub struct OrganizationJoinRequestSaga;
 
 impl Saga for OrganizationJoinRequestSaga {
@@ -36,25 +37,28 @@ impl Saga for OrganizationJoinRequestSaga {
 
                 instance.append_command(
                     event,
-                    &UserOrganizationMembershipGrantCommand {
-                        user_id: *requester_id,
+                    &OrganizationMembershipCreateCommand {
                         organization_id: *organization_id,
+                        user_id: *requester_id,
                         roles: OrganizationRoles::default(),
                     },
                 )?;
             }
 
             return Ok(());
-        } else if event.is_for_aggregate::<User>() {
-            let user_event = event.try_into_domain_event::<User>()?;
-            match user_event.payload() {
-                UserEventPayload::OrganizationMembershipGranted { .. } => {
+        } else if event.is_for_aggregate::<OrganizationMembership>() {
+            let membership_event = event.try_into_domain_event::<OrganizationMembership>()?;
+            match membership_event.payload() {
+                OrganizationMembershipEventPayload::Created { .. } => {
                     instance.state_required_mut()?.status =
-                        OrganizationJoinRequestSagaStatus::MembershipGranted;
+                        OrganizationJoinRequestSagaStatus::MembershipCreated;
                     instance.succeed();
                 }
-                UserEventPayload::OrganizationMembershipGrantRejected { reason, .. } => {
-                    if *reason == OrganizationMembershipGrantRejectionReason::AlreadyMember {
+                OrganizationMembershipEventPayload::CreateRejected { reason, .. } => {
+                    // A duplicate approval delivery finds the pair already
+                    // taken; that is a successful outcome for this workflow,
+                    // not a failure to compensate.
+                    if *reason == OrganizationMembershipCreateRejectionReason::AlreadyMember {
                         instance.state_required_mut()?.status =
                             OrganizationJoinRequestSagaStatus::AlreadyMember;
                         instance.succeed();
@@ -87,11 +91,12 @@ mod tests {
     use appletheia::domain::{Aggregate, AggregateId, EventId, EventOccurredAt, EventPayload};
     use banking_iam_domain::{
         OrganizationId, OrganizationJoinRequest, OrganizationJoinRequestEventPayload,
-        OrganizationJoinRequestId, OrganizationMembershipGrantRejectionReason, OrganizationRoles,
-        User, UserEventPayload, UserId,
+        OrganizationJoinRequestId, OrganizationMembership,
+        OrganizationMembershipCreateRejectionReason, OrganizationMembershipEventPayload,
+        OrganizationMembershipId, OrganizationRoles, User, UserId,
     };
 
-    use crate::command::UserOrganizationMembershipGrantCommand;
+    use crate::command::OrganizationMembershipCreateCommand;
 
     use super::{OrganizationJoinRequestSaga, OrganizationJoinRequestSagaSpec};
 
@@ -137,18 +142,19 @@ mod tests {
         }
     }
 
-    fn user_membership_granted_event_envelope(correlation_id: CorrelationId) -> EventEnvelope {
-        let user_id = UserId::new();
-        let payload = UserEventPayload::OrganizationMembershipGranted {
+    fn membership_created_event_envelope(correlation_id: CorrelationId) -> EventEnvelope {
+        let membership_id = OrganizationMembershipId::new();
+        let payload = OrganizationMembershipEventPayload::Created {
             organization_id: OrganizationId::new(),
+            user_id: UserId::new(),
             roles: OrganizationRoles::default(),
         };
 
         EventEnvelope {
             event_sequence: EventSequence::try_from(2).expect("sequence should be valid"),
             event_id: EventId::new(),
-            aggregate_type: AggregateTypeOwned::from(User::TYPE),
-            aggregate_id: AggregateIdValue::from(user_id.value()),
+            aggregate_type: AggregateTypeOwned::from(OrganizationMembership::TYPE),
+            aggregate_id: AggregateIdValue::from(membership_id.value()),
             aggregate_version: appletheia::domain::AggregateVersion::try_from(1)
                 .expect("version should be valid"),
             event_name: EventNameOwned::from(payload.name()),
@@ -163,21 +169,23 @@ mod tests {
         }
     }
 
-    fn user_membership_grant_rejected_event_envelope(
+    fn membership_create_rejected_event_envelope(
         correlation_id: CorrelationId,
+        reason: OrganizationMembershipCreateRejectionReason,
     ) -> EventEnvelope {
-        let user_id = UserId::new();
-        let payload = UserEventPayload::OrganizationMembershipGrantRejected {
+        let membership_id = OrganizationMembershipId::new();
+        let payload = OrganizationMembershipEventPayload::CreateRejected {
             organization_id: OrganizationId::new(),
+            user_id: UserId::new(),
             roles: OrganizationRoles::default(),
-            reason: OrganizationMembershipGrantRejectionReason::OrganizationRemoved,
+            reason,
         };
 
         EventEnvelope {
             event_sequence: EventSequence::try_from(2).expect("sequence should be valid"),
             event_id: EventId::new(),
-            aggregate_type: AggregateTypeOwned::from(User::TYPE),
-            aggregate_id: AggregateIdValue::from(user_id.value()),
+            aggregate_type: AggregateTypeOwned::from(OrganizationMembership::TYPE),
+            aggregate_id: AggregateIdValue::from(membership_id.value()),
             aggregate_version: appletheia::domain::AggregateVersion::try_from(1)
                 .expect("version should be valid"),
             event_name: EventNameOwned::from(payload.name()),
@@ -193,7 +201,7 @@ mod tests {
     }
 
     #[test]
-    fn approved_event_appends_user_membership_grant_command() {
+    fn approved_event_appends_membership_create_command() {
         let saga = OrganizationJoinRequestSaga;
         let correlation_id = CorrelationId::from(Uuid::now_v7());
         let organization_id = OrganizationId::new();
@@ -219,7 +227,7 @@ mod tests {
 
         assert_eq!(instance.status, SagaStatus::InProgress);
         assert_eq!(instance.uncommitted_commands().len(), 1);
-        let command: UserOrganizationMembershipGrantCommand = instance.uncommitted_commands()[0]
+        let command: OrganizationMembershipCreateCommand = instance.uncommitted_commands()[0]
             .try_into_command()
             .expect("command should deserialize");
         assert_eq!(command.user_id, requester_id);
@@ -228,7 +236,7 @@ mod tests {
     }
 
     #[test]
-    fn granted_user_membership_completes_saga() {
+    fn created_membership_completes_saga() {
         let saga = OrganizationJoinRequestSaga;
         let correlation_id = CorrelationId::from(Uuid::now_v7());
         let organization_id = OrganizationId::new();
@@ -253,16 +261,16 @@ mod tests {
         .expect("approved event should be handled");
         saga.on_event(
             &mut instance,
-            &user_membership_granted_event_envelope(correlation_id),
+            &membership_created_event_envelope(correlation_id),
         )
-        .expect("membership granted event should be handled");
+        .expect("membership created event should be handled");
 
         assert_eq!(instance.status, SagaStatus::Succeeded);
         assert!(instance.uncommitted_commands().is_empty());
     }
 
     #[test]
-    fn grant_rejected_user_membership_fails_saga() {
+    fn create_rejected_membership_fails_saga() {
         let saga = OrganizationJoinRequestSaga;
         let correlation_id = CorrelationId::from(Uuid::now_v7());
         let organization_id = OrganizationId::new();
@@ -287,11 +295,51 @@ mod tests {
         .expect("approved event should be handled");
         saga.on_event(
             &mut instance,
-            &user_membership_grant_rejected_event_envelope(correlation_id),
+            &membership_create_rejected_event_envelope(
+                correlation_id,
+                OrganizationMembershipCreateRejectionReason::OrganizationRemoved,
+            ),
         )
-        .expect("membership grant rejected event should be handled");
+        .expect("membership create rejected event should be handled");
 
         assert_eq!(instance.status, SagaStatus::Failed);
+        assert!(instance.uncommitted_commands().is_empty());
+    }
+
+    #[test]
+    fn already_member_create_rejection_completes_saga() {
+        let saga = OrganizationJoinRequestSaga;
+        let correlation_id = CorrelationId::from(Uuid::now_v7());
+        let organization_id = OrganizationId::new();
+        let join_request_id = OrganizationJoinRequestId::new();
+        let requester_id = UserId::new();
+        let mut instance =
+            SagaInstance::<<OrganizationJoinRequestSagaSpec as SagaSpec>::State>::new(
+                SagaNameOwned::from(OrganizationJoinRequestSagaSpec::DESCRIPTOR.name),
+                correlation_id,
+                EventId::new(),
+            );
+
+        saga.on_event(
+            &mut instance,
+            &join_request_approved_event_envelope(
+                correlation_id,
+                organization_id,
+                join_request_id,
+                requester_id,
+            ),
+        )
+        .expect("approved event should be handled");
+        saga.on_event(
+            &mut instance,
+            &membership_create_rejected_event_envelope(
+                correlation_id,
+                OrganizationMembershipCreateRejectionReason::AlreadyMember,
+            ),
+        )
+        .expect("membership create rejected event should be handled");
+
+        assert_eq!(instance.status, SagaStatus::Succeeded);
         assert!(instance.uncommitted_commands().is_empty());
     }
 }

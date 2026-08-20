@@ -115,12 +115,6 @@ where
             | UserEventPayload::BioChangeRejected { .. }
             | UserEventPayload::PictureChanged { .. }
             | UserEventPayload::PictureChangeRejected { .. }
-            | UserEventPayload::OrganizationMembershipGranted { .. }
-            | UserEventPayload::OrganizationMembershipGrantRejected { .. }
-            | UserEventPayload::OrganizationMembershipRolesChanged { .. }
-            | UserEventPayload::OrganizationMembershipRolesChangeRejected { .. }
-            | UserEventPayload::OrganizationMembershipRemoved { .. }
-            | UserEventPayload::OrganizationMembershipRemoveRejected { .. }
             | UserEventPayload::Activated
             | UserEventPayload::ActivateRejected { .. }
             | UserEventPayload::Deactivated

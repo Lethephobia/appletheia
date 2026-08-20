@@ -15,7 +15,7 @@ impl OrganizationJoinRequestSagaState {
     pub fn new(organization_join_request_id: OrganizationJoinRequestId) -> Self {
         Self {
             organization_join_request_id,
-            status: OrganizationJoinRequestSagaStatus::MembershipGrantRequested,
+            status: OrganizationJoinRequestSagaStatus::MembershipCreateRequested,
         }
     }
 }

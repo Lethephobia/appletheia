@@ -17,7 +17,4 @@ pub enum UserError {
 
     #[error("user identity state is invalid")]
     InvalidIdentityState,
-
-    #[error("user organization membership state is invalid")]
-    InvalidOrganizationMembershipState,
 }
