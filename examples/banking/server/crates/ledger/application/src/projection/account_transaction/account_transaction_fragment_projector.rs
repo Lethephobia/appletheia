@@ -63,6 +63,7 @@ where
                     token_binding_id,
                     amount,
                     note,
+                    ..
                 } => {
                     if let Some(fragment) = self
                         .account_transaction_fragment_writer

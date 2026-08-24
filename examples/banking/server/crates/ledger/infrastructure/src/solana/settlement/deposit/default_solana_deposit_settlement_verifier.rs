@@ -67,6 +67,8 @@ impl SolanaDepositSettlementVerifier for DefaultSolanaDepositSettlementVerifier 
         let receipt = DepositSettlementReceipt::try_deserialize(&mut account.data.as_slice())
             .map_err(|error| DepositSettlementVerifierError::Backend(Box::new(error)))?;
         let expected_mint = Pubkey::new_from_array(*request.token_address().address().as_bytes());
+        let expected_token_account_owner =
+            Pubkey::new_from_array(*request.token_owner_address().address().as_bytes());
         let mint_account = self
             .rpc_client
             .get_account(&expected_mint)
@@ -94,6 +96,7 @@ impl SolanaDepositSettlementVerifier for DefaultSolanaDepositSettlementVerifier 
         if receipt.version != DepositSettlementReceipt::VERSION
             || receipt.mint != expected_mint
             || receipt.pool_token_account != expected_pool_token_account
+            || receipt.token_account_owner != expected_token_account_owner
             || receipt.token_amount != expected_amount
         {
             return Err(DepositSettlementVerifierError::Backend(Box::new(

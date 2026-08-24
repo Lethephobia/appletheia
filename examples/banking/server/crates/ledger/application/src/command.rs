@@ -107,9 +107,14 @@ pub use owned_account_closure::{
 };
 pub use token_binding::{
     TokenBindingDefineCommand, TokenBindingDefineCommandHandler,
-    TokenBindingDefineCommandHandlerError, TokenBindingDefineOutput, TokenBindingRemoveCommand,
-    TokenBindingRemoveCommandHandler, TokenBindingRemoveCommandHandlerError,
-    TokenBindingRemoveOutput,
+    TokenBindingDefineCommandHandlerError, TokenBindingDefineOutput,
+    TokenBindingDepositEnabledChangeCommand, TokenBindingDepositEnabledChangeCommandHandler,
+    TokenBindingDepositEnabledChangeCommandHandlerError, TokenBindingDepositEnabledChangeOutput,
+    TokenBindingRemoveCommand, TokenBindingRemoveCommandHandler,
+    TokenBindingRemoveCommandHandlerError, TokenBindingRemoveOutput,
+    TokenBindingWithdrawalEnabledChangeCommand, TokenBindingWithdrawalEnabledChangeCommandHandler,
+    TokenBindingWithdrawalEnabledChangeCommandHandlerError,
+    TokenBindingWithdrawalEnabledChangeOutput,
 };
 pub use transfer::{
     TransferCompleteCommand, TransferCompleteCommandHandler, TransferCompleteOutput,

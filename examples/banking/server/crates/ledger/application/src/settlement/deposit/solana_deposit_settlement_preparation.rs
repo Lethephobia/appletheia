@@ -1,6 +1,6 @@
-use super::PreparedDepositTransaction;
+use super::SolanaPreparedDepositTransaction;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SolanaDepositSettlementPreparation {
-    pub transaction: PreparedDepositTransaction,
+    pub transaction: SolanaPreparedDepositTransaction,
 }

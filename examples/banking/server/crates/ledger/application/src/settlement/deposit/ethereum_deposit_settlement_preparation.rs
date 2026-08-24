@@ -1,6 +1,6 @@
-use super::PreparedDepositTransaction;
+use super::EvmPreparedDepositTransaction;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct EthereumDepositSettlementPreparation {
-    pub transaction: PreparedDepositTransaction,
+    pub transaction: EvmPreparedDepositTransaction,
 }

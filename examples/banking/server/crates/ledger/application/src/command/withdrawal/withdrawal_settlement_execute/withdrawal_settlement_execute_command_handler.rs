@@ -104,7 +104,11 @@ where
             .read(uow, token_binding_id)
             .await
         {
-            Ok(token_binding) if token_binding.is_active()? => token_binding,
+            Ok(token_binding)
+                if token_binding.is_active()? && token_binding.is_withdrawal_enabled()? =>
+            {
+                token_binding
+            }
             Ok(_) | Err(RepositoryError::NotFound { .. }) => {
                 let reason = WithdrawalSettlementExecuteRejectionReason::TokenBindingUnavailable;
                 withdrawal.reject_settlement_execute(None, reason)?;

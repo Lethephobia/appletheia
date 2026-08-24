@@ -1,4 +1,6 @@
-use banking_ledger_domain::core::{ChainNetwork, OnchainTransactionId, TokenAddress};
+use banking_ledger_domain::core::{
+    ChainNetwork, OnchainTransactionId, TokenAddress, TokenOwnerAddress,
+};
 
 use super::{
     DepositSettlementVerification, DepositSettlementVerifier, DepositSettlementVerifierError,
@@ -38,11 +40,13 @@ where
         let transaction_id = match (
             request.chain_network,
             request.token_address,
+            request.token_owner_address,
             request.transaction_id,
         ) {
             (
                 ChainNetwork::Solana(network),
                 TokenAddress::Solana(token_address),
+                TokenOwnerAddress::Solana(token_owner_address),
                 OnchainTransactionId::Solana(transaction_id),
             ) => {
                 let verification = self
@@ -52,6 +56,7 @@ where
                         request.currency_decimals,
                         network,
                         token_address,
+                        token_owner_address,
                         request.amount,
                         transaction_id,
                     ))
@@ -61,6 +66,7 @@ where
             (
                 ChainNetwork::Ethereum(network),
                 TokenAddress::Ethereum(token_address),
+                TokenOwnerAddress::Ethereum(token_owner_address),
                 OnchainTransactionId::Ethereum(transaction_id),
             ) => {
                 let verification = self
@@ -70,6 +76,7 @@ where
                         request.currency_decimals,
                         network,
                         token_address,
+                        token_owner_address,
                         request.amount,
                         transaction_id,
                     ))
@@ -87,8 +94,9 @@ where
 mod tests {
     use banking_ledger_domain::core::{
         ChainNetwork, CurrencyAmount, CurrencyDecimals, EthereumNetwork, EvmAddress,
-        EvmTokenContractAddress, EvmTransactionHash, OnchainTransactionId, SolanaAccountAddress,
-        SolanaMintAccountAddress, SolanaNetwork, SolanaTransactionSignature, TokenAddress,
+        EvmTokenContractAddress, EvmTokenOwnerAddress, EvmTransactionHash, OnchainTransactionId,
+        SolanaAccountAddress, SolanaMintAccountAddress, SolanaNetwork, SolanaTokenOwnerAddress,
+        SolanaTransactionSignature, TokenAddress, TokenOwnerAddress,
     };
     use banking_ledger_domain::deposit::DepositId;
 
@@ -168,6 +176,9 @@ mod tests {
             token_address: TokenAddress::Ethereum(EvmTokenContractAddress::new(
                 EvmAddress::from_bytes([3; 20]),
             )),
+            token_owner_address: TokenOwnerAddress::Solana(SolanaTokenOwnerAddress::new(
+                SolanaAccountAddress::from_bytes([4; 32]),
+            )),
             amount: CurrencyAmount::new(100),
             transaction_id: OnchainTransactionId::Solana(SolanaTransactionSignature::from_bytes(
                 [1; 64],
@@ -188,6 +199,9 @@ mod tests {
             token_address: TokenAddress::Solana(SolanaMintAccountAddress::new(
                 SolanaAccountAddress::from_bytes([3; 32]),
             )),
+            token_owner_address: TokenOwnerAddress::Solana(SolanaTokenOwnerAddress::new(
+                SolanaAccountAddress::from_bytes([4; 32]),
+            )),
             amount: CurrencyAmount::new(100),
             transaction_id: OnchainTransactionId::Solana(SolanaTransactionSignature::from_bytes(
                 [1; 64],
@@ -202,6 +216,9 @@ mod tests {
             chain_network: ChainNetwork::Ethereum(EthereumNetwork::Sepolia),
             token_address: TokenAddress::Ethereum(EvmTokenContractAddress::new(
                 EvmAddress::from_bytes([3; 20]),
+            )),
+            token_owner_address: TokenOwnerAddress::Ethereum(EvmTokenOwnerAddress::new(
+                EvmAddress::from_bytes([4; 20]),
             )),
             amount: CurrencyAmount::new(100),
             transaction_id: OnchainTransactionId::Ethereum(EvmTransactionHash::from_bytes([2; 32])),

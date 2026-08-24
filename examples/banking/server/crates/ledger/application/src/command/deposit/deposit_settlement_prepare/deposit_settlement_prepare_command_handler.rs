@@ -107,6 +107,7 @@ where
         let request = DepositRequest {
             account_id: command.account_id,
             token_binding_id: command.token_binding_id,
+            token_owner_address: command.token_owner_address,
             amount: command.amount,
             note: command.note.clone(),
         };
@@ -116,7 +117,9 @@ where
             .await
         {
             Ok(binding)
-                if binding.is_active()? && binding.currency_id()? == *account.currency_id()? =>
+                if binding.is_active()?
+                    && binding.is_deposit_enabled()?
+                    && binding.currency_id()? == *account.currency_id()? =>
             {
                 binding
             }
@@ -148,8 +151,8 @@ where
                 currency.decimals()?,
                 chain_network,
                 token_address,
-                command.token_owner_address,
-                command.amount,
+                *deposit.token_owner_address()?,
+                deposit.amount()?,
             ))
             .await?;
         self.deposit_repository

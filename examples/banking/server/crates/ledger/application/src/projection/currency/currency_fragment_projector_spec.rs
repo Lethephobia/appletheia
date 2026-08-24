@@ -16,6 +16,10 @@ impl ProjectorSpec for CurrencyFragmentProjectorSpec {
             EventSelector::new::<Currency>(CurrencyEventPayload::ACTIVATED),
             EventSelector::new::<Currency>(CurrencyEventPayload::DEACTIVATED),
             EventSelector::new::<TokenBinding>(TokenBindingEventPayload::DEFINED),
+            EventSelector::new::<TokenBinding>(TokenBindingEventPayload::DEPOSIT_ENABLED_CHANGED),
+            EventSelector::new::<TokenBinding>(
+                TokenBindingEventPayload::WITHDRAWAL_ENABLED_CHANGED,
+            ),
             EventSelector::new::<TokenBinding>(TokenBindingEventPayload::REMOVED),
         ]),
     );

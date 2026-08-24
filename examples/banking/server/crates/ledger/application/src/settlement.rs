@@ -10,10 +10,10 @@ pub use deposit::{
     EthereumDepositSettlementPreparation, EthereumDepositSettlementPrepareRequest,
     EthereumDepositSettlementPreparer, EthereumDepositSettlementVerification,
     EthereumDepositSettlementVerifier, EthereumDepositSettlementVerifyRequest,
-    PreparedDepositTransaction, SolanaDepositSettlementPreparation,
+    EvmPreparedDepositTransaction, PreparedDepositTransaction, SolanaDepositSettlementPreparation,
     SolanaDepositSettlementPrepareRequest, SolanaDepositSettlementPreparer,
     SolanaDepositSettlementVerification, SolanaDepositSettlementVerifier,
-    SolanaDepositSettlementVerifyRequest,
+    SolanaDepositSettlementVerifyRequest, SolanaPreparedDepositTransaction,
 };
 pub use validation::{
     DefaultTokenBindingSettlementValidator, EthereumTokenBindingSettlementValidationRequest,

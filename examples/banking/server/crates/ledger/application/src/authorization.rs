@@ -45,8 +45,9 @@ pub use currency_registrar_membership::{
 };
 pub use token_binding::{
     DefaultTokenBindingRelationshipUpdater, TokenBindingCurrencyRelation,
-    TokenBindingRelationshipUpdater, TokenBindingRelationshipUpdaterError,
-    TokenBindingRemoverRelation,
+    TokenBindingDepositEnabledChangerRelation, TokenBindingRelationshipUpdater,
+    TokenBindingRelationshipUpdaterError, TokenBindingRemoverRelation,
+    TokenBindingWithdrawalEnabledChangerRelation,
 };
 pub use wallet_bookmark::{
     DefaultWalletBookmarkRelationshipUpdater, WalletBookmarkOwnerRelation,

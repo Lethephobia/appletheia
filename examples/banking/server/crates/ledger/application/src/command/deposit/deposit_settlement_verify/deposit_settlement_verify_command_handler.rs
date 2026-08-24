@@ -105,6 +105,7 @@ where
         {
             Ok(token_binding)
                 if token_binding.is_active()?
+                    && token_binding.is_deposit_enabled()?
                     && token_binding.currency_id()? == *account.currency_id()? =>
             {
                 token_binding
@@ -136,6 +137,7 @@ where
                 currency_decimals: currency.decimals()?,
                 chain_network,
                 token_address: *token_binding.token_address()?,
+                token_owner_address: *deposit.token_owner_address()?,
                 amount: deposit.amount()?,
                 transaction_id: command.transaction_id,
             })

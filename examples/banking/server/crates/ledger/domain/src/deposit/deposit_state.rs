@@ -4,7 +4,7 @@ use appletheia::unique_constraints;
 use uuid::Uuid;
 
 use crate::account::AccountId;
-use crate::core::{CurrencyAmount, OnchainTransactionId};
+use crate::core::{CurrencyAmount, OnchainTransactionId, TokenOwnerAddress};
 use crate::token_binding::TokenBindingId;
 
 use super::{DepositNote, DepositStateError, DepositStatus};
@@ -16,6 +16,7 @@ use super::{DepositNote, DepositStateError, DepositStatus};
 pub struct DepositState {
     pub(super) account_id: AccountId,
     pub(super) token_binding_id: TokenBindingId,
+    pub(super) token_owner_address: TokenOwnerAddress,
     pub(super) amount: CurrencyAmount,
     pub(super) note: Option<DepositNote>,
     pub(super) transaction_id: Option<OnchainTransactionId>,

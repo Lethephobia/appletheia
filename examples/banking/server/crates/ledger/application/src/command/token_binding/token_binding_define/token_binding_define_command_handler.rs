@@ -87,6 +87,8 @@ where
             currency_id: command.currency_id,
             chain_network: command.chain_network,
             token_address: command.token_address,
+            deposit_enabled: command.deposit_enabled,
+            withdrawal_enabled: command.withdrawal_enabled,
         };
         let network_name = command.chain_network.network_name();
         let token_address = command.token_address.to_string();

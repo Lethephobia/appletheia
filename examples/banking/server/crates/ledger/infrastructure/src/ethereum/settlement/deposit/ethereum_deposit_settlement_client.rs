@@ -10,7 +10,7 @@ pub trait EthereumDepositSettlementClient: Send + Sync {
         network: EthereumNetwork,
         settlement_contract: &EvmAddress,
         request: EthereumDepositSettlementPrepareRequest,
-    ) -> Result<String, Box<dyn std::error::Error + Send + Sync>>;
+    ) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>>;
 
     async fn verify_deposit(
         &self,

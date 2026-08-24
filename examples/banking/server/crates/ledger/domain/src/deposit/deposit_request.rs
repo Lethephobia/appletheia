@@ -1,5 +1,5 @@
 use crate::account::AccountId;
-use crate::core::CurrencyAmount;
+use crate::core::{CurrencyAmount, TokenOwnerAddress};
 use crate::token_binding::TokenBindingId;
 
 use super::DepositNote;
@@ -8,6 +8,7 @@ use super::DepositNote;
 pub struct DepositRequest {
     pub account_id: AccountId,
     pub token_binding_id: TokenBindingId,
+    pub token_owner_address: TokenOwnerAddress,
     pub amount: CurrencyAmount,
     pub note: Option<DepositNote>,
 }
@@ -18,12 +19,14 @@ impl DepositRequest {
     ) -> (
         AccountId,
         TokenBindingId,
+        TokenOwnerAddress,
         CurrencyAmount,
         Option<DepositNote>,
     ) {
         (
             self.account_id,
             self.token_binding_id,
+            self.token_owner_address,
             self.amount,
             self.note,
         )

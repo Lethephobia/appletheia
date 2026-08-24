@@ -3,8 +3,8 @@ use banking_ledger_domain::core::{ChainNetwork, TokenAddress, TokenOwnerAddress}
 use super::{
     DepositSettlementPreparation, DepositSettlementPrepareRequest, DepositSettlementPreparer,
     DepositSettlementPreparerError, EthereumDepositSettlementPrepareRequest,
-    EthereumDepositSettlementPreparer, SolanaDepositSettlementPrepareRequest,
-    SolanaDepositSettlementPreparer,
+    EthereumDepositSettlementPreparer, PreparedDepositTransaction,
+    SolanaDepositSettlementPrepareRequest, SolanaDepositSettlementPreparer,
 };
 
 pub struct DefaultDepositSettlementPreparer<S, E>
@@ -56,7 +56,7 @@ where
                         request.amount(),
                     ))
                     .await?;
-                preparation.transaction
+                PreparedDepositTransaction::Solana(preparation.transaction)
             }
             (
                 ChainNetwork::Ethereum(network),
@@ -74,7 +74,7 @@ where
                         request.amount(),
                     ))
                     .await?;
-                preparation.transaction
+                PreparedDepositTransaction::Ethereum(preparation.transaction)
             }
             _ => return Err(DepositSettlementPreparerError::InconsistentChainValues),
         };
@@ -94,8 +94,9 @@ mod tests {
     use banking_ledger_domain::deposit::DepositId;
 
     use crate::settlement::{
-        EthereumDepositSettlementPreparation, PreparedDepositTransaction,
-        SolanaDepositSettlementPreparation,
+        EthereumDepositSettlementPreparation, EvmPreparedDepositTransaction,
+        PreparedDepositTransaction, SolanaDepositSettlementPreparation,
+        SolanaPreparedDepositTransaction,
     };
 
     use super::{
@@ -113,7 +114,7 @@ mod tests {
             _request: SolanaDepositSettlementPrepareRequest,
         ) -> Result<SolanaDepositSettlementPreparation, DepositSettlementPreparerError> {
             Ok(SolanaDepositSettlementPreparation {
-                transaction: PreparedDepositTransaction::new("solana".to_owned()),
+                transaction: SolanaPreparedDepositTransaction::from_bytes(b"solana".to_vec()),
             })
         }
     }
@@ -126,7 +127,7 @@ mod tests {
             _request: EthereumDepositSettlementPrepareRequest,
         ) -> Result<EthereumDepositSettlementPreparation, DepositSettlementPreparerError> {
             Ok(EthereumDepositSettlementPreparation {
-                transaction: PreparedDepositTransaction::new("ethereum".to_owned()),
+                transaction: EvmPreparedDepositTransaction::from_bytes(b"ethereum".to_vec()),
             })
         }
     }
@@ -142,13 +143,21 @@ mod tests {
             .prepare(solana_request())
             .await
             .expect("Solana deposit should be routed");
-        assert_eq!(solana_preparation.transaction.value(), "solana");
+        assert!(matches!(
+            solana_preparation.transaction,
+            PreparedDepositTransaction::Solana(ref transaction)
+                if transaction.as_bytes() == b"solana"
+        ));
 
         let ethereum_preparation = preparer
             .prepare(ethereum_request())
             .await
             .expect("Ethereum deposit should be routed");
-        assert_eq!(ethereum_preparation.transaction.value(), "ethereum");
+        assert!(matches!(
+            ethereum_preparation.transaction,
+            PreparedDepositTransaction::Ethereum(ref transaction)
+                if transaction.as_bytes() == b"ethereum"
+        ));
     }
 
     #[tokio::test]

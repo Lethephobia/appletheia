@@ -15,6 +15,8 @@ pub struct TokenBindingState {
     pub(super) currency_id: CurrencyId,
     pub(super) chain_network: ChainNetwork,
     pub(super) token_address: TokenAddress,
+    pub(super) deposit_enabled: bool,
+    pub(super) withdrawal_enabled: bool,
     pub(super) status: TokenBindingStatus,
 }
 

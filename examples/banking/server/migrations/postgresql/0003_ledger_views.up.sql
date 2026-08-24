@@ -22,6 +22,8 @@ CREATE TABLE IF NOT EXISTS currency_token_binding_fragments (
     currency_id uuid NOT NULL REFERENCES currency_fragments(id) ON DELETE CASCADE,
     chain_network text NOT NULL,
     token_address text NOT NULL,
+    deposit_enabled boolean NOT NULL,
+    withdrawal_enabled boolean NOT NULL,
     updated_at timestamptz NOT NULL,
     created_at timestamptz NOT NULL,
     source_event_sequence bigint NOT NULL,

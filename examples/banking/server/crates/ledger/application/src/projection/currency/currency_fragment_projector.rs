@@ -8,7 +8,7 @@ use banking_ledger_domain::token_binding::{TokenBinding, TokenBindingEventPayloa
 
 use super::{
     CurrencyFragment, CurrencyFragmentProjectorError, CurrencyFragmentProjectorSpec,
-    CurrencyFragmentUpsert, CurrencyFragmentWriter,
+    CurrencyFragmentUpsert, CurrencyFragmentWriter, CurrencyTokenBindingFragment,
 };
 
 pub struct CurrencyFragmentProjector<W>
@@ -107,15 +107,41 @@ where
                     currency_id,
                     chain_network,
                     token_address,
+                    deposit_enabled,
+                    withdrawal_enabled,
                 } => {
                     self.writer
                         .define_token_binding(
                             uow,
                             event_context,
                             *currency_id,
+                            CurrencyTokenBindingFragment {
+                                id: event.aggregate_id(),
+                                chain_network: *chain_network,
+                                token_address: *token_address,
+                                deposit_enabled: *deposit_enabled,
+                                withdrawal_enabled: *withdrawal_enabled,
+                            },
+                        )
+                        .await?
+                }
+                TokenBindingEventPayload::DepositEnabledChanged { enabled } => {
+                    self.writer
+                        .update_token_binding_deposit_enabled(
+                            uow,
+                            event_context,
                             event.aggregate_id(),
-                            *chain_network,
-                            *token_address,
+                            *enabled,
+                        )
+                        .await?
+                }
+                TokenBindingEventPayload::WithdrawalEnabledChanged { enabled } => {
+                    self.writer
+                        .update_token_binding_withdrawal_enabled(
+                            uow,
+                            event_context,
+                            event.aggregate_id(),
+                            *enabled,
                         )
                         .await?
                 }
@@ -125,6 +151,8 @@ where
                         .await?
                 }
                 TokenBindingEventPayload::DefinitionRejected { .. }
+                | TokenBindingEventPayload::DepositEnabledChangeRejected { .. }
+                | TokenBindingEventPayload::WithdrawalEnabledChangeRejected { .. }
                 | TokenBindingEventPayload::RemovalRejected { .. } => None,
             }
         } else {

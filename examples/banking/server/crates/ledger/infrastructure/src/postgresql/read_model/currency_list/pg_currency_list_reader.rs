@@ -52,6 +52,8 @@ impl CurrencyListReader for PgCurrencyListReader {
             currency_id: Uuid,
             chain_network: String,
             token_address: String,
+            deposit_enabled: bool,
+            withdrawal_enabled: bool,
         }
 
         let rows = sqlx::query_as::<_, CurrencyRow>(
@@ -62,7 +64,7 @@ impl CurrencyListReader for PgCurrencyListReader {
         .await
         .map_err(persistence)?;
         let binding_rows = sqlx::query_as::<_, BindingRow>(
-            "SELECT id, currency_id, chain_network, token_address FROM currency_token_binding_fragments ORDER BY currency_id, id",
+            "SELECT id, currency_id, chain_network, token_address, deposit_enabled, withdrawal_enabled FROM currency_token_binding_fragments ORDER BY currency_id, id",
         )
         .fetch_all(uow.transaction_mut().as_mut())
         .await
@@ -95,6 +97,8 @@ impl CurrencyListReader for PgCurrencyListReader {
                                 &binding.token_address,
                             )
                             .map_err(persistence)?,
+                            deposit_enabled: binding.deposit_enabled,
+                            withdrawal_enabled: binding.withdrawal_enabled,
                         })
                     })
                     .collect::<Result<Vec<_>, CurrencyListReaderError>>()?;

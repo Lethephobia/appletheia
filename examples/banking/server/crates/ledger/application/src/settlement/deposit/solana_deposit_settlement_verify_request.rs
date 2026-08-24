@@ -1,6 +1,6 @@
 use banking_ledger_domain::core::{
     CurrencyAmount, CurrencyDecimals, SolanaMintAccountAddress, SolanaNetwork,
-    SolanaTransactionSignature,
+    SolanaTokenOwnerAddress, SolanaTransactionSignature,
 };
 use banking_ledger_domain::deposit::DepositId;
 
@@ -10,6 +10,7 @@ pub struct SolanaDepositSettlementVerifyRequest {
     currency_decimals: CurrencyDecimals,
     network: SolanaNetwork,
     token_address: SolanaMintAccountAddress,
+    token_owner_address: SolanaTokenOwnerAddress,
     amount: CurrencyAmount,
     transaction_id: SolanaTransactionSignature,
 }
@@ -20,6 +21,7 @@ impl SolanaDepositSettlementVerifyRequest {
         currency_decimals: CurrencyDecimals,
         network: SolanaNetwork,
         token_address: SolanaMintAccountAddress,
+        token_owner_address: SolanaTokenOwnerAddress,
         amount: CurrencyAmount,
         transaction_id: SolanaTransactionSignature,
     ) -> Self {
@@ -28,6 +30,7 @@ impl SolanaDepositSettlementVerifyRequest {
             currency_decimals,
             network,
             token_address,
+            token_owner_address,
             amount,
             transaction_id,
         }
@@ -47,6 +50,10 @@ impl SolanaDepositSettlementVerifyRequest {
 
     pub const fn token_address(&self) -> SolanaMintAccountAddress {
         self.token_address
+    }
+
+    pub const fn token_owner_address(&self) -> SolanaTokenOwnerAddress {
+        self.token_owner_address
     }
 
     pub fn amount(&self) -> CurrencyAmount {

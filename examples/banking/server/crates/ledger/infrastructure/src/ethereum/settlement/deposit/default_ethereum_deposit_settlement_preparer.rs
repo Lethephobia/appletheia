@@ -1,7 +1,7 @@
 use banking_ledger_application::{
     DepositSettlementPreparerError, EthereumDepositSettlementPreparation,
     EthereumDepositSettlementPrepareRequest, EthereumDepositSettlementPreparer,
-    PreparedDepositTransaction,
+    EvmPreparedDepositTransaction,
 };
 use banking_ledger_domain::core::EvmAddress;
 
@@ -42,7 +42,7 @@ where
             .await
             .map_err(DepositSettlementPreparerError::Backend)?;
         Ok(EthereumDepositSettlementPreparation {
-            transaction: PreparedDepositTransaction::new(transaction),
+            transaction: EvmPreparedDepositTransaction::from_bytes(transaction),
         })
     }
 }

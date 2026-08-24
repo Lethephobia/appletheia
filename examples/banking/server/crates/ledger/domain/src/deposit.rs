@@ -42,7 +42,7 @@ use appletheia::aggregate;
 use appletheia::domain::{Aggregate, AggregateApply, AggregateCore};
 
 use crate::account::AccountId;
-use crate::core::{CurrencyAmount, OnchainTransactionId};
+use crate::core::{CurrencyAmount, OnchainTransactionId, TokenOwnerAddress};
 use crate::token_binding::TokenBindingId;
 
 /// Represents the `Deposit` aggregate root.
@@ -60,6 +60,11 @@ impl Deposit {
     /// Returns the token binding selected for this deposit.
     pub fn token_binding_id(&self) -> Result<TokenBindingId, DepositError> {
         Ok(self.state_required()?.token_binding_id)
+    }
+
+    /// Returns the owner of the external tokens deposited on-chain.
+    pub fn token_owner_address(&self) -> Result<&TokenOwnerAddress, DepositError> {
+        Ok(&self.state_required()?.token_owner_address)
     }
 
     /// Returns the deposit amount.
@@ -96,10 +101,12 @@ impl Deposit {
             return Ok(DepositRequestResult::Rejected { reason });
         }
 
-        let (account_id, token_binding_id, amount, note) = request.into_parts();
+        let (account_id, token_binding_id, token_owner_address, amount, note) =
+            request.into_parts();
         self.append_event(DepositEventPayload::Requested {
             account_id,
             token_binding_id,
+            token_owner_address,
             amount,
             note,
         })?;
@@ -113,10 +120,12 @@ impl Deposit {
         request: DepositRequest,
         reason: DepositRequestRejectionReason,
     ) -> Result<(), DepositError> {
-        let (account_id, token_binding_id, amount, note) = request.into_parts();
+        let (account_id, token_binding_id, token_owner_address, amount, note) =
+            request.into_parts();
         self.append_event(DepositEventPayload::RequestRejected {
             account_id,
             token_binding_id,
+            token_owner_address,
             amount,
             note,
             reason,
@@ -249,11 +258,13 @@ impl AggregateApply<DepositEventPayload, DepositError> for Deposit {
             DepositEventPayload::Requested {
                 account_id,
                 token_binding_id,
+                token_owner_address,
                 amount,
                 note,
             } => self.set_state(Some(DepositState {
                 account_id: *account_id,
                 token_binding_id: *token_binding_id,
+                token_owner_address: *token_owner_address,
                 amount: *amount,
                 note: note.clone(),
                 transaction_id: None,
@@ -262,12 +273,14 @@ impl AggregateApply<DepositEventPayload, DepositError> for Deposit {
             DepositEventPayload::RequestRejected {
                 account_id,
                 token_binding_id,
+                token_owner_address,
                 amount,
                 note,
                 ..
             } => self.set_state(Some(DepositState {
                 account_id: *account_id,
                 token_binding_id: *token_binding_id,
+                token_owner_address: *token_owner_address,
                 amount: *amount,
                 note: note.clone(),
                 transaction_id: None,
@@ -298,7 +311,10 @@ mod tests {
     use appletheia::domain::{Aggregate, EventPayload};
 
     use crate::account::AccountId;
-    use crate::core::{CurrencyAmount, OnchainTransactionId, SolanaTransactionSignature};
+    use crate::core::{
+        CurrencyAmount, OnchainTransactionId, SolanaAccountAddress, SolanaTokenOwnerAddress,
+        SolanaTransactionSignature, TokenOwnerAddress,
+    };
     use crate::token_binding::TokenBindingId;
 
     use super::{
@@ -308,10 +324,14 @@ mod tests {
     #[test]
     fn records_a_verified_settlement() {
         let mut deposit = Deposit::new();
+        let token_owner_address = TokenOwnerAddress::Solana(SolanaTokenOwnerAddress::new(
+            SolanaAccountAddress::from_bytes([2; 32]),
+        ));
         deposit
             .request(DepositRequest {
                 account_id: AccountId::new(),
                 token_binding_id: TokenBindingId::new(),
+                token_owner_address,
                 amount: CurrencyAmount::new(100),
                 note: None,
             })
@@ -327,6 +347,12 @@ mod tests {
             .expect("verified settlement should be recorded");
 
         assert_eq!(result, DepositSettlementVerifyResult::Verified);
+        assert_eq!(
+            deposit
+                .token_owner_address()
+                .expect("deposit state should exist"),
+            &token_owner_address
+        );
         assert_eq!(
             deposit.status().expect("deposit state should exist"),
             &DepositStatus::SettlementVerified

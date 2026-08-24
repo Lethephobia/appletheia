@@ -1,15 +1,14 @@
 use anchor_lang::{InstructionData, ToAccountMetas};
 use appletheia::domain::AggregateId;
 use banking_ledger_application::{
-    DepositSettlementPreparerError, PreparedDepositTransaction, SolanaDepositSettlementPreparation,
+    DepositSettlementPreparerError, SolanaDepositSettlementPreparation,
     SolanaDepositSettlementPrepareRequest, SolanaDepositSettlementPreparer,
+    SolanaPreparedDepositTransaction,
 };
 use banking_ledger_domain::core::TokenDecimals;
 use banking_settlement::{
     BankingSettlementConfig, DepositSettlementReceipt, PoolAuthority, accounts, instruction,
 };
-use base64::Engine;
-use base64::prelude::BASE64_STANDARD;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::{instruction::Instruction, pubkey::Pubkey, signature::Signer};
 use solana_system_interface::program as system_program;
@@ -126,7 +125,7 @@ impl SolanaDepositSettlementPreparer for DefaultSolanaDepositSettlementPreparer 
             .map_err(|error| DepositSettlementPreparerError::Backend(Box::new(error)))?;
 
         Ok(SolanaDepositSettlementPreparation {
-            transaction: PreparedDepositTransaction::new(BASE64_STANDARD.encode(bytes)),
+            transaction: SolanaPreparedDepositTransaction::from_bytes(bytes),
         })
     }
 }

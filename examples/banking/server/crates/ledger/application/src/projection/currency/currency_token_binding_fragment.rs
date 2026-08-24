@@ -8,4 +8,6 @@ pub struct CurrencyTokenBindingFragment {
     pub id: TokenBindingId,
     pub chain_network: ChainNetwork,
     pub token_address: TokenAddress,
+    pub deposit_enabled: bool,
+    pub withdrawal_enabled: bool,
 }
