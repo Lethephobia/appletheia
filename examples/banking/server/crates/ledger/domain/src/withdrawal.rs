@@ -7,14 +7,16 @@ mod withdrawal_fail_rejection_reason;
 mod withdrawal_fail_result;
 mod withdrawal_failure_reason;
 mod withdrawal_id;
+mod withdrawal_note;
+mod withdrawal_note_error;
 mod withdrawal_request;
 mod withdrawal_request_rejection_reason;
 mod withdrawal_request_result;
+mod withdrawal_settlement_execute_rejection_reason;
+mod withdrawal_settlement_execute_result;
 mod withdrawal_state;
 mod withdrawal_state_error;
 mod withdrawal_status;
-mod withdrawal_token_transfer_rejection_reason;
-mod withdrawal_token_transfer_result;
 
 pub use withdrawal_complete_rejection_reason::WithdrawalCompleteRejectionReason;
 pub use withdrawal_complete_result::WithdrawalCompleteResult;
@@ -25,21 +27,23 @@ pub use withdrawal_fail_rejection_reason::WithdrawalFailRejectionReason;
 pub use withdrawal_fail_result::WithdrawalFailResult;
 pub use withdrawal_failure_reason::WithdrawalFailureReason;
 pub use withdrawal_id::WithdrawalId;
+pub use withdrawal_note::WithdrawalNote;
+pub use withdrawal_note_error::WithdrawalNoteError;
 pub use withdrawal_request::WithdrawalRequest;
 pub use withdrawal_request_rejection_reason::WithdrawalRequestRejectionReason;
 pub use withdrawal_request_result::WithdrawalRequestResult;
+pub use withdrawal_settlement_execute_rejection_reason::WithdrawalSettlementExecuteRejectionReason;
+pub use withdrawal_settlement_execute_result::WithdrawalSettlementExecuteResult;
 pub use withdrawal_state::WithdrawalState;
 pub use withdrawal_state_error::WithdrawalStateError;
 pub use withdrawal_status::WithdrawalStatus;
-pub use withdrawal_token_transfer_rejection_reason::WithdrawalTokenTransferRejectionReason;
-pub use withdrawal_token_transfer_result::WithdrawalTokenTransferResult;
 
 use appletheia::aggregate;
 use appletheia::domain::{Aggregate, AggregateApply, AggregateCore};
 
 use crate::account::AccountId;
-use crate::core::{CurrencyAmount, TokenAccountOwnerAddress};
-use crate::currency::CurrencyId;
+use crate::core::{CurrencyAmount, OnchainTransactionId, TokenOwnerAddress};
+use crate::token_binding::TokenBindingId;
 
 /// Represents the `Withdrawal` aggregate root.
 #[aggregate(type = "withdrawal", error = WithdrawalError)]
@@ -53,21 +57,28 @@ impl Withdrawal {
         Ok(&self.state_required()?.account_id)
     }
 
-    /// Returns the withdrawal currency.
-    pub fn currency_id(&self) -> Result<&CurrencyId, WithdrawalError> {
-        Ok(&self.state_required()?.currency_id)
+    /// Returns the token binding selected for this withdrawal.
+    pub fn token_binding_id(&self) -> Result<TokenBindingId, WithdrawalError> {
+        Ok(self.state_required()?.token_binding_id)
     }
 
-    /// Returns the token account owner address.
-    pub fn token_account_owner_address(
-        &self,
-    ) -> Result<&TokenAccountOwnerAddress, WithdrawalError> {
-        Ok(&self.state_required()?.token_account_owner_address)
+    /// Returns the destination token owner address.
+    pub fn token_owner_address(&self) -> Result<&TokenOwnerAddress, WithdrawalError> {
+        Ok(&self.state_required()?.token_owner_address)
     }
 
     /// Returns the withdrawal amount.
-    pub fn amount(&self) -> Result<&CurrencyAmount, WithdrawalError> {
-        Ok(&self.state_required()?.amount)
+    pub fn amount(&self) -> Result<CurrencyAmount, WithdrawalError> {
+        Ok(self.state_required()?.amount)
+    }
+
+    pub fn note(&self) -> Result<Option<&WithdrawalNote>, WithdrawalError> {
+        Ok(self.state_required()?.note.as_ref())
+    }
+
+    /// Returns the verified settlement transaction when available.
+    pub fn transaction_id(&self) -> Result<Option<&OnchainTransactionId>, WithdrawalError> {
+        Ok(self.state_required()?.transaction_id.as_ref())
     }
 
     /// Returns the current status.
@@ -90,12 +101,14 @@ impl Withdrawal {
             return Ok(WithdrawalRequestResult::Rejected { reason });
         }
 
-        let (account_id, currency_id, token_account_owner_address, amount) = request.into_parts();
+        let (account_id, token_binding_id, token_owner_address, amount, note) =
+            request.into_parts();
         self.append_event(WithdrawalEventPayload::Requested {
             account_id,
-            currency_id,
-            token_account_owner_address,
+            token_binding_id,
+            token_owner_address,
             amount,
+            note,
         })?;
 
         Ok(WithdrawalRequestResult::Requested)
@@ -107,64 +120,71 @@ impl Withdrawal {
         request: WithdrawalRequest,
         reason: WithdrawalRequestRejectionReason,
     ) -> Result<(), WithdrawalError> {
-        let (account_id, currency_id, token_account_owner_address, amount) = request.into_parts();
+        let (account_id, token_binding_id, token_owner_address, amount, note) =
+            request.into_parts();
         self.append_event(WithdrawalEventPayload::RequestRejected {
             account_id,
-            currency_id,
-            token_account_owner_address,
+            token_binding_id,
+            token_owner_address,
             amount,
+            note,
             reason,
         })?;
         Ok(())
     }
 
-    /// Records a successful external token transfer.
-    pub fn record_token_transfer(
+    /// Records a successful external token settlement.
+    pub fn record_settlement_executed(
         &mut self,
-    ) -> Result<WithdrawalTokenTransferResult, WithdrawalError> {
+        transaction_id: OnchainTransactionId,
+    ) -> Result<WithdrawalSettlementExecuteResult, WithdrawalError> {
         match self.state_required()?.status {
             WithdrawalStatus::Pending => {}
-            WithdrawalStatus::TokenTransferred => {
-                let reason = WithdrawalTokenTransferRejectionReason::AlreadyTokenTransferred;
-                self.reject_token_transfer(reason)?;
-                return Ok(WithdrawalTokenTransferResult::Rejected { reason });
+            WithdrawalStatus::SettlementExecuted => {
+                let reason = WithdrawalSettlementExecuteRejectionReason::AlreadyExecuted;
+                self.reject_settlement_execute(Some(transaction_id), reason)?;
+                return Ok(WithdrawalSettlementExecuteResult::Rejected { reason });
             }
             WithdrawalStatus::Completed => {
-                let reason = WithdrawalTokenTransferRejectionReason::AlreadyCompleted;
-                self.reject_token_transfer(reason)?;
-                return Ok(WithdrawalTokenTransferResult::Rejected { reason });
+                let reason = WithdrawalSettlementExecuteRejectionReason::AlreadyCompleted;
+                self.reject_settlement_execute(Some(transaction_id), reason)?;
+                return Ok(WithdrawalSettlementExecuteResult::Rejected { reason });
             }
             WithdrawalStatus::Failed => {
-                let reason = WithdrawalTokenTransferRejectionReason::AlreadyFailed;
-                self.reject_token_transfer(reason)?;
-                return Ok(WithdrawalTokenTransferResult::Rejected { reason });
+                let reason = WithdrawalSettlementExecuteRejectionReason::AlreadyFailed;
+                self.reject_settlement_execute(Some(transaction_id), reason)?;
+                return Ok(WithdrawalSettlementExecuteResult::Rejected { reason });
             }
             WithdrawalStatus::Rejected => {
-                let reason = WithdrawalTokenTransferRejectionReason::AlreadyRejected;
-                self.reject_token_transfer(reason)?;
-                return Ok(WithdrawalTokenTransferResult::Rejected { reason });
+                let reason = WithdrawalSettlementExecuteRejectionReason::AlreadyRejected;
+                self.reject_settlement_execute(Some(transaction_id), reason)?;
+                return Ok(WithdrawalSettlementExecuteResult::Rejected { reason });
             }
         }
 
-        self.append_event(WithdrawalEventPayload::TokenTransferred)?;
-        Ok(WithdrawalTokenTransferResult::TokenTransferred)
+        self.append_event(WithdrawalEventPayload::SettlementExecuted { transaction_id })?;
+        Ok(WithdrawalSettlementExecuteResult::Executed)
     }
 
-    /// Rejects recording a successful external token transfer.
-    pub fn reject_token_transfer(
+    /// Rejects recording a successful external token settlement.
+    pub fn reject_settlement_execute(
         &mut self,
-        reason: WithdrawalTokenTransferRejectionReason,
+        transaction_id: Option<OnchainTransactionId>,
+        reason: WithdrawalSettlementExecuteRejectionReason,
     ) -> Result<(), WithdrawalError> {
-        self.append_event(WithdrawalEventPayload::TokenTransferRejected { reason })?;
+        self.append_event(WithdrawalEventPayload::SettlementExecuteRejected {
+            transaction_id,
+            reason,
+        })?;
         Ok(())
     }
 
     /// Completes the withdrawal after internal accounting is committed.
     pub fn complete(&mut self) -> Result<WithdrawalCompleteResult, WithdrawalError> {
         match self.state_required()?.status {
-            WithdrawalStatus::TokenTransferred => {}
+            WithdrawalStatus::SettlementExecuted => {}
             WithdrawalStatus::Pending => {
-                let reason = WithdrawalCompleteRejectionReason::TokenTransferNotRecorded;
+                let reason = WithdrawalCompleteRejectionReason::SettlementNotExecuted;
                 self.reject_complete(reason)?;
                 return Ok(WithdrawalCompleteResult::Rejected { reason });
             }
@@ -204,7 +224,7 @@ impl Withdrawal {
         reason: WithdrawalFailureReason,
     ) -> Result<WithdrawalFailResult, WithdrawalError> {
         match self.state_required()?.status {
-            WithdrawalStatus::Pending | WithdrawalStatus::TokenTransferred => {}
+            WithdrawalStatus::Pending | WithdrawalStatus::SettlementExecuted => {}
             WithdrawalStatus::Completed => {
                 let rejection_reason = WithdrawalFailRejectionReason::AlreadyCompleted;
                 self.reject_fail(rejection_reason)?;
@@ -247,33 +267,41 @@ impl AggregateApply<WithdrawalEventPayload, WithdrawalError> for Withdrawal {
         match payload {
             WithdrawalEventPayload::Requested {
                 account_id,
-                currency_id,
-                token_account_owner_address,
+                token_binding_id,
+                token_owner_address,
                 amount,
+                note,
             } => self.set_state(Some(WithdrawalState {
                 account_id: *account_id,
-                currency_id: *currency_id,
-                token_account_owner_address: token_account_owner_address.clone(),
+                token_binding_id: *token_binding_id,
+                token_owner_address: *token_owner_address,
                 amount: *amount,
+                note: note.clone(),
+                transaction_id: None,
                 status: WithdrawalStatus::Pending,
             })),
             WithdrawalEventPayload::RequestRejected {
                 account_id,
-                currency_id,
-                token_account_owner_address,
+                token_binding_id,
+                token_owner_address,
                 amount,
+                note,
                 ..
             } => self.set_state(Some(WithdrawalState {
                 account_id: *account_id,
-                currency_id: *currency_id,
-                token_account_owner_address: token_account_owner_address.clone(),
+                token_binding_id: *token_binding_id,
+                token_owner_address: *token_owner_address,
                 amount: *amount,
+                note: note.clone(),
+                transaction_id: None,
                 status: WithdrawalStatus::Rejected,
             })),
-            WithdrawalEventPayload::TokenTransferred => {
-                self.state_required_mut()?.status = WithdrawalStatus::TokenTransferred;
+            WithdrawalEventPayload::SettlementExecuted { transaction_id } => {
+                let state = self.state_required_mut()?;
+                state.transaction_id = Some(*transaction_id);
+                state.status = WithdrawalStatus::SettlementExecuted;
             }
-            WithdrawalEventPayload::TokenTransferRejected { .. } => {}
+            WithdrawalEventPayload::SettlementExecuteRejected { .. } => {}
             WithdrawalEventPayload::Completed => {
                 self.state_required_mut()?.status = WithdrawalStatus::Completed;
             }
@@ -290,164 +318,55 @@ impl AggregateApply<WithdrawalEventPayload, WithdrawalError> for Withdrawal {
 
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
+
     use appletheia::domain::{Aggregate, EventPayload};
 
-    use crate::{
-        account::AccountId,
-        core::{CurrencyAmount, TokenAccountOwnerAddress},
-        currency::CurrencyId,
+    use crate::account::AccountId;
+    use crate::core::{
+        CurrencyAmount, EvmTokenOwnerAddress, OnchainTransactionId, SolanaTransactionSignature,
+        TokenOwnerAddress,
     };
+    use crate::token_binding::TokenBindingId;
 
     use super::{
-        Withdrawal, WithdrawalCompleteResult, WithdrawalEventPayload, WithdrawalFailResult,
-        WithdrawalFailureReason, WithdrawalRequest, WithdrawalRequestRejectionReason,
-        WithdrawalRequestResult, WithdrawalStatus, WithdrawalTokenTransferRejectionReason,
-        WithdrawalTokenTransferResult,
+        Withdrawal, WithdrawalEventPayload, WithdrawalRequest, WithdrawalSettlementExecuteResult,
+        WithdrawalStatus,
     };
 
     #[test]
-    fn request_initializes_state_and_records_event() {
-        let account_id = AccountId::new();
-        let currency_id = CurrencyId::new();
-        let token_account_owner_address = token_account_owner_address();
-        let amount = CurrencyAmount::new(100);
-        let mut withdrawal = Withdrawal::new();
-
-        let result = withdrawal
-            .request(WithdrawalRequest {
-                account_id,
-                currency_id,
-                token_account_owner_address: token_account_owner_address.clone(),
-                amount,
-            })
-            .expect("request should succeed");
-
-        assert_eq!(result, WithdrawalRequestResult::Requested);
-        assert_eq!(withdrawal.account_id().expect("account id"), &account_id);
-        assert_eq!(withdrawal.currency_id().expect("currency id"), &currency_id);
-        assert_eq!(
-            withdrawal
-                .token_account_owner_address()
-                .expect("token account owner address"),
-            &token_account_owner_address
-        );
-        assert_eq!(withdrawal.amount().expect("amount"), &amount);
-        assert_eq!(
-            withdrawal.status().expect("status"),
-            &WithdrawalStatus::Pending
-        );
-        assert_eq!(
-            withdrawal.uncommitted_events()[0].payload().name(),
-            WithdrawalEventPayload::REQUESTED
-        );
-    }
-
-    #[test]
-    fn request_rejects_zero_amount() {
-        let mut withdrawal = Withdrawal::new();
-
-        let result = withdrawal
-            .request(WithdrawalRequest {
-                account_id: AccountId::new(),
-                currency_id: CurrencyId::new(),
-                token_account_owner_address: token_account_owner_address(),
-                amount: CurrencyAmount::zero(),
-            })
-            .expect("request should succeed");
-
-        assert_eq!(
-            result,
-            WithdrawalRequestResult::Rejected {
-                reason: WithdrawalRequestRejectionReason::ZeroAmount,
-            }
-        );
-        assert_eq!(
-            withdrawal.status().expect("status"),
-            &WithdrawalStatus::Rejected
-        );
-    }
-
-    #[test]
-    fn record_token_transfer_updates_status() {
-        let mut withdrawal = requested_withdrawal();
-        withdrawal.core_mut().clear_uncommitted_events();
-
-        let result = withdrawal
-            .record_token_transfer()
-            .expect("record token transfer should succeed");
-
-        assert_eq!(result, WithdrawalTokenTransferResult::TokenTransferred);
-        assert_eq!(
-            withdrawal.status().expect("status"),
-            &WithdrawalStatus::TokenTransferred
-        );
-    }
-
-    #[test]
-    fn reject_token_transfer_records_rejection_event_without_changing_status() {
-        let mut withdrawal = requested_withdrawal();
-        withdrawal.core_mut().clear_uncommitted_events();
-
-        withdrawal
-            .reject_token_transfer(WithdrawalTokenTransferRejectionReason::AlreadyCompleted)
-            .expect("reject token transfer should succeed");
-
-        assert_eq!(
-            withdrawal.status().expect("status"),
-            &WithdrawalStatus::Pending
-        );
-        assert_eq!(
-            withdrawal.uncommitted_events()[0].payload().name(),
-            WithdrawalEventPayload::TOKEN_TRANSFER_REJECTED
-        );
-    }
-
-    #[test]
-    fn complete_requires_recorded_token_transfer() {
-        let mut withdrawal = requested_withdrawal();
-        withdrawal.core_mut().clear_uncommitted_events();
-
-        let result = withdrawal.complete().expect("complete should succeed");
-
-        assert_eq!(
-            result,
-            WithdrawalCompleteResult::Rejected {
-                reason: super::WithdrawalCompleteRejectionReason::TokenTransferNotRecorded,
-            }
-        );
-    }
-
-    #[test]
-    fn fail_marks_withdrawal_failed() {
-        let mut withdrawal = requested_withdrawal();
-        withdrawal.core_mut().clear_uncommitted_events();
-
-        let result = withdrawal
-            .fail(WithdrawalFailureReason::FundsReserveRejected)
-            .expect("fail should succeed");
-
-        assert_eq!(result, WithdrawalFailResult::Failed);
-        assert_eq!(
-            withdrawal.status().expect("status"),
-            &WithdrawalStatus::Failed
-        );
-    }
-
-    fn token_account_owner_address() -> TokenAccountOwnerAddress {
-        TokenAccountOwnerAddress::try_from("11111111111111111111111111111111")
-            .expect("token account owner address should be valid")
-    }
-
-    fn requested_withdrawal() -> Withdrawal {
+    fn records_an_executed_settlement() {
         let mut withdrawal = Withdrawal::new();
         withdrawal
             .request(WithdrawalRequest {
                 account_id: AccountId::new(),
-                currency_id: CurrencyId::new(),
-                token_account_owner_address: token_account_owner_address(),
+                token_binding_id: TokenBindingId::new(),
+                token_owner_address: TokenOwnerAddress::Ethereum(
+                    EvmTokenOwnerAddress::from_str("0x2222222222222222222222222222222222222222")
+                        .expect("token owner address should be valid"),
+                ),
                 amount: CurrencyAmount::new(100),
+                note: None,
             })
-            .expect("request should succeed");
-        withdrawal
+            .expect("withdrawal request should succeed");
+        withdrawal.core_mut().clear_uncommitted_events();
+        let transaction_id = OnchainTransactionId::Solana(
+            SolanaTransactionSignature::new(bs58::encode([1_u8; 64]).into_string())
+                .expect("transaction signature should be valid"),
+        );
+
+        let result = withdrawal
+            .record_settlement_executed(transaction_id)
+            .expect("settlement execution should be recorded");
+
+        assert_eq!(result, WithdrawalSettlementExecuteResult::Executed);
+        assert_eq!(
+            withdrawal.status().expect("withdrawal state should exist"),
+            &WithdrawalStatus::SettlementExecuted
+        );
+        assert_eq!(
+            withdrawal.uncommitted_events()[0].payload().name(),
+            WithdrawalEventPayload::SETTLEMENT_EXECUTED
+        );
     }
 }

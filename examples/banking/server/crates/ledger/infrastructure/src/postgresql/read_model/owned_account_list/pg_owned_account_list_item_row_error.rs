@@ -18,8 +18,11 @@ pub enum PgOwnedAccountListItemRowError {
     #[error("invalid account name")]
     InvalidAccountName(#[source] Box<dyn std::error::Error + Send + Sync>),
 
-    #[error("invalid currency id")]
-    InvalidCurrencyId(#[source] Box<dyn std::error::Error + Send + Sync>),
+    #[error("invalid account description")]
+    InvalidAccountDescription(#[source] Box<dyn std::error::Error + Send + Sync>),
+
+    #[error("invalid currency code")]
+    InvalidCurrencyCode(#[source] Box<dyn std::error::Error + Send + Sync>),
 
     #[error("invalid currency symbol")]
     InvalidCurrencySymbol(#[source] Box<dyn std::error::Error + Send + Sync>),

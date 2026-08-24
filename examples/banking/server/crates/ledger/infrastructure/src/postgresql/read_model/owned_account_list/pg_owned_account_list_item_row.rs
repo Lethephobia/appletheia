@@ -3,11 +3,9 @@ use appletheia::domain::{AggregateId, EventId, EventOccurredAt};
 use banking_ledger_application::{
     OwnedAccountListItem, OwnedAccountListItemCurrency, OwnedAccountListItemStatus,
 };
-use banking_ledger_domain::account::{AccountId, AccountName};
-use banking_ledger_domain::core::CurrencyAmount;
-use banking_ledger_domain::currency::{
-    CurrencyDecimals, CurrencyId, CurrencyName, CurrencySymbol, MintAccountAddress,
-};
+use banking_ledger_domain::account::{AccountDescription, AccountId, AccountName};
+use banking_ledger_domain::core::{CurrencyAmount, CurrencyCode, CurrencyDecimals};
+use banking_ledger_domain::currency::CurrencyId;
 use sqlx::types::chrono::{DateTime, Utc};
 use uuid::Uuid;
 
@@ -17,11 +15,10 @@ use super::pg_owned_account_list_item_row_error::PgOwnedAccountListItemRowError;
 pub struct PgOwnedAccountListItemRow {
     pub account_id: Uuid,
     pub name: String,
+    pub description: Option<String>,
     pub currency_id: Uuid,
-    pub currency_symbol: String,
-    pub currency_name: String,
+    pub currency_code: String,
     pub currency_decimals: i16,
-    pub currency_mint_account_address: Option<String>,
     pub currency_source_event_id: Uuid,
     pub currency_updated_event_id: Uuid,
     pub balance: String,
@@ -72,6 +69,19 @@ impl TryFrom<PgOwnedAccountListItemRow> for OwnedAccountListItem {
         let currency_decimals = u8::try_from(row.currency_decimals).map_err(|error| {
             PgOwnedAccountListItemRowError::InvalidCurrencyDecimals(Box::new(error))
         })?;
+        let currency = OwnedAccountListItemCurrency {
+            id: CurrencyId::try_from_uuid(row.currency_id).map_err(|error| {
+                PgOwnedAccountListItemRowError::InvalidCurrencyCode(Box::new(error))
+            })?,
+            code: CurrencyCode::try_from(row.currency_code).map_err(|error| {
+                PgOwnedAccountListItemRowError::InvalidCurrencyCode(Box::new(error))
+            })?,
+            decimals: CurrencyDecimals::new(currency_decimals),
+            observation: PgOwnedAccountListItemRow::observation(
+                row.currency_source_event_id,
+                row.currency_updated_event_id,
+            )?,
+        };
 
         Ok(Self {
             account_id: AccountId::try_from_uuid(row.account_id).map_err(|error| {
@@ -80,29 +90,14 @@ impl TryFrom<PgOwnedAccountListItemRow> for OwnedAccountListItem {
             name: AccountName::try_from(row.name).map_err(|error| {
                 PgOwnedAccountListItemRowError::InvalidAccountName(Box::new(error))
             })?,
-            currency: OwnedAccountListItemCurrency {
-                id: CurrencyId::try_from_uuid(row.currency_id).map_err(|error| {
-                    PgOwnedAccountListItemRowError::InvalidCurrencyId(Box::new(error))
+            description: row
+                .description
+                .map(AccountDescription::try_from)
+                .transpose()
+                .map_err(|error| {
+                    PgOwnedAccountListItemRowError::InvalidAccountDescription(Box::new(error))
                 })?,
-                symbol: CurrencySymbol::try_from(row.currency_symbol).map_err(|error| {
-                    PgOwnedAccountListItemRowError::InvalidCurrencySymbol(Box::new(error))
-                })?,
-                name: CurrencyName::try_from(row.currency_name).map_err(|error| {
-                    PgOwnedAccountListItemRowError::InvalidCurrencyName(Box::new(error))
-                })?,
-                decimals: CurrencyDecimals::new(currency_decimals),
-                mint_account_address: row
-                    .currency_mint_account_address
-                    .map(MintAccountAddress::try_from)
-                    .transpose()
-                    .map_err(|error| {
-                        PgOwnedAccountListItemRowError::InvalidMintAccountAddress(Box::new(error))
-                    })?,
-                observation: PgOwnedAccountListItemRow::observation(
-                    row.currency_source_event_id,
-                    row.currency_updated_event_id,
-                )?,
-            },
+            currency,
             balance: PgOwnedAccountListItemRow::amount(row.balance)?,
             reserved_balance: PgOwnedAccountListItemRow::amount(row.reserved_balance)?,
             status: PgOwnedAccountListItemRow::status(row.status)?,

@@ -1,31 +1,22 @@
-mod currency_issuance;
-mod currency_old_image_object_deletion;
-mod currency_provisioning;
+mod currency_registrar_invitation;
+mod currency_registrar_join_request;
 mod deposit;
-mod mint_metadata_sync;
 mod owned_account_closure;
 mod transfer;
 mod withdrawal;
 
-pub use currency_issuance::{
-    CurrencyIssuanceSaga, CurrencyIssuanceSagaError, CurrencyIssuanceSagaSpec,
-    CurrencyIssuanceSagaState, CurrencyIssuanceSagaStatus,
+pub use currency_registrar_invitation::{
+    CurrencyRegistrarInvitationSaga, CurrencyRegistrarInvitationSagaError,
+    CurrencyRegistrarInvitationSagaSpec, CurrencyRegistrarInvitationSagaState,
+    CurrencyRegistrarInvitationSagaStatus,
 };
-pub use currency_old_image_object_deletion::{
-    CurrencyOldImageObjectDeletionSaga, CurrencyOldImageObjectDeletionSagaError,
-    CurrencyOldImageObjectDeletionSagaSpec, CurrencyOldImageObjectDeletionSagaState,
-    CurrencyOldImageObjectDeletionSagaStatus,
-};
-pub use currency_provisioning::{
-    CurrencyProvisioningSaga, CurrencyProvisioningSagaError, CurrencyProvisioningSagaSpec,
-    CurrencyProvisioningSagaState, CurrencyProvisioningSagaStatus,
+pub use currency_registrar_join_request::{
+    CurrencyRegistrarJoinRequestSaga, CurrencyRegistrarJoinRequestSagaError,
+    CurrencyRegistrarJoinRequestSagaSpec, CurrencyRegistrarJoinRequestSagaState,
+    CurrencyRegistrarJoinRequestSagaStatus,
 };
 pub use deposit::{
     DepositSaga, DepositSagaError, DepositSagaSpec, DepositSagaState, DepositSagaStatus,
-};
-pub use mint_metadata_sync::{
-    MintMetadataSyncSaga, MintMetadataSyncSagaError, MintMetadataSyncSagaSpec,
-    MintMetadataSyncSagaState, MintMetadataSyncSagaStatus,
 };
 pub use owned_account_closure::{
     OwnedAccountClosureSaga, OwnedAccountClosureSagaError, OwnedAccountClosureSagaSpec,

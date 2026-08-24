@@ -1,5 +1,6 @@
 use appletheia::application::unit_of_work::UnitOfWork;
-use banking_ledger_domain::currency::{CurrencyId, CurrencyOwner};
+use banking_ledger_domain::currency::CurrencyId;
+use banking_ledger_domain::currency_registrar::CurrencyRegistrarId;
 
 use super::CurrencyRelationshipUpdaterError;
 
@@ -7,17 +8,10 @@ use super::CurrencyRelationshipUpdaterError;
 pub trait CurrencyRelationshipUpdater: Send + Sync {
     type Uow: UnitOfWork;
 
-    async fn upsert_owner(
+    async fn upsert_currency_registrar(
         &self,
         uow: &mut Self::Uow,
         currency_id: CurrencyId,
-        owner: CurrencyOwner,
-    ) -> Result<(), CurrencyRelationshipUpdaterError>;
-
-    async fn replace_owner(
-        &self,
-        uow: &mut Self::Uow,
-        currency_id: CurrencyId,
-        owner: CurrencyOwner,
+        currency_registrar_id: CurrencyRegistrarId,
     ) -> Result<(), CurrencyRelationshipUpdaterError>;
 }

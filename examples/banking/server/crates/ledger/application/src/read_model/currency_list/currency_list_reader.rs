@@ -1,12 +1,7 @@
-use appletheia::application::read_model::pagination::{CursorWindow, Sort};
 use appletheia::application::unit_of_work::UnitOfWork;
 
-use super::{
-    CurrencyList, CurrencyListCriteria, CurrencyListCursor, CurrencyListReaderError,
-    CurrencyListSortKey,
-};
+use super::{CurrencyList, CurrencyListReaderError};
 
-/// Loads currency list read models from normalized query-side tables.
 #[allow(async_fn_in_trait)]
 pub trait CurrencyListReader: Send + Sync {
     type Uow: UnitOfWork;
@@ -14,8 +9,6 @@ pub trait CurrencyListReader: Send + Sync {
     async fn list(
         &self,
         uow: &mut Self::Uow,
-        criteria: CurrencyListCriteria,
-        sort: Sort<CurrencyListSortKey>,
-        page: CursorWindow<CurrencyListCursor>,
+        include_inactive: bool,
     ) -> Result<CurrencyList, CurrencyListReaderError>;
 }

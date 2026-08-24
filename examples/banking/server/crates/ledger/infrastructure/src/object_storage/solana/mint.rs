@@ -1,5 +1,0 @@
-mod object_storage_mint_metadata_publisher;
-mod object_storage_mint_metadata_publisher_config;
-
-pub use object_storage_mint_metadata_publisher::ObjectStorageMintMetadataPublisher;
-pub use object_storage_mint_metadata_publisher_config::ObjectStorageMintMetadataPublisherConfig;

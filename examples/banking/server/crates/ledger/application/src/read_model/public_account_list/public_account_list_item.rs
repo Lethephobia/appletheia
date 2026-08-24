@@ -21,7 +21,6 @@ impl PublicAccountListItem {
         ReadModelObservation::collect_event_ids(
             self.observation
                 .event_ids()
-                .chain(self.currency.observation.event_ids())
                 .chain(self.owner.observed_event_ids()),
         )
     }

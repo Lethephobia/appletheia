@@ -4,7 +4,7 @@ use appletheia::unique_constraints;
 use banking_iam_domain::{OrganizationId, UserId};
 use uuid::Uuid;
 
-use crate::core::TokenAccountOwnerAddress;
+use crate::core::TokenOwnerAddress;
 
 use super::{
     WalletBookmarkDescription, WalletBookmarkDisplayName, WalletBookmarkOwner,
@@ -22,7 +22,7 @@ pub struct WalletBookmarkState {
     pub(super) owner: WalletBookmarkOwner,
     pub(super) display_name: Option<WalletBookmarkDisplayName>,
     pub(super) description: Option<WalletBookmarkDescription>,
-    pub(super) token_account_owner_address: TokenAccountOwnerAddress,
+    pub(super) token_owner_address: TokenOwnerAddress,
     pub(super) status: WalletBookmarkStatus,
 }
 

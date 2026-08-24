@@ -1,5 +1,5 @@
 use banking_ledger_domain::account::AccountOwner;
-use banking_ledger_domain::currency::CurrencyId;
+use banking_ledger_domain::core::CurrencyCode;
 
 use crate::projection::MaterializedAccountStatus;
 
@@ -7,7 +7,7 @@ use crate::projection::MaterializedAccountStatus;
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PublicAccountListCriteria {
     pub owner: Option<AccountOwner>,
-    pub currency_id: Option<CurrencyId>,
+    pub currency_code: Option<CurrencyCode>,
     pub status_in: Option<Vec<MaterializedAccountStatus>>,
 }
 
@@ -15,7 +15,7 @@ impl Default for PublicAccountListCriteria {
     fn default() -> Self {
         Self {
             owner: None,
-            currency_id: None,
+            currency_code: None,
             status_in: Some(vec![MaterializedAccountStatus::Active]),
         }
     }

@@ -4,7 +4,6 @@ use appletheia::application::read_model::{
     MaterializationEventContext, ReadModelFragmentPartition, ReadModelPartition,
 };
 use appletheia::domain::AggregateId;
-use banking_ledger_domain::currency_issuance::{CurrencyIssuance, CurrencyIssuanceEventPayload};
 use banking_ledger_domain::deposit::{Deposit, DepositEventPayload};
 use banking_ledger_domain::transfer::{Transfer, TransferEventPayload};
 use banking_ledger_domain::withdrawal::{
@@ -13,10 +12,9 @@ use banking_ledger_domain::withdrawal::{
 
 use super::{AccountTransactionFragmentProjectorError, AccountTransactionFragmentProjectorSpec};
 use crate::projection::{
-    AccountTransactionCurrencyIssuanceIssuedRecord, AccountTransactionDirection,
-    AccountTransactionFragment, AccountTransactionFragmentInsert, AccountTransactionFragmentKind,
-    AccountTransactionFragmentWriter, AccountTransactionId, AccountTransactionStatus,
-    AccountTransactionTransferRequestedRecord,
+    AccountTransactionDirection, AccountTransactionFragment, AccountTransactionFragmentInsert,
+    AccountTransactionFragmentKind, AccountTransactionFragmentWriter, AccountTransactionId,
+    AccountTransactionStatus, AccountTransactionTransferRequestedRecord,
 };
 
 /// Projects ledger events into account transaction fragment read models.
@@ -61,7 +59,10 @@ where
 
             match domain_event.payload() {
                 DepositEventPayload::Requested {
-                    account_id, amount, ..
+                    account_id,
+                    token_binding_id,
+                    amount,
+                    note,
                 } => {
                     if let Some(fragment) = self
                         .account_transaction_fragment_writer
@@ -72,12 +73,28 @@ where
                                 transaction_id,
                                 account_id: *account_id,
                                 counterparty_account_id: None,
+                                token_binding_id: Some(*token_binding_id),
+                                chain_network: None,
+                                token_address: None,
                                 amount: *amount,
+                                note: note.clone().map(Into::into),
                                 direction: AccountTransactionDirection::Incoming,
                                 kind: AccountTransactionFragmentKind::Deposit,
                                 status: AccountTransactionStatus::Pending,
                             },
                         )
+                        .await?
+                    {
+                        invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
+                    }
+                }
+                DepositEventPayload::SettlementVerified {
+                    transaction_id: onchain_id,
+                    ..
+                } => {
+                    if let Some(fragment) = self
+                        .account_transaction_fragment_writer
+                        .record_onchain_transaction(uow, event_context, transaction_id, *onchain_id)
                         .await?
                     {
                         invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
@@ -120,7 +137,11 @@ where
 
             match domain_event.payload() {
                 WithdrawalEventPayload::Requested {
-                    account_id, amount, ..
+                    account_id,
+                    amount,
+                    token_binding_id,
+                    note,
+                    ..
                 } => {
                     if let Some(fragment) = self
                         .account_transaction_fragment_writer
@@ -131,12 +152,27 @@ where
                                 transaction_id,
                                 account_id: *account_id,
                                 counterparty_account_id: None,
+                                token_binding_id: Some(*token_binding_id),
+                                chain_network: None,
+                                token_address: None,
                                 amount: *amount,
+                                note: note.clone().map(Into::into),
                                 direction: AccountTransactionDirection::Outgoing,
                                 kind: AccountTransactionFragmentKind::Withdrawal,
                                 status: AccountTransactionStatus::Pending,
                             },
                         )
+                        .await?
+                    {
+                        invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
+                    }
+                }
+                WithdrawalEventPayload::SettlementExecuted {
+                    transaction_id: onchain_id,
+                } => {
+                    if let Some(fragment) = self
+                        .account_transaction_fragment_writer
+                        .record_onchain_transaction(uow, event_context, transaction_id, *onchain_id)
                         .await?
                     {
                         invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
@@ -159,7 +195,7 @@ where
                 WithdrawalEventPayload::Failed { reason } => {
                     let status = match reason {
                         WithdrawalFailureReason::FundsReserveRejected
-                        | WithdrawalFailureReason::TokenTransferRejected => {
+                        | WithdrawalFailureReason::SettlementExecuteRejected => {
                             AccountTransactionStatus::Failed
                         }
                         WithdrawalFailureReason::ReservedFundsReleaseRejected
@@ -191,6 +227,7 @@ where
                     from_account_id,
                     to_account_id,
                     amount,
+                    note,
                     ..
                 } => {
                     if let Some(fragment) = self
@@ -204,6 +241,7 @@ where
                                 from_account_id: *from_account_id,
                                 to_account_id: *to_account_id,
                                 amount: *amount,
+                                note: note.clone().map(Into::into),
                             },
                         )
                         .await?
@@ -233,51 +271,6 @@ where
                     {
                         invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                     }
-                }
-                _ => {}
-            }
-        } else {
-            let domain_event = event.try_into_domain_event::<CurrencyIssuance>()?;
-            let currency_issuance_id = domain_event.aggregate_id();
-
-            match domain_event.payload() {
-                CurrencyIssuanceEventPayload::Issued {
-                    destination_account_id,
-                    currency_id,
-                    amount,
-                    ..
-                } => {
-                    self.account_transaction_fragment_writer
-                        .record_currency_issuance_issued(
-                            uow,
-                            event_context,
-                            AccountTransactionCurrencyIssuanceIssuedRecord {
-                                id: currency_issuance_id,
-                                destination_account_id: *destination_account_id,
-                                currency_id: *currency_id,
-                                amount: *amount,
-                            },
-                        )
-                        .await?;
-                }
-                CurrencyIssuanceEventPayload::Completed => {
-                    if let Some(fragment) = self
-                        .account_transaction_fragment_writer
-                        .complete_currency_issuance(
-                            uow,
-                            event_context,
-                            currency_issuance_id,
-                            AccountTransactionId::from(event.event_id.value()),
-                        )
-                        .await?
-                    {
-                        invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
-                    }
-                }
-                CurrencyIssuanceEventPayload::Failed { .. } => {
-                    self.account_transaction_fragment_writer
-                        .fail_currency_issuance(uow, event_context, currency_issuance_id)
-                        .await?;
                 }
                 _ => {}
             }

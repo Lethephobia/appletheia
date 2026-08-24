@@ -1,4 +1,3 @@
-mod account_transaction_currency_issuance_issued_record;
 mod account_transaction_direction;
 mod account_transaction_fragment;
 mod account_transaction_fragment_insert;
@@ -11,8 +10,9 @@ mod account_transaction_fragment_writer_error;
 mod account_transaction_id;
 mod account_transaction_status;
 mod account_transaction_transfer_requested_record;
+mod transaction_note;
+mod transaction_note_error;
 
-pub use account_transaction_currency_issuance_issued_record::AccountTransactionCurrencyIssuanceIssuedRecord;
 pub use account_transaction_direction::AccountTransactionDirection;
 pub use account_transaction_fragment::AccountTransactionFragment;
 pub use account_transaction_fragment_insert::AccountTransactionFragmentInsert;
@@ -25,3 +25,5 @@ pub use account_transaction_fragment_writer_error::AccountTransactionFragmentWri
 pub use account_transaction_id::AccountTransactionId;
 pub use account_transaction_status::AccountTransactionStatus;
 pub use account_transaction_transfer_requested_record::AccountTransactionTransferRequestedRecord;
+pub use transaction_note::TransactionNote;
+pub use transaction_note_error::TransactionNoteError;

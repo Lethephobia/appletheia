@@ -3,13 +3,16 @@ use appletheia::application::read_model::{
 };
 use appletheia::domain::EventOccurredAt;
 use banking_ledger_domain::account::AccountId;
-use banking_ledger_domain::core::CurrencyAmount;
+use banking_ledger_domain::core::{
+    ChainNetwork, CurrencyAmount, OnchainTransactionId, TokenAddress,
+};
+use banking_ledger_domain::token_binding::TokenBindingId;
 use banking_ledger_domain::transfer::TransferId;
 use serde::{Deserialize, Serialize};
 
 use super::{
     AccountTransactionDirection, AccountTransactionFragmentKind, AccountTransactionId,
-    AccountTransactionStatus,
+    AccountTransactionStatus, TransactionNote,
 };
 
 /// Normalized account transaction fragment shared by read models.
@@ -19,7 +22,12 @@ pub struct AccountTransactionFragment {
     pub transfer_id: Option<TransferId>,
     pub account_id: AccountId,
     pub counterparty_account_id: Option<AccountId>,
+    pub token_binding_id: Option<TokenBindingId>,
+    pub chain_network: Option<ChainNetwork>,
+    pub token_address: Option<TokenAddress>,
+    pub onchain_transaction_id: Option<OnchainTransactionId>,
     pub amount: CurrencyAmount,
+    pub note: Option<TransactionNote>,
     pub direction: AccountTransactionDirection,
     pub kind: AccountTransactionFragmentKind,
     pub status: AccountTransactionStatus,

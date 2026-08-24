@@ -9,17 +9,17 @@ pub use account::{
     AccountFragmentWriterError, MaterializedAccountStatus, MaterializedAccountStatusError,
 };
 pub use account_transaction::{
-    AccountTransactionCurrencyIssuanceIssuedRecord, AccountTransactionDirection,
-    AccountTransactionFragment, AccountTransactionFragmentInsert, AccountTransactionFragmentKind,
-    AccountTransactionFragmentProjector, AccountTransactionFragmentProjectorError,
-    AccountTransactionFragmentProjectorSpec, AccountTransactionFragmentWriter,
-    AccountTransactionFragmentWriterError, AccountTransactionId, AccountTransactionStatus,
-    AccountTransactionTransferRequestedRecord,
+    AccountTransactionDirection, AccountTransactionFragment, AccountTransactionFragmentInsert,
+    AccountTransactionFragmentKind, AccountTransactionFragmentProjector,
+    AccountTransactionFragmentProjectorError, AccountTransactionFragmentProjectorSpec,
+    AccountTransactionFragmentWriter, AccountTransactionFragmentWriterError, AccountTransactionId,
+    AccountTransactionStatus, AccountTransactionTransferRequestedRecord, TransactionNote,
+    TransactionNoteError,
 };
 pub use currency::{
     CurrencyFragment, CurrencyFragmentProjector, CurrencyFragmentProjectorError,
     CurrencyFragmentProjectorSpec, CurrencyFragmentUpsert, CurrencyFragmentWriter,
-    CurrencyFragmentWriterError, MaterializedCurrencyStatus, MaterializedCurrencyStatusError,
+    CurrencyFragmentWriterError, CurrencyTokenBindingFragment,
 };
 pub use wallet_bookmark::{
     WalletBookmarkFragment, WalletBookmarkFragmentProjector, WalletBookmarkFragmentProjectorError,

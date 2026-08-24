@@ -4,41 +4,38 @@ use appletheia::application::authorization::{
 use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_ledger_domain::currency::{Currency, CurrencyDescriptionChangeResult};
+use banking_ledger_domain::currency::Currency;
 
 use super::{
     CurrencyDescriptionChangeCommand, CurrencyDescriptionChangeCommandHandlerError,
     CurrencyDescriptionChangeOutput,
 };
-use crate::authorization::CurrencyUpdaterRelation;
+use crate::authorization::CurrencyDescriptionChangerRelation;
 
-/// Handles `CurrencyDescriptionChangeCommand`.
-pub struct CurrencyDescriptionChangeCommandHandler<CR>
+pub struct CurrencyDescriptionChangeCommandHandler<R>
 where
-    CR: Repository<Currency>,
+    R: Repository<Currency>,
 {
-    currency_repository: CR,
+    repository: R,
 }
 
-impl<CR> CurrencyDescriptionChangeCommandHandler<CR>
+impl<R> CurrencyDescriptionChangeCommandHandler<R>
 where
-    CR: Repository<Currency>,
+    R: Repository<Currency>,
 {
-    pub fn new(currency_repository: CR) -> Self {
-        Self {
-            currency_repository,
-        }
+    pub fn new(repository: R) -> Self {
+        Self { repository }
     }
 }
 
-impl<CR> CommandHandler for CurrencyDescriptionChangeCommandHandler<CR>
+impl<R> CommandHandler for CurrencyDescriptionChangeCommandHandler<R>
 where
-    CR: Repository<Currency>,
+    R: Repository<Currency>,
 {
     type Command = CurrencyDescriptionChangeCommand;
     type Output = CurrencyDescriptionChangeOutput;
     type Error = CurrencyDescriptionChangeCommandHandlerError;
-    type Uow = CR::Uow;
+    type Uow = R::Uow;
 
     fn authorization_plan(
         &self,
@@ -49,7 +46,7 @@ where
                 Currency,
             >(
                 command.currency_id,
-                CurrencyUpdaterRelation::REF,
+                CurrencyDescriptionChangerRelation::REF,
             )),
         ]))
     }
@@ -60,24 +57,13 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<Self::Output, Self::Error> {
-        let mut currency = self
-            .currency_repository
-            .read(uow, command.currency_id)
-            .await?;
-
-        let result = currency.change_description(command.description.clone())?;
-
-        self.currency_repository
+        let mut currency = self.repository.read(uow, command.currency_id).await?;
+        currency.change_description(command.description.clone())?;
+        self.repository
             .save(uow, request_context, &mut currency)
             .await?;
-
-        let output = match result {
-            CurrencyDescriptionChangeResult::Changed => CurrencyDescriptionChangeOutput::Changed,
-            CurrencyDescriptionChangeResult::Rejected { reason } => {
-                CurrencyDescriptionChangeOutput::Rejected { reason }
-            }
-        };
-
-        Ok(output)
+        Ok(CurrencyDescriptionChangeOutput::Changed {
+            currency_id: command.currency_id,
+        })
     }
 }

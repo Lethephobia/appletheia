@@ -5,7 +5,7 @@ use appletheia::application::read_model::{
 use banking_iam_application::{OrganizationFragment, UserFragment};
 use serde::Serialize;
 
-use crate::projection::{AccountFragment, CurrencyFragment};
+use crate::projection::AccountFragment;
 
 mod public_account_list_criteria;
 mod public_account_list_cursor;
@@ -52,7 +52,7 @@ impl ReadModelObservationSource for PublicAccountList {
                     PublicAccountListItemOwner::User(owner) => owner.observation,
                     PublicAccountListItemOwner::Organization(owner) => owner.observation,
                 };
-                [item.observation, item.currency.observation, owner]
+                [item.observation, owner]
             })
             .collect()
     }
@@ -62,14 +62,11 @@ impl ReadModel for PublicAccountList {
     const NAME: ReadModelName = ReadModelName::new("public_account_list");
 
     fn partitions(&self) -> Result<Vec<SerializedPartition>, SerializedPartitionError> {
-        let mut partitions = Vec::with_capacity(self.items.len() * 3);
+        let mut partitions = Vec::with_capacity(self.items.len() * 2);
         for item in &self.items {
             partitions.push(
                 SerializedPartition::try_from_fragment_key::<AccountFragment>(&item.account_id)?,
             );
-            partitions.push(SerializedPartition::try_from_fragment_key::<
-                CurrencyFragment,
-            >(&item.currency.id)?);
             let owner_partition = match &item.owner {
                 PublicAccountListItemOwner::User(owner) => {
                     SerializedPartition::try_from_fragment_key::<UserFragment>(&owner.id)?

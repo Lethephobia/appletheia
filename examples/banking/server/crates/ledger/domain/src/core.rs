@@ -1,5 +1,13 @@
 pub mod currency;
 pub mod onchain;
 
-pub use currency::{CurrencyAmount, CurrencyAmountError};
-pub use onchain::{OnchainTransactionId, TokenAccountOwnerAddress, TokenAccountOwnerAddressError};
+pub use currency::{
+    CurrencyAmount, CurrencyAmountError, CurrencyCode, CurrencyCodeError, CurrencyDecimals,
+};
+pub use onchain::{
+    ChainNetwork, EthereumNetwork, EvmAddress, EvmAddressError, EvmTokenContractAddress,
+    EvmTokenOwnerAddress, EvmTransactionHash, EvmTransactionHashError, OnchainTransactionId,
+    SolanaAccountAddress, SolanaAccountAddressError, SolanaMintAccountAddress, SolanaNetwork,
+    SolanaTokenOwnerAddress, SolanaTransactionSignature, SolanaTransactionSignatureError,
+    TokenAddress, TokenAmount, TokenAmountConversionError, TokenDecimals, TokenOwnerAddress,
+};

@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-/// Describes why a currency event payload cannot be serialized.
+/// Describes why a Currency event payload cannot be serialized.
 #[derive(Debug, Error)]
 pub enum CurrencyEventPayloadError {
     #[error(transparent)]

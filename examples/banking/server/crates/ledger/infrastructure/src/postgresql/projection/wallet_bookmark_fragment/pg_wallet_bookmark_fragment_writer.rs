@@ -41,7 +41,7 @@ impl PgWalletBookmarkFragmentWriter {
         let row = sqlx::query_as::<_, PgWalletBookmarkFragmentRow>(
             r#"
             SELECT id AS wallet_bookmark_id, owner_type, owner_id, display_name,
-                   description, token_account_owner_address, created_at,
+                   description, token_owner_address, created_at,
                    source_event_id, updated_event_id
               FROM wallet_bookmark_fragments
              WHERE id = $1
@@ -76,7 +76,7 @@ impl WalletBookmarkFragmentWriter for PgWalletBookmarkFragmentWriter {
         let result = sqlx::query(
             r#"
             INSERT INTO wallet_bookmark_fragments (
-                id, owner_type, owner_id, display_name, description, token_account_owner_address,
+                id, owner_type, owner_id, display_name, description, token_owner_address,
                 updated_at, created_at, source_event_sequence, updated_event_sequence, source_event_id,
                 updated_event_id
             )
@@ -86,7 +86,7 @@ impl WalletBookmarkFragmentWriter for PgWalletBookmarkFragmentWriter {
                 owner_id = EXCLUDED.owner_id,
                 display_name = EXCLUDED.display_name,
                 description = EXCLUDED.description,
-                token_account_owner_address = EXCLUDED.token_account_owner_address,
+                token_owner_address = EXCLUDED.token_owner_address,
                 updated_at = EXCLUDED.updated_at,
                 updated_event_id = EXCLUDED.updated_event_id,
                 updated_event_sequence = EXCLUDED.updated_event_sequence
@@ -98,7 +98,10 @@ impl WalletBookmarkFragmentWriter for PgWalletBookmarkFragmentWriter {
         .bind(owner_id)
         .bind(upsert.display_name.as_ref().map(WalletBookmarkDisplayName::value))
         .bind(upsert.description.as_ref().map(WalletBookmarkDescription::value))
-        .bind(upsert.token_account_owner_address.value())
+        .bind(
+            serde_json::to_string(&upsert.token_owner_address)
+                .map_err(|error| WalletBookmarkFragmentWriterError::Persistence(Box::new(error)))?,
+        )
         .bind(event_context.occurred_at.value())
         .bind(event_context.occurred_at.value())
         .bind(event_context.event_sequence.value())

@@ -1,4 +1,6 @@
 mod pg_wallet_bookmark_fragment_row;
+mod pg_wallet_bookmark_fragment_row_error;
 mod pg_wallet_bookmark_fragment_writer;
 
+pub(super) use pg_wallet_bookmark_fragment_row_error::PgWalletBookmarkFragmentRowError;
 pub use pg_wallet_bookmark_fragment_writer::PgWalletBookmarkFragmentWriter;

@@ -1,4 +1,6 @@
 mod pg_account_transaction_fragment_row;
+mod pg_account_transaction_fragment_row_error;
 mod pg_account_transaction_fragment_writer;
 
+pub(super) use pg_account_transaction_fragment_row_error::PgAccountTransactionFragmentRowError;
 pub use pg_account_transaction_fragment_writer::PgAccountTransactionFragmentWriter;

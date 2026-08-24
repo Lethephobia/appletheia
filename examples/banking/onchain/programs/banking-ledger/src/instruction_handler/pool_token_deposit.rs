@@ -1,7 +1,0 @@
-pub mod pool_token_deposit_instruction_accounts;
-mod pool_token_deposit_instruction_error;
-mod pool_token_deposit_instruction_handler;
-
-pub use pool_token_deposit_instruction_accounts::PoolTokenDepositInstructionAccounts;
-pub use pool_token_deposit_instruction_error::PoolTokenDepositInstructionError;
-pub(crate) use pool_token_deposit_instruction_handler::PoolTokenDepositInstructionHandler;

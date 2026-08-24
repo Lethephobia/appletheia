@@ -1,25 +1,21 @@
-use banking_ledger_domain::currency::Currency;
-
 mod currency_activator_relation;
 mod currency_deactivator_relation;
-mod currency_issuer_relation;
-mod currency_owner_relation;
-mod currency_ownership_transferer_relation;
+mod currency_description_changer_relation;
+mod currency_manager_relation;
+mod currency_registrar_currency_definer_relation;
+mod currency_registrar_relation;
 mod currency_relationship_updater;
 mod currency_relationship_updater_error;
-mod currency_remover_relation;
-mod currency_status_manager_relation;
-mod currency_updater_relation;
+mod currency_token_binding_definer_relation;
 mod default_currency_relationship_updater;
 
 pub use currency_activator_relation::CurrencyActivatorRelation;
 pub use currency_deactivator_relation::CurrencyDeactivatorRelation;
-pub use currency_issuer_relation::CurrencyIssuerRelation;
-pub use currency_owner_relation::CurrencyOwnerRelation;
-pub use currency_ownership_transferer_relation::CurrencyOwnershipTransfererRelation;
+pub use currency_description_changer_relation::CurrencyDescriptionChangerRelation;
+pub use currency_manager_relation::CurrencyManagerRelation;
+pub use currency_registrar_currency_definer_relation::CurrencyRegistrarCurrencyDefinerRelation;
+pub use currency_registrar_relation::CurrencyRegistrarRelation;
 pub use currency_relationship_updater::CurrencyRelationshipUpdater;
 pub use currency_relationship_updater_error::CurrencyRelationshipUpdaterError;
-pub use currency_remover_relation::CurrencyRemoverRelation;
-pub use currency_status_manager_relation::CurrencyStatusManagerRelation;
-pub use currency_updater_relation::CurrencyUpdaterRelation;
+pub use currency_token_binding_definer_relation::CurrencyTokenBindingDefinerRelation;
 pub use default_currency_relationship_updater::DefaultCurrencyRelationshipUpdater;

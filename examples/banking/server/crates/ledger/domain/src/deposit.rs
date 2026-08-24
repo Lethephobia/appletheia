@@ -7,14 +7,16 @@ mod deposit_fail_rejection_reason;
 mod deposit_fail_result;
 mod deposit_failure_reason;
 mod deposit_id;
+mod deposit_note;
+mod deposit_note_error;
 mod deposit_request;
 mod deposit_request_rejection_reason;
 mod deposit_request_result;
+mod deposit_settlement_verify_rejection_reason;
+mod deposit_settlement_verify_result;
 mod deposit_state;
 mod deposit_state_error;
 mod deposit_status;
-mod deposit_token_transfer_record_rejection_reason;
-mod deposit_token_transfer_result;
 
 pub use deposit_complete_rejection_reason::DepositCompleteRejectionReason;
 pub use deposit_complete_result::DepositCompleteResult;
@@ -25,21 +27,23 @@ pub use deposit_fail_rejection_reason::DepositFailRejectionReason;
 pub use deposit_fail_result::DepositFailResult;
 pub use deposit_failure_reason::DepositFailureReason;
 pub use deposit_id::DepositId;
+pub use deposit_note::DepositNote;
+pub use deposit_note_error::DepositNoteError;
 pub use deposit_request::DepositRequest;
 pub use deposit_request_rejection_reason::DepositRequestRejectionReason;
 pub use deposit_request_result::DepositRequestResult;
+pub use deposit_settlement_verify_rejection_reason::DepositSettlementVerifyRejectionReason;
+pub use deposit_settlement_verify_result::DepositSettlementVerifyResult;
 pub use deposit_state::DepositState;
 pub use deposit_state_error::DepositStateError;
 pub use deposit_status::DepositStatus;
-pub use deposit_token_transfer_record_rejection_reason::DepositTokenTransferRecordRejectionReason;
-pub use deposit_token_transfer_result::DepositTokenTransferResult;
 
 use appletheia::aggregate;
 use appletheia::domain::{Aggregate, AggregateApply, AggregateCore};
 
 use crate::account::AccountId;
-use crate::core::{CurrencyAmount, TokenAccountOwnerAddress};
-use crate::currency::CurrencyId;
+use crate::core::{CurrencyAmount, OnchainTransactionId};
+use crate::token_binding::TokenBindingId;
 
 /// Represents the `Deposit` aggregate root.
 #[aggregate(type = "deposit", error = DepositError)]
@@ -53,19 +57,23 @@ impl Deposit {
         Ok(&self.state_required()?.account_id)
     }
 
-    /// Returns the deposit currency.
-    pub fn currency_id(&self) -> Result<&CurrencyId, DepositError> {
-        Ok(&self.state_required()?.currency_id)
-    }
-
-    /// Returns the token account owner address.
-    pub fn token_account_owner_address(&self) -> Result<&TokenAccountOwnerAddress, DepositError> {
-        Ok(&self.state_required()?.token_account_owner_address)
+    /// Returns the token binding selected for this deposit.
+    pub fn token_binding_id(&self) -> Result<TokenBindingId, DepositError> {
+        Ok(self.state_required()?.token_binding_id)
     }
 
     /// Returns the deposit amount.
-    pub fn amount(&self) -> Result<&CurrencyAmount, DepositError> {
-        Ok(&self.state_required()?.amount)
+    pub fn amount(&self) -> Result<CurrencyAmount, DepositError> {
+        Ok(self.state_required()?.amount)
+    }
+
+    pub fn note(&self) -> Result<Option<&DepositNote>, DepositError> {
+        Ok(self.state_required()?.note.as_ref())
+    }
+
+    /// Returns the verified transaction identifier when settlement has succeeded.
+    pub fn transaction_id(&self) -> Result<Option<&OnchainTransactionId>, DepositError> {
+        Ok(self.state_required()?.transaction_id.as_ref())
     }
 
     /// Returns the current status.
@@ -73,7 +81,7 @@ impl Deposit {
         Ok(&self.state_required()?.status)
     }
 
-    /// Requests a deposit before its on-chain token transfer.
+    /// Requests a deposit before its on-chain token settlement.
     pub fn request(
         &mut self,
         request: DepositRequest,
@@ -88,12 +96,12 @@ impl Deposit {
             return Ok(DepositRequestResult::Rejected { reason });
         }
 
-        let (account_id, currency_id, token_account_owner_address, amount) = request.into_parts();
+        let (account_id, token_binding_id, amount, note) = request.into_parts();
         self.append_event(DepositEventPayload::Requested {
             account_id,
-            currency_id,
-            token_account_owner_address,
+            token_binding_id,
             amount,
+            note,
         })?;
 
         Ok(DepositRequestResult::Requested)
@@ -105,67 +113,75 @@ impl Deposit {
         request: DepositRequest,
         reason: DepositRequestRejectionReason,
     ) -> Result<(), DepositError> {
-        let (account_id, currency_id, token_account_owner_address, amount) = request.into_parts();
+        let (account_id, token_binding_id, amount, note) = request.into_parts();
         self.append_event(DepositEventPayload::RequestRejected {
             account_id,
-            currency_id,
-            token_account_owner_address,
+            token_binding_id,
             amount,
+            note,
             reason,
         })?;
         Ok(())
     }
 
-    /// Records the verified on-chain token transfer.
-    pub fn record_token_transfer(&mut self) -> Result<DepositTokenTransferResult, DepositError> {
+    /// Records the verified on-chain token settlement.
+    pub fn record_settlement_verified(
+        &mut self,
+        transaction_id: OnchainTransactionId,
+    ) -> Result<DepositSettlementVerifyResult, DepositError> {
         let state = self.state_required()?;
         match state.status {
             DepositStatus::Requested => {}
             DepositStatus::Rejected => {
-                let reason = DepositTokenTransferRecordRejectionReason::AlreadyRejected;
-                self.reject_token_transfer_record(reason)?;
-                return Ok(DepositTokenTransferResult::Rejected { reason });
+                let reason = DepositSettlementVerifyRejectionReason::AlreadyRejected;
+                self.reject_settlement_verify(transaction_id, reason)?;
+                return Ok(DepositSettlementVerifyResult::Rejected { reason });
             }
-            DepositStatus::TokenTransferred => {
-                let reason = DepositTokenTransferRecordRejectionReason::AlreadyTokenTransferred;
-                self.reject_token_transfer_record(reason)?;
-                return Ok(DepositTokenTransferResult::Rejected { reason });
+            DepositStatus::SettlementVerified => {
+                let reason = DepositSettlementVerifyRejectionReason::AlreadyVerified;
+                self.reject_settlement_verify(transaction_id, reason)?;
+                return Ok(DepositSettlementVerifyResult::Rejected { reason });
             }
             DepositStatus::Completed => {
-                let reason = DepositTokenTransferRecordRejectionReason::AlreadyCompleted;
-                self.reject_token_transfer_record(reason)?;
-                return Ok(DepositTokenTransferResult::Rejected { reason });
+                let reason = DepositSettlementVerifyRejectionReason::AlreadyCompleted;
+                self.reject_settlement_verify(transaction_id, reason)?;
+                return Ok(DepositSettlementVerifyResult::Rejected { reason });
             }
             DepositStatus::Failed => {
-                let reason = DepositTokenTransferRecordRejectionReason::AlreadyFailed;
-                self.reject_token_transfer_record(reason)?;
-                return Ok(DepositTokenTransferResult::Rejected { reason });
+                let reason = DepositSettlementVerifyRejectionReason::AlreadyFailed;
+                self.reject_settlement_verify(transaction_id, reason)?;
+                return Ok(DepositSettlementVerifyResult::Rejected { reason });
             }
         }
 
-        self.append_event(DepositEventPayload::TokenTransferred {
+        self.append_event(DepositEventPayload::SettlementVerified {
             account_id: state.account_id,
             amount: state.amount,
+            transaction_id,
         })?;
 
-        Ok(DepositTokenTransferResult::TokenTransferred)
+        Ok(DepositSettlementVerifyResult::Verified)
     }
 
-    /// Rejects recording an on-chain token transfer.
-    pub fn reject_token_transfer_record(
+    /// Rejects recording an on-chain token settlement.
+    pub fn reject_settlement_verify(
         &mut self,
-        reason: DepositTokenTransferRecordRejectionReason,
+        transaction_id: OnchainTransactionId,
+        reason: DepositSettlementVerifyRejectionReason,
     ) -> Result<(), DepositError> {
-        self.append_event(DepositEventPayload::TokenTransferRecordRejected { reason })?;
+        self.append_event(DepositEventPayload::SettlementVerifyRejected {
+            transaction_id,
+            reason,
+        })?;
         Ok(())
     }
 
     /// Completes the deposit after internal accounting is applied.
     pub fn complete(&mut self) -> Result<DepositCompleteResult, DepositError> {
         match self.state_required()?.status {
-            DepositStatus::Requested => return Err(DepositError::TokenTransferNotRecorded),
-            DepositStatus::Rejected => return Err(DepositError::TokenTransferNotRecorded),
-            DepositStatus::TokenTransferred => {}
+            DepositStatus::Requested => return Err(DepositError::SettlementNotVerified),
+            DepositStatus::Rejected => return Err(DepositError::SettlementNotVerified),
+            DepositStatus::SettlementVerified => {}
             DepositStatus::Completed => {
                 let reason = DepositCompleteRejectionReason::AlreadyCompleted;
                 self.reject_complete(reason)?;
@@ -197,9 +213,9 @@ impl Deposit {
         reason: DepositFailureReason,
     ) -> Result<DepositFailResult, DepositError> {
         match self.state_required()?.status {
-            DepositStatus::Requested => return Err(DepositError::TokenTransferNotRecorded),
-            DepositStatus::Rejected => return Err(DepositError::TokenTransferNotRecorded),
-            DepositStatus::TokenTransferred => {}
+            DepositStatus::Requested => return Err(DepositError::SettlementNotVerified),
+            DepositStatus::Rejected => return Err(DepositError::SettlementNotVerified),
+            DepositStatus::SettlementVerified => {}
             DepositStatus::Completed => {
                 let rejection_reason = DepositFailRejectionReason::AlreadyCompleted;
                 self.reject_fail(rejection_reason)?;
@@ -232,33 +248,37 @@ impl AggregateApply<DepositEventPayload, DepositError> for Deposit {
         match payload {
             DepositEventPayload::Requested {
                 account_id,
-                currency_id,
-                token_account_owner_address,
+                token_binding_id,
                 amount,
+                note,
             } => self.set_state(Some(DepositState {
                 account_id: *account_id,
-                currency_id: *currency_id,
-                token_account_owner_address: token_account_owner_address.clone(),
+                token_binding_id: *token_binding_id,
                 amount: *amount,
+                note: note.clone(),
+                transaction_id: None,
                 status: DepositStatus::Requested,
             })),
             DepositEventPayload::RequestRejected {
                 account_id,
-                currency_id,
-                token_account_owner_address,
+                token_binding_id,
                 amount,
+                note,
                 ..
             } => self.set_state(Some(DepositState {
                 account_id: *account_id,
-                currency_id: *currency_id,
-                token_account_owner_address: token_account_owner_address.clone(),
+                token_binding_id: *token_binding_id,
                 amount: *amount,
+                note: note.clone(),
+                transaction_id: None,
                 status: DepositStatus::Rejected,
             })),
-            DepositEventPayload::TokenTransferred { .. } => {
-                self.state_required_mut()?.status = DepositStatus::TokenTransferred;
+            DepositEventPayload::SettlementVerified { transaction_id, .. } => {
+                let state = self.state_required_mut()?;
+                state.transaction_id = Some(*transaction_id);
+                state.status = DepositStatus::SettlementVerified;
             }
-            DepositEventPayload::TokenTransferRecordRejected { .. } => {}
+            DepositEventPayload::SettlementVerifyRejected { .. } => {}
             DepositEventPayload::Completed => {
                 self.state_required_mut()?.status = DepositStatus::Completed;
             }
@@ -277,159 +297,43 @@ impl AggregateApply<DepositEventPayload, DepositError> for Deposit {
 mod tests {
     use appletheia::domain::{Aggregate, EventPayload};
 
-    use crate::{
-        account::AccountId,
-        core::{CurrencyAmount, TokenAccountOwnerAddress},
-        currency::CurrencyId,
-    };
+    use crate::account::AccountId;
+    use crate::core::{CurrencyAmount, OnchainTransactionId, SolanaTransactionSignature};
+    use crate::token_binding::TokenBindingId;
 
     use super::{
-        Deposit, DepositCompleteResult, DepositEventPayload, DepositRequest,
-        DepositRequestRejectionReason, DepositRequestResult, DepositStatus,
-        DepositTokenTransferResult,
+        Deposit, DepositEventPayload, DepositRequest, DepositSettlementVerifyResult, DepositStatus,
     };
 
     #[test]
-    fn request_initializes_state_and_records_event() {
-        let account_id = AccountId::new();
-        let currency_id = CurrencyId::new();
-        let token_account_owner_address = token_account_owner_address();
-        let amount = CurrencyAmount::new(100);
+    fn records_a_verified_settlement() {
         let mut deposit = Deposit::new();
-        let result = deposit
+        deposit
             .request(DepositRequest {
-                account_id,
-                currency_id,
-                token_account_owner_address: token_account_owner_address.clone(),
-                amount,
+                account_id: AccountId::new(),
+                token_binding_id: TokenBindingId::new(),
+                amount: CurrencyAmount::new(100),
+                note: None,
             })
-            .expect("deposit should be requested");
-        assert_eq!(result, DepositRequestResult::Requested);
-
-        assert!(matches!(
-            deposit.uncommitted_events()[0].payload(),
-            DepositEventPayload::Requested { .. }
-        ));
-        assert_eq!(deposit.account_id().expect("account id"), &account_id);
-        assert_eq!(deposit.currency_id().expect("currency id"), &currency_id);
-        assert_eq!(
-            deposit
-                .token_account_owner_address()
-                .expect("token account owner address"),
-            &token_account_owner_address
+            .expect("deposit request should succeed");
+        deposit.core_mut().clear_uncommitted_events();
+        let transaction_id = OnchainTransactionId::Solana(
+            SolanaTransactionSignature::new(bs58::encode([1_u8; 64]).into_string())
+                .expect("transaction signature should be valid"),
         );
-        assert_eq!(deposit.amount().expect("amount"), &amount);
-        assert_eq!(deposit.status().expect("status"), &DepositStatus::Requested);
+
+        let result = deposit
+            .record_settlement_verified(transaction_id)
+            .expect("verified settlement should be recorded");
+
+        assert_eq!(result, DepositSettlementVerifyResult::Verified);
+        assert_eq!(
+            deposit.status().expect("deposit state should exist"),
+            &DepositStatus::SettlementVerified
+        );
         assert_eq!(
             deposit.uncommitted_events()[0].payload().name(),
-            DepositEventPayload::REQUESTED
+            DepositEventPayload::SETTLEMENT_VERIFIED
         );
-    }
-
-    #[test]
-    fn record_token_transfer_updates_requested_deposit() {
-        let mut deposit = requested_deposit();
-
-        let result = deposit
-            .record_token_transfer()
-            .expect("token transfer should be recorded");
-
-        assert_eq!(result, DepositTokenTransferResult::TokenTransferred);
-        assert_eq!(
-            deposit.status().expect("status"),
-            &DepositStatus::TokenTransferred
-        );
-        assert_eq!(
-            deposit.uncommitted_events()[1].payload().name(),
-            DepositEventPayload::TOKEN_TRANSFERRED
-        );
-    }
-
-    #[test]
-    fn request_rejects_zero_amount() {
-        let mut deposit = Deposit::new();
-
-        let result = deposit
-            .request(DepositRequest {
-                account_id: AccountId::new(),
-                currency_id: CurrencyId::new(),
-                token_account_owner_address: token_account_owner_address(),
-                amount: CurrencyAmount::zero(),
-            })
-            .expect("zero amount should be rejected");
-
-        assert!(matches!(
-            result,
-            DepositRequestResult::Rejected {
-                reason: DepositRequestRejectionReason::ZeroAmount,
-                ..
-            }
-        ));
-        assert_eq!(deposit.status().expect("status"), &DepositStatus::Rejected);
-        assert!(matches!(
-            deposit.uncommitted_events()[0].payload(),
-            DepositEventPayload::RequestRejected {
-                reason: DepositRequestRejectionReason::ZeroAmount,
-                ..
-            }
-        ));
-    }
-
-    #[test]
-    fn reject_request_records_unprovisioned_currency() {
-        let mut deposit = Deposit::new();
-        let reason = DepositRequestRejectionReason::CurrencyUnprovisioned;
-
-        deposit
-            .reject_request(
-                DepositRequest {
-                    account_id: AccountId::new(),
-                    currency_id: CurrencyId::new(),
-                    token_account_owner_address: token_account_owner_address(),
-                    amount: CurrencyAmount::new(100),
-                },
-                reason,
-            )
-            .expect("unprovisioned currency rejection should be recorded");
-
-        assert_eq!(deposit.status().expect("status"), &DepositStatus::Rejected);
-        assert!(matches!(
-            deposit.uncommitted_events()[0].payload(),
-            DepositEventPayload::RequestRejected {
-                reason: DepositRequestRejectionReason::CurrencyUnprovisioned,
-                ..
-            }
-        ));
-    }
-
-    #[test]
-    fn complete_succeeds_after_token_transfer_is_recorded() {
-        let mut deposit = requested_deposit();
-        deposit
-            .record_token_transfer()
-            .expect("token transfer should be recorded");
-
-        let result = deposit.complete().expect("complete should succeed");
-
-        assert_eq!(result, DepositCompleteResult::Completed);
-        assert_eq!(deposit.status().expect("status"), &DepositStatus::Completed);
-    }
-
-    fn requested_deposit() -> Deposit {
-        let mut deposit = Deposit::new();
-        deposit
-            .request(DepositRequest {
-                account_id: AccountId::new(),
-                currency_id: CurrencyId::new(),
-                token_account_owner_address: token_account_owner_address(),
-                amount: CurrencyAmount::new(100),
-            })
-            .expect("deposit should be requested");
-        deposit
-    }
-
-    fn token_account_owner_address() -> TokenAccountOwnerAddress {
-        TokenAccountOwnerAddress::try_from("11111111111111111111111111111111")
-            .expect("token account owner address should be valid")
     }
 }

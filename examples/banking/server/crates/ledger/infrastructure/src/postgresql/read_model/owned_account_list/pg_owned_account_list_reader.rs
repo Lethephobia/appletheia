@@ -126,11 +126,10 @@ impl OwnedAccountListReader for PgOwnedAccountListReader {
             SELECT
                 a.id AS account_id,
                 a.name,
-                a.currency_id,
-                c.symbol AS currency_symbol,
-                c.name AS currency_name,
+                a.description,
+                c.id AS currency_id,
+                c.code AS currency_code,
                 c.decimals AS currency_decimals,
-                c.mint_account_address AS currency_mint_account_address,
                 c.source_event_id AS currency_source_event_id,
                 c.updated_event_id AS currency_updated_event_id,
                 a.balance::text AS balance,
@@ -140,7 +139,7 @@ impl OwnedAccountListReader for PgOwnedAccountListReader {
                 a.source_event_id,
                 a.updated_event_id
             FROM account_fragments a
-            INNER JOIN currency_fragments c ON c.id = a.currency_id
+            JOIN currency_fragments c ON c.id = a.currency_id
             WHERE a.owner_type =
             "#,
         );
@@ -150,10 +149,10 @@ impl OwnedAccountListReader for PgOwnedAccountListReader {
             .push(" AND a.owner_id = ")
             .push_bind(owner_id);
 
-        if let Some(currency_id) = criteria.currency_id {
+        if let Some(currency_code) = criteria.currency_code {
             builder
-                .push(" AND a.currency_id = ")
-                .push_bind(currency_id.value());
+                .push(" AND c.code = ")
+                .push_bind(currency_code.value().to_owned());
         }
 
         if let Some(status_in) = criteria.status_in.as_deref() {

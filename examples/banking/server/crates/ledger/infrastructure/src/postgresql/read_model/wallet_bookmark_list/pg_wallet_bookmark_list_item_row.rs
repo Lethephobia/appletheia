@@ -2,7 +2,7 @@ use appletheia::application::read_model::ReadModelObservation;
 use appletheia::domain::{AggregateId, EventId, EventOccurredAt};
 use banking_iam_domain::{OrganizationId, UserId};
 use banking_ledger_application::WalletBookmarkListItem;
-use banking_ledger_domain::core::TokenAccountOwnerAddress;
+use banking_ledger_domain::core::TokenOwnerAddress;
 use banking_ledger_domain::wallet_bookmark::{
     WalletBookmarkDescription, WalletBookmarkDisplayName, WalletBookmarkId, WalletBookmarkOwner,
 };
@@ -18,7 +18,7 @@ pub struct PgWalletBookmarkListItemRow {
     pub owner_id: Uuid,
     pub display_name: Option<String>,
     pub description: Option<String>,
-    pub token_account_owner_address: String,
+    pub token_owner_address: String,
     pub created_at: DateTime<Utc>,
     pub source_event_id: Uuid,
     pub updated_event_id: Uuid,
@@ -81,8 +81,8 @@ impl TryFrom<PgWalletBookmarkListItemRow> for WalletBookmarkListItem {
                 .map_err(|error| {
                     PgWalletBookmarkListItemRowError::InvalidDescription(Box::new(error))
                 })?,
-            token_account_owner_address: TokenAccountOwnerAddress::try_from(
-                row.token_account_owner_address,
+            token_owner_address: serde_json::from_str::<TokenOwnerAddress>(
+                &row.token_owner_address,
             )
             .map_err(|error| {
                 PgWalletBookmarkListItemRowError::InvalidTokenAccountOwnerAddress(Box::new(error))

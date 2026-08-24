@@ -1,30 +1,23 @@
 use appletheia::application::read_model::{
     ReadModelFragment, ReadModelFragmentName, ReadModelObservation, ReadModelObservationSource,
 };
-use appletheia::domain::EventOccurredAt;
-use banking_ledger_domain::core::CurrencyAmount;
-use banking_ledger_domain::currency::{
-    CurrencyDecimals, CurrencyDescription, CurrencyId, CurrencyImageRef, CurrencyName,
-    CurrencyOwner, CurrencySymbol, MintAccountAddress,
-};
+use banking_ledger_domain::core::{CurrencyCode, CurrencyDecimals};
+use banking_ledger_domain::currency::{CurrencyDescription, CurrencyId, CurrencyStatus};
+use banking_ledger_domain::currency_registrar::CurrencyRegistrarId;
 use serde::{Deserialize, Serialize};
 
-use super::MaterializedCurrencyStatus;
+use super::CurrencyTokenBindingFragment;
 
-/// Normalized currency fragment shared by read models.
+/// Event-backed Currency projection used by settlement and account queries.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct CurrencyFragment {
     pub id: CurrencyId,
-    pub owner: CurrencyOwner,
-    pub symbol: CurrencySymbol,
-    pub name: CurrencyName,
+    pub currency_registrar_id: CurrencyRegistrarId,
+    pub code: CurrencyCode,
     pub decimals: CurrencyDecimals,
     pub description: Option<CurrencyDescription>,
-    pub image: Option<CurrencyImageRef>,
-    pub mint_account_address: Option<MintAccountAddress>,
-    pub supply: CurrencyAmount,
-    pub status: MaterializedCurrencyStatus,
-    pub created_at: EventOccurredAt,
+    pub status: CurrencyStatus,
+    pub token_bindings: Vec<CurrencyTokenBindingFragment>,
     pub observation: ReadModelObservation,
 }
 

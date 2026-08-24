@@ -4,38 +4,35 @@ use appletheia::application::authorization::{
 use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_ledger_domain::currency::{Currency, CurrencyActivateResult};
+use banking_ledger_domain::currency::{Currency, CurrencyLifecycleResult};
 
 use super::{CurrencyActivateCommand, CurrencyActivateCommandHandlerError, CurrencyActivateOutput};
 use crate::authorization::CurrencyActivatorRelation;
 
-/// Handles `CurrencyActivateCommand`.
-pub struct CurrencyActivateCommandHandler<CDR>
+pub struct CurrencyActivateCommandHandler<R>
 where
-    CDR: Repository<Currency>,
+    R: Repository<Currency>,
 {
-    currency_repository: CDR,
+    repository: R,
 }
 
-impl<CDR> CurrencyActivateCommandHandler<CDR>
+impl<R> CurrencyActivateCommandHandler<R>
 where
-    CDR: Repository<Currency>,
+    R: Repository<Currency>,
 {
-    pub fn new(currency_repository: CDR) -> Self {
-        Self {
-            currency_repository,
-        }
+    pub fn new(repository: R) -> Self {
+        Self { repository }
     }
 }
 
-impl<CDR> CommandHandler for CurrencyActivateCommandHandler<CDR>
+impl<R> CommandHandler for CurrencyActivateCommandHandler<R>
 where
-    CDR: Repository<Currency>,
+    R: Repository<Currency>,
 {
     type Command = CurrencyActivateCommand;
     type Output = CurrencyActivateOutput;
     type Error = CurrencyActivateCommandHandlerError;
-    type Uow = CDR::Uow;
+    type Uow = R::Uow;
 
     fn authorization_plan(
         &self,
@@ -57,24 +54,19 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<Self::Output, Self::Error> {
-        let mut currency = self
-            .currency_repository
-            .read(uow, command.currency_id)
-            .await?;
-
+        let mut currency = self.repository.read(uow, command.currency_id).await?;
         let result = currency.activate()?;
-
-        self.currency_repository
+        self.repository
             .save(uow, request_context, &mut currency)
             .await?;
-
-        let output = match result {
-            CurrencyActivateResult::Activated => CurrencyActivateOutput::Activated,
-            CurrencyActivateResult::Rejected { reason } => {
-                CurrencyActivateOutput::Rejected { reason }
-            }
-        };
-
-        Ok(output)
+        Ok(match result {
+            CurrencyLifecycleResult::Changed => CurrencyActivateOutput::Activated {
+                currency_id: command.currency_id,
+            },
+            CurrencyLifecycleResult::Rejected { reason } => CurrencyActivateOutput::Rejected {
+                currency_id: command.currency_id,
+                reason,
+            },
+        })
     }
 }

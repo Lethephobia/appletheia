@@ -3,12 +3,18 @@ use appletheia::domain::{AggregateId, EventId, EventOccurredAt};
 use banking_ledger_application::{
     AccountTransactionDirection, AccountTransactionFragment, AccountTransactionFragmentKind,
     AccountTransactionFragmentWriterError, AccountTransactionId, AccountTransactionStatus,
+    TransactionNote,
 };
 use banking_ledger_domain::account::AccountId;
-use banking_ledger_domain::core::CurrencyAmount;
+use banking_ledger_domain::core::{
+    ChainNetwork, CurrencyAmount, OnchainTransactionId, TokenAddress,
+};
+use banking_ledger_domain::token_binding::TokenBindingId;
 use banking_ledger_domain::transfer::TransferId;
 use sqlx::types::chrono::{DateTime, Utc};
 use uuid::Uuid;
+
+use super::PgAccountTransactionFragmentRowError;
 
 #[derive(Debug, sqlx::FromRow)]
 pub struct PgAccountTransactionFragmentRow {
@@ -16,7 +22,12 @@ pub struct PgAccountTransactionFragmentRow {
     pub transfer_id: Option<Uuid>,
     pub account_id: Uuid,
     pub counterparty_account_id: Option<Uuid>,
+    pub token_binding_id: Option<Uuid>,
+    pub chain_network: Option<String>,
+    pub token_address: Option<String>,
+    pub onchain_transaction_id: Option<String>,
     pub amount: String,
+    pub note: Option<String>,
     pub direction: String,
     pub kind: String,
     pub status: String,
@@ -33,21 +44,32 @@ impl TryFrom<PgAccountTransactionFragmentRow> for AccountTransactionFragment {
         let direction = match row.direction.as_str() {
             "incoming" => AccountTransactionDirection::Incoming,
             "outgoing" => AccountTransactionDirection::Outgoing,
-            _ => return Err(persistence_message("unknown account transaction direction")),
+            _ => {
+                return Err(persistence_error(
+                    PgAccountTransactionFragmentRowError::Direction(row.direction.clone()),
+                ));
+            }
         };
         let kind = match row.kind.as_str() {
             "deposit" => AccountTransactionFragmentKind::Deposit,
             "withdrawal" => AccountTransactionFragmentKind::Withdrawal,
             "transfer" => AccountTransactionFragmentKind::Transfer,
-            "currency_issuance" => AccountTransactionFragmentKind::CurrencyIssuance,
-            _ => return Err(persistence_message("unknown account transaction kind")),
+            _ => {
+                return Err(persistence_error(
+                    PgAccountTransactionFragmentRowError::Kind(row.kind.clone()),
+                ));
+            }
         };
         let status = match row.status.as_str() {
             "pending" => AccountTransactionStatus::Pending,
             "completed" => AccountTransactionStatus::Completed,
             "failed" => AccountTransactionStatus::Failed,
             "requires_review" => AccountTransactionStatus::RequiresReview,
-            _ => return Err(persistence_message("unknown account transaction status")),
+            _ => {
+                return Err(persistence_error(
+                    PgAccountTransactionFragmentRowError::Status(row.status.clone()),
+                ));
+            }
         };
 
         Ok(AccountTransactionFragment {
@@ -63,7 +85,32 @@ impl TryFrom<PgAccountTransactionFragmentRow> for AccountTransactionFragment {
                 .map(AccountId::try_from_uuid)
                 .transpose()
                 .map_err(persistence_error)?,
+            token_binding_id: row
+                .token_binding_id
+                .map(TokenBindingId::try_from_uuid)
+                .transpose()
+                .map_err(persistence_error)?,
+            chain_network: row
+                .chain_network
+                .map(|value| serde_json::from_str::<ChainNetwork>(&value))
+                .transpose()
+                .map_err(persistence_error)?,
+            token_address: row
+                .token_address
+                .map(|value| serde_json::from_str::<TokenAddress>(&value))
+                .transpose()
+                .map_err(persistence_error)?,
+            onchain_transaction_id: row
+                .onchain_transaction_id
+                .map(|value| serde_json::from_str::<OnchainTransactionId>(&value))
+                .transpose()
+                .map_err(persistence_error)?,
             amount: amount(row.amount)?,
+            note: row
+                .note
+                .map(TransactionNote::try_from)
+                .transpose()
+                .map_err(persistence_error)?,
             direction,
             kind,
             status,
@@ -86,8 +133,4 @@ fn persistence_error(
     error: impl std::error::Error + Send + Sync + 'static,
 ) -> AccountTransactionFragmentWriterError {
     AccountTransactionFragmentWriterError::Persistence(Box::new(error))
-}
-
-fn persistence_message(message: &'static str) -> AccountTransactionFragmentWriterError {
-    AccountTransactionFragmentWriterError::Persistence(Box::new(std::io::Error::other(message)))
 }

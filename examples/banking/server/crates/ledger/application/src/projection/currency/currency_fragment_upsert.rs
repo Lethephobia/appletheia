@@ -1,21 +1,13 @@
-use banking_ledger_domain::core::CurrencyAmount;
-use banking_ledger_domain::currency::{
-    CurrencyDecimals, CurrencyDescription, CurrencyId, CurrencyImageRef, CurrencyName,
-    CurrencyOwner, CurrencySymbol, MintAccountAddress,
-};
-
-use super::MaterializedCurrencyStatus;
+use banking_ledger_domain::core::{CurrencyCode, CurrencyDecimals};
+use banking_ledger_domain::currency::{CurrencyDescription, CurrencyId, CurrencyStatus};
+use banking_ledger_domain::currency_registrar::CurrencyRegistrarId;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CurrencyFragmentUpsert {
     pub id: CurrencyId,
-    pub owner: CurrencyOwner,
-    pub symbol: CurrencySymbol,
-    pub name: CurrencyName,
+    pub currency_registrar_id: CurrencyRegistrarId,
+    pub code: CurrencyCode,
     pub decimals: CurrencyDecimals,
     pub description: Option<CurrencyDescription>,
-    pub image: Option<CurrencyImageRef>,
-    pub mint_account_address: Option<MintAccountAddress>,
-    pub supply: CurrencyAmount,
-    pub status: MaterializedCurrencyStatus,
+    pub status: CurrencyStatus,
 }

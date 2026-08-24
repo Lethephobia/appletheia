@@ -21,7 +21,7 @@ impl Saga for DepositSaga {
         if event.is_for_aggregate::<Deposit>() {
             let deposit_event = event.try_into_domain_event::<Deposit>()?;
             match deposit_event.payload() {
-                DepositEventPayload::TokenTransferred {
+                DepositEventPayload::SettlementVerified {
                     account_id, amount, ..
                 } => {
                     *instance.state_mut() = Some(DepositSagaState::new(

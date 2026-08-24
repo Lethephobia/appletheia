@@ -1,5 +1,5 @@
 use banking_ledger_domain::account::AccountId;
-use banking_ledger_domain::currency::CurrencyId;
+use banking_ledger_domain::core::CurrencyCode;
 
 use crate::projection::AccountTransactionStatus;
 
@@ -7,6 +7,6 @@ use crate::projection::AccountTransactionStatus;
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct OwnedAccountTransactionListCriteria {
     pub account_id: Option<AccountId>,
-    pub currency_id: Option<CurrencyId>,
+    pub currency_code: Option<CurrencyCode>,
     pub status_in: Option<Vec<AccountTransactionStatus>>,
 }

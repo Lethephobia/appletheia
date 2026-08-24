@@ -10,13 +10,14 @@ use banking_ledger_application::{
     OwnedAccountTransactionListItemCounterpartyAccountOwnerOrganization,
     OwnedAccountTransactionListItemCounterpartyAccountOwnerUser,
     OwnedAccountTransactionListItemCurrency, OwnedAccountTransactionListItemDirection,
-    OwnedAccountTransactionListItemKind, OwnedAccountTransactionListItemStatus,
+    OwnedAccountTransactionListItemKind, OwnedAccountTransactionListItemStatus, TransactionNote,
 };
 use banking_ledger_domain::account::AccountId;
-use banking_ledger_domain::core::CurrencyAmount;
-use banking_ledger_domain::currency::{
-    CurrencyDecimals, CurrencyId, CurrencyName, CurrencySymbol, MintAccountAddress,
+use banking_ledger_domain::core::{
+    ChainNetwork, CurrencyAmount, CurrencyCode, CurrencyDecimals, OnchainTransactionId,
+    TokenAddress,
 };
+use banking_ledger_domain::currency::CurrencyId;
 use banking_ledger_domain::transfer::TransferId;
 use sqlx::types::chrono::{DateTime, Utc};
 use uuid::Uuid;
@@ -48,13 +49,15 @@ pub struct PgOwnedAccountTransactionListItemRow {
     pub counterparty_account_source_event_id: Option<Uuid>,
     pub counterparty_account_updated_event_id: Option<Uuid>,
     pub currency_id: Uuid,
-    pub currency_symbol: String,
-    pub currency_name: String,
+    pub currency_code: String,
     pub currency_decimals: i16,
-    pub currency_mint_account_address: Option<String>,
     pub currency_source_event_id: Uuid,
     pub currency_updated_event_id: Uuid,
+    pub chain_network: Option<String>,
+    pub token_address: Option<String>,
+    pub onchain_transaction_id: Option<String>,
     pub amount: String,
+    pub note: Option<String>,
     pub direction: String,
     pub kind: String,
     pub status: String,
@@ -109,10 +112,6 @@ impl PgOwnedAccountTransactionListItemRow {
                 transfer_id: Self::transfer_id(row.transfer_id)?,
                 counterparty_account: Box::new(Self::counterparty_account(row)?),
             }),
-            "currency_issuance" => {
-                Self::ensure_no_transfer_attributes(row)?;
-                Ok(OwnedAccountTransactionListItemKind::CurrencyIssuance)
-            }
             value => Err(PgOwnedAccountTransactionListItemRowError::UnknownKind(
                 value.to_owned(),
             )),
@@ -344,33 +343,52 @@ impl TryFrom<PgOwnedAccountTransactionListItemRow> for OwnedAccountTransactionLi
             })?,
             currency: OwnedAccountTransactionListItemCurrency {
                 id: CurrencyId::try_from_uuid(row.currency_id).map_err(|error| {
-                    PgOwnedAccountTransactionListItemRowError::InvalidCurrencyId(Box::new(error))
+                    PgOwnedAccountTransactionListItemRowError::InvalidCurrencyCode(Box::new(error))
                 })?,
-                symbol: CurrencySymbol::try_from(row.currency_symbol.clone()).map_err(|error| {
-                    PgOwnedAccountTransactionListItemRowError::InvalidCurrencySymbol(Box::new(
-                        error,
-                    ))
-                })?,
-                name: CurrencyName::try_from(row.currency_name.clone()).map_err(|error| {
-                    PgOwnedAccountTransactionListItemRowError::InvalidCurrencyName(Box::new(error))
+                code: CurrencyCode::try_from(row.currency_code.clone()).map_err(|error| {
+                    PgOwnedAccountTransactionListItemRowError::InvalidCurrencyCode(Box::new(error))
                 })?,
                 decimals: CurrencyDecimals::new(currency_decimals),
-                mint_account_address: row
-                    .currency_mint_account_address
-                    .clone()
-                    .map(MintAccountAddress::try_from)
-                    .transpose()
-                    .map_err(|error| {
-                        PgOwnedAccountTransactionListItemRowError::InvalidMintAccountAddress(
-                            Box::new(error),
-                        )
-                    })?,
                 observation: PgOwnedAccountTransactionListItemRow::observation(
                     row.currency_source_event_id,
                     row.currency_updated_event_id,
                 )?,
             },
+            chain_network: row
+                .chain_network
+                .as_deref()
+                .map(serde_json::from_str::<ChainNetwork>)
+                .transpose()
+                .map_err(|error| {
+                    PgOwnedAccountTransactionListItemRowError::InvalidCurrencyCode(Box::new(error))
+                })?,
+            token_address: row
+                .token_address
+                .as_deref()
+                .map(serde_json::from_str::<TokenAddress>)
+                .transpose()
+                .map_err(|error| {
+                    PgOwnedAccountTransactionListItemRowError::InvalidCurrencyCode(Box::new(error))
+                })?,
+            onchain_transaction_id: row
+                .onchain_transaction_id
+                .as_deref()
+                .map(serde_json::from_str::<OnchainTransactionId>)
+                .transpose()
+                .map_err(|error| {
+                    PgOwnedAccountTransactionListItemRowError::InvalidCurrencyCode(Box::new(error))
+                })?,
             amount: PgOwnedAccountTransactionListItemRow::amount(row.amount.clone())?,
+            note: row
+                .note
+                .clone()
+                .map(TransactionNote::try_from)
+                .transpose()
+                .map_err(|error| {
+                    PgOwnedAccountTransactionListItemRowError::InvalidTransactionNote(Box::new(
+                        error,
+                    ))
+                })?,
             direction: PgOwnedAccountTransactionListItemRow::direction(row.direction.clone())?,
             kind: PgOwnedAccountTransactionListItemRow::kind(&row)?,
             status: PgOwnedAccountTransactionListItemRow::status(row.status.clone())?,

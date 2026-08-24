@@ -2,9 +2,9 @@ use appletheia::application::event::EventSelector;
 use appletheia::application::messaging::Subscription;
 use appletheia::application::projection::{ProjectorDescriptor, ProjectorName, ProjectorSpec};
 use banking_ledger_domain::currency::{Currency, CurrencyEventPayload};
+use banking_ledger_domain::token_binding::{TokenBinding, TokenBindingEventPayload};
 
-/// Projector specification for currency fragments.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct CurrencyFragmentProjectorSpec;
 
 impl ProjectorSpec for CurrencyFragmentProjectorSpec {
@@ -12,16 +12,11 @@ impl ProjectorSpec for CurrencyFragmentProjectorSpec {
         ProjectorName::new("currency_fragment"),
         Subscription::AnyOf(&[
             EventSelector::new::<Currency>(CurrencyEventPayload::DEFINED),
-            EventSelector::new::<Currency>(CurrencyEventPayload::PROVISIONED),
-            EventSelector::new::<Currency>(CurrencyEventPayload::OWNERSHIP_TRANSFERRED),
-            EventSelector::new::<Currency>(CurrencyEventPayload::SYMBOL_CHANGED),
-            EventSelector::new::<Currency>(CurrencyEventPayload::NAME_CHANGED),
             EventSelector::new::<Currency>(CurrencyEventPayload::DESCRIPTION_CHANGED),
-            EventSelector::new::<Currency>(CurrencyEventPayload::IMAGE_CHANGED),
-            EventSelector::new::<Currency>(CurrencyEventPayload::SUPPLY_COMMITTED),
             EventSelector::new::<Currency>(CurrencyEventPayload::ACTIVATED),
             EventSelector::new::<Currency>(CurrencyEventPayload::DEACTIVATED),
-            EventSelector::new::<Currency>(CurrencyEventPayload::REMOVED),
+            EventSelector::new::<TokenBinding>(TokenBindingEventPayload::DEFINED),
+            EventSelector::new::<TokenBinding>(TokenBindingEventPayload::REMOVED),
         ]),
     );
 }

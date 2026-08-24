@@ -58,7 +58,7 @@ impl WalletBookmarkListReader for PgWalletBookmarkListReader {
                 owner_id,
                 display_name,
                 description,
-                token_account_owner_address,
+                token_owner_address,
                 created_at,
                 source_event_id,
                 updated_event_id

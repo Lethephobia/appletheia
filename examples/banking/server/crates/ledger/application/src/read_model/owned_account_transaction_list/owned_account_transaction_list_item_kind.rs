@@ -14,7 +14,6 @@ pub enum OwnedAccountTransactionListItemKind {
         transfer_id: TransferId,
         counterparty_account: Box<OwnedAccountTransactionListItemCounterpartyAccount>,
     },
-    CurrencyIssuance,
 }
 
 impl OwnedAccountTransactionListItemKind {
@@ -24,7 +23,7 @@ impl OwnedAccountTransactionListItemKind {
                 counterparty_account,
                 ..
             } => counterparty_account.observed_event_ids(),
-            Self::Deposit | Self::Withdrawal | Self::CurrencyIssuance => Vec::new(),
+            Self::Deposit | Self::Withdrawal => Vec::new(),
         }
     }
 }

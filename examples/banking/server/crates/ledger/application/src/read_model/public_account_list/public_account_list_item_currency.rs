@@ -1,18 +1,13 @@
+use appletheia::application::read_model::ReadModelObservation;
+use banking_ledger_domain::core::{CurrencyCode, CurrencyDecimals};
+use banking_ledger_domain::currency::CurrencyId;
 use serde::Serialize;
 
-use banking_ledger_domain::currency::{
-    CurrencyDecimals, CurrencyId, CurrencyName, CurrencySymbol, MintAccountAddress,
-};
-
-use appletheia::application::read_model::ReadModelObservation;
-
-/// Currency fields exposed in public account list items.
+/// Currency projection joined to a public account list item.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct PublicAccountListItemCurrency {
     pub id: CurrencyId,
-    pub symbol: CurrencySymbol,
-    pub name: CurrencyName,
+    pub code: CurrencyCode,
     pub decimals: CurrencyDecimals,
-    pub mint_account_address: Option<MintAccountAddress>,
     pub observation: ReadModelObservation,
 }

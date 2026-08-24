@@ -1,0 +1,30 @@
+[package]
+name = "banking-settlement"
+version = "0.1.0"
+description = "Created with Anchor"
+edition = "2021"
+workspace = "../.."
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "banking_settlement"
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
+anchor-debug = []
+custom-heap = []
+custom-panic = []
+
+
+[dependencies]
+anchor-lang = { workspace = true, features = ["init-if-needed"] }
+anchor-spl = { workspace = true, features = ["associated_token", "token", "token_2022", "token_2022_extensions"] }
+
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("solana"))'] }

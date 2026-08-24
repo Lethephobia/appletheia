@@ -48,8 +48,8 @@ pub enum PgPublicAccountListItemRowError {
     #[error("unknown account status: {0}")]
     UnknownAccountStatus(String),
 
-    #[error("invalid currency id")]
-    InvalidCurrencyId(#[source] Box<dyn std::error::Error + Send + Sync>),
+    #[error("invalid currency code")]
+    InvalidCurrencyCode(#[source] Box<dyn std::error::Error + Send + Sync>),
 
     #[error("invalid currency symbol")]
     InvalidCurrencySymbol(#[source] Box<dyn std::error::Error + Send + Sync>),

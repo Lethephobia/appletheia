@@ -2,6 +2,7 @@ use banking_ledger_domain::account::Account;
 
 mod account_closer_relation;
 mod account_deposit_requester_relation;
+mod account_description_changer_relation;
 mod account_freezer_relation;
 mod account_name_changer_relation;
 mod account_owner_relation;
@@ -16,6 +17,7 @@ mod default_account_relationship_updater;
 
 pub use account_closer_relation::AccountCloserRelation;
 pub use account_deposit_requester_relation::AccountDepositRequesterRelation;
+pub use account_description_changer_relation::AccountDescriptionChangerRelation;
 pub use account_freezer_relation::AccountFreezerRelation;
 pub use account_name_changer_relation::AccountNameChangerRelation;
 pub use account_owner_relation::AccountOwnerRelation;

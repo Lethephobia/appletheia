@@ -1,72 +1,91 @@
 pub mod account;
 pub mod currency;
-pub mod currency_issuance;
+pub mod currency_registrar;
+pub mod currency_registrar_invitation;
+pub mod currency_registrar_join_request;
+pub mod currency_registrar_membership;
 pub mod deposit;
 pub mod owned_account_closure;
+pub mod token_binding;
 pub mod transfer;
 pub mod wallet_bookmark;
 pub mod withdrawal;
 
 pub use account::{
     AccountCloseCommand, AccountCloseCommandHandler, AccountCloseOutput, AccountDepositCommand,
-    AccountDepositCommandHandler, AccountDepositOutput, AccountFreezeCommand,
-    AccountFreezeCommandHandler, AccountFreezeOutput, AccountFundsReserveCommand,
-    AccountFundsReserveCommandHandler, AccountFundsReserveOutput, AccountNameChangeCommand,
-    AccountNameChangeCommandHandler, AccountNameChangeOutput, AccountOpenCommand,
-    AccountOpenCommandHandler, AccountOpenOutput, AccountOwnershipTransferCommand,
-    AccountOwnershipTransferCommandHandler, AccountOwnershipTransferOutput,
-    AccountReservedFundsCommitCommand, AccountReservedFundsCommitCommandHandler,
-    AccountReservedFundsCommitOutput, AccountReservedFundsReleaseCommand,
-    AccountReservedFundsReleaseCommandHandler, AccountReservedFundsReleaseOutput,
-    AccountThawCommand, AccountThawCommandHandler, AccountThawOutput, AccountWithdrawCommand,
-    AccountWithdrawCommandHandler, AccountWithdrawOutput,
+    AccountDepositCommandHandler, AccountDepositOutput, AccountDescriptionChangeCommand,
+    AccountDescriptionChangeCommandHandler, AccountDescriptionChangeCommandHandlerError,
+    AccountDescriptionChangeOutput, AccountFreezeCommand, AccountFreezeCommandHandler,
+    AccountFreezeOutput, AccountFundsReserveCommand, AccountFundsReserveCommandHandler,
+    AccountFundsReserveOutput, AccountNameChangeCommand, AccountNameChangeCommandHandler,
+    AccountNameChangeOutput, AccountOpenCommand, AccountOpenCommandHandler, AccountOpenOutput,
+    AccountOwnershipTransferCommand, AccountOwnershipTransferCommandHandler,
+    AccountOwnershipTransferOutput, AccountReservedFundsCommitCommand,
+    AccountReservedFundsCommitCommandHandler, AccountReservedFundsCommitOutput,
+    AccountReservedFundsReleaseCommand, AccountReservedFundsReleaseCommandHandler,
+    AccountReservedFundsReleaseOutput, AccountThawCommand, AccountThawCommandHandler,
+    AccountThawOutput, AccountWithdrawCommand, AccountWithdrawCommandHandler,
+    AccountWithdrawOutput,
 };
 pub use currency::{
-    CurrencyActivateCommand, CurrencyActivateCommandHandler, CurrencyActivateOutput,
-    CurrencyDeactivateCommand, CurrencyDeactivateCommandHandler, CurrencyDeactivateOutput,
-    CurrencyDefineCommand, CurrencyDefineCommandHandler, CurrencyDefineOutput,
+    CurrencyActivateCommand, CurrencyActivateCommandHandler, CurrencyActivateCommandHandlerError,
+    CurrencyActivateOutput, CurrencyDeactivateCommand, CurrencyDeactivateCommandHandler,
+    CurrencyDeactivateCommandHandlerError, CurrencyDeactivateOutput, CurrencyDefineCommand,
+    CurrencyDefineCommandHandler, CurrencyDefineCommandHandlerError, CurrencyDefineOutput,
     CurrencyDescriptionChangeCommand, CurrencyDescriptionChangeCommandHandler,
     CurrencyDescriptionChangeCommandHandlerError, CurrencyDescriptionChangeOutput,
-    CurrencyImageChangeCommand, CurrencyImageChangeCommandHandler,
-    CurrencyImageChangeCommandHandlerError, CurrencyImageChangeOutput,
-    CurrencyImageObjectDeleteCommand, CurrencyImageObjectDeleteCommandHandler,
-    CurrencyImageObjectDeleteCommandHandlerError, CurrencyImageObjectDeleteOutput,
-    CurrencyImageUploadPrepareCommand, CurrencyImageUploadPrepareCommandHandler,
-    CurrencyImageUploadPrepareCommandHandlerConfig, CurrencyImageUploadPrepareCommandHandlerError,
-    CurrencyImageUploadPrepareOutput, CurrencyImageUploadPrepareRejectionReason,
-    CurrencyNameChangeCommand, CurrencyNameChangeCommandHandler,
-    CurrencyNameChangeCommandHandlerError, CurrencyNameChangeOutput,
-    CurrencyOwnershipTransferCommand, CurrencyOwnershipTransferCommandHandler,
-    CurrencyOwnershipTransferOutput, CurrencyProvisionCommand, CurrencyProvisionCommandHandler,
-    CurrencyProvisionCommandHandlerError, CurrencyProvisionOutput, CurrencyRemoveCommand,
-    CurrencyRemoveCommandHandler, CurrencyRemoveOutput, CurrencySupplyCommitCommand,
-    CurrencySupplyCommitCommandHandler, CurrencySupplyCommitCommandHandlerError,
-    CurrencySupplyCommitOutput, CurrencySupplyReleaseCommand, CurrencySupplyReleaseCommandHandler,
-    CurrencySupplyReleaseCommandHandlerError, CurrencySupplyReleaseOutput,
-    CurrencySupplyReserveCommand, CurrencySupplyReserveCommandHandler,
-    CurrencySupplyReserveCommandHandlerError, CurrencySupplyReserveOutput,
-    CurrencySymbolChangeCommand, CurrencySymbolChangeCommandHandler,
-    CurrencySymbolChangeCommandHandlerError, CurrencySymbolChangeOutput, MintMetadataSyncCommand,
-    MintMetadataSyncCommandHandler, MintMetadataSyncCommandHandlerError, MintMetadataSyncOutput,
-    MintSupplySyncCommand, MintSupplySyncCommandHandler, MintSupplySyncCommandHandlerError,
-    MintSupplySyncOutput, OnchainConfigureCommand, OnchainConfigureCommandHandler,
-    OnchainConfigureCommandHandlerError, OnchainConfigureOutput,
 };
-pub use currency_issuance::{
-    CurrencyIssuanceCompleteCommand, CurrencyIssuanceCompleteCommandHandler,
-    CurrencyIssuanceCompleteCommandHandlerError, CurrencyIssuanceCompleteOutput,
-    CurrencyIssuanceFailCommand, CurrencyIssuanceFailCommandHandler,
-    CurrencyIssuanceFailCommandHandlerError, CurrencyIssuanceFailOutput, CurrencyIssueCommand,
-    CurrencyIssueCommandHandler, CurrencyIssueCommandHandlerError, CurrencyIssueOutput,
+pub use currency_registrar::{
+    CurrencyRegistrarCreateCommand, CurrencyRegistrarCreateCommandHandler,
+    CurrencyRegistrarCreateCommandHandlerError, CurrencyRegistrarCreateOutput,
+    CurrencyRegistrarDescriptionChangeCommand, CurrencyRegistrarDescriptionChangeCommandHandler,
+    CurrencyRegistrarDescriptionChangeCommandHandlerError,
+    CurrencyRegistrarDescriptionChangeOutput, CurrencyRegistrarDisplayNameChangeCommand,
+    CurrencyRegistrarDisplayNameChangeCommandHandler,
+    CurrencyRegistrarDisplayNameChangeCommandHandlerError,
+    CurrencyRegistrarDisplayNameChangeOutput, CurrencyRegistrarHandleChangeCommand,
+    CurrencyRegistrarHandleChangeCommandHandler, CurrencyRegistrarHandleChangeCommandHandlerError,
+    CurrencyRegistrarHandleChangeOutput,
+};
+pub use currency_registrar_invitation::{
+    CurrencyRegistrarInvitationAcceptCommand, CurrencyRegistrarInvitationAcceptCommandHandler,
+    CurrencyRegistrarInvitationAcceptCommandHandlerError, CurrencyRegistrarInvitationAcceptOutput,
+    CurrencyRegistrarInvitationCancelCommand, CurrencyRegistrarInvitationCancelCommandHandler,
+    CurrencyRegistrarInvitationCancelCommandHandlerError, CurrencyRegistrarInvitationCancelOutput,
+    CurrencyRegistrarInvitationDeclineCommand, CurrencyRegistrarInvitationDeclineCommandHandler,
+    CurrencyRegistrarInvitationDeclineCommandHandlerError,
+    CurrencyRegistrarInvitationDeclineOutput, CurrencyRegistrarInvitationIssueCommand,
+    CurrencyRegistrarInvitationIssueCommandHandler,
+    CurrencyRegistrarInvitationIssueCommandHandlerError, CurrencyRegistrarInvitationIssueOutput,
+};
+pub use currency_registrar_join_request::{
+    CurrencyRegistrarJoinRequestApproveCommand, CurrencyRegistrarJoinRequestApproveCommandHandler,
+    CurrencyRegistrarJoinRequestApproveCommandHandlerError,
+    CurrencyRegistrarJoinRequestApproveOutput, CurrencyRegistrarJoinRequestCancelCommand,
+    CurrencyRegistrarJoinRequestCancelCommandHandler,
+    CurrencyRegistrarJoinRequestCancelCommandHandlerError,
+    CurrencyRegistrarJoinRequestCancelOutput, CurrencyRegistrarJoinRequestRejectCommand,
+    CurrencyRegistrarJoinRequestRejectCommandHandler,
+    CurrencyRegistrarJoinRequestRejectCommandHandlerError,
+    CurrencyRegistrarJoinRequestRejectOutput, CurrencyRegistrarJoinRequestSubmitCommand,
+    CurrencyRegistrarJoinRequestSubmitCommandHandler,
+    CurrencyRegistrarJoinRequestSubmitCommandHandlerError,
+    CurrencyRegistrarJoinRequestSubmitOutput,
+};
+pub use currency_registrar_membership::{
+    CurrencyRegistrarMembershipCreateCommand, CurrencyRegistrarMembershipCreateCommandHandler,
+    CurrencyRegistrarMembershipCreateCommandHandlerError, CurrencyRegistrarMembershipCreateOutput,
+    CurrencyRegistrarMembershipRemoveCommand, CurrencyRegistrarMembershipRemoveCommandHandler,
+    CurrencyRegistrarMembershipRemoveCommandHandlerError, CurrencyRegistrarMembershipRemoveOutput,
 };
 pub use deposit::{
     DepositCompleteCommand, DepositCompleteCommandHandler, DepositCompleteCommandHandlerError,
     DepositCompleteOutput, DepositFailCommand, DepositFailCommandHandler,
-    DepositFailCommandHandlerError, DepositFailOutput, DepositTokenTransferPrepareCommand,
-    DepositTokenTransferPrepareCommandHandler, DepositTokenTransferPrepareCommandHandlerError,
-    DepositTokenTransferPrepareOutput, DepositTokenTransferRecordCommand,
-    DepositTokenTransferRecordCommandHandler, DepositTokenTransferRecordCommandHandlerError,
-    DepositTokenTransferRecordOutput,
+    DepositFailCommandHandlerError, DepositFailOutput, DepositSettlementPrepareCommand,
+    DepositSettlementPrepareCommandHandler, DepositSettlementPrepareCommandHandlerError,
+    DepositSettlementPrepareOutput, DepositSettlementVerifyCommand,
+    DepositSettlementVerifyCommandHandler, DepositSettlementVerifyCommandHandlerError,
+    DepositSettlementVerifyOutput,
 };
 pub use owned_account_closure::{
     OwnedAccountClosureAccountCloseRecordCommand,
@@ -85,6 +104,12 @@ pub use owned_account_closure::{
     OwnedAccountClosurePageLoadOutput, OwnedAccountClosureRequestCommand,
     OwnedAccountClosureRequestCommandHandler, OwnedAccountClosureRequestCommandHandlerError,
     OwnedAccountClosureRequestOutput,
+};
+pub use token_binding::{
+    TokenBindingDefineCommand, TokenBindingDefineCommandHandler,
+    TokenBindingDefineCommandHandlerError, TokenBindingDefineOutput, TokenBindingRemoveCommand,
+    TokenBindingRemoveCommandHandler, TokenBindingRemoveCommandHandlerError,
+    TokenBindingRemoveOutput,
 };
 pub use transfer::{
     TransferCompleteCommand, TransferCompleteCommandHandler, TransferCompleteOutput,
@@ -105,6 +130,6 @@ pub use withdrawal::{
     WithdrawalCompleteCommand, WithdrawalCompleteCommandHandler, WithdrawalCompleteOutput,
     WithdrawalFailCommand, WithdrawalFailCommandHandler, WithdrawalFailOutput,
     WithdrawalRequestCommand, WithdrawalRequestCommandHandler, WithdrawalRequestOutput,
-    WithdrawalTokenTransferCommand, WithdrawalTokenTransferCommandHandler,
-    WithdrawalTokenTransferOutput,
+    WithdrawalSettlementExecuteCommand, WithdrawalSettlementExecuteCommandHandler,
+    WithdrawalSettlementExecuteOutput,
 };

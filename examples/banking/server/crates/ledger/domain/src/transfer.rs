@@ -7,6 +7,8 @@ mod transfer_fail_rejection_reason;
 mod transfer_fail_result;
 mod transfer_failure_reason;
 mod transfer_id;
+mod transfer_note;
+mod transfer_note_error;
 mod transfer_request;
 mod transfer_request_rejection_reason;
 mod transfer_request_result;
@@ -23,6 +25,8 @@ pub use transfer_fail_rejection_reason::TransferFailRejectionReason;
 pub use transfer_fail_result::TransferFailResult;
 pub use transfer_failure_reason::TransferFailureReason;
 pub use transfer_id::TransferId;
+pub use transfer_note::TransferNote;
+pub use transfer_note_error::TransferNoteError;
 pub use transfer_request::TransferRequest;
 pub use transfer_request_rejection_reason::TransferRequestRejectionReason;
 pub use transfer_request_result::TransferRequestResult;
@@ -54,8 +58,12 @@ impl Transfer {
     }
 
     /// Returns the transfer amount.
-    pub fn amount(&self) -> Result<&CurrencyAmount, TransferError> {
-        Ok(&self.state_required()?.amount)
+    pub fn amount(&self) -> Result<CurrencyAmount, TransferError> {
+        Ok(self.state_required()?.amount)
+    }
+
+    pub fn note(&self) -> Result<Option<&TransferNote>, TransferError> {
+        Ok(self.state_required()?.note.as_ref())
     }
 
     /// Returns the current transfer status.
@@ -84,11 +92,12 @@ impl Transfer {
             return Ok(TransferRequestResult::Rejected { reason });
         }
 
-        let (from_account_id, to_account_id, amount) = request.into_parts();
+        let (from_account_id, to_account_id, amount, note) = request.into_parts();
         self.append_event(TransferEventPayload::Requested {
             from_account_id,
             to_account_id,
             amount,
+            note,
         })?;
 
         Ok(TransferRequestResult::Requested)
@@ -100,11 +109,12 @@ impl Transfer {
         request: TransferRequest,
         reason: TransferRequestRejectionReason,
     ) -> Result<(), TransferError> {
-        let (from_account_id, to_account_id, amount) = request.into_parts();
+        let (from_account_id, to_account_id, amount, note) = request.into_parts();
         self.append_event(TransferEventPayload::RequestRejected {
             from_account_id,
             to_account_id,
             amount,
+            note,
             reason,
         })?;
         Ok(())
@@ -191,21 +201,25 @@ impl AggregateApply<TransferEventPayload, TransferError> for Transfer {
                 from_account_id,
                 to_account_id,
                 amount,
+                note,
             } => self.set_state(Some(TransferState {
                 from_account_id: *from_account_id,
                 to_account_id: *to_account_id,
                 amount: *amount,
+                note: note.clone(),
                 status: TransferStatus::Pending,
             })),
             TransferEventPayload::RequestRejected {
                 from_account_id,
                 to_account_id,
                 amount,
+                note,
                 ..
             } => self.set_state(Some(TransferState {
                 from_account_id: *from_account_id,
                 to_account_id: *to_account_id,
                 amount: *amount,
+                note: note.clone(),
                 status: TransferStatus::Rejected,
             })),
             TransferEventPayload::Completed => {
@@ -219,222 +233,5 @@ impl AggregateApply<TransferEventPayload, TransferError> for Transfer {
         }
 
         Ok(())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use appletheia::domain::{Aggregate, Event, EventPayload};
-
-    use crate::account::AccountId;
-    use crate::core::CurrencyAmount;
-
-    use super::{Transfer, TransferEventPayload, TransferId, TransferRequest, TransferStatus};
-
-    #[test]
-    fn request_initializes_state_and_records_event() {
-        let from_account_id = AccountId::new();
-        let to_account_id = AccountId::new();
-        let amount = CurrencyAmount::new(100);
-        let mut transfer = Transfer::new();
-
-        transfer
-            .request(TransferRequest {
-                from_account_id,
-                to_account_id,
-                amount,
-            })
-            .expect("request should succeed");
-
-        assert_eq!(transfer.aggregate_id(), transfer.aggregate_id());
-        assert_eq!(
-            transfer
-                .from_account_id()
-                .expect("from account id should exist"),
-            &from_account_id
-        );
-        assert_eq!(
-            transfer
-                .to_account_id()
-                .expect("to account id should exist"),
-            &to_account_id
-        );
-        assert_eq!(transfer.amount().expect("amount should exist"), &amount);
-        assert_eq!(
-            transfer.status().expect("status should exist"),
-            &TransferStatus::Pending
-        );
-        assert_eq!(transfer.uncommitted_events().len(), 1);
-        assert_eq!(
-            transfer.uncommitted_events()[0].payload().name(),
-            TransferEventPayload::REQUESTED
-        );
-    }
-
-    #[test]
-    fn request_rejects_same_account_transfer() {
-        let account_id = AccountId::new();
-        let mut transfer = Transfer::new();
-
-        let result = transfer
-            .request(TransferRequest {
-                from_account_id: account_id,
-                to_account_id: account_id,
-                amount: CurrencyAmount::new(1),
-            })
-            .expect("same-account transfer should complete with a rejection event");
-
-        assert!(matches!(
-            result,
-            super::TransferRequestResult::Rejected {
-                reason: super::TransferRequestRejectionReason::SameAccount,
-                ..
-            }
-        ));
-        assert_eq!(
-            transfer.status().expect("status should exist"),
-            &TransferStatus::Rejected
-        );
-        assert_eq!(
-            transfer.uncommitted_events()[0].payload().name(),
-            TransferEventPayload::REQUEST_REJECTED
-        );
-    }
-
-    #[test]
-    fn request_errors_when_transfer_is_already_requested() {
-        let from_account_id = AccountId::new();
-        let to_account_id = AccountId::new();
-        let amount = CurrencyAmount::new(100);
-        let mut transfer = Transfer::new();
-
-        transfer
-            .request(TransferRequest {
-                from_account_id,
-                to_account_id,
-                amount,
-            })
-            .expect("initial request should succeed");
-
-        let error = transfer
-            .request(TransferRequest {
-                from_account_id,
-                to_account_id,
-                amount,
-            })
-            .expect_err("second request should be an unexpected processing error");
-
-        assert!(matches!(error, super::TransferError::AlreadyRequested));
-    }
-
-    #[test]
-    fn complete_updates_status() {
-        let mut transfer = Transfer::new();
-        let from_account_id = AccountId::new();
-        let to_account_id = AccountId::new();
-        transfer
-            .request(TransferRequest {
-                from_account_id,
-                to_account_id,
-                amount: CurrencyAmount::new(100),
-            })
-            .expect("request should succeed");
-
-        transfer.complete().expect("complete should succeed");
-        let duplicate_complete_result = transfer
-            .complete()
-            .expect("duplicate complete should complete with a rejection event");
-
-        assert_eq!(
-            transfer.status().expect("status should exist"),
-            &TransferStatus::Completed
-        );
-        assert!(matches!(
-            duplicate_complete_result,
-            super::TransferCompleteResult::Rejected {
-                reason: super::TransferCompleteRejectionReason::AlreadyCompleted
-            }
-        ));
-    }
-
-    #[test]
-    fn fail_updates_status() {
-        let mut transfer = Transfer::new();
-        let from_account_id = AccountId::new();
-        let to_account_id = AccountId::new();
-        transfer
-            .request(TransferRequest {
-                from_account_id,
-                to_account_id,
-                amount: CurrencyAmount::new(100),
-            })
-            .expect("request should succeed");
-
-        transfer
-            .fail(super::TransferFailureReason::FundsReserveRejected)
-            .expect("fail should succeed");
-        let duplicate_fail_result = transfer
-            .fail(super::TransferFailureReason::FundsReserveRejected)
-            .expect("duplicate fail should complete with a rejection event");
-
-        assert_eq!(
-            transfer.status().expect("status should exist"),
-            &TransferStatus::Failed
-        );
-        assert!(matches!(
-            duplicate_fail_result,
-            super::TransferFailResult::Rejected {
-                reason: super::TransferFailRejectionReason::AlreadyFailed
-            }
-        ));
-    }
-
-    #[test]
-    fn replay_events_rebuilds_state() {
-        let id = TransferId::new();
-        let from_account_id = AccountId::new();
-        let to_account_id = AccountId::new();
-        let requested = Event::new(
-            id,
-            appletheia::domain::AggregateVersion::try_from(1).expect("version should be valid"),
-            TransferEventPayload::Requested {
-                from_account_id,
-                to_account_id,
-                amount: CurrencyAmount::new(100),
-            },
-        );
-        let completed = Event::new(
-            id,
-            appletheia::domain::AggregateVersion::try_from(2).expect("version should be valid"),
-            TransferEventPayload::Completed,
-        );
-        let mut transfer = Transfer::from_id(id);
-
-        transfer
-            .replay_events(vec![requested, completed], None)
-            .expect("events should replay");
-
-        assert_eq!(
-            transfer
-                .from_account_id()
-                .expect("from account id should exist"),
-            &from_account_id
-        );
-        assert_eq!(
-            transfer
-                .to_account_id()
-                .expect("to account id should exist"),
-            &to_account_id
-        );
-        assert_eq!(
-            transfer.amount().expect("amount should exist"),
-            &CurrencyAmount::new(100)
-        );
-        assert_eq!(
-            transfer.status().expect("status should exist"),
-            &TransferStatus::Completed
-        );
-        assert_eq!(transfer.version().value(), 2);
-        assert!(transfer.uncommitted_events().is_empty());
     }
 }

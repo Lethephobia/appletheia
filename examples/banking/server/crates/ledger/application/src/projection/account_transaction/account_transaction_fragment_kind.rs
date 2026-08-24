@@ -7,5 +7,4 @@ pub enum AccountTransactionFragmentKind {
     Deposit,
     Withdrawal,
     Transfer,
-    CurrencyIssuance,
 }

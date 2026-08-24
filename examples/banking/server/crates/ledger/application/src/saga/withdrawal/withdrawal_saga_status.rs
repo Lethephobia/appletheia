@@ -6,7 +6,7 @@ pub enum WithdrawalSagaStatus {
     #[default]
     Initial,
     FundsReserveRequested,
-    TokenTransferRequested,
+    SettlementExecuteRequested,
     ReservedFundsReleaseRequested,
     ReservedFundsCommitRequested,
     CompleteRequested,

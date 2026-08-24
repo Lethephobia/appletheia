@@ -1,7 +1,7 @@
 use appletheia::application::unit_of_work::UnitOfWork;
 
 use appletheia::application::read_model::MaterializationEventContext;
-use banking_ledger_domain::account::{AccountId, AccountName, AccountOwner};
+use banking_ledger_domain::account::{AccountDescription, AccountId, AccountName, AccountOwner};
 use banking_ledger_domain::core::CurrencyAmount;
 
 use super::{
@@ -33,6 +33,14 @@ pub trait AccountFragmentWriter: Send + Sync {
         event_context: MaterializationEventContext,
         id: AccountId,
         name: AccountName,
+    ) -> Result<Option<AccountFragment>, AccountFragmentWriterError>;
+
+    async fn update_account_description(
+        &self,
+        uow: &mut Self::Uow,
+        event_context: MaterializationEventContext,
+        id: AccountId,
+        description: Option<AccountDescription>,
     ) -> Result<Option<AccountFragment>, AccountFragmentWriterError>;
 
     async fn increase_balance(

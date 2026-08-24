@@ -1,67 +1,41 @@
 use std::fmt::{self, Display};
-use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
 
-/// Represents an on-chain transaction identifier.
-#[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct OnchainTransactionId(String);
+use super::{ChainNetwork, EvmTransactionHash, SolanaTransactionSignature};
 
-impl OnchainTransactionId {
-    /// Creates an on-chain transaction id.
-    pub fn new(value: String) -> Option<Self> {
-        let value = value.trim().to_owned();
-        if value.is_empty() || value.chars().any(char::is_whitespace) {
-            return None;
-        }
-        Some(Self(value))
-    }
-
-    /// Returns the on-chain transaction id value.
-    pub fn value(&self) -> &str {
-        &self.0
-    }
+/// Identifies a verified transaction on a supported blockchain.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[serde(tag = "chain", content = "transaction_id", rename_all = "snake_case")]
+pub enum OnchainTransactionId {
+    Solana(SolanaTransactionSignature),
+    Ethereum(EvmTransactionHash),
 }
 
-impl AsRef<str> for OnchainTransactionId {
-    fn as_ref(&self) -> &str {
-        self.value()
+impl OnchainTransactionId {
+    /// Returns whether this transaction belongs to the same chain as the network.
+    pub const fn matches_network(&self, network: ChainNetwork) -> bool {
+        matches!(
+            (self, network),
+            (Self::Solana(_), ChainNetwork::Solana(_))
+                | (Self::Ethereum(_), ChainNetwork::Ethereum(_))
+        )
+    }
+
+    /// Returns the decoded transaction-identifier bytes.
+    pub fn as_bytes(&self) -> &[u8] {
+        match self {
+            Self::Solana(signature) => signature.as_bytes(),
+            Self::Ethereum(hash) => hash.as_bytes(),
+        }
     }
 }
 
 impl Display for OnchainTransactionId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.value())
-    }
-}
-
-impl FromStr for OnchainTransactionId {
-    type Err = ();
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Self::new(s.to_owned()).ok_or(())
-    }
-}
-
-impl TryFrom<&str> for OnchainTransactionId {
-    type Error = ();
-
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        Self::from_str(value)
-    }
-}
-
-impl TryFrom<String> for OnchainTransactionId {
-    type Error = ();
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        Self::new(value).ok_or(())
-    }
-}
-
-impl From<OnchainTransactionId> for String {
-    fn from(value: OnchainTransactionId) -> Self {
-        value.0
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Solana(signature) => Display::fmt(signature, formatter),
+            Self::Ethereum(hash) => Display::fmt(hash, formatter),
+        }
     }
 }

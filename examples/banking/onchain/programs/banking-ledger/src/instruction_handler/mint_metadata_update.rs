@@ -1,7 +1,0 @@
-pub mod mint_metadata_update_instruction_accounts;
-pub mod mint_metadata_update_instruction_error;
-mod mint_metadata_update_instruction_handler;
-
-pub use mint_metadata_update_instruction_accounts::MintMetadataUpdateInstructionAccounts;
-pub use mint_metadata_update_instruction_error::MintMetadataUpdateInstructionError;
-pub(crate) use mint_metadata_update_instruction_handler::MintMetadataUpdateInstructionHandler;

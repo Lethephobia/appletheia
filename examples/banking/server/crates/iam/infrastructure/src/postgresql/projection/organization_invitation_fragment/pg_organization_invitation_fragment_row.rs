@@ -10,6 +10,8 @@ use banking_iam_domain::{
 use sqlx::types::chrono::{DateTime, Utc};
 use uuid::Uuid;
 
+use super::PgOrganizationInvitationFragmentRowError;
+
 #[derive(Debug, sqlx::FromRow)]
 pub struct PgOrganizationInvitationFragmentRow {
     pub invitation_id: Uuid,
@@ -35,8 +37,11 @@ impl TryFrom<PgOrganizationInvitationFragmentRow> for OrganizationInvitationFrag
             ),
             ("system", None) => OrganizationInvitationIssuer::System,
             _ => {
-                return Err(persistence_message(
-                    "invalid organization invitation issuer",
+                return Err(persistence_error(
+                    PgOrganizationInvitationFragmentRowError::Issuer {
+                        issuer_type: row.issuer_type.clone(),
+                        user_id_present: row.issuer_user_id.is_some(),
+                    },
                 ));
             }
         };
@@ -47,8 +52,8 @@ impl TryFrom<PgOrganizationInvitationFragmentRow> for OrganizationInvitationFrag
             "canceled" => OrganizationInvitationStatus::Canceled,
             "rejected" => OrganizationInvitationStatus::Rejected,
             _ => {
-                return Err(persistence_message(
-                    "unknown organization invitation status",
+                return Err(persistence_error(
+                    PgOrganizationInvitationFragmentRowError::Status(row.status.clone()),
                 ));
             }
         };
@@ -78,8 +83,4 @@ fn persistence_error(
     error: impl std::error::Error + Send + Sync + 'static,
 ) -> OrganizationInvitationFragmentWriterError {
     OrganizationInvitationFragmentWriterError::Persistence(Box::new(error))
-}
-
-fn persistence_message(message: &'static str) -> OrganizationInvitationFragmentWriterError {
-    OrganizationInvitationFragmentWriterError::Persistence(Box::new(std::io::Error::other(message)))
 }

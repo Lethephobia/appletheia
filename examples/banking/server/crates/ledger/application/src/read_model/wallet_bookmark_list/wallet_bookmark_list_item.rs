@@ -2,7 +2,7 @@ use serde::Serialize;
 
 use appletheia::application::read_model::ReadModelObservation;
 use appletheia::domain::{EventId, EventOccurredAt};
-use banking_ledger_domain::core::TokenAccountOwnerAddress;
+use banking_ledger_domain::core::TokenOwnerAddress;
 use banking_ledger_domain::wallet_bookmark::{
     WalletBookmarkDescription, WalletBookmarkDisplayName, WalletBookmarkId, WalletBookmarkOwner,
 };
@@ -14,7 +14,7 @@ pub struct WalletBookmarkListItem {
     pub owner: WalletBookmarkOwner,
     pub display_name: Option<WalletBookmarkDisplayName>,
     pub description: Option<WalletBookmarkDescription>,
-    pub token_account_owner_address: TokenAccountOwnerAddress,
+    pub token_owner_address: TokenOwnerAddress,
     pub created_at: EventOccurredAt,
     pub observation: ReadModelObservation,
 }

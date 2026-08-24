@@ -26,9 +26,14 @@ jobs:
       run: cargo build --manifest-path examples/banking/server/Cargo.toml --verbose
     - name: Run banking server workspace tests
       run: cargo test --manifest-path examples/banking/server/Cargo.toml --verbose
-    - name: Build banking onchain workspace
-      working-directory: examples/banking/onchain
+    - name: Build banking Solana workspace
+      working-directory: examples/banking/onchain/solana
       run: cargo build --verbose
-    - name: Run banking onchain workspace library tests
-      working-directory: examples/banking/onchain
+    - name: Run banking Solana workspace library tests
+      working-directory: examples/banking/onchain/solana
       run: cargo test --lib --verbose
+    - name: Install Foundry
+      uses: foundry-rs/foundry-toolchain@v1
+    - name: Test banking Ethereum workspace
+      working-directory: examples/banking/onchain/ethereum
+      run: forge test

@@ -1,7 +1,7 @@
 use serde::Serialize;
 
 use appletheia::domain::{EventId, EventOccurredAt};
-use banking_ledger_domain::account::{AccountId, AccountName};
+use banking_ledger_domain::account::{AccountDescription, AccountId, AccountName};
 use banking_ledger_domain::core::CurrencyAmount;
 
 use super::{OwnedAccountListItemCurrency, OwnedAccountListItemStatus};
@@ -12,6 +12,7 @@ use appletheia::application::read_model::ReadModelObservation;
 pub struct OwnedAccountListItem {
     pub account_id: AccountId,
     pub name: AccountName,
+    pub description: Option<AccountDescription>,
     pub currency: OwnedAccountListItemCurrency,
     pub balance: CurrencyAmount,
     pub reserved_balance: CurrencyAmount,
@@ -22,10 +23,6 @@ pub struct OwnedAccountListItem {
 
 impl OwnedAccountListItem {
     pub fn observed_event_ids(&self) -> Vec<EventId> {
-        ReadModelObservation::collect_event_ids(
-            self.observation
-                .event_ids()
-                .chain(self.currency.observation.event_ids()),
-        )
+        ReadModelObservation::collect_event_ids(self.observation.event_ids())
     }
 }

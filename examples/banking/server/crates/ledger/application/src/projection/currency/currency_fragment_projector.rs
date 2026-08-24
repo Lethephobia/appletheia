@@ -3,30 +3,27 @@ use appletheia::application::projection::Projector;
 use appletheia::application::read_model::{
     MaterializationEventContext, ReadModelFragmentPartition, ReadModelPartition,
 };
-use banking_ledger_domain::core::CurrencyAmount;
-use banking_ledger_domain::currency::{Currency, CurrencyEventPayload};
+use banking_ledger_domain::currency::{Currency, CurrencyEventPayload, CurrencyStatus};
+use banking_ledger_domain::token_binding::{TokenBinding, TokenBindingEventPayload};
 
-use super::{CurrencyFragmentProjectorError, CurrencyFragmentProjectorSpec};
-use crate::projection::{
-    CurrencyFragment, CurrencyFragmentUpsert, CurrencyFragmentWriter, MaterializedCurrencyStatus,
+use super::{
+    CurrencyFragment, CurrencyFragmentProjectorError, CurrencyFragmentProjectorSpec,
+    CurrencyFragmentUpsert, CurrencyFragmentWriter,
 };
 
-/// Projects currency events into currency fragments.
 pub struct CurrencyFragmentProjector<W>
 where
     W: CurrencyFragmentWriter,
 {
-    currency_fragment_writer: W,
+    writer: W,
 }
 
 impl<W> CurrencyFragmentProjector<W>
 where
     W: CurrencyFragmentWriter,
 {
-    pub fn new(currency_fragment_writer: W) -> Self {
-        Self {
-            currency_fragment_writer,
-        }
+    pub fn new(writer: W) -> Self {
+        Self { writer }
     }
 }
 
@@ -45,174 +42,97 @@ where
         event_context: MaterializationEventContext,
         event: &EventEnvelope,
     ) -> Result<Vec<ReadModelFragmentPartition<Self::Fragment>>, Self::Error> {
-        let mut invalidated_partitions = Vec::new();
-        let domain_event = event.try_into_domain_event::<Currency>()?;
-        let currency_id = domain_event.aggregate_id();
+        let fragment = if event.is_for_aggregate::<Currency>() {
+            let event = event.try_into_domain_event::<Currency>()?;
+            let currency_id = event.aggregate_id();
+            match event.payload() {
+                CurrencyEventPayload::Defined {
+                    currency_registrar_id,
+                    code,
+                    decimals,
+                    description,
+                } => {
+                    self.writer
+                        .upsert_currency(
+                            uow,
+                            event_context,
+                            CurrencyFragmentUpsert {
+                                id: currency_id,
+                                currency_registrar_id: *currency_registrar_id,
+                                code: code.clone(),
+                                decimals: *decimals,
+                                description: description.clone(),
+                                status: CurrencyStatus::Defined,
+                            },
+                        )
+                        .await?
+                }
+                CurrencyEventPayload::DescriptionChanged { description } => {
+                    self.writer
+                        .update_currency_description(
+                            uow,
+                            event_context,
+                            currency_id,
+                            description.clone(),
+                        )
+                        .await?
+                }
+                CurrencyEventPayload::Activated => {
+                    self.writer
+                        .update_currency_status(
+                            uow,
+                            event_context,
+                            currency_id,
+                            CurrencyStatus::Active,
+                        )
+                        .await?
+                }
+                CurrencyEventPayload::ActivationRejected { .. } => None,
+                CurrencyEventPayload::Deactivated => {
+                    self.writer
+                        .update_currency_status(
+                            uow,
+                            event_context,
+                            currency_id,
+                            CurrencyStatus::Inactive,
+                        )
+                        .await?
+                }
+                CurrencyEventPayload::DeactivationRejected { .. } => None,
+            }
+        } else if event.is_for_aggregate::<TokenBinding>() {
+            let event = event.try_into_domain_event::<TokenBinding>()?;
+            match event.payload() {
+                TokenBindingEventPayload::Defined {
+                    currency_id,
+                    chain_network,
+                    token_address,
+                } => {
+                    self.writer
+                        .define_token_binding(
+                            uow,
+                            event_context,
+                            *currency_id,
+                            event.aggregate_id(),
+                            *chain_network,
+                            *token_address,
+                        )
+                        .await?
+                }
+                TokenBindingEventPayload::Removed => {
+                    self.writer
+                        .remove_token_binding(uow, event_context, event.aggregate_id())
+                        .await?
+                }
+                TokenBindingEventPayload::DefinitionRejected { .. }
+                | TokenBindingEventPayload::RemovalRejected { .. } => None,
+            }
+        } else {
+            None
+        };
 
-        match domain_event.payload() {
-            CurrencyEventPayload::Defined {
-                owner,
-                symbol,
-                name,
-                decimals,
-                description,
-                image,
-                ..
-            } => {
-                if let Some(fragment) = self
-                    .currency_fragment_writer
-                    .upsert_currency(
-                        uow,
-                        event_context,
-                        CurrencyFragmentUpsert {
-                            id: currency_id,
-                            owner: *owner,
-                            symbol: symbol.clone(),
-                            name: name.clone(),
-                            decimals: *decimals,
-                            description: description.clone(),
-                            image: image.clone(),
-                            mint_account_address: None,
-                            supply: CurrencyAmount::zero(),
-                            status: MaterializedCurrencyStatus::Provisioning,
-                        },
-                    )
-                    .await?
-                {
-                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
-                }
-            }
-            CurrencyEventPayload::Provisioned { mint_account } => {
-                if let Some(fragment) = self
-                    .currency_fragment_writer
-                    .provision_currency(
-                        uow,
-                        event_context,
-                        currency_id,
-                        mint_account.mint_account_address().clone(),
-                    )
-                    .await?
-                {
-                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
-                }
-            }
-            CurrencyEventPayload::OwnershipTransferred { owner } => {
-                if let Some(fragment) = self
-                    .currency_fragment_writer
-                    .update_currency_owner(uow, event_context, currency_id, *owner)
-                    .await?
-                {
-                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
-                }
-            }
-            CurrencyEventPayload::SymbolChanged { symbol } => {
-                if let Some(fragment) = self
-                    .currency_fragment_writer
-                    .update_currency_symbol(uow, event_context, currency_id, symbol.clone())
-                    .await?
-                {
-                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
-                }
-            }
-            CurrencyEventPayload::NameChanged { name } => {
-                if let Some(fragment) = self
-                    .currency_fragment_writer
-                    .update_currency_name(uow, event_context, currency_id, name.clone())
-                    .await?
-                {
-                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
-                }
-            }
-            CurrencyEventPayload::DescriptionChanged { description } => {
-                if let Some(fragment) = self
-                    .currency_fragment_writer
-                    .update_currency_description(
-                        uow,
-                        event_context,
-                        currency_id,
-                        description.clone(),
-                    )
-                    .await?
-                {
-                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
-                }
-            }
-            CurrencyEventPayload::ImageChanged { image, .. } => {
-                if let Some(fragment) = self
-                    .currency_fragment_writer
-                    .update_currency_image(uow, event_context, currency_id, image.clone())
-                    .await?
-                {
-                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
-                }
-            }
-            CurrencyEventPayload::SupplyCommitted { amount } => {
-                if let Some(fragment) = self
-                    .currency_fragment_writer
-                    .increase_currency_supply(uow, event_context, currency_id, *amount)
-                    .await?
-                {
-                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
-                }
-            }
-            CurrencyEventPayload::Activated => {
-                if let Some(fragment) = self
-                    .currency_fragment_writer
-                    .update_currency_status(
-                        uow,
-                        event_context,
-                        currency_id,
-                        MaterializedCurrencyStatus::Active,
-                    )
-                    .await?
-                {
-                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
-                }
-            }
-            CurrencyEventPayload::Deactivated => {
-                if let Some(fragment) = self
-                    .currency_fragment_writer
-                    .update_currency_status(
-                        uow,
-                        event_context,
-                        currency_id,
-                        MaterializedCurrencyStatus::Inactive,
-                    )
-                    .await?
-                {
-                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
-                }
-            }
-            CurrencyEventPayload::Removed => {
-                if self
-                    .currency_fragment_writer
-                    .delete_currency(uow, event_context, currency_id)
-                    .await?
-                {
-                    invalidated_partitions.push(ReadModelPartition::new(currency_id));
-                }
-            }
-            CurrencyEventPayload::DefineRejected { .. }
-            | CurrencyEventPayload::OwnershipTransferRejected { .. }
-            | CurrencyEventPayload::ProvisionRejected { .. }
-            | CurrencyEventPayload::SymbolChangeRejected { .. }
-            | CurrencyEventPayload::NameChangeRejected { .. }
-            | CurrencyEventPayload::DescriptionChangeRejected { .. }
-            | CurrencyEventPayload::ImageChangeRejected { .. }
-            | CurrencyEventPayload::MintMetadataSynced
-            | CurrencyEventPayload::MintMetadataSyncRejected { .. }
-            | CurrencyEventPayload::SupplyReserved { .. }
-            | CurrencyEventPayload::SupplyReserveRejected { .. }
-            | CurrencyEventPayload::MintSupplySynced { .. }
-            | CurrencyEventPayload::MintSupplySyncRejected { .. }
-            | CurrencyEventPayload::SupplyCommitRejected { .. }
-            | CurrencyEventPayload::SupplyReleased { .. }
-            | CurrencyEventPayload::SupplyReleaseRejected { .. }
-            | CurrencyEventPayload::ActivateRejected { .. }
-            | CurrencyEventPayload::DeactivateRejected { .. }
-            | CurrencyEventPayload::RemoveRejected { .. } => {}
-        }
-
-        Ok(invalidated_partitions)
+        Ok(fragment
+            .map(|fragment| vec![ReadModelPartition::from_fragment(&fragment)])
+            .unwrap_or_default())
     }
 }

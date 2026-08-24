@@ -4,29 +4,29 @@ use banking_ledger_domain::currency::{Currency, CurrencyEventPayload, CurrencyId
 
 use crate::authorization::{CurrencyRelationshipUpdater, CurrencyRelationshipUpdaterError};
 
-pub struct CurrencyEventSaveHook<CRU>
+pub struct CurrencyEventSaveHook<RU>
 where
-    CRU: CurrencyRelationshipUpdater,
+    RU: CurrencyRelationshipUpdater,
 {
-    currency_relationship_updater: CRU,
+    relationship_updater: RU,
 }
 
-impl<CRU> CurrencyEventSaveHook<CRU>
+impl<RU> CurrencyEventSaveHook<RU>
 where
-    CRU: CurrencyRelationshipUpdater,
+    RU: CurrencyRelationshipUpdater,
 {
-    pub fn new(currency_relationship_updater: CRU) -> Self {
+    pub fn new(relationship_updater: RU) -> Self {
         Self {
-            currency_relationship_updater,
+            relationship_updater,
         }
     }
 }
 
-impl<CRU> EventSaveHook<Currency> for CurrencyEventSaveHook<CRU>
+impl<RU> EventSaveHook<Currency> for CurrencyEventSaveHook<RU>
 where
-    CRU: CurrencyRelationshipUpdater,
+    RU: CurrencyRelationshipUpdater,
 {
-    type Uow = CRU::Uow;
+    type Uow = RU::Uow;
     type Error = CurrencyRelationshipUpdaterError;
 
     async fn after_event_saved(
@@ -34,18 +34,14 @@ where
         uow: &mut Self::Uow,
         event: &Event<CurrencyId, CurrencyEventPayload>,
     ) -> Result<(), Self::Error> {
-        match event.payload() {
-            CurrencyEventPayload::Defined { owner, .. } => {
-                self.currency_relationship_updater
-                    .upsert_owner(uow, event.aggregate_id(), *owner)
-                    .await?;
-            }
-            CurrencyEventPayload::OwnershipTransferred { owner } => {
-                self.currency_relationship_updater
-                    .replace_owner(uow, event.aggregate_id(), *owner)
-                    .await?;
-            }
-            _ => {}
+        if let CurrencyEventPayload::Defined {
+            currency_registrar_id,
+            ..
+        } = event.payload()
+        {
+            self.relationship_updater
+                .upsert_currency_registrar(uow, event.aggregate_id(), *currency_registrar_id)
+                .await?;
         }
 
         Ok(())

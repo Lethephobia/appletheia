@@ -1,4 +1,4 @@
-use crate::core::TokenAccountOwnerAddress;
+use crate::core::TokenOwnerAddress;
 
 use super::{WalletBookmarkDescription, WalletBookmarkDisplayName, WalletBookmarkOwner};
 
@@ -8,7 +8,7 @@ pub struct WalletBookmarkRegistration {
     pub owner: WalletBookmarkOwner,
     pub display_name: Option<WalletBookmarkDisplayName>,
     pub description: Option<WalletBookmarkDescription>,
-    pub token_account_owner_address: TokenAccountOwnerAddress,
+    pub token_owner_address: TokenOwnerAddress,
 }
 
 impl WalletBookmarkRegistration {
@@ -18,13 +18,13 @@ impl WalletBookmarkRegistration {
         WalletBookmarkOwner,
         Option<WalletBookmarkDisplayName>,
         Option<WalletBookmarkDescription>,
-        TokenAccountOwnerAddress,
+        TokenOwnerAddress,
     ) {
         (
             self.owner,
             self.display_name,
             self.description,
-            self.token_account_owner_address,
+            self.token_owner_address,
         )
     }
 }

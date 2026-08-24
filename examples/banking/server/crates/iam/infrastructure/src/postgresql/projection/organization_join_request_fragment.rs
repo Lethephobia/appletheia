@@ -8,8 +8,10 @@ use banking_iam_application::{
 use banking_iam_domain::{OrganizationJoinRequestId, OrganizationJoinRequestStatus};
 
 mod pg_organization_join_request_fragment_row;
+mod pg_organization_join_request_fragment_row_error;
 
 use pg_organization_join_request_fragment_row::PgOrganizationJoinRequestFragmentRow;
+use pg_organization_join_request_fragment_row_error::PgOrganizationJoinRequestFragmentRowError;
 
 /// PostgreSQL-backed organization join request fragment writer.
 pub struct PgOrganizationJoinRequestFragmentWriter;

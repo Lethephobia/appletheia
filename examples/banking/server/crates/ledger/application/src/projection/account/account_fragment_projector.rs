@@ -54,8 +54,8 @@ where
                 AccountEventPayload::Opened {
                     owner,
                     name,
+                    description,
                     currency_id,
-                    ..
                 } => {
                     if let Some(fragment) = self
                         .account_fragment_writer
@@ -66,6 +66,7 @@ where
                                 id: account_id,
                                 owner: *owner,
                                 name: name.clone(),
+                                description: description.clone(),
                                 currency_id: *currency_id,
                                 balance: CurrencyAmount::zero(),
                                 reserved_balance: CurrencyAmount::zero(),
@@ -90,6 +91,20 @@ where
                     if let Some(fragment) = self
                         .account_fragment_writer
                         .update_account_name(uow, event_context, account_id, name.clone())
+                        .await?
+                    {
+                        invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
+                    }
+                }
+                AccountEventPayload::DescriptionChanged { description } => {
+                    if let Some(fragment) = self
+                        .account_fragment_writer
+                        .update_account_description(
+                            uow,
+                            event_context,
+                            account_id,
+                            description.clone(),
+                        )
                         .await?
                     {
                         invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
@@ -179,6 +194,7 @@ where
                 }
                 AccountEventPayload::OwnershipTransferRejected { .. }
                 | AccountEventPayload::NameChangeRejected { .. }
+                | AccountEventPayload::DescriptionChangeRejected { .. }
                 | AccountEventPayload::DepositRejected { .. }
                 | AccountEventPayload::WithdrawRejected { .. }
                 | AccountEventPayload::FundsReserveRejected { .. }

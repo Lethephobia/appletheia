@@ -1,0 +1,3 @@
+mod default_solana_token_binding_settlement_validator;
+
+pub use default_solana_token_binding_settlement_validator::DefaultSolanaTokenBindingSettlementValidator;

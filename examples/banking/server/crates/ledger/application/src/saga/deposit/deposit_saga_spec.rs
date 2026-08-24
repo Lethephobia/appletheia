@@ -15,10 +15,10 @@ impl SagaSpec for DepositSagaSpec {
     const DESCRIPTOR: SagaDescriptor = SagaDescriptor::new(
         SagaName::new("deposit"),
         SagaStartEvents::new(&[EventSelector::new::<Deposit>(
-            DepositEventPayload::TOKEN_TRANSFERRED,
+            DepositEventPayload::SETTLEMENT_VERIFIED,
         )]),
         Subscription::AnyOf(&[
-            EventSelector::new::<Deposit>(DepositEventPayload::TOKEN_TRANSFERRED),
+            EventSelector::new::<Deposit>(DepositEventPayload::SETTLEMENT_VERIFIED),
             EventSelector::new::<Account>(AccountEventPayload::DEPOSITED),
             EventSelector::new::<Account>(AccountEventPayload::DEPOSIT_REJECTED),
             EventSelector::new::<Deposit>(DepositEventPayload::COMPLETED),

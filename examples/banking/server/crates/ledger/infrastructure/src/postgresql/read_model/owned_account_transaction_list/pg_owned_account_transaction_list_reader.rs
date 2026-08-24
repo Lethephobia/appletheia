@@ -147,14 +147,16 @@ impl OwnedAccountTransactionListReader for PgOwnedAccountTransactionListReader {
                 COALESCE(cu.updated_event_id, co.updated_event_id) AS counterparty_owner_updated_event_id,
                 ca.source_event_id AS counterparty_account_source_event_id,
                 ca.updated_event_id AS counterparty_account_updated_event_id,
-                i.currency_id,
-                c.symbol AS currency_symbol,
-                c.name AS currency_name,
+                c.id AS currency_id,
+                c.code AS currency_code,
                 c.decimals AS currency_decimals,
-                c.mint_account_address AS currency_mint_account_address,
                 c.source_event_id AS currency_source_event_id,
                 c.updated_event_id AS currency_updated_event_id,
+                i.chain_network,
+                i.token_address,
+                i.onchain_transaction_id,
                 i.amount::text AS amount,
+                i.note,
                 i.direction,
                 i.kind,
                 i.status,
@@ -163,7 +165,8 @@ impl OwnedAccountTransactionListReader for PgOwnedAccountTransactionListReader {
                 i.source_event_id,
                 i.updated_event_id
             FROM account_transaction_fragments i
-            INNER JOIN currency_fragments c ON c.id = i.currency_id
+            INNER JOIN account_fragments a ON a.id = i.account_id
+            INNER JOIN currency_fragments c ON c.id = a.currency_id
             LEFT JOIN account_fragments ca ON ca.id = i.counterparty_account_id
             LEFT JOIN user_fragments cu
                 ON ca.owner_type = 'user' AND cu.id = ca.owner_id
@@ -184,10 +187,10 @@ impl OwnedAccountTransactionListReader for PgOwnedAccountTransactionListReader {
                 .push_bind(account_id.value());
         }
 
-        if let Some(currency_id) = criteria.currency_id {
+        if let Some(currency_code) = criteria.currency_code {
             builder
-                .push(" AND i.currency_id = ")
-                .push_bind(currency_id.value());
+                .push(" AND c.code = ")
+                .push_bind(currency_code.value().to_owned());
         }
 
         if let Some(status_in) = criteria.status_in.as_deref() {

@@ -1,0 +1,7 @@
+mod default_ethereum_deposit_settlement_preparer;
+mod default_ethereum_deposit_settlement_verifier;
+mod ethereum_deposit_settlement_client;
+
+pub use default_ethereum_deposit_settlement_preparer::DefaultEthereumDepositSettlementPreparer;
+pub use default_ethereum_deposit_settlement_verifier::DefaultEthereumDepositSettlementVerifier;
+pub use ethereum_deposit_settlement_client::EthereumDepositSettlementClient;

@@ -15,6 +15,6 @@ pub enum DepositError {
     #[error("deposit has already been requested")]
     AlreadyRequested,
 
-    #[error("deposit token transfer has not been recorded")]
-    TokenTransferNotRecorded,
+    #[error("deposit settlement has not been verified")]
+    SettlementNotVerified,
 }

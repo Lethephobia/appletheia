@@ -227,7 +227,7 @@ mod tests {
     };
     use banking_ledger_domain::core::CurrencyAmount;
     use banking_ledger_domain::transfer::{
-        Transfer, TransferEventPayload, TransferFailureReason, TransferId,
+        Transfer, TransferEventPayload, TransferFailureReason, TransferId, TransferNote,
     };
 
     use super::{TransferSaga, TransferSagaSpec, TransferSagaState, TransferSagaStatus};
@@ -298,7 +298,7 @@ mod tests {
     }
 
     #[test]
-    fn transfer_requested_appends_account_funds_reserve_command() {
+    fn transfer_requested_with_note_appends_account_funds_reserve_command() {
         let saga = TransferSaga;
         let correlation_id = CorrelationId::from(Uuid::now_v7());
         let from_account_id = AccountId::new();
@@ -320,6 +320,10 @@ mod tests {
                     from_account_id,
                     to_account_id,
                     amount,
+                    note: Some(
+                        TransferNote::try_from("invoice 123")
+                            .expect("transfer note should be valid"),
+                    ),
                 },
             ),
         )
@@ -365,6 +369,7 @@ mod tests {
                     from_account_id,
                     to_account_id,
                     amount,
+                    note: None,
                 },
             ),
         )

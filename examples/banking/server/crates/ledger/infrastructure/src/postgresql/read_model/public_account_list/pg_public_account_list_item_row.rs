@@ -8,9 +8,8 @@ use banking_ledger_application::{
     PublicAccountListItemOwnerOrganization, PublicAccountListItemOwnerUser,
 };
 use banking_ledger_domain::account::AccountId;
-use banking_ledger_domain::currency::{
-    CurrencyDecimals, CurrencyId, CurrencyName, CurrencySymbol, MintAccountAddress,
-};
+use banking_ledger_domain::core::{CurrencyCode, CurrencyDecimals};
+use banking_ledger_domain::currency::CurrencyId;
 use sqlx::types::chrono::{DateTime, Utc};
 use uuid::Uuid;
 
@@ -36,10 +35,8 @@ pub struct PgPublicAccountListItemRow {
     pub owner_source_event_id: Option<Uuid>,
     pub owner_updated_event_id: Option<Uuid>,
     pub currency_id: Uuid,
-    pub currency_symbol: String,
-    pub currency_name: String,
+    pub currency_code: String,
     pub currency_decimals: i16,
-    pub currency_mint_account_address: Option<String>,
     pub currency_source_event_id: Uuid,
     pub currency_updated_event_id: Uuid,
     pub created_at: DateTime<Utc>,
@@ -189,22 +186,12 @@ impl TryFrom<PgPublicAccountListItemRow> for PublicAccountListItem {
             owner: row.owner()?,
             currency: PublicAccountListItemCurrency {
                 id: CurrencyId::try_from_uuid(row.currency_id).map_err(|error| {
-                    PgPublicAccountListItemRowError::InvalidCurrencyId(Box::new(error))
+                    PgPublicAccountListItemRowError::InvalidCurrencyCode(Box::new(error))
                 })?,
-                symbol: CurrencySymbol::try_from(row.currency_symbol).map_err(|error| {
-                    PgPublicAccountListItemRowError::InvalidCurrencySymbol(Box::new(error))
-                })?,
-                name: CurrencyName::try_from(row.currency_name).map_err(|error| {
-                    PgPublicAccountListItemRowError::InvalidCurrencyName(Box::new(error))
+                code: CurrencyCode::try_from(row.currency_code).map_err(|error| {
+                    PgPublicAccountListItemRowError::InvalidCurrencyCode(Box::new(error))
                 })?,
                 decimals: CurrencyDecimals::new(currency_decimals),
-                mint_account_address: row
-                    .currency_mint_account_address
-                    .map(MintAccountAddress::try_from)
-                    .transpose()
-                    .map_err(|error| {
-                        PgPublicAccountListItemRowError::InvalidMintAccountAddress(Box::new(error))
-                    })?,
                 observation: PgPublicAccountListItemRow::observation(
                     row.currency_source_event_id,
                     row.currency_updated_event_id,

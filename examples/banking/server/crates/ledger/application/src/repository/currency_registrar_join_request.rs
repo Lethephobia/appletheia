@@ -1,0 +1,3 @@
+mod currency_registrar_join_request_event_save_hook;
+
+pub use currency_registrar_join_request_event_save_hook::CurrencyRegistrarJoinRequestEventSaveHook;

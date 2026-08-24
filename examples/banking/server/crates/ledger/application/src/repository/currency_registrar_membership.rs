@@ -1,0 +1,3 @@
+mod currency_registrar_membership_event_save_hook;
+
+pub use currency_registrar_membership_event_save_hook::CurrencyRegistrarMembershipEventSaveHook;

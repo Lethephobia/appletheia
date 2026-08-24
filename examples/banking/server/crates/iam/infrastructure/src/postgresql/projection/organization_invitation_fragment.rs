@@ -12,8 +12,10 @@ use banking_iam_domain::{
 use uuid::Uuid;
 
 mod pg_organization_invitation_fragment_row;
+mod pg_organization_invitation_fragment_row_error;
 
 use pg_organization_invitation_fragment_row::PgOrganizationInvitationFragmentRow;
+use pg_organization_invitation_fragment_row_error::PgOrganizationInvitationFragmentRowError;
 
 /// PostgreSQL-backed organization invitation fragment writer.
 pub struct PgOrganizationInvitationFragmentWriter;

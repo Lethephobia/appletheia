@@ -95,10 +95,8 @@ impl PublicAccountListReader for PgPublicAccountListReader {
                 COALESCE(u.source_event_id, o.source_event_id) AS owner_source_event_id,
                 COALESCE(u.updated_event_id, o.updated_event_id) AS owner_updated_event_id,
                 c.id AS currency_id,
-                c.symbol AS currency_symbol,
-                c.name AS currency_name,
+                c.code AS currency_code,
                 c.decimals AS currency_decimals,
-                c.mint_account_address AS currency_mint_account_address,
                 c.source_event_id AS currency_source_event_id,
                 c.updated_event_id AS currency_updated_event_id,
                 a.status,
@@ -106,8 +104,7 @@ impl PublicAccountListReader for PgPublicAccountListReader {
                 a.source_event_id,
                 a.updated_event_id
               FROM account_fragments a
-              INNER JOIN currency_fragments c
-                      ON c.id = a.currency_id
+              INNER JOIN currency_fragments c ON c.id = a.currency_id
               LEFT JOIN user_fragments u
                      ON a.owner_type = 'user'
                     AND u.id = a.owner_id
@@ -118,7 +115,7 @@ impl PublicAccountListReader for PgPublicAccountListReader {
         );
 
         if criteria.owner.is_some()
-            || criteria.currency_id.is_some()
+            || criteria.currency_code.is_some()
             || criteria.status_in.is_some()
             || page.boundary().is_some()
         {
@@ -135,10 +132,10 @@ impl PublicAccountListReader for PgPublicAccountListReader {
                     .push_bind_unseparated(owner_id);
             }
 
-            if let Some(currency_id) = criteria.currency_id {
+            if let Some(currency_code) = criteria.currency_code {
                 predicates
-                    .push("a.currency_id = ")
-                    .push_bind_unseparated(currency_id.value());
+                    .push("c.code = ")
+                    .push_bind_unseparated(currency_code.value().to_owned());
             }
 
             if let Some(status_in) = criteria.status_in.as_deref() {

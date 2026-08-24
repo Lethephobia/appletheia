@@ -1,4 +1,5 @@
-mod pg_currency_fragment_row;
 mod pg_currency_fragment_writer;
+mod pg_currency_fragment_writer_error;
 
 pub use pg_currency_fragment_writer::PgCurrencyFragmentWriter;
+pub(super) use pg_currency_fragment_writer_error::PgCurrencyFragmentWriterError;

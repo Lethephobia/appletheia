@@ -1,5 +1,3 @@
-mod pg_currency_image_ref_columns;
-mod pg_currency_image_ref_columns_error;
 mod projection;
 pub mod read_model;
 

@@ -1,14 +1,16 @@
 use appletheia::application::command::{CommandOutput, CommandReplayOutput};
-use banking_ledger_domain::currency::CurrencyDeactivateRejectionReason;
+use banking_ledger_domain::currency::{CurrencyId, CurrencyLifecycleRejectionReason};
 use serde::{Deserialize, Serialize};
 
-/// Returned after a currency deactivation request is applied.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", content = "data", rename_all = "snake_case")]
 pub enum CurrencyDeactivateOutput {
-    Deactivated,
+    Deactivated {
+        currency_id: CurrencyId,
+    },
     Rejected {
-        reason: CurrencyDeactivateRejectionReason,
+        currency_id: CurrencyId,
+        reason: CurrencyLifecycleRejectionReason,
     },
 }
 

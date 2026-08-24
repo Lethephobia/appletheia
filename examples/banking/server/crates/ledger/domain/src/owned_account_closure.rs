@@ -57,6 +57,11 @@ impl OwnedAccountClosure {
         Ok(self.state_required()?.owner)
     }
 
+    /// Returns the current closure status.
+    pub fn status(&self) -> Result<OwnedAccountClosureStatus, OwnedAccountClosureError> {
+        Ok(self.state_required()?.status)
+    }
+
     /// Starts a workflow that closes every account owned by the owner.
     pub fn request(
         &mut self,
@@ -301,7 +306,7 @@ mod tests {
     use super::{
         OwnedAccountClosure, OwnedAccountClosureCompleteRejectionReason,
         OwnedAccountClosureCompleteResult, OwnedAccountClosureEventPayload,
-        OwnedAccountClosureRecordResult, OwnedAccountClosureRequest,
+        OwnedAccountClosureRecordResult, OwnedAccountClosureRequest, OwnedAccountClosureStatus,
     };
 
     fn user_owner() -> AccountOwner {
@@ -351,6 +356,10 @@ mod tests {
             result,
             OwnedAccountClosureCompleteResult::Completed
         ));
+        assert_eq!(
+            closure.status().expect("closure state should exist"),
+            OwnedAccountClosureStatus::Completed
+        );
         assert_eq!(
             closure.uncommitted_events()[2].payload().name(),
             OwnedAccountClosureEventPayload::COMPLETED

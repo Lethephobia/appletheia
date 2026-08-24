@@ -5,7 +5,7 @@ use banking_ledger_application::{
     AccountFragment, AccountFragmentUpsert, AccountFragmentWriter, AccountFragmentWriterError,
     MaterializedAccountStatus,
 };
-use banking_ledger_domain::account::{AccountId, AccountName, AccountOwner};
+use banking_ledger_domain::account::{AccountDescription, AccountId, AccountName, AccountOwner};
 use banking_ledger_domain::core::CurrencyAmount;
 use uuid::Uuid;
 
@@ -46,7 +46,7 @@ impl PgAccountFragmentWriter {
 
         let row = sqlx::query_as::<_, PgAccountFragmentRow>(
             r#"
-            SELECT id, owner_type, owner_id, name, currency_id,
+            SELECT id, owner_type, owner_id, name, description, currency_id,
                    balance::text AS balance, reserved_balance::text AS reserved_balance,
                    status, created_at, source_event_id, updated_event_id
               FROM account_fragments
@@ -82,13 +82,14 @@ impl AccountFragmentWriter for PgAccountFragmentWriter {
         let result = sqlx::query(
             r#"
             INSERT INTO account_fragments (
-                id, owner_type, owner_id, name, currency_id, balance, reserved_balance, status, updated_at, created_at, source_event_sequence, updated_event_sequence, source_event_id, updated_event_id
+                id, owner_type, owner_id, name, description, currency_id, balance, reserved_balance, status, updated_at, created_at, source_event_sequence, updated_event_sequence, source_event_id, updated_event_id
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $11, $12, $12)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $12, $13, $13)
             ON CONFLICT (id) DO UPDATE SET
                 owner_type = EXCLUDED.owner_type,
                 owner_id = EXCLUDED.owner_id,
                 name = EXCLUDED.name,
+                description = EXCLUDED.description,
                 currency_id = EXCLUDED.currency_id,
                 balance = EXCLUDED.balance,
                 reserved_balance = EXCLUDED.reserved_balance,
@@ -103,6 +104,7 @@ impl AccountFragmentWriter for PgAccountFragmentWriter {
         .bind(owner_type)
         .bind(owner_id)
         .bind(upsert.name.value())
+        .bind(upsert.description.as_ref().map(AsRef::<str>::as_ref))
         .bind(upsert.currency_id.value())
         .bind(upsert.balance.value().to_string())
         .bind(upsert.reserved_balance.value().to_string())
@@ -167,6 +169,34 @@ impl AccountFragmentWriter for PgAccountFragmentWriter {
         )
         .bind(id.value())
         .bind(name.value())
+        .bind(event_context.occurred_at.value())
+        .bind(event_context.event_sequence.value())
+        .bind(event_context.event_id.value())
+        .execute(uow.transaction_mut().as_mut())
+        .await
+        .map_err(|error| AccountFragmentWriterError::Persistence(Box::new(error)))?;
+
+        Self::load_changed_fragment(uow, id, result.rows_affected()).await
+    }
+
+    async fn update_account_description(
+        &self,
+        uow: &mut Self::Uow,
+        event_context: MaterializationEventContext,
+        id: AccountId,
+        description: Option<AccountDescription>,
+    ) -> Result<Option<AccountFragment>, AccountFragmentWriterError> {
+        let result = sqlx::query(
+            r#"
+            UPDATE account_fragments
+               SET description = $2, updated_at = $3,
+                   updated_event_sequence = $4,
+                   updated_event_id = $5
+             WHERE id = $1 AND updated_event_sequence < $4
+            "#,
+        )
+        .bind(id.value())
+        .bind(description.as_ref().map(AsRef::<str>::as_ref))
         .bind(event_context.occurred_at.value())
         .bind(event_context.event_sequence.value())
         .bind(event_context.event_id.value())
@@ -245,8 +275,7 @@ impl AccountFragmentWriter for PgAccountFragmentWriter {
         let result = sqlx::query(
             r#"
             UPDATE account_fragments
-               SET balance = balance - $2,
-                   reserved_balance = reserved_balance + $2,
+               SET reserved_balance = reserved_balance + $2,
                    updated_at = $3,
                    updated_event_sequence = $4,
                    updated_event_id = $5
@@ -275,8 +304,7 @@ impl AccountFragmentWriter for PgAccountFragmentWriter {
         let result = sqlx::query(
             r#"
             UPDATE account_fragments
-               SET balance = balance + $2,
-                   reserved_balance = reserved_balance - $2,
+               SET reserved_balance = reserved_balance - $2,
                    updated_at = $3,
                    updated_event_sequence = $4,
                    updated_event_id = $5
@@ -305,7 +333,8 @@ impl AccountFragmentWriter for PgAccountFragmentWriter {
         let result = sqlx::query(
             r#"
             UPDATE account_fragments
-               SET reserved_balance = reserved_balance - $2,
+               SET balance = balance - $2,
+                   reserved_balance = reserved_balance - $2,
                    updated_at = $3,
                    updated_event_sequence = $4,
                    updated_event_id = $5

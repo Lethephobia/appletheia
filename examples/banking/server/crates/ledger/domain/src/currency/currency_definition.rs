@@ -1,37 +1,15 @@
-use super::{
-    CurrencyDecimals, CurrencyDescription, CurrencyImageRef, CurrencyName, CurrencyOwner,
-    CurrencySymbol,
-};
+use serde::{Deserialize, Serialize};
 
-/// Describes a currency definition request.
-#[derive(Clone, Debug, PartialEq, Eq)]
+use crate::core::{CurrencyCode, CurrencyDecimals};
+use crate::currency_registrar::CurrencyRegistrarId;
+
+use super::CurrencyDescription;
+
+/// Describes a Currency definition.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct CurrencyDefinition {
-    pub owner: CurrencyOwner,
-    pub symbol: CurrencySymbol,
-    pub name: CurrencyName,
+    pub currency_registrar_id: CurrencyRegistrarId,
+    pub code: CurrencyCode,
     pub decimals: CurrencyDecimals,
     pub description: Option<CurrencyDescription>,
-    pub image: Option<CurrencyImageRef>,
-}
-
-impl CurrencyDefinition {
-    pub(super) fn into_parts(
-        self,
-    ) -> (
-        CurrencyOwner,
-        CurrencySymbol,
-        CurrencyName,
-        CurrencyDecimals,
-        Option<CurrencyDescription>,
-        Option<CurrencyImageRef>,
-    ) {
-        (
-            self.owner,
-            self.symbol,
-            self.name,
-            self.decimals,
-            self.description,
-            self.image,
-        )
-    }
 }

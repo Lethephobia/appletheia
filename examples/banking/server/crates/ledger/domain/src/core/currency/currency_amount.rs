@@ -2,14 +2,15 @@ use std::fmt::{self, Display};
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use super::CurrencyAmountError;
+use super::{CurrencyAmountError, CurrencyDecimals};
+use crate::core::{TokenAmount, TokenAmountConversionError, TokenDecimals};
 
-/// Represents a balance amount in the smallest unit of an account currency.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+/// Represents a non-negative quantity in a currency's smallest unit.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
 pub struct CurrencyAmount(u128);
 
 impl CurrencyAmount {
-    /// Creates an amount from the smallest-unit quantity.
+    /// Creates an amount expressed in the currency's smallest unit.
     pub fn new(value: u128) -> Self {
         Self(value)
     }
@@ -19,34 +20,61 @@ impl CurrencyAmount {
         Self(0)
     }
 
-    /// Returns the smallest-unit amount.
-    pub fn value(&self) -> u128 {
+    /// Returns the underlying smallest-unit quantity.
+    pub const fn value(&self) -> u128 {
         self.0
     }
 
-    /// Returns whether the amount is zero.
-    pub fn is_zero(&self) -> bool {
+    /// Returns whether this amount is zero.
+    pub const fn is_zero(&self) -> bool {
         self.0 == 0
     }
 
-    /// Adds another amount and returns the resulting amount.
-    pub fn try_add(self, amount: Self) -> Result<Self, CurrencyAmountError> {
-        let value = self
-            .value()
-            .checked_add(amount.value())
-            .ok_or(CurrencyAmountError::BalanceOverflow)?;
-
-        Ok(Self::new(value))
+    /// Adds another amount using checked arithmetic.
+    pub fn try_add(&self, amount: &Self) -> Result<Self, CurrencyAmountError> {
+        self.0
+            .checked_add(amount.0)
+            .map(Self)
+            .ok_or(CurrencyAmountError::Overflow)
     }
 
-    /// Subtracts another amount and returns the resulting amount.
-    pub fn try_sub(self, amount: Self) -> Result<Self, CurrencyAmountError> {
-        let value = self
-            .value()
-            .checked_sub(amount.value())
-            .ok_or(CurrencyAmountError::InsufficientBalance)?;
+    /// Subtracts another amount using checked arithmetic.
+    pub fn try_sub(&self, amount: &Self) -> Result<Self, CurrencyAmountError> {
+        self.0
+            .checked_sub(amount.0)
+            .map(Self)
+            .ok_or(CurrencyAmountError::InsufficientAmount)
+    }
 
-        Ok(Self::new(value))
+    /// Converts this currency amount into token base units without losing precision.
+    pub fn to_token_amount(
+        &self,
+        currency_decimals: CurrencyDecimals,
+        token_decimals: TokenDecimals,
+    ) -> Result<TokenAmount, TokenAmountConversionError> {
+        if self.is_zero() {
+            return Ok(TokenAmount::new(0));
+        }
+        let currency_decimals = currency_decimals.value();
+        let token_decimals = token_decimals.value();
+        if token_decimals >= currency_decimals {
+            let factor = 10_u128
+                .checked_pow(u32::from(token_decimals - currency_decimals))
+                .ok_or(TokenAmountConversionError::DecimalScaleOverflow)?;
+            return self
+                .0
+                .checked_mul(factor)
+                .map(TokenAmount::new)
+                .ok_or(TokenAmountConversionError::AmountOverflow);
+        }
+
+        let factor = 10_u128
+            .checked_pow(u32::from(currency_decimals - token_decimals))
+            .ok_or(TokenAmountConversionError::DecimalScaleOverflow)?;
+        if !self.0.is_multiple_of(factor) {
+            return Err(TokenAmountConversionError::InexactAmount);
+        }
+        Ok(TokenAmount::new(self.0 / factor))
     }
 }
 
@@ -61,7 +89,7 @@ impl Serialize for CurrencyAmount {
     where
         S: Serializer,
     {
-        serializer.serialize_str(&self.value().to_string())
+        serializer.serialize_str(&self.0.to_string())
     }
 }
 
@@ -72,85 +100,81 @@ impl<'de> Deserialize<'de> for CurrencyAmount {
     {
         let value = String::deserialize(deserializer)?;
         let value = value.parse::<u128>().map_err(serde::de::Error::custom)?;
-
-        Ok(CurrencyAmount::new(value))
+        Ok(Self::new(value))
     }
 }
 
 impl Display for CurrencyAmount {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.value())
+        write!(f, "{}", self.0)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::CurrencyAmount;
-    use crate::core::CurrencyAmountError;
+    use crate::core::{
+        CurrencyAmountError, CurrencyDecimals, TokenAmount, TokenAmountConversionError,
+        TokenDecimals,
+    };
 
     #[test]
-    fn zero_returns_zero_amount() {
-        assert_eq!(CurrencyAmount::zero().value(), 0);
+    fn checked_arithmetic_rejects_overflow_and_insufficient_amount() {
+        assert!(matches!(
+            CurrencyAmount::new(u128::MAX).try_add(&CurrencyAmount::new(1)),
+            Err(CurrencyAmountError::Overflow)
+        ));
+        assert!(matches!(
+            CurrencyAmount::new(0).try_sub(&CurrencyAmount::new(1)),
+            Err(CurrencyAmountError::InsufficientAmount)
+        ));
     }
 
     #[test]
-    fn try_add_returns_added_amount() {
-        let amount = CurrencyAmount::new(10)
-            .try_add(CurrencyAmount::new(5))
-            .expect("addition should succeed");
+    fn serializes_as_a_json_string_without_float_conversion() {
+        let amount = CurrencyAmount::new(u128::MAX);
+        let json = serde_json::to_value(amount).expect("serialization should succeed");
 
-        assert_eq!(amount, CurrencyAmount::new(15));
+        assert_eq!(json, serde_json::Value::String(u128::MAX.to_string()));
+        assert_eq!(
+            serde_json::from_value::<CurrencyAmount>(json).expect("deserialization should succeed"),
+            amount
+        );
     }
 
     #[test]
-    fn try_add_returns_overflow_error() {
-        let error = CurrencyAmount::new(u128::MAX)
-            .try_add(CurrencyAmount::new(1))
-            .expect_err("overflow should fail");
-
-        assert!(matches!(error, CurrencyAmountError::BalanceOverflow));
+    fn converts_to_token_base_units_exactly() {
+        assert_eq!(
+            CurrencyAmount::new(123)
+                .to_token_amount(CurrencyDecimals::new(2), TokenDecimals::new(6)),
+            Ok(TokenAmount::new(1_230_000))
+        );
+        assert_eq!(
+            CurrencyAmount::new(1_230_000)
+                .to_token_amount(CurrencyDecimals::new(6), TokenDecimals::new(2)),
+            Ok(TokenAmount::new(123))
+        );
     }
 
     #[test]
-    fn try_sub_returns_subtracted_amount() {
-        let amount = CurrencyAmount::new(10)
-            .try_sub(CurrencyAmount::new(5))
-            .expect("subtraction should succeed");
-
-        assert_eq!(amount, CurrencyAmount::new(5));
+    fn rejects_inexact_and_overflowing_token_conversion() {
+        assert_eq!(
+            CurrencyAmount::new(1).to_token_amount(CurrencyDecimals::new(6), TokenDecimals::new(2)),
+            Err(TokenAmountConversionError::InexactAmount)
+        );
+        assert_eq!(
+            CurrencyAmount::new(u128::MAX)
+                .to_token_amount(CurrencyDecimals::new(0), TokenDecimals::new(18)),
+            Err(TokenAmountConversionError::AmountOverflow)
+        );
     }
 
     #[test]
-    fn try_sub_returns_insufficient_balance_error() {
-        let error = CurrencyAmount::new(1)
-            .try_sub(CurrencyAmount::new(2))
-            .expect_err("subtraction should fail");
-
-        assert!(matches!(error, CurrencyAmountError::InsufficientBalance));
-    }
-
-    #[test]
-    fn serializes_to_json_string() {
-        let value =
-            serde_json::to_value(CurrencyAmount::new(42)).expect("serialize should succeed");
-
-        assert_eq!(value, serde_json::Value::String("42".to_owned()));
-    }
-
-    #[test]
-    fn deserializes_from_json_string() {
-        let amount =
-            serde_json::from_value::<CurrencyAmount>(serde_json::Value::String("42".to_owned()))
-                .expect("deserialize should succeed");
-
-        assert_eq!(amount, CurrencyAmount::new(42));
-    }
-
-    #[test]
-    fn rejects_json_integer() {
-        let error =
-            serde_json::from_value::<CurrencyAmount>(serde_json::json!(42)).expect_err("reject");
-
-        assert!(error.is_data());
+    fn converts_zero_without_requiring_a_representable_decimal_factor() {
+        assert_eq!(
+            CurrencyAmount::zero()
+                .to_token_amount(CurrencyDecimals::new(0), TokenDecimals::new(u8::MAX)),
+            Ok(TokenAmount::new(0))
+        );
     }
 }

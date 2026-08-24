@@ -1,16 +1,10 @@
-use appletheia::application::unit_of_work::UnitOfWork;
-
 use appletheia::application::read_model::MaterializationEventContext;
-use banking_ledger_domain::core::CurrencyAmount;
-use banking_ledger_domain::currency::{
-    CurrencyDescription, CurrencyId, CurrencyImageRef, CurrencyName, CurrencyOwner, CurrencySymbol,
-    MintAccountAddress,
-};
+use appletheia::application::unit_of_work::UnitOfWork;
+use banking_ledger_domain::core::{ChainNetwork, TokenAddress};
+use banking_ledger_domain::currency::{CurrencyDescription, CurrencyId, CurrencyStatus};
+use banking_ledger_domain::token_binding::TokenBindingId;
 
-use super::{
-    CurrencyFragment, CurrencyFragmentUpsert, CurrencyFragmentWriterError,
-    MaterializedCurrencyStatus,
-};
+use super::{CurrencyFragment, CurrencyFragmentUpsert, CurrencyFragmentWriterError};
 
 #[allow(async_fn_in_trait)]
 pub trait CurrencyFragmentWriter: Send + Sync {
@@ -23,28 +17,12 @@ pub trait CurrencyFragmentWriter: Send + Sync {
         upsert: CurrencyFragmentUpsert,
     ) -> Result<Option<CurrencyFragment>, CurrencyFragmentWriterError>;
 
-    async fn update_currency_owner(
+    async fn update_currency_status(
         &self,
         uow: &mut Self::Uow,
         event_context: MaterializationEventContext,
         id: CurrencyId,
-        owner: CurrencyOwner,
-    ) -> Result<Option<CurrencyFragment>, CurrencyFragmentWriterError>;
-
-    async fn update_currency_symbol(
-        &self,
-        uow: &mut Self::Uow,
-        event_context: MaterializationEventContext,
-        id: CurrencyId,
-        symbol: CurrencySymbol,
-    ) -> Result<Option<CurrencyFragment>, CurrencyFragmentWriterError>;
-
-    async fn update_currency_name(
-        &self,
-        uow: &mut Self::Uow,
-        event_context: MaterializationEventContext,
-        id: CurrencyId,
-        name: CurrencyName,
+        status: CurrencyStatus,
     ) -> Result<Option<CurrencyFragment>, CurrencyFragmentWriterError>;
 
     async fn update_currency_description(
@@ -55,42 +33,20 @@ pub trait CurrencyFragmentWriter: Send + Sync {
         description: Option<CurrencyDescription>,
     ) -> Result<Option<CurrencyFragment>, CurrencyFragmentWriterError>;
 
-    async fn update_currency_image(
+    async fn define_token_binding(
         &self,
         uow: &mut Self::Uow,
         event_context: MaterializationEventContext,
-        id: CurrencyId,
-        image: Option<CurrencyImageRef>,
+        currency_id: CurrencyId,
+        token_binding_id: TokenBindingId,
+        chain_network: ChainNetwork,
+        token_address: TokenAddress,
     ) -> Result<Option<CurrencyFragment>, CurrencyFragmentWriterError>;
 
-    async fn provision_currency(
+    async fn remove_token_binding(
         &self,
         uow: &mut Self::Uow,
         event_context: MaterializationEventContext,
-        id: CurrencyId,
-        mint_account_address: MintAccountAddress,
+        token_binding_id: TokenBindingId,
     ) -> Result<Option<CurrencyFragment>, CurrencyFragmentWriterError>;
-
-    async fn increase_currency_supply(
-        &self,
-        uow: &mut Self::Uow,
-        event_context: MaterializationEventContext,
-        id: CurrencyId,
-        amount: CurrencyAmount,
-    ) -> Result<Option<CurrencyFragment>, CurrencyFragmentWriterError>;
-
-    async fn update_currency_status(
-        &self,
-        uow: &mut Self::Uow,
-        event_context: MaterializationEventContext,
-        id: CurrencyId,
-        status: MaterializedCurrencyStatus,
-    ) -> Result<Option<CurrencyFragment>, CurrencyFragmentWriterError>;
-
-    async fn delete_currency(
-        &self,
-        uow: &mut Self::Uow,
-        event_context: MaterializationEventContext,
-        id: CurrencyId,
-    ) -> Result<bool, CurrencyFragmentWriterError>;
 }

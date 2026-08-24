@@ -9,6 +9,8 @@ use banking_iam_domain::{
 use sqlx::types::chrono::{DateTime, Utc};
 use uuid::Uuid;
 
+use super::PgOrganizationJoinRequestFragmentRowError;
+
 #[derive(Debug, sqlx::FromRow)]
 pub struct PgOrganizationJoinRequestFragmentRow {
     pub join_request_id: Uuid,
@@ -30,8 +32,8 @@ impl TryFrom<PgOrganizationJoinRequestFragmentRow> for OrganizationJoinRequestFr
             "rejected" => OrganizationJoinRequestStatus::Rejected,
             "canceled" => OrganizationJoinRequestStatus::Canceled,
             _ => {
-                return Err(persistence_message(
-                    "unknown organization join request status",
+                return Err(persistence_error(
+                    PgOrganizationJoinRequestFragmentRowError::Status(row.status.clone()),
                 ));
             }
         };
@@ -57,10 +59,4 @@ fn persistence_error(
     error: impl std::error::Error + Send + Sync + 'static,
 ) -> OrganizationJoinRequestFragmentWriterError {
     OrganizationJoinRequestFragmentWriterError::Persistence(Box::new(error))
-}
-
-fn persistence_message(message: &'static str) -> OrganizationJoinRequestFragmentWriterError {
-    OrganizationJoinRequestFragmentWriterError::Persistence(Box::new(std::io::Error::other(
-        message,
-    )))
 }

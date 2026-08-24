@@ -53,7 +53,7 @@ where
                 owner,
                 display_name,
                 description,
-                token_account_owner_address,
+                token_owner_address,
                 ..
             } => {
                 if let Some(fragment) = self
@@ -66,7 +66,7 @@ where
                             owner: *owner,
                             display_name: display_name.clone(),
                             description: description.clone(),
-                            token_account_owner_address: token_account_owner_address.clone(),
+                            token_owner_address: *token_owner_address,
                         },
                     )
                     .await?

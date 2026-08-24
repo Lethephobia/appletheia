@@ -4,11 +4,13 @@ use banking_iam_domain::{OrganizationId, UserId};
 use banking_ledger_application::{
     AccountFragment, AccountFragmentWriterError, MaterializedAccountStatus,
 };
-use banking_ledger_domain::account::{AccountId, AccountName, AccountOwner};
+use banking_ledger_domain::account::{AccountDescription, AccountId, AccountName, AccountOwner};
 use banking_ledger_domain::core::CurrencyAmount;
 use banking_ledger_domain::currency::CurrencyId;
 use sqlx::types::chrono::{DateTime, Utc};
 use uuid::Uuid;
+
+use super::PgAccountFragmentRowError;
 
 #[derive(Debug, sqlx::FromRow)]
 pub struct PgAccountFragmentRow {
@@ -16,6 +18,7 @@ pub struct PgAccountFragmentRow {
     pub owner_type: String,
     pub owner_id: Uuid,
     pub name: String,
+    pub description: Option<String>,
     pub currency_id: Uuid,
     pub balance: String,
     pub reserved_balance: String,
@@ -32,7 +35,11 @@ impl TryFrom<PgAccountFragmentRow> for AccountFragment {
         let status = match row.status.as_str() {
             "active" => MaterializedAccountStatus::Active,
             "frozen" => MaterializedAccountStatus::Frozen,
-            _ => return Err(persistence_message("unknown account fragment status")),
+            _ => {
+                return Err(persistence_error(PgAccountFragmentRowError::Status(
+                    row.status.clone(),
+                )));
+            }
         };
 
         Ok(AccountFragment {
@@ -44,9 +51,18 @@ impl TryFrom<PgAccountFragmentRow> for AccountFragment {
                 "organization" => AccountOwner::Organization(
                     OrganizationId::try_from_uuid(row.owner_id).map_err(persistence_error)?,
                 ),
-                _ => return Err(persistence_message("unknown account fragment owner type")),
+                _ => {
+                    return Err(persistence_error(PgAccountFragmentRowError::OwnerType(
+                        row.owner_type.clone(),
+                    )));
+                }
             },
             name: AccountName::try_from(row.name).map_err(persistence_error)?,
+            description: row
+                .description
+                .map(AccountDescription::try_from)
+                .transpose()
+                .map_err(persistence_error)?,
             currency_id: CurrencyId::try_from_uuid(row.currency_id).map_err(persistence_error)?,
             balance: amount(row.balance)?,
             reserved_balance: amount(row.reserved_balance)?,
@@ -69,8 +85,4 @@ fn persistence_error(
     error: impl std::error::Error + Send + Sync + 'static,
 ) -> AccountFragmentWriterError {
     AccountFragmentWriterError::Persistence(Box::new(error))
-}
-
-fn persistence_message(message: &'static str) -> AccountFragmentWriterError {
-    AccountFragmentWriterError::Persistence(Box::new(std::io::Error::other(message)))
 }

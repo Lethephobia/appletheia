@@ -5,7 +5,7 @@ use appletheia::application::read_model::{
 use banking_iam_application::{OrganizationFragment, UserFragment};
 use serde::Serialize;
 
-use crate::projection::{AccountFragment, AccountTransactionFragment, CurrencyFragment};
+use crate::projection::{AccountFragment, AccountTransactionFragment};
 
 mod owned_account_transaction_id;
 mod owned_account_transaction_list_criteria;
@@ -64,7 +64,7 @@ impl ReadModelObservationSource for OwnedAccountTransactionList {
         };
         let mut observations = vec![owner];
         for item in &self.items {
-            observations.extend([item.observation, item.currency.observation]);
+            observations.push(item.observation);
             if let OwnedAccountTransactionListItemKind::Transfer {
                 counterparty_account,
                 ..
@@ -106,10 +106,6 @@ impl ReadModel for OwnedAccountTransactionList {
             partitions.push(SerializedPartition::try_from_fragment_key::<
                 AccountTransactionFragment,
             >(&transaction_id)?);
-            partitions.push(SerializedPartition::try_from_fragment_key::<
-                CurrencyFragment,
-            >(&item.currency.id)?);
-
             if let OwnedAccountTransactionListItemKind::Transfer {
                 counterparty_account,
                 ..

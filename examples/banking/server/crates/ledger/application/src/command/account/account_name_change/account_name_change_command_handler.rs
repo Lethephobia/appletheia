@@ -209,6 +209,7 @@ mod tests {
             .open(AccountOpening {
                 owner: account_owner(),
                 name: account_name("main"),
+                description: None,
                 currency_id: CurrencyId::new(),
             })
             .expect("open should succeed");
