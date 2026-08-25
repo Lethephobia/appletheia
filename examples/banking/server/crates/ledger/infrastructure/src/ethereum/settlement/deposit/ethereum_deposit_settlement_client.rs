@@ -1,5 +1,5 @@
 use banking_ledger_application::{
-    EthereumDepositSettlementPrepareRequest, EthereumDepositSettlementVerifyRequest,
+    EthereumDepositSettlementPrepareRequest, EthereumDepositSettlementVerifyRequest, EvmCallData,
 };
 use banking_ledger_domain::core::{EthereumNetwork, EvmAddress};
 
@@ -10,7 +10,7 @@ pub trait EthereumDepositSettlementClient: Send + Sync {
         network: EthereumNetwork,
         settlement_contract: &EvmAddress,
         request: EthereumDepositSettlementPrepareRequest,
-    ) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>>;
+    ) -> Result<EvmCallData, Box<dyn std::error::Error + Send + Sync>>;
 
     async fn verify_deposit(
         &self,

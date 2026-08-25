@@ -218,7 +218,7 @@ pub use settlement::{
     EthereumDepositSettlementVerifier, EthereumDepositSettlementVerifyRequest,
     EthereumTokenBindingSettlementValidationRequest, EthereumTokenBindingSettlementValidator,
     EthereumWithdrawalSettlementExecution, EthereumWithdrawalSettlementExecutor,
-    EthereumWithdrawalSettlementRequest, EvmPreparedDepositTransaction, PreparedDepositTransaction,
+    EthereumWithdrawalSettlementRequest, EvmCallData, EvmTransactionRequest,
     SolanaDepositSettlementPreparation, SolanaDepositSettlementPrepareRequest,
     SolanaDepositSettlementPreparer, SolanaDepositSettlementVerification,
     SolanaDepositSettlementVerifier, SolanaDepositSettlementVerifyRequest,

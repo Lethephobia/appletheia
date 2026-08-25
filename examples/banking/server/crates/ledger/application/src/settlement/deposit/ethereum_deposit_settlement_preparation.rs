@@ -1,6 +1,8 @@
-use super::EvmPreparedDepositTransaction;
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+use super::EvmTransactionRequest;
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct EthereumDepositSettlementPreparation {
-    pub transaction: EvmPreparedDepositTransaction,
+    pub transaction_request: EvmTransactionRequest,
 }

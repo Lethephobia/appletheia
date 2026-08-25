@@ -1,7 +1,7 @@
 use banking_ledger_application::{
     DepositSettlementPreparerError, EthereumDepositSettlementPreparation,
     EthereumDepositSettlementPrepareRequest, EthereumDepositSettlementPreparer,
-    EvmPreparedDepositTransaction,
+    EvmTransactionRequest,
 };
 use banking_ledger_domain::core::EvmAddress;
 
@@ -36,13 +36,19 @@ where
         request: EthereumDepositSettlementPrepareRequest,
     ) -> Result<EthereumDepositSettlementPreparation, DepositSettlementPreparerError> {
         let network = request.network();
-        let transaction = self
+        let token_owner_address = request.token_owner_address();
+        let call_data = self
             .client
             .prepare_deposit(network, &self.settlement_contract, request)
             .await
             .map_err(DepositSettlementPreparerError::Backend)?;
         Ok(EthereumDepositSettlementPreparation {
-            transaction: EvmPreparedDepositTransaction::from_bytes(transaction),
+            transaction_request: EvmTransactionRequest::new(
+                network.chain_id(),
+                token_owner_address,
+                self.settlement_contract,
+                call_data,
+            ),
         })
     }
 }

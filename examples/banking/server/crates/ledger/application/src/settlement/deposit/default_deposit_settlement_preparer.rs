@@ -3,8 +3,8 @@ use banking_ledger_domain::core::{ChainNetwork, TokenAddress, TokenOwnerAddress}
 use super::{
     DepositSettlementPreparation, DepositSettlementPrepareRequest, DepositSettlementPreparer,
     DepositSettlementPreparerError, EthereumDepositSettlementPrepareRequest,
-    EthereumDepositSettlementPreparer, PreparedDepositTransaction,
-    SolanaDepositSettlementPrepareRequest, SolanaDepositSettlementPreparer,
+    EthereumDepositSettlementPreparer, SolanaDepositSettlementPrepareRequest,
+    SolanaDepositSettlementPreparer,
 };
 
 pub struct DefaultDepositSettlementPreparer<S, E>
@@ -35,7 +35,7 @@ where
         &self,
         request: DepositSettlementPrepareRequest,
     ) -> Result<DepositSettlementPreparation, DepositSettlementPreparerError> {
-        let transaction = match (
+        let preparation = match (
             request.chain_network(),
             *request.token_address(),
             *request.token_owner_address(),
@@ -45,7 +45,7 @@ where
                 TokenAddress::Solana(token_address),
                 TokenOwnerAddress::Solana(token_owner_address),
             ) => {
-                let preparation = self
+                let solana_preparation = self
                     .solana
                     .prepare(SolanaDepositSettlementPrepareRequest::new(
                         request.deposit_id(),
@@ -56,14 +56,14 @@ where
                         request.amount(),
                     ))
                     .await?;
-                PreparedDepositTransaction::Solana(preparation.transaction)
+                DepositSettlementPreparation::Solana(solana_preparation.transaction)
             }
             (
                 ChainNetwork::Ethereum(network),
                 TokenAddress::Ethereum(token_address),
                 TokenOwnerAddress::Ethereum(token_owner_address),
             ) => {
-                let preparation = self
+                let ethereum_preparation = self
                     .ethereum
                     .prepare(EthereumDepositSettlementPrepareRequest::new(
                         request.deposit_id(),
@@ -74,19 +74,19 @@ where
                         request.amount(),
                     ))
                     .await?;
-                PreparedDepositTransaction::Ethereum(preparation.transaction)
+                DepositSettlementPreparation::Ethereum(ethereum_preparation.transaction_request)
             }
             _ => return Err(DepositSettlementPreparerError::InconsistentChainValues),
         };
 
-        Ok(DepositSettlementPreparation { transaction })
+        Ok(preparation)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use banking_ledger_domain::core::{
-        ChainNetwork, CurrencyAmount, CurrencyDecimals, EthereumNetwork, EvmAddress,
+        ChainNetwork, CurrencyAmount, CurrencyDecimals, EthereumNetwork, EvmAddress, EvmChainId,
         EvmTokenContractAddress, EvmTokenOwnerAddress, SolanaAccountAddress,
         SolanaMintAccountAddress, SolanaNetwork, SolanaTokenOwnerAddress, TokenAddress,
         TokenOwnerAddress,
@@ -94,8 +94,8 @@ mod tests {
     use banking_ledger_domain::deposit::DepositId;
 
     use crate::settlement::{
-        EthereumDepositSettlementPreparation, EvmPreparedDepositTransaction,
-        PreparedDepositTransaction, SolanaDepositSettlementPreparation,
+        DepositSettlementPreparation, EthereumDepositSettlementPreparation, EvmCallData,
+        EvmTransactionRequest, SolanaDepositSettlementPreparation,
         SolanaPreparedDepositTransaction,
     };
 
@@ -127,7 +127,12 @@ mod tests {
             _request: EthereumDepositSettlementPrepareRequest,
         ) -> Result<EthereumDepositSettlementPreparation, DepositSettlementPreparerError> {
             Ok(EthereumDepositSettlementPreparation {
-                transaction: EvmPreparedDepositTransaction::from_bytes(b"ethereum".to_vec()),
+                transaction_request: EvmTransactionRequest::new(
+                    EvmChainId::new(11_155_111),
+                    EvmTokenOwnerAddress::new(EvmAddress::from_bytes([4; 20])),
+                    EvmAddress::from_bytes([5; 20]),
+                    EvmCallData::from_bytes(b"ethereum".to_vec()),
+                ),
             })
         }
     }
@@ -144,8 +149,8 @@ mod tests {
             .await
             .expect("Solana deposit should be routed");
         assert!(matches!(
-            solana_preparation.transaction,
-            PreparedDepositTransaction::Solana(ref transaction)
+            solana_preparation,
+            DepositSettlementPreparation::Solana(ref transaction)
                 if transaction.as_bytes() == b"solana"
         ));
 
@@ -154,9 +159,9 @@ mod tests {
             .await
             .expect("Ethereum deposit should be routed");
         assert!(matches!(
-            ethereum_preparation.transaction,
-            PreparedDepositTransaction::Ethereum(ref transaction)
-                if transaction.as_bytes() == b"ethereum"
+            ethereum_preparation,
+            DepositSettlementPreparation::Ethereum(ref transaction_request)
+                if transaction_request.call_data().as_bytes() == b"ethereum"
         ));
     }
 
