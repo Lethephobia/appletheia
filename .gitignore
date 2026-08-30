@@ -153,6 +153,13 @@ Cargo.lock
 test-ledger/
 .surfpool/
 
+### Foundry ###
+
+examples/banking/onchain/ethereum/broadcast/
+examples/banking/onchain/ethereum/cache/
+examples/banking/onchain/ethereum/dependencies/
+examples/banking/onchain/ethereum/out/
+
 ### NextJS ###
 
 # dependencies

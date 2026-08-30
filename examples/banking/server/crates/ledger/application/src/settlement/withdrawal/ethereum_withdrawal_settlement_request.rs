@@ -1,6 +1,5 @@
 use banking_ledger_domain::core::{
-    CurrencyAmount, CurrencyDecimals, EthereumNetwork, EvmTokenContractAddress,
-    EvmTokenOwnerAddress,
+    CurrencyAmount, CurrencyDecimals, EvmTokenContractAddress, EvmTokenOwnerAddress,
 };
 use banking_ledger_domain::withdrawal::WithdrawalId;
 
@@ -8,7 +7,6 @@ use banking_ledger_domain::withdrawal::WithdrawalId;
 pub struct EthereumWithdrawalSettlementRequest {
     withdrawal_id: WithdrawalId,
     currency_decimals: CurrencyDecimals,
-    network: EthereumNetwork,
     token_address: EvmTokenContractAddress,
     token_owner_address: EvmTokenOwnerAddress,
     amount: CurrencyAmount,
@@ -18,7 +16,6 @@ impl EthereumWithdrawalSettlementRequest {
     pub fn new(
         withdrawal_id: WithdrawalId,
         currency_decimals: CurrencyDecimals,
-        network: EthereumNetwork,
         token_address: EvmTokenContractAddress,
         token_owner_address: EvmTokenOwnerAddress,
         amount: CurrencyAmount,
@@ -26,7 +23,6 @@ impl EthereumWithdrawalSettlementRequest {
         Self {
             withdrawal_id,
             currency_decimals,
-            network,
             token_address,
             token_owner_address,
             amount,
@@ -39,10 +35,6 @@ impl EthereumWithdrawalSettlementRequest {
 
     pub const fn currency_decimals(&self) -> CurrencyDecimals {
         self.currency_decimals
-    }
-
-    pub const fn network(&self) -> EthereumNetwork {
-        self.network
     }
 
     pub const fn token_address(&self) -> EvmTokenContractAddress {

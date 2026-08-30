@@ -1,15 +1,24 @@
 mod deposit;
+mod user_operation;
 mod validation;
 mod withdrawal;
 
 pub use deposit::{
-    DefaultEthereumDepositSettlementPreparer, DefaultEthereumDepositSettlementVerifier,
-    EthereumDepositSettlementClient,
+    DefaultEthereumDepositSettlementTransactionPreparer,
+    DefaultEthereumDepositSettlementTransactionPreparerConfig,
+    DefaultEthereumDepositSettlementTransactionPreparerError,
+    DefaultEthereumDepositSettlementVerifier, DefaultEthereumDepositSettlementVerifierConfig,
+    DefaultEthereumDepositSettlementVerifierError,
+};
+pub use user_operation::{
+    DefaultEthereumUserOperationPreparer, DefaultEthereumUserOperationPreparerConfig,
+    DefaultEthereumUserOperationPreparerError,
 };
 pub use validation::{
-    DefaultEthereumTokenBindingSettlementValidator, EthereumTokenContractInspection,
-    EthereumTokenContractInspector,
+    DefaultEthereumTokenBindingSettlementValidator,
+    DefaultEthereumTokenBindingSettlementValidatorError,
 };
 pub use withdrawal::{
-    DefaultEthereumWithdrawalSettlementExecutor, EthereumWithdrawalSettlementClient,
+    DefaultEthereumWithdrawalSettlementExecutor, DefaultEthereumWithdrawalSettlementExecutorConfig,
+    DefaultEthereumWithdrawalSettlementExecutorError,
 };

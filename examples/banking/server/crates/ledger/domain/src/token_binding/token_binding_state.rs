@@ -27,11 +27,9 @@ fn token_unique_value(
     if state.status.is_removed() {
         return Ok(None);
     }
-    let network_name = state.chain_network.network_name();
     let token_address = state.token_address.to_string();
     Ok(Some(UniqueValue::from_strings([
         state.chain_network.chain_name(),
-        network_name.as_str(),
         token_address.as_str(),
     ])?))
 }

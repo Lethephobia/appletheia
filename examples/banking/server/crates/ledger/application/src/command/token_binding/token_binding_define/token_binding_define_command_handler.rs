@@ -90,11 +90,9 @@ where
             deposit_enabled: command.deposit_enabled,
             withdrawal_enabled: command.withdrawal_enabled,
         };
-        let network_name = command.chain_network.network_name();
         let token_address = command.token_address.to_string();
         let unique_value = UniqueValue::from_strings([
             command.chain_network.chain_name(),
-            network_name.as_str(),
             token_address.as_str(),
         ])?;
         if self

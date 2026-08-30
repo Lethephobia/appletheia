@@ -153,6 +153,7 @@ where
                 token_address,
                 *deposit.token_owner_address()?,
                 deposit.amount()?,
+                command.evm_authorization,
             ))
             .await?;
         self.deposit_repository

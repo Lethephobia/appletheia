@@ -238,7 +238,7 @@ mod tests {
 
     use appletheia::domain::Aggregate;
 
-    use crate::core::{ChainNetwork, EthereumNetwork, EvmTokenContractAddress, TokenAddress};
+    use crate::core::{ChainNetwork, EvmTokenContractAddress, TokenAddress};
     use crate::currency::CurrencyId;
 
     use super::{
@@ -251,7 +251,7 @@ mod tests {
     fn definition() -> TokenBindingDefinition {
         TokenBindingDefinition {
             currency_id: CurrencyId::new(),
-            chain_network: ChainNetwork::Ethereum(EthereumNetwork::Mainnet),
+            chain_network: ChainNetwork::Ethereum,
             token_address: TokenAddress::Ethereum(
                 EvmTokenContractAddress::from_str("0x1111111111111111111111111111111111111111")
                     .expect("token address should be valid"),

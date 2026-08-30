@@ -1,21 +1,24 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
+import {Script} from "forge-std/Script.sol";
+import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {BankingSettlement} from "../src/BankingSettlement.sol";
 
-interface Vm {
-    function envAddress(string calldata name) external returns (address value);
-    function startBroadcast() external;
-    function stopBroadcast() external;
-}
-
-contract DeployBankingSettlement {
-    Vm private constant VM = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
-
+contract DeployBankingSettlement is Script {
     function run() external returns (BankingSettlement settlement) {
-        address operator = VM.envAddress("BANKING_SETTLEMENT_OPERATOR");
-        VM.startBroadcast();
-        settlement = new BankingSettlement(operator);
-        VM.stopBroadcast();
+        address admin = vm.envAddress("BANKING_SETTLEMENT_ADMIN");
+        address pauser = vm.envAddress("BANKING_SETTLEMENT_PAUSER");
+        address operator = vm.envAddress("BANKING_SETTLEMENT_OPERATOR");
+        address upgrader = vm.envAddress("BANKING_SETTLEMENT_UPGRADER");
+
+        vm.startBroadcast();
+        address proxy = Upgrades.deployUUPSProxy(
+            "BankingSettlement.sol:BankingSettlement",
+            abi.encodeCall(BankingSettlement.initialize, (admin, pauser, operator, upgrader))
+        );
+        vm.stopBroadcast();
+
+        settlement = BankingSettlement(proxy);
     }
 }

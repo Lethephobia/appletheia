@@ -43,7 +43,7 @@ where
             *request.token_owner_address(),
         ) {
             (
-                ChainNetwork::Solana(network),
+                ChainNetwork::Solana,
                 TokenAddress::Solana(token_address),
                 TokenOwnerAddress::Solana(token_owner_address),
             ) => {
@@ -52,7 +52,6 @@ where
                     .execute(SolanaWithdrawalSettlementRequest::new(
                         request.withdrawal_id(),
                         request.currency_decimals(),
-                        network,
                         token_address,
                         token_owner_address,
                         request.amount(),
@@ -61,7 +60,7 @@ where
                 OnchainTransactionId::Solana(execution.transaction_id)
             }
             (
-                ChainNetwork::Ethereum(network),
+                ChainNetwork::Ethereum,
                 TokenAddress::Ethereum(token_address),
                 TokenOwnerAddress::Ethereum(token_owner_address),
             ) => {
@@ -70,7 +69,6 @@ where
                     .execute(EthereumWithdrawalSettlementRequest::new(
                         request.withdrawal_id(),
                         request.currency_decimals(),
-                        network,
                         token_address,
                         token_owner_address,
                         request.amount(),
@@ -88,10 +86,10 @@ where
 #[cfg(test)]
 mod tests {
     use banking_ledger_domain::core::{
-        ChainNetwork, CurrencyAmount, CurrencyDecimals, EthereumNetwork, EvmAddress,
-        EvmTokenContractAddress, EvmTokenOwnerAddress, EvmTransactionHash, OnchainTransactionId,
-        SolanaAccountAddress, SolanaMintAccountAddress, SolanaNetwork, SolanaTokenOwnerAddress,
-        SolanaTransactionSignature, TokenAddress, TokenOwnerAddress,
+        ChainNetwork, CurrencyAmount, CurrencyDecimals, EvmAddress, EvmTokenContractAddress,
+        EvmTokenOwnerAddress, EvmTransactionHash, OnchainTransactionId, SolanaAccountAddress,
+        SolanaMintAccountAddress, SolanaTokenOwnerAddress, SolanaTransactionSignature,
+        TokenAddress, TokenOwnerAddress,
     };
     use banking_ledger_domain::withdrawal::WithdrawalId;
 
@@ -169,7 +167,7 @@ mod tests {
         let request = WithdrawalSettlementRequest::new(
             WithdrawalId::new(),
             CurrencyDecimals::new(6),
-            ChainNetwork::Solana(SolanaNetwork::Devnet),
+            ChainNetwork::Solana,
             TokenAddress::Ethereum(EvmTokenContractAddress::new(EvmAddress::from_bytes(
                 [3; 20],
             ))),
@@ -189,7 +187,7 @@ mod tests {
         WithdrawalSettlementRequest::new(
             WithdrawalId::new(),
             CurrencyDecimals::new(6),
-            ChainNetwork::Solana(SolanaNetwork::Devnet),
+            ChainNetwork::Solana,
             TokenAddress::Solana(SolanaMintAccountAddress::new(
                 SolanaAccountAddress::from_bytes([3; 32]),
             )),
@@ -204,7 +202,7 @@ mod tests {
         WithdrawalSettlementRequest::new(
             WithdrawalId::new(),
             CurrencyDecimals::new(6),
-            ChainNetwork::Ethereum(EthereumNetwork::Sepolia),
+            ChainNetwork::Ethereum,
             TokenAddress::Ethereum(EvmTokenContractAddress::new(EvmAddress::from_bytes(
                 [3; 20],
             ))),

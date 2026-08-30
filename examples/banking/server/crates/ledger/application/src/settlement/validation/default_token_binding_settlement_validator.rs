@@ -36,20 +36,18 @@ where
         request: TokenBindingSettlementValidationRequest,
     ) -> Result<(), TokenBindingSettlementValidatorError> {
         match (request.chain_network, request.token_address) {
-            (ChainNetwork::Solana(network), TokenAddress::Solana(token_address)) => {
+            (ChainNetwork::Solana, TokenAddress::Solana(token_address)) => {
                 self.solana
                     .validate(SolanaTokenBindingSettlementValidationRequest::new(
                         request.currency_decimals,
-                        network,
                         token_address,
                     ))
                     .await
             }
-            (ChainNetwork::Ethereum(network), TokenAddress::Ethereum(token_address)) => {
+            (ChainNetwork::Ethereum, TokenAddress::Ethereum(token_address)) => {
                 self.ethereum
                     .validate(EthereumTokenBindingSettlementValidationRequest::new(
                         request.currency_decimals,
-                        network,
                         token_address,
                     ))
                     .await
@@ -65,8 +63,8 @@ mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     use banking_ledger_domain::core::{
-        ChainNetwork, CurrencyDecimals, EthereumNetwork, EvmAddress, EvmTokenContractAddress,
-        SolanaAccountAddress, SolanaMintAccountAddress, SolanaNetwork, TokenAddress,
+        ChainNetwork, CurrencyDecimals, EvmAddress, EvmTokenContractAddress, SolanaAccountAddress,
+        SolanaMintAccountAddress, TokenAddress,
     };
 
     use super::{
@@ -142,7 +140,7 @@ mod tests {
         );
         let request = TokenBindingSettlementValidationRequest {
             currency_decimals: CurrencyDecimals::new(6),
-            chain_network: ChainNetwork::Solana(SolanaNetwork::Devnet),
+            chain_network: ChainNetwork::Solana,
             token_address: TokenAddress::Ethereum(EvmTokenContractAddress::new(
                 EvmAddress::from_bytes([3; 20]),
             )),
@@ -157,7 +155,7 @@ mod tests {
     fn solana_request() -> TokenBindingSettlementValidationRequest {
         TokenBindingSettlementValidationRequest {
             currency_decimals: CurrencyDecimals::new(6),
-            chain_network: ChainNetwork::Solana(SolanaNetwork::Devnet),
+            chain_network: ChainNetwork::Solana,
             token_address: TokenAddress::Solana(SolanaMintAccountAddress::new(
                 SolanaAccountAddress::from_bytes([3; 32]),
             )),
@@ -167,7 +165,7 @@ mod tests {
     fn ethereum_request() -> TokenBindingSettlementValidationRequest {
         TokenBindingSettlementValidationRequest {
             currency_decimals: CurrencyDecimals::new(6),
-            chain_network: ChainNetwork::Ethereum(EthereumNetwork::Sepolia),
+            chain_network: ChainNetwork::Ethereum,
             token_address: TokenAddress::Ethereum(EvmTokenContractAddress::new(
                 EvmAddress::from_bytes([3; 20]),
             )),

@@ -17,8 +17,7 @@ impl TokenOwnerAddress {
     pub const fn matches_network(&self, network: ChainNetwork) -> bool {
         matches!(
             (self, network),
-            (Self::Solana(_), ChainNetwork::Solana(_))
-                | (Self::Ethereum(_), ChainNetwork::Ethereum(_))
+            (Self::Solana(_), ChainNetwork::Solana) | (Self::Ethereum(_), ChainNetwork::Ethereum)
         )
     }
 }

@@ -1,6 +1,6 @@
 use banking_ledger_domain::core::{
-    CurrencyAmount, CurrencyDecimals, EthereumNetwork, EvmTokenContractAddress,
-    EvmTokenOwnerAddress, EvmTransactionHash,
+    CurrencyAmount, CurrencyDecimals, EvmTokenContractAddress, EvmTokenOwnerAddress,
+    EvmTransactionHash,
 };
 use banking_ledger_domain::deposit::DepositId;
 
@@ -8,7 +8,6 @@ use banking_ledger_domain::deposit::DepositId;
 pub struct EthereumDepositSettlementVerifyRequest {
     deposit_id: DepositId,
     currency_decimals: CurrencyDecimals,
-    network: EthereumNetwork,
     token_address: EvmTokenContractAddress,
     token_owner_address: EvmTokenOwnerAddress,
     amount: CurrencyAmount,
@@ -19,7 +18,6 @@ impl EthereumDepositSettlementVerifyRequest {
     pub fn new(
         deposit_id: DepositId,
         currency_decimals: CurrencyDecimals,
-        network: EthereumNetwork,
         token_address: EvmTokenContractAddress,
         token_owner_address: EvmTokenOwnerAddress,
         amount: CurrencyAmount,
@@ -28,7 +26,6 @@ impl EthereumDepositSettlementVerifyRequest {
         Self {
             deposit_id,
             currency_decimals,
-            network,
             token_address,
             token_owner_address,
             amount,
@@ -42,10 +39,6 @@ impl EthereumDepositSettlementVerifyRequest {
 
     pub const fn currency_decimals(&self) -> CurrencyDecimals {
         self.currency_decimals
-    }
-
-    pub const fn network(&self) -> EthereumNetwork {
-        self.network
     }
 
     pub const fn token_address(&self) -> EvmTokenContractAddress {

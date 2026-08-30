@@ -4,5 +4,20 @@ test = "test"
 script = "script"
 out = "out"
 solc_version = "0.8.30"
+evm_version = "prague"
 optimizer = true
 optimizer_runs = 200
+libs = ["dependencies"]
+ffi = true
+ast = true
+build_info = true
+extra_output = ["storageLayout"]
+
+[soldeer]
+remappings_generate = false
+
+[dependencies]
+forge-std = "1.16.1"
+"@openzeppelin-contracts" = "5.7.0"
+"@openzeppelin-contracts-upgradeable" = "5.7.0"
+openzeppelin-foundry-upgrades = "0.4.2"

@@ -2,10 +2,15 @@ pub mod ethereum;
 pub mod postgresql;
 pub mod solana;
 pub use ethereum::{
-    DefaultEthereumDepositSettlementPreparer, DefaultEthereumDepositSettlementVerifier,
-    DefaultEthereumTokenBindingSettlementValidator, DefaultEthereumWithdrawalSettlementExecutor,
-    EthereumDepositSettlementClient, EthereumTokenContractInspection,
-    EthereumTokenContractInspector, EthereumWithdrawalSettlementClient,
+    DefaultEthereumDepositSettlementTransactionPreparer,
+    DefaultEthereumDepositSettlementTransactionPreparerConfig,
+    DefaultEthereumDepositSettlementTransactionPreparerError,
+    DefaultEthereumDepositSettlementVerifier, DefaultEthereumDepositSettlementVerifierConfig,
+    DefaultEthereumDepositSettlementVerifierError, DefaultEthereumTokenBindingSettlementValidator,
+    DefaultEthereumTokenBindingSettlementValidatorError, DefaultEthereumUserOperationPreparer,
+    DefaultEthereumUserOperationPreparerConfig, DefaultEthereumUserOperationPreparerError,
+    DefaultEthereumWithdrawalSettlementExecutor, DefaultEthereumWithdrawalSettlementExecutorConfig,
+    DefaultEthereumWithdrawalSettlementExecutorError,
 };
 pub use postgresql::{
     PgAccountFragmentWriter, PgAccountTransactionFragmentWriter, PgCurrencyFragmentWriter,

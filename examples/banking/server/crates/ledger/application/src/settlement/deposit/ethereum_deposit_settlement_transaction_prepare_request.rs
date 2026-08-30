@@ -1,35 +1,36 @@
 use banking_ledger_domain::core::{
-    CurrencyAmount, CurrencyDecimals, EthereumNetwork, EvmTokenContractAddress,
-    EvmTokenOwnerAddress,
+    CurrencyAmount, CurrencyDecimals, EvmTokenContractAddress, EvmTokenOwnerAddress,
 };
 use banking_ledger_domain::deposit::DepositId;
 
+use super::EvmDepositAuthorization;
+
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct EthereumDepositSettlementPrepareRequest {
+pub struct EthereumDepositSettlementTransactionPrepareRequest {
     deposit_id: DepositId,
     currency_decimals: CurrencyDecimals,
-    network: EthereumNetwork,
     token_address: EvmTokenContractAddress,
     token_owner_address: EvmTokenOwnerAddress,
     amount: CurrencyAmount,
+    authorization: Option<EvmDepositAuthorization>,
 }
 
-impl EthereumDepositSettlementPrepareRequest {
+impl EthereumDepositSettlementTransactionPrepareRequest {
     pub fn new(
         deposit_id: DepositId,
         currency_decimals: CurrencyDecimals,
-        network: EthereumNetwork,
         token_address: EvmTokenContractAddress,
         token_owner_address: EvmTokenOwnerAddress,
         amount: CurrencyAmount,
+        authorization: Option<EvmDepositAuthorization>,
     ) -> Self {
         Self {
             deposit_id,
             currency_decimals,
-            network,
             token_address,
             token_owner_address,
             amount,
+            authorization,
         }
     }
 
@@ -39,10 +40,6 @@ impl EthereumDepositSettlementPrepareRequest {
 
     pub const fn currency_decimals(&self) -> CurrencyDecimals {
         self.currency_decimals
-    }
-
-    pub const fn network(&self) -> EthereumNetwork {
-        self.network
     }
 
     pub const fn token_address(&self) -> EvmTokenContractAddress {
@@ -55,5 +52,9 @@ impl EthereumDepositSettlementPrepareRequest {
 
     pub fn amount(&self) -> CurrencyAmount {
         self.amount
+    }
+
+    pub const fn authorization(&self) -> Option<EvmDepositAuthorization> {
+        self.authorization
     }
 }

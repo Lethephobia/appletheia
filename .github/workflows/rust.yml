@@ -34,6 +34,23 @@ jobs:
       run: cargo test --lib --verbose
     - name: Install Foundry
       uses: foundry-rs/foundry-toolchain@v1
-    - name: Test banking Ethereum workspace
+      with:
+        version: v1.7.1
+    - name: Install banking Ethereum workspace dependencies
       working-directory: examples/banking/onchain/ethereum
-      run: forge test
+      run: forge soldeer install
+    - name: Check banking Ethereum workspace formatting
+      working-directory: examples/banking/onchain/ethereum
+      run: forge fmt --check
+    - name: Build banking Ethereum workspace
+      working-directory: examples/banking/onchain/ethereum
+      run: forge build --sizes
+    - name: Check banking Ethereum ABI
+      working-directory: examples/banking/onchain/ethereum
+      run: script/generate-abi.sh && git diff --exit-code -- abi
+    - name: Validate banking Ethereum workspace upgrade safety
+      working-directory: examples/banking/onchain/ethereum
+      run: npx --yes @openzeppelin/upgrades-core@1.45.0 validate out/build-info --exclude "dependencies/**"
+    - name: Run banking Ethereum workspace tests
+      working-directory: examples/banking/onchain/ethereum
+      run: forge test -vv

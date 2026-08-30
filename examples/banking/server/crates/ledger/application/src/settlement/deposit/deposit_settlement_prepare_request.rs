@@ -3,6 +3,8 @@ use banking_ledger_domain::core::{
 };
 use banking_ledger_domain::deposit::DepositId;
 
+use super::EvmDepositAuthorization;
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DepositSettlementPrepareRequest {
     deposit_id: DepositId,
@@ -11,6 +13,7 @@ pub struct DepositSettlementPrepareRequest {
     token_address: TokenAddress,
     token_owner_address: TokenOwnerAddress,
     amount: CurrencyAmount,
+    evm_authorization: Option<EvmDepositAuthorization>,
 }
 
 impl DepositSettlementPrepareRequest {
@@ -21,6 +24,7 @@ impl DepositSettlementPrepareRequest {
         token_address: TokenAddress,
         token_owner_address: TokenOwnerAddress,
         amount: CurrencyAmount,
+        evm_authorization: Option<EvmDepositAuthorization>,
     ) -> Self {
         Self {
             deposit_id,
@@ -29,6 +33,7 @@ impl DepositSettlementPrepareRequest {
             token_address,
             token_owner_address,
             amount,
+            evm_authorization,
         }
     }
 
@@ -54,5 +59,9 @@ impl DepositSettlementPrepareRequest {
 
     pub fn amount(&self) -> CurrencyAmount {
         self.amount
+    }
+
+    pub const fn evm_authorization(&self) -> Option<EvmDepositAuthorization> {
+        self.evm_authorization
     }
 }

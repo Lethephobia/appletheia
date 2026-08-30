@@ -1,12 +1,13 @@
 use serde::{Deserialize, Serialize};
 
-use super::{EvmTransactionRequest, SolanaPreparedDepositTransaction};
+use super::{EvmUserOperationRequest, SolanaPreparedDepositTransaction};
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", content = "data", rename_all = "snake_case")]
 pub enum DepositSettlementPreparation {
     Solana(SolanaPreparedDepositTransaction),
-    Ethereum(EvmTransactionRequest),
+    // Boxed to keep the enum small because this variant is substantially larger than Solana.
+    Ethereum(Box<EvmUserOperationRequest>),
 }
 
 #[cfg(test)]
@@ -15,8 +16,8 @@ mod tests {
     use serde_json::json;
 
     use crate::settlement::{
-        DepositSettlementPreparation, EvmCallData, EvmTransactionRequest,
-        SolanaPreparedDepositTransaction,
+        DepositSettlementPreparation, EvmCallData, EvmQuantity, EvmUserOperation,
+        EvmUserOperationRequest, SolanaPreparedDepositTransaction,
     };
 
     #[test]
@@ -24,12 +25,25 @@ mod tests {
         let solana = DepositSettlementPreparation::Solana(
             SolanaPreparedDepositTransaction::from_bytes(b"solana".to_vec()),
         );
-        let ethereum = DepositSettlementPreparation::Ethereum(EvmTransactionRequest::new(
-            EvmChainId::new(11_155_111),
-            EvmTokenOwnerAddress::new(EvmAddress::from_bytes([1; 20])),
-            EvmAddress::from_bytes([2; 20]),
-            EvmCallData::from_bytes(vec![0x12, 0xab]),
-        ));
+        let ethereum =
+            DepositSettlementPreparation::Ethereum(Box::new(EvmUserOperationRequest::new(
+                EvmChainId::new(11_155_111),
+                EvmAddress::from_bytes([3; 20]),
+                EvmUserOperation {
+                    sender: EvmTokenOwnerAddress::new(EvmAddress::from_bytes([1; 20])),
+                    nonce: EvmQuantity::from_u64(1),
+                    call_data: EvmCallData::from_bytes(vec![0x12, 0xab]),
+                    call_gas_limit: EvmQuantity::from_u64(2),
+                    verification_gas_limit: EvmQuantity::from_u64(3),
+                    pre_verification_gas: EvmQuantity::from_u64(4),
+                    max_fee_per_gas: EvmQuantity::from_u64(5),
+                    max_priority_fee_per_gas: EvmQuantity::from_u64(6),
+                    paymaster: EvmAddress::from_bytes([2; 20]),
+                    paymaster_verification_gas_limit: EvmQuantity::from_u64(7),
+                    paymaster_post_op_gas_limit: EvmQuantity::from_u64(8),
+                    paymaster_data: EvmCallData::from_bytes(vec![0xcd]),
+                },
+            )));
 
         assert_eq!(
             serde_json::to_value(solana).expect("Solana preparation should serialize"),
@@ -44,9 +58,21 @@ mod tests {
                 "type": "ethereum",
                 "data": {
                     "chain_id": 11_155_111,
-                    "from": "0x0101010101010101010101010101010101010101",
-                    "to": "0x0202020202020202020202020202020202020202",
-                    "call_data": "0x12ab"
+                    "entry_point": "0x0303030303030303030303030303030303030303",
+                    "user_operation": {
+                        "sender": "0x0101010101010101010101010101010101010101",
+                        "nonce": "0x1",
+                        "callData": "0x12ab",
+                        "callGasLimit": "0x2",
+                        "verificationGasLimit": "0x3",
+                        "preVerificationGas": "0x4",
+                        "maxFeePerGas": "0x5",
+                        "maxPriorityFeePerGas": "0x6",
+                        "paymaster": "0x0202020202020202020202020202020202020202",
+                        "paymasterVerificationGasLimit": "0x7",
+                        "paymasterPostOpGasLimit": "0x8",
+                        "paymasterData": "0xcd"
+                    }
                 }
             })
         );
