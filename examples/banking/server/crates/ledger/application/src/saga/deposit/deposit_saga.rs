@@ -45,12 +45,12 @@ impl Saga for DepositSaga {
                 DepositEventPayload::Completed
                     if causative_step == Some(DepositSagaStep::Complete) =>
                 {
-                    instance.succeed();
+                    instance.complete();
                 }
                 DepositEventPayload::Failed { .. }
                     if causative_step == Some(DepositSagaStep::Fail) =>
                 {
-                    instance.fail();
+                    instance.complete();
                 }
                 _ => {}
             }
@@ -101,7 +101,7 @@ impl Saga for DepositSaga {
             causative_step,
             DepositSagaStep::Complete | DepositSagaStep::Fail
         ) {
-            instance.fail();
+            instance.complete();
         }
         Ok(())
     }

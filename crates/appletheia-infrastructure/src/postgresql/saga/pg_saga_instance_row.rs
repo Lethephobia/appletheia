@@ -17,8 +17,7 @@ pub struct PgSagaInstanceRow {
     pub correlation_id: Uuid,
     pub start_event_id: Uuid,
     pub state: Option<serde_json::Value>,
-    pub succeeded_at: Option<DateTime<Utc>>,
-    pub failed_at: Option<DateTime<Utc>>,
+    pub completed_at: Option<DateTime<Utc>>,
 }
 
 impl PgSagaInstanceRow {
@@ -31,28 +30,18 @@ impl PgSagaInstanceRow {
         let saga_instance_id = SagaInstanceId::try_from(self.id)?;
         let start_event_id = EventId::try_from(self.start_event_id)?;
 
-        let (status, state) = match (self.succeeded_at, self.failed_at, self.state) {
-            (Some(_), None, Some(state_json)) => {
+        let (status, state) = match (self.completed_at, self.state) {
+            (Some(_), Some(state_json)) => {
                 let state: S = serde_json::from_value(state_json)?;
-                (SagaStatus::Succeeded, Some(state))
+                (SagaStatus::Completed, Some(state))
             }
-            (Some(_), None, None) => (SagaStatus::Succeeded, None),
-            (None, Some(_), Some(state_json)) => {
-                let state: S = serde_json::from_value(state_json)?;
-                (SagaStatus::Failed, Some(state))
-            }
-            (None, Some(_), None) => (SagaStatus::Failed, None),
-            (None, None, state_json) => {
+            (Some(_), None) => (SagaStatus::Completed, None),
+            (None, state_json) => {
                 let state = match state_json {
                     Some(value) => Some(serde_json::from_value(value)?),
                     None => None,
                 };
                 (SagaStatus::InProgress, state)
-            }
-            (Some(_), Some(_), _) => {
-                return Err(PgSagaInstanceRowError::InvalidPersistedInstance {
-                    message: "instance cannot be both succeeded and failed",
-                });
             }
         };
 
@@ -90,14 +79,13 @@ mod tests {
     impl SagaStep for TestSagaStep {}
 
     #[test]
-    fn try_into_instance_allows_succeeded_without_state() {
+    fn try_into_instance_allows_completed_without_state() {
         let row = PgSagaInstanceRow {
             id: Uuid::now_v7(),
             correlation_id: Uuid::now_v7(),
             start_event_id: Uuid::now_v7(),
             state: None,
-            succeeded_at: Some(Utc::now()),
-            failed_at: None,
+            completed_at: Some(Utc::now()),
         };
 
         let instance = row
@@ -106,32 +94,9 @@ mod tests {
                 CorrelationId::from(Uuid::now_v7()),
                 Vec::new(),
             )
-            .expect("succeeded row without state should deserialize");
+            .expect("completed row without state should deserialize");
 
-        assert_eq!(instance.status, SagaStatus::Succeeded);
-        assert!(instance.state.is_none());
-    }
-
-    #[test]
-    fn try_into_instance_allows_failed_without_state() {
-        let row = PgSagaInstanceRow {
-            id: Uuid::now_v7(),
-            correlation_id: Uuid::now_v7(),
-            start_event_id: Uuid::now_v7(),
-            state: None,
-            succeeded_at: None,
-            failed_at: Some(Utc::now()),
-        };
-
-        let instance = row
-            .try_into_instance::<TestSagaState, TestSagaStep>(
-                SagaNameOwned::from(SagaName::new("test_saga")),
-                CorrelationId::from(Uuid::now_v7()),
-                Vec::new(),
-            )
-            .expect("failed row without state should deserialize");
-
-        assert_eq!(instance.status, SagaStatus::Failed);
+        assert_eq!(instance.status, SagaStatus::Completed);
         assert!(instance.state.is_none());
     }
 }

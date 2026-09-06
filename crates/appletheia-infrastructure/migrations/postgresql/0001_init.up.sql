@@ -298,12 +298,8 @@ CREATE TABLE IF NOT EXISTS saga_instances (
   correlation_id UUID        NOT NULL,
   start_event_id UUID        NOT NULL,
   state          JSONB,
-  succeeded_at   TIMESTAMPTZ,
-  failed_at      TIMESTAMPTZ,
-  UNIQUE (saga_name, correlation_id),
-  CONSTRAINT saga_instances_succeeded_failed_check CHECK (
-    NOT (succeeded_at IS NOT NULL AND failed_at IS NOT NULL)
-  )
+  completed_at   TIMESTAMPTZ,
+  UNIQUE (saga_name, correlation_id)
 );
 
 -- saga dispatched commands

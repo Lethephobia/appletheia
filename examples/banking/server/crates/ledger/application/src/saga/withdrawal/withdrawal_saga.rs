@@ -63,12 +63,12 @@ impl Saga for WithdrawalSaga {
                 WithdrawalEventPayload::Completed
                     if causative_step == Some(WithdrawalSagaStep::Complete) =>
                 {
-                    instance.succeed();
+                    instance.complete();
                 }
                 WithdrawalEventPayload::Failed { .. }
                     if causative_step == Some(WithdrawalSagaStep::Fail) =>
                 {
-                    instance.fail();
+                    instance.complete();
                 }
                 _ => {}
             }
@@ -158,7 +158,7 @@ impl Saga for WithdrawalSaga {
             causative_step,
             WithdrawalSagaStep::Complete | WithdrawalSagaStep::Fail
         ) {
-            instance.fail();
+            instance.complete();
         }
         Ok(())
     }

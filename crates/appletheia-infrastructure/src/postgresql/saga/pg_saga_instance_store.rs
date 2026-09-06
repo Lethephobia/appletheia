@@ -70,8 +70,7 @@ impl SagaInstanceStore for PgSagaInstanceStore {
               correlation_id,
               start_event_id,
               state,
-              succeeded_at,
-              failed_at
+              completed_at
             FROM saga_instances
             WHERE saga_name = $1
               AND correlation_id = $2
@@ -110,8 +109,7 @@ impl SagaInstanceStore for PgSagaInstanceStore {
               si.correlation_id,
               si.start_event_id,
               si.state,
-              si.succeeded_at,
-              si.failed_at
+              si.completed_at
             FROM saga_instances si
             JOIN saga_dispatched_commands sdc
               ON sdc.saga_instance_id = si.id
@@ -154,11 +152,7 @@ impl SagaInstanceStore for PgSagaInstanceStore {
             None => None,
         };
 
-        let (completed, failed) = match instance.status {
-            SagaStatus::InProgress => (false, false),
-            SagaStatus::Succeeded => (true, false),
-            SagaStatus::Failed => (false, true),
-        };
+        let completed = matches!(instance.status, SagaStatus::Completed);
 
         let persisted_saga_instance_id = sqlx::query_scalar::<_, uuid::Uuid>(
             r#"
@@ -168,21 +162,18 @@ impl SagaInstanceStore for PgSagaInstanceStore {
               correlation_id,
               start_event_id,
               state,
-              succeeded_at,
-              failed_at
+              completed_at
             ) VALUES (
               $1,
               $2,
               $3,
               $4,
               $5,
-              CASE WHEN $6 THEN now() ELSE NULL END,
-              CASE WHEN $7 THEN now() ELSE NULL END
+              CASE WHEN $6 THEN now() ELSE NULL END
             )
             ON CONFLICT (saga_name, correlation_id) DO UPDATE SET
               state = EXCLUDED.state,
-              succeeded_at = CASE WHEN $6 THEN COALESCE(saga_instances.succeeded_at, now()) ELSE NULL END,
-              failed_at = CASE WHEN $7 THEN COALESCE(saga_instances.failed_at, now()) ELSE NULL END
+              completed_at = CASE WHEN $6 THEN COALESCE(saga_instances.completed_at, now()) ELSE NULL END
             RETURNING id
             "#,
         )
@@ -192,7 +183,6 @@ impl SagaInstanceStore for PgSagaInstanceStore {
         .bind(instance.start_event_id.value())
         .bind(state_json)
         .bind(completed)
-        .bind(failed)
         .fetch_one(transaction.as_mut())
         .await
         .map_err(|source| SagaInstanceStoreError::Persistence(Box::new(source)))?;

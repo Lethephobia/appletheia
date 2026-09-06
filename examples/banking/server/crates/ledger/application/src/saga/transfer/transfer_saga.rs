@@ -53,12 +53,12 @@ impl Saga for TransferSaga {
                 TransferEventPayload::Completed
                     if causative_step == Some(TransferSagaStep::Complete) =>
                 {
-                    instance.succeed();
+                    instance.complete();
                 }
                 TransferEventPayload::Failed { .. }
                     if causative_step == Some(TransferSagaStep::Fail) =>
                 {
-                    instance.fail();
+                    instance.complete();
                 }
                 _ => {}
             }
@@ -212,7 +212,7 @@ impl Saga for TransferSaga {
             causative_step,
             TransferSagaStep::Complete | TransferSagaStep::Fail
         ) {
-            instance.fail();
+            instance.complete();
         }
         Ok(())
     }
@@ -519,7 +519,7 @@ mod tests {
         )
         .expect("completed should succeed");
 
-        assert_eq!(instance.status, SagaStatus::Succeeded);
+        assert_eq!(instance.status, SagaStatus::Completed);
     }
 
     #[test]
@@ -823,7 +823,7 @@ mod tests {
         )
         .expect("failed should succeed");
 
-        assert_eq!(instance.status, SagaStatus::Failed);
+        assert_eq!(instance.status, SagaStatus::Completed);
     }
 
     #[test]

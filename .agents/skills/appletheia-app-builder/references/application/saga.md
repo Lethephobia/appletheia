@@ -170,14 +170,14 @@ fn on_command_failed(
                 },
             )?;
         }
-        _ => instance.fail(),
+        _ => instance.complete(),
     }
     Ok(())
 }
 ```
 
-If a saga needs no compensation policy, omit the override. The default implementation calls
-`instance.fail()`.
+Every saga must implement `on_command_failed` explicitly. If a saga needs no compensation policy,
+call `instance.complete()` so the terminal decision remains visible in application code.
 
 ### DO treat `CommandFailureEnvelope` as a terminal notification
 
@@ -216,18 +216,18 @@ For parallel work, booleans or result slots may be appropriate because they repr
 observations. A linear `Pending -> Reserving -> Depositing -> Completing` status duplicates the
 framework step and should not be stored.
 
-### DO let `SagaInstance` own terminal status
+### DO let `SagaInstance` own completion status
 
-Call `instance.succeed()` when the terminal success event arrives and `instance.fail()` when the
-workflow cannot continue. These methods also discard uncommitted commands. Do not mirror
-`Succeeded` or `Failed` in user-defined state.
+Call `instance.complete()` when the workflow should no longer handle events or command failures.
+This method also discards uncommitted commands. Keep the business outcome in domain events instead
+of duplicating successful or failed status in the saga instance or user-defined state.
 
 ```rust
 match transfer_event.payload() {
     TransferEventPayload::Completed
-        if causative_step == Some(TransferSagaStep::Complete) => instance.succeed(),
+        if causative_step == Some(TransferSagaStep::Complete) => instance.complete(),
     TransferEventPayload::Failed { .. }
-        if causative_step == Some(TransferSagaStep::Fail) => instance.fail(),
+        if causative_step == Some(TransferSagaStep::Fail) => instance.complete(),
     _ => {}
 }
 ```

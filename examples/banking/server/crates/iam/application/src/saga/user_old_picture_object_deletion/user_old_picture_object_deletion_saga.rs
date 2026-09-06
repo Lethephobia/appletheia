@@ -1,3 +1,4 @@
+use appletheia::application::command::CommandFailureEnvelope;
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::request_context::CausationId;
 use appletheia::application::saga::{Saga, SagaInstance, SagaSpec};
@@ -38,7 +39,7 @@ impl Saga for UserOldPictureObjectDeletionSaga {
             .and_then(|picture| picture.as_object_name())
             .cloned()
         else {
-            instance.succeed();
+            instance.complete();
             return Ok(());
         };
 
@@ -49,8 +50,18 @@ impl Saga for UserOldPictureObjectDeletionSaga {
                 &UserPictureObjectDeleteCommand { object_name },
             )
             .map_err(|_| UserOldPictureObjectDeletionSagaError::UnexpectedEvent)?;
-        instance.succeed();
+        instance.complete();
 
+        Ok(())
+    }
+
+    fn on_command_failed(
+        &self,
+        instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State, Self::Step>,
+        _failure: &CommandFailureEnvelope,
+        _causative_step: Self::Step,
+    ) -> Result<(), Self::Error> {
+        instance.complete();
         Ok(())
     }
 }

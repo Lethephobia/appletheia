@@ -42,16 +42,8 @@ impl<S: SagaState, T: SagaStep> SagaInstance<S, T> {
         &self.uncommitted_commands
     }
 
-    pub fn is_terminal(&self) -> bool {
-        matches!(self.status, SagaStatus::Succeeded | SagaStatus::Failed)
-    }
-
-    pub fn is_succeeded(&self) -> bool {
-        matches!(self.status, SagaStatus::Succeeded)
-    }
-
-    pub fn is_failed(&self) -> bool {
-        matches!(self.status, SagaStatus::Failed)
+    pub fn is_completed(&self) -> bool {
+        matches!(self.status, SagaStatus::Completed)
     }
 
     pub fn state_mut(&mut self) -> &mut Option<S> {
@@ -68,13 +60,8 @@ impl<S: SagaState, T: SagaStep> SagaInstance<S, T> {
         self.state.as_mut().ok_or(SagaInstanceError::NoState)
     }
 
-    pub fn succeed(&mut self) {
-        self.status = SagaStatus::Succeeded;
-        self.clear_uncommitted_commands();
-    }
-
-    pub fn fail(&mut self) {
-        self.status = SagaStatus::Failed;
+    pub fn complete(&mut self) {
+        self.status = SagaStatus::Completed;
         self.clear_uncommitted_commands();
     }
 

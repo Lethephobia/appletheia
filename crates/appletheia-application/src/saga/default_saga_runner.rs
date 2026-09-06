@@ -98,13 +98,8 @@ where
             (instance, Some(causative_step))
         };
 
-        if instance.is_terminal() {
-            let report = if instance.is_succeeded() {
-                SagaEventRunReport::SkippedSucceeded
-            } else {
-                SagaEventRunReport::SkippedFailed
-            };
-            return Ok(report);
+        if instance.is_completed() {
+            return Ok(SagaEventRunReport::SkippedCompleted);
         }
 
         let inserted = self
@@ -132,8 +127,7 @@ where
             SagaStatus::InProgress => SagaEventRunReport::InProgress {
                 enqueued_command_count,
             },
-            SagaStatus::Succeeded => SagaEventRunReport::Succeeded,
-            SagaStatus::Failed => SagaEventRunReport::Failed,
+            SagaStatus::Completed => SagaEventRunReport::Completed,
         };
 
         Ok(report)
@@ -171,13 +165,8 @@ where
         };
         let causative_step = dispatched_command.step;
 
-        if instance.is_terminal() {
-            let report = if instance.is_succeeded() {
-                SagaCommandFailureRunReport::SkippedSucceeded
-            } else {
-                SagaCommandFailureRunReport::SkippedFailed
-            };
-            return Ok(report);
+        if instance.is_completed() {
+            return Ok(SagaCommandFailureRunReport::SkippedCompleted);
         }
 
         let inserted = self
@@ -207,8 +196,7 @@ where
             SagaStatus::InProgress => SagaCommandFailureRunReport::InProgress {
                 enqueued_command_count,
             },
-            SagaStatus::Succeeded => SagaCommandFailureRunReport::Succeeded,
-            SagaStatus::Failed => SagaCommandFailureRunReport::Failed,
+            SagaStatus::Completed => SagaCommandFailureRunReport::Completed,
         };
         Ok(report)
     }
@@ -331,7 +319,7 @@ mod tests {
             correlation_id: CorrelationId,
         ) -> Result<Option<SagaInstance<S, T>>, SagaInstanceStoreError> {
             let mut instance = SagaInstance::new(saga_name, correlation_id, EventId::new());
-            instance.status = SagaStatus::Succeeded;
+            instance.status = SagaStatus::Completed;
             Ok(Some(instance))
         }
 
@@ -449,6 +437,16 @@ mod tests {
         ) -> Result<(), Self::Error> {
             panic!("on_event must not be called for terminal saga instances");
         }
+
+        fn on_command_failed(
+            &self,
+            instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State, Self::Step>,
+            _failure: &CommandFailureEnvelope,
+            _causative_step: Self::Step,
+        ) -> Result<(), Self::Error> {
+            instance.complete();
+            Ok(())
+        }
     }
 
     struct SucceedWithoutStateSaga;
@@ -465,7 +463,17 @@ mod tests {
             causative_step: Option<Self::Step>,
         ) -> Result<(), Self::Error> {
             assert_eq!(causative_step, None);
-            instance.succeed();
+            instance.complete();
+            Ok(())
+        }
+
+        fn on_command_failed(
+            &self,
+            instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State, Self::Step>,
+            _failure: &CommandFailureEnvelope,
+            _causative_step: Self::Step,
+        ) -> Result<(), Self::Error> {
+            instance.complete();
             Ok(())
         }
     }
@@ -484,7 +492,17 @@ mod tests {
             causative_step: Option<Self::Step>,
         ) -> Result<(), Self::Error> {
             assert_eq!(causative_step, Some(TestSagaStep::FollowUp));
-            instance.succeed();
+            instance.complete();
+            Ok(())
+        }
+
+        fn on_command_failed(
+            &self,
+            instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State, Self::Step>,
+            _failure: &CommandFailureEnvelope,
+            _causative_step: Self::Step,
+        ) -> Result<(), Self::Error> {
+            instance.complete();
             Ok(())
         }
     }
@@ -528,7 +546,7 @@ mod tests {
             .await
             .expect("terminal saga should be skipped");
 
-        assert_eq!(report, SagaEventRunReport::SkippedSucceeded);
+        assert_eq!(report, SagaEventRunReport::SkippedCompleted);
         assert_eq!(calls.load(Ordering::SeqCst), 0);
     }
 
@@ -549,7 +567,7 @@ mod tests {
             .await
             .expect("terminal saga without state should be accepted");
 
-        assert_eq!(report, SagaEventRunReport::Succeeded);
+        assert_eq!(report, SagaEventRunReport::Completed);
     }
 
     #[tokio::test]
@@ -575,11 +593,11 @@ mod tests {
             .await
             .expect("causative saga step should resolve");
 
-        assert_eq!(report, SagaEventRunReport::Succeeded);
+        assert_eq!(report, SagaEventRunReport::Completed);
     }
 
     #[tokio::test]
-    async fn handle_command_failure_resolves_persisted_step_and_fails_by_default() {
+    async fn handle_command_failure_resolves_persisted_step_and_completes() {
         let command_message_id = MessageId::new();
         let correlation_id = CorrelationId::from(Uuid::now_v7());
         let saved_status = Arc::new(Mutex::new(None));
@@ -617,10 +635,10 @@ mod tests {
             .await
             .expect("command failure should be handled");
 
-        assert_eq!(report, SagaCommandFailureRunReport::Failed);
+        assert_eq!(report, SagaCommandFailureRunReport::Completed);
         assert_eq!(
             *saved_status.lock().expect("saved status lock"),
-            Some(SagaStatus::Failed)
+            Some(SagaStatus::Completed)
         );
     }
 

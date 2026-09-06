@@ -1,4 +1,5 @@
 use crate::command::OrganizationMembershipCreateCommand;
+use appletheia::application::command::CommandFailureEnvelope;
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::request_context::CausationId;
 use appletheia::application::saga::{Saga, SagaInstance, SagaSpec};
@@ -52,10 +53,20 @@ impl Saga for OrganizationJoinRequestSaga {
         } else if event.is_for_aggregate::<OrganizationMembership>() {
             let membership_event = event.try_into_domain_event::<OrganizationMembership>()?;
             if let OrganizationMembershipEventPayload::Created { .. } = membership_event.payload() {
-                instance.succeed();
+                instance.complete();
             }
         }
 
+        Ok(())
+    }
+
+    fn on_command_failed(
+        &self,
+        instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State, Self::Step>,
+        _failure: &CommandFailureEnvelope,
+        _causative_step: Self::Step,
+    ) -> Result<(), Self::Error> {
+        instance.complete();
         Ok(())
     }
 }
@@ -242,7 +253,7 @@ mod tests {
         )
         .expect("membership created event should be handled");
 
-        assert_eq!(instance.status, SagaStatus::Succeeded);
+        assert_eq!(instance.status, SagaStatus::Completed);
         assert!(instance.uncommitted_commands().is_empty());
     }
 }

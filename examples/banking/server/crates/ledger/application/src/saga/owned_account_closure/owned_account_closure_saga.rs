@@ -158,10 +158,10 @@ impl Saga for OwnedAccountClosureSaga {
                     Self::append_next_step(instance, envelope)?;
                 }
                 OwnedAccountClosureEventPayload::Completed { .. } => {
-                    instance.succeed();
+                    instance.complete();
                 }
                 OwnedAccountClosureEventPayload::Failed { .. } => {
-                    instance.fail();
+                    instance.complete();
                 }
             }
 
@@ -196,7 +196,7 @@ impl Saga for OwnedAccountClosureSaga {
     ) -> Result<(), Self::Error> {
         let reason = match causative_step {
             OwnedAccountClosureSagaStep::Request => {
-                instance.fail();
+                instance.complete();
                 return Ok(());
             }
             OwnedAccountClosureSagaStep::LoadPage => {
@@ -212,7 +212,7 @@ impl Saga for OwnedAccountClosureSaga {
                 OwnedAccountClosureFailureReason::AccountCloseRejectionRecordRejected
             }
             OwnedAccountClosureSagaStep::Complete | OwnedAccountClosureSagaStep::Fail => {
-                instance.fail();
+                instance.complete();
                 return Ok(());
             }
         };
@@ -490,7 +490,7 @@ mod tests {
         )
         .expect("completed event should succeed saga");
 
-        assert_eq!(instance.status, SagaStatus::Succeeded);
+        assert_eq!(instance.status, SagaStatus::Completed);
     }
 
     #[test]

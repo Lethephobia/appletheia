@@ -1,4 +1,5 @@
 use crate::command::CurrencyRegistrarMembershipCreateCommand;
+use appletheia::application::command::CommandFailureEnvelope;
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::request_context::CausationId;
 use appletheia::application::saga::{Saga, SagaInstance, SagaSpec};
@@ -54,10 +55,20 @@ impl Saga for CurrencyRegistrarJoinRequestSaga {
             if let CurrencyRegistrarMembershipEventPayload::Created { .. } =
                 membership_event.payload()
             {
-                instance.succeed();
+                instance.complete();
             }
         }
 
+        Ok(())
+    }
+
+    fn on_command_failed(
+        &self,
+        instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State, Self::Step>,
+        _failure: &CommandFailureEnvelope,
+        _causative_step: Self::Step,
+    ) -> Result<(), Self::Error> {
+        instance.complete();
         Ok(())
     }
 }

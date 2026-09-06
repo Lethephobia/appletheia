@@ -5,12 +5,10 @@ pub enum SagaEventRunReport {
     InProgress {
         enqueued_command_count: EnqueuedCommandCount,
     },
-    Succeeded,
-    Failed,
+    Completed,
     NotSubscribed,
     InstanceNotFound,
     CommandNotOwned,
     AlreadyProcessed,
-    SkippedSucceeded,
-    SkippedFailed,
+    SkippedCompleted,
 }

@@ -105,10 +105,7 @@ pub trait Saga: Send + Sync {
     fn on_command_failed(
         &self,
         instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State, Self::Step>,
-        _failure: &CommandFailureEnvelope,
-        _causative_step: Self::Step,
-    ) -> Result<(), Self::Error> {
-        instance.fail();
-        Ok(())
-    }
+        failure: &CommandFailureEnvelope,
+        causative_step: Self::Step,
+    ) -> Result<(), Self::Error>;
 }
