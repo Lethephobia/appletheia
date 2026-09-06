@@ -24,7 +24,7 @@ impl Saga for CurrencyRegistrarJoinRequestSaga {
         &self,
         instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State, Self::Step>,
         event: &EventEnvelope,
-        _step: Option<Self::Step>,
+        _causative_step: Option<Self::Step>,
     ) -> Result<(), Self::Error> {
         if event.is_for_aggregate::<CurrencyRegistrarJoinRequest>() {
             let join_request_event =

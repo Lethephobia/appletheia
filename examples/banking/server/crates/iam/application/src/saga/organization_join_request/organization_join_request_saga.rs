@@ -24,7 +24,7 @@ impl Saga for OrganizationJoinRequestSaga {
         &self,
         instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State, Self::Step>,
         event: &EventEnvelope,
-        _step: Option<Self::Step>,
+        _causative_step: Option<Self::Step>,
     ) -> Result<(), Self::Error> {
         if event.is_for_aggregate::<OrganizationJoinRequest>() {
             let join_request_event = event.try_into_domain_event::<OrganizationJoinRequest>()?;

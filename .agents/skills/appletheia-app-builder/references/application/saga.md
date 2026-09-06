@@ -60,23 +60,23 @@ impl SagaStep for TransferSagaStep {}
 The framework serializes this value into `SagaCommandOrigin` and persists it with the dispatched
 command. Do not maintain a parallel string step name or duplicate it in saga state.
 
-### DO route follow-up events with the `step` argument
+### DO route follow-up events with the `causative_step` argument
 
-`step` is `None` only for a start event. An event caused by a saga-dispatched command is routed with
-the step stored in that command's origin.
+`causative_step` is `None` only for a start event. An event caused by a saga-dispatched command is
+routed with the step stored in that command's origin.
 
 ```rust
 fn on_event(
     &self,
     instance: &mut SagaInstance<TransferSagaState, TransferSagaStep>,
     event: &EventEnvelope,
-    step: Option<TransferSagaStep>,
+    causative_step: Option<TransferSagaStep>,
 ) -> Result<(), TransferSagaError> {
     if event.is_for_aggregate::<Account>() {
         let account_event = event.try_into_domain_event::<Account>()?;
         match account_event.payload() {
             AccountEventPayload::FundsReserved { .. }
-                if step == Some(TransferSagaStep::ReserveFunds) =>
+                if causative_step == Some(TransferSagaStep::ReserveFunds) =>
             {
                 let state = instance.state_required()?;
                 instance.append_command(
@@ -95,8 +95,8 @@ fn on_event(
 }
 ```
 
-Match both the event payload and step when the same event type can be produced by several saga
-operations. Do not infer the previous operation from a custom state status.
+Match both the event payload and causative step when the same event type can be produced by several
+saga operations. Do not infer the previous operation from a custom state status.
 
 ### DON'T put saga steps in `RequestContext`
 
@@ -148,17 +148,17 @@ from the persisted envelope and its `SagaCommandOrigin`; application code must n
 
 ### DO handle compensation from `on_command_failed`
 
-The method receives the terminal failure and the exact step that dispatched the command. Branch on
-the step; command-name and step selectors are unnecessary in application code.
+The method receives the terminal failure and the exact causative step that dispatched the command.
+Branch on that step; command-name and step selectors are unnecessary in application code.
 
 ```rust
 fn on_command_failed(
     &self,
     instance: &mut SagaInstance<TransferSagaState, TransferSagaStep>,
     failure: &CommandFailureEnvelope,
-    step: TransferSagaStep,
+    causative_step: TransferSagaStep,
 ) -> Result<(), TransferSagaError> {
-    match step {
+    match causative_step {
         TransferSagaStep::Deposit => {
             let state = instance.state_required()?;
             instance.append_command(
@@ -225,9 +225,9 @@ workflow cannot continue. These methods also discard uncommitted commands. Do no
 ```rust
 match transfer_event.payload() {
     TransferEventPayload::Completed
-        if step == Some(TransferSagaStep::Complete) => instance.succeed(),
+        if causative_step == Some(TransferSagaStep::Complete) => instance.succeed(),
     TransferEventPayload::Failed { .. }
-        if step == Some(TransferSagaStep::Fail) => instance.fail(),
+        if causative_step == Some(TransferSagaStep::Fail) => instance.fail(),
     _ => {}
 }
 ```

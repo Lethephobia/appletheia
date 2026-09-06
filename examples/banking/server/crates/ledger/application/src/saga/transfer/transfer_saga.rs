@@ -23,7 +23,7 @@ impl Saga for TransferSaga {
         &self,
         instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State, Self::Step>,
         event: &EventEnvelope,
-        step: Option<Self::Step>,
+        causative_step: Option<Self::Step>,
     ) -> Result<(), Self::Error> {
         if event.is_for_aggregate::<Transfer>() {
             let transfer_event = event.try_into_domain_event::<Transfer>()?;
@@ -33,7 +33,7 @@ impl Saga for TransferSaga {
                     to_account_id,
                     amount,
                     ..
-                } if step.is_none() => {
+                } if causative_step.is_none() => {
                     *instance.state_mut() = Some(TransferSagaState::new(
                         transfer_event.aggregate_id(),
                         *from_account_id,
@@ -50,10 +50,14 @@ impl Saga for TransferSaga {
                         },
                     )?;
                 }
-                TransferEventPayload::Completed if step == Some(TransferSagaStep::Complete) => {
+                TransferEventPayload::Completed
+                    if causative_step == Some(TransferSagaStep::Complete) =>
+                {
                     instance.succeed();
                 }
-                TransferEventPayload::Failed { .. } if step == Some(TransferSagaStep::Fail) => {
+                TransferEventPayload::Failed { .. }
+                    if causative_step == Some(TransferSagaStep::Fail) =>
+                {
                     instance.fail();
                 }
                 _ => {}
@@ -64,7 +68,7 @@ impl Saga for TransferSaga {
             let account_event = event.try_into_domain_event::<Account>()?;
             match account_event.payload() {
                 AccountEventPayload::FundsReserved { .. }
-                    if step == Some(TransferSagaStep::ReserveFunds) =>
+                    if causative_step == Some(TransferSagaStep::ReserveFunds) =>
                 {
                     let state = instance.state_required_mut()?;
                     let to_account_id = state.to_account_id;
@@ -80,7 +84,7 @@ impl Saga for TransferSaga {
                     )?;
                 }
                 AccountEventPayload::Deposited { .. }
-                    if step == Some(TransferSagaStep::Deposit) =>
+                    if causative_step == Some(TransferSagaStep::Deposit) =>
                 {
                     let state = instance.state_required_mut()?;
                     let from_account_id = state.from_account_id;
@@ -96,7 +100,7 @@ impl Saga for TransferSaga {
                     )?;
                 }
                 AccountEventPayload::ReservedFundsReleased { .. }
-                    if step == Some(TransferSagaStep::ReleaseFunds) =>
+                    if causative_step == Some(TransferSagaStep::ReleaseFunds) =>
                 {
                     let state = instance.state_required_mut()?;
                     let transfer_id = state.transfer_id;
@@ -111,7 +115,7 @@ impl Saga for TransferSaga {
                     )?;
                 }
                 AccountEventPayload::ReservedFundsCommitted { .. }
-                    if step == Some(TransferSagaStep::CommitFunds) =>
+                    if causative_step == Some(TransferSagaStep::CommitFunds) =>
                 {
                     let state = instance.state_required_mut()?;
                     let transfer_id = state.transfer_id;
@@ -123,7 +127,7 @@ impl Saga for TransferSaga {
                     )?;
                 }
                 AccountEventPayload::Withdrawn { .. }
-                    if step == Some(TransferSagaStep::CompensateDeposit) =>
+                    if causative_step == Some(TransferSagaStep::CompensateDeposit) =>
                 {
                     let state = instance.state_required_mut()?;
                     let transfer_id = state.transfer_id;
@@ -148,9 +152,9 @@ impl Saga for TransferSaga {
         &self,
         instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State, Self::Step>,
         failure: &CommandFailureEnvelope,
-        step: Self::Step,
+        causative_step: Self::Step,
     ) -> Result<(), Self::Error> {
-        if step == TransferSagaStep::ReserveFunds {
+        if causative_step == TransferSagaStep::ReserveFunds {
             let state = instance.state_required_mut()?;
             let transfer_id = state.transfer_id;
             instance.append_command(
@@ -161,7 +165,7 @@ impl Saga for TransferSaga {
                     reason: TransferFailureReason::FundsReserveRejected,
                 },
             )?;
-        } else if step == TransferSagaStep::Deposit {
+        } else if causative_step == TransferSagaStep::Deposit {
             let state = instance.state_required_mut()?;
             let from_account_id = state.from_account_id;
             let amount = state.amount;
@@ -173,7 +177,7 @@ impl Saga for TransferSaga {
                     amount,
                 },
             )?;
-        } else if step == TransferSagaStep::ReleaseFunds {
+        } else if causative_step == TransferSagaStep::ReleaseFunds {
             let state = instance.state_required_mut()?;
             let transfer_id = state.transfer_id;
             instance.append_command(
@@ -184,7 +188,7 @@ impl Saga for TransferSaga {
                     reason: TransferFailureReason::ReservedFundsReleaseRejected,
                 },
             )?;
-        } else if step == TransferSagaStep::CommitFunds {
+        } else if causative_step == TransferSagaStep::CommitFunds {
             let state = instance.state_required_mut()?;
             let account_id = state.to_account_id;
             let amount = state.amount;
@@ -193,7 +197,7 @@ impl Saga for TransferSaga {
                 TransferSagaStep::CompensateDeposit,
                 &AccountWithdrawCommand { account_id, amount },
             )?;
-        } else if step == TransferSagaStep::CompensateDeposit {
+        } else if causative_step == TransferSagaStep::CompensateDeposit {
             let state = instance.state_required_mut()?;
             let transfer_id = state.transfer_id;
             instance.append_command(
@@ -204,7 +208,10 @@ impl Saga for TransferSaga {
                     reason: TransferFailureReason::ReservedFundsCommitRejected,
                 },
             )?;
-        } else if matches!(step, TransferSagaStep::Complete | TransferSagaStep::Fail) {
+        } else if matches!(
+            causative_step,
+            TransferSagaStep::Complete | TransferSagaStep::Fail
+        ) {
             instance.fail();
         }
         Ok(())

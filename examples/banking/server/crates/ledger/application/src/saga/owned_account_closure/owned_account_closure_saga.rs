@@ -79,7 +79,7 @@ impl Saga for OwnedAccountClosureSaga {
         &self,
         instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State, Self::Step>,
         event: &EventEnvelope,
-        _step: Option<Self::Step>,
+        _causative_step: Option<Self::Step>,
     ) -> Result<(), Self::Error> {
         let envelope = event;
         if envelope.is_for_aggregate::<User>() {
@@ -192,9 +192,9 @@ impl Saga for OwnedAccountClosureSaga {
         &self,
         instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State, Self::Step>,
         failure: &CommandFailureEnvelope,
-        step: Self::Step,
+        causative_step: Self::Step,
     ) -> Result<(), Self::Error> {
-        let reason = match step {
+        let reason = match causative_step {
             OwnedAccountClosureSagaStep::Request => {
                 instance.fail();
                 return Ok(());

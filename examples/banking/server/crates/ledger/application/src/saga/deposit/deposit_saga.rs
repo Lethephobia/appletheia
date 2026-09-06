@@ -20,14 +20,14 @@ impl Saga for DepositSaga {
         &self,
         instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State, Self::Step>,
         event: &EventEnvelope,
-        step: Option<Self::Step>,
+        causative_step: Option<Self::Step>,
     ) -> Result<(), Self::Error> {
         if event.is_for_aggregate::<Deposit>() {
             let deposit_event = event.try_into_domain_event::<Deposit>()?;
             match deposit_event.payload() {
                 DepositEventPayload::SettlementVerified {
                     account_id, amount, ..
-                } if step.is_none() => {
+                } if causative_step.is_none() => {
                     *instance.state_mut() = Some(DepositSagaState::new(
                         deposit_event.aggregate_id(),
                         *account_id,
@@ -42,10 +42,14 @@ impl Saga for DepositSaga {
                         },
                     )?;
                 }
-                DepositEventPayload::Completed if step == Some(DepositSagaStep::Complete) => {
+                DepositEventPayload::Completed
+                    if causative_step == Some(DepositSagaStep::Complete) =>
+                {
                     instance.succeed();
                 }
-                DepositEventPayload::Failed { .. } if step == Some(DepositSagaStep::Fail) => {
+                DepositEventPayload::Failed { .. }
+                    if causative_step == Some(DepositSagaStep::Fail) =>
+                {
                     instance.fail();
                 }
                 _ => {}
@@ -57,7 +61,9 @@ impl Saga for DepositSaga {
         if event.is_for_aggregate::<Account>() {
             let account_event = event.try_into_domain_event::<Account>()?;
             match account_event.payload() {
-                AccountEventPayload::Deposited { .. } if step == Some(DepositSagaStep::Deposit) => {
+                AccountEventPayload::Deposited { .. }
+                    if causative_step == Some(DepositSagaStep::Deposit) =>
+                {
                     let state = instance.state_required_mut()?;
                     let deposit_id = state.deposit_id;
 
@@ -78,9 +84,9 @@ impl Saga for DepositSaga {
         &self,
         instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State, Self::Step>,
         failure: &CommandFailureEnvelope,
-        step: Self::Step,
+        causative_step: Self::Step,
     ) -> Result<(), Self::Error> {
-        if step == DepositSagaStep::Deposit {
+        if causative_step == DepositSagaStep::Deposit {
             let state = instance.state_required_mut()?;
             let deposit_id = state.deposit_id;
             instance.append_command(
@@ -91,7 +97,10 @@ impl Saga for DepositSaga {
                     reason: DepositFailureReason::AccountDepositRejected,
                 },
             )?;
-        } else if matches!(step, DepositSagaStep::Complete | DepositSagaStep::Fail) {
+        } else if matches!(
+            causative_step,
+            DepositSagaStep::Complete | DepositSagaStep::Fail
+        ) {
             instance.fail();
         }
         Ok(())

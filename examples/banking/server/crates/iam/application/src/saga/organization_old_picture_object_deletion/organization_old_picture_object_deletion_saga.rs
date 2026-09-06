@@ -22,7 +22,7 @@ impl Saga for OrganizationOldPictureObjectDeletionSaga {
         &self,
         instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State, Self::Step>,
         event: &EventEnvelope,
-        _step: Option<Self::Step>,
+        _causative_step: Option<Self::Step>,
     ) -> Result<(), Self::Error> {
         let domain_event = event
             .try_into_domain_event::<Organization>()

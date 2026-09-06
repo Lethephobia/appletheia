@@ -61,7 +61,7 @@ where
         let saga_name = SagaNameOwned::from(descriptor.name);
         let correlation_id = event.correlation_id;
 
-        let (mut instance, step) = if descriptor.start_events.matches(event) {
+        let (mut instance, causative_step) = if descriptor.start_events.matches(event) {
             let instance = self
                 .saga_instance_store
                 .find_by_correlation_id::<<SG::Spec as SagaSpec>::State, SG::Step>(
@@ -94,8 +94,8 @@ where
             else {
                 return Ok(SagaEventRunReport::CommandNotOwned);
             };
-            let step = dispatched_command.step;
-            (instance, Some(step))
+            let causative_step = dispatched_command.step;
+            (instance, Some(causative_step))
         };
 
         if instance.is_terminal() {
@@ -115,7 +115,7 @@ where
             return Ok(SagaEventRunReport::AlreadyProcessed);
         }
 
-        saga.on_event(&mut instance, event, step)
+        saga.on_event(&mut instance, event, causative_step)
             .map_err(|source| SagaRunnerError::Definition(Box::new(source)))?;
 
         self.saga_instance_store.save(uow, &instance).await?;
@@ -169,7 +169,7 @@ where
         else {
             return Ok(SagaCommandFailureRunReport::CommandNotOwned);
         };
-        let step = dispatched_command.step;
+        let causative_step = dispatched_command.step;
 
         if instance.is_terminal() {
             let report = if instance.is_succeeded() {
@@ -193,7 +193,7 @@ where
             return Ok(SagaCommandFailureRunReport::AlreadyProcessed);
         }
 
-        saga.on_command_failed(&mut instance, failure, step)
+        saga.on_command_failed(&mut instance, failure, causative_step)
             .map_err(|source| SagaRunnerError::Definition(Box::new(source)))?;
         self.saga_instance_store.save(uow, &instance).await?;
         let commands = instance.uncommitted_commands().to_vec();
@@ -445,7 +445,7 @@ mod tests {
             &self,
             _instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State, Self::Step>,
             _event: &EventEnvelope,
-            _step: Option<Self::Step>,
+            _causative_step: Option<Self::Step>,
         ) -> Result<(), Self::Error> {
             panic!("on_event must not be called for terminal saga instances");
         }
@@ -462,9 +462,9 @@ mod tests {
             &self,
             instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State, Self::Step>,
             _event: &EventEnvelope,
-            step: Option<Self::Step>,
+            causative_step: Option<Self::Step>,
         ) -> Result<(), Self::Error> {
-            assert_eq!(step, None);
+            assert_eq!(causative_step, None);
             instance.succeed();
             Ok(())
         }
@@ -481,9 +481,9 @@ mod tests {
             &self,
             instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State, Self::Step>,
             _event: &EventEnvelope,
-            step: Option<Self::Step>,
+            causative_step: Option<Self::Step>,
         ) -> Result<(), Self::Error> {
-            assert_eq!(step, Some(TestSagaStep::FollowUp));
+            assert_eq!(causative_step, Some(TestSagaStep::FollowUp));
             instance.succeed();
             Ok(())
         }

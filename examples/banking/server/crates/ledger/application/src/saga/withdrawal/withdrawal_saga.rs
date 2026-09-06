@@ -26,14 +26,14 @@ impl Saga for WithdrawalSaga {
         &self,
         instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State, Self::Step>,
         event: &EventEnvelope,
-        step: Option<Self::Step>,
+        causative_step: Option<Self::Step>,
     ) -> Result<(), Self::Error> {
         if event.is_for_aggregate::<Withdrawal>() {
             let withdrawal_event = event.try_into_domain_event::<Withdrawal>()?;
             match withdrawal_event.payload() {
                 WithdrawalEventPayload::Requested {
                     account_id, amount, ..
-                } if step.is_none() => {
+                } if causative_step.is_none() => {
                     *instance.state_mut() = Some(WithdrawalSagaState::new(
                         withdrawal_event.aggregate_id(),
                         *account_id,
@@ -49,7 +49,7 @@ impl Saga for WithdrawalSaga {
                     )?;
                 }
                 WithdrawalEventPayload::SettlementExecuted { .. }
-                    if step == Some(WithdrawalSagaStep::ExecuteSettlement) =>
+                    if causative_step == Some(WithdrawalSagaStep::ExecuteSettlement) =>
                 {
                     let state = instance.state_required_mut()?;
                     let account_id = state.account_id;
@@ -60,10 +60,14 @@ impl Saga for WithdrawalSaga {
                         &AccountReservedFundsCommitCommand { account_id, amount },
                     )?;
                 }
-                WithdrawalEventPayload::Completed if step == Some(WithdrawalSagaStep::Complete) => {
+                WithdrawalEventPayload::Completed
+                    if causative_step == Some(WithdrawalSagaStep::Complete) =>
+                {
                     instance.succeed();
                 }
-                WithdrawalEventPayload::Failed { .. } if step == Some(WithdrawalSagaStep::Fail) => {
+                WithdrawalEventPayload::Failed { .. }
+                    if causative_step == Some(WithdrawalSagaStep::Fail) =>
+                {
                     instance.fail();
                 }
                 _ => {}
@@ -75,7 +79,7 @@ impl Saga for WithdrawalSaga {
             let account_event = event.try_into_domain_event::<Account>()?;
             match account_event.payload() {
                 AccountEventPayload::FundsReserved { .. }
-                    if step == Some(WithdrawalSagaStep::ReserveFunds) =>
+                    if causative_step == Some(WithdrawalSagaStep::ReserveFunds) =>
                 {
                     let state = instance.state_required_mut()?;
                     let withdrawal_id = state.withdrawal_id;
@@ -86,7 +90,7 @@ impl Saga for WithdrawalSaga {
                     )?;
                 }
                 AccountEventPayload::ReservedFundsReleased { .. }
-                    if step == Some(WithdrawalSagaStep::ReleaseFunds) =>
+                    if causative_step == Some(WithdrawalSagaStep::ReleaseFunds) =>
                 {
                     let state = instance.state_required_mut()?;
                     let withdrawal_id = state.withdrawal_id;
@@ -100,7 +104,7 @@ impl Saga for WithdrawalSaga {
                     )?;
                 }
                 AccountEventPayload::ReservedFundsCommitted { .. }
-                    if step == Some(WithdrawalSagaStep::CommitFunds) =>
+                    if causative_step == Some(WithdrawalSagaStep::CommitFunds) =>
                 {
                     let state = instance.state_required_mut()?;
                     let withdrawal_id = state.withdrawal_id;
@@ -121,15 +125,15 @@ impl Saga for WithdrawalSaga {
         &self,
         instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State, Self::Step>,
         failure: &CommandFailureEnvelope,
-        step: Self::Step,
+        causative_step: Self::Step,
     ) -> Result<(), Self::Error> {
-        if step == WithdrawalSagaStep::ReserveFunds {
+        if causative_step == WithdrawalSagaStep::ReserveFunds {
             self.append_fail_after_failure(
                 instance,
                 failure,
                 WithdrawalFailureReason::FundsReserveRejected,
             )?;
-        } else if step == WithdrawalSagaStep::ExecuteSettlement {
+        } else if causative_step == WithdrawalSagaStep::ExecuteSettlement {
             let state = instance.state_required_mut()?;
             let account_id = state.account_id;
             let amount = state.amount;
@@ -138,20 +142,20 @@ impl Saga for WithdrawalSaga {
                 WithdrawalSagaStep::ReleaseFunds,
                 &AccountReservedFundsReleaseCommand { account_id, amount },
             )?;
-        } else if step == WithdrawalSagaStep::ReleaseFunds {
+        } else if causative_step == WithdrawalSagaStep::ReleaseFunds {
             self.append_fail_after_failure(
                 instance,
                 failure,
                 WithdrawalFailureReason::ReservedFundsReleaseRejected,
             )?;
-        } else if step == WithdrawalSagaStep::CommitFunds {
+        } else if causative_step == WithdrawalSagaStep::CommitFunds {
             self.append_fail_after_failure(
                 instance,
                 failure,
                 WithdrawalFailureReason::ReservedFundsCommitRejected,
             )?;
         } else if matches!(
-            step,
+            causative_step,
             WithdrawalSagaStep::Complete | WithdrawalSagaStep::Fail
         ) {
             instance.fail();

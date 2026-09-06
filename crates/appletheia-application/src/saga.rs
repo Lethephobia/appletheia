@@ -98,7 +98,7 @@ pub trait Saga: Send + Sync {
         &self,
         instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State, Self::Step>,
         event: &EventEnvelope,
-        step: Option<Self::Step>,
+        causative_step: Option<Self::Step>,
     ) -> Result<(), Self::Error>;
 
     /// Handles one terminal command failure routed to this saga.
@@ -106,7 +106,7 @@ pub trait Saga: Send + Sync {
         &self,
         instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State, Self::Step>,
         _failure: &CommandFailureEnvelope,
-        _step: Self::Step,
+        _causative_step: Self::Step,
     ) -> Result<(), Self::Error> {
         instance.fail();
         Ok(())
