@@ -10,17 +10,17 @@ DROP TABLE IF EXISTS auth_token_revocations;
 -- relationships (Aggregate × ReBAC)
 DROP TABLE IF EXISTS relationships;
 
--- oidc login attempts
-DROP TABLE IF EXISTS oidc_login_attempts;
-
 -- oidc continuations
 DROP TABLE IF EXISTS oidc_continuations;
+
+-- oidc login attempts
+DROP TABLE IF EXISTS oidc_login_attempts;
 
 -- resource response cache
 DROP TABLE IF EXISTS resource_response_cache;
 
--- idempotency
-DROP TABLE IF EXISTS idempotency;
+-- read model invalidation outbox
+DROP TABLE IF EXISTS read_model_invalidation_outbox;
 
 -- projector processed events
 DROP TABLE IF EXISTS projector_processed_events;
@@ -38,25 +38,26 @@ DROP TABLE IF EXISTS saga_processed_command_failures;
 DROP TABLE IF EXISTS saga_dispatched_commands;
 DROP TABLE IF EXISTS saga_instances;
 
--- command dead letters
-DROP TABLE IF EXISTS command_dead_letters;
+-- idempotency
+DROP TABLE IF EXISTS idempotency;
+
+-- command failure dead letters
+DROP TABLE IF EXISTS command_failure_dead_letters;
 
 -- command failure outbox and executions
 DROP TABLE IF EXISTS command_failure_outbox;
 DROP TABLE IF EXISTS command_executions;
 
--- command_outbox
+-- command dead letters
+DROP TABLE IF EXISTS command_dead_letters;
+
+-- command outbox
 DROP TABLE IF EXISTS command_outbox;
 
 -- event dead letters
 DROP TABLE IF EXISTS event_dead_letters;
 
--- read model invalidation outbox
-DROP TABLE IF EXISTS read_model_invalidation_outbox;
-
--- read model generations
-
--- event_outbox
+-- event outbox
 DROP TABLE IF EXISTS event_outbox;
 
 -- aggregate reference indexes

@@ -9,8 +9,8 @@ use appletheia_application::outbox::command_failure::{
     CommandFailureOutbox, CommandFailureOutboxId,
 };
 use appletheia_application::outbox::{
-    OutboxAttemptCount, OutboxDeadLetteredAt, OutboxLeaseExpiresAt, OutboxLifecycle,
-    OutboxNextAttemptAt, OutboxPublishedAt, OutboxRelayInstance, OutboxState,
+    OutboxAttemptCount, OutboxLeaseExpiresAt, OutboxLifecycle, OutboxNextAttemptAt,
+    OutboxPublishedAt, OutboxRelayInstance, OutboxState,
 };
 use appletheia_application::request_context::{CausationId, CorrelationId, MessageId};
 use appletheia_application::saga::{
@@ -44,7 +44,6 @@ pub struct PgCommandFailureOutboxRow {
     pub lease_owner: Option<String>,
     pub lease_until: Option<DateTime<Utc>>,
     pub last_error: Option<serde_json::Value>,
-    pub dead_lettered_at: Option<DateTime<Utc>>,
 }
 
 impl PgCommandFailureOutboxRow {
@@ -111,20 +110,13 @@ impl PgCommandFailureOutboxRow {
                 return Err(PgCommandFailureOutboxRowError::InconsistentLeaseState);
             }
         };
-        let lifecycle = match self.dead_lettered_at {
-            Some(value) => OutboxLifecycle::DeadLettered {
-                dead_lettered_at: OutboxDeadLetteredAt::from(value),
-            },
-            None => OutboxLifecycle::Active,
-        };
-
         Ok(CommandFailureOutbox {
             id,
             sequence: self.failure_sequence,
             failure,
             state,
             last_error,
-            lifecycle,
+            lifecycle: OutboxLifecycle::Active,
         })
     }
 }
