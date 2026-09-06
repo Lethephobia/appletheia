@@ -106,9 +106,6 @@ where
                     invalidated_partitions.push(ReadModelPartition::new(wallet_bookmark_id));
                 }
             }
-            WalletBookmarkEventPayload::RemoveRejected { .. }
-            | WalletBookmarkEventPayload::DisplayNameChangeRejected { .. }
-            | WalletBookmarkEventPayload::DescriptionChangeRejected { .. } => {}
         }
 
         Ok(invalidated_partitions)

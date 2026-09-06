@@ -31,12 +31,19 @@ DROP TABLE IF EXISTS projection_checkpoints;
 -- saga processed events
 DROP TABLE IF EXISTS saga_processed_events;
 
+-- saga processed command failures
+DROP TABLE IF EXISTS saga_processed_command_failures;
+
 -- saga instances
-DROP TABLE IF EXISTS saga_instance_commands;
+DROP TABLE IF EXISTS saga_dispatched_commands;
 DROP TABLE IF EXISTS saga_instances;
 
 -- command dead letters
 DROP TABLE IF EXISTS command_dead_letters;
+
+-- command failure outbox and executions
+DROP TABLE IF EXISTS command_failure_outbox;
+DROP TABLE IF EXISTS command_executions;
 
 -- command_outbox
 DROP TABLE IF EXISTS command_outbox;

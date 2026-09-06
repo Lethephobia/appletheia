@@ -20,7 +20,6 @@ impl SagaSpec for DepositSagaSpec {
         Subscription::AnyOf(&[
             EventSelector::new::<Deposit>(DepositEventPayload::SETTLEMENT_VERIFIED),
             EventSelector::new::<Account>(AccountEventPayload::DEPOSITED),
-            EventSelector::new::<Account>(AccountEventPayload::DEPOSIT_REJECTED),
             EventSelector::new::<Deposit>(DepositEventPayload::COMPLETED),
             EventSelector::new::<Deposit>(DepositEventPayload::FAILED),
         ]),

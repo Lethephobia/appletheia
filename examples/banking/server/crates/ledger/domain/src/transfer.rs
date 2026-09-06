@@ -106,18 +106,10 @@ impl Transfer {
     /// Rejects a transfer request.
     pub fn reject_request(
         &mut self,
-        request: TransferRequest,
+        _request: TransferRequest,
         reason: TransferRequestRejectionReason,
     ) -> Result<(), TransferError> {
-        let (from_account_id, to_account_id, amount, note) = request.into_parts();
-        self.append_event(TransferEventPayload::RequestRejected {
-            from_account_id,
-            to_account_id,
-            amount,
-            note,
-            reason,
-        })?;
-        Ok(())
+        Err(TransferError::RequestRejected(reason))
     }
 
     /// Completes the transfer.
@@ -151,8 +143,7 @@ impl Transfer {
         &mut self,
         reason: TransferCompleteRejectionReason,
     ) -> Result<(), TransferError> {
-        self.append_event(TransferEventPayload::CompleteRejected { reason })?;
-        Ok(())
+        Err(TransferError::CompleteRejected(reason))
     }
 
     /// Fails the transfer.
@@ -189,8 +180,7 @@ impl Transfer {
         &mut self,
         reason: TransferFailRejectionReason,
     ) -> Result<(), TransferError> {
-        self.append_event(TransferEventPayload::FailRejected { reason })?;
-        Ok(())
+        Err(TransferError::FailRejected(reason))
     }
 }
 
@@ -209,27 +199,12 @@ impl AggregateApply<TransferEventPayload, TransferError> for Transfer {
                 note: note.clone(),
                 status: TransferStatus::Pending,
             })),
-            TransferEventPayload::RequestRejected {
-                from_account_id,
-                to_account_id,
-                amount,
-                note,
-                ..
-            } => self.set_state(Some(TransferState {
-                from_account_id: *from_account_id,
-                to_account_id: *to_account_id,
-                amount: *amount,
-                note: note.clone(),
-                status: TransferStatus::Rejected,
-            })),
             TransferEventPayload::Completed => {
                 self.state_required_mut()?.status = TransferStatus::Completed;
             }
-            TransferEventPayload::CompleteRejected { .. } => {}
             TransferEventPayload::Failed { .. } => {
                 self.state_required_mut()?.status = TransferStatus::Failed;
             }
-            TransferEventPayload::FailRejected { .. } => {}
         }
 
         Ok(())

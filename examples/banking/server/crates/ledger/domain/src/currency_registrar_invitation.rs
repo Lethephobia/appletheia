@@ -145,18 +145,10 @@ impl CurrencyRegistrarInvitation {
     /// Rejects an invitation issue attempt.
     pub fn reject_issue(
         &mut self,
-        issuance: CurrencyRegistrarInvitationIssuance,
+        _issuance: CurrencyRegistrarInvitationIssuance,
         reason: CurrencyRegistrarInvitationIssueRejectionReason,
     ) -> Result<(), CurrencyRegistrarInvitationError> {
-        let (currency_registrar_id, invitee_id, issuer, expires_at) = issuance.into_parts();
-        self.append_event(CurrencyRegistrarInvitationEventPayload::IssueRejected {
-            currency_registrar_id,
-            invitee_id,
-            issuer,
-            expires_at,
-            reason,
-        })?;
-        Ok(())
+        Err(CurrencyRegistrarInvitationError::IssueRejected(reason))
     }
 
     /// Accepts the invitation.
@@ -187,13 +179,7 @@ impl CurrencyRegistrarInvitation {
         &mut self,
         reason: CurrencyRegistrarInvitationAcceptRejectionReason,
     ) -> Result<(), CurrencyRegistrarInvitationError> {
-        let state = self.state_required()?;
-        self.append_event(CurrencyRegistrarInvitationEventPayload::AcceptRejected {
-            currency_registrar_id: state.currency_registrar_id,
-            invitee_id: state.invitee_id,
-            reason,
-        })?;
-        Ok(())
+        Err(CurrencyRegistrarInvitationError::AcceptRejected(reason))
     }
 
     /// Declines the invitation.
@@ -224,13 +210,7 @@ impl CurrencyRegistrarInvitation {
         &mut self,
         reason: CurrencyRegistrarInvitationDeclineRejectionReason,
     ) -> Result<(), CurrencyRegistrarInvitationError> {
-        let state = self.state_required()?;
-        self.append_event(CurrencyRegistrarInvitationEventPayload::DeclineRejected {
-            currency_registrar_id: state.currency_registrar_id,
-            invitee_id: state.invitee_id,
-            reason,
-        })?;
-        Ok(())
+        Err(CurrencyRegistrarInvitationError::DeclineRejected(reason))
     }
 
     /// Cancels the invitation.
@@ -261,13 +241,7 @@ impl CurrencyRegistrarInvitation {
         &mut self,
         reason: CurrencyRegistrarInvitationCancelRejectionReason,
     ) -> Result<(), CurrencyRegistrarInvitationError> {
-        let state = self.state_required()?;
-        self.append_event(CurrencyRegistrarInvitationEventPayload::CancelRejected {
-            currency_registrar_id: state.currency_registrar_id,
-            invitee_id: state.invitee_id,
-            reason,
-        })?;
-        Ok(())
+        Err(CurrencyRegistrarInvitationError::CancelRejected(reason))
     }
 }
 
@@ -293,33 +267,15 @@ impl AggregateApply<CurrencyRegistrarInvitationEventPayload, CurrencyRegistrarIn
                     status: CurrencyRegistrarInvitationStatus::Pending,
                 }));
             }
-            CurrencyRegistrarInvitationEventPayload::IssueRejected {
-                currency_registrar_id,
-                invitee_id,
-                issuer,
-                expires_at,
-                ..
-            } => {
-                self.set_state(Some(CurrencyRegistrarInvitationState {
-                    currency_registrar_id: *currency_registrar_id,
-                    invitee_id: *invitee_id,
-                    issuer: *issuer,
-                    expires_at: *expires_at,
-                    status: CurrencyRegistrarInvitationStatus::Rejected,
-                }));
-            }
             CurrencyRegistrarInvitationEventPayload::Accepted { .. } => {
                 self.state_required_mut()?.status = CurrencyRegistrarInvitationStatus::Accepted;
             }
-            CurrencyRegistrarInvitationEventPayload::AcceptRejected { .. } => {}
             CurrencyRegistrarInvitationEventPayload::Declined { .. } => {
                 self.state_required_mut()?.status = CurrencyRegistrarInvitationStatus::Declined;
             }
-            CurrencyRegistrarInvitationEventPayload::DeclineRejected { .. } => {}
             CurrencyRegistrarInvitationEventPayload::Canceled { .. } => {
                 self.state_required_mut()?.status = CurrencyRegistrarInvitationStatus::Canceled;
             }
-            CurrencyRegistrarInvitationEventPayload::CancelRejected { .. } => {}
         }
 
         Ok(())
@@ -334,8 +290,7 @@ mod tests {
     use chrono::{Duration, Utc};
 
     use super::{
-        CurrencyRegistrarInvitation, CurrencyRegistrarInvitationAcceptRejectionReason,
-        CurrencyRegistrarInvitationAcceptResult, CurrencyRegistrarInvitationEventPayload,
+        CurrencyRegistrarInvitation, CurrencyRegistrarInvitationAcceptResult,
         CurrencyRegistrarInvitationExpiresAt, CurrencyRegistrarInvitationIssuance,
         CurrencyRegistrarInvitationIssueResult, CurrencyRegistrarInvitationIssuer,
     };
@@ -370,24 +325,9 @@ mod tests {
                 .expect("first accept should succeed"),
             CurrencyRegistrarInvitationAcceptResult::Accepted
         );
-        assert_eq!(
-            invitation
-                .accept(CurrentDateTime::new())
-                .expect("repeated accept should be rejected as a domain outcome"),
-            CurrencyRegistrarInvitationAcceptResult::Rejected {
-                reason: CurrencyRegistrarInvitationAcceptRejectionReason::NotPending,
-            }
-        );
-        assert!(matches!(
-            invitation
-                .uncommitted_events()
-                .last()
-                .expect("rejection event should exist")
-                .payload(),
-            CurrencyRegistrarInvitationEventPayload::AcceptRejected {
-                reason: CurrencyRegistrarInvitationAcceptRejectionReason::NotPending,
-                ..
-            }
-        ));
+        invitation
+            .accept(CurrentDateTime::new())
+            .expect_err("repeated accept should fail");
+        assert_eq!(invitation.uncommitted_events().len(), 2);
     }
 }

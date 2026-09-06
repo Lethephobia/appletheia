@@ -117,20 +117,10 @@ impl Deposit {
     /// Rejects a deposit request.
     pub fn reject_request(
         &mut self,
-        request: DepositRequest,
+        _request: DepositRequest,
         reason: DepositRequestRejectionReason,
     ) -> Result<(), DepositError> {
-        let (account_id, token_binding_id, token_owner_address, amount, note) =
-            request.into_parts();
-        self.append_event(DepositEventPayload::RequestRejected {
-            account_id,
-            token_binding_id,
-            token_owner_address,
-            amount,
-            note,
-            reason,
-        })?;
-        Ok(())
+        Err(DepositError::RequestRejected(reason))
     }
 
     /// Records the verified on-chain token settlement.
@@ -175,14 +165,10 @@ impl Deposit {
     /// Rejects recording an on-chain token settlement.
     pub fn reject_settlement_verify(
         &mut self,
-        transaction_id: OnchainTransactionId,
+        _transaction_id: OnchainTransactionId,
         reason: DepositSettlementVerifyRejectionReason,
     ) -> Result<(), DepositError> {
-        self.append_event(DepositEventPayload::SettlementVerifyRejected {
-            transaction_id,
-            reason,
-        })?;
-        Ok(())
+        Err(DepositError::SettlementVerifyRejected(reason))
     }
 
     /// Completes the deposit after internal accounting is applied.
@@ -212,8 +198,7 @@ impl Deposit {
         &mut self,
         reason: DepositCompleteRejectionReason,
     ) -> Result<(), DepositError> {
-        self.append_event(DepositEventPayload::CompleteRejected { reason })?;
-        Ok(())
+        Err(DepositError::CompleteRejected(reason))
     }
 
     /// Fails the deposit workflow.
@@ -247,8 +232,7 @@ impl Deposit {
 
     /// Rejects failing the deposit.
     pub fn reject_fail(&mut self, reason: DepositFailRejectionReason) -> Result<(), DepositError> {
-        self.append_event(DepositEventPayload::FailRejected { reason })?;
-        Ok(())
+        Err(DepositError::FailRejected(reason))
     }
 }
 
@@ -270,36 +254,17 @@ impl AggregateApply<DepositEventPayload, DepositError> for Deposit {
                 transaction_id: None,
                 status: DepositStatus::Requested,
             })),
-            DepositEventPayload::RequestRejected {
-                account_id,
-                token_binding_id,
-                token_owner_address,
-                amount,
-                note,
-                ..
-            } => self.set_state(Some(DepositState {
-                account_id: *account_id,
-                token_binding_id: *token_binding_id,
-                token_owner_address: *token_owner_address,
-                amount: *amount,
-                note: note.clone(),
-                transaction_id: None,
-                status: DepositStatus::Rejected,
-            })),
             DepositEventPayload::SettlementVerified { transaction_id, .. } => {
                 let state = self.state_required_mut()?;
                 state.transaction_id = Some(*transaction_id);
                 state.status = DepositStatus::SettlementVerified;
             }
-            DepositEventPayload::SettlementVerifyRejected { .. } => {}
             DepositEventPayload::Completed => {
                 self.state_required_mut()?.status = DepositStatus::Completed;
             }
-            DepositEventPayload::CompleteRejected { .. } => {}
             DepositEventPayload::Failed { .. } => {
                 self.state_required_mut()?.status = DepositStatus::Failed;
             }
-            DepositEventPayload::FailRejected { .. } => {}
         }
 
         Ok(())

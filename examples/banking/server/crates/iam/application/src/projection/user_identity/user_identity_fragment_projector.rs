@@ -105,21 +105,12 @@ where
                 initial_identity: None,
                 ..
             }
-            | UserEventPayload::IdentityLinkRejected { .. }
-            | UserEventPayload::IdentityEmailChangeRejected { .. }
             | UserEventPayload::UsernameChanged { .. }
-            | UserEventPayload::UsernameChangeRejected { .. }
             | UserEventPayload::DisplayNameChanged { .. }
-            | UserEventPayload::DisplayNameChangeRejected { .. }
             | UserEventPayload::BioChanged { .. }
-            | UserEventPayload::BioChangeRejected { .. }
             | UserEventPayload::PictureChanged { .. }
-            | UserEventPayload::PictureChangeRejected { .. }
             | UserEventPayload::Activated
-            | UserEventPayload::ActivateRejected { .. }
-            | UserEventPayload::Deactivated
-            | UserEventPayload::DeactivateRejected { .. }
-            | UserEventPayload::RemoveRejected { .. } => {}
+            | UserEventPayload::Deactivated => {}
         }
 
         Ok(invalidated_partitions)

@@ -1,0 +1,11 @@
+mod pg_command_failure_outbox_enqueuer;
+mod pg_command_failure_outbox_fetcher;
+mod pg_command_failure_outbox_row;
+mod pg_command_failure_outbox_row_error;
+mod pg_command_failure_outbox_writer;
+
+pub use pg_command_failure_outbox_enqueuer::PgCommandFailureOutboxEnqueuer;
+pub use pg_command_failure_outbox_fetcher::PgCommandFailureOutboxFetcher;
+pub use pg_command_failure_outbox_row::PgCommandFailureOutboxRow;
+pub use pg_command_failure_outbox_row_error::PgCommandFailureOutboxRowError;
+pub use pg_command_failure_outbox_writer::PgCommandFailureOutboxWriter;

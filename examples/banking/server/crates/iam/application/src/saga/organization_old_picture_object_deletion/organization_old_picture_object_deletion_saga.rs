@@ -1,4 +1,5 @@
 use appletheia::application::event::EventEnvelope;
+use appletheia::application::request_context::CausationId;
 use appletheia::application::saga::{Saga, SagaInstance, SagaSpec};
 use banking_iam_domain::{Organization, OrganizationEventPayload};
 
@@ -6,7 +7,7 @@ use crate::command::OrganizationPictureObjectDeleteCommand;
 
 use super::{
     OrganizationOldPictureObjectDeletionSagaError, OrganizationOldPictureObjectDeletionSagaSpec,
-    OrganizationOldPictureObjectDeletionSagaState, OrganizationOldPictureObjectDeletionSagaStatus,
+    OrganizationOldPictureObjectDeletionSagaState, OrganizationOldPictureObjectDeletionSagaStep,
 };
 
 /// Coordinates old organization picture object deletion after picture changes.
@@ -14,12 +15,14 @@ pub struct OrganizationOldPictureObjectDeletionSaga;
 
 impl Saga for OrganizationOldPictureObjectDeletionSaga {
     type Spec = OrganizationOldPictureObjectDeletionSagaSpec;
+    type Step = OrganizationOldPictureObjectDeletionSagaStep;
     type Error = OrganizationOldPictureObjectDeletionSagaError;
 
     fn on_event(
         &self,
-        instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State>,
+        instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State, Self::Step>,
         event: &EventEnvelope,
+        _step: Option<Self::Step>,
     ) -> Result<(), Self::Error> {
         let domain_event = event
             .try_into_domain_event::<Organization>()
@@ -36,15 +39,14 @@ impl Saga for OrganizationOldPictureObjectDeletionSaga {
             .and_then(|picture| picture.as_object_name())
             .cloned()
         else {
-            instance.state_required_mut()?.status =
-                OrganizationOldPictureObjectDeletionSagaStatus::Skipped;
             instance.succeed();
             return Ok(());
         };
 
         instance
             .append_command(
-                event,
+                CausationId::from(event.event_id),
+                OrganizationOldPictureObjectDeletionSagaStep::DeletePictureObject,
                 &OrganizationPictureObjectDeleteCommand { object_name },
             )
             .map_err(|_| OrganizationOldPictureObjectDeletionSagaError::UnexpectedEvent)?;

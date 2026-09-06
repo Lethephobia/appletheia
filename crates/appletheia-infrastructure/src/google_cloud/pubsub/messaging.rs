@@ -1,3 +1,5 @@
+pub mod pubsub_command_failure_publisher;
+pub mod pubsub_command_failure_subscriber;
 pub mod pubsub_command_publisher;
 pub mod pubsub_command_subscriber;
 pub mod pubsub_consumer;
@@ -9,6 +11,8 @@ pub mod pubsub_read_model_invalidation_subscriber;
 pub mod pubsub_subscription_path_prefix;
 pub mod pubsub_subscription_path_prefix_error;
 
+pub use pubsub_command_failure_publisher::PubsubCommandFailurePublisher;
+pub use pubsub_command_failure_subscriber::PubsubCommandFailureSubscriber;
 pub use pubsub_command_publisher::PubsubCommandPublisher;
 pub use pubsub_command_subscriber::PubsubCommandSubscriber;
 pub use pubsub_consumer::PubsubConsumer;

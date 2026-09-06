@@ -1,517 +1,219 @@
-# Command Guidelines
+# Command Design
 
-Use for command payloads, command handlers, authorization, validation, and orchestration.
+Use this reference for Appletheia command payloads, handlers, retryability, authorization, and
+terminal failure behavior.
 
-## Command
+## Command payloads
 
-### DO keep command input minimal
+### DO make a command describe one requested operation
 
-Include only the data that is necessary to express the intent.
+Use domain value objects instead of transport primitives and include the aggregate identifier needed
+to load the target.
 
-good:
 ```rust
-pub struct OrganizationRemoveCommand {
-    pub organization_id: OrganizationId,
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct AccountFundsReserveCommand {
+    pub account_id: AccountId,
+    pub amount: CurrencyAmount,
 }
 ```
 
-bad:
+Do not put a saga name, instance ID, step, correlation ID, or causation ID in the payload. The
+`CommandEnvelope` carries message metadata and `SagaCommandOrigin`.
+
+### PREFER output that represents successful completion
+
+Return identifiers or data the caller needs after a successful command. A failed operation belongs in
+the handler's typed error, not in an `Output::Rejected` branch.
+
 ```rust
-pub struct OrganizationRemoveCommand {
-    pub organization_id: OrganizationId,
-    pub organization_name: OrganizationName,
-    pub organization_handle: OrganizationHandle,
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct AccountFundsReserveOutput;
+```
+
+## Handler boundary
+
+### DO keep the handler transaction focused
+
+A normal aggregate handler should:
+
+1. Load or create the aggregate.
+2. Perform application authorization and cross-aggregate lookup when required.
+3. Call an aggregate command method.
+4. Save the aggregate.
+5. Return a successful output.
+
+```rust
+async fn handle(
+    &self,
+    command: &AccountFundsReserveCommand,
+    context: &RequestContext,
+    uow: &mut Uow,
+) -> Result<AccountFundsReserveOutput, AccountFundsReserveCommandHandlerError> {
+    let mut account = self.repository.find(command.account_id, uow).await?;
+    account.reserve_funds(command.amount)?;
+    self.repository.save(&mut account, context, uow).await?;
+    Ok(AccountFundsReserveOutput)
 }
 ```
 
-## CommandHandler
+Let `?` preserve the typed failure. Do not append a compensating failure event or save an otherwise
+unchanged aggregate solely to report refusal.
 
-### DO make command outputs own their replay representation
+### DO keep aggregate invariants in aggregate methods
 
-Implement `CommandOutput` directly on every immediate output. Use the output itself as
-`ReplayOutput` only when the complete value is safe to persist. When the immediate output contains
-credentials, tokens, exchange codes, or other secrets, use a distinct replay-safe type. Keep that
-conversion with the output type so every handler return path follows the same policy. Return a
-borrowed `CommandReplayOutput` for a self-replaying output and an owned one for a separately built
-replay DTO; the command dispatcher serializes that replay value for idempotency storage.
+The command handler may coordinate repositories, reference indexes, policies, and external services.
+Rules that depend only on aggregate state belong in the aggregate. Map the aggregate error into the
+handler error without changing its retryability.
 
-good:
+### DO keep authorization in the application boundary
+
+Resolve the current principal through the application's authorization abstraction. Domain aggregates
+should not read `RequestContext.actor` or transport claims directly.
+
+### DON'T use ambient request metadata as domain input
+
+If issuer, actor, or provenance must be replayable, pass an explicit value object to the aggregate so
+the emitted event contains it. A saga command's step remains in `SagaCommandOrigin`, not in the
+payload or request context.
+
+## Errors and retryability
+
+### DO return typed errors for refused operations
+
+Expected domain refusals are permanent handler errors unless retrying the same command can succeed
+without another business action.
+
 ```rust
-#[derive(Deserialize, Serialize)]
-struct AccountOpenOutput {
-    account_id: AccountId,
+#[derive(Debug, Error)]
+pub enum AccountFundsReserveCommandHandlerError {
+    #[error(transparent)]
+    AccountRepository(#[from] RepositoryError<Account>),
+
+    #[error(transparent)]
+    Account(#[from] AccountError),
 }
 
-impl CommandOutput for AccountOpenOutput {
-    type ReplayOutput = Self;
-
-    fn replay_output(&self) -> CommandReplayOutput<'_, Self::ReplayOutput> {
-        CommandReplayOutput::Borrowed(self)
-    }
-}
-```
-
-good:
-```rust
-impl CommandOutput for OidcCompleteOutput {
-    type ReplayOutput = OidcCompleteReplayOutput;
-
-    fn replay_output(&self) -> CommandReplayOutput<'_, Self::ReplayOutput> {
-        CommandReplayOutput::Owned(self.replay_safe_output())
-    }
-}
-```
-
-bad:
-```rust
-// A secret-bearing output must not persist and replay itself.
-impl CommandOutput for OidcCompleteOutput {
-    type ReplayOutput = Self;
-
-    fn replay_output(&self) -> CommandReplayOutput<'_, Self::ReplayOutput> {
-        CommandReplayOutput::Borrowed(self)
-    }
-}
-```
-
-### DO classify command outcomes before choosing `Ok` or `Err`
-
-Use the following table to keep domain outcomes, rollback failures, persistence, replay, and
-consumer delivery behavior aligned.
-
-| Classification | Typical examples | Handler result and retryability | Persisted data and replay | Transaction | Consumer delivery |
-| --- | --- | --- | --- | --- | --- |
-| Successful domain outcome | Created, transferred, reserved | `Ok(Output)` | Save domain events when state changed and complete the idempotency record; replay returns the stored output | Commit | Ack |
-| Expected persisted business rejection | Insufficient funds, handle already taken, cross-aggregate mismatch | `Ok(Output)` with `Rejected { reason }` | Save a rejected event when the refusal is a domain fact or must drive a saga/projection, then complete the idempotency record | Commit | Ack |
-| Expected non-persisted rejection | Invalid externally validated address, unsupported upload content type, policy refusal with no downstream reaction | `Ok(Output)` with `Rejected { reason }` | Save no domain event; complete the idempotency record so replay returns the same rejection | Commit | Ack |
-| Non-retryable processing failure | Aggregate invariant violation, required aggregate not found, invalid persisted mapping, impossible application state | `Err`, with `is_retryable() == false` | Save neither pending domain events nor a completed idempotency result; an explicit future submission executes again | Roll back | Ack the current delivery |
-| Retryable processing failure | Temporary database, object-storage, network, or application-service failure | `Err`, with `is_retryable() == true` | Save neither pending domain events nor a completed idempotency result; broker redelivery executes again | Roll back | Nack; provider policy may eventually dead-letter |
-
-Treat `Retryability` as the automatic consumer-redelivery decision, not as a prohibition on an
-explicit future client submission. Let an outer application error override a lower-level default
-when the operation gives the same source error different retry semantics.
-
-good:
-```rust
-let result = transfer.request(request)?;
-transfer_repository
-    .save(uow, request_context, &mut transfer)
-    .await?;
-
-let output = match result {
-    TransferRequestResult::Requested => TransferRequestOutput::Requested { transfer_id },
-    TransferRequestResult::Rejected { reason } => {
-        TransferRequestOutput::Rejected { transfer_id, reason }
-    }
-};
-
-Ok(output)
-```
-
-bad:
-```rust
-let result = transfer.request(request)?;
-transfer_repository
-    .save(uow, request_context, &mut transfer)
-    .await?;
-
-if let TransferRequestResult::Rejected { reason } = result {
-    // Returning Err rolls back the rejected event and misclassifies a business outcome.
-    return Err(TransferRequestCommandHandlerError::Rejected { reason });
-}
-
-Ok(TransferRequestOutput::Requested {
-    transfer_id,
-})
-```
-
-### DO persist a rejection only when later behavior needs the fact
-
-Return an expected rejection through the command output without appending an event when no aggregate
-state changes and no saga, projection, audit requirement, or later command depends on the refusal.
-The completed idempotency record is sufficient to replay the command output. Do not create an empty
-or uninitialized aggregate stream solely to persist a rejection reason.
-
-good:
-```rust
-let address_validation = address_validator.validate(&command.address).await?;
-if matches!(address_validation, AddressValidationResult::Invalid) {
-    return Ok(RegisterOutput::Rejected {
-        registration_id,
-        reason: RegisterRejectionReason::InvalidAddress,
-    });
-}
-
-registration.register(request)?;
-registration_repository
-    .save(uow, request_context, &mut registration)
-    .await?;
-```
-
-bad:
-```rust
-let address_validation = address_validator.validate(&command.address).await?;
-if matches!(address_validation, AddressValidationResult::Invalid) {
-    // Nothing consumes this event and the aggregate never becomes registered.
-    registration.reject_register(request, RegisterRejectionReason::InvalidAddress)?;
-    registration_repository
-        .save(uow, request_context, &mut registration)
-        .await?;
-
-    return Ok(RegisterOutput::Rejected {
-        registration_id,
-        reason: RegisterRejectionReason::InvalidAddress,
-    });
-}
-```
-
-### DO load the aggregate, invoke its command method, and save the result
-
-Keep state transitions inside the aggregate boundary.
-
-good:
-```rust
-let mut organization = repository.find_by_id(uow, command.organization_id).await?;
-organization.change_name(command.name)?;
-repository.save(uow, &organization).await?;
-```
-
-bad:
-```rust
-let mut organization = repository.find_by_id(uow, command.organization_id).await?;
-organization.state_mut().name = command.name;
-repository.save(uow, &organization).await?;
-```
-
-### DO treat domain rejections as successful command handling
-
-When the aggregate command method appends events and returns a domain result such as `Accepted` or
-`Rejected`, save the aggregate and return the result through the command output. Handler-side
-validation may return an expected rejection without saving an event when the refusal has no later
-domain use. `CommandHandler::Error` is for processing failures that should roll back, not for
-expected business outcomes. Implement `Retryability` on the error and use `is_retryable` to control
-automatic retry after rollback.
-
-good:
-```rust
-let result = account.reserve_funds(command.amount)?;
-repository.save(uow, request_context, &mut account).await?;
-let output = match result {
-    AccountReserveFundsResult::Reserved => AccountReserveFundsOutput::Reserved,
-    AccountReserveFundsResult::Rejected { reason } => {
-        AccountReserveFundsOutput::Rejected { reason }
-    }
-};
-
-Ok(output)
-```
-
-bad:
-```rust
-account.reserve_funds(command.amount)?;
-repository.save(uow, request_context, &mut account).await?;
-
-Ok(AccountReserveFundsOutput)
-```
-
-### DON'T convert expected domain rejections into handler errors
-
-If a saga or projection must react to a refusal, that refusal must be a persisted domain event.
-Returning `Err` rolls back the event write. The command worker negatively acknowledges errors for
-which `is_retryable` returns `true` and acknowledges errors for which it returns `false`, so the saga
-will never observe the business failure.
-
-bad:
-```rust
-if account.available_balance()? < command.amount {
-    return Err(AccountReserveFundsCommandHandlerError::InsufficientAvailableBalance);
-}
-```
-
-good:
-```rust
-let result = account.reserve_funds(command.amount)?;
-repository.save(uow, request_context, &mut account).await?;
-let output = match result {
-    AccountReserveFundsResult::Reserved => AccountReserveFundsOutput::Reserved,
-    AccountReserveFundsResult::Rejected { reason } => {
-        AccountReserveFundsOutput::Rejected { reason }
-    }
-};
-Ok(output)
-```
-
-### DO implement retryability close to the application error that owns it
-
-Implement `Retryability` on reusable repository, authentication, and other application-service
-errors when their classification is stable. The error type assigned to `CommandHandler::Error`
-must also implement `Retryability`; delegate to source application errors and classify domain errors
-at that outer boundary so the domain crate remains independent of application retry policy. An outer
-error may override a source error when its operation has different retry semantics.
-
-good:
-```rust
-impl Retryability for OrganizationCreateCommandHandlerError {
+impl Retryability for AccountFundsReserveCommandHandlerError {
     fn is_retryable(&self) -> bool {
         match self {
-            Self::OrganizationRepository(error) => error.is_retryable(),
-            Self::Organization(_) => false,
+            Self::AccountRepository(error) => error.is_retryable(),
+            Self::Account(_) => false,
         }
     }
 }
 ```
 
-bad:
-```rust
-fn repository_error_retryability(error: &RepositoryError<Organization>) -> bool {
-    match error {
-        RepositoryError::NotFound { .. } => false,
-        RepositoryError::EventReader(_) => true,
-        // Repeated in every application that uses RepositoryError.
-        _ => false,
-    }
-}
+Do not make every error retryable. Insufficient balance, invalid lifecycle state, duplicate domain
+identity, malformed domain input, and failed authorization are normally permanent. Transient
+database, network, or service availability errors may be retryable.
+
+### DO distinguish a successful rejection decision from operation failure
+
+The word "rejected" does not determine the model; the completed business action does.
+
+- Rejecting a pending organization join request is a successful command. Persist a `Rejected` event
+  because the request changed from pending to rejected.
+- Failing to reserve funds is a failed command. Return an `AccountError`; do not persist a
+  `FundsReserveRejected` event.
+
+Apply the same test to `Declined`, `Denied`, `Failed`, and similar names: did the aggregate complete a
+business transition, or did the requested operation fail to happen?
+
+### DON'T encode command failure as a successful output
+
+Avoid `Ok(Output::Rejected { reason })` for aggregate or application failures. It commits the handler
+transaction and hides failure from command-worker retryability and terminal-failure routing.
+
+If an API needs a client-friendly representation, map the typed command error at the transport
+boundary.
+
+## Transaction and worker behavior
+
+### DO rely on rollback for handler errors
+
+When a handler returns `Err`, aggregate events, repository writes, and ordinary outbox writes in that
+unit of work roll back. Therefore terminal command failure cannot be published from the failed handler
+transaction.
+
+The command worker owns the durable failure boundary:
+
+```text
+dispatch handler
+  -> Ok: commit domain changes and ack
+  -> Err(retryable) with attempts remaining: roll back, release lease, nack
+  -> Err(non-retryable or exhausted): roll back, mark failed, enqueue CommandFailure, ack
 ```
 
-### DON'T touch `RequestContext.actor` in command handlers
+Command-outbox publication retry and command-execution retry are separate concerns.
 
-The default command dispatcher already authorizes commands with `principal`.
-Use `actor` only when a workflow explicitly needs provenance or persistence context, not for routine authorization decisions.
+### DO let `Retryability` drive the retry decision
 
-good:
+The worker has the attempt count obtained when command execution begins and compares it with the
+configured maximum. Handler code should only classify its error; it must not count attempts, sleep,
+nack, or release execution leases.
+
+### DON'T construct or publish `CommandFailureEnvelope` in a handler
+
+The worker creates a new `CommandFailureId`, reuses the persisted `failed_at`, and publishes the
+notification when the command is terminal. For saga-originated commands the envelope includes the
+original `SagaCommandOrigin`; the saga failure worker uses it to route the failure.
+
+## Cross-aggregate validation
+
+### DO use reference indexes or repositories for application-level uniqueness
+
+An aggregate cannot enforce facts owned by another aggregate. Perform the lookup before the target
+mutation and return a typed non-retryable error when a conflicting owner exists.
+
 ```rust
-let _principal = request_context.principal.clone();
-```
-
-bad:
-```rust
-let actor = &request_context.actor;
-```
-
-### DON'T mutate aggregate state directly in the handler
-
-The handler should orchestrate, not reimplement domain logic.
-
-bad:
-```rust
-let mut account = repository.find_by_id(uow, command.account_id).await?;
-account.state_mut().name = command.name;
-```
-
-good:
-```rust
-let mut account = repository.find_by_id(uow, command.account_id).await?;
-account.rename(command.name)?;
-```
-
-### DO keep cross-aggregate validation in the handler when the rule cannot live inside one aggregate
-
-Use the handler for lookups that span multiple aggregates or read models. If the failure must be
-recorded on the aggregate being commanded, call an aggregate command method that appends a rejection
-event and save it. Otherwise, return the rejection without creating an event. Keep `Err` for missing
-aggregates, repository failures, and other processing failures that should roll back. Classify
-automatic retry through `Retryability`.
-
-good:
-```rust
-let currency = currency_repository.find_by_id(uow, command.currency_id).await?;
-let mut issuance = CurrencyIssuance::new();
-let currency_issuance_id = issuance.aggregate_id();
-let request = CurrencyIssuanceRequest {
-    currency_id: command.currency_id,
-    destination_account_id: command.destination_account_id,
-    amount: command.amount,
-};
-
-if destination_account.currency_id()? != &command.currency_id {
-    let reason = CurrencyIssuanceIssueRejectionReason::CurrencyMismatch;
-    issuance.reject_issue(request, reason)?;
-
-    currency_issuance_repository
-        .save(uow, request_context, &mut issuance)
-        .await?;
-
-    return Ok(CurrencyIssueOutput::Rejected {
-        currency_issuance_id,
-        reason,
-    });
+if self.handle_index.owner_of(&command.handle, uow).await?.is_some() {
+    return Err(OrganizationCreateCommandHandlerError::HandleAlreadyTaken);
 }
 
-if !currency.is_active() {
-    let reason = CurrencyIssuanceIssueRejectionReason::CurrencyInactive;
-    issuance.reject_issue(request, reason)?;
-
-    currency_issuance_repository
-        .save(uow, request_context, &mut issuance)
-        .await?;
-
-    return Ok(CurrencyIssueOutput::Rejected {
-        currency_issuance_id,
-        reason,
-    });
-}
-
-let result = issuance.issue(request)?;
-
-currency_issuance_repository
-    .save(uow, request_context, &mut issuance)
-    .await?;
-
-let output = match result {
-    CurrencyIssuanceIssueResult::Issued => CurrencyIssueOutput::Issued {
-        currency_issuance_id,
-    },
-    CurrencyIssuanceIssueResult::Rejected { reason } => CurrencyIssueOutput::Rejected {
-        currency_issuance_id,
-        reason,
-    },
-};
-
-Ok(output)
+let mut organization = Organization::new();
+organization.create(command.organization_id, command.handle.clone())?;
+self.repository.save(&mut organization, context, uow).await?;
 ```
 
-good:
-```rust
-let account = account_repository.find_by_id(uow, command.account_id).await?;
-let source = source_repository.find_by_id(uow, command.source_id).await?;
-```
+Do not create an empty aggregate stream or append a `CreateRejected` event to record this lookup
+failure.
 
-bad:
-```rust
-let currency = currency_repository.find_by_id(uow, command.currency_id).await?;
-let mut issuance = currency_issuance_repository.find_by_id(uow, command.currency_issuance_id).await?;
+### PREFER one durable owner for each invariant
 
-if !currency.is_active() {
-    return Err(CurrencyIssuanceIssueCommandHandlerError::CurrencyInactive);
-}
+If a unique value is reserved through a dedicated aggregate or registry, command that owner first and
+coordinate later work with a saga. Keep compensation explicit for terminal failures.
 
-let result = issuance.issue(command.amount)?;
-```
+## Idempotency and side effects
 
-### DON'T duplicate aggregate-owned validation in the handler
+### DO dispatch through `DefaultCommandDispatcher`
 
-If the aggregate command method already enforces a rule, let the aggregate own that failure path.
-Reserve handler-side checks for rules that need other aggregates or read models.
+Use the standard dispatcher even for direct dispatch so command execution, idempotency, unit-of-work,
+and output persistence behave consistently. Do not invent a no-op command execution store for an
+alternate path.
 
-good:
-```rust
-let mut organization = repository.find_by_id(uow, command.organization_id).await?;
-organization.change_name(command.name)?;
-```
+### DO keep external effects behind retry-aware application abstractions
 
-bad:
-```rust
-let mut organization = repository.find_by_id(uow, command.organization_id).await?;
-if organization.is_removed() {
-    return Err(OrganizationChangeNameCommandHandlerError::Removed);
-}
+Calls to object storage, identity providers, blockchains, email, or other services must declare
+whether their failures are retryable. Prefer idempotency keys derived from stable message identity for
+effects that may be invoked again.
 
-organization.change_name(command.name)?;
-```
+### DON'T report success before durable state is ready
 
-### DON'T orchestrate multi-aggregate workflows directly in the handler
+Return `Ok` only after the aggregate and required outbox work have been recorded in the handler unit
+of work. Do not use an output variant to mask partial work.
 
-Use a saga when one command needs to emit follow-up commands for another aggregate.
+## Testing
 
-bad:
-```rust
-let mut invitation = invitation_repository.find_by_id(uow, command.invitation_id).await?;
-invitation.accept()?;
+### DO test both retryability classes
 
-let mut membership = membership_repository.find_by_id(uow, command.membership_id).await?;
-membership.create()?;
-```
+For each handler, cover at least:
 
-good:
-```rust
-let mut invitation = invitation_repository.find_by_id(uow, command.invitation_id).await?;
-invitation.accept()?;
-```
+- successful state change and emitted event;
+- permanent aggregate or policy failure with no emitted event;
+- retryable infrastructure failure;
+- mapping from nested errors to `Retryability`;
+- rollback of domain and outbox changes on `Err`.
 
-### DON'T depend on read model stores or relationship stores in command handlers
-
-Command handlers should work through aggregate repositories and domain methods.
-If a workflow needs read model data or relationship graph queries, move that concern to a separate query path or workflow service.
-
-good:
-```rust
-let mut organization = organization_repository.find_by_id(uow, command.organization_id).await?;
-organization.change_name(command.name)?;
-```
-
-bad:
-```rust
-let members = relationship_store.read_subjects_by_aggregate(...).await?;
-let summary = read_model_store.find_by_organization_id(...).await?;
-```
-
-### DO map non-outcome domain errors into handler errors
-
-Return application-specific errors from the handler boundary when the aggregate reports an invalid
-operation or invariant failure. Do not use this for expected business rejections that should be
-persisted as events.
-
-good:
-```rust
-let mut organization = repository.find_by_id(uow, command.organization_id).await?;
-organization.change_handle(command.handle)?;
-```
-
-bad:
-```rust
-let mut organization = repository.find_by_id(uow, command.organization_id).await?;
-organization.change_handle(command.handle).unwrap();
-```
-
-### PREFER handlers to return outputs from persisted ids or resulting state
-
-Return what the caller needs to continue, not extra read-model data.
-
-good:
-```rust
-Ok(OrganizationRemoveOutput {
-    organization_id: command.organization_id,
-})
-```
-
-bad:
-```rust
-Ok(OrganizationRemoveOutput {
-    organization: repository.find_by_id(uow, command.organization_id).await?,
-})
-```
-
-### PREFER one unit of work per handler
-
-Keep the transaction boundary aligned with the command boundary unless a workflow explicitly needs more.
-
-good:
-```rust
-let mut uow = repository.begin().await?;
-// load -> authorize -> mutate -> save
-uow.commit().await?;
-```
-
-bad:
-```rust
-let mut uow1 = repository.begin().await?;
-let mut uow2 = repository.begin().await?;
-```
-
-### DON'T hide one-shot domain failures in the handler
-
-If the aggregate rejects a repeated create, open, approve, or accept call, let that failure surface.
-
-good:
-```rust
-organization.remove()?;
-```
-
-bad:
-```rust
-if organization.is_removed() {
-    return Ok(());
-}
-
-organization.remove()?;
-```
+For saga-originated commands, also test that a terminal failure is routed to the saga with the
+original step. That worker-level behavior does not belong in the handler unit test.

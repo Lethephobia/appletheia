@@ -87,7 +87,6 @@ where
                         )
                         .await?
                 }
-                CurrencyEventPayload::ActivationRejected { .. } => None,
                 CurrencyEventPayload::Deactivated => {
                     self.writer
                         .update_currency_status(
@@ -98,7 +97,6 @@ where
                         )
                         .await?
                 }
-                CurrencyEventPayload::DeactivationRejected { .. } => None,
             }
         } else if event.is_for_aggregate::<TokenBinding>() {
             let event = event.try_into_domain_event::<TokenBinding>()?;
@@ -150,10 +148,6 @@ where
                         .remove_token_binding(uow, event_context, event.aggregate_id())
                         .await?
                 }
-                TokenBindingEventPayload::DefinitionRejected { .. }
-                | TokenBindingEventPayload::DepositEnabledChangeRejected { .. }
-                | TokenBindingEventPayload::WithdrawalEnabledChangeRejected { .. }
-                | TokenBindingEventPayload::RemovalRejected { .. } => None,
             }
         } else {
             None

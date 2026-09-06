@@ -1,529 +1,257 @@
-# Saga Guidelines
+# Saga Design
 
-Use for workflow orchestration across aggregates, event-driven command emission, and saga state.
+Use this reference when an Appletheia application coordinates a workflow across aggregates.
 
-## Saga
+## Workflow boundary
 
-### DO treat sagas as workflow coordinators
+### DO use a saga only for cross-aggregate or multi-command coordination
 
-Use sagas to connect domain events to follow-up commands across aggregate boundaries.
+Keep one aggregate's invariants inside that aggregate. A saga reacts to committed domain events,
+dispatches commands, and reacts to terminal failures of commands it dispatched.
 
-good:
+```text
+committed event
+  -> SagaEventWorker -> Saga::on_event -> command outbox
+  -> CommandWorker -> success event or terminal CommandFailure
+  -> SagaEventWorker or SagaCommandFailureWorker
+```
+
+The two saga workers have different inputs and contracts. Do not hide them behind one application
+worker abstraction.
+
+### DON'T use operation-failure events to drive a saga
+
+If an aggregate refuses an operation, return a typed error. Do not append events such as
+`FundsReserveRejected`, `CreateRejected`, or `CompleteRejected` merely so a saga can observe the
+failure. Once a command becomes terminal, Appletheia durably publishes a `CommandFailureEnvelope`
+for the originating saga.
+
+A rejection or decline can still be a domain event when the rejection itself is the successful
+business action. For example, `OrganizationJoinRequestEventPayload::Rejected` records that an
+authorized actor rejected a pending request. That differs from a rejected attempt to execute a
+command.
+
+## Steps
+
+### DO define the saga step as a user-owned serializable enum
+
+`Saga::Step` identifies the logical command dispatch that produced a later event or terminal
+failure. Give each dispatched operation one stable value.
+
 ```rust
-if let TransferEventPayload::Requested { .. } = transfer_event.payload() {
-    instance.append_command(event, &AccountFundsReserveCommand { .. })?;
+use appletheia::application::saga::SagaStep;
+use serde::{Deserialize, Serialize};
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TransferSagaStep {
+    ReserveFunds,
+    Deposit,
+    ReleaseFunds,
+    CommitFunds,
+    CompensateDeposit,
+    Complete,
+    Fail,
 }
+
+impl SagaStep for TransferSagaStep {}
 ```
 
-bad:
+The framework serializes this value into `SagaCommandOrigin` and persists it with the dispatched
+command. Do not maintain a parallel string step name or duplicate it in saga state.
+
+### DO route follow-up events with the `step` argument
+
+`step` is `None` only for a start event. An event caused by a saga-dispatched command is routed with
+the step stored in that command's origin.
+
 ```rust
-let mut transfer = repository.find_by_id(uow, command.transfer_id).await?;
-transfer.request(command.from_account_id, command.to_account_id, command.amount)?;
-repository.save(uow, &transfer).await?;
-
-let mut account = repository.find_by_id(uow, command.from_account_id).await?;
-account.reserve_funds(command.amount)?;
-repository.save(uow, &account).await?;
-```
-
-### DO keep workflow branching explicit
-
-Branch on the aggregate type and payload you actually need.
-
-good:
-```rust
-if event.is_for_aggregate::<Transfer>() {
-    let transfer_event = event.try_into_domain_event::<Transfer>()?;
-    // ...
-}
-```
-
-bad:
-```rust
-match event.payload().name() {
-    "requested" => { /* ... */ }
-    _ => {}
-}
-```
-
-### DO drive compensation and abort paths from domain failure events
-
-Sagas should react to persisted rejection or failure events emitted by aggregates. Do not depend on
-command handler `Err` values for workflow failure, because those errors are rolled back and retried
-by the command dispatcher and worker.
-
-good:
-```rust
-match account_event.payload() {
-    AccountEventPayload::FundsReserveRejected { .. } => {
-        let state = instance.state_required_mut()?;
-        state.status = TransferSagaStatus::FailRequested;
-        instance.append_command(event, &TransferFailCommand {
-            transfer_id: state.transfer_id,
-        })?;
+fn on_event(
+    &self,
+    instance: &mut SagaInstance<TransferSagaState, TransferSagaStep>,
+    event: &EventEnvelope,
+    step: Option<TransferSagaStep>,
+) -> Result<(), TransferSagaError> {
+    if event.is_for_aggregate::<Account>() {
+        let account_event = event.try_into_domain_event::<Account>()?;
+        match account_event.payload() {
+            AccountEventPayload::FundsReserved { .. }
+                if step == Some(TransferSagaStep::ReserveFunds) =>
+            {
+                let state = instance.state_required()?;
+                instance.append_command(
+                    CausationId::from(event.event_id),
+                    TransferSagaStep::Deposit,
+                    &AccountDepositCommand {
+                        account_id: state.to_account_id,
+                        amount: state.amount,
+                    },
+                )?;
+            }
+            _ => {}
+        }
     }
-    AccountEventPayload::FundsReserved { .. } => {
-        // continue the success path
-    }
-    _ => {}
+    Ok(())
 }
 ```
 
-bad:
+Match both the event payload and step when the same event type can be produced by several saga
+operations. Do not infer the previous operation from a custom state status.
+
+### DON'T put saga steps in `RequestContext`
+
+The step belongs to `SagaCommandOrigin`, not to caller identity or request metadata. Appletheia
+persists the serialized step with the command and resolves it when routing its result.
+
+## Dispatching commands
+
+### DO append every saga command with causation and step
+
 ```rust
-// command worker failure is not a saga input
-if command_failed {
-    instance.append_command(event, &TransferFailCommand { transfer_id })?;
-}
-```
-
-### PREFER enum statuses for linear saga progress
-
-For a single-path workflow, store progress in one status enum and include command-requested states
-when they prevent duplicate follow-up commands. Use booleans or sets only for parallel branches or
-independent facts that cannot be represented by one current status.
-
-Prefer statuses that describe the command most recently requested by the saga, not the event that
-just arrived, when the event immediately triggers another command. Use observed or terminal
-statuses only when the saga is intentionally waiting, succeeding, or failing at that point.
-
-good:
-```rust
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub enum TransferSagaStatus {
-    #[default]
-    Initial,
-    FundsReserveRequested,
-    DepositRequested,
-    ReservedFundsCommitRequested,
-    CompleteRequested,
-    FailRequested,
-    Completed,
-    Failed,
-}
-```
-
-bad:
-```rust
-pub struct TransferSagaState {
-    funds_reserved: bool,
-    deposit_requested: bool,
-    fail_requested: bool,
-    completed: bool,
-}
-```
-
-### DON'T operate aggregates directly inside a saga
-
-Keep validation and mutation inside command handlers and aggregate command methods.
-The saga should only coordinate the workflow by reacting to events and emitting follow-up commands.
-
-bad:
-```rust
-let mut account = repository.find_by_id(uow, command.account_id).await?;
-account.reserve_funds(command.amount)?;
-```
-
-good:
-```rust
-if let TransferEventPayload::Requested { .. } = transfer_event.payload() {
-    instance.append_command(event, &AccountFundsReserveCommand { .. })?;
-}
-```
-
-### DON'T depend on `RequestContext` inside a saga
-
-Use the triggering event payload and saga state as the only workflow inputs.
-Avoid reading `event.context.principal`, `event.context.actor`, or any other ambient request metadata in saga logic.
-If the workflow needs provenance or issuer information later, put that data into the domain event payload when the event is emitted, not into `RequestContext`.
-
-good:
-```rust
-let transfer_event = event.try_into_domain_event::<Transfer>()?;
-if let TransferEventPayload::Requested { requester_id, .. } = transfer_event.payload() {
-    // derive the next command from event data
-}
-```
-
-bad:
-```rust
-let actor = &event.context.actor;
-let principal = &event.context.principal;
-```
-
-### PREFER a saga per workflow
-
-Give each orchestration flow its own saga even when several flows are similar.
-
-good:
-```rust
-TransferSaga
-OrganizationInvitationSaga
-OrganizationJoinRequestSaga
-```
-
-bad:
-```rust
-WorkflowSaga
-```
-
-### DO use `SagaInstance` to carry state, queued commands, and terminal status
-
-Let the saga implementation use the instance as the single place for in-flight workflow bookkeeping.
-Read the triggering aggregate's own ID from the domain event, not from its payload.
-
-good:
-```rust
-*instance.state_mut() = Some(TransferSagaState::new(
-    transfer_event.aggregate_id(),
-    *from_account_id,
-    *to_account_id,
-    *amount,
-));
-
 instance.append_command(
-    event,
-    &AccountFundsReserveCommand {
-        account_id: *from_account_id,
-        amount: *amount,
-    },
+    CausationId::from(event.event_id),
+    TransferSagaStep::ReserveFunds,
+    &AccountFundsReserveCommand { account_id: from_account_id, amount },
 )?;
 ```
 
-bad:
+From `on_event`, derive causation from `EventId`. From `on_command_failed`, derive it from
+`CommandFailureId`.
+
 ```rust
-command_bus.send(AccountFundsReserveCommand { .. });
+instance.append_command(
+    CausationId::from(failure.failure_id),
+    TransferSagaStep::ReleaseFunds,
+    &AccountReservedFundsReleaseCommand { account_id, amount },
+)?;
 ```
 
-### DON'T duplicate an aggregate's own ID in an event payload
+This preserves the causal chain while each new command receives its own message ID.
 
-The event already carries its aggregate ID. Use `domain_event.aggregate_id()` when initializing
-saga state or building a follow-up command. Keep payload IDs only for references to other
-aggregates.
+### PREFER `append_command` over `append_command_with_options`
 
-good:
-```rust
-let transfer_event = event.try_into_domain_event::<Transfer>()?;
-if let TransferEventPayload::Requested {
-    from_account_id,
-    to_account_id,
-    amount,
-} = transfer_event.payload()
-{
-    *instance.state_mut() = Some(TransferSagaState::new(
-        transfer_event.aggregate_id(),
-        *from_account_id,
-        *to_account_id,
-        *amount,
-    ));
-}
-```
+Use explicit options only when they differ from the defaults. Keep the argument order consistent:
 
-bad:
-```rust
-if let TransferEventPayload::Requested { transfer_id, .. } = transfer_event.payload() {
-    // `transfer_id` duplicates the ID already carried by `transfer_event`.
-}
-```
-
-### DO use `append_command_with_options` only when command options differ from defaults
-
-Use `append_command` for the normal path. Keep explicit options visible only when the saga needs
-non-default consistency or other command options.
-
-good:
-```rust
-instance.append_command(event, &TransferCompleteCommand { transfer_id })?;
-```
-
-good:
 ```rust
 instance.append_command_with_options(
-    event,
+    CausationId::from(event.event_id),
+    TransferSagaStep::Complete,
     &TransferCompleteCommand { transfer_id },
-    CommandOptions {
-        consistency: CommandConsistency::Eventual,
-    },
+    command_options,
 )?;
 ```
 
-bad:
+Appending only adds an uncommitted command. The framework creates the dispatched-command record
+from the persisted envelope and its `SagaCommandOrigin`; application code must not push one manually.
+
+## Command failures
+
+### DO handle compensation from `on_command_failed`
+
+The method receives the terminal failure and the exact step that dispatched the command. Branch on
+the step; command-name and step selectors are unnecessary in application code.
+
 ```rust
-instance.append_command_with_options(
-    event,
-    &TransferCompleteCommand { transfer_id },
-    CommandOptions::default(),
-)?;
-```
-
-### DO mark the saga succeeded or failed on terminal events
-
-Use explicit terminal transitions when the workflow completes or aborts.
-
-good:
-```rust
-match transfer_event.payload() {
-    TransferEventPayload::Completed => {
-        instance.state_required_mut()?.status = TransferSagaStatus::Completed;
-        instance.succeed();
+fn on_command_failed(
+    &self,
+    instance: &mut SagaInstance<TransferSagaState, TransferSagaStep>,
+    failure: &CommandFailureEnvelope,
+    step: TransferSagaStep,
+) -> Result<(), TransferSagaError> {
+    match step {
+        TransferSagaStep::Deposit => {
+            let state = instance.state_required()?;
+            instance.append_command(
+                CausationId::from(failure.failure_id),
+                TransferSagaStep::ReleaseFunds,
+                &AccountReservedFundsReleaseCommand {
+                    account_id: state.from_account_id,
+                    amount: state.amount,
+                },
+            )?;
+        }
+        _ => instance.fail(),
     }
-    TransferEventPayload::Failed { .. } => {
-        instance.state_required_mut()?.status = TransferSagaStatus::Failed;
-        instance.fail();
-    }
-    _ => {}
+    Ok(())
 }
 ```
 
-bad:
+If a saga needs no compensation policy, omit the override. The default implementation calls
+`instance.fail()`.
+
+### DO treat `CommandFailureEnvelope` as a terminal notification
+
+The command worker retries retryable errors while attempts remain. It emits the notification only
+after a non-retryable error or exhausted attempts. Handler changes have already rolled back; the
+worker records `failed_at` in its own durable boundary and publishes through the failure outbox.
+
+Do not retry inside the saga and do not construct a failure envelope in a command handler.
+
+### DON'T subscribe to command failures as domain events
+
+Event subscriptions select start and continuation events. Command failures are routed separately by
+the saga name in `SagaCommandOrigin`, then correlated with the persisted dispatched command. There is
+no application `CommandFailureSelector` or failure event payload to register.
+
+## Saga state and lifecycle
+
+### DO keep saga state to workflow data and readiness facts
+
+Store only identifiers, values needed by later commands, and independent facts needed to join
+parallel branches.
+
 ```rust
-match transfer_event.payload() {
-    TransferEventPayload::Completed => {}
-    TransferEventPayload::Failed { .. } => {}
-    _ => {}
-}
-```
-
-### DON'T emit follow-up commands after the saga is terminal
-
-Terminal workflows should not keep appending commands.
-
-good:
-```rust
-instance.succeed();
-```
-
-bad:
-```rust
-instance.succeed();
-instance.append_command(event, &AnotherCommand { .. })?;
-```
-
-### DON'T add redundant transition validation for strictly ordered saga steps
-
-Commands emitted within one correlation are processed in append order. When the next event can only
-arrive after the prior command completed, do not add defensive "previous status must be X" checks
-or repeat completeness validation for data the saga already fixed at startup. For the same reason,
-do not add extra checks to prove that a follow-up event "really belongs" to the saga by comparing
-stored business IDs when the subscription and correlation already guarantee the event came from the
-same workflow.
-
-good:
-```rust
-let state = instance.state_required_mut()?;
-let to_account_id = state.to_account_id;
-let amount = state.amount;
-state.status = TransferSagaStatus::DepositRequested;
-
-instance.append_command(
-    event,
-    &AccountDepositCommand {
-        account_id: to_account_id,
-        amount,
-    },
-)?;
-```
-
-bad:
-```rust
-if state.status != TransferSagaStatus::FundsReserveRequested {
-    return Err(TransferSagaError::UnexpectedStatus);
-}
-
-let transfer_id = state.transfer_id.ok_or(TransferSagaError::IncompleteState)?;
-let from_account_id = state.from_account_id.ok_or(TransferSagaError::IncompleteState)?;
-```
-
-### DO use state checks as readiness tracking only for parallel branches
-
-When a saga fans out multiple commands and must wait for all their events, track readiness in saga
-state and no-op until every required branch is complete. Treat this as workflow progress tracking,
-not as an error condition.
-
-good:
-```rust
-state.profile_ready = true;
-if !state.settings_ready {
-    return Ok(());
-}
-
-instance.append_command(event, &CompleteSetupCommand { setup_id: state.setup_id })?;
-```
-
-## SagaSpec
-
-### DO declare the event subscription explicitly
-
-Keep the saga's trigger set visible and stable.
-
-good:
-```rust
-const DESCRIPTOR: SagaDescriptor = SagaDescriptor::new(
-    SagaName::new("transfer"),
-    SagaStartEvents::new(&[EventSelector::new::<Transfer>(
-        TransferEventPayload::REQUESTED,
-    )]),
-    Subscription::AnyOf(&[
-        EventSelector::new::<Transfer>(TransferEventPayload::REQUESTED),
-        EventSelector::new::<Account>(AccountEventPayload::FUNDS_RESERVED),
-    ]),
-);
-```
-
-bad:
-```rust
-const DESCRIPTOR: SagaDescriptor = SagaDescriptor::new(
-    SagaName::new("transfer"),
-    SagaStartEvents::new(&[EventSelector::new::<Transfer>(
-        TransferEventPayload::REQUESTED,
-    )]),
-    Subscription::All,
-);
-```
-
-### DO keep the saga name business-oriented
-
-Name the saga after the workflow or aggregate family, not after one transient step.
-
-good:
-```rust
-SagaName::new("organization_invitation")
-```
-
-bad:
-```rust
-SagaName::new("invitation_accepted")
-```
-
-### PREFER narrow subscriptions
-
-Subscribe to the exact events the saga consumes.
-
-good:
-```rust
-Subscription::AnyOf(&[
-    EventSelector::new::<OrganizationInvitation>(OrganizationInvitationEventPayload::ACCEPTED),
-    EventSelector::new::<User>(UserEventPayload::ORGANIZATION_MEMBERSHIP_GRANTED),
-    EventSelector::new::<User>(UserEventPayload::ORGANIZATION_MEMBERSHIP_GRANT_REJECTED),
-])
-```
-
-bad:
-```rust
-Subscription::AnyOf(&[
-    EventSelector::new::<OrganizationInvitation>(OrganizationInvitationEventPayload::ISSUED),
-    EventSelector::new::<OrganizationInvitation>(OrganizationInvitationEventPayload::ACCEPTED),
-    EventSelector::new::<OrganizationInvitation>(OrganizationInvitationEventPayload::DECLINED),
-    EventSelector::new::<OrganizationInvitation>(OrganizationInvitationEventPayload::CANCELED),
-    EventSelector::new::<User>(UserEventPayload::ORGANIZATION_MEMBERSHIP_GRANTED),
-    EventSelector::new::<User>(UserEventPayload::ORGANIZATION_MEMBERSHIP_GRANT_REJECTED),
-    EventSelector::new::<User>(UserEventPayload::EMAIL_CHANGED),
-])
-```
-
-## SagaState
-
-### DO store only the correlation data needed to complete the workflow
-
-Keep saga state compact and focused on in-flight ids.
-
-good:
-```rust
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct TransferSagaState {
     pub transfer_id: TransferId,
     pub from_account_id: AccountId,
     pub to_account_id: AccountId,
     pub amount: CurrencyAmount,
 }
+
+impl SagaState for TransferSagaState {}
 ```
 
-bad:
+For parallel work, booleans or result slots may be appropriate because they represent independent
+observations. A linear `Pending -> Reserving -> Depositing -> Completing` status duplicates the
+framework step and should not be stored.
+
+### DO let `SagaInstance` own terminal status
+
+Call `instance.succeed()` when the terminal success event arrives and `instance.fail()` when the
+workflow cannot continue. These methods also discard uncommitted commands. Do not mirror
+`Succeeded` or `Failed` in user-defined state.
+
 ```rust
-pub struct TransferSagaState {
-    pub from_account_balance: Option<CurrencyAmount>,
-    pub to_account_balance: Option<CurrencyAmount>,
-    pub transfer_total: Option<CurrencyAmount>,
+match transfer_event.payload() {
+    TransferEventPayload::Completed
+        if step == Some(TransferSagaStep::Complete) => instance.succeed(),
+    TransferEventPayload::Failed { .. }
+        if step == Some(TransferSagaStep::Fail) => instance.fail(),
+    _ => {}
 }
 ```
 
-### PREFER an explicit workflow status or phase in saga state when progress matters
+### DO rely on framework persistence for duplicate delivery
 
-When a saga has multiple meaningful steps, store a compact status enum so the state shows both
-the routing ids and how far the workflow has advanced.
+Appletheia records processed events and processed command failures with uniqueness constraints. Saga
+logic should remain deterministic, but it should not add ad hoc consumed flags or synthetic state to
+replace the framework idempotency boundary.
 
-Use the status to model saga-local progress transitions, not to mirror aggregate business status.
+## Subscriptions and boundaries
 
-good:
-```rust
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct TransferSagaState {
-    pub transfer_id: TransferId,
-    pub from_account_id: AccountId,
-    pub to_account_id: AccountId,
-    pub amount: CurrencyAmount,
-    pub status: TransferSagaStatus,
-}
+### DO keep event subscriptions explicit and narrow
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub enum TransferSagaStatus {
-    #[default]
-    Initial,
-    FundsReserveRequested,
-    DepositRequested,
-    ReservedFundsCommitRequested,
-    CompleteRequested,
-    FailRequested,
-    Completed,
-    Failed,
-}
-```
+Subscribe only to event payloads the saga starts from or actually consumes. Do not subscribe to every
+event of an aggregate and do not include removed operation-rejection events.
 
-bad:
-```rust
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct TransferSagaState {
-    pub transfer_id: Option<TransferId>,
-    pub from_account_id: Option<AccountId>,
-    pub to_account_id: Option<AccountId>,
-    pub amount: Option<CurrencyAmount>,
-}
-```
+### DON'T load or mutate aggregates directly from a saga
 
-### DON'T duplicate domain state in saga state
+A saga coordinates through commands. Direct aggregate access bypasses command authorization,
+idempotency, retryability, command execution tracking, and the command outbox.
 
-Store ids and routing hints, not a second copy of the business aggregate state.
+### DON'T put request-scoped authority in saga state
 
-good:
-```rust
-pub struct OrganizationInvitationSagaState {
-    pub organization_invitation_id: OrganizationInvitationId,
-}
-```
-
-bad:
-```rust
-pub struct OrganizationInvitationSagaState {
-    pub organization_name: Option<OrganizationName>,
-    pub invitee_username: Option<Username>,
-    pub invitation_status: Option<OrganizationInvitationStatus>,
-}
-```
-
-### PREFER serializable and compact saga state
-
-Persisted state should be easy to serialize and cheap to restore.
-
-good:
-```rust
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ExampleSagaState {
-    pub example_id: ExampleId,
-}
-```
-
-bad:
-```rust
-pub struct ExampleSagaState {
-    pub repository: ExampleRepository,
-}
-```
+If a later command needs an actor or issuer as domain data, include the required value in the start
+event or saga state explicitly. Do not depend on an ambient `RequestContext` surviving asynchronous
+delivery.

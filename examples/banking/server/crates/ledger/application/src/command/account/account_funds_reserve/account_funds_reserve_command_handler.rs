@@ -2,7 +2,7 @@ use appletheia::application::authorization::{AuthorizationPlan, PrincipalRequire
 use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_ledger_domain::account::{Account, AccountFundsReserveResult};
+use banking_ledger_domain::account::Account;
 
 use super::{
     AccountFundsReserveCommand, AccountFundsReserveCommandHandlerError, AccountFundsReserveOutput,
@@ -54,18 +54,11 @@ where
             .read(uow, command.account_id)
             .await?;
 
-        let result = account.reserve_funds(command.amount)?;
+        account.reserve_funds(command.amount)?;
         self.account_repository
             .save(uow, request_context, &mut account)
             .await?;
 
-        let output = match result {
-            AccountFundsReserveResult::Reserved => AccountFundsReserveOutput::Reserved,
-            AccountFundsReserveResult::Rejected { reason } => {
-                AccountFundsReserveOutput::Rejected { reason }
-            }
-        };
-
-        Ok(output)
+        Ok(AccountFundsReserveOutput::Reserved)
     }
 }

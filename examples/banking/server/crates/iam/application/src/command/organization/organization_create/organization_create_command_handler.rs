@@ -146,9 +146,8 @@ mod tests {
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::Aggregate;
     use banking_iam_domain::{
-        Organization, OrganizationCreateRejectionReason, OrganizationCreation,
-        OrganizationDisplayName, OrganizationEventPayload, OrganizationHandle, OrganizationId,
-        OrganizationOwner, User, UserId,
+        Organization, OrganizationCreation, OrganizationDisplayName, OrganizationHandle,
+        OrganizationId, OrganizationOwner, User, UserId,
     };
     use uuid::Uuid;
 
@@ -335,7 +334,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn handle_records_rejection_when_handle_is_taken() {
+    async fn handle_returns_error_when_handle_is_taken() {
         let mut existing = Organization::new();
         existing
             .create(OrganizationCreation {
@@ -352,7 +351,7 @@ mod tests {
         let mut uow = TestUow;
         let (request_context, user_id) = request_context();
 
-        let handled = handler
+        handler
             .handle(
                 &mut uow,
                 &request_context,
@@ -367,29 +366,6 @@ mod tests {
                 },
             )
             .await
-            .expect("duplicate handle should be rejected");
-
-        let saved = repository
-            .organization
-            .lock()
-            .expect("lock")
-            .clone()
-            .expect("rejected creation should be saved");
-        let reason = OrganizationCreateRejectionReason::HandleAlreadyTaken;
-        assert_eq!(
-            handled,
-            OrganizationCreateOutput::Rejected {
-                organization_id: saved.aggregate_id(),
-                reason,
-            }
-        );
-        assert!(saved.state().is_none());
-        assert!(matches!(
-            saved.uncommitted_events()[0].payload(),
-            OrganizationEventPayload::CreateRejected {
-                reason: OrganizationCreateRejectionReason::HandleAlreadyTaken,
-                ..
-            }
-        ));
+            .expect_err("duplicate handle should return an error");
     }
 }

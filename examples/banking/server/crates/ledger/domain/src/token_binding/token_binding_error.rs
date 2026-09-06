@@ -1,7 +1,10 @@
 use appletheia::domain::AggregateError;
 use thiserror::Error;
 
-use super::{TokenBindingId, TokenBindingStateError};
+use super::{
+    TokenBindingDefineRejectionReason, TokenBindingEnablementChangeRejectionReason, TokenBindingId,
+    TokenBindingRemoveRejectionReason, TokenBindingStateError,
+};
 
 #[derive(Debug, Error)]
 pub enum TokenBindingError {
@@ -13,4 +16,10 @@ pub enum TokenBindingError {
     AlreadyDefined,
     #[error("token address does not match the selected chain")]
     ChainMismatch,
+    #[error("token binding definition rejected: {0:?}")]
+    DefinitionRejected(TokenBindingDefineRejectionReason),
+    #[error("token binding enablement change rejected: {0:?}")]
+    EnablementChangeRejected(TokenBindingEnablementChangeRejectionReason),
+    #[error("token binding removal rejected: {0:?}")]
+    RemovalRejected(TokenBindingRemoveRejectionReason),
 }

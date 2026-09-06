@@ -35,12 +35,15 @@ The reference files follow an Effective Dart style:
 
 - `references/domain/aggregate.md`
 
-  Use for aggregate boundaries, command methods, state transitions, and event application.
+  Use for aggregate boundaries, typed domain refusals, meaningful business facts, state transitions,
+  and event application.
 
 - `references/application/command.md`
 
-  Use for command payload design, command handlers, authorization, and orchestration.
+  Use for command payload design, command handlers, authorization, retryability, and terminal command
+  failures.
 
 - `references/application/saga.md`
 
-  Use for event-driven workflow orchestration, saga instances, saga state, and saga subscriptions.
+  Use for event and command-failure workflow orchestration, serializable saga steps, saga instances,
+  saga state, and subscriptions.

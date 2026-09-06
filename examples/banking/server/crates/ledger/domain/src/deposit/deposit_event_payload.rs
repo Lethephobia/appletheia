@@ -4,11 +4,7 @@ use crate::account::AccountId;
 use crate::core::{CurrencyAmount, OnchainTransactionId, TokenOwnerAddress};
 use crate::token_binding::TokenBindingId;
 
-use super::{
-    DepositCompleteRejectionReason, DepositEventPayloadError, DepositFailRejectionReason,
-    DepositFailureReason, DepositNote, DepositRequestRejectionReason,
-    DepositSettlementVerifyRejectionReason,
-};
+use super::{DepositEventPayloadError, DepositFailureReason, DepositNote};
 
 /// Represents the domain events emitted by a `Deposit` aggregate.
 #[event_payload(error = DepositEventPayloadError)]
@@ -20,31 +16,13 @@ pub enum DepositEventPayload {
         amount: CurrencyAmount,
         note: Option<DepositNote>,
     },
-    RequestRejected {
-        account_id: AccountId,
-        token_binding_id: TokenBindingId,
-        token_owner_address: TokenOwnerAddress,
-        amount: CurrencyAmount,
-        note: Option<DepositNote>,
-        reason: DepositRequestRejectionReason,
-    },
     SettlementVerified {
         account_id: AccountId,
         amount: CurrencyAmount,
         transaction_id: OnchainTransactionId,
     },
-    SettlementVerifyRejected {
-        transaction_id: OnchainTransactionId,
-        reason: DepositSettlementVerifyRejectionReason,
-    },
     Completed,
-    CompleteRejected {
-        reason: DepositCompleteRejectionReason,
-    },
     Failed {
         reason: DepositFailureReason,
-    },
-    FailRejected {
-        reason: DepositFailRejectionReason,
     },
 }

@@ -2,10 +2,10 @@ mod organization_invitation_saga;
 mod organization_invitation_saga_error;
 mod organization_invitation_saga_spec;
 mod organization_invitation_saga_state;
-mod organization_invitation_saga_status;
+mod organization_invitation_saga_step;
 
 pub use organization_invitation_saga::OrganizationInvitationSaga;
 pub use organization_invitation_saga_error::OrganizationInvitationSagaError;
 pub use organization_invitation_saga_spec::OrganizationInvitationSagaSpec;
 pub use organization_invitation_saga_state::OrganizationInvitationSagaState;
-pub use organization_invitation_saga_status::OrganizationInvitationSagaStatus;
+pub use organization_invitation_saga_step::OrganizationInvitationSagaStep;

@@ -51,6 +51,9 @@ impl PgCommandOutboxWriter {
                 payload,
                 correlation_id,
                 causation_id,
+                saga_name,
+                saga_instance_id,
+                saga_step,
                 options,
                 published_at,
                 attempt_count,
@@ -68,6 +71,15 @@ impl PgCommandOutboxWriter {
                 let command = &outbox.command;
                 let last_error_value = Self::serialize_last_error(outbox)?;
                 let options_value = Self::serialize_options(outbox)?;
+                let (saga_name_value, saga_instance_id_value, saga_step_value) =
+                    match &command.saga_origin {
+                        Some(origin) => (
+                            Some(origin.saga_name.value()),
+                            Some(origin.saga_instance_id.value()),
+                            Some(origin.step.value().clone()),
+                        ),
+                        None => (None, None, None),
+                    };
                 let next_attempt_after_value = outbox
                     .state
                     .next_attempt_after()
@@ -83,6 +95,9 @@ impl PgCommandOutboxWriter {
                     .push_bind(command.command.value().clone())
                     .push_bind(command.correlation_id.value())
                     .push_bind(command.causation_id.value())
+                    .push_bind(saga_name_value)
+                    .push_bind(saga_instance_id_value)
+                    .push_bind(saga_step_value)
                     .push_bind(options_value)
                     .push_bind(outbox.state.published_at().map(DateTime::<Utc>::from))
                     .push_bind(outbox.state.attempt_count().value())
@@ -131,6 +146,9 @@ impl PgCommandOutboxWriter {
                 payload,
                 correlation_id,
                 causation_id,
+                saga_name,
+                saga_instance_id,
+                saga_step,
                 options,
                 published_at,
                 attempt_count,
@@ -149,6 +167,15 @@ impl PgCommandOutboxWriter {
                 let command = &outbox.command;
                 let last_error_value = Self::serialize_last_error(outbox)?;
                 let options_value = Self::serialize_options(outbox)?;
+                let (saga_name_value, saga_instance_id_value, saga_step_value) =
+                    match &command.saga_origin {
+                        Some(origin) => (
+                            Some(origin.saga_name.value()),
+                            Some(origin.saga_instance_id.value()),
+                            Some(origin.step.value().clone()),
+                        ),
+                        None => (None, None, None),
+                    };
                 let dead_lettered_at_value = match outbox.lifecycle {
                     OutboxLifecycle::DeadLettered { dead_lettered_at } => {
                         DateTime::<Utc>::from(dead_lettered_at)
@@ -165,6 +192,9 @@ impl PgCommandOutboxWriter {
                     .push_bind(command.command.value().clone())
                     .push_bind(command.correlation_id.value())
                     .push_bind(command.causation_id.value())
+                    .push_bind(saga_name_value)
+                    .push_bind(saga_instance_id_value)
+                    .push_bind(saga_step_value)
                     .push_bind(options_value)
                     .push_bind(outbox.state.published_at().map(DateTime::<Utc>::from))
                     .push_bind(outbox.state.attempt_count().value())

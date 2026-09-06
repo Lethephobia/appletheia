@@ -1,26 +1,26 @@
 use appletheia_domain::EventId;
 
-use crate::request_context::{CausationId, CorrelationId, MessageId};
-use crate::{
-    command::{Command, CommandEnvelope, CommandOptions},
-    event::EventEnvelope,
+use crate::command::{Command, CommandEnvelope, CommandOptions};
+use crate::request_context::{CausationId, CorrelationId};
+
+use super::{
+    SagaCommandOrigin, SagaDispatchedCommand, SagaInstanceError, SagaInstanceId, SagaNameOwned,
+    SagaState, SagaStatus, SagaStep, SerializedSagaStep,
 };
 
-use super::{SagaInstanceError, SagaInstanceId, SagaNameOwned, SagaState, SagaStatus};
-
 #[derive(Clone, Debug, PartialEq)]
-pub struct SagaInstance<S: SagaState> {
+pub struct SagaInstance<S: SagaState, T: SagaStep> {
     pub saga_instance_id: SagaInstanceId,
     pub saga_name: SagaNameOwned,
     pub correlation_id: CorrelationId,
     pub start_event_id: EventId,
     pub status: SagaStatus,
     pub state: Option<S>,
-    pub dispatched_command_message_ids: Vec<MessageId>,
+    pub dispatched_commands: Vec<SagaDispatchedCommand<T>>,
     pub uncommitted_commands: Vec<CommandEnvelope>,
 }
 
-impl<S: SagaState> SagaInstance<S> {
+impl<S: SagaState, T: SagaStep> SagaInstance<S, T> {
     pub fn new(
         saga_name: SagaNameOwned,
         correlation_id: CorrelationId,
@@ -33,9 +33,25 @@ impl<S: SagaState> SagaInstance<S> {
             start_event_id,
             status: SagaStatus::InProgress,
             state: None,
-            dispatched_command_message_ids: Vec::new(),
+            dispatched_commands: Vec::new(),
             uncommitted_commands: Vec::new(),
         }
+    }
+
+    pub fn uncommitted_commands(&self) -> &[CommandEnvelope] {
+        &self.uncommitted_commands
+    }
+
+    pub fn is_terminal(&self) -> bool {
+        matches!(self.status, SagaStatus::Succeeded | SagaStatus::Failed)
+    }
+
+    pub fn is_succeeded(&self) -> bool {
+        matches!(self.status, SagaStatus::Succeeded)
+    }
+
+    pub fn is_failed(&self) -> bool {
+        matches!(self.status, SagaStatus::Failed)
     }
 
     pub fn state_mut(&mut self) -> &mut Option<S> {
@@ -62,54 +78,37 @@ impl<S: SagaState> SagaInstance<S> {
         self.clear_uncommitted_commands();
     }
 
+    /// Appends a command attributed to one stable logical saga step.
     pub fn append_command<C: Command>(
         &mut self,
-        from_event: &EventEnvelope,
+        causation_id: CausationId,
+        step: T,
         command: &C,
     ) -> Result<(), SagaInstanceError> {
-        self.append_command_with_options(from_event, command, CommandOptions::default())
+        self.append_command_with_options(causation_id, step, command, CommandOptions::default())
     }
 
+    /// Appends a command with explicit saga step and command options.
     pub fn append_command_with_options<C: Command>(
         &mut self,
-        from_event: &EventEnvelope,
+        causation_id: CausationId,
+        step: T,
         command: &C,
         options: CommandOptions,
     ) -> Result<(), SagaInstanceError> {
-        if self.correlation_id != from_event.correlation_id {
-            return Err(SagaInstanceError::CorrelationIdMismatch);
-        }
-
-        let envelope = CommandEnvelope::new(
-            command,
-            self.correlation_id,
-            CausationId::from(from_event.event_id),
-            options,
-        )?;
-        self.dispatched_command_message_ids
-            .push(envelope.message_id);
+        let origin = SagaCommandOrigin {
+            saga_name: self.saga_name.clone(),
+            saga_instance_id: self.saga_instance_id,
+            step: SerializedSagaStep::new(step)?,
+        };
+        let envelope = CommandEnvelope::new(command, self.correlation_id, causation_id, options)?
+            .with_saga_origin(origin);
         self.uncommitted_commands.push(envelope);
 
         Ok(())
     }
 
-    pub fn uncommitted_commands(&self) -> &[CommandEnvelope] {
-        &self.uncommitted_commands
-    }
-
     pub fn clear_uncommitted_commands(&mut self) {
         self.uncommitted_commands.clear();
-    }
-
-    pub fn is_terminal(&self) -> bool {
-        matches!(self.status, SagaStatus::Succeeded | SagaStatus::Failed)
-    }
-
-    pub fn is_succeeded(&self) -> bool {
-        matches!(self.status, SagaStatus::Succeeded)
-    }
-
-    pub fn is_failed(&self) -> bool {
-        matches!(self.status, SagaStatus::Failed)
     }
 }

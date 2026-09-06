@@ -101,8 +101,7 @@ impl OwnedAccountClosure {
         &mut self,
         reason: OwnedAccountClosurePageLoadRejectionReason,
     ) -> Result<(), OwnedAccountClosureError> {
-        self.append_event(OwnedAccountClosureEventPayload::PageLoadRejected { reason })?;
-        Ok(())
+        Err(OwnedAccountClosureError::PageLoadRejected(reason))
     }
 
     /// Records a successful account close result.
@@ -124,13 +123,10 @@ impl OwnedAccountClosure {
     /// Rejects recording a successful account close result.
     pub fn reject_record_account_close(
         &mut self,
-        account_id: AccountId,
+        _account_id: AccountId,
         reason: OwnedAccountClosureRecordRejectionReason,
     ) -> Result<(), OwnedAccountClosureError> {
-        self.append_event(
-            OwnedAccountClosureEventPayload::AccountCloseRecordRejected { account_id, reason },
-        )?;
-        Ok(())
+        Err(OwnedAccountClosureError::RecordRejected(reason))
     }
 
     /// Records a rejected account close result.
@@ -155,16 +151,10 @@ impl OwnedAccountClosure {
     /// Rejects recording a rejected account close result.
     pub fn reject_record_account_close_rejection(
         &mut self,
-        account_id: AccountId,
+        _account_id: AccountId,
         reason: OwnedAccountClosureRecordRejectionReason,
     ) -> Result<(), OwnedAccountClosureError> {
-        self.append_event(
-            OwnedAccountClosureEventPayload::AccountCloseRejectionRecordRejected {
-                account_id,
-                reason,
-            },
-        )?;
-        Ok(())
+        Err(OwnedAccountClosureError::RecordRejected(reason))
     }
 
     /// Marks the workflow completed.
@@ -210,8 +200,7 @@ impl OwnedAccountClosure {
         &mut self,
         reason: OwnedAccountClosureCompleteRejectionReason,
     ) -> Result<(), OwnedAccountClosureError> {
-        self.append_event(OwnedAccountClosureEventPayload::CompleteRejected { reason })?;
-        Ok(())
+        Err(OwnedAccountClosureError::CompleteRejected(reason))
     }
 
     /// Marks the workflow failed after all account close attempts were recorded.
@@ -247,8 +236,7 @@ impl OwnedAccountClosure {
         &mut self,
         reason: OwnedAccountClosureFailRejectionReason,
     ) -> Result<(), OwnedAccountClosureError> {
-        self.append_event(OwnedAccountClosureEventPayload::FailRejected { reason })?;
-        Ok(())
+        Err(OwnedAccountClosureError::FailRejected(reason))
     }
 }
 
@@ -271,25 +259,20 @@ impl AggregateApply<OwnedAccountClosureEventPayload, OwnedAccountClosureError>
             OwnedAccountClosureEventPayload::PageLoaded { .. } => {
                 self.state_required_mut()?.status = OwnedAccountClosureStatus::InProgress;
             }
-            OwnedAccountClosureEventPayload::PageLoadRejected { .. } => {}
             OwnedAccountClosureEventPayload::AccountCloseRecorded { .. } => {
                 let state = self.state_required_mut()?;
                 state.closed_account_count = state.closed_account_count.saturating_add(1);
             }
-            OwnedAccountClosureEventPayload::AccountCloseRecordRejected { .. } => {}
             OwnedAccountClosureEventPayload::AccountCloseRejectionRecorded { .. } => {
                 let state = self.state_required_mut()?;
                 state.rejected_account_count = state.rejected_account_count.saturating_add(1);
             }
-            OwnedAccountClosureEventPayload::AccountCloseRejectionRecordRejected { .. } => {}
             OwnedAccountClosureEventPayload::Completed { .. } => {
                 self.state_required_mut()?.status = OwnedAccountClosureStatus::Completed;
             }
-            OwnedAccountClosureEventPayload::CompleteRejected { .. } => {}
             OwnedAccountClosureEventPayload::Failed { .. } => {
                 self.state_required_mut()?.status = OwnedAccountClosureStatus::Failed;
             }
-            OwnedAccountClosureEventPayload::FailRejected { .. } => {}
         }
 
         Ok(())
@@ -304,8 +287,7 @@ mod tests {
     use crate::account::{AccountCloseRejectionReason, AccountId, AccountOwner};
 
     use super::{
-        OwnedAccountClosure, OwnedAccountClosureCompleteRejectionReason,
-        OwnedAccountClosureCompleteResult, OwnedAccountClosureEventPayload,
+        OwnedAccountClosure, OwnedAccountClosureCompleteResult, OwnedAccountClosureEventPayload,
         OwnedAccountClosureRecordResult, OwnedAccountClosureRequest, OwnedAccountClosureStatus,
     };
 
@@ -322,20 +304,8 @@ mod tests {
             })
             .expect("request should succeed");
 
-        let result = closure
-            .complete()
-            .expect("complete should emit a rejection event");
-
-        assert!(matches!(
-            result,
-            OwnedAccountClosureCompleteResult::Rejected {
-                reason: OwnedAccountClosureCompleteRejectionReason::NotInProgress
-            }
-        ));
-        assert_eq!(
-            closure.uncommitted_events()[1].payload().name(),
-            OwnedAccountClosureEventPayload::COMPLETE_REJECTED
-        );
+        closure.complete().expect_err("complete should fail");
+        assert_eq!(closure.uncommitted_events().len(), 1);
     }
 
     #[test]
@@ -389,19 +359,7 @@ mod tests {
             OwnedAccountClosureRecordResult::Recorded
         ));
 
-        let result = closure
-            .complete()
-            .expect("complete should emit a rejection event");
-
-        assert!(matches!(
-            result,
-            OwnedAccountClosureCompleteResult::Rejected {
-                reason: OwnedAccountClosureCompleteRejectionReason::AccountCloseRejected
-            }
-        ));
-        assert_eq!(
-            closure.uncommitted_events()[3].payload().name(),
-            OwnedAccountClosureEventPayload::COMPLETE_REJECTED
-        );
+        closure.complete().expect_err("complete should fail");
+        assert_eq!(closure.uncommitted_events().len(), 3);
     }
 }

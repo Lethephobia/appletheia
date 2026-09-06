@@ -1,5 +1,4 @@
 use appletheia::application::command::{CommandOutput, CommandReplayOutput};
-use banking_ledger_domain::account::AccountReservedFundsCommitRejectionReason;
 use serde::{Deserialize, Serialize};
 
 /// Returned after committing reserved funds in an account.
@@ -7,9 +6,6 @@ use serde::{Deserialize, Serialize};
 #[serde(tag = "type", content = "data", rename_all = "snake_case")]
 pub enum AccountReservedFundsCommitOutput {
     Committed,
-    Rejected {
-        reason: AccountReservedFundsCommitRejectionReason,
-    },
 }
 
 impl CommandOutput for AccountReservedFundsCommitOutput {

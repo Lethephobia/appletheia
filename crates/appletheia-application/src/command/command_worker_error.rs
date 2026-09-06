@@ -1,11 +1,12 @@
-use std::error::Error;
-
 use thiserror::Error;
 
 use crate::messaging::ConsumerError;
 use crate::messaging::SubscriberError;
 
 use super::CommandEnvelopeError;
+use super::CommandExecutionStoreError;
+use crate::outbox::command_failure::CommandFailureOutboxEnqueueError;
+use crate::unit_of_work::{UnitOfWorkError, UnitOfWorkFactoryError};
 
 #[derive(Debug, Error)]
 pub enum CommandWorkerError {
@@ -18,6 +19,15 @@ pub enum CommandWorkerError {
     #[error(transparent)]
     CommandEnvelope(#[from] CommandEnvelopeError),
 
-    #[error("command dispatch error: {0}")]
-    Dispatch(#[source] Box<dyn Error + Send + Sync>),
+    #[error(transparent)]
+    UnitOfWorkFactory(#[from] UnitOfWorkFactoryError),
+
+    #[error(transparent)]
+    UnitOfWork(#[from] UnitOfWorkError),
+
+    #[error(transparent)]
+    ExecutionStore(#[from] CommandExecutionStoreError),
+
+    #[error(transparent)]
+    FailureOutbox(#[from] CommandFailureOutboxEnqueueError),
 }

@@ -3,9 +3,7 @@ use banking_ledger_domain::account::{AccountId, AccountOwner};
 use banking_ledger_domain::owned_account_closure::OwnedAccountClosureId;
 use serde::{Deserialize, Serialize};
 
-use super::OwnedAccountClosureSagaStatus;
-
-/// Stores progress for the owned account closure saga.
+/// Stores data needed by the owned account closure saga.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OwnedAccountClosureSagaState {
     pub owned_account_closure_id: Option<OwnedAccountClosureId>,
@@ -14,7 +12,6 @@ pub struct OwnedAccountClosureSagaState {
     pub pending_account_ids: Vec<AccountId>,
     pub closed_account_count: u32,
     pub rejected_account_count: u32,
-    pub status: OwnedAccountClosureSagaStatus,
 }
 
 impl OwnedAccountClosureSagaState {
@@ -26,22 +23,17 @@ impl OwnedAccountClosureSagaState {
             pending_account_ids: Vec::new(),
             closed_account_count: 0,
             rejected_account_count: 0,
-            status: OwnedAccountClosureSagaStatus::ClosureRequestRequested,
         }
     }
 
     pub fn set_loaded_page(&mut self, account_ids: Vec<AccountId>, next_cursor: Option<AccountId>) {
         self.pending_account_ids = account_ids;
         self.next_cursor = next_cursor;
-        self.status = OwnedAccountClosureSagaStatus::AccountCloseRequested;
     }
 
     pub fn remove_pending_account(&mut self, account_id: AccountId) {
         self.pending_account_ids
             .retain(|pending_account_id| *pending_account_id != account_id);
-        if self.has_pending_accounts() {
-            self.status = OwnedAccountClosureSagaStatus::AccountCloseRequested;
-        }
     }
 
     pub fn has_pending_accounts(&self) -> bool {

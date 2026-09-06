@@ -8,5 +8,4 @@ pub struct PgAuthTokenRevocationCutoffRow {
     pub subject_aggregate_type: String,
     pub subject_aggregate_id: Uuid,
     pub revoke_before: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
 }

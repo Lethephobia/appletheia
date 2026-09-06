@@ -97,8 +97,7 @@ impl Currency {
         &mut self,
         reason: CurrencyLifecycleRejectionReason,
     ) -> Result<(), CurrencyError> {
-        self.append_event(CurrencyEventPayload::ActivationRejected { reason })?;
-        Ok(())
+        Err(CurrencyError::LifecycleRejected(reason))
     }
 
     pub fn deactivate(&mut self) -> Result<CurrencyLifecycleResult, CurrencyError> {
@@ -115,8 +114,7 @@ impl Currency {
         &mut self,
         reason: CurrencyLifecycleRejectionReason,
     ) -> Result<(), CurrencyError> {
-        self.append_event(CurrencyEventPayload::DeactivationRejected { reason })?;
-        Ok(())
+        Err(CurrencyError::LifecycleRejected(reason))
     }
 }
 
@@ -141,11 +139,9 @@ impl AggregateApply<CurrencyEventPayload, CurrencyError> for Currency {
             CurrencyEventPayload::Activated => {
                 self.state_required_mut()?.status = CurrencyStatus::Active;
             }
-            CurrencyEventPayload::ActivationRejected { .. } => {}
             CurrencyEventPayload::Deactivated => {
                 self.state_required_mut()?.status = CurrencyStatus::Inactive;
             }
-            CurrencyEventPayload::DeactivationRejected { .. } => {}
         }
         Ok(())
     }
@@ -158,10 +154,7 @@ mod tests {
     use crate::core::{CurrencyCode, CurrencyDecimals};
     use crate::currency_registrar::CurrencyRegistrarId;
 
-    use super::{
-        Currency, CurrencyDefinition, CurrencyDescription, CurrencyLifecycleRejectionReason,
-        CurrencyLifecycleResult,
-    };
+    use super::{Currency, CurrencyDefinition, CurrencyDescription};
 
     fn defined_currency() -> Currency {
         let mut currency = Currency::new();
@@ -184,14 +177,9 @@ mod tests {
     #[test]
     fn repeated_lifecycle_commands_are_rejected() {
         let mut currency = defined_currency();
-        assert_eq!(
-            currency
-                .deactivate()
-                .expect("deactivation should be handled"),
-            CurrencyLifecycleResult::Rejected {
-                reason: CurrencyLifecycleRejectionReason::AlreadyInactive,
-            }
-        );
+        currency
+            .deactivate()
+            .expect_err("repeated deactivation should fail");
     }
 
     #[test]

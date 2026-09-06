@@ -26,9 +26,6 @@ impl SagaSpec for CurrencyRegistrarJoinRequestSagaSpec {
             EventSelector::new::<CurrencyRegistrarMembership>(
                 CurrencyRegistrarMembershipEventPayload::CREATED,
             ),
-            EventSelector::new::<CurrencyRegistrarMembership>(
-                CurrencyRegistrarMembershipEventPayload::CREATE_REJECTED,
-            ),
         ]),
     );
 }

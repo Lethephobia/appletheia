@@ -129,7 +129,6 @@ where
                         invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                     }
                 }
-                _ => {}
             }
         } else if event.is_for_aggregate::<Withdrawal>() {
             let domain_event = event.try_into_domain_event::<Withdrawal>()?;
@@ -217,7 +216,6 @@ where
                         invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                     }
                 }
-                _ => {}
             }
         } else if event.is_for_aggregate::<Transfer>() {
             let domain_event = event.try_into_domain_event::<Transfer>()?;
@@ -273,7 +271,6 @@ where
                         invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                     }
                 }
-                _ => {}
             }
         }
 

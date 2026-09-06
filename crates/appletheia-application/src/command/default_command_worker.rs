@@ -2,16 +2,21 @@ use std::sync::atomic::{AtomicBool, Ordering as AtomicOrdering};
 
 use crate::Retryability;
 use crate::command::{
-    Command, CommandDispatcher, CommandEnvelope, CommandEnvelopeError, CommandHandler,
-    CommandSelector, CommandWorker,
+    Command, CommandDispatcher, CommandEnvelope, CommandEnvelopeError,
+    CommandExecutionFailureMarkResult, CommandExecutionLeaseAcquisitionResult,
+    CommandExecutionLeaseReleaseResult, CommandExecutionRetryPolicy, CommandExecutionStore,
+    CommandFailureEnvelope, CommandHandler, CommandSelector, CommandTerminalReason, CommandWorker,
+    DefaultCommandWorkerDependencies,
 };
 use crate::messaging::Subscription;
+use crate::outbox::command_failure::CommandFailureOutboxEnqueuer;
 use crate::request_context::{ActorRef, Principal, RequestContext};
+use crate::unit_of_work::{UnitOfWork, UnitOfWorkFactory};
 use crate::{Consumer, ConsumerGroup, Delivery, Subscriber};
 
 use super::CommandWorkerError;
 
-pub struct DefaultCommandWorker<H, D, S>
+pub struct DefaultCommandWorker<H, D, S, ES, FE, U>
 where
     H: CommandHandler,
     H::Command: Command,
@@ -19,15 +24,22 @@ where
     S: Subscriber<CommandEnvelope, Selector = CommandSelector>,
     S::Consumer: Consumer<CommandEnvelope>,
     <S::Consumer as Consumer<CommandEnvelope>>::Delivery: Delivery<CommandEnvelope>,
+    ES: CommandExecutionStore<Uow = D::Uow>,
+    FE: CommandFailureOutboxEnqueuer<Uow = D::Uow>,
+    U: UnitOfWorkFactory<Uow = D::Uow>,
 {
     dispatcher: D,
     handler: H,
     subscriber: S,
+    execution_store: ES,
+    failure_outbox_enqueuer: FE,
+    uow_factory: U,
     consumer_group: ConsumerGroup,
+    retry_policy: CommandExecutionRetryPolicy,
     stop_requested: AtomicBool,
 }
 
-impl<H, D, S> DefaultCommandWorker<H, D, S>
+impl<H, D, S, ES, FE, U> DefaultCommandWorker<H, D, S, ES, FE, U>
 where
     H: CommandHandler,
     H::Command: Command,
@@ -35,19 +47,30 @@ where
     S: Subscriber<CommandEnvelope, Selector = CommandSelector>,
     S::Consumer: Consumer<CommandEnvelope>,
     <S::Consumer as Consumer<CommandEnvelope>>::Delivery: Delivery<CommandEnvelope>,
+    ES: CommandExecutionStore<Uow = D::Uow>,
+    FE: CommandFailureOutboxEnqueuer<Uow = D::Uow>,
+    U: UnitOfWorkFactory<Uow = D::Uow>,
 {
-    pub fn new(dispatcher: D, handler: H, subscriber: S, consumer_group: ConsumerGroup) -> Self {
+    pub fn new(
+        dependencies: DefaultCommandWorkerDependencies<D, H, S, ES, FE, U>,
+        consumer_group: ConsumerGroup,
+        retry_policy: CommandExecutionRetryPolicy,
+    ) -> Self {
         Self {
-            dispatcher,
-            handler,
-            subscriber,
+            dispatcher: dependencies.dispatcher,
+            handler: dependencies.handler,
+            subscriber: dependencies.subscriber,
+            execution_store: dependencies.execution_store,
+            failure_outbox_enqueuer: dependencies.failure_outbox_enqueuer,
+            uow_factory: dependencies.uow_factory,
             consumer_group,
+            retry_policy,
             stop_requested: AtomicBool::new(false),
         }
     }
 }
 
-impl<H, D, S> CommandWorker for DefaultCommandWorker<H, D, S>
+impl<H, D, S, ES, FE, U> CommandWorker for DefaultCommandWorker<H, D, S, ES, FE, U>
 where
     H: CommandHandler,
     H::Command: Command,
@@ -55,6 +78,9 @@ where
     S: Subscriber<CommandEnvelope, Selector = CommandSelector>,
     S::Consumer: Consumer<CommandEnvelope>,
     <S::Consumer as Consumer<CommandEnvelope>>::Delivery: Delivery<CommandEnvelope>,
+    ES: CommandExecutionStore<Uow = D::Uow>,
+    FE: CommandFailureOutboxEnqueuer<Uow = D::Uow>,
+    U: UnitOfWorkFactory<Uow = D::Uow>,
 {
     fn is_stop_requested(&self) -> bool {
         self.stop_requested.load(AtomicOrdering::SeqCst)
@@ -89,6 +115,36 @@ where
 
             if let Some(command) = decoded_command {
                 let envelope = delivery.message();
+                let mut lease_uow = self.uow_factory.begin().await?;
+                let lease_acquisition = self
+                    .execution_store
+                    .acquire_lease(&mut lease_uow, envelope, self.retry_policy.lease_duration)
+                    .await;
+                let lease_acquisition_result = match lease_acquisition {
+                    Ok(result) => {
+                        lease_uow.commit().await?;
+                        result
+                    }
+                    Err(error) => {
+                        let rolled_back_error =
+                            lease_uow.rollback_with_operation_error(error).await?;
+                        return Err(rolled_back_error.into());
+                    }
+                };
+                let attempt_count = match lease_acquisition_result {
+                    CommandExecutionLeaseAcquisitionResult::Acquired { attempt_count } => {
+                        attempt_count
+                    }
+                    CommandExecutionLeaseAcquisitionResult::Succeeded
+                    | CommandExecutionLeaseAcquisitionResult::Failed => {
+                        delivery.ack().await?;
+                        continue;
+                    }
+                    CommandExecutionLeaseAcquisitionResult::InProgress => {
+                        delivery.nack().await?;
+                        continue;
+                    }
+                };
                 let request_context = RequestContext {
                     correlation_id: envelope.correlation_id,
                     message_id: envelope.message_id,
@@ -107,14 +163,97 @@ where
                     .await;
 
                 match result {
-                    Ok(_) => delivery.ack().await?,
-                    Err(error) => {
-                        if error.is_retryable() {
-                            delivery.nack().await?;
-                        } else {
-                            delivery.ack().await?;
+                    Ok(_) => {
+                        let mut success_uow = self.uow_factory.begin().await?;
+                        let mark_succeeded_result = self
+                            .execution_store
+                            .mark_succeeded(&mut success_uow, envelope.message_id)
+                            .await;
+                        match mark_succeeded_result {
+                            Ok(()) => success_uow.commit().await?,
+                            Err(store_error) => {
+                                let rolled_back_error = success_uow
+                                    .rollback_with_operation_error(store_error)
+                                    .await?;
+                                return Err(rolled_back_error.into());
+                            }
                         }
-                        return Err(CommandWorkerError::Dispatch(Box::new(error)));
+                        delivery.ack().await?;
+                    }
+                    Err(error) => {
+                        let retryable = error.is_retryable();
+                        let has_attempts_remaining =
+                            attempt_count.value() < self.retry_policy.max_attempts.value().get();
+                        if retryable && has_attempts_remaining {
+                            let mut release_uow = self.uow_factory.begin().await?;
+                            let release_attempt = self
+                                .execution_store
+                                .release_lease(&mut release_uow, envelope.message_id, attempt_count)
+                                .await;
+                            let release_result = match release_attempt {
+                                Ok(result) => result,
+                                Err(store_error) => {
+                                    let rolled_back_error = release_uow
+                                        .rollback_with_operation_error(store_error)
+                                        .await?;
+                                    return Err(rolled_back_error.into());
+                                }
+                            };
+                            release_uow.commit().await?;
+                            match release_result {
+                                CommandExecutionLeaseReleaseResult::Released => {
+                                    delivery.nack().await?;
+                                }
+                                CommandExecutionLeaseReleaseResult::Stale => {
+                                    delivery.ack().await?;
+                                }
+                            }
+                        } else {
+                            let reason = if retryable {
+                                CommandTerminalReason::RetryExhausted
+                            } else {
+                                CommandTerminalReason::NonRetryable
+                            };
+                            let mut failure_uow = self.uow_factory.begin().await?;
+                            let mark_failed_attempt = self
+                                .execution_store
+                                .mark_failed(&mut failure_uow, envelope.message_id, attempt_count)
+                                .await;
+                            let mark_failed_result = match mark_failed_attempt {
+                                Ok(result) => result,
+                                Err(store_error) => {
+                                    let rolled_back_error = failure_uow
+                                        .rollback_with_operation_error(store_error)
+                                        .await?;
+                                    return Err(rolled_back_error.into());
+                                }
+                            };
+                            match mark_failed_result {
+                                CommandExecutionFailureMarkResult::Marked { failed_at } => {
+                                    if let Some(origin) = envelope.saga_origin.clone() {
+                                        let notification = CommandFailureEnvelope::new(
+                                            envelope,
+                                            origin,
+                                            reason,
+                                            attempt_count,
+                                            failed_at,
+                                        );
+                                        self.failure_outbox_enqueuer
+                                            .enqueue_command_failure(
+                                                &mut failure_uow,
+                                                &notification,
+                                            )
+                                            .await?;
+                                    }
+                                    failure_uow.commit().await?;
+                                    delivery.ack().await?;
+                                }
+                                CommandExecutionFailureMarkResult::Stale => {
+                                    failure_uow.commit().await?;
+                                    delivery.ack().await?;
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -126,34 +265,128 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
+    use std::num::NonZeroU32;
     use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::{Arc, Mutex};
 
     use serde::{Deserialize, Serialize};
     use uuid::Uuid;
 
-    use super::DefaultCommandWorker;
+    use super::{CommandWorkerError, DefaultCommandWorker};
     use crate::Retryability;
     use crate::authorization::AuthorizationPlan;
-    use crate::command::CommandEnvelope;
     use crate::command::{
-        Command, CommandDispatchResult, CommandDispatcher, CommandDispatcherError, CommandHandler,
-        CommandName, CommandOptions, CommandOutput, CommandReplayOutput, CommandWorker,
+        Command, CommandAttemptCount, CommandDispatchResult, CommandDispatcher,
+        CommandDispatcherError, CommandEnvelope, CommandExecutionFailureMarkResult,
+        CommandExecutionLeaseAcquisitionResult, CommandExecutionLeaseDuration,
+        CommandExecutionLeaseReleaseResult, CommandExecutionMaxAttempts,
+        CommandExecutionRetryPolicy, CommandExecutionStore, CommandExecutionStoreError,
+        CommandFailedAt, CommandHandler, CommandName, CommandOptions, CommandOutput,
+        CommandReplayOutput, CommandWorker, DefaultCommandWorkerDependencies,
     };
     use crate::messaging::{
         Consumer, ConsumerError, ConsumerGroup, Delivery, Subscriber, SubscriberError, Subscription,
     };
+    use crate::outbox::command_failure::{
+        CommandFailureOutboxEnqueueError, CommandFailureOutboxEnqueuer,
+    };
     use crate::request_context::{CausationId, CorrelationId, MessageId, RequestContext};
-    use crate::unit_of_work::{UnitOfWork, UnitOfWorkError};
+    use crate::unit_of_work::{
+        UnitOfWork, UnitOfWorkError, UnitOfWorkFactory, UnitOfWorkFactoryError,
+    };
 
-    struct TestUow;
+    struct TestUow {
+        events: Arc<Mutex<Vec<&'static str>>>,
+    }
 
     impl UnitOfWork for TestUow {
         async fn commit(self) -> Result<(), UnitOfWorkError> {
+            self.events.lock().unwrap().push("committed");
             Ok(())
         }
 
         async fn rollback(self) -> Result<(), UnitOfWorkError> {
+            self.events.lock().unwrap().push("rolled_back");
+            Ok(())
+        }
+    }
+
+    struct TestUowFactory {
+        events: Arc<Mutex<Vec<&'static str>>>,
+    }
+
+    impl UnitOfWorkFactory for TestUowFactory {
+        type Uow = TestUow;
+
+        async fn begin(&self) -> Result<Self::Uow, UnitOfWorkFactoryError> {
+            self.events.lock().unwrap().push("begun");
+            Ok(TestUow {
+                events: Arc::clone(&self.events),
+            })
+        }
+    }
+
+    struct TestExecutionStore {
+        events: Arc<Mutex<Vec<&'static str>>>,
+    }
+
+    impl CommandExecutionStore for TestExecutionStore {
+        type Uow = TestUow;
+
+        async fn acquire_lease(
+            &self,
+            _uow: &mut Self::Uow,
+            _command: &CommandEnvelope,
+            _lease_duration: CommandExecutionLeaseDuration,
+        ) -> Result<CommandExecutionLeaseAcquisitionResult, CommandExecutionStoreError> {
+            self.events.lock().unwrap().push("lease_acquired");
+            Ok(CommandExecutionLeaseAcquisitionResult::Acquired {
+                attempt_count: CommandAttemptCount::first(),
+            })
+        }
+
+        async fn mark_succeeded(
+            &self,
+            _uow: &mut Self::Uow,
+            _command_message_id: MessageId,
+        ) -> Result<(), CommandExecutionStoreError> {
+            self.events.lock().unwrap().push("succeeded");
+            Ok(())
+        }
+
+        async fn mark_failed(
+            &self,
+            _uow: &mut Self::Uow,
+            _command_message_id: MessageId,
+            _attempt_count: CommandAttemptCount,
+        ) -> Result<CommandExecutionFailureMarkResult, CommandExecutionStoreError> {
+            self.events.lock().unwrap().push("failed");
+            Ok(CommandExecutionFailureMarkResult::Marked {
+                failed_at: CommandFailedAt::now(),
+            })
+        }
+
+        async fn release_lease(
+            &self,
+            _uow: &mut Self::Uow,
+            _command_message_id: MessageId,
+            _attempt_count: CommandAttemptCount,
+        ) -> Result<CommandExecutionLeaseReleaseResult, CommandExecutionStoreError> {
+            self.events.lock().unwrap().push("lease_released");
+            Ok(CommandExecutionLeaseReleaseResult::Released)
+        }
+    }
+
+    struct TestFailureOutboxEnqueuer;
+
+    impl CommandFailureOutboxEnqueuer for TestFailureOutboxEnqueuer {
+        type Uow = TestUow;
+
+        async fn enqueue_command_failure(
+            &self,
+            _uow: &mut Self::Uow,
+            _failure: &crate::command::CommandFailureEnvelope,
+        ) -> Result<(), CommandFailureOutboxEnqueueError> {
             Ok(())
         }
     }
@@ -178,7 +411,7 @@ mod tests {
     }
 
     struct TestHandler {
-        retryable: bool,
+        failure_retryability: Option<bool>,
     }
 
     #[derive(Deserialize, Serialize)]
@@ -202,9 +435,10 @@ mod tests {
             &self,
             _command: &Self::Command,
         ) -> Result<AuthorizationPlan, Self::Error> {
-            Err(TestHandlerError {
-                retryable: self.retryable,
-            })
+            match self.failure_retryability {
+                Some(retryable) => Err(TestHandlerError { retryable }),
+                None => Ok(AuthorizationPlan::default()),
+            }
         }
 
         async fn handle(
@@ -213,11 +447,13 @@ mod tests {
             _request_context: &RequestContext,
             _command: &Self::Command,
         ) -> Result<Self::Output, Self::Error> {
-            unreachable!("test dispatcher does not call the handler")
+            Ok(TestOutput)
         }
     }
 
-    struct TestDispatcher;
+    struct TestDispatcher {
+        events: Arc<Mutex<Vec<&'static str>>>,
+    }
 
     impl CommandDispatcher for TestDispatcher {
         type Uow = TestUow;
@@ -236,8 +472,18 @@ mod tests {
             H: CommandHandler<Uow = Self::Uow>,
             H::Command: Command,
         {
+            self.events.lock().unwrap().push("dispatched");
             match handler.authorization_plan(&command) {
-                Ok(_) => unreachable!("test handler should return an authorization error"),
+                Ok(_) => {
+                    let mut uow = TestUow {
+                        events: Arc::clone(&self.events),
+                    };
+                    handler
+                        .handle(&mut uow, _request_context, &command)
+                        .await
+                        .map(CommandDispatchResult::Executed)
+                        .map_err(CommandDispatcherError::Handler)
+                }
                 Err(error) => Err(CommandDispatcherError::Handler(error)),
             }
         }
@@ -247,6 +493,7 @@ mod tests {
     struct DeliveryState {
         acknowledgements: AtomicUsize,
         negative_acknowledgements: AtomicUsize,
+        events: Arc<Mutex<Vec<&'static str>>>,
     }
 
     struct TestDelivery {
@@ -260,11 +507,13 @@ mod tests {
         }
 
         async fn ack(&mut self) -> Result<(), ConsumerError> {
+            self.state.events.lock().unwrap().push("acked");
             self.state.acknowledgements.fetch_add(1, Ordering::SeqCst);
             Ok(())
         }
 
         async fn nack(&mut self) -> Result<(), ConsumerError> {
+            self.state.events.lock().unwrap().push("nacked");
             self.state
                 .negative_acknowledgements
                 .fetch_add(1, Ordering::SeqCst);
@@ -280,8 +529,17 @@ mod tests {
         type Delivery = TestDelivery;
 
         async fn next(&mut self) -> Result<Self::Delivery, ConsumerError> {
-            Ok(self.delivery.take().expect("test delivery should exist"))
+            self.delivery.take().ok_or_else(|| {
+                ConsumerError::Next(Box::new(std::io::Error::other("test consumer exhausted")))
+            })
         }
+    }
+
+    fn assert_consumer_exhausted(error: CommandWorkerError) {
+        assert!(matches!(
+            error,
+            CommandWorkerError::Consumer(ConsumerError::Next(_))
+        ));
     }
 
     struct TestSubscriber {
@@ -308,9 +566,17 @@ mod tests {
     }
 
     fn build_worker(
-        retryable: bool,
+        failure_retryability: Option<bool>,
+        max_attempts: NonZeroU32,
         state: Arc<DeliveryState>,
-    ) -> DefaultCommandWorker<TestHandler, TestDispatcher, TestSubscriber> {
+    ) -> DefaultCommandWorker<
+        TestHandler,
+        TestDispatcher,
+        TestSubscriber,
+        TestExecutionStore,
+        TestFailureOutboxEnqueuer,
+        TestUowFactory,
+    > {
         let causation_message_id = MessageId::new();
         let envelope = CommandEnvelope::new(
             &TestCommand {},
@@ -322,39 +588,143 @@ mod tests {
         let consumer_group =
             ConsumerGroup::new("test".to_owned()).expect("consumer group should be valid");
 
+        let events = Arc::clone(&state.events);
         DefaultCommandWorker::new(
-            TestDispatcher,
-            TestHandler { retryable },
-            TestSubscriber { envelope, state },
+            DefaultCommandWorkerDependencies {
+                dispatcher: TestDispatcher {
+                    events: Arc::clone(&events),
+                },
+                handler: TestHandler {
+                    failure_retryability,
+                },
+                subscriber: TestSubscriber { envelope, state },
+                execution_store: TestExecutionStore {
+                    events: Arc::clone(&events),
+                },
+                failure_outbox_enqueuer: TestFailureOutboxEnqueuer,
+                uow_factory: TestUowFactory { events },
+            },
             consumer_group,
+            CommandExecutionRetryPolicy {
+                max_attempts: CommandExecutionMaxAttempts::new(max_attempts),
+                lease_duration: CommandExecutionLeaseDuration::default(),
+            },
         )
     }
 
     #[tokio::test]
-    async fn run_forever_nacks_retryable_dispatch_failure() {
+    async fn run_forever_nacks_retryable_dispatch_failure_and_continues() {
         let state = Arc::new(DeliveryState::default());
-        let mut command_worker = build_worker(true, Arc::clone(&state));
+        let mut command_worker =
+            build_worker(Some(true), NonZeroU32::new(2).unwrap(), Arc::clone(&state));
 
-        command_worker
+        let error = command_worker
             .run_forever()
             .await
-            .expect_err("dispatch failure should be returned");
+            .expect_err("worker should continue until the test consumer is exhausted");
+        assert_consumer_exhausted(error);
 
         assert_eq!(state.acknowledgements.load(Ordering::SeqCst), 0);
         assert_eq!(state.negative_acknowledgements.load(Ordering::SeqCst), 1);
+        assert_eq!(
+            *state.events.lock().unwrap(),
+            [
+                "begun",
+                "lease_acquired",
+                "committed",
+                "dispatched",
+                "begun",
+                "lease_released",
+                "committed",
+                "nacked",
+            ]
+        );
     }
 
     #[tokio::test]
-    async fn run_forever_acks_non_retryable_dispatch_failure() {
+    async fn run_forever_acks_non_retryable_dispatch_failure_and_continues() {
         let state = Arc::new(DeliveryState::default());
-        let mut command_worker = build_worker(false, Arc::clone(&state));
+        let mut command_worker =
+            build_worker(Some(false), NonZeroU32::new(2).unwrap(), Arc::clone(&state));
 
-        command_worker
+        let error = command_worker
             .run_forever()
             .await
-            .expect_err("dispatch failure should be returned");
+            .expect_err("worker should continue until the test consumer is exhausted");
+        assert_consumer_exhausted(error);
 
         assert_eq!(state.acknowledgements.load(Ordering::SeqCst), 1);
         assert_eq!(state.negative_acknowledgements.load(Ordering::SeqCst), 0);
+        assert_eq!(
+            *state.events.lock().unwrap(),
+            [
+                "begun",
+                "lease_acquired",
+                "committed",
+                "dispatched",
+                "begun",
+                "failed",
+                "committed",
+                "acked",
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn run_forever_marks_success_in_a_separate_uow_before_acknowledging() {
+        let state = Arc::new(DeliveryState::default());
+        let mut command_worker =
+            build_worker(None, NonZeroU32::new(2).unwrap(), Arc::clone(&state));
+
+        let error = command_worker
+            .run_forever()
+            .await
+            .expect_err("test consumer should be exhausted after successful delivery");
+        assert_consumer_exhausted(error);
+
+        assert_eq!(
+            *state.events.lock().unwrap(),
+            [
+                "begun",
+                "lease_acquired",
+                "committed",
+                "dispatched",
+                "begun",
+                "succeeded",
+                "committed",
+                "acked",
+            ]
+        );
+        assert_eq!(state.acknowledgements.load(Ordering::SeqCst), 1);
+        assert_eq!(state.negative_acknowledgements.load(Ordering::SeqCst), 0);
+    }
+
+    #[tokio::test]
+    async fn run_forever_marks_exhausted_retryable_failure_and_continues() {
+        let state = Arc::new(DeliveryState::default());
+        let mut command_worker =
+            build_worker(Some(true), NonZeroU32::new(1).unwrap(), Arc::clone(&state));
+
+        let error = command_worker
+            .run_forever()
+            .await
+            .expect_err("worker should continue until the test consumer is exhausted");
+        assert_consumer_exhausted(error);
+
+        assert_eq!(state.acknowledgements.load(Ordering::SeqCst), 1);
+        assert_eq!(state.negative_acknowledgements.load(Ordering::SeqCst), 0);
+        assert_eq!(
+            *state.events.lock().unwrap(),
+            [
+                "begun",
+                "lease_acquired",
+                "committed",
+                "dispatched",
+                "begun",
+                "failed",
+                "committed",
+                "acked",
+            ]
+        );
     }
 }

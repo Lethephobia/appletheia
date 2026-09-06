@@ -99,7 +99,14 @@ where
                 Err(rollback_error) => return Err(rollback_error.into()),
             },
             IdempotencyBeginResult::Existing { output } => {
-                let decoded = serde_json::from_value(output.into())?;
+                let decoded = match serde_json::from_value(output.into()) {
+                    Ok(decoded) => decoded,
+                    Err(operation_error) => {
+                        let rolled_back_error =
+                            uow.rollback_with_operation_error(operation_error).await?;
+                        return Err(rolled_back_error.into());
+                    }
+                };
                 uow.commit().await?;
                 return Ok(CommandDispatchResult::Replayed(decoded));
             }

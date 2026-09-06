@@ -3,9 +3,8 @@ use appletheia::event_payload;
 use crate::core::TokenOwnerAddress;
 
 use super::{
-    WalletBookmarkDescription, WalletBookmarkDescriptionChangeRejectionReason,
-    WalletBookmarkDisplayName, WalletBookmarkDisplayNameChangeRejectionReason,
-    WalletBookmarkEventPayloadError, WalletBookmarkOwner, WalletBookmarkRemoveRejectionReason,
+    WalletBookmarkDescription, WalletBookmarkDisplayName, WalletBookmarkEventPayloadError,
+    WalletBookmarkOwner,
 };
 
 /// Represents the domain events emitted by a `WalletBookmark` aggregate.
@@ -20,21 +19,10 @@ pub enum WalletBookmarkEventPayload {
     DisplayNameChanged {
         display_name: Option<WalletBookmarkDisplayName>,
     },
-    DisplayNameChangeRejected {
-        display_name: Option<WalletBookmarkDisplayName>,
-        reason: WalletBookmarkDisplayNameChangeRejectionReason,
-    },
     DescriptionChanged {
         description: Option<WalletBookmarkDescription>,
     },
-    DescriptionChangeRejected {
-        description: Option<WalletBookmarkDescription>,
-        reason: WalletBookmarkDescriptionChangeRejectionReason,
-    },
     Removed,
-    RemoveRejected {
-        reason: WalletBookmarkRemoveRejectionReason,
-    },
 }
 
 #[cfg(test)]
@@ -60,24 +48,12 @@ mod tests {
             appletheia::domain::EventName::new("display_name_changed")
         );
         assert_eq!(
-            WalletBookmarkEventPayload::DISPLAY_NAME_CHANGE_REJECTED,
-            appletheia::domain::EventName::new("display_name_change_rejected")
-        );
-        assert_eq!(
             WalletBookmarkEventPayload::DESCRIPTION_CHANGED,
             appletheia::domain::EventName::new("description_changed")
         );
         assert_eq!(
-            WalletBookmarkEventPayload::DESCRIPTION_CHANGE_REJECTED,
-            appletheia::domain::EventName::new("description_change_rejected")
-        );
-        assert_eq!(
             WalletBookmarkEventPayload::REMOVED,
             appletheia::domain::EventName::new("removed")
-        );
-        assert_eq!(
-            WalletBookmarkEventPayload::REMOVE_REJECTED,
-            appletheia::domain::EventName::new("remove_rejected")
         );
     }
 

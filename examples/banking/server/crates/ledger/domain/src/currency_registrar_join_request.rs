@@ -109,16 +109,10 @@ impl CurrencyRegistrarJoinRequest {
     /// Rejects a join request submission attempt.
     pub fn reject_submit(
         &mut self,
-        submission: CurrencyRegistrarJoinRequestSubmission,
+        _submission: CurrencyRegistrarJoinRequestSubmission,
         reason: CurrencyRegistrarJoinRequestSubmitRejectionReason,
     ) -> Result<(), CurrencyRegistrarJoinRequestError> {
-        let (currency_registrar_id, requester_id) = submission.into_parts();
-        self.append_event(CurrencyRegistrarJoinRequestEventPayload::SubmitRejected {
-            currency_registrar_id,
-            requester_id,
-            reason,
-        })?;
-        Ok(())
+        Err(CurrencyRegistrarJoinRequestError::SubmitRejected(reason))
     }
 
     /// Approves the join request.
@@ -143,13 +137,7 @@ impl CurrencyRegistrarJoinRequest {
         &mut self,
         reason: CurrencyRegistrarJoinRequestApproveRejectionReason,
     ) -> Result<(), CurrencyRegistrarJoinRequestError> {
-        let state = self.state_required()?;
-        self.append_event(CurrencyRegistrarJoinRequestEventPayload::ApproveRejected {
-            currency_registrar_id: state.currency_registrar_id,
-            requester_id: state.requester_id,
-            reason,
-        })?;
-        Ok(())
+        Err(CurrencyRegistrarJoinRequestError::ApproveRejected(reason))
     }
 
     /// Rejects the join request.
@@ -174,13 +162,7 @@ impl CurrencyRegistrarJoinRequest {
         &mut self,
         reason: CurrencyRegistrarJoinRequestRejectRejectionReason,
     ) -> Result<(), CurrencyRegistrarJoinRequestError> {
-        let state = self.state_required()?;
-        self.append_event(CurrencyRegistrarJoinRequestEventPayload::RejectRejected {
-            currency_registrar_id: state.currency_registrar_id,
-            requester_id: state.requester_id,
-            reason,
-        })?;
-        Ok(())
+        Err(CurrencyRegistrarJoinRequestError::RejectRejected(reason))
     }
 
     /// Cancels the join request.
@@ -205,13 +187,7 @@ impl CurrencyRegistrarJoinRequest {
         &mut self,
         reason: CurrencyRegistrarJoinRequestCancelRejectionReason,
     ) -> Result<(), CurrencyRegistrarJoinRequestError> {
-        let state = self.state_required()?;
-        self.append_event(CurrencyRegistrarJoinRequestEventPayload::CancelRejected {
-            currency_registrar_id: state.currency_registrar_id,
-            requester_id: state.requester_id,
-            reason,
-        })?;
-        Ok(())
+        Err(CurrencyRegistrarJoinRequestError::CancelRejected(reason))
     }
 }
 
@@ -233,19 +209,15 @@ impl AggregateApply<CurrencyRegistrarJoinRequestEventPayload, CurrencyRegistrarJ
                     status: CurrencyRegistrarJoinRequestStatus::Pending,
                 }));
             }
-            CurrencyRegistrarJoinRequestEventPayload::SubmitRejected { .. } => {}
             CurrencyRegistrarJoinRequestEventPayload::Approved { .. } => {
                 self.state_required_mut()?.status = CurrencyRegistrarJoinRequestStatus::Approved;
             }
-            CurrencyRegistrarJoinRequestEventPayload::ApproveRejected { .. } => {}
             CurrencyRegistrarJoinRequestEventPayload::Rejected { .. } => {
                 self.state_required_mut()?.status = CurrencyRegistrarJoinRequestStatus::Rejected;
             }
-            CurrencyRegistrarJoinRequestEventPayload::RejectRejected { .. } => {}
             CurrencyRegistrarJoinRequestEventPayload::Canceled { .. } => {
                 self.state_required_mut()?.status = CurrencyRegistrarJoinRequestStatus::Canceled;
             }
-            CurrencyRegistrarJoinRequestEventPayload::CancelRejected { .. } => {}
         }
 
         Ok(())
@@ -258,8 +230,7 @@ mod tests {
     use banking_iam_domain::UserId;
 
     use super::{
-        CurrencyRegistrarJoinRequest, CurrencyRegistrarJoinRequestApproveRejectionReason,
-        CurrencyRegistrarJoinRequestApproveResult, CurrencyRegistrarJoinRequestEventPayload,
+        CurrencyRegistrarJoinRequest, CurrencyRegistrarJoinRequestApproveResult,
         CurrencyRegistrarJoinRequestSubmission, CurrencyRegistrarJoinRequestSubmitResult,
     };
     use crate::currency_registrar::CurrencyRegistrarId;
@@ -280,24 +251,9 @@ mod tests {
             request.approve().expect("first approval should succeed"),
             CurrencyRegistrarJoinRequestApproveResult::Approved
         );
-        assert_eq!(
-            request
-                .approve()
-                .expect("repeated approval should be rejected as a domain outcome"),
-            CurrencyRegistrarJoinRequestApproveResult::Rejected {
-                reason: CurrencyRegistrarJoinRequestApproveRejectionReason::NotPending,
-            }
-        );
-        assert!(matches!(
-            request
-                .uncommitted_events()
-                .last()
-                .expect("rejection event should exist")
-                .payload(),
-            CurrencyRegistrarJoinRequestEventPayload::ApproveRejected {
-                reason: CurrencyRegistrarJoinRequestApproveRejectionReason::NotPending,
-                ..
-            }
-        ));
+        request
+            .approve()
+            .expect_err("repeated approval should fail");
+        assert_eq!(request.uncommitted_events().len(), 2);
     }
 }

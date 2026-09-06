@@ -82,34 +82,6 @@ where
                     invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                 }
             }
-            OrganizationInvitationEventPayload::IssueRejected {
-                organization_id,
-                invitee_id,
-                roles,
-                issuer,
-                expires_at,
-                ..
-            } => {
-                if let Some(fragment) = self
-                    .organization_invitation_fragment_writer
-                    .upsert(
-                        uow,
-                        event_context,
-                        OrganizationInvitationFragmentUpsert {
-                            invitation_id,
-                            organization_id: *organization_id,
-                            invitee_user_id: *invitee_id,
-                            roles: roles.clone(),
-                            issuer: *issuer,
-                            expires_at: *expires_at,
-                            status: OrganizationInvitationStatus::Rejected,
-                        },
-                    )
-                    .await?
-                {
-                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
-                }
-            }
             OrganizationInvitationEventPayload::Accepted { .. } => {
                 if let Some(fragment) = self
                     .organization_invitation_fragment_writer
@@ -152,9 +124,6 @@ where
                     invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                 }
             }
-            OrganizationInvitationEventPayload::AcceptRejected { .. }
-            | OrganizationInvitationEventPayload::DeclineRejected { .. }
-            | OrganizationInvitationEventPayload::CancelRejected { .. } => {}
         }
 
         Ok(invalidated_partitions)

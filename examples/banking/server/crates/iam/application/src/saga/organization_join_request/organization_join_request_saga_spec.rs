@@ -26,9 +26,6 @@ impl SagaSpec for OrganizationJoinRequestSagaSpec {
             EventSelector::new::<OrganizationMembership>(
                 OrganizationMembershipEventPayload::CREATED,
             ),
-            EventSelector::new::<OrganizationMembership>(
-                OrganizationMembershipEventPayload::CREATE_REJECTED,
-            ),
         ]),
     );
 }

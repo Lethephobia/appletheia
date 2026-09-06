@@ -117,20 +117,10 @@ impl Withdrawal {
     /// Rejects a withdrawal request.
     pub fn reject_request(
         &mut self,
-        request: WithdrawalRequest,
+        _request: WithdrawalRequest,
         reason: WithdrawalRequestRejectionReason,
     ) -> Result<(), WithdrawalError> {
-        let (account_id, token_binding_id, token_owner_address, amount, note) =
-            request.into_parts();
-        self.append_event(WithdrawalEventPayload::RequestRejected {
-            account_id,
-            token_binding_id,
-            token_owner_address,
-            amount,
-            note,
-            reason,
-        })?;
-        Ok(())
+        Err(WithdrawalError::RequestRejected(reason))
     }
 
     /// Records a successful external token settlement.
@@ -169,14 +159,10 @@ impl Withdrawal {
     /// Rejects recording a successful external token settlement.
     pub fn reject_settlement_execute(
         &mut self,
-        transaction_id: Option<OnchainTransactionId>,
+        _transaction_id: Option<OnchainTransactionId>,
         reason: WithdrawalSettlementExecuteRejectionReason,
     ) -> Result<(), WithdrawalError> {
-        self.append_event(WithdrawalEventPayload::SettlementExecuteRejected {
-            transaction_id,
-            reason,
-        })?;
-        Ok(())
+        Err(WithdrawalError::SettlementExecuteRejected(reason))
     }
 
     /// Completes the withdrawal after internal accounting is committed.
@@ -214,8 +200,7 @@ impl Withdrawal {
         &mut self,
         reason: WithdrawalCompleteRejectionReason,
     ) -> Result<(), WithdrawalError> {
-        self.append_event(WithdrawalEventPayload::CompleteRejected { reason })?;
-        Ok(())
+        Err(WithdrawalError::CompleteRejected(reason))
     }
 
     /// Fails the withdrawal workflow.
@@ -257,8 +242,7 @@ impl Withdrawal {
         &mut self,
         reason: WithdrawalFailRejectionReason,
     ) -> Result<(), WithdrawalError> {
-        self.append_event(WithdrawalEventPayload::FailRejected { reason })?;
-        Ok(())
+        Err(WithdrawalError::FailRejected(reason))
     }
 }
 
@@ -280,36 +264,17 @@ impl AggregateApply<WithdrawalEventPayload, WithdrawalError> for Withdrawal {
                 transaction_id: None,
                 status: WithdrawalStatus::Pending,
             })),
-            WithdrawalEventPayload::RequestRejected {
-                account_id,
-                token_binding_id,
-                token_owner_address,
-                amount,
-                note,
-                ..
-            } => self.set_state(Some(WithdrawalState {
-                account_id: *account_id,
-                token_binding_id: *token_binding_id,
-                token_owner_address: *token_owner_address,
-                amount: *amount,
-                note: note.clone(),
-                transaction_id: None,
-                status: WithdrawalStatus::Rejected,
-            })),
             WithdrawalEventPayload::SettlementExecuted { transaction_id } => {
                 let state = self.state_required_mut()?;
                 state.transaction_id = Some(*transaction_id);
                 state.status = WithdrawalStatus::SettlementExecuted;
             }
-            WithdrawalEventPayload::SettlementExecuteRejected { .. } => {}
             WithdrawalEventPayload::Completed => {
                 self.state_required_mut()?.status = WithdrawalStatus::Completed;
             }
-            WithdrawalEventPayload::CompleteRejected { .. } => {}
             WithdrawalEventPayload::Failed { .. } => {
                 self.state_required_mut()?.status = WithdrawalStatus::Failed;
             }
-            WithdrawalEventPayload::FailRejected { .. } => {}
         }
 
         Ok(())

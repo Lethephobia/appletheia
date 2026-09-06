@@ -1,5 +1,4 @@
 use appletheia::application::command::{CommandOutput, CommandReplayOutput};
-use banking_ledger_domain::account::AccountDepositRejectionReason;
 use serde::{Deserialize, Serialize};
 
 /// Returned after an account deposit request is applied.
@@ -7,9 +6,6 @@ use serde::{Deserialize, Serialize};
 #[serde(tag = "type", content = "data", rename_all = "snake_case")]
 pub enum AccountDepositOutput {
     Deposited,
-    Rejected {
-        reason: AccountDepositRejectionReason,
-    },
 }
 
 impl CommandOutput for AccountDepositOutput {

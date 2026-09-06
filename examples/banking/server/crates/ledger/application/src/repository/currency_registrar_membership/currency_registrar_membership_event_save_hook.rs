@@ -60,8 +60,6 @@ where
                     .remove_member(uow, *currency_registrar_id, *user_id)
                     .await?;
             }
-            CurrencyRegistrarMembershipEventPayload::CreateRejected { .. }
-            | CurrencyRegistrarMembershipEventPayload::RemoveRejected { .. } => {}
         }
         Ok(())
     }

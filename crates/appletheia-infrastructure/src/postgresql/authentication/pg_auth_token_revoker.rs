@@ -81,21 +81,18 @@ impl AuthTokenRevoker for PgAuthTokenRevoker {
                 id,
                 subject_aggregate_type,
                 subject_aggregate_id,
-                revoke_before,
-                updated_at
+                revoke_before
             ) VALUES (
                 $1,
                 $2,
                 $3,
-                $4,
-                now()
+                $4
             )
             ON CONFLICT (subject_aggregate_type, subject_aggregate_id) DO UPDATE
                SET revoke_before = GREATEST(
                        auth_token_revocation_cutoffs.revoke_before,
                        EXCLUDED.revoke_before
-                   ),
-                   updated_at = now()
+                   )
             "#,
         )
         .bind(Uuid::now_v7())

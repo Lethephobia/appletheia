@@ -145,14 +145,6 @@ where
                     invalidated_partitions.push(ReadModelPartition::new(organization_id));
                 }
             }
-            OrganizationEventPayload::CreateRejected { .. }
-            | OrganizationEventPayload::OwnershipTransferRejected { .. }
-            | OrganizationEventPayload::HandleChangeRejected { .. }
-            | OrganizationEventPayload::DisplayNameChangeRejected { .. }
-            | OrganizationEventPayload::DescriptionChangeRejected { .. }
-            | OrganizationEventPayload::WebsiteUrlChangeRejected { .. }
-            | OrganizationEventPayload::PictureChangeRejected { .. }
-            | OrganizationEventPayload::RemoveRejected { .. } => {}
         }
 
         Ok(invalidated_partitions)

@@ -118,10 +118,6 @@ where
                     invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
                 }
             }
-            OrganizationJoinRequestEventPayload::SubmitRejected { .. }
-            | OrganizationJoinRequestEventPayload::ApproveRejected { .. }
-            | OrganizationJoinRequestEventPayload::RejectRejected { .. }
-            | OrganizationJoinRequestEventPayload::CancelRejected { .. } => {}
         }
 
         Ok(invalidated_partitions)

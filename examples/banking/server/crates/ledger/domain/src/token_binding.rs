@@ -90,14 +90,10 @@ impl TokenBinding {
 
     pub fn reject_define(
         &mut self,
-        definition: TokenBindingDefinition,
+        _definition: TokenBindingDefinition,
         reason: TokenBindingDefineRejectionReason,
     ) -> Result<(), TokenBindingError> {
-        if self.state().is_some() {
-            return Err(TokenBindingError::AlreadyDefined);
-        }
-        self.append_event(TokenBindingEventPayload::DefinitionRejected { definition, reason })?;
-        Ok(())
+        Err(TokenBindingError::DefinitionRejected(reason))
     }
 
     pub fn change_deposit_enabled(
@@ -127,15 +123,10 @@ impl TokenBinding {
 
     pub fn reject_change_deposit_enabled(
         &mut self,
-        enabled: bool,
+        _enabled: bool,
         reason: TokenBindingEnablementChangeRejectionReason,
     ) -> Result<(), TokenBindingError> {
-        self.state_required()?;
-        self.append_event(TokenBindingEventPayload::DepositEnabledChangeRejected {
-            enabled,
-            reason,
-        })?;
-        Ok(())
+        Err(TokenBindingError::EnablementChangeRejected(reason))
     }
 
     pub fn change_withdrawal_enabled(
@@ -165,15 +156,10 @@ impl TokenBinding {
 
     pub fn reject_change_withdrawal_enabled(
         &mut self,
-        enabled: bool,
+        _enabled: bool,
         reason: TokenBindingEnablementChangeRejectionReason,
     ) -> Result<(), TokenBindingError> {
-        self.state_required()?;
-        self.append_event(TokenBindingEventPayload::WithdrawalEnabledChangeRejected {
-            enabled,
-            reason,
-        })?;
-        Ok(())
+        Err(TokenBindingError::EnablementChangeRejected(reason))
     }
 
     pub fn remove(&mut self) -> Result<TokenBindingRemoveResult, TokenBindingError> {
@@ -191,9 +177,7 @@ impl TokenBinding {
         &mut self,
         reason: TokenBindingRemoveRejectionReason,
     ) -> Result<(), TokenBindingError> {
-        self.state_required()?;
-        self.append_event(TokenBindingEventPayload::RemovalRejected { reason })?;
-        Ok(())
+        Err(TokenBindingError::RemovalRejected(reason))
     }
 }
 
@@ -214,19 +198,15 @@ impl AggregateApply<TokenBindingEventPayload, TokenBindingError> for TokenBindin
                 withdrawal_enabled: *withdrawal_enabled,
                 status: TokenBindingStatus::Active,
             })),
-            TokenBindingEventPayload::DefinitionRejected { .. } => {}
             TokenBindingEventPayload::DepositEnabledChanged { enabled } => {
                 self.state_required_mut()?.deposit_enabled = *enabled;
             }
-            TokenBindingEventPayload::DepositEnabledChangeRejected { .. } => {}
             TokenBindingEventPayload::WithdrawalEnabledChanged { enabled } => {
                 self.state_required_mut()?.withdrawal_enabled = *enabled;
             }
-            TokenBindingEventPayload::WithdrawalEnabledChangeRejected { .. } => {}
             TokenBindingEventPayload::Removed => {
                 self.state_required_mut()?.status = TokenBindingStatus::Removed;
             }
-            TokenBindingEventPayload::RemovalRejected { .. } => {}
         }
         Ok(())
     }
@@ -243,9 +223,7 @@ mod tests {
 
     use super::{
         TokenBinding, TokenBindingDefineRejectionReason, TokenBindingDefinition,
-        TokenBindingEnablementChangeRejectionReason, TokenBindingEnablementChangeResult,
-        TokenBindingEventPayload, TokenBindingRemoveRejectionReason, TokenBindingRemoveResult,
-        TokenBindingStatus,
+        TokenBindingEnablementChangeResult, TokenBindingStatus,
     };
 
     fn definition() -> TokenBindingDefinition {
@@ -291,7 +269,7 @@ mod tests {
     }
 
     #[test]
-    fn records_definition_rejection_without_creating_binding_state() {
+    fn definition_rejection_returns_error_without_creating_binding_state() {
         let mut token_binding = TokenBinding::new();
         let definition = definition();
 
@@ -300,20 +278,10 @@ mod tests {
                 definition.clone(),
                 TokenBindingDefineRejectionReason::DuplicateToken,
             )
-            .expect("definition rejection should be recorded");
+            .expect_err("definition should be rejected");
 
         assert!(token_binding.state().is_none());
-        assert!(matches!(
-            token_binding
-                .uncommitted_events()
-                .last()
-                .expect("rejection event should exist")
-                .payload(),
-            TokenBindingEventPayload::DefinitionRejected {
-                definition: rejected_definition,
-                reason: TokenBindingDefineRejectionReason::DuplicateToken,
-            } if rejected_definition == &definition
-        ));
+        assert!(token_binding.uncommitted_events().is_empty());
     }
 
     #[test]
@@ -348,58 +316,38 @@ mod tests {
     }
 
     #[test]
-    fn records_rejections_for_unchanged_enablement() {
+    fn unchanged_enablement_returns_errors() {
         let mut token_binding = TokenBinding::new();
         token_binding
             .define(definition())
             .expect("token binding definition should succeed");
 
-        assert_eq!(
-            token_binding
-                .change_deposit_enabled(true)
-                .expect("deposit rejection should be recorded"),
-            TokenBindingEnablementChangeResult::Rejected {
-                reason: TokenBindingEnablementChangeRejectionReason::AlreadyEnabled,
-            }
-        );
-        assert_eq!(
-            token_binding
-                .change_withdrawal_enabled(false)
-                .expect("withdrawal rejection should be recorded"),
-            TokenBindingEnablementChangeResult::Rejected {
-                reason: TokenBindingEnablementChangeRejectionReason::AlreadyDisabled,
-            }
-        );
+        token_binding
+            .change_deposit_enabled(true)
+            .expect_err("unchanged deposit enablement should fail");
+        token_binding
+            .change_withdrawal_enabled(false)
+            .expect_err("unchanged withdrawal enablement should fail");
     }
 
     #[test]
-    fn records_rejections_for_enablement_changes_after_removal() {
+    fn enablement_changes_after_removal_return_errors() {
         let mut token_binding = TokenBinding::new();
         token_binding
             .define(definition())
             .expect("token binding definition should succeed");
         token_binding.remove().expect("removal should succeed");
 
-        assert_eq!(
-            token_binding
-                .change_deposit_enabled(false)
-                .expect("deposit rejection should be recorded"),
-            TokenBindingEnablementChangeResult::Rejected {
-                reason: TokenBindingEnablementChangeRejectionReason::Removed,
-            }
-        );
-        assert_eq!(
-            token_binding
-                .change_withdrawal_enabled(true)
-                .expect("withdrawal rejection should be recorded"),
-            TokenBindingEnablementChangeResult::Rejected {
-                reason: TokenBindingEnablementChangeRejectionReason::Removed,
-            }
-        );
+        token_binding
+            .change_deposit_enabled(false)
+            .expect_err("removed binding should reject deposit enablement change");
+        token_binding
+            .change_withdrawal_enabled(true)
+            .expect_err("removed binding should reject withdrawal enablement change");
     }
 
     #[test]
-    fn records_rejection_when_an_already_removed_binding_is_removed_again() {
+    fn repeated_removal_returns_error_without_appending_event() {
         let mut token_binding = TokenBinding::new();
         token_binding
             .define(definition())
@@ -408,25 +356,9 @@ mod tests {
             .remove()
             .expect("first removal should succeed");
 
-        let result = token_binding
+        token_binding
             .remove()
-            .expect("repeated removal should record a rejection");
-
-        assert_eq!(
-            result,
-            TokenBindingRemoveResult::Rejected {
-                reason: TokenBindingRemoveRejectionReason::AlreadyRemoved,
-            }
-        );
-        assert!(matches!(
-            token_binding
-                .uncommitted_events()
-                .last()
-                .expect("rejection event should exist")
-                .payload(),
-            TokenBindingEventPayload::RemovalRejected {
-                reason: TokenBindingRemoveRejectionReason::AlreadyRemoved,
-            }
-        ));
+            .expect_err("repeated removal should fail");
+        assert_eq!(token_binding.uncommitted_events().len(), 2);
     }
 }

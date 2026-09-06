@@ -140,16 +140,7 @@ where
                 }
             }
             UserEventPayload::IdentityLinked { .. }
-            | UserEventPayload::IdentityLinkRejected { .. }
-            | UserEventPayload::IdentityEmailChanged { .. }
-            | UserEventPayload::IdentityEmailChangeRejected { .. }
-            | UserEventPayload::UsernameChangeRejected { .. }
-            | UserEventPayload::DisplayNameChangeRejected { .. }
-            | UserEventPayload::BioChangeRejected { .. }
-            | UserEventPayload::PictureChangeRejected { .. }
-            | UserEventPayload::ActivateRejected { .. }
-            | UserEventPayload::DeactivateRejected { .. }
-            | UserEventPayload::RemoveRejected { .. } => {}
+            | UserEventPayload::IdentityEmailChanged { .. } => {}
         }
 
         Ok(invalidated_partitions)

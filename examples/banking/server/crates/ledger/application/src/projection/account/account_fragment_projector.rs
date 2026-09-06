@@ -192,17 +192,6 @@ where
                         invalidated_partitions.push(ReadModelPartition::new(account_id));
                     }
                 }
-                AccountEventPayload::OwnershipTransferRejected { .. }
-                | AccountEventPayload::NameChangeRejected { .. }
-                | AccountEventPayload::DescriptionChangeRejected { .. }
-                | AccountEventPayload::DepositRejected { .. }
-                | AccountEventPayload::WithdrawRejected { .. }
-                | AccountEventPayload::FundsReserveRejected { .. }
-                | AccountEventPayload::ReservedFundsReleaseRejected { .. }
-                | AccountEventPayload::ReservedFundsCommitRejected { .. }
-                | AccountEventPayload::FreezeRejected { .. }
-                | AccountEventPayload::ThawRejected { .. }
-                | AccountEventPayload::CloseRejected { .. } => {}
             }
         }
 

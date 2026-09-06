@@ -78,21 +78,10 @@ impl CurrencyRegistrar {
 
     pub fn reject_create(
         &mut self,
-        creation: CurrencyRegistrarCreation,
+        _creation: CurrencyRegistrarCreation,
         reason: CurrencyRegistrarCreateRejectionReason,
     ) -> Result<(), CurrencyRegistrarError> {
-        if self.state().is_some() {
-            return Err(CurrencyRegistrarError::AlreadyCreated);
-        }
-
-        let (handle, display_name, description) = creation.into_parts();
-        self.append_event(CurrencyRegistrarEventPayload::CreateRejected {
-            handle,
-            display_name,
-            description,
-            reason,
-        })?;
-        Ok(())
+        Err(CurrencyRegistrarError::CreateRejected(reason))
     }
 
     pub fn change_handle(
@@ -106,12 +95,10 @@ impl CurrencyRegistrar {
 
     pub fn reject_change_handle(
         &mut self,
-        handle: CurrencyRegistrarHandle,
+        _handle: CurrencyRegistrarHandle,
         reason: CurrencyRegistrarHandleChangeRejectionReason,
     ) -> Result<CurrencyRegistrarHandleChangeResult, CurrencyRegistrarError> {
-        self.state_required()?;
-        self.append_event(CurrencyRegistrarEventPayload::HandleChangeRejected { handle, reason })?;
-        Ok(CurrencyRegistrarHandleChangeResult::Rejected { reason })
+        Err(CurrencyRegistrarError::HandleChangeRejected(reason))
     }
 
     pub fn change_display_name(
@@ -150,11 +137,9 @@ impl AggregateApply<CurrencyRegistrarEventPayload, CurrencyRegistrarError> for C
                     description: description.clone(),
                 }));
             }
-            CurrencyRegistrarEventPayload::CreateRejected { .. } => {}
             CurrencyRegistrarEventPayload::HandleChanged { handle } => {
                 self.state_required_mut()?.handle = handle.clone();
             }
-            CurrencyRegistrarEventPayload::HandleChangeRejected { .. } => {}
             CurrencyRegistrarEventPayload::DisplayNameChanged { display_name } => {
                 self.state_required_mut()?.display_name = display_name.clone();
             }

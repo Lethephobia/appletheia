@@ -3,7 +3,7 @@ use appletheia::event_payload;
 use crate::core::{CurrencyCode, CurrencyDecimals};
 use crate::currency_registrar::CurrencyRegistrarId;
 
-use super::{CurrencyDescription, CurrencyEventPayloadError, CurrencyLifecycleRejectionReason};
+use super::{CurrencyDescription, CurrencyEventPayloadError};
 
 /// Represents events emitted by a Currency aggregate.
 #[event_payload(error = CurrencyEventPayloadError)]
@@ -18,11 +18,5 @@ pub enum CurrencyEventPayload {
         description: Option<CurrencyDescription>,
     },
     Activated,
-    ActivationRejected {
-        reason: CurrencyLifecycleRejectionReason,
-    },
     Deactivated,
-    DeactivationRejected {
-        reason: CurrencyLifecycleRejectionReason,
-    },
 }

@@ -27,30 +27,14 @@ impl SagaSpec for OwnedAccountClosureSagaSpec {
             EventSelector::new::<OwnedAccountClosure>(OwnedAccountClosureEventPayload::REQUESTED),
             EventSelector::new::<OwnedAccountClosure>(OwnedAccountClosureEventPayload::PAGE_LOADED),
             EventSelector::new::<OwnedAccountClosure>(
-                OwnedAccountClosureEventPayload::PAGE_LOAD_REJECTED,
-            ),
-            EventSelector::new::<OwnedAccountClosure>(
                 OwnedAccountClosureEventPayload::ACCOUNT_CLOSE_RECORDED,
-            ),
-            EventSelector::new::<OwnedAccountClosure>(
-                OwnedAccountClosureEventPayload::ACCOUNT_CLOSE_RECORD_REJECTED,
             ),
             EventSelector::new::<OwnedAccountClosure>(
                 OwnedAccountClosureEventPayload::ACCOUNT_CLOSE_REJECTION_RECORDED,
             ),
-            EventSelector::new::<OwnedAccountClosure>(
-                OwnedAccountClosureEventPayload::ACCOUNT_CLOSE_REJECTION_RECORD_REJECTED,
-            ),
             EventSelector::new::<OwnedAccountClosure>(OwnedAccountClosureEventPayload::COMPLETED),
-            EventSelector::new::<OwnedAccountClosure>(
-                OwnedAccountClosureEventPayload::COMPLETE_REJECTED,
-            ),
             EventSelector::new::<OwnedAccountClosure>(OwnedAccountClosureEventPayload::FAILED),
-            EventSelector::new::<OwnedAccountClosure>(
-                OwnedAccountClosureEventPayload::FAIL_REJECTED,
-            ),
             EventSelector::new::<Account>(AccountEventPayload::CLOSED),
-            EventSelector::new::<Account>(AccountEventPayload::CLOSE_REJECTED),
         ]),
     );
 }

@@ -3,9 +3,9 @@ use sqlx::FromRow;
 use uuid::Uuid;
 
 use appletheia_application::request_context::CorrelationId;
-use appletheia_application::request_context::MessageId;
 use appletheia_application::saga::{
-    SagaInstance, SagaInstanceId, SagaNameOwned, SagaState, SagaStatus,
+    SagaDispatchedCommand, SagaInstance, SagaInstanceId, SagaNameOwned, SagaState, SagaStatus,
+    SagaStep,
 };
 use appletheia_domain::EventId;
 
@@ -22,12 +22,12 @@ pub struct PgSagaInstanceRow {
 }
 
 impl PgSagaInstanceRow {
-    pub fn try_into_instance<S: SagaState>(
+    pub fn try_into_instance<S: SagaState, T: SagaStep>(
         self,
         saga_name: SagaNameOwned,
         correlation_id: CorrelationId,
-        dispatched_command_message_ids: Vec<MessageId>,
-    ) -> Result<SagaInstance<S>, PgSagaInstanceRowError> {
+        dispatched_commands: Vec<SagaDispatchedCommand<T>>,
+    ) -> Result<SagaInstance<S, T>, PgSagaInstanceRowError> {
         let saga_instance_id = SagaInstanceId::try_from(self.id)?;
         let start_event_id = EventId::try_from(self.start_event_id)?;
 
@@ -63,7 +63,7 @@ impl PgSagaInstanceRow {
             start_event_id,
             status,
             state,
-            dispatched_command_message_ids,
+            dispatched_commands,
             uncommitted_commands: Vec::new(),
         })
     }
@@ -77,12 +77,17 @@ mod tests {
 
     use super::PgSagaInstanceRow;
     use appletheia_application::request_context::CorrelationId;
-    use appletheia_application::saga::{SagaName, SagaNameOwned, SagaState, SagaStatus};
+    use appletheia_application::saga::{SagaName, SagaNameOwned, SagaState, SagaStatus, SagaStep};
 
     #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
     struct TestSagaState;
 
     impl SagaState for TestSagaState {}
+
+    #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+    struct TestSagaStep;
+
+    impl SagaStep for TestSagaStep {}
 
     #[test]
     fn try_into_instance_allows_succeeded_without_state() {
@@ -96,7 +101,7 @@ mod tests {
         };
 
         let instance = row
-            .try_into_instance::<TestSagaState>(
+            .try_into_instance::<TestSagaState, TestSagaStep>(
                 SagaNameOwned::from(SagaName::new("test_saga")),
                 CorrelationId::from(Uuid::now_v7()),
                 Vec::new(),
@@ -119,7 +124,7 @@ mod tests {
         };
 
         let instance = row
-            .try_into_instance::<TestSagaState>(
+            .try_into_instance::<TestSagaState, TestSagaStep>(
                 SagaNameOwned::from(SagaName::new("test_saga")),
                 CorrelationId::from(Uuid::now_v7()),
                 Vec::new(),

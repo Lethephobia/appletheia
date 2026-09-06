@@ -28,16 +28,16 @@ where
     RIS: ReferenceIndexStore<Uow = Uow>,
     ESH: EventSaveHook<A, Uow = Uow>,
 {
-    config: RepositoryConfig,
     event_reader: ER,
-    snapshot_reader: SR,
     event_writer: EW,
     event_outbox_enqueuer: EOE,
+    snapshot_reader: SR,
     snapshot_writer: SW,
     unique_value_owner_lookup: UVOL,
     unique_key_reservation_store: UKS,
     reference_index_store: RIS,
     event_save_hook: ESH,
+    config: RepositoryConfig,
     _marker: PhantomData<fn() -> A>,
 }
 
@@ -57,20 +57,20 @@ where
     ESH: EventSaveHook<A, Uow = Uow>,
 {
     pub fn new(
-        config: RepositoryConfig,
         dependencies: DefaultRepositoryDependencies<ER, EW, EOE, SR, SW, UVOL, UKS, RIS, ESH>,
+        config: RepositoryConfig,
     ) -> Self {
         Self {
-            config,
             event_reader: dependencies.event_reader,
-            snapshot_reader: dependencies.snapshot_reader,
             event_writer: dependencies.event_writer,
             event_outbox_enqueuer: dependencies.event_outbox_enqueuer,
+            snapshot_reader: dependencies.snapshot_reader,
             snapshot_writer: dependencies.snapshot_writer,
             unique_value_owner_lookup: dependencies.unique_value_owner_lookup,
             unique_key_reservation_store: dependencies.unique_key_reservation_store,
             reference_index_store: dependencies.reference_index_store,
             event_save_hook: dependencies.event_save_hook,
+            config,
             _marker: PhantomData,
         }
     }
@@ -679,10 +679,7 @@ mod tests {
         }
     }
 
-    fn repository(
-        log: Arc<Mutex<Vec<String>>>,
-        fail_with_conflict: bool,
-    ) -> DefaultRepository<
+    type TestRepository = DefaultRepository<
         Counter,
         RecordingEventReader,
         RecordingEventWriter,
@@ -694,11 +691,10 @@ mod tests {
         RecordingReferenceIndexStore,
         NoopEventSaveHook<TestUnitOfWork>,
         TestUnitOfWork,
-    > {
+    >;
+
+    fn repository(log: Arc<Mutex<Vec<String>>>, fail_with_conflict: bool) -> TestRepository {
         DefaultRepository::new(
-            RepositoryConfig {
-                snapshot_policy: SnapshotPolicy::Disabled,
-            },
             DefaultRepositoryDependencies {
                 event_reader: RecordingEventReader,
                 event_writer: RecordingEventWriter {
@@ -720,6 +716,9 @@ mod tests {
                 },
                 reference_index_store: RecordingReferenceIndexStore { log },
                 event_save_hook: NoopEventSaveHook::new(),
+            },
+            RepositoryConfig {
+                snapshot_policy: SnapshotPolicy::Disabled,
             },
         )
     }
@@ -758,21 +757,8 @@ mod tests {
     fn repository_with_snapshot_policy(
         log: Arc<Mutex<Vec<String>>>,
         snapshot_policy: SnapshotPolicy,
-    ) -> DefaultRepository<
-        Counter,
-        RecordingEventReader,
-        RecordingEventWriter,
-        RecordingEventOutboxEnqueuer,
-        RecordingSnapshotReader,
-        RecordingSnapshotWriter,
-        RecordingUniqueValueOwnerLookup,
-        RecordingUniqueKeyReservationStore,
-        RecordingReferenceIndexStore,
-        NoopEventSaveHook<TestUnitOfWork>,
-        TestUnitOfWork,
-    > {
+    ) -> TestRepository {
         DefaultRepository::new(
-            RepositoryConfig { snapshot_policy },
             DefaultRepositoryDependencies {
                 event_reader: RecordingEventReader,
                 event_writer: RecordingEventWriter {
@@ -795,6 +781,7 @@ mod tests {
                 reference_index_store: RecordingReferenceIndexStore { log },
                 event_save_hook: NoopEventSaveHook::new(),
             },
+            RepositoryConfig { snapshot_policy },
         )
     }
 
@@ -802,23 +789,8 @@ mod tests {
         log: Arc<Mutex<Vec<String>>>,
         aggregate_id: Option<CounterId>,
         fail_lookup: bool,
-    ) -> DefaultRepository<
-        Counter,
-        RecordingEventReader,
-        RecordingEventWriter,
-        RecordingEventOutboxEnqueuer,
-        RecordingSnapshotReader,
-        RecordingSnapshotWriter,
-        RecordingUniqueValueOwnerLookup,
-        RecordingUniqueKeyReservationStore,
-        RecordingReferenceIndexStore,
-        NoopEventSaveHook<TestUnitOfWork>,
-        TestUnitOfWork,
-    > {
+    ) -> TestRepository {
         DefaultRepository::new(
-            RepositoryConfig {
-                snapshot_policy: SnapshotPolicy::Disabled,
-            },
             DefaultRepositoryDependencies {
                 event_reader: RecordingEventReader,
                 event_writer: RecordingEventWriter {
@@ -840,6 +812,9 @@ mod tests {
                 },
                 reference_index_store: RecordingReferenceIndexStore { log },
                 event_save_hook: NoopEventSaveHook::new(),
+            },
+            RepositoryConfig {
+                snapshot_policy: SnapshotPolicy::Disabled,
             },
         )
     }

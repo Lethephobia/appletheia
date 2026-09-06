@@ -1,12 +1,10 @@
 use thiserror::Error;
 
 use crate::command::{CommandEnvelopeError, SerializedCommandError};
+use crate::saga::SerializedSagaStepError;
 
 #[derive(Debug, Error)]
 pub enum SagaInstanceError {
-    #[error("correlation id mismatch between saga instance and source event")]
-    CorrelationIdMismatch,
-
     #[error("no state")]
     NoState,
 
@@ -18,4 +16,7 @@ pub enum SagaInstanceError {
 
     #[error("failed to build command envelope: {0}")]
     CommandEnvelope(#[from] CommandEnvelopeError),
+
+    #[error("failed to serialize saga step: {0}")]
+    SerializedSagaStep(#[from] SerializedSagaStepError),
 }

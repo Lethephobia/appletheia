@@ -114,9 +114,6 @@ where
                         invalidated_partitions.push(ReadModelPartition::new(key));
                     }
                 }
-                OrganizationMembershipEventPayload::CreateRejected { .. }
-                | OrganizationMembershipEventPayload::RolesChangeRejected { .. }
-                | OrganizationMembershipEventPayload::RemoveRejected { .. } => {}
             }
 
             return Ok(invalidated_partitions);
@@ -137,22 +134,13 @@ where
             }
             UserEventPayload::Registered { .. }
             | UserEventPayload::IdentityLinked { .. }
-            | UserEventPayload::IdentityLinkRejected { .. }
             | UserEventPayload::IdentityEmailChanged { .. }
-            | UserEventPayload::IdentityEmailChangeRejected { .. }
             | UserEventPayload::UsernameChanged { .. }
-            | UserEventPayload::UsernameChangeRejected { .. }
             | UserEventPayload::DisplayNameChanged { .. }
-            | UserEventPayload::DisplayNameChangeRejected { .. }
             | UserEventPayload::BioChanged { .. }
-            | UserEventPayload::BioChangeRejected { .. }
             | UserEventPayload::PictureChanged { .. }
-            | UserEventPayload::PictureChangeRejected { .. }
             | UserEventPayload::Activated
-            | UserEventPayload::ActivateRejected { .. }
-            | UserEventPayload::Deactivated
-            | UserEventPayload::DeactivateRejected { .. }
-            | UserEventPayload::RemoveRejected { .. } => {}
+            | UserEventPayload::Deactivated => {}
         }
 
         Ok(invalidated_partitions)

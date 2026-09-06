@@ -120,14 +120,10 @@ impl WalletBookmark {
     /// Rejects a wallet bookmark display name change attempt.
     pub fn reject_change_display_name(
         &mut self,
-        display_name: Option<WalletBookmarkDisplayName>,
+        _display_name: Option<WalletBookmarkDisplayName>,
         reason: WalletBookmarkDisplayNameChangeRejectionReason,
     ) -> Result<(), WalletBookmarkError> {
-        self.append_event(WalletBookmarkEventPayload::DisplayNameChangeRejected {
-            display_name,
-            reason,
-        })?;
-        Ok(())
+        Err(WalletBookmarkError::DisplayNameChangeRejected(reason))
     }
 
     /// Changes the user-facing description.
@@ -151,14 +147,10 @@ impl WalletBookmark {
     /// Rejects a wallet bookmark description change attempt.
     pub fn reject_change_description(
         &mut self,
-        description: Option<WalletBookmarkDescription>,
+        _description: Option<WalletBookmarkDescription>,
         reason: WalletBookmarkDescriptionChangeRejectionReason,
     ) -> Result<(), WalletBookmarkError> {
-        self.append_event(WalletBookmarkEventPayload::DescriptionChangeRejected {
-            description,
-            reason,
-        })?;
-        Ok(())
+        Err(WalletBookmarkError::DescriptionChangeRejected(reason))
     }
 
     /// Removes a wallet bookmark.
@@ -181,8 +173,7 @@ impl WalletBookmark {
         &mut self,
         reason: WalletBookmarkRemoveRejectionReason,
     ) -> Result<(), WalletBookmarkError> {
-        self.append_event(WalletBookmarkEventPayload::RemoveRejected { reason })?;
-        Ok(())
+        Err(WalletBookmarkError::RemoveRejected(reason))
     }
 }
 
@@ -204,15 +195,12 @@ impl AggregateApply<WalletBookmarkEventPayload, WalletBookmarkError> for WalletB
             WalletBookmarkEventPayload::DisplayNameChanged { display_name } => {
                 self.state_required_mut()?.display_name = display_name.clone();
             }
-            WalletBookmarkEventPayload::DisplayNameChangeRejected { .. } => {}
             WalletBookmarkEventPayload::DescriptionChanged { description } => {
                 self.state_required_mut()?.description = description.clone();
             }
-            WalletBookmarkEventPayload::DescriptionChangeRejected { .. } => {}
             WalletBookmarkEventPayload::Removed => {
                 self.state_required_mut()?.status = WalletBookmarkStatus::Removed;
             }
-            WalletBookmarkEventPayload::RemoveRejected { .. } => {}
         }
 
         Ok(())
@@ -229,8 +217,7 @@ mod tests {
     use super::{
         WalletBookmark, WalletBookmarkDescription, WalletBookmarkDisplayName,
         WalletBookmarkEventPayload, WalletBookmarkOwner, WalletBookmarkRegisterResult,
-        WalletBookmarkRegistration, WalletBookmarkRemoveRejectionReason,
-        WalletBookmarkRemoveResult, WalletBookmarkStatus,
+        WalletBookmarkRegistration, WalletBookmarkRemoveResult, WalletBookmarkStatus,
     };
 
     fn token_owner_address() -> TokenOwnerAddress {
@@ -355,21 +342,10 @@ mod tests {
             .expect("first remove should succeed");
         wallet_bookmark.core_mut().clear_uncommitted_events();
 
-        let result = wallet_bookmark
+        wallet_bookmark
             .remove()
-            .expect("second remove should succeed");
-
-        assert_eq!(
-            result,
-            WalletBookmarkRemoveResult::Rejected {
-                reason: WalletBookmarkRemoveRejectionReason::AlreadyRemoved,
-            }
-        );
+            .expect_err("second remove should fail");
         let events = wallet_bookmark.uncommitted_events();
-        assert_eq!(events.len(), 1);
-        assert_eq!(
-            events[0].payload().name(),
-            WalletBookmarkEventPayload::REMOVE_REJECTED
-        );
+        assert!(events.is_empty());
     }
 }

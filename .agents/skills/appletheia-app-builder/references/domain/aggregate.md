@@ -1,1141 +1,295 @@
-# Aggregate Guidelines
+# Aggregate Design
 
-Use for aggregate boundaries, command methods, state transitions, and event application.
+Use this reference for Appletheia aggregate boundaries, command methods, state transitions, events,
+and domain errors.
 
-## Aggregate
+## Aggregate boundary
 
-### DO define command methods on the aggregate and call `append_event` from them
+### DO start from the aggregate's state, events, and behavior
 
-Keep write-side behavior inside the aggregate boundary.
+Before designing handlers or sagas, identify:
 
-good:
+- the state whose invariants must change atomically;
+- the successful business facts worth replaying;
+- the operations that can produce those facts;
+- the typed reasons an operation can fail.
+
+An aggregate is the consistency boundary. Keep behavior that needs several aggregate states in an
+application service or saga rather than injecting repositories into the aggregate.
+
+### DO give the aggregate one stable identity
+
+Use a dedicated `AggregateId` value object. Child objects inside the boundary have their own domain
+identities when useful, but they are loaded and persisted through the root.
+
+### PREFER small aggregate state
+
+Persist only the values required to enforce invariants or answer future commands. Read-model display
+data, request metadata, saga progress, and infrastructure timestamps do not belong in aggregate state.
+
+## Command methods
+
+### DO express behavior as methods on the aggregate
+
 ```rust
-pub fn rename(&mut self, name: AccountName) -> Result<AccountRenameResult, AccountError> {
-    if self.state_required()?.status.is_closed() {
-        let reason = AccountRenameRejectionReason::Closed;
-        self.append_event(AccountEventPayload::RenameRejected {
-            name: name.clone(),
-            reason,
-        })?;
-        return Ok(AccountRenameResult::Rejected { reason });
-    }
-
-    self.append_event(AccountEventPayload::Renamed { name })?;
-    Ok(AccountRenameResult::Renamed)
-}
-```
-
-bad:
-```rust
-aggregate.append_event(ExampleEventPayload::Renamed { name });
-```
-
-### DO build the event payload inside the command method
-
-Construct the payload from the validated command input before you append it.
-
-good:
-```rust
-pub fn issue(
-    &mut self,
-    organization_id: OrganizationId,
-    invitee_id: UserId,
-    issuer: OrganizationInvitationIssuer,
-    expires_at: OrganizationInvitationExpiresAt,
-) -> Result<OrganizationInvitationIssueResult, OrganizationInvitationError> {
-    if self.state().is_some() {
-        return Err(OrganizationInvitationError::AlreadyIssued);
-    }
-
-    if expires_at.is_expired(now) {
-        let reason = OrganizationInvitationIssueRejectionReason::Expired;
-        self.reject_issue(organization_id, invitee_id, issuer, expires_at, reason)?;
-        return Ok(OrganizationInvitationIssueResult::Rejected { reason });
-    }
-
-    self.append_event(OrganizationInvitationEventPayload::Issued {
-        organization_id,
-        invitee_id,
-        issuer,
-        expires_at,
-    })?;
-    Ok(OrganizationInvitationIssueResult::Issued)
-}
-
-pub fn reject_issue(
-    &mut self,
-    organization_id: OrganizationId,
-    invitee_id: UserId,
-    issuer: OrganizationInvitationIssuer,
-    expires_at: OrganizationInvitationExpiresAt,
-    reason: OrganizationInvitationIssueRejectionReason,
-) -> Result<(), OrganizationInvitationError> {
-    self.append_event(OrganizationInvitationEventPayload::IssueRejected {
-        organization_id,
-        invitee_id,
-        issuer,
-        expires_at,
-        reason,
-    })
-}
-```
-
-bad:
-```rust
-pub fn open(&mut self, event: ExampleEventPayload) -> Result<(), ExampleError> {
-    self.append_event(event)
-}
-```
-
-### PREFER one command method to append one event
-
-Keep a command method focused on a single domain fact. If a lifecycle event already contains the data needed for a relationship subject, prefer to carry that data in the primary event payload instead of emitting a second relationship-specific event.
-
-good:
-```rust
-pub fn register(
-    &mut self,
-    username: Username,
-) -> Result<RegisterUserResult, UserError> {
-    if self.state().is_some() {
-        return Err(UserError::AlreadyRegistered);
-    }
-
-    self.append_event(UserEventPayload::Registered { username })?;
-    Ok(RegisterUserResult::Registered)
-}
-```
-
-bad:
-```rust
-pub fn register(
-    &mut self,
-    username: Username,
-) -> Result<(), UserError> {
-    self.append_event(UserEventPayload::Registered { username })?;
-    self.append_event(ExampleEventPayload::SomethingElse { owner: UserId::new() })
-}
-```
-
-### DO model expected domain rejections as events and command results
-
-If a command can be refused as a normal business outcome, append a rejection or failure event and
-return a result value from the aggregate command method. Do not return `Err` for outcomes that
-sagas, projections, or users should observe as persisted facts.
-
-good:
-```rust
-pub enum ReserveFundsResult {
-    Reserved,
-    Rejected { reason: ReserveFundsRejectionReason },
-}
-
-pub fn reserve_funds(&mut self, amount: Money) -> Result<ReserveFundsResult, AccountError> {
-    match self.state_required()?.status {
-        AccountStatus::Active => {}
-        AccountStatus::Frozen => {
-            let reason = ReserveFundsRejectionReason::Frozen;
-            self.append_event(AccountEventPayload::FundsReservationRejected { amount, reason })?;
-            return Ok(ReserveFundsResult::Rejected { reason });
-        }
-        AccountStatus::Closed => {
-            let reason = ReserveFundsRejectionReason::Closed;
-            self.append_event(AccountEventPayload::FundsReservationRejected { amount, reason })?;
-            return Ok(ReserveFundsResult::Rejected { reason });
-        }
-    }
-
-    if self.available_balance()?.is_less_than(amount) {
-        let reason = ReserveFundsRejectionReason::InsufficientAvailableBalance;
-        self.append_event(AccountEventPayload::FundsReservationRejected { amount, reason })?;
-        return Ok(ReserveFundsResult::Rejected { reason });
-    }
-
-    self.append_event(AccountEventPayload::FundsReserved { amount })?;
-    Ok(ReserveFundsResult::Reserved)
-}
-```
-
-bad:
-```rust
-pub fn reserve_funds(&mut self, amount: Money) -> Result<(), AccountError> {
-    if self.state_required()?.status.is_closed() {
-        return Err(AccountError::Closed);
-    }
-
-    if self.available_balance()?.is_less_than(amount) {
-        return Err(AccountError::InsufficientAvailableBalance);
-    }
-
-    self.append_event(AccountEventPayload::FundsReserved { amount })
-}
-```
-
-### DO reject duplicate child additions in command methods, not apply methods
-
-When an aggregate owns a child collection and a command would add a child that is already present,
-detect the duplicate in the command method, append a rejection event, and return a rejected command
-result. Keep `apply` as a direct state transition for the event fact. Do not hide duplicates in
-`apply` with no-op checks such as `if !items.contains(...) { push(...) }`.
-
-good:
-```rust
-pub fn link_identity(
-    &mut self,
-    identity: UserIdentity,
-) -> Result<UserIdentityLinkResult, UserError> {
-    if self.state_required()?.identities.contains(&identity) {
-        let reason = UserIdentityLinkRejectionReason::AlreadyLinked;
-        self.append_event(UserEventPayload::IdentityLinkRejected { identity, reason })?;
-        return Ok(UserIdentityLinkResult::Rejected { reason });
-    }
-
-    self.append_event(UserEventPayload::IdentityLinked { identity })?;
-    Ok(UserIdentityLinkResult::Linked)
-}
-
-fn apply(&mut self, payload: &UserEventPayload) -> Result<(), UserError> {
-    match payload {
-        UserEventPayload::IdentityLinked { identity } => {
-            self.state_required_mut()?.identities.push(identity.clone());
-        }
-        UserEventPayload::IdentityLinkRejected { .. } => {}
-    }
-
-    Ok(())
-}
-```
-
-bad:
-```rust
-fn apply(&mut self, payload: &UserEventPayload) -> Result<(), UserError> {
-    match payload {
-        UserEventPayload::IdentityLinked { identity } => {
-            let state = self.state_required_mut()?;
-            if !state.identities.contains(identity) {
-                state.identities.push(identity.clone());
+impl Account {
+    pub fn reserve_funds(&mut self, amount: CurrencyAmount) -> Result<(), AccountError> {
+        match self.state_required()?.status {
+            AccountStatus::Active => {}
+            AccountStatus::Frozen => {
+                return Err(AccountError::FundsReserveRejected(
+                    AccountFundsReserveRejectionReason::Frozen,
+                ));
+            }
+            AccountStatus::Closed => {
+                return Err(AccountError::FundsReserveRejected(
+                    AccountFundsReserveRejectionReason::Closed,
+                ));
             }
         }
-        UserEventPayload::IdentityLinkRejected { .. } => {}
-    }
 
-    Ok(())
+        if self.available_balance()? < amount {
+            return Err(AccountError::FundsReserveRejected(
+                AccountFundsReserveRejectionReason::InsufficientAvailableBalance,
+            ));
+        }
+
+        self.append_event(AccountEventPayload::FundsReserved { amount })
+    }
 }
 ```
 
-### DO reserve aggregate errors for invalid or incomplete processing
+The method validates current state, returns a typed error on refusal, and appends only the successful
+event. Do not let a handler reproduce these state rules.
 
-Return `Err` when the command cannot be processed reliably or an invariant would be violated.
-Use a rejection event for expected business denials such as insufficient funds, expired offers,
-capacity limits, or already-consumed resources when those outcomes must drive projections or sagas.
-`Err` is still appropriate for unexpected processing failures, missing required aggregate state,
-serialization or conversion failures, arithmetic overflow, and internal invariant violations that
-should roll back the command instead of being persisted as a business fact.
+### DO return typed errors for operations that do not happen
 
-good:
+An attempted state change that is refused is an error, even when refusal is expected in the business
+domain. Preserve structured reasons in the aggregate error so the application and transport layers
+can map them without parsing strings.
+
 ```rust
-pub fn available_balance(&self) -> Result<Money, AccountError> {
+#[derive(Debug, Error)]
+pub enum AccountError {
+    #[error(transparent)]
+    Aggregate(#[from] AggregateError<AccountId>),
+
+    #[error(transparent)]
+    State(#[from] AccountStateError),
+
+    #[error("account funds reservation rejected: {0:?}")]
+    FundsReserveRejected(AccountFundsReserveRejectionReason),
+}
+```
+
+Using `Rejected` in an error variant is fine. The removed pattern is an operation-failure
+`EventPayload::...Rejected` event.
+
+### DON'T append an event for an operation failure
+
+Avoid event variants such as:
+
+- `FundsReserveRejected` when no funds were reserved;
+- `CreateRejected` when an aggregate was not created;
+- `NameChangeRejected` when the name did not change;
+- `CompleteRejected` when completion did not happen.
+
+Those attempts do not change aggregate state and do not belong in the aggregate stream. Returning
+`Err` lets the application classify retryability and lets the command worker notify an originating
+saga after terminal failure.
+
+### DO preserve meaningful rejection and decline events
+
+Keep a rejection event when rejection is itself the requested state transition.
+
+```rust
+pub enum OrganizationJoinRequestEventPayload {
+    Submitted { organization_id: OrganizationId, user_id: UserId },
+    Approved,
+    Rejected { reason: OrganizationJoinRequestRejectionReason },
+    Cancelled,
+}
+```
+
+Here a `RejectOrganizationJoinRequest` command succeeds by moving a pending request to rejected. The
+event is a durable business fact. The same reasoning applies to an invitation being declined.
+
+Ask: "Did the command successfully perform a rejection decision, or was its requested operation
+rejected?" Persist only the former.
+
+### DO validate before appending a success event
+
+Run every invariant check before `append_event`. Once an event is appended it is part of the pending
+change set and should not be undone by application code.
+
+```rust
+pub fn change_name(&mut self, name: AccountName) -> Result<(), AccountError> {
     let state = self.state_required()?;
-
-    state.balance.try_sub(state.reserved_balance).map_err(|error| match error {
-        MoneyError::InsufficientBalance => AccountError::InvalidReservedBalance,
-        MoneyError::Overflow => AccountError::BalanceOverflow,
-    })
-}
-```
-
-good:
-```rust
-pub fn close(&mut self) -> Result<CloseAccountResult, AccountError> {
-    if !self.state_required()?.balance.is_zero() {
-        let reason = CloseAccountRejectionReason::BalanceRemaining;
-        self.append_event(AccountEventPayload::CloseRejected { reason })?;
-        return Ok(CloseAccountResult::Rejected { reason });
+    if state.status.is_closed() {
+        return Err(AccountError::NameChangeRejected(
+            AccountNameChangeRejectionReason::AccountClosed,
+        ));
     }
-
-    self.append_event(AccountEventPayload::Closed)?;
-    Ok(CloseAccountResult::Closed)
-}
-```
-
-bad:
-```rust
-pub fn reserve_funds(&mut self, amount: Money) -> Result<ReserveFundsResult, AccountError> {
-    if !self.state_required()?.balance.is_zero() {
-        return Err(AccountError::InsufficientAvailableBalance);
-    }
-
-    self.append_event(AccountEventPayload::FundsReserved { amount })?;
-    Ok(ReserveFundsResult::Reserved)
-}
-```
-
-### PREFER command methods and events to align with top-level value object boundaries
-
-If an aggregate state owns a top-level value object, prefer changing that value object through one aggregate command method and one event for the whole value object. Avoid adding attribute-specific command methods and events for fields nested inside that value object unless those fields have meaning outside the value object boundary.
-
-good:
-```rust
-pub fn change_profile(
-    &mut self,
-    profile: OrganizationProfile,
-) -> Result<OrganizationChangeProfileResult, OrganizationError> {
-    if self.state_required()?.status.is_removed() {
-        let reason = OrganizationChangeProfileRejectionReason::Removed;
-        self.append_event(OrganizationEventPayload::ProfileChangeRejected {
-            profile: profile.clone(),
-            reason,
-        })?;
-        return Ok(OrganizationChangeProfileResult::Rejected { reason });
-    }
-
-    self.append_event(OrganizationEventPayload::ProfileChanged { profile })?;
-    Ok(OrganizationChangeProfileResult::Changed)
-}
-```
-
-bad:
-```rust
-pub fn change_display_name(
-    &mut self,
-    display_name: OrganizationDisplayName,
-) -> Result<(), OrganizationError> {
-    self.append_event(OrganizationEventPayload::DisplayNameChanged { display_name })
-}
-```
-
-### DO allow attribute-level command methods and events when changing an entity inside the aggregate
-
-If the aggregate owns an entity and the change targets one attribute of that entity, attribute-level command methods and events are acceptable. In that case the domain fact is usually about that specific attribute on that specific entity, not about replacing an enclosing value object.
-
-good:
-```rust
-pub fn change_identity_email(
-    &mut self,
-    provider: UserIdentityProvider,
-    subject: UserIdentitySubject,
-    email: Option<Email>,
-) -> Result<(), UserError> {
-    let identity = self
-        .state_required()?
-        .identities
-        .iter()
-        .find(|identity| identity.matches(&provider, &subject))
-        .ok_or(UserError::IdentityNotFound)?;
-
-    if identity.email() == email.as_ref() {
+    if state.name == name {
         return Ok(());
     }
 
-    self.append_event(UserEventPayload::IdentityEmailChanged {
-        provider,
-        subject,
-        email,
-    })
+    self.append_event(AccountEventPayload::NameChanged { name })
 }
 ```
 
-bad:
+If an already-satisfied request is intentionally idempotent, return `Ok(())` without an event. If it
+is a domain violation, return the typed error. Make that choice explicit per operation.
+
+### DON'T use constructor misuse as a business rejection
+
+Calling a one-shot `create` or `open` method twice on the same initialized instance is aggregate API
+misuse. Return a structural error such as `AlreadyOpened`; do not append a `CreateRejected` event.
+
+## Events
+
+### DO name events as completed facts
+
+Use past-tense facts such as `Opened`, `FundsReserved`, `NameChanged`, `Closed`, `Approved`, or
+`Rejected`. Event payloads contain all domain data needed to replay the transition.
+
 ```rust
-pub fn change_identity(
-    &mut self,
-    provider: UserIdentityProvider,
-    subject: UserIdentitySubject,
-    identity: UserIdentity,
-) -> Result<(), UserError> {
-    self.append_event(UserEventPayload::IdentityChanged {
-        provider,
-        subject,
-        identity,
-    })
-}
-```
-
-### PREFER collection value objects when the aggregate treats the whole collection as one declared value
-
-If a collection is supplied, stored, and replaced as one declared value, model it as a dedicated type instead of exposing the raw collection directly. This usually fits configuration-like inputs and top-level aggregate values that are changed in one step.
-
-good:
-```rust
-pub fn configure_audiences(
-    &mut self,
-    audiences: AuthTokenAudiences,
-) -> Result<(), ExampleError> {
-    self.append_event(ExampleEventPayload::AudiencesConfigured { audiences })
-}
-```
-
-bad:
-```rust
-pub fn add_audience(
-    &mut self,
-    audience: AuthTokenAudience,
-) -> Result<(), ExampleError> {
-    self.append_event(ExampleEventPayload::AudienceAdded { audience })
-}
-```
-
-### PREFER raw collections when add/remove operations are the domain facts
-
-If commands and events add or remove single items, keep the state as a raw collection and choose the collection type that matches the semantics. Prefer `Vec` when order matters and `BTreeSet` or `HashSet` when uniqueness matters.
-
-good:
-```rust
-pub fn grant_role(
-    &mut self,
-    role: OrganizationRole,
-) -> Result<(), ExampleError> {
-    self.append_event(ExampleEventPayload::RoleGranted { role })
-}
-```
-
-good:
-```rust
-pub struct ExampleState {
-    roles: Vec<OrganizationRole>,
-}
-```
-
-bad:
-```rust
-pub struct ExampleState {
-    roles: OrganizationRoles,
-}
-
-pub fn grant_role(
-    &mut self,
-    role: OrganizationRole,
-) -> Result<(), ExampleError> {
-    self.append_event(ExampleEventPayload::RoleGranted { role })
-}
-```
-
-### DON'T model a collection as a value object when the commands and events mutate it item by item
-
-Avoid wrapping a collection in a value object when the surrounding API still talks in terms of individual inserts and removals. That split usually makes the state shape and the event model drift apart.
-
-bad:
-```rust
-pub fn grant_role(&mut self, roles: OrganizationRoles) -> Result<(), OrganizationError> {
-    self.append_event(OrganizationEventPayload::RolesReplaced { roles })
-}
-```
-
-good:
-```rust
-pub fn grant_role(&mut self, role: OrganizationRole) -> Result<(), OrganizationError> {
-    self.append_event(OrganizationEventPayload::RoleGranted { role })
-}
-```
-
-### DO validate the request before you append an event
-
-Append a rejection event for expected business denials before any success event is recorded. Keep
-unexpected processing errors as `Err`.
-
-good:
-```rust
-pub fn reserve_funds(&mut self, amount: Money) -> Result<ReserveFundsResult, AccountError> {
-    if self.available_balance()?.is_less_than(amount) {
-        let reason = ReserveFundsRejectionReason::InsufficientAvailableBalance;
-        self.append_event(AccountEventPayload::FundsReservationRejected { amount, reason })?;
-        return Ok(ReserveFundsResult::Rejected { reason });
-    }
-
-    self.append_event(AccountEventPayload::FundsReserved { amount })?;
-    Ok(ReserveFundsResult::Reserved)
-}
-```
-
-bad:
-```rust
-pub fn rename(&mut self, name: ExampleName) -> Result<(), ExampleError> {
-    self.append_event(ExampleEventPayload::Renamed { name })
-}
-```
-
-### DO append success events even when the resulting state is unchanged
-
-If a command is accepted, append the corresponding success event and return the success result even
-when replaying that event leaves the aggregate state unchanged. This keeps command acceptance
-observable for sagas and projections, and prevents workflows from stalling while they wait for an
-accepted command event that was never persisted. Use command idempotency to suppress duplicate
-command messages; do not hide accepted commands inside aggregate no-ops.
-
-good:
-```rust
-pub fn change_name(&mut self, name: AccountName) -> Result<AccountNameChangeResult, AccountError> {
-    if self.state_required()?.status.is_closed() {
-        let reason = AccountNameChangeRejectionReason::Closed;
-        self.append_event(AccountEventPayload::NameChangeRejected {
-            name: name.clone(),
-            reason,
-        })?;
-        return Ok(AccountNameChangeResult::Rejected { reason });
-    }
-
-    self.append_event(AccountEventPayload::NameChanged { name })?;
-    Ok(AccountNameChangeResult::Changed)
-}
-```
-
-bad:
-```rust
-if self.state().is_some_and(|state| state.name == name) {
-    return Ok(AccountNameChangeResult::Changed);
-}
-```
-
-### DO run business rejection checks before success events
-
-Do not let an already-matching state hide a business rejection that should be persisted. Validate
-the command first, then append the success event.
-
-good:
-```rust
-pub fn change_name(&mut self, name: AccountName) -> Result<AccountNameChangeResult, AccountError> {
-    if self.state_required()?.status.is_closed() {
-        let reason = AccountNameChangeRejectionReason::Closed;
-        self.append_event(AccountEventPayload::NameChangeRejected {
-            name: name.clone(),
-            reason,
-        })?;
-        return Ok(AccountNameChangeResult::Rejected { reason });
-    }
-
-    self.append_event(AccountEventPayload::NameChanged { name })?;
-    Ok(AccountNameChangeResult::Changed)
-}
-```
-
-bad:
-```rust
-if self.state().is_some_and(|state| state.name == name) {
-    return Ok(AccountNameChangeResult::Changed);
-}
-
-if self.state_required()?.status.is_closed() {
-    let reason = AccountNameChangeRejectionReason::Closed;
-    self.append_event(AccountEventPayload::NameChangeRejected { name, reason })?;
-    return Ok(AccountNameChangeResult::Rejected { reason });
-}
-```
-
-### DO return `Err` when a create-like aggregate command is called twice on the same aggregate instance
-
-When the aggregate itself owns its creation lifecycle, calling `create`, `open`, `register`, or
-similar one-shot methods twice on the same instance is aggregate misuse, not a business rejection.
-Reserve rejection events for business outcomes on the aggregate being created, typically triggered
-by cross-aggregate validation in a handler.
-
-good:
-```rust
-pub fn create(
-    &mut self,
-    handle: OrganizationHandle,
-    name: OrganizationName,
-) -> Result<OrganizationCreateResult, OrganizationError> {
-    if self.state().is_some() {
-        return Err(OrganizationError::AlreadyCreated);
-    }
-
-    self.append_event(OrganizationEventPayload::Created {
-        handle,
-        name,
-    })?;
-    Ok(OrganizationCreateResult::Created)
-}
-```
-
-bad:
-```rust
-pub fn open(&mut self, name: ExampleName) -> Result<(), ExampleError> {
-    if self.state().is_some_and(|state| state.name == name) {
-        return Ok(());
-    }
-
-    self.append_event(ExampleEventPayload::Opened { name })
-}
-```
-
-### DO let `Aggregate::new()` generate the aggregate's own `AggregateId`
-
-The aggregate ID exists before the first event. Read it through `aggregate_id()` and do not copy
-the aggregate's own ID into state, event payloads, or command results. Application handlers can
-read the ID directly from the aggregate when building their output. Other aggregate IDs remain
-normal domain data. Define the ID type on `AggregateCore` and let `#[aggregate]` implement `new()`
-and `from_id()`; do not add mutable aggregate-ID setters or duplicate constructors by hand.
-
-good:
-```rust
-#[aggregate(type = "organization_membership", error = OrganizationMembershipError)]
-pub struct OrganizationMembership {
-    core: AggregateCore<
-        OrganizationMembershipId,
-        OrganizationMembershipState,
-        OrganizationMembershipEventPayload,
-    >,
-}
-
-pub fn create(
-    &mut self,
-    organization_id: OrganizationId,
-    user_id: UserId,
-) -> Result<OrganizationMembershipCreateResult, OrganizationMembershipError> {
-    self.append_event(OrganizationMembershipEventPayload::Created {
-        organization_id,
-        user_id,
-    })?;
-    Ok(OrganizationMembershipCreateResult::Created)
-}
-```
-
-bad:
-```rust
-pub fn open(&mut self, name: ExampleName) -> Result<(), ExampleError> {
-    let id = ExampleId::new();
-    self.append_event(ExampleEventPayload::Opened { id, name })
-}
-```
-
-### DO derive unique and reference entries through the aggregate
-
-Call `aggregate.unique_entries()` and `aggregate.reference_entries()` when persistence code needs
-the current indexes. The aggregate combines its immutable identifier with its state, so callers do
-not need to pass the identifier into state-level index definitions themselves. Aggregate errors
-must support conversion from the corresponding aggregate-state error.
-
-good:
-```rust
-let unique_entries = aggregate.unique_entries()?;
-let reference_entries = aggregate.reference_entries()?;
-```
-
-bad:
-```rust
-let state = aggregate.state_required()?;
-let unique_entries = state.unique_entries(aggregate.aggregate_id().value())?;
-```
-
-### PREFER expose state attributes and computed values through getters
-
-Use read-only accessors when callers need the current state or a derived value.
-
-good:
-```rust
-pub fn available_balance(&self) -> Result<AccountBalance, AccountError> {
-    let state = self.state_required()?;
-
-    state
-        .balance
-        .try_sub(state.reserved_balance)
-        .map_err(|error| match error {
-            AccountBalanceError::InsufficientBalance => AccountError::InvalidReservedBalance,
-            AccountBalanceError::BalanceOverflow => AccountError::BalanceOverflow,
-        })
-}
-```
-
-bad:
-```rust
-let name = aggregate.state.name.clone();
-```
-
-### DON'T give the aggregate any fields other than `core`
-
-Keep aggregate data inside `AggregateCore` and the aggregate state.
-
-bad:
-```rust
-pub struct ExampleAggregate {
-    core: AggregateCore<ExampleId, ExampleState, ExampleEventPayload>,
-    name: ExampleName,
-}
-```
-
-good:
-```rust
-pub struct Organization {
-    core: AggregateCore<OrganizationId, OrganizationState, OrganizationEventPayload>,
-}
-```
-
-### DON'T define trigger-only command methods or events on the aggregate that creates another aggregate
-
-Put the creation command on the aggregate that is actually being created.
-
-bad:
-```rust
-impl Parent {
-    pub fn request_open_child(&mut self, name: ChildName) -> Result<(), ParentError> {
-        self.append_event(ParentEventPayload::ChildOpenRequested { name })
-    }
-}
-
-impl Child {
-    pub fn open(&mut self, name: ChildName) -> Result<(), ChildError> {
-        self.append_event(ChildEventPayload::Opened { name })
-    }
-}
-```
-
-good:
-```rust
-impl OrganizationMembership {
-    pub fn create(
-        &mut self,
-        organization_id: OrganizationId,
-        user_id: UserId,
-    ) -> Result<OrganizationMembershipCreateResult, OrganizationMembershipError> {
-        self.append_event(OrganizationMembershipEventPayload::Created {
-            organization_id,
-            user_id,
-        })?;
-        Ok(OrganizationMembershipCreateResult::Created)
-    }
-
-    pub fn reject_create(
-        &mut self,
-        organization_id: OrganizationId,
-        user_id: UserId,
-        reason: OrganizationMembershipCreateRejectionReason,
-    ) -> Result<(), OrganizationMembershipError> {
-        self.append_event(OrganizationMembershipEventPayload::CreateRejected {
-            organization_id,
-            user_id,
-            reason,
-        })
-    }
-}
-```
-
-### DON'T reference other aggregates directly
-
-Pass aggregate identifiers instead of aggregate instances.
-
-bad:
-```rust
-pub fn transfer_to(
-    &mut self,
-    target: ExampleAggregate,
-    amount: Money,
-) -> Result<(), ExampleError> {
-    self.append_event(ExampleEventPayload::Transferred {
-        target_id: target.id(),
-        amount,
-    })
-}
-```
-
-good:
-```rust
-pub fn issue(
-    &mut self,
-    organization_id: OrganizationId,
-    invitee_id: UserId,
-    issuer: OrganizationInvitationIssuer,
-    expires_at: OrganizationInvitationExpiresAt,
-) -> Result<OrganizationInvitationIssueResult, OrganizationInvitationError> {
-    self.append_event(OrganizationInvitationEventPayload::Issued {
-        organization_id,
-        invitee_id,
-        issuer,
-        expires_at,
-    })?;
-    Ok(OrganizationInvitationIssueResult::Issued)
-}
-```
-
-## AggregateApply
-
-### DON'T put validation in `apply`
-
-Keep validation in command methods, not in event replay.
-
-bad:
-```rust
-fn apply(&mut self, payload: &OrganizationEventPayload) -> Result<(), OrganizationError> {
-    if self.state_required()?.status.is_removed() {
-        return Err(OrganizationError::Removed);
-    }
-
-    match payload {
-        OrganizationEventPayload::NameChanged { name } => {
-            self.state_required_mut()?.name = name.clone();
-            Ok(())
-        }
-        OrganizationEventPayload::Created { handle, name } => {
-            self.set_state(Some(OrganizationState {
-                handle: handle.clone(),
-                name: name.clone(),
-                status: OrganizationStatus::Active,
-            }));
-            Ok(())
-        }
-        _ => Ok(()),
-    }
-}
-```
-
-good:
-```rust
-fn apply(&mut self, payload: &OrganizationEventPayload) -> Result<(), OrganizationError> {
-    match payload {
-        OrganizationEventPayload::Created { handle, name } => {
-            self.set_state(Some(OrganizationState {
-                handle: handle.clone(),
-                name: name.clone(),
-                status: OrganizationStatus::Active,
-            }));
-            Ok(())
-        }
-        OrganizationEventPayload::HandleChanged { handle } => {
-            self.state_required_mut()?.handle = handle.clone();
-            Ok(())
-        }
-        OrganizationEventPayload::NameChanged { name } => {
-            self.state_required_mut()?.name = name.clone();
-            Ok(())
-        }
-        OrganizationEventPayload::Removed => {
-            self.state_required_mut()?.status = OrganizationStatus::Removed;
-            Ok(())
-        }
-    }
-}
-```
-
-### DON'T skip events that `apply` receives
-
-If an event cannot be applied, return an error so compatibility problems stay visible.
-
-bad:
-```rust
-fn apply(&mut self, event: ExampleEventPayload) -> Result<(), ExampleError> {
-    match event {
-        ExampleEventPayload::Renamed { name } => {
-            if let Some(state) = self.state_mut() {
-                state.name = name;
-            }
-
-            Ok(())
-        }
-        ExampleEventPayload::Opened { name } => {
-            self.set_state(Some(ExampleState {
-                name: name.clone(),
-                status: ExampleStatus::Active,
-            }));
-            Ok(())
-        }
-    }
-}
-```
-
-good:
-```rust
-fn apply(&mut self, payload: &OrganizationEventPayload) -> Result<(), OrganizationError> {
-    match payload {
-        OrganizationEventPayload::NameChanged { name } => {
-            let state = self.state_required_mut()?;
-            state.name = name.clone();
-            Ok(())
-        }
-        OrganizationEventPayload::Created { handle, name } => {
-            self.set_state(Some(OrganizationState {
-                handle: handle.clone(),
-                name: name.clone(),
-                status: OrganizationStatus::Active,
-            }));
-            Ok(())
-        }
-        OrganizationEventPayload::HandleChanged { handle } => {
-            self.state_required_mut()?.handle = handle.clone();
-            Ok(())
-        }
-        OrganizationEventPayload::Removed => {
-            self.state_required_mut()?.status = OrganizationStatus::Removed;
-            Ok(())
-        }
-    }
-}
-```
-
-## AggregateState
-
-### DO use the aggregate ID supplied to unique and reference index callbacks
-
-`AggregateState` does not store the aggregate's own ID. When an index includes that ID, use the
-`aggregate_id` argument supplied by the generated callback contract. Import concrete types such as
-`Uuid` and use their short names instead of writing fully qualified paths in signatures.
-
-good:
-```rust
-use uuid::Uuid;
-
-fn organization_user_unique_values(
-    _state: &UserState,
-    aggregate_id: Uuid,
-) -> Result<Option<UniqueValues>, UserStateError> {
-    let user_id = aggregate_id.to_string();
-    let value = UniqueValue::from_strings([user_id.as_str()])?;
-
-    Ok(Some(UniqueValues::new([value])?))
-}
-```
-
-bad:
-```rust
-fn organization_user_unique_values(
-    state: &UserState,
-    aggregate_id: uuid::Uuid,
-) -> Result<Option<UniqueValues>, UserStateError> {
-    // Do not recover or duplicate the aggregate ID from state.
-    todo!()
-}
-```
-
-### PREFER keep `AggregateState` fields `pub(super)` or `pub(crate)` at most
-
-Limit field visibility to the aggregate module or its parent when possible.
-
-good:
-```rust
-pub(super) struct OrganizationState {
-    pub(super) status: OrganizationStatus,
-    pub(super) handle: OrganizationHandle,
-    pub(super) name: OrganizationName,
-}
-```
-
-bad:
-```rust
-pub struct OrganizationState {
-    pub handle: OrganizationHandle,
-    pub name: OrganizationName,
-    pub status: OrganizationStatus,
-}
-```
-
-### DON'T use initial events as state snapshots
-
-Keep initial event payloads focused on the fact that happened and the values decided by that fact.
-Do not add fields only because the aggregate state needs a default value. When a value is fully
-implied by the event variant, initialize it in `apply`.
-
-good:
-```rust
-pub fn create(
-    &mut self,
-    handle: OrganizationHandle,
-    name: OrganizationName,
-) -> Result<(), OrganizationError> {
-    self.append_event(OrganizationEventPayload::Created { handle, name })
-}
-
-fn apply(&mut self, payload: &OrganizationEventPayload) -> Result<(), OrganizationError> {
-    match payload {
-        OrganizationEventPayload::Created { handle, name } => {
-            self.set_state(Some(OrganizationState {
-                handle: handle.clone(),
-                name: name.clone(),
-                status: OrganizationStatus::Active,
-            }));
-        }
-        OrganizationEventPayload::Removed => {
-            self.state_required_mut()?.status = OrganizationStatus::Removed;
-        }
-    }
-
-    Ok(())
-}
-```
-
-bad:
-```rust
-pub enum OrganizationEventPayload {
-    Created {
-        handle: OrganizationHandle,
-        name: OrganizationName,
-        status: OrganizationStatus,
-        member_count: u32,
+#[event_payload(error = AccountEventPayloadError)]
+pub enum AccountEventPayload {
+    Opened {
+        owner: AccountOwner,
+        name: AccountName,
+        currency_id: CurrencyId,
     },
+    FundsReserved { amount: CurrencyAmount },
+    NameChanged { name: AccountName },
+    Closed,
 }
 ```
 
-### AVOID define methods on `AggregateState`, and keep logic out of it
+Do not include handler errors, repository errors, retryability, request context, saga step, or API
+response details in the domain event.
 
-Keep `AggregateState` as a data container and update it directly from `AggregateApply`.
+### DO keep event application deterministic and exhaustive
 
-bad:
+`AggregateApply` reconstructs state from payload alone. It performs no I/O, reads no clock, and emits
+no further events.
+
 ```rust
-impl OrganizationState {
-    pub fn change_name(&mut self, name: OrganizationName) {
-        self.name = name;
-    }
-}
-```
-
-good:
-```rust
-impl AggregateApply<OrganizationEventPayload, OrganizationError> for Organization {
-    fn apply(
-        &mut self,
-        payload: &OrganizationEventPayload,
-    ) -> Result<(), OrganizationError> {
-        if let OrganizationEventPayload::NameChanged { name } = payload {
-            self.state_required_mut()?.name = name.clone();
+impl AggregateApply<AccountEventPayload, AccountError> for Account {
+    fn apply(&mut self, payload: &AccountEventPayload) -> Result<(), AccountError> {
+        match payload {
+            AccountEventPayload::Opened { owner, name, currency_id } => {
+                self.set_state(Some(AccountState::new(
+                    owner.clone(),
+                    name.clone(),
+                    *currency_id,
+                )));
+            }
+            AccountEventPayload::FundsReserved { amount } => {
+                self.state_required_mut()?.balance.reserve(*amount)?;
+            }
+            AccountEventPayload::NameChanged { name } => {
+                self.state_required_mut()?.name = name.clone();
+            }
+            AccountEventPayload::Closed => {
+                self.state_required_mut()?.status = AccountStatus::Closed;
+            }
         }
-
         Ok(())
     }
 }
 ```
 
-### PREFER define value objects
+Do not add a wildcard arm to hide a missing transition. Exhaustive matching makes schema evolution
+visible at compile time.
 
-Prefer domain-specific types over primitive fields when the meaning matters.
+### DON'T mutate state outside event application
 
-good:
+Aggregate command methods call `append_event`; the apply implementation owns state mutation. Direct
+mutation before appending makes live execution diverge from replay.
+
+## State and value objects
+
+### DO use dedicated value objects for domain concepts
+
+Validate names, money, currency, URLs, and identifiers at construction. Store valid values in events
+and state so replay does not repeat transport validation.
+
+### DO use `state_required` and `state_required_mut`
+
+Use the shared aggregate helpers instead of unwrapping optional state. Their typed errors preserve the
+difference between an uninitialized aggregate and a domain refusal.
+
+### PREFER domain status only when it is a real aggregate fact
+
+An `AccountStatus::Frozen` or `JoinRequestStatus::Rejected` can be essential to future invariants.
+Keep it. Do not add statuses for handler execution, command retries, saga steps, or persistence
+bookkeeping.
+
+## Uniqueness and references
+
+### DO derive unique and reference entries from current state
+
+Implement Appletheia's unique/reference entry contracts from materialized aggregate state. These
+indexes are persistence aids for domain ownership and lookup, not alternative mutable state.
+
+### DON'T enforce cross-aggregate uniqueness inside one aggregate
+
+The aggregate cannot know whether another root owns a handle, external identity, or currency code.
+Let the application query the reference/unique index and return a typed handler error, or model a
+dedicated owner aggregate and coordinate it through a saga.
+
+Do not initialize a losing aggregate merely to store a rejection event.
+
+## Child entities and collections
+
+### DO enforce collection invariants at the root
+
+The aggregate root decides whether a child can be added, removed, or changed. Return a typed error for
+duplicates or invalid lifecycle state and append a success event only when the collection changes.
+
 ```rust
-pub(super) struct OrganizationState {
-    pub(super) handle: OrganizationHandle,
-    pub(super) name: OrganizationName,
-    pub(super) status: OrganizationStatus,
+pub fn link_identity(&mut self, identity: ExternalIdentity) -> Result<(), UserError> {
+    if self.state_required()?.identities.contains(&identity) {
+        return Err(UserError::IdentityAlreadyLinked(identity));
+    }
+
+    self.append_event(UserEventPayload::IdentityLinked { identity })
 }
 ```
 
-bad:
-```rust
-pub(super) struct OrganizationState {
-    pub(super) handle: String,
-    pub(super) name: String,
-    pub(super) status: i64,
-}
-```
+### PREFER event payloads that identify the affected child
 
-### PREFER serialize enum value objects as adjacently tagged JSON
+Include the child's stable ID and the values needed for deterministic apply. Avoid positional indexes
+whose meaning changes as a collection is reordered.
 
-When a value object is an enum and it is serialized to JSON, prefer `#[serde(tag = "type", content = "data", rename_all = "snake_case")]` so the wire shape stays explicit and compatible with future tuple variants.
+## Error boundaries
 
-good:
-```rust
-#[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
-#[serde(tag = "type", content = "data", rename_all = "snake_case")]
-pub enum OrganizationStatus {
-    Active,
-    Removed,
-}
-```
+### DO separate aggregate errors from application errors
 
-bad:
-```rust
-#[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum OrganizationStatus {
-    Active,
-    Removed,
-}
-```
+Aggregate errors cover invalid aggregate usage, state access, value transitions, and invariant
+refusals. Repository, authorization, network, and external-service failures belong in handler errors.
+The handler error implements `Retryability`; aggregate domain failures normally map to
+non-retryable.
 
-### AVOID use floating-point types such as `f64` in `AggregateState`
+### DON'T add retryability to domain events
 
-Use a fixed-point representation and keep the decimal precision explicit.
+Retryability describes execution failure and may depend on infrastructure. It is not a historical
+fact about aggregate state.
 
-bad:
-```rust
-pub(super) struct AccountState {
-    pub(super) balance: f64,
-}
-```
+## Testing
 
-good:
-```rust
-pub(super) struct AccountState {
-    pub(super) balance: AccountBalance,
-    pub(super) reserved_balance: AccountBalance,
-}
-```
+### DO test behavior and replay separately
 
-## EventPayload
+For every operation, cover:
 
-### PREFER model `EventPayload` as an enum
+- valid state produces the expected success event;
+- each refused state returns the expected typed error and no uncommitted event;
+- intentional idempotent no-op returns success without an event;
+- applying each event yields the expected state;
+- replaying the event sequence reconstructs the same state;
+- unique and reference entries reflect the reconstructed state.
 
-Use enum variants to represent distinct facts instead of collapsing them into a struct with optional fields.
-
-good:
-```rust
-#[event_payload(error = OrganizationEventPayloadError)]
-pub enum OrganizationEventPayload {
-    Created {
-        handle: OrganizationHandle,
-        name: OrganizationName,
-    },
-    HandleChanged {
-        handle: OrganizationHandle,
-    },
-    NameChanged {
-        name: OrganizationName,
-    },
-    Removed,
-}
-```
-
-bad:
-```rust
-#[derive(Serialize, Deserialize)]
-pub struct OrganizationEventPayload {
-    pub kind: String,
-    pub handle: Option<OrganizationHandle>,
-    pub name: Option<OrganizationName>,
-}
-```
-
-### DO use past participles for variant names
-
-Make variants read as facts about what already happened.
-
-good:
-```rust
-pub enum OrganizationInvitationEventPayload {
-    Issued {
-        organization_id: OrganizationId,
-        invitee_id: UserId,
-        issuer: OrganizationInvitationIssuer,
-        expires_at: OrganizationInvitationExpiresAt,
-    },
-    Accepted {
-        organization_id: OrganizationId,
-        invitee_id: UserId,
-    },
-    Declined {
-        organization_id: OrganizationId,
-        invitee_id: UserId,
-    },
-    Canceled {
-        organization_id: OrganizationId,
-        invitee_id: UserId,
-    },
-}
-```
-
-bad:
-```rust
-pub enum OrganizationInvitationEventPayload {
-    Issue {
-        organization_id: OrganizationId,
-        invitee_id: UserId,
-    },
-    Accept {
-        organization_id: OrganizationId,
-        invitee_id: UserId,
-    },
-    Decline {
-        organization_id: OrganizationId,
-        invitee_id: UserId,
-    },
-    Cancel {
-        organization_id: OrganizationId,
-        invitee_id: UserId,
-    },
-}
-```
+For a meaningful rejection action, test that the reject command emits its `Rejected` fact and replay
+changes status. For an operation failure, assert that no rejection event exists.

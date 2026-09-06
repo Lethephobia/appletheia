@@ -1,9 +1,10 @@
-use crate::postgresql::saga::pg_saga_instance_command_row::PgSagaInstanceCommandRow;
+use crate::postgresql::saga::pg_saga_dispatched_command_row::PgSagaDispatchedCommandRow;
 use crate::postgresql::saga::pg_saga_instance_row::PgSagaInstanceRow;
 use crate::postgresql::unit_of_work::PgUnitOfWork;
 use appletheia_application::request_context::{CorrelationId, MessageId};
 use appletheia_application::saga::{
-    SagaInstance, SagaInstanceStore, SagaInstanceStoreError, SagaNameOwned, SagaState, SagaStatus,
+    SagaDispatchedCommand, SagaInstance, SagaInstanceStore, SagaInstanceStoreError, SagaNameOwned,
+    SagaState, SagaStatus, SagaStep,
 };
 
 #[derive(Debug)]
@@ -22,18 +23,18 @@ impl Default for PgSagaInstanceStore {
 }
 
 impl PgSagaInstanceStore {
-    async fn read_command_message_ids(
+    async fn read_dispatched_commands<S: SagaStep>(
         uow: &mut PgUnitOfWork,
         saga_instance_id: uuid::Uuid,
-    ) -> Result<Vec<MessageId>, SagaInstanceStoreError> {
+    ) -> Result<Vec<SagaDispatchedCommand<S>>, SagaInstanceStoreError> {
         let transaction = uow.transaction_mut();
 
-        let rows = sqlx::query_as::<_, PgSagaInstanceCommandRow>(
+        let rows = sqlx::query_as::<_, PgSagaDispatchedCommandRow>(
             r#"
-            SELECT message_id
-            FROM saga_instance_commands
+            SELECT message_id, command_name, step
+            FROM saga_dispatched_commands
             WHERE saga_instance_id = $1
-            ORDER BY created_at ASC, message_id ASC
+            ORDER BY message_id ASC
             "#,
         )
         .bind(saga_instance_id)
@@ -41,22 +42,22 @@ impl PgSagaInstanceStore {
         .await
         .map_err(|source| SagaInstanceStoreError::Persistence(Box::new(source)))?;
 
-        Ok(rows
-            .into_iter()
-            .map(PgSagaInstanceCommandRow::into_message_id)
-            .collect())
+        rows.into_iter()
+            .map(PgSagaDispatchedCommandRow::try_into_dispatched_command::<S>)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|source| SagaInstanceStoreError::Persistence(Box::new(source)))
     }
 }
 
 impl SagaInstanceStore for PgSagaInstanceStore {
     type Uow = PgUnitOfWork;
 
-    async fn find_by_correlation_id<S: SagaState>(
+    async fn find_by_correlation_id<S: SagaState, T: SagaStep>(
         &self,
         uow: &mut Self::Uow,
         saga_name: SagaNameOwned,
         correlation_id: CorrelationId,
-    ) -> Result<Option<SagaInstance<S>>, SagaInstanceStoreError> {
+    ) -> Result<Option<SagaInstance<S, T>>, SagaInstanceStoreError> {
         let transaction = uow.transaction_mut();
 
         let saga_name_value = saga_name.value();
@@ -87,19 +88,19 @@ impl SagaInstanceStore for PgSagaInstanceStore {
             return Ok(None);
         };
 
-        let message_ids = Self::read_command_message_ids(uow, row.id).await?;
+        let dispatched_commands = Self::read_dispatched_commands::<T>(uow, row.id).await?;
 
-        row.try_into_instance::<S>(saga_name, correlation_id, message_ids)
+        row.try_into_instance::<S, T>(saga_name, correlation_id, dispatched_commands)
             .map(Some)
             .map_err(|source| SagaInstanceStoreError::Persistence(Box::new(source)))
     }
 
-    async fn find_by_dispatched_command_message_id<S: SagaState>(
+    async fn find_by_dispatched_command_message_id<S: SagaState, T: SagaStep>(
         &self,
         uow: &mut Self::Uow,
         saga_name: SagaNameOwned,
         dispatched_command_message_id: MessageId,
-    ) -> Result<Option<SagaInstance<S>>, SagaInstanceStoreError> {
+    ) -> Result<Option<SagaInstance<S, T>>, SagaInstanceStoreError> {
         let transaction = uow.transaction_mut();
 
         let row = sqlx::query_as::<_, PgSagaInstanceRow>(
@@ -112,10 +113,10 @@ impl SagaInstanceStore for PgSagaInstanceStore {
               si.succeeded_at,
               si.failed_at
             FROM saga_instances si
-            JOIN saga_instance_commands sic
-              ON sic.saga_instance_id = si.id
+            JOIN saga_dispatched_commands sdc
+              ON sdc.saga_instance_id = si.id
             WHERE si.saga_name = $1
-              AND sic.message_id = $2
+              AND sdc.message_id = $2
             FOR UPDATE OF si
             "#,
         )
@@ -129,18 +130,18 @@ impl SagaInstanceStore for PgSagaInstanceStore {
             return Ok(None);
         };
 
-        let message_ids = Self::read_command_message_ids(uow, row.id).await?;
+        let dispatched_commands = Self::read_dispatched_commands::<T>(uow, row.id).await?;
         let correlation_id = CorrelationId::from(row.correlation_id);
 
-        row.try_into_instance::<S>(saga_name, correlation_id, message_ids)
+        row.try_into_instance::<S, T>(saga_name, correlation_id, dispatched_commands)
             .map(Some)
             .map_err(|source| SagaInstanceStoreError::Persistence(Box::new(source)))
     }
 
-    async fn save<S: SagaState>(
+    async fn save<S: SagaState, T: SagaStep>(
         &self,
         uow: &mut Self::Uow,
-        instance: &SagaInstance<S>,
+        instance: &SagaInstance<S, T>,
     ) -> Result<(), SagaInstanceStoreError> {
         let transaction = uow.transaction_mut();
 
@@ -180,8 +181,6 @@ impl SagaInstanceStore for PgSagaInstanceStore {
             )
             ON CONFLICT (saga_name, correlation_id) DO UPDATE SET
               state = EXCLUDED.state,
-              state_version = saga_instances.state_version + 1,
-              updated_at = now(),
               succeeded_at = CASE WHEN $6 THEN COALESCE(saga_instances.succeeded_at, now()) ELSE NULL END,
               failed_at = CASE WHEN $7 THEN COALESCE(saga_instances.failed_at, now()) ELSE NULL END
             RETURNING id
@@ -198,21 +197,36 @@ impl SagaInstanceStore for PgSagaInstanceStore {
         .await
         .map_err(|source| SagaInstanceStoreError::Persistence(Box::new(source)))?;
 
-        for message_id in &instance.dispatched_command_message_ids {
+        for command in &instance.uncommitted_commands {
+            let origin = command
+                .saga_origin
+                .as_ref()
+                .ok_or(SagaInstanceStoreError::MissingCommandOrigin)?;
+            if origin.saga_name != instance.saga_name
+                || origin.saga_instance_id != instance.saga_instance_id
+            {
+                return Err(SagaInstanceStoreError::CommandOriginMismatch);
+            }
             sqlx::query(
                 r#"
-                INSERT INTO saga_instance_commands (
+                INSERT INTO saga_dispatched_commands (
                   saga_instance_id,
-                  message_id
+                  message_id,
+                  command_name,
+                  step
                 ) VALUES (
                   $1,
-                  $2
+                  $2,
+                  $3,
+                  $4
                 )
                 ON CONFLICT DO NOTHING
                 "#,
             )
             .bind(persisted_saga_instance_id)
-            .bind(message_id.value())
+            .bind(command.message_id.value())
+            .bind(command.command_name.value())
+            .bind(origin.step.value().clone())
             .execute(transaction.as_mut())
             .await
             .map_err(|source| SagaInstanceStoreError::Persistence(Box::new(source)))?;

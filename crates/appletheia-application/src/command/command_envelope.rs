@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::request_context::{CausationId, CorrelationId, MessageId};
+use crate::saga::SagaCommandOrigin;
 
 use super::{Command, CommandEnvelopeError, CommandNameOwned, CommandOptions, SerializedCommand};
 
@@ -11,6 +12,7 @@ pub struct CommandEnvelope {
     pub correlation_id: CorrelationId,
     pub message_id: MessageId,
     pub causation_id: CausationId,
+    pub saga_origin: Option<SagaCommandOrigin>,
     pub options: CommandOptions,
 }
 
@@ -27,8 +29,15 @@ impl CommandEnvelope {
             correlation_id,
             message_id: MessageId::new(),
             causation_id,
+            saga_origin: None,
             options,
         })
+    }
+
+    /// Attaches the saga step that dispatched this command.
+    pub fn with_saga_origin(mut self, saga_origin: SagaCommandOrigin) -> Self {
+        self.saga_origin = Some(saga_origin);
+        self
     }
 
     pub fn try_into_command<C>(&self) -> Result<C, CommandEnvelopeError>

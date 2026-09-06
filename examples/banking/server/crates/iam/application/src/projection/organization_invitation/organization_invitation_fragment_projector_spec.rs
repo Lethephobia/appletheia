@@ -15,9 +15,6 @@ impl ProjectorSpec for OrganizationInvitationFragmentProjectorSpec {
                 OrganizationInvitationEventPayload::ISSUED,
             ),
             EventSelector::new::<OrganizationInvitation>(
-                OrganizationInvitationEventPayload::ISSUE_REJECTED,
-            ),
-            EventSelector::new::<OrganizationInvitation>(
                 OrganizationInvitationEventPayload::ACCEPTED,
             ),
             EventSelector::new::<OrganizationInvitation>(

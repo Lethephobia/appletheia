@@ -82,19 +82,11 @@ impl CurrencyRegistrarMembership {
 
     pub fn reject_create(
         &mut self,
-        currency_registrar_id: CurrencyRegistrarId,
-        user_id: UserId,
+        _currency_registrar_id: CurrencyRegistrarId,
+        _user_id: UserId,
         reason: CurrencyRegistrarMembershipCreateRejectionReason,
     ) -> Result<(), CurrencyRegistrarMembershipError> {
-        if self.state().is_some() {
-            return Err(CurrencyRegistrarMembershipError::AlreadyCreated);
-        }
-        self.append_event(CurrencyRegistrarMembershipEventPayload::CreateRejected {
-            currency_registrar_id,
-            user_id,
-            reason,
-        })?;
-        Ok(())
+        Err(CurrencyRegistrarMembershipError::CreateRejected(reason))
     }
 
     /// Removes the membership and terminates this aggregate lifecycle.
@@ -123,16 +115,7 @@ impl CurrencyRegistrarMembership {
         &mut self,
         reason: CurrencyRegistrarMembershipRemoveRejectionReason,
     ) -> Result<(), CurrencyRegistrarMembershipError> {
-        let (currency_registrar_id, user_id) = {
-            let state = self.state_required()?;
-            (state.currency_registrar_id, state.user_id)
-        };
-        self.append_event(CurrencyRegistrarMembershipEventPayload::RemoveRejected {
-            currency_registrar_id,
-            user_id,
-            reason,
-        })?;
-        Ok(())
+        Err(CurrencyRegistrarMembershipError::RemoveRejected(reason))
     }
 }
 
@@ -154,11 +137,9 @@ impl AggregateApply<CurrencyRegistrarMembershipEventPayload, CurrencyRegistrarMe
                     status: CurrencyRegistrarMembershipStatus::Active,
                 }));
             }
-            CurrencyRegistrarMembershipEventPayload::CreateRejected { .. } => {}
             CurrencyRegistrarMembershipEventPayload::Removed { .. } => {
                 self.state_required_mut()?.status = CurrencyRegistrarMembershipStatus::Removed;
             }
-            CurrencyRegistrarMembershipEventPayload::RemoveRejected { .. } => {}
         }
 
         Ok(())
@@ -171,7 +152,7 @@ mod tests {
     use banking_iam_domain::UserId;
 
     use super::{
-        CurrencyRegistrarMembership, CurrencyRegistrarMembershipEventPayload,
+        CurrencyRegistrarMembership, CurrencyRegistrarMembershipError,
         CurrencyRegistrarMembershipRemoveRejectionReason, CurrencyRegistrarMembershipRemoveResult,
         CurrencyRegistrarMembershipState, CurrencyRegistrarMembershipStatus,
     };
@@ -230,7 +211,7 @@ mod tests {
     }
 
     #[test]
-    fn repeated_removal_appends_a_rejection_event() {
+    fn repeated_removal_returns_error_without_appending_event() {
         let currency_registrar_id = CurrencyRegistrarId::new();
         let user_id = UserId::new();
         let mut membership = CurrencyRegistrarMembership::new();
@@ -243,26 +224,14 @@ mod tests {
         );
         let event_count = membership.uncommitted_events().len();
 
-        assert_eq!(
-            membership
-                .remove()
-                .expect("repeated removal should be recorded"),
-            CurrencyRegistrarMembershipRemoveResult::Rejected {
-                reason: CurrencyRegistrarMembershipRemoveRejectionReason::AlreadyRemoved,
-            }
-        );
-        assert_eq!(membership.uncommitted_events().len(), event_count + 1);
         assert!(matches!(
             membership
-                .uncommitted_events()
-                .last()
-                .expect("rejection event should exist")
-                .payload(),
-            CurrencyRegistrarMembershipEventPayload::RemoveRejected {
-                currency_registrar_id: event_currency_registrar_id,
-                user_id: event_user_id,
-                reason: CurrencyRegistrarMembershipRemoveRejectionReason::AlreadyRemoved,
-            } if *event_currency_registrar_id == currency_registrar_id && *event_user_id == user_id
+                .remove()
+                .expect_err("repeated removal should fail"),
+            CurrencyRegistrarMembershipError::RemoveRejected(
+                CurrencyRegistrarMembershipRemoveRejectionReason::AlreadyRemoved
+            )
         ));
+        assert_eq!(membership.uncommitted_events().len(), event_count);
     }
 }

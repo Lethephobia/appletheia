@@ -80,9 +80,6 @@ where
                     .remove_all_organization_roles(uow, *organization_id, *user_id)
                     .await?;
             }
-            OrganizationMembershipEventPayload::CreateRejected { .. }
-            | OrganizationMembershipEventPayload::RolesChangeRejected { .. }
-            | OrganizationMembershipEventPayload::RemoveRejected { .. } => {}
         }
 
         Ok(())

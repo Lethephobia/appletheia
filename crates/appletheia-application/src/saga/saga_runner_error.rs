@@ -4,7 +4,9 @@ use crate::outbox::command::CommandOutboxEnqueueError;
 use crate::unit_of_work::UnitOfWorkError;
 use crate::unit_of_work::UnitOfWorkFactoryError;
 
-use super::{SagaInstanceStoreError, SagaProcessedEventStoreError};
+use super::{
+    SagaInstanceStoreError, SagaProcessedCommandFailureStoreError, SagaProcessedEventStoreError,
+};
 
 #[derive(Debug, Error)]
 pub enum SagaRunnerError {
@@ -16,6 +18,9 @@ pub enum SagaRunnerError {
 
     #[error(transparent)]
     Store(#[from] SagaInstanceStoreError),
+
+    #[error(transparent)]
+    ProcessedCommandFailureStore(#[from] SagaProcessedCommandFailureStoreError),
 
     #[error(transparent)]
     ProcessedEventStore(#[from] SagaProcessedEventStoreError),
