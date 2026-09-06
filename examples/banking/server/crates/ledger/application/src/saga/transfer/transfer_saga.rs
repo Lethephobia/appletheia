@@ -7,7 +7,7 @@ use crate::command::{
 use appletheia::application::command::CommandFailureEnvelope;
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::request_context::CausationId;
-use appletheia::application::saga::{Saga, SagaInstance, SagaSpec};
+use appletheia::application::saga::{Saga, SagaInstance};
 use banking_ledger_domain::account::{Account, AccountEventPayload};
 use banking_ledger_domain::transfer::{Transfer, TransferEventPayload, TransferFailureReason};
 
@@ -16,12 +16,13 @@ pub struct TransferSaga;
 
 impl Saga for TransferSaga {
     type Spec = TransferSagaSpec;
+    type State = TransferSagaState;
     type Step = TransferSagaStep;
     type Error = TransferSagaError;
 
     fn on_event(
         &self,
-        instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State, Self::Step>,
+        instance: &mut SagaInstance<Self::State, Self::Step>,
         event: &EventEnvelope,
         causative_step: Option<Self::Step>,
     ) -> Result<(), Self::Error> {
@@ -150,7 +151,7 @@ impl Saga for TransferSaga {
 
     fn on_command_failed(
         &self,
-        instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State, Self::Step>,
+        instance: &mut SagaInstance<Self::State, Self::Step>,
         failure: &CommandFailureEnvelope,
         causative_step: Self::Step,
     ) -> Result<(), Self::Error> {

@@ -10,7 +10,7 @@ use crate::command::{
 use appletheia::application::command::CommandFailureEnvelope;
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::request_context::CausationId;
-use appletheia::application::saga::{Saga, SagaInstance, SagaSpec};
+use appletheia::application::saga::{Saga, SagaInstance};
 use banking_iam_domain::{Organization, OrganizationEventPayload, User, UserEventPayload};
 use banking_ledger_domain::account::{Account, AccountEventPayload, AccountOwner};
 use banking_ledger_domain::owned_account_closure::{
@@ -72,12 +72,13 @@ impl OwnedAccountClosureSaga {
 
 impl Saga for OwnedAccountClosureSaga {
     type Spec = OwnedAccountClosureSagaSpec;
+    type State = OwnedAccountClosureSagaState;
     type Step = OwnedAccountClosureSagaStep;
     type Error = OwnedAccountClosureSagaError;
 
     fn on_event(
         &self,
-        instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State, Self::Step>,
+        instance: &mut SagaInstance<Self::State, Self::Step>,
         event: &EventEnvelope,
         _causative_step: Option<Self::Step>,
     ) -> Result<(), Self::Error> {
@@ -190,7 +191,7 @@ impl Saga for OwnedAccountClosureSaga {
 
     fn on_command_failed(
         &self,
-        instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State, Self::Step>,
+        instance: &mut SagaInstance<Self::State, Self::Step>,
         failure: &CommandFailureEnvelope,
         causative_step: Self::Step,
     ) -> Result<(), Self::Error> {

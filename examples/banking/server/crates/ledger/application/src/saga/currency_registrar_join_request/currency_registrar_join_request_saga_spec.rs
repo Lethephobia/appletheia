@@ -6,13 +6,11 @@ use banking_ledger_domain::{
     CurrencyRegistrarMembership, CurrencyRegistrarMembershipEventPayload,
 };
 
-use super::CurrencyRegistrarJoinRequestSagaState;
 
-/// Declares the descriptor and state for the currency registrar join request saga.
+/// Declares the descriptor for the currency registrar join request saga.
 pub struct CurrencyRegistrarJoinRequestSagaSpec;
 
 impl SagaSpec for CurrencyRegistrarJoinRequestSagaSpec {
-    type State = CurrencyRegistrarJoinRequestSagaState;
 
     const DESCRIPTOR: SagaDescriptor = SagaDescriptor::new(
         SagaName::new("currency_registrar_join_request"),

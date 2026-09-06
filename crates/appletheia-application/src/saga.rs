@@ -88,15 +88,16 @@ pub use serialized_saga_step_error::SerializedSagaStepError;
 /// Handles events for a saga instance.
 pub trait Saga: Send + Sync {
     type Spec: SagaSpec;
+    type State: SagaState;
     type Step: SagaStep;
     type Error: Error + Send + Sync + 'static;
 
     /// Handles an event with the saga step that dispatched its causative command.
     ///
-    /// `step` is `None` only when `event` is one of the saga's start events.
+    /// `causative_step` is `None` only when `event` is one of the saga's start events.
     fn on_event(
         &self,
-        instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State, Self::Step>,
+        instance: &mut SagaInstance<Self::State, Self::Step>,
         event: &EventEnvelope,
         causative_step: Option<Self::Step>,
     ) -> Result<(), Self::Error>;
@@ -104,7 +105,7 @@ pub trait Saga: Send + Sync {
     /// Handles one terminal command failure routed to this saga.
     fn on_command_failed(
         &self,
-        instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State, Self::Step>,
+        instance: &mut SagaInstance<Self::State, Self::Step>,
         failure: &CommandFailureEnvelope,
         causative_step: Self::Step,
     ) -> Result<(), Self::Error>;

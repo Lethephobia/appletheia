@@ -6,13 +6,11 @@ use banking_iam_domain::{
     OrganizationMembershipEventPayload,
 };
 
-use super::OrganizationInvitationSagaState;
 
-/// Declares the descriptor and state for the organization invitation saga.
+/// Declares the descriptor for the organization invitation saga.
 pub struct OrganizationInvitationSagaSpec;
 
 impl SagaSpec for OrganizationInvitationSagaSpec {
-    type State = OrganizationInvitationSagaState;
 
     const DESCRIPTOR: SagaDescriptor = SagaDescriptor::new(
         SagaName::new("organization_invitation"),

@@ -2,7 +2,7 @@ use crate::command::OrganizationMembershipCreateCommand;
 use appletheia::application::command::CommandFailureEnvelope;
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::request_context::CausationId;
-use appletheia::application::saga::{Saga, SagaInstance, SagaSpec};
+use appletheia::application::saga::{Saga, SagaInstance};
 use banking_iam_domain::{
     OrganizationJoinRequest, OrganizationJoinRequestEventPayload, OrganizationMembership,
     OrganizationMembershipEventPayload, OrganizationRoles,
@@ -18,12 +18,13 @@ pub struct OrganizationJoinRequestSaga;
 
 impl Saga for OrganizationJoinRequestSaga {
     type Spec = OrganizationJoinRequestSagaSpec;
+    type State = OrganizationJoinRequestSagaState;
     type Step = OrganizationJoinRequestSagaStep;
     type Error = OrganizationJoinRequestSagaError;
 
     fn on_event(
         &self,
-        instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State, Self::Step>,
+        instance: &mut SagaInstance<Self::State, Self::Step>,
         event: &EventEnvelope,
         _causative_step: Option<Self::Step>,
     ) -> Result<(), Self::Error> {
@@ -62,7 +63,7 @@ impl Saga for OrganizationJoinRequestSaga {
 
     fn on_command_failed(
         &self,
-        instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State, Self::Step>,
+        instance: &mut SagaInstance<Self::State, Self::Step>,
         _failure: &CommandFailureEnvelope,
         _causative_step: Self::Step,
     ) -> Result<(), Self::Error> {
@@ -169,7 +170,7 @@ mod tests {
     fn handle_event(
         saga: &OrganizationJoinRequestSaga,
         instance: &mut SagaInstance<
-            <OrganizationJoinRequestSagaSpec as SagaSpec>::State,
+            <OrganizationJoinRequestSaga as Saga>::State,
             OrganizationJoinRequestSagaStep,
         >,
         envelope: &EventEnvelope,
@@ -186,7 +187,7 @@ mod tests {
         let join_request_id = OrganizationJoinRequestId::new();
         let requester_id = UserId::new();
         let mut instance = SagaInstance::<
-            <OrganizationJoinRequestSagaSpec as SagaSpec>::State,
+            <OrganizationJoinRequestSaga as Saga>::State,
             OrganizationJoinRequestSagaStep,
         >::new(
             SagaNameOwned::from(OrganizationJoinRequestSagaSpec::DESCRIPTOR.name),
@@ -225,7 +226,7 @@ mod tests {
         let join_request_id = OrganizationJoinRequestId::new();
         let requester_id = UserId::new();
         let mut instance = SagaInstance::<
-            <OrganizationJoinRequestSagaSpec as SagaSpec>::State,
+            <OrganizationJoinRequestSaga as Saga>::State,
             OrganizationJoinRequestSagaStep,
         >::new(
             SagaNameOwned::from(OrganizationJoinRequestSagaSpec::DESCRIPTOR.name),

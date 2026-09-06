@@ -64,7 +64,7 @@ where
         let (mut instance, causative_step) = if descriptor.start_events.matches(event) {
             let instance = self
                 .saga_instance_store
-                .find_by_correlation_id::<<SG::Spec as SagaSpec>::State, SG::Step>(
+                .find_by_correlation_id::<SG::State, SG::Step>(
                     uow,
                     saga_name.clone(),
                     correlation_id,
@@ -78,7 +78,7 @@ where
             let command_message_id = MessageId::from(event.causation_id.value());
             let Some(instance) = self
                 .saga_instance_store
-                .find_by_dispatched_command_message_id::<<SG::Spec as SagaSpec>::State, SG::Step>(
+                .find_by_dispatched_command_message_id::<SG::State, SG::Step>(
                     uow,
                     saga_name.clone(),
                     command_message_id,
@@ -147,7 +147,7 @@ where
         let saga_name = SagaNameOwned::from(descriptor.name);
         let Some(mut instance) = self
             .saga_instance_store
-            .find_by_dispatched_command_message_id::<<SG::Spec as SagaSpec>::State, SG::Step>(
+            .find_by_dispatched_command_message_id::<SG::State, SG::Step>(
                 uow,
                 saga_name.clone(),
                 failure.command_message_id,
@@ -398,8 +398,6 @@ mod tests {
     struct TestSagaSpec;
 
     impl SagaSpec for TestSagaSpec {
-        type State = TestSagaState;
-
         const DESCRIPTOR: SagaDescriptor = SagaDescriptor::new(
             SagaName::new("test_saga"),
             SagaStartEvents::new(&[EventSelector::from_parts(
@@ -426,12 +424,13 @@ mod tests {
 
     impl Saga for TestSaga {
         type Spec = TestSagaSpec;
+        type State = TestSagaState;
         type Step = TestSagaStep;
         type Error = TestSagaError;
 
         fn on_event(
             &self,
-            _instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State, Self::Step>,
+            _instance: &mut SagaInstance<Self::State, Self::Step>,
             _event: &EventEnvelope,
             _causative_step: Option<Self::Step>,
         ) -> Result<(), Self::Error> {
@@ -440,7 +439,7 @@ mod tests {
 
         fn on_command_failed(
             &self,
-            instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State, Self::Step>,
+            instance: &mut SagaInstance<Self::State, Self::Step>,
             _failure: &CommandFailureEnvelope,
             _causative_step: Self::Step,
         ) -> Result<(), Self::Error> {
@@ -453,12 +452,13 @@ mod tests {
 
     impl Saga for SucceedWithoutStateSaga {
         type Spec = TestSagaSpec;
+        type State = TestSagaState;
         type Step = TestSagaStep;
         type Error = TestSagaError;
 
         fn on_event(
             &self,
-            instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State, Self::Step>,
+            instance: &mut SagaInstance<Self::State, Self::Step>,
             _event: &EventEnvelope,
             causative_step: Option<Self::Step>,
         ) -> Result<(), Self::Error> {
@@ -469,7 +469,7 @@ mod tests {
 
         fn on_command_failed(
             &self,
-            instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State, Self::Step>,
+            instance: &mut SagaInstance<Self::State, Self::Step>,
             _failure: &CommandFailureEnvelope,
             _causative_step: Self::Step,
         ) -> Result<(), Self::Error> {
@@ -482,12 +482,13 @@ mod tests {
 
     impl Saga for AssertFollowUpSaga {
         type Spec = TestSagaSpec;
+        type State = TestSagaState;
         type Step = TestSagaStep;
         type Error = TestSagaError;
 
         fn on_event(
             &self,
-            instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State, Self::Step>,
+            instance: &mut SagaInstance<Self::State, Self::Step>,
             _event: &EventEnvelope,
             causative_step: Option<Self::Step>,
         ) -> Result<(), Self::Error> {
@@ -498,7 +499,7 @@ mod tests {
 
         fn on_command_failed(
             &self,
-            instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State, Self::Step>,
+            instance: &mut SagaInstance<Self::State, Self::Step>,
             _failure: &CommandFailureEnvelope,
             _causative_step: Self::Step,
         ) -> Result<(), Self::Error> {

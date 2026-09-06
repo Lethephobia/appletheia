@@ -4,13 +4,11 @@ use appletheia::application::saga::{SagaDescriptor, SagaName, SagaSpec, SagaStar
 use banking_ledger_domain::account::{Account, AccountEventPayload};
 use banking_ledger_domain::withdrawal::{Withdrawal, WithdrawalEventPayload};
 
-use super::WithdrawalSagaState;
 
-/// Declares the descriptor and state for the withdrawal saga.
+/// Declares the descriptor for the withdrawal saga.
 pub struct WithdrawalSagaSpec;
 
 impl SagaSpec for WithdrawalSagaSpec {
-    type State = WithdrawalSagaState;
 
     const DESCRIPTOR: SagaDescriptor = SagaDescriptor::new(
         SagaName::new("withdrawal"),

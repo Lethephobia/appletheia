@@ -4,13 +4,11 @@ use appletheia::application::saga::{SagaDescriptor, SagaName, SagaSpec, SagaStar
 use banking_ledger_domain::account::{Account, AccountEventPayload};
 use banking_ledger_domain::deposit::{Deposit, DepositEventPayload};
 
-use super::DepositSagaState;
 
-/// Declares the descriptor and state for the deposit saga.
+/// Declares the descriptor for the deposit saga.
 pub struct DepositSagaSpec;
 
 impl SagaSpec for DepositSagaSpec {
-    type State = DepositSagaState;
 
     const DESCRIPTOR: SagaDescriptor = SagaDescriptor::new(
         SagaName::new("deposit"),

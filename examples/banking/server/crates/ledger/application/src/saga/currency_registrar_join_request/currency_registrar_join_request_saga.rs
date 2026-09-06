@@ -2,7 +2,7 @@ use crate::command::CurrencyRegistrarMembershipCreateCommand;
 use appletheia::application::command::CommandFailureEnvelope;
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::request_context::CausationId;
-use appletheia::application::saga::{Saga, SagaInstance, SagaSpec};
+use appletheia::application::saga::{Saga, SagaInstance};
 use banking_ledger_domain::{
     CurrencyRegistrarJoinRequest, CurrencyRegistrarJoinRequestEventPayload,
     CurrencyRegistrarMembership, CurrencyRegistrarMembershipEventPayload,
@@ -18,12 +18,13 @@ pub struct CurrencyRegistrarJoinRequestSaga;
 
 impl Saga for CurrencyRegistrarJoinRequestSaga {
     type Spec = CurrencyRegistrarJoinRequestSagaSpec;
+    type State = CurrencyRegistrarJoinRequestSagaState;
     type Step = CurrencyRegistrarJoinRequestSagaStep;
     type Error = CurrencyRegistrarJoinRequestSagaError;
 
     fn on_event(
         &self,
-        instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State, Self::Step>,
+        instance: &mut SagaInstance<Self::State, Self::Step>,
         event: &EventEnvelope,
         _causative_step: Option<Self::Step>,
     ) -> Result<(), Self::Error> {
@@ -64,7 +65,7 @@ impl Saga for CurrencyRegistrarJoinRequestSaga {
 
     fn on_command_failed(
         &self,
-        instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State, Self::Step>,
+        instance: &mut SagaInstance<Self::State, Self::Step>,
         _failure: &CommandFailureEnvelope,
         _causative_step: Self::Step,
     ) -> Result<(), Self::Error> {

@@ -1,8 +1,6 @@
-use super::{SagaDescriptor, SagaState};
+use super::SagaDescriptor;
 
-/// Defines the stable descriptor and state type for a saga.
+/// Defines the stable descriptor for a saga.
 pub trait SagaSpec {
-    type State: SagaState;
-
     const DESCRIPTOR: SagaDescriptor;
 }

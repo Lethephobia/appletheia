@@ -19,6 +19,33 @@ committed event
 The two saga workers have different inputs and contracts. Do not hide them behind one application
 worker abstraction.
 
+### DO declare runtime types on `Saga` and static metadata on `SagaSpec`
+
+`Saga` owns the state, step, and error types used while handling a workflow. `SagaSpec` owns only
+the descriptor that workers can inspect without constructing the saga.
+
+```rust
+impl SagaSpec for TransferSagaSpec {
+    const DESCRIPTOR: SagaDescriptor = SagaDescriptor::new(
+        SagaName::new("transfer"),
+        START_EVENTS,
+        SUBSCRIPTION,
+    );
+}
+
+impl Saga for TransferSaga {
+    type Spec = TransferSagaSpec;
+    type State = TransferSagaState;
+    type Step = TransferSagaStep;
+    type Error = TransferSagaError;
+
+    // ...
+}
+```
+
+Use `S::State` and `S::Step` when generic code already has `S: Saga`. Do not route runtime types
+through `S::Spec`; the spec is the stable descriptor boundary.
+
 ### DON'T use operation-failure events to drive a saga
 
 If an aggregate refuses an operation, return a typed error. Do not append events such as

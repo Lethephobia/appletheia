@@ -2,7 +2,7 @@ use crate::command::OrganizationMembershipCreateCommand;
 use appletheia::application::command::CommandFailureEnvelope;
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::request_context::CausationId;
-use appletheia::application::saga::{Saga, SagaInstance, SagaSpec};
+use appletheia::application::saga::{Saga, SagaInstance};
 use banking_iam_domain::{
     OrganizationInvitation, OrganizationInvitationEventPayload, OrganizationMembership,
     OrganizationMembershipEventPayload,
@@ -18,12 +18,13 @@ pub struct OrganizationInvitationSaga;
 
 impl Saga for OrganizationInvitationSaga {
     type Spec = OrganizationInvitationSagaSpec;
+    type State = OrganizationInvitationSagaState;
     type Step = OrganizationInvitationSagaStep;
     type Error = OrganizationInvitationSagaError;
 
     fn on_event(
         &self,
-        instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State, Self::Step>,
+        instance: &mut SagaInstance<Self::State, Self::Step>,
         event: &EventEnvelope,
         _causative_step: Option<Self::Step>,
     ) -> Result<(), Self::Error> {
@@ -63,7 +64,7 @@ impl Saga for OrganizationInvitationSaga {
 
     fn on_command_failed(
         &self,
-        instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State, Self::Step>,
+        instance: &mut SagaInstance<Self::State, Self::Step>,
         _failure: &CommandFailureEnvelope,
         _causative_step: Self::Step,
     ) -> Result<(), Self::Error> {
@@ -171,7 +172,7 @@ mod tests {
     fn handle_event(
         saga: &OrganizationInvitationSaga,
         instance: &mut SagaInstance<
-            <OrganizationInvitationSagaSpec as SagaSpec>::State,
+            <OrganizationInvitationSaga as Saga>::State,
             OrganizationInvitationSagaStep,
         >,
         envelope: &EventEnvelope,
@@ -189,7 +190,7 @@ mod tests {
         let invitee_id = UserId::new();
         let roles = OrganizationRoles::default();
         let mut instance = SagaInstance::<
-            <OrganizationInvitationSagaSpec as SagaSpec>::State,
+            <OrganizationInvitationSaga as Saga>::State,
             OrganizationInvitationSagaStep,
         >::new(
             SagaNameOwned::from(OrganizationInvitationSagaSpec::DESCRIPTOR.name),
@@ -230,7 +231,7 @@ mod tests {
         let invitee_id = UserId::new();
         let roles = OrganizationRoles::default();
         let mut instance = SagaInstance::<
-            <OrganizationInvitationSagaSpec as SagaSpec>::State,
+            <OrganizationInvitationSaga as Saga>::State,
             OrganizationInvitationSagaStep,
         >::new(
             SagaNameOwned::from(OrganizationInvitationSagaSpec::DESCRIPTOR.name),
