@@ -6,12 +6,10 @@ use banking_iam_domain::{
     OrganizationMembershipEventPayload,
 };
 
-
 /// Declares the descriptor for the organization join request saga.
 pub struct OrganizationJoinRequestSagaSpec;
 
 impl SagaSpec for OrganizationJoinRequestSagaSpec {
-
     const DESCRIPTOR: SagaDescriptor = SagaDescriptor::new(
         SagaName::new("organization_join_request"),
         SagaStartEvents::new(&[EventSelector::new::<OrganizationJoinRequest>(

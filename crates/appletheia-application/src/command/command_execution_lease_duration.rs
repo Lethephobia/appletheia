@@ -1,6 +1,6 @@
 use chrono::Duration;
 
-/// Bounds how long one command execution attempt owns its fencing token.
+/// Bounds how long one command execution attempt holds its lease.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct CommandExecutionLeaseDuration(Duration);
 

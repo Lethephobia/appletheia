@@ -8,44 +8,39 @@ use super::{
     Saga, SagaCommandFailureWorker, SagaCommandFailureWorkerError, SagaName, SagaRunner, SagaSpec,
 };
 
-/// Consumes terminal command failures for one saga definition.
-pub struct DefaultSagaCommandFailureWorker<SG, S, R> {
+/// Consumes terminal command failures for saga definitions passed to `run_forever`.
+pub struct DefaultSagaCommandFailureWorker<S, R> {
     saga_runner: R,
     subscriber: S,
-    saga: SG,
     stop_requested: AtomicBool,
 }
 
-impl<SG, S, R> DefaultSagaCommandFailureWorker<SG, S, R> {
-    pub fn new(saga_runner: R, subscriber: S, saga: SG) -> Self {
+impl<S, R> DefaultSagaCommandFailureWorker<S, R> {
+    pub fn new(saga_runner: R, subscriber: S) -> Self {
         Self {
             saga_runner,
             subscriber,
-            saga,
             stop_requested: AtomicBool::new(false),
         }
     }
 }
 
-impl<SG, S, R> SagaCommandFailureWorker for DefaultSagaCommandFailureWorker<SG, S, R>
+impl<S, R> SagaCommandFailureWorker for DefaultSagaCommandFailureWorker<S, R>
 where
-    SG: Saga,
     S: Subscriber<CommandFailureEnvelope, Selector = SagaName>,
     S::Consumer: Consumer<CommandFailureEnvelope>,
     <S::Consumer as Consumer<CommandFailureEnvelope>>::Delivery: Delivery<CommandFailureEnvelope>,
     R: SagaRunner,
 {
-    type Saga = SG;
-
     fn is_stop_requested(&self) -> bool {
         self.stop_requested.load(AtomicOrdering::SeqCst)
     }
 
-    fn request_graceful_stop(&mut self) {
+    fn request_graceful_stop(&self) {
         self.stop_requested.store(true, AtomicOrdering::SeqCst);
     }
 
-    async fn run_forever(&mut self) -> Result<(), SagaCommandFailureWorkerError> {
+    async fn run_forever<SG: Saga>(&self, saga: &SG) -> Result<(), SagaCommandFailureWorkerError> {
         let descriptor = <SG::Spec as SagaSpec>::DESCRIPTOR;
         let consumer_group = ConsumerGroup::from(descriptor.name);
         let mut consumer = self
@@ -57,7 +52,7 @@ where
             let mut delivery = consumer.next().await?;
             let result = self
                 .saga_runner
-                .handle_command_failure(&self.saga, delivery.message())
+                .handle_command_failure(saga, delivery.message())
                 .await;
             match result {
                 Ok(_) => delivery.ack().await?,

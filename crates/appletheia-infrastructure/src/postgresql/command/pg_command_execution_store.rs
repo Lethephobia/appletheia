@@ -11,7 +11,7 @@ use crate::postgresql::unit_of_work::PgUnitOfWork;
 
 use super::pg_command_execution_row::PgCommandExecutionRow;
 
-/// Persists command execution fencing and terminality in PostgreSQL.
+/// Persists command execution leases and terminal outcomes in PostgreSQL.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct PgCommandExecutionStore;
 

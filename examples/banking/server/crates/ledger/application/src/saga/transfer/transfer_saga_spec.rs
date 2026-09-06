@@ -5,12 +5,10 @@ use banking_ledger_domain::account::Account;
 use banking_ledger_domain::account::AccountEventPayload;
 use banking_ledger_domain::transfer::{Transfer, TransferEventPayload};
 
-
 /// Declares the descriptor for the transfer saga.
 pub struct TransferSagaSpec;
 
 impl SagaSpec for TransferSagaSpec {
-
     const DESCRIPTOR: SagaDescriptor = SagaDescriptor::new(
         SagaName::new("transfer"),
         SagaStartEvents::new(&[EventSelector::new::<Transfer>(

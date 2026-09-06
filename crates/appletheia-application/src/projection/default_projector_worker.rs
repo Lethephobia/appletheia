@@ -7,43 +7,44 @@ use crate::{
 
 use super::{Projector, ProjectorRunner, ProjectorSpec, ProjectorWorker, ProjectorWorkerError};
 
-pub struct DefaultProjectorWorker<PJ, S, R> {
+/// Consumes events for projectors passed to `run_forever`.
+pub struct DefaultProjectorWorker<S, R> {
     runner: R,
     subscriber: S,
-    projector: PJ,
     stop_requested: AtomicBool,
 }
 
-impl<PJ, S, R> DefaultProjectorWorker<PJ, S, R> {
-    pub fn new(runner: R, subscriber: S, projector: PJ) -> Self {
+impl<S, R> DefaultProjectorWorker<S, R> {
+    pub fn new(runner: R, subscriber: S) -> Self {
         Self {
             runner,
             subscriber,
-            projector,
             stop_requested: AtomicBool::new(false),
         }
     }
 }
 
-impl<PJ, S, R> ProjectorWorker for DefaultProjectorWorker<PJ, S, R>
+impl<S, R> ProjectorWorker for DefaultProjectorWorker<S, R>
 where
-    PJ: Projector,
     S: Subscriber<EventEnvelope, Selector = EventSelector>,
     S::Consumer: Consumer<EventEnvelope>,
     <S::Consumer as Consumer<EventEnvelope>>::Delivery: Delivery<EventEnvelope>,
-    R: ProjectorRunner<Uow = PJ::Uow>,
+    R: ProjectorRunner,
 {
-    type Projector = PJ;
+    type Uow = R::Uow;
 
     fn is_stop_requested(&self) -> bool {
         self.stop_requested.load(AtomicOrdering::SeqCst)
     }
 
-    fn request_graceful_stop(&mut self) {
+    fn request_graceful_stop(&self) {
         self.stop_requested.store(true, AtomicOrdering::SeqCst);
     }
 
-    async fn run_forever(&mut self) -> Result<(), ProjectorWorkerError> {
+    async fn run_forever<PJ>(&self, projector: &PJ) -> Result<(), ProjectorWorkerError>
+    where
+        PJ: Projector<Uow = Self::Uow>,
+    {
         let descriptor = <PJ::Spec as ProjectorSpec>::DESCRIPTOR;
         let consumer_group = ConsumerGroup::from(descriptor.name);
         let mut consumer = self
@@ -57,10 +58,7 @@ where
             if !descriptor.subscription.matches(delivery.message()) {
                 delivery.ack().await?;
             } else {
-                let result = self
-                    .runner
-                    .project(&self.projector, delivery.message())
-                    .await;
+                let result = self.runner.project(projector, delivery.message()).await;
 
                 match result {
                     Ok(_) => delivery.ack().await?,

@@ -7,12 +7,10 @@ use banking_ledger_domain::owned_account_closure::{
     OwnedAccountClosure, OwnedAccountClosureEventPayload,
 };
 
-
 /// Declares the descriptor for the owned account closure saga.
 pub struct OwnedAccountClosureSagaSpec;
 
 impl SagaSpec for OwnedAccountClosureSagaSpec {
-
     const DESCRIPTOR: SagaDescriptor = SagaDescriptor::new(
         SagaName::new("owned_account_closure"),
         SagaStartEvents::new(&[

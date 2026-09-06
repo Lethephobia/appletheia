@@ -130,6 +130,37 @@ boundary.
 
 ## Transaction and worker behavior
 
+### DO share the command worker across handlers
+
+Construct the worker from shared dispatcher, subscriber, execution-store, failure-outbox, and
+unit-of-work dependencies. Pass each handler by reference when starting its consumer instead of
+storing the handler in the worker.
+
+```rust
+let config = CommandWorkerConfig {
+    lease_duration: CommandExecutionLeaseDuration::default(),
+    retry_options: CommandExecutionRetryOptions {
+        max_attempts: CommandExecutionMaxAttempts::default(),
+    },
+};
+let worker = Arc::new(DefaultCommandWorker::new(dependencies, config));
+
+let deposit_worker = Arc::clone(&worker);
+tokio::spawn(async move {
+    deposit_worker.run_forever(&account_deposit_handler).await
+});
+
+let reserve_worker = Arc::clone(&worker);
+tokio::spawn(async move {
+    reserve_worker.run_forever(&account_funds_reserve_handler).await
+});
+```
+
+Each call derives both its consumer group and subscription selector from `H::Command::NAME`. The
+worker's config and graceful-stop flag are shared by every handler consumer running on that worker.
+The lease duration controls abandoned-execution recovery, while retry options control whether
+another handler attempt remains available.
+
 ### DO rely on rollback for handler errors
 
 When a handler returns `Err`, aggregate events, repository writes, and ordinary outbox writes in that

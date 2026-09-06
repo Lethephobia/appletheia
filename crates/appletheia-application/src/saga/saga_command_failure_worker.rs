@@ -1,12 +1,10 @@
 use super::{Saga, SagaCommandFailureWorkerError};
 
 #[allow(async_fn_in_trait)]
-pub trait SagaCommandFailureWorker: Send {
-    type Saga: Saga;
-
+pub trait SagaCommandFailureWorker: Send + Sync {
     fn is_stop_requested(&self) -> bool;
 
-    fn request_graceful_stop(&mut self);
+    fn request_graceful_stop(&self);
 
-    async fn run_forever(&mut self) -> Result<(), SagaCommandFailureWorkerError>;
+    async fn run_forever<SG: Saga>(&self, saga: &SG) -> Result<(), SagaCommandFailureWorkerError>;
 }

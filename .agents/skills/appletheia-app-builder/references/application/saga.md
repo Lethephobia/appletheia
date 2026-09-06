@@ -19,6 +19,29 @@ committed event
 The two saga workers have different inputs and contracts. Do not hide them behind one application
 worker abstraction.
 
+### DO share each worker across saga definitions
+
+Construct one event worker and one command-failure worker for a shared subscriber and runner. Pass
+each saga by reference when starting its long-running consumer instead of storing the saga in the
+worker.
+
+```rust
+let event_worker = Arc::new(DefaultSagaEventWorker::new(saga_runner, event_subscriber));
+
+let transfer_worker = Arc::clone(&event_worker);
+tokio::spawn(async move {
+    transfer_worker.run_forever(&TransferSaga).await
+});
+
+let deposit_worker = Arc::clone(&event_worker);
+tokio::spawn(async move {
+    deposit_worker.run_forever(&DepositSaga).await
+});
+```
+
+Each call still creates the consumer group and subscription declared by that saga. The worker's
+graceful-stop flag is shared, so requesting a stop ends every saga consumer running on that worker.
+
 ### DO declare runtime types on `Saga` and static metadata on `SagaSpec`
 
 `Saga` owns the state, step, and error types used while handling a workflow. `SagaSpec` owns only

@@ -43,6 +43,10 @@ The reference files follow an Effective Dart style:
   Use for command payload design, command handlers, authorization, retryability, and terminal command
   failures.
 
+- `references/application/projection.md`
+
+  Use for projector boundaries, event subscriptions, materialization, and shared projector workers.
+
 - `references/application/saga.md`
 
   Use for event and command-failure workflow orchestration, serializable saga steps, saga instances,
