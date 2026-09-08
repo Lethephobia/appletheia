@@ -6,5 +6,8 @@ pub trait SagaEventWorker: Send + Sync {
 
     fn request_graceful_stop(&self);
 
-    async fn run_forever<SG: Saga>(&self, saga: &SG) -> Result<(), SagaEventWorkerError>;
+    async fn run_forever<SG: Saga>(
+        &self,
+        saga: &SG,
+    ) -> Result<(), SagaEventWorkerError<SG::HandlerError>>;
 }

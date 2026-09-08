@@ -298,7 +298,6 @@ CREATE TABLE IF NOT EXISTS saga_instances (
   correlation_id UUID        NOT NULL,
   start_event_id UUID        NOT NULL,
   state          JSONB,
-  completed_at   TIMESTAMPTZ,
   UNIQUE (saga_name, correlation_id)
 );
 

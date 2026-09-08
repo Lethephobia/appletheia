@@ -2,13 +2,14 @@ use super::EnqueuedCommandCount;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum SagaEventRunReport {
-    InProgress {
+    Processed {
         enqueued_command_count: EnqueuedCommandCount,
     },
-    Completed,
+    NoMatchingRoute,
     NotSubscribed,
     InstanceNotFound,
     CommandNotOwned,
     AlreadyProcessed,
-    SkippedCompleted,
+    /// An external start event targets a saga name and correlation ID that already exist.
+    AlreadyStarted,
 }

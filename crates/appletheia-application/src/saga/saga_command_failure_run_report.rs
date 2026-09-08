@@ -2,13 +2,12 @@ use super::EnqueuedCommandCount;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum SagaCommandFailureRunReport {
-    InProgress {
+    Processed {
         enqueued_command_count: EnqueuedCommandCount,
     },
-    Completed,
+    NoMatchingRoute,
     NotSubscribed,
     InstanceNotFound,
     CommandNotOwned,
     AlreadyProcessed,
-    SkippedCompleted,
 }

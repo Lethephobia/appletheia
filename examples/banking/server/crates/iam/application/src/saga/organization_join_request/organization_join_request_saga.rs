@@ -1,79 +1,61 @@
 use crate::command::OrganizationMembershipCreateCommand;
-use appletheia::application::command::CommandFailureEnvelope;
-use appletheia::application::event::EventEnvelope;
-use appletheia::application::request_context::CausationId;
-use appletheia::application::saga::{Saga, SagaInstance};
+use appletheia::application::saga::SagaError;
+use appletheia::application::saga::{Saga, SagaDefinition, SagaDefinitionBuilder, SagaName};
 use banking_iam_domain::{
-    OrganizationJoinRequest, OrganizationJoinRequestEventPayload, OrganizationMembership,
-    OrganizationMembershipEventPayload, OrganizationRoles,
+    OrganizationJoinRequest, OrganizationJoinRequestEventPayload, OrganizationRoles,
 };
 
 use super::{
-    OrganizationJoinRequestSagaError, OrganizationJoinRequestSagaSpec,
-    OrganizationJoinRequestSagaState, OrganizationJoinRequestSagaStep,
+    OrganizationJoinRequestSagaHandlerError, OrganizationJoinRequestSagaState,
+    OrganizationJoinRequestSagaStep,
 };
 
 /// Coordinates the organization join request workflow into organization membership creation.
 pub struct OrganizationJoinRequestSaga;
 
 impl Saga for OrganizationJoinRequestSaga {
-    type Spec = OrganizationJoinRequestSagaSpec;
     type State = OrganizationJoinRequestSagaState;
     type Step = OrganizationJoinRequestSagaStep;
-    type Error = OrganizationJoinRequestSagaError;
+    type HandlerError = OrganizationJoinRequestSagaHandlerError;
 
-    fn on_event(
+    fn definition(
         &self,
-        instance: &mut SagaInstance<Self::State, Self::Step>,
-        event: &EventEnvelope,
-        _causative_step: Option<Self::Step>,
-    ) -> Result<(), Self::Error> {
-        if event.is_for_aggregate::<OrganizationJoinRequest>() {
-            let join_request_event = event.try_into_domain_event::<OrganizationJoinRequest>()?;
+    ) -> Result<SagaDefinition<'_, Self::State, Self::Step, Self::HandlerError>, SagaError> {
+        SagaDefinitionBuilder::<Self::State, Self::Step, Self::HandlerError>::new(SagaName::new(
+            "organization_join_request",
+        ))
+        .add_start_step(OrganizationJoinRequestSagaStep::CreateMembership)
+        .on::<OrganizationJoinRequest>(OrganizationJoinRequestEventPayload::APPROVED)
+        .handle(|ctx, join_request_event| {
             if let OrganizationJoinRequestEventPayload::Approved {
                 organization_id,
                 requester_id,
             } = join_request_event.payload()
             {
-                *instance.state_mut() = Some(OrganizationJoinRequestSagaState::new(
+                ctx.set_state(OrganizationJoinRequestSagaState::new(
                     join_request_event.aggregate_id(),
                 ));
 
-                instance.append_command(
-                    CausationId::from(event.event_id),
-                    OrganizationJoinRequestSagaStep::CreateMembership,
-                    &OrganizationMembershipCreateCommand {
-                        organization_id: *organization_id,
-                        user_id: *requester_id,
-                        roles: OrganizationRoles::default(),
-                    },
-                )?;
+                ctx.append_command(&OrganizationMembershipCreateCommand {
+                    organization_id: *organization_id,
+                    user_id: *requester_id,
+                    roles: OrganizationRoles::default(),
+                })?;
             }
-
-            return Ok(());
-        } else if event.is_for_aggregate::<OrganizationMembership>() {
-            let membership_event = event.try_into_domain_event::<OrganizationMembership>()?;
-            if let OrganizationMembershipEventPayload::Created { .. } = membership_event.payload() {
-                instance.complete();
-            }
-        }
-
-        Ok(())
-    }
-
-    fn on_command_failed(
-        &self,
-        instance: &mut SagaInstance<Self::State, Self::Step>,
-        _failure: &CommandFailureEnvelope,
-        _causative_step: Self::Step,
-    ) -> Result<(), Self::Error> {
-        instance.complete();
-        Ok(())
+            Ok(())
+        })
+        .build()
+        .map_err(SagaError::from)
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use super::OrganizationJoinRequestSagaHandlerError;
+    use appletheia::application::authorization::AggregateRef;
+    use appletheia::application::saga::SagaRouteError;
+    use appletheia::application::saga::{SagaContext, SagaRoute};
+    use appletheia::domain::AggregateVersion;
     use uuid::Uuid;
 
     use appletheia::application::event::{
@@ -83,7 +65,7 @@ mod tests {
     use appletheia::application::request_context::{
         CausationId, CorrelationId, MessageId, Principal, RequestContext,
     };
-    use appletheia::application::saga::{Saga, SagaInstance, SagaNameOwned, SagaSpec, SagaStatus};
+    use appletheia::application::saga::{Saga, SagaInstance, SagaNameOwned};
     use appletheia::domain::{Aggregate, AggregateId, EventId, EventOccurredAt, EventPayload};
     use banking_iam_domain::{
         OrganizationId, OrganizationJoinRequest, OrganizationJoinRequestEventPayload,
@@ -93,14 +75,10 @@ mod tests {
 
     use crate::command::OrganizationMembershipCreateCommand;
 
-    use super::{
-        OrganizationJoinRequestSaga, OrganizationJoinRequestSagaSpec,
-        OrganizationJoinRequestSagaStep,
-    };
+    use super::{OrganizationJoinRequestSaga, OrganizationJoinRequestSagaStep};
 
     fn request_context(correlation_id: CorrelationId) -> RequestContext {
-        let subject =
-            appletheia::application::authorization::AggregateRef::from_id::<User>(UserId::new());
+        let subject = AggregateRef::from_id::<User>(UserId::new());
 
         RequestContext::new(
             correlation_id,
@@ -126,8 +104,7 @@ mod tests {
             event_id: EventId::new(),
             aggregate_type: AggregateTypeOwned::from(OrganizationJoinRequest::TYPE),
             aggregate_id: AggregateIdValue::from(join_request_id.value()),
-            aggregate_version: appletheia::domain::AggregateVersion::try_from(1)
-                .expect("version should be valid"),
+            aggregate_version: AggregateVersion::try_from(1).expect("version should be valid"),
             event_name: EventNameOwned::from(payload.name()),
             payload: SerializedEventPayload::try_from(
                 payload.into_json_value().expect("payload should serialize"),
@@ -153,8 +130,7 @@ mod tests {
             event_id: EventId::new(),
             aggregate_type: AggregateTypeOwned::from(OrganizationMembership::TYPE),
             aggregate_id: AggregateIdValue::from(membership_id.value()),
-            aggregate_version: appletheia::domain::AggregateVersion::try_from(1)
-                .expect("version should be valid"),
+            aggregate_version: AggregateVersion::try_from(1).expect("version should be valid"),
             event_name: EventNameOwned::from(payload.name()),
             payload: SerializedEventPayload::try_from(
                 payload.into_json_value().expect("payload should serialize"),
@@ -175,8 +151,27 @@ mod tests {
         >,
         envelope: &EventEnvelope,
         step: Option<OrganizationJoinRequestSagaStep>,
-    ) -> Result<(), super::OrganizationJoinRequestSagaError> {
-        saga.on_event(instance, envelope, step)
+    ) -> Result<bool, SagaRouteError<OrganizationJoinRequestSagaHandlerError>> {
+        let definition = saga.definition().expect("valid saga definition");
+        let Some(
+            SagaRoute::StartsOn {
+                step: route_step,
+                handler,
+                ..
+            }
+            | SagaRoute::OnEvent {
+                step: route_step,
+                handler,
+                ..
+            },
+        ) = definition.find_event_route(envelope, step)
+        else {
+            return Ok(false);
+        };
+        let mut context =
+            SagaContext::new(instance, CausationId::from(envelope.event_id), *route_step);
+        handler(&mut context, envelope)?;
+        Ok(true)
     }
 
     #[test]
@@ -190,7 +185,12 @@ mod tests {
             <OrganizationJoinRequestSaga as Saga>::State,
             OrganizationJoinRequestSagaStep,
         >::new(
-            SagaNameOwned::from(OrganizationJoinRequestSagaSpec::DESCRIPTOR.name),
+            SagaNameOwned::from(
+                OrganizationJoinRequestSaga
+                    .definition()
+                    .expect("valid saga definition")
+                    .name(),
+            ),
             correlation_id,
             EventId::new(),
         );
@@ -208,7 +208,7 @@ mod tests {
         )
         .expect("approved event should be handled");
 
-        assert_eq!(instance.status, SagaStatus::InProgress);
+        assert!(instance.state.is_some());
         assert_eq!(instance.uncommitted_commands().len(), 1);
         let command: OrganizationMembershipCreateCommand = instance.uncommitted_commands()[0]
             .try_into_command()
@@ -219,7 +219,7 @@ mod tests {
     }
 
     #[test]
-    fn created_membership_completes_saga() {
+    fn created_membership_is_not_subscribed() {
         let saga = OrganizationJoinRequestSaga;
         let correlation_id = CorrelationId::from(Uuid::now_v7());
         let organization_id = OrganizationId::new();
@@ -229,7 +229,12 @@ mod tests {
             <OrganizationJoinRequestSaga as Saga>::State,
             OrganizationJoinRequestSagaStep,
         >::new(
-            SagaNameOwned::from(OrganizationJoinRequestSagaSpec::DESCRIPTOR.name),
+            SagaNameOwned::from(
+                OrganizationJoinRequestSaga
+                    .definition()
+                    .expect("valid saga definition")
+                    .name(),
+            ),
             correlation_id,
             EventId::new(),
         );
@@ -246,7 +251,8 @@ mod tests {
             None,
         )
         .expect("approved event should be handled");
-        handle_event(
+        let pending = instance.uncommitted_commands().to_vec();
+        let matched = handle_event(
             &saga,
             &mut instance,
             &membership_created_event_envelope(correlation_id),
@@ -254,7 +260,7 @@ mod tests {
         )
         .expect("membership created event should be handled");
 
-        assert_eq!(instance.status, SagaStatus::Completed);
-        assert!(instance.uncommitted_commands().is_empty());
+        assert!(!matched);
+        assert_eq!(instance.uncommitted_commands(), pending);
     }
 }

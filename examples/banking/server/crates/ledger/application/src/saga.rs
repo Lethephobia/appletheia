@@ -6,19 +6,16 @@ mod transfer;
 mod withdrawal;
 
 pub use currency_registrar_invitation::{
-    CurrencyRegistrarInvitationSaga, CurrencyRegistrarInvitationSagaError,
-    CurrencyRegistrarInvitationSagaSpec, CurrencyRegistrarInvitationSagaState,
+    CurrencyRegistrarInvitationSaga, CurrencyRegistrarInvitationSagaHandlerError,
+    CurrencyRegistrarInvitationSagaState,
 };
 pub use currency_registrar_join_request::{
-    CurrencyRegistrarJoinRequestSaga, CurrencyRegistrarJoinRequestSagaError,
-    CurrencyRegistrarJoinRequestSagaSpec, CurrencyRegistrarJoinRequestSagaState,
+    CurrencyRegistrarJoinRequestSaga, CurrencyRegistrarJoinRequestSagaHandlerError,
+    CurrencyRegistrarJoinRequestSagaState,
 };
-pub use deposit::{DepositSaga, DepositSagaError, DepositSagaSpec, DepositSagaState};
+pub use deposit::{DepositSaga, DepositSagaHandlerError, DepositSagaState};
 pub use owned_account_closure::{
-    OwnedAccountClosureSaga, OwnedAccountClosureSagaError, OwnedAccountClosureSagaSpec,
-    OwnedAccountClosureSagaState,
+    OwnedAccountClosureSaga, OwnedAccountClosureSagaHandlerError, OwnedAccountClosureSagaState,
 };
-pub use transfer::{TransferSaga, TransferSagaError, TransferSagaSpec, TransferSagaState};
-pub use withdrawal::{
-    WithdrawalSaga, WithdrawalSagaError, WithdrawalSagaSpec, WithdrawalSagaState,
-};
+pub use transfer::{TransferSaga, TransferSagaHandlerError, TransferSagaState};
+pub use withdrawal::{WithdrawalSaga, WithdrawalSagaHandlerError, WithdrawalSagaState};

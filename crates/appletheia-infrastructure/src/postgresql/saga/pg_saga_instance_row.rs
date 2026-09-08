@@ -1,11 +1,9 @@
-use chrono::{DateTime, Utc};
 use sqlx::FromRow;
 use uuid::Uuid;
 
 use appletheia_application::request_context::CorrelationId;
 use appletheia_application::saga::{
-    SagaDispatchedCommand, SagaInstance, SagaInstanceId, SagaNameOwned, SagaState, SagaStatus,
-    SagaStep,
+    SagaDispatchedCommand, SagaInstance, SagaInstanceId, SagaNameOwned, SagaState, SagaStep,
 };
 use appletheia_domain::EventId;
 
@@ -17,7 +15,6 @@ pub struct PgSagaInstanceRow {
     pub correlation_id: Uuid,
     pub start_event_id: Uuid,
     pub state: Option<serde_json::Value>,
-    pub completed_at: Option<DateTime<Utc>>,
 }
 
 impl PgSagaInstanceRow {
@@ -30,27 +27,13 @@ impl PgSagaInstanceRow {
         let saga_instance_id = SagaInstanceId::try_from(self.id)?;
         let start_event_id = EventId::try_from(self.start_event_id)?;
 
-        let (status, state) = match (self.completed_at, self.state) {
-            (Some(_), Some(state_json)) => {
-                let state: S = serde_json::from_value(state_json)?;
-                (SagaStatus::Completed, Some(state))
-            }
-            (Some(_), None) => (SagaStatus::Completed, None),
-            (None, state_json) => {
-                let state = match state_json {
-                    Some(value) => Some(serde_json::from_value(value)?),
-                    None => None,
-                };
-                (SagaStatus::InProgress, state)
-            }
-        };
+        let state = self.state.map(serde_json::from_value).transpose()?;
 
         Ok(SagaInstance {
             saga_instance_id,
             saga_name,
             correlation_id,
             start_event_id,
-            status,
             state,
             dispatched_commands,
             uncommitted_commands: Vec::new(),
@@ -60,13 +43,12 @@ impl PgSagaInstanceRow {
 
 #[cfg(test)]
 mod tests {
-    use chrono::Utc;
     use serde::{Deserialize, Serialize};
     use uuid::Uuid;
 
     use super::PgSagaInstanceRow;
     use appletheia_application::request_context::CorrelationId;
-    use appletheia_application::saga::{SagaName, SagaNameOwned, SagaState, SagaStatus, SagaStep};
+    use appletheia_application::saga::{SagaName, SagaNameOwned, SagaState, SagaStep};
 
     #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
     struct TestSagaState;
@@ -79,13 +61,12 @@ mod tests {
     impl SagaStep for TestSagaStep {}
 
     #[test]
-    fn try_into_instance_allows_completed_without_state() {
+    fn try_into_instance_allows_absent_state() {
         let row = PgSagaInstanceRow {
             id: Uuid::now_v7(),
             correlation_id: Uuid::now_v7(),
             start_event_id: Uuid::now_v7(),
             state: None,
-            completed_at: Some(Utc::now()),
         };
 
         let instance = row
@@ -94,9 +75,8 @@ mod tests {
                 CorrelationId::from(Uuid::now_v7()),
                 Vec::new(),
             )
-            .expect("completed row without state should deserialize");
+            .expect("row without state should deserialize");
 
-        assert_eq!(instance.status, SagaStatus::Completed);
         assert!(instance.state.is_none());
     }
 }

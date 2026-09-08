@@ -4,18 +4,18 @@ mod organization_old_picture_object_deletion;
 mod user_old_picture_object_deletion;
 
 pub use organization_invitation::{
-    OrganizationInvitationSaga, OrganizationInvitationSagaError, OrganizationInvitationSagaSpec,
+    OrganizationInvitationSaga, OrganizationInvitationSagaHandlerError,
     OrganizationInvitationSagaState,
 };
 pub use organization_join_request::{
-    OrganizationJoinRequestSaga, OrganizationJoinRequestSagaError, OrganizationJoinRequestSagaSpec,
+    OrganizationJoinRequestSaga, OrganizationJoinRequestSagaHandlerError,
     OrganizationJoinRequestSagaState,
 };
 pub use organization_old_picture_object_deletion::{
-    OrganizationOldPictureObjectDeletionSaga, OrganizationOldPictureObjectDeletionSagaError,
-    OrganizationOldPictureObjectDeletionSagaSpec, OrganizationOldPictureObjectDeletionSagaState,
+    OrganizationOldPictureObjectDeletionSaga, OrganizationOldPictureObjectDeletionSagaHandlerError,
+    OrganizationOldPictureObjectDeletionSagaState,
 };
 pub use user_old_picture_object_deletion::{
-    UserOldPictureObjectDeletionSaga, UserOldPictureObjectDeletionSagaError,
-    UserOldPictureObjectDeletionSagaSpec, UserOldPictureObjectDeletionSagaState,
+    UserOldPictureObjectDeletionSaga, UserOldPictureObjectDeletionSagaHandlerError,
+    UserOldPictureObjectDeletionSagaState,
 };

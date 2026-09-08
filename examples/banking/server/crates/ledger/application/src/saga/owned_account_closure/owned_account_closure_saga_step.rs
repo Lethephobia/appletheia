@@ -5,11 +5,10 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "snake_case")]
 pub enum OwnedAccountClosureSagaStep {
     Request,
-    LoadPage,
-    CloseAccount,
+    Advance,
+    ProcessPage,
     RecordClosedAccount,
     RecordRejectedAccountClose,
-    Complete,
     Fail,
 }
 

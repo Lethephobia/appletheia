@@ -4,11 +4,9 @@ use crate::command::CommandFailureEnvelope;
 use crate::messaging::Subscription;
 use crate::{Consumer, ConsumerGroup, Delivery, Subscriber};
 
-use super::{
-    Saga, SagaCommandFailureWorker, SagaCommandFailureWorkerError, SagaName, SagaRunner, SagaSpec,
-};
+use super::{Saga, SagaCommandFailureWorker, SagaCommandFailureWorkerError, SagaName, SagaRunner};
 
-/// Consumes terminal command failures for saga definitions passed to `run_forever`.
+/// Consumes terminal command failures for sagas passed to `run_forever`.
 pub struct DefaultSagaCommandFailureWorker<S, R> {
     saga_runner: R,
     subscriber: S,
@@ -40,19 +38,23 @@ where
         self.stop_requested.store(true, AtomicOrdering::SeqCst);
     }
 
-    async fn run_forever<SG: Saga>(&self, saga: &SG) -> Result<(), SagaCommandFailureWorkerError> {
-        let descriptor = <SG::Spec as SagaSpec>::DESCRIPTOR;
-        let consumer_group = ConsumerGroup::from(descriptor.name);
+    async fn run_forever<SG: Saga>(
+        &self,
+        saga: &SG,
+    ) -> Result<(), SagaCommandFailureWorkerError<SG::HandlerError>> {
+        let definition = saga.definition()?;
+        let consumer_group = ConsumerGroup::from(definition.name());
+        let saga_name = definition.name();
         let mut consumer = self
             .subscriber
-            .subscribe(&consumer_group, Subscription::One(&descriptor.name))
+            .subscribe(&consumer_group, Subscription::One(&saga_name))
             .await?;
 
         while !self.is_stop_requested() {
             let mut delivery = consumer.next().await?;
             let result = self
                 .saga_runner
-                .handle_command_failure(saga, delivery.message())
+                .handle_command_failure(&definition, delivery.message())
                 .await;
             match result {
                 Ok(_) => delivery.ack().await?,

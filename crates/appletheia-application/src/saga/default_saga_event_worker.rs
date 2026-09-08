@@ -1,12 +1,12 @@
 use std::sync::atomic::{AtomicBool, Ordering as AtomicOrdering};
 
-use super::{Saga, SagaEventWorker, SagaEventWorkerError, SagaRunner, SagaSpec};
+use super::{Saga, SagaEventWorker, SagaEventWorkerError, SagaRunner};
 use crate::{
-    Consumer, ConsumerGroup, Delivery, Subscriber,
+    Consumer, ConsumerGroup, Delivery, Subscriber, Subscription,
     event::{EventEnvelope, EventSelector},
 };
 
-/// Consumes events for saga definitions passed to `run_forever`.
+/// Consumes events for sagas passed to `run_forever`.
 pub struct DefaultSagaEventWorker<S, R> {
     saga_runner: R,
     subscriber: S,
@@ -38,26 +38,30 @@ where
         self.stop_requested.store(true, AtomicOrdering::SeqCst);
     }
 
-    async fn run_forever<SG: Saga>(&self, saga: &SG) -> Result<(), SagaEventWorkerError> {
-        let descriptor = <SG::Spec as SagaSpec>::DESCRIPTOR;
-        let consumer_group = ConsumerGroup::from(descriptor.name);
+    async fn run_forever<SG: Saga>(
+        &self,
+        saga: &SG,
+    ) -> Result<(), SagaEventWorkerError<SG::HandlerError>> {
+        let definition = saga.definition()?;
+        let consumer_group = ConsumerGroup::from(definition.name());
+        let selectors = definition.selectors();
 
         let mut consumer = self
             .subscriber
-            .subscribe(&consumer_group, descriptor.subscription)
+            .subscribe(&consumer_group, Subscription::AnyOf(&selectors))
             .await?;
 
         while !self.is_stop_requested() {
             let mut delivery = consumer.next().await?;
 
-            if !descriptor.subscription.matches(delivery.message()) {
+            if !Subscription::AnyOf(&selectors).matches(delivery.message()) {
                 delivery.ack().await?;
                 continue;
             }
 
             let result = self
                 .saga_runner
-                .handle_event(saga, delivery.message())
+                .handle_event(&definition, delivery.message())
                 .await;
 
             match result {

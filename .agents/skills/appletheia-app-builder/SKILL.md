@@ -49,5 +49,5 @@ The reference files follow an Effective Dart style:
 
 - `references/application/saga.md`
 
-  Use for event and command-failure workflow orchestration, serializable saga steps, saga instances,
-  saga state, and subscriptions.
+  Use for staged Saga definitions (`add_*_step().on().handle()`), typed callbacks and handler errors,
+  command dispatch through context, start-once routing, optional failure reactions, and worker DI.

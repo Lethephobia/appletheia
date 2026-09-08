@@ -196,14 +196,13 @@ pub use repository::{
     TokenBindingEventSaveHook, WalletBookmarkEventSaveHook,
 };
 pub use saga::{
-    CurrencyRegistrarInvitationSaga, CurrencyRegistrarInvitationSagaError,
-    CurrencyRegistrarInvitationSagaSpec, CurrencyRegistrarInvitationSagaState,
-    CurrencyRegistrarJoinRequestSaga, CurrencyRegistrarJoinRequestSagaError,
-    CurrencyRegistrarJoinRequestSagaSpec, CurrencyRegistrarJoinRequestSagaState, DepositSaga,
-    DepositSagaError, DepositSagaSpec, DepositSagaState, OwnedAccountClosureSaga,
-    OwnedAccountClosureSagaError, OwnedAccountClosureSagaSpec, OwnedAccountClosureSagaState,
-    TransferSaga, TransferSagaError, TransferSagaSpec, TransferSagaState, WithdrawalSaga,
-    WithdrawalSagaError, WithdrawalSagaSpec, WithdrawalSagaState,
+    CurrencyRegistrarInvitationSaga, CurrencyRegistrarInvitationSagaHandlerError,
+    CurrencyRegistrarInvitationSagaState, CurrencyRegistrarJoinRequestSaga,
+    CurrencyRegistrarJoinRequestSagaHandlerError, CurrencyRegistrarJoinRequestSagaState,
+    DepositSaga, DepositSagaHandlerError, DepositSagaState, OwnedAccountClosureSaga,
+    OwnedAccountClosureSagaHandlerError, OwnedAccountClosureSagaState, TransferSaga,
+    TransferSagaHandlerError, TransferSagaState, WithdrawalSaga, WithdrawalSagaHandlerError,
+    WithdrawalSagaState,
 };
 pub use settlement::{
     DefaultDepositSettlementPreparer, DefaultDepositSettlementVerifier,

@@ -188,7 +188,10 @@ nack, or release execution leases.
 
 The worker creates a new `CommandFailureId`, reuses the persisted `failed_at`, and publishes the
 notification when the command is terminal. For saga-originated commands the envelope includes the
-original `SagaCommandOrigin`; the saga failure worker uses it to route the failure.
+original `SagaCommandOrigin`; the saga failure worker uses it to route the failure. Register an
+application reaction with `add_failure_step(...).on(caused_by).handle(...)` only when needed;
+otherwise the saga records and acknowledges the owned terminal failure without a callback.
+See [Saga Design](saga.md) for registration and dispatch semantics.
 
 ## Cross-aggregate validation
 

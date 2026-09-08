@@ -21,6 +21,10 @@ pub trait SagaInstanceStore: Send + Sync {
         dispatched_command_message_id: MessageId,
     ) -> Result<Option<SagaInstance<S, T>>, SagaInstanceStoreError>;
 
+    /// Persists this instance and its dispatched commands within the unit of work.
+    ///
+    /// A different instance with the same saga name and correlation ID must cause
+    /// a conflict, rather than overwrite the existing instance's state.
     async fn save<S: SagaState, T: SagaStep>(
         &self,
         uow: &mut Self::Uow,

@@ -27,11 +27,3 @@ signature or Ethereum transaction hash. Wallet bookmarks store a chain-explicit
 Neither implementation creates tokens, publishes token metadata, or manages token supply. Token
 existence, interface support, decimals, and settlement usability are checked by chain-specific
 binding-admission and settlement infrastructure rather than persisted as mutable domain facts.
-
-## Breaking local reset
-
-Issue #128 intentionally changes event payloads, snapshots, projections, database rows, and the
-on-chain layout. Existing Banking example data is not upcast. Recreate the local PostgreSQL
-database and rerun every migration, rebuild and redeploy the Solana and Ethereum settlement
-programs, and regenerate any Anchor, Solidity, or API clients. Do not reuse old Account, Currency,
-CurrencyIssuance, Deposit, or Withdrawal streams.

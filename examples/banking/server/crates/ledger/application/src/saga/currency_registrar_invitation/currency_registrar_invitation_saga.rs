@@ -1,74 +1,47 @@
 use crate::command::CurrencyRegistrarMembershipCreateCommand;
-use appletheia::application::command::CommandFailureEnvelope;
-use appletheia::application::event::EventEnvelope;
-use appletheia::application::request_context::CausationId;
-use appletheia::application::saga::{Saga, SagaInstance};
-use banking_ledger_domain::{
-    CurrencyRegistrarInvitation, CurrencyRegistrarInvitationEventPayload,
-    CurrencyRegistrarMembership, CurrencyRegistrarMembershipEventPayload,
-};
+use appletheia::application::saga::SagaError;
+use appletheia::application::saga::{Saga, SagaDefinition, SagaDefinitionBuilder, SagaName};
+use banking_ledger_domain::{CurrencyRegistrarInvitation, CurrencyRegistrarInvitationEventPayload};
 
 use super::{
-    CurrencyRegistrarInvitationSagaError, CurrencyRegistrarInvitationSagaSpec,
-    CurrencyRegistrarInvitationSagaState, CurrencyRegistrarInvitationSagaStep,
+    CurrencyRegistrarInvitationSagaHandlerError, CurrencyRegistrarInvitationSagaState,
+    CurrencyRegistrarInvitationSagaStep,
 };
 
 /// Coordinates the currency registrar invitation workflow into currency registrar membership creation.
 pub struct CurrencyRegistrarInvitationSaga;
 
 impl Saga for CurrencyRegistrarInvitationSaga {
-    type Spec = CurrencyRegistrarInvitationSagaSpec;
     type State = CurrencyRegistrarInvitationSagaState;
     type Step = CurrencyRegistrarInvitationSagaStep;
-    type Error = CurrencyRegistrarInvitationSagaError;
+    type HandlerError = CurrencyRegistrarInvitationSagaHandlerError;
 
-    fn on_event(
+    fn definition(
         &self,
-        instance: &mut SagaInstance<Self::State, Self::Step>,
-        event: &EventEnvelope,
-        _causative_step: Option<Self::Step>,
-    ) -> Result<(), Self::Error> {
-        if event.is_for_aggregate::<CurrencyRegistrarInvitation>() {
-            let invitation_event = event.try_into_domain_event::<CurrencyRegistrarInvitation>()?;
+    ) -> Result<SagaDefinition<'_, Self::State, Self::Step, Self::HandlerError>, SagaError> {
+        SagaDefinitionBuilder::<Self::State, Self::Step, Self::HandlerError>::new(SagaName::new(
+            "currency_registrar_invitation",
+        ))
+        .add_start_step(CurrencyRegistrarInvitationSagaStep::CreateMembership)
+        .on::<CurrencyRegistrarInvitation>(CurrencyRegistrarInvitationEventPayload::ACCEPTED)
+        .handle(|ctx, invitation_event| {
             if let CurrencyRegistrarInvitationEventPayload::Accepted {
                 currency_registrar_id,
                 invitee_id,
             } = invitation_event.payload()
             {
-                *instance.state_mut() = Some(CurrencyRegistrarInvitationSagaState::new(
+                ctx.set_state(CurrencyRegistrarInvitationSagaState::new(
                     invitation_event.aggregate_id(),
                 ));
 
-                instance.append_command(
-                    CausationId::from(event.event_id),
-                    CurrencyRegistrarInvitationSagaStep::CreateMembership,
-                    &CurrencyRegistrarMembershipCreateCommand {
-                        currency_registrar_id: *currency_registrar_id,
-                        user_id: *invitee_id,
-                    },
-                )?;
+                ctx.append_command(&CurrencyRegistrarMembershipCreateCommand {
+                    currency_registrar_id: *currency_registrar_id,
+                    user_id: *invitee_id,
+                })?;
             }
-
-            return Ok(());
-        } else if event.is_for_aggregate::<CurrencyRegistrarMembership>() {
-            let membership_event = event.try_into_domain_event::<CurrencyRegistrarMembership>()?;
-            if let CurrencyRegistrarMembershipEventPayload::Created { .. } =
-                membership_event.payload()
-            {
-                instance.complete();
-            }
-        }
-
-        Ok(())
-    }
-
-    fn on_command_failed(
-        &self,
-        instance: &mut SagaInstance<Self::State, Self::Step>,
-        _failure: &CommandFailureEnvelope,
-        _causative_step: Self::Step,
-    ) -> Result<(), Self::Error> {
-        instance.complete();
-        Ok(())
+            Ok(())
+        })
+        .build()
+        .map_err(SagaError::from)
     }
 }

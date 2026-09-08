@@ -73,7 +73,7 @@ impl CommandOutboxEnqueuer for PgCommandOutboxEnqueuer {
 
                 separated
                     .push("(")
-                    .push_bind(id_value)
+                    .push_bind_unseparated(id_value)
                     .push_bind(message_id_value)
                     .push_bind(command_name_value)
                     .push_bind(payload_value)
@@ -83,7 +83,7 @@ impl CommandOutboxEnqueuer for PgCommandOutboxEnqueuer {
                     .push_bind(saga_instance_id_value)
                     .push_bind(saga_step_value)
                     .push_bind(options_value)
-                    .push(")");
+                    .push_unseparated(")");
             }
         }
 
