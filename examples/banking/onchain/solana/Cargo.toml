@@ -5,8 +5,8 @@ members = [
 resolver = "2"
 
 [workspace.dependencies]
-anchor-lang = "1.1.2"
-anchor-spl = { version = "1.1.2", default-features = false }
+anchor-lang = "1.2.0"
+anchor-spl = { version = "1.2.0", default-features = false }
 
 [profile.release]
 overflow-checks = true
