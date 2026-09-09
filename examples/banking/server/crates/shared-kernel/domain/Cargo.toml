@@ -5,5 +5,5 @@ edition = "2024"
 
 [dependencies]
 chrono = { workspace = true, features = ["serde"] }
-serde = { version = "1", features = ["derive"] }
-thiserror = "2"
+serde = { workspace = true, features = ["derive"] }
+thiserror = { workspace = true }
