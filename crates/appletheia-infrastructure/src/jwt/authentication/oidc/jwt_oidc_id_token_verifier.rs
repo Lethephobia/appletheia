@@ -32,9 +32,16 @@ where
         }
     }
 
-    fn validation(&self, context: &OidcIdTokenVerifyContext) -> Validation {
+    fn validation(
+        &self,
+        context: &OidcIdTokenVerifyContext,
+        decoding_key: &DecodingKey,
+    ) -> Validation {
         let mut validation = Validation::new(Algorithm::RS256);
-        validation.algorithms = vec![Algorithm::RS256, Algorithm::EdDSA];
+        validation.algorithms = [Algorithm::RS256, Algorithm::EdDSA]
+            .into_iter()
+            .filter(|algorithm| algorithm.family() == decoding_key.family())
+            .collect();
         validation.leeway = self.config.leeway_seconds().value();
         validation.set_required_spec_claims(&["exp", "iss", "aud", "sub"]);
 
@@ -175,7 +182,7 @@ where
             .map_err(JwtOidcIdTokenVerifierError::InvalidKey)
             .map_err(Self::map_error)?;
 
-        let validation = self.validation(&context);
+        let validation = self.validation(&context, &decoding_key);
         let token_data = decode::<JwtOidcIdTokenClaims>(token_value, &decoding_key, &validation)
             .map_err(JwtOidcIdTokenVerifierError::Decode)
             .map_err(Self::map_error)?;

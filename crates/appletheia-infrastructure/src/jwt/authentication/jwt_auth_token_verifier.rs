@@ -17,9 +17,12 @@ impl JwtAuthTokenVerifier {
         Self { config }
     }
 
-    fn validation(&self) -> Validation {
+    fn validation(&self, decoding_key: &DecodingKey) -> Validation {
         let mut validation = Validation::new(Algorithm::RS256);
-        validation.algorithms = vec![Algorithm::RS256, Algorithm::EdDSA];
+        validation.algorithms = [Algorithm::RS256, Algorithm::EdDSA]
+            .into_iter()
+            .filter(|algorithm| algorithm.family() == decoding_key.family())
+            .collect();
         validation.leeway = self.config.leeway_seconds().value();
         validation.set_required_spec_claims(&["exp", "iss", "aud", "sub"]);
 
@@ -65,7 +68,7 @@ impl AuthTokenVerifier for JwtAuthTokenVerifier {
             AuthTokenVerifierError::Backend(Box::new(JwtAuthTokenVerifierError::InvalidKey(e)))
         })?;
 
-        let validation = self.validation();
+        let validation = self.validation(&decoding_key);
         let token_data = decode::<JwtAuthTokenClaims>(token_value, &decoding_key, &validation)
             .map_err(|e| {
                 AuthTokenVerifierError::Backend(Box::new(JwtAuthTokenVerifierError::Decode(e)))
@@ -85,8 +88,11 @@ mod tests {
         AuthTokenExpiresIn, AuthTokenIssueRequest, AuthTokenIssuer, AuthTokenIssuerUrl,
         AuthTokenIssuerUrls,
     };
+    use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
     use chrono::Duration;
-    use jsonwebtoken::{Header, dangerous::insecure_decode, encode, errors::ErrorKind};
+    use jsonwebtoken::{
+        EncodingKey, Header, dangerous::insecure_decode, encode, errors::ErrorKind,
+    };
     use serde_json::{Value, json};
     use uuid::Uuid;
 
@@ -182,6 +188,34 @@ mod tests {
             let claim_error = verifier.verify(&invalid_token).await.unwrap_err();
             assert_decode_error(claim_error, expected);
         }
+
+        let hmac_secret = [42; 32];
+        let hmac_jwks = serde_json::from_value(json!({
+            "keys": [{
+                "kty": "oct",
+                "kid": "hmac-key",
+                "alg": "HS256",
+                "k": URL_SAFE_NO_PAD.encode(hmac_secret),
+            }],
+        }))
+        .unwrap();
+        let hmac_verifier = JwtAuthTokenVerifier::new(JwtAuthTokenVerifierConfig::new(
+            verifier.config.allowed_issuer_urls().clone(),
+            verifier.config.allowed_audiences().clone(),
+            hmac_jwks,
+        ));
+        let mut hmac_header = Header::new(Algorithm::HS256);
+        hmac_header.kid = Some("hmac-key".to_owned());
+        let hmac_token = AuthToken::new(
+            encode(
+                &hmac_header,
+                &valid_claims,
+                &EncodingKey::from_secret(&hmac_secret),
+            )
+            .unwrap(),
+        );
+        let algorithm_error = hmac_verifier.verify(&hmac_token).await.unwrap_err();
+        assert_decode_error(algorithm_error, ErrorKind::InvalidAlgorithm);
     }
 
     fn assert_decode_error(error: AuthTokenVerifierError, expected: ErrorKind) {
