@@ -3,15 +3,9 @@ use std::sync::Arc;
 use solana_sdk::{pubkey::Pubkey, signature::Keypair};
 
 pub struct DefaultSolanaDepositSettlementPreparerConfig {
-    pub(super) program_id: Pubkey,
-    pub(super) operator: Arc<Keypair>,
-}
-
-impl DefaultSolanaDepositSettlementPreparerConfig {
-    pub fn new(program_id: Pubkey, operator: Arc<Keypair>) -> Self {
-        Self {
-            program_id,
-            operator,
-        }
-    }
+    pub program_id: Pubkey,
+    pub payer: Arc<Keypair>,
+    pub operator: Arc<Keypair>,
+    pub compute_unit_limit: u32,
+    pub loaded_accounts_data_size_limit: u32,
 }

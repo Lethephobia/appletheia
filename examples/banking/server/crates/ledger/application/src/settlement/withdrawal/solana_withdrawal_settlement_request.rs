@@ -1,5 +1,5 @@
 use banking_ledger_domain::core::{
-    CurrencyAmount, CurrencyDecimals, SolanaMintAccountAddress, SolanaTokenOwnerAddress,
+    CurrencyAmount, CurrencyDecimals, SolanaMintAccountAddress, SolanaTokenAccountOwnerAddress,
 };
 use banking_ledger_domain::withdrawal::WithdrawalId;
 
@@ -8,7 +8,7 @@ pub struct SolanaWithdrawalSettlementRequest {
     withdrawal_id: WithdrawalId,
     currency_decimals: CurrencyDecimals,
     token_address: SolanaMintAccountAddress,
-    token_owner_address: SolanaTokenOwnerAddress,
+    token_account_owner_address: SolanaTokenAccountOwnerAddress,
     amount: CurrencyAmount,
 }
 
@@ -17,14 +17,14 @@ impl SolanaWithdrawalSettlementRequest {
         withdrawal_id: WithdrawalId,
         currency_decimals: CurrencyDecimals,
         token_address: SolanaMintAccountAddress,
-        token_owner_address: SolanaTokenOwnerAddress,
+        token_account_owner_address: SolanaTokenAccountOwnerAddress,
         amount: CurrencyAmount,
     ) -> Self {
         Self {
             withdrawal_id,
             currency_decimals,
             token_address,
-            token_owner_address,
+            token_account_owner_address,
             amount,
         }
     }
@@ -41,8 +41,8 @@ impl SolanaWithdrawalSettlementRequest {
         self.token_address
     }
 
-    pub const fn token_owner_address(&self) -> SolanaTokenOwnerAddress {
-        self.token_owner_address
+    pub const fn token_account_owner_address(&self) -> SolanaTokenAccountOwnerAddress {
+        self.token_account_owner_address
     }
 
     pub fn amount(&self) -> CurrencyAmount {

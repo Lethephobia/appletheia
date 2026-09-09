@@ -11,9 +11,16 @@ use banking_settlement::{
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_commitment_config::CommitmentConfig;
 use solana_sdk::pubkey::Pubkey;
-use solana_sdk::{instruction::Instruction, signature::Signer};
+use solana_sdk::{
+    instruction::Instruction,
+    message::{
+        VersionedMessage,
+        v1::{Message, TransactionConfig},
+    },
+    signature::Signer,
+};
 use solana_system_interface::program as system_program;
-use solana_transaction::Transaction;
+use solana_transaction::versioned::VersionedTransaction;
 use spl_associated_token_account_interface::address as associated_token_address;
 use spl_token_2022_interface::{extension::StateWithExtensions, state::Mint};
 
@@ -41,7 +48,8 @@ impl SolanaWithdrawalSettlementExecutor for DefaultSolanaWithdrawalSettlementExe
         request: SolanaWithdrawalSettlementRequest,
     ) -> Result<SolanaWithdrawalSettlementExecution, WithdrawalSettlementExecutorError> {
         let mint = Pubkey::new_from_array(*request.token_address().address().as_bytes());
-        let owner = Pubkey::new_from_array(*request.token_owner_address().address().as_bytes());
+        let token_account_owner =
+            Pubkey::new_from_array(*request.token_account_owner_address().address().as_bytes());
         let mint_account = self
             .rpc_client
             .get_account(&mint)
@@ -87,7 +95,7 @@ impl SolanaWithdrawalSettlementExecutor for DefaultSolanaWithdrawalSettlementExe
                     .map_err(|error| WithdrawalSettlementExecutorError::Backend(Box::new(error)))?;
             if receipt.version != WithdrawalSettlementReceipt::VERSION
                 || receipt.mint != mint
-                || receipt.token_account_owner != owner
+                || receipt.token_account_owner != token_account_owner
                 || receipt.token_amount != token_amount
             {
                 return Err(WithdrawalSettlementExecutorError::Backend(Box::new(
@@ -129,10 +137,10 @@ impl SolanaWithdrawalSettlementExecutor for DefaultSolanaWithdrawalSettlementExe
                         &mint,
                         &token_program,
                     ),
-                token_account_owner: owner,
+                token_account_owner,
                 destination_token_account:
                     associated_token_address::get_associated_token_address_with_program_id(
-                        &owner,
+                        &token_account_owner,
                         &mint,
                         &token_program,
                     ),
@@ -152,14 +160,20 @@ impl SolanaWithdrawalSettlementExecutor for DefaultSolanaWithdrawalSettlementExe
             .get_latest_blockhash()
             .await
             .map_err(|error| WithdrawalSettlementExecutorError::Backend(Box::new(error)))?;
-        let mut transaction =
-            Transaction::new_with_payer(&[instruction], Some(&self.config.payer.pubkey()));
+        let message = Message::try_compile_with_config(
+            &self.config.payer.pubkey(),
+            &[instruction],
+            blockhash,
+            TransactionConfig::empty()
+                .with_compute_unit_limit(self.config.compute_unit_limit)
+                .with_loaded_accounts_data_size_limit(self.config.loaded_accounts_data_size_limit),
+        )
+        .map_err(|error| WithdrawalSettlementExecutorError::Backend(Box::new(error)))?;
         let mut signers: Vec<&dyn Signer> = vec![self.config.payer.as_ref()];
         if self.config.operator.pubkey() != self.config.payer.pubkey() {
             signers.push(self.config.operator.as_ref());
         }
-        transaction
-            .try_sign(&signers, blockhash)
+        let transaction = VersionedTransaction::try_new(VersionedMessage::V1(message), &signers)
             .map_err(|error| WithdrawalSettlementExecutorError::Backend(Box::new(error)))?;
         let signature = self
             .rpc_client
@@ -182,7 +196,7 @@ impl SolanaWithdrawalSettlementExecutor for DefaultSolanaWithdrawalSettlementExe
                 .map_err(|error| WithdrawalSettlementExecutorError::Backend(Box::new(error)))?;
         if receipt.version != WithdrawalSettlementReceipt::VERSION
             || receipt.mint != mint
-            || receipt.token_account_owner != owner
+            || receipt.token_account_owner != token_account_owner
             || receipt.token_amount != token_amount
         {
             return Err(WithdrawalSettlementExecutorError::Backend(Box::new(

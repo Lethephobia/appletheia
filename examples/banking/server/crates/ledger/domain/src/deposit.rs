@@ -277,7 +277,7 @@ mod tests {
 
     use crate::account::AccountId;
     use crate::core::{
-        CurrencyAmount, OnchainTransactionId, SolanaAccountAddress, SolanaTokenOwnerAddress,
+        CurrencyAmount, OnchainTransactionId, SolanaAccountAddress, SolanaTokenAccountOwnerAddress,
         SolanaTransactionSignature, TokenOwnerAddress,
     };
     use crate::token_binding::TokenBindingId;
@@ -289,7 +289,7 @@ mod tests {
     #[test]
     fn records_a_verified_settlement() {
         let mut deposit = Deposit::new();
-        let token_owner_address = TokenOwnerAddress::Solana(SolanaTokenOwnerAddress::new(
+        let token_owner_address = TokenOwnerAddress::Solana(SolanaTokenAccountOwnerAddress::new(
             SolanaAccountAddress::from_bytes([2; 32]),
         ));
         deposit

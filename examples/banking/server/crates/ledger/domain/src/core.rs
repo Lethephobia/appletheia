@@ -8,6 +8,6 @@ pub use onchain::{
     ChainNetwork, EvmAddress, EvmAddressError, EvmChainId, EvmTokenContractAddress,
     EvmTokenOwnerAddress, EvmTransactionHash, EvmTransactionHashError, OnchainTransactionId,
     SolanaAccountAddress, SolanaAccountAddressError, SolanaMintAccountAddress,
-    SolanaTokenOwnerAddress, SolanaTransactionSignature, SolanaTransactionSignatureError,
+    SolanaTokenAccountOwnerAddress, SolanaTransactionSignature, SolanaTransactionSignatureError,
     TokenAddress, TokenAmount, TokenAmountConversionError, TokenDecimals, TokenOwnerAddress,
 };

@@ -30,7 +30,7 @@ mod tests {
     use appletheia::domain::EventPayload;
     use banking_iam_domain::UserId;
 
-    use crate::core::{SolanaAccountAddress, SolanaTokenOwnerAddress, TokenOwnerAddress};
+    use crate::core::{SolanaAccountAddress, SolanaTokenAccountOwnerAddress, TokenOwnerAddress};
 
     use super::{
         WalletBookmarkDescription, WalletBookmarkDisplayName, WalletBookmarkEventPayload,
@@ -76,7 +76,7 @@ mod tests {
                 WalletBookmarkDescription::try_from("Personal main wallet")
                     .expect("description should be valid"),
             ),
-            token_owner_address: TokenOwnerAddress::Solana(SolanaTokenOwnerAddress::new(
+            token_owner_address: TokenOwnerAddress::Solana(SolanaTokenAccountOwnerAddress::new(
                 SolanaAccountAddress::try_from("11111111111111111111111111111111")
                     .expect("address should be valid"),
             )),

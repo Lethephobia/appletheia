@@ -212,7 +212,7 @@ mod tests {
     use appletheia::domain::{Aggregate, EventPayload};
     use banking_iam_domain::UserId;
 
-    use crate::core::{SolanaAccountAddress, SolanaTokenOwnerAddress, TokenOwnerAddress};
+    use crate::core::{SolanaAccountAddress, SolanaTokenAccountOwnerAddress, TokenOwnerAddress};
 
     use super::{
         WalletBookmark, WalletBookmarkDescription, WalletBookmarkDisplayName,
@@ -223,7 +223,7 @@ mod tests {
     fn token_owner_address() -> TokenOwnerAddress {
         let address = SolanaAccountAddress::try_from("11111111111111111111111111111111")
             .expect("address should be valid");
-        TokenOwnerAddress::Solana(SolanaTokenOwnerAddress::new(address))
+        TokenOwnerAddress::Solana(SolanaTokenAccountOwnerAddress::new(address))
     }
 
     fn wallet_bookmark_owner() -> WalletBookmarkOwner {

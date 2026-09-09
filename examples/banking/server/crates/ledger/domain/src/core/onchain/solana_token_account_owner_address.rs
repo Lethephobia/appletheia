@@ -8,9 +8,9 @@ use super::{SolanaAccountAddress, SolanaAccountAddressError};
 /// Identifies the owner of a Solana token account.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct SolanaTokenOwnerAddress(SolanaAccountAddress);
+pub struct SolanaTokenAccountOwnerAddress(SolanaAccountAddress);
 
-impl SolanaTokenOwnerAddress {
+impl SolanaTokenAccountOwnerAddress {
     /// Wraps a validated Solana account address with its Ledger role.
     pub fn new(address: SolanaAccountAddress) -> Self {
         Self(address)
@@ -22,13 +22,13 @@ impl SolanaTokenOwnerAddress {
     }
 }
 
-impl Display for SolanaTokenOwnerAddress {
+impl Display for SolanaTokenAccountOwnerAddress {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         Display::fmt(&self.0, formatter)
     }
 }
 
-impl FromStr for SolanaTokenOwnerAddress {
+impl FromStr for SolanaTokenAccountOwnerAddress {
     type Err = SolanaAccountAddressError;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -36,7 +36,7 @@ impl FromStr for SolanaTokenOwnerAddress {
     }
 }
 
-impl TryFrom<&str> for SolanaTokenOwnerAddress {
+impl TryFrom<&str> for SolanaTokenAccountOwnerAddress {
     type Error = SolanaAccountAddressError;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
@@ -44,7 +44,7 @@ impl TryFrom<&str> for SolanaTokenOwnerAddress {
     }
 }
 
-impl From<SolanaAccountAddress> for SolanaTokenOwnerAddress {
+impl From<SolanaAccountAddress> for SolanaTokenAccountOwnerAddress {
     fn from(address: SolanaAccountAddress) -> Self {
         Self::new(address)
     }

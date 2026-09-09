@@ -46,7 +46,7 @@ where
             (
                 ChainNetwork::Solana,
                 TokenAddress::Solana(token_address),
-                TokenOwnerAddress::Solana(token_owner_address),
+                TokenOwnerAddress::Solana(token_account_owner_address),
                 OnchainTransactionId::Solana(transaction_id),
             ) => {
                 let verification = self
@@ -55,7 +55,7 @@ where
                         request.deposit_id,
                         request.currency_decimals,
                         token_address,
-                        token_owner_address,
+                        token_account_owner_address,
                         request.amount,
                         transaction_id,
                     ))
@@ -93,7 +93,7 @@ mod tests {
     use banking_ledger_domain::core::{
         ChainNetwork, CurrencyAmount, CurrencyDecimals, EvmAddress, EvmTokenContractAddress,
         EvmTokenOwnerAddress, EvmTransactionHash, OnchainTransactionId, SolanaAccountAddress,
-        SolanaMintAccountAddress, SolanaTokenOwnerAddress, SolanaTransactionSignature,
+        SolanaMintAccountAddress, SolanaTokenAccountOwnerAddress, SolanaTransactionSignature,
         TokenAddress, TokenOwnerAddress,
     };
     use banking_ledger_domain::deposit::DepositId;
@@ -174,7 +174,7 @@ mod tests {
             token_address: TokenAddress::Ethereum(EvmTokenContractAddress::new(
                 EvmAddress::from_bytes([3; 20]),
             )),
-            token_owner_address: TokenOwnerAddress::Solana(SolanaTokenOwnerAddress::new(
+            token_owner_address: TokenOwnerAddress::Solana(SolanaTokenAccountOwnerAddress::new(
                 SolanaAccountAddress::from_bytes([4; 32]),
             )),
             amount: CurrencyAmount::new(100),
@@ -197,7 +197,7 @@ mod tests {
             token_address: TokenAddress::Solana(SolanaMintAccountAddress::new(
                 SolanaAccountAddress::from_bytes([3; 32]),
             )),
-            token_owner_address: TokenOwnerAddress::Solana(SolanaTokenOwnerAddress::new(
+            token_owner_address: TokenOwnerAddress::Solana(SolanaTokenAccountOwnerAddress::new(
                 SolanaAccountAddress::from_bytes([4; 32]),
             )),
             amount: CurrencyAmount::new(100),

@@ -68,7 +68,7 @@ impl SolanaDepositSettlementVerifier for DefaultSolanaDepositSettlementVerifier 
             .map_err(|error| DepositSettlementVerifierError::Backend(Box::new(error)))?;
         let expected_mint = Pubkey::new_from_array(*request.token_address().address().as_bytes());
         let expected_token_account_owner =
-            Pubkey::new_from_array(*request.token_owner_address().address().as_bytes());
+            Pubkey::new_from_array(*request.token_account_owner_address().address().as_bytes());
         let mint_account = self
             .rpc_client
             .get_account(&expected_mint)

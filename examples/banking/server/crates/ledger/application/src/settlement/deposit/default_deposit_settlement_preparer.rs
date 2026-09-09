@@ -52,7 +52,7 @@ where
             (
                 ChainNetwork::Solana,
                 TokenAddress::Solana(token_address),
-                TokenOwnerAddress::Solana(token_owner_address),
+                TokenOwnerAddress::Solana(token_account_owner_address),
             ) => {
                 if request.evm_authorization().is_some() {
                     return Err(DepositSettlementPreparerError::UnexpectedEvmAuthorization);
@@ -63,7 +63,7 @@ where
                         request.deposit_id(),
                         request.currency_decimals(),
                         token_address,
-                        token_owner_address,
+                        token_account_owner_address,
                         request.amount(),
                     ))
                     .await?;
@@ -107,7 +107,7 @@ mod tests {
     use banking_ledger_domain::core::{
         ChainNetwork, CurrencyAmount, CurrencyDecimals, EvmAddress, EvmChainId,
         EvmTokenContractAddress, EvmTokenOwnerAddress, SolanaAccountAddress,
-        SolanaMintAccountAddress, SolanaTokenOwnerAddress, TokenAddress, TokenOwnerAddress,
+        SolanaMintAccountAddress, SolanaTokenAccountOwnerAddress, TokenAddress, TokenOwnerAddress,
     };
     use banking_ledger_domain::deposit::DepositId;
 
@@ -277,7 +277,7 @@ mod tests {
             TokenAddress::Ethereum(EvmTokenContractAddress::new(EvmAddress::from_bytes(
                 [3; 20],
             ))),
-            TokenOwnerAddress::Solana(SolanaTokenOwnerAddress::new(
+            TokenOwnerAddress::Solana(SolanaTokenAccountOwnerAddress::new(
                 SolanaAccountAddress::from_bytes([4; 32]),
             )),
             CurrencyAmount::new(100),
@@ -300,7 +300,7 @@ mod tests {
             TokenAddress::Solana(SolanaMintAccountAddress::new(
                 SolanaAccountAddress::from_bytes([3; 32]),
             )),
-            TokenOwnerAddress::Solana(SolanaTokenOwnerAddress::new(
+            TokenOwnerAddress::Solana(SolanaTokenAccountOwnerAddress::new(
                 SolanaAccountAddress::from_bytes([4; 32]),
             )),
             CurrencyAmount::new(100),

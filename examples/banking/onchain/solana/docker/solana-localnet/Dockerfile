@@ -1,6 +1,6 @@
 FROM rust:1.97.0-bookworm AS builder
 
-ARG AGAVE_VERSION=v4.1.2
+ARG AGAVE_VERSION=v4.2.2
 
 RUN apt-get update \
     && apt-get install --yes --no-install-recommends \
