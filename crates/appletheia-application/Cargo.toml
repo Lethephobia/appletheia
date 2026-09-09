@@ -20,5 +20,5 @@ tokio = { workspace = true, features = ["time", "rt", "macros", "sync"] }
 sha2 = { workspace = true }
 url = { workspace = true, features = ["serde"] }
 base64 = { workspace = true }
-icu_locale = { version = "2.1.1", features = ["serde"] }
+icu_locale = { version = "2.3.1", features = ["serde"] }
 chrono-tz = { version = "0.10.4", features = ["serde"] }
