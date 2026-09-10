@@ -21,26 +21,25 @@ mod read_model_partition;
 mod serialized_partition;
 mod serialized_partition_error;
 
-pub use materialization_event_context::MaterializationEventContext;
-pub use read_model_dependency::ReadModelDependency;
-pub use read_model_dependency_topic::ReadModelDependencyTopic;
-pub use read_model_fragment::ReadModelFragment;
-pub use read_model_fragment_name::ReadModelFragmentName;
-pub use read_model_fragment_name_owned::ReadModelFragmentNameOwned;
-pub use read_model_fragment_name_owned_error::ReadModelFragmentNameOwnedError;
-pub use read_model_invalidation_envelope::ReadModelInvalidationEnvelope;
-pub use read_model_invalidation_envelope_error::ReadModelInvalidationEnvelopeError;
-pub use read_model_invalidation_id::ReadModelInvalidationId;
-pub use read_model_invalidation_id_error::ReadModelInvalidationIdError;
-pub use read_model_name::ReadModelName;
-pub use read_model_name_owned::ReadModelNameOwned;
-pub use read_model_name_owned_error::ReadModelNameOwnedError;
-pub use read_model_observation::ReadModelObservation;
-pub use read_model_observation_source::ReadModelObservationSource;
-pub use read_model_partition::ReadModelFragmentPartition;
-pub use read_model_partition::ReadModelPartition;
-pub use serialized_partition::SerializedPartition;
-pub use serialized_partition_error::SerializedPartitionError;
+pub use materialization_event_context::*;
+pub use read_model_dependency::*;
+pub use read_model_dependency_topic::*;
+pub use read_model_fragment::*;
+pub use read_model_fragment_name::*;
+pub use read_model_fragment_name_owned::*;
+pub use read_model_fragment_name_owned_error::*;
+pub use read_model_invalidation_envelope::*;
+pub use read_model_invalidation_envelope_error::*;
+pub use read_model_invalidation_id::*;
+pub use read_model_invalidation_id_error::*;
+pub use read_model_name::*;
+pub use read_model_name_owned::*;
+pub use read_model_name_owned_error::*;
+pub use read_model_observation::*;
+pub use read_model_observation_source::*;
+pub use read_model_partition::*;
+pub use serialized_partition::*;
+pub use serialized_partition_error::*;
 
 /// Defines one complete query snapshot assembled from read-model fragments.
 pub trait ReadModel: ReadModelObservationSource + serde::Serialize + Send + Sync {

@@ -27,7 +27,7 @@ pub use query::*;
 pub use read_model::*;
 pub use repository::*;
 pub use request_context::*;
-pub use retryability::Retryability;
+pub use retryability::*;
 pub use saga::*;
 pub use snapshot::*;
 pub use unit_of_work::*;

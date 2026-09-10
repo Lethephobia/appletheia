@@ -5,9 +5,9 @@ pub mod snapshot_reader_error;
 pub mod snapshot_writer;
 pub mod snapshot_writer_error;
 
-pub use snapshot_interval::SnapshotInterval;
-pub use snapshot_policy::SnapshotPolicy;
-pub use snapshot_reader::SnapshotReader;
-pub use snapshot_reader_error::SnapshotReaderError;
-pub use snapshot_writer::SnapshotWriter;
-pub use snapshot_writer_error::SnapshotWriterError;
+pub use snapshot_interval::*;
+pub use snapshot_policy::*;
+pub use snapshot_reader::*;
+pub use snapshot_reader_error::*;
+pub use snapshot_writer::*;
+pub use snapshot_writer_error::*;

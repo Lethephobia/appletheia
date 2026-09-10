@@ -4,8 +4,8 @@ pub mod command_failure_outbox_enqueuer;
 pub mod command_failure_outbox_id;
 pub mod command_failure_outbox_id_error;
 
-pub use command_failure_outbox::CommandFailureOutbox;
-pub use command_failure_outbox_enqueue_error::CommandFailureOutboxEnqueueError;
-pub use command_failure_outbox_enqueuer::CommandFailureOutboxEnqueuer;
-pub use command_failure_outbox_id::CommandFailureOutboxId;
-pub use command_failure_outbox_id_error::CommandFailureOutboxIdError;
+pub use command_failure_outbox::*;
+pub use command_failure_outbox_enqueue_error::*;
+pub use command_failure_outbox_enqueuer::*;
+pub use command_failure_outbox_id::*;
+pub use command_failure_outbox_id_error::*;
