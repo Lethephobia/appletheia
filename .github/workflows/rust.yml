@@ -19,6 +19,11 @@ jobs:
       matrix:
         features:
           - infrastructure
+          - infrastructure-http
+          - infrastructure-jwt
+          - infrastructure-http,infrastructure-jwt
+          - infrastructure-postgresql,infrastructure-http
+          - infrastructure-sha
           - infrastructure-aes-gcm
           - infrastructure-postgresql
           - infrastructure-google-cloud-pubsub
