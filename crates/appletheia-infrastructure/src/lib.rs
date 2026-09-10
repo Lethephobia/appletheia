@@ -1,3 +1,4 @@
+#[cfg(feature = "aes-gcm")]
 pub mod aes_gcm;
 #[cfg(all(feature = "postgresql", feature = "google-cloud-pubsub"))]
 pub mod bridge;
@@ -10,9 +11,9 @@ pub mod jwt;
 pub mod postgresql;
 pub mod sha;
 
-pub use aes_gcm::Aes256GcmAuthTokenExchangeGrantCipher;
-pub use aes_gcm::Aes256GcmAuthTokenExchangeGrantCipherError;
+#[cfg(feature = "aes-gcm")]
+pub use aes_gcm::authentication::*;
 #[cfg(feature = "postgresql")]
 pub use postgresql::*;
-pub use sha::Sha256AuthTokenExchangeCodeHasher;
-pub use sha::Sha256CommandHasher;
+pub use sha::authentication::*;
+pub use sha::command::*;

@@ -19,6 +19,7 @@ jobs:
       matrix:
         features:
           - infrastructure
+          - infrastructure-aes-gcm
           - infrastructure-postgresql
           - infrastructure-google-cloud-pubsub
           - infrastructure-google-cloud-storage

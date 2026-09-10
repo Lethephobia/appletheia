@@ -4,7 +4,7 @@ pub mod jwt_oidc_id_token_verifier;
 pub mod jwt_oidc_id_token_verifier_config;
 pub mod jwt_oidc_id_token_verifier_error;
 
-pub use jwt_oidc_id_token_claims_error::JwtOidcIdTokenClaimsError;
-pub use jwt_oidc_id_token_verifier::JwtOidcIdTokenVerifier;
-pub use jwt_oidc_id_token_verifier_config::JwtOidcIdTokenVerifierConfig;
-pub use jwt_oidc_id_token_verifier_error::JwtOidcIdTokenVerifierError;
+pub use jwt_oidc_id_token_claims_error::*;
+pub use jwt_oidc_id_token_verifier::*;
+pub use jwt_oidc_id_token_verifier_config::*;
+pub use jwt_oidc_id_token_verifier_error::*;

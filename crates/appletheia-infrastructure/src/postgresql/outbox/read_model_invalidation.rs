@@ -4,8 +4,8 @@ mod pg_read_model_invalidation_outbox_row;
 mod pg_read_model_invalidation_outbox_row_error;
 mod pg_read_model_invalidation_outbox_writer;
 
-pub use pg_read_model_invalidation_outbox_enqueuer::PgReadModelInvalidationOutboxEnqueuer;
-pub use pg_read_model_invalidation_outbox_fetcher::PgReadModelInvalidationOutboxFetcher;
-pub use pg_read_model_invalidation_outbox_row::PgReadModelInvalidationOutboxRow;
-pub use pg_read_model_invalidation_outbox_row_error::PgReadModelInvalidationOutboxRowError;
-pub use pg_read_model_invalidation_outbox_writer::PgReadModelInvalidationOutboxWriter;
+pub use pg_read_model_invalidation_outbox_enqueuer::*;
+pub use pg_read_model_invalidation_outbox_fetcher::*;
+pub use pg_read_model_invalidation_outbox_row::*;
+pub use pg_read_model_invalidation_outbox_row_error::*;
+pub use pg_read_model_invalidation_outbox_writer::*;

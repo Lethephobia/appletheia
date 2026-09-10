@@ -6,8 +6,8 @@ pub mod pg_event_outbox_row;
 pub mod pg_event_outbox_row_error;
 pub mod pg_event_outbox_writer;
 
-pub use pg_event_outbox_enqueuer::PgEventOutboxEnqueuer;
-pub use pg_event_outbox_fetcher::PgEventOutboxFetcher;
-pub use pg_event_outbox_row::PgEventOutboxRow;
-pub use pg_event_outbox_row_error::PgEventOutboxRowError;
-pub use pg_event_outbox_writer::PgEventOutboxWriter;
+pub use pg_event_outbox_enqueuer::*;
+pub use pg_event_outbox_fetcher::*;
+pub use pg_event_outbox_row::*;
+pub use pg_event_outbox_row_error::*;
+pub use pg_event_outbox_writer::*;

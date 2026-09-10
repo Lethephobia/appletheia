@@ -8,6 +8,6 @@ pub mod pg_saga_processed_command_failure_store;
 pub mod pg_saga_processed_event_row;
 pub mod pg_saga_processed_event_store;
 
-pub use pg_saga_instance_store::PgSagaInstanceStore;
-pub use pg_saga_processed_command_failure_store::PgSagaProcessedCommandFailureStore;
-pub use pg_saga_processed_event_store::PgSagaProcessedEventStore;
+pub use pg_saga_instance_store::*;
+pub use pg_saga_processed_command_failure_store::*;
+pub use pg_saga_processed_event_store::*;
