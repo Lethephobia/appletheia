@@ -13,15 +13,29 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  infrastructure-features:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        features:
+          - infrastructure
+          - infrastructure-google-cloud-pubsub
+          - infrastructure-google-cloud-storage
+          - full
+    steps:
+    - uses: actions/checkout@v4
+    - name: Check infrastructure feature selection through facade
+      run: cargo check -p appletheia --all-targets --no-default-features --features "${{ matrix.features }}"
+
   build:
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v4
     - name: Build root workspace
-      run: cargo build --verbose
+      run: cargo build --all-features --verbose
     - name: Run root workspace tests
-      run: cargo test --verbose
+      run: cargo test --all-features --verbose
     - name: Build banking server workspace
       run: cargo build --manifest-path examples/banking/server/Cargo.toml --verbose
     - name: Run banking server workspace tests

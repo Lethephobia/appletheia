@@ -9,6 +9,12 @@ authors = ["pbandj082 <pbandj082@gmail.com>"]
 repository = "https://github.com/Lethephobia/appletheia"
 keywords = ["appletheia", "ddd", "event-sourcing", "cqrs"]
 
+[features]
+default = []
+google-cloud-pubsub = ["dep:google-cloud-pubsub", "dep:google-cloud-gax"]
+google-cloud-storage = ["dep:google-cloud-storage", "dep:google-cloud-auth", "dep:bytes"]
+full = ["google-cloud-pubsub", "google-cloud-storage"]
+
 [dependencies]
 appletheia-domain = { workspace = true }
 appletheia-application = { workspace = true }
@@ -24,17 +30,16 @@ uuid = { workspace = true, features = ["serde", "v7"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 chrono = { workspace = true }
-google-cloud-pubsub = "1.4.0"
-google-cloud-gax = "1.14.0"
-google-cloud-auth = "1.16.0"
-google-cloud-storage = "1.18.0"
-futures-util = "0.3.34"
+google-cloud-pubsub = { version = "1.4.0", optional = true }
+google-cloud-gax = { version = "1.14.0", optional = true }
+google-cloud-auth = { version = "1.16.0", optional = true }
+google-cloud-storage = { version = "1.18.0", optional = true }
 jsonwebtoken = { version = "11.0.0", features = ["rust_crypto"] }
 reqwest = { version = "0.13.5", default-features = false, features = ["rustls", "gzip"] }
 httpdate = "1.0.3"
 url = { workspace = true }
 base64 = { workspace = true }
-bytes = { workspace = true }
+bytes = { workspace = true, optional = true }
 sha2 = { workspace = true }
 aes-gcm = { version = "0.11.1", features = ["rand_core"] }
 getrandom = "0.4.3"
