@@ -6,7 +6,7 @@ edition = "2024"
 [dependencies]
 alloy = "2.4.2"
 anchor-lang = "1.2.0"
-appletheia = { workspace = true, features = ["application", "infrastructure"] }
+appletheia = { workspace = true, features = ["application", "infrastructure-postgresql"] }
 banking-settlement = { path = "../../../../onchain/solana/programs/banking-settlement", features = ["no-entrypoint"] }
 banking-iam-domain = { workspace = true }
 banking-ledger-application = { workspace = true }

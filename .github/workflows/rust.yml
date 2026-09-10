@@ -19,8 +19,10 @@ jobs:
       matrix:
         features:
           - infrastructure
+          - infrastructure-postgresql
           - infrastructure-google-cloud-pubsub
           - infrastructure-google-cloud-storage
+          - infrastructure-postgresql,infrastructure-google-cloud-pubsub
           - full
     steps:
     - uses: actions/checkout@v4
