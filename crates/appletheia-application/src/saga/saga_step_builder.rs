@@ -1,5 +1,4 @@
 use super::{SagaDefinitionBuilder, SagaEventHandlerBuilder, SagaState, SagaStep};
-use crate::event::EventSelector;
 use appletheia_domain::{Aggregate, EventName};
 use std::error::Error;
 
@@ -22,11 +21,6 @@ impl<'a, S: SagaState, T: SagaStep, E: Error + Send + Sync + 'static> SagaStepBu
         caused_by: T,
         event_name: EventName,
     ) -> SagaEventHandlerBuilder<'a, S, T, E, A> {
-        SagaEventHandlerBuilder::new(
-            self.definition_builder,
-            self.step,
-            EventSelector::new::<A>(event_name),
-            caused_by,
-        )
+        SagaEventHandlerBuilder::new(self.definition_builder, self.step, event_name, caused_by)
     }
 }

@@ -1,6 +1,5 @@
 use super::{SagaContext, SagaDefinitionBuilder, SagaRoute, SagaState, SagaStep};
-use crate::event::EventSelector;
-use appletheia_domain::{Aggregate, Event};
+use appletheia_domain::{Aggregate, Event, EventName};
 use std::{error::Error, marker::PhantomData};
 
 /// Registers a typed event callback for a selected continuation condition.
@@ -13,7 +12,7 @@ pub struct SagaEventHandlerBuilder<
 > {
     definition_builder: SagaDefinitionBuilder<'a, S, T, E>,
     step: T,
-    selector: EventSelector,
+    event_name: EventName,
     caused_by: T,
     aggregate: PhantomData<fn() -> A>,
 }
@@ -24,13 +23,13 @@ impl<'a, S: SagaState, T: SagaStep, E: Error + Send + Sync + 'static, A: Aggrega
     pub(crate) fn new(
         definition_builder: SagaDefinitionBuilder<'a, S, T, E>,
         step: T,
-        selector: EventSelector,
+        event_name: EventName,
         caused_by: T,
     ) -> Self {
         Self {
             definition_builder,
             step,
-            selector,
+            event_name,
             caused_by,
             aggregate: PhantomData,
         }
@@ -43,12 +42,8 @@ impl<'a, S: SagaState, T: SagaStep, E: Error + Send + Sync + 'static, A: Aggrega
             + Sync
             + 'a,
     {
-        let route = SagaRoute::OnEvent {
-            step: self.step,
-            selector: self.selector,
-            caused_by: self.caused_by,
-            handler: SagaRoute::event_handler::<A, H>(handler),
-        };
+        let route =
+            SagaRoute::on_event::<A, H>(self.caused_by, self.event_name, self.step, handler);
         self.definition_builder.add_route(route)
     }
 }
