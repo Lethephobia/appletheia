@@ -1,3 +1,4 @@
+use crate::event::EventEnvelopeError;
 use std::error::Error;
 
 mod default_saga_command_failure_worker;
@@ -108,7 +109,7 @@ pub use serialized_saga_step_error::*;
 pub trait Saga: Send + Sync {
     type State: SagaState;
     type Step: SagaStep;
-    type HandlerError: Error + Send + Sync + 'static;
+    type HandlerError: Error + From<EventEnvelopeError> + Send + Sync + 'static;
 
     /// Builds a deterministic route definition without side effects.
     ///
