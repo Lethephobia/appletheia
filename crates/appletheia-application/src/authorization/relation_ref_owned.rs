@@ -2,7 +2,7 @@ use std::fmt::{self, Display};
 
 use serde::{Deserialize, Serialize};
 
-use crate::event::AggregateTypeOwned;
+use crate::aggregate::AggregateTypeOwned;
 
 use super::{RelationNameOwned, RelationRef};
 

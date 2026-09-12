@@ -5,10 +5,11 @@ use super::relationship_memo_key::RelationshipMemoKey;
 use super::userset_expr_eval_context::UsersetExprEvalContext;
 use super::userset_expr_eval_depth::UsersetExprEvalDepth;
 use super::{
-    AggregateRef, AuthorizationModel, RelationRefOwned, RelationshipRequirement,
-    RelationshipResolver, RelationshipResolverConfig, RelationshipResolverError, RelationshipStore,
-    RelationshipSubject, UsersetExprOwned,
+    AuthorizationModel, RelationRefOwned, RelationshipRequirement, RelationshipResolver,
+    RelationshipResolverConfig, RelationshipResolverError, RelationshipStore, RelationshipSubject,
+    UsersetExpr,
 };
+use crate::aggregate::AggregateRef;
 
 #[derive(Debug)]
 pub struct DefaultRelationshipResolver<RS, AM>
@@ -55,14 +56,11 @@ where
         state: &mut RelationshipEvalState,
     ) -> Result<bool, RelationshipResolverError> {
         match requirement {
-            RelationshipRequirement::Check {
-                aggregate,
-                relation,
-            } => {
+            RelationshipRequirement::Check { target, relation } => {
                 self.check_relation(
                     uow,
                     subject,
-                    aggregate,
+                    target,
                     relation,
                     state,
                     UsersetExprEvalDepth::default(),
@@ -95,7 +93,7 @@ where
         &self,
         uow: &mut RS::Uow,
         subject: &AggregateRef,
-        aggregate: &AggregateRef,
+        target: &AggregateRef,
         relation: &RelationRefOwned,
         state: &mut RelationshipEvalState,
         depth: UsersetExprEvalDepth,
@@ -106,16 +104,16 @@ where
             ));
         }
 
-        if aggregate.aggregate_type != relation.aggregate_type {
+        if target.aggregate_type != relation.aggregate_type {
             return Err(RelationshipResolverError::InvalidRelationReference {
-                aggregate_type: aggregate.aggregate_type.clone(),
+                target_aggregate_type: target.aggregate_type.clone(),
                 relation: relation.clone(),
             });
         }
 
         let key = RelationshipMemoKey {
             subject: subject.clone(),
-            aggregate: aggregate.clone(),
+            target: target.clone(),
             relation: relation.clone(),
         };
 
@@ -145,7 +143,7 @@ where
             return Ok(false);
         };
 
-        let context = UsersetExprEvalContext::new(subject, aggregate, relation, depth);
+        let context = UsersetExprEvalContext::new(subject, target, relation, depth);
         let result = Box::pin(self.eval_expr(uow, state, &context, &expr)).await?;
 
         state.in_progress.remove(&key);
@@ -158,13 +156,13 @@ where
         uow: &mut RS::Uow,
         state: &mut RelationshipEvalState,
         context: &UsersetExprEvalContext<'_>,
-        expr: &UsersetExprOwned,
+        expr: &UsersetExpr,
     ) -> Result<bool, RelationshipResolverError> {
         match expr {
-            UsersetExprOwned::This => {
+            UsersetExpr::This(_) => {
                 let subjects = self
                     .relationship_store
-                    .read_subjects_by_aggregate(uow, context.aggregate, context.relation, None)
+                    .read_subjects_by_target(uow, context.target, context.relation, None)
                     .await
                     .map_err(RelationshipResolverError::from)?;
 
@@ -211,26 +209,26 @@ where
 
                 Ok(false)
             }
-            UsersetExprOwned::ComputedUserset { relation } => {
+            UsersetExpr::ComputedUserset { relation } => {
                 Box::pin(self.check_relation(
                     uow,
                     context.subject,
-                    context.aggregate,
+                    context.target,
                     relation,
                     state,
                     context.depth.increment(),
                 ))
                 .await
             }
-            UsersetExprOwned::TupleToUserset {
+            UsersetExpr::TupleToUserset {
                 tupleset_relation,
                 computed_userset,
             } => {
                 let subjects = self
                     .relationship_store
-                    .read_subjects_by_aggregate(
+                    .read_subjects_by_target(
                         uow,
-                        context.aggregate,
+                        context.target,
                         tupleset_relation,
                         Some(&computed_userset.aggregate_type),
                     )
@@ -265,7 +263,7 @@ where
                 }
                 Ok(false)
             }
-            UsersetExprOwned::Union(items) => {
+            UsersetExpr::Union(items) => {
                 for item in items {
                     if Box::pin(self.eval_expr(uow, state, context, item)).await? {
                         return Ok(true);
@@ -273,7 +271,7 @@ where
                 }
                 Ok(false)
             }
-            UsersetExprOwned::Intersection(items) => {
+            UsersetExpr::Intersection(items) => {
                 for item in items {
                     if !Box::pin(self.eval_expr(uow, state, context, item)).await? {
                         return Ok(false);
@@ -281,7 +279,7 @@ where
                 }
                 Ok(true)
             }
-            UsersetExprOwned::Difference { base, subtract } => {
+            UsersetExpr::Difference { base, subtract } => {
                 let base_ok = Box::pin(self.eval_expr(uow, state, context, base)).await?;
                 if !base_ok {
                     return Ok(false);
@@ -320,13 +318,12 @@ mod tests {
     use uuid::Uuid;
 
     use super::DefaultRelationshipResolver;
+    use crate::aggregate::{AggregateIdValue, AggregateRef, AggregateTypeOwned};
     use crate::authorization::{
-        AggregateRef, InMemoryAuthorizationModel, RelationName, RelationRefOwned,
-        RelationshipChange, RelationshipRequirement, RelationshipResolver,
-        RelationshipResolverConfig, RelationshipStore, RelationshipStoreError, RelationshipSubject,
-        UsersetExprOwned,
+        InMemoryAuthorizationModel, RelationName, RelationRefOwned, Relationship,
+        RelationshipRequirement, RelationshipResolver, RelationshipResolverConfig,
+        RelationshipStore, RelationshipStoreError, RelationshipSubject, UsersetExpr,
     };
-    use crate::event::{AggregateIdValue, AggregateTypeOwned};
     use crate::unit_of_work::{UnitOfWork, UnitOfWorkError};
 
     #[derive(Default)]
@@ -350,15 +347,16 @@ mod tests {
     impl RelationshipStore for TestStore {
         type Uow = TestUow;
 
-        async fn apply_changes(
+        async fn replace(
             &self,
             _uow: &mut Self::Uow,
-            _changes: &[RelationshipChange],
+            _source: &AggregateRef,
+            _relationships: &[Relationship],
         ) -> Result<(), RelationshipStoreError> {
             Ok(())
         }
 
-        async fn read_aggregates_by_subject(
+        async fn read_targets_by_subject(
             &self,
             _uow: &mut Self::Uow,
             _subject: &RelationshipSubject,
@@ -367,16 +365,16 @@ mod tests {
             Ok(Vec::new())
         }
 
-        async fn read_subjects_by_aggregate(
+        async fn read_subjects_by_target(
             &self,
             _uow: &mut Self::Uow,
-            aggregate: &AggregateRef,
+            target: &AggregateRef,
             relation: &RelationRefOwned,
             subject_aggregate_type: Option<&AggregateTypeOwned>,
         ) -> Result<Vec<RelationshipSubject>, RelationshipStoreError> {
             let subjects = self
                 .map
-                .get(&(aggregate.clone(), relation.clone()))
+                .get(&(target.clone(), relation.clone()))
                 .cloned()
                 .unwrap_or_default();
 
@@ -439,17 +437,47 @@ mod tests {
         );
 
         let mut model = InMemoryAuthorizationModel::new();
-        model.define_expr(
-            status_manager_relation.clone(),
-            UsersetExprOwned::TupleToUserset {
+        {
+            use crate::authorization::{Relation, RelationName, RelationRef};
+            use appletheia_domain::AggregateType;
+
+            struct StatusManagerRelation(UsersetExpr);
+
+            impl Relation for StatusManagerRelation {
+                const REF: RelationRef = RelationRef::new(
+                    AggregateType::new("document"),
+                    RelationName::new("status_manager"),
+                );
+
+                fn expr(&self) -> UsersetExpr {
+                    self.0.clone()
+                }
+            }
+
+            model.define_relation(StatusManagerRelation(UsersetExpr::TupleToUserset {
                 tupleset_relation: owner_relation,
                 computed_userset: organization_owner_relation,
-            },
-        );
-        model.define_expr(
-            relation_ref("organization", "owner"),
-            UsersetExprOwned::This,
-        );
+            }));
+        }
+        {
+            use crate::authorization::{Relation, RelationName, RelationRef};
+            use appletheia_domain::AggregateType;
+
+            struct OwnerRelation(UsersetExpr);
+
+            impl Relation for OwnerRelation {
+                const REF: RelationRef = RelationRef::new(
+                    AggregateType::new("organization"),
+                    RelationName::new("owner"),
+                );
+
+                fn expr(&self) -> UsersetExpr {
+                    self.0.clone()
+                }
+            }
+
+            model.define_relation(OwnerRelation(UsersetExpr::This(Vec::new())));
+        }
 
         let resolver =
             DefaultRelationshipResolver::new(store, model, RelationshipResolverConfig::default());
@@ -459,7 +487,7 @@ mod tests {
                 &mut TestUow,
                 &user,
                 &RelationshipRequirement::Check {
-                    aggregate: document,
+                    target: document,
                     relation: status_manager_relation,
                 },
             )

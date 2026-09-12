@@ -12,10 +12,13 @@ impl Relation for CurrencyRegistrarMembershipRemoverRelation {
         CurrencyRegistrarMembership::TYPE,
         RelationName::new("remover"),
     );
-    const EXPR: UsersetExpr = UsersetExpr::TupleToUserset {
-        tupleset_relation: CurrencyRegistrarMembershipRegistrarRelation::REF,
-        computed_userset: CurrencyRegistrarMemberRelation::REF,
-    };
+
+    fn expr(&self) -> UsersetExpr {
+        UsersetExpr::TupleToUserset {
+            tupleset_relation: CurrencyRegistrarMembershipRegistrarRelation::REF.into(),
+            computed_userset: CurrencyRegistrarMemberRelation::REF.into(),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -29,12 +32,8 @@ mod tests {
 
     #[test]
     fn remover_traverses_from_membership_to_registrar_members() {
-        assert_eq!(
-            CurrencyRegistrarMembershipRemoverRelation::EXPR,
-            UsersetExpr::TupleToUserset {
-                tupleset_relation: CurrencyRegistrarMembershipRegistrarRelation::REF,
-                computed_userset: CurrencyRegistrarMemberRelation::REF,
-            }
+        assert!(
+            matches!(CurrencyRegistrarMembershipRemoverRelation.expr(), UsersetExpr::TupleToUserset { tupleset_relation, computed_userset } if tupleset_relation == CurrencyRegistrarMembershipRegistrarRelation::REF.into() && computed_userset == CurrencyRegistrarMemberRelation::REF.into())
         );
     }
 }

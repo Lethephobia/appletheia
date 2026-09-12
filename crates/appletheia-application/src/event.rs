@@ -1,7 +1,3 @@
-pub mod aggregate_id_value;
-pub mod aggregate_id_value_error;
-pub mod aggregate_type_owned;
-pub mod aggregate_type_owned_error;
 pub mod event_envelope;
 pub mod event_envelope_error;
 pub mod event_feed_batch_size;
@@ -21,10 +17,6 @@ pub mod event_writer_error;
 pub mod serialized_event_payload;
 pub mod serialized_event_payload_error;
 
-pub use aggregate_id_value::*;
-pub use aggregate_id_value_error::*;
-pub use aggregate_type_owned::*;
-pub use aggregate_type_owned_error::*;
 pub use appletheia_domain::*;
 pub use event_envelope::*;
 pub use event_envelope_error::*;

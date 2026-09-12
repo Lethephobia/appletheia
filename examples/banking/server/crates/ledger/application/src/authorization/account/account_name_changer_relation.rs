@@ -10,13 +10,15 @@ pub struct AccountNameChangerRelation;
 impl Relation for AccountNameChangerRelation {
     const REF: RelationRef = RelationRef::new(Account::TYPE, RelationName::new("name_changer"));
 
-    const EXPR: UsersetExpr = UsersetExpr::Union(&[
-        UsersetExpr::ComputedUserset {
-            relation: AccountOwnerRelation::REF,
-        },
-        UsersetExpr::TupleToUserset {
-            tupleset_relation: AccountOwnerRelation::REF,
-            computed_userset: OrganizationFinanceManagerRelation::REF,
-        },
-    ]);
+    fn expr(&self) -> UsersetExpr {
+        UsersetExpr::Union(vec![
+            UsersetExpr::ComputedUserset {
+                relation: AccountOwnerRelation::REF.into(),
+            },
+            UsersetExpr::TupleToUserset {
+                tupleset_relation: AccountOwnerRelation::REF.into(),
+                computed_userset: OrganizationFinanceManagerRelation::REF.into(),
+            },
+        ])
+    }
 }

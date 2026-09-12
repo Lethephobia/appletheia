@@ -1,3 +1,0 @@
-mod currency_registrar_invitation_event_save_hook;
-
-pub use currency_registrar_invitation_event_save_hook::CurrencyRegistrarInvitationEventSaveHook;

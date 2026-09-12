@@ -11,8 +11,10 @@ impl Relation for OrganizationInvitationCancelerRelation {
     const REF: RelationRef =
         RelationRef::new(OrganizationInvitation::TYPE, RelationName::new("canceler"));
 
-    const EXPR: UsersetExpr = UsersetExpr::TupleToUserset {
-        tupleset_relation: OrganizationInvitationOrganizationRelation::REF,
-        computed_userset: OrganizationInviterRelation::REF,
-    };
+    fn expr(&self) -> UsersetExpr {
+        UsersetExpr::TupleToUserset {
+            tupleset_relation: OrganizationInvitationOrganizationRelation::REF.into(),
+            computed_userset: OrganizationInviterRelation::REF.into(),
+        }
+    }
 }

@@ -61,14 +61,13 @@ mod tests {
     use uuid::Uuid;
 
     use super::DefaultRevocableAuthTokenVerifier;
+    use crate::aggregate::{AggregateIdValue, AggregateRef, AggregateTypeOwned};
     use crate::authentication::{
         AuthToken, AuthTokenAudience, AuthTokenAudiences, AuthTokenClaims, AuthTokenExpiresAt,
         AuthTokenId, AuthTokenIssuedAt, AuthTokenIssuerUrl, AuthTokenRevocationChecker,
         AuthTokenRevocationError, AuthTokenVerifier, AuthTokenVerifierError,
         RevocableAuthTokenVerifier, RevocableAuthTokenVerifierError,
     };
-    use crate::authorization::AggregateRef;
-    use crate::event::{AggregateIdValue, AggregateTypeOwned};
     use crate::unit_of_work::{UnitOfWork, UnitOfWorkError};
 
     #[derive(Default)]

@@ -374,13 +374,13 @@ mod tests {
     use crate::postgresql::saga::{
         PgSagaInstanceStore, PgSagaProcessedCommandFailureStore, PgSagaProcessedEventStore,
     };
+    use appletheia_application::aggregate::{AggregateIdValue, AggregateTypeOwned};
     use appletheia_application::command::{
         Command, CommandAttemptCount, CommandEnvelope, CommandFailedAt, CommandFailureEnvelope,
         CommandFailureId, CommandName, CommandOptions, CommandTerminalReason,
     };
     use appletheia_application::event::{
-        AggregateIdValue, AggregateTypeOwned, EventEnvelope, EventEnvelopeError, EventNameOwned,
-        EventSequence, SerializedEventPayload,
+        EventEnvelope, EventEnvelopeError, EventNameOwned, EventSequence, SerializedEventPayload,
     };
     use appletheia_application::request_context::{
         CausationId, CorrelationId, MessageId, Principal, RequestContext,

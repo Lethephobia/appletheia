@@ -1,6 +1,7 @@
 use crate::unit_of_work::UnitOfWork;
 
-use super::{AggregateRef, RelationshipRequirement, RelationshipResolverError};
+use super::{RelationshipRequirement, RelationshipResolverError};
+use crate::aggregate::AggregateRef;
 
 #[allow(async_fn_in_trait)]
 pub trait RelationshipResolver: Send + Sync {

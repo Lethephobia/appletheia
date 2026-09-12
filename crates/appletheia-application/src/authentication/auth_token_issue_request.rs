@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::authorization::AggregateRef;
+use crate::aggregate::AggregateRef;
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct AuthTokenIssueRequest {

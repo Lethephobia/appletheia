@@ -130,8 +130,9 @@ where
 mod tests {
     use std::sync::{Arc, Mutex};
 
+    use appletheia::application::aggregate::AggregateRef;
     use appletheia::application::authorization::{
-        AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
+        AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
     };
     use appletheia::application::command::CommandHandler;
     use appletheia::application::object_storage::{

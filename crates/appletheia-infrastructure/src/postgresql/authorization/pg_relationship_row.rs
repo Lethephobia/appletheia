@@ -1,7 +1,7 @@
+use appletheia_application::aggregate::{AggregateIdValue, AggregateRef, AggregateTypeOwned};
 use appletheia_application::authorization::{
-    AggregateRef, RelationNameOwned, RelationRefOwned, Relationship, RelationshipSubject,
+    RelationNameOwned, RelationRefOwned, Relationship, RelationshipSubject,
 };
-use appletheia_application::event::{AggregateIdValue, AggregateTypeOwned};
 use sqlx::FromRow;
 use uuid::Uuid;
 
@@ -10,8 +10,10 @@ use super::pg_relationship_row_error::PgRelationshipRowError;
 #[derive(Clone, Debug, Eq, PartialEq, Hash, FromRow)]
 pub struct PgRelationshipRow {
     pub id: Uuid,
-    pub aggregate_type: String,
-    pub aggregate_id: Uuid,
+    pub source_aggregate_type: String,
+    pub source_aggregate_id: Uuid,
+    pub target_aggregate_type: String,
+    pub target_aggregate_id: Uuid,
     pub relation: String,
 
     pub subject_aggregate_type: String,
@@ -22,22 +24,27 @@ pub struct PgRelationshipRow {
 
 impl PgRelationshipRow {
     pub fn try_into_relationship(self) -> Result<Relationship, PgRelationshipRowError> {
-        let aggregate_type_string = self.aggregate_type;
-        let aggregate_type = match AggregateTypeOwned::new(aggregate_type_string.clone()) {
-            Ok(value) => value,
-            Err(_) => return Err(PgRelationshipRowError::AggregateType(aggregate_type_string)),
-        };
+        let target_aggregate_type_string = self.target_aggregate_type;
+        let target_aggregate_type =
+            match AggregateTypeOwned::new(target_aggregate_type_string.clone()) {
+                Ok(value) => value,
+                Err(_) => {
+                    return Err(PgRelationshipRowError::TargetAggregateType(
+                        target_aggregate_type_string,
+                    ));
+                }
+            };
 
         let relation_string = self.relation;
         let relation_name = match RelationNameOwned::new(relation_string.clone()) {
             Ok(value) => value,
             Err(_) => return Err(PgRelationshipRowError::Relation(relation_string)),
         };
-        let relation = RelationRefOwned::new(aggregate_type.clone(), relation_name);
+        let relation = RelationRefOwned::new(target_aggregate_type.clone(), relation_name);
 
-        let aggregate = AggregateRef {
-            aggregate_type,
-            aggregate_id: AggregateIdValue::from(self.aggregate_id),
+        let target = AggregateRef {
+            aggregate_type: target_aggregate_type,
+            aggregate_id: AggregateIdValue::from(self.target_aggregate_id),
         };
 
         let subject_aggregate_type_string = self.subject_aggregate_type;
@@ -63,7 +70,7 @@ impl PgRelationshipRow {
                 });
             }
             return Ok(Relationship {
-                aggregate,
+                target,
                 relation,
                 subject: RelationshipSubject::Wildcard {
                     aggregate_type: subject_aggregate_type,
@@ -106,7 +113,7 @@ impl PgRelationshipRow {
         };
 
         Ok(Relationship {
-            aggregate,
+            target,
             relation,
             subject,
         })

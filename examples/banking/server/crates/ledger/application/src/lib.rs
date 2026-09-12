@@ -3,42 +3,10 @@ pub mod command;
 pub mod projection;
 pub mod query;
 pub mod read_model;
-pub mod repository;
 pub mod saga;
 pub mod settlement;
 
-pub use authorization::{
-    AccountCloserRelation, AccountDepositRequesterRelation, AccountDescriptionChangerRelation,
-    AccountFreezerRelation, AccountNameChangerRelation, AccountOwnerRelation,
-    AccountOwnershipTransfererRelation, AccountRelationshipUpdater,
-    AccountRelationshipUpdaterError, AccountStatusManagerRelation, AccountThawerRelation,
-    AccountTransferRequesterRelation, AccountWithdrawalRequesterRelation,
-    CurrencyActivatorRelation, CurrencyDeactivatorRelation, CurrencyDescriptionChangerRelation,
-    CurrencyManagerRelation, CurrencyRegistrarCurrencyDefinerRelation,
-    CurrencyRegistrarInvitationCancelerRelation, CurrencyRegistrarInvitationInviteeRelation,
-    CurrencyRegistrarInvitationRegistrarRelation, CurrencyRegistrarInvitationRelationshipUpdater,
-    CurrencyRegistrarInvitationRelationshipUpdaterError,
-    CurrencyRegistrarJoinRequestApproverRelation, CurrencyRegistrarJoinRequestCancelerRelation,
-    CurrencyRegistrarJoinRequestRegistrarRelation, CurrencyRegistrarJoinRequestRejecterRelation,
-    CurrencyRegistrarJoinRequestRelationshipUpdater,
-    CurrencyRegistrarJoinRequestRelationshipUpdaterError,
-    CurrencyRegistrarJoinRequestRequesterRelation, CurrencyRegistrarMemberRelation,
-    CurrencyRegistrarMembershipRegistrarRelation, CurrencyRegistrarMembershipRelationshipUpdater,
-    CurrencyRegistrarMembershipRelationshipUpdaterError,
-    CurrencyRegistrarMembershipRemoverRelation, CurrencyRegistrarRelation,
-    CurrencyRelationshipUpdater, CurrencyRelationshipUpdaterError,
-    CurrencyTokenBindingDefinerRelation, DefaultAccountRelationshipUpdater,
-    DefaultCurrencyRegistrarInvitationRelationshipUpdater,
-    DefaultCurrencyRegistrarJoinRequestRelationshipUpdater,
-    DefaultCurrencyRegistrarMembershipRelationshipUpdater, DefaultCurrencyRelationshipUpdater,
-    DefaultTokenBindingRelationshipUpdater, DefaultWalletBookmarkRelationshipUpdater,
-    TokenBindingCurrencyRelation, TokenBindingDepositEnabledChangerRelation,
-    TokenBindingRelationshipUpdater, TokenBindingRelationshipUpdaterError,
-    TokenBindingRemoverRelation, TokenBindingWithdrawalEnabledChangerRelation,
-    WalletBookmarkOwnerRelation, WalletBookmarkRelationshipUpdater,
-    WalletBookmarkRelationshipUpdaterError, WalletBookmarkRemoverRelation,
-    WalletBookmarkUpdaterRelation,
-};
+pub use authorization::*;
 pub use command::{
     AccountCloseCommand, AccountCloseCommandHandler, AccountCloseOutput, AccountDepositCommand,
     AccountDepositCommandHandler, AccountDepositOutput, AccountDescriptionChangeCommand,
@@ -189,11 +157,6 @@ pub use read_model::{
     PublicAccountListReaderError, PublicAccountListSortKey, WalletBookmarkList,
     WalletBookmarkListCriteria, WalletBookmarkListCursor, WalletBookmarkListItem,
     WalletBookmarkListReader, WalletBookmarkListReaderError, WalletBookmarkListSortKey,
-};
-pub use repository::{
-    AccountEventSaveHook, CurrencyEventSaveHook, CurrencyRegistrarInvitationEventSaveHook,
-    CurrencyRegistrarJoinRequestEventSaveHook, CurrencyRegistrarMembershipEventSaveHook,
-    TokenBindingEventSaveHook, WalletBookmarkEventSaveHook,
 };
 pub use saga::{
     CurrencyRegistrarInvitationSaga, CurrencyRegistrarInvitationSagaHandlerError,

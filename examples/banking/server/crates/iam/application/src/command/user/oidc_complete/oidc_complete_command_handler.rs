@@ -1,3 +1,4 @@
+use appletheia::application::aggregate::AggregateRef;
 use appletheia::application::authentication::oidc::{
     OidcCallbackParams, OidcContinuationStore, OidcLoginFlow,
 };
@@ -5,9 +6,7 @@ use appletheia::application::authentication::{
     AuthTokenExchangeCodeIssueRequest, AuthTokenExchangeCodeIssuer, AuthTokenExchangeGrant,
     AuthTokenIssueRequest, AuthTokenIssuer,
 };
-use appletheia::application::authorization::{
-    AggregateRef, AuthorizationPlan, PrincipalRequirement,
-};
+use appletheia::application::authorization::{AuthorizationPlan, PrincipalRequirement};
 use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;

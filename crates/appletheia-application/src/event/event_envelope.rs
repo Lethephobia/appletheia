@@ -4,9 +4,8 @@ use appletheia_domain::{
     Aggregate, AggregateId, AggregateVersion, Event, EventId, EventOccurredAt, EventPayload,
 };
 
-use crate::event::{
-    AggregateIdValue, AggregateTypeOwned, EventNameOwned, EventSequence, SerializedEventPayload,
-};
+use crate::aggregate::{AggregateIdValue, AggregateTypeOwned};
+use crate::event::{EventNameOwned, EventSequence, SerializedEventPayload};
 use crate::request_context::{CausationId, CorrelationId, RequestContext};
 
 use super::EventEnvelopeError;
@@ -79,9 +78,8 @@ mod tests {
     use uuid::Uuid;
 
     use super::*;
-    use crate::event::{
-        AggregateIdValue, AggregateTypeOwned, EventNameOwned, EventSequence, SerializedEventPayload,
-    };
+    use crate::aggregate::{AggregateIdValue, AggregateTypeOwned};
+    use crate::event::{EventNameOwned, EventSequence, SerializedEventPayload};
     use crate::request_context::{MessageId, Principal};
     use appletheia_domain::{
         AggregateApply, AggregateCore, AggregateError, AggregateId, AggregateState,

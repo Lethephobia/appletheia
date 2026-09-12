@@ -138,20 +138,20 @@ mod tests {
 
     use uuid::Uuid;
 
+    use crate::aggregate::{AggregateIdValue, AggregateRef, AggregateTypeOwned};
     use crate::authorization::DefaultRelationshipResolver;
     use crate::authorization::InMemoryAuthorizationModel;
-    use crate::authorization::RelationshipChange;
+    use crate::authorization::Relationship;
     use crate::authorization::RelationshipStoreError;
-    use crate::event::{AggregateIdValue, AggregateTypeOwned};
     use crate::request_context::Principal;
     use crate::unit_of_work::{
         UnitOfWork, UnitOfWorkError, UnitOfWorkFactory, UnitOfWorkFactoryError,
     };
 
     use crate::authorization::{
-        AggregateRef, AuthorizationPlan, Authorizer, DefaultAuthorizer, PrincipalRequirement,
-        RelationName, RelationRefOwned, RelationshipRequirement, RelationshipResolverConfig,
-        RelationshipStore, RelationshipSubject, UsersetExprOwned,
+        AuthorizationPlan, Authorizer, DefaultAuthorizer, PrincipalRequirement, RelationName,
+        RelationRefOwned, RelationshipRequirement, RelationshipResolverConfig, RelationshipStore,
+        RelationshipSubject, UsersetExpr,
     };
 
     #[derive(Default)]
@@ -186,15 +186,16 @@ mod tests {
     impl RelationshipStore for TestStore {
         type Uow = TestUow;
 
-        async fn apply_changes(
+        async fn replace(
             &self,
             _uow: &mut TestUow,
-            _changes: &[RelationshipChange],
+            _source: &AggregateRef,
+            _relationships: &[Relationship],
         ) -> Result<(), RelationshipStoreError> {
             Ok(())
         }
 
-        async fn read_aggregates_by_subject(
+        async fn read_targets_by_subject(
             &self,
             _uow: &mut TestUow,
             _subject: &RelationshipSubject,
@@ -203,7 +204,7 @@ mod tests {
             Ok(Vec::new())
         }
 
-        async fn read_subjects_by_aggregate(
+        async fn read_subjects_by_target(
             &self,
             _uow: &mut TestUow,
             aggregate: &AggregateRef,
@@ -252,7 +253,23 @@ mod tests {
         );
 
         let mut models = InMemoryAuthorizationModel::new();
-        models.define_expr(relation_ref("document", "editor"), UsersetExprOwned::This);
+        {
+            use crate::authorization::{Relation, RelationName, RelationRef};
+            use appletheia_domain::AggregateType;
+
+            struct EditorRelation(UsersetExpr);
+
+            impl Relation for EditorRelation {
+                const REF: RelationRef =
+                    RelationRef::new(AggregateType::new("document"), RelationName::new("editor"));
+
+                fn expr(&self) -> UsersetExpr {
+                    self.0.clone()
+                }
+            }
+
+            models.define_relation(EditorRelation(UsersetExpr::This(Vec::new())));
+        }
 
         let resolver =
             DefaultRelationshipResolver::new(store, models, RelationshipResolverConfig::default());
@@ -265,7 +282,7 @@ mod tests {
                 &AuthorizationPlan::OnlyPrincipals(vec![
                     PrincipalRequirement::AuthenticatedWithRelationship(
                         RelationshipRequirement::Check {
-                            aggregate: doc,
+                            target: doc,
                             relation: relation_ref("document", "editor"),
                         },
                     ),

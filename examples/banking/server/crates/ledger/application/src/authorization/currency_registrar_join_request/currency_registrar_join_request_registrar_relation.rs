@@ -1,7 +1,10 @@
-use appletheia::application::authorization::{Relation, RelationName, RelationRef, UsersetExpr};
-use appletheia::domain::Aggregate;
+use super::CurrencyRegistrarJoinRequestRegistrarDerivationHandlerError;
 
-use super::CurrencyRegistrarJoinRequest;
+use appletheia::application::authorization::{
+    Relation, RelationName, RelationRef, RelationshipEntries, UsersetExpr,
+};
+use appletheia::domain::Aggregate;
+use banking_ledger_domain::{CurrencyRegistrar, CurrencyRegistrarJoinRequest};
 
 /// Links a join request to its registrar.
 pub struct CurrencyRegistrarJoinRequestRegistrarRelation;
@@ -12,5 +15,18 @@ impl Relation for CurrencyRegistrarJoinRequestRegistrarRelation {
         RelationName::new("registrar"),
     );
 
-    const EXPR: UsersetExpr = UsersetExpr::This;
+    fn expr(&self) -> UsersetExpr {
+        UsersetExpr::this::<
+            CurrencyRegistrarJoinRequest,
+            _,
+            CurrencyRegistrarJoinRequestRegistrarDerivationHandlerError,
+        >(|aggregate| {
+            let mut entries = RelationshipEntries::new();
+            entries.insert::<CurrencyRegistrarJoinRequest, CurrencyRegistrar>(
+                aggregate.aggregate_id(),
+                *aggregate.currency_registrar_id()?,
+            );
+            Ok(entries)
+        })
+    }
 }

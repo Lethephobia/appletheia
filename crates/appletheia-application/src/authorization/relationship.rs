@@ -1,23 +1,24 @@
 use appletheia_domain::Aggregate;
 use serde::{Deserialize, Serialize};
 
-use super::{AggregateRef, RelationRef, RelationRefOwned, RelationshipSubject};
+use super::{RelationRef, RelationRefOwned, RelationshipSubject};
+use crate::aggregate::AggregateRef;
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct Relationship {
-    pub aggregate: AggregateRef,
+    pub target: AggregateRef,
     pub relation: RelationRefOwned,
     pub subject: RelationshipSubject,
 }
 
 impl Relationship {
     pub fn new<A: Aggregate>(
-        aggregate_id: A::Id,
+        target_id: A::Id,
         relation: RelationRef,
         subject: RelationshipSubject,
     ) -> Self {
         Self {
-            aggregate: AggregateRef::from_id::<A>(aggregate_id),
+            target: AggregateRef::from_id::<A>(target_id),
             relation: RelationRefOwned::from(relation),
             subject,
         }
@@ -39,26 +40,25 @@ mod tests {
     use uuid::Uuid;
 
     use super::Relationship;
-    use crate::authorization::{
-        AggregateRef, RelationName, RelationRef, RelationRefOwned, RelationshipSubject,
-    };
+    use crate::aggregate::AggregateRef;
+    use crate::authorization::{RelationName, RelationRef, RelationRefOwned, RelationshipSubject};
 
     const TEST_RELATION: RelationRef =
         RelationRef::new(TestAggregate::TYPE, RelationName::new("member"));
 
     #[test]
-    fn new_builds_relationship_from_aggregate_id() {
-        let aggregate_id = TestId::try_from_uuid(Uuid::now_v7()).expect("valid uuid");
+    fn new_builds_relationship_from_target_id() {
+        let target_id = TestId::try_from_uuid(Uuid::now_v7()).expect("valid uuid");
         let subject_id = TestId::try_from_uuid(Uuid::now_v7()).expect("valid uuid");
 
         assert_eq!(
             Relationship::new::<TestAggregate>(
-                aggregate_id,
+                target_id,
                 TEST_RELATION,
                 RelationshipSubject::aggregate::<TestAggregate>(subject_id),
             ),
             Relationship {
-                aggregate: AggregateRef::from_id::<TestAggregate>(aggregate_id),
+                target: AggregateRef::from_id::<TestAggregate>(target_id),
                 relation: RelationRefOwned::from(TEST_RELATION),
                 subject: RelationshipSubject::aggregate::<TestAggregate>(subject_id),
             },

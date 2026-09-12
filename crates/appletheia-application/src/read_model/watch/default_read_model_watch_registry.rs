@@ -648,10 +648,8 @@ mod tests {
     use tokio::sync::{Notify, Semaphore};
     use uuid::Uuid;
 
-    use crate::event::{
-        AggregateIdValue, AggregateTypeOwned, EventEnvelope, EventNameOwned, EventSequence,
-        SerializedEventPayload,
-    };
+    use crate::aggregate::{AggregateIdValue, AggregateTypeOwned};
+    use crate::event::{EventEnvelope, EventNameOwned, EventSequence, SerializedEventPayload};
     use crate::projection::ProjectorName;
     use crate::read_model::pagination::{CursorWindow, PageSize};
     use crate::read_model::{ReadModelInvalidationEnvelope, SerializedPartition};

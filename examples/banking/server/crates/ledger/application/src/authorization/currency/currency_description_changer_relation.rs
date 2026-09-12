@@ -9,7 +9,10 @@ pub struct CurrencyDescriptionChangerRelation;
 impl Relation for CurrencyDescriptionChangerRelation {
     const REF: RelationRef =
         RelationRef::new(Currency::TYPE, RelationName::new("description_changer"));
-    const EXPR: UsersetExpr = UsersetExpr::ComputedUserset {
-        relation: CurrencyManagerRelation::REF,
-    };
+
+    fn expr(&self) -> UsersetExpr {
+        UsersetExpr::ComputedUserset {
+            relation: CurrencyManagerRelation::REF.into(),
+        }
+    }
 }

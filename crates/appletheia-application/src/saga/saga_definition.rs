@@ -267,13 +267,13 @@ mod tests {
             }
         }
     }
+    use crate::aggregate::{AggregateIdValue, AggregateTypeOwned};
     use crate::command::{
         Command, CommandAttemptCount, CommandFailedAt, CommandFailureEnvelope, CommandName,
         CommandOptions, CommandTerminalReason,
     };
     use crate::event::{
-        AggregateIdValue, AggregateTypeOwned, EventEnvelope, EventNameOwned, EventSelector,
-        EventSequence, SerializedEventPayload,
+        EventEnvelope, EventNameOwned, EventSelector, EventSequence, SerializedEventPayload,
     };
     use crate::request_context::{
         CausationId, CorrelationId, MessageId, Principal, RequestContext,

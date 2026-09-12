@@ -9,7 +9,9 @@ pub struct AccountFreezerRelation;
 impl Relation for AccountFreezerRelation {
     const REF: RelationRef = RelationRef::new(Account::TYPE, RelationName::new("freezer"));
 
-    const EXPR: UsersetExpr = UsersetExpr::ComputedUserset {
-        relation: AccountStatusManagerRelation::REF,
-    };
+    fn expr(&self) -> UsersetExpr {
+        UsersetExpr::ComputedUserset {
+            relation: AccountStatusManagerRelation::REF.into(),
+        }
+    }
 }

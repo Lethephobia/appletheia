@@ -11,7 +11,10 @@ impl Relation for CurrencyRegistrarCurrencyDefinerRelation {
         CurrencyRegistrar::TYPE,
         RelationName::new("currency_definer"),
     );
-    const EXPR: UsersetExpr = UsersetExpr::ComputedUserset {
-        relation: CurrencyRegistrarMemberRelation::REF,
-    };
+
+    fn expr(&self) -> UsersetExpr {
+        UsersetExpr::ComputedUserset {
+            relation: CurrencyRegistrarMemberRelation::REF.into(),
+        }
+    }
 }

@@ -113,8 +113,9 @@ where
 mod tests {
     use std::sync::{Arc, Mutex};
 
+    use appletheia::application::aggregate::AggregateRef;
     use appletheia::application::authorization::{
-        AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
+        AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
     };
     use appletheia::application::command::CommandHandler;
 
@@ -218,9 +219,9 @@ mod tests {
 
     fn request_context() -> RequestContext {
         let subject = AggregateRef::new(
-            appletheia::application::event::AggregateTypeOwned::try_from("user")
+            appletheia::application::aggregate::AggregateTypeOwned::try_from("user")
                 .expect("aggregate type should be valid"),
-            appletheia::application::event::AggregateIdValue::from(Uuid::now_v7()),
+            appletheia::application::aggregate::AggregateIdValue::from(Uuid::now_v7()),
         );
 
         RequestContext::new(

@@ -14,7 +14,9 @@ impl Relation for OrganizationMemberAdderRelation {
     const REF: RelationRef =
         RelationRef::new(Organization::TYPE, RelationName::new("member_adder"));
 
-    const EXPR: UsersetExpr = UsersetExpr::ComputedUserset {
-        relation: OrganizationAdminRelation::REF,
-    };
+    fn expr(&self) -> UsersetExpr {
+        UsersetExpr::ComputedUserset {
+            relation: OrganizationAdminRelation::REF.into(),
+        }
+    }
 }

@@ -1,15 +1,11 @@
 use banking_ledger_domain::wallet_bookmark::WalletBookmark;
 
-mod default_wallet_bookmark_relationship_updater;
+mod wallet_bookmark_owner_derivation_handler_error;
 mod wallet_bookmark_owner_relation;
-mod wallet_bookmark_relationship_updater;
-mod wallet_bookmark_relationship_updater_error;
 mod wallet_bookmark_remover_relation;
 mod wallet_bookmark_updater_relation;
 
-pub use default_wallet_bookmark_relationship_updater::DefaultWalletBookmarkRelationshipUpdater;
-pub use wallet_bookmark_owner_relation::WalletBookmarkOwnerRelation;
-pub use wallet_bookmark_relationship_updater::WalletBookmarkRelationshipUpdater;
-pub use wallet_bookmark_relationship_updater_error::WalletBookmarkRelationshipUpdaterError;
-pub use wallet_bookmark_remover_relation::WalletBookmarkRemoverRelation;
-pub use wallet_bookmark_updater_relation::WalletBookmarkUpdaterRelation;
+pub use wallet_bookmark_owner_derivation_handler_error::*;
+pub use wallet_bookmark_owner_relation::*;
+pub use wallet_bookmark_remover_relation::*;
+pub use wallet_bookmark_updater_relation::*;

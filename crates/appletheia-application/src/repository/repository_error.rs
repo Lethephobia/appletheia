@@ -1,4 +1,4 @@
-use std::error::Error;
+use crate::authorization::{RelationshipDeriverError, RelationshipStoreError};
 use std::fmt::Debug;
 
 use thiserror::Error;
@@ -46,8 +46,11 @@ pub enum RepositoryError<A: Aggregate> {
     #[error("event outbox enqueue error: {0}")]
     EventOutboxEnqueue(#[from] EventOutboxEnqueueError),
 
-    #[error("event save hook error: {0}")]
-    EventSaveHook(#[source] Box<dyn Error + Send + Sync>),
+    #[error(transparent)]
+    RelationshipDeriver(#[from] RelationshipDeriverError),
+
+    #[error(transparent)]
+    RelationshipStore(#[from] RelationshipStoreError),
 
     #[error("snapshot writer error: {0}")]
     SnapshotWriter(#[from] SnapshotWriterError),
@@ -67,7 +70,11 @@ impl<A: Aggregate> Retryability for RepositoryError<A> {
                 UniqueValueOwnerLookupError::OwnerAggregateId(_) => false,
                 UniqueValueOwnerLookupError::Persistence(_) => true,
             },
-            Self::ReferenceIndexStore(_) | Self::EventSaveHook(_) => true,
+            Self::ReferenceIndexStore(_) => true,
+            Self::RelationshipDeriver(_) => false,
+            Self::RelationshipStore(error) => {
+                matches!(error, RelationshipStoreError::Persistence(_))
+            }
             Self::EventReader(error) => match error {
                 EventReaderError::MappingFailed(_) | EventReaderError::NotInTransaction => false,
                 EventReaderError::Persistence(_) => true,

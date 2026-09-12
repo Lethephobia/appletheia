@@ -9,7 +9,10 @@ pub struct CurrencyTokenBindingDefinerRelation;
 impl Relation for CurrencyTokenBindingDefinerRelation {
     const REF: RelationRef =
         RelationRef::new(Currency::TYPE, RelationName::new("token_binding_definer"));
-    const EXPR: UsersetExpr = UsersetExpr::ComputedUserset {
-        relation: CurrencyManagerRelation::REF,
-    };
+
+    fn expr(&self) -> UsersetExpr {
+        UsersetExpr::ComputedUserset {
+            relation: CurrencyManagerRelation::REF.into(),
+        }
+    }
 }

@@ -11,8 +11,10 @@ impl Relation for OrganizationMembershipRemoverRelation {
     const REF: RelationRef =
         RelationRef::new(OrganizationMembership::TYPE, RelationName::new("remover"));
 
-    const EXPR: UsersetExpr = UsersetExpr::TupleToUserset {
-        tupleset_relation: OrganizationMembershipOrganizationRelation::REF,
-        computed_userset: OrganizationAdminRelation::REF,
-    };
+    fn expr(&self) -> UsersetExpr {
+        UsersetExpr::TupleToUserset {
+            tupleset_relation: OrganizationMembershipOrganizationRelation::REF.into(),
+            computed_userset: OrganizationAdminRelation::REF.into(),
+        }
+    }
 }

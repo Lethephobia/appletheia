@@ -11,13 +11,15 @@ impl Relation for AccountWithdrawalRequesterRelation {
     const REF: RelationRef =
         RelationRef::new(Account::TYPE, RelationName::new("withdrawal_requester"));
 
-    const EXPR: UsersetExpr = UsersetExpr::Union(&[
-        UsersetExpr::ComputedUserset {
-            relation: AccountOwnerRelation::REF,
-        },
-        UsersetExpr::TupleToUserset {
-            tupleset_relation: AccountOwnerRelation::REF,
-            computed_userset: OrganizationTreasurerRelation::REF,
-        },
-    ]);
+    fn expr(&self) -> UsersetExpr {
+        UsersetExpr::Union(vec![
+            UsersetExpr::ComputedUserset {
+                relation: AccountOwnerRelation::REF.into(),
+            },
+            UsersetExpr::TupleToUserset {
+                tupleset_relation: AccountOwnerRelation::REF.into(),
+                computed_userset: OrganizationTreasurerRelation::REF.into(),
+            },
+        ])
+    }
 }

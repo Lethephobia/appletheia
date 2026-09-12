@@ -12,7 +12,9 @@ impl Relation for CurrencyRegistrarJoinRequestCancelerRelation {
         RelationName::new("canceler"),
     );
 
-    const EXPR: UsersetExpr = UsersetExpr::ComputedUserset {
-        relation: CurrencyRegistrarJoinRequestRequesterRelation::REF,
-    };
+    fn expr(&self) -> UsersetExpr {
+        UsersetExpr::ComputedUserset {
+            relation: CurrencyRegistrarJoinRequestRequesterRelation::REF.into(),
+        }
+    }
 }

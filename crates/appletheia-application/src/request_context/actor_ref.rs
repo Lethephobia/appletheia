@@ -1,4 +1,4 @@
-use crate::authorization::AggregateRef;
+use crate::aggregate::AggregateRef;
 use crate::request_context::{ActorRefError, Principal};
 
 use serde::{Deserialize, Serialize};
@@ -33,7 +33,7 @@ mod tests {
     use uuid::Uuid;
 
     use super::*;
-    use crate::event::{AggregateIdValue, AggregateTypeOwned};
+    use crate::aggregate::{AggregateIdValue, AggregateTypeOwned};
 
     fn aggregate_ref() -> AggregateRef {
         AggregateRef {

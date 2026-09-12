@@ -100,10 +100,8 @@ mod tests {
     use serde_json::json;
     use uuid::Uuid;
 
-    use crate::event::{
-        AggregateIdValue, AggregateTypeOwned, EventEnvelope, EventNameOwned, EventSequence,
-        SerializedEventPayload,
-    };
+    use crate::aggregate::{AggregateIdValue, AggregateTypeOwned};
+    use crate::event::{EventEnvelope, EventNameOwned, EventSequence, SerializedEventPayload};
     use crate::messaging::{ConsumerError, Delivery};
     use crate::projection::ProjectorName;
     use crate::read_model::{ReadModelDependency, SerializedPartition};

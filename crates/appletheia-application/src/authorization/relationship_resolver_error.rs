@@ -1,4 +1,4 @@
-use crate::event::AggregateTypeOwned;
+use crate::aggregate::AggregateTypeOwned;
 
 use std::error::Error as StdError;
 
@@ -15,10 +15,10 @@ pub enum RelationshipResolverError {
     EvaluationLimitExceeded(&'static str),
 
     #[error(
-        "relationship reference aggregate type does not match target aggregate: target={aggregate_type}, relation={relation}"
+        "relationship reference aggregate type does not match target aggregate: target={target_aggregate_type}, relation={relation}"
     )]
     InvalidRelationReference {
-        aggregate_type: AggregateTypeOwned,
+        target_aggregate_type: AggregateTypeOwned,
         relation: RelationRefOwned,
     },
 

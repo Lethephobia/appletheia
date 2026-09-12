@@ -89,9 +89,8 @@ mod tests {
     use serde_json::json;
     use uuid::Uuid;
 
-    use crate::event::{
-        AggregateIdValue, AggregateTypeOwned, EventNameOwned, SerializedEventPayload,
-    };
+    use crate::aggregate::{AggregateIdValue, AggregateTypeOwned};
+    use crate::event::{EventNameOwned, SerializedEventPayload};
     use crate::read_model::SerializedPartition;
     use crate::request_context::{MessageId, Principal, RequestContext};
 

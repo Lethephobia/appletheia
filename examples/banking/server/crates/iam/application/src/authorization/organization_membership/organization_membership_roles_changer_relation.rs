@@ -13,8 +13,10 @@ impl Relation for OrganizationMembershipRolesChangerRelation {
         RelationName::new("roles_changer"),
     );
 
-    const EXPR: UsersetExpr = UsersetExpr::TupleToUserset {
-        tupleset_relation: OrganizationMembershipOrganizationRelation::REF,
-        computed_userset: OrganizationAdminRelation::REF,
-    };
+    fn expr(&self) -> UsersetExpr {
+        UsersetExpr::TupleToUserset {
+            tupleset_relation: OrganizationMembershipOrganizationRelation::REF.into(),
+            computed_userset: OrganizationAdminRelation::REF.into(),
+        }
+    }
 }

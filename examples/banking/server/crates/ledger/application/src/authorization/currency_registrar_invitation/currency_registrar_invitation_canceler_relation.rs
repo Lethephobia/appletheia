@@ -13,8 +13,10 @@ impl Relation for CurrencyRegistrarInvitationCancelerRelation {
         RelationName::new("canceler"),
     );
 
-    const EXPR: UsersetExpr = UsersetExpr::TupleToUserset {
-        tupleset_relation: CurrencyRegistrarInvitationRegistrarRelation::REF,
-        computed_userset: CurrencyRegistrarMemberRelation::REF,
-    };
+    fn expr(&self) -> UsersetExpr {
+        UsersetExpr::TupleToUserset {
+            tupleset_relation: CurrencyRegistrarInvitationRegistrarRelation::REF.into(),
+            computed_userset: CurrencyRegistrarMemberRelation::REF.into(),
+        }
+    }
 }

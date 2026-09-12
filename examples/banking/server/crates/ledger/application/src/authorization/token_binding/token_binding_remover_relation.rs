@@ -9,8 +9,11 @@ pub struct TokenBindingRemoverRelation;
 
 impl Relation for TokenBindingRemoverRelation {
     const REF: RelationRef = RelationRef::new(TokenBinding::TYPE, RelationName::new("remover"));
-    const EXPR: UsersetExpr = UsersetExpr::TupleToUserset {
-        tupleset_relation: TokenBindingCurrencyRelation::REF,
-        computed_userset: CurrencyManagerRelation::REF,
-    };
+
+    fn expr(&self) -> UsersetExpr {
+        UsersetExpr::TupleToUserset {
+            tupleset_relation: TokenBindingCurrencyRelation::REF.into(),
+            computed_userset: CurrencyManagerRelation::REF.into(),
+        }
+    }
 }

@@ -259,14 +259,13 @@ impl Saga for OwnedAccountClosureSaga {
 #[cfg(test)]
 mod tests {
     use super::OwnedAccountClosureSagaHandlerError;
-    use appletheia::application::authorization::AggregateRef;
     use appletheia::application::saga::{SagaContext, SagaRoute};
     use appletheia::domain::AggregateVersion;
     use uuid::Uuid;
 
+    use appletheia::application::aggregate::{AggregateIdValue, AggregateRef, AggregateTypeOwned};
     use appletheia::application::event::{
-        AggregateIdValue, AggregateTypeOwned, EventEnvelope, EventNameOwned, EventSequence,
-        SerializedEventPayload,
+        EventEnvelope, EventNameOwned, EventSequence, SerializedEventPayload,
     };
     use appletheia::application::request_context::{
         CausationId, CorrelationId, MessageId, Principal, RequestContext,

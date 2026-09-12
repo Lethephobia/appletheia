@@ -1,6 +1,5 @@
+use appletheia_application::aggregate::{AggregateIdValue, AggregateRef, AggregateTypeOwned};
 use appletheia_application::authentication::AuthTokenExchangeGrant;
-use appletheia_application::authorization::AggregateRef;
-use appletheia_application::event::{AggregateIdValue, AggregateTypeOwned};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 

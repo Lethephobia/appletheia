@@ -12,8 +12,11 @@ impl Relation for TokenBindingWithdrawalEnabledChangerRelation {
         TokenBinding::TYPE,
         RelationName::new("withdrawal_enabled_changer"),
     );
-    const EXPR: UsersetExpr = UsersetExpr::TupleToUserset {
-        tupleset_relation: TokenBindingCurrencyRelation::REF,
-        computed_userset: CurrencyManagerRelation::REF,
-    };
+
+    fn expr(&self) -> UsersetExpr {
+        UsersetExpr::TupleToUserset {
+            tupleset_relation: TokenBindingCurrencyRelation::REF.into(),
+            computed_userset: CurrencyManagerRelation::REF.into(),
+        }
+    }
 }

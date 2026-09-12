@@ -151,10 +151,9 @@ where
 mod tests {
     use std::sync::{Arc, Mutex};
 
-    use appletheia::application::authorization::AggregateRef;
+    use appletheia::application::aggregate::{AggregateIdValue, AggregateRef, AggregateTypeOwned};
     use appletheia::application::event::{
-        AggregateIdValue, AggregateTypeOwned, EventEnvelope, EventNameOwned, EventSequence,
-        SerializedEventPayload,
+        EventEnvelope, EventNameOwned, EventSequence, SerializedEventPayload,
     };
     use appletheia::application::projection::{Projector, ProjectorName};
     use appletheia::application::read_model::{

@@ -434,8 +434,10 @@ CREATE INDEX IF NOT EXISTS idx_oidc_continuations_expires_at
 -- relationships (Aggregate × ReBAC)
 CREATE TABLE IF NOT EXISTS relationships (
   id                     UUID        PRIMARY KEY,
-  aggregate_type         TEXT        NOT NULL,
-  aggregate_id           UUID        NOT NULL,
+  source_aggregate_type   TEXT        NOT NULL,
+  source_aggregate_id     UUID        NOT NULL,
+  target_aggregate_type   TEXT        NOT NULL,
+  target_aggregate_id     UUID        NOT NULL,
   relation               TEXT        NOT NULL,
 
   subject_aggregate_type TEXT        NOT NULL,
@@ -464,26 +466,32 @@ CREATE TABLE IF NOT EXISTS relationships (
   )
 );
 
-CREATE INDEX IF NOT EXISTS idx_relationships_aggregate_relation
-  ON relationships (aggregate_type, aggregate_id, relation);
+CREATE INDEX IF NOT EXISTS idx_relationships_source
+  ON relationships (source_aggregate_type, source_aggregate_id);
+
+CREATE INDEX IF NOT EXISTS idx_relationships_target_relation
+  ON relationships (target_aggregate_type, target_aggregate_id, relation);
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_relationships_direct_uniq
   ON relationships (
-    aggregate_type, aggregate_id, relation,
+    source_aggregate_type, source_aggregate_id,
+    target_aggregate_type, target_aggregate_id, relation,
     subject_aggregate_type, subject_aggregate_id
   )
   WHERE subject_is_wildcard = false AND subject_relation IS NULL;
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_relationships_subject_set_uniq
   ON relationships (
-    aggregate_type, aggregate_id, relation,
+    source_aggregate_type, source_aggregate_id,
+    target_aggregate_type, target_aggregate_id, relation,
     subject_aggregate_type, subject_aggregate_id, subject_relation
   )
   WHERE subject_is_wildcard = false AND subject_relation IS NOT NULL;
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_relationships_wildcard_uniq
   ON relationships (
-    aggregate_type, aggregate_id, relation,
+    source_aggregate_type, source_aggregate_id,
+    target_aggregate_type, target_aggregate_id, relation,
     subject_aggregate_type
   )
   WHERE subject_is_wildcard = true;
@@ -491,14 +499,14 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_relationships_wildcard_uniq
 CREATE INDEX IF NOT EXISTS idx_relationships_subject_direct
   ON relationships (
     subject_aggregate_type, subject_aggregate_id, relation,
-    aggregate_type, aggregate_id
+    target_aggregate_type, target_aggregate_id
   )
   WHERE subject_is_wildcard = false;
 
 CREATE INDEX IF NOT EXISTS idx_relationships_subject_wildcard
   ON relationships (
     subject_aggregate_type, relation,
-    aggregate_type, aggregate_id
+    target_aggregate_type, target_aggregate_id
   )
   WHERE subject_is_wildcard = true;
 

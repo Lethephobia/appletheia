@@ -3,7 +3,7 @@ use std::{fmt, fmt::Display, str::FromStr};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::event::{AggregateIdValue, AggregateTypeOwned};
+use crate::aggregate::{AggregateIdValue, AggregateTypeOwned};
 use crate::json::CanonicalJson;
 use crate::read_model::SerializedPartition;
 use crate::request_context::CorrelationId;

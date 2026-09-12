@@ -13,8 +13,10 @@ impl Relation for CurrencyRegistrarJoinRequestRejecterRelation {
         RelationName::new("rejecter"),
     );
 
-    const EXPR: UsersetExpr = UsersetExpr::TupleToUserset {
-        tupleset_relation: CurrencyRegistrarJoinRequestRegistrarRelation::REF,
-        computed_userset: CurrencyRegistrarMemberRelation::REF,
-    };
+    fn expr(&self) -> UsersetExpr {
+        UsersetExpr::TupleToUserset {
+            tupleset_relation: CurrencyRegistrarJoinRequestRegistrarRelation::REF.into(),
+            computed_userset: CurrencyRegistrarMemberRelation::REF.into(),
+        }
+    }
 }

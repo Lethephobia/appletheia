@@ -1,7 +1,7 @@
+use appletheia_application::aggregate::AggregateRef;
 use appletheia_application::authentication::{
     AuthTokenExpiresAt, AuthTokenId, AuthTokenIssuedAt, AuthTokenRevocationError, AuthTokenRevoker,
 };
-use appletheia_application::authorization::AggregateRef;
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 

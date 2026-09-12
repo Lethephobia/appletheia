@@ -106,7 +106,7 @@ where
 mod tests {
     use std::sync::{Arc, Mutex};
 
-    use appletheia::application::authorization::AggregateRef;
+    use appletheia::application::aggregate::AggregateRef;
     use appletheia::application::command::CommandHandler;
     use appletheia::application::repository::{Repository, RepositoryError};
     use appletheia::application::request_context::{

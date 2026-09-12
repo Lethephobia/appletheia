@@ -1,6 +1,7 @@
 use appletheia_domain::Aggregate;
 
-use super::{AggregateRef, RelationRef, RelationRefOwned};
+use super::{RelationRef, RelationRefOwned};
+use crate::aggregate::AggregateRef;
 
 /// Describes relationship checks required for authorization.
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
@@ -8,7 +9,7 @@ pub enum RelationshipRequirement {
     /// Requires the principal to satisfy a relation on a specific aggregate.
     Check {
         /// The aggregate on which the relation is evaluated.
-        aggregate: AggregateRef,
+        target: AggregateRef,
         /// The relation the principal must satisfy on the aggregate.
         relation: RelationRefOwned,
     },
@@ -22,12 +23,12 @@ pub enum RelationshipRequirement {
 
 impl RelationshipRequirement {
     /// Creates a relationship check requirement for the given aggregate id and relation.
-    pub fn check<A>(aggregate_id: A::Id, relation: RelationRef) -> Self
+    pub fn check<A>(target_id: A::Id, relation: RelationRef) -> Self
     where
         A: Aggregate,
     {
         Self::Check {
-            aggregate: AggregateRef::from_id::<A>(aggregate_id),
+            target: AggregateRef::from_id::<A>(target_id),
             relation: RelationRefOwned::from(relation),
         }
     }
@@ -47,8 +48,8 @@ mod tests {
     use thiserror::Error;
 
     use super::RelationshipRequirement;
-    use crate::authorization::{AggregateRef, RelationName, RelationRef, RelationRefOwned};
-    use crate::event::{AggregateIdValue, AggregateTypeOwned};
+    use crate::aggregate::{AggregateIdValue, AggregateRef, AggregateTypeOwned};
+    use crate::authorization::{RelationName, RelationRef, RelationRefOwned};
 
     const TEST_AGGREGATE_TYPE: AggregateType = AggregateType::new("test_aggregate");
     const TEST_RELATION: RelationRef =
@@ -56,16 +57,15 @@ mod tests {
 
     #[test]
     fn check_builds_owned_relation_from_static_relation() {
-        let aggregate_id = TestId(uuid::Uuid::now_v7());
-        let requirement =
-            RelationshipRequirement::check::<TestAggregate>(aggregate_id, TEST_RELATION);
+        let target_id = TestId(uuid::Uuid::now_v7());
+        let requirement = RelationshipRequirement::check::<TestAggregate>(target_id, TEST_RELATION);
 
         assert_eq!(
             requirement,
             RelationshipRequirement::Check {
-                aggregate: AggregateRef::new(
+                target: AggregateRef::new(
                     AggregateTypeOwned::from(TEST_AGGREGATE_TYPE),
-                    AggregateIdValue::from(aggregate_id.value()),
+                    AggregateIdValue::from(target_id.value()),
                 ),
                 relation: RelationRefOwned::from(TEST_RELATION),
             }

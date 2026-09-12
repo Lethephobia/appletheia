@@ -8,7 +8,10 @@ pub struct CurrencyDeactivatorRelation;
 
 impl Relation for CurrencyDeactivatorRelation {
     const REF: RelationRef = RelationRef::new(Currency::TYPE, RelationName::new("deactivator"));
-    const EXPR: UsersetExpr = UsersetExpr::ComputedUserset {
-        relation: CurrencyManagerRelation::REF,
-    };
+
+    fn expr(&self) -> UsersetExpr {
+        UsersetExpr::ComputedUserset {
+            relation: CurrencyManagerRelation::REF.into(),
+        }
+    }
 }

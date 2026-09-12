@@ -10,7 +10,9 @@ impl Relation for OrganizationJoinRequestCancelerRelation {
     const REF: RelationRef =
         RelationRef::new(OrganizationJoinRequest::TYPE, RelationName::new("canceler"));
 
-    const EXPR: UsersetExpr = UsersetExpr::ComputedUserset {
-        relation: OrganizationJoinRequestRequesterRelation::REF,
-    };
+    fn expr(&self) -> UsersetExpr {
+        UsersetExpr::ComputedUserset {
+            relation: OrganizationJoinRequestRequesterRelation::REF.into(),
+        }
+    }
 }

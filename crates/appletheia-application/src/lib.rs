@@ -1,3 +1,4 @@
+pub mod aggregate;
 pub mod authentication;
 pub mod authorization;
 pub mod command;
@@ -16,6 +17,7 @@ pub mod saga;
 pub mod snapshot;
 pub mod unit_of_work;
 
+pub use aggregate::*;
 pub use authentication::*;
 pub use authorization::*;
 pub use command::*;

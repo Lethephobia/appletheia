@@ -10,10 +10,13 @@ pub struct CurrencyManagerRelation;
 
 impl Relation for CurrencyManagerRelation {
     const REF: RelationRef = RelationRef::new(Currency::TYPE, RelationName::new("manager"));
-    const EXPR: UsersetExpr = UsersetExpr::TupleToUserset {
-        tupleset_relation: CurrencyRegistrarRelation::REF,
-        computed_userset: CurrencyRegistrarMemberRelation::REF,
-    };
+
+    fn expr(&self) -> UsersetExpr {
+        UsersetExpr::TupleToUserset {
+            tupleset_relation: CurrencyRegistrarRelation::REF.into(),
+            computed_userset: CurrencyRegistrarMemberRelation::REF.into(),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -25,12 +28,8 @@ mod tests {
 
     #[test]
     fn manager_traverses_from_currency_to_registrar_members() {
-        assert_eq!(
-            CurrencyManagerRelation::EXPR,
-            UsersetExpr::TupleToUserset {
-                tupleset_relation: CurrencyRegistrarRelation::REF,
-                computed_userset: CurrencyRegistrarMemberRelation::REF,
-            }
+        assert!(
+            matches!(CurrencyManagerRelation.expr(), UsersetExpr::TupleToUserset { tupleset_relation, computed_userset } if tupleset_relation == CurrencyRegistrarRelation::REF.into() && computed_userset == CurrencyRegistrarMemberRelation::REF.into())
         );
     }
 }

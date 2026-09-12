@@ -9,7 +9,9 @@ pub struct UserRemoverRelation;
 impl Relation for UserRemoverRelation {
     const REF: RelationRef = RelationRef::new(User::TYPE, RelationName::new("remover"));
 
-    const EXPR: UsersetExpr = UsersetExpr::ComputedUserset {
-        relation: UserOwnerRelation::REF,
-    };
+    fn expr(&self) -> UsersetExpr {
+        UsersetExpr::ComputedUserset {
+            relation: UserOwnerRelation::REF.into(),
+        }
+    }
 }

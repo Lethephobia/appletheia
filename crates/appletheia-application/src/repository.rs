@@ -1,7 +1,5 @@
 pub mod default_repository;
 pub mod default_repository_dependencies;
-pub mod event_save_hook;
-pub mod noop_event_save_hook;
 pub mod reference_index_lookup;
 pub mod reference_index_lookup_error;
 pub mod reference_index_lookup_page;
@@ -17,8 +15,6 @@ pub mod unique_value_owner_lookup_error;
 
 pub use default_repository::*;
 pub use default_repository_dependencies::*;
-pub use event_save_hook::*;
-pub use noop_event_save_hook::*;
 pub use reference_index_lookup::*;
 pub use reference_index_lookup_error::*;
 pub use reference_index_lookup_page::*;

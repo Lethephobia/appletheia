@@ -57,9 +57,9 @@ impl Saga for OrganizationOldPictureObjectDeletionSaga {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use appletheia::application::aggregate::{AggregateIdValue, AggregateTypeOwned};
     use appletheia::application::event::{
-        AggregateIdValue, AggregateTypeOwned, EventEnvelope, EventNameOwned, EventSequence,
-        SerializedEventPayload,
+        EventEnvelope, EventNameOwned, EventSequence, SerializedEventPayload,
     };
     use appletheia::application::request_context::{
         CausationId, CorrelationId, MessageId, Principal, RequestContext,

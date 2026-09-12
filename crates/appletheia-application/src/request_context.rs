@@ -54,8 +54,7 @@ mod tests {
     use uuid::Uuid;
 
     use super::*;
-    use crate::authorization::AggregateRef;
-    use crate::event::{AggregateIdValue, AggregateTypeOwned};
+    use crate::aggregate::{AggregateIdValue, AggregateRef, AggregateTypeOwned};
 
     fn aggregate_ref() -> AggregateRef {
         AggregateRef {

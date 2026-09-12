@@ -1,4 +1,4 @@
-use crate::authorization::AggregateRef;
+use crate::aggregate::AggregateRef;
 
 use super::oidc::OidcTokens;
 

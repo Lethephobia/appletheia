@@ -8,6 +8,6 @@ pub trait Relation {
     /// The canonical reference of this relation.
     const REF: RelationRef;
 
-    /// The statically-defined userset expression of this relation.
-    const EXPR: UsersetExpr;
+    /// The userset expression of this relation.
+    fn expr(&self) -> UsersetExpr;
 }

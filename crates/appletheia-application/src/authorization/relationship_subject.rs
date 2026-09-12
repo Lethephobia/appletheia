@@ -1,9 +1,10 @@
 use appletheia_domain::Aggregate;
 use serde::{Deserialize, Serialize};
 
-use crate::event::AggregateTypeOwned;
+use crate::aggregate::AggregateTypeOwned;
 
-use super::{AggregateRef, RelationRef, RelationRefOwned};
+use super::{RelationRef, RelationRefOwned};
+use crate::aggregate::AggregateRef;
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 #[serde(tag = "type", content = "data", rename_all = "snake_case")]
@@ -55,8 +56,9 @@ mod tests {
     use uuid::Uuid;
 
     use super::RelationshipSubject;
-    use crate::authorization::{AggregateRef, RelationName, RelationRef, RelationRefOwned};
-    use crate::event::AggregateTypeOwned;
+    use crate::aggregate::AggregateRef;
+    use crate::aggregate::AggregateTypeOwned;
+    use crate::authorization::{RelationName, RelationRef, RelationRefOwned};
 
     const TEST_RELATION: RelationRef =
         RelationRef::new(TestAggregate::TYPE, RelationName::new("member"));
