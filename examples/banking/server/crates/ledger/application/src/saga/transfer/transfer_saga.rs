@@ -181,7 +181,6 @@ impl Saga for TransferSaga {
 mod tests {
     use super::TransferSagaHandlerError;
     use appletheia::application::authorization::AggregateRef;
-    use appletheia::application::saga::SagaRouteError;
     use appletheia::application::saga::{SagaContext, SagaRoute};
     use appletheia::domain::AggregateVersion;
     use uuid::Uuid;
@@ -324,7 +323,7 @@ mod tests {
         instance: &mut SagaInstance<TransferSagaState, TransferSagaStep>,
         envelope: &EventEnvelope,
         step: Option<TransferSagaStep>,
-    ) -> Result<bool, SagaRouteError<TransferSagaHandlerError>> {
+    ) -> Result<bool, TransferSagaHandlerError> {
         let definition = saga.definition().expect("valid saga definition");
         let Some(
             SagaRoute::StartsOn {

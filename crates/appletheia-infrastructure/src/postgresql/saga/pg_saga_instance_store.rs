@@ -379,8 +379,8 @@ mod tests {
         CommandFailureId, CommandName, CommandOptions, CommandTerminalReason,
     };
     use appletheia_application::event::{
-        AggregateIdValue, AggregateTypeOwned, EventEnvelope, EventNameOwned, EventSequence,
-        SerializedEventPayload,
+        AggregateIdValue, AggregateTypeOwned, EventEnvelope, EventEnvelopeError, EventNameOwned,
+        EventSequence, SerializedEventPayload,
     };
     use appletheia_application::request_context::{
         CausationId, CorrelationId, MessageId, Principal, RequestContext,
@@ -413,6 +413,8 @@ mod tests {
     impl SagaStep for Step {}
     #[derive(Debug, thiserror::Error)]
     enum Error {
+        #[error(transparent)]
+        EventEnvelope(#[from] EventEnvelopeError),
         #[error(transparent)]
         Context(#[from] SagaContextError),
         #[error("injected failure")]
@@ -660,9 +662,7 @@ mod tests {
         for _ in 0..2 {
             assert!(matches!(
                 run.handle_event(&definition, &input).await,
-                Err(SagaRunnerError::Route(SagaRouteError::Handler(
-                    Error::Injected
-                )))
+                Err(SagaRunnerError::Handler(Error::Injected))
             ));
         }
         for table in [

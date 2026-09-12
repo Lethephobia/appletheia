@@ -260,7 +260,6 @@ impl Saga for OwnedAccountClosureSaga {
 mod tests {
     use super::OwnedAccountClosureSagaHandlerError;
     use appletheia::application::authorization::AggregateRef;
-    use appletheia::application::saga::SagaRouteError;
     use appletheia::application::saga::{SagaContext, SagaRoute};
     use appletheia::domain::AggregateVersion;
     use uuid::Uuid;
@@ -369,7 +368,7 @@ mod tests {
         instance: &mut SagaInstance<OwnedAccountClosureSagaState, OwnedAccountClosureSagaStep>,
         envelope: &EventEnvelope,
         step: Option<OwnedAccountClosureSagaStep>,
-    ) -> Result<bool, SagaRouteError<OwnedAccountClosureSagaHandlerError>> {
+    ) -> Result<bool, OwnedAccountClosureSagaHandlerError> {
         let definition = saga.definition().expect("valid saga definition");
         let Some(
             SagaRoute::StartsOn {

@@ -118,6 +118,7 @@ impl<'a, S: SagaState, T: SagaStep, E: Error + Send + Sync + 'static> SagaDefini
 
 #[cfg(test)]
 mod tests {
+    use crate::event::EventEnvelopeError;
     mod counter {
         use appletheia_domain::{
             Aggregate, AggregateApply, AggregateCore, AggregateError, AggregateId, AggregateState,
@@ -305,6 +306,8 @@ mod tests {
     impl SagaStep for Step {}
     #[derive(Debug, thiserror::Error)]
     enum Error {
+        #[error(transparent)]
+        EventEnvelope(#[from] EventEnvelopeError),
         #[error(transparent)]
         Context(#[from] SagaContextError),
         #[error("policy refused")]
@@ -697,7 +700,9 @@ mod tests {
                     SagaContext::new(&mut saga, CausationId::from(input.event_id), *step);
                 handler(&mut context, &input)
             },
-            Err(SagaRouteError::EventNameMismatch)
+            Err(Error::EventEnvelope(
+                EventEnvelopeError::EventNameMismatch { .. }
+            ))
         ));
         input.payload =
             SerializedEventPayload::try_from(serde_json::json!({"type":"invalid"})).unwrap();
@@ -714,7 +719,7 @@ mod tests {
                     SagaContext::new(&mut saga, CausationId::from(input.event_id), *step);
                 handler(&mut context, &input)
             },
-            Err(SagaRouteError::EventEnvelope(_))
+            Err(Error::EventEnvelope(_))
         ));
         assert_eq!(calls.load(Ordering::SeqCst), 0);
     }
@@ -823,7 +828,7 @@ mod tests {
                     SagaContext::new(&mut saga, CausationId::from(input.event_id), *step);
                 handler(&mut context, &input)
             },
-            Err(SagaRouteError::Handler(Error::Refused))
+            Err(Error::Refused)
         ));
     }
 
@@ -873,8 +878,8 @@ mod tests {
                     SagaContext::new(&mut saga, CausationId::from(input.event_id), *step);
                 handler(&mut context, &input)
             },
-            Err(SagaRouteError::Handler(Error::Context(
-                SagaContextError::Instance(SagaInstanceError::NoState)
+            Err(Error::Context(SagaContextError::Instance(
+                SagaInstanceError::NoState
             )))
         ));
     }

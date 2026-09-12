@@ -53,6 +53,13 @@ impl EventEnvelope {
         let payload = A::EventPayload::try_from_json_value(self.payload.value().clone())
             .map_err(|source| EventEnvelopeError::EventPayload(Box::new(source)))?;
 
+        if payload.name().value() != self.event_name.value() {
+            return Err(EventEnvelopeError::EventNameMismatch {
+                expected: self.event_name.value().to_owned(),
+                actual: payload.name().value().to_owned(),
+            });
+        }
+
         Ok(Event::from_persisted(
             self.event_id,
             aggregate_id,
@@ -288,5 +295,29 @@ mod tests {
         let event = event_envelope();
 
         assert!(!event.is_for_aggregate::<OtherCounter>());
+    }
+
+    #[test]
+    fn try_into_domain_event_preserves_matching_event() {
+        let envelope = event_envelope();
+
+        let event = envelope
+            .try_into_domain_event::<Counter>()
+            .expect("valid event");
+
+        assert_eq!(event.payload().name().value(), envelope.event_name.value());
+    }
+
+    #[test]
+    fn try_into_domain_event_rejects_mismatched_event_name() {
+        let mut envelope = event_envelope();
+        let payload_name = envelope.event_name.value().to_owned();
+        envelope.event_name = EventNameOwned::from(EventName::new("different_event"));
+
+        assert!(matches!(
+            envelope.try_into_domain_event::<Counter>(),
+            Err(EventEnvelopeError::EventNameMismatch { expected, actual })
+                if expected == "different_event" && actual == payload_name
+        ));
     }
 }

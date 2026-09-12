@@ -1,4 +1,5 @@
 use super::{SagaContext, SagaDefinitionBuilder, SagaRoute, SagaState, SagaStep};
+use crate::event::EventEnvelopeError;
 use appletheia_domain::{Aggregate, Event, EventName};
 use std::{error::Error, marker::PhantomData};
 
@@ -34,6 +35,7 @@ impl<'a, S: SagaState, T: SagaStep, E: Error + Send + Sync + 'static, A: Aggrega
 
     pub fn handle<H>(self, handler: H) -> SagaDefinitionBuilder<'a, S, T, E>
     where
+        E: From<EventEnvelopeError>,
         H: Fn(&mut SagaContext<'_, S, T>, &Event<A::Id, A::EventPayload>) -> Result<(), E>
             + Send
             + Sync

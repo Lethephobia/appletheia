@@ -6,7 +6,6 @@ use crate::unit_of_work::UnitOfWorkFactoryError;
 
 use super::{
     SagaInstanceStoreError, SagaProcessedCommandFailureStoreError, SagaProcessedEventStoreError,
-    SagaRouteError,
 };
 
 #[derive(Debug, Error)]
@@ -29,6 +28,6 @@ pub enum SagaRunnerError<E: std::error::Error + Send + Sync + 'static> {
     #[error(transparent)]
     CommandOutbox(#[from] CommandOutboxEnqueueError),
 
-    #[error(transparent)]
-    Route(#[from] SagaRouteError<E>),
+    #[error("saga handler failed")]
+    Handler(#[source] E),
 }

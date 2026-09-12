@@ -4,6 +4,9 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum EventEnvelopeError {
+    #[error("event name mismatch: expected {expected}, got {actual}")]
+    EventNameMismatch { expected: String, actual: String },
+
     #[error("aggregate type mismatch: expected {expected}, got {actual}")]
     AggregateTypeMismatch {
         expected: &'static str,

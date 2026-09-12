@@ -52,7 +52,6 @@ impl Saga for OrganizationInvitationSaga {
 mod tests {
     use super::OrganizationInvitationSagaHandlerError;
     use appletheia::application::authorization::AggregateRef;
-    use appletheia::application::saga::SagaRouteError;
     use appletheia::application::saga::{SagaContext, SagaRoute};
     use appletheia::domain::AggregateVersion;
     use uuid::Uuid;
@@ -152,7 +151,7 @@ mod tests {
         >,
         envelope: &EventEnvelope,
         step: Option<OrganizationInvitationSagaStep>,
-    ) -> Result<bool, SagaRouteError<OrganizationInvitationSagaHandlerError>> {
+    ) -> Result<bool, OrganizationInvitationSagaHandlerError> {
         let definition = saga.definition().expect("valid saga definition");
         let Some(
             SagaRoute::StartsOn {

@@ -1,4 +1,4 @@
-use super::{SagaContext, SagaRoute, SagaRouteError, SagaState, SagaStep};
+use super::{SagaContext, SagaRoute, SagaState, SagaStep};
 use crate::command::CommandFailureEnvelope;
 use std::error::Error;
 
@@ -115,7 +115,7 @@ where
         }
 
         let mut context = SagaContext::new(&mut instance, CausationId::from(event.event_id), *step);
-        handler(&mut context, event)?;
+        handler(&mut context, event).map_err(SagaRunnerError::Handler)?;
 
         self.saga_instance_store.save(uow, &instance).await?;
 
@@ -196,7 +196,7 @@ where
         };
         let mut context =
             SagaContext::new(&mut instance, CausationId::from(failure.failure_id), *step);
-        handler(&mut context, failure).map_err(SagaRouteError::Handler)?;
+        handler(&mut context, failure).map_err(SagaRunnerError::Handler)?;
         self.saga_instance_store.save(uow, &instance).await?;
         let commands = instance.uncommitted_commands().to_vec();
         let enqueued_command_count = EnqueuedCommandCount::from_usize_saturating(commands.len());
