@@ -23,6 +23,6 @@ pub enum ProjectorRunnerError {
     #[error("unit of work factory error: {0}")]
     UnitOfWorkFactory(#[from] UnitOfWorkFactoryError),
 
-    #[error("projector definition failed")]
-    Definition(#[source] Box<dyn std::error::Error + Send + Sync>),
+    #[error("projection failed")]
+    Projection(#[source] Box<dyn std::error::Error + Send + Sync>),
 }

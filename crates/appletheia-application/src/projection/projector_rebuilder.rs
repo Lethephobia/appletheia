@@ -14,8 +14,8 @@ pub trait ProjectorRebuilder: Send {
     ///
     /// The projector must use a fresh name so its checkpoint and processed-event state start
     /// empty. Snapshot serving and the live worker must remain stopped until catch-up completes.
-    /// Changes recorded during catch-up are not published; clients start from a snapshot and
-    /// observe only later live changes.
+    /// Invalidated partitions returned during catch-up are not enqueued for delivery; clients
+    /// start from a snapshot and receive refreshed snapshots after later live invalidations.
     async fn run_until_idle<PJ: Projector<Uow = Self::Uow>>(
         &mut self,
         projector: &PJ,

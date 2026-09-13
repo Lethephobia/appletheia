@@ -121,13 +121,13 @@ where
                 };
 
                 if inserted {
-                    let _fragment_changes = match projector
+                    let _invalidated_partitions = match projector
                         .project(&mut uow, MaterializationEventContext::from(&event), &event)
                         .await
                     {
-                        Ok(fragment_changes) => fragment_changes,
+                        Ok(invalidated_partitions) => invalidated_partitions,
                         Err(source) => {
-                            let error = ProjectorRebuilderError::Definition(Box::new(source));
+                            let error = ProjectorRebuilderError::Projection(Box::new(source));
                             return Err(uow.rollback_with_operation_error(error).await?);
                         }
                     };

@@ -11,7 +11,7 @@ use crate::projection::{
 
 use super::{UserFragmentProjectorError, UserFragmentProjectorSpec};
 
-/// Projects public user fragments and emits their read-model protocol mappings.
+/// Projects user events into user fragments and returns invalidated partitions.
 pub struct UserFragmentProjector<W>
 where
     W: UserFragmentWriter,

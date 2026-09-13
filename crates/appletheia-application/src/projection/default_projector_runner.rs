@@ -55,7 +55,7 @@ impl<P, E, U> DefaultProjectorRunner<P, E, U> {
         let invalidated_partitions = projector
             .project(uow, MaterializationEventContext::from(event), event)
             .await
-            .map_err(|source| ProjectorRunnerError::Definition(Box::new(source)))?;
+            .map_err(|source| ProjectorRunnerError::Projection(Box::new(source)))?;
 
         let mut invalidated_dependencies = invalidated_partitions
             .into_iter()
@@ -63,7 +63,7 @@ impl<P, E, U> DefaultProjectorRunner<P, E, U> {
                 partition
                     .try_into_serialized::<PJ::Fragment>()
                     .map(ReadModelDependency::Partition)
-                    .map_err(|source| ProjectorRunnerError::Definition(Box::new(source)))
+                    .map_err(|source| ProjectorRunnerError::Projection(Box::new(source)))
             })
             .collect::<Result<Vec<_>, _>>()?;
         if !invalidated_dependencies.is_empty() {
