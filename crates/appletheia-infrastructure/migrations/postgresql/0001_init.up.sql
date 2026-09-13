@@ -372,23 +372,39 @@ CREATE TABLE IF NOT EXISTS read_model_invalidation_outbox (
   lease_owner              TEXT,
   lease_until              TIMESTAMPTZ,
   last_error               JSONB,
-  dead_lettered_at         TIMESTAMPTZ,
   UNIQUE (source_projector_name, source_event_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_read_model_invalidation_outbox_pending
   ON read_model_invalidation_outbox (next_attempt_after, source_event_sequence)
-  WHERE published_at IS NULL AND dead_lettered_at IS NULL;
+  WHERE published_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_read_model_invalidation_outbox_lease_visible
   ON read_model_invalidation_outbox (lease_until)
-  WHERE published_at IS NULL AND dead_lettered_at IS NULL;
+  WHERE published_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_read_model_invalidation_outbox_partitions
   ON read_model_invalidation_outbox USING GIN (invalidated_partitions);
-CREATE INDEX IF NOT EXISTS idx_read_model_invalidation_outbox_dead_lettered_at
-  ON read_model_invalidation_outbox (dead_lettered_at)
-  WHERE dead_lettered_at IS NOT NULL;
 
-COMMENT ON TABLE read_model_invalidation_outbox IS 'Transactional outbox carrying dependency-only read-model invalidations.';
+-- read model invalidation dead letters
+CREATE TABLE IF NOT EXISTS read_model_invalidation_dead_letters (
+  read_model_invalidation_outbox_id  UUID        PRIMARY KEY,
+  source_projector_name              TEXT        NOT NULL,
+  source_event_sequence              BIGINT      NOT NULL CHECK (source_event_sequence >= 0),
+  source_event_id                    UUID        NOT NULL,
+  occurred_at                        TIMESTAMPTZ NOT NULL,
+  correlation_id                     UUID        NOT NULL,
+  causation_id                       UUID        NOT NULL,
+  invalidated_partitions             JSONB       NOT NULL CHECK (jsonb_typeof(invalidated_partitions) = 'array' AND jsonb_array_length(invalidated_partitions) > 0),
+  recorded_at                        TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  published_at                       TIMESTAMPTZ,
+  attempt_count                      BIGINT      NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
+  next_attempt_after                 TIMESTAMPTZ NOT NULL DEFAULT now(),
+  lease_owner                        TEXT,
+  lease_until                        TIMESTAMPTZ,
+  last_error                         JSONB,
+  dead_lettered_at                   TIMESTAMPTZ NOT NULL
+);
+
+COMMENT ON TABLE read_model_invalidation_outbox IS 'Transactional outbox carrying partition-only read-model invalidations.';
 
 -- resource response cache
 CREATE TABLE IF NOT EXISTS resource_response_cache (

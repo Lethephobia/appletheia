@@ -7,13 +7,12 @@ use crate::request_context::{CausationId, CorrelationId};
 
 use super::{
     ReadModelFragment, ReadModelInvalidatedPartitions, ReadModelInvalidationEnvelopeError,
-    ReadModelInvalidationId, SerializedPartition,
+    SerializedPartition,
 };
 
 /// Carries partition keys invalidated by one committed projection update.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ReadModelInvalidationEnvelope {
-    pub invalidation_id: ReadModelInvalidationId,
     pub source_event_id: EventId,
     pub source_event_sequence: EventSequence,
     pub source_projector_name: ProjectorNameOwned,
@@ -42,7 +41,6 @@ impl ReadModelInvalidationEnvelope {
             .collect::<Result<Vec<_>, _>>()?;
 
         Ok(Self {
-            invalidation_id: ReadModelInvalidationId::new(),
             source_event_id: event.event_id,
             source_event_sequence: event.event_sequence,
             source_projector_name: ProjectorNameOwned::from(projector_name),
@@ -56,12 +54,15 @@ impl ReadModelInvalidationEnvelope {
 
 #[cfg(test)]
 mod tests {
+    use std::num::NonZeroU32;
+
     use appletheia_domain::AggregateVersion;
     use serde_json::json;
     use uuid::Uuid;
 
     use crate::aggregate::{AggregateIdValue, AggregateTypeOwned};
     use crate::event::{EventNameOwned, SerializedEventPayload};
+    use crate::read_model::watch::ReadModelInvalidationShard;
     use crate::read_model::{
         ReadModelFragmentName, ReadModelObservation, ReadModelObservationSource,
     };
@@ -108,6 +109,32 @@ mod tests {
     }
 
     #[test]
+    fn repeated_projection_of_the_same_event_uses_the_same_shard() {
+        let source_event = event();
+        let mut first_partitions = ReadModelInvalidatedPartitions::new();
+        first_partitions.insert(1);
+        let mut second_partitions = ReadModelInvalidatedPartitions::new();
+        second_partitions.insert(2);
+        let first = ReadModelInvalidationEnvelope::try_new::<TestFragment>(
+            &source_event,
+            ProjectorName::new("test_projector"),
+            first_partitions,
+        )
+        .expect("first invalidation should be valid");
+        let second = ReadModelInvalidationEnvelope::try_new::<TestFragment>(
+            &source_event,
+            ProjectorName::new("test_projector"),
+            second_partitions,
+        )
+        .expect("second invalidation should be valid");
+        let shard_count = NonZeroU32::new(64).expect("shard count should be nonzero");
+        assert_eq!(
+            ReadModelInvalidationShard::for_envelope(&first, shard_count),
+            ReadModelInvalidationShard::for_envelope(&second, shard_count),
+        );
+    }
+
+    #[test]
     fn rejects_empty_partitions_at_the_delivery_boundary() {
         let result = ReadModelInvalidationEnvelope::try_new::<TestFragment>(
             &event(),
@@ -143,6 +170,7 @@ mod tests {
         );
         assert!(value.get("fragment").is_none());
         assert!(value.get("changes").is_none());
+        assert!(value.get("invalidation_id").is_none());
 
         let restored: ReadModelInvalidationEnvelope =
             serde_json::from_value(value.clone()).expect("nonempty partitions should deserialize");

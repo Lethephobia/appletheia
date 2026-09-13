@@ -103,7 +103,7 @@ mod tests {
     use crate::aggregate::{AggregateIdValue, AggregateTypeOwned};
     use crate::event::{EventEnvelope, EventNameOwned, EventSequence, SerializedEventPayload};
     use crate::messaging::{ConsumerError, Delivery};
-    use crate::read_model::{ReadModelInvalidationId, SerializedPartition};
+    use crate::read_model::SerializedPartition;
     use crate::request_context::{
         CausationId, CorrelationId, MessageId, Principal, RequestContext,
     };
@@ -172,7 +172,6 @@ mod tests {
             .expect("partition should be valid");
         let source_event = event;
         serde_json::from_value(json!({
-            "invalidation_id": ReadModelInvalidationId::new(),
             "source_event_id": source_event.event_id,
             "source_event_sequence": source_event.event_sequence,
             "source_projector_name": "test_projector",

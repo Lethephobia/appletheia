@@ -19,6 +19,9 @@ DROP TABLE IF EXISTS oidc_login_attempts;
 -- resource response cache
 DROP TABLE IF EXISTS resource_response_cache;
 
+-- read model invalidation dead letters
+DROP TABLE IF EXISTS read_model_invalidation_dead_letters;
+
 -- read model invalidation outbox
 DROP TABLE IF EXISTS read_model_invalidation_outbox;
 

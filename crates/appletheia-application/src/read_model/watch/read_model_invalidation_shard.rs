@@ -25,7 +25,10 @@ impl ReadModelInvalidationShard {
     }
 
     pub fn for_envelope(envelope: &ReadModelInvalidationEnvelope, count: NonZeroU32) -> Self {
-        let digest = Sha256::digest(envelope.invalidation_id.value().as_bytes());
+        let mut hasher = Sha256::new();
+        hasher.update(envelope.source_projector_name.value().as_bytes());
+        hasher.update(envelope.source_event_id.value().as_bytes());
+        let digest = hasher.finalize();
         let hash = u64::from_be_bytes(
             digest[..8]
                 .try_into()

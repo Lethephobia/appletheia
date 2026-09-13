@@ -1,5 +1,6 @@
 use appletheia_application::outbox::read_model_invalidation::{
     ReadModelInvalidationOutboxEnqueueError, ReadModelInvalidationOutboxEnqueuer,
+    ReadModelInvalidationOutboxId,
 };
 use appletheia_application::read_model::ReadModelInvalidationEnvelope;
 
@@ -49,7 +50,7 @@ impl ReadModelInvalidationOutboxEnqueuer for PgReadModelInvalidationOutboxEnqueu
             ON CONFLICT (source_projector_name, source_event_id) DO NOTHING
             "#,
         )
-        .bind(invalidation.invalidation_id.value())
+        .bind(ReadModelInvalidationOutboxId::new().value())
         .bind(invalidation.source_projector_name.value())
         .bind(invalidation.source_event_sequence.value())
         .bind(invalidation.source_event_id.value())

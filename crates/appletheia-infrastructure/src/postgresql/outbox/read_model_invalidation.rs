@@ -1,3 +1,5 @@
+mod pg_read_model_invalidation_outbox_dead_letter_row;
+mod pg_read_model_invalidation_outbox_dead_letter_row_error;
 mod pg_read_model_invalidation_outbox_enqueuer;
 mod pg_read_model_invalidation_outbox_fetcher;
 mod pg_read_model_invalidation_outbox_row;
@@ -9,3 +11,6 @@ pub use pg_read_model_invalidation_outbox_fetcher::*;
 pub use pg_read_model_invalidation_outbox_row::*;
 pub use pg_read_model_invalidation_outbox_row_error::*;
 pub use pg_read_model_invalidation_outbox_writer::*;
+
+pub use pg_read_model_invalidation_outbox_dead_letter_row::*;
+pub use pg_read_model_invalidation_outbox_dead_letter_row_error::*;

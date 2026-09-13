@@ -33,10 +33,6 @@ impl PubsubReadModelInvalidationPublisher {
         let shard = ReadModelInvalidationShard::for_envelope(invalidation, self.shard_count);
         let mut attributes = HashMap::new();
         attributes.insert(
-            "invalidation_id".to_owned(),
-            invalidation.invalidation_id.to_string(),
-        );
-        attributes.insert(
             ReadModelInvalidationShard::ATTRIBUTE_NAME.to_owned(),
             shard.attribute_value(),
         );

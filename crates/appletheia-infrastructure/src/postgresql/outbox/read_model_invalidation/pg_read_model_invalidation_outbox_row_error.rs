@@ -1,18 +1,17 @@
 use thiserror::Error;
 
 use appletheia_application::event::EventSequenceError;
+use appletheia_application::outbox::read_model_invalidation::ReadModelInvalidationOutboxIdError;
 use appletheia_application::outbox::{OutboxAttemptCountError, OutboxRelayInstanceError};
 use appletheia_application::projection::ProjectorNameOwnedError;
-use appletheia_application::read_model::{
-    ReadModelInvalidationEnvelopeError, ReadModelInvalidationIdError,
-};
+use appletheia_application::read_model::ReadModelInvalidationEnvelopeError;
 use appletheia_domain::EventIdError;
 
 /// Reports invalid state or values loaded from the invalidation outbox.
 #[derive(Debug, Error)]
 pub enum PgReadModelInvalidationOutboxRowError {
-    #[error("invalidation id error: {0}")]
-    InvalidationId(#[from] ReadModelInvalidationIdError),
+    #[error("outbox id error: {0}")]
+    Id(#[from] ReadModelInvalidationOutboxIdError),
     #[error("source projector name error: {0}")]
     SourceProjectorName(#[from] ProjectorNameOwnedError),
     #[error("source event sequence error: {0}")]

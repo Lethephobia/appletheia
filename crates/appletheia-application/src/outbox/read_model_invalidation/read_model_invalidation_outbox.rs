@@ -1,11 +1,13 @@
 use crate::messaging::PublishDispatchError;
-use crate::read_model::{ReadModelInvalidationEnvelope, ReadModelInvalidationId};
+use crate::read_model::ReadModelInvalidationEnvelope;
 
 use super::super::{OrderingKey, Outbox, OutboxLifecycle, OutboxState};
+use super::ReadModelInvalidationOutboxId;
 
 /// Adapts a durable read-model invalidation to the generic outbox relay.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ReadModelInvalidationOutbox {
+    pub id: ReadModelInvalidationOutboxId,
     pub invalidation: ReadModelInvalidationEnvelope,
     pub state: OutboxState,
     pub last_error: Option<PublishDispatchError>,
@@ -13,11 +15,11 @@ pub struct ReadModelInvalidationOutbox {
 }
 
 impl Outbox for ReadModelInvalidationOutbox {
-    type Id = ReadModelInvalidationId;
+    type Id = ReadModelInvalidationOutboxId;
     type Message = ReadModelInvalidationEnvelope;
 
     fn id(&self) -> Self::Id {
-        self.invalidation.invalidation_id
+        self.id
     }
 
     fn ordering_key(&self) -> OrderingKey {

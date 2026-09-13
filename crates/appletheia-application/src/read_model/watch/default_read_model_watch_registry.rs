@@ -663,9 +663,7 @@ mod tests {
     use crate::aggregate::{AggregateIdValue, AggregateTypeOwned};
     use crate::event::{EventEnvelope, EventNameOwned, EventSequence, SerializedEventPayload};
     use crate::read_model::pagination::{CursorWindow, PageSize};
-    use crate::read_model::{
-        ReadModelInvalidationEnvelope, ReadModelInvalidationId, SerializedPartition,
-    };
+    use crate::read_model::{ReadModelInvalidationEnvelope, SerializedPartition};
     use crate::request_context::{
         CausationId, CorrelationId, MessageId, Principal, RequestContext,
     };
@@ -913,7 +911,6 @@ mod tests {
         };
         let source_event = event_envelope();
         serde_json::from_value(json!({
-            "invalidation_id": ReadModelInvalidationId::new(),
             "source_event_id": source_event.event_id,
             "source_event_sequence": source_event.event_sequence,
             "source_projector_name": "test_projector",

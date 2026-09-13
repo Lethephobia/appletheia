@@ -6,15 +6,15 @@ use uuid::Uuid;
 
 use appletheia_application::event::EventSequence;
 use appletheia_application::messaging::PublishDispatchError;
-use appletheia_application::outbox::read_model_invalidation::ReadModelInvalidationOutbox;
+use appletheia_application::outbox::read_model_invalidation::{
+    ReadModelInvalidationOutbox, ReadModelInvalidationOutboxId,
+};
 use appletheia_application::outbox::{
-    OutboxAttemptCount, OutboxDeadLetteredAt, OutboxLeaseExpiresAt, OutboxLifecycle,
-    OutboxNextAttemptAt, OutboxPublishedAt, OutboxRelayInstance, OutboxState,
+    OutboxAttemptCount, OutboxLeaseExpiresAt, OutboxLifecycle, OutboxNextAttemptAt,
+    OutboxPublishedAt, OutboxRelayInstance, OutboxState,
 };
 use appletheia_application::projection::ProjectorNameOwned;
-use appletheia_application::read_model::{
-    ReadModelInvalidationEnvelope, ReadModelInvalidationId, SerializedPartition,
-};
+use appletheia_application::read_model::{ReadModelInvalidationEnvelope, SerializedPartition};
 use appletheia_application::request_context::{CausationId, CorrelationId, MessageId};
 use appletheia_domain::{EventId, EventOccurredAt};
 
@@ -38,7 +38,6 @@ pub struct PgReadModelInvalidationOutboxRow {
     pub lease_owner: Option<String>,
     pub lease_until: Option<DateTime<Utc>>,
     pub last_error: Option<serde_json::Value>,
-    pub dead_lettered_at: Option<DateTime<Utc>>,
 }
 
 impl PgReadModelInvalidationOutboxRow {
@@ -46,7 +45,7 @@ impl PgReadModelInvalidationOutboxRow {
     pub fn try_into_outbox(
         self,
     ) -> Result<ReadModelInvalidationOutbox, PgReadModelInvalidationOutboxRowError> {
-        let invalidation_id = ReadModelInvalidationId::try_from(self.id)?;
+        let id = ReadModelInvalidationOutboxId::try_from(self.id)?;
         let source_projector_name = ProjectorNameOwned::new(self.source_projector_name)?;
         let source_event_sequence = EventSequence::try_from(self.source_event_sequence)?;
         let source_event_id = EventId::try_from(self.source_event_id)?;
@@ -58,7 +57,6 @@ impl PgReadModelInvalidationOutboxRow {
 
         let invalidation =
             serde_json::from_value::<ReadModelInvalidationEnvelope>(serde_json::json!({
-                "invalidation_id": invalidation_id,
                 "source_projector_name": source_projector_name,
                 "source_event_sequence": source_event_sequence,
                 "source_event_id": source_event_id,
@@ -101,18 +99,12 @@ impl PgReadModelInvalidationOutboxRow {
             }
         };
 
-        let lifecycle = match self.dead_lettered_at {
-            Some(dead_lettered_at) => OutboxLifecycle::DeadLettered {
-                dead_lettered_at: OutboxDeadLetteredAt::from(dead_lettered_at),
-            },
-            None => OutboxLifecycle::Active,
-        };
-
         Ok(ReadModelInvalidationOutbox {
+            id,
             invalidation,
             state,
             last_error,
-            lifecycle,
+            lifecycle: OutboxLifecycle::Active,
         })
     }
 }
