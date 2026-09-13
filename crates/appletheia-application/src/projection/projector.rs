@@ -2,7 +2,7 @@ use std::error::Error;
 
 use crate::event::EventEnvelope;
 use crate::read_model::{
-    MaterializationEventContext, ReadModelFragment, ReadModelFragmentPartition,
+    MaterializationEventContext, ReadModelFragment, ReadModelInvalidatedPartitions,
 };
 use crate::unit_of_work::UnitOfWork;
 
@@ -23,5 +23,8 @@ pub trait Projector: Send + Sync {
         uow: &mut Self::Uow,
         event_context: MaterializationEventContext,
         event: &EventEnvelope,
-    ) -> Result<Vec<ReadModelFragmentPartition<Self::Fragment>>, Self::Error>;
+    ) -> Result<
+        ReadModelInvalidatedPartitions<<Self::Fragment as ReadModelFragment>::Key>,
+        Self::Error,
+    >;
 }

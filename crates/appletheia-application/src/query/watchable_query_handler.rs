@@ -1,4 +1,4 @@
-use crate::read_model::ReadModelDependency;
+use crate::read_model::watch::ReadModelWatchSelector;
 
 use super::QueryHandler;
 
@@ -8,5 +8,5 @@ pub trait WatchableQueryHandler: QueryHandler {
     fn watch_dependencies(
         &self,
         query: &Self::Query,
-    ) -> Result<Vec<ReadModelDependency>, Self::Error>;
+    ) -> Result<Vec<ReadModelWatchSelector>, Self::Error>;
 }

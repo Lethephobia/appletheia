@@ -58,7 +58,7 @@ pub use user_public_profile::{
 };
 
 use appletheia::application::query::{QueryHandler, WatchableQueryHandler};
-use appletheia::application::read_model::{ReadModelDependency, ReadModelDependencyTopic};
+use appletheia::application::read_model::watch::ReadModelWatchSelector;
 
 use crate::projection::{
     OrganizationFragment, OrganizationInvitationFragment, OrganizationJoinRequestFragment,
@@ -82,9 +82,9 @@ macro_rules! impl_watchable_query_handler {
             fn watch_dependencies(
                 &self,
                 _query: &Self::Query,
-            ) -> Result<Vec<ReadModelDependency>, Self::Error> {
+            ) -> Result<Vec<ReadModelWatchSelector>, Self::Error> {
                 Ok(vec![$(
-                    ReadModelDependency::Topic(ReadModelDependencyTopic::all::<$fragment>()),
+                    ReadModelWatchSelector::fragment::<$fragment>(),
                 )+])
             }
         }

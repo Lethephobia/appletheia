@@ -1,7 +1,7 @@
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
 use appletheia::application::read_model::{
-    MaterializationEventContext, ReadModelFragmentPartition, ReadModelPartition,
+    MaterializationEventContext, ReadModelFragment, ReadModelInvalidatedPartitions,
 };
 use appletheia::domain::AggregateId;
 use banking_ledger_domain::deposit::{Deposit, DepositEventPayload};
@@ -50,8 +50,11 @@ where
         uow: &mut Self::Uow,
         event_context: MaterializationEventContext,
         event: &EventEnvelope,
-    ) -> Result<Vec<ReadModelFragmentPartition<Self::Fragment>>, Self::Error> {
-        let mut invalidated_partitions = Vec::new();
+    ) -> Result<
+        ReadModelInvalidatedPartitions<<Self::Fragment as ReadModelFragment>::Key>,
+        Self::Error,
+    > {
+        let mut invalidated_partitions = ReadModelInvalidatedPartitions::new();
         if event.is_for_aggregate::<Deposit>() {
             let domain_event = event.try_into_domain_event::<Deposit>()?;
             let deposit_id = domain_event.aggregate_id();
@@ -86,7 +89,7 @@ where
                         )
                         .await?
                     {
-                        invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
+                        invalidated_partitions.insert(fragment.key());
                     }
                 }
                 DepositEventPayload::SettlementVerified {
@@ -98,7 +101,7 @@ where
                         .record_onchain_transaction(uow, event_context, transaction_id, *onchain_id)
                         .await?
                     {
-                        invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
+                        invalidated_partitions.insert(fragment.key());
                     }
                 }
                 DepositEventPayload::Completed => {
@@ -112,7 +115,7 @@ where
                         )
                         .await?
                     {
-                        invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
+                        invalidated_partitions.insert(fragment.key());
                     }
                 }
                 DepositEventPayload::Failed { .. } => {
@@ -126,7 +129,7 @@ where
                         )
                         .await?
                     {
-                        invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
+                        invalidated_partitions.insert(fragment.key());
                     }
                 }
             }
@@ -164,7 +167,7 @@ where
                         )
                         .await?
                     {
-                        invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
+                        invalidated_partitions.insert(fragment.key());
                     }
                 }
                 WithdrawalEventPayload::SettlementExecuted {
@@ -175,7 +178,7 @@ where
                         .record_onchain_transaction(uow, event_context, transaction_id, *onchain_id)
                         .await?
                     {
-                        invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
+                        invalidated_partitions.insert(fragment.key());
                     }
                 }
                 WithdrawalEventPayload::Completed => {
@@ -189,7 +192,7 @@ where
                         )
                         .await?
                     {
-                        invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
+                        invalidated_partitions.insert(fragment.key());
                     }
                 }
                 WithdrawalEventPayload::Failed { reason } => {
@@ -213,7 +216,7 @@ where
                         )
                         .await?
                     {
-                        invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
+                        invalidated_partitions.insert(fragment.key());
                     }
                 }
             }
@@ -245,7 +248,7 @@ where
                         )
                         .await?
                     {
-                        invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
+                        invalidated_partitions.insert(fragment.key());
                     }
                 }
                 TransferEventPayload::Completed => {
@@ -259,7 +262,7 @@ where
                         )
                         .await?;
                     for fragment in fragments {
-                        invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
+                        invalidated_partitions.insert(fragment.key());
                     }
                 }
                 TransferEventPayload::Failed { reason } => {
@@ -268,7 +271,7 @@ where
                         .fail_transfer(uow, event_context, transfer_id, *reason)
                         .await?
                     {
-                        invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
+                        invalidated_partitions.insert(fragment.key());
                     }
                 }
             }

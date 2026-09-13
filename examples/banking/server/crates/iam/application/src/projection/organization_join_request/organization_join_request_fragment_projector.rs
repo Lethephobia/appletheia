@@ -1,7 +1,7 @@
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
 use appletheia::application::read_model::{
-    MaterializationEventContext, ReadModelFragmentPartition, ReadModelPartition,
+    MaterializationEventContext, ReadModelFragment, ReadModelInvalidatedPartitions,
 };
 use banking_iam_domain::{
     OrganizationJoinRequest, OrganizationJoinRequestEventPayload, OrganizationJoinRequestStatus,
@@ -49,8 +49,11 @@ where
         uow: &mut Self::Uow,
         event_context: MaterializationEventContext,
         event: &EventEnvelope,
-    ) -> Result<Vec<ReadModelFragmentPartition<Self::Fragment>>, Self::Error> {
-        let mut invalidated_partitions = Vec::new();
+    ) -> Result<
+        ReadModelInvalidatedPartitions<<Self::Fragment as ReadModelFragment>::Key>,
+        Self::Error,
+    > {
+        let mut invalidated_partitions = ReadModelInvalidatedPartitions::new();
         let join_request_event = event.try_into_domain_event::<OrganizationJoinRequest>()?;
         let join_request_id = join_request_event.aggregate_id();
 
@@ -73,7 +76,7 @@ where
                     )
                     .await?
                 {
-                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
+                    invalidated_partitions.insert(fragment.key());
                 }
             }
             OrganizationJoinRequestEventPayload::Approved { .. } => {
@@ -87,7 +90,7 @@ where
                     )
                     .await?
                 {
-                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
+                    invalidated_partitions.insert(fragment.key());
                 }
             }
             OrganizationJoinRequestEventPayload::Rejected { .. } => {
@@ -101,7 +104,7 @@ where
                     )
                     .await?
                 {
-                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
+                    invalidated_partitions.insert(fragment.key());
                 }
             }
             OrganizationJoinRequestEventPayload::Canceled { .. } => {
@@ -115,7 +118,7 @@ where
                     )
                     .await?
                 {
-                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
+                    invalidated_partitions.insert(fragment.key());
                 }
             }
         }

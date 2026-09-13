@@ -103,8 +103,7 @@ mod tests {
     use crate::aggregate::{AggregateIdValue, AggregateTypeOwned};
     use crate::event::{EventEnvelope, EventNameOwned, EventSequence, SerializedEventPayload};
     use crate::messaging::{ConsumerError, Delivery};
-    use crate::projection::ProjectorName;
-    use crate::read_model::{ReadModelDependency, SerializedPartition};
+    use crate::read_model::{ReadModelInvalidationId, SerializedPartition};
     use crate::request_context::{
         CausationId, CorrelationId, MessageId, Principal, RequestContext,
     };
@@ -169,15 +168,19 @@ mod tests {
             context: RequestContext::new(correlation_id, message_id, Principal::System)
                 .expect("request context should be valid"),
         };
-        let dependency = ReadModelDependency::Partition(
-            SerializedPartition::try_from(json!({ "fragment": "test", "key": 1 }))
-                .expect("partition should be valid"),
-        );
-        ReadModelInvalidationEnvelope::try_new(
-            &event,
-            ProjectorName::new("test_projector"),
-            [dependency],
-        )
+        let partition = SerializedPartition::try_from(json!({ "fragment_name": "test", "key": 1 }))
+            .expect("partition should be valid");
+        let source_event = event;
+        serde_json::from_value(json!({
+            "invalidation_id": ReadModelInvalidationId::new(),
+            "source_event_id": source_event.event_id,
+            "source_event_sequence": source_event.event_sequence,
+            "source_projector_name": "test_projector",
+            "occurred_at": source_event.occurred_at,
+            "correlation_id": source_event.correlation_id,
+            "causation_id": source_event.causation_id,
+            "invalidated_partitions": [partition],
+        }))
         .expect("invalidation should be valid")
     }
 

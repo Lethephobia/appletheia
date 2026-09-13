@@ -1,7 +1,7 @@
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
 use appletheia::application::read_model::{
-    MaterializationEventContext, ReadModelFragmentPartition, ReadModelPartition,
+    MaterializationEventContext, ReadModelFragment, ReadModelInvalidatedPartitions,
 };
 use banking_iam_domain::{User, UserEventPayload};
 
@@ -44,8 +44,11 @@ where
         uow: &mut Self::Uow,
         event_context: MaterializationEventContext,
         event: &EventEnvelope,
-    ) -> Result<Vec<ReadModelFragmentPartition<Self::Fragment>>, Self::Error> {
-        let mut invalidated_partitions = Vec::new();
+    ) -> Result<
+        ReadModelInvalidatedPartitions<<Self::Fragment as ReadModelFragment>::Key>,
+        Self::Error,
+    > {
+        let mut invalidated_partitions = ReadModelInvalidatedPartitions::new();
         let domain_event = event.try_into_domain_event::<User>()?;
         let user_id = domain_event.aggregate_id();
 
@@ -68,7 +71,7 @@ where
                     )
                     .await?
                 {
-                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
+                    invalidated_partitions.insert(fragment.key());
                 }
             }
             UserEventPayload::UsernameChanged { username } => {
@@ -77,7 +80,7 @@ where
                     .update_username(uow, event_context, user_id, username.clone())
                     .await?
                 {
-                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
+                    invalidated_partitions.insert(fragment.key());
                 }
             }
             UserEventPayload::DisplayNameChanged { display_name } => {
@@ -86,7 +89,7 @@ where
                     .update_display_name(uow, event_context, user_id, display_name.clone())
                     .await?
                 {
-                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
+                    invalidated_partitions.insert(fragment.key());
                 }
             }
             UserEventPayload::BioChanged { bio } => {
@@ -95,7 +98,7 @@ where
                     .update_bio(uow, event_context, user_id, bio.clone())
                     .await?
                 {
-                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
+                    invalidated_partitions.insert(fragment.key());
                 }
             }
             UserEventPayload::PictureChanged { picture, .. } => {
@@ -104,7 +107,7 @@ where
                     .update_picture(uow, event_context, user_id, picture.clone())
                     .await?
                 {
-                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
+                    invalidated_partitions.insert(fragment.key());
                 }
             }
             UserEventPayload::Activated => {
@@ -113,7 +116,7 @@ where
                     .update_status(uow, event_context, user_id, MaterializedUserStatus::Active)
                     .await?
                 {
-                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
+                    invalidated_partitions.insert(fragment.key());
                 }
             }
             UserEventPayload::Deactivated => {
@@ -127,7 +130,7 @@ where
                     )
                     .await?
                 {
-                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
+                    invalidated_partitions.insert(fragment.key());
                 }
             }
             UserEventPayload::Removed => {
@@ -136,7 +139,7 @@ where
                     .delete(uow, event_context, user_id)
                     .await?
                 {
-                    invalidated_partitions.push(ReadModelPartition::new(user_id));
+                    invalidated_partitions.insert(user_id);
                 }
             }
             UserEventPayload::IdentityLinked { .. }
@@ -157,7 +160,7 @@ mod tests {
     };
     use appletheia::application::projection::{Projector, ProjectorName};
     use appletheia::application::read_model::{
-        MaterializationEventContext, ReadModelDependency, ReadModelFragmentPartition,
+        MaterializationEventContext, ReadModelFragment, ReadModelInvalidatedPartitions,
         ReadModelInvalidationEnvelope, ReadModelObservation,
     };
     use appletheia::application::request_context::{
@@ -354,21 +357,12 @@ mod tests {
 
     fn invalidation_envelope(
         event: &EventEnvelope,
-        partitions: Vec<ReadModelFragmentPartition<UserFragment>>,
+        partitions: ReadModelInvalidatedPartitions<<UserFragment as ReadModelFragment>::Key>,
     ) -> ReadModelInvalidationEnvelope {
-        let dependencies = partitions
-            .into_iter()
-            .map(|partition| {
-                partition
-                    .try_into_serialized::<UserFragment>()
-                    .map(ReadModelDependency::Partition)
-            })
-            .collect::<Result<Vec<_>, _>>()
-            .expect("partitions should serialize");
-        ReadModelInvalidationEnvelope::try_new(
+        ReadModelInvalidationEnvelope::try_new::<UserFragment>(
             event,
             ProjectorName::new("user_fragment"),
-            dependencies,
+            partitions,
         )
         .expect("read-model invalidation should finalize")
     }
@@ -412,13 +406,20 @@ mod tests {
         assert_eq!(*deleted_user_ids.lock().expect("lock"), vec![user_id]);
 
         assert_eq!(invalidated_partitions.len(), 1);
-        assert_eq!(invalidated_partitions[0].key(), &user_id);
+        assert_eq!(
+            invalidated_partitions
+                .iter()
+                .next()
+                .expect("partition should exist")
+                .key(),
+            &user_id
+        );
         let recorded_envelope = invalidation_envelope(&event, invalidated_partitions);
         assert_eq!(
             recorded_envelope.source_event_sequence,
             event.event_sequence
         );
-        assert_eq!(recorded_envelope.invalidated_dependencies.len(), 1);
+        assert_eq!(recorded_envelope.invalidated_partitions.len(), 1);
     }
 
     #[tokio::test]
@@ -435,8 +436,15 @@ mod tests {
             .expect("activated event should be projected");
 
         assert_eq!(invalidated_partitions.len(), 1);
-        assert_eq!(invalidated_partitions[0].key(), &user_id);
+        assert_eq!(
+            invalidated_partitions
+                .iter()
+                .next()
+                .expect("partition should exist")
+                .key(),
+            &user_id
+        );
         let recorded_envelope = invalidation_envelope(&event, invalidated_partitions);
-        assert_eq!(recorded_envelope.invalidated_dependencies.len(), 1);
+        assert_eq!(recorded_envelope.invalidated_partitions.len(), 1);
     }
 }

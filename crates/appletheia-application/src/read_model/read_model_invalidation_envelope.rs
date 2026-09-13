@@ -5,11 +5,13 @@ use crate::event::{EventEnvelope, EventSequence};
 use crate::projection::{ProjectorName, ProjectorNameOwned};
 use crate::request_context::{CausationId, CorrelationId};
 
-use super::{ReadModelDependency, ReadModelInvalidationEnvelopeError, ReadModelInvalidationId};
+use super::{
+    ReadModelFragment, ReadModelInvalidatedPartitions, ReadModelInvalidationEnvelopeError,
+    ReadModelInvalidationId, SerializedPartition,
+};
 
-/// Carries dependency keys invalidated by one committed projection update.
+/// Carries partition keys invalidated by one committed projection update.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(try_from = "UncheckedReadModelInvalidationEnvelope")]
 pub struct ReadModelInvalidationEnvelope {
     pub invalidation_id: ReadModelInvalidationId,
     pub source_event_id: EventId,
@@ -18,37 +20,26 @@ pub struct ReadModelInvalidationEnvelope {
     pub occurred_at: EventOccurredAt,
     pub correlation_id: CorrelationId,
     pub causation_id: CausationId,
-    pub invalidated_dependencies: Vec<ReadModelDependency>,
-}
-
-#[derive(Deserialize)]
-struct UncheckedReadModelInvalidationEnvelope {
-    invalidation_id: ReadModelInvalidationId,
-    source_event_id: EventId,
-    source_event_sequence: EventSequence,
-    source_projector_name: ProjectorNameOwned,
-    occurred_at: EventOccurredAt,
-    correlation_id: CorrelationId,
-    causation_id: CausationId,
-    invalidated_dependencies: Vec<ReadModelDependency>,
+    pub invalidated_partitions: Vec<SerializedPartition>,
 }
 
 impl ReadModelInvalidationEnvelope {
-    /// Creates an invalidation and removes duplicate dependency keys.
-    pub fn try_new(
+    /// Serializes invalidated partitions and attaches the source event metadata.
+    pub fn try_new<F>(
         event: &EventEnvelope,
         projector_name: ProjectorName,
-        invalidated_dependencies: impl IntoIterator<Item = ReadModelDependency>,
-    ) -> Result<Self, ReadModelInvalidationEnvelopeError> {
-        let mut unique_dependencies = Vec::new();
-        for dependency in invalidated_dependencies {
-            if !unique_dependencies.contains(&dependency) {
-                unique_dependencies.push(dependency);
-            }
+        invalidated_partitions: ReadModelInvalidatedPartitions<F::Key>,
+    ) -> Result<Self, ReadModelInvalidationEnvelopeError>
+    where
+        F: ReadModelFragment,
+    {
+        if invalidated_partitions.is_empty() {
+            return Err(ReadModelInvalidationEnvelopeError::EmptyPartitions);
         }
-        if unique_dependencies.is_empty() {
-            return Err(ReadModelInvalidationEnvelopeError::EmptyDependencies);
-        }
+        let serialized_partitions = invalidated_partitions
+            .into_iter()
+            .map(|partition| partition.try_into_serialized::<F>())
+            .collect::<Result<Vec<_>, _>>()?;
 
         Ok(Self {
             invalidation_id: ReadModelInvalidationId::new(),
@@ -58,27 +49,7 @@ impl ReadModelInvalidationEnvelope {
             occurred_at: event.occurred_at,
             correlation_id: event.correlation_id,
             causation_id: event.causation_id,
-            invalidated_dependencies: unique_dependencies,
-        })
-    }
-}
-
-impl TryFrom<UncheckedReadModelInvalidationEnvelope> for ReadModelInvalidationEnvelope {
-    type Error = ReadModelInvalidationEnvelopeError;
-
-    fn try_from(value: UncheckedReadModelInvalidationEnvelope) -> Result<Self, Self::Error> {
-        if value.invalidated_dependencies.is_empty() {
-            return Err(ReadModelInvalidationEnvelopeError::EmptyDependencies);
-        }
-        Ok(Self {
-            invalidation_id: value.invalidation_id,
-            source_event_id: value.source_event_id,
-            source_event_sequence: value.source_event_sequence,
-            source_projector_name: value.source_projector_name,
-            occurred_at: value.occurred_at,
-            correlation_id: value.correlation_id,
-            causation_id: value.causation_id,
-            invalidated_dependencies: value.invalidated_dependencies,
+            invalidated_partitions: serialized_partitions,
         })
     }
 }
@@ -91,10 +62,29 @@ mod tests {
 
     use crate::aggregate::{AggregateIdValue, AggregateTypeOwned};
     use crate::event::{EventNameOwned, SerializedEventPayload};
-    use crate::read_model::SerializedPartition;
+    use crate::read_model::{
+        ReadModelFragmentName, ReadModelObservation, ReadModelObservationSource,
+    };
     use crate::request_context::{MessageId, Principal, RequestContext};
 
     use super::*;
+
+    struct TestFragment;
+
+    impl ReadModelObservationSource for TestFragment {
+        fn observations(&self) -> Vec<ReadModelObservation> {
+            Vec::new()
+        }
+    }
+
+    impl ReadModelFragment for TestFragment {
+        const NAME: ReadModelFragmentName = ReadModelFragmentName::new("test");
+        type Key = u64;
+
+        fn key(&self) -> Self::Key {
+            1
+        }
+    }
 
     fn event() -> EventEnvelope {
         let correlation_id = CorrelationId::from(Uuid::now_v7());
@@ -118,25 +108,44 @@ mod tests {
     }
 
     #[test]
-    fn serializes_only_dependency_keys_and_deduplicates_them() {
-        let dependency = ReadModelDependency::Partition(
-            SerializedPartition::try_from(json!({ "fragment": "user", "key": 1 }))
-                .expect("partition should be valid"),
-        );
-        let envelope = ReadModelInvalidationEnvelope::try_new(
+    fn rejects_empty_partitions_at_the_delivery_boundary() {
+        let result = ReadModelInvalidationEnvelope::try_new::<TestFragment>(
             &event(),
             ProjectorName::new("test_projector"),
-            [dependency.clone(), dependency],
+            ReadModelInvalidatedPartitions::new(),
+        );
+        assert!(matches!(
+            result,
+            Err(ReadModelInvalidationEnvelopeError::EmptyPartitions)
+        ));
+    }
+
+    #[test]
+    fn serializes_typed_partitions_with_fragment_identity() {
+        let mut partitions = ReadModelInvalidatedPartitions::new();
+        partitions.insert(1);
+        let envelope = ReadModelInvalidationEnvelope::try_new::<TestFragment>(
+            &event(),
+            ProjectorName::new("test_projector"),
+            partitions,
         )
         .expect("invalidation should be valid");
 
-        let value = serde_json::to_value(envelope).expect("invalidation should serialize");
+        let value = serde_json::to_value(&envelope).expect("invalidation should serialize");
 
         assert_eq!(
-            value["invalidated_dependencies"].as_array().map(Vec::len),
+            value["invalidated_partitions"].as_array().map(Vec::len),
             Some(1)
+        );
+        assert_eq!(
+            value["invalidated_partitions"][0],
+            json!({"fragment_name": "test", "key": 1})
         );
         assert!(value.get("fragment").is_none());
         assert!(value.get("changes").is_none());
+
+        let restored: ReadModelInvalidationEnvelope =
+            serde_json::from_value(value.clone()).expect("nonempty partitions should deserialize");
+        assert_eq!(restored, envelope);
     }
 }

@@ -1,7 +1,7 @@
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
 use appletheia::application::read_model::{
-    MaterializationEventContext, ReadModelFragmentPartition, ReadModelPartition,
+    MaterializationEventContext, ReadModelFragment, ReadModelInvalidatedPartitions,
 };
 use banking_iam_domain::{
     OrganizationMembership, OrganizationMembershipEventPayload, User, UserEventPayload,
@@ -49,8 +49,11 @@ where
         uow: &mut Self::Uow,
         event_context: MaterializationEventContext,
         event: &EventEnvelope,
-    ) -> Result<Vec<ReadModelFragmentPartition<Self::Fragment>>, Self::Error> {
-        let mut invalidated_partitions = Vec::new();
+    ) -> Result<
+        ReadModelInvalidatedPartitions<<Self::Fragment as ReadModelFragment>::Key>,
+        Self::Error,
+    > {
+        let mut invalidated_partitions = ReadModelInvalidatedPartitions::new();
 
         if event.is_for_aggregate::<OrganizationMembership>() {
             let membership_event = event.try_into_domain_event::<OrganizationMembership>()?;
@@ -76,7 +79,7 @@ where
                         )
                         .await?
                     {
-                        invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
+                        invalidated_partitions.insert(fragment.key());
                     }
                 }
                 OrganizationMembershipEventPayload::RolesChanged {
@@ -95,7 +98,7 @@ where
                         )
                         .await?
                     {
-                        invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
+                        invalidated_partitions.insert(fragment.key());
                     }
                 }
                 OrganizationMembershipEventPayload::Removed {
@@ -111,7 +114,7 @@ where
                             user_id: *user_id,
                             organization_id: *organization_id,
                         };
-                        invalidated_partitions.push(ReadModelPartition::new(key));
+                        invalidated_partitions.insert(key);
                     }
                 }
             }
@@ -129,7 +132,7 @@ where
                     .delete_for_user(uow, event_context, user_id)
                     .await?;
                 for key in removed_keys {
-                    invalidated_partitions.push(ReadModelPartition::new(key));
+                    invalidated_partitions.insert(key);
                 }
             }
             UserEventPayload::Registered { .. }

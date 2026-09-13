@@ -25,6 +25,7 @@ mod read_model_watch_refresh_value;
 mod read_model_watch_registry_error;
 mod read_model_watch_registry_state;
 mod read_model_watch_revision;
+mod read_model_watch_selector;
 mod read_model_watch_session_id;
 mod read_model_watch_subscription_executor;
 mod read_model_watch_subscription_id;
@@ -64,3 +65,5 @@ pub use read_model_watch_subscription_id::*;
 pub use read_model_watch_subscription_id_error::*;
 pub use serialized_read_model_list_chunk::*;
 pub use serialized_read_model_snapshot::*;
+
+pub use read_model_watch_selector::*;

@@ -4,7 +4,7 @@ use std::time::Instant;
 
 use tokio::sync::{Mutex, Semaphore};
 
-use crate::read_model::{ReadModelDependency, ReadModelInvalidationEnvelope};
+use crate::read_model::{ReadModelFragmentNameOwned, ReadModelInvalidationEnvelope};
 
 use super::read_model_watch_registry_state::{
     ReadModelWatchRegistryState, ReadModelWatchSubscriptionAddress, ReadModelWatchSubscriptionState,
@@ -14,8 +14,8 @@ use super::{
     ReadModelListChunkId, ReadModelWatchCloseReason, ReadModelWatchDelivery, ReadModelWatchEvent,
     ReadModelWatchFailure, ReadModelWatchLimits, ReadModelWatchRefreshError,
     ReadModelWatchRefreshRequest, ReadModelWatchRefreshValue, ReadModelWatchRegistryError,
-    ReadModelWatchRevision, ReadModelWatchSessionId, ReadModelWatchSubscriptionExecutor,
-    ReadModelWatchSubscriptionId,
+    ReadModelWatchRevision, ReadModelWatchSelector, ReadModelWatchSessionId,
+    ReadModelWatchSubscriptionExecutor, ReadModelWatchSubscriptionId,
 };
 
 /// Refreshes and delivers complete snapshots for process-local watch subscriptions.
@@ -102,7 +102,7 @@ where
     pub async fn subscribe_snapshot<E>(
         &self,
         session_id: ReadModelWatchSessionId,
-        prospective_dependencies: impl IntoIterator<Item = ReadModelDependency>,
+        prospective_dependencies: impl IntoIterator<Item = ReadModelWatchSelector>,
         executor: E,
     ) -> Result<ReadModelWatchSubscriptionId, ReadModelWatchRegistryError>
     where
@@ -121,7 +121,7 @@ where
     pub async fn subscribe_list<E>(
         &self,
         session_id: ReadModelWatchSessionId,
-        prospective_dependencies: impl IntoIterator<Item = ReadModelDependency>,
+        prospective_dependencies: impl IntoIterator<Item = ReadModelWatchSelector>,
         active_chunks: Vec<ReadModelListChunkDescriptor>,
         executor: E,
     ) -> Result<ReadModelWatchSubscriptionId, ReadModelWatchRegistryError>
@@ -143,7 +143,7 @@ where
     async fn subscribe<E>(
         &self,
         session_id: ReadModelWatchSessionId,
-        prospective_dependencies: impl IntoIterator<Item = ReadModelDependency>,
+        prospective_dependencies: impl IntoIterator<Item = ReadModelWatchSelector>,
         refresh_request: ReadModelWatchRefreshRequest,
         executor: E,
     ) -> Result<ReadModelWatchSubscriptionId, ReadModelWatchRegistryError>
@@ -260,9 +260,21 @@ where
         let addresses = {
             let state = self.state.lock().await;
             envelope
-                .invalidated_dependencies
+                .invalidated_partitions
                 .iter()
-                .filter_map(|dependency| state.subscriptions_by_dependency.get(dependency))
+                .flat_map(|partition| {
+                    let mut selectors = vec![ReadModelWatchSelector::Partition(partition.clone())];
+                    if let Some(name) = partition
+                        .value()
+                        .get("fragment_name")
+                        .and_then(serde_json::Value::as_str)
+                        && let Ok(fragment_name) = ReadModelFragmentNameOwned::try_from(name)
+                    {
+                        selectors.push(ReadModelWatchSelector::Fragment(fragment_name));
+                    }
+                    selectors
+                })
+                .filter_map(|selector| state.subscriptions_by_dependency.get(&selector))
                 .flatten()
                 .copied()
                 .collect::<HashSet<_>>()
@@ -650,9 +662,10 @@ mod tests {
 
     use crate::aggregate::{AggregateIdValue, AggregateTypeOwned};
     use crate::event::{EventEnvelope, EventNameOwned, EventSequence, SerializedEventPayload};
-    use crate::projection::ProjectorName;
     use crate::read_model::pagination::{CursorWindow, PageSize};
-    use crate::read_model::{ReadModelInvalidationEnvelope, SerializedPartition};
+    use crate::read_model::{
+        ReadModelInvalidationEnvelope, ReadModelInvalidationId, SerializedPartition,
+    };
     use crate::request_context::{
         CausationId, CorrelationId, MessageId, Principal, RequestContext,
     };
@@ -752,7 +765,7 @@ mod tests {
     #[derive(Clone)]
     struct DirtyExecutor {
         calls: Arc<AtomicUsize>,
-        dependency: ReadModelDependency,
+        dependency: ReadModelWatchSelector,
         refresh_started: Arc<Notify>,
         refresh_release: Arc<Semaphore>,
     }
@@ -784,7 +797,7 @@ mod tests {
 
     struct AuthorizationRevokedExecutor {
         calls: AtomicUsize,
-        dependency: ReadModelDependency,
+        dependency: ReadModelWatchSelector,
     }
 
     impl ReadModelWatchSubscriptionExecutor for AuthorizationRevokedExecutor {
@@ -857,14 +870,14 @@ mod tests {
         }
     }
 
-    fn dependency(value: &str) -> ReadModelDependency {
-        ReadModelDependency::Partition(
-            SerializedPartition::try_from(json!({ "fragment": "test", "key": value }))
+    fn dependency(value: &str) -> ReadModelWatchSelector {
+        ReadModelWatchSelector::Partition(
+            SerializedPartition::try_from(json!({ "fragment_name": "test", "key": value }))
                 .expect("partition should be valid"),
         )
     }
 
-    fn refresh(value: usize, dependencies: Vec<ReadModelDependency>) -> ReadModelWatchRefresh {
+    fn refresh(value: usize, dependencies: Vec<ReadModelWatchSelector>) -> ReadModelWatchRefresh {
         ReadModelWatchRefresh {
             value: ReadModelWatchRefreshValue::Snapshot(SerializedReadModelSnapshot::from(
                 json!({ "value": value }),
@@ -894,13 +907,61 @@ mod tests {
         }
     }
 
-    fn invalidation(dependency: ReadModelDependency) -> ReadModelInvalidationEnvelope {
-        ReadModelInvalidationEnvelope::try_new(
-            &event_envelope(),
-            ProjectorName::new("watch_test_projector"),
-            [dependency],
-        )
+    fn invalidation(dependency: ReadModelWatchSelector) -> ReadModelInvalidationEnvelope {
+        let ReadModelWatchSelector::Partition(partition) = dependency else {
+            panic!("expected a partition");
+        };
+        let source_event = event_envelope();
+        serde_json::from_value(json!({
+            "invalidation_id": ReadModelInvalidationId::new(),
+            "source_event_id": source_event.event_id,
+            "source_event_sequence": source_event.event_sequence,
+            "source_projector_name": "test_projector",
+            "occurred_at": source_event.occurred_at,
+            "correlation_id": source_event.correlation_id,
+            "causation_id": source_event.causation_id,
+            "invalidated_partitions": [partition],
+        }))
         .expect("invalidation should be valid")
+    }
+
+    #[tokio::test]
+    async fn fragment_subscription_refreshes_for_an_unmaterialized_partition() {
+        let delivery = TestDelivery::default();
+        let registry = DefaultReadModelWatchRegistry::try_new(
+            delivery.clone(),
+            ReadModelWatchLimits::default(),
+        )
+        .expect("limits should be valid");
+        let session_id = registry.open_session().await;
+        registry
+            .subscribe_snapshot(
+                session_id,
+                [ReadModelWatchSelector::Fragment(
+                    ReadModelFragmentNameOwned::try_from("test").expect("name should be valid"),
+                )],
+                TestExecutor::new([refresh(1, vec![]), refresh(2, vec![])]),
+            )
+            .await
+            .expect("subscription should open");
+
+        let other_partition = SerializedPartition::try_from(json!({
+            "fragment_name": "other", "key": "one"
+        }))
+        .expect("partition should be valid");
+        registry
+            .invalidate(&invalidation(ReadModelWatchSelector::Partition(
+                other_partition,
+            )))
+            .await
+            .expect("unrelated invalidation should succeed");
+        assert_eq!(delivery.events.lock().expect("events should lock").len(), 1);
+
+        registry
+            .invalidate(&invalidation(dependency("new")))
+            .await
+            .expect("new partition should refresh the subscription");
+        assert_eq!(delivery.events.lock().expect("events should lock").len(), 2);
     }
 
     #[tokio::test]

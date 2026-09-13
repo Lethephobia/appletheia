@@ -39,7 +39,7 @@ impl OutboxWriter for PgReadModelInvalidationOutboxWriter {
             r#"
             INSERT INTO read_model_invalidation_outbox (
                 id, source_projector_name, source_event_sequence, source_event_id,
-                occurred_at, correlation_id, causation_id, invalidated_dependencies,
+                occurred_at, correlation_id, causation_id, invalidated_partitions,
                 recorded_at, published_at,
                 attempt_count, next_attempt_after, lease_owner, lease_until, last_error,
                 dead_lettered_at
@@ -49,7 +49,7 @@ impl OutboxWriter for PgReadModelInvalidationOutboxWriter {
 
         let mut prepared_values = Vec::with_capacity(outboxes.len());
         for outbox in outboxes {
-            let dependencies = serde_json::to_value(&outbox.invalidation.invalidated_dependencies)
+            let partitions = serde_json::to_value(&outbox.invalidation.invalidated_partitions)
                 .map_err(|source| OutboxWriterError::Persistence(Box::new(source)))?;
             let last_error = outbox
                 .last_error
@@ -63,12 +63,12 @@ impl OutboxWriter for PgReadModelInvalidationOutboxWriter {
                     Some(DateTime::<Utc>::from(dead_lettered_at))
                 }
             };
-            prepared_values.push((outbox, dependencies, last_error, dead_lettered_at));
+            prepared_values.push((outbox, partitions, last_error, dead_lettered_at));
         }
 
         query_builder.push_values(
             prepared_values,
-            |mut separated, (outbox, dependencies, last_error, dead_lettered_at)| {
+            |mut separated, (outbox, partitions, last_error, dead_lettered_at)| {
                 let invalidation = &outbox.invalidation;
                 separated
                     .push_bind(invalidation.invalidation_id.value())
@@ -78,7 +78,7 @@ impl OutboxWriter for PgReadModelInvalidationOutboxWriter {
                     .push_bind(DateTime::<Utc>::from(invalidation.occurred_at))
                     .push_bind(invalidation.correlation_id.value())
                     .push_bind(invalidation.causation_id.value())
-                    .push_bind(dependencies)
+                    .push_bind(partitions)
                     .push("clock_timestamp()")
                     .push_bind(outbox.state.published_at().map(DateTime::<Utc>::from))
                     .push_bind(outbox.state.attempt_count().value())

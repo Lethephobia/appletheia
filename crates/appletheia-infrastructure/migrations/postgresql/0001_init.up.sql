@@ -364,7 +364,7 @@ CREATE TABLE IF NOT EXISTS read_model_invalidation_outbox (
   occurred_at              TIMESTAMPTZ NOT NULL,
   correlation_id           UUID        NOT NULL,
   causation_id             UUID        NOT NULL,
-  invalidated_dependencies JSONB       NOT NULL CHECK (jsonb_typeof(invalidated_dependencies) = 'array' AND jsonb_array_length(invalidated_dependencies) > 0),
+  invalidated_partitions   JSONB       NOT NULL CHECK (jsonb_typeof(invalidated_partitions) = 'array' AND jsonb_array_length(invalidated_partitions) > 0),
   recorded_at              TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
   published_at             TIMESTAMPTZ,
   attempt_count            BIGINT      NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
@@ -382,8 +382,8 @@ CREATE INDEX IF NOT EXISTS idx_read_model_invalidation_outbox_pending
 CREATE INDEX IF NOT EXISTS idx_read_model_invalidation_outbox_lease_visible
   ON read_model_invalidation_outbox (lease_until)
   WHERE published_at IS NULL AND dead_lettered_at IS NULL;
-CREATE INDEX IF NOT EXISTS idx_read_model_invalidation_outbox_dependencies
-  ON read_model_invalidation_outbox USING GIN (invalidated_dependencies);
+CREATE INDEX IF NOT EXISTS idx_read_model_invalidation_outbox_partitions
+  ON read_model_invalidation_outbox USING GIN (invalidated_partitions);
 CREATE INDEX IF NOT EXISTS idx_read_model_invalidation_outbox_dead_lettered_at
   ON read_model_invalidation_outbox (dead_lettered_at)
   WHERE dead_lettered_at IS NOT NULL;

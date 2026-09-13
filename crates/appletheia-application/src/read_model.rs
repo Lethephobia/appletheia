@@ -2,8 +2,8 @@ pub mod pagination;
 pub mod watch;
 
 mod materialization_event_context;
-mod read_model_dependency;
-mod read_model_dependency_topic;
+mod read_model_invalidated_partitions;
+
 mod read_model_fragment;
 mod read_model_fragment_name;
 mod read_model_fragment_name_owned;
@@ -22,8 +22,8 @@ mod serialized_partition;
 mod serialized_partition_error;
 
 pub use materialization_event_context::*;
-pub use read_model_dependency::*;
-pub use read_model_dependency_topic::*;
+pub use read_model_invalidated_partitions::*;
+
 pub use read_model_fragment::*;
 pub use read_model_fragment_name::*;
 pub use read_model_fragment_name_owned::*;

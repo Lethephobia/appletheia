@@ -1,9 +1,6 @@
 use crate::event::EventEnvelope;
 use crate::outbox::read_model_invalidation::ReadModelInvalidationOutboxEnqueuer;
-use crate::read_model::{
-    MaterializationEventContext, ReadModelDependency, ReadModelDependencyTopic,
-    ReadModelInvalidationEnvelope,
-};
+use crate::read_model::{MaterializationEventContext, ReadModelInvalidationEnvelope};
 use crate::unit_of_work::{UnitOfWork, UnitOfWorkFactory};
 
 use super::{
@@ -57,26 +54,14 @@ impl<P, E, U> DefaultProjectorRunner<P, E, U> {
             .await
             .map_err(|source| ProjectorRunnerError::Projection(Box::new(source)))?;
 
-        let mut invalidated_dependencies = invalidated_partitions
-            .into_iter()
-            .map(|partition| {
-                partition
-                    .try_into_serialized::<PJ::Fragment>()
-                    .map(ReadModelDependency::Partition)
-                    .map_err(|source| ProjectorRunnerError::Projection(Box::new(source)))
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-        if !invalidated_dependencies.is_empty() {
-            invalidated_dependencies.push(ReadModelDependency::Topic(
-                ReadModelDependencyTopic::all::<PJ::Fragment>(),
-            ));
-            let invalidation = ReadModelInvalidationEnvelope::try_new(
+        if !invalidated_partitions.is_empty() {
+            let invalidation = ReadModelInvalidationEnvelope::try_new::<PJ::Fragment>(
                 event,
                 descriptor.name,
-                invalidated_dependencies,
+                invalidated_partitions,
             )?;
             self.invalidation_outbox_enqueuer
-                .enqueue_invalidations(uow, std::slice::from_ref(&invalidation))
+                .enqueue_invalidation(uow, &invalidation)
                 .await?;
         }
 

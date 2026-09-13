@@ -1,7 +1,7 @@
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
 use appletheia::application::read_model::{
-    MaterializationEventContext, ReadModelFragmentPartition, ReadModelPartition,
+    MaterializationEventContext, ReadModelFragment, ReadModelInvalidatedPartitions,
 };
 use banking_ledger_domain::currency::{Currency, CurrencyEventPayload, CurrencyStatus};
 use banking_ledger_domain::token_binding::{TokenBinding, TokenBindingEventPayload};
@@ -41,7 +41,10 @@ where
         uow: &mut Self::Uow,
         event_context: MaterializationEventContext,
         event: &EventEnvelope,
-    ) -> Result<Vec<ReadModelFragmentPartition<Self::Fragment>>, Self::Error> {
+    ) -> Result<
+        ReadModelInvalidatedPartitions<<Self::Fragment as ReadModelFragment>::Key>,
+        Self::Error,
+    > {
         let fragment = if event.is_for_aggregate::<Currency>() {
             let event = event.try_into_domain_event::<Currency>()?;
             let currency_id = event.aggregate_id();
@@ -153,8 +156,10 @@ where
             None
         };
 
-        Ok(fragment
-            .map(|fragment| vec![ReadModelPartition::from_fragment(&fragment)])
-            .unwrap_or_default())
+        let mut invalidated_partitions = ReadModelInvalidatedPartitions::new();
+        if let Some(fragment) = fragment {
+            invalidated_partitions.insert(fragment.key());
+        }
+        Ok(invalidated_partitions)
     }
 }

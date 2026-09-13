@@ -1,7 +1,7 @@
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
 use appletheia::application::read_model::{
-    MaterializationEventContext, ReadModelFragmentPartition, ReadModelPartition,
+    MaterializationEventContext, ReadModelFragment, ReadModelInvalidatedPartitions,
 };
 use banking_ledger_domain::account::{Account, AccountEventPayload};
 use banking_ledger_domain::core::CurrencyAmount;
@@ -44,8 +44,11 @@ where
         uow: &mut Self::Uow,
         event_context: MaterializationEventContext,
         event: &EventEnvelope,
-    ) -> Result<Vec<ReadModelFragmentPartition<Self::Fragment>>, Self::Error> {
-        let mut invalidated_partitions = Vec::new();
+    ) -> Result<
+        ReadModelInvalidatedPartitions<<Self::Fragment as ReadModelFragment>::Key>,
+        Self::Error,
+    > {
+        let mut invalidated_partitions = ReadModelInvalidatedPartitions::new();
         if event.is_for_aggregate::<Account>() {
             let domain_event = event.try_into_domain_event::<Account>()?;
             let account_id = domain_event.aggregate_id();
@@ -75,7 +78,7 @@ where
                         )
                         .await?
                     {
-                        invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
+                        invalidated_partitions.insert(fragment.key());
                     }
                 }
                 AccountEventPayload::OwnershipTransferred { owner } => {
@@ -84,7 +87,7 @@ where
                         .update_account_owner(uow, event_context, account_id, *owner)
                         .await?
                     {
-                        invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
+                        invalidated_partitions.insert(fragment.key());
                     }
                 }
                 AccountEventPayload::NameChanged { name } => {
@@ -93,7 +96,7 @@ where
                         .update_account_name(uow, event_context, account_id, name.clone())
                         .await?
                     {
-                        invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
+                        invalidated_partitions.insert(fragment.key());
                     }
                 }
                 AccountEventPayload::DescriptionChanged { description } => {
@@ -107,7 +110,7 @@ where
                         )
                         .await?
                     {
-                        invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
+                        invalidated_partitions.insert(fragment.key());
                     }
                 }
                 AccountEventPayload::Deposited { amount } => {
@@ -116,7 +119,7 @@ where
                         .increase_balance(uow, event_context, account_id, *amount)
                         .await?
                     {
-                        invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
+                        invalidated_partitions.insert(fragment.key());
                     }
                 }
                 AccountEventPayload::Withdrawn { amount } => {
@@ -125,7 +128,7 @@ where
                         .decrease_balance(uow, event_context, account_id, *amount)
                         .await?
                     {
-                        invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
+                        invalidated_partitions.insert(fragment.key());
                     }
                 }
                 AccountEventPayload::FundsReserved { amount } => {
@@ -134,7 +137,7 @@ where
                         .reserve_balance(uow, event_context, account_id, *amount)
                         .await?
                     {
-                        invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
+                        invalidated_partitions.insert(fragment.key());
                     }
                 }
                 AccountEventPayload::ReservedFundsReleased { amount } => {
@@ -143,7 +146,7 @@ where
                         .release_reserved_balance(uow, event_context, account_id, *amount)
                         .await?
                     {
-                        invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
+                        invalidated_partitions.insert(fragment.key());
                     }
                 }
                 AccountEventPayload::ReservedFundsCommitted { amount } => {
@@ -152,7 +155,7 @@ where
                         .commit_reserved_balance(uow, event_context, account_id, *amount)
                         .await?
                     {
-                        invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
+                        invalidated_partitions.insert(fragment.key());
                     }
                 }
                 AccountEventPayload::Frozen => {
@@ -166,7 +169,7 @@ where
                         )
                         .await?
                     {
-                        invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
+                        invalidated_partitions.insert(fragment.key());
                     }
                 }
                 AccountEventPayload::Thawed => {
@@ -180,7 +183,7 @@ where
                         )
                         .await?
                     {
-                        invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
+                        invalidated_partitions.insert(fragment.key());
                     }
                 }
                 AccountEventPayload::Closed => {
@@ -189,7 +192,7 @@ where
                         .delete_account(uow, event_context, account_id)
                         .await?
                     {
-                        invalidated_partitions.push(ReadModelPartition::new(account_id));
+                        invalidated_partitions.insert(account_id);
                     }
                 }
             }

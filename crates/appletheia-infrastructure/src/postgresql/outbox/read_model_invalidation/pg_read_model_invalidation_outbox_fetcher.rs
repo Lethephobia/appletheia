@@ -64,40 +64,40 @@ impl OutboxFetcher for PgReadModelInvalidationOutboxFetcher {
             uow,
             r#"
             SELECT
-                current_change.id,
-                current_change.source_projector_name,
-                current_change.source_event_sequence,
-                current_change.source_event_id,
-                current_change.occurred_at,
-                current_change.correlation_id,
-                current_change.causation_id,
-                current_change.invalidated_dependencies,
-                current_change.recorded_at,
-                current_change.published_at,
-                current_change.attempt_count,
-                current_change.next_attempt_after,
-                current_change.lease_owner,
-                current_change.lease_until,
-                current_change.last_error,
-                current_change.dead_lettered_at
-            FROM read_model_invalidation_outbox AS current_change
-            WHERE current_change.published_at IS NULL
-              AND current_change.dead_lettered_at IS NULL
-              AND current_change.next_attempt_after <= $1
-              AND (current_change.lease_owner IS NULL OR current_change.lease_until <= $1)
+                current_invalidation.id,
+                current_invalidation.source_projector_name,
+                current_invalidation.source_event_sequence,
+                current_invalidation.source_event_id,
+                current_invalidation.occurred_at,
+                current_invalidation.correlation_id,
+                current_invalidation.causation_id,
+                current_invalidation.invalidated_partitions,
+                current_invalidation.recorded_at,
+                current_invalidation.published_at,
+                current_invalidation.attempt_count,
+                current_invalidation.next_attempt_after,
+                current_invalidation.lease_owner,
+                current_invalidation.lease_until,
+                current_invalidation.last_error,
+                current_invalidation.dead_lettered_at
+            FROM read_model_invalidation_outbox AS current_invalidation
+            WHERE current_invalidation.published_at IS NULL
+              AND current_invalidation.dead_lettered_at IS NULL
+              AND current_invalidation.next_attempt_after <= $1
+              AND (current_invalidation.lease_owner IS NULL OR current_invalidation.lease_until <= $1)
               AND NOT EXISTS (
                 SELECT 1
                 FROM read_model_invalidation_outbox earlier_change
                 WHERE earlier_change.published_at IS NULL
-                  AND earlier_change.source_projector_name = current_change.source_projector_name
-                  AND earlier_change.source_event_sequence < current_change.source_event_sequence
+                  AND earlier_change.source_projector_name = current_invalidation.source_projector_name
+                  AND earlier_change.source_event_sequence < current_invalidation.source_event_sequence
               )
             ORDER BY
-                current_change.next_attempt_after ASC,
-                current_change.source_event_sequence ASC,
-                current_change.id ASC
+                current_invalidation.next_attempt_after ASC,
+                current_invalidation.source_event_sequence ASC,
+                current_invalidation.id ASC
             LIMIT $2
-            FOR UPDATE OF current_change SKIP LOCKED
+            FOR UPDATE OF current_invalidation SKIP LOCKED
             "#,
             true,
             limit,
@@ -115,7 +115,7 @@ impl OutboxFetcher for PgReadModelInvalidationOutboxFetcher {
             r#"
             SELECT
                 id, source_projector_name, source_event_sequence, source_event_id,
-                occurred_at, correlation_id, causation_id, invalidated_dependencies,
+                occurred_at, correlation_id, causation_id, invalidated_partitions,
                 recorded_at, published_at,
                 attempt_count, next_attempt_after, lease_owner, lease_until, last_error,
                 dead_lettered_at

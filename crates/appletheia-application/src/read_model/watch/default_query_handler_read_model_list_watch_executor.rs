@@ -1,12 +1,13 @@
 use crate::query::{QueryDispatcher, QueryHandler, QueryOptions, WatchableQueryHandler};
-use crate::read_model::{ReadModel, ReadModelDependency};
+use crate::read_model::ReadModel;
 use crate::request_context::RequestContext;
 
 use super::default_query_handler_read_model_watch_executor::map_dispatch_error;
 use super::{
     ReadModelListChunkDescriptor, ReadModelWatchFailure, ReadModelWatchRefresh,
     ReadModelWatchRefreshError, ReadModelWatchRefreshFuture, ReadModelWatchRefreshRequest,
-    ReadModelWatchRefreshValue, ReadModelWatchSubscriptionExecutor, SerializedReadModelListChunk,
+    ReadModelWatchRefreshValue, ReadModelWatchSelector, ReadModelWatchSubscriptionExecutor,
+    SerializedReadModelListChunk,
 };
 
 /// Reruns one contiguous active list window and splits the result into client chunks.
@@ -53,7 +54,7 @@ where
     H: WatchableQueryHandler,
 {
     /// Resolves dependencies that can add values to the active list window.
-    pub fn prospective_dependencies(&self) -> Result<Vec<ReadModelDependency>, H::Error> {
+    pub fn prospective_dependencies(&self) -> Result<Vec<ReadModelWatchSelector>, H::Error> {
         self.handler.watch_dependencies(&self.base_query)
     }
 }
@@ -110,7 +111,7 @@ where
                 value: ReadModelWatchRefreshValue::List(chunks),
                 materialized_dependencies: partitions
                     .into_iter()
-                    .map(ReadModelDependency::Partition)
+                    .map(ReadModelWatchSelector::Partition)
                     .collect(),
             })
         })

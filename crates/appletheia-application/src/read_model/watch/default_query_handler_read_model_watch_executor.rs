@@ -2,13 +2,14 @@ use crate::authorization::AuthorizerError;
 use crate::query::{
     QueryDispatcher, QueryDispatcherError, QueryHandler, QueryOptions, WatchableQueryHandler,
 };
-use crate::read_model::{ReadModel, ReadModelDependency};
+use crate::read_model::ReadModel;
 use crate::request_context::RequestContext;
 
 use super::{
     ReadModelWatchCloseReason, ReadModelWatchFailure, ReadModelWatchRefresh,
     ReadModelWatchRefreshError, ReadModelWatchRefreshFuture, ReadModelWatchRefreshRequest,
-    ReadModelWatchRefreshValue, ReadModelWatchSubscriptionExecutor, SerializedReadModelSnapshot,
+    ReadModelWatchRefreshValue, ReadModelWatchSelector, ReadModelWatchSubscriptionExecutor,
+    SerializedReadModelSnapshot,
 };
 
 /// Retains a query and reruns its handler through the ordinary query-dispatch path.
@@ -49,7 +50,7 @@ where
     H: WatchableQueryHandler,
 {
     /// Resolves dependencies that can materialize even when absent from the current snapshot.
-    pub fn prospective_dependencies(&self) -> Result<Vec<ReadModelDependency>, H::Error> {
+    pub fn prospective_dependencies(&self) -> Result<Vec<ReadModelWatchSelector>, H::Error> {
         self.handler.watch_dependencies(&self.query)
     }
 }
@@ -98,7 +99,7 @@ where
                 )),
                 materialized_dependencies: partitions
                     .into_iter()
-                    .map(ReadModelDependency::Partition)
+                    .map(ReadModelWatchSelector::Partition)
                     .collect(),
             })
         })

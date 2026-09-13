@@ -13,7 +13,7 @@ use appletheia_application::outbox::{
 };
 use appletheia_application::projection::ProjectorNameOwned;
 use appletheia_application::read_model::{
-    ReadModelDependency, ReadModelInvalidationEnvelope, ReadModelInvalidationId,
+    ReadModelInvalidationEnvelope, ReadModelInvalidationId, SerializedPartition,
 };
 use appletheia_application::request_context::{CausationId, CorrelationId, MessageId};
 use appletheia_domain::{EventId, EventOccurredAt};
@@ -30,7 +30,7 @@ pub struct PgReadModelInvalidationOutboxRow {
     pub occurred_at: DateTime<Utc>,
     pub correlation_id: Uuid,
     pub causation_id: Uuid,
-    pub invalidated_dependencies: serde_json::Value,
+    pub invalidated_partitions: serde_json::Value,
     pub recorded_at: DateTime<Utc>,
     pub published_at: Option<DateTime<Utc>>,
     pub attempt_count: i64,
@@ -53,8 +53,8 @@ impl PgReadModelInvalidationOutboxRow {
         let occurred_at = EventOccurredAt::from(self.occurred_at);
         let correlation_id = CorrelationId::from(self.correlation_id);
         let causation_id = CausationId::from(MessageId::from(self.causation_id));
-        let invalidated_dependencies =
-            serde_json::from_value::<Vec<ReadModelDependency>>(self.invalidated_dependencies)?;
+        let invalidated_partitions =
+            serde_json::from_value::<Vec<SerializedPartition>>(self.invalidated_partitions)?;
 
         let invalidation =
             serde_json::from_value::<ReadModelInvalidationEnvelope>(serde_json::json!({
@@ -65,7 +65,7 @@ impl PgReadModelInvalidationOutboxRow {
                 "occurred_at": occurred_at,
                 "correlation_id": correlation_id,
                 "causation_id": causation_id,
-                "invalidated_dependencies": invalidated_dependencies,
+                "invalidated_partitions": invalidated_partitions,
             }))?;
 
         let attempt_count = OutboxAttemptCount::try_from(self.attempt_count)?;

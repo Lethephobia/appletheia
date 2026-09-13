@@ -19,7 +19,7 @@ pub use wallet_bookmark_list::{
 };
 
 use appletheia::application::query::{QueryHandler, WatchableQueryHandler};
-use appletheia::application::read_model::{ReadModelDependency, ReadModelDependencyTopic};
+use appletheia::application::read_model::watch::ReadModelWatchSelector;
 use banking_iam_application::{OrganizationFragment, UserFragment};
 
 use crate::projection::{
@@ -40,9 +40,9 @@ macro_rules! impl_watchable_query_handler {
             fn watch_dependencies(
                 &self,
                 _query: &Self::Query,
-            ) -> Result<Vec<ReadModelDependency>, Self::Error> {
+            ) -> Result<Vec<ReadModelWatchSelector>, Self::Error> {
                 Ok(vec![$(
-                    ReadModelDependency::Topic(ReadModelDependencyTopic::all::<$fragment>()),
+                    ReadModelWatchSelector::fragment::<$fragment>(),
                 )+])
             }
         }

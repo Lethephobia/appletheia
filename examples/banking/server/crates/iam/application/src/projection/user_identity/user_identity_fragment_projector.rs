@@ -1,7 +1,7 @@
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
 use appletheia::application::read_model::{
-    MaterializationEventContext, ReadModelFragmentPartition, ReadModelPartition,
+    MaterializationEventContext, ReadModelFragment, ReadModelInvalidatedPartitions,
 };
 use banking_iam_domain::{User, UserEventPayload};
 
@@ -44,8 +44,11 @@ where
         uow: &mut Self::Uow,
         event_context: MaterializationEventContext,
         event: &EventEnvelope,
-    ) -> Result<Vec<ReadModelFragmentPartition<Self::Fragment>>, Self::Error> {
-        let mut invalidated_partitions = Vec::new();
+    ) -> Result<
+        ReadModelInvalidatedPartitions<<Self::Fragment as ReadModelFragment>::Key>,
+        Self::Error,
+    > {
+        let mut invalidated_partitions = ReadModelInvalidatedPartitions::new();
         let user_event = event.try_into_domain_event::<User>()?;
         let user_id = user_event.aggregate_id();
 
@@ -69,7 +72,7 @@ where
                     )
                     .await?
                 {
-                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
+                    invalidated_partitions.insert(fragment.key());
                 }
             }
             UserEventPayload::IdentityEmailChanged {
@@ -89,7 +92,7 @@ where
                     )
                     .await?
                 {
-                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
+                    invalidated_partitions.insert(fragment.key());
                 }
             }
             UserEventPayload::Removed => {
@@ -98,7 +101,7 @@ where
                     .delete_for_user(uow, event_context, user_id)
                     .await?;
                 for key in removed_keys {
-                    invalidated_partitions.push(ReadModelPartition::new(key));
+                    invalidated_partitions.insert(key);
                 }
             }
             UserEventPayload::Registered {

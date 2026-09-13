@@ -2,11 +2,10 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::Instant;
 
-use crate::read_model::ReadModelDependency;
-
 use super::{
     ReadModelWatchRefreshRequest, ReadModelWatchRefreshValue, ReadModelWatchRevision,
-    ReadModelWatchSessionId, ReadModelWatchSubscriptionExecutor, ReadModelWatchSubscriptionId,
+    ReadModelWatchSelector, ReadModelWatchSessionId, ReadModelWatchSubscriptionExecutor,
+    ReadModelWatchSubscriptionId,
 };
 
 pub(super) type ReadModelWatchSubscriptionAddress =
@@ -17,7 +16,7 @@ pub(super) struct ReadModelWatchRegistryState {
     pub(super) subscriptions:
         HashMap<ReadModelWatchSubscriptionAddress, ReadModelWatchSubscriptionState>,
     pub(super) subscriptions_by_dependency:
-        HashMap<ReadModelDependency, HashSet<ReadModelWatchSubscriptionAddress>>,
+        HashMap<ReadModelWatchSelector, HashSet<ReadModelWatchSubscriptionAddress>>,
 }
 
 impl ReadModelWatchRegistryState {
@@ -32,7 +31,7 @@ impl ReadModelWatchRegistryState {
     pub(super) fn index(
         &mut self,
         address: ReadModelWatchSubscriptionAddress,
-        dependencies: impl IntoIterator<Item = ReadModelDependency>,
+        dependencies: impl IntoIterator<Item = ReadModelWatchSelector>,
     ) {
         for dependency in dependencies {
             self.subscriptions_by_dependency
@@ -45,7 +44,7 @@ impl ReadModelWatchRegistryState {
     pub(super) fn unindex(
         &mut self,
         address: &ReadModelWatchSubscriptionAddress,
-        dependencies: impl IntoIterator<Item = ReadModelDependency>,
+        dependencies: impl IntoIterator<Item = ReadModelWatchSelector>,
     ) {
         for dependency in dependencies {
             let remove_dependency = self
@@ -66,8 +65,8 @@ impl ReadModelWatchRegistryState {
 pub(super) struct ReadModelWatchSubscriptionState {
     pub(super) executor: Arc<dyn ReadModelWatchSubscriptionExecutor>,
     pub(super) refresh_request: ReadModelWatchRefreshRequest,
-    pub(super) prospective_dependencies: HashSet<ReadModelDependency>,
-    pub(super) materialized_dependencies: HashSet<ReadModelDependency>,
+    pub(super) prospective_dependencies: HashSet<ReadModelWatchSelector>,
+    pub(super) materialized_dependencies: HashSet<ReadModelWatchSelector>,
     pub(super) revision: ReadModelWatchRevision,
     pub(super) last_value: Option<ReadModelWatchRefreshValue>,
     pub(super) refreshing: bool,

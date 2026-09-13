@@ -1,7 +1,7 @@
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
 use appletheia::application::read_model::{
-    MaterializationEventContext, ReadModelFragmentPartition, ReadModelPartition,
+    MaterializationEventContext, ReadModelFragment, ReadModelInvalidatedPartitions,
 };
 use banking_ledger_domain::wallet_bookmark::{WalletBookmark, WalletBookmarkEventPayload};
 
@@ -43,8 +43,11 @@ where
         uow: &mut Self::Uow,
         event_context: MaterializationEventContext,
         event: &EventEnvelope,
-    ) -> Result<Vec<ReadModelFragmentPartition<Self::Fragment>>, Self::Error> {
-        let mut invalidated_partitions = Vec::new();
+    ) -> Result<
+        ReadModelInvalidatedPartitions<<Self::Fragment as ReadModelFragment>::Key>,
+        Self::Error,
+    > {
+        let mut invalidated_partitions = ReadModelInvalidatedPartitions::new();
         let domain_event = event.try_into_domain_event::<WalletBookmark>()?;
         let wallet_bookmark_id = domain_event.aggregate_id();
 
@@ -71,7 +74,7 @@ where
                     )
                     .await?
                 {
-                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
+                    invalidated_partitions.insert(fragment.key());
                 }
             }
             WalletBookmarkEventPayload::DisplayNameChanged { display_name } => {
@@ -85,7 +88,7 @@ where
                     )
                     .await?
                 {
-                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
+                    invalidated_partitions.insert(fragment.key());
                 }
             }
             WalletBookmarkEventPayload::DescriptionChanged { description } => {
@@ -94,7 +97,7 @@ where
                     .update_description(uow, event_context, wallet_bookmark_id, description.clone())
                     .await?
                 {
-                    invalidated_partitions.push(ReadModelPartition::from_fragment(&fragment));
+                    invalidated_partitions.insert(fragment.key());
                 }
             }
             WalletBookmarkEventPayload::Removed => {
@@ -103,7 +106,7 @@ where
                     .delete_wallet_bookmark(uow, event_context, wallet_bookmark_id)
                     .await?
                 {
-                    invalidated_partitions.push(ReadModelPartition::new(wallet_bookmark_id));
+                    invalidated_partitions.insert(wallet_bookmark_id);
                 }
             }
         }
