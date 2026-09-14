@@ -2,9 +2,8 @@ use std::collections::HashMap;
 
 use appletheia_application::command::CommandEnvelope;
 use appletheia_application::messaging::{
-    PublishDispatchError, PublishResult, Publisher, PublisherError,
+    PublishDispatchError, PublishResult, PublishableMessage, Publisher, PublisherError,
 };
-use appletheia_application::outbox::OrderingKey;
 use google_cloud_gax::error::rpc::Code;
 use google_cloud_pubsub::client::Publisher as GooglePublisher;
 use google_cloud_pubsub::error::PublishError;
@@ -34,7 +33,7 @@ impl PubsubCommandPublisher {
         let data = serde_json::to_vec(command)
             .map_err(|source| PublisherError::Publish(Box::new(source)))?;
 
-        let ordering_key = OrderingKey::from(command.correlation_id).to_string();
+        let ordering_key = command.ordering_key().to_string();
 
         Ok(Message::new()
             .set_data(data)

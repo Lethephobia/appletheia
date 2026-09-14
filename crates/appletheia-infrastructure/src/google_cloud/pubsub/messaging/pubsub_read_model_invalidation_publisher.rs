@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::num::NonZeroU32;
 
 use appletheia_application::messaging::{
-    PublishDispatchError, PublishResult, Publisher, PublisherError,
+    PublishDispatchError, PublishResult, PublishableMessage, Publisher, PublisherError,
 };
 use appletheia_application::read_model::ReadModelInvalidationEnvelope;
 use appletheia_application::read_model::watch::ReadModelInvalidationShard;
@@ -55,7 +55,7 @@ impl PubsubReadModelInvalidationPublisher {
         Ok(Message::new()
             .set_data(data)
             .set_attributes(attributes)
-            .set_ordering_key(shard.ordering_key()))
+            .set_ordering_key(invalidation.ordering_key().to_string()))
     }
 
     fn dispatch_error(error: PublishError) -> PublishDispatchError {

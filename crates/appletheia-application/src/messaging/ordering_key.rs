@@ -1,12 +1,14 @@
 use std::{fmt, fmt::Display, str::FromStr};
 
 use serde::{Deserialize, Serialize};
-use thiserror::Error;
 
 use crate::aggregate::{AggregateIdValue, AggregateTypeOwned};
 use crate::json::CanonicalJson;
+use crate::projection::ProjectorNameOwned;
 use crate::read_model::SerializedPartition;
 use crate::request_context::CorrelationId;
+
+use super::OrderingKeyError;
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize)]
 pub struct OrderingKey(String);
@@ -58,6 +60,12 @@ impl From<(&AggregateTypeOwned, &AggregateIdValue)> for OrderingKey {
     }
 }
 
+impl From<&ProjectorNameOwned> for OrderingKey {
+    fn from(projector_name: &ProjectorNameOwned) -> Self {
+        Self(projector_name.value().to_owned())
+    }
+}
+
 impl From<CorrelationId> for OrderingKey {
     fn from(value: CorrelationId) -> Self {
         Self(value.to_string())
@@ -74,12 +82,6 @@ impl From<&SerializedPartition> for OrderingKey {
     fn from(partition: &SerializedPartition) -> Self {
         Self::from(partition.canonical_json())
     }
-}
-
-#[derive(Debug, Error)]
-pub enum OrderingKeyError {
-    #[error("ordering key cannot be empty")]
-    Empty,
 }
 
 #[cfg(test)]

@@ -4,7 +4,6 @@ pub mod event;
 pub mod read_model_invalidation;
 
 mod default_outbox_relay;
-mod ordering_key;
 mod outbox_attempt_count;
 mod outbox_attempt_count_error;
 mod outbox_batch_size;
@@ -41,7 +40,6 @@ mod outbox_writer_error;
 mod processed_outbox_count;
 
 pub use default_outbox_relay::*;
-pub use ordering_key::*;
 pub use outbox_attempt_count::*;
 pub use outbox_attempt_count_error::*;
 pub use outbox_batch_size::*;
@@ -77,15 +75,13 @@ pub use outbox_writer::*;
 pub use outbox_writer_error::*;
 pub use processed_outbox_count::*;
 
-use crate::messaging::PublishDispatchError;
+use crate::messaging::{PublishDispatchError, PublishableMessage};
 
 pub trait Outbox {
     type Id: Copy + Eq + 'static;
-    type Message;
+    type Message: PublishableMessage;
 
     fn id(&self) -> Self::Id;
-
-    fn ordering_key(&self) -> OrderingKey;
 
     fn message(&self) -> &Self::Message;
 

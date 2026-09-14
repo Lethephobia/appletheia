@@ -1,6 +1,6 @@
 use crate::command::CommandEnvelope;
 use crate::messaging::PublishDispatchError;
-use crate::outbox::{OrderingKey, Outbox, OutboxLifecycle, OutboxState};
+use crate::outbox::{Outbox, OutboxLifecycle, OutboxState};
 
 use super::CommandOutboxId;
 
@@ -20,10 +20,6 @@ impl Outbox for CommandOutbox {
 
     fn id(&self) -> Self::Id {
         self.id
-    }
-
-    fn ordering_key(&self) -> OrderingKey {
-        OrderingKey::from(self.command.correlation_id)
     }
 
     fn message(&self) -> &Self::Message {

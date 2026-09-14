@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 
+use crate::messaging::{OrderingKey, PublishableMessage};
 use crate::request_context::{CausationId, CorrelationId, MessageId};
 use crate::saga::SagaCommandOrigin;
 
@@ -54,5 +55,11 @@ impl CommandEnvelope {
 
         let json = self.command.value().clone();
         Ok(serde_json::from_value(json)?)
+    }
+}
+
+impl PublishableMessage for CommandEnvelope {
+    fn ordering_key(&self) -> OrderingKey {
+        OrderingKey::from(self.correlation_id)
     }
 }

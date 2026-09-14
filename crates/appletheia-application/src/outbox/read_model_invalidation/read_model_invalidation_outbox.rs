@@ -1,7 +1,7 @@
 use crate::messaging::PublishDispatchError;
 use crate::read_model::ReadModelInvalidationEnvelope;
 
-use super::super::{OrderingKey, Outbox, OutboxLifecycle, OutboxState};
+use super::super::{Outbox, OutboxLifecycle, OutboxState};
 use super::ReadModelInvalidationOutboxId;
 
 /// Adapts a durable read-model invalidation to the generic outbox relay.
@@ -20,10 +20,6 @@ impl Outbox for ReadModelInvalidationOutbox {
 
     fn id(&self) -> Self::Id {
         self.id
-    }
-
-    fn ordering_key(&self) -> OrderingKey {
-        OrderingKey::from(self.invalidation.correlation_id)
     }
 
     fn message(&self) -> &Self::Message {

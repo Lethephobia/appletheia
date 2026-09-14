@@ -2,6 +2,7 @@ use appletheia_domain::{EventId, EventOccurredAt};
 use serde::{Deserialize, Serialize};
 
 use crate::event::{EventEnvelope, EventSequence};
+use crate::messaging::{OrderingKey, PublishableMessage};
 use crate::projection::{ProjectorName, ProjectorNameOwned};
 use crate::request_context::{CausationId, CorrelationId};
 
@@ -49,6 +50,12 @@ impl ReadModelInvalidationEnvelope {
             causation_id: event.causation_id,
             invalidated_partitions: serialized_partitions,
         })
+    }
+}
+
+impl PublishableMessage for ReadModelInvalidationEnvelope {
+    fn ordering_key(&self) -> OrderingKey {
+        OrderingKey::from(&self.source_projector_name)
     }
 }
 

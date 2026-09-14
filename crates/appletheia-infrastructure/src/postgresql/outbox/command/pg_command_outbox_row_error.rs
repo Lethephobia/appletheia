@@ -1,9 +1,9 @@
 use thiserror::Error;
 
 use appletheia_application::command::SerializedCommandError;
+use appletheia_application::messaging::OrderingKeyError;
 use appletheia_application::outbox::{
-    OrderingKeyError, OutboxAttemptCountError, OutboxRelayInstanceError,
-    command::CommandOutboxIdError,
+    OutboxAttemptCountError, OutboxRelayInstanceError, command::CommandOutboxIdError,
 };
 use appletheia_application::saga::{
     SagaInstanceIdError, SagaNameOwnedError, SerializedSagaStepError,

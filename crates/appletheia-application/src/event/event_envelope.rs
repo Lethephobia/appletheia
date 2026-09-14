@@ -6,6 +6,7 @@ use appletheia_domain::{
 
 use crate::aggregate::{AggregateIdValue, AggregateTypeOwned};
 use crate::event::{EventNameOwned, EventSequence, SerializedEventPayload};
+use crate::messaging::{OrderingKey, PublishableMessage};
 use crate::request_context::{CausationId, CorrelationId, RequestContext};
 
 use super::EventEnvelopeError;
@@ -66,6 +67,12 @@ impl EventEnvelope {
             payload,
             self.occurred_at,
         ))
+    }
+}
+
+impl PublishableMessage for EventEnvelope {
+    fn ordering_key(&self) -> OrderingKey {
+        OrderingKey::from((&self.aggregate_type, &self.aggregate_id))
     }
 }
 

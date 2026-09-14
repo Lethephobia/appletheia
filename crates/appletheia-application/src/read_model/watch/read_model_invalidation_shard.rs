@@ -45,10 +45,6 @@ impl ReadModelInvalidationShard {
     pub fn attribute_value(self) -> String {
         self.index.to_string()
     }
-
-    pub fn ordering_key(self) -> String {
-        format!("read-model-invalidation-shard-{}", self.index)
-    }
 }
 
 impl Selector<ReadModelInvalidationEnvelope> for ReadModelInvalidationShard {

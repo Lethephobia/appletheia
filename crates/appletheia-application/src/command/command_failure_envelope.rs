@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 
+use crate::messaging::{OrderingKey, PublishableMessage};
 use crate::request_context::{CausationId, CorrelationId, MessageId};
 use crate::saga::SagaCommandOrigin;
 
@@ -41,5 +42,11 @@ impl CommandFailureEnvelope {
             causation_id: CausationId::from(command.message_id),
             failed_at,
         }
+    }
+}
+
+impl PublishableMessage for CommandFailureEnvelope {
+    fn ordering_key(&self) -> OrderingKey {
+        OrderingKey::from(self.correlation_id)
     }
 }

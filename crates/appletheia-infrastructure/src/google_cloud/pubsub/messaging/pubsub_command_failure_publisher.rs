@@ -2,9 +2,8 @@ use std::collections::HashMap;
 
 use appletheia_application::command::CommandFailureEnvelope;
 use appletheia_application::messaging::{
-    PublishDispatchError, PublishResult, Publisher, PublisherError,
+    PublishDispatchError, PublishResult, PublishableMessage, Publisher, PublisherError,
 };
-use appletheia_application::outbox::OrderingKey;
 use google_cloud_gax::error::rpc::Code;
 use google_cloud_pubsub::client::Publisher as GooglePublisher;
 use google_cloud_pubsub::error::PublishError;
@@ -28,7 +27,7 @@ impl PubsubCommandFailurePublisher {
         attributes.insert("saga_name".to_owned(), failure.origin.saga_name.to_string());
         let data = serde_json::to_vec(failure)
             .map_err(|source| PublisherError::Publish(Box::new(source)))?;
-        let ordering_key = OrderingKey::from(failure.correlation_id).to_string();
+        let ordering_key = failure.ordering_key().to_string();
         Ok(Message::new()
             .set_data(data)
             .set_attributes(attributes)

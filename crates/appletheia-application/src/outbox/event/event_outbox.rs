@@ -2,7 +2,7 @@ use super::EventOutboxId;
 
 use crate::event::EventEnvelope;
 use crate::messaging::PublishDispatchError;
-use crate::outbox::{OrderingKey, Outbox};
+use crate::outbox::Outbox;
 use crate::outbox::{OutboxLifecycle, OutboxState};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -20,10 +20,6 @@ impl Outbox for EventOutbox {
 
     fn id(&self) -> Self::Id {
         self.id
-    }
-
-    fn ordering_key(&self) -> OrderingKey {
-        OrderingKey::from((&self.event.aggregate_type, &self.event.aggregate_id))
     }
 
     fn message(&self) -> &Self::Message {
