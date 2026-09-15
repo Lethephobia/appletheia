@@ -1,5 +1,4 @@
 pub mod pagination;
-pub mod watch;
 
 mod materialization_event_context;
 mod read_model_invalidated_partitions;
@@ -39,7 +38,7 @@ pub use serialized_partition_error::*;
 
 /// Defines one complete query snapshot assembled from read-model fragments.
 pub trait ReadModel: ReadModelObservationSource + serde::Serialize + Send + Sync {
-    /// Identifies the read model's watch and storage stream.
+    /// Identifies the read model.
     const NAME: ReadModelName;
 
     /// Returns the physical Fragment partitions contained in this snapshot.

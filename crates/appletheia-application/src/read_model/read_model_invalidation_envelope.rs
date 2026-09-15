@@ -61,15 +61,12 @@ impl PublishableMessage for ReadModelInvalidationEnvelope {
 
 #[cfg(test)]
 mod tests {
-    use std::num::NonZeroU32;
-
     use appletheia_domain::AggregateVersion;
     use serde_json::json;
     use uuid::Uuid;
 
     use crate::aggregate::{AggregateIdValue, AggregateTypeOwned};
     use crate::event::{EventNameOwned, SerializedEventPayload};
-    use crate::read_model::watch::ReadModelInvalidationShard;
     use crate::read_model::{
         ReadModelFragmentName, ReadModelObservation, ReadModelObservationSource,
     };
@@ -113,32 +110,6 @@ mod tests {
             context: RequestContext::new(correlation_id, message_id, Principal::System)
                 .expect("request context should be valid"),
         }
-    }
-
-    #[test]
-    fn repeated_projection_of_the_same_event_uses_the_same_shard() {
-        let source_event = event();
-        let mut first_partitions = ReadModelInvalidatedPartitions::new();
-        first_partitions.insert(1);
-        let mut second_partitions = ReadModelInvalidatedPartitions::new();
-        second_partitions.insert(2);
-        let first = ReadModelInvalidationEnvelope::try_new::<TestFragment>(
-            &source_event,
-            ProjectorName::new("test_projector"),
-            first_partitions,
-        )
-        .expect("first invalidation should be valid");
-        let second = ReadModelInvalidationEnvelope::try_new::<TestFragment>(
-            &source_event,
-            ProjectorName::new("test_projector"),
-            second_partitions,
-        )
-        .expect("second invalidation should be valid");
-        let shard_count = NonZeroU32::new(64).expect("shard count should be nonzero");
-        assert_eq!(
-            ReadModelInvalidationShard::for_envelope(&first, shard_count),
-            ReadModelInvalidationShard::for_envelope(&second, shard_count),
-        );
     }
 
     #[test]

@@ -1,41 +1,30 @@
 use std::collections::HashMap;
-use std::num::NonZeroU32;
 
 use appletheia_application::messaging::{
     PublishDispatchError, PublishResult, PublishableMessage, Publisher, PublisherError,
 };
 use appletheia_application::read_model::ReadModelInvalidationEnvelope;
-use appletheia_application::read_model::watch::ReadModelInvalidationShard;
 use google_cloud_gax::error::rpc::Code;
 use google_cloud_pubsub::client::Publisher as GooglePublisher;
 use google_cloud_pubsub::error::PublishError;
 use google_cloud_pubsub::model::Message;
 
-/// Publishes read-model invalidations through fixed Google Cloud Pub/Sub shards.
+/// Publishes read-model invalidations to Google Cloud Pub/Sub.
 #[derive(Clone)]
 pub struct PubsubReadModelInvalidationPublisher {
     publisher: GooglePublisher,
-    shard_count: NonZeroU32,
 }
 
 impl PubsubReadModelInvalidationPublisher {
-    pub fn new(publisher: GooglePublisher, shard_count: NonZeroU32) -> Self {
-        Self {
-            publisher,
-            shard_count,
-        }
+    pub fn new(publisher: GooglePublisher) -> Self {
+        Self { publisher }
     }
 
     fn build_message(
         &self,
         invalidation: &ReadModelInvalidationEnvelope,
     ) -> Result<Message, PublisherError> {
-        let shard = ReadModelInvalidationShard::for_envelope(invalidation, self.shard_count);
         let mut attributes = HashMap::new();
-        attributes.insert(
-            ReadModelInvalidationShard::ATTRIBUTE_NAME.to_owned(),
-            shard.attribute_value(),
-        );
         attributes.insert(
             "source_projector_name".to_owned(),
             invalidation.source_projector_name.to_string(),

@@ -47,9 +47,8 @@ impl PgPublicUserListReader {
 
     /// Pushes terms already normalized by `SearchTerm`.
     ///
-    /// The terms are bound verbatim so that this query and the watch matcher share one
-    /// normalization; re-normalizing in SQL would reintroduce locale-dependent `lower()`
-    /// and POSIX whitespace semantics that the matcher cannot reproduce.
+    /// Binds the terms verbatim to preserve their normalization without applying
+    /// locale-dependent SQL casing or whitespace rules.
     fn push_username_contains(
         predicates: &mut Separated<'_, Postgres, &'static str>,
         username_search_terms: &[SearchTerm],
