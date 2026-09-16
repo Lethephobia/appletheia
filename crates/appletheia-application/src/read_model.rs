@@ -1,4 +1,5 @@
 pub mod pagination;
+pub mod watch;
 
 mod materialization_event_context;
 mod read_model_invalidated_partitions;
