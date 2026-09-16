@@ -1,3 +1,4 @@
+pub mod cloud_event;
 pub mod consumer;
 pub mod consumer_error;
 pub mod consumer_group;
@@ -17,6 +18,7 @@ pub mod subscription;
 pub mod topic_id;
 pub mod topic_id_error;
 
+pub use cloud_event::*;
 pub use consumer::*;
 pub use consumer_error::*;
 pub use consumer_group::*;

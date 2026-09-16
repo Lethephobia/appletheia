@@ -22,3 +22,4 @@ url = { workspace = true, features = ["serde"] }
 base64 = { workspace = true }
 icu_locale = { version = "2.3.1", features = ["serde"] }
 chrono-tz = { version = "0.10.4", features = ["serde"] }
+iri-string = "0.7.14"
