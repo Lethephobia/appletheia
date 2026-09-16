@@ -10,7 +10,9 @@ use instruction_handler::deposit_settle::DepositSettleInstructionHandler;
 use instruction_handler::withdrawal_settle::WithdrawalSettleInstructionHandler;
 
 pub use account::{
-    BankingSettlementConfig, DepositSettlementReceipt, PoolAuthority, WithdrawalSettlementReceipt,
+    BankingSettlementConfig, BankingSettlementConfigVersion, DepositSettlementReceipt,
+    DepositSettlementReceiptVersion, PoolAuthority, WithdrawalSettlementReceipt,
+    WithdrawalSettlementReceiptVersion,
 };
 pub use instruction_handler::{
     BankingSettlementConfigConfigureInstructionAccounts,

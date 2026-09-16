@@ -1,12 +1,14 @@
 use anchor_lang::prelude::*;
 
 pub mod withdrawal_settlement_receipt_initialization;
+pub mod withdrawal_settlement_receipt_version;
 
 pub use withdrawal_settlement_receipt_initialization::WithdrawalSettlementReceiptInitialization;
+pub use withdrawal_settlement_receipt_version::WithdrawalSettlementReceiptVersion;
 
 #[account]
 pub struct WithdrawalSettlementReceipt {
-    pub version: u8,
+    pub version: WithdrawalSettlementReceiptVersion,
     pub mint: Pubkey,
     pub token_account_owner: Pubkey,
     pub token_amount: u64,
@@ -15,7 +17,7 @@ pub struct WithdrawalSettlementReceipt {
 
 impl WithdrawalSettlementReceipt {
     pub const SEED: &[u8] = b"withdrawal_settlement_receipt";
-    pub const VERSION: u8 = 1;
+    pub const VERSION: WithdrawalSettlementReceiptVersion = WithdrawalSettlementReceiptVersion::V1;
     pub const LEN: usize = 1 + 32 + 32 + 8 + 1;
 
     pub fn initialize(&mut self, initialization: WithdrawalSettlementReceiptInitialization) {
@@ -34,6 +36,9 @@ impl WithdrawalSettlementReceipt {
     }
 
     pub fn is_initialized(&self) -> bool {
-        self.version != 0
+        match self.version {
+            WithdrawalSettlementReceiptVersion::Uninitialized => false,
+            WithdrawalSettlementReceiptVersion::V1 => true,
+        }
     }
 }

@@ -1,12 +1,14 @@
 use anchor_lang::prelude::*;
 
 pub mod deposit_settlement_receipt_initialization;
+pub mod deposit_settlement_receipt_version;
 
 pub use deposit_settlement_receipt_initialization::DepositSettlementReceiptInitialization;
+pub use deposit_settlement_receipt_version::DepositSettlementReceiptVersion;
 
 #[account]
 pub struct DepositSettlementReceipt {
-    pub version: u8,
+    pub version: DepositSettlementReceiptVersion,
     pub mint: Pubkey,
     pub pool_token_account: Pubkey,
     pub token_account_owner: Pubkey,
@@ -16,7 +18,7 @@ pub struct DepositSettlementReceipt {
 
 impl DepositSettlementReceipt {
     pub const SEED: &[u8] = b"deposit_settlement_receipt";
-    pub const VERSION: u8 = 1;
+    pub const VERSION: DepositSettlementReceiptVersion = DepositSettlementReceiptVersion::V1;
     pub const LEN: usize = 1 + 32 + 32 + 32 + 8 + 1;
 
     pub fn initialize(&mut self, initialization: DepositSettlementReceiptInitialization) {
@@ -37,6 +39,9 @@ impl DepositSettlementReceipt {
     }
 
     pub fn is_initialized(&self) -> bool {
-        self.version != 0
+        match self.version {
+            DepositSettlementReceiptVersion::Uninitialized => false,
+            DepositSettlementReceiptVersion::V1 => true,
+        }
     }
 }
