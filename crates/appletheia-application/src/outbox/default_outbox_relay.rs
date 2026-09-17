@@ -20,7 +20,7 @@ where
     O: Outbox,
     F: OutboxFetcher<Uow = UowFactory::Uow, Outbox = O>,
     W: OutboxWriter<Uow = UowFactory::Uow, Outbox = O>,
-    P: Publisher<O::Message>,
+    P: Publisher<Message = O::Message>,
 {
     config: OutboxRelayConfig,
     publisher: P,
@@ -37,7 +37,7 @@ where
     O: Outbox,
     F: OutboxFetcher<Uow = UowFactory::Uow, Outbox = O>,
     W: OutboxWriter<Uow = UowFactory::Uow, Outbox = O>,
-    P: Publisher<O::Message>,
+    P: Publisher<Message = O::Message>,
 {
     pub fn new(
         config: OutboxRelayConfig,
@@ -64,7 +64,7 @@ where
     O: Outbox,
     F: OutboxFetcher<Uow = UowFactory::Uow, Outbox = O>,
     W: OutboxWriter<Uow = UowFactory::Uow, Outbox = O>,
-    P: Publisher<O::Message>,
+    P: Publisher<Message = O::Message>,
 {
     type Outbox = O;
 

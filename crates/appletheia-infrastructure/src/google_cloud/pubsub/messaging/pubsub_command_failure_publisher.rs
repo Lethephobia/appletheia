@@ -60,7 +60,9 @@ impl PubsubCommandFailurePublisher {
     }
 }
 
-impl Publisher<CommandFailureEnvelope> for PubsubCommandFailurePublisher {
+impl Publisher for PubsubCommandFailurePublisher {
+    type Message = CommandFailureEnvelope;
+
     async fn publish<'a, I>(&self, messages: I) -> Result<Vec<PublishResult>, PublisherError>
     where
         I: IntoIterator<Item = &'a CommandFailureEnvelope>,

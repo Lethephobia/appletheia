@@ -74,7 +74,9 @@ impl PubsubReadModelInvalidationPublisher {
     }
 }
 
-impl Publisher<ReadModelInvalidationEnvelope> for PubsubReadModelInvalidationPublisher {
+impl Publisher for PubsubReadModelInvalidationPublisher {
+    type Message = ReadModelInvalidationEnvelope;
+
     async fn publish<'a, I>(&self, messages: I) -> Result<Vec<PublishResult>, PublisherError>
     where
         I: IntoIterator<Item = &'a ReadModelInvalidationEnvelope>,

@@ -82,7 +82,9 @@ impl PubsubEventPublisher {
     }
 }
 
-impl Publisher<EventEnvelope> for PubsubEventPublisher {
+impl Publisher for PubsubEventPublisher {
+    type Message = EventEnvelope;
+
     async fn publish<'a, I>(&self, messages: I) -> Result<Vec<PublishResult>, PublisherError>
     where
         I: IntoIterator<Item = &'a EventEnvelope>,
