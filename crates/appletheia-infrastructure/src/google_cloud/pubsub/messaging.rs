@@ -1,3 +1,4 @@
+pub mod cloud_event;
 pub mod pubsub_command_failure_publisher;
 pub mod pubsub_command_failure_subscriber;
 pub mod pubsub_command_publisher;
@@ -10,6 +11,7 @@ pub mod pubsub_read_model_invalidation_publisher;
 pub mod pubsub_subscription_path_prefix;
 pub mod pubsub_subscription_path_prefix_error;
 
+pub use cloud_event::*;
 pub use pubsub_command_failure_publisher::*;
 pub use pubsub_command_failure_subscriber::*;
 pub use pubsub_command_publisher::*;
