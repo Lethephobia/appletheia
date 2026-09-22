@@ -1,7 +1,7 @@
 use thiserror::Error;
 
 use super::ProjectorRunnerError;
-use crate::{ConsumerError, SubscriberError};
+use crate::{ConsumerError, DeliveryError, SubscriberError};
 
 #[derive(Debug, Error)]
 pub enum ProjectorWorkerError {
@@ -10,6 +10,9 @@ pub enum ProjectorWorkerError {
 
     #[error(transparent)]
     Consumer(#[from] ConsumerError),
+
+    #[error(transparent)]
+    Delivery(#[from] DeliveryError),
 
     #[error(transparent)]
     Runner(#[from] ProjectorRunnerError),

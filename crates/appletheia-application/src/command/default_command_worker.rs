@@ -257,7 +257,8 @@ mod tests {
         CommandReplayOutput, CommandWorker, CommandWorkerConfig, DefaultCommandWorkerDependencies,
     };
     use crate::messaging::{
-        Consumer, ConsumerError, ConsumerGroup, Delivery, Subscriber, SubscriberError, Subscription,
+        Consumer, ConsumerError, ConsumerGroup, Delivery, DeliveryError, Subscriber,
+        SubscriberError, Subscription,
     };
     use crate::outbox::command_failure::{
         CommandFailureOutboxEnqueueError, CommandFailureOutboxEnqueuer,
@@ -479,13 +480,13 @@ mod tests {
             &self.envelope
         }
 
-        async fn ack(&mut self) -> Result<(), ConsumerError> {
+        async fn ack(&mut self) -> Result<(), DeliveryError> {
             self.state.events.lock().unwrap().push("acked");
             self.state.acknowledgements.fetch_add(1, Ordering::SeqCst);
             Ok(())
         }
 
-        async fn nack(&mut self) -> Result<(), ConsumerError> {
+        async fn nack(&mut self) -> Result<(), DeliveryError> {
             self.state.events.lock().unwrap().push("nacked");
             self.state
                 .negative_acknowledgements

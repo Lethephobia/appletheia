@@ -1,7 +1,7 @@
 use thiserror::Error;
 
-use crate::messaging::ConsumerError;
 use crate::messaging::SubscriberError;
+use crate::messaging::{ConsumerError, DeliveryError};
 
 use super::CommandEnvelopeError;
 use super::CommandExecutionStoreError;
@@ -15,6 +15,9 @@ pub enum CommandWorkerError {
 
     #[error(transparent)]
     Consumer(#[from] ConsumerError),
+
+    #[error(transparent)]
+    Delivery(#[from] DeliveryError),
 
     #[error(transparent)]
     CommandEnvelope(#[from] CommandEnvelopeError),

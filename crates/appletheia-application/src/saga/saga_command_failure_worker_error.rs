@@ -1,7 +1,7 @@
 use thiserror::Error;
 
 use super::{SagaError, SagaRunnerError};
-use crate::{ConsumerError, SubscriberError};
+use crate::{ConsumerError, DeliveryError, SubscriberError};
 
 #[derive(Debug, Error)]
 pub enum SagaCommandFailureWorkerError<E: std::error::Error + Send + Sync + 'static> {
@@ -13,6 +13,9 @@ pub enum SagaCommandFailureWorkerError<E: std::error::Error + Send + Sync + 'sta
 
     #[error(transparent)]
     Consumer(#[from] ConsumerError),
+
+    #[error(transparent)]
+    Delivery(#[from] DeliveryError),
 
     #[error(transparent)]
     Runner(#[from] SagaRunnerError<E>),
