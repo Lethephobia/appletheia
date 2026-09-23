@@ -10,40 +10,6 @@ pub use organization_join_request::*;
 pub use organization_membership::*;
 pub use user::*;
 
-/// Registers this application module's evaluation and derivation declarations.
-pub fn define_iam_relations(
-    model: &mut appletheia::application::authorization::InMemoryAuthorizationModel,
-) {
-    model.define_relation(OrganizationAdminRelation);
-    model.define_relation(OrganizationFinanceManagerRelation);
-    model.define_relation(OrganizationHandleChangerRelation);
-    model.define_relation(OrganizationInviterRelation);
-    model.define_relation(OrganizationMemberAdderRelation);
-    model.define_relation(OrganizationMemberRelation);
-    model.define_relation(OrganizationOwnerRelation);
-    model.define_relation(OrganizationOwnershipTransfererRelation);
-    model.define_relation(OrganizationProfileEditorRelation);
-    model.define_relation(OrganizationRemoverRelation);
-    model.define_relation(OrganizationTreasurerRelation);
-    model.define_relation(OrganizationInvitationCancelerRelation);
-    model.define_relation(OrganizationInvitationInviteeRelation);
-    model.define_relation(OrganizationInvitationOrganizationRelation);
-    model.define_relation(OrganizationJoinRequestApproverRelation);
-    model.define_relation(OrganizationJoinRequestCancelerRelation);
-    model.define_relation(OrganizationJoinRequestOrganizationRelation);
-    model.define_relation(OrganizationJoinRequestRejecterRelation);
-    model.define_relation(OrganizationJoinRequestRequesterRelation);
-    model.define_relation(OrganizationMembershipOrganizationRelation);
-    model.define_relation(OrganizationMembershipRemoverRelation);
-    model.define_relation(OrganizationMembershipRolesChangerRelation);
-    model.define_relation(UserActivatorRelation);
-    model.define_relation(UserDeactivatorRelation);
-    model.define_relation(UserOwnerRelation);
-    model.define_relation(UserProfileEditorRelation);
-    model.define_relation(UserRemoverRelation);
-    model.define_relation(UserUsernameChangerRelation);
-}
-
 #[cfg(test)]
 mod tests {
     use appletheia::application::aggregate::{AggregateRef, SerializedAggregateError};
@@ -60,7 +26,6 @@ mod tests {
     use super::{
         OrganizationAdminRelation, OrganizationMemberRelation,
         OrganizationMembershipOrganizationRelation, OrganizationTreasurerRelation,
-        define_iam_relations,
     };
 
     fn membership() -> OrganizationMembership {
@@ -78,7 +43,10 @@ mod tests {
     #[test]
     fn one_registration_derives_current_membership_roles_and_removal() {
         let mut model = InMemoryAuthorizationModel::new();
-        define_iam_relations(&mut model);
+        model.define_relation(OrganizationMemberRelation);
+        model.define_relation(OrganizationAdminRelation);
+        model.define_relation(OrganizationTreasurerRelation);
+        model.define_relation(OrganizationMembershipOrganizationRelation);
         let snapshot = model.clone();
         assert!(
             snapshot
@@ -281,7 +249,7 @@ mod tests {
             })
             .unwrap();
         let mut model = InMemoryAuthorizationModel::new();
-        define_iam_relations(&mut model);
+        model.define_relation(OrganizationOwnerRelation);
         let snapshot = model.clone();
         let previous = snapshot.derive(&organization).unwrap();
         assert_eq!(previous.len(), 1);
