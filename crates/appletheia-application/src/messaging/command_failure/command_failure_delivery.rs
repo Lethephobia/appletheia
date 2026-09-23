@@ -5,7 +5,7 @@ pub struct CommandFailureDelivery<D>
 where
     D: CloudEventDelivery,
 {
-    delivery: D,
+    cloud_event_delivery: D,
     message: CommandFailureEnvelope,
 }
 
@@ -13,8 +13,11 @@ impl<D> CommandFailureDelivery<D>
 where
     D: CloudEventDelivery,
 {
-    pub fn new(delivery: D, message: CommandFailureEnvelope) -> Self {
-        Self { delivery, message }
+    pub fn new(cloud_event_delivery: D, message: CommandFailureEnvelope) -> Self {
+        Self {
+            cloud_event_delivery,
+            message,
+        }
     }
 }
 
@@ -27,14 +30,14 @@ where
     }
 
     async fn ack(&mut self) -> Result<(), DeliveryError> {
-        self.delivery
+        self.cloud_event_delivery
             .ack()
             .await
             .map_err(|source| DeliveryError::Ack(Box::new(source)))
     }
 
     async fn nack(&mut self) -> Result<(), DeliveryError> {
-        self.delivery
+        self.cloud_event_delivery
             .nack()
             .await
             .map_err(|source| DeliveryError::Nack(Box::new(source)))

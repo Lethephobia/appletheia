@@ -10,7 +10,7 @@ pub struct EventSubscriber<S>
 where
     S: CloudEventSubscriber,
 {
-    subscriber: S,
+    cloud_event_subscriber: S,
     config: EventSubscriberConfig,
 }
 
@@ -18,8 +18,11 @@ impl<S> EventSubscriber<S>
 where
     S: CloudEventSubscriber,
 {
-    pub fn new(subscriber: S, config: EventSubscriberConfig) -> Self {
-        Self { subscriber, config }
+    pub fn new(cloud_event_subscriber: S, config: EventSubscriberConfig) -> Self {
+        Self {
+            cloud_event_subscriber,
+            config,
+        }
     }
 
     fn selector(&self, selector: &EventSelector) -> Result<CloudEventSelector, SubscriberError> {
@@ -65,8 +68,8 @@ where
             }
         };
         let group = consumer_group;
-        let consumer = self
-            .subscriber
+        let cloud_event_consumer = self
+            .cloud_event_subscriber
             .subscribe(group, cloud_subscription)
             .await
             .map_err(|source| match source {
@@ -76,7 +79,7 @@ where
                 other => SubscriberError::Subscribe(Box::new(other)),
             })?;
         Ok(EventConsumer::new(
-            consumer,
+            cloud_event_consumer,
             self.config.type_prefix.clone(),
         ))
     }

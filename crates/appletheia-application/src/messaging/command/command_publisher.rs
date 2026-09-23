@@ -7,7 +7,7 @@ pub struct CommandPublisher<P>
 where
     P: CloudEventPublisher,
 {
-    publisher: P,
+    cloud_event_publisher: P,
     config: CommandPublisherConfig,
 }
 
@@ -15,8 +15,11 @@ impl<P> CommandPublisher<P>
 where
     P: CloudEventPublisher,
 {
-    pub fn new(publisher: P, config: CommandPublisherConfig) -> Self {
-        Self { publisher, config }
+    pub fn new(cloud_event_publisher: P, config: CommandPublisherConfig) -> Self {
+        Self {
+            cloud_event_publisher,
+            config,
+        }
     }
 }
 
@@ -37,7 +40,7 @@ where
             })
             .collect::<Result<Vec<_>, _>>()
             .map_err(|source| PublisherError::Publish(Box::new(source)))?;
-        self.publisher
+        self.cloud_event_publisher
             .publish(&events)
             .await
             .map_err(|source| PublisherError::Publish(Box::new(source)))

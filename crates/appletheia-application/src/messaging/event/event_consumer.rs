@@ -9,7 +9,7 @@ pub struct EventConsumer<C>
 where
     C: CloudEventConsumer,
 {
-    consumer: C,
+    cloud_event_consumer: C,
     type_prefix: Option<CloudEventTypePrefix>,
 }
 
@@ -17,9 +17,9 @@ impl<C> EventConsumer<C>
 where
     C: CloudEventConsumer,
 {
-    pub fn new(consumer: C, type_prefix: Option<CloudEventTypePrefix>) -> Self {
+    pub fn new(cloud_event_consumer: C, type_prefix: Option<CloudEventTypePrefix>) -> Self {
         Self {
-            consumer,
+            cloud_event_consumer,
             type_prefix,
         }
     }
@@ -32,15 +32,18 @@ where
     type Delivery = EventDelivery<C::Delivery>;
 
     async fn next(&mut self) -> Result<Self::Delivery, ConsumerError> {
-        let mut delivery = self
-            .consumer
+        let mut cloud_event_delivery = self
+            .cloud_event_consumer
             .next()
             .await
             .map_err(|source| ConsumerError::Next(Box::new(source)))?;
-        match EventEnvelope::try_from_cloud_event(delivery.message(), self.type_prefix.as_ref()) {
-            Ok(message) => Ok(EventDelivery::new(delivery, message)),
+        match EventEnvelope::try_from_cloud_event(
+            cloud_event_delivery.message(),
+            self.type_prefix.as_ref(),
+        ) {
+            Ok(message) => Ok(EventDelivery::new(cloud_event_delivery, message)),
             Err(source) => {
-                delivery
+                cloud_event_delivery
                     .nack()
                     .await
                     .map_err(|nack_error| ConsumerError::Next(Box::new(nack_error)))?;

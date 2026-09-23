@@ -10,7 +10,7 @@ pub struct CommandFailureSubscriber<S>
 where
     S: CloudEventSubscriber,
 {
-    subscriber: S,
+    cloud_event_subscriber: S,
     config: CommandFailureSubscriberConfig,
 }
 
@@ -18,8 +18,11 @@ impl<S> CommandFailureSubscriber<S>
 where
     S: CloudEventSubscriber,
 {
-    pub fn new(subscriber: S, config: CommandFailureSubscriberConfig) -> Self {
-        Self { subscriber, config }
+    pub fn new(cloud_event_subscriber: S, config: CommandFailureSubscriberConfig) -> Self {
+        Self {
+            cloud_event_subscriber,
+            config,
+        }
     }
 
     fn selector(&self, selector: &SagaName) -> Result<CloudEventSelector, SubscriberError> {
@@ -69,8 +72,8 @@ where
             ConsumerGroup::new(format!("{}_command_failures", consumer_group.value()))
                 .map_err(|source| SubscriberError::Subscribe(Box::new(source)))?;
         let group = &failure_group;
-        let consumer = self
-            .subscriber
+        let cloud_event_consumer = self
+            .cloud_event_subscriber
             .subscribe(group, cloud_subscription)
             .await
             .map_err(|source| match source {
@@ -80,7 +83,7 @@ where
                 other => SubscriberError::Subscribe(Box::new(other)),
             })?;
         Ok(CommandFailureConsumer::new(
-            consumer,
+            cloud_event_consumer,
             self.config.type_prefix.clone(),
         ))
     }
