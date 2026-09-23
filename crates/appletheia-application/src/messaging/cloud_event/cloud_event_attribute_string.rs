@@ -2,7 +2,7 @@ use std::{fmt, fmt::Display, str::FromStr};
 
 use serde::{Deserialize, Serialize};
 
-use super::{CloudEventAttributeStringError, PartitionKey};
+use super::{CloudEventAttributeStringError, CloudEventPartitionKey};
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
@@ -22,7 +22,7 @@ impl CloudEventAttributeString {
         Ok(Self(value))
     }
 
-    pub(super) fn from_partition_key(value: PartitionKey) -> Self {
+    pub(super) fn from_partition_key(value: CloudEventPartitionKey) -> Self {
         Self(String::from(value))
     }
 

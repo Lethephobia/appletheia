@@ -38,24 +38,26 @@ impl ReadModelInvalidationOutboxEnqueuer for PgReadModelInvalidationOutboxEnqueu
             r#"
             INSERT INTO read_model_invalidation_outbox (
                 id,
+                invalidation_id,
                 source_projector_name,
                 source_event_sequence,
                 source_event_id,
-                occurred_at,
+                source_event_occurred_at,
                 correlation_id,
                 causation_id,
                 invalidated_partitions
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             ON CONFLICT (source_projector_name, source_event_id) DO NOTHING
             "#,
         )
         .bind(ReadModelInvalidationOutboxId::new().value())
+        .bind(invalidation.invalidation_id.value())
         .bind(invalidation.source_projector_name.value())
         .bind(invalidation.source_event_sequence.value())
         .bind(invalidation.source_event_id.value())
         .bind(chrono::DateTime::<chrono::Utc>::from(
-            invalidation.occurred_at,
+            invalidation.source_event_occurred_at,
         ))
         .bind(invalidation.correlation_id.value())
         .bind(invalidation.causation_id.value())

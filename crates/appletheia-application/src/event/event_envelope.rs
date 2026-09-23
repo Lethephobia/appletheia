@@ -1,4 +1,11 @@
+use crate::messaging::{CloudEvent, CloudEventSource, CloudEventTime, CloudEventTypePrefix};
+use crate::messaging::{
+    CloudEventAttributeValue, CloudEventData, CloudEventDataContentType, CloudEventPartitionKey,
+    CloudEventType,
+};
+use crate::request_context::MessageId;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 use appletheia_domain::{
     Aggregate, AggregateId, AggregateVersion, Event, EventId, EventOccurredAt, EventPayload,
@@ -6,7 +13,7 @@ use appletheia_domain::{
 
 use crate::aggregate::{AggregateIdValue, AggregateTypeOwned};
 use crate::event::{EventNameOwned, EventSequence, SerializedEventPayload};
-use crate::messaging::{OrderingKey, PublishableMessage};
+use crate::messaging::PublishableMessage;
 use crate::request_context::{CausationId, CorrelationId, RequestContext};
 
 use super::EventEnvelopeError;
@@ -71,8 +78,135 @@ impl EventEnvelope {
 }
 
 impl PublishableMessage for EventEnvelope {
-    fn ordering_key(&self) -> OrderingKey {
-        OrderingKey::from((&self.aggregate_type, &self.aggregate_id))
+    type Error = EventEnvelopeError;
+
+    fn try_to_cloud_event(
+        &self,
+        source: &CloudEventSource,
+        type_prefix: Option<&CloudEventTypePrefix>,
+    ) -> Result<CloudEvent, Self::Error> {
+        let mut event = CloudEvent::new(
+            self.event_id.to_string().parse()?,
+            source.clone(),
+            CloudEventType::with_prefix(
+                type_prefix,
+                &format!("{}.{}", self.aggregate_type, self.event_name),
+            )?,
+        )
+        .with_partition_key(CloudEventPartitionKey::new(format!(
+            "{}:{}",
+            self.aggregate_type, self.aggregate_id
+        ))?);
+        event.replace_data(
+            Some(CloudEventData::Json(self.payload.value().clone())),
+            Some(CloudEventDataContentType::json()),
+        )?;
+        event = event
+            .with_subject(format!("{}/{}", self.aggregate_type, self.aggregate_id).parse()?)
+            .with_time(CloudEventTime::new(self.occurred_at.into())?);
+        for (name, value) in [
+            ("correlationid", self.correlation_id.to_string()),
+            ("causationid", self.causation_id.to_string()),
+            ("aggregateversion", self.aggregate_version.to_string()),
+            ("eventsequence", self.event_sequence.to_string()),
+            ("context", serde_json::to_string(&self.context)?),
+        ] {
+            event.insert_extension(
+                name.parse()?,
+                CloudEventAttributeValue::String(value.parse()?),
+            )?;
+        }
+        Ok(event)
+    }
+
+    fn try_from_cloud_event(
+        event: &CloudEvent,
+        type_prefix: Option<&CloudEventTypePrefix>,
+    ) -> Result<Self, Self::Error> {
+        if !event
+            .data_content_type()
+            .is_some_and(CloudEventDataContentType::is_json)
+        {
+            return Err(EventEnvelopeError::InvalidMetadata("datacontenttype"));
+        }
+        let data = match event.data() {
+            Some(CloudEventData::Json(value)) => value.clone(),
+            Some(CloudEventData::Binary(bytes)) => serde_json::from_slice(bytes)?,
+            Some(CloudEventData::Text(text)) => serde_json::from_str(text)?,
+            None => return Err(EventEnvelopeError::InvalidMetadata("data")),
+        };
+        let name = event.event_type().without_prefix(type_prefix)?;
+        let subject = event
+            .subject()
+            .ok_or(EventEnvelopeError::InvalidMetadata("subject"))?
+            .as_str();
+        let (aggregate_type, aggregate_id) = subject
+            .rsplit_once('/')
+            .ok_or(EventEnvelopeError::InvalidMetadata("subject"))?;
+        let event_name = name
+            .strip_prefix(&format!("{aggregate_type}."))
+            .filter(|name| !name.is_empty())
+            .ok_or(EventEnvelopeError::InvalidMetadata("type/subject"))?;
+        let envelope = Self {
+            event_id: EventId::try_from(event.id().as_str().parse::<Uuid>()?)?,
+            event_sequence: EventSequence::try_from(
+                event
+                    .extensions()
+                    .get(&"eventsequence".parse()?)
+                    .ok_or(EventEnvelopeError::InvalidMetadata("eventsequence"))?
+                    .to_string()
+                    .parse::<i64>()?,
+            )?,
+            aggregate_type: AggregateTypeOwned::try_from(aggregate_type.to_owned())?,
+            aggregate_id: AggregateIdValue::from(aggregate_id.parse::<Uuid>()?),
+            aggregate_version: AggregateVersion::try_from(
+                event
+                    .extensions()
+                    .get(&"aggregateversion".parse()?)
+                    .ok_or(EventEnvelopeError::InvalidMetadata("aggregateversion"))?
+                    .to_string()
+                    .parse::<i64>()?,
+            )?,
+            event_name: EventNameOwned::try_from(event_name.to_owned())?,
+            payload: SerializedEventPayload::try_from(data)?,
+            occurred_at: event
+                .time()
+                .ok_or(EventEnvelopeError::InvalidMetadata("time"))?
+                .value()
+                .into(),
+            context: serde_json::from_str(
+                &event
+                    .extensions()
+                    .get(&"context".parse()?)
+                    .ok_or(EventEnvelopeError::InvalidMetadata("context"))?
+                    .to_string(),
+            )?,
+            correlation_id: CorrelationId::from(
+                event
+                    .extensions()
+                    .get(&"correlationid".parse()?)
+                    .ok_or(EventEnvelopeError::InvalidMetadata("correlationid"))?
+                    .to_string()
+                    .parse::<Uuid>()?,
+            ),
+            causation_id: CausationId::from(MessageId::from(
+                event
+                    .extensions()
+                    .get(&"causationid".parse()?)
+                    .ok_or(EventEnvelopeError::InvalidMetadata("causationid"))?
+                    .to_string()
+                    .parse::<Uuid>()?,
+            )),
+        };
+        if event
+            .partition_key()
+            .as_ref()
+            .map(CloudEventPartitionKey::as_str)
+            != Some((format!("{}:{}", envelope.aggregate_type, envelope.aggregate_id)).as_str())
+        {
+            return Err(EventEnvelopeError::InvalidMetadata("partitionkey"));
+        }
+        Ok(envelope)
     }
 }
 
@@ -87,6 +221,7 @@ mod tests {
     use super::*;
     use crate::aggregate::{AggregateIdValue, AggregateTypeOwned};
     use crate::event::{EventNameOwned, EventSequence, SerializedEventPayload};
+    use crate::messaging::{CloudEventData, CloudEventDataContentType};
     use crate::request_context::{MessageId, Principal};
     use appletheia_domain::{
         AggregateApply, AggregateCore, AggregateError, AggregateId, AggregateState,
@@ -324,5 +459,54 @@ mod tests {
             Err(EventEnvelopeError::EventNameMismatch { expected, actual })
                 if expected == "different_event" && actual == payload_name
         ));
+    }
+
+    #[test]
+    fn cloud_event_round_trip_preserves_metadata_and_rejects_invalid_values() {
+        let mut envelope = event_envelope();
+        envelope.event_sequence = EventSequence::try_from(i64::MAX).unwrap();
+        envelope.aggregate_version = AggregateVersion::try_from(i64::MAX).unwrap();
+        let source = "urn:banking:events".parse().unwrap();
+        let prefix = "example.banking".parse().unwrap();
+        let event = envelope.try_to_cloud_event(&source, Some(&prefix)).unwrap();
+        assert_eq!(
+            event.event_type().as_str(),
+            "example.banking.counter.opened"
+        );
+        assert_eq!(event.id().as_str(), envelope.event_id.to_string());
+        let restored = EventEnvelope::try_from_cloud_event(&event, Some(&prefix)).unwrap();
+        assert_eq!(
+            serde_json::to_value(&restored).unwrap(),
+            serde_json::to_value(&envelope).unwrap()
+        );
+        assert_eq!(restored.context.principal, Principal::Unavailable);
+        assert!(
+            EventEnvelope::try_from_cloud_event(&event, Some(&"wrong".parse().unwrap())).is_err()
+        );
+        let wrong_subject = event.clone().with_subject(
+            "other/00000000-0000-0000-0000-000000000000"
+                .parse()
+                .unwrap(),
+        );
+        assert!(EventEnvelope::try_from_cloud_event(&wrong_subject, Some(&prefix)).is_err());
+        let mut invalid_sequence = event.clone();
+        invalid_sequence
+            .insert_extension(
+                "eventsequence".parse().unwrap(),
+                CloudEventAttributeValue::String(("-1".to_owned()).parse().unwrap()),
+            )
+            .unwrap();
+        assert!(EventEnvelope::try_from_cloud_event(&invalid_sequence, Some(&prefix)).is_err());
+        let mut missing_context = event.clone();
+        missing_context.remove_extension(&"context".parse().unwrap());
+        assert!(EventEnvelope::try_from_cloud_event(&missing_context, Some(&prefix)).is_err());
+        let mut null_payload = event;
+        null_payload
+            .replace_data(
+                Some(CloudEventData::Json(serde_json::Value::Null)),
+                Some(CloudEventDataContentType::json()),
+            )
+            .unwrap();
+        assert!(EventEnvelope::try_from_cloud_event(&null_payload, Some(&prefix)).is_err());
     }
 }

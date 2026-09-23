@@ -26,8 +26,8 @@ impl PgReadModelInvalidationOutboxWriter {
         let mut query_builder = QueryBuilder::<Postgres>::new(
             r#"
             INSERT INTO read_model_invalidation_outbox (
-                id, source_projector_name, source_event_sequence, source_event_id,
-                occurred_at, correlation_id, causation_id, invalidated_partitions,
+                id, invalidation_id, source_projector_name, source_event_sequence, source_event_id,
+                source_event_occurred_at, correlation_id, causation_id, invalidated_partitions,
                 recorded_at, published_at,
                 attempt_count, next_attempt_after, lease_owner, lease_until, last_error
             )
@@ -53,10 +53,11 @@ impl PgReadModelInvalidationOutboxWriter {
                 let invalidation = &outbox.invalidation;
                 separated
                     .push_bind(outbox.id.value())
+                    .push_bind(invalidation.invalidation_id.value())
                     .push_bind(invalidation.source_projector_name.value())
                     .push_bind(invalidation.source_event_sequence.value())
                     .push_bind(invalidation.source_event_id.value())
-                    .push_bind(DateTime::<Utc>::from(invalidation.occurred_at))
+                    .push_bind(DateTime::<Utc>::from(invalidation.source_event_occurred_at))
                     .push_bind(invalidation.correlation_id.value())
                     .push_bind(invalidation.causation_id.value())
                     .push_bind(partitions)
@@ -108,8 +109,8 @@ impl PgReadModelInvalidationOutboxWriter {
         let mut query_builder = QueryBuilder::<Postgres>::new(
             r#"
             INSERT INTO read_model_invalidation_dead_letters (
-                read_model_invalidation_outbox_id, source_projector_name, source_event_sequence, source_event_id,
-                occurred_at, correlation_id, causation_id, invalidated_partitions,
+                read_model_invalidation_outbox_id, invalidation_id, source_projector_name, source_event_sequence, source_event_id,
+                source_event_occurred_at, correlation_id, causation_id, invalidated_partitions,
                 recorded_at, published_at,
                 attempt_count, next_attempt_after, lease_owner, lease_until, last_error,
                 dead_lettered_at
@@ -142,10 +143,11 @@ impl PgReadModelInvalidationOutboxWriter {
                 let invalidation = &outbox.invalidation;
                 separated
                     .push_bind(outbox.id.value())
+                    .push_bind(invalidation.invalidation_id.value())
                     .push_bind(invalidation.source_projector_name.value())
                     .push_bind(invalidation.source_event_sequence.value())
                     .push_bind(invalidation.source_event_id.value())
-                    .push_bind(DateTime::<Utc>::from(invalidation.occurred_at))
+                    .push_bind(DateTime::<Utc>::from(invalidation.source_event_occurred_at))
                     .push_bind(invalidation.correlation_id.value())
                     .push_bind(invalidation.causation_id.value())
                     .push_bind(partitions)
@@ -308,8 +310,9 @@ mod tests {
         let envelope: ReadModelInvalidationEnvelope = serde_json::from_value(json!({
             "source_projector_name": "test_projector",
             "source_event_sequence": 1,
+            "invalidation_id": Uuid::now_v7(),
             "source_event_id": Uuid::now_v7(),
-            "occurred_at": DateTime::<Utc>::from_timestamp_micros(Utc::now().timestamp_micros()).unwrap(),
+            "source_event_occurred_at": DateTime::<Utc>::from_timestamp_micros(Utc::now().timestamp_micros()).unwrap(),
             "correlation_id": Uuid::now_v7(),
             "causation_id": Uuid::now_v7(),
             "invalidated_partitions": [{"fragment_name": "test", "key": 1}],

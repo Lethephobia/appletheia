@@ -3,7 +3,7 @@ use thiserror::Error;
 use super::CloudEventAttributeStringError;
 
 #[derive(Debug, Error)]
-pub enum PartitionKeyError {
+pub enum CloudEventPartitionKeyError {
     #[error("value cannot be empty")]
     Empty,
     #[error(transparent)]

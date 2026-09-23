@@ -21,6 +21,8 @@ pub mod cloud_event_extensions;
 pub mod cloud_event_extensions_error;
 pub mod cloud_event_id;
 pub mod cloud_event_id_error;
+pub mod cloud_event_partition_key;
+pub mod cloud_event_partition_key_error;
 pub mod cloud_event_publisher;
 pub mod cloud_event_publisher_error;
 pub mod cloud_event_selector;
@@ -36,8 +38,8 @@ pub mod cloud_event_time;
 pub mod cloud_event_time_error;
 pub mod cloud_event_type;
 pub mod cloud_event_type_error;
-pub mod partition_key;
-pub mod partition_key_error;
+pub mod cloud_event_type_prefix;
+pub mod cloud_event_type_prefix_error;
 
 pub use cloud_event_attribute_string::*;
 pub use cloud_event_attribute_string_error::*;
@@ -62,6 +64,8 @@ pub use cloud_event_extensions::*;
 pub use cloud_event_extensions_error::*;
 pub use cloud_event_id::*;
 pub use cloud_event_id_error::*;
+pub use cloud_event_partition_key::*;
+pub use cloud_event_partition_key_error::*;
 pub use cloud_event_publisher::*;
 pub use cloud_event_publisher_error::*;
 pub use cloud_event_selector::*;
@@ -77,8 +81,8 @@ pub use cloud_event_time::*;
 pub use cloud_event_time_error::*;
 pub use cloud_event_type::*;
 pub use cloud_event_type_error::*;
-pub use partition_key::*;
-pub use partition_key_error::*;
+pub use cloud_event_type_prefix::*;
+pub use cloud_event_type_prefix_error::*;
 
 /// A validated, transport-independent CloudEvent. Wire codecs are separate.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -163,12 +167,12 @@ impl CloudEvent {
         self.extensions.remove(name)
     }
 
-    pub fn with_partition_key(mut self, key: PartitionKey) -> Self {
+    pub fn with_partition_key(mut self, key: CloudEventPartitionKey) -> Self {
         self.extensions.insert_partition_key(key);
         self
     }
 
-    pub fn partition_key(&self) -> Option<PartitionKey> {
+    pub fn partition_key(&self) -> Option<CloudEventPartitionKey> {
         self.extensions.partition_key()
     }
 

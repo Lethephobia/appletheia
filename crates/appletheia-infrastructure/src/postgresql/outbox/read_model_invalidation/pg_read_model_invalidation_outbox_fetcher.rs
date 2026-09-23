@@ -60,10 +60,11 @@ impl OutboxFetcher for PgReadModelInvalidationOutboxFetcher {
             r#"
             SELECT
                 current_invalidation.id,
+                current_invalidation.invalidation_id,
                 current_invalidation.source_projector_name,
                 current_invalidation.source_event_sequence,
                 current_invalidation.source_event_id,
-                current_invalidation.occurred_at,
+                current_invalidation.source_event_occurred_at,
                 current_invalidation.correlation_id,
                 current_invalidation.causation_id,
                 current_invalidation.invalidated_partitions,
@@ -105,8 +106,8 @@ impl OutboxFetcher for PgReadModelInvalidationOutboxFetcher {
         let rows = sqlx::query_as::<Postgres, PgReadModelInvalidationOutboxDeadLetterRow>(
             r#"
             SELECT
-                read_model_invalidation_outbox_id, source_projector_name, source_event_sequence, source_event_id,
-                occurred_at, correlation_id, causation_id, invalidated_partitions,
+                read_model_invalidation_outbox_id, invalidation_id, source_projector_name, source_event_sequence, source_event_id,
+                source_event_occurred_at, correlation_id, causation_id, invalidated_partitions,
                 recorded_at, published_at,
                 attempt_count, next_attempt_after, lease_owner, lease_until, last_error,
                 dead_lettered_at

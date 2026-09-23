@@ -302,4 +302,84 @@ mod tests {
             assert!(PubsubCloudEventCodec::decode(&message).is_err(), "{name}");
         }
     }
+
+    #[test]
+    fn binary_round_trip_preserves_all_envelope_mappings() {
+        use appletheia_application::PublishableMessage;
+        use appletheia_application::{
+            CommandEnvelope, CommandFailureEnvelope, EventEnvelope, ReadModelInvalidationEnvelope,
+        };
+        use serde_json::json;
+        use uuid::Uuid;
+
+        let id = Uuid::now_v7();
+        let context = json!({"correlation_id": id, "message_id": id, "actor": {"type": "system"}});
+        let origin = json!({"saga_name": "transfer", "saga_instance_id": id, "step": "debit"});
+        let source = "urn:banking".parse().unwrap();
+        let command: CommandEnvelope = serde_json::from_value(json!({
+            "command_name": "debit", "command": {"amount": 10}, "message_id": id,
+            "correlation_id": id, "causation_id": id, "saga_origin": origin, "options": {}
+        }))
+        .unwrap();
+        let failure: CommandFailureEnvelope = serde_json::from_value(json!({
+            "failure_id": Uuid::now_v7(), "command_message_id": id, "command_name": "debit",
+            "origin": origin, "terminal_reason": "non_retryable", "attempt_count": 1,
+            "correlation_id": id, "causation_id": id, "failed_at": "2026-09-23T12:00:00Z"
+        }))
+        .unwrap();
+        let event: EventEnvelope = serde_json::from_value(json!({
+            "event_id": id, "event_sequence": 9223372036854775807_i64, "aggregate_type": "account", "aggregate_id": id,
+            "aggregate_version": 9223372036854775807_i64, "event_name": "debited", "payload": {"type": "debited", "data": {"amount": 10}},
+            "occurred_at": "2026-09-23T12:00:00Z", "correlation_id": id, "causation_id": id, "context": context
+        })).unwrap();
+        let invalidation: ReadModelInvalidationEnvelope = serde_json::from_value(json!({
+            "invalidation_id": Uuid::now_v7(), "source_event_id": id, "source_event_sequence": 9223372036854775807_i64,
+            "source_projector_name": "account", "source_event_occurred_at": "2026-09-23T12:00:00Z", "correlation_id": id, "causation_id": id,
+            "invalidated_partitions": [{"fragment_name": "account", "key": id}]
+        })).unwrap();
+        let command_wire =
+            PubsubCloudEventCodec::encode(&command.try_to_cloud_event(&source, None).unwrap())
+                .unwrap();
+        let failure_wire =
+            PubsubCloudEventCodec::encode(&failure.try_to_cloud_event(&source, None).unwrap())
+                .unwrap();
+        let event_wire =
+            PubsubCloudEventCodec::encode(&event.try_to_cloud_event(&source, None).unwrap())
+                .unwrap();
+        let invalidation_wire =
+            PubsubCloudEventCodec::encode(&invalidation.try_to_cloud_event(&source, None).unwrap())
+                .unwrap();
+        assert_eq!(
+            CommandEnvelope::try_from_cloud_event(
+                &PubsubCloudEventCodec::decode(&command_wire).unwrap(),
+                None
+            )
+            .unwrap(),
+            command
+        );
+        assert_eq!(
+            CommandFailureEnvelope::try_from_cloud_event(
+                &PubsubCloudEventCodec::decode(&failure_wire).unwrap(),
+                None
+            )
+            .unwrap(),
+            failure
+        );
+        assert_eq!(
+            EventEnvelope::try_from_cloud_event(
+                &PubsubCloudEventCodec::decode(&event_wire).unwrap(),
+                None
+            )
+            .unwrap(),
+            event
+        );
+        assert_eq!(
+            ReadModelInvalidationEnvelope::try_from_cloud_event(
+                &PubsubCloudEventCodec::decode(&invalidation_wire).unwrap(),
+                None
+            )
+            .unwrap(),
+            invalidation
+        );
+    }
 }

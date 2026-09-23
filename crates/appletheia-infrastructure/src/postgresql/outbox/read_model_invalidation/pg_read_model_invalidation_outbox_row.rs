@@ -14,7 +14,9 @@ use appletheia_application::outbox::{
     OutboxPublishedAt, OutboxRelayInstance, OutboxState,
 };
 use appletheia_application::projection::ProjectorNameOwned;
-use appletheia_application::read_model::{ReadModelInvalidationEnvelope, SerializedPartition};
+use appletheia_application::read_model::{
+    ReadModelInvalidationEnvelope, ReadModelInvalidationId, SerializedPartition,
+};
 use appletheia_application::request_context::{CausationId, CorrelationId, MessageId};
 use appletheia_domain::{EventId, EventOccurredAt};
 
@@ -24,10 +26,11 @@ use super::PgReadModelInvalidationOutboxRowError;
 #[derive(Clone, Debug, Eq, PartialEq, FromRow)]
 pub struct PgReadModelInvalidationOutboxRow {
     pub id: Uuid,
+    pub invalidation_id: Uuid,
     pub source_projector_name: String,
     pub source_event_sequence: i64,
     pub source_event_id: Uuid,
-    pub occurred_at: DateTime<Utc>,
+    pub source_event_occurred_at: DateTime<Utc>,
     pub correlation_id: Uuid,
     pub causation_id: Uuid,
     pub invalidated_partitions: serde_json::Value,
@@ -46,10 +49,11 @@ impl PgReadModelInvalidationOutboxRow {
         self,
     ) -> Result<ReadModelInvalidationOutbox, PgReadModelInvalidationOutboxRowError> {
         let id = ReadModelInvalidationOutboxId::try_from(self.id)?;
+        let invalidation_id = ReadModelInvalidationId::try_from(self.invalidation_id)?;
         let source_projector_name = ProjectorNameOwned::new(self.source_projector_name)?;
         let source_event_sequence = EventSequence::try_from(self.source_event_sequence)?;
         let source_event_id = EventId::try_from(self.source_event_id)?;
-        let occurred_at = EventOccurredAt::from(self.occurred_at);
+        let source_event_occurred_at = EventOccurredAt::from(self.source_event_occurred_at);
         let correlation_id = CorrelationId::from(self.correlation_id);
         let causation_id = CausationId::from(MessageId::from(self.causation_id));
         let invalidated_partitions =
@@ -57,10 +61,11 @@ impl PgReadModelInvalidationOutboxRow {
 
         let invalidation =
             serde_json::from_value::<ReadModelInvalidationEnvelope>(serde_json::json!({
+                "invalidation_id": invalidation_id,
                 "source_projector_name": source_projector_name,
                 "source_event_sequence": source_event_sequence,
                 "source_event_id": source_event_id,
-                "occurred_at": occurred_at,
+                "source_event_occurred_at": source_event_occurred_at,
                 "correlation_id": correlation_id,
                 "causation_id": causation_id,
                 "invalidated_partitions": invalidated_partitions,

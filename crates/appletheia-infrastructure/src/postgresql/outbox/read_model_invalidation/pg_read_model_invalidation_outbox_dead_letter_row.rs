@@ -10,10 +10,11 @@ use super::{PgReadModelInvalidationOutboxDeadLetterRowError, PgReadModelInvalida
 #[derive(Clone, Debug, Eq, PartialEq, FromRow)]
 pub struct PgReadModelInvalidationOutboxDeadLetterRow {
     pub read_model_invalidation_outbox_id: Uuid,
+    pub invalidation_id: Uuid,
     pub source_projector_name: String,
     pub source_event_sequence: i64,
     pub source_event_id: Uuid,
-    pub occurred_at: DateTime<Utc>,
+    pub source_event_occurred_at: DateTime<Utc>,
     pub correlation_id: Uuid,
     pub causation_id: Uuid,
     pub invalidated_partitions: serde_json::Value,
@@ -34,10 +35,11 @@ impl PgReadModelInvalidationOutboxDeadLetterRow {
         let dead_lettered_at = OutboxDeadLetteredAt::from(self.dead_lettered_at);
         let row = PgReadModelInvalidationOutboxRow {
             id: self.read_model_invalidation_outbox_id,
+            invalidation_id: self.invalidation_id,
             source_projector_name: self.source_projector_name,
             source_event_sequence: self.source_event_sequence,
             source_event_id: self.source_event_id,
-            occurred_at: self.occurred_at,
+            source_event_occurred_at: self.source_event_occurred_at,
             correlation_id: self.correlation_id,
             causation_id: self.causation_id,
             invalidated_partitions: self.invalidated_partitions,

@@ -358,10 +358,11 @@ CREATE INDEX IF NOT EXISTS idx_projector_processed_events_event_id
 -- read model invalidation outbox
 CREATE TABLE IF NOT EXISTS read_model_invalidation_outbox (
   id                       UUID        PRIMARY KEY,
+  invalidation_id UUID NOT NULL,
   source_projector_name    TEXT        NOT NULL,
   source_event_sequence    BIGINT      NOT NULL CHECK (source_event_sequence >= 0),
   source_event_id          UUID        NOT NULL,
-  occurred_at              TIMESTAMPTZ NOT NULL,
+  source_event_occurred_at              TIMESTAMPTZ NOT NULL,
   correlation_id           UUID        NOT NULL,
   causation_id             UUID        NOT NULL,
   invalidated_partitions   JSONB       NOT NULL CHECK (jsonb_typeof(invalidated_partitions) = 'array' AND jsonb_array_length(invalidated_partitions) > 0),
@@ -387,10 +388,11 @@ CREATE INDEX IF NOT EXISTS idx_read_model_invalidation_outbox_partitions
 -- read model invalidation dead letters
 CREATE TABLE IF NOT EXISTS read_model_invalidation_dead_letters (
   read_model_invalidation_outbox_id  UUID        PRIMARY KEY,
+  invalidation_id UUID NOT NULL,
   source_projector_name              TEXT        NOT NULL,
   source_event_sequence              BIGINT      NOT NULL CHECK (source_event_sequence >= 0),
   source_event_id                    UUID        NOT NULL,
-  occurred_at                        TIMESTAMPTZ NOT NULL,
+  source_event_occurred_at                        TIMESTAMPTZ NOT NULL,
   correlation_id                     UUID        NOT NULL,
   causation_id                       UUID        NOT NULL,
   invalidated_partitions             JSONB       NOT NULL CHECK (jsonb_typeof(invalidated_partitions) = 'array' AND jsonb_array_length(invalidated_partitions) > 0),

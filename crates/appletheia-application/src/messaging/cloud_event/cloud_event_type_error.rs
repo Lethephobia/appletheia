@@ -6,6 +6,8 @@ use super::CloudEventAttributeStringError;
 pub enum CloudEventTypeError {
     #[error("value cannot be empty")]
     Empty,
+    #[error("event type does not match the configured prefix")]
+    PrefixMismatch,
     #[error(transparent)]
     AttributeString(#[from] CloudEventAttributeStringError),
 }

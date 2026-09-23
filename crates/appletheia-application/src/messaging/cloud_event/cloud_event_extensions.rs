@@ -1,7 +1,8 @@
 use std::collections::BTreeMap;
 
 use super::{
-    CloudEventAttributeValue, CloudEventExtensionName, CloudEventExtensionsError, PartitionKey,
+    CloudEventAttributeValue, CloudEventExtensionName, CloudEventExtensionsError,
+    CloudEventPartitionKey,
 };
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -22,7 +23,7 @@ impl CloudEventExtensions {
         if name.as_str() == "partitionkey" {
             match &value {
                 CloudEventAttributeValue::String(text) => {
-                    PartitionKey::new(text.as_str().to_owned())?;
+                    CloudEventPartitionKey::new(text.as_str().to_owned())?;
                 }
                 _ => return Err(CloudEventExtensionsError::InvalidPartitionKey),
             }
@@ -52,17 +53,17 @@ impl CloudEventExtensions {
         self.values.is_empty()
     }
 
-    pub(super) fn insert_partition_key(&mut self, key: PartitionKey) {
+    pub(super) fn insert_partition_key(&mut self, key: CloudEventPartitionKey) {
         self.values.insert(
             CloudEventExtensionName::partition_key(),
             CloudEventAttributeValue::String(key.into_attribute_string()),
         );
     }
 
-    pub fn partition_key(&self) -> Option<PartitionKey> {
+    pub fn partition_key(&self) -> Option<CloudEventPartitionKey> {
         match self.get(&CloudEventExtensionName::partition_key()) {
             Some(CloudEventAttributeValue::String(value)) => {
-                Some(PartitionKey::from_validated_string(value))
+                Some(CloudEventPartitionKey::from_validated_string(value))
             }
             _ => None,
         }

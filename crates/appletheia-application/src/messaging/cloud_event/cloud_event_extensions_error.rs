@@ -1,11 +1,11 @@
 use thiserror::Error;
 
-use super::PartitionKeyError;
+use super::CloudEventPartitionKeyError;
 
 #[derive(Debug, Error)]
 pub enum CloudEventExtensionsError {
     #[error("partitionkey must be a nonempty String attribute")]
     InvalidPartitionKey,
     #[error(transparent)]
-    PartitionKey(#[from] PartitionKeyError),
+    CloudEventPartitionKey(#[from] CloudEventPartitionKeyError),
 }
