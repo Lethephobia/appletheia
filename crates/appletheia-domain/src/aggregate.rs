@@ -239,7 +239,7 @@ pub trait Aggregate:
     }
 
     /// Materializes the current aggregate state into a snapshot.
-    fn to_snapshot(&self) -> Result<Snapshot<Self::Id, Self::State>, Self::Error> {
+    fn try_to_snapshot(&self) -> Result<Snapshot<Self::Id, Self::State>, Self::Error> {
         self.state()
             .map(|state| Snapshot::new(self.aggregate_id(), self.version(), state.clone()))
             .ok_or(AggregateError::NoState.into())
@@ -752,11 +752,11 @@ mod tests {
     }
 
     #[test]
-    fn to_snapshot_returns_error_when_state_missing() {
+    fn try_to_snapshot_returns_error_when_state_missing() {
         let counter = Counter::new();
 
         let err = counter
-            .to_snapshot()
+            .try_to_snapshot()
             .expect_err("expected error when state missing");
 
         assert!(matches!(
@@ -766,13 +766,13 @@ mod tests {
     }
 
     #[test]
-    fn to_snapshot_serializes_current_state() {
+    fn try_to_snapshot_serializes_current_state() {
         let mut counter = Counter::new();
         counter.create().expect("create should succeed");
         counter.increment(3).expect("increment should succeed");
 
         let snapshot = counter
-            .to_snapshot()
+            .try_to_snapshot()
             .expect("expected snapshot to be created");
 
         assert_eq!(snapshot.aggregate_id(), counter.aggregate_id());

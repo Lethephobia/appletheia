@@ -15,7 +15,7 @@ impl SerializedSagaStep {
         &self.0
     }
 
-    pub fn try_into_step<S: SagaStep>(&self) -> Result<S, SerializedSagaStepError> {
+    pub fn try_to_step<S: SagaStep>(&self) -> Result<S, SerializedSagaStepError> {
         Ok(serde_json::from_value(self.0.clone())?)
     }
 }
@@ -53,7 +53,7 @@ mod tests {
         assert_eq!(serialized.value(), &serde_json::json!("follow_up"));
         assert_eq!(
             serialized
-                .try_into_step::<TestSagaStep>()
+                .try_to_step::<TestSagaStep>()
                 .expect("deserialize step"),
             TestSagaStep::FollowUp
         );

@@ -237,7 +237,9 @@ mod tests {
             aggregate_version: AggregateVersion::try_from(1).expect("version should be valid"),
             event_name: EventNameOwned::from(payload.name()),
             payload: SerializedEventPayload::try_from(
-                payload.into_json_value().expect("payload should serialize"),
+                payload
+                    .try_into_json_value()
+                    .expect("payload should serialize"),
             )
             .expect("payload should be valid"),
             occurred_at: EventOccurredAt::now(),
@@ -260,7 +262,9 @@ mod tests {
             aggregate_version: AggregateVersion::try_from(1).expect("version should be valid"),
             event_name: EventNameOwned::from(payload.name()),
             payload: SerializedEventPayload::try_from(
-                payload.into_json_value().expect("payload should serialize"),
+                payload
+                    .try_into_json_value()
+                    .expect("payload should serialize"),
             )
             .expect("payload should be valid"),
             occurred_at: EventOccurredAt::now(),
@@ -391,13 +395,13 @@ mod tests {
                 .as_ref()
                 .expect("saga origin")
                 .step
-                .try_into_step::<TransferSagaStep>()
+                .try_to_step::<TransferSagaStep>()
                 .expect("saga step"),
             TransferSagaStep::ReserveFunds
         );
         assert!(instance.dispatched_commands.is_empty());
         let command = instance.uncommitted_commands()[0]
-            .try_into_command::<AccountFundsReserveCommand>()
+            .try_to_command::<AccountFundsReserveCommand>()
             .expect("command should deserialize");
         assert_eq!(
             command,
@@ -444,7 +448,7 @@ mod tests {
         )
         .expect("requested should succeed");
         let reserve = instance.uncommitted_commands()[0]
-            .try_into_command::<AccountFundsReserveCommand>()
+            .try_to_command::<AccountFundsReserveCommand>()
             .expect("command should deserialize");
         assert_eq!(
             reserve,
@@ -467,7 +471,7 @@ mod tests {
         )
         .expect("funds reserved should succeed");
         let deposit = instance.uncommitted_commands()[0]
-            .try_into_command::<AccountDepositCommand>()
+            .try_to_command::<AccountDepositCommand>()
             .expect("command should deserialize");
         assert_eq!(
             deposit,
@@ -490,7 +494,7 @@ mod tests {
         )
         .expect("deposited should succeed");
         let commit = instance.uncommitted_commands()[0]
-            .try_into_command::<AccountReservedFundsCommitCommand>()
+            .try_to_command::<AccountReservedFundsCommitCommand>()
             .expect("command should deserialize");
         assert_eq!(
             commit,
@@ -513,7 +517,7 @@ mod tests {
         )
         .expect("reserved funds committed should succeed");
         let complete = instance.uncommitted_commands()[0]
-            .try_into_command::<TransferCompleteCommand>()
+            .try_to_command::<TransferCompleteCommand>()
             .expect("command should deserialize");
         assert_eq!(complete, TransferCompleteCommand { transfer_id });
 
@@ -568,7 +572,7 @@ mod tests {
         .expect("reserved funds released should succeed");
 
         let fail = instance.uncommitted_commands()[0]
-            .try_into_command::<TransferFailCommand>()
+            .try_to_command::<TransferFailCommand>()
             .expect("command should deserialize");
         assert_eq!(
             fail,
@@ -617,7 +621,7 @@ mod tests {
             .expect("deposit failure should succeed");
 
         let release = instance.uncommitted_commands()[0]
-            .try_into_command::<AccountReservedFundsReleaseCommand>()
+            .try_to_command::<AccountReservedFundsReleaseCommand>()
             .expect("command should deserialize");
         assert_eq!(
             release,
@@ -671,7 +675,7 @@ mod tests {
         .expect("funds reservation failure should succeed");
 
         let fail = instance.uncommitted_commands()[0]
-            .try_into_command::<TransferFailCommand>()
+            .try_to_command::<TransferFailCommand>()
             .expect("command should deserialize");
         assert_eq!(
             fail,
@@ -725,7 +729,7 @@ mod tests {
         .expect("reserved funds release failure should succeed");
 
         let fail = instance.uncommitted_commands()[0]
-            .try_into_command::<TransferFailCommand>()
+            .try_to_command::<TransferFailCommand>()
             .expect("command should deserialize");
         assert_eq!(
             fail,
@@ -779,7 +783,7 @@ mod tests {
         .expect("reserved funds commit failure should succeed");
 
         let withdraw = instance.uncommitted_commands()[0]
-            .try_into_command::<AccountWithdrawCommand>()
+            .try_to_command::<AccountWithdrawCommand>()
             .expect("command should deserialize");
         assert_eq!(
             withdraw,
@@ -829,7 +833,7 @@ mod tests {
         .expect("withdrawn should succeed");
 
         let fail = instance.uncommitted_commands()[0]
-            .try_into_command::<TransferFailCommand>()
+            .try_to_command::<TransferFailCommand>()
             .expect("command should deserialize");
         assert_eq!(
             fail,

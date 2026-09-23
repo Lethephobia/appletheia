@@ -54,7 +54,7 @@ where
         Self::Error,
     > {
         let mut invalidated_partitions = ReadModelInvalidatedPartitions::new();
-        let join_request_event = event.try_into_domain_event::<OrganizationJoinRequest>()?;
+        let join_request_event = event.try_to_domain_event::<OrganizationJoinRequest>()?;
         let join_request_id = join_request_event.aggregate_id();
 
         match join_request_event.payload() {

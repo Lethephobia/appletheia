@@ -81,7 +81,7 @@ pub(crate) struct JwtOidcIdTokenClaims {
 }
 
 impl JwtOidcIdTokenClaims {
-    pub fn try_into_id_token_claims(&self) -> Result<OidcIdTokenClaims, JwtOidcIdTokenClaimsError> {
+    pub fn try_to_id_token_claims(&self) -> Result<OidcIdTokenClaims, JwtOidcIdTokenClaimsError> {
         let issuer_url = self.issuer.parse::<OidcIssuerUrl>().map_err(|e| {
             JwtOidcIdTokenClaimsError::InvalidClaimValue {
                 name: "iss",

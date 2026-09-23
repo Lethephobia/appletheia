@@ -48,7 +48,7 @@ where
         Self::Error,
     > {
         let mut invalidated_partitions = ReadModelInvalidatedPartitions::new();
-        let domain_event = event.try_into_domain_event::<WalletBookmark>()?;
+        let domain_event = event.try_to_domain_event::<WalletBookmark>()?;
         let wallet_bookmark_id = domain_event.aggregate_id();
 
         match domain_event.payload() {

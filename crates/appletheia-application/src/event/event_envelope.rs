@@ -41,7 +41,7 @@ impl EventEnvelope {
         self.aggregate_type.value() == A::TYPE.value()
     }
 
-    pub fn try_into_domain_event<A>(
+    pub fn try_to_domain_event<A>(
         &self,
     ) -> Result<Event<A::Id, A::EventPayload>, EventEnvelopeError>
     where
@@ -408,7 +408,9 @@ mod tests {
             aggregate_version: AggregateVersion::try_from(1).expect("version should be valid"),
             event_name: EventNameOwned::from(payload.name()),
             payload: SerializedEventPayload::try_from(
-                payload.into_json_value().expect("payload should serialize"),
+                payload
+                    .try_into_json_value()
+                    .expect("payload should serialize"),
             )
             .expect("payload should be valid"),
             occurred_at: EventOccurredAt::now(),
@@ -438,24 +440,24 @@ mod tests {
     }
 
     #[test]
-    fn try_into_domain_event_preserves_matching_event() {
+    fn try_to_domain_event_preserves_matching_event() {
         let envelope = event_envelope();
 
         let event = envelope
-            .try_into_domain_event::<Counter>()
+            .try_to_domain_event::<Counter>()
             .expect("valid event");
 
         assert_eq!(event.payload().name().value(), envelope.event_name.value());
     }
 
     #[test]
-    fn try_into_domain_event_rejects_mismatched_event_name() {
+    fn try_to_domain_event_rejects_mismatched_event_name() {
         let mut envelope = event_envelope();
         let payload_name = envelope.event_name.value().to_owned();
         envelope.event_name = EventNameOwned::from(EventName::new("different_event"));
 
         assert!(matches!(
-            envelope.try_into_domain_event::<Counter>(),
+            envelope.try_to_domain_event::<Counter>(),
             Err(EventEnvelopeError::EventNameMismatch { expected, actual })
                 if expected == "different_event" && actual == payload_name
         ));

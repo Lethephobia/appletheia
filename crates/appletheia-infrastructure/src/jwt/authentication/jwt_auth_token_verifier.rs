@@ -76,7 +76,7 @@ impl AuthTokenVerifier for JwtAuthTokenVerifier {
 
         let jwt_claims = token_data.claims;
         jwt_claims
-            .try_into_auth_token_claims()
+            .try_to_auth_token_claims()
             .map_err(|source| AuthTokenVerifierError::Backend(Box::new(source)))
     }
 }
@@ -169,7 +169,7 @@ mod tests {
         let valid_claims: Value = insecure_decode::<Value>(issued.token().value())
             .unwrap()
             .claims;
-        let encoding_key = signing_key.try_into_encoding_key().unwrap();
+        let encoding_key = signing_key.try_to_encoding_key().unwrap();
         let mut header = Header::new(Algorithm::EdDSA);
         header.kid = Some("test-key".to_owned());
         for (name, value, expected) in [

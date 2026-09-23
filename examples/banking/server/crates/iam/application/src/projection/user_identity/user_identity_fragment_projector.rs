@@ -49,7 +49,7 @@ where
         Self::Error,
     > {
         let mut invalidated_partitions = ReadModelInvalidatedPartitions::new();
-        let user_event = event.try_into_domain_event::<User>()?;
+        let user_event = event.try_to_domain_event::<User>()?;
         let user_id = user_event.aggregate_id();
 
         match user_event.payload() {

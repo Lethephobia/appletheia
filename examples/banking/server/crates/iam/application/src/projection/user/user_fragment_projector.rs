@@ -49,7 +49,7 @@ where
         Self::Error,
     > {
         let mut invalidated_partitions = ReadModelInvalidatedPartitions::new();
-        let domain_event = event.try_into_domain_event::<User>()?;
+        let domain_event = event.try_to_domain_event::<User>()?;
         let user_id = domain_event.aggregate_id();
 
         let payload = domain_event.payload();
@@ -345,7 +345,9 @@ mod tests {
             aggregate_version: AggregateVersion::try_from(1).expect("version should be valid"),
             event_name: EventNameOwned::from(payload.name()),
             payload: SerializedEventPayload::try_from(
-                payload.into_json_value().expect("payload should serialize"),
+                payload
+                    .try_into_json_value()
+                    .expect("payload should serialize"),
             )
             .expect("payload should be valid"),
             occurred_at: EventOccurredAt::now(),
@@ -379,7 +381,9 @@ mod tests {
             aggregate_version: AggregateVersion::try_from(2).expect("version should be valid"),
             event_name: EventNameOwned::from(payload.name()),
             payload: SerializedEventPayload::try_from(
-                payload.into_json_value().expect("payload should serialize"),
+                payload
+                    .try_into_json_value()
+                    .expect("payload should serialize"),
             )
             .expect("payload should be valid"),
             occurred_at: EventOccurredAt::now(),

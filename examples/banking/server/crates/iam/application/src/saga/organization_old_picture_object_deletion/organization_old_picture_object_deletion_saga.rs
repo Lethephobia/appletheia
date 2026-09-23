@@ -98,7 +98,7 @@ mod tests {
                 aggregate_version: AggregateVersion::try_from(1).expect("version"),
                 event_name: EventNameOwned::from(payload.name()),
                 payload: SerializedEventPayload::try_from(
-                    payload.into_json_value().expect("serialize"),
+                    payload.try_into_json_value().expect("serialize"),
                 )
                 .expect("payload"),
                 occurred_at: EventOccurredAt::now(),
@@ -129,7 +129,7 @@ mod tests {
                 assert_eq!(command.causation_id, CausationId::from(input.event_id));
                 assert_eq!(
                     command
-                        .try_into_command::<OrganizationPictureObjectDeleteCommand>()
+                        .try_to_command::<OrganizationPictureObjectDeleteCommand>()
                         .expect("delete command")
                         .object_name,
                     object_name

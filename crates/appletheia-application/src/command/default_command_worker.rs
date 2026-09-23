@@ -78,7 +78,7 @@ where
         while !self.is_stop_requested() {
             let mut delivery = consumer.next().await?;
 
-            let decoded_command = match delivery.message().try_into_command::<H::Command>() {
+            let decoded_command = match delivery.message().try_to_command::<H::Command>() {
                 Ok(command) => Some(command),
                 Err(CommandEnvelopeError::CommandNameMismatch { .. }) => {
                     delivery.ack().await?;

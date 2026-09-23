@@ -110,7 +110,9 @@ mod tests {
             bio: Some(UserBio::try_from("Banking enthusiast").expect("bio should be valid")),
         };
 
-        let value = payload.into_json_value().expect("payload should serialize");
+        let value = payload
+            .try_into_json_value()
+            .expect("payload should serialize");
 
         assert_eq!(value["type"], serde_json::json!("bio_changed"));
         assert_eq!(
@@ -129,7 +131,9 @@ mod tests {
             old_picture: None,
         };
 
-        let value = payload.into_json_value().expect("payload should serialize");
+        let value = payload
+            .try_into_json_value()
+            .expect("payload should serialize");
 
         assert_eq!(value["type"], serde_json::json!("picture_changed"));
         assert!(value["data"]["picture"].is_object());
@@ -159,7 +163,9 @@ mod tests {
             ),
         };
 
-        let value = payload.into_json_value().expect("payload should serialize");
+        let value = payload
+            .try_into_json_value()
+            .expect("payload should serialize");
 
         assert_eq!(value["type"], serde_json::json!("identity_linked"));
         assert_eq!(
@@ -174,7 +180,9 @@ mod tests {
             initial_identity: None,
         };
 
-        let value = payload.into_json_value().expect("payload should serialize");
+        let value = payload
+            .try_into_json_value()
+            .expect("payload should serialize");
 
         assert_eq!(value["type"], serde_json::json!("registered"));
         assert!(value["data"].get("id").is_none());

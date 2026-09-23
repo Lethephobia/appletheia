@@ -38,7 +38,7 @@ pub(crate) struct JwtAuthTokenClaims {
 }
 
 impl JwtAuthTokenClaims {
-    pub fn try_into_auth_token_claims(&self) -> Result<AuthTokenClaims, JwtAuthTokenClaimsError> {
+    pub fn try_to_auth_token_claims(&self) -> Result<AuthTokenClaims, JwtAuthTokenClaimsError> {
         if self.token_id.trim().is_empty() {
             return Err(JwtAuthTokenClaimsError::MissingRequiredClaim { name: "jti" });
         }

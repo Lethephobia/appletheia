@@ -28,7 +28,7 @@ impl PgUserPictureRefColumns {
         }
     }
 
-    pub(crate) fn into_picture(
+    pub(crate) fn try_into_picture(
         self,
     ) -> Result<Option<UserPictureRef>, PgUserPictureRefColumnsError> {
         match (

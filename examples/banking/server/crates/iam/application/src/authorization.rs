@@ -372,7 +372,7 @@ mod tests {
         let aggregate = membership();
         let serialized = SerializedAggregate::try_from_aggregate(&aggregate).unwrap();
         let restored = serialized
-            .try_into_aggregate::<OrganizationMembership>()
+            .try_to_aggregate::<OrganizationMembership>()
             .unwrap();
         assert_eq!(restored.aggregate_id(), aggregate.aggregate_id());
         assert_eq!(restored.version(), aggregate.version());
@@ -380,21 +380,21 @@ mod tests {
         assert!(!aggregate.uncommitted_events().is_empty());
         assert!(restored.uncommitted_events().is_empty());
         assert!(matches!(
-            serialized.try_into_aggregate::<Organization>(),
+            serialized.try_to_aggregate::<Organization>(),
             Err(SerializedAggregateError::AggregateTypeMismatch { .. })
         ));
 
         let mut malformed = serialized.clone();
         malformed.state = Some(SerializedAggregateState::from(serde_json::json!({})));
         assert!(matches!(
-            malformed.try_into_aggregate::<OrganizationMembership>(),
+            malformed.try_to_aggregate::<OrganizationMembership>(),
             Err(SerializedAggregateError::SerializedAggregateState(_))
         ));
         malformed.state = Some(SerializedAggregateState::from(serde_json::Value::Null));
         assert!(malformed.state.is_some());
         assert!(
             malformed
-                .try_into_aggregate::<OrganizationMembership>()
+                .try_to_aggregate::<OrganizationMembership>()
                 .is_err()
         );
 
@@ -402,7 +402,7 @@ mod tests {
         let serialized_empty = SerializedAggregate::try_from_aggregate(&empty).unwrap();
         assert!(serialized_empty.state.is_none());
         let restored_empty = serialized_empty
-            .try_into_aggregate::<OrganizationMembership>()
+            .try_to_aggregate::<OrganizationMembership>()
             .unwrap();
         assert_eq!(restored_empty.aggregate_id(), empty.aggregate_id());
         assert_eq!(restored_empty.version(), empty.version());

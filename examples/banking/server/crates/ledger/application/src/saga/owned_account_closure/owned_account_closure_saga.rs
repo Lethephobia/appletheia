@@ -316,7 +316,9 @@ mod tests {
             aggregate_version: AggregateVersion::try_from(1).expect("version should be valid"),
             event_name: EventNameOwned::from(payload.name()),
             payload: SerializedEventPayload::try_from(
-                payload.into_json_value().expect("payload should serialize"),
+                payload
+                    .try_into_json_value()
+                    .expect("payload should serialize"),
             )
             .expect("payload should be valid"),
             occurred_at: EventOccurredAt::now(),
@@ -408,7 +410,7 @@ mod tests {
 
         assert_eq!(instance.uncommitted_commands().len(), 1);
         let command = instance.uncommitted_commands()[0]
-            .try_into_command::<OwnedAccountClosureRequestCommand>()
+            .try_to_command::<OwnedAccountClosureRequestCommand>()
             .expect("command should deserialize");
         assert_eq!(command, OwnedAccountClosureRequestCommand { owner });
     }
@@ -435,7 +437,7 @@ mod tests {
         .expect("saga should succeed");
 
         let command = instance.uncommitted_commands()[0]
-            .try_into_command::<OwnedAccountClosurePageLoadCommand>()
+            .try_to_command::<OwnedAccountClosurePageLoadCommand>()
             .expect("command should deserialize");
         assert_eq!(
             command,
@@ -476,7 +478,7 @@ mod tests {
 
         assert_eq!(instance.uncommitted_commands().len(), 1);
         let command = instance.uncommitted_commands()[0]
-            .try_into_command::<AccountCloseCommand>()
+            .try_to_command::<AccountCloseCommand>()
             .expect("command should deserialize");
         assert_eq!(command, AccountCloseCommand { account_id });
         assert_eq!(
@@ -514,7 +516,7 @@ mod tests {
         .expect("saga should request completion");
 
         let complete_command = instance.uncommitted_commands()[0]
-            .try_into_command::<OwnedAccountClosureCompleteCommand>()
+            .try_to_command::<OwnedAccountClosureCompleteCommand>()
             .expect("command should deserialize");
         assert_eq!(
             complete_command,
@@ -613,11 +615,11 @@ mod tests {
             .as_ref()
             .unwrap()
             .step
-            .try_into_step::<OwnedAccountClosureSagaStep>()
+            .try_to_step::<OwnedAccountClosureSagaStep>()
             .unwrap();
         assert_eq!(dispatched_step, OwnedAccountClosureSagaStep::ProcessPage);
         instance.uncommitted_commands()[0]
-            .try_into_command::<OwnedAccountClosurePageLoadCommand>()
+            .try_to_command::<OwnedAccountClosurePageLoadCommand>()
             .unwrap();
         instance.clear_uncommitted_commands();
         let last_page = closure_event_envelope(
@@ -630,7 +632,7 @@ mod tests {
         );
         assert!(handle_event(&saga, &mut instance, &last_page, Some(dispatched_step)).unwrap());
         instance.uncommitted_commands()[0]
-            .try_into_command::<OwnedAccountClosureCompleteCommand>()
+            .try_to_command::<OwnedAccountClosureCompleteCommand>()
             .unwrap();
     }
 
@@ -708,7 +710,7 @@ mod tests {
         ] {
             for (command, expected_reason) in &commands {
                 if step == OwnedAccountClosureSagaStep::Advance
-                    && command.try_into_command::<AccountCloseCommand>().is_ok()
+                    && command.try_to_command::<AccountCloseCommand>().is_ok()
                 {
                     continue;
                 }
@@ -746,7 +748,7 @@ mod tests {
                 if let Some(reason) = expected_reason {
                     assert_eq!(instance.uncommitted_commands().len(), 1);
                     let compensation = instance.uncommitted_commands()[0]
-                        .try_into_command::<OwnedAccountClosureFailCommand>()
+                        .try_to_command::<OwnedAccountClosureFailCommand>()
                         .unwrap();
                     assert_eq!(&compensation.reason, reason);
                     assert_eq!(
@@ -755,7 +757,7 @@ mod tests {
                             .as_ref()
                             .unwrap()
                             .step
-                            .try_into_step::<OwnedAccountClosureSagaStep>()
+                            .try_to_step::<OwnedAccountClosureSagaStep>()
                             .unwrap(),
                         OwnedAccountClosureSagaStep::Fail
                     );

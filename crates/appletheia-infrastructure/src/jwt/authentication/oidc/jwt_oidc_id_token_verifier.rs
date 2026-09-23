@@ -207,7 +207,7 @@ where
         .map_err(Self::map_error)?;
 
         jwt_claims
-            .try_into_id_token_claims()
+            .try_to_id_token_claims()
             .map_err(JwtOidcIdTokenVerifierError::from)
             .map_err(Self::map_error)
     }

@@ -46,7 +46,7 @@ impl TryFrom<PgUserOrganizationJoinRequestListUserRow> for UserOrganizationJoinR
                 object_name: row.picture_object_name,
                 external_url: row.picture_external_url,
             }
-            .into_picture()
+            .try_into_picture()
             .map_err(|error| {
                 PgUserOrganizationJoinRequestListUserRowError::Picture(Box::new(error))
             })?,

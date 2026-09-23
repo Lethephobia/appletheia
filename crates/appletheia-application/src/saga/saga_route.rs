@@ -40,7 +40,7 @@ impl<'a, S: SagaState, T: SagaStep, E: Error + Send + Sync + 'static> SagaRoute<
             step: dispatch_step,
             selector: EventSelector::new::<A>(event_name),
             handler: Box::new(move |ctx, envelope| {
-                let decoded = envelope.try_into_domain_event::<A>()?;
+                let decoded = envelope.try_to_domain_event::<A>()?;
                 handler(ctx, &decoded)
             }),
         }
@@ -60,7 +60,7 @@ impl<'a, S: SagaState, T: SagaStep, E: Error + Send + Sync + 'static> SagaRoute<
             selector: EventSelector::new::<A>(event_name),
             caused_by,
             handler: Box::new(move |ctx, envelope| {
-                let decoded = envelope.try_into_domain_event::<A>()?;
+                let decoded = envelope.try_to_domain_event::<A>()?;
                 handler(ctx, &decoded)
             }),
         }

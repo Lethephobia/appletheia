@@ -47,7 +47,7 @@ impl CommandEnvelope {
         self
     }
 
-    pub fn try_into_command<C>(&self) -> Result<C, CommandEnvelopeError>
+    pub fn try_to_command<C>(&self) -> Result<C, CommandEnvelopeError>
     where
         C: Command,
     {

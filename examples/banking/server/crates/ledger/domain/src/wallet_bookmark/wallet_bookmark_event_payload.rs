@@ -82,7 +82,9 @@ mod tests {
             )),
         };
 
-        let value = payload.into_json_value().expect("payload should serialize");
+        let value = payload
+            .try_into_json_value()
+            .expect("payload should serialize");
 
         assert_eq!(value["type"], serde_json::json!("registered"));
     }

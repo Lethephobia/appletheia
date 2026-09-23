@@ -46,7 +46,7 @@ where
         Self::Error,
     > {
         let fragment = if event.is_for_aggregate::<Currency>() {
-            let event = event.try_into_domain_event::<Currency>()?;
+            let event = event.try_to_domain_event::<Currency>()?;
             let currency_id = event.aggregate_id();
             match event.payload() {
                 CurrencyEventPayload::Defined {
@@ -102,7 +102,7 @@ where
                 }
             }
         } else if event.is_for_aggregate::<TokenBinding>() {
-            let event = event.try_into_domain_event::<TokenBinding>()?;
+            let event = event.try_to_domain_event::<TokenBinding>()?;
             match event.payload() {
                 TokenBindingEventPayload::Defined {
                     currency_id,

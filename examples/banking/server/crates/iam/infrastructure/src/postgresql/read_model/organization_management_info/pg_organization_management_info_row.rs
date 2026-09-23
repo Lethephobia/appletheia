@@ -79,7 +79,7 @@ impl TryFrom<PgOrganizationManagementInfoRow> for OrganizationManagementInfo {
                     object_name: row.owner_picture_object_name,
                     external_url: row.owner_picture_external_url,
                 }
-                .into_picture()
+                .try_into_picture()
                 .map_err(|error| {
                     PgOrganizationManagementInfoRowError::OwnerPicture(Box::new(error))
                 })?,
@@ -104,7 +104,7 @@ impl TryFrom<PgOrganizationManagementInfoRow> for OrganizationManagementInfo {
                 object_name: row.picture_object_name,
                 external_url: row.picture_external_url,
             }
-            .into_picture()
+            .try_into_picture()
             .map_err(|error| PgOrganizationManagementInfoRowError::Picture(Box::new(error)))?,
             created_at: EventOccurredAt::from(row.created_at),
             observation: ReadModelObservation::new(

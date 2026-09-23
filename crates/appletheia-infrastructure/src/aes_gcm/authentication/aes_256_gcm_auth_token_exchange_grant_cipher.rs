@@ -87,7 +87,7 @@ impl AuthTokenExchangeGrantCipher for Aes256GcmAuthTokenExchangeGrantCipher {
         let json: AuthTokenExchangeGrantJson = serde_json::from_slice(&plaintext)
             .map_err(|source| AuthTokenExchangeGrantCipherError::Backend(Box::new(source)))?;
 
-        json.into_grant()
+        json.try_into_grant()
             .map_err(AuthTokenExchangeGrantCipherError::Backend)
     }
 }

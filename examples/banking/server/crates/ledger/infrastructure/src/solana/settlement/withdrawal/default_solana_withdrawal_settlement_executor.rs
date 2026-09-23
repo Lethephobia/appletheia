@@ -68,7 +68,7 @@ impl SolanaWithdrawalSettlementExecutor for DefaultSolanaWithdrawalSettlementExe
             .map_err(|error| WithdrawalSettlementExecutorError::Backend(Box::new(error)))?;
         let domain_token_amount = request
             .amount()
-            .to_token_amount(
+            .try_to_token_amount(
                 request.currency_decimals(),
                 TokenDecimals::new(mint_state.base.decimals),
             )

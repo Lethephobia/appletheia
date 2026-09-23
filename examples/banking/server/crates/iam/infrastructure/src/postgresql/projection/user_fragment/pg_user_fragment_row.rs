@@ -62,7 +62,7 @@ impl TryFrom<PgUserFragmentRow> for UserFragment {
                 object_name: row.picture_object_name,
                 external_url: row.picture_external_url,
             }
-            .into_picture()
+            .try_into_picture()
             .map_err(|error| PgUserFragmentRowError::Picture(Box::new(error)))?,
             status,
             created_at: EventOccurredAt::from(row.created_at),

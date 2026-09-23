@@ -56,7 +56,7 @@ where
         let mut invalidated_partitions = ReadModelInvalidatedPartitions::new();
 
         if event.is_for_aggregate::<OrganizationMembership>() {
-            let membership_event = event.try_into_domain_event::<OrganizationMembership>()?;
+            let membership_event = event.try_to_domain_event::<OrganizationMembership>()?;
             let organization_membership_id = membership_event.aggregate_id();
 
             match membership_event.payload() {
@@ -122,7 +122,7 @@ where
             return Ok(invalidated_partitions);
         }
 
-        let user_event = event.try_into_domain_event::<User>()?;
+        let user_event = event.try_to_domain_event::<User>()?;
         let user_id = user_event.aggregate_id();
 
         match user_event.payload() {

@@ -47,7 +47,7 @@ impl CurrencyAmount {
     }
 
     /// Converts this currency amount into token base units without losing precision.
-    pub fn to_token_amount(
+    pub fn try_to_token_amount(
         &self,
         currency_decimals: CurrencyDecimals,
         token_decimals: TokenDecimals,
@@ -146,12 +146,12 @@ mod tests {
     fn converts_to_token_base_units_exactly() {
         assert_eq!(
             CurrencyAmount::new(123)
-                .to_token_amount(CurrencyDecimals::new(2), TokenDecimals::new(6)),
+                .try_to_token_amount(CurrencyDecimals::new(2), TokenDecimals::new(6)),
             Ok(TokenAmount::new(1_230_000))
         );
         assert_eq!(
             CurrencyAmount::new(1_230_000)
-                .to_token_amount(CurrencyDecimals::new(6), TokenDecimals::new(2)),
+                .try_to_token_amount(CurrencyDecimals::new(6), TokenDecimals::new(2)),
             Ok(TokenAmount::new(123))
         );
     }
@@ -159,12 +159,13 @@ mod tests {
     #[test]
     fn rejects_inexact_and_overflowing_token_conversion() {
         assert_eq!(
-            CurrencyAmount::new(1).to_token_amount(CurrencyDecimals::new(6), TokenDecimals::new(2)),
+            CurrencyAmount::new(1)
+                .try_to_token_amount(CurrencyDecimals::new(6), TokenDecimals::new(2)),
             Err(TokenAmountConversionError::InexactAmount)
         );
         assert_eq!(
             CurrencyAmount::new(u128::MAX)
-                .to_token_amount(CurrencyDecimals::new(0), TokenDecimals::new(18)),
+                .try_to_token_amount(CurrencyDecimals::new(0), TokenDecimals::new(18)),
             Err(TokenAmountConversionError::AmountOverflow)
         );
     }
@@ -173,7 +174,7 @@ mod tests {
     fn converts_zero_without_requiring_a_representable_decimal_factor() {
         assert_eq!(
             CurrencyAmount::zero()
-                .to_token_amount(CurrencyDecimals::new(0), TokenDecimals::new(u8::MAX)),
+                .try_to_token_amount(CurrencyDecimals::new(0), TokenDecimals::new(u8::MAX)),
             Ok(TokenAmount::new(0))
         );
     }

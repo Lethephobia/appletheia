@@ -332,7 +332,8 @@ mod tests {
             aggregate_id: AggregateIdValue::from(Uuid::now_v7()),
             aggregate_version: AggregateVersion::try_from(1).unwrap(),
             event_name: EventNameOwned::from(payload.name()),
-            payload: SerializedEventPayload::try_from(payload.into_json_value().unwrap()).unwrap(),
+            payload: SerializedEventPayload::try_from(payload.try_into_json_value().unwrap())
+                .unwrap(),
             occurred_at: EventOccurredAt::now(),
             correlation_id,
             causation_id: CausationId::from(message_id),
@@ -515,7 +516,7 @@ mod tests {
                 .as_ref()
                 .unwrap()
                 .step
-                .try_into_step::<Step>()
+                .try_to_step::<Step>()
                 .unwrap(),
             Step::First
         );
@@ -564,7 +565,7 @@ mod tests {
                 .as_ref()
                 .unwrap()
                 .step
-                .try_into_step::<Step>()
+                .try_to_step::<Step>()
                 .unwrap(),
             Step::Second
         );
@@ -617,7 +618,7 @@ mod tests {
                     .as_ref()
                     .unwrap()
                     .step
-                    .try_into_step::<Step>()
+                    .try_to_step::<Step>()
                     .unwrap(),
                 Step::First
             );
@@ -656,7 +657,7 @@ mod tests {
                 .as_ref()
                 .unwrap()
                 .step
-                .try_into_step::<Step>()
+                .try_to_step::<Step>()
                 .unwrap(),
             Step::Second
         );

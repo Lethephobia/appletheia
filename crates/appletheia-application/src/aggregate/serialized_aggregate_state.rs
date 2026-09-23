@@ -21,12 +21,12 @@ impl SerializedAggregateState {
     {
         state
             .clone()
-            .into_json_value()
+            .try_into_json_value()
             .map(Self)
             .map_err(|error| SerializedAggregateStateError::AggregateState(Box::new(error)))
     }
 
-    pub fn try_into_state<S>(&self) -> Result<S, SerializedAggregateStateError>
+    pub fn try_to_state<S>(&self) -> Result<S, SerializedAggregateStateError>
     where
         S: AggregateState,
     {

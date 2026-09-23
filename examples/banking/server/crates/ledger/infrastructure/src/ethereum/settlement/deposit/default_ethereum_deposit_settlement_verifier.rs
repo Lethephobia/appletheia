@@ -80,7 +80,7 @@ impl EthereumDepositSettlementVerifier for DefaultEthereumDepositSettlementVerif
             })?;
         let amount = request
             .amount()
-            .to_token_amount(
+            .try_to_token_amount(
                 request.currency_decimals(),
                 TokenDecimals::new(token_decimals),
             )

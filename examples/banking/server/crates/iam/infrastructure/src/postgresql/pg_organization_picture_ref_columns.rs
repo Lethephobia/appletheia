@@ -30,7 +30,7 @@ impl PgOrganizationPictureRefColumns {
         }
     }
 
-    pub(crate) fn into_picture(
+    pub(crate) fn try_into_picture(
         self,
     ) -> Result<Option<OrganizationPictureRef>, PgOrganizationPictureRefColumnsError> {
         match (

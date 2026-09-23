@@ -53,7 +53,7 @@ impl TryFrom<PgOrganizationMemberListItemRow> for OrganizationMemberListItem {
                     object_name: row.picture_object_name,
                     external_url: row.picture_external_url,
                 }
-                .into_picture()
+                .try_into_picture()
                 .map_err(|error| PgOrganizationMemberListItemRowError::Picture(Box::new(error)))?,
                 observation: ReadModelObservation::new(
                     EventId::try_from(row.member_source_event_id).map_err(|error| {

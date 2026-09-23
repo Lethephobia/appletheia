@@ -76,7 +76,7 @@ impl UserPrivateInfoReader for PgUserPrivateInfoReader {
         .map_err(|e| UserPrivateInfoReaderError::Persistence(Box::new(e)))?;
 
         let user_private_info = user_row
-            .into_user_private_info(identity_rows)
+            .try_into_user_private_info(identity_rows)
             .map_err(|e| UserPrivateInfoReaderError::Persistence(Box::new(e)))?;
 
         Ok(Some(user_private_info))

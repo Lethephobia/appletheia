@@ -50,7 +50,7 @@ where
     > {
         let mut invalidated_partitions = ReadModelInvalidatedPartitions::new();
         if event.is_for_aggregate::<Account>() {
-            let domain_event = event.try_into_domain_event::<Account>()?;
+            let domain_event = event.try_to_domain_event::<Account>()?;
             let account_id = domain_event.aggregate_id();
 
             match domain_event.payload() {

@@ -31,7 +31,7 @@ impl JwtSigningKey {
         }
     }
 
-    pub fn try_into_encoding_key(&self) -> Result<EncodingKey, JwtSigningKeyError> {
+    pub fn try_to_encoding_key(&self) -> Result<EncodingKey, JwtSigningKeyError> {
         match self {
             Self::Rs256 {
                 private_key_pem, ..

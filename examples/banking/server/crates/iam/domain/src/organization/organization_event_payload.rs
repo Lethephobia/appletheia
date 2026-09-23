@@ -107,7 +107,9 @@ mod tests {
             ),
         };
 
-        let value = payload.into_json_value().expect("payload should serialize");
+        let value = payload
+            .try_into_json_value()
+            .expect("payload should serialize");
 
         assert_eq!(value["type"], serde_json::json!("website_url_changed"));
         assert_eq!(
@@ -127,7 +129,9 @@ mod tests {
             picture: None,
         };
 
-        let value = payload.into_json_value().expect("payload should serialize");
+        let value = payload
+            .try_into_json_value()
+            .expect("payload should serialize");
 
         assert_eq!(value["type"], serde_json::json!("created"));
         assert_eq!(

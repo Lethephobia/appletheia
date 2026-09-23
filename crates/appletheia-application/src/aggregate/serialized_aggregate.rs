@@ -30,7 +30,7 @@ impl SerializedAggregate {
     }
 
     /// Restores identity, version and optional state; no pending events are reconstructed.
-    pub fn try_into_aggregate<A>(&self) -> Result<A, SerializedAggregateError>
+    pub fn try_to_aggregate<A>(&self) -> Result<A, SerializedAggregateError>
     where
         A: Aggregate,
     {
@@ -45,7 +45,7 @@ impl SerializedAggregate {
         let state = self
             .state
             .as_ref()
-            .map(SerializedAggregateState::try_into_state::<A::State>)
+            .map(SerializedAggregateState::try_to_state::<A::State>)
             .transpose()?;
         let mut aggregate = A::from_id(aggregate_id);
         aggregate.set_state(state);

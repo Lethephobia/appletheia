@@ -110,7 +110,7 @@ impl TryFrom<PgUserOrganizationInvitationListItemRow> for UserOrganizationInvita
                     object_name: row.organization_picture_object_name,
                     external_url: row.organization_picture_external_url,
                 }
-                .into_picture()
+                .try_into_picture()
                 .map_err(|error| {
                     PgUserOrganizationInvitationListItemRowError::OrganizationPicture(Box::new(
                         error,

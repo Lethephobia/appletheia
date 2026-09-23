@@ -113,7 +113,7 @@ impl PgPublicAccountListItemRow {
                         object_name: self.owner_user_picture_object_name.clone(),
                         external_url: self.owner_user_picture_external_url.clone(),
                     }
-                    .into_picture()
+                    .try_into_picture()
                     .map_err(|error| {
                         PgPublicAccountListItemRowError::InvalidUserPicture(Box::new(error))
                     })?,
@@ -154,7 +154,7 @@ impl PgPublicAccountListItemRow {
                             object_name: self.owner_organization_picture_object_name.clone(),
                             external_url: self.owner_organization_picture_external_url.clone(),
                         }
-                        .into_picture()
+                        .try_into_picture()
                         .map_err(|error| {
                             PgPublicAccountListItemRowError::InvalidOrganizationPicture(Box::new(
                                 error,

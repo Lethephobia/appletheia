@@ -23,7 +23,7 @@ pub trait EventPayload:
     }
 
     /// Serializes the payload into a JSON value.
-    fn into_json_value(self) -> Result<serde_json::Value, Self::Error> {
+    fn try_into_json_value(self) -> Result<serde_json::Value, Self::Error> {
         serde_json::to_value(self).map_err(serde_json::Error::into)
     }
 }
@@ -108,10 +108,12 @@ mod tests {
     }
 
     #[test]
-    fn into_json_value_serializes_payload() {
+    fn try_into_json_value_serializes_payload() {
         let payload = CounterEventPayload::Incremented { amount: 7 };
 
-        let value = payload.into_json_value().expect("payload should serialize");
+        let value = payload
+            .try_into_json_value()
+            .expect("payload should serialize");
 
         assert_eq!(value["type"], serde_json::json!("incremented"));
         assert_eq!(value["data"]["amount"], serde_json::json!(7));

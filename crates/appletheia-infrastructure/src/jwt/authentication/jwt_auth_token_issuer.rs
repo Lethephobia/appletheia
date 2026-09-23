@@ -27,7 +27,7 @@ impl AuthTokenIssuer for JwtAuthTokenIssuer {
         let encoding_key = self
             .config
             .signing_key()
-            .try_into_encoding_key()
+            .try_to_encoding_key()
             .map_err(|e| {
                 AuthTokenIssuerError::Backend(Box::new(JwtAuthTokenIssuerError::SigningKey(e)))
             })?;
@@ -59,10 +59,10 @@ impl AuthTokenIssuer for JwtAuthTokenIssuer {
             subject: request.subject().aggregate_id.to_string(),
             subject_type: request.subject().aggregate_type.to_string(),
             issued_at: issued_at
-                .to_unix_timestamp_seconds()
+                .try_to_unix_timestamp_seconds()
                 .map_err(|e| AuthTokenIssuerError::Backend(Box::new(e)))?,
             expires_at: expires_at
-                .to_unix_timestamp_seconds()
+                .try_to_unix_timestamp_seconds()
                 .map_err(|e| AuthTokenIssuerError::Backend(Box::new(e)))?,
             token_id: token_id.to_string(),
         };

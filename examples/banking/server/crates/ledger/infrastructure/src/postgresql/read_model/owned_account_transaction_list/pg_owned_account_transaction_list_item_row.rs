@@ -188,7 +188,7 @@ impl PgOwnedAccountTransactionListItemRow {
                             object_name: row.counterparty_owner_user_picture_object_name.clone(),
                             external_url: row.counterparty_owner_user_picture_external_url.clone(),
                         }
-                        .into_picture()
+                        .try_into_picture()
                         .map_err(|error| {
                             PgOwnedAccountTransactionListItemRowError::InvalidUserPicture(Box::new(
                                 error,
@@ -245,7 +245,7 @@ impl PgOwnedAccountTransactionListItemRow {
                                 .counterparty_owner_organization_picture_external_url
                                 .clone(),
                         }
-                        .into_picture()
+                        .try_into_picture()
                         .map_err(|error| {
                             PgOwnedAccountTransactionListItemRowError::InvalidOrganizationPicture(
                                 Box::new(error),

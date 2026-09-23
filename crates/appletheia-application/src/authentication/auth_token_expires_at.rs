@@ -21,7 +21,7 @@ impl AuthTokenExpiresAt {
         Self(Utc::now() + expires_in.value())
     }
 
-    pub fn to_unix_timestamp_seconds(&self) -> Result<u64, AuthTokenExpiresAtError> {
+    pub fn try_to_unix_timestamp_seconds(&self) -> Result<u64, AuthTokenExpiresAtError> {
         let seconds = self.0.timestamp();
         u64::try_from(seconds).map_err(|_| AuthTokenExpiresAtError::BeforeUnixEpoch)
     }
@@ -69,7 +69,7 @@ mod tests {
     use crate::authentication::AuthTokenExpiresAtError;
 
     #[test]
-    fn to_unix_timestamp_seconds_returns_seconds_since_epoch() {
+    fn try_to_unix_timestamp_seconds_returns_seconds_since_epoch() {
         let expires_at = AuthTokenExpiresAt::from(
             Utc.with_ymd_and_hms(2026, 3, 13, 12, 0, 0)
                 .single()
@@ -77,14 +77,14 @@ mod tests {
         );
 
         let seconds = expires_at
-            .to_unix_timestamp_seconds()
+            .try_to_unix_timestamp_seconds()
             .expect("timestamp should be valid");
 
         assert_eq!(seconds, 1_773_403_200);
     }
 
     #[test]
-    fn to_unix_timestamp_seconds_rejects_timestamps_before_epoch() {
+    fn try_to_unix_timestamp_seconds_rejects_timestamps_before_epoch() {
         let expires_at = AuthTokenExpiresAt::from(
             Utc.with_ymd_and_hms(1969, 12, 31, 23, 59, 59)
                 .single()
@@ -92,7 +92,7 @@ mod tests {
         );
 
         let error = expires_at
-            .to_unix_timestamp_seconds()
+            .try_to_unix_timestamp_seconds()
             .expect_err("timestamp should be rejected");
 
         assert_eq!(error, AuthTokenExpiresAtError::BeforeUnixEpoch);

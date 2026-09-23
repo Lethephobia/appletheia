@@ -62,7 +62,7 @@ impl OidcUserInfoBody {
     }
 
     /// Converts the decoded body into application user-info values.
-    pub fn try_into_user_info(&self) -> Result<OidcUserInfo, OidcUserInfoBodyError> {
+    pub fn try_to_user_info(&self) -> Result<OidcUserInfo, OidcUserInfoBodyError> {
         let birthdate = self
             .birthdate
             .clone()

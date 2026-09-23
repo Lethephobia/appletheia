@@ -31,7 +31,7 @@ pub trait AggregateState:
     }
 
     /// Serializes the state into a JSON value.
-    fn into_json_value(self) -> Result<serde_json::Value, Self::Error> {
+    fn try_into_json_value(self) -> Result<serde_json::Value, Self::Error> {
         Ok(serde_json::to_value(self).map_err(AggregateStateError::from)?)
     }
 }
@@ -92,10 +92,10 @@ mod tests {
     }
 
     #[test]
-    fn into_json_value_serializes_state() {
+    fn try_into_json_value_serializes_state() {
         let state = CounterState { count: 8 };
 
-        let value = state.into_json_value().expect("state should serialize");
+        let value = state.try_into_json_value().expect("state should serialize");
 
         assert_eq!(value["count"], serde_json::json!(8));
     }

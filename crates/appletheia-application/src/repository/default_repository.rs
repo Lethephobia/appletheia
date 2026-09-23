@@ -223,7 +223,7 @@ where
                         >= minimum_interval.as_u64()
                 {
                     let snapshot = aggregate
-                        .to_snapshot()
+                        .try_to_snapshot()
                         .map_err(RepositoryError::Aggregate)?;
                     self.snapshot_writer.write_snapshot(uow, &snapshot).await?;
                 }

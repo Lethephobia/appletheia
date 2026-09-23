@@ -24,7 +24,7 @@ impl RelationshipDerivationSource {
         E: Error + From<SerializedAggregateError> + Send + Sync + 'static,
     {
         let shared_handler: RelationshipDerivationHandler = Arc::new(move |serialized| {
-            let aggregate = serialized.try_into_aggregate::<A>().map_err(E::from)?;
+            let aggregate = serialized.try_to_aggregate::<A>().map_err(E::from)?;
             handler(&aggregate).map_err(Into::into)
         });
         Self {

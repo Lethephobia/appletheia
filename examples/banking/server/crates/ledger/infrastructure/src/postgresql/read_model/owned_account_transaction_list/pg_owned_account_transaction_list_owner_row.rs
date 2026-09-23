@@ -109,7 +109,7 @@ impl TryFrom<PgOwnedAccountTransactionListOwnerRow> for OwnedAccountTransactionL
                     object_name: row.owner_user_picture_object_name,
                     external_url: row.owner_user_picture_external_url,
                 }
-                .into_picture()
+                .try_into_picture()
                 .map_err(|error| {
                     PgOwnedAccountTransactionListOwnerRowError::InvalidUserPicture(Box::new(error))
                 })?,
@@ -147,7 +147,7 @@ impl TryFrom<PgOwnedAccountTransactionListOwnerRow> for OwnedAccountTransactionL
                             object_name: row.owner_organization_picture_object_name,
                             external_url: row.owner_organization_picture_external_url,
                         }
-                        .into_picture()
+                        .try_into_picture()
                         .map_err(|error| {
                             PgOwnedAccountTransactionListOwnerRowError::InvalidOrganizationPicture(
                                 Box::new(error),

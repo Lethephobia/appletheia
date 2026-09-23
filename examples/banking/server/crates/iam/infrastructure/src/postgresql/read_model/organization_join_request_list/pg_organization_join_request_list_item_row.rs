@@ -79,7 +79,7 @@ impl TryFrom<PgOrganizationJoinRequestListItemRow> for OrganizationJoinRequestLi
                     object_name: row.requester_picture_object_name,
                     external_url: row.requester_picture_external_url,
                 }
-                .into_picture()
+                .try_into_picture()
                 .map_err(|error| {
                     PgOrganizationJoinRequestListItemRowError::RequesterPicture(Box::new(error))
                 })?,

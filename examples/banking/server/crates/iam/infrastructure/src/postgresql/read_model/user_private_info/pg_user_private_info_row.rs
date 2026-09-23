@@ -25,7 +25,7 @@ pub struct PgUserPrivateInfoRow {
 }
 
 impl PgUserPrivateInfoRow {
-    pub fn into_user_private_info(
+    pub fn try_into_user_private_info(
         self,
         identity_rows: Vec<PgUserPrivateInfoIdentityRow>,
     ) -> Result<UserPrivateInfo, PgUserPrivateInfoRowError> {
@@ -45,7 +45,7 @@ impl PgUserPrivateInfoRow {
                 object_name: self.picture_object_name,
                 external_url: self.picture_external_url,
             }
-            .into_picture()
+            .try_into_picture()
             .map_err(|error| PgUserPrivateInfoRowError::InvalidUserPicture(Box::new(error)))?,
             status: Self::status(self.status)?,
             created_at: EventOccurredAt::from(self.created_at),

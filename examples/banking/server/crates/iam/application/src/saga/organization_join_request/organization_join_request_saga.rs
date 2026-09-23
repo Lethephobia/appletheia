@@ -105,7 +105,9 @@ mod tests {
             aggregate_version: AggregateVersion::try_from(1).expect("version should be valid"),
             event_name: EventNameOwned::from(payload.name()),
             payload: SerializedEventPayload::try_from(
-                payload.into_json_value().expect("payload should serialize"),
+                payload
+                    .try_into_json_value()
+                    .expect("payload should serialize"),
             )
             .expect("payload should be valid"),
             occurred_at: EventOccurredAt::now(),
@@ -131,7 +133,9 @@ mod tests {
             aggregate_version: AggregateVersion::try_from(1).expect("version should be valid"),
             event_name: EventNameOwned::from(payload.name()),
             payload: SerializedEventPayload::try_from(
-                payload.into_json_value().expect("payload should serialize"),
+                payload
+                    .try_into_json_value()
+                    .expect("payload should serialize"),
             )
             .expect("payload should be valid"),
             occurred_at: EventOccurredAt::now(),
@@ -209,7 +213,7 @@ mod tests {
         assert!(instance.state.is_some());
         assert_eq!(instance.uncommitted_commands().len(), 1);
         let command: OrganizationMembershipCreateCommand = instance.uncommitted_commands()[0]
-            .try_into_command()
+            .try_to_command()
             .expect("command should deserialize");
         assert_eq!(command.user_id, requester_id);
         assert_eq!(command.organization_id, organization_id);

@@ -169,7 +169,7 @@ where
         };
         if failure.origin.saga_instance_id != instance.saga_instance_id
             || failure.command_name != dispatched_command.command_name
-            || failure.origin.step.try_into_step::<ST>().ok() != Some(dispatched_command.step)
+            || failure.origin.step.try_to_step::<ST>().ok() != Some(dispatched_command.step)
             || failure.correlation_id != instance.correlation_id
         {
             return Ok(SagaCommandFailureRunReport::CommandNotOwned);

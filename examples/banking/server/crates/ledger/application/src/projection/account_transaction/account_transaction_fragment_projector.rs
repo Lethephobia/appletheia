@@ -56,7 +56,7 @@ where
     > {
         let mut invalidated_partitions = ReadModelInvalidatedPartitions::new();
         if event.is_for_aggregate::<Deposit>() {
-            let domain_event = event.try_into_domain_event::<Deposit>()?;
+            let domain_event = event.try_to_domain_event::<Deposit>()?;
             let deposit_id = domain_event.aggregate_id();
             let transaction_id = AccountTransactionId::from(deposit_id.value());
 
@@ -134,7 +134,7 @@ where
                 }
             }
         } else if event.is_for_aggregate::<Withdrawal>() {
-            let domain_event = event.try_into_domain_event::<Withdrawal>()?;
+            let domain_event = event.try_to_domain_event::<Withdrawal>()?;
             let withdrawal_id = domain_event.aggregate_id();
             let transaction_id = AccountTransactionId::from(withdrawal_id.value());
 
@@ -221,7 +221,7 @@ where
                 }
             }
         } else if event.is_for_aggregate::<Transfer>() {
-            let domain_event = event.try_into_domain_event::<Transfer>()?;
+            let domain_event = event.try_to_domain_event::<Transfer>()?;
             let transfer_id = domain_event.aggregate_id();
 
             match domain_event.payload() {

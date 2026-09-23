@@ -16,7 +16,7 @@ impl PgOrganizationPictureRefColumns {
     const EXTERNAL_URL: &'static str = "external_url";
     const OBJECT_NAME: &'static str = "object_name";
 
-    pub(crate) fn into_picture(
+    pub(crate) fn try_into_picture(
         self,
     ) -> Result<Option<OrganizationPictureRef>, PgOrganizationPictureRefColumnsError> {
         match (
