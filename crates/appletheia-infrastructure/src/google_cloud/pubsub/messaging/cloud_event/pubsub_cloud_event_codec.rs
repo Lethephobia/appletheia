@@ -4,7 +4,6 @@ use appletheia_application::{
     CloudEvent, CloudEventAttributeString, CloudEventAttributeValue, CloudEventData,
     CloudEventExtensionName, CloudEventSpecVersion,
 };
-use base64::{Engine, engine::general_purpose::STANDARD};
 use google_cloud_pubsub::model::Message;
 
 use super::PubsubCloudEventCodecError;
@@ -37,16 +36,7 @@ impl PubsubCloudEventCodec {
             attributes.insert("ce-datacontenttype".to_owned(), content_type.to_string());
         }
         for (name, value) in event.extensions().iter() {
-            let encoded = match value {
-                CloudEventAttributeValue::Boolean(value) => value.to_string(),
-                CloudEventAttributeValue::Integer(value) => value.to_string(),
-                CloudEventAttributeValue::String(value) => value.to_string(),
-                CloudEventAttributeValue::Binary(value) => STANDARD.encode(value),
-                CloudEventAttributeValue::Uri(value) => value.to_string(),
-                CloudEventAttributeValue::UriReference(value) => value.to_string(),
-                CloudEventAttributeValue::Timestamp(value) => value.to_string(),
-            };
-            attributes.insert(format!("ce-{name}"), encoded);
+            attributes.insert(format!("ce-{name}"), value.to_string());
         }
         let data = match event.data() {
             None => Vec::new(),

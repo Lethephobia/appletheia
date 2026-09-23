@@ -38,10 +38,13 @@ impl PubsubCloudEventSubscriber {
     }
 
     fn filter_expression_for_selector(selector: &CloudEventSelector) -> String {
-        let mut conditions = vec![format!(
-            "attributes.\"ce-type\" = {}",
-            Self::quote(selector.event_type.as_str())
-        )];
+        let mut conditions = Vec::new();
+        if let Some(event_type) = &selector.event_type {
+            conditions.push(format!(
+                "attributes.\"ce-type\" = {}",
+                Self::quote(event_type.as_str())
+            ));
+        }
         if let Some(source) = &selector.source {
             conditions.push(format!(
                 "attributes.\"ce-source\" = {}",
@@ -53,6 +56,15 @@ impl PubsubCloudEventSubscriber {
                 "attributes.\"ce-subject\" = {}",
                 Self::quote(subject.as_str())
             ));
+        }
+        for (name, value) in &selector.extensions {
+            conditions.push(format!(
+                "attributes.\"ce-{name}\" = {}",
+                Self::quote(value.as_str())
+            ));
+        }
+        if conditions.is_empty() {
+            return String::new();
         }
         format!("({})", conditions.join(" AND "))
     }
@@ -72,6 +84,9 @@ impl PubsubCloudEventSubscriber {
                     .iter()
                     .map(Self::filter_expression_for_selector)
                     .collect::<Vec<_>>();
+                if expressions.iter().any(String::is_empty) {
+                    return Ok(String::new());
+                }
                 expressions.sort();
                 expressions.dedup();
                 expressions.join(" OR ")
@@ -148,7 +163,8 @@ mod tests {
 
     #[test]
     fn builds_escaped_attribute_filters() {
-        let selector = CloudEventSelector::new("example.changed".parse().unwrap())
+        let selector = CloudEventSelector::new()
+            .with_type("example.changed".parse().unwrap())
             .with_source("/events".parse().unwrap())
             .with_subject("item\"\\1".parse().unwrap());
         assert_eq!(
@@ -159,8 +175,8 @@ mod tests {
 
     #[test]
     fn subscriptions_are_canonical_and_respect_filter_limits() {
-        let first = CloudEventSelector::new("a".parse().unwrap());
-        let second = CloudEventSelector::new("b".parse().unwrap());
+        let first = CloudEventSelector::new().with_type("a".parse().unwrap());
+        let second = CloudEventSelector::new().with_type("b".parse().unwrap());
         assert_eq!(
             PubsubCloudEventSubscriber::filter_expression(Subscription::AnyOf(&[
                 first.clone(),
@@ -179,10 +195,36 @@ mod tests {
             PubsubCloudEventSubscriber::filter_expression(Subscription::AnyOf(&[])),
             Err(CloudEventSubscriberError::InvalidSubscription)
         ));
-        let long = CloudEventSelector::new("あ".repeat(90).parse().unwrap());
+        let long = CloudEventSelector::new().with_type("あ".repeat(90).parse().unwrap());
         assert!(matches!(
             PubsubCloudEventSubscriber::filter_expression(Subscription::One(&long)),
             Err(CloudEventSubscriberError::InvalidSubscription)
         ));
+    }
+
+    #[test]
+    fn filters_extensions_without_type_and_handles_unrestricted_selectors() {
+        let selector = CloudEventSelector::new().with_extension(
+            "saganame".parse().unwrap(),
+            "transfer\"\\1".parse().unwrap(),
+        );
+        assert_eq!(
+            PubsubCloudEventSubscriber::filter_expression(Subscription::One(&selector)).unwrap(),
+            r#"(attributes."ce-saganame" = "transfer\"\\1")"#
+        );
+        let unrestricted = CloudEventSelector::new();
+        assert_eq!(
+            PubsubCloudEventSubscriber::filter_expression(Subscription::One(&unrestricted))
+                .unwrap(),
+            ""
+        );
+        assert_eq!(
+            PubsubCloudEventSubscriber::filter_expression(Subscription::AnyOf(&[
+                selector,
+                unrestricted
+            ]))
+            .unwrap(),
+            ""
+        );
     }
 }
