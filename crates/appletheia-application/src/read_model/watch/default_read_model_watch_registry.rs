@@ -13,7 +13,10 @@ use super::{
 /// access. Registration adds a local watch only after the index accepts it; failed
 /// removals retain their desired local state for retry.
 /// Query execution and notification delivery are outside this registry.
-pub struct DefaultReadModelWatchRegistry<I> {
+pub struct DefaultReadModelWatchRegistry<I>
+where
+    I: ReadModelWatchIndex,
+{
     index: I,
     endpoint: ReadModelWatchEndpoint,
     config: ReadModelWatchRegistryConfig,

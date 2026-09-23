@@ -1,15 +1,11 @@
-use crate::messaging::{CloudEvent, CloudEventSource, CloudEventTime, CloudEventTypePrefix};
-use crate::messaging::{
-    CloudEventAttributeValue, CloudEventData, CloudEventDataContentType, CloudEventPartitionKey,
-    CloudEventType,
-};
-use crate::request_context::MessageId;
 use appletheia_domain::{EventId, EventOccurredAt};
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 use crate::event::{EventEnvelope, EventSequence};
-use crate::messaging::PublishableMessage;
+use crate::messaging::{
+    CloudEvent, CloudEventSource, CloudEventTypePrefix, PublishableMessage,
+    ReadModelInvalidationCloudEventCodec,
+};
 use crate::projection::{ProjectorName, ProjectorNameOwned};
 use crate::request_context::{CausationId, CorrelationId};
 
@@ -70,170 +66,27 @@ impl PublishableMessage for ReadModelInvalidationEnvelope {
         source: &CloudEventSource,
         type_prefix: Option<&CloudEventTypePrefix>,
     ) -> Result<CloudEvent, Self::Error> {
-        if self.source_event_id.value() != self.causation_id.value() {
-            return Err(ReadModelInvalidationEnvelopeError::InvalidMetadata(
-                "source_event_id/causationid",
-            ));
-        }
-        if self.invalidated_partitions.is_empty() {
-            return Err(ReadModelInvalidationEnvelopeError::EmptyPartitions);
-        }
-        let mut event = CloudEvent::new(
-            self.invalidation_id.to_string().parse()?,
-            source.clone(),
-            CloudEventType::with_prefix(type_prefix, "read_model.invalidated")?,
-        )
-        .with_partition_key(CloudEventPartitionKey::new(
-            self.source_projector_name.to_string(),
-        )?);
-        event.replace_data(
-            Some(CloudEventData::Json(
-                serde_json::json!({"invalidated_partitions": self.invalidated_partitions}),
-            )),
-            Some(CloudEventDataContentType::json()),
-        )?;
-        for (name, value) in [
-            ("correlationid", self.correlation_id.to_string()),
-            ("causationid", self.causation_id.to_string()),
-            ("sourceeventid", self.source_event_id.to_string()),
-            (
-                "sourceeventsequence",
-                self.source_event_sequence.to_string(),
-            ),
-            (
-                "sourceprojectorname",
-                self.source_projector_name.to_string(),
-            ),
-        ] {
-            event.insert_extension(
-                name.parse()?,
-                CloudEventAttributeValue::String(value.parse()?),
-            )?;
-        }
-        event.insert_extension(
-            "sourceeventoccurredat".parse()?,
-            CloudEventAttributeValue::Timestamp(CloudEventTime::new(
-                self.source_event_occurred_at.into(),
-            )?),
-        )?;
-        Ok(event)
+        Ok(ReadModelInvalidationCloudEventCodec::encode(
+            self,
+            source,
+            type_prefix,
+        )?)
     }
 
     fn try_from_cloud_event(
         event: &CloudEvent,
         type_prefix: Option<&CloudEventTypePrefix>,
     ) -> Result<Self, Self::Error> {
-        if !event
-            .data_content_type()
-            .is_some_and(CloudEventDataContentType::is_json)
-        {
-            return Err(ReadModelInvalidationEnvelopeError::InvalidMetadata(
-                "datacontenttype",
-            ));
-        }
-        let data = match event.data() {
-            Some(CloudEventData::Json(value)) => value.clone(),
-            Some(CloudEventData::Binary(bytes)) => serde_json::from_slice(bytes)?,
-            Some(CloudEventData::Text(text)) => serde_json::from_str(text)?,
-            None => return Err(ReadModelInvalidationEnvelopeError::InvalidMetadata("data")),
-        };
-        let name = event.event_type().without_prefix(type_prefix)?;
-        if name != "read_model.invalidated" {
-            return Err(ReadModelInvalidationEnvelopeError::InvalidMetadata("type"));
-        }
-        let envelope = Self {
-            invalidation_id: ReadModelInvalidationId::try_from(
-                event.id().as_str().parse::<Uuid>()?,
-            )?,
-            source_event_id: EventId::try_from(
-                event
-                    .extensions()
-                    .get(&"sourceeventid".parse()?)
-                    .ok_or(ReadModelInvalidationEnvelopeError::InvalidMetadata(
-                        "sourceeventid",
-                    ))?
-                    .to_string()
-                    .parse::<Uuid>()?,
-            )?,
-            source_event_sequence: EventSequence::try_from(
-                event
-                    .extensions()
-                    .get(&"sourceeventsequence".parse()?)
-                    .ok_or(ReadModelInvalidationEnvelopeError::InvalidMetadata(
-                        "sourceeventsequence",
-                    ))?
-                    .to_string()
-                    .parse::<i64>()?,
-            )?,
-            source_projector_name: ProjectorNameOwned::new(
-                event
-                    .extensions()
-                    .get(&"sourceprojectorname".parse()?)
-                    .ok_or(ReadModelInvalidationEnvelopeError::InvalidMetadata(
-                        "sourceprojectorname",
-                    ))?
-                    .to_string(),
-            )?,
-            source_event_occurred_at: event
-                .extensions()
-                .get(&"sourceeventoccurredat".parse()?)
-                .ok_or(ReadModelInvalidationEnvelopeError::InvalidMetadata(
-                    "sourceeventoccurredat",
-                ))?
-                .to_string()
-                .parse::<CloudEventTime>()?
-                .value()
-                .into(),
-            invalidated_partitions: serde_json::from_value(
-                data.get("invalidated_partitions").cloned().ok_or(
-                    ReadModelInvalidationEnvelopeError::InvalidMetadata("invalidated_partitions"),
-                )?,
-            )?,
-            correlation_id: CorrelationId::from(
-                event
-                    .extensions()
-                    .get(&"correlationid".parse()?)
-                    .ok_or(ReadModelInvalidationEnvelopeError::InvalidMetadata(
-                        "correlationid",
-                    ))?
-                    .to_string()
-                    .parse::<Uuid>()?,
-            ),
-            causation_id: CausationId::from(MessageId::from(
-                event
-                    .extensions()
-                    .get(&"causationid".parse()?)
-                    .ok_or(ReadModelInvalidationEnvelopeError::InvalidMetadata(
-                        "causationid",
-                    ))?
-                    .to_string()
-                    .parse::<Uuid>()?,
-            )),
-        };
-        if envelope.source_event_id.value() != envelope.causation_id.value() {
-            return Err(ReadModelInvalidationEnvelopeError::InvalidMetadata(
-                "source_event_id/causationid",
-            ));
-        }
-        if envelope.invalidated_partitions.is_empty() {
-            return Err(ReadModelInvalidationEnvelopeError::EmptyPartitions);
-        }
-        if event
-            .partition_key()
-            .as_ref()
-            .map(CloudEventPartitionKey::as_str)
-            != Some((envelope.source_projector_name.to_string()).as_str())
-        {
-            return Err(ReadModelInvalidationEnvelopeError::InvalidMetadata(
-                "partitionkey",
-            ));
-        }
-        Ok(envelope)
+        Ok(ReadModelInvalidationCloudEventCodec::decode(
+            event,
+            type_prefix,
+        )?)
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::messaging::CloudEventAttributeValue;
     use appletheia_domain::AggregateVersion;
     use serde_json::json;
     use uuid::Uuid;

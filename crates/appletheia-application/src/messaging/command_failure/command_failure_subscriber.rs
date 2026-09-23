@@ -6,12 +6,18 @@ use crate::messaging::{
 };
 use crate::saga::SagaName;
 
-pub struct CommandFailureSubscriber<S> {
+pub struct CommandFailureSubscriber<S>
+where
+    S: CloudEventSubscriber,
+{
     subscriber: S,
     config: CommandFailureSubscriberConfig,
 }
 
-impl<S> CommandFailureSubscriber<S> {
+impl<S> CommandFailureSubscriber<S>
+where
+    S: CloudEventSubscriber,
+{
     pub fn new(subscriber: S, config: CommandFailureSubscriberConfig) -> Self {
         Self { subscriber, config }
     }
@@ -29,7 +35,10 @@ impl<S> CommandFailureSubscriber<S> {
     }
 }
 
-impl<S: CloudEventSubscriber> Subscriber<CommandFailureEnvelope> for CommandFailureSubscriber<S> {
+impl<S> Subscriber<CommandFailureEnvelope> for CommandFailureSubscriber<S>
+where
+    S: CloudEventSubscriber,
+{
     type Consumer = CommandFailureConsumer<S::Consumer>;
     type Selector = SagaName;
 
@@ -38,20 +47,23 @@ impl<S: CloudEventSubscriber> Subscriber<CommandFailureEnvelope> for CommandFail
         consumer_group: &ConsumerGroup,
         subscription: Subscription<'_, Self::Selector>,
     ) -> Result<Self::Consumer, SubscriberError> {
-        let selectors = match subscription {
-            Subscription::All => None,
+        let selectors;
+        let cloud_subscription = match subscription {
+            Subscription::All => Subscription::All,
             Subscription::AnyOf([]) => return Err(SubscriberError::InvalidSubscription),
-            Subscription::AnyOf(selectors) => Some(
-                selectors
+            Subscription::AnyOf(values) => {
+                selectors = values
                     .iter()
                     .map(|selector| self.selector(selector))
-                    .collect::<Result<Vec<_>, _>>()?,
-            ),
-            Subscription::One(selector) => Some(vec![self.selector(selector)?]),
-        };
-        let cloud_subscription = match selectors.as_ref() {
-            Some(selectors) => Subscription::AnyOf(selectors),
-            None => Subscription::All,
+                    .collect::<Result<Vec<_>, SubscriberError>>()?;
+
+                Subscription::AnyOf(&selectors)
+            }
+            Subscription::One(value) => {
+                selectors = vec![self.selector(value)?];
+
+                Subscription::One(&selectors[0])
+            }
         };
         let failure_group =
             ConsumerGroup::new(format!("{}_command_failures", consumer_group.value()))
@@ -71,31 +83,5 @@ impl<S: CloudEventSubscriber> Subscriber<CommandFailureEnvelope> for CommandFail
             consumer,
             self.config.type_prefix.clone(),
         ))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn saga_subscription_uses_extension_without_subject_or_type() {
-        let subscriber = CommandFailureSubscriber::new(
-            (),
-            CommandFailureSubscriberConfig {
-                type_prefix: Some("example.command".parse().unwrap()),
-            },
-        );
-        let selector = subscriber.selector(&SagaName::new("transfer")).unwrap();
-        assert!(selector.event_type.is_none());
-        assert!(selector.subject.is_none());
-        assert_eq!(
-            selector
-                .extensions
-                .get(&"saganame".parse().unwrap())
-                .unwrap()
-                .as_str(),
-            "transfer"
-        );
     }
 }

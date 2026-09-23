@@ -8,13 +8,25 @@ use crate::{
 use super::{Projector, ProjectorRunner, ProjectorSpec, ProjectorWorker, ProjectorWorkerError};
 
 /// Consumes events for projectors passed to `run_forever`.
-pub struct DefaultProjectorWorker<S, R> {
+pub struct DefaultProjectorWorker<S, R>
+where
+    S: Subscriber<EventEnvelope, Selector = EventSelector>,
+    S::Consumer: Consumer<EventEnvelope>,
+    <S::Consumer as Consumer<EventEnvelope>>::Delivery: Delivery<EventEnvelope>,
+    R: ProjectorRunner,
+{
     runner: R,
     subscriber: S,
     stop_requested: AtomicBool,
 }
 
-impl<S, R> DefaultProjectorWorker<S, R> {
+impl<S, R> DefaultProjectorWorker<S, R>
+where
+    S: Subscriber<EventEnvelope, Selector = EventSelector>,
+    S::Consumer: Consumer<EventEnvelope>,
+    <S::Consumer as Consumer<EventEnvelope>>::Delivery: Delivery<EventEnvelope>,
+    R: ProjectorRunner,
+{
     pub fn new(runner: R, subscriber: S) -> Self {
         Self {
             runner,

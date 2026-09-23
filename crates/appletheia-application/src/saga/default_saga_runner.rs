@@ -15,7 +15,14 @@ use super::{
     SagaRunner, SagaRunnerError,
 };
 
-pub struct DefaultSagaRunner<S, P, F, Q, U> {
+pub struct DefaultSagaRunner<S, P, F, Q, U>
+where
+    S: SagaInstanceStore,
+    P: SagaProcessedEventStore<Uow = S::Uow>,
+    F: SagaProcessedCommandFailureStore<Uow = S::Uow>,
+    Q: CommandOutboxEnqueuer<Uow = S::Uow>,
+    U: UnitOfWorkFactory<Uow = S::Uow>,
+{
     saga_instance_store: S,
     processed_event_store: P,
     processed_command_failure_store: F,
@@ -23,7 +30,14 @@ pub struct DefaultSagaRunner<S, P, F, Q, U> {
     uow_factory: U,
 }
 
-impl<S, P, F, Q, U> DefaultSagaRunner<S, P, F, Q, U> {
+impl<S, P, F, Q, U> DefaultSagaRunner<S, P, F, Q, U>
+where
+    S: SagaInstanceStore,
+    P: SagaProcessedEventStore<Uow = S::Uow>,
+    F: SagaProcessedCommandFailureStore<Uow = S::Uow>,
+    Q: CommandOutboxEnqueuer<Uow = S::Uow>,
+    U: UnitOfWorkFactory<Uow = S::Uow>,
+{
     pub fn new(
         saga_instance_store: S,
         processed_event_store: P,
@@ -39,16 +53,7 @@ impl<S, P, F, Q, U> DefaultSagaRunner<S, P, F, Q, U> {
             uow_factory,
         }
     }
-}
 
-impl<S, P, F, Q, U> DefaultSagaRunner<S, P, F, Q, U>
-where
-    S: SagaInstanceStore,
-    P: SagaProcessedEventStore<Uow = S::Uow>,
-    F: SagaProcessedCommandFailureStore<Uow = S::Uow>,
-    Q: CommandOutboxEnqueuer<Uow = S::Uow>,
-    U: UnitOfWorkFactory<Uow = S::Uow>,
-{
     async fn handle_event_inner<SS: SagaState, ST: SagaStep, SE: Error + Send + Sync + 'static>(
         &self,
         uow: &mut S::Uow,

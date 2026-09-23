@@ -1,34 +1,42 @@
-use super::{CommandConsumer, CommandSubscriberConfig};
+use super::{CommandCloudEventCodec, CommandConsumer, CommandSubscriberConfig};
 use crate::command::CommandEnvelope;
 use crate::command::CommandSelector;
-use crate::messaging::CloudEventType;
 use crate::messaging::{
     CloudEventSelector, CloudEventSubscriber, CloudEventSubscriberError, ConsumerGroup, Subscriber,
     SubscriberError, Subscription,
 };
 
-pub struct CommandSubscriber<S> {
+pub struct CommandSubscriber<S>
+where
+    S: CloudEventSubscriber,
+{
     subscriber: S,
     config: CommandSubscriberConfig,
 }
 
-impl<S> CommandSubscriber<S> {
+impl<S> CommandSubscriber<S>
+where
+    S: CloudEventSubscriber,
+{
     pub fn new(subscriber: S, config: CommandSubscriberConfig) -> Self {
         Self { subscriber, config }
     }
 
     fn selector(&self, selector: &CommandSelector) -> Result<CloudEventSelector, SubscriberError> {
         Ok(CloudEventSelector::new().with_type(
-            CloudEventType::with_prefix(
+            CommandCloudEventCodec::encode_type(
                 self.config.type_prefix.as_ref(),
-                selector.command_name.value(),
+                &selector.command_name.into(),
             )
             .map_err(|source| SubscriberError::Subscribe(Box::new(source)))?,
         ))
     }
 }
 
-impl<S: CloudEventSubscriber> Subscriber<CommandEnvelope> for CommandSubscriber<S> {
+impl<S> Subscriber<CommandEnvelope> for CommandSubscriber<S>
+where
+    S: CloudEventSubscriber,
+{
     type Consumer = CommandConsumer<S::Consumer>;
     type Selector = CommandSelector;
 
@@ -37,20 +45,23 @@ impl<S: CloudEventSubscriber> Subscriber<CommandEnvelope> for CommandSubscriber<
         consumer_group: &ConsumerGroup,
         subscription: Subscription<'_, Self::Selector>,
     ) -> Result<Self::Consumer, SubscriberError> {
-        let selectors = match subscription {
-            Subscription::All => None,
+        let selectors;
+        let cloud_subscription = match subscription {
+            Subscription::All => Subscription::All,
             Subscription::AnyOf([]) => return Err(SubscriberError::InvalidSubscription),
-            Subscription::AnyOf(selectors) => Some(
-                selectors
+            Subscription::AnyOf(values) => {
+                selectors = values
                     .iter()
                     .map(|selector| self.selector(selector))
-                    .collect::<Result<Vec<_>, _>>()?,
-            ),
-            Subscription::One(selector) => Some(vec![self.selector(selector)?]),
-        };
-        let cloud_subscription = match selectors.as_ref() {
-            Some(selectors) => Subscription::AnyOf(selectors),
-            None => Subscription::All,
+                    .collect::<Result<Vec<_>, SubscriberError>>()?;
+
+                Subscription::AnyOf(&selectors)
+            }
+            Subscription::One(value) => {
+                selectors = vec![self.selector(value)?];
+
+                Subscription::One(&selectors[0])
+            }
         };
         let group = consumer_group;
         let consumer = self

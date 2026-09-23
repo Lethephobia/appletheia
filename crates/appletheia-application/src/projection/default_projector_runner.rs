@@ -9,13 +9,23 @@ use super::{
 };
 
 /// Persists fragment updates and emits payload-free read-model invalidations.
-pub struct DefaultProjectorRunner<P, E, U> {
+pub struct DefaultProjectorRunner<P, E, U>
+where
+    P: ProjectorProcessedEventStore,
+    E: ReadModelInvalidationOutboxEnqueuer<Uow = P::Uow>,
+    U: UnitOfWorkFactory<Uow = P::Uow>,
+{
     processed_event_store: P,
     invalidation_outbox_enqueuer: E,
     uow_factory: U,
 }
 
-impl<P, E, U> DefaultProjectorRunner<P, E, U> {
+impl<P, E, U> DefaultProjectorRunner<P, E, U>
+where
+    P: ProjectorProcessedEventStore,
+    E: ReadModelInvalidationOutboxEnqueuer<Uow = P::Uow>,
+    U: UnitOfWorkFactory<Uow = P::Uow>,
+{
     pub fn new(processed_event_store: P, invalidation_outbox_enqueuer: E, uow_factory: U) -> Self {
         Self {
             processed_event_store,

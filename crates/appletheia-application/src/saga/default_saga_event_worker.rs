@@ -7,13 +7,25 @@ use crate::{
 };
 
 /// Consumes events for sagas passed to `run_forever`.
-pub struct DefaultSagaEventWorker<S, R> {
+pub struct DefaultSagaEventWorker<S, R>
+where
+    S: Subscriber<EventEnvelope, Selector = EventSelector>,
+    S::Consumer: Consumer<EventEnvelope>,
+    <S::Consumer as Consumer<EventEnvelope>>::Delivery: Delivery<EventEnvelope>,
+    R: SagaRunner,
+{
     saga_runner: R,
     subscriber: S,
     stop_requested: AtomicBool,
 }
 
-impl<S, R> DefaultSagaEventWorker<S, R> {
+impl<S, R> DefaultSagaEventWorker<S, R>
+where
+    S: Subscriber<EventEnvelope, Selector = EventSelector>,
+    S::Consumer: Consumer<EventEnvelope>,
+    <S::Consumer as Consumer<EventEnvelope>>::Delivery: Delivery<EventEnvelope>,
+    R: SagaRunner,
+{
     pub fn new(saga_runner: R, subscriber: S) -> Self {
         Self {
             saga_runner,

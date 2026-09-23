@@ -5,12 +5,18 @@ use crate::messaging::{
     CloudEventConsumer, CloudEventDelivery, CloudEventTypePrefix, Consumer, ConsumerError,
 };
 
-pub struct CommandFailureConsumer<C> {
+pub struct CommandFailureConsumer<C>
+where
+    C: CloudEventConsumer,
+{
     consumer: C,
     type_prefix: Option<CloudEventTypePrefix>,
 }
 
-impl<C> CommandFailureConsumer<C> {
+impl<C> CommandFailureConsumer<C>
+where
+    C: CloudEventConsumer,
+{
     pub fn new(consumer: C, type_prefix: Option<CloudEventTypePrefix>) -> Self {
         Self {
             consumer,
@@ -19,7 +25,10 @@ impl<C> CommandFailureConsumer<C> {
     }
 }
 
-impl<C: CloudEventConsumer> Consumer<CommandFailureEnvelope> for CommandFailureConsumer<C> {
+impl<C> Consumer<CommandFailureEnvelope> for CommandFailureConsumer<C>
+where
+    C: CloudEventConsumer,
+{
     type Delivery = CommandFailureDelivery<C::Delivery>;
 
     async fn next(&mut self) -> Result<Self::Delivery, ConsumerError> {

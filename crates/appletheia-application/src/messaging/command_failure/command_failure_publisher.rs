@@ -3,18 +3,27 @@ use crate::command::CommandFailureEnvelope;
 use crate::messaging::PublishableMessage;
 use crate::messaging::{CloudEventPublisher, PublishResult, Publisher, PublisherError};
 
-pub struct CommandFailurePublisher<P> {
+pub struct CommandFailurePublisher<P>
+where
+    P: CloudEventPublisher,
+{
     publisher: P,
     config: CommandFailurePublisherConfig,
 }
 
-impl<P> CommandFailurePublisher<P> {
+impl<P> CommandFailurePublisher<P>
+where
+    P: CloudEventPublisher,
+{
     pub fn new(publisher: P, config: CommandFailurePublisherConfig) -> Self {
         Self { publisher, config }
     }
 }
 
-impl<P: CloudEventPublisher> Publisher for CommandFailurePublisher<P> {
+impl<P> Publisher for CommandFailurePublisher<P>
+where
+    P: CloudEventPublisher,
+{
     type Message = CommandFailureEnvelope;
 
     async fn publish<'a, I>(&self, messages: I) -> Result<Vec<PublishResult>, PublisherError>

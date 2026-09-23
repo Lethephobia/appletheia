@@ -134,11 +134,11 @@ impl CloudEvent {
 
     /// Changes payload and content type together, after validating their compatibility.
     /// Absent content type implies JSON for Json/Text, but leaves Binary uninterpreted.
-    pub fn replace_data(
-        &mut self,
+    pub fn try_with_data(
+        mut self,
         data: Option<CloudEventData>,
         content_type: Option<CloudEventDataContentType>,
-    ) -> Result<(), CloudEventError> {
+    ) -> Result<Self, CloudEventError> {
         let is_json = content_type
             .as_ref()
             .is_none_or(CloudEventDataContentType::is_json);
@@ -149,7 +149,7 @@ impl CloudEvent {
         }
         self.data = data;
         self.data_content_type = content_type;
-        Ok(())
+        Ok(self)
     }
 
     pub fn insert_extension(
@@ -252,9 +252,8 @@ mod tests {
         assert!("".parse::<CloudEventId>().is_err());
         assert!(" ".parse::<CloudEventId>().is_ok());
         assert!("日本語😀".parse::<CloudEventSubject>().is_ok());
-        let mut message = event();
-        message
-            .replace_data(Some(CloudEventData::Json(Value::String("\n".into()))), None)
+        event()
+            .try_with_data(Some(CloudEventData::Json(Value::String("\n".into()))), None)
             .unwrap();
     }
 
@@ -331,46 +330,47 @@ mod tests {
     }
 
     #[test]
-    fn failed_payload_change_preserves_both_payload_and_content_type() {
-        let mut message = event();
-        message
-            .replace_data(
+    fn rejects_incompatible_payload_and_content_type() {
+        assert!(
+            event()
+                .try_with_data(
+                    Some(CloudEventData::Json(Value::Null)),
+                    Some("application/xml".parse().unwrap()),
+                )
+                .is_err()
+        );
+        assert!(
+            event()
+                .try_with_data(Some(CloudEventData::Text("{}".into())), None)
+                .is_err()
+        );
+        let message = event()
+            .try_with_data(
                 Some(CloudEventData::Text("<xml/>".into())),
                 Some("application/xml".parse().unwrap()),
             )
             .unwrap();
-        let original = message.clone();
-        assert!(
-            message
-                .replace_data(
-                    Some(CloudEventData::Json(Value::Null)),
-                    Some("application/xml".parse().unwrap())
-                )
-                .is_err()
+        assert_eq!(message.data(), Some(&CloudEventData::Text("<xml/>".into())));
+        assert_eq!(
+            message.data_content_type().unwrap().as_str(),
+            "application/xml"
         );
-        assert_eq!(message, original);
-        assert!(
-            message
-                .replace_data(Some(CloudEventData::Text("{}".into())), None)
-                .is_err()
-        );
-        assert_eq!(message, original);
     }
 
     #[test]
     fn distinguishes_absent_null_and_binary_payloads() {
         let mut message = event();
         assert!(message.data().is_none());
-        message
-            .replace_data(Some(CloudEventData::Json(Value::Null)), None)
+        message = message
+            .try_with_data(Some(CloudEventData::Json(Value::Null)), None)
             .unwrap();
         assert_eq!(message.data(), Some(&CloudEventData::Json(Value::Null)));
-        message
-            .replace_data(Some(CloudEventData::Binary(vec![0, 255])), None)
+        message = message
+            .try_with_data(Some(CloudEventData::Binary(vec![0, 255])), None)
             .unwrap();
         assert!(message.data_content_type().is_none());
-        message
-            .replace_data(None, Some("application/json".parse().unwrap()))
+        message = message
+            .try_with_data(None, Some("application/json".parse().unwrap()))
             .unwrap();
         assert!(message.data().is_none());
         assert!(message.data_content_type().is_some());
@@ -386,9 +386,8 @@ mod tests {
         ] {
             let content_type = value.parse::<CloudEventDataContentType>().unwrap();
             assert!(content_type.is_json());
-            let mut message = event();
-            message
-                .replace_data(
+            event()
+                .try_with_data(
                     Some(CloudEventData::Json(Value::Bool(true))),
                     Some(content_type),
                 )

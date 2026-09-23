@@ -14,11 +14,17 @@ use super::pg_oidc_continuation_row::PgOidcContinuationRow;
 use super::pg_oidc_continuation_row_error::PgOidcContinuationRowError;
 
 #[derive(Debug)]
-pub struct PgOidcContinuationStore<P> {
+pub struct PgOidcContinuationStore<P>
+where
+    P: Serialize + DeserializeOwned + Send + Sync + 'static,
+{
     _marker: PhantomData<fn() -> P>,
 }
 
-impl<P> PgOidcContinuationStore<P> {
+impl<P> PgOidcContinuationStore<P>
+where
+    P: Serialize + DeserializeOwned + Send + Sync + 'static,
+{
     pub fn new() -> Self {
         Self {
             _marker: PhantomData,
@@ -26,7 +32,10 @@ impl<P> PgOidcContinuationStore<P> {
     }
 }
 
-impl<P> Default for PgOidcContinuationStore<P> {
+impl<P> Default for PgOidcContinuationStore<P>
+where
+    P: Serialize + DeserializeOwned + Send + Sync + 'static,
+{
     fn default() -> Self {
         Self::new()
     }

@@ -1,12 +1,8 @@
-use crate::messaging::{CloudEvent, CloudEventSource, CloudEventTypePrefix};
-use crate::messaging::{
-    CloudEventAttributeValue, CloudEventData, CloudEventDataContentType, CloudEventPartitionKey,
-    CloudEventType,
-};
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
-use crate::messaging::PublishableMessage;
+use crate::messaging::{
+    CloudEvent, CloudEventSource, CloudEventTypePrefix, CommandCloudEventCodec, PublishableMessage,
+};
 use crate::request_context::{CausationId, CorrelationId, MessageId};
 use crate::saga::SagaCommandOrigin;
 
@@ -72,118 +68,21 @@ impl PublishableMessage for CommandEnvelope {
         source: &CloudEventSource,
         type_prefix: Option<&CloudEventTypePrefix>,
     ) -> Result<CloudEvent, Self::Error> {
-        let mut event = CloudEvent::new(
-            self.message_id.to_string().parse()?,
-            source.clone(),
-            CloudEventType::with_prefix(type_prefix, self.command_name.value())?,
-        )
-        .with_partition_key(CloudEventPartitionKey::new(
-            self.correlation_id.to_string(),
-        )?);
-        event.replace_data(
-            Some(CloudEventData::Json(self.command.value().clone())),
-            Some(CloudEventDataContentType::json()),
-        )?;
-        for (name, value) in [
-            ("correlationid", self.correlation_id.to_string()),
-            ("causationid", self.causation_id.to_string()),
-            ("options", serde_json::to_string(&self.options)?),
-        ] {
-            event.insert_extension(
-                name.parse()?,
-                CloudEventAttributeValue::String(value.parse()?),
-            )?;
-        }
-        if let Some(origin) = &self.saga_origin {
-            event.insert_extension(
-                "sagaorigin".parse()?,
-                CloudEventAttributeValue::String(serde_json::to_string(origin)?.parse()?),
-            )?;
-            event.insert_extension(
-                "saganame".parse()?,
-                CloudEventAttributeValue::String(origin.saga_name.to_string().parse()?),
-            )?;
-        }
-        Ok(event)
+        Ok(CommandCloudEventCodec::encode(self, source, type_prefix)?)
     }
 
     fn try_from_cloud_event(
         event: &CloudEvent,
         type_prefix: Option<&CloudEventTypePrefix>,
     ) -> Result<Self, Self::Error> {
-        if !event
-            .data_content_type()
-            .is_some_and(CloudEventDataContentType::is_json)
-        {
-            return Err(CommandEnvelopeError::InvalidMetadata("datacontenttype"));
-        }
-        let data = match event.data() {
-            Some(CloudEventData::Json(value)) => value.clone(),
-            Some(CloudEventData::Binary(bytes)) => serde_json::from_slice(bytes)?,
-            Some(CloudEventData::Text(text)) => serde_json::from_str(text)?,
-            None => return Err(CommandEnvelopeError::InvalidMetadata("data")),
-        };
-        let name = event.event_type().without_prefix(type_prefix)?;
-        let saga_origin: Option<SagaCommandOrigin> = event
-            .extensions()
-            .get(&"sagaorigin".parse()?)
-            .map(ToString::to_string)
-            .map(|value| serde_json::from_str(&value))
-            .transpose()?;
-        if event
-            .extensions()
-            .get(&"saganame".parse()?)
-            .map(ToString::to_string)
-            != saga_origin
-                .as_ref()
-                .map(|origin| origin.saga_name.to_string())
-        {
-            return Err(CommandEnvelopeError::InvalidMetadata("saganame/sagaorigin"));
-        }
-        let envelope = Self {
-            command_name: CommandNameOwned::new(name.to_owned())?,
-            command: SerializedCommand::new(data)?,
-            message_id: MessageId::from(event.id().as_str().parse::<Uuid>()?),
-            options: serde_json::from_str(
-                &event
-                    .extensions()
-                    .get(&"options".parse()?)
-                    .ok_or(CommandEnvelopeError::InvalidMetadata("options"))?
-                    .to_string(),
-            )?,
-            saga_origin,
-            correlation_id: CorrelationId::from(
-                event
-                    .extensions()
-                    .get(&"correlationid".parse()?)
-                    .ok_or(CommandEnvelopeError::InvalidMetadata("correlationid"))?
-                    .to_string()
-                    .parse::<Uuid>()?,
-            ),
-            causation_id: CausationId::from(MessageId::from(
-                event
-                    .extensions()
-                    .get(&"causationid".parse()?)
-                    .ok_or(CommandEnvelopeError::InvalidMetadata("causationid"))?
-                    .to_string()
-                    .parse::<Uuid>()?,
-            )),
-        };
-        if event
-            .partition_key()
-            .as_ref()
-            .map(CloudEventPartitionKey::as_str)
-            != Some((envelope.correlation_id.to_string()).as_str())
-        {
-            return Err(CommandEnvelopeError::InvalidMetadata("partitionkey"));
-        }
-        Ok(envelope)
+        Ok(CommandCloudEventCodec::decode(event, type_prefix)?)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::messaging::CloudEventAttributeValue;
     use crate::saga::{SagaInstanceId, SagaNameOwned, SerializedSagaStep};
 
     #[test]

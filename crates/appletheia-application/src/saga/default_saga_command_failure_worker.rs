@@ -7,13 +7,25 @@ use crate::{Consumer, ConsumerGroup, Delivery, Subscriber};
 use super::{Saga, SagaCommandFailureWorker, SagaCommandFailureWorkerError, SagaName, SagaRunner};
 
 /// Consumes terminal command failures for sagas passed to `run_forever`.
-pub struct DefaultSagaCommandFailureWorker<S, R> {
+pub struct DefaultSagaCommandFailureWorker<S, R>
+where
+    S: Subscriber<CommandFailureEnvelope, Selector = SagaName>,
+    S::Consumer: Consumer<CommandFailureEnvelope>,
+    <S::Consumer as Consumer<CommandFailureEnvelope>>::Delivery: Delivery<CommandFailureEnvelope>,
+    R: SagaRunner,
+{
     saga_runner: R,
     subscriber: S,
     stop_requested: AtomicBool,
 }
 
-impl<S, R> DefaultSagaCommandFailureWorker<S, R> {
+impl<S, R> DefaultSagaCommandFailureWorker<S, R>
+where
+    S: Subscriber<CommandFailureEnvelope, Selector = SagaName>,
+    S::Consumer: Consumer<CommandFailureEnvelope>,
+    <S::Consumer as Consumer<CommandFailureEnvelope>>::Delivery: Delivery<CommandFailureEnvelope>,
+    R: SagaRunner,
+{
     pub fn new(saga_runner: R, subscriber: S) -> Self {
         Self {
             saga_runner,

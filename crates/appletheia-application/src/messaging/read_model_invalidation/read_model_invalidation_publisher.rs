@@ -3,18 +3,27 @@ use crate::messaging::PublishableMessage;
 use crate::messaging::{CloudEventPublisher, PublishResult, Publisher, PublisherError};
 use crate::read_model::ReadModelInvalidationEnvelope;
 
-pub struct ReadModelInvalidationPublisher<P> {
+pub struct ReadModelInvalidationPublisher<P>
+where
+    P: CloudEventPublisher,
+{
     publisher: P,
     config: ReadModelInvalidationPublisherConfig,
 }
 
-impl<P> ReadModelInvalidationPublisher<P> {
+impl<P> ReadModelInvalidationPublisher<P>
+where
+    P: CloudEventPublisher,
+{
     pub fn new(publisher: P, config: ReadModelInvalidationPublisherConfig) -> Self {
         Self { publisher, config }
     }
 }
 
-impl<P: CloudEventPublisher> Publisher for ReadModelInvalidationPublisher<P> {
+impl<P> Publisher for ReadModelInvalidationPublisher<P>
+where
+    P: CloudEventPublisher,
+{
     type Message = ReadModelInvalidationEnvelope;
 
     async fn publish<'a, I>(&self, messages: I) -> Result<Vec<PublishResult>, PublisherError>

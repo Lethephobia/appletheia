@@ -1,18 +1,27 @@
 use crate::event::EventEnvelope;
 use crate::messaging::{CloudEventDelivery, Delivery, DeliveryError};
 
-pub struct EventDelivery<D> {
+pub struct EventDelivery<D>
+where
+    D: CloudEventDelivery,
+{
     delivery: D,
     message: EventEnvelope,
 }
 
-impl<D> EventDelivery<D> {
+impl<D> EventDelivery<D>
+where
+    D: CloudEventDelivery,
+{
     pub fn new(delivery: D, message: EventEnvelope) -> Self {
         Self { delivery, message }
     }
 }
 
-impl<D: CloudEventDelivery> Delivery<EventEnvelope> for EventDelivery<D> {
+impl<D> Delivery<EventEnvelope> for EventDelivery<D>
+where
+    D: CloudEventDelivery,
+{
     fn message(&self) -> &EventEnvelope {
         &self.message
     }

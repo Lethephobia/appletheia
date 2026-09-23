@@ -16,7 +16,16 @@ use crate::{Consumer, ConsumerGroup, Delivery, Subscriber};
 
 use super::CommandWorkerError;
 
-pub struct DefaultCommandWorker<D, S, ES, FE, U> {
+pub struct DefaultCommandWorker<D, S, ES, FE, U>
+where
+    D: CommandDispatcher,
+    S: Subscriber<CommandEnvelope, Selector = CommandSelector>,
+    S::Consumer: Consumer<CommandEnvelope>,
+    <S::Consumer as Consumer<CommandEnvelope>>::Delivery: Delivery<CommandEnvelope>,
+    ES: CommandExecutionStore<Uow = D::Uow>,
+    FE: CommandFailureOutboxEnqueuer<Uow = D::Uow>,
+    U: UnitOfWorkFactory<Uow = D::Uow>,
+{
     dispatcher: D,
     subscriber: S,
     execution_store: ES,
@@ -26,7 +35,16 @@ pub struct DefaultCommandWorker<D, S, ES, FE, U> {
     stop_requested: AtomicBool,
 }
 
-impl<D, S, ES, FE, U> DefaultCommandWorker<D, S, ES, FE, U> {
+impl<D, S, ES, FE, U> DefaultCommandWorker<D, S, ES, FE, U>
+where
+    D: CommandDispatcher,
+    S: Subscriber<CommandEnvelope, Selector = CommandSelector>,
+    S::Consumer: Consumer<CommandEnvelope>,
+    <S::Consumer as Consumer<CommandEnvelope>>::Delivery: Delivery<CommandEnvelope>,
+    ES: CommandExecutionStore<Uow = D::Uow>,
+    FE: CommandFailureOutboxEnqueuer<Uow = D::Uow>,
+    U: UnitOfWorkFactory<Uow = D::Uow>,
+{
     pub fn new(
         dependencies: DefaultCommandWorkerDependencies<D, S, ES, FE, U>,
         config: CommandWorkerConfig,

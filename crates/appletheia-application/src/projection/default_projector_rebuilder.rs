@@ -11,7 +11,13 @@ use super::{
 };
 
 /// Replays a newly introduced projector without producing live delivery messages.
-pub struct DefaultProjectorRebuilder<F, C, P, U> {
+pub struct DefaultProjectorRebuilder<F, C, P, U>
+where
+    F: EventFeedReader,
+    C: ProjectionCheckpointStore<Uow = F::Uow>,
+    P: ProjectorProcessedEventStore<Uow = F::Uow>,
+    U: UnitOfWorkFactory<Uow = F::Uow>,
+{
     feed_reader: F,
     checkpoint_store: C,
     processed_event_store: P,
@@ -20,7 +26,13 @@ pub struct DefaultProjectorRebuilder<F, C, P, U> {
     stop_requested: AtomicBool,
 }
 
-impl<F, C, P, U> DefaultProjectorRebuilder<F, C, P, U> {
+impl<F, C, P, U> DefaultProjectorRebuilder<F, C, P, U>
+where
+    F: EventFeedReader,
+    C: ProjectionCheckpointStore<Uow = F::Uow>,
+    P: ProjectorProcessedEventStore<Uow = F::Uow>,
+    U: UnitOfWorkFactory<Uow = F::Uow>,
+{
     pub fn new(
         feed_reader: F,
         checkpoint_store: C,

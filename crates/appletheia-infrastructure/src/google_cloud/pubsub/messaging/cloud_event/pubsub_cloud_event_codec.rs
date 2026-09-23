@@ -100,7 +100,7 @@ impl PubsubCloudEventCodec {
         } else {
             Some(CloudEventData::Binary(message.data.to_vec()))
         };
-        event.replace_data(data, content_type)?;
+        event = event.try_with_data(data, content_type)?;
         for (key, value) in attributes {
             match key.as_str() {
                 "ce-specversion" | "ce-id" | "ce-source" | "ce-type" | "ce-subject" | "ce-time"
@@ -136,13 +136,12 @@ mod tests {
 
     #[test]
     fn encodes_binary_context_and_native_partition_key() {
-        let mut original = event()
+        let original = event()
             .with_subject("item/1".parse().unwrap())
             .with_time("2026-09-18T12:00:00Z".parse().unwrap())
             .with_data_schema("https://example.com/schema".parse().unwrap())
-            .with_partition_key("item-1".parse().unwrap());
-        original
-            .replace_data(
+            .with_partition_key("item-1".parse().unwrap())
+            .try_with_data(
                 Some(CloudEventData::Json(json!({"value": 1}))),
                 Some(CloudEventDataContentType::json()),
             )
@@ -262,8 +261,7 @@ mod tests {
             (CloudEventData::Json(json!(null)), None, b"null".to_vec()),
             (CloudEventData::Binary(vec![255, 0]), None, vec![255, 0]),
         ] {
-            let mut original = event();
-            original.replace_data(Some(data), content_type).unwrap();
+            let original = event().try_with_data(Some(data), content_type).unwrap();
             let message = PubsubCloudEventCodec::encode(&original).unwrap();
             assert_eq!(&message.data[..], expected);
             let decoded = PubsubCloudEventCodec::decode(&message).unwrap();
