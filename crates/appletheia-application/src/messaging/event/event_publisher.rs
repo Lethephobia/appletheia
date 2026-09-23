@@ -36,7 +36,10 @@ where
         let events = messages
             .into_iter()
             .map(|message| {
-                message.try_to_cloud_event(&self.config.source, self.config.type_prefix.as_ref())
+                message.try_to_cloud_event(
+                    &self.config.source,
+                    self.config.cloud_event_type_prefix.as_ref(),
+                )
             })
             .collect::<Result<Vec<_>, _>>()
             .map_err(|source| PublisherError::Publish(Box::new(source)))?;

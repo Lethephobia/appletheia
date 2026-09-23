@@ -66,16 +66,23 @@ impl PublishableMessage for CommandEnvelope {
     fn try_to_cloud_event(
         &self,
         source: &CloudEventSource,
-        type_prefix: Option<&CloudEventTypePrefix>,
+        cloud_event_type_prefix: Option<&CloudEventTypePrefix>,
     ) -> Result<CloudEvent, Self::Error> {
-        Ok(CommandCloudEventCodec::encode(self, source, type_prefix)?)
+        Ok(CommandCloudEventCodec::encode(
+            self,
+            source,
+            cloud_event_type_prefix,
+        )?)
     }
 
     fn try_from_cloud_event(
         event: &CloudEvent,
-        type_prefix: Option<&CloudEventTypePrefix>,
+        cloud_event_type_prefix: Option<&CloudEventTypePrefix>,
     ) -> Result<Self, Self::Error> {
-        Ok(CommandCloudEventCodec::decode(event, type_prefix)?)
+        Ok(CommandCloudEventCodec::decode(
+            event,
+            cloud_event_type_prefix,
+        )?)
     }
 }
 

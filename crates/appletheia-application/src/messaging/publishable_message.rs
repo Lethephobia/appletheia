@@ -10,13 +10,13 @@ pub trait PublishableMessage: Send + Sync {
     fn try_to_cloud_event(
         &self,
         source: &CloudEventSource,
-        type_prefix: Option<&CloudEventTypePrefix>,
+        cloud_event_type_prefix: Option<&CloudEventTypePrefix>,
     ) -> Result<CloudEvent, Self::Error>;
 
     /// Reconstructs the message after validating its CloudEvent representation.
     fn try_from_cloud_event(
         event: &CloudEvent,
-        type_prefix: Option<&CloudEventTypePrefix>,
+        cloud_event_type_prefix: Option<&CloudEventTypePrefix>,
     ) -> Result<Self, Self::Error>
     where
         Self: Sized;

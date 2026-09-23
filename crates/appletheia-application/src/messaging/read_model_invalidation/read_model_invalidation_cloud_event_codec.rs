@@ -18,7 +18,7 @@ impl ReadModelInvalidationCloudEventCodec {
     pub fn encode(
         envelope: &ReadModelInvalidationEnvelope,
         source: &CloudEventSource,
-        type_prefix: Option<&CloudEventTypePrefix>,
+        cloud_event_type_prefix: Option<&CloudEventTypePrefix>,
     ) -> Result<CloudEvent, ReadModelInvalidationCloudEventCodecError> {
         if envelope.source_event_id.value() != envelope.causation_id.value() {
             return Err(ReadModelInvalidationCloudEventCodecError::InvalidMetadata(
@@ -31,7 +31,7 @@ impl ReadModelInvalidationCloudEventCodec {
         let mut event = CloudEvent::new(
             Self::encode_id(envelope.invalidation_id)?,
             source.clone(),
-            Self::encode_type(type_prefix)?,
+            Self::encode_type(cloud_event_type_prefix)?,
         )
         .with_partition_key(CloudEventPartitionKey::new(
             envelope.source_projector_name.to_string(),
@@ -71,7 +71,7 @@ impl ReadModelInvalidationCloudEventCodec {
 
     pub fn decode(
         event: &CloudEvent,
-        type_prefix: Option<&CloudEventTypePrefix>,
+        cloud_event_type_prefix: Option<&CloudEventTypePrefix>,
     ) -> Result<ReadModelInvalidationEnvelope, ReadModelInvalidationCloudEventCodecError> {
         if !event
             .data_content_type()
@@ -91,7 +91,7 @@ impl ReadModelInvalidationCloudEventCodec {
                 ));
             }
         };
-        Self::decode_type(event.event_type(), type_prefix)?;
+        Self::decode_type(event.event_type(), cloud_event_type_prefix)?;
         let envelope = ReadModelInvalidationEnvelope {
             invalidation_id: Self::decode_id(event.id())?,
             source_event_id: EventId::try_from(
@@ -197,19 +197,19 @@ impl ReadModelInvalidationCloudEventCodec {
     }
 
     pub fn encode_type(
-        type_prefix: Option<&CloudEventTypePrefix>,
+        cloud_event_type_prefix: Option<&CloudEventTypePrefix>,
     ) -> Result<CloudEventType, ReadModelInvalidationCloudEventCodecError> {
         Ok(CloudEventType::with_prefix(
-            type_prefix,
+            cloud_event_type_prefix,
             "read_model.invalidated",
         )?)
     }
 
     pub fn decode_type(
         event_type: &CloudEventType,
-        type_prefix: Option<&CloudEventTypePrefix>,
+        cloud_event_type_prefix: Option<&CloudEventTypePrefix>,
     ) -> Result<(), ReadModelInvalidationCloudEventCodecError> {
-        if event_type.without_prefix(type_prefix)? != "read_model.invalidated" {
+        if event_type.without_prefix(cloud_event_type_prefix)? != "read_model.invalidated" {
             return Err(ReadModelInvalidationCloudEventCodecError::InvalidMetadata(
                 "type",
             ));
@@ -234,9 +234,11 @@ mod tests {
             ReadModelInvalidationCloudEventCodec::decode_id(&"invalid".parse().unwrap()).is_err()
         );
         let prefix = "com.example".parse().unwrap();
-        for type_prefix in [None, Some(&prefix)] {
-            let encoded = ReadModelInvalidationCloudEventCodec::encode_type(type_prefix).unwrap();
-            ReadModelInvalidationCloudEventCodec::decode_type(&encoded, type_prefix).unwrap();
+        for cloud_event_type_prefix in [None, Some(&prefix)] {
+            let encoded =
+                ReadModelInvalidationCloudEventCodec::encode_type(cloud_event_type_prefix).unwrap();
+            ReadModelInvalidationCloudEventCodec::decode_type(&encoded, cloud_event_type_prefix)
+                .unwrap();
         }
         assert!(
             ReadModelInvalidationCloudEventCodec::decode_type(&"wrong.type".parse().unwrap(), None)

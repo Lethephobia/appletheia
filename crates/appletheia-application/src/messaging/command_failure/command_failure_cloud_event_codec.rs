@@ -18,7 +18,7 @@ impl CommandFailureCloudEventCodec {
     pub fn encode(
         envelope: &CommandFailureEnvelope,
         source: &CloudEventSource,
-        type_prefix: Option<&CloudEventTypePrefix>,
+        cloud_event_type_prefix: Option<&CloudEventTypePrefix>,
     ) -> Result<CloudEvent, CommandFailureCloudEventCodecError> {
         if envelope.command_message_id.value() != envelope.causation_id.value() {
             return Err(CommandFailureCloudEventCodecError::InvalidMetadata(
@@ -28,7 +28,7 @@ impl CommandFailureCloudEventCodec {
         let mut event = CloudEvent::new(
             Self::encode_id(envelope.failure_id)?,
             source.clone(),
-            Self::encode_type(type_prefix, &envelope.command_name)?,
+            Self::encode_type(cloud_event_type_prefix, &envelope.command_name)?,
         )
         .with_partition_key(CloudEventPartitionKey::new(
             envelope.correlation_id.to_string(),
@@ -52,7 +52,7 @@ impl CommandFailureCloudEventCodec {
 
     pub fn decode(
         event: &CloudEvent,
-        type_prefix: Option<&CloudEventTypePrefix>,
+        cloud_event_type_prefix: Option<&CloudEventTypePrefix>,
     ) -> Result<CommandFailureEnvelope, CommandFailureCloudEventCodecError> {
         if !event
             .data_content_type()
@@ -68,7 +68,7 @@ impl CommandFailureCloudEventCodec {
             Some(CloudEventData::Text(text)) => serde_json::from_str(text)?,
             None => return Err(CommandFailureCloudEventCodecError::InvalidMetadata("data")),
         };
-        let command_name = Self::decode_type(event.event_type(), type_prefix)?;
+        let command_name = Self::decode_type(event.event_type(), cloud_event_type_prefix)?;
         let origin: SagaCommandOrigin = serde_json::from_str(
             &event
                 .extensions()
@@ -172,20 +172,20 @@ impl CommandFailureCloudEventCodec {
     }
 
     pub fn encode_type(
-        type_prefix: Option<&CloudEventTypePrefix>,
+        cloud_event_type_prefix: Option<&CloudEventTypePrefix>,
         command_name: &CommandNameOwned,
     ) -> Result<CloudEventType, CommandFailureCloudEventCodecError> {
         Ok(CloudEventType::with_prefix(
-            type_prefix,
+            cloud_event_type_prefix,
             &format!("{command_name}.failed"),
         )?)
     }
 
     pub fn decode_type(
         event_type: &CloudEventType,
-        type_prefix: Option<&CloudEventTypePrefix>,
+        cloud_event_type_prefix: Option<&CloudEventTypePrefix>,
     ) -> Result<CommandNameOwned, CommandFailureCloudEventCodecError> {
-        let name = event_type.without_prefix(type_prefix)?;
+        let name = event_type.without_prefix(cloud_event_type_prefix)?;
         let command_name = name
             .strip_suffix(".failed")
             .ok_or(CommandFailureCloudEventCodecError::InvalidMetadata("type"))?;
@@ -207,12 +207,14 @@ mod tests {
         );
         assert!(CommandFailureCloudEventCodec::decode_id(&"invalid".parse().unwrap()).is_err());
         let prefix = "com.example".parse().unwrap();
-        for type_prefix in [None, Some(&prefix)] {
+        for cloud_event_type_prefix in [None, Some(&prefix)] {
             let command_name = "transfer".parse().unwrap();
             let encoded =
-                CommandFailureCloudEventCodec::encode_type(type_prefix, &command_name).unwrap();
+                CommandFailureCloudEventCodec::encode_type(cloud_event_type_prefix, &command_name)
+                    .unwrap();
             assert_eq!(
-                CommandFailureCloudEventCodec::decode_type(&encoded, type_prefix).unwrap(),
+                CommandFailureCloudEventCodec::decode_type(&encoded, cloud_event_type_prefix)
+                    .unwrap(),
                 command_name
             );
         }

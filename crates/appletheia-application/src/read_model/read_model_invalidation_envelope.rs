@@ -64,22 +64,22 @@ impl PublishableMessage for ReadModelInvalidationEnvelope {
     fn try_to_cloud_event(
         &self,
         source: &CloudEventSource,
-        type_prefix: Option<&CloudEventTypePrefix>,
+        cloud_event_type_prefix: Option<&CloudEventTypePrefix>,
     ) -> Result<CloudEvent, Self::Error> {
         Ok(ReadModelInvalidationCloudEventCodec::encode(
             self,
             source,
-            type_prefix,
+            cloud_event_type_prefix,
         )?)
     }
 
     fn try_from_cloud_event(
         event: &CloudEvent,
-        type_prefix: Option<&CloudEventTypePrefix>,
+        cloud_event_type_prefix: Option<&CloudEventTypePrefix>,
     ) -> Result<Self, Self::Error> {
         Ok(ReadModelInvalidationCloudEventCodec::decode(
             event,
-            type_prefix,
+            cloud_event_type_prefix,
         )?)
     }
 }

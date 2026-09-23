@@ -2,5 +2,5 @@ use crate::messaging::CloudEventTypePrefix;
 
 #[derive(Clone, Debug)]
 pub struct CommandFailureSubscriberConfig {
-    pub type_prefix: Option<CloudEventTypePrefix>,
+    pub cloud_event_type_prefix: Option<CloudEventTypePrefix>,
 }

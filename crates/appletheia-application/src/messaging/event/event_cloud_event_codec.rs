@@ -17,12 +17,16 @@ impl EventCloudEventCodec {
     pub fn encode(
         envelope: &EventEnvelope,
         source: &CloudEventSource,
-        type_prefix: Option<&CloudEventTypePrefix>,
+        cloud_event_type_prefix: Option<&CloudEventTypePrefix>,
     ) -> Result<CloudEvent, EventCloudEventCodecError> {
         let mut event = CloudEvent::new(
             Self::encode_id(envelope.event_id)?,
             source.clone(),
-            Self::encode_type(type_prefix, &envelope.aggregate_type, &envelope.event_name)?,
+            Self::encode_type(
+                cloud_event_type_prefix,
+                &envelope.aggregate_type,
+                &envelope.event_name,
+            )?,
         )
         .with_partition_key(CloudEventPartitionKey::new(format!(
             "{}:{}",
@@ -51,7 +55,7 @@ impl EventCloudEventCodec {
 
     pub fn decode(
         event: &CloudEvent,
-        type_prefix: Option<&CloudEventTypePrefix>,
+        cloud_event_type_prefix: Option<&CloudEventTypePrefix>,
     ) -> Result<EventEnvelope, EventCloudEventCodecError> {
         if !event
             .data_content_type()
@@ -67,7 +71,8 @@ impl EventCloudEventCodec {
             Some(CloudEventData::Text(text)) => serde_json::from_str(text)?,
             None => return Err(EventCloudEventCodecError::InvalidMetadata("data")),
         };
-        let (aggregate_type, event_name) = Self::decode_type(event.event_type(), type_prefix)?;
+        let (aggregate_type, event_name) =
+            Self::decode_type(event.event_type(), cloud_event_type_prefix)?;
         let subject = event
             .subject()
             .ok_or(EventCloudEventCodecError::InvalidMetadata("subject"))?
@@ -151,21 +156,21 @@ impl EventCloudEventCodec {
     }
 
     pub fn encode_type(
-        type_prefix: Option<&CloudEventTypePrefix>,
+        cloud_event_type_prefix: Option<&CloudEventTypePrefix>,
         aggregate_type: &AggregateTypeOwned,
         event_name: &EventNameOwned,
     ) -> Result<CloudEventType, EventCloudEventCodecError> {
         Ok(CloudEventType::with_prefix(
-            type_prefix,
+            cloud_event_type_prefix,
             &format!("{aggregate_type}.{event_name}"),
         )?)
     }
 
     pub fn decode_type(
         event_type: &CloudEventType,
-        type_prefix: Option<&CloudEventTypePrefix>,
+        cloud_event_type_prefix: Option<&CloudEventTypePrefix>,
     ) -> Result<(AggregateTypeOwned, EventNameOwned), EventCloudEventCodecError> {
-        let name = event_type.without_prefix(type_prefix)?;
+        let name = event_type.without_prefix(cloud_event_type_prefix)?;
         let (aggregate_type, event_name) = name
             .split_once('.')
             .ok_or(EventCloudEventCodecError::InvalidMetadata("type"))?;
@@ -192,12 +197,15 @@ mod tests {
         let aggregate_type = "bank_account".parse().unwrap();
         let event_name = "created_v1".parse().unwrap();
         let prefix = "com.example.events".parse().unwrap();
-        for type_prefix in [None, Some(&prefix)] {
-            let encoded =
-                EventCloudEventCodec::encode_type(type_prefix, &aggregate_type, &event_name)
-                    .unwrap();
+        for cloud_event_type_prefix in [None, Some(&prefix)] {
+            let encoded = EventCloudEventCodec::encode_type(
+                cloud_event_type_prefix,
+                &aggregate_type,
+                &event_name,
+            )
+            .unwrap();
             assert_eq!(
-                EventCloudEventCodec::decode_type(&encoded, type_prefix).unwrap(),
+                EventCloudEventCodec::decode_type(&encoded, cloud_event_type_prefix).unwrap(),
                 (aggregate_type.clone(), event_name.clone()),
             );
         }

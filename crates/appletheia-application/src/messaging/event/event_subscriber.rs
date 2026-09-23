@@ -28,7 +28,7 @@ where
     fn selector(&self, selector: &EventSelector) -> Result<CloudEventSelector, SubscriberError> {
         Ok(CloudEventSelector::new().with_type(
             EventCloudEventCodec::encode_type(
-                self.config.type_prefix.as_ref(),
+                self.config.cloud_event_type_prefix.as_ref(),
                 &selector.aggregate_type.into(),
                 &selector.event_name.into(),
             )
@@ -80,7 +80,7 @@ where
             })?;
         Ok(EventConsumer::new(
             cloud_event_consumer,
-            self.config.type_prefix.clone(),
+            self.config.cloud_event_type_prefix.clone(),
         ))
     }
 }

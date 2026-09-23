@@ -10,17 +10,20 @@ where
     C: CloudEventConsumer,
 {
     cloud_event_consumer: C,
-    type_prefix: Option<CloudEventTypePrefix>,
+    cloud_event_type_prefix: Option<CloudEventTypePrefix>,
 }
 
 impl<C> EventConsumer<C>
 where
     C: CloudEventConsumer,
 {
-    pub fn new(cloud_event_consumer: C, type_prefix: Option<CloudEventTypePrefix>) -> Self {
+    pub fn new(
+        cloud_event_consumer: C,
+        cloud_event_type_prefix: Option<CloudEventTypePrefix>,
+    ) -> Self {
         Self {
             cloud_event_consumer,
-            type_prefix,
+            cloud_event_type_prefix,
         }
     }
 }
@@ -39,7 +42,7 @@ where
             .map_err(|source| ConsumerError::Next(Box::new(source)))?;
         match EventEnvelope::try_from_cloud_event(
             cloud_event_delivery.message(),
-            self.type_prefix.as_ref(),
+            self.cloud_event_type_prefix.as_ref(),
         ) {
             Ok(message) => Ok(EventDelivery::new(cloud_event_delivery, message)),
             Err(source) => {

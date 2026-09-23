@@ -84,7 +84,7 @@ where
             })?;
         Ok(CommandFailureConsumer::new(
             cloud_event_consumer,
-            self.config.type_prefix.clone(),
+            self.config.cloud_event_type_prefix.clone(),
         ))
     }
 }
