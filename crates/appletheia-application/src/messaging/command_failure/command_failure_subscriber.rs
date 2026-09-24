@@ -68,13 +68,9 @@ where
                 Subscription::One(&selectors[0])
             }
         };
-        let failure_group =
-            ConsumerGroup::new(format!("{}_command_failures", consumer_group.value()))
-                .map_err(|source| SubscriberError::Subscribe(Box::new(source)))?;
-        let group = &failure_group;
         let cloud_event_consumer = self
             .cloud_event_subscriber
-            .subscribe(group, cloud_subscription)
+            .subscribe(consumer_group, cloud_subscription)
             .await
             .map_err(|source| match source {
                 CloudEventSubscriberError::InvalidSubscription => {
