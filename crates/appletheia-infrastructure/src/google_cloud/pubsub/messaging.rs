@@ -1,7 +1,25 @@
 pub mod cloud_event;
+pub mod pubsub_command_failure_publisher;
+pub mod pubsub_command_failure_subscriber;
+pub mod pubsub_command_publisher;
+pub mod pubsub_command_subscriber;
+pub mod pubsub_consumer;
+pub mod pubsub_delivery;
+pub mod pubsub_event_publisher;
+pub mod pubsub_event_subscriber;
+pub mod pubsub_read_model_invalidation_publisher;
 pub mod pubsub_subscription_path_prefix;
 pub mod pubsub_subscription_path_prefix_error;
 
 pub use cloud_event::*;
+pub use pubsub_command_failure_publisher::*;
+pub use pubsub_command_failure_subscriber::*;
+pub use pubsub_command_publisher::*;
+pub use pubsub_command_subscriber::*;
+pub use pubsub_consumer::*;
+pub use pubsub_delivery::*;
+pub use pubsub_event_publisher::*;
+pub use pubsub_event_subscriber::*;
+pub use pubsub_read_model_invalidation_publisher::*;
 pub use pubsub_subscription_path_prefix::*;
 pub use pubsub_subscription_path_prefix_error::*;

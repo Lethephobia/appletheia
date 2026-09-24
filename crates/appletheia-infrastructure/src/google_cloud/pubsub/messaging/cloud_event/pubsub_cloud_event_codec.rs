@@ -124,6 +124,10 @@ impl PubsubCloudEventCodec {
 mod tests {
     use super::*;
     use appletheia_application::CloudEventDataContentType;
+    use appletheia_application::{
+        CommandCloudEventCodec, CommandFailureCloudEventCodec, EventCloudEventCodec,
+        ReadModelInvalidationCloudEventCodec,
+    };
     use serde_json::json;
 
     fn event() -> CloudEvent {
@@ -303,7 +307,6 @@ mod tests {
 
     #[test]
     fn binary_round_trip_preserves_all_envelope_mappings() {
-        use appletheia_application::PublishableMessage;
         use appletheia_application::{
             CommandEnvelope, CommandFailureEnvelope, EventEnvelope, ReadModelInvalidationEnvelope,
         };
@@ -335,20 +338,24 @@ mod tests {
             "source_projector_name": "account", "source_event_occurred_at": "2026-09-23T12:00:00Z", "correlation_id": id, "causation_id": id,
             "invalidated_partitions": [{"fragment_name": "account", "key": id}]
         })).unwrap();
-        let command_wire =
-            PubsubCloudEventCodec::encode(&command.try_to_cloud_event(&source, None).unwrap())
-                .unwrap();
-        let failure_wire =
-            PubsubCloudEventCodec::encode(&failure.try_to_cloud_event(&source, None).unwrap())
-                .unwrap();
-        let event_wire =
-            PubsubCloudEventCodec::encode(&event.try_to_cloud_event(&source, None).unwrap())
-                .unwrap();
-        let invalidation_wire =
-            PubsubCloudEventCodec::encode(&invalidation.try_to_cloud_event(&source, None).unwrap())
-                .unwrap();
+        let command_wire = PubsubCloudEventCodec::encode(
+            &CommandCloudEventCodec::encode(&command, &source, None).unwrap(),
+        )
+        .unwrap();
+        let failure_wire = PubsubCloudEventCodec::encode(
+            &CommandFailureCloudEventCodec::encode(&failure, &source, None).unwrap(),
+        )
+        .unwrap();
+        let event_wire = PubsubCloudEventCodec::encode(
+            &EventCloudEventCodec::encode(&event, &source, None).unwrap(),
+        )
+        .unwrap();
+        let invalidation_wire = PubsubCloudEventCodec::encode(
+            &ReadModelInvalidationCloudEventCodec::encode(&invalidation, &source, None).unwrap(),
+        )
+        .unwrap();
         assert_eq!(
-            CommandEnvelope::try_from_cloud_event(
+            CommandCloudEventCodec::decode(
                 &PubsubCloudEventCodec::decode(&command_wire).unwrap(),
                 None
             )
@@ -356,7 +363,7 @@ mod tests {
             command
         );
         assert_eq!(
-            CommandFailureEnvelope::try_from_cloud_event(
+            CommandFailureCloudEventCodec::decode(
                 &PubsubCloudEventCodec::decode(&failure_wire).unwrap(),
                 None
             )
@@ -364,7 +371,7 @@ mod tests {
             failure
         );
         assert_eq!(
-            EventEnvelope::try_from_cloud_event(
+            EventCloudEventCodec::decode(
                 &PubsubCloudEventCodec::decode(&event_wire).unwrap(),
                 None
             )
@@ -372,7 +379,7 @@ mod tests {
             event
         );
         assert_eq!(
-            ReadModelInvalidationEnvelope::try_from_cloud_event(
+            ReadModelInvalidationCloudEventCodec::decode(
                 &PubsubCloudEventCodec::decode(&invalidation_wire).unwrap(),
                 None
             )

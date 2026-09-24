@@ -1,8 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::messaging::{
-    CloudEvent, CloudEventSource, CloudEventTypePrefix, CommandCloudEventCodec, PublishableMessage,
-};
+use crate::messaging::{OrderingKey, PublishableMessage};
 use crate::request_context::{CausationId, CorrelationId, MessageId};
 use crate::saga::SagaCommandOrigin;
 
@@ -61,28 +59,8 @@ impl CommandEnvelope {
 }
 
 impl PublishableMessage for CommandEnvelope {
-    type Error = CommandEnvelopeError;
-
-    fn try_to_cloud_event(
-        &self,
-        source: &CloudEventSource,
-        cloud_event_type_prefix: Option<&CloudEventTypePrefix>,
-    ) -> Result<CloudEvent, Self::Error> {
-        Ok(CommandCloudEventCodec::encode(
-            self,
-            source,
-            cloud_event_type_prefix,
-        )?)
-    }
-
-    fn try_from_cloud_event(
-        event: &CloudEvent,
-        cloud_event_type_prefix: Option<&CloudEventTypePrefix>,
-    ) -> Result<Self, Self::Error> {
-        Ok(CommandCloudEventCodec::decode(
-            event,
-            cloud_event_type_prefix,
-        )?)
+    fn ordering_key(&self) -> OrderingKey {
+        OrderingKey::from(self.correlation_id)
     }
 }
 
@@ -90,6 +68,7 @@ impl PublishableMessage for CommandEnvelope {
 mod tests {
     use super::*;
     use crate::messaging::CloudEventAttributeValue;
+    use crate::messaging::CommandCloudEventCodec;
     use crate::saga::{SagaInstanceId, SagaNameOwned, SerializedSagaStep};
 
     #[test]
@@ -105,12 +84,12 @@ mod tests {
             saga_origin: None,
         };
         let source = "urn:banking:commands".parse().unwrap();
-        let event = envelope.try_to_cloud_event(&source, None).unwrap();
+        let event = CommandCloudEventCodec::encode(&envelope, &source, None).unwrap();
         assert_eq!(event.event_type().as_str(), "transfer");
         assert!(event.subject().is_none());
         assert!(event.time().is_none());
         assert_eq!(
-            CommandEnvelope::try_from_cloud_event(&event, None).unwrap(),
+            CommandCloudEventCodec::decode(&event, None).unwrap(),
             envelope
         );
         envelope.saga_origin = Some(SagaCommandOrigin {
@@ -118,9 +97,9 @@ mod tests {
             saga_instance_id: SagaInstanceId::new(),
             step: SerializedSagaStep::try_from(serde_json::json!("debit")).unwrap(),
         });
-        let mut with_origin = envelope.try_to_cloud_event(&source, None).unwrap();
+        let mut with_origin = CommandCloudEventCodec::encode(&envelope, &source, None).unwrap();
         assert_eq!(
-            CommandEnvelope::try_from_cloud_event(&with_origin, None).unwrap(),
+            CommandCloudEventCodec::decode(&with_origin, None).unwrap(),
             envelope
         );
         with_origin
@@ -129,6 +108,6 @@ mod tests {
                 CloudEventAttributeValue::String(("other".to_owned()).parse().unwrap()),
             )
             .unwrap();
-        assert!(CommandEnvelope::try_from_cloud_event(&with_origin, None).is_err());
+        assert!(CommandCloudEventCodec::decode(&with_origin, None).is_err());
     }
 }

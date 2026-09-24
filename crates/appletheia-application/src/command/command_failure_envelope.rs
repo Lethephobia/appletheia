@@ -1,15 +1,12 @@
 use serde::{Deserialize, Serialize};
 
-use crate::messaging::{
-    CloudEvent, CloudEventSource, CloudEventTypePrefix, CommandFailureCloudEventCodec,
-    PublishableMessage,
-};
+use crate::messaging::{OrderingKey, PublishableMessage};
 use crate::request_context::{CausationId, CorrelationId, MessageId};
 use crate::saga::SagaCommandOrigin;
 
 use super::{
-    CommandAttemptCount, CommandEnvelope, CommandFailedAt, CommandFailureEnvelopeError,
-    CommandFailureId, CommandNameOwned, CommandTerminalReason,
+    CommandAttemptCount, CommandEnvelope, CommandFailedAt, CommandFailureId, CommandNameOwned,
+    CommandTerminalReason,
 };
 
 /// Notifies an originating saga that one of its commands failed terminally.
@@ -49,28 +46,8 @@ impl CommandFailureEnvelope {
 }
 
 impl PublishableMessage for CommandFailureEnvelope {
-    type Error = CommandFailureEnvelopeError;
-
-    fn try_to_cloud_event(
-        &self,
-        source: &CloudEventSource,
-        cloud_event_type_prefix: Option<&CloudEventTypePrefix>,
-    ) -> Result<CloudEvent, Self::Error> {
-        Ok(CommandFailureCloudEventCodec::encode(
-            self,
-            source,
-            cloud_event_type_prefix,
-        )?)
-    }
-
-    fn try_from_cloud_event(
-        event: &CloudEvent,
-        cloud_event_type_prefix: Option<&CloudEventTypePrefix>,
-    ) -> Result<Self, Self::Error> {
-        Ok(CommandFailureCloudEventCodec::decode(
-            event,
-            cloud_event_type_prefix,
-        )?)
+    fn ordering_key(&self) -> OrderingKey {
+        OrderingKey::from(self.correlation_id)
     }
 }
 
@@ -78,6 +55,7 @@ impl PublishableMessage for CommandFailureEnvelope {
 mod tests {
     use super::*;
     use crate::messaging::CloudEventAttributeValue;
+    use crate::messaging::CommandFailureCloudEventCodec;
     use crate::saga::{SagaInstanceId, SagaNameOwned, SerializedSagaStep};
 
     #[test]
@@ -100,17 +78,18 @@ mod tests {
         };
         let source = "urn:banking:failures".parse().unwrap();
         let prefix = "example.command".parse().unwrap();
-        let mut event = envelope.try_to_cloud_event(&source, Some(&prefix)).unwrap();
+        let mut event =
+            CommandFailureCloudEventCodec::encode(&envelope, &source, Some(&prefix)).unwrap();
         assert_eq!(
             event.event_type().as_str(),
             "example.command.transfer.failed"
         );
         assert_eq!(
-            CommandFailureEnvelope::try_from_cloud_event(&event, Some(&prefix)).unwrap(),
+            CommandFailureCloudEventCodec::decode(&event, Some(&prefix)).unwrap(),
             envelope
         );
         assert_eq!(
-            envelope.try_to_cloud_event(&source, Some(&prefix)).unwrap(),
+            CommandFailureCloudEventCodec::encode(&envelope, &source, Some(&prefix)).unwrap(),
             event
         );
         event
@@ -119,6 +98,6 @@ mod tests {
                 CloudEventAttributeValue::String((MessageId::new().to_string()).parse().unwrap()),
             )
             .unwrap();
-        assert!(CommandFailureEnvelope::try_from_cloud_event(&event, Some(&prefix)).is_err());
+        assert!(CommandFailureCloudEventCodec::decode(&event, Some(&prefix)).is_err());
     }
 }

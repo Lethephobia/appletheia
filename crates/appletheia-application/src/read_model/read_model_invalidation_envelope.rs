@@ -2,10 +2,7 @@ use appletheia_domain::{EventId, EventOccurredAt};
 use serde::{Deserialize, Serialize};
 
 use crate::event::{EventEnvelope, EventSequence};
-use crate::messaging::{
-    CloudEvent, CloudEventSource, CloudEventTypePrefix, PublishableMessage,
-    ReadModelInvalidationCloudEventCodec,
-};
+use crate::messaging::{OrderingKey, PublishableMessage};
 use crate::projection::{ProjectorName, ProjectorNameOwned};
 use crate::request_context::{CausationId, CorrelationId};
 
@@ -59,34 +56,15 @@ impl ReadModelInvalidationEnvelope {
 }
 
 impl PublishableMessage for ReadModelInvalidationEnvelope {
-    type Error = ReadModelInvalidationEnvelopeError;
-
-    fn try_to_cloud_event(
-        &self,
-        source: &CloudEventSource,
-        cloud_event_type_prefix: Option<&CloudEventTypePrefix>,
-    ) -> Result<CloudEvent, Self::Error> {
-        Ok(ReadModelInvalidationCloudEventCodec::encode(
-            self,
-            source,
-            cloud_event_type_prefix,
-        )?)
-    }
-
-    fn try_from_cloud_event(
-        event: &CloudEvent,
-        cloud_event_type_prefix: Option<&CloudEventTypePrefix>,
-    ) -> Result<Self, Self::Error> {
-        Ok(ReadModelInvalidationCloudEventCodec::decode(
-            event,
-            cloud_event_type_prefix,
-        )?)
+    fn ordering_key(&self) -> OrderingKey {
+        OrderingKey::from(&self.source_projector_name)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::messaging::CloudEventAttributeValue;
+    use crate::messaging::ReadModelInvalidationCloudEventCodec;
     use appletheia_domain::AggregateVersion;
     use serde_json::json;
     use uuid::Uuid;
@@ -199,7 +177,8 @@ mod tests {
         assert_eq!(envelope.causation_id.value(), source_event.event_id.value());
         assert_eq!(envelope.source_event_occurred_at, source_event.occurred_at);
         let source = "urn:banking:invalidations".parse().unwrap();
-        let mut cloud_event = envelope.try_to_cloud_event(&source, None).unwrap();
+        let mut cloud_event =
+            ReadModelInvalidationCloudEventCodec::encode(&envelope, &source, None).unwrap();
         assert_eq!(
             cloud_event.id().as_str(),
             envelope.invalidation_id.to_string()
@@ -207,11 +186,11 @@ mod tests {
         assert!(cloud_event.time().is_none());
         assert!(cloud_event.subject().is_none());
         assert_eq!(
-            ReadModelInvalidationEnvelope::try_from_cloud_event(&cloud_event, None).unwrap(),
+            ReadModelInvalidationCloudEventCodec::decode(&cloud_event, None).unwrap(),
             envelope
         );
         assert_eq!(
-            envelope.try_to_cloud_event(&source, None).unwrap(),
+            ReadModelInvalidationCloudEventCodec::encode(&envelope, &source, None).unwrap(),
             cloud_event
         );
         cloud_event
@@ -220,6 +199,6 @@ mod tests {
                 CloudEventAttributeValue::String((MessageId::new().to_string()).parse().unwrap()),
             )
             .unwrap();
-        assert!(ReadModelInvalidationEnvelope::try_from_cloud_event(&cloud_event, None).is_err());
+        assert!(ReadModelInvalidationCloudEventCodec::decode(&cloud_event, None).is_err());
     }
 }

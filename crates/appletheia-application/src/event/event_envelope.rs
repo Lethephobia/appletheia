@@ -5,9 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::aggregate::{AggregateIdValue, AggregateTypeOwned};
 use crate::event::{EventNameOwned, EventSequence, SerializedEventPayload};
-use crate::messaging::{
-    CloudEvent, CloudEventSource, CloudEventTypePrefix, EventCloudEventCodec, PublishableMessage,
-};
+use crate::messaging::{OrderingKey, PublishableMessage};
 use crate::request_context::{CausationId, CorrelationId, RequestContext};
 
 use super::EventEnvelopeError;
@@ -72,34 +70,15 @@ impl EventEnvelope {
 }
 
 impl PublishableMessage for EventEnvelope {
-    type Error = EventEnvelopeError;
-
-    fn try_to_cloud_event(
-        &self,
-        source: &CloudEventSource,
-        cloud_event_type_prefix: Option<&CloudEventTypePrefix>,
-    ) -> Result<CloudEvent, Self::Error> {
-        Ok(EventCloudEventCodec::encode(
-            self,
-            source,
-            cloud_event_type_prefix,
-        )?)
-    }
-
-    fn try_from_cloud_event(
-        event: &CloudEvent,
-        cloud_event_type_prefix: Option<&CloudEventTypePrefix>,
-    ) -> Result<Self, Self::Error> {
-        Ok(EventCloudEventCodec::decode(
-            event,
-            cloud_event_type_prefix,
-        )?)
+    fn ordering_key(&self) -> OrderingKey {
+        OrderingKey::from((&self.aggregate_type, &self.aggregate_id))
     }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::messaging::CloudEventAttributeValue;
+    use crate::messaging::EventCloudEventCodec;
     use std::fmt::{self, Display};
 
     use serde::{Deserialize, Serialize};
@@ -358,27 +337,25 @@ mod tests {
         envelope.aggregate_version = AggregateVersion::try_from(i64::MAX).unwrap();
         let source = "urn:banking:events".parse().unwrap();
         let prefix = "example.banking".parse().unwrap();
-        let event = envelope.try_to_cloud_event(&source, Some(&prefix)).unwrap();
+        let event = EventCloudEventCodec::encode(&envelope, &source, Some(&prefix)).unwrap();
         assert_eq!(
             event.event_type().as_str(),
             "example.banking.counter.opened"
         );
         assert_eq!(event.id().as_str(), envelope.event_id.to_string());
-        let restored = EventEnvelope::try_from_cloud_event(&event, Some(&prefix)).unwrap();
+        let restored = EventCloudEventCodec::decode(&event, Some(&prefix)).unwrap();
         assert_eq!(
             serde_json::to_value(&restored).unwrap(),
             serde_json::to_value(&envelope).unwrap()
         );
         assert_eq!(restored.context.principal, Principal::Unavailable);
-        assert!(
-            EventEnvelope::try_from_cloud_event(&event, Some(&"wrong".parse().unwrap())).is_err()
-        );
+        assert!(EventCloudEventCodec::decode(&event, Some(&"wrong".parse().unwrap())).is_err());
         let wrong_subject = event.clone().with_subject(
             "other/00000000-0000-0000-0000-000000000000"
                 .parse()
                 .unwrap(),
         );
-        assert!(EventEnvelope::try_from_cloud_event(&wrong_subject, Some(&prefix)).is_err());
+        assert!(EventCloudEventCodec::decode(&wrong_subject, Some(&prefix)).is_err());
         let mut invalid_sequence = event.clone();
         invalid_sequence
             .insert_extension(
@@ -386,16 +363,16 @@ mod tests {
                 CloudEventAttributeValue::String(("-1".to_owned()).parse().unwrap()),
             )
             .unwrap();
-        assert!(EventEnvelope::try_from_cloud_event(&invalid_sequence, Some(&prefix)).is_err());
+        assert!(EventCloudEventCodec::decode(&invalid_sequence, Some(&prefix)).is_err());
         let mut missing_context = event.clone();
         missing_context.remove_extension(&"context".parse().unwrap());
-        assert!(EventEnvelope::try_from_cloud_event(&missing_context, Some(&prefix)).is_err());
+        assert!(EventCloudEventCodec::decode(&missing_context, Some(&prefix)).is_err());
         let null_payload = event
             .try_with_data(
                 Some(CloudEventData::Json(serde_json::Value::Null)),
                 Some(CloudEventDataContentType::json()),
             )
             .unwrap();
-        assert!(EventEnvelope::try_from_cloud_event(&null_payload, Some(&prefix)).is_err());
+        assert!(EventCloudEventCodec::decode(&null_payload, Some(&prefix)).is_err());
     }
 }
