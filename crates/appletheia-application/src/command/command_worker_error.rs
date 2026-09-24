@@ -1,5 +1,7 @@
 use thiserror::Error;
 
+use crate::messaging::ConsumerGroupError;
+
 use crate::messaging::SubscriberError;
 use crate::messaging::{ConsumerError, DeliveryError};
 
@@ -10,6 +12,9 @@ use crate::unit_of_work::{UnitOfWorkError, UnitOfWorkFactoryError};
 
 #[derive(Debug, Error)]
 pub enum CommandWorkerError {
+    #[error(transparent)]
+    ConsumerGroup(#[from] ConsumerGroupError),
+
     #[error(transparent)]
     Subscriber(#[from] SubscriberError),
 

@@ -58,7 +58,7 @@ impl Subscriber<CommandFailureEnvelope> for PubsubCommandFailureSubscriber {
         };
         let subscription_name = self
             .subscription_path_prefix
-            .subscription_name(consumer_group);
+            .subscription_name(&self.topic_id, consumer_group);
         let create_request = PubsubSubscription::new()
             .set_name(&subscription_name)
             .set_topic(self.topic_id.value())
@@ -76,7 +76,19 @@ impl Subscriber<CommandFailureEnvelope> for PubsubCommandFailureSubscriber {
                 if matches!(
                     error.status().map(|status| status.code),
                     Some(Code::AlreadyExists)
-                ) => {}
+                ) =>
+            {
+                let existing = self
+                    .subscription_admin
+                    .get_subscription()
+                    .set_subscription(&subscription_name)
+                    .send()
+                    .await
+                    .map_err(|source| SubscriberError::Subscribe(Box::new(source)))?;
+                if existing.topic != self.topic_id.value() {
+                    return Err(SubscriberError::SubscriptionConflict);
+                }
+            }
             Err(error) => return Err(SubscriberError::Subscribe(Box::new(error))),
         }
         let stream = self.subscriber.subscribe(subscription_name).build();

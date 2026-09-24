@@ -55,7 +55,8 @@ where
         saga: &SG,
     ) -> Result<(), SagaCommandFailureWorkerError<SG::HandlerError>> {
         let definition = saga.definition()?;
-        let consumer_group = ConsumerGroup::new(format!("{}_command_failures", definition.name()))?;
+        let consumer_group =
+            ConsumerGroup::new(format!("saga_command_failures_{}", definition.name()))?;
         let saga_name = definition.name();
         let mut consumer = self
             .subscriber

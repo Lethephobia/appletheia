@@ -85,7 +85,7 @@ where
     where
         H: CommandHandler<Uow = Self::Uow>,
     {
-        let consumer_group = ConsumerGroup::from(H::Command::NAME);
+        let consumer_group = ConsumerGroup::new(format!("command_{}", H::Command::NAME))?;
         let selectors = [CommandSelector::new(H::Command::NAME)];
 
         let mut consumer = self
@@ -693,7 +693,7 @@ mod tests {
         );
         assert_eq!(state.acknowledgements.load(Ordering::SeqCst), 1);
         assert_eq!(state.negative_acknowledgements.load(Ordering::SeqCst), 0);
-        assert_eq!(*state.consumer_groups.lock().unwrap(), ["test"]);
+        assert_eq!(*state.consumer_groups.lock().unwrap(), ["command_test"]);
     }
 
     #[tokio::test]

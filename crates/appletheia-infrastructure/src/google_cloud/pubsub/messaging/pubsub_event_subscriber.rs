@@ -60,7 +60,7 @@ impl Subscriber<EventEnvelope> for PubsubEventSubscriber {
     ) -> Result<Self::Consumer, SubscriberError> {
         let subscription_name = self
             .subscription_path_prefix
-            .subscription_name(consumer_group);
+            .subscription_name(&self.topic_id, consumer_group);
         let filter = match subscription {
             Subscription::All => String::new(),
             Subscription::AnyOf([]) => {
@@ -88,7 +88,19 @@ impl Subscriber<EventEnvelope> for PubsubEventSubscriber {
                 if matches!(
                     error.status().map(|status| status.code),
                     Some(Code::AlreadyExists)
-                ) => {}
+                ) =>
+            {
+                let existing = self
+                    .subscription_admin
+                    .get_subscription()
+                    .set_subscription(&subscription_name)
+                    .send()
+                    .await
+                    .map_err(|source| SubscriberError::Subscribe(Box::new(source)))?;
+                if existing.topic != self.topic_id.value() {
+                    return Err(SubscriberError::SubscriptionConflict);
+                }
+            }
             Err(error) => {
                 return Err(SubscriberError::Subscribe(Box::new(error)));
             }

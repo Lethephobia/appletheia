@@ -110,7 +110,7 @@ impl CloudEventSubscriber for PubsubCloudEventSubscriber {
     ) -> Result<Self::Consumer, CloudEventSubscriberError> {
         let subscription_name = self
             .subscription_path_prefix
-            .subscription_name(consumer_group);
+            .subscription_name(&self.topic_id, consumer_group);
         let filter = Self::filter_expression(subscription)?;
 
         let create_request = PubsubSubscription::new()

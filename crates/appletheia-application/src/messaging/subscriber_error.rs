@@ -8,6 +8,9 @@ pub enum SubscriberError {
     #[error("subscribe error")]
     Subscribe(#[source] Box<dyn Error + Send + Sync>),
 
+    #[error("existing subscription conflicts with the requested configuration")]
+    SubscriptionConflict,
+
     #[error("invalid subscription")]
     InvalidSubscription,
 }

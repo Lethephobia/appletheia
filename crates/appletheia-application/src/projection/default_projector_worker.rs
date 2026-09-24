@@ -58,7 +58,7 @@ where
         PJ: Projector<Uow = Self::Uow>,
     {
         let descriptor = <PJ::Spec as ProjectorSpec>::DESCRIPTOR;
-        let consumer_group = ConsumerGroup::from(descriptor.name);
+        let consumer_group = ConsumerGroup::new(format!("projector_{}", descriptor.name))?;
         let mut consumer = self
             .subscriber
             .subscribe(&consumer_group, descriptor.subscription)
