@@ -20,8 +20,6 @@ pub mod selector;
 pub mod subscriber;
 pub mod subscriber_error;
 pub mod subscription;
-pub mod topic_id;
-pub mod topic_id_error;
 
 pub use cloud_event::*;
 pub use command::*;
@@ -45,5 +43,3 @@ pub use selector::*;
 pub use subscriber::*;
 pub use subscriber_error::*;
 pub use subscription::*;
-pub use topic_id::*;
-pub use topic_id_error::*;

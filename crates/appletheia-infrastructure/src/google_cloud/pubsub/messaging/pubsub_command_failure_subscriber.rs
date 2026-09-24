@@ -1,5 +1,6 @@
+use super::PubsubTopicName;
 use appletheia_application::command::CommandFailureEnvelope;
-use appletheia_application::messaging::{Subscription, TopicId};
+use appletheia_application::messaging::Subscription;
 use appletheia_application::saga::SagaName;
 use appletheia_application::{ConsumerGroup, Subscriber, SubscriberError};
 use google_cloud_gax::error::rpc::Code;
@@ -14,7 +15,7 @@ pub struct PubsubCommandFailureSubscriber {
     subscriber: GoogleSubscriber,
     subscription_admin: SubscriptionAdmin,
     subscription_path_prefix: PubsubSubscriptionPathPrefix,
-    topic_id: TopicId,
+    topic_name: PubsubTopicName,
 }
 
 impl PubsubCommandFailureSubscriber {
@@ -22,13 +23,13 @@ impl PubsubCommandFailureSubscriber {
         subscriber: GoogleSubscriber,
         subscription_admin: SubscriptionAdmin,
         subscription_path_prefix: PubsubSubscriptionPathPrefix,
-        topic_id: TopicId,
+        topic_name: PubsubTopicName,
     ) -> Self {
         Self {
             subscriber,
             subscription_admin,
             subscription_path_prefix,
-            topic_id,
+            topic_name,
         }
     }
 
@@ -58,10 +59,10 @@ impl Subscriber<CommandFailureEnvelope> for PubsubCommandFailureSubscriber {
         };
         let subscription_name = self
             .subscription_path_prefix
-            .subscription_name(&self.topic_id, consumer_group);
+            .subscription_name(&self.topic_name, consumer_group);
         let create_request = PubsubSubscription::new()
             .set_name(&subscription_name)
-            .set_topic(self.topic_id.value())
+            .set_topic(self.topic_name.value())
             .set_enable_message_ordering(true)
             .set_filter(routes);
         match self
@@ -85,7 +86,7 @@ impl Subscriber<CommandFailureEnvelope> for PubsubCommandFailureSubscriber {
                     .send()
                     .await
                     .map_err(|source| SubscriberError::Subscribe(Box::new(source)))?;
-                if existing.topic != self.topic_id.value() {
+                if existing.topic != self.topic_name.value() {
                     return Err(SubscriberError::SubscriptionConflict);
                 }
             }

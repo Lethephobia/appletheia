@@ -1,8 +1,9 @@
+use super::PubsubTopicName;
 use appletheia_application::ConsumerGroup;
 use appletheia_application::Subscriber;
 use appletheia_application::SubscriberError;
 use appletheia_application::command::{CommandEnvelope, CommandSelector};
-use appletheia_application::messaging::{Subscription, TopicId};
+use appletheia_application::messaging::Subscription;
 use google_cloud_gax::error::rpc::Code;
 use google_cloud_pubsub::client::{Subscriber as GoogleSubscriber, SubscriptionAdmin};
 use google_cloud_pubsub::model::Subscription as PubsubSubscription;
@@ -14,7 +15,7 @@ pub struct PubsubCommandSubscriber {
     subscriber: GoogleSubscriber,
     subscription_admin: SubscriptionAdmin,
     subscription_path_prefix: PubsubSubscriptionPathPrefix,
-    topic_id: TopicId,
+    topic_name: PubsubTopicName,
 }
 
 impl PubsubCommandSubscriber {
@@ -22,13 +23,13 @@ impl PubsubCommandSubscriber {
         subscriber: GoogleSubscriber,
         subscription_admin: SubscriptionAdmin,
         subscription_path_prefix: PubsubSubscriptionPathPrefix,
-        topic_id: TopicId,
+        topic_name: PubsubTopicName,
     ) -> Self {
         Self {
             subscriber,
             subscription_admin,
             subscription_path_prefix,
-            topic_id,
+            topic_name,
         }
     }
 
@@ -59,7 +60,7 @@ impl Subscriber<CommandEnvelope> for PubsubCommandSubscriber {
     ) -> Result<Self::Consumer, SubscriberError> {
         let subscription_name = self
             .subscription_path_prefix
-            .subscription_name(&self.topic_id, consumer_group);
+            .subscription_name(&self.topic_name, consumer_group);
         let filter = match subscription {
             Subscription::All => String::new(),
             Subscription::AnyOf([]) => {
@@ -71,7 +72,7 @@ impl Subscriber<CommandEnvelope> for PubsubCommandSubscriber {
 
         let create_request = PubsubSubscription::new()
             .set_name(&subscription_name)
-            .set_topic(self.topic_id.value())
+            .set_topic(self.topic_name.value())
             .set_enable_message_ordering(true)
             .set_filter(filter);
 
@@ -96,7 +97,7 @@ impl Subscriber<CommandEnvelope> for PubsubCommandSubscriber {
                     .send()
                     .await
                     .map_err(|source| SubscriberError::Subscribe(Box::new(source)))?;
-                if existing.topic != self.topic_id.value() {
+                if existing.topic != self.topic_name.value() {
                     return Err(SubscriberError::SubscriptionConflict);
                 }
             }
