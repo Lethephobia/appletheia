@@ -7,6 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.18.0](https://github.com/Lethephobia/appletheia/compare/appletheia-infrastructure-v0.17.0...appletheia-infrastructure-v0.18.0) - 2026-09-25
+
+### Added
+
+- *(messaging)* [**breaking**] migrate envelope transport to CloudEvent adapters
+- *(messaging)* [**breaking**] support optional types and extension filters in CloudEvent selectors
+- *(messaging)* add CloudEvent transport contracts and Pub/Sub implementations
+- *(authorization)* [**breaking**] derive relationships from registered relations during save
+- *(infrastructure)* [**breaking**] make SHA, JWT and HTTP implementations opt-in
+- *(infrastructure)* [**breaking**] make AES-GCM opt-in and unify re-exports
+- *(infrastructure)* [**breaking**] make PostgreSQL implementations opt-in
+- *(infrastructure)* [**breaking**] make Google Cloud implementations opt-in
+- *(application)* [**breaking**] route terminal command failures to sagas
+- *(read-model)* [**breaking**] refactor fragment watch pipeline
+
+### Fixed
+
+- *(infrastructure)* match JWT algorithms to verification key families
+- *(infrastructure)* separate command failure dead letters
+
+### Other
+
+- *(messaging)* [**breaking**] move CloudEvents encoding into Pub/Sub codecs
+- *(security)* add dependency checks and update JWT crypto backend
+- *(messaging)* [**breaking**] move topic names into Pub/Sub infrastructure
+- *(messaging)* [**breaking**] namespace subscriptions by topic and worker role
+- *(messaging)* [**breaking**] restore direct Pub/Sub envelope transport
+- *(messaging)* [**breaking**] extract envelope CloudEvent codecs and tighten trait bounds
+- [**breaking**] align conversion method names with ownership and fallibility
+- *(messaging)* [**breaking**] separate delivery errors from consumer errors
+- *(messaging)* [**breaking**] make publisher message an associated type
+- *(watch)* [**breaking**] remove watch implementation ahead of redesign
+- *(messaging)* [**breaking**] derive ordering keys from publishable messages
+- *(outbox)* [**breaking**] separate invalidation outbox identity and dead letters
+- *(projection)* [**breaking**] return typed invalidated partitions from projectors
+- *(saga)* [**breaking**] unify handler errors and validate event names in envelopes
+- *(infrastructure)* [**breaking**] upgrade jsonwebtoken to v11
+- *(infrastructure)* update cloud and utility dependencies
+- *(application)* [**breaking**] define sagas with staged route builders
+- *(application)* [**breaking**] make workers reusable
+- *(application)* [**breaking**] unify saga completion state
+- *(read-model)* replace fragment change pipeline with invalidation
+- *(event)* [**breaking**] separate event persistence from outbox enqueue
+- *(command)* [**breaking**] move command envelopes to command module
+
 ## [0.17.0](https://github.com/Lethephobia/appletheia/compare/appletheia-infrastructure-v0.16.0...appletheia-infrastructure-v0.17.0) - 2026-07-15
 
 ### Added
