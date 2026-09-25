@@ -1,11 +1,13 @@
+use serde::Serialize;
+
 use banking_iam_domain::{
     OrganizationDisplayName, OrganizationHandle, OrganizationId, OrganizationPictureRef,
 };
 
-use banking_shared_kernel_application::read_model::ReadModelObservation;
+use appletheia::application::read_model::ReadModelObservation;
 
 /// Organization owner shown in an owned account transaction list.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct OwnedAccountTransactionListOwnerOrganization {
     pub id: OrganizationId,
     pub handle: OrganizationHandle,

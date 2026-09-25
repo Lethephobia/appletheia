@@ -1,18 +1,14 @@
 use appletheia::command;
-use banking_ledger_domain::currency::{
-    CurrencyDecimals, CurrencyDescription, CurrencyImageRef, CurrencyName, CurrencyOwner,
-    CurrencySymbol,
-};
+use banking_ledger_domain::core::{CurrencyCode, CurrencyDecimals};
+use banking_ledger_domain::currency::CurrencyDescription;
+use banking_ledger_domain::currency_registrar::CurrencyRegistrarId;
 use serde::{Deserialize, Serialize};
 
-/// Defines a new currency.
 #[command(name = "currency_define")]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct CurrencyDefineCommand {
-    pub owner: CurrencyOwner,
-    pub symbol: CurrencySymbol,
-    pub name: CurrencyName,
+    pub currency_registrar_id: CurrencyRegistrarId,
+    pub code: CurrencyCode,
     pub decimals: CurrencyDecimals,
     pub description: Option<CurrencyDescription>,
-    pub image: Option<CurrencyImageRef>,
 }

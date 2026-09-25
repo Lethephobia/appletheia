@@ -6,13 +6,13 @@ pub mod message_id;
 pub mod principal;
 pub mod request_context_error;
 
-pub use actor_ref::ActorRef;
-pub use actor_ref_error::ActorRefError;
-pub use causation_id::CausationId;
-pub use correlation_id::CorrelationId;
-pub use message_id::MessageId;
-pub use principal::Principal;
-pub use request_context_error::RequestContextError;
+pub use actor_ref::*;
+pub use actor_ref_error::*;
+pub use causation_id::*;
+pub use correlation_id::*;
+pub use message_id::*;
+pub use principal::*;
+pub use request_context_error::*;
 
 use serde::{Deserialize, Serialize};
 
@@ -54,8 +54,7 @@ mod tests {
     use uuid::Uuid;
 
     use super::*;
-    use crate::authorization::AggregateRef;
-    use crate::event::{AggregateIdValue, AggregateTypeOwned};
+    use crate::aggregate::{AggregateIdValue, AggregateRef, AggregateTypeOwned};
 
     fn aggregate_ref() -> AggregateRef {
         AggregateRef {

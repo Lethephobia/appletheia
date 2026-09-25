@@ -3,7 +3,7 @@ use appletheia::application::projection::{ProjectorDependencies, ProjectorSpec};
 use appletheia::application::query::QueryHandler;
 use appletheia::application::request_context::RequestContext;
 
-use crate::projection::UserPublicProfileProjectorSpec;
+use crate::projection::UserFragmentProjectorSpec;
 use crate::read_model::{UserPublicProfile, UserPublicProfileReader};
 
 use super::{UserPublicProfileQuery, UserPublicProfileQueryHandlerError};
@@ -35,7 +35,7 @@ where
     type Uow = S::Uow;
 
     const PROJECTOR_DEPENDENCIES: ProjectorDependencies<'static> =
-        ProjectorDependencies::Some(&[UserPublicProfileProjectorSpec::DESCRIPTOR]);
+        ProjectorDependencies::Some(&[UserFragmentProjectorSpec::DESCRIPTOR]);
 
     fn authorization_plan(&self, _query: &Self::Query) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::None)

@@ -13,7 +13,4 @@ pub(super) enum PgSagaInstanceRowError {
 
     #[error("state deserialization error: {0}")]
     StateDeserialize(#[from] serde_json::Error),
-
-    #[error("invalid persisted saga instance: {message}")]
-    InvalidPersistedInstance { message: &'static str },
 }

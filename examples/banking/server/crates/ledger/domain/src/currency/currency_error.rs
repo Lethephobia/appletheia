@@ -1,29 +1,17 @@
 use appletheia::domain::AggregateError;
 use thiserror::Error;
 
-use super::{CurrencyId, CurrencyStateError};
+use super::{CurrencyId, CurrencyLifecycleRejectionReason, CurrencyStateError};
 
-/// Describes why a `Currency` aggregate operation failed.
+/// Describes why a Currency aggregate operation failed.
 #[derive(Debug, Error)]
 pub enum CurrencyError {
     #[error(transparent)]
     Aggregate(#[from] AggregateError<CurrencyId>),
-
     #[error(transparent)]
     State(#[from] CurrencyStateError),
-
     #[error("currency is already defined")]
     AlreadyDefined,
-
-    #[error("currency symbol is already taken")]
-    SymbolAlreadyTaken,
-
-    #[error("currency supply overflowed")]
-    SupplyOverflow,
-
-    #[error("currency supply is insufficient")]
-    InsufficientSupply,
-
-    #[error("currency pending supply is insufficient")]
-    InsufficientPendingSupply,
+    #[error("currency lifecycle change rejected: {0:?}")]
+    LifecycleRejected(CurrencyLifecycleRejectionReason),
 }

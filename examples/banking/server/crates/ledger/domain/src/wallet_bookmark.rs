@@ -11,6 +11,7 @@ mod wallet_bookmark_event_payload;
 mod wallet_bookmark_event_payload_error;
 mod wallet_bookmark_id;
 mod wallet_bookmark_owner;
+mod wallet_bookmark_register_rejection_reason;
 mod wallet_bookmark_register_result;
 mod wallet_bookmark_registration;
 mod wallet_bookmark_remove_rejection_reason;
@@ -32,6 +33,7 @@ pub use wallet_bookmark_event_payload::WalletBookmarkEventPayload;
 pub use wallet_bookmark_event_payload_error::WalletBookmarkEventPayloadError;
 pub use wallet_bookmark_id::WalletBookmarkId;
 pub use wallet_bookmark_owner::WalletBookmarkOwner;
+pub use wallet_bookmark_register_rejection_reason::WalletBookmarkRegisterRejectionReason;
 pub use wallet_bookmark_register_result::WalletBookmarkRegisterResult;
 pub use wallet_bookmark_registration::WalletBookmarkRegistration;
 pub use wallet_bookmark_remove_rejection_reason::WalletBookmarkRemoveRejectionReason;
@@ -43,7 +45,7 @@ pub use wallet_bookmark_status::WalletBookmarkStatus;
 use appletheia::aggregate;
 use appletheia::domain::{Aggregate, AggregateApply, AggregateCore};
 
-use crate::core::TokenAccountOwnerAddress;
+use crate::core::TokenOwnerAddress;
 
 /// Represents the `WalletBookmark` aggregate root.
 #[aggregate(type = "wallet_bookmark", error = WalletBookmarkError)]
@@ -68,15 +70,33 @@ impl WalletBookmark {
     }
 
     /// Returns the wallet bookmark token account owner address.
-    pub fn token_account_owner_address(
-        &self,
-    ) -> Result<&TokenAccountOwnerAddress, WalletBookmarkError> {
-        Ok(&self.state_required()?.token_account_owner_address)
+    pub fn token_owner_address(&self) -> Result<&TokenOwnerAddress, WalletBookmarkError> {
+        Ok(&self.state_required()?.token_owner_address)
     }
 
     /// Returns the current status.
     pub fn status(&self) -> Result<&WalletBookmarkStatus, WalletBookmarkError> {
         Ok(&self.state_required()?.status)
+    }
+
+    /// Registers a wallet bookmark.
+    pub fn register(
+        &mut self,
+        registration: WalletBookmarkRegistration,
+    ) -> Result<WalletBookmarkRegisterResult, WalletBookmarkError> {
+        if self.state().is_some() {
+            return Err(WalletBookmarkError::AlreadyRegistered);
+        }
+
+        let (owner, display_name, description, token_owner_address) = registration.into_parts();
+        self.append_event(WalletBookmarkEventPayload::Registered {
+            owner,
+            display_name,
+            description,
+            token_owner_address,
+        })?;
+
+        Ok(WalletBookmarkRegisterResult::Registered)
     }
 
     /// Changes the user-facing display name.
@@ -100,14 +120,10 @@ impl WalletBookmark {
     /// Rejects a wallet bookmark display name change attempt.
     pub fn reject_change_display_name(
         &mut self,
-        display_name: Option<WalletBookmarkDisplayName>,
+        _display_name: Option<WalletBookmarkDisplayName>,
         reason: WalletBookmarkDisplayNameChangeRejectionReason,
     ) -> Result<(), WalletBookmarkError> {
-        self.append_event(WalletBookmarkEventPayload::DisplayNameChangeRejected {
-            display_name,
-            reason,
-        })?;
-        Ok(())
+        Err(WalletBookmarkError::DisplayNameChangeRejected(reason))
     }
 
     /// Changes the user-facing description.
@@ -131,35 +147,10 @@ impl WalletBookmark {
     /// Rejects a wallet bookmark description change attempt.
     pub fn reject_change_description(
         &mut self,
-        description: Option<WalletBookmarkDescription>,
+        _description: Option<WalletBookmarkDescription>,
         reason: WalletBookmarkDescriptionChangeRejectionReason,
     ) -> Result<(), WalletBookmarkError> {
-        self.append_event(WalletBookmarkEventPayload::DescriptionChangeRejected {
-            description,
-            reason,
-        })?;
-        Ok(())
-    }
-
-    /// Registers a wallet bookmark.
-    pub fn register(
-        &mut self,
-        registration: WalletBookmarkRegistration,
-    ) -> Result<WalletBookmarkRegisterResult, WalletBookmarkError> {
-        if self.state().is_some() {
-            return Err(WalletBookmarkError::AlreadyRegistered);
-        }
-
-        let (owner, display_name, description, token_account_owner_address) =
-            registration.into_parts();
-        self.append_event(WalletBookmarkEventPayload::Registered {
-            owner,
-            display_name,
-            description,
-            token_account_owner_address,
-        })?;
-
-        Ok(WalletBookmarkRegisterResult::Registered)
+        Err(WalletBookmarkError::DescriptionChangeRejected(reason))
     }
 
     /// Removes a wallet bookmark.
@@ -182,8 +173,7 @@ impl WalletBookmark {
         &mut self,
         reason: WalletBookmarkRemoveRejectionReason,
     ) -> Result<(), WalletBookmarkError> {
-        self.append_event(WalletBookmarkEventPayload::RemoveRejected { reason })?;
-        Ok(())
+        Err(WalletBookmarkError::RemoveRejected(reason))
     }
 }
 
@@ -194,26 +184,23 @@ impl AggregateApply<WalletBookmarkEventPayload, WalletBookmarkError> for WalletB
                 owner,
                 display_name,
                 description,
-                token_account_owner_address,
+                token_owner_address,
             } => self.set_state(Some(WalletBookmarkState {
                 owner: *owner,
                 display_name: display_name.clone(),
                 description: description.clone(),
-                token_account_owner_address: token_account_owner_address.clone(),
+                token_owner_address: *token_owner_address,
                 status: WalletBookmarkStatus::Active,
             })),
-            WalletBookmarkEventPayload::Removed => {
-                self.state_required_mut()?.status = WalletBookmarkStatus::Removed;
-            }
-            WalletBookmarkEventPayload::RemoveRejected { .. } => {}
             WalletBookmarkEventPayload::DisplayNameChanged { display_name } => {
                 self.state_required_mut()?.display_name = display_name.clone();
             }
-            WalletBookmarkEventPayload::DisplayNameChangeRejected { .. } => {}
             WalletBookmarkEventPayload::DescriptionChanged { description } => {
                 self.state_required_mut()?.description = description.clone();
             }
-            WalletBookmarkEventPayload::DescriptionChangeRejected { .. } => {}
+            WalletBookmarkEventPayload::Removed => {
+                self.state_required_mut()?.status = WalletBookmarkStatus::Removed;
+            }
         }
 
         Ok(())
@@ -225,17 +212,18 @@ mod tests {
     use appletheia::domain::{Aggregate, EventPayload};
     use banking_iam_domain::UserId;
 
-    use crate::core::TokenAccountOwnerAddress;
+    use crate::core::{SolanaAccountAddress, SolanaTokenAccountOwnerAddress, TokenOwnerAddress};
 
     use super::{
         WalletBookmark, WalletBookmarkDescription, WalletBookmarkDisplayName,
-        WalletBookmarkEventPayload, WalletBookmarkOwner, WalletBookmarkRegistration,
-        WalletBookmarkRemoveRejectionReason, WalletBookmarkRemoveResult, WalletBookmarkStatus,
+        WalletBookmarkEventPayload, WalletBookmarkOwner, WalletBookmarkRegisterResult,
+        WalletBookmarkRegistration, WalletBookmarkRemoveResult, WalletBookmarkStatus,
     };
 
-    fn token_account_owner_address() -> TokenAccountOwnerAddress {
-        TokenAccountOwnerAddress::try_from("11111111111111111111111111111111")
-            .expect("address should be valid")
+    fn token_owner_address() -> TokenOwnerAddress {
+        let address = SolanaAccountAddress::try_from("11111111111111111111111111111111")
+            .expect("address should be valid");
+        TokenOwnerAddress::Solana(SolanaTokenAccountOwnerAddress::new(address))
     }
 
     fn wallet_bookmark_owner() -> WalletBookmarkOwner {
@@ -256,18 +244,19 @@ mod tests {
         let owner = wallet_bookmark_owner();
         let display_name = wallet_bookmark_display_name();
         let description = wallet_bookmark_description();
-        let token_account_owner_address = token_account_owner_address();
+        let token_owner_address = token_owner_address();
         let mut wallet_bookmark = WalletBookmark::new();
 
-        wallet_bookmark
+        let result = wallet_bookmark
             .register(WalletBookmarkRegistration {
                 owner,
                 display_name: Some(display_name.clone()),
                 description: Some(description.clone()),
-                token_account_owner_address: token_account_owner_address.clone(),
+                token_owner_address,
             })
             .expect("register should succeed");
 
+        assert_eq!(result, WalletBookmarkRegisterResult::Registered);
         assert_eq!(wallet_bookmark.owner().expect("owner should exist"), &owner);
         assert_eq!(
             wallet_bookmark
@@ -283,9 +272,9 @@ mod tests {
         );
         assert_eq!(
             wallet_bookmark
-                .token_account_owner_address()
+                .token_owner_address()
                 .expect("address should exist"),
-            &token_account_owner_address
+            &token_owner_address
         );
         assert_eq!(
             wallet_bookmark.status().expect("status should exist"),
@@ -305,14 +294,14 @@ mod tests {
         let owner = wallet_bookmark_owner();
         let display_name = wallet_bookmark_display_name();
         let description = wallet_bookmark_description();
-        let token_account_owner_address = token_account_owner_address();
+        let token_owner_address = token_owner_address();
         let mut wallet_bookmark = WalletBookmark::new();
         wallet_bookmark
             .register(WalletBookmarkRegistration {
                 owner,
                 display_name: Some(display_name),
                 description: Some(description),
-                token_account_owner_address,
+                token_owner_address,
             })
             .expect("register should succeed");
         wallet_bookmark.core_mut().clear_uncommitted_events();
@@ -337,14 +326,14 @@ mod tests {
         let owner = wallet_bookmark_owner();
         let display_name = wallet_bookmark_display_name();
         let description = wallet_bookmark_description();
-        let token_account_owner_address = token_account_owner_address();
+        let token_owner_address = token_owner_address();
         let mut wallet_bookmark = WalletBookmark::new();
         wallet_bookmark
             .register(WalletBookmarkRegistration {
                 owner,
                 display_name: Some(display_name),
                 description: Some(description),
-                token_account_owner_address,
+                token_owner_address,
             })
             .expect("register should succeed");
         wallet_bookmark.core_mut().clear_uncommitted_events();
@@ -353,21 +342,10 @@ mod tests {
             .expect("first remove should succeed");
         wallet_bookmark.core_mut().clear_uncommitted_events();
 
-        let result = wallet_bookmark
+        wallet_bookmark
             .remove()
-            .expect("second remove should succeed");
-
-        assert_eq!(
-            result,
-            WalletBookmarkRemoveResult::Rejected {
-                reason: WalletBookmarkRemoveRejectionReason::AlreadyRemoved,
-            }
-        );
+            .expect_err("second remove should fail");
         let events = wallet_bookmark.uncommitted_events();
-        assert_eq!(events.len(), 1);
-        assert_eq!(
-            events[0].payload().name(),
-            WalletBookmarkEventPayload::REMOVE_REJECTED
-        );
+        assert!(events.is_empty());
     }
 }

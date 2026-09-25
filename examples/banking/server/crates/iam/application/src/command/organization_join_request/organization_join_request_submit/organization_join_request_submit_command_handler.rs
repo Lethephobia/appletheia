@@ -1,7 +1,7 @@
 use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
-use appletheia::application::command::{CommandHandled, CommandHandler};
+use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use appletheia::domain::Aggregate;
@@ -9,7 +9,8 @@ use appletheia::domain::{AggregateId, UniqueValue, UniqueValuePart};
 use banking_iam_domain::{
     Organization, OrganizationId, OrganizationJoinRequest, OrganizationJoinRequestState,
     OrganizationJoinRequestSubmission, OrganizationJoinRequestSubmitRejectionReason,
-    OrganizationJoinRequestSubmitResult, User, UserId,
+    OrganizationJoinRequestSubmitResult, OrganizationMembership, OrganizationMembershipState, User,
+    UserId,
 };
 
 use super::{
@@ -19,32 +20,32 @@ use super::{
 use crate::authorization::UserOwnerRelation;
 
 /// Handles `OrganizationJoinRequestSubmitCommand`.
-pub struct OrganizationJoinRequestSubmitCommandHandler<OR, JR, UR>
+pub struct OrganizationJoinRequestSubmitCommandHandler<OR, JR, MR>
 where
     OR: Repository<Organization>,
     JR: Repository<OrganizationJoinRequest, Uow = OR::Uow>,
-    UR: Repository<User, Uow = OR::Uow>,
+    MR: Repository<OrganizationMembership, Uow = OR::Uow>,
 {
     organization_repository: OR,
     organization_join_request_repository: JR,
-    user_repository: UR,
+    organization_membership_repository: MR,
 }
 
-impl<OR, JR, UR> OrganizationJoinRequestSubmitCommandHandler<OR, JR, UR>
+impl<OR, JR, MR> OrganizationJoinRequestSubmitCommandHandler<OR, JR, MR>
 where
     OR: Repository<Organization>,
     JR: Repository<OrganizationJoinRequest, Uow = OR::Uow>,
-    UR: Repository<User, Uow = OR::Uow>,
+    MR: Repository<OrganizationMembership, Uow = OR::Uow>,
 {
     pub fn new(
         organization_repository: OR,
         organization_join_request_repository: JR,
-        user_repository: UR,
+        organization_membership_repository: MR,
     ) -> Self {
         Self {
             organization_repository,
             organization_join_request_repository,
-            user_repository,
+            organization_membership_repository,
         }
     }
 
@@ -60,15 +61,14 @@ where
     }
 }
 
-impl<OR, JR, UR> CommandHandler for OrganizationJoinRequestSubmitCommandHandler<OR, JR, UR>
+impl<OR, JR, MR> CommandHandler for OrganizationJoinRequestSubmitCommandHandler<OR, JR, MR>
 where
     OR: Repository<Organization>,
     JR: Repository<OrganizationJoinRequest, Uow = OR::Uow>,
-    UR: Repository<User, Uow = OR::Uow>,
+    MR: Repository<OrganizationMembership, Uow = OR::Uow>,
 {
     type Command = OrganizationJoinRequestSubmitCommand;
     type Output = OrganizationJoinRequestSubmitOutput;
-    type ReplayOutput = OrganizationJoinRequestSubmitOutput;
     type Error = OrganizationJoinRequestSubmitCommandHandlerError;
     type Uow = OR::Uow;
 
@@ -91,18 +91,7 @@ where
         uow: &mut Self::Uow,
         request_context: &RequestContext,
         command: &Self::Command,
-    ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
-        let organization = self
-            .organization_repository
-            .read(uow, command.organization_id)
-            .await?;
-
-        let unique_value = Self::organization_requester_unique_value(
-            command.organization_id,
-            command.requester_id,
-        )?;
-        let requester = self.user_repository.read(uow, command.requester_id).await?;
-
+    ) -> Result<Self::Output, Self::Error> {
         let mut organization_join_request = OrganizationJoinRequest::new();
         let organization_join_request_id = organization_join_request.aggregate_id();
         let submission = OrganizationJoinRequestSubmission {
@@ -110,6 +99,10 @@ where
             requester_id: command.requester_id,
         };
 
+        let organization = self
+            .organization_repository
+            .read(uow, command.organization_id)
+            .await?;
         if organization.is_removed()? {
             let reason = OrganizationJoinRequestSubmitRejectionReason::OrganizationRemoved;
             organization_join_request.reject_submit(submission, reason)?;
@@ -118,15 +111,26 @@ where
                 .save(uow, request_context, &mut organization_join_request)
                 .await?;
 
-            return Ok(CommandHandled::same(
-                OrganizationJoinRequestSubmitOutput::Rejected {
-                    organization_join_request_id,
-                    reason,
-                },
-            ));
+            return Ok(OrganizationJoinRequestSubmitOutput::Rejected {
+                organization_join_request_id,
+                reason,
+            });
         }
 
-        if requester.is_organization_member(command.organization_id)? {
+        let membership_unique_value = Self::organization_requester_unique_value(
+            command.organization_id,
+            command.requester_id,
+        )?;
+        if self
+            .organization_membership_repository
+            .find_by_unique_value(
+                uow,
+                OrganizationMembershipState::ORGANIZATION_USER_KEY,
+                &membership_unique_value,
+            )
+            .await?
+            .is_some()
+        {
             let reason = OrganizationJoinRequestSubmitRejectionReason::RequesterAlreadyMember;
             organization_join_request.reject_submit(submission, reason)?;
 
@@ -134,14 +138,16 @@ where
                 .save(uow, request_context, &mut organization_join_request)
                 .await?;
 
-            return Ok(CommandHandled::same(
-                OrganizationJoinRequestSubmitOutput::Rejected {
-                    organization_join_request_id,
-                    reason,
-                },
-            ));
+            return Ok(OrganizationJoinRequestSubmitOutput::Rejected {
+                organization_join_request_id,
+                reason,
+            });
         }
 
+        let unique_value = Self::organization_requester_unique_value(
+            command.organization_id,
+            command.requester_id,
+        )?;
         if self
             .organization_join_request_repository
             .find_by_unique_value(
@@ -159,12 +165,10 @@ where
                 .save(uow, request_context, &mut organization_join_request)
                 .await?;
 
-            return Ok(CommandHandled::same(
-                OrganizationJoinRequestSubmitOutput::Rejected {
-                    organization_join_request_id,
-                    reason,
-                },
-            ));
+            return Ok(OrganizationJoinRequestSubmitOutput::Rejected {
+                organization_join_request_id,
+                reason,
+            });
         }
 
         let result = organization_join_request.submit(submission)?;
@@ -187,6 +191,6 @@ where
             }
         };
 
-        Ok(CommandHandled::same(output))
+        Ok(output)
     }
 }

@@ -1,7 +1,7 @@
+use appletheia::application::read_model::ReadModelObservation;
 use appletheia::domain::EventId;
 use banking_iam_application::UserPrivateInfoIdentity;
 use banking_iam_domain::{UserIdentityProvider, UserIdentitySubject};
-use banking_shared_kernel_application::read_model::ReadModelObservation;
 use banking_shared_kernel_domain::contact::Email;
 use uuid::Uuid;
 

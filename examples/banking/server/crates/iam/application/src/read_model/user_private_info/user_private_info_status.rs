@@ -1,9 +1,11 @@
+use serde::Serialize;
+
 use banking_iam_domain::UserStatus;
 
 use super::UserPrivateInfoStatusError;
 
 /// Lifecycle status visible in user-private information.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize)]
 pub enum UserPrivateInfoStatus {
     Active,
     Inactive,

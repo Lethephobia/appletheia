@@ -1,6 +1,5 @@
+use appletheia_application::aggregate::{AggregateIdValue, AggregateRef, AggregateTypeOwned};
 use appletheia_application::authentication::AuthTokenExchangeGrant;
-use appletheia_application::authorization::AggregateRef;
-use appletheia_application::event::{AggregateIdValue, AggregateTypeOwned};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -25,7 +24,7 @@ impl AuthTokenExchangeGrantJson {
         }
     }
 
-    pub(crate) fn into_grant(
+    pub(crate) fn try_into_grant(
         self,
     ) -> Result<AuthTokenExchangeGrant, Box<dyn std::error::Error + Send + Sync>> {
         let aggregate_type = AggregateTypeOwned::new(self.subject_aggregate_type)?;
@@ -35,7 +34,7 @@ impl AuthTokenExchangeGrantJson {
         };
         let oidc_tokens = self
             .oidc_tokens
-            .map(AuthTokenExchangeOidcTokensJson::into_oidc_tokens)
+            .map(AuthTokenExchangeOidcTokensJson::try_into_oidc_tokens)
             .transpose()?;
 
         Ok(AuthTokenExchangeGrant::new(subject, oidc_tokens))

@@ -1,9 +1,11 @@
+use serde::Serialize;
+
 use banking_ledger_domain::account::AccountStatus;
 
 use super::PublicAccountListItemStatusError;
 
 /// Account status tracked by public account list item projections.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize)]
 pub enum PublicAccountListItemStatus {
     Active,
     Frozen,

@@ -1,12 +1,11 @@
-use serde::{Deserialize, Serialize};
-
 use appletheia_domain::{
     Aggregate, AggregateId, AggregateVersion, Event, EventId, EventOccurredAt, EventPayload,
 };
+use serde::{Deserialize, Serialize};
 
-use crate::event::{
-    AggregateIdValue, AggregateTypeOwned, EventNameOwned, EventSequence, SerializedEventPayload,
-};
+use crate::aggregate::{AggregateIdValue, AggregateTypeOwned};
+use crate::event::{EventNameOwned, EventSequence, SerializedEventPayload};
+use crate::messaging::{OrderingKey, PublishableMessage};
 use crate::request_context::{CausationId, CorrelationId, RequestContext};
 
 use super::EventEnvelopeError;
@@ -34,7 +33,7 @@ impl EventEnvelope {
         self.aggregate_type.value() == A::TYPE.value()
     }
 
-    pub fn try_into_domain_event<A>(
+    pub fn try_to_domain_event<A>(
         &self,
     ) -> Result<Event<A::Id, A::EventPayload>, EventEnvelopeError>
     where
@@ -53,6 +52,13 @@ impl EventEnvelope {
         let payload = A::EventPayload::try_from_json_value(self.payload.value().clone())
             .map_err(|source| EventEnvelopeError::EventPayload(Box::new(source)))?;
 
+        if payload.name().value() != self.event_name.value() {
+            return Err(EventEnvelopeError::EventNameMismatch {
+                expected: self.event_name.value().to_owned(),
+                actual: payload.name().value().to_owned(),
+            });
+        }
+
         Ok(Event::from_persisted(
             self.event_id,
             aggregate_id,
@@ -60,6 +66,12 @@ impl EventEnvelope {
             payload,
             self.occurred_at,
         ))
+    }
+}
+
+impl PublishableMessage for EventEnvelope {
+    fn ordering_key(&self) -> OrderingKey {
+        OrderingKey::from((&self.aggregate_type, &self.aggregate_id))
     }
 }
 
@@ -72,9 +84,8 @@ mod tests {
     use uuid::Uuid;
 
     use super::*;
-    use crate::event::{
-        AggregateIdValue, AggregateTypeOwned, EventNameOwned, EventSequence, SerializedEventPayload,
-    };
+    use crate::aggregate::{AggregateIdValue, AggregateTypeOwned};
+    use crate::event::{EventNameOwned, EventSequence, SerializedEventPayload};
     use crate::request_context::{MessageId, Principal};
     use appletheia_domain::{
         AggregateApply, AggregateCore, AggregateError, AggregateId, AggregateState,
@@ -261,7 +272,9 @@ mod tests {
             aggregate_version: AggregateVersion::try_from(1).expect("version should be valid"),
             event_name: EventNameOwned::from(payload.name()),
             payload: SerializedEventPayload::try_from(
-                payload.into_json_value().expect("payload should serialize"),
+                payload
+                    .try_into_json_value()
+                    .expect("payload should serialize"),
             )
             .expect("payload should be valid"),
             occurred_at: EventOccurredAt::now(),
@@ -288,5 +301,29 @@ mod tests {
         let event = event_envelope();
 
         assert!(!event.is_for_aggregate::<OtherCounter>());
+    }
+
+    #[test]
+    fn try_to_domain_event_preserves_matching_event() {
+        let envelope = event_envelope();
+
+        let event = envelope
+            .try_to_domain_event::<Counter>()
+            .expect("valid event");
+
+        assert_eq!(event.payload().name().value(), envelope.event_name.value());
+    }
+
+    #[test]
+    fn try_to_domain_event_rejects_mismatched_event_name() {
+        let mut envelope = event_envelope();
+        let payload_name = envelope.event_name.value().to_owned();
+        envelope.event_name = EventNameOwned::from(EventName::new("different_event"));
+
+        assert!(matches!(
+            envelope.try_to_domain_event::<Counter>(),
+            Err(EventEnvelopeError::EventNameMismatch { expected, actual })
+                if expected == "different_event" && actual == payload_name
+        ));
     }
 }

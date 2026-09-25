@@ -2,9 +2,9 @@ use chrono::{DateTime, Utc};
 use sqlx::FromRow;
 use uuid::Uuid;
 
+use appletheia_application::aggregate::{AggregateIdValue, AggregateTypeOwned};
 use appletheia_application::event::{
-    AggregateIdValue, AggregateTypeOwned, EventEnvelope, EventNameOwned, EventSequence,
-    SerializedEventPayload,
+    EventEnvelope, EventNameOwned, EventSequence, SerializedEventPayload,
 };
 use appletheia_application::request_context::{
     CausationId, CorrelationId, MessageId, RequestContext,

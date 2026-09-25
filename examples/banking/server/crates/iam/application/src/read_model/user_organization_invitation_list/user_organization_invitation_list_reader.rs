@@ -1,0 +1,24 @@
+use appletheia::application::read_model::pagination::{CursorWindow, Sort};
+use appletheia::application::unit_of_work::UnitOfWork;
+use banking_iam_domain::UserId;
+
+use super::{
+    UserOrganizationInvitationList, UserOrganizationInvitationListCriteria,
+    UserOrganizationInvitationListCursor, UserOrganizationInvitationListReaderError,
+    UserOrganizationInvitationListSortKey,
+};
+
+/// Loads user organization invitation lists.
+#[allow(async_fn_in_trait)]
+pub trait UserOrganizationInvitationListReader: Send + Sync {
+    type Uow: UnitOfWork;
+
+    async fn list(
+        &self,
+        uow: &mut Self::Uow,
+        user_id: UserId,
+        criteria: UserOrganizationInvitationListCriteria,
+        sort: Sort<UserOrganizationInvitationListSortKey>,
+        page: CursorWindow<UserOrganizationInvitationListCursor>,
+    ) -> Result<UserOrganizationInvitationList, UserOrganizationInvitationListReaderError>;
+}

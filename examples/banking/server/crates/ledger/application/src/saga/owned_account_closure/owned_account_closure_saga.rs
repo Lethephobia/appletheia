@@ -1,17 +1,20 @@
 use super::{
-    OwnedAccountClosureSagaError, OwnedAccountClosureSagaSpec, OwnedAccountClosureSagaState,
-    OwnedAccountClosureSagaStatus,
+    OwnedAccountClosureSagaHandlerError, OwnedAccountClosureSagaState, OwnedAccountClosureSagaStep,
 };
 use crate::command::{
     AccountCloseCommand, OwnedAccountClosureAccountCloseRecordCommand,
-    OwnedAccountClosureAccountCloseRejectionRecordCommand, OwnedAccountClosureCompleteCommand,
-    OwnedAccountClosureFailCommand, OwnedAccountClosurePageLoadCommand,
-    OwnedAccountClosureRequestCommand,
+    OwnedAccountClosureCompleteCommand, OwnedAccountClosureFailCommand,
+    OwnedAccountClosurePageLoadCommand, OwnedAccountClosureRequestCommand,
 };
-use appletheia::application::event::EventEnvelope;
-use appletheia::application::saga::{Saga, SagaInstance, SagaSpec};
+use appletheia::application::command::Command;
+use appletheia::application::saga::SagaError;
+use appletheia::application::saga::{
+    Saga, SagaContext, SagaDefinition, SagaDefinitionBuilder, SagaName,
+};
+use appletheia::domain::Event;
 use banking_iam_domain::{Organization, OrganizationEventPayload, User, UserEventPayload};
 use banking_ledger_domain::account::{Account, AccountEventPayload, AccountOwner};
+use banking_ledger_domain::owned_account_closure::OwnedAccountClosureId;
 use banking_ledger_domain::owned_account_closure::{
     OwnedAccountClosure, OwnedAccountClosureEventPayload, OwnedAccountClosureFailureReason,
 };
@@ -22,47 +25,55 @@ pub struct OwnedAccountClosureSaga;
 impl OwnedAccountClosureSaga {
     const PAGE_SIZE: u32 = 100;
 
+    fn process_page(
+        ctx: &mut SagaContext<'_, OwnedAccountClosureSagaState, OwnedAccountClosureSagaStep>,
+        closure_event: &Event<OwnedAccountClosureId, OwnedAccountClosureEventPayload>,
+    ) -> Result<(), OwnedAccountClosureSagaHandlerError> {
+        if let OwnedAccountClosureEventPayload::PageLoaded {
+            account_ids,
+            next_cursor,
+        } = closure_event.payload()
+        {
+            let state = ctx.state_required_mut()?;
+            state.set_loaded_page(account_ids.clone(), *next_cursor);
+            for account_id in account_ids {
+                ctx.append_command(&AccountCloseCommand {
+                    account_id: *account_id,
+                })?;
+            }
+            Self::append_next_step(ctx)?;
+        }
+        Ok(())
+    }
+
     fn append_next_step(
-        instance: &mut SagaInstance<OwnedAccountClosureSagaState>,
-        event: &EventEnvelope,
-    ) -> Result<(), OwnedAccountClosureSagaError> {
-        let state = instance.state_required_mut()?;
+        ctx: &mut SagaContext<'_, OwnedAccountClosureSagaState, OwnedAccountClosureSagaStep>,
+    ) -> Result<(), OwnedAccountClosureSagaHandlerError> {
+        let state = ctx.state_required_mut()?;
         if state.has_pending_accounts() {
             return Ok(());
         }
 
         let owned_account_closure_id = state
             .owned_account_closure_id
-            .ok_or(OwnedAccountClosureSagaError::MissingOwnedAccountClosureId)?;
+            .ok_or(OwnedAccountClosureSagaHandlerError::MissingOwnedAccountClosureId)?;
 
         if state.has_next_page() {
             let cursor = state.next_cursor;
-            state.status = OwnedAccountClosureSagaStatus::PageLoadRequested;
-            instance.append_command(
-                event,
-                &OwnedAccountClosurePageLoadCommand {
-                    owned_account_closure_id,
-                    cursor,
-                    page_size: Self::PAGE_SIZE,
-                },
-            )?;
+            ctx.append_command(&OwnedAccountClosurePageLoadCommand {
+                owned_account_closure_id,
+                cursor,
+                page_size: Self::PAGE_SIZE,
+            })?;
         } else if state.has_rejections() {
-            state.status = OwnedAccountClosureSagaStatus::FailRequested;
-            instance.append_command(
-                event,
-                &OwnedAccountClosureFailCommand {
-                    owned_account_closure_id,
-                    reason: OwnedAccountClosureFailureReason::AccountCloseRejected,
-                },
-            )?;
+            ctx.append_command(&OwnedAccountClosureFailCommand {
+                owned_account_closure_id,
+                reason: OwnedAccountClosureFailureReason::AccountCloseRejected,
+            })?;
         } else {
-            state.status = OwnedAccountClosureSagaStatus::CompleteRequested;
-            instance.append_command(
-                event,
-                &OwnedAccountClosureCompleteCommand {
-                    owned_account_closure_id,
-                },
-            )?;
+            ctx.append_command(&OwnedAccountClosureCompleteCommand {
+                owned_account_closure_id,
+            })?;
         }
 
         Ok(())
@@ -70,221 +81,215 @@ impl OwnedAccountClosureSaga {
 }
 
 impl Saga for OwnedAccountClosureSaga {
-    type Spec = OwnedAccountClosureSagaSpec;
-    type Error = OwnedAccountClosureSagaError;
+    type State = OwnedAccountClosureSagaState;
+    type Step = OwnedAccountClosureSagaStep;
+    type HandlerError = OwnedAccountClosureSagaHandlerError;
 
-    fn on_event(
+    fn definition(
         &self,
-        instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State>,
-        event: &EventEnvelope,
-    ) -> Result<(), Self::Error> {
-        if event.is_for_aggregate::<User>() {
-            let user_event = event.try_into_domain_event::<User>()?;
-            if let UserEventPayload::Removed = user_event.payload() {
-                let owner = AccountOwner::User(user_event.aggregate_id());
-                *instance.state_mut() = Some(OwnedAccountClosureSagaState::new(owner));
-                instance.append_command(event, &OwnedAccountClosureRequestCommand { owner })?;
+    ) -> Result<SagaDefinition<'_, Self::State, Self::Step, Self::HandlerError>, SagaError> {
+        SagaDefinitionBuilder::<Self::State, Self::Step, Self::HandlerError>::new(SagaName::new(
+            "owned_account_closure",
+        ))
+        .add_start_step(OwnedAccountClosureSagaStep::Request)
+        .on::<User>(UserEventPayload::REMOVED)
+        .handle(|ctx, event| {
+            let owner = AccountOwner::User(event.aggregate_id());
+            ctx.set_state(OwnedAccountClosureSagaState::new(owner));
+            ctx.append_command(&OwnedAccountClosureRequestCommand { owner })?;
+            Ok(())
+        })
+        .add_start_step(OwnedAccountClosureSagaStep::Request)
+        .on::<Organization>(OrganizationEventPayload::REMOVED)
+        .handle(|ctx, event| {
+            let owner = AccountOwner::Organization(event.aggregate_id());
+            ctx.set_state(OwnedAccountClosureSagaState::new(owner));
+            ctx.append_command(&OwnedAccountClosureRequestCommand { owner })?;
+            Ok(())
+        })
+        .add_step(OwnedAccountClosureSagaStep::Advance)
+        .on::<OwnedAccountClosure>(
+            OwnedAccountClosureSagaStep::Request,
+            OwnedAccountClosureEventPayload::REQUESTED,
+        )
+        .handle(|ctx, closure_event| {
+            let closure_id = closure_event.aggregate_id();
+            let state = ctx.state_required_mut()?;
+            state.owned_account_closure_id = Some(closure_id);
+            ctx.append_command(&OwnedAccountClosurePageLoadCommand {
+                owned_account_closure_id: closure_id,
+                cursor: None,
+                page_size: Self::PAGE_SIZE,
+            })?;
+            Ok(())
+        })
+        .add_step(OwnedAccountClosureSagaStep::ProcessPage)
+        .on::<OwnedAccountClosure>(
+            OwnedAccountClosureSagaStep::Advance,
+            OwnedAccountClosureEventPayload::PAGE_LOADED,
+        )
+        .handle(Self::process_page)
+        .add_step(OwnedAccountClosureSagaStep::ProcessPage)
+        .on::<OwnedAccountClosure>(
+            OwnedAccountClosureSagaStep::ProcessPage,
+            OwnedAccountClosureEventPayload::PAGE_LOADED,
+        )
+        .handle(Self::process_page)
+        .add_step(OwnedAccountClosureSagaStep::Advance)
+        .on::<OwnedAccountClosure>(
+            OwnedAccountClosureSagaStep::RecordClosedAccount,
+            OwnedAccountClosureEventPayload::ACCOUNT_CLOSE_RECORDED,
+        )
+        .handle(|ctx, closure_event| {
+            if let OwnedAccountClosureEventPayload::AccountCloseRecorded { account_id } =
+                closure_event.payload()
+            {
+                let state = ctx.state_required_mut()?;
+                state.closed_account_count = state.closed_account_count.saturating_add(1);
+                state.remove_pending_account(*account_id);
+                Self::append_next_step(ctx)?;
             }
-
-            return Ok(());
-        } else if event.is_for_aggregate::<Organization>() {
-            let organization_event = event.try_into_domain_event::<Organization>()?;
-            if let OrganizationEventPayload::Removed = organization_event.payload() {
-                let owner = AccountOwner::Organization(organization_event.aggregate_id());
-                *instance.state_mut() = Some(OwnedAccountClosureSagaState::new(owner));
-                instance.append_command(event, &OwnedAccountClosureRequestCommand { owner })?;
+            Ok(())
+        })
+        .add_step(OwnedAccountClosureSagaStep::Advance)
+        .on::<OwnedAccountClosure>(
+            OwnedAccountClosureSagaStep::RecordRejectedAccountClose,
+            OwnedAccountClosureEventPayload::ACCOUNT_CLOSE_REJECTION_RECORDED,
+        )
+        .handle(|ctx, closure_event| {
+            if let OwnedAccountClosureEventPayload::AccountCloseRejectionRecorded {
+                account_id,
+                ..
+            } = closure_event.payload()
+            {
+                let state = ctx.state_required_mut()?;
+                state.rejected_account_count = state.rejected_account_count.saturating_add(1);
+                state.remove_pending_account(*account_id);
+                Self::append_next_step(ctx)?;
             }
-
-            return Ok(());
-        } else if event.is_for_aggregate::<OwnedAccountClosure>() {
-            let closure_event = event.try_into_domain_event::<OwnedAccountClosure>()?;
-            match closure_event.payload() {
-                OwnedAccountClosureEventPayload::Requested { .. } => {
-                    let closure_id = closure_event.aggregate_id();
-                    let state = instance.state_required_mut()?;
-                    state.owned_account_closure_id = Some(closure_id);
-                    state.status = OwnedAccountClosureSagaStatus::PageLoadRequested;
-                    instance.append_command(
-                        event,
-                        &OwnedAccountClosurePageLoadCommand {
-                            owned_account_closure_id: closure_id,
-                            cursor: None,
-                            page_size: Self::PAGE_SIZE,
-                        },
-                    )?;
-                }
-                OwnedAccountClosureEventPayload::PageLoaded {
-                    account_ids,
-                    next_cursor,
-                } => {
-                    let state = instance.state_required_mut()?;
-                    state.set_loaded_page(account_ids.clone(), *next_cursor);
-                    for account_id in account_ids {
-                        instance.append_command(
-                            event,
-                            &AccountCloseCommand {
-                                account_id: *account_id,
-                            },
-                        )?;
-                    }
-                    Self::append_next_step(instance, event)?;
-                }
-                OwnedAccountClosureEventPayload::PageLoadRejected { .. } => {
-                    let state = instance.state_required_mut()?;
-                    state.status = OwnedAccountClosureSagaStatus::FailRequested;
-                    let owned_account_closure_id = state
-                        .owned_account_closure_id
-                        .ok_or(OwnedAccountClosureSagaError::MissingOwnedAccountClosureId)?;
-
-                    instance.append_command(
-                        event,
-                        &OwnedAccountClosureFailCommand {
-                            owned_account_closure_id,
-                            reason: OwnedAccountClosureFailureReason::PageLoadRejected,
-                        },
-                    )?;
-                }
-                OwnedAccountClosureEventPayload::AccountCloseRecorded { account_id } => {
-                    let state = instance.state_required_mut()?;
-                    state.closed_account_count = state.closed_account_count.saturating_add(1);
-                    state.remove_pending_account(*account_id);
-                    Self::append_next_step(instance, event)?;
-                }
-                OwnedAccountClosureEventPayload::AccountCloseRecordRejected { .. } => {
-                    let state = instance.state_required_mut()?;
-                    state.status = OwnedAccountClosureSagaStatus::FailRequested;
-                    let owned_account_closure_id = state
-                        .owned_account_closure_id
-                        .ok_or(OwnedAccountClosureSagaError::MissingOwnedAccountClosureId)?;
-
-                    instance.append_command(
-                        event,
-                        &OwnedAccountClosureFailCommand {
-                            owned_account_closure_id,
-                            reason: OwnedAccountClosureFailureReason::AccountCloseRecordRejected,
-                        },
-                    )?;
-                }
-                OwnedAccountClosureEventPayload::AccountCloseRejectionRecorded {
-                    account_id,
-                    ..
-                } => {
-                    let state = instance.state_required_mut()?;
-                    state.rejected_account_count = state.rejected_account_count.saturating_add(1);
-                    state.remove_pending_account(*account_id);
-                    Self::append_next_step(instance, event)?;
-                }
-                OwnedAccountClosureEventPayload::AccountCloseRejectionRecordRejected { .. } => {
-                    let state = instance.state_required_mut()?;
-                    state.status = OwnedAccountClosureSagaStatus::FailRequested;
-                    let owned_account_closure_id = state
-                        .owned_account_closure_id
-                        .ok_or(OwnedAccountClosureSagaError::MissingOwnedAccountClosureId)?;
-
-                    instance.append_command(
-                        event,
-                        &OwnedAccountClosureFailCommand {
-                            owned_account_closure_id,
-                            reason: OwnedAccountClosureFailureReason::AccountCloseRejectionRecordRejected,
-                        },
-                    )?;
-                }
-                OwnedAccountClosureEventPayload::Completed { .. } => {
-                    instance.state_required_mut()?.status =
-                        OwnedAccountClosureSagaStatus::Completed;
-                    instance.succeed();
-                }
-                OwnedAccountClosureEventPayload::Failed { .. } => {
-                    instance.state_required_mut()?.status = OwnedAccountClosureSagaStatus::Failed;
-                    instance.fail();
-                }
-                OwnedAccountClosureEventPayload::CompleteRejected { .. } => {
-                    instance.state_required_mut()?.status = OwnedAccountClosureSagaStatus::Failed;
-                    instance.fail();
-                }
-                OwnedAccountClosureEventPayload::FailRejected { .. } => {
-                    instance.state_required_mut()?.status = OwnedAccountClosureSagaStatus::Failed;
-                    instance.fail();
-                }
-            }
-
-            return Ok(());
-        } else if event.is_for_aggregate::<Account>() {
-            let account_event = event.try_into_domain_event::<Account>()?;
-            let owned_account_closure_id = instance
-                .state_required_mut()?
+            Ok(())
+        })
+        .add_step(OwnedAccountClosureSagaStep::RecordClosedAccount)
+        .on::<Account>(
+            OwnedAccountClosureSagaStep::ProcessPage,
+            AccountEventPayload::CLOSED,
+        )
+        .handle(|ctx, event| {
+            let owned_account_closure_id = ctx
+                .state_required()?
                 .owned_account_closure_id
-                .ok_or(OwnedAccountClosureSagaError::MissingOwnedAccountClosureId)?;
-
-            match account_event.payload() {
-                AccountEventPayload::Closed => {
-                    instance.state_required_mut()?.status =
-                        OwnedAccountClosureSagaStatus::AccountCloseRecordRequested;
-                    instance.append_command(
-                        event,
-                        &OwnedAccountClosureAccountCloseRecordCommand {
-                            owned_account_closure_id,
-                            account_id: account_event.aggregate_id(),
-                        },
-                    )?;
-                }
-                AccountEventPayload::CloseRejected { reason } => {
-                    instance.state_required_mut()?.status =
-                        OwnedAccountClosureSagaStatus::AccountCloseRejectionRecordRequested;
-                    instance.append_command(
-                        event,
-                        &OwnedAccountClosureAccountCloseRejectionRecordCommand {
-                            owned_account_closure_id,
-                            account_id: account_event.aggregate_id(),
-                            reason: *reason,
-                        },
-                    )?;
-                }
-                _ => {}
+                .ok_or(OwnedAccountClosureSagaHandlerError::MissingOwnedAccountClosureId)?;
+            ctx.append_command(&OwnedAccountClosureAccountCloseRecordCommand {
+                owned_account_closure_id,
+                account_id: event.aggregate_id(),
+            })?;
+            Ok(())
+        })
+        .add_failure_step(OwnedAccountClosureSagaStep::Fail)
+        .on(OwnedAccountClosureSagaStep::Advance)
+        .handle(|ctx, failure| {
+            if failure.command_name.value() != OwnedAccountClosurePageLoadCommand::NAME.value() {
+                return Ok(());
             }
-        }
 
-        Ok(())
+            let owned_account_closure_id = ctx
+                .state_required()?
+                .owned_account_closure_id
+                .ok_or(OwnedAccountClosureSagaHandlerError::MissingOwnedAccountClosureId)?;
+            ctx.append_command(&OwnedAccountClosureFailCommand {
+                owned_account_closure_id,
+                reason: OwnedAccountClosureFailureReason::PageLoadRejected,
+            })?;
+            Ok(())
+        })
+        .add_failure_step(OwnedAccountClosureSagaStep::Fail)
+        .on(OwnedAccountClosureSagaStep::ProcessPage)
+        .handle(|ctx, failure| {
+            let reason = if failure.command_name.value() == AccountCloseCommand::NAME.value() {
+                OwnedAccountClosureFailureReason::AccountCloseRejected
+            } else if failure.command_name.value()
+                == OwnedAccountClosurePageLoadCommand::NAME.value()
+            {
+                OwnedAccountClosureFailureReason::PageLoadRejected
+            } else {
+                return Ok(());
+            };
+
+            let owned_account_closure_id = ctx
+                .state_required()?
+                .owned_account_closure_id
+                .ok_or(OwnedAccountClosureSagaHandlerError::MissingOwnedAccountClosureId)?;
+            ctx.append_command(&OwnedAccountClosureFailCommand {
+                owned_account_closure_id,
+                reason,
+            })?;
+            Ok(())
+        })
+        .add_failure_step(OwnedAccountClosureSagaStep::Fail)
+        .on(OwnedAccountClosureSagaStep::RecordClosedAccount)
+        .handle(|ctx, _failure| {
+            let owned_account_closure_id = ctx
+                .state_required()?
+                .owned_account_closure_id
+                .ok_or(OwnedAccountClosureSagaHandlerError::MissingOwnedAccountClosureId)?;
+            ctx.append_command(&OwnedAccountClosureFailCommand {
+                owned_account_closure_id,
+                reason: OwnedAccountClosureFailureReason::AccountCloseRecordRejected,
+            })?;
+            Ok(())
+        })
+        .add_failure_step(OwnedAccountClosureSagaStep::Fail)
+        .on(OwnedAccountClosureSagaStep::RecordRejectedAccountClose)
+        .handle(|ctx, _failure| {
+            let owned_account_closure_id = ctx
+                .state_required()?
+                .owned_account_closure_id
+                .ok_or(OwnedAccountClosureSagaHandlerError::MissingOwnedAccountClosureId)?;
+            ctx.append_command(&OwnedAccountClosureFailCommand {
+                owned_account_closure_id,
+                reason: OwnedAccountClosureFailureReason::AccountCloseRejectionRecordRejected,
+            })?;
+            Ok(())
+        })
+        .build()
+        .map_err(SagaError::from)
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use super::OwnedAccountClosureSagaHandlerError;
+    use appletheia::application::saga::{SagaContext, SagaRoute};
+    use appletheia::domain::AggregateVersion;
     use uuid::Uuid;
 
+    use appletheia::application::aggregate::{AggregateIdValue, AggregateRef, AggregateTypeOwned};
     use appletheia::application::event::{
-        AggregateIdValue, AggregateTypeOwned, EventEnvelope, EventNameOwned, EventSequence,
-        SerializedEventPayload,
+        EventEnvelope, EventNameOwned, EventSequence, SerializedEventPayload,
     };
     use appletheia::application::request_context::{
         CausationId, CorrelationId, MessageId, Principal, RequestContext,
     };
-    use appletheia::application::saga::{Saga, SagaInstance, SagaNameOwned, SagaSpec, SagaStatus};
+    use appletheia::application::saga::{Saga, SagaInstance, SagaNameOwned};
     use appletheia::domain::{
         Aggregate, AggregateId, AggregateType, EventId, EventOccurredAt, EventPayload,
     };
     use banking_iam_domain::{User, UserEventPayload, UserId};
-    use banking_ledger_domain::account::{
-        Account, AccountCloseRejectionReason, AccountEventPayload, AccountId, AccountOwner,
-    };
+    use banking_ledger_domain::account::{AccountId, AccountOwner};
     use banking_ledger_domain::owned_account_closure::{
-        OwnedAccountClosure, OwnedAccountClosureEventPayload, OwnedAccountClosureFailureReason,
-        OwnedAccountClosureId,
+        OwnedAccountClosure, OwnedAccountClosureEventPayload, OwnedAccountClosureId,
     };
 
     use super::{
-        OwnedAccountClosureSaga, OwnedAccountClosureSagaSpec, OwnedAccountClosureSagaState,
-        OwnedAccountClosureSagaStatus,
+        OwnedAccountClosureSaga, OwnedAccountClosureSagaState, OwnedAccountClosureSagaStep,
     };
     use crate::command::{
-        AccountCloseCommand, OwnedAccountClosureAccountCloseRejectionRecordCommand,
-        OwnedAccountClosureCompleteCommand, OwnedAccountClosureFailCommand,
+        AccountCloseCommand, OwnedAccountClosureCompleteCommand,
         OwnedAccountClosurePageLoadCommand, OwnedAccountClosureRequestCommand,
     };
 
     fn request_context(correlation_id: CorrelationId) -> RequestContext {
-        let subject =
-            appletheia::application::authorization::AggregateRef::from_id::<User>(UserId::new());
+        let subject = AggregateRef::from_id::<User>(UserId::new());
 
         RequestContext::new(
             correlation_id,
@@ -308,11 +313,12 @@ mod tests {
             event_id: EventId::new(),
             aggregate_type: AggregateTypeOwned::from(aggregate_type),
             aggregate_id: AggregateIdValue::from(aggregate_id.value()),
-            aggregate_version: appletheia::domain::AggregateVersion::try_from(1)
-                .expect("version should be valid"),
+            aggregate_version: AggregateVersion::try_from(1).expect("version should be valid"),
             event_name: EventNameOwned::from(payload.name()),
             payload: SerializedEventPayload::try_from(
-                payload.into_json_value().expect("payload should serialize"),
+                payload
+                    .try_into_json_value()
+                    .expect("payload should serialize"),
             )
             .expect("payload should be valid"),
             occurred_at: EventOccurredAt::now(),
@@ -330,14 +336,6 @@ mod tests {
         event_envelope(correlation_id, User::TYPE, user_id, payload)
     }
 
-    fn account_event_envelope(
-        correlation_id: CorrelationId,
-        account_id: AccountId,
-        payload: AccountEventPayload,
-    ) -> EventEnvelope {
-        event_envelope(correlation_id, Account::TYPE, account_id, payload)
-    }
-
     fn closure_event_envelope(
         correlation_id: CorrelationId,
         closure_id: OwnedAccountClosureId,
@@ -351,12 +349,47 @@ mod tests {
         )
     }
 
-    fn saga_instance(correlation_id: CorrelationId) -> SagaInstance<OwnedAccountClosureSagaState> {
-        SagaInstance::<OwnedAccountClosureSagaState>::new(
-            SagaNameOwned::from(OwnedAccountClosureSagaSpec::DESCRIPTOR.name),
+    fn saga_instance(
+        correlation_id: CorrelationId,
+    ) -> SagaInstance<OwnedAccountClosureSagaState, OwnedAccountClosureSagaStep> {
+        SagaInstance::<OwnedAccountClosureSagaState, OwnedAccountClosureSagaStep>::new(
+            SagaNameOwned::from(
+                OwnedAccountClosureSaga
+                    .definition()
+                    .expect("valid saga definition")
+                    .name(),
+            ),
             correlation_id,
             EventId::new(),
         )
+    }
+
+    fn handle_event(
+        saga: &OwnedAccountClosureSaga,
+        instance: &mut SagaInstance<OwnedAccountClosureSagaState, OwnedAccountClosureSagaStep>,
+        envelope: &EventEnvelope,
+        step: Option<OwnedAccountClosureSagaStep>,
+    ) -> Result<bool, OwnedAccountClosureSagaHandlerError> {
+        let definition = saga.definition().expect("valid saga definition");
+        let Some(
+            SagaRoute::StartsOn {
+                step: route_step,
+                handler,
+                ..
+            }
+            | SagaRoute::OnEvent {
+                step: route_step,
+                handler,
+                ..
+            },
+        ) = definition.find_event_route(envelope, step)
+        else {
+            return Ok(false);
+        };
+        let mut context =
+            SagaContext::new(instance, CausationId::from(envelope.event_id), *route_step);
+        handler(&mut context, envelope)?;
+        Ok(true)
     }
 
     #[test]
@@ -367,15 +400,17 @@ mod tests {
         let owner = AccountOwner::User(user_id);
         let mut instance = saga_instance(correlation_id);
 
-        saga.on_event(
+        handle_event(
+            &saga,
             &mut instance,
             &user_event_envelope(correlation_id, user_id, UserEventPayload::Removed),
+            None,
         )
         .expect("saga should succeed");
 
         assert_eq!(instance.uncommitted_commands().len(), 1);
         let command = instance.uncommitted_commands()[0]
-            .try_into_command::<OwnedAccountClosureRequestCommand>()
+            .try_to_command::<OwnedAccountClosureRequestCommand>()
             .expect("command should deserialize");
         assert_eq!(command, OwnedAccountClosureRequestCommand { owner });
     }
@@ -389,18 +424,20 @@ mod tests {
         let mut instance = saga_instance(correlation_id);
         instance.state = Some(OwnedAccountClosureSagaState::new(owner));
 
-        saga.on_event(
+        handle_event(
+            &saga,
             &mut instance,
             &closure_event_envelope(
                 correlation_id,
                 closure_id,
                 OwnedAccountClosureEventPayload::Requested { owner },
             ),
+            Some(OwnedAccountClosureSagaStep::Request),
         )
         .expect("saga should succeed");
 
         let command = instance.uncommitted_commands()[0]
-            .try_into_command::<OwnedAccountClosurePageLoadCommand>()
+            .try_to_command::<OwnedAccountClosurePageLoadCommand>()
             .expect("command should deserialize");
         assert_eq!(
             command,
@@ -424,7 +461,8 @@ mod tests {
         let mut instance = saga_instance(correlation_id);
         instance.state = Some(state);
 
-        saga.on_event(
+        handle_event(
+            &saga,
             &mut instance,
             &closure_event_envelope(
                 correlation_id,
@@ -434,12 +472,13 @@ mod tests {
                     next_cursor: Some(next_cursor),
                 },
             ),
+            Some(OwnedAccountClosureSagaStep::Advance),
         )
         .expect("saga should succeed");
 
         assert_eq!(instance.uncommitted_commands().len(), 1);
         let command = instance.uncommitted_commands()[0]
-            .try_into_command::<AccountCloseCommand>()
+            .try_to_command::<AccountCloseCommand>()
             .expect("command should deserialize");
         assert_eq!(command, AccountCloseCommand { account_id });
         assert_eq!(
@@ -452,69 +491,7 @@ mod tests {
     }
 
     #[test]
-    fn account_close_rejection_is_recorded_and_finally_fails() {
-        let saga = OwnedAccountClosureSaga;
-        let correlation_id = CorrelationId::from(Uuid::now_v7());
-        let closure_id = OwnedAccountClosureId::new();
-        let account_id = AccountId::new();
-        let mut state = OwnedAccountClosureSagaState::new(AccountOwner::User(UserId::new()));
-        state.owned_account_closure_id = Some(closure_id);
-        state.set_loaded_page(vec![account_id], None);
-        let mut instance = saga_instance(correlation_id);
-        instance.state = Some(state);
-
-        saga.on_event(
-            &mut instance,
-            &account_event_envelope(
-                correlation_id,
-                account_id,
-                AccountEventPayload::CloseRejected {
-                    reason: AccountCloseRejectionReason::BalanceRemaining,
-                },
-            ),
-        )
-        .expect("saga should record account close rejection");
-
-        let record_command = instance.uncommitted_commands()[0]
-            .try_into_command::<OwnedAccountClosureAccountCloseRejectionRecordCommand>()
-            .expect("command should deserialize");
-        assert_eq!(
-            record_command,
-            OwnedAccountClosureAccountCloseRejectionRecordCommand {
-                owned_account_closure_id: closure_id,
-                account_id,
-                reason: AccountCloseRejectionReason::BalanceRemaining,
-            }
-        );
-
-        instance.clear_uncommitted_commands();
-        saga.on_event(
-            &mut instance,
-            &closure_event_envelope(
-                correlation_id,
-                closure_id,
-                OwnedAccountClosureEventPayload::AccountCloseRejectionRecorded {
-                    account_id,
-                    reason: AccountCloseRejectionReason::BalanceRemaining,
-                },
-            ),
-        )
-        .expect("saga should request failure after all pending accounts settle");
-
-        let fail_command = instance.uncommitted_commands()[0]
-            .try_into_command::<OwnedAccountClosureFailCommand>()
-            .expect("command should deserialize");
-        assert_eq!(
-            fail_command,
-            OwnedAccountClosureFailCommand {
-                owned_account_closure_id: closure_id,
-                reason: OwnedAccountClosureFailureReason::AccountCloseRejected,
-            }
-        );
-    }
-
-    #[test]
-    fn empty_last_page_appends_complete_command_and_completed_event_succeeds() {
+    fn empty_last_page_appends_complete_command_without_a_completion_route() {
         let saga = OwnedAccountClosureSaga;
         let correlation_id = CorrelationId::from(Uuid::now_v7());
         let closure_id = OwnedAccountClosureId::new();
@@ -523,7 +500,8 @@ mod tests {
         let mut instance = saga_instance(correlation_id);
         instance.state = Some(state);
 
-        saga.on_event(
+        handle_event(
+            &saga,
             &mut instance,
             &closure_event_envelope(
                 correlation_id,
@@ -533,11 +511,12 @@ mod tests {
                     next_cursor: None,
                 },
             ),
+            Some(OwnedAccountClosureSagaStep::Advance),
         )
         .expect("saga should request completion");
 
         let complete_command = instance.uncommitted_commands()[0]
-            .try_into_command::<OwnedAccountClosureCompleteCommand>()
+            .try_to_command::<OwnedAccountClosureCompleteCommand>()
             .expect("command should deserialize");
         assert_eq!(
             complete_command,
@@ -547,7 +526,8 @@ mod tests {
         );
 
         instance.clear_uncommitted_commands();
-        saga.on_event(
+        handle_event(
+            &saga,
             &mut instance,
             &closure_event_envelope(
                 correlation_id,
@@ -556,14 +536,15 @@ mod tests {
                     closed_account_count: 0,
                 },
             ),
+            Some(OwnedAccountClosureSagaStep::ProcessPage),
         )
-        .expect("completed event should succeed saga");
+        .expect("unsubscribed completion event should be ignored");
 
-        assert_eq!(instance.status, SagaStatus::Succeeded);
+        assert!(instance.uncommitted_commands().is_empty());
     }
 
     #[test]
-    fn empty_last_page_keeps_non_terminal_status_until_completed_event() {
+    fn later_page_input_is_not_blocked_by_a_previous_completion_command() {
         let saga = OwnedAccountClosureSaga;
         let correlation_id = CorrelationId::from(Uuid::now_v7());
         let closure_id = OwnedAccountClosureId::new();
@@ -572,7 +553,8 @@ mod tests {
         let mut instance = saga_instance(correlation_id);
         instance.state = Some(state);
 
-        saga.on_event(
+        handle_event(
+            &saga,
             &mut instance,
             &closure_event_envelope(
                 correlation_id,
@@ -582,82 +564,207 @@ mod tests {
                     next_cursor: None,
                 },
             ),
+            Some(OwnedAccountClosureSagaStep::Advance),
         )
         .expect("saga should request completion");
 
-        assert_eq!(
-            instance.state.as_ref().map(|state| state.status),
-            Some(OwnedAccountClosureSagaStatus::CompleteRequested)
-        );
-    }
-
-    #[test]
-    fn page_load_rejected_appends_fail_command() {
-        let saga = OwnedAccountClosureSaga;
-        let correlation_id = CorrelationId::from(Uuid::now_v7());
-        let closure_id = OwnedAccountClosureId::new();
-        let mut state = OwnedAccountClosureSagaState::new(AccountOwner::User(UserId::new()));
-        state.owned_account_closure_id = Some(closure_id);
-        let mut instance = saga_instance(correlation_id);
-        instance.state = Some(state);
-
-        saga.on_event(
+        assert!(instance.state.is_some());
+        handle_event(
+            &saga,
             &mut instance,
             &closure_event_envelope(
                 correlation_id,
                 closure_id,
-                OwnedAccountClosureEventPayload::PageLoadRejected {
-                    reason:
-                        banking_ledger_domain::owned_account_closure::OwnedAccountClosurePageLoadRejectionReason::AlreadyTerminal,
+                OwnedAccountClosureEventPayload::PageLoaded {
+                    account_ids: Vec::new(),
+                    next_cursor: None,
                 },
             ),
+            Some(OwnedAccountClosureSagaStep::Advance),
         )
-        .expect("saga should request failure");
+        .expect("later input is still processable");
+        assert_eq!(instance.uncommitted_commands().len(), 2);
+    }
 
-        let fail_command = instance.uncommitted_commands()[0]
-            .try_into_command::<OwnedAccountClosureFailCommand>()
-            .expect("command should deserialize");
-        assert_eq!(
-            fail_command,
-            OwnedAccountClosureFailCommand {
-                owned_account_closure_id: closure_id,
-                reason: OwnedAccountClosureFailureReason::PageLoadRejected,
+    #[test]
+    fn empty_page_continuation_keeps_process_page_step() {
+        let saga = OwnedAccountClosureSaga;
+        let correlation_id = CorrelationId::from(Uuid::now_v7());
+        let closure_id = OwnedAccountClosureId::new();
+        let mut instance = saga_instance(correlation_id);
+        let mut state = OwnedAccountClosureSagaState::new(AccountOwner::User(UserId::new()));
+        state.owned_account_closure_id = Some(closure_id);
+        instance.state = Some(state);
+        let first_page = closure_event_envelope(
+            correlation_id,
+            closure_id,
+            OwnedAccountClosureEventPayload::PageLoaded {
+                account_ids: Vec::new(),
+                next_cursor: Some(AccountId::new()),
+            },
+        );
+        handle_event(
+            &saga,
+            &mut instance,
+            &first_page,
+            Some(OwnedAccountClosureSagaStep::Advance),
+        )
+        .unwrap();
+        let dispatched_step = instance.uncommitted_commands()[0]
+            .saga_origin
+            .as_ref()
+            .unwrap()
+            .step
+            .try_to_step::<OwnedAccountClosureSagaStep>()
+            .unwrap();
+        assert_eq!(dispatched_step, OwnedAccountClosureSagaStep::ProcessPage);
+        instance.uncommitted_commands()[0]
+            .try_to_command::<OwnedAccountClosurePageLoadCommand>()
+            .unwrap();
+        instance.clear_uncommitted_commands();
+        let last_page = closure_event_envelope(
+            correlation_id,
+            closure_id,
+            OwnedAccountClosureEventPayload::PageLoaded {
+                account_ids: Vec::new(),
+                next_cursor: None,
+            },
+        );
+        assert!(handle_event(&saga, &mut instance, &last_page, Some(dispatched_step)).unwrap());
+        instance.uncommitted_commands()[0]
+            .try_to_command::<OwnedAccountClosureCompleteCommand>()
+            .unwrap();
+    }
+
+    #[test]
+    fn shared_steps_preserve_command_specific_failure_behavior() {
+        use crate::command::OwnedAccountClosureFailCommand;
+        use appletheia::application::command::{
+            CommandAttemptCount, CommandEnvelope, CommandFailedAt, CommandFailureEnvelope,
+            CommandOptions, CommandTerminalReason,
+        };
+        use appletheia::application::saga::{SagaCommandOrigin, SerializedSagaStep};
+        use banking_ledger_domain::owned_account_closure::OwnedAccountClosureFailureReason;
+
+        let saga = OwnedAccountClosureSaga;
+        let definition = saga.definition().unwrap();
+        let correlation_id = CorrelationId::from(Uuid::now_v7());
+        let closure_id = OwnedAccountClosureId::new();
+        let causation_id = CausationId::from(MessageId::new());
+        let commands = [
+            (
+                CommandEnvelope::new(
+                    &OwnedAccountClosurePageLoadCommand {
+                        owned_account_closure_id: closure_id,
+                        cursor: None,
+                        page_size: 100,
+                    },
+                    correlation_id,
+                    causation_id,
+                    CommandOptions::default(),
+                )
+                .unwrap(),
+                Some(OwnedAccountClosureFailureReason::PageLoadRejected),
+            ),
+            (
+                CommandEnvelope::new(
+                    &AccountCloseCommand {
+                        account_id: AccountId::new(),
+                    },
+                    correlation_id,
+                    causation_id,
+                    CommandOptions::default(),
+                )
+                .unwrap(),
+                Some(OwnedAccountClosureFailureReason::AccountCloseRejected),
+            ),
+            (
+                CommandEnvelope::new(
+                    &OwnedAccountClosureCompleteCommand {
+                        owned_account_closure_id: closure_id,
+                    },
+                    correlation_id,
+                    causation_id,
+                    CommandOptions::default(),
+                )
+                .unwrap(),
+                None,
+            ),
+            (
+                CommandEnvelope::new(
+                    &OwnedAccountClosureFailCommand {
+                        owned_account_closure_id: closure_id,
+                        reason: OwnedAccountClosureFailureReason::AccountCloseRejected,
+                    },
+                    correlation_id,
+                    causation_id,
+                    CommandOptions::default(),
+                )
+                .unwrap(),
+                None,
+            ),
+        ];
+        for step in [
+            OwnedAccountClosureSagaStep::Advance,
+            OwnedAccountClosureSagaStep::ProcessPage,
+        ] {
+            for (command, expected_reason) in &commands {
+                if step == OwnedAccountClosureSagaStep::Advance
+                    && command.try_to_command::<AccountCloseCommand>().is_ok()
+                {
+                    continue;
+                }
+                let mut instance = saga_instance(correlation_id);
+                let mut state =
+                    OwnedAccountClosureSagaState::new(AccountOwner::User(UserId::new()));
+                state.owned_account_closure_id = Some(closure_id);
+                instance.state = Some(state);
+                let origin = SagaCommandOrigin {
+                    saga_name: instance.saga_name.clone(),
+                    saga_instance_id: instance.saga_instance_id,
+                    step: SerializedSagaStep::new(step).unwrap(),
+                };
+                let failure = CommandFailureEnvelope::new(
+                    command,
+                    origin,
+                    CommandTerminalReason::NonRetryable,
+                    CommandAttemptCount::first(),
+                    CommandFailedAt::now(),
+                );
+                let Some(SagaRoute::OnCommandFailed {
+                    step: route_step,
+                    handler,
+                    ..
+                }) = definition.find_command_failure_route(step)
+                else {
+                    panic!("failure route");
+                };
+                let mut context = SagaContext::new(
+                    &mut instance,
+                    CausationId::from(failure.failure_id),
+                    *route_step,
+                );
+                handler(&mut context, &failure).unwrap();
+                if let Some(reason) = expected_reason {
+                    assert_eq!(instance.uncommitted_commands().len(), 1);
+                    let compensation = instance.uncommitted_commands()[0]
+                        .try_to_command::<OwnedAccountClosureFailCommand>()
+                        .unwrap();
+                    assert_eq!(&compensation.reason, reason);
+                    assert_eq!(
+                        instance.uncommitted_commands()[0]
+                            .saga_origin
+                            .as_ref()
+                            .unwrap()
+                            .step
+                            .try_to_step::<OwnedAccountClosureSagaStep>()
+                            .unwrap(),
+                        OwnedAccountClosureSagaStep::Fail
+                    );
+                } else {
+                    assert!(instance.uncommitted_commands().is_empty());
+                }
             }
-        );
-
-        assert_eq!(
-            instance.state.as_ref().map(|state| state.status),
-            Some(OwnedAccountClosureSagaStatus::FailRequested)
-        );
-    }
-
-    #[test]
-    fn complete_rejected_fails_saga() {
-        let saga = OwnedAccountClosureSaga;
-        let correlation_id = CorrelationId::from(Uuid::now_v7());
-        let closure_id = OwnedAccountClosureId::new();
-        let mut state = OwnedAccountClosureSagaState::new(AccountOwner::User(UserId::new()));
-        state.owned_account_closure_id = Some(closure_id);
-        let mut instance = saga_instance(correlation_id);
-        instance.state = Some(state);
-
-        saga.on_event(
-            &mut instance,
-            &closure_event_envelope(
-                correlation_id,
-                closure_id,
-                OwnedAccountClosureEventPayload::CompleteRejected {
-                    reason:
-                        banking_ledger_domain::owned_account_closure::OwnedAccountClosureCompleteRejectionReason::NotInProgress,
-                },
-            ),
-        )
-        .expect("complete rejected event should fail saga");
-
-        assert_eq!(instance.status, SagaStatus::Failed);
-        assert_eq!(
-            instance.state.as_ref().map(|state| state.status),
-            Some(OwnedAccountClosureSagaStatus::Failed)
-        );
+        }
     }
 }

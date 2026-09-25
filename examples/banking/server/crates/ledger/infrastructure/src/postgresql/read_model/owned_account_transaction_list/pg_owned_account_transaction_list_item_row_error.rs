@@ -72,8 +72,8 @@ pub enum PgOwnedAccountTransactionListItemRowError {
     #[error("invalid account id")]
     InvalidAccountId(#[source] Box<dyn std::error::Error + Send + Sync>),
 
-    #[error("invalid currency id")]
-    InvalidCurrencyId(#[source] Box<dyn std::error::Error + Send + Sync>),
+    #[error("invalid currency code")]
+    InvalidCurrencyCode(#[source] Box<dyn std::error::Error + Send + Sync>),
 
     #[error("invalid currency symbol")]
     InvalidCurrencySymbol(#[source] Box<dyn std::error::Error + Send + Sync>),
@@ -89,4 +89,7 @@ pub enum PgOwnedAccountTransactionListItemRowError {
 
     #[error("invalid currency amount")]
     InvalidCurrencyAmount(#[source] std::num::ParseIntError),
+
+    #[error("invalid transaction note")]
+    InvalidTransactionNote(#[source] Box<dyn std::error::Error + Send + Sync>),
 }

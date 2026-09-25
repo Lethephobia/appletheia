@@ -1,13 +1,17 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use appletheia_domain::Aggregate;
+
 use super::{
-    AuthorizationModel, AuthorizationModelError, Relation, RelationRefOwned, UsersetExprOwned,
+    AuthorizationModel, AuthorizationModelError, Relation, RelationRefOwned, Relationship,
+    RelationshipDerivation, RelationshipDeriver, RelationshipDeriverError, UsersetExpr,
 };
 
 #[derive(Clone, Debug, Default)]
 pub struct InMemoryAuthorizationModel {
-    exprs: HashMap<RelationRefOwned, Arc<UsersetExprOwned>>,
+    exprs: HashMap<RelationRefOwned, Arc<UsersetExpr>>,
+    relationship_derivation: RelationshipDerivation,
 }
 
 impl InMemoryAuthorizationModel {
@@ -15,18 +19,24 @@ impl InMemoryAuthorizationModel {
         Self::default()
     }
 
-    pub fn define_expr(&mut self, relation: RelationRefOwned, expr: UsersetExprOwned) {
-        self.exprs.insert(relation, Arc::new(expr));
-    }
-
-    pub fn define_relation<R>(&mut self)
+    pub fn define_relation<R>(&mut self, relation: R)
     where
         R: Relation,
     {
-        self.define_expr(
-            RelationRefOwned::from(R::REF),
-            UsersetExprOwned::from(&R::EXPR),
-        );
+        let relation_ref = RelationRefOwned::from(R::REF);
+        let expr = relation.expr();
+        self.relationship_derivation
+            .define_relation(&relation_ref, &expr);
+        self.exprs.insert(relation_ref, Arc::new(expr));
+    }
+}
+
+impl RelationshipDeriver for InMemoryAuthorizationModel {
+    fn derive<A: Aggregate>(
+        &self,
+        aggregate: &A,
+    ) -> Result<Vec<Relationship>, RelationshipDeriverError> {
+        Ok(self.relationship_derivation.derive(aggregate)?)
     }
 }
 
@@ -34,7 +44,7 @@ impl AuthorizationModel for InMemoryAuthorizationModel {
     async fn expr_for(
         &self,
         relation: &RelationRefOwned,
-    ) -> Result<Option<UsersetExprOwned>, AuthorizationModelError> {
+    ) -> Result<Option<UsersetExpr>, AuthorizationModelError> {
         Ok(self.exprs.get(relation).map(|expr| (**expr).clone()))
     }
 }

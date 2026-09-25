@@ -6,9 +6,6 @@ pub mod user_activate;
 pub mod user_bio_change;
 pub mod user_deactivate;
 pub mod user_display_name_change;
-pub mod user_organization_membership_grant;
-pub mod user_organization_membership_remove;
-pub mod user_organization_membership_roles_change;
 pub mod user_picture_change;
 pub mod user_picture_object_delete;
 pub mod user_picture_upload_prepare;
@@ -19,7 +16,9 @@ pub use logout::{LogoutCommand, LogoutCommandHandler, LogoutOutput};
 pub use logout_all_sessions::{
     LogoutAllSessionsCommand, LogoutAllSessionsCommandHandler, LogoutAllSessionsOutput,
 };
-pub use oidc_begin::{OidcBeginCommand, OidcBeginCommandHandler, OidcBeginOutput};
+pub use oidc_begin::{
+    OidcBeginCommand, OidcBeginCommandHandler, OidcBeginCommandHandlerConfig, OidcBeginOutput,
+};
 pub use oidc_complete::{
     OidcCompleteCommand, OidcCompleteCommandHandler, OidcCompleteOutput,
     OidcCompleteRejectionReason, OidcCompleteReplayOutput,
@@ -32,20 +31,6 @@ pub use user_deactivate::{
 pub use user_display_name_change::{
     UserDisplayNameChangeCommand, UserDisplayNameChangeCommandHandler, UserDisplayNameChangeOutput,
 };
-pub use user_organization_membership_grant::{
-    UserOrganizationMembershipGrantCommand, UserOrganizationMembershipGrantCommandHandler,
-    UserOrganizationMembershipGrantCommandHandlerError, UserOrganizationMembershipGrantOutput,
-};
-pub use user_organization_membership_remove::{
-    UserOrganizationMembershipRemoveCommand, UserOrganizationMembershipRemoveCommandHandler,
-    UserOrganizationMembershipRemoveCommandHandlerError, UserOrganizationMembershipRemoveOutput,
-};
-pub use user_organization_membership_roles_change::{
-    UserOrganizationMembershipRolesChangeCommand,
-    UserOrganizationMembershipRolesChangeCommandHandler,
-    UserOrganizationMembershipRolesChangeCommandHandlerError,
-    UserOrganizationMembershipRolesChangeOutput,
-};
 pub use user_picture_change::{
     UserPictureChangeCommand, UserPictureChangeCommandHandler, UserPictureChangeOutput,
 };
@@ -56,7 +41,7 @@ pub use user_picture_object_delete::{
 pub use user_picture_upload_prepare::{
     UserPictureUploadPrepareCommand, UserPictureUploadPrepareCommandHandler,
     UserPictureUploadPrepareCommandHandlerConfig, UserPictureUploadPrepareCommandHandlerError,
-    UserPictureUploadPrepareOutput,
+    UserPictureUploadPrepareOutput, UserPictureUploadPrepareRejectionReason,
 };
 pub use user_remove::{UserRemoveCommand, UserRemoveCommandHandler, UserRemoveOutput};
 pub use user_username_change::{

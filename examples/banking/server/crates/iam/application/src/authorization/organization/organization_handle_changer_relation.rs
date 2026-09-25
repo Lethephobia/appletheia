@@ -10,7 +10,9 @@ impl Relation for OrganizationHandleChangerRelation {
     const REF: RelationRef =
         RelationRef::new(Organization::TYPE, RelationName::new("handle_changer"));
 
-    const EXPR: UsersetExpr = UsersetExpr::ComputedUserset {
-        relation: OrganizationAdminRelation::REF,
-    };
+    fn expr(&self) -> UsersetExpr {
+        UsersetExpr::ComputedUserset {
+            relation: OrganizationAdminRelation::REF.into(),
+        }
+    }
 }

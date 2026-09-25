@@ -10,7 +10,9 @@ impl Relation for OrganizationProfileEditorRelation {
     const REF: RelationRef =
         RelationRef::new(Organization::TYPE, RelationName::new("profile_editor"));
 
-    const EXPR: UsersetExpr = UsersetExpr::ComputedUserset {
-        relation: OrganizationAdminRelation::REF,
-    };
+    fn expr(&self) -> UsersetExpr {
+        UsersetExpr::ComputedUserset {
+            relation: OrganizationAdminRelation::REF.into(),
+        }
+    }
 }

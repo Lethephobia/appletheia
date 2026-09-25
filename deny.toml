@@ -1,0 +1,37 @@
+# Run with cargo-deny 0.20.2:
+# cargo deny --all-features check advisories licenses sources
+
+[advisories]
+# Fail on withdrawn releases as well as known vulnerabilities.
+yanked = "deny"
+# Only the maintenance advisories below are exempted; other advisories still fail.
+ignore = [
+    # Anchor/Solana require bincode internally. Banking's own transaction
+    # serialization already uses wincode. Remove when upstream migrates.
+    "RUSTSEC-2025-0141",
+    # Alloy primitives and Solidity macros require paste unconditionally.
+    # Remove when upstream replaces it; Appletheia does not depend on it directly.
+    "RUSTSEC-2024-0436",
+]
+
+[licenses]
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "0BSD",
+    "CC0-1.0",
+    "CDLA-Permissive-2.0",
+    "Unicode-3.0",
+    "Zlib",
+]
+# The same policy is shared by three workspaces with different dependency graphs.
+unused-allowed-license = "allow"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []

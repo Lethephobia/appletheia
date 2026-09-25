@@ -30,12 +30,11 @@ mod tests {
     use uuid::Uuid;
 
     use super::AuthTokenIssueResult;
+    use crate::aggregate::{AggregateIdValue, AggregateRef, AggregateTypeOwned};
     use crate::authentication::{
         AuthToken, AuthTokenAudience, AuthTokenAudiences, AuthTokenClaims, AuthTokenExpiresAt,
         AuthTokenExpiresIn, AuthTokenId, AuthTokenIssuedAt, AuthTokenIssuerUrl,
     };
-    use crate::authorization::AggregateRef;
-    use crate::event::{AggregateIdValue, AggregateTypeOwned};
 
     #[test]
     fn expires_in_delegates_to_claims() {

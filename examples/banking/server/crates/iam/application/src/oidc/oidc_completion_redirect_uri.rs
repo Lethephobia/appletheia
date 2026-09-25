@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use url::Url;
 
 /// Represents the redirect URI used after OIDC completion.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct OidcCompletionRedirectUri(Url);
 

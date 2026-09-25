@@ -1,6 +1,6 @@
 use appletheia::application::authentication::AuthTokenRevoker;
 use appletheia::application::authorization::{AuthorizationPlan, PrincipalRequirement};
-use appletheia::application::command::{CommandHandled, CommandHandler};
+use appletheia::application::command::CommandHandler;
 use appletheia::application::request_context::RequestContext;
 
 use super::{LogoutCommand, LogoutCommandHandlerError, LogoutOutput};
@@ -28,7 +28,6 @@ where
 {
     type Command = LogoutCommand;
     type Output = LogoutOutput;
-    type ReplayOutput = LogoutOutput;
     type Error = LogoutCommandHandlerError;
     type Uow = ATR::Uow;
 
@@ -46,11 +45,11 @@ where
         uow: &mut Self::Uow,
         _request_context: &RequestContext,
         command: &Self::Command,
-    ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
+    ) -> Result<Self::Output, Self::Error> {
         self.auth_token_revoker
             .revoke_token(uow, command.token_id, command.token_expires_at)
             .await?;
 
-        Ok(CommandHandled::same(LogoutOutput))
+        Ok(LogoutOutput)
     }
 }

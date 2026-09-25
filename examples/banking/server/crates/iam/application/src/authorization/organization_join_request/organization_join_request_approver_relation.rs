@@ -11,8 +11,10 @@ impl Relation for OrganizationJoinRequestApproverRelation {
     const REF: RelationRef =
         RelationRef::new(OrganizationJoinRequest::TYPE, RelationName::new("approver"));
 
-    const EXPR: UsersetExpr = UsersetExpr::TupleToUserset {
-        tupleset_relation: OrganizationJoinRequestOrganizationRelation::REF,
-        computed_userset: OrganizationAdminRelation::REF,
-    };
+    fn expr(&self) -> UsersetExpr {
+        UsersetExpr::TupleToUserset {
+            tupleset_relation: OrganizationJoinRequestOrganizationRelation::REF.into(),
+            computed_userset: OrganizationAdminRelation::REF.into(),
+        }
+    }
 }

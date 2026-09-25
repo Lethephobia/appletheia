@@ -1,4 +1,4 @@
-use crate::authorization::AggregateRef;
+use crate::aggregate::AggregateRef;
 
 /// Represents the principal available to authorization logic for the current request.
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Default)]
@@ -19,7 +19,7 @@ mod tests {
     use uuid::Uuid;
 
     use super::*;
-    use crate::event::{AggregateIdValue, AggregateTypeOwned};
+    use crate::aggregate::{AggregateIdValue, AggregateTypeOwned};
 
     fn aggregate_ref() -> AggregateRef {
         AggregateRef {

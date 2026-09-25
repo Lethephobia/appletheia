@@ -4,10 +4,12 @@ use crate::outbox::command::CommandOutboxEnqueueError;
 use crate::unit_of_work::UnitOfWorkError;
 use crate::unit_of_work::UnitOfWorkFactoryError;
 
-use super::{SagaInstanceStoreError, SagaProcessedEventStoreError};
+use super::{
+    SagaInstanceStoreError, SagaProcessedCommandFailureStoreError, SagaProcessedEventStoreError,
+};
 
 #[derive(Debug, Error)]
-pub enum SagaRunnerError {
+pub enum SagaRunnerError<E: std::error::Error + Send + Sync + 'static> {
     #[error(transparent)]
     UnitOfWorkFactory(#[from] UnitOfWorkFactoryError),
 
@@ -18,11 +20,14 @@ pub enum SagaRunnerError {
     Store(#[from] SagaInstanceStoreError),
 
     #[error(transparent)]
+    ProcessedCommandFailureStore(#[from] SagaProcessedCommandFailureStoreError),
+
+    #[error(transparent)]
     ProcessedEventStore(#[from] SagaProcessedEventStoreError),
 
     #[error(transparent)]
     CommandOutbox(#[from] CommandOutboxEnqueueError),
 
-    #[error("saga definition error")]
-    Definition(#[source] Box<dyn std::error::Error + Send + Sync>),
+    #[error("saga handler failed")]
+    Handler(#[source] E),
 }

@@ -1,3 +1,4 @@
+use appletheia::application::command::{CommandOutput, CommandReplayOutput};
 use banking_ledger_domain::wallet_bookmark::WalletBookmarkRemoveRejectionReason;
 use serde::{Deserialize, Serialize};
 
@@ -9,4 +10,12 @@ pub enum WalletBookmarkRemoveOutput {
     Rejected {
         reason: WalletBookmarkRemoveRejectionReason,
     },
+}
+
+impl CommandOutput for WalletBookmarkRemoveOutput {
+    type ReplayOutput = Self;
+
+    fn replay_output(&self) -> CommandReplayOutput<'_, Self::ReplayOutput> {
+        CommandReplayOutput::Borrowed(self)
+    }
 }

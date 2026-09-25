@@ -1,3 +1,4 @@
+use appletheia::application::read_model::pagination::{CursorWindow, Sort, SortDirection};
 use appletheia::domain::AggregateId;
 use appletheia::infrastructure::postgresql::PgUnitOfWork;
 use banking_ledger_application::{
@@ -6,7 +7,6 @@ use banking_ledger_application::{
     WalletBookmarkListSortKey,
 };
 use banking_ledger_domain::wallet_bookmark::WalletBookmarkOwner;
-use banking_shared_kernel_application::read_model::{CursorOptions, PageSize, SortDirection};
 use sqlx::{Postgres, QueryBuilder};
 use uuid::Uuid;
 
@@ -44,10 +44,11 @@ impl WalletBookmarkListReader for PgWalletBookmarkListReader {
         uow: &mut Self::Uow,
         owner: WalletBookmarkOwner,
         _criteria: WalletBookmarkListCriteria,
-        cursor_options: Option<CursorOptions<WalletBookmarkListSortKey, WalletBookmarkListCursor>>,
-        page_size: PageSize,
+        sort: Sort<WalletBookmarkListSortKey>,
+        page: CursorWindow<WalletBookmarkListCursor>,
     ) -> Result<WalletBookmarkList, WalletBookmarkListReaderError> {
-        let limit = i64::from(page_size.value()) + 1;
+        let query_limit = i64::from(page.limit().value()) + 1;
+        let query_direction = page.query_direction(sort.direction);
 
         let mut builder = QueryBuilder::<Postgres>::new(
             r#"
@@ -57,11 +58,11 @@ impl WalletBookmarkListReader for PgWalletBookmarkListReader {
                 owner_id,
                 display_name,
                 description,
-                token_account_owner_address,
+                token_owner_address,
                 created_at,
                 source_event_id,
                 updated_event_id
-            FROM wallet_bookmark_list_items
+            FROM wallet_bookmark_fragments
             WHERE owner_type =
             "#,
         );
@@ -72,15 +73,8 @@ impl WalletBookmarkListReader for PgWalletBookmarkListReader {
             .push(" AND owner_id = ")
             .push_bind(owner_id);
 
-        let sort_key = cursor_options
-            .map(|options| options.sort_key)
-            .unwrap_or(WalletBookmarkListSortKey::CreatedAt);
-        let sort_direction = cursor_options
-            .map(|options| options.sort_direction)
-            .unwrap_or(SortDirection::Desc);
-
-        if let Some(cursor) = cursor_options.and_then(|options| options.cursor) {
-            match (sort_key, sort_direction) {
+        if let Some(cursor) = page.boundary().copied() {
+            match (sort.key, query_direction) {
                 (WalletBookmarkListSortKey::CreatedAt, SortDirection::Asc) => {
                     builder
                         .push(" AND (created_at, id) > (")
@@ -110,7 +104,7 @@ impl WalletBookmarkListReader for PgWalletBookmarkListReader {
             }
         }
 
-        match (sort_key, sort_direction) {
+        match (sort.key, query_direction) {
             (WalletBookmarkListSortKey::CreatedAt, SortDirection::Asc) => {
                 builder.push(" ORDER BY created_at ASC, id ASC");
             }
@@ -125,7 +119,7 @@ impl WalletBookmarkListReader for PgWalletBookmarkListReader {
             }
         }
 
-        builder.push(" LIMIT ").push_bind(limit);
+        builder.push(" LIMIT ").push_bind(query_limit);
 
         let rows = builder
             .build_query_as::<PgWalletBookmarkListItemRow>()
@@ -133,27 +127,38 @@ impl WalletBookmarkListReader for PgWalletBookmarkListReader {
             .await
             .map_err(|e| WalletBookmarkListReaderError::Persistence(Box::new(e)))?;
 
-        let limit = page_size.value() as usize;
-        let has_next = rows.len() > limit;
-        let items = rows
+        let page_limit = page.limit().value() as usize;
+        let has_more = rows.len() > page_limit;
+        let mut items = rows
             .into_iter()
-            .take(limit)
+            .take(page_limit)
             .map(WalletBookmarkListItem::try_from)
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| WalletBookmarkListReaderError::Persistence(Box::new(e)))?;
-        let next_cursor = if has_next {
-            items.last().map(|item| WalletBookmarkListCursor {
-                created_at: item.created_at,
-                wallet_bookmark_id: item.wallet_bookmark_id,
-            })
+        if page.is_backward() {
+            items.reverse();
+        }
+        let start_cursor = items.first().map(|item| WalletBookmarkListCursor {
+            created_at: item.created_at,
+            wallet_bookmark_id: item.wallet_bookmark_id,
+        });
+        let end_cursor = items.last().map(|item| WalletBookmarkListCursor {
+            created_at: item.created_at,
+            wallet_bookmark_id: item.wallet_bookmark_id,
+        });
+        let (has_previous, has_next) = if page.is_backward() {
+            (has_more, !items.is_empty() && page.boundary().is_some())
         } else {
-            None
+            (!items.is_empty() && page.boundary().is_some(), has_more)
         };
 
         Ok(WalletBookmarkList {
             owner,
             items,
-            next_cursor,
+            start_cursor,
+            end_cursor,
+            has_previous,
+            has_next,
         })
     }
 }

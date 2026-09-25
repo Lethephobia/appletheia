@@ -1,9 +1,11 @@
+use serde::Serialize;
+
 use banking_iam_domain::UserStatus;
 
 use super::UserPublicProfileStatusError;
 
 /// Lifecycle status tracked by public user profile projections.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize)]
 pub enum UserPublicProfileStatus {
     Active,
     Inactive,

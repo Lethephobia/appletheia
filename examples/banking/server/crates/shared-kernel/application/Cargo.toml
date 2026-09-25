@@ -1,8 +1,9 @@
 [package]
+license.workspace = true
 name = "banking-shared-kernel-application"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-appletheia = { workspace = true, features = ["application", "domain"] }
-thiserror = "2"
+serde = { workspace = true, features = ["derive"] }
+thiserror = { workspace = true }

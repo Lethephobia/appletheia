@@ -1,11 +1,13 @@
+use serde::Serialize;
+
 use appletheia::domain::{EventId, EventOccurredAt};
 use banking_ledger_domain::account::AccountId;
 
 use super::{PublicAccountListItemCurrency, PublicAccountListItemOwner};
-use banking_shared_kernel_application::read_model::ReadModelObservation;
+use appletheia::application::read_model::ReadModelObservation;
 
 /// Read model for one public account list row.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct PublicAccountListItem {
     pub account_id: AccountId,
     pub owner: PublicAccountListItemOwner,
@@ -19,7 +21,6 @@ impl PublicAccountListItem {
         ReadModelObservation::collect_event_ids(
             self.observation
                 .event_ids()
-                .chain(self.currency.observation.event_ids())
                 .chain(self.owner.observed_event_ids()),
         )
     }

@@ -1,11 +1,11 @@
 use thiserror::Error;
 
-/// Describes why a `CurrencyAmount` operation failed.
-#[derive(Debug, Error)]
+/// Describes why smallest-unit currency arithmetic failed.
+#[derive(Copy, Clone, Debug, Error, Eq, PartialEq)]
 pub enum CurrencyAmountError {
     #[error("currency amount overflowed")]
-    BalanceOverflow,
+    Overflow,
 
-    #[error("insufficient currency amount")]
-    InsufficientBalance,
+    #[error("currency amount is insufficient")]
+    InsufficientAmount,
 }

@@ -1,10 +1,12 @@
+use serde::Serialize;
+
 use appletheia::domain::EventId;
 use banking_ledger_domain::transfer::TransferId;
 
 use super::OwnedAccountTransactionListItemCounterpartyAccount;
 
 /// Kind of transaction displayed in the owned account transaction list.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub enum OwnedAccountTransactionListItemKind {
     Deposit,
     Withdrawal,
@@ -12,7 +14,6 @@ pub enum OwnedAccountTransactionListItemKind {
         transfer_id: TransferId,
         counterparty_account: Box<OwnedAccountTransactionListItemCounterpartyAccount>,
     },
-    CurrencyIssuance,
 }
 
 impl OwnedAccountTransactionListItemKind {
@@ -22,7 +23,7 @@ impl OwnedAccountTransactionListItemKind {
                 counterparty_account,
                 ..
             } => counterparty_account.observed_event_ids(),
-            Self::Deposit | Self::Withdrawal | Self::CurrencyIssuance => Vec::new(),
+            Self::Deposit | Self::Withdrawal => Vec::new(),
         }
     }
 }

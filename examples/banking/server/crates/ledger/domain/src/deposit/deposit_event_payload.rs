@@ -1,45 +1,28 @@
 use appletheia::event_payload;
 
 use crate::account::AccountId;
-use crate::core::{CurrencyAmount, TokenAccountOwnerAddress};
-use crate::currency::CurrencyId;
+use crate::core::{CurrencyAmount, OnchainTransactionId, TokenOwnerAddress};
+use crate::token_binding::TokenBindingId;
 
-use super::{
-    DepositCompleteRejectionReason, DepositEventPayloadError, DepositFailRejectionReason,
-    DepositFailureReason, DepositRequestRejectionReason, DepositTokenTransferRecordRejectionReason,
-};
+use super::{DepositEventPayloadError, DepositFailureReason, DepositNote};
 
 /// Represents the domain events emitted by a `Deposit` aggregate.
 #[event_payload(error = DepositEventPayloadError)]
 pub enum DepositEventPayload {
     Requested {
         account_id: AccountId,
-        currency_id: CurrencyId,
-        token_account_owner_address: TokenAccountOwnerAddress,
+        token_binding_id: TokenBindingId,
+        token_owner_address: TokenOwnerAddress,
         amount: CurrencyAmount,
+        note: Option<DepositNote>,
     },
-    RequestRejected {
-        account_id: AccountId,
-        currency_id: CurrencyId,
-        token_account_owner_address: TokenAccountOwnerAddress,
-        amount: CurrencyAmount,
-        reason: DepositRequestRejectionReason,
-    },
-    TokenTransferred {
+    SettlementVerified {
         account_id: AccountId,
         amount: CurrencyAmount,
-    },
-    TokenTransferRecordRejected {
-        reason: DepositTokenTransferRecordRejectionReason,
+        transaction_id: OnchainTransactionId,
     },
     Completed,
-    CompleteRejected {
-        reason: DepositCompleteRejectionReason,
-    },
     Failed {
         reason: DepositFailureReason,
-    },
-    FailRejected {
-        reason: DepositFailRejectionReason,
     },
 }

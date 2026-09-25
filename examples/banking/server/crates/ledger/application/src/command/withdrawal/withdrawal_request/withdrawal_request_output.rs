@@ -1,3 +1,4 @@
+use appletheia::application::command::{CommandOutput, CommandReplayOutput};
 use banking_ledger_domain::withdrawal::{WithdrawalId, WithdrawalRequestRejectionReason};
 use serde::{Deserialize, Serialize};
 
@@ -12,4 +13,12 @@ pub enum WithdrawalRequestOutput {
         withdrawal_id: WithdrawalId,
         reason: WithdrawalRequestRejectionReason,
     },
+}
+
+impl CommandOutput for WithdrawalRequestOutput {
+    type ReplayOutput = Self;
+
+    fn replay_output(&self) -> CommandReplayOutput<'_, Self::ReplayOutput> {
+        CommandReplayOutput::Borrowed(self)
+    }
 }

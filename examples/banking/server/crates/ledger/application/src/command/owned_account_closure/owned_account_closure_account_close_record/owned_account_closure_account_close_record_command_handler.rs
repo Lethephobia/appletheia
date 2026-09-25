@@ -1,5 +1,5 @@
 use appletheia::application::authorization::{AuthorizationPlan, PrincipalRequirement};
-use appletheia::application::command::{CommandHandled, CommandHandler};
+use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_ledger_domain::owned_account_closure::{
@@ -37,7 +37,6 @@ where
 {
     type Command = OwnedAccountClosureAccountCloseRecordCommand;
     type Output = OwnedAccountClosureAccountCloseRecordOutput;
-    type ReplayOutput = OwnedAccountClosureAccountCloseRecordOutput;
     type Error = OwnedAccountClosureAccountCloseRecordCommandHandlerError;
     type Uow = OACR::Uow;
 
@@ -55,7 +54,7 @@ where
         uow: &mut Self::Uow,
         request_context: &RequestContext,
         command: &Self::Command,
-    ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
+    ) -> Result<Self::Output, Self::Error> {
         let mut owned_account_closure = self
             .owned_account_closure_repository
             .read(uow, command.owned_account_closure_id)
@@ -75,6 +74,6 @@ where
             }
         };
 
-        Ok(CommandHandled::same(output))
+        Ok(output)
     }
 }

@@ -1,7 +1,7 @@
 use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
-use appletheia::application::command::{CommandHandled, CommandHandler};
+use appletheia::application::command::CommandHandler;
 use appletheia::application::object_storage::{
     ObjectName, ObjectUploadSignRequest, ObjectUploadSigner,
 };
@@ -12,6 +12,7 @@ use banking_iam_domain::{Organization, OrganizationPictureObjectName, Organizati
 use super::{
     OrganizationPictureUploadPrepareCommand, OrganizationPictureUploadPrepareCommandHandlerConfig,
     OrganizationPictureUploadPrepareCommandHandlerError, OrganizationPictureUploadPrepareOutput,
+    OrganizationPictureUploadPrepareRejectionReason,
 };
 use crate::authorization::OrganizationProfileEditorRelation;
 
@@ -51,7 +52,6 @@ where
 {
     type Command = OrganizationPictureUploadPrepareCommand;
     type Output = OrganizationPictureUploadPrepareOutput;
-    type ReplayOutput = OrganizationPictureUploadPrepareOutput;
     type Error = OrganizationPictureUploadPrepareCommandHandlerError;
     type Uow = OR::Uow;
 
@@ -74,18 +74,22 @@ where
         uow: &mut Self::Uow,
         _request_context: &RequestContext,
         command: &Self::Command,
-    ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
+    ) -> Result<Self::Output, Self::Error> {
         let organization = self
             .organization_repository
             .read(uow, command.organization_id)
             .await?;
 
         if organization.is_removed()? {
-            return Err(OrganizationPictureUploadPrepareCommandHandlerError::OrganizationRemoved);
+            return Ok(OrganizationPictureUploadPrepareOutput::Rejected {
+                reason: OrganizationPictureUploadPrepareRejectionReason::OrganizationRemoved,
+            });
         }
 
         if command.content_length.value() > self.config.max_content_length().value() {
-            return Err(OrganizationPictureUploadPrepareCommandHandlerError::ContentLengthTooLarge);
+            return Ok(OrganizationPictureUploadPrepareOutput::Rejected {
+                reason: OrganizationPictureUploadPrepareRejectionReason::ContentLengthTooLarge,
+            });
         }
 
         if !self
@@ -93,7 +97,9 @@ where
             .allowed_content_types()
             .contains(&command.content_type)
         {
-            return Err(OrganizationPictureUploadPrepareCommandHandlerError::ContentTypeNotAllowed);
+            return Ok(OrganizationPictureUploadPrepareOutput::Rejected {
+                reason: OrganizationPictureUploadPrepareRejectionReason::ContentTypeNotAllowed,
+            });
         }
 
         let picture_object_name = OrganizationPictureObjectName::new(command.organization_id);
@@ -108,9 +114,12 @@ where
         .with_content_length(command.content_length)
         .with_checksum(command.checksum.clone());
         let signed_upload = self.object_upload_signer.sign(request).await?;
-        let output = OrganizationPictureUploadPrepareOutput::new(picture, signed_upload);
+        let output = OrganizationPictureUploadPrepareOutput::Prepared {
+            picture,
+            signed_upload: Box::new(signed_upload),
+        };
 
-        Ok(CommandHandled::same(output))
+        Ok(output)
     }
 }
 
@@ -118,8 +127,9 @@ where
 mod tests {
     use std::sync::{Arc, Mutex};
 
+    use appletheia::application::aggregate::AggregateRef;
     use appletheia::application::authorization::{
-        AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
+        AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
     };
     use appletheia::application::command::CommandHandler;
     use appletheia::application::object_storage::{
@@ -145,7 +155,7 @@ mod tests {
     use super::{
         OrganizationPictureUploadPrepareCommand, OrganizationPictureUploadPrepareCommandHandler,
         OrganizationPictureUploadPrepareCommandHandlerConfig,
-        OrganizationPictureUploadPrepareCommandHandlerError,
+        OrganizationPictureUploadPrepareOutput, OrganizationPictureUploadPrepareRejectionReason,
     };
 
     #[derive(Default)]
@@ -259,9 +269,9 @@ mod tests {
             MessageId::new(),
             Principal::Authenticated {
                 subject: AggregateRef::new(
-                    appletheia::application::event::AggregateTypeOwned::try_from("user")
+                    appletheia::application::aggregate::AggregateTypeOwned::try_from("user")
                         .expect("aggregate type should be valid"),
-                    appletheia::application::event::AggregateIdValue::from(Uuid::now_v7()),
+                    appletheia::application::aggregate::AggregateIdValue::from(Uuid::now_v7()),
                 ),
             },
         )
@@ -384,14 +394,21 @@ mod tests {
             .await
             .expect("command should succeed");
 
-        let output = handled.into_output();
+        let output = handled;
+        let OrganizationPictureUploadPrepareOutput::Prepared {
+            picture,
+            signed_upload: output_signed_upload,
+        } = output
+        else {
+            panic!("upload should be prepared");
+        };
         let request = signer_requests
             .lock()
             .expect("lock")
             .clone()
             .expect("signer should receive request");
 
-        assert_eq!(output.signed_upload, signed_upload(expires_in));
+        assert_eq!(*output_signed_upload, signed_upload(expires_in));
         assert_eq!(request.bucket_name().as_str(), "pictures");
         assert_eq!(request.content_type().as_str(), "image/png");
         assert_eq!(
@@ -401,7 +418,7 @@ mod tests {
         assert_eq!(request.expires_in(), expires_in);
         assert_eq!(request.checksum(), Some(&checksum()));
         assert_eq!(
-            output.picture.as_object_name().map(|value| value.value()),
+            picture.as_object_name().map(|value| value.value()),
             Some(request.object_name().as_str())
         );
         let expected_prefix = format!("organizations/{organization_id}/pictures/");
@@ -434,7 +451,7 @@ mod tests {
         );
         let mut uow = TestUow;
 
-        let error = handler
+        let handled = handler
             .handle(
                 &mut uow,
                 &request_context(),
@@ -446,12 +463,14 @@ mod tests {
                 },
             )
             .await
-            .expect_err("removed organization should be rejected");
+            .expect("removed organization should be rejected as an outcome");
 
-        assert!(matches!(
-            error,
-            OrganizationPictureUploadPrepareCommandHandlerError::OrganizationRemoved
-        ));
+        assert_eq!(
+            handled,
+            OrganizationPictureUploadPrepareOutput::Rejected {
+                reason: OrganizationPictureUploadPrepareRejectionReason::OrganizationRemoved,
+            }
+        );
     }
 
     #[tokio::test]
@@ -473,7 +492,7 @@ mod tests {
         );
         let mut uow = TestUow;
 
-        let error = handler
+        let handled = handler
             .handle(
                 &mut uow,
                 &request_context(),
@@ -485,12 +504,14 @@ mod tests {
                 },
             )
             .await
-            .expect_err("oversized content should be rejected");
+            .expect("oversized content should be rejected as an outcome");
 
-        assert!(matches!(
-            error,
-            OrganizationPictureUploadPrepareCommandHandlerError::ContentLengthTooLarge
-        ));
+        assert_eq!(
+            handled,
+            OrganizationPictureUploadPrepareOutput::Rejected {
+                reason: OrganizationPictureUploadPrepareRejectionReason::ContentLengthTooLarge,
+            }
+        );
     }
 
     #[tokio::test]
@@ -512,7 +533,7 @@ mod tests {
         );
         let mut uow = TestUow;
 
-        let error = handler
+        let handled = handler
             .handle(
                 &mut uow,
                 &request_context(),
@@ -525,11 +546,13 @@ mod tests {
                 },
             )
             .await
-            .expect_err("disallowed content type should be rejected");
+            .expect("disallowed content type should be rejected as an outcome");
 
-        assert!(matches!(
-            error,
-            OrganizationPictureUploadPrepareCommandHandlerError::ContentTypeNotAllowed
-        ));
+        assert_eq!(
+            handled,
+            OrganizationPictureUploadPrepareOutput::Rejected {
+                reason: OrganizationPictureUploadPrepareRejectionReason::ContentTypeNotAllowed,
+            }
+        );
     }
 }

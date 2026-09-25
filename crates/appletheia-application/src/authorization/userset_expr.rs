@@ -1,39 +1,37 @@
-use super::RelationRef;
+use crate::aggregate::SerializedAggregateError;
+use appletheia_domain::Aggregate;
 
-/// Represents a userset expression in the authorization model.
-///
-/// A `UsersetExpr` describes how subjects for a relation are resolved from
-/// direct tuples, other relations, or set operations on relations.
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+use super::{RelationRefOwned, RelationshipDerivationSource, RelationshipEntries};
+
+/// Owns a userset expression for runtime authorization evaluation.
+#[derive(Clone, Debug)]
 pub enum UsersetExpr {
-    /// Read relationships for the currently-evaluated relation.
-    This,
-
-    /// Evaluate another relation on the same aggregate.
+    /// Reads direct persisted tuples during evaluation. Sources run only during save.
+    /// An empty list declares a read-only direct relation with no local derivation.
+    This(Vec<RelationshipDerivationSource>),
     ComputedUserset {
-        /// The relation to evaluate on the current aggregate.
-        relation: RelationRef,
+        relation: RelationRefOwned,
     },
-
-    /// `computed_relation from tupleset_relation`
     TupleToUserset {
-        /// The relation that yields related aggregates to traverse.
-        tupleset_relation: RelationRef,
-        /// The relation to evaluate on each related aggregate.
-        computed_userset: RelationRef,
+        tupleset_relation: RelationRefOwned,
+        computed_userset: RelationRefOwned,
     },
-
-    /// Resolves subjects that appear in any of the contained expressions.
-    Union(&'static [UsersetExpr]),
-
-    /// Resolves only subjects that appear in all contained expressions.
-    Intersection(&'static [UsersetExpr]),
-
-    /// Resolves subjects from `base` except those also contained in `subtract`.
+    Union(Vec<UsersetExpr>),
+    Intersection(Vec<UsersetExpr>),
     Difference {
-        /// The base userset expression.
-        base: &'static UsersetExpr,
-        /// The userset expression to subtract from the base result.
-        subtract: &'static UsersetExpr,
+        base: Box<UsersetExpr>,
+        subtract: Box<UsersetExpr>,
     },
+}
+
+impl UsersetExpr {
+    /// Declares direct tuples derived from the current state of source aggregate `A`.
+    pub fn this<A, F, E>(handler: F) -> Self
+    where
+        A: Aggregate + 'static,
+        F: Fn(&A) -> Result<RelationshipEntries, E> + Send + Sync + 'static,
+        E: std::error::Error + From<SerializedAggregateError> + Send + Sync + 'static,
+    {
+        Self::This(vec![RelationshipDerivationSource::new::<A, F, E>(handler)])
+    }
 }

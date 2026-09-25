@@ -1,13 +1,13 @@
 use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
-use appletheia::application::command::{CommandHandled, CommandHandler};
+use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use appletheia::domain::{Aggregate, UniqueValue};
 use banking_iam_domain::{
-    Organization, OrganizationCreateResult, OrganizationCreation, OrganizationError,
-    OrganizationHandle, OrganizationOwner, OrganizationState, User,
+    Organization, OrganizationCreateRejectionReason, OrganizationCreateResult,
+    OrganizationCreation, OrganizationHandle, OrganizationOwner, OrganizationState, User,
 };
 
 use super::{
@@ -46,7 +46,6 @@ where
 {
     type Command = OrganizationCreateCommand;
     type Output = OrganizationCreateOutput;
-    type ReplayOutput = OrganizationCreateOutput;
     type Error = OrganizationCreateCommandHandlerError;
     type Uow = OR::Uow;
 
@@ -70,7 +69,7 @@ where
         uow: &mut Self::Uow,
         request_context: &RequestContext,
         command: &Self::Command,
-    ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
+    ) -> Result<Self::Output, Self::Error> {
         let OrganizationCreateCommand {
             owner,
             handle,
@@ -80,36 +79,54 @@ where
             picture,
         } = command.clone();
 
-        let unique_value = Self::handle_unique_value(&handle)?;
-        if self
-            .organization_repository
-            .find_by_unique_value(uow, OrganizationState::HANDLE_KEY, &unique_value)
-            .await?
-            .is_some()
-        {
-            return Err(OrganizationError::HandleAlreadyTaken.into());
-        }
-
         let mut organization = Organization::new();
         let organization_id = organization.aggregate_id();
-        let result = organization.create(OrganizationCreation {
+        let creation = OrganizationCreation {
             owner,
             handle,
             display_name,
             description,
             website_url,
             picture,
-        })?;
+        };
+
+        let unique_value = Self::handle_unique_value(&creation.handle)?;
+        let handle_is_taken = self
+            .organization_repository
+            .find_by_unique_value(uow, OrganizationState::HANDLE_KEY, &unique_value)
+            .await?
+            .is_some();
+        if handle_is_taken {
+            let reason = OrganizationCreateRejectionReason::HandleAlreadyTaken;
+            organization.reject_create(creation, reason)?;
+
+            self.organization_repository
+                .save(uow, request_context, &mut organization)
+                .await?;
+
+            return Ok(OrganizationCreateOutput::Rejected {
+                organization_id,
+                reason,
+            });
+        }
+
+        let result = organization.create(creation)?;
 
         self.organization_repository
             .save(uow, request_context, &mut organization)
             .await?;
 
         let output = match result {
-            OrganizationCreateResult::Created => OrganizationCreateOutput::new(organization_id),
+            OrganizationCreateResult::Created => {
+                OrganizationCreateOutput::Created { organization_id }
+            }
+            OrganizationCreateResult::Rejected { reason } => OrganizationCreateOutput::Rejected {
+                organization_id,
+                reason,
+            },
         };
 
-        Ok(CommandHandled::same(output))
+        Ok(output)
     }
 }
 
@@ -117,8 +134,9 @@ where
 mod tests {
     use std::sync::{Arc, Mutex};
 
+    use appletheia::application::aggregate::AggregateRef;
     use appletheia::application::authorization::{
-        AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
+        AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
     };
     use appletheia::application::command::CommandHandler;
 
@@ -129,8 +147,8 @@ mod tests {
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::Aggregate;
     use banking_iam_domain::{
-        Organization, OrganizationDisplayName, OrganizationHandle, OrganizationId,
-        OrganizationOwner, User, UserId,
+        Organization, OrganizationCreation, OrganizationDisplayName, OrganizationHandle,
+        OrganizationId, OrganizationOwner, User, UserId,
     };
     use uuid::Uuid;
 
@@ -158,6 +176,14 @@ mod tests {
     #[derive(Clone, Default)]
     struct TestOrganizationRepository {
         organization: Arc<Mutex<Option<Organization>>>,
+    }
+
+    impl TestOrganizationRepository {
+        fn new(organization: Organization) -> Self {
+            Self {
+                organization: Arc::new(Mutex::new(Some(organization))),
+            }
+        }
     }
 
     impl Repository<Organization> for TestOrganizationRepository {
@@ -200,7 +226,7 @@ mod tests {
             _unique_key: appletheia::domain::UniqueKey,
             _unique_value: &appletheia::domain::UniqueValue,
         ) -> Result<Option<Organization>, RepositoryError<Organization>> {
-            Ok(None)
+            Ok(self.organization.lock().expect("lock").clone())
         }
 
         async fn save(
@@ -283,11 +309,16 @@ mod tests {
             .await
             .expect("command should succeed");
 
-        let output = handled.into_output();
+        let output = handled;
         let saved = repository.organization.lock().expect("lock").clone();
         let saved = saved.expect("organization should be saved");
 
-        assert_eq!(output, OrganizationCreateOutput::new(saved.aggregate_id()));
+        assert_eq!(
+            output,
+            OrganizationCreateOutput::Created {
+                organization_id: saved.aggregate_id(),
+            }
+        );
         assert_eq!(
             saved.display_name().expect("display name should exist"),
             &display_name()
@@ -301,5 +332,41 @@ mod tests {
             OrganizationOwner::User(user_id)
         );
         assert_eq!(saved.uncommitted_events().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn handle_returns_error_when_handle_is_taken() {
+        let mut existing = Organization::new();
+        existing
+            .create(OrganizationCreation {
+                owner: OrganizationOwner::User(UserId::new()),
+                handle: OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
+                display_name: display_name(),
+                description: None,
+                website_url: None,
+                picture: None,
+            })
+            .expect("existing organization should be created");
+        let repository = TestOrganizationRepository::new(existing);
+        let handler = OrganizationCreateCommandHandler::new(repository.clone());
+        let mut uow = TestUow;
+        let (request_context, user_id) = request_context();
+
+        handler
+            .handle(
+                &mut uow,
+                &request_context,
+                &OrganizationCreateCommand {
+                    owner: OrganizationOwner::User(user_id),
+                    handle: OrganizationHandle::try_from("acme-labs")
+                        .expect("handle should be valid"),
+                    display_name: display_name(),
+                    description: None,
+                    website_url: None,
+                    picture: None,
+                },
+            )
+            .await
+            .expect_err("duplicate handle should return an error");
     }
 }

@@ -1,72 +1,82 @@
-use std::marker::PhantomData;
-use std::ops::Bound;
+use crate::aggregate::AggregateRef;
+use crate::authorization::{RelationshipDeriver, RelationshipStore};
+use std::{marker::PhantomData, ops::Bound};
 
 use appletheia_domain::{Aggregate, AggregateVersion, AggregateVersionRange};
 
 use crate::event::{EventReader, EventWriter};
+use crate::outbox::event::EventOutboxEnqueuer;
 use crate::request_context::RequestContext;
 use crate::snapshot::{SnapshotPolicy, SnapshotReader, SnapshotWriter};
 use crate::unit_of_work::UnitOfWork;
 
 use super::{
-    DefaultRepositoryDependencies, EventSaveHook, ReferenceIndexStore, Repository,
-    RepositoryConfig, RepositoryError, UniqueKeyReservationStore, UniqueValueOwnerLookup,
+    DefaultRepositoryDependencies, ReferenceIndexStore, Repository, RepositoryConfig,
+    RepositoryError, UniqueKeyReservationStore, UniqueValueOwnerLookup,
 };
 
-pub struct DefaultRepository<A, ER, EW, SR, SW, UVOL, UKS, RIS, ESH, Uow>
+pub struct DefaultRepository<A, ER, EW, EOE, SR, SW, UVOL, UKS, RIS, RS, RD, Uow>
 where
     A: Aggregate,
     Uow: UnitOfWork,
     ER: EventReader<A, Uow = Uow>,
     EW: EventWriter<A, Uow = Uow>,
+    EOE: EventOutboxEnqueuer<Uow = Uow>,
     SR: SnapshotReader<A, Uow = Uow>,
     SW: SnapshotWriter<A, Uow = Uow>,
     UVOL: UniqueValueOwnerLookup<Uow = Uow>,
     UKS: UniqueKeyReservationStore<Uow = Uow>,
     RIS: ReferenceIndexStore<Uow = Uow>,
-    ESH: EventSaveHook<A, Uow = Uow>,
+    RS: RelationshipStore<Uow = Uow>,
+    RD: RelationshipDeriver,
 {
-    config: RepositoryConfig,
     event_reader: ER,
-    snapshot_reader: SR,
     event_writer: EW,
+    event_outbox_enqueuer: EOE,
+    snapshot_reader: SR,
     snapshot_writer: SW,
     unique_value_owner_lookup: UVOL,
     unique_key_reservation_store: UKS,
     reference_index_store: RIS,
-    event_save_hook: ESH,
-    _marker: PhantomData<fn() -> A>,
+    relationship_store: RS,
+    relationship_deriver: RD,
+    aggregate: PhantomData<fn() -> A>,
+    config: RepositoryConfig,
 }
 
-impl<A, ER, EW, SR, SW, UVOL, UKS, RIS, ESH, Uow>
-    DefaultRepository<A, ER, EW, SR, SW, UVOL, UKS, RIS, ESH, Uow>
+impl<A, ER, EW, EOE, SR, SW, UVOL, UKS, RIS, RS, RD, Uow>
+    DefaultRepository<A, ER, EW, EOE, SR, SW, UVOL, UKS, RIS, RS, RD, Uow>
 where
     A: Aggregate,
     Uow: UnitOfWork,
     ER: EventReader<A, Uow = Uow>,
     EW: EventWriter<A, Uow = Uow>,
+    EOE: EventOutboxEnqueuer<Uow = Uow>,
     SR: SnapshotReader<A, Uow = Uow>,
     SW: SnapshotWriter<A, Uow = Uow>,
     UVOL: UniqueValueOwnerLookup<Uow = Uow>,
     UKS: UniqueKeyReservationStore<Uow = Uow>,
     RIS: ReferenceIndexStore<Uow = Uow>,
-    ESH: EventSaveHook<A, Uow = Uow>,
+    RS: RelationshipStore<Uow = Uow>,
+    RD: RelationshipDeriver,
 {
     pub fn new(
+        dependencies: DefaultRepositoryDependencies<ER, EW, EOE, SR, SW, UVOL, UKS, RIS, RS, RD>,
         config: RepositoryConfig,
-        dependencies: DefaultRepositoryDependencies<ER, EW, SR, SW, UVOL, UKS, RIS, ESH>,
     ) -> Self {
         Self {
-            config,
             event_reader: dependencies.event_reader,
-            snapshot_reader: dependencies.snapshot_reader,
             event_writer: dependencies.event_writer,
+            event_outbox_enqueuer: dependencies.event_outbox_enqueuer,
+            snapshot_reader: dependencies.snapshot_reader,
             snapshot_writer: dependencies.snapshot_writer,
             unique_value_owner_lookup: dependencies.unique_value_owner_lookup,
             unique_key_reservation_store: dependencies.unique_key_reservation_store,
             reference_index_store: dependencies.reference_index_store,
-            event_save_hook: dependencies.event_save_hook,
-            _marker: PhantomData,
+            relationship_store: dependencies.relationship_store,
+            relationship_deriver: dependencies.relationship_deriver,
+            aggregate: PhantomData,
+            config,
         }
     }
 
@@ -106,19 +116,21 @@ where
     }
 }
 
-impl<A, ER, EW, SR, SW, UVOL, UKS, RIS, ESH, Uow> Repository<A>
-    for DefaultRepository<A, ER, EW, SR, SW, UVOL, UKS, RIS, ESH, Uow>
+impl<A, ER, EW, EOE, SR, SW, UVOL, UKS, RIS, RS, RD, Uow> Repository<A>
+    for DefaultRepository<A, ER, EW, EOE, SR, SW, UVOL, UKS, RIS, RS, RD, Uow>
 where
     A: Aggregate,
     Uow: UnitOfWork,
     ER: EventReader<A, Uow = Uow>,
     EW: EventWriter<A, Uow = Uow>,
+    EOE: EventOutboxEnqueuer<Uow = Uow>,
     SR: SnapshotReader<A, Uow = Uow>,
     SW: SnapshotWriter<A, Uow = Uow>,
     UVOL: UniqueValueOwnerLookup<Uow = Uow>,
     UKS: UniqueKeyReservationStore<Uow = Uow>,
     RIS: ReferenceIndexStore<Uow = Uow>,
-    ESH: EventSaveHook<A, Uow = Uow>,
+    RS: RelationshipStore<Uow = Uow>,
+    RD: RelationshipDeriver,
 {
     type Uow = Uow;
 
@@ -175,15 +187,23 @@ where
             .await?;
 
         let events = aggregate.uncommitted_events();
-        self.event_writer
-            .write_events_and_outbox(uow, request_context, events)
-            .await?;
+        if !events.is_empty() {
+            let relationships = self.relationship_deriver.derive(aggregate)?;
+            let event_envelopes = self
+                .event_writer
+                .write_events(uow, request_context, events)
+                .await?;
+            self.event_outbox_enqueuer
+                .enqueue_events(uow, &event_envelopes)
+                .await?;
 
-        for event in events {
-            self.event_save_hook
-                .after_event_saved(uow, event)
-                .await
-                .map_err(|error| RepositoryError::EventSaveHook(Box::new(error)))?;
+            self.relationship_store
+                .replace(
+                    uow,
+                    &AggregateRef::from_id::<A>(aggregate_id),
+                    &relationships,
+                )
+                .await?;
         }
 
         match self.config.snapshot_policy {
@@ -203,7 +223,7 @@ where
                         >= minimum_interval.as_u64()
                 {
                     let snapshot = aggregate
-                        .to_snapshot()
+                        .try_to_snapshot()
                         .map_err(RepositoryError::Aggregate)?;
                     self.snapshot_writer.write_snapshot(uow, &snapshot).await?;
                 }
@@ -218,14 +238,21 @@ where
 #[cfg(test)]
 mod tests {
     use super::DefaultRepository;
-    use crate::event::{EventReader, EventReaderError, EventWriter, EventWriterError};
-    use crate::repository::{
-        DefaultRepositoryDependencies, NoopEventSaveHook, ReferenceIndexStore,
-        ReferenceIndexStoreError, Repository, RepositoryConfig, RepositoryError,
-        UniqueKeyReservationStore, UniqueKeyReservationStoreError, UniqueValueOwnerLookup,
-        UniqueValueOwnerLookupError,
+    use crate::aggregate::{AggregateIdValue, AggregateTypeOwned};
+    use crate::authorization::InMemoryAuthorizationModel;
+    use crate::event::{
+        EventEnvelope, EventNameOwned, EventReader, EventReaderError, EventSequence, EventWriter,
+        EventWriterError, SerializedEventPayload,
     };
-    use crate::request_context::{CorrelationId, MessageId, Principal, RequestContext};
+    use crate::outbox::event::{EventOutboxEnqueueError, EventOutboxEnqueuer};
+    use crate::repository::{
+        DefaultRepositoryDependencies, ReferenceIndexStore, ReferenceIndexStoreError, Repository,
+        RepositoryConfig, RepositoryError, UniqueKeyReservationStore,
+        UniqueKeyReservationStoreError, UniqueValueOwnerLookup, UniqueValueOwnerLookupError,
+    };
+    use crate::request_context::{
+        CausationId, CorrelationId, MessageId, Principal, RequestContext,
+    };
     use crate::snapshot::{
         SnapshotInterval, SnapshotPolicy, SnapshotReader, SnapshotReaderError, SnapshotWriter,
         SnapshotWriterError,
@@ -243,6 +270,50 @@ mod tests {
     use std::sync::{Arc, Mutex};
     use thiserror::Error;
     use uuid::Uuid;
+
+    struct RecordingRelationshipStore {
+        log: Arc<Mutex<Vec<String>>>,
+    }
+
+    impl crate::authorization::RelationshipStore for RecordingRelationshipStore {
+        type Uow = TestUnitOfWork;
+
+        async fn replace(
+            &self,
+            _uow: &mut Self::Uow,
+            _source: &crate::aggregate::AggregateRef,
+            relationships: &[crate::authorization::Relationship],
+        ) -> Result<(), crate::authorization::RelationshipStoreError> {
+            self.log
+                .lock()
+                .unwrap()
+                .push(format!("replace_relationships:{}", relationships.len()));
+            Ok(())
+        }
+
+        async fn read_targets_by_subject(
+            &self,
+            _uow: &mut Self::Uow,
+            _subject: &crate::authorization::RelationshipSubject,
+            _relation: &crate::authorization::RelationRefOwned,
+        ) -> Result<Vec<crate::aggregate::AggregateRef>, crate::authorization::RelationshipStoreError>
+        {
+            Ok(Vec::new())
+        }
+
+        async fn read_subjects_by_target(
+            &self,
+            _uow: &mut Self::Uow,
+            _target: &crate::aggregate::AggregateRef,
+            _relation: &crate::authorization::RelationRefOwned,
+            _subject_aggregate_type: Option<&AggregateTypeOwned>,
+        ) -> Result<
+            Vec<crate::authorization::RelationshipSubject>,
+            crate::authorization::RelationshipStoreError,
+        > {
+            Ok(Vec::new())
+        }
+    }
 
     #[derive(Debug, Default)]
     struct TestUnitOfWork;
@@ -445,16 +516,63 @@ mod tests {
     impl EventWriter<Counter> for RecordingEventWriter {
         type Uow = TestUnitOfWork;
 
-        async fn write_events_and_outbox(
+        async fn write_events(
             &self,
             _uow: &mut Self::Uow,
-            _request_context: &RequestContext,
+            request_context: &RequestContext,
             events: &[Event<CounterId, CounterEventPayload>],
-        ) -> Result<(), EventWriterError> {
+        ) -> Result<Vec<EventEnvelope>, EventWriterError> {
             self.log
                 .lock()
                 .expect("event writer log should be lockable")
                 .push(format!("write_events:{}", events.len()));
+
+            events
+                .iter()
+                .enumerate()
+                .map(|(index, event)| {
+                    let sequence =
+                        i64::try_from(index + 1).expect("test event sequence should fit i64");
+                    let payload =
+                        serde_json::to_value(event.payload()).map_err(EventWriterError::Json)?;
+
+                    Ok(EventEnvelope {
+                        event_sequence: EventSequence::try_from(sequence)
+                            .expect("test event sequence should be valid"),
+                        event_id: event.id(),
+                        aggregate_type: AggregateTypeOwned::from(Counter::TYPE),
+                        aggregate_id: AggregateIdValue::from(event.aggregate_id().value()),
+                        aggregate_version: event.aggregate_version(),
+                        event_name: EventNameOwned::from(event.payload().name()),
+                        payload: SerializedEventPayload::try_from(payload)
+                            .expect("test payload should be valid"),
+                        occurred_at: event.occurred_at(),
+                        correlation_id: request_context.correlation_id,
+                        causation_id: CausationId::from(request_context.message_id),
+                        context: request_context.clone(),
+                    })
+                })
+                .collect()
+        }
+    }
+
+    #[derive(Debug)]
+    struct RecordingEventOutboxEnqueuer {
+        log: Arc<Mutex<Vec<String>>>,
+    }
+
+    impl EventOutboxEnqueuer for RecordingEventOutboxEnqueuer {
+        type Uow = TestUnitOfWork;
+
+        async fn enqueue_events(
+            &self,
+            _uow: &mut Self::Uow,
+            events: &[EventEnvelope],
+        ) -> Result<(), EventOutboxEnqueueError> {
+            self.log
+                .lock()
+                .expect("event outbox log should be lockable")
+                .push(format!("enqueue_events:{}", events.len()));
 
             Ok(())
         }
@@ -616,28 +734,29 @@ mod tests {
         }
     }
 
-    fn repository(
-        log: Arc<Mutex<Vec<String>>>,
-        fail_with_conflict: bool,
-    ) -> DefaultRepository<
+    type TestRepository = DefaultRepository<
         Counter,
         RecordingEventReader,
         RecordingEventWriter,
+        RecordingEventOutboxEnqueuer,
         RecordingSnapshotReader,
         RecordingSnapshotWriter,
         RecordingUniqueValueOwnerLookup,
         RecordingUniqueKeyReservationStore,
         RecordingReferenceIndexStore,
-        NoopEventSaveHook<TestUnitOfWork>,
+        RecordingRelationshipStore,
+        InMemoryAuthorizationModel,
         TestUnitOfWork,
-    > {
+    >;
+
+    fn repository(log: Arc<Mutex<Vec<String>>>, fail_with_conflict: bool) -> TestRepository {
         DefaultRepository::new(
-            RepositoryConfig {
-                snapshot_policy: SnapshotPolicy::Disabled,
-            },
             DefaultRepositoryDependencies {
                 event_reader: RecordingEventReader,
                 event_writer: RecordingEventWriter {
+                    log: Arc::clone(&log),
+                },
+                event_outbox_enqueuer: RecordingEventOutboxEnqueuer {
                     log: Arc::clone(&log),
                 },
                 snapshot_reader: RecordingSnapshotReader,
@@ -651,8 +770,14 @@ mod tests {
                     fail_with_conflict,
                     log: Arc::clone(&log),
                 },
-                reference_index_store: RecordingReferenceIndexStore { log },
-                event_save_hook: NoopEventSaveHook::new(),
+                reference_index_store: RecordingReferenceIndexStore {
+                    log: Arc::clone(&log),
+                },
+                relationship_store: RecordingRelationshipStore { log },
+                relationship_deriver: InMemoryAuthorizationModel::new(),
+            },
+            RepositoryConfig {
+                snapshot_policy: SnapshotPolicy::Disabled,
             },
         )
     }
@@ -691,23 +816,14 @@ mod tests {
     fn repository_with_snapshot_policy(
         log: Arc<Mutex<Vec<String>>>,
         snapshot_policy: SnapshotPolicy,
-    ) -> DefaultRepository<
-        Counter,
-        RecordingEventReader,
-        RecordingEventWriter,
-        RecordingSnapshotReader,
-        RecordingSnapshotWriter,
-        RecordingUniqueValueOwnerLookup,
-        RecordingUniqueKeyReservationStore,
-        RecordingReferenceIndexStore,
-        NoopEventSaveHook<TestUnitOfWork>,
-        TestUnitOfWork,
-    > {
+    ) -> TestRepository {
         DefaultRepository::new(
-            RepositoryConfig { snapshot_policy },
             DefaultRepositoryDependencies {
                 event_reader: RecordingEventReader,
                 event_writer: RecordingEventWriter {
+                    log: Arc::clone(&log),
+                },
+                event_outbox_enqueuer: RecordingEventOutboxEnqueuer {
                     log: Arc::clone(&log),
                 },
                 snapshot_reader: RecordingSnapshotReader,
@@ -721,9 +837,13 @@ mod tests {
                     fail_with_conflict: false,
                     log: Arc::clone(&log),
                 },
-                reference_index_store: RecordingReferenceIndexStore { log },
-                event_save_hook: NoopEventSaveHook::new(),
+                reference_index_store: RecordingReferenceIndexStore {
+                    log: Arc::clone(&log),
+                },
+                relationship_store: RecordingRelationshipStore { log },
+                relationship_deriver: InMemoryAuthorizationModel::new(),
             },
+            RepositoryConfig { snapshot_policy },
         )
     }
 
@@ -731,25 +851,14 @@ mod tests {
         log: Arc<Mutex<Vec<String>>>,
         aggregate_id: Option<CounterId>,
         fail_lookup: bool,
-    ) -> DefaultRepository<
-        Counter,
-        RecordingEventReader,
-        RecordingEventWriter,
-        RecordingSnapshotReader,
-        RecordingSnapshotWriter,
-        RecordingUniqueValueOwnerLookup,
-        RecordingUniqueKeyReservationStore,
-        RecordingReferenceIndexStore,
-        NoopEventSaveHook<TestUnitOfWork>,
-        TestUnitOfWork,
-    > {
+    ) -> TestRepository {
         DefaultRepository::new(
-            RepositoryConfig {
-                snapshot_policy: SnapshotPolicy::Disabled,
-            },
             DefaultRepositoryDependencies {
                 event_reader: RecordingEventReader,
                 event_writer: RecordingEventWriter {
+                    log: Arc::clone(&log),
+                },
+                event_outbox_enqueuer: RecordingEventOutboxEnqueuer {
                     log: Arc::clone(&log),
                 },
                 snapshot_reader: RecordingSnapshotReader,
@@ -763,8 +872,14 @@ mod tests {
                     fail_with_conflict: false,
                     log: Arc::clone(&log),
                 },
-                reference_index_store: RecordingReferenceIndexStore { log },
-                event_save_hook: NoopEventSaveHook::new(),
+                reference_index_store: RecordingReferenceIndexStore {
+                    log: Arc::clone(&log),
+                },
+                relationship_store: RecordingRelationshipStore { log },
+                relationship_deriver: InMemoryAuthorizationModel::new(),
+            },
+            RepositoryConfig {
+                snapshot_policy: SnapshotPolicy::Disabled,
             },
         )
     }
@@ -787,10 +902,36 @@ mod tests {
             vec![
                 "replace:1:1".to_owned(),
                 "replace_refs:0:0".to_owned(),
-                "write_events:1".to_owned()
+                "write_events:1".to_owned(),
+                "enqueue_events:1".to_owned(),
+                "replace_relationships:0".to_owned()
             ]
         );
         assert!(aggregate.uncommitted_events().is_empty());
+    }
+
+    #[tokio::test]
+    async fn save_without_new_events_skips_event_writes_outbox_and_relationships() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let repository = repository(Arc::clone(&log), false);
+        let mut aggregate = registered_counter(None);
+        aggregate.core_mut().clear_uncommitted_events();
+
+        repository
+            .save(&mut TestUnitOfWork, &request_context(), &mut aggregate)
+            .await
+            .expect("save without events should succeed");
+
+        assert!(
+            log.lock()
+                .expect("log should be lockable")
+                .iter()
+                .all(|entry| {
+                    !entry.starts_with("write_events:")
+                        && !entry.starts_with("enqueue_events:")
+                        && !entry.starts_with("replace_relationships:")
+                })
+        );
     }
 
     #[tokio::test]
@@ -811,7 +952,9 @@ mod tests {
             vec![
                 "replace:0:0".to_owned(),
                 "replace_refs:0:0".to_owned(),
-                "write_events:1".to_owned()
+                "write_events:1".to_owned(),
+                "enqueue_events:1".to_owned(),
+                "replace_relationships:0".to_owned()
             ]
         );
     }
@@ -834,7 +977,9 @@ mod tests {
             vec![
                 "replace:0:0".to_owned(),
                 "replace_refs:0:0".to_owned(),
-                "write_events:1".to_owned()
+                "write_events:1".to_owned(),
+                "enqueue_events:1".to_owned(),
+                "replace_relationships:0".to_owned()
             ]
         );
         assert!(aggregate.state().is_none());
@@ -866,7 +1011,9 @@ mod tests {
             vec![
                 "replace:0:0".to_owned(),
                 "replace_refs:0:0".to_owned(),
-                "write_events:1".to_owned()
+                "write_events:1".to_owned(),
+                "enqueue_events:1".to_owned(),
+                "replace_relationships:0".to_owned()
             ]
         );
         assert!(aggregate.uncommitted_events().is_empty());

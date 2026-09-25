@@ -1,3 +1,5 @@
+use serde::Serialize;
+
 use appletheia::domain::EventId;
 
 use super::{
@@ -6,7 +8,7 @@ use super::{
 };
 
 /// Counterparty account owner shown in a transfer transaction list item.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub enum OwnedAccountTransactionListItemCounterpartyAccountOwner {
     User(OwnedAccountTransactionListItemCounterpartyAccountOwnerUser),
     Organization(OwnedAccountTransactionListItemCounterpartyAccountOwnerOrganization),

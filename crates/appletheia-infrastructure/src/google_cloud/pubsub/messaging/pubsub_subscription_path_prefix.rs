@@ -1,3 +1,4 @@
+use super::PubsubTopicName;
 use appletheia_application::ConsumerGroup;
 
 use super::PubsubSubscriptionPathPrefixError;
@@ -23,7 +24,45 @@ impl PubsubSubscriptionPathPrefix {
         &self.0
     }
 
-    pub fn subscription_name(&self, consumer_group: &ConsumerGroup) -> String {
-        format!("{}/subscriptions/{}", self.value(), consumer_group.value())
+    pub fn subscription_name(
+        &self,
+        topic_name: &PubsubTopicName,
+        consumer_group: &ConsumerGroup,
+    ) -> String {
+        let topic_identifier = topic_name
+            .value()
+            .rsplit('/')
+            .next()
+            .unwrap_or(topic_name.value());
+        format!(
+            "{}/subscriptions/{}_{}",
+            self.value(),
+            topic_identifier,
+            consumer_group.value()
+        )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn includes_topic_identifier_and_consumer_group() {
+        let prefix = PubsubSubscriptionPathPrefix::new("projects/subscribers".to_owned()).unwrap();
+        let group = ConsumerGroup::new("projector_transfer".to_owned()).unwrap();
+        let events =
+            PubsubTopicName::new("projects/publishers/topics/banking-events".to_owned()).unwrap();
+        let other_events =
+            PubsubTopicName::new("projects/publishers/topics/other-events".to_owned()).unwrap();
+
+        assert_eq!(
+            prefix.subscription_name(&events, &group),
+            "projects/subscribers/subscriptions/banking-events_projector_transfer"
+        );
+        assert_ne!(
+            prefix.subscription_name(&events, &group),
+            prefix.subscription_name(&other_events, &group)
+        );
     }
 }

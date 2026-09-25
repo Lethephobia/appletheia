@@ -1,11 +1,13 @@
+use serde::Serialize;
+
 use appletheia::domain::EventId;
 use banking_ledger_domain::account::AccountId;
 
 use super::OwnedAccountTransactionListItemCounterpartyAccountOwner;
-use banking_shared_kernel_application::read_model::ReadModelObservation;
+use appletheia::application::read_model::ReadModelObservation;
 
 /// Counterparty account shown in a transfer transaction list item.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct OwnedAccountTransactionListItemCounterpartyAccount {
     pub id: AccountId,
     pub owner: OwnedAccountTransactionListItemCounterpartyAccountOwner,

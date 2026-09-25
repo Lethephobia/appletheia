@@ -2,9 +2,9 @@ pub mod unit_of_work_error;
 pub mod unit_of_work_factory;
 pub mod unit_of_work_factory_error;
 
-pub use unit_of_work_error::UnitOfWorkError;
-pub use unit_of_work_factory::UnitOfWorkFactory;
-pub use unit_of_work_factory_error::UnitOfWorkFactoryError;
+pub use unit_of_work_error::*;
+pub use unit_of_work_factory::*;
+pub use unit_of_work_factory_error::*;
 
 use std::error::Error;
 

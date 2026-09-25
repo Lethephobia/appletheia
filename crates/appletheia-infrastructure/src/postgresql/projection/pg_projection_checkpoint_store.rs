@@ -38,10 +38,9 @@ impl ProjectionCheckpointStore for PgProjectionCheckpointStore {
             SELECT
               id,
               projector_name,
-              last_event_sequence,
-              updated_at
-              FROM projection_checkpoints
-             WHERE projector_name = $1
+              last_event_sequence
+            FROM projection_checkpoints
+            WHERE projector_name = $1
             "#,
         )
         .bind(projector_name.value())
@@ -79,8 +78,7 @@ impl ProjectionCheckpointStore for PgProjectionCheckpointStore {
             DO UPDATE SET last_event_sequence = GREATEST(
                               projection_checkpoints.last_event_sequence,
                               EXCLUDED.last_event_sequence
-                          ),
-                          updated_at = now()
+                          )
             "#,
         )
         .bind(id_value)

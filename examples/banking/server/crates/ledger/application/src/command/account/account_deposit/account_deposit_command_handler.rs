@@ -1,8 +1,8 @@
 use appletheia::application::authorization::{AuthorizationPlan, PrincipalRequirement};
-use appletheia::application::command::{CommandHandled, CommandHandler};
+use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_ledger_domain::account::{Account, AccountDepositResult};
+use banking_ledger_domain::account::Account;
 
 use super::{AccountDepositCommand, AccountDepositCommandHandlerError, AccountDepositOutput};
 
@@ -29,7 +29,6 @@ where
 {
     type Command = AccountDepositCommand;
     type Output = AccountDepositOutput;
-    type ReplayOutput = AccountDepositOutput;
     type Error = AccountDepositCommandHandlerError;
     type Uow = AR::Uow;
 
@@ -47,22 +46,17 @@ where
         uow: &mut Self::Uow,
         request_context: &RequestContext,
         command: &Self::Command,
-    ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
+    ) -> Result<Self::Output, Self::Error> {
         let mut account = self
             .account_repository
             .read(uow, command.account_id)
             .await?;
 
-        let result = account.deposit(command.amount)?;
+        account.deposit(command.amount)?;
         self.account_repository
             .save(uow, request_context, &mut account)
             .await?;
 
-        let output = match result {
-            AccountDepositResult::Deposited => AccountDepositOutput::Deposited,
-            AccountDepositResult::Rejected { reason } => AccountDepositOutput::Rejected { reason },
-        };
-
-        Ok(CommandHandled::same(output))
+        Ok(AccountDepositOutput::Deposited)
     }
 }

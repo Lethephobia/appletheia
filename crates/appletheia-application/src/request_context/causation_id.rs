@@ -3,6 +3,7 @@ use std::{fmt, fmt::Display};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use crate::command::CommandFailureId;
 use crate::request_context::MessageId;
 use appletheia_domain::event::EventId;
 
@@ -26,6 +27,12 @@ impl From<MessageId> for CausationId {
 
 impl From<EventId> for CausationId {
     fn from(value: EventId) -> Self {
+        Self(value.value())
+    }
+}
+
+impl From<CommandFailureId> for CausationId {
+    fn from(value: CommandFailureId) -> Self {
         Self(value.value())
     }
 }
@@ -60,6 +67,14 @@ mod tests {
         let causation_id = CausationId::from(event_id);
 
         assert_eq!(causation_id.value(), event_id.value());
+    }
+
+    #[test]
+    fn from_command_failure_id_uses_same_uuid() {
+        let failure_id = CommandFailureId::new();
+        let causation_id = CausationId::from(failure_id);
+
+        assert_eq!(causation_id.value(), failure_id.value());
     }
 
     #[test]

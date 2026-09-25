@@ -1,0 +1,17 @@
+use banking_ledger_domain::CurrencyRegistrarJoinRequest;
+
+mod currency_registrar_join_request_approver_relation;
+mod currency_registrar_join_request_canceler_relation;
+mod currency_registrar_join_request_registrar_derivation_handler_error;
+mod currency_registrar_join_request_registrar_relation;
+mod currency_registrar_join_request_rejecter_relation;
+mod currency_registrar_join_request_requester_derivation_handler_error;
+mod currency_registrar_join_request_requester_relation;
+
+pub use currency_registrar_join_request_approver_relation::*;
+pub use currency_registrar_join_request_canceler_relation::*;
+pub use currency_registrar_join_request_registrar_derivation_handler_error::*;
+pub use currency_registrar_join_request_registrar_relation::*;
+pub use currency_registrar_join_request_rejecter_relation::*;
+pub use currency_registrar_join_request_requester_derivation_handler_error::*;
+pub use currency_registrar_join_request_requester_relation::*;

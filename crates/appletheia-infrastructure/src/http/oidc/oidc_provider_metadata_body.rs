@@ -30,7 +30,7 @@ impl OidcProviderMetadataBody {
         serde_json::from_slice(bytes).map_err(OidcProviderMetadataBodyError::InvalidJson)
     }
 
-    pub fn into_provider_metadata(&self) -> OidcProviderMetadata {
+    pub fn to_provider_metadata(&self) -> OidcProviderMetadata {
         OidcProviderMetadata {
             issuer_url: OidcIssuerUrl::new(self.issuer_url.clone()),
             authorization_endpoint_url: OidcAuthorizationEndpointUrl::new(

@@ -1,5 +1,6 @@
 use std::fmt::{self, Display};
 
+use crate::command::CommandName;
 use crate::projection::ProjectorName;
 use crate::saga::SagaName;
 
@@ -21,14 +22,20 @@ impl ConsumerGroup {
     }
 }
 
-impl From<SagaName> for ConsumerGroup {
-    fn from(value: SagaName) -> Self {
+impl From<CommandName> for ConsumerGroup {
+    fn from(value: CommandName) -> Self {
         Self(value.value().to_string())
     }
 }
 
 impl From<ProjectorName> for ConsumerGroup {
     fn from(value: ProjectorName) -> Self {
+        Self(value.value().to_string())
+    }
+}
+
+impl From<SagaName> for ConsumerGroup {
+    fn from(value: SagaName) -> Self {
         Self(value.value().to_string())
     }
 }

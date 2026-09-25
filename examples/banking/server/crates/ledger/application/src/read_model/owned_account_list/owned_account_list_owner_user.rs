@@ -1,9 +1,11 @@
+use serde::Serialize;
+
 use banking_iam_domain::{UserDisplayName, UserId, UserPictureRef, Username};
 
-use banking_shared_kernel_application::read_model::ReadModelObservation;
+use appletheia::application::read_model::ReadModelObservation;
 
 /// User owner shown in an owned account list.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct OwnedAccountListOwnerUser {
     pub id: UserId,
     pub username: Option<Username>,

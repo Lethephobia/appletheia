@@ -1,10 +1,8 @@
-use std::collections::HashMap;
-
+use appletheia_application::aggregate::{AggregateIdValue, AggregateRef, AggregateTypeOwned};
 use appletheia_application::authorization::{
-    AggregateRef, RelationRefOwned, Relationship, RelationshipChange, RelationshipId,
-    RelationshipStore, RelationshipStoreError, RelationshipSubject,
+    RelationRefOwned, Relationship, RelationshipId, RelationshipStore, RelationshipStoreError,
+    RelationshipSubject,
 };
-use appletheia_application::event::{AggregateIdValue, AggregateTypeOwned};
 use sqlx::{Postgres, QueryBuilder, Row};
 use uuid::Uuid;
 
@@ -29,177 +27,91 @@ impl Default for PgRelationshipStore {
 impl RelationshipStore for PgRelationshipStore {
     type Uow = PgUnitOfWork;
 
-    async fn apply_changes(
+    async fn replace(
         &self,
         uow: &mut PgUnitOfWork,
-        changes: &[RelationshipChange],
+        source: &AggregateRef,
+        relationships: &[Relationship],
     ) -> Result<(), RelationshipStoreError> {
-        if changes.is_empty() {
+        let transaction = uow.transaction_mut();
+        sqlx::query("DELETE FROM relationships WHERE source_aggregate_type = $1 AND source_aggregate_id = $2")
+            .bind(source.aggregate_type.value())
+            .bind(source.aggregate_id.value())
+            .execute(transaction.as_mut()).await
+            .map_err(|error| RelationshipStoreError::Persistence(Box::new(error)))?;
+
+        if relationships.is_empty() {
             return Ok(());
         }
 
-        const CHUNK_SIZE: usize = 1000;
+        let mut query = QueryBuilder::<Postgres>::new(
+            r#"
+            INSERT INTO relationships (
+                id,
+                source_aggregate_type,
+                source_aggregate_id,
+                target_aggregate_type,
+                target_aggregate_id,
+                relation,
+                subject_aggregate_type,
+                subject_aggregate_id,
+                subject_relation,
+                subject_is_wildcard
+            )
+            "#,
+        );
 
-        let transaction = uow.transaction_mut();
-
-        let mut deduped: HashMap<Relationship, bool> = HashMap::new();
-        for change in changes {
-            let (relationship, is_upsert) = match change {
-                RelationshipChange::Upsert(relationship) => (relationship, true),
-                RelationshipChange::Delete(relationship) => (relationship, false),
+        query.push_values(relationships, |mut b, item| {
+            let (
+                subject_aggregate_type,
+                subject_aggregate_id,
+                subject_relation,
+                subject_is_wildcard,
+            ) = match &item.subject {
+                RelationshipSubject::Aggregate(subject) => (
+                    subject.aggregate_type.value(),
+                    Some(subject.aggregate_id.value()),
+                    None,
+                    false,
+                ),
+                RelationshipSubject::Wildcard { aggregate_type } => {
+                    (aggregate_type.value(), None, None, true)
+                }
+                RelationshipSubject::AggregateSet {
+                    aggregate,
+                    relation,
+                } => (
+                    aggregate.aggregate_type.value(),
+                    Some(aggregate.aggregate_id.value()),
+                    Some(relation.relation_name.value()),
+                    false,
+                ),
             };
 
-            deduped.insert(relationship.clone(), is_upsert);
-        }
+            b.push_bind(RelationshipId::new().value())
+                .push_bind(source.aggregate_type.value())
+                .push_bind(source.aggregate_id.value())
+                .push_bind(item.target.aggregate_type.value())
+                .push_bind(item.target.aggregate_id.value())
+                .push_bind(item.relation.relation_name.value())
+                .push_bind(subject_aggregate_type)
+                .push_bind(subject_aggregate_id)
+                .push_bind(subject_relation)
+                .push_bind(subject_is_wildcard);
+        });
 
-        let mut deletes: Vec<Relationship> = Vec::new();
-        let mut upserts: Vec<Relationship> = Vec::new();
-        for (relationship, is_upsert) in deduped {
-            if is_upsert {
-                upserts.push(relationship);
-            } else {
-                deletes.push(relationship);
-            }
-        }
+        query.push(" ON CONFLICT DO NOTHING");
 
-        for chunk in deletes.chunks(CHUNK_SIZE) {
-            let mut query = QueryBuilder::<Postgres>::new(
-                r#"
-                DELETE FROM relationships r
-                USING (
-                "#,
-            );
-
-            query.push_values(chunk, |mut b, item| {
-                let (
-                    subject_aggregate_type,
-                    subject_aggregate_id,
-                    subject_relation,
-                    subject_is_wildcard,
-                ) = match &item.subject {
-                    RelationshipSubject::Aggregate(subject) => (
-                        subject.aggregate_type.value(),
-                        Some(subject.aggregate_id.value()),
-                        None,
-                        false,
-                    ),
-                    RelationshipSubject::Wildcard { aggregate_type } => {
-                        (aggregate_type.value(), None, None, true)
-                    }
-                    RelationshipSubject::AggregateSet {
-                        aggregate,
-                        relation,
-                    } => (
-                        aggregate.aggregate_type.value(),
-                        Some(aggregate.aggregate_id.value()),
-                        Some(relation.relation_name.value()),
-                        false,
-                    ),
-                };
-
-                b.push_bind(item.aggregate.aggregate_type.value())
-                    .push_bind(item.aggregate.aggregate_id.value())
-                    .push_bind(item.relation.relation_name.value())
-                    .push_bind(subject_aggregate_type)
-                    .push_bind(subject_aggregate_id)
-                    .push_bind(subject_relation)
-                    .push_bind(subject_is_wildcard);
-            });
-
-            query.push(
-                r#"
-                ) AS v(
-                    aggregate_type,
-                    aggregate_id,
-                    relation,
-                    subject_aggregate_type,
-                    subject_aggregate_id,
-                    subject_relation,
-                    subject_is_wildcard
-                )
-                WHERE r.aggregate_type = v.aggregate_type
-                  AND r.aggregate_id = v.aggregate_id
-                  AND r.relation = v.relation
-                  AND r.subject_aggregate_type = v.subject_aggregate_type
-                  AND r.subject_is_wildcard = v.subject_is_wildcard
-                  AND r.subject_aggregate_id IS NOT DISTINCT FROM v.subject_aggregate_id
-                  AND r.subject_relation IS NOT DISTINCT FROM v.subject_relation
-                "#,
-            );
-
-            query
-                .build()
-                .execute(transaction.as_mut())
-                .await
-                .map_err(|e| RelationshipStoreError::Persistence(Box::new(e)))?;
-        }
-
-        for chunk in upserts.chunks(CHUNK_SIZE) {
-            let mut query = QueryBuilder::<Postgres>::new(
-                r#"
-                INSERT INTO relationships (
-                    id,
-                    aggregate_type,
-                    aggregate_id,
-                    relation,
-                    subject_aggregate_type,
-                    subject_aggregate_id,
-                    subject_relation,
-                    subject_is_wildcard
-                )
-                "#,
-            );
-
-            query.push_values(chunk, |mut b, item| {
-                let (
-                    subject_aggregate_type,
-                    subject_aggregate_id,
-                    subject_relation,
-                    subject_is_wildcard,
-                ) = match &item.subject {
-                    RelationshipSubject::Aggregate(subject) => (
-                        subject.aggregate_type.value(),
-                        Some(subject.aggregate_id.value()),
-                        None,
-                        false,
-                    ),
-                    RelationshipSubject::Wildcard { aggregate_type } => {
-                        (aggregate_type.value(), None, None, true)
-                    }
-                    RelationshipSubject::AggregateSet {
-                        aggregate,
-                        relation,
-                    } => (
-                        aggregate.aggregate_type.value(),
-                        Some(aggregate.aggregate_id.value()),
-                        Some(relation.relation_name.value()),
-                        false,
-                    ),
-                };
-
-                b.push_bind(RelationshipId::new().value())
-                    .push_bind(item.aggregate.aggregate_type.value())
-                    .push_bind(item.aggregate.aggregate_id.value())
-                    .push_bind(item.relation.relation_name.value())
-                    .push_bind(subject_aggregate_type)
-                    .push_bind(subject_aggregate_id)
-                    .push_bind(subject_relation)
-                    .push_bind(subject_is_wildcard);
-            });
-
-            query.push(" ON CONFLICT DO NOTHING");
-
-            query
-                .build()
-                .execute(transaction.as_mut())
-                .await
-                .map_err(|e| RelationshipStoreError::Persistence(Box::new(e)))?;
-        }
+        query
+            .build()
+            .execute(transaction.as_mut())
+            .await
+            .map_err(|e| RelationshipStoreError::Persistence(Box::new(e)))?;
 
         Ok(())
     }
 
-    async fn read_aggregates_by_subject(
+    async fn read_targets_by_subject(
         &self,
         uow: &mut PgUnitOfWork,
         subject: &RelationshipSubject,
@@ -207,7 +119,7 @@ impl RelationshipStore for PgRelationshipStore {
     ) -> Result<Vec<AggregateRef>, RelationshipStoreError> {
         let mut query = QueryBuilder::<Postgres>::new(
             r#"
-            SELECT DISTINCT aggregate_type, aggregate_id
+            SELECT DISTINCT target_aggregate_type, target_aggregate_id
             FROM relationships
             WHERE relation =
             "#,
@@ -242,7 +154,7 @@ impl RelationshipStore for PgRelationshipStore {
             }
         }
 
-        query.push(" AND aggregate_type = ");
+        query.push(" AND target_aggregate_type = ");
         query.push_bind(relation.aggregate_type.value());
 
         let transaction = uow.transaction_mut();
@@ -254,28 +166,28 @@ impl RelationshipStore for PgRelationshipStore {
 
         let mut out = Vec::with_capacity(rows.len());
         for row in rows {
-            let aggregate_type: String = row
-                .try_get("aggregate_type")
+            let target_aggregate_type_string: String = row
+                .try_get("target_aggregate_type")
                 .map_err(|e| RelationshipStoreError::MappingFailed(Box::new(e)))?;
-            let aggregate_type: AggregateTypeOwned = aggregate_type
+            let target_aggregate_type: AggregateTypeOwned = target_aggregate_type_string
                 .parse()
                 .map_err(|e| RelationshipStoreError::MappingFailed(Box::new(e)))?;
-            let aggregate_id: Uuid = row
-                .try_get("aggregate_id")
+            let target_aggregate_id: Uuid = row
+                .try_get("target_aggregate_id")
                 .map_err(|e| RelationshipStoreError::MappingFailed(Box::new(e)))?;
             out.push(AggregateRef {
-                aggregate_type,
-                aggregate_id: AggregateIdValue::from(aggregate_id),
+                aggregate_type: target_aggregate_type,
+                aggregate_id: AggregateIdValue::from(target_aggregate_id),
             });
         }
 
         Ok(out)
     }
 
-    async fn read_subjects_by_aggregate(
+    async fn read_subjects_by_target(
         &self,
         uow: &mut PgUnitOfWork,
-        aggregate: &AggregateRef,
+        target: &AggregateRef,
         relation: &RelationRefOwned,
         subject_aggregate_type: Option<&AggregateTypeOwned>,
     ) -> Result<Vec<RelationshipSubject>, RelationshipStoreError> {
@@ -284,20 +196,22 @@ impl RelationshipStore for PgRelationshipStore {
             r#"
             SELECT
                 id,
-                aggregate_type,
-                aggregate_id,
+                source_aggregate_type,
+                source_aggregate_id,
+                target_aggregate_type,
+                target_aggregate_id,
                 relation,
                 subject_aggregate_type,
                 subject_aggregate_id,
                 subject_relation,
                 subject_is_wildcard
             FROM relationships
-            WHERE aggregate_type =
+            WHERE target_aggregate_type =
             "#,
         );
-        query.push_bind(aggregate.aggregate_type.value());
-        query.push(" AND aggregate_id = ");
-        query.push_bind(aggregate.aggregate_id.value());
+        query.push_bind(target.aggregate_type.value());
+        query.push(" AND target_aggregate_id = ");
+        query.push_bind(target.aggregate_id.value());
         query.push(" AND relation = ");
         query.push_bind(relation.relation_name.value());
 
@@ -318,9 +232,143 @@ impl RelationshipStore for PgRelationshipStore {
             let relationship = row
                 .try_into_relationship()
                 .map_err(|e| RelationshipStoreError::MappingFailed(Box::new(e)))?;
-            out.push(relationship.subject);
+            if !out.contains(&relationship.subject) {
+                out.push(relationship.subject);
+            }
         }
 
         Ok(out)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use appletheia_application::aggregate::AggregateRef;
+    use appletheia_application::authorization::{
+        RelationRefOwned, Relationship, RelationshipStore, RelationshipSubject,
+    };
+    use appletheia_application::unit_of_work::{UnitOfWork, UnitOfWorkFactory};
+    use sqlx::PgPool;
+    use uuid::Uuid;
+
+    use super::PgRelationshipStore;
+    use crate::postgresql::PgUnitOfWorkFactory;
+
+    fn aggregate(kind: &str) -> AggregateRef {
+        AggregateRef {
+            aggregate_type: kind.parse().unwrap(),
+            aggregate_id: Uuid::now_v7().into(),
+        }
+    }
+
+    fn member(target: &AggregateRef, user: &AggregateRef) -> Relationship {
+        Relationship {
+            target: target.clone(),
+            relation: RelationRefOwned {
+                aggregate_type: target.aggregate_type.clone(),
+                relation_name: "member".parse().unwrap(),
+            },
+            subject: RelationshipSubject::Aggregate(user.clone()),
+        }
+    }
+
+    async fn seed(pool: &PgPool, source: &AggregateRef) {
+        sqlx::query("INSERT INTO events (id, aggregate_type, aggregate_id, aggregate_version, event_name, payload, occurred_at, correlation_id, causation_id) VALUES ($1, $2, $3, 1, 'created', '{}', now(), $4, $5)")
+            .bind(Uuid::now_v7()).bind(source.aggregate_type.value()).bind(source.aggregate_id.value()).bind(Uuid::now_v7()).bind(Uuid::now_v7())
+            .execute(pool).await.unwrap();
+    }
+
+    #[sqlx::test(migrations = "migrations/postgresql")]
+    #[ignore = "requires PostgreSQL"]
+    async fn replacement_preserves_other_sources_and_rolls_back(pool: PgPool) {
+        let factory = PgUnitOfWorkFactory::new(pool.clone());
+        let store = PgRelationshipStore;
+        let first = aggregate("membership");
+        let second = aggregate("membership");
+        let target = aggregate("organization");
+        let user = aggregate("user");
+        let tuple = member(&target, &user);
+        seed(&pool, &first).await;
+        seed(&pool, &second).await;
+        let mut uow = factory.begin().await.unwrap();
+        store
+            .replace(&mut uow, &first, std::slice::from_ref(&tuple))
+            .await
+            .unwrap();
+        store
+            .replace(&mut uow, &second, std::slice::from_ref(&tuple))
+            .await
+            .unwrap();
+        assert_eq!(
+            store
+                .read_subjects_by_target(&mut uow, &target, &tuple.relation, None)
+                .await
+                .unwrap(),
+            vec![tuple.subject.clone()]
+        );
+        assert_eq!(
+            store
+                .read_targets_by_subject(&mut uow, &tuple.subject, &tuple.relation)
+                .await
+                .unwrap(),
+            vec![target.clone()]
+        );
+        uow.commit().await.unwrap();
+
+        let mut uow = factory.begin().await.unwrap();
+        store.replace(&mut uow, &first, &[]).await.unwrap();
+        assert_eq!(
+            store
+                .read_subjects_by_target(&mut uow, &target, &tuple.relation, None)
+                .await
+                .unwrap()
+                .len(),
+            1
+        );
+        uow.commit().await.unwrap();
+
+        let mut uow = factory.begin().await.unwrap();
+        store.replace(&mut uow, &second, &[]).await.unwrap();
+        assert!(
+            store
+                .read_subjects_by_target(&mut uow, &target, &tuple.relation, None)
+                .await
+                .unwrap()
+                .is_empty()
+        );
+        uow.rollback().await.unwrap();
+
+        let mut uow = factory.begin().await.unwrap();
+        assert_eq!(
+            store
+                .read_subjects_by_target(&mut uow, &target, &tuple.relation, None)
+                .await
+                .unwrap()
+                .len(),
+            1
+        );
+        uow.rollback().await.unwrap();
+
+        // A replacement followed by a failed event write must not commit its deletion.
+        let mut uow = factory.begin().await.unwrap();
+        store.replace(&mut uow, &second, &[]).await.unwrap();
+        assert!(
+            sqlx::query("INSERT INTO events SELECT * FROM events WHERE aggregate_id = $1")
+                .bind(second.aggregate_id.value())
+                .execute(uow.transaction_mut().as_mut())
+                .await
+                .is_err()
+        );
+        uow.rollback().await.unwrap();
+        let mut uow = factory.begin().await.unwrap();
+        assert_eq!(
+            store
+                .read_subjects_by_target(&mut uow, &target, &tuple.relation, None)
+                .await
+                .unwrap()
+                .len(),
+            1
+        );
+        uow.rollback().await.unwrap();
     }
 }

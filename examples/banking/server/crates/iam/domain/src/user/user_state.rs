@@ -1,32 +1,26 @@
 use appletheia::aggregate_state;
-use appletheia::domain::{AggregateId, ReferenceValues, UniqueValue, UniqueValues};
+use appletheia::domain::{UniqueValue, UniqueValues};
 use appletheia::reference_indexes;
 use appletheia::unique_constraints;
 use uuid::Uuid;
 
 use super::{
-    OrganizationMembership, UserBio, UserDisplayName, UserIdentity, UserPictureRef, UserStateError,
-    UserStatus, Username,
+    UserBio, UserDisplayName, UserIdentity, UserPictureRef, UserStateError, UserStatus, Username,
 };
-use crate::OrganizationId;
 
 /// Stores the materialized state of a `User` aggregate.
 #[aggregate_state(error = UserStateError)]
 #[unique_constraints(
     entry(key = "username", value = username_unique_value),
-    entry(key = "provider_subject", values = provider_subject_unique_values),
-    entry(key = "organization_user", values = organization_user_unique_values)
+    entry(key = "provider_subject", values = provider_subject_unique_values)
 )]
-#[reference_indexes(
-    entry(key = "organization", values = organization_ref_values)
-)]
+#[reference_indexes()]
 pub struct UserState {
     pub(super) identities: Vec<UserIdentity>,
     pub(super) username: Option<Username>,
     pub(super) display_name: Option<UserDisplayName>,
     pub(super) bio: Option<UserBio>,
     pub(super) picture: Option<UserPictureRef>,
-    pub(super) organization_memberships: Vec<OrganizationMembership>,
     pub(super) status: UserStatus,
 }
 
@@ -70,61 +64,15 @@ fn provider_subject_unique_values(
     Ok(Some(values))
 }
 
-fn organization_user_unique_values(
-    state: &UserState,
-    aggregate_id: Uuid,
-) -> Result<Option<UniqueValues>, UserStateError> {
-    if state.status.is_removed() || state.organization_memberships.is_empty() {
-        return Ok(None);
-    }
-
-    let user_id = aggregate_id.to_string();
-    let values = state
-        .organization_memberships
-        .iter()
-        .map(|membership| {
-            let organization_id = membership.organization_id().value().to_string();
-            Ok(UniqueValue::from_strings([
-                organization_id.as_str(),
-                user_id.as_str(),
-            ])?)
-        })
-        .collect::<Result<Vec<_>, UserStateError>>()?;
-    let values = UniqueValues::new(values)?;
-
-    Ok(Some(values))
-}
-
-fn organization_ref_values(
-    state: &UserState,
-    _aggregate_id: Uuid,
-) -> Result<Option<ReferenceValues>, UserStateError> {
-    if state.organization_memberships.is_empty() {
-        return Ok(None);
-    }
-
-    let values = state
-        .organization_memberships
-        .iter()
-        .map(OrganizationMembership::organization_id)
-        .collect::<Vec<OrganizationId>>();
-    let values = ReferenceValues::new(values)?;
-
-    Ok(Some(values))
-}
-
 #[cfg(test)]
 mod tests {
-    use appletheia::domain::{
-        ReferenceIndexes, ReferenceValues, UniqueConstraints, UniqueKey, UniqueValues,
-    };
+    use appletheia::domain::{UniqueConstraints, UniqueKey, UniqueValues};
     use banking_shared_kernel_domain::contact::Email;
     use uuid::Uuid;
 
     use crate::{
-        OrganizationId, OrganizationMembership, OrganizationRoles, UserDisplayName, UserIdentity,
-        UserIdentityProvider, UserIdentitySubject, UserPictureRef, UserPictureUrl, UserState,
-        UserStatus, Username,
+        UserDisplayName, UserIdentity, UserIdentityProvider, UserIdentitySubject, UserPictureRef,
+        UserPictureUrl, UserState, UserStatus, Username,
     };
 
     fn identity() -> UserIdentity {
@@ -144,7 +92,6 @@ mod tests {
             display_name: None,
             bio: None,
             picture: None,
-            organization_memberships: Vec::new(),
             status: UserStatus::Active,
         };
 
@@ -166,7 +113,6 @@ mod tests {
             display_name: None,
             bio: None,
             picture: None,
-            organization_memberships: Vec::new(),
             status: UserStatus::Active,
         };
         state.username = Some(Username::try_from("alice").expect("username should be valid"));
@@ -195,7 +141,6 @@ mod tests {
             display_name: None,
             bio: None,
             picture: None,
-            organization_memberships: Vec::new(),
             status: UserStatus::Active,
         };
         state.identities.push(identity());
@@ -226,7 +171,6 @@ mod tests {
             display_name: None,
             bio: None,
             picture: None,
-            organization_memberships: Vec::new(),
             status: UserStatus::Active,
         };
         state.identities.push(identity());
@@ -247,12 +191,6 @@ mod tests {
                 .map(UniqueValues::len),
             None
         );
-        assert_eq!(
-            entries
-                .get(UserState::ORGANIZATION_USER_KEY)
-                .map(UniqueValues::len),
-            None
-        );
     }
 
     #[test]
@@ -261,58 +199,6 @@ mod tests {
         assert_eq!(
             UserState::PROVIDER_SUBJECT_KEY,
             UniqueKey::new("provider_subject")
-        );
-        assert_eq!(
-            UserState::ORGANIZATION_USER_KEY,
-            UniqueKey::new("organization_user")
-        );
-    }
-
-    #[test]
-    fn memberships_return_unique_and_reference_entries() {
-        let organization_id = OrganizationId::new();
-        let mut state = UserState {
-            identities: Vec::new(),
-            username: None,
-            display_name: None,
-            bio: None,
-            picture: None,
-            organization_memberships: vec![OrganizationMembership::new(
-                organization_id,
-                OrganizationRoles::default(),
-            )],
-            status: UserStatus::Active,
-        };
-
-        let unique_entries = state
-            .unique_entries(Uuid::now_v7())
-            .expect("unique entries should build");
-        assert_eq!(
-            unique_entries
-                .get(UserState::ORGANIZATION_USER_KEY)
-                .map(UniqueValues::len),
-            Some(1)
-        );
-
-        let reference_entries = state
-            .reference_entries(Uuid::now_v7())
-            .expect("reference entries should build");
-        assert_eq!(
-            reference_entries
-                .get(UserState::ORGANIZATION_REF)
-                .map(ReferenceValues::len),
-            Some(1)
-        );
-
-        state.status = UserStatus::Removed;
-        let removed_unique_entries = state
-            .unique_entries(Uuid::now_v7())
-            .expect("unique entries should build");
-        assert_eq!(
-            removed_unique_entries
-                .get(UserState::ORGANIZATION_USER_KEY)
-                .map(UniqueValues::len),
-            None
         );
     }
 }

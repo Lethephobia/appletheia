@@ -9,7 +9,9 @@ pub struct UserUsernameChangerRelation;
 impl Relation for UserUsernameChangerRelation {
     const REF: RelationRef = RelationRef::new(User::TYPE, RelationName::new("username_changer"));
 
-    const EXPR: UsersetExpr = UsersetExpr::ComputedUserset {
-        relation: UserOwnerRelation::REF,
-    };
+    fn expr(&self) -> UsersetExpr {
+        UsersetExpr::ComputedUserset {
+            relation: UserOwnerRelation::REF.into(),
+        }
+    }
 }

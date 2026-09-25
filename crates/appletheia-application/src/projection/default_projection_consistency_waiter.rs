@@ -266,9 +266,10 @@ mod tests {
     use appletheia_domain::{AggregateType, AggregateVersion, EventId, EventName, EventOccurredAt};
 
     use super::*;
+    use crate::aggregate::{AggregateIdValue, AggregateTypeOwned};
     use crate::event::{
-        AggregateIdValue, AggregateTypeOwned, EventEnvelope, EventLookupError, EventNameOwned,
-        EventSelector, EventSequence, SerializedEventPayload,
+        EventEnvelope, EventLookupError, EventNameOwned, EventSelector, EventSequence,
+        SerializedEventPayload,
     };
     use crate::messaging::Subscription;
     use crate::projection::{ProjectorDependencies, ProjectorDescriptor, ProjectorName};

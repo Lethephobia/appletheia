@@ -1,11 +1,12 @@
 pub mod organization;
 pub mod organization_invitation;
 pub mod organization_join_request;
+pub mod organization_membership;
 pub mod user;
 pub use organization::{
-    Organization, OrganizationCreateResult, OrganizationCreation, OrganizationDescription,
-    OrganizationDescriptionChangeRejectionReason, OrganizationDescriptionChangeResult,
-    OrganizationDescriptionError, OrganizationDisplayName,
+    Organization, OrganizationCreateRejectionReason, OrganizationCreateResult,
+    OrganizationCreation, OrganizationDescription, OrganizationDescriptionChangeRejectionReason,
+    OrganizationDescriptionChangeResult, OrganizationDescriptionError, OrganizationDisplayName,
     OrganizationDisplayNameChangeRejectionReason, OrganizationDisplayNameChangeResult,
     OrganizationDisplayNameError, OrganizationError, OrganizationEventPayload,
     OrganizationEventPayloadError, OrganizationHandle, OrganizationHandleChangeRejectionReason,
@@ -41,16 +42,21 @@ pub use organization_join_request::{
     OrganizationJoinRequestSubmission, OrganizationJoinRequestSubmitRejectionReason,
     OrganizationJoinRequestSubmitResult,
 };
-pub use user::{
-    OrganizationMembership, OrganizationMembershipGrant,
-    OrganizationMembershipGrantRejectionReason, OrganizationMembershipGrantResult,
+pub use organization_membership::{
+    OrganizationMembership, OrganizationMembershipCreateRejectionReason,
+    OrganizationMembershipCreateResult, OrganizationMembershipCreation,
+    OrganizationMembershipError, OrganizationMembershipEventPayload,
+    OrganizationMembershipEventPayloadError, OrganizationMembershipId,
     OrganizationMembershipRemoveRejectionReason, OrganizationMembershipRemoveResult,
     OrganizationMembershipRolesChangeRejectionReason, OrganizationMembershipRolesChangeResult,
-    OrganizationRole, OrganizationRoles, User, UserBio, UserBioError, UserDisplayName,
-    UserDisplayNameError, UserError, UserEventPayload, UserEventPayloadError, UserId, UserIdentity,
-    UserIdentityData, UserIdentityProvider, UserIdentityProviderError, UserIdentityRegistration,
-    UserIdentitySubject, UserIdentitySubjectError, UserPictureObjectName,
-    UserPictureObjectNameError, UserPictureRef, UserPictureUrl, UserPictureUrlError,
-    UserRegisterResult, UserRegistration, UserState, UserStateError, UserStatus, Username,
-    UsernameError,
+    OrganizationMembershipState, OrganizationMembershipStateError, OrganizationMembershipStatus,
+    OrganizationRole, OrganizationRoles,
+};
+pub use user::{
+    User, UserBio, UserBioError, UserDisplayName, UserDisplayNameError, UserError,
+    UserEventPayload, UserEventPayloadError, UserId, UserIdentity, UserIdentityData,
+    UserIdentityProvider, UserIdentityProviderError, UserIdentityRegistration, UserIdentitySubject,
+    UserIdentitySubjectError, UserPictureObjectName, UserPictureObjectNameError, UserPictureRef,
+    UserPictureUrl, UserPictureUrlError, UserRegisterResult, UserRegistration, UserState,
+    UserStateError, UserStatus, Username, UsernameError,
 };

@@ -1,7 +1,7 @@
 use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
-use appletheia::application::command::{CommandHandled, CommandHandler};
+use appletheia::application::command::CommandHandler;
 use appletheia::application::object_storage::{
     ObjectName, ObjectUploadSignRequest, ObjectUploadSigner,
 };
@@ -12,6 +12,7 @@ use banking_iam_domain::{User, UserPictureObjectName, UserPictureRef};
 use super::{
     UserPictureUploadPrepareCommand, UserPictureUploadPrepareCommandHandlerConfig,
     UserPictureUploadPrepareCommandHandlerError, UserPictureUploadPrepareOutput,
+    UserPictureUploadPrepareRejectionReason,
 };
 use crate::authorization::UserProfileEditorRelation;
 
@@ -51,7 +52,6 @@ where
 {
     type Command = UserPictureUploadPrepareCommand;
     type Output = UserPictureUploadPrepareOutput;
-    type ReplayOutput = UserPictureUploadPrepareOutput;
     type Error = UserPictureUploadPrepareCommandHandlerError;
     type Uow = UR::Uow;
 
@@ -74,19 +74,25 @@ where
         uow: &mut Self::Uow,
         _request_context: &RequestContext,
         command: &Self::Command,
-    ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
+    ) -> Result<Self::Output, Self::Error> {
         let user = self.user_repository.read(uow, command.user_id).await?;
 
         if user.is_removed()? {
-            return Err(UserPictureUploadPrepareCommandHandlerError::UserRemoved);
+            return Ok(UserPictureUploadPrepareOutput::Rejected {
+                reason: UserPictureUploadPrepareRejectionReason::UserRemoved,
+            });
         }
 
         if user.is_inactive()? {
-            return Err(UserPictureUploadPrepareCommandHandlerError::UserInactive);
+            return Ok(UserPictureUploadPrepareOutput::Rejected {
+                reason: UserPictureUploadPrepareRejectionReason::UserInactive,
+            });
         }
 
         if command.content_length.value() > self.config.max_content_length().value() {
-            return Err(UserPictureUploadPrepareCommandHandlerError::ContentLengthTooLarge);
+            return Ok(UserPictureUploadPrepareOutput::Rejected {
+                reason: UserPictureUploadPrepareRejectionReason::ContentLengthTooLarge,
+            });
         }
 
         if !self
@@ -94,7 +100,9 @@ where
             .allowed_content_types()
             .contains(&command.content_type)
         {
-            return Err(UserPictureUploadPrepareCommandHandlerError::ContentTypeNotAllowed);
+            return Ok(UserPictureUploadPrepareOutput::Rejected {
+                reason: UserPictureUploadPrepareRejectionReason::ContentTypeNotAllowed,
+            });
         }
 
         let picture_object_name = UserPictureObjectName::new(command.user_id);
@@ -109,9 +117,12 @@ where
         .with_content_length(command.content_length)
         .with_checksum(command.checksum.clone());
         let signed_upload = self.object_upload_signer.sign(request).await?;
-        let output = UserPictureUploadPrepareOutput::new(picture, signed_upload);
+        let output = UserPictureUploadPrepareOutput::Prepared {
+            picture,
+            signed_upload: Box::new(signed_upload),
+        };
 
-        Ok(CommandHandled::same(output))
+        Ok(output)
     }
 }
 
@@ -119,8 +130,9 @@ where
 mod tests {
     use std::sync::{Arc, Mutex};
 
+    use appletheia::application::aggregate::AggregateRef;
     use appletheia::application::authorization::{
-        AggregateRef, AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
+        AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
     };
     use appletheia::application::command::CommandHandler;
     use appletheia::application::object_storage::{
@@ -145,7 +157,8 @@ mod tests {
 
     use super::{
         UserPictureUploadPrepareCommand, UserPictureUploadPrepareCommandHandler,
-        UserPictureUploadPrepareCommandHandlerConfig, UserPictureUploadPrepareCommandHandlerError,
+        UserPictureUploadPrepareCommandHandlerConfig, UserPictureUploadPrepareOutput,
+        UserPictureUploadPrepareRejectionReason,
     };
 
     #[derive(Default)]
@@ -380,14 +393,21 @@ mod tests {
             .await
             .expect("command should succeed");
 
-        let output = handled.into_output();
+        let output = handled;
+        let UserPictureUploadPrepareOutput::Prepared {
+            picture,
+            signed_upload: output_signed_upload,
+        } = output
+        else {
+            panic!("upload should be prepared");
+        };
         let request = signer_requests
             .lock()
             .expect("lock")
             .clone()
             .expect("signer should receive request");
 
-        assert_eq!(output.signed_upload, signed_upload(expires_in));
+        assert_eq!(*output_signed_upload, signed_upload(expires_in));
         assert_eq!(request.bucket_name().as_str(), "pictures");
         assert_eq!(request.content_type().as_str(), "image/png");
         assert_eq!(
@@ -397,7 +417,7 @@ mod tests {
         assert_eq!(request.expires_in(), expires_in);
         assert_eq!(request.checksum(), Some(&checksum()));
         assert_eq!(
-            output.picture.as_object_name().map(|value| value.value()),
+            picture.as_object_name().map(|value| value.value()),
             Some(request.object_name().as_str())
         );
         let expected_prefix = format!("users/{user_id}/pictures/");
@@ -430,7 +450,7 @@ mod tests {
         );
         let mut uow = TestUow;
 
-        let error = handler
+        let handled = handler
             .handle(
                 &mut uow,
                 &request_context(user_id),
@@ -442,12 +462,14 @@ mod tests {
                 },
             )
             .await
-            .expect_err("inactive user should be rejected");
+            .expect("inactive user should be rejected as an outcome");
 
-        assert!(matches!(
-            error,
-            UserPictureUploadPrepareCommandHandlerError::UserInactive
-        ));
+        assert_eq!(
+            handled,
+            UserPictureUploadPrepareOutput::Rejected {
+                reason: UserPictureUploadPrepareRejectionReason::UserInactive,
+            }
+        );
     }
 
     #[tokio::test]
@@ -469,7 +491,7 @@ mod tests {
         );
         let mut uow = TestUow;
 
-        let error = handler
+        let handled = handler
             .handle(
                 &mut uow,
                 &request_context(user_id),
@@ -481,12 +503,14 @@ mod tests {
                 },
             )
             .await
-            .expect_err("oversized content should be rejected");
+            .expect("oversized content should be rejected as an outcome");
 
-        assert!(matches!(
-            error,
-            UserPictureUploadPrepareCommandHandlerError::ContentLengthTooLarge
-        ));
+        assert_eq!(
+            handled,
+            UserPictureUploadPrepareOutput::Rejected {
+                reason: UserPictureUploadPrepareRejectionReason::ContentLengthTooLarge,
+            }
+        );
     }
 
     #[tokio::test]
@@ -508,7 +532,7 @@ mod tests {
         );
         let mut uow = TestUow;
 
-        let error = handler
+        let handled = handler
             .handle(
                 &mut uow,
                 &request_context(user_id),
@@ -521,11 +545,13 @@ mod tests {
                 },
             )
             .await
-            .expect_err("disallowed content type should be rejected");
+            .expect("disallowed content type should be rejected as an outcome");
 
-        assert!(matches!(
-            error,
-            UserPictureUploadPrepareCommandHandlerError::ContentTypeNotAllowed
-        ));
+        assert_eq!(
+            handled,
+            UserPictureUploadPrepareOutput::Rejected {
+                reason: UserPictureUploadPrepareRejectionReason::ContentTypeNotAllowed,
+            }
+        );
     }
 }

@@ -1,5 +1,6 @@
 mod account_close;
 mod account_deposit;
+mod account_description_change;
 mod account_freeze;
 mod account_funds_reserve;
 mod account_name_change;
@@ -13,6 +14,10 @@ mod account_withdraw;
 pub use account_close::{AccountCloseCommand, AccountCloseCommandHandler, AccountCloseOutput};
 pub use account_deposit::{
     AccountDepositCommand, AccountDepositCommandHandler, AccountDepositOutput,
+};
+pub use account_description_change::{
+    AccountDescriptionChangeCommand, AccountDescriptionChangeCommandHandler,
+    AccountDescriptionChangeCommandHandlerError, AccountDescriptionChangeOutput,
 };
 pub use account_freeze::{AccountFreezeCommand, AccountFreezeCommandHandler, AccountFreezeOutput};
 pub use account_funds_reserve::{

@@ -1,3 +1,5 @@
+use appletheia::application::Retryability;
+
 use appletheia::application::repository::RepositoryError;
 use banking_ledger_domain::transfer::{Transfer, TransferError};
 use thiserror::Error;
@@ -10,4 +12,13 @@ pub enum TransferFailCommandHandlerError {
 
     #[error("transfer aggregate failed")]
     Transfer(#[from] TransferError),
+}
+
+impl Retryability for TransferFailCommandHandlerError {
+    fn is_retryable(&self) -> bool {
+        match self {
+            Self::TransferRepository(error) => error.is_retryable(),
+            Self::Transfer(_) => false,
+        }
+    }
 }

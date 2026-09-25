@@ -1,12 +1,15 @@
 use crate::account::AccountId;
 use crate::core::CurrencyAmount;
 
+use super::TransferNote;
+
 /// Describes a transfer request.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TransferRequest {
     pub from_account_id: AccountId,
     pub to_account_id: AccountId,
     pub amount: CurrencyAmount,
+    pub note: Option<TransferNote>,
 }
 
 impl TransferRequest {
@@ -20,7 +23,12 @@ impl TransferRequest {
         self.amount
     }
 
-    pub(super) fn into_parts(self) -> (AccountId, AccountId, CurrencyAmount) {
-        (self.from_account_id, self.to_account_id, self.amount)
+    pub(super) fn into_parts(self) -> (AccountId, AccountId, CurrencyAmount, Option<TransferNote>) {
+        (
+            self.from_account_id,
+            self.to_account_id,
+            self.amount,
+            self.note,
+        )
     }
 }

@@ -10,6 +10,12 @@ pub trait ProjectorRebuilder: Send {
 
     fn request_graceful_stop(&mut self);
 
+    /// Replays a newly introduced projector through the current event-feed position.
+    ///
+    /// The projector must use a fresh name so its checkpoint and processed-event state start
+    /// empty. Read-model serving and the live worker must remain stopped until catch-up completes.
+    /// Invalidated partitions returned during catch-up are not enqueued for delivery; clients
+    /// start from a complete read model and receive refreshed read models after later live invalidations.
     async fn run_until_idle<PJ: Projector<Uow = Self::Uow>>(
         &mut self,
         projector: &PJ,

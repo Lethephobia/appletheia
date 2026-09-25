@@ -57,7 +57,7 @@ where
     ) -> Result<OidcProviderMetadata, OidcProviderMetadataSourceError> {
         let body = OidcProviderMetadataBody::try_from_json_bytes(bytes)
             .map_err(|source| OidcProviderMetadataSourceError::Backend(Box::new(source)))?;
-        let provider_metadata = body.into_provider_metadata();
+        let provider_metadata = body.to_provider_metadata();
 
         if &provider_metadata.issuer_url != expected_issuer_url {
             return Err(OidcProviderMetadataSourceError::IssuerMismatch {

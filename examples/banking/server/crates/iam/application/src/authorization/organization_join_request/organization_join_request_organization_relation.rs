@@ -1,7 +1,10 @@
-use appletheia::application::authorization::{Relation, RelationName, RelationRef, UsersetExpr};
-use appletheia::domain::Aggregate;
+use super::OrganizationJoinRequestOrganizationDerivationHandlerError;
 
-use super::OrganizationJoinRequest;
+use appletheia::application::authorization::{
+    Relation, RelationName, RelationRef, RelationshipEntries, UsersetExpr,
+};
+use appletheia::domain::Aggregate;
+use banking_iam_domain::{Organization, OrganizationJoinRequest};
 
 /// Links a join request to its organization.
 pub struct OrganizationJoinRequestOrganizationRelation;
@@ -12,5 +15,18 @@ impl Relation for OrganizationJoinRequestOrganizationRelation {
         RelationName::new("organization"),
     );
 
-    const EXPR: UsersetExpr = UsersetExpr::This;
+    fn expr(&self) -> UsersetExpr {
+        UsersetExpr::this::<
+            OrganizationJoinRequest,
+            _,
+            OrganizationJoinRequestOrganizationDerivationHandlerError,
+        >(|aggregate| {
+            let mut entries = RelationshipEntries::new();
+            entries.insert::<OrganizationJoinRequest, Organization>(
+                aggregate.aggregate_id(),
+                *aggregate.organization_id()?,
+            );
+            Ok(entries)
+        })
+    }
 }

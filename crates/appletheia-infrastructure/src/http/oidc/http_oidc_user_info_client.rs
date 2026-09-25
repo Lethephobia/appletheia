@@ -59,7 +59,7 @@ impl OidcUserInfoClient for HttpOidcUserInfoClient {
         let body = OidcUserInfoBody::try_from_json_bytes(&bytes)
             .map_err(|source| OidcUserInfoClientError::Backend(Box::new(source)))?;
 
-        body.try_into_user_info()
+        body.try_to_user_info()
             .map_err(|source| OidcUserInfoClientError::Backend(Box::new(source)))
     }
 }

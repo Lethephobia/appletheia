@@ -13,22 +13,88 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  dependencies:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        manifest:
+          - Cargo.toml
+          - examples/banking/server/Cargo.toml
+          - examples/banking/onchain/solana/Cargo.toml
+    steps:
+    - uses: actions/checkout@v4
+    - name: Check dependency advisories, licenses, and sources before compiling
+      uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1 (cargo-deny 0.20.2)
+      with:
+        manifest-path: ${{ matrix.manifest }}
+        arguments: --all-features --config deny.toml
+        command: check advisories licenses sources
+
+  infrastructure-features:
+    needs: dependencies
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        features:
+          - infrastructure
+          - infrastructure-cloud-events
+          - infrastructure-cloud-events,infrastructure-google-cloud-pubsub
+          - infrastructure-http
+          - infrastructure-jwt
+          - infrastructure-http,infrastructure-jwt
+          - infrastructure-postgresql,infrastructure-http
+          - infrastructure-sha
+          - infrastructure-aes-gcm
+          - infrastructure-postgresql
+          - infrastructure-google-cloud-pubsub
+          - infrastructure-google-cloud-storage
+          - infrastructure-postgresql,infrastructure-google-cloud-pubsub
+          - full
+    steps:
+    - uses: actions/checkout@v4
+    - name: Check infrastructure feature selection through facade
+      run: cargo check -p appletheia --all-targets --no-default-features --features "${{ matrix.features }}"
+
   build:
+    needs: dependencies
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v4
     - name: Build root workspace
-      run: cargo build --verbose
+      run: cargo build --all-features --verbose
     - name: Run root workspace tests
-      run: cargo test --verbose
+      run: cargo test --all-features --verbose
     - name: Build banking server workspace
       run: cargo build --manifest-path examples/banking/server/Cargo.toml --verbose
     - name: Run banking server workspace tests
       run: cargo test --manifest-path examples/banking/server/Cargo.toml --verbose
-    - name: Build banking onchain workspace
-      working-directory: examples/banking/onchain
+    - name: Build banking Solana workspace
+      working-directory: examples/banking/onchain/solana
       run: cargo build --verbose
-    - name: Run banking onchain workspace library tests
-      working-directory: examples/banking/onchain
+    - name: Run banking Solana workspace library tests
+      working-directory: examples/banking/onchain/solana
       run: cargo test --lib --verbose
+    - name: Install Foundry
+      uses: foundry-rs/foundry-toolchain@v1
+      with:
+        version: v1.7.1
+    - name: Install banking Ethereum workspace dependencies
+      working-directory: examples/banking/onchain/ethereum
+      run: forge soldeer install
+    - name: Check banking Ethereum workspace formatting
+      working-directory: examples/banking/onchain/ethereum
+      run: forge fmt --check
+    - name: Build banking Ethereum workspace
+      working-directory: examples/banking/onchain/ethereum
+      run: forge build --sizes
+    - name: Check banking Ethereum ABI
+      working-directory: examples/banking/onchain/ethereum
+      run: script/generate-abi.sh && git diff --exit-code -- abi
+    - name: Validate banking Ethereum workspace upgrade safety
+      working-directory: examples/banking/onchain/ethereum
+      run: npx --yes @openzeppelin/upgrades-core@1.45.0 validate out/build-info --exclude "dependencies/**"
+    - name: Run banking Ethereum workspace tests
+      working-directory: examples/banking/onchain/ethereum
+      run: forge test -vv

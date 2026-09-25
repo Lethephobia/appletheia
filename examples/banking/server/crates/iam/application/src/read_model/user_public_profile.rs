@@ -1,25 +1,25 @@
-use appletheia::domain::{EventId, EventOccurredAt};
+use appletheia::application::read_model::{
+    ReadModel, ReadModelName, ReadModelObservation, ReadModelObservationSource,
+    SerializedPartition, SerializedPartitionError,
+};
+use appletheia::domain::EventOccurredAt;
 use banking_iam_domain::{UserBio, UserDisplayName, UserId, UserPictureRef, Username};
-use banking_shared_kernel_application::read_model::ReadModelObservation;
+use serde::Serialize;
+
+use crate::projection::UserFragment;
 
 mod user_public_profile_reader;
 mod user_public_profile_reader_error;
 mod user_public_profile_status;
 mod user_public_profile_status_error;
-mod user_public_profile_user_upsert;
-mod user_public_profile_writer;
-mod user_public_profile_writer_error;
 
 pub use user_public_profile_reader::UserPublicProfileReader;
 pub use user_public_profile_reader_error::UserPublicProfileReaderError;
 pub use user_public_profile_status::UserPublicProfileStatus;
 pub use user_public_profile_status_error::UserPublicProfileStatusError;
-pub use user_public_profile_user_upsert::UserPublicProfileUserUpsert;
-pub use user_public_profile_writer::UserPublicProfileWriter;
-pub use user_public_profile_writer_error::UserPublicProfileWriterError;
 
 /// Public profile information visible to any caller.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct UserPublicProfile {
     pub id: UserId,
     pub username: Option<Username>,
@@ -30,8 +30,18 @@ pub struct UserPublicProfile {
     pub observation: ReadModelObservation,
 }
 
-impl UserPublicProfile {
-    pub fn observed_event_ids(&self) -> Vec<EventId> {
-        self.observation.event_ids().collect()
+impl ReadModelObservationSource for UserPublicProfile {
+    fn observations(&self) -> Vec<ReadModelObservation> {
+        vec![self.observation]
+    }
+}
+
+impl ReadModel for UserPublicProfile {
+    const NAME: ReadModelName = ReadModelName::new("user_public_profile");
+
+    fn partitions(&self) -> Result<Vec<SerializedPartition>, SerializedPartitionError> {
+        Ok(vec![SerializedPartition::try_from_fragment_key::<
+            UserFragment,
+        >(&self.id)?])
     }
 }

@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 #[serde(tag = "type", content = "data", rename_all = "snake_case")]
 pub enum WithdrawalFailureReason {
     FundsReserveRejected,
-    TokenTransferRejected,
+    SettlementExecuteRejected,
     ReservedFundsReleaseRejected,
     ReservedFundsCommitRejected,
 }

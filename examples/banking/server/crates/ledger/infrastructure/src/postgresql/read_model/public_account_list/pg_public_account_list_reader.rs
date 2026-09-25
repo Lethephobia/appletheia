@@ -1,11 +1,13 @@
+use appletheia::application::read_model::pagination::{CursorWindow, Sort, SortDirection};
 use appletheia::domain::AggregateId;
 use appletheia::infrastructure::postgresql::PgUnitOfWork;
 use banking_ledger_application::{
-    PublicAccountList, PublicAccountListCriteria, PublicAccountListCursor, PublicAccountListItem,
-    PublicAccountListReader, PublicAccountListReaderError, PublicAccountListSortKey,
+    MaterializedAccountStatus, PublicAccountList, PublicAccountListCriteria,
+    PublicAccountListCursor, PublicAccountListItem, PublicAccountListReader,
+    PublicAccountListReaderError, PublicAccountListSortKey,
 };
 use banking_ledger_domain::account::AccountOwner;
-use banking_shared_kernel_application::read_model::{CursorOptions, PageSize, SortDirection};
+use sqlx::query_builder::Separated;
 use sqlx::{Postgres, QueryBuilder};
 use uuid::Uuid;
 
@@ -27,6 +29,32 @@ impl PgPublicAccountListReader {
             }
         }
     }
+
+    fn status_name(status: MaterializedAccountStatus) -> &'static str {
+        match status {
+            MaterializedAccountStatus::Active => "active",
+            MaterializedAccountStatus::Frozen => "frozen",
+        }
+    }
+
+    fn push_status_in(
+        predicates: &mut Separated<'_, Postgres, &'static str>,
+        status_in: &[MaterializedAccountStatus],
+    ) {
+        if status_in.is_empty() {
+            predicates.push("FALSE");
+            return;
+        }
+
+        let status_names = status_in
+            .iter()
+            .map(|status| Self::status_name(*status).to_owned())
+            .collect::<Vec<_>>();
+        predicates
+            .push("a.status = ANY(")
+            .push_bind_unseparated(status_names)
+            .push_unseparated(")");
+    }
 }
 
 impl Default for PgPublicAccountListReader {
@@ -42,10 +70,11 @@ impl PublicAccountListReader for PgPublicAccountListReader {
         &self,
         uow: &mut Self::Uow,
         criteria: PublicAccountListCriteria,
-        cursor_options: Option<CursorOptions<PublicAccountListSortKey, PublicAccountListCursor>>,
-        page_size: PageSize,
+        sort: Sort<PublicAccountListSortKey>,
+        page: CursorWindow<PublicAccountListCursor>,
     ) -> Result<PublicAccountList, PublicAccountListReaderError> {
-        let limit = i64::from(page_size.value()) + 1;
+        let query_limit = i64::from(page.limit().value()) + 1;
+        let query_direction = page.query_direction(sort.direction);
 
         let mut builder = QueryBuilder::<Postgres>::new(
             r#"
@@ -66,82 +95,86 @@ impl PublicAccountListReader for PgPublicAccountListReader {
                 COALESCE(u.source_event_id, o.source_event_id) AS owner_source_event_id,
                 COALESCE(u.updated_event_id, o.updated_event_id) AS owner_updated_event_id,
                 c.id AS currency_id,
-                c.symbol AS currency_symbol,
-                c.name AS currency_name,
+                c.code AS currency_code,
                 c.decimals AS currency_decimals,
-                c.mint_account_address AS currency_mint_account_address,
                 c.source_event_id AS currency_source_event_id,
                 c.updated_event_id AS currency_updated_event_id,
+                a.status,
                 a.created_at,
                 a.source_event_id,
                 a.updated_event_id
-              FROM public_account_list_items a
-              INNER JOIN public_account_list_item_currencies c
-                      ON c.id = a.currency_id
-              LEFT JOIN public_account_list_item_owner_users u
+              FROM account_fragments a
+              INNER JOIN currency_fragments c ON c.id = a.currency_id
+              LEFT JOIN user_fragments u
                      ON a.owner_type = 'user'
                     AND u.id = a.owner_id
-              LEFT JOIN public_account_list_item_owner_organizations o
+              LEFT JOIN organization_fragments o
                      ON a.owner_type = 'organization'
                     AND o.id = a.owner_id
-             WHERE a.status = 'active'
             "#,
         );
 
-        if let Some(owner) = criteria.owner {
-            let (owner_type, owner_id) = Self::owner_parts(owner);
-            builder
-                .push(" AND a.owner_type = ")
-                .push_bind(owner_type)
-                .push(" AND a.owner_id = ")
-                .push_bind(owner_id);
-        }
+        if criteria.owner.is_some()
+            || criteria.currency_code.is_some()
+            || criteria.status_in.is_some()
+            || page.boundary().is_some()
+        {
+            builder.push(" WHERE ");
+            let mut predicates = builder.separated(" AND ");
 
-        if let Some(currency_id) = criteria.currency_id {
-            builder
-                .push(" AND a.currency_id = ")
-                .push_bind(currency_id.value());
-        }
+            if let Some(owner) = criteria.owner {
+                let (owner_type, owner_id) = Self::owner_parts(owner);
+                predicates
+                    .push("a.owner_type = ")
+                    .push_bind_unseparated(owner_type);
+                predicates
+                    .push("a.owner_id = ")
+                    .push_bind_unseparated(owner_id);
+            }
 
-        let sort_key = cursor_options
-            .map(|options| options.sort_key)
-            .unwrap_or(PublicAccountListSortKey::CreatedAt);
-        let sort_direction = cursor_options
-            .map(|options| options.sort_direction)
-            .unwrap_or(SortDirection::Desc);
+            if let Some(currency_code) = criteria.currency_code {
+                predicates
+                    .push("c.code = ")
+                    .push_bind_unseparated(currency_code.value().to_owned());
+            }
 
-        if let Some(cursor) = cursor_options.and_then(|options| options.cursor) {
-            match (sort_key, sort_direction) {
-                (PublicAccountListSortKey::CreatedAt, SortDirection::Asc) => {
-                    builder
-                        .push(" AND (a.created_at, a.id) > (")
-                        .push_bind(cursor.created_at.value())
-                        .push(", ")
-                        .push_bind(cursor.account_id.value())
-                        .push(")");
-                }
-                (PublicAccountListSortKey::CreatedAt, SortDirection::Desc) => {
-                    builder
-                        .push(" AND (a.created_at, a.id) < (")
-                        .push_bind(cursor.created_at.value())
-                        .push(", ")
-                        .push_bind(cursor.account_id.value())
-                        .push(")");
-                }
-                (PublicAccountListSortKey::AccountId, SortDirection::Asc) => {
-                    builder
-                        .push(" AND a.id > ")
-                        .push_bind(cursor.account_id.value());
-                }
-                (PublicAccountListSortKey::AccountId, SortDirection::Desc) => {
-                    builder
-                        .push(" AND a.id < ")
-                        .push_bind(cursor.account_id.value());
+            if let Some(status_in) = criteria.status_in.as_deref() {
+                Self::push_status_in(&mut predicates, status_in);
+            }
+
+            if let Some(cursor) = page.boundary().copied() {
+                match (sort.key, query_direction) {
+                    (PublicAccountListSortKey::CreatedAt, SortDirection::Asc) => {
+                        predicates
+                            .push("(a.created_at, a.id) > (")
+                            .push_bind_unseparated(cursor.created_at.value())
+                            .push_unseparated(", ")
+                            .push_bind_unseparated(cursor.account_id.value())
+                            .push_unseparated(")");
+                    }
+                    (PublicAccountListSortKey::CreatedAt, SortDirection::Desc) => {
+                        predicates
+                            .push("(a.created_at, a.id) < (")
+                            .push_bind_unseparated(cursor.created_at.value())
+                            .push_unseparated(", ")
+                            .push_bind_unseparated(cursor.account_id.value())
+                            .push_unseparated(")");
+                    }
+                    (PublicAccountListSortKey::AccountId, SortDirection::Asc) => {
+                        predicates
+                            .push("a.id > ")
+                            .push_bind_unseparated(cursor.account_id.value());
+                    }
+                    (PublicAccountListSortKey::AccountId, SortDirection::Desc) => {
+                        predicates
+                            .push("a.id < ")
+                            .push_bind_unseparated(cursor.account_id.value());
+                    }
                 }
             }
         }
 
-        match (sort_key, sort_direction) {
+        match (sort.key, query_direction) {
             (PublicAccountListSortKey::CreatedAt, SortDirection::Asc) => {
                 builder.push(" ORDER BY a.created_at ASC, a.id ASC");
             }
@@ -156,7 +189,7 @@ impl PublicAccountListReader for PgPublicAccountListReader {
             }
         }
 
-        builder.push(" LIMIT ").push_bind(limit);
+        builder.push(" LIMIT ").push_bind(query_limit);
 
         let rows = builder
             .build_query_as::<PgPublicAccountListItemRow>()
@@ -164,23 +197,71 @@ impl PublicAccountListReader for PgPublicAccountListReader {
             .await
             .map_err(|e| PublicAccountListReaderError::Persistence(Box::new(e)))?;
 
-        let limit = page_size.value() as usize;
-        let has_next = rows.len() > limit;
-        let items = rows
+        let page_limit = page.limit().value() as usize;
+        let has_more = rows.len() > page_limit;
+        let mut items = rows
             .into_iter()
-            .take(limit)
+            .take(page_limit)
             .map(PublicAccountListItem::try_from)
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| PublicAccountListReaderError::Persistence(Box::new(e)))?;
-        let next_cursor = if has_next {
-            items.last().map(|item| PublicAccountListCursor {
-                created_at: item.created_at,
-                account_id: item.account_id,
-            })
+        if page.is_backward() {
+            items.reverse();
+        }
+        let start_cursor = items.first().map(|item| PublicAccountListCursor {
+            created_at: item.created_at,
+            account_id: item.account_id,
+        });
+        let end_cursor = items.last().map(|item| PublicAccountListCursor {
+            created_at: item.created_at,
+            account_id: item.account_id,
+        });
+        let (has_previous, has_next) = if page.is_backward() {
+            (has_more, !items.is_empty() && page.boundary().is_some())
         } else {
-            None
+            (!items.is_empty() && page.boundary().is_some(), has_more)
         };
 
-        Ok(PublicAccountList { items, next_cursor })
+        Ok(PublicAccountList {
+            items,
+            start_cursor,
+            end_cursor,
+            has_previous,
+            has_next,
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use banking_ledger_application::MaterializedAccountStatus;
+    use sqlx::{Postgres, QueryBuilder};
+
+    use super::PgPublicAccountListReader;
+
+    #[test]
+    fn status_in_adds_one_array_predicate() {
+        let mut builder = QueryBuilder::<Postgres>::new("SELECT 1 WHERE ");
+        let mut predicates = builder.separated(" AND ");
+
+        PgPublicAccountListReader::push_status_in(
+            &mut predicates,
+            &[
+                MaterializedAccountStatus::Active,
+                MaterializedAccountStatus::Frozen,
+            ],
+        );
+
+        assert_eq!(builder.sql(), "SELECT 1 WHERE a.status = ANY($1)");
+    }
+
+    #[test]
+    fn empty_status_in_matches_no_items() {
+        let mut builder = QueryBuilder::<Postgres>::new("SELECT 1 WHERE ");
+        let mut predicates = builder.separated(" AND ");
+
+        PgPublicAccountListReader::push_status_in(&mut predicates, &[]);
+
+        assert_eq!(builder.sql(), "SELECT 1 WHERE FALSE");
     }
 }

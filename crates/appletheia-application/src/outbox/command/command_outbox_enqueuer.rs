@@ -1,20 +1,13 @@
+use crate::command::CommandEnvelope;
 use crate::unit_of_work::UnitOfWork;
 
-use super::{CommandEnvelope, CommandOutboxEnqueueError};
+use super::CommandOutboxEnqueueError;
 
 #[allow(async_fn_in_trait)]
 pub trait CommandOutboxEnqueuer: Send + Sync {
     type Uow: UnitOfWork;
 
-    async fn enqueue_command(
-        &self,
-        uow: &mut Self::Uow,
-        command: &CommandEnvelope,
-    ) -> Result<(), CommandOutboxEnqueueError> {
-        self.enqueue_commands(uow, std::slice::from_ref(command))
-            .await
-    }
-
+    /// Enqueues one or more commands atomically.
     async fn enqueue_commands(
         &self,
         uow: &mut Self::Uow,

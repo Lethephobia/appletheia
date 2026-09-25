@@ -9,7 +9,9 @@ pub struct AccountThawerRelation;
 impl Relation for AccountThawerRelation {
     const REF: RelationRef = RelationRef::new(Account::TYPE, RelationName::new("thawer"));
 
-    const EXPR: UsersetExpr = UsersetExpr::ComputedUserset {
-        relation: AccountStatusManagerRelation::REF,
-    };
+    fn expr(&self) -> UsersetExpr {
+        UsersetExpr::ComputedUserset {
+            relation: AccountStatusManagerRelation::REF.into(),
+        }
+    }
 }

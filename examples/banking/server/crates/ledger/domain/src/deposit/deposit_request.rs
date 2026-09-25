@@ -1,13 +1,16 @@
 use crate::account::AccountId;
-use crate::core::{CurrencyAmount, TokenAccountOwnerAddress};
-use crate::currency::CurrencyId;
+use crate::core::{CurrencyAmount, TokenOwnerAddress};
+use crate::token_binding::TokenBindingId;
 
-/// Describes a deposit requested before its on-chain token transfer.
+use super::DepositNote;
+
+/// Describes a deposit requested before its on-chain token settlement.
 pub struct DepositRequest {
     pub account_id: AccountId,
-    pub currency_id: CurrencyId,
-    pub token_account_owner_address: TokenAccountOwnerAddress,
+    pub token_binding_id: TokenBindingId,
+    pub token_owner_address: TokenOwnerAddress,
     pub amount: CurrencyAmount,
+    pub note: Option<DepositNote>,
 }
 
 impl DepositRequest {
@@ -15,15 +18,17 @@ impl DepositRequest {
         self,
     ) -> (
         AccountId,
-        CurrencyId,
-        TokenAccountOwnerAddress,
+        TokenBindingId,
+        TokenOwnerAddress,
         CurrencyAmount,
+        Option<DepositNote>,
     ) {
         (
             self.account_id,
-            self.currency_id,
-            self.token_account_owner_address,
+            self.token_binding_id,
+            self.token_owner_address,
             self.amount,
+            self.note,
         )
     }
 }

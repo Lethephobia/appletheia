@@ -12,7 +12,9 @@ impl Relation for OrganizationOwnershipTransfererRelation {
         RelationName::new("ownership_transferer"),
     );
 
-    const EXPR: UsersetExpr = UsersetExpr::ComputedUserset {
-        relation: OrganizationOwnerRelation::REF,
-    };
+    fn expr(&self) -> UsersetExpr {
+        UsersetExpr::ComputedUserset {
+            relation: OrganizationOwnerRelation::REF.into(),
+        }
+    }
 }

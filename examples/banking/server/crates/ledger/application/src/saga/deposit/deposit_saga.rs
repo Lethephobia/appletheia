@@ -1,83 +1,65 @@
-use appletheia::application::event::EventEnvelope;
-use appletheia::application::saga::{Saga, SagaInstance, SagaSpec};
+use appletheia::application::saga::SagaError;
+use appletheia::application::saga::{Saga, SagaDefinition, SagaDefinitionBuilder, SagaName};
 use banking_ledger_domain::account::{Account, AccountEventPayload};
 use banking_ledger_domain::deposit::{Deposit, DepositEventPayload, DepositFailureReason};
 
-use super::{DepositSagaError, DepositSagaSpec, DepositSagaState, DepositSagaStatus};
+use super::{DepositSagaHandlerError, DepositSagaState, DepositSagaStep};
 use crate::command::{AccountDepositCommand, DepositCompleteCommand, DepositFailCommand};
 
 /// Coordinates the deposit flow.
 pub struct DepositSaga;
 
 impl Saga for DepositSaga {
-    type Spec = DepositSagaSpec;
-    type Error = DepositSagaError;
+    type State = DepositSagaState;
+    type Step = DepositSagaStep;
+    type HandlerError = DepositSagaHandlerError;
 
-    fn on_event(
+    fn definition(
         &self,
-        instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State>,
-        event: &EventEnvelope,
-    ) -> Result<(), Self::Error> {
-        if event.is_for_aggregate::<Deposit>() {
-            let deposit_event = event.try_into_domain_event::<Deposit>()?;
-            match deposit_event.payload() {
-                DepositEventPayload::TokenTransferred {
-                    account_id, amount, ..
-                } => {
-                    *instance.state_mut() = Some(DepositSagaState::new(
-                        deposit_event.aggregate_id(),
-                        *account_id,
-                        *amount,
-                    ));
-                    instance.append_command(
-                        event,
-                        &AccountDepositCommand {
-                            account_id: *account_id,
-                            amount: *amount,
-                        },
-                    )?;
-                }
-                DepositEventPayload::Completed => {
-                    instance.state_required_mut()?.status = DepositSagaStatus::Completed;
-                    instance.succeed();
-                }
-                DepositEventPayload::Failed { .. } => {
-                    instance.state_required_mut()?.status = DepositSagaStatus::Failed;
-                    instance.fail();
-                }
-                _ => {}
+    ) -> Result<SagaDefinition<'_, Self::State, Self::Step, Self::HandlerError>, SagaError> {
+        SagaDefinitionBuilder::<Self::State, Self::Step, Self::HandlerError>::new(SagaName::new(
+            "deposit",
+        ))
+        .add_start_step(DepositSagaStep::Deposit)
+        .on::<Deposit>(DepositEventPayload::SETTLEMENT_VERIFIED)
+        .handle(|ctx, deposit_event| {
+            if let DepositEventPayload::SettlementVerified {
+                account_id, amount, ..
+            } = deposit_event.payload()
+            {
+                ctx.set_state(DepositSagaState::new(
+                    deposit_event.aggregate_id(),
+                    *account_id,
+                    *amount,
+                ));
+                ctx.append_command(&AccountDepositCommand {
+                    account_id: *account_id,
+                    amount: *amount,
+                })?;
             }
+            Ok(())
+        })
+        .add_step(DepositSagaStep::Complete)
+        .on::<Account>(DepositSagaStep::Deposit, AccountEventPayload::DEPOSITED)
+        .handle(|ctx, _account_event| {
+            let state = ctx.state_required_mut()?;
+            let deposit_id = state.deposit_id;
 
-            return Ok(());
-        }
-
-        if event.is_for_aggregate::<Account>() {
-            let account_event = event.try_into_domain_event::<Account>()?;
-            match account_event.payload() {
-                AccountEventPayload::Deposited { .. } => {
-                    let state = instance.state_required_mut()?;
-                    let deposit_id = state.deposit_id;
-                    state.status = DepositSagaStatus::CompleteRequested;
-
-                    instance.append_command(event, &DepositCompleteCommand { deposit_id })?;
-                }
-                AccountEventPayload::DepositRejected { .. } => {
-                    let state = instance.state_required_mut()?;
-                    let deposit_id = state.deposit_id;
-                    state.status = DepositSagaStatus::FailRequested;
-
-                    instance.append_command(
-                        event,
-                        &DepositFailCommand {
-                            deposit_id,
-                            reason: DepositFailureReason::AccountDepositRejected,
-                        },
-                    )?;
-                }
-                _ => {}
-            }
-        }
-
-        Ok(())
+            ctx.append_command(&DepositCompleteCommand { deposit_id })?;
+            Ok(())
+        })
+        .add_failure_step(DepositSagaStep::Fail)
+        .on(DepositSagaStep::Deposit)
+        .handle(|ctx, _failure| {
+            let state = ctx.state_required_mut()?;
+            let deposit_id = state.deposit_id;
+            ctx.append_command(&DepositFailCommand {
+                deposit_id,
+                reason: DepositFailureReason::AccountDepositRejected,
+            })?;
+            Ok(())
+        })
+        .build()
+        .map_err(SagaError::from)
     }
 }

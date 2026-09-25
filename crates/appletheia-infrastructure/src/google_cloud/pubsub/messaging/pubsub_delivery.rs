@@ -1,12 +1,18 @@
-use appletheia_application::{ConsumerError, Delivery};
+use appletheia_application::{Delivery, DeliveryError};
 use google_cloud_pubsub::subscriber::handler::Handler;
 
-pub struct PubsubDelivery<M> {
+pub struct PubsubDelivery<M>
+where
+    M: Send,
+{
     handler: Option<Handler>,
     message: M,
 }
 
-impl<M> PubsubDelivery<M> {
+impl<M> PubsubDelivery<M>
+where
+    M: Send,
+{
     pub(crate) fn new(handler: Handler, message: M) -> Self {
         Self {
             handler: Some(handler),
@@ -23,14 +29,14 @@ where
         &self.message
     }
 
-    async fn ack(&mut self) -> Result<(), ConsumerError> {
+    async fn ack(&mut self) -> Result<(), DeliveryError> {
         if let Some(handler) = self.handler.take() {
             handler.ack();
         }
         Ok(())
     }
 
-    async fn nack(&mut self) -> Result<(), ConsumerError> {
+    async fn nack(&mut self) -> Result<(), DeliveryError> {
         if let Some(handler) = self.handler.take() {
             drop(handler);
         }

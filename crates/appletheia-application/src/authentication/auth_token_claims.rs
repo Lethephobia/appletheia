@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::authorization::AggregateRef;
+use crate::aggregate::AggregateRef;
 
 use super::{
     AuthTokenAudiences, AuthTokenClaimsError, AuthTokenExpiresAt, AuthTokenExpiresIn, AuthTokenId,
@@ -72,13 +72,12 @@ mod tests {
     use uuid::Uuid;
 
     use super::AuthTokenClaims;
+    use crate::aggregate::{AggregateIdValue, AggregateRef, AggregateTypeOwned};
     use crate::authentication::{
         AuthTokenAudience, AuthTokenAudiences, AuthTokenClaimsError, AuthTokenExpiresAt,
         AuthTokenExpiresIn, AuthTokenExpiresInError, AuthTokenId, AuthTokenIssuedAt,
         AuthTokenIssuerUrl,
     };
-    use crate::authorization::AggregateRef;
-    use crate::event::{AggregateIdValue, AggregateTypeOwned};
 
     fn claims(issued_at: AuthTokenIssuedAt, expires_at: AuthTokenExpiresAt) -> AuthTokenClaims {
         let issuer_url = "https://example.com"

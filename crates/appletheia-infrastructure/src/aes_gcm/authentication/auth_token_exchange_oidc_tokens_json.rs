@@ -25,7 +25,7 @@ impl AuthTokenExchangeOidcTokensJson {
         }
     }
 
-    pub(crate) fn into_oidc_tokens(
+    pub(crate) fn try_into_oidc_tokens(
         self,
     ) -> Result<OidcTokens, Box<dyn std::error::Error + Send + Sync>> {
         let expires_in = self

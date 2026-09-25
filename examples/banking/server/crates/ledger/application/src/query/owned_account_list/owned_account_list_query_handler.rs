@@ -7,10 +7,11 @@ use appletheia::application::request_context::RequestContext;
 use banking_iam_application::authorization::{
     OrganizationFinanceManagerRelation, UserOwnerRelation,
 };
+use banking_iam_application::{OrganizationFragmentProjectorSpec, UserFragmentProjectorSpec};
 use banking_iam_domain::{Organization, User};
 use banking_ledger_domain::account::AccountOwner;
 
-use crate::projection::OwnedAccountListProjectorSpec;
+use crate::projection::{AccountFragmentProjectorSpec, CurrencyFragmentProjectorSpec};
 use crate::read_model::{OwnedAccountList, OwnedAccountListReader};
 
 use super::{OwnedAccountListQuery, OwnedAccountListQueryHandlerError};
@@ -41,8 +42,12 @@ where
     type Error = OwnedAccountListQueryHandlerError;
     type Uow = S::Uow;
 
-    const PROJECTOR_DEPENDENCIES: ProjectorDependencies<'static> =
-        ProjectorDependencies::Some(&[OwnedAccountListProjectorSpec::DESCRIPTOR]);
+    const PROJECTOR_DEPENDENCIES: ProjectorDependencies<'static> = ProjectorDependencies::Some(&[
+        AccountFragmentProjectorSpec::DESCRIPTOR,
+        CurrencyFragmentProjectorSpec::DESCRIPTOR,
+        UserFragmentProjectorSpec::DESCRIPTOR,
+        OrganizationFragmentProjectorSpec::DESCRIPTOR,
+    ]);
 
     fn authorization_plan(&self, query: &Self::Query) -> Result<AuthorizationPlan, Self::Error> {
         match query.owner {
@@ -72,13 +77,7 @@ where
     ) -> Result<Self::Output, Self::Error> {
         Ok(self
             .reader
-            .list(
-                uow,
-                query.owner,
-                query.criteria,
-                query.cursor_options,
-                query.limit,
-            )
+            .list(uow, query.owner, query.criteria, query.sort, query.page)
             .await?)
     }
 }

@@ -1,7 +1,0 @@
-mod user_public_profile_projector;
-mod user_public_profile_projector_error;
-mod user_public_profile_projector_spec;
-
-pub use user_public_profile_projector::UserPublicProfileProjector;
-pub use user_public_profile_projector_error::UserPublicProfileProjectorError;
-pub use user_public_profile_projector_spec::UserPublicProfileProjectorSpec;

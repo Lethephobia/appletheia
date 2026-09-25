@@ -1,9 +1,16 @@
-use crate::read_model::CurrencyListReaderError;
+use appletheia::application::Retryability;
 use thiserror::Error;
 
-/// Error returned while handling currency list queries.
+use crate::read_model::CurrencyListReaderError;
+
 #[derive(Debug, Error)]
 pub enum CurrencyListQueryHandlerError {
-    #[error("currency list reader failed")]
+    #[error(transparent)]
     Reader(#[from] CurrencyListReaderError),
+}
+
+impl Retryability for CurrencyListQueryHandlerError {
+    fn is_retryable(&self) -> bool {
+        true
+    }
 }

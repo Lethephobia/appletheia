@@ -5,9 +5,9 @@ pub mod cloud_storage_object_upload_signer_error;
 pub mod cloud_storage_object_uploader;
 pub mod cloud_storage_object_uploader_error;
 
-pub use cloud_storage_object_deleter::CloudStorageObjectDeleter;
-pub use cloud_storage_object_deleter_error::CloudStorageObjectDeleterError;
-pub use cloud_storage_object_upload_signer::CloudStorageObjectUploadSigner;
-pub use cloud_storage_object_upload_signer_error::CloudStorageObjectUploadSignerError;
-pub use cloud_storage_object_uploader::CloudStorageObjectUploader;
-pub use cloud_storage_object_uploader_error::CloudStorageObjectUploaderError;
+pub use cloud_storage_object_deleter::*;
+pub use cloud_storage_object_deleter_error::*;
+pub use cloud_storage_object_upload_signer::*;
+pub use cloud_storage_object_upload_signer_error::*;
+pub use cloud_storage_object_uploader::*;
+pub use cloud_storage_object_uploader_error::*;

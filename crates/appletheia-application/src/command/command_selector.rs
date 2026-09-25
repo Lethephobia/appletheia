@@ -1,6 +1,6 @@
-use crate::command::CommandName;
 use crate::messaging::Selector as MessageSelector;
-use crate::outbox::command::CommandEnvelope;
+
+use super::{CommandEnvelope, CommandName};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct CommandSelector {

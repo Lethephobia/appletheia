@@ -1,721 +1,150 @@
-use super::{WithdrawalSagaError, WithdrawalSagaSpec, WithdrawalSagaState, WithdrawalSagaStatus};
-use crate::command::{
-    AccountFundsReserveCommand, AccountReservedFundsCommitCommand,
-    AccountReservedFundsReleaseCommand, WithdrawalCompleteCommand, WithdrawalFailCommand,
-    WithdrawalTokenTransferCommand,
+use appletheia::application::saga::SagaError;
+use appletheia::application::saga::{
+    Saga, SagaContext, SagaDefinition, SagaDefinitionBuilder, SagaName,
 };
-use appletheia::application::event::EventEnvelope;
-use appletheia::application::saga::{Saga, SagaInstance, SagaSpec};
 use banking_ledger_domain::account::{Account, AccountEventPayload};
 use banking_ledger_domain::withdrawal::{
     Withdrawal, WithdrawalEventPayload, WithdrawalFailureReason,
+};
+
+use super::{WithdrawalSagaHandlerError, WithdrawalSagaState, WithdrawalSagaStep};
+use crate::command::{
+    AccountFundsReserveCommand, AccountReservedFundsCommitCommand,
+    AccountReservedFundsReleaseCommand, WithdrawalCompleteCommand, WithdrawalFailCommand,
+    WithdrawalSettlementExecuteCommand,
 };
 
 /// Coordinates the withdrawal flow.
 pub struct WithdrawalSaga;
 
 impl Saga for WithdrawalSaga {
-    type Spec = WithdrawalSagaSpec;
-    type Error = WithdrawalSagaError;
+    type State = WithdrawalSagaState;
+    type Step = WithdrawalSagaStep;
+    type HandlerError = WithdrawalSagaHandlerError;
 
-    fn on_event(
+    fn definition(
         &self,
-        instance: &mut SagaInstance<<Self::Spec as SagaSpec>::State>,
-        event: &EventEnvelope,
-    ) -> Result<(), Self::Error> {
-        if event.is_for_aggregate::<Withdrawal>() {
-            let withdrawal_event = event.try_into_domain_event::<Withdrawal>()?;
-            match withdrawal_event.payload() {
-                WithdrawalEventPayload::Requested {
-                    account_id, amount, ..
-                } => {
-                    *instance.state_mut() = Some(WithdrawalSagaState::new(
-                        withdrawal_event.aggregate_id(),
-                        *account_id,
-                        *amount,
-                    ));
-
-                    instance.append_command(
-                        event,
-                        &AccountFundsReserveCommand {
-                            account_id: *account_id,
-                            amount: *amount,
-                        },
-                    )?;
-                }
-                WithdrawalEventPayload::TokenTransferred => {
-                    let state = instance.state_required_mut()?;
-                    let account_id = state.account_id;
-                    let amount = state.amount;
-                    state.status = WithdrawalSagaStatus::ReservedFundsCommitRequested;
-
-                    instance.append_command(
-                        event,
-                        &AccountReservedFundsCommitCommand { account_id, amount },
-                    )?;
-                }
-                WithdrawalEventPayload::TokenTransferRejected { .. } => {
-                    let state = instance.state_required_mut()?;
-                    let account_id = state.account_id;
-                    let amount = state.amount;
-                    state.status = WithdrawalSagaStatus::ReservedFundsReleaseRequested;
-
-                    instance.append_command(
-                        event,
-                        &AccountReservedFundsReleaseCommand { account_id, amount },
-                    )?;
-                }
-                WithdrawalEventPayload::Completed => {
-                    instance.state_required_mut()?.status = WithdrawalSagaStatus::Completed;
-                    instance.succeed();
-                }
-                WithdrawalEventPayload::Failed { .. } => {
-                    instance.state_required_mut()?.status = WithdrawalSagaStatus::Failed;
-                    instance.fail();
-                }
-                _ => {}
+    ) -> Result<SagaDefinition<'_, Self::State, Self::Step, Self::HandlerError>, SagaError> {
+        SagaDefinitionBuilder::<Self::State, Self::Step, Self::HandlerError>::new(SagaName::new(
+            "withdrawal",
+        ))
+        .add_start_step(WithdrawalSagaStep::ReserveFunds)
+        .on::<Withdrawal>(WithdrawalEventPayload::REQUESTED)
+        .handle(|ctx, withdrawal_event| {
+            if let WithdrawalEventPayload::Requested {
+                account_id, amount, ..
+            } = withdrawal_event.payload()
+            {
+                ctx.set_state(WithdrawalSagaState::new(
+                    withdrawal_event.aggregate_id(),
+                    *account_id,
+                    *amount,
+                ));
+                ctx.append_command(&AccountFundsReserveCommand {
+                    account_id: *account_id,
+                    amount: *amount,
+                })?;
             }
-
-            return Ok(());
-        } else if event.is_for_aggregate::<Account>() {
-            let account_event = event.try_into_domain_event::<Account>()?;
-            match account_event.payload() {
-                AccountEventPayload::FundsReserved { .. } => {
-                    let state = instance.state_required_mut()?;
-                    let withdrawal_id = state.withdrawal_id;
-                    state.status = WithdrawalSagaStatus::TokenTransferRequested;
-
-                    instance
-                        .append_command(event, &WithdrawalTokenTransferCommand { withdrawal_id })?;
-                }
-                AccountEventPayload::FundsReserveRejected { .. } => {
-                    let state = instance.state_required_mut()?;
-                    state.status = WithdrawalSagaStatus::FailRequested;
-                    let withdrawal_id = state.withdrawal_id;
-                    instance.append_command(
-                        event,
-                        &WithdrawalFailCommand {
-                            withdrawal_id,
-                            reason: WithdrawalFailureReason::FundsReserveRejected,
-                        },
-                    )?;
-                }
-                AccountEventPayload::ReservedFundsReleased { .. } => {
-                    let state = instance.state_required_mut()?;
-                    let withdrawal_id = state.withdrawal_id;
-                    state.status = WithdrawalSagaStatus::FailRequested;
-
-                    instance.append_command(
-                        event,
-                        &WithdrawalFailCommand {
-                            withdrawal_id,
-                            reason: WithdrawalFailureReason::TokenTransferRejected,
-                        },
-                    )?;
-                }
-                AccountEventPayload::ReservedFundsReleaseRejected { .. } => {
-                    let state = instance.state_required_mut()?;
-                    let withdrawal_id = state.withdrawal_id;
-                    state.status = WithdrawalSagaStatus::FailRequested;
-
-                    instance.append_command(
-                        event,
-                        &WithdrawalFailCommand {
-                            withdrawal_id,
-                            reason: WithdrawalFailureReason::ReservedFundsReleaseRejected,
-                        },
-                    )?;
-                }
-                AccountEventPayload::ReservedFundsCommitted { .. } => {
-                    let state = instance.state_required_mut()?;
-                    let withdrawal_id = state.withdrawal_id;
-                    state.status = WithdrawalSagaStatus::CompleteRequested;
-
-                    instance.append_command(event, &WithdrawalCompleteCommand { withdrawal_id })?;
-                }
-                AccountEventPayload::ReservedFundsCommitRejected { .. } => {
-                    let state = instance.state_required_mut()?;
-                    state.status = WithdrawalSagaStatus::FailRequested;
-                    let withdrawal_id = state.withdrawal_id;
-                    instance.append_command(
-                        event,
-                        &WithdrawalFailCommand {
-                            withdrawal_id,
-                            reason: WithdrawalFailureReason::ReservedFundsCommitRejected,
-                        },
-                    )?;
-                }
-                _ => {}
-            }
-        }
-
-        Ok(())
+            Ok(())
+        })
+        .add_step(WithdrawalSagaStep::CommitFunds)
+        .on::<Withdrawal>(
+            WithdrawalSagaStep::ExecuteSettlement,
+            WithdrawalEventPayload::SETTLEMENT_EXECUTED,
+        )
+        .handle(|ctx, _withdrawal_event| {
+            let state = ctx.state_required_mut()?;
+            let account_id = state.account_id;
+            let amount = state.amount;
+            ctx.append_command(&AccountReservedFundsCommitCommand { account_id, amount })?;
+            Ok(())
+        })
+        .add_step(WithdrawalSagaStep::ExecuteSettlement)
+        .on::<Account>(
+            WithdrawalSagaStep::ReserveFunds,
+            AccountEventPayload::FUNDS_RESERVED,
+        )
+        .handle(|ctx, _account_event| {
+            let state = ctx.state_required_mut()?;
+            let withdrawal_id = state.withdrawal_id;
+            ctx.append_command(&WithdrawalSettlementExecuteCommand { withdrawal_id })?;
+            Ok(())
+        })
+        .add_step(WithdrawalSagaStep::Fail)
+        .on::<Account>(
+            WithdrawalSagaStep::ReleaseFunds,
+            AccountEventPayload::RESERVED_FUNDS_RELEASED,
+        )
+        .handle(|ctx, _account_event| {
+            let state = ctx.state_required_mut()?;
+            let withdrawal_id = state.withdrawal_id;
+            ctx.append_command(&WithdrawalFailCommand {
+                withdrawal_id,
+                reason: WithdrawalFailureReason::SettlementExecuteRejected,
+            })?;
+            Ok(())
+        })
+        .add_step(WithdrawalSagaStep::Complete)
+        .on::<Account>(
+            WithdrawalSagaStep::CommitFunds,
+            AccountEventPayload::RESERVED_FUNDS_COMMITTED,
+        )
+        .handle(|ctx, _account_event| {
+            let state = ctx.state_required_mut()?;
+            let withdrawal_id = state.withdrawal_id;
+            ctx.append_command(&WithdrawalCompleteCommand { withdrawal_id })?;
+            Ok(())
+        })
+        .add_failure_step(WithdrawalSagaStep::Fail)
+        .on(WithdrawalSagaStep::ReserveFunds)
+        .handle(|ctx, _failure| {
+            self.append_fail_after_failure(ctx, WithdrawalFailureReason::FundsReserveRejected)?;
+            Ok(())
+        })
+        .add_failure_step(WithdrawalSagaStep::ReleaseFunds)
+        .on(WithdrawalSagaStep::ExecuteSettlement)
+        .handle(|ctx, _failure| {
+            let state = ctx.state_required_mut()?;
+            let account_id = state.account_id;
+            let amount = state.amount;
+            ctx.append_command(&AccountReservedFundsReleaseCommand { account_id, amount })?;
+            Ok(())
+        })
+        .add_failure_step(WithdrawalSagaStep::Fail)
+        .on(WithdrawalSagaStep::ReleaseFunds)
+        .handle(|ctx, _failure| {
+            self.append_fail_after_failure(
+                ctx,
+                WithdrawalFailureReason::ReservedFundsReleaseRejected,
+            )?;
+            Ok(())
+        })
+        .add_failure_step(WithdrawalSagaStep::Fail)
+        .on(WithdrawalSagaStep::CommitFunds)
+        .handle(|ctx, _failure| {
+            self.append_fail_after_failure(
+                ctx,
+                WithdrawalFailureReason::ReservedFundsCommitRejected,
+            )?;
+            Ok(())
+        })
+        .build()
+        .map_err(SagaError::from)
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use uuid::Uuid;
-
-    use appletheia::application::event::{
-        AggregateIdValue, AggregateTypeOwned, EventEnvelope, EventNameOwned, EventSequence,
-        SerializedEventPayload,
-    };
-    use appletheia::application::request_context::{
-        CausationId, CorrelationId, MessageId, Principal, RequestContext,
-    };
-    use appletheia::application::saga::{Saga, SagaInstance, SagaNameOwned, SagaSpec, SagaStatus};
-    use appletheia::domain::{Aggregate, AggregateId, EventId, EventOccurredAt, EventPayload};
-    use banking_iam_domain::{User, UserId};
-    use banking_ledger_domain::account::{
-        Account, AccountEventPayload, AccountFundsReserveRejectionReason, AccountId,
-        AccountReservedFundsReleaseRejectionReason,
-    };
-    use banking_ledger_domain::core::{CurrencyAmount, TokenAccountOwnerAddress};
-    use banking_ledger_domain::withdrawal::{
-        Withdrawal, WithdrawalEventPayload, WithdrawalFailureReason, WithdrawalId,
-        WithdrawalTokenTransferRejectionReason,
-    };
-
-    use super::{WithdrawalSaga, WithdrawalSagaSpec, WithdrawalSagaState, WithdrawalSagaStatus};
-    use crate::command::{
-        AccountFundsReserveCommand, AccountReservedFundsCommitCommand,
-        AccountReservedFundsReleaseCommand, WithdrawalCompleteCommand, WithdrawalFailCommand,
-        WithdrawalTokenTransferCommand,
-    };
-
-    fn request_context(correlation_id: CorrelationId) -> RequestContext {
-        let subject =
-            appletheia::application::authorization::AggregateRef::from_id::<User>(UserId::new());
-
-        RequestContext::new(
-            correlation_id,
-            MessageId::new(),
-            Principal::Authenticated { subject },
-        )
-        .expect("request context should be valid")
-    }
-
-    fn account_event_envelope(
-        correlation_id: CorrelationId,
-        account_id: AccountId,
-        payload: AccountEventPayload,
-    ) -> EventEnvelope {
-        EventEnvelope {
-            event_sequence: EventSequence::try_from(1).expect("sequence should be valid"),
-            event_id: EventId::new(),
-            aggregate_type: AggregateTypeOwned::from(Account::TYPE),
-            aggregate_id: AggregateIdValue::from(account_id.value()),
-            aggregate_version: appletheia::domain::AggregateVersion::try_from(1)
-                .expect("version should be valid"),
-            event_name: EventNameOwned::from(payload.name()),
-            payload: SerializedEventPayload::try_from(
-                payload.into_json_value().expect("payload should serialize"),
-            )
-            .expect("payload should be valid"),
-            occurred_at: EventOccurredAt::now(),
-            correlation_id,
-            causation_id: CausationId::from(MessageId::new()),
-            context: request_context(correlation_id),
-        }
-    }
-
-    fn withdrawal_event_envelope(
-        correlation_id: CorrelationId,
-        withdrawal_id: WithdrawalId,
-        payload: WithdrawalEventPayload,
-    ) -> EventEnvelope {
-        EventEnvelope {
-            event_sequence: EventSequence::try_from(1).expect("sequence should be valid"),
-            event_id: EventId::new(),
-            aggregate_type: AggregateTypeOwned::from(Withdrawal::TYPE),
-            aggregate_id: AggregateIdValue::from(withdrawal_id.value()),
-            aggregate_version: appletheia::domain::AggregateVersion::try_from(1)
-                .expect("version should be valid"),
-            event_name: EventNameOwned::from(payload.name()),
-            payload: SerializedEventPayload::try_from(
-                payload.into_json_value().expect("payload should serialize"),
-            )
-            .expect("payload should be valid"),
-            occurred_at: EventOccurredAt::now(),
-            correlation_id,
-            causation_id: CausationId::from(MessageId::new()),
-            context: request_context(correlation_id),
-        }
-    }
-
-    fn token_account_owner_address() -> TokenAccountOwnerAddress {
-        TokenAccountOwnerAddress::try_from("11111111111111111111111111111111")
-            .expect("token account owner address should be valid")
-    }
-
-    #[test]
-    fn withdrawal_requested_appends_account_funds_reserve_command() {
-        let saga = WithdrawalSaga;
-        let correlation_id = CorrelationId::from(Uuid::now_v7());
-        let account_id = AccountId::new();
-        let withdrawal_id = WithdrawalId::new();
-        let amount = CurrencyAmount::new(100);
-        let mut instance = SagaInstance::<WithdrawalSagaState>::new(
-            SagaNameOwned::from(WithdrawalSagaSpec::DESCRIPTOR.name),
-            correlation_id,
-            EventId::new(),
-        );
-
-        saga.on_event(
-            &mut instance,
-            &withdrawal_event_envelope(
-                correlation_id,
-                withdrawal_id,
-                WithdrawalEventPayload::Requested {
-                    account_id,
-                    currency_id: banking_ledger_domain::currency::CurrencyId::new(),
-                    token_account_owner_address: token_account_owner_address(),
-                    amount,
-                },
-            ),
-        )
-        .expect("saga should succeed");
-
-        assert_eq!(instance.uncommitted_commands().len(), 1);
-        assert_eq!(
-            instance.state.as_ref().map(|state| &state.status),
-            Some(&WithdrawalSagaStatus::FundsReserveRequested)
-        );
-        let command = instance.uncommitted_commands()[0]
-            .try_into_command::<AccountFundsReserveCommand>()
-            .expect("command should deserialize");
-        assert_eq!(command, AccountFundsReserveCommand { account_id, amount });
-    }
-
-    #[test]
-    fn success_path_appends_expected_follow_up_commands_and_succeeds() {
-        let saga = WithdrawalSaga;
-        let correlation_id = CorrelationId::from(Uuid::now_v7());
-        let account_id = AccountId::new();
-        let withdrawal_id = WithdrawalId::new();
-        let amount = CurrencyAmount::new(100);
-        let mut instance = SagaInstance::<WithdrawalSagaState>::new(
-            SagaNameOwned::from(WithdrawalSagaSpec::DESCRIPTOR.name),
-            correlation_id,
-            EventId::new(),
-        );
-
-        saga.on_event(
-            &mut instance,
-            &withdrawal_event_envelope(
-                correlation_id,
-                withdrawal_id,
-                WithdrawalEventPayload::Requested {
-                    account_id,
-                    currency_id: banking_ledger_domain::currency::CurrencyId::new(),
-                    token_account_owner_address: token_account_owner_address(),
-                    amount,
-                },
-            ),
-        )
-        .expect("requested should succeed");
-        instance.clear_uncommitted_commands();
-
-        saga.on_event(
-            &mut instance,
-            &account_event_envelope(
-                correlation_id,
-                account_id,
-                AccountEventPayload::FundsReserved { amount },
-            ),
-        )
-        .expect("funds reserved should succeed");
-        let transfer = instance.uncommitted_commands()[0]
-            .try_into_command::<WithdrawalTokenTransferCommand>()
-            .expect("command should deserialize");
-        assert_eq!(transfer, WithdrawalTokenTransferCommand { withdrawal_id });
-        assert_eq!(
-            instance.state.as_ref().map(|state| &state.status),
-            Some(&WithdrawalSagaStatus::TokenTransferRequested)
-        );
-
-        instance.clear_uncommitted_commands();
-        saga.on_event(
-            &mut instance,
-            &withdrawal_event_envelope(
-                correlation_id,
-                withdrawal_id,
-                WithdrawalEventPayload::TokenTransferred,
-            ),
-        )
-        .expect("token transferred should succeed");
-        let commit = instance.uncommitted_commands()[0]
-            .try_into_command::<AccountReservedFundsCommitCommand>()
-            .expect("command should deserialize");
-        assert_eq!(
-            commit,
-            AccountReservedFundsCommitCommand { account_id, amount }
-        );
-        assert_eq!(
-            instance.state.as_ref().map(|state| &state.status),
-            Some(&WithdrawalSagaStatus::ReservedFundsCommitRequested)
-        );
-
-        instance.clear_uncommitted_commands();
-        saga.on_event(
-            &mut instance,
-            &account_event_envelope(
-                correlation_id,
-                account_id,
-                AccountEventPayload::ReservedFundsCommitted { amount },
-            ),
-        )
-        .expect("reserved funds committed should succeed");
-        let complete = instance.uncommitted_commands()[0]
-            .try_into_command::<WithdrawalCompleteCommand>()
-            .expect("command should deserialize");
-        assert_eq!(complete, WithdrawalCompleteCommand { withdrawal_id });
-
-        instance.clear_uncommitted_commands();
-        saga.on_event(
-            &mut instance,
-            &withdrawal_event_envelope(
-                correlation_id,
-                withdrawal_id,
-                WithdrawalEventPayload::Completed,
-            ),
-        )
-        .expect("completed should succeed");
-
-        assert_eq!(instance.status, SagaStatus::Succeeded);
-    }
-
-    #[test]
-    fn funds_reserve_rejected_appends_withdrawal_fail_command() {
-        let saga = WithdrawalSaga;
-        let correlation_id = CorrelationId::from(Uuid::now_v7());
-        let account_id = AccountId::new();
-        let withdrawal_id = WithdrawalId::new();
-        let amount = CurrencyAmount::new(100);
-        let mut instance = SagaInstance::<WithdrawalSagaState>::new(
-            SagaNameOwned::from(WithdrawalSagaSpec::DESCRIPTOR.name),
-            correlation_id,
-            EventId::new(),
-        );
-
-        saga.on_event(
-            &mut instance,
-            &withdrawal_event_envelope(
-                correlation_id,
-                withdrawal_id,
-                WithdrawalEventPayload::Requested {
-                    account_id,
-                    currency_id: banking_ledger_domain::currency::CurrencyId::new(),
-                    token_account_owner_address: token_account_owner_address(),
-                    amount,
-                },
-            ),
-        )
-        .expect("requested should succeed");
-        instance.clear_uncommitted_commands();
-
-        saga.on_event(
-            &mut instance,
-            &account_event_envelope(
-                correlation_id,
-                account_id,
-                AccountEventPayload::FundsReserveRejected {
-                    amount,
-                    reason: AccountFundsReserveRejectionReason::InsufficientAvailableBalance,
-                },
-            ),
-        )
-        .expect("reserve rejection should succeed");
-
-        let fail = instance.uncommitted_commands()[0]
-            .try_into_command::<WithdrawalFailCommand>()
-            .expect("command should deserialize");
-        assert_eq!(
-            fail,
-            WithdrawalFailCommand {
-                withdrawal_id,
-                reason: WithdrawalFailureReason::FundsReserveRejected,
-            }
-        );
-        assert_eq!(
-            instance.state.as_ref().map(|state| &state.status),
-            Some(&WithdrawalSagaStatus::FailRequested)
-        );
-    }
-
-    #[test]
-    fn token_transfer_rejected_requests_reserved_funds_release() {
-        let saga = WithdrawalSaga;
-        let correlation_id = CorrelationId::from(Uuid::now_v7());
-        let account_id = AccountId::new();
-        let withdrawal_id = WithdrawalId::new();
-        let amount = CurrencyAmount::new(100);
-        let mut instance = SagaInstance::<WithdrawalSagaState>::new(
-            SagaNameOwned::from(WithdrawalSagaSpec::DESCRIPTOR.name),
-            correlation_id,
-            EventId::new(),
-        );
-
-        saga.on_event(
-            &mut instance,
-            &withdrawal_event_envelope(
-                correlation_id,
-                withdrawal_id,
-                WithdrawalEventPayload::Requested {
-                    account_id,
-                    currency_id: banking_ledger_domain::currency::CurrencyId::new(),
-                    token_account_owner_address: token_account_owner_address(),
-                    amount,
-                },
-            ),
-        )
-        .expect("requested should succeed");
-        instance.clear_uncommitted_commands();
-
-        saga.on_event(
-            &mut instance,
-            &account_event_envelope(
-                correlation_id,
-                account_id,
-                AccountEventPayload::FundsReserved { amount },
-            ),
-        )
-        .expect("funds reserved should succeed");
-        instance.clear_uncommitted_commands();
-
-        saga.on_event(
-            &mut instance,
-            &withdrawal_event_envelope(
-                correlation_id,
-                withdrawal_id,
-                WithdrawalEventPayload::TokenTransferRejected {
-                    reason: WithdrawalTokenTransferRejectionReason::AlreadyFailed,
-                },
-            ),
-        )
-        .expect("token transfer rejection should succeed");
-
-        let release = instance.uncommitted_commands()[0]
-            .try_into_command::<AccountReservedFundsReleaseCommand>()
-            .expect("command should deserialize");
-        assert_eq!(
-            release,
-            AccountReservedFundsReleaseCommand { account_id, amount }
-        );
-        assert_eq!(
-            instance.state.as_ref().map(|state| &state.status),
-            Some(&WithdrawalSagaStatus::ReservedFundsReleaseRequested)
-        );
-    }
-
-    #[test]
-    fn reserved_funds_released_after_token_transfer_rejection_appends_withdrawal_fail_command() {
-        let saga = WithdrawalSaga;
-        let correlation_id = CorrelationId::from(Uuid::now_v7());
-        let account_id = AccountId::new();
-        let withdrawal_id = WithdrawalId::new();
-        let amount = CurrencyAmount::new(100);
-        let mut instance = SagaInstance::<WithdrawalSagaState>::new(
-            SagaNameOwned::from(WithdrawalSagaSpec::DESCRIPTOR.name),
-            correlation_id,
-            EventId::new(),
-        );
-
-        saga.on_event(
-            &mut instance,
-            &withdrawal_event_envelope(
-                correlation_id,
-                withdrawal_id,
-                WithdrawalEventPayload::Requested {
-                    account_id,
-                    currency_id: banking_ledger_domain::currency::CurrencyId::new(),
-                    token_account_owner_address: token_account_owner_address(),
-                    amount,
-                },
-            ),
-        )
-        .expect("requested should succeed");
-        instance.clear_uncommitted_commands();
-
-        saga.on_event(
-            &mut instance,
-            &account_event_envelope(
-                correlation_id,
-                account_id,
-                AccountEventPayload::FundsReserved { amount },
-            ),
-        )
-        .expect("funds reserved should succeed");
-        instance.clear_uncommitted_commands();
-
-        saga.on_event(
-            &mut instance,
-            &withdrawal_event_envelope(
-                correlation_id,
-                withdrawal_id,
-                WithdrawalEventPayload::TokenTransferRejected {
-                    reason: WithdrawalTokenTransferRejectionReason::AlreadyFailed,
-                },
-            ),
-        )
-        .expect("token transfer rejection should succeed");
-        instance.clear_uncommitted_commands();
-
-        saga.on_event(
-            &mut instance,
-            &account_event_envelope(
-                correlation_id,
-                account_id,
-                AccountEventPayload::ReservedFundsReleased { amount },
-            ),
-        )
-        .expect("reserved funds released should succeed");
-
-        let fail = instance.uncommitted_commands()[0]
-            .try_into_command::<WithdrawalFailCommand>()
-            .expect("command should deserialize");
-        assert_eq!(
-            fail,
-            WithdrawalFailCommand {
-                withdrawal_id,
-                reason: WithdrawalFailureReason::TokenTransferRejected,
-            }
-        );
-        assert_eq!(
-            instance.state.as_ref().map(|state| &state.status),
-            Some(&WithdrawalSagaStatus::FailRequested)
-        );
-    }
-
-    #[test]
-    fn reserved_funds_release_rejected_after_token_transfer_rejection_appends_withdrawal_fail_command()
-     {
-        let saga = WithdrawalSaga;
-        let correlation_id = CorrelationId::from(Uuid::now_v7());
-        let account_id = AccountId::new();
-        let withdrawal_id = WithdrawalId::new();
-        let amount = CurrencyAmount::new(100);
-        let mut instance = SagaInstance::<WithdrawalSagaState>::new(
-            SagaNameOwned::from(WithdrawalSagaSpec::DESCRIPTOR.name),
-            correlation_id,
-            EventId::new(),
-        );
-
-        saga.on_event(
-            &mut instance,
-            &withdrawal_event_envelope(
-                correlation_id,
-                withdrawal_id,
-                WithdrawalEventPayload::Requested {
-                    account_id,
-                    currency_id: banking_ledger_domain::currency::CurrencyId::new(),
-                    token_account_owner_address: token_account_owner_address(),
-                    amount,
-                },
-            ),
-        )
-        .expect("requested should succeed");
-        instance.clear_uncommitted_commands();
-
-        saga.on_event(
-            &mut instance,
-            &account_event_envelope(
-                correlation_id,
-                account_id,
-                AccountEventPayload::FundsReserved { amount },
-            ),
-        )
-        .expect("funds reserved should succeed");
-        instance.clear_uncommitted_commands();
-
-        saga.on_event(
-            &mut instance,
-            &withdrawal_event_envelope(
-                correlation_id,
-                withdrawal_id,
-                WithdrawalEventPayload::TokenTransferRejected {
-                    reason: WithdrawalTokenTransferRejectionReason::AlreadyFailed,
-                },
-            ),
-        )
-        .expect("token transfer rejection should succeed");
-        instance.clear_uncommitted_commands();
-
-        saga.on_event(
-            &mut instance,
-            &account_event_envelope(
-                correlation_id,
-                account_id,
-                AccountEventPayload::ReservedFundsReleaseRejected {
-                    amount,
-                    reason: AccountReservedFundsReleaseRejectionReason::InsufficientReservedBalance,
-                },
-            ),
-        )
-        .expect("reserved funds release rejection should succeed");
-
-        let fail = instance.uncommitted_commands()[0]
-            .try_into_command::<WithdrawalFailCommand>()
-            .expect("command should deserialize");
-        assert_eq!(
-            fail,
-            WithdrawalFailCommand {
-                withdrawal_id,
-                reason: WithdrawalFailureReason::ReservedFundsReleaseRejected,
-            }
-        );
-        assert_eq!(
-            instance.state.as_ref().map(|state| &state.status),
-            Some(&WithdrawalSagaStatus::FailRequested)
-        );
-    }
-
-    #[test]
-    fn withdrawal_failed_marks_saga_failed() {
-        let saga = WithdrawalSaga;
-        let correlation_id = CorrelationId::from(Uuid::now_v7());
-        let account_id = AccountId::new();
-        let withdrawal_id = WithdrawalId::new();
-        let amount = CurrencyAmount::new(100);
-        let mut instance = SagaInstance::<WithdrawalSagaState>::new(
-            SagaNameOwned::from(WithdrawalSagaSpec::DESCRIPTOR.name),
-            correlation_id,
-            EventId::new(),
-        );
-
-        saga.on_event(
-            &mut instance,
-            &withdrawal_event_envelope(
-                correlation_id,
-                withdrawal_id,
-                WithdrawalEventPayload::Requested {
-                    account_id,
-                    currency_id: banking_ledger_domain::currency::CurrencyId::new(),
-                    token_account_owner_address: token_account_owner_address(),
-                    amount,
-                },
-            ),
-        )
-        .expect("requested should succeed");
-        instance.clear_uncommitted_commands();
-
-        saga.on_event(
-            &mut instance,
-            &withdrawal_event_envelope(
-                correlation_id,
-                withdrawal_id,
-                WithdrawalEventPayload::Failed {
-                    reason: WithdrawalFailureReason::TokenTransferRejected,
-                },
-            ),
-        )
-        .expect("failed should succeed");
-
-        assert_eq!(instance.status, SagaStatus::Failed);
-        assert_eq!(
-            instance.state.as_ref().map(|state| &state.status),
-            Some(&WithdrawalSagaStatus::Failed)
-        );
+impl WithdrawalSaga {
+    fn append_fail_after_failure(
+        &self,
+        ctx: &mut SagaContext<'_, WithdrawalSagaState, WithdrawalSagaStep>,
+        reason: WithdrawalFailureReason,
+    ) -> Result<(), WithdrawalSagaHandlerError> {
+        let state = ctx.state_required_mut()?;
+        let withdrawal_id = state.withdrawal_id;
+        ctx.append_command(&WithdrawalFailCommand {
+            withdrawal_id,
+            reason,
+        })?;
+        Ok(())
     }
 }

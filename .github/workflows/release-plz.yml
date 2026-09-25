@@ -24,6 +24,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Install cargo-semver-checks
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-semver-checks
+
       - name: Create or update release PR
         uses: release-plz/action@v0.5
         with:

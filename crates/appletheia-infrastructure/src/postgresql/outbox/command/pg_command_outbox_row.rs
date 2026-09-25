@@ -4,15 +4,19 @@ use chrono::{DateTime, Utc};
 use sqlx::FromRow;
 use uuid::Uuid;
 
-use appletheia_application::command::{CommandNameOwned, CommandOptions};
+use appletheia_application::command::{
+    CommandEnvelope, CommandNameOwned, CommandOptions, SerializedCommand,
+};
 use appletheia_application::messaging::PublishDispatchError;
-use appletheia_application::outbox::command::{CommandEnvelope, SerializedCommand};
 use appletheia_application::outbox::{
     OutboxAttemptCount, OutboxLeaseExpiresAt, OutboxLifecycle, OutboxNextAttemptAt,
     OutboxPublishedAt, OutboxRelayInstance, OutboxState,
     command::{CommandOutbox, CommandOutboxId},
 };
 use appletheia_application::request_context::{CausationId, CorrelationId, MessageId};
+use appletheia_application::saga::{
+    SagaCommandOrigin, SagaInstanceId, SagaNameOwned, SerializedSagaStep,
+};
 
 use super::PgCommandOutboxRowError;
 
@@ -25,6 +29,9 @@ pub struct PgCommandOutboxRow {
     pub payload: serde_json::Value,
     pub correlation_id: Uuid,
     pub causation_id: Uuid,
+    pub saga_name: Option<String>,
+    pub saga_instance_id: Option<Uuid>,
+    pub saga_step: Option<serde_json::Value>,
     pub options: serde_json::Value,
     pub published_at: Option<DateTime<Utc>>,
     pub attempt_count: i64,
@@ -48,6 +55,15 @@ impl PgCommandOutboxRow {
         let correlation_id = CorrelationId::from(self.correlation_id);
         let message_id = MessageId::from(self.message_id);
         let causation_id = CausationId::from(MessageId::from(self.causation_id));
+        let saga_origin = match (self.saga_name, self.saga_instance_id, self.saga_step) {
+            (Some(saga_name), Some(saga_instance_id), Some(saga_step)) => Some(SagaCommandOrigin {
+                saga_name: SagaNameOwned::new(saga_name)?,
+                saga_instance_id: SagaInstanceId::try_from(saga_instance_id)?,
+                step: SerializedSagaStep::try_from(saga_step)?,
+            }),
+            (None, None, None) => None,
+            _ => return Err(PgCommandOutboxRowError::InconsistentSagaOrigin),
+        };
         let options = serde_json::from_value::<CommandOptions>(self.options)?;
 
         let command = CommandEnvelope {
@@ -56,6 +72,7 @@ impl PgCommandOutboxRow {
             correlation_id,
             message_id,
             causation_id,
+            saga_origin,
             options,
         };
 

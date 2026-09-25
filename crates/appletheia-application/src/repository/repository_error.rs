@@ -1,11 +1,13 @@
-use std::error::Error;
+use crate::authorization::{RelationshipDeriverError, RelationshipStoreError};
 use std::fmt::Debug;
 
 use thiserror::Error;
 
 use appletheia_domain::{Aggregate, AggregateType};
 
+use crate::Retryability;
 use crate::event::{EventReaderError, EventWriterError};
+use crate::outbox::event::EventOutboxEnqueueError;
 use crate::snapshot::{SnapshotReaderError, SnapshotWriterError};
 
 use super::{
@@ -41,9 +43,60 @@ pub enum RepositoryError<A: Aggregate> {
     #[error("event writer error: {0}")]
     EventWriter(#[from] EventWriterError),
 
-    #[error("event save hook error: {0}")]
-    EventSaveHook(#[source] Box<dyn Error + Send + Sync>),
+    #[error("event outbox enqueue error: {0}")]
+    EventOutboxEnqueue(#[from] EventOutboxEnqueueError),
+
+    #[error(transparent)]
+    RelationshipDeriver(#[from] RelationshipDeriverError),
+
+    #[error(transparent)]
+    RelationshipStore(#[from] RelationshipStoreError),
 
     #[error("snapshot writer error: {0}")]
     SnapshotWriter(#[from] SnapshotWriterError),
+}
+
+impl<A: Aggregate> Retryability for RepositoryError<A> {
+    fn is_retryable(&self) -> bool {
+        match self {
+            Self::NotFound { .. } | Self::Aggregate(_) => false,
+            Self::UniqueKeyReservationStore(error) => match error {
+                UniqueKeyReservationStoreError::Conflict { .. }
+                | UniqueKeyReservationStoreError::Persistence(_) => true,
+                UniqueKeyReservationStoreError::NamespaceMismatch { .. }
+                | UniqueKeyReservationStoreError::DuplicateKey { .. } => false,
+            },
+            Self::UniqueValueOwnerLookup(error) => match error {
+                UniqueValueOwnerLookupError::OwnerAggregateId(_) => false,
+                UniqueValueOwnerLookupError::Persistence(_) => true,
+            },
+            Self::ReferenceIndexStore(_) => true,
+            Self::RelationshipDeriver(_) => false,
+            Self::RelationshipStore(error) => {
+                matches!(error, RelationshipStoreError::Persistence(_))
+            }
+            Self::EventReader(error) => match error {
+                EventReaderError::MappingFailed(_) | EventReaderError::NotInTransaction => false,
+                EventReaderError::Persistence(_) => true,
+            },
+            Self::SnapshotReader(error) => match error {
+                SnapshotReaderError::MappingFailed(_) | SnapshotReaderError::NotInTransaction => {
+                    false
+                }
+                SnapshotReaderError::Persistence(_) => true,
+            },
+            Self::EventWriter(error) => match error {
+                EventWriterError::NotInTransaction | EventWriterError::Json(_) => false,
+                EventWriterError::Persistence(_) => true,
+            },
+            Self::EventOutboxEnqueue(error) => match error {
+                EventOutboxEnqueueError::NotInTransaction => false,
+                EventOutboxEnqueueError::Persistence(_) => true,
+            },
+            Self::SnapshotWriter(error) => match error {
+                SnapshotWriterError::NotInTransaction | SnapshotWriterError::Json(_) => false,
+                SnapshotWriterError::Persistence(_) => true,
+            },
+        }
+    }
 }

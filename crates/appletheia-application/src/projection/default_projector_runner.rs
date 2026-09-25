@@ -1,59 +1,88 @@
 use crate::event::EventEnvelope;
-use crate::unit_of_work::UnitOfWork;
-use crate::unit_of_work::UnitOfWorkFactory;
+use crate::outbox::read_model_invalidation::ReadModelInvalidationOutboxEnqueuer;
+use crate::read_model::{MaterializationEventContext, ReadModelInvalidationEnvelope};
+use crate::unit_of_work::{UnitOfWork, UnitOfWorkFactory};
 
 use super::{
     Projector, ProjectorNameOwned, ProjectorProcessedEventStore, ProjectorRunReport,
     ProjectorRunner, ProjectorRunnerError, ProjectorSpec,
 };
 
-pub struct DefaultProjectorRunner<P, U> {
+/// Persists fragment updates and emits payload-free read-model invalidations.
+pub struct DefaultProjectorRunner<P, E, U>
+where
+    P: ProjectorProcessedEventStore,
+    E: ReadModelInvalidationOutboxEnqueuer<Uow = P::Uow>,
+    U: UnitOfWorkFactory<Uow = P::Uow>,
+{
     processed_event_store: P,
+    invalidation_outbox_enqueuer: E,
     uow_factory: U,
 }
 
-impl<P, U> DefaultProjectorRunner<P, U> {
-    pub fn new(processed_event_store: P, uow_factory: U) -> Self {
+impl<P, E, U> DefaultProjectorRunner<P, E, U>
+where
+    P: ProjectorProcessedEventStore,
+    E: ReadModelInvalidationOutboxEnqueuer<Uow = P::Uow>,
+    U: UnitOfWorkFactory<Uow = P::Uow>,
+{
+    pub fn new(processed_event_store: P, invalidation_outbox_enqueuer: E, uow_factory: U) -> Self {
         Self {
             processed_event_store,
+            invalidation_outbox_enqueuer,
             uow_factory,
         }
     }
 
-    async fn project_inner<PJ: Projector<Uow = P::Uow>>(
+    async fn project_inner<PJ>(
         &self,
         uow: &mut P::Uow,
         projector: &PJ,
         event: &EventEnvelope,
     ) -> Result<ProjectorRunReport, ProjectorRunnerError>
     where
+        PJ: Projector<Uow = P::Uow>,
         P: ProjectorProcessedEventStore,
+        E: ReadModelInvalidationOutboxEnqueuer<Uow = P::Uow>,
     {
         let descriptor = <PJ::Spec as ProjectorSpec>::DESCRIPTOR;
-        let projector_name = ProjectorNameOwned::from(descriptor.name);
-        let event_id = event.event_id;
-
         let inserted = self
             .processed_event_store
-            .mark_processed(uow, projector_name, event_id)
+            .mark_processed(
+                uow,
+                ProjectorNameOwned::from(descriptor.name),
+                event.event_id,
+            )
             .await?;
 
         if !inserted {
             return Ok(ProjectorRunReport::SkippedAlreadyProcessed);
         }
 
-        projector
-            .project(uow, event)
+        let invalidated_partitions = projector
+            .project(uow, MaterializationEventContext::from(event), event)
             .await
-            .map_err(|source| ProjectorRunnerError::Definition(Box::new(source)))?;
+            .map_err(|source| ProjectorRunnerError::Projection(Box::new(source)))?;
+
+        if !invalidated_partitions.is_empty() {
+            let invalidation = ReadModelInvalidationEnvelope::try_new::<PJ::Fragment>(
+                event,
+                descriptor.name,
+                invalidated_partitions,
+            )?;
+            self.invalidation_outbox_enqueuer
+                .enqueue_invalidation(uow, &invalidation)
+                .await?;
+        }
 
         Ok(ProjectorRunReport::Applied)
     }
 }
 
-impl<P, U> ProjectorRunner for DefaultProjectorRunner<P, U>
+impl<P, E, U> ProjectorRunner for DefaultProjectorRunner<P, E, U>
 where
     P: ProjectorProcessedEventStore,
+    E: ReadModelInvalidationOutboxEnqueuer<Uow = P::Uow>,
     U: UnitOfWorkFactory<Uow = P::Uow>,
 {
     type Uow = P::Uow;
@@ -64,9 +93,7 @@ where
         event: &EventEnvelope,
     ) -> Result<ProjectorRunReport, ProjectorRunnerError> {
         let mut uow = self.uow_factory.begin().await?;
-
-        let result = self.project_inner(&mut uow, projector, event).await;
-        match result {
+        match self.project_inner(&mut uow, projector, event).await {
             Ok(report) => {
                 uow.commit().await?;
                 Ok(report)

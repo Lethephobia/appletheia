@@ -1,7 +1,7 @@
 use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
-use appletheia::application::command::{CommandHandled, CommandHandler};
+use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_iam_domain::User;
@@ -33,7 +33,6 @@ where
 {
     type Command = UserBioChangeCommand;
     type Output = UserBioChangeOutput;
-    type ReplayOutput = UserBioChangeOutput;
     type Error = UserBioChangeCommandHandlerError;
     type Uow = UR::Uow;
 
@@ -56,7 +55,7 @@ where
         uow: &mut Self::Uow,
         request_context: &RequestContext,
         command: &Self::Command,
-    ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
+    ) -> Result<Self::Output, Self::Error> {
         let mut user = self.user_repository.read(uow, command.user_id).await?;
 
         let result = user.change_bio(command.bio.clone())?;
@@ -70,6 +69,6 @@ where
             UserBioChangeResult::Rejected { reason } => UserBioChangeOutput::Rejected { reason },
         };
 
-        Ok(CommandHandled::same(output))
+        Ok(output)
     }
 }

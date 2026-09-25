@@ -1,11 +1,10 @@
 use appletheia::event_payload;
 
-use crate::core::TokenAccountOwnerAddress;
+use crate::core::TokenOwnerAddress;
 
 use super::{
-    WalletBookmarkDescription, WalletBookmarkDescriptionChangeRejectionReason,
-    WalletBookmarkDisplayName, WalletBookmarkDisplayNameChangeRejectionReason,
-    WalletBookmarkEventPayloadError, WalletBookmarkOwner, WalletBookmarkRemoveRejectionReason,
+    WalletBookmarkDescription, WalletBookmarkDisplayName, WalletBookmarkEventPayloadError,
+    WalletBookmarkOwner,
 };
 
 /// Represents the domain events emitted by a `WalletBookmark` aggregate.
@@ -15,26 +14,15 @@ pub enum WalletBookmarkEventPayload {
         owner: WalletBookmarkOwner,
         display_name: Option<WalletBookmarkDisplayName>,
         description: Option<WalletBookmarkDescription>,
-        token_account_owner_address: TokenAccountOwnerAddress,
-    },
-    Removed,
-    RemoveRejected {
-        reason: WalletBookmarkRemoveRejectionReason,
+        token_owner_address: TokenOwnerAddress,
     },
     DisplayNameChanged {
         display_name: Option<WalletBookmarkDisplayName>,
     },
-    DisplayNameChangeRejected {
-        display_name: Option<WalletBookmarkDisplayName>,
-        reason: WalletBookmarkDisplayNameChangeRejectionReason,
-    },
     DescriptionChanged {
         description: Option<WalletBookmarkDescription>,
     },
-    DescriptionChangeRejected {
-        description: Option<WalletBookmarkDescription>,
-        reason: WalletBookmarkDescriptionChangeRejectionReason,
-    },
+    Removed,
 }
 
 #[cfg(test)]
@@ -42,7 +30,7 @@ mod tests {
     use appletheia::domain::EventPayload;
     use banking_iam_domain::UserId;
 
-    use crate::core::TokenAccountOwnerAddress;
+    use crate::core::{SolanaAccountAddress, SolanaTokenAccountOwnerAddress, TokenOwnerAddress};
 
     use super::{
         WalletBookmarkDescription, WalletBookmarkDisplayName, WalletBookmarkEventPayload,
@@ -56,28 +44,16 @@ mod tests {
             appletheia::domain::EventName::new("registered")
         );
         assert_eq!(
-            WalletBookmarkEventPayload::REMOVED,
-            appletheia::domain::EventName::new("removed")
-        );
-        assert_eq!(
-            WalletBookmarkEventPayload::REMOVE_REJECTED,
-            appletheia::domain::EventName::new("remove_rejected")
-        );
-        assert_eq!(
             WalletBookmarkEventPayload::DISPLAY_NAME_CHANGED,
             appletheia::domain::EventName::new("display_name_changed")
-        );
-        assert_eq!(
-            WalletBookmarkEventPayload::DISPLAY_NAME_CHANGE_REJECTED,
-            appletheia::domain::EventName::new("display_name_change_rejected")
         );
         assert_eq!(
             WalletBookmarkEventPayload::DESCRIPTION_CHANGED,
             appletheia::domain::EventName::new("description_changed")
         );
         assert_eq!(
-            WalletBookmarkEventPayload::DESCRIPTION_CHANGE_REJECTED,
-            appletheia::domain::EventName::new("description_change_rejected")
+            WalletBookmarkEventPayload::REMOVED,
+            appletheia::domain::EventName::new("removed")
         );
     }
 
@@ -100,13 +76,15 @@ mod tests {
                 WalletBookmarkDescription::try_from("Personal main wallet")
                     .expect("description should be valid"),
             ),
-            token_account_owner_address: TokenAccountOwnerAddress::try_from(
-                "11111111111111111111111111111111",
-            )
-            .expect("address should be valid"),
+            token_owner_address: TokenOwnerAddress::Solana(SolanaTokenAccountOwnerAddress::new(
+                SolanaAccountAddress::try_from("11111111111111111111111111111111")
+                    .expect("address should be valid"),
+            )),
         };
 
-        let value = payload.into_json_value().expect("payload should serialize");
+        let value = payload
+            .try_into_json_value()
+            .expect("payload should serialize");
 
         assert_eq!(value["type"], serde_json::json!("registered"));
     }

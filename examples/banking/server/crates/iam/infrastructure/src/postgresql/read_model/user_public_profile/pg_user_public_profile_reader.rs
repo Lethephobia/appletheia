@@ -33,7 +33,7 @@ impl UserPublicProfileReader for PgUserPublicProfileReader {
         let row = sqlx::query_as::<_, PgUserPublicProfileRow>(
             r#"
             SELECT
-                id,
+                id AS user_id,
                 username,
                 display_name,
                 bio,
@@ -43,8 +43,8 @@ impl UserPublicProfileReader for PgUserPublicProfileReader {
                 created_at,
                 u.source_event_id,
                 u.updated_event_id
-              FROM user_public_profiles u
-             WHERE u.id = $1 AND u.status = 'active'
+              FROM user_fragments u
+             WHERE u.id = $1
             "#,
         )
         .bind(user_id.value())

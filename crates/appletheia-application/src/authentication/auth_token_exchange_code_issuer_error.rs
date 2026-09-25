@@ -1,5 +1,6 @@
 use thiserror::Error;
 
+use crate::Retryability;
 use crate::unit_of_work::UnitOfWorkError;
 
 use super::{
@@ -27,4 +28,14 @@ pub enum AuthTokenExchangeCodeIssuerError {
 
     #[error(transparent)]
     UnitOfWork(#[from] UnitOfWorkError),
+}
+
+impl Retryability for AuthTokenExchangeCodeIssuerError {
+    fn is_retryable(&self) -> bool {
+        match self {
+            Self::MissingCodeChallenge | Self::UnexpectedCodeChallenge | Self::Hasher(_) => false,
+            Self::Store(error) => error.is_retryable(),
+            Self::GrantCipher(_) | Self::UnitOfWork(_) => true,
+        }
+    }
 }

@@ -10,7 +10,7 @@ use banking_iam_application::authorization::{
 use banking_iam_domain::{Organization, User};
 use banking_ledger_domain::wallet_bookmark::WalletBookmarkOwner;
 
-use crate::projection::WalletBookmarkListProjectorSpec;
+use crate::projection::WalletBookmarkFragmentProjectorSpec;
 use crate::read_model::{WalletBookmarkList, WalletBookmarkListReader};
 
 use super::{WalletBookmarkListQuery, WalletBookmarkListQueryHandlerError};
@@ -42,7 +42,7 @@ where
     type Uow = S::Uow;
 
     const PROJECTOR_DEPENDENCIES: ProjectorDependencies<'static> =
-        ProjectorDependencies::Some(&[WalletBookmarkListProjectorSpec::DESCRIPTOR]);
+        ProjectorDependencies::Some(&[WalletBookmarkFragmentProjectorSpec::DESCRIPTOR]);
 
     fn authorization_plan(&self, query: &Self::Query) -> Result<AuthorizationPlan, Self::Error> {
         match query.owner {
@@ -72,13 +72,7 @@ where
     ) -> Result<Self::Output, Self::Error> {
         Ok(self
             .reader
-            .list(
-                uow,
-                query.owner,
-                query.criteria,
-                query.cursor_options,
-                query.limit,
-            )
+            .list(uow, query.owner, query.criteria, query.sort, query.page)
             .await?)
     }
 }

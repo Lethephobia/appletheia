@@ -23,30 +23,30 @@ pub mod unique_value_part_error;
 pub mod unique_values;
 pub mod unique_values_error;
 
-pub use aggregate_apply::AggregateApply;
-pub use aggregate_core::AggregateCore;
-pub use aggregate_error::AggregateError;
-pub use aggregate_id::AggregateId;
-pub use aggregate_state::AggregateState;
-pub use aggregate_state_error::AggregateStateError;
-pub use aggregate_type::AggregateType;
-pub use aggregate_version::AggregateVersion;
-pub use aggregate_version_error::AggregateVersionError;
-pub use aggregate_version_range::AggregateVersionRange;
-pub use reference_entries::ReferenceEntries;
-pub use reference_indexes::ReferenceIndexes;
-pub use reference_key::ReferenceKey;
-pub use reference_values::ReferenceValues;
-pub use reference_values_error::ReferenceValuesError;
-pub use unique_constraints::UniqueConstraints;
-pub use unique_entries::UniqueEntries;
-pub use unique_key::UniqueKey;
-pub use unique_value::UniqueValue;
-pub use unique_value_error::UniqueValueError;
-pub use unique_value_part::UniqueValuePart;
-pub use unique_value_part_error::UniqueValuePartError;
-pub use unique_values::UniqueValues;
-pub use unique_values_error::UniqueValuesError;
+pub use aggregate_apply::*;
+pub use aggregate_core::*;
+pub use aggregate_error::*;
+pub use aggregate_id::*;
+pub use aggregate_state::*;
+pub use aggregate_state_error::*;
+pub use aggregate_type::*;
+pub use aggregate_version::*;
+pub use aggregate_version_error::*;
+pub use aggregate_version_range::*;
+pub use reference_entries::*;
+pub use reference_indexes::*;
+pub use reference_key::*;
+pub use reference_values::*;
+pub use reference_values_error::*;
+pub use unique_constraints::*;
+pub use unique_entries::*;
+pub use unique_key::*;
+pub use unique_value::*;
+pub use unique_value_error::*;
+pub use unique_value_part::*;
+pub use unique_value_part_error::*;
+pub use unique_values::*;
+pub use unique_values_error::*;
 
 use std::{error::Error, fmt::Debug};
 
@@ -239,7 +239,7 @@ pub trait Aggregate:
     }
 
     /// Materializes the current aggregate state into a snapshot.
-    fn to_snapshot(&self) -> Result<Snapshot<Self::Id, Self::State>, Self::Error> {
+    fn try_to_snapshot(&self) -> Result<Snapshot<Self::Id, Self::State>, Self::Error> {
         self.state()
             .map(|state| Snapshot::new(self.aggregate_id(), self.version(), state.clone()))
             .ok_or(AggregateError::NoState.into())
@@ -752,11 +752,11 @@ mod tests {
     }
 
     #[test]
-    fn to_snapshot_returns_error_when_state_missing() {
+    fn try_to_snapshot_returns_error_when_state_missing() {
         let counter = Counter::new();
 
         let err = counter
-            .to_snapshot()
+            .try_to_snapshot()
             .expect_err("expected error when state missing");
 
         assert!(matches!(
@@ -766,13 +766,13 @@ mod tests {
     }
 
     #[test]
-    fn to_snapshot_serializes_current_state() {
+    fn try_to_snapshot_serializes_current_state() {
         let mut counter = Counter::new();
         counter.create().expect("create should succeed");
         counter.increment(3).expect("increment should succeed");
 
         let snapshot = counter
-            .to_snapshot()
+            .try_to_snapshot()
             .expect("expected snapshot to be created");
 
         assert_eq!(snapshot.aggregate_id(), counter.aggregate_id());

@@ -1,3 +1,4 @@
+use appletheia::application::aggregate::AggregateRef;
 use appletheia::application::authentication::oidc::{
     OidcCallbackParams, OidcContinuationStore, OidcLoginFlow,
 };
@@ -5,10 +6,8 @@ use appletheia::application::authentication::{
     AuthTokenExchangeCodeIssueRequest, AuthTokenExchangeCodeIssuer, AuthTokenExchangeGrant,
     AuthTokenIssueRequest, AuthTokenIssuer,
 };
-use appletheia::application::authorization::{
-    AggregateRef, AuthorizationPlan, PrincipalRequirement,
-};
-use appletheia::application::command::{CommandHandled, CommandHandler};
+use appletheia::application::authorization::{AuthorizationPlan, PrincipalRequirement};
+use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use appletheia::domain::{Aggregate, UniqueValue, UniqueValuePart};
@@ -25,7 +24,7 @@ use crate::oidc::{OidcCompletionPurpose, OidcContinuationPayload};
 
 use super::{
     OidcCompleteCommand, OidcCompleteCommandHandlerError, OidcCompleteOutput,
-    OidcCompleteRejectionReason, OidcCompleteReplayOutput,
+    OidcCompleteRejectionReason,
 };
 
 /// Handles `OidcCompleteCommand`.
@@ -192,7 +191,6 @@ where
 {
     type Command = OidcCompleteCommand;
     type Output = OidcCompleteOutput;
-    type ReplayOutput = OidcCompleteReplayOutput;
     type Error = OidcCompleteCommandHandlerError;
     type Uow = OLF::Uow;
 
@@ -211,7 +209,7 @@ where
         uow: &mut Self::Uow,
         request_context: &RequestContext,
         command: &Self::Command,
-    ) -> Result<CommandHandled<Self::Output, Self::ReplayOutput>, Self::Error> {
+    ) -> Result<Self::Output, Self::Error> {
         let callback_params = OidcCallbackParams {
             state: command.state.clone(),
             authorization_code: command.authorization_code.clone(),
@@ -238,6 +236,7 @@ where
         let OidcContinuationPayload {
             completion_purpose,
             completion_redirect_uri,
+            return_to,
             code_challenge,
         } = continuation.into_payload();
 
@@ -256,19 +255,15 @@ where
             .save(uow, request_context, &mut user)
             .await?;
 
-        let replay_output = OidcCompleteReplayOutput {
-            completion_purpose,
-            completion_redirect_uri: completion_redirect_uri.clone(),
-            rejection_reason: rejection_reason.clone(),
-        };
-
         if let Some(reason) = rejection_reason {
             let output = OidcCompleteOutput::Rejected {
+                completion_purpose,
                 completion_redirect_uri,
+                return_to,
                 reason,
             };
 
-            return Ok(CommandHandled::new(output, replay_output));
+            return Ok(output);
         }
 
         let output = match completion_purpose {
@@ -281,6 +276,7 @@ where
 
                 OidcCompleteOutput::Token {
                     completion_redirect_uri,
+                    return_to,
                     auth_token: result.token().clone(),
                     auth_token_expires_in: result.expires_in()?,
                     oidc_tokens: complete_result.tokens,
@@ -301,16 +297,19 @@ where
 
                 OidcCompleteOutput::ExchangeCode {
                     completion_redirect_uri,
+                    return_to,
                     auth_token_exchange_code: result.code().clone(),
                     auth_token_exchange_code_expires_at: result.expires_at(),
                 }
             }
-            OidcCompletionPurpose::LinkIdentity { .. } => OidcCompleteOutput::IdentityLinked {
+            OidcCompletionPurpose::LinkIdentity { user_id } => OidcCompleteOutput::IdentityLinked {
+                user_id,
                 completion_redirect_uri,
+                return_to,
                 oidc_tokens: complete_result.tokens,
             },
         };
 
-        Ok(CommandHandled::new(output, replay_output))
+        Ok(output)
     }
 }

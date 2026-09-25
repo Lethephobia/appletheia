@@ -2,9 +2,9 @@ pub mod snapshot_id;
 pub mod snapshot_id_error;
 pub mod snapshot_materialized_at;
 
-pub use snapshot_id::SnapshotId;
-pub use snapshot_id_error::SnapshotIdError;
-pub use snapshot_materialized_at::SnapshotMaterializedAt;
+pub use snapshot_id::*;
+pub use snapshot_id_error::*;
+pub use snapshot_materialized_at::*;
 
 use crate::aggregate::{AggregateId, AggregateState, AggregateVersion};
 

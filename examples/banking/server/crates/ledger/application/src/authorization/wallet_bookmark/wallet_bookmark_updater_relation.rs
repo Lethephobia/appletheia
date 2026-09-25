@@ -10,13 +10,15 @@ pub struct WalletBookmarkUpdaterRelation;
 impl Relation for WalletBookmarkUpdaterRelation {
     const REF: RelationRef = RelationRef::new(WalletBookmark::TYPE, RelationName::new("updater"));
 
-    const EXPR: UsersetExpr = UsersetExpr::Union(&[
-        UsersetExpr::ComputedUserset {
-            relation: WalletBookmarkOwnerRelation::REF,
-        },
-        UsersetExpr::TupleToUserset {
-            tupleset_relation: WalletBookmarkOwnerRelation::REF,
-            computed_userset: OrganizationFinanceManagerRelation::REF,
-        },
-    ]);
+    fn expr(&self) -> UsersetExpr {
+        UsersetExpr::Union(vec![
+            UsersetExpr::ComputedUserset {
+                relation: WalletBookmarkOwnerRelation::REF.into(),
+            },
+            UsersetExpr::TupleToUserset {
+                tupleset_relation: WalletBookmarkOwnerRelation::REF.into(),
+                computed_userset: OrganizationFinanceManagerRelation::REF.into(),
+            },
+        ])
+    }
 }

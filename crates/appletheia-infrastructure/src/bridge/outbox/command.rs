@@ -1,3 +1,3 @@
 pub mod pg_pubsub_command_outbox_relay;
 
-pub use pg_pubsub_command_outbox_relay::PgPubsubCommandOutboxRelay;
+pub use pg_pubsub_command_outbox_relay::*;

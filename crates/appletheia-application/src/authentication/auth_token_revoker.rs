@@ -1,4 +1,4 @@
-use crate::authorization::AggregateRef;
+use crate::aggregate::AggregateRef;
 use crate::unit_of_work::UnitOfWork;
 
 use super::{AuthTokenExpiresAt, AuthTokenId, AuthTokenIssuedAt, AuthTokenRevocationError};

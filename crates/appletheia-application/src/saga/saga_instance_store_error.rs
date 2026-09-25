@@ -16,6 +16,12 @@ pub enum SagaInstanceStoreError {
     #[error("failed to serialize saga state")]
     StateSerialize(#[source] serde_json::Error),
 
+    #[error("uncommitted saga command is missing its saga origin")]
+    MissingCommandOrigin,
+
+    #[error("uncommitted saga command origin does not match its saga instance")]
+    CommandOriginMismatch,
+
     #[error("invalid persisted saga instance: {message}")]
     InvalidPersistedInstance { message: &'static str },
 }

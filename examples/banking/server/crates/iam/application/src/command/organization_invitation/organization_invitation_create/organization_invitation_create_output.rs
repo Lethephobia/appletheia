@@ -1,3 +1,4 @@
+use appletheia::application::command::{CommandOutput, CommandReplayOutput};
 use banking_iam_domain::{OrganizationInvitationId, OrganizationInvitationIssueRejectionReason};
 use serde::{Deserialize, Serialize};
 
@@ -12,4 +13,12 @@ pub enum OrganizationInvitationIssueOutput {
         organization_invitation_id: OrganizationInvitationId,
         reason: OrganizationInvitationIssueRejectionReason,
     },
+}
+
+impl CommandOutput for OrganizationInvitationIssueOutput {
+    type ReplayOutput = Self;
+
+    fn replay_output(&self) -> CommandReplayOutput<'_, Self::ReplayOutput> {
+        CommandReplayOutput::Borrowed(self)
+    }
 }

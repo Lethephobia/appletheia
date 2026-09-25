@@ -2,7 +2,7 @@ use thiserror::Error;
 
 use appletheia_application::event::{EventSequenceError, SerializedEventPayloadError};
 use appletheia_application::outbox::{
-    OrderingKeyError, OutboxAttemptCountError, OutboxRelayInstanceError, event::EventOutboxIdError,
+    OutboxAttemptCountError, OutboxRelayInstanceError, event::EventOutboxIdError,
 };
 use appletheia_domain::aggregate::AggregateVersionError;
 use appletheia_domain::event::EventIdError;
@@ -35,9 +35,6 @@ pub enum PgEventOutboxRowError {
 
     #[error("lease owner error: {0}")]
     LeaseOwner(#[from] OutboxRelayInstanceError),
-
-    #[error("ordering key error: {0}")]
-    OrderingKey(#[from] OrderingKeyError),
 
     #[error("context deserialization error: {0}")]
     Json(#[from] serde_json::Error),

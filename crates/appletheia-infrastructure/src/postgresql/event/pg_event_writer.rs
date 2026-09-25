@@ -1,8 +1,7 @@
 use std::marker::PhantomData;
 
 use appletheia_application::{
-    event::{EventWriter, EventWriterError},
-    outbox::event::EventOutboxId,
+    event::{EventEnvelope, EventWriter, EventWriterError},
     request_context::RequestContext,
 };
 use appletheia_domain::{Aggregate, AggregateId, Event, EventPayload};
@@ -34,14 +33,14 @@ impl<A: Aggregate> Default for PgEventWriter<A> {
 impl<A: Aggregate> EventWriter<A> for PgEventWriter<A> {
     type Uow = PgUnitOfWork;
 
-    async fn write_events_and_outbox(
+    async fn write_events(
         &self,
         uow: &mut Self::Uow,
         request_context: &RequestContext,
         events: &[Event<A::Id, A::EventPayload>],
-    ) -> Result<(), EventWriterError> {
+    ) -> Result<Vec<EventEnvelope>, EventWriterError> {
         if events.is_empty() {
-            return Ok(());
+            return Ok(Vec::new());
         }
 
         let correlation_id = request_context.correlation_id.value();
@@ -104,43 +103,15 @@ impl<A: Aggregate> EventWriter<A> for PgEventWriter<A> {
             .await
             .map_err(|e| EventWriterError::Persistence(Box::new(e)))?;
 
-        let mut outbox_query = QueryBuilder::<Postgres>::new(
-            r#"
-            INSERT INTO event_outbox (
-                id, event_sequence, event_id, aggregate_type, aggregate_id,
-                aggregate_version, event_name, payload, occurred_at,
-                correlation_id, causation_id, context
-            ) VALUES
-            "#,
-        );
-        let mut sep = outbox_query.separated(", ");
-        for event_row in event_rows {
-            let outbox_id = EventOutboxId::new().value();
-            let event_envelope = event_row
-                .try_into_event_envelope()
-                .map_err(|e: PgEventRowError| EventWriterError::Persistence(Box::new(e)))?;
-
-            sep.push("(")
-                .push_bind(outbox_id)
-                .push_bind(event_envelope.event_sequence.value())
-                .push_bind(event_envelope.event_id.value())
-                .push_bind(event_envelope.aggregate_type.to_string())
-                .push_bind(event_envelope.aggregate_id.value())
-                .push_bind(event_envelope.aggregate_version.value())
-                .push_bind(event_envelope.event_name.to_string())
-                .push_bind(event_envelope.payload.value().clone())
-                .push_bind(DateTime::<Utc>::from(event_envelope.occurred_at))
-                .push_bind(event_envelope.correlation_id.value())
-                .push_bind(event_envelope.causation_id.value())
-                .push_bind(&context_json)
-                .push(")");
-        }
-        outbox_query
-            .build()
-            .execute(transaction.as_mut())
-            .await
-            .map_err(|e| EventWriterError::Persistence(Box::new(e)))?;
-
-        Ok(())
+        event_rows
+            .into_iter()
+            .map(|event_row| {
+                event_row
+                    .try_into_event_envelope()
+                    .map_err(|error: PgEventRowError| {
+                        EventWriterError::Persistence(Box::new(error))
+                    })
+            })
+            .collect()
     }
 }

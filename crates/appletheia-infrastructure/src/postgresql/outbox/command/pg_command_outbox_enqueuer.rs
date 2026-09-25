@@ -2,9 +2,8 @@ use sqlx::{Postgres, QueryBuilder};
 use uuid::Uuid;
 
 use crate::postgresql::unit_of_work::PgUnitOfWork;
-use appletheia_application::outbox::command::{
-    CommandEnvelope, CommandOutboxEnqueueError, CommandOutboxEnqueuer,
-};
+use appletheia_application::command::CommandEnvelope;
+use appletheia_application::outbox::command::{CommandOutboxEnqueueError, CommandOutboxEnqueuer};
 
 pub struct PgCommandOutboxEnqueuer;
 
@@ -43,6 +42,9 @@ impl CommandOutboxEnqueuer for PgCommandOutboxEnqueuer {
               payload,
               correlation_id,
               causation_id,
+              saga_name,
+              saga_instance_id,
+              saga_step,
               options
             ) VALUES
             "#,
@@ -57,19 +59,31 @@ impl CommandOutboxEnqueuer for PgCommandOutboxEnqueuer {
                 let payload_value = command.command.value().clone();
                 let correlation_id_value = command.correlation_id.value();
                 let causation_id_value = command.causation_id.value();
+                let (saga_name_value, saga_instance_id_value, saga_step_value) =
+                    match &command.saga_origin {
+                        Some(origin) => (
+                            Some(origin.saga_name.value()),
+                            Some(origin.saga_instance_id.value()),
+                            Some(origin.step.value().clone()),
+                        ),
+                        None => (None, None, None),
+                    };
                 let options_value = serde_json::to_value(&command.options)
                     .map_err(|source| CommandOutboxEnqueueError::Persistence(Box::new(source)))?;
 
                 separated
                     .push("(")
-                    .push_bind(id_value)
+                    .push_bind_unseparated(id_value)
                     .push_bind(message_id_value)
                     .push_bind(command_name_value)
                     .push_bind(payload_value)
                     .push_bind(correlation_id_value)
                     .push_bind(causation_id_value)
+                    .push_bind(saga_name_value)
+                    .push_bind(saga_instance_id_value)
+                    .push_bind(saga_step_value)
                     .push_bind(options_value)
-                    .push(")");
+                    .push_unseparated(")");
             }
         }
 

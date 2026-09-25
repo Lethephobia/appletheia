@@ -1,3 +1,4 @@
+use appletheia::application::read_model::ReadModelObservation;
 use appletheia::domain::{AggregateId, EventId};
 use banking_iam_domain::{
     OrganizationDisplayName, OrganizationHandle, OrganizationId, UserDisplayName, UserId, Username,
@@ -5,7 +6,6 @@ use banking_iam_domain::{
 use banking_ledger_application::{
     OwnedAccountListOwner, OwnedAccountListOwnerOrganization, OwnedAccountListOwnerUser,
 };
-use banking_shared_kernel_application::read_model::ReadModelObservation;
 use uuid::Uuid;
 
 use super::super::pg_organization_picture_ref_columns::PgOrganizationPictureRefColumns;
@@ -97,7 +97,7 @@ impl TryFrom<PgOwnedAccountListOwnerRow> for OwnedAccountListOwner {
                     object_name: row.owner_user_picture_object_name,
                     external_url: row.owner_user_picture_external_url,
                 }
-                .into_picture()
+                .try_into_picture()
                 .map_err(|error| {
                     PgOwnedAccountListOwnerRowError::InvalidUserPicture(Box::new(error))
                 })?,
@@ -130,7 +130,7 @@ impl TryFrom<PgOwnedAccountListOwnerRow> for OwnedAccountListOwner {
                         object_name: row.owner_organization_picture_object_name,
                         external_url: row.owner_organization_picture_external_url,
                     }
-                    .into_picture()
+                    .try_into_picture()
                     .map_err(|error| {
                         PgOwnedAccountListOwnerRowError::InvalidOrganizationPicture(Box::new(error))
                     })?,

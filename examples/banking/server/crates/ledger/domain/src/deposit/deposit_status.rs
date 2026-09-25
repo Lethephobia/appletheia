@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 pub enum DepositStatus {
     Requested,
     Rejected,
-    TokenTransferred,
+    SettlementVerified,
     Completed,
     Failed,
 }

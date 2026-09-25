@@ -1,12 +1,12 @@
+use appletheia::application::read_model::pagination::{CursorWindow, Sort, SortDirection};
 use appletheia::domain::AggregateId;
 use appletheia::infrastructure::postgresql::PgUnitOfWork;
 use banking_ledger_application::{
-    OwnedAccountList, OwnedAccountListCriteria, OwnedAccountListCursor, OwnedAccountListItem,
-    OwnedAccountListItemStatus, OwnedAccountListOwner, OwnedAccountListReader,
+    MaterializedAccountStatus, OwnedAccountList, OwnedAccountListCriteria, OwnedAccountListCursor,
+    OwnedAccountListItem, OwnedAccountListOwner, OwnedAccountListReader,
     OwnedAccountListReaderError, OwnedAccountListSortKey,
 };
 use banking_ledger_domain::account::AccountOwner;
-use banking_shared_kernel_application::read_model::{CursorOptions, PageSize, SortDirection};
 use sqlx::{Postgres, QueryBuilder};
 use uuid::Uuid;
 
@@ -30,11 +30,28 @@ impl PgOwnedAccountListReader {
         }
     }
 
-    fn status_name(status: OwnedAccountListItemStatus) -> &'static str {
+    fn status_name(status: MaterializedAccountStatus) -> &'static str {
         match status {
-            OwnedAccountListItemStatus::Active => "active",
-            OwnedAccountListItemStatus::Frozen => "frozen",
+            MaterializedAccountStatus::Active => "active",
+            MaterializedAccountStatus::Frozen => "frozen",
         }
+    }
+
+    fn push_status_in(
+        builder: &mut QueryBuilder<Postgres>,
+        status_in: &[MaterializedAccountStatus],
+    ) {
+        if status_in.is_empty() {
+            builder.push(" AND FALSE");
+            return;
+        }
+
+        builder.push(" AND a.status IN (");
+        let mut statuses = builder.separated(", ");
+        for status in status_in {
+            statuses.push_bind_unseparated(Self::status_name(*status));
+        }
+        statuses.push_unseparated(")");
     }
 
     async fn read_owner(
@@ -63,10 +80,10 @@ impl PgOwnedAccountListReader {
                 COALESCE(u.source_event_id, o.source_event_id) AS source_event_id,
                 COALESCE(u.updated_event_id, o.updated_event_id) AS updated_event_id
             FROM owner_ref
-            LEFT JOIN owned_account_list_owner_users u
+            LEFT JOIN user_fragments u
                    ON owner_ref.owner_type = 'user'
                   AND u.id = owner_ref.owner_id
-            LEFT JOIN owned_account_list_owner_organizations o
+            LEFT JOIN organization_fragments o
                    ON owner_ref.owner_type = 'organization'
                   AND o.id = owner_ref.owner_id
             "#,
@@ -96,23 +113,23 @@ impl OwnedAccountListReader for PgOwnedAccountListReader {
         uow: &mut Self::Uow,
         owner: AccountOwner,
         criteria: OwnedAccountListCriteria,
-        cursor_options: Option<CursorOptions<OwnedAccountListSortKey, OwnedAccountListCursor>>,
-        page_size: PageSize,
+        sort: Sort<OwnedAccountListSortKey>,
+        page: CursorWindow<OwnedAccountListCursor>,
     ) -> Result<OwnedAccountList, OwnedAccountListReaderError> {
         let (owner_type, owner_id) = Self::owner_parts(owner);
         let owner = Self::read_owner(uow, owner_type, owner_id).await?;
-        let limit = i64::from(page_size.value()) + 1;
+        let query_limit = i64::from(page.limit().value()) + 1;
+        let query_direction = page.query_direction(sort.direction);
 
         let mut builder = QueryBuilder::<Postgres>::new(
             r#"
             SELECT
                 a.id AS account_id,
                 a.name,
-                a.currency_id,
-                c.symbol AS currency_symbol,
-                c.name AS currency_name,
+                a.description,
+                c.id AS currency_id,
+                c.code AS currency_code,
                 c.decimals AS currency_decimals,
-                c.mint_account_address AS currency_mint_account_address,
                 c.source_event_id AS currency_source_event_id,
                 c.updated_event_id AS currency_updated_event_id,
                 a.balance::text AS balance,
@@ -121,8 +138,8 @@ impl OwnedAccountListReader for PgOwnedAccountListReader {
                 a.created_at,
                 a.source_event_id,
                 a.updated_event_id
-            FROM owned_account_list_items a
-            INNER JOIN owned_account_list_item_currencies c ON c.id = a.currency_id
+            FROM account_fragments a
+            JOIN currency_fragments c ON c.id = a.currency_id
             WHERE a.owner_type =
             "#,
         );
@@ -132,27 +149,18 @@ impl OwnedAccountListReader for PgOwnedAccountListReader {
             .push(" AND a.owner_id = ")
             .push_bind(owner_id);
 
-        if let Some(currency_id) = criteria.currency_id {
+        if let Some(currency_code) = criteria.currency_code {
             builder
-                .push(" AND a.currency_id = ")
-                .push_bind(currency_id.value());
+                .push(" AND c.code = ")
+                .push_bind(currency_code.value().to_owned());
         }
 
-        if let Some(status) = criteria.status {
-            builder
-                .push(" AND a.status = ")
-                .push_bind(Self::status_name(status));
+        if let Some(status_in) = criteria.status_in.as_deref() {
+            Self::push_status_in(&mut builder, status_in);
         }
 
-        let sort_key = cursor_options
-            .map(|options| options.sort_key)
-            .unwrap_or(OwnedAccountListSortKey::CreatedAt);
-        let sort_direction = cursor_options
-            .map(|options| options.sort_direction)
-            .unwrap_or(SortDirection::Desc);
-
-        if let Some(cursor) = cursor_options.and_then(|options| options.cursor) {
-            match (sort_key, sort_direction) {
+        if let Some(cursor) = page.boundary().copied() {
+            match (sort.key, query_direction) {
                 (OwnedAccountListSortKey::CreatedAt, SortDirection::Asc) => {
                     builder
                         .push(" AND (a.created_at, a.id) > (")
@@ -182,7 +190,7 @@ impl OwnedAccountListReader for PgOwnedAccountListReader {
             }
         }
 
-        match (sort_key, sort_direction) {
+        match (sort.key, query_direction) {
             (OwnedAccountListSortKey::CreatedAt, SortDirection::Asc) => {
                 builder.push(" ORDER BY a.created_at ASC, a.id ASC");
             }
@@ -197,7 +205,7 @@ impl OwnedAccountListReader for PgOwnedAccountListReader {
             }
         }
 
-        builder.push(" LIMIT ").push_bind(limit);
+        builder.push(" LIMIT ").push_bind(query_limit);
 
         let rows = builder
             .build_query_as::<PgOwnedAccountListItemRow>()
@@ -205,27 +213,38 @@ impl OwnedAccountListReader for PgOwnedAccountListReader {
             .await
             .map_err(|e| OwnedAccountListReaderError::Persistence(Box::new(e)))?;
 
-        let limit = page_size.value() as usize;
-        let has_next = rows.len() > limit;
-        let items = rows
+        let page_limit = page.limit().value() as usize;
+        let has_more = rows.len() > page_limit;
+        let mut items = rows
             .into_iter()
-            .take(limit)
+            .take(page_limit)
             .map(OwnedAccountListItem::try_from)
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| OwnedAccountListReaderError::Persistence(Box::new(e)))?;
-        let next_cursor = if has_next {
-            items.last().map(|item| OwnedAccountListCursor {
-                created_at: item.created_at,
-                account_id: item.account_id,
-            })
+        if page.is_backward() {
+            items.reverse();
+        }
+        let start_cursor = items.first().map(|item| OwnedAccountListCursor {
+            created_at: item.created_at,
+            account_id: item.account_id,
+        });
+        let end_cursor = items.last().map(|item| OwnedAccountListCursor {
+            created_at: item.created_at,
+            account_id: item.account_id,
+        });
+        let (has_previous, has_next) = if page.is_backward() {
+            (has_more, !items.is_empty() && page.boundary().is_some())
         } else {
-            None
+            (!items.is_empty() && page.boundary().is_some(), has_more)
         };
 
         Ok(OwnedAccountList {
             owner,
             items,
-            next_cursor,
+            start_cursor,
+            end_cursor,
+            has_previous,
+            has_next,
         })
     }
 }

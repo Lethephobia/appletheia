@@ -1,17 +1,9 @@
-mod config;
-mod mint;
+mod settlement;
 
-pub use config::{
-    SolanaOnchainConfigurer, SolanaOnchainConfigurerConfig, SolanaOnchainConfigurerError,
-};
-pub use mint::{
-    MintMetadataPublishRequest, MintMetadataPublisher, MintMetadataPublisherError,
-    SolanaMintMetadataUpdater, SolanaMintMetadataUpdaterConfig, SolanaMintMetadataUpdaterError,
-    SolanaMintProvisioner, SolanaMintProvisionerConfig, SolanaMintProvisionerError,
-    SolanaMintSupplySynchronizer, SolanaMintSupplySynchronizerConfig,
-    SolanaMintSupplySynchronizerError, SolanaPoolTokenTransferExecutor,
-    SolanaPoolTokenTransferExecutorConfig, SolanaPoolTokenTransferExecutorError,
-    SolanaTokenAccountOwnerAddressValidator, SolanaTokenDepositPreparer,
-    SolanaTokenDepositPreparerConfig, SolanaTokenDepositPreparerError, SolanaTokenDepositVerifier,
-    SolanaTokenDepositVerifierConfig, SolanaTokenDepositVerifierError,
+pub use settlement::{
+    DefaultSolanaDepositSettlementPreparer, DefaultSolanaDepositSettlementPreparerConfig,
+    DefaultSolanaDepositSettlementVerifier, DefaultSolanaDepositSettlementVerifierConfig,
+    DefaultSolanaDepositSettlementVerifierError, DefaultSolanaTokenBindingSettlementValidator,
+    DefaultSolanaWithdrawalSettlementExecutor, DefaultSolanaWithdrawalSettlementExecutorConfig,
+    DefaultSolanaWithdrawalSettlementExecutorError,
 };
