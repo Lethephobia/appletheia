@@ -1,4 +1,5 @@
 [package]
+license.workspace = true
 name = "banking-settlement"
 version = "0.1.0"
 description = "Created with Anchor"

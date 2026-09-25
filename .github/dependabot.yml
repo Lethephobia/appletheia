@@ -1,6 +1,8 @@
 version: 2
 updates:
   - package-ecosystem: "cargo"
+    cooldown:
+      default-days: 1
     directory: "/"
     schedule:
       interval: "weekly"
@@ -10,6 +12,8 @@ updates:
     target-branch: "main"
     rebase-strategy: "auto"
   - package-ecosystem: "cargo"
+    cooldown:
+      default-days: 1
     directory: "/examples/banking/server"
     schedule:
       interval: "weekly"
@@ -19,6 +23,8 @@ updates:
     target-branch: "main"
     rebase-strategy: "auto"
   - package-ecosystem: "cargo"
+    cooldown:
+      default-days: 1
     directory: "/examples/banking/onchain/solana"
     schedule:
       interval: "weekly"

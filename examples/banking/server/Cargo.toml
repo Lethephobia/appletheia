@@ -6,6 +6,9 @@ members = [
     "servers/*",
 ]
 
+[workspace.package]
+license = "MIT"
+
 [workspace.dependencies]
 appletheia = { path = "../../../crates/appletheia" }
 banking-shared-kernel-domain = { path = "crates/shared-kernel/domain" }

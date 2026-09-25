@@ -39,7 +39,7 @@ google-cloud-pubsub = { version = "1.4.0", optional = true }
 google-cloud-gax = { version = "1.14.0", optional = true }
 google-cloud-auth = { version = "1.16.0", optional = true }
 google-cloud-storage = { version = "1.18.0", optional = true }
-jsonwebtoken = { version = "11.0.0", optional = true, features = ["rust_crypto"] }
+jsonwebtoken = { version = "11.0.0", optional = true, features = ["aws_lc_rs"] }
 reqwest = { version = "0.13.5", optional = true, default-features = false, features = ["rustls", "gzip"] }
 httpdate = { version = "1.0.3", optional = true }
 url = { workspace = true, optional = true }

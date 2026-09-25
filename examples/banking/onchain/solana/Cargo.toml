@@ -4,6 +4,9 @@ members = [
 ]
 resolver = "2"
 
+[workspace.package]
+license = "MIT"
+
 [workspace.dependencies]
 anchor-lang = "1.2.0"
 anchor-spl = { version = "1.2.0", default-features = false }

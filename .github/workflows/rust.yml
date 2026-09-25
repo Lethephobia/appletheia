@@ -13,7 +13,26 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  dependencies:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        manifest:
+          - Cargo.toml
+          - examples/banking/server/Cargo.toml
+          - examples/banking/onchain/solana/Cargo.toml
+    steps:
+    - uses: actions/checkout@v4
+    - name: Check dependency advisories, licenses, and sources before compiling
+      uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1 (cargo-deny 0.20.2)
+      with:
+        manifest-path: ${{ matrix.manifest }}
+        arguments: --all-features --config deny.toml
+        command: check advisories licenses sources
+
   infrastructure-features:
+    needs: dependencies
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -36,6 +55,7 @@ jobs:
       run: cargo check -p appletheia --all-targets --no-default-features --features "${{ matrix.features }}"
 
   build:
+    needs: dependencies
     runs-on: ubuntu-latest
 
     steps:
