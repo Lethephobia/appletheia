@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0](https://github.com/Lethephobia/appletheia/compare/appletheia-domain-v0.6.0...appletheia-domain-v0.7.0) - 2026-09-25
+
+### Other
+
+- [**breaking**] align conversion method names with ownership and fallibility
+- standardize domain and application re-exports on globs
+
 ## [0.6.0](https://github.com/Lethephobia/appletheia/compare/appletheia-domain-v0.5.0...appletheia-domain-v0.6.0) - 2026-07-15
 
 ### Added
