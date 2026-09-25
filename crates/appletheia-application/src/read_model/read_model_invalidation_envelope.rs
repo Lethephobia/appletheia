@@ -63,8 +63,6 @@ impl PublishableMessage for ReadModelInvalidationEnvelope {
 
 #[cfg(test)]
 mod tests {
-    use crate::messaging::CloudEventAttributeValue;
-    use crate::messaging::ReadModelInvalidationCloudEventCodec;
     use appletheia_domain::AggregateVersion;
     use serde_json::json;
     use uuid::Uuid;
@@ -157,48 +155,5 @@ mod tests {
         let restored: ReadModelInvalidationEnvelope =
             serde_json::from_value(value.clone()).expect("nonempty partitions should deserialize");
         assert_eq!(restored, envelope);
-    }
-
-    #[test]
-    fn cloud_event_keeps_notification_identity_distinct_from_source_event() {
-        let source_event = event();
-        let mut partitions = ReadModelInvalidatedPartitions::new();
-        partitions.insert(1);
-        let envelope = ReadModelInvalidationEnvelope::try_new::<TestFragment>(
-            &source_event,
-            ProjectorName::new("test_projector"),
-            partitions,
-        )
-        .unwrap();
-        assert_ne!(
-            envelope.invalidation_id.value(),
-            source_event.event_id.value()
-        );
-        assert_eq!(envelope.causation_id.value(), source_event.event_id.value());
-        assert_eq!(envelope.source_event_occurred_at, source_event.occurred_at);
-        let source = "urn:banking:invalidations".parse().unwrap();
-        let mut cloud_event =
-            ReadModelInvalidationCloudEventCodec::encode(&envelope, &source, None).unwrap();
-        assert_eq!(
-            cloud_event.id().as_str(),
-            envelope.invalidation_id.to_string()
-        );
-        assert!(cloud_event.time().is_none());
-        assert!(cloud_event.subject().is_none());
-        assert_eq!(
-            ReadModelInvalidationCloudEventCodec::decode(&cloud_event, None).unwrap(),
-            envelope
-        );
-        assert_eq!(
-            ReadModelInvalidationCloudEventCodec::encode(&envelope, &source, None).unwrap(),
-            cloud_event
-        );
-        cloud_event
-            .insert_extension(
-                "causationid".parse().unwrap(),
-                CloudEventAttributeValue::String((MessageId::new().to_string()).parse().unwrap()),
-            )
-            .unwrap();
-        assert!(ReadModelInvalidationCloudEventCodec::decode(&cloud_event, None).is_err());
     }
 }

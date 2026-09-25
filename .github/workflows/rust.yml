@@ -38,6 +38,8 @@ jobs:
       matrix:
         features:
           - infrastructure
+          - infrastructure-cloud-events
+          - infrastructure-cloud-events,infrastructure-google-cloud-pubsub
           - infrastructure-http
           - infrastructure-jwt
           - infrastructure-http,infrastructure-jwt

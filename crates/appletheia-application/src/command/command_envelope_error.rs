@@ -1,14 +1,9 @@
 use thiserror::Error;
 
-use crate::messaging::CommandCloudEventCodecError;
-
 use super::SerializedCommandError;
 
 #[derive(Debug, Error)]
 pub enum CommandEnvelopeError {
-    #[error(transparent)]
-    CommandCloudEventCodec(#[from] CommandCloudEventCodecError),
-
     #[error("command name mismatch: expected {expected}, got {actual}")]
     CommandNameMismatch { expected: String, actual: String },
 

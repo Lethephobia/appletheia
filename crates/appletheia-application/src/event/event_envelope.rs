@@ -77,8 +77,6 @@ impl PublishableMessage for EventEnvelope {
 
 #[cfg(test)]
 mod tests {
-    use crate::messaging::CloudEventAttributeValue;
-    use crate::messaging::EventCloudEventCodec;
     use std::fmt::{self, Display};
 
     use serde::{Deserialize, Serialize};
@@ -88,7 +86,6 @@ mod tests {
     use super::*;
     use crate::aggregate::{AggregateIdValue, AggregateTypeOwned};
     use crate::event::{EventNameOwned, EventSequence, SerializedEventPayload};
-    use crate::messaging::{CloudEventData, CloudEventDataContentType};
     use crate::request_context::{MessageId, Principal};
     use appletheia_domain::{
         AggregateApply, AggregateCore, AggregateError, AggregateId, AggregateState,
@@ -328,51 +325,5 @@ mod tests {
             Err(EventEnvelopeError::EventNameMismatch { expected, actual })
                 if expected == "different_event" && actual == payload_name
         ));
-    }
-
-    #[test]
-    fn cloud_event_round_trip_preserves_metadata_and_rejects_invalid_values() {
-        let mut envelope = event_envelope();
-        envelope.event_sequence = EventSequence::try_from(i64::MAX).unwrap();
-        envelope.aggregate_version = AggregateVersion::try_from(i64::MAX).unwrap();
-        let source = "urn:banking:events".parse().unwrap();
-        let prefix = "example.banking".parse().unwrap();
-        let event = EventCloudEventCodec::encode(&envelope, &source, Some(&prefix)).unwrap();
-        assert_eq!(
-            event.event_type().as_str(),
-            "example.banking.counter.opened"
-        );
-        assert_eq!(event.id().as_str(), envelope.event_id.to_string());
-        let restored = EventCloudEventCodec::decode(&event, Some(&prefix)).unwrap();
-        assert_eq!(
-            serde_json::to_value(&restored).unwrap(),
-            serde_json::to_value(&envelope).unwrap()
-        );
-        assert_eq!(restored.context.principal, Principal::Unavailable);
-        assert!(EventCloudEventCodec::decode(&event, Some(&"wrong".parse().unwrap())).is_err());
-        let wrong_subject = event.clone().with_subject(
-            "other/00000000-0000-0000-0000-000000000000"
-                .parse()
-                .unwrap(),
-        );
-        assert!(EventCloudEventCodec::decode(&wrong_subject, Some(&prefix)).is_err());
-        let mut invalid_sequence = event.clone();
-        invalid_sequence
-            .insert_extension(
-                "eventsequence".parse().unwrap(),
-                CloudEventAttributeValue::String(("-1".to_owned()).parse().unwrap()),
-            )
-            .unwrap();
-        assert!(EventCloudEventCodec::decode(&invalid_sequence, Some(&prefix)).is_err());
-        let mut missing_context = event.clone();
-        missing_context.remove_extension(&"context".parse().unwrap());
-        assert!(EventCloudEventCodec::decode(&missing_context, Some(&prefix)).is_err());
-        let null_payload = event
-            .try_with_data(
-                Some(CloudEventData::Json(serde_json::Value::Null)),
-                Some(CloudEventDataContentType::json()),
-            )
-            .unwrap();
-        assert!(EventCloudEventCodec::decode(&null_payload, Some(&prefix)).is_err());
     }
 }

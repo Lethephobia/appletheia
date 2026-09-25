@@ -1,7 +1,6 @@
 use thiserror::Error;
 
 use appletheia_application::command::SerializedCommandError;
-use appletheia_application::messaging::CloudEventPartitionKeyError;
 use appletheia_application::outbox::{
     OutboxAttemptCountError, OutboxRelayInstanceError, command::CommandOutboxIdError,
 };
@@ -25,9 +24,6 @@ pub enum PgCommandOutboxRowError {
 
     #[error("lease owner error: {0}")]
     LeaseOwner(#[from] OutboxRelayInstanceError),
-
-    #[error("partition key error: {0}")]
-    CloudEventPartitionKey(#[from] CloudEventPartitionKeyError),
 
     #[error("json deserialization error: {0}")]
     Json(#[from] serde_json::Error),
