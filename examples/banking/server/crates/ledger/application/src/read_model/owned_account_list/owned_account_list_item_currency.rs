@@ -1,4 +1,3 @@
-use appletheia::application::read_model::ReadModelObservation;
 use banking_ledger_domain::core::{CurrencyCode, CurrencyDecimals};
 use banking_ledger_domain::currency::CurrencyId;
 use serde::Serialize;
@@ -9,5 +8,4 @@ pub struct OwnedAccountListItemCurrency {
     pub id: CurrencyId,
     pub code: CurrencyCode,
     pub decimals: CurrencyDecimals,
-    pub observation: ReadModelObservation,
 }

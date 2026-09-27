@@ -17,8 +17,4 @@ pub enum PgUserFragmentRowError {
     Picture(#[source] Box<dyn Error + Send + Sync>),
     #[error("unknown public user status: {0}")]
     UnknownStatus(String),
-    #[error("invalid source event ID")]
-    SourceEventId(#[source] Box<dyn Error + Send + Sync>),
-    #[error("invalid updated event ID")]
-    UpdatedEventId(#[source] Box<dyn Error + Send + Sync>),
 }

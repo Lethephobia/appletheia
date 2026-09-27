@@ -1,8 +1,6 @@
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
-use appletheia::application::read_model::{
-    MaterializationEventContext, ReadModelFragment, ReadModelInvalidatedPartitions,
-};
+use appletheia::application::read_model::MaterializationEventContext;
 use banking_iam_domain::{Organization, OrganizationEventPayload, OrganizationOwner};
 
 use crate::projection::{
@@ -44,11 +42,7 @@ where
         uow: &mut Self::Uow,
         event_context: MaterializationEventContext,
         event: &EventEnvelope,
-    ) -> Result<
-        ReadModelInvalidatedPartitions<<Self::Fragment as ReadModelFragment>::Key>,
-        Self::Error,
-    > {
-        let mut invalidated_partitions = ReadModelInvalidatedPartitions::new();
+    ) -> Result<(), Self::Error> {
         let organization_event = event.try_to_domain_event::<Organization>()?;
         let organization_id = organization_event.aggregate_id();
 
@@ -63,8 +57,7 @@ where
             } => {
                 let OrganizationOwner::User(owner_user_id) = owner;
 
-                if let Some(fragment) = self
-                    .organization_fragment_writer
+                self.organization_fragment_writer
                     .upsert_organization(
                         uow,
                         event_context,
@@ -78,78 +71,47 @@ where
                             picture: picture.clone(),
                         },
                     )
-                    .await?
-                {
-                    invalidated_partitions.insert(fragment.key());
-                }
+                    .await?;
             }
             OrganizationEventPayload::OwnershipTransferred { owner } => {
                 let OrganizationOwner::User(owner_user_id) = owner;
 
-                if let Some(fragment) = self
-                    .organization_fragment_writer
+                self.organization_fragment_writer
                     .update_owner(uow, event_context, organization_id, *owner_user_id)
-                    .await?
-                {
-                    invalidated_partitions.insert(fragment.key());
-                }
+                    .await?;
             }
             OrganizationEventPayload::HandleChanged { handle } => {
-                if let Some(fragment) = self
-                    .organization_fragment_writer
+                self.organization_fragment_writer
                     .update_handle(uow, event_context, organization_id, handle.clone())
-                    .await?
-                {
-                    invalidated_partitions.insert(fragment.key());
-                }
+                    .await?;
             }
             OrganizationEventPayload::DisplayNameChanged { display_name } => {
-                if let Some(fragment) = self
-                    .organization_fragment_writer
+                self.organization_fragment_writer
                     .update_display_name(uow, event_context, organization_id, display_name.clone())
-                    .await?
-                {
-                    invalidated_partitions.insert(fragment.key());
-                }
+                    .await?;
             }
             OrganizationEventPayload::DescriptionChanged { description } => {
-                if let Some(fragment) = self
-                    .organization_fragment_writer
+                self.organization_fragment_writer
                     .update_description(uow, event_context, organization_id, description.clone())
-                    .await?
-                {
-                    invalidated_partitions.insert(fragment.key());
-                }
+                    .await?;
             }
             OrganizationEventPayload::WebsiteUrlChanged { website_url } => {
-                if let Some(fragment) = self
-                    .organization_fragment_writer
+                self.organization_fragment_writer
                     .update_website_url(uow, event_context, organization_id, website_url.clone())
-                    .await?
-                {
-                    invalidated_partitions.insert(fragment.key());
-                }
+                    .await?;
             }
             OrganizationEventPayload::PictureChanged { picture, .. } => {
-                if let Some(fragment) = self
-                    .organization_fragment_writer
+                self.organization_fragment_writer
                     .update_picture(uow, event_context, organization_id, picture.clone())
-                    .await?
-                {
-                    invalidated_partitions.insert(fragment.key());
-                }
+                    .await?;
             }
             OrganizationEventPayload::Removed => {
-                if self
-                    .organization_fragment_writer
+                self.organization_fragment_writer
                     .delete_organization(uow, event_context, organization_id)
-                    .await?
-                {
-                    invalidated_partitions.insert(organization_id);
-                }
+                    .await?;
             }
         }
 
-        Ok(invalidated_partitions)
+        Ok(())
     }
 }

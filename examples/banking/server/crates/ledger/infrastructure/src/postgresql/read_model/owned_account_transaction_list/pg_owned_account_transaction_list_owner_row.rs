@@ -1,5 +1,4 @@
-use appletheia::application::read_model::ReadModelObservation;
-use appletheia::domain::{AggregateId, EventId};
+use appletheia::domain::AggregateId;
 use banking_iam_domain::{
     OrganizationDisplayName, OrganizationHandle, OrganizationId, UserDisplayName, UserId, Username,
 };
@@ -27,46 +26,10 @@ pub struct PgOwnedAccountTransactionListOwnerRow {
     pub owner_organization_picture_type: Option<String>,
     pub owner_organization_picture_object_name: Option<String>,
     pub owner_organization_picture_external_url: Option<String>,
-    pub source_event_id: Option<Uuid>,
-    pub updated_event_id: Option<Uuid>,
+    pub materialized_owner_id: Option<Uuid>,
 }
 
 impl PgOwnedAccountTransactionListOwnerRow {
-    fn observation(
-        &self,
-    ) -> Result<ReadModelObservation, PgOwnedAccountTransactionListOwnerRowError> {
-        let source_event_id =
-            self.source_event_id
-                .ok_or_else(|| match self.owner_type.as_str() {
-                    "user" => PgOwnedAccountTransactionListOwnerRowError::MissingUserOwner,
-                    "organization" => {
-                        PgOwnedAccountTransactionListOwnerRowError::MissingOrganizationOwner
-                    }
-                    _ => PgOwnedAccountTransactionListOwnerRowError::UnknownOwnerType(
-                        self.owner_type.clone(),
-                    ),
-                })?;
-        let updated_event_id =
-            self.updated_event_id
-                .ok_or_else(|| match self.owner_type.as_str() {
-                    "user" => PgOwnedAccountTransactionListOwnerRowError::MissingUserOwner,
-                    "organization" => {
-                        PgOwnedAccountTransactionListOwnerRowError::MissingOrganizationOwner
-                    }
-                    _ => PgOwnedAccountTransactionListOwnerRowError::UnknownOwnerType(
-                        self.owner_type.clone(),
-                    ),
-                })?;
-        Ok(ReadModelObservation::new(
-            EventId::try_from(source_event_id).map_err(|error| {
-                PgOwnedAccountTransactionListOwnerRowError::InvalidSourceEventId(Box::new(error))
-            })?,
-            EventId::try_from(updated_event_id).map_err(|error| {
-                PgOwnedAccountTransactionListOwnerRowError::InvalidUpdatedEventId(Box::new(error))
-            })?,
-        ))
-    }
-
     fn optional_username(
         value: Option<String>,
     ) -> Result<Option<Username>, PgOwnedAccountTransactionListOwnerRowError> {
@@ -91,7 +54,17 @@ impl TryFrom<PgOwnedAccountTransactionListOwnerRow> for OwnedAccountTransactionL
     type Error = PgOwnedAccountTransactionListOwnerRowError;
 
     fn try_from(row: PgOwnedAccountTransactionListOwnerRow) -> Result<Self, Self::Error> {
-        let observation = row.observation()?;
+        if row.materialized_owner_id.is_none() {
+            return Err(match row.owner_type.as_str() {
+                "user" => PgOwnedAccountTransactionListOwnerRowError::MissingUserOwner,
+                "organization" => {
+                    PgOwnedAccountTransactionListOwnerRowError::MissingOrganizationOwner
+                }
+                _ => PgOwnedAccountTransactionListOwnerRowError::UnknownOwnerType(
+                    row.owner_type.clone(),
+                ),
+            });
+        }
 
         match row.owner_type.as_str() {
             "user" => Ok(Self::User(OwnedAccountTransactionListOwnerUser {
@@ -113,7 +86,6 @@ impl TryFrom<PgOwnedAccountTransactionListOwnerRow> for OwnedAccountTransactionL
                 .map_err(|error| {
                     PgOwnedAccountTransactionListOwnerRowError::InvalidUserPicture(Box::new(error))
                 })?,
-                observation,
             })),
             "organization" => {
                 let handle = row
@@ -153,7 +125,6 @@ impl TryFrom<PgOwnedAccountTransactionListOwnerRow> for OwnedAccountTransactionL
                                 Box::new(error),
                             )
                         })?,
-                        observation,
                     },
                 ))
             }

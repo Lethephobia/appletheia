@@ -27,12 +27,6 @@ pub enum PgPublicAccountListItemRowError {
     #[error("missing user owner columns")]
     MissingUserOwner,
 
-    #[error("invalid source event id")]
-    InvalidSourceEventId(#[source] Box<dyn std::error::Error + Send + Sync>),
-
-    #[error("invalid updated event id")]
-    InvalidUpdatedEventId(#[source] Box<dyn std::error::Error + Send + Sync>),
-
     #[error("invalid organization handle")]
     InvalidOrganizationHandle(#[source] Box<dyn std::error::Error + Send + Sync>),
 

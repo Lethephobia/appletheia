@@ -80,8 +80,7 @@ impl PgOwnedAccountTransactionListReader {
                 o.picture_type AS owner_organization_picture_type,
                 o.picture_object_name AS owner_organization_picture_object_name,
                 o.picture_external_url AS owner_organization_picture_external_url,
-                COALESCE(u.source_event_id, o.source_event_id) AS source_event_id,
-                COALESCE(u.updated_event_id, o.updated_event_id) AS updated_event_id
+                COALESCE(u.id, o.id) AS materialized_owner_id
             FROM owner_ref
             LEFT JOIN user_fragments u
                    ON owner_ref.owner_type = 'user'
@@ -143,15 +142,11 @@ impl OwnedAccountTransactionListReader for PgOwnedAccountTransactionListReader {
                 co.picture_type AS counterparty_owner_organization_picture_type,
                 co.picture_object_name AS counterparty_owner_organization_picture_object_name,
                 co.picture_external_url AS counterparty_owner_organization_picture_external_url,
-                COALESCE(cu.source_event_id, co.source_event_id) AS counterparty_owner_source_event_id,
-                COALESCE(cu.updated_event_id, co.updated_event_id) AS counterparty_owner_updated_event_id,
-                ca.source_event_id AS counterparty_account_source_event_id,
-                ca.updated_event_id AS counterparty_account_updated_event_id,
+                COALESCE(cu.id, co.id) AS materialized_counterparty_owner_id,
+                ca.id AS materialized_counterparty_account_id,
                 c.id AS currency_id,
                 c.code AS currency_code,
                 c.decimals AS currency_decimals,
-                c.source_event_id AS currency_source_event_id,
-                c.updated_event_id AS currency_updated_event_id,
                 i.chain_network,
                 i.token_address,
                 i.onchain_transaction_id,
@@ -161,9 +156,7 @@ impl OwnedAccountTransactionListReader for PgOwnedAccountTransactionListReader {
                 i.kind,
                 i.status,
                 i.occurred_at,
-                i.created_at,
-                i.source_event_id,
-                i.updated_event_id
+                i.created_at
             FROM account_transaction_fragments i
             INNER JOIN account_fragments a ON a.id = i.account_id
             INNER JOIN currency_fragments c ON c.id = a.currency_id

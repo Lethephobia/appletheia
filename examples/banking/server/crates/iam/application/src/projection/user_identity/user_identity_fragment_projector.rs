@@ -1,8 +1,6 @@
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
-use appletheia::application::read_model::{
-    MaterializationEventContext, ReadModelFragment, ReadModelInvalidatedPartitions,
-};
+use appletheia::application::read_model::MaterializationEventContext;
 use banking_iam_domain::{User, UserEventPayload};
 
 use crate::projection::{
@@ -44,11 +42,7 @@ where
         uow: &mut Self::Uow,
         event_context: MaterializationEventContext,
         event: &EventEnvelope,
-    ) -> Result<
-        ReadModelInvalidatedPartitions<<Self::Fragment as ReadModelFragment>::Key>,
-        Self::Error,
-    > {
-        let mut invalidated_partitions = ReadModelInvalidatedPartitions::new();
+    ) -> Result<(), Self::Error> {
         let user_event = event.try_to_domain_event::<User>()?;
         let user_id = user_event.aggregate_id();
 
@@ -58,8 +52,7 @@ where
                 ..
             }
             | UserEventPayload::IdentityLinked { identity } => {
-                if let Some(fragment) = self
-                    .user_identity_fragment_writer
+                self.user_identity_fragment_writer
                     .upsert(
                         uow,
                         event_context,
@@ -70,18 +63,14 @@ where
                             email: identity.email().cloned(),
                         },
                     )
-                    .await?
-                {
-                    invalidated_partitions.insert(fragment.key());
-                }
+                    .await?;
             }
             UserEventPayload::IdentityEmailChanged {
                 provider,
                 subject,
                 email,
             } => {
-                if let Some(fragment) = self
-                    .user_identity_fragment_writer
+                self.user_identity_fragment_writer
                     .update_email(
                         uow,
                         event_context,
@@ -90,19 +79,12 @@ where
                         subject.clone(),
                         email.clone(),
                     )
-                    .await?
-                {
-                    invalidated_partitions.insert(fragment.key());
-                }
+                    .await?;
             }
             UserEventPayload::Removed => {
-                let removed_keys = self
-                    .user_identity_fragment_writer
+                self.user_identity_fragment_writer
                     .delete_for_user(uow, event_context, user_id)
                     .await?;
-                for key in removed_keys {
-                    invalidated_partitions.insert(key);
-                }
             }
             UserEventPayload::Registered {
                 initial_identity: None,
@@ -116,6 +98,6 @@ where
             | UserEventPayload::Deactivated => {}
         }
 
-        Ok(invalidated_partitions)
+        Ok(())
     }
 }

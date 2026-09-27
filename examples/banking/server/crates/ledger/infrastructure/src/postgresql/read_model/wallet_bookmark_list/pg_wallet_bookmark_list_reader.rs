@@ -59,9 +59,7 @@ impl WalletBookmarkListReader for PgWalletBookmarkListReader {
                 display_name,
                 description,
                 token_owner_address,
-                created_at,
-                source_event_id,
-                updated_event_id
+                created_at
             FROM wallet_bookmark_fragments
             WHERE owner_type =
             "#,

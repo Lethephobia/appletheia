@@ -1,5 +1,5 @@
-use appletheia::application::read_model::{MaterializationEventContext, ReadModelObservation};
-use appletheia::domain::{AggregateId, EventId};
+use appletheia::application::read_model::MaterializationEventContext;
+use appletheia::domain::AggregateId;
 use appletheia::infrastructure::postgresql::PgUnitOfWork;
 use banking_ledger_application::{
     CurrencyFragment, CurrencyFragmentUpsert, CurrencyFragmentWriter, CurrencyFragmentWriterError,
@@ -37,8 +37,6 @@ impl PgCurrencyFragmentWriter {
             decimals: i16,
             description: Option<String>,
             status: String,
-            source_event_id: Uuid,
-            updated_event_id: Uuid,
         }
         #[derive(sqlx::FromRow)]
         struct BindingRow {
@@ -50,7 +48,7 @@ impl PgCurrencyFragmentWriter {
         }
 
         let row = sqlx::query_as::<_, CurrencyRow>(
-            "SELECT id, currency_registrar_id, code, decimals, description, status, source_event_id, updated_event_id FROM currency_fragments WHERE id = $1",
+            "SELECT id, currency_registrar_id, code, decimals, description, status FROM currency_fragments WHERE id = $1",
         )
         .bind(id.value())
         .fetch_one(uow.transaction_mut().as_mut())
@@ -102,10 +100,6 @@ impl PgCurrencyFragmentWriter {
                 .map_err(persistence)?,
             status,
             token_bindings,
-            observation: ReadModelObservation::new(
-                EventId::try_from(row.source_event_id).map_err(persistence)?,
-                EventId::try_from(row.updated_event_id).map_err(persistence)?,
-            ),
         }))
     }
 

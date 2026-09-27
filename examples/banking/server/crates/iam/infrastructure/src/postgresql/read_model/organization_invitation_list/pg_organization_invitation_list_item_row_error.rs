@@ -20,12 +20,4 @@ pub enum PgOrganizationInvitationListItemRowError {
     InviteeDisplayName(#[source] Box<dyn std::error::Error + Send + Sync>),
     #[error("organization invitation list row has an invalid invitee picture")]
     InviteePicture(#[source] Box<dyn std::error::Error + Send + Sync>),
-    #[error("organization invitation list row has an invalid source event id")]
-    SourceEventId(#[source] Box<dyn std::error::Error + Send + Sync>),
-    #[error("organization invitation list row has an invalid updated event id")]
-    UpdatedEventId(#[source] Box<dyn std::error::Error + Send + Sync>),
-    #[error("organization invitation list row has an invalid invitee source event id")]
-    InviteeSourceEventId(#[source] Box<dyn std::error::Error + Send + Sync>),
-    #[error("organization invitation list row has an invalid invitee updated event id")]
-    InviteeUpdatedEventId(#[source] Box<dyn std::error::Error + Send + Sync>),
 }

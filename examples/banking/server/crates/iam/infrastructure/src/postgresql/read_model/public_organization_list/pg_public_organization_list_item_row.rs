@@ -1,5 +1,4 @@
-use appletheia::application::read_model::ReadModelObservation;
-use appletheia::domain::{AggregateId, EventId, EventOccurredAt};
+use appletheia::domain::{AggregateId, EventOccurredAt};
 use banking_iam_application::PublicOrganizationListItem;
 use banking_iam_domain::{OrganizationDisplayName, OrganizationHandle, OrganizationId};
 use sqlx::types::chrono::{DateTime, Utc};
@@ -17,8 +16,6 @@ pub struct PgPublicOrganizationListItemRow {
     pub picture_object_name: Option<String>,
     pub picture_external_url: Option<String>,
     pub created_at: DateTime<Utc>,
-    pub source_event_id: Uuid,
-    pub updated_event_id: Uuid,
 }
 
 impl TryFrom<PgPublicOrganizationListItemRow> for PublicOrganizationListItem {
@@ -42,14 +39,6 @@ impl TryFrom<PgPublicOrganizationListItemRow> for PublicOrganizationListItem {
             .try_into_picture()
             .map_err(|error| PgPublicOrganizationListItemRowError::Picture(Box::new(error)))?,
             created_at: EventOccurredAt::from(row.created_at),
-            observation: ReadModelObservation::new(
-                EventId::try_from(row.source_event_id).map_err(|error| {
-                    PgPublicOrganizationListItemRowError::SourceEventId(Box::new(error))
-                })?,
-                EventId::try_from(row.updated_event_id).map_err(|error| {
-                    PgPublicOrganizationListItemRowError::UpdatedEventId(Box::new(error))
-                })?,
-            ),
         })
     }
 }

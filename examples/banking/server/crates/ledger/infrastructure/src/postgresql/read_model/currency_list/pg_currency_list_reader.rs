@@ -1,5 +1,4 @@
-use appletheia::application::read_model::ReadModelObservation;
-use appletheia::domain::{AggregateId, EventId};
+use appletheia::domain::AggregateId;
 use appletheia::infrastructure::postgresql::PgUnitOfWork;
 use banking_ledger_application::{
     CurrencyFragment, CurrencyList, CurrencyListReader, CurrencyListReaderError,
@@ -43,8 +42,6 @@ impl CurrencyListReader for PgCurrencyListReader {
             decimals: i16,
             description: Option<String>,
             status: String,
-            source_event_id: Uuid,
-            updated_event_id: Uuid,
         }
         #[derive(sqlx::FromRow)]
         struct BindingRow {
@@ -57,7 +54,7 @@ impl CurrencyListReader for PgCurrencyListReader {
         }
 
         let rows = sqlx::query_as::<_, CurrencyRow>(
-            "SELECT id, currency_registrar_id, code, decimals, description, status, source_event_id, updated_event_id FROM currency_fragments WHERE $1 OR status = 'active' ORDER BY code, id",
+            "SELECT id, currency_registrar_id, code, decimals, description, status FROM currency_fragments WHERE $1 OR status = 'active' ORDER BY code, id",
         )
         .bind(include_inactive)
         .fetch_all(uow.transaction_mut().as_mut())
@@ -119,10 +116,6 @@ impl CurrencyListReader for PgCurrencyListReader {
                         .map_err(persistence)?,
                     status,
                     token_bindings,
-                    observation: ReadModelObservation::new(
-                        EventId::try_from(row.source_event_id).map_err(persistence)?,
-                        EventId::try_from(row.updated_event_id).map_err(persistence)?,
-                    ),
                 })
             })
             .collect::<Result<Vec<_>, CurrencyListReaderError>>()?;

@@ -1,5 +1,4 @@
-use appletheia::application::read_model::ReadModelObservation;
-use appletheia::domain::{AggregateId, EventId, EventOccurredAt};
+use appletheia::domain::{AggregateId, EventOccurredAt};
 use banking_iam_application::{MaterializedUserStatus, UserFragment};
 use banking_iam_domain::{UserBio, UserDisplayName, UserId, Username};
 use sqlx::types::chrono::{DateTime, Utc};
@@ -66,12 +65,6 @@ impl TryFrom<PgUserFragmentRow> for UserFragment {
             .map_err(|error| PgUserFragmentRowError::Picture(Box::new(error)))?,
             status,
             created_at: EventOccurredAt::from(row.created_at),
-            observation: ReadModelObservation::new(
-                EventId::try_from(row.source_event_id)
-                    .map_err(|error| PgUserFragmentRowError::SourceEventId(Box::new(error)))?,
-                EventId::try_from(row.updated_event_id)
-                    .map_err(|error| PgUserFragmentRowError::UpdatedEventId(Box::new(error)))?,
-            ),
         })
     }
 }

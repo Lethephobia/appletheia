@@ -1,5 +1,4 @@
-use appletheia::application::read_model::ReadModelObservation;
-use appletheia::domain::{AggregateId, EventId, EventOccurredAt};
+use appletheia::domain::{AggregateId, EventOccurredAt};
 use banking_iam_application::{OrganizationMemberListItem, OrganizationMemberListMember};
 use banking_iam_domain::{UserDisplayName, UserId, Username};
 use sqlx::types::chrono::{DateTime, Utc};
@@ -19,10 +18,6 @@ pub struct PgOrganizationMemberListItemRow {
     pub roles: String,
     pub is_owner: bool,
     pub joined_at: DateTime<Utc>,
-    pub source_event_id: Uuid,
-    pub updated_event_id: Uuid,
-    pub member_source_event_id: Uuid,
-    pub member_updated_event_id: Uuid,
 }
 
 impl TryFrom<PgOrganizationMemberListItemRow> for OrganizationMemberListItem {
@@ -55,27 +50,11 @@ impl TryFrom<PgOrganizationMemberListItemRow> for OrganizationMemberListItem {
                 }
                 .try_into_picture()
                 .map_err(|error| PgOrganizationMemberListItemRowError::Picture(Box::new(error)))?,
-                observation: ReadModelObservation::new(
-                    EventId::try_from(row.member_source_event_id).map_err(|error| {
-                        PgOrganizationMemberListItemRowError::MemberSourceEventId(Box::new(error))
-                    })?,
-                    EventId::try_from(row.member_updated_event_id).map_err(|error| {
-                        PgOrganizationMemberListItemRowError::MemberUpdatedEventId(Box::new(error))
-                    })?,
-                ),
             },
             roles: serde_json::from_str(&row.roles)
                 .map_err(|error| PgOrganizationMemberListItemRowError::Roles(Box::new(error)))?,
             is_owner: row.is_owner,
             joined_at: EventOccurredAt::from(row.joined_at),
-            observation: ReadModelObservation::new(
-                EventId::try_from(row.source_event_id).map_err(|error| {
-                    PgOrganizationMemberListItemRowError::SourceEventId(Box::new(error))
-                })?,
-                EventId::try_from(row.updated_event_id).map_err(|error| {
-                    PgOrganizationMemberListItemRowError::UpdatedEventId(Box::new(error))
-                })?,
-            ),
         })
     }
 }

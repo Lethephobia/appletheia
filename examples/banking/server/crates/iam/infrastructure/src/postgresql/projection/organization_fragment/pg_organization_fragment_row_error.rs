@@ -23,16 +23,4 @@ pub enum PgOrganizationFragmentRowError {
 
     #[error("organization fragment row has an invalid picture")]
     Picture(#[source] Box<dyn std::error::Error + Send + Sync>),
-
-    #[error("organization fragment row has an invalid source event id")]
-    SourceEventId(#[source] Box<dyn std::error::Error + Send + Sync>),
-
-    #[error("organization fragment row has an invalid updated event id")]
-    UpdatedEventId(#[source] Box<dyn std::error::Error + Send + Sync>),
-
-    #[error("organization fragment row has an invalid owner source event id")]
-    OwnerSourceEventId(#[source] Box<dyn std::error::Error + Send + Sync>),
-
-    #[error("organization fragment row has an invalid owner updated event id")]
-    OwnerUpdatedEventId(#[source] Box<dyn std::error::Error + Send + Sync>),
 }

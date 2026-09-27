@@ -1,11 +1,5 @@
-use appletheia::application::read_model::{
-    ReadModel, ReadModelName, ReadModelObservation, ReadModelObservationSource,
-    SerializedPartition, SerializedPartitionError,
-};
-use banking_iam_application::{OrganizationFragment, UserFragment};
+use appletheia::application::read_model::{ReadModel, ReadModelName};
 use serde::Serialize;
-
-use crate::projection::{AccountFragment, AccountTransactionFragment};
 
 mod owned_account_transaction_id;
 mod owned_account_transaction_list_criteria;
@@ -56,79 +50,6 @@ pub struct OwnedAccountTransactionList {
     pub has_next: bool,
 }
 
-impl ReadModelObservationSource for OwnedAccountTransactionList {
-    fn observations(&self) -> Vec<ReadModelObservation> {
-        let owner = match &self.owner {
-            OwnedAccountTransactionListOwner::User(owner) => owner.observation,
-            OwnedAccountTransactionListOwner::Organization(owner) => owner.observation,
-        };
-        let mut observations = vec![owner];
-        for item in &self.items {
-            observations.push(item.observation);
-            if let OwnedAccountTransactionListItemKind::Transfer {
-                counterparty_account,
-                ..
-            } = &item.kind
-            {
-                observations.push(counterparty_account.observation);
-                observations.push(match &counterparty_account.owner {
-                    OwnedAccountTransactionListItemCounterpartyAccountOwner::User(owner) => {
-                        owner.observation
-                    }
-                    OwnedAccountTransactionListItemCounterpartyAccountOwner::Organization(
-                        owner,
-                    ) => owner.observation,
-                });
-            }
-        }
-        observations
-    }
-}
-
 impl ReadModel for OwnedAccountTransactionList {
     const NAME: ReadModelName = ReadModelName::new("owned_account_transaction_list");
-
-    fn partitions(&self) -> Result<Vec<SerializedPartition>, SerializedPartitionError> {
-        let mut partitions = Vec::with_capacity(1 + self.items.len() * 4);
-        let owner_partition = match &self.owner {
-            OwnedAccountTransactionListOwner::User(owner) => {
-                SerializedPartition::try_from_fragment_key::<UserFragment>(&owner.id)?
-            }
-            OwnedAccountTransactionListOwner::Organization(owner) => {
-                SerializedPartition::try_from_fragment_key::<OrganizationFragment>(&owner.id)?
-            }
-        };
-        partitions.push(owner_partition);
-
-        for item in &self.items {
-            let transaction_id =
-                crate::projection::AccountTransactionId::from(item.transaction_id.value());
-            partitions.push(SerializedPartition::try_from_fragment_key::<
-                AccountTransactionFragment,
-            >(&transaction_id)?);
-            if let OwnedAccountTransactionListItemKind::Transfer {
-                counterparty_account,
-                ..
-            } = &item.kind
-            {
-                partitions.push(
-                    SerializedPartition::try_from_fragment_key::<AccountFragment>(
-                        &counterparty_account.id,
-                    )?,
-                );
-                let counterparty_owner_partition = match &counterparty_account.owner {
-                    OwnedAccountTransactionListItemCounterpartyAccountOwner::User(owner) => {
-                        SerializedPartition::try_from_fragment_key::<UserFragment>(&owner.id)?
-                    }
-                    OwnedAccountTransactionListItemCounterpartyAccountOwner::Organization(
-                        owner,
-                    ) => SerializedPartition::try_from_fragment_key::<OrganizationFragment>(
-                        &owner.id,
-                    )?,
-                };
-                partitions.push(counterparty_owner_partition);
-            }
-        }
-        Ok(partitions)
-    }
 }

@@ -1,8 +1,6 @@
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
-use appletheia::application::read_model::{
-    MaterializationEventContext, ReadModelFragment, ReadModelInvalidatedPartitions,
-};
+use appletheia::application::read_model::MaterializationEventContext;
 use appletheia::domain::AggregateId;
 use banking_ledger_domain::deposit::{Deposit, DepositEventPayload};
 use banking_ledger_domain::transfer::{Transfer, TransferEventPayload};
@@ -50,11 +48,7 @@ where
         uow: &mut Self::Uow,
         event_context: MaterializationEventContext,
         event: &EventEnvelope,
-    ) -> Result<
-        ReadModelInvalidatedPartitions<<Self::Fragment as ReadModelFragment>::Key>,
-        Self::Error,
-    > {
-        let mut invalidated_partitions = ReadModelInvalidatedPartitions::new();
+    ) -> Result<(), Self::Error> {
         if event.is_for_aggregate::<Deposit>() {
             let domain_event = event.try_to_domain_event::<Deposit>()?;
             let deposit_id = domain_event.aggregate_id();
@@ -68,8 +62,7 @@ where
                     note,
                     ..
                 } => {
-                    if let Some(fragment) = self
-                        .account_transaction_fragment_writer
+                    self.account_transaction_fragment_writer
                         .insert_account_transaction(
                             uow,
                             event_context,
@@ -87,50 +80,35 @@ where
                                 status: AccountTransactionStatus::Pending,
                             },
                         )
-                        .await?
-                    {
-                        invalidated_partitions.insert(fragment.key());
-                    }
+                        .await?;
                 }
                 DepositEventPayload::SettlementVerified {
                     transaction_id: onchain_id,
                     ..
                 } => {
-                    if let Some(fragment) = self
-                        .account_transaction_fragment_writer
+                    self.account_transaction_fragment_writer
                         .record_onchain_transaction(uow, event_context, transaction_id, *onchain_id)
-                        .await?
-                    {
-                        invalidated_partitions.insert(fragment.key());
-                    }
+                        .await?;
                 }
                 DepositEventPayload::Completed => {
-                    if let Some(fragment) = self
-                        .account_transaction_fragment_writer
+                    self.account_transaction_fragment_writer
                         .update_account_transaction_status(
                             uow,
                             event_context,
                             transaction_id,
                             AccountTransactionStatus::Completed,
                         )
-                        .await?
-                    {
-                        invalidated_partitions.insert(fragment.key());
-                    }
+                        .await?;
                 }
                 DepositEventPayload::Failed { .. } => {
-                    if let Some(fragment) = self
-                        .account_transaction_fragment_writer
+                    self.account_transaction_fragment_writer
                         .update_account_transaction_status(
                             uow,
                             event_context,
                             transaction_id,
                             AccountTransactionStatus::Failed,
                         )
-                        .await?
-                    {
-                        invalidated_partitions.insert(fragment.key());
-                    }
+                        .await?;
                 }
             }
         } else if event.is_for_aggregate::<Withdrawal>() {
@@ -146,8 +124,7 @@ where
                     note,
                     ..
                 } => {
-                    if let Some(fragment) = self
-                        .account_transaction_fragment_writer
+                    self.account_transaction_fragment_writer
                         .insert_account_transaction(
                             uow,
                             event_context,
@@ -165,35 +142,24 @@ where
                                 status: AccountTransactionStatus::Pending,
                             },
                         )
-                        .await?
-                    {
-                        invalidated_partitions.insert(fragment.key());
-                    }
+                        .await?;
                 }
                 WithdrawalEventPayload::SettlementExecuted {
                     transaction_id: onchain_id,
                 } => {
-                    if let Some(fragment) = self
-                        .account_transaction_fragment_writer
+                    self.account_transaction_fragment_writer
                         .record_onchain_transaction(uow, event_context, transaction_id, *onchain_id)
-                        .await?
-                    {
-                        invalidated_partitions.insert(fragment.key());
-                    }
+                        .await?;
                 }
                 WithdrawalEventPayload::Completed => {
-                    if let Some(fragment) = self
-                        .account_transaction_fragment_writer
+                    self.account_transaction_fragment_writer
                         .update_account_transaction_status(
                             uow,
                             event_context,
                             transaction_id,
                             AccountTransactionStatus::Completed,
                         )
-                        .await?
-                    {
-                        invalidated_partitions.insert(fragment.key());
-                    }
+                        .await?;
                 }
                 WithdrawalEventPayload::Failed { reason } => {
                     let status = match reason {
@@ -206,18 +172,14 @@ where
                             AccountTransactionStatus::RequiresReview
                         }
                     };
-                    if let Some(fragment) = self
-                        .account_transaction_fragment_writer
+                    self.account_transaction_fragment_writer
                         .update_account_transaction_status(
                             uow,
                             event_context,
                             transaction_id,
                             status,
                         )
-                        .await?
-                    {
-                        invalidated_partitions.insert(fragment.key());
-                    }
+                        .await?;
                 }
             }
         } else if event.is_for_aggregate::<Transfer>() {
@@ -232,8 +194,7 @@ where
                     note,
                     ..
                 } => {
-                    if let Some(fragment) = self
-                        .account_transaction_fragment_writer
+                    self.account_transaction_fragment_writer
                         .record_transfer_requested(
                             uow,
                             event_context,
@@ -246,14 +207,10 @@ where
                                 note: note.clone().map(Into::into),
                             },
                         )
-                        .await?
-                    {
-                        invalidated_partitions.insert(fragment.key());
-                    }
+                        .await?;
                 }
                 TransferEventPayload::Completed => {
-                    let fragments = self
-                        .account_transaction_fragment_writer
+                    self.account_transaction_fragment_writer
                         .complete_transfer(
                             uow,
                             event_context,
@@ -261,22 +218,15 @@ where
                             AccountTransactionId::from(event.event_id.value()),
                         )
                         .await?;
-                    for fragment in fragments {
-                        invalidated_partitions.insert(fragment.key());
-                    }
                 }
                 TransferEventPayload::Failed { reason } => {
-                    if let Some(fragment) = self
-                        .account_transaction_fragment_writer
+                    self.account_transaction_fragment_writer
                         .fail_transfer(uow, event_context, transfer_id, *reason)
-                        .await?
-                    {
-                        invalidated_partitions.insert(fragment.key());
-                    }
+                        .await?;
                 }
             }
         }
 
-        Ok(invalidated_partitions)
+        Ok(())
     }
 }

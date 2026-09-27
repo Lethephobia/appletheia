@@ -1,5 +1,4 @@
-use appletheia::application::read_model::ReadModelObservation;
-use appletheia::domain::{AggregateId, EventId, EventOccurredAt};
+use appletheia::domain::{AggregateId, EventOccurredAt};
 use banking_iam_application::OrganizationInternalInfo;
 use banking_iam_domain::{
     OrganizationDescription, OrganizationDisplayName, OrganizationHandle, OrganizationId,
@@ -22,8 +21,6 @@ pub struct PgOrganizationInternalInfoRow {
     pub picture_object_name: Option<String>,
     pub picture_external_url: Option<String>,
     pub created_at: DateTime<Utc>,
-    pub source_event_id: Uuid,
-    pub updated_event_id: Uuid,
 }
 
 impl TryFrom<PgOrganizationInternalInfoRow> for OrganizationInternalInfo {
@@ -60,14 +57,6 @@ impl TryFrom<PgOrganizationInternalInfoRow> for OrganizationInternalInfo {
             .try_into_picture()
             .map_err(|error| PgOrganizationInternalInfoRowError::Picture(Box::new(error)))?,
             created_at: EventOccurredAt::from(row.created_at),
-            observation: ReadModelObservation::new(
-                EventId::try_from(row.source_event_id).map_err(|error| {
-                    PgOrganizationInternalInfoRowError::SourceEventId(Box::new(error))
-                })?,
-                EventId::try_from(row.updated_event_id).map_err(|error| {
-                    PgOrganizationInternalInfoRowError::UpdatedEventId(Box::new(error))
-                })?,
-            ),
         })
     }
 }

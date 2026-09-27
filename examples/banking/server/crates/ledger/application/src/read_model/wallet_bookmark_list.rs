@@ -1,12 +1,6 @@
-use appletheia::application::read_model::{
-    ReadModel, ReadModelName, ReadModelObservation, ReadModelObservationSource,
-    SerializedPartition, SerializedPartitionError,
-};
-use banking_iam_application::{OrganizationFragment, UserFragment};
+use appletheia::application::read_model::{ReadModel, ReadModelName};
 use banking_ledger_domain::wallet_bookmark::WalletBookmarkOwner;
 use serde::Serialize;
-
-use crate::projection::WalletBookmarkFragment;
 
 mod wallet_bookmark_list_criteria;
 mod wallet_bookmark_list_cursor;
@@ -33,33 +27,6 @@ pub struct WalletBookmarkList {
     pub has_next: bool,
 }
 
-impl ReadModelObservationSource for WalletBookmarkList {
-    fn observations(&self) -> Vec<ReadModelObservation> {
-        self.items.iter().map(|item| item.observation).collect()
-    }
-}
-
 impl ReadModel for WalletBookmarkList {
     const NAME: ReadModelName = ReadModelName::new("wallet_bookmark_list");
-
-    fn partitions(&self) -> Result<Vec<SerializedPartition>, SerializedPartitionError> {
-        let mut partitions = Vec::with_capacity(self.items.len() * 2);
-        for item in &self.items {
-            partitions.push(SerializedPartition::try_from_fragment_key::<
-                WalletBookmarkFragment,
-            >(&item.wallet_bookmark_id)?);
-            let owner_partition = match item.owner {
-                WalletBookmarkOwner::User(user_id) => {
-                    SerializedPartition::try_from_fragment_key::<UserFragment>(&user_id)?
-                }
-                WalletBookmarkOwner::Organization(organization_id) => {
-                    SerializedPartition::try_from_fragment_key::<OrganizationFragment>(
-                        &organization_id,
-                    )?
-                }
-            };
-            partitions.push(owner_partition);
-        }
-        Ok(partitions)
-    }
 }

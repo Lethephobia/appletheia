@@ -1,6 +1,4 @@
-use appletheia::application::read_model::{
-    ReadModelFragment, ReadModelFragmentName, ReadModelObservation, ReadModelObservationSource,
-};
+use appletheia::application::read_model::{ReadModelFragment, ReadModelFragmentName};
 use appletheia::domain::EventOccurredAt;
 use banking_iam_domain::{OrganizationId, OrganizationMembershipId, OrganizationRoles, UserId};
 use serde::{Deserialize, Serialize};
@@ -15,13 +13,6 @@ pub struct OrganizationMembershipFragment {
     pub organization_id: OrganizationId,
     pub roles: OrganizationRoles,
     pub created_at: EventOccurredAt,
-    pub observation: ReadModelObservation,
-}
-
-impl ReadModelObservationSource for OrganizationMembershipFragment {
-    fn observations(&self) -> Vec<ReadModelObservation> {
-        vec![self.observation]
-    }
 }
 
 impl ReadModelFragment for OrganizationMembershipFragment {

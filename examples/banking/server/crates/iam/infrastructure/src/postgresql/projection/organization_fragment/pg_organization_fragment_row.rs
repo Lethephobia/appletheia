@@ -1,5 +1,4 @@
-use appletheia::application::read_model::ReadModelObservation;
-use appletheia::domain::{AggregateId, EventId, EventOccurredAt};
+use appletheia::domain::{AggregateId, EventOccurredAt};
 use banking_iam_application::OrganizationFragment;
 use banking_iam_domain::{
     OrganizationDescription, OrganizationDisplayName, OrganizationHandle, OrganizationId,
@@ -53,14 +52,7 @@ impl TryFrom<PgOrganizationFragmentRow> for OrganizationFragment {
                 .map_err(|error| PgOrganizationFragmentRowError::OrganizationId(Box::new(error)))?,
             owner_user_id,
             owner_since: EventOccurredAt::from(row.owner_since),
-            owner_observation: ReadModelObservation::new(
-                EventId::try_from(row.owner_source_event_id).map_err(|error| {
-                    PgOrganizationFragmentRowError::OwnerSourceEventId(Box::new(error))
-                })?,
-                EventId::try_from(row.owner_updated_event_id).map_err(|error| {
-                    PgOrganizationFragmentRowError::OwnerUpdatedEventId(Box::new(error))
-                })?,
-            ),
+
             handle: OrganizationHandle::try_from(row.handle)
                 .map_err(|error| PgOrganizationFragmentRowError::Handle(Box::new(error)))?,
             display_name: OrganizationDisplayName::try_from(row.display_name)
@@ -75,14 +67,6 @@ impl TryFrom<PgOrganizationFragmentRow> for OrganizationFragment {
             .try_into_picture()
             .map_err(|error| PgOrganizationFragmentRowError::Picture(Box::new(error)))?,
             created_at: EventOccurredAt::from(row.created_at),
-            observation: ReadModelObservation::new(
-                EventId::try_from(row.source_event_id).map_err(|error| {
-                    PgOrganizationFragmentRowError::SourceEventId(Box::new(error))
-                })?,
-                EventId::try_from(row.updated_event_id).map_err(|error| {
-                    PgOrganizationFragmentRowError::UpdatedEventId(Box::new(error))
-                })?,
-            ),
         })
     }
 }

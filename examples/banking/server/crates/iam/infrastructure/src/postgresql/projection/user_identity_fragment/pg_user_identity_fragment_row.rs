@@ -1,5 +1,4 @@
-use appletheia::application::read_model::ReadModelObservation;
-use appletheia::domain::{AggregateId, EventId, EventOccurredAt};
+use appletheia::domain::{AggregateId, EventOccurredAt};
 use banking_iam_application::{UserIdentityFragment, UserIdentityFragmentWriterError};
 use banking_iam_domain::{UserId, UserIdentityProvider, UserIdentitySubject};
 use banking_shared_kernel_domain::contact::Email;
@@ -31,10 +30,6 @@ impl TryFrom<PgUserIdentityFragmentRow> for UserIdentityFragment {
                 .transpose()
                 .map_err(persistence_error)?,
             created_at: EventOccurredAt::from(row.created_at),
-            observation: ReadModelObservation::new(
-                EventId::try_from(row.source_event_id).map_err(persistence_error)?,
-                EventId::try_from(row.updated_event_id).map_err(persistence_error)?,
-            ),
         })
     }
 }

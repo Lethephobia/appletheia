@@ -1,5 +1,4 @@
-use appletheia::application::read_model::ReadModelObservation;
-use appletheia::domain::{AggregateId, EventId, EventOccurredAt};
+use appletheia::domain::{AggregateId, EventOccurredAt};
 use banking_iam_application::UserPublicProfile;
 use banking_iam_domain::{UserBio, UserDisplayName, UserId, Username};
 use sqlx::types::chrono::{DateTime, Utc};
@@ -19,8 +18,6 @@ pub struct PgUserPublicProfileRow {
     pub picture_object_name: Option<String>,
     pub picture_external_url: Option<String>,
     pub created_at: DateTime<Utc>,
-    pub source_event_id: Uuid,
-    pub updated_event_id: Uuid,
 }
 
 impl TryFrom<PgUserPublicProfileRow> for UserPublicProfile {
@@ -53,13 +50,6 @@ impl TryFrom<PgUserPublicProfileRow> for UserPublicProfile {
             .try_into_picture()
             .map_err(|error| PgUserPublicProfileRowError::Picture(Box::new(error)))?,
             created_at: EventOccurredAt::from(row.created_at),
-            observation: ReadModelObservation::new(
-                EventId::try_from(row.source_event_id)
-                    .map_err(|error| PgUserPublicProfileRowError::SourceEventId(Box::new(error)))?,
-                EventId::try_from(row.updated_event_id).map_err(|error| {
-                    PgUserPublicProfileRowError::UpdatedEventId(Box::new(error))
-                })?,
-            ),
         })
     }
 }

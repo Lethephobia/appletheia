@@ -1,8 +1,6 @@
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
-use appletheia::application::read_model::{
-    MaterializationEventContext, ReadModelFragment, ReadModelInvalidatedPartitions,
-};
+use appletheia::application::read_model::MaterializationEventContext;
 use banking_iam_domain::{User, UserEventPayload};
 
 use crate::projection::{
@@ -11,7 +9,7 @@ use crate::projection::{
 
 use super::{UserFragmentProjectorError, UserFragmentProjectorSpec};
 
-/// Projects user events into user fragments and returns invalidated partitions.
+/// Projects user events into user fragments.
 pub struct UserFragmentProjector<W>
 where
     W: UserFragmentWriter,
@@ -44,19 +42,14 @@ where
         uow: &mut Self::Uow,
         event_context: MaterializationEventContext,
         event: &EventEnvelope,
-    ) -> Result<
-        ReadModelInvalidatedPartitions<<Self::Fragment as ReadModelFragment>::Key>,
-        Self::Error,
-    > {
-        let mut invalidated_partitions = ReadModelInvalidatedPartitions::new();
+    ) -> Result<(), Self::Error> {
         let domain_event = event.try_to_domain_event::<User>()?;
         let user_id = domain_event.aggregate_id();
 
         let payload = domain_event.payload();
         match payload {
             UserEventPayload::Registered { .. } => {
-                if let Some(fragment) = self
-                    .user_fragment_writer
+                self.user_fragment_writer
                     .upsert(
                         uow,
                         event_context,
@@ -69,84 +62,53 @@ where
                             status: MaterializedUserStatus::Active,
                         },
                     )
-                    .await?
-                {
-                    invalidated_partitions.insert(fragment.key());
-                }
+                    .await?;
             }
             UserEventPayload::UsernameChanged { username } => {
-                if let Some(fragment) = self
-                    .user_fragment_writer
+                self.user_fragment_writer
                     .update_username(uow, event_context, user_id, username.clone())
-                    .await?
-                {
-                    invalidated_partitions.insert(fragment.key());
-                }
+                    .await?;
             }
             UserEventPayload::DisplayNameChanged { display_name } => {
-                if let Some(fragment) = self
-                    .user_fragment_writer
+                self.user_fragment_writer
                     .update_display_name(uow, event_context, user_id, display_name.clone())
-                    .await?
-                {
-                    invalidated_partitions.insert(fragment.key());
-                }
+                    .await?;
             }
             UserEventPayload::BioChanged { bio } => {
-                if let Some(fragment) = self
-                    .user_fragment_writer
+                self.user_fragment_writer
                     .update_bio(uow, event_context, user_id, bio.clone())
-                    .await?
-                {
-                    invalidated_partitions.insert(fragment.key());
-                }
+                    .await?;
             }
             UserEventPayload::PictureChanged { picture, .. } => {
-                if let Some(fragment) = self
-                    .user_fragment_writer
+                self.user_fragment_writer
                     .update_picture(uow, event_context, user_id, picture.clone())
-                    .await?
-                {
-                    invalidated_partitions.insert(fragment.key());
-                }
+                    .await?;
             }
             UserEventPayload::Activated => {
-                if let Some(fragment) = self
-                    .user_fragment_writer
+                self.user_fragment_writer
                     .update_status(uow, event_context, user_id, MaterializedUserStatus::Active)
-                    .await?
-                {
-                    invalidated_partitions.insert(fragment.key());
-                }
+                    .await?;
             }
             UserEventPayload::Deactivated => {
-                if let Some(fragment) = self
-                    .user_fragment_writer
+                self.user_fragment_writer
                     .update_status(
                         uow,
                         event_context,
                         user_id,
                         MaterializedUserStatus::Inactive,
                     )
-                    .await?
-                {
-                    invalidated_partitions.insert(fragment.key());
-                }
+                    .await?;
             }
             UserEventPayload::Removed => {
-                if self
-                    .user_fragment_writer
+                self.user_fragment_writer
                     .delete(uow, event_context, user_id)
-                    .await?
-                {
-                    invalidated_partitions.insert(user_id);
-                }
+                    .await?;
             }
             UserEventPayload::IdentityLinked { .. }
             | UserEventPayload::IdentityEmailChanged { .. } => {}
         }
 
-        Ok(invalidated_partitions)
+        Ok(())
     }
 }
 
@@ -158,11 +120,8 @@ mod tests {
     use appletheia::application::event::{
         EventEnvelope, EventNameOwned, EventSequence, SerializedEventPayload,
     };
-    use appletheia::application::projection::{Projector, ProjectorName};
-    use appletheia::application::read_model::{
-        MaterializationEventContext, ReadModelFragment, ReadModelInvalidatedPartitions,
-        ReadModelInvalidationEnvelope, ReadModelObservation,
-    };
+    use appletheia::application::projection::Projector;
+    use appletheia::application::read_model::MaterializationEventContext;
     use appletheia::application::request_context::{
         CausationId, CorrelationId, MessageId, Principal, RequestContext,
     };
@@ -213,10 +172,6 @@ mod tests {
                 picture: None,
                 status,
                 created_at: event_context.occurred_at,
-                observation: ReadModelObservation::new(
-                    event_context.event_id,
-                    event_context.event_id,
-                ),
             }
         }
     }
@@ -238,10 +193,6 @@ mod tests {
                 picture: upsert.picture,
                 status: upsert.status,
                 created_at: event_context.occurred_at,
-                observation: ReadModelObservation::new(
-                    event_context.event_id,
-                    event_context.event_id,
-                ),
             }))
         }
 
@@ -357,42 +308,6 @@ mod tests {
         }
     }
 
-    fn invalidation_envelope(
-        event: &EventEnvelope,
-        partitions: ReadModelInvalidatedPartitions<<UserFragment as ReadModelFragment>::Key>,
-    ) -> ReadModelInvalidationEnvelope {
-        ReadModelInvalidationEnvelope::try_new::<UserFragment>(
-            event,
-            ProjectorName::new("user_fragment"),
-            partitions,
-        )
-        .expect("read-model invalidation should finalize")
-    }
-
-    fn activated_event_envelope(user_id: UserId) -> EventEnvelope {
-        let correlation_id = CorrelationId::from(Uuid::now_v7());
-        let payload = UserEventPayload::Activated;
-
-        EventEnvelope {
-            event_sequence: EventSequence::try_from(2).expect("sequence should be valid"),
-            event_id: EventId::new(),
-            aggregate_type: AggregateTypeOwned::from(User::TYPE),
-            aggregate_id: AggregateIdValue::from(user_id.value()),
-            aggregate_version: AggregateVersion::try_from(2).expect("version should be valid"),
-            event_name: EventNameOwned::from(payload.name()),
-            payload: SerializedEventPayload::try_from(
-                payload
-                    .try_into_json_value()
-                    .expect("payload should serialize"),
-            )
-            .expect("payload should be valid"),
-            occurred_at: EventOccurredAt::now(),
-            correlation_id,
-            causation_id: CausationId::from(MessageId::new()),
-            context: request_context(correlation_id),
-        }
-    }
-
     #[tokio::test]
     async fn removed_event_physically_deletes_the_fragment() {
         let user_fragment_writer = TestUserFragmentWriter::default();
@@ -402,53 +317,11 @@ mod tests {
         let event = removed_event_envelope(user_id);
         let event_context = MaterializationEventContext::from(&event);
 
-        let invalidated_partitions = projector
+        projector
             .project(&mut TestUow, event_context, &event)
             .await
             .expect("removed event should be projected");
 
         assert_eq!(*deleted_user_ids.lock().expect("lock"), vec![user_id]);
-
-        assert_eq!(invalidated_partitions.len(), 1);
-        assert_eq!(
-            invalidated_partitions
-                .iter()
-                .next()
-                .expect("partition should exist")
-                .key(),
-            &user_id
-        );
-        let recorded_envelope = invalidation_envelope(&event, invalidated_partitions);
-        assert_eq!(
-            recorded_envelope.source_event_sequence,
-            event.event_sequence
-        );
-        assert_eq!(recorded_envelope.invalidated_partitions.len(), 1);
-    }
-
-    #[tokio::test]
-    async fn activated_event_invalidates_the_written_fragment_partition() {
-        let user_fragment_writer = TestUserFragmentWriter::default();
-        let projector = UserFragmentProjector::new(user_fragment_writer);
-        let user_id = UserId::new();
-        let event = activated_event_envelope(user_id);
-        let event_context = MaterializationEventContext::from(&event);
-
-        let invalidated_partitions = projector
-            .project(&mut TestUow, event_context, &event)
-            .await
-            .expect("activated event should be projected");
-
-        assert_eq!(invalidated_partitions.len(), 1);
-        assert_eq!(
-            invalidated_partitions
-                .iter()
-                .next()
-                .expect("partition should exist")
-                .key(),
-            &user_id
-        );
-        let recorded_envelope = invalidation_envelope(&event, invalidated_partitions);
-        assert_eq!(recorded_envelope.invalidated_partitions.len(), 1);
     }
 }

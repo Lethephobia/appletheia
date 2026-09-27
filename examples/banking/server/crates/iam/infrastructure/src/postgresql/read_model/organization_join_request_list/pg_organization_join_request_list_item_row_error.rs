@@ -14,12 +14,4 @@ pub enum PgOrganizationJoinRequestListItemRowError {
     RequesterDisplayName(#[source] Box<dyn std::error::Error + Send + Sync>),
     #[error("organization join request list row has an invalid requester picture")]
     RequesterPicture(#[source] Box<dyn std::error::Error + Send + Sync>),
-    #[error("organization join request list row has an invalid source event id")]
-    SourceEventId(#[source] Box<dyn std::error::Error + Send + Sync>),
-    #[error("organization join request list row has an invalid updated event id")]
-    UpdatedEventId(#[source] Box<dyn std::error::Error + Send + Sync>),
-    #[error("organization join request list row has an invalid requester source event id")]
-    RequesterSourceEventId(#[source] Box<dyn std::error::Error + Send + Sync>),
-    #[error("organization join request list row has an invalid requester updated event id")]
-    RequesterUpdatedEventId(#[source] Box<dyn std::error::Error + Send + Sync>),
 }

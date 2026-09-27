@@ -1,15 +1,13 @@
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
-use appletheia::application::read_model::{
-    MaterializationEventContext, ReadModelFragment, ReadModelInvalidatedPartitions,
-};
+use appletheia::application::read_model::MaterializationEventContext;
 use banking_iam_domain::{
     OrganizationMembership, OrganizationMembershipEventPayload, User, UserEventPayload,
 };
 
 use crate::projection::{
-    OrganizationMembershipFragment, OrganizationMembershipFragmentKey,
-    OrganizationMembershipFragmentUpsert, OrganizationMembershipFragmentWriter,
+    OrganizationMembershipFragment, OrganizationMembershipFragmentUpsert,
+    OrganizationMembershipFragmentWriter,
 };
 
 use super::{
@@ -49,12 +47,7 @@ where
         uow: &mut Self::Uow,
         event_context: MaterializationEventContext,
         event: &EventEnvelope,
-    ) -> Result<
-        ReadModelInvalidatedPartitions<<Self::Fragment as ReadModelFragment>::Key>,
-        Self::Error,
-    > {
-        let mut invalidated_partitions = ReadModelInvalidatedPartitions::new();
-
+    ) -> Result<(), Self::Error> {
         if event.is_for_aggregate::<OrganizationMembership>() {
             let membership_event = event.try_to_domain_event::<OrganizationMembership>()?;
             let organization_membership_id = membership_event.aggregate_id();
@@ -65,8 +58,7 @@ where
                     user_id,
                     roles,
                 } => {
-                    if let Some(fragment) = self
-                        .organization_membership_fragment_writer
+                    self.organization_membership_fragment_writer
                         .upsert(
                             uow,
                             event_context,
@@ -77,18 +69,14 @@ where
                                 roles: roles.clone(),
                             },
                         )
-                        .await?
-                    {
-                        invalidated_partitions.insert(fragment.key());
-                    }
+                        .await?;
                 }
                 OrganizationMembershipEventPayload::RolesChanged {
                     organization_id,
                     user_id,
                     roles,
                 } => {
-                    if let Some(fragment) = self
-                        .organization_membership_fragment_writer
+                    self.organization_membership_fragment_writer
                         .update_roles(
                             uow,
                             event_context,
@@ -96,30 +84,19 @@ where
                             *organization_id,
                             roles.clone(),
                         )
-                        .await?
-                    {
-                        invalidated_partitions.insert(fragment.key());
-                    }
+                        .await?;
                 }
                 OrganizationMembershipEventPayload::Removed {
                     organization_id,
                     user_id,
                 } => {
-                    if self
-                        .organization_membership_fragment_writer
+                    self.organization_membership_fragment_writer
                         .delete(uow, event_context, *user_id, *organization_id)
-                        .await?
-                    {
-                        let key = OrganizationMembershipFragmentKey {
-                            user_id: *user_id,
-                            organization_id: *organization_id,
-                        };
-                        invalidated_partitions.insert(key);
-                    }
+                        .await?;
                 }
             }
 
-            return Ok(invalidated_partitions);
+            return Ok(());
         }
 
         let user_event = event.try_to_domain_event::<User>()?;
@@ -127,13 +104,9 @@ where
 
         match user_event.payload() {
             UserEventPayload::Removed => {
-                let removed_keys = self
-                    .organization_membership_fragment_writer
+                self.organization_membership_fragment_writer
                     .delete_for_user(uow, event_context, user_id)
                     .await?;
-                for key in removed_keys {
-                    invalidated_partitions.insert(key);
-                }
             }
             UserEventPayload::Registered { .. }
             | UserEventPayload::IdentityLinked { .. }
@@ -146,6 +119,6 @@ where
             | UserEventPayload::Deactivated => {}
         }
 
-        Ok(invalidated_partitions)
+        Ok(())
     }
 }

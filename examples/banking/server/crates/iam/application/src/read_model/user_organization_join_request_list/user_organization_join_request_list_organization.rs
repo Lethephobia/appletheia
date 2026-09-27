@@ -1,6 +1,5 @@
 use serde::Serialize;
 
-use appletheia::application::read_model::ReadModelObservation;
 use banking_iam_domain::{
     OrganizationDisplayName, OrganizationHandle, OrganizationId, OrganizationPictureRef,
 };
@@ -12,5 +11,4 @@ pub struct UserOrganizationJoinRequestListOrganization {
     pub handle: OrganizationHandle,
     pub display_name: OrganizationDisplayName,
     pub picture: Option<OrganizationPictureRef>,
-    pub observation: ReadModelObservation,
 }

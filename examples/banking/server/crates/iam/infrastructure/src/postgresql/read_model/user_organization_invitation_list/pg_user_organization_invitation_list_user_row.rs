@@ -1,5 +1,4 @@
-use appletheia::application::read_model::ReadModelObservation;
-use appletheia::domain::{AggregateId, EventId};
+use appletheia::domain::AggregateId;
 use banking_iam_application::UserOrganizationInvitationListUser;
 use banking_iam_domain::{UserDisplayName, UserId, Username};
 use uuid::Uuid;
@@ -15,8 +14,6 @@ pub struct PgUserOrganizationInvitationListUserRow {
     pub picture_type: Option<String>,
     pub picture_object_name: Option<String>,
     pub picture_external_url: Option<String>,
-    pub source_event_id: Uuid,
-    pub updated_event_id: Uuid,
 }
 
 impl TryFrom<PgUserOrganizationInvitationListUserRow> for UserOrganizationInvitationListUser {
@@ -50,14 +47,6 @@ impl TryFrom<PgUserOrganizationInvitationListUserRow> for UserOrganizationInvita
             .map_err(|error| {
                 PgUserOrganizationInvitationListUserRowError::Picture(Box::new(error))
             })?,
-            observation: ReadModelObservation::new(
-                EventId::try_from(row.source_event_id).map_err(|error| {
-                    PgUserOrganizationInvitationListUserRowError::SourceEventId(Box::new(error))
-                })?,
-                EventId::try_from(row.updated_event_id).map_err(|error| {
-                    PgUserOrganizationInvitationListUserRowError::UpdatedEventId(Box::new(error))
-                })?,
-            ),
         })
     }
 }

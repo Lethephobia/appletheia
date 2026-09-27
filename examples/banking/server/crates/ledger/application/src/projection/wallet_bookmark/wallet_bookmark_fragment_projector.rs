@@ -1,8 +1,6 @@
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
-use appletheia::application::read_model::{
-    MaterializationEventContext, ReadModelFragment, ReadModelInvalidatedPartitions,
-};
+use appletheia::application::read_model::MaterializationEventContext;
 use banking_ledger_domain::wallet_bookmark::{WalletBookmark, WalletBookmarkEventPayload};
 
 use super::{WalletBookmarkFragmentProjectorError, WalletBookmarkFragmentProjectorSpec};
@@ -43,11 +41,7 @@ where
         uow: &mut Self::Uow,
         event_context: MaterializationEventContext,
         event: &EventEnvelope,
-    ) -> Result<
-        ReadModelInvalidatedPartitions<<Self::Fragment as ReadModelFragment>::Key>,
-        Self::Error,
-    > {
-        let mut invalidated_partitions = ReadModelInvalidatedPartitions::new();
+    ) -> Result<(), Self::Error> {
         let domain_event = event.try_to_domain_event::<WalletBookmark>()?;
         let wallet_bookmark_id = domain_event.aggregate_id();
 
@@ -59,8 +53,7 @@ where
                 token_owner_address,
                 ..
             } => {
-                if let Some(fragment) = self
-                    .wallet_bookmark_fragment_writer
+                self.wallet_bookmark_fragment_writer
                     .upsert_wallet_bookmark(
                         uow,
                         event_context,
@@ -72,45 +65,30 @@ where
                             token_owner_address: *token_owner_address,
                         },
                     )
-                    .await?
-                {
-                    invalidated_partitions.insert(fragment.key());
-                }
+                    .await?;
             }
             WalletBookmarkEventPayload::DisplayNameChanged { display_name } => {
-                if let Some(fragment) = self
-                    .wallet_bookmark_fragment_writer
+                self.wallet_bookmark_fragment_writer
                     .update_display_name(
                         uow,
                         event_context,
                         wallet_bookmark_id,
                         display_name.clone(),
                     )
-                    .await?
-                {
-                    invalidated_partitions.insert(fragment.key());
-                }
+                    .await?;
             }
             WalletBookmarkEventPayload::DescriptionChanged { description } => {
-                if let Some(fragment) = self
-                    .wallet_bookmark_fragment_writer
+                self.wallet_bookmark_fragment_writer
                     .update_description(uow, event_context, wallet_bookmark_id, description.clone())
-                    .await?
-                {
-                    invalidated_partitions.insert(fragment.key());
-                }
+                    .await?;
             }
             WalletBookmarkEventPayload::Removed => {
-                if self
-                    .wallet_bookmark_fragment_writer
+                self.wallet_bookmark_fragment_writer
                     .delete_wallet_bookmark(uow, event_context, wallet_bookmark_id)
-                    .await?
-                {
-                    invalidated_partitions.insert(wallet_bookmark_id);
-                }
+                    .await?;
             }
         }
 
-        Ok(invalidated_partitions)
+        Ok(())
     }
 }

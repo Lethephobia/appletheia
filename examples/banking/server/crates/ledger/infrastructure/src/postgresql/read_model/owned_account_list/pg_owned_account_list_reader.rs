@@ -77,8 +77,7 @@ impl PgOwnedAccountListReader {
                 o.picture_type AS owner_organization_picture_type,
                 o.picture_object_name AS owner_organization_picture_object_name,
                 o.picture_external_url AS owner_organization_picture_external_url,
-                COALESCE(u.source_event_id, o.source_event_id) AS source_event_id,
-                COALESCE(u.updated_event_id, o.updated_event_id) AS updated_event_id
+                COALESCE(u.id, o.id) AS materialized_owner_id
             FROM owner_ref
             LEFT JOIN user_fragments u
                    ON owner_ref.owner_type = 'user'
@@ -130,14 +129,10 @@ impl OwnedAccountListReader for PgOwnedAccountListReader {
                 c.id AS currency_id,
                 c.code AS currency_code,
                 c.decimals AS currency_decimals,
-                c.source_event_id AS currency_source_event_id,
-                c.updated_event_id AS currency_updated_event_id,
                 a.balance::text AS balance,
                 a.reserved_balance::text AS reserved_balance,
                 a.status,
-                a.created_at,
-                a.source_event_id,
-                a.updated_event_id
+                a.created_at
             FROM account_fragments a
             JOIN currency_fragments c ON c.id = a.currency_id
             WHERE a.owner_type =

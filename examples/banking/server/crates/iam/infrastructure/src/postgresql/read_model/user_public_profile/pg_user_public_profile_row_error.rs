@@ -12,8 +12,4 @@ pub enum PgUserPublicProfileRowError {
     Bio(#[source] Box<dyn std::error::Error + Send + Sync>),
     #[error("invalid picture")]
     Picture(#[source] Box<dyn std::error::Error + Send + Sync>),
-    #[error("invalid source event id")]
-    SourceEventId(#[source] Box<dyn std::error::Error + Send + Sync>),
-    #[error("invalid updated event id")]
-    UpdatedEventId(#[source] Box<dyn std::error::Error + Send + Sync>),
 }

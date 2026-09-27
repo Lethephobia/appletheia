@@ -14,12 +14,4 @@ pub enum PgUserOrganizationJoinRequestListItemRowError {
     OrganizationPicture(#[source] Box<dyn std::error::Error + Send + Sync>),
     #[error("user organization join request list row has an unknown status: {0}")]
     UnknownStatus(String),
-    #[error("user organization join request list row has an invalid source event id")]
-    SourceEventId(#[source] Box<dyn std::error::Error + Send + Sync>),
-    #[error("user organization join request list row has an invalid updated event id")]
-    UpdatedEventId(#[source] Box<dyn std::error::Error + Send + Sync>),
-    #[error("user organization join request list row has an invalid organization source event id")]
-    OrganizationSourceEventId(#[source] Box<dyn std::error::Error + Send + Sync>),
-    #[error("user organization join request list row has an invalid organization updated event id")]
-    OrganizationUpdatedEventId(#[source] Box<dyn std::error::Error + Send + Sync>),
 }

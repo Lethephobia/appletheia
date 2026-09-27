@@ -1,6 +1,5 @@
 use serde::Serialize;
 
-use appletheia::domain::EventId;
 use banking_ledger_domain::transfer::TransferId;
 
 use super::OwnedAccountTransactionListItemCounterpartyAccount;
@@ -14,16 +13,4 @@ pub enum OwnedAccountTransactionListItemKind {
         transfer_id: TransferId,
         counterparty_account: Box<OwnedAccountTransactionListItemCounterpartyAccount>,
     },
-}
-
-impl OwnedAccountTransactionListItemKind {
-    pub fn observed_event_ids(&self) -> Vec<EventId> {
-        match self {
-            Self::Transfer {
-                counterparty_account,
-                ..
-            } => counterparty_account.observed_event_ids(),
-            Self::Deposit | Self::Withdrawal => Vec::new(),
-        }
-    }
 }

@@ -22,10 +22,4 @@ pub enum PgWalletBookmarkListItemRowError {
 
     #[error("wallet bookmark list item row has an invalid token account owner address")]
     InvalidTokenAccountOwnerAddress(#[source] Box<dyn std::error::Error + Send + Sync>),
-
-    #[error("wallet bookmark list item row has an invalid source event id")]
-    InvalidSourceEventId(#[source] Box<dyn std::error::Error + Send + Sync>),
-
-    #[error("wallet bookmark list item row has an invalid updated event id")]
-    InvalidUpdatedEventId(#[source] Box<dyn std::error::Error + Send + Sync>),
 }

@@ -1,11 +1,5 @@
-use appletheia::application::read_model::{
-    ReadModel, ReadModelName, ReadModelObservation, ReadModelObservationSource,
-    SerializedPartition, SerializedPartitionError,
-};
-use banking_iam_application::{OrganizationFragment, UserFragment};
+use appletheia::application::read_model::{ReadModel, ReadModelName};
 use serde::Serialize;
-
-use crate::projection::AccountFragment;
 
 mod owned_account_list_criteria;
 mod owned_account_list_cursor;
@@ -44,37 +38,6 @@ pub struct OwnedAccountList {
     pub has_next: bool,
 }
 
-impl ReadModelObservationSource for OwnedAccountList {
-    fn observations(&self) -> Vec<ReadModelObservation> {
-        let owner = match &self.owner {
-            OwnedAccountListOwner::User(owner) => owner.observation,
-            OwnedAccountListOwner::Organization(owner) => owner.observation,
-        };
-        std::iter::once(owner)
-            .chain(self.items.iter().map(|item| item.observation))
-            .collect()
-    }
-}
-
 impl ReadModel for OwnedAccountList {
     const NAME: ReadModelName = ReadModelName::new("owned_account_list");
-
-    fn partitions(&self) -> Result<Vec<SerializedPartition>, SerializedPartitionError> {
-        let mut partitions = Vec::with_capacity(1 + self.items.len());
-        let owner_partition = match &self.owner {
-            OwnedAccountListOwner::User(owner) => {
-                SerializedPartition::try_from_fragment_key::<UserFragment>(&owner.id)?
-            }
-            OwnedAccountListOwner::Organization(owner) => {
-                SerializedPartition::try_from_fragment_key::<OrganizationFragment>(&owner.id)?
-            }
-        };
-        partitions.push(owner_partition);
-        for item in &self.items {
-            partitions.push(
-                SerializedPartition::try_from_fragment_key::<AccountFragment>(&item.account_id)?,
-            );
-        }
-        Ok(partitions)
-    }
 }

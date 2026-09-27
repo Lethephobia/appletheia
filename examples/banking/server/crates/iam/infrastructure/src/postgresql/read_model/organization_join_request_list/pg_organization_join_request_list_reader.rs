@@ -55,8 +55,7 @@ impl PgOrganizationJoinRequestListReader {
         let row = sqlx::query_as::<_, PgOrganizationJoinRequestListOrganizationRow>(
             r#"
             SELECT id AS organization_id, handle, display_name, picture_type,
-                   picture_object_name, picture_external_url, source_event_id,
-                   updated_event_id
+                   picture_object_name, picture_external_url
               FROM organization_fragments
              WHERE id = $1
             "#,
@@ -98,15 +97,11 @@ impl OrganizationJoinRequestListReader for PgOrganizationJoinRequestListReader {
                 i.requester_user_id,
                 i.status,
                 i.created_at,
-                i.source_event_id,
-                i.updated_event_id,
                 u.username AS requester_username,
                 u.display_name AS requester_display_name,
                 u.picture_type AS requester_picture_type,
                 u.picture_object_name AS requester_picture_object_name,
-                u.picture_external_url AS requester_picture_external_url,
-                u.source_event_id AS requester_source_event_id,
-                u.updated_event_id AS requester_updated_event_id
+                u.picture_external_url AS requester_picture_external_url
             FROM organization_join_request_fragments AS i
             INNER JOIN user_fragments AS u
                     ON u.id = i.requester_user_id

@@ -1,8 +1,6 @@
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
-use appletheia::application::read_model::{
-    MaterializationEventContext, ReadModelFragment, ReadModelInvalidatedPartitions,
-};
+use appletheia::application::read_model::MaterializationEventContext;
 use banking_iam_domain::{
     OrganizationInvitation, OrganizationInvitationEventPayload, OrganizationInvitationStatus,
 };
@@ -49,11 +47,7 @@ where
         uow: &mut Self::Uow,
         event_context: MaterializationEventContext,
         event: &EventEnvelope,
-    ) -> Result<
-        ReadModelInvalidatedPartitions<<Self::Fragment as ReadModelFragment>::Key>,
-        Self::Error,
-    > {
-        let mut invalidated_partitions = ReadModelInvalidatedPartitions::new();
+    ) -> Result<(), Self::Error> {
         let invitation_event = event.try_to_domain_event::<OrganizationInvitation>()?;
         let invitation_id = invitation_event.aggregate_id();
 
@@ -65,8 +59,7 @@ where
                 issuer,
                 expires_at,
             } => {
-                if let Some(fragment) = self
-                    .organization_invitation_fragment_writer
+                self.organization_invitation_fragment_writer
                     .upsert(
                         uow,
                         event_context,
@@ -80,55 +73,40 @@ where
                             status: OrganizationInvitationStatus::Pending,
                         },
                     )
-                    .await?
-                {
-                    invalidated_partitions.insert(fragment.key());
-                }
+                    .await?;
             }
             OrganizationInvitationEventPayload::Accepted { .. } => {
-                if let Some(fragment) = self
-                    .organization_invitation_fragment_writer
+                self.organization_invitation_fragment_writer
                     .update_status(
                         uow,
                         event_context,
                         invitation_id,
                         OrganizationInvitationStatus::Accepted,
                     )
-                    .await?
-                {
-                    invalidated_partitions.insert(fragment.key());
-                }
+                    .await?;
             }
             OrganizationInvitationEventPayload::Declined { .. } => {
-                if let Some(fragment) = self
-                    .organization_invitation_fragment_writer
+                self.organization_invitation_fragment_writer
                     .update_status(
                         uow,
                         event_context,
                         invitation_id,
                         OrganizationInvitationStatus::Declined,
                     )
-                    .await?
-                {
-                    invalidated_partitions.insert(fragment.key());
-                }
+                    .await?;
             }
             OrganizationInvitationEventPayload::Canceled { .. } => {
-                if let Some(fragment) = self
-                    .organization_invitation_fragment_writer
+                self.organization_invitation_fragment_writer
                     .update_status(
                         uow,
                         event_context,
                         invitation_id,
                         OrganizationInvitationStatus::Canceled,
                     )
-                    .await?
-                {
-                    invalidated_partitions.insert(fragment.key());
-                }
+                    .await?;
             }
         }
 
-        Ok(invalidated_partitions)
+        Ok(())
     }
 }

@@ -10,7 +10,7 @@ use super::{
     ProjectorRebuilderConfig, ProjectorRebuilderError, ProjectorSpec,
 };
 
-/// Replays a newly introduced projector without producing live delivery messages.
+/// Replays events into a projector while persisting its checkpoint.
 pub struct DefaultProjectorRebuilder<F, C, P, U>
 where
     F: EventFeedReader,
@@ -132,17 +132,13 @@ where
                     }
                 };
 
-                if inserted {
-                    let _invalidated_partitions = match projector
+                if inserted
+                    && let Err(source) = projector
                         .project(&mut uow, MaterializationEventContext::from(&event), &event)
                         .await
-                    {
-                        Ok(invalidated_partitions) => invalidated_partitions,
-                        Err(source) => {
-                            let error = ProjectorRebuilderError::Projection(Box::new(source));
-                            return Err(uow.rollback_with_operation_error(error).await?);
-                        }
-                    };
+                {
+                    let error = ProjectorRebuilderError::Projection(Box::new(source));
+                    return Err(uow.rollback_with_operation_error(error).await?);
                 }
 
                 if let Err(source) = self

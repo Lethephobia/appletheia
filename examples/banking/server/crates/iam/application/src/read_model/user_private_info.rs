@@ -1,12 +1,7 @@
-use appletheia::application::read_model::{
-    ReadModel, ReadModelName, ReadModelObservation, ReadModelObservationSource,
-    SerializedPartition, SerializedPartitionError,
-};
+use appletheia::application::read_model::{ReadModel, ReadModelName};
 use appletheia::domain::EventOccurredAt;
 use banking_iam_domain::{UserBio, UserDisplayName, UserId, UserPictureRef, Username};
 use serde::Serialize;
-
-use crate::projection::{UserFragment, UserIdentityFragment, UserIdentityFragmentKey};
 
 mod user_private_info_identity;
 mod user_private_info_reader;
@@ -31,34 +26,8 @@ pub struct UserPrivateInfo {
     pub picture: Option<UserPictureRef>,
     pub status: UserPrivateInfoStatus,
     pub created_at: EventOccurredAt,
-    pub observation: ReadModelObservation,
-}
-
-impl ReadModelObservationSource for UserPrivateInfo {
-    fn observations(&self) -> Vec<ReadModelObservation> {
-        std::iter::once(self.observation)
-            .chain(self.identities.iter().map(|identity| identity.observation))
-            .collect()
-    }
 }
 
 impl ReadModel for UserPrivateInfo {
     const NAME: ReadModelName = ReadModelName::new("user_private_info");
-
-    fn partitions(&self) -> Result<Vec<SerializedPartition>, SerializedPartitionError> {
-        let mut partitions = vec![SerializedPartition::try_from_fragment_key::<UserFragment>(
-            &self.id,
-        )?];
-        for identity in &self.identities {
-            let identity_key = UserIdentityFragmentKey {
-                user_id: self.id,
-                provider: identity.provider.clone(),
-                subject: identity.subject.clone(),
-            };
-            partitions.push(SerializedPartition::try_from_fragment_key::<
-                UserIdentityFragment,
-            >(&identity_key)?);
-        }
-        Ok(partitions)
-    }
 }

@@ -1,11 +1,5 @@
-use appletheia::application::read_model::{
-    ReadModel, ReadModelName, ReadModelObservation, ReadModelObservationSource,
-    SerializedPartition, SerializedPartitionError,
-};
-use banking_iam_application::{OrganizationFragment, UserFragment};
+use appletheia::application::read_model::{ReadModel, ReadModelName};
 use serde::Serialize;
-
-use crate::projection::AccountFragment;
 
 mod public_account_list_criteria;
 mod public_account_list_cursor;
@@ -43,40 +37,6 @@ pub struct PublicAccountList {
     pub has_next: bool,
 }
 
-impl ReadModelObservationSource for PublicAccountList {
-    fn observations(&self) -> Vec<ReadModelObservation> {
-        self.items
-            .iter()
-            .flat_map(|item| {
-                let owner = match &item.owner {
-                    PublicAccountListItemOwner::User(owner) => owner.observation,
-                    PublicAccountListItemOwner::Organization(owner) => owner.observation,
-                };
-                [item.observation, owner]
-            })
-            .collect()
-    }
-}
-
 impl ReadModel for PublicAccountList {
     const NAME: ReadModelName = ReadModelName::new("public_account_list");
-
-    fn partitions(&self) -> Result<Vec<SerializedPartition>, SerializedPartitionError> {
-        let mut partitions = Vec::with_capacity(self.items.len() * 2);
-        for item in &self.items {
-            partitions.push(
-                SerializedPartition::try_from_fragment_key::<AccountFragment>(&item.account_id)?,
-            );
-            let owner_partition = match &item.owner {
-                PublicAccountListItemOwner::User(owner) => {
-                    SerializedPartition::try_from_fragment_key::<UserFragment>(&owner.id)?
-                }
-                PublicAccountListItemOwner::Organization(owner) => {
-                    SerializedPartition::try_from_fragment_key::<OrganizationFragment>(&owner.id)?
-                }
-            };
-            partitions.push(owner_partition);
-        }
-        Ok(partitions)
-    }
 }
