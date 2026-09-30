@@ -108,7 +108,7 @@ where
                     .delete_for_user(uow, event_context, user_id)
                     .await?;
             }
-            UserEventPayload::Registered { .. }
+            UserEventPayload::Registered
             | UserEventPayload::IdentityLinked { .. }
             | UserEventPayload::IdentityEmailChanged { .. }
             | UserEventPayload::UsernameChanged { .. }

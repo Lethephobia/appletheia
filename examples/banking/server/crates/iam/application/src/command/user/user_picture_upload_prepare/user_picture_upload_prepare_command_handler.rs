@@ -150,7 +150,6 @@ mod tests {
     use appletheia::domain::Aggregate;
     use banking_iam_domain::{
         User, UserId, UserIdentityProvider, UserIdentityRegistration, UserIdentitySubject,
-        UserRegistration,
     };
     use chrono::Duration;
     use uuid::Uuid;
@@ -279,10 +278,7 @@ mod tests {
 
     fn registered_user() -> User {
         let mut user = User::new();
-        user.register(UserRegistration {
-            initial_identity: None,
-        })
-        .expect("user should register");
+        user.register().expect("user should register");
         user.link_identity(UserIdentityRegistration {
             provider: UserIdentityProvider::try_from("https://accounts.example.com")
                 .expect("provider should be valid"),

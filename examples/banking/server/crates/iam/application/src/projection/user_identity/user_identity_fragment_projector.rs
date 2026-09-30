@@ -47,20 +47,20 @@ where
         let user_id = user_event.aggregate_id();
 
         match user_event.payload() {
-            UserEventPayload::Registered {
-                initial_identity: Some(identity),
-                ..
-            }
-            | UserEventPayload::IdentityLinked { identity } => {
+            UserEventPayload::IdentityLinked {
+                provider,
+                subject,
+                email,
+            } => {
                 self.user_identity_fragment_writer
                     .upsert(
                         uow,
                         event_context,
                         UserIdentityFragmentUpsert {
                             user_id,
-                            provider: identity.provider().clone(),
-                            subject: identity.subject().clone(),
-                            email: identity.email().cloned(),
+                            provider: provider.clone(),
+                            subject: subject.clone(),
+                            email: email.clone(),
                         },
                     )
                     .await?;
@@ -86,10 +86,7 @@ where
                     .delete_for_user(uow, event_context, user_id)
                     .await?;
             }
-            UserEventPayload::Registered {
-                initial_identity: None,
-                ..
-            }
+            UserEventPayload::Registered
             | UserEventPayload::UsernameChanged { .. }
             | UserEventPayload::DisplayNameChanged { .. }
             | UserEventPayload::BioChanged { .. }

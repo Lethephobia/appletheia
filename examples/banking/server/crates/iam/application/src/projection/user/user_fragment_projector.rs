@@ -48,7 +48,7 @@ where
 
         let payload = domain_event.payload();
         match payload {
-            UserEventPayload::Registered { .. } => {
+            UserEventPayload::Registered => {
                 self.user_fragment_writer
                     .upsert(
                         uow,

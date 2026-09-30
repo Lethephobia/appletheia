@@ -21,7 +21,6 @@ mod user_picture_ref;
 mod user_picture_url;
 mod user_picture_url_error;
 mod user_register_result;
-mod user_registration;
 mod user_remove_result;
 mod user_state;
 mod user_state_error;
@@ -47,9 +46,9 @@ pub use user_event_payload::UserEventPayload;
 pub use user_event_payload_error::UserEventPayloadError;
 pub use user_id::UserId;
 pub use user_identity::{
-    UserIdentity, UserIdentityData, UserIdentityEmailChangeRejectionReason,
-    UserIdentityEmailChangeResult, UserIdentityLinkRejectionReason, UserIdentityLinkResult,
-    UserIdentityProvider, UserIdentityProviderError, UserIdentityRegistration, UserIdentitySubject,
+    UserIdentity, UserIdentityEmailChangeRejectionReason, UserIdentityEmailChangeResult,
+    UserIdentityLinkRejectionReason, UserIdentityLinkResult, UserIdentityProvider,
+    UserIdentityProviderError, UserIdentityRegistration, UserIdentitySubject,
     UserIdentitySubjectError,
 };
 pub use user_picture_change_rejection_reason::UserPictureChangeRejectionReason;
@@ -60,7 +59,6 @@ pub use user_picture_ref::UserPictureRef;
 pub use user_picture_url::UserPictureUrl;
 pub use user_picture_url_error::UserPictureUrlError;
 pub use user_register_result::UserRegisterResult;
-pub use user_registration::UserRegistration;
 pub use user_remove_result::UserRemoveResult;
 pub use user_state::UserState;
 pub use user_state_error::UserStateError;
@@ -143,23 +141,12 @@ impl User {
     }
 
     /// Registers a new user.
-    pub fn register(
-        &mut self,
-        registration: UserRegistration,
-    ) -> Result<UserRegisterResult, UserError> {
+    pub fn register(&mut self) -> Result<UserRegisterResult, UserError> {
         if self.state().is_some() {
             return Err(UserError::AlreadyRegistered);
         }
 
-        let initial_identity = registration.initial_identity.as_ref().map(|identity| {
-            UserIdentityData::new(
-                identity.provider.clone(),
-                identity.subject.clone(),
-                identity.email.clone(),
-            )
-        });
-
-        self.append_event(UserEventPayload::Registered { initial_identity })?;
+        self.append_event(UserEventPayload::Registered)?;
         Ok(UserRegisterResult::Registered)
     }
 
@@ -200,11 +187,9 @@ impl User {
         }
 
         self.append_event(UserEventPayload::IdentityLinked {
-            identity: UserIdentityData::new(
-                identity.provider.clone(),
-                identity.subject.clone(),
-                identity.email.clone(),
-            ),
+            provider: identity.provider,
+            subject: identity.subject,
+            email: identity.email,
         })?;
         Ok(UserIdentityLinkResult::Linked)
     }
@@ -467,31 +452,25 @@ impl User {
 impl AggregateApply<UserEventPayload, UserError> for User {
     fn apply(&mut self, payload: &UserEventPayload) -> Result<(), UserError> {
         match payload {
-            UserEventPayload::Registered { initial_identity } => self.set_state(Some(UserState {
-                identities: initial_identity
-                    .as_ref()
-                    .map(|identity| {
-                        UserIdentity::new(
-                            identity.provider().clone(),
-                            identity.subject().clone(),
-                            identity.email().cloned(),
-                        )
-                    })
-                    .into_iter()
-                    .collect(),
+            UserEventPayload::Registered => self.set_state(Some(UserState {
+                identities: Vec::new(),
                 username: None,
                 display_name: None,
                 bio: None,
                 picture: None,
                 status: UserStatus::Active,
             })),
-            UserEventPayload::IdentityLinked { identity } => {
+            UserEventPayload::IdentityLinked {
+                provider,
+                subject,
+                email,
+            } => {
                 self.state_required_mut()?
                     .identities
                     .push(UserIdentity::new(
-                        identity.provider().clone(),
-                        identity.subject().clone(),
-                        identity.email().cloned(),
+                        provider.clone(),
+                        subject.clone(),
+                        email.clone(),
                     ));
             }
             UserEventPayload::IdentityEmailChanged {
@@ -542,14 +521,11 @@ mod tests {
         Email, User, UserBio, UserDisplayName, UserDisplayNameChangeRejectionReason, UserError,
         UserEventPayload, UserIdentityEmailChangeRejectionReason, UserIdentityLinkRejectionReason,
         UserIdentityProvider, UserIdentityRegistration, UserIdentitySubject, UserPictureRef,
-        UserPictureUrl, UserRegistration, UserStatus, UserUsernameChangeRejectionReason, Username,
+        UserPictureUrl, UserStatus, UserUsernameChangeRejectionReason, Username,
     };
 
     fn register_user(user: &mut User) {
-        user.register(UserRegistration {
-            initial_identity: None,
-        })
-        .expect("user should register");
+        user.register().expect("user should register");
     }
 
     fn display_name() -> UserDisplayName {
@@ -591,21 +567,32 @@ mod tests {
     }
 
     #[test]
-    fn register_can_attach_initial_identity() {
+    fn registration_and_identity_link_record_separate_events() {
         let mut user = User::new();
         let provider = UserIdentityProvider::try_from("https://accounts.example.com")
             .expect("provider should be valid");
         let subject = UserIdentitySubject::try_from("user-123").expect("subject should be valid");
         let email = Some(Email::try_from("alice@example.com").expect("email should be valid"));
 
-        user.register(UserRegistration {
-            initial_identity: Some(UserIdentityRegistration {
-                provider: provider.clone(),
-                subject: subject.clone(),
-                email: email.clone(),
-            }),
+        user.register().expect("user should register");
+        assert!(
+            user.identities()
+                .expect("identities should exist")
+                .is_empty()
+        );
+
+        user.link_identity(UserIdentityRegistration {
+            provider: provider.clone(),
+            subject: subject.clone(),
+            email: email.clone(),
         })
-        .expect("user should register with an initial identity");
+        .expect("identity should link");
+
+        assert_eq!(user.uncommitted_events().len(), 2);
+        assert_eq!(
+            user.uncommitted_events()[1].payload().name(),
+            UserEventPayload::IDENTITY_LINKED
+        );
 
         let identities = user.identities().expect("identities should exist");
         assert_eq!(identities.len(), 1);
@@ -615,6 +602,17 @@ mod tests {
             user.uncommitted_events()[0].payload().name(),
             UserEventPayload::REGISTERED
         );
+
+        let mut replayed_user = User::from_id(user.aggregate_id());
+        for event in user.uncommitted_events() {
+            replayed_user
+                .replay_event(event.clone())
+                .expect("event should replay");
+        }
+
+        assert_eq!(replayed_user.state(), user.state());
+        assert_eq!(replayed_user.version(), user.version());
+        assert!(replayed_user.uncommitted_events().is_empty());
     }
 
     #[test]

@@ -15,8 +15,7 @@ use banking_iam_domain::user::{
     UserIdentityEmailChangeResult, UserIdentityLinkRejectionReason, UserIdentityLinkResult,
 };
 use banking_iam_domain::{
-    User, UserId, UserIdentityProvider, UserIdentityRegistration, UserIdentitySubject,
-    UserRegistration, UserState,
+    User, UserId, UserIdentityProvider, UserIdentityRegistration, UserIdentitySubject, UserState,
 };
 use banking_shared_kernel_domain::contact::Email;
 
@@ -103,12 +102,11 @@ where
             }
             None => {
                 let mut user = User::new();
-                let _ = user.register(UserRegistration {
-                    initial_identity: Some(UserIdentityRegistration {
-                        provider: provider.clone(),
-                        subject: subject.clone(),
-                        email,
-                    }),
+                let _ = user.register()?;
+                let _ = user.link_identity(UserIdentityRegistration {
+                    provider: provider.clone(),
+                    subject: subject.clone(),
+                    email,
                 })?;
                 let rejection_reason = None;
 
