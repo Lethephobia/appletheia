@@ -65,10 +65,8 @@ where
             .save(uow, request_context, &mut owned_account_closure)
             .await?;
 
-        let output = OwnedAccountClosureRequestOutput {
+        Ok(OwnedAccountClosureRequestOutput {
             owned_account_closure_id,
-        };
-
-        Ok(output)
+        })
     }
 }

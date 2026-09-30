@@ -57,8 +57,6 @@ where
             .save(uow, request_context, &mut deposit)
             .await?;
 
-        let output = DepositCompleteOutput {};
-
-        Ok(output)
+        Ok(DepositCompleteOutput {})
     }
 }

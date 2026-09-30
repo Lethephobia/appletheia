@@ -66,8 +66,6 @@ where
             .save(uow, request_context, &mut user)
             .await?;
 
-        let output = UserDisplayNameChangeOutput {};
-
-        Ok(output)
+        Ok(UserDisplayNameChangeOutput {})
     }
 }

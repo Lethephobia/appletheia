@@ -71,8 +71,6 @@ where
             .save(uow, request_context, &mut organization)
             .await?;
 
-        let output = OrganizationPictureChangeOutput {};
-
-        Ok(output)
+        Ok(OrganizationPictureChangeOutput {})
     }
 }

@@ -123,12 +123,10 @@ where
             .save(uow, &continuation)
             .await?;
 
-        let output = OidcBeginOutput {
+        Ok(OidcBeginOutput {
             authorization_url: begin_result.authorization_url,
             expires_at: continuation.expires_at(),
-        };
-
-        Ok(output)
+        })
     }
 }
 

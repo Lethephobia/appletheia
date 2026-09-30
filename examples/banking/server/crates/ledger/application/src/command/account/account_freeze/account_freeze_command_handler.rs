@@ -65,8 +65,6 @@ where
             .save(uow, request_context, &mut account)
             .await?;
 
-        let output = AccountFreezeOutput {};
-
-        Ok(output)
+        Ok(AccountFreezeOutput {})
     }
 }

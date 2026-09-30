@@ -106,8 +106,6 @@ where
             .save(uow, request_context, &mut owned_account_closure)
             .await?;
 
-        let output = OwnedAccountClosurePageLoadOutput {};
-
-        Ok(output)
+        Ok(OwnedAccountClosurePageLoadOutput {})
     }
 }

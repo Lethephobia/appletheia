@@ -136,8 +136,6 @@ where
             .save(uow, request_context, &mut deposit)
             .await?;
 
-        let output = DepositSettlementVerifyOutput {};
-
-        Ok(output)
+        Ok(DepositSettlementVerifyOutput {})
     }
 }

@@ -59,8 +59,6 @@ where
             .save(uow, request_context, &mut withdrawal)
             .await?;
 
-        let output = WithdrawalFailOutput {};
-
-        Ok(output)
+        Ok(WithdrawalFailOutput {})
     }
 }

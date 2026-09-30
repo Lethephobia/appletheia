@@ -59,8 +59,6 @@ where
             .save(uow, request_context, &mut transfer)
             .await?;
 
-        let output = TransferCompleteOutput {};
-
-        Ok(output)
+        Ok(TransferCompleteOutput {})
     }
 }

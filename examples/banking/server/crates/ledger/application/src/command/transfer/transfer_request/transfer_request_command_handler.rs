@@ -93,8 +93,6 @@ where
             .save(uow, request_context, &mut transfer)
             .await?;
 
-        let output = TransferRequestOutput { transfer_id };
-
-        Ok(output)
+        Ok(TransferRequestOutput { transfer_id })
     }
 }

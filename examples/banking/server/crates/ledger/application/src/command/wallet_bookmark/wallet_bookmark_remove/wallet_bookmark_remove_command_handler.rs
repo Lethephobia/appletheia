@@ -71,8 +71,6 @@ where
             .save(uow, request_context, &mut wallet_bookmark)
             .await?;
 
-        let output = WalletBookmarkRemoveOutput {};
-
-        Ok(output)
+        Ok(WalletBookmarkRemoveOutput {})
     }
 }

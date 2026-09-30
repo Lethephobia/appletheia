@@ -112,12 +112,10 @@ where
         .with_content_length(command.content_length)
         .with_checksum(command.checksum.clone());
         let signed_upload = self.object_upload_signer.sign(request).await?;
-        let output = OrganizationPictureUploadPrepareOutput {
+        Ok(OrganizationPictureUploadPrepareOutput {
             picture,
             signed_upload: Box::new(signed_upload),
-        };
-
-        Ok(output)
+        })
     }
 }
 

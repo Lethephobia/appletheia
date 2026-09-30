@@ -65,8 +65,6 @@ where
             .save(uow, request_context, &mut user)
             .await?;
 
-        let output = UserPictureChangeOutput {};
-
-        Ok(output)
+        Ok(UserPictureChangeOutput {})
     }
 }

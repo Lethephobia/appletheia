@@ -96,8 +96,6 @@ where
             .save(uow, request_context, &mut account)
             .await?;
 
-        let output = AccountOpenOutput { account_id };
-
-        Ok(output)
+        Ok(AccountOpenOutput { account_id })
     }
 }

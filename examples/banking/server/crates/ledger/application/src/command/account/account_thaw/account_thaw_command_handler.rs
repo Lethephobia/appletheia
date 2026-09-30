@@ -65,8 +65,6 @@ where
             .save(uow, request_context, &mut account)
             .await?;
 
-        let output = AccountThawOutput {};
-
-        Ok(output)
+        Ok(AccountThawOutput {})
     }
 }

@@ -219,7 +219,7 @@ where
             .save(uow, request_context, &mut user)
             .await?;
 
-        let output = match completion_purpose {
+        Ok(match completion_purpose {
             OidcCompletionPurpose::Token => {
                 let subject = AggregateRef::from_aggregate(&user);
                 let result = self
@@ -261,8 +261,6 @@ where
                 return_to,
                 oidc_tokens: complete_result.tokens,
             },
-        };
-
-        Ok(output)
+        })
     }
 }

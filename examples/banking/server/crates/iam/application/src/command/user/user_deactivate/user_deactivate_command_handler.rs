@@ -63,8 +63,6 @@ where
             .save(uow, request_context, &mut user)
             .await?;
 
-        let output = UserDeactivateOutput {};
-
-        Ok(output)
+        Ok(UserDeactivateOutput {})
     }
 }

@@ -84,9 +84,7 @@ where
             .save(uow, request_context, &mut user)
             .await?;
 
-        let output = UserUsernameChangeOutput {};
-
-        Ok(output)
+        Ok(UserUsernameChangeOutput {})
     }
 }
 

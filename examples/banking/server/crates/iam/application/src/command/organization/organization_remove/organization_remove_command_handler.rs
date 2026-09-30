@@ -70,9 +70,7 @@ where
             .save(uow, request_context, &mut organization)
             .await?;
 
-        let output = OrganizationRemoveOutput {};
-
-        Ok(output)
+        Ok(OrganizationRemoveOutput {})
     }
 }
 
