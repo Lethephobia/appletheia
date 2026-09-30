@@ -1,7 +1,9 @@
+use appletheia_domain::EventId;
+
 use crate::postgresql::saga::pg_saga_dispatched_command_row::PgSagaDispatchedCommandRow;
 use crate::postgresql::saga::pg_saga_instance_row::PgSagaInstanceRow;
 use crate::postgresql::unit_of_work::PgUnitOfWork;
-use appletheia_application::request_context::{CorrelationId, MessageId};
+use appletheia_application::request_context::MessageId;
 use appletheia_application::saga::{
     SagaDispatchedCommand, SagaInstance, SagaInstanceStore, SagaInstanceStoreError, SagaNameOwned,
     SagaState, SagaStep,
@@ -52,32 +54,33 @@ impl PgSagaInstanceStore {
 impl SagaInstanceStore for PgSagaInstanceStore {
     type Uow = PgUnitOfWork;
 
-    async fn find_by_correlation_id<S: SagaState, T: SagaStep>(
+    async fn find_by_start_event_id<S: SagaState, T: SagaStep>(
         &self,
         uow: &mut Self::Uow,
         saga_name: SagaNameOwned,
-        correlation_id: CorrelationId,
+        start_event_id: EventId,
     ) -> Result<Option<SagaInstance<S, T>>, SagaInstanceStoreError> {
         let transaction = uow.transaction_mut();
 
         let saga_name_value = saga_name.value();
-        let correlation_id_value = correlation_id.value();
+        let start_event_id_value = start_event_id.value();
 
         let row = sqlx::query_as::<_, PgSagaInstanceRow>(
             r#"
             SELECT
               id,
+              saga_name,
               correlation_id,
               start_event_id,
               state
             FROM saga_instances
             WHERE saga_name = $1
-              AND correlation_id = $2
+              AND start_event_id = $2
             FOR UPDATE
             "#,
         )
         .bind(saga_name_value)
-        .bind(correlation_id_value)
+        .bind(start_event_id_value)
         .fetch_optional(transaction.as_mut())
         .await
         .map_err(|source| SagaInstanceStoreError::Persistence(Box::new(source)))?;
@@ -88,7 +91,7 @@ impl SagaInstanceStore for PgSagaInstanceStore {
 
         let dispatched_commands = Self::read_dispatched_commands::<T>(uow, row.id).await?;
 
-        row.try_into_instance::<S, T>(saga_name, correlation_id, dispatched_commands)
+        row.try_into_instance::<S, T>(dispatched_commands)
             .map(Some)
             .map_err(|source| SagaInstanceStoreError::Persistence(Box::new(source)))
     }
@@ -105,6 +108,7 @@ impl SagaInstanceStore for PgSagaInstanceStore {
             r#"
             SELECT
               si.id,
+              si.saga_name,
               si.correlation_id,
               si.start_event_id,
               si.state
@@ -127,9 +131,8 @@ impl SagaInstanceStore for PgSagaInstanceStore {
         };
 
         let dispatched_commands = Self::read_dispatched_commands::<T>(uow, row.id).await?;
-        let correlation_id = CorrelationId::from(row.correlation_id);
 
-        row.try_into_instance::<S, T>(saga_name, correlation_id, dispatched_commands)
+        row.try_into_instance::<S, T>(dispatched_commands)
             .map(Some)
             .map_err(|source| SagaInstanceStoreError::Persistence(Box::new(source)))
     }
@@ -474,15 +477,15 @@ mod tests {
 
     async fn dispatched(
         pool: &PgPool,
-        correlation: CorrelationId,
+        start_event_id: EventId,
     ) -> (SagaInstance<State, Step>, CommandEnvelope) {
         let factory = PgUnitOfWorkFactory::new(pool.clone());
         let mut uow = factory.begin().await.unwrap();
         let instance = PgSagaInstanceStore::new()
-            .find_by_correlation_id::<State, Step>(
+            .find_by_start_event_id::<State, Step>(
                 &mut uow,
                 SagaNameOwned::from(SagaName::new("counter_saga")),
-                correlation,
+                start_event_id,
             )
             .await
             .unwrap()
@@ -490,7 +493,7 @@ mod tests {
         let saved = &instance.dispatched_commands[0];
         let mut command = CommandEnvelope::new(
             &FollowUp {},
-            correlation,
+            instance.correlation_id,
             CausationId::from(instance.start_event_id),
             CommandOptions::default(),
         )
@@ -517,7 +520,7 @@ mod tests {
 
     #[sqlx::test(migrations = "migrations/postgresql")]
     #[ignore = "requires PostgreSQL"]
-    async fn competing_new_instance_cannot_overwrite_existing_correlation(pool: PgPool) {
+    async fn competing_new_instance_cannot_overwrite_existing_start_event(pool: PgPool) {
         let factory = PgUnitOfWorkFactory::new(pool.clone());
         let store = PgSagaInstanceStore::new();
         let input = event();
@@ -528,8 +531,11 @@ mod tests {
             calls: 1,
             closed: false,
         });
-        let mut competing =
-            SagaInstance::<State, Step>::new(name.clone(), input.correlation_id, EventId::new());
+        let mut competing = SagaInstance::<State, Step>::new(
+            name.clone(),
+            CorrelationId::from(Uuid::now_v7()),
+            input.event_id,
+        );
         competing.state = Some(State {
             calls: 99,
             closed: false,
@@ -542,7 +548,7 @@ mod tests {
         competing_uow.rollback().await.unwrap();
         let mut read_uow = factory.begin().await.unwrap();
         let saved = store
-            .find_by_correlation_id::<State, Step>(&mut read_uow, name, input.correlation_id)
+            .find_by_start_event_id::<State, Step>(&mut read_uow, name, input.event_id)
             .await
             .unwrap()
             .unwrap();
@@ -553,7 +559,7 @@ mod tests {
 
     #[sqlx::test(migrations = "migrations/postgresql")]
     #[ignore = "requires PostgreSQL"]
-    async fn existing_correlation_skips_start_without_state_guard(pool: PgPool) {
+    async fn distinct_start_events_share_correlation_without_reusing_instances(pool: PgPool) {
         let definition = SagaDefinition::<State, Step, Error>::new(
             SagaName::new("counter_saga"),
             [Route::starts_on::<Counter, _>(
@@ -583,16 +589,107 @@ mod tests {
         );
         let mut later = input.clone();
         later.event_id = EventId::new();
+        assert!(matches!(
+            run.handle_event(&definition, &later).await.unwrap(),
+            SagaEventRunReport::Processed { .. }
+        ));
         assert_eq!(
             run.handle_event(&definition, &later).await.unwrap(),
             SagaEventRunReport::AlreadyStarted
         );
-        assert_eq!(count(&pool, "saga_instances").await, 1);
-        assert_eq!(count(&pool, "saga_dispatched_commands").await, 2);
-        assert_eq!(count(&pool, "command_outbox").await, 2);
-        assert_eq!(count(&pool, "saga_processed_events").await, 1);
-        let (saved, _) = dispatched(&pool, input.correlation_id).await;
+        assert_eq!(count(&pool, "saga_instances").await, 2);
+        assert_eq!(count(&pool, "saga_dispatched_commands").await, 4);
+        assert_eq!(count(&pool, "command_outbox").await, 4);
+        assert_eq!(count(&pool, "saga_processed_events").await, 2);
+        let (saved, _) = dispatched(&pool, input.event_id).await;
+        let (second, _) = dispatched(&pool, later.event_id).await;
+        assert_ne!(saved.saga_instance_id, second.saga_instance_id);
+        assert_eq!(saved.correlation_id, second.correlation_id);
         assert_eq!(saved.state.unwrap().calls, 1);
+        assert_eq!(second.state.unwrap().calls, 1);
+    }
+
+    #[sqlx::test(migrations = "migrations/postgresql")]
+    #[ignore = "requires PostgreSQL"]
+    async fn concurrent_start_delivery_dispatches_once(pool: PgPool) {
+        let definition =
+            SagaDefinitionBuilder::<State, Step, Error>::new(SagaName::new("counter_saga"))
+                .add_start_step(Step::First)
+                .on::<Counter>(EventName::new("opened"))
+                .handle(|ctx, _| {
+                    ctx.set_state(State::default());
+                    ctx.append_command(&FollowUp {})?;
+                    Ok(())
+                })
+                .build()
+                .unwrap();
+        let run = runner(&pool);
+        let input = event();
+        let (first, second) = tokio::join!(
+            run.handle_event(&definition, &input),
+            run.handle_event(&definition, &input),
+        );
+        let reports = [first.unwrap(), second.unwrap()];
+        assert_eq!(
+            reports
+                .iter()
+                .filter(|report| matches!(report, SagaEventRunReport::Processed { .. }))
+                .count(),
+            1
+        );
+        assert_eq!(
+            reports
+                .iter()
+                .filter(|report| matches!(
+                    report,
+                    SagaEventRunReport::AlreadyStarted | SagaEventRunReport::AlreadyProcessed
+                ))
+                .count(),
+            1
+        );
+        for table in [
+            "saga_instances",
+            "saga_dispatched_commands",
+            "command_outbox",
+            "saga_processed_events",
+        ] {
+            assert_eq!(count(&pool, table).await, 1);
+        }
+    }
+
+    #[sqlx::test(migrations = "migrations/postgresql")]
+    #[ignore = "requires PostgreSQL"]
+    async fn distinct_starts_with_shared_correlation_can_run_concurrently(pool: PgPool) {
+        let definition =
+            SagaDefinitionBuilder::<State, Step, Error>::new(SagaName::new("counter_saga"))
+                .add_start_step(Step::First)
+                .on::<Counter>(EventName::new("opened"))
+                .handle(|ctx, _| {
+                    ctx.set_state(State::default());
+                    ctx.append_command(&FollowUp {})?;
+                    Ok(())
+                })
+                .build()
+                .unwrap();
+        let run = runner(&pool);
+        let first_input = event();
+        let mut second_input = first_input.clone();
+        second_input.event_id = EventId::new();
+        let (first, second) = tokio::join!(
+            run.handle_event(&definition, &first_input),
+            run.handle_event(&definition, &second_input),
+        );
+        for report in [first.unwrap(), second.unwrap()] {
+            assert!(matches!(report, SagaEventRunReport::Processed { .. }));
+        }
+        for table in [
+            "saga_instances",
+            "saga_dispatched_commands",
+            "command_outbox",
+            "saga_processed_events",
+        ] {
+            assert_eq!(count(&pool, table).await, 2);
+        }
     }
 
     #[sqlx::test(migrations = "migrations/postgresql")]
@@ -612,7 +709,7 @@ mod tests {
         let run = runner(&pool);
         let input = event();
         run.handle_event(&definition, &input).await.unwrap();
-        let (_, command) = dispatched(&pool, input.correlation_id).await;
+        let (_, command) = dispatched(&pool, input.event_id).await;
         let notification = failure(&command);
         assert_eq!(
             run.handle_command_failure(&definition, &notification)
@@ -622,7 +719,7 @@ mod tests {
         );
         assert_eq!(count(&pool, "saga_processed_command_failures").await, 1);
         assert_eq!(count(&pool, "command_outbox").await, 1);
-        let (saved, _) = dispatched(&pool, input.correlation_id).await;
+        let (saved, _) = dispatched(&pool, input.event_id).await;
         assert_eq!(saved.state.unwrap().calls, 0);
         assert_eq!(saved.dispatched_commands.len(), 1);
         assert_eq!(
@@ -700,7 +797,7 @@ mod tests {
         let run = runner(&pool);
         let input = event();
         run.handle_event(&definition, &input).await.unwrap();
-        let (_, command) = dispatched(&pool, input.correlation_id).await;
+        let (_, command) = dispatched(&pool, input.event_id).await;
         let notification = failure(&command);
         let mut wrong_id = notification.clone();
         wrong_id.origin.saga_instance_id = SagaInstanceId::new();
@@ -745,7 +842,7 @@ mod tests {
         .await
         .unwrap();
         assert_eq!(cause, notification.failure_id.value());
-        let (saved, _) = dispatched(&pool, input.correlation_id).await;
+        let (saved, _) = dispatched(&pool, input.event_id).await;
         assert_eq!(saved.state.unwrap().calls, 1);
     }
 
@@ -773,13 +870,15 @@ mod tests {
         let run = runner(&pool);
         let input = event();
         run.handle_event(&definition, &input).await.unwrap();
-        let (_, command) = dispatched(&pool, input.correlation_id).await;
+        let (_, command) = dispatched(&pool, input.event_id).await;
         let mut follow_up = input.clone();
         follow_up.event_id = EventId::new();
-        assert_eq!(
+        assert!(matches!(
             run.handle_event(&definition, &follow_up).await.unwrap(),
-            SagaEventRunReport::AlreadyStarted
-        );
+            SagaEventRunReport::Processed { .. }
+        ));
+        let second_start_event_id = follow_up.event_id;
+        follow_up.event_id = EventId::new();
         follow_up.causation_id = CausationId::from(command.message_id);
         assert!(matches!(
             run.handle_event(&definition, &follow_up).await.unwrap(),
@@ -794,7 +893,7 @@ mod tests {
             run.handle_event(&definition, &follow_up).await.unwrap(),
             SagaEventRunReport::Processed { .. }
         ));
-        let (saved, _) = dispatched(&pool, input.correlation_id).await;
+        let (saved, _) = dispatched(&pool, input.event_id).await;
         assert_eq!(saved.state.as_ref().unwrap().calls, 2);
         let second_command = saved
             .dispatched_commands
@@ -808,7 +907,10 @@ mod tests {
             run.handle_event(&definition, &unmatched).await.unwrap(),
             SagaEventRunReport::NoMatchingRoute
         );
-        assert_eq!(count(&pool, "command_outbox").await, 3);
+        assert_eq!(count(&pool, "command_outbox").await, 4);
+        assert_eq!(count(&pool, "saga_instances").await, 2);
+        let (second, _) = dispatched(&pool, second_start_event_id).await;
+        assert_eq!(second.state.unwrap().calls, 0);
     }
 
     #[sqlx::test(migrations = "migrations/postgresql")]
@@ -830,7 +932,7 @@ mod tests {
         let run = runner(&pool);
         let input = event();
         run.handle_event(&start, &input).await.unwrap();
-        let (_, command) = dispatched(&pool, input.correlation_id).await;
+        let (_, command) = dispatched(&pool, input.event_id).await;
         let notification = failure(&command);
         let refused = SagaDefinition::<State, Step, Error>::new(
             SagaName::new("counter_saga"),
@@ -851,7 +953,7 @@ mod tests {
                 .is_err()
         );
         assert_eq!(count(&pool, "saga_processed_command_failures").await, 0);
-        let (unchanged, _) = dispatched(&pool, input.correlation_id).await;
+        let (unchanged, _) = dispatched(&pool, input.event_id).await;
         assert_eq!(unchanged.state.unwrap().calls, 0);
         let recovery = SagaDefinition::<State, Step, Error>::new(
             SagaName::new("counter_saga"),
@@ -873,7 +975,7 @@ mod tests {
         ));
         assert_eq!(count(&pool, "saga_processed_command_failures").await, 0);
         assert_eq!(count(&pool, "saga_dispatched_commands").await, 1);
-        let (unchanged_again, _) = dispatched(&pool, input.correlation_id).await;
+        let (unchanged_again, _) = dispatched(&pool, input.event_id).await;
         assert_eq!(unchanged_again.state.unwrap().calls, 0);
         sqlx::query("ALTER TABLE command_outbox DROP CONSTRAINT reject_compensation")
             .execute(&pool)

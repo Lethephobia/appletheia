@@ -12,6 +12,7 @@ use super::pg_saga_instance_row_error::PgSagaInstanceRowError;
 #[derive(Debug, FromRow)]
 pub struct PgSagaInstanceRow {
     pub id: Uuid,
+    pub saga_name: String,
     pub correlation_id: Uuid,
     pub start_event_id: Uuid,
     pub state: Option<serde_json::Value>,
@@ -20,11 +21,11 @@ pub struct PgSagaInstanceRow {
 impl PgSagaInstanceRow {
     pub fn try_into_instance<S: SagaState, T: SagaStep>(
         self,
-        saga_name: SagaNameOwned,
-        correlation_id: CorrelationId,
         dispatched_commands: Vec<SagaDispatchedCommand<T>>,
     ) -> Result<SagaInstance<S, T>, PgSagaInstanceRowError> {
         let saga_instance_id = SagaInstanceId::try_from(self.id)?;
+        let saga_name = SagaNameOwned::new(self.saga_name)?;
+        let correlation_id = CorrelationId::from(self.correlation_id);
         let start_event_id = EventId::try_from(self.start_event_id)?;
 
         let state = self.state.map(serde_json::from_value).transpose()?;
@@ -48,7 +49,7 @@ mod tests {
 
     use super::PgSagaInstanceRow;
     use appletheia_application::request_context::CorrelationId;
-    use appletheia_application::saga::{SagaName, SagaNameOwned, SagaState, SagaStep};
+    use appletheia_application::saga::{SagaState, SagaStep};
 
     #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
     struct TestSagaState;
@@ -62,21 +63,21 @@ mod tests {
 
     #[test]
     fn try_into_instance_allows_absent_state() {
+        let correlation_id = Uuid::now_v7();
         let row = PgSagaInstanceRow {
+            saga_name: "test_saga".to_owned(),
             id: Uuid::now_v7(),
-            correlation_id: Uuid::now_v7(),
+            correlation_id,
             start_event_id: Uuid::now_v7(),
             state: None,
         };
 
         let instance = row
-            .try_into_instance::<TestSagaState, TestSagaStep>(
-                SagaNameOwned::from(SagaName::new("test_saga")),
-                CorrelationId::from(Uuid::now_v7()),
-                Vec::new(),
-            )
+            .try_into_instance::<TestSagaState, TestSagaStep>(Vec::new())
             .expect("row without state should deserialize");
 
+        assert_eq!(instance.saga_name.value(), "test_saga");
+        assert_eq!(instance.correlation_id, CorrelationId::from(correlation_id));
         assert!(instance.state.is_none());
     }
 }

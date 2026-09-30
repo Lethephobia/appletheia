@@ -10,6 +10,6 @@ pub enum SagaEventRunReport {
     InstanceNotFound,
     CommandNotOwned,
     AlreadyProcessed,
-    /// An external start event targets a saga name and correlation ID that already exist.
+    /// An instance already exists for this saga name and start event ID.
     AlreadyStarted,
 }

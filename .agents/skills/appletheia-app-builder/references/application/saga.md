@@ -137,15 +137,20 @@ The runner first looks for a saved command matching the event's causation ID. An
 selects a continuation by its saved step, even if the event also matches a start route. A missing
 continuation does not fall back to starting the saga.
 
-Without an owned command, only a start route can create an instance. An existing instance for the
-same saga name and correlation ID yields `AlreadyStarted`; its start callback is not rerun.
-Start-once does not mean callbacks execute exactly once: rolled-back processing may retry.
+Without an owned command, a start route creates an instance per `(saga_name, start_event_id)`.
+Different start events may share a correlation ID and create separate instances, including events
+emitted by the same command. Correlation groups related work; it does not identify an instance.
+Redelivery of the same start event yields `AlreadyStarted` once its instance exists. Processing is
+also deduplicated by `(saga_name, event_id)` within the transaction. Start-once does not mean callbacks
+execute exactly once: rolled-back processing may retry. Owned command results still follow the
+continuation path rather than creating another instance, even if they match a start selector.
 
 **Good**
 
 ```text
 Saga dispatches ReserveFunds -> resulting event references that command -> continuation
-Unowned start input + existing correlation -> AlreadyStarted
+Distinct unowned start events + same correlation -> separate instances
+Same start event redelivered -> AlreadyStarted
 ```
 
 **Bad**

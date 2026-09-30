@@ -298,7 +298,7 @@ CREATE TABLE IF NOT EXISTS saga_instances (
   correlation_id UUID        NOT NULL,
   start_event_id UUID        NOT NULL,
   state          JSONB,
-  UNIQUE (saga_name, correlation_id)
+  UNIQUE (saga_name, start_event_id)
 );
 
 -- saga dispatched commands
@@ -330,7 +330,7 @@ CREATE TABLE IF NOT EXISTS saga_processed_events (
   correlation_id UUID        NOT NULL,
   event_id       UUID        NOT NULL,
   processed_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE (saga_name, correlation_id, event_id)
+  UNIQUE (saga_name, event_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_saga_processed_events_event_id
