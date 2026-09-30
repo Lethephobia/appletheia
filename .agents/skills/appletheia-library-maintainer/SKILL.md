@@ -11,7 +11,7 @@ Guide maintenance of the reusable `appletheia` library surface, its macro crate,
 
 The reference files follow an Effective Dart style:
 
-- Do
+- DO
 
   Use this for rules that should be followed by default. Treat violations as exceptional and require a clear reason.
 
@@ -30,6 +30,11 @@ The reference files follow an Effective Dart style:
 - CONSIDER
 
   Use this for optional guidance or tradeoffs. Apply it when the surrounding context makes the choice worthwhile.
+
+Each directive includes **Good** and **Bad** fenced examples, in that order, following the
+Effective Dart style. Prefer focused Rust examples; use commands, configuration, or text flows when
+they express the rule more clearly. Examples are excerpts, not standalone programs. Preserve and
+update the comparisons when changing guidance rather than removing them during rewrites.
 
 ### Reference Map
 
