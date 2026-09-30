@@ -111,3 +111,22 @@ pub fn event_payload(attr: TokenStream, item: TokenStream) -> TokenStream {
         .unwrap_or_else(syn::Error::into_compile_error)
         .into()
 }
+
+/// Implements the saga step marker trait without changing serialization.
+#[proc_macro_derive(SagaStep)]
+pub fn saga_step_derive(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    application::saga_step_derive(input)
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
+}
+
+/// Derives saga step traits and defaults to adjacently tagged snake-case JSON.
+///
+/// Explicit container-level `serde` attributes replace the default serialization settings.
+#[proc_macro_attribute]
+pub fn saga_step(attr: TokenStream, item: TokenStream) -> TokenStream {
+    application::saga_step_attribute(attr, item)
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
+}

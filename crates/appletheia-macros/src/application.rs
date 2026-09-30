@@ -1,5 +1,6 @@
 mod command;
 mod query;
+mod saga_step;
 
 use proc_macro2::TokenStream;
 use syn::{DeriveInput, Result};
@@ -26,4 +27,15 @@ pub(crate) fn query_attribute(
 pub(crate) fn query_derive(input: DeriveInput) -> Result<TokenStream> {
     let args = query::query_derive_args::QueryDeriveArgs::from_attrs(&input.attrs)?;
     query::query_derive_expand::expand_query_derive(input, args)
+}
+
+pub(crate) fn saga_step_attribute(
+    attr: proc_macro::TokenStream,
+    item: proc_macro::TokenStream,
+) -> Result<TokenStream> {
+    saga_step::saga_step_attribute_expand::expand_saga_step_attribute(attr, item)
+}
+
+pub(crate) fn saga_step_derive(input: DeriveInput) -> Result<TokenStream> {
+    saga_step::saga_step_derive_expand::expand_saga_step_derive(input)
 }

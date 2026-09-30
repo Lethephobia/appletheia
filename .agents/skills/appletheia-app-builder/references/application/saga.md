@@ -14,6 +14,11 @@ assigned to outgoing commands; `on` describes the input. Subscriptions are deriv
 | `add_step(step)` | `on::<Aggregate>(caused_by, event_name)` |
 | `add_failure_step(step)` | `on(caused_by)` |
 
+Define a step enum with `#[saga_step]`; it derives `Copy`, equality, serde, and `SagaStep`, using
+adjacently tagged snake-case JSON (`type` / `data`) by default. Use `#[derive(SagaStep)]` when managing
+the other derives and serialization yourself. Variants may contain `Copy` values; these values take
+part in equality and route matching, so keep changing workflow progress in SagaState.
+
 A step identifies a command-dispatch stage, not a persisted current position. One route may append
 multiple commands, all carrying its outgoing step. Failure routes match the originating step, not a
 command generic; inspect `failure.command_name` if that step emits command kinds requiring different

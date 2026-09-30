@@ -394,8 +394,8 @@ Link one independently managed UserIdentity -> replace all identities as anonymo
 
 Follow Banking's `#[serde(tag = "type", content = "data", rename_all = "snake_case")]` convention for
 domain enum VOs so discriminants and variant data have an explicit, consistent shape. This is a
-wire-format convention, not a reason to change a distinct existing protocol such as SagaStep's
-fieldless string representation.
+wire-format convention. The `#[saga_step]` macro also uses adjacent tags by default; a deliberately
+customized serialization contract can use different settings.
 
 **Good**
 

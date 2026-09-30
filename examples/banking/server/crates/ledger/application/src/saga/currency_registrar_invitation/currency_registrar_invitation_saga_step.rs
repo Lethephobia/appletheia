@@ -1,10 +1,6 @@
-use appletheia::application::saga::SagaStep;
-use serde::{Deserialize, Serialize};
+use appletheia::saga_step;
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[saga_step]
 pub enum CurrencyRegistrarInvitationSagaStep {
     CreateMembership,
 }
-
-impl SagaStep for CurrencyRegistrarInvitationSagaStep {}

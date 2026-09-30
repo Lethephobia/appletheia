@@ -20,4 +20,4 @@ pub use appletheia_macros::{
 };
 
 #[cfg(feature = "macros-application")]
-pub use appletheia_macros::{Command, Query, command, query};
+pub use appletheia_macros::{Command, Query, SagaStep, command, query, saga_step};
