@@ -1,36 +1,20 @@
-mod organization_join_request_approve_rejection_reason;
-mod organization_join_request_approve_result;
-mod organization_join_request_cancel_rejection_reason;
-mod organization_join_request_cancel_result;
 mod organization_join_request_error;
 mod organization_join_request_event_payload;
 mod organization_join_request_event_payload_error;
 mod organization_join_request_id;
-mod organization_join_request_reject_rejection_reason;
-mod organization_join_request_reject_result;
 mod organization_join_request_state;
 mod organization_join_request_state_error;
 mod organization_join_request_status;
 mod organization_join_request_submission;
-mod organization_join_request_submit_rejection_reason;
-mod organization_join_request_submit_result;
 
-pub use organization_join_request_approve_rejection_reason::OrganizationJoinRequestApproveRejectionReason;
-pub use organization_join_request_approve_result::OrganizationJoinRequestApproveResult;
-pub use organization_join_request_cancel_rejection_reason::OrganizationJoinRequestCancelRejectionReason;
-pub use organization_join_request_cancel_result::OrganizationJoinRequestCancelResult;
 pub use organization_join_request_error::OrganizationJoinRequestError;
 pub use organization_join_request_event_payload::OrganizationJoinRequestEventPayload;
 pub use organization_join_request_event_payload_error::OrganizationJoinRequestEventPayloadError;
 pub use organization_join_request_id::OrganizationJoinRequestId;
-pub use organization_join_request_reject_rejection_reason::OrganizationJoinRequestRejectRejectionReason;
-pub use organization_join_request_reject_result::OrganizationJoinRequestRejectResult;
 pub use organization_join_request_state::OrganizationJoinRequestState;
 pub use organization_join_request_state_error::OrganizationJoinRequestStateError;
 pub use organization_join_request_status::OrganizationJoinRequestStatus;
 pub use organization_join_request_submission::OrganizationJoinRequestSubmission;
-pub use organization_join_request_submit_rejection_reason::OrganizationJoinRequestSubmitRejectionReason;
-pub use organization_join_request_submit_result::OrganizationJoinRequestSubmitResult;
 
 use appletheia::aggregate;
 use appletheia::domain::{Aggregate, AggregateApply, AggregateCore};
@@ -87,7 +71,7 @@ impl OrganizationJoinRequest {
     pub fn submit(
         &mut self,
         submission: OrganizationJoinRequestSubmission,
-    ) -> Result<OrganizationJoinRequestSubmitResult, OrganizationJoinRequestError> {
+    ) -> Result<(), OrganizationJoinRequestError> {
         if self.state().is_some() {
             return Err(OrganizationJoinRequestError::AlreadySubmitted);
         }
@@ -97,91 +81,46 @@ impl OrganizationJoinRequest {
             organization_id,
             requester_id,
         })?;
-        Ok(OrganizationJoinRequestSubmitResult::Submitted)
-    }
-
-    /// Rejects a join request submission attempt.
-    pub fn reject_submit(
-        &mut self,
-        _submission: OrganizationJoinRequestSubmission,
-        reason: OrganizationJoinRequestSubmitRejectionReason,
-    ) -> Result<(), OrganizationJoinRequestError> {
-        Err(OrganizationJoinRequestError::SubmitRejected(reason))
+        Ok(())
     }
 
     /// Approves the join request.
-    pub fn approve(
-        &mut self,
-    ) -> Result<OrganizationJoinRequestApproveResult, OrganizationJoinRequestError> {
+    pub fn approve(&mut self) -> Result<(), OrganizationJoinRequestError> {
         if !self.state_required()?.status.is_pending() {
-            let reason = OrganizationJoinRequestApproveRejectionReason::NotPending;
-            self.reject_approve(reason)?;
-            return Ok(OrganizationJoinRequestApproveResult::Rejected { reason });
+            return Err(OrganizationJoinRequestError::NotPending);
         }
         let state = self.state_required()?;
         self.append_event(OrganizationJoinRequestEventPayload::Approved {
             organization_id: state.organization_id,
             requester_id: state.requester_id,
         })?;
-        Ok(OrganizationJoinRequestApproveResult::Approved)
-    }
-
-    /// Rejects a join request approval attempt.
-    pub fn reject_approve(
-        &mut self,
-        reason: OrganizationJoinRequestApproveRejectionReason,
-    ) -> Result<(), OrganizationJoinRequestError> {
-        Err(OrganizationJoinRequestError::ApproveRejected(reason))
+        Ok(())
     }
 
     /// Rejects the join request.
-    pub fn reject(
-        &mut self,
-    ) -> Result<OrganizationJoinRequestRejectResult, OrganizationJoinRequestError> {
+    pub fn reject(&mut self) -> Result<(), OrganizationJoinRequestError> {
         if !self.state_required()?.status.is_pending() {
-            let reason = OrganizationJoinRequestRejectRejectionReason::NotPending;
-            self.reject_rejection(reason)?;
-            return Ok(OrganizationJoinRequestRejectResult::RejectionRejected { reason });
+            return Err(OrganizationJoinRequestError::NotPending);
         }
         let state = self.state_required()?;
         self.append_event(OrganizationJoinRequestEventPayload::Rejected {
             organization_id: state.organization_id,
             requester_id: state.requester_id,
         })?;
-        Ok(OrganizationJoinRequestRejectResult::Rejected)
-    }
-
-    /// Rejects a join request rejection attempt.
-    pub fn reject_rejection(
-        &mut self,
-        reason: OrganizationJoinRequestRejectRejectionReason,
-    ) -> Result<(), OrganizationJoinRequestError> {
-        Err(OrganizationJoinRequestError::RejectRejected(reason))
+        Ok(())
     }
 
     /// Cancels the join request.
-    pub fn cancel(
-        &mut self,
-    ) -> Result<OrganizationJoinRequestCancelResult, OrganizationJoinRequestError> {
+    pub fn cancel(&mut self) -> Result<(), OrganizationJoinRequestError> {
         if !self.state_required()?.status.is_pending() {
-            let reason = OrganizationJoinRequestCancelRejectionReason::NotPending;
-            self.reject_cancel(reason)?;
-            return Ok(OrganizationJoinRequestCancelResult::Rejected { reason });
+            return Err(OrganizationJoinRequestError::NotPending);
         }
         let state = self.state_required()?;
         self.append_event(OrganizationJoinRequestEventPayload::Canceled {
             organization_id: state.organization_id,
             requester_id: state.requester_id,
         })?;
-        Ok(OrganizationJoinRequestCancelResult::Canceled)
-    }
-
-    /// Rejects a join request cancellation attempt.
-    pub fn reject_cancel(
-        &mut self,
-        reason: OrganizationJoinRequestCancelRejectionReason,
-    ) -> Result<(), OrganizationJoinRequestError> {
-        Err(OrganizationJoinRequestError::CancelRejected(reason))
+        Ok(())
     }
 }
 

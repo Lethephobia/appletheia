@@ -5,9 +5,10 @@ use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use appletheia::domain::{Aggregate, UniqueValue};
+use banking_iam_domain::OrganizationError;
 use banking_iam_domain::{
-    Organization, OrganizationCreateRejectionReason, OrganizationCreateResult,
-    OrganizationCreation, OrganizationHandle, OrganizationOwner, OrganizationState, User,
+    Organization, OrganizationCreation, OrganizationHandle, OrganizationOwner, OrganizationState,
+    User,
 };
 
 use super::{
@@ -97,36 +98,16 @@ where
             .await?
             .is_some();
         if handle_is_taken {
-            let reason = OrganizationCreateRejectionReason::HandleAlreadyTaken;
-            organization.reject_create(creation, reason)?;
-
-            self.organization_repository
-                .save(uow, request_context, &mut organization)
-                .await?;
-
-            return Ok(OrganizationCreateOutput::Rejected {
-                organization_id,
-                reason,
-            });
+            return Err(OrganizationError::HandleAlreadyTaken.into());
         }
 
-        let result = organization.create(creation)?;
+        organization.create(creation)?;
 
         self.organization_repository
             .save(uow, request_context, &mut organization)
             .await?;
 
-        let output = match result {
-            OrganizationCreateResult::Created => {
-                OrganizationCreateOutput::Created { organization_id }
-            }
-            OrganizationCreateResult::Rejected { reason } => OrganizationCreateOutput::Rejected {
-                organization_id,
-                reason,
-            },
-        };
-
-        Ok(output)
+        Ok(OrganizationCreateOutput { organization_id })
     }
 }
 
@@ -315,9 +296,13 @@ mod tests {
 
         assert_eq!(
             output,
-            OrganizationCreateOutput::Created {
+            OrganizationCreateOutput {
                 organization_id: saved.aggregate_id(),
             }
+        );
+        assert_eq!(
+            serde_json::to_value(&output).expect("output should serialize"),
+            serde_json::json!({ "organization_id": saved.aggregate_id() })
         );
         assert_eq!(
             saved.display_name().expect("display name should exist"),

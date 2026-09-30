@@ -2,13 +2,9 @@ use appletheia::application::authorization::{AuthorizationPlan, PrincipalRequire
 use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::{Repository, RepositoryError};
 use appletheia::application::request_context::RequestContext;
+use banking_ledger_domain::withdrawal::WithdrawalError;
 use banking_ledger_domain::{
-    account::Account,
-    currency::Currency,
-    token_binding::TokenBinding,
-    withdrawal::{
-        Withdrawal, WithdrawalSettlementExecuteRejectionReason, WithdrawalSettlementExecuteResult,
-    },
+    account::Account, currency::Currency, token_binding::TokenBinding, withdrawal::Withdrawal,
 };
 
 use super::{
@@ -110,22 +106,12 @@ where
                 token_binding
             }
             Ok(_) | Err(RepositoryError::NotFound { .. }) => {
-                let reason = WithdrawalSettlementExecuteRejectionReason::TokenBindingUnavailable;
-                withdrawal.reject_settlement_execute(None, reason)?;
-                self.withdrawal_repository
-                    .save(uow, request_context, &mut withdrawal)
-                    .await?;
-                return Ok(WithdrawalSettlementExecuteOutput::Rejected { reason });
+                return Err(WithdrawalError::TokenBindingUnavailable.into());
             }
             Err(error) => return Err(error.into()),
         };
         if token_binding.currency_id()? != *account.currency_id()? {
-            let reason = WithdrawalSettlementExecuteRejectionReason::TokenBindingUnavailable;
-            withdrawal.reject_settlement_execute(None, reason)?;
-            self.withdrawal_repository
-                .save(uow, request_context, &mut withdrawal)
-                .await?;
-            return Ok(WithdrawalSettlementExecuteOutput::Rejected { reason });
+            return Err(WithdrawalError::TokenBindingUnavailable.into());
         }
         let chain_network = token_binding.chain_network()?;
         let execution = self
@@ -140,18 +126,11 @@ where
             ))
             .await?;
 
-        let result = withdrawal.record_settlement_executed(execution.transaction_id)?;
+        withdrawal.record_settlement_executed(execution.transaction_id)?;
         self.withdrawal_repository
             .save(uow, request_context, &mut withdrawal)
             .await?;
 
-        Ok(match result {
-            WithdrawalSettlementExecuteResult::Executed => {
-                WithdrawalSettlementExecuteOutput::Executed
-            }
-            WithdrawalSettlementExecuteResult::Rejected { reason } => {
-                WithdrawalSettlementExecuteOutput::Rejected { reason }
-            }
-        })
+        Ok(WithdrawalSettlementExecuteOutput {})
     }
 }

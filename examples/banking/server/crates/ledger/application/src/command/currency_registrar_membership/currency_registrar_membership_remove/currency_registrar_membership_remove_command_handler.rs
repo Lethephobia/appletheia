@@ -4,9 +4,7 @@ use appletheia::application::authorization::{
 use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_ledger_domain::currency_registrar_membership::{
-    CurrencyRegistrarMembership, CurrencyRegistrarMembershipRemoveResult,
-};
+use banking_ledger_domain::currency_registrar_membership::CurrencyRegistrarMembership;
 
 use super::{
     CurrencyRegistrarMembershipRemoveCommand, CurrencyRegistrarMembershipRemoveCommandHandlerError,
@@ -64,20 +62,11 @@ where
             .repository
             .read(uow, command.currency_registrar_membership_id)
             .await?;
-        let result = membership.remove()?;
+        membership.remove()?;
         self.repository
             .save(uow, request_context, &mut membership)
             .await?;
 
-        let output = match result {
-            CurrencyRegistrarMembershipRemoveResult::Removed => {
-                CurrencyRegistrarMembershipRemoveOutput::Removed
-            }
-            CurrencyRegistrarMembershipRemoveResult::Rejected { reason } => {
-                CurrencyRegistrarMembershipRemoveOutput::Rejected { reason }
-            }
-        };
-
-        Ok(output)
+        Ok(CurrencyRegistrarMembershipRemoveOutput {})
     }
 }

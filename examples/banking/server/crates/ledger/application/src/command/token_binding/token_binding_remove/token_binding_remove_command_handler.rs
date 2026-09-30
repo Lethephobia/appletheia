@@ -4,7 +4,7 @@ use appletheia::application::authorization::{
 use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_ledger_domain::token_binding::{TokenBinding, TokenBindingRemoveResult};
+use banking_ledger_domain::token_binding::TokenBinding;
 
 use super::{
     TokenBindingRemoveCommand, TokenBindingRemoveCommandHandlerError, TokenBindingRemoveOutput,
@@ -57,18 +57,12 @@ where
         command: &Self::Command,
     ) -> Result<Self::Output, Self::Error> {
         let mut token_binding = self.repository.read(uow, command.token_binding_id).await?;
-        let result = token_binding.remove()?;
+        token_binding.remove()?;
         self.repository
             .save(uow, request_context, &mut token_binding)
             .await?;
-        Ok(match result {
-            TokenBindingRemoveResult::Removed => TokenBindingRemoveOutput::Removed {
-                token_binding_id: command.token_binding_id,
-            },
-            TokenBindingRemoveResult::Rejected { reason } => TokenBindingRemoveOutput::Rejected {
-                token_binding_id: command.token_binding_id,
-                reason,
-            },
+        Ok(TokenBindingRemoveOutput {
+            token_binding_id: command.token_binding_id,
         })
     }
 }

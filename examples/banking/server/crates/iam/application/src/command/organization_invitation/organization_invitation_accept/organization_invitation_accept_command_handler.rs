@@ -4,10 +4,8 @@ use appletheia::application::authorization::{
 use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_iam_domain::{
-    Organization, OrganizationInvitation, OrganizationInvitationAcceptRejectionReason,
-    OrganizationInvitationAcceptResult,
-};
+use banking_iam_domain::OrganizationInvitationError;
+use banking_iam_domain::{Organization, OrganizationInvitation};
 use banking_shared_kernel_domain::timestamps::CurrentDateTime;
 
 use crate::authorization::OrganizationInvitationInviteeRelation;
@@ -81,31 +79,15 @@ where
             .await?;
 
         if organization.is_removed()? {
-            let reason = OrganizationInvitationAcceptRejectionReason::OrganizationRemoved;
-            organization_invitation.reject_accept(reason)?;
-
-            self.organization_invitation_repository
-                .save(uow, _request_context, &mut organization_invitation)
-                .await?;
-
-            return Ok(OrganizationInvitationAcceptOutput::Rejected { reason });
+            return Err(OrganizationInvitationError::OrganizationRemoved.into());
         }
 
-        let result = organization_invitation.accept(CurrentDateTime::new())?;
+        organization_invitation.accept(CurrentDateTime::new())?;
 
         self.organization_invitation_repository
             .save(uow, _request_context, &mut organization_invitation)
             .await?;
 
-        let output = match result {
-            OrganizationInvitationAcceptResult::Accepted => {
-                OrganizationInvitationAcceptOutput::Accepted
-            }
-            OrganizationInvitationAcceptResult::Rejected { reason } => {
-                OrganizationInvitationAcceptOutput::Rejected { reason }
-            }
-        };
-
-        Ok(output)
+        Ok(OrganizationInvitationAcceptOutput {})
     }
 }

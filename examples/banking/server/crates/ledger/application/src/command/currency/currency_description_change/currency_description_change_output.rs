@@ -3,9 +3,8 @@ use banking_ledger_domain::currency::CurrencyId;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "type", content = "data", rename_all = "snake_case")]
-pub enum CurrencyDescriptionChangeOutput {
-    Changed { currency_id: CurrencyId },
+pub struct CurrencyDescriptionChangeOutput {
+    pub currency_id: CurrencyId,
 }
 
 impl CommandOutput for CurrencyDescriptionChangeOutput {

@@ -4,10 +4,8 @@ use appletheia::application::authorization::{
 use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_iam_domain::{
-    Organization, OrganizationJoinRequest, OrganizationJoinRequestCancelRejectionReason,
-    OrganizationJoinRequestCancelResult,
-};
+use banking_iam_domain::OrganizationJoinRequestError;
+use banking_iam_domain::{Organization, OrganizationJoinRequest};
 
 use crate::authorization::OrganizationJoinRequestCancelerRelation;
 
@@ -80,31 +78,15 @@ where
             .await?;
 
         if organization.is_removed()? {
-            let reason = OrganizationJoinRequestCancelRejectionReason::OrganizationRemoved;
-            organization_join_request.reject_cancel(reason)?;
-
-            self.organization_join_request_repository
-                .save(uow, _request_context, &mut organization_join_request)
-                .await?;
-
-            return Ok(OrganizationJoinRequestCancelOutput::Rejected { reason });
+            return Err(OrganizationJoinRequestError::OrganizationRemoved.into());
         }
 
-        let result = organization_join_request.cancel()?;
+        organization_join_request.cancel()?;
 
         self.organization_join_request_repository
             .save(uow, _request_context, &mut organization_join_request)
             .await?;
 
-        let output = match result {
-            OrganizationJoinRequestCancelResult::Canceled => {
-                OrganizationJoinRequestCancelOutput::Canceled
-            }
-            OrganizationJoinRequestCancelResult::Rejected { reason } => {
-                OrganizationJoinRequestCancelOutput::Rejected { reason }
-            }
-        };
-
-        Ok(output)
+        Ok(OrganizationJoinRequestCancelOutput {})
     }
 }

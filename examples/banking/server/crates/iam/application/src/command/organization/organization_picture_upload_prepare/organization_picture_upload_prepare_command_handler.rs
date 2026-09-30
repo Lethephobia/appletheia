@@ -7,12 +7,12 @@ use appletheia::application::object_storage::{
 };
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
+use banking_iam_domain::OrganizationError;
 use banking_iam_domain::{Organization, OrganizationPictureObjectName, OrganizationPictureRef};
 
 use super::{
     OrganizationPictureUploadPrepareCommand, OrganizationPictureUploadPrepareCommandHandlerConfig,
     OrganizationPictureUploadPrepareCommandHandlerError, OrganizationPictureUploadPrepareOutput,
-    OrganizationPictureUploadPrepareRejectionReason,
 };
 use crate::authorization::OrganizationProfileEditorRelation;
 
@@ -81,15 +81,15 @@ where
             .await?;
 
         if organization.is_removed()? {
-            return Ok(OrganizationPictureUploadPrepareOutput::Rejected {
-                reason: OrganizationPictureUploadPrepareRejectionReason::OrganizationRemoved,
-            });
+            return Err(
+                OrganizationPictureUploadPrepareCommandHandlerError::Organization(
+                    OrganizationError::Removed,
+                ),
+            );
         }
 
         if command.content_length.value() > self.config.max_content_length().value() {
-            return Ok(OrganizationPictureUploadPrepareOutput::Rejected {
-                reason: OrganizationPictureUploadPrepareRejectionReason::ContentLengthTooLarge,
-            });
+            return Err(OrganizationPictureUploadPrepareCommandHandlerError::ContentLengthTooLarge);
         }
 
         if !self
@@ -97,9 +97,7 @@ where
             .allowed_content_types()
             .contains(&command.content_type)
         {
-            return Ok(OrganizationPictureUploadPrepareOutput::Rejected {
-                reason: OrganizationPictureUploadPrepareRejectionReason::ContentTypeNotAllowed,
-            });
+            return Err(OrganizationPictureUploadPrepareCommandHandlerError::ContentTypeNotAllowed);
         }
 
         let picture_object_name = OrganizationPictureObjectName::new(command.organization_id);
@@ -114,7 +112,7 @@ where
         .with_content_length(command.content_length)
         .with_checksum(command.checksum.clone());
         let signed_upload = self.object_upload_signer.sign(request).await?;
-        let output = OrganizationPictureUploadPrepareOutput::Prepared {
+        let output = OrganizationPictureUploadPrepareOutput {
             picture,
             signed_upload: Box::new(signed_upload),
         };
@@ -125,6 +123,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    use banking_iam_domain::OrganizationError;
     use std::sync::{Arc, Mutex};
 
     use appletheia::application::aggregate::AggregateRef;
@@ -155,7 +154,8 @@ mod tests {
     use super::{
         OrganizationPictureUploadPrepareCommand, OrganizationPictureUploadPrepareCommandHandler,
         OrganizationPictureUploadPrepareCommandHandlerConfig,
-        OrganizationPictureUploadPrepareOutput, OrganizationPictureUploadPrepareRejectionReason,
+        OrganizationPictureUploadPrepareCommandHandlerError,
+        OrganizationPictureUploadPrepareOutput,
     };
 
     #[derive(Default)]
@@ -395,13 +395,10 @@ mod tests {
             .expect("command should succeed");
 
         let output = handled;
-        let OrganizationPictureUploadPrepareOutput::Prepared {
+        let OrganizationPictureUploadPrepareOutput {
             picture,
             signed_upload: output_signed_upload,
-        } = output
-        else {
-            panic!("upload should be prepared");
-        };
+        } = output;
         let request = signer_requests
             .lock()
             .expect("lock")
@@ -463,14 +460,14 @@ mod tests {
                 },
             )
             .await
-            .expect("removed organization should be rejected as an outcome");
+            .expect_err("removed organization should be rejected as an outcome");
 
-        assert_eq!(
+        assert!(matches!(
             handled,
-            OrganizationPictureUploadPrepareOutput::Rejected {
-                reason: OrganizationPictureUploadPrepareRejectionReason::OrganizationRemoved,
-            }
-        );
+            OrganizationPictureUploadPrepareCommandHandlerError::Organization(
+                OrganizationError::Removed
+            )
+        ));
     }
 
     #[tokio::test]
@@ -504,14 +501,12 @@ mod tests {
                 },
             )
             .await
-            .expect("oversized content should be rejected as an outcome");
+            .expect_err("oversized content should be rejected as an outcome");
 
-        assert_eq!(
+        assert!(matches!(
             handled,
-            OrganizationPictureUploadPrepareOutput::Rejected {
-                reason: OrganizationPictureUploadPrepareRejectionReason::ContentLengthTooLarge,
-            }
-        );
+            OrganizationPictureUploadPrepareCommandHandlerError::ContentLengthTooLarge
+        ));
     }
 
     #[tokio::test]
@@ -546,13 +541,11 @@ mod tests {
                 },
             )
             .await
-            .expect("disallowed content type should be rejected as an outcome");
+            .expect_err("disallowed content type should be rejected as an outcome");
 
-        assert_eq!(
+        assert!(matches!(
             handled,
-            OrganizationPictureUploadPrepareOutput::Rejected {
-                reason: OrganizationPictureUploadPrepareRejectionReason::ContentTypeNotAllowed,
-            }
-        );
+            OrganizationPictureUploadPrepareCommandHandlerError::ContentTypeNotAllowed
+        ));
     }
 }

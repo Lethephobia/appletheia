@@ -4,7 +4,7 @@ use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use appletheia::domain::Aggregate;
 use banking_ledger_domain::owned_account_closure::{
-    OwnedAccountClosure, OwnedAccountClosureRequest, OwnedAccountClosureRequestResult,
+    OwnedAccountClosure, OwnedAccountClosureRequest,
 };
 
 use super::{
@@ -57,7 +57,7 @@ where
     ) -> Result<Self::Output, Self::Error> {
         let mut owned_account_closure = OwnedAccountClosure::new();
         let owned_account_closure_id = owned_account_closure.aggregate_id();
-        let result = owned_account_closure.request(OwnedAccountClosureRequest {
+        owned_account_closure.request(OwnedAccountClosureRequest {
             owner: command.owner,
         })?;
 
@@ -65,10 +65,8 @@ where
             .save(uow, request_context, &mut owned_account_closure)
             .await?;
 
-        let output = match result {
-            OwnedAccountClosureRequestResult::Requested => OwnedAccountClosureRequestOutput {
-                owned_account_closure_id,
-            },
+        let output = OwnedAccountClosureRequestOutput {
+            owned_account_closure_id,
         };
 
         Ok(output)

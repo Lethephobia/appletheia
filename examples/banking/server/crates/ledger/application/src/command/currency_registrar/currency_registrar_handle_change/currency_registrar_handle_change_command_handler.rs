@@ -5,9 +5,9 @@ use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use appletheia::domain::{Aggregate, UniqueValue};
+use banking_ledger_domain::currency_registrar::CurrencyRegistrarError;
 use banking_ledger_domain::currency_registrar::{
-    CurrencyRegistrar, CurrencyRegistrarHandle, CurrencyRegistrarHandleChangeRejectionReason,
-    CurrencyRegistrarHandleChangeResult, CurrencyRegistrarState,
+    CurrencyRegistrar, CurrencyRegistrarHandle, CurrencyRegistrarState,
 };
 
 use crate::authorization::CurrencyRegistrarMemberRelation;
@@ -74,31 +74,20 @@ where
             .await?;
 
         let unique_value = Self::handle_unique_value(&command.handle)?;
-        let result = if self
+        if self
             .repository
             .find_by_unique_value(uow, CurrencyRegistrarState::HANDLE_KEY, &unique_value)
             .await?
             .is_some_and(|existing| existing.aggregate_id() != command.currency_registrar_id)
         {
-            registrar.reject_change_handle(
-                command.handle.clone(),
-                CurrencyRegistrarHandleChangeRejectionReason::AlreadyTaken,
-            )?
-        } else {
-            registrar.change_handle(command.handle.clone())?
-        };
+            return Err(CurrencyRegistrarError::HandleAlreadyTaken.into());
+        }
+        registrar.change_handle(command.handle.clone())?;
 
         self.repository
             .save(uow, request_context, &mut registrar)
             .await?;
 
-        Ok(match result {
-            CurrencyRegistrarHandleChangeResult::Changed => {
-                CurrencyRegistrarHandleChangeOutput::Changed
-            }
-            CurrencyRegistrarHandleChangeResult::Rejected { reason } => {
-                CurrencyRegistrarHandleChangeOutput::Rejected { reason }
-            }
-        })
+        Ok(CurrencyRegistrarHandleChangeOutput {})
     }
 }

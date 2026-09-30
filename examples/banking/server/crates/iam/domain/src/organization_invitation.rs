@@ -1,36 +1,20 @@
-mod organization_invitation_accept_rejection_reason;
-mod organization_invitation_accept_result;
-mod organization_invitation_cancel_rejection_reason;
-mod organization_invitation_cancel_result;
-mod organization_invitation_decline_rejection_reason;
-mod organization_invitation_decline_result;
 mod organization_invitation_error;
 mod organization_invitation_event_payload;
 mod organization_invitation_event_payload_error;
 mod organization_invitation_expires_at;
 mod organization_invitation_id;
 mod organization_invitation_issuance;
-mod organization_invitation_issue_rejection_reason;
-mod organization_invitation_issue_result;
 mod organization_invitation_issuer;
 mod organization_invitation_state;
 mod organization_invitation_state_error;
 mod organization_invitation_status;
 
-pub use organization_invitation_accept_rejection_reason::OrganizationInvitationAcceptRejectionReason;
-pub use organization_invitation_accept_result::OrganizationInvitationAcceptResult;
-pub use organization_invitation_cancel_rejection_reason::OrganizationInvitationCancelRejectionReason;
-pub use organization_invitation_cancel_result::OrganizationInvitationCancelResult;
-pub use organization_invitation_decline_rejection_reason::OrganizationInvitationDeclineRejectionReason;
-pub use organization_invitation_decline_result::OrganizationInvitationDeclineResult;
 pub use organization_invitation_error::OrganizationInvitationError;
 pub use organization_invitation_event_payload::OrganizationInvitationEventPayload;
 pub use organization_invitation_event_payload_error::OrganizationInvitationEventPayloadError;
 pub use organization_invitation_expires_at::OrganizationInvitationExpiresAt;
 pub use organization_invitation_id::OrganizationInvitationId;
 pub use organization_invitation_issuance::OrganizationInvitationIssuance;
-pub use organization_invitation_issue_rejection_reason::OrganizationInvitationIssueRejectionReason;
-pub use organization_invitation_issue_result::OrganizationInvitationIssueResult;
 pub use organization_invitation_issuer::OrganizationInvitationIssuer;
 pub use organization_invitation_state::OrganizationInvitationState;
 pub use organization_invitation_state_error::OrganizationInvitationStateError;
@@ -115,15 +99,13 @@ impl OrganizationInvitation {
         &mut self,
         issuance: OrganizationInvitationIssuance,
         now: CurrentDateTime,
-    ) -> Result<OrganizationInvitationIssueResult, OrganizationInvitationError> {
+    ) -> Result<(), OrganizationInvitationError> {
         if self.state().is_some() {
             return Err(OrganizationInvitationError::AlreadyIssued);
         }
 
         if issuance.expires_at().is_expired(now) {
-            let reason = OrganizationInvitationIssueRejectionReason::Expired;
-            self.reject_issue(issuance, reason)?;
-            return Ok(OrganizationInvitationIssueResult::Rejected { reason });
+            return Err(OrganizationInvitationError::Expired);
         }
 
         let (organization_id, invitee_id, roles, issuer, expires_at) = issuance.into_parts();
@@ -134,32 +116,16 @@ impl OrganizationInvitation {
             issuer,
             expires_at,
         })?;
-        Ok(OrganizationInvitationIssueResult::Issued)
-    }
-
-    /// Rejects an invitation issue attempt.
-    pub fn reject_issue(
-        &mut self,
-        _issuance: OrganizationInvitationIssuance,
-        reason: OrganizationInvitationIssueRejectionReason,
-    ) -> Result<(), OrganizationInvitationError> {
-        Err(OrganizationInvitationError::IssueRejected(reason))
+        Ok(())
     }
 
     /// Accepts the invitation.
-    pub fn accept(
-        &mut self,
-        now: CurrentDateTime,
-    ) -> Result<OrganizationInvitationAcceptResult, OrganizationInvitationError> {
+    pub fn accept(&mut self, now: CurrentDateTime) -> Result<(), OrganizationInvitationError> {
         if self.is_expired(now)? {
-            let reason = OrganizationInvitationAcceptRejectionReason::Expired;
-            self.reject_accept(reason)?;
-            return Ok(OrganizationInvitationAcceptResult::Rejected { reason });
+            return Err(OrganizationInvitationError::Expired);
         }
         if !self.state_required()?.status.is_pending() {
-            let reason = OrganizationInvitationAcceptRejectionReason::NotPending;
-            self.reject_accept(reason)?;
-            return Ok(OrganizationInvitationAcceptResult::Rejected { reason });
+            return Err(OrganizationInvitationError::NotPending);
         }
         let state = self.state_required()?;
         self.append_event(OrganizationInvitationEventPayload::Accepted {
@@ -167,77 +133,39 @@ impl OrganizationInvitation {
             invitee_id: state.invitee_id,
             roles: state.roles.clone(),
         })?;
-        Ok(OrganizationInvitationAcceptResult::Accepted)
-    }
-
-    /// Rejects an invitation accept attempt.
-    pub fn reject_accept(
-        &mut self,
-        reason: OrganizationInvitationAcceptRejectionReason,
-    ) -> Result<(), OrganizationInvitationError> {
-        Err(OrganizationInvitationError::AcceptRejected(reason))
+        Ok(())
     }
 
     /// Declines the invitation.
-    pub fn decline(
-        &mut self,
-        now: CurrentDateTime,
-    ) -> Result<OrganizationInvitationDeclineResult, OrganizationInvitationError> {
+    pub fn decline(&mut self, now: CurrentDateTime) -> Result<(), OrganizationInvitationError> {
         if self.is_expired(now)? {
-            let reason = OrganizationInvitationDeclineRejectionReason::Expired;
-            self.reject_decline(reason)?;
-            return Ok(OrganizationInvitationDeclineResult::Rejected { reason });
+            return Err(OrganizationInvitationError::Expired);
         }
         if !self.state_required()?.status.is_pending() {
-            let reason = OrganizationInvitationDeclineRejectionReason::NotPending;
-            self.reject_decline(reason)?;
-            return Ok(OrganizationInvitationDeclineResult::Rejected { reason });
+            return Err(OrganizationInvitationError::NotPending);
         }
         let state = self.state_required()?;
         self.append_event(OrganizationInvitationEventPayload::Declined {
             organization_id: state.organization_id,
             invitee_id: state.invitee_id,
         })?;
-        Ok(OrganizationInvitationDeclineResult::Declined)
-    }
-
-    /// Rejects an invitation decline attempt.
-    pub fn reject_decline(
-        &mut self,
-        reason: OrganizationInvitationDeclineRejectionReason,
-    ) -> Result<(), OrganizationInvitationError> {
-        Err(OrganizationInvitationError::DeclineRejected(reason))
+        Ok(())
     }
 
     /// Cancels the invitation.
-    pub fn cancel(
-        &mut self,
-        now: CurrentDateTime,
-    ) -> Result<OrganizationInvitationCancelResult, OrganizationInvitationError> {
+    pub fn cancel(&mut self, now: CurrentDateTime) -> Result<(), OrganizationInvitationError> {
         if self.is_expired(now)? {
-            let reason = OrganizationInvitationCancelRejectionReason::Expired;
-            self.reject_cancel(reason)?;
-            return Ok(OrganizationInvitationCancelResult::Rejected { reason });
+            return Err(OrganizationInvitationError::Expired);
         }
         if !self.state_required()?.status.is_pending() {
-            let reason = OrganizationInvitationCancelRejectionReason::NotPending;
-            self.reject_cancel(reason)?;
-            return Ok(OrganizationInvitationCancelResult::Rejected { reason });
+            return Err(OrganizationInvitationError::NotPending);
         }
         let state = self.state_required()?;
         self.append_event(OrganizationInvitationEventPayload::Canceled {
             organization_id: state.organization_id,
             invitee_id: state.invitee_id,
         })?;
-        Ok(OrganizationInvitationCancelResult::Canceled)
-    }
-
-    /// Rejects an invitation cancel attempt.
-    pub fn reject_cancel(
-        &mut self,
-        reason: OrganizationInvitationCancelRejectionReason,
-    ) -> Result<(), OrganizationInvitationError> {
-        Err(OrganizationInvitationError::CancelRejected(reason))
+        Ok(())
     }
 }
 
@@ -287,7 +215,7 @@ mod tests {
     use appletheia::domain::{Aggregate, AggregateId, EventPayload};
 
     use super::{
-        OrganizationInvitation, OrganizationInvitationEventPayload,
+        OrganizationInvitation, OrganizationInvitationError, OrganizationInvitationEventPayload,
         OrganizationInvitationExpiresAt, OrganizationInvitationIssuance,
         OrganizationInvitationIssuer, OrganizationInvitationStatus,
     };
@@ -486,12 +414,7 @@ mod tests {
             )
             .expect_err("expired invitation should be rejected");
 
-        assert!(matches!(
-            error,
-            super::OrganizationInvitationError::IssueRejected(
-                super::OrganizationInvitationIssueRejectionReason::Expired
-            )
-        ));
+        assert!(matches!(error, OrganizationInvitationError::Expired));
     }
 
     #[test]
@@ -515,12 +438,7 @@ mod tests {
         let error = invitation
             .accept(CurrentDateTime::new())
             .expect_err("expired invitation should reject acceptance");
-        assert!(matches!(
-            error,
-            super::OrganizationInvitationError::AcceptRejected(
-                super::OrganizationInvitationAcceptRejectionReason::Expired
-            )
-        ));
+        assert!(matches!(error, OrganizationInvitationError::Expired));
     }
 
     #[test]
@@ -549,11 +467,6 @@ mod tests {
         let error = invitation
             .accept(CurrentDateTime::new())
             .expect_err("second accept should fail");
-        assert!(matches!(
-            error,
-            super::OrganizationInvitationError::AcceptRejected(
-                super::OrganizationInvitationAcceptRejectionReason::NotPending
-            )
-        ));
+        assert!(matches!(error, OrganizationInvitationError::NotPending));
     }
 }

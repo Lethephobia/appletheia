@@ -4,7 +4,7 @@ use appletheia::application::authorization::{
 use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_iam_domain::{Organization, OrganizationPictureChangeResult};
+use banking_iam_domain::Organization;
 
 use super::{
     OrganizationPictureChangeCommand, OrganizationPictureChangeCommandHandlerError,
@@ -65,18 +65,13 @@ where
             .read(uow, command.organization_id)
             .await?;
 
-        let result = organization.change_picture(command.picture.clone())?;
+        organization.change_picture(command.picture.clone())?;
 
         self.organization_repository
             .save(uow, request_context, &mut organization)
             .await?;
 
-        let output = match result {
-            OrganizationPictureChangeResult::Changed => OrganizationPictureChangeOutput::Changed,
-            OrganizationPictureChangeResult::Rejected { reason } => {
-                OrganizationPictureChangeOutput::Rejected { reason }
-            }
-        };
+        let output = OrganizationPictureChangeOutput {};
 
         Ok(output)
     }

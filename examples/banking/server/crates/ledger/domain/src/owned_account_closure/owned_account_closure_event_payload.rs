@@ -1,6 +1,6 @@
 use appletheia::event_payload;
 
-use crate::account::{AccountCloseRejectionReason, AccountId, AccountOwner};
+use crate::account::{AccountId, AccountOwner};
 
 use super::{OwnedAccountClosureEventPayloadError, OwnedAccountClosureFailureReason};
 
@@ -19,7 +19,6 @@ pub enum OwnedAccountClosureEventPayload {
     },
     AccountCloseRejectionRecorded {
         account_id: AccountId,
-        reason: AccountCloseRejectionReason,
     },
     Completed {
         closed_account_count: u32,

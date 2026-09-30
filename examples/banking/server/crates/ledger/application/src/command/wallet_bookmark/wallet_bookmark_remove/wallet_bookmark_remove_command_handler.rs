@@ -4,7 +4,7 @@ use appletheia::application::authorization::{
 use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_ledger_domain::wallet_bookmark::{WalletBookmark, WalletBookmarkRemoveResult};
+use banking_ledger_domain::wallet_bookmark::WalletBookmark;
 
 use super::{
     WalletBookmarkRemoveCommand, WalletBookmarkRemoveCommandHandlerError,
@@ -65,18 +65,13 @@ where
             .read(uow, command.wallet_bookmark_id)
             .await?;
 
-        let result = wallet_bookmark.remove()?;
+        wallet_bookmark.remove()?;
 
         self.wallet_bookmark_repository
             .save(uow, request_context, &mut wallet_bookmark)
             .await?;
 
-        let output = match result {
-            WalletBookmarkRemoveResult::Removed => WalletBookmarkRemoveOutput::Removed,
-            WalletBookmarkRemoveResult::Rejected { reason } => {
-                WalletBookmarkRemoveOutput::Rejected { reason }
-            }
-        };
+        let output = WalletBookmarkRemoveOutput {};
 
         Ok(output)
     }

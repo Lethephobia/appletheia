@@ -6,9 +6,8 @@ use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use appletheia::domain::Aggregate;
 use banking_ledger_domain::account::Account;
-use banking_ledger_domain::transfer::{
-    Transfer, TransferRequest, TransferRequestRejectionReason, TransferRequestResult,
-};
+use banking_ledger_domain::transfer::TransferError;
+use banking_ledger_domain::transfer::{Transfer, TransferRequest};
 
 use crate::authorization::AccountTransferRequesterRelation;
 
@@ -85,32 +84,16 @@ where
             note: command.note.clone(),
         };
         if source_account.currency_id()? != destination_account.currency_id()? {
-            let reason = TransferRequestRejectionReason::CurrencyMismatch;
-            transfer.reject_request(request, reason)?;
-
-            self.transfer_repository
-                .save(uow, request_context, &mut transfer)
-                .await?;
-
-            return Ok(TransferRequestOutput::Rejected {
-                transfer_id,
-                reason,
-            });
+            return Err(TransferError::CurrencyMismatch.into());
         }
 
-        let result = transfer.request(request)?;
+        transfer.request(request)?;
 
         self.transfer_repository
             .save(uow, request_context, &mut transfer)
             .await?;
 
-        let output = match result {
-            TransferRequestResult::Requested => TransferRequestOutput::Requested { transfer_id },
-            TransferRequestResult::Rejected { reason } => TransferRequestOutput::Rejected {
-                transfer_id,
-                reason,
-            },
-        };
+        let output = TransferRequestOutput { transfer_id };
 
         Ok(output)
     }

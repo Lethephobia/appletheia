@@ -22,11 +22,17 @@ pub enum UserPictureUploadPrepareCommandHandlerError {
 
     #[error("object upload signer failed")]
     ObjectUploadSigner(#[from] ObjectUploadSignerError),
+    #[error("picture content length exceeds the upload limit")]
+    ContentLengthTooLarge,
+
+    #[error("picture content type is not allowed")]
+    ContentTypeNotAllowed,
 }
 
 impl Retryability for UserPictureUploadPrepareCommandHandlerError {
     fn is_retryable(&self) -> bool {
         match self {
+            Self::ContentLengthTooLarge | Self::ContentTypeNotAllowed => false,
             Self::UserRepository(error) => error.is_retryable(),
             Self::User(_) => false,
             Self::PictureObjectName(_) => false,

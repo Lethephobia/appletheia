@@ -1,71 +1,43 @@
-mod user_activate_result;
 mod user_bio;
-mod user_bio_change_rejection_reason;
-mod user_bio_change_result;
 mod user_bio_error;
-mod user_deactivate_result;
 mod user_display_name;
-mod user_display_name_change_rejection_reason;
-mod user_display_name_change_result;
 mod user_display_name_error;
 mod user_error;
 mod user_event_payload;
 mod user_event_payload_error;
 mod user_id;
 mod user_identity;
-mod user_picture_change_rejection_reason;
-mod user_picture_change_result;
 mod user_picture_object_name;
 mod user_picture_object_name_error;
 mod user_picture_ref;
 mod user_picture_url;
 mod user_picture_url_error;
-mod user_register_result;
-mod user_remove_result;
 mod user_state;
 mod user_state_error;
 mod user_status;
-mod user_status_rejection_reason;
-mod user_username_change_rejection_reason;
-mod user_username_change_result;
 mod username;
 mod username_error;
 
-pub use user_activate_result::UserActivateResult;
 pub use user_bio::UserBio;
-pub use user_bio_change_rejection_reason::UserBioChangeRejectionReason;
-pub use user_bio_change_result::UserBioChangeResult;
 pub use user_bio_error::UserBioError;
-pub use user_deactivate_result::UserDeactivateResult;
 pub use user_display_name::UserDisplayName;
-pub use user_display_name_change_rejection_reason::UserDisplayNameChangeRejectionReason;
-pub use user_display_name_change_result::UserDisplayNameChangeResult;
 pub use user_display_name_error::UserDisplayNameError;
 pub use user_error::UserError;
 pub use user_event_payload::UserEventPayload;
 pub use user_event_payload_error::UserEventPayloadError;
 pub use user_id::UserId;
 pub use user_identity::{
-    UserIdentity, UserIdentityEmailChangeRejectionReason, UserIdentityEmailChangeResult,
-    UserIdentityLinkRejectionReason, UserIdentityLinkResult, UserIdentityProvider,
-    UserIdentityProviderError, UserIdentityRegistration, UserIdentitySubject,
-    UserIdentitySubjectError,
+    UserIdentity, UserIdentityProvider, UserIdentityProviderError, UserIdentityRegistration,
+    UserIdentitySubject, UserIdentitySubjectError,
 };
-pub use user_picture_change_rejection_reason::UserPictureChangeRejectionReason;
-pub use user_picture_change_result::UserPictureChangeResult;
 pub use user_picture_object_name::UserPictureObjectName;
 pub use user_picture_object_name_error::UserPictureObjectNameError;
 pub use user_picture_ref::UserPictureRef;
 pub use user_picture_url::UserPictureUrl;
 pub use user_picture_url_error::UserPictureUrlError;
-pub use user_register_result::UserRegisterResult;
-pub use user_remove_result::UserRemoveResult;
 pub use user_state::UserState;
 pub use user_state_error::UserStateError;
 pub use user_status::UserStatus;
-pub use user_status_rejection_reason::UserStatusRejectionReason;
-pub use user_username_change_rejection_reason::UserUsernameChangeRejectionReason;
-pub use user_username_change_result::UserUsernameChangeResult;
 pub use username::Username;
 pub use username_error::UsernameError;
 
@@ -141,30 +113,23 @@ impl User {
     }
 
     /// Registers a new user.
-    pub fn register(&mut self) -> Result<UserRegisterResult, UserError> {
+    pub fn register(&mut self) -> Result<(), UserError> {
         if self.state().is_some() {
             return Err(UserError::AlreadyRegistered);
         }
 
         self.append_event(UserEventPayload::Registered)?;
-        Ok(UserRegisterResult::Registered)
+        Ok(())
     }
 
     /// Links an additional external identity.
-    pub fn link_identity(
-        &mut self,
-        identity: UserIdentityRegistration,
-    ) -> Result<UserIdentityLinkResult, UserError> {
+    pub fn link_identity(&mut self, identity: UserIdentityRegistration) -> Result<(), UserError> {
         match self.state_required()?.status {
             UserStatus::Removed => {
-                let reason = UserIdentityLinkRejectionReason::Removed;
-                self.reject_link_identity(identity, reason)?;
-                return Ok(UserIdentityLinkResult::Rejected { reason });
+                return Err(UserError::Removed);
             }
             UserStatus::Inactive => {
-                let reason = UserIdentityLinkRejectionReason::Inactive;
-                self.reject_link_identity(identity, reason)?;
-                return Ok(UserIdentityLinkResult::Rejected { reason });
+                return Err(UserError::Inactive);
             }
             UserStatus::Active => {}
         }
@@ -175,15 +140,11 @@ impl User {
             .iter()
             .any(|current_identity| current_identity.matches(&identity.provider, &identity.subject))
         {
-            let reason = UserIdentityLinkRejectionReason::AlreadyLinked;
-            self.reject_link_identity(identity, reason)?;
-            return Ok(UserIdentityLinkResult::Rejected { reason });
+            return Err(UserError::IdentityAlreadyLinked);
         }
 
         if self.state_required()?.identities.len() >= Self::MAX_IDENTITY_COUNT {
-            let reason = UserIdentityLinkRejectionReason::CountLimitExceeded;
-            self.reject_link_identity(identity, reason)?;
-            return Ok(UserIdentityLinkResult::Rejected { reason });
+            return Err(UserError::IdentityLimitExceeded);
         }
 
         self.append_event(UserEventPayload::IdentityLinked {
@@ -191,16 +152,7 @@ impl User {
             subject: identity.subject,
             email: identity.email,
         })?;
-        Ok(UserIdentityLinkResult::Linked)
-    }
-
-    /// Rejects an identity link attempt.
-    pub fn reject_link_identity(
-        &mut self,
-        _identity: UserIdentityRegistration,
-        reason: UserIdentityLinkRejectionReason,
-    ) -> Result<(), UserError> {
-        Err(UserError::IdentityLinkRejected(reason))
+        Ok(())
     }
 
     /// Changes the email snapshot for a linked identity.
@@ -209,27 +161,13 @@ impl User {
         provider: &UserIdentityProvider,
         subject: &UserIdentitySubject,
         email: Option<Email>,
-    ) -> Result<UserIdentityEmailChangeResult, UserError> {
+    ) -> Result<(), UserError> {
         match self.state_required()?.status {
             UserStatus::Removed => {
-                let reason = UserIdentityEmailChangeRejectionReason::Removed;
-                self.reject_change_identity_email(
-                    provider.clone(),
-                    subject.clone(),
-                    email,
-                    reason,
-                )?;
-                return Ok(UserIdentityEmailChangeResult::Rejected { reason });
+                return Err(UserError::Removed);
             }
             UserStatus::Inactive => {
-                let reason = UserIdentityEmailChangeRejectionReason::Inactive;
-                self.reject_change_identity_email(
-                    provider.clone(),
-                    subject.clone(),
-                    email,
-                    reason,
-                )?;
-                return Ok(UserIdentityEmailChangeResult::Rejected { reason });
+                return Err(UserError::Inactive);
             }
             UserStatus::Active => {}
         }
@@ -240,9 +178,7 @@ impl User {
             .iter()
             .find(|identity| identity.matches(provider, subject))
         else {
-            let reason = UserIdentityEmailChangeRejectionReason::NotFound;
-            self.reject_change_identity_email(provider.clone(), subject.clone(), email, reason)?;
-            return Ok(UserIdentityEmailChangeResult::Rejected { reason });
+            return Err(UserError::IdentityNotFound);
         };
 
         self.append_event(UserEventPayload::IdentityEmailChanged {
@@ -250,128 +186,65 @@ impl User {
             subject: subject.clone(),
             email,
         })?;
-        Ok(UserIdentityEmailChangeResult::Changed)
-    }
-
-    /// Rejects an identity email change attempt.
-    pub fn reject_change_identity_email(
-        &mut self,
-        _provider: UserIdentityProvider,
-        _subject: UserIdentitySubject,
-        _email: Option<Email>,
-        reason: UserIdentityEmailChangeRejectionReason,
-    ) -> Result<(), UserError> {
-        Err(UserError::IdentityEmailChangeRejected(reason))
+        Ok(())
     }
 
     /// Changes the current username.
-    pub fn change_username(
-        &mut self,
-        username: Username,
-    ) -> Result<UserUsernameChangeResult, UserError> {
+    pub fn change_username(&mut self, username: Username) -> Result<(), UserError> {
         match self.state_required()?.status {
             UserStatus::Removed => {
-                let reason = UserUsernameChangeRejectionReason::Removed;
-                self.reject_change_username(username, reason)?;
-                return Ok(UserUsernameChangeResult::Rejected { reason });
+                return Err(UserError::Removed);
             }
             UserStatus::Inactive => {
-                let reason = UserUsernameChangeRejectionReason::Inactive;
-                self.reject_change_username(username, reason)?;
-                return Ok(UserUsernameChangeResult::Rejected { reason });
+                return Err(UserError::Inactive);
             }
             UserStatus::Active => {}
         }
 
         self.append_event(UserEventPayload::UsernameChanged { username })?;
-        Ok(UserUsernameChangeResult::Changed)
-    }
-
-    /// Rejects a username change attempt.
-    pub fn reject_change_username(
-        &mut self,
-        _username: Username,
-        reason: UserUsernameChangeRejectionReason,
-    ) -> Result<(), UserError> {
-        Err(UserError::UsernameChangeRejected(reason))
+        Ok(())
     }
 
     /// Changes the current display name.
-    pub fn change_display_name(
-        &mut self,
-        display_name: UserDisplayName,
-    ) -> Result<UserDisplayNameChangeResult, UserError> {
+    pub fn change_display_name(&mut self, display_name: UserDisplayName) -> Result<(), UserError> {
         match self.state_required()?.status {
             UserStatus::Removed => {
-                let reason = UserDisplayNameChangeRejectionReason::Removed;
-                self.reject_change_display_name(display_name, reason)?;
-                return Ok(UserDisplayNameChangeResult::Rejected { reason });
+                return Err(UserError::Removed);
             }
             UserStatus::Inactive => {
-                let reason = UserDisplayNameChangeRejectionReason::Inactive;
-                self.reject_change_display_name(display_name, reason)?;
-                return Ok(UserDisplayNameChangeResult::Rejected { reason });
+                return Err(UserError::Inactive);
             }
             UserStatus::Active => {}
         }
 
         self.append_event(UserEventPayload::DisplayNameChanged { display_name })?;
-        Ok(UserDisplayNameChangeResult::Changed)
-    }
-
-    /// Rejects a display name change attempt.
-    pub fn reject_change_display_name(
-        &mut self,
-        _display_name: UserDisplayName,
-        reason: UserDisplayNameChangeRejectionReason,
-    ) -> Result<(), UserError> {
-        Err(UserError::DisplayNameChangeRejected(reason))
+        Ok(())
     }
 
     /// Changes the current bio.
-    pub fn change_bio(&mut self, bio: Option<UserBio>) -> Result<UserBioChangeResult, UserError> {
+    pub fn change_bio(&mut self, bio: Option<UserBio>) -> Result<(), UserError> {
         match self.state_required()?.status {
             UserStatus::Removed => {
-                let reason = UserBioChangeRejectionReason::Removed;
-                self.reject_change_bio(bio, reason)?;
-                return Ok(UserBioChangeResult::Rejected { reason });
+                return Err(UserError::Removed);
             }
             UserStatus::Inactive => {
-                let reason = UserBioChangeRejectionReason::Inactive;
-                self.reject_change_bio(bio, reason)?;
-                return Ok(UserBioChangeResult::Rejected { reason });
+                return Err(UserError::Inactive);
             }
             UserStatus::Active => {}
         }
 
         self.append_event(UserEventPayload::BioChanged { bio })?;
-        Ok(UserBioChangeResult::Changed)
-    }
-
-    /// Rejects a bio change attempt.
-    pub fn reject_change_bio(
-        &mut self,
-        _bio: Option<UserBio>,
-        reason: UserBioChangeRejectionReason,
-    ) -> Result<(), UserError> {
-        Err(UserError::BioChangeRejected(reason))
+        Ok(())
     }
 
     /// Changes the current picture.
-    pub fn change_picture(
-        &mut self,
-        picture: Option<UserPictureRef>,
-    ) -> Result<UserPictureChangeResult, UserError> {
+    pub fn change_picture(&mut self, picture: Option<UserPictureRef>) -> Result<(), UserError> {
         match self.state_required()?.status {
             UserStatus::Removed => {
-                let reason = UserPictureChangeRejectionReason::Removed;
-                self.reject_change_picture(picture, reason)?;
-                return Ok(UserPictureChangeResult::Rejected { reason });
+                return Err(UserError::Removed);
             }
             UserStatus::Inactive => {
-                let reason = UserPictureChangeRejectionReason::Inactive;
-                self.reject_change_picture(picture, reason)?;
-                return Ok(UserPictureChangeResult::Rejected { reason });
+                return Err(UserError::Inactive);
             }
             UserStatus::Active => {}
         }
@@ -382,70 +255,37 @@ impl User {
             picture,
             old_picture,
         })?;
-        Ok(UserPictureChangeResult::Changed)
-    }
-
-    /// Rejects a picture change attempt.
-    pub fn reject_change_picture(
-        &mut self,
-        _picture: Option<UserPictureRef>,
-        reason: UserPictureChangeRejectionReason,
-    ) -> Result<(), UserError> {
-        Err(UserError::PictureChangeRejected(reason))
+        Ok(())
     }
 
     /// Activates an inactive user.
-    pub fn activate(&mut self) -> Result<UserActivateResult, UserError> {
+    pub fn activate(&mut self) -> Result<(), UserError> {
         if self.state_required()?.status.is_removed() {
-            let reason = UserStatusRejectionReason::Removed;
-            self.reject_activate(reason)?;
-            return Ok(UserActivateResult::Rejected { reason });
+            return Err(UserError::Removed);
         }
 
         self.append_event(UserEventPayload::Activated)?;
-        Ok(UserActivateResult::Activated)
-    }
-
-    /// Rejects a user activation attempt.
-    pub fn reject_activate(&mut self, reason: UserStatusRejectionReason) -> Result<(), UserError> {
-        Err(UserError::ActivateRejected(reason))
+        Ok(())
     }
 
     /// Deactivates an active user.
-    pub fn deactivate(&mut self) -> Result<UserDeactivateResult, UserError> {
+    pub fn deactivate(&mut self) -> Result<(), UserError> {
         if self.state_required()?.status.is_removed() {
-            let reason = UserStatusRejectionReason::Removed;
-            self.reject_deactivate(reason)?;
-            return Ok(UserDeactivateResult::Rejected { reason });
+            return Err(UserError::Removed);
         }
 
         self.append_event(UserEventPayload::Deactivated)?;
-        Ok(UserDeactivateResult::Deactivated)
-    }
-
-    /// Rejects a user deactivation attempt.
-    pub fn reject_deactivate(
-        &mut self,
-        reason: UserStatusRejectionReason,
-    ) -> Result<(), UserError> {
-        Err(UserError::DeactivateRejected(reason))
+        Ok(())
     }
 
     /// Permanently removes a user.
-    pub fn remove(&mut self) -> Result<UserRemoveResult, UserError> {
+    pub fn remove(&mut self) -> Result<(), UserError> {
         if self.state_required()?.status.is_removed() {
-            let reason = UserStatusRejectionReason::Removed;
-            self.reject_remove(reason)?;
-            return Ok(UserRemoveResult::Rejected { reason });
+            return Err(UserError::Removed);
         }
 
         self.append_event(UserEventPayload::Removed)?;
-        Ok(UserRemoveResult::Removed)
-    }
-
-    /// Rejects a user removal attempt.
-    pub fn reject_remove(&mut self, reason: UserStatusRejectionReason) -> Result<(), UserError> {
-        Err(UserError::RemoveRejected(reason))
+        Ok(())
     }
 }
 
@@ -518,10 +358,9 @@ mod tests {
     use appletheia::domain::{Aggregate, EventPayload};
 
     use super::{
-        Email, User, UserBio, UserDisplayName, UserDisplayNameChangeRejectionReason, UserError,
-        UserEventPayload, UserIdentityEmailChangeRejectionReason, UserIdentityLinkRejectionReason,
-        UserIdentityProvider, UserIdentityRegistration, UserIdentitySubject, UserPictureRef,
-        UserPictureUrl, UserStatus, UserUsernameChangeRejectionReason, Username,
+        Email, User, UserBio, UserDisplayName, UserError, UserEventPayload, UserIdentityProvider,
+        UserIdentityRegistration, UserIdentitySubject, UserPictureRef, UserPictureUrl, UserStatus,
+        Username,
     };
 
     fn register_user(user: &mut User) {
@@ -784,14 +623,8 @@ mod tests {
             .change_display_name(display_name())
             .expect_err("inactive user should reject display name change");
 
-        assert!(matches!(
-            username_error,
-            UserError::UsernameChangeRejected(UserUsernameChangeRejectionReason::Inactive)
-        ));
-        assert!(matches!(
-            display_name_error,
-            UserError::DisplayNameChangeRejected(UserDisplayNameChangeRejectionReason::Inactive)
-        ));
+        assert!(matches!(username_error, UserError::Inactive));
+        assert!(matches!(display_name_error, UserError::Inactive));
     }
 
     #[test]
@@ -808,12 +641,7 @@ mod tests {
             )
             .expect_err("unknown identity should be rejected");
 
-        assert!(matches!(
-            error,
-            UserError::IdentityEmailChangeRejected(
-                UserIdentityEmailChangeRejectionReason::NotFound
-            )
-        ));
+        assert!(matches!(error, UserError::IdentityNotFound));
     }
 
     #[test]
@@ -844,10 +672,7 @@ mod tests {
             })
             .expect_err("identity count over limit should fail");
 
-        assert!(matches!(
-            error,
-            UserError::IdentityLinkRejected(UserIdentityLinkRejectionReason::CountLimitExceeded)
-        ));
+        assert!(matches!(error, UserError::IdentityLimitExceeded));
     }
 
     #[test]
@@ -872,10 +697,7 @@ mod tests {
             })
             .expect_err("duplicate identity should be rejected");
 
-        assert!(matches!(
-            error,
-            UserError::IdentityLinkRejected(UserIdentityLinkRejectionReason::AlreadyLinked)
-        ));
+        assert!(matches!(error, UserError::IdentityAlreadyLinked));
         assert_eq!(user.identities().expect("identities should exist").len(), 1);
         assert_eq!(user.uncommitted_events().len(), 2);
     }

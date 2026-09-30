@@ -6,9 +6,9 @@ use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use appletheia::domain::Aggregate;
 use appletheia::domain::{AggregateId, UniqueValue};
+use banking_ledger_domain::currency_registrar_invitation::CurrencyRegistrarInvitationError;
 use banking_ledger_domain::{
     CurrencyRegistrar, CurrencyRegistrarInvitation, CurrencyRegistrarInvitationIssuance,
-    CurrencyRegistrarInvitationIssueRejectionReason, CurrencyRegistrarInvitationIssueResult,
     CurrencyRegistrarInvitationIssuer, CurrencyRegistrarInvitationState,
     CurrencyRegistrarMembership, CurrencyRegistrarMembershipState, User,
 };
@@ -139,17 +139,7 @@ where
             .await?
             .is_some()
         {
-            let reason = CurrencyRegistrarInvitationIssueRejectionReason::InviteeAlreadyMember;
-            currency_registrar_invitation.reject_issue(issuance, reason)?;
-
-            self.currency_registrar_invitation_repository
-                .save(uow, request_context, &mut currency_registrar_invitation)
-                .await?;
-
-            return Ok(CurrencyRegistrarInvitationIssueOutput::Rejected {
-                currency_registrar_invitation_id,
-                reason,
-            });
+            return Err(CurrencyRegistrarInvitationError::InviteeAlreadyMember.into());
         }
 
         let unique_value = Self::registrar_invitee_unique_value(command)?;
@@ -163,39 +153,17 @@ where
             .await?
             .is_some()
         {
-            let reason = CurrencyRegistrarInvitationIssueRejectionReason::AlreadyIssued;
-            currency_registrar_invitation.reject_issue(issuance, reason)?;
-
-            self.currency_registrar_invitation_repository
-                .save(uow, request_context, &mut currency_registrar_invitation)
-                .await?;
-
-            return Ok(CurrencyRegistrarInvitationIssueOutput::Rejected {
-                currency_registrar_invitation_id,
-                reason,
-            });
+            return Err(CurrencyRegistrarInvitationError::AlreadyIssued.into());
         }
 
-        let result = currency_registrar_invitation.issue(issuance, CurrentDateTime::new())?;
+        currency_registrar_invitation.issue(issuance, CurrentDateTime::new())?;
 
         self.currency_registrar_invitation_repository
             .save(uow, request_context, &mut currency_registrar_invitation)
             .await?;
 
-        let output = match result {
-            CurrencyRegistrarInvitationIssueResult::Issued => {
-                CurrencyRegistrarInvitationIssueOutput::Issued {
-                    currency_registrar_invitation_id,
-                }
-            }
-            CurrencyRegistrarInvitationIssueResult::Rejected { reason } => {
-                CurrencyRegistrarInvitationIssueOutput::Rejected {
-                    currency_registrar_invitation_id,
-                    reason,
-                }
-            }
-        };
-
-        Ok(output)
+        Ok(CurrencyRegistrarInvitationIssueOutput {
+            currency_registrar_invitation_id,
+        })
     }
 }

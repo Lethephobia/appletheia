@@ -4,7 +4,7 @@ use appletheia::application::authorization::{
 use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_ledger_domain::account::{Account, AccountFreezeResult};
+use banking_ledger_domain::account::Account;
 
 use super::{AccountFreezeCommand, AccountFreezeCommandHandlerError, AccountFreezeOutput};
 use crate::authorization::AccountFreezerRelation;
@@ -60,15 +60,12 @@ where
             .read(uow, command.account_id)
             .await?;
 
-        let result = account.freeze()?;
+        account.freeze()?;
         self.account_repository
             .save(uow, request_context, &mut account)
             .await?;
 
-        let output = match result {
-            AccountFreezeResult::Frozen => AccountFreezeOutput::Frozen,
-            AccountFreezeResult::Rejected { reason } => AccountFreezeOutput::Rejected { reason },
-        };
+        let output = AccountFreezeOutput {};
 
         Ok(output)
     }

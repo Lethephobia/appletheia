@@ -5,10 +5,8 @@ use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use appletheia::domain::{Aggregate, UniqueValue};
-use banking_iam_domain::{
-    Organization, OrganizationHandle, OrganizationHandleChangeRejectionReason,
-    OrganizationHandleChangeResult, OrganizationState,
-};
+use banking_iam_domain::OrganizationError;
+use banking_iam_domain::{Organization, OrganizationHandle, OrganizationState};
 
 use super::{
     OrganizationHandleChangeCommand, OrganizationHandleChangeCommandHandlerError,
@@ -82,28 +80,16 @@ where
             .await?
             .is_some_and(|existing| existing.aggregate_id() != command.organization_id)
         {
-            let reason = OrganizationHandleChangeRejectionReason::AlreadyTaken;
-            organization.reject_change_handle(command.handle.clone(), reason)?;
-
-            self.organization_repository
-                .save(uow, request_context, &mut organization)
-                .await?;
-
-            return Ok(OrganizationHandleChangeOutput::Rejected { reason });
+            return Err(OrganizationError::HandleAlreadyTaken.into());
         }
 
-        let result = organization.change_handle(command.handle.clone())?;
+        organization.change_handle(command.handle.clone())?;
 
         self.organization_repository
             .save(uow, request_context, &mut organization)
             .await?;
 
-        let output = match result {
-            OrganizationHandleChangeResult::Changed => OrganizationHandleChangeOutput::Changed,
-            OrganizationHandleChangeResult::Rejected { reason } => {
-                OrganizationHandleChangeOutput::Rejected { reason }
-            }
-        };
+        let output = OrganizationHandleChangeOutput {};
 
         Ok(output)
     }
@@ -300,7 +286,7 @@ mod tests {
         let saved = repository.organization.lock().expect("lock").clone();
         let saved = saved.expect("organization should be saved");
 
-        assert_eq!(output, OrganizationHandleChangeOutput::Changed);
+        assert_eq!(output, OrganizationHandleChangeOutput {});
         assert_eq!(
             saved.handle().expect("handle should exist"),
             &OrganizationHandle::try_from("acme-labs-2").expect("handle should be valid")

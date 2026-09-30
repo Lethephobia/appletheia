@@ -8,9 +8,7 @@ use appletheia::application::repository::{
 use appletheia::application::request_context::RequestContext;
 use appletheia::domain::Aggregate;
 use banking_ledger_domain::account::{Account, AccountId, AccountOwner, AccountState};
-use banking_ledger_domain::owned_account_closure::{
-    OwnedAccountClosure, OwnedAccountClosurePageLoadResult,
-};
+use banking_ledger_domain::owned_account_closure::OwnedAccountClosure;
 
 use super::{
     OwnedAccountClosurePageLoadCommand, OwnedAccountClosurePageLoadCommandHandlerError,
@@ -103,17 +101,12 @@ where
             }
         };
 
-        let result = owned_account_closure.load_page(page.source_ids, page.next_cursor)?;
+        owned_account_closure.load_page(page.source_ids, page.next_cursor)?;
         self.owned_account_closure_repository
             .save(uow, request_context, &mut owned_account_closure)
             .await?;
 
-        let output = match result {
-            OwnedAccountClosurePageLoadResult::Loaded => OwnedAccountClosurePageLoadOutput::Loaded,
-            OwnedAccountClosurePageLoadResult::Rejected { reason } => {
-                OwnedAccountClosurePageLoadOutput::Rejected { reason }
-            }
-        };
+        let output = OwnedAccountClosurePageLoadOutput {};
 
         Ok(output)
     }

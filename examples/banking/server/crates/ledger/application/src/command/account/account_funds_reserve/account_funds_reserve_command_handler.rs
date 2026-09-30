@@ -59,6 +59,6 @@ where
             .save(uow, request_context, &mut account)
             .await?;
 
-        Ok(AccountFundsReserveOutput::Reserved)
+        Ok(AccountFundsReserveOutput {})
     }
 }

@@ -7,9 +7,8 @@ use appletheia::application::request_context::RequestContext;
 use appletheia::domain::Aggregate;
 use banking_ledger_domain::account::Account;
 use banking_ledger_domain::token_binding::TokenBinding;
-use banking_ledger_domain::withdrawal::{
-    Withdrawal, WithdrawalRequest, WithdrawalRequestRejectionReason, WithdrawalRequestResult,
-};
+use banking_ledger_domain::withdrawal::WithdrawalError;
+use banking_ledger_domain::withdrawal::{Withdrawal, WithdrawalRequest};
 
 use super::{
     WithdrawalRequestCommand, WithdrawalRequestCommandHandlerError, WithdrawalRequestOutput,
@@ -100,32 +99,16 @@ where
                     && token_binding.is_withdrawal_enabled()?
                     && token_binding.currency_id()? == *account.currency_id()? => {}
             Ok(_) | Err(RepositoryError::NotFound { .. }) => {
-                let reason = WithdrawalRequestRejectionReason::TokenBindingUnavailable;
-                withdrawal.reject_request(request, reason)?;
-                self.withdrawal_repository
-                    .save(uow, request_context, &mut withdrawal)
-                    .await?;
-                return Ok(WithdrawalRequestOutput::Rejected {
-                    withdrawal_id,
-                    reason,
-                });
+                return Err(WithdrawalError::TokenBindingUnavailable.into());
             }
             Err(error) => return Err(error.into()),
         }
-        let result = withdrawal.request(request)?;
+        withdrawal.request(request)?;
 
         self.withdrawal_repository
             .save(uow, request_context, &mut withdrawal)
             .await?;
 
-        Ok(match result {
-            WithdrawalRequestResult::Requested => {
-                WithdrawalRequestOutput::Requested { withdrawal_id }
-            }
-            WithdrawalRequestResult::Rejected { reason } => WithdrawalRequestOutput::Rejected {
-                withdrawal_id,
-                reason,
-            },
-        })
+        Ok(WithdrawalRequestOutput { withdrawal_id })
     }
 }

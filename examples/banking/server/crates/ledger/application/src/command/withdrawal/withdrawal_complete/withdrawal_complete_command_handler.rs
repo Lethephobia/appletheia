@@ -2,7 +2,7 @@ use appletheia::application::authorization::{AuthorizationPlan, PrincipalRequire
 use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_ledger_domain::withdrawal::{Withdrawal, WithdrawalCompleteResult};
+use banking_ledger_domain::withdrawal::Withdrawal;
 
 use super::{
     WithdrawalCompleteCommand, WithdrawalCompleteCommandHandlerError, WithdrawalCompleteOutput,
@@ -56,17 +56,12 @@ where
             .read(uow, command.withdrawal_id)
             .await?;
 
-        let result = withdrawal.complete()?;
+        withdrawal.complete()?;
         self.withdrawal_repository
             .save(uow, request_context, &mut withdrawal)
             .await?;
 
-        let output = match result {
-            WithdrawalCompleteResult::Completed => WithdrawalCompleteOutput::Completed,
-            WithdrawalCompleteResult::Rejected { reason } => {
-                WithdrawalCompleteOutput::Rejected { reason }
-            }
-        };
+        let output = WithdrawalCompleteOutput {};
 
         Ok(output)
     }

@@ -5,9 +5,9 @@ use appletheia::application::request_context::RequestContext;
 use appletheia::domain::{Aggregate, AggregateId, UniqueValue};
 use banking_iam_domain::UserId;
 use banking_ledger_domain::currency_registrar::{CurrencyRegistrar, CurrencyRegistrarId};
+use banking_ledger_domain::currency_registrar_membership::CurrencyRegistrarMembershipError;
 use banking_ledger_domain::currency_registrar_membership::{
-    CurrencyRegistrarMembership, CurrencyRegistrarMembershipCreateRejectionReason,
-    CurrencyRegistrarMembershipCreateResult, CurrencyRegistrarMembershipState,
+    CurrencyRegistrarMembership, CurrencyRegistrarMembershipState,
 };
 
 use super::{
@@ -95,33 +95,15 @@ where
             .await?
             .is_some()
         {
-            let reason = CurrencyRegistrarMembershipCreateRejectionReason::AlreadyMember;
-            membership.reject_create(command.currency_registrar_id, command.user_id, reason)?;
-            self.currency_registrar_membership_repository
-                .save(uow, request_context, &mut membership)
-                .await?;
-            return Ok(CurrencyRegistrarMembershipCreateOutput::Rejected {
-                currency_registrar_membership_id,
-                reason,
-            });
+            return Err(CurrencyRegistrarMembershipError::AlreadyMember.into());
         }
 
-        let result = membership.create(command.currency_registrar_id, command.user_id)?;
+        membership.create(command.currency_registrar_id, command.user_id)?;
         self.currency_registrar_membership_repository
             .save(uow, request_context, &mut membership)
             .await?;
-        Ok(match result {
-            CurrencyRegistrarMembershipCreateResult::Created => {
-                CurrencyRegistrarMembershipCreateOutput::Created {
-                    currency_registrar_membership_id,
-                }
-            }
-            CurrencyRegistrarMembershipCreateResult::Rejected { reason } => {
-                CurrencyRegistrarMembershipCreateOutput::Rejected {
-                    currency_registrar_membership_id,
-                    reason,
-                }
-            }
+        Ok(CurrencyRegistrarMembershipCreateOutput {
+            currency_registrar_membership_id,
         })
     }
 }

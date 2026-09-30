@@ -60,6 +60,6 @@ where
             .save(uow, request_context, &mut account)
             .await?;
 
-        Ok(AccountReservedFundsCommitOutput::Committed)
+        Ok(AccountReservedFundsCommitOutput {})
     }
 }

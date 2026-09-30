@@ -4,7 +4,7 @@ use appletheia::application::authorization::{
 use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_ledger_domain::account::{Account, AccountCloseResult};
+use banking_ledger_domain::account::Account;
 
 use super::{AccountCloseCommand, AccountCloseCommandHandlerError, AccountCloseOutput};
 use crate::authorization::AccountCloserRelation;
@@ -61,15 +61,12 @@ where
             .read(uow, command.account_id)
             .await?;
 
-        let result = account.close()?;
+        account.close()?;
         self.account_repository
             .save(uow, request_context, &mut account)
             .await?;
 
-        let output = match result {
-            AccountCloseResult::Closed => AccountCloseOutput::Closed,
-            AccountCloseResult::Rejected { reason } => AccountCloseOutput::Rejected { reason },
-        };
+        let output = AccountCloseOutput {};
 
         Ok(output)
     }

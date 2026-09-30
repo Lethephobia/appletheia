@@ -5,8 +5,6 @@ mod currency_error;
 mod currency_event_payload;
 mod currency_event_payload_error;
 mod currency_id;
-mod currency_lifecycle_rejection_reason;
-mod currency_lifecycle_result;
 mod currency_state;
 mod currency_state_error;
 mod currency_status;
@@ -18,8 +16,6 @@ pub use currency_error::CurrencyError;
 pub use currency_event_payload::CurrencyEventPayload;
 pub use currency_event_payload_error::CurrencyEventPayloadError;
 pub use currency_id::CurrencyId;
-pub use currency_lifecycle_rejection_reason::CurrencyLifecycleRejectionReason;
-pub use currency_lifecycle_result::CurrencyLifecycleResult;
 pub use currency_state::CurrencyState;
 pub use currency_state_error::CurrencyStateError;
 pub use currency_status::CurrencyStatus;
@@ -83,38 +79,20 @@ impl Currency {
         Ok(())
     }
 
-    pub fn activate(&mut self) -> Result<CurrencyLifecycleResult, CurrencyError> {
+    pub fn activate(&mut self) -> Result<(), CurrencyError> {
         if self.state_required()?.status.is_active() {
-            let reason = CurrencyLifecycleRejectionReason::AlreadyActive;
-            self.reject_activate(reason)?;
-            return Ok(CurrencyLifecycleResult::Rejected { reason });
+            return Err(CurrencyError::AlreadyActive);
         }
         self.append_event(CurrencyEventPayload::Activated)?;
-        Ok(CurrencyLifecycleResult::Changed)
+        Ok(())
     }
 
-    pub fn reject_activate(
-        &mut self,
-        reason: CurrencyLifecycleRejectionReason,
-    ) -> Result<(), CurrencyError> {
-        Err(CurrencyError::LifecycleRejected(reason))
-    }
-
-    pub fn deactivate(&mut self) -> Result<CurrencyLifecycleResult, CurrencyError> {
+    pub fn deactivate(&mut self) -> Result<(), CurrencyError> {
         if !self.state_required()?.status.is_active() {
-            let reason = CurrencyLifecycleRejectionReason::AlreadyInactive;
-            self.reject_deactivate(reason)?;
-            return Ok(CurrencyLifecycleResult::Rejected { reason });
+            return Err(CurrencyError::AlreadyInactive);
         }
         self.append_event(CurrencyEventPayload::Deactivated)?;
-        Ok(CurrencyLifecycleResult::Changed)
-    }
-
-    pub fn reject_deactivate(
-        &mut self,
-        reason: CurrencyLifecycleRejectionReason,
-    ) -> Result<(), CurrencyError> {
-        Err(CurrencyError::LifecycleRejected(reason))
+        Ok(())
     }
 }
 

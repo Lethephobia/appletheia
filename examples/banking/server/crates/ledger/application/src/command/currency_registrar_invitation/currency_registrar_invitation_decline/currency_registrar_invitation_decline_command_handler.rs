@@ -4,9 +4,7 @@ use appletheia::application::authorization::{
 use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_ledger_domain::{
-    CurrencyRegistrarInvitation, CurrencyRegistrarInvitationDeclineResult,
-};
+use banking_ledger_domain::CurrencyRegistrarInvitation;
 use banking_shared_kernel_domain::timestamps::CurrentDateTime;
 
 use crate::authorization::CurrencyRegistrarInvitationInviteeRelation;
@@ -70,21 +68,12 @@ where
             .read(uow, command.currency_registrar_invitation_id)
             .await?;
 
-        let result = currency_registrar_invitation.decline(CurrentDateTime::new())?;
+        currency_registrar_invitation.decline(CurrentDateTime::new())?;
 
         self.currency_registrar_invitation_repository
             .save(uow, request_context, &mut currency_registrar_invitation)
             .await?;
 
-        let output = match result {
-            CurrencyRegistrarInvitationDeclineResult::Declined => {
-                CurrencyRegistrarInvitationDeclineOutput::Declined
-            }
-            CurrencyRegistrarInvitationDeclineResult::Rejected { reason } => {
-                CurrencyRegistrarInvitationDeclineOutput::Rejected { reason }
-            }
-        };
-
-        Ok(output)
+        Ok(CurrencyRegistrarInvitationDeclineOutput {})
     }
 }

@@ -4,7 +4,7 @@ use appletheia::application::authorization::{
 use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_iam_domain::{Organization, OrganizationWebsiteUrlChangeResult};
+use banking_iam_domain::Organization;
 
 use super::{
     OrganizationWebsiteUrlChangeCommand, OrganizationWebsiteUrlChangeCommandHandlerError,
@@ -65,21 +65,12 @@ where
             .read(uow, command.organization_id)
             .await?;
 
-        let result = organization.change_website_url(command.website_url.clone())?;
+        organization.change_website_url(command.website_url.clone())?;
 
         self.organization_repository
             .save(uow, request_context, &mut organization)
             .await?;
 
-        let output = match result {
-            OrganizationWebsiteUrlChangeResult::Changed => {
-                OrganizationWebsiteUrlChangeOutput::Changed
-            }
-            OrganizationWebsiteUrlChangeResult::Rejected { reason } => {
-                OrganizationWebsiteUrlChangeOutput::Rejected { reason }
-            }
-        };
-
-        Ok(output)
+        Ok(OrganizationWebsiteUrlChangeOutput {})
     }
 }

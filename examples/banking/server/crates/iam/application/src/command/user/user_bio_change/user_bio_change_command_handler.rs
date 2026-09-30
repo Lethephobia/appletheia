@@ -5,7 +5,6 @@ use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_iam_domain::User;
-use banking_iam_domain::user::UserBioChangeResult;
 
 use super::{UserBioChangeCommand, UserBioChangeCommandHandlerError, UserBioChangeOutput};
 use crate::authorization::UserProfileEditorRelation;
@@ -58,16 +57,13 @@ where
     ) -> Result<Self::Output, Self::Error> {
         let mut user = self.user_repository.read(uow, command.user_id).await?;
 
-        let result = user.change_bio(command.bio.clone())?;
+        user.change_bio(command.bio.clone())?;
 
         self.user_repository
             .save(uow, request_context, &mut user)
             .await?;
 
-        let output = match result {
-            UserBioChangeResult::Changed => UserBioChangeOutput::Changed,
-            UserBioChangeResult::Rejected { reason } => UserBioChangeOutput::Rejected { reason },
-        };
+        let output = UserBioChangeOutput {};
 
         Ok(output)
     }

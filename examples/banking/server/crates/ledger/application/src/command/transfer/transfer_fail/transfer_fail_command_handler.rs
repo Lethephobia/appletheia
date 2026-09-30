@@ -2,7 +2,7 @@ use appletheia::application::authorization::{AuthorizationPlan, PrincipalRequire
 use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_ledger_domain::transfer::{Transfer, TransferFailResult};
+use banking_ledger_domain::transfer::Transfer;
 
 use super::{TransferFailCommand, TransferFailCommandHandlerError, TransferFailOutput};
 
@@ -54,15 +54,12 @@ where
             .read(uow, command.transfer_id)
             .await?;
 
-        let result = transfer.fail(command.reason)?;
+        transfer.fail(command.reason)?;
         self.transfer_repository
             .save(uow, request_context, &mut transfer)
             .await?;
 
-        let output = match result {
-            TransferFailResult::Failed => TransferFailOutput::Failed,
-            TransferFailResult::Rejected { reason } => TransferFailOutput::Rejected { reason },
-        };
+        let output = TransferFailOutput {};
 
         Ok(output)
     }

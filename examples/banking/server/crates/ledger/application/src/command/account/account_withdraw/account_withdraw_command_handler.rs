@@ -57,6 +57,6 @@ where
             .save(uow, request_context, &mut account)
             .await?;
 
-        Ok(AccountWithdrawOutput::Withdrawn)
+        Ok(AccountWithdrawOutput {})
     }
 }

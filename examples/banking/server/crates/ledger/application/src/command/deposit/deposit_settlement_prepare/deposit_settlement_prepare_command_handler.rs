@@ -7,9 +7,8 @@ use appletheia::application::request_context::RequestContext;
 use appletheia::domain::Aggregate;
 use banking_ledger_domain::account::Account;
 use banking_ledger_domain::currency::Currency;
-use banking_ledger_domain::deposit::{
-    Deposit, DepositRequest, DepositRequestRejectionReason, DepositRequestResult,
-};
+use banking_ledger_domain::deposit::DepositError;
+use banking_ledger_domain::deposit::{Deposit, DepositRequest};
 use banking_ledger_domain::token_binding::TokenBinding;
 
 use super::{
@@ -124,25 +123,13 @@ where
                 binding
             }
             Ok(_) | Err(RepositoryError::NotFound { .. }) => {
-                let reason = DepositRequestRejectionReason::TokenBindingUnavailable;
-                deposit.reject_request(request, reason)?;
-                self.deposit_repository
-                    .save(uow, request_context, &mut deposit)
-                    .await?;
-                return Ok(DepositSettlementPrepareOutput::Rejected { deposit_id, reason });
+                return Err(DepositError::TokenBindingUnavailable.into());
             }
             Err(error) => return Err(error.into()),
         };
         let chain_network = binding.chain_network()?;
         let token_address = *binding.token_address()?;
-        let result = deposit.request(request)?;
-
-        if let DepositRequestResult::Rejected { reason } = result {
-            self.deposit_repository
-                .save(uow, request_context, &mut deposit)
-                .await?;
-            return Ok(DepositSettlementPrepareOutput::Rejected { deposit_id, reason });
-        }
+        deposit.request(request)?;
 
         let preparation = self
             .deposit_settlement_preparer
@@ -160,7 +147,7 @@ where
             .save(uow, request_context, &mut deposit)
             .await?;
 
-        Ok(DepositSettlementPrepareOutput::Prepared {
+        Ok(DepositSettlementPrepareOutput {
             deposit_id,
             preparation,
         })

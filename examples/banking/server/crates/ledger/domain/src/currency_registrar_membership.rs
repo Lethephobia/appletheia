@@ -1,23 +1,15 @@
-mod currency_registrar_membership_create_rejection_reason;
-mod currency_registrar_membership_create_result;
 mod currency_registrar_membership_error;
 mod currency_registrar_membership_event_payload;
 mod currency_registrar_membership_event_payload_error;
 mod currency_registrar_membership_id;
-mod currency_registrar_membership_remove_rejection_reason;
-mod currency_registrar_membership_remove_result;
 mod currency_registrar_membership_state;
 mod currency_registrar_membership_state_error;
 mod currency_registrar_membership_status;
 
-pub use currency_registrar_membership_create_rejection_reason::CurrencyRegistrarMembershipCreateRejectionReason;
-pub use currency_registrar_membership_create_result::CurrencyRegistrarMembershipCreateResult;
 pub use currency_registrar_membership_error::CurrencyRegistrarMembershipError;
 pub use currency_registrar_membership_event_payload::CurrencyRegistrarMembershipEventPayload;
 pub use currency_registrar_membership_event_payload_error::CurrencyRegistrarMembershipEventPayloadError;
 pub use currency_registrar_membership_id::CurrencyRegistrarMembershipId;
-pub use currency_registrar_membership_remove_rejection_reason::CurrencyRegistrarMembershipRemoveRejectionReason;
-pub use currency_registrar_membership_remove_result::CurrencyRegistrarMembershipRemoveResult;
 pub use currency_registrar_membership_state::CurrencyRegistrarMembershipState;
 pub use currency_registrar_membership_state_error::CurrencyRegistrarMembershipStateError;
 pub use currency_registrar_membership_status::CurrencyRegistrarMembershipStatus;
@@ -68,7 +60,7 @@ impl CurrencyRegistrarMembership {
         &mut self,
         currency_registrar_id: CurrencyRegistrarId,
         user_id: UserId,
-    ) -> Result<CurrencyRegistrarMembershipCreateResult, CurrencyRegistrarMembershipError> {
+    ) -> Result<(), CurrencyRegistrarMembershipError> {
         if self.state().is_some() {
             return Err(CurrencyRegistrarMembershipError::AlreadyCreated);
         }
@@ -77,26 +69,13 @@ impl CurrencyRegistrarMembership {
             currency_registrar_id,
             user_id,
         })?;
-        Ok(CurrencyRegistrarMembershipCreateResult::Created)
-    }
-
-    pub fn reject_create(
-        &mut self,
-        _currency_registrar_id: CurrencyRegistrarId,
-        _user_id: UserId,
-        reason: CurrencyRegistrarMembershipCreateRejectionReason,
-    ) -> Result<(), CurrencyRegistrarMembershipError> {
-        Err(CurrencyRegistrarMembershipError::CreateRejected(reason))
+        Ok(())
     }
 
     /// Removes the membership and terminates this aggregate lifecycle.
-    pub fn remove(
-        &mut self,
-    ) -> Result<CurrencyRegistrarMembershipRemoveResult, CurrencyRegistrarMembershipError> {
+    pub fn remove(&mut self) -> Result<(), CurrencyRegistrarMembershipError> {
         if !self.state_required()?.status.is_active() {
-            let reason = CurrencyRegistrarMembershipRemoveRejectionReason::AlreadyRemoved;
-            self.reject_remove(reason)?;
-            return Ok(CurrencyRegistrarMembershipRemoveResult::Rejected { reason });
+            return Err(CurrencyRegistrarMembershipError::Removed);
         }
 
         let (currency_registrar_id, user_id) = {
@@ -107,15 +86,7 @@ impl CurrencyRegistrarMembership {
             currency_registrar_id,
             user_id,
         })?;
-        Ok(CurrencyRegistrarMembershipRemoveResult::Removed)
-    }
-
-    /// Records a rejected membership removal.
-    pub fn reject_remove(
-        &mut self,
-        reason: CurrencyRegistrarMembershipRemoveRejectionReason,
-    ) -> Result<(), CurrencyRegistrarMembershipError> {
-        Err(CurrencyRegistrarMembershipError::RemoveRejected(reason))
+        Ok(())
     }
 }
 
@@ -153,7 +124,6 @@ mod tests {
 
     use super::{
         CurrencyRegistrarMembership, CurrencyRegistrarMembershipError,
-        CurrencyRegistrarMembershipRemoveRejectionReason, CurrencyRegistrarMembershipRemoveResult,
         CurrencyRegistrarMembershipState, CurrencyRegistrarMembershipStatus,
     };
     use crate::currency_registrar::CurrencyRegistrarId;
@@ -167,10 +137,7 @@ mod tests {
         removed_membership
             .create(currency_registrar_id, user_id)
             .expect("initial membership should be created");
-        assert_eq!(
-            removed_membership.remove().expect("removal should succeed"),
-            CurrencyRegistrarMembershipRemoveResult::Removed
-        );
+        removed_membership.remove().expect("removal should succeed");
         assert!(
             !removed_membership
                 .is_active()
@@ -218,19 +185,14 @@ mod tests {
         membership
             .create(currency_registrar_id, user_id)
             .expect("membership should be created");
-        assert_eq!(
-            membership.remove().expect("first removal should succeed"),
-            CurrencyRegistrarMembershipRemoveResult::Removed
-        );
+        membership.remove().expect("first removal should succeed");
         let event_count = membership.uncommitted_events().len();
 
         assert!(matches!(
             membership
                 .remove()
                 .expect_err("repeated removal should fail"),
-            CurrencyRegistrarMembershipError::RemoveRejected(
-                CurrencyRegistrarMembershipRemoveRejectionReason::AlreadyRemoved
-            )
+            CurrencyRegistrarMembershipError::Removed
         ));
         assert_eq!(membership.uncommitted_events().len(), event_count);
     }

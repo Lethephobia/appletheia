@@ -20,8 +20,7 @@ pub use oidc_begin::{
     OidcBeginCommand, OidcBeginCommandHandler, OidcBeginCommandHandlerConfig, OidcBeginOutput,
 };
 pub use oidc_complete::{
-    OidcCompleteCommand, OidcCompleteCommandHandler, OidcCompleteOutput,
-    OidcCompleteRejectionReason, OidcCompleteReplayOutput,
+    OidcCompleteCommand, OidcCompleteCommandHandler, OidcCompleteOutput, OidcCompleteReplayOutput,
 };
 pub use user_activate::{UserActivateCommand, UserActivateCommandHandler, UserActivateOutput};
 pub use user_bio_change::{UserBioChangeCommand, UserBioChangeCommandHandler, UserBioChangeOutput};
@@ -41,7 +40,7 @@ pub use user_picture_object_delete::{
 pub use user_picture_upload_prepare::{
     UserPictureUploadPrepareCommand, UserPictureUploadPrepareCommandHandler,
     UserPictureUploadPrepareCommandHandlerConfig, UserPictureUploadPrepareCommandHandlerError,
-    UserPictureUploadPrepareOutput, UserPictureUploadPrepareRejectionReason,
+    UserPictureUploadPrepareOutput,
 };
 pub use user_remove::{UserRemoveCommand, UserRemoveCommandHandler, UserRemoveOutput};
 pub use user_username_change::{

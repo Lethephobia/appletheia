@@ -4,7 +4,7 @@ use appletheia::application::authorization::{
 use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_iam_domain::{Organization, OrganizationRemoveResult};
+use banking_iam_domain::Organization;
 
 use super::{
     OrganizationRemoveCommand, OrganizationRemoveCommandHandlerError, OrganizationRemoveOutput,
@@ -64,18 +64,13 @@ where
             .read(uow, command.organization_id)
             .await?;
 
-        let result = organization.remove()?;
+        organization.remove()?;
 
         self.organization_repository
             .save(uow, request_context, &mut organization)
             .await?;
 
-        let output = match result {
-            OrganizationRemoveResult::Removed => OrganizationRemoveOutput::Removed,
-            OrganizationRemoveResult::Rejected { reason } => {
-                OrganizationRemoveOutput::Rejected { reason }
-            }
-        };
+        let output = OrganizationRemoveOutput {};
 
         Ok(output)
     }
@@ -263,7 +258,7 @@ mod tests {
         let saved = repository.organization.lock().expect("lock").clone();
         let saved = saved.expect("organization should be saved");
 
-        assert_eq!(output, OrganizationRemoveOutput::Removed);
+        assert_eq!(output, OrganizationRemoveOutput {});
         assert!(saved.is_removed().expect("status should exist"));
     }
 }

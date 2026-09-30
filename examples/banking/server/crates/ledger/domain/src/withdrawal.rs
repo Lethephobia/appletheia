@@ -1,39 +1,23 @@
-mod withdrawal_complete_rejection_reason;
-mod withdrawal_complete_result;
 mod withdrawal_error;
 mod withdrawal_event_payload;
 mod withdrawal_event_payload_error;
-mod withdrawal_fail_rejection_reason;
-mod withdrawal_fail_result;
 mod withdrawal_failure_reason;
 mod withdrawal_id;
 mod withdrawal_note;
 mod withdrawal_note_error;
 mod withdrawal_request;
-mod withdrawal_request_rejection_reason;
-mod withdrawal_request_result;
-mod withdrawal_settlement_execute_rejection_reason;
-mod withdrawal_settlement_execute_result;
 mod withdrawal_state;
 mod withdrawal_state_error;
 mod withdrawal_status;
 
-pub use withdrawal_complete_rejection_reason::WithdrawalCompleteRejectionReason;
-pub use withdrawal_complete_result::WithdrawalCompleteResult;
 pub use withdrawal_error::WithdrawalError;
 pub use withdrawal_event_payload::WithdrawalEventPayload;
 pub use withdrawal_event_payload_error::WithdrawalEventPayloadError;
-pub use withdrawal_fail_rejection_reason::WithdrawalFailRejectionReason;
-pub use withdrawal_fail_result::WithdrawalFailResult;
 pub use withdrawal_failure_reason::WithdrawalFailureReason;
 pub use withdrawal_id::WithdrawalId;
 pub use withdrawal_note::WithdrawalNote;
 pub use withdrawal_note_error::WithdrawalNoteError;
 pub use withdrawal_request::WithdrawalRequest;
-pub use withdrawal_request_rejection_reason::WithdrawalRequestRejectionReason;
-pub use withdrawal_request_result::WithdrawalRequestResult;
-pub use withdrawal_settlement_execute_rejection_reason::WithdrawalSettlementExecuteRejectionReason;
-pub use withdrawal_settlement_execute_result::WithdrawalSettlementExecuteResult;
 pub use withdrawal_state::WithdrawalState;
 pub use withdrawal_state_error::WithdrawalStateError;
 pub use withdrawal_status::WithdrawalStatus;
@@ -87,18 +71,13 @@ impl Withdrawal {
     }
 
     /// Requests a new withdrawal workflow.
-    pub fn request(
-        &mut self,
-        request: WithdrawalRequest,
-    ) -> Result<WithdrawalRequestResult, WithdrawalError> {
+    pub fn request(&mut self, request: WithdrawalRequest) -> Result<(), WithdrawalError> {
         if self.state().is_some() {
             return Err(WithdrawalError::AlreadyRequested);
         }
 
         if request.amount().is_zero() {
-            let reason = WithdrawalRequestRejectionReason::ZeroAmount;
-            self.reject_request(request, reason)?;
-            return Ok(WithdrawalRequestResult::Rejected { reason });
+            return Err(WithdrawalError::ZeroAmount);
         }
 
         let (account_id, token_binding_id, token_owner_address, amount, note) =
@@ -111,138 +90,73 @@ impl Withdrawal {
             note,
         })?;
 
-        Ok(WithdrawalRequestResult::Requested)
-    }
-
-    /// Rejects a withdrawal request.
-    pub fn reject_request(
-        &mut self,
-        _request: WithdrawalRequest,
-        reason: WithdrawalRequestRejectionReason,
-    ) -> Result<(), WithdrawalError> {
-        Err(WithdrawalError::RequestRejected(reason))
+        Ok(())
     }
 
     /// Records a successful external token settlement.
     pub fn record_settlement_executed(
         &mut self,
         transaction_id: OnchainTransactionId,
-    ) -> Result<WithdrawalSettlementExecuteResult, WithdrawalError> {
+    ) -> Result<(), WithdrawalError> {
         match self.state_required()?.status {
             WithdrawalStatus::Pending => {}
             WithdrawalStatus::SettlementExecuted => {
-                let reason = WithdrawalSettlementExecuteRejectionReason::AlreadyExecuted;
-                self.reject_settlement_execute(Some(transaction_id), reason)?;
-                return Ok(WithdrawalSettlementExecuteResult::Rejected { reason });
+                return Err(WithdrawalError::SettlementAlreadyExecuted);
             }
             WithdrawalStatus::Completed => {
-                let reason = WithdrawalSettlementExecuteRejectionReason::AlreadyCompleted;
-                self.reject_settlement_execute(Some(transaction_id), reason)?;
-                return Ok(WithdrawalSettlementExecuteResult::Rejected { reason });
+                return Err(WithdrawalError::AlreadyCompleted);
             }
             WithdrawalStatus::Failed => {
-                let reason = WithdrawalSettlementExecuteRejectionReason::AlreadyFailed;
-                self.reject_settlement_execute(Some(transaction_id), reason)?;
-                return Ok(WithdrawalSettlementExecuteResult::Rejected { reason });
+                return Err(WithdrawalError::AlreadyFailed);
             }
             WithdrawalStatus::Rejected => {
-                let reason = WithdrawalSettlementExecuteRejectionReason::AlreadyRejected;
-                self.reject_settlement_execute(Some(transaction_id), reason)?;
-                return Ok(WithdrawalSettlementExecuteResult::Rejected { reason });
+                return Err(WithdrawalError::AlreadyRejected);
             }
         }
 
         self.append_event(WithdrawalEventPayload::SettlementExecuted { transaction_id })?;
-        Ok(WithdrawalSettlementExecuteResult::Executed)
-    }
-
-    /// Rejects recording a successful external token settlement.
-    pub fn reject_settlement_execute(
-        &mut self,
-        _transaction_id: Option<OnchainTransactionId>,
-        reason: WithdrawalSettlementExecuteRejectionReason,
-    ) -> Result<(), WithdrawalError> {
-        Err(WithdrawalError::SettlementExecuteRejected(reason))
+        Ok(())
     }
 
     /// Completes the withdrawal after internal accounting is committed.
-    pub fn complete(&mut self) -> Result<WithdrawalCompleteResult, WithdrawalError> {
+    pub fn complete(&mut self) -> Result<(), WithdrawalError> {
         match self.state_required()?.status {
             WithdrawalStatus::SettlementExecuted => {}
             WithdrawalStatus::Pending => {
-                let reason = WithdrawalCompleteRejectionReason::SettlementNotExecuted;
-                self.reject_complete(reason)?;
-                return Ok(WithdrawalCompleteResult::Rejected { reason });
+                return Err(WithdrawalError::SettlementNotExecuted);
             }
             WithdrawalStatus::Completed => {
-                let reason = WithdrawalCompleteRejectionReason::AlreadyCompleted;
-                self.reject_complete(reason)?;
-                return Ok(WithdrawalCompleteResult::Rejected { reason });
+                return Err(WithdrawalError::AlreadyCompleted);
             }
             WithdrawalStatus::Failed => {
-                let reason = WithdrawalCompleteRejectionReason::AlreadyFailed;
-                self.reject_complete(reason)?;
-                return Ok(WithdrawalCompleteResult::Rejected { reason });
+                return Err(WithdrawalError::AlreadyFailed);
             }
             WithdrawalStatus::Rejected => {
-                let reason = WithdrawalCompleteRejectionReason::AlreadyRejected;
-                self.reject_complete(reason)?;
-                return Ok(WithdrawalCompleteResult::Rejected { reason });
+                return Err(WithdrawalError::AlreadyRejected);
             }
         }
 
         self.append_event(WithdrawalEventPayload::Completed)?;
-        Ok(WithdrawalCompleteResult::Completed)
-    }
-
-    /// Rejects completing the withdrawal.
-    pub fn reject_complete(
-        &mut self,
-        reason: WithdrawalCompleteRejectionReason,
-    ) -> Result<(), WithdrawalError> {
-        Err(WithdrawalError::CompleteRejected(reason))
+        Ok(())
     }
 
     /// Fails the withdrawal workflow.
-    pub fn fail(
-        &mut self,
-        reason: WithdrawalFailureReason,
-    ) -> Result<WithdrawalFailResult, WithdrawalError> {
+    pub fn fail(&mut self, reason: WithdrawalFailureReason) -> Result<(), WithdrawalError> {
         match self.state_required()?.status {
             WithdrawalStatus::Pending | WithdrawalStatus::SettlementExecuted => {}
             WithdrawalStatus::Completed => {
-                let rejection_reason = WithdrawalFailRejectionReason::AlreadyCompleted;
-                self.reject_fail(rejection_reason)?;
-                return Ok(WithdrawalFailResult::Rejected {
-                    reason: rejection_reason,
-                });
+                return Err(WithdrawalError::AlreadyCompleted);
             }
             WithdrawalStatus::Failed => {
-                let rejection_reason = WithdrawalFailRejectionReason::AlreadyFailed;
-                self.reject_fail(rejection_reason)?;
-                return Ok(WithdrawalFailResult::Rejected {
-                    reason: rejection_reason,
-                });
+                return Err(WithdrawalError::AlreadyFailed);
             }
             WithdrawalStatus::Rejected => {
-                let rejection_reason = WithdrawalFailRejectionReason::AlreadyRejected;
-                self.reject_fail(rejection_reason)?;
-                return Ok(WithdrawalFailResult::Rejected {
-                    reason: rejection_reason,
-                });
+                return Err(WithdrawalError::AlreadyRejected);
             }
         }
 
         self.append_event(WithdrawalEventPayload::Failed { reason })?;
-        Ok(WithdrawalFailResult::Failed)
-    }
-
-    /// Rejects failing the withdrawal.
-    pub fn reject_fail(
-        &mut self,
-        reason: WithdrawalFailRejectionReason,
-    ) -> Result<(), WithdrawalError> {
-        Err(WithdrawalError::FailRejected(reason))
+        Ok(())
     }
 }
 
@@ -294,10 +208,7 @@ mod tests {
     };
     use crate::token_binding::TokenBindingId;
 
-    use super::{
-        Withdrawal, WithdrawalEventPayload, WithdrawalRequest, WithdrawalSettlementExecuteResult,
-        WithdrawalStatus,
-    };
+    use super::{Withdrawal, WithdrawalEventPayload, WithdrawalRequest, WithdrawalStatus};
 
     #[test]
     fn records_an_executed_settlement() {
@@ -320,11 +231,10 @@ mod tests {
                 .expect("transaction signature should be valid"),
         );
 
-        let result = withdrawal
+        withdrawal
             .record_settlement_executed(transaction_id)
             .expect("settlement execution should be recorded");
 
-        assert_eq!(result, WithdrawalSettlementExecuteResult::Executed);
         assert_eq!(
             withdrawal.status().expect("withdrawal state should exist"),
             &WithdrawalStatus::SettlementExecuted

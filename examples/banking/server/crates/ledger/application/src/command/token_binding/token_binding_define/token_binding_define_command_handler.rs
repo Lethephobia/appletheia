@@ -6,8 +6,9 @@ use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use appletheia::domain::{Aggregate, UniqueValue};
 use banking_ledger_domain::currency::Currency;
+use banking_ledger_domain::token_binding::TokenBindingError;
 use banking_ledger_domain::token_binding::{
-    TokenBinding, TokenBindingDefineRejectionReason, TokenBindingDefinition, TokenBindingState,
+    TokenBinding, TokenBindingDefinition, TokenBindingState,
 };
 
 use super::{
@@ -101,15 +102,7 @@ where
             .await?
             .is_some()
         {
-            let reason = TokenBindingDefineRejectionReason::DuplicateToken;
-            token_binding.reject_define(definition, reason)?;
-            self.token_binding_repository
-                .save(uow, request_context, &mut token_binding)
-                .await?;
-            return Ok(TokenBindingDefineOutput::Rejected {
-                token_binding_id,
-                reason,
-            });
+            return Err(TokenBindingError::TokenAlreadyBound.into());
         }
         self.settlement_validator
             .validate(TokenBindingSettlementValidationRequest {
@@ -122,6 +115,6 @@ where
         self.token_binding_repository
             .save(uow, request_context, &mut token_binding)
             .await?;
-        Ok(TokenBindingDefineOutput::Defined { token_binding_id })
+        Ok(TokenBindingDefineOutput { token_binding_id })
     }
 }

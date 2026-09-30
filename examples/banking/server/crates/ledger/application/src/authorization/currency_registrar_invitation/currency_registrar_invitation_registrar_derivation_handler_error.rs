@@ -1,5 +1,5 @@
 use appletheia::application::aggregate::SerializedAggregateError;
-use banking_ledger_domain::CurrencyRegistrarInvitationError;
+use banking_ledger_domain::currency_registrar_invitation::CurrencyRegistrarInvitationError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]

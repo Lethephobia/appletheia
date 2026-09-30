@@ -1,16 +1,10 @@
 use appletheia::application::command::{CommandOutput, CommandReplayOutput};
-use banking_iam_domain::user::UserDisplayNameChangeRejectionReason;
+
 use serde::{Deserialize, Serialize};
 
 /// Returned after a user display name change request is applied.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "type", content = "data", rename_all = "snake_case")]
-pub enum UserDisplayNameChangeOutput {
-    Changed,
-    Rejected {
-        reason: UserDisplayNameChangeRejectionReason,
-    },
-}
+pub struct UserDisplayNameChangeOutput {}
 
 impl CommandOutput for UserDisplayNameChangeOutput {
     type ReplayOutput = Self;

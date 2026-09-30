@@ -6,10 +6,10 @@ use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use appletheia::domain::Aggregate;
 use appletheia::domain::{AggregateId, UniqueValue, UniqueValuePart};
+use banking_ledger_domain::currency_registrar_join_request::CurrencyRegistrarJoinRequestError;
 use banking_ledger_domain::{
     CurrencyRegistrar, CurrencyRegistrarId, CurrencyRegistrarJoinRequest,
     CurrencyRegistrarJoinRequestState, CurrencyRegistrarJoinRequestSubmission,
-    CurrencyRegistrarJoinRequestSubmitRejectionReason, CurrencyRegistrarJoinRequestSubmitResult,
     CurrencyRegistrarMembership, CurrencyRegistrarMembershipState, User, UserId,
 };
 
@@ -118,17 +118,7 @@ where
             .await?
             .is_some()
         {
-            let reason = CurrencyRegistrarJoinRequestSubmitRejectionReason::RequesterAlreadyMember;
-            currency_registrar_join_request.reject_submit(submission, reason)?;
-
-            self.currency_registrar_join_request_repository
-                .save(uow, request_context, &mut currency_registrar_join_request)
-                .await?;
-
-            return Ok(CurrencyRegistrarJoinRequestSubmitOutput::Rejected {
-                currency_registrar_join_request_id,
-                reason,
-            });
+            return Err(CurrencyRegistrarJoinRequestError::RequesterAlreadyMember.into());
         }
 
         let unique_value = Self::registrar_requester_unique_value(
@@ -145,39 +135,17 @@ where
             .await?
             .is_some()
         {
-            let reason = CurrencyRegistrarJoinRequestSubmitRejectionReason::AlreadySubmitted;
-            currency_registrar_join_request.reject_submit(submission, reason)?;
-
-            self.currency_registrar_join_request_repository
-                .save(uow, request_context, &mut currency_registrar_join_request)
-                .await?;
-
-            return Ok(CurrencyRegistrarJoinRequestSubmitOutput::Rejected {
-                currency_registrar_join_request_id,
-                reason,
-            });
+            return Err(CurrencyRegistrarJoinRequestError::AlreadySubmitted.into());
         }
 
-        let result = currency_registrar_join_request.submit(submission)?;
+        currency_registrar_join_request.submit(submission)?;
 
         self.currency_registrar_join_request_repository
             .save(uow, request_context, &mut currency_registrar_join_request)
             .await?;
 
-        let output = match result {
-            CurrencyRegistrarJoinRequestSubmitResult::Submitted => {
-                CurrencyRegistrarJoinRequestSubmitOutput::Submitted {
-                    currency_registrar_join_request_id,
-                }
-            }
-            CurrencyRegistrarJoinRequestSubmitResult::Rejected { reason } => {
-                CurrencyRegistrarJoinRequestSubmitOutput::Rejected {
-                    currency_registrar_join_request_id,
-                    reason,
-                }
-            }
-        };
-
-        Ok(output)
+        Ok(CurrencyRegistrarJoinRequestSubmitOutput {
+            currency_registrar_join_request_id,
+        })
     }
 }

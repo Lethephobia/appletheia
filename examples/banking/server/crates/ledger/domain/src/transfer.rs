@@ -1,35 +1,23 @@
-mod transfer_complete_rejection_reason;
-mod transfer_complete_result;
 mod transfer_error;
 mod transfer_event_payload;
 mod transfer_event_payload_error;
-mod transfer_fail_rejection_reason;
-mod transfer_fail_result;
 mod transfer_failure_reason;
 mod transfer_id;
 mod transfer_note;
 mod transfer_note_error;
 mod transfer_request;
-mod transfer_request_rejection_reason;
-mod transfer_request_result;
 mod transfer_state;
 mod transfer_state_error;
 mod transfer_status;
 
-pub use transfer_complete_rejection_reason::TransferCompleteRejectionReason;
-pub use transfer_complete_result::TransferCompleteResult;
 pub use transfer_error::TransferError;
 pub use transfer_event_payload::TransferEventPayload;
 pub use transfer_event_payload_error::TransferEventPayloadError;
-pub use transfer_fail_rejection_reason::TransferFailRejectionReason;
-pub use transfer_fail_result::TransferFailResult;
 pub use transfer_failure_reason::TransferFailureReason;
 pub use transfer_id::TransferId;
 pub use transfer_note::TransferNote;
 pub use transfer_note_error::TransferNoteError;
 pub use transfer_request::TransferRequest;
-pub use transfer_request_rejection_reason::TransferRequestRejectionReason;
-pub use transfer_request_result::TransferRequestResult;
 pub use transfer_state::TransferState;
 pub use transfer_state_error::TransferStateError;
 pub use transfer_status::TransferStatus;
@@ -72,24 +60,17 @@ impl Transfer {
     }
 
     /// Requests a new transfer.
-    pub fn request(
-        &mut self,
-        request: TransferRequest,
-    ) -> Result<TransferRequestResult, TransferError> {
+    pub fn request(&mut self, request: TransferRequest) -> Result<(), TransferError> {
         if self.state().is_some() {
             return Err(TransferError::AlreadyRequested);
         }
 
         if request.is_same_account() {
-            let reason = TransferRequestRejectionReason::SameAccount;
-            self.reject_request(request, reason)?;
-            return Ok(TransferRequestResult::Rejected { reason });
+            return Err(TransferError::SameSourceAndDestinationAccount);
         }
 
         if request.amount().is_zero() {
-            let reason = TransferRequestRejectionReason::ZeroAmount;
-            self.reject_request(request, reason)?;
-            return Ok(TransferRequestResult::Rejected { reason });
+            return Err(TransferError::ZeroAmount);
         }
 
         let (from_account_id, to_account_id, amount, note) = request.into_parts();
@@ -100,87 +81,47 @@ impl Transfer {
             note,
         })?;
 
-        Ok(TransferRequestResult::Requested)
-    }
-
-    /// Rejects a transfer request.
-    pub fn reject_request(
-        &mut self,
-        _request: TransferRequest,
-        reason: TransferRequestRejectionReason,
-    ) -> Result<(), TransferError> {
-        Err(TransferError::RequestRejected(reason))
+        Ok(())
     }
 
     /// Completes the transfer.
-    pub fn complete(&mut self) -> Result<TransferCompleteResult, TransferError> {
+    pub fn complete(&mut self) -> Result<(), TransferError> {
         match self.state_required()?.status {
             TransferStatus::Pending => {}
             TransferStatus::Completed => {
-                let reason = TransferCompleteRejectionReason::AlreadyCompleted;
-                self.reject_complete(reason)?;
-                return Ok(TransferCompleteResult::Rejected { reason });
+                return Err(TransferError::AlreadyCompleted);
             }
             TransferStatus::Failed => {
-                let reason = TransferCompleteRejectionReason::AlreadyFailed;
-                self.reject_complete(reason)?;
-                return Ok(TransferCompleteResult::Rejected { reason });
+                return Err(TransferError::AlreadyFailed);
             }
             TransferStatus::Rejected => {
-                let reason = TransferCompleteRejectionReason::AlreadyRejected;
-                self.reject_complete(reason)?;
-                return Ok(TransferCompleteResult::Rejected { reason });
+                return Err(TransferError::AlreadyRejected);
             }
         }
 
         self.append_event(TransferEventPayload::Completed)?;
 
-        Ok(TransferCompleteResult::Completed)
-    }
-
-    /// Rejects completing a transfer.
-    pub fn reject_complete(
-        &mut self,
-        reason: TransferCompleteRejectionReason,
-    ) -> Result<(), TransferError> {
-        Err(TransferError::CompleteRejected(reason))
+        Ok(())
     }
 
     /// Fails the transfer.
-    pub fn fail(
-        &mut self,
-        reason: TransferFailureReason,
-    ) -> Result<TransferFailResult, TransferError> {
+    pub fn fail(&mut self, reason: TransferFailureReason) -> Result<(), TransferError> {
         match self.state_required()?.status {
             TransferStatus::Pending => {}
             TransferStatus::Completed => {
-                let reason = TransferFailRejectionReason::AlreadyCompleted;
-                self.reject_fail(reason)?;
-                return Ok(TransferFailResult::Rejected { reason });
+                return Err(TransferError::AlreadyCompleted);
             }
             TransferStatus::Failed => {
-                let reason = TransferFailRejectionReason::AlreadyFailed;
-                self.reject_fail(reason)?;
-                return Ok(TransferFailResult::Rejected { reason });
+                return Err(TransferError::AlreadyFailed);
             }
             TransferStatus::Rejected => {
-                let reason = TransferFailRejectionReason::AlreadyRejected;
-                self.reject_fail(reason)?;
-                return Ok(TransferFailResult::Rejected { reason });
+                return Err(TransferError::AlreadyRejected);
             }
         }
 
         self.append_event(TransferEventPayload::Failed { reason })?;
 
-        Ok(TransferFailResult::Failed)
-    }
-
-    /// Rejects failing a transfer.
-    pub fn reject_fail(
-        &mut self,
-        reason: TransferFailRejectionReason,
-    ) -> Result<(), TransferError> {
-        Err(TransferError::FailRejected(reason))
+        Ok(())
     }
 }
 

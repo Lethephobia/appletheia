@@ -4,7 +4,7 @@ use appletheia::application::authorization::{
 use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_ledger_domain::account::{Account, AccountNameChangeResult};
+use banking_ledger_domain::account::Account;
 
 use super::{
     AccountNameChangeCommand, AccountNameChangeCommandHandlerError, AccountNameChangeOutput,
@@ -62,18 +62,13 @@ where
             .read(uow, command.account_id)
             .await?;
 
-        let result = account.change_name(command.name.clone())?;
+        account.change_name(command.name.clone())?;
 
         self.account_repository
             .save(uow, request_context, &mut account)
             .await?;
 
-        let output = match result {
-            AccountNameChangeResult::Changed => AccountNameChangeOutput::Changed,
-            AccountNameChangeResult::Rejected { reason } => {
-                AccountNameChangeOutput::Rejected { reason }
-            }
-        };
+        let output = AccountNameChangeOutput {};
 
         Ok(output)
     }
@@ -276,6 +271,6 @@ mod tests {
             .expect("account should be saved");
         assert_eq!(saved.name().expect("name should exist"), &name);
 
-        assert_eq!(handled, AccountNameChangeOutput::Changed);
+        assert_eq!(handled, AccountNameChangeOutput {});
     }
 }

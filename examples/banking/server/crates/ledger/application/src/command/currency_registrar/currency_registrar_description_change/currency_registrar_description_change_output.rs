@@ -2,10 +2,7 @@ use appletheia::application::command::{CommandOutput, CommandReplayOutput};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "type", content = "data", rename_all = "snake_case")]
-pub enum CurrencyRegistrarDescriptionChangeOutput {
-    Changed,
-}
+pub struct CurrencyRegistrarDescriptionChangeOutput {}
 
 impl CommandOutput for CurrencyRegistrarDescriptionChangeOutput {
     type ReplayOutput = Self;
