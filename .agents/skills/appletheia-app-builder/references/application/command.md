@@ -1,88 +1,175 @@
 # Command Design
 
-Use this reference for Appletheia command payloads, handlers, retryability, authorization, and
-terminal failure behavior.
+Use this reference for command data, application boundaries, and transactional execution.
 
-## Command payloads
+### DO keep delivery metadata in the command envelope
 
-### DO make a command describe one requested operation
+Command fields express the requested business operation. `CommandEnvelope` and `SagaCommandOrigin`
+already carry correlation, causation, saga identity, and step metadata; do not duplicate them in the
+command payload. An actor or issuer ID that is part of the business operation may still be explicit
+command data. Keep input minimal: supply the target ID and requested changes, and load authoritative
+current values through the repository instead of asking callers to repeat them.
 
-Use domain value objects instead of transport primitives and include the aggregate identifier needed
-to load the target.
+**Good**
 
 ```rust
-#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct AccountFundsReserveCommand {
     pub account_id: AccountId,
     pub amount: CurrencyAmount,
 }
 ```
 
-Do not put a saga name, instance ID, step, correlation ID, or causation ID in the payload. The
-`CommandEnvelope` carries message metadata and `SagaCommandOrigin`.
+**Bad**
 
-### PREFER output that represents successful completion
+```rust
+pub struct AccountFundsReserveCommand {
+    pub account_id: AccountId,
+    pub amount: CurrencyAmount,
+    pub saga_step: TransferSagaStep,
+    pub causation_id: CausationId,
+}
+```
+
+### PREFER structs for a single successful output shape
 
 Return identifiers or data the caller needs after a successful command. A failed operation belongs in
 the handler's typed error, not in an `Output::Rejected` branch.
 
+**Good**
+
 ```rust
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct AccountFundsReserveOutput;
+pub struct AccountFundsReserveOutput {}
 ```
 
-## Handler boundary
+Use an empty named-field struct for an acknowledgement so JSON serialization produces `{}` rather
+than `null`. Put returned identifiers or values directly in public struct fields, for example
+`OrganizationCreateOutput { organization_id }`; avoid a single success enum variant that adds no distinction.
+Implement `CommandOutput` and its replay representation consistently with neighboring outputs.
 
-### DO keep the handler transaction focused
+Use an enum when success genuinely has distinct shapes, as with Banking's `OidcCompleteOutput`
+(token, exchange code, or identity linkage). Replay safety is a separate concern, described below.
 
-A normal aggregate handler should:
-
-1. Load or create the aggregate.
-2. Perform application authorization and cross-aggregate lookup when required.
-3. Call an aggregate command method.
-4. Save the aggregate.
-5. Return a successful output.
+**Bad**
 
 ```rust
-async fn handle(
-    &self,
-    command: &AccountFundsReserveCommand,
-    context: &RequestContext,
-    uow: &mut Uow,
-) -> Result<AccountFundsReserveOutput, AccountFundsReserveCommandHandlerError> {
-    let mut account = self.repository.find(command.account_id, uow).await?;
-    account.reserve_funds(command.amount)?;
-    self.repository.save(&mut account, context, uow).await?;
-    Ok(AccountFundsReserveOutput)
+pub enum AccountFundsReserveOutput {
+    Reserved,
 }
 ```
 
-Let `?` preserve the typed failure. Do not append a compensating failure event or save an otherwise
-unchanged aggregate solely to report refusal.
+### DO let CommandOutput own a replay-safe representation
 
-### DO keep aggregate invariants in aggregate methods
+The dispatcher persists the output's `ReplayOutput` for idempotent replay. Implement this policy on
+the output itself so every handler return path follows it. Use `CommandReplayOutput::Borrowed(self)`
+only when the full output is safe to store. Return an owned replay DTO when the immediate response
+contains tokens, exchange codes, or other credentials that must not be persisted and replayed.
 
-The command handler may coordinate repositories, reference indexes, policies, and external services.
-Rules that depend only on aggregate state belong in the aggregate. Map the aggregate error into the
-handler error without changing its retryability.
+**Good**
 
-### DO keep authorization in the application boundary
+```rust
+impl CommandOutput for OidcCompleteOutput {
+    type ReplayOutput = OidcCompleteReplayOutput;
 
-Resolve the current principal through the application's authorization abstraction. Domain aggregates
-should not read `RequestContext.actor` or transport claims directly.
+    fn replay_output(&self) -> CommandReplayOutput<'_, Self::ReplayOutput> {
+        CommandReplayOutput::Owned(self.replay_safe_output())
+    }
+}
+```
 
-### DON'T use ambient request metadata as domain input
+**Bad**
 
-If issuer, actor, or provenance must be replayable, pass an explicit value object to the aggregate so
-the emitted event contains it. A saga command's step remains in `SagaCommandOrigin`, not in the
-payload or request context.
+```rust
+// Persists credentials from the immediate OIDC response.
+impl CommandOutput for OidcCompleteOutput {
+    type ReplayOutput = Self;
 
-## Errors and retryability
+    fn replay_output(&self) -> CommandReplayOutput<'_, Self::ReplayOutput> {
+        CommandReplayOutput::Borrowed(self)
+    }
+}
+```
 
-### DO return typed errors for refused operations
+### DO coordinate cross-aggregate checks and authorization in the application layer
 
-Expected domain refusals are permanent handler errors unless retrying the same command can succeed
-without another business action.
+Declare access requirements through `CommandHandler::authorization_plan`; use application services
+for additional policy or cross-aggregate checks. The aggregate enforces its own invariants without
+querying another root or reading request-scoped authority. The dispatcher evaluates authorization
+against `RequestContext.principal`; `actor` records provenance and is not a substitute for the
+current principal. Do not rely on a persisted actor to recover request-scoped permissions.
+
+Use aggregate repositories and their unique/reference indexes for write-side checks. Read models
+may lag, so do not use a projection as the authority for a write invariant. Let the authorization
+abstraction handle relationship checks rather than reimplementing them with a relationship store.
+
+For example, organization creation looks up an existing handle owner before calling `create`.
+The lookup enables a useful domain error; it does not replace the persisted uniqueness constraint
+needed for concurrent requests. Keep save errors observable too.
+
+**Good**
+
+```rust
+let unique_value = Self::handle_unique_value(&creation.handle)?;
+if self.organization_repository
+    .find_by_unique_value(uow, OrganizationState::HANDLE_KEY, &unique_value)
+    .await?
+    .is_some()
+{
+    return Err(OrganizationError::HandleAlreadyTaken.into());
+}
+
+organization.create(creation)?;
+self.organization_repository.save(uow, request_context, &mut organization).await?;
+```
+
+**Bad**
+
+```text
+Organization::create -> read request claims -> query other organizations through a repository
+```
+
+### DO group required aggregate operations in one unit of work
+
+For sign-in that creates a user and links an identity, Banking's OIDC handler performs:
+
+**Good**
+
+```rust
+user.register()?;
+user.link_identity(UserIdentityRegistration {
+    provider: provider.clone(),
+    subject: subject.clone(),
+    email,
+})?;
+self.user_repository.save(uow, request_context, &mut user).await?;
+```
+
+The events are recorded together; no intermediate save or separate registration command is needed.
+An `Err` must prevent saving partial work. Database rollback does not undo an in-memory aggregate
+already changed by `append_event`, so do not catch an error and later persist that partial instance.
+Atomic persistence does not imply atomic delivery or projection of the two events.
+
+Likewise, do not hide an aggregate operation behind a handler-side equality or lifecycle no-op.
+Call the operation and propagate its outcome; an accepted command still needs its event for Saga
+continuations. Coordinate follow-up commands in separate transactions through a saga rather than
+turning a handler into a second workflow runner.
+
+**Bad**
+
+```text
+register -> commit transaction A
+link required identity -> transaction B fails
+user remains partially registered
+```
+
+### DO classify retryability at the handler error boundary
+
+Keep repository and external-service failures in handler errors rather than aggregate errors.
+Implement `Retryability` there, delegating to nested infrastructure errors and classifying domain
+failures by whether repeating the same command can help. Return failures as `Err`; see
+[Aggregate Design](../domain/aggregate.md).
+
+**Good**
 
 ```rust
 #[derive(Debug, Error)]
@@ -108,43 +195,58 @@ Do not make every error retryable. Insufficient balance, invalid lifecycle state
 identity, malformed domain input, and failed authorization are normally permanent. Transient
 database, network, or service availability errors may be retryable.
 
-### DO distinguish a successful rejection decision from operation failure
-
-The word "rejected" does not determine the model; the completed business action does.
-
-- Rejecting a pending organization join request is a successful command. Persist a `Rejected` event
-  because the request changed from pending to rejected.
-- Failing to reserve funds is a failed command. Return an `AccountError`; do not persist a
-  `FundsReserveRejected` event.
-
-Apply the same test to `Declined`, `Denied`, `Failed`, and similar names: did the aggregate complete a
-business transition, or did the requested operation fail to happen?
-
-### DON'T encode command failure as a successful output
-
-Avoid `Ok(Output::Rejected { reason })` for aggregate or application failures. It commits the handler
-transaction and hides failure from command-worker retryability and terminal-failure routing.
-
-If an API needs a client-friendly representation, map the typed command error at the transport
-boundary.
-
-## Transaction and worker behavior
-
-### DO share the command worker across handlers
-
-Construct the worker from shared dispatcher, subscriber, execution-store, failure-outbox, and
-unit-of-work dependencies. Pass each handler by reference when starting its consumer instead of
-storing the handler in the worker.
+**Bad**
 
 ```rust
-let config = CommandWorkerConfig {
-    lease_duration: CommandExecutionLeaseDuration::default(),
-    retry_options: CommandExecutionRetryOptions {
-        max_attempts: CommandExecutionMaxAttempts::default(),
-    },
-};
-let worker = Arc::new(DefaultCommandWorker::new(dependencies, config));
+impl Retryability for AccountFundsReserveCommandHandlerError {
+    fn is_retryable(&self) -> bool {
+        true
+    }
+}
+```
 
+### DO leave transaction and delivery control to the dispatcher and worker
+
+Use `DefaultCommandDispatcher` for ordinary command execution, including synchronous entry points.
+The handler uses the supplied unit of work, awaits required saves, and propagates failures. The
+dispatcher handles commit/rollback and execution tracking; the worker handles delivery, attempt
+limits, and terminal failure. Avoid bypassing these boundaries by calling a handler directly from
+production entry points.
+
+For saga-originated commands, the worker records terminal failure and enqueues its notification in
+a separate transaction after handler rollback. A handler must not publish `CommandFailureEnvelope`
+itself: an outbox write in its failed transaction would roll back too. Execution retries and outbox
+publication retries are distinct. Saga compensation is a business reaction after terminal failure,
+not a replacement for execution retry.
+
+Database rollback cannot undo external effects. Use stable idempotency keys or another recovery
+strategy for external operations that may run again.
+
+**Good**
+
+```text
+Entry point -> dispatcher -> handler using supplied unit of work
+  success -> commit
+  error -> rollback
+Worker -> retry if eligible; otherwise record terminal failure and its outbox notification
+```
+
+**Bad**
+
+```text
+Handler -> publish failure notification directly -> return Err
+Database rollback -> notification has already escaped the transaction
+```
+
+### CONSIDER sharing a command worker when its configuration fits all consumers
+
+A `DefaultCommandWorker` accepts a handler in `run_forever`, so compatible handlers can share its
+dependencies. Each call creates its own consumer. Share only when retry settings and graceful-stop
+behavior should also be shared; separate workers are appropriate when those requirements differ.
+
+**Good**
+
+```rust
 let deposit_worker = Arc::clone(&worker);
 tokio::spawn(async move {
     deposit_worker.run_forever(&account_deposit_handler).await
@@ -156,98 +258,8 @@ tokio::spawn(async move {
 });
 ```
 
-Each call derives both its consumer group and subscription selector from `H::Command::NAME`. The
-worker's config and graceful-stop flag are shared by every handler consumer running on that worker.
-The lease duration controls abandoned-execution recovery, while retry options control whether
-another handler attempt remains available.
-
-### DO rely on rollback for handler errors
-
-When a handler returns `Err`, aggregate events, repository writes, and ordinary outbox writes in that
-unit of work roll back. Therefore terminal command failure cannot be published from the failed handler
-transaction.
-
-The command worker owns the durable failure boundary:
+**Bad**
 
 ```text
-dispatch handler
-  -> Ok: commit domain changes and ack
-  -> Err(retryable) with attempts remaining: roll back, release lease, nack
-  -> Err(non-retryable or exhausted): roll back, mark failed, enqueue CommandFailure, ack
+Share one worker -> request independent shutdown of just one of its consumers via its shared stop flag
 ```
-
-Command-outbox publication retry and command-execution retry are separate concerns.
-
-### DO let `Retryability` drive the retry decision
-
-The worker has the attempt count obtained when command execution begins and compares it with the
-configured maximum. Handler code should only classify its error; it must not count attempts, sleep,
-nack, or release execution leases.
-
-### DON'T construct or publish `CommandFailureEnvelope` in a handler
-
-The worker creates a new `CommandFailureId`, reuses the persisted `failed_at`, and publishes the
-notification when the command is terminal. For saga-originated commands the envelope includes the
-original `SagaCommandOrigin`; the saga failure worker uses it to route the failure. Register an
-application reaction with `add_failure_step(...).on(caused_by).handle(...)` only when needed;
-otherwise the saga records and acknowledges the owned terminal failure without a callback.
-See [Saga Design](saga.md) for registration and dispatch semantics.
-
-## Cross-aggregate validation
-
-### DO use reference indexes or repositories for application-level uniqueness
-
-An aggregate cannot enforce facts owned by another aggregate. Perform the lookup before the target
-mutation and return a typed non-retryable error when a conflicting owner exists.
-
-```rust
-if self.handle_index.owner_of(&command.handle, uow).await?.is_some() {
-    return Err(OrganizationCreateCommandHandlerError::HandleAlreadyTaken);
-}
-
-let mut organization = Organization::new();
-organization.create(command.organization_id, command.handle.clone())?;
-self.repository.save(&mut organization, context, uow).await?;
-```
-
-Do not create an empty aggregate stream or append a `CreateRejected` event to record this lookup
-failure.
-
-### PREFER one durable owner for each invariant
-
-If a unique value is reserved through a dedicated aggregate or registry, command that owner first and
-coordinate later work with a saga. Keep compensation explicit for terminal failures.
-
-## Idempotency and side effects
-
-### DO dispatch through `DefaultCommandDispatcher`
-
-Use the standard dispatcher even for direct dispatch so command execution, idempotency, unit-of-work,
-and output persistence behave consistently. Do not invent a no-op command execution store for an
-alternate path.
-
-### DO keep external effects behind retry-aware application abstractions
-
-Calls to object storage, identity providers, blockchains, email, or other services must declare
-whether their failures are retryable. Prefer idempotency keys derived from stable message identity for
-effects that may be invoked again.
-
-### DON'T report success before durable state is ready
-
-Return `Ok` only after the aggregate and required outbox work have been recorded in the handler unit
-of work. Do not use an output variant to mask partial work.
-
-## Testing
-
-### DO test both retryability classes
-
-For each handler, cover at least:
-
-- successful state change and emitted event;
-- permanent aggregate or policy failure with no emitted event;
-- retryable infrastructure failure;
-- mapping from nested errors to `Retryability`;
-- rollback of domain and outbox changes on `Err`.
-
-For saga-originated commands, also test that a terminal failure is routed to the saga with the
-original step. That worker-level behavior does not belong in the handler unit test.
