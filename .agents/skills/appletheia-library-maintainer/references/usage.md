@@ -118,16 +118,16 @@ struct TestError;
 
 Keep tests centered on the contract the library guarantees.
 
-**Good**
-
-```text
-Repository test: saved events can be loaded and replayed
-```
-
 **Bad**
 
 ```text
 Repository test: Banking account freezes after a particular business policy threshold
+```
+
+**Good**
+
+```text
+Repository test: saved events can be loaded and replayed
 ```
 
 ### PREFER handwritten implementations when a unit test directly targets a core trait or value object
@@ -166,16 +166,16 @@ Copy a long handwritten payload implementation into every repository test fixtur
 
 Keep expansion assertions in `appletheia-macros`. Downstream domain, application, and infrastructure tests should focus on the trait or API being verified.
 
-**Good**
-
-```text
-Application test: generated payload works with event handling
-```
-
 **Bad**
 
 ```text
 Application test: exact generated token string must match a snapshot
+```
+
+**Good**
+
+```text
+Application test: generated payload works with event handling
 ```
 
 ### DO test macro expansion behavior in `appletheia-macros`

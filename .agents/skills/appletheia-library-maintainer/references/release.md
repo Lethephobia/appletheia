@@ -25,16 +25,16 @@ Added relationship resolver configuration
 
 Use the repository convention instead of ad hoc prefixes, emoji, or free-form subject lines.
 
-**Good**
-
-```text
-fix(domain): reject invalid aggregate state
-```
-
 **Bad**
 
 ```text
 ✨ fixed some stuff
+```
+
+**Good**
+
+```text
+fix(domain): reject invalid aggregate state
 ```
 
 ### PREFER a short scope that identifies the affected crate or subsystem

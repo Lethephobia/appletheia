@@ -9,7 +9,8 @@ Guide downstream Appletheia application design and implementation across archite
 
 ## References
 
-The reference files follow an Effective Dart style:
+Select the references relevant to the task from the index below; read additional references only
+when their guidance is needed. The reference files follow an Effective Dart style:
 
 - DO
 
@@ -31,10 +32,9 @@ The reference files follow an Effective Dart style:
 
   Use this for optional guidance or tradeoffs. Apply it when the surrounding context makes the choice worthwhile.
 
-Each directive must include **Good** and **Bad** fenced examples, in that order, following the
-Effective Dart style. Prefer concrete Rust excerpts; use text flows for transaction or routing
-behavior. Keep examples when updating a rule, and update them alongside API changes. Excerpts omit
-unrelated declarations and are not standalone programs.
+Each directive includes **Good** and **Bad** fenced examples. DO, PREFER, and CONSIDER show
+Good first; DON'T and AVOID show Bad first. Examples are focused excerpts, not standalone programs.
+Preserve the comparisons when updating guidance and keep them aligned with the current contract.
 
 Keep guidance focused on application decisions that are easy to get wrong with Appletheia.
 Do not turn a one-time cleanup or an obsolete API into a permanent prohibition. Consolidate
@@ -44,17 +44,17 @@ when only its API or sample code is obsolete. A shorter guide must not reverse a
 
 ### Reference Map
 
-- `references/domain/aggregate.md`
+- [Aggregate](references/domain/aggregate.md)
 
   Use for aggregate invariants, operation failures, replayable state changes, persistence indexes,
   identity metadata, value-object boundaries, and separate child-entity creation events.
 
-- `references/application/command.md`
+- [Command](references/application/command.md)
 
   Use for command data and output shapes, application-level checks, transaction boundaries,
   replay-safe outputs, retryability, and worker configuration.
 
-- `references/application/saga.md`
+- [Saga](references/application/saga.md)
 
   Use for staged routes, incoming and outgoing steps, side-effect-free definitions, context-based
   dispatch, command ownership, parallel readiness, and optional failure reactions.

@@ -30,6 +30,12 @@ pub struct AnotherValue;
 
 Import items with `use` and refer to them by name in expressions.
 
+**Bad**
+
+```rust
+let value = crate::value::ExampleValue::new();
+```
+
 **Good**
 
 ```rust
@@ -38,21 +44,9 @@ use crate::value::ExampleValue;
 let value = ExampleValue::new();
 ```
 
-**Bad**
-
-```rust
-let value = crate::value::ExampleValue::new();
-```
-
 ### DON'T use `expect` or `unwrap` in non-test code
 
 Propagate errors or handle them explicitly in library, application, and example code. Reserve `expect` and `unwrap` for tests and fixtures where the failure context is part of the assertion.
-
-**Good**
-
-```rust
-let value = MaybeValue::try_from(input).map_err(ValueError::from)?;
-```
 
 **Bad**
 
@@ -60,23 +54,16 @@ let value = MaybeValue::try_from(input).map_err(ValueError::from)?;
 let value = MaybeValue::try_from(input).expect("input should be valid");
 ```
 
+**Good**
+
+```rust
+let value = MaybeValue::try_from(input).map_err(ValueError::from)?;
+```
+
 ### DON'T shadow local bindings
 
 Give each intermediate value a distinct name that reflects its role. Keep the original binding
 available for review instead of redeclaring the same name after a conversion or match.
-
-**Good**
-
-```rust
-let begin_attempt = service.begin().await;
-let begin_result = match begin_attempt {
-    Ok(value) => value,
-    Err(operation_error) => {
-        let rolled_back_error = uow.rollback_with_operation_error(operation_error).await?;
-        return Err(rolled_back_error.into());
-    }
-};
-```
 
 **Bad**
 
@@ -87,6 +74,19 @@ let begin_result = match begin_result {
     Err(operation_error) => {
         let operation_error = uow.rollback_with_operation_error(operation_error).await?;
         return Err(operation_error.into());
+    }
+};
+```
+
+**Good**
+
+```rust
+let begin_attempt = service.begin().await;
+let begin_result = match begin_attempt {
+    Ok(value) => value,
+    Err(operation_error) => {
+        let rolled_back_error = uow.rollback_with_operation_error(operation_error).await?;
+        return Err(rolled_back_error.into());
     }
 };
 ```
@@ -167,17 +167,17 @@ const fn str_eq(left: &str, right: &str) -> bool {
 
 Split a module when unrelated concerns start accumulating in the same file.
 
+**Bad**
+
+```text
+utils.rs: message decoding, authorization policies, and unrelated SQL helpers
+```
+
 **Good**
 
 ```text
 messaging/: messaging types
 authorization/: authorization types
-```
-
-**Bad**
-
-```text
-utils.rs: message decoding, authorization policies, and unrelated SQL helpers
 ```
 
 ### CONSIDER splitting a module only when it improves reviewability
@@ -263,22 +263,22 @@ pub struct ExampleState {
 
 Make the public surface reflect the actual contract, not the easiest testing path.
 
-**Good**
-
-```rust
-impl ExampleSelector {
-    fn normalize(input: &str) -> String {
-        input.trim().to_owned()
-    }
-}
-```
-
 **Bad**
 
 ```rust
 impl ExampleSelector {
     // Public only so an external test can call it.
     pub fn normalize(input: &str) -> String {
+        input.trim().to_owned()
+    }
+}
+```
+
+**Good**
+
+```rust
+impl ExampleSelector {
+    fn normalize(input: &str) -> String {
         input.trim().to_owned()
     }
 }
@@ -307,14 +307,14 @@ Library: BankingAccountFundsReserveCommandHandler
 
 Keep the module boundary aligned with the responsibility of the code.
 
-**Good**
-
-```text
-Keep token decoding in authentication and message decoding in messaging
-```
-
 **Bad**
 
 ```text
 Place token decoding, account validation, and SQL generation in shared/utils.rs
+```
+
+**Good**
+
+```text
+Keep token decoding in authentication and message decoding in messaging
 ```

@@ -25,16 +25,16 @@ Library event replay hardcodes which Banking account statuses permit withdrawals
 
 Let downstream applications own business and domain concepts.
 
-**Good**
-
-```text
-Define OrganizationMemberRelation in the Banking application
-```
-
 **Bad**
 
 ```text
 Define OrganizationMemberRelation in appletheia-application
+```
+
+**Good**
+
+```text
+Define OrganizationMemberRelation in the Banking application
 ```
 
 ### PREFER abstractions that stay easy to swap out
@@ -61,16 +61,16 @@ pub struct Service {
 
 Keep downstream concerns out of the library surface.
 
-**Good**
-
-```text
-A library contract accepts downstream aggregate implementations
-```
-
 **Bad**
 
 ```text
 A library contract imports banking_iam_domain::User to function
+```
+
+**Good**
+
+```text
+A library contract accepts downstream aggregate implementations
 ```
 
 ### CONSIDER making library boundaries explicit when behavior varies
@@ -136,16 +136,16 @@ domain = ["dep:appletheia-domain", "dep:appletheia-infrastructure"] # Unrelated 
 
 Keep the facade focused on wiring and re-exports.
 
-**Good**
-
-```text
-Facade re-exports domain types; domain crate implements replay
-```
-
 **Bad**
 
 ```text
 Facade implements replay while domain crate is only a type container
+```
+
+**Good**
+
+```text
+Facade re-exports domain types; domain crate implements replay
 ```
 
 ## Public Surface
@@ -211,16 +211,16 @@ pub enum ExampleStatus {
 
 If a breaking change is necessary, make it deliberate and visible.
 
-**Good**
-
-```text
-Change trait signature deliberately -> document break -> update callers
-```
-
 **Bad**
 
 ```text
 Change trait signature under a formatting-only commit
+```
+
+**Good**
+
+```text
+Change trait signature deliberately -> document break -> update callers
 ```
 
 ### PREFER additive changes over breaking ones
@@ -259,16 +259,16 @@ pub struct UnrelatedValues(Vec<String>); // A wrapper with no named domain meani
 
 If the public API is fundamentally about adding, removing, or toggling single items, prefer exposing a raw collection in state and modeling the per-item operation explicitly. In those cases a wrapper often makes the contract look more aggregate-wide than the behavior really is.
 
-**Good**
-
-```text
-An item-oriented API exposes explicit grant_role(role) and revoke_role(role) operations
-```
-
 **Bad**
 
 ```text
 Wrap roles and expose only replace_all_roles just to perform a single grant operation
+```
+
+**Good**
+
+```text
+An item-oriented API exposes explicit grant_role(role) and revoke_role(role) operations
 ```
 
 ### CONSIDER the raw collection semantics before adding a wrapper
@@ -293,16 +293,16 @@ pub struct OrderedDeclarations(HashSet<Declaration>); // Loses declaration order
 
 Prefer compatibility-preserving changes before removing old names.
 
-**Good**
-
-```text
-When compatibility is required, introduce the replacement while retaining a migration path
-```
-
 **Bad**
 
 ```text
 Rename a published event discriminator without considering stored events or subscribers
+```
+
+**Good**
+
+```text
+When compatibility is required, introduce the replacement while retaining a migration path
 ```
 
 ### CONSIDER deprecating before removing
@@ -343,17 +343,17 @@ Intentional expansion change -> leave stale expected output and disable the fail
 
 Keep macro expansion tests in `appletheia-macros` so the contract lives with the implementation.
 
+**Bad**
+
+```text
+Application crate duplicates the macro crate's token-by-token assertions
+```
+
 **Good**
 
 ```text
 Macro crate: expansion assertions
 Application crate: behavior of generated types
-```
-
-**Bad**
-
-```text
-Application crate duplicates the macro crate's token-by-token assertions
 ```
 
 ### PREFER keeping macro error messages stable when practical
@@ -376,16 +376,16 @@ Rephrase unchanged diagnostics on every refactor and churn compile-fail expectat
 
 Keep the macro surface minimal so the generated contract stays easy to understand.
 
-**Good**
-
-```text
-Generate the required trait implementation and documented conveniences
-```
-
 **Bad**
 
 ```text
 Generate public accessors for every internal field regardless of the intended contract
+```
+
+**Good**
+
+```text
+Generate the required trait implementation and documented conveniences
 ```
 
 ### CONSIDER the smallest macro surface that still expresses the API clearly
@@ -444,16 +444,16 @@ Change state representation -> check only that the constructor succeeds
 Examples should show the current model directly instead of carrying migrations, upcasters, or
 legacy payload branches.
 
-**Good**
-
-```text
-Update Banking payloads and tests to demonstrate the current model directly
-```
-
 **Bad**
 
 ```text
 Keep LegacyUserState and old fixture upcasters in an example that does not teach migration
+```
+
+**Good**
+
+```text
+Update Banking payloads and tests to demonstrate the current model directly
 ```
 
 ### PREFER reviewing contract impact before merge
@@ -493,17 +493,17 @@ Require production migration scaffolding solely to preserve unused Banking fixtu
 
 Keep example event payloads simple and current.
 
+**Bad**
+
+```text
+Add an upcaster to every example event just to keep outdated test data
+```
+
 **Good**
 
 ```text
 Migration tutorial: show an upcaster intentionally
 Ordinary Banking example: show current payloads
-```
-
-**Bad**
-
-```text
-Add an upcaster to every example event just to keep outdated test data
 ```
 
 ### CONSIDER versioned payloads only for real library or production contracts

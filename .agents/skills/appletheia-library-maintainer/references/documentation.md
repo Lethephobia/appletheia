@@ -62,17 +62,17 @@ pub fn try_from_string(value: String) -> Result<Self, ValueError> { /* ... */ }
 
 Use the comment to add context, not to restate the obvious.
 
-**Good**
-
-```rust
-/// Returns the available amount after subtracting reservations.
-pub fn available_balance(&self) -> Result<CurrencyAmount, AccountError> { /* ... */ }
-```
-
 **Bad**
 
 ```rust
 /// Returns Result<CurrencyAmount, AccountError>.
+pub fn available_balance(&self) -> Result<CurrencyAmount, AccountError> { /* ... */ }
+```
+
+**Good**
+
+```rust
+/// Returns the available amount after subtracting reservations.
 pub fn available_balance(&self) -> Result<CurrencyAmount, AccountError> { /* ... */ }
 ```
 
@@ -96,17 +96,17 @@ Make the API prose easier to scan and less ambiguous.
 
 Move long examples into tests or reference files when they do not fit naturally in the comment.
 
+**Bad**
+
+```text
+Doc comment: full application startup and dependency wiring before the one relevant call
+```
+
 **Good**
 
 ```text
 Doc comment: a focused call demonstrating the API
 Example crate: full application wiring
-```
-
-**Bad**
-
-```text
-Doc comment: full application startup and dependency wiring before the one relevant call
 ```
 
 ### CONSIDER code samples for tricky APIs
