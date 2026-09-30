@@ -1,8 +1,6 @@
 use appletheia::application::command::{CommandOutput, CommandReplayOutput};
-
 use serde::{Deserialize, Serialize};
 
-/// The output returned after accepting an currency registrar invitation.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CurrencyRegistrarInvitationAcceptOutput {}
 

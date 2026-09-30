@@ -5,7 +5,6 @@ use banking_ledger_domain::deposit::DepositId;
 
 use crate::settlement::DepositSettlementPreparation;
 
-/// Returned after a deposit settlement transaction is prepared.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DepositSettlementPrepareOutput {
     pub deposit_id: DepositId,

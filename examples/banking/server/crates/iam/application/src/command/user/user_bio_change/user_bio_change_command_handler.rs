@@ -9,7 +9,6 @@ use banking_iam_domain::User;
 use super::{UserBioChangeCommand, UserBioChangeCommandHandlerError, UserBioChangeOutput};
 use crate::authorization::UserProfileEditorRelation;
 
-/// Handles `UserBioChangeCommand`.
 pub struct UserBioChangeCommandHandler<UR>
 where
     UR: Repository<User>,

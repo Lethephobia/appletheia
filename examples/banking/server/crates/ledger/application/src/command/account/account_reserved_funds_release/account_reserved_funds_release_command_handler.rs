@@ -9,7 +9,6 @@ use super::{
     AccountReservedFundsReleaseOutput,
 };
 
-/// Handles `AccountReservedFundsReleaseCommand`.
 pub struct AccountReservedFundsReleaseCommandHandler<AR>
 where
     AR: Repository<Account>,

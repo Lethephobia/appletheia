@@ -6,7 +6,6 @@ use banking_ledger_domain::withdrawal::Withdrawal;
 
 use super::{WithdrawalFailCommand, WithdrawalFailCommandHandlerError, WithdrawalFailOutput};
 
-/// Handles `WithdrawalFailCommand`.
 pub struct WithdrawalFailCommandHandler<WR>
 where
     WR: Repository<Withdrawal>,

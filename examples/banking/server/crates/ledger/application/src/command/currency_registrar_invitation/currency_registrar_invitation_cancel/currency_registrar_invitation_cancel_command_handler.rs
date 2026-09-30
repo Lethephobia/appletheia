@@ -14,7 +14,6 @@ use super::{
     CurrencyRegistrarInvitationCancelOutput,
 };
 
-/// Handles `CurrencyRegistrarInvitationCancelCommand`.
 pub struct CurrencyRegistrarInvitationCancelCommandHandler<IR>
 where
     IR: Repository<CurrencyRegistrarInvitation>,

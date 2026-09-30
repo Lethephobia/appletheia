@@ -14,7 +14,6 @@ use super::{
     CurrencyRegistrarJoinRequestRejectOutput,
 };
 
-/// Handles `CurrencyRegistrarJoinRequestRejectCommand`.
 pub struct CurrencyRegistrarJoinRequestRejectCommandHandler<JR>
 where
     JR: Repository<CurrencyRegistrarJoinRequest>,

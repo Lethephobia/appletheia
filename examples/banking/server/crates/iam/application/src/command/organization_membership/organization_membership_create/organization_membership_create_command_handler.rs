@@ -18,7 +18,6 @@ use super::{
 };
 use crate::authorization::OrganizationMemberAdderRelation;
 
-/// Handles `OrganizationMembershipCreateCommand`.
 ///
 /// The handler reads `Organization` and `User` only to validate their current
 /// status; the single aggregate it mutates is `OrganizationMembership`.

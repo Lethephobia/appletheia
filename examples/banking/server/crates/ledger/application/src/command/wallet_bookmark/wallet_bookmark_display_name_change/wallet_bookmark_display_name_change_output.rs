@@ -1,8 +1,6 @@
 use appletheia::application::command::{CommandOutput, CommandReplayOutput};
-
 use serde::{Deserialize, Serialize};
 
-/// Returned after changing a wallet bookmark display name.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WalletBookmarkDisplayNameChangeOutput {}
 

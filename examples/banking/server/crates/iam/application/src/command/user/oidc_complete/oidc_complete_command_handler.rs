@@ -22,7 +22,6 @@ use crate::oidc::{OidcCompletionPurpose, OidcContinuationPayload};
 
 use super::{OidcCompleteCommand, OidcCompleteCommandHandlerError, OidcCompleteOutput};
 
-/// Handles `OidcCompleteCommand`.
 pub struct OidcCompleteCommandHandler<OLF, OCS, UR, ATI, ATECI>
 where
     OLF: OidcLoginFlow,

@@ -15,7 +15,6 @@ use super::{
     OrganizationInvitationDeclineOutput,
 };
 
-/// Handles `OrganizationInvitationDeclineCommand`.
 pub struct OrganizationInvitationDeclineCommandHandler<ORG, IR>
 where
     ORG: Repository<Organization>,

@@ -9,7 +9,6 @@ use banking_ledger_domain::account::Account;
 use super::{AccountCloseCommand, AccountCloseCommandHandlerError, AccountCloseOutput};
 use crate::authorization::AccountCloserRelation;
 
-/// Handles `AccountCloseCommand`.
 pub struct AccountCloseCommandHandler<AR>
 where
     AR: Repository<Account>,

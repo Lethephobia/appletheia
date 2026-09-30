@@ -11,7 +11,6 @@ use super::{
 };
 use crate::authorization::AccountNameChangerRelation;
 
-/// Handles `AccountNameChangeCommand`.
 pub struct AccountNameChangeCommandHandler<AR>
 where
     AR: Repository<Account>,
@@ -249,7 +248,7 @@ mod tests {
             .aggregate_id();
         let name = account_name("savings");
 
-        let handled = handler
+        let output = handler
             .handle(
                 &mut uow,
                 &request_context,
@@ -269,6 +268,6 @@ mod tests {
             .expect("account should be saved");
         assert_eq!(saved.name().expect("name should exist"), &name);
 
-        assert_eq!(handled, AccountNameChangeOutput {});
+        assert_eq!(output, AccountNameChangeOutput {});
     }
 }

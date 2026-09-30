@@ -1,9 +1,7 @@
 use appletheia::application::Retryability;
-
 use appletheia::application::object_storage::{ObjectDeleterError, ObjectNameError};
 use thiserror::Error;
 
-/// Represents errors returned while deleting an organization picture object.
 #[derive(Debug, Error)]
 pub enum OrganizationPictureObjectDeleteCommandHandlerError {
     #[error("object name is invalid")]

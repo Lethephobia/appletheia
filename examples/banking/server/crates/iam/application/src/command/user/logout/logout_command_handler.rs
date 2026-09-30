@@ -5,7 +5,6 @@ use appletheia::application::request_context::RequestContext;
 
 use super::{LogoutCommand, LogoutCommandHandlerError, LogoutOutput};
 
-/// Handles `LogoutCommand`.
 pub struct LogoutCommandHandler<ATR>
 where
     ATR: AuthTokenRevoker,
@@ -50,6 +49,6 @@ where
             .revoke_token(uow, command.token_id, command.token_expires_at)
             .await?;
 
-        Ok(LogoutOutput)
+        Ok(LogoutOutput {})
     }
 }

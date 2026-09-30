@@ -6,7 +6,6 @@ use banking_ledger_domain::deposit::Deposit;
 
 use super::{DepositCompleteCommand, DepositCompleteCommandHandlerError, DepositCompleteOutput};
 
-/// Handles `DepositCompleteCommand`.
 pub struct DepositCompleteCommandHandler<DR>
 where
     DR: Repository<Deposit>,

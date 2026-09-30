@@ -1,10 +1,8 @@
 use appletheia::application::Retryability;
-
 use appletheia::application::repository::RepositoryError;
 use banking_iam_domain::{Organization, OrganizationError};
 use thiserror::Error;
 
-/// Represents errors returned while transferring organization ownership.
 #[derive(Debug, Error)]
 pub enum OrganizationOwnershipTransferCommandHandlerError {
     #[error("organization repository failed")]

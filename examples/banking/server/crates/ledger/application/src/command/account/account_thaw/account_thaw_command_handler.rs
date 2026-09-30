@@ -9,7 +9,6 @@ use banking_ledger_domain::account::Account;
 use super::{AccountThawCommand, AccountThawCommandHandlerError, AccountThawOutput};
 use crate::authorization::AccountThawerRelation;
 
-/// Handles `AccountThawCommand`.
 pub struct AccountThawCommandHandler<AR>
 where
     AR: Repository<Account>,

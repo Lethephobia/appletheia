@@ -12,7 +12,6 @@ use super::{
 };
 use crate::authorization::WalletBookmarkRemoverRelation;
 
-/// Handles `WalletBookmarkRemoveCommand`.
 pub struct WalletBookmarkRemoveCommandHandler<WBR>
 where
     WBR: Repository<WalletBookmark>,

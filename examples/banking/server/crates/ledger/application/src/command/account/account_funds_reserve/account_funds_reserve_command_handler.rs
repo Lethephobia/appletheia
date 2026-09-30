@@ -8,7 +8,6 @@ use super::{
     AccountFundsReserveCommand, AccountFundsReserveCommandHandlerError, AccountFundsReserveOutput,
 };
 
-/// Handles `AccountFundsReserveCommand`.
 pub struct AccountFundsReserveCommandHandler<AR>
 where
     AR: Repository<Account>,

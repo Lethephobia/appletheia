@@ -1,12 +1,10 @@
 use appletheia::application::Retryability;
-
 use appletheia::application::repository::RepositoryError;
 use banking_iam_domain::{
     Organization, OrganizationError, OrganizationJoinRequest, OrganizationJoinRequestError,
 };
 use thiserror::Error;
 
-/// Represents errors returned while canceling an organization join request.
 #[derive(Debug, Error)]
 pub enum OrganizationJoinRequestCancelCommandHandlerError {
     #[error("organization repository failed")]

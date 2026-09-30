@@ -11,7 +11,6 @@ use super::{
 };
 use crate::authorization::UserProfileEditorRelation;
 
-/// Handles `UserPictureChangeCommand`.
 pub struct UserPictureChangeCommandHandler<UR>
 where
     UR: Repository<User>,

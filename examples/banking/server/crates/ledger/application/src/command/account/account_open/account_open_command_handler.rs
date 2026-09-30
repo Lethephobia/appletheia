@@ -13,7 +13,6 @@ use banking_ledger_domain::account::{Account, AccountOpening, AccountOwner};
 use banking_ledger_domain::currency::Currency;
 
 use super::{AccountOpenCommand, AccountOpenCommandHandlerError, AccountOpenOutput};
-/// Handles `AccountOpenCommand`.
 pub struct AccountOpenCommandHandler<AR, CR>
 where
     AR: Repository<Account>,

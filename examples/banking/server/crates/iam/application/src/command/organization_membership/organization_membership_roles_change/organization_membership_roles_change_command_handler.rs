@@ -13,7 +13,6 @@ use super::{
 };
 use crate::authorization::OrganizationMembershipRolesChangerRelation;
 
-/// Handles `OrganizationMembershipRolesChangeCommand`.
 pub struct OrganizationMembershipRolesChangeCommandHandler<OR, MR>
 where
     OR: Repository<Organization>,

@@ -1,11 +1,9 @@
 use appletheia::application::Retryability;
-
 use appletheia::application::repository::RepositoryError;
 use appletheia::domain::UniqueValueError;
 use banking_iam_domain::{Organization, OrganizationError};
 use thiserror::Error;
 
-/// Represents errors returned while changing an organization handle.
 #[derive(Debug, Error)]
 pub enum OrganizationHandleChangeCommandHandlerError {
     #[error("organization repository failed")]

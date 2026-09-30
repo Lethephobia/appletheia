@@ -1,8 +1,6 @@
 use appletheia::application::command::{CommandOutput, CommandReplayOutput};
-
 use serde::{Deserialize, Serialize};
 
-/// Returned after a wallet bookmark removal request is applied.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WalletBookmarkRemoveOutput {}
 

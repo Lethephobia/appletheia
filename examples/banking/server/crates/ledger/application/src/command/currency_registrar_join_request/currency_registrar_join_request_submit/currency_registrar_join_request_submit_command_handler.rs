@@ -20,7 +20,6 @@ use super::{
 };
 use crate::authorization::UserOwnerRelation;
 
-/// Handles `CurrencyRegistrarJoinRequestSubmitCommand`.
 pub struct CurrencyRegistrarJoinRequestSubmitCommandHandler<OR, JR, MR>
 where
     OR: Repository<CurrencyRegistrar>,

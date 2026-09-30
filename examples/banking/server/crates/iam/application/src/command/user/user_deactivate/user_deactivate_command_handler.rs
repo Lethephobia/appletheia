@@ -9,7 +9,6 @@ use banking_iam_domain::User;
 use super::{UserDeactivateCommand, UserDeactivateCommandHandlerError, UserDeactivateOutput};
 use crate::authorization::UserDeactivatorRelation;
 
-/// Handles `UserDeactivateCommand`.
 pub struct UserDeactivateCommandHandler<UR>
 where
     UR: Repository<User>,

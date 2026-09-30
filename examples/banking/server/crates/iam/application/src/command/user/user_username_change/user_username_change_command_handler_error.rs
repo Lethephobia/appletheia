@@ -1,11 +1,9 @@
 use appletheia::application::Retryability;
-
 use appletheia::application::repository::RepositoryError;
 use appletheia::domain::UniqueValueError;
 use banking_iam_domain::{User, UserError};
 use thiserror::Error;
 
-/// Represents errors returned while changing a username.
 #[derive(Debug, Error)]
 pub enum UserUsernameChangeCommandHandlerError {
     #[error("user repository failed")]

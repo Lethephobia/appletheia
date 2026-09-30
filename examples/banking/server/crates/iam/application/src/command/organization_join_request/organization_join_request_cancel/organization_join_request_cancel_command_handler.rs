@@ -14,7 +14,6 @@ use super::{
     OrganizationJoinRequestCancelOutput,
 };
 
-/// Handles `OrganizationJoinRequestCancelCommand`.
 pub struct OrganizationJoinRequestCancelCommandHandler<ORG, JR>
 where
     ORG: Repository<Organization>,

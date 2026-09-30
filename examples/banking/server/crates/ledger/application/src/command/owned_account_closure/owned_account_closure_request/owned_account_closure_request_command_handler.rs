@@ -12,7 +12,6 @@ use super::{
     OwnedAccountClosureRequestOutput,
 };
 
-/// Handles `OwnedAccountClosureRequestCommand`.
 pub struct OwnedAccountClosureRequestCommandHandler<OACR>
 where
     OACR: Repository<OwnedAccountClosure>,

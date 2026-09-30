@@ -1,7 +1,6 @@
 use appletheia::application::command::{CommandOutput, CommandReplayOutput};
 use serde::{Deserialize, Serialize};
 
-/// Returned after reserving funds in an account.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AccountFundsReserveOutput {}
 

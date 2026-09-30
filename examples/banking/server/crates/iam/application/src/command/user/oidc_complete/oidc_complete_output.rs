@@ -9,7 +9,6 @@ use crate::oidc::{OidcCompletionPurpose, OidcCompletionRedirectUri, OidcReturnTo
 
 use super::OidcCompleteReplayOutput;
 
-/// Represents the result returned after completing an OIDC flow.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum OidcCompleteOutput {
     Token {

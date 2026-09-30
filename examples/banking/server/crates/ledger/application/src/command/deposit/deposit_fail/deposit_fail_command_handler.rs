@@ -6,7 +6,6 @@ use banking_ledger_domain::deposit::Deposit;
 
 use super::{DepositFailCommand, DepositFailCommandHandlerError, DepositFailOutput};
 
-/// Handles `DepositFailCommand`.
 pub struct DepositFailCommandHandler<DR>
 where
     DR: Repository<Deposit>,

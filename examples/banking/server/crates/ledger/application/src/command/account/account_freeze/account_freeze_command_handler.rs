@@ -9,7 +9,6 @@ use banking_ledger_domain::account::Account;
 use super::{AccountFreezeCommand, AccountFreezeCommandHandlerError, AccountFreezeOutput};
 use crate::authorization::AccountFreezerRelation;
 
-/// Handles `AccountFreezeCommand`.
 pub struct AccountFreezeCommandHandler<AR>
 where
     AR: Repository<Account>,

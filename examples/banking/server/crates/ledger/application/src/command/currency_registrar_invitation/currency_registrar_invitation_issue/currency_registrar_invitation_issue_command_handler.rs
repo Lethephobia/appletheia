@@ -21,7 +21,6 @@ use super::{
     CurrencyRegistrarInvitationIssueOutput,
 };
 
-/// Handles `CurrencyRegistrarInvitationIssueCommand`.
 pub struct CurrencyRegistrarInvitationIssueCommandHandler<ORG, IR, MR>
 where
     ORG: Repository<CurrencyRegistrar>,

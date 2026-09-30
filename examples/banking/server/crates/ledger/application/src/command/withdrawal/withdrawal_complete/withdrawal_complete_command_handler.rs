@@ -8,7 +8,6 @@ use super::{
     WithdrawalCompleteCommand, WithdrawalCompleteCommandHandlerError, WithdrawalCompleteOutput,
 };
 
-/// Handles `WithdrawalCompleteCommand`.
 pub struct WithdrawalCompleteCommandHandler<WR>
 where
     WR: Repository<Withdrawal>,

@@ -12,7 +12,6 @@ use super::{
 };
 use crate::authorization::OrganizationOwnershipTransfererRelation;
 
-/// Handles `OrganizationOwnershipTransferCommand`.
 pub struct OrganizationOwnershipTransferCommandHandler<OR>
 where
     OR: Repository<Organization>,
@@ -245,7 +244,7 @@ mod tests {
         let mut uow = TestUow;
         let owner = OrganizationOwner::User(UserId::new());
 
-        let handled = handler
+        let output = handler
             .handle(
                 &mut uow,
                 &request_context(),
@@ -257,7 +256,7 @@ mod tests {
             .await
             .expect("command should succeed");
 
-        assert_eq!(handled, OrganizationOwnershipTransferOutput {});
+        assert_eq!(output, OrganizationOwnershipTransferOutput {});
         assert_eq!(
             repository
                 .organization

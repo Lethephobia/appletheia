@@ -14,7 +14,6 @@ use super::{
     CurrencyRegistrarJoinRequestCancelOutput,
 };
 
-/// Handles `CurrencyRegistrarJoinRequestCancelCommand`.
 pub struct CurrencyRegistrarJoinRequestCancelCommandHandler<JR>
 where
     JR: Repository<CurrencyRegistrarJoinRequest>,

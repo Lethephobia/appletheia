@@ -13,7 +13,6 @@ use crate::authorization::AccountTransferRequesterRelation;
 
 use super::{TransferRequestCommand, TransferRequestCommandHandlerError, TransferRequestOutput};
 
-/// Handles `TransferRequestCommand`.
 pub struct TransferRequestCommandHandler<AR, TR>
 where
     AR: Repository<Account, Uow = TR::Uow>,

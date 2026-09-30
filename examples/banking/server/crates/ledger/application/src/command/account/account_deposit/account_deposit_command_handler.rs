@@ -6,7 +6,6 @@ use banking_ledger_domain::account::Account;
 
 use super::{AccountDepositCommand, AccountDepositCommandHandlerError, AccountDepositOutput};
 
-/// Handles `AccountDepositCommand`.
 pub struct AccountDepositCommandHandler<AR>
 where
     AR: Repository<Account>,

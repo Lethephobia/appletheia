@@ -9,7 +9,6 @@ use banking_iam_domain::User;
 use super::{UserRemoveCommand, UserRemoveCommandHandlerError, UserRemoveOutput};
 use crate::authorization::UserRemoverRelation;
 
-/// Handles `UserRemoveCommand`.
 pub struct UserRemoveCommandHandler<UR>
 where
     UR: Repository<User>,

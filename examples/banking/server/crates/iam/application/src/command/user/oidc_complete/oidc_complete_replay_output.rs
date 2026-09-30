@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::oidc::{OidcCompletionPurpose, OidcCompletionRedirectUri, OidcReturnTo};
 
-/// Represents the replay-safe result returned after completing an OIDC flow.
+/// OIDC completion metadata retained for replay, excluding tokens and exchange codes.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OidcCompleteReplayOutput {
     pub completion_purpose: OidcCompletionPurpose,

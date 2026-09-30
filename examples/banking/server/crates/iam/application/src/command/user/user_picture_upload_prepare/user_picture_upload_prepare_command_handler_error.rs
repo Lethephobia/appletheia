@@ -1,11 +1,9 @@
 use appletheia::application::Retryability;
-
 use appletheia::application::object_storage::{ObjectNameError, ObjectUploadSignerError};
 use appletheia::application::repository::RepositoryError;
 use banking_iam_domain::{User, UserError, UserPictureObjectNameError};
 use thiserror::Error;
 
-/// Represents errors returned while preparing a user-picture upload.
 #[derive(Debug, Error)]
 pub enum UserPictureUploadPrepareCommandHandlerError {
     #[error("user repository failed")]

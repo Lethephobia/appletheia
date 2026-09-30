@@ -6,7 +6,6 @@ use banking_ledger_domain::transfer::Transfer;
 
 use super::{TransferCompleteCommand, TransferCompleteCommandHandlerError, TransferCompleteOutput};
 
-/// Handles `TransferCompleteCommand`.
 pub struct TransferCompleteCommandHandler<TR>
 where
     TR: Repository<Transfer>,

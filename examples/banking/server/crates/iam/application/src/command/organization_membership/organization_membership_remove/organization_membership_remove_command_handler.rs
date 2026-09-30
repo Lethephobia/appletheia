@@ -12,7 +12,6 @@ use super::{
 };
 use crate::authorization::OrganizationMembershipRemoverRelation;
 
-/// Handles `OrganizationMembershipRemoveCommand`.
 pub struct OrganizationMembershipRemoveCommandHandler<MR>
 where
     MR: Repository<OrganizationMembership>,

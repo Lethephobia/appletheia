@@ -14,7 +14,6 @@ use super::{
 };
 use crate::authorization::UserUsernameChangerRelation;
 
-/// Handles `UserUsernameChangeCommand`.
 pub struct UserUsernameChangeCommandHandler<UR>
 where
     UR: Repository<User>,
@@ -213,7 +212,7 @@ mod tests {
         let handler = UserUsernameChangeCommandHandler::new(repository);
         let mut uow = TestUow;
 
-        let handled = handler
+        let output = handler
             .handle(
                 &mut uow,
                 &request_context(user_id),
@@ -225,9 +224,9 @@ mod tests {
             .await
             .expect("command should succeed");
 
-        assert_eq!(handled, UserUsernameChangeOutput {});
+        assert_eq!(output, UserUsernameChangeOutput {});
         assert_eq!(
-            serde_json::to_value(&handled).expect("output should serialize"),
+            serde_json::to_value(&output).expect("output should serialize"),
             serde_json::json!({})
         );
     }

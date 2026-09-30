@@ -9,7 +9,6 @@ use banking_iam_domain::User;
 use super::{UserActivateCommand, UserActivateCommandHandlerError, UserActivateOutput};
 use crate::authorization::UserActivatorRelation;
 
-/// Handles `UserActivateCommand`.
 pub struct UserActivateCommandHandler<UR>
 where
     UR: Repository<User>,

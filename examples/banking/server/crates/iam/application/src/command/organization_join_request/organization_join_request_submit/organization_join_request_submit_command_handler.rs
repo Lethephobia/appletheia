@@ -19,7 +19,6 @@ use super::{
 };
 use crate::authorization::UserOwnerRelation;
 
-/// Handles `OrganizationJoinRequestSubmitCommand`.
 pub struct OrganizationJoinRequestSubmitCommandHandler<OR, JR, MR>
 where
     OR: Repository<Organization>,

@@ -16,7 +16,6 @@ use super::{
 };
 use crate::authorization::UserProfileEditorRelation;
 
-/// Handles `UserPictureUploadPrepareCommand`.
 pub struct UserPictureUploadPrepareCommandHandler<UR, OUS>
 where
     UR: Repository<User>,
@@ -370,7 +369,7 @@ mod tests {
         );
         let mut uow = TestUow;
 
-        let handled = handler
+        let output = handler
             .handle(
                 &mut uow,
                 &request_context(user_id),
@@ -384,7 +383,6 @@ mod tests {
             .await
             .expect("command should succeed");
 
-        let output = handled;
         let UserPictureUploadPrepareOutput {
             picture,
             signed_upload: output_signed_upload,
@@ -438,7 +436,7 @@ mod tests {
         );
         let mut uow = TestUow;
 
-        let handled = handler
+        let error = handler
             .handle(
                 &mut uow,
                 &request_context(user_id),
@@ -450,10 +448,10 @@ mod tests {
                 },
             )
             .await
-            .expect_err("inactive user should be rejected as an outcome");
+            .expect_err("inactive user should be rejected");
 
         assert!(matches!(
-            handled,
+            error,
             UserPictureUploadPrepareCommandHandlerError::User(UserError::Inactive)
         ));
     }
@@ -477,7 +475,7 @@ mod tests {
         );
         let mut uow = TestUow;
 
-        let handled = handler
+        let error = handler
             .handle(
                 &mut uow,
                 &request_context(user_id),
@@ -489,10 +487,10 @@ mod tests {
                 },
             )
             .await
-            .expect_err("oversized content should be rejected as an outcome");
+            .expect_err("oversized content should be rejected");
 
         assert!(matches!(
-            handled,
+            error,
             UserPictureUploadPrepareCommandHandlerError::ContentLengthTooLarge
         ));
     }
@@ -516,7 +514,7 @@ mod tests {
         );
         let mut uow = TestUow;
 
-        let handled = handler
+        let error = handler
             .handle(
                 &mut uow,
                 &request_context(user_id),
@@ -529,10 +527,10 @@ mod tests {
                 },
             )
             .await
-            .expect_err("disallowed content type should be rejected as an outcome");
+            .expect_err("disallowed content type should be rejected");
 
         assert!(matches!(
-            handled,
+            error,
             UserPictureUploadPrepareCommandHandlerError::ContentTypeNotAllowed
         ));
     }

@@ -1,11 +1,9 @@
 use appletheia::application::Retryability;
-
 use appletheia::application::authentication::oidc::{
     OidcContinuationStoreError, OidcLoginFlowError,
 };
 use thiserror::Error;
 
-/// Represents errors returned while beginning an OIDC flow.
 #[derive(Debug, Error)]
 pub enum OidcBeginCommandHandlerError {
     #[error("oidc completion redirect URI is not allowed")]

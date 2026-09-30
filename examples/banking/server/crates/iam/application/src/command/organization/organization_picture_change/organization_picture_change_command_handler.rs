@@ -12,7 +12,6 @@ use super::{
 };
 use crate::authorization::OrganizationProfileEditorRelation;
 
-/// Handles `OrganizationPictureChangeCommand`.
 pub struct OrganizationPictureChangeCommandHandler<OR>
 where
     OR: Repository<Organization>,

@@ -12,7 +12,6 @@ use super::{
 };
 use crate::authorization::AccountOwnershipTransfererRelation;
 
-/// Handles `AccountOwnershipTransferCommand`.
 pub struct AccountOwnershipTransferCommandHandler<AR>
 where
     AR: Repository<Account>,

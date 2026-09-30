@@ -9,7 +9,6 @@ use super::{
     OwnedAccountClosureFailOutput,
 };
 
-/// Handles `OwnedAccountClosureFailCommand`.
 pub struct OwnedAccountClosureFailCommandHandler<OACR>
 where
     OACR: Repository<OwnedAccountClosure>,

@@ -12,7 +12,6 @@ use super::{
 };
 use crate::authorization::UserProfileEditorRelation;
 
-/// Handles `UserDisplayNameChangeCommand`.
 pub struct UserDisplayNameChangeCommandHandler<UR>
 where
     UR: Repository<User>,

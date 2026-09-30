@@ -1,14 +1,13 @@
 use appletheia::application::command::{CommandOutput, CommandReplayOutput};
-use banking_iam_domain::OrganizationInvitationId;
+use banking_ledger_domain::CurrencyRegistrarInvitationId;
 use serde::{Deserialize, Serialize};
 
-/// The output returned after issuing an organization invitation.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct OrganizationInvitationIssueOutput {
-    pub organization_invitation_id: OrganizationInvitationId,
+pub struct CurrencyRegistrarInvitationIssueOutput {
+    pub currency_registrar_invitation_id: CurrencyRegistrarInvitationId,
 }
 
-impl CommandOutput for OrganizationInvitationIssueOutput {
+impl CommandOutput for CurrencyRegistrarInvitationIssueOutput {
     type ReplayOutput = Self;
 
     fn replay_output(&self) -> CommandReplayOutput<'_, Self::ReplayOutput> {

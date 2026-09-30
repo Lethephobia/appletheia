@@ -12,7 +12,6 @@ use super::{
 };
 use crate::authorization::OrganizationProfileEditorRelation;
 
-/// Handles `OrganizationDescriptionChangeCommand`.
 pub struct OrganizationDescriptionChangeCommandHandler<OR>
 where
     OR: Repository<Organization>,

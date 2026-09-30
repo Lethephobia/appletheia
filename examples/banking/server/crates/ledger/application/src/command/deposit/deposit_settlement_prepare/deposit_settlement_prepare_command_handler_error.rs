@@ -1,5 +1,4 @@
 use appletheia::application::Retryability;
-
 use appletheia::application::repository::RepositoryError;
 use banking_ledger_domain::account::{Account, AccountError};
 use banking_ledger_domain::currency::{Currency, CurrencyError};
@@ -9,7 +8,6 @@ use thiserror::Error;
 
 use crate::settlement::DepositSettlementPreparerError;
 
-/// Represents errors returned while preparing a deposit settlement.
 #[derive(Debug, Error)]
 pub enum DepositSettlementPrepareCommandHandlerError {
     #[error("account repository failed")]

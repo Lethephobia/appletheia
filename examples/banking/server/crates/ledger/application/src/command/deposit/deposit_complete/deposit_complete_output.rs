@@ -1,8 +1,6 @@
 use appletheia::application::command::{CommandOutput, CommandReplayOutput};
-
 use serde::{Deserialize, Serialize};
 
-/// Returned after completing a deposit.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DepositCompleteOutput {}
 

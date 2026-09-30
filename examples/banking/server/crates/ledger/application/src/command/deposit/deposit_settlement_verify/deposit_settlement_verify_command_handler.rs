@@ -15,7 +15,6 @@ use super::{
     DepositSettlementVerifyOutput,
 };
 
-/// Handles `DepositSettlementVerifyCommand`.
 pub struct DepositSettlementVerifyCommandHandler<DR, AR, CR, TBR, TDV>
 where
     DR: Repository<Deposit>,

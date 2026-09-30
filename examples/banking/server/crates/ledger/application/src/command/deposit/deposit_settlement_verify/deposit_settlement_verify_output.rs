@@ -1,7 +1,6 @@
 use appletheia::application::command::{CommandOutput, CommandReplayOutput};
 use serde::{Deserialize, Serialize};
 
-/// Returned after recording a deposit settlement attempt.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DepositSettlementVerifyOutput {}
 

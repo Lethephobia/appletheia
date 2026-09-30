@@ -1,5 +1,4 @@
 use appletheia::application::command::{CommandOutput, CommandReplayOutput};
-
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

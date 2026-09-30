@@ -1,5 +1,4 @@
 use appletheia::application::Retryability;
-
 use appletheia::application::repository::RepositoryError;
 use appletheia::domain::{UniqueValueError, UniqueValuePartError};
 use banking_ledger_domain::{
@@ -8,7 +7,6 @@ use banking_ledger_domain::{
 };
 use thiserror::Error;
 
-/// Represents errors returned while submitting an currency registrar join request.
 #[derive(Debug, Error)]
 pub enum CurrencyRegistrarJoinRequestSubmitCommandHandlerError {
     #[error("currency registrar repository failed")]

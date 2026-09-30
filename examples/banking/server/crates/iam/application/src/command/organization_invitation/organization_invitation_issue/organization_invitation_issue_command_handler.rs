@@ -21,7 +21,6 @@ use super::{
     OrganizationInvitationIssueOutput,
 };
 
-/// Handles `OrganizationInvitationIssueCommand`.
 pub struct OrganizationInvitationIssueCommandHandler<ORG, IR, MR>
 where
     ORG: Repository<Organization>,

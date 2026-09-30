@@ -1,12 +1,10 @@
 use appletheia::application::Retryability;
-
 use appletheia::application::repository::RepositoryError;
 use banking_ledger_domain::account::{Account, AccountError};
 use banking_ledger_domain::token_binding::{TokenBinding, TokenBindingError};
 use banking_ledger_domain::withdrawal::{Withdrawal, WithdrawalError};
 use thiserror::Error;
 
-/// Represents errors returned while requesting a withdrawal.
 #[derive(Debug, Error)]
 pub enum WithdrawalRequestCommandHandlerError {
     #[error("withdrawal repository failed")]

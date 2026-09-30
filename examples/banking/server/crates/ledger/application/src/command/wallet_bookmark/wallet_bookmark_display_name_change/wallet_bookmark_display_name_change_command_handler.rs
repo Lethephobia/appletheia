@@ -12,7 +12,6 @@ use super::{
 };
 use crate::authorization::WalletBookmarkUpdaterRelation;
 
-/// Handles `WalletBookmarkDisplayNameChangeCommand`.
 pub struct WalletBookmarkDisplayNameChangeCommandHandler<WBR>
 where
     WBR: Repository<WalletBookmark>,

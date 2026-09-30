@@ -1,10 +1,8 @@
 use appletheia::application::Retryability;
-
 use appletheia::application::repository::{ReferenceIndexLookupError, RepositoryError};
 use banking_ledger_domain::owned_account_closure::{OwnedAccountClosure, OwnedAccountClosureError};
 use thiserror::Error;
 
-/// Represents errors returned while loading an owned account closure page.
 #[derive(Debug, Error)]
 pub enum OwnedAccountClosurePageLoadCommandHandlerError {
     #[error("owned account closure repository failed")]

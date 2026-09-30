@@ -16,7 +16,6 @@ use super::{
 };
 use crate::authorization::OrganizationProfileEditorRelation;
 
-/// Handles `OrganizationPictureUploadPrepareCommand`.
 pub struct OrganizationPictureUploadPrepareCommandHandler<OR, OUS>
 where
     OR: Repository<Organization>,
@@ -378,7 +377,7 @@ mod tests {
         );
         let mut uow = TestUow;
 
-        let handled = handler
+        let output = handler
             .handle(
                 &mut uow,
                 &request_context(),
@@ -392,7 +391,6 @@ mod tests {
             .await
             .expect("command should succeed");
 
-        let output = handled;
         let OrganizationPictureUploadPrepareOutput {
             picture,
             signed_upload: output_signed_upload,
@@ -446,7 +444,7 @@ mod tests {
         );
         let mut uow = TestUow;
 
-        let handled = handler
+        let error = handler
             .handle(
                 &mut uow,
                 &request_context(),
@@ -458,10 +456,10 @@ mod tests {
                 },
             )
             .await
-            .expect_err("removed organization should be rejected as an outcome");
+            .expect_err("removed organization should be rejected");
 
         assert!(matches!(
-            handled,
+            error,
             OrganizationPictureUploadPrepareCommandHandlerError::Organization(
                 OrganizationError::Removed
             )
@@ -487,7 +485,7 @@ mod tests {
         );
         let mut uow = TestUow;
 
-        let handled = handler
+        let error = handler
             .handle(
                 &mut uow,
                 &request_context(),
@@ -499,10 +497,10 @@ mod tests {
                 },
             )
             .await
-            .expect_err("oversized content should be rejected as an outcome");
+            .expect_err("oversized content should be rejected");
 
         assert!(matches!(
-            handled,
+            error,
             OrganizationPictureUploadPrepareCommandHandlerError::ContentLengthTooLarge
         ));
     }
@@ -526,7 +524,7 @@ mod tests {
         );
         let mut uow = TestUow;
 
-        let handled = handler
+        let error = handler
             .handle(
                 &mut uow,
                 &request_context(),
@@ -539,10 +537,10 @@ mod tests {
                 },
             )
             .await
-            .expect_err("disallowed content type should be rejected as an outcome");
+            .expect_err("disallowed content type should be rejected");
 
         assert!(matches!(
-            handled,
+            error,
             OrganizationPictureUploadPrepareCommandHandlerError::ContentTypeNotAllowed
         ));
     }

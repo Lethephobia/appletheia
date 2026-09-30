@@ -1,5 +1,4 @@
 use appletheia::application::Retryability;
-
 use appletheia::application::repository::RepositoryError;
 use banking_ledger_domain::{
     CurrencyRegistrar, CurrencyRegistrarError, CurrencyRegistrarJoinRequest,
@@ -7,7 +6,6 @@ use banking_ledger_domain::{
 };
 use thiserror::Error;
 
-/// Represents errors returned while rejecting an currency registrar join request.
 #[derive(Debug, Error)]
 pub enum CurrencyRegistrarJoinRequestRejectCommandHandlerError {
     #[error("currency registrar repository failed")]

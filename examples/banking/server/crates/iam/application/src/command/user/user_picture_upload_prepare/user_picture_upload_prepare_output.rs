@@ -3,7 +3,6 @@ use appletheia::application::object_storage::SignedObjectUpload;
 use banking_iam_domain::UserPictureRef;
 use serde::{Deserialize, Serialize};
 
-/// The output returned after preparing a user-picture upload.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct UserPictureUploadPrepareOutput {
     pub picture: UserPictureRef,

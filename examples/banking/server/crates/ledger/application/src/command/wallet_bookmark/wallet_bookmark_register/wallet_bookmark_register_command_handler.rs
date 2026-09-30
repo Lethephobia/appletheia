@@ -18,7 +18,6 @@ use super::{
     WalletBookmarkRegisterOutput,
 };
 
-/// Handles `WalletBookmarkRegisterCommand`.
 pub struct WalletBookmarkRegisterCommandHandler<WBR>
 where
     WBR: Repository<WalletBookmark>,

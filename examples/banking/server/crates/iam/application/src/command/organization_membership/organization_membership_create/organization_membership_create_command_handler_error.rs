@@ -1,5 +1,4 @@
 use appletheia::application::Retryability;
-
 use appletheia::application::repository::RepositoryError;
 use appletheia::domain::{UniqueValueError, UniqueValuePartError};
 use banking_iam_domain::{
@@ -8,7 +7,6 @@ use banking_iam_domain::{
 };
 use thiserror::Error;
 
-/// Represents errors returned while creating an organization membership.
 #[derive(Debug, Error)]
 pub enum OrganizationMembershipCreateCommandHandlerError {
     #[error("organization repository failed")]

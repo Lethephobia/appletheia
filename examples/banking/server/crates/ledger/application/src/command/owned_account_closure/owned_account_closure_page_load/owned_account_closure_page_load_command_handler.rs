@@ -15,7 +15,6 @@ use super::{
     OwnedAccountClosurePageLoadOutput,
 };
 
-/// Handles `OwnedAccountClosurePageLoadCommand`.
 pub struct OwnedAccountClosurePageLoadCommandHandler<OACR, RIL>
 where
     OACR: Repository<OwnedAccountClosure>,

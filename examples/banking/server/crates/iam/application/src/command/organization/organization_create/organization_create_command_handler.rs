@@ -16,7 +16,6 @@ use super::{
 };
 use crate::authorization::UserOwnerRelation;
 
-/// Handles `OrganizationCreateCommand`.
 pub struct OrganizationCreateCommandHandler<OR>
 where
     OR: Repository<Organization>,
@@ -273,7 +272,7 @@ mod tests {
         let mut uow = TestUow;
         let (request_context, user_id) = request_context();
 
-        let handled = handler
+        let output = handler
             .handle(
                 &mut uow,
                 &request_context,
@@ -290,9 +289,12 @@ mod tests {
             .await
             .expect("command should succeed");
 
-        let output = handled;
-        let saved = repository.organization.lock().expect("lock").clone();
-        let saved = saved.expect("organization should be saved");
+        let saved = repository
+            .organization
+            .lock()
+            .expect("lock")
+            .clone()
+            .expect("organization should be saved");
 
         assert_eq!(
             output,

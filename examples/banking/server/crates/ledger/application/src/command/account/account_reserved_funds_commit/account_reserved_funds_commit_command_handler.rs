@@ -9,7 +9,6 @@ use super::{
     AccountReservedFundsCommitOutput,
 };
 
-/// Handles `AccountReservedFundsCommitCommand`.
 pub struct AccountReservedFundsCommitCommandHandler<AR>
 where
     AR: Repository<Account>,

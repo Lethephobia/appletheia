@@ -14,7 +14,6 @@ use super::{
     OrganizationJoinRequestApproveOutput,
 };
 
-/// Handles `OrganizationJoinRequestApproveCommand`.
 pub struct OrganizationJoinRequestApproveCommandHandler<ORG, JR>
 where
     ORG: Repository<Organization>,
