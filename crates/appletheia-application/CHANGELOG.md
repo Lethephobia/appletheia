@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.28.0](https://github.com/Lethephobia/appletheia/compare/appletheia-application-v0.27.0...appletheia-application-v0.28.0) - 2026-10-01
+
+### Added
+
+- *(saga)* [**breaking**] start instances once per start event
+
+### Other
+
+- *(saga)* [**breaking**] streamline owned account closure processing
+- *(read-model)* [**breaking**] remove watch and invalidation infrastructure
+
 ## [0.27.0](https://github.com/Lethephobia/appletheia/compare/appletheia-application-v0.26.0...appletheia-application-v0.27.0) - 2026-09-25
 
 ### Added
