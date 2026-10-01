@@ -7,6 +7,7 @@ use thiserror::Error;
 pub enum CurrencyRegistrarDisplayNameChangeCommandHandlerError {
     #[error("currency registrar repository failed")]
     Repository(#[from] RepositoryError<CurrencyRegistrar>),
+
     #[error("currency registrar aggregate failed")]
     Aggregate(#[from] CurrencyRegistrarError),
 }

@@ -2,7 +2,7 @@ use thiserror::Error;
 
 use crate::cloud_events::CloudEventSourceError;
 use appletheia_application::command::{
-    CommandAttemptCountError, CommandFailureIdError, CommandNameOwnedError,
+    CommandAttemptCountError, CommandFailureIdError, CommandNameOwnedError, SerializedCommandError,
 };
 
 #[derive(Debug, Error)]
@@ -39,6 +39,9 @@ pub enum CloudEventsPubsubCommandFailureCodecError {
 
     #[error(transparent)]
     Uuid(#[from] uuid::Error),
+
+    #[error(transparent)]
+    SerializedCommand(#[from] SerializedCommandError),
 
     #[error(transparent)]
     Json(#[from] serde_json::Error),

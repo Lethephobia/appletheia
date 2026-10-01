@@ -7,6 +7,7 @@ use thiserror::Error;
 pub enum AccountDescriptionChangeCommandHandlerError {
     #[error("account repository failed")]
     Repository(#[from] RepositoryError<Account>),
+
     #[error("account aggregate failed")]
     Aggregate(#[from] AccountError),
 }

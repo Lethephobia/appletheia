@@ -9,6 +9,7 @@ pub enum AuthorizationPlan {
     /// Allows the operation without requiring an authenticated principal.
     #[default]
     None,
+
     /// Requires the caller to satisfy at least one of the listed principal requirements.
     OnlyPrincipals(Vec<PrincipalRequirement>),
 }

@@ -5,6 +5,7 @@ use thiserror::Error;
 pub enum SagaDefinitionError {
     #[error("duplicate event and step route")]
     DuplicateEventRoute,
+
     #[error("duplicate command failure step")]
     DuplicateCommandFailureRoute,
 }

@@ -5,6 +5,7 @@ use thiserror::Error;
 pub enum TokenBindingSettlementValidatorError {
     #[error("token binding is not usable for settlement")]
     Incompatible,
+
     #[error("token binding settlement validation backend failed")]
     Backend(#[source] Box<dyn std::error::Error + Send + Sync>),
 }

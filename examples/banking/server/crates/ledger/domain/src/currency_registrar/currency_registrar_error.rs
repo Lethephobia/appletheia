@@ -8,8 +8,10 @@ use super::{CurrencyRegistrarId, CurrencyRegistrarStateError};
 pub enum CurrencyRegistrarError {
     #[error(transparent)]
     Aggregate(#[from] AggregateError<CurrencyRegistrarId>),
+
     #[error(transparent)]
     State(#[from] CurrencyRegistrarStateError),
+
     #[error("currency registrar is already created")]
     AlreadyCreated,
 

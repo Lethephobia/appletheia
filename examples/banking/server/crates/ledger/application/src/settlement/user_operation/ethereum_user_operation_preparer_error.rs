@@ -5,6 +5,7 @@ use thiserror::Error;
 pub enum EthereumUserOperationPreparerError {
     #[error("EVM transaction and Ethereum UserOperation providers use different chain IDs")]
     InconsistentChainId,
+
     #[error("Ethereum UserOperation backend failed")]
     Backend(#[source] Box<dyn std::error::Error + Send + Sync>),
 }

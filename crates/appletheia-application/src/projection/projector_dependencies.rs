@@ -9,6 +9,7 @@ use super::ProjectorDescriptor;
 pub enum ProjectorDependencies<'a> {
     /// Indicates that no projector dependency is required.
     None,
+
     /// Indicates that the listed projectors must be available and up to date.
     Some(&'a [ProjectorDescriptor]),
 }

@@ -1,19 +1,19 @@
+mod owned_account_closure_count;
+mod owned_account_closure_count_error;
 mod owned_account_closure_error;
 mod owned_account_closure_event_payload;
 mod owned_account_closure_event_payload_error;
-mod owned_account_closure_failure_reason;
 mod owned_account_closure_id;
-mod owned_account_closure_request;
 mod owned_account_closure_state;
 mod owned_account_closure_state_error;
 mod owned_account_closure_status;
 
+pub use owned_account_closure_count::OwnedAccountClosureCount;
+pub use owned_account_closure_count_error::OwnedAccountClosureCountError;
 pub use owned_account_closure_error::OwnedAccountClosureError;
 pub use owned_account_closure_event_payload::OwnedAccountClosureEventPayload;
 pub use owned_account_closure_event_payload_error::OwnedAccountClosureEventPayloadError;
-pub use owned_account_closure_failure_reason::OwnedAccountClosureFailureReason;
 pub use owned_account_closure_id::OwnedAccountClosureId;
-pub use owned_account_closure_request::OwnedAccountClosureRequest;
 pub use owned_account_closure_state::OwnedAccountClosureState;
 pub use owned_account_closure_state_error::OwnedAccountClosureStateError;
 pub use owned_account_closure_status::OwnedAccountClosureStatus;
@@ -23,7 +23,7 @@ use appletheia::domain::{Aggregate, AggregateApply, AggregateCore};
 
 use crate::account::{AccountId, AccountOwner};
 
-/// Represents the `OwnedAccountClosure` process aggregate.
+/// Tracks scan and outcomes for all accounts owned by a removed owner.
 #[aggregate(type = "owned_account_closure", error = OwnedAccountClosureError)]
 pub struct OwnedAccountClosure {
     core: AggregateCore<
@@ -34,126 +34,106 @@ pub struct OwnedAccountClosure {
 }
 
 impl OwnedAccountClosure {
-    /// Returns the owner whose accounts are being closed.
     pub fn owner(&self) -> Result<AccountOwner, OwnedAccountClosureError> {
         Ok(self.state_required()?.owner)
     }
 
-    /// Returns the current closure status.
     pub fn status(&self) -> Result<OwnedAccountClosureStatus, OwnedAccountClosureError> {
         Ok(self.state_required()?.status)
     }
 
-    /// Starts a workflow that closes every account owned by the owner.
-    pub fn request(
-        &mut self,
-        request: OwnedAccountClosureRequest,
-    ) -> Result<(), OwnedAccountClosureError> {
+    pub fn next_cursor(&self) -> Result<Option<AccountId>, OwnedAccountClosureError> {
+        Ok(self.state_required()?.next_cursor)
+    }
+
+    pub fn is_scan_completed(&self) -> Result<bool, OwnedAccountClosureError> {
+        Ok(self.state_required()?.scan_completed)
+    }
+
+    pub fn is_ready_to_complete(&self) -> Result<bool, OwnedAccountClosureError> {
+        let state = self.state_required()?;
+        Ok(state.status == OwnedAccountClosureStatus::InProgress
+            && state.scan_completed
+            && state.requested_count == state.succeeded_count.try_add(state.failed_count)?)
+    }
+
+    pub fn start(&mut self, owner: AccountOwner) -> Result<(), OwnedAccountClosureError> {
         if self.state().is_some() {
-            return Err(OwnedAccountClosureError::AlreadyRequested);
+            return Err(OwnedAccountClosureError::AlreadyStarted);
         }
-
-        let owner = request.into_owner();
-        self.append_event(OwnedAccountClosureEventPayload::Requested { owner })?;
-
+        self.append_event(OwnedAccountClosureEventPayload::Started { owner })?;
         Ok(())
     }
 
-    /// Records one page of accounts owned by the workflow owner.
-    pub fn load_page(
+    pub fn request(&mut self, account_id: AccountId) -> Result<(), OwnedAccountClosureError> {
+        let state = self.state_required()?;
+        if state.status == OwnedAccountClosureStatus::Completed {
+            return Err(OwnedAccountClosureError::AlreadyCompleted);
+        }
+        if state.scan_completed {
+            return Err(OwnedAccountClosureError::ScanAlreadyCompleted);
+        }
+        state.requested_count.try_increment()?;
+        self.append_event(OwnedAccountClosureEventPayload::Requested { account_id })?;
+        Ok(())
+    }
+
+    pub fn record_scanned(
         &mut self,
-        account_ids: Vec<AccountId>,
         next_cursor: Option<AccountId>,
     ) -> Result<(), OwnedAccountClosureError> {
-        if self.state_required()?.status.is_terminal() {
-            return Err(OwnedAccountClosureError::AlreadyFinished);
+        let state = self.state_required()?;
+        if state.status == OwnedAccountClosureStatus::Completed {
+            return Err(OwnedAccountClosureError::AlreadyCompleted);
         }
-
-        self.append_event(OwnedAccountClosureEventPayload::PageLoaded {
-            account_ids,
-            next_cursor,
-        })?;
+        if state.scan_completed {
+            return Err(OwnedAccountClosureError::ScanAlreadyCompleted);
+        }
+        if next_cursor.is_some_and(|next| state.next_cursor.is_some_and(|cursor| next <= cursor)) {
+            return Err(OwnedAccountClosureError::UnexpectedCursor);
+        }
+        self.append_event(OwnedAccountClosureEventPayload::Scanned { next_cursor })?;
         Ok(())
     }
 
-    /// Records a successful account close result.
-    pub fn record_account_close(
+    pub fn record_succeeded(
         &mut self,
         account_id: AccountId,
     ) -> Result<(), OwnedAccountClosureError> {
         let state = self.state_required()?;
-        if state.status.is_terminal() {
-            return Err(OwnedAccountClosureError::AlreadyFinished);
+        if state.status == OwnedAccountClosureStatus::Completed {
+            return Err(OwnedAccountClosureError::AlreadyCompleted);
         }
-
-        self.append_event(OwnedAccountClosureEventPayload::AccountCloseRecorded { account_id })?;
+        if state.succeeded_count.try_add(state.failed_count)? >= state.requested_count {
+            return Err(OwnedAccountClosureError::NoPendingResults);
+        }
+        self.append_event(OwnedAccountClosureEventPayload::Succeeded { account_id })?;
         Ok(())
     }
 
-    /// Records a rejected account close result.
-    pub fn record_account_close_rejection(
-        &mut self,
-        account_id: AccountId,
-    ) -> Result<(), OwnedAccountClosureError> {
+    pub fn record_failed(&mut self, account_id: AccountId) -> Result<(), OwnedAccountClosureError> {
         let state = self.state_required()?;
-        if state.status.is_terminal() {
-            return Err(OwnedAccountClosureError::AlreadyFinished);
+        if state.status == OwnedAccountClosureStatus::Completed {
+            return Err(OwnedAccountClosureError::AlreadyCompleted);
         }
-
-        self.append_event(
-            OwnedAccountClosureEventPayload::AccountCloseRejectionRecorded { account_id },
-        )?;
+        if state.succeeded_count.try_add(state.failed_count)? >= state.requested_count {
+            return Err(OwnedAccountClosureError::NoPendingResults);
+        }
+        self.append_event(OwnedAccountClosureEventPayload::Failed { account_id })?;
         Ok(())
     }
 
-    /// Marks the workflow completed.
     pub fn complete(&mut self) -> Result<(), OwnedAccountClosureError> {
-        let state = self.state_required()?;
-        match state.status {
-            OwnedAccountClosureStatus::Requested => {
-                return Err(OwnedAccountClosureError::NotInProgress);
-            }
-            OwnedAccountClosureStatus::InProgress => {}
-            OwnedAccountClosureStatus::Completed => {
-                return Err(OwnedAccountClosureError::AlreadyCompleted);
-            }
-            OwnedAccountClosureStatus::Failed => {
-                return Err(OwnedAccountClosureError::AlreadyFailed);
-            }
+        if self.state_required()?.status == OwnedAccountClosureStatus::Completed {
+            return Err(OwnedAccountClosureError::AlreadyCompleted);
         }
-
-        let state = self.state_required()?;
-        if state.rejected_account_count() > 0 {
-            return Err(OwnedAccountClosureError::AccountClosureFailed);
+        if !self.is_ready_to_complete()? {
+            return Err(OwnedAccountClosureError::NotReadyToComplete);
         }
-
-        let closed_account_count = state.closed_account_count();
+        let state = self.state_required()?;
         self.append_event(OwnedAccountClosureEventPayload::Completed {
-            closed_account_count,
-        })?;
-        Ok(())
-    }
-
-    /// Marks the workflow failed after all account close attempts were recorded.
-    pub fn fail(
-        &mut self,
-        reason: OwnedAccountClosureFailureReason,
-    ) -> Result<(), OwnedAccountClosureError> {
-        match self.state_required()?.status {
-            OwnedAccountClosureStatus::Requested | OwnedAccountClosureStatus::InProgress => {}
-            OwnedAccountClosureStatus::Completed => {
-                return Err(OwnedAccountClosureError::AlreadyCompleted);
-            }
-            OwnedAccountClosureStatus::Failed => {
-                return Err(OwnedAccountClosureError::AlreadyFailed);
-            }
-        }
-
-        let state = self.state_required()?;
-        self.append_event(OwnedAccountClosureEventPayload::Failed {
-            closed_account_count: state.closed_account_count(),
-            rejected_account_count: state.rejected_account_count(),
-            reason,
+            succeeded_count: state.succeeded_count,
+            failed_count: state.failed_count,
         })?;
         Ok(())
     }
@@ -167,107 +147,226 @@ impl AggregateApply<OwnedAccountClosureEventPayload, OwnedAccountClosureError>
         payload: &OwnedAccountClosureEventPayload,
     ) -> Result<(), OwnedAccountClosureError> {
         match payload {
-            OwnedAccountClosureEventPayload::Requested { owner } => {
+            OwnedAccountClosureEventPayload::Started { owner } => {
                 self.set_state(Some(OwnedAccountClosureState {
                     owner: *owner,
-                    closed_account_count: 0,
-                    rejected_account_count: 0,
-                    status: OwnedAccountClosureStatus::Requested,
+                    requested_count: OwnedAccountClosureCount::default(),
+                    succeeded_count: OwnedAccountClosureCount::default(),
+                    failed_count: OwnedAccountClosureCount::default(),
+                    next_cursor: None,
+                    scan_completed: false,
+                    status: OwnedAccountClosureStatus::InProgress,
                 }));
             }
-            OwnedAccountClosureEventPayload::PageLoaded { .. } => {
-                self.state_required_mut()?.status = OwnedAccountClosureStatus::InProgress;
-            }
-            OwnedAccountClosureEventPayload::AccountCloseRecorded { .. } => {
+            OwnedAccountClosureEventPayload::Requested { .. } => {
                 let state = self.state_required_mut()?;
-                state.closed_account_count = state.closed_account_count.saturating_add(1);
+                state.requested_count = state.requested_count.try_increment()?;
             }
-            OwnedAccountClosureEventPayload::AccountCloseRejectionRecorded { .. } => {
+            OwnedAccountClosureEventPayload::Scanned { next_cursor } => {
                 let state = self.state_required_mut()?;
-                state.rejected_account_count = state.rejected_account_count.saturating_add(1);
+                state.next_cursor = *next_cursor;
+                state.scan_completed = next_cursor.is_none();
+            }
+            OwnedAccountClosureEventPayload::Succeeded { .. } => {
+                let state = self.state_required_mut()?;
+                state.succeeded_count = state.succeeded_count.try_increment()?;
+            }
+            OwnedAccountClosureEventPayload::Failed { .. } => {
+                let state = self.state_required_mut()?;
+                state.failed_count = state.failed_count.try_increment()?;
             }
             OwnedAccountClosureEventPayload::Completed { .. } => {
                 self.state_required_mut()?.status = OwnedAccountClosureStatus::Completed;
             }
-            OwnedAccountClosureEventPayload::Failed { .. } => {
-                self.state_required_mut()?.status = OwnedAccountClosureStatus::Failed;
-            }
         }
-
         Ok(())
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use appletheia::domain::{Aggregate, EventPayload};
+    use super::*;
     use banking_iam_domain::UserId;
 
-    use crate::account::{AccountId, AccountOwner};
+    fn started() -> OwnedAccountClosure {
+        let mut closure = OwnedAccountClosure::new();
+        closure.start(AccountOwner::User(UserId::new())).unwrap();
+        closure
+    }
 
-    use super::{
-        OwnedAccountClosure, OwnedAccountClosureEventPayload, OwnedAccountClosureRequest,
-        OwnedAccountClosureStatus,
-    };
-
-    fn user_owner() -> AccountOwner {
-        AccountOwner::User(UserId::new())
+    fn account_ids() -> [AccountId; 2] {
+        let mut ids = [AccountId::new(), AccountId::new()];
+        ids.sort();
+        ids
     }
 
     #[test]
-    fn complete_rejects_before_any_page_is_loaded() {
-        let mut closure = OwnedAccountClosure::new();
-        closure
-            .request(OwnedAccountClosureRequest {
-                owner: user_owner(),
-            })
-            .expect("request should succeed");
+    fn each_operation_emits_only_its_own_event() {
+        let mut closure = started();
+        let [first, second] = account_ids();
+        closure.request(first).unwrap();
+        closure.record_scanned(Some(first)).unwrap();
+        closure.request(second).unwrap();
+        closure.record_scanned(None).unwrap();
+        closure.record_succeeded(first).unwrap();
+        closure.record_failed(second).unwrap();
+        assert_eq!(closure.uncommitted_events().len(), 7);
+        assert!(closure.is_ready_to_complete().unwrap());
+        assert_eq!(
+            closure.status().unwrap(),
+            OwnedAccountClosureStatus::InProgress
+        );
+        closure.complete().unwrap();
+        assert_eq!(closure.uncommitted_events().len(), 8);
+        let payloads: Vec<_> = closure
+            .uncommitted_events()
+            .iter()
+            .map(|event| event.payload())
+            .collect();
+        assert!(matches!(
+            payloads.as_slice(),
+            [
+                OwnedAccountClosureEventPayload::Started { .. },
+                OwnedAccountClosureEventPayload::Requested { .. },
+                OwnedAccountClosureEventPayload::Scanned { .. },
+                OwnedAccountClosureEventPayload::Requested { .. },
+                OwnedAccountClosureEventPayload::Scanned { next_cursor: None },
+                OwnedAccountClosureEventPayload::Succeeded { .. },
+                OwnedAccountClosureEventPayload::Failed { .. },
+                OwnedAccountClosureEventPayload::Completed {
+                    succeeded_count,
+                    failed_count
+                },
+            ] if succeeded_count.value() == 1 && failed_count.value() == 1
+        ));
+    }
 
-        closure.complete().expect_err("complete should fail");
+    #[test]
+    fn empty_scan_requires_explicit_completion() {
+        let mut closure = started();
+        assert!(!closure.is_ready_to_complete().unwrap());
+        assert!(closure.complete().is_err());
+        closure.record_scanned(None).unwrap();
+        assert_eq!(closure.uncommitted_events().len(), 2);
+        assert!(closure.is_ready_to_complete().unwrap());
+        closure.complete().unwrap();
+        assert_eq!(
+            closure.status().unwrap(),
+            OwnedAccountClosureStatus::Completed
+        );
+        assert!(!closure.is_ready_to_complete().unwrap());
+        assert!(closure.complete().is_err());
+        assert_eq!(closure.uncommitted_events().len(), 3);
+    }
+
+    #[test]
+    fn readiness_requires_both_scan_completion_and_all_results() {
+        for scan_finishes_first in [false, true] {
+            let mut closure = started();
+            let account_id = AccountId::new();
+            closure.request(account_id).unwrap();
+            if scan_finishes_first {
+                closure.record_scanned(None).unwrap();
+            } else {
+                closure.record_succeeded(account_id).unwrap();
+            }
+            assert!(!closure.is_ready_to_complete().unwrap());
+            let count = closure.uncommitted_events().len();
+            assert!(matches!(
+                closure.complete(),
+                Err(OwnedAccountClosureError::NotReadyToComplete)
+            ));
+            assert_eq!(closure.uncommitted_events().len(), count);
+            if scan_finishes_first {
+                closure.record_succeeded(account_id).unwrap();
+            } else {
+                closure.record_scanned(None).unwrap();
+            }
+            assert!(closure.is_ready_to_complete().unwrap());
+        }
+    }
+
+    #[test]
+    fn result_count_cannot_exceed_requested_count() {
+        let mut closure = started();
+        let account_id = AccountId::new();
+        assert!(matches!(
+            closure.record_succeeded(account_id),
+            Err(OwnedAccountClosureError::NoPendingResults)
+        ));
+        assert!(matches!(
+            closure.record_failed(account_id),
+            Err(OwnedAccountClosureError::NoPendingResults)
+        ));
+        closure.request(account_id).unwrap();
+        closure.record_succeeded(account_id).unwrap();
+        let count = closure.uncommitted_events().len();
+        assert!(matches!(
+            closure.record_failed(account_id),
+            Err(OwnedAccountClosureError::NoPendingResults)
+        ));
+        assert!(matches!(
+            closure.record_succeeded(account_id),
+            Err(OwnedAccountClosureError::NoPendingResults)
+        ));
+        assert_eq!(closure.uncommitted_events().len(), count);
+    }
+
+    #[test]
+    fn scan_cursor_advances_without_retaining_requested_account_ids() {
+        let mut closure = started();
+        let [first, second] = account_ids();
+        closure.request(first).unwrap();
+        closure.record_scanned(Some(first)).unwrap();
+        assert!(closure.record_scanned(Some(first)).is_err());
+        closure.request(second).unwrap();
+        closure.record_scanned(Some(second)).unwrap();
+        assert_eq!(closure.next_cursor().unwrap(), Some(second));
+        closure.record_scanned(None).unwrap();
+        assert!(closure.request(AccountId::new()).is_err());
+        assert!(closure.record_scanned(None).is_err());
+        let state = serde_json::to_value(closure.state_required().unwrap()).unwrap();
+        assert_eq!(state["requested_count"], 2);
+        assert!(state.get("pending_account_ids").is_none());
+        assert!(state.get("last_requested_account_id").is_none());
+    }
+
+    #[test]
+    fn request_overflow_is_rejected_before_appending_an_event() {
+        let mut closure = started();
+        closure.state_required_mut().unwrap().requested_count =
+            OwnedAccountClosureCount::new(u32::MAX);
+        assert!(matches!(
+            closure.request(AccountId::new()),
+            Err(OwnedAccountClosureError::Count(
+                OwnedAccountClosureCountError::Overflow
+            ))
+        ));
         assert_eq!(closure.uncommitted_events().len(), 1);
     }
 
     #[test]
-    fn complete_succeeds_after_an_empty_page_is_loaded() {
-        let mut closure = OwnedAccountClosure::new();
-        closure
-            .request(OwnedAccountClosureRequest {
-                owner: user_owner(),
-            })
-            .expect("request should succeed");
-        closure
-            .load_page(Vec::new(), None)
-            .expect("page load should succeed");
-
-        closure.complete().expect("complete should succeed");
-
-        assert_eq!(
-            closure.status().expect("closure state should exist"),
-            OwnedAccountClosureStatus::Completed
-        );
-        assert_eq!(
-            closure.uncommitted_events()[2].payload().name(),
-            OwnedAccountClosureEventPayload::COMPLETED
-        );
-    }
-
-    #[test]
-    fn complete_rejects_when_any_account_close_was_rejected() {
-        let account_id = AccountId::new();
-        let mut closure = OwnedAccountClosure::new();
-        closure
-            .request(OwnedAccountClosureRequest {
-                owner: user_owner(),
-            })
-            .expect("request should succeed");
-        closure
-            .load_page(vec![account_id], None)
-            .expect("page load should succeed");
-        closure
-            .record_account_close_rejection(account_id)
-            .expect("close rejection record should succeed");
-
-        closure.complete().expect_err("complete should fail");
-        assert_eq!(closure.uncommitted_events().len(), 3);
+    fn replay_preserves_counts_without_emitting_completion() {
+        let mut closure = started();
+        let [first, second] = account_ids();
+        closure.request(first).unwrap();
+        closure.request(second).unwrap();
+        closure.record_scanned(None).unwrap();
+        closure.record_failed(first).unwrap();
+        let mut replayed = OwnedAccountClosure::new();
+        for event in closure.uncommitted_events() {
+            replayed.apply(event.payload()).unwrap();
+        }
+        assert!(replayed.uncommitted_events().is_empty());
+        replayed.record_succeeded(second).unwrap();
+        assert_eq!(replayed.uncommitted_events().len(), 1);
+        assert!(replayed.is_ready_to_complete().unwrap());
+        replayed.complete().unwrap();
+        assert!(matches!(
+            replayed.uncommitted_events().last().unwrap().payload(),
+            OwnedAccountClosureEventPayload::Completed {
+                succeeded_count, failed_count
+            } if succeeded_count.value() == 1 && failed_count.value() == 1
+        ));
     }
 }

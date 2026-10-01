@@ -7,6 +7,7 @@ use super::CurrencyFragmentWriterError;
 pub enum CurrencyFragmentProjectorError {
     #[error(transparent)]
     EventEnvelope(#[from] EventEnvelopeError),
+
     #[error(transparent)]
     Writer(#[from] CurrencyFragmentWriterError),
 }

@@ -38,6 +38,7 @@ mod tests {
         .unwrap();
         let failure: CommandFailureEnvelope = serde_json::from_value(json!({
             "failure_id": Uuid::now_v7(), "command_message_id": id, "command_name": "debit",
+            "command": {"amount": 10},
             "origin": origin, "terminal_reason": "non_retryable", "attempt_count": 1,
             "correlation_id": id, "causation_id": id, "failed_at": "2026-09-23T12:00:00Z"
         }))

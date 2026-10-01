@@ -13,10 +13,13 @@ pub enum RelationshipRequirement {
         /// The relation the principal must satisfy on the aggregate.
         relation: RelationRefOwned,
     },
+
     /// Requires all contained relationship requirements to be satisfied.
     All(Vec<RelationshipRequirement>),
+
     /// Requires at least one contained relationship requirement to be satisfied.
     Any(Vec<RelationshipRequirement>),
+
     /// Requires the contained relationship requirement to be unsatisfied.
     Not(Box<RelationshipRequirement>),
 }

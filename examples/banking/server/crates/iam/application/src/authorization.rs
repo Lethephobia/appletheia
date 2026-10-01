@@ -196,6 +196,7 @@ mod tests {
             enum InvalidMemberDerivationHandlerError {
                 #[error(transparent)]
                 SerializedAggregate(#[from] SerializedAggregateError),
+
                 #[error(transparent)]
                 OrganizationMembership(#[from] OrganizationMembershipError),
             }
@@ -281,6 +282,7 @@ mod tests {
         enum ConfiguredMemberDerivationHandlerError {
             #[error(transparent)]
             SerializedAggregate(#[from] SerializedAggregateError),
+
             #[error(transparent)]
             OrganizationMembership(#[from] OrganizationMembershipError),
         }

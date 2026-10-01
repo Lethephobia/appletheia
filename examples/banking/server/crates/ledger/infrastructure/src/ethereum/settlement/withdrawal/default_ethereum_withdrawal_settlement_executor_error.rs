@@ -6,6 +6,7 @@ use thiserror::Error;
 pub enum DefaultEthereumWithdrawalSettlementExecutorError {
     #[error("Ethereum settlement contract call failed")]
     Contract(#[source] ContractError),
+
     #[error("Ethereum withdrawal transaction failed")]
     PendingTransaction(#[source] PendingTransactionError),
 }

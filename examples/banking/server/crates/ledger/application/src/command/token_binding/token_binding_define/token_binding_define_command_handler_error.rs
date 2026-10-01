@@ -11,14 +11,19 @@ use crate::settlement::TokenBindingSettlementValidatorError;
 pub enum TokenBindingDefineCommandHandlerError {
     #[error("currency repository failed")]
     CurrencyRepository(#[from] RepositoryError<Currency>),
+
     #[error("currency aggregate failed")]
     Currency(#[from] CurrencyError),
+
     #[error("token binding repository failed")]
     TokenBindingRepository(#[from] RepositoryError<TokenBinding>),
+
     #[error("token binding aggregate failed")]
     TokenBinding(#[from] TokenBindingError),
+
     #[error("token binding unique value is invalid")]
     UniqueValue(#[from] UniqueValueError),
+
     #[error("token binding settlement validation failed")]
     SettlementValidation(#[from] TokenBindingSettlementValidatorError),
 }

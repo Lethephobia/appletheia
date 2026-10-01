@@ -6,6 +6,7 @@ use serde::Serialize;
 pub enum CommandReplayOutput<'a, R> {
     /// Borrows an immediate output that is itself safe to persist.
     Borrowed(&'a R),
+
     /// Owns a distinct replay-safe representation of an immediate output.
     Owned(R),
 }

@@ -6,10 +6,13 @@ pub enum Principal {
     /// Indicates that principal information is not available in the current context.
     #[default]
     Unavailable,
+
     /// Represents an unauthenticated caller.
     Anonymous,
+
     /// Represents the framework or runtime itself.
     System,
+
     /// Represents an authenticated aggregate subject.
     Authenticated { subject: AggregateRef },
 }

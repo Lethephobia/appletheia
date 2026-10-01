@@ -9,8 +9,10 @@ use serde::{Deserialize, Serialize};
 pub enum ActorRef {
     /// Represents an unauthenticated external actor.
     Anonymous,
+
     /// Represents the framework or runtime itself.
     System,
+
     /// Represents a concrete aggregate subject acting on the request.
     Subject { subject: AggregateRef },
 }

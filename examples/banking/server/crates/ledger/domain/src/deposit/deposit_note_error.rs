@@ -4,6 +4,7 @@ use thiserror::Error;
 pub enum DepositNoteError {
     #[error("deposit note cannot be empty")]
     Empty,
+
     #[error("deposit note is too long")]
     TooLong,
 }

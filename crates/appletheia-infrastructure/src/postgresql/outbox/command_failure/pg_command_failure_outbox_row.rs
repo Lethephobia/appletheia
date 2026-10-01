@@ -1,3 +1,4 @@
+use appletheia_application::command::SerializedCommand;
 use std::str::FromStr;
 
 use appletheia_application::command::{
@@ -30,6 +31,7 @@ pub struct PgCommandFailureOutboxRow {
     pub failure_id: Uuid,
     pub command_message_id: Uuid,
     pub command_name: String,
+    pub command: serde_json::Value,
     pub saga_name: String,
     pub saga_instance_id: Uuid,
     pub saga_step: serde_json::Value,
@@ -67,6 +69,7 @@ impl PgCommandFailureOutboxRow {
             failure_id,
             command_message_id: MessageId::from(self.command_message_id),
             command_name,
+            command: SerializedCommand::new(self.command)?,
             origin: SagaCommandOrigin {
                 saga_name,
                 saga_instance_id,

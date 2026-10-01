@@ -4,6 +4,7 @@ use anchor_lang::prelude::*;
 pub enum DepositSettleInstructionError {
     #[msg("operator is not authorized")]
     UnauthorizedOperator,
+
     #[msg("deposit settlement receipt conflicts with this deposit")]
     DepositSettlementReceiptConflict,
 }

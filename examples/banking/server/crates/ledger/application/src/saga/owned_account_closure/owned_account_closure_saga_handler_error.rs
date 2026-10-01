@@ -1,3 +1,4 @@
+use appletheia::application::command::CommandFailureEnvelopeError;
 use appletheia::application::event::EventEnvelopeError;
 use appletheia::application::saga::SagaContextError;
 use thiserror::Error;
@@ -11,6 +12,6 @@ pub enum OwnedAccountClosureSagaHandlerError {
     #[error(transparent)]
     Context(#[from] SagaContextError),
 
-    #[error("owned account closure saga state is missing closure id")]
-    MissingOwnedAccountClosureId,
+    #[error(transparent)]
+    CommandFailureEnvelope(#[from] CommandFailureEnvelopeError),
 }

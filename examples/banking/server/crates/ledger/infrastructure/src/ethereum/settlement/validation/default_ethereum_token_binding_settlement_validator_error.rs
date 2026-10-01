@@ -6,6 +6,7 @@ use thiserror::Error;
 pub enum DefaultEthereumTokenBindingSettlementValidatorError {
     #[error("Ethereum RPC failed")]
     Rpc(#[source] TransportError),
+
     #[error("Ethereum token contract call failed")]
     Contract(#[source] ContractError),
 }

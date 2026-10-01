@@ -26,6 +26,41 @@ pub struct ExampleValue;
 pub struct AnotherValue;
 ```
 
+### DO separate enum variants with a blank line when variants or their fields have attributes
+
+If any variant or variant field has an attribute, separate every pair of variants in that enum
+with one blank line. This applies to attributes such as `#[error]`, `#[from]`, `#[source]`,
+`#[serde]`, and `#[cfg]`, as well as variant doc comments. Keep each attribute and doc comment
+attached to its variant or field without an intervening blank line.
+
+Attributes on the enum itself, such as `#[derive]` or container-level `#[serde]`, do not trigger
+this rule. Simple variants without their own attributes or documentation may remain consecutive.
+
+**Good**
+
+```rust
+#[derive(Debug, thiserror::Error)]
+pub enum DecodeError {
+    #[error(transparent)]
+    Json(#[from] serde_json::Error),
+
+    #[error("unsupported version")]
+    UnsupportedVersion,
+}
+```
+
+**Bad**
+
+```rust
+#[derive(Debug, thiserror::Error)]
+pub enum DecodeError {
+    #[error(transparent)]
+    Json(#[from] serde_json::Error),
+    #[error("unsupported version")]
+    UnsupportedVersion,
+}
+```
+
 ### DON'T use `crate::...` or `super::...` directly inside expressions
 
 Import items with `use` and refer to them by name in expressions.

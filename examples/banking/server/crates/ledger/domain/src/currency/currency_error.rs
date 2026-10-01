@@ -8,8 +8,10 @@ use super::{CurrencyId, CurrencyStateError};
 pub enum CurrencyError {
     #[error(transparent)]
     Aggregate(#[from] AggregateError<CurrencyId>),
+
     #[error(transparent)]
     State(#[from] CurrencyStateError),
+
     #[error("currency is already defined")]
     AlreadyDefined,
 

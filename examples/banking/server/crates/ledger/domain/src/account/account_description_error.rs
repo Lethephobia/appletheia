@@ -4,6 +4,7 @@ use thiserror::Error;
 pub enum AccountDescriptionError {
     #[error("account description cannot be empty")]
     Empty,
+
     #[error("account description is too long")]
     TooLong,
 }

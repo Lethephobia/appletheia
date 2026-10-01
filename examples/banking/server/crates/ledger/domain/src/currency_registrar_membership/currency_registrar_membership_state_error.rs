@@ -8,10 +8,13 @@ use thiserror::Error;
 pub enum CurrencyRegistrarMembershipStateError {
     #[error(transparent)]
     AggregateState(#[from] AggregateStateError),
+
     #[error(transparent)]
     ReferenceValues(#[from] ReferenceValuesError),
+
     #[error(transparent)]
     UniqueValue(#[from] UniqueValueError),
+
     #[error(transparent)]
     UniqueValues(#[from] UniqueValuesError),
 }

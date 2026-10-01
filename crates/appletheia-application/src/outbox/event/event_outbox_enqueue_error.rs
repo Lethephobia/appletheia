@@ -7,6 +7,7 @@ use thiserror::Error;
 pub enum EventOutboxEnqueueError {
     #[error("not in transaction")]
     NotInTransaction,
+
     #[error("persistence error")]
     Persistence(#[source] Box<dyn Error + Send + Sync>),
 }

@@ -5,6 +5,7 @@ use thiserror::Error;
 pub enum PageSizeError {
     #[error("page size must be greater than zero")]
     Zero,
+
     #[error("page size must be less than or equal to {max}, but was {actual}")]
     TooLarge { max: u32, actual: u32 },
 }

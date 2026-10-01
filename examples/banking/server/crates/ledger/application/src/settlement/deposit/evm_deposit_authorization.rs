@@ -7,6 +7,7 @@ use super::{Erc2612Permit, Erc3009ReceiveAuthorization};
 pub enum EvmDepositAuthorization {
     /// Sets an allowance with an ERC-2612 permit before settlement.
     Erc2612(Erc2612Permit),
+
     /// Transfers once with an ERC-3009 receive authorization.
     Erc3009(Erc3009ReceiveAuthorization),
 }

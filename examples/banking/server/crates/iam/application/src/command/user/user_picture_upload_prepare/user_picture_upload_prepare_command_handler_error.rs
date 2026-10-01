@@ -20,6 +20,7 @@ pub enum UserPictureUploadPrepareCommandHandlerError {
 
     #[error("object upload signer failed")]
     ObjectUploadSigner(#[from] ObjectUploadSignerError),
+
     #[error("picture content length exceeds the upload limit")]
     ContentLengthTooLarge,
 

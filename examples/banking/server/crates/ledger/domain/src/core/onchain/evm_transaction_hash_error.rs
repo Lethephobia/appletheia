@@ -5,6 +5,7 @@ use thiserror::Error;
 pub enum EvmTransactionHashError {
     #[error("EVM transaction hash must not be empty")]
     Empty,
+
     #[error("EVM transaction hash must contain 32 hexadecimal bytes")]
     InvalidFormat,
 }
