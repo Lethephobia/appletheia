@@ -40,9 +40,7 @@ impl UserPrivateInfoReader for PgUserPrivateInfoReader {
                 picture_object_name,
                 picture_external_url,
                 status,
-                created_at,
-                u.source_event_id,
-                u.updated_event_id
+                created_at
               FROM user_fragments u
              WHERE u.id = $1
             "#,
@@ -62,9 +60,7 @@ impl UserPrivateInfoReader for PgUserPrivateInfoReader {
                 i.user_id,
                 i.provider,
                 i.subject,
-                i.email,
-                i.source_event_id,
-                i.updated_event_id
+                i.email
               FROM user_identity_fragments i
              WHERE i.user_id = $1
              ORDER BY i.provider ASC, i.subject ASC

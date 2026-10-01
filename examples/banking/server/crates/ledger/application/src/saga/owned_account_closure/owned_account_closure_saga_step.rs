@@ -1,15 +1,10 @@
-use appletheia::application::saga::SagaStep;
-use serde::{Deserialize, Serialize};
+use appletheia::saga_step;
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[saga_step]
 pub enum OwnedAccountClosureSagaStep {
-    Request,
-    Advance,
-    ProcessPage,
-    RecordClosedAccount,
-    RecordRejectedAccountClose,
-    Fail,
+    Start,
+    Scan,
+    CloseAccount,
+    RecordSucceeded,
+    RecordFailed,
 }
-
-impl SagaStep for OwnedAccountClosureSagaStep {}

@@ -9,7 +9,6 @@ use super::{
     AccountReservedFundsReleaseOutput,
 };
 
-/// Handles `AccountReservedFundsReleaseCommand`.
 pub struct AccountReservedFundsReleaseCommandHandler<AR>
 where
     AR: Repository<Account>,
@@ -60,6 +59,6 @@ where
             .save(uow, request_context, &mut account)
             .await?;
 
-        Ok(AccountReservedFundsReleaseOutput::Released)
+        Ok(AccountReservedFundsReleaseOutput {})
     }
 }

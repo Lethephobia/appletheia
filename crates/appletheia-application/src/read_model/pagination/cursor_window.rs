@@ -12,6 +12,7 @@ pub enum CursorWindow<C> {
         /// Limits the number of items returned by the query.
         limit: PageSize,
     },
+
     Backward {
         /// Ends before this cursor, or at the end when absent.
         before: Option<C>,

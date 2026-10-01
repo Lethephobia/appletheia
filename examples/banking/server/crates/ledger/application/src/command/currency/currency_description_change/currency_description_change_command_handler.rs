@@ -62,7 +62,7 @@ where
         self.repository
             .save(uow, request_context, &mut currency)
             .await?;
-        Ok(CurrencyDescriptionChangeOutput::Changed {
+        Ok(CurrencyDescriptionChangeOutput {
             currency_id: command.currency_id,
         })
     }

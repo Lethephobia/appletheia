@@ -4,7 +4,7 @@ use appletheia::application::authorization::{
 use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_ledger_domain::account::{Account, AccountDescriptionChangeResult};
+use banking_ledger_domain::account::Account;
 
 use crate::authorization::AccountDescriptionChangerRelation;
 
@@ -59,15 +59,10 @@ where
         command: &Self::Command,
     ) -> Result<Self::Output, Self::Error> {
         let mut account = self.repository.read(uow, command.account_id).await?;
-        let result = account.change_description(command.description.clone())?;
+        account.change_description(command.description.clone())?;
         self.repository
             .save(uow, request_context, &mut account)
             .await?;
-        Ok(match result {
-            AccountDescriptionChangeResult::Changed => AccountDescriptionChangeOutput::Changed,
-            AccountDescriptionChangeResult::Rejected { reason } => {
-                AccountDescriptionChangeOutput::Rejected { reason }
-            }
-        })
+        Ok(AccountDescriptionChangeOutput {})
     }
 }

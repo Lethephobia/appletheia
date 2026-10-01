@@ -8,8 +8,10 @@ use thiserror::Error;
 pub enum CurrencyRegistrarHandleChangeCommandHandlerError {
     #[error("currency registrar repository failed")]
     Repository(#[from] RepositoryError<CurrencyRegistrar>),
+
     #[error("currency registrar aggregate failed")]
     Aggregate(#[from] CurrencyRegistrarError),
+
     #[error("currency registrar unique value is invalid")]
     UniqueValue(#[from] UniqueValueError),
 }

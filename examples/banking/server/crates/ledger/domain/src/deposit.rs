@@ -1,39 +1,23 @@
-mod deposit_complete_rejection_reason;
-mod deposit_complete_result;
 mod deposit_error;
 mod deposit_event_payload;
 mod deposit_event_payload_error;
-mod deposit_fail_rejection_reason;
-mod deposit_fail_result;
 mod deposit_failure_reason;
 mod deposit_id;
 mod deposit_note;
 mod deposit_note_error;
 mod deposit_request;
-mod deposit_request_rejection_reason;
-mod deposit_request_result;
-mod deposit_settlement_verify_rejection_reason;
-mod deposit_settlement_verify_result;
 mod deposit_state;
 mod deposit_state_error;
 mod deposit_status;
 
-pub use deposit_complete_rejection_reason::DepositCompleteRejectionReason;
-pub use deposit_complete_result::DepositCompleteResult;
 pub use deposit_error::DepositError;
 pub use deposit_event_payload::DepositEventPayload;
 pub use deposit_event_payload_error::DepositEventPayloadError;
-pub use deposit_fail_rejection_reason::DepositFailRejectionReason;
-pub use deposit_fail_result::DepositFailResult;
 pub use deposit_failure_reason::DepositFailureReason;
 pub use deposit_id::DepositId;
 pub use deposit_note::DepositNote;
 pub use deposit_note_error::DepositNoteError;
 pub use deposit_request::DepositRequest;
-pub use deposit_request_rejection_reason::DepositRequestRejectionReason;
-pub use deposit_request_result::DepositRequestResult;
-pub use deposit_settlement_verify_rejection_reason::DepositSettlementVerifyRejectionReason;
-pub use deposit_settlement_verify_result::DepositSettlementVerifyResult;
 pub use deposit_state::DepositState;
 pub use deposit_state_error::DepositStateError;
 pub use deposit_status::DepositStatus;
@@ -87,18 +71,13 @@ impl Deposit {
     }
 
     /// Requests a deposit before its on-chain token settlement.
-    pub fn request(
-        &mut self,
-        request: DepositRequest,
-    ) -> Result<DepositRequestResult, DepositError> {
+    pub fn request(&mut self, request: DepositRequest) -> Result<(), DepositError> {
         if self.state().is_some() {
             return Err(DepositError::AlreadyRequested);
         }
 
         if request.amount.is_zero() {
-            let reason = DepositRequestRejectionReason::ZeroAmount;
-            self.reject_request(request, reason)?;
-            return Ok(DepositRequestResult::Rejected { reason });
+            return Err(DepositError::ZeroAmount);
         }
 
         let (account_id, token_binding_id, token_owner_address, amount, note) =
@@ -111,45 +90,28 @@ impl Deposit {
             note,
         })?;
 
-        Ok(DepositRequestResult::Requested)
-    }
-
-    /// Rejects a deposit request.
-    pub fn reject_request(
-        &mut self,
-        _request: DepositRequest,
-        reason: DepositRequestRejectionReason,
-    ) -> Result<(), DepositError> {
-        Err(DepositError::RequestRejected(reason))
+        Ok(())
     }
 
     /// Records the verified on-chain token settlement.
     pub fn record_settlement_verified(
         &mut self,
         transaction_id: OnchainTransactionId,
-    ) -> Result<DepositSettlementVerifyResult, DepositError> {
+    ) -> Result<(), DepositError> {
         let state = self.state_required()?;
         match state.status {
             DepositStatus::Requested => {}
             DepositStatus::Rejected => {
-                let reason = DepositSettlementVerifyRejectionReason::AlreadyRejected;
-                self.reject_settlement_verify(transaction_id, reason)?;
-                return Ok(DepositSettlementVerifyResult::Rejected { reason });
+                return Err(DepositError::AlreadyRejected);
             }
             DepositStatus::SettlementVerified => {
-                let reason = DepositSettlementVerifyRejectionReason::AlreadyVerified;
-                self.reject_settlement_verify(transaction_id, reason)?;
-                return Ok(DepositSettlementVerifyResult::Rejected { reason });
+                return Err(DepositError::SettlementAlreadyVerified);
             }
             DepositStatus::Completed => {
-                let reason = DepositSettlementVerifyRejectionReason::AlreadyCompleted;
-                self.reject_settlement_verify(transaction_id, reason)?;
-                return Ok(DepositSettlementVerifyResult::Rejected { reason });
+                return Err(DepositError::AlreadyCompleted);
             }
             DepositStatus::Failed => {
-                let reason = DepositSettlementVerifyRejectionReason::AlreadyFailed;
-                self.reject_settlement_verify(transaction_id, reason)?;
-                return Ok(DepositSettlementVerifyResult::Rejected { reason });
+                return Err(DepositError::AlreadyFailed);
             }
         }
 
@@ -159,80 +121,43 @@ impl Deposit {
             transaction_id,
         })?;
 
-        Ok(DepositSettlementVerifyResult::Verified)
-    }
-
-    /// Rejects recording an on-chain token settlement.
-    pub fn reject_settlement_verify(
-        &mut self,
-        _transaction_id: OnchainTransactionId,
-        reason: DepositSettlementVerifyRejectionReason,
-    ) -> Result<(), DepositError> {
-        Err(DepositError::SettlementVerifyRejected(reason))
+        Ok(())
     }
 
     /// Completes the deposit after internal accounting is applied.
-    pub fn complete(&mut self) -> Result<DepositCompleteResult, DepositError> {
+    pub fn complete(&mut self) -> Result<(), DepositError> {
         match self.state_required()?.status {
             DepositStatus::Requested => return Err(DepositError::SettlementNotVerified),
             DepositStatus::Rejected => return Err(DepositError::SettlementNotVerified),
             DepositStatus::SettlementVerified => {}
             DepositStatus::Completed => {
-                let reason = DepositCompleteRejectionReason::AlreadyCompleted;
-                self.reject_complete(reason)?;
-                return Ok(DepositCompleteResult::Rejected { reason });
+                return Err(DepositError::AlreadyCompleted);
             }
             DepositStatus::Failed => {
-                let reason = DepositCompleteRejectionReason::AlreadyFailed;
-                self.reject_complete(reason)?;
-                return Ok(DepositCompleteResult::Rejected { reason });
+                return Err(DepositError::AlreadyFailed);
             }
         }
 
         self.append_event(DepositEventPayload::Completed)?;
-        Ok(DepositCompleteResult::Completed)
-    }
-
-    /// Rejects completing the deposit.
-    pub fn reject_complete(
-        &mut self,
-        reason: DepositCompleteRejectionReason,
-    ) -> Result<(), DepositError> {
-        Err(DepositError::CompleteRejected(reason))
+        Ok(())
     }
 
     /// Fails the deposit workflow.
-    pub fn fail(
-        &mut self,
-        reason: DepositFailureReason,
-    ) -> Result<DepositFailResult, DepositError> {
+    pub fn fail(&mut self, reason: DepositFailureReason) -> Result<(), DepositError> {
         match self.state_required()?.status {
             DepositStatus::Requested => return Err(DepositError::SettlementNotVerified),
             DepositStatus::Rejected => return Err(DepositError::SettlementNotVerified),
             DepositStatus::SettlementVerified => {}
             DepositStatus::Completed => {
-                let rejection_reason = DepositFailRejectionReason::AlreadyCompleted;
-                self.reject_fail(rejection_reason)?;
-                return Ok(DepositFailResult::Rejected {
-                    reason: rejection_reason,
-                });
+                return Err(DepositError::AlreadyCompleted);
             }
             DepositStatus::Failed => {
-                let rejection_reason = DepositFailRejectionReason::AlreadyFailed;
-                self.reject_fail(rejection_reason)?;
-                return Ok(DepositFailResult::Rejected {
-                    reason: rejection_reason,
-                });
+                return Err(DepositError::AlreadyFailed);
             }
         }
 
         self.append_event(DepositEventPayload::Failed { reason })?;
-        Ok(DepositFailResult::Failed)
-    }
-
-    /// Rejects failing the deposit.
-    pub fn reject_fail(&mut self, reason: DepositFailRejectionReason) -> Result<(), DepositError> {
-        Err(DepositError::FailRejected(reason))
+        Ok(())
     }
 }
 
@@ -282,9 +207,7 @@ mod tests {
     };
     use crate::token_binding::TokenBindingId;
 
-    use super::{
-        Deposit, DepositEventPayload, DepositRequest, DepositSettlementVerifyResult, DepositStatus,
-    };
+    use super::{Deposit, DepositEventPayload, DepositRequest, DepositStatus};
 
     #[test]
     fn records_a_verified_settlement() {
@@ -307,11 +230,10 @@ mod tests {
                 .expect("transaction signature should be valid"),
         );
 
-        let result = deposit
+        deposit
             .record_settlement_verified(transaction_id)
             .expect("verified settlement should be recorded");
 
-        assert_eq!(result, DepositSettlementVerifyResult::Verified);
         assert_eq!(
             deposit
                 .token_owner_address()

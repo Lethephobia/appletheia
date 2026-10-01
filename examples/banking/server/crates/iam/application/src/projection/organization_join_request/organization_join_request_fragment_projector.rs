@@ -1,8 +1,6 @@
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
-use appletheia::application::read_model::{
-    MaterializationEventContext, ReadModelFragment, ReadModelInvalidatedPartitions,
-};
+use appletheia::application::read_model::MaterializationEventContext;
 use banking_iam_domain::{
     OrganizationJoinRequest, OrganizationJoinRequestEventPayload, OrganizationJoinRequestStatus,
 };
@@ -49,11 +47,7 @@ where
         uow: &mut Self::Uow,
         event_context: MaterializationEventContext,
         event: &EventEnvelope,
-    ) -> Result<
-        ReadModelInvalidatedPartitions<<Self::Fragment as ReadModelFragment>::Key>,
-        Self::Error,
-    > {
-        let mut invalidated_partitions = ReadModelInvalidatedPartitions::new();
+    ) -> Result<(), Self::Error> {
         let join_request_event = event.try_to_domain_event::<OrganizationJoinRequest>()?;
         let join_request_id = join_request_event.aggregate_id();
 
@@ -62,8 +56,7 @@ where
                 organization_id,
                 requester_id,
             } => {
-                if let Some(fragment) = self
-                    .organization_join_request_fragment_writer
+                self.organization_join_request_fragment_writer
                     .upsert(
                         uow,
                         event_context,
@@ -74,55 +67,40 @@ where
                             status: OrganizationJoinRequestStatus::Pending,
                         },
                     )
-                    .await?
-                {
-                    invalidated_partitions.insert(fragment.key());
-                }
+                    .await?;
             }
             OrganizationJoinRequestEventPayload::Approved { .. } => {
-                if let Some(fragment) = self
-                    .organization_join_request_fragment_writer
+                self.organization_join_request_fragment_writer
                     .update_status(
                         uow,
                         event_context,
                         join_request_id,
                         OrganizationJoinRequestStatus::Approved,
                     )
-                    .await?
-                {
-                    invalidated_partitions.insert(fragment.key());
-                }
+                    .await?;
             }
             OrganizationJoinRequestEventPayload::Rejected { .. } => {
-                if let Some(fragment) = self
-                    .organization_join_request_fragment_writer
+                self.organization_join_request_fragment_writer
                     .update_status(
                         uow,
                         event_context,
                         join_request_id,
                         OrganizationJoinRequestStatus::Rejected,
                     )
-                    .await?
-                {
-                    invalidated_partitions.insert(fragment.key());
-                }
+                    .await?;
             }
             OrganizationJoinRequestEventPayload::Canceled { .. } => {
-                if let Some(fragment) = self
-                    .organization_join_request_fragment_writer
+                self.organization_join_request_fragment_writer
                     .update_status(
                         uow,
                         event_context,
                         join_request_id,
                         OrganizationJoinRequestStatus::Canceled,
                     )
-                    .await?
-                {
-                    invalidated_partitions.insert(fragment.key());
-                }
+                    .await?;
             }
         }
 
-        Ok(invalidated_partitions)
+        Ok(())
     }
 }

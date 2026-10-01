@@ -56,8 +56,7 @@ impl PgOrganizationInvitationListReader {
         let row = sqlx::query_as::<_, PgOrganizationInvitationListOrganizationRow>(
             r#"
             SELECT id AS organization_id, handle, display_name, picture_type,
-                   picture_object_name, picture_external_url, source_event_id,
-                   updated_event_id
+                   picture_object_name, picture_external_url
               FROM organization_fragments
              WHERE id = $1
             "#,
@@ -104,15 +103,11 @@ impl OrganizationInvitationListReader for PgOrganizationInvitationListReader {
                 i.expires_at,
                 i.status,
                 i.created_at,
-                i.source_event_id,
-                i.updated_event_id,
                 u.username AS invitee_username,
                 u.display_name AS invitee_display_name,
                 u.picture_type AS invitee_picture_type,
                 u.picture_object_name AS invitee_picture_object_name,
-                u.picture_external_url AS invitee_picture_external_url,
-                u.source_event_id AS invitee_source_event_id,
-                u.updated_event_id AS invitee_updated_event_id
+                u.picture_external_url AS invitee_picture_external_url
             FROM organization_invitation_fragments AS i
             INNER JOIN user_fragments AS u
                     ON u.id = i.invitee_user_id

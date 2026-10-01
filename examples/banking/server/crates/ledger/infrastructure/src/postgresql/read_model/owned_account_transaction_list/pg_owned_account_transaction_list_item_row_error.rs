@@ -33,12 +33,6 @@ pub enum PgOwnedAccountTransactionListItemRowError {
     #[error("unknown transaction status: {0}")]
     UnknownStatus(String),
 
-    #[error("invalid source event id")]
-    InvalidSourceEventId(#[source] Box<dyn std::error::Error + Send + Sync>),
-
-    #[error("invalid updated event id")]
-    InvalidUpdatedEventId(#[source] Box<dyn std::error::Error + Send + Sync>),
-
     #[error("invalid transfer id")]
     InvalidTransferId(#[source] Box<dyn std::error::Error + Send + Sync>),
 

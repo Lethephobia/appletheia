@@ -12,7 +12,6 @@ use super::{
 };
 use crate::authorization::UserOwnerRelation;
 
-/// Handles `LogoutAllSessionsCommand`.
 pub struct LogoutAllSessionsCommandHandler<ATR>
 where
     ATR: AuthTokenRevoker,
@@ -64,7 +63,7 @@ where
             .advance_revocation_cutoff(uow, &subject, command.token_issued_at)
             .await?;
 
-        Ok(LogoutAllSessionsOutput)
+        Ok(LogoutAllSessionsOutput {})
     }
 }
 
@@ -181,7 +180,7 @@ mod tests {
         let handler = LogoutAllSessionsCommandHandler::new(revoker.clone());
         let mut uow = TestUow;
 
-        let handled = handler
+        let output = handler
             .handle(
                 &mut uow,
                 &request_context(),
@@ -193,7 +192,7 @@ mod tests {
             .await
             .expect("command should succeed");
 
-        assert_eq!(handled, LogoutAllSessionsOutput);
+        assert_eq!(output, LogoutAllSessionsOutput {});
         assert_eq!(
             revoker.cutoff(),
             Some((AggregateRef::from_id::<User>(user_id), issued_at))

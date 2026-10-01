@@ -67,6 +67,6 @@ where
         self.repository
             .save(uow, request_context, &mut registrar)
             .await?;
-        Ok(CurrencyRegistrarDescriptionChangeOutput::Changed)
+        Ok(CurrencyRegistrarDescriptionChangeOutput {})
     }
 }

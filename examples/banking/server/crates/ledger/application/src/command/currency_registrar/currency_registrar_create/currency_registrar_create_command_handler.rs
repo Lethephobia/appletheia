@@ -3,9 +3,9 @@ use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use appletheia::domain::{Aggregate, UniqueValue};
+use banking_ledger_domain::currency_registrar::CurrencyRegistrarError;
 use banking_ledger_domain::currency_registrar::{
-    CurrencyRegistrar, CurrencyRegistrarCreateRejectionReason, CurrencyRegistrarCreateResult,
-    CurrencyRegistrarCreation, CurrencyRegistrarState,
+    CurrencyRegistrar, CurrencyRegistrarCreation, CurrencyRegistrarState,
 };
 
 use super::{
@@ -67,32 +67,16 @@ where
             .await?
             .is_some()
         {
-            let reason = CurrencyRegistrarCreateRejectionReason::HandleAlreadyTaken;
-            currency_registrar.reject_create(creation, reason)?;
-            self.repository
-                .save(uow, request_context, &mut currency_registrar)
-                .await?;
-            return Ok(CurrencyRegistrarCreateOutput::Rejected {
-                currency_registrar_id,
-                reason,
-            });
+            return Err(CurrencyRegistrarError::HandleAlreadyTaken.into());
         }
 
-        let result = currency_registrar.create(creation)?;
+        currency_registrar.create(creation)?;
         self.repository
             .save(uow, request_context, &mut currency_registrar)
             .await?;
 
-        Ok(match result {
-            CurrencyRegistrarCreateResult::Created => CurrencyRegistrarCreateOutput::Created {
-                currency_registrar_id,
-            },
-            CurrencyRegistrarCreateResult::Rejected { reason } => {
-                CurrencyRegistrarCreateOutput::Rejected {
-                    currency_registrar_id,
-                    reason,
-                }
-            }
+        Ok(CurrencyRegistrarCreateOutput {
+            currency_registrar_id,
         })
     }
 }

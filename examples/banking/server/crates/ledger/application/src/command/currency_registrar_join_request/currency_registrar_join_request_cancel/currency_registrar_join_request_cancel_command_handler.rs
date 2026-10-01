@@ -4,9 +4,7 @@ use appletheia::application::authorization::{
 use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_ledger_domain::{
-    CurrencyRegistrarJoinRequest, CurrencyRegistrarJoinRequestCancelResult,
-};
+use banking_ledger_domain::CurrencyRegistrarJoinRequest;
 
 use crate::authorization::CurrencyRegistrarJoinRequestCancelerRelation;
 
@@ -16,7 +14,6 @@ use super::{
     CurrencyRegistrarJoinRequestCancelOutput,
 };
 
-/// Handles `CurrencyRegistrarJoinRequestCancelCommand`.
 pub struct CurrencyRegistrarJoinRequestCancelCommandHandler<JR>
 where
     JR: Repository<CurrencyRegistrarJoinRequest>,
@@ -69,21 +66,12 @@ where
             .read(uow, command.currency_registrar_join_request_id)
             .await?;
 
-        let result = currency_registrar_join_request.cancel()?;
+        currency_registrar_join_request.cancel()?;
 
         self.currency_registrar_join_request_repository
             .save(uow, _request_context, &mut currency_registrar_join_request)
             .await?;
 
-        let output = match result {
-            CurrencyRegistrarJoinRequestCancelResult::Canceled => {
-                CurrencyRegistrarJoinRequestCancelOutput::Canceled
-            }
-            CurrencyRegistrarJoinRequestCancelResult::Rejected { reason } => {
-                CurrencyRegistrarJoinRequestCancelOutput::Rejected { reason }
-            }
-        };
-
-        Ok(output)
+        Ok(CurrencyRegistrarJoinRequestCancelOutput {})
     }
 }

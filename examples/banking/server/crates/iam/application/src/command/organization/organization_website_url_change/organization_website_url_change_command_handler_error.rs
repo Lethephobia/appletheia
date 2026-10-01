@@ -1,10 +1,8 @@
 use appletheia::application::Retryability;
-
 use appletheia::application::repository::RepositoryError;
 use banking_iam_domain::{Organization, OrganizationError};
 use thiserror::Error;
 
-/// Represents errors returned while changing an organization website URL.
 #[derive(Debug, Error)]
 pub enum OrganizationWebsiteUrlChangeCommandHandlerError {
     #[error("organization repository failed")]

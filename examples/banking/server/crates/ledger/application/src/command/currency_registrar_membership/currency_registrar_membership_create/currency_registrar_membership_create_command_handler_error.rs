@@ -11,10 +11,13 @@ use thiserror::Error;
 pub enum CurrencyRegistrarMembershipCreateCommandHandlerError {
     #[error("currency registrar repository failed")]
     CurrencyRegistrarRepository(#[from] RepositoryError<CurrencyRegistrar>),
+
     #[error("currency registrar membership repository failed")]
     CurrencyRegistrarMembershipRepository(#[from] RepositoryError<CurrencyRegistrarMembership>),
+
     #[error("currency registrar membership aggregate failed")]
     CurrencyRegistrarMembership(#[from] CurrencyRegistrarMembershipError),
+
     #[error("currency registrar membership unique value is invalid")]
     UniqueValue(#[from] UniqueValueError),
 }

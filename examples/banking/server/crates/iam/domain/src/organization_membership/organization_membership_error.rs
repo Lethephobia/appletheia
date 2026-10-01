@@ -1,11 +1,7 @@
 use appletheia::domain::AggregateError;
 use thiserror::Error;
 
-use super::{
-    OrganizationMembershipCreateRejectionReason, OrganizationMembershipId,
-    OrganizationMembershipRemoveRejectionReason, OrganizationMembershipRolesChangeRejectionReason,
-    OrganizationMembershipStateError,
-};
+use super::{OrganizationMembershipId, OrganizationMembershipStateError};
 
 /// Describes why an `OrganizationMembership` aggregate operation failed.
 #[derive(Debug, Error)]
@@ -19,12 +15,18 @@ pub enum OrganizationMembershipError {
     #[error("organization membership is already created")]
     AlreadyCreated,
 
-    #[error("organization membership creation rejected: {0:?}")]
-    CreateRejected(OrganizationMembershipCreateRejectionReason),
+    #[error("organization membership has been removed")]
+    Removed,
 
-    #[error("organization membership roles change rejected: {0:?}")]
-    RolesChangeRejected(OrganizationMembershipRolesChangeRejectionReason),
+    #[error("organization has been removed")]
+    OrganizationRemoved,
 
-    #[error("organization membership removal rejected: {0:?}")]
-    RemoveRejected(OrganizationMembershipRemoveRejectionReason),
+    #[error("user has been removed")]
+    UserRemoved,
+
+    #[error("user is inactive")]
+    UserInactive,
+
+    #[error("user is already a member")]
+    AlreadyMember,
 }

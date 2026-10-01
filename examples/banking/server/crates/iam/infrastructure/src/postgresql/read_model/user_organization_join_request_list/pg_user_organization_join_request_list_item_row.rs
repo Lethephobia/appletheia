@@ -1,5 +1,4 @@
-use appletheia::application::read_model::ReadModelObservation;
-use appletheia::domain::{AggregateId, EventId, EventOccurredAt};
+use appletheia::domain::{AggregateId, EventOccurredAt};
 use banking_iam_application::{
     UserOrganizationJoinRequestListItem, UserOrganizationJoinRequestListItemStatus,
     UserOrganizationJoinRequestListOrganization,
@@ -19,15 +18,11 @@ pub struct PgUserOrganizationJoinRequestListItemRow {
     pub organization_id: Uuid,
     pub status: String,
     pub created_at: DateTime<Utc>,
-    pub source_event_id: Uuid,
-    pub updated_event_id: Uuid,
     pub organization_handle: String,
     pub organization_display_name: String,
     pub organization_picture_type: Option<String>,
     pub organization_picture_object_name: Option<String>,
     pub organization_picture_external_url: Option<String>,
-    pub organization_source_event_id: Uuid,
-    pub organization_updated_event_id: Uuid,
 }
 
 impl PgUserOrganizationJoinRequestListItemRow {
@@ -86,29 +81,9 @@ impl TryFrom<PgUserOrganizationJoinRequestListItemRow> for UserOrganizationJoinR
                         error,
                     ))
                 })?,
-                observation: ReadModelObservation::new(
-                    EventId::try_from(row.organization_source_event_id).map_err(|error| {
-                        PgUserOrganizationJoinRequestListItemRowError::OrganizationSourceEventId(
-                            Box::new(error),
-                        )
-                    })?,
-                    EventId::try_from(row.organization_updated_event_id).map_err(|error| {
-                        PgUserOrganizationJoinRequestListItemRowError::OrganizationUpdatedEventId(
-                            Box::new(error),
-                        )
-                    })?,
-                ),
             },
             status: PgUserOrganizationJoinRequestListItemRow::status(row.status)?,
             created_at: EventOccurredAt::from(row.created_at),
-            observation: ReadModelObservation::new(
-                EventId::try_from(row.source_event_id).map_err(|error| {
-                    PgUserOrganizationJoinRequestListItemRowError::SourceEventId(Box::new(error))
-                })?,
-                EventId::try_from(row.updated_event_id).map_err(|error| {
-                    PgUserOrganizationJoinRequestListItemRowError::UpdatedEventId(Box::new(error))
-                })?,
-            ),
         })
     }
 }

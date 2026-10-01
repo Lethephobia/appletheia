@@ -1,5 +1,5 @@
 use appletheia::application::aggregate::SerializedAggregateError;
-use banking_ledger_domain::CurrencyRegistrarJoinRequestError;
+use banking_ledger_domain::currency_registrar_join_request::CurrencyRegistrarJoinRequestError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]

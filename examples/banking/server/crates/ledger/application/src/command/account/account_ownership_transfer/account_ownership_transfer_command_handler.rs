@@ -4,7 +4,7 @@ use appletheia::application::authorization::{
 use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_ledger_domain::account::{Account, AccountOwnershipTransferResult};
+use banking_ledger_domain::account::Account;
 
 use super::{
     AccountOwnershipTransferCommand, AccountOwnershipTransferCommandHandlerError,
@@ -12,7 +12,6 @@ use super::{
 };
 use crate::authorization::AccountOwnershipTransfererRelation;
 
-/// Handles `AccountOwnershipTransferCommand`.
 pub struct AccountOwnershipTransferCommandHandler<AR>
 where
     AR: Repository<Account>,
@@ -63,21 +62,12 @@ where
             .read(uow, command.account_id)
             .await?;
 
-        let result = account.transfer_ownership(command.owner)?;
+        account.transfer_ownership(command.owner)?;
 
         self.account_repository
             .save(uow, request_context, &mut account)
             .await?;
 
-        let output = match result {
-            AccountOwnershipTransferResult::Transferred => {
-                AccountOwnershipTransferOutput::Transferred
-            }
-            AccountOwnershipTransferResult::Rejected { reason } => {
-                AccountOwnershipTransferOutput::Rejected { reason }
-            }
-        };
-
-        Ok(output)
+        Ok(AccountOwnershipTransferOutput {})
     }
 }

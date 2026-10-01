@@ -1,21 +1,11 @@
 use appletheia::application::command::{CommandOutput, CommandReplayOutput};
-use banking_ledger_domain::token_binding::{
-    TokenBindingEnablementChangeRejectionReason, TokenBindingId,
-};
+use banking_ledger_domain::token_binding::TokenBindingId;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "type", content = "data", rename_all = "snake_case")]
-pub enum TokenBindingWithdrawalEnabledChangeOutput {
-    Changed {
-        token_binding_id: TokenBindingId,
-        enabled: bool,
-    },
-    Rejected {
-        token_binding_id: TokenBindingId,
-        enabled: bool,
-        reason: TokenBindingEnablementChangeRejectionReason,
-    },
+pub struct TokenBindingWithdrawalEnabledChangeOutput {
+    pub token_binding_id: TokenBindingId,
+    pub enabled: bool,
 }
 
 impl CommandOutput for TokenBindingWithdrawalEnabledChangeOutput {

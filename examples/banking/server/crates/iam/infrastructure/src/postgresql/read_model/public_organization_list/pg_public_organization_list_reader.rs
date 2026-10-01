@@ -67,9 +67,7 @@ impl PublicOrganizationListReader for PgPublicOrganizationListReader {
                 picture_type,
                 picture_object_name,
                 picture_external_url,
-                created_at,
-                source_event_id,
-                updated_event_id
+                created_at
             FROM organization_fragments
             "#,
         );

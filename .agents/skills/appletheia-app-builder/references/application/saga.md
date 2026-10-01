@@ -1,274 +1,223 @@
 # Saga Design
 
-Use this reference when an Appletheia application coordinates a workflow across aggregates.
-Verify the API in the target checkout when working against a different library version.
+Use this reference for workflows that react to committed events and coordinate commands across
+transactions. For command execution and failure publication, see [Command Design](command.md).
 
-## Workflow boundary
+### DO distinguish the triggering step from the outgoing step
 
-### DO use a saga for cross-aggregate or multi-command coordination
+Build routes in `Saga::definition(&self)` with `SagaDefinitionBuilder`. `add_*_step` names the step
+assigned to outgoing commands; `on` describes the input. Subscriptions are derived from the routes.
 
-Keep one aggregate's invariants inside that aggregate. A saga reacts to committed domain events,
-appends commands, and optionally reacts to terminal failures of commands it dispatched.
+| Route | Input |
+| --- | --- |
+| `add_start_step(step)` | `on::<Aggregate>(event_name)` |
+| `add_step(step)` | `on::<Aggregate>(caused_by, event_name)` |
+| `add_failure_step(step)` | `on(caused_by)` |
+
+Define a step enum with `#[saga_step]`; it derives `Copy`, equality, serde, and `SagaStep`, using
+adjacently tagged snake-case JSON (`type` / `data`) by default. Use `#[derive(SagaStep)]` when managing
+the other derives and serialization yourself. Variants may contain `Copy` values; these values take
+part in equality and route matching, so keep changing workflow progress in SagaState.
+
+A step identifies a command-dispatch stage, not a persisted current position. One route may append
+multiple commands, all carrying its outgoing step. Failure routes match the originating step, not a
+command generic; inspect `failure.command_name` if that step emits command kinds requiring different
+reactions. Duplicate input conditions cannot be distinguished merely by changing the outgoing step.
+
+This continuation excerpt handles the reservation's result and dispatches a deposit. A complete
+workflow must also register its start and required outcome paths.
+
+**Good**
+
+```rust
+builder
+    .add_step(TransferSagaStep::Deposit)
+    .on::<Account>(
+        TransferSagaStep::ReserveFunds,
+        AccountEventPayload::FUNDS_RESERVED,
+    )
+    .handle(|ctx, _event| {
+        let state = ctx.state_required()?;
+        let command = AccountDepositCommand {
+            account_id: state.to_account_id,
+            amount: state.amount,
+        };
+        ctx.append_command(&command)?;
+        Ok(())
+    })
+```
+
+**Bad**
+
+```rust
+// Deposit cannot have caused the reservation result this route waits for.
+builder
+    .add_step(TransferSagaStep::Deposit)
+    .on::<Account>(TransferSagaStep::Deposit, AccountEventPayload::FUNDS_RESERVED)
+```
+
+### DO keep definition construction free of execution side effects
+
+`Saga` declares `State`, `Step`, and `HandlerError`; `definition` returns
+`Result<SagaDefinition<'_, Self::State, Self::Step, Self::HandlerError>, SagaError>`.
+Finish the builder with `build().map_err(SagaError::from)`.
+
+Pass `&saga` to the event and command-failure workers' `run_forever` methods. Each builds a definition
+once at startup, so running both builds it twice. Register callbacks there rather than executing
+business operations during construction.
+
+Callbacks are synchronous `Fn` closures and may borrow injected services through `&self`, subject to
+`Send + Sync`. They receive a typed event or command-failure envelope. Use commands for asynchronous
+work. Define a handler error with `From<EventEnvelopeError>` and conversions for the context errors
+used by callbacks; these are execution errors, separate from definition-construction errors.
+
+**Good**
+
+```rust
+builder
+    .add_start_step(TransferSagaStep::ReserveFunds)
+    .on::<Transfer>(TransferEventPayload::REQUESTED)
+    .handle(|ctx, event| {
+        if let TransferEventPayload::Requested {
+            from_account_id, to_account_id, amount, ..
+        } = event.payload()
+        {
+            ctx.set_state(TransferSagaState::new(
+                event.aggregate_id(), *from_account_id, *to_account_id, *amount,
+            ));
+            ctx.append_command(&AccountFundsReserveCommand {
+                account_id: *from_account_id,
+                amount: *amount,
+            })?;
+        }
+        Ok(())
+    })
+    .build()
+    .map_err(SagaError::from)
+```
+
+**Bad**
 
 ```text
-committed event
-  -> SagaEventWorker -> SagaRunner -> selected callback -> command outbox
-  -> CommandWorker -> committed event or terminal CommandFailureEnvelope
-  -> SagaEventWorker or SagaCommandFailureWorker
+Worker startup -> definition() -> perform business operation immediately -> return routes
+Second worker startup -> definition() -> perform the same business operation again
 ```
 
-The event and command-failure workers have different inputs and contracts. Keep them separate.
+### DO dispatch workflow commands through SagaContext
 
-### DON'T use operation-failure events to drive a saga
+`ctx.append_command(&command)` adds the route's step, saga origin, and current input's causation ID.
+Use `append_command_with_options` when command options are needed. The runner saves queued commands,
+saga state, and processed-input records in one transaction.
 
-Return a typed error when an operation is refused. Do not append `FundsReserveRejected`,
-`CreateRejected`, or `CompleteRejected` merely to notify a saga. The command worker durably emits
-`CommandFailureEnvelope` for a saga-owned command when execution becomes terminal.
+Direct publication or direct aggregate mutation from a callback bypasses this dispatch bookkeeping
+and the command handler's authorization, execution tracking, and transaction boundary. Keep each
+saga centered on a business workflow; react to its actual lifecycle facts instead of inventing
+parent-aggregate events solely to launch commands for another aggregate.
 
-Preserve genuine business facts: an authorized rejection of a pending join request is a successful
-business action that can emit `Rejected`. Do not remove events based only on their names.
+Do not persist `RequestContext` or request-scoped authority in saga state. Carry an actor or issuer ID
+as explicit business data only when later commands need it; command authorization remains the
+application's responsibility.
 
-## Definition and registration
-
-### DO implement `Saga::definition` with the staged builder
-
-`Saga` declares `State`, `Step`, and `HandlerError`. Its only application callback-registration
-method is `definition(&self)`. Construct the builder there; the worker supplies the saga, not a
-builder. Use `add_start_step(...).on(...).handle(...)`, `add_step(...).on(...).handle(...)`, and
-`add_failure_step(...).on(...).handle(...)`, then finish with `build().map_err(SagaError::from)`.
-
-This Transfer excerpt illustrates the API using Banking types. It is not a complete transfer
-workflow: register the remaining commit, release, compensation, and business-outcome paths too.
+**Good**
 
 ```rust
-use appletheia::application::saga::{
-    Saga, SagaDefinition, SagaDefinitionBuilder, SagaError, SagaName,
-};
-
-pub struct TransferSaga;
-
-impl Saga for TransferSaga {
-    type State = TransferSagaState;
-    type Step = TransferSagaStep;
-    type HandlerError = TransferSagaHandlerError;
-
-    fn definition(
-        &self,
-    ) -> Result<SagaDefinition<'_, Self::State, Self::Step, Self::HandlerError>, SagaError> {
-        SagaDefinitionBuilder::<Self::State, Self::Step, Self::HandlerError>::new(
-            SagaName::new("transfer"),
-        )
-        .add_start_step(TransferSagaStep::ReserveFunds)
-        .on::<Transfer>(TransferEventPayload::REQUESTED)
-        .handle(|ctx, event| {
-            if let TransferEventPayload::Requested {
-                from_account_id, to_account_id, amount, ..
-            } = event.payload()
-            {
-                ctx.set_state(TransferSagaState::new(
-                    event.aggregate_id(),
-                    *from_account_id,
-                    *to_account_id,
-                    *amount,
-                ));
-                ctx.append_command(&AccountFundsReserveCommand {
-                    account_id: *from_account_id,
-                    amount: *amount,
-                })?;
-            }
-            Ok(())
-        })
-        .add_step(TransferSagaStep::Deposit)
-        .on::<Account>(
-            TransferSagaStep::ReserveFunds,
-            AccountEventPayload::FUNDS_RESERVED,
-        )
-        .handle(|ctx, _event| {
-            let state = ctx.state_required()?;
-            let command = AccountDepositCommand {
-                account_id: state.to_account_id,
-                amount: state.amount,
-            };
-            ctx.append_command(&command)?;
-            Ok(())
-        })
-        .add_failure_step(TransferSagaStep::ReleaseFunds)
-        .on(TransferSagaStep::Deposit)
-        .handle(|ctx, _failure| {
-            let state = ctx.state_required()?;
-            let command = AccountReservedFundsReleaseCommand {
-                account_id: state.from_account_id,
-                amount: state.amount,
-            };
-            ctx.append_command(&command)?;
-            Ok(())
-        })
-        .build()
-        .map_err(SagaError::from)
-    }
-}
+ctx.append_command(&AccountDepositCommand { account_id, amount })?;
 ```
 
-`add_*_step` selects the step assigned to outgoing commands. `on` selects the input:
+**Bad**
 
-| Route | `on` arguments |
-| --- | --- |
-| Start | `on::<Aggregate>(event_name)` |
-| Continuation | `on::<Aggregate>(caused_by, event_name)` |
-| Terminal command failure | `on(caused_by)` |
+```text
+Callback -> publish deposit command directly -> no saved saga dispatch ownership
+Deposit result -> runner cannot match it to the saga's continuation
+```
 
-The incoming `caused_by` step and outgoing step have different roles. `handle` completes the route
-and returns the definition builder. Context and event types are inferred; do not add route aliases
-or closure type annotations unless the actual compiler requires them.
+### DO design continuations around command ownership, not correlation alone
 
-There is no Saga spec, descriptor, separate start-event list, condition/trigger VO, or prepared
-definition to declare. `SagaDefinition` is a concrete struct, not a trait. Do not copy Projector's
-static descriptor design onto Saga.
+The runner first looks for a saved command matching the event's causation ID. An owned command
+selects a continuation by its saved step, even if the event also matches a start route. A missing
+continuation does not fall back to starting the saga.
 
-### DO let the definition derive subscriptions and the runner execute callbacks
+Without an owned command, a start route creates an instance per `(saga_name, start_event_id)`.
+Different start events may share a correlation ID and create separate instances, including events
+emitted by the same command. Correlation groups related work; it does not identify an instance.
+Redelivery of the same start event yields `AlreadyStarted` once its instance exists. Processing is
+also deduplicated by `(saga_name, event_id)` within the transaction. Start-once does not mean callbacks
+execute exactly once: rolled-back processing may retry. Owned command results still follow the
+continuation path rather than creating another instance, even if they match a start selector.
 
-`on::<Aggregate>` creates the route's `EventSelector`. `SagaDefinition` stores only its name and
-routes; `selectors()` returns a deduplicated vector for the event worker to retain when subscribing.
-Register only events the workflow consumes, instead of maintaining another subscription list.
+**Good**
 
-Definition construction rejects duplicate start selectors, duplicate `(selector, caused_by)`
-continuations, and duplicate failure steps. Different outgoing steps do not distinguish otherwise
-identical input conditions. Start and continuation routes may share an event selector.
+```text
+Saga dispatches ReserveFunds -> resulting event references that command -> continuation
+Distinct unowned start events + same correlation -> separate instances
+Same start event redelivered -> AlreadyStarted
+```
 
-For custom runner work, `find_event_route(event, caused_by)` and
-`find_command_failure_route(caused_by)` return route references without executing them. Runner owns
-ownership checks, deduplication, `SagaContext` construction, callback execution, and persistence.
-Ordinary application sagas only register callbacks; do not perform those runner operations inside
-`definition`.
+**Bad**
 
-### DO distinguish construction errors from handler errors
+```text
+Unrelated event shares correlation ID -> assume it continues the existing saga
+```
 
-Name application callback errors for their role, for example `TransferSagaHandlerError`.
-Wrap `SagaContextError` with a `#[from]` variant alongside relevant application errors:
+### DO track readiness explicitly when parallel branches must join
+
+Step routing identifies which command caused an input; it does not prove that all parallel commands
+have finished. Store only the workflow's required pending IDs or branch facts and dispatch the next
+command when the join condition is met. Avoid copying entire aggregate state or adding a linear
+phase machine solely to repeat checks already provided by ownership-based routing.
+
+Framework deduplication prevents processing the same input repeatedly. It does not replace a
+business guard against completing the join twice through different valid inputs.
+
+**Good**
+
+```text
+Dispatch closure commands for accounts A and B -> record pending {A, B}
+A result -> record A handled -> B still pending -> do not dispatch final command
+B result -> no pending accounts -> dispatch the final command once
+```
+
+**Bad**
+
+```text
+Dispatch closure commands for accounts A and B
+First result from closure step -> assume both accounts are handled -> dispatch final command
+```
+
+### DO register failure reactions only when the workflow needs them
+
+Use failure routes for compensation or another business reaction to terminal command failure.
+An owned failure without a matching route is recorded and acknowledged; no empty handler is needed.
+The command worker owns execution retries and terminal notification, as described in
+[Command Design](command.md).
+
+Saga has no framework completion operation. A later owned input may still run a matching route.
+Store business facts and guard callbacks when the workflow must suppress a later reaction; framework
+deduplication handles repeated inputs. Domain completion events and commands remain valid.
+
+**Good**
 
 ```rust
-use appletheia::application::saga::SagaContextError;
-use thiserror::Error;
-
-#[derive(Debug, Error)]
-pub enum TransferSagaHandlerError {
-    #[error(transparent)]
-    Context(#[from] SagaContextError),
-}
+builder
+    .add_failure_step(TransferSagaStep::ReleaseFunds)
+    .on(TransferSagaStep::Deposit)
+    .handle(|ctx, _failure| {
+        let state = ctx.state_required()?;
+        let command = AccountReservedFundsReleaseCommand {
+            account_id: state.from_account_id,
+            amount: state.amount,
+        };
+        ctx.append_command(&command)?;
+        Ok(())
+    })
 ```
 
-`SagaDefinitionError` contains validation errors. `SagaDefinitionBuilderError` wraps it, and
-`SagaError` wraps the builder error. None of these construction errors has a handler-error type
-parameter. Execution errors are held in `SagaRunnerError<HandlerError>::Route` through
-`SagaRouteError<HandlerError>`. Envelope decoding and event-name validation belong to the route
-adapter, not to the application's typed event callback.
+**Bad**
 
-## Steps and commands
-
-### DO define the step as a user-owned serializable enum
-
-Implement `SagaStep` for a `Copy` enum with stable serialized variants, using
-`#[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]` and
-`#[serde(rename_all = "snake_case")]` for a fieldless step enum.
-
-The step identifies a command-dispatch stage; it is not a persisted current position or a unique
-route ID. Multiple routes may emit commands at the same step. One route may emit several commands,
-including different command kinds, but all receive that route's step. Choose stages accordingly.
-Even a route that emits no command declares a step; it is used only when appending commands.
-
-The framework stores the step in each command's `SagaCommandOrigin`. Do not maintain a parallel
-string step name, put steps in `RequestContext`, or duplicate a linear route position in state.
-
-### DO append commands through `SagaContext`
-
-Use `ctx.append_command(&command)` or, when defaults are insufficient,
-`ctx.append_command_with_options(&command, options)`. Do not pass a step or causation ID. Context
-adds the selected route's step, saga origin, and the input event ID or failure ID as causation.
-Each command receives its own message ID. There is no per-command step override.
-
-Appending queues uncommitted commands. Runner persists state, processed-input records, and command
-outbox entries in one unit of work. Callback or outbox errors roll back that work. Application code
-must not push dispatched-command records manually or invoke external side effects directly.
-
-## Start and continuation semantics
-
-### DO account for ownership-first routing and start-once behavior
-
-Runner first resolves the input's causation command against saved saga dispatches. An owned command
-selects a continuation by its saved step, even when the event also has a start route. No matching
-continuation yields `NoMatchingRoute`; it never falls back to the start route.
-
-Without an owned command, the input must match a start route. If the saga name and correlation ID
-already identify an instance, Runner returns `AlreadyStarted` and the worker ACKs without rerunning
-the start callback or changing state. This also applies to redelivery of the original start event.
-Only a missing instance is created. Do not rely on repeated external start events as a continuation
-mechanism; correlation alone does not authorize a continuation.
-
-Start-once prevents committed reinitialization. It is not an exactly-once callback guarantee:
-failed transactions can execute again. In PostgreSQL, competing new instances cannot overwrite the
-same correlation; the losing transaction rolls back and can retry to observe `AlreadyStarted`.
-
-### DO keep only workflow data and necessary business guards in state
-
-Store identifiers, values required by later commands, and independent facts needed to join parallel
-branches. A domain completion command or event is still valid, but Saga has no shared completion
-status, `complete()`, or `is_completed()` API. Do not add empty routes merely to end a saga.
-
-Successful handlers preserve queued commands. A later owned input can still run its matching
-continuation or failure handler. When business rules require ignoring such an input, guard on
-state and return `Ok(())`; Runner still records and acknowledges it. Framework input deduplication
-handles redelivery, so do not invent consumed flags to replace it.
-
-## Terminal failures
-
-### DO register failure routes only when the workflow needs a reaction
-
-Use `add_failure_step(outgoing_step).on(caused_by).handle(...)` for compensation, recording a
-business failure, or another required reaction. No command generic is needed. Do not register
-`handle(|_ctx, _failure| Ok(()))` just to consume a notification.
-
-An owned terminal failure with no matching route is recorded as processed and acknowledged with
-`NoMatchingRoute`. It does not change state or dispatch commands. Redelivery and republication
-remain deduplicated. Errors from a registered callback still roll back and are retryable.
-
-When one step dispatches several command kinds that require different failure policies, inspect
-the validated `failure.command_name` inside that step's callback. Step matching selects the route;
-it does not guarantee one command kind per step.
-
-### DO leave execution retries and failure publication to the command worker
-
-The command worker retries retryable errors while attempts remain. Terminal notifications follow
-a non-retryable error or exhausted attempts, after handler rollback, through a separate durable
-failure boundary and outbox. Do not reproduce that retry loop or publish `CommandFailureEnvelope`
-from a saga callback or command handler. A business recovery that dispatches a new command is a
-separate workflow decision.
-
-Command-failure subscriptions use the saga name and saved command ownership. They are not domain
-events, and require no event selector in the application's definition.
-
-## Workers and dependencies
-
-### DO pass the saga to reusable workers and build definitions at startup
-
-Inject dependencies into the saga, then pass `&saga` to the event and command-failure workers'
-`run_forever` methods. Each worker calls `saga.definition()` once before subscribing, keeps that
-definition for the run, and reports construction errors before consuming messages. Running both
-workers constructs two definitions; keep `definition` deterministic and free of side effects.
-
-Callbacks are synchronous `Fn` closures returning `Result<(), HandlerError>`. They receive
-`&mut SagaContext` and a typed `&Event<Aggregate::Id, Aggregate::EventPayload>` or
-`&CommandFailureEnvelope`. They may borrow injected services through `&self`; do not force a clone,
-`Arc`, or `'static` capture merely to register a route. Captured references must satisfy the closure's
-`Send + Sync` bounds. Use commands for asynchronous I/O rather than async route callbacks.
-
-Reuse a worker across sagas when they share the subscriber and runner. Each `run_forever` call
-creates its own consumer. A shared worker's stop flag affects all its consumers. If spawning tasks,
-arrange task ownership separately from the borrowing permitted inside a definition. When joining
-the two worker futures, convert their different error types to a common application error.
-
-### DON'T load or mutate aggregates directly from a saga
-
-Coordinate through commands to preserve authorization, idempotency, command-execution tracking,
-retry policy, and the outbox boundary. Do not rely on ambient request-scoped authority surviving
-asynchronous delivery. Carry actor or issuer identifiers as domain data only when later operations
-need them, rather than persisting the whole `RequestContext` in saga state.
+```rust
+// Added solely to consume the final notification or mark the saga finished.
+builder
+    .add_failure_step(TransferSagaStep::Complete)
+    .on(TransferSagaStep::Complete)
+    .handle(|_ctx, _failure| Ok(()))
+```

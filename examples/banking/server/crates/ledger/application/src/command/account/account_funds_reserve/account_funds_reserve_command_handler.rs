@@ -8,7 +8,6 @@ use super::{
     AccountFundsReserveCommand, AccountFundsReserveCommandHandlerError, AccountFundsReserveOutput,
 };
 
-/// Handles `AccountFundsReserveCommand`.
 pub struct AccountFundsReserveCommandHandler<AR>
 where
     AR: Repository<Account>,
@@ -59,6 +58,6 @@ where
             .save(uow, request_context, &mut account)
             .await?;
 
-        Ok(AccountFundsReserveOutput::Reserved)
+        Ok(AccountFundsReserveOutput {})
     }
 }

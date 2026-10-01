@@ -59,8 +59,7 @@ impl PgOrganizationMemberListReader {
         let row = sqlx::query_as::<_, PgOrganizationMemberListOrganizationRow>(
             r#"
             SELECT id AS organization_id, handle, display_name, picture_type,
-                   picture_object_name, picture_external_url, source_event_id,
-                   updated_event_id
+                   picture_object_name, picture_external_url
               FROM organization_fragments
              WHERE id = $1
             "#,
@@ -104,9 +103,7 @@ impl OrganizationMemberListReader for PgOrganizationMemberListReader {
                     m.user_id,
                     m.roles::text AS roles,
                     m.user_id = o.owner_user_id AS is_owner,
-                    m.created_at AS joined_at,
-                    m.source_event_id,
-                    m.updated_event_id
+                    m.created_at AS joined_at
                 FROM organization_membership_fragments AS m
                 INNER JOIN organization_fragments AS o
                         ON o.id = m.organization_id
@@ -121,9 +118,7 @@ impl OrganizationMemberListReader for PgOrganizationMemberListReader {
                     o.owner_user_id AS user_id,
                     '[]'::text AS roles,
                     TRUE AS is_owner,
-                    o.owner_since AS joined_at,
-                    o.owner_source_event_id AS source_event_id,
-                    o.owner_updated_event_id AS updated_event_id
+                    o.owner_since AS joined_at
                 FROM organization_fragments AS o
                 WHERE o.id =
             "#,
@@ -147,11 +142,7 @@ impl OrganizationMemberListReader for PgOrganizationMemberListReader {
                 u.picture_external_url,
                 r.roles,
                 r.is_owner,
-                r.joined_at,
-                r.source_event_id,
-                r.updated_event_id,
-                u.source_event_id AS member_source_event_id,
-                u.updated_event_id AS member_updated_event_id
+                r.joined_at
             FROM member_rows AS r
             INNER JOIN user_fragments AS u ON u.id = r.user_id
             "#,

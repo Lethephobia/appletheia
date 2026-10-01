@@ -1,10 +1,7 @@
 use appletheia::domain::AggregateError;
 use thiserror::Error;
 
-use super::{
-    DepositCompleteRejectionReason, DepositFailRejectionReason, DepositId,
-    DepositRequestRejectionReason, DepositSettlementVerifyRejectionReason, DepositStateError,
-};
+use super::{DepositId, DepositStateError};
 
 /// Describes why a `Deposit` aggregate operation failed.
 #[derive(Debug, Error)]
@@ -20,12 +17,25 @@ pub enum DepositError {
 
     #[error("deposit settlement has not been verified")]
     SettlementNotVerified,
-    #[error("deposit request rejected: {0:?}")]
-    RequestRejected(DepositRequestRejectionReason),
-    #[error("deposit settlement verification rejected: {0:?}")]
-    SettlementVerifyRejected(DepositSettlementVerifyRejectionReason),
-    #[error("deposit completion rejected: {0:?}")]
-    CompleteRejected(DepositCompleteRejectionReason),
-    #[error("deposit failure rejected: {0:?}")]
-    FailRejected(DepositFailRejectionReason),
+
+    #[error("deposit is already completed")]
+    AlreadyCompleted,
+
+    #[error("deposit is already failed")]
+    AlreadyFailed,
+
+    #[error("deposit amount must be greater than zero")]
+    ZeroAmount,
+
+    #[error("token binding is unavailable for settlement")]
+    TokenBindingUnavailable,
+
+    #[error("transaction does not match the settlement chain")]
+    ChainMismatch,
+
+    #[error("deposit settlement has already been verified")]
+    SettlementAlreadyVerified,
+
+    #[error("deposit is already rejected")]
+    AlreadyRejected,
 }

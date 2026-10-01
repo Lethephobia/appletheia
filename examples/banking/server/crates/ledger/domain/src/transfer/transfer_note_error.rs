@@ -4,6 +4,7 @@ use thiserror::Error;
 pub enum TransferNoteError {
     #[error("transfer note cannot be empty")]
     Empty,
+
     #[error("transfer note is too long")]
     TooLong,
 }

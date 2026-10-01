@@ -1,12 +1,10 @@
 use appletheia::application::Retryability;
-
 use appletheia::application::repository::RepositoryError;
 use banking_iam_domain::{
     Organization, OrganizationError, OrganizationMembership, OrganizationMembershipError,
 };
 use thiserror::Error;
 
-/// Represents errors returned while changing organization membership roles.
 #[derive(Debug, Error)]
 pub enum OrganizationMembershipRolesChangeCommandHandlerError {
     #[error("organization repository failed")]

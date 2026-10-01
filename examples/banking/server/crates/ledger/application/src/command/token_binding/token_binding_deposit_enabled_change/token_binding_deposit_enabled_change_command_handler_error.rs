@@ -7,6 +7,7 @@ use thiserror::Error;
 pub enum TokenBindingDepositEnabledChangeCommandHandlerError {
     #[error("token binding repository failed")]
     Repository(#[from] RepositoryError<TokenBinding>),
+
     #[error("token binding aggregate failed")]
     Aggregate(#[from] TokenBindingError),
 }

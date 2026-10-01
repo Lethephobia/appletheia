@@ -9,15 +9,20 @@ pub enum UsersetExpr {
     /// Reads direct persisted tuples during evaluation. Sources run only during save.
     /// An empty list declares a read-only direct relation with no local derivation.
     This(Vec<RelationshipDerivationSource>),
+
     ComputedUserset {
         relation: RelationRefOwned,
     },
+
     TupleToUserset {
         tupleset_relation: RelationRefOwned,
         computed_userset: RelationRefOwned,
     },
+
     Union(Vec<UsersetExpr>),
+
     Intersection(Vec<UsersetExpr>),
+
     Difference {
         base: Box<UsersetExpr>,
         subtract: Box<UsersetExpr>,

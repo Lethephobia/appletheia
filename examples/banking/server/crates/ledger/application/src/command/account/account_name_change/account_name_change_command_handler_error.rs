@@ -1,10 +1,8 @@
 use appletheia::application::Retryability;
-
 use appletheia::application::repository::RepositoryError;
 use banking_ledger_domain::account::{Account, AccountError};
 use thiserror::Error;
 
-/// Represents errors returned while renaming an account.
 #[derive(Debug, Error)]
 pub enum AccountNameChangeCommandHandlerError {
     #[error("account repository failed")]

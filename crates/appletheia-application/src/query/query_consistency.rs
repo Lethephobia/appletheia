@@ -7,11 +7,13 @@ use crate::request_context::MessageId;
 pub enum QueryConsistency {
     #[default]
     Eventual,
+
     AfterMessage {
         message_id: MessageId,
         timeout: ProjectionConsistencyTimeout,
         poll_interval: ProjectionConsistencyPollInterval,
     },
+
     AfterEvents {
         event_ids: Vec<EventId>,
         timeout: ProjectionConsistencyTimeout,

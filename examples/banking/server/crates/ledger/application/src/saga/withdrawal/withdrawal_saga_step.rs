@@ -1,9 +1,7 @@
-use appletheia::application::saga::SagaStep;
-use serde::{Deserialize, Serialize};
+use appletheia::saga_step;
 
 /// Lists the logical command-dispatch steps in a withdrawal saga.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[saga_step]
 pub enum WithdrawalSagaStep {
     ReserveFunds,
     ExecuteSettlement,
@@ -12,5 +10,3 @@ pub enum WithdrawalSagaStep {
     Complete,
     Fail,
 }
-
-impl SagaStep for WithdrawalSagaStep {}

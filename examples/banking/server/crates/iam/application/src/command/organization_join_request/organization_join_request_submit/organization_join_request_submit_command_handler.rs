@@ -6,10 +6,10 @@ use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use appletheia::domain::Aggregate;
 use appletheia::domain::{AggregateId, UniqueValue, UniqueValuePart};
+use banking_iam_domain::OrganizationJoinRequestError;
 use banking_iam_domain::{
     Organization, OrganizationId, OrganizationJoinRequest, OrganizationJoinRequestState,
-    OrganizationJoinRequestSubmission, OrganizationJoinRequestSubmitRejectionReason,
-    OrganizationJoinRequestSubmitResult, OrganizationMembership, OrganizationMembershipState, User,
+    OrganizationJoinRequestSubmission, OrganizationMembership, OrganizationMembershipState, User,
     UserId,
 };
 
@@ -19,7 +19,6 @@ use super::{
 };
 use crate::authorization::UserOwnerRelation;
 
-/// Handles `OrganizationJoinRequestSubmitCommand`.
 pub struct OrganizationJoinRequestSubmitCommandHandler<OR, JR, MR>
 where
     OR: Repository<Organization>,
@@ -104,17 +103,7 @@ where
             .read(uow, command.organization_id)
             .await?;
         if organization.is_removed()? {
-            let reason = OrganizationJoinRequestSubmitRejectionReason::OrganizationRemoved;
-            organization_join_request.reject_submit(submission, reason)?;
-
-            self.organization_join_request_repository
-                .save(uow, request_context, &mut organization_join_request)
-                .await?;
-
-            return Ok(OrganizationJoinRequestSubmitOutput::Rejected {
-                organization_join_request_id,
-                reason,
-            });
+            return Err(OrganizationJoinRequestError::OrganizationRemoved.into());
         }
 
         let membership_unique_value = Self::organization_requester_unique_value(
@@ -131,17 +120,7 @@ where
             .await?
             .is_some()
         {
-            let reason = OrganizationJoinRequestSubmitRejectionReason::RequesterAlreadyMember;
-            organization_join_request.reject_submit(submission, reason)?;
-
-            self.organization_join_request_repository
-                .save(uow, request_context, &mut organization_join_request)
-                .await?;
-
-            return Ok(OrganizationJoinRequestSubmitOutput::Rejected {
-                organization_join_request_id,
-                reason,
-            });
+            return Err(OrganizationJoinRequestError::RequesterAlreadyMember.into());
         }
 
         let unique_value = Self::organization_requester_unique_value(
@@ -158,39 +137,17 @@ where
             .await?
             .is_some()
         {
-            let reason = OrganizationJoinRequestSubmitRejectionReason::AlreadySubmitted;
-            organization_join_request.reject_submit(submission, reason)?;
-
-            self.organization_join_request_repository
-                .save(uow, request_context, &mut organization_join_request)
-                .await?;
-
-            return Ok(OrganizationJoinRequestSubmitOutput::Rejected {
-                organization_join_request_id,
-                reason,
-            });
+            return Err(OrganizationJoinRequestError::AlreadySubmitted.into());
         }
 
-        let result = organization_join_request.submit(submission)?;
+        organization_join_request.submit(submission)?;
 
         self.organization_join_request_repository
             .save(uow, request_context, &mut organization_join_request)
             .await?;
 
-        let output = match result {
-            OrganizationJoinRequestSubmitResult::Submitted => {
-                OrganizationJoinRequestSubmitOutput::Submitted {
-                    organization_join_request_id,
-                }
-            }
-            OrganizationJoinRequestSubmitResult::Rejected { reason } => {
-                OrganizationJoinRequestSubmitOutput::Rejected {
-                    organization_join_request_id,
-                    reason,
-                }
-            }
-        };
-
-        Ok(output)
+        Ok(OrganizationJoinRequestSubmitOutput {
+            organization_join_request_id,
+        })
     }
 }

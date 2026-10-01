@@ -1,17 +1,10 @@
 use appletheia::application::command::{CommandOutput, CommandReplayOutput};
-use banking_ledger_domain::token_binding::{TokenBindingDefineRejectionReason, TokenBindingId};
+use banking_ledger_domain::token_binding::TokenBindingId;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "type", content = "data", rename_all = "snake_case")]
-pub enum TokenBindingDefineOutput {
-    Defined {
-        token_binding_id: TokenBindingId,
-    },
-    Rejected {
-        token_binding_id: TokenBindingId,
-        reason: TokenBindingDefineRejectionReason,
-    },
+pub struct TokenBindingDefineOutput {
+    pub token_binding_id: TokenBindingId,
 }
 
 impl CommandOutput for TokenBindingDefineOutput {

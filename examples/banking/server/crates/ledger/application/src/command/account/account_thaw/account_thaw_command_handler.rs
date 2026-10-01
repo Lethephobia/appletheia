@@ -4,12 +4,11 @@ use appletheia::application::authorization::{
 use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_ledger_domain::account::{Account, AccountThawResult};
+use banking_ledger_domain::account::Account;
 
 use super::{AccountThawCommand, AccountThawCommandHandlerError, AccountThawOutput};
 use crate::authorization::AccountThawerRelation;
 
-/// Handles `AccountThawCommand`.
 pub struct AccountThawCommandHandler<AR>
 where
     AR: Repository<Account>,
@@ -60,16 +59,11 @@ where
             .read(uow, command.account_id)
             .await?;
 
-        let result = account.thaw()?;
+        account.thaw()?;
         self.account_repository
             .save(uow, request_context, &mut account)
             .await?;
 
-        let output = match result {
-            AccountThawResult::Thawed => AccountThawOutput::Thawed,
-            AccountThawResult::Rejected { reason } => AccountThawOutput::Rejected { reason },
-        };
-
-        Ok(output)
+        Ok(AccountThawOutput {})
     }
 }

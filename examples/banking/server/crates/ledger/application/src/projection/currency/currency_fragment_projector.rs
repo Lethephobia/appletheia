@@ -1,8 +1,6 @@
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
-use appletheia::application::read_model::{
-    MaterializationEventContext, ReadModelFragment, ReadModelInvalidatedPartitions,
-};
+use appletheia::application::read_model::MaterializationEventContext;
 use banking_ledger_domain::currency::{Currency, CurrencyEventPayload, CurrencyStatus};
 use banking_ledger_domain::token_binding::{TokenBinding, TokenBindingEventPayload};
 
@@ -41,14 +39,11 @@ where
         uow: &mut Self::Uow,
         event_context: MaterializationEventContext,
         event: &EventEnvelope,
-    ) -> Result<
-        ReadModelInvalidatedPartitions<<Self::Fragment as ReadModelFragment>::Key>,
-        Self::Error,
-    > {
-        let fragment = if event.is_for_aggregate::<Currency>() {
-            let event = event.try_to_domain_event::<Currency>()?;
-            let currency_id = event.aggregate_id();
-            match event.payload() {
+    ) -> Result<(), Self::Error> {
+        if event.is_for_aggregate::<Currency>() {
+            let currency_event = event.try_to_domain_event::<Currency>()?;
+            let currency_id = currency_event.aggregate_id();
+            match currency_event.payload() {
                 CurrencyEventPayload::Defined {
                     currency_registrar_id,
                     code,
@@ -68,7 +63,7 @@ where
                                 status: CurrencyStatus::Defined,
                             },
                         )
-                        .await?
+                        .await?;
                 }
                 CurrencyEventPayload::DescriptionChanged { description } => {
                     self.writer
@@ -78,7 +73,7 @@ where
                             currency_id,
                             description.clone(),
                         )
-                        .await?
+                        .await?;
                 }
                 CurrencyEventPayload::Activated => {
                     self.writer
@@ -88,7 +83,7 @@ where
                             currency_id,
                             CurrencyStatus::Active,
                         )
-                        .await?
+                        .await?;
                 }
                 CurrencyEventPayload::Deactivated => {
                     self.writer
@@ -98,12 +93,12 @@ where
                             currency_id,
                             CurrencyStatus::Inactive,
                         )
-                        .await?
+                        .await?;
                 }
             }
         } else if event.is_for_aggregate::<TokenBinding>() {
-            let event = event.try_to_domain_event::<TokenBinding>()?;
-            match event.payload() {
+            let token_binding_event = event.try_to_domain_event::<TokenBinding>()?;
+            match token_binding_event.payload() {
                 TokenBindingEventPayload::Defined {
                     currency_id,
                     chain_network,
@@ -117,49 +112,47 @@ where
                             event_context,
                             *currency_id,
                             CurrencyTokenBindingFragment {
-                                id: event.aggregate_id(),
+                                id: token_binding_event.aggregate_id(),
                                 chain_network: *chain_network,
                                 token_address: *token_address,
                                 deposit_enabled: *deposit_enabled,
                                 withdrawal_enabled: *withdrawal_enabled,
                             },
                         )
-                        .await?
+                        .await?;
                 }
                 TokenBindingEventPayload::DepositEnabledChanged { enabled } => {
                     self.writer
                         .update_token_binding_deposit_enabled(
                             uow,
                             event_context,
-                            event.aggregate_id(),
+                            token_binding_event.aggregate_id(),
                             *enabled,
                         )
-                        .await?
+                        .await?;
                 }
                 TokenBindingEventPayload::WithdrawalEnabledChanged { enabled } => {
                     self.writer
                         .update_token_binding_withdrawal_enabled(
                             uow,
                             event_context,
-                            event.aggregate_id(),
+                            token_binding_event.aggregate_id(),
                             *enabled,
                         )
-                        .await?
+                        .await?;
                 }
                 TokenBindingEventPayload::Removed => {
                     self.writer
-                        .remove_token_binding(uow, event_context, event.aggregate_id())
-                        .await?
+                        .remove_token_binding(
+                            uow,
+                            event_context,
+                            token_binding_event.aggregate_id(),
+                        )
+                        .await?;
                 }
             }
-        } else {
-            None
-        };
-
-        let mut invalidated_partitions = ReadModelInvalidatedPartitions::new();
-        if let Some(fragment) = fragment {
-            invalidated_partitions.insert(fragment.key());
         }
-        Ok(invalidated_partitions)
+
+        Ok(())
     }
 }

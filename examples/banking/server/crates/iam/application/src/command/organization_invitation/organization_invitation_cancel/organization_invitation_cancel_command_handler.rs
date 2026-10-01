@@ -4,10 +4,8 @@ use appletheia::application::authorization::{
 use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_iam_domain::{
-    Organization, OrganizationInvitation, OrganizationInvitationCancelRejectionReason,
-    OrganizationInvitationCancelResult,
-};
+use banking_iam_domain::OrganizationInvitationError;
+use banking_iam_domain::{Organization, OrganizationInvitation};
 use banking_shared_kernel_domain::timestamps::CurrentDateTime;
 
 use crate::authorization::OrganizationInvitationCancelerRelation;
@@ -17,7 +15,6 @@ use super::{
     OrganizationInvitationCancelOutput,
 };
 
-/// Handles `OrganizationInvitationCancelCommand`.
 pub struct OrganizationInvitationCancelCommandHandler<ORG, IR>
 where
     ORG: Repository<Organization>,
@@ -81,31 +78,15 @@ where
             .await?;
 
         if organization.is_removed()? {
-            let reason = OrganizationInvitationCancelRejectionReason::OrganizationRemoved;
-            organization_invitation.reject_cancel(reason)?;
-
-            self.organization_invitation_repository
-                .save(uow, request_context, &mut organization_invitation)
-                .await?;
-
-            return Ok(OrganizationInvitationCancelOutput::Rejected { reason });
+            return Err(OrganizationInvitationError::OrganizationRemoved.into());
         }
 
-        let result = organization_invitation.cancel(CurrentDateTime::new())?;
+        organization_invitation.cancel(CurrentDateTime::new())?;
 
         self.organization_invitation_repository
             .save(uow, request_context, &mut organization_invitation)
             .await?;
 
-        let output = match result {
-            OrganizationInvitationCancelResult::Canceled => {
-                OrganizationInvitationCancelOutput::Canceled
-            }
-            OrganizationInvitationCancelResult::Rejected { reason } => {
-                OrganizationInvitationCancelOutput::Rejected { reason }
-            }
-        };
-
-        Ok(output)
+        Ok(OrganizationInvitationCancelOutput {})
     }
 }

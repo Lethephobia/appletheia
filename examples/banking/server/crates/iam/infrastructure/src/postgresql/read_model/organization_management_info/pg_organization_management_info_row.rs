@@ -1,5 +1,4 @@
-use appletheia::application::read_model::ReadModelObservation;
-use appletheia::domain::{AggregateId, EventId, EventOccurredAt};
+use appletheia::domain::{AggregateId, EventOccurredAt};
 use banking_iam_application::{OrganizationManagementInfo, OrganizationManagementInfoOwner};
 use banking_iam_domain::{
     OrganizationDescription, OrganizationDisplayName, OrganizationHandle, OrganizationId,
@@ -23,16 +22,12 @@ pub struct PgOrganizationManagementInfoRow {
     pub picture_object_name: Option<String>,
     pub picture_external_url: Option<String>,
     pub created_at: DateTime<Utc>,
-    pub source_event_id: Uuid,
-    pub updated_event_id: Uuid,
     pub owner_user_id: Uuid,
     pub owner_username: Option<String>,
     pub owner_display_name: Option<String>,
     pub owner_picture_type: Option<String>,
     pub owner_picture_object_name: Option<String>,
     pub owner_picture_external_url: Option<String>,
-    pub owner_source_event_id: Uuid,
-    pub owner_updated_event_id: Uuid,
 }
 
 impl TryFrom<PgOrganizationManagementInfoRow> for OrganizationManagementInfo {
@@ -83,14 +78,6 @@ impl TryFrom<PgOrganizationManagementInfoRow> for OrganizationManagementInfo {
                 .map_err(|error| {
                     PgOrganizationManagementInfoRowError::OwnerPicture(Box::new(error))
                 })?,
-                observation: ReadModelObservation::new(
-                    EventId::try_from(row.owner_source_event_id).map_err(|error| {
-                        PgOrganizationManagementInfoRowError::OwnerSourceEventId(Box::new(error))
-                    })?,
-                    EventId::try_from(row.owner_updated_event_id).map_err(|error| {
-                        PgOrganizationManagementInfoRowError::OwnerUpdatedEventId(Box::new(error))
-                    })?,
-                ),
             },
             handle: OrganizationHandle::try_from(row.handle)
                 .map_err(|error| PgOrganizationManagementInfoRowError::Handle(Box::new(error)))?,
@@ -107,14 +94,6 @@ impl TryFrom<PgOrganizationManagementInfoRow> for OrganizationManagementInfo {
             .try_into_picture()
             .map_err(|error| PgOrganizationManagementInfoRowError::Picture(Box::new(error)))?,
             created_at: EventOccurredAt::from(row.created_at),
-            observation: ReadModelObservation::new(
-                EventId::try_from(row.source_event_id).map_err(|error| {
-                    PgOrganizationManagementInfoRowError::SourceEventId(Box::new(error))
-                })?,
-                EventId::try_from(row.updated_event_id).map_err(|error| {
-                    PgOrganizationManagementInfoRowError::UpdatedEventId(Box::new(error))
-                })?,
-            ),
         })
     }
 }

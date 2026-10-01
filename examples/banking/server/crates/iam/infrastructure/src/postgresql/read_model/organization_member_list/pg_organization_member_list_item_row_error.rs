@@ -19,16 +19,4 @@ pub enum PgOrganizationMemberListItemRowError {
 
     #[error("organization member list row has invalid roles")]
     Roles(#[source] Box<dyn std::error::Error + Send + Sync>),
-
-    #[error("organization member list row has an invalid source event id")]
-    SourceEventId(#[source] Box<dyn std::error::Error + Send + Sync>),
-
-    #[error("organization member list row has an invalid updated event id")]
-    UpdatedEventId(#[source] Box<dyn std::error::Error + Send + Sync>),
-
-    #[error("organization member list row has an invalid member source event id")]
-    MemberSourceEventId(#[source] Box<dyn std::error::Error + Send + Sync>),
-
-    #[error("organization member list row has an invalid member updated event id")]
-    MemberUpdatedEventId(#[source] Box<dyn std::error::Error + Send + Sync>),
 }

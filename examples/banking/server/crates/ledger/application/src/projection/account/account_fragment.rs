@@ -1,6 +1,4 @@
-use appletheia::application::read_model::{
-    ReadModelFragment, ReadModelFragmentName, ReadModelObservation, ReadModelObservationSource,
-};
+use appletheia::application::read_model::{ReadModelFragment, ReadModelFragmentName};
 use appletheia::domain::EventOccurredAt;
 use banking_ledger_domain::account::{AccountDescription, AccountId, AccountName, AccountOwner};
 use banking_ledger_domain::core::CurrencyAmount;
@@ -21,13 +19,6 @@ pub struct AccountFragment {
     pub reserved_balance: CurrencyAmount,
     pub status: MaterializedAccountStatus,
     pub created_at: EventOccurredAt,
-    pub observation: ReadModelObservation,
-}
-
-impl ReadModelObservationSource for AccountFragment {
-    fn observations(&self) -> Vec<ReadModelObservation> {
-        vec![self.observation]
-    }
 }
 
 impl ReadModelFragment for AccountFragment {

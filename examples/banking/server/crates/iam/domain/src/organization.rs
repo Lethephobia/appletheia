@@ -1,79 +1,47 @@
-mod organization_create_rejection_reason;
-mod organization_create_result;
 mod organization_creation;
 mod organization_description;
-mod organization_description_change_rejection_reason;
-mod organization_description_change_result;
 mod organization_description_error;
 mod organization_display_name;
-mod organization_display_name_change_rejection_reason;
-mod organization_display_name_change_result;
 mod organization_display_name_error;
 mod organization_error;
 mod organization_event_payload;
 mod organization_event_payload_error;
 mod organization_handle;
-mod organization_handle_change_rejection_reason;
-mod organization_handle_change_result;
 mod organization_handle_error;
 mod organization_id;
 mod organization_owner;
-mod organization_ownership_transfer_rejection_reason;
-mod organization_ownership_transfer_result;
-mod organization_picture_change_rejection_reason;
-mod organization_picture_change_result;
 mod organization_picture_object_name;
 mod organization_picture_object_name_error;
 mod organization_picture_ref;
 mod organization_picture_url;
 mod organization_picture_url_error;
-mod organization_remove_rejection_reason;
-mod organization_remove_result;
 mod organization_state;
 mod organization_state_error;
 mod organization_status;
 mod organization_website_url;
-mod organization_website_url_change_rejection_reason;
-mod organization_website_url_change_result;
 mod organization_website_url_error;
 
-pub use organization_create_rejection_reason::OrganizationCreateRejectionReason;
-pub use organization_create_result::OrganizationCreateResult;
 pub use organization_creation::OrganizationCreation;
 pub use organization_description::OrganizationDescription;
-pub use organization_description_change_rejection_reason::OrganizationDescriptionChangeRejectionReason;
-pub use organization_description_change_result::OrganizationDescriptionChangeResult;
 pub use organization_description_error::OrganizationDescriptionError;
 pub use organization_display_name::OrganizationDisplayName;
-pub use organization_display_name_change_rejection_reason::OrganizationDisplayNameChangeRejectionReason;
-pub use organization_display_name_change_result::OrganizationDisplayNameChangeResult;
 pub use organization_display_name_error::OrganizationDisplayNameError;
 pub use organization_error::OrganizationError;
 pub use organization_event_payload::OrganizationEventPayload;
 pub use organization_event_payload_error::OrganizationEventPayloadError;
 pub use organization_handle::OrganizationHandle;
-pub use organization_handle_change_rejection_reason::OrganizationHandleChangeRejectionReason;
-pub use organization_handle_change_result::OrganizationHandleChangeResult;
 pub use organization_handle_error::OrganizationHandleError;
 pub use organization_id::OrganizationId;
 pub use organization_owner::OrganizationOwner;
-pub use organization_ownership_transfer_rejection_reason::OrganizationOwnershipTransferRejectionReason;
-pub use organization_ownership_transfer_result::OrganizationOwnershipTransferResult;
-pub use organization_picture_change_rejection_reason::OrganizationPictureChangeRejectionReason;
-pub use organization_picture_change_result::OrganizationPictureChangeResult;
 pub use organization_picture_object_name::OrganizationPictureObjectName;
 pub use organization_picture_object_name_error::OrganizationPictureObjectNameError;
 pub use organization_picture_ref::OrganizationPictureRef;
 pub use organization_picture_url::OrganizationPictureUrl;
 pub use organization_picture_url_error::OrganizationPictureUrlError;
-pub use organization_remove_rejection_reason::OrganizationRemoveRejectionReason;
-pub use organization_remove_result::OrganizationRemoveResult;
 pub use organization_state::OrganizationState;
 pub use organization_state_error::OrganizationStateError;
 pub use organization_status::OrganizationStatus;
 pub use organization_website_url::OrganizationWebsiteUrl;
-pub use organization_website_url_change_rejection_reason::OrganizationWebsiteUrlChangeRejectionReason;
-pub use organization_website_url_change_result::OrganizationWebsiteUrlChangeResult;
 pub use organization_website_url_error::OrganizationWebsiteUrlError;
 
 pub type OrganizationName = OrganizationDisplayName;
@@ -135,10 +103,7 @@ impl Organization {
     }
 
     /// Creates a new organization.
-    pub fn create(
-        &mut self,
-        creation: OrganizationCreation,
-    ) -> Result<OrganizationCreateResult, OrganizationError> {
+    pub fn create(&mut self, creation: OrganizationCreation) -> Result<(), OrganizationError> {
         if self.state().is_some() {
             return Err(OrganizationError::AlreadyCreated);
         }
@@ -154,147 +119,78 @@ impl Organization {
             picture,
         })?;
 
-        Ok(OrganizationCreateResult::Created)
-    }
-
-    /// Rejects an organization creation attempt.
-    pub fn reject_create(
-        &mut self,
-        _creation: OrganizationCreation,
-        reason: OrganizationCreateRejectionReason,
-    ) -> Result<(), OrganizationError> {
-        Err(OrganizationError::CreateRejected(reason))
+        Ok(())
     }
 
     /// Transfers ownership of the organization.
     pub fn transfer_ownership(
         &mut self,
         owner: OrganizationOwner,
-    ) -> Result<OrganizationOwnershipTransferResult, OrganizationError> {
+    ) -> Result<(), OrganizationError> {
         if self.state_required()?.status.is_removed() {
-            let reason = OrganizationOwnershipTransferRejectionReason::Removed;
-            self.reject_transfer_ownership(owner, reason)?;
-            return Ok(OrganizationOwnershipTransferResult::Rejected { reason });
+            return Err(OrganizationError::Removed);
         }
 
         self.append_event(OrganizationEventPayload::OwnershipTransferred { owner })?;
-        Ok(OrganizationOwnershipTransferResult::Transferred)
-    }
-
-    /// Rejects an ownership transfer attempt.
-    pub fn reject_transfer_ownership(
-        &mut self,
-        _owner: OrganizationOwner,
-        reason: OrganizationOwnershipTransferRejectionReason,
-    ) -> Result<(), OrganizationError> {
-        Err(OrganizationError::OwnershipTransferRejected(reason))
+        Ok(())
     }
 
     /// Changes the current organization handle.
-    pub fn change_handle(
-        &mut self,
-        handle: OrganizationHandle,
-    ) -> Result<OrganizationHandleChangeResult, OrganizationError> {
+    pub fn change_handle(&mut self, handle: OrganizationHandle) -> Result<(), OrganizationError> {
         if self.state_required()?.status.is_removed() {
-            let reason = OrganizationHandleChangeRejectionReason::Removed;
-            self.reject_change_handle(handle, reason)?;
-            return Ok(OrganizationHandleChangeResult::Rejected { reason });
+            return Err(OrganizationError::Removed);
         }
 
         self.append_event(OrganizationEventPayload::HandleChanged { handle })?;
-        Ok(OrganizationHandleChangeResult::Changed)
-    }
-
-    /// Rejects a handle change attempt.
-    pub fn reject_change_handle(
-        &mut self,
-        _handle: OrganizationHandle,
-        reason: OrganizationHandleChangeRejectionReason,
-    ) -> Result<(), OrganizationError> {
-        Err(OrganizationError::HandleChangeRejected(reason))
+        Ok(())
     }
 
     /// Changes the current organization display name.
     pub fn change_display_name(
         &mut self,
         display_name: OrganizationDisplayName,
-    ) -> Result<OrganizationDisplayNameChangeResult, OrganizationError> {
+    ) -> Result<(), OrganizationError> {
         if self.state_required()?.status.is_removed() {
-            let reason = OrganizationDisplayNameChangeRejectionReason::Removed;
-            self.reject_change_display_name(display_name, reason)?;
-            return Ok(OrganizationDisplayNameChangeResult::Rejected { reason });
+            return Err(OrganizationError::Removed);
         }
 
         self.append_event(OrganizationEventPayload::DisplayNameChanged { display_name })?;
-        Ok(OrganizationDisplayNameChangeResult::Changed)
-    }
-
-    /// Rejects a display name change attempt.
-    pub fn reject_change_display_name(
-        &mut self,
-        _display_name: OrganizationDisplayName,
-        reason: OrganizationDisplayNameChangeRejectionReason,
-    ) -> Result<(), OrganizationError> {
-        Err(OrganizationError::DisplayNameChangeRejected(reason))
+        Ok(())
     }
 
     /// Changes the current organization description.
     pub fn change_description(
         &mut self,
         description: Option<OrganizationDescription>,
-    ) -> Result<OrganizationDescriptionChangeResult, OrganizationError> {
+    ) -> Result<(), OrganizationError> {
         if self.state_required()?.status.is_removed() {
-            let reason = OrganizationDescriptionChangeRejectionReason::Removed;
-            self.reject_change_description(description, reason)?;
-            return Ok(OrganizationDescriptionChangeResult::Rejected { reason });
+            return Err(OrganizationError::Removed);
         }
 
         self.append_event(OrganizationEventPayload::DescriptionChanged { description })?;
-        Ok(OrganizationDescriptionChangeResult::Changed)
-    }
-
-    /// Rejects a description change attempt.
-    pub fn reject_change_description(
-        &mut self,
-        _description: Option<OrganizationDescription>,
-        reason: OrganizationDescriptionChangeRejectionReason,
-    ) -> Result<(), OrganizationError> {
-        Err(OrganizationError::DescriptionChangeRejected(reason))
+        Ok(())
     }
 
     /// Changes the current organization website URL.
     pub fn change_website_url(
         &mut self,
         website_url: Option<OrganizationWebsiteUrl>,
-    ) -> Result<OrganizationWebsiteUrlChangeResult, OrganizationError> {
+    ) -> Result<(), OrganizationError> {
         if self.state_required()?.status.is_removed() {
-            let reason = OrganizationWebsiteUrlChangeRejectionReason::Removed;
-            self.reject_change_website_url(website_url, reason)?;
-            return Ok(OrganizationWebsiteUrlChangeResult::Rejected { reason });
+            return Err(OrganizationError::Removed);
         }
 
         self.append_event(OrganizationEventPayload::WebsiteUrlChanged { website_url })?;
-        Ok(OrganizationWebsiteUrlChangeResult::Changed)
-    }
-
-    /// Rejects a website URL change attempt.
-    pub fn reject_change_website_url(
-        &mut self,
-        _website_url: Option<OrganizationWebsiteUrl>,
-        reason: OrganizationWebsiteUrlChangeRejectionReason,
-    ) -> Result<(), OrganizationError> {
-        Err(OrganizationError::WebsiteUrlChangeRejected(reason))
+        Ok(())
     }
 
     /// Changes the current organization picture.
     pub fn change_picture(
         &mut self,
         picture: Option<OrganizationPictureRef>,
-    ) -> Result<OrganizationPictureChangeResult, OrganizationError> {
+    ) -> Result<(), OrganizationError> {
         if self.state_required()?.status.is_removed() {
-            let reason = OrganizationPictureChangeRejectionReason::Removed;
-            self.reject_change_picture(picture, reason)?;
-            return Ok(OrganizationPictureChangeResult::Rejected { reason });
+            return Err(OrganizationError::Removed);
         }
 
         let old_picture = self.state_required()?.picture.clone();
@@ -303,36 +199,17 @@ impl Organization {
             picture,
             old_picture,
         })?;
-        Ok(OrganizationPictureChangeResult::Changed)
-    }
-
-    /// Rejects a picture change attempt.
-    pub fn reject_change_picture(
-        &mut self,
-        _picture: Option<OrganizationPictureRef>,
-        reason: OrganizationPictureChangeRejectionReason,
-    ) -> Result<(), OrganizationError> {
-        Err(OrganizationError::PictureChangeRejected(reason))
+        Ok(())
     }
 
     /// Permanently removes the organization.
-    pub fn remove(&mut self) -> Result<OrganizationRemoveResult, OrganizationError> {
+    pub fn remove(&mut self) -> Result<(), OrganizationError> {
         if self.state_required()?.status.is_removed() {
-            let reason = OrganizationRemoveRejectionReason::Removed;
-            self.reject_remove(reason)?;
-            return Ok(OrganizationRemoveResult::Rejected { reason });
+            return Err(OrganizationError::Removed);
         }
 
         self.append_event(OrganizationEventPayload::Removed)?;
-        Ok(OrganizationRemoveResult::Removed)
-    }
-
-    /// Rejects an organization removal attempt.
-    pub fn reject_remove(
-        &mut self,
-        reason: OrganizationRemoveRejectionReason,
-    ) -> Result<(), OrganizationError> {
-        Err(OrganizationError::RemoveRejected(reason))
+        Ok(())
     }
 }
 
@@ -387,10 +264,9 @@ mod tests {
     use appletheia::domain::{Aggregate, EventPayload};
 
     use super::{
-        Organization, OrganizationCreateRejectionReason, OrganizationCreation,
-        OrganizationDescription, OrganizationDisplayName, OrganizationError,
-        OrganizationEventPayload, OrganizationHandle, OrganizationOwner, OrganizationPictureRef,
-        OrganizationPictureUrl, OrganizationWebsiteUrl,
+        Organization, OrganizationCreation, OrganizationDescription, OrganizationDisplayName,
+        OrganizationError, OrganizationEventPayload, OrganizationHandle, OrganizationOwner,
+        OrganizationPictureRef, OrganizationPictureUrl, OrganizationWebsiteUrl,
     };
     use crate::UserId;
 
@@ -452,28 +328,22 @@ mod tests {
     }
 
     #[test]
-    fn reject_create_returns_error_without_initializing_state() {
-        let reason = OrganizationCreateRejectionReason::HandleAlreadyTaken;
-        let mut organization = Organization::new();
-
+    fn create_rejects_already_created_organization_without_recording_an_event() {
+        let mut organization = organization();
         let error = organization
-            .reject_create(
-                OrganizationCreation {
-                    owner: owner(),
-                    handle: OrganizationHandle::try_from("acme-labs")
-                        .expect("handle should be valid"),
-                    display_name: display_name(),
-                    description: None,
-                    website_url: None,
-                    picture: None,
-                },
-                reason,
-            )
-            .expect_err("creation should be rejected");
+            .create(OrganizationCreation {
+                owner: owner(),
+                handle: OrganizationHandle::try_from("another-handle")
+                    .expect("handle should be valid"),
+                display_name: display_name(),
+                description: None,
+                website_url: None,
+                picture: None,
+            })
+            .expect_err("duplicate creation should fail");
 
-        assert!(matches!(error, OrganizationError::CreateRejected(actual) if actual == reason));
-        assert!(organization.state().is_none());
-        assert!(organization.uncommitted_events().is_empty());
+        assert!(matches!(error, OrganizationError::AlreadyCreated));
+        assert_eq!(organization.uncommitted_events().len(), 1);
     }
 
     #[test]
@@ -586,11 +456,6 @@ mod tests {
             .change_description(Some(description()))
             .expect_err("removed organization should reject changes");
 
-        assert!(matches!(
-            error,
-            OrganizationError::DescriptionChangeRejected(
-                super::OrganizationDescriptionChangeRejectionReason::Removed
-            )
-        ));
+        assert!(matches!(error, OrganizationError::Removed));
     }
 }

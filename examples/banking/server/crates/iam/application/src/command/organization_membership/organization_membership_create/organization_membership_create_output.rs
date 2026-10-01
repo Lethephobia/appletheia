@@ -1,18 +1,10 @@
 use appletheia::application::command::{CommandOutput, CommandReplayOutput};
-use banking_iam_domain::{OrganizationMembershipCreateRejectionReason, OrganizationMembershipId};
+use banking_iam_domain::OrganizationMembershipId;
 use serde::{Deserialize, Serialize};
 
-/// Returned after creating an organization membership.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "type", content = "data", rename_all = "snake_case")]
-pub enum OrganizationMembershipCreateOutput {
-    Created {
-        organization_membership_id: OrganizationMembershipId,
-    },
-    Rejected {
-        organization_membership_id: OrganizationMembershipId,
-        reason: OrganizationMembershipCreateRejectionReason,
-    },
+pub struct OrganizationMembershipCreateOutput {
+    pub organization_membership_id: OrganizationMembershipId,
 }
 
 impl CommandOutput for OrganizationMembershipCreateOutput {

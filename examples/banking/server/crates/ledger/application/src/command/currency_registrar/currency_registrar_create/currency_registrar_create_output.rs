@@ -1,19 +1,10 @@
 use appletheia::application::command::{CommandOutput, CommandReplayOutput};
-use banking_ledger_domain::currency_registrar::{
-    CurrencyRegistrarCreateRejectionReason, CurrencyRegistrarId,
-};
+use banking_ledger_domain::currency_registrar::CurrencyRegistrarId;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "type", content = "data", rename_all = "snake_case")]
-pub enum CurrencyRegistrarCreateOutput {
-    Created {
-        currency_registrar_id: CurrencyRegistrarId,
-    },
-    Rejected {
-        currency_registrar_id: CurrencyRegistrarId,
-        reason: CurrencyRegistrarCreateRejectionReason,
-    },
+pub struct CurrencyRegistrarCreateOutput {
+    pub currency_registrar_id: CurrencyRegistrarId,
 }
 
 impl CommandOutput for CurrencyRegistrarCreateOutput {

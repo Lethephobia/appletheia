@@ -1,7 +1,6 @@
 use serde::Serialize;
 
-use appletheia::application::read_model::ReadModelObservation;
-use appletheia::domain::{EventId, EventOccurredAt};
+use appletheia::domain::EventOccurredAt;
 use banking_iam_domain::{
     OrganizationInvitationExpiresAt, OrganizationInvitationId, OrganizationRoles,
 };
@@ -21,15 +20,4 @@ pub struct UserOrganizationInvitationListItem {
     pub expires_at: OrganizationInvitationExpiresAt,
     pub status: UserOrganizationInvitationListItemStatus,
     pub created_at: EventOccurredAt,
-    pub observation: ReadModelObservation,
-}
-
-impl UserOrganizationInvitationListItem {
-    pub fn observed_event_ids(&self) -> Vec<EventId> {
-        ReadModelObservation::collect_event_ids(
-            self.observation
-                .event_ids()
-                .chain(self.organization.observation.event_ids()),
-        )
-    }
 }

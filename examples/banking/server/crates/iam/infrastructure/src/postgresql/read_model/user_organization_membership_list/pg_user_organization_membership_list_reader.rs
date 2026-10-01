@@ -28,7 +28,7 @@ impl PgUserOrganizationMembershipListReader {
         let row = sqlx::query_as::<_, PgUserOrganizationMembershipListUserRow>(
             r#"
             SELECT id AS user_id, username, display_name, picture_type, picture_object_name,
-                   picture_external_url, source_event_id, updated_event_id
+                   picture_external_url
               FROM user_fragments
              WHERE id = $1
             "#,
@@ -70,15 +70,11 @@ impl UserOrganizationMembershipListReader for PgUserOrganizationMembershipListRe
                 m.organization_id,
                 m.roles::text AS roles,
                 m.created_at,
-                m.source_event_id,
-                m.updated_event_id,
                 o.handle AS organization_handle,
                 o.display_name AS organization_display_name,
                 o.picture_type AS organization_picture_type,
                 o.picture_object_name AS organization_picture_object_name,
-                o.picture_external_url AS organization_picture_external_url,
-                o.source_event_id AS organization_source_event_id,
-                o.updated_event_id AS organization_updated_event_id
+                o.picture_external_url AS organization_picture_external_url
             FROM organization_membership_fragments AS m
             INNER JOIN organization_fragments AS o
                     ON o.id = m.organization_id

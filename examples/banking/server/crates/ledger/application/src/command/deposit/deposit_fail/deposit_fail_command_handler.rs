@@ -2,11 +2,10 @@ use appletheia::application::authorization::{AuthorizationPlan, PrincipalRequire
 use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_ledger_domain::deposit::{Deposit, DepositFailResult};
+use banking_ledger_domain::deposit::Deposit;
 
 use super::{DepositFailCommand, DepositFailCommandHandlerError, DepositFailOutput};
 
-/// Handles `DepositFailCommand`.
 pub struct DepositFailCommandHandler<DR>
 where
     DR: Repository<Deposit>,
@@ -52,16 +51,11 @@ where
             .read(uow, command.deposit_id)
             .await?;
 
-        let result = deposit.fail(command.reason)?;
+        deposit.fail(command.reason)?;
         self.deposit_repository
             .save(uow, request_context, &mut deposit)
             .await?;
 
-        let output = match result {
-            DepositFailResult::Failed => DepositFailOutput::Failed,
-            DepositFailResult::Rejected { reason } => DepositFailOutput::Rejected { reason },
-        };
-
-        Ok(output)
+        Ok(DepositFailOutput {})
     }
 }

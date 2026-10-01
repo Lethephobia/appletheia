@@ -1,6 +1,4 @@
-use appletheia::application::read_model::{
-    ReadModelFragment, ReadModelFragmentName, ReadModelObservation, ReadModelObservationSource,
-};
+use appletheia::application::read_model::{ReadModelFragment, ReadModelFragmentName};
 use appletheia::domain::EventOccurredAt;
 use banking_ledger_domain::account::AccountId;
 use banking_ledger_domain::core::{
@@ -33,13 +31,6 @@ pub struct AccountTransactionFragment {
     pub status: AccountTransactionStatus,
     pub occurred_at: EventOccurredAt,
     pub created_at: EventOccurredAt,
-    pub observation: ReadModelObservation,
-}
-
-impl ReadModelObservationSource for AccountTransactionFragment {
-    fn observations(&self) -> Vec<ReadModelObservation> {
-        vec![self.observation]
-    }
 }
 
 impl ReadModelFragment for AccountTransactionFragment {

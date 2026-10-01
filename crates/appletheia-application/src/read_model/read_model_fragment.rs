@@ -1,9 +1,9 @@
 use serde::{Serialize, de::DeserializeOwned};
 
-use super::{ReadModelFragmentName, ReadModelObservationSource, ReadModelPartition};
+use super::ReadModelFragmentName;
 
 /// Defines one independently stored read model fragment.
-pub trait ReadModelFragment: ReadModelObservationSource + Send + Sync + Sized + 'static {
+pub trait ReadModelFragment: Send + Sync + Sized + 'static {
     /// Identifies the physical fragment shared by read models.
     const NAME: ReadModelFragmentName;
 
@@ -12,9 +12,4 @@ pub trait ReadModelFragment: ReadModelObservationSource + Send + Sync + Sized + 
 
     /// Returns this fragment's physical key.
     fn key(&self) -> Self::Key;
-
-    /// Returns this fragment's transport-neutral partition.
-    fn partition(&self) -> ReadModelPartition<Self::Key> {
-        ReadModelPartition::new(self.key())
-    }
 }

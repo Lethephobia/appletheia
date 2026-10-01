@@ -6,7 +6,6 @@ use banking_ledger_domain::account::Account;
 
 use super::{AccountWithdrawCommand, AccountWithdrawCommandHandlerError, AccountWithdrawOutput};
 
-/// Handles `AccountWithdrawCommand`.
 pub struct AccountWithdrawCommandHandler<AR>
 where
     AR: Repository<Account>,
@@ -57,6 +56,6 @@ where
             .save(uow, request_context, &mut account)
             .await?;
 
-        Ok(AccountWithdrawOutput::Withdrawn)
+        Ok(AccountWithdrawOutput {})
     }
 }

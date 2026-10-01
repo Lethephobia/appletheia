@@ -8,10 +8,13 @@ use thiserror::Error;
 pub enum CurrencyDefineCommandHandlerError {
     #[error("currency repository failed")]
     Repository(#[from] RepositoryError<Currency>),
+
     #[error("currency aggregate failed")]
     Currency(#[from] CurrencyError),
+
     #[error("currency unique value is invalid")]
     UniqueValue(#[from] UniqueValueError),
+
     #[error("currency code is already defined")]
     DuplicateCode,
 }

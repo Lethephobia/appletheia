@@ -1,18 +1,10 @@
 use appletheia::application::command::{CommandOutput, CommandReplayOutput};
-use banking_iam_domain::{OrganizationJoinRequestId, OrganizationJoinRequestSubmitRejectionReason};
+use banking_iam_domain::OrganizationJoinRequestId;
 use serde::{Deserialize, Serialize};
 
-/// The output returned after submitting an organization join request.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "type", content = "data", rename_all = "snake_case")]
-pub enum OrganizationJoinRequestSubmitOutput {
-    Submitted {
-        organization_join_request_id: OrganizationJoinRequestId,
-    },
-    Rejected {
-        organization_join_request_id: OrganizationJoinRequestId,
-        reason: OrganizationJoinRequestSubmitRejectionReason,
-    },
+pub struct OrganizationJoinRequestSubmitOutput {
+    pub organization_join_request_id: OrganizationJoinRequestId,
 }
 
 impl CommandOutput for OrganizationJoinRequestSubmitOutput {

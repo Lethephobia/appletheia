@@ -6,10 +6,10 @@ use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use appletheia::domain::Aggregate;
 use appletheia::domain::{AggregateId, UniqueValue, UniqueValuePart};
+use banking_iam_domain::OrganizationMembershipError;
 use banking_iam_domain::{
-    Organization, OrganizationId, OrganizationMembership,
-    OrganizationMembershipCreateRejectionReason, OrganizationMembershipCreateResult,
-    OrganizationMembershipCreation, OrganizationMembershipState, User, UserId,
+    Organization, OrganizationId, OrganizationMembership, OrganizationMembershipCreation,
+    OrganizationMembershipState, User, UserId,
 };
 
 use super::{
@@ -18,7 +18,6 @@ use super::{
 };
 use crate::authorization::OrganizationMemberAdderRelation;
 
-/// Handles `OrganizationMembershipCreateCommand`.
 ///
 /// The handler reads `Organization` and `User` only to validate their current
 /// status; the single aggregate it mutates is `OrganizationMembership`.
@@ -110,45 +109,15 @@ where
             .read(uow, command.organization_id)
             .await?;
         if organization.is_removed()? {
-            let reason = OrganizationMembershipCreateRejectionReason::OrganizationRemoved;
-            membership.reject_create(creation, reason)?;
-
-            self.organization_membership_repository
-                .save(uow, request_context, &mut membership)
-                .await?;
-
-            return Ok(OrganizationMembershipCreateOutput::Rejected {
-                organization_membership_id,
-                reason,
-            });
+            return Err(OrganizationMembershipError::OrganizationRemoved.into());
         }
 
         let user = self.user_repository.read(uow, command.user_id).await?;
         if user.is_removed()? {
-            let reason = OrganizationMembershipCreateRejectionReason::UserRemoved;
-            membership.reject_create(creation, reason)?;
-
-            self.organization_membership_repository
-                .save(uow, request_context, &mut membership)
-                .await?;
-
-            return Ok(OrganizationMembershipCreateOutput::Rejected {
-                organization_membership_id,
-                reason,
-            });
+            return Err(OrganizationMembershipError::UserRemoved.into());
         }
         if !user.is_active()? {
-            let reason = OrganizationMembershipCreateRejectionReason::UserInactive;
-            membership.reject_create(creation, reason)?;
-
-            self.organization_membership_repository
-                .save(uow, request_context, &mut membership)
-                .await?;
-
-            return Ok(OrganizationMembershipCreateOutput::Rejected {
-                organization_membership_id,
-                reason,
-            });
+            return Err(OrganizationMembershipError::UserInactive.into());
         }
 
         // The unique constraint on the membership state is the authoritative
@@ -166,40 +135,18 @@ where
             .await?
             .is_some()
         {
-            let reason = OrganizationMembershipCreateRejectionReason::AlreadyMember;
-            membership.reject_create(creation, reason)?;
-
-            self.organization_membership_repository
-                .save(uow, request_context, &mut membership)
-                .await?;
-
-            return Ok(OrganizationMembershipCreateOutput::Rejected {
-                organization_membership_id,
-                reason,
-            });
+            return Err(OrganizationMembershipError::AlreadyMember.into());
         }
 
-        let result = membership.create(creation)?;
+        membership.create(creation)?;
 
         self.organization_membership_repository
             .save(uow, request_context, &mut membership)
             .await?;
 
-        let output = match result {
-            OrganizationMembershipCreateResult::Created => {
-                OrganizationMembershipCreateOutput::Created {
-                    organization_membership_id,
-                }
-            }
-            OrganizationMembershipCreateResult::Rejected { reason } => {
-                OrganizationMembershipCreateOutput::Rejected {
-                    organization_membership_id,
-                    reason,
-                }
-            }
-        };
-
-        Ok(output)
+        Ok(OrganizationMembershipCreateOutput {
+            organization_membership_id,
+        })
     }
 }
 

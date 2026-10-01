@@ -1,5 +1,4 @@
-use appletheia::application::read_model::ReadModelObservation;
-use appletheia::domain::{AggregateId, EventId, EventOccurredAt};
+use appletheia::domain::{AggregateId, EventOccurredAt};
 use banking_ledger_application::{
     AccountTransactionDirection, AccountTransactionFragment, AccountTransactionFragmentKind,
     AccountTransactionFragmentWriterError, AccountTransactionId, AccountTransactionStatus,
@@ -116,10 +115,6 @@ impl TryFrom<PgAccountTransactionFragmentRow> for AccountTransactionFragment {
             status,
             occurred_at: EventOccurredAt::from(row.occurred_at),
             created_at: EventOccurredAt::from(row.created_at),
-            observation: ReadModelObservation::new(
-                EventId::try_from(row.source_event_id).map_err(persistence_error)?,
-                EventId::try_from(row.updated_event_id).map_err(persistence_error)?,
-            ),
         })
     }
 }

@@ -1,6 +1,4 @@
-use appletheia::application::read_model::{
-    ReadModelFragment, ReadModelFragmentName, ReadModelObservation, ReadModelObservationSource,
-};
+use appletheia::application::read_model::{ReadModelFragment, ReadModelFragmentName};
 use appletheia::domain::EventOccurredAt;
 use banking_iam_domain::{UserId, UserIdentityProvider, UserIdentitySubject};
 use banking_shared_kernel_domain::contact::Email;
@@ -16,13 +14,6 @@ pub struct UserIdentityFragment {
     pub subject: UserIdentitySubject,
     pub email: Option<Email>,
     pub created_at: EventOccurredAt,
-    pub observation: ReadModelObservation,
-}
-
-impl ReadModelObservationSource for UserIdentityFragment {
-    fn observations(&self) -> Vec<ReadModelObservation> {
-        vec![self.observation]
-    }
 }
 
 impl ReadModelFragment for UserIdentityFragment {

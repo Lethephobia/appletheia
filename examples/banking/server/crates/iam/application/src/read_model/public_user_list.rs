@@ -1,10 +1,5 @@
-use appletheia::application::read_model::{
-    ReadModel, ReadModelName, ReadModelObservation, ReadModelObservationSource,
-    SerializedPartition, SerializedPartitionError,
-};
+use appletheia::application::read_model::{ReadModel, ReadModelName};
 use serde::Serialize;
-
-use crate::projection::UserFragment;
 
 mod public_user_list_criteria;
 mod public_user_list_cursor;
@@ -34,17 +29,4 @@ pub struct PublicUserList {
 
 impl ReadModel for PublicUserList {
     const NAME: ReadModelName = ReadModelName::new("public_user_list");
-
-    fn partitions(&self) -> Result<Vec<SerializedPartition>, SerializedPartitionError> {
-        self.items
-            .iter()
-            .map(|item| SerializedPartition::try_from_fragment_key::<UserFragment>(&item.user_id))
-            .collect()
-    }
-}
-
-impl ReadModelObservationSource for PublicUserList {
-    fn observations(&self) -> Vec<ReadModelObservation> {
-        self.items.iter().map(|item| item.observation).collect()
-    }
 }

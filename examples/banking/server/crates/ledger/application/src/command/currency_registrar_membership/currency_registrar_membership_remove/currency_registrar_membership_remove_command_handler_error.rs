@@ -9,6 +9,7 @@ use thiserror::Error;
 pub enum CurrencyRegistrarMembershipRemoveCommandHandlerError {
     #[error("currency registrar membership repository failed")]
     Repository(#[from] RepositoryError<CurrencyRegistrarMembership>),
+
     #[error("currency registrar membership aggregate failed")]
     Aggregate(#[from] CurrencyRegistrarMembershipError),
 }

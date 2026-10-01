@@ -9,7 +9,6 @@ use super::{
     AccountReservedFundsCommitOutput,
 };
 
-/// Handles `AccountReservedFundsCommitCommand`.
 pub struct AccountReservedFundsCommitCommandHandler<AR>
 where
     AR: Repository<Account>,
@@ -60,6 +59,6 @@ where
             .save(uow, request_context, &mut account)
             .await?;
 
-        Ok(AccountReservedFundsCommitOutput::Committed)
+        Ok(AccountReservedFundsCommitOutput {})
     }
 }

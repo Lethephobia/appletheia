@@ -9,11 +9,10 @@ use banking_iam_application::authorization::{
     OrganizationFinanceManagerRelation, UserOwnerRelation,
 };
 use banking_iam_domain::{Organization, User};
-use banking_ledger_domain::account::{Account, AccountOpenResult, AccountOpening, AccountOwner};
+use banking_ledger_domain::account::{Account, AccountOpening, AccountOwner};
 use banking_ledger_domain::currency::Currency;
 
 use super::{AccountOpenCommand, AccountOpenCommandHandlerError, AccountOpenOutput};
-/// Handles `AccountOpenCommand`.
 pub struct AccountOpenCommandHandler<AR, CR>
 where
     AR: Repository<Account>,
@@ -85,7 +84,7 @@ where
 
         let mut account = Account::new();
         let account_id = account.aggregate_id();
-        let result = account.open(AccountOpening {
+        account.open(AccountOpening {
             owner: command.owner,
             name: command.name.clone(),
             description: command.description.clone(),
@@ -96,10 +95,6 @@ where
             .save(uow, request_context, &mut account)
             .await?;
 
-        let output = match result {
-            AccountOpenResult::Opened => AccountOpenOutput { account_id },
-        };
-
-        Ok(output)
+        Ok(AccountOpenOutput { account_id })
     }
 }

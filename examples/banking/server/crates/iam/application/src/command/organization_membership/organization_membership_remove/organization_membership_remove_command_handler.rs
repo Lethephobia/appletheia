@@ -4,7 +4,7 @@ use appletheia::application::authorization::{
 use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_iam_domain::{OrganizationMembership, OrganizationMembershipRemoveResult};
+use banking_iam_domain::OrganizationMembership;
 
 use super::{
     OrganizationMembershipRemoveCommand, OrganizationMembershipRemoveCommandHandlerError,
@@ -12,7 +12,6 @@ use super::{
 };
 use crate::authorization::OrganizationMembershipRemoverRelation;
 
-/// Handles `OrganizationMembershipRemoveCommand`.
 pub struct OrganizationMembershipRemoveCommandHandler<MR>
 where
     MR: Repository<OrganizationMembership>,
@@ -65,21 +64,12 @@ where
             .read(uow, command.organization_membership_id)
             .await?;
 
-        let result = membership.remove()?;
+        membership.remove()?;
 
         self.organization_membership_repository
             .save(uow, request_context, &mut membership)
             .await?;
 
-        let output = match result {
-            OrganizationMembershipRemoveResult::Removed => {
-                OrganizationMembershipRemoveOutput::Removed
-            }
-            OrganizationMembershipRemoveResult::Rejected { reason } => {
-                OrganizationMembershipRemoveOutput::Rejected { reason }
-            }
-        };
-
-        Ok(output)
+        Ok(OrganizationMembershipRemoveOutput {})
     }
 }

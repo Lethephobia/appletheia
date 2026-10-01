@@ -1,13 +1,9 @@
-use appletheia::application::saga::SagaStep;
-use serde::{Deserialize, Serialize};
+use appletheia::saga_step;
 
 /// Lists the logical command-dispatch steps in a deposit saga.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[saga_step]
 pub enum DepositSagaStep {
     Deposit,
     Complete,
     Fail,
 }
-
-impl SagaStep for DepositSagaStep {}

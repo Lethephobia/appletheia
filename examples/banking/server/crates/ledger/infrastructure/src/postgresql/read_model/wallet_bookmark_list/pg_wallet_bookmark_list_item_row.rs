@@ -1,5 +1,4 @@
-use appletheia::application::read_model::ReadModelObservation;
-use appletheia::domain::{AggregateId, EventId, EventOccurredAt};
+use appletheia::domain::{AggregateId, EventOccurredAt};
 use banking_iam_domain::{OrganizationId, UserId};
 use banking_ledger_application::WalletBookmarkListItem;
 use banking_ledger_domain::core::TokenOwnerAddress;
@@ -20,8 +19,6 @@ pub struct PgWalletBookmarkListItemRow {
     pub description: Option<String>,
     pub token_owner_address: String,
     pub created_at: DateTime<Utc>,
-    pub source_event_id: Uuid,
-    pub updated_event_id: Uuid,
 }
 
 impl PgWalletBookmarkListItemRow {
@@ -42,17 +39,6 @@ impl PgWalletBookmarkListItemRow {
             )),
         }
     }
-
-    fn observation(&self) -> Result<ReadModelObservation, PgWalletBookmarkListItemRowError> {
-        Ok(ReadModelObservation::new(
-            EventId::try_from(self.source_event_id).map_err(|error| {
-                PgWalletBookmarkListItemRowError::InvalidSourceEventId(Box::new(error))
-            })?,
-            EventId::try_from(self.updated_event_id).map_err(|error| {
-                PgWalletBookmarkListItemRowError::InvalidUpdatedEventId(Box::new(error))
-            })?,
-        ))
-    }
 }
 
 impl TryFrom<PgWalletBookmarkListItemRow> for WalletBookmarkListItem {
@@ -60,7 +46,6 @@ impl TryFrom<PgWalletBookmarkListItemRow> for WalletBookmarkListItem {
 
     fn try_from(row: PgWalletBookmarkListItemRow) -> Result<Self, Self::Error> {
         let owner = row.owner()?;
-        let observation = row.observation()?;
 
         Ok(Self {
             wallet_bookmark_id: WalletBookmarkId::try_from_uuid(row.wallet_bookmark_id).map_err(
@@ -88,7 +73,6 @@ impl TryFrom<PgWalletBookmarkListItemRow> for WalletBookmarkListItem {
                 PgWalletBookmarkListItemRowError::InvalidTokenAccountOwnerAddress(Box::new(error))
             })?,
             created_at: EventOccurredAt::from(row.created_at),
-            observation,
         })
     }
 }

@@ -40,9 +40,7 @@ impl UserPublicProfileReader for PgUserPublicProfileReader {
                 picture_type,
                 picture_object_name,
                 picture_external_url,
-                created_at,
-                u.source_event_id,
-                u.updated_event_id
+                created_at
               FROM user_fragments u
              WHERE u.id = $1
             "#,

@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-use appletheia::domain::{EventId, EventOccurredAt};
+use appletheia::domain::EventOccurredAt;
 use banking_ledger_domain::account::AccountId;
 use banking_ledger_domain::core::{
     ChainNetwork, CurrencyAmount, OnchainTransactionId, TokenAddress,
@@ -12,7 +12,6 @@ use super::{
     OwnedAccountTransactionListItemStatus,
 };
 use crate::projection::TransactionNote;
-use appletheia::application::read_model::ReadModelObservation;
 
 /// Read model for one owned account transaction list row.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -30,15 +29,4 @@ pub struct OwnedAccountTransactionListItem {
     pub status: OwnedAccountTransactionListItemStatus,
     pub occurred_at: EventOccurredAt,
     pub created_at: EventOccurredAt,
-    pub observation: ReadModelObservation,
-}
-
-impl OwnedAccountTransactionListItem {
-    pub fn observed_event_ids(&self) -> Vec<EventId> {
-        ReadModelObservation::collect_event_ids(
-            self.observation
-                .event_ids()
-                .chain(self.kind.observed_event_ids()),
-        )
-    }
 }

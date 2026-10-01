@@ -36,6 +36,7 @@ impl CommandFailureOutboxEnqueuer for PgCommandFailureOutboxEnqueuer {
               failure_id,
               command_message_id,
               command_name,
+              command,
               saga_name,
               saga_instance_id,
               saga_step,
@@ -44,7 +45,7 @@ impl CommandFailureOutboxEnqueuer for PgCommandFailureOutboxEnqueuer {
               correlation_id,
               causation_id,
               failed_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
             ON CONFLICT (command_message_id) DO NOTHING
             "#,
         )
@@ -52,6 +53,7 @@ impl CommandFailureOutboxEnqueuer for PgCommandFailureOutboxEnqueuer {
         .bind(failure.failure_id.value())
         .bind(failure.command_message_id.value())
         .bind(failure.command_name.value())
+        .bind(failure.command.value())
         .bind(failure.origin.saga_name.value())
         .bind(failure.origin.saga_instance_id.value())
         .bind(failure.origin.step.value().clone())

@@ -7,6 +7,7 @@ use thiserror::Error;
 pub enum CurrencyActivateCommandHandlerError {
     #[error("currency repository failed")]
     Repository(#[from] RepositoryError<Currency>),
+
     #[error("currency aggregate failed")]
     Currency(#[from] CurrencyError),
 }

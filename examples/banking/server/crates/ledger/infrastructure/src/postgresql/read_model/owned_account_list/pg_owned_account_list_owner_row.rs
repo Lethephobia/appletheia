@@ -1,5 +1,4 @@
-use appletheia::application::read_model::ReadModelObservation;
-use appletheia::domain::{AggregateId, EventId};
+use appletheia::domain::AggregateId;
 use banking_iam_domain::{
     OrganizationDisplayName, OrganizationHandle, OrganizationId, UserDisplayName, UserId, Username,
 };
@@ -26,36 +25,10 @@ pub struct PgOwnedAccountListOwnerRow {
     pub owner_organization_picture_type: Option<String>,
     pub owner_organization_picture_object_name: Option<String>,
     pub owner_organization_picture_external_url: Option<String>,
-    pub source_event_id: Option<Uuid>,
-    pub updated_event_id: Option<Uuid>,
+    pub materialized_owner_id: Option<Uuid>,
 }
 
 impl PgOwnedAccountListOwnerRow {
-    fn observation(&self) -> Result<ReadModelObservation, PgOwnedAccountListOwnerRowError> {
-        let source_event_id =
-            self.source_event_id
-                .ok_or_else(|| match self.owner_type.as_str() {
-                    "user" => PgOwnedAccountListOwnerRowError::MissingUserOwner,
-                    "organization" => PgOwnedAccountListOwnerRowError::MissingOrganizationOwner,
-                    _ => PgOwnedAccountListOwnerRowError::UnknownOwnerType(self.owner_type.clone()),
-                })?;
-        let updated_event_id =
-            self.updated_event_id
-                .ok_or_else(|| match self.owner_type.as_str() {
-                    "user" => PgOwnedAccountListOwnerRowError::MissingUserOwner,
-                    "organization" => PgOwnedAccountListOwnerRowError::MissingOrganizationOwner,
-                    _ => PgOwnedAccountListOwnerRowError::UnknownOwnerType(self.owner_type.clone()),
-                })?;
-        Ok(ReadModelObservation::new(
-            EventId::try_from(source_event_id).map_err(|error| {
-                PgOwnedAccountListOwnerRowError::InvalidSourceEventId(Box::new(error))
-            })?,
-            EventId::try_from(updated_event_id).map_err(|error| {
-                PgOwnedAccountListOwnerRowError::InvalidUpdatedEventId(Box::new(error))
-            })?,
-        ))
-    }
-
     fn optional_username(
         value: Option<String>,
     ) -> Result<Option<Username>, PgOwnedAccountListOwnerRowError> {
@@ -81,7 +54,13 @@ impl TryFrom<PgOwnedAccountListOwnerRow> for OwnedAccountListOwner {
     type Error = PgOwnedAccountListOwnerRowError;
 
     fn try_from(row: PgOwnedAccountListOwnerRow) -> Result<Self, Self::Error> {
-        let observation = row.observation()?;
+        if row.materialized_owner_id.is_none() {
+            return Err(match row.owner_type.as_str() {
+                "user" => PgOwnedAccountListOwnerRowError::MissingUserOwner,
+                "organization" => PgOwnedAccountListOwnerRowError::MissingOrganizationOwner,
+                _ => PgOwnedAccountListOwnerRowError::UnknownOwnerType(row.owner_type.clone()),
+            });
+        }
 
         match row.owner_type.as_str() {
             "user" => Ok(Self::User(OwnedAccountListOwnerUser {
@@ -101,7 +80,6 @@ impl TryFrom<PgOwnedAccountListOwnerRow> for OwnedAccountListOwner {
                 .map_err(|error| {
                     PgOwnedAccountListOwnerRowError::InvalidUserPicture(Box::new(error))
                 })?,
-                observation,
             })),
             "organization" => {
                 let handle = row
@@ -134,7 +112,6 @@ impl TryFrom<PgOwnedAccountListOwnerRow> for OwnedAccountListOwner {
                     .map_err(|error| {
                         PgOwnedAccountListOwnerRowError::InvalidOrganizationPicture(Box::new(error))
                     })?,
-                    observation,
                 }))
             }
             value => Err(PgOwnedAccountListOwnerRowError::UnknownOwnerType(

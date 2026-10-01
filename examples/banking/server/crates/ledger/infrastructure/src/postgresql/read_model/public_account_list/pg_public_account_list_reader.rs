@@ -92,17 +92,12 @@ impl PublicAccountListReader for PgPublicAccountListReader {
                 o.picture_type AS owner_organization_picture_type,
                 o.picture_object_name AS owner_organization_picture_object_name,
                 o.picture_external_url AS owner_organization_picture_external_url,
-                COALESCE(u.source_event_id, o.source_event_id) AS owner_source_event_id,
-                COALESCE(u.updated_event_id, o.updated_event_id) AS owner_updated_event_id,
+                COALESCE(u.id, o.id) AS materialized_owner_id,
                 c.id AS currency_id,
                 c.code AS currency_code,
                 c.decimals AS currency_decimals,
-                c.source_event_id AS currency_source_event_id,
-                c.updated_event_id AS currency_updated_event_id,
                 a.status,
-                a.created_at,
-                a.source_event_id,
-                a.updated_event_id
+                a.created_at
               FROM account_fragments a
               INNER JOIN currency_fragments c ON c.id = a.currency_id
               LEFT JOIN user_fragments u

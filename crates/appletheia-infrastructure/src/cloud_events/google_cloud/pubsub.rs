@@ -4,8 +4,6 @@ pub mod cloud_events_pubsub_command_failure_codec;
 pub mod cloud_events_pubsub_command_failure_codec_error;
 pub mod cloud_events_pubsub_event_codec;
 pub mod cloud_events_pubsub_event_codec_error;
-pub mod cloud_events_pubsub_read_model_invalidation_codec;
-pub mod cloud_events_pubsub_read_model_invalidation_codec_error;
 
 pub use cloud_events_pubsub_command_codec::*;
 pub use cloud_events_pubsub_command_codec_error::*;
@@ -13,8 +11,6 @@ pub use cloud_events_pubsub_command_failure_codec::*;
 pub use cloud_events_pubsub_command_failure_codec_error::*;
 pub use cloud_events_pubsub_event_codec::*;
 pub use cloud_events_pubsub_event_codec_error::*;
-pub use cloud_events_pubsub_read_model_invalidation_codec::*;
-pub use cloud_events_pubsub_read_model_invalidation_codec_error::*;
 
 #[cfg(test)]
 mod tests {
@@ -23,7 +19,7 @@ mod tests {
     use crate::google_cloud::pubsub::messaging::{PubsubMessageCodec, PubsubMessageCodecError};
     use appletheia_application::{
         CommandEnvelope, CommandFailureEnvelope, CommandName, CommandSelector, EventEnvelope,
-        EventSelector, ProjectorName, ReadModelInvalidationEnvelope, SagaName,
+        EventSelector, SagaName,
     };
     use appletheia_domain::{AggregateType, EventName};
     use serde_json::json;
@@ -42,6 +38,7 @@ mod tests {
         .unwrap();
         let failure: CommandFailureEnvelope = serde_json::from_value(json!({
             "failure_id": Uuid::now_v7(), "command_message_id": id, "command_name": "debit",
+            "command": {"amount": 10},
             "origin": origin, "terminal_reason": "non_retryable", "attempt_count": 1,
             "correlation_id": id, "causation_id": id, "failed_at": "2026-09-23T12:00:00Z"
         }))
@@ -50,11 +47,6 @@ mod tests {
             "event_id": id, "event_sequence": 9223372036854775807_i64, "aggregate_type": "account", "aggregate_id": id,
             "aggregate_version": 9223372036854775807_i64, "event_name": "debited", "payload": {"type": "debited", "data": {"amount": 10}},
             "occurred_at": "2026-09-23T12:00:00Z", "correlation_id": id, "causation_id": id, "context": context
-        })).unwrap();
-        let invalidation: ReadModelInvalidationEnvelope = serde_json::from_value(json!({
-            "invalidation_id": Uuid::now_v7(), "source_event_id": id, "source_event_sequence": 9223372036854775807_i64,
-            "source_projector_name": "account", "source_event_occurred_at": "2026-09-23T12:00:00Z", "correlation_id": id, "causation_id": id,
-            "invalidated_partitions": [{"fragment_name": "account", "key": id}]
         })).unwrap();
         let command_codec = CloudEventsPubsubCommandCodec::new(
             source.clone(),
@@ -99,24 +91,6 @@ mod tests {
             event_wire.attributes["ce-partitionkey"],
             event_wire.ordering_key
         );
-        let invalidation_codec = CloudEventsPubsubReadModelInvalidationCodec::new(
-            source.clone(),
-            Some("com.example".parse().unwrap()),
-        );
-        let invalidation_wire = invalidation_codec.encode(&invalidation).unwrap();
-        assert_eq!(
-            invalidation_codec.decode(&invalidation_wire).unwrap(),
-            invalidation
-        );
-        assert_eq!(invalidation_wire.attributes["ce-source"], "urn:banking");
-        assert_eq!(
-            invalidation_wire.attributes["ce-datacontenttype"],
-            "application/json"
-        );
-        assert_eq!(
-            invalidation_wire.attributes["ce-partitionkey"],
-            invalidation_wire.ordering_key
-        );
         assert_eq!(
             serde_json::from_slice::<serde_json::Value>(&event_wire.data).unwrap(),
             *event.payload.value()
@@ -149,15 +123,6 @@ mod tests {
             format!(
                 "attributes.\"ce-saganame\" = \"{}\"",
                 failure_wire.attributes["ce-saganame"]
-            )
-        );
-        assert_eq!(
-            invalidation_codec
-                .encode_selector(&ProjectorName::new("account"))
-                .unwrap(),
-            format!(
-                "attributes.\"ce-sourceprojectorname\" = \"{}\"",
-                invalidation_wire.attributes["ce-sourceprojectorname"]
             )
         );
         let mut missing_id = event_wire.clone();
@@ -228,10 +193,5 @@ mod tests {
             .attributes
             .insert("ce-saganame".to_owned(), "other".to_owned());
         assert!(command_codec.decode(&invalid_command).is_err());
-        let mut invalid_invalidation = invalidation_wire.clone();
-        invalid_invalidation
-            .attributes
-            .insert("ce-sourceeventid".to_owned(), Uuid::now_v7().to_string());
-        assert!(invalidation_codec.decode(&invalid_invalidation).is_err());
     }
 }

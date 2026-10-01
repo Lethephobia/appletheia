@@ -1,5 +1,4 @@
 use appletheia::application::Retryability;
-
 use appletheia::application::authentication::oidc::{
     OidcContinuationStoreError, OidcLoginFlowError,
 };
@@ -12,7 +11,6 @@ use banking_iam_domain::{User, UserError, UserIdentityProviderError, UserIdentit
 use banking_shared_kernel_domain::contact::EmailError;
 use thiserror::Error;
 
-/// Represents errors returned while completing an OIDC flow.
 #[derive(Debug, Error)]
 pub enum OidcCompleteCommandHandlerError {
     #[error("oidc login flow failed")]

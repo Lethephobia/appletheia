@@ -1,10 +1,8 @@
 use appletheia::application::Retryability;
-
 use appletheia::application::repository::RepositoryError;
 use banking_ledger_domain::transfer::{Transfer, TransferError};
 use thiserror::Error;
 
-/// Represents errors returned while completing a transfer.
 #[derive(Debug, Error)]
 pub enum TransferCompleteCommandHandlerError {
     #[error("transfer repository failed")]

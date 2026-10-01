@@ -5,6 +5,7 @@ use thiserror::Error;
 pub(super) enum PgSagaDispatchedCommandRowError {
     #[error(transparent)]
     CommandName(#[from] CommandNameOwnedError),
+
     #[error(transparent)]
     StepDeserialize(#[from] serde_json::Error),
 }

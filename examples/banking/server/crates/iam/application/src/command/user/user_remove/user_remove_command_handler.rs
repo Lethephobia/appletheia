@@ -5,12 +5,10 @@ use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_iam_domain::User;
-use banking_iam_domain::user::UserRemoveResult;
 
 use super::{UserRemoveCommand, UserRemoveCommandHandlerError, UserRemoveOutput};
 use crate::authorization::UserRemoverRelation;
 
-/// Handles `UserRemoveCommand`.
 pub struct UserRemoveCommandHandler<UR>
 where
     UR: Repository<User>,
@@ -58,17 +56,12 @@ where
     ) -> Result<Self::Output, Self::Error> {
         let mut user = self.user_repository.read(uow, command.user_id).await?;
 
-        let result = user.remove()?;
+        user.remove()?;
 
         self.user_repository
             .save(uow, request_context, &mut user)
             .await?;
 
-        let output = match result {
-            UserRemoveResult::Removed => UserRemoveOutput::Removed,
-            UserRemoveResult::Rejected { reason } => UserRemoveOutput::Rejected { reason },
-        };
-
-        Ok(output)
+        Ok(UserRemoveOutput {})
     }
 }

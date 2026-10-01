@@ -1,4 +1,6 @@
-use crate::request_context::{CorrelationId, MessageId};
+use appletheia_domain::EventId;
+
+use crate::request_context::MessageId;
 use crate::unit_of_work::UnitOfWork;
 
 use super::{SagaInstance, SagaInstanceStoreError, SagaNameOwned, SagaState, SagaStep};
@@ -7,11 +9,11 @@ use super::{SagaInstance, SagaInstanceStoreError, SagaNameOwned, SagaState, Saga
 pub trait SagaInstanceStore: Send + Sync {
     type Uow: UnitOfWork;
 
-    async fn find_by_correlation_id<S: SagaState, T: SagaStep>(
+    async fn find_by_start_event_id<S: SagaState, T: SagaStep>(
         &self,
         uow: &mut Self::Uow,
         saga_name: SagaNameOwned,
-        correlation_id: CorrelationId,
+        start_event_id: EventId,
     ) -> Result<Option<SagaInstance<S, T>>, SagaInstanceStoreError>;
 
     async fn find_by_dispatched_command_message_id<S: SagaState, T: SagaStep>(
@@ -23,7 +25,7 @@ pub trait SagaInstanceStore: Send + Sync {
 
     /// Persists this instance and its dispatched commands within the unit of work.
     ///
-    /// A different instance with the same saga name and correlation ID must cause
+    /// A different instance with the same saga name and start event ID must cause
     /// a conflict, rather than overwrite the existing instance's state.
     async fn save<S: SagaState, T: SagaStep>(
         &self,

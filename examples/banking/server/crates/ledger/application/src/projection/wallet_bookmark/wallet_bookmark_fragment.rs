@@ -1,6 +1,4 @@
-use appletheia::application::read_model::{
-    ReadModelFragment, ReadModelFragmentName, ReadModelObservation, ReadModelObservationSource,
-};
+use appletheia::application::read_model::{ReadModelFragment, ReadModelFragmentName};
 use appletheia::domain::EventOccurredAt;
 use banking_ledger_domain::core::TokenOwnerAddress;
 use banking_ledger_domain::wallet_bookmark::{
@@ -17,13 +15,6 @@ pub struct WalletBookmarkFragment {
     pub description: Option<WalletBookmarkDescription>,
     pub token_owner_address: TokenOwnerAddress,
     pub created_at: EventOccurredAt,
-    pub observation: ReadModelObservation,
-}
-
-impl ReadModelObservationSource for WalletBookmarkFragment {
-    fn observations(&self) -> Vec<ReadModelObservation> {
-        vec![self.observation]
-    }
 }
 
 impl ReadModelFragment for WalletBookmarkFragment {

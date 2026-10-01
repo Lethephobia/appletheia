@@ -4,7 +4,7 @@ use appletheia::application::authorization::{
 use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_iam_domain::{Organization, OrganizationOwnershipTransferResult};
+use banking_iam_domain::Organization;
 
 use super::{
     OrganizationOwnershipTransferCommand, OrganizationOwnershipTransferCommandHandlerError,
@@ -12,7 +12,6 @@ use super::{
 };
 use crate::authorization::OrganizationOwnershipTransfererRelation;
 
-/// Handles `OrganizationOwnershipTransferCommand`.
 pub struct OrganizationOwnershipTransferCommandHandler<OR>
 where
     OR: Repository<Organization>,
@@ -65,22 +64,13 @@ where
             .read(uow, command.organization_id)
             .await?;
 
-        let result = organization.transfer_ownership(command.owner)?;
+        organization.transfer_ownership(command.owner)?;
 
         self.organization_repository
             .save(uow, request_context, &mut organization)
             .await?;
 
-        let output = match result {
-            OrganizationOwnershipTransferResult::Transferred => {
-                OrganizationOwnershipTransferOutput::Transferred
-            }
-            OrganizationOwnershipTransferResult::Rejected { reason } => {
-                OrganizationOwnershipTransferOutput::Rejected { reason }
-            }
-        };
-
-        Ok(output)
+        Ok(OrganizationOwnershipTransferOutput {})
     }
 }
 
@@ -254,7 +244,7 @@ mod tests {
         let mut uow = TestUow;
         let owner = OrganizationOwner::User(UserId::new());
 
-        let handled = handler
+        let output = handler
             .handle(
                 &mut uow,
                 &request_context(),
@@ -266,7 +256,7 @@ mod tests {
             .await
             .expect("command should succeed");
 
-        assert_eq!(handled, OrganizationOwnershipTransferOutput::Transferred);
+        assert_eq!(output, OrganizationOwnershipTransferOutput {});
         assert_eq!(
             repository
                 .organization

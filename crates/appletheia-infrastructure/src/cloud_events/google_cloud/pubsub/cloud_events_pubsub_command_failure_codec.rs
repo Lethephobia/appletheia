@@ -6,6 +6,7 @@ use crate::cloud_events::{CloudEventSource, CloudEventTypePrefix};
 use crate::google_cloud::pubsub::messaging::{PubsubMessageCodec, PubsubMessageCodecError};
 use appletheia_application::command::{
     CommandAttemptCount, CommandFailureEnvelope, CommandFailureId, CommandNameOwned,
+    SerializedCommand,
 };
 use appletheia_application::request_context::{CausationId, CorrelationId, MessageId};
 use appletheia_application::saga::SagaCommandOrigin;
@@ -118,6 +119,7 @@ impl PubsubMessageCodec for CloudEventsPubsubCommandFailureCodec {
             Ok(Message::new()
                 .set_attributes(attributes)
                 .set_data(serde_json::to_vec(&serde_json::json!({
+                    "command": envelope.command,
                     "terminal_reason": envelope.terminal_reason,
                     "attempt_count": envelope.attempt_count,
                 }))?)
@@ -217,6 +219,9 @@ impl PubsubMessageCodec for CloudEventsPubsubCommandFailureCodec {
                         .parse::<Uuid>()?,
                 ),
                 command_name,
+                command: SerializedCommand::new(data.get("command").cloned().ok_or(
+                    CloudEventsPubsubCommandFailureCodecError::InvalidMetadata("command"),
+                )?)?,
                 origin,
                 terminal_reason: serde_json::from_value(
                     data.get("terminal_reason").cloned().ok_or(
@@ -330,5 +335,39 @@ mod tests {
         assert!(
             CloudEventsPubsubCommandFailureCodec::decode_type("wrong.type", Some(&prefix)).is_err()
         );
+    }
+
+    #[test]
+    fn command_body_survives_wire_roundtrip_and_is_required() {
+        use appletheia_application::command::{CommandFailedAt, CommandTerminalReason};
+        use appletheia_application::saga::{SagaInstanceId, SagaNameOwned, SerializedSagaStep};
+        let message_id = MessageId::new();
+        let envelope = CommandFailureEnvelope {
+            failure_id: CommandFailureId::new(),
+            command_message_id: message_id,
+            command_name: "close".parse().unwrap(),
+            command: SerializedCommand::new(serde_json::json!({"account_id": 42})).unwrap(),
+            origin: SagaCommandOrigin {
+                saga_name: SagaNameOwned::from(SagaName::new("closure")),
+                saga_instance_id: SagaInstanceId::new(),
+                step: SerializedSagaStep::try_from(serde_json::json!("close")).unwrap(),
+            },
+            terminal_reason: CommandTerminalReason::NonRetryable,
+            attempt_count: CommandAttemptCount::first(),
+            correlation_id: CorrelationId::from(Uuid::now_v7()),
+            causation_id: CausationId::from(message_id),
+            failed_at: CommandFailedAt::now(),
+        };
+        let codec =
+            CloudEventsPubsubCommandFailureCodec::new("urn:test:closure".parse().unwrap(), None);
+        let message = codec.encode(&envelope).unwrap();
+        assert_eq!(codec.decode(&message).unwrap(), envelope);
+        let mut data: serde_json::Value = serde_json::from_slice(&message.data).unwrap();
+        data.as_object_mut().unwrap().remove("command");
+        let missing_body = message.clone().set_data(serde_json::to_vec(&data).unwrap());
+        assert!(codec.decode(&missing_body).is_err());
+        data["command"] = serde_json::Value::Null;
+        let null_body = message.set_data(serde_json::to_vec(&data).unwrap());
+        assert!(codec.decode(&null_body).is_err());
     }
 }

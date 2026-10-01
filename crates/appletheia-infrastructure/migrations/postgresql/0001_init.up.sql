@@ -224,6 +224,7 @@ CREATE TABLE IF NOT EXISTS command_failure_outbox (
   failure_id            UUID        NOT NULL UNIQUE,
   command_message_id    UUID        NOT NULL UNIQUE,
   command_name          TEXT        NOT NULL,
+  command               JSONB       NOT NULL,
   saga_name             TEXT        NOT NULL,
   saga_instance_id      UUID        NOT NULL,
   saga_step             JSONB       NOT NULL,
@@ -253,6 +254,7 @@ CREATE TABLE IF NOT EXISTS command_failure_dead_letters (
   failure_id                UUID        NOT NULL,
   command_message_id        UUID        NOT NULL,
   command_name              TEXT        NOT NULL,
+  command                   JSONB       NOT NULL,
   saga_name                 TEXT        NOT NULL,
   saga_instance_id          UUID        NOT NULL,
   saga_step                 JSONB       NOT NULL,
@@ -298,7 +300,7 @@ CREATE TABLE IF NOT EXISTS saga_instances (
   correlation_id UUID        NOT NULL,
   start_event_id UUID        NOT NULL,
   state          JSONB,
-  UNIQUE (saga_name, correlation_id)
+  UNIQUE (saga_name, start_event_id)
 );
 
 -- saga dispatched commands
@@ -330,7 +332,7 @@ CREATE TABLE IF NOT EXISTS saga_processed_events (
   correlation_id UUID        NOT NULL,
   event_id       UUID        NOT NULL,
   processed_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE (saga_name, correlation_id, event_id)
+  UNIQUE (saga_name, event_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_saga_processed_events_event_id
@@ -354,59 +356,6 @@ CREATE TABLE IF NOT EXISTS projector_processed_events (
 
 CREATE INDEX IF NOT EXISTS idx_projector_processed_events_event_id
   ON projector_processed_events (event_id);
-
--- read model invalidation outbox
-CREATE TABLE IF NOT EXISTS read_model_invalidation_outbox (
-  id                       UUID        PRIMARY KEY,
-  invalidation_id UUID NOT NULL,
-  source_projector_name    TEXT        NOT NULL,
-  source_event_sequence    BIGINT      NOT NULL CHECK (source_event_sequence >= 0),
-  source_event_id          UUID        NOT NULL,
-  source_event_occurred_at              TIMESTAMPTZ NOT NULL,
-  correlation_id           UUID        NOT NULL,
-  causation_id             UUID        NOT NULL,
-  invalidated_partitions   JSONB       NOT NULL CHECK (jsonb_typeof(invalidated_partitions) = 'array' AND jsonb_array_length(invalidated_partitions) > 0),
-  recorded_at              TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
-  published_at             TIMESTAMPTZ,
-  attempt_count            BIGINT      NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
-  next_attempt_after       TIMESTAMPTZ NOT NULL DEFAULT now(),
-  lease_owner              TEXT,
-  lease_until              TIMESTAMPTZ,
-  last_error               JSONB,
-  UNIQUE (source_projector_name, source_event_id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_read_model_invalidation_outbox_pending
-  ON read_model_invalidation_outbox (next_attempt_after, source_event_sequence)
-  WHERE published_at IS NULL;
-CREATE INDEX IF NOT EXISTS idx_read_model_invalidation_outbox_lease_visible
-  ON read_model_invalidation_outbox (lease_until)
-  WHERE published_at IS NULL;
-CREATE INDEX IF NOT EXISTS idx_read_model_invalidation_outbox_partitions
-  ON read_model_invalidation_outbox USING GIN (invalidated_partitions);
-
--- read model invalidation dead letters
-CREATE TABLE IF NOT EXISTS read_model_invalidation_dead_letters (
-  read_model_invalidation_outbox_id  UUID        PRIMARY KEY,
-  invalidation_id UUID NOT NULL,
-  source_projector_name              TEXT        NOT NULL,
-  source_event_sequence              BIGINT      NOT NULL CHECK (source_event_sequence >= 0),
-  source_event_id                    UUID        NOT NULL,
-  source_event_occurred_at                        TIMESTAMPTZ NOT NULL,
-  correlation_id                     UUID        NOT NULL,
-  causation_id                       UUID        NOT NULL,
-  invalidated_partitions             JSONB       NOT NULL CHECK (jsonb_typeof(invalidated_partitions) = 'array' AND jsonb_array_length(invalidated_partitions) > 0),
-  recorded_at                        TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
-  published_at                       TIMESTAMPTZ,
-  attempt_count                      BIGINT      NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
-  next_attempt_after                 TIMESTAMPTZ NOT NULL DEFAULT now(),
-  lease_owner                        TEXT,
-  lease_until                        TIMESTAMPTZ,
-  last_error                         JSONB,
-  dead_lettered_at                   TIMESTAMPTZ NOT NULL
-);
-
-COMMENT ON TABLE read_model_invalidation_outbox IS 'Transactional outbox carrying partition-only read-model invalidations.';
 
 -- resource response cache
 CREATE TABLE IF NOT EXISTS resource_response_cache (

@@ -1,5 +1,4 @@
-use appletheia::application::read_model::ReadModelObservation;
-use appletheia::domain::{AggregateId, EventId, EventOccurredAt};
+use appletheia::domain::{AggregateId, EventOccurredAt};
 use banking_iam_application::{
     UserOrganizationMembershipListItem, UserOrganizationMembershipListOrganization,
 };
@@ -19,15 +18,11 @@ pub struct PgUserOrganizationMembershipListItemRow {
     pub organization_id: Uuid,
     pub roles: String,
     pub created_at: DateTime<Utc>,
-    pub source_event_id: Uuid,
-    pub updated_event_id: Uuid,
     pub organization_handle: String,
     pub organization_display_name: String,
     pub organization_picture_type: Option<String>,
     pub organization_picture_object_name: Option<String>,
     pub organization_picture_external_url: Option<String>,
-    pub organization_source_event_id: Uuid,
-    pub organization_updated_event_id: Uuid,
 }
 
 impl TryFrom<PgUserOrganizationMembershipListItemRow> for UserOrganizationMembershipListItem {
@@ -73,31 +68,11 @@ impl TryFrom<PgUserOrganizationMembershipListItemRow> for UserOrganizationMember
                         error,
                     ))
                 })?,
-                observation: ReadModelObservation::new(
-                    EventId::try_from(row.organization_source_event_id).map_err(|error| {
-                        PgUserOrganizationMembershipListItemRowError::OrganizationSourceEventId(
-                            Box::new(error),
-                        )
-                    })?,
-                    EventId::try_from(row.organization_updated_event_id).map_err(|error| {
-                        PgUserOrganizationMembershipListItemRowError::OrganizationUpdatedEventId(
-                            Box::new(error),
-                        )
-                    })?,
-                ),
             },
             roles: serde_json::from_str::<OrganizationRoles>(&row.roles).map_err(|error| {
                 PgUserOrganizationMembershipListItemRowError::Roles(Box::new(error))
             })?,
             created_at: EventOccurredAt::from(row.created_at),
-            observation: ReadModelObservation::new(
-                EventId::try_from(row.source_event_id).map_err(|error| {
-                    PgUserOrganizationMembershipListItemRowError::SourceEventId(Box::new(error))
-                })?,
-                EventId::try_from(row.updated_event_id).map_err(|error| {
-                    PgUserOrganizationMembershipListItemRowError::UpdatedEventId(Box::new(error))
-                })?,
-            ),
         })
     }
 }

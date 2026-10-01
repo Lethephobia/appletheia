@@ -1,31 +1,19 @@
-mod organization_membership_create_rejection_reason;
-mod organization_membership_create_result;
 mod organization_membership_creation;
 mod organization_membership_error;
 mod organization_membership_event_payload;
 mod organization_membership_event_payload_error;
 mod organization_membership_id;
-mod organization_membership_remove_rejection_reason;
-mod organization_membership_remove_result;
-mod organization_membership_roles_change_rejection_reason;
-mod organization_membership_roles_change_result;
 mod organization_membership_state;
 mod organization_membership_state_error;
 mod organization_membership_status;
 mod organization_role;
 mod organization_roles;
 
-pub use organization_membership_create_rejection_reason::OrganizationMembershipCreateRejectionReason;
-pub use organization_membership_create_result::OrganizationMembershipCreateResult;
 pub use organization_membership_creation::OrganizationMembershipCreation;
 pub use organization_membership_error::OrganizationMembershipError;
 pub use organization_membership_event_payload::OrganizationMembershipEventPayload;
 pub use organization_membership_event_payload_error::OrganizationMembershipEventPayloadError;
 pub use organization_membership_id::OrganizationMembershipId;
-pub use organization_membership_remove_rejection_reason::OrganizationMembershipRemoveRejectionReason;
-pub use organization_membership_remove_result::OrganizationMembershipRemoveResult;
-pub use organization_membership_roles_change_rejection_reason::OrganizationMembershipRolesChangeRejectionReason;
-pub use organization_membership_roles_change_result::OrganizationMembershipRolesChangeResult;
 pub use organization_membership_state::OrganizationMembershipState;
 pub use organization_membership_state_error::OrganizationMembershipStateError;
 pub use organization_membership_status::OrganizationMembershipStatus;
@@ -87,7 +75,7 @@ impl OrganizationMembership {
     pub fn create(
         &mut self,
         creation: OrganizationMembershipCreation,
-    ) -> Result<OrganizationMembershipCreateResult, OrganizationMembershipError> {
+    ) -> Result<(), OrganizationMembershipError> {
         if self.state().is_some() {
             return Err(OrganizationMembershipError::AlreadyCreated);
         }
@@ -98,27 +86,16 @@ impl OrganizationMembership {
             user_id,
             roles,
         })?;
-        Ok(OrganizationMembershipCreateResult::Created)
-    }
-
-    /// Rejects a membership creation attempt.
-    pub fn reject_create(
-        &mut self,
-        _creation: OrganizationMembershipCreation,
-        reason: OrganizationMembershipCreateRejectionReason,
-    ) -> Result<(), OrganizationMembershipError> {
-        Err(OrganizationMembershipError::CreateRejected(reason))
+        Ok(())
     }
 
     /// Changes the roles granted by the membership.
     pub fn change_roles(
         &mut self,
         roles: OrganizationRoles,
-    ) -> Result<OrganizationMembershipRolesChangeResult, OrganizationMembershipError> {
+    ) -> Result<(), OrganizationMembershipError> {
         if self.state_required()?.status.is_removed() {
-            let reason = OrganizationMembershipRolesChangeRejectionReason::Removed;
-            self.reject_change_roles(roles, reason)?;
-            return Ok(OrganizationMembershipRolesChangeResult::Rejected { reason });
+            return Err(OrganizationMembershipError::Removed);
         }
 
         let state = self.state_required()?;
@@ -129,29 +106,15 @@ impl OrganizationMembership {
             user_id,
             roles,
         })?;
-        Ok(OrganizationMembershipRolesChangeResult::Changed)
-    }
-
-    /// Rejects a membership roles change attempt.
-    pub fn reject_change_roles(
-        &mut self,
-        roles: OrganizationRoles,
-        reason: OrganizationMembershipRolesChangeRejectionReason,
-    ) -> Result<(), OrganizationMembershipError> {
-        let _ = roles;
-        Err(OrganizationMembershipError::RolesChangeRejected(reason))
+        Ok(())
     }
 
     /// Removes the membership.
     ///
     /// Removal is terminal. Rejoining creates a new membership aggregate.
-    pub fn remove(
-        &mut self,
-    ) -> Result<OrganizationMembershipRemoveResult, OrganizationMembershipError> {
+    pub fn remove(&mut self) -> Result<(), OrganizationMembershipError> {
         if self.state_required()?.status.is_removed() {
-            let reason = OrganizationMembershipRemoveRejectionReason::AlreadyRemoved;
-            self.reject_remove(reason)?;
-            return Ok(OrganizationMembershipRemoveResult::Rejected { reason });
+            return Err(OrganizationMembershipError::Removed);
         }
 
         let state = self.state_required()?;
@@ -161,15 +124,7 @@ impl OrganizationMembership {
             organization_id,
             user_id,
         })?;
-        Ok(OrganizationMembershipRemoveResult::Removed)
-    }
-
-    /// Rejects a membership removal attempt.
-    pub fn reject_remove(
-        &mut self,
-        reason: OrganizationMembershipRemoveRejectionReason,
-    ) -> Result<(), OrganizationMembershipError> {
-        Err(OrganizationMembershipError::RemoveRejected(reason))
+        Ok(())
     }
 }
 
@@ -211,9 +166,8 @@ mod tests {
 
     use super::{
         OrganizationMembership, OrganizationMembershipCreation, OrganizationMembershipError,
-        OrganizationMembershipEventPayload, OrganizationMembershipRemoveRejectionReason,
-        OrganizationMembershipRolesChangeRejectionReason, OrganizationMembershipStatus,
-        OrganizationRole, OrganizationRoles,
+        OrganizationMembershipEventPayload, OrganizationMembershipStatus, OrganizationRole,
+        OrganizationRoles,
     };
     use crate::{OrganizationId, UserId};
 
@@ -320,12 +274,7 @@ mod tests {
 
         let error = membership.remove().expect_err("second remove should fail");
 
-        assert!(matches!(
-            error,
-            OrganizationMembershipError::RemoveRejected(
-                OrganizationMembershipRemoveRejectionReason::AlreadyRemoved
-            )
-        ));
+        assert!(matches!(error, OrganizationMembershipError::Removed));
         assert_eq!(membership.uncommitted_events().len(), 2);
     }
 
@@ -338,12 +287,7 @@ mod tests {
             .change_roles(OrganizationRoles::new([OrganizationRole::Admin]))
             .expect_err("roles change should fail");
 
-        assert!(matches!(
-            error,
-            OrganizationMembershipError::RolesChangeRejected(
-                OrganizationMembershipRolesChangeRejectionReason::Removed
-            )
-        ));
+        assert!(matches!(error, OrganizationMembershipError::Removed));
         assert_eq!(membership.uncommitted_events().len(), 2);
     }
 }

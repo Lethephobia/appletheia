@@ -1,10 +1,5 @@
-use appletheia::application::read_model::{
-    ReadModel, ReadModelName, ReadModelObservation, ReadModelObservationSource,
-    SerializedPartition, SerializedPartitionError,
-};
+use appletheia::application::read_model::{ReadModel, ReadModelName};
 use serde::Serialize;
-
-use crate::projection::OrganizationFragment;
 
 mod public_organization_list_criteria;
 mod public_organization_list_cursor;
@@ -30,23 +25,6 @@ pub struct PublicOrganizationList {
     pub has_next: bool,
 }
 
-impl ReadModelObservationSource for PublicOrganizationList {
-    fn observations(&self) -> Vec<ReadModelObservation> {
-        self.items.iter().map(|item| item.observation).collect()
-    }
-}
-
 impl ReadModel for PublicOrganizationList {
     const NAME: ReadModelName = ReadModelName::new("public_organization_list");
-
-    fn partitions(&self) -> Result<Vec<SerializedPartition>, SerializedPartitionError> {
-        self.items
-            .iter()
-            .map(|item| {
-                SerializedPartition::try_from_fragment_key::<OrganizationFragment>(
-                    &item.organization_id,
-                )
-            })
-            .collect()
-    }
 }

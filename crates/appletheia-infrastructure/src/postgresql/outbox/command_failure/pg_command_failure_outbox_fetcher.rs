@@ -31,7 +31,7 @@ impl OutboxFetcher for PgCommandFailureOutboxFetcher {
     ) -> Result<Vec<Self::Outbox>, OutboxFetcherError> {
         let rows = sqlx::query_as::<Postgres, PgCommandFailureOutboxRow>(
             r#"
-            SELECT id, failure_sequence, failure_id, command_message_id, command_name,
+            SELECT id, failure_sequence, failure_id, command_message_id, command_name, command,
                    saga_name, saga_instance_id, saga_step, terminal_reason,
                    command_attempt_count, correlation_id, causation_id, failed_at,
                    published_at, attempt_count, next_attempt_after, lease_owner,
@@ -65,7 +65,7 @@ impl OutboxFetcher for PgCommandFailureOutboxFetcher {
         let rows = sqlx::query_as::<Postgres, PgCommandFailureOutboxDeadLetterRow>(
             r#"
             SELECT command_failure_outbox_id, failure_sequence, failure_id,
-                   command_message_id, command_name, saga_name, saga_instance_id,
+                   command_message_id, command_name, command, saga_name, saga_instance_id,
                    saga_step, terminal_reason, command_attempt_count, correlation_id,
                    causation_id, failed_at, published_at, attempt_count,
                    next_attempt_after, lease_owner, lease_until, last_error,

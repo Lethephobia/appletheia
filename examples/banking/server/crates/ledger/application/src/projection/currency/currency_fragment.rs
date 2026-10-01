@@ -1,6 +1,4 @@
-use appletheia::application::read_model::{
-    ReadModelFragment, ReadModelFragmentName, ReadModelObservation, ReadModelObservationSource,
-};
+use appletheia::application::read_model::{ReadModelFragment, ReadModelFragmentName};
 use banking_ledger_domain::core::{CurrencyCode, CurrencyDecimals};
 use banking_ledger_domain::currency::{CurrencyDescription, CurrencyId, CurrencyStatus};
 use banking_ledger_domain::currency_registrar::CurrencyRegistrarId;
@@ -18,13 +16,6 @@ pub struct CurrencyFragment {
     pub description: Option<CurrencyDescription>,
     pub status: CurrencyStatus,
     pub token_bindings: Vec<CurrencyTokenBindingFragment>,
-    pub observation: ReadModelObservation,
-}
-
-impl ReadModelObservationSource for CurrencyFragment {
-    fn observations(&self) -> Vec<ReadModelObservation> {
-        vec![self.observation]
-    }
 }
 
 impl ReadModelFragment for CurrencyFragment {

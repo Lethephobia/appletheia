@@ -4,7 +4,7 @@ use appletheia::application::authorization::{
 use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_ledger_domain::token_binding::{TokenBinding, TokenBindingEnablementChangeResult};
+use banking_ledger_domain::token_binding::TokenBinding;
 
 use super::{
     TokenBindingWithdrawalEnabledChangeCommand,
@@ -59,24 +59,13 @@ where
         command: &Self::Command,
     ) -> Result<Self::Output, Self::Error> {
         let mut token_binding = self.repository.read(uow, command.token_binding_id).await?;
-        let result = token_binding.change_withdrawal_enabled(command.enabled)?;
+        token_binding.change_withdrawal_enabled(command.enabled)?;
         self.repository
             .save(uow, request_context, &mut token_binding)
             .await?;
-        Ok(match result {
-            TokenBindingEnablementChangeResult::Changed => {
-                TokenBindingWithdrawalEnabledChangeOutput::Changed {
-                    token_binding_id: command.token_binding_id,
-                    enabled: command.enabled,
-                }
-            }
-            TokenBindingEnablementChangeResult::Rejected { reason } => {
-                TokenBindingWithdrawalEnabledChangeOutput::Rejected {
-                    token_binding_id: command.token_binding_id,
-                    enabled: command.enabled,
-                    reason,
-                }
-            }
+        Ok(TokenBindingWithdrawalEnabledChangeOutput {
+            token_binding_id: command.token_binding_id,
+            enabled: command.enabled,
         })
     }
 }

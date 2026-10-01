@@ -9,6 +9,7 @@ use super::{SagaNameOwned, SagaProcessedEventStoreError};
 pub trait SagaProcessedEventStore: Send + Sync {
     type Uow: UnitOfWork;
 
+    /// Records an event once per saga name; correlation is stored only as tracing metadata.
     async fn mark_processed(
         &self,
         uow: &mut Self::Uow,

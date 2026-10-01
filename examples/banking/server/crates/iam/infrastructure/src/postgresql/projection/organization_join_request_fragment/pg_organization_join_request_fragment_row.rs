@@ -1,5 +1,4 @@
-use appletheia::application::read_model::ReadModelObservation;
-use appletheia::domain::{AggregateId, EventId, EventOccurredAt};
+use appletheia::domain::{AggregateId, EventOccurredAt};
 use banking_iam_application::{
     OrganizationJoinRequestFragment, OrganizationJoinRequestFragmentWriterError,
 };
@@ -47,10 +46,6 @@ impl TryFrom<PgOrganizationJoinRequestFragmentRow> for OrganizationJoinRequestFr
                 .map_err(persistence_error)?,
             status,
             created_at: EventOccurredAt::from(row.created_at),
-            observation: ReadModelObservation::new(
-                EventId::try_from(row.source_event_id).map_err(persistence_error)?,
-                EventId::try_from(row.updated_event_id).map_err(persistence_error)?,
-            ),
         })
     }
 }

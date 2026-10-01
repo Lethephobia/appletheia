@@ -4,10 +4,8 @@ use appletheia::application::authorization::{
 use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_iam_domain::{
-    Organization, OrganizationInvitation, OrganizationInvitationDeclineRejectionReason,
-    OrganizationInvitationDeclineResult,
-};
+use banking_iam_domain::OrganizationInvitationError;
+use banking_iam_domain::{Organization, OrganizationInvitation};
 use banking_shared_kernel_domain::timestamps::CurrentDateTime;
 
 use crate::authorization::OrganizationInvitationInviteeRelation;
@@ -17,7 +15,6 @@ use super::{
     OrganizationInvitationDeclineOutput,
 };
 
-/// Handles `OrganizationInvitationDeclineCommand`.
 pub struct OrganizationInvitationDeclineCommandHandler<ORG, IR>
 where
     ORG: Repository<Organization>,
@@ -81,31 +78,15 @@ where
             .await?;
 
         if organization.is_removed()? {
-            let reason = OrganizationInvitationDeclineRejectionReason::OrganizationRemoved;
-            organization_invitation.reject_decline(reason)?;
-
-            self.organization_invitation_repository
-                .save(uow, request_context, &mut organization_invitation)
-                .await?;
-
-            return Ok(OrganizationInvitationDeclineOutput::Rejected { reason });
+            return Err(OrganizationInvitationError::OrganizationRemoved.into());
         }
 
-        let result = organization_invitation.decline(CurrentDateTime::new())?;
+        organization_invitation.decline(CurrentDateTime::new())?;
 
         self.organization_invitation_repository
             .save(uow, request_context, &mut organization_invitation)
             .await?;
 
-        let output = match result {
-            OrganizationInvitationDeclineResult::Declined => {
-                OrganizationInvitationDeclineOutput::Declined
-            }
-            OrganizationInvitationDeclineResult::Rejected { reason } => {
-                OrganizationInvitationDeclineOutput::Rejected { reason }
-            }
-        };
-
-        Ok(output)
+        Ok(OrganizationInvitationDeclineOutput {})
     }
 }

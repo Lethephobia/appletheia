@@ -1,10 +1,8 @@
 use appletheia::application::Retryability;
-
 use appletheia::application::repository::RepositoryError;
 use banking_iam_domain::{User, UserError};
 use thiserror::Error;
 
-/// Represents errors returned while activating a user.
 #[derive(Debug, Error)]
 pub enum UserActivateCommandHandlerError {
     #[error("user repository failed")]

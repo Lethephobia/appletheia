@@ -4,6 +4,7 @@ use anchor_lang::prelude::*;
 pub enum WithdrawalSettleInstructionError {
     #[msg("operator is not authorized")]
     UnauthorizedOperator,
+
     #[msg("withdrawal settlement marker conflicts with this withdrawal")]
     WithdrawalSettlementReceiptConflict,
 }

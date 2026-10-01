@@ -16,7 +16,6 @@ use super::{
     OidcBeginCommand, OidcBeginCommandHandlerConfig, OidcBeginCommandHandlerError, OidcBeginOutput,
 };
 
-/// Handles `OidcBeginCommand`.
 pub struct OidcBeginCommandHandler<OLF, OCS>
 where
     OLF: OidcLoginFlow,
@@ -123,12 +122,10 @@ where
             .save(uow, &continuation)
             .await?;
 
-        let output = OidcBeginOutput {
+        Ok(OidcBeginOutput {
             authorization_url: begin_result.authorization_url,
             expires_at: continuation.expires_at(),
-        };
-
-        Ok(output)
+        })
     }
 }
 
@@ -295,7 +292,7 @@ mod tests {
         let handler = OidcBeginCommandHandler::new(login_flow, continuation_store, config);
         let mut uow = TestUow;
 
-        let handled = handler
+        let output = handler
             .handle(
                 &mut uow,
                 &request_context(),
@@ -304,7 +301,6 @@ mod tests {
             .await
             .expect("allowed completion redirect URI should be accepted");
 
-        let output = handled;
         let saved = saved_continuations
             .lock()
             .expect("lock should be available");

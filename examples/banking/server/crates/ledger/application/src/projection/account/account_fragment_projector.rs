@@ -1,8 +1,6 @@
 use appletheia::application::event::EventEnvelope;
 use appletheia::application::projection::Projector;
-use appletheia::application::read_model::{
-    MaterializationEventContext, ReadModelFragment, ReadModelInvalidatedPartitions,
-};
+use appletheia::application::read_model::MaterializationEventContext;
 use banking_ledger_domain::account::{Account, AccountEventPayload};
 use banking_ledger_domain::core::CurrencyAmount;
 
@@ -44,11 +42,7 @@ where
         uow: &mut Self::Uow,
         event_context: MaterializationEventContext,
         event: &EventEnvelope,
-    ) -> Result<
-        ReadModelInvalidatedPartitions<<Self::Fragment as ReadModelFragment>::Key>,
-        Self::Error,
-    > {
-        let mut invalidated_partitions = ReadModelInvalidatedPartitions::new();
+    ) -> Result<(), Self::Error> {
         if event.is_for_aggregate::<Account>() {
             let domain_event = event.try_to_domain_event::<Account>()?;
             let account_id = domain_event.aggregate_id();
@@ -60,8 +54,7 @@ where
                     description,
                     currency_id,
                 } => {
-                    if let Some(fragment) = self
-                        .account_fragment_writer
+                    self.account_fragment_writer
                         .upsert_account(
                             uow,
                             event_context,
@@ -76,128 +69,81 @@ where
                                 status: MaterializedAccountStatus::Active,
                             },
                         )
-                        .await?
-                    {
-                        invalidated_partitions.insert(fragment.key());
-                    }
+                        .await?;
                 }
                 AccountEventPayload::OwnershipTransferred { owner } => {
-                    if let Some(fragment) = self
-                        .account_fragment_writer
+                    self.account_fragment_writer
                         .update_account_owner(uow, event_context, account_id, *owner)
-                        .await?
-                    {
-                        invalidated_partitions.insert(fragment.key());
-                    }
+                        .await?;
                 }
                 AccountEventPayload::NameChanged { name } => {
-                    if let Some(fragment) = self
-                        .account_fragment_writer
+                    self.account_fragment_writer
                         .update_account_name(uow, event_context, account_id, name.clone())
-                        .await?
-                    {
-                        invalidated_partitions.insert(fragment.key());
-                    }
+                        .await?;
                 }
                 AccountEventPayload::DescriptionChanged { description } => {
-                    if let Some(fragment) = self
-                        .account_fragment_writer
+                    self.account_fragment_writer
                         .update_account_description(
                             uow,
                             event_context,
                             account_id,
                             description.clone(),
                         )
-                        .await?
-                    {
-                        invalidated_partitions.insert(fragment.key());
-                    }
+                        .await?;
                 }
                 AccountEventPayload::Deposited { amount } => {
-                    if let Some(fragment) = self
-                        .account_fragment_writer
+                    self.account_fragment_writer
                         .increase_balance(uow, event_context, account_id, *amount)
-                        .await?
-                    {
-                        invalidated_partitions.insert(fragment.key());
-                    }
+                        .await?;
                 }
                 AccountEventPayload::Withdrawn { amount } => {
-                    if let Some(fragment) = self
-                        .account_fragment_writer
+                    self.account_fragment_writer
                         .decrease_balance(uow, event_context, account_id, *amount)
-                        .await?
-                    {
-                        invalidated_partitions.insert(fragment.key());
-                    }
+                        .await?;
                 }
                 AccountEventPayload::FundsReserved { amount } => {
-                    if let Some(fragment) = self
-                        .account_fragment_writer
+                    self.account_fragment_writer
                         .reserve_balance(uow, event_context, account_id, *amount)
-                        .await?
-                    {
-                        invalidated_partitions.insert(fragment.key());
-                    }
+                        .await?;
                 }
                 AccountEventPayload::ReservedFundsReleased { amount } => {
-                    if let Some(fragment) = self
-                        .account_fragment_writer
+                    self.account_fragment_writer
                         .release_reserved_balance(uow, event_context, account_id, *amount)
-                        .await?
-                    {
-                        invalidated_partitions.insert(fragment.key());
-                    }
+                        .await?;
                 }
                 AccountEventPayload::ReservedFundsCommitted { amount } => {
-                    if let Some(fragment) = self
-                        .account_fragment_writer
+                    self.account_fragment_writer
                         .commit_reserved_balance(uow, event_context, account_id, *amount)
-                        .await?
-                    {
-                        invalidated_partitions.insert(fragment.key());
-                    }
+                        .await?;
                 }
                 AccountEventPayload::Frozen => {
-                    if let Some(fragment) = self
-                        .account_fragment_writer
+                    self.account_fragment_writer
                         .update_account_status(
                             uow,
                             event_context,
                             account_id,
                             MaterializedAccountStatus::Frozen,
                         )
-                        .await?
-                    {
-                        invalidated_partitions.insert(fragment.key());
-                    }
+                        .await?;
                 }
                 AccountEventPayload::Thawed => {
-                    if let Some(fragment) = self
-                        .account_fragment_writer
+                    self.account_fragment_writer
                         .update_account_status(
                             uow,
                             event_context,
                             account_id,
                             MaterializedAccountStatus::Active,
                         )
-                        .await?
-                    {
-                        invalidated_partitions.insert(fragment.key());
-                    }
+                        .await?;
                 }
                 AccountEventPayload::Closed => {
-                    if self
-                        .account_fragment_writer
+                    self.account_fragment_writer
                         .delete_account(uow, event_context, account_id)
-                        .await?
-                    {
-                        invalidated_partitions.insert(account_id);
-                    }
+                        .await?;
                 }
             }
         }
 
-        Ok(invalidated_partitions)
+        Ok(())
     }
 }

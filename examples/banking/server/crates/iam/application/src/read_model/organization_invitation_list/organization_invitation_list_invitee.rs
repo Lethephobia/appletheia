@@ -1,6 +1,5 @@
 use serde::Serialize;
 
-use appletheia::application::read_model::ReadModelObservation;
 use banking_iam_domain::{UserDisplayName, UserId, UserPictureRef, Username};
 
 /// Invitee profile embedded in an organization invitation list.
@@ -10,5 +9,4 @@ pub struct OrganizationInvitationListInvitee {
     pub username: Option<Username>,
     pub display_name: Option<UserDisplayName>,
     pub picture: Option<UserPictureRef>,
-    pub observation: ReadModelObservation,
 }

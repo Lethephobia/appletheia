@@ -4,9 +4,7 @@ use appletheia::application::authorization::{
 use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_ledger_domain::wallet_bookmark::{
-    WalletBookmark, WalletBookmarkDescriptionChangeResult,
-};
+use banking_ledger_domain::wallet_bookmark::WalletBookmark;
 
 use super::{
     WalletBookmarkDescriptionChangeCommand, WalletBookmarkDescriptionChangeCommandHandlerError,
@@ -14,7 +12,6 @@ use super::{
 };
 use crate::authorization::WalletBookmarkUpdaterRelation;
 
-/// Handles `WalletBookmarkDescriptionChangeCommand`.
 pub struct WalletBookmarkDescriptionChangeCommandHandler<WBR>
 where
     WBR: Repository<WalletBookmark>,
@@ -67,21 +64,12 @@ where
             .read(uow, command.wallet_bookmark_id)
             .await?;
 
-        let result = wallet_bookmark.change_description(command.description.clone())?;
+        wallet_bookmark.change_description(command.description.clone())?;
 
         self.wallet_bookmark_repository
             .save(uow, request_context, &mut wallet_bookmark)
             .await?;
 
-        let output = match result {
-            WalletBookmarkDescriptionChangeResult::Changed => {
-                WalletBookmarkDescriptionChangeOutput::Changed
-            }
-            WalletBookmarkDescriptionChangeResult::Rejected { reason } => {
-                WalletBookmarkDescriptionChangeOutput::Rejected { reason }
-            }
-        };
-
-        Ok(output)
+        Ok(WalletBookmarkDescriptionChangeOutput {})
     }
 }

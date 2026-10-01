@@ -1,6 +1,5 @@
 use serde::Serialize;
 
-use appletheia::application::read_model::ReadModelObservation;
 use banking_iam_domain::{UserDisplayName, UserId, UserPictureRef, Username};
 
 /// Public owner profile embedded in organization-management information.
@@ -10,5 +9,4 @@ pub struct OrganizationManagementInfoOwner {
     pub username: Option<Username>,
     pub display_name: Option<UserDisplayName>,
     pub picture: Option<UserPictureRef>,
-    pub observation: ReadModelObservation,
 }

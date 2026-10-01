@@ -1,20 +1,10 @@
 use appletheia::application::command::{CommandOutput, CommandReplayOutput};
-use banking_ledger_domain::{
-    CurrencyRegistrarJoinRequestId, CurrencyRegistrarJoinRequestSubmitRejectionReason,
-};
+use banking_ledger_domain::CurrencyRegistrarJoinRequestId;
 use serde::{Deserialize, Serialize};
 
-/// The output returned after submitting an currency registrar join request.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "type", content = "data", rename_all = "snake_case")]
-pub enum CurrencyRegistrarJoinRequestSubmitOutput {
-    Submitted {
-        currency_registrar_join_request_id: CurrencyRegistrarJoinRequestId,
-    },
-    Rejected {
-        currency_registrar_join_request_id: CurrencyRegistrarJoinRequestId,
-        reason: CurrencyRegistrarJoinRequestSubmitRejectionReason,
-    },
+pub struct CurrencyRegistrarJoinRequestSubmitOutput {
+    pub currency_registrar_join_request_id: CurrencyRegistrarJoinRequestId,
 }
 
 impl CommandOutput for CurrencyRegistrarJoinRequestSubmitOutput {

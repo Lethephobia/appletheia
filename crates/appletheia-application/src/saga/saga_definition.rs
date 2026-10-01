@@ -308,8 +308,10 @@ mod tests {
     enum Error {
         #[error(transparent)]
         EventEnvelope(#[from] EventEnvelopeError),
+
         #[error(transparent)]
         Context(#[from] SagaContextError),
+
         #[error("policy refused")]
         Refused,
     }

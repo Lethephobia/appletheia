@@ -4,9 +4,8 @@ use appletheia::application::repository::{Repository, RepositoryError};
 use appletheia::application::request_context::RequestContext;
 use banking_ledger_domain::account::Account;
 use banking_ledger_domain::currency::Currency;
-use banking_ledger_domain::deposit::{
-    Deposit, DepositSettlementVerifyRejectionReason, DepositSettlementVerifyResult,
-};
+use banking_ledger_domain::deposit::Deposit;
+use banking_ledger_domain::deposit::DepositError;
 use banking_ledger_domain::token_binding::TokenBinding;
 
 use crate::settlement::{DepositSettlementVerifier, DepositSettlementVerifyRequest};
@@ -16,7 +15,6 @@ use super::{
     DepositSettlementVerifyOutput,
 };
 
-/// Handles `DepositSettlementVerifyCommand`.
 pub struct DepositSettlementVerifyCommandHandler<DR, AR, CR, TBR, TDV>
 where
     DR: Repository<Deposit>,
@@ -111,23 +109,13 @@ where
                 token_binding
             }
             Ok(_) | Err(RepositoryError::NotFound { .. }) => {
-                let reason = DepositSettlementVerifyRejectionReason::TokenBindingUnavailable;
-                deposit.reject_settlement_verify(command.transaction_id, reason)?;
-                self.deposit_repository
-                    .save(uow, request_context, &mut deposit)
-                    .await?;
-                return Ok(DepositSettlementVerifyOutput::Rejected);
+                return Err(DepositError::TokenBindingUnavailable.into());
             }
             Err(error) => return Err(error.into()),
         };
         let chain_network = token_binding.chain_network()?;
         if !command.transaction_id.matches_network(chain_network) {
-            let reason = DepositSettlementVerifyRejectionReason::ChainMismatch;
-            deposit.reject_settlement_verify(command.transaction_id, reason)?;
-            self.deposit_repository
-                .save(uow, request_context, &mut deposit)
-                .await?;
-            return Ok(DepositSettlementVerifyOutput::Rejected);
+            return Err(DepositError::ChainMismatch.into());
         }
 
         let verification = self
@@ -142,18 +130,11 @@ where
                 transaction_id: command.transaction_id,
             })
             .await?;
-        let result = deposit.record_settlement_verified(verification.transaction_id)?;
+        deposit.record_settlement_verified(verification.transaction_id)?;
         self.deposit_repository
             .save(uow, request_context, &mut deposit)
             .await?;
 
-        let output = match result {
-            DepositSettlementVerifyResult::Verified => DepositSettlementVerifyOutput::Verified,
-            DepositSettlementVerifyResult::Rejected { .. } => {
-                DepositSettlementVerifyOutput::Rejected
-            }
-        };
-
-        Ok(output)
+        Ok(DepositSettlementVerifyOutput {})
     }
 }

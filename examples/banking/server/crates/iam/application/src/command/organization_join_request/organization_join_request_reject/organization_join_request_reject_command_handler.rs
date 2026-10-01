@@ -4,10 +4,8 @@ use appletheia::application::authorization::{
 use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_iam_domain::{
-    Organization, OrganizationJoinRequest, OrganizationJoinRequestRejectRejectionReason,
-    OrganizationJoinRequestRejectResult,
-};
+use banking_iam_domain::OrganizationJoinRequestError;
+use banking_iam_domain::{Organization, OrganizationJoinRequest};
 
 use crate::authorization::OrganizationJoinRequestRejecterRelation;
 
@@ -16,7 +14,6 @@ use super::{
     OrganizationJoinRequestRejectOutput,
 };
 
-/// Handles `OrganizationJoinRequestRejectCommand`.
 pub struct OrganizationJoinRequestRejectCommandHandler<ORG, JR>
 where
     ORG: Repository<Organization>,
@@ -80,31 +77,15 @@ where
             .await?;
 
         if organization.is_removed()? {
-            let reason = OrganizationJoinRequestRejectRejectionReason::OrganizationRemoved;
-            organization_join_request.reject_rejection(reason)?;
-
-            self.organization_join_request_repository
-                .save(uow, _request_context, &mut organization_join_request)
-                .await?;
-
-            return Ok(OrganizationJoinRequestRejectOutput::RejectionRejected { reason });
+            return Err(OrganizationJoinRequestError::OrganizationRemoved.into());
         }
 
-        let result = organization_join_request.reject()?;
+        organization_join_request.reject()?;
 
         self.organization_join_request_repository
             .save(uow, _request_context, &mut organization_join_request)
             .await?;
 
-        let output = match result {
-            OrganizationJoinRequestRejectResult::Rejected => {
-                OrganizationJoinRequestRejectOutput::Rejected
-            }
-            OrganizationJoinRequestRejectResult::RejectionRejected { reason } => {
-                OrganizationJoinRequestRejectOutput::RejectionRejected { reason }
-            }
-        };
-
-        Ok(output)
+        Ok(OrganizationJoinRequestRejectOutput {})
     }
 }

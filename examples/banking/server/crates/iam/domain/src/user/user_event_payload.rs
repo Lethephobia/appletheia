@@ -2,18 +2,18 @@ use appletheia::event_payload;
 use banking_shared_kernel_domain::contact::Email;
 
 use super::{
-    UserBio, UserDisplayName, UserEventPayloadError, UserIdentityData, UserIdentityProvider,
-    UserIdentitySubject, UserPictureRef, Username,
+    UserBio, UserDisplayName, UserEventPayloadError, UserIdentityProvider, UserIdentitySubject,
+    UserPictureRef, Username,
 };
 
 /// Represents the domain events emitted by a `User` aggregate.
 #[event_payload(error = UserEventPayloadError)]
 pub enum UserEventPayload {
-    Registered {
-        initial_identity: Option<UserIdentityData>,
-    },
+    Registered,
     IdentityLinked {
-        identity: UserIdentityData,
+        provider: UserIdentityProvider,
+        subject: UserIdentitySubject,
+        email: Option<Email>,
     },
     IdentityEmailChanged {
         provider: UserIdentityProvider,
@@ -48,7 +48,7 @@ mod tests {
         UserPictureUrl,
     };
 
-    use super::{UserEventPayload, UserIdentityData};
+    use super::UserEventPayload;
 
     #[test]
     fn returns_stable_event_names() {
@@ -155,12 +155,10 @@ mod tests {
     #[test]
     fn serializes_identity_linked_payload_to_json() {
         let payload = UserEventPayload::IdentityLinked {
-            identity: UserIdentityData::new(
-                UserIdentityProvider::try_from("https://accounts.example.com")
-                    .expect("provider should be valid"),
-                UserIdentitySubject::try_from("user-123").expect("subject should be valid"),
-                Some(Email::try_from("alice@example.com").expect("email should be valid")),
-            ),
+            provider: UserIdentityProvider::try_from("https://accounts.example.com")
+                .expect("provider should be valid"),
+            subject: UserIdentitySubject::try_from("user-123").expect("subject should be valid"),
+            email: Some(Email::try_from("alice@example.com").expect("email should be valid")),
         };
 
         let value = payload
@@ -169,22 +167,30 @@ mod tests {
 
         assert_eq!(value["type"], serde_json::json!("identity_linked"));
         assert_eq!(
-            value["data"]["identity"]["provider"],
+            value["data"]["provider"],
             serde_json::json!("https://accounts.example.com")
         );
+        assert_eq!(value["data"]["subject"], serde_json::json!("user-123"));
+        assert_eq!(
+            value["data"]["email"],
+            serde_json::json!("alice@example.com")
+        );
+        assert!(value["data"].get("identity").is_none());
+
+        let decoded = UserEventPayload::try_from_json_value(value)
+            .expect("flattened identity payload should deserialize");
+        assert!(matches!(decoded, UserEventPayload::IdentityLinked { .. }));
     }
 
     #[test]
     fn serializes_registered_payload_to_json() {
-        let payload = UserEventPayload::Registered {
-            initial_identity: None,
-        };
+        let payload = UserEventPayload::Registered;
 
         let value = payload
             .try_into_json_value()
             .expect("payload should serialize");
 
         assert_eq!(value["type"], serde_json::json!("registered"));
-        assert!(value["data"].get("id").is_none());
+        assert!(value.get("data").is_none());
     }
 }

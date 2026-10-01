@@ -1,32 +1,27 @@
 use appletheia::event_payload;
 
-use crate::account::{AccountCloseRejectionReason, AccountId, AccountOwner};
+use super::{OwnedAccountClosureCount, OwnedAccountClosureEventPayloadError};
+use crate::account::{AccountId, AccountOwner};
 
-use super::{OwnedAccountClosureEventPayloadError, OwnedAccountClosureFailureReason};
-
-/// Represents the domain events emitted by an `OwnedAccountClosure` aggregate.
 #[event_payload(error = OwnedAccountClosureEventPayloadError)]
 pub enum OwnedAccountClosureEventPayload {
-    Requested {
+    Started {
         owner: AccountOwner,
     },
-    PageLoaded {
-        account_ids: Vec<AccountId>,
+    Requested {
+        account_id: AccountId,
+    },
+    Scanned {
         next_cursor: Option<AccountId>,
     },
-    AccountCloseRecorded {
+    Succeeded {
         account_id: AccountId,
-    },
-    AccountCloseRejectionRecorded {
-        account_id: AccountId,
-        reason: AccountCloseRejectionReason,
-    },
-    Completed {
-        closed_account_count: u32,
     },
     Failed {
-        closed_account_count: u32,
-        rejected_account_count: u32,
-        reason: OwnedAccountClosureFailureReason,
+        account_id: AccountId,
+    },
+    Completed {
+        succeeded_count: OwnedAccountClosureCount,
+        failed_count: OwnedAccountClosureCount,
     },
 }

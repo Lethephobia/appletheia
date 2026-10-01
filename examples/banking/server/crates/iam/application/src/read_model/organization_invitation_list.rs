@@ -1,10 +1,5 @@
-use appletheia::application::read_model::{
-    ReadModel, ReadModelName, ReadModelObservation, ReadModelObservationSource,
-    SerializedPartition, SerializedPartitionError,
-};
+use appletheia::application::read_model::{ReadModel, ReadModelName};
 use serde::Serialize;
-
-use crate::projection::{OrganizationFragment, OrganizationInvitationFragment, UserFragment};
 
 mod organization_invitation_list_criteria;
 mod organization_invitation_list_cursor;
@@ -39,33 +34,6 @@ pub struct OrganizationInvitationList {
     pub has_next: bool,
 }
 
-impl ReadModelObservationSource for OrganizationInvitationList {
-    fn observations(&self) -> Vec<ReadModelObservation> {
-        std::iter::once(self.organization.observation)
-            .chain(
-                self.items
-                    .iter()
-                    .flat_map(|item| [item.observation, item.invitee.observation]),
-            )
-            .collect()
-    }
-}
-
 impl ReadModel for OrganizationInvitationList {
     const NAME: ReadModelName = ReadModelName::new("organization_invitation_list");
-
-    fn partitions(&self) -> Result<Vec<SerializedPartition>, SerializedPartitionError> {
-        let mut partitions = vec![SerializedPartition::try_from_fragment_key::<
-            OrganizationFragment,
-        >(&self.organization.organization_id)?];
-        for item in &self.items {
-            partitions.push(SerializedPartition::try_from_fragment_key::<
-                OrganizationInvitationFragment,
-            >(&item.invitation_id)?);
-            partitions.push(SerializedPartition::try_from_fragment_key::<UserFragment>(
-                &item.invitee.user_id,
-            )?);
-        }
-        Ok(partitions)
-    }
 }

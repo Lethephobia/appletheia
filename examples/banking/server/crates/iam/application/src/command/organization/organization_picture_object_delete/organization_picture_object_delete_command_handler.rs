@@ -13,7 +13,6 @@ use super::{
     OrganizationPictureObjectDeleteOutput,
 };
 
-/// Handles `OrganizationPictureObjectDeleteCommand`.
 pub struct OrganizationPictureObjectDeleteCommandHandler<OD, U>
 where
     OD: ObjectDeleter,
@@ -69,6 +68,6 @@ where
         );
         self.object_deleter.delete(request).await?;
 
-        Ok(OrganizationPictureObjectDeleteOutput)
+        Ok(OrganizationPictureObjectDeleteOutput {})
     }
 }

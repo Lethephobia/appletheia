@@ -53,7 +53,7 @@ impl SagaProcessedEventStore for PgSagaProcessedEventStore {
               $3,
               $4
             )
-            ON CONFLICT (saga_name, correlation_id, event_id) DO NOTHING
+            ON CONFLICT (saga_name, event_id) DO NOTHING
             RETURNING
               id,
               saga_name,

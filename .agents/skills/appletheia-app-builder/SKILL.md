@@ -9,9 +9,10 @@ Guide downstream Appletheia application design and implementation across archite
 
 ## References
 
-The reference files follow an Effective Dart style:
+Select the references relevant to the task from the index below; read additional references only
+when their guidance is needed. The reference files follow an Effective Dart style:
 
-- Do
+- DO
 
   Use this for rules that should be followed by default. Treat violations as exceptional and require a clear reason.
 
@@ -31,23 +32,29 @@ The reference files follow an Effective Dart style:
 
   Use this for optional guidance or tradeoffs. Apply it when the surrounding context makes the choice worthwhile.
 
+Each directive includes **Good** and **Bad** fenced examples. DO, PREFER, and CONSIDER show
+Good first; DON'T and AVOID show Bad first. Examples are focused excerpts, not standalone programs.
+Preserve the comparisons when updating guidance and keep them aligned with the current contract.
+
+Keep guidance focused on application decisions that are easy to get wrong with Appletheia.
+Do not turn a one-time cleanup or an obsolete API into a permanent prohibition. Consolidate
+overlapping rules and avoid repeating ordinary Rust advice or library internals. Before removing or
+rewriting guidance, compare its history and current examples: preserve the underlying design decision
+when only its API or sample code is obsolete. A shorter guide must not reverse an existing rule.
+
 ### Reference Map
 
-- `references/domain/aggregate.md`
+- [Aggregate](references/domain/aggregate.md)
 
-  Use for aggregate boundaries, typed domain refusals, meaningful business facts, state transitions,
-  and event application.
+  Use for aggregate invariants, operation failures, replayable state changes, persistence indexes,
+  identity metadata, value-object boundaries, and separate child-entity creation events.
 
-- `references/application/command.md`
+- [Command](references/application/command.md)
 
-  Use for command payload design, command handlers, authorization, retryability, and terminal command
-  failures.
+  Use for command data and output shapes, application-level checks, transaction boundaries,
+  replay-safe outputs, retryability, and worker configuration.
 
-- `references/application/projection.md`
+- [Saga](references/application/saga.md)
 
-  Use for projector boundaries, event subscriptions, materialization, and shared projector workers.
-
-- `references/application/saga.md`
-
-  Use for staged Saga definitions (`add_*_step().on().handle()`), typed callbacks and handler errors,
-  command dispatch through context, start-once routing, optional failure reactions, and worker DI.
+  Use for staged routes, incoming and outgoing steps, side-effect-free definitions, context-based
+  dispatch, command ownership, parallel readiness, and optional failure reactions.

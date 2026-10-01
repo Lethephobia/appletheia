@@ -5,8 +5,8 @@ use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use appletheia::domain::{Aggregate, UniqueValue};
-use banking_iam_domain::user::UserUsernameChangeRejectionReason;
-use banking_iam_domain::user::UserUsernameChangeResult;
+use banking_iam_domain::UserError;
+
 use banking_iam_domain::{User, UserState, Username};
 
 use super::{
@@ -14,7 +14,6 @@ use super::{
 };
 use crate::authorization::UserUsernameChangerRelation;
 
-/// Handles `UserUsernameChangeCommand`.
 pub struct UserUsernameChangeCommandHandler<UR>
 where
     UR: Repository<User>,
@@ -75,30 +74,16 @@ where
             .await?
             .is_some_and(|existing| existing.aggregate_id() != command.user_id)
         {
-            let reason = UserUsernameChangeRejectionReason::AlreadyTaken;
-            user.reject_change_username(command.username.clone(), reason)?;
-
-            self.user_repository
-                .save(uow, request_context, &mut user)
-                .await?;
-
-            return Ok(UserUsernameChangeOutput::Rejected { reason });
+            return Err(UserError::UsernameAlreadyTaken.into());
         }
 
-        let result = user.change_username(command.username.clone())?;
+        user.change_username(command.username.clone())?;
 
         self.user_repository
             .save(uow, request_context, &mut user)
             .await?;
 
-        let output = match result {
-            UserUsernameChangeResult::Changed => UserUsernameChangeOutput::Changed,
-            UserUsernameChangeResult::Rejected { reason } => {
-                UserUsernameChangeOutput::Rejected { reason }
-            }
-        };
-
-        Ok(output)
+        Ok(UserUsernameChangeOutput {})
     }
 }
 
@@ -115,8 +100,7 @@ mod tests {
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::Aggregate;
     use banking_iam_domain::{
-        User, UserId, UserIdentityProvider, UserIdentityRegistration, UserIdentitySubject,
-        UserRegistration, Username,
+        User, UserId, UserIdentityProvider, UserIdentityRegistration, UserIdentitySubject, Username,
     };
     use uuid::Uuid;
 
@@ -209,10 +193,7 @@ mod tests {
 
     fn registered_user() -> User {
         let mut user = User::new();
-        user.register(UserRegistration {
-            initial_identity: None,
-        })
-        .expect("user should register");
+        user.register().expect("user should register");
         user.link_identity(UserIdentityRegistration {
             provider: UserIdentityProvider::try_from("https://accounts.example.com")
                 .expect("provider should be valid"),
@@ -231,7 +212,7 @@ mod tests {
         let handler = UserUsernameChangeCommandHandler::new(repository);
         let mut uow = TestUow;
 
-        let handled = handler
+        let output = handler
             .handle(
                 &mut uow,
                 &request_context(user_id),
@@ -243,6 +224,10 @@ mod tests {
             .await
             .expect("command should succeed");
 
-        assert_eq!(handled, UserUsernameChangeOutput::Changed);
+        assert_eq!(output, UserUsernameChangeOutput {});
+        assert_eq!(
+            serde_json::to_value(&output).expect("output should serialize"),
+            serde_json::json!({})
+        );
     }
 }

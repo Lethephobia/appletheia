@@ -8,14 +8,19 @@ use crate::settlement::EthereumUserOperationPreparerError;
 pub enum DepositSettlementPreparerError {
     #[error("deposit settlement values belong to different chains")]
     InconsistentChainValues,
+
     #[error("deposit amount cannot be represented exactly by the selected token")]
     InvalidAmount,
+
     #[error("an EVM deposit authorization is not accepted for a Solana deposit")]
     UnexpectedEvmAuthorization,
+
     #[error("Ethereum deposit settlement transaction preparation failed")]
     EthereumTransaction(#[from] EthereumDepositSettlementTransactionPreparerError),
+
     #[error("Ethereum UserOperation preparation failed")]
     EthereumUserOperation(#[from] EthereumUserOperationPreparerError),
+
     #[error("backend failed")]
     Backend(#[source] Box<dyn std::error::Error + Send + Sync>),
 }

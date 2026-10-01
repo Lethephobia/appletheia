@@ -5,14 +5,12 @@ use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_iam_domain::User;
-use banking_iam_domain::user::UserPictureChangeResult;
 
 use super::{
     UserPictureChangeCommand, UserPictureChangeCommandHandlerError, UserPictureChangeOutput,
 };
 use crate::authorization::UserProfileEditorRelation;
 
-/// Handles `UserPictureChangeCommand`.
 pub struct UserPictureChangeCommandHandler<UR>
 where
     UR: Repository<User>,
@@ -60,19 +58,12 @@ where
     ) -> Result<Self::Output, Self::Error> {
         let mut user = self.user_repository.read(uow, command.user_id).await?;
 
-        let result = user.change_picture(command.picture.clone())?;
+        user.change_picture(command.picture.clone())?;
 
         self.user_repository
             .save(uow, request_context, &mut user)
             .await?;
 
-        let output = match result {
-            UserPictureChangeResult::Changed => UserPictureChangeOutput::Changed,
-            UserPictureChangeResult::Rejected { reason } => {
-                UserPictureChangeOutput::Rejected { reason }
-            }
-        };
-
-        Ok(output)
+        Ok(UserPictureChangeOutput {})
     }
 }

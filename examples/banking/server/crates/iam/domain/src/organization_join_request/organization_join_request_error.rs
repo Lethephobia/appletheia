@@ -1,11 +1,7 @@
 use appletheia::domain::AggregateError;
 use thiserror::Error;
 
-use super::{
-    OrganizationJoinRequestApproveRejectionReason, OrganizationJoinRequestCancelRejectionReason,
-    OrganizationJoinRequestId, OrganizationJoinRequestRejectRejectionReason,
-    OrganizationJoinRequestStateError, OrganizationJoinRequestSubmitRejectionReason,
-};
+use super::{OrganizationJoinRequestId, OrganizationJoinRequestStateError};
 
 /// Describes why an `OrganizationJoinRequest` aggregate operation failed.
 #[derive(Debug, Error)]
@@ -18,12 +14,13 @@ pub enum OrganizationJoinRequestError {
 
     #[error("organization join request is already submitted")]
     AlreadySubmitted,
-    #[error("organization join request submission rejected: {0:?}")]
-    SubmitRejected(OrganizationJoinRequestSubmitRejectionReason),
-    #[error("organization join request approval rejected: {0:?}")]
-    ApproveRejected(OrganizationJoinRequestApproveRejectionReason),
-    #[error("organization join request rejection rejected: {0:?}")]
-    RejectRejected(OrganizationJoinRequestRejectRejectionReason),
-    #[error("organization join request cancellation rejected: {0:?}")]
-    CancelRejected(OrganizationJoinRequestCancelRejectionReason),
+
+    #[error("organization join request is not pending")]
+    NotPending,
+
+    #[error("organization has been removed")]
+    OrganizationRemoved,
+
+    #[error("requester is already a member")]
+    RequesterAlreadyMember,
 }

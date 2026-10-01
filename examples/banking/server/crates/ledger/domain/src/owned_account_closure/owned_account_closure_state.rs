@@ -4,9 +4,9 @@ use appletheia::unique_constraints;
 use banking_iam_domain::{OrganizationId, UserId};
 use uuid::Uuid;
 
-use crate::account::AccountOwner;
+use crate::account::{AccountId, AccountOwner};
 
-use super::{OwnedAccountClosureStateError, OwnedAccountClosureStatus};
+use super::{OwnedAccountClosureCount, OwnedAccountClosureStateError, OwnedAccountClosureStatus};
 
 /// Stores the materialized state of an `OwnedAccountClosure` aggregate.
 #[aggregate_state(error = OwnedAccountClosureStateError)]
@@ -17,19 +17,12 @@ use super::{OwnedAccountClosureStateError, OwnedAccountClosureStatus};
 )]
 pub struct OwnedAccountClosureState {
     pub(super) owner: AccountOwner,
-    pub(super) closed_account_count: u32,
-    pub(super) rejected_account_count: u32,
+    pub(super) requested_count: OwnedAccountClosureCount,
+    pub(super) succeeded_count: OwnedAccountClosureCount,
+    pub(super) failed_count: OwnedAccountClosureCount,
+    pub(super) next_cursor: Option<AccountId>,
+    pub(super) scan_completed: bool,
     pub(super) status: OwnedAccountClosureStatus,
-}
-
-impl OwnedAccountClosureState {
-    pub(super) fn closed_account_count(&self) -> u32 {
-        self.closed_account_count
-    }
-
-    pub(super) fn rejected_account_count(&self) -> u32 {
-        self.rejected_account_count
-    }
 }
 
 fn owner_user_ref_value(
@@ -54,16 +47,19 @@ mod tests {
 
     use crate::account::AccountOwner;
 
-    use super::{OwnedAccountClosureState, OwnedAccountClosureStatus};
+    use super::{OwnedAccountClosureCount, OwnedAccountClosureState, OwnedAccountClosureStatus};
 
     #[test]
     fn state_stores_domain_attributes() {
         let owner = AccountOwner::User(UserId::new());
         let state = OwnedAccountClosureState {
             owner,
-            closed_account_count: 0,
-            rejected_account_count: 0,
-            status: OwnedAccountClosureStatus::Requested,
+            requested_count: OwnedAccountClosureCount::default(),
+            succeeded_count: OwnedAccountClosureCount::default(),
+            failed_count: OwnedAccountClosureCount::default(),
+            next_cursor: None,
+            scan_completed: false,
+            status: OwnedAccountClosureStatus::InProgress,
         };
         assert_eq!(state.owner, owner);
     }
@@ -73,9 +69,12 @@ mod tests {
         let user_id = UserId::new();
         let state = OwnedAccountClosureState {
             owner: AccountOwner::User(user_id),
-            closed_account_count: 0,
-            rejected_account_count: 0,
-            status: OwnedAccountClosureStatus::Requested,
+            requested_count: OwnedAccountClosureCount::default(),
+            succeeded_count: OwnedAccountClosureCount::default(),
+            failed_count: OwnedAccountClosureCount::default(),
+            next_cursor: None,
+            scan_completed: false,
+            status: OwnedAccountClosureStatus::InProgress,
         };
 
         let entries = state
@@ -101,9 +100,12 @@ mod tests {
         let organization_id = OrganizationId::new();
         let state = OwnedAccountClosureState {
             owner: AccountOwner::Organization(organization_id),
-            closed_account_count: 0,
-            rejected_account_count: 0,
-            status: OwnedAccountClosureStatus::Requested,
+            requested_count: OwnedAccountClosureCount::default(),
+            succeeded_count: OwnedAccountClosureCount::default(),
+            failed_count: OwnedAccountClosureCount::default(),
+            next_cursor: None,
+            scan_completed: false,
+            status: OwnedAccountClosureStatus::InProgress,
         };
 
         let entries = state

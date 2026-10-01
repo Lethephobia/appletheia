@@ -5,8 +5,10 @@ use thiserror::Error;
 pub enum WithdrawalSettlementExecutorError {
     #[error("withdrawal settlement values belong to different chains")]
     InconsistentChainValues,
+
     #[error("withdrawal amount cannot be represented exactly by the selected token")]
     InvalidAmount,
+
     #[error("backend failed")]
     Backend(#[source] Box<dyn std::error::Error + Send + Sync>),
 }

@@ -1,43 +1,27 @@
 mod wallet_bookmark_description;
-mod wallet_bookmark_description_change_rejection_reason;
-mod wallet_bookmark_description_change_result;
 mod wallet_bookmark_description_error;
 mod wallet_bookmark_display_name;
-mod wallet_bookmark_display_name_change_rejection_reason;
-mod wallet_bookmark_display_name_change_result;
 mod wallet_bookmark_display_name_error;
 mod wallet_bookmark_error;
 mod wallet_bookmark_event_payload;
 mod wallet_bookmark_event_payload_error;
 mod wallet_bookmark_id;
 mod wallet_bookmark_owner;
-mod wallet_bookmark_register_rejection_reason;
-mod wallet_bookmark_register_result;
 mod wallet_bookmark_registration;
-mod wallet_bookmark_remove_rejection_reason;
-mod wallet_bookmark_remove_result;
 mod wallet_bookmark_state;
 mod wallet_bookmark_state_error;
 mod wallet_bookmark_status;
 
 pub use wallet_bookmark_description::WalletBookmarkDescription;
-pub use wallet_bookmark_description_change_rejection_reason::WalletBookmarkDescriptionChangeRejectionReason;
-pub use wallet_bookmark_description_change_result::WalletBookmarkDescriptionChangeResult;
 pub use wallet_bookmark_description_error::WalletBookmarkDescriptionError;
 pub use wallet_bookmark_display_name::WalletBookmarkDisplayName;
-pub use wallet_bookmark_display_name_change_rejection_reason::WalletBookmarkDisplayNameChangeRejectionReason;
-pub use wallet_bookmark_display_name_change_result::WalletBookmarkDisplayNameChangeResult;
 pub use wallet_bookmark_display_name_error::WalletBookmarkDisplayNameError;
 pub use wallet_bookmark_error::WalletBookmarkError;
 pub use wallet_bookmark_event_payload::WalletBookmarkEventPayload;
 pub use wallet_bookmark_event_payload_error::WalletBookmarkEventPayloadError;
 pub use wallet_bookmark_id::WalletBookmarkId;
 pub use wallet_bookmark_owner::WalletBookmarkOwner;
-pub use wallet_bookmark_register_rejection_reason::WalletBookmarkRegisterRejectionReason;
-pub use wallet_bookmark_register_result::WalletBookmarkRegisterResult;
 pub use wallet_bookmark_registration::WalletBookmarkRegistration;
-pub use wallet_bookmark_remove_rejection_reason::WalletBookmarkRemoveRejectionReason;
-pub use wallet_bookmark_remove_result::WalletBookmarkRemoveResult;
 pub use wallet_bookmark_state::WalletBookmarkState;
 pub use wallet_bookmark_state_error::WalletBookmarkStateError;
 pub use wallet_bookmark_status::WalletBookmarkStatus;
@@ -83,7 +67,7 @@ impl WalletBookmark {
     pub fn register(
         &mut self,
         registration: WalletBookmarkRegistration,
-    ) -> Result<WalletBookmarkRegisterResult, WalletBookmarkError> {
+    ) -> Result<(), WalletBookmarkError> {
         if self.state().is_some() {
             return Err(WalletBookmarkError::AlreadyRegistered);
         }
@@ -96,84 +80,52 @@ impl WalletBookmark {
             token_owner_address,
         })?;
 
-        Ok(WalletBookmarkRegisterResult::Registered)
+        Ok(())
     }
 
     /// Changes the user-facing display name.
     pub fn change_display_name(
         &mut self,
         display_name: Option<WalletBookmarkDisplayName>,
-    ) -> Result<WalletBookmarkDisplayNameChangeResult, WalletBookmarkError> {
+    ) -> Result<(), WalletBookmarkError> {
         match self.state_required()?.status {
             WalletBookmarkStatus::Active => {}
             WalletBookmarkStatus::Removed => {
-                let reason = WalletBookmarkDisplayNameChangeRejectionReason::Removed;
-                self.reject_change_display_name(display_name, reason)?;
-                return Ok(WalletBookmarkDisplayNameChangeResult::Rejected { reason });
+                return Err(WalletBookmarkError::Removed);
             }
         }
 
         self.append_event(WalletBookmarkEventPayload::DisplayNameChanged { display_name })?;
-        Ok(WalletBookmarkDisplayNameChangeResult::Changed)
-    }
-
-    /// Rejects a wallet bookmark display name change attempt.
-    pub fn reject_change_display_name(
-        &mut self,
-        _display_name: Option<WalletBookmarkDisplayName>,
-        reason: WalletBookmarkDisplayNameChangeRejectionReason,
-    ) -> Result<(), WalletBookmarkError> {
-        Err(WalletBookmarkError::DisplayNameChangeRejected(reason))
+        Ok(())
     }
 
     /// Changes the user-facing description.
     pub fn change_description(
         &mut self,
         description: Option<WalletBookmarkDescription>,
-    ) -> Result<WalletBookmarkDescriptionChangeResult, WalletBookmarkError> {
+    ) -> Result<(), WalletBookmarkError> {
         match self.state_required()?.status {
             WalletBookmarkStatus::Active => {}
             WalletBookmarkStatus::Removed => {
-                let reason = WalletBookmarkDescriptionChangeRejectionReason::Removed;
-                self.reject_change_description(description, reason)?;
-                return Ok(WalletBookmarkDescriptionChangeResult::Rejected { reason });
+                return Err(WalletBookmarkError::Removed);
             }
         }
 
         self.append_event(WalletBookmarkEventPayload::DescriptionChanged { description })?;
-        Ok(WalletBookmarkDescriptionChangeResult::Changed)
-    }
-
-    /// Rejects a wallet bookmark description change attempt.
-    pub fn reject_change_description(
-        &mut self,
-        _description: Option<WalletBookmarkDescription>,
-        reason: WalletBookmarkDescriptionChangeRejectionReason,
-    ) -> Result<(), WalletBookmarkError> {
-        Err(WalletBookmarkError::DescriptionChangeRejected(reason))
+        Ok(())
     }
 
     /// Removes a wallet bookmark.
-    pub fn remove(&mut self) -> Result<WalletBookmarkRemoveResult, WalletBookmarkError> {
+    pub fn remove(&mut self) -> Result<(), WalletBookmarkError> {
         match self.state_required()?.status {
             WalletBookmarkStatus::Active => {}
             WalletBookmarkStatus::Removed => {
-                let reason = WalletBookmarkRemoveRejectionReason::AlreadyRemoved;
-                self.reject_remove(reason)?;
-                return Ok(WalletBookmarkRemoveResult::Rejected { reason });
+                return Err(WalletBookmarkError::Removed);
             }
         }
 
         self.append_event(WalletBookmarkEventPayload::Removed)?;
-        Ok(WalletBookmarkRemoveResult::Removed)
-    }
-
-    /// Rejects removing a wallet bookmark.
-    pub fn reject_remove(
-        &mut self,
-        reason: WalletBookmarkRemoveRejectionReason,
-    ) -> Result<(), WalletBookmarkError> {
-        Err(WalletBookmarkError::RemoveRejected(reason))
+        Ok(())
     }
 }
 
@@ -216,8 +168,8 @@ mod tests {
 
     use super::{
         WalletBookmark, WalletBookmarkDescription, WalletBookmarkDisplayName,
-        WalletBookmarkEventPayload, WalletBookmarkOwner, WalletBookmarkRegisterResult,
-        WalletBookmarkRegistration, WalletBookmarkRemoveResult, WalletBookmarkStatus,
+        WalletBookmarkEventPayload, WalletBookmarkOwner, WalletBookmarkRegistration,
+        WalletBookmarkStatus,
     };
 
     fn token_owner_address() -> TokenOwnerAddress {
@@ -247,7 +199,7 @@ mod tests {
         let token_owner_address = token_owner_address();
         let mut wallet_bookmark = WalletBookmark::new();
 
-        let result = wallet_bookmark
+        wallet_bookmark
             .register(WalletBookmarkRegistration {
                 owner,
                 display_name: Some(display_name.clone()),
@@ -256,7 +208,6 @@ mod tests {
             })
             .expect("register should succeed");
 
-        assert_eq!(result, WalletBookmarkRegisterResult::Registered);
         assert_eq!(wallet_bookmark.owner().expect("owner should exist"), &owner);
         assert_eq!(
             wallet_bookmark
@@ -306,9 +257,8 @@ mod tests {
             .expect("register should succeed");
         wallet_bookmark.core_mut().clear_uncommitted_events();
 
-        let result = wallet_bookmark.remove().expect("remove should succeed");
+        wallet_bookmark.remove().expect("remove should succeed");
 
-        assert_eq!(result, WalletBookmarkRemoveResult::Removed);
         assert_eq!(
             wallet_bookmark.status().expect("status should exist"),
             &WalletBookmarkStatus::Removed

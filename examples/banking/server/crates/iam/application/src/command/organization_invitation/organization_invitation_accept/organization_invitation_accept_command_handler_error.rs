@@ -1,12 +1,10 @@
 use appletheia::application::Retryability;
-
 use appletheia::application::repository::RepositoryError;
 use banking_iam_domain::{
     Organization, OrganizationError, OrganizationInvitation, OrganizationInvitationError,
 };
 use thiserror::Error;
 
-/// Represents errors returned while accepting an organization invitation.
 #[derive(Debug, Error)]
 pub enum OrganizationInvitationAcceptCommandHandlerError {
     #[error("organization repository failed")]

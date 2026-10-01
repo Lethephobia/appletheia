@@ -7,9 +7,8 @@ use banking_iam_domain::UserId;
 
 use crate::oidc::{OidcCompletionPurpose, OidcCompletionRedirectUri, OidcReturnTo};
 
-use super::{OidcCompleteRejectionReason, OidcCompleteReplayOutput};
+use super::OidcCompleteReplayOutput;
 
-/// Represents the result returned after completing an OIDC flow.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum OidcCompleteOutput {
     Token {
@@ -31,12 +30,6 @@ pub enum OidcCompleteOutput {
         return_to: Option<OidcReturnTo>,
         oidc_tokens: OidcTokens,
     },
-    Rejected {
-        completion_purpose: OidcCompletionPurpose,
-        completion_redirect_uri: OidcCompletionRedirectUri,
-        return_to: Option<OidcReturnTo>,
-        reason: OidcCompleteRejectionReason,
-    },
 }
 
 impl OidcCompleteOutput {
@@ -50,7 +43,6 @@ impl OidcCompleteOutput {
                 completion_purpose: OidcCompletionPurpose::Token,
                 completion_redirect_uri: completion_redirect_uri.clone(),
                 return_to: return_to.clone(),
-                rejection_reason: None,
             },
             Self::ExchangeCode {
                 completion_redirect_uri,
@@ -60,7 +52,6 @@ impl OidcCompleteOutput {
                 completion_purpose: OidcCompletionPurpose::ExchangeCode,
                 completion_redirect_uri: completion_redirect_uri.clone(),
                 return_to: return_to.clone(),
-                rejection_reason: None,
             },
             Self::IdentityLinked {
                 user_id,
@@ -71,18 +62,6 @@ impl OidcCompleteOutput {
                 completion_purpose: OidcCompletionPurpose::LinkIdentity { user_id: *user_id },
                 completion_redirect_uri: completion_redirect_uri.clone(),
                 return_to: return_to.clone(),
-                rejection_reason: None,
-            },
-            Self::Rejected {
-                completion_purpose,
-                completion_redirect_uri,
-                return_to,
-                reason,
-            } => OidcCompleteReplayOutput {
-                completion_purpose: *completion_purpose,
-                completion_redirect_uri: completion_redirect_uri.clone(),
-                return_to: return_to.clone(),
-                rejection_reason: Some(reason.clone()),
             },
         }
     }
@@ -106,10 +85,9 @@ mod tests {
     };
     use appletheia::application::command::CommandOutput;
     use banking_iam_domain::UserId;
-    use banking_iam_domain::user::UserIdentityLinkRejectionReason;
     use chrono::{Duration, Utc};
 
-    use super::{OidcCompleteOutput, OidcCompleteRejectionReason, OidcCompleteReplayOutput};
+    use super::{OidcCompleteOutput, OidcCompleteReplayOutput};
     use crate::oidc::{OidcCompletionPurpose, OidcCompletionRedirectUri, OidcReturnTo};
 
     #[test]
@@ -155,31 +133,17 @@ mod tests {
             return_to: Some(return_to.clone()),
             oidc_tokens,
         };
-        let rejection_reason = OidcCompleteRejectionReason::IdentityLink {
-            reason: UserIdentityLinkRejectionReason::AlreadyLinked,
-        };
-        let rejected_output = OidcCompleteOutput::Rejected {
-            completion_purpose: OidcCompletionPurpose::LinkIdentity { user_id },
-            completion_redirect_uri: completion_redirect_uri.clone(),
-            return_to: Some(return_to),
-            reason: rejection_reason.clone(),
-        };
-
         let token_json = serde_json::to_string(&token_output.replay_output())
             .expect("token replay output should serialize");
         let exchange_code_json = serde_json::to_string(&exchange_code_output.replay_output())
             .expect("exchange-code replay output should serialize");
         let identity_linked_json = serde_json::to_string(&identity_linked_output.replay_output())
             .expect("identity-linked replay output should serialize");
-        let rejected_json = serde_json::to_string(&rejected_output.replay_output())
-            .expect("rejected replay output should serialize");
         let token_replay_output: OidcCompleteReplayOutput =
             serde_json::from_str(&token_json).expect("token replay output should deserialize");
         let identity_linked_replay_output: OidcCompleteReplayOutput =
             serde_json::from_str(&identity_linked_json)
                 .expect("identity-linked replay output should deserialize");
-        let rejected_replay_output: OidcCompleteReplayOutput = serde_json::from_str(&rejected_json)
-            .expect("rejected replay output should deserialize");
 
         assert_eq!(
             token_replay_output,
@@ -187,7 +151,6 @@ mod tests {
                 completion_purpose: OidcCompletionPurpose::Token,
                 completion_redirect_uri: expected_completion_redirect_uri,
                 return_to: Some(expected_return_to.clone()),
-                rejection_reason: None,
             }
         );
         assert_eq!(
@@ -196,18 +159,9 @@ mod tests {
                 completion_purpose: OidcCompletionPurpose::LinkIdentity { user_id },
                 completion_redirect_uri: completion_redirect_uri.clone(),
                 return_to: Some(expected_return_to.clone()),
-                rejection_reason: None,
             }
         );
-        assert_eq!(
-            rejected_replay_output,
-            OidcCompleteReplayOutput {
-                completion_purpose: OidcCompletionPurpose::LinkIdentity { user_id },
-                completion_redirect_uri,
-                return_to: Some(expected_return_to),
-                rejection_reason: Some(rejection_reason),
-            }
-        );
+
         for secret in [
             auth_token_secret,
             oidc_id_token_secret,

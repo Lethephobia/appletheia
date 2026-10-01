@@ -6,7 +6,6 @@ use banking_ledger_domain::account::Account;
 
 use super::{AccountDepositCommand, AccountDepositCommandHandlerError, AccountDepositOutput};
 
-/// Handles `AccountDepositCommand`.
 pub struct AccountDepositCommandHandler<AR>
 where
     AR: Repository<Account>,
@@ -57,6 +56,6 @@ where
             .save(uow, request_context, &mut account)
             .await?;
 
-        Ok(AccountDepositOutput::Deposited)
+        Ok(AccountDepositOutput {})
     }
 }

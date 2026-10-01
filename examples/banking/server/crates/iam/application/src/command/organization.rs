@@ -40,7 +40,6 @@ pub use organization_picture_upload_prepare::{
     OrganizationPictureUploadPrepareCommand, OrganizationPictureUploadPrepareCommandHandler,
     OrganizationPictureUploadPrepareCommandHandlerConfig,
     OrganizationPictureUploadPrepareCommandHandlerError, OrganizationPictureUploadPrepareOutput,
-    OrganizationPictureUploadPrepareRejectionReason,
 };
 pub use organization_remove::{
     OrganizationRemoveCommand, OrganizationRemoveCommandHandler, OrganizationRemoveOutput,

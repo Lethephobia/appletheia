@@ -92,7 +92,7 @@ where
             }
             if self
                 .saga_instance_store
-                .find_by_correlation_id::<SS, ST>(uow, saga_name.clone(), correlation_id)
+                .find_by_start_event_id::<SS, ST>(uow, saga_name.clone(), event.event_id)
                 .await?
                 .is_some()
             {

@@ -47,10 +47,4 @@ pub enum PgUserPrivateInfoRowError {
 
     #[error("invalid email")]
     InvalidEmail(#[source] Box<dyn std::error::Error + Send + Sync>),
-
-    #[error("invalid source event id")]
-    InvalidSourceEventId(#[source] Box<dyn std::error::Error + Send + Sync>),
-
-    #[error("invalid updated event id")]
-    InvalidUpdatedEventId(#[source] Box<dyn std::error::Error + Send + Sync>),
 }

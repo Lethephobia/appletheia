@@ -1,5 +1,4 @@
-use appletheia::application::read_model::ReadModelObservation;
-use appletheia::domain::{AggregateId, EventId, EventOccurredAt};
+use appletheia::domain::{AggregateId, EventOccurredAt};
 use banking_iam_application::{
     OrganizationInvitationListInvitee, OrganizationInvitationListIssuer,
     OrganizationInvitationListItem, OrganizationInvitationListItemStatus,
@@ -24,15 +23,11 @@ pub struct PgOrganizationInvitationListItemRow {
     pub expires_at: DateTime<Utc>,
     pub status: String,
     pub created_at: DateTime<Utc>,
-    pub source_event_id: Uuid,
-    pub updated_event_id: Uuid,
     pub invitee_username: Option<String>,
     pub invitee_display_name: Option<String>,
     pub invitee_picture_type: Option<String>,
     pub invitee_picture_object_name: Option<String>,
     pub invitee_picture_external_url: Option<String>,
-    pub invitee_source_event_id: Uuid,
-    pub invitee_updated_event_id: Uuid,
 }
 
 impl PgOrganizationInvitationListItemRow {
@@ -111,18 +106,6 @@ impl TryFrom<PgOrganizationInvitationListItemRow> for OrganizationInvitationList
                 .map_err(|error| {
                     PgOrganizationInvitationListItemRowError::InviteePicture(Box::new(error))
                 })?,
-                observation: ReadModelObservation::new(
-                    EventId::try_from(row.invitee_source_event_id).map_err(|error| {
-                        PgOrganizationInvitationListItemRowError::InviteeSourceEventId(Box::new(
-                            error,
-                        ))
-                    })?,
-                    EventId::try_from(row.invitee_updated_event_id).map_err(|error| {
-                        PgOrganizationInvitationListItemRowError::InviteeUpdatedEventId(Box::new(
-                            error,
-                        ))
-                    })?,
-                ),
             },
             roles: PgOrganizationInvitationListItemRow::roles(row.roles)?,
             issuer: PgOrganizationInvitationListItemRow::issuer(
@@ -132,14 +115,6 @@ impl TryFrom<PgOrganizationInvitationListItemRow> for OrganizationInvitationList
             expires_at: OrganizationInvitationExpiresAt::from(row.expires_at),
             status: PgOrganizationInvitationListItemRow::status(row.status)?,
             created_at: EventOccurredAt::from(row.created_at),
-            observation: ReadModelObservation::new(
-                EventId::try_from(row.source_event_id).map_err(|error| {
-                    PgOrganizationInvitationListItemRowError::SourceEventId(Box::new(error))
-                })?,
-                EventId::try_from(row.updated_event_id).map_err(|error| {
-                    PgOrganizationInvitationListItemRowError::UpdatedEventId(Box::new(error))
-                })?,
-            ),
         })
     }
 }

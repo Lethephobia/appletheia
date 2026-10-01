@@ -4,14 +4,13 @@ use appletheia::application::authorization::{
 use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_ledger_domain::account::{Account, AccountNameChangeResult};
+use banking_ledger_domain::account::Account;
 
 use super::{
     AccountNameChangeCommand, AccountNameChangeCommandHandlerError, AccountNameChangeOutput,
 };
 use crate::authorization::AccountNameChangerRelation;
 
-/// Handles `AccountNameChangeCommand`.
 pub struct AccountNameChangeCommandHandler<AR>
 where
     AR: Repository<Account>,
@@ -62,20 +61,13 @@ where
             .read(uow, command.account_id)
             .await?;
 
-        let result = account.change_name(command.name.clone())?;
+        account.change_name(command.name.clone())?;
 
         self.account_repository
             .save(uow, request_context, &mut account)
             .await?;
 
-        let output = match result {
-            AccountNameChangeResult::Changed => AccountNameChangeOutput::Changed,
-            AccountNameChangeResult::Rejected { reason } => {
-                AccountNameChangeOutput::Rejected { reason }
-            }
-        };
-
-        Ok(output)
+        Ok(AccountNameChangeOutput {})
     }
 }
 
@@ -256,7 +248,7 @@ mod tests {
             .aggregate_id();
         let name = account_name("savings");
 
-        let handled = handler
+        let output = handler
             .handle(
                 &mut uow,
                 &request_context,
@@ -276,6 +268,6 @@ mod tests {
             .expect("account should be saved");
         assert_eq!(saved.name().expect("name should exist"), &name);
 
-        assert_eq!(handled, AccountNameChangeOutput::Changed);
+        assert_eq!(output, AccountNameChangeOutput {});
     }
 }

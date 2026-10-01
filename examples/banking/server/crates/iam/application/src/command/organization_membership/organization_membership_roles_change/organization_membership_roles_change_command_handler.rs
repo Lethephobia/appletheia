@@ -4,10 +4,8 @@ use appletheia::application::authorization::{
 use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
-use banking_iam_domain::{
-    Organization, OrganizationMembership, OrganizationMembershipRolesChangeRejectionReason,
-    OrganizationMembershipRolesChangeResult,
-};
+use banking_iam_domain::OrganizationMembershipError;
+use banking_iam_domain::{Organization, OrganizationMembership};
 
 use super::{
     OrganizationMembershipRolesChangeCommand, OrganizationMembershipRolesChangeCommandHandlerError,
@@ -15,7 +13,6 @@ use super::{
 };
 use crate::authorization::OrganizationMembershipRolesChangerRelation;
 
-/// Handles `OrganizationMembershipRolesChangeCommand`.
 pub struct OrganizationMembershipRolesChangeCommandHandler<OR, MR>
 where
     OR: Repository<Organization>,
@@ -78,31 +75,15 @@ where
             .read(uow, *membership.organization_id()?)
             .await?;
         if organization.is_removed()? {
-            let reason = OrganizationMembershipRolesChangeRejectionReason::OrganizationRemoved;
-            membership.reject_change_roles(command.roles.clone(), reason)?;
-
-            self.organization_membership_repository
-                .save(uow, request_context, &mut membership)
-                .await?;
-
-            return Ok(OrganizationMembershipRolesChangeOutput::Rejected { reason });
+            return Err(OrganizationMembershipError::OrganizationRemoved.into());
         }
 
-        let result = membership.change_roles(command.roles.clone())?;
+        membership.change_roles(command.roles.clone())?;
 
         self.organization_membership_repository
             .save(uow, request_context, &mut membership)
             .await?;
 
-        let output = match result {
-            OrganizationMembershipRolesChangeResult::Changed => {
-                OrganizationMembershipRolesChangeOutput::Changed
-            }
-            OrganizationMembershipRolesChangeResult::Rejected { reason } => {
-                OrganizationMembershipRolesChangeOutput::Rejected { reason }
-            }
-        };
-
-        Ok(output)
+        Ok(OrganizationMembershipRolesChangeOutput {})
     }
 }

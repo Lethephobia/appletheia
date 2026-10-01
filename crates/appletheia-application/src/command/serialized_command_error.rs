@@ -4,6 +4,7 @@ use thiserror::Error;
 pub enum SerializedCommandError {
     #[error("payload must not be null")]
     NullPayload,
+
     #[error("json serialization error: {0}")]
     Json(#[from] serde_json::Error),
 }

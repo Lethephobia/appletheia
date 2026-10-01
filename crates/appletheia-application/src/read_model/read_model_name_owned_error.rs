@@ -5,8 +5,10 @@ use thiserror::Error;
 pub enum ReadModelNameOwnedError {
     #[error("read model name is empty")]
     Empty,
+
     #[error("read model name is too long")]
     TooLong,
+
     #[error("read model name must be snake_case ascii: [a-z0-9_]")]
     InvalidFormat,
 }
