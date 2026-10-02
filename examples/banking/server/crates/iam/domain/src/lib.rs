@@ -34,8 +34,7 @@ pub use organization_membership::{
 pub use user::{
     User, UserBio, UserBioError, UserDisplayName, UserDisplayNameError, UserError,
     UserEventPayload, UserEventPayloadError, UserId, UserIdentity, UserIdentityProvider,
-    UserIdentityProviderError, UserIdentityRegistration, UserIdentitySubject,
-    UserIdentitySubjectError, UserPictureObjectName, UserPictureObjectNameError, UserPictureRef,
-    UserPictureUrl, UserPictureUrlError, UserState, UserStateError, UserStatus, Username,
-    UsernameError,
+    UserIdentityProviderError, UserIdentitySubject, UserIdentitySubjectError,
+    UserPictureObjectName, UserPictureObjectNameError, UserPictureRef, UserPictureUrl,
+    UserPictureUrlError, UserState, UserStateError, UserStatus, Username, UsernameError,
 };

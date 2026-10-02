@@ -136,11 +136,7 @@ For sign-in that creates a user and links an identity, Banking's OIDC handler pe
 
 ```rust
 user.register()?;
-user.link_identity(UserIdentityRegistration {
-    provider: provider.clone(),
-    subject: subject.clone(),
-    email,
-})?;
+user.link_identity(provider.clone(), subject.clone(), email)?;
 self.user_repository.save(uow, request_context, &mut user).await?;
 ```
 
