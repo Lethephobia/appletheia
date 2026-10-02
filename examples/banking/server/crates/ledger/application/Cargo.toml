@@ -9,7 +9,6 @@ appletheia = { workspace = true, features = ["application", "macros-application"
 banking-iam-application = { workspace = true }
 banking-iam-domain = { workspace = true }
 banking-ledger-domain = { workspace = true }
-banking-shared-kernel-application = { workspace = true }
 banking-shared-kernel-domain = { workspace = true }
 base64 = "0.23.1"
 serde = { workspace = true, features = ["derive"] }

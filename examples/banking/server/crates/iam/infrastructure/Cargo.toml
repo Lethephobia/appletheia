@@ -3,14 +3,3 @@ license.workspace = true
 name = "banking-iam-infrastructure"
 version = "0.1.0"
 edition = "2024"
-
-[dependencies]
-appletheia = { workspace = true, features = ["application", "domain", "infrastructure-postgresql"] }
-banking-iam-domain = { workspace = true }
-banking-iam-application = { workspace = true }
-banking-shared-kernel-application = { workspace = true }
-banking-shared-kernel-domain = { workspace = true }
-sqlx = { workspace = true, features = ["runtime-tokio", "postgres", "uuid", "chrono"] }
-serde_json = { workspace = true }
-thiserror = { workspace = true }
-uuid = { workspace = true }

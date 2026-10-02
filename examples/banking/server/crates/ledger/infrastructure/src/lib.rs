@@ -1,5 +1,4 @@
 pub mod ethereum;
-pub mod postgresql;
 pub mod solana;
 pub use ethereum::{
     DefaultEthereumDepositSettlementTransactionPreparer,
@@ -11,11 +10,6 @@ pub use ethereum::{
     DefaultEthereumUserOperationPreparerConfig, DefaultEthereumUserOperationPreparerError,
     DefaultEthereumWithdrawalSettlementExecutor, DefaultEthereumWithdrawalSettlementExecutorConfig,
     DefaultEthereumWithdrawalSettlementExecutorError,
-};
-pub use postgresql::{
-    PgAccountFragmentWriter, PgAccountTransactionFragmentWriter, PgCurrencyFragmentWriter,
-    PgCurrencyListReader, PgOwnedAccountListReader, PgOwnedAccountTransactionListReader,
-    PgPublicAccountListReader, PgWalletBookmarkFragmentWriter, PgWalletBookmarkListReader,
 };
 pub use solana::{
     DefaultSolanaDepositSettlementPreparer, DefaultSolanaDepositSettlementPreparerConfig,

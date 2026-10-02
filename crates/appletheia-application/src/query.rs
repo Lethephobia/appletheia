@@ -1,4 +1,5 @@
 pub mod default_query_dispatcher;
+pub mod pagination;
 pub mod query_consistency;
 pub mod query_dispatcher;
 pub mod query_dispatcher_error;

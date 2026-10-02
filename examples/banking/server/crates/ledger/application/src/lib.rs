@@ -1,8 +1,5 @@
 pub mod authorization;
 pub mod command;
-pub mod projection;
-pub mod query;
-pub mod read_model;
 pub mod saga;
 pub mod settlement;
 
@@ -104,55 +101,6 @@ pub use command::{
     WithdrawalFailCommandHandler, WithdrawalFailOutput, WithdrawalRequestCommand,
     WithdrawalRequestCommandHandler, WithdrawalRequestOutput, WithdrawalSettlementExecuteCommand,
     WithdrawalSettlementExecuteCommandHandler, WithdrawalSettlementExecuteOutput,
-};
-pub use projection::{
-    AccountFragment, AccountFragmentProjector, AccountFragmentProjectorError,
-    AccountFragmentProjectorSpec, AccountFragmentUpsert, AccountFragmentWriter,
-    AccountFragmentWriterError, AccountTransactionDirection, AccountTransactionFragment,
-    AccountTransactionFragmentInsert, AccountTransactionFragmentKind,
-    AccountTransactionFragmentProjector, AccountTransactionFragmentProjectorError,
-    AccountTransactionFragmentProjectorSpec, AccountTransactionFragmentWriter,
-    AccountTransactionFragmentWriterError, AccountTransactionId, AccountTransactionStatus,
-    AccountTransactionTransferRequestedRecord, CurrencyFragment, CurrencyFragmentProjector,
-    CurrencyFragmentProjectorError, CurrencyFragmentProjectorSpec, CurrencyFragmentUpsert,
-    CurrencyFragmentWriter, CurrencyFragmentWriterError, CurrencyTokenBindingFragment,
-    MaterializedAccountStatus, MaterializedAccountStatusError, TransactionNote,
-    TransactionNoteError, WalletBookmarkFragment, WalletBookmarkFragmentProjector,
-    WalletBookmarkFragmentProjectorError, WalletBookmarkFragmentProjectorSpec,
-    WalletBookmarkFragmentUpsert, WalletBookmarkFragmentWriter, WalletBookmarkFragmentWriterError,
-};
-pub use query::{
-    CurrencyListQuery, CurrencyListQueryHandler, CurrencyListQueryHandlerError,
-    OwnedAccountListQuery, OwnedAccountListQueryHandler, OwnedAccountListQueryHandlerError,
-    OwnedAccountTransactionListQuery, OwnedAccountTransactionListQueryHandler,
-    OwnedAccountTransactionListQueryHandlerError, PublicAccountListQuery,
-    PublicAccountListQueryHandler, PublicAccountListQueryHandlerError, WalletBookmarkListQuery,
-    WalletBookmarkListQueryHandler, WalletBookmarkListQueryHandlerError,
-};
-pub use read_model::{
-    CurrencyList, CurrencyListReader, CurrencyListReaderError, OwnedAccountList,
-    OwnedAccountListCriteria, OwnedAccountListCursor, OwnedAccountListItem,
-    OwnedAccountListItemCurrency, OwnedAccountListItemStatus, OwnedAccountListItemStatusError,
-    OwnedAccountListOwner, OwnedAccountListOwnerOrganization, OwnedAccountListOwnerUser,
-    OwnedAccountListReader, OwnedAccountListReaderError, OwnedAccountListSortKey,
-    OwnedAccountTransactionId, OwnedAccountTransactionList, OwnedAccountTransactionListCriteria,
-    OwnedAccountTransactionListCursor, OwnedAccountTransactionListItem,
-    OwnedAccountTransactionListItemCounterpartyAccount,
-    OwnedAccountTransactionListItemCounterpartyAccountOwner,
-    OwnedAccountTransactionListItemCounterpartyAccountOwnerOrganization,
-    OwnedAccountTransactionListItemCounterpartyAccountOwnerUser,
-    OwnedAccountTransactionListItemCurrency, OwnedAccountTransactionListItemDirection,
-    OwnedAccountTransactionListItemKind, OwnedAccountTransactionListItemStatus,
-    OwnedAccountTransactionListOwner, OwnedAccountTransactionListOwnerOrganization,
-    OwnedAccountTransactionListOwnerUser, OwnedAccountTransactionListReader,
-    OwnedAccountTransactionListReaderError, OwnedAccountTransactionListSortKey, PublicAccountList,
-    PublicAccountListCriteria, PublicAccountListCursor, PublicAccountListItem,
-    PublicAccountListItemCurrency, PublicAccountListItemOwner,
-    PublicAccountListItemOwnerOrganization, PublicAccountListItemOwnerUser,
-    PublicAccountListItemStatus, PublicAccountListItemStatusError, PublicAccountListReader,
-    PublicAccountListReaderError, PublicAccountListSortKey, WalletBookmarkList,
-    WalletBookmarkListCriteria, WalletBookmarkListCursor, WalletBookmarkListItem,
-    WalletBookmarkListReader, WalletBookmarkListReaderError, WalletBookmarkListSortKey,
 };
 pub use saga::{
     CurrencyRegistrarInvitationSaga, CurrencyRegistrarInvitationSagaHandlerError,

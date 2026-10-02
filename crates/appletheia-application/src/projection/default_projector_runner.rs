@@ -1,13 +1,12 @@
 use crate::event::EventEnvelope;
-use crate::read_model::MaterializationEventContext;
 use crate::unit_of_work::{UnitOfWork, UnitOfWorkFactory};
 
 use super::{
-    Projector, ProjectorNameOwned, ProjectorProcessedEventStore, ProjectorRunReport,
-    ProjectorRunner, ProjectorRunnerError, ProjectorSpec,
+    MaterializationEventContext, Projector, ProjectorNameOwned, ProjectorProcessedEventStore,
+    ProjectorRunReport, ProjectorRunner, ProjectorRunnerError, ProjectorSpec,
 };
 
-/// Persists fragment updates and records processed events in one transaction.
+/// Persists projection updates and records processed events in one transaction.
 pub struct DefaultProjectorRunner<P, U>
 where
     P: ProjectorProcessedEventStore,
