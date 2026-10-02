@@ -334,7 +334,7 @@ and lifecycle, so an event may update one of its attributes while identifying th
 
 Banking changes a `UserPictureRef` as one value and an identity's email by provider/subject. Child
 identifiers must remain meaningful if the collection order changes; do not use a vector position as
-identity. A collection VO can similarly express whole-value replacement, as described below.
+identity.
 
 **Good**
 
@@ -360,34 +360,6 @@ IdentityEmailChanged { index: usize, email: Option<Email> },
 
 ```text
 Change one field inside a picture reference -> leave the remaining reference fields inconsistent
-```
-
-### CONSIDER value-object collections for whole-value replacement
-
-If elements have no independent identity or lifecycle and the collection changes as one value,
-a collection VO can be simpler than child entities. Such a value may be included in the root's
-creation event. Keep independently managed children as entities with their own lifecycle events.
-
-For item-by-item changes, choose storage by semantics: `Vec` for meaningful order, a set for unique
-membership. Do not discard order or duplicates unless the domain treats them as irrelevant. A wrapper
-may still be useful; Banking's `OrganizationRoles` is a VO backed by `BTreeSet`, while user identities
-are stored in a `Vec`.
-
-The tag-set below is a modeling example, not an existing Banking type.
-
-**Good**
-
-```rust
-pub struct Tags(BTreeSet<Tag>);
-
-// A whole-value update for tags without independent lifecycles.
-TagsChanged { tags: Tags },
-```
-
-**Bad**
-
-```text
-Link one independently managed UserIdentity -> replace all identities as anonymous values
 ```
 
 ### PREFER adjacent tags for enum value objects serialized as JSON
