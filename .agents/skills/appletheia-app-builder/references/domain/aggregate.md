@@ -340,11 +340,11 @@ identity.
 
 ```rust
 // Event variants (excerpt):
-PictureChanged {
+PictureSet {
     picture: Option<UserPictureRef>,
     old_picture: Option<UserPictureRef>,
 },
-IdentityEmailChanged {
+IdentityEmailSet {
     provider: UserIdentityProvider,
     subject: UserIdentitySubject,
     email: Option<Email>,
@@ -355,7 +355,7 @@ IdentityEmailChanged {
 
 ```rust
 // A position does not identify the same child after reordering.
-IdentityEmailChanged { index: usize, email: Option<Email> },
+IdentityEmailSet { index: usize, email: Option<Email> },
 ```
 
 ```text

@@ -11,7 +11,6 @@ pub enum AccountEventPayload {
     Opened {
         owner: AccountOwner,
         name: AccountName,
-        description: Option<AccountDescription>,
         currency_id: CurrencyId,
     },
     OwnershipTransferred {
@@ -20,7 +19,7 @@ pub enum AccountEventPayload {
     NameChanged {
         name: AccountName,
     },
-    DescriptionChanged {
+    DescriptionSet {
         description: Option<AccountDescription>,
     },
     Deposited {

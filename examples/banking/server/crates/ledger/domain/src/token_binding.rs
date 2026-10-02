@@ -1,4 +1,3 @@
-mod token_binding_definition;
 mod token_binding_error;
 mod token_binding_event_payload;
 mod token_binding_event_payload_error;
@@ -7,7 +6,6 @@ mod token_binding_state;
 mod token_binding_state_error;
 mod token_binding_status;
 
-pub use token_binding_definition::TokenBindingDefinition;
 pub use token_binding_error::TokenBindingError;
 pub use token_binding_event_payload::TokenBindingEventPayload;
 pub use token_binding_event_payload_error::TokenBindingEventPayloadError;
@@ -57,23 +55,27 @@ impl TokenBinding {
         Ok(self.state_required()?.status.is_active())
     }
 
-    pub fn define(&mut self, definition: TokenBindingDefinition) -> Result<(), TokenBindingError> {
+    pub fn define(
+        &mut self,
+        currency_id: CurrencyId,
+        chain_network: ChainNetwork,
+        token_address: TokenAddress,
+        deposit_enabled: bool,
+        withdrawal_enabled: bool,
+    ) -> Result<(), TokenBindingError> {
         if self.state().is_some() {
             return Err(TokenBindingError::AlreadyDefined);
         }
-        if !definition
-            .token_address
-            .matches_network(definition.chain_network)
-        {
+        if !token_address.matches_network(chain_network) {
             return Err(TokenBindingError::ChainMismatch);
         }
 
         self.append_event(TokenBindingEventPayload::Defined {
-            currency_id: definition.currency_id,
-            chain_network: definition.chain_network,
-            token_address: definition.token_address,
-            deposit_enabled: definition.deposit_enabled,
-            withdrawal_enabled: definition.withdrawal_enabled,
+            currency_id,
+            chain_network,
+            token_address,
+            deposit_enabled,
+            withdrawal_enabled,
         })?;
         Ok(())
     }
@@ -162,33 +164,33 @@ mod tests {
     use crate::core::{ChainNetwork, EvmTokenContractAddress, TokenAddress};
     use crate::currency::CurrencyId;
 
-    use super::{TokenBinding, TokenBindingDefinition, TokenBindingError, TokenBindingStatus};
+    use super::{TokenBinding, TokenBindingError, TokenBindingStatus};
 
-    fn definition() -> TokenBindingDefinition {
-        TokenBindingDefinition {
-            currency_id: CurrencyId::new(),
-            chain_network: ChainNetwork::Ethereum,
-            token_address: TokenAddress::Ethereum(
-                EvmTokenContractAddress::from_str("0x1111111111111111111111111111111111111111")
-                    .expect("token address should be valid"),
-            ),
-            deposit_enabled: true,
-            withdrawal_enabled: false,
-        }
+    fn token_address() -> TokenAddress {
+        TokenAddress::Ethereum(
+            EvmTokenContractAddress::from_str("0x1111111111111111111111111111111111111111")
+                .expect("token address should be valid"),
+        )
     }
 
     #[test]
     fn defines_one_binding_as_an_independent_aggregate() {
         let mut token_binding = TokenBinding::new();
-        let definition = definition();
+        let currency_id = CurrencyId::new();
 
         token_binding
-            .define(definition.clone())
+            .define(
+                currency_id,
+                ChainNetwork::Ethereum,
+                token_address(),
+                true,
+                false,
+            )
             .expect("token binding definition should succeed");
 
         assert_eq!(
             token_binding.currency_id().expect("state should exist"),
-            definition.currency_id
+            currency_id
         );
         assert_eq!(
             token_binding.status().expect("state should exist"),
@@ -210,11 +212,23 @@ mod tests {
     fn definition_rejects_already_defined_binding_without_recording_an_event() {
         let mut token_binding = TokenBinding::new();
         token_binding
-            .define(definition())
+            .define(
+                CurrencyId::new(),
+                ChainNetwork::Ethereum,
+                token_address(),
+                true,
+                false,
+            )
             .expect("binding should be defined");
 
         let error = token_binding
-            .define(definition())
+            .define(
+                CurrencyId::new(),
+                ChainNetwork::Ethereum,
+                token_address(),
+                true,
+                false,
+            )
             .expect_err("duplicate definition should fail");
 
         assert!(matches!(error, TokenBindingError::AlreadyDefined));
@@ -225,7 +239,13 @@ mod tests {
     fn changes_deposit_and_withdrawal_enablement_independently() {
         let mut token_binding = TokenBinding::new();
         token_binding
-            .define(definition())
+            .define(
+                CurrencyId::new(),
+                ChainNetwork::Ethereum,
+                token_address(),
+                true,
+                false,
+            )
             .expect("token binding definition should succeed");
 
         token_binding
@@ -250,7 +270,13 @@ mod tests {
     fn unchanged_enablement_returns_errors() {
         let mut token_binding = TokenBinding::new();
         token_binding
-            .define(definition())
+            .define(
+                CurrencyId::new(),
+                ChainNetwork::Ethereum,
+                token_address(),
+                true,
+                false,
+            )
             .expect("token binding definition should succeed");
 
         token_binding
@@ -265,7 +291,13 @@ mod tests {
     fn enablement_changes_after_removal_return_errors() {
         let mut token_binding = TokenBinding::new();
         token_binding
-            .define(definition())
+            .define(
+                CurrencyId::new(),
+                ChainNetwork::Ethereum,
+                token_address(),
+                true,
+                false,
+            )
             .expect("token binding definition should succeed");
         token_binding.remove().expect("removal should succeed");
 
@@ -281,7 +313,13 @@ mod tests {
     fn repeated_removal_returns_error_without_appending_event() {
         let mut token_binding = TokenBinding::new();
         token_binding
-            .define(definition())
+            .define(
+                CurrencyId::new(),
+                ChainNetwork::Ethereum,
+                token_address(),
+                true,
+                false,
+            )
             .expect("token binding definition should succeed");
         token_binding
             .remove()

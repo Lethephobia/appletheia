@@ -5,7 +5,6 @@ mod currency_registrar_join_request_id;
 mod currency_registrar_join_request_state;
 mod currency_registrar_join_request_state_error;
 mod currency_registrar_join_request_status;
-mod currency_registrar_join_request_submission;
 
 pub use currency_registrar_join_request_error::CurrencyRegistrarJoinRequestError;
 pub use currency_registrar_join_request_event_payload::CurrencyRegistrarJoinRequestEventPayload;
@@ -14,7 +13,6 @@ pub use currency_registrar_join_request_id::CurrencyRegistrarJoinRequestId;
 pub use currency_registrar_join_request_state::CurrencyRegistrarJoinRequestState;
 pub use currency_registrar_join_request_state_error::CurrencyRegistrarJoinRequestStateError;
 pub use currency_registrar_join_request_status::CurrencyRegistrarJoinRequestStatus;
-pub use currency_registrar_join_request_submission::CurrencyRegistrarJoinRequestSubmission;
 
 use appletheia::aggregate;
 use appletheia::domain::{Aggregate, AggregateApply, AggregateCore};
@@ -76,13 +74,13 @@ impl CurrencyRegistrarJoinRequest {
     /// Submits a request to join an registrar.
     pub fn submit(
         &mut self,
-        submission: CurrencyRegistrarJoinRequestSubmission,
+        currency_registrar_id: CurrencyRegistrarId,
+        requester_id: UserId,
     ) -> Result<(), CurrencyRegistrarJoinRequestError> {
         if self.state().is_some() {
             return Err(CurrencyRegistrarJoinRequestError::AlreadySubmitted);
         }
 
-        let (currency_registrar_id, requester_id) = submission.into_parts();
         self.append_event(CurrencyRegistrarJoinRequestEventPayload::Submitted {
             currency_registrar_id,
             requester_id,
@@ -168,17 +166,14 @@ mod tests {
     use appletheia::domain::Aggregate;
     use banking_iam_domain::UserId;
 
-    use super::{CurrencyRegistrarJoinRequest, CurrencyRegistrarJoinRequestSubmission};
+    use super::CurrencyRegistrarJoinRequest;
     use crate::currency_registrar::CurrencyRegistrarId;
 
     #[test]
     fn approved_request_is_terminal_and_repeated_approval_is_recorded() {
         let mut request = CurrencyRegistrarJoinRequest::new();
         request
-            .submit(CurrencyRegistrarJoinRequestSubmission {
-                currency_registrar_id: CurrencyRegistrarId::new(),
-                requester_id: UserId::new(),
-            })
+            .submit(CurrencyRegistrarId::new(), UserId::new())
             .expect("request should be submitted");
         request.approve().expect("first approval should succeed");
         request

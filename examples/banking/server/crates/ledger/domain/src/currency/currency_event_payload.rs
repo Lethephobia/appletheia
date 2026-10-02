@@ -12,9 +12,8 @@ pub enum CurrencyEventPayload {
         currency_registrar_id: CurrencyRegistrarId,
         code: CurrencyCode,
         decimals: CurrencyDecimals,
-        description: Option<CurrencyDescription>,
     },
-    DescriptionChanged {
+    DescriptionSet {
         description: Option<CurrencyDescription>,
     },
     Activated,

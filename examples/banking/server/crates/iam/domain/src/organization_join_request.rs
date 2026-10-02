@@ -5,7 +5,6 @@ mod organization_join_request_id;
 mod organization_join_request_state;
 mod organization_join_request_state_error;
 mod organization_join_request_status;
-mod organization_join_request_submission;
 
 pub use organization_join_request_error::OrganizationJoinRequestError;
 pub use organization_join_request_event_payload::OrganizationJoinRequestEventPayload;
@@ -14,7 +13,6 @@ pub use organization_join_request_id::OrganizationJoinRequestId;
 pub use organization_join_request_state::OrganizationJoinRequestState;
 pub use organization_join_request_state_error::OrganizationJoinRequestStateError;
 pub use organization_join_request_status::OrganizationJoinRequestStatus;
-pub use organization_join_request_submission::OrganizationJoinRequestSubmission;
 
 use appletheia::aggregate;
 use appletheia::domain::{Aggregate, AggregateApply, AggregateCore};
@@ -70,13 +68,13 @@ impl OrganizationJoinRequest {
     /// Submits a request to join an organization.
     pub fn submit(
         &mut self,
-        submission: OrganizationJoinRequestSubmission,
+        organization_id: OrganizationId,
+        requester_id: UserId,
     ) -> Result<(), OrganizationJoinRequestError> {
         if self.state().is_some() {
             return Err(OrganizationJoinRequestError::AlreadySubmitted);
         }
 
-        let (organization_id, requester_id) = submission.into_parts();
         self.append_event(OrganizationJoinRequestEventPayload::Submitted {
             organization_id,
             requester_id,
@@ -162,8 +160,7 @@ mod tests {
     use appletheia::domain::{Aggregate, AggregateId, EventPayload};
 
     use super::{
-        OrganizationJoinRequest, OrganizationJoinRequestEventPayload,
-        OrganizationJoinRequestStatus, OrganizationJoinRequestSubmission,
+        OrganizationJoinRequest, OrganizationJoinRequestEventPayload, OrganizationJoinRequestStatus,
     };
     use crate::{OrganizationId, UserId};
 
@@ -182,10 +179,7 @@ mod tests {
         let mut join_request = OrganizationJoinRequest::new();
 
         join_request
-            .submit(OrganizationJoinRequestSubmission {
-                organization_id,
-                requester_id,
-            })
+            .submit(organization_id, requester_id)
             .expect("submit should succeed");
 
         let aggregate_id = join_request.aggregate_id();
@@ -219,10 +213,7 @@ mod tests {
         let requester_id = requester_id();
         let mut join_request = OrganizationJoinRequest::new();
         join_request
-            .submit(OrganizationJoinRequestSubmission {
-                organization_id,
-                requester_id,
-            })
+            .submit(organization_id, requester_id)
             .expect("submit should succeed");
 
         join_request.approve().expect("approve should succeed");
@@ -244,10 +235,7 @@ mod tests {
         let requester_id = requester_id();
         let mut join_request = OrganizationJoinRequest::new();
         join_request
-            .submit(OrganizationJoinRequestSubmission {
-                organization_id,
-                requester_id,
-            })
+            .submit(organization_id, requester_id)
             .expect("submit should succeed");
 
         join_request.reject().expect("reject should succeed");
@@ -269,10 +257,7 @@ mod tests {
         let requester_id = requester_id();
         let mut join_request = OrganizationJoinRequest::new();
         join_request
-            .submit(OrganizationJoinRequestSubmission {
-                organization_id,
-                requester_id,
-            })
+            .submit(organization_id, requester_id)
             .expect("submit should succeed");
 
         join_request.cancel().expect("cancel should succeed");

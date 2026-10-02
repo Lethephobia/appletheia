@@ -1,4 +1,3 @@
-mod organization_membership_creation;
 mod organization_membership_error;
 mod organization_membership_event_payload;
 mod organization_membership_event_payload_error;
@@ -9,7 +8,6 @@ mod organization_membership_status;
 mod organization_role;
 mod organization_roles;
 
-pub use organization_membership_creation::OrganizationMembershipCreation;
 pub use organization_membership_error::OrganizationMembershipError;
 pub use organization_membership_event_payload::OrganizationMembershipEventPayload;
 pub use organization_membership_event_payload_error::OrganizationMembershipEventPayloadError;
@@ -74,13 +72,14 @@ impl OrganizationMembership {
     /// Creates the membership.
     pub fn create(
         &mut self,
-        creation: OrganizationMembershipCreation,
+        organization_id: OrganizationId,
+        user_id: UserId,
+        roles: OrganizationRoles,
     ) -> Result<(), OrganizationMembershipError> {
         if self.state().is_some() {
             return Err(OrganizationMembershipError::AlreadyCreated);
         }
 
-        let (organization_id, user_id, roles) = creation.into_parts();
         self.append_event(OrganizationMembershipEventPayload::Created {
             organization_id,
             user_id,
@@ -165,36 +164,31 @@ mod tests {
     use appletheia::domain::{Aggregate, AggregateId, EventPayload};
 
     use super::{
-        OrganizationMembership, OrganizationMembershipCreation, OrganizationMembershipError,
-        OrganizationMembershipEventPayload, OrganizationMembershipStatus, OrganizationRole,
-        OrganizationRoles,
+        OrganizationMembership, OrganizationMembershipError, OrganizationMembershipEventPayload,
+        OrganizationMembershipStatus, OrganizationRole, OrganizationRoles,
     };
     use crate::{OrganizationId, UserId};
 
-    fn creation() -> OrganizationMembershipCreation {
-        OrganizationMembershipCreation {
-            organization_id: OrganizationId::new(),
-            user_id: UserId::new(),
-            roles: OrganizationRoles::default(),
-        }
-    }
-
-    fn created_membership() -> (OrganizationMembership, OrganizationMembershipCreation) {
-        let creation = creation();
+    fn created_membership() -> OrganizationMembership {
         let mut membership = OrganizationMembership::new();
         membership
-            .create(creation.clone())
+            .create(
+                OrganizationId::new(),
+                UserId::new(),
+                OrganizationRoles::default(),
+            )
             .expect("create should succeed");
-        (membership, creation)
+        membership
     }
 
     #[test]
     fn create_initializes_state_and_records_event() {
-        let creation = creation();
+        let organization_id = OrganizationId::new();
+        let user_id = UserId::new();
         let mut membership = OrganizationMembership::new();
 
         membership
-            .create(creation.clone())
+            .create(organization_id, user_id, OrganizationRoles::default())
             .expect("create should succeed");
 
         assert!(!membership.aggregate_id().value().is_nil());
@@ -202,11 +196,11 @@ mod tests {
             membership
                 .organization_id()
                 .expect("organization id should exist"),
-            &creation.organization_id
+            &organization_id
         );
         assert_eq!(
             membership.user_id().expect("user id should exist"),
-            &creation.user_id
+            &user_id
         );
         assert_eq!(
             membership.status().expect("status should exist"),
@@ -221,10 +215,14 @@ mod tests {
 
     #[test]
     fn creating_twice_fails() {
-        let (mut membership, creation) = created_membership();
+        let mut membership = created_membership();
 
         let error = membership
-            .create(creation)
+            .create(
+                OrganizationId::new(),
+                UserId::new(),
+                OrganizationRoles::default(),
+            )
             .expect_err("second create should fail");
 
         assert!(matches!(
@@ -235,7 +233,7 @@ mod tests {
 
     #[test]
     fn changing_roles_updates_state_and_records_event() {
-        let (mut membership, _) = created_membership();
+        let mut membership = created_membership();
         let roles = OrganizationRoles::new([OrganizationRole::Admin]);
 
         membership
@@ -252,7 +250,7 @@ mod tests {
 
     #[test]
     fn removing_membership_updates_status_and_records_event() {
-        let (mut membership, _) = created_membership();
+        let mut membership = created_membership();
 
         membership.remove().expect("remove should succeed");
 
@@ -269,7 +267,7 @@ mod tests {
 
     #[test]
     fn removing_twice_is_rejected() {
-        let (mut membership, _) = created_membership();
+        let mut membership = created_membership();
         membership.remove().expect("remove should succeed");
 
         let error = membership.remove().expect_err("second remove should fail");
@@ -280,7 +278,7 @@ mod tests {
 
     #[test]
     fn changing_roles_of_removed_membership_is_rejected() {
-        let (mut membership, _) = created_membership();
+        let mut membership = created_membership();
         membership.remove().expect("remove should succeed");
 
         let error = membership

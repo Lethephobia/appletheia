@@ -1,0 +1,9 @@
+mod organization_description_set_command;
+mod organization_description_set_command_handler;
+mod organization_description_set_command_handler_error;
+mod organization_description_set_output;
+
+pub use organization_description_set_command::OrganizationDescriptionSetCommand;
+pub use organization_description_set_command_handler::OrganizationDescriptionSetCommandHandler;
+pub use organization_description_set_command_handler_error::OrganizationDescriptionSetCommandHandlerError;
+pub use organization_description_set_output::OrganizationDescriptionSetOutput;

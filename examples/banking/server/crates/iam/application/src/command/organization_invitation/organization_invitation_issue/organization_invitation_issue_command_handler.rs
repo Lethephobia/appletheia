@@ -8,9 +8,8 @@ use appletheia::domain::Aggregate;
 use appletheia::domain::{AggregateId, UniqueValue};
 use banking_iam_domain::OrganizationInvitationError;
 use banking_iam_domain::{
-    Organization, OrganizationInvitation, OrganizationInvitationIssuance,
-    OrganizationInvitationIssuer, OrganizationInvitationState, OrganizationMembership,
-    OrganizationMembershipState, User,
+    Organization, OrganizationInvitation, OrganizationInvitationIssuer,
+    OrganizationInvitationState, OrganizationMembership, OrganizationMembershipState, User,
 };
 use banking_shared_kernel_domain::timestamps::CurrentDateTime;
 
@@ -116,13 +115,6 @@ where
     ) -> Result<Self::Output, Self::Error> {
         let mut organization_invitation = OrganizationInvitation::new();
         let organization_invitation_id = organization_invitation.aggregate_id();
-        let issuance = OrganizationInvitationIssuance {
-            organization_id: command.organization_id,
-            invitee_id: command.invitee_id,
-            roles: command.roles.clone(),
-            issuer: command.issuer,
-            expires_at: command.expires_at,
-        };
 
         let organization = self
             .organization_repository
@@ -160,7 +152,14 @@ where
             return Err(OrganizationInvitationError::AlreadyIssued.into());
         }
 
-        organization_invitation.issue(issuance, CurrentDateTime::new())?;
+        organization_invitation.issue(
+            command.organization_id,
+            command.invitee_id,
+            command.roles.clone(),
+            command.issuer,
+            command.expires_at,
+            CurrentDateTime::new(),
+        )?;
 
         self.organization_invitation_repository
             .save(uow, request_context, &mut organization_invitation)

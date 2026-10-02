@@ -19,8 +19,8 @@ mod tests {
     };
     use appletheia::domain::Aggregate;
     use banking_iam_domain::{
-        Organization, OrganizationId, OrganizationMembership, OrganizationMembershipCreation,
-        OrganizationMembershipError, OrganizationRole, OrganizationRoles, User, UserId,
+        Organization, OrganizationId, OrganizationMembership, OrganizationMembershipError,
+        OrganizationRole, OrganizationRoles, User, UserId,
     };
 
     use super::{
@@ -31,11 +31,11 @@ mod tests {
     fn membership() -> OrganizationMembership {
         let mut aggregate = OrganizationMembership::new();
         aggregate
-            .create(OrganizationMembershipCreation {
-                organization_id: OrganizationId::new(),
-                user_id: UserId::new(),
-                roles: OrganizationRoles::new([OrganizationRole::Admin]),
-            })
+            .create(
+                OrganizationId::new(),
+                UserId::new(),
+                OrganizationRoles::new([OrganizationRole::Admin]),
+            )
             .unwrap();
         aggregate
     }
@@ -232,22 +232,17 @@ mod tests {
     #[test]
     fn ownership_transfer_derives_only_the_current_owner() {
         use super::OrganizationOwnerRelation;
-        use banking_iam_domain::{
-            OrganizationCreation, OrganizationDisplayName, OrganizationHandle, OrganizationOwner,
-        };
+        use banking_iam_domain::{OrganizationDisplayName, OrganizationHandle, OrganizationOwner};
 
         let previous_owner = UserId::new();
         let next_owner = UserId::new();
         let mut organization = Organization::new();
         organization
-            .create(OrganizationCreation {
-                owner: OrganizationOwner::User(previous_owner),
-                handle: OrganizationHandle::try_from("relation-test").unwrap(),
-                display_name: OrganizationDisplayName::try_from("Relation Test").unwrap(),
-                description: None,
-                website_url: None,
-                picture: None,
-            })
+            .create(
+                OrganizationOwner::User(previous_owner),
+                OrganizationHandle::try_from("relation-test").unwrap(),
+                OrganizationDisplayName::try_from("Relation Test").unwrap(),
+            )
             .unwrap();
         let mut model = InMemoryAuthorizationModel::new();
         model.define_relation(OrganizationOwnerRelation);

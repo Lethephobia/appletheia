@@ -1,0 +1,9 @@
+mod deposit_note_set_command;
+mod deposit_note_set_command_handler;
+mod deposit_note_set_command_handler_error;
+mod deposit_note_set_output;
+
+pub use deposit_note_set_command::DepositNoteSetCommand;
+pub use deposit_note_set_command_handler::DepositNoteSetCommandHandler;
+pub use deposit_note_set_command_handler_error::DepositNoteSetCommandHandlerError;
+pub use deposit_note_set_output::DepositNoteSetOutput;

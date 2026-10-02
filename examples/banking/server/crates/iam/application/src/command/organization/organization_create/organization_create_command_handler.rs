@@ -7,8 +7,7 @@ use appletheia::application::request_context::RequestContext;
 use appletheia::domain::{Aggregate, UniqueValue};
 use banking_iam_domain::OrganizationError;
 use banking_iam_domain::{
-    Organization, OrganizationCreation, OrganizationHandle, OrganizationOwner, OrganizationState,
-    User,
+    Organization, OrganizationHandle, OrganizationOwner, OrganizationState, User,
 };
 
 use super::{
@@ -81,16 +80,8 @@ where
 
         let mut organization = Organization::new();
         let organization_id = organization.aggregate_id();
-        let creation = OrganizationCreation {
-            owner,
-            handle,
-            display_name,
-            description,
-            website_url,
-            picture,
-        };
 
-        let unique_value = Self::handle_unique_value(&creation.handle)?;
+        let unique_value = Self::handle_unique_value(&handle)?;
         let handle_is_taken = self
             .organization_repository
             .find_by_unique_value(uow, OrganizationState::HANDLE_KEY, &unique_value)
@@ -100,7 +91,16 @@ where
             return Err(OrganizationError::HandleAlreadyTaken.into());
         }
 
-        organization.create(creation)?;
+        organization.create(owner, handle, display_name)?;
+        if let Some(description) = description {
+            organization.set_description(Some(description))?;
+        }
+        if let Some(website_url) = website_url {
+            organization.set_website_url(Some(website_url))?;
+        }
+        if let Some(picture) = picture {
+            organization.set_picture(Some(picture))?;
+        }
 
         self.organization_repository
             .save(uow, request_context, &mut organization)
@@ -127,8 +127,8 @@ mod tests {
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::Aggregate;
     use banking_iam_domain::{
-        Organization, OrganizationCreation, OrganizationDisplayName, OrganizationHandle,
-        OrganizationId, OrganizationOwner, User, UserId,
+        Organization, OrganizationDisplayName, OrganizationHandle, OrganizationId,
+        OrganizationOwner, User, UserId,
     };
     use uuid::Uuid;
 
@@ -267,72 +267,107 @@ mod tests {
 
     #[tokio::test]
     async fn handle_creates_organization_and_returns_id() {
-        let repository = TestOrganizationRepository::default();
-        let handler = OrganizationCreateCommandHandler::new(repository.clone());
-        let mut uow = TestUow;
-        let (request_context, user_id) = request_context();
+        use banking_iam_domain::{
+            OrganizationDescription, OrganizationEventPayload, OrganizationPictureRef,
+            OrganizationPictureUrl, OrganizationWebsiteUrl,
+        };
 
-        let output = handler
-            .handle(
-                &mut uow,
-                &request_context,
-                &OrganizationCreateCommand {
-                    owner: OrganizationOwner::User(user_id),
-                    handle: OrganizationHandle::try_from("acme-labs")
-                        .expect("handle should be valid"),
-                    display_name: display_name(),
-                    description: None,
-                    website_url: None,
-                    picture: None,
-                },
-            )
-            .await
-            .expect("command should succeed");
+        for with_optional_fields in [false, true] {
+            let repository = TestOrganizationRepository::default();
+            let handler = OrganizationCreateCommandHandler::new(repository.clone());
+            let mut uow = TestUow;
+            let (request_context, user_id) = request_context();
 
-        let saved = repository
-            .organization
-            .lock()
-            .expect("lock")
-            .clone()
-            .expect("organization should be saved");
+            let output = handler
+                .handle(
+                    &mut uow,
+                    &request_context,
+                    &OrganizationCreateCommand {
+                        owner: OrganizationOwner::User(user_id),
+                        handle: OrganizationHandle::try_from("acme-labs")
+                            .expect("handle should be valid"),
+                        display_name: display_name(),
+                        description: with_optional_fields
+                            .then(|| OrganizationDescription::try_from("Description").unwrap()),
+                        website_url: with_optional_fields.then(|| {
+                            OrganizationWebsiteUrl::try_from("https://example.com").unwrap()
+                        }),
+                        picture: with_optional_fields.then(|| {
+                            OrganizationPictureRef::external_url(
+                                OrganizationPictureUrl::try_from("https://example.com/picture.png")
+                                    .unwrap(),
+                            )
+                        }),
+                    },
+                )
+                .await
+                .expect("command should succeed");
 
-        assert_eq!(
-            output,
-            OrganizationCreateOutput {
-                organization_id: saved.aggregate_id(),
+            let saved = repository
+                .organization
+                .lock()
+                .expect("lock")
+                .clone()
+                .expect("organization should be saved");
+
+            assert_eq!(
+                output,
+                OrganizationCreateOutput {
+                    organization_id: saved.aggregate_id(),
+                }
+            );
+            assert_eq!(
+                serde_json::to_value(&output).expect("output should serialize"),
+                serde_json::json!({ "organization_id": saved.aggregate_id() })
+            );
+            assert_eq!(
+                saved.display_name().expect("display name should exist"),
+                &display_name()
+            );
+            assert_eq!(
+                saved.handle().expect("handle should exist"),
+                &OrganizationHandle::try_from("acme-labs").expect("handle should be valid")
+            );
+            assert_eq!(
+                saved.owner().expect("owner should exist"),
+                OrganizationOwner::User(user_id)
+            );
+            assert_eq!(
+                saved.uncommitted_events().len(),
+                if with_optional_fields { 4 } else { 1 }
+            );
+            assert_eq!(saved.description().unwrap().is_some(), with_optional_fields);
+            assert_eq!(saved.website_url().unwrap().is_some(), with_optional_fields);
+            assert_eq!(saved.picture().unwrap().is_some(), with_optional_fields);
+            if with_optional_fields {
+                assert!(matches!(
+                    saved.uncommitted_events()[1].payload(),
+                    OrganizationEventPayload::DescriptionSet { .. }
+                ));
+                assert!(matches!(
+                    saved.uncommitted_events()[2].payload(),
+                    OrganizationEventPayload::WebsiteUrlSet { .. }
+                ));
+                assert!(matches!(
+                    saved.uncommitted_events()[3].payload(),
+                    OrganizationEventPayload::PictureSet {
+                        old_picture: None,
+                        ..
+                    }
+                ));
             }
-        );
-        assert_eq!(
-            serde_json::to_value(&output).expect("output should serialize"),
-            serde_json::json!({ "organization_id": saved.aggregate_id() })
-        );
-        assert_eq!(
-            saved.display_name().expect("display name should exist"),
-            &display_name()
-        );
-        assert_eq!(
-            saved.handle().expect("handle should exist"),
-            &OrganizationHandle::try_from("acme-labs").expect("handle should be valid")
-        );
-        assert_eq!(
-            saved.owner().expect("owner should exist"),
-            OrganizationOwner::User(user_id)
-        );
-        assert_eq!(saved.uncommitted_events().len(), 1);
+        }
     }
 
     #[tokio::test]
     async fn handle_returns_error_when_handle_is_taken() {
         let mut existing = Organization::new();
         existing
-            .create(OrganizationCreation {
-                owner: OrganizationOwner::User(UserId::new()),
-                handle: OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
-                display_name: display_name(),
-                description: None,
-                website_url: None,
-                picture: None,
-            })
+            .create(
+                OrganizationOwner::User(UserId::new()),
+                OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
+                display_name(),
+            )
             .expect("existing organization should be created");
         let repository = TestOrganizationRepository::new(existing);
         let handler = OrganizationCreateCommandHandler::new(repository.clone());

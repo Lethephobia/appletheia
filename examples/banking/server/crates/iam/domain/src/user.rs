@@ -160,8 +160,8 @@ impl User {
         Ok(())
     }
 
-    /// Changes the email snapshot for a linked identity.
-    pub fn change_identity_email(
+    /// Sets the email snapshot for a linked identity.
+    pub fn set_identity_email(
         &mut self,
         provider: &UserIdentityProvider,
         subject: &UserIdentitySubject,
@@ -186,7 +186,7 @@ impl User {
             return Err(UserError::IdentityNotFound);
         };
 
-        self.append_event(UserEventPayload::IdentityEmailChanged {
+        self.append_event(UserEventPayload::IdentityEmailSet {
             provider: provider.clone(),
             subject: subject.clone(),
             email,
@@ -194,8 +194,8 @@ impl User {
         Ok(())
     }
 
-    /// Changes the current username.
-    pub fn change_username(&mut self, username: Username) -> Result<(), UserError> {
+    /// Sets the current username.
+    pub fn set_username(&mut self, username: Username) -> Result<(), UserError> {
         match self.state_required()?.status {
             UserStatus::Removed => {
                 return Err(UserError::Removed);
@@ -206,12 +206,12 @@ impl User {
             UserStatus::Active => {}
         }
 
-        self.append_event(UserEventPayload::UsernameChanged { username })?;
+        self.append_event(UserEventPayload::UsernameSet { username })?;
         Ok(())
     }
 
-    /// Changes the current display name.
-    pub fn change_display_name(&mut self, display_name: UserDisplayName) -> Result<(), UserError> {
+    /// Sets the current display name.
+    pub fn set_display_name(&mut self, display_name: UserDisplayName) -> Result<(), UserError> {
         match self.state_required()?.status {
             UserStatus::Removed => {
                 return Err(UserError::Removed);
@@ -222,12 +222,12 @@ impl User {
             UserStatus::Active => {}
         }
 
-        self.append_event(UserEventPayload::DisplayNameChanged { display_name })?;
+        self.append_event(UserEventPayload::DisplayNameSet { display_name })?;
         Ok(())
     }
 
-    /// Changes the current bio.
-    pub fn change_bio(&mut self, bio: Option<UserBio>) -> Result<(), UserError> {
+    /// Sets the current bio.
+    pub fn set_bio(&mut self, bio: Option<UserBio>) -> Result<(), UserError> {
         match self.state_required()?.status {
             UserStatus::Removed => {
                 return Err(UserError::Removed);
@@ -238,12 +238,12 @@ impl User {
             UserStatus::Active => {}
         }
 
-        self.append_event(UserEventPayload::BioChanged { bio })?;
+        self.append_event(UserEventPayload::BioSet { bio })?;
         Ok(())
     }
 
-    /// Changes the current picture.
-    pub fn change_picture(&mut self, picture: Option<UserPictureRef>) -> Result<(), UserError> {
+    /// Sets the current picture.
+    pub fn set_picture(&mut self, picture: Option<UserPictureRef>) -> Result<(), UserError> {
         match self.state_required()?.status {
             UserStatus::Removed => {
                 return Err(UserError::Removed);
@@ -256,7 +256,7 @@ impl User {
 
         let old_picture = self.state_required()?.picture.clone();
 
-        self.append_event(UserEventPayload::PictureChanged {
+        self.append_event(UserEventPayload::PictureSet {
             picture,
             old_picture,
         })?;
@@ -318,7 +318,7 @@ impl AggregateApply<UserEventPayload, UserError> for User {
                         email.clone(),
                     ));
             }
-            UserEventPayload::IdentityEmailChanged {
+            UserEventPayload::IdentityEmailSet {
                 provider,
                 subject,
                 email,
@@ -329,18 +329,18 @@ impl AggregateApply<UserEventPayload, UserError> for User {
                     .iter_mut()
                     .find(|identity| identity.matches(provider, subject))
                     .ok_or(UserError::InvalidIdentityState)?;
-                identity.change_email(email.clone());
+                identity.set_email(email.clone());
             }
-            UserEventPayload::UsernameChanged { username } => {
+            UserEventPayload::UsernameSet { username } => {
                 self.state_required_mut()?.username = Some(username.clone());
             }
-            UserEventPayload::DisplayNameChanged { display_name } => {
+            UserEventPayload::DisplayNameSet { display_name } => {
                 self.state_required_mut()?.display_name = Some(display_name.clone());
             }
-            UserEventPayload::BioChanged { bio } => {
+            UserEventPayload::BioSet { bio } => {
                 self.state_required_mut()?.bio = bio.clone();
             }
-            UserEventPayload::PictureChanged { picture, .. } => {
+            UserEventPayload::PictureSet { picture, .. } => {
                 self.state_required_mut()?.picture = picture.clone();
             }
             UserEventPayload::Activated => {
@@ -455,12 +455,12 @@ mod tests {
     }
 
     #[test]
-    fn change_username_sets_username() {
+    fn set_username_sets_username() {
         let mut user = User::new();
         register_user(&mut user);
 
-        user.change_username(Username::try_from("alice").expect("username should be valid"))
-            .expect("username change should succeed");
+        user.set_username(Username::try_from("alice").expect("username should be valid"))
+            .expect("username set should succeed");
 
         assert_eq!(
             user.username().expect("username should exist"),
@@ -469,13 +469,13 @@ mod tests {
     }
 
     #[test]
-    fn change_display_name_sets_display_name() {
+    fn set_display_name_sets_display_name() {
         let mut user = User::new();
         let display_name = display_name();
         register_user(&mut user);
 
-        user.change_display_name(display_name.clone())
-            .expect("display name change should succeed");
+        user.set_display_name(display_name.clone())
+            .expect("display name set should succeed");
 
         assert_eq!(
             user.display_name().expect("display name should exist"),
@@ -484,43 +484,43 @@ mod tests {
     }
 
     #[test]
-    fn identical_username_change_appends_success_event() {
+    fn identical_username_set_appends_success_event() {
         let mut user = User::new();
         let username = Username::try_from("alice").expect("username should be valid");
         register_user(&mut user);
-        user.change_username(username.clone())
-            .expect("username change should succeed");
+        user.set_username(username.clone())
+            .expect("username set should succeed");
 
-        user.change_username(username)
-            .expect("idempotent change should succeed");
+        user.set_username(username)
+            .expect("idempotent set should succeed");
 
         assert_eq!(user.uncommitted_events().len(), 3);
         assert_eq!(
             user.uncommitted_events()[2].payload().name(),
-            UserEventPayload::USERNAME_CHANGED
+            UserEventPayload::USERNAME_SET
         );
     }
 
     #[test]
-    fn identical_display_name_change_appends_success_event() {
+    fn identical_display_name_set_appends_success_event() {
         let mut user = User::new();
         let display_name = display_name();
         register_user(&mut user);
-        user.change_display_name(display_name.clone())
-            .expect("display name change should succeed");
+        user.set_display_name(display_name.clone())
+            .expect("display name set should succeed");
 
-        user.change_display_name(display_name)
-            .expect("idempotent display name change should succeed");
+        user.set_display_name(display_name)
+            .expect("idempotent display name set should succeed");
 
         assert_eq!(user.uncommitted_events().len(), 3);
         assert_eq!(
             user.uncommitted_events()[2].payload().name(),
-            UserEventPayload::DISPLAY_NAME_CHANGED
+            UserEventPayload::DISPLAY_NAME_SET
         );
     }
 
     #[test]
-    fn identical_identity_email_change_appends_success_event() {
+    fn identical_identity_email_set_appends_success_event() {
         let mut user = User::new();
         let provider = UserIdentityProvider::try_from("https://accounts.example.com")
             .expect("provider should be valid");
@@ -530,12 +530,12 @@ mod tests {
         user.link_identity(provider.clone(), subject.clone(), email.clone())
             .expect("identity should link");
 
-        user.change_identity_email(&provider, &subject, email)
-            .expect("idempotent identity email change should succeed");
+        user.set_identity_email(&provider, &subject, email)
+            .expect("idempotent identity email set should succeed");
 
         assert_eq!(
             user.uncommitted_events()[2].payload().name(),
-            UserEventPayload::IDENTITY_EMAIL_CHANGED
+            UserEventPayload::IDENTITY_EMAIL_SET
         );
     }
 
@@ -564,14 +564,13 @@ mod tests {
     }
 
     #[test]
-    fn bio_and_picture_changes_update_state() {
+    fn bio_and_picture_sets_update_state() {
         let mut user = User::new();
         register_user(&mut user);
 
-        user.change_bio(Some(bio()))
-            .expect("bio change should succeed");
-        user.change_picture(Some(picture()))
-            .expect("picture change should succeed");
+        user.set_bio(Some(bio())).expect("bio set should succeed");
+        user.set_picture(Some(picture()))
+            .expect("picture set should succeed");
 
         assert_eq!(
             user.bio().expect("bio should exist").map(UserBio::value),
@@ -581,7 +580,7 @@ mod tests {
     }
 
     #[test]
-    fn picture_changed_event_records_old_picture_after_current_picture() {
+    fn picture_set_event_records_old_picture_after_current_picture() {
         let mut user = User::new();
         let first_picture = picture();
         let second_picture = UserPictureRef::external_url(
@@ -589,47 +588,47 @@ mod tests {
                 .expect("picture URL should be valid"),
         );
         register_user(&mut user);
-        user.change_picture(Some(first_picture.clone()))
-            .expect("picture change should succeed");
+        user.set_picture(Some(first_picture.clone()))
+            .expect("picture set should succeed");
 
-        user.change_picture(Some(second_picture.clone()))
-            .expect("picture change should succeed");
+        user.set_picture(Some(second_picture.clone()))
+            .expect("picture set should succeed");
 
-        let UserEventPayload::PictureChanged {
+        let UserEventPayload::PictureSet {
             picture,
             old_picture,
         } = user.uncommitted_events()[2].payload()
         else {
-            panic!("event should be picture changed");
+            panic!("event should be picture set");
         };
         assert_eq!(picture.as_ref(), Some(&second_picture));
         assert_eq!(old_picture.as_ref(), Some(&first_picture));
     }
 
     #[test]
-    fn display_name_and_username_changes_reject_inactive_user() {
+    fn display_name_and_username_sets_reject_inactive_user() {
         let mut user = User::new();
         register_user(&mut user);
         user.deactivate().expect("user should deactivate");
 
         let username_error = user
-            .change_username(Username::try_from("alice").expect("username should be valid"))
-            .expect_err("inactive user should reject username change");
+            .set_username(Username::try_from("alice").expect("username should be valid"))
+            .expect_err("inactive user should reject username set");
         let display_name_error = user
-            .change_display_name(display_name())
-            .expect_err("inactive user should reject display name change");
+            .set_display_name(display_name())
+            .expect_err("inactive user should reject display name set");
 
         assert!(matches!(username_error, UserError::Inactive));
         assert!(matches!(display_name_error, UserError::Inactive));
     }
 
     #[test]
-    fn identity_email_change_rejects_unknown_identity() {
+    fn identity_email_set_rejects_unknown_identity() {
         let mut user = User::new();
         register_user(&mut user);
 
         let error = user
-            .change_identity_email(
+            .set_identity_email(
                 &UserIdentityProvider::try_from("https://other.example.com")
                     .expect("provider should be valid"),
                 &UserIdentitySubject::try_from("user-999").expect("subject should be valid"),

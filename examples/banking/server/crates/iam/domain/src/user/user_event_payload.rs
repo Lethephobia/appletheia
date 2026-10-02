@@ -15,21 +15,21 @@ pub enum UserEventPayload {
         subject: UserIdentitySubject,
         email: Option<Email>,
     },
-    IdentityEmailChanged {
+    IdentityEmailSet {
         provider: UserIdentityProvider,
         subject: UserIdentitySubject,
         email: Option<Email>,
     },
-    UsernameChanged {
+    UsernameSet {
         username: Username,
     },
-    DisplayNameChanged {
+    DisplayNameSet {
         display_name: UserDisplayName,
     },
-    BioChanged {
+    BioSet {
         bio: Option<UserBio>,
     },
-    PictureChanged {
+    PictureSet {
         picture: Option<UserPictureRef>,
         old_picture: Option<UserPictureRef>,
     },
@@ -61,24 +61,24 @@ mod tests {
             appletheia::domain::EventName::new("identity_linked")
         );
         assert_eq!(
-            UserEventPayload::IDENTITY_EMAIL_CHANGED,
-            appletheia::domain::EventName::new("identity_email_changed")
+            UserEventPayload::IDENTITY_EMAIL_SET,
+            appletheia::domain::EventName::new("identity_email_set")
         );
         assert_eq!(
-            UserEventPayload::USERNAME_CHANGED,
-            appletheia::domain::EventName::new("username_changed")
+            UserEventPayload::USERNAME_SET,
+            appletheia::domain::EventName::new("username_set")
         );
         assert_eq!(
-            UserEventPayload::DISPLAY_NAME_CHANGED,
-            appletheia::domain::EventName::new("display_name_changed")
+            UserEventPayload::DISPLAY_NAME_SET,
+            appletheia::domain::EventName::new("display_name_set")
         );
         assert_eq!(
-            UserEventPayload::BIO_CHANGED,
-            appletheia::domain::EventName::new("bio_changed")
+            UserEventPayload::BIO_SET,
+            appletheia::domain::EventName::new("bio_set")
         );
         assert_eq!(
-            UserEventPayload::PICTURE_CHANGED,
-            appletheia::domain::EventName::new("picture_changed")
+            UserEventPayload::PICTURE_SET,
+            appletheia::domain::EventName::new("picture_set")
         );
         assert_eq!(
             UserEventPayload::ACTIVATED,
@@ -95,18 +95,18 @@ mod tests {
     }
 
     #[test]
-    fn display_name_changed_payload_name_matches_variant() {
-        let payload = UserEventPayload::DisplayNameChanged {
+    fn display_name_set_payload_name_matches_variant() {
+        let payload = UserEventPayload::DisplayNameSet {
             display_name: UserDisplayName::try_from("Alice Example")
                 .expect("display name should be valid"),
         };
 
-        assert_eq!(payload.name(), UserEventPayload::DISPLAY_NAME_CHANGED);
+        assert_eq!(payload.name(), UserEventPayload::DISPLAY_NAME_SET);
     }
 
     #[test]
-    fn serializes_bio_changed_payload_to_json() {
-        let payload = UserEventPayload::BioChanged {
+    fn serializes_bio_set_payload_to_json() {
+        let payload = UserEventPayload::BioSet {
             bio: Some(UserBio::try_from("Banking enthusiast").expect("bio should be valid")),
         };
 
@@ -114,7 +114,7 @@ mod tests {
             .try_into_json_value()
             .expect("payload should serialize");
 
-        assert_eq!(value["type"], serde_json::json!("bio_changed"));
+        assert_eq!(value["type"], serde_json::json!("bio_set"));
         assert_eq!(
             value["data"]["bio"],
             serde_json::json!("Banking enthusiast")
@@ -122,8 +122,8 @@ mod tests {
     }
 
     #[test]
-    fn serializes_picture_changed_payload_to_json() {
-        let payload = UserEventPayload::PictureChanged {
+    fn serializes_picture_set_payload_to_json() {
+        let payload = UserEventPayload::PictureSet {
             picture: Some(UserPictureRef::external_url(
                 UserPictureUrl::try_from("https://cdn.example.com/alice.png")
                     .expect("picture URL should be valid"),
@@ -135,21 +135,21 @@ mod tests {
             .try_into_json_value()
             .expect("payload should serialize");
 
-        assert_eq!(value["type"], serde_json::json!("picture_changed"));
+        assert_eq!(value["type"], serde_json::json!("picture_set"));
         assert!(value["data"]["picture"].is_object());
         assert_eq!(value["data"]["old_picture"], serde_json::Value::Null);
     }
 
     #[test]
-    fn identity_email_changed_payload_name_matches_variant() {
-        let payload = UserEventPayload::IdentityEmailChanged {
+    fn identity_email_set_payload_name_matches_variant() {
+        let payload = UserEventPayload::IdentityEmailSet {
             provider: UserIdentityProvider::try_from("https://accounts.example.com")
                 .expect("provider should be valid"),
             subject: UserIdentitySubject::try_from("user-123").expect("subject should be valid"),
             email: Some(Email::try_from("alice@example.com").expect("email should be valid")),
         };
 
-        assert_eq!(payload.name(), UserEventPayload::IDENTITY_EMAIL_CHANGED);
+        assert_eq!(payload.name(), UserEventPayload::IDENTITY_EMAIL_SET);
     }
 
     #[test]

@@ -14,12 +14,14 @@ pub enum DepositEventPayload {
         token_binding_id: TokenBindingId,
         token_owner_address: TokenOwnerAddress,
         amount: CurrencyAmount,
-        note: Option<DepositNote>,
     },
     SettlementVerified {
         account_id: AccountId,
         amount: CurrencyAmount,
         transaction_id: OnchainTransactionId,
+    },
+    NoteSet {
+        note: Option<DepositNote>,
     },
     Completed,
     Failed {

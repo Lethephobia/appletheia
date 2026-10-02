@@ -7,8 +7,8 @@ use appletheia::application::request_context::RequestContext;
 use appletheia::domain::Aggregate;
 use banking_ledger_domain::account::Account;
 use banking_ledger_domain::currency::Currency;
+use banking_ledger_domain::deposit::Deposit;
 use banking_ledger_domain::deposit::DepositError;
-use banking_ledger_domain::deposit::{Deposit, DepositRequest};
 use banking_ledger_domain::token_binding::TokenBinding;
 
 use super::{
@@ -103,13 +103,6 @@ where
 
         let mut deposit = Deposit::new();
         let deposit_id = deposit.aggregate_id();
-        let request = DepositRequest {
-            account_id: command.account_id,
-            token_binding_id: command.token_binding_id,
-            token_owner_address: command.token_owner_address,
-            amount: command.amount,
-            note: command.note.clone(),
-        };
         let binding = match self
             .token_binding_repository
             .read(uow, command.token_binding_id)
@@ -129,7 +122,15 @@ where
         };
         let chain_network = binding.chain_network()?;
         let token_address = *binding.token_address()?;
-        deposit.request(request)?;
+        deposit.request(
+            command.account_id,
+            command.token_binding_id,
+            command.token_owner_address,
+            command.amount,
+        )?;
+        if let Some(note) = &command.note {
+            deposit.set_note(Some(note.clone()))?;
+        }
 
         let preparation = self
             .deposit_settlement_preparer

@@ -12,6 +12,8 @@ pub enum TransferEventPayload {
         from_account_id: AccountId,
         to_account_id: AccountId,
         amount: CurrencyAmount,
+    },
+    NoteSet {
         note: Option<TransferNote>,
     },
     Completed,

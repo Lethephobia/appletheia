@@ -1,4 +1,3 @@
-mod organization_creation;
 mod organization_description;
 mod organization_description_error;
 mod organization_display_name;
@@ -21,7 +20,6 @@ mod organization_status;
 mod organization_website_url;
 mod organization_website_url_error;
 
-pub use organization_creation::OrganizationCreation;
 pub use organization_description::OrganizationDescription;
 pub use organization_description_error::OrganizationDescriptionError;
 pub use organization_display_name::OrganizationDisplayName;
@@ -103,20 +101,20 @@ impl Organization {
     }
 
     /// Creates a new organization.
-    pub fn create(&mut self, creation: OrganizationCreation) -> Result<(), OrganizationError> {
+    pub fn create(
+        &mut self,
+        owner: OrganizationOwner,
+        handle: OrganizationHandle,
+        display_name: OrganizationDisplayName,
+    ) -> Result<(), OrganizationError> {
         if self.state().is_some() {
             return Err(OrganizationError::AlreadyCreated);
         }
 
-        let (owner, handle, display_name, description, website_url, picture) =
-            creation.into_parts();
         self.append_event(OrganizationEventPayload::Created {
             owner,
             handle,
             display_name,
-            description,
-            website_url,
-            picture,
         })?;
 
         Ok(())
@@ -158,8 +156,7 @@ impl Organization {
         Ok(())
     }
 
-    /// Changes the current organization description.
-    pub fn change_description(
+    pub fn set_description(
         &mut self,
         description: Option<OrganizationDescription>,
     ) -> Result<(), OrganizationError> {
@@ -167,12 +164,11 @@ impl Organization {
             return Err(OrganizationError::Removed);
         }
 
-        self.append_event(OrganizationEventPayload::DescriptionChanged { description })?;
+        self.append_event(OrganizationEventPayload::DescriptionSet { description })?;
         Ok(())
     }
 
-    /// Changes the current organization website URL.
-    pub fn change_website_url(
+    pub fn set_website_url(
         &mut self,
         website_url: Option<OrganizationWebsiteUrl>,
     ) -> Result<(), OrganizationError> {
@@ -180,12 +176,11 @@ impl Organization {
             return Err(OrganizationError::Removed);
         }
 
-        self.append_event(OrganizationEventPayload::WebsiteUrlChanged { website_url })?;
+        self.append_event(OrganizationEventPayload::WebsiteUrlSet { website_url })?;
         Ok(())
     }
 
-    /// Changes the current organization picture.
-    pub fn change_picture(
+    pub fn set_picture(
         &mut self,
         picture: Option<OrganizationPictureRef>,
     ) -> Result<(), OrganizationError> {
@@ -195,7 +190,7 @@ impl Organization {
 
         let old_picture = self.state_required()?.picture.clone();
 
-        self.append_event(OrganizationEventPayload::PictureChanged {
+        self.append_event(OrganizationEventPayload::PictureSet {
             picture,
             old_picture,
         })?;
@@ -220,16 +215,13 @@ impl AggregateApply<OrganizationEventPayload, OrganizationError> for Organizatio
                 owner,
                 handle,
                 display_name,
-                description,
-                website_url,
-                picture,
             } => self.set_state(Some(OrganizationState {
                 owner: *owner,
                 handle: handle.clone(),
                 display_name: display_name.clone(),
-                description: description.clone(),
-                website_url: website_url.clone(),
-                picture: picture.clone(),
+                description: None,
+                website_url: None,
+                picture: None,
                 status: OrganizationStatus::Active,
             })),
             OrganizationEventPayload::OwnershipTransferred { owner } => {
@@ -241,13 +233,13 @@ impl AggregateApply<OrganizationEventPayload, OrganizationError> for Organizatio
             OrganizationEventPayload::DisplayNameChanged { display_name } => {
                 self.state_required_mut()?.display_name = display_name.clone();
             }
-            OrganizationEventPayload::DescriptionChanged { description } => {
+            OrganizationEventPayload::DescriptionSet { description } => {
                 self.state_required_mut()?.description = description.clone();
             }
-            OrganizationEventPayload::WebsiteUrlChanged { website_url } => {
+            OrganizationEventPayload::WebsiteUrlSet { website_url } => {
                 self.state_required_mut()?.website_url = website_url.clone();
             }
-            OrganizationEventPayload::PictureChanged { picture, .. } => {
+            OrganizationEventPayload::PictureSet { picture, .. } => {
                 self.state_required_mut()?.picture = picture.clone();
             }
             OrganizationEventPayload::Removed => {
@@ -264,9 +256,9 @@ mod tests {
     use appletheia::domain::{Aggregate, EventPayload};
 
     use super::{
-        Organization, OrganizationCreation, OrganizationDescription, OrganizationDisplayName,
-        OrganizationError, OrganizationEventPayload, OrganizationHandle, OrganizationOwner,
-        OrganizationPictureRef, OrganizationPictureUrl, OrganizationWebsiteUrl,
+        Organization, OrganizationDescription, OrganizationDisplayName, OrganizationError,
+        OrganizationEventPayload, OrganizationHandle, OrganizationOwner, OrganizationPictureRef,
+        OrganizationPictureUrl, OrganizationWebsiteUrl,
     };
     use crate::UserId;
 
@@ -298,14 +290,11 @@ mod tests {
     fn organization() -> Organization {
         let mut organization = Organization::new();
         organization
-            .create(OrganizationCreation {
-                owner: owner(),
-                handle: OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
-                display_name: display_name(),
-                description: None,
-                website_url: None,
-                picture: None,
-            })
+            .create(
+                owner(),
+                OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
+                display_name(),
+            )
             .expect("creation should succeed");
         organization
     }
@@ -331,15 +320,11 @@ mod tests {
     fn create_rejects_already_created_organization_without_recording_an_event() {
         let mut organization = organization();
         let error = organization
-            .create(OrganizationCreation {
-                owner: owner(),
-                handle: OrganizationHandle::try_from("another-handle")
-                    .expect("handle should be valid"),
-                display_name: display_name(),
-                description: None,
-                website_url: None,
-                picture: None,
-            })
+            .create(
+                owner(),
+                OrganizationHandle::try_from("another-handle").expect("handle should be valid"),
+                display_name(),
+            )
             .expect_err("duplicate creation should fail");
 
         assert!(matches!(error, OrganizationError::AlreadyCreated));
@@ -385,17 +370,17 @@ mod tests {
     }
 
     #[test]
-    fn change_description_website_url_and_picture_updates_state() {
+    fn set_description_website_url_and_picture_updates_state() {
         let mut organization = organization();
 
         organization
-            .change_description(Some(description()))
+            .set_description(Some(description()))
             .expect("description change should succeed");
         organization
-            .change_website_url(Some(website_url()))
+            .set_website_url(Some(website_url()))
             .expect("website URL change should succeed");
         organization
-            .change_picture(Some(picture()))
+            .set_picture(Some(picture()))
             .expect("picture change should succeed");
 
         assert_eq!(
@@ -421,7 +406,7 @@ mod tests {
     }
 
     #[test]
-    fn picture_changed_event_records_old_picture_after_current_picture() {
+    fn picture_set_event_records_old_picture_after_current_picture() {
         let mut organization = organization();
         let first_picture = picture();
         let second_picture = OrganizationPictureRef::external_url(
@@ -429,14 +414,14 @@ mod tests {
                 .expect("picture URL should be valid"),
         );
         organization
-            .change_picture(Some(first_picture.clone()))
+            .set_picture(Some(first_picture.clone()))
             .expect("picture change should succeed");
 
         organization
-            .change_picture(Some(second_picture.clone()))
+            .set_picture(Some(second_picture.clone()))
             .expect("picture change should succeed");
 
-        let OrganizationEventPayload::PictureChanged {
+        let OrganizationEventPayload::PictureSet {
             picture,
             old_picture,
         } = organization.uncommitted_events()[2].payload()
@@ -453,9 +438,62 @@ mod tests {
         organization.remove().expect("remove should succeed");
 
         let error = organization
-            .change_description(Some(description()))
+            .set_description(Some(description()))
             .expect_err("removed organization should reject changes");
 
         assert!(matches!(error, OrganizationError::Removed));
+    }
+    #[test]
+    fn optional_fields_start_empty_and_set_events_replay() {
+        use appletheia::domain::AggregateApply;
+
+        let mut organization = organization();
+        assert!(organization.description().unwrap().is_none());
+        assert!(organization.website_url().unwrap().is_none());
+        assert!(organization.picture().unwrap().is_none());
+        assert_eq!(organization.uncommitted_events().len(), 1);
+        organization.set_description(Some(description())).unwrap();
+        organization.set_website_url(Some(website_url())).unwrap();
+        let previous_picture = picture();
+        organization
+            .set_picture(Some(previous_picture.clone()))
+            .unwrap();
+        organization.set_description(None).unwrap();
+        organization.set_website_url(None).unwrap();
+        organization.set_picture(None).unwrap();
+        assert!(
+            matches!(organization.uncommitted_events()[6].payload(), OrganizationEventPayload::PictureSet { picture: None, old_picture: Some(value) } if value == &previous_picture)
+        );
+        // Accepted repeated clears still emit events for downstream consumers.
+        organization.set_description(None).unwrap();
+        organization.set_website_url(None).unwrap();
+        organization.set_picture(None).unwrap();
+        assert_eq!(organization.uncommitted_events().len(), 10);
+
+        let mut replayed = Organization::new();
+        for event in organization.uncommitted_events() {
+            replayed.apply(event.payload()).unwrap();
+        }
+        assert_eq!(replayed.state(), organization.state());
+        assert!(replayed.description().unwrap().is_none());
+        assert!(replayed.website_url().unwrap().is_none());
+        assert!(replayed.picture().unwrap().is_none());
+    }
+
+    #[test]
+    fn removed_organization_rejects_all_optional_field_operations() {
+        let mut organization = organization();
+        organization.remove().unwrap();
+        for result in [
+            organization.set_description(Some(description())),
+            organization.set_description(None),
+            organization.set_website_url(Some(website_url())),
+            organization.set_website_url(None),
+            organization.set_picture(Some(picture())),
+            organization.set_picture(None),
+        ] {
+            assert!(matches!(result, Err(OrganizationError::Removed)));
+        }
+        assert_eq!(organization.uncommitted_events().len(), 2);
     }
 }

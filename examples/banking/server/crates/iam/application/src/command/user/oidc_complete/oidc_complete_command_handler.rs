@@ -84,7 +84,7 @@ where
             .await?
         {
             Some(mut user) => {
-                user.change_identity_email(provider, subject, email)?;
+                user.set_identity_email(provider, subject, email)?;
 
                 Ok(user)
             }
@@ -118,7 +118,7 @@ where
                     return Err(UserError::IdentityAlreadyLinked.into());
                 }
 
-                user.change_identity_email(provider, subject, email)?;
+                user.set_identity_email(provider, subject, email)?;
 
                 Ok(user)
             }

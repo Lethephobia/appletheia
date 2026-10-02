@@ -13,9 +13,9 @@ pub mod withdrawal;
 
 pub use account::{
     AccountCloseCommand, AccountCloseCommandHandler, AccountCloseOutput, AccountDepositCommand,
-    AccountDepositCommandHandler, AccountDepositOutput, AccountDescriptionChangeCommand,
-    AccountDescriptionChangeCommandHandler, AccountDescriptionChangeCommandHandlerError,
-    AccountDescriptionChangeOutput, AccountFreezeCommand, AccountFreezeCommandHandler,
+    AccountDepositCommandHandler, AccountDepositOutput, AccountDescriptionSetCommand,
+    AccountDescriptionSetCommandHandler, AccountDescriptionSetCommandHandlerError,
+    AccountDescriptionSetOutput, AccountFreezeCommand, AccountFreezeCommandHandler,
     AccountFreezeOutput, AccountFundsReserveCommand, AccountFundsReserveCommandHandler,
     AccountFundsReserveOutput, AccountNameChangeCommand, AccountNameChangeCommandHandler,
     AccountNameChangeOutput, AccountOpenCommand, AccountOpenCommandHandler, AccountOpenOutput,
@@ -32,16 +32,15 @@ pub use currency::{
     CurrencyActivateOutput, CurrencyDeactivateCommand, CurrencyDeactivateCommandHandler,
     CurrencyDeactivateCommandHandlerError, CurrencyDeactivateOutput, CurrencyDefineCommand,
     CurrencyDefineCommandHandler, CurrencyDefineCommandHandlerError, CurrencyDefineOutput,
-    CurrencyDescriptionChangeCommand, CurrencyDescriptionChangeCommandHandler,
-    CurrencyDescriptionChangeCommandHandlerError, CurrencyDescriptionChangeOutput,
+    CurrencyDescriptionSetCommand, CurrencyDescriptionSetCommandHandler,
+    CurrencyDescriptionSetCommandHandlerError, CurrencyDescriptionSetOutput,
 };
 pub use currency_registrar::{
     CurrencyRegistrarCreateCommand, CurrencyRegistrarCreateCommandHandler,
     CurrencyRegistrarCreateCommandHandlerError, CurrencyRegistrarCreateOutput,
-    CurrencyRegistrarDescriptionChangeCommand, CurrencyRegistrarDescriptionChangeCommandHandler,
-    CurrencyRegistrarDescriptionChangeCommandHandlerError,
-    CurrencyRegistrarDescriptionChangeOutput, CurrencyRegistrarDisplayNameChangeCommand,
-    CurrencyRegistrarDisplayNameChangeCommandHandler,
+    CurrencyRegistrarDescriptionSetCommand, CurrencyRegistrarDescriptionSetCommandHandler,
+    CurrencyRegistrarDescriptionSetCommandHandlerError, CurrencyRegistrarDescriptionSetOutput,
+    CurrencyRegistrarDisplayNameChangeCommand, CurrencyRegistrarDisplayNameChangeCommandHandler,
     CurrencyRegistrarDisplayNameChangeCommandHandlerError,
     CurrencyRegistrarDisplayNameChangeOutput, CurrencyRegistrarHandleChangeCommand,
     CurrencyRegistrarHandleChangeCommandHandler, CurrencyRegistrarHandleChangeCommandHandlerError,
@@ -81,11 +80,12 @@ pub use currency_registrar_membership::{
 pub use deposit::{
     DepositCompleteCommand, DepositCompleteCommandHandler, DepositCompleteCommandHandlerError,
     DepositCompleteOutput, DepositFailCommand, DepositFailCommandHandler,
-    DepositFailCommandHandlerError, DepositFailOutput, DepositSettlementPrepareCommand,
-    DepositSettlementPrepareCommandHandler, DepositSettlementPrepareCommandHandlerError,
-    DepositSettlementPrepareOutput, DepositSettlementVerifyCommand,
-    DepositSettlementVerifyCommandHandler, DepositSettlementVerifyCommandHandlerError,
-    DepositSettlementVerifyOutput,
+    DepositFailCommandHandlerError, DepositFailOutput, DepositNoteSetCommand,
+    DepositNoteSetCommandHandler, DepositNoteSetCommandHandlerError, DepositNoteSetOutput,
+    DepositSettlementPrepareCommand, DepositSettlementPrepareCommandHandler,
+    DepositSettlementPrepareCommandHandlerError, DepositSettlementPrepareOutput,
+    DepositSettlementVerifyCommand, DepositSettlementVerifyCommandHandler,
+    DepositSettlementVerifyCommandHandlerError, DepositSettlementVerifyOutput,
 };
 pub use owned_account_closure::{
     OwnedAccountClosureFailedRecordCommand, OwnedAccountClosureFailedRecordCommandHandler,
@@ -112,14 +112,15 @@ pub use token_binding::{
 };
 pub use transfer::{
     TransferCompleteCommand, TransferCompleteCommandHandler, TransferCompleteOutput,
-    TransferFailCommand, TransferFailCommandHandler, TransferFailOutput, TransferRequestCommand,
-    TransferRequestCommandHandler, TransferRequestOutput,
+    TransferFailCommand, TransferFailCommandHandler, TransferFailOutput, TransferNoteSetCommand,
+    TransferNoteSetCommandHandler, TransferNoteSetCommandHandlerError, TransferNoteSetOutput,
+    TransferRequestCommand, TransferRequestCommandHandler, TransferRequestOutput,
 };
 pub use wallet_bookmark::{
-    WalletBookmarkDescriptionChangeCommand, WalletBookmarkDescriptionChangeCommandHandler,
-    WalletBookmarkDescriptionChangeCommandHandlerError, WalletBookmarkDescriptionChangeOutput,
-    WalletBookmarkDisplayNameChangeCommand, WalletBookmarkDisplayNameChangeCommandHandler,
-    WalletBookmarkDisplayNameChangeCommandHandlerError, WalletBookmarkDisplayNameChangeOutput,
+    WalletBookmarkDescriptionSetCommand, WalletBookmarkDescriptionSetCommandHandler,
+    WalletBookmarkDescriptionSetCommandHandlerError, WalletBookmarkDescriptionSetOutput,
+    WalletBookmarkDisplayNameSetCommand, WalletBookmarkDisplayNameSetCommandHandler,
+    WalletBookmarkDisplayNameSetCommandHandlerError, WalletBookmarkDisplayNameSetOutput,
     WalletBookmarkRegisterCommand, WalletBookmarkRegisterCommandHandler,
     WalletBookmarkRegisterCommandHandlerError, WalletBookmarkRegisterOutput,
     WalletBookmarkRemoveCommand, WalletBookmarkRemoveCommandHandler,
@@ -128,7 +129,8 @@ pub use wallet_bookmark::{
 pub use withdrawal::{
     WithdrawalCompleteCommand, WithdrawalCompleteCommandHandler, WithdrawalCompleteOutput,
     WithdrawalFailCommand, WithdrawalFailCommandHandler, WithdrawalFailOutput,
-    WithdrawalRequestCommand, WithdrawalRequestCommandHandler, WithdrawalRequestOutput,
-    WithdrawalSettlementExecuteCommand, WithdrawalSettlementExecuteCommandHandler,
-    WithdrawalSettlementExecuteOutput,
+    WithdrawalNoteSetCommand, WithdrawalNoteSetCommandHandler,
+    WithdrawalNoteSetCommandHandlerError, WithdrawalNoteSetOutput, WithdrawalRequestCommand,
+    WithdrawalRequestCommandHandler, WithdrawalRequestOutput, WithdrawalSettlementExecuteCommand,
+    WithdrawalSettlementExecuteCommandHandler, WithdrawalSettlementExecuteOutput,
 };

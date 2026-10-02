@@ -53,8 +53,8 @@ impl UserIdentity {
         self.provider().eq(provider) && self.subject().eq(subject)
     }
 
-    /// Changes the current email snapshot.
-    pub fn change_email(&mut self, email: Option<Email>) {
+    /// Sets the current email snapshot.
+    pub fn set_email(&mut self, email: Option<Email>) {
         self.email = email;
     }
 }

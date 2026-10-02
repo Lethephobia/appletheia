@@ -24,10 +24,9 @@ impl Saga for UserOldPictureObjectDeletionSaga {
             "user_old_picture_object_deletion",
         ))
         .add_start_step(UserOldPictureObjectDeletionSagaStep::DeletePictureObject)
-        .on::<User>(UserEventPayload::PICTURE_CHANGED)
+        .on::<User>(UserEventPayload::PICTURE_SET)
         .handle(|ctx, domain_event| {
-            let UserEventPayload::PictureChanged { old_picture, .. } = domain_event.payload()
-            else {
+            let UserEventPayload::PictureSet { old_picture, .. } = domain_event.payload() else {
                 return Err(UserOldPictureObjectDeletionSagaHandlerError::UnexpectedEvent);
             };
 
@@ -75,7 +74,7 @@ mod tests {
         let object_name = UserPictureObjectName::new(aggregate_id);
         for old_picture in [Some(UserPictureRef::object_name(object_name.clone())), None] {
             let should_enqueue = old_picture.is_some();
-            let payload = UserEventPayload::PictureChanged {
+            let payload = UserEventPayload::PictureSet {
                 picture: None,
                 old_picture,
             };

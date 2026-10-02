@@ -8,8 +8,7 @@ use appletheia::domain::Aggregate;
 use appletheia::domain::{AggregateId, UniqueValue, UniqueValuePart};
 use banking_iam_domain::OrganizationMembershipError;
 use banking_iam_domain::{
-    Organization, OrganizationId, OrganizationMembership, OrganizationMembershipCreation,
-    OrganizationMembershipState, User, UserId,
+    Organization, OrganizationId, OrganizationMembership, OrganizationMembershipState, User, UserId,
 };
 
 use super::{
@@ -98,11 +97,6 @@ where
     ) -> Result<Self::Output, Self::Error> {
         let mut membership = OrganizationMembership::new();
         let organization_membership_id = membership.aggregate_id();
-        let creation = OrganizationMembershipCreation {
-            organization_id: command.organization_id,
-            user_id: command.user_id,
-            roles: command.roles.clone(),
-        };
 
         let organization = self
             .organization_repository
@@ -138,7 +132,11 @@ where
             return Err(OrganizationMembershipError::AlreadyMember.into());
         }
 
-        membership.create(creation)?;
+        membership.create(
+            command.organization_id,
+            command.user_id,
+            command.roles.clone(),
+        )?;
 
         self.organization_membership_repository
             .save(uow, request_context, &mut membership)

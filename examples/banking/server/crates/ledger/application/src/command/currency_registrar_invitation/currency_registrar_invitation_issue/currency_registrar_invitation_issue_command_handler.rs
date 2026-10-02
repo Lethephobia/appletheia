@@ -8,9 +8,9 @@ use appletheia::domain::Aggregate;
 use appletheia::domain::{AggregateId, UniqueValue};
 use banking_ledger_domain::currency_registrar_invitation::CurrencyRegistrarInvitationError;
 use banking_ledger_domain::{
-    CurrencyRegistrar, CurrencyRegistrarInvitation, CurrencyRegistrarInvitationIssuance,
-    CurrencyRegistrarInvitationIssuer, CurrencyRegistrarInvitationState,
-    CurrencyRegistrarMembership, CurrencyRegistrarMembershipState, User,
+    CurrencyRegistrar, CurrencyRegistrarInvitation, CurrencyRegistrarInvitationIssuer,
+    CurrencyRegistrarInvitationState, CurrencyRegistrarMembership,
+    CurrencyRegistrarMembershipState, User,
 };
 use banking_shared_kernel_domain::timestamps::CurrentDateTime;
 
@@ -116,12 +116,6 @@ where
     ) -> Result<Self::Output, Self::Error> {
         let mut currency_registrar_invitation = CurrencyRegistrarInvitation::new();
         let currency_registrar_invitation_id = currency_registrar_invitation.aggregate_id();
-        let issuance = CurrencyRegistrarInvitationIssuance {
-            currency_registrar_id: command.currency_registrar_id,
-            invitee_id: command.invitee_id,
-            issuer: command.issuer,
-            expires_at: command.expires_at,
-        };
 
         self.currency_registrar_repository
             .read(uow, command.currency_registrar_id)
@@ -155,7 +149,13 @@ where
             return Err(CurrencyRegistrarInvitationError::AlreadyIssued.into());
         }
 
-        currency_registrar_invitation.issue(issuance, CurrentDateTime::new())?;
+        currency_registrar_invitation.issue(
+            command.currency_registrar_id,
+            command.invitee_id,
+            command.issuer,
+            command.expires_at,
+            CurrentDateTime::new(),
+        )?;
 
         self.currency_registrar_invitation_repository
             .save(uow, request_context, &mut currency_registrar_invitation)

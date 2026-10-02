@@ -11,7 +11,6 @@ pub enum CurrencyRegistrarEventPayload {
     Created {
         handle: CurrencyRegistrarHandle,
         display_name: CurrencyRegistrarDisplayName,
-        description: Option<CurrencyRegistrarDescription>,
     },
     HandleChanged {
         handle: CurrencyRegistrarHandle,
@@ -19,7 +18,7 @@ pub enum CurrencyRegistrarEventPayload {
     DisplayNameChanged {
         display_name: CurrencyRegistrarDisplayName,
     },
-    DescriptionChanged {
+    DescriptionSet {
         description: Option<CurrencyRegistrarDescription>,
     },
 }
