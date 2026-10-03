@@ -1,5 +1,5 @@
-use std::fmt::Display;
+use super::{ReadModelRelationshipKeyError, ReadModelResourceKey};
 
-/// A typed relationship key. Its display value must be a valid JSON:API field name,
-/// distinct from `id`, `type`, and every other field name on the read model.
-pub trait ReadModelRelationshipKey: Display + Copy + Eq + Send + Sync {}
+pub trait ReadModelRelationshipKey: Copy + Eq + Send + Sync {
+    fn try_to_resource_key(&self) -> Result<ReadModelResourceKey, ReadModelRelationshipKeyError>;
+}

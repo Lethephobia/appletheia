@@ -5,15 +5,15 @@ use serde_json::Value;
 /// Scalars, objects, arrays, and null are all preserved.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct SerializedReadModelAttributeValue(Value);
+pub struct ReadModelResourceAttributeValue(Value);
 
-impl SerializedReadModelAttributeValue {
+impl ReadModelResourceAttributeValue {
     pub fn value(&self) -> &Value {
         &self.0
     }
 }
 
-impl From<Value> for SerializedReadModelAttributeValue {
+impl From<Value> for ReadModelResourceAttributeValue {
     fn from(value: Value) -> Self {
         Self(value)
     }
