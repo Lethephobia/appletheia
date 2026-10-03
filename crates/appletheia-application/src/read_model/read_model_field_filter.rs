@@ -1,9 +1,12 @@
-use super::{ReadModelAttributeKey, ReadModelRelationshipKey};
+use super::ReadModel;
 
 /// Field allowlists selected after authorization; a filter does not grant access.
 /// New fields remain hidden unless explicitly included in these lists.
-pub trait ReadModelFieldFilter: Send + Sync {
-    fn attribute_keys(&self) -> &[ReadModelAttributeKey];
+pub trait ReadModelFieldFilter<R>: Send + Sync
+where
+    R: ReadModel,
+{
+    fn attribute_keys(&self) -> &[R::AttributeKey];
 
-    fn relationship_keys(&self) -> &[ReadModelRelationshipKey];
+    fn relationship_keys(&self) -> &[R::RelationshipKey];
 }

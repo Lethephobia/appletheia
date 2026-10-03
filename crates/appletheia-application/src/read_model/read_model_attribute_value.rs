@@ -1,20 +1,8 @@
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use super::{ReadModelAttributeValueError, SerializedReadModelAttributeValue};
 
-/// The contained attribute value, without its typed enum's variant tag.
-/// Scalars, objects, arrays, and null are all preserved.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct ReadModelAttributeValue(Value);
-
-impl ReadModelAttributeValue {
-    pub fn value(&self) -> &Value {
-        &self.0
-    }
-}
-
-impl From<Value> for ReadModelAttributeValue {
-    fn from(value: Value) -> Self {
-        Self(value)
-    }
+/// A typed attribute value that serializes its contents without an enum variant tag.
+pub trait ReadModelAttributeValue: Send + Sync {
+    fn try_to_value(
+        &self,
+    ) -> Result<SerializedReadModelAttributeValue, ReadModelAttributeValueError>;
 }
