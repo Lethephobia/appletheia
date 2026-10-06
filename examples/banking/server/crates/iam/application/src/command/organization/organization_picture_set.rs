@@ -1,0 +1,9 @@
+mod organization_picture_set_command;
+mod organization_picture_set_command_handler;
+mod organization_picture_set_command_handler_error;
+mod organization_picture_set_output;
+
+pub use organization_picture_set_command::OrganizationPictureSetCommand;
+pub use organization_picture_set_command_handler::OrganizationPictureSetCommandHandler;
+pub use organization_picture_set_command_handler_error::OrganizationPictureSetCommandHandlerError;
+pub use organization_picture_set_output::OrganizationPictureSetOutput;

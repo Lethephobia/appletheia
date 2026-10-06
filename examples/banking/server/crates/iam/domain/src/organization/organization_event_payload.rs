@@ -12,9 +12,6 @@ pub enum OrganizationEventPayload {
         owner: OrganizationOwner,
         handle: OrganizationHandle,
         display_name: OrganizationDisplayName,
-        description: Option<OrganizationDescription>,
-        website_url: Option<OrganizationWebsiteUrl>,
-        picture: Option<OrganizationPictureRef>,
     },
     OwnershipTransferred {
         owner: OrganizationOwner,
@@ -25,13 +22,13 @@ pub enum OrganizationEventPayload {
     DisplayNameChanged {
         display_name: OrganizationDisplayName,
     },
-    DescriptionChanged {
+    DescriptionSet {
         description: Option<OrganizationDescription>,
     },
-    WebsiteUrlChanged {
+    WebsiteUrlSet {
         website_url: Option<OrganizationWebsiteUrl>,
     },
-    PictureChanged {
+    PictureSet {
         picture: Option<OrganizationPictureRef>,
         old_picture: Option<OrganizationPictureRef>,
     },
@@ -69,16 +66,16 @@ mod tests {
             appletheia::domain::EventName::new("display_name_changed")
         );
         assert_eq!(
-            OrganizationEventPayload::DESCRIPTION_CHANGED,
-            appletheia::domain::EventName::new("description_changed")
+            OrganizationEventPayload::DESCRIPTION_SET,
+            appletheia::domain::EventName::new("description_set")
         );
         assert_eq!(
-            OrganizationEventPayload::WEBSITE_URL_CHANGED,
-            appletheia::domain::EventName::new("website_url_changed")
+            OrganizationEventPayload::WEBSITE_URL_SET,
+            appletheia::domain::EventName::new("website_url_set")
         );
         assert_eq!(
-            OrganizationEventPayload::PICTURE_CHANGED,
-            appletheia::domain::EventName::new("picture_changed")
+            OrganizationEventPayload::PICTURE_SET,
+            appletheia::domain::EventName::new("picture_set")
         );
         assert_eq!(
             OrganizationEventPayload::REMOVED,
@@ -99,8 +96,8 @@ mod tests {
     }
 
     #[test]
-    fn serializes_website_url_changed_payload_to_json() {
-        let payload = OrganizationEventPayload::WebsiteUrlChanged {
+    fn serializes_website_url_set_payload_to_json() {
+        let payload = OrganizationEventPayload::WebsiteUrlSet {
             website_url: Some(
                 OrganizationWebsiteUrl::try_from("https://acme.example.com")
                     .expect("website URL should be valid"),
@@ -111,7 +108,7 @@ mod tests {
             .try_into_json_value()
             .expect("payload should serialize");
 
-        assert_eq!(value["type"], serde_json::json!("website_url_changed"));
+        assert_eq!(value["type"], serde_json::json!("website_url_set"));
         assert_eq!(
             value["data"]["website_url"],
             serde_json::json!("https://acme.example.com/")
@@ -124,9 +121,6 @@ mod tests {
             owner: OrganizationOwner::User(UserId::new()),
             handle: OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
             display_name: display_name(),
-            description: None,
-            website_url: None,
-            picture: None,
         };
 
         let value = payload

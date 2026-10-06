@@ -54,7 +54,10 @@ impl OwnedAccountClosure {
         let state = self.state_required()?;
         Ok(state.status == OwnedAccountClosureStatus::InProgress
             && state.scan_completed
-            && state.requested_count == state.succeeded_count.try_add(state.failed_count)?)
+            && state.requested_count
+                == state
+                    .succeeded_count
+                    .try_add(state.failed_count.value() as usize)?)
     }
 
     pub fn start(&mut self, owner: AccountOwner) -> Result<(), OwnedAccountClosureError> {
@@ -65,21 +68,9 @@ impl OwnedAccountClosure {
         Ok(())
     }
 
-    pub fn request(&mut self, account_id: AccountId) -> Result<(), OwnedAccountClosureError> {
-        let state = self.state_required()?;
-        if state.status == OwnedAccountClosureStatus::Completed {
-            return Err(OwnedAccountClosureError::AlreadyCompleted);
-        }
-        if state.scan_completed {
-            return Err(OwnedAccountClosureError::ScanAlreadyCompleted);
-        }
-        state.requested_count.try_increment()?;
-        self.append_event(OwnedAccountClosureEventPayload::Requested { account_id })?;
-        Ok(())
-    }
-
     pub fn record_scanned(
         &mut self,
+        account_ids: Vec<AccountId>,
         next_cursor: Option<AccountId>,
     ) -> Result<(), OwnedAccountClosureError> {
         let state = self.state_required()?;
@@ -92,7 +83,11 @@ impl OwnedAccountClosure {
         if next_cursor.is_some_and(|next| state.next_cursor.is_some_and(|cursor| next <= cursor)) {
             return Err(OwnedAccountClosureError::UnexpectedCursor);
         }
-        self.append_event(OwnedAccountClosureEventPayload::Scanned { next_cursor })?;
+        state.requested_count.try_add(account_ids.len())?;
+        self.append_event(OwnedAccountClosureEventPayload::Scanned {
+            account_ids,
+            next_cursor,
+        })?;
         Ok(())
     }
 
@@ -104,7 +99,11 @@ impl OwnedAccountClosure {
         if state.status == OwnedAccountClosureStatus::Completed {
             return Err(OwnedAccountClosureError::AlreadyCompleted);
         }
-        if state.succeeded_count.try_add(state.failed_count)? >= state.requested_count {
+        if state
+            .succeeded_count
+            .try_add(state.failed_count.value() as usize)?
+            >= state.requested_count
+        {
             return Err(OwnedAccountClosureError::NoPendingResults);
         }
         self.append_event(OwnedAccountClosureEventPayload::Succeeded { account_id })?;
@@ -116,7 +115,11 @@ impl OwnedAccountClosure {
         if state.status == OwnedAccountClosureStatus::Completed {
             return Err(OwnedAccountClosureError::AlreadyCompleted);
         }
-        if state.succeeded_count.try_add(state.failed_count)? >= state.requested_count {
+        if state
+            .succeeded_count
+            .try_add(state.failed_count.value() as usize)?
+            >= state.requested_count
+        {
             return Err(OwnedAccountClosureError::NoPendingResults);
         }
         self.append_event(OwnedAccountClosureEventPayload::Failed { account_id })?;
@@ -158,12 +161,12 @@ impl AggregateApply<OwnedAccountClosureEventPayload, OwnedAccountClosureError>
                     status: OwnedAccountClosureStatus::InProgress,
                 }));
             }
-            OwnedAccountClosureEventPayload::Requested { .. } => {
+            OwnedAccountClosureEventPayload::Scanned {
+                account_ids,
+                next_cursor,
+            } => {
                 let state = self.state_required_mut()?;
-                state.requested_count = state.requested_count.try_increment()?;
-            }
-            OwnedAccountClosureEventPayload::Scanned { next_cursor } => {
-                let state = self.state_required_mut()?;
+                state.requested_count = state.requested_count.try_add(account_ids.len())?;
                 state.next_cursor = *next_cursor;
                 state.scan_completed = next_cursor.is_none();
             }
@@ -204,20 +207,18 @@ mod tests {
     fn each_operation_emits_only_its_own_event() {
         let mut closure = started();
         let [first, second] = account_ids();
-        closure.request(first).unwrap();
-        closure.record_scanned(Some(first)).unwrap();
-        closure.request(second).unwrap();
-        closure.record_scanned(None).unwrap();
+        closure.record_scanned(vec![first], Some(first)).unwrap();
+        closure.record_scanned(vec![second], None).unwrap();
         closure.record_succeeded(first).unwrap();
         closure.record_failed(second).unwrap();
-        assert_eq!(closure.uncommitted_events().len(), 7);
+        assert_eq!(closure.uncommitted_events().len(), 5);
         assert!(closure.is_ready_to_complete().unwrap());
         assert_eq!(
             closure.status().unwrap(),
             OwnedAccountClosureStatus::InProgress
         );
         closure.complete().unwrap();
-        assert_eq!(closure.uncommitted_events().len(), 8);
+        assert_eq!(closure.uncommitted_events().len(), 6);
         let payloads: Vec<_> = closure
             .uncommitted_events()
             .iter()
@@ -227,10 +228,8 @@ mod tests {
             payloads.as_slice(),
             [
                 OwnedAccountClosureEventPayload::Started { .. },
-                OwnedAccountClosureEventPayload::Requested { .. },
                 OwnedAccountClosureEventPayload::Scanned { .. },
-                OwnedAccountClosureEventPayload::Requested { .. },
-                OwnedAccountClosureEventPayload::Scanned { next_cursor: None },
+                OwnedAccountClosureEventPayload::Scanned { next_cursor: None, .. },
                 OwnedAccountClosureEventPayload::Succeeded { .. },
                 OwnedAccountClosureEventPayload::Failed { .. },
                 OwnedAccountClosureEventPayload::Completed {
@@ -246,7 +245,7 @@ mod tests {
         let mut closure = started();
         assert!(!closure.is_ready_to_complete().unwrap());
         assert!(closure.complete().is_err());
-        closure.record_scanned(None).unwrap();
+        closure.record_scanned(vec![], None).unwrap();
         assert_eq!(closure.uncommitted_events().len(), 2);
         assert!(closure.is_ready_to_complete().unwrap());
         closure.complete().unwrap();
@@ -264,9 +263,11 @@ mod tests {
         for scan_finishes_first in [false, true] {
             let mut closure = started();
             let account_id = AccountId::new();
-            closure.request(account_id).unwrap();
+            closure
+                .record_scanned(vec![account_id], Some(account_id))
+                .unwrap();
             if scan_finishes_first {
-                closure.record_scanned(None).unwrap();
+                closure.record_scanned(vec![], None).unwrap();
             } else {
                 closure.record_succeeded(account_id).unwrap();
             }
@@ -280,7 +281,7 @@ mod tests {
             if scan_finishes_first {
                 closure.record_succeeded(account_id).unwrap();
             } else {
-                closure.record_scanned(None).unwrap();
+                closure.record_scanned(vec![], None).unwrap();
             }
             assert!(closure.is_ready_to_complete().unwrap());
         }
@@ -298,7 +299,9 @@ mod tests {
             closure.record_failed(account_id),
             Err(OwnedAccountClosureError::NoPendingResults)
         ));
-        closure.request(account_id).unwrap();
+        closure
+            .record_scanned(vec![account_id], Some(account_id))
+            .unwrap();
         closure.record_succeeded(account_id).unwrap();
         let count = closure.uncommitted_events().len();
         assert!(matches!(
@@ -316,15 +319,17 @@ mod tests {
     fn scan_cursor_advances_without_retaining_requested_account_ids() {
         let mut closure = started();
         let [first, second] = account_ids();
-        closure.request(first).unwrap();
-        closure.record_scanned(Some(first)).unwrap();
-        assert!(closure.record_scanned(Some(first)).is_err());
-        closure.request(second).unwrap();
-        closure.record_scanned(Some(second)).unwrap();
+        closure.record_scanned(vec![first], Some(first)).unwrap();
+        assert!(closure.record_scanned(vec![], Some(first)).is_err());
+        closure.record_scanned(vec![second], Some(second)).unwrap();
         assert_eq!(closure.next_cursor().unwrap(), Some(second));
-        closure.record_scanned(None).unwrap();
-        assert!(closure.request(AccountId::new()).is_err());
-        assert!(closure.record_scanned(None).is_err());
+        closure.record_scanned(vec![], None).unwrap();
+        assert!(
+            closure
+                .record_scanned(vec![AccountId::new()], None)
+                .is_err()
+        );
+        assert!(closure.record_scanned(vec![], None).is_err());
         let state = serde_json::to_value(closure.state_required().unwrap()).unwrap();
         assert_eq!(state["requested_count"], 2);
         assert!(state.get("pending_account_ids").is_none());
@@ -332,12 +337,12 @@ mod tests {
     }
 
     #[test]
-    fn request_overflow_is_rejected_before_appending_an_event() {
+    fn scan_count_overflow_is_rejected_before_appending_an_event() {
         let mut closure = started();
         closure.state_required_mut().unwrap().requested_count =
             OwnedAccountClosureCount::new(u32::MAX);
         assert!(matches!(
-            closure.request(AccountId::new()),
+            closure.record_scanned(vec![AccountId::new()], None),
             Err(OwnedAccountClosureError::Count(
                 OwnedAccountClosureCountError::Overflow
             ))
@@ -349,9 +354,7 @@ mod tests {
     fn replay_preserves_counts_without_emitting_completion() {
         let mut closure = started();
         let [first, second] = account_ids();
-        closure.request(first).unwrap();
-        closure.request(second).unwrap();
-        closure.record_scanned(None).unwrap();
+        closure.record_scanned(vec![first, second], None).unwrap();
         closure.record_failed(first).unwrap();
         let mut replayed = OwnedAccountClosure::new();
         for event in closure.uncommitted_events() {

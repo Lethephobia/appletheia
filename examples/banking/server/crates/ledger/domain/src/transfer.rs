@@ -5,7 +5,6 @@ mod transfer_failure_reason;
 mod transfer_id;
 mod transfer_note;
 mod transfer_note_error;
-mod transfer_request;
 mod transfer_state;
 mod transfer_state_error;
 mod transfer_status;
@@ -17,7 +16,6 @@ pub use transfer_failure_reason::TransferFailureReason;
 pub use transfer_id::TransferId;
 pub use transfer_note::TransferNote;
 pub use transfer_note_error::TransferNoteError;
-pub use transfer_request::TransferRequest;
 pub use transfer_state::TransferState;
 pub use transfer_state_error::TransferStateError;
 pub use transfer_status::TransferStatus;
@@ -60,27 +58,38 @@ impl Transfer {
     }
 
     /// Requests a new transfer.
-    pub fn request(&mut self, request: TransferRequest) -> Result<(), TransferError> {
+    pub fn request(
+        &mut self,
+        from_account_id: AccountId,
+        to_account_id: AccountId,
+        amount: CurrencyAmount,
+    ) -> Result<(), TransferError> {
         if self.state().is_some() {
             return Err(TransferError::AlreadyRequested);
         }
 
-        if request.is_same_account() {
+        if from_account_id == to_account_id {
             return Err(TransferError::SameSourceAndDestinationAccount);
         }
 
-        if request.amount().is_zero() {
+        if amount.is_zero() {
             return Err(TransferError::ZeroAmount);
         }
 
-        let (from_account_id, to_account_id, amount, note) = request.into_parts();
         self.append_event(TransferEventPayload::Requested {
             from_account_id,
             to_account_id,
             amount,
-            note,
         })?;
 
+        Ok(())
+    }
+
+    /// Sets or clears the note, including after completion.
+    pub fn set_note(&mut self, note: Option<TransferNote>) -> Result<(), TransferError> {
+        self.state_required()?;
+
+        self.append_event(TransferEventPayload::NoteSet { note })?;
         Ok(())
     }
 
@@ -132,14 +141,16 @@ impl AggregateApply<TransferEventPayload, TransferError> for Transfer {
                 from_account_id,
                 to_account_id,
                 amount,
-                note,
             } => self.set_state(Some(TransferState {
                 from_account_id: *from_account_id,
                 to_account_id: *to_account_id,
                 amount: *amount,
-                note: note.clone(),
+                note: None,
                 status: TransferStatus::Pending,
             })),
+            TransferEventPayload::NoteSet { note } => {
+                self.state_required_mut()?.note = note.clone();
+            }
             TransferEventPayload::Completed => {
                 self.state_required_mut()?.status = TransferStatus::Completed;
             }
@@ -149,5 +160,44 @@ impl AggregateApply<TransferEventPayload, TransferError> for Transfer {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use appletheia::domain::{Aggregate, AggregateApply};
+
+    use crate::account::AccountId;
+    use crate::core::CurrencyAmount;
+
+    use super::{Transfer, TransferNote};
+
+    #[test]
+    fn notes_can_be_set_and_cleared_after_completion_and_replayed() {
+        let mut transfer = Transfer::new();
+        assert!(transfer.set_note(None).is_err());
+        assert!(transfer.uncommitted_events().is_empty());
+        transfer
+            .request(AccountId::new(), AccountId::new(), CurrencyAmount::new(100))
+            .unwrap();
+        assert_eq!(transfer.note().unwrap(), None);
+        let note = TransferNote::try_from("invoice 123").unwrap();
+        transfer.set_note(Some(note.clone())).unwrap();
+        assert_eq!(transfer.note().unwrap(), Some(&note));
+        transfer.complete().unwrap();
+        let note = TransferNote::try_from("invoice corrected").unwrap();
+        transfer.set_note(Some(note.clone())).unwrap();
+        assert_eq!(transfer.note().unwrap(), Some(&note));
+        transfer.set_note(None).unwrap();
+        let count = transfer.uncommitted_events().len();
+        transfer.set_note(None).unwrap();
+        assert_eq!(transfer.uncommitted_events().len(), count + 1);
+        assert_eq!(transfer.note().unwrap(), None);
+
+        let mut replayed = Transfer::new();
+        for event in transfer.uncommitted_events() {
+            replayed.apply(event.payload()).unwrap();
+        }
+        assert_eq!(replayed.state(), transfer.state());
     }
 }

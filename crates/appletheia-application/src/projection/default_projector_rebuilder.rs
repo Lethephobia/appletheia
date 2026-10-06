@@ -1,12 +1,11 @@
 use std::sync::atomic::{AtomicBool, Ordering as AtomicOrdering};
 
 use crate::event::EventFeedReader;
-use crate::read_model::MaterializationEventContext;
 use crate::unit_of_work::{UnitOfWork, UnitOfWorkFactory};
 
 use super::{
-    ProcessedEventCount, ProjectionCheckpointStore, Projector, ProjectorNameOwned,
-    ProjectorProcessedEventStore, ProjectorRebuildReport, ProjectorRebuilder,
+    MaterializationEventContext, ProcessedEventCount, ProjectionCheckpointStore, Projector,
+    ProjectorNameOwned, ProjectorProcessedEventStore, ProjectorRebuildReport, ProjectorRebuilder,
     ProjectorRebuilderConfig, ProjectorRebuilderError, ProjectorSpec,
 };
 

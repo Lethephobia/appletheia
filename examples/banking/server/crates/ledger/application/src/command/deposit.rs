@@ -1,5 +1,6 @@
 mod deposit_complete;
 mod deposit_fail;
+mod deposit_note_set;
 mod deposit_settlement_prepare;
 mod deposit_settlement_verify;
 
@@ -18,4 +19,9 @@ pub use deposit_settlement_prepare::{
 pub use deposit_settlement_verify::{
     DepositSettlementVerifyCommand, DepositSettlementVerifyCommandHandler,
     DepositSettlementVerifyCommandHandlerError, DepositSettlementVerifyOutput,
+};
+
+pub use deposit_note_set::{
+    DepositNoteSetCommand, DepositNoteSetCommandHandler, DepositNoteSetCommandHandlerError,
+    DepositNoteSetOutput,
 };

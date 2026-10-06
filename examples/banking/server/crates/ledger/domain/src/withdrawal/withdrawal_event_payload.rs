@@ -14,10 +14,12 @@ pub enum WithdrawalEventPayload {
         token_binding_id: TokenBindingId,
         token_owner_address: TokenOwnerAddress,
         amount: CurrencyAmount,
-        note: Option<WithdrawalNote>,
     },
     SettlementExecuted {
         transaction_id: OnchainTransactionId,
+    },
+    NoteSet {
+        note: Option<WithdrawalNote>,
     },
     Completed,
     Failed {

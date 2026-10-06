@@ -106,10 +106,7 @@ where
             }
         };
 
-        for account_id in page.source_ids {
-            owned_account_closure.request(account_id)?;
-        }
-        owned_account_closure.record_scanned(page.next_cursor)?;
+        owned_account_closure.record_scanned(page.source_ids, page.next_cursor)?;
         if owned_account_closure.is_ready_to_complete()? {
             owned_account_closure.complete()?;
         }
@@ -265,7 +262,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn scan_saves_requests_and_boundary_once_without_waiting_for_results() {
+    async fn scan_saves_one_page_event_without_waiting_for_results() {
         let repository = repository();
         let id = repository.closure.lock().unwrap().aggregate_id();
         let mut account_ids = [AccountId::new(), AccountId::new(), AccountId::new()];
@@ -273,7 +270,7 @@ mod tests {
         let [previous, first, second] = account_ids;
         {
             let mut closure = repository.closure.lock().unwrap();
-            closure.record_scanned(Some(previous)).unwrap();
+            closure.record_scanned(vec![], Some(previous)).unwrap();
             closure.core_mut().clear_uncommitted_events();
         }
         let handler = OwnedAccountClosureScanCommandHandler::new(
@@ -301,11 +298,8 @@ mod tests {
         assert_eq!(saved.len(), 1);
         assert!(matches!(
             saved[0].as_slice(),
-            [
-                OwnedAccountClosureEventPayload::Requested { .. },
-                OwnedAccountClosureEventPayload::Requested { .. },
-                OwnedAccountClosureEventPayload::Scanned { .. }
-            ]
+            [OwnedAccountClosureEventPayload::Scanned { account_ids, next_cursor }]
+                if account_ids == &vec![first, second] && *next_cursor == Some(second)
         ));
         assert_eq!(
             repository.closure.lock().unwrap().status().unwrap(),
@@ -343,7 +337,7 @@ mod tests {
         assert!(matches!(
             saved[0].as_slice(),
             [
-                OwnedAccountClosureEventPayload::Scanned { next_cursor: None },
+                OwnedAccountClosureEventPayload::Scanned { next_cursor: None, .. },
                 OwnedAccountClosureEventPayload::Completed {
                     succeeded_count, failed_count
                 }
@@ -358,8 +352,7 @@ mod tests {
             let account_id = AccountId::new();
             let id = {
                 let mut closure = repository.closure.lock().unwrap();
-                closure.request(account_id).unwrap();
-                closure.record_scanned(None).unwrap();
+                closure.record_scanned(vec![account_id], None).unwrap();
                 closure.core_mut().clear_uncommitted_events();
                 closure.aggregate_id()
             };
@@ -411,11 +404,10 @@ mod tests {
                 let mut closure = repository.closure.lock().unwrap();
                 match case {
                     1 => {
-                        closure.request(account_id).unwrap();
-                        closure.record_scanned(None).unwrap();
+                        closure.record_scanned(vec![account_id], None).unwrap();
                     }
                     _ => {
-                        closure.record_scanned(None).unwrap();
+                        closure.record_scanned(vec![], None).unwrap();
                         closure.complete().unwrap();
                     }
                 }

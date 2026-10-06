@@ -1,1 +1,1 @@
-pub mod read_model;
+pub mod query;

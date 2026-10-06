@@ -8,10 +8,8 @@ pub enum OwnedAccountClosureEventPayload {
     Started {
         owner: AccountOwner,
     },
-    Requested {
-        account_id: AccountId,
-    },
     Scanned {
+        account_ids: Vec<AccountId>,
         next_cursor: Option<AccountId>,
     },
     Succeeded {

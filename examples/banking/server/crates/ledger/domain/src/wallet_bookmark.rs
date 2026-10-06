@@ -7,7 +7,6 @@ mod wallet_bookmark_event_payload;
 mod wallet_bookmark_event_payload_error;
 mod wallet_bookmark_id;
 mod wallet_bookmark_owner;
-mod wallet_bookmark_registration;
 mod wallet_bookmark_state;
 mod wallet_bookmark_state_error;
 mod wallet_bookmark_status;
@@ -21,7 +20,6 @@ pub use wallet_bookmark_event_payload::WalletBookmarkEventPayload;
 pub use wallet_bookmark_event_payload_error::WalletBookmarkEventPayloadError;
 pub use wallet_bookmark_id::WalletBookmarkId;
 pub use wallet_bookmark_owner::WalletBookmarkOwner;
-pub use wallet_bookmark_registration::WalletBookmarkRegistration;
 pub use wallet_bookmark_state::WalletBookmarkState;
 pub use wallet_bookmark_state_error::WalletBookmarkStateError;
 pub use wallet_bookmark_status::WalletBookmarkStatus;
@@ -66,25 +64,23 @@ impl WalletBookmark {
     /// Registers a wallet bookmark.
     pub fn register(
         &mut self,
-        registration: WalletBookmarkRegistration,
+        owner: WalletBookmarkOwner,
+        token_owner_address: TokenOwnerAddress,
     ) -> Result<(), WalletBookmarkError> {
         if self.state().is_some() {
             return Err(WalletBookmarkError::AlreadyRegistered);
         }
 
-        let (owner, display_name, description, token_owner_address) = registration.into_parts();
         self.append_event(WalletBookmarkEventPayload::Registered {
             owner,
-            display_name,
-            description,
             token_owner_address,
         })?;
 
         Ok(())
     }
 
-    /// Changes the user-facing display name.
-    pub fn change_display_name(
+    /// Sets the user-facing display name.
+    pub fn set_display_name(
         &mut self,
         display_name: Option<WalletBookmarkDisplayName>,
     ) -> Result<(), WalletBookmarkError> {
@@ -95,12 +91,12 @@ impl WalletBookmark {
             }
         }
 
-        self.append_event(WalletBookmarkEventPayload::DisplayNameChanged { display_name })?;
+        self.append_event(WalletBookmarkEventPayload::DisplayNameSet { display_name })?;
         Ok(())
     }
 
-    /// Changes the user-facing description.
-    pub fn change_description(
+    /// Sets the user-facing description.
+    pub fn set_description(
         &mut self,
         description: Option<WalletBookmarkDescription>,
     ) -> Result<(), WalletBookmarkError> {
@@ -111,7 +107,7 @@ impl WalletBookmark {
             }
         }
 
-        self.append_event(WalletBookmarkEventPayload::DescriptionChanged { description })?;
+        self.append_event(WalletBookmarkEventPayload::DescriptionSet { description })?;
         Ok(())
     }
 
@@ -134,20 +130,18 @@ impl AggregateApply<WalletBookmarkEventPayload, WalletBookmarkError> for WalletB
         match payload {
             WalletBookmarkEventPayload::Registered {
                 owner,
-                display_name,
-                description,
                 token_owner_address,
             } => self.set_state(Some(WalletBookmarkState {
                 owner: *owner,
-                display_name: display_name.clone(),
-                description: description.clone(),
+                display_name: None,
+                description: None,
                 token_owner_address: *token_owner_address,
                 status: WalletBookmarkStatus::Active,
             })),
-            WalletBookmarkEventPayload::DisplayNameChanged { display_name } => {
+            WalletBookmarkEventPayload::DisplayNameSet { display_name } => {
                 self.state_required_mut()?.display_name = display_name.clone();
             }
-            WalletBookmarkEventPayload::DescriptionChanged { description } => {
+            WalletBookmarkEventPayload::DescriptionSet { description } => {
                 self.state_required_mut()?.description = description.clone();
             }
             WalletBookmarkEventPayload::Removed => {
@@ -161,15 +155,14 @@ impl AggregateApply<WalletBookmarkEventPayload, WalletBookmarkError> for WalletB
 
 #[cfg(test)]
 mod tests {
-    use appletheia::domain::{Aggregate, EventPayload};
+    use appletheia::domain::{Aggregate, AggregateApply, EventPayload};
     use banking_iam_domain::UserId;
 
     use crate::core::{SolanaAccountAddress, SolanaTokenAccountOwnerAddress, TokenOwnerAddress};
 
     use super::{
         WalletBookmark, WalletBookmarkDescription, WalletBookmarkDisplayName,
-        WalletBookmarkEventPayload, WalletBookmarkOwner, WalletBookmarkRegistration,
-        WalletBookmarkStatus,
+        WalletBookmarkEventPayload, WalletBookmarkOwner, WalletBookmarkStatus,
     };
 
     fn token_owner_address() -> TokenOwnerAddress {
@@ -194,18 +187,11 @@ mod tests {
     #[test]
     fn register_initializes_state_and_records_event() {
         let owner = wallet_bookmark_owner();
-        let display_name = wallet_bookmark_display_name();
-        let description = wallet_bookmark_description();
         let token_owner_address = token_owner_address();
         let mut wallet_bookmark = WalletBookmark::new();
 
         wallet_bookmark
-            .register(WalletBookmarkRegistration {
-                owner,
-                display_name: Some(display_name.clone()),
-                description: Some(description.clone()),
-                token_owner_address,
-            })
+            .register(owner, token_owner_address)
             .expect("register should succeed");
 
         assert_eq!(wallet_bookmark.owner().expect("owner should exist"), &owner);
@@ -213,13 +199,13 @@ mod tests {
             wallet_bookmark
                 .display_name()
                 .expect("display name lookup should succeed"),
-            Some(&display_name)
+            None
         );
         assert_eq!(
             wallet_bookmark
                 .description()
                 .expect("description lookup should succeed"),
-            Some(&description)
+            None
         );
         assert_eq!(
             wallet_bookmark
@@ -243,17 +229,10 @@ mod tests {
     #[test]
     fn remove_marks_bookmark_removed() {
         let owner = wallet_bookmark_owner();
-        let display_name = wallet_bookmark_display_name();
-        let description = wallet_bookmark_description();
         let token_owner_address = token_owner_address();
         let mut wallet_bookmark = WalletBookmark::new();
         wallet_bookmark
-            .register(WalletBookmarkRegistration {
-                owner,
-                display_name: Some(display_name),
-                description: Some(description),
-                token_owner_address,
-            })
+            .register(owner, token_owner_address)
             .expect("register should succeed");
         wallet_bookmark.core_mut().clear_uncommitted_events();
 
@@ -274,17 +253,10 @@ mod tests {
     #[test]
     fn remove_rejects_when_already_removed() {
         let owner = wallet_bookmark_owner();
-        let display_name = wallet_bookmark_display_name();
-        let description = wallet_bookmark_description();
         let token_owner_address = token_owner_address();
         let mut wallet_bookmark = WalletBookmark::new();
         wallet_bookmark
-            .register(WalletBookmarkRegistration {
-                owner,
-                display_name: Some(display_name),
-                description: Some(description),
-                token_owner_address,
-            })
+            .register(owner, token_owner_address)
             .expect("register should succeed");
         wallet_bookmark.core_mut().clear_uncommitted_events();
         wallet_bookmark
@@ -297,5 +269,38 @@ mod tests {
             .expect_err("second remove should fail");
         let events = wallet_bookmark.uncommitted_events();
         assert!(events.is_empty());
+    }
+
+    #[test]
+    fn optional_fields_are_set_separately_and_replayable() {
+        let mut wallet_bookmark = WalletBookmark::new();
+        wallet_bookmark
+            .register(wallet_bookmark_owner(), token_owner_address())
+            .unwrap();
+        assert_eq!(wallet_bookmark.uncommitted_events().len(), 1);
+        assert_eq!(wallet_bookmark.display_name().unwrap(), None);
+        let value = wallet_bookmark_display_name();
+        wallet_bookmark
+            .set_display_name(Some(value.clone()))
+            .unwrap();
+        assert_eq!(wallet_bookmark.display_name().unwrap(), Some(&value));
+        wallet_bookmark.set_display_name(None).unwrap();
+        wallet_bookmark.set_display_name(None).unwrap();
+        assert_eq!(wallet_bookmark.display_name().unwrap(), None);
+        assert_eq!(wallet_bookmark.description().unwrap(), None);
+        let value = wallet_bookmark_description();
+        wallet_bookmark
+            .set_description(Some(value.clone()))
+            .unwrap();
+        assert_eq!(wallet_bookmark.description().unwrap(), Some(&value));
+        wallet_bookmark.set_description(None).unwrap();
+        wallet_bookmark.set_description(None).unwrap();
+        assert_eq!(wallet_bookmark.description().unwrap(), None);
+        assert_eq!(wallet_bookmark.uncommitted_events().len(), 7);
+        let mut replayed = WalletBookmark::new();
+        for event in wallet_bookmark.uncommitted_events() {
+            replayed.apply(event.payload()).unwrap();
+        }
+        assert_eq!(replayed.state(), wallet_bookmark.state());
     }
 }

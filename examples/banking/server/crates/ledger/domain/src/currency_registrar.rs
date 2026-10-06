@@ -1,4 +1,3 @@
-mod currency_registrar_creation;
 mod currency_registrar_description;
 mod currency_registrar_description_error;
 mod currency_registrar_display_name;
@@ -12,7 +11,6 @@ mod currency_registrar_id;
 mod currency_registrar_state;
 mod currency_registrar_state_error;
 
-pub use currency_registrar_creation::CurrencyRegistrarCreation;
 pub use currency_registrar_description::CurrencyRegistrarDescription;
 pub use currency_registrar_description_error::CurrencyRegistrarDescriptionError;
 pub use currency_registrar_display_name::CurrencyRegistrarDisplayName;
@@ -53,17 +51,16 @@ impl CurrencyRegistrar {
     /// Creates the registrar.
     pub fn create(
         &mut self,
-        creation: CurrencyRegistrarCreation,
+        handle: CurrencyRegistrarHandle,
+        display_name: CurrencyRegistrarDisplayName,
     ) -> Result<(), CurrencyRegistrarError> {
         if self.state().is_some() {
             return Err(CurrencyRegistrarError::AlreadyCreated);
         }
 
-        let (handle, display_name, description) = creation.into_parts();
         self.append_event(CurrencyRegistrarEventPayload::Created {
             handle,
             display_name,
-            description,
         })?;
         Ok(())
     }
@@ -86,12 +83,12 @@ impl CurrencyRegistrar {
         Ok(())
     }
 
-    pub fn change_description(
+    pub fn set_description(
         &mut self,
         description: Option<CurrencyRegistrarDescription>,
     ) -> Result<(), CurrencyRegistrarError> {
         self.state_required()?;
-        self.append_event(CurrencyRegistrarEventPayload::DescriptionChanged { description })?;
+        self.append_event(CurrencyRegistrarEventPayload::DescriptionSet { description })?;
         Ok(())
     }
 }
@@ -105,12 +102,11 @@ impl AggregateApply<CurrencyRegistrarEventPayload, CurrencyRegistrarError> for C
             CurrencyRegistrarEventPayload::Created {
                 handle,
                 display_name,
-                description,
             } => {
                 self.set_state(Some(CurrencyRegistrarState {
                     handle: handle.clone(),
                     display_name: display_name.clone(),
-                    description: description.clone(),
+                    description: None,
                 }));
             }
             CurrencyRegistrarEventPayload::HandleChanged { handle } => {
@@ -119,7 +115,7 @@ impl AggregateApply<CurrencyRegistrarEventPayload, CurrencyRegistrarError> for C
             CurrencyRegistrarEventPayload::DisplayNameChanged { display_name } => {
                 self.state_required_mut()?.display_name = display_name.clone();
             }
-            CurrencyRegistrarEventPayload::DescriptionChanged { description } => {
+            CurrencyRegistrarEventPayload::DescriptionSet { description } => {
                 self.state_required_mut()?.description = description.clone();
             }
         }
@@ -130,27 +126,49 @@ impl AggregateApply<CurrencyRegistrarEventPayload, CurrencyRegistrarError> for C
 
 #[cfg(test)]
 mod tests {
-    use appletheia::domain::Aggregate;
+    use appletheia::domain::{Aggregate, AggregateApply};
 
-    use super::{
-        CurrencyRegistrar, CurrencyRegistrarCreation, CurrencyRegistrarDisplayName,
-        CurrencyRegistrarHandle,
-    };
+    use super::{CurrencyRegistrar, CurrencyRegistrarDisplayName, CurrencyRegistrarHandle};
 
     #[test]
     fn create_initializes_the_registrar() {
         let mut registrar = CurrencyRegistrar::new();
 
         registrar
-            .create(CurrencyRegistrarCreation {
-                handle: CurrencyRegistrarHandle::try_from("example")
-                    .expect("handle should be valid"),
-                display_name: CurrencyRegistrarDisplayName::try_from("Example")
+            .create(
+                CurrencyRegistrarHandle::try_from("example").expect("handle should be valid"),
+                CurrencyRegistrarDisplayName::try_from("Example")
                     .expect("display name should be valid"),
-                description: None,
-            })
+            )
             .expect("registrar should be created");
 
         assert!(registrar.state().is_some());
+    }
+
+    #[test]
+    fn optional_fields_are_set_separately_and_replayable() {
+        let mut currency_registrar = CurrencyRegistrar::new();
+        currency_registrar
+            .create(
+                CurrencyRegistrarHandle::try_from("example").unwrap(),
+                CurrencyRegistrarDisplayName::try_from("Example").unwrap(),
+            )
+            .unwrap();
+        assert_eq!(currency_registrar.uncommitted_events().len(), 1);
+        assert_eq!(currency_registrar.description().unwrap(), None);
+        let value = super::CurrencyRegistrarDescription::try_from("Registrar").unwrap();
+        currency_registrar
+            .set_description(Some(value.clone()))
+            .unwrap();
+        assert_eq!(currency_registrar.description().unwrap(), Some(&value));
+        currency_registrar.set_description(None).unwrap();
+        currency_registrar.set_description(None).unwrap();
+        assert_eq!(currency_registrar.description().unwrap(), None);
+        assert_eq!(currency_registrar.uncommitted_events().len(), 4);
+        let mut replayed = CurrencyRegistrar::new();
+        for event in currency_registrar.uncommitted_events() {
+            replayed.apply(event.payload()).unwrap();
+        }
+        assert_eq!(replayed.state(), currency_registrar.state());
     }
 }

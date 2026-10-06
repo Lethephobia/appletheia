@@ -5,7 +5,7 @@ use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use appletheia::domain::{Aggregate, UniqueValue};
-use banking_ledger_domain::currency::{Currency, CurrencyDefinition, CurrencyState};
+use banking_ledger_domain::currency::{Currency, CurrencyState};
 use banking_ledger_domain::currency_registrar::CurrencyRegistrar;
 
 use super::{CurrencyDefineCommand, CurrencyDefineCommandHandlerError, CurrencyDefineOutput};
@@ -56,12 +56,6 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<Self::Output, Self::Error> {
-        let definition = CurrencyDefinition {
-            currency_registrar_id: command.currency_registrar_id,
-            code: command.code.clone(),
-            decimals: command.decimals,
-            description: command.description.clone(),
-        };
         let unique_value = UniqueValue::from_strings([command.code.as_ref()])?;
         if self
             .repository
@@ -74,7 +68,14 @@ where
 
         let mut currency = Currency::new();
         let currency_id = currency.aggregate_id();
-        currency.define(definition)?;
+        currency.define(
+            command.currency_registrar_id,
+            command.code.clone(),
+            command.decimals,
+        )?;
+        if let Some(description) = &command.description {
+            currency.set_description(Some(description.clone()))?;
+        }
         self.repository
             .save(uow, request_context, &mut currency)
             .await?;

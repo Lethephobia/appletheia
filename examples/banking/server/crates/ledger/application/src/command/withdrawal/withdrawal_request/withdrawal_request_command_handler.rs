@@ -7,8 +7,8 @@ use appletheia::application::request_context::RequestContext;
 use appletheia::domain::Aggregate;
 use banking_ledger_domain::account::Account;
 use banking_ledger_domain::token_binding::TokenBinding;
+use banking_ledger_domain::withdrawal::Withdrawal;
 use banking_ledger_domain::withdrawal::WithdrawalError;
-use banking_ledger_domain::withdrawal::{Withdrawal, WithdrawalRequest};
 
 use super::{
     WithdrawalRequestCommand, WithdrawalRequestCommandHandlerError, WithdrawalRequestOutput,
@@ -78,13 +78,6 @@ where
     ) -> Result<Self::Output, Self::Error> {
         let mut withdrawal = Withdrawal::new();
         let withdrawal_id = withdrawal.aggregate_id();
-        let request = WithdrawalRequest {
-            account_id: command.account_id,
-            token_binding_id: command.token_binding_id,
-            token_owner_address: command.token_owner_address,
-            amount: command.amount,
-            note: command.note.clone(),
-        };
         let account = self
             .account_repository
             .read(uow, command.account_id)
@@ -103,7 +96,15 @@ where
             }
             Err(error) => return Err(error.into()),
         }
-        withdrawal.request(request)?;
+        withdrawal.request(
+            command.account_id,
+            command.token_binding_id,
+            command.token_owner_address,
+            command.amount,
+        )?;
+        if let Some(note) = &command.note {
+            withdrawal.set_note(Some(note.clone()))?;
+        }
 
         self.withdrawal_repository
             .save(uow, request_context, &mut withdrawal)

@@ -13,9 +13,7 @@ use appletheia::application::request_context::RequestContext;
 use appletheia::domain::{Aggregate, UniqueValue, UniqueValuePart};
 use banking_iam_domain::UserError;
 
-use banking_iam_domain::{
-    User, UserId, UserIdentityProvider, UserIdentityRegistration, UserIdentitySubject, UserState,
-};
+use banking_iam_domain::{User, UserId, UserIdentityProvider, UserIdentitySubject, UserState};
 use banking_shared_kernel_domain::contact::Email;
 
 use crate::oidc::{OidcCompletionPurpose, OidcContinuationPayload};
@@ -86,18 +84,14 @@ where
             .await?
         {
             Some(mut user) => {
-                user.change_identity_email(provider, subject, email)?;
+                user.set_identity_email(provider, subject, email)?;
 
                 Ok(user)
             }
             None => {
                 let mut user = User::new();
                 user.register()?;
-                user.link_identity(UserIdentityRegistration {
-                    provider: provider.clone(),
-                    subject: subject.clone(),
-                    email,
-                })?;
+                user.link_identity(provider.clone(), subject.clone(), email)?;
 
                 Ok(user)
             }
@@ -124,18 +118,14 @@ where
                     return Err(UserError::IdentityAlreadyLinked.into());
                 }
 
-                user.change_identity_email(provider, subject, email)?;
+                user.set_identity_email(provider, subject, email)?;
 
                 Ok(user)
             }
             None => {
                 let mut user = self.user_repository.read(uow, user_id).await?;
 
-                user.link_identity(UserIdentityRegistration {
-                    provider: provider.clone(),
-                    subject: subject.clone(),
-                    email,
-                })?;
+                user.link_identity(provider.clone(), subject.clone(), email)?;
 
                 Ok(user)
             }

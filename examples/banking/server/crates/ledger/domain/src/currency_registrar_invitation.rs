@@ -3,7 +3,6 @@ mod currency_registrar_invitation_event_payload;
 mod currency_registrar_invitation_event_payload_error;
 mod currency_registrar_invitation_expires_at;
 mod currency_registrar_invitation_id;
-mod currency_registrar_invitation_issuance;
 mod currency_registrar_invitation_issuer;
 mod currency_registrar_invitation_state;
 mod currency_registrar_invitation_state_error;
@@ -14,7 +13,6 @@ pub use currency_registrar_invitation_event_payload::CurrencyRegistrarInvitation
 pub use currency_registrar_invitation_event_payload_error::CurrencyRegistrarInvitationEventPayloadError;
 pub use currency_registrar_invitation_expires_at::CurrencyRegistrarInvitationExpiresAt;
 pub use currency_registrar_invitation_id::CurrencyRegistrarInvitationId;
-pub use currency_registrar_invitation_issuance::CurrencyRegistrarInvitationIssuance;
 pub use currency_registrar_invitation_issuer::CurrencyRegistrarInvitationIssuer;
 pub use currency_registrar_invitation_state::CurrencyRegistrarInvitationState;
 pub use currency_registrar_invitation_state_error::CurrencyRegistrarInvitationStateError;
@@ -103,18 +101,20 @@ impl CurrencyRegistrarInvitation {
     /// Issues a new currency registrar invitation.
     pub fn issue(
         &mut self,
-        issuance: CurrencyRegistrarInvitationIssuance,
+        currency_registrar_id: CurrencyRegistrarId,
+        invitee_id: UserId,
+        issuer: CurrencyRegistrarInvitationIssuer,
+        expires_at: CurrencyRegistrarInvitationExpiresAt,
         now: CurrentDateTime,
     ) -> Result<(), CurrencyRegistrarInvitationError> {
         if self.state().is_some() {
             return Err(CurrencyRegistrarInvitationError::AlreadyIssued);
         }
 
-        if issuance.expires_at().is_expired(now) {
+        if expires_at.is_expired(now) {
             return Err(CurrencyRegistrarInvitationError::Expired);
         }
 
-        let (currency_registrar_id, invitee_id, issuer, expires_at) = issuance.into_parts();
         self.append_event(CurrencyRegistrarInvitationEventPayload::Issued {
             currency_registrar_id,
             invitee_id,
@@ -222,7 +222,7 @@ mod tests {
 
     use super::{
         CurrencyRegistrarInvitation, CurrencyRegistrarInvitationExpiresAt,
-        CurrencyRegistrarInvitationIssuance, CurrencyRegistrarInvitationIssuer,
+        CurrencyRegistrarInvitationIssuer,
     };
     use crate::currency_registrar::CurrencyRegistrarId;
 
@@ -230,14 +230,10 @@ mod tests {
         let mut invitation = CurrencyRegistrarInvitation::new();
         invitation
             .issue(
-                CurrencyRegistrarInvitationIssuance {
-                    currency_registrar_id: CurrencyRegistrarId::new(),
-                    invitee_id: UserId::new(),
-                    issuer: CurrencyRegistrarInvitationIssuer::System,
-                    expires_at: CurrencyRegistrarInvitationExpiresAt::new(
-                        Utc::now() + Duration::hours(1),
-                    ),
-                },
+                CurrencyRegistrarId::new(),
+                UserId::new(),
+                CurrencyRegistrarInvitationIssuer::System,
+                CurrencyRegistrarInvitationExpiresAt::new(Utc::now() + Duration::hours(1)),
                 CurrentDateTime::new(),
             )
             .expect("invitation should be issued");

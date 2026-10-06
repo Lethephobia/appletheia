@@ -8,7 +8,6 @@ mod account_event_payload_error;
 mod account_id;
 mod account_name;
 mod account_name_error;
-mod account_opening;
 mod account_owner;
 mod account_state;
 mod account_state_error;
@@ -24,7 +23,6 @@ pub use account_event_payload_error::AccountEventPayloadError;
 pub use account_id::AccountId;
 pub use account_name::AccountName;
 pub use account_name_error::AccountNameError;
-pub use account_opening::AccountOpening;
 pub use account_owner::AccountOwner;
 pub use account_state::AccountState;
 pub use account_state_error::AccountStateError;
@@ -93,16 +91,19 @@ impl Account {
     }
 
     /// Opens a new account.
-    pub fn open(&mut self, opening: AccountOpening) -> Result<(), AccountError> {
+    pub fn open(
+        &mut self,
+        owner: AccountOwner,
+        name: AccountName,
+        currency_id: CurrencyId,
+    ) -> Result<(), AccountError> {
         if self.state().is_some() {
             return Err(AccountError::AlreadyOpened);
         }
 
-        let (owner, name, description, currency_id) = opening.into_parts();
         self.append_event(AccountEventPayload::Opened {
             owner,
             name,
-            description,
             currency_id,
         })?;
 
@@ -129,7 +130,7 @@ impl Account {
         Ok(())
     }
 
-    pub fn change_description(
+    pub fn set_description(
         &mut self,
         description: Option<AccountDescription>,
     ) -> Result<(), AccountError> {
@@ -137,7 +138,7 @@ impl Account {
             return Err(AccountError::Closed);
         }
 
-        self.append_event(AccountEventPayload::DescriptionChanged { description })?;
+        self.append_event(AccountEventPayload::DescriptionSet { description })?;
         Ok(())
     }
 
@@ -287,13 +288,12 @@ impl AggregateApply<AccountEventPayload, AccountError> for Account {
             AccountEventPayload::Opened {
                 owner,
                 name,
-                description,
                 currency_id,
             } => {
                 self.set_state(Some(AccountState {
                     owner: *owner,
                     name: name.clone(),
-                    description: description.clone(),
+                    description: None,
                     currency_id: *currency_id,
                     balance: AccountBalance::new(),
                     status: AccountStatus::Active,
@@ -305,7 +305,7 @@ impl AggregateApply<AccountEventPayload, AccountError> for Account {
             AccountEventPayload::NameChanged { name } => {
                 self.state_required_mut()?.name = name.clone()
             }
-            AccountEventPayload::DescriptionChanged { description } => {
+            AccountEventPayload::DescriptionSet { description } => {
                 self.state_required_mut()?.description = description.clone();
             }
             AccountEventPayload::Deposited { amount } => {
@@ -345,26 +345,23 @@ impl AggregateApply<AccountEventPayload, AccountError> for Account {
 
 #[cfg(test)]
 mod tests {
-    use appletheia::domain::Aggregate;
+    use appletheia::domain::{Aggregate, AggregateApply};
     use banking_iam_domain::UserId;
 
     use crate::core::CurrencyAmount;
     use crate::currency::CurrencyId;
 
-    use super::{
-        Account, AccountError, AccountEventPayload, AccountName, AccountOpening, AccountOwner,
-    };
+    use super::{Account, AccountError, AccountEventPayload, AccountName, AccountOwner};
 
     #[test]
     fn monetary_events_store_only_the_smallest_unit_amount() {
         let mut account = Account::new();
         account
-            .open(AccountOpening {
-                owner: AccountOwner::from(UserId::new()),
-                name: AccountName::try_from("main").expect("valid name"),
-                description: None,
-                currency_id: CurrencyId::new(),
-            })
+            .open(
+                AccountOwner::from(UserId::new()),
+                AccountName::try_from("main").expect("valid name"),
+                CurrencyId::new(),
+            )
             .expect("open should succeed");
         account
             .deposit(CurrencyAmount::new(125))
@@ -381,12 +378,11 @@ mod tests {
     fn failed_deposit_does_not_append_an_event() {
         let mut account = Account::new();
         account
-            .open(AccountOpening {
-                owner: AccountOwner::from(UserId::new()),
-                name: AccountName::try_from("main").expect("valid name"),
-                description: None,
-                currency_id: CurrencyId::new(),
-            })
+            .open(
+                AccountOwner::from(UserId::new()),
+                AccountName::try_from("main").expect("valid name"),
+                CurrencyId::new(),
+            )
             .expect("open should succeed");
         account.close().expect("close should succeed");
         let event_count = account.uncommitted_events().len();
@@ -397,5 +393,31 @@ mod tests {
 
         assert!(matches!(error, AccountError::Closed));
         assert_eq!(account.uncommitted_events().len(), event_count);
+    }
+
+    #[test]
+    fn optional_fields_are_set_separately_and_replayable() {
+        let mut account = Account::new();
+        account
+            .open(
+                AccountOwner::from(UserId::new()),
+                AccountName::try_from("main").unwrap(),
+                CurrencyId::new(),
+            )
+            .unwrap();
+        assert_eq!(account.uncommitted_events().len(), 1);
+        assert_eq!(account.description().unwrap(), None);
+        let value = super::AccountDescription::try_from("Main account").unwrap();
+        account.set_description(Some(value.clone())).unwrap();
+        assert_eq!(account.description().unwrap(), Some(&value));
+        account.set_description(None).unwrap();
+        account.set_description(None).unwrap();
+        assert_eq!(account.description().unwrap(), None);
+        assert_eq!(account.uncommitted_events().len(), 4);
+        let mut replayed = Account::new();
+        for event in account.uncommitted_events() {
+            replayed.apply(event.payload()).unwrap();
+        }
+        assert_eq!(replayed.state(), account.state());
     }
 }

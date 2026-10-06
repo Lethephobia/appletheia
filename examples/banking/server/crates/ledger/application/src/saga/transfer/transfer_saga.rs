@@ -203,7 +203,7 @@ mod tests {
     use banking_ledger_domain::account::{Account, AccountEventPayload, AccountId};
     use banking_ledger_domain::core::CurrencyAmount;
     use banking_ledger_domain::transfer::{
-        Transfer, TransferEventPayload, TransferFailureReason, TransferId, TransferNote,
+        Transfer, TransferEventPayload, TransferFailureReason, TransferId,
     };
 
     use super::{TransferSaga, TransferSagaState, TransferSagaStep};
@@ -378,10 +378,6 @@ mod tests {
                     from_account_id,
                     to_account_id,
                     amount,
-                    note: Some(
-                        TransferNote::try_from("invoice 123")
-                            .expect("transfer note should be valid"),
-                    ),
                 },
             ),
             None,
@@ -441,7 +437,6 @@ mod tests {
                     from_account_id,
                     to_account_id,
                     amount,
-                    note: None,
                 },
             ),
             None,

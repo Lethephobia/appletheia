@@ -1,21 +1,18 @@
 use std::error::Error;
 
 use crate::event::EventEnvelope;
-use crate::read_model::{MaterializationEventContext, ReadModelFragment};
 use crate::unit_of_work::UnitOfWork;
 
-use super::ProjectorSpec;
+use super::{MaterializationEventContext, ProjectorSpec};
 
-/// Projects events into one physical read-model fragment type.
+/// Projects events into stored query data.
 #[allow(async_fn_in_trait)]
 pub trait Projector: Send + Sync {
     type Spec: ProjectorSpec;
-    /// Identifies the only physical fragment this projector may change.
-    type Fragment: ReadModelFragment;
     type Uow: UnitOfWork;
     type Error: Error + Send + Sync + 'static;
 
-    /// Materializes one event into the stored fragment.
+    /// Materializes one event into stored query data.
     async fn project(
         &self,
         uow: &mut Self::Uow,

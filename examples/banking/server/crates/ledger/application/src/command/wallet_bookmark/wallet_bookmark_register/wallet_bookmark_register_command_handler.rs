@@ -9,9 +9,7 @@ use banking_iam_application::authorization::{
     OrganizationFinanceManagerRelation, UserOwnerRelation,
 };
 use banking_iam_domain::{Organization, User};
-use banking_ledger_domain::wallet_bookmark::{
-    WalletBookmark, WalletBookmarkOwner, WalletBookmarkRegistration,
-};
+use banking_ledger_domain::wallet_bookmark::{WalletBookmark, WalletBookmarkOwner};
 
 use super::{
     WalletBookmarkRegisterCommand, WalletBookmarkRegisterCommandHandlerError,
@@ -76,12 +74,13 @@ where
     ) -> Result<Self::Output, Self::Error> {
         let mut wallet_bookmark = WalletBookmark::new();
         let wallet_bookmark_id = wallet_bookmark.aggregate_id();
-        wallet_bookmark.register(WalletBookmarkRegistration {
-            owner: command.owner,
-            display_name: command.display_name.clone(),
-            description: command.description.clone(),
-            token_owner_address: command.token_owner_address,
-        })?;
+        wallet_bookmark.register(command.owner, command.token_owner_address)?;
+        if let Some(display_name) = &command.display_name {
+            wallet_bookmark.set_display_name(Some(display_name.clone()))?;
+        }
+        if let Some(description) = &command.description {
+            wallet_bookmark.set_description(Some(description.clone()))?;
+        }
 
         self.wallet_bookmark_repository
             .save(uow, request_context, &mut wallet_bookmark)

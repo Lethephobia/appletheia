@@ -9,8 +9,8 @@ use appletheia::domain::{AggregateId, UniqueValue, UniqueValuePart};
 use banking_ledger_domain::currency_registrar_join_request::CurrencyRegistrarJoinRequestError;
 use banking_ledger_domain::{
     CurrencyRegistrar, CurrencyRegistrarId, CurrencyRegistrarJoinRequest,
-    CurrencyRegistrarJoinRequestState, CurrencyRegistrarJoinRequestSubmission,
-    CurrencyRegistrarMembership, CurrencyRegistrarMembershipState, User, UserId,
+    CurrencyRegistrarJoinRequestState, CurrencyRegistrarMembership,
+    CurrencyRegistrarMembershipState, User, UserId,
 };
 
 use super::{
@@ -94,10 +94,6 @@ where
     ) -> Result<Self::Output, Self::Error> {
         let mut currency_registrar_join_request = CurrencyRegistrarJoinRequest::new();
         let currency_registrar_join_request_id = currency_registrar_join_request.aggregate_id();
-        let submission = CurrencyRegistrarJoinRequestSubmission {
-            currency_registrar_id: command.currency_registrar_id,
-            requester_id: command.requester_id,
-        };
 
         self.currency_registrar_repository
             .read(uow, command.currency_registrar_id)
@@ -137,7 +133,8 @@ where
             return Err(CurrencyRegistrarJoinRequestError::AlreadySubmitted.into());
         }
 
-        currency_registrar_join_request.submit(submission)?;
+        currency_registrar_join_request
+            .submit(command.currency_registrar_id, command.requester_id)?;
 
         self.currency_registrar_join_request_repository
             .save(uow, request_context, &mut currency_registrar_join_request)

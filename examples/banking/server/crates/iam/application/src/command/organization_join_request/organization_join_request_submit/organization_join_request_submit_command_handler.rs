@@ -9,8 +9,7 @@ use appletheia::domain::{AggregateId, UniqueValue, UniqueValuePart};
 use banking_iam_domain::OrganizationJoinRequestError;
 use banking_iam_domain::{
     Organization, OrganizationId, OrganizationJoinRequest, OrganizationJoinRequestState,
-    OrganizationJoinRequestSubmission, OrganizationMembership, OrganizationMembershipState, User,
-    UserId,
+    OrganizationMembership, OrganizationMembershipState, User, UserId,
 };
 
 use super::{
@@ -93,10 +92,6 @@ where
     ) -> Result<Self::Output, Self::Error> {
         let mut organization_join_request = OrganizationJoinRequest::new();
         let organization_join_request_id = organization_join_request.aggregate_id();
-        let submission = OrganizationJoinRequestSubmission {
-            organization_id: command.organization_id,
-            requester_id: command.requester_id,
-        };
 
         let organization = self
             .organization_repository
@@ -140,7 +135,7 @@ where
             return Err(OrganizationJoinRequestError::AlreadySubmitted.into());
         }
 
-        organization_join_request.submit(submission)?;
+        organization_join_request.submit(command.organization_id, command.requester_id)?;
 
         self.organization_join_request_repository
             .save(uow, request_context, &mut organization_join_request)

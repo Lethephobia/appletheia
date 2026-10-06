@@ -5,7 +5,6 @@ mod withdrawal_failure_reason;
 mod withdrawal_id;
 mod withdrawal_note;
 mod withdrawal_note_error;
-mod withdrawal_request;
 mod withdrawal_state;
 mod withdrawal_state_error;
 mod withdrawal_status;
@@ -17,7 +16,6 @@ pub use withdrawal_failure_reason::WithdrawalFailureReason;
 pub use withdrawal_id::WithdrawalId;
 pub use withdrawal_note::WithdrawalNote;
 pub use withdrawal_note_error::WithdrawalNoteError;
-pub use withdrawal_request::WithdrawalRequest;
 pub use withdrawal_state::WithdrawalState;
 pub use withdrawal_state_error::WithdrawalStateError;
 pub use withdrawal_status::WithdrawalStatus;
@@ -71,25 +69,36 @@ impl Withdrawal {
     }
 
     /// Requests a new withdrawal workflow.
-    pub fn request(&mut self, request: WithdrawalRequest) -> Result<(), WithdrawalError> {
+    pub fn request(
+        &mut self,
+        account_id: AccountId,
+        token_binding_id: TokenBindingId,
+        token_owner_address: TokenOwnerAddress,
+        amount: CurrencyAmount,
+    ) -> Result<(), WithdrawalError> {
         if self.state().is_some() {
             return Err(WithdrawalError::AlreadyRequested);
         }
 
-        if request.amount().is_zero() {
+        if amount.is_zero() {
             return Err(WithdrawalError::ZeroAmount);
         }
 
-        let (account_id, token_binding_id, token_owner_address, amount, note) =
-            request.into_parts();
         self.append_event(WithdrawalEventPayload::Requested {
             account_id,
             token_binding_id,
             token_owner_address,
             amount,
-            note,
         })?;
 
+        Ok(())
+    }
+
+    /// Sets or clears the note, including after completion.
+    pub fn set_note(&mut self, note: Option<WithdrawalNote>) -> Result<(), WithdrawalError> {
+        self.state_required()?;
+
+        self.append_event(WithdrawalEventPayload::NoteSet { note })?;
         Ok(())
     }
 
@@ -168,13 +177,12 @@ impl AggregateApply<WithdrawalEventPayload, WithdrawalError> for Withdrawal {
                 token_binding_id,
                 token_owner_address,
                 amount,
-                note,
             } => self.set_state(Some(WithdrawalState {
                 account_id: *account_id,
                 token_binding_id: *token_binding_id,
                 token_owner_address: *token_owner_address,
                 amount: *amount,
-                note: note.clone(),
+                note: None,
                 transaction_id: None,
                 status: WithdrawalStatus::Pending,
             })),
@@ -182,6 +190,9 @@ impl AggregateApply<WithdrawalEventPayload, WithdrawalError> for Withdrawal {
                 let state = self.state_required_mut()?;
                 state.transaction_id = Some(*transaction_id);
                 state.status = WithdrawalStatus::SettlementExecuted;
+            }
+            WithdrawalEventPayload::NoteSet { note } => {
+                self.state_required_mut()?.note = note.clone();
             }
             WithdrawalEventPayload::Completed => {
                 self.state_required_mut()?.status = WithdrawalStatus::Completed;
@@ -199,7 +210,7 @@ impl AggregateApply<WithdrawalEventPayload, WithdrawalError> for Withdrawal {
 mod tests {
     use std::str::FromStr;
 
-    use appletheia::domain::{Aggregate, EventPayload};
+    use appletheia::domain::{Aggregate, AggregateApply, EventPayload};
 
     use crate::account::AccountId;
     use crate::core::{
@@ -208,22 +219,21 @@ mod tests {
     };
     use crate::token_binding::TokenBindingId;
 
-    use super::{Withdrawal, WithdrawalEventPayload, WithdrawalRequest, WithdrawalStatus};
+    use super::{Withdrawal, WithdrawalEventPayload, WithdrawalNote, WithdrawalStatus};
 
     #[test]
     fn records_an_executed_settlement() {
         let mut withdrawal = Withdrawal::new();
         withdrawal
-            .request(WithdrawalRequest {
-                account_id: AccountId::new(),
-                token_binding_id: TokenBindingId::new(),
-                token_owner_address: TokenOwnerAddress::Ethereum(
+            .request(
+                AccountId::new(),
+                TokenBindingId::new(),
+                TokenOwnerAddress::Ethereum(
                     EvmTokenOwnerAddress::from_str("0x2222222222222222222222222222222222222222")
                         .expect("token owner address should be valid"),
                 ),
-                amount: CurrencyAmount::new(100),
-                note: None,
-            })
+                CurrencyAmount::new(100),
+            )
             .expect("withdrawal request should succeed");
         withdrawal.core_mut().clear_uncommitted_events();
         let transaction_id = OnchainTransactionId::Solana(
@@ -243,5 +253,48 @@ mod tests {
             withdrawal.uncommitted_events()[0].payload().name(),
             WithdrawalEventPayload::SETTLEMENT_EXECUTED
         );
+    }
+
+    #[test]
+    fn notes_can_be_set_and_cleared_after_completion_and_replayed() {
+        let mut withdrawal = Withdrawal::new();
+        assert!(withdrawal.set_note(None).is_err());
+        assert!(withdrawal.uncommitted_events().is_empty());
+        withdrawal
+            .request(
+                AccountId::new(),
+                TokenBindingId::new(),
+                TokenOwnerAddress::Ethereum(
+                    EvmTokenOwnerAddress::from_str("0x2222222222222222222222222222222222222222")
+                        .unwrap(),
+                ),
+                CurrencyAmount::new(100),
+            )
+            .unwrap();
+        assert_eq!(withdrawal.note().unwrap(), None);
+        let note = WithdrawalNote::try_from("invoice 123").unwrap();
+        withdrawal.set_note(Some(note.clone())).unwrap();
+        assert_eq!(withdrawal.note().unwrap(), Some(&note));
+        let transaction_id = OnchainTransactionId::Solana(
+            SolanaTransactionSignature::new(bs58::encode([1_u8; 64]).into_string()).unwrap(),
+        );
+        withdrawal
+            .record_settlement_executed(transaction_id)
+            .unwrap();
+        withdrawal.complete().unwrap();
+        let note = WithdrawalNote::try_from("invoice corrected").unwrap();
+        withdrawal.set_note(Some(note.clone())).unwrap();
+        assert_eq!(withdrawal.note().unwrap(), Some(&note));
+        withdrawal.set_note(None).unwrap();
+        let count = withdrawal.uncommitted_events().len();
+        withdrawal.set_note(None).unwrap();
+        assert_eq!(withdrawal.uncommitted_events().len(), count + 1);
+        assert_eq!(withdrawal.note().unwrap(), None);
+
+        let mut replayed = Withdrawal::new();
+        for event in withdrawal.uncommitted_events() {
+            replayed.apply(event.payload()).unwrap();
+        }
+        assert_eq!(replayed.state(), withdrawal.state());
     }
 }

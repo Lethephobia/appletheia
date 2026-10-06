@@ -91,8 +91,8 @@ mod tests {
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::Aggregate;
     use banking_iam_domain::{
-        Organization, OrganizationCreation, OrganizationHandle, OrganizationId, OrganizationName,
-        OrganizationOwner, User, UserId,
+        Organization, OrganizationHandle, OrganizationId, OrganizationName, OrganizationOwner,
+        User, UserId,
     };
     use uuid::Uuid;
 
@@ -196,15 +196,11 @@ mod tests {
     fn organization() -> Organization {
         let mut organization = Organization::new();
         organization
-            .create(OrganizationCreation {
-                owner: OrganizationOwner::User(UserId::new()),
-                handle: OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
-                display_name: OrganizationName::try_from("Acme Labs")
-                    .expect("name should be valid"),
-                description: None,
-                website_url: None,
-                picture: None,
-            })
+            .create(
+                OrganizationOwner::User(UserId::new()),
+                OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
+                OrganizationName::try_from("Acme Labs").expect("name should be valid"),
+            )
             .expect("organization should create");
         organization
     }

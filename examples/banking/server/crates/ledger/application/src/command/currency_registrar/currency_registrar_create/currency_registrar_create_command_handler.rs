@@ -4,9 +4,7 @@ use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use appletheia::domain::{Aggregate, UniqueValue};
 use banking_ledger_domain::currency_registrar::CurrencyRegistrarError;
-use banking_ledger_domain::currency_registrar::{
-    CurrencyRegistrar, CurrencyRegistrarCreation, CurrencyRegistrarState,
-};
+use banking_ledger_domain::currency_registrar::{CurrencyRegistrar, CurrencyRegistrarState};
 
 use super::{
     CurrencyRegistrarCreateCommand, CurrencyRegistrarCreateCommandHandlerError,
@@ -55,11 +53,6 @@ where
     ) -> Result<Self::Output, Self::Error> {
         let mut currency_registrar = CurrencyRegistrar::new();
         let currency_registrar_id = currency_registrar.aggregate_id();
-        let creation = CurrencyRegistrarCreation {
-            handle: command.handle.clone(),
-            display_name: command.display_name.clone(),
-            description: command.description.clone(),
-        };
         let unique_value = UniqueValue::from_strings([command.handle.as_ref()])?;
         if self
             .repository
@@ -70,7 +63,10 @@ where
             return Err(CurrencyRegistrarError::HandleAlreadyTaken.into());
         }
 
-        currency_registrar.create(creation)?;
+        currency_registrar.create(command.handle.clone(), command.display_name.clone())?;
+        if let Some(description) = &command.description {
+            currency_registrar.set_description(Some(description.clone()))?;
+        }
         self.repository
             .save(uow, request_context, &mut currency_registrar)
             .await?;

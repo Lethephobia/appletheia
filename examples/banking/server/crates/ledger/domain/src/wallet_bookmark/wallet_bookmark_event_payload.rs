@@ -12,14 +12,12 @@ use super::{
 pub enum WalletBookmarkEventPayload {
     Registered {
         owner: WalletBookmarkOwner,
-        display_name: Option<WalletBookmarkDisplayName>,
-        description: Option<WalletBookmarkDescription>,
         token_owner_address: TokenOwnerAddress,
     },
-    DisplayNameChanged {
+    DisplayNameSet {
         display_name: Option<WalletBookmarkDisplayName>,
     },
-    DescriptionChanged {
+    DescriptionSet {
         description: Option<WalletBookmarkDescription>,
     },
     Removed,
@@ -32,10 +30,7 @@ mod tests {
 
     use crate::core::{SolanaAccountAddress, SolanaTokenAccountOwnerAddress, TokenOwnerAddress};
 
-    use super::{
-        WalletBookmarkDescription, WalletBookmarkDisplayName, WalletBookmarkEventPayload,
-        WalletBookmarkOwner,
-    };
+    use super::{WalletBookmarkEventPayload, WalletBookmarkOwner};
 
     #[test]
     fn returns_stable_event_names() {
@@ -44,12 +39,12 @@ mod tests {
             appletheia::domain::EventName::new("registered")
         );
         assert_eq!(
-            WalletBookmarkEventPayload::DISPLAY_NAME_CHANGED,
-            appletheia::domain::EventName::new("display_name_changed")
+            WalletBookmarkEventPayload::DISPLAY_NAME_SET,
+            appletheia::domain::EventName::new("display_name_set")
         );
         assert_eq!(
-            WalletBookmarkEventPayload::DESCRIPTION_CHANGED,
-            appletheia::domain::EventName::new("description_changed")
+            WalletBookmarkEventPayload::DESCRIPTION_SET,
+            appletheia::domain::EventName::new("description_set")
         );
         assert_eq!(
             WalletBookmarkEventPayload::REMOVED,
@@ -68,14 +63,6 @@ mod tests {
     fn serializes_payload_to_json() {
         let payload = WalletBookmarkEventPayload::Registered {
             owner: WalletBookmarkOwner::User(UserId::new()),
-            display_name: Some(
-                WalletBookmarkDisplayName::try_from("Main wallet")
-                    .expect("display name should be valid"),
-            ),
-            description: Some(
-                WalletBookmarkDescription::try_from("Personal main wallet")
-                    .expect("description should be valid"),
-            ),
             token_owner_address: TokenOwnerAddress::Solana(SolanaTokenAccountOwnerAddress::new(
                 SolanaAccountAddress::try_from("11111111111111111111111111111111")
                     .expect("address should be valid"),

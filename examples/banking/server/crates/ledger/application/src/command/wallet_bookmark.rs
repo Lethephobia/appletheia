@@ -1,15 +1,15 @@
-mod wallet_bookmark_description_change;
-mod wallet_bookmark_display_name_change;
+mod wallet_bookmark_description_set;
+mod wallet_bookmark_display_name_set;
 mod wallet_bookmark_register;
 mod wallet_bookmark_remove;
 
-pub use wallet_bookmark_description_change::{
-    WalletBookmarkDescriptionChangeCommand, WalletBookmarkDescriptionChangeCommandHandler,
-    WalletBookmarkDescriptionChangeCommandHandlerError, WalletBookmarkDescriptionChangeOutput,
+pub use wallet_bookmark_description_set::{
+    WalletBookmarkDescriptionSetCommand, WalletBookmarkDescriptionSetCommandHandler,
+    WalletBookmarkDescriptionSetCommandHandlerError, WalletBookmarkDescriptionSetOutput,
 };
-pub use wallet_bookmark_display_name_change::{
-    WalletBookmarkDisplayNameChangeCommand, WalletBookmarkDisplayNameChangeCommandHandler,
-    WalletBookmarkDisplayNameChangeCommandHandlerError, WalletBookmarkDisplayNameChangeOutput,
+pub use wallet_bookmark_display_name_set::{
+    WalletBookmarkDisplayNameSetCommand, WalletBookmarkDisplayNameSetCommandHandler,
+    WalletBookmarkDisplayNameSetCommandHandlerError, WalletBookmarkDisplayNameSetOutput,
 };
 pub use wallet_bookmark_register::{
     WalletBookmarkRegisterCommand, WalletBookmarkRegisterCommandHandler,

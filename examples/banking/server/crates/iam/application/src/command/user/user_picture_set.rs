@@ -1,0 +1,9 @@
+mod user_picture_set_command;
+mod user_picture_set_command_handler;
+mod user_picture_set_command_handler_error;
+mod user_picture_set_output;
+
+pub use user_picture_set_command::UserPictureSetCommand;
+pub use user_picture_set_command_handler::UserPictureSetCommandHandler;
+pub use user_picture_set_command_handler_error::UserPictureSetCommandHandlerError;
+pub use user_picture_set_output::UserPictureSetOutput;

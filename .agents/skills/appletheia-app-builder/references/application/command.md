@@ -109,7 +109,7 @@ needed for concurrent requests. Keep save errors observable too.
 **Good**
 
 ```rust
-let unique_value = Self::handle_unique_value(&creation.handle)?;
+let unique_value = Self::handle_unique_value(&handle)?;
 if self.organization_repository
     .find_by_unique_value(uow, OrganizationState::HANDLE_KEY, &unique_value)
     .await?
@@ -118,7 +118,7 @@ if self.organization_repository
     return Err(OrganizationError::HandleAlreadyTaken.into());
 }
 
-organization.create(creation)?;
+organization.create(owner, handle, display_name)?;
 self.organization_repository.save(uow, request_context, &mut organization).await?;
 ```
 
@@ -136,11 +136,7 @@ For sign-in that creates a user and links an identity, Banking's OIDC handler pe
 
 ```rust
 user.register()?;
-user.link_identity(UserIdentityRegistration {
-    provider: provider.clone(),
-    subject: subject.clone(),
-    email,
-})?;
+user.link_identity(provider.clone(), subject.clone(), email)?;
 self.user_repository.save(uow, request_context, &mut user).await?;
 ```
 

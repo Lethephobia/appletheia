@@ -5,7 +5,6 @@ mod deposit_failure_reason;
 mod deposit_id;
 mod deposit_note;
 mod deposit_note_error;
-mod deposit_request;
 mod deposit_state;
 mod deposit_state_error;
 mod deposit_status;
@@ -17,7 +16,6 @@ pub use deposit_failure_reason::DepositFailureReason;
 pub use deposit_id::DepositId;
 pub use deposit_note::DepositNote;
 pub use deposit_note_error::DepositNoteError;
-pub use deposit_request::DepositRequest;
 pub use deposit_state::DepositState;
 pub use deposit_state_error::DepositStateError;
 pub use deposit_status::DepositStatus;
@@ -71,25 +69,36 @@ impl Deposit {
     }
 
     /// Requests a deposit before its on-chain token settlement.
-    pub fn request(&mut self, request: DepositRequest) -> Result<(), DepositError> {
+    pub fn request(
+        &mut self,
+        account_id: AccountId,
+        token_binding_id: TokenBindingId,
+        token_owner_address: TokenOwnerAddress,
+        amount: CurrencyAmount,
+    ) -> Result<(), DepositError> {
         if self.state().is_some() {
             return Err(DepositError::AlreadyRequested);
         }
 
-        if request.amount.is_zero() {
+        if amount.is_zero() {
             return Err(DepositError::ZeroAmount);
         }
 
-        let (account_id, token_binding_id, token_owner_address, amount, note) =
-            request.into_parts();
         self.append_event(DepositEventPayload::Requested {
             account_id,
             token_binding_id,
             token_owner_address,
             amount,
-            note,
         })?;
 
+        Ok(())
+    }
+
+    /// Sets or clears the note, including after completion.
+    pub fn set_note(&mut self, note: Option<DepositNote>) -> Result<(), DepositError> {
+        self.state_required()?;
+
+        self.append_event(DepositEventPayload::NoteSet { note })?;
         Ok(())
     }
 
@@ -169,13 +178,12 @@ impl AggregateApply<DepositEventPayload, DepositError> for Deposit {
                 token_binding_id,
                 token_owner_address,
                 amount,
-                note,
             } => self.set_state(Some(DepositState {
                 account_id: *account_id,
                 token_binding_id: *token_binding_id,
                 token_owner_address: *token_owner_address,
                 amount: *amount,
-                note: note.clone(),
+                note: None,
                 transaction_id: None,
                 status: DepositStatus::Requested,
             })),
@@ -183,6 +191,9 @@ impl AggregateApply<DepositEventPayload, DepositError> for Deposit {
                 let state = self.state_required_mut()?;
                 state.transaction_id = Some(*transaction_id);
                 state.status = DepositStatus::SettlementVerified;
+            }
+            DepositEventPayload::NoteSet { note } => {
+                self.state_required_mut()?.note = note.clone();
             }
             DepositEventPayload::Completed => {
                 self.state_required_mut()?.status = DepositStatus::Completed;
@@ -198,7 +209,7 @@ impl AggregateApply<DepositEventPayload, DepositError> for Deposit {
 
 #[cfg(test)]
 mod tests {
-    use appletheia::domain::{Aggregate, EventPayload};
+    use appletheia::domain::{Aggregate, AggregateApply, EventPayload};
 
     use crate::account::AccountId;
     use crate::core::{
@@ -207,7 +218,7 @@ mod tests {
     };
     use crate::token_binding::TokenBindingId;
 
-    use super::{Deposit, DepositEventPayload, DepositRequest, DepositStatus};
+    use super::{Deposit, DepositEventPayload, DepositNote, DepositStatus};
 
     #[test]
     fn records_a_verified_settlement() {
@@ -216,13 +227,12 @@ mod tests {
             SolanaAccountAddress::from_bytes([2; 32]),
         ));
         deposit
-            .request(DepositRequest {
-                account_id: AccountId::new(),
-                token_binding_id: TokenBindingId::new(),
+            .request(
+                AccountId::new(),
+                TokenBindingId::new(),
                 token_owner_address,
-                amount: CurrencyAmount::new(100),
-                note: None,
-            })
+                CurrencyAmount::new(100),
+            )
             .expect("deposit request should succeed");
         deposit.core_mut().clear_uncommitted_events();
         let transaction_id = OnchainTransactionId::Solana(
@@ -248,5 +258,45 @@ mod tests {
             deposit.uncommitted_events()[0].payload().name(),
             DepositEventPayload::SETTLEMENT_VERIFIED
         );
+    }
+
+    #[test]
+    fn notes_can_be_set_and_cleared_after_completion_and_replayed() {
+        let mut deposit = Deposit::new();
+        assert!(deposit.set_note(None).is_err());
+        assert!(deposit.uncommitted_events().is_empty());
+        deposit
+            .request(
+                AccountId::new(),
+                TokenBindingId::new(),
+                TokenOwnerAddress::Solana(SolanaTokenAccountOwnerAddress::new(
+                    SolanaAccountAddress::from_bytes([2; 32]),
+                )),
+                CurrencyAmount::new(100),
+            )
+            .unwrap();
+        assert_eq!(deposit.note().unwrap(), None);
+        let note = DepositNote::try_from("invoice 123").unwrap();
+        deposit.set_note(Some(note.clone())).unwrap();
+        assert_eq!(deposit.note().unwrap(), Some(&note));
+        let transaction_id = OnchainTransactionId::Solana(
+            SolanaTransactionSignature::new(bs58::encode([1_u8; 64]).into_string()).unwrap(),
+        );
+        deposit.record_settlement_verified(transaction_id).unwrap();
+        deposit.complete().unwrap();
+        let note = DepositNote::try_from("invoice corrected").unwrap();
+        deposit.set_note(Some(note.clone())).unwrap();
+        assert_eq!(deposit.note().unwrap(), Some(&note));
+        deposit.set_note(None).unwrap();
+        let count = deposit.uncommitted_events().len();
+        deposit.set_note(None).unwrap();
+        assert_eq!(deposit.uncommitted_events().len(), count + 1);
+        assert_eq!(deposit.note().unwrap(), None);
+
+        let mut replayed = Deposit::new();
+        for event in deposit.uncommitted_events() {
+            replayed.apply(event.payload()).unwrap();
+        }
+        assert_eq!(replayed.state(), deposit.state());
     }
 }

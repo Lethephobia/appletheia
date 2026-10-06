@@ -3,8 +3,7 @@ use appletheia::saga_step;
 #[saga_step]
 pub enum OwnedAccountClosureSagaStep {
     Start,
-    Scan,
-    CloseAccount,
+    ProcessPage,
     RecordSucceeded,
     RecordFailed,
 }

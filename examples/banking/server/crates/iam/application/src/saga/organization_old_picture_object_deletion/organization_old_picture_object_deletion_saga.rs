@@ -20,37 +20,41 @@ impl Saga for OrganizationOldPictureObjectDeletionSaga {
     fn definition(
         &self,
     ) -> Result<SagaDefinition<'_, Self::State, Self::Step, Self::HandlerError>, SagaError> {
-        SagaDefinitionBuilder::<Self::State, Self::Step, Self::HandlerError>::new(SagaName::new(
-            "organization_old_picture_object_deletion",
-        ))
-        .add_start_step(OrganizationOldPictureObjectDeletionSagaStep::DeletePictureObject)
-        .on::<Organization>(OrganizationEventPayload::PICTURE_CHANGED)
-        .handle(|ctx, domain_event| {
-            let OrganizationEventPayload::PictureChanged { old_picture, .. } =
-                domain_event.payload()
-            else {
-                return Err(OrganizationOldPictureObjectDeletionSagaHandlerError::UnexpectedEvent);
-            };
+        let definition_builder =
+            SagaDefinitionBuilder::<Self::State, Self::Step, Self::HandlerError>::new(
+                SagaName::new("organization_old_picture_object_deletion"),
+            );
+        definition_builder
+            .add_start_step(OrganizationOldPictureObjectDeletionSagaStep::DeletePictureObject)
+            .on::<Organization>(OrganizationEventPayload::PICTURE_SET)
+            .handle(|ctx, domain_event| {
+                let OrganizationEventPayload::PictureSet { old_picture, .. } =
+                    domain_event.payload()
+                else {
+                    return Err(
+                        OrganizationOldPictureObjectDeletionSagaHandlerError::UnexpectedEvent,
+                    );
+                };
 
-            let state =
-                OrganizationOldPictureObjectDeletionSagaState::new(domain_event.aggregate_id());
-            ctx.set_state(state);
-            let Some(object_name) = old_picture
-                .as_ref()
-                .and_then(|picture| picture.as_object_name())
-                .cloned()
-            else {
-                return Ok(());
-            };
+                let state =
+                    OrganizationOldPictureObjectDeletionSagaState::new(domain_event.aggregate_id());
+                ctx.set_state(state);
+                let Some(object_name) = old_picture
+                    .as_ref()
+                    .and_then(|picture| picture.as_object_name())
+                    .cloned()
+                else {
+                    return Ok(());
+                };
 
-            ctx.append_command(&OrganizationPictureObjectDeleteCommand { object_name })
-                .map_err(|_| {
-                    OrganizationOldPictureObjectDeletionSagaHandlerError::UnexpectedEvent
-                })?;
-            Ok(())
-        })
-        .build()
-        .map_err(SagaError::from)
+                ctx.append_command(&OrganizationPictureObjectDeleteCommand { object_name })
+                    .map_err(|_| {
+                        OrganizationOldPictureObjectDeletionSagaHandlerError::UnexpectedEvent
+                    })?;
+                Ok(())
+            })
+            .build()
+            .map_err(SagaError::from)
     }
 }
 
@@ -79,13 +83,25 @@ mod tests {
         let definition = saga.definition().expect("valid definition");
         let aggregate_id = OrganizationId::new();
         let object_name = OrganizationPictureObjectName::new(aggregate_id);
-        for old_picture in [
-            Some(OrganizationPictureRef::object_name(object_name.clone())),
-            None,
+        for (old_picture, setting) in [
+            (
+                Some(OrganizationPictureRef::object_name(object_name.clone())),
+                true,
+            ),
+            (None, true),
+            (
+                Some(OrganizationPictureRef::object_name(object_name.clone())),
+                false,
+            ),
+            (None, false),
         ] {
             let should_enqueue = old_picture.is_some();
-            let payload = OrganizationEventPayload::PictureChanged {
-                picture: None,
+            let payload = OrganizationEventPayload::PictureSet {
+                picture: setting.then(|| {
+                    OrganizationPictureRef::object_name(OrganizationPictureObjectName::new(
+                        aggregate_id,
+                    ))
+                }),
                 old_picture,
             };
             let message_id = MessageId::new();

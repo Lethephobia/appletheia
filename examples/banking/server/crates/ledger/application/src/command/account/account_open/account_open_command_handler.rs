@@ -9,7 +9,7 @@ use banking_iam_application::authorization::{
     OrganizationFinanceManagerRelation, UserOwnerRelation,
 };
 use banking_iam_domain::{Organization, User};
-use banking_ledger_domain::account::{Account, AccountOpening, AccountOwner};
+use banking_ledger_domain::account::{Account, AccountOwner};
 use banking_ledger_domain::currency::Currency;
 
 use super::{AccountOpenCommand, AccountOpenCommandHandlerError, AccountOpenOutput};
@@ -84,12 +84,10 @@ where
 
         let mut account = Account::new();
         let account_id = account.aggregate_id();
-        account.open(AccountOpening {
-            owner: command.owner,
-            name: command.name.clone(),
-            description: command.description.clone(),
-            currency_id: command.currency_id,
-        })?;
+        account.open(command.owner, command.name.clone(), command.currency_id)?;
+        if let Some(description) = &command.description {
+            account.set_description(Some(description.clone()))?;
+        }
 
         self.account_repository
             .save(uow, request_context, &mut account)

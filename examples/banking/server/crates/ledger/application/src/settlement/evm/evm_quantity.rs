@@ -73,7 +73,7 @@ impl EvmQuantity {
             destination += 1;
             source = 1;
         }
-        for pair in hexadecimal.as_bytes()[source..].chunks_exact(2) {
+        for pair in hexadecimal.as_bytes()[source..].as_chunks::<2>().0 {
             bytes[destination] =
                 (Self::decode_nibble(pair[0])? << 4) | Self::decode_nibble(pair[1])?;
             destination += 1;

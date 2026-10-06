@@ -87,9 +87,7 @@ mod tests {
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::Aggregate;
 
-    use banking_ledger_domain::account::{
-        Account, AccountId, AccountName, AccountOpening, AccountOwner,
-    };
+    use banking_ledger_domain::account::{Account, AccountId, AccountName, AccountOwner};
     use banking_ledger_domain::currency::CurrencyId;
     use uuid::Uuid;
 
@@ -198,12 +196,7 @@ mod tests {
     fn opened_account() -> Account {
         let mut account = Account::new();
         account
-            .open(AccountOpening {
-                owner: account_owner(),
-                name: account_name("main"),
-                description: None,
-                currency_id: CurrencyId::new(),
-            })
+            .open(account_owner(), account_name("main"), CurrencyId::new())
             .expect("open should succeed");
         account
     }

@@ -7,9 +7,7 @@ use appletheia::application::request_context::RequestContext;
 use appletheia::domain::{Aggregate, UniqueValue};
 use banking_ledger_domain::currency::Currency;
 use banking_ledger_domain::token_binding::TokenBindingError;
-use banking_ledger_domain::token_binding::{
-    TokenBinding, TokenBindingDefinition, TokenBindingState,
-};
+use banking_ledger_domain::token_binding::{TokenBinding, TokenBindingState};
 
 use super::{
     TokenBindingDefineCommand, TokenBindingDefineCommandHandlerError, TokenBindingDefineOutput,
@@ -84,13 +82,6 @@ where
             .await?;
         let mut token_binding = TokenBinding::new();
         let token_binding_id = token_binding.aggregate_id();
-        let definition = TokenBindingDefinition {
-            currency_id: command.currency_id,
-            chain_network: command.chain_network,
-            token_address: command.token_address,
-            deposit_enabled: command.deposit_enabled,
-            withdrawal_enabled: command.withdrawal_enabled,
-        };
         let token_address = command.token_address.to_string();
         let unique_value = UniqueValue::from_strings([
             command.chain_network.chain_name(),
@@ -111,7 +102,13 @@ where
                 token_address: command.token_address,
             })
             .await?;
-        token_binding.define(definition)?;
+        token_binding.define(
+            command.currency_id,
+            command.chain_network,
+            command.token_address,
+            command.deposit_enabled,
+            command.withdrawal_enabled,
+        )?;
         self.token_binding_repository
             .save(uow, request_context, &mut token_binding)
             .await?;

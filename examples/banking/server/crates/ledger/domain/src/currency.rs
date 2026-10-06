@@ -1,4 +1,3 @@
-mod currency_definition;
 mod currency_description;
 mod currency_description_error;
 mod currency_error;
@@ -9,7 +8,6 @@ mod currency_state;
 mod currency_state_error;
 mod currency_status;
 
-pub use currency_definition::CurrencyDefinition;
 pub use currency_description::CurrencyDescription;
 pub use currency_description_error::CurrencyDescriptionError;
 pub use currency_error::CurrencyError;
@@ -57,25 +55,29 @@ impl Currency {
         Ok(self.state_required()?.status.is_active())
     }
 
-    pub fn define(&mut self, definition: CurrencyDefinition) -> Result<(), CurrencyError> {
+    pub fn define(
+        &mut self,
+        currency_registrar_id: CurrencyRegistrarId,
+        code: CurrencyCode,
+        decimals: CurrencyDecimals,
+    ) -> Result<(), CurrencyError> {
         if self.state().is_some() {
             return Err(CurrencyError::AlreadyDefined);
         }
         self.append_event(CurrencyEventPayload::Defined {
-            currency_registrar_id: definition.currency_registrar_id,
-            code: definition.code,
-            decimals: definition.decimals,
-            description: definition.description,
+            currency_registrar_id,
+            code,
+            decimals,
         })?;
         Ok(())
     }
 
-    pub fn change_description(
+    pub fn set_description(
         &mut self,
         description: Option<CurrencyDescription>,
     ) -> Result<(), CurrencyError> {
         self.state_required()?;
-        self.append_event(CurrencyEventPayload::DescriptionChanged { description })?;
+        self.append_event(CurrencyEventPayload::DescriptionSet { description })?;
         Ok(())
     }
 
@@ -103,15 +105,14 @@ impl AggregateApply<CurrencyEventPayload, CurrencyError> for Currency {
                 currency_registrar_id,
                 code,
                 decimals,
-                description,
             } => self.set_state(Some(CurrencyState {
                 currency_registrar_id: *currency_registrar_id,
                 code: code.clone(),
                 decimals: *decimals,
-                description: description.clone(),
+                description: None,
                 status: CurrencyStatus::Defined,
             })),
-            CurrencyEventPayload::DescriptionChanged { description } => {
+            CurrencyEventPayload::DescriptionSet { description } => {
                 self.state_required_mut()?.description = description.clone();
             }
             CurrencyEventPayload::Activated => {
@@ -127,22 +128,21 @@ impl AggregateApply<CurrencyEventPayload, CurrencyError> for Currency {
 
 #[cfg(test)]
 mod tests {
-    use appletheia::domain::Aggregate;
+    use appletheia::domain::{Aggregate, AggregateApply};
 
     use crate::core::{CurrencyCode, CurrencyDecimals};
     use crate::currency_registrar::CurrencyRegistrarId;
 
-    use super::{Currency, CurrencyDefinition, CurrencyDescription};
+    use super::{Currency, CurrencyDescription};
 
     fn defined_currency() -> Currency {
         let mut currency = Currency::new();
         currency
-            .define(CurrencyDefinition {
-                currency_registrar_id: CurrencyRegistrarId::new(),
-                code: CurrencyCode::try_from("USD").expect("currency code should be valid"),
-                decimals: CurrencyDecimals::new(2),
-                description: None,
-            })
+            .define(
+                CurrencyRegistrarId::new(),
+                CurrencyCode::try_from("USD").expect("currency code should be valid"),
+                CurrencyDecimals::new(2),
+            )
             .expect("definition should succeed");
         currency
     }
@@ -167,10 +167,10 @@ mod tests {
             .expect("currency description should be valid");
 
         currency
-            .change_description(Some(description.clone()))
+            .set_description(Some(description.clone()))
             .expect("description change should succeed");
         currency
-            .change_description(Some(description.clone()))
+            .set_description(Some(description.clone()))
             .expect("repeated description change should succeed");
 
         assert_eq!(
@@ -178,5 +178,31 @@ mod tests {
             Some(&description)
         );
         assert_eq!(currency.uncommitted_events().len(), 3);
+    }
+
+    #[test]
+    fn optional_fields_are_set_separately_and_replayable() {
+        let mut currency = Currency::new();
+        currency
+            .define(
+                CurrencyRegistrarId::new(),
+                CurrencyCode::try_from("USD").unwrap(),
+                CurrencyDecimals::new(2),
+            )
+            .unwrap();
+        assert_eq!(currency.uncommitted_events().len(), 1);
+        assert_eq!(currency.description().unwrap(), None);
+        let value = CurrencyDescription::try_from("Dollar").unwrap();
+        currency.set_description(Some(value.clone())).unwrap();
+        assert_eq!(currency.description().unwrap(), Some(&value));
+        currency.set_description(None).unwrap();
+        currency.set_description(None).unwrap();
+        assert_eq!(currency.description().unwrap(), None);
+        assert_eq!(currency.uncommitted_events().len(), 4);
+        let mut replayed = Currency::new();
+        for event in currency.uncommitted_events() {
+            replayed.apply(event.payload()).unwrap();
+        }
+        assert_eq!(replayed.state(), currency.state());
     }
 }
