@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use std::time::Duration as StdDuration;
 
 use tokio::time::Instant;
@@ -41,6 +40,7 @@ where
             projector_processed_event_store,
         }
     }
+
     async fn causation_events(
         &self,
         message_id: MessageId,
@@ -62,41 +62,6 @@ where
 
         if events.is_empty() {
             return Err(ProjectionConsistencyWaitError::UnknownMessageId { message_id });
-        }
-
-        Ok(events)
-    }
-
-    async fn event_id_events(
-        &self,
-        event_ids: &[EventId],
-    ) -> Result<Vec<EventEnvelope>, ProjectionConsistencyWaitError> {
-        if event_ids.is_empty() {
-            return Ok(Vec::new());
-        }
-
-        let mut uow = self.uow_factory.begin().await?;
-        let events = self.lookup.events_by_event_ids(&mut uow, event_ids).await;
-        let events = match events {
-            Ok(value) => value,
-            Err(operation_error) => {
-                let operation_error = uow.rollback_with_operation_error(operation_error).await?;
-                return Err(operation_error.into());
-            }
-        };
-        uow.commit().await?;
-
-        let found_event_ids: HashSet<EventId> = events.iter().map(|event| event.event_id).collect();
-        let missing_event_ids: Vec<EventId> = event_ids
-            .iter()
-            .copied()
-            .filter(|event_id| !found_event_ids.contains(event_id))
-            .collect();
-
-        if !missing_event_ids.is_empty() {
-            return Err(ProjectionConsistencyWaitError::UnknownEventIds {
-                event_ids: missing_event_ids,
-            });
         }
 
         Ok(events)
@@ -224,31 +189,6 @@ where
             deadline,
             projector_dependencies,
             &causation_events,
-        )
-        .await
-    }
-
-    async fn wait_for_events(
-        &self,
-        event_ids: &[EventId],
-        timeout: ProjectionConsistencyTimeout,
-        poll_interval: ProjectionConsistencyPollInterval,
-        projector_dependencies: ProjectorDependencies<'_>,
-    ) -> Result<(), ProjectionConsistencyWaitError> {
-        let deadline = Instant::now() + StdDuration::from(timeout);
-        let poll_duration = StdDuration::from(poll_interval);
-
-        if event_ids.is_empty() || projector_dependencies.as_slice().is_empty() {
-            return Ok(());
-        }
-
-        let events = self.event_id_events(event_ids).await?;
-        self.wait_for_projectors(
-            timeout,
-            poll_duration,
-            deadline,
-            projector_dependencies,
-            &events,
         )
         .await
     }
@@ -526,27 +466,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn wait_for_events_returns_unknown_event_ids_when_event_does_not_exist() {
-        let event_id = EventId::try_from(Uuid::now_v7()).expect("event id");
-        let waiter = test_waiter(Vec::new(), Vec::new());
-
-        let result = waiter
-            .wait_for_events(
-                &[event_id],
-                ProjectionConsistencyTimeout::from(Duration::ZERO),
-                ProjectionConsistencyPollInterval::from(Duration::ZERO),
-                ProjectorDependencies::Some(&[REGISTERED_PROJECTOR]),
-            )
-            .await;
-
-        assert!(matches!(
-            result,
-            Err(ProjectionConsistencyWaitError::UnknownEventIds { event_ids })
-                if event_ids == vec![event_id]
-        ));
-    }
-
-    #[tokio::test]
     async fn wait_ignores_dependencies_without_relevant_events() {
         let message_id = MessageId::from(Uuid::now_v7());
         let profile_readied_event_id = EventId::try_from(Uuid::now_v7()).expect("event id");
@@ -642,35 +561,6 @@ mod tests {
                 ProjectionConsistencyTimeout::from(Duration::from_millis(10)),
                 ProjectionConsistencyPollInterval::from(Duration::ZERO),
                 ProjectorDependencies::Some(&[REGISTERED_PROJECTOR, PROFILE_PROJECTOR]),
-            )
-            .await;
-
-        assert!(result.is_ok());
-    }
-
-    #[tokio::test]
-    async fn wait_for_events_succeeds_when_all_relevant_events_are_processed() {
-        let message_id = MessageId::from(Uuid::now_v7());
-        let registered_event_id = EventId::try_from(Uuid::now_v7()).expect("event id");
-        let waiter = test_waiter(
-            vec![event_envelope(
-                1,
-                registered_event_id,
-                EventName::new("registered"),
-                message_id,
-            )],
-            vec![(
-                ProjectorNameOwned::from(REGISTERED_PROJECTOR.name),
-                registered_event_id,
-            )],
-        );
-
-        let result = waiter
-            .wait_for_events(
-                &[registered_event_id],
-                ProjectionConsistencyTimeout::from(Duration::from_millis(10)),
-                ProjectionConsistencyPollInterval::from(Duration::ZERO),
-                ProjectorDependencies::Some(&[REGISTERED_PROJECTOR]),
             )
             .await;
 

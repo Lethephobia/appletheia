@@ -1,5 +1,3 @@
-use appletheia_domain::EventId;
-
 use crate::projection::{ProjectionConsistencyPollInterval, ProjectionConsistencyTimeout};
 use crate::request_context::MessageId;
 
@@ -10,12 +8,6 @@ pub enum QueryConsistency {
 
     AfterMessage {
         message_id: MessageId,
-        timeout: ProjectionConsistencyTimeout,
-        poll_interval: ProjectionConsistencyPollInterval,
-    },
-
-    AfterEvents {
-        event_ids: Vec<EventId>,
         timeout: ProjectionConsistencyTimeout,
         poll_interval: ProjectionConsistencyPollInterval,
     },

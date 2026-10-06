@@ -4,8 +4,8 @@ use crate::event::EventFeedReader;
 use crate::unit_of_work::{UnitOfWork, UnitOfWorkFactory};
 
 use super::{
-    MaterializationEventContext, ProcessedEventCount, ProjectionCheckpointStore, Projector,
-    ProjectorNameOwned, ProjectorProcessedEventStore, ProjectorRebuildReport, ProjectorRebuilder,
+    ProcessedEventCount, ProjectionCheckpointStore, Projector, ProjectorNameOwned,
+    ProjectorProcessedEventStore, ProjectorRebuildReport, ProjectorRebuilder,
     ProjectorRebuilderConfig, ProjectorRebuilderError, ProjectorSpec,
 };
 
@@ -131,11 +131,7 @@ where
                     }
                 };
 
-                if inserted
-                    && let Err(source) = projector
-                        .project(&mut uow, MaterializationEventContext::from(&event), &event)
-                        .await
-                {
+                if inserted && let Err(source) = projector.project(&mut uow, &event).await {
                     let error = ProjectorRebuilderError::Projection(Box::new(source));
                     return Err(uow.rollback_with_operation_error(error).await?);
                 }
