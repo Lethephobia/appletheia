@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.30.0](https://github.com/Lethephobia/appletheia/compare/appletheia-application-v0.29.0...appletheia-application-v0.30.0) - 2026-10-06
+
+### Added
+
+- *(saga)* [**breaking**] route command failures by typed command selectors
+
 ## [0.29.0](https://github.com/Lethephobia/appletheia/compare/appletheia-application-v0.28.0...appletheia-application-v0.29.0) - 2026-10-06
 
 ### Added
