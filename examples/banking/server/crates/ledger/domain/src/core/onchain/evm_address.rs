@@ -22,7 +22,7 @@ impl EvmAddress {
         }
 
         let mut bytes = [0; 20];
-        for (index, pair) in hexadecimal.as_bytes().chunks_exact(2).enumerate() {
+        for (index, pair) in hexadecimal.as_bytes().as_chunks::<2>().0.iter().enumerate() {
             let high = Self::decode_nibble(pair[0]).ok_or(EvmAddressError::InvalidFormat)?;
             let low = Self::decode_nibble(pair[1]).ok_or(EvmAddressError::InvalidFormat)?;
             bytes[index] = (high << 4) | low;

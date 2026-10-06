@@ -32,7 +32,9 @@ impl EvmCallData {
 
         hexadecimal
             .as_bytes()
-            .chunks_exact(2)
+            .as_chunks::<2>()
+            .0
+            .iter()
             .map(|pair| {
                 let high = Self::decode_nibble(pair[0])?;
                 let low = Self::decode_nibble(pair[1])?;
