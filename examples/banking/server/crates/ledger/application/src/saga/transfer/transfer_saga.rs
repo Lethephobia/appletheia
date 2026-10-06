@@ -119,8 +119,8 @@ impl Saga for TransferSaga {
             Ok(())
         })
         .add_failure_step(TransferSagaStep::Fail)
-        .on(TransferSagaStep::ReserveFunds)
-        .handle(|ctx, _failure| {
+        .on::<AccountFundsReserveCommand>(TransferSagaStep::ReserveFunds)
+        .handle(|ctx, _command| {
             let state = ctx.state_required_mut()?;
             let transfer_id = state.transfer_id;
             ctx.append_command(&TransferFailCommand {
@@ -130,8 +130,8 @@ impl Saga for TransferSaga {
             Ok(())
         })
         .add_failure_step(TransferSagaStep::ReleaseFunds)
-        .on(TransferSagaStep::Deposit)
-        .handle(|ctx, _failure| {
+        .on::<AccountDepositCommand>(TransferSagaStep::Deposit)
+        .handle(|ctx, _command| {
             let state = ctx.state_required_mut()?;
             let from_account_id = state.from_account_id;
             let amount = state.amount;
@@ -142,8 +142,8 @@ impl Saga for TransferSaga {
             Ok(())
         })
         .add_failure_step(TransferSagaStep::Fail)
-        .on(TransferSagaStep::ReleaseFunds)
-        .handle(|ctx, _failure| {
+        .on::<AccountReservedFundsReleaseCommand>(TransferSagaStep::ReleaseFunds)
+        .handle(|ctx, _command| {
             let state = ctx.state_required_mut()?;
             let transfer_id = state.transfer_id;
             ctx.append_command(&TransferFailCommand {
@@ -153,8 +153,8 @@ impl Saga for TransferSaga {
             Ok(())
         })
         .add_failure_step(TransferSagaStep::CompensateDeposit)
-        .on(TransferSagaStep::CommitFunds)
-        .handle(|ctx, _failure| {
+        .on::<AccountReservedFundsCommitCommand>(TransferSagaStep::CommitFunds)
+        .handle(|ctx, _command| {
             let state = ctx.state_required_mut()?;
             let account_id = state.to_account_id;
             let amount = state.amount;
@@ -162,8 +162,8 @@ impl Saga for TransferSaga {
             Ok(())
         })
         .add_failure_step(TransferSagaStep::Fail)
-        .on(TransferSagaStep::CompensateDeposit)
-        .handle(|ctx, _failure| {
+        .on::<AccountWithdrawCommand>(TransferSagaStep::CompensateDeposit)
+        .handle(|ctx, _command| {
             let state = ctx.state_required_mut()?;
             let transfer_id = state.transfer_id;
             ctx.append_command(&TransferFailCommand {
@@ -312,7 +312,7 @@ mod tests {
             step: route_step,
             handler,
             ..
-        }) = definition.find_command_failure_route(step)
+        }) = definition.find_command_failure_route(step, &failure.command_name)
         else {
             panic!("failure route");
         };

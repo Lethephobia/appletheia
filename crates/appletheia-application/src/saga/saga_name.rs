@@ -1,8 +1,5 @@
 use std::fmt::{self, Display};
 
-use crate::command::CommandFailureEnvelope;
-use crate::messaging::Selector;
-
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct SagaName(&'static str);
 
@@ -44,11 +41,5 @@ impl SagaName {
 impl Display for SagaName {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.value())
-    }
-}
-
-impl Selector<CommandFailureEnvelope> for SagaName {
-    fn matches(&self, failure: &CommandFailureEnvelope) -> bool {
-        self.value() == failure.origin.saga_name.value()
     }
 }

@@ -5,8 +5,8 @@ use uuid::Uuid;
 use crate::cloud_events::{CloudEventSource, CloudEventTypePrefix};
 use crate::google_cloud::pubsub::messaging::{PubsubMessageCodec, PubsubMessageCodecError};
 use appletheia_application::command::{
-    CommandAttemptCount, CommandFailureEnvelope, CommandFailureId, CommandNameOwned,
-    SerializedCommand,
+    CommandAttemptCount, CommandFailureEnvelope, CommandFailureId, CommandFailureSelector,
+    CommandNameOwned, SerializedCommand,
 };
 use appletheia_application::request_context::{CausationId, CorrelationId, MessageId};
 use appletheia_application::saga::SagaCommandOrigin;
@@ -15,7 +15,6 @@ use google_cloud_pubsub::model::Message;
 use super::CloudEventsPubsubCommandFailureCodecError;
 
 use appletheia_application::PublishableMessage;
-use appletheia_application::SagaName;
 
 #[derive(Clone, Debug)]
 pub struct CloudEventsPubsubCommandFailureCodec {
@@ -75,7 +74,7 @@ impl CloudEventsPubsubCommandFailureCodec {
 
 impl PubsubMessageCodec for CloudEventsPubsubCommandFailureCodec {
     type Message = CommandFailureEnvelope;
-    type Selector = SagaName;
+    type Selector = CommandFailureSelector;
 
     fn encode(&self, envelope: &Self::Message) -> Result<Message, PubsubMessageCodecError> {
         (|| -> Result<Message, CloudEventsPubsubCommandFailureCodecError> {
@@ -294,8 +293,11 @@ impl PubsubMessageCodec for CloudEventsPubsubCommandFailureCodec {
         (|| -> Result<String, CloudEventsPubsubCommandFailureCodecError> {
             Ok(format!(
                 "attributes.{} = {}",
-                serde_json::to_string("ce-saganame")?,
-                serde_json::to_string(selector.value())?
+                serde_json::to_string("ce-type")?,
+                serde_json::to_string(&Self::encode_type(
+                    self.cloud_event_type_prefix.as_ref(),
+                    &selector.command_name.into(),
+                ))?
             ))
         })()
         .map_err(|source| PubsubMessageCodecError::EncodeSelector(Box::new(source)))
@@ -340,7 +342,9 @@ mod tests {
     #[test]
     fn command_body_survives_wire_roundtrip_and_is_required() {
         use appletheia_application::command::{CommandFailedAt, CommandTerminalReason};
-        use appletheia_application::saga::{SagaInstanceId, SagaNameOwned, SerializedSagaStep};
+        use appletheia_application::saga::{
+            SagaInstanceId, SagaName, SagaNameOwned, SerializedSagaStep,
+        };
         let message_id = MessageId::new();
         let envelope = CommandFailureEnvelope {
             failure_id: CommandFailureId::new(),

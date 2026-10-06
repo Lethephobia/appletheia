@@ -1,4 +1,3 @@
-use appletheia::application::command::Command;
 use appletheia::application::saga::{
     Saga, SagaDefinition, SagaDefinitionBuilder, SagaError, SagaName,
 };
@@ -100,12 +99,8 @@ impl Saga for OwnedAccountClosureSaga {
             Ok(())
         })
         .add_failure_step(OwnedAccountClosureSagaStep::RecordAccountFailed)
-        .on(OwnedAccountClosureSagaStep::ProcessPage)
-        .handle(|ctx, failure| {
-            if failure.command_name.value() != AccountCloseCommand::NAME.value() {
-                return Ok(());
-            }
-            let command = failure.try_to_command::<AccountCloseCommand>()?;
+        .on::<AccountCloseCommand>(OwnedAccountClosureSagaStep::ProcessPage)
+        .handle(|ctx, command| {
             let owned_account_closure_id = ctx.state_required()?.owned_account_closure_id;
             ctx.append_command(&OwnedAccountClosureAccountFailedRecordCommand {
                 owned_account_closure_id,
@@ -421,7 +416,10 @@ mod tests {
         instance.clear_uncommitted_commands();
         let definition = OwnedAccountClosureSaga.definition().unwrap();
         let SagaRoute::OnCommandFailed { step, handler, .. } = definition
-            .find_command_failure_route(OwnedAccountClosureSagaStep::ProcessPage)
+            .find_command_failure_route(
+                OwnedAccountClosureSagaStep::ProcessPage,
+                &failure.command_name,
+            )
             .unwrap()
         else {
             panic!("expected failure route")
@@ -471,14 +469,14 @@ mod tests {
         );
         instance.clear_uncommitted_commands();
         let definition = OwnedAccountClosureSaga.definition().unwrap();
-        let SagaRoute::OnCommandFailed { step, handler, .. } = definition
-            .find_command_failure_route(OwnedAccountClosureSagaStep::ProcessPage)
-            .unwrap()
-        else {
-            panic!("expected failure route")
-        };
-        let mut context = SagaContext::new(&mut instance, failure.causation_id, *step);
-        handler(&mut context, &failure).unwrap();
+        assert!(
+            definition
+                .find_command_failure_route(
+                    OwnedAccountClosureSagaStep::ProcessPage,
+                    &failure.command_name
+                )
+                .is_none()
+        );
         assert!(instance.uncommitted_commands().is_empty());
     }
 

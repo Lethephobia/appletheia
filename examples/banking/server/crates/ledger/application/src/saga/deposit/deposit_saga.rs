@@ -49,8 +49,8 @@ impl Saga for DepositSaga {
             Ok(())
         })
         .add_failure_step(DepositSagaStep::Fail)
-        .on(DepositSagaStep::Deposit)
-        .handle(|ctx, _failure| {
+        .on::<AccountDepositCommand>(DepositSagaStep::Deposit)
+        .handle(|ctx, _command| {
             let state = ctx.state_required_mut()?;
             let deposit_id = state.deposit_id;
             ctx.append_command(&DepositFailCommand {

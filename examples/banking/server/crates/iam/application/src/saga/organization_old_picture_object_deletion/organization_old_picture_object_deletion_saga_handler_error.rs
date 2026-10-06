@@ -1,3 +1,4 @@
+use appletheia::application::command::CommandFailureEnvelopeError;
 use appletheia::application::event::EventEnvelopeError;
 use appletheia::application::saga::SagaContextError;
 use thiserror::Error;
@@ -6,6 +7,9 @@ use thiserror::Error;
 pub enum OrganizationOldPictureObjectDeletionSagaHandlerError {
     #[error(transparent)]
     EventEnvelope(#[from] EventEnvelopeError),
+
+    #[error(transparent)]
+    CommandFailureEnvelope(#[from] CommandFailureEnvelopeError),
 
     #[error(transparent)]
     Context(#[from] SagaContextError),

@@ -1,6 +1,6 @@
 use super::{SagaContext, SagaEventHandler, SagaFailureHandler, SagaState, SagaStep};
 use crate::{
-    command::CommandFailureEnvelope,
+    command::{Command, CommandFailureEnvelopeError, CommandFailureSelector},
     event::{EventEnvelopeError, EventSelector},
 };
 use appletheia_domain::{Aggregate, Event, EventName};
@@ -21,6 +21,7 @@ pub enum SagaRoute<'a, S: SagaState, T: SagaStep, E: Error + Send + Sync + 'stat
     },
     OnCommandFailed {
         step: T,
+        selector: CommandFailureSelector,
         caused_by: T,
         handler: Box<SagaFailureHandler<'a, S, T, E>>,
     },
@@ -66,17 +67,20 @@ impl<'a, S: SagaState, T: SagaStep, E: Error + Send + Sync + 'static> SagaRoute<
         }
     }
 
-    pub fn on_command_failed<H>(caused_by: T, dispatch_step: T, handler: H) -> Self
+    pub fn on_command_failed<C, H>(caused_by: T, dispatch_step: T, handler: H) -> Self
     where
-        H: Fn(&mut SagaContext<'_, S, T>, &CommandFailureEnvelope) -> Result<(), E>
-            + Send
-            + Sync
-            + 'a,
+        C: Command,
+        E: From<CommandFailureEnvelopeError>,
+        H: Fn(&mut SagaContext<'_, S, T>, &C) -> Result<(), E> + Send + Sync + 'a,
     {
         Self::OnCommandFailed {
             step: dispatch_step,
+            selector: CommandFailureSelector::new(C::NAME),
             caused_by,
-            handler: Box::new(handler),
+            handler: Box::new(move |ctx, envelope| {
+                let command = envelope.try_to_command::<C>()?;
+                handler(ctx, &command)
+            }),
         }
     }
 }

@@ -6,13 +6,13 @@ transactions. For command execution and failure publication, see [Command Design
 ### DO distinguish the triggering step from the outgoing step
 
 Build routes in `Saga::definition(&self)` with `SagaDefinitionBuilder`. `add_*_step` names the step
-assigned to outgoing commands; `on` describes the input. Subscriptions are derived from the routes.
+assigned to outgoing commands; `on` describes the input. Subscriptions are derived from `event_selectors()` and `command_failure_selectors()`; failure subscriptions filter by command name.
 
 | Route | Input |
 | --- | --- |
 | `add_start_step(step)` | `on::<Aggregate>(event_name)` |
 | `add_step(step)` | `on::<Aggregate>(caused_by, event_name)` |
-| `add_failure_step(step)` | `on(caused_by)` |
+| `add_failure_step(step)` | `on::<Command>(caused_by)` |
 
 Define a step enum with `#[saga_step]`; it derives `Copy`, equality, serde, and `SagaStep`, using
 adjacently tagged snake-case JSON (`type` / `data`) by default. Use `#[derive(SagaStep)]` when managing
@@ -20,9 +20,8 @@ the other derives and serialization yourself. Variants may contain `Copy` values
 part in equality and route matching, so keep changing workflow progress in SagaState.
 
 A step identifies a command-dispatch stage, not a persisted current position. One route may append
-multiple commands, all carrying its outgoing step. Failure routes match the originating step, not a
-command generic; inspect `failure.command_name` if that step emits command kinds requiring different
-reactions. Duplicate input conditions cannot be distinguished merely by changing the outgoing step.
+multiple commands, all carrying its outgoing step. Failure routes match both the originating step and `Command::NAME`. Their handlers receive
+the decoded command, so different command types can have separate failure routes on the same step. Duplicate input conditions cannot be distinguished merely by changing the outgoing step.
 
 This continuation excerpt handles the reservation's result and dispatches a deposit. A complete
 workflow must also register its start and required outcome paths.
@@ -67,8 +66,8 @@ once at startup, so running both builds it twice. Register callbacks there rathe
 business operations during construction.
 
 Callbacks are synchronous `Fn` closures and may borrow injected services through `&self`, subject to
-`Send + Sync`. They receive a typed event or command-failure envelope. Use commands for asynchronous
-work. Define a handler error with `From<EventEnvelopeError>` and conversions for the context errors
+`Send + Sync`. They receive a typed event or the decoded command that failed. Use commands for asynchronous
+work. Define a handler error with `From<EventEnvelopeError>`, `From<CommandFailureEnvelopeError>`, and conversions for the context errors
 used by callbacks; these are execution errors, separate from definition-construction errors.
 
 **Good**
@@ -200,8 +199,8 @@ deduplication handles repeated inputs. Domain completion events and commands rem
 ```rust
 builder
     .add_failure_step(TransferSagaStep::ReleaseFunds)
-    .on(TransferSagaStep::Deposit)
-    .handle(|ctx, _failure| {
+    .on::<AccountDepositCommand>(TransferSagaStep::Deposit)
+    .handle(|ctx, _command| {
         let state = ctx.state_required()?;
         let command = AccountReservedFundsReleaseCommand {
             account_id: state.from_account_id,
@@ -217,7 +216,7 @@ builder
 ```rust
 // Added solely to consume the final notification or mark the saga finished.
 builder
-    .add_failure_step(TransferSagaStep::Complete)
-    .on(TransferSagaStep::Complete)
-    .handle(|_ctx, _failure| Ok(()))
+    .add_failure_step(TransferSagaStep::Succeed)
+    .on::<TransferSucceedCommand>(TransferSagaStep::Succeed)
+    .handle(|_ctx, _command| Ok(()))
 ```

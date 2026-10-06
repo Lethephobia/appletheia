@@ -96,14 +96,14 @@ impl Saga for WithdrawalSaga {
             Ok(())
         })
         .add_failure_step(WithdrawalSagaStep::Fail)
-        .on(WithdrawalSagaStep::ReserveFunds)
-        .handle(|ctx, _failure| {
+        .on::<AccountFundsReserveCommand>(WithdrawalSagaStep::ReserveFunds)
+        .handle(|ctx, _command| {
             self.append_fail_after_failure(ctx, WithdrawalFailureReason::FundsReserveRejected)?;
             Ok(())
         })
         .add_failure_step(WithdrawalSagaStep::ReleaseFunds)
-        .on(WithdrawalSagaStep::ExecuteSettlement)
-        .handle(|ctx, _failure| {
+        .on::<WithdrawalSettlementExecuteCommand>(WithdrawalSagaStep::ExecuteSettlement)
+        .handle(|ctx, _command| {
             let state = ctx.state_required_mut()?;
             let account_id = state.account_id;
             let amount = state.amount;
@@ -111,8 +111,8 @@ impl Saga for WithdrawalSaga {
             Ok(())
         })
         .add_failure_step(WithdrawalSagaStep::Fail)
-        .on(WithdrawalSagaStep::ReleaseFunds)
-        .handle(|ctx, _failure| {
+        .on::<AccountReservedFundsReleaseCommand>(WithdrawalSagaStep::ReleaseFunds)
+        .handle(|ctx, _command| {
             self.append_fail_after_failure(
                 ctx,
                 WithdrawalFailureReason::ReservedFundsReleaseRejected,
@@ -120,8 +120,8 @@ impl Saga for WithdrawalSaga {
             Ok(())
         })
         .add_failure_step(WithdrawalSagaStep::Fail)
-        .on(WithdrawalSagaStep::CommitFunds)
-        .handle(|ctx, _failure| {
+        .on::<AccountReservedFundsCommitCommand>(WithdrawalSagaStep::CommitFunds)
+        .handle(|ctx, _command| {
             self.append_fail_after_failure(
                 ctx,
                 WithdrawalFailureReason::ReservedFundsCommitRejected,

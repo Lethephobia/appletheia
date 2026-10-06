@@ -1,15 +1,15 @@
 use std::sync::atomic::{AtomicBool, Ordering as AtomicOrdering};
 
-use crate::command::CommandFailureEnvelope;
+use crate::command::{CommandFailureEnvelope, CommandFailureSelector};
 use crate::messaging::Subscription;
 use crate::{Consumer, ConsumerGroup, Delivery, Subscriber};
 
-use super::{Saga, SagaCommandFailureWorker, SagaCommandFailureWorkerError, SagaName, SagaRunner};
+use super::{Saga, SagaCommandFailureWorker, SagaCommandFailureWorkerError, SagaRunner};
 
 /// Consumes terminal command failures for sagas passed to `run_forever`.
 pub struct DefaultSagaCommandFailureWorker<S, R>
 where
-    S: Subscriber<CommandFailureEnvelope, Selector = SagaName>,
+    S: Subscriber<CommandFailureEnvelope, Selector = CommandFailureSelector>,
     S::Consumer: Consumer<CommandFailureEnvelope>,
     <S::Consumer as Consumer<CommandFailureEnvelope>>::Delivery: Delivery<CommandFailureEnvelope>,
     R: SagaRunner,
@@ -21,7 +21,7 @@ where
 
 impl<S, R> DefaultSagaCommandFailureWorker<S, R>
 where
-    S: Subscriber<CommandFailureEnvelope, Selector = SagaName>,
+    S: Subscriber<CommandFailureEnvelope, Selector = CommandFailureSelector>,
     S::Consumer: Consumer<CommandFailureEnvelope>,
     <S::Consumer as Consumer<CommandFailureEnvelope>>::Delivery: Delivery<CommandFailureEnvelope>,
     R: SagaRunner,
@@ -37,7 +37,7 @@ where
 
 impl<S, R> SagaCommandFailureWorker for DefaultSagaCommandFailureWorker<S, R>
 where
-    S: Subscriber<CommandFailureEnvelope, Selector = SagaName>,
+    S: Subscriber<CommandFailureEnvelope, Selector = CommandFailureSelector>,
     S::Consumer: Consumer<CommandFailureEnvelope>,
     <S::Consumer as Consumer<CommandFailureEnvelope>>::Delivery: Delivery<CommandFailureEnvelope>,
     R: SagaRunner,
@@ -57,14 +57,21 @@ where
         let definition = saga.definition()?;
         let consumer_group =
             ConsumerGroup::new(format!("saga_command_failures_{}", definition.name()))?;
-        let saga_name = definition.name();
+        let selectors = definition.command_failure_selectors();
+        if selectors.is_empty() {
+            return Ok(());
+        }
         let mut consumer = self
             .subscriber
-            .subscribe(&consumer_group, Subscription::One(&saga_name))
+            .subscribe(&consumer_group, Subscription::AnyOf(&selectors))
             .await?;
 
         while !self.is_stop_requested() {
             let mut delivery = consumer.next().await?;
+            if !Subscription::AnyOf(&selectors).matches(delivery.message()) {
+                delivery.ack().await?;
+                continue;
+            }
             let result = self
                 .saga_runner
                 .handle_command_failure(&definition, delivery.message())

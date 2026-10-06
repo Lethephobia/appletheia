@@ -18,8 +18,8 @@ mod tests {
     use crate::cloud_events::CloudEventSource;
     use crate::google_cloud::pubsub::messaging::{PubsubMessageCodec, PubsubMessageCodecError};
     use appletheia_application::{
-        CommandEnvelope, CommandFailureEnvelope, CommandName, CommandSelector, EventEnvelope,
-        EventSelector, SagaName,
+        CommandEnvelope, CommandFailureEnvelope, CommandFailureSelector, CommandName,
+        CommandSelector, EventEnvelope, EventSelector,
     };
     use appletheia_domain::{AggregateType, EventName};
     use serde_json::json;
@@ -118,11 +118,11 @@ mod tests {
         );
         assert_eq!(
             failure_codec
-                .encode_selector(&SagaName::new("transfer"))
+                .encode_selector(&CommandFailureSelector::new(CommandName::new("debit")))
                 .unwrap(),
             format!(
-                "attributes.\"ce-saganame\" = \"{}\"",
-                failure_wire.attributes["ce-saganame"]
+                "attributes.\"ce-type\" = \"{}\"",
+                failure_wire.attributes["ce-type"]
             )
         );
         let mut missing_id = event_wire.clone();
