@@ -16,7 +16,7 @@ pub enum TransferEventPayload {
     NoteSet {
         note: Option<TransferNote>,
     },
-    Completed,
+    Succeeded,
     Failed {
         reason: TransferFailureReason,
     },

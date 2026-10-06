@@ -4,7 +4,7 @@ use banking_ledger_domain::withdrawal::{Withdrawal, WithdrawalError};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum WithdrawalCompleteCommandHandlerError {
+pub enum WithdrawalSucceedCommandHandlerError {
     #[error("withdrawal repository failed")]
     WithdrawalRepository(#[from] RepositoryError<Withdrawal>),
 
@@ -12,7 +12,7 @@ pub enum WithdrawalCompleteCommandHandlerError {
     Withdrawal(#[from] WithdrawalError),
 }
 
-impl Retryability for WithdrawalCompleteCommandHandlerError {
+impl Retryability for WithdrawalSucceedCommandHandlerError {
     fn is_retryable(&self) -> bool {
         match self {
             Self::WithdrawalRepository(error) => error.is_retryable(),

@@ -5,18 +5,19 @@ use appletheia::application::request_context::RequestContext;
 use banking_ledger_domain::owned_account_closure::OwnedAccountClosure;
 
 use super::{
-    OwnedAccountClosureFailedRecordCommand, OwnedAccountClosureFailedRecordCommandHandlerError,
-    OwnedAccountClosureFailedRecordOutput,
+    OwnedAccountClosureAccountSucceededRecordCommand,
+    OwnedAccountClosureAccountSucceededRecordCommandHandlerError,
+    OwnedAccountClosureAccountSucceededRecordOutput,
 };
 
-pub struct OwnedAccountClosureFailedRecordCommandHandler<OACR>
+pub struct OwnedAccountClosureAccountSucceededRecordCommandHandler<OACR>
 where
     OACR: Repository<OwnedAccountClosure>,
 {
     owned_account_closure_repository: OACR,
 }
 
-impl<OACR> OwnedAccountClosureFailedRecordCommandHandler<OACR>
+impl<OACR> OwnedAccountClosureAccountSucceededRecordCommandHandler<OACR>
 where
     OACR: Repository<OwnedAccountClosure>,
 {
@@ -27,13 +28,13 @@ where
     }
 }
 
-impl<OACR> CommandHandler for OwnedAccountClosureFailedRecordCommandHandler<OACR>
+impl<OACR> CommandHandler for OwnedAccountClosureAccountSucceededRecordCommandHandler<OACR>
 where
     OACR: Repository<OwnedAccountClosure>,
 {
-    type Command = OwnedAccountClosureFailedRecordCommand;
-    type Output = OwnedAccountClosureFailedRecordOutput;
-    type Error = OwnedAccountClosureFailedRecordCommandHandlerError;
+    type Command = OwnedAccountClosureAccountSucceededRecordCommand;
+    type Output = OwnedAccountClosureAccountSucceededRecordOutput;
+    type Error = OwnedAccountClosureAccountSucceededRecordCommandHandlerError;
     type Uow = OACR::Uow;
 
     fn authorization_plan(
@@ -56,7 +57,7 @@ where
             .read(uow, command.owned_account_closure_id)
             .await?;
 
-        owned_account_closure.record_failed(command.account_id)?;
+        owned_account_closure.record_account_succeeded(command.account_id)?;
         if owned_account_closure.is_ready_to_complete()? {
             owned_account_closure.complete()?;
         }
@@ -64,6 +65,6 @@ where
             .save(uow, request_context, &mut owned_account_closure)
             .await?;
 
-        Ok(OwnedAccountClosureFailedRecordOutput {})
+        Ok(OwnedAccountClosureAccountSucceededRecordOutput {})
     }
 }

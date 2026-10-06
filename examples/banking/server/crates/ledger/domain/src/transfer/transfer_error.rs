@@ -15,8 +15,8 @@ pub enum TransferError {
     #[error("transfer has already been requested")]
     AlreadyRequested,
 
-    #[error("transfer is already completed")]
-    AlreadyCompleted,
+    #[error("transfer is already succeeded")]
+    AlreadySucceeded,
 
     #[error("transfer is already failed")]
     AlreadyFailed,

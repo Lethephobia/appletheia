@@ -10,8 +10,8 @@ use banking_ledger_domain::withdrawal::{
 use super::{WithdrawalSagaHandlerError, WithdrawalSagaState, WithdrawalSagaStep};
 use crate::command::{
     AccountFundsReserveCommand, AccountReservedFundsCommitCommand,
-    AccountReservedFundsReleaseCommand, WithdrawalCompleteCommand, WithdrawalFailCommand,
-    WithdrawalSettlementExecuteCommand,
+    AccountReservedFundsReleaseCommand, WithdrawalFailCommand, WithdrawalSettlementExecuteCommand,
+    WithdrawalSucceedCommand,
 };
 
 /// Coordinates the withdrawal flow.
@@ -84,7 +84,7 @@ impl Saga for WithdrawalSaga {
             })?;
             Ok(())
         })
-        .add_step(WithdrawalSagaStep::Complete)
+        .add_step(WithdrawalSagaStep::Succeed)
         .on::<Account>(
             WithdrawalSagaStep::CommitFunds,
             AccountEventPayload::RESERVED_FUNDS_COMMITTED,
@@ -92,7 +92,7 @@ impl Saga for WithdrawalSaga {
         .handle(|ctx, _account_event| {
             let state = ctx.state_required_mut()?;
             let withdrawal_id = state.withdrawal_id;
-            ctx.append_command(&WithdrawalCompleteCommand { withdrawal_id })?;
+            ctx.append_command(&WithdrawalSucceedCommand { withdrawal_id })?;
             Ok(())
         })
         .add_failure_step(WithdrawalSagaStep::Fail)

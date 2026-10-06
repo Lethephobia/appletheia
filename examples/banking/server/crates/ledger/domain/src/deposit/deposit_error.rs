@@ -18,8 +18,8 @@ pub enum DepositError {
     #[error("deposit settlement has not been verified")]
     SettlementNotVerified,
 
-    #[error("deposit is already completed")]
-    AlreadyCompleted,
+    #[error("deposit is already succeeded")]
+    AlreadySucceeded,
 
     #[error("deposit is already failed")]
     AlreadyFailed,

@@ -78,26 +78,27 @@ pub use currency_registrar_membership::{
     CurrencyRegistrarMembershipRemoveCommandHandlerError, CurrencyRegistrarMembershipRemoveOutput,
 };
 pub use deposit::{
-    DepositCompleteCommand, DepositCompleteCommandHandler, DepositCompleteCommandHandlerError,
-    DepositCompleteOutput, DepositFailCommand, DepositFailCommandHandler,
-    DepositFailCommandHandlerError, DepositFailOutput, DepositNoteSetCommand,
-    DepositNoteSetCommandHandler, DepositNoteSetCommandHandlerError, DepositNoteSetOutput,
-    DepositSettlementPrepareCommand, DepositSettlementPrepareCommandHandler,
-    DepositSettlementPrepareCommandHandlerError, DepositSettlementPrepareOutput,
-    DepositSettlementVerifyCommand, DepositSettlementVerifyCommandHandler,
-    DepositSettlementVerifyCommandHandlerError, DepositSettlementVerifyOutput,
+    DepositFailCommand, DepositFailCommandHandler, DepositFailCommandHandlerError,
+    DepositFailOutput, DepositNoteSetCommand, DepositNoteSetCommandHandler,
+    DepositNoteSetCommandHandlerError, DepositNoteSetOutput, DepositSettlementPrepareCommand,
+    DepositSettlementPrepareCommandHandler, DepositSettlementPrepareCommandHandlerError,
+    DepositSettlementPrepareOutput, DepositSettlementVerifyCommand,
+    DepositSettlementVerifyCommandHandler, DepositSettlementVerifyCommandHandlerError,
+    DepositSettlementVerifyOutput, DepositSucceedCommand, DepositSucceedCommandHandler,
+    DepositSucceedCommandHandlerError, DepositSucceedOutput,
 };
 pub use owned_account_closure::{
-    OwnedAccountClosureFailedRecordCommand, OwnedAccountClosureFailedRecordCommandHandler,
-    OwnedAccountClosureFailedRecordCommandHandlerError, OwnedAccountClosureFailedRecordOutput,
-    OwnedAccountClosureScanCommand, OwnedAccountClosureScanCommandHandler,
-    OwnedAccountClosureScanCommandHandlerConfig, OwnedAccountClosureScanCommandHandlerError,
-    OwnedAccountClosureScanOutput, OwnedAccountClosureStartCommand,
-    OwnedAccountClosureStartCommandHandler, OwnedAccountClosureStartCommandHandlerError,
-    OwnedAccountClosureStartOutput, OwnedAccountClosureSucceededRecordCommand,
-    OwnedAccountClosureSucceededRecordCommandHandler,
-    OwnedAccountClosureSucceededRecordCommandHandlerError,
-    OwnedAccountClosureSucceededRecordOutput,
+    OwnedAccountClosureAccountFailedRecordCommand,
+    OwnedAccountClosureAccountFailedRecordCommandHandler,
+    OwnedAccountClosureAccountFailedRecordCommandHandlerError,
+    OwnedAccountClosureAccountFailedRecordOutput, OwnedAccountClosureAccountSucceededRecordCommand,
+    OwnedAccountClosureAccountSucceededRecordCommandHandler,
+    OwnedAccountClosureAccountSucceededRecordCommandHandlerError,
+    OwnedAccountClosureAccountSucceededRecordOutput, OwnedAccountClosureScanCommand,
+    OwnedAccountClosureScanCommandHandler, OwnedAccountClosureScanCommandHandlerConfig,
+    OwnedAccountClosureScanCommandHandlerError, OwnedAccountClosureScanOutput,
+    OwnedAccountClosureStartCommand, OwnedAccountClosureStartCommandHandler,
+    OwnedAccountClosureStartCommandHandlerError, OwnedAccountClosureStartOutput,
 };
 pub use token_binding::{
     TokenBindingDefineCommand, TokenBindingDefineCommandHandler,
@@ -111,10 +112,10 @@ pub use token_binding::{
     TokenBindingWithdrawalEnabledChangeOutput,
 };
 pub use transfer::{
-    TransferCompleteCommand, TransferCompleteCommandHandler, TransferCompleteOutput,
     TransferFailCommand, TransferFailCommandHandler, TransferFailOutput, TransferNoteSetCommand,
     TransferNoteSetCommandHandler, TransferNoteSetCommandHandlerError, TransferNoteSetOutput,
     TransferRequestCommand, TransferRequestCommandHandler, TransferRequestOutput,
+    TransferSucceedCommand, TransferSucceedCommandHandler, TransferSucceedOutput,
 };
 pub use wallet_bookmark::{
     WalletBookmarkDescriptionSetCommand, WalletBookmarkDescriptionSetCommandHandler,
@@ -127,10 +128,10 @@ pub use wallet_bookmark::{
     WalletBookmarkRemoveCommandHandlerError, WalletBookmarkRemoveOutput,
 };
 pub use withdrawal::{
-    WithdrawalCompleteCommand, WithdrawalCompleteCommandHandler, WithdrawalCompleteOutput,
     WithdrawalFailCommand, WithdrawalFailCommandHandler, WithdrawalFailOutput,
     WithdrawalNoteSetCommand, WithdrawalNoteSetCommandHandler,
     WithdrawalNoteSetCommandHandlerError, WithdrawalNoteSetOutput, WithdrawalRequestCommand,
     WithdrawalRequestCommandHandler, WithdrawalRequestOutput, WithdrawalSettlementExecuteCommand,
     WithdrawalSettlementExecuteCommandHandler, WithdrawalSettlementExecuteOutput,
+    WithdrawalSucceedCommand, WithdrawalSucceedCommandHandler, WithdrawalSucceedOutput,
 };

@@ -8,6 +8,6 @@ pub enum TransferSagaStep {
     ReleaseFunds,
     CommitFunds,
     CompensateDeposit,
-    Complete,
+    Succeed,
     Fail,
 }

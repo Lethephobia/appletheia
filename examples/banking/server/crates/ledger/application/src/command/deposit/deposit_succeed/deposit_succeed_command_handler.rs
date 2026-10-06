@@ -4,16 +4,16 @@ use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_ledger_domain::deposit::Deposit;
 
-use super::{DepositCompleteCommand, DepositCompleteCommandHandlerError, DepositCompleteOutput};
+use super::{DepositSucceedCommand, DepositSucceedCommandHandlerError, DepositSucceedOutput};
 
-pub struct DepositCompleteCommandHandler<DR>
+pub struct DepositSucceedCommandHandler<DR>
 where
     DR: Repository<Deposit>,
 {
     deposit_repository: DR,
 }
 
-impl<DR> DepositCompleteCommandHandler<DR>
+impl<DR> DepositSucceedCommandHandler<DR>
 where
     DR: Repository<Deposit>,
 {
@@ -22,13 +22,13 @@ where
     }
 }
 
-impl<DR> CommandHandler for DepositCompleteCommandHandler<DR>
+impl<DR> CommandHandler for DepositSucceedCommandHandler<DR>
 where
     DR: Repository<Deposit>,
 {
-    type Command = DepositCompleteCommand;
-    type Output = DepositCompleteOutput;
-    type Error = DepositCompleteCommandHandlerError;
+    type Command = DepositSucceedCommand;
+    type Output = DepositSucceedOutput;
+    type Error = DepositSucceedCommandHandlerError;
     type Uow = DR::Uow;
 
     fn authorization_plan(
@@ -51,11 +51,11 @@ where
             .read(uow, command.deposit_id)
             .await?;
 
-        deposit.complete()?;
+        deposit.succeed()?;
         self.deposit_repository
             .save(uow, request_context, &mut deposit)
             .await?;
 
-        Ok(DepositCompleteOutput {})
+        Ok(DepositSucceedOutput {})
     }
 }

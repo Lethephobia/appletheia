@@ -4,16 +4,16 @@ use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_ledger_domain::transfer::Transfer;
 
-use super::{TransferCompleteCommand, TransferCompleteCommandHandlerError, TransferCompleteOutput};
+use super::{TransferSucceedCommand, TransferSucceedCommandHandlerError, TransferSucceedOutput};
 
-pub struct TransferCompleteCommandHandler<TR>
+pub struct TransferSucceedCommandHandler<TR>
 where
     TR: Repository<Transfer>,
 {
     transfer_repository: TR,
 }
 
-impl<TR> TransferCompleteCommandHandler<TR>
+impl<TR> TransferSucceedCommandHandler<TR>
 where
     TR: Repository<Transfer>,
 {
@@ -24,13 +24,13 @@ where
     }
 }
 
-impl<TR> CommandHandler for TransferCompleteCommandHandler<TR>
+impl<TR> CommandHandler for TransferSucceedCommandHandler<TR>
 where
     TR: Repository<Transfer>,
 {
-    type Command = TransferCompleteCommand;
-    type Output = TransferCompleteOutput;
-    type Error = TransferCompleteCommandHandlerError;
+    type Command = TransferSucceedCommand;
+    type Output = TransferSucceedOutput;
+    type Error = TransferSucceedCommandHandlerError;
     type Uow = TR::Uow;
 
     fn authorization_plan(
@@ -53,11 +53,11 @@ where
             .read(uow, command.transfer_id)
             .await?;
 
-        transfer.complete()?;
+        transfer.succeed()?;
         self.transfer_repository
             .save(uow, request_context, &mut transfer)
             .await?;
 
-        Ok(TransferCompleteOutput {})
+        Ok(TransferSucceedOutput {})
     }
 }

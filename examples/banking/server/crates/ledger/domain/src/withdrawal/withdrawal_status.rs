@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 pub enum WithdrawalStatus {
     Pending,
     SettlementExecuted,
-    Completed,
+    Succeeded,
     Failed,
     Rejected,
 }
