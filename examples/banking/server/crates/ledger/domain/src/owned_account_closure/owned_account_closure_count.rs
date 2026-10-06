@@ -18,12 +18,14 @@ impl OwnedAccountClosureCount {
     }
 
     pub fn try_increment(self) -> Result<Self, OwnedAccountClosureCountError> {
-        self.try_add(Self(1))
+        self.try_add(1)
     }
 
-    pub fn try_add(self, other: Self) -> Result<Self, OwnedAccountClosureCountError> {
+    pub fn try_add(self, count: usize) -> Result<Self, OwnedAccountClosureCountError> {
+        let increment =
+            u32::try_from(count).map_err(|_| OwnedAccountClosureCountError::Overflow)?;
         self.0
-            .checked_add(other.0)
+            .checked_add(increment)
             .map(Self)
             .ok_or(OwnedAccountClosureCountError::Overflow)
     }
@@ -55,15 +57,27 @@ mod tests {
             Err(OwnedAccountClosureCountError::Overflow)
         ));
         assert!(matches!(
-            maximum.try_add(OwnedAccountClosureCount::new(1)),
+            maximum.try_add(1),
             Err(OwnedAccountClosureCountError::Overflow)
         ));
-        assert_eq!(
-            maximum
-                .try_add(OwnedAccountClosureCount::default())
-                .unwrap(),
-            maximum
-        );
+        assert_eq!(maximum.try_add(0).unwrap(), maximum);
+    }
+
+    #[test]
+    fn adds_multiple_items_without_changing_the_original_count() {
+        let count = OwnedAccountClosureCount::new(2);
+        assert_eq!(count.try_add(3).unwrap().value(), 5);
+        assert_eq!(count.value(), 2);
+        assert!(count.try_add(u32::MAX as usize).is_err());
+    }
+
+    #[cfg(target_pointer_width = "64")]
+    #[test]
+    fn rejects_increments_larger_than_u32() {
+        assert!(matches!(
+            OwnedAccountClosureCount::default().try_add(u32::MAX as usize + 1),
+            Err(OwnedAccountClosureCountError::Overflow)
+        ));
     }
 
     #[test]
