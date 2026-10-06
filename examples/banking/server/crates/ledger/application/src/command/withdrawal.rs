@@ -1,12 +1,9 @@
-mod withdrawal_complete;
 mod withdrawal_fail;
 mod withdrawal_note_set;
 mod withdrawal_request;
 mod withdrawal_settlement_execute;
+mod withdrawal_succeed;
 
-pub use withdrawal_complete::{
-    WithdrawalCompleteCommand, WithdrawalCompleteCommandHandler, WithdrawalCompleteOutput,
-};
 pub use withdrawal_fail::{
     WithdrawalFailCommand, WithdrawalFailCommandHandler, WithdrawalFailOutput,
 };
@@ -16,6 +13,9 @@ pub use withdrawal_request::{
 pub use withdrawal_settlement_execute::{
     WithdrawalSettlementExecuteCommand, WithdrawalSettlementExecuteCommandHandler,
     WithdrawalSettlementExecuteOutput,
+};
+pub use withdrawal_succeed::{
+    WithdrawalSucceedCommand, WithdrawalSucceedCommandHandler, WithdrawalSucceedOutput,
 };
 
 pub use withdrawal_note_set::{

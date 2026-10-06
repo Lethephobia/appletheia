@@ -1,8 +1,8 @@
 use super::{TransferSagaHandlerError, TransferSagaState, TransferSagaStep};
 use crate::command::{
     AccountDepositCommand, AccountFundsReserveCommand, AccountReservedFundsCommitCommand,
-    AccountReservedFundsReleaseCommand, AccountWithdrawCommand, TransferCompleteCommand,
-    TransferFailCommand,
+    AccountReservedFundsReleaseCommand, AccountWithdrawCommand, TransferFailCommand,
+    TransferSucceedCommand,
 };
 use appletheia::application::saga::SagaError;
 use appletheia::application::saga::{Saga, SagaDefinition, SagaDefinitionBuilder, SagaName};
@@ -91,7 +91,7 @@ impl Saga for TransferSaga {
             })?;
             Ok(())
         })
-        .add_step(TransferSagaStep::Complete)
+        .add_step(TransferSagaStep::Succeed)
         .on::<Account>(
             TransferSagaStep::CommitFunds,
             AccountEventPayload::RESERVED_FUNDS_COMMITTED,
@@ -100,7 +100,7 @@ impl Saga for TransferSaga {
             let state = ctx.state_required_mut()?;
             let transfer_id = state.transfer_id;
 
-            ctx.append_command(&TransferCompleteCommand { transfer_id })?;
+            ctx.append_command(&TransferSucceedCommand { transfer_id })?;
             Ok(())
         })
         .add_step(TransferSagaStep::Fail)
@@ -119,8 +119,8 @@ impl Saga for TransferSaga {
             Ok(())
         })
         .add_failure_step(TransferSagaStep::Fail)
-        .on(TransferSagaStep::ReserveFunds)
-        .handle(|ctx, _failure| {
+        .on::<AccountFundsReserveCommand>(TransferSagaStep::ReserveFunds)
+        .handle(|ctx, _command| {
             let state = ctx.state_required_mut()?;
             let transfer_id = state.transfer_id;
             ctx.append_command(&TransferFailCommand {
@@ -130,8 +130,8 @@ impl Saga for TransferSaga {
             Ok(())
         })
         .add_failure_step(TransferSagaStep::ReleaseFunds)
-        .on(TransferSagaStep::Deposit)
-        .handle(|ctx, _failure| {
+        .on::<AccountDepositCommand>(TransferSagaStep::Deposit)
+        .handle(|ctx, _command| {
             let state = ctx.state_required_mut()?;
             let from_account_id = state.from_account_id;
             let amount = state.amount;
@@ -142,8 +142,8 @@ impl Saga for TransferSaga {
             Ok(())
         })
         .add_failure_step(TransferSagaStep::Fail)
-        .on(TransferSagaStep::ReleaseFunds)
-        .handle(|ctx, _failure| {
+        .on::<AccountReservedFundsReleaseCommand>(TransferSagaStep::ReleaseFunds)
+        .handle(|ctx, _command| {
             let state = ctx.state_required_mut()?;
             let transfer_id = state.transfer_id;
             ctx.append_command(&TransferFailCommand {
@@ -153,8 +153,8 @@ impl Saga for TransferSaga {
             Ok(())
         })
         .add_failure_step(TransferSagaStep::CompensateDeposit)
-        .on(TransferSagaStep::CommitFunds)
-        .handle(|ctx, _failure| {
+        .on::<AccountReservedFundsCommitCommand>(TransferSagaStep::CommitFunds)
+        .handle(|ctx, _command| {
             let state = ctx.state_required_mut()?;
             let account_id = state.to_account_id;
             let amount = state.amount;
@@ -162,8 +162,8 @@ impl Saga for TransferSaga {
             Ok(())
         })
         .add_failure_step(TransferSagaStep::Fail)
-        .on(TransferSagaStep::CompensateDeposit)
-        .handle(|ctx, _failure| {
+        .on::<AccountWithdrawCommand>(TransferSagaStep::CompensateDeposit)
+        .handle(|ctx, _command| {
             let state = ctx.state_required_mut()?;
             let transfer_id = state.transfer_id;
             ctx.append_command(&TransferFailCommand {
@@ -209,8 +209,8 @@ mod tests {
     use super::{TransferSaga, TransferSagaState, TransferSagaStep};
     use crate::command::{
         AccountDepositCommand, AccountFundsReserveCommand, AccountReservedFundsCommitCommand,
-        AccountReservedFundsReleaseCommand, AccountWithdrawCommand, TransferCompleteCommand,
-        TransferFailCommand,
+        AccountReservedFundsReleaseCommand, AccountWithdrawCommand, TransferFailCommand,
+        TransferSucceedCommand,
     };
 
     fn request_context(correlation_id: CorrelationId) -> RequestContext {
@@ -312,7 +312,7 @@ mod tests {
             step: route_step,
             handler,
             ..
-        }) = definition.find_command_failure_route(step)
+        }) = definition.find_command_failure_route(step, &failure.command_name)
         else {
             panic!("failure route");
         };
@@ -511,19 +511,19 @@ mod tests {
             Some(TransferSagaStep::CommitFunds),
         )
         .expect("reserved funds committed should succeed");
-        let complete = instance.uncommitted_commands()[0]
-            .try_to_command::<TransferCompleteCommand>()
+        let succeed = instance.uncommitted_commands()[0]
+            .try_to_command::<TransferSucceedCommand>()
             .expect("command should deserialize");
-        assert_eq!(complete, TransferCompleteCommand { transfer_id });
+        assert_eq!(succeed, TransferSucceedCommand { transfer_id });
 
         instance.clear_uncommitted_commands();
         handle_event(
             &saga,
             &mut instance,
-            &transfer_event_envelope(correlation_id, transfer_id, TransferEventPayload::Completed),
-            Some(TransferSagaStep::Complete),
+            &transfer_event_envelope(correlation_id, transfer_id, TransferEventPayload::Succeeded),
+            Some(TransferSagaStep::Succeed),
         )
-        .expect("completed should succeed");
+        .expect("succeeded should succeed");
 
         assert!(instance.uncommitted_commands().is_empty());
     }

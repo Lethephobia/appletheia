@@ -1,0 +1,9 @@
+mod deposit_succeed_command;
+mod deposit_succeed_command_handler;
+mod deposit_succeed_command_handler_error;
+mod deposit_succeed_output;
+
+pub use deposit_succeed_command::DepositSucceedCommand;
+pub use deposit_succeed_command_handler::DepositSucceedCommandHandler;
+pub use deposit_succeed_command_handler_error::DepositSucceedCommandHandlerError;
+pub use deposit_succeed_output::DepositSucceedOutput;

@@ -1,4 +1,5 @@
 use super::{SagaDefinitionError, SagaName, SagaRoute, SagaState, SagaStep};
+use crate::command::{CommandFailureSelector, CommandNameOwned};
 use crate::event::{EventEnvelope, EventSelector};
 use std::error::Error;
 
@@ -42,12 +43,17 @@ impl<'a, S: SagaState, T: SagaStep, E: Error + Send + Sync + 'static> SagaDefini
                         return Err(SagaDefinitionError::DuplicateEventRoute);
                     }
                     (
-                        SagaRoute::OnCommandFailed { caused_by, .. },
                         SagaRoute::OnCommandFailed {
-                            caused_by: other_cause,
+                            caused_by,
+                            selector,
                             ..
                         },
-                    ) if caused_by == other_cause => {
+                        SagaRoute::OnCommandFailed {
+                            caused_by: other_cause,
+                            selector: other_selector,
+                            ..
+                        },
+                    ) if caused_by == other_cause && selector == other_selector => {
                         return Err(SagaDefinitionError::DuplicateCommandFailureRoute);
                     }
                     _ => {}
@@ -65,7 +71,7 @@ impl<'a, S: SagaState, T: SagaStep, E: Error + Send + Sync + 'static> SagaDefini
     }
 
     /// Collects distinct event selectors in route registration order.
-    pub fn selectors(&self) -> Vec<EventSelector> {
+    pub fn event_selectors(&self) -> Vec<EventSelector> {
         let mut selectors = Vec::new();
         for route in &self.routes {
             match route {
@@ -75,6 +81,19 @@ impl<'a, S: SagaState, T: SagaStep, E: Error + Send + Sync + 'static> SagaDefini
                     }
                 }
                 SagaRoute::OnCommandFailed { .. } => {}
+            }
+        }
+        selectors
+    }
+
+    /// Collects distinct command selectors in failure route registration order.
+    pub fn command_failure_selectors(&self) -> Vec<CommandFailureSelector> {
+        let mut selectors = Vec::new();
+        for route in &self.routes {
+            if let SagaRoute::OnCommandFailed { selector, .. } = route
+                && !selectors.contains(selector)
+            {
+                selectors.push(*selector);
             }
         }
         selectors
@@ -110,14 +129,26 @@ impl<'a, S: SagaState, T: SagaStep, E: Error + Send + Sync + 'static> SagaDefini
         })
     }
 
-    /// Finds a terminal failure route for the originating command step.
-    pub fn find_command_failure_route(&self, caused_by: T) -> Option<&SagaRoute<'a, S, T, E>> {
-        self.routes.iter().find(|route| matches!(route, SagaRoute::OnCommandFailed { caused_by: cause, .. } if *cause == caused_by))
+    /// Finds a terminal failure route by the originating step and command name.
+    pub fn find_command_failure_route(
+        &self,
+        caused_by: T,
+        command_name: &CommandNameOwned,
+    ) -> Option<&SagaRoute<'a, S, T, E>> {
+        self.routes.iter().find(|route| match route {
+            SagaRoute::OnCommandFailed {
+                caused_by: cause,
+                selector,
+                ..
+            } => *cause == caused_by && selector.command_name.value() == command_name.value(),
+            _ => false,
+        })
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::command::{CommandFailureEnvelopeError, CommandFailureSelector, SerializedCommand};
     use crate::event::EventEnvelopeError;
     mod counter {
         use appletheia_domain::{
@@ -310,6 +341,9 @@ mod tests {
         EventEnvelope(#[from] EventEnvelopeError),
 
         #[error(transparent)]
+        CommandFailureEnvelope(#[from] CommandFailureEnvelopeError),
+
+        #[error(transparent)]
         Context(#[from] SagaContextError),
 
         #[error("policy refused")]
@@ -365,7 +399,7 @@ mod tests {
                     Ok(())
                 })
                 .add_failure_step(Step::Second)
-                .on(Step::First)
+                .on::<FollowUp>(Step::First)
                 .handle(|_, _| {
                     calls.fetch_add(1, Ordering::SeqCst);
                     Ok(())
@@ -377,7 +411,7 @@ mod tests {
             Some(SagaRoute::StartsOn { .. })
         ));
         assert!(matches!(
-            definition.find_command_failure_route(Step::First),
+            definition.find_command_failure_route(Step::First, &FollowUp::NAME.into()),
             Some(SagaRoute::OnCommandFailed { .. })
         ));
         assert_eq!(calls.load(Ordering::SeqCst), 0);
@@ -409,8 +443,14 @@ mod tests {
             SagaDefinition::<State, Step, Error>::new(
                 SagaName::new("counter_saga"),
                 [
-                    Route::on_command_failed(Step::First, Step::First, |_, _| Ok(())),
-                    Route::on_command_failed(Step::First, Step::Second, |_, _| Ok(()))
+                    Route::on_command_failed::<FollowUp, _>(
+                        Step::First,
+                        Step::First,
+                        |_, _| Ok(())
+                    ),
+                    Route::on_command_failed::<FollowUp, _>(Step::First, Step::Second, |_, _| Ok(
+                        ()
+                    ))
                 ]
             ),
             Err(SagaDefinitionError::DuplicateCommandFailureRoute)
@@ -495,7 +535,7 @@ mod tests {
         let input = event();
         let mut saga = instance(&input);
         assert_eq!(
-            definition.selectors(),
+            definition.event_selectors(),
             vec![EventSelector::new::<Counter>(OPENED)]
         );
         assert!(definition.find_event_route(&input, None).is_none());
@@ -586,7 +626,7 @@ mod tests {
                     Ok(())
                 })
                 .add_failure_step(Step::Second)
-                .on(Step::First)
+                .on::<FollowUp>(Step::First)
                 .handle(|ctx, _| {
                     ctx.append_command(&FollowUp {})?;
                     Ok(())
@@ -640,7 +680,7 @@ mod tests {
         saga.clear_uncommitted_commands();
         {
             let Some(SagaRoute::OnCommandFailed { step, handler, .. }) =
-                definition.find_command_failure_route(Step::First)
+                definition.find_command_failure_route(Step::First, &FollowUp::NAME.into())
             else {
                 panic!("matching route");
             };
@@ -666,10 +706,89 @@ mod tests {
         let commands_before = saga.uncommitted_commands.len();
         assert!(
             definition
-                .find_command_failure_route(Step::Second)
+                .find_command_failure_route(Step::Second, &FollowUp::NAME.into())
                 .is_none()
         );
         assert_eq!(saga.uncommitted_commands.len(), commands_before);
+    }
+
+    #[test]
+    fn failure_routes_select_command_type_and_decode_before_calling_handlers() {
+        #[derive(Serialize, Deserialize)]
+        struct Close {
+            id: u32,
+        }
+
+        impl Command for Close {
+            const NAME: CommandName = CommandName::new("close");
+        }
+
+        let received = AtomicUsize::new(0);
+        let definition =
+            SagaDefinitionBuilder::<State, Step, Error>::new(SagaName::new("typed_failure"))
+                .add_failure_step(Step::Second)
+                .on::<FollowUp>(Step::First)
+                .handle(|_, _| Err(Error::Refused))
+                .add_failure_step(Step::Second)
+                .on::<Close>(Step::First)
+                .handle(|_, command| {
+                    received.store(command.id as usize, Ordering::SeqCst);
+                    Ok(())
+                })
+                .add_failure_step(Step::First)
+                .on::<FollowUp>(Step::Second)
+                .handle(|_, _| Ok(()))
+                .build()
+                .unwrap();
+        assert_eq!(
+            definition.command_failure_selectors(),
+            vec![
+                CommandFailureSelector::new(FollowUp::NAME),
+                CommandFailureSelector::new(Close::NAME)
+            ]
+        );
+        assert!(definition.event_selectors().is_empty());
+        let input = event();
+        let mut saga = instance(&input);
+        {
+            let mut context =
+                SagaContext::new(&mut saga, CausationId::from(input.event_id), Step::First);
+            context.append_command(&Close { id: 42 }).unwrap();
+        }
+        let command = &saga.uncommitted_commands[0];
+        let mut failure = CommandFailureEnvelope::new(
+            command,
+            command.saga_origin.clone().unwrap(),
+            CommandTerminalReason::NonRetryable,
+            CommandAttemptCount::first(),
+            CommandFailedAt::now(),
+        );
+        let Some(SagaRoute::OnCommandFailed { step, handler, .. }) =
+            definition.find_command_failure_route(Step::First, &failure.command_name)
+        else {
+            panic!("matching typed failure route");
+        };
+        let mut context = SagaContext::new(&mut saga, CausationId::from(failure.failure_id), *step);
+        handler(&mut context, &failure).unwrap();
+        assert_eq!(received.load(Ordering::SeqCst), 42);
+        received.store(0, Ordering::SeqCst);
+        failure.command =
+            SerializedCommand::try_from(serde_json::json!({"id": "invalid"})).unwrap();
+        assert!(matches!(
+            handler(&mut context, &failure),
+            Err(Error::CommandFailureEnvelope(_))
+        ));
+        assert_eq!(received.load(Ordering::SeqCst), 0);
+        assert!(
+            definition
+                .find_command_failure_route(Step::Second, &failure.command_name)
+                .is_none()
+        );
+        assert!(
+            definition
+                .find_command_failure_route(Step::First, &CommandName::new("unknown").into())
+                .is_none()
+        );
     }
 
     #[test]

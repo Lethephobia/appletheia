@@ -24,8 +24,8 @@ pub enum WithdrawalError {
     #[error("withdrawal settlement has already been executed")]
     SettlementAlreadyExecuted,
 
-    #[error("withdrawal is already completed")]
-    AlreadyCompleted,
+    #[error("withdrawal is already succeeded")]
+    AlreadySucceeded,
 
     #[error("withdrawal is already failed")]
     AlreadyFailed,

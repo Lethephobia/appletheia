@@ -380,7 +380,8 @@ mod tests {
     use appletheia_application::aggregate::{AggregateIdValue, AggregateTypeOwned};
     use appletheia_application::command::{
         Command, CommandAttemptCount, CommandEnvelope, CommandFailedAt, CommandFailureEnvelope,
-        CommandFailureId, CommandName, CommandOptions, CommandTerminalReason,
+        CommandFailureEnvelopeError, CommandFailureId, CommandName, CommandOptions,
+        CommandTerminalReason,
     };
     use appletheia_application::event::{
         EventEnvelope, EventEnvelopeError, EventNameOwned, EventSequence, SerializedEventPayload,
@@ -418,6 +419,9 @@ mod tests {
     enum Error {
         #[error(transparent)]
         EventEnvelope(#[from] EventEnvelopeError),
+
+        #[error(transparent)]
+        CommandFailureEnvelope(#[from] CommandFailureEnvelopeError),
 
         #[error(transparent)]
         Context(#[from] SagaContextError),
@@ -788,7 +792,7 @@ mod tests {
                     ctx.append_command(&FollowUp {})?;
                     Ok(())
                 }),
-                Route::on_command_failed(Step::First, Step::Second, |ctx, _| {
+                Route::on_command_failed::<FollowUp, _>(Step::First, Step::Second, |ctx, _| {
                     ctx.state_required_mut()?.calls += 1;
                     ctx.append_command(&FollowUp {})?;
                     Ok(())
@@ -938,7 +942,7 @@ mod tests {
         let notification = failure(&command);
         let refused = SagaDefinition::<State, Step, Error>::new(
             SagaName::new("counter_saga"),
-            [Route::on_command_failed(
+            [Route::on_command_failed::<FollowUp, _>(
                 Step::First,
                 Step::Second,
                 |ctx, _| {
@@ -959,7 +963,7 @@ mod tests {
         assert_eq!(unchanged.state.unwrap().calls, 0);
         let recovery = SagaDefinition::<State, Step, Error>::new(
             SagaName::new("counter_saga"),
-            [Route::on_command_failed(
+            [Route::on_command_failed::<FollowUp, _>(
                 Step::First,
                 Step::Second,
                 |ctx, _| {

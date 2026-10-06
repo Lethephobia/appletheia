@@ -2,9 +2,9 @@ use appletheia::command;
 use banking_ledger_domain::withdrawal::WithdrawalId;
 use serde::{Deserialize, Serialize};
 
-/// Completes the specified withdrawal.
-#[command(name = "withdrawal_complete")]
+/// Records withdrawal success after internal accounting has been committed.
+#[command(name = "withdrawal_succeed")]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct WithdrawalCompleteCommand {
+pub struct WithdrawalSucceedCommand {
     pub withdrawal_id: WithdrawalId,
 }

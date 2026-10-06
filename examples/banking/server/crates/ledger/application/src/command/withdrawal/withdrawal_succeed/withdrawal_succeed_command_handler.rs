@@ -5,17 +5,17 @@ use appletheia::application::request_context::RequestContext;
 use banking_ledger_domain::withdrawal::Withdrawal;
 
 use super::{
-    WithdrawalCompleteCommand, WithdrawalCompleteCommandHandlerError, WithdrawalCompleteOutput,
+    WithdrawalSucceedCommand, WithdrawalSucceedCommandHandlerError, WithdrawalSucceedOutput,
 };
 
-pub struct WithdrawalCompleteCommandHandler<WR>
+pub struct WithdrawalSucceedCommandHandler<WR>
 where
     WR: Repository<Withdrawal>,
 {
     withdrawal_repository: WR,
 }
 
-impl<WR> WithdrawalCompleteCommandHandler<WR>
+impl<WR> WithdrawalSucceedCommandHandler<WR>
 where
     WR: Repository<Withdrawal>,
 {
@@ -26,13 +26,13 @@ where
     }
 }
 
-impl<WR> CommandHandler for WithdrawalCompleteCommandHandler<WR>
+impl<WR> CommandHandler for WithdrawalSucceedCommandHandler<WR>
 where
     WR: Repository<Withdrawal>,
 {
-    type Command = WithdrawalCompleteCommand;
-    type Output = WithdrawalCompleteOutput;
-    type Error = WithdrawalCompleteCommandHandlerError;
+    type Command = WithdrawalSucceedCommand;
+    type Output = WithdrawalSucceedOutput;
+    type Error = WithdrawalSucceedCommandHandlerError;
     type Uow = WR::Uow;
 
     fn authorization_plan(
@@ -55,11 +55,11 @@ where
             .read(uow, command.withdrawal_id)
             .await?;
 
-        withdrawal.complete()?;
+        withdrawal.succeed()?;
         self.withdrawal_repository
             .save(uow, request_context, &mut withdrawal)
             .await?;
 
-        Ok(WithdrawalCompleteOutput {})
+        Ok(WithdrawalSucceedOutput {})
     }
 }

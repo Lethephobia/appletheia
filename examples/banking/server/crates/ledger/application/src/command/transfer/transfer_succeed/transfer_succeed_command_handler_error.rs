@@ -4,7 +4,7 @@ use banking_ledger_domain::transfer::{Transfer, TransferError};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum TransferCompleteCommandHandlerError {
+pub enum TransferSucceedCommandHandlerError {
     #[error("transfer repository failed")]
     TransferRepository(#[from] RepositoryError<Transfer>),
 
@@ -12,7 +12,7 @@ pub enum TransferCompleteCommandHandlerError {
     Transfer(#[from] TransferError),
 }
 
-impl Retryability for TransferCompleteCommandHandlerError {
+impl Retryability for TransferSucceedCommandHandlerError {
     fn is_retryable(&self) -> bool {
         match self {
             Self::TransferRepository(error) => error.is_retryable(),

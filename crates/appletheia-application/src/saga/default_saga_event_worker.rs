@@ -56,7 +56,7 @@ where
     ) -> Result<(), SagaEventWorkerError<SG::HandlerError>> {
         let definition = saga.definition()?;
         let consumer_group = ConsumerGroup::new(format!("saga_events_{}", definition.name()))?;
-        let selectors = definition.selectors();
+        let selectors = definition.event_selectors();
 
         let mut consumer = self
             .subscriber

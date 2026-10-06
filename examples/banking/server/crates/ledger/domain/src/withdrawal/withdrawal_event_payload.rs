@@ -21,7 +21,7 @@ pub enum WithdrawalEventPayload {
     NoteSet {
         note: Option<WithdrawalNote>,
     },
-    Completed,
+    Succeeded,
     Failed {
         reason: WithdrawalFailureReason,
     },

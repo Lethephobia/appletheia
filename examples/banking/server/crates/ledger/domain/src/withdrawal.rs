@@ -94,7 +94,7 @@ impl Withdrawal {
         Ok(())
     }
 
-    /// Sets or clears the note, including after completion.
+    /// Sets or clears the note, including after success or failure.
     pub fn set_note(&mut self, note: Option<WithdrawalNote>) -> Result<(), WithdrawalError> {
         self.state_required()?;
 
@@ -112,8 +112,8 @@ impl Withdrawal {
             WithdrawalStatus::SettlementExecuted => {
                 return Err(WithdrawalError::SettlementAlreadyExecuted);
             }
-            WithdrawalStatus::Completed => {
-                return Err(WithdrawalError::AlreadyCompleted);
+            WithdrawalStatus::Succeeded => {
+                return Err(WithdrawalError::AlreadySucceeded);
             }
             WithdrawalStatus::Failed => {
                 return Err(WithdrawalError::AlreadyFailed);
@@ -127,15 +127,15 @@ impl Withdrawal {
         Ok(())
     }
 
-    /// Completes the withdrawal after internal accounting is committed.
-    pub fn complete(&mut self) -> Result<(), WithdrawalError> {
+    /// Records withdrawal success after internal accounting has been committed.
+    pub fn succeed(&mut self) -> Result<(), WithdrawalError> {
         match self.state_required()?.status {
             WithdrawalStatus::SettlementExecuted => {}
             WithdrawalStatus::Pending => {
                 return Err(WithdrawalError::SettlementNotExecuted);
             }
-            WithdrawalStatus::Completed => {
-                return Err(WithdrawalError::AlreadyCompleted);
+            WithdrawalStatus::Succeeded => {
+                return Err(WithdrawalError::AlreadySucceeded);
             }
             WithdrawalStatus::Failed => {
                 return Err(WithdrawalError::AlreadyFailed);
@@ -145,7 +145,7 @@ impl Withdrawal {
             }
         }
 
-        self.append_event(WithdrawalEventPayload::Completed)?;
+        self.append_event(WithdrawalEventPayload::Succeeded)?;
         Ok(())
     }
 
@@ -153,8 +153,8 @@ impl Withdrawal {
     pub fn fail(&mut self, reason: WithdrawalFailureReason) -> Result<(), WithdrawalError> {
         match self.state_required()?.status {
             WithdrawalStatus::Pending | WithdrawalStatus::SettlementExecuted => {}
-            WithdrawalStatus::Completed => {
-                return Err(WithdrawalError::AlreadyCompleted);
+            WithdrawalStatus::Succeeded => {
+                return Err(WithdrawalError::AlreadySucceeded);
             }
             WithdrawalStatus::Failed => {
                 return Err(WithdrawalError::AlreadyFailed);
@@ -194,8 +194,8 @@ impl AggregateApply<WithdrawalEventPayload, WithdrawalError> for Withdrawal {
             WithdrawalEventPayload::NoteSet { note } => {
                 self.state_required_mut()?.note = note.clone();
             }
-            WithdrawalEventPayload::Completed => {
-                self.state_required_mut()?.status = WithdrawalStatus::Completed;
+            WithdrawalEventPayload::Succeeded => {
+                self.state_required_mut()?.status = WithdrawalStatus::Succeeded;
             }
             WithdrawalEventPayload::Failed { .. } => {
                 self.state_required_mut()?.status = WithdrawalStatus::Failed;
@@ -256,7 +256,7 @@ mod tests {
     }
 
     #[test]
-    fn notes_can_be_set_and_cleared_after_completion_and_replayed() {
+    fn notes_can_be_set_and_cleared_after_success_and_replayed() {
         let mut withdrawal = Withdrawal::new();
         assert!(withdrawal.set_note(None).is_err());
         assert!(withdrawal.uncommitted_events().is_empty());
@@ -281,7 +281,7 @@ mod tests {
         withdrawal
             .record_settlement_executed(transaction_id)
             .unwrap();
-        withdrawal.complete().unwrap();
+        withdrawal.succeed().unwrap();
         let note = WithdrawalNote::try_from("invoice corrected").unwrap();
         withdrawal.set_note(Some(note.clone())).unwrap();
         assert_eq!(withdrawal.note().unwrap(), Some(&note));

@@ -4,6 +4,6 @@ use appletheia::saga_step;
 pub enum OwnedAccountClosureSagaStep {
     Start,
     ProcessPage,
-    RecordSucceeded,
-    RecordFailed,
+    RecordAccountSucceeded,
+    RecordAccountFailed,
 }

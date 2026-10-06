@@ -12,10 +12,10 @@ pub enum OwnedAccountClosureEventPayload {
         account_ids: Vec<AccountId>,
         next_cursor: Option<AccountId>,
     },
-    Succeeded {
+    AccountSucceeded {
         account_id: AccountId,
     },
-    Failed {
+    AccountFailed {
         account_id: AccountId,
     },
     Completed {

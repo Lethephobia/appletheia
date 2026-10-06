@@ -1,4 +1,3 @@
-use appletheia::application::command::Command;
 use appletheia::application::saga::{
     Saga, SagaDefinition, SagaDefinitionBuilder, SagaError, SagaName,
 };
@@ -12,8 +11,9 @@ use super::{
     OwnedAccountClosureSagaHandlerError, OwnedAccountClosureSagaState, OwnedAccountClosureSagaStep,
 };
 use crate::command::{
-    AccountCloseCommand, OwnedAccountClosureFailedRecordCommand, OwnedAccountClosureScanCommand,
-    OwnedAccountClosureStartCommand, OwnedAccountClosureSucceededRecordCommand,
+    AccountCloseCommand, OwnedAccountClosureAccountFailedRecordCommand,
+    OwnedAccountClosureAccountSucceededRecordCommand, OwnedAccountClosureScanCommand,
+    OwnedAccountClosureStartCommand,
 };
 
 /// Enumerates a removed owner's accounts without waiting for earlier close attempts to finish.
@@ -85,28 +85,24 @@ impl Saga for OwnedAccountClosureSaga {
             }
             Ok(())
         })
-        .add_step(OwnedAccountClosureSagaStep::RecordSucceeded)
+        .add_step(OwnedAccountClosureSagaStep::RecordAccountSucceeded)
         .on::<Account>(
             OwnedAccountClosureSagaStep::ProcessPage,
             AccountEventPayload::CLOSED,
         )
         .handle(|ctx, event| {
             let owned_account_closure_id = ctx.state_required()?.owned_account_closure_id;
-            ctx.append_command(&OwnedAccountClosureSucceededRecordCommand {
+            ctx.append_command(&OwnedAccountClosureAccountSucceededRecordCommand {
                 owned_account_closure_id,
                 account_id: event.aggregate_id(),
             })?;
             Ok(())
         })
-        .add_failure_step(OwnedAccountClosureSagaStep::RecordFailed)
-        .on(OwnedAccountClosureSagaStep::ProcessPage)
-        .handle(|ctx, failure| {
-            if failure.command_name.value() != AccountCloseCommand::NAME.value() {
-                return Ok(());
-            }
-            let command = failure.try_to_command::<AccountCloseCommand>()?;
+        .add_failure_step(OwnedAccountClosureSagaStep::RecordAccountFailed)
+        .on::<AccountCloseCommand>(OwnedAccountClosureSagaStep::ProcessPage)
+        .handle(|ctx, command| {
             let owned_account_closure_id = ctx.state_required()?.owned_account_closure_id;
-            ctx.append_command(&OwnedAccountClosureFailedRecordCommand {
+            ctx.append_command(&OwnedAccountClosureAccountFailedRecordCommand {
                 owned_account_closure_id,
                 account_id: command.account_id,
             })?;
@@ -145,9 +141,9 @@ mod tests {
         OwnedAccountClosureSaga, OwnedAccountClosureSagaState, OwnedAccountClosureSagaStep,
     };
     use crate::command::{
-        AccountCloseCommand, OwnedAccountClosureFailedRecordCommand,
-        OwnedAccountClosureScanCommand, OwnedAccountClosureStartCommand,
-        OwnedAccountClosureSucceededRecordCommand,
+        AccountCloseCommand, OwnedAccountClosureAccountFailedRecordCommand,
+        OwnedAccountClosureAccountSucceededRecordCommand, OwnedAccountClosureScanCommand,
+        OwnedAccountClosureStartCommand,
     };
 
     fn request_context(correlation_id: CorrelationId) -> RequestContext {
@@ -377,7 +373,7 @@ mod tests {
         )
         .unwrap();
         let command = instance.uncommitted_commands()[0]
-            .try_to_command::<OwnedAccountClosureSucceededRecordCommand>()
+            .try_to_command::<OwnedAccountClosureAccountSucceededRecordCommand>()
             .unwrap();
         assert_eq!(command.account_id, account_id);
         assert_eq!(command.owned_account_closure_id, closure_id);
@@ -420,7 +416,10 @@ mod tests {
         instance.clear_uncommitted_commands();
         let definition = OwnedAccountClosureSaga.definition().unwrap();
         let SagaRoute::OnCommandFailed { step, handler, .. } = definition
-            .find_command_failure_route(OwnedAccountClosureSagaStep::ProcessPage)
+            .find_command_failure_route(
+                OwnedAccountClosureSagaStep::ProcessPage,
+                &failure.command_name,
+            )
             .unwrap()
         else {
             panic!("expected failure route")
@@ -428,7 +427,7 @@ mod tests {
         let mut context = SagaContext::new(&mut instance, failure.causation_id, *step);
         handler(&mut context, &failure).unwrap();
         let record = instance.uncommitted_commands()[0]
-            .try_to_command::<OwnedAccountClosureFailedRecordCommand>()
+            .try_to_command::<OwnedAccountClosureAccountFailedRecordCommand>()
             .unwrap();
         assert_eq!(record.account_id, account_id);
         assert_eq!(record.owned_account_closure_id, closure_id);
@@ -470,14 +469,14 @@ mod tests {
         );
         instance.clear_uncommitted_commands();
         let definition = OwnedAccountClosureSaga.definition().unwrap();
-        let SagaRoute::OnCommandFailed { step, handler, .. } = definition
-            .find_command_failure_route(OwnedAccountClosureSagaStep::ProcessPage)
-            .unwrap()
-        else {
-            panic!("expected failure route")
-        };
-        let mut context = SagaContext::new(&mut instance, failure.causation_id, *step);
-        handler(&mut context, &failure).unwrap();
+        assert!(
+            definition
+                .find_command_failure_route(
+                    OwnedAccountClosureSagaStep::ProcessPage,
+                    &failure.command_name
+                )
+                .is_none()
+        );
         assert!(instance.uncommitted_commands().is_empty());
     }
 
@@ -496,12 +495,12 @@ mod tests {
                 },
             ),
             (
-                OwnedAccountClosureSagaStep::RecordSucceeded,
-                OwnedAccountClosureEventPayload::Succeeded { account_id },
+                OwnedAccountClosureSagaStep::RecordAccountSucceeded,
+                OwnedAccountClosureEventPayload::AccountSucceeded { account_id },
             ),
             (
-                OwnedAccountClosureSagaStep::RecordFailed,
-                OwnedAccountClosureEventPayload::Failed { account_id },
+                OwnedAccountClosureSagaStep::RecordAccountFailed,
+                OwnedAccountClosureEventPayload::AccountFailed { account_id },
             ),
         ] {
             assert_eq!(

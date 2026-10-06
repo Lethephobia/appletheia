@@ -23,7 +23,7 @@ pub enum DepositEventPayload {
     NoteSet {
         note: Option<DepositNote>,
     },
-    Completed,
+    Succeeded,
     Failed {
         reason: DepositFailureReason,
     },

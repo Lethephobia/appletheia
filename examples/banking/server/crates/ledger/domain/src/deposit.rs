@@ -94,7 +94,7 @@ impl Deposit {
         Ok(())
     }
 
-    /// Sets or clears the note, including after completion.
+    /// Sets or clears the note, including after success or failure.
     pub fn set_note(&mut self, note: Option<DepositNote>) -> Result<(), DepositError> {
         self.state_required()?;
 
@@ -116,8 +116,8 @@ impl Deposit {
             DepositStatus::SettlementVerified => {
                 return Err(DepositError::SettlementAlreadyVerified);
             }
-            DepositStatus::Completed => {
-                return Err(DepositError::AlreadyCompleted);
+            DepositStatus::Succeeded => {
+                return Err(DepositError::AlreadySucceeded);
             }
             DepositStatus::Failed => {
                 return Err(DepositError::AlreadyFailed);
@@ -133,21 +133,21 @@ impl Deposit {
         Ok(())
     }
 
-    /// Completes the deposit after internal accounting is applied.
-    pub fn complete(&mut self) -> Result<(), DepositError> {
+    /// Records deposit success after internal accounting has been applied.
+    pub fn succeed(&mut self) -> Result<(), DepositError> {
         match self.state_required()?.status {
             DepositStatus::Requested => return Err(DepositError::SettlementNotVerified),
             DepositStatus::Rejected => return Err(DepositError::SettlementNotVerified),
             DepositStatus::SettlementVerified => {}
-            DepositStatus::Completed => {
-                return Err(DepositError::AlreadyCompleted);
+            DepositStatus::Succeeded => {
+                return Err(DepositError::AlreadySucceeded);
             }
             DepositStatus::Failed => {
                 return Err(DepositError::AlreadyFailed);
             }
         }
 
-        self.append_event(DepositEventPayload::Completed)?;
+        self.append_event(DepositEventPayload::Succeeded)?;
         Ok(())
     }
 
@@ -157,8 +157,8 @@ impl Deposit {
             DepositStatus::Requested => return Err(DepositError::SettlementNotVerified),
             DepositStatus::Rejected => return Err(DepositError::SettlementNotVerified),
             DepositStatus::SettlementVerified => {}
-            DepositStatus::Completed => {
-                return Err(DepositError::AlreadyCompleted);
+            DepositStatus::Succeeded => {
+                return Err(DepositError::AlreadySucceeded);
             }
             DepositStatus::Failed => {
                 return Err(DepositError::AlreadyFailed);
@@ -195,8 +195,8 @@ impl AggregateApply<DepositEventPayload, DepositError> for Deposit {
             DepositEventPayload::NoteSet { note } => {
                 self.state_required_mut()?.note = note.clone();
             }
-            DepositEventPayload::Completed => {
-                self.state_required_mut()?.status = DepositStatus::Completed;
+            DepositEventPayload::Succeeded => {
+                self.state_required_mut()?.status = DepositStatus::Succeeded;
             }
             DepositEventPayload::Failed { .. } => {
                 self.state_required_mut()?.status = DepositStatus::Failed;
@@ -261,7 +261,7 @@ mod tests {
     }
 
     #[test]
-    fn notes_can_be_set_and_cleared_after_completion_and_replayed() {
+    fn notes_can_be_set_and_cleared_after_success_and_replayed() {
         let mut deposit = Deposit::new();
         assert!(deposit.set_note(None).is_err());
         assert!(deposit.uncommitted_events().is_empty());
@@ -283,7 +283,7 @@ mod tests {
             SolanaTransactionSignature::new(bs58::encode([1_u8; 64]).into_string()).unwrap(),
         );
         deposit.record_settlement_verified(transaction_id).unwrap();
-        deposit.complete().unwrap();
+        deposit.succeed().unwrap();
         let note = DepositNote::try_from("invoice corrected").unwrap();
         deposit.set_note(Some(note.clone())).unwrap();
         assert_eq!(deposit.note().unwrap(), Some(&note));

@@ -1,4 +1,5 @@
 use super::{SagaDefinitionBuilder, SagaFailureHandlerBuilder, SagaState, SagaStep};
+use crate::command::Command;
 use std::error::Error;
 
 /// Selects the input condition for a failure route.
@@ -17,7 +18,7 @@ impl<'a, S: SagaState, T: SagaStep, E: Error + Send + Sync + 'static>
         }
     }
 
-    pub fn on(self, caused_by: T) -> SagaFailureHandlerBuilder<'a, S, T, E> {
+    pub fn on<C: Command>(self, caused_by: T) -> SagaFailureHandlerBuilder<'a, S, T, E, C> {
         SagaFailureHandlerBuilder::new(self.definition_builder, self.step, caused_by)
     }
 }

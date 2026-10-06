@@ -4,7 +4,7 @@ use banking_ledger_domain::deposit::{Deposit, DepositError};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum DepositCompleteCommandHandlerError {
+pub enum DepositSucceedCommandHandlerError {
     #[error("deposit repository failed")]
     DepositRepository(#[from] RepositoryError<Deposit>),
 
@@ -12,7 +12,7 @@ pub enum DepositCompleteCommandHandlerError {
     Deposit(#[from] DepositError),
 }
 
-impl Retryability for DepositCompleteCommandHandlerError {
+impl Retryability for DepositSucceedCommandHandlerError {
     fn is_retryable(&self) -> bool {
         match self {
             Self::DepositRepository(error) => error.is_retryable(),

@@ -195,7 +195,7 @@ where
         }
 
         let Some(SagaRoute::OnCommandFailed { step, handler, .. }) =
-            saga_definition.find_command_failure_route(causative_step)
+            saga_definition.find_command_failure_route(causative_step, &failure.command_name)
         else {
             return Ok(SagaCommandFailureRunReport::NoMatchingRoute);
         };

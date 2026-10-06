@@ -85,7 +85,7 @@ impl Transfer {
         Ok(())
     }
 
-    /// Sets or clears the note, including after completion.
+    /// Sets or clears the note, including after success or failure.
     pub fn set_note(&mut self, note: Option<TransferNote>) -> Result<(), TransferError> {
         self.state_required()?;
 
@@ -93,12 +93,12 @@ impl Transfer {
         Ok(())
     }
 
-    /// Completes the transfer.
-    pub fn complete(&mut self) -> Result<(), TransferError> {
+    /// Records transfer success after the source withdrawal has finished.
+    pub fn succeed(&mut self) -> Result<(), TransferError> {
         match self.state_required()?.status {
             TransferStatus::Pending => {}
-            TransferStatus::Completed => {
-                return Err(TransferError::AlreadyCompleted);
+            TransferStatus::Succeeded => {
+                return Err(TransferError::AlreadySucceeded);
             }
             TransferStatus::Failed => {
                 return Err(TransferError::AlreadyFailed);
@@ -108,7 +108,7 @@ impl Transfer {
             }
         }
 
-        self.append_event(TransferEventPayload::Completed)?;
+        self.append_event(TransferEventPayload::Succeeded)?;
 
         Ok(())
     }
@@ -117,8 +117,8 @@ impl Transfer {
     pub fn fail(&mut self, reason: TransferFailureReason) -> Result<(), TransferError> {
         match self.state_required()?.status {
             TransferStatus::Pending => {}
-            TransferStatus::Completed => {
-                return Err(TransferError::AlreadyCompleted);
+            TransferStatus::Succeeded => {
+                return Err(TransferError::AlreadySucceeded);
             }
             TransferStatus::Failed => {
                 return Err(TransferError::AlreadyFailed);
@@ -151,8 +151,8 @@ impl AggregateApply<TransferEventPayload, TransferError> for Transfer {
             TransferEventPayload::NoteSet { note } => {
                 self.state_required_mut()?.note = note.clone();
             }
-            TransferEventPayload::Completed => {
-                self.state_required_mut()?.status = TransferStatus::Completed;
+            TransferEventPayload::Succeeded => {
+                self.state_required_mut()?.status = TransferStatus::Succeeded;
             }
             TransferEventPayload::Failed { .. } => {
                 self.state_required_mut()?.status = TransferStatus::Failed;
@@ -173,7 +173,7 @@ mod tests {
     use super::{Transfer, TransferNote};
 
     #[test]
-    fn notes_can_be_set_and_cleared_after_completion_and_replayed() {
+    fn notes_can_be_set_and_cleared_after_success_and_replayed() {
         let mut transfer = Transfer::new();
         assert!(transfer.set_note(None).is_err());
         assert!(transfer.uncommitted_events().is_empty());
@@ -184,7 +184,7 @@ mod tests {
         let note = TransferNote::try_from("invoice 123").unwrap();
         transfer.set_note(Some(note.clone())).unwrap();
         assert_eq!(transfer.note().unwrap(), Some(&note));
-        transfer.complete().unwrap();
+        transfer.succeed().unwrap();
         let note = TransferNote::try_from("invoice corrected").unwrap();
         transfer.set_note(Some(note.clone())).unwrap();
         assert_eq!(transfer.note().unwrap(), Some(&note));

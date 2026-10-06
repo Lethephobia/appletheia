@@ -4,7 +4,7 @@ use banking_ledger_domain::owned_account_closure::{OwnedAccountClosure, OwnedAcc
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum OwnedAccountClosureSucceededRecordCommandHandlerError {
+pub enum OwnedAccountClosureAccountSucceededRecordCommandHandlerError {
     #[error("owned account closure repository failed")]
     OwnedAccountClosureRepository(#[from] RepositoryError<OwnedAccountClosure>),
 
@@ -12,7 +12,7 @@ pub enum OwnedAccountClosureSucceededRecordCommandHandlerError {
     OwnedAccountClosure(#[from] OwnedAccountClosureError),
 }
 
-impl Retryability for OwnedAccountClosureSucceededRecordCommandHandlerError {
+impl Retryability for OwnedAccountClosureAccountSucceededRecordCommandHandlerError {
     fn is_retryable(&self) -> bool {
         match self {
             Self::OwnedAccountClosureRepository(error) => error.is_retryable(),

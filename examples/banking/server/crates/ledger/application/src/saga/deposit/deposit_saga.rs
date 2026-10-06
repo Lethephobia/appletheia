@@ -4,7 +4,7 @@ use banking_ledger_domain::account::{Account, AccountEventPayload};
 use banking_ledger_domain::deposit::{Deposit, DepositEventPayload, DepositFailureReason};
 
 use super::{DepositSagaHandlerError, DepositSagaState, DepositSagaStep};
-use crate::command::{AccountDepositCommand, DepositCompleteCommand, DepositFailCommand};
+use crate::command::{AccountDepositCommand, DepositFailCommand, DepositSucceedCommand};
 
 /// Coordinates the deposit flow.
 pub struct DepositSaga;
@@ -39,18 +39,18 @@ impl Saga for DepositSaga {
             }
             Ok(())
         })
-        .add_step(DepositSagaStep::Complete)
+        .add_step(DepositSagaStep::Succeed)
         .on::<Account>(DepositSagaStep::Deposit, AccountEventPayload::DEPOSITED)
         .handle(|ctx, _account_event| {
             let state = ctx.state_required_mut()?;
             let deposit_id = state.deposit_id;
 
-            ctx.append_command(&DepositCompleteCommand { deposit_id })?;
+            ctx.append_command(&DepositSucceedCommand { deposit_id })?;
             Ok(())
         })
         .add_failure_step(DepositSagaStep::Fail)
-        .on(DepositSagaStep::Deposit)
-        .handle(|ctx, _failure| {
+        .on::<AccountDepositCommand>(DepositSagaStep::Deposit)
+        .handle(|ctx, _command| {
             let state = ctx.state_required_mut()?;
             let deposit_id = state.deposit_id;
             ctx.append_command(&DepositFailCommand {

@@ -7,6 +7,6 @@ pub enum WithdrawalSagaStep {
     ExecuteSettlement,
     ReleaseFunds,
     CommitFunds,
-    Complete,
+    Succeed,
     Fail,
 }

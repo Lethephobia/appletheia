@@ -91,7 +91,7 @@ impl OwnedAccountClosure {
         Ok(())
     }
 
-    pub fn record_succeeded(
+    pub fn record_account_succeeded(
         &mut self,
         account_id: AccountId,
     ) -> Result<(), OwnedAccountClosureError> {
@@ -106,11 +106,14 @@ impl OwnedAccountClosure {
         {
             return Err(OwnedAccountClosureError::NoPendingResults);
         }
-        self.append_event(OwnedAccountClosureEventPayload::Succeeded { account_id })?;
+        self.append_event(OwnedAccountClosureEventPayload::AccountSucceeded { account_id })?;
         Ok(())
     }
 
-    pub fn record_failed(&mut self, account_id: AccountId) -> Result<(), OwnedAccountClosureError> {
+    pub fn record_account_failed(
+        &mut self,
+        account_id: AccountId,
+    ) -> Result<(), OwnedAccountClosureError> {
         let state = self.state_required()?;
         if state.status == OwnedAccountClosureStatus::Completed {
             return Err(OwnedAccountClosureError::AlreadyCompleted);
@@ -122,7 +125,7 @@ impl OwnedAccountClosure {
         {
             return Err(OwnedAccountClosureError::NoPendingResults);
         }
-        self.append_event(OwnedAccountClosureEventPayload::Failed { account_id })?;
+        self.append_event(OwnedAccountClosureEventPayload::AccountFailed { account_id })?;
         Ok(())
     }
 
@@ -170,11 +173,11 @@ impl AggregateApply<OwnedAccountClosureEventPayload, OwnedAccountClosureError>
                 state.next_cursor = *next_cursor;
                 state.scan_completed = next_cursor.is_none();
             }
-            OwnedAccountClosureEventPayload::Succeeded { .. } => {
+            OwnedAccountClosureEventPayload::AccountSucceeded { .. } => {
                 let state = self.state_required_mut()?;
                 state.succeeded_count = state.succeeded_count.try_increment()?;
             }
-            OwnedAccountClosureEventPayload::Failed { .. } => {
+            OwnedAccountClosureEventPayload::AccountFailed { .. } => {
                 let state = self.state_required_mut()?;
                 state.failed_count = state.failed_count.try_increment()?;
             }
@@ -209,8 +212,8 @@ mod tests {
         let [first, second] = account_ids();
         closure.record_scanned(vec![first], Some(first)).unwrap();
         closure.record_scanned(vec![second], None).unwrap();
-        closure.record_succeeded(first).unwrap();
-        closure.record_failed(second).unwrap();
+        closure.record_account_succeeded(first).unwrap();
+        closure.record_account_failed(second).unwrap();
         assert_eq!(closure.uncommitted_events().len(), 5);
         assert!(closure.is_ready_to_complete().unwrap());
         assert_eq!(
@@ -230,8 +233,8 @@ mod tests {
                 OwnedAccountClosureEventPayload::Started { .. },
                 OwnedAccountClosureEventPayload::Scanned { .. },
                 OwnedAccountClosureEventPayload::Scanned { next_cursor: None, .. },
-                OwnedAccountClosureEventPayload::Succeeded { .. },
-                OwnedAccountClosureEventPayload::Failed { .. },
+                OwnedAccountClosureEventPayload::AccountSucceeded { .. },
+                OwnedAccountClosureEventPayload::AccountFailed { .. },
                 OwnedAccountClosureEventPayload::Completed {
                     succeeded_count,
                     failed_count
@@ -269,7 +272,7 @@ mod tests {
             if scan_finishes_first {
                 closure.record_scanned(vec![], None).unwrap();
             } else {
-                closure.record_succeeded(account_id).unwrap();
+                closure.record_account_succeeded(account_id).unwrap();
             }
             assert!(!closure.is_ready_to_complete().unwrap());
             let count = closure.uncommitted_events().len();
@@ -279,7 +282,7 @@ mod tests {
             ));
             assert_eq!(closure.uncommitted_events().len(), count);
             if scan_finishes_first {
-                closure.record_succeeded(account_id).unwrap();
+                closure.record_account_succeeded(account_id).unwrap();
             } else {
                 closure.record_scanned(vec![], None).unwrap();
             }
@@ -292,24 +295,24 @@ mod tests {
         let mut closure = started();
         let account_id = AccountId::new();
         assert!(matches!(
-            closure.record_succeeded(account_id),
+            closure.record_account_succeeded(account_id),
             Err(OwnedAccountClosureError::NoPendingResults)
         ));
         assert!(matches!(
-            closure.record_failed(account_id),
+            closure.record_account_failed(account_id),
             Err(OwnedAccountClosureError::NoPendingResults)
         ));
         closure
             .record_scanned(vec![account_id], Some(account_id))
             .unwrap();
-        closure.record_succeeded(account_id).unwrap();
+        closure.record_account_succeeded(account_id).unwrap();
         let count = closure.uncommitted_events().len();
         assert!(matches!(
-            closure.record_failed(account_id),
+            closure.record_account_failed(account_id),
             Err(OwnedAccountClosureError::NoPendingResults)
         ));
         assert!(matches!(
-            closure.record_succeeded(account_id),
+            closure.record_account_succeeded(account_id),
             Err(OwnedAccountClosureError::NoPendingResults)
         ));
         assert_eq!(closure.uncommitted_events().len(), count);
@@ -355,13 +358,13 @@ mod tests {
         let mut closure = started();
         let [first, second] = account_ids();
         closure.record_scanned(vec![first, second], None).unwrap();
-        closure.record_failed(first).unwrap();
+        closure.record_account_failed(first).unwrap();
         let mut replayed = OwnedAccountClosure::new();
         for event in closure.uncommitted_events() {
             replayed.apply(event.payload()).unwrap();
         }
         assert!(replayed.uncommitted_events().is_empty());
-        replayed.record_succeeded(second).unwrap();
+        replayed.record_account_succeeded(second).unwrap();
         assert_eq!(replayed.uncommitted_events().len(), 1);
         assert!(replayed.is_ready_to_complete().unwrap());
         replayed.complete().unwrap();

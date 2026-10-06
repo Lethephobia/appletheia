@@ -7,6 +7,6 @@ pub enum DepositStatus {
     Requested,
     Rejected,
     SettlementVerified,
-    Completed,
+    Succeeded,
     Failed,
 }

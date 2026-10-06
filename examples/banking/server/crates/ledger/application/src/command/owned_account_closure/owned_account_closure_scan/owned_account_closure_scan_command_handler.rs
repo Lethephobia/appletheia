@@ -122,9 +122,10 @@ where
 mod tests {
     use super::*;
     use crate::command::{
-        OwnedAccountClosureFailedRecordCommand, OwnedAccountClosureFailedRecordCommandHandler,
-        OwnedAccountClosureSucceededRecordCommand,
-        OwnedAccountClosureSucceededRecordCommandHandler,
+        OwnedAccountClosureAccountFailedRecordCommand,
+        OwnedAccountClosureAccountFailedRecordCommandHandler,
+        OwnedAccountClosureAccountSucceededRecordCommand,
+        OwnedAccountClosureAccountSucceededRecordCommandHandler,
     };
     use appletheia::application::repository::ReferenceIndexLookupPageSize;
     use appletheia::application::repository::{
@@ -357,11 +358,11 @@ mod tests {
                 closure.aggregate_id()
             };
             if success {
-                OwnedAccountClosureSucceededRecordCommandHandler::new(repository.clone())
+                OwnedAccountClosureAccountSucceededRecordCommandHandler::new(repository.clone())
                     .handle(
                         &mut TestUow,
                         &request_context(),
-                        &OwnedAccountClosureSucceededRecordCommand {
+                        &OwnedAccountClosureAccountSucceededRecordCommand {
                             owned_account_closure_id: id,
                             account_id,
                         },
@@ -369,11 +370,11 @@ mod tests {
                     .await
                     .unwrap();
             } else {
-                OwnedAccountClosureFailedRecordCommandHandler::new(repository.clone())
+                OwnedAccountClosureAccountFailedRecordCommandHandler::new(repository.clone())
                     .handle(
                         &mut TestUow,
                         &request_context(),
-                        &OwnedAccountClosureFailedRecordCommand {
+                        &OwnedAccountClosureAccountFailedRecordCommand {
                             owned_account_closure_id: id,
                             account_id,
                         },
@@ -385,8 +386,8 @@ mod tests {
             assert_eq!(saved.len(), 1);
             assert_eq!(saved[0].len(), 2);
             assert!(
-                matches!(saved[0][0], OwnedAccountClosureEventPayload::Succeeded { .. } if success)
-                    || matches!(saved[0][0], OwnedAccountClosureEventPayload::Failed { .. } if !success)
+                matches!(saved[0][0], OwnedAccountClosureEventPayload::AccountSucceeded { .. } if success)
+                    || matches!(saved[0][0], OwnedAccountClosureEventPayload::AccountFailed { .. } if !success)
             );
             assert!(matches!(
                 saved[0][1],
