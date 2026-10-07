@@ -53,7 +53,7 @@ where
 
         withdrawal.fail(command.reason)?;
         self.repository
-            .save::<Withdrawal>(uow, request_context, &mut withdrawal)
+            .save(uow, request_context, &mut withdrawal)
             .await?;
 
         Ok(WithdrawalFailOutput {})

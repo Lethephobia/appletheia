@@ -65,7 +65,7 @@ where
         organization.transfer_ownership(command.owner)?;
 
         self.repository
-            .save::<Organization>(uow, request_context, &mut organization)
+            .save(uow, request_context, &mut organization)
             .await?;
 
         Ok(OrganizationOwnershipTransferOutput {})
@@ -156,7 +156,7 @@ mod tests {
         async fn read<A: Aggregate>(
             &self,
             _uow: &mut Self::Uow,
-            _id: A::Id,
+            id: A::Id,
         ) -> Result<A, RepositoryError<A>> {
             self.organization
                 .lock()
@@ -165,14 +165,14 @@ mod tests {
                 .map(|stored| Self::copy_aggregate::<_, A>(stored))
                 .ok_or_else(|| RepositoryError::NotFound {
                     aggregate_type: A::TYPE,
-                    aggregate_id: _id,
+                    aggregate_id: id,
                 })
         }
 
         async fn read_at_version<A: Aggregate>(
             &self,
             _uow: &mut Self::Uow,
-            _id: A::Id,
+            id: A::Id,
             _at: appletheia::domain::AggregateVersion,
         ) -> Result<A, RepositoryError<A>> {
             self.organization
@@ -182,7 +182,7 @@ mod tests {
                 .map(|stored| Self::copy_aggregate::<_, A>(stored))
                 .ok_or_else(|| RepositoryError::NotFound {
                     aggregate_type: A::TYPE,
-                    aggregate_id: _id,
+                    aggregate_id: id,
                 })
         }
 

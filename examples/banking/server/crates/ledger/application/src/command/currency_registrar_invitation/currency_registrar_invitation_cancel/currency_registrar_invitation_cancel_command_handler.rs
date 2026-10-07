@@ -67,11 +67,7 @@ where
         currency_registrar_invitation.cancel(CurrentDateTime::new())?;
 
         self.repository
-            .save::<CurrencyRegistrarInvitation>(
-                uow,
-                request_context,
-                &mut currency_registrar_invitation,
-            )
+            .save(uow, request_context, &mut currency_registrar_invitation)
             .await?;
 
         Ok(CurrencyRegistrarInvitationCancelOutput {})

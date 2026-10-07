@@ -72,7 +72,7 @@ where
             currency_registrar.set_description(Some(description.clone()))?;
         }
         self.repository
-            .save::<CurrencyRegistrar>(uow, request_context, &mut currency_registrar)
+            .save(uow, request_context, &mut currency_registrar)
             .await?;
 
         Ok(CurrencyRegistrarCreateOutput {

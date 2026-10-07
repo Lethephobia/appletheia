@@ -74,7 +74,7 @@ where
         membership.change_roles(command.roles.clone())?;
 
         self.repository
-            .save::<OrganizationMembership>(uow, request_context, &mut membership)
+            .save(uow, request_context, &mut membership)
             .await?;
 
         Ok(OrganizationMembershipRolesChangeOutput {})

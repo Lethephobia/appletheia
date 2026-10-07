@@ -65,7 +65,7 @@ where
         account.transfer_ownership(command.owner)?;
 
         self.repository
-            .save::<Account>(uow, request_context, &mut account)
+            .save(uow, request_context, &mut account)
             .await?;
 
         Ok(AccountOwnershipTransferOutput {})

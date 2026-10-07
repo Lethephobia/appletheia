@@ -89,7 +89,7 @@ where
         registrar.change_handle(command.handle.clone())?;
 
         self.repository
-            .save::<CurrencyRegistrar>(uow, request_context, &mut registrar)
+            .save(uow, request_context, &mut registrar)
             .await?;
 
         Ok(CurrencyRegistrarHandleChangeOutput {})

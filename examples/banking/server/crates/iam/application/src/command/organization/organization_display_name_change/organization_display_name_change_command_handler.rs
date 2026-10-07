@@ -65,7 +65,7 @@ where
         organization.change_display_name(command.display_name.clone())?;
 
         self.repository
-            .save::<Organization>(uow, request_context, &mut organization)
+            .save(uow, request_context, &mut organization)
             .await?;
 
         Ok(OrganizationDisplayNameChangeOutput {})

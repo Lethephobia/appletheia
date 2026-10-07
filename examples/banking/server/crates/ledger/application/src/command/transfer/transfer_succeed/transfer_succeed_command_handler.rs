@@ -53,7 +53,7 @@ where
 
         transfer.succeed()?;
         self.repository
-            .save::<Transfer>(uow, request_context, &mut transfer)
+            .save(uow, request_context, &mut transfer)
             .await?;
 
         Ok(TransferSucceedOutput {})

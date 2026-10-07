@@ -57,7 +57,7 @@ where
     async fn handle(
         &self,
         uow: &mut Self::Uow,
-        _request_context: &RequestContext,
+        request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<Self::Output, Self::Error> {
         let mut organization_invitation = self
@@ -77,7 +77,7 @@ where
         organization_invitation.accept(CurrentDateTime::new())?;
 
         self.repository
-            .save::<OrganizationInvitation>(uow, _request_context, &mut organization_invitation)
+            .save(uow, request_context, &mut organization_invitation)
             .await?;
 
         Ok(OrganizationInvitationAcceptOutput {})

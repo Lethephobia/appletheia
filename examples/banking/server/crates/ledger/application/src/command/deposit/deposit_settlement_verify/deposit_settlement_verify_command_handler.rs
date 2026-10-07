@@ -110,7 +110,7 @@ where
             .await?;
         deposit.record_settlement_verified(verification.transaction_id)?;
         self.repository
-            .save::<Deposit>(uow, request_context, &mut deposit)
+            .save(uow, request_context, &mut deposit)
             .await?;
 
         Ok(DepositSettlementVerifyOutput {})

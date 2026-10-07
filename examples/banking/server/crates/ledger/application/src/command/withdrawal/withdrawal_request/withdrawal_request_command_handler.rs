@@ -91,7 +91,7 @@ where
         }
 
         self.repository
-            .save::<Withdrawal>(uow, request_context, &mut withdrawal)
+            .save(uow, request_context, &mut withdrawal)
             .await?;
 
         Ok(WithdrawalRequestOutput { withdrawal_id })

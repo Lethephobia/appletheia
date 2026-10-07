@@ -78,7 +78,7 @@ where
         user.set_username(command.username.clone())?;
 
         self.repository
-            .save::<User>(uow, request_context, &mut user)
+            .save(uow, request_context, &mut user)
             .await?;
 
         Ok(UserUsernameSetOutput {})
@@ -153,7 +153,7 @@ mod tests {
         async fn read<A: Aggregate>(
             &self,
             _uow: &mut Self::Uow,
-            _id: A::Id,
+            id: A::Id,
         ) -> Result<A, RepositoryError<A>> {
             self.user
                 .lock()
@@ -162,13 +162,13 @@ mod tests {
                 .map(|stored| Self::copy_aggregate::<_, A>(stored))
                 .ok_or_else(|| RepositoryError::NotFound {
                     aggregate_type: A::TYPE,
-                    aggregate_id: _id,
+                    aggregate_id: id,
                 })
         }
         async fn read_at_version<A: Aggregate>(
             &self,
             _uow: &mut Self::Uow,
-            _id: A::Id,
+            id: A::Id,
             _at: appletheia::domain::AggregateVersion,
         ) -> Result<A, RepositoryError<A>> {
             self.user
@@ -178,7 +178,7 @@ mod tests {
                 .map(|stored| Self::copy_aggregate::<_, A>(stored))
                 .ok_or_else(|| RepositoryError::NotFound {
                     aggregate_type: A::TYPE,
-                    aggregate_id: _id,
+                    aggregate_id: id,
                 })
         }
         async fn find_by_unique_value<A: Aggregate>(

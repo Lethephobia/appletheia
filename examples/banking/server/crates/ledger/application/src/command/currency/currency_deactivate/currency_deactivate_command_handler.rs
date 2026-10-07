@@ -62,7 +62,7 @@ where
             .await?;
         currency.deactivate()?;
         self.repository
-            .save::<Currency>(uow, request_context, &mut currency)
+            .save(uow, request_context, &mut currency)
             .await?;
         Ok(CurrencyDeactivateOutput {
             currency_id: command.currency_id,

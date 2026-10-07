@@ -452,7 +452,7 @@ mod tests {
         async fn dispatch<H>(
             &self,
             handler: &H,
-            _request_context: &RequestContext,
+            request_context: &RequestContext,
             command: H::Command,
             _options: CommandOptions,
         ) -> Result<
@@ -470,7 +470,7 @@ mod tests {
                         events: Arc::clone(&self.events),
                     };
                     handler
-                        .handle(&mut uow, _request_context, &command)
+                        .handle(&mut uow, request_context, &command)
                         .await
                         .map(CommandDispatchResult::Executed)
                         .map_err(CommandDispatcherError::Handler)

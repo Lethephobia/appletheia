@@ -60,7 +60,7 @@ where
             owned_account_closure.complete()?;
         }
         self.repository
-            .save::<OwnedAccountClosure>(uow, request_context, &mut owned_account_closure)
+            .save(uow, request_context, &mut owned_account_closure)
             .await?;
 
         Ok(OwnedAccountClosureAccountFailedRecordOutput {})

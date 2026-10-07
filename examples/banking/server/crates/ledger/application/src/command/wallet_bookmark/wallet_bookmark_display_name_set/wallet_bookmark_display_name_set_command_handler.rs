@@ -65,7 +65,7 @@ where
         wallet_bookmark.set_display_name(command.display_name.clone())?;
 
         self.repository
-            .save::<WalletBookmark>(uow, request_context, &mut wallet_bookmark)
+            .save(uow, request_context, &mut wallet_bookmark)
             .await?;
 
         Ok(WalletBookmarkDisplayNameSetOutput {})

@@ -61,7 +61,7 @@ where
         user.set_display_name(command.display_name.clone())?;
 
         self.repository
-            .save::<User>(uow, request_context, &mut user)
+            .save(uow, request_context, &mut user)
             .await?;
 
         Ok(UserDisplayNameSetOutput {})

@@ -63,7 +63,7 @@ where
             .await?;
         currency.set_description(command.description.clone())?;
         self.repository
-            .save::<Currency>(uow, request_context, &mut currency)
+            .save(uow, request_context, &mut currency)
             .await?;
         Ok(CurrencyDescriptionSetOutput {
             currency_id: command.currency_id,

@@ -62,7 +62,7 @@ where
         transfer.set_note(command.note.clone())?;
 
         self.repository
-            .save::<Transfer>(uow, request_context, &mut transfer)
+            .save(uow, request_context, &mut transfer)
             .await?;
 
         Ok(TransferNoteSetOutput {})
