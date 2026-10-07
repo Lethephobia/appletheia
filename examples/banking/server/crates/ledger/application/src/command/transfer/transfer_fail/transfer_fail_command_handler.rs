@@ -53,7 +53,7 @@ where
 
         transfer.fail(command.reason)?;
         self.repository
-            .save::<Transfer>(uow, request_context, &mut transfer)
+            .save(uow, request_context, &mut transfer)
             .await?;
 
         Ok(TransferFailOutput {})

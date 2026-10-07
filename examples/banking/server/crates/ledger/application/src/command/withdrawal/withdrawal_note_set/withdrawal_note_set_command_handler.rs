@@ -64,7 +64,7 @@ where
         withdrawal.set_note(command.note.clone())?;
 
         self.repository
-            .save::<Withdrawal>(uow, request_context, &mut withdrawal)
+            .save(uow, request_context, &mut withdrawal)
             .await?;
 
         Ok(WithdrawalNoteSetOutput {})

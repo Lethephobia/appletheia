@@ -56,7 +56,7 @@ where
     async fn handle(
         &self,
         uow: &mut Self::Uow,
-        _request_context: &RequestContext,
+        request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<Self::Output, Self::Error> {
         let mut currency_registrar_join_request = self
@@ -67,11 +67,7 @@ where
         currency_registrar_join_request.cancel()?;
 
         self.repository
-            .save::<CurrencyRegistrarJoinRequest>(
-                uow,
-                _request_context,
-                &mut currency_registrar_join_request,
-            )
+            .save(uow, request_context, &mut currency_registrar_join_request)
             .await?;
 
         Ok(CurrencyRegistrarJoinRequestCancelOutput {})

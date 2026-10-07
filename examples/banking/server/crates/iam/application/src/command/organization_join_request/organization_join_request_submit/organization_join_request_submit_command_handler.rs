@@ -122,7 +122,7 @@ where
         organization_join_request.submit(command.organization_id, command.requester_id)?;
 
         self.repository
-            .save::<OrganizationJoinRequest>(uow, request_context, &mut organization_join_request)
+            .save(uow, request_context, &mut organization_join_request)
             .await?;
 
         Ok(OrganizationJoinRequestSubmitOutput {

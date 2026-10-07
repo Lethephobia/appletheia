@@ -204,7 +204,7 @@ where
         };
 
         self.repository
-            .save::<User>(uow, request_context, &mut user)
+            .save(uow, request_context, &mut user)
             .await?;
 
         Ok(match completion_purpose {

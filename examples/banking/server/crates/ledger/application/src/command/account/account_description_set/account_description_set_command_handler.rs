@@ -64,7 +64,7 @@ where
             .await?;
         account.set_description(command.description.clone())?;
         self.repository
-            .save::<Account>(uow, request_context, &mut account)
+            .save(uow, request_context, &mut account)
             .await?;
         Ok(AccountDescriptionSetOutput {})
     }

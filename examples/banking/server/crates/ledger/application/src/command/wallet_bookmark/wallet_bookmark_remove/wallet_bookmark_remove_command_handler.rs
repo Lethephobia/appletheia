@@ -65,7 +65,7 @@ where
         wallet_bookmark.remove()?;
 
         self.repository
-            .save::<WalletBookmark>(uow, request_context, &mut wallet_bookmark)
+            .save(uow, request_context, &mut wallet_bookmark)
             .await?;
 
         Ok(WalletBookmarkRemoveOutput {})

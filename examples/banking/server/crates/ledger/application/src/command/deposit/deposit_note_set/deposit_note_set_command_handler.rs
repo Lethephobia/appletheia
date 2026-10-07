@@ -62,7 +62,7 @@ where
         deposit.set_note(command.note.clone())?;
 
         self.repository
-            .save::<Deposit>(uow, request_context, &mut deposit)
+            .save(uow, request_context, &mut deposit)
             .await?;
 
         Ok(DepositNoteSetOutput {})

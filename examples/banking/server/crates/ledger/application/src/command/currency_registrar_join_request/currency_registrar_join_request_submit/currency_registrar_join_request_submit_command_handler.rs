@@ -121,11 +121,7 @@ where
             .submit(command.currency_registrar_id, command.requester_id)?;
 
         self.repository
-            .save::<CurrencyRegistrarJoinRequest>(
-                uow,
-                request_context,
-                &mut currency_registrar_join_request,
-            )
+            .save(uow, request_context, &mut currency_registrar_join_request)
             .await?;
 
         Ok(CurrencyRegistrarJoinRequestSubmitOutput {

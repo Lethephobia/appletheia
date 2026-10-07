@@ -60,7 +60,7 @@ where
             .await?;
         currency.activate()?;
         self.repository
-            .save::<Currency>(uow, request_context, &mut currency)
+            .save(uow, request_context, &mut currency)
             .await?;
         Ok(CurrencyActivateOutput {
             currency_id: command.currency_id,

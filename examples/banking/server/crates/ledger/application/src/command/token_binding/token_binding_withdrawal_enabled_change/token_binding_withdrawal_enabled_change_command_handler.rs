@@ -64,7 +64,7 @@ where
             .await?;
         token_binding.change_withdrawal_enabled(command.enabled)?;
         self.repository
-            .save::<TokenBinding>(uow, request_context, &mut token_binding)
+            .save(uow, request_context, &mut token_binding)
             .await?;
         Ok(TokenBindingWithdrawalEnabledChangeOutput {
             token_binding_id: command.token_binding_id,

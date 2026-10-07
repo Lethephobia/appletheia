@@ -56,7 +56,7 @@ where
     async fn handle(
         &self,
         uow: &mut Self::Uow,
-        _request_context: &RequestContext,
+        request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<Self::Output, Self::Error> {
         let mut organization_join_request = self
@@ -76,7 +76,7 @@ where
         organization_join_request.approve()?;
 
         self.repository
-            .save::<OrganizationJoinRequest>(uow, _request_context, &mut organization_join_request)
+            .save(uow, request_context, &mut organization_join_request)
             .await?;
 
         Ok(OrganizationJoinRequestApproveOutput {})

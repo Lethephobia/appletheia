@@ -56,7 +56,7 @@ where
     async fn handle(
         &self,
         uow: &mut Self::Uow,
-        _request_context: &RequestContext,
+        request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<Self::Output, Self::Error> {
         let mut currency_registrar_invitation = self
@@ -67,11 +67,7 @@ where
         currency_registrar_invitation.accept(CurrentDateTime::new())?;
 
         self.repository
-            .save::<CurrencyRegistrarInvitation>(
-                uow,
-                _request_context,
-                &mut currency_registrar_invitation,
-            )
+            .save(uow, request_context, &mut currency_registrar_invitation)
             .await?;
 
         Ok(CurrencyRegistrarInvitationAcceptOutput {})

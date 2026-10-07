@@ -65,7 +65,7 @@ where
         organization.set_website_url(command.website_url.clone())?;
 
         self.repository
-            .save::<Organization>(uow, request_context, &mut organization)
+            .save(uow, request_context, &mut organization)
             .await?;
 
         Ok(OrganizationWebsiteUrlSetOutput {})

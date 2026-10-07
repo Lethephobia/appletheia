@@ -83,7 +83,7 @@ where
         }
 
         self.repository
-            .save::<Transfer>(uow, request_context, &mut transfer)
+            .save(uow, request_context, &mut transfer)
             .await?;
 
         Ok(TransferRequestOutput { transfer_id })

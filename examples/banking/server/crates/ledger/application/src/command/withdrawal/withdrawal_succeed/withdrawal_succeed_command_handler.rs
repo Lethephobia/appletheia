@@ -55,7 +55,7 @@ where
 
         withdrawal.succeed()?;
         self.repository
-            .save::<Withdrawal>(uow, request_context, &mut withdrawal)
+            .save(uow, request_context, &mut withdrawal)
             .await?;
 
         Ok(WithdrawalSucceedOutput {})

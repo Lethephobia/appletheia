@@ -64,7 +64,7 @@ where
             .await?;
         registrar.set_description(command.description.clone())?;
         self.repository
-            .save::<CurrencyRegistrar>(uow, request_context, &mut registrar)
+            .save(uow, request_context, &mut registrar)
             .await?;
         Ok(CurrencyRegistrarDescriptionSetOutput {})
     }

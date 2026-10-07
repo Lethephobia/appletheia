@@ -106,7 +106,7 @@ where
 
         withdrawal.record_settlement_executed(execution.transaction_id)?;
         self.repository
-            .save::<Withdrawal>(uow, request_context, &mut withdrawal)
+            .save(uow, request_context, &mut withdrawal)
             .await?;
 
         Ok(WithdrawalSettlementExecuteOutput {})

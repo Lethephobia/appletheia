@@ -77,7 +77,7 @@ where
         organization_invitation.cancel(CurrentDateTime::new())?;
 
         self.repository
-            .save::<OrganizationInvitation>(uow, request_context, &mut organization_invitation)
+            .save(uow, request_context, &mut organization_invitation)
             .await?;
 
         Ok(OrganizationInvitationCancelOutput {})

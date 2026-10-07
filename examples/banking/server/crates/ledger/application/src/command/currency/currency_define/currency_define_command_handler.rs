@@ -77,7 +77,7 @@ where
             currency.set_description(Some(description.clone()))?;
         }
         self.repository
-            .save::<Currency>(uow, request_context, &mut currency)
+            .save(uow, request_context, &mut currency)
             .await?;
         Ok(CurrencyDefineOutput { currency_id })
     }

@@ -53,7 +53,7 @@ where
 
         account.deposit(command.amount)?;
         self.repository
-            .save::<Account>(uow, request_context, &mut account)
+            .save(uow, request_context, &mut account)
             .await?;
 
         Ok(AccountDepositOutput {})

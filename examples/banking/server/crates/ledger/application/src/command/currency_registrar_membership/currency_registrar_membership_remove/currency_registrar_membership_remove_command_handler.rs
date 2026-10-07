@@ -64,7 +64,7 @@ where
             .await?;
         membership.remove()?;
         self.repository
-            .save::<CurrencyRegistrarMembership>(uow, request_context, &mut membership)
+            .save(uow, request_context, &mut membership)
             .await?;
 
         Ok(CurrencyRegistrarMembershipRemoveOutput {})

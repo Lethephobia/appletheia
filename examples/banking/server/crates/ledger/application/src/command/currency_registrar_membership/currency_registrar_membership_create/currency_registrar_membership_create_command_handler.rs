@@ -90,7 +90,7 @@ where
 
         membership.create(command.currency_registrar_id, command.user_id)?;
         self.repository
-            .save::<CurrencyRegistrarMembership>(uow, request_context, &mut membership)
+            .save(uow, request_context, &mut membership)
             .await?;
         Ok(CurrencyRegistrarMembershipCreateOutput {
             currency_registrar_membership_id,

@@ -59,7 +59,7 @@ where
         user.remove()?;
 
         self.repository
-            .save::<User>(uow, request_context, &mut user)
+            .save(uow, request_context, &mut user)
             .await?;
 
         Ok(UserRemoveOutput {})

@@ -65,7 +65,7 @@ where
             .await?;
         registrar.change_display_name(command.display_name.clone())?;
         self.repository
-            .save::<CurrencyRegistrar>(uow, request_context, &mut registrar)
+            .save(uow, request_context, &mut registrar)
             .await?;
         Ok(CurrencyRegistrarDisplayNameChangeOutput {})
     }
