@@ -6,7 +6,7 @@ edition = "2024"
 
 [dependencies]
 alloy = "2.4.2"
-anchor-lang = "1.2.0"
+anchor-lang = { version = "1.2.1", default-features = false, features = ["solana-v4"] }
 appletheia = { workspace = true, features = ["application"] }
 banking-settlement = { path = "../../../../onchain/solana/programs/banking-settlement", features = ["no-entrypoint"] }
 banking-ledger-application = { workspace = true }
