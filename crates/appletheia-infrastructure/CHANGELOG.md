@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.21.0](https://github.com/Lethephobia/appletheia/compare/appletheia-infrastructure-v0.20.0...appletheia-infrastructure-v0.21.0) - 2026-10-07
+
+### Other
+
+- Merge pull request #153 from Lethephobia/feature/example
+- *(repository)* [**breaking**] share repositories across aggregates
+
 ## [0.20.0](https://github.com/Lethephobia/appletheia/compare/appletheia-infrastructure-v0.19.1...appletheia-infrastructure-v0.20.0) - 2026-10-06
 
 ### Added
