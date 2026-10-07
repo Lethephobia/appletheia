@@ -18,33 +18,19 @@ use super::{
 };
 use crate::authorization::UserOwnerRelation;
 
-pub struct OrganizationJoinRequestSubmitCommandHandler<OR, JR, MR>
+pub struct OrganizationJoinRequestSubmitCommandHandler<R>
 where
-    OR: Repository<Organization>,
-    JR: Repository<OrganizationJoinRequest, Uow = OR::Uow>,
-    MR: Repository<OrganizationMembership, Uow = OR::Uow>,
+    R: Repository,
 {
-    organization_repository: OR,
-    organization_join_request_repository: JR,
-    organization_membership_repository: MR,
+    repository: R,
 }
 
-impl<OR, JR, MR> OrganizationJoinRequestSubmitCommandHandler<OR, JR, MR>
+impl<R> OrganizationJoinRequestSubmitCommandHandler<R>
 where
-    OR: Repository<Organization>,
-    JR: Repository<OrganizationJoinRequest, Uow = OR::Uow>,
-    MR: Repository<OrganizationMembership, Uow = OR::Uow>,
+    R: Repository,
 {
-    pub fn new(
-        organization_repository: OR,
-        organization_join_request_repository: JR,
-        organization_membership_repository: MR,
-    ) -> Self {
-        Self {
-            organization_repository,
-            organization_join_request_repository,
-            organization_membership_repository,
-        }
+    pub fn new(repository: R) -> Self {
+        Self { repository }
     }
 
     fn organization_requester_unique_value(
@@ -59,16 +45,14 @@ where
     }
 }
 
-impl<OR, JR, MR> CommandHandler for OrganizationJoinRequestSubmitCommandHandler<OR, JR, MR>
+impl<R> CommandHandler for OrganizationJoinRequestSubmitCommandHandler<R>
 where
-    OR: Repository<Organization>,
-    JR: Repository<OrganizationJoinRequest, Uow = OR::Uow>,
-    MR: Repository<OrganizationMembership, Uow = OR::Uow>,
+    R: Repository,
 {
     type Command = OrganizationJoinRequestSubmitCommand;
     type Output = OrganizationJoinRequestSubmitOutput;
     type Error = OrganizationJoinRequestSubmitCommandHandlerError;
-    type Uow = OR::Uow;
+    type Uow = R::Uow;
 
     fn authorization_plan(
         &self,
@@ -94,8 +78,8 @@ where
         let organization_join_request_id = organization_join_request.aggregate_id();
 
         let organization = self
-            .organization_repository
-            .read(uow, command.organization_id)
+            .repository
+            .read::<Organization>(uow, command.organization_id)
             .await?;
         if organization.is_removed()? {
             return Err(OrganizationJoinRequestError::OrganizationRemoved.into());
@@ -106,8 +90,8 @@ where
             command.requester_id,
         )?;
         if self
-            .organization_membership_repository
-            .find_by_unique_value(
+            .repository
+            .find_by_unique_value::<OrganizationMembership>(
                 uow,
                 OrganizationMembershipState::ORGANIZATION_USER_KEY,
                 &membership_unique_value,
@@ -123,8 +107,8 @@ where
             command.requester_id,
         )?;
         if self
-            .organization_join_request_repository
-            .find_by_unique_value(
+            .repository
+            .find_by_unique_value::<OrganizationJoinRequest>(
                 uow,
                 OrganizationJoinRequestState::ORGANIZATION_REQUESTER_KEY,
                 &unique_value,
@@ -137,8 +121,8 @@ where
 
         organization_join_request.submit(command.organization_id, command.requester_id)?;
 
-        self.organization_join_request_repository
-            .save(uow, request_context, &mut organization_join_request)
+        self.repository
+            .save::<OrganizationJoinRequest>(uow, request_context, &mut organization_join_request)
             .await?;
 
         Ok(OrganizationJoinRequestSubmitOutput {

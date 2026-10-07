@@ -15,46 +15,30 @@ use super::{
 };
 use crate::authorization::AccountWithdrawalRequesterRelation;
 
-pub struct WithdrawalRequestCommandHandler<WR, AR, TBR>
+pub struct WithdrawalRequestCommandHandler<R>
 where
-    WR: Repository<Withdrawal>,
-    AR: Repository<Account, Uow = WR::Uow>,
-    TBR: Repository<TokenBinding, Uow = WR::Uow>,
+    R: Repository,
 {
-    withdrawal_repository: WR,
-    account_repository: AR,
-    token_binding_repository: TBR,
+    repository: R,
 }
 
-impl<WR, AR, TBR> WithdrawalRequestCommandHandler<WR, AR, TBR>
+impl<R> WithdrawalRequestCommandHandler<R>
 where
-    WR: Repository<Withdrawal>,
-    AR: Repository<Account, Uow = WR::Uow>,
-    TBR: Repository<TokenBinding, Uow = WR::Uow>,
+    R: Repository,
 {
-    pub fn new(
-        withdrawal_repository: WR,
-        account_repository: AR,
-        token_binding_repository: TBR,
-    ) -> Self {
-        Self {
-            withdrawal_repository,
-            account_repository,
-            token_binding_repository,
-        }
+    pub fn new(repository: R) -> Self {
+        Self { repository }
     }
 }
 
-impl<WR, AR, TBR> CommandHandler for WithdrawalRequestCommandHandler<WR, AR, TBR>
+impl<R> CommandHandler for WithdrawalRequestCommandHandler<R>
 where
-    WR: Repository<Withdrawal>,
-    AR: Repository<Account, Uow = WR::Uow>,
-    TBR: Repository<TokenBinding, Uow = WR::Uow>,
+    R: Repository,
 {
     type Command = WithdrawalRequestCommand;
     type Output = WithdrawalRequestOutput;
     type Error = WithdrawalRequestCommandHandlerError;
-    type Uow = WR::Uow;
+    type Uow = R::Uow;
 
     fn authorization_plan(
         &self,
@@ -79,12 +63,12 @@ where
         let mut withdrawal = Withdrawal::new();
         let withdrawal_id = withdrawal.aggregate_id();
         let account = self
-            .account_repository
-            .read(uow, command.account_id)
+            .repository
+            .read::<Account>(uow, command.account_id)
             .await?;
         match self
-            .token_binding_repository
-            .read(uow, command.token_binding_id)
+            .repository
+            .read::<TokenBinding>(uow, command.token_binding_id)
             .await
         {
             Ok(token_binding)
@@ -106,8 +90,8 @@ where
             withdrawal.set_note(Some(note.clone()))?;
         }
 
-        self.withdrawal_repository
-            .save(uow, request_context, &mut withdrawal)
+        self.repository
+            .save::<Withdrawal>(uow, request_context, &mut withdrawal)
             .await?;
 
         Ok(WithdrawalRequestOutput { withdrawal_id })

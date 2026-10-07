@@ -6,30 +6,30 @@ use banking_ledger_domain::deposit::Deposit;
 
 use super::{DepositFailCommand, DepositFailCommandHandlerError, DepositFailOutput};
 
-pub struct DepositFailCommandHandler<DR>
+pub struct DepositFailCommandHandler<R>
 where
-    DR: Repository<Deposit>,
+    R: Repository,
 {
-    deposit_repository: DR,
+    repository: R,
 }
 
-impl<DR> DepositFailCommandHandler<DR>
+impl<R> DepositFailCommandHandler<R>
 where
-    DR: Repository<Deposit>,
+    R: Repository,
 {
-    pub fn new(deposit_repository: DR) -> Self {
-        Self { deposit_repository }
+    pub fn new(repository: R) -> Self {
+        Self { repository }
     }
 }
 
-impl<DR> CommandHandler for DepositFailCommandHandler<DR>
+impl<R> CommandHandler for DepositFailCommandHandler<R>
 where
-    DR: Repository<Deposit>,
+    R: Repository,
 {
     type Command = DepositFailCommand;
     type Output = DepositFailOutput;
     type Error = DepositFailCommandHandlerError;
-    type Uow = DR::Uow;
+    type Uow = R::Uow;
 
     fn authorization_plan(
         &self,
@@ -47,13 +47,13 @@ where
         command: &Self::Command,
     ) -> Result<Self::Output, Self::Error> {
         let mut deposit = self
-            .deposit_repository
-            .read(uow, command.deposit_id)
+            .repository
+            .read::<Deposit>(uow, command.deposit_id)
             .await?;
 
         deposit.fail(command.reason)?;
-        self.deposit_repository
-            .save(uow, request_context, &mut deposit)
+        self.repository
+            .save::<Deposit>(uow, request_context, &mut deposit)
             .await?;
 
         Ok(DepositFailOutput {})

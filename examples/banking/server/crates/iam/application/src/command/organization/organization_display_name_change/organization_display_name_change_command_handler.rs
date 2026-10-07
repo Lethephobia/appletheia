@@ -12,32 +12,30 @@ use super::{
 };
 use crate::authorization::OrganizationProfileEditorRelation;
 
-pub struct OrganizationDisplayNameChangeCommandHandler<OR>
+pub struct OrganizationDisplayNameChangeCommandHandler<R>
 where
-    OR: Repository<Organization>,
+    R: Repository,
 {
-    organization_repository: OR,
+    repository: R,
 }
 
-impl<OR> OrganizationDisplayNameChangeCommandHandler<OR>
+impl<R> OrganizationDisplayNameChangeCommandHandler<R>
 where
-    OR: Repository<Organization>,
+    R: Repository,
 {
-    pub fn new(organization_repository: OR) -> Self {
-        Self {
-            organization_repository,
-        }
+    pub fn new(repository: R) -> Self {
+        Self { repository }
     }
 }
 
-impl<OR> CommandHandler for OrganizationDisplayNameChangeCommandHandler<OR>
+impl<R> CommandHandler for OrganizationDisplayNameChangeCommandHandler<R>
 where
-    OR: Repository<Organization>,
+    R: Repository,
 {
     type Command = OrganizationDisplayNameChangeCommand;
     type Output = OrganizationDisplayNameChangeOutput;
     type Error = OrganizationDisplayNameChangeCommandHandlerError;
-    type Uow = OR::Uow;
+    type Uow = R::Uow;
 
     fn authorization_plan(
         &self,
@@ -60,14 +58,14 @@ where
         command: &Self::Command,
     ) -> Result<Self::Output, Self::Error> {
         let mut organization = self
-            .organization_repository
-            .read(uow, command.organization_id)
+            .repository
+            .read::<Organization>(uow, command.organization_id)
             .await?;
 
         organization.change_display_name(command.display_name.clone())?;
 
-        self.organization_repository
-            .save(uow, request_context, &mut organization)
+        self.repository
+            .save::<Organization>(uow, request_context, &mut organization)
             .await?;
 
         Ok(OrganizationDisplayNameChangeOutput {})

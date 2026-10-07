@@ -15,14 +15,14 @@ use super::{
 
 pub struct CurrencyRegistrarDescriptionSetCommandHandler<R>
 where
-    R: Repository<CurrencyRegistrar>,
+    R: Repository,
 {
     repository: R,
 }
 
 impl<R> CurrencyRegistrarDescriptionSetCommandHandler<R>
 where
-    R: Repository<CurrencyRegistrar>,
+    R: Repository,
 {
     pub fn new(repository: R) -> Self {
         Self { repository }
@@ -31,7 +31,7 @@ where
 
 impl<R> CommandHandler for CurrencyRegistrarDescriptionSetCommandHandler<R>
 where
-    R: Repository<CurrencyRegistrar>,
+    R: Repository,
 {
     type Command = CurrencyRegistrarDescriptionSetCommand;
     type Output = CurrencyRegistrarDescriptionSetOutput;
@@ -60,11 +60,11 @@ where
     ) -> Result<Self::Output, Self::Error> {
         let mut registrar = self
             .repository
-            .read(uow, command.currency_registrar_id)
+            .read::<CurrencyRegistrar>(uow, command.currency_registrar_id)
             .await?;
         registrar.set_description(command.description.clone())?;
         self.repository
-            .save(uow, request_context, &mut registrar)
+            .save::<CurrencyRegistrar>(uow, request_context, &mut registrar)
             .await?;
         Ok(CurrencyRegistrarDescriptionSetOutput {})
     }

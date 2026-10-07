@@ -11,30 +11,30 @@ use super::{
 };
 use crate::authorization::AccountNameChangerRelation;
 
-pub struct AccountNameChangeCommandHandler<AR>
+pub struct AccountNameChangeCommandHandler<R>
 where
-    AR: Repository<Account>,
+    R: Repository,
 {
-    account_repository: AR,
+    repository: R,
 }
 
-impl<AR> AccountNameChangeCommandHandler<AR>
+impl<R> AccountNameChangeCommandHandler<R>
 where
-    AR: Repository<Account>,
+    R: Repository,
 {
-    pub fn new(account_repository: AR) -> Self {
-        Self { account_repository }
+    pub fn new(repository: R) -> Self {
+        Self { repository }
     }
 }
 
-impl<AR> CommandHandler for AccountNameChangeCommandHandler<AR>
+impl<R> CommandHandler for AccountNameChangeCommandHandler<R>
 where
-    AR: Repository<Account>,
+    R: Repository,
 {
     type Command = AccountNameChangeCommand;
     type Output = AccountNameChangeOutput;
     type Error = AccountNameChangeCommandHandlerError;
-    type Uow = AR::Uow;
+    type Uow = R::Uow;
 
     fn authorization_plan(
         &self,
@@ -57,14 +57,14 @@ where
         command: &Self::Command,
     ) -> Result<Self::Output, Self::Error> {
         let mut account = self
-            .account_repository
-            .read(uow, command.account_id)
+            .repository
+            .read::<Account>(uow, command.account_id)
             .await?;
 
         account.change_name(command.name.clone())?;
 
-        self.account_repository
-            .save(uow, request_context, &mut account)
+        self.repository
+            .save::<Account>(uow, request_context, &mut account)
             .await?;
 
         Ok(AccountNameChangeOutput {})
@@ -73,6 +73,8 @@ where
 
 #[cfg(test)]
 mod tests {
+    use appletheia::application::aggregate::SerializedAggregate;
+    use appletheia::domain::{AggregateId, Event};
     use std::sync::{Arc, Mutex};
 
     use appletheia::application::authorization::{
@@ -110,11 +112,33 @@ mod tests {
     }
 
     #[derive(Clone, Default)]
-    struct TestAccountRepository {
+    struct TestRepository {
         account: Arc<Mutex<Option<Account>>>,
     }
 
-    impl TestAccountRepository {
+    impl TestRepository {
+        fn copy_aggregate<S: Aggregate, T: Aggregate>(source: &S) -> T {
+            let mut restored = SerializedAggregate::try_from_aggregate(source)
+                .expect("test aggregate should serialize")
+                .try_to_aggregate::<T>()
+                .expect("test aggregate types should match");
+            for event in source.uncommitted_events() {
+                let id = T::Id::try_from_uuid(event.aggregate_id().value()).unwrap();
+                let payload =
+                    serde_json::from_value(serde_json::to_value(event.payload()).unwrap()).unwrap();
+                restored
+                    .core_mut()
+                    .record_uncommitted_event(Event::from_persisted(
+                        event.id(),
+                        id,
+                        event.aggregate_version(),
+                        payload,
+                        event.occurred_at(),
+                    ));
+            }
+            restored
+        }
+
         fn new(account: Account) -> Self {
             Self {
                 account: Arc::new(Mutex::new(Some(account))),
@@ -122,56 +146,59 @@ mod tests {
         }
     }
 
-    impl Repository<Account> for TestAccountRepository {
+    impl Repository for TestRepository {
         type Uow = TestUow;
 
-        async fn read(
+        async fn read<A: Aggregate>(
             &self,
             _uow: &mut Self::Uow,
-            _id: AccountId,
-        ) -> Result<Account, RepositoryError<Account>> {
+            _id: A::Id,
+        ) -> Result<A, RepositoryError<A>> {
             self.account
                 .lock()
                 .expect("lock")
-                .clone()
+                .as_ref()
+                .map(|stored| Self::copy_aggregate::<_, A>(stored))
                 .ok_or_else(|| RepositoryError::NotFound {
-                    aggregate_type: Account::TYPE,
+                    aggregate_type: A::TYPE,
                     aggregate_id: _id,
                 })
         }
 
-        async fn read_at_version(
+        async fn read_at_version<A: Aggregate>(
             &self,
             _uow: &mut Self::Uow,
-            _id: AccountId,
+            _id: A::Id,
             _at: appletheia::domain::AggregateVersion,
-        ) -> Result<Account, RepositoryError<Account>> {
+        ) -> Result<A, RepositoryError<A>> {
             self.account
                 .lock()
                 .expect("lock")
-                .clone()
+                .as_ref()
+                .map(|stored| Self::copy_aggregate::<_, A>(stored))
                 .ok_or_else(|| RepositoryError::NotFound {
-                    aggregate_type: Account::TYPE,
+                    aggregate_type: A::TYPE,
                     aggregate_id: _id,
                 })
         }
 
-        async fn find_by_unique_value(
+        async fn find_by_unique_value<A: Aggregate>(
             &self,
             _uow: &mut Self::Uow,
             _unique_key: appletheia::domain::UniqueKey,
             _unique_value: &appletheia::domain::UniqueValue,
-        ) -> Result<Option<Account>, RepositoryError<Account>> {
+        ) -> Result<Option<A>, RepositoryError<A>> {
             Ok(None)
         }
 
-        async fn save(
+        async fn save<A: Aggregate>(
             &self,
             _uow: &mut Self::Uow,
             _request_context: &RequestContext,
-            aggregate: &mut Account,
-        ) -> Result<(), RepositoryError<Account>> {
-            *self.account.lock().expect("lock") = Some(aggregate.clone());
+            aggregate: &mut A,
+        ) -> Result<(), RepositoryError<A>> {
+            *self.account.lock().expect("lock") =
+                Some(Self::copy_aggregate::<_, Account>(aggregate));
             Ok(())
         }
     }
@@ -203,7 +230,7 @@ mod tests {
 
     #[test]
     fn authorization_plan_requires_account_name_changer() {
-        let handler = AccountNameChangeCommandHandler::new(TestAccountRepository::default());
+        let handler = AccountNameChangeCommandHandler::new(TestRepository::default());
         let account_id = AccountId::new();
 
         let plan = handler
@@ -228,7 +255,7 @@ mod tests {
 
     #[tokio::test]
     async fn handle_changes_account_name() {
-        let repository = TestAccountRepository::new(opened_account());
+        let repository = TestRepository::new(opened_account());
         let handler = AccountNameChangeCommandHandler::new(repository.clone());
         let mut uow = TestUow;
         let request_context = request_context();

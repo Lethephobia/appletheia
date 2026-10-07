@@ -1,4 +1,3 @@
-use std::marker::PhantomData;
 use std::ops::{Bound, RangeBounds};
 
 use sqlx::{Postgres, QueryBuilder};
@@ -9,28 +8,19 @@ use appletheia_domain::{Aggregate, AggregateId, AggregateVersionRange, Event};
 use crate::postgresql::event::{PgEventRow, PgEventRowError};
 use crate::postgresql::unit_of_work::PgUnitOfWork;
 
-pub struct PgEventReader<A: Aggregate> {
-    _phantom: PhantomData<A>,
-}
+#[derive(Default)]
+pub struct PgEventReader;
 
-impl<A: Aggregate> PgEventReader<A> {
+impl PgEventReader {
     pub fn new() -> Self {
-        Self {
-            _phantom: PhantomData,
-        }
+        Self
     }
 }
 
-impl<A: Aggregate> Default for PgEventReader<A> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl<A: Aggregate> EventReader<A> for PgEventReader<A> {
+impl EventReader for PgEventReader {
     type Uow = PgUnitOfWork;
 
-    async fn read_events(
+    async fn read_events<A: Aggregate>(
         &self,
         uow: &mut Self::Uow,
         aggregate_id: A::Id,

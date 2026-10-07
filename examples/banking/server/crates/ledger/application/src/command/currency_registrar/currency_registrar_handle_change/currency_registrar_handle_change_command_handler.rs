@@ -19,14 +19,14 @@ use super::{
 
 pub struct CurrencyRegistrarHandleChangeCommandHandler<R>
 where
-    R: Repository<CurrencyRegistrar>,
+    R: Repository,
 {
     repository: R,
 }
 
 impl<R> CurrencyRegistrarHandleChangeCommandHandler<R>
 where
-    R: Repository<CurrencyRegistrar>,
+    R: Repository,
 {
     pub fn new(repository: R) -> Self {
         Self { repository }
@@ -41,7 +41,7 @@ where
 
 impl<R> CommandHandler for CurrencyRegistrarHandleChangeCommandHandler<R>
 where
-    R: Repository<CurrencyRegistrar>,
+    R: Repository,
 {
     type Command = CurrencyRegistrarHandleChangeCommand;
     type Output = CurrencyRegistrarHandleChangeOutput;
@@ -70,13 +70,17 @@ where
     ) -> Result<Self::Output, Self::Error> {
         let mut registrar = self
             .repository
-            .read(uow, command.currency_registrar_id)
+            .read::<CurrencyRegistrar>(uow, command.currency_registrar_id)
             .await?;
 
         let unique_value = Self::handle_unique_value(&command.handle)?;
         if self
             .repository
-            .find_by_unique_value(uow, CurrencyRegistrarState::HANDLE_KEY, &unique_value)
+            .find_by_unique_value::<CurrencyRegistrar>(
+                uow,
+                CurrencyRegistrarState::HANDLE_KEY,
+                &unique_value,
+            )
             .await?
             .is_some_and(|existing| existing.aggregate_id() != command.currency_registrar_id)
         {
@@ -85,7 +89,7 @@ where
         registrar.change_handle(command.handle.clone())?;
 
         self.repository
-            .save(uow, request_context, &mut registrar)
+            .save::<CurrencyRegistrar>(uow, request_context, &mut registrar)
             .await?;
 
         Ok(CurrencyRegistrarHandleChangeOutput {})

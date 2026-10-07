@@ -14,21 +14,19 @@ use super::{
 };
 use crate::authorization::OrganizationHandleChangerRelation;
 
-pub struct OrganizationHandleChangeCommandHandler<OR>
+pub struct OrganizationHandleChangeCommandHandler<R>
 where
-    OR: Repository<Organization>,
+    R: Repository,
 {
-    organization_repository: OR,
+    repository: R,
 }
 
-impl<OR> OrganizationHandleChangeCommandHandler<OR>
+impl<R> OrganizationHandleChangeCommandHandler<R>
 where
-    OR: Repository<Organization>,
+    R: Repository,
 {
-    pub fn new(organization_repository: OR) -> Self {
-        Self {
-            organization_repository,
-        }
+    pub fn new(repository: R) -> Self {
+        Self { repository }
     }
 
     fn handle_unique_value(
@@ -38,14 +36,14 @@ where
     }
 }
 
-impl<OR> CommandHandler for OrganizationHandleChangeCommandHandler<OR>
+impl<R> CommandHandler for OrganizationHandleChangeCommandHandler<R>
 where
-    OR: Repository<Organization>,
+    R: Repository,
 {
     type Command = OrganizationHandleChangeCommand;
     type Output = OrganizationHandleChangeOutput;
     type Error = OrganizationHandleChangeCommandHandlerError;
-    type Uow = OR::Uow;
+    type Uow = R::Uow;
 
     fn authorization_plan(
         &self,
@@ -68,14 +66,14 @@ where
         command: &Self::Command,
     ) -> Result<Self::Output, Self::Error> {
         let mut organization = self
-            .organization_repository
-            .read(uow, command.organization_id)
+            .repository
+            .read::<Organization>(uow, command.organization_id)
             .await?;
 
         let unique_value = Self::handle_unique_value(&command.handle)?;
         if self
-            .organization_repository
-            .find_by_unique_value(uow, OrganizationState::HANDLE_KEY, &unique_value)
+            .repository
+            .find_by_unique_value::<Organization>(uow, OrganizationState::HANDLE_KEY, &unique_value)
             .await?
             .is_some_and(|existing| existing.aggregate_id() != command.organization_id)
         {
@@ -84,8 +82,8 @@ where
 
         organization.change_handle(command.handle.clone())?;
 
-        self.organization_repository
-            .save(uow, request_context, &mut organization)
+        self.repository
+            .save::<Organization>(uow, request_context, &mut organization)
             .await?;
 
         Ok(OrganizationHandleChangeOutput {})
@@ -94,6 +92,8 @@ where
 
 #[cfg(test)]
 mod tests {
+    use appletheia::application::aggregate::SerializedAggregate;
+    use appletheia::domain::{AggregateId, Event};
     use std::sync::{Arc, Mutex};
 
     use appletheia::application::aggregate::AggregateRef;
@@ -134,11 +134,33 @@ mod tests {
     }
 
     #[derive(Clone, Default)]
-    struct TestOrganizationRepository {
+    struct TestRepository {
         organization: Arc<Mutex<Option<Organization>>>,
     }
 
-    impl TestOrganizationRepository {
+    impl TestRepository {
+        fn copy_aggregate<S: Aggregate, T: Aggregate>(source: &S) -> T {
+            let mut restored = SerializedAggregate::try_from_aggregate(source)
+                .expect("test aggregate should serialize")
+                .try_to_aggregate::<T>()
+                .expect("test aggregate types should match");
+            for event in source.uncommitted_events() {
+                let id = T::Id::try_from_uuid(event.aggregate_id().value()).unwrap();
+                let payload =
+                    serde_json::from_value(serde_json::to_value(event.payload()).unwrap()).unwrap();
+                restored
+                    .core_mut()
+                    .record_uncommitted_event(Event::from_persisted(
+                        event.id(),
+                        id,
+                        event.aggregate_version(),
+                        payload,
+                        event.occurred_at(),
+                    ));
+            }
+            restored
+        }
+
         fn new(organization: Organization) -> Self {
             Self {
                 organization: Arc::new(Mutex::new(Some(organization))),
@@ -146,56 +168,59 @@ mod tests {
         }
     }
 
-    impl Repository<Organization> for TestOrganizationRepository {
+    impl Repository for TestRepository {
         type Uow = TestUow;
 
-        async fn read(
+        async fn read<A: Aggregate>(
             &self,
             _uow: &mut Self::Uow,
-            _id: OrganizationId,
-        ) -> Result<Organization, RepositoryError<Organization>> {
+            _id: A::Id,
+        ) -> Result<A, RepositoryError<A>> {
             self.organization
                 .lock()
                 .expect("lock")
-                .clone()
+                .as_ref()
+                .map(|stored| Self::copy_aggregate::<_, A>(stored))
                 .ok_or_else(|| RepositoryError::NotFound {
-                    aggregate_type: Organization::TYPE,
+                    aggregate_type: A::TYPE,
                     aggregate_id: _id,
                 })
         }
 
-        async fn read_at_version(
+        async fn read_at_version<A: Aggregate>(
             &self,
             _uow: &mut Self::Uow,
-            _id: OrganizationId,
+            _id: A::Id,
             _at: appletheia::domain::AggregateVersion,
-        ) -> Result<Organization, RepositoryError<Organization>> {
+        ) -> Result<A, RepositoryError<A>> {
             self.organization
                 .lock()
                 .expect("lock")
-                .clone()
+                .as_ref()
+                .map(|stored| Self::copy_aggregate::<_, A>(stored))
                 .ok_or_else(|| RepositoryError::NotFound {
-                    aggregate_type: Organization::TYPE,
+                    aggregate_type: A::TYPE,
                     aggregate_id: _id,
                 })
         }
 
-        async fn find_by_unique_value(
+        async fn find_by_unique_value<A: Aggregate>(
             &self,
             _uow: &mut Self::Uow,
             _unique_key: appletheia::domain::UniqueKey,
             _unique_value: &appletheia::domain::UniqueValue,
-        ) -> Result<Option<Organization>, RepositoryError<Organization>> {
+        ) -> Result<Option<A>, RepositoryError<A>> {
             Ok(None)
         }
 
-        async fn save(
+        async fn save<A: Aggregate>(
             &self,
             _uow: &mut Self::Uow,
             _request_context: &RequestContext,
-            aggregate: &mut Organization,
-        ) -> Result<(), RepositoryError<Organization>> {
-            *self.organization.lock().expect("lock") = Some(aggregate.clone());
+            aggregate: &mut A,
+        ) -> Result<(), RepositoryError<A>> {
+            *self.organization.lock().expect("lock") =
+                Some(Self::copy_aggregate::<_, Organization>(aggregate));
             Ok(())
         }
     }
@@ -229,7 +254,7 @@ mod tests {
 
     #[test]
     fn authorization_plan_requires_organization_handle_changer_relationship() {
-        let repository = TestOrganizationRepository::default();
+        let repository = TestRepository::default();
         let handler = OrganizationHandleChangeCommandHandler::new(repository);
         let organization_id = OrganizationId::new();
 
@@ -258,7 +283,7 @@ mod tests {
     async fn handle_changes_organization_handle_and_returns_output() {
         let organization = organization();
         let organization_id = organization.aggregate_id();
-        let repository = TestOrganizationRepository::new(organization);
+        let repository = TestRepository::new(organization);
         let handler = OrganizationHandleChangeCommandHandler::new(repository.clone());
         let mut uow = TestUow;
 

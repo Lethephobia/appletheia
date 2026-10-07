@@ -9,30 +9,30 @@ use banking_ledger_domain::account::Account;
 use super::{AccountThawCommand, AccountThawCommandHandlerError, AccountThawOutput};
 use crate::authorization::AccountThawerRelation;
 
-pub struct AccountThawCommandHandler<AR>
+pub struct AccountThawCommandHandler<R>
 where
-    AR: Repository<Account>,
+    R: Repository,
 {
-    account_repository: AR,
+    repository: R,
 }
 
-impl<AR> AccountThawCommandHandler<AR>
+impl<R> AccountThawCommandHandler<R>
 where
-    AR: Repository<Account>,
+    R: Repository,
 {
-    pub fn new(account_repository: AR) -> Self {
-        Self { account_repository }
+    pub fn new(repository: R) -> Self {
+        Self { repository }
     }
 }
 
-impl<AR> CommandHandler for AccountThawCommandHandler<AR>
+impl<R> CommandHandler for AccountThawCommandHandler<R>
 where
-    AR: Repository<Account>,
+    R: Repository,
 {
     type Command = AccountThawCommand;
     type Output = AccountThawOutput;
     type Error = AccountThawCommandHandlerError;
-    type Uow = AR::Uow;
+    type Uow = R::Uow;
 
     fn authorization_plan(
         &self,
@@ -55,13 +55,13 @@ where
         command: &Self::Command,
     ) -> Result<Self::Output, Self::Error> {
         let mut account = self
-            .account_repository
-            .read(uow, command.account_id)
+            .repository
+            .read::<Account>(uow, command.account_id)
             .await?;
 
         account.thaw()?;
-        self.account_repository
-            .save(uow, request_context, &mut account)
+        self.repository
+            .save::<Account>(uow, request_context, &mut account)
             .await?;
 
         Ok(AccountThawOutput {})

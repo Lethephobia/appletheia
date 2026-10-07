@@ -12,32 +12,30 @@ use super::{
 };
 use crate::authorization::OrganizationProfileEditorRelation;
 
-pub struct OrganizationDescriptionSetCommandHandler<OR>
+pub struct OrganizationDescriptionSetCommandHandler<R>
 where
-    OR: Repository<Organization>,
+    R: Repository,
 {
-    organization_repository: OR,
+    repository: R,
 }
 
-impl<OR> OrganizationDescriptionSetCommandHandler<OR>
+impl<R> OrganizationDescriptionSetCommandHandler<R>
 where
-    OR: Repository<Organization>,
+    R: Repository,
 {
-    pub fn new(organization_repository: OR) -> Self {
-        Self {
-            organization_repository,
-        }
+    pub fn new(repository: R) -> Self {
+        Self { repository }
     }
 }
 
-impl<OR> CommandHandler for OrganizationDescriptionSetCommandHandler<OR>
+impl<R> CommandHandler for OrganizationDescriptionSetCommandHandler<R>
 where
-    OR: Repository<Organization>,
+    R: Repository,
 {
     type Command = OrganizationDescriptionSetCommand;
     type Output = OrganizationDescriptionSetOutput;
     type Error = OrganizationDescriptionSetCommandHandlerError;
-    type Uow = OR::Uow;
+    type Uow = R::Uow;
 
     fn authorization_plan(
         &self,
@@ -60,14 +58,14 @@ where
         command: &Self::Command,
     ) -> Result<Self::Output, Self::Error> {
         let mut organization = self
-            .organization_repository
-            .read(uow, command.organization_id)
+            .repository
+            .read::<Organization>(uow, command.organization_id)
             .await?;
 
         organization.set_description(command.description.clone())?;
 
-        self.organization_repository
-            .save(uow, request_context, &mut organization)
+        self.repository
+            .save::<Organization>(uow, request_context, &mut organization)
             .await?;
 
         Ok(OrganizationDescriptionSetOutput {})

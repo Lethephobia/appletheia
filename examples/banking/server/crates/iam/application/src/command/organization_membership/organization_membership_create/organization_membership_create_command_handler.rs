@@ -20,33 +20,19 @@ use crate::authorization::OrganizationMemberAdderRelation;
 ///
 /// The handler reads `Organization` and `User` only to validate their current
 /// status; the single aggregate it mutates is `OrganizationMembership`.
-pub struct OrganizationMembershipCreateCommandHandler<OR, MR, UR>
+pub struct OrganizationMembershipCreateCommandHandler<R>
 where
-    OR: Repository<Organization>,
-    MR: Repository<OrganizationMembership, Uow = OR::Uow>,
-    UR: Repository<User, Uow = OR::Uow>,
+    R: Repository,
 {
-    organization_repository: OR,
-    organization_membership_repository: MR,
-    user_repository: UR,
+    repository: R,
 }
 
-impl<OR, MR, UR> OrganizationMembershipCreateCommandHandler<OR, MR, UR>
+impl<R> OrganizationMembershipCreateCommandHandler<R>
 where
-    OR: Repository<Organization>,
-    MR: Repository<OrganizationMembership, Uow = OR::Uow>,
-    UR: Repository<User, Uow = OR::Uow>,
+    R: Repository,
 {
-    pub fn new(
-        organization_repository: OR,
-        organization_membership_repository: MR,
-        user_repository: UR,
-    ) -> Self {
-        Self {
-            organization_repository,
-            organization_membership_repository,
-            user_repository,
-        }
+    pub fn new(repository: R) -> Self {
+        Self { repository }
     }
 
     pub(crate) fn organization_user_unique_value(
@@ -61,16 +47,14 @@ where
     }
 }
 
-impl<OR, MR, UR> CommandHandler for OrganizationMembershipCreateCommandHandler<OR, MR, UR>
+impl<R> CommandHandler for OrganizationMembershipCreateCommandHandler<R>
 where
-    OR: Repository<Organization>,
-    MR: Repository<OrganizationMembership, Uow = OR::Uow>,
-    UR: Repository<User, Uow = OR::Uow>,
+    R: Repository,
 {
     type Command = OrganizationMembershipCreateCommand;
     type Output = OrganizationMembershipCreateOutput;
     type Error = OrganizationMembershipCreateCommandHandlerError;
-    type Uow = OR::Uow;
+    type Uow = R::Uow;
 
     /// Accepts the invitation and join-request sagas as `System`, and
     /// organization administrators adding a member directly.
@@ -99,14 +83,14 @@ where
         let organization_membership_id = membership.aggregate_id();
 
         let organization = self
-            .organization_repository
-            .read(uow, command.organization_id)
+            .repository
+            .read::<Organization>(uow, command.organization_id)
             .await?;
         if organization.is_removed()? {
             return Err(OrganizationMembershipError::OrganizationRemoved.into());
         }
 
-        let user = self.user_repository.read(uow, command.user_id).await?;
+        let user = self.repository.read::<User>(uow, command.user_id).await?;
         if user.is_removed()? {
             return Err(OrganizationMembershipError::UserRemoved.into());
         }
@@ -120,8 +104,8 @@ where
         let unique_value =
             Self::organization_user_unique_value(command.organization_id, command.user_id)?;
         if self
-            .organization_membership_repository
-            .find_by_unique_value(
+            .repository
+            .find_by_unique_value::<OrganizationMembership>(
                 uow,
                 OrganizationMembershipState::ORGANIZATION_USER_KEY,
                 &unique_value,
@@ -138,8 +122,8 @@ where
             command.roles.clone(),
         )?;
 
-        self.organization_membership_repository
-            .save(uow, request_context, &mut membership)
+        self.repository
+            .save::<OrganizationMembership>(uow, request_context, &mut membership)
             .await?;
 
         Ok(OrganizationMembershipCreateOutput {
@@ -178,17 +162,18 @@ mod tests {
     /// Repositories are not exercised: `authorization_plan` reads only the command.
     struct TestRepository;
 
-    impl<A> Repository<A> for TestRepository
-    where
-        A: Aggregate,
-    {
+    impl Repository for TestRepository {
         type Uow = TestUow;
 
-        async fn read(&self, _uow: &mut Self::Uow, _id: A::Id) -> Result<A, RepositoryError<A>> {
+        async fn read<A: Aggregate>(
+            &self,
+            _uow: &mut Self::Uow,
+            _id: A::Id,
+        ) -> Result<A, RepositoryError<A>> {
             panic!("repository is not exercised by this test")
         }
 
-        async fn read_at_version(
+        async fn read_at_version<A: Aggregate>(
             &self,
             _uow: &mut Self::Uow,
             _id: A::Id,
@@ -197,7 +182,7 @@ mod tests {
             panic!("repository is not exercised by this test")
         }
 
-        async fn find_by_unique_value(
+        async fn find_by_unique_value<A: Aggregate>(
             &self,
             _uow: &mut Self::Uow,
             _unique_key: UniqueKey,
@@ -206,7 +191,7 @@ mod tests {
             panic!("repository is not exercised by this test")
         }
 
-        async fn save(
+        async fn save<A: Aggregate>(
             &self,
             _uow: &mut Self::Uow,
             _request_context: &RequestContext,
@@ -218,15 +203,8 @@ mod tests {
 
     #[test]
     fn authorization_plan_accepts_system_and_organization_admins() {
-        let handler: OrganizationMembershipCreateCommandHandler<
-            TestRepository,
-            TestRepository,
-            TestRepository,
-        > = OrganizationMembershipCreateCommandHandler::new(
-            TestRepository,
-            TestRepository,
-            TestRepository,
-        );
+        let handler: OrganizationMembershipCreateCommandHandler<TestRepository> =
+            OrganizationMembershipCreateCommandHandler::new(TestRepository);
         let organization_id = OrganizationId::new();
         let command = OrganizationMembershipCreateCommand {
             organization_id,

@@ -15,14 +15,14 @@ use super::{
 
 pub struct AccountDescriptionSetCommandHandler<R>
 where
-    R: Repository<Account>,
+    R: Repository,
 {
     repository: R,
 }
 
 impl<R> AccountDescriptionSetCommandHandler<R>
 where
-    R: Repository<Account>,
+    R: Repository,
 {
     pub fn new(repository: R) -> Self {
         Self { repository }
@@ -31,7 +31,7 @@ where
 
 impl<R> CommandHandler for AccountDescriptionSetCommandHandler<R>
 where
-    R: Repository<Account>,
+    R: Repository,
 {
     type Command = AccountDescriptionSetCommand;
     type Output = AccountDescriptionSetOutput;
@@ -58,10 +58,13 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<Self::Output, Self::Error> {
-        let mut account = self.repository.read(uow, command.account_id).await?;
+        let mut account = self
+            .repository
+            .read::<Account>(uow, command.account_id)
+            .await?;
         account.set_description(command.description.clone())?;
         self.repository
-            .save(uow, request_context, &mut account)
+            .save::<Account>(uow, request_context, &mut account)
             .await?;
         Ok(AccountDescriptionSetOutput {})
     }

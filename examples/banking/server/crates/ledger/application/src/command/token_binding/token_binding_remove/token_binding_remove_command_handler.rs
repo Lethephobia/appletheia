@@ -13,14 +13,14 @@ use crate::authorization::TokenBindingRemoverRelation;
 
 pub struct TokenBindingRemoveCommandHandler<R>
 where
-    R: Repository<TokenBinding>,
+    R: Repository,
 {
     repository: R,
 }
 
 impl<R> TokenBindingRemoveCommandHandler<R>
 where
-    R: Repository<TokenBinding>,
+    R: Repository,
 {
     pub fn new(repository: R) -> Self {
         Self { repository }
@@ -29,7 +29,7 @@ where
 
 impl<R> CommandHandler for TokenBindingRemoveCommandHandler<R>
 where
-    R: Repository<TokenBinding>,
+    R: Repository,
 {
     type Command = TokenBindingRemoveCommand;
     type Output = TokenBindingRemoveOutput;
@@ -56,10 +56,13 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<Self::Output, Self::Error> {
-        let mut token_binding = self.repository.read(uow, command.token_binding_id).await?;
+        let mut token_binding = self
+            .repository
+            .read::<TokenBinding>(uow, command.token_binding_id)
+            .await?;
         token_binding.remove()?;
         self.repository
-            .save(uow, request_context, &mut token_binding)
+            .save::<TokenBinding>(uow, request_context, &mut token_binding)
             .await?;
         Ok(TokenBindingRemoveOutput {
             token_binding_id: command.token_binding_id,

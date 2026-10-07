@@ -14,37 +14,30 @@ use super::{
     OrganizationJoinRequestRejectOutput,
 };
 
-pub struct OrganizationJoinRequestRejectCommandHandler<ORG, JR>
+pub struct OrganizationJoinRequestRejectCommandHandler<R>
 where
-    ORG: Repository<Organization>,
-    JR: Repository<OrganizationJoinRequest, Uow = ORG::Uow>,
+    R: Repository,
 {
-    organization_repository: ORG,
-    organization_join_request_repository: JR,
+    repository: R,
 }
 
-impl<ORG, JR> OrganizationJoinRequestRejectCommandHandler<ORG, JR>
+impl<R> OrganizationJoinRequestRejectCommandHandler<R>
 where
-    ORG: Repository<Organization>,
-    JR: Repository<OrganizationJoinRequest, Uow = ORG::Uow>,
+    R: Repository,
 {
-    pub fn new(organization_repository: ORG, organization_join_request_repository: JR) -> Self {
-        Self {
-            organization_repository,
-            organization_join_request_repository,
-        }
+    pub fn new(repository: R) -> Self {
+        Self { repository }
     }
 }
 
-impl<ORG, JR> CommandHandler for OrganizationJoinRequestRejectCommandHandler<ORG, JR>
+impl<R> CommandHandler for OrganizationJoinRequestRejectCommandHandler<R>
 where
-    ORG: Repository<Organization>,
-    JR: Repository<OrganizationJoinRequest, Uow = ORG::Uow>,
+    R: Repository,
 {
     type Command = OrganizationJoinRequestRejectCommand;
     type Output = OrganizationJoinRequestRejectOutput;
     type Error = OrganizationJoinRequestRejectCommandHandlerError;
-    type Uow = JR::Uow;
+    type Uow = R::Uow;
 
     fn authorization_plan(
         &self,
@@ -67,13 +60,13 @@ where
         command: &Self::Command,
     ) -> Result<Self::Output, Self::Error> {
         let mut organization_join_request = self
-            .organization_join_request_repository
-            .read(uow, command.organization_join_request_id)
+            .repository
+            .read::<OrganizationJoinRequest>(uow, command.organization_join_request_id)
             .await?;
 
         let organization = self
-            .organization_repository
-            .read(uow, *organization_join_request.organization_id()?)
+            .repository
+            .read::<Organization>(uow, *organization_join_request.organization_id()?)
             .await?;
 
         if organization.is_removed()? {
@@ -82,8 +75,8 @@ where
 
         organization_join_request.reject()?;
 
-        self.organization_join_request_repository
-            .save(uow, _request_context, &mut organization_join_request)
+        self.repository
+            .save::<OrganizationJoinRequest>(uow, _request_context, &mut organization_join_request)
             .await?;
 
         Ok(OrganizationJoinRequestRejectOutput {})

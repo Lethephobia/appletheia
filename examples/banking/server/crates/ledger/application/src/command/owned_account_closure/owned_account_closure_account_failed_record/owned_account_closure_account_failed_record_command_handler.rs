@@ -10,32 +10,30 @@ use super::{
     OwnedAccountClosureAccountFailedRecordOutput,
 };
 
-pub struct OwnedAccountClosureAccountFailedRecordCommandHandler<OACR>
+pub struct OwnedAccountClosureAccountFailedRecordCommandHandler<R>
 where
-    OACR: Repository<OwnedAccountClosure>,
+    R: Repository,
 {
-    owned_account_closure_repository: OACR,
+    repository: R,
 }
 
-impl<OACR> OwnedAccountClosureAccountFailedRecordCommandHandler<OACR>
+impl<R> OwnedAccountClosureAccountFailedRecordCommandHandler<R>
 where
-    OACR: Repository<OwnedAccountClosure>,
+    R: Repository,
 {
-    pub fn new(owned_account_closure_repository: OACR) -> Self {
-        Self {
-            owned_account_closure_repository,
-        }
+    pub fn new(repository: R) -> Self {
+        Self { repository }
     }
 }
 
-impl<OACR> CommandHandler for OwnedAccountClosureAccountFailedRecordCommandHandler<OACR>
+impl<R> CommandHandler for OwnedAccountClosureAccountFailedRecordCommandHandler<R>
 where
-    OACR: Repository<OwnedAccountClosure>,
+    R: Repository,
 {
     type Command = OwnedAccountClosureAccountFailedRecordCommand;
     type Output = OwnedAccountClosureAccountFailedRecordOutput;
     type Error = OwnedAccountClosureAccountFailedRecordCommandHandlerError;
-    type Uow = OACR::Uow;
+    type Uow = R::Uow;
 
     fn authorization_plan(
         &self,
@@ -53,16 +51,16 @@ where
         command: &Self::Command,
     ) -> Result<Self::Output, Self::Error> {
         let mut owned_account_closure = self
-            .owned_account_closure_repository
-            .read(uow, command.owned_account_closure_id)
+            .repository
+            .read::<OwnedAccountClosure>(uow, command.owned_account_closure_id)
             .await?;
 
         owned_account_closure.record_account_failed(command.account_id)?;
         if owned_account_closure.is_ready_to_complete()? {
             owned_account_closure.complete()?;
         }
-        self.owned_account_closure_repository
-            .save(uow, request_context, &mut owned_account_closure)
+        self.repository
+            .save::<OwnedAccountClosure>(uow, request_context, &mut owned_account_closure)
             .await?;
 
         Ok(OwnedAccountClosureAccountFailedRecordOutput {})

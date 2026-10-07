@@ -8,30 +8,30 @@ use super::{
     AccountFundsReserveCommand, AccountFundsReserveCommandHandlerError, AccountFundsReserveOutput,
 };
 
-pub struct AccountFundsReserveCommandHandler<AR>
+pub struct AccountFundsReserveCommandHandler<R>
 where
-    AR: Repository<Account>,
+    R: Repository,
 {
-    account_repository: AR,
+    repository: R,
 }
 
-impl<AR> AccountFundsReserveCommandHandler<AR>
+impl<R> AccountFundsReserveCommandHandler<R>
 where
-    AR: Repository<Account>,
+    R: Repository,
 {
-    pub fn new(account_repository: AR) -> Self {
-        Self { account_repository }
+    pub fn new(repository: R) -> Self {
+        Self { repository }
     }
 }
 
-impl<AR> CommandHandler for AccountFundsReserveCommandHandler<AR>
+impl<R> CommandHandler for AccountFundsReserveCommandHandler<R>
 where
-    AR: Repository<Account>,
+    R: Repository,
 {
     type Command = AccountFundsReserveCommand;
     type Output = AccountFundsReserveOutput;
     type Error = AccountFundsReserveCommandHandlerError;
-    type Uow = AR::Uow;
+    type Uow = R::Uow;
 
     fn authorization_plan(
         &self,
@@ -49,13 +49,13 @@ where
         command: &Self::Command,
     ) -> Result<Self::Output, Self::Error> {
         let mut account = self
-            .account_repository
-            .read(uow, command.account_id)
+            .repository
+            .read::<Account>(uow, command.account_id)
             .await?;
 
         account.reserve_funds(command.amount)?;
-        self.account_repository
-            .save(uow, request_context, &mut account)
+        self.repository
+            .save::<Account>(uow, request_context, &mut account)
             .await?;
 
         Ok(AccountFundsReserveOutput {})

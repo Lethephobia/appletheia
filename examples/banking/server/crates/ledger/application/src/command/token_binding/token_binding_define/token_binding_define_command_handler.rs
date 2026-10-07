@@ -15,46 +15,37 @@ use super::{
 use crate::authorization::CurrencyTokenBindingDefinerRelation;
 use crate::settlement::{TokenBindingSettlementValidationRequest, TokenBindingSettlementValidator};
 
-pub struct TokenBindingDefineCommandHandler<CR, TBR, V>
+pub struct TokenBindingDefineCommandHandler<R, V>
 where
-    CR: Repository<Currency, Uow = TBR::Uow>,
-    TBR: Repository<TokenBinding>,
+    R: Repository,
     V: TokenBindingSettlementValidator,
 {
-    currency_repository: CR,
-    token_binding_repository: TBR,
+    repository: R,
     settlement_validator: V,
 }
 
-impl<CR, TBR, V> TokenBindingDefineCommandHandler<CR, TBR, V>
+impl<R, V> TokenBindingDefineCommandHandler<R, V>
 where
-    CR: Repository<Currency, Uow = TBR::Uow>,
-    TBR: Repository<TokenBinding>,
+    R: Repository,
     V: TokenBindingSettlementValidator,
 {
-    pub fn new(
-        currency_repository: CR,
-        token_binding_repository: TBR,
-        settlement_validator: V,
-    ) -> Self {
+    pub fn new(repository: R, settlement_validator: V) -> Self {
         Self {
-            currency_repository,
-            token_binding_repository,
+            repository,
             settlement_validator,
         }
     }
 }
 
-impl<CR, TBR, V> CommandHandler for TokenBindingDefineCommandHandler<CR, TBR, V>
+impl<R, V> CommandHandler for TokenBindingDefineCommandHandler<R, V>
 where
-    CR: Repository<Currency, Uow = TBR::Uow>,
-    TBR: Repository<TokenBinding>,
+    R: Repository,
     V: TokenBindingSettlementValidator,
 {
     type Command = TokenBindingDefineCommand;
     type Output = TokenBindingDefineOutput;
     type Error = TokenBindingDefineCommandHandlerError;
-    type Uow = TBR::Uow;
+    type Uow = R::Uow;
 
     fn authorization_plan(
         &self,
@@ -77,8 +68,8 @@ where
         command: &Self::Command,
     ) -> Result<Self::Output, Self::Error> {
         let currency = self
-            .currency_repository
-            .read(uow, command.currency_id)
+            .repository
+            .read::<Currency>(uow, command.currency_id)
             .await?;
         let mut token_binding = TokenBinding::new();
         let token_binding_id = token_binding.aggregate_id();
@@ -88,8 +79,8 @@ where
             token_address.as_str(),
         ])?;
         if self
-            .token_binding_repository
-            .find_by_unique_value(uow, TokenBindingState::TOKEN_KEY, &unique_value)
+            .repository
+            .find_by_unique_value::<TokenBinding>(uow, TokenBindingState::TOKEN_KEY, &unique_value)
             .await?
             .is_some()
         {
@@ -109,8 +100,8 @@ where
             command.deposit_enabled,
             command.withdrawal_enabled,
         )?;
-        self.token_binding_repository
-            .save(uow, request_context, &mut token_binding)
+        self.repository
+            .save::<TokenBinding>(uow, request_context, &mut token_binding)
             .await?;
         Ok(TokenBindingDefineOutput { token_binding_id })
     }

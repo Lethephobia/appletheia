@@ -14,14 +14,14 @@ use crate::authorization::CurrencyRegistrarMembershipRemoverRelation;
 
 pub struct CurrencyRegistrarMembershipRemoveCommandHandler<R>
 where
-    R: Repository<CurrencyRegistrarMembership>,
+    R: Repository,
 {
     repository: R,
 }
 
 impl<R> CurrencyRegistrarMembershipRemoveCommandHandler<R>
 where
-    R: Repository<CurrencyRegistrarMembership>,
+    R: Repository,
 {
     pub fn new(repository: R) -> Self {
         Self { repository }
@@ -30,7 +30,7 @@ where
 
 impl<R> CommandHandler for CurrencyRegistrarMembershipRemoveCommandHandler<R>
 where
-    R: Repository<CurrencyRegistrarMembership>,
+    R: Repository,
 {
     type Command = CurrencyRegistrarMembershipRemoveCommand;
     type Output = CurrencyRegistrarMembershipRemoveOutput;
@@ -60,11 +60,11 @@ where
     ) -> Result<Self::Output, Self::Error> {
         let mut membership = self
             .repository
-            .read(uow, command.currency_registrar_membership_id)
+            .read::<CurrencyRegistrarMembership>(uow, command.currency_registrar_membership_id)
             .await?;
         membership.remove()?;
         self.repository
-            .save(uow, request_context, &mut membership)
+            .save::<CurrencyRegistrarMembership>(uow, request_context, &mut membership)
             .await?;
 
         Ok(CurrencyRegistrarMembershipRemoveOutput {})

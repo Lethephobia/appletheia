@@ -11,30 +11,30 @@ use super::{
 };
 use crate::authorization::UserProfileEditorRelation;
 
-pub struct UserDisplayNameSetCommandHandler<UR>
+pub struct UserDisplayNameSetCommandHandler<R>
 where
-    UR: Repository<User>,
+    R: Repository,
 {
-    user_repository: UR,
+    repository: R,
 }
 
-impl<UR> UserDisplayNameSetCommandHandler<UR>
+impl<R> UserDisplayNameSetCommandHandler<R>
 where
-    UR: Repository<User>,
+    R: Repository,
 {
-    pub fn new(user_repository: UR) -> Self {
-        Self { user_repository }
+    pub fn new(repository: R) -> Self {
+        Self { repository }
     }
 }
 
-impl<UR> CommandHandler for UserDisplayNameSetCommandHandler<UR>
+impl<R> CommandHandler for UserDisplayNameSetCommandHandler<R>
 where
-    UR: Repository<User>,
+    R: Repository,
 {
     type Command = UserDisplayNameSetCommand;
     type Output = UserDisplayNameSetOutput;
     type Error = UserDisplayNameSetCommandHandlerError;
-    type Uow = UR::Uow;
+    type Uow = R::Uow;
 
     fn authorization_plan(
         &self,
@@ -56,12 +56,12 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<Self::Output, Self::Error> {
-        let mut user = self.user_repository.read(uow, command.user_id).await?;
+        let mut user = self.repository.read::<User>(uow, command.user_id).await?;
 
         user.set_display_name(command.display_name.clone())?;
 
-        self.user_repository
-            .save(uow, request_context, &mut user)
+        self.repository
+            .save::<User>(uow, request_context, &mut user)
             .await?;
 
         Ok(UserDisplayNameSetOutput {})

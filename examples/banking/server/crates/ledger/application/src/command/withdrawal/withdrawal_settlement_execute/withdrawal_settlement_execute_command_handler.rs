@@ -13,59 +13,37 @@ use super::{
 };
 use crate::settlement::{WithdrawalSettlementExecutor, WithdrawalSettlementRequest};
 
-pub struct WithdrawalSettlementExecuteCommandHandler<WR, AR, CR, TBR, WSE>
+pub struct WithdrawalSettlementExecuteCommandHandler<R, WSE>
 where
-    WR: Repository<Withdrawal>,
-    AR: Repository<Account, Uow = WR::Uow>,
-    CR: Repository<Currency, Uow = WR::Uow>,
-    TBR: Repository<TokenBinding, Uow = WR::Uow>,
+    R: Repository,
     WSE: WithdrawalSettlementExecutor,
 {
-    withdrawal_repository: WR,
-    account_repository: AR,
-    currency_repository: CR,
-    token_binding_repository: TBR,
+    repository: R,
     withdrawal_settlement_executor: WSE,
 }
 
-impl<WR, AR, CR, TBR, WSE> WithdrawalSettlementExecuteCommandHandler<WR, AR, CR, TBR, WSE>
+impl<R, WSE> WithdrawalSettlementExecuteCommandHandler<R, WSE>
 where
-    WR: Repository<Withdrawal>,
-    AR: Repository<Account, Uow = WR::Uow>,
-    CR: Repository<Currency, Uow = WR::Uow>,
-    TBR: Repository<TokenBinding, Uow = WR::Uow>,
+    R: Repository,
     WSE: WithdrawalSettlementExecutor,
 {
-    pub fn new(
-        withdrawal_repository: WR,
-        account_repository: AR,
-        currency_repository: CR,
-        token_binding_repository: TBR,
-        withdrawal_settlement_executor: WSE,
-    ) -> Self {
+    pub fn new(repository: R, withdrawal_settlement_executor: WSE) -> Self {
         Self {
-            withdrawal_repository,
-            account_repository,
-            currency_repository,
-            token_binding_repository,
+            repository,
             withdrawal_settlement_executor,
         }
     }
 }
 
-impl<WR, AR, CR, TBR, WSE> CommandHandler
-    for WithdrawalSettlementExecuteCommandHandler<WR, AR, CR, TBR, WSE>
+impl<R, WSE> CommandHandler for WithdrawalSettlementExecuteCommandHandler<R, WSE>
 where
-    WR: Repository<Withdrawal>,
-    AR: Repository<Account, Uow = WR::Uow>,
-    CR: Repository<Currency, Uow = WR::Uow>,
-    TBR: Repository<TokenBinding, Uow = WR::Uow>,
+    R: Repository,
     WSE: WithdrawalSettlementExecutor,
 {
     type Command = WithdrawalSettlementExecuteCommand;
     type Output = WithdrawalSettlementExecuteOutput;
     type Error = WithdrawalSettlementExecuteCommandHandlerError;
-    type Uow = WR::Uow;
+    type Uow = R::Uow;
 
     fn authorization_plan(
         &self,
@@ -83,21 +61,21 @@ where
         command: &Self::Command,
     ) -> Result<Self::Output, Self::Error> {
         let mut withdrawal = self
-            .withdrawal_repository
-            .read(uow, command.withdrawal_id)
+            .repository
+            .read::<Withdrawal>(uow, command.withdrawal_id)
             .await?;
         let account = self
-            .account_repository
-            .read(uow, *withdrawal.account_id()?)
+            .repository
+            .read::<Account>(uow, *withdrawal.account_id()?)
             .await?;
         let currency = self
-            .currency_repository
-            .read(uow, *account.currency_id()?)
+            .repository
+            .read::<Currency>(uow, *account.currency_id()?)
             .await?;
         let token_binding_id = withdrawal.token_binding_id()?;
         let token_binding = match self
-            .token_binding_repository
-            .read(uow, token_binding_id)
+            .repository
+            .read::<TokenBinding>(uow, token_binding_id)
             .await
         {
             Ok(token_binding)
@@ -127,8 +105,8 @@ where
             .await?;
 
         withdrawal.record_settlement_executed(execution.transaction_id)?;
-        self.withdrawal_repository
-            .save(uow, request_context, &mut withdrawal)
+        self.repository
+            .save::<Withdrawal>(uow, request_context, &mut withdrawal)
             .await?;
 
         Ok(WithdrawalSettlementExecuteOutput {})

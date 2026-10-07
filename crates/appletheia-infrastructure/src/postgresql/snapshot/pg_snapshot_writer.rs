@@ -1,32 +1,21 @@
-use std::marker::PhantomData;
-
 use appletheia_application::snapshot::{SnapshotWriter, SnapshotWriterError};
 use appletheia_domain::{Aggregate, AggregateId, Snapshot};
 
 use crate::postgresql::unit_of_work::PgUnitOfWork;
 
-pub struct PgSnapshotWriter<A: Aggregate> {
-    _aggregate: PhantomData<A>,
-}
+#[derive(Default)]
+pub struct PgSnapshotWriter;
 
-impl<A: Aggregate> PgSnapshotWriter<A> {
+impl PgSnapshotWriter {
     pub fn new() -> Self {
-        Self {
-            _aggregate: PhantomData,
-        }
+        Self
     }
 }
 
-impl<A: Aggregate> Default for PgSnapshotWriter<A> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl<A: Aggregate> SnapshotWriter<A> for PgSnapshotWriter<A> {
+impl SnapshotWriter for PgSnapshotWriter {
     type Uow = PgUnitOfWork;
 
-    async fn write_snapshot(
+    async fn write_snapshot<A: Aggregate>(
         &self,
         uow: &mut Self::Uow,
         snapshot: &Snapshot<A::Id, A::State>,

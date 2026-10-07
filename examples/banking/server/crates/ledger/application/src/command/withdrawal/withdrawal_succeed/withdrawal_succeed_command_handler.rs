@@ -8,32 +8,30 @@ use super::{
     WithdrawalSucceedCommand, WithdrawalSucceedCommandHandlerError, WithdrawalSucceedOutput,
 };
 
-pub struct WithdrawalSucceedCommandHandler<WR>
+pub struct WithdrawalSucceedCommandHandler<R>
 where
-    WR: Repository<Withdrawal>,
+    R: Repository,
 {
-    withdrawal_repository: WR,
+    repository: R,
 }
 
-impl<WR> WithdrawalSucceedCommandHandler<WR>
+impl<R> WithdrawalSucceedCommandHandler<R>
 where
-    WR: Repository<Withdrawal>,
+    R: Repository,
 {
-    pub fn new(withdrawal_repository: WR) -> Self {
-        Self {
-            withdrawal_repository,
-        }
+    pub fn new(repository: R) -> Self {
+        Self { repository }
     }
 }
 
-impl<WR> CommandHandler for WithdrawalSucceedCommandHandler<WR>
+impl<R> CommandHandler for WithdrawalSucceedCommandHandler<R>
 where
-    WR: Repository<Withdrawal>,
+    R: Repository,
 {
     type Command = WithdrawalSucceedCommand;
     type Output = WithdrawalSucceedOutput;
     type Error = WithdrawalSucceedCommandHandlerError;
-    type Uow = WR::Uow;
+    type Uow = R::Uow;
 
     fn authorization_plan(
         &self,
@@ -51,13 +49,13 @@ where
         command: &Self::Command,
     ) -> Result<Self::Output, Self::Error> {
         let mut withdrawal = self
-            .withdrawal_repository
-            .read(uow, command.withdrawal_id)
+            .repository
+            .read::<Withdrawal>(uow, command.withdrawal_id)
             .await?;
 
         withdrawal.succeed()?;
-        self.withdrawal_repository
-            .save(uow, request_context, &mut withdrawal)
+        self.repository
+            .save::<Withdrawal>(uow, request_context, &mut withdrawal)
             .await?;
 
         Ok(WithdrawalSucceedOutput {})

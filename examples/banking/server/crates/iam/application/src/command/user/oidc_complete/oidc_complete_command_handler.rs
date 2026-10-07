@@ -20,40 +20,40 @@ use crate::oidc::{OidcCompletionPurpose, OidcContinuationPayload};
 
 use super::{OidcCompleteCommand, OidcCompleteCommandHandlerError, OidcCompleteOutput};
 
-pub struct OidcCompleteCommandHandler<OLF, OCS, UR, ATI, ATECI>
+pub struct OidcCompleteCommandHandler<OLF, OCS, R, ATI, ATECI>
 where
     OLF: OidcLoginFlow,
     OCS: OidcContinuationStore<OidcContinuationPayload, Uow = OLF::Uow>,
-    UR: Repository<User, Uow = OLF::Uow>,
+    R: Repository<Uow = OLF::Uow>,
     ATI: AuthTokenIssuer,
     ATECI: AuthTokenExchangeCodeIssuer<Uow = OLF::Uow>,
 {
     oidc_login_flow: OLF,
     oidc_continuation_store: OCS,
-    user_repository: UR,
+    repository: R,
     auth_token_issuer: ATI,
     auth_token_exchange_code_issuer: ATECI,
 }
 
-impl<OLF, OCS, UR, ATI, ATECI> OidcCompleteCommandHandler<OLF, OCS, UR, ATI, ATECI>
+impl<OLF, OCS, R, ATI, ATECI> OidcCompleteCommandHandler<OLF, OCS, R, ATI, ATECI>
 where
     OLF: OidcLoginFlow,
     OCS: OidcContinuationStore<OidcContinuationPayload, Uow = OLF::Uow>,
-    UR: Repository<User, Uow = OLF::Uow>,
+    R: Repository<Uow = OLF::Uow>,
     ATI: AuthTokenIssuer,
     ATECI: AuthTokenExchangeCodeIssuer<Uow = OLF::Uow>,
 {
     pub fn new(
         oidc_login_flow: OLF,
         oidc_continuation_store: OCS,
-        user_repository: UR,
+        repository: R,
         auth_token_issuer: ATI,
         auth_token_exchange_code_issuer: ATECI,
     ) -> Self {
         Self {
             oidc_login_flow,
             oidc_continuation_store,
-            user_repository,
+            repository,
             auth_token_issuer,
             auth_token_exchange_code_issuer,
         }
@@ -79,8 +79,8 @@ where
         let unique_value = Self::provider_subject_unique_value(provider, subject)?;
 
         match self
-            .user_repository
-            .find_by_unique_value(uow, UserState::PROVIDER_SUBJECT_KEY, &unique_value)
+            .repository
+            .find_by_unique_value::<User>(uow, UserState::PROVIDER_SUBJECT_KEY, &unique_value)
             .await?
         {
             Some(mut user) => {
@@ -109,8 +109,8 @@ where
         let unique_value = Self::provider_subject_unique_value(provider, subject)?;
 
         match self
-            .user_repository
-            .find_by_unique_value(uow, UserState::PROVIDER_SUBJECT_KEY, &unique_value)
+            .repository
+            .find_by_unique_value::<User>(uow, UserState::PROVIDER_SUBJECT_KEY, &unique_value)
             .await?
         {
             Some(mut user) => {
@@ -123,7 +123,7 @@ where
                 Ok(user)
             }
             None => {
-                let mut user = self.user_repository.read(uow, user_id).await?;
+                let mut user = self.repository.read::<User>(uow, user_id).await?;
 
                 user.link_identity(provider.clone(), subject.clone(), email)?;
 
@@ -133,12 +133,11 @@ where
     }
 }
 
-impl<OLF, OCS, UR, ATI, ATECI> CommandHandler
-    for OidcCompleteCommandHandler<OLF, OCS, UR, ATI, ATECI>
+impl<OLF, OCS, R, ATI, ATECI> CommandHandler for OidcCompleteCommandHandler<OLF, OCS, R, ATI, ATECI>
 where
     OLF: OidcLoginFlow,
     OCS: OidcContinuationStore<OidcContinuationPayload, Uow = OLF::Uow>,
-    UR: Repository<User, Uow = OLF::Uow>,
+    R: Repository<Uow = OLF::Uow>,
     ATI: AuthTokenIssuer,
     ATECI: AuthTokenExchangeCodeIssuer<Uow = OLF::Uow>,
 {
@@ -204,8 +203,8 @@ where
             }
         };
 
-        self.user_repository
-            .save(uow, request_context, &mut user)
+        self.repository
+            .save::<User>(uow, request_context, &mut user)
             .await?;
 
         Ok(match completion_purpose {

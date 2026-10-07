@@ -13,14 +13,14 @@ use super::{
 
 pub struct CurrencyRegistrarCreateCommandHandler<R>
 where
-    R: Repository<CurrencyRegistrar>,
+    R: Repository,
 {
     repository: R,
 }
 
 impl<R> CurrencyRegistrarCreateCommandHandler<R>
 where
-    R: Repository<CurrencyRegistrar>,
+    R: Repository,
 {
     pub fn new(repository: R) -> Self {
         Self { repository }
@@ -29,7 +29,7 @@ where
 
 impl<R> CommandHandler for CurrencyRegistrarCreateCommandHandler<R>
 where
-    R: Repository<CurrencyRegistrar>,
+    R: Repository,
 {
     type Command = CurrencyRegistrarCreateCommand;
     type Output = CurrencyRegistrarCreateOutput;
@@ -56,7 +56,11 @@ where
         let unique_value = UniqueValue::from_strings([command.handle.as_ref()])?;
         if self
             .repository
-            .find_by_unique_value(uow, CurrencyRegistrarState::HANDLE_KEY, &unique_value)
+            .find_by_unique_value::<CurrencyRegistrar>(
+                uow,
+                CurrencyRegistrarState::HANDLE_KEY,
+                &unique_value,
+            )
             .await?
             .is_some()
         {
@@ -68,7 +72,7 @@ where
             currency_registrar.set_description(Some(description.clone()))?;
         }
         self.repository
-            .save(uow, request_context, &mut currency_registrar)
+            .save::<CurrencyRegistrar>(uow, request_context, &mut currency_registrar)
             .await?;
 
         Ok(CurrencyRegistrarCreateOutput {

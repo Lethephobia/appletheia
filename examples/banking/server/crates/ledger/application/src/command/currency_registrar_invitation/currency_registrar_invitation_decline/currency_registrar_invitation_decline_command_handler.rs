@@ -15,32 +15,30 @@ use super::{
     CurrencyRegistrarInvitationDeclineOutput,
 };
 
-pub struct CurrencyRegistrarInvitationDeclineCommandHandler<IR>
+pub struct CurrencyRegistrarInvitationDeclineCommandHandler<R>
 where
-    IR: Repository<CurrencyRegistrarInvitation>,
+    R: Repository,
 {
-    currency_registrar_invitation_repository: IR,
+    repository: R,
 }
 
-impl<IR> CurrencyRegistrarInvitationDeclineCommandHandler<IR>
+impl<R> CurrencyRegistrarInvitationDeclineCommandHandler<R>
 where
-    IR: Repository<CurrencyRegistrarInvitation>,
+    R: Repository,
 {
-    pub fn new(currency_registrar_invitation_repository: IR) -> Self {
-        Self {
-            currency_registrar_invitation_repository,
-        }
+    pub fn new(repository: R) -> Self {
+        Self { repository }
     }
 }
 
-impl<IR> CommandHandler for CurrencyRegistrarInvitationDeclineCommandHandler<IR>
+impl<R> CommandHandler for CurrencyRegistrarInvitationDeclineCommandHandler<R>
 where
-    IR: Repository<CurrencyRegistrarInvitation>,
+    R: Repository,
 {
     type Command = CurrencyRegistrarInvitationDeclineCommand;
     type Output = CurrencyRegistrarInvitationDeclineOutput;
     type Error = CurrencyRegistrarInvitationDeclineCommandHandlerError;
-    type Uow = IR::Uow;
+    type Uow = R::Uow;
 
     fn authorization_plan(
         &self,
@@ -63,14 +61,18 @@ where
         command: &Self::Command,
     ) -> Result<Self::Output, Self::Error> {
         let mut currency_registrar_invitation = self
-            .currency_registrar_invitation_repository
-            .read(uow, command.currency_registrar_invitation_id)
+            .repository
+            .read::<CurrencyRegistrarInvitation>(uow, command.currency_registrar_invitation_id)
             .await?;
 
         currency_registrar_invitation.decline(CurrentDateTime::new())?;
 
-        self.currency_registrar_invitation_repository
-            .save(uow, request_context, &mut currency_registrar_invitation)
+        self.repository
+            .save::<CurrencyRegistrarInvitation>(
+                uow,
+                request_context,
+                &mut currency_registrar_invitation,
+            )
             .await?;
 
         Ok(CurrencyRegistrarInvitationDeclineOutput {})

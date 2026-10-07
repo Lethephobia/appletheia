@@ -13,43 +13,43 @@ use super::{
     OwnedAccountClosureScanCommandHandlerError, OwnedAccountClosureScanOutput,
 };
 
-pub struct OwnedAccountClosureScanCommandHandler<OACR, RIL>
+pub struct OwnedAccountClosureScanCommandHandler<R, RIL>
 where
-    OACR: Repository<OwnedAccountClosure>,
-    RIL: ReferenceIndexLookup<Uow = OACR::Uow>,
+    R: Repository,
+    RIL: ReferenceIndexLookup<Uow = R::Uow>,
 {
-    owned_account_closure_repository: OACR,
+    repository: R,
     reference_index_lookup: RIL,
     config: OwnedAccountClosureScanCommandHandlerConfig,
 }
 
-impl<OACR, RIL> OwnedAccountClosureScanCommandHandler<OACR, RIL>
+impl<R, RIL> OwnedAccountClosureScanCommandHandler<R, RIL>
 where
-    OACR: Repository<OwnedAccountClosure>,
-    RIL: ReferenceIndexLookup<Uow = OACR::Uow>,
+    R: Repository,
+    RIL: ReferenceIndexLookup<Uow = R::Uow>,
 {
     pub fn new(
-        owned_account_closure_repository: OACR,
+        repository: R,
         reference_index_lookup: RIL,
         config: OwnedAccountClosureScanCommandHandlerConfig,
     ) -> Self {
         Self {
-            owned_account_closure_repository,
+            repository,
             reference_index_lookup,
             config,
         }
     }
 }
 
-impl<OACR, RIL> CommandHandler for OwnedAccountClosureScanCommandHandler<OACR, RIL>
+impl<R, RIL> CommandHandler for OwnedAccountClosureScanCommandHandler<R, RIL>
 where
-    OACR: Repository<OwnedAccountClosure>,
-    RIL: ReferenceIndexLookup<Uow = OACR::Uow>,
+    R: Repository,
+    RIL: ReferenceIndexLookup<Uow = R::Uow>,
 {
     type Command = OwnedAccountClosureScanCommand;
     type Output = OwnedAccountClosureScanOutput;
     type Error = OwnedAccountClosureScanCommandHandlerError;
-    type Uow = OACR::Uow;
+    type Uow = R::Uow;
 
     fn authorization_plan(
         &self,
@@ -67,8 +67,8 @@ where
         command: &Self::Command,
     ) -> Result<Self::Output, Self::Error> {
         let mut owned_account_closure = self
-            .owned_account_closure_repository
-            .read(uow, command.owned_account_closure_id)
+            .repository
+            .read::<OwnedAccountClosure>(uow, command.owned_account_closure_id)
             .await?;
 
         if owned_account_closure.status()? == OwnedAccountClosureStatus::Completed {
@@ -110,8 +110,8 @@ where
         if owned_account_closure.is_ready_to_complete()? {
             owned_account_closure.complete()?;
         }
-        self.owned_account_closure_repository
-            .save(uow, request_context, &mut owned_account_closure)
+        self.repository
+            .save::<OwnedAccountClosure>(uow, request_context, &mut owned_account_closure)
             .await?;
 
         Ok(OwnedAccountClosureScanOutput {})
@@ -127,18 +127,20 @@ mod tests {
         OwnedAccountClosureAccountSucceededRecordCommand,
         OwnedAccountClosureAccountSucceededRecordCommandHandler,
     };
+    use appletheia::application::aggregate::SerializedAggregate;
     use appletheia::application::repository::ReferenceIndexLookupPageSize;
     use appletheia::application::repository::{
         ReferenceIndexLookupError, ReferenceIndexLookupPage, RepositoryError,
     };
     use appletheia::application::request_context::{CorrelationId, MessageId, Principal};
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
+    use appletheia::domain::Event;
     use appletheia::domain::{
         AggregateId, AggregateType, AggregateVersion, ReferenceKey, UniqueKey, UniqueValue,
     };
     use banking_iam_domain::UserId;
     use banking_ledger_domain::owned_account_closure::{
-        OwnedAccountClosureEventPayload, OwnedAccountClosureId, OwnedAccountClosureStatus,
+        OwnedAccountClosureEventPayload, OwnedAccountClosureStatus,
     };
     use core::num::NonZeroU32;
     use std::sync::{Arc, Mutex};
@@ -161,50 +163,78 @@ mod tests {
         saved_batches: Arc<Mutex<Vec<Vec<OwnedAccountClosureEventPayload>>>>,
     }
 
-    impl Repository<OwnedAccountClosure> for TestRepository {
+    impl TestRepository {
+        fn copy_aggregate<S: Aggregate, T: Aggregate>(source: &S) -> T {
+            let mut restored = SerializedAggregate::try_from_aggregate(source)
+                .expect("test aggregate should serialize")
+                .try_to_aggregate::<T>()
+                .expect("test aggregate types should match");
+            for event in source.uncommitted_events() {
+                let id = T::Id::try_from_uuid(event.aggregate_id().value()).unwrap();
+                let payload =
+                    serde_json::from_value(serde_json::to_value(event.payload()).unwrap()).unwrap();
+                restored
+                    .core_mut()
+                    .record_uncommitted_event(Event::from_persisted(
+                        event.id(),
+                        id,
+                        event.aggregate_version(),
+                        payload,
+                        event.occurred_at(),
+                    ));
+            }
+            restored
+        }
+    }
+
+    impl Repository for TestRepository {
         type Uow = TestUow;
 
-        async fn read(
+        async fn read<A: Aggregate>(
             &self,
             _: &mut TestUow,
-            _: OwnedAccountClosureId,
-        ) -> Result<OwnedAccountClosure, RepositoryError<OwnedAccountClosure>> {
-            Ok(self.closure.lock().unwrap().clone())
+            _: A::Id,
+        ) -> Result<A, RepositoryError<A>> {
+            Ok(Self::copy_aggregate::<_, A>(&*self.closure.lock().unwrap()))
         }
 
-        async fn read_at_version(
+        async fn read_at_version<A: Aggregate>(
             &self,
             _: &mut TestUow,
-            _: OwnedAccountClosureId,
+            _: A::Id,
             _: AggregateVersion,
-        ) -> Result<OwnedAccountClosure, RepositoryError<OwnedAccountClosure>> {
+        ) -> Result<A, RepositoryError<A>> {
             unreachable!()
         }
 
-        async fn find_by_unique_value(
+        async fn find_by_unique_value<A: Aggregate>(
             &self,
             _: &mut TestUow,
             _: UniqueKey,
             _: &UniqueValue,
-        ) -> Result<Option<OwnedAccountClosure>, RepositoryError<OwnedAccountClosure>> {
+        ) -> Result<Option<A>, RepositoryError<A>> {
             unreachable!()
         }
 
-        async fn save(
+        async fn save<A: Aggregate>(
             &self,
             _: &mut TestUow,
             _: &RequestContext,
-            aggregate: &mut OwnedAccountClosure,
-        ) -> Result<(), RepositoryError<OwnedAccountClosure>> {
+            aggregate: &mut A,
+        ) -> Result<(), RepositoryError<A>> {
             self.saved_batches.lock().unwrap().push(
                 aggregate
                     .uncommitted_events()
                     .iter()
-                    .map(|event| event.payload().clone())
+                    .map(|event| {
+                        serde_json::from_value(serde_json::to_value(event.payload()).unwrap())
+                            .unwrap()
+                    })
                     .collect(),
             );
             aggregate.core_mut().clear_uncommitted_events();
-            *self.closure.lock().unwrap() = aggregate.clone();
+            let stored = Self::copy_aggregate::<_, OwnedAccountClosure>(aggregate);
+            *self.closure.lock().unwrap() = stored;
             Ok(())
         }
     }

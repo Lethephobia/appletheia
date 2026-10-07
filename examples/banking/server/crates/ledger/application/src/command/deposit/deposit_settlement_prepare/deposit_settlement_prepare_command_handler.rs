@@ -18,59 +18,37 @@ use super::{
 use crate::authorization::AccountDepositRequesterRelation;
 use crate::settlement::{DepositSettlementPrepareRequest, DepositSettlementPreparer};
 
-pub struct DepositSettlementPrepareCommandHandler<DR, AR, CR, TBR, DSP>
+pub struct DepositSettlementPrepareCommandHandler<R, DSP>
 where
-    DR: Repository<Deposit>,
-    AR: Repository<Account, Uow = DR::Uow>,
-    CR: Repository<Currency, Uow = DR::Uow>,
-    TBR: Repository<TokenBinding, Uow = DR::Uow>,
+    R: Repository,
     DSP: DepositSettlementPreparer,
 {
-    deposit_repository: DR,
-    account_repository: AR,
-    currency_repository: CR,
-    token_binding_repository: TBR,
+    repository: R,
     deposit_settlement_preparer: DSP,
 }
 
-impl<DR, AR, CR, TBR, DSP> DepositSettlementPrepareCommandHandler<DR, AR, CR, TBR, DSP>
+impl<R, DSP> DepositSettlementPrepareCommandHandler<R, DSP>
 where
-    DR: Repository<Deposit>,
-    AR: Repository<Account, Uow = DR::Uow>,
-    CR: Repository<Currency, Uow = DR::Uow>,
-    TBR: Repository<TokenBinding, Uow = DR::Uow>,
+    R: Repository,
     DSP: DepositSettlementPreparer,
 {
-    pub fn new(
-        deposit_repository: DR,
-        account_repository: AR,
-        currency_repository: CR,
-        token_binding_repository: TBR,
-        deposit_settlement_preparer: DSP,
-    ) -> Self {
+    pub fn new(repository: R, deposit_settlement_preparer: DSP) -> Self {
         Self {
-            deposit_repository,
-            account_repository,
-            currency_repository,
-            token_binding_repository,
+            repository,
             deposit_settlement_preparer,
         }
     }
 }
 
-impl<DR, AR, CR, TBR, DSP> CommandHandler
-    for DepositSettlementPrepareCommandHandler<DR, AR, CR, TBR, DSP>
+impl<R, DSP> CommandHandler for DepositSettlementPrepareCommandHandler<R, DSP>
 where
-    DR: Repository<Deposit>,
-    AR: Repository<Account, Uow = DR::Uow>,
-    CR: Repository<Currency, Uow = DR::Uow>,
-    TBR: Repository<TokenBinding, Uow = DR::Uow>,
+    R: Repository,
     DSP: DepositSettlementPreparer,
 {
     type Command = DepositSettlementPrepareCommand;
     type Output = DepositSettlementPrepareOutput;
     type Error = DepositSettlementPrepareCommandHandlerError;
-    type Uow = DR::Uow;
+    type Uow = R::Uow;
 
     fn authorization_plan(
         &self,
@@ -93,19 +71,19 @@ where
         command: &Self::Command,
     ) -> Result<Self::Output, Self::Error> {
         let account = self
-            .account_repository
-            .read(uow, command.account_id)
+            .repository
+            .read::<Account>(uow, command.account_id)
             .await?;
         let currency = self
-            .currency_repository
-            .read(uow, *account.currency_id()?)
+            .repository
+            .read::<Currency>(uow, *account.currency_id()?)
             .await?;
 
         let mut deposit = Deposit::new();
         let deposit_id = deposit.aggregate_id();
         let binding = match self
-            .token_binding_repository
-            .read(uow, command.token_binding_id)
+            .repository
+            .read::<TokenBinding>(uow, command.token_binding_id)
             .await
         {
             Ok(binding)
@@ -144,8 +122,8 @@ where
                 command.evm_authorization,
             ))
             .await?;
-        self.deposit_repository
-            .save(uow, request_context, &mut deposit)
+        self.repository
+            .save::<Deposit>(uow, request_context, &mut deposit)
             .await?;
 
         Ok(DepositSettlementPrepareOutput {

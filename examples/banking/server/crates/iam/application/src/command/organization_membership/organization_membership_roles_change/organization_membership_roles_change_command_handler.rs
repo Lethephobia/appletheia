@@ -13,37 +13,30 @@ use super::{
 };
 use crate::authorization::OrganizationMembershipRolesChangerRelation;
 
-pub struct OrganizationMembershipRolesChangeCommandHandler<OR, MR>
+pub struct OrganizationMembershipRolesChangeCommandHandler<R>
 where
-    OR: Repository<Organization>,
-    MR: Repository<OrganizationMembership, Uow = OR::Uow>,
+    R: Repository,
 {
-    organization_repository: OR,
-    organization_membership_repository: MR,
+    repository: R,
 }
 
-impl<OR, MR> OrganizationMembershipRolesChangeCommandHandler<OR, MR>
+impl<R> OrganizationMembershipRolesChangeCommandHandler<R>
 where
-    OR: Repository<Organization>,
-    MR: Repository<OrganizationMembership, Uow = OR::Uow>,
+    R: Repository,
 {
-    pub fn new(organization_repository: OR, organization_membership_repository: MR) -> Self {
-        Self {
-            organization_repository,
-            organization_membership_repository,
-        }
+    pub fn new(repository: R) -> Self {
+        Self { repository }
     }
 }
 
-impl<OR, MR> CommandHandler for OrganizationMembershipRolesChangeCommandHandler<OR, MR>
+impl<R> CommandHandler for OrganizationMembershipRolesChangeCommandHandler<R>
 where
-    OR: Repository<Organization>,
-    MR: Repository<OrganizationMembership, Uow = OR::Uow>,
+    R: Repository,
 {
     type Command = OrganizationMembershipRolesChangeCommand;
     type Output = OrganizationMembershipRolesChangeOutput;
     type Error = OrganizationMembershipRolesChangeCommandHandlerError;
-    type Uow = OR::Uow;
+    type Uow = R::Uow;
 
     fn authorization_plan(
         &self,
@@ -66,13 +59,13 @@ where
         command: &Self::Command,
     ) -> Result<Self::Output, Self::Error> {
         let mut membership = self
-            .organization_membership_repository
-            .read(uow, command.organization_membership_id)
+            .repository
+            .read::<OrganizationMembership>(uow, command.organization_membership_id)
             .await?;
 
         let organization = self
-            .organization_repository
-            .read(uow, *membership.organization_id()?)
+            .repository
+            .read::<Organization>(uow, *membership.organization_id()?)
             .await?;
         if organization.is_removed()? {
             return Err(OrganizationMembershipError::OrganizationRemoved.into());
@@ -80,8 +73,8 @@ where
 
         membership.change_roles(command.roles.clone())?;
 
-        self.organization_membership_repository
-            .save(uow, request_context, &mut membership)
+        self.repository
+            .save::<OrganizationMembership>(uow, request_context, &mut membership)
             .await?;
 
         Ok(OrganizationMembershipRolesChangeOutput {})

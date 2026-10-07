@@ -12,19 +12,19 @@ use banking_iam_domain::{User, UserState, Username};
 use super::{UserUsernameSetCommand, UserUsernameSetCommandHandlerError, UserUsernameSetOutput};
 use crate::authorization::UserUsernameSetterRelation;
 
-pub struct UserUsernameSetCommandHandler<UR>
+pub struct UserUsernameSetCommandHandler<R>
 where
-    UR: Repository<User>,
+    R: Repository,
 {
-    user_repository: UR,
+    repository: R,
 }
 
-impl<UR> UserUsernameSetCommandHandler<UR>
+impl<R> UserUsernameSetCommandHandler<R>
 where
-    UR: Repository<User>,
+    R: Repository,
 {
-    pub fn new(user_repository: UR) -> Self {
-        Self { user_repository }
+    pub fn new(repository: R) -> Self {
+        Self { repository }
     }
 
     fn username_unique_value(
@@ -34,14 +34,14 @@ where
     }
 }
 
-impl<UR> CommandHandler for UserUsernameSetCommandHandler<UR>
+impl<R> CommandHandler for UserUsernameSetCommandHandler<R>
 where
-    UR: Repository<User>,
+    R: Repository,
 {
     type Command = UserUsernameSetCommand;
     type Output = UserUsernameSetOutput;
     type Error = UserUsernameSetCommandHandlerError;
-    type Uow = UR::Uow;
+    type Uow = R::Uow;
 
     fn authorization_plan(
         &self,
@@ -63,12 +63,12 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<Self::Output, Self::Error> {
-        let mut user = self.user_repository.read(uow, command.user_id).await?;
+        let mut user = self.repository.read::<User>(uow, command.user_id).await?;
 
         let unique_value = Self::username_unique_value(&command.username)?;
         if self
-            .user_repository
-            .find_by_unique_value(uow, UserState::USERNAME_KEY, &unique_value)
+            .repository
+            .find_by_unique_value::<User>(uow, UserState::USERNAME_KEY, &unique_value)
             .await?
             .is_some_and(|existing| existing.aggregate_id() != command.user_id)
         {
@@ -77,8 +77,8 @@ where
 
         user.set_username(command.username.clone())?;
 
-        self.user_repository
-            .save(uow, request_context, &mut user)
+        self.repository
+            .save::<User>(uow, request_context, &mut user)
             .await?;
 
         Ok(UserUsernameSetOutput {})
@@ -87,6 +87,8 @@ where
 
 #[cfg(test)]
 mod tests {
+    use appletheia::application::aggregate::SerializedAggregate;
+    use appletheia::domain::{AggregateId, Event};
     use std::sync::{Arc, Mutex};
 
     use appletheia::application::aggregate::AggregateRef;
@@ -114,62 +116,86 @@ mod tests {
     }
 
     #[derive(Clone, Default)]
-    struct TestUserRepository {
+    struct TestRepository {
         user: Arc<Mutex<Option<User>>>,
     }
-    impl TestUserRepository {
+    impl TestRepository {
+        fn copy_aggregate<S: Aggregate, T: Aggregate>(source: &S) -> T {
+            let mut restored = SerializedAggregate::try_from_aggregate(source)
+                .expect("test aggregate should serialize")
+                .try_to_aggregate::<T>()
+                .expect("test aggregate types should match");
+            for event in source.uncommitted_events() {
+                let id = T::Id::try_from_uuid(event.aggregate_id().value()).unwrap();
+                let payload =
+                    serde_json::from_value(serde_json::to_value(event.payload()).unwrap()).unwrap();
+                restored
+                    .core_mut()
+                    .record_uncommitted_event(Event::from_persisted(
+                        event.id(),
+                        id,
+                        event.aggregate_version(),
+                        payload,
+                        event.occurred_at(),
+                    ));
+            }
+            restored
+        }
+
         fn new(user: User) -> Self {
             Self {
                 user: Arc::new(Mutex::new(Some(user))),
             }
         }
     }
-    impl Repository<User> for TestUserRepository {
+    impl Repository for TestRepository {
         type Uow = TestUow;
-        async fn read(
+        async fn read<A: Aggregate>(
             &self,
             _uow: &mut Self::Uow,
-            _id: UserId,
-        ) -> Result<User, RepositoryError<User>> {
+            _id: A::Id,
+        ) -> Result<A, RepositoryError<A>> {
             self.user
                 .lock()
                 .expect("lock")
-                .clone()
+                .as_ref()
+                .map(|stored| Self::copy_aggregate::<_, A>(stored))
                 .ok_or_else(|| RepositoryError::NotFound {
-                    aggregate_type: User::TYPE,
+                    aggregate_type: A::TYPE,
                     aggregate_id: _id,
                 })
         }
-        async fn read_at_version(
+        async fn read_at_version<A: Aggregate>(
             &self,
             _uow: &mut Self::Uow,
-            _id: UserId,
+            _id: A::Id,
             _at: appletheia::domain::AggregateVersion,
-        ) -> Result<User, RepositoryError<User>> {
+        ) -> Result<A, RepositoryError<A>> {
             self.user
                 .lock()
                 .expect("lock")
-                .clone()
+                .as_ref()
+                .map(|stored| Self::copy_aggregate::<_, A>(stored))
                 .ok_or_else(|| RepositoryError::NotFound {
-                    aggregate_type: User::TYPE,
+                    aggregate_type: A::TYPE,
                     aggregate_id: _id,
                 })
         }
-        async fn find_by_unique_value(
+        async fn find_by_unique_value<A: Aggregate>(
             &self,
             _uow: &mut Self::Uow,
             _unique_key: appletheia::domain::UniqueKey,
             _unique_value: &appletheia::domain::UniqueValue,
-        ) -> Result<Option<User>, RepositoryError<User>> {
+        ) -> Result<Option<A>, RepositoryError<A>> {
             Ok(None)
         }
-        async fn save(
+        async fn save<A: Aggregate>(
             &self,
             _uow: &mut Self::Uow,
             _request_context: &RequestContext,
-            aggregate: &mut User,
-        ) -> Result<(), RepositoryError<User>> {
-            *self.user.lock().expect("lock") = Some(aggregate.clone());
+            aggregate: &mut A,
+        ) -> Result<(), RepositoryError<A>> {
+            *self.user.lock().expect("lock") = Some(Self::copy_aggregate::<_, User>(aggregate));
             Ok(())
         }
     }
@@ -202,7 +228,7 @@ mod tests {
     async fn handle_changes_username() {
         let user = registered_user();
         let user_id = user.aggregate_id();
-        let repository = TestUserRepository::new(user);
+        let repository = TestRepository::new(user);
         let handler = UserUsernameSetCommandHandler::new(repository);
         let mut uow = TestUow;
 

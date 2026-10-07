@@ -12,32 +12,30 @@ use super::{
 };
 use crate::authorization::WalletBookmarkUpdaterRelation;
 
-pub struct WalletBookmarkDescriptionSetCommandHandler<WBR>
+pub struct WalletBookmarkDescriptionSetCommandHandler<R>
 where
-    WBR: Repository<WalletBookmark>,
+    R: Repository,
 {
-    wallet_bookmark_repository: WBR,
+    repository: R,
 }
 
-impl<WBR> WalletBookmarkDescriptionSetCommandHandler<WBR>
+impl<R> WalletBookmarkDescriptionSetCommandHandler<R>
 where
-    WBR: Repository<WalletBookmark>,
+    R: Repository,
 {
-    pub fn new(wallet_bookmark_repository: WBR) -> Self {
-        Self {
-            wallet_bookmark_repository,
-        }
+    pub fn new(repository: R) -> Self {
+        Self { repository }
     }
 }
 
-impl<WBR> CommandHandler for WalletBookmarkDescriptionSetCommandHandler<WBR>
+impl<R> CommandHandler for WalletBookmarkDescriptionSetCommandHandler<R>
 where
-    WBR: Repository<WalletBookmark>,
+    R: Repository,
 {
     type Command = WalletBookmarkDescriptionSetCommand;
     type Output = WalletBookmarkDescriptionSetOutput;
     type Error = WalletBookmarkDescriptionSetCommandHandlerError;
-    type Uow = WBR::Uow;
+    type Uow = R::Uow;
 
     fn authorization_plan(
         &self,
@@ -60,14 +58,14 @@ where
         command: &Self::Command,
     ) -> Result<Self::Output, Self::Error> {
         let mut wallet_bookmark = self
-            .wallet_bookmark_repository
-            .read(uow, command.wallet_bookmark_id)
+            .repository
+            .read::<WalletBookmark>(uow, command.wallet_bookmark_id)
             .await?;
 
         wallet_bookmark.set_description(command.description.clone())?;
 
-        self.wallet_bookmark_repository
-            .save(uow, request_context, &mut wallet_bookmark)
+        self.repository
+            .save::<WalletBookmark>(uow, request_context, &mut wallet_bookmark)
             .await?;
 
         Ok(WalletBookmarkDescriptionSetOutput {})

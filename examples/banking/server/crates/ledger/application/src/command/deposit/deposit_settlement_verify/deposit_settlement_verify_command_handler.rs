@@ -15,59 +15,37 @@ use super::{
     DepositSettlementVerifyOutput,
 };
 
-pub struct DepositSettlementVerifyCommandHandler<DR, AR, CR, TBR, TDV>
+pub struct DepositSettlementVerifyCommandHandler<R, TDV>
 where
-    DR: Repository<Deposit>,
-    AR: Repository<Account, Uow = DR::Uow>,
-    CR: Repository<Currency, Uow = DR::Uow>,
-    TBR: Repository<TokenBinding, Uow = DR::Uow>,
+    R: Repository,
     TDV: DepositSettlementVerifier,
 {
-    deposit_repository: DR,
-    account_repository: AR,
-    currency_repository: CR,
-    token_binding_repository: TBR,
+    repository: R,
     deposit_settlement_verifier: TDV,
 }
 
-impl<DR, AR, CR, TBR, TDV> DepositSettlementVerifyCommandHandler<DR, AR, CR, TBR, TDV>
+impl<R, TDV> DepositSettlementVerifyCommandHandler<R, TDV>
 where
-    DR: Repository<Deposit>,
-    AR: Repository<Account, Uow = DR::Uow>,
-    CR: Repository<Currency, Uow = DR::Uow>,
-    TBR: Repository<TokenBinding, Uow = DR::Uow>,
+    R: Repository,
     TDV: DepositSettlementVerifier,
 {
-    pub fn new(
-        deposit_repository: DR,
-        account_repository: AR,
-        currency_repository: CR,
-        token_binding_repository: TBR,
-        deposit_settlement_verifier: TDV,
-    ) -> Self {
+    pub fn new(repository: R, deposit_settlement_verifier: TDV) -> Self {
         Self {
-            deposit_repository,
-            account_repository,
-            currency_repository,
-            token_binding_repository,
+            repository,
             deposit_settlement_verifier,
         }
     }
 }
 
-impl<DR, AR, CR, TBR, TDV> CommandHandler
-    for DepositSettlementVerifyCommandHandler<DR, AR, CR, TBR, TDV>
+impl<R, TDV> CommandHandler for DepositSettlementVerifyCommandHandler<R, TDV>
 where
-    DR: Repository<Deposit>,
-    AR: Repository<Account, Uow = DR::Uow>,
-    CR: Repository<Currency, Uow = DR::Uow>,
-    TBR: Repository<TokenBinding, Uow = DR::Uow>,
+    R: Repository,
     TDV: DepositSettlementVerifier,
 {
     type Command = DepositSettlementVerifyCommand;
     type Output = DepositSettlementVerifyOutput;
     type Error = DepositSettlementVerifyCommandHandlerError;
-    type Uow = DR::Uow;
+    type Uow = R::Uow;
 
     fn authorization_plan(
         &self,
@@ -85,20 +63,20 @@ where
         command: &Self::Command,
     ) -> Result<Self::Output, Self::Error> {
         let mut deposit = self
-            .deposit_repository
-            .read(uow, command.deposit_id)
+            .repository
+            .read::<Deposit>(uow, command.deposit_id)
             .await?;
         let account = self
-            .account_repository
-            .read(uow, *deposit.account_id()?)
+            .repository
+            .read::<Account>(uow, *deposit.account_id()?)
             .await?;
         let currency = self
-            .currency_repository
-            .read(uow, *account.currency_id()?)
+            .repository
+            .read::<Currency>(uow, *account.currency_id()?)
             .await?;
         let token_binding = match self
-            .token_binding_repository
-            .read(uow, deposit.token_binding_id()?)
+            .repository
+            .read::<TokenBinding>(uow, deposit.token_binding_id()?)
             .await
         {
             Ok(token_binding)
@@ -131,8 +109,8 @@ where
             })
             .await?;
         deposit.record_settlement_verified(verification.transaction_id)?;
-        self.deposit_repository
-            .save(uow, request_context, &mut deposit)
+        self.repository
+            .save::<Deposit>(uow, request_context, &mut deposit)
             .await?;
 
         Ok(DepositSettlementVerifyOutput {})

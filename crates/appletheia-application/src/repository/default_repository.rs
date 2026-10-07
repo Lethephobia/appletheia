@@ -1,6 +1,6 @@
 use crate::aggregate::AggregateRef;
 use crate::authorization::{RelationshipDeriver, RelationshipStore};
-use std::{marker::PhantomData, ops::Bound};
+use std::ops::Bound;
 
 use appletheia_domain::{Aggregate, AggregateVersion, AggregateVersionRange};
 
@@ -15,15 +15,14 @@ use super::{
     RepositoryError, UniqueKeyReservationStore, UniqueValueOwnerLookup,
 };
 
-pub struct DefaultRepository<A, ER, EW, EOE, SR, SW, UVOL, UKS, RIS, RS, RD, Uow>
+pub struct DefaultRepository<ER, EW, EOE, SR, SW, UVOL, UKS, RIS, RS, RD, Uow>
 where
-    A: Aggregate,
     Uow: UnitOfWork,
-    ER: EventReader<A, Uow = Uow>,
-    EW: EventWriter<A, Uow = Uow>,
+    ER: EventReader<Uow = Uow>,
+    EW: EventWriter<Uow = Uow>,
     EOE: EventOutboxEnqueuer<Uow = Uow>,
-    SR: SnapshotReader<A, Uow = Uow>,
-    SW: SnapshotWriter<A, Uow = Uow>,
+    SR: SnapshotReader<Uow = Uow>,
+    SW: SnapshotWriter<Uow = Uow>,
     UVOL: UniqueValueOwnerLookup<Uow = Uow>,
     UKS: UniqueKeyReservationStore<Uow = Uow>,
     RIS: ReferenceIndexStore<Uow = Uow>,
@@ -40,20 +39,18 @@ where
     reference_index_store: RIS,
     relationship_store: RS,
     relationship_deriver: RD,
-    aggregate: PhantomData<fn() -> A>,
     config: RepositoryConfig,
 }
 
-impl<A, ER, EW, EOE, SR, SW, UVOL, UKS, RIS, RS, RD, Uow>
-    DefaultRepository<A, ER, EW, EOE, SR, SW, UVOL, UKS, RIS, RS, RD, Uow>
+impl<ER, EW, EOE, SR, SW, UVOL, UKS, RIS, RS, RD, Uow>
+    DefaultRepository<ER, EW, EOE, SR, SW, UVOL, UKS, RIS, RS, RD, Uow>
 where
-    A: Aggregate,
     Uow: UnitOfWork,
-    ER: EventReader<A, Uow = Uow>,
-    EW: EventWriter<A, Uow = Uow>,
+    ER: EventReader<Uow = Uow>,
+    EW: EventWriter<Uow = Uow>,
     EOE: EventOutboxEnqueuer<Uow = Uow>,
-    SR: SnapshotReader<A, Uow = Uow>,
-    SW: SnapshotWriter<A, Uow = Uow>,
+    SR: SnapshotReader<Uow = Uow>,
+    SW: SnapshotWriter<Uow = Uow>,
     UVOL: UniqueValueOwnerLookup<Uow = Uow>,
     UKS: UniqueKeyReservationStore<Uow = Uow>,
     RIS: ReferenceIndexStore<Uow = Uow>,
@@ -75,12 +72,11 @@ where
             reference_index_store: dependencies.reference_index_store,
             relationship_store: dependencies.relationship_store,
             relationship_deriver: dependencies.relationship_deriver,
-            aggregate: PhantomData,
             config,
         }
     }
 
-    async fn read_at_version_or_latest(
+    async fn read_at_version_or_latest<A: Aggregate>(
         &self,
         uow: &mut Uow,
         id: A::Id,
@@ -88,7 +84,7 @@ where
     ) -> Result<A, RepositoryError<A>> {
         let snapshot = self
             .snapshot_reader
-            .read_latest_snapshot(uow, id, at)
+            .read_latest_snapshot::<A>(uow, id, at)
             .await?;
         let events = {
             let start = snapshot
@@ -97,7 +93,7 @@ where
                 .unwrap_or(Bound::Unbounded);
             let end = at.map(Bound::Included).unwrap_or(Bound::Unbounded);
             let range = AggregateVersionRange::new(start, end);
-            self.event_reader.read_events(uow, id, range).await?
+            self.event_reader.read_events::<A>(uow, id, range).await?
         };
 
         if events.is_empty() && snapshot.is_none() {
@@ -116,16 +112,15 @@ where
     }
 }
 
-impl<A, ER, EW, EOE, SR, SW, UVOL, UKS, RIS, RS, RD, Uow> Repository<A>
-    for DefaultRepository<A, ER, EW, EOE, SR, SW, UVOL, UKS, RIS, RS, RD, Uow>
+impl<ER, EW, EOE, SR, SW, UVOL, UKS, RIS, RS, RD, Uow> Repository
+    for DefaultRepository<ER, EW, EOE, SR, SW, UVOL, UKS, RIS, RS, RD, Uow>
 where
-    A: Aggregate,
     Uow: UnitOfWork,
-    ER: EventReader<A, Uow = Uow>,
-    EW: EventWriter<A, Uow = Uow>,
+    ER: EventReader<Uow = Uow>,
+    EW: EventWriter<Uow = Uow>,
     EOE: EventOutboxEnqueuer<Uow = Uow>,
-    SR: SnapshotReader<A, Uow = Uow>,
-    SW: SnapshotWriter<A, Uow = Uow>,
+    SR: SnapshotReader<Uow = Uow>,
+    SW: SnapshotWriter<Uow = Uow>,
     UVOL: UniqueValueOwnerLookup<Uow = Uow>,
     UKS: UniqueKeyReservationStore<Uow = Uow>,
     RIS: ReferenceIndexStore<Uow = Uow>,
@@ -134,20 +129,24 @@ where
 {
     type Uow = Uow;
 
-    async fn read(&self, uow: &mut Self::Uow, id: A::Id) -> Result<A, RepositoryError<A>> {
-        self.read_at_version_or_latest(uow, id, None).await
+    async fn read<A: Aggregate>(
+        &self,
+        uow: &mut Self::Uow,
+        id: A::Id,
+    ) -> Result<A, RepositoryError<A>> {
+        self.read_at_version_or_latest::<A>(uow, id, None).await
     }
 
-    async fn read_at_version(
+    async fn read_at_version<A: Aggregate>(
         &self,
         uow: &mut Self::Uow,
         id: A::Id,
         at: AggregateVersion,
     ) -> Result<A, RepositoryError<A>> {
-        self.read_at_version_or_latest(uow, id, Some(at)).await
+        self.read_at_version_or_latest::<A>(uow, id, Some(at)).await
     }
 
-    async fn find_by_unique_value(
+    async fn find_by_unique_value<A: Aggregate>(
         &self,
         uow: &mut Self::Uow,
         unique_key: appletheia_domain::UniqueKey,
@@ -161,12 +160,12 @@ where
             return Ok(None);
         };
 
-        self.read_at_version_or_latest(uow, aggregate_id, None)
+        self.read_at_version_or_latest::<A>(uow, aggregate_id, None)
             .await
             .map(Some)
     }
 
-    async fn save(
+    async fn save<A: Aggregate>(
         &self,
         uow: &mut Self::Uow,
         request_context: &RequestContext,
@@ -191,7 +190,7 @@ where
             let relationships = self.relationship_deriver.derive(aggregate)?;
             let event_envelopes = self
                 .event_writer
-                .write_events(uow, request_context, events)
+                .write_events::<A>(uow, request_context, events)
                 .await?;
             self.event_outbox_enqueuer
                 .enqueue_events(uow, &event_envelopes)
@@ -212,7 +211,7 @@ where
                 let current_version = aggregate.version().as_u64();
                 let latest_snapshot_version = self
                     .snapshot_reader
-                    .read_latest_snapshot(uow, aggregate_id, None)
+                    .read_latest_snapshot::<A>(uow, aggregate_id, None)
                     .await?
                     .as_ref()
                     .map(|snapshot| snapshot.aggregate_version().as_u64())
@@ -225,7 +224,9 @@ where
                     let snapshot = aggregate
                         .try_to_snapshot()
                         .map_err(RepositoryError::Aggregate)?;
-                    self.snapshot_writer.write_snapshot(uow, &snapshot).await?;
+                    self.snapshot_writer
+                        .write_snapshot::<A>(uow, &snapshot)
+                        .await?;
                 }
             }
         }
@@ -492,18 +493,52 @@ mod tests {
         }
     }
 
+    #[derive(Clone, Debug, Default)]
+    struct AlternateCounter(Counter);
+
+    impl AggregateApply<CounterEventPayload, CounterError> for AlternateCounter {
+        fn apply(&mut self, payload: &CounterEventPayload) -> Result<(), CounterError> {
+            self.0.apply(payload)
+        }
+    }
+
+    impl Aggregate for AlternateCounter {
+        type Id = CounterId;
+        type State = CounterState;
+        type EventPayload = CounterEventPayload;
+        type Error = CounterError;
+
+        const TYPE: AggregateType = AggregateType::new("alternate_counter");
+
+        fn new() -> Self {
+            Self(Counter::new())
+        }
+
+        fn from_id(id: Self::Id) -> Self {
+            Self(Counter::from_id(id))
+        }
+
+        fn core(&self) -> &AggregateCore<Self::Id, Self::State, Self::EventPayload> {
+            self.0.core()
+        }
+
+        fn core_mut(&mut self) -> &mut AggregateCore<Self::Id, Self::State, Self::EventPayload> {
+            self.0.core_mut()
+        }
+    }
+
     #[derive(Debug, Default)]
     struct RecordingEventReader;
 
-    impl EventReader<Counter> for RecordingEventReader {
+    impl EventReader for RecordingEventReader {
         type Uow = TestUnitOfWork;
 
-        async fn read_events(
+        async fn read_events<A: Aggregate>(
             &self,
             _uow: &mut Self::Uow,
-            _aggregate_id: CounterId,
+            _aggregate_id: A::Id,
             _range: AggregateVersionRange,
-        ) -> Result<Vec<Event<CounterId, CounterEventPayload>>, EventReaderError> {
+        ) -> Result<Vec<Event<A::Id, A::EventPayload>>, EventReaderError> {
             Ok(Vec::new())
         }
     }
@@ -513,14 +548,14 @@ mod tests {
         log: Arc<Mutex<Vec<String>>>,
     }
 
-    impl EventWriter<Counter> for RecordingEventWriter {
+    impl EventWriter for RecordingEventWriter {
         type Uow = TestUnitOfWork;
 
-        async fn write_events(
+        async fn write_events<A: Aggregate>(
             &self,
             _uow: &mut Self::Uow,
             request_context: &RequestContext,
-            events: &[Event<CounterId, CounterEventPayload>],
+            events: &[Event<A::Id, A::EventPayload>],
         ) -> Result<Vec<EventEnvelope>, EventWriterError> {
             self.log
                 .lock()
@@ -540,7 +575,7 @@ mod tests {
                         event_sequence: EventSequence::try_from(sequence)
                             .expect("test event sequence should be valid"),
                         event_id: event.id(),
-                        aggregate_type: AggregateTypeOwned::from(Counter::TYPE),
+                        aggregate_type: AggregateTypeOwned::from(A::TYPE),
                         aggregate_id: AggregateIdValue::from(event.aggregate_id().value()),
                         aggregate_version: event.aggregate_version(),
                         event_name: EventNameOwned::from(event.payload().name()),
@@ -553,6 +588,116 @@ mod tests {
                     })
                 })
                 .collect()
+        }
+    }
+
+    #[derive(Clone, Default)]
+    struct MemoryEventStore {
+        events: Arc<Mutex<Vec<EventEnvelope>>>,
+    }
+
+    impl EventReader for MemoryEventStore {
+        type Uow = TestUnitOfWork;
+
+        async fn read_events<A: Aggregate>(
+            &self,
+            _uow: &mut Self::Uow,
+            id: A::Id,
+            range: AggregateVersionRange,
+        ) -> Result<Vec<Event<A::Id, A::EventPayload>>, EventReaderError> {
+            use std::ops::RangeBounds;
+
+            self.events
+                .lock()
+                .unwrap()
+                .iter()
+                .filter(|event| {
+                    event.is_for_aggregate::<A>()
+                        && event.aggregate_id.value() == id.value()
+                        && range.contains(&event.aggregate_version)
+                })
+                .map(|event| {
+                    event
+                        .try_to_domain_event::<A>()
+                        .map_err(|error| EventReaderError::MappingFailed(Box::new(error)))
+                })
+                .collect()
+        }
+    }
+
+    impl EventWriter for MemoryEventStore {
+        type Uow = TestUnitOfWork;
+
+        async fn write_events<A: Aggregate>(
+            &self,
+            uow: &mut Self::Uow,
+            context: &RequestContext,
+            events: &[Event<A::Id, A::EventPayload>],
+        ) -> Result<Vec<EventEnvelope>, EventWriterError> {
+            let writer = RecordingEventWriter {
+                log: Arc::default(),
+            };
+            let envelopes = writer.write_events::<A>(uow, context, events).await?;
+            self.events
+                .lock()
+                .unwrap()
+                .extend(envelopes.iter().cloned());
+            Ok(envelopes)
+        }
+    }
+
+    type StoredSnapshot = (AggregateType, Uuid, AggregateVersion, serde_json::Value);
+
+    #[derive(Clone, Default)]
+    struct MemorySnapshotStore {
+        snapshots: Arc<Mutex<Vec<StoredSnapshot>>>,
+    }
+
+    impl SnapshotReader for MemorySnapshotStore {
+        type Uow = TestUnitOfWork;
+
+        async fn read_latest_snapshot<A: Aggregate>(
+            &self,
+            _uow: &mut Self::Uow,
+            id: A::Id,
+            at: Option<AggregateVersion>,
+        ) -> Result<Option<Snapshot<A::Id, A::State>>, SnapshotReaderError> {
+            self.snapshots
+                .lock()
+                .unwrap()
+                .iter()
+                .filter(|(aggregate_type, aggregate_id, version, _)| {
+                    *aggregate_type == A::TYPE
+                        && *aggregate_id == id.value()
+                        && at.is_none_or(|limit| *version <= limit)
+                })
+                .max_by_key(|(_, _, version, _)| *version)
+                .map(|(_, _, version, state)| {
+                    let restored = serde_json::from_value(state.clone())
+                        .map_err(|error| SnapshotReaderError::MappingFailed(Box::new(error)))?;
+                    Ok(Snapshot::new(id, *version, restored))
+                })
+                .transpose()
+        }
+    }
+
+    impl SnapshotWriter for MemorySnapshotStore {
+        type Uow = TestUnitOfWork;
+
+        async fn write_snapshot<A: Aggregate>(
+            &self,
+            _uow: &mut Self::Uow,
+            snapshot: &Snapshot<A::Id, A::State>,
+        ) -> Result<(), SnapshotWriterError> {
+            let state =
+                serde_json::to_value(snapshot.state()).map_err(SnapshotWriterError::Json)?;
+            self.snapshots.lock().unwrap().push((
+                A::TYPE,
+                snapshot.aggregate_id().value(),
+                snapshot.aggregate_version(),
+                state,
+            ));
+            Ok(())
         }
     }
 
@@ -581,15 +726,15 @@ mod tests {
     #[derive(Debug, Default)]
     struct RecordingSnapshotReader;
 
-    impl SnapshotReader<Counter> for RecordingSnapshotReader {
+    impl SnapshotReader for RecordingSnapshotReader {
         type Uow = TestUnitOfWork;
 
-        async fn read_latest_snapshot(
+        async fn read_latest_snapshot<A: Aggregate>(
             &self,
             _uow: &mut Self::Uow,
-            _aggregate_id: CounterId,
+            _aggregate_id: A::Id,
             _as_of: Option<AggregateVersion>,
-        ) -> Result<Option<Snapshot<CounterId, CounterState>>, SnapshotReaderError> {
+        ) -> Result<Option<Snapshot<A::Id, A::State>>, SnapshotReaderError> {
             Ok(None)
         }
     }
@@ -597,13 +742,13 @@ mod tests {
     #[derive(Debug, Default)]
     struct RecordingSnapshotWriter;
 
-    impl SnapshotWriter<Counter> for RecordingSnapshotWriter {
+    impl SnapshotWriter for RecordingSnapshotWriter {
         type Uow = TestUnitOfWork;
 
-        async fn write_snapshot(
+        async fn write_snapshot<A: Aggregate>(
             &self,
             _uow: &mut Self::Uow,
-            _snapshot: &Snapshot<CounterId, CounterState>,
+            _snapshot: &Snapshot<A::Id, A::State>,
         ) -> Result<(), SnapshotWriterError> {
             Ok(())
         }
@@ -735,7 +880,6 @@ mod tests {
     }
 
     type TestRepository = DefaultRepository<
-        Counter,
         RecordingEventReader,
         RecordingEventWriter,
         RecordingEventOutboxEnqueuer,
@@ -882,6 +1026,121 @@ mod tests {
                 snapshot_policy: SnapshotPolicy::Disabled,
             },
         )
+    }
+
+    #[tokio::test]
+    async fn shared_repository_isolates_aggregate_types_in_events_and_snapshots() {
+        let interval = SnapshotInterval::new(NonZeroU32::new(1).unwrap());
+        for snapshot_policy in [
+            SnapshotPolicy::Disabled,
+            SnapshotPolicy::AtLeast {
+                minimum_interval: interval,
+            },
+        ] {
+            let events = MemoryEventStore::default();
+            let snapshots = MemorySnapshotStore::default();
+            let log = Arc::default();
+            let shared_repository = DefaultRepository::new(
+                DefaultRepositoryDependencies {
+                    event_reader: events.clone(),
+                    event_writer: events.clone(),
+                    event_outbox_enqueuer: RecordingEventOutboxEnqueuer {
+                        log: Arc::clone(&log),
+                    },
+                    snapshot_reader: snapshots.clone(),
+                    snapshot_writer: snapshots.clone(),
+                    unique_value_owner_lookup: RecordingUniqueValueOwnerLookup {
+                        aggregate_id: None,
+                        fail: false,
+                        log: Arc::clone(&log),
+                    },
+                    unique_key_reservation_store: RecordingUniqueKeyReservationStore {
+                        fail_with_conflict: false,
+                        log: Arc::clone(&log),
+                    },
+                    reference_index_store: RecordingReferenceIndexStore {
+                        log: Arc::clone(&log),
+                    },
+                    relationship_store: RecordingRelationshipStore { log },
+                    relationship_deriver: InMemoryAuthorizationModel::new(),
+                },
+                RepositoryConfig {
+                    snapshot_policy: snapshot_policy.clone(),
+                },
+            );
+            let id = CounterId::new();
+            let mut counter = Counter::from_id(id);
+            let mut alternate = AlternateCounter::from_id(id);
+            let mut uow = TestUnitOfWork;
+            let context = request_context();
+            counter
+                .append_event(CounterEventPayload::Registered {
+                    id,
+                    email: Some("first@example.com".into()),
+                })
+                .unwrap();
+            alternate
+                .append_event(CounterEventPayload::Registered {
+                    id,
+                    email: Some("alternate@example.com".into()),
+                })
+                .unwrap();
+            shared_repository
+                .save(&mut uow, &context, &mut counter)
+                .await
+                .unwrap();
+            shared_repository
+                .save(&mut uow, &context, &mut alternate)
+                .await
+                .unwrap();
+            let initial_version = counter.version();
+            counter
+                .append_event(CounterEventPayload::Registered {
+                    id,
+                    email: Some("updated@example.com".into()),
+                })
+                .unwrap();
+            shared_repository
+                .save(&mut uow, &context, &mut counter)
+                .await
+                .unwrap();
+
+            let latest = shared_repository
+                .read::<Counter>(&mut uow, id)
+                .await
+                .unwrap();
+            let other = shared_repository
+                .read::<AlternateCounter>(&mut uow, id)
+                .await
+                .unwrap();
+            let historical = shared_repository
+                .read_at_version::<Counter>(&mut uow, id, initial_version)
+                .await
+                .unwrap();
+            assert_eq!(
+                latest.state().unwrap().email.as_deref(),
+                Some("updated@example.com")
+            );
+            assert_eq!(
+                other.state().unwrap().email.as_deref(),
+                Some("alternate@example.com")
+            );
+            assert_eq!(
+                historical.state().unwrap().email.as_deref(),
+                Some("first@example.com")
+            );
+            assert!(counter.uncommitted_events().is_empty());
+            assert!(alternate.uncommitted_events().is_empty());
+            assert_eq!(events.events.lock().unwrap().len(), 3);
+            assert_eq!(
+                snapshots.snapshots.lock().unwrap().len(),
+                if matches!(snapshot_policy, SnapshotPolicy::Disabled) {
+                    0
+                } else {
+                    3
+                }
+            );
+        }
     }
 
     #[tokio::test]
@@ -1053,7 +1312,7 @@ mod tests {
             CounterId::try_from_uuid(Uuid::now_v7()).expect("valid uuid should be accepted");
 
         let error = repository
-            .read(&mut uow, aggregate_id)
+            .read::<Counter>(&mut uow, aggregate_id)
             .await
             .expect_err("missing aggregate should fail");
 
@@ -1077,7 +1336,7 @@ mod tests {
         .expect("unique value should be valid");
 
         let aggregate = repository
-            .find_by_unique_value(&mut uow, UniqueKey::new("email"), &unique_value)
+            .find_by_unique_value::<Counter>(&mut uow, UniqueKey::new("email"), &unique_value)
             .await
             .expect("lookup should succeed");
 
@@ -1099,7 +1358,7 @@ mod tests {
         .expect("unique value should be valid");
 
         let error = repository
-            .find_by_unique_value(&mut uow, UniqueKey::new("email"), &unique_value)
+            .find_by_unique_value::<Counter>(&mut uow, UniqueKey::new("email"), &unique_value)
             .await
             .expect_err("lookup failure should be returned");
 
@@ -1119,7 +1378,7 @@ mod tests {
         .expect("unique value should be valid");
 
         let error = repository
-            .find_by_unique_value(&mut uow, UniqueKey::new("email"), &unique_value)
+            .find_by_unique_value::<Counter>(&mut uow, UniqueKey::new("email"), &unique_value)
             .await
             .expect_err("missing owner aggregate should fail");
 

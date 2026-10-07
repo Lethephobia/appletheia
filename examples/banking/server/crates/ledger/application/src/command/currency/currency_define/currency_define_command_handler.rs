@@ -13,14 +13,14 @@ use crate::authorization::CurrencyRegistrarCurrencyDefinerRelation;
 
 pub struct CurrencyDefineCommandHandler<R>
 where
-    R: Repository<Currency>,
+    R: Repository,
 {
     repository: R,
 }
 
 impl<R> CurrencyDefineCommandHandler<R>
 where
-    R: Repository<Currency>,
+    R: Repository,
 {
     pub fn new(repository: R) -> Self {
         Self { repository }
@@ -29,7 +29,7 @@ where
 
 impl<R> CommandHandler for CurrencyDefineCommandHandler<R>
 where
-    R: Repository<Currency>,
+    R: Repository,
 {
     type Command = CurrencyDefineCommand;
     type Output = CurrencyDefineOutput;
@@ -59,7 +59,7 @@ where
         let unique_value = UniqueValue::from_strings([command.code.as_ref()])?;
         if self
             .repository
-            .find_by_unique_value(uow, CurrencyState::CODE_KEY, &unique_value)
+            .find_by_unique_value::<Currency>(uow, CurrencyState::CODE_KEY, &unique_value)
             .await?
             .is_some()
         {
@@ -77,7 +77,7 @@ where
             currency.set_description(Some(description.clone()))?;
         }
         self.repository
-            .save(uow, request_context, &mut currency)
+            .save::<Currency>(uow, request_context, &mut currency)
             .await?;
         Ok(CurrencyDefineOutput { currency_id })
     }

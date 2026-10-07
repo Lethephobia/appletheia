@@ -12,32 +12,30 @@ use super::{
 };
 use crate::authorization::OrganizationProfileEditorRelation;
 
-pub struct OrganizationWebsiteUrlSetCommandHandler<OR>
+pub struct OrganizationWebsiteUrlSetCommandHandler<R>
 where
-    OR: Repository<Organization>,
+    R: Repository,
 {
-    organization_repository: OR,
+    repository: R,
 }
 
-impl<OR> OrganizationWebsiteUrlSetCommandHandler<OR>
+impl<R> OrganizationWebsiteUrlSetCommandHandler<R>
 where
-    OR: Repository<Organization>,
+    R: Repository,
 {
-    pub fn new(organization_repository: OR) -> Self {
-        Self {
-            organization_repository,
-        }
+    pub fn new(repository: R) -> Self {
+        Self { repository }
     }
 }
 
-impl<OR> CommandHandler for OrganizationWebsiteUrlSetCommandHandler<OR>
+impl<R> CommandHandler for OrganizationWebsiteUrlSetCommandHandler<R>
 where
-    OR: Repository<Organization>,
+    R: Repository,
 {
     type Command = OrganizationWebsiteUrlSetCommand;
     type Output = OrganizationWebsiteUrlSetOutput;
     type Error = OrganizationWebsiteUrlSetCommandHandlerError;
-    type Uow = OR::Uow;
+    type Uow = R::Uow;
 
     fn authorization_plan(
         &self,
@@ -60,14 +58,14 @@ where
         command: &Self::Command,
     ) -> Result<Self::Output, Self::Error> {
         let mut organization = self
-            .organization_repository
-            .read(uow, command.organization_id)
+            .repository
+            .read::<Organization>(uow, command.organization_id)
             .await?;
 
         organization.set_website_url(command.website_url.clone())?;
 
-        self.organization_repository
-            .save(uow, request_context, &mut organization)
+        self.repository
+            .save::<Organization>(uow, request_context, &mut organization)
             .await?;
 
         Ok(OrganizationWebsiteUrlSetOutput {})

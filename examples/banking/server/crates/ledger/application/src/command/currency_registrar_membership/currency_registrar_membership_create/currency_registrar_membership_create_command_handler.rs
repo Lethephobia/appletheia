@@ -15,28 +15,19 @@ use super::{
     CurrencyRegistrarMembershipCreateOutput,
 };
 
-pub struct CurrencyRegistrarMembershipCreateCommandHandler<RR, MR>
+pub struct CurrencyRegistrarMembershipCreateCommandHandler<R>
 where
-    RR: Repository<CurrencyRegistrar>,
-    MR: Repository<CurrencyRegistrarMembership, Uow = RR::Uow>,
+    R: Repository,
 {
-    currency_registrar_repository: RR,
-    currency_registrar_membership_repository: MR,
+    repository: R,
 }
 
-impl<RR, MR> CurrencyRegistrarMembershipCreateCommandHandler<RR, MR>
+impl<R> CurrencyRegistrarMembershipCreateCommandHandler<R>
 where
-    RR: Repository<CurrencyRegistrar>,
-    MR: Repository<CurrencyRegistrarMembership, Uow = RR::Uow>,
+    R: Repository,
 {
-    pub fn new(
-        currency_registrar_repository: RR,
-        currency_registrar_membership_repository: MR,
-    ) -> Self {
-        Self {
-            currency_registrar_repository,
-            currency_registrar_membership_repository,
-        }
+    pub fn new(repository: R) -> Self {
+        Self { repository }
     }
 
     fn registrar_user_unique_value(
@@ -52,15 +43,14 @@ where
     }
 }
 
-impl<RR, MR> CommandHandler for CurrencyRegistrarMembershipCreateCommandHandler<RR, MR>
+impl<R> CommandHandler for CurrencyRegistrarMembershipCreateCommandHandler<R>
 where
-    RR: Repository<CurrencyRegistrar>,
-    MR: Repository<CurrencyRegistrarMembership, Uow = RR::Uow>,
+    R: Repository,
 {
     type Command = CurrencyRegistrarMembershipCreateCommand;
     type Output = CurrencyRegistrarMembershipCreateOutput;
     type Error = CurrencyRegistrarMembershipCreateCommandHandlerError;
-    type Uow = RR::Uow;
+    type Uow = R::Uow;
 
     fn authorization_plan(
         &self,
@@ -77,8 +67,8 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<Self::Output, Self::Error> {
-        self.currency_registrar_repository
-            .read(uow, command.currency_registrar_id)
+        self.repository
+            .read::<CurrencyRegistrar>(uow, command.currency_registrar_id)
             .await?;
 
         let unique_value =
@@ -86,8 +76,8 @@ where
         let mut membership = CurrencyRegistrarMembership::new();
         let currency_registrar_membership_id = membership.aggregate_id();
         if self
-            .currency_registrar_membership_repository
-            .find_by_unique_value(
+            .repository
+            .find_by_unique_value::<CurrencyRegistrarMembership>(
                 uow,
                 CurrencyRegistrarMembershipState::REGISTRAR_USER_KEY,
                 &unique_value,
@@ -99,8 +89,8 @@ where
         }
 
         membership.create(command.currency_registrar_id, command.user_id)?;
-        self.currency_registrar_membership_repository
-            .save(uow, request_context, &mut membership)
+        self.repository
+            .save::<CurrencyRegistrarMembership>(uow, request_context, &mut membership)
             .await?;
         Ok(CurrencyRegistrarMembershipCreateOutput {
             currency_registrar_membership_id,

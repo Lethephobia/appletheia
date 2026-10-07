@@ -20,33 +20,19 @@ use super::{
     OrganizationInvitationIssueOutput,
 };
 
-pub struct OrganizationInvitationIssueCommandHandler<ORG, IR, MR>
+pub struct OrganizationInvitationIssueCommandHandler<R>
 where
-    ORG: Repository<Organization>,
-    IR: Repository<OrganizationInvitation, Uow = ORG::Uow>,
-    MR: Repository<OrganizationMembership, Uow = ORG::Uow>,
+    R: Repository,
 {
-    organization_repository: ORG,
-    organization_invitation_repository: IR,
-    organization_membership_repository: MR,
+    repository: R,
 }
 
-impl<ORG, IR, MR> OrganizationInvitationIssueCommandHandler<ORG, IR, MR>
+impl<R> OrganizationInvitationIssueCommandHandler<R>
 where
-    ORG: Repository<Organization>,
-    IR: Repository<OrganizationInvitation, Uow = ORG::Uow>,
-    MR: Repository<OrganizationMembership, Uow = ORG::Uow>,
+    R: Repository,
 {
-    pub fn new(
-        organization_repository: ORG,
-        organization_invitation_repository: IR,
-        organization_membership_repository: MR,
-    ) -> Self {
-        Self {
-            organization_repository,
-            organization_invitation_repository,
-            organization_membership_repository,
-        }
+    pub fn new(repository: R) -> Self {
+        Self { repository }
     }
 
     fn organization_user_unique_value(
@@ -72,16 +58,14 @@ where
     }
 }
 
-impl<ORG, IR, MR> CommandHandler for OrganizationInvitationIssueCommandHandler<ORG, IR, MR>
+impl<R> CommandHandler for OrganizationInvitationIssueCommandHandler<R>
 where
-    ORG: Repository<Organization>,
-    IR: Repository<OrganizationInvitation, Uow = ORG::Uow>,
-    MR: Repository<OrganizationMembership, Uow = ORG::Uow>,
+    R: Repository,
 {
     type Command = OrganizationInvitationIssueCommand;
     type Output = OrganizationInvitationIssueOutput;
     type Error = OrganizationInvitationIssueCommandHandlerError;
-    type Uow = ORG::Uow;
+    type Uow = R::Uow;
 
     fn authorization_plan(
         &self,
@@ -117,8 +101,8 @@ where
         let organization_invitation_id = organization_invitation.aggregate_id();
 
         let organization = self
-            .organization_repository
-            .read(uow, command.organization_id)
+            .repository
+            .read::<Organization>(uow, command.organization_id)
             .await?;
         if organization.is_removed()? {
             return Err(OrganizationInvitationError::OrganizationRemoved.into());
@@ -126,8 +110,8 @@ where
 
         let membership_unique_value = Self::organization_user_unique_value(command)?;
         if self
-            .organization_membership_repository
-            .find_by_unique_value(
+            .repository
+            .find_by_unique_value::<OrganizationMembership>(
                 uow,
                 OrganizationMembershipState::ORGANIZATION_USER_KEY,
                 &membership_unique_value,
@@ -140,8 +124,8 @@ where
 
         let unique_value = Self::organization_invitee_unique_value(command)?;
         if self
-            .organization_invitation_repository
-            .find_by_unique_value(
+            .repository
+            .find_by_unique_value::<OrganizationInvitation>(
                 uow,
                 OrganizationInvitationState::ORGANIZATION_INVITEE_KEY,
                 &unique_value,
@@ -161,8 +145,8 @@ where
             CurrentDateTime::new(),
         )?;
 
-        self.organization_invitation_repository
-            .save(uow, request_context, &mut organization_invitation)
+        self.repository
+            .save::<OrganizationInvitation>(uow, request_context, &mut organization_invitation)
             .await?;
 
         Ok(OrganizationInvitationIssueOutput {

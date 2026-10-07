@@ -11,23 +11,23 @@ use crate::authorization::DepositNoteSetterRelation;
 
 pub struct DepositNoteSetCommandHandler<R>
 where
-    R: Repository<Deposit>,
+    R: Repository,
 {
-    deposit_repository: R,
+    repository: R,
 }
 
 impl<R> DepositNoteSetCommandHandler<R>
 where
-    R: Repository<Deposit>,
+    R: Repository,
 {
-    pub fn new(deposit_repository: R) -> Self {
-        Self { deposit_repository }
+    pub fn new(repository: R) -> Self {
+        Self { repository }
     }
 }
 
 impl<R> CommandHandler for DepositNoteSetCommandHandler<R>
 where
-    R: Repository<Deposit>,
+    R: Repository,
 {
     type Command = DepositNoteSetCommand;
     type Output = DepositNoteSetOutput;
@@ -55,14 +55,14 @@ where
         command: &Self::Command,
     ) -> Result<Self::Output, Self::Error> {
         let mut deposit = self
-            .deposit_repository
-            .read(uow, command.deposit_id)
+            .repository
+            .read::<Deposit>(uow, command.deposit_id)
             .await?;
 
         deposit.set_note(command.note.clone())?;
 
-        self.deposit_repository
-            .save(uow, request_context, &mut deposit)
+        self.repository
+            .save::<Deposit>(uow, request_context, &mut deposit)
             .await?;
 
         Ok(DepositNoteSetOutput {})
