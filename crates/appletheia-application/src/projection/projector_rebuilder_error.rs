@@ -1,3 +1,4 @@
+use super::ProjectorError;
 use thiserror::Error;
 
 use crate::event::EventFeedReaderError;
@@ -7,6 +8,9 @@ use super::{ProjectionCheckpointStoreError, ProjectorProcessedEventStoreError};
 
 #[derive(Debug, Error)]
 pub enum ProjectorRebuilderError {
+    #[error(transparent)]
+    Projector(#[from] ProjectorError),
+
     #[error("event feed reader failed: {0}")]
     EventFeedReader(#[from] EventFeedReaderError),
 

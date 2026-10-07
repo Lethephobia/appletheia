@@ -1,12 +1,13 @@
 use std::sync::atomic::{AtomicBool, Ordering as AtomicOrdering};
 
 use crate::event::EventFeedReader;
+use crate::messaging::Subscription;
 use crate::unit_of_work::{UnitOfWork, UnitOfWorkFactory};
 
 use super::{
     ProcessedEventCount, ProjectionCheckpointStore, Projector, ProjectorNameOwned,
     ProjectorProcessedEventStore, ProjectorRebuildReport, ProjectorRebuilder,
-    ProjectorRebuilderConfig, ProjectorRebuilderError, ProjectorSpec,
+    ProjectorRebuilderConfig, ProjectorRebuilderError,
 };
 
 /// Replays events into a projector while persisting its checkpoint.
@@ -71,8 +72,15 @@ where
         &mut self,
         projector: &PJ,
     ) -> Result<ProjectorRebuildReport, ProjectorRebuilderError> {
-        let descriptor = <PJ::Spec as ProjectorSpec>::DESCRIPTOR;
-        let projector_name = ProjectorNameOwned::from(descriptor.name);
+        let projector_definition = projector.definition()?;
+        let selectors = projector_definition.event_selectors();
+        if selectors.is_empty() {
+            return Ok(ProjectorRebuildReport {
+                processed_event_count: ProcessedEventCount::zero(),
+            });
+        }
+        let subscription = Subscription::AnyOf(&selectors);
+        let projector_name = ProjectorNameOwned::from(projector_definition.name());
         let mut processed_event_count = ProcessedEventCount::zero();
 
         while !self.is_stop_requested() {
@@ -91,12 +99,7 @@ where
                 };
                 let events = match self
                     .feed_reader
-                    .read_after(
-                        &mut uow,
-                        after,
-                        self.config.batch_size,
-                        descriptor.subscription,
-                    )
+                    .read_after(&mut uow, after, self.config.batch_size, subscription)
                     .await
                 {
                     Ok(events) => events,
@@ -118,6 +121,9 @@ where
                     break;
                 }
 
+                let Some(route) = projector_definition.find_event_route(&event) else {
+                    continue;
+                };
                 let mut uow = self.uow_factory.begin().await?;
                 let inserted = match self
                     .processed_event_store
@@ -131,17 +137,23 @@ where
                     }
                 };
 
-                if inserted && let Err(source) = projector.project(&mut uow, &event).await {
-                    let error = ProjectorRebuilderError::Projection(Box::new(source));
-                    return Err(uow.rollback_with_operation_error(error).await?);
-                }
-
                 if let Err(source) = self
                     .checkpoint_store
                     .save(&mut uow, projector_name.clone(), event.event_sequence)
                     .await
                 {
                     let error = ProjectorRebuilderError::from(source);
+                    return Err(uow.rollback_with_operation_error(error).await?);
+                }
+
+                if !inserted {
+                    uow.commit().await?;
+                    processed_event_count = processed_event_count.saturating_add(1);
+                    continue;
+                }
+
+                if let Err(source) = route.handler.handle(&mut uow, &event).await {
+                    let error = ProjectorRebuilderError::Projection(Box::new(source));
                     return Err(uow.rollback_with_operation_error(error).await?);
                 }
 

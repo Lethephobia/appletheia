@@ -1,17 +1,20 @@
 use std::error::Error;
 
-use crate::event::EventEnvelope;
+use crate::event::EventEnvelopeError;
 use crate::unit_of_work::UnitOfWork;
 
-use super::ProjectorSpec;
+use super::{ProjectorDefinition, ProjectorError};
 
-/// Projects events into stored query data.
-#[allow(async_fn_in_trait)]
+/// Defines typed event routes that update stored query data.
+///
+/// Handler futures may borrow injected services and the transaction. They are not
+/// required to be `Send`; execute the worker directly or on a local task executor.
 pub trait Projector: Send + Sync {
-    type Spec: ProjectorSpec;
     type Uow: UnitOfWork;
-    type Error: Error + Send + Sync + 'static;
+    type HandlerError: Error + From<EventEnvelopeError> + Send + Sync + 'static;
 
-    /// Materializes one event into stored query data.
-    async fn project(&self, uow: &mut Self::Uow, event: &EventEnvelope) -> Result<(), Self::Error>;
+    /// Builds routes without side effects, once per worker or rebuild invocation.
+    fn definition(
+        &self,
+    ) -> Result<ProjectorDefinition<'_, Self::Uow, Self::HandlerError>, ProjectorError>;
 }

@@ -1,3 +1,4 @@
+use super::ProjectorError;
 use thiserror::Error;
 
 use crate::messaging::ConsumerGroupError;
@@ -7,6 +8,9 @@ use crate::{ConsumerError, DeliveryError, SubscriberError};
 
 #[derive(Debug, Error)]
 pub enum ProjectorWorkerError {
+    #[error(transparent)]
+    Projector(#[from] ProjectorError),
+
     #[error(transparent)]
     ConsumerGroup(#[from] ConsumerGroupError),
 
