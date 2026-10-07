@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.5](https://github.com/Lethephobia/appletheia/compare/appletheia-macros-v0.4.4...appletheia-macros-v0.4.5) - 2026-10-07
+
+### Other
+
+- updated the following local packages: appletheia-application
+
 ## [0.4.4](https://github.com/Lethephobia/appletheia/compare/appletheia-macros-v0.4.3...appletheia-macros-v0.4.4) - 2026-10-06
 
 ### Other

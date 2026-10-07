@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.31.0](https://github.com/Lethephobia/appletheia/compare/appletheia-application-v0.30.0...appletheia-application-v0.31.0) - 2026-10-07
+
+### Added
+
+- *(application)* [**breaking**] add typed read model documents
+
+### Other
+
+- Merge pull request #153 from Lethephobia/feature/example
+- *(repository)* [**breaking**] share repositories across aggregates
+- *(application)* [**breaking**] simplify projection context and consistency waits
+
 ## [0.30.0](https://github.com/Lethephobia/appletheia/compare/appletheia-application-v0.29.0...appletheia-application-v0.30.0) - 2026-10-06
 
 ### Added
