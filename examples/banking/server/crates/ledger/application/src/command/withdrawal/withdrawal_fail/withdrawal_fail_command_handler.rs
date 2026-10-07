@@ -6,32 +6,30 @@ use banking_ledger_domain::withdrawal::Withdrawal;
 
 use super::{WithdrawalFailCommand, WithdrawalFailCommandHandlerError, WithdrawalFailOutput};
 
-pub struct WithdrawalFailCommandHandler<WR>
+pub struct WithdrawalFailCommandHandler<R>
 where
-    WR: Repository<Withdrawal>,
+    R: Repository,
 {
-    withdrawal_repository: WR,
+    repository: R,
 }
 
-impl<WR> WithdrawalFailCommandHandler<WR>
+impl<R> WithdrawalFailCommandHandler<R>
 where
-    WR: Repository<Withdrawal>,
+    R: Repository,
 {
-    pub fn new(withdrawal_repository: WR) -> Self {
-        Self {
-            withdrawal_repository,
-        }
+    pub fn new(repository: R) -> Self {
+        Self { repository }
     }
 }
 
-impl<WR> CommandHandler for WithdrawalFailCommandHandler<WR>
+impl<R> CommandHandler for WithdrawalFailCommandHandler<R>
 where
-    WR: Repository<Withdrawal>,
+    R: Repository,
 {
     type Command = WithdrawalFailCommand;
     type Output = WithdrawalFailOutput;
     type Error = WithdrawalFailCommandHandlerError;
-    type Uow = WR::Uow;
+    type Uow = R::Uow;
 
     fn authorization_plan(
         &self,
@@ -49,13 +47,13 @@ where
         command: &Self::Command,
     ) -> Result<Self::Output, Self::Error> {
         let mut withdrawal = self
-            .withdrawal_repository
-            .read(uow, command.withdrawal_id)
+            .repository
+            .read::<Withdrawal>(uow, command.withdrawal_id)
             .await?;
 
         withdrawal.fail(command.reason)?;
-        self.withdrawal_repository
-            .save(uow, request_context, &mut withdrawal)
+        self.repository
+            .save::<Withdrawal>(uow, request_context, &mut withdrawal)
             .await?;
 
         Ok(WithdrawalFailOutput {})

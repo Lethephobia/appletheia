@@ -11,25 +11,23 @@ use crate::authorization::TransferNoteSetterRelation;
 
 pub struct TransferNoteSetCommandHandler<R>
 where
-    R: Repository<Transfer>,
+    R: Repository,
 {
-    transfer_repository: R,
+    repository: R,
 }
 
 impl<R> TransferNoteSetCommandHandler<R>
 where
-    R: Repository<Transfer>,
+    R: Repository,
 {
-    pub fn new(transfer_repository: R) -> Self {
-        Self {
-            transfer_repository,
-        }
+    pub fn new(repository: R) -> Self {
+        Self { repository }
     }
 }
 
 impl<R> CommandHandler for TransferNoteSetCommandHandler<R>
 where
-    R: Repository<Transfer>,
+    R: Repository,
 {
     type Command = TransferNoteSetCommand;
     type Output = TransferNoteSetOutput;
@@ -57,14 +55,14 @@ where
         command: &Self::Command,
     ) -> Result<Self::Output, Self::Error> {
         let mut transfer = self
-            .transfer_repository
-            .read(uow, command.transfer_id)
+            .repository
+            .read::<Transfer>(uow, command.transfer_id)
             .await?;
 
         transfer.set_note(command.note.clone())?;
 
-        self.transfer_repository
-            .save(uow, request_context, &mut transfer)
+        self.repository
+            .save::<Transfer>(uow, request_context, &mut transfer)
             .await?;
 
         Ok(TransferNoteSetOutput {})

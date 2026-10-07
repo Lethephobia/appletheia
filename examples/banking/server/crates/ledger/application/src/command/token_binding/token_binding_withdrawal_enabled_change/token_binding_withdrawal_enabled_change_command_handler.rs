@@ -15,14 +15,14 @@ use crate::authorization::TokenBindingWithdrawalEnabledChangerRelation;
 
 pub struct TokenBindingWithdrawalEnabledChangeCommandHandler<R>
 where
-    R: Repository<TokenBinding>,
+    R: Repository,
 {
     repository: R,
 }
 
 impl<R> TokenBindingWithdrawalEnabledChangeCommandHandler<R>
 where
-    R: Repository<TokenBinding>,
+    R: Repository,
 {
     pub fn new(repository: R) -> Self {
         Self { repository }
@@ -31,7 +31,7 @@ where
 
 impl<R> CommandHandler for TokenBindingWithdrawalEnabledChangeCommandHandler<R>
 where
-    R: Repository<TokenBinding>,
+    R: Repository,
 {
     type Command = TokenBindingWithdrawalEnabledChangeCommand;
     type Output = TokenBindingWithdrawalEnabledChangeOutput;
@@ -58,10 +58,13 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<Self::Output, Self::Error> {
-        let mut token_binding = self.repository.read(uow, command.token_binding_id).await?;
+        let mut token_binding = self
+            .repository
+            .read::<TokenBinding>(uow, command.token_binding_id)
+            .await?;
         token_binding.change_withdrawal_enabled(command.enabled)?;
         self.repository
-            .save(uow, request_context, &mut token_binding)
+            .save::<TokenBinding>(uow, request_context, &mut token_binding)
             .await?;
         Ok(TokenBindingWithdrawalEnabledChangeOutput {
             token_binding_id: command.token_binding_id,

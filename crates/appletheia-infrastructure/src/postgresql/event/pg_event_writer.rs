@@ -1,5 +1,3 @@
-use std::marker::PhantomData;
-
 use appletheia_application::{
     event::{EventEnvelope, EventWriter, EventWriterError},
     request_context::RequestContext,
@@ -12,28 +10,19 @@ use crate::postgresql::unit_of_work::PgUnitOfWork;
 
 use super::{PgEventRow, PgEventRowError};
 
-pub struct PgEventWriter<A: Aggregate> {
-    _aggregate: PhantomData<A>,
-}
+#[derive(Default)]
+pub struct PgEventWriter;
 
-impl<A: Aggregate> PgEventWriter<A> {
+impl PgEventWriter {
     pub fn new() -> Self {
-        Self {
-            _aggregate: PhantomData,
-        }
+        Self
     }
 }
 
-impl<A: Aggregate> Default for PgEventWriter<A> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl<A: Aggregate> EventWriter<A> for PgEventWriter<A> {
+impl EventWriter for PgEventWriter {
     type Uow = PgUnitOfWork;
 
-    async fn write_events(
+    async fn write_events<A: Aggregate>(
         &self,
         uow: &mut Self::Uow,
         request_context: &RequestContext,

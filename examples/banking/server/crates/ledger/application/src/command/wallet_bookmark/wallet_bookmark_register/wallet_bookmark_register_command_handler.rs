@@ -16,32 +16,30 @@ use super::{
     WalletBookmarkRegisterOutput,
 };
 
-pub struct WalletBookmarkRegisterCommandHandler<WBR>
+pub struct WalletBookmarkRegisterCommandHandler<R>
 where
-    WBR: Repository<WalletBookmark>,
+    R: Repository,
 {
-    wallet_bookmark_repository: WBR,
+    repository: R,
 }
 
-impl<WBR> WalletBookmarkRegisterCommandHandler<WBR>
+impl<R> WalletBookmarkRegisterCommandHandler<R>
 where
-    WBR: Repository<WalletBookmark>,
+    R: Repository,
 {
-    pub fn new(wallet_bookmark_repository: WBR) -> Self {
-        Self {
-            wallet_bookmark_repository,
-        }
+    pub fn new(repository: R) -> Self {
+        Self { repository }
     }
 }
 
-impl<WBR> CommandHandler for WalletBookmarkRegisterCommandHandler<WBR>
+impl<R> CommandHandler for WalletBookmarkRegisterCommandHandler<R>
 where
-    WBR: Repository<WalletBookmark>,
+    R: Repository,
 {
     type Command = WalletBookmarkRegisterCommand;
     type Output = WalletBookmarkRegisterOutput;
     type Error = WalletBookmarkRegisterCommandHandlerError;
-    type Uow = WBR::Uow;
+    type Uow = R::Uow;
 
     fn authorization_plan(
         &self,
@@ -82,8 +80,8 @@ where
             wallet_bookmark.set_description(Some(description.clone()))?;
         }
 
-        self.wallet_bookmark_repository
-            .save(uow, request_context, &mut wallet_bookmark)
+        self.repository
+            .save::<WalletBookmark>(uow, request_context, &mut wallet_bookmark)
             .await?;
 
         Ok(WalletBookmarkRegisterOutput { wallet_bookmark_id })

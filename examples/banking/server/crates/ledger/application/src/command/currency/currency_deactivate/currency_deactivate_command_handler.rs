@@ -13,14 +13,14 @@ use crate::authorization::CurrencyDeactivatorRelation;
 
 pub struct CurrencyDeactivateCommandHandler<R>
 where
-    R: Repository<Currency>,
+    R: Repository,
 {
     repository: R,
 }
 
 impl<R> CurrencyDeactivateCommandHandler<R>
 where
-    R: Repository<Currency>,
+    R: Repository,
 {
     pub fn new(repository: R) -> Self {
         Self { repository }
@@ -29,7 +29,7 @@ where
 
 impl<R> CommandHandler for CurrencyDeactivateCommandHandler<R>
 where
-    R: Repository<Currency>,
+    R: Repository,
 {
     type Command = CurrencyDeactivateCommand;
     type Output = CurrencyDeactivateOutput;
@@ -56,10 +56,13 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<Self::Output, Self::Error> {
-        let mut currency = self.repository.read(uow, command.currency_id).await?;
+        let mut currency = self
+            .repository
+            .read::<Currency>(uow, command.currency_id)
+            .await?;
         currency.deactivate()?;
         self.repository
-            .save(uow, request_context, &mut currency)
+            .save::<Currency>(uow, request_context, &mut currency)
             .await?;
         Ok(CurrencyDeactivateOutput {
             currency_id: command.currency_id,

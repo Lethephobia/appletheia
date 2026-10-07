@@ -14,14 +14,14 @@ use crate::authorization::CurrencyDescriptionSetterRelation;
 
 pub struct CurrencyDescriptionSetCommandHandler<R>
 where
-    R: Repository<Currency>,
+    R: Repository,
 {
     repository: R,
 }
 
 impl<R> CurrencyDescriptionSetCommandHandler<R>
 where
-    R: Repository<Currency>,
+    R: Repository,
 {
     pub fn new(repository: R) -> Self {
         Self { repository }
@@ -30,7 +30,7 @@ where
 
 impl<R> CommandHandler for CurrencyDescriptionSetCommandHandler<R>
 where
-    R: Repository<Currency>,
+    R: Repository,
 {
     type Command = CurrencyDescriptionSetCommand;
     type Output = CurrencyDescriptionSetOutput;
@@ -57,10 +57,13 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<Self::Output, Self::Error> {
-        let mut currency = self.repository.read(uow, command.currency_id).await?;
+        let mut currency = self
+            .repository
+            .read::<Currency>(uow, command.currency_id)
+            .await?;
         currency.set_description(command.description.clone())?;
         self.repository
-            .save(uow, request_context, &mut currency)
+            .save::<Currency>(uow, request_context, &mut currency)
             .await?;
         Ok(CurrencyDescriptionSetOutput {
             currency_id: command.currency_id,

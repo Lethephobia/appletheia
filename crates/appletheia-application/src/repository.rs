@@ -32,27 +32,34 @@ use crate::request_context::RequestContext;
 use crate::unit_of_work::UnitOfWork;
 use appletheia_domain::{Aggregate, AggregateVersion, UniqueKey, UniqueValue};
 
+/// Reads and saves multiple aggregate types through one repository and UnitOfWork contract.
+///
+/// Select the aggregate on each operation, for example `repository.read::<Account>(uow, id)`.
 #[allow(async_fn_in_trait)]
-pub trait Repository<A: Aggregate>: Send + Sync {
+pub trait Repository: Send + Sync {
     type Uow: UnitOfWork;
 
-    async fn read(&self, uow: &mut Self::Uow, id: A::Id) -> Result<A, RepositoryError<A>>;
+    async fn read<A: Aggregate>(
+        &self,
+        uow: &mut Self::Uow,
+        id: A::Id,
+    ) -> Result<A, RepositoryError<A>>;
 
-    async fn read_at_version(
+    async fn read_at_version<A: Aggregate>(
         &self,
         uow: &mut Self::Uow,
         id: A::Id,
         at: AggregateVersion,
     ) -> Result<A, RepositoryError<A>>;
 
-    async fn find_by_unique_value(
+    async fn find_by_unique_value<A: Aggregate>(
         &self,
         uow: &mut Self::Uow,
         unique_key: UniqueKey,
         unique_value: &UniqueValue,
     ) -> Result<Option<A>, RepositoryError<A>>;
 
-    async fn save(
+    async fn save<A: Aggregate>(
         &self,
         uow: &mut Self::Uow,
         request_context: &RequestContext,

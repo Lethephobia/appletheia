@@ -12,32 +12,30 @@ use super::{
 };
 use crate::authorization::WalletBookmarkRemoverRelation;
 
-pub struct WalletBookmarkRemoveCommandHandler<WBR>
+pub struct WalletBookmarkRemoveCommandHandler<R>
 where
-    WBR: Repository<WalletBookmark>,
+    R: Repository,
 {
-    wallet_bookmark_repository: WBR,
+    repository: R,
 }
 
-impl<WBR> WalletBookmarkRemoveCommandHandler<WBR>
+impl<R> WalletBookmarkRemoveCommandHandler<R>
 where
-    WBR: Repository<WalletBookmark>,
+    R: Repository,
 {
-    pub fn new(wallet_bookmark_repository: WBR) -> Self {
-        Self {
-            wallet_bookmark_repository,
-        }
+    pub fn new(repository: R) -> Self {
+        Self { repository }
     }
 }
 
-impl<WBR> CommandHandler for WalletBookmarkRemoveCommandHandler<WBR>
+impl<R> CommandHandler for WalletBookmarkRemoveCommandHandler<R>
 where
-    WBR: Repository<WalletBookmark>,
+    R: Repository,
 {
     type Command = WalletBookmarkRemoveCommand;
     type Output = WalletBookmarkRemoveOutput;
     type Error = WalletBookmarkRemoveCommandHandlerError;
-    type Uow = WBR::Uow;
+    type Uow = R::Uow;
 
     fn authorization_plan(
         &self,
@@ -60,14 +58,14 @@ where
         command: &Self::Command,
     ) -> Result<Self::Output, Self::Error> {
         let mut wallet_bookmark = self
-            .wallet_bookmark_repository
-            .read(uow, command.wallet_bookmark_id)
+            .repository
+            .read::<WalletBookmark>(uow, command.wallet_bookmark_id)
             .await?;
 
         wallet_bookmark.remove()?;
 
-        self.wallet_bookmark_repository
-            .save(uow, request_context, &mut wallet_bookmark)
+        self.repository
+            .save::<WalletBookmark>(uow, request_context, &mut wallet_bookmark)
             .await?;
 
         Ok(WalletBookmarkRemoveOutput {})

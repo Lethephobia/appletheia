@@ -10,13 +10,12 @@ use crate::postgresql::repository::{
 use crate::postgresql::snapshot::{PgSnapshotReader, PgSnapshotWriter};
 use crate::postgresql::unit_of_work::PgUnitOfWork;
 
-pub type PgRepository<A, RD> = DefaultRepository<
-    A,
-    PgEventReader<A>,
-    PgEventWriter<A>,
+pub type PgRepository<RD> = DefaultRepository<
+    PgEventReader,
+    PgEventWriter,
     PgEventOutboxEnqueuer,
-    PgSnapshotReader<A>,
-    PgSnapshotWriter<A>,
+    PgSnapshotReader,
+    PgSnapshotWriter,
     PgUniqueValueOwnerLookup,
     PgUniqueKeyReservationStore,
     PgReferenceIndexStore,

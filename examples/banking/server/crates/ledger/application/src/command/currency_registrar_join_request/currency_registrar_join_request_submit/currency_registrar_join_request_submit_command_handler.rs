@@ -20,33 +20,19 @@ use super::{
 };
 use crate::authorization::UserOwnerRelation;
 
-pub struct CurrencyRegistrarJoinRequestSubmitCommandHandler<OR, JR, MR>
+pub struct CurrencyRegistrarJoinRequestSubmitCommandHandler<R>
 where
-    OR: Repository<CurrencyRegistrar>,
-    JR: Repository<CurrencyRegistrarJoinRequest, Uow = OR::Uow>,
-    MR: Repository<CurrencyRegistrarMembership, Uow = OR::Uow>,
+    R: Repository,
 {
-    currency_registrar_repository: OR,
-    currency_registrar_join_request_repository: JR,
-    membership_repository: MR,
+    repository: R,
 }
 
-impl<OR, JR, MR> CurrencyRegistrarJoinRequestSubmitCommandHandler<OR, JR, MR>
+impl<R> CurrencyRegistrarJoinRequestSubmitCommandHandler<R>
 where
-    OR: Repository<CurrencyRegistrar>,
-    JR: Repository<CurrencyRegistrarJoinRequest, Uow = OR::Uow>,
-    MR: Repository<CurrencyRegistrarMembership, Uow = OR::Uow>,
+    R: Repository,
 {
-    pub fn new(
-        currency_registrar_repository: OR,
-        currency_registrar_join_request_repository: JR,
-        membership_repository: MR,
-    ) -> Self {
-        Self {
-            currency_registrar_repository,
-            currency_registrar_join_request_repository,
-            membership_repository,
-        }
+    pub fn new(repository: R) -> Self {
+        Self { repository }
     }
 
     fn registrar_requester_unique_value(
@@ -61,16 +47,14 @@ where
     }
 }
 
-impl<OR, JR, MR> CommandHandler for CurrencyRegistrarJoinRequestSubmitCommandHandler<OR, JR, MR>
+impl<R> CommandHandler for CurrencyRegistrarJoinRequestSubmitCommandHandler<R>
 where
-    OR: Repository<CurrencyRegistrar>,
-    JR: Repository<CurrencyRegistrarJoinRequest, Uow = OR::Uow>,
-    MR: Repository<CurrencyRegistrarMembership, Uow = OR::Uow>,
+    R: Repository,
 {
     type Command = CurrencyRegistrarJoinRequestSubmitCommand;
     type Output = CurrencyRegistrarJoinRequestSubmitOutput;
     type Error = CurrencyRegistrarJoinRequestSubmitCommandHandlerError;
-    type Uow = OR::Uow;
+    type Uow = R::Uow;
 
     fn authorization_plan(
         &self,
@@ -95,8 +79,8 @@ where
         let mut currency_registrar_join_request = CurrencyRegistrarJoinRequest::new();
         let currency_registrar_join_request_id = currency_registrar_join_request.aggregate_id();
 
-        self.currency_registrar_repository
-            .read(uow, command.currency_registrar_id)
+        self.repository
+            .read::<CurrencyRegistrar>(uow, command.currency_registrar_id)
             .await?;
 
         let membership_unique_value = Self::registrar_requester_unique_value(
@@ -104,8 +88,8 @@ where
             command.requester_id,
         )?;
         if self
-            .membership_repository
-            .find_by_unique_value(
+            .repository
+            .find_by_unique_value::<CurrencyRegistrarMembership>(
                 uow,
                 CurrencyRegistrarMembershipState::REGISTRAR_USER_KEY,
                 &membership_unique_value,
@@ -121,8 +105,8 @@ where
             command.requester_id,
         )?;
         if self
-            .currency_registrar_join_request_repository
-            .find_by_unique_value(
+            .repository
+            .find_by_unique_value::<CurrencyRegistrarJoinRequest>(
                 uow,
                 CurrencyRegistrarJoinRequestState::REGISTRAR_REQUESTER_KEY,
                 &unique_value,
@@ -136,8 +120,12 @@ where
         currency_registrar_join_request
             .submit(command.currency_registrar_id, command.requester_id)?;
 
-        self.currency_registrar_join_request_repository
-            .save(uow, request_context, &mut currency_registrar_join_request)
+        self.repository
+            .save::<CurrencyRegistrarJoinRequest>(
+                uow,
+                request_context,
+                &mut currency_registrar_join_request,
+            )
             .await?;
 
         Ok(CurrencyRegistrarJoinRequestSubmitOutput {

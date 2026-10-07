@@ -2,9 +2,15 @@ mod read_model_attribute_key;
 mod read_model_attribute_key_error;
 mod read_model_attribute_value;
 mod read_model_attribute_value_error;
+mod read_model_document;
+mod read_model_document_error;
 mod read_model_error;
 mod read_model_field_filter;
 mod read_model_id;
+mod read_model_included;
+mod read_model_included_error;
+mod read_model_list_document;
+mod read_model_list_document_error;
 mod read_model_ref;
 mod read_model_relationship;
 mod read_model_relationship_data;
@@ -13,8 +19,10 @@ mod read_model_relationship_key;
 mod read_model_relationship_key_error;
 mod read_model_resource;
 mod read_model_resource_attribute_value;
+mod read_model_resource_document;
 mod read_model_resource_key;
 mod read_model_resource_key_error;
+mod read_model_resource_list_document;
 mod read_model_resource_relationship;
 mod read_model_type;
 
@@ -22,9 +30,15 @@ pub use read_model_attribute_key::*;
 pub use read_model_attribute_key_error::*;
 pub use read_model_attribute_value::*;
 pub use read_model_attribute_value_error::*;
+pub use read_model_document::*;
+pub use read_model_document_error::*;
 pub use read_model_error::*;
 pub use read_model_field_filter::*;
 pub use read_model_id::*;
+pub use read_model_included::*;
+pub use read_model_included_error::*;
+pub use read_model_list_document::*;
+pub use read_model_list_document_error::*;
 pub use read_model_ref::*;
 pub use read_model_relationship::*;
 pub use read_model_relationship_data::*;
@@ -33,8 +47,10 @@ pub use read_model_relationship_key::*;
 pub use read_model_relationship_key_error::*;
 pub use read_model_resource::*;
 pub use read_model_resource_attribute_value::*;
+pub use read_model_resource_document::*;
 pub use read_model_resource_key::*;
 pub use read_model_resource_key_error::*;
+pub use read_model_resource_list_document::*;
 pub use read_model_resource_relationship::*;
 pub use read_model_type::*;
 
@@ -43,6 +59,7 @@ use std::{collections::BTreeMap, fmt::Display};
 /// A reusable resource whose typed fields are selected by key at the output boundary.
 /// Implementations map each key to its corresponding value. Filters determine which
 /// keys are requested; read models do not need to enumerate all available keys.
+/// Each instance carries the filter selected by the query for its output.
 pub trait ReadModel: Send + Sync {
     const TYPE: ReadModelType;
 
@@ -62,7 +79,10 @@ pub trait ReadModel: Send + Sync {
 
     fn relationship(&self, key: Self::RelationshipKey) -> Self::Relationship;
 
-    fn try_to_resource(&self, filter: &Self::Filter) -> Result<ReadModelResource, ReadModelError> {
+    fn filter(&self) -> &Self::Filter;
+
+    fn try_to_resource(&self) -> Result<ReadModelResource, ReadModelError> {
+        let filter = self.filter();
         let mut attributes = BTreeMap::new();
         for key in filter.attribute_keys() {
             let resource_key = key.try_to_resource_key()?;
@@ -189,6 +209,7 @@ mod tests {
         picture: Option<String>,
         owner_id: Option<Uuid>,
         author_ids: Vec<Uuid>,
+        filter: ProfileFilter,
     }
 
     impl ReadModel for Profile {
@@ -228,6 +249,10 @@ mod tests {
                 }
             }
         }
+
+        fn filter(&self) -> &Self::Filter {
+            &self.filter
+        }
     }
 
     enum ProfileFilter {
@@ -265,9 +290,9 @@ mod tests {
             picture: None,
             owner_id: Some(Uuid::from_u128(42)),
             author_ids: vec![Uuid::from_u128(43)],
+            filter: ProfileFilter::Public,
         };
-        let filter = ProfileFilter::Public;
-        let resource = profile.try_to_resource(&filter).unwrap();
+        let resource = profile.try_to_resource().unwrap();
         assert_eq!(
             serde_json::to_value(resource).unwrap(),
             json!({
@@ -359,39 +384,41 @@ mod tests {
 
     #[test]
     fn resource_omits_unselected_fields_but_preserves_selected_null() {
-        let profile = Profile {
+        let mut profile = Profile {
             id: Uuid::nil(),
             display_name: "Alice".to_owned(),
             picture: None,
             owner_id: None,
             author_ids: vec![],
+            filter: ProfileFilter::Public,
         };
-        let empty = ProfileFilter::Selected {
+        profile.filter = ProfileFilter::Selected {
             attributes: vec![],
             relationships: vec![],
         };
         assert_eq!(
-            serde_json::to_value(profile.try_to_resource(&empty).unwrap()).unwrap(),
+            serde_json::to_value(profile.try_to_resource().unwrap()).unwrap(),
             json!({"type": "profiles", "id": Uuid::nil().to_string()})
         );
-        let picture = ProfileFilter::Selected {
+        profile.filter = ProfileFilter::Selected {
             attributes: vec![ProfileAttributeKey::Picture],
             relationships: vec![],
         };
         assert_eq!(
-            serde_json::to_value(profile.try_to_resource(&picture).unwrap()).unwrap(),
+            serde_json::to_value(profile.try_to_resource().unwrap()).unwrap(),
             json!({"type": "profiles", "id": Uuid::nil().to_string(), "attributes": {"picture": null}})
         );
     }
 
     #[test]
     fn resource_rejects_duplicate_output_names_and_propagates_invalid_keys() {
-        let profile = Profile {
+        let mut profile = Profile {
             id: Uuid::nil(),
             display_name: "Alice".to_owned(),
             picture: None,
             owner_id: None,
             author_ids: vec![],
+            filter: ProfileFilter::Public,
         };
         for filter in [
             ProfileFilter::Selected {
@@ -410,21 +437,132 @@ mod tests {
                 relationships: vec![ProfileRelationshipKey::Owner, ProfileRelationshipKey::Owner],
             },
         ] {
+            profile.filter = filter;
             assert!(matches!(
-                profile.try_to_resource(&filter),
+                profile.try_to_resource(),
                 Err(ReadModelError::DuplicateField(_))
             ));
         }
-        let reserved = ProfileFilter::Selected {
+        profile.filter = ProfileFilter::Selected {
             attributes: vec![ProfileAttributeKey::Reserved],
             relationships: vec![],
         };
         assert!(matches!(
-            profile.try_to_resource(&reserved),
+            profile.try_to_resource(),
             Err(ReadModelError::AttributeKey(
                 ReadModelAttributeKeyError::ResourceKey(ReadModelResourceKeyError::ReservedName(_))
             ))
         ));
+    }
+
+    enum ProfileIncluded {
+        Profile(Profile),
+    }
+
+    impl ReadModelIncluded for ProfileIncluded {
+        fn try_to_resource(&self) -> Result<ReadModelResource, ReadModelIncludedError> {
+            match self {
+                Self::Profile(profile) => Ok(profile.try_to_resource()?),
+            }
+        }
+    }
+
+    #[test]
+    fn document_preserves_typed_data_and_each_resources_filter() {
+        let document = ReadModelDocument {
+            data: Some(Profile {
+                id: Uuid::nil(),
+                display_name: "Alice".to_owned(),
+                picture: None,
+                owner_id: Some(Uuid::from_u128(42)),
+                author_ids: vec![],
+                filter: ProfileFilter::Public,
+            }),
+            included: vec![ProfileIncluded::Profile(Profile {
+                id: Uuid::from_u128(42),
+                display_name: "Owner".to_owned(),
+                picture: None,
+                owner_id: None,
+                author_ids: vec![],
+                filter: ProfileFilter::Selected {
+                    attributes: vec![ProfileAttributeKey::Picture],
+                    relationships: vec![],
+                },
+            })],
+        };
+        let resource_document = document.try_to_resource_document().unwrap();
+        assert_eq!(document.data.as_ref().unwrap().display_name, "Alice");
+        assert_eq!(
+            serde_json::to_value(resource_document).unwrap(),
+            json!({
+                "data": {
+                    "type": "profiles", "id": Uuid::nil().to_string(),
+                    "attributes": {"display_name": "Alice"},
+                    "relationships": {"owner": {"data": {"type": "profiles", "id": Uuid::from_u128(42).to_string()}}}
+                },
+                "included": [{
+                    "type": "profiles", "id": Uuid::from_u128(42).to_string(),
+                    "attributes": {"picture": null}
+                }]
+            })
+        );
+    }
+
+    #[test]
+    fn empty_documents_preserve_single_and_list_shapes() {
+        let single: ReadModelDocument<Profile, ProfileIncluded> = ReadModelDocument {
+            data: None,
+            included: vec![],
+        };
+        let list: ReadModelListDocument<Profile, ProfileIncluded> = ReadModelListDocument {
+            data: vec![],
+            included: vec![],
+        };
+        assert_eq!(
+            serde_json::to_value(single.try_to_resource_document().unwrap()).unwrap(),
+            json!({"data": null})
+        );
+        assert_eq!(
+            serde_json::to_value(list.try_to_resource_document().unwrap()).unwrap(),
+            json!({"data": []})
+        );
+    }
+
+    #[test]
+    fn list_document_preserves_order_and_per_item_filters() {
+        let document: ReadModelListDocument<Profile, ProfileIncluded> = ReadModelListDocument {
+            data: vec![
+                Profile {
+                    id: Uuid::nil(),
+                    display_name: "Alice".to_owned(),
+                    picture: None,
+                    owner_id: None,
+                    author_ids: vec![],
+                    filter: ProfileFilter::Public,
+                },
+                Profile {
+                    id: Uuid::from_u128(42),
+                    display_name: "Bob".to_owned(),
+                    picture: None,
+                    owner_id: None,
+                    author_ids: vec![],
+                    filter: ProfileFilter::Selected {
+                        attributes: vec![ProfileAttributeKey::Picture],
+                        relationships: vec![],
+                    },
+                },
+            ],
+            included: vec![],
+        };
+        let output = serde_json::to_value(document.try_to_resource_document().unwrap()).unwrap();
+        assert_eq!(output["data"][0]["id"], Uuid::nil().to_string());
+        assert_eq!(
+            output["data"][0]["attributes"],
+            json!({"display_name": "Alice"})
+        );
+        assert_eq!(output["data"][1]["id"], Uuid::from_u128(42).to_string());
+        assert_eq!(output["data"][1]["attributes"], json!({"picture": null}));
+        assert!(output.get("included").is_none());
     }
 
     #[test]

@@ -21,33 +21,19 @@ use super::{
     CurrencyRegistrarInvitationIssueOutput,
 };
 
-pub struct CurrencyRegistrarInvitationIssueCommandHandler<ORG, IR, MR>
+pub struct CurrencyRegistrarInvitationIssueCommandHandler<R>
 where
-    ORG: Repository<CurrencyRegistrar>,
-    IR: Repository<CurrencyRegistrarInvitation, Uow = ORG::Uow>,
-    MR: Repository<CurrencyRegistrarMembership, Uow = ORG::Uow>,
+    R: Repository,
 {
-    currency_registrar_repository: ORG,
-    currency_registrar_invitation_repository: IR,
-    membership_repository: MR,
+    repository: R,
 }
 
-impl<ORG, IR, MR> CurrencyRegistrarInvitationIssueCommandHandler<ORG, IR, MR>
+impl<R> CurrencyRegistrarInvitationIssueCommandHandler<R>
 where
-    ORG: Repository<CurrencyRegistrar>,
-    IR: Repository<CurrencyRegistrarInvitation, Uow = ORG::Uow>,
-    MR: Repository<CurrencyRegistrarMembership, Uow = ORG::Uow>,
+    R: Repository,
 {
-    pub fn new(
-        currency_registrar_repository: ORG,
-        currency_registrar_invitation_repository: IR,
-        membership_repository: MR,
-    ) -> Self {
-        Self {
-            currency_registrar_repository,
-            currency_registrar_invitation_repository,
-            membership_repository,
-        }
+    pub fn new(repository: R) -> Self {
+        Self { repository }
     }
 
     fn registrar_user_unique_value(
@@ -73,16 +59,14 @@ where
     }
 }
 
-impl<ORG, IR, MR> CommandHandler for CurrencyRegistrarInvitationIssueCommandHandler<ORG, IR, MR>
+impl<R> CommandHandler for CurrencyRegistrarInvitationIssueCommandHandler<R>
 where
-    ORG: Repository<CurrencyRegistrar>,
-    IR: Repository<CurrencyRegistrarInvitation, Uow = ORG::Uow>,
-    MR: Repository<CurrencyRegistrarMembership, Uow = ORG::Uow>,
+    R: Repository,
 {
     type Command = CurrencyRegistrarInvitationIssueCommand;
     type Output = CurrencyRegistrarInvitationIssueOutput;
     type Error = CurrencyRegistrarInvitationIssueCommandHandlerError;
-    type Uow = ORG::Uow;
+    type Uow = R::Uow;
 
     fn authorization_plan(
         &self,
@@ -117,14 +101,14 @@ where
         let mut currency_registrar_invitation = CurrencyRegistrarInvitation::new();
         let currency_registrar_invitation_id = currency_registrar_invitation.aggregate_id();
 
-        self.currency_registrar_repository
-            .read(uow, command.currency_registrar_id)
+        self.repository
+            .read::<CurrencyRegistrar>(uow, command.currency_registrar_id)
             .await?;
 
         let membership_unique_value = Self::registrar_user_unique_value(command)?;
         if self
-            .membership_repository
-            .find_by_unique_value(
+            .repository
+            .find_by_unique_value::<CurrencyRegistrarMembership>(
                 uow,
                 CurrencyRegistrarMembershipState::REGISTRAR_USER_KEY,
                 &membership_unique_value,
@@ -137,8 +121,8 @@ where
 
         let unique_value = Self::registrar_invitee_unique_value(command)?;
         if self
-            .currency_registrar_invitation_repository
-            .find_by_unique_value(
+            .repository
+            .find_by_unique_value::<CurrencyRegistrarInvitation>(
                 uow,
                 CurrencyRegistrarInvitationState::REGISTRAR_INVITEE_KEY,
                 &unique_value,
@@ -157,8 +141,12 @@ where
             CurrentDateTime::new(),
         )?;
 
-        self.currency_registrar_invitation_repository
-            .save(uow, request_context, &mut currency_registrar_invitation)
+        self.repository
+            .save::<CurrencyRegistrarInvitation>(
+                uow,
+                request_context,
+                &mut currency_registrar_invitation,
+            )
             .await?;
 
         Ok(CurrencyRegistrarInvitationIssueOutput {

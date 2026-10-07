@@ -9,30 +9,30 @@ use banking_iam_domain::User;
 use super::{UserActivateCommand, UserActivateCommandHandlerError, UserActivateOutput};
 use crate::authorization::UserActivatorRelation;
 
-pub struct UserActivateCommandHandler<UR>
+pub struct UserActivateCommandHandler<R>
 where
-    UR: Repository<User>,
+    R: Repository,
 {
-    user_repository: UR,
+    repository: R,
 }
 
-impl<UR> UserActivateCommandHandler<UR>
+impl<R> UserActivateCommandHandler<R>
 where
-    UR: Repository<User>,
+    R: Repository,
 {
-    pub fn new(user_repository: UR) -> Self {
-        Self { user_repository }
+    pub fn new(repository: R) -> Self {
+        Self { repository }
     }
 }
 
-impl<UR> CommandHandler for UserActivateCommandHandler<UR>
+impl<R> CommandHandler for UserActivateCommandHandler<R>
 where
-    UR: Repository<User>,
+    R: Repository,
 {
     type Command = UserActivateCommand;
     type Output = UserActivateOutput;
     type Error = UserActivateCommandHandlerError;
-    type Uow = UR::Uow;
+    type Uow = R::Uow;
 
     fn authorization_plan(
         &self,
@@ -54,12 +54,12 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<Self::Output, Self::Error> {
-        let mut user = self.user_repository.read(uow, command.user_id).await?;
+        let mut user = self.repository.read::<User>(uow, command.user_id).await?;
 
         user.activate()?;
 
-        self.user_repository
-            .save(uow, request_context, &mut user)
+        self.repository
+            .save::<User>(uow, request_context, &mut user)
             .await?;
 
         Ok(UserActivateOutput {})

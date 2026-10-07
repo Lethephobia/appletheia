@@ -1,5 +1,3 @@
-use std::marker::PhantomData;
-
 use sqlx::{Postgres, QueryBuilder};
 
 use appletheia_application::snapshot::{SnapshotReader, SnapshotReaderError};
@@ -8,28 +6,19 @@ use appletheia_domain::{Aggregate, AggregateId, AggregateVersion, Snapshot};
 use crate::postgresql::snapshot::PgSnapshotRow;
 use crate::postgresql::unit_of_work::PgUnitOfWork;
 
-pub struct PgSnapshotReader<A: Aggregate> {
-    _phantom: PhantomData<A>,
-}
+#[derive(Default)]
+pub struct PgSnapshotReader;
 
-impl<A: Aggregate> PgSnapshotReader<A> {
+impl PgSnapshotReader {
     pub fn new() -> Self {
-        Self {
-            _phantom: PhantomData,
-        }
+        Self
     }
 }
 
-impl<A: Aggregate> Default for PgSnapshotReader<A> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl<A: Aggregate> SnapshotReader<A> for PgSnapshotReader<A> {
+impl SnapshotReader for PgSnapshotReader {
     type Uow = PgUnitOfWork;
 
-    async fn read_latest_snapshot(
+    async fn read_latest_snapshot<A: Aggregate>(
         &self,
         uow: &mut Self::Uow,
         aggregate_id: A::Id,

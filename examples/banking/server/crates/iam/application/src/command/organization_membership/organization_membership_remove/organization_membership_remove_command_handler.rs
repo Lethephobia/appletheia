@@ -12,32 +12,30 @@ use super::{
 };
 use crate::authorization::OrganizationMembershipRemoverRelation;
 
-pub struct OrganizationMembershipRemoveCommandHandler<MR>
+pub struct OrganizationMembershipRemoveCommandHandler<R>
 where
-    MR: Repository<OrganizationMembership>,
+    R: Repository,
 {
-    organization_membership_repository: MR,
+    repository: R,
 }
 
-impl<MR> OrganizationMembershipRemoveCommandHandler<MR>
+impl<R> OrganizationMembershipRemoveCommandHandler<R>
 where
-    MR: Repository<OrganizationMembership>,
+    R: Repository,
 {
-    pub fn new(organization_membership_repository: MR) -> Self {
-        Self {
-            organization_membership_repository,
-        }
+    pub fn new(repository: R) -> Self {
+        Self { repository }
     }
 }
 
-impl<MR> CommandHandler for OrganizationMembershipRemoveCommandHandler<MR>
+impl<R> CommandHandler for OrganizationMembershipRemoveCommandHandler<R>
 where
-    MR: Repository<OrganizationMembership>,
+    R: Repository,
 {
     type Command = OrganizationMembershipRemoveCommand;
     type Output = OrganizationMembershipRemoveOutput;
     type Error = OrganizationMembershipRemoveCommandHandlerError;
-    type Uow = MR::Uow;
+    type Uow = R::Uow;
 
     fn authorization_plan(
         &self,
@@ -60,14 +58,14 @@ where
         command: &Self::Command,
     ) -> Result<Self::Output, Self::Error> {
         let mut membership = self
-            .organization_membership_repository
-            .read(uow, command.organization_membership_id)
+            .repository
+            .read::<OrganizationMembership>(uow, command.organization_membership_id)
             .await?;
 
         membership.remove()?;
 
-        self.organization_membership_repository
-            .save(uow, request_context, &mut membership)
+        self.repository
+            .save::<OrganizationMembership>(uow, request_context, &mut membership)
             .await?;
 
         Ok(OrganizationMembershipRemoveOutput {})

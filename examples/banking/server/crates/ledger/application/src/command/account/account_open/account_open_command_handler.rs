@@ -13,37 +13,30 @@ use banking_ledger_domain::account::{Account, AccountOwner};
 use banking_ledger_domain::currency::Currency;
 
 use super::{AccountOpenCommand, AccountOpenCommandHandlerError, AccountOpenOutput};
-pub struct AccountOpenCommandHandler<AR, CR>
+pub struct AccountOpenCommandHandler<R>
 where
-    AR: Repository<Account>,
-    CR: Repository<Currency, Uow = AR::Uow>,
+    R: Repository,
 {
-    account_repository: AR,
-    currency_repository: CR,
+    repository: R,
 }
 
-impl<AR, CR> AccountOpenCommandHandler<AR, CR>
+impl<R> AccountOpenCommandHandler<R>
 where
-    AR: Repository<Account>,
-    CR: Repository<Currency, Uow = AR::Uow>,
+    R: Repository,
 {
-    pub fn new(account_repository: AR, currency_repository: CR) -> Self {
-        Self {
-            account_repository,
-            currency_repository,
-        }
+    pub fn new(repository: R) -> Self {
+        Self { repository }
     }
 }
 
-impl<AR, CR> CommandHandler for AccountOpenCommandHandler<AR, CR>
+impl<R> CommandHandler for AccountOpenCommandHandler<R>
 where
-    AR: Repository<Account>,
-    CR: Repository<Currency, Uow = AR::Uow>,
+    R: Repository,
 {
     type Command = AccountOpenCommand;
     type Output = AccountOpenOutput;
     type Error = AccountOpenCommandHandlerError;
-    type Uow = AR::Uow;
+    type Uow = R::Uow;
 
     fn authorization_plan(
         &self,
@@ -75,8 +68,8 @@ where
         command: &Self::Command,
     ) -> Result<Self::Output, Self::Error> {
         let currency = self
-            .currency_repository
-            .read(uow, command.currency_id)
+            .repository
+            .read::<Currency>(uow, command.currency_id)
             .await?;
         if !currency.is_active()? {
             return Err(AccountOpenCommandHandlerError::CurrencyInactive);
@@ -89,8 +82,8 @@ where
             account.set_description(Some(description.clone()))?;
         }
 
-        self.account_repository
-            .save(uow, request_context, &mut account)
+        self.repository
+            .save::<Account>(uow, request_context, &mut account)
             .await?;
 
         Ok(AccountOpenOutput { account_id })

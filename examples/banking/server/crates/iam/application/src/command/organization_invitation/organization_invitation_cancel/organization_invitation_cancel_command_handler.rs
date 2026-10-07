@@ -15,37 +15,30 @@ use super::{
     OrganizationInvitationCancelOutput,
 };
 
-pub struct OrganizationInvitationCancelCommandHandler<ORG, IR>
+pub struct OrganizationInvitationCancelCommandHandler<R>
 where
-    ORG: Repository<Organization>,
-    IR: Repository<OrganizationInvitation, Uow = ORG::Uow>,
+    R: Repository,
 {
-    organization_repository: ORG,
-    organization_invitation_repository: IR,
+    repository: R,
 }
 
-impl<ORG, IR> OrganizationInvitationCancelCommandHandler<ORG, IR>
+impl<R> OrganizationInvitationCancelCommandHandler<R>
 where
-    ORG: Repository<Organization>,
-    IR: Repository<OrganizationInvitation, Uow = ORG::Uow>,
+    R: Repository,
 {
-    pub fn new(organization_repository: ORG, organization_invitation_repository: IR) -> Self {
-        Self {
-            organization_repository,
-            organization_invitation_repository,
-        }
+    pub fn new(repository: R) -> Self {
+        Self { repository }
     }
 }
 
-impl<ORG, IR> CommandHandler for OrganizationInvitationCancelCommandHandler<ORG, IR>
+impl<R> CommandHandler for OrganizationInvitationCancelCommandHandler<R>
 where
-    ORG: Repository<Organization>,
-    IR: Repository<OrganizationInvitation, Uow = ORG::Uow>,
+    R: Repository,
 {
     type Command = OrganizationInvitationCancelCommand;
     type Output = OrganizationInvitationCancelOutput;
     type Error = OrganizationInvitationCancelCommandHandlerError;
-    type Uow = ORG::Uow;
+    type Uow = R::Uow;
 
     fn authorization_plan(
         &self,
@@ -68,13 +61,13 @@ where
         command: &Self::Command,
     ) -> Result<Self::Output, Self::Error> {
         let mut organization_invitation = self
-            .organization_invitation_repository
-            .read(uow, command.organization_invitation_id)
+            .repository
+            .read::<OrganizationInvitation>(uow, command.organization_invitation_id)
             .await?;
 
         let organization = self
-            .organization_repository
-            .read(uow, *organization_invitation.organization_id()?)
+            .repository
+            .read::<Organization>(uow, *organization_invitation.organization_id()?)
             .await?;
 
         if organization.is_removed()? {
@@ -83,8 +76,8 @@ where
 
         organization_invitation.cancel(CurrentDateTime::new())?;
 
-        self.organization_invitation_repository
-            .save(uow, request_context, &mut organization_invitation)
+        self.repository
+            .save::<OrganizationInvitation>(uow, request_context, &mut organization_invitation)
             .await?;
 
         Ok(OrganizationInvitationCancelOutput {})

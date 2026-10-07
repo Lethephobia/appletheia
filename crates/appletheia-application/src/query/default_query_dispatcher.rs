@@ -74,20 +74,6 @@ where
                     )
                     .await?;
             }
-            QueryConsistency::AfterEvents {
-                event_ids,
-                timeout,
-                poll_interval,
-            } => {
-                self.projection_consistency_waiter
-                    .wait_for_events(
-                        &event_ids,
-                        timeout,
-                        poll_interval,
-                        H::PROJECTOR_DEPENDENCIES,
-                    )
-                    .await?;
-            }
         }
 
         let mut uow = self.uow_factory.begin().await?;

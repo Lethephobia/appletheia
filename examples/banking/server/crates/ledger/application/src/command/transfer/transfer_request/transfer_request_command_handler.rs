@@ -13,37 +13,30 @@ use crate::authorization::AccountTransferRequesterRelation;
 
 use super::{TransferRequestCommand, TransferRequestCommandHandlerError, TransferRequestOutput};
 
-pub struct TransferRequestCommandHandler<AR, TR>
+pub struct TransferRequestCommandHandler<R>
 where
-    AR: Repository<Account, Uow = TR::Uow>,
-    TR: Repository<Transfer>,
+    R: Repository,
 {
-    account_repository: AR,
-    transfer_repository: TR,
+    repository: R,
 }
 
-impl<AR, TR> TransferRequestCommandHandler<AR, TR>
+impl<R> TransferRequestCommandHandler<R>
 where
-    AR: Repository<Account, Uow = TR::Uow>,
-    TR: Repository<Transfer>,
+    R: Repository,
 {
-    pub fn new(account_repository: AR, transfer_repository: TR) -> Self {
-        Self {
-            account_repository,
-            transfer_repository,
-        }
+    pub fn new(repository: R) -> Self {
+        Self { repository }
     }
 }
 
-impl<AR, TR> CommandHandler for TransferRequestCommandHandler<AR, TR>
+impl<R> CommandHandler for TransferRequestCommandHandler<R>
 where
-    AR: Repository<Account, Uow = TR::Uow>,
-    TR: Repository<Transfer>,
+    R: Repository,
 {
     type Command = TransferRequestCommand;
     type Output = TransferRequestOutput;
     type Error = TransferRequestCommandHandlerError;
-    type Uow = TR::Uow;
+    type Uow = R::Uow;
 
     fn authorization_plan(
         &self,
@@ -66,12 +59,12 @@ where
         command: &Self::Command,
     ) -> Result<Self::Output, Self::Error> {
         let source_account = self
-            .account_repository
-            .read(uow, command.from_account_id)
+            .repository
+            .read::<Account>(uow, command.from_account_id)
             .await?;
         let destination_account = self
-            .account_repository
-            .read(uow, command.to_account_id)
+            .repository
+            .read::<Account>(uow, command.to_account_id)
             .await?;
 
         let mut transfer = Transfer::new();
@@ -89,8 +82,8 @@ where
             transfer.set_note(Some(note.clone()))?;
         }
 
-        self.transfer_repository
-            .save(uow, request_context, &mut transfer)
+        self.repository
+            .save::<Transfer>(uow, request_context, &mut transfer)
             .await?;
 
         Ok(TransferRequestOutput { transfer_id })

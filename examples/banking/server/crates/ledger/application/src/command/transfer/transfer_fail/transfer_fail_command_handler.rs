@@ -6,32 +6,30 @@ use banking_ledger_domain::transfer::Transfer;
 
 use super::{TransferFailCommand, TransferFailCommandHandlerError, TransferFailOutput};
 
-pub struct TransferFailCommandHandler<TR>
+pub struct TransferFailCommandHandler<R>
 where
-    TR: Repository<Transfer>,
+    R: Repository,
 {
-    transfer_repository: TR,
+    repository: R,
 }
 
-impl<TR> TransferFailCommandHandler<TR>
+impl<R> TransferFailCommandHandler<R>
 where
-    TR: Repository<Transfer>,
+    R: Repository,
 {
-    pub fn new(transfer_repository: TR) -> Self {
-        Self {
-            transfer_repository,
-        }
+    pub fn new(repository: R) -> Self {
+        Self { repository }
     }
 }
 
-impl<TR> CommandHandler for TransferFailCommandHandler<TR>
+impl<R> CommandHandler for TransferFailCommandHandler<R>
 where
-    TR: Repository<Transfer>,
+    R: Repository,
 {
     type Command = TransferFailCommand;
     type Output = TransferFailOutput;
     type Error = TransferFailCommandHandlerError;
-    type Uow = TR::Uow;
+    type Uow = R::Uow;
 
     fn authorization_plan(
         &self,
@@ -49,13 +47,13 @@ where
         command: &Self::Command,
     ) -> Result<Self::Output, Self::Error> {
         let mut transfer = self
-            .transfer_repository
-            .read(uow, command.transfer_id)
+            .repository
+            .read::<Transfer>(uow, command.transfer_id)
             .await?;
 
         transfer.fail(command.reason)?;
-        self.transfer_repository
-            .save(uow, request_context, &mut transfer)
+        self.repository
+            .save::<Transfer>(uow, request_context, &mut transfer)
             .await?;
 
         Ok(TransferFailOutput {})

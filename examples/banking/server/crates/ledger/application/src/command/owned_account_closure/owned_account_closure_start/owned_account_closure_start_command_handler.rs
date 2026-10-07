@@ -10,32 +10,30 @@ use super::{
     OwnedAccountClosureStartOutput,
 };
 
-pub struct OwnedAccountClosureStartCommandHandler<OACR>
+pub struct OwnedAccountClosureStartCommandHandler<R>
 where
-    OACR: Repository<OwnedAccountClosure>,
+    R: Repository,
 {
-    owned_account_closure_repository: OACR,
+    repository: R,
 }
 
-impl<OACR> OwnedAccountClosureStartCommandHandler<OACR>
+impl<R> OwnedAccountClosureStartCommandHandler<R>
 where
-    OACR: Repository<OwnedAccountClosure>,
+    R: Repository,
 {
-    pub fn new(owned_account_closure_repository: OACR) -> Self {
-        Self {
-            owned_account_closure_repository,
-        }
+    pub fn new(repository: R) -> Self {
+        Self { repository }
     }
 }
 
-impl<OACR> CommandHandler for OwnedAccountClosureStartCommandHandler<OACR>
+impl<R> CommandHandler for OwnedAccountClosureStartCommandHandler<R>
 where
-    OACR: Repository<OwnedAccountClosure>,
+    R: Repository,
 {
     type Command = OwnedAccountClosureStartCommand;
     type Output = OwnedAccountClosureStartOutput;
     type Error = OwnedAccountClosureStartCommandHandlerError;
-    type Uow = OACR::Uow;
+    type Uow = R::Uow;
 
     fn authorization_plan(
         &self,
@@ -56,8 +54,8 @@ where
         let owned_account_closure_id = owned_account_closure.aggregate_id();
         owned_account_closure.start(command.owner)?;
 
-        self.owned_account_closure_repository
-            .save(uow, request_context, &mut owned_account_closure)
+        self.repository
+            .save::<OwnedAccountClosure>(uow, request_context, &mut owned_account_closure)
             .await?;
 
         Ok(OwnedAccountClosureStartOutput {

@@ -14,32 +14,30 @@ use super::{
     CurrencyRegistrarJoinRequestRejectOutput,
 };
 
-pub struct CurrencyRegistrarJoinRequestRejectCommandHandler<JR>
+pub struct CurrencyRegistrarJoinRequestRejectCommandHandler<R>
 where
-    JR: Repository<CurrencyRegistrarJoinRequest>,
+    R: Repository,
 {
-    currency_registrar_join_request_repository: JR,
+    repository: R,
 }
 
-impl<JR> CurrencyRegistrarJoinRequestRejectCommandHandler<JR>
+impl<R> CurrencyRegistrarJoinRequestRejectCommandHandler<R>
 where
-    JR: Repository<CurrencyRegistrarJoinRequest>,
+    R: Repository,
 {
-    pub fn new(currency_registrar_join_request_repository: JR) -> Self {
-        Self {
-            currency_registrar_join_request_repository,
-        }
+    pub fn new(repository: R) -> Self {
+        Self { repository }
     }
 }
 
-impl<JR> CommandHandler for CurrencyRegistrarJoinRequestRejectCommandHandler<JR>
+impl<R> CommandHandler for CurrencyRegistrarJoinRequestRejectCommandHandler<R>
 where
-    JR: Repository<CurrencyRegistrarJoinRequest>,
+    R: Repository,
 {
     type Command = CurrencyRegistrarJoinRequestRejectCommand;
     type Output = CurrencyRegistrarJoinRequestRejectOutput;
     type Error = CurrencyRegistrarJoinRequestRejectCommandHandlerError;
-    type Uow = JR::Uow;
+    type Uow = R::Uow;
 
     fn authorization_plan(
         &self,
@@ -62,14 +60,18 @@ where
         command: &Self::Command,
     ) -> Result<Self::Output, Self::Error> {
         let mut currency_registrar_join_request = self
-            .currency_registrar_join_request_repository
-            .read(uow, command.currency_registrar_join_request_id)
+            .repository
+            .read::<CurrencyRegistrarJoinRequest>(uow, command.currency_registrar_join_request_id)
             .await?;
 
         currency_registrar_join_request.reject()?;
 
-        self.currency_registrar_join_request_repository
-            .save(uow, _request_context, &mut currency_registrar_join_request)
+        self.repository
+            .save::<CurrencyRegistrarJoinRequest>(
+                uow,
+                _request_context,
+                &mut currency_registrar_join_request,
+            )
             .await?;
 
         Ok(CurrencyRegistrarJoinRequestRejectOutput {})

@@ -9,30 +9,30 @@ use banking_iam_domain::User;
 use super::{UserRemoveCommand, UserRemoveCommandHandlerError, UserRemoveOutput};
 use crate::authorization::UserRemoverRelation;
 
-pub struct UserRemoveCommandHandler<UR>
+pub struct UserRemoveCommandHandler<R>
 where
-    UR: Repository<User>,
+    R: Repository,
 {
-    user_repository: UR,
+    repository: R,
 }
 
-impl<UR> UserRemoveCommandHandler<UR>
+impl<R> UserRemoveCommandHandler<R>
 where
-    UR: Repository<User>,
+    R: Repository,
 {
-    pub fn new(user_repository: UR) -> Self {
-        Self { user_repository }
+    pub fn new(repository: R) -> Self {
+        Self { repository }
     }
 }
 
-impl<UR> CommandHandler for UserRemoveCommandHandler<UR>
+impl<R> CommandHandler for UserRemoveCommandHandler<R>
 where
-    UR: Repository<User>,
+    R: Repository,
 {
     type Command = UserRemoveCommand;
     type Output = UserRemoveOutput;
     type Error = UserRemoveCommandHandlerError;
-    type Uow = UR::Uow;
+    type Uow = R::Uow;
 
     fn authorization_plan(
         &self,
@@ -54,12 +54,12 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<Self::Output, Self::Error> {
-        let mut user = self.user_repository.read(uow, command.user_id).await?;
+        let mut user = self.repository.read::<User>(uow, command.user_id).await?;
 
         user.remove()?;
 
-        self.user_repository
-            .save(uow, request_context, &mut user)
+        self.repository
+            .save::<User>(uow, request_context, &mut user)
             .await?;
 
         Ok(UserRemoveOutput {})

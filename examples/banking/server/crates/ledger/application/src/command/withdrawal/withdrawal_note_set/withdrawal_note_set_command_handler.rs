@@ -13,25 +13,23 @@ use crate::authorization::WithdrawalNoteSetterRelation;
 
 pub struct WithdrawalNoteSetCommandHandler<R>
 where
-    R: Repository<Withdrawal>,
+    R: Repository,
 {
-    withdrawal_repository: R,
+    repository: R,
 }
 
 impl<R> WithdrawalNoteSetCommandHandler<R>
 where
-    R: Repository<Withdrawal>,
+    R: Repository,
 {
-    pub fn new(withdrawal_repository: R) -> Self {
-        Self {
-            withdrawal_repository,
-        }
+    pub fn new(repository: R) -> Self {
+        Self { repository }
     }
 }
 
 impl<R> CommandHandler for WithdrawalNoteSetCommandHandler<R>
 where
-    R: Repository<Withdrawal>,
+    R: Repository,
 {
     type Command = WithdrawalNoteSetCommand;
     type Output = WithdrawalNoteSetOutput;
@@ -59,14 +57,14 @@ where
         command: &Self::Command,
     ) -> Result<Self::Output, Self::Error> {
         let mut withdrawal = self
-            .withdrawal_repository
-            .read(uow, command.withdrawal_id)
+            .repository
+            .read::<Withdrawal>(uow, command.withdrawal_id)
             .await?;
 
         withdrawal.set_note(command.note.clone())?;
 
-        self.withdrawal_repository
-            .save(uow, request_context, &mut withdrawal)
+        self.repository
+            .save::<Withdrawal>(uow, request_context, &mut withdrawal)
             .await?;
 
         Ok(WithdrawalNoteSetOutput {})

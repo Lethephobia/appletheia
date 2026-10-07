@@ -6,30 +6,30 @@ use banking_ledger_domain::account::Account;
 
 use super::{AccountDepositCommand, AccountDepositCommandHandlerError, AccountDepositOutput};
 
-pub struct AccountDepositCommandHandler<AR>
+pub struct AccountDepositCommandHandler<R>
 where
-    AR: Repository<Account>,
+    R: Repository,
 {
-    account_repository: AR,
+    repository: R,
 }
 
-impl<AR> AccountDepositCommandHandler<AR>
+impl<R> AccountDepositCommandHandler<R>
 where
-    AR: Repository<Account>,
+    R: Repository,
 {
-    pub fn new(account_repository: AR) -> Self {
-        Self { account_repository }
+    pub fn new(repository: R) -> Self {
+        Self { repository }
     }
 }
 
-impl<AR> CommandHandler for AccountDepositCommandHandler<AR>
+impl<R> CommandHandler for AccountDepositCommandHandler<R>
 where
-    AR: Repository<Account>,
+    R: Repository,
 {
     type Command = AccountDepositCommand;
     type Output = AccountDepositOutput;
     type Error = AccountDepositCommandHandlerError;
-    type Uow = AR::Uow;
+    type Uow = R::Uow;
 
     fn authorization_plan(
         &self,
@@ -47,13 +47,13 @@ where
         command: &Self::Command,
     ) -> Result<Self::Output, Self::Error> {
         let mut account = self
-            .account_repository
-            .read(uow, command.account_id)
+            .repository
+            .read::<Account>(uow, command.account_id)
             .await?;
 
         account.deposit(command.amount)?;
-        self.account_repository
-            .save(uow, request_context, &mut account)
+        self.repository
+            .save::<Account>(uow, request_context, &mut account)
             .await?;
 
         Ok(AccountDepositOutput {})

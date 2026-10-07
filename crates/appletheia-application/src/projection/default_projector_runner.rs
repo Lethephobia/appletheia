@@ -2,8 +2,8 @@ use crate::event::EventEnvelope;
 use crate::unit_of_work::{UnitOfWork, UnitOfWorkFactory};
 
 use super::{
-    MaterializationEventContext, Projector, ProjectorNameOwned, ProjectorProcessedEventStore,
-    ProjectorRunReport, ProjectorRunner, ProjectorRunnerError, ProjectorSpec,
+    Projector, ProjectorNameOwned, ProjectorProcessedEventStore, ProjectorRunReport,
+    ProjectorRunner, ProjectorRunnerError, ProjectorSpec,
 };
 
 /// Persists projection updates and records processed events in one transaction.
@@ -53,7 +53,7 @@ where
         }
 
         projector
-            .project(uow, MaterializationEventContext::from(event), event)
+            .project(uow, event)
             .await
             .map_err(|source| ProjectorRunnerError::Projection(Box::new(source)))?;
 

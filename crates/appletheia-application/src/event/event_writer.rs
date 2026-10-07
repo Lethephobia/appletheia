@@ -7,11 +7,11 @@ use crate::unit_of_work::UnitOfWork;
 use super::event_writer_error::EventWriterError;
 
 #[allow(async_fn_in_trait)]
-pub trait EventWriter<A: Aggregate>: Send + Sync {
+pub trait EventWriter: Send + Sync {
     type Uow: UnitOfWork;
 
     /// Persists domain events and returns their database-ordered envelopes.
-    async fn write_events(
+    async fn write_events<A: Aggregate>(
         &self,
         uow: &mut Self::Uow,
         request_context: &RequestContext,
