@@ -1,40 +1,34 @@
 use crate::authorization::Authorizer;
-use crate::projection::ProjectionConsistencyWaiter;
 use crate::request_context::RequestContext;
 use crate::unit_of_work::{UnitOfWork, UnitOfWorkFactory};
 
-use super::{QueryConsistency, QueryDispatcher, QueryDispatcherError, QueryHandler, QueryOptions};
+use super::{QueryDispatcher, QueryDispatcherError, QueryHandler};
 
-pub struct DefaultQueryDispatcher<W, U, AZ>
+pub struct DefaultQueryDispatcher<U, AZ>
 where
-    W: ProjectionConsistencyWaiter,
     U: UnitOfWorkFactory,
     U::Uow: UnitOfWork,
 {
-    projection_consistency_waiter: W,
     uow_factory: U,
     authorizer: AZ,
 }
 
-impl<W, U, AZ> DefaultQueryDispatcher<W, U, AZ>
+impl<U, AZ> DefaultQueryDispatcher<U, AZ>
 where
-    W: ProjectionConsistencyWaiter,
     U: UnitOfWorkFactory,
     U::Uow: UnitOfWork,
     AZ: Authorizer,
 {
-    pub fn new(projection_consistency_waiter: W, uow_factory: U, authorizer: AZ) -> Self {
+    pub fn new(uow_factory: U, authorizer: AZ) -> Self {
         Self {
-            projection_consistency_waiter,
             uow_factory,
             authorizer,
         }
     }
 }
 
-impl<W, U, AZ> QueryDispatcher for DefaultQueryDispatcher<W, U, AZ>
+impl<U, AZ> QueryDispatcher for DefaultQueryDispatcher<U, AZ>
 where
-    W: ProjectionConsistencyWaiter,
     U: UnitOfWorkFactory,
     U::Uow: UnitOfWork,
     AZ: Authorizer,
@@ -46,7 +40,6 @@ where
         handler: &H,
         request_context: &RequestContext,
         query: H::Query,
-        options: QueryOptions,
     ) -> Result<H::Output, QueryDispatcherError<H::Error>>
     where
         H: QueryHandler<Uow = Self::Uow>,
@@ -57,24 +50,6 @@ where
         self.authorizer
             .authorize(&request_context.principal, &authorization_plan)
             .await?;
-
-        match options.consistency {
-            QueryConsistency::Eventual => {}
-            QueryConsistency::AfterMessage {
-                message_id,
-                timeout,
-                poll_interval,
-            } => {
-                self.projection_consistency_waiter
-                    .wait_for_message(
-                        message_id,
-                        timeout,
-                        poll_interval,
-                        H::PROJECTOR_DEPENDENCIES,
-                    )
-                    .await?;
-            }
-        }
 
         let mut uow = self.uow_factory.begin().await?;
 

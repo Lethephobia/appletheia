@@ -149,7 +149,7 @@ where
 
                 let result = self
                     .dispatcher
-                    .dispatch(handler, &request_context, command, envelope.options.clone())
+                    .dispatch(handler, &request_context, command)
                     .await;
 
                 match result {
@@ -271,8 +271,8 @@ mod tests {
         CommandExecutionLeaseAcquisitionResult, CommandExecutionLeaseDuration,
         CommandExecutionLeaseReleaseResult, CommandExecutionMaxAttempts,
         CommandExecutionRetryOptions, CommandExecutionStore, CommandExecutionStoreError,
-        CommandFailedAt, CommandHandler, CommandName, CommandOptions, CommandOutput,
-        CommandReplayOutput, CommandWorker, CommandWorkerConfig, DefaultCommandWorkerDependencies,
+        CommandFailedAt, CommandHandler, CommandName, CommandOutput, CommandReplayOutput,
+        CommandWorker, CommandWorkerConfig, DefaultCommandWorkerDependencies,
     };
     use crate::messaging::{
         Consumer, ConsumerError, ConsumerGroup, Delivery, DeliveryError, Subscriber,
@@ -454,7 +454,6 @@ mod tests {
             handler: &H,
             request_context: &RequestContext,
             command: H::Command,
-            _options: CommandOptions,
         ) -> Result<
             CommandDispatchResult<H::Output, <H::Output as CommandOutput>::ReplayOutput>,
             CommandDispatcherError<H::Error>,
@@ -577,7 +576,6 @@ mod tests {
             &TestCommand {},
             CorrelationId::from(Uuid::now_v7()),
             CausationId::from(causation_message_id),
-            CommandOptions::default(),
         )
         .expect("command envelope should be valid");
         let events = Arc::clone(&state.events);

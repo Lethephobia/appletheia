@@ -301,7 +301,7 @@ mod tests {
     use crate::aggregate::{AggregateIdValue, AggregateTypeOwned};
     use crate::command::{
         Command, CommandAttemptCount, CommandFailedAt, CommandFailureEnvelope, CommandName,
-        CommandOptions, CommandTerminalReason,
+        CommandTerminalReason,
     };
     use crate::event::{
         EventEnvelope, EventNameOwned, EventSelector, EventSequence, SerializedEventPayload,
@@ -526,7 +526,7 @@ mod tests {
                         count: 2,
                         closed: false,
                     });
-                    ctx.append_command_with_options(&FollowUp {}, CommandOptions::default())?;
+                    ctx.append_command(&FollowUp {})?;
                     Ok(())
                 }),
             ],

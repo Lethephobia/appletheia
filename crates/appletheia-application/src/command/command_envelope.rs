@@ -4,7 +4,7 @@ use crate::messaging::{OrderingKey, PublishableMessage};
 use crate::request_context::{CausationId, CorrelationId, MessageId};
 use crate::saga::SagaCommandOrigin;
 
-use super::{Command, CommandEnvelopeError, CommandNameOwned, CommandOptions, SerializedCommand};
+use super::{Command, CommandEnvelopeError, CommandNameOwned, SerializedCommand};
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct CommandEnvelope {
@@ -14,7 +14,6 @@ pub struct CommandEnvelope {
     pub message_id: MessageId,
     pub causation_id: CausationId,
     pub saga_origin: Option<SagaCommandOrigin>,
-    pub options: CommandOptions,
 }
 
 impl CommandEnvelope {
@@ -22,7 +21,6 @@ impl CommandEnvelope {
         command: &C,
         correlation_id: CorrelationId,
         causation_id: CausationId,
-        options: CommandOptions,
     ) -> Result<Self, CommandEnvelopeError> {
         Ok(Self {
             command_name: CommandNameOwned::from(C::NAME),
@@ -31,7 +29,6 @@ impl CommandEnvelope {
             message_id: MessageId::new(),
             causation_id,
             saga_origin: None,
-            options,
         })
     }
 

@@ -1,8 +1,7 @@
 use crate::authorization::Authorizer;
 use crate::command::{
     Command, CommandDispatchResult, CommandDispatcher, CommandDispatcherError, CommandHandler,
-    CommandHasher, CommandOptions, CommandOutput, IdempotencyBeginResult, IdempotencyOutput,
-    IdempotencyService,
+    CommandHasher, CommandOutput, IdempotencyBeginResult, IdempotencyOutput, IdempotencyService,
 };
 use crate::request_context::RequestContext;
 use crate::unit_of_work::UnitOfWork;
@@ -58,7 +57,6 @@ where
         handler: &H,
         request_context: &RequestContext,
         command: H::Command,
-        _options: CommandOptions,
     ) -> Result<
         CommandDispatchResult<H::Output, <H::Output as CommandOutput>::ReplayOutput>,
         CommandDispatcherError<H::Error>,
@@ -157,7 +155,7 @@ mod tests {
     use crate::authorization::{AuthorizationPlan, Authorizer, AuthorizerError};
     use crate::command::{
         Command, CommandDispatchResult, CommandDispatcher, CommandDispatcherError, CommandHandler,
-        CommandHash, CommandHasher, CommandHasherError, CommandName, CommandOptions, CommandOutput,
+        CommandHash, CommandHasher, CommandHasherError, CommandName, CommandOutput,
         CommandReplayOutput, IdempotencyBeginResult, IdempotencyOutput, IdempotencyService,
         IdempotencyServiceError,
     };
@@ -423,7 +421,6 @@ mod tests {
                 },
                 &request_context(),
                 TestCommand {},
-                CommandOptions::default(),
             )
             .await
             .expect("command should execute");
@@ -465,7 +462,6 @@ mod tests {
                 },
                 &request_context(),
                 TestCommand {},
-                CommandOptions::default(),
             )
             .await
             .expect("command should replay");
@@ -500,7 +496,6 @@ mod tests {
                 },
                 &request_context,
                 TestCommand {},
-                CommandOptions::default(),
             )
             .await;
 
@@ -534,7 +529,6 @@ mod tests {
                 },
                 &request_context,
                 TestCommand {},
-                CommandOptions::default(),
             )
             .await;
         let second_result = dispatcher
@@ -545,7 +539,6 @@ mod tests {
                 },
                 &request_context,
                 TestCommand {},
-                CommandOptions::default(),
             )
             .await;
 

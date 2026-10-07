@@ -1,5 +1,5 @@
 use super::{SagaContextError, SagaInstance, SagaInstanceId, SagaState, SagaStep};
-use crate::command::{Command, CommandOptions};
+use crate::command::Command;
 use crate::request_context::{CausationId, CorrelationId};
 
 /// Provides input-scoped operations on a persisted saga instance.
@@ -48,18 +48,5 @@ impl<'a, S: SagaState, T: SagaStep> SagaContext<'a, S, T> {
         Ok(self
             .instance
             .append_command(self.causation_id, self.step, command)?)
-    }
-
-    pub fn append_command_with_options<C: Command>(
-        &mut self,
-        command: &C,
-        options: CommandOptions,
-    ) -> Result<(), SagaContextError> {
-        Ok(self.instance.append_command_with_options(
-            self.causation_id,
-            self.step,
-            command,
-            options,
-        )?)
     }
 }

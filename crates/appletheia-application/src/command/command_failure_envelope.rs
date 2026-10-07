@@ -70,7 +70,7 @@ impl PublishableMessage for CommandFailureEnvelope {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::command::{CommandName, CommandOptions};
+    use crate::command::CommandName;
     use crate::saga::{SagaInstanceId, SagaName, SagaNameOwned, SerializedSagaStep};
 
     #[derive(Debug, PartialEq, Serialize, Deserialize)]
@@ -87,7 +87,6 @@ mod tests {
             &Close { account_id: 42 },
             CorrelationId::from(MessageId::new().value()),
             CausationId::from(MessageId::new()),
-            CommandOptions::default(),
         )
         .unwrap();
         CommandFailureEnvelope::new(

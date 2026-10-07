@@ -187,7 +187,7 @@ mod tests {
     use appletheia::application::aggregate::{AggregateIdValue, AggregateRef, AggregateTypeOwned};
     use appletheia::application::command::{
         Command, CommandAttemptCount, CommandEnvelope, CommandFailedAt, CommandFailureEnvelope,
-        CommandOptions, CommandTerminalReason,
+        CommandTerminalReason,
     };
     use appletheia::application::event::{
         EventEnvelope, EventNameOwned, EventSequence, SerializedEventPayload,
@@ -288,7 +288,6 @@ mod tests {
             command,
             instance.correlation_id,
             CausationId::from(MessageId::new()),
-            CommandOptions::default(),
         )
         .expect("command envelope should be valid")
         .with_saga_origin(origin.clone());

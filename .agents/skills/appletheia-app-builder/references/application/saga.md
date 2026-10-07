@@ -105,8 +105,7 @@ Second worker startup -> definition() -> perform the same business operation aga
 ### DO dispatch workflow commands through SagaContext
 
 `ctx.append_command(&command)` adds the route's step, saga origin, and current input's causation ID.
-Use `append_command_with_options` when command options are needed. The runner saves queued commands,
-saga state, and processed-input records in one transaction.
+The runner saves queued commands, saga state, and processed-input records in one transaction.
 
 Direct publication or direct aggregate mutation from a callback bypasses this dispatch bookkeeping
 and the command handler's authorization, execution tracking, and transaction boundary. Keep each

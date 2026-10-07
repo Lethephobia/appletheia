@@ -380,8 +380,7 @@ mod tests {
     use appletheia_application::aggregate::{AggregateIdValue, AggregateTypeOwned};
     use appletheia_application::command::{
         Command, CommandAttemptCount, CommandEnvelope, CommandFailedAt, CommandFailureEnvelope,
-        CommandFailureEnvelopeError, CommandFailureId, CommandName, CommandOptions,
-        CommandTerminalReason,
+        CommandFailureEnvelopeError, CommandFailureId, CommandName, CommandTerminalReason,
     };
     use appletheia_application::event::{
         EventEnvelope, EventEnvelopeError, EventNameOwned, EventSequence, SerializedEventPayload,
@@ -501,7 +500,6 @@ mod tests {
             &FollowUp {},
             instance.correlation_id,
             CausationId::from(instance.start_event_id),
-            CommandOptions::default(),
         )
         .unwrap()
         .with_saga_origin(SagaCommandOrigin {

@@ -33,7 +33,7 @@ mod tests {
         let source: CloudEventSource = "urn:banking".parse().unwrap();
         let command: CommandEnvelope = serde_json::from_value(json!({
             "command_name": "debit", "command": {"amount": 10}, "message_id": id,
-            "correlation_id": id, "causation_id": id, "saga_origin": origin, "options": {}
+            "correlation_id": id, "causation_id": id, "saga_origin": origin
         }))
         .unwrap();
         let failure: CommandFailureEnvelope = serde_json::from_value(json!({
