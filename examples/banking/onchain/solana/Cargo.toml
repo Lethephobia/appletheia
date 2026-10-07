@@ -7,6 +7,9 @@ resolver = "2"
 [workspace.package]
 license = "MIT"
 
+[workspace.metadata.solana]
+tools-version = "v1.57"
+
 [workspace.dependencies]
 anchor-lang = { version = "1.2.1", default-features = false, features = ["solana-v4"] }
 anchor-spl = { version = "1.2.1", default-features = false, features = ["solana-v4"] }
