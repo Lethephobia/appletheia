@@ -56,7 +56,7 @@ where
     ) -> Result<(), SagaCommandFailureWorkerError<SG::HandlerError>> {
         let definition = saga.definition()?;
         let consumer_group =
-            ConsumerGroup::new(format!("saga_command_failures_{}", definition.name()))?;
+            ConsumerGroup::new(format!("saga_command_failure_{}", definition.name()))?;
         let selectors = definition.command_failure_selectors();
         if selectors.is_empty() {
             return Ok(());
