@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.32.0](https://github.com/Lethephobia/appletheia/compare/appletheia-application-v0.31.1...appletheia-application-v0.32.0) - 2026-10-08
+
+### Added
+
+- *(application)* [**breaking**] build projector definitions from typed event routes
+
+### Other
+
+- *(application)* [**breaking**] build projector routes independently
+- *(application)* [**breaking**] build saga routes independently
+- *(application)* pass saga name and routes between builders
+- *(application)* [**breaking**] use singular saga consumer group prefixes
+- *(application)* [**breaking**] remove query consistency and dispatch options
+
 ## [0.31.1](https://github.com/Lethephobia/appletheia/compare/appletheia-application-v0.31.0...appletheia-application-v0.31.1) - 2026-10-07
 
 ### Other

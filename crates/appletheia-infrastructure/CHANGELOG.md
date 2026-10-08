@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.22.0](https://github.com/Lethephobia/appletheia/compare/appletheia-infrastructure-v0.21.1...appletheia-infrastructure-v0.22.0) - 2026-10-08
+
+### Other
+
+- *(application)* [**breaking**] build saga routes independently
+- *(application)* [**breaking**] remove query consistency and dispatch options
+
 ## [0.21.1](https://github.com/Lethephobia/appletheia/compare/appletheia-infrastructure-v0.21.0...appletheia-infrastructure-v0.21.1) - 2026-10-07
 
 ### Other
