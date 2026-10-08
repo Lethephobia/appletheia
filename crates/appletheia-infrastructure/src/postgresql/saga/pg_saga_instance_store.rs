@@ -380,8 +380,7 @@ mod tests {
     use appletheia_application::aggregate::{AggregateIdValue, AggregateTypeOwned};
     use appletheia_application::command::{
         Command, CommandAttemptCount, CommandEnvelope, CommandFailedAt, CommandFailureEnvelope,
-        CommandFailureEnvelopeError, CommandFailureId, CommandName, CommandOptions,
-        CommandTerminalReason,
+        CommandFailureEnvelopeError, CommandFailureId, CommandName, CommandTerminalReason,
     };
     use appletheia_application::event::{
         EventEnvelope, EventEnvelopeError, EventNameOwned, EventSequence, SerializedEventPayload,
@@ -501,7 +500,6 @@ mod tests {
             &FollowUp {},
             instance.correlation_id,
             CausationId::from(instance.start_event_id),
-            CommandOptions::default(),
         )
         .unwrap()
         .with_saga_origin(SagaCommandOrigin {
@@ -620,13 +618,15 @@ mod tests {
     async fn concurrent_start_delivery_dispatches_once(pool: PgPool) {
         let definition =
             SagaDefinitionBuilder::<State, Step, Error>::new(SagaName::new("counter_saga"))
-                .add_start_step(Step::First)
-                .on::<Counter>(EventName::new("opened"))
-                .handle(|ctx, _| {
-                    ctx.set_state(State::default());
-                    ctx.append_command(&FollowUp {})?;
-                    Ok(())
-                })
+                .add_route(
+                    SagaRouteBuilder::new(Step::First)
+                        .on::<Counter>(EventName::new("opened"))
+                        .handle(|ctx, _| {
+                            ctx.set_state(State::default());
+                            ctx.append_command(&FollowUp {})?;
+                            Ok(())
+                        }),
+                )
                 .build()
                 .unwrap();
         let run = runner(&pool);
@@ -668,13 +668,15 @@ mod tests {
     async fn distinct_starts_with_shared_correlation_can_run_concurrently(pool: PgPool) {
         let definition =
             SagaDefinitionBuilder::<State, Step, Error>::new(SagaName::new("counter_saga"))
-                .add_start_step(Step::First)
-                .on::<Counter>(EventName::new("opened"))
-                .handle(|ctx, _| {
-                    ctx.set_state(State::default());
-                    ctx.append_command(&FollowUp {})?;
-                    Ok(())
-                })
+                .add_route(
+                    SagaRouteBuilder::new(Step::First)
+                        .on::<Counter>(EventName::new("opened"))
+                        .handle(|ctx, _| {
+                            ctx.set_state(State::default());
+                            ctx.append_command(&FollowUp {})?;
+                            Ok(())
+                        }),
+                )
                 .build()
                 .unwrap();
         let run = runner(&pool);
@@ -703,13 +705,15 @@ mod tests {
     async fn unmatched_failure_is_recorded_without_changing_state_or_dispatching(pool: PgPool) {
         let definition =
             SagaDefinitionBuilder::<State, Step, Error>::new(SagaName::new("counter_saga"))
-                .add_start_step(Step::First)
-                .on::<Counter>(EventName::new("opened"))
-                .handle(|ctx, _| {
-                    ctx.set_state(State::default());
-                    ctx.append_command(&FollowUp {})?;
-                    Ok(())
-                })
+                .add_route(
+                    SagaRouteBuilder::new(Step::First)
+                        .on::<Counter>(EventName::new("opened"))
+                        .handle(|ctx, _| {
+                            ctx.set_state(State::default());
+                            ctx.append_command(&FollowUp {})?;
+                            Ok(())
+                        }),
+                )
                 .build()
                 .unwrap();
         let run = runner(&pool);
@@ -793,7 +797,8 @@ mod tests {
                     Ok(())
                 }),
                 Route::on_command_failed::<FollowUp, _>(Step::First, Step::Second, |ctx, _| {
-                    ctx.state_required_mut()?.calls += 1;
+                    let state: &mut State = ctx.state_required_mut()?;
+                    state.calls += 1;
                     ctx.append_command(&FollowUp {})?;
                     Ok(())
                 }),
@@ -857,20 +862,26 @@ mod tests {
     async fn continuation_requires_owned_command_and_late_inputs_remain_processable(pool: PgPool) {
         let definition =
             SagaDefinitionBuilder::<State, Step, Error>::new(SagaName::new("counter_saga"))
-                .add_start_step(Step::First)
-                .on::<Counter>(EventName::new("opened"))
-                .handle(|ctx, _| {
-                    ctx.set_state(State::default());
-                    ctx.append_command(&FollowUp {})?;
-                    Ok(())
-                })
-                .add_step(Step::Second)
-                .on::<Counter>(Step::First, EventName::new("opened"))
-                .handle(|ctx, _| {
-                    ctx.state_required_mut()?.calls += 1;
-                    ctx.append_command(&FollowUp {})?;
-                    Ok(())
-                })
+                .add_route(
+                    SagaRouteBuilder::new(Step::First)
+                        .on::<Counter>(EventName::new("opened"))
+                        .handle(|ctx, _| {
+                            ctx.set_state(State::default());
+                            ctx.append_command(&FollowUp {})?;
+                            Ok(())
+                        }),
+                )
+                .add_route(
+                    SagaRouteBuilder::new(Step::Second)
+                        .on::<Counter>(EventName::new("opened"))
+                        .caused_by(Step::First)
+                        .handle(|ctx, _| {
+                            let state: &mut State = ctx.state_required_mut()?;
+                            state.calls += 1;
+                            ctx.append_command(&FollowUp {})?;
+                            Ok(())
+                        }),
+                )
                 .build()
                 .unwrap();
         let run = runner(&pool);
@@ -946,7 +957,8 @@ mod tests {
                 Step::First,
                 Step::Second,
                 |ctx, _| {
-                    ctx.state_required_mut()?.calls += 1;
+                    let state: &mut State = ctx.state_required_mut()?;
+                    state.calls += 1;
                     ctx.append_command(&FollowUp {})?;
                     Err(Error::Injected)
                 },
@@ -967,7 +979,8 @@ mod tests {
                 Step::First,
                 Step::Second,
                 |ctx, _| {
-                    ctx.state_required_mut()?.calls += 1;
+                    let state: &mut State = ctx.state_required_mut()?;
+                    state.calls += 1;
                     ctx.append_command(&FollowUp {})?;
                     Ok(())
                 },

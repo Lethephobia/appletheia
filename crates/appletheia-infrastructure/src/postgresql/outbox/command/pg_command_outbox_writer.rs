@@ -28,11 +28,6 @@ impl PgCommandOutboxWriter {
         }
     }
 
-    fn serialize_options(outbox: &CommandOutbox) -> Result<serde_json::Value, OutboxWriterError> {
-        serde_json::to_value(&outbox.command.options)
-            .map_err(|source| OutboxWriterError::Persistence(Box::new(source)))
-    }
-
     async fn upsert_outbox_rows(
         uow: &mut PgUnitOfWork,
         outboxes: &[&CommandOutbox],
@@ -54,7 +49,6 @@ impl PgCommandOutboxWriter {
                 saga_name,
                 saga_instance_id,
                 saga_step,
-                options,
                 published_at,
                 attempt_count,
                 next_attempt_after,
@@ -70,7 +64,6 @@ impl PgCommandOutboxWriter {
             for outbox in outboxes {
                 let command = &outbox.command;
                 let last_error_value = Self::serialize_last_error(outbox)?;
-                let options_value = Self::serialize_options(outbox)?;
                 let (saga_name_value, saga_instance_id_value, saga_step_value) =
                     match &command.saga_origin {
                         Some(origin) => (
@@ -98,7 +91,6 @@ impl PgCommandOutboxWriter {
                     .push_bind(saga_name_value)
                     .push_bind(saga_instance_id_value)
                     .push_bind(saga_step_value)
-                    .push_bind(options_value)
                     .push_bind(outbox.state.published_at().map(DateTime::<Utc>::from))
                     .push_bind(outbox.state.attempt_count().value())
                     .push_bind(next_attempt_after_value)
@@ -149,7 +141,6 @@ impl PgCommandOutboxWriter {
                 saga_name,
                 saga_instance_id,
                 saga_step,
-                options,
                 published_at,
                 attempt_count,
                 next_attempt_after,
@@ -166,7 +157,6 @@ impl PgCommandOutboxWriter {
             for outbox in dead_lettered_outboxes {
                 let command = &outbox.command;
                 let last_error_value = Self::serialize_last_error(outbox)?;
-                let options_value = Self::serialize_options(outbox)?;
                 let (saga_name_value, saga_instance_id_value, saga_step_value) =
                     match &command.saga_origin {
                         Some(origin) => (
@@ -195,7 +185,6 @@ impl PgCommandOutboxWriter {
                     .push_bind(saga_name_value)
                     .push_bind(saga_instance_id_value)
                     .push_bind(saga_step_value)
-                    .push_bind(options_value)
                     .push_bind(outbox.state.published_at().map(DateTime::<Utc>::from))
                     .push_bind(outbox.state.attempt_count().value())
                     .push_bind(outbox.state.next_attempt_after().map(DateTime::<Utc>::from))

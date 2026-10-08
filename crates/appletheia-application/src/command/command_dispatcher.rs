@@ -1,6 +1,5 @@
 use crate::command::{
-    Command, CommandDispatchResult, CommandDispatcherError, CommandHandler, CommandOptions,
-    CommandOutput,
+    Command, CommandDispatchResult, CommandDispatcherError, CommandHandler, CommandOutput,
 };
 use crate::request_context::RequestContext;
 use crate::unit_of_work::UnitOfWork;
@@ -14,7 +13,6 @@ pub trait CommandDispatcher: Send + Sync {
         handler: &H,
         request_context: &RequestContext,
         command: H::Command,
-        options: CommandOptions,
     ) -> Result<
         CommandDispatchResult<H::Output, <H::Output as CommandOutput>::ReplayOutput>,
         CommandDispatcherError<H::Error>,

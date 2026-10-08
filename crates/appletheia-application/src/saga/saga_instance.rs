@@ -1,6 +1,6 @@
 use appletheia_domain::EventId;
 
-use crate::command::{Command, CommandEnvelope, CommandOptions};
+use crate::command::{Command, CommandEnvelope};
 use crate::request_context::{CausationId, CorrelationId};
 
 use super::{
@@ -61,23 +61,12 @@ impl<S: SagaState, T: SagaStep> SagaInstance<S, T> {
         step: T,
         command: &C,
     ) -> Result<(), SagaInstanceError> {
-        self.append_command_with_options(causation_id, step, command, CommandOptions::default())
-    }
-
-    /// Appends a command with explicit saga step and command options.
-    pub fn append_command_with_options<C: Command>(
-        &mut self,
-        causation_id: CausationId,
-        step: T,
-        command: &C,
-        options: CommandOptions,
-    ) -> Result<(), SagaInstanceError> {
         let origin = SagaCommandOrigin {
             saga_name: self.saga_name.clone(),
             saga_instance_id: self.saga_instance_id,
             step: SerializedSagaStep::new(step)?,
         };
-        let envelope = CommandEnvelope::new(command, self.correlation_id, causation_id, options)?
+        let envelope = CommandEnvelope::new(command, self.correlation_id, causation_id)?
             .with_saga_origin(origin);
         self.uncommitted_commands.push(envelope);
 

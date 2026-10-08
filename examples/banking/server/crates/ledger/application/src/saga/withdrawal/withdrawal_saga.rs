@@ -1,6 +1,6 @@
 use appletheia::application::saga::SagaError;
 use appletheia::application::saga::{
-    Saga, SagaContext, SagaDefinition, SagaDefinitionBuilder, SagaName,
+    Saga, SagaContext, SagaDefinition, SagaDefinitionBuilder, SagaName, SagaRouteBuilder,
 };
 use banking_ledger_domain::account::{Account, AccountEventPayload};
 use banking_ledger_domain::withdrawal::{
@@ -28,106 +28,125 @@ impl Saga for WithdrawalSaga {
         SagaDefinitionBuilder::<Self::State, Self::Step, Self::HandlerError>::new(SagaName::new(
             "withdrawal",
         ))
-        .add_start_step(WithdrawalSagaStep::ReserveFunds)
-        .on::<Withdrawal>(WithdrawalEventPayload::REQUESTED)
-        .handle(|ctx, withdrawal_event| {
-            if let WithdrawalEventPayload::Requested {
-                account_id, amount, ..
-            } = withdrawal_event.payload()
-            {
-                ctx.set_state(WithdrawalSagaState::new(
-                    withdrawal_event.aggregate_id(),
-                    *account_id,
-                    *amount,
-                ));
-                ctx.append_command(&AccountFundsReserveCommand {
-                    account_id: *account_id,
-                    amount: *amount,
-                })?;
-            }
-            Ok(())
-        })
-        .add_step(WithdrawalSagaStep::CommitFunds)
-        .on::<Withdrawal>(
-            WithdrawalSagaStep::ExecuteSettlement,
-            WithdrawalEventPayload::SETTLEMENT_EXECUTED,
+        .add_route(
+            SagaRouteBuilder::new(WithdrawalSagaStep::ReserveFunds)
+                .on::<Withdrawal>(WithdrawalEventPayload::REQUESTED)
+                .handle(|ctx, withdrawal_event| {
+                    if let WithdrawalEventPayload::Requested {
+                        account_id, amount, ..
+                    } = withdrawal_event.payload()
+                    {
+                        ctx.set_state(WithdrawalSagaState::new(
+                            withdrawal_event.aggregate_id(),
+                            *account_id,
+                            *amount,
+                        ));
+                        ctx.append_command(&AccountFundsReserveCommand {
+                            account_id: *account_id,
+                            amount: *amount,
+                        })?;
+                    }
+                    Ok(())
+                }),
         )
-        .handle(|ctx, _withdrawal_event| {
-            let state = ctx.state_required_mut()?;
-            let account_id = state.account_id;
-            let amount = state.amount;
-            ctx.append_command(&AccountReservedFundsCommitCommand { account_id, amount })?;
-            Ok(())
-        })
-        .add_step(WithdrawalSagaStep::ExecuteSettlement)
-        .on::<Account>(
-            WithdrawalSagaStep::ReserveFunds,
-            AccountEventPayload::FUNDS_RESERVED,
+        .add_route(
+            SagaRouteBuilder::new(WithdrawalSagaStep::CommitFunds)
+                .on::<Withdrawal>(WithdrawalEventPayload::SETTLEMENT_EXECUTED)
+                .caused_by(WithdrawalSagaStep::ExecuteSettlement)
+                .handle(|ctx, _withdrawal_event| {
+                    let state: &mut WithdrawalSagaState = ctx.state_required_mut()?;
+                    let account_id = state.account_id;
+                    let amount = state.amount;
+                    ctx.append_command(&AccountReservedFundsCommitCommand { account_id, amount })?;
+                    Ok(())
+                }),
         )
-        .handle(|ctx, _account_event| {
-            let state = ctx.state_required_mut()?;
-            let withdrawal_id = state.withdrawal_id;
-            ctx.append_command(&WithdrawalSettlementExecuteCommand { withdrawal_id })?;
-            Ok(())
-        })
-        .add_step(WithdrawalSagaStep::Fail)
-        .on::<Account>(
-            WithdrawalSagaStep::ReleaseFunds,
-            AccountEventPayload::RESERVED_FUNDS_RELEASED,
+        .add_route(
+            SagaRouteBuilder::new(WithdrawalSagaStep::ExecuteSettlement)
+                .on::<Account>(AccountEventPayload::FUNDS_RESERVED)
+                .caused_by(WithdrawalSagaStep::ReserveFunds)
+                .handle(|ctx, _account_event| {
+                    let state: &mut WithdrawalSagaState = ctx.state_required_mut()?;
+                    let withdrawal_id = state.withdrawal_id;
+                    ctx.append_command(&WithdrawalSettlementExecuteCommand { withdrawal_id })?;
+                    Ok(())
+                }),
         )
-        .handle(|ctx, _account_event| {
-            let state = ctx.state_required_mut()?;
-            let withdrawal_id = state.withdrawal_id;
-            ctx.append_command(&WithdrawalFailCommand {
-                withdrawal_id,
-                reason: WithdrawalFailureReason::SettlementExecuteRejected,
-            })?;
-            Ok(())
-        })
-        .add_step(WithdrawalSagaStep::Succeed)
-        .on::<Account>(
-            WithdrawalSagaStep::CommitFunds,
-            AccountEventPayload::RESERVED_FUNDS_COMMITTED,
+        .add_route(
+            SagaRouteBuilder::new(WithdrawalSagaStep::Fail)
+                .on::<Account>(AccountEventPayload::RESERVED_FUNDS_RELEASED)
+                .caused_by(WithdrawalSagaStep::ReleaseFunds)
+                .handle(|ctx, _account_event| {
+                    let state: &mut WithdrawalSagaState = ctx.state_required_mut()?;
+                    let withdrawal_id = state.withdrawal_id;
+                    ctx.append_command(&WithdrawalFailCommand {
+                        withdrawal_id,
+                        reason: WithdrawalFailureReason::SettlementExecuteRejected,
+                    })?;
+                    Ok(())
+                }),
         )
-        .handle(|ctx, _account_event| {
-            let state = ctx.state_required_mut()?;
-            let withdrawal_id = state.withdrawal_id;
-            ctx.append_command(&WithdrawalSucceedCommand { withdrawal_id })?;
-            Ok(())
-        })
-        .add_failure_step(WithdrawalSagaStep::Fail)
-        .on::<AccountFundsReserveCommand>(WithdrawalSagaStep::ReserveFunds)
-        .handle(|ctx, _command| {
-            self.append_fail_after_failure(ctx, WithdrawalFailureReason::FundsReserveRejected)?;
-            Ok(())
-        })
-        .add_failure_step(WithdrawalSagaStep::ReleaseFunds)
-        .on::<WithdrawalSettlementExecuteCommand>(WithdrawalSagaStep::ExecuteSettlement)
-        .handle(|ctx, _command| {
-            let state = ctx.state_required_mut()?;
-            let account_id = state.account_id;
-            let amount = state.amount;
-            ctx.append_command(&AccountReservedFundsReleaseCommand { account_id, amount })?;
-            Ok(())
-        })
-        .add_failure_step(WithdrawalSagaStep::Fail)
-        .on::<AccountReservedFundsReleaseCommand>(WithdrawalSagaStep::ReleaseFunds)
-        .handle(|ctx, _command| {
-            self.append_fail_after_failure(
-                ctx,
-                WithdrawalFailureReason::ReservedFundsReleaseRejected,
-            )?;
-            Ok(())
-        })
-        .add_failure_step(WithdrawalSagaStep::Fail)
-        .on::<AccountReservedFundsCommitCommand>(WithdrawalSagaStep::CommitFunds)
-        .handle(|ctx, _command| {
-            self.append_fail_after_failure(
-                ctx,
-                WithdrawalFailureReason::ReservedFundsCommitRejected,
-            )?;
-            Ok(())
-        })
+        .add_route(
+            SagaRouteBuilder::new(WithdrawalSagaStep::Succeed)
+                .on::<Account>(AccountEventPayload::RESERVED_FUNDS_COMMITTED)
+                .caused_by(WithdrawalSagaStep::CommitFunds)
+                .handle(|ctx, _account_event| {
+                    let state: &mut WithdrawalSagaState = ctx.state_required_mut()?;
+                    let withdrawal_id = state.withdrawal_id;
+                    ctx.append_command(&WithdrawalSucceedCommand { withdrawal_id })?;
+                    Ok(())
+                }),
+        )
+        .add_route(
+            SagaRouteBuilder::new(WithdrawalSagaStep::Fail)
+                .on_command_failed::<AccountFundsReserveCommand>(WithdrawalSagaStep::ReserveFunds)
+                .handle(|ctx, _command| {
+                    self.append_fail_after_failure(
+                        ctx,
+                        WithdrawalFailureReason::FundsReserveRejected,
+                    )?;
+                    Ok(())
+                }),
+        )
+        .add_route(
+            SagaRouteBuilder::new(WithdrawalSagaStep::ReleaseFunds)
+                .on_command_failed::<WithdrawalSettlementExecuteCommand>(
+                    WithdrawalSagaStep::ExecuteSettlement,
+                )
+                .handle(|ctx, _command| {
+                    let state: &mut WithdrawalSagaState = ctx.state_required_mut()?;
+                    let account_id = state.account_id;
+                    let amount = state.amount;
+                    ctx.append_command(&AccountReservedFundsReleaseCommand { account_id, amount })?;
+                    Ok(())
+                }),
+        )
+        .add_route(
+            SagaRouteBuilder::new(WithdrawalSagaStep::Fail)
+                .on_command_failed::<AccountReservedFundsReleaseCommand>(
+                    WithdrawalSagaStep::ReleaseFunds,
+                )
+                .handle(|ctx, _command| {
+                    self.append_fail_after_failure(
+                        ctx,
+                        WithdrawalFailureReason::ReservedFundsReleaseRejected,
+                    )?;
+                    Ok(())
+                }),
+        )
+        .add_route(
+            SagaRouteBuilder::new(WithdrawalSagaStep::Fail)
+                .on_command_failed::<AccountReservedFundsCommitCommand>(
+                    WithdrawalSagaStep::CommitFunds,
+                )
+                .handle(|ctx, _command| {
+                    self.append_fail_after_failure(
+                        ctx,
+                        WithdrawalFailureReason::ReservedFundsCommitRejected,
+                    )?;
+                    Ok(())
+                }),
+        )
         .build()
         .map_err(SagaError::from)
     }
@@ -139,7 +158,7 @@ impl WithdrawalSaga {
         ctx: &mut SagaContext<'_, WithdrawalSagaState, WithdrawalSagaStep>,
         reason: WithdrawalFailureReason,
     ) -> Result<(), WithdrawalSagaHandlerError> {
-        let state = ctx.state_required_mut()?;
+        let state: &mut WithdrawalSagaState = ctx.state_required_mut()?;
         let withdrawal_id = state.withdrawal_id;
         ctx.append_command(&WithdrawalFailCommand {
             withdrawal_id,

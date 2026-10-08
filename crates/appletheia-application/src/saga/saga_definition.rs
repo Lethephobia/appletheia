@@ -301,7 +301,7 @@ mod tests {
     use crate::aggregate::{AggregateIdValue, AggregateTypeOwned};
     use crate::command::{
         Command, CommandAttemptCount, CommandFailedAt, CommandFailureEnvelope, CommandName,
-        CommandOptions, CommandTerminalReason,
+        CommandTerminalReason,
     };
     use crate::event::{
         EventEnvelope, EventNameOwned, EventSelector, EventSequence, SerializedEventPayload,
@@ -392,18 +392,22 @@ mod tests {
         let calls = AtomicUsize::new(0);
         let definition =
             SagaDefinitionBuilder::<State, Step, Error>::new(SagaName::new("counter_saga"))
-                .add_start_step(Step::First)
-                .on::<Counter>(OPENED)
-                .handle(|_, _| {
-                    calls.fetch_add(1, Ordering::SeqCst);
-                    Ok(())
-                })
-                .add_failure_step(Step::Second)
-                .on::<FollowUp>(Step::First)
-                .handle(|_, _| {
-                    calls.fetch_add(1, Ordering::SeqCst);
-                    Ok(())
-                })
+                .add_route(
+                    SagaRouteBuilder::new(Step::First)
+                        .on::<Counter>(OPENED)
+                        .handle(|_, _| {
+                            calls.fetch_add(1, Ordering::SeqCst);
+                            Ok(())
+                        }),
+                )
+                .add_route(
+                    SagaRouteBuilder::new(Step::Second)
+                        .on_command_failed::<FollowUp>(Step::First)
+                        .handle(|_, _| {
+                            calls.fetch_add(1, Ordering::SeqCst);
+                            Ok(())
+                        }),
+                )
                 .build()
                 .unwrap();
         assert!(matches!(
@@ -526,7 +530,7 @@ mod tests {
                         count: 2,
                         closed: false,
                     });
-                    ctx.append_command_with_options(&FollowUp {}, CommandOptions::default())?;
+                    ctx.append_command(&FollowUp {})?;
                     Ok(())
                 }),
             ],
@@ -569,14 +573,17 @@ mod tests {
         let calls = AtomicUsize::new(0);
         let definition =
             SagaDefinitionBuilder::<State, Step, Error>::new(SagaName::new("counter_saga"))
-                .add_step(Step::Second)
-                .on::<Counter>(Step::First, OPENED)
-                .handle(|ctx, input| {
-                    assert_eq!(input.payload().name(), OPENED);
-                    calls.fetch_add(1, Ordering::SeqCst);
-                    ctx.append_command(&FollowUp {})?;
-                    Ok(())
-                })
+                .add_route(
+                    SagaRouteBuilder::new(Step::Second)
+                        .on::<Counter>(OPENED)
+                        .caused_by(Step::First)
+                        .handle(|ctx, input| {
+                            assert_eq!(input.payload().name(), OPENED);
+                            calls.fetch_add(1, Ordering::SeqCst);
+                            ctx.append_command(&FollowUp {})?;
+                            Ok(())
+                        }),
+                )
                 .build()
                 .unwrap();
         let input = event();
@@ -617,20 +624,24 @@ mod tests {
     fn context_keeps_fan_out_commands_and_assigns_input_causation() {
         let definition =
             SagaDefinitionBuilder::<State, Step, Error>::new(SagaName::new("counter_saga"))
-                .add_start_step(Step::First)
-                .on::<Counter>(OPENED)
-                .handle(|ctx, _| {
-                    ctx.set_state(State::default());
-                    ctx.append_command(&FollowUp {})?;
-                    ctx.append_command(&FollowUp {})?;
-                    Ok(())
-                })
-                .add_failure_step(Step::Second)
-                .on::<FollowUp>(Step::First)
-                .handle(|ctx, _| {
-                    ctx.append_command(&FollowUp {})?;
-                    Ok(())
-                })
+                .add_route(
+                    SagaRouteBuilder::new(Step::First)
+                        .on::<Counter>(OPENED)
+                        .handle(|ctx, _| {
+                            ctx.set_state(State::default());
+                            ctx.append_command(&FollowUp {})?;
+                            ctx.append_command(&FollowUp {})?;
+                            Ok(())
+                        }),
+                )
+                .add_route(
+                    SagaRouteBuilder::new(Step::Second)
+                        .on_command_failed::<FollowUp>(Step::First)
+                        .handle(|ctx, _| {
+                            ctx.append_command(&FollowUp {})?;
+                            Ok(())
+                        }),
+                )
                 .build()
                 .unwrap();
         let input = event();
@@ -726,18 +737,24 @@ mod tests {
         let received = AtomicUsize::new(0);
         let definition =
             SagaDefinitionBuilder::<State, Step, Error>::new(SagaName::new("typed_failure"))
-                .add_failure_step(Step::Second)
-                .on::<FollowUp>(Step::First)
-                .handle(|_, _| Err(Error::Refused))
-                .add_failure_step(Step::Second)
-                .on::<Close>(Step::First)
-                .handle(|_, command| {
-                    received.store(command.id as usize, Ordering::SeqCst);
-                    Ok(())
-                })
-                .add_failure_step(Step::First)
-                .on::<FollowUp>(Step::Second)
-                .handle(|_, _| Ok(()))
+                .add_route(
+                    SagaRouteBuilder::new(Step::Second)
+                        .on_command_failed::<FollowUp>(Step::First)
+                        .handle(|_, _| Err(Error::Refused)),
+                )
+                .add_route(
+                    SagaRouteBuilder::new(Step::Second)
+                        .on_command_failed::<Close>(Step::First)
+                        .handle(|_, command| {
+                            received.store(command.id as usize, Ordering::SeqCst);
+                            Ok(())
+                        }),
+                )
+                .add_route(
+                    SagaRouteBuilder::new(Step::First)
+                        .on_command_failed::<FollowUp>(Step::Second)
+                        .handle(|_, _| Ok(())),
+                )
                 .build()
                 .unwrap();
         assert_eq!(
@@ -863,20 +880,22 @@ mod tests {
         fn definition(&self) -> Result<SagaDefinition<'_, State, Step, Error>, SagaError> {
             self.builds.fetch_add(1, Ordering::SeqCst);
             SagaDefinitionBuilder::<State, Step, Error>::new(SagaName::new("counter_saga"))
-                .add_start_step(Step::First)
-                .on::<Counter>(OPENED)
-                .handle(|ctx, _| {
-                    self.policy.calls.fetch_add(1, Ordering::SeqCst);
-                    if ctx.state().is_some_and(|state| state.closed) {
-                        return Ok(());
-                    }
-                    ctx.set_state(State {
-                        count: 1,
-                        closed: true,
-                    });
-                    ctx.append_command(&FollowUp {})?;
-                    Ok(())
-                })
+                .add_route(
+                    SagaRouteBuilder::new(Step::First)
+                        .on::<Counter>(OPENED)
+                        .handle(|ctx, _| {
+                            self.policy.calls.fetch_add(1, Ordering::SeqCst);
+                            if ctx.state().is_some_and(|state: &State| state.closed) {
+                                return Ok(());
+                            }
+                            ctx.set_state(State {
+                                count: 1,
+                                closed: true,
+                            });
+                            ctx.append_command(&FollowUp {})?;
+                            Ok(())
+                        }),
+                )
                 .build()
                 .map_err(SagaError::from)
         }
@@ -958,12 +977,16 @@ mod tests {
     fn builder_preserves_definition_validation_error() {
         let result =
             SagaDefinitionBuilder::<State, Step, Error>::new(SagaName::new("counter_saga"))
-                .add_start_step(Step::First)
-                .on::<Counter>(OPENED)
-                .handle(|_, _| Ok(()))
-                .add_start_step(Step::Second)
-                .on::<Counter>(OPENED)
-                .handle(|_, _| Ok(()))
+                .add_route(
+                    SagaRouteBuilder::new(Step::First)
+                        .on::<Counter>(OPENED)
+                        .handle(|_, _| Ok(())),
+                )
+                .add_route(
+                    SagaRouteBuilder::new(Step::Second)
+                        .on::<Counter>(OPENED)
+                        .handle(|_, _| Ok(())),
+                )
                 .build();
         assert!(matches!(
             result,
@@ -977,12 +1000,14 @@ mod tests {
     fn context_errors_keep_their_source_through_route() {
         let definition =
             SagaDefinitionBuilder::<State, Step, Error>::new(SagaName::new("counter_saga"))
-                .add_start_step(Step::First)
-                .on::<Counter>(OPENED)
-                .handle(|ctx, _| {
-                    ctx.state_required()?;
-                    Ok(())
-                })
+                .add_route(
+                    SagaRouteBuilder::new(Step::First)
+                        .on::<Counter>(OPENED)
+                        .handle(|ctx, _| {
+                            ctx.state_required()?;
+                            Ok(())
+                        }),
+                )
                 .build()
                 .unwrap();
         let input = event();

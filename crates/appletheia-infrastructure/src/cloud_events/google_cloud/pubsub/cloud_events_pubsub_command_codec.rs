@@ -88,7 +88,6 @@ impl PubsubMessageCodec for CloudEventsPubsubCommandCodec {
                 ),
                 ("ce-correlationid", envelope.correlation_id.to_string()),
                 ("ce-causationid", envelope.causation_id.to_string()),
-                ("ce-options", serde_json::to_string(&envelope.options)?),
             ]
             .into_iter()
             .map(|(name, value)| (name.to_owned(), value))
@@ -182,15 +181,6 @@ impl PubsubMessageCodec for CloudEventsPubsubCommandCodec {
                     message.attributes.get("ce-id").map(String::as_str).ok_or(
                         CloudEventsPubsubCommandCodecError::MissingAttribute("ce-id"),
                     )?,
-                )?,
-                options: serde_json::from_str(
-                    message
-                        .attributes
-                        .get("ce-options")
-                        .map(String::as_str)
-                        .ok_or(CloudEventsPubsubCommandCodecError::MissingAttribute(
-                            "ce-options",
-                        ))?,
                 )?,
                 saga_origin,
                 correlation_id: CorrelationId::from(

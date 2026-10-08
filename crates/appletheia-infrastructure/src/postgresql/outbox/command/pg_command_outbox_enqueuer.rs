@@ -44,8 +44,7 @@ impl CommandOutboxEnqueuer for PgCommandOutboxEnqueuer {
               causation_id,
               saga_name,
               saga_instance_id,
-              saga_step,
-              options
+              saga_step
             ) VALUES
             "#,
         );
@@ -68,8 +67,6 @@ impl CommandOutboxEnqueuer for PgCommandOutboxEnqueuer {
                         ),
                         None => (None, None, None),
                     };
-                let options_value = serde_json::to_value(&command.options)
-                    .map_err(|source| CommandOutboxEnqueueError::Persistence(Box::new(source)))?;
 
                 separated
                     .push("(")
@@ -82,7 +79,6 @@ impl CommandOutboxEnqueuer for PgCommandOutboxEnqueuer {
                     .push_bind(saga_name_value)
                     .push_bind(saga_instance_id_value)
                     .push_bind(saga_step_value)
-                    .push_bind(options_value)
                     .push_unseparated(")");
             }
         }

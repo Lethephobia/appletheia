@@ -1,5 +1,7 @@
 use appletheia::application::saga::SagaError;
-use appletheia::application::saga::{Saga, SagaDefinition, SagaDefinitionBuilder, SagaName};
+use appletheia::application::saga::{
+    Saga, SagaDefinition, SagaDefinitionBuilder, SagaName, SagaRouteBuilder,
+};
 use banking_iam_domain::{Organization, OrganizationEventPayload};
 
 use crate::command::OrganizationPictureObjectDeleteCommand;
@@ -25,34 +27,39 @@ impl Saga for OrganizationOldPictureObjectDeletionSaga {
                 SagaName::new("organization_old_picture_object_deletion"),
             );
         definition_builder
-            .add_start_step(OrganizationOldPictureObjectDeletionSagaStep::DeletePictureObject)
-            .on::<Organization>(OrganizationEventPayload::PICTURE_SET)
-            .handle(|ctx, domain_event| {
-                let OrganizationEventPayload::PictureSet { old_picture, .. } =
-                    domain_event.payload()
-                else {
-                    return Err(
-                        OrganizationOldPictureObjectDeletionSagaHandlerError::UnexpectedEvent,
+            .add_route(
+                SagaRouteBuilder::new(
+                    OrganizationOldPictureObjectDeletionSagaStep::DeletePictureObject,
+                )
+                .on::<Organization>(OrganizationEventPayload::PICTURE_SET)
+                .handle(|ctx, domain_event| {
+                    let OrganizationEventPayload::PictureSet { old_picture, .. } =
+                        domain_event.payload()
+                    else {
+                        return Err(
+                            OrganizationOldPictureObjectDeletionSagaHandlerError::UnexpectedEvent,
+                        );
+                    };
+
+                    let state = OrganizationOldPictureObjectDeletionSagaState::new(
+                        domain_event.aggregate_id(),
                     );
-                };
+                    ctx.set_state(state);
+                    let Some(object_name) = old_picture
+                        .as_ref()
+                        .and_then(|picture| picture.as_object_name())
+                        .cloned()
+                    else {
+                        return Ok(());
+                    };
 
-                let state =
-                    OrganizationOldPictureObjectDeletionSagaState::new(domain_event.aggregate_id());
-                ctx.set_state(state);
-                let Some(object_name) = old_picture
-                    .as_ref()
-                    .and_then(|picture| picture.as_object_name())
-                    .cloned()
-                else {
-                    return Ok(());
-                };
-
-                ctx.append_command(&OrganizationPictureObjectDeleteCommand { object_name })
-                    .map_err(|_| {
-                        OrganizationOldPictureObjectDeletionSagaHandlerError::UnexpectedEvent
-                    })?;
-                Ok(())
-            })
+                    ctx.append_command(&OrganizationPictureObjectDeleteCommand { object_name })
+                        .map_err(|_| {
+                            OrganizationOldPictureObjectDeletionSagaHandlerError::UnexpectedEvent
+                        })?;
+                    Ok(())
+                }),
+            )
             .build()
             .map_err(SagaError::from)
     }

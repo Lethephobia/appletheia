@@ -4,9 +4,7 @@ use chrono::{DateTime, Utc};
 use sqlx::FromRow;
 use uuid::Uuid;
 
-use appletheia_application::command::{
-    CommandEnvelope, CommandNameOwned, CommandOptions, SerializedCommand,
-};
+use appletheia_application::command::{CommandEnvelope, CommandNameOwned, SerializedCommand};
 use appletheia_application::messaging::PublishDispatchError;
 use appletheia_application::outbox::{
     OutboxAttemptCount, OutboxLeaseExpiresAt, OutboxLifecycle, OutboxNextAttemptAt,
@@ -32,7 +30,6 @@ pub struct PgCommandOutboxRow {
     pub saga_name: Option<String>,
     pub saga_instance_id: Option<Uuid>,
     pub saga_step: Option<serde_json::Value>,
-    pub options: serde_json::Value,
     pub published_at: Option<DateTime<Utc>>,
     pub attempt_count: i64,
     pub next_attempt_after: DateTime<Utc>,
@@ -64,7 +61,6 @@ impl PgCommandOutboxRow {
             (None, None, None) => None,
             _ => return Err(PgCommandOutboxRowError::InconsistentSagaOrigin),
         };
-        let options = serde_json::from_value::<CommandOptions>(self.options)?;
 
         let command = CommandEnvelope {
             command_name,
@@ -73,7 +69,6 @@ impl PgCommandOutboxRow {
             message_id,
             causation_id,
             saga_origin,
-            options,
         };
 
         let attempt_count = OutboxAttemptCount::try_from(self.attempt_count)?;

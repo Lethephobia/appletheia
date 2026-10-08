@@ -2,4 +2,5 @@
 pub enum ProjectorRunReport {
     Applied,
     SkippedAlreadyProcessed,
+    SkippedNotSubscribed,
 }

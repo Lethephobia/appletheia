@@ -1,11 +1,11 @@
 use std::sync::atomic::{AtomicBool, Ordering as AtomicOrdering};
 
 use crate::{
-    Consumer, ConsumerGroup, Delivery, Subscriber,
+    Consumer, ConsumerGroup, Delivery, Subscriber, Subscription,
     event::{EventEnvelope, EventSelector},
 };
 
-use super::{Projector, ProjectorRunner, ProjectorSpec, ProjectorWorker, ProjectorWorkerError};
+use super::{Projector, ProjectorRunner, ProjectorWorker, ProjectorWorkerError};
 
 /// Consumes events for projectors passed to `run_forever`.
 pub struct DefaultProjectorWorker<S, R>
@@ -57,20 +57,29 @@ where
     where
         PJ: Projector<Uow = Self::Uow>,
     {
-        let descriptor = <PJ::Spec as ProjectorSpec>::DESCRIPTOR;
-        let consumer_group = ConsumerGroup::new(format!("projector_{}", descriptor.name))?;
+        let projector_definition = projector.definition()?;
+        let selectors = projector_definition.event_selectors();
+        if selectors.is_empty() {
+            return Ok(());
+        }
+        let subscription = Subscription::AnyOf(&selectors);
+        let consumer_group =
+            ConsumerGroup::new(format!("projector_{}", projector_definition.name()))?;
         let mut consumer = self
             .subscriber
-            .subscribe(&consumer_group, descriptor.subscription)
+            .subscribe(&consumer_group, subscription)
             .await?;
 
         while !self.is_stop_requested() {
             let mut delivery = consumer.next().await?;
 
-            if !descriptor.subscription.matches(delivery.message()) {
+            if !subscription.matches(delivery.message()) {
                 delivery.ack().await?;
             } else {
-                let result = self.runner.project(projector, delivery.message()).await;
+                let result = self
+                    .runner
+                    .project(&projector_definition, delivery.message())
+                    .await;
 
                 match result {
                     Ok(_) => delivery.ack().await?,
