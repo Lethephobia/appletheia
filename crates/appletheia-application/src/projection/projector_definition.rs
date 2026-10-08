@@ -344,15 +344,18 @@ mod tests {
             self.builds.fetch_add(1, Ordering::SeqCst);
             Ok(
                 ProjectorDefinitionBuilder::new(ProjectorName::new("counter"))
-                    .on::<Counter>(EventName::new("opened"))
-                    .handle(async |uow, event| {
-                        assert!(matches!(event.payload(), CounterEventPayload::Opened));
-                        self.store.write(uow).await;
-                        if self.reject {
-                            return Err(HandlerError::Rejected);
-                        }
-                        Ok(())
-                    })
+                    .add_route(
+                        ProjectorRouteBuilder::on::<Counter>(EventName::new("opened")).handle(
+                            async |uow, event| {
+                                assert!(matches!(event.payload(), CounterEventPayload::Opened));
+                                self.store.write(uow).await;
+                                if self.reject {
+                                    return Err(HandlerError::Rejected);
+                                }
+                                Ok(())
+                            },
+                        ),
+                    )
                     .build()?,
             )
         }
@@ -458,10 +461,14 @@ mod tests {
         let result = ProjectorDefinitionBuilder::<Transaction, HandlerError>::new(
             ProjectorName::new("counter"),
         )
-        .on::<Counter>(EventName::new("opened"))
-        .handle(async |_, _| Ok(()))
-        .on::<Counter>(EventName::new("opened"))
-        .handle(async |_, _| Ok(()))
+        .add_route(
+            ProjectorRouteBuilder::on::<Counter>(EventName::new("opened"))
+                .handle(async |_, _| Ok(())),
+        )
+        .add_route(
+            ProjectorRouteBuilder::on::<Counter>(EventName::new("opened"))
+                .handle(async |_, _| Ok(())),
+        )
         .build();
         assert!(matches!(
             result,
