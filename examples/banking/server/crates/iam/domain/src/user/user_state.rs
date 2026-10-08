@@ -54,8 +54,8 @@ fn provider_subject_unique_values(
         .iter()
         .map(|identity| {
             Ok(UniqueValue::from_strings([
-                identity.provider().as_ref(),
-                identity.subject().as_ref(),
+                identity.provider.as_ref(),
+                identity.subject.as_ref(),
             ])?)
         })
         .collect::<Result<Vec<_>, UserStateError>>()?;
@@ -76,12 +76,12 @@ mod tests {
     };
 
     fn identity() -> UserIdentity {
-        UserIdentity::new(
-            UserIdentityProvider::try_from("https://accounts.example.com")
+        UserIdentity {
+            provider: UserIdentityProvider::try_from("https://accounts.example.com")
                 .expect("provider should be valid"),
-            UserIdentitySubject::try_from("user-123").expect("subject should be valid"),
-            Some(Email::try_from("alice@example.com").expect("email should be valid")),
-        )
+            subject: UserIdentitySubject::try_from("user-123").expect("subject should be valid"),
+            email: Some(Email::try_from("alice@example.com").expect("email should be valid")),
+        }
     }
 
     #[test]
@@ -144,12 +144,12 @@ mod tests {
             status: UserStatus::Active,
         };
         state.identities.push(identity());
-        state.identities.push(UserIdentity::new(
-            UserIdentityProvider::try_from("https://login.example.com")
+        state.identities.push(UserIdentity {
+            provider: UserIdentityProvider::try_from("https://login.example.com")
                 .expect("provider should be valid"),
-            UserIdentitySubject::try_from("user-456").expect("subject should be valid"),
-            None,
-        ));
+            subject: UserIdentitySubject::try_from("user-456").expect("subject should be valid"),
+            email: None,
+        });
 
         let entries = state
             .unique_entries(Uuid::now_v7())
