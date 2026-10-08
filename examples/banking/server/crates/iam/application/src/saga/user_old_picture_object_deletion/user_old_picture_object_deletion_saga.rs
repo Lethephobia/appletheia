@@ -1,5 +1,7 @@
 use appletheia::application::saga::SagaError;
-use appletheia::application::saga::{Saga, SagaDefinition, SagaDefinitionBuilder, SagaName};
+use appletheia::application::saga::{
+    Saga, SagaDefinition, SagaDefinitionBuilder, SagaName, SagaRouteBuilder,
+};
 use banking_iam_domain::{User, UserEventPayload};
 
 use crate::command::UserPictureObjectDeleteCommand;
@@ -23,27 +25,33 @@ impl Saga for UserOldPictureObjectDeletionSaga {
         SagaDefinitionBuilder::<Self::State, Self::Step, Self::HandlerError>::new(SagaName::new(
             "user_old_picture_object_deletion",
         ))
-        .add_start_step(UserOldPictureObjectDeletionSagaStep::DeletePictureObject)
-        .on::<User>(UserEventPayload::PICTURE_SET)
-        .handle(|ctx, domain_event| {
-            let UserEventPayload::PictureSet { old_picture, .. } = domain_event.payload() else {
-                return Err(UserOldPictureObjectDeletionSagaHandlerError::UnexpectedEvent);
-            };
+        .add_route(
+            SagaRouteBuilder::new(UserOldPictureObjectDeletionSagaStep::DeletePictureObject)
+                .on::<User>(UserEventPayload::PICTURE_SET)
+                .handle(|ctx, domain_event| {
+                    let UserEventPayload::PictureSet { old_picture, .. } = domain_event.payload()
+                    else {
+                        return Err(UserOldPictureObjectDeletionSagaHandlerError::UnexpectedEvent);
+                    };
 
-            let state = UserOldPictureObjectDeletionSagaState::new(domain_event.aggregate_id());
-            ctx.set_state(state);
-            let Some(object_name) = old_picture
-                .as_ref()
-                .and_then(|picture| picture.as_object_name())
-                .cloned()
-            else {
-                return Ok(());
-            };
+                    let state =
+                        UserOldPictureObjectDeletionSagaState::new(domain_event.aggregate_id());
+                    ctx.set_state(state);
+                    let Some(object_name) = old_picture
+                        .as_ref()
+                        .and_then(|picture| picture.as_object_name())
+                        .cloned()
+                    else {
+                        return Ok(());
+                    };
 
-            ctx.append_command(&UserPictureObjectDeleteCommand { object_name })
-                .map_err(|_| UserOldPictureObjectDeletionSagaHandlerError::UnexpectedEvent)?;
-            Ok(())
-        })
+                    ctx.append_command(&UserPictureObjectDeleteCommand { object_name })
+                        .map_err(|_| {
+                            UserOldPictureObjectDeletionSagaHandlerError::UnexpectedEvent
+                        })?;
+                    Ok(())
+                }),
+        )
         .build()
         .map_err(SagaError::from)
     }

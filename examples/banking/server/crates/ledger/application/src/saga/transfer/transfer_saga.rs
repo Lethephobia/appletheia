@@ -5,7 +5,9 @@ use crate::command::{
     TransferSucceedCommand,
 };
 use appletheia::application::saga::SagaError;
-use appletheia::application::saga::{Saga, SagaDefinition, SagaDefinitionBuilder, SagaName};
+use appletheia::application::saga::{
+    Saga, SagaDefinition, SagaDefinitionBuilder, SagaName, SagaRouteBuilder,
+};
 use banking_ledger_domain::account::{Account, AccountEventPayload};
 use banking_ledger_domain::transfer::{Transfer, TransferEventPayload, TransferFailureReason};
 
@@ -23,155 +25,174 @@ impl Saga for TransferSaga {
         SagaDefinitionBuilder::<Self::State, Self::Step, Self::HandlerError>::new(SagaName::new(
             "transfer",
         ))
-        .add_start_step(TransferSagaStep::ReserveFunds)
-        .on::<Transfer>(TransferEventPayload::REQUESTED)
-        .handle(|ctx, transfer_event| {
-            if let TransferEventPayload::Requested {
-                from_account_id,
-                to_account_id,
-                amount,
-                ..
-            } = transfer_event.payload()
-            {
-                ctx.set_state(TransferSagaState::new(
-                    transfer_event.aggregate_id(),
-                    *from_account_id,
-                    *to_account_id,
-                    *amount,
-                ));
+        .add_route(
+            SagaRouteBuilder::new(TransferSagaStep::ReserveFunds)
+                .on::<Transfer>(TransferEventPayload::REQUESTED)
+                .handle(|ctx, transfer_event| {
+                    if let TransferEventPayload::Requested {
+                        from_account_id,
+                        to_account_id,
+                        amount,
+                        ..
+                    } = transfer_event.payload()
+                    {
+                        ctx.set_state(TransferSagaState::new(
+                            transfer_event.aggregate_id(),
+                            *from_account_id,
+                            *to_account_id,
+                            *amount,
+                        ));
 
-                ctx.append_command(&AccountFundsReserveCommand {
-                    account_id: *from_account_id,
-                    amount: *amount,
-                })?;
-            }
-            Ok(())
-        })
-        .add_step(TransferSagaStep::Deposit)
-        .on::<Account>(
-            TransferSagaStep::ReserveFunds,
-            AccountEventPayload::FUNDS_RESERVED,
+                        ctx.append_command(&AccountFundsReserveCommand {
+                            account_id: *from_account_id,
+                            amount: *amount,
+                        })?;
+                    }
+                    Ok(())
+                }),
         )
-        .handle(|ctx, _account_event| {
-            let state = ctx.state_required_mut()?;
-            let to_account_id = state.to_account_id;
-            let amount = state.amount;
+        .add_route(
+            SagaRouteBuilder::new(TransferSagaStep::Deposit)
+                .on::<Account>(AccountEventPayload::FUNDS_RESERVED)
+                .caused_by(TransferSagaStep::ReserveFunds)
+                .handle(|ctx, _account_event| {
+                    let state: &mut TransferSagaState = ctx.state_required_mut()?;
+                    let to_account_id = state.to_account_id;
+                    let amount = state.amount;
 
-            ctx.append_command(&AccountDepositCommand {
-                account_id: to_account_id,
-                amount,
-            })?;
-            Ok(())
-        })
-        .add_step(TransferSagaStep::CommitFunds)
-        .on::<Account>(TransferSagaStep::Deposit, AccountEventPayload::DEPOSITED)
-        .handle(|ctx, _account_event| {
-            let state = ctx.state_required_mut()?;
-            let from_account_id = state.from_account_id;
-            let amount = state.amount;
-
-            ctx.append_command(&AccountReservedFundsCommitCommand {
-                account_id: from_account_id,
-                amount,
-            })?;
-            Ok(())
-        })
-        .add_step(TransferSagaStep::Fail)
-        .on::<Account>(
-            TransferSagaStep::ReleaseFunds,
-            AccountEventPayload::RESERVED_FUNDS_RELEASED,
+                    ctx.append_command(&AccountDepositCommand {
+                        account_id: to_account_id,
+                        amount,
+                    })?;
+                    Ok(())
+                }),
         )
-        .handle(|ctx, _account_event| {
-            let state = ctx.state_required_mut()?;
-            let transfer_id = state.transfer_id;
+        .add_route(
+            SagaRouteBuilder::new(TransferSagaStep::CommitFunds)
+                .on::<Account>(AccountEventPayload::DEPOSITED)
+                .caused_by(TransferSagaStep::Deposit)
+                .handle(|ctx, _account_event| {
+                    let state: &mut TransferSagaState = ctx.state_required_mut()?;
+                    let from_account_id = state.from_account_id;
+                    let amount = state.amount;
 
-            ctx.append_command(&TransferFailCommand {
-                transfer_id,
-                reason: TransferFailureReason::DepositRejected,
-            })?;
-            Ok(())
-        })
-        .add_step(TransferSagaStep::Succeed)
-        .on::<Account>(
-            TransferSagaStep::CommitFunds,
-            AccountEventPayload::RESERVED_FUNDS_COMMITTED,
+                    ctx.append_command(&AccountReservedFundsCommitCommand {
+                        account_id: from_account_id,
+                        amount,
+                    })?;
+                    Ok(())
+                }),
         )
-        .handle(|ctx, _account_event| {
-            let state = ctx.state_required_mut()?;
-            let transfer_id = state.transfer_id;
+        .add_route(
+            SagaRouteBuilder::new(TransferSagaStep::Fail)
+                .on::<Account>(AccountEventPayload::RESERVED_FUNDS_RELEASED)
+                .caused_by(TransferSagaStep::ReleaseFunds)
+                .handle(|ctx, _account_event| {
+                    let state: &mut TransferSagaState = ctx.state_required_mut()?;
+                    let transfer_id = state.transfer_id;
 
-            ctx.append_command(&TransferSucceedCommand { transfer_id })?;
-            Ok(())
-        })
-        .add_step(TransferSagaStep::Fail)
-        .on::<Account>(
-            TransferSagaStep::CompensateDeposit,
-            AccountEventPayload::WITHDRAWN,
+                    ctx.append_command(&TransferFailCommand {
+                        transfer_id,
+                        reason: TransferFailureReason::DepositRejected,
+                    })?;
+                    Ok(())
+                }),
         )
-        .handle(|ctx, _account_event| {
-            let state = ctx.state_required_mut()?;
-            let transfer_id = state.transfer_id;
+        .add_route(
+            SagaRouteBuilder::new(TransferSagaStep::Succeed)
+                .on::<Account>(AccountEventPayload::RESERVED_FUNDS_COMMITTED)
+                .caused_by(TransferSagaStep::CommitFunds)
+                .handle(|ctx, _account_event| {
+                    let state: &mut TransferSagaState = ctx.state_required_mut()?;
+                    let transfer_id = state.transfer_id;
 
-            ctx.append_command(&TransferFailCommand {
-                transfer_id,
-                reason: TransferFailureReason::ReservedFundsCommitRejected,
-            })?;
-            Ok(())
-        })
-        .add_failure_step(TransferSagaStep::Fail)
-        .on::<AccountFundsReserveCommand>(TransferSagaStep::ReserveFunds)
-        .handle(|ctx, _command| {
-            let state = ctx.state_required_mut()?;
-            let transfer_id = state.transfer_id;
-            ctx.append_command(&TransferFailCommand {
-                transfer_id,
-                reason: TransferFailureReason::FundsReserveRejected,
-            })?;
-            Ok(())
-        })
-        .add_failure_step(TransferSagaStep::ReleaseFunds)
-        .on::<AccountDepositCommand>(TransferSagaStep::Deposit)
-        .handle(|ctx, _command| {
-            let state = ctx.state_required_mut()?;
-            let from_account_id = state.from_account_id;
-            let amount = state.amount;
-            ctx.append_command(&AccountReservedFundsReleaseCommand {
-                account_id: from_account_id,
-                amount,
-            })?;
-            Ok(())
-        })
-        .add_failure_step(TransferSagaStep::Fail)
-        .on::<AccountReservedFundsReleaseCommand>(TransferSagaStep::ReleaseFunds)
-        .handle(|ctx, _command| {
-            let state = ctx.state_required_mut()?;
-            let transfer_id = state.transfer_id;
-            ctx.append_command(&TransferFailCommand {
-                transfer_id,
-                reason: TransferFailureReason::ReservedFundsReleaseRejected,
-            })?;
-            Ok(())
-        })
-        .add_failure_step(TransferSagaStep::CompensateDeposit)
-        .on::<AccountReservedFundsCommitCommand>(TransferSagaStep::CommitFunds)
-        .handle(|ctx, _command| {
-            let state = ctx.state_required_mut()?;
-            let account_id = state.to_account_id;
-            let amount = state.amount;
-            ctx.append_command(&AccountWithdrawCommand { account_id, amount })?;
-            Ok(())
-        })
-        .add_failure_step(TransferSagaStep::Fail)
-        .on::<AccountWithdrawCommand>(TransferSagaStep::CompensateDeposit)
-        .handle(|ctx, _command| {
-            let state = ctx.state_required_mut()?;
-            let transfer_id = state.transfer_id;
-            ctx.append_command(&TransferFailCommand {
-                transfer_id,
-                reason: TransferFailureReason::ReservedFundsCommitRejected,
-            })?;
-            Ok(())
-        })
+                    ctx.append_command(&TransferSucceedCommand { transfer_id })?;
+                    Ok(())
+                }),
+        )
+        .add_route(
+            SagaRouteBuilder::new(TransferSagaStep::Fail)
+                .on::<Account>(AccountEventPayload::WITHDRAWN)
+                .caused_by(TransferSagaStep::CompensateDeposit)
+                .handle(|ctx, _account_event| {
+                    let state: &mut TransferSagaState = ctx.state_required_mut()?;
+                    let transfer_id = state.transfer_id;
+
+                    ctx.append_command(&TransferFailCommand {
+                        transfer_id,
+                        reason: TransferFailureReason::ReservedFundsCommitRejected,
+                    })?;
+                    Ok(())
+                }),
+        )
+        .add_route(
+            SagaRouteBuilder::new(TransferSagaStep::Fail)
+                .on_command_failed::<AccountFundsReserveCommand>(TransferSagaStep::ReserveFunds)
+                .handle(|ctx, _command| {
+                    let state: &mut TransferSagaState = ctx.state_required_mut()?;
+                    let transfer_id = state.transfer_id;
+                    ctx.append_command(&TransferFailCommand {
+                        transfer_id,
+                        reason: TransferFailureReason::FundsReserveRejected,
+                    })?;
+                    Ok(())
+                }),
+        )
+        .add_route(
+            SagaRouteBuilder::new(TransferSagaStep::ReleaseFunds)
+                .on_command_failed::<AccountDepositCommand>(TransferSagaStep::Deposit)
+                .handle(|ctx, _command| {
+                    let state: &mut TransferSagaState = ctx.state_required_mut()?;
+                    let from_account_id = state.from_account_id;
+                    let amount = state.amount;
+                    ctx.append_command(&AccountReservedFundsReleaseCommand {
+                        account_id: from_account_id,
+                        amount,
+                    })?;
+                    Ok(())
+                }),
+        )
+        .add_route(
+            SagaRouteBuilder::new(TransferSagaStep::Fail)
+                .on_command_failed::<AccountReservedFundsReleaseCommand>(
+                    TransferSagaStep::ReleaseFunds,
+                )
+                .handle(|ctx, _command| {
+                    let state: &mut TransferSagaState = ctx.state_required_mut()?;
+                    let transfer_id = state.transfer_id;
+                    ctx.append_command(&TransferFailCommand {
+                        transfer_id,
+                        reason: TransferFailureReason::ReservedFundsReleaseRejected,
+                    })?;
+                    Ok(())
+                }),
+        )
+        .add_route(
+            SagaRouteBuilder::new(TransferSagaStep::CompensateDeposit)
+                .on_command_failed::<AccountReservedFundsCommitCommand>(
+                    TransferSagaStep::CommitFunds,
+                )
+                .handle(|ctx, _command| {
+                    let state: &mut TransferSagaState = ctx.state_required_mut()?;
+                    let account_id = state.to_account_id;
+                    let amount = state.amount;
+                    ctx.append_command(&AccountWithdrawCommand { account_id, amount })?;
+                    Ok(())
+                }),
+        )
+        .add_route(
+            SagaRouteBuilder::new(TransferSagaStep::Fail)
+                .on_command_failed::<AccountWithdrawCommand>(TransferSagaStep::CompensateDeposit)
+                .handle(|ctx, _command| {
+                    let state: &mut TransferSagaState = ctx.state_required_mut()?;
+                    let transfer_id = state.transfer_id;
+                    ctx.append_command(&TransferFailCommand {
+                        transfer_id,
+                        reason: TransferFailureReason::ReservedFundsCommitRejected,
+                    })?;
+                    Ok(())
+                }),
+        )
         .build()
         .map_err(SagaError::from)
     }

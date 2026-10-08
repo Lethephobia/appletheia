@@ -1,6 +1,8 @@
 use crate::command::OrganizationMembershipCreateCommand;
 use appletheia::application::saga::SagaError;
-use appletheia::application::saga::{Saga, SagaDefinition, SagaDefinitionBuilder, SagaName};
+use appletheia::application::saga::{
+    Saga, SagaDefinition, SagaDefinitionBuilder, SagaName, SagaRouteBuilder,
+};
 use banking_iam_domain::{
     OrganizationJoinRequest, OrganizationJoinRequestEventPayload, OrganizationRoles,
 };
@@ -24,26 +26,28 @@ impl Saga for OrganizationJoinRequestSaga {
         SagaDefinitionBuilder::<Self::State, Self::Step, Self::HandlerError>::new(SagaName::new(
             "organization_join_request",
         ))
-        .add_start_step(OrganizationJoinRequestSagaStep::CreateMembership)
-        .on::<OrganizationJoinRequest>(OrganizationJoinRequestEventPayload::APPROVED)
-        .handle(|ctx, join_request_event| {
-            if let OrganizationJoinRequestEventPayload::Approved {
-                organization_id,
-                requester_id,
-            } = join_request_event.payload()
-            {
-                ctx.set_state(OrganizationJoinRequestSagaState::new(
-                    join_request_event.aggregate_id(),
-                ));
+        .add_route(
+            SagaRouteBuilder::new(OrganizationJoinRequestSagaStep::CreateMembership)
+                .on::<OrganizationJoinRequest>(OrganizationJoinRequestEventPayload::APPROVED)
+                .handle(|ctx, join_request_event| {
+                    if let OrganizationJoinRequestEventPayload::Approved {
+                        organization_id,
+                        requester_id,
+                    } = join_request_event.payload()
+                    {
+                        ctx.set_state(OrganizationJoinRequestSagaState::new(
+                            join_request_event.aggregate_id(),
+                        ));
 
-                ctx.append_command(&OrganizationMembershipCreateCommand {
-                    organization_id: *organization_id,
-                    user_id: *requester_id,
-                    roles: OrganizationRoles::default(),
-                })?;
-            }
-            Ok(())
-        })
+                        ctx.append_command(&OrganizationMembershipCreateCommand {
+                            organization_id: *organization_id,
+                            user_id: *requester_id,
+                            roles: OrganizationRoles::default(),
+                        })?;
+                    }
+                    Ok(())
+                }),
+        )
         .build()
         .map_err(SagaError::from)
     }

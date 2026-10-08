@@ -1,5 +1,5 @@
 use appletheia::application::saga::{
-    Saga, SagaDefinition, SagaDefinitionBuilder, SagaError, SagaName,
+    Saga, SagaDefinition, SagaDefinitionBuilder, SagaError, SagaName, SagaRouteBuilder,
 };
 use banking_iam_domain::{Organization, OrganizationEventPayload, User, UserEventPayload};
 use banking_ledger_domain::account::{Account, AccountEventPayload, AccountOwner};
@@ -30,84 +30,92 @@ impl Saga for OwnedAccountClosureSaga {
         SagaDefinitionBuilder::<Self::State, Self::Step, Self::HandlerError>::new(SagaName::new(
             "owned_account_closure",
         ))
-        .add_start_step(OwnedAccountClosureSagaStep::Start)
-        .on::<User>(UserEventPayload::REMOVED)
-        .handle(|ctx, event| {
-            ctx.append_command(&OwnedAccountClosureStartCommand {
-                owner: AccountOwner::User(event.aggregate_id()),
-            })?;
-            Ok(())
-        })
-        .add_start_step(OwnedAccountClosureSagaStep::Start)
-        .on::<Organization>(OrganizationEventPayload::REMOVED)
-        .handle(|ctx, event| {
-            ctx.append_command(&OwnedAccountClosureStartCommand {
-                owner: AccountOwner::Organization(event.aggregate_id()),
-            })?;
-            Ok(())
-        })
-        .add_step(OwnedAccountClosureSagaStep::ProcessPage)
-        .on::<OwnedAccountClosure>(
-            OwnedAccountClosureSagaStep::Start,
-            OwnedAccountClosureEventPayload::STARTED,
-        )
-        .handle(|ctx, event| {
-            let owned_account_closure_id = event.aggregate_id();
-            ctx.set_state(OwnedAccountClosureSagaState {
-                owned_account_closure_id,
-            });
-            ctx.append_command(&OwnedAccountClosureScanCommand {
-                owned_account_closure_id,
-            })?;
-            Ok(())
-        })
-        .add_step(OwnedAccountClosureSagaStep::ProcessPage)
-        .on::<OwnedAccountClosure>(
-            OwnedAccountClosureSagaStep::ProcessPage,
-            OwnedAccountClosureEventPayload::SCANNED,
-        )
-        .handle(|ctx, event| {
-            if let OwnedAccountClosureEventPayload::Scanned {
-                account_ids,
-                next_cursor,
-            } = event.payload()
-            {
-                for account_id in account_ids {
-                    ctx.append_command(&AccountCloseCommand {
-                        account_id: *account_id,
+        .add_route(
+            SagaRouteBuilder::new(OwnedAccountClosureSagaStep::Start)
+                .on::<User>(UserEventPayload::REMOVED)
+                .handle(|ctx, event| {
+                    ctx.append_command(&OwnedAccountClosureStartCommand {
+                        owner: AccountOwner::User(event.aggregate_id()),
                     })?;
-                }
-                if next_cursor.is_some() {
+                    Ok(())
+                }),
+        )
+        .add_route(
+            SagaRouteBuilder::new(OwnedAccountClosureSagaStep::Start)
+                .on::<Organization>(OrganizationEventPayload::REMOVED)
+                .handle(|ctx, event| {
+                    ctx.append_command(&OwnedAccountClosureStartCommand {
+                        owner: AccountOwner::Organization(event.aggregate_id()),
+                    })?;
+                    Ok(())
+                }),
+        )
+        .add_route(
+            SagaRouteBuilder::new(OwnedAccountClosureSagaStep::ProcessPage)
+                .on::<OwnedAccountClosure>(OwnedAccountClosureEventPayload::STARTED)
+                .caused_by(OwnedAccountClosureSagaStep::Start)
+                .handle(|ctx, event| {
+                    let owned_account_closure_id = event.aggregate_id();
+                    ctx.set_state(OwnedAccountClosureSagaState {
+                        owned_account_closure_id,
+                    });
                     ctx.append_command(&OwnedAccountClosureScanCommand {
-                        owned_account_closure_id: event.aggregate_id(),
+                        owned_account_closure_id,
                     })?;
-                }
-            }
-            Ok(())
-        })
-        .add_step(OwnedAccountClosureSagaStep::RecordAccountSucceeded)
-        .on::<Account>(
-            OwnedAccountClosureSagaStep::ProcessPage,
-            AccountEventPayload::CLOSED,
+                    Ok(())
+                }),
         )
-        .handle(|ctx, event| {
-            let owned_account_closure_id = ctx.state_required()?.owned_account_closure_id;
-            ctx.append_command(&OwnedAccountClosureAccountSucceededRecordCommand {
-                owned_account_closure_id,
-                account_id: event.aggregate_id(),
-            })?;
-            Ok(())
-        })
-        .add_failure_step(OwnedAccountClosureSagaStep::RecordAccountFailed)
-        .on::<AccountCloseCommand>(OwnedAccountClosureSagaStep::ProcessPage)
-        .handle(|ctx, command| {
-            let owned_account_closure_id = ctx.state_required()?.owned_account_closure_id;
-            ctx.append_command(&OwnedAccountClosureAccountFailedRecordCommand {
-                owned_account_closure_id,
-                account_id: command.account_id,
-            })?;
-            Ok(())
-        })
+        .add_route(
+            SagaRouteBuilder::new(OwnedAccountClosureSagaStep::ProcessPage)
+                .on::<OwnedAccountClosure>(OwnedAccountClosureEventPayload::SCANNED)
+                .caused_by(OwnedAccountClosureSagaStep::ProcessPage)
+                .handle(|ctx, event| {
+                    if let OwnedAccountClosureEventPayload::Scanned {
+                        account_ids,
+                        next_cursor,
+                    } = event.payload()
+                    {
+                        for account_id in account_ids {
+                            ctx.append_command(&AccountCloseCommand {
+                                account_id: *account_id,
+                            })?;
+                        }
+                        if next_cursor.is_some() {
+                            ctx.append_command(&OwnedAccountClosureScanCommand {
+                                owned_account_closure_id: event.aggregate_id(),
+                            })?;
+                        }
+                    }
+                    Ok(())
+                }),
+        )
+        .add_route(
+            SagaRouteBuilder::new(OwnedAccountClosureSagaStep::RecordAccountSucceeded)
+                .on::<Account>(AccountEventPayload::CLOSED)
+                .caused_by(OwnedAccountClosureSagaStep::ProcessPage)
+                .handle(|ctx, event| {
+                    let state: &OwnedAccountClosureSagaState = ctx.state_required()?;
+                    let owned_account_closure_id = state.owned_account_closure_id;
+                    ctx.append_command(&OwnedAccountClosureAccountSucceededRecordCommand {
+                        owned_account_closure_id,
+                        account_id: event.aggregate_id(),
+                    })?;
+                    Ok(())
+                }),
+        )
+        .add_route(
+            SagaRouteBuilder::new(OwnedAccountClosureSagaStep::RecordAccountFailed)
+                .on_command_failed::<AccountCloseCommand>(OwnedAccountClosureSagaStep::ProcessPage)
+                .handle(|ctx, command| {
+                    let state: &OwnedAccountClosureSagaState = ctx.state_required()?;
+                    let owned_account_closure_id = state.owned_account_closure_id;
+                    ctx.append_command(&OwnedAccountClosureAccountFailedRecordCommand {
+                        owned_account_closure_id,
+                        account_id: command.account_id,
+                    })?;
+                    Ok(())
+                }),
+        )
         .build()
         .map_err(SagaError::from)
     }

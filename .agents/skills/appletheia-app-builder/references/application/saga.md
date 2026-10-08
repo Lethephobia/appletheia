@@ -5,14 +5,20 @@ transactions. For command execution and failure publication, see [Command Design
 
 ### DO distinguish the triggering step from the outgoing step
 
-Build routes in `Saga::definition(&self)` with `SagaDefinitionBuilder`. `add_*_step` names the step
-assigned to outgoing commands; `on` describes the input. Subscriptions are derived from `event_selectors()` and `command_failure_selectors()`; failure subscriptions filter by command name.
+Build each route with `SagaRouteBuilder::new(step)` and pass the completed route to
+`SagaDefinitionBuilder::add_route` in `Saga::definition(&self)`. The constructor's step identifies
+outgoing commands; `caused_by` identifies the preceding step. An event route without `caused_by`
+starts an instance. Subscriptions are derived from `event_selectors()` and
+`command_failure_selectors()`; failure subscriptions filter by command name.
+
+When a handler reads state fields without establishing the state type, annotate the state binding
+(e.g. `let state: &TransferSagaState = ctx.state_required()?;`) so the independent route can infer it.
 
 | Route | Input |
 | --- | --- |
-| `add_start_step(step)` | `on::<Aggregate>(event_name)` |
-| `add_step(step)` | `on::<Aggregate>(caused_by, event_name)` |
-| `add_failure_step(step)` | `on::<Command>(caused_by)` |
+| Start | `on::<Aggregate>(event_name).handle(handler)` |
+| Continuation | `on::<Aggregate>(event_name).caused_by(step).handle(handler)` |
+| Command failure | `on_command_failed::<Command>(step).handle(handler)` |
 
 Define a step enum with `#[saga_step]`; it derives `Copy`, equality, serde, and `SagaStep`, using
 adjacently tagged snake-case JSON (`type` / `data`) by default. Use `#[derive(SagaStep)]` when managing
@@ -29,30 +35,29 @@ workflow must also register its start and required outcome paths.
 **Good**
 
 ```rust
-builder
-    .add_step(TransferSagaStep::Deposit)
-    .on::<Account>(
-        TransferSagaStep::ReserveFunds,
-        AccountEventPayload::FUNDS_RESERVED,
-    )
-    .handle(|ctx, _event| {
-        let state = ctx.state_required()?;
-        let command = AccountDepositCommand {
-            account_id: state.to_account_id,
-            amount: state.amount,
-        };
-        ctx.append_command(&command)?;
-        Ok(())
-    })
+builder.add_route(
+    SagaRouteBuilder::new(TransferSagaStep::Deposit)
+        .on::<Account>(AccountEventPayload::FUNDS_RESERVED)
+        .caused_by(TransferSagaStep::ReserveFunds)
+        .handle(|ctx, _event| {
+            let state: &TransferSagaState = ctx.state_required()?;
+            let command = AccountDepositCommand {
+                account_id: state.to_account_id,
+                amount: state.amount,
+            };
+            ctx.append_command(&command)?;
+            Ok(())
+        }),
+)
 ```
 
 **Bad**
 
 ```rust
 // Deposit cannot have caused the reservation result this route waits for.
-builder
-    .add_step(TransferSagaStep::Deposit)
-    .on::<Account>(TransferSagaStep::Deposit, AccountEventPayload::FUNDS_RESERVED)
+SagaRouteBuilder::new(TransferSagaStep::Deposit)
+    .on::<Account>(AccountEventPayload::FUNDS_RESERVED)
+    .caused_by(TransferSagaStep::Deposit)
 ```
 
 ### DO keep definition construction free of execution side effects
@@ -74,23 +79,31 @@ used by callbacks; these are execution errors, separate from definition-construc
 
 ```rust
 builder
-    .add_start_step(TransferSagaStep::ReserveFunds)
-    .on::<Transfer>(TransferEventPayload::REQUESTED)
-    .handle(|ctx, event| {
-        if let TransferEventPayload::Requested {
-            from_account_id, to_account_id, amount, ..
-        } = event.payload()
-        {
-            ctx.set_state(TransferSagaState::new(
-                event.aggregate_id(), *from_account_id, *to_account_id, *amount,
-            ));
-            ctx.append_command(&AccountFundsReserveCommand {
-                account_id: *from_account_id,
-                amount: *amount,
-            })?;
-        }
-        Ok(())
-    })
+    .add_route(
+        SagaRouteBuilder::new(TransferSagaStep::ReserveFunds)
+            .on::<Transfer>(TransferEventPayload::REQUESTED)
+            .handle(|ctx, event| {
+                if let TransferEventPayload::Requested {
+                    from_account_id,
+                    to_account_id,
+                    amount,
+                    ..
+                } = event.payload()
+                {
+                    ctx.set_state(TransferSagaState::new(
+                        event.aggregate_id(),
+                        *from_account_id,
+                        *to_account_id,
+                        *amount,
+                    ));
+                    ctx.append_command(&AccountFundsReserveCommand {
+                        account_id: *from_account_id,
+                        amount: *amount,
+                    })?;
+                }
+                Ok(())
+            }),
+    )
     .build()
     .map_err(SagaError::from)
 ```
@@ -196,26 +209,28 @@ deduplication handles repeated inputs. Domain completion events and commands rem
 **Good**
 
 ```rust
-builder
-    .add_failure_step(TransferSagaStep::ReleaseFunds)
-    .on::<AccountDepositCommand>(TransferSagaStep::Deposit)
-    .handle(|ctx, _command| {
-        let state = ctx.state_required()?;
-        let command = AccountReservedFundsReleaseCommand {
-            account_id: state.from_account_id,
-            amount: state.amount,
-        };
-        ctx.append_command(&command)?;
-        Ok(())
-    })
+builder.add_route(
+    SagaRouteBuilder::new(TransferSagaStep::ReleaseFunds)
+        .on_command_failed::<AccountDepositCommand>(TransferSagaStep::Deposit)
+        .handle(|ctx, _command| {
+            let state: &TransferSagaState = ctx.state_required()?;
+            let command = AccountReservedFundsReleaseCommand {
+                account_id: state.from_account_id,
+                amount: state.amount,
+            };
+            ctx.append_command(&command)?;
+            Ok(())
+        }),
+)
 ```
 
 **Bad**
 
 ```rust
 // Added solely to consume the final notification or mark the saga finished.
-builder
-    .add_failure_step(TransferSagaStep::Succeed)
-    .on::<TransferSucceedCommand>(TransferSagaStep::Succeed)
-    .handle(|_ctx, _command| Ok(()))
+builder.add_route(
+    SagaRouteBuilder::new(TransferSagaStep::Succeed)
+        .on_command_failed::<TransferSucceedCommand>(TransferSagaStep::Succeed)
+        .handle(|_ctx, _command| Ok(())),
+)
 ```

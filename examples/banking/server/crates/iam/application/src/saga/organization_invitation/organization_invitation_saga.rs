@@ -1,6 +1,8 @@
 use crate::command::OrganizationMembershipCreateCommand;
 use appletheia::application::saga::SagaError;
-use appletheia::application::saga::{Saga, SagaDefinition, SagaDefinitionBuilder, SagaName};
+use appletheia::application::saga::{
+    Saga, SagaDefinition, SagaDefinitionBuilder, SagaName, SagaRouteBuilder,
+};
 use banking_iam_domain::{OrganizationInvitation, OrganizationInvitationEventPayload};
 
 use super::{
@@ -22,27 +24,29 @@ impl Saga for OrganizationInvitationSaga {
         SagaDefinitionBuilder::<Self::State, Self::Step, Self::HandlerError>::new(SagaName::new(
             "organization_invitation",
         ))
-        .add_start_step(OrganizationInvitationSagaStep::CreateMembership)
-        .on::<OrganizationInvitation>(OrganizationInvitationEventPayload::ACCEPTED)
-        .handle(|ctx, invitation_event| {
-            if let OrganizationInvitationEventPayload::Accepted {
-                organization_id,
-                invitee_id,
-                roles,
-            } = invitation_event.payload()
-            {
-                ctx.set_state(OrganizationInvitationSagaState::new(
-                    invitation_event.aggregate_id(),
-                ));
+        .add_route(
+            SagaRouteBuilder::new(OrganizationInvitationSagaStep::CreateMembership)
+                .on::<OrganizationInvitation>(OrganizationInvitationEventPayload::ACCEPTED)
+                .handle(|ctx, invitation_event| {
+                    if let OrganizationInvitationEventPayload::Accepted {
+                        organization_id,
+                        invitee_id,
+                        roles,
+                    } = invitation_event.payload()
+                    {
+                        ctx.set_state(OrganizationInvitationSagaState::new(
+                            invitation_event.aggregate_id(),
+                        ));
 
-                ctx.append_command(&OrganizationMembershipCreateCommand {
-                    organization_id: *organization_id,
-                    user_id: *invitee_id,
-                    roles: roles.clone(),
-                })?;
-            }
-            Ok(())
-        })
+                        ctx.append_command(&OrganizationMembershipCreateCommand {
+                            organization_id: *organization_id,
+                            user_id: *invitee_id,
+                            roles: roles.clone(),
+                        })?;
+                    }
+                    Ok(())
+                }),
+        )
         .build()
         .map_err(SagaError::from)
     }

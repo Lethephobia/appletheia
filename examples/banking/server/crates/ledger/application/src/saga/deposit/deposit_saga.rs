@@ -1,5 +1,7 @@
 use appletheia::application::saga::SagaError;
-use appletheia::application::saga::{Saga, SagaDefinition, SagaDefinitionBuilder, SagaName};
+use appletheia::application::saga::{
+    Saga, SagaDefinition, SagaDefinitionBuilder, SagaName, SagaRouteBuilder,
+};
 use banking_ledger_domain::account::{Account, AccountEventPayload};
 use banking_ledger_domain::deposit::{Deposit, DepositEventPayload, DepositFailureReason};
 
@@ -20,45 +22,52 @@ impl Saga for DepositSaga {
         SagaDefinitionBuilder::<Self::State, Self::Step, Self::HandlerError>::new(SagaName::new(
             "deposit",
         ))
-        .add_start_step(DepositSagaStep::Deposit)
-        .on::<Deposit>(DepositEventPayload::SETTLEMENT_VERIFIED)
-        .handle(|ctx, deposit_event| {
-            if let DepositEventPayload::SettlementVerified {
-                account_id, amount, ..
-            } = deposit_event.payload()
-            {
-                ctx.set_state(DepositSagaState::new(
-                    deposit_event.aggregate_id(),
-                    *account_id,
-                    *amount,
-                ));
-                ctx.append_command(&AccountDepositCommand {
-                    account_id: *account_id,
-                    amount: *amount,
-                })?;
-            }
-            Ok(())
-        })
-        .add_step(DepositSagaStep::Succeed)
-        .on::<Account>(DepositSagaStep::Deposit, AccountEventPayload::DEPOSITED)
-        .handle(|ctx, _account_event| {
-            let state = ctx.state_required_mut()?;
-            let deposit_id = state.deposit_id;
+        .add_route(
+            SagaRouteBuilder::new(DepositSagaStep::Deposit)
+                .on::<Deposit>(DepositEventPayload::SETTLEMENT_VERIFIED)
+                .handle(|ctx, deposit_event| {
+                    if let DepositEventPayload::SettlementVerified {
+                        account_id, amount, ..
+                    } = deposit_event.payload()
+                    {
+                        ctx.set_state(DepositSagaState::new(
+                            deposit_event.aggregate_id(),
+                            *account_id,
+                            *amount,
+                        ));
+                        ctx.append_command(&AccountDepositCommand {
+                            account_id: *account_id,
+                            amount: *amount,
+                        })?;
+                    }
+                    Ok(())
+                }),
+        )
+        .add_route(
+            SagaRouteBuilder::new(DepositSagaStep::Succeed)
+                .on::<Account>(AccountEventPayload::DEPOSITED)
+                .caused_by(DepositSagaStep::Deposit)
+                .handle(|ctx, _account_event| {
+                    let state: &mut DepositSagaState = ctx.state_required_mut()?;
+                    let deposit_id = state.deposit_id;
 
-            ctx.append_command(&DepositSucceedCommand { deposit_id })?;
-            Ok(())
-        })
-        .add_failure_step(DepositSagaStep::Fail)
-        .on::<AccountDepositCommand>(DepositSagaStep::Deposit)
-        .handle(|ctx, _command| {
-            let state = ctx.state_required_mut()?;
-            let deposit_id = state.deposit_id;
-            ctx.append_command(&DepositFailCommand {
-                deposit_id,
-                reason: DepositFailureReason::AccountDepositRejected,
-            })?;
-            Ok(())
-        })
+                    ctx.append_command(&DepositSucceedCommand { deposit_id })?;
+                    Ok(())
+                }),
+        )
+        .add_route(
+            SagaRouteBuilder::new(DepositSagaStep::Fail)
+                .on_command_failed::<AccountDepositCommand>(DepositSagaStep::Deposit)
+                .handle(|ctx, _command| {
+                    let state: &mut DepositSagaState = ctx.state_required_mut()?;
+                    let deposit_id = state.deposit_id;
+                    ctx.append_command(&DepositFailCommand {
+                        deposit_id,
+                        reason: DepositFailureReason::AccountDepositRejected,
+                    })?;
+                    Ok(())
+                }),
+        )
         .build()
         .map_err(SagaError::from)
     }
