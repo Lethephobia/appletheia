@@ -20,7 +20,7 @@ mod tests {
     use appletheia::domain::Aggregate;
     use banking_iam_domain::{
         Organization, OrganizationId, OrganizationMembership, OrganizationMembershipError,
-        OrganizationRole, OrganizationRoles, User, UserId,
+        OrganizationRole, User, UserId,
     };
 
     use super::{
@@ -31,12 +31,9 @@ mod tests {
     fn membership() -> OrganizationMembership {
         let mut aggregate = OrganizationMembership::new();
         aggregate
-            .create(
-                OrganizationId::new(),
-                UserId::new(),
-                OrganizationRoles::new([OrganizationRole::Admin]),
-            )
+            .create(OrganizationId::new(), UserId::new())
             .unwrap();
+        aggregate.grant_role(OrganizationRole::Admin).unwrap();
         aggregate
     }
 
@@ -69,9 +66,8 @@ mod tests {
                 .iter()
                 .any(|entry| entry.relation == OrganizationAdminRelation::REF.into())
         );
-        aggregate
-            .change_roles(OrganizationRoles::new([OrganizationRole::Treasurer]))
-            .unwrap();
+        aggregate.revoke_role(OrganizationRole::Admin).unwrap();
+        aggregate.grant_role(OrganizationRole::Treasurer).unwrap();
         let changed = snapshot.derive(&aggregate).unwrap();
         assert!(
             !changed

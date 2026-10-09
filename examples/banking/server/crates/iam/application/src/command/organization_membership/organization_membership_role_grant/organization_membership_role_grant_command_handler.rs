@@ -8,19 +8,19 @@ use banking_iam_domain::OrganizationMembershipError;
 use banking_iam_domain::{Organization, OrganizationMembership};
 
 use super::{
-    OrganizationMembershipRolesChangeCommand, OrganizationMembershipRolesChangeCommandHandlerError,
-    OrganizationMembershipRolesChangeOutput,
+    OrganizationMembershipRoleGrantCommand, OrganizationMembershipRoleGrantCommandHandlerError,
+    OrganizationMembershipRoleGrantOutput,
 };
 use crate::authorization::OrganizationMembershipRolesChangerRelation;
 
-pub struct OrganizationMembershipRolesChangeCommandHandler<R>
+pub struct OrganizationMembershipRoleGrantCommandHandler<R>
 where
     R: Repository,
 {
     repository: R,
 }
 
-impl<R> OrganizationMembershipRolesChangeCommandHandler<R>
+impl<R> OrganizationMembershipRoleGrantCommandHandler<R>
 where
     R: Repository,
 {
@@ -29,13 +29,13 @@ where
     }
 }
 
-impl<R> CommandHandler for OrganizationMembershipRolesChangeCommandHandler<R>
+impl<R> CommandHandler for OrganizationMembershipRoleGrantCommandHandler<R>
 where
     R: Repository,
 {
-    type Command = OrganizationMembershipRolesChangeCommand;
-    type Output = OrganizationMembershipRolesChangeOutput;
-    type Error = OrganizationMembershipRolesChangeCommandHandlerError;
+    type Command = OrganizationMembershipRoleGrantCommand;
+    type Output = OrganizationMembershipRoleGrantOutput;
+    type Error = OrganizationMembershipRoleGrantCommandHandlerError;
     type Uow = R::Uow;
 
     fn authorization_plan(
@@ -71,12 +71,12 @@ where
             return Err(OrganizationMembershipError::OrganizationRemoved.into());
         }
 
-        membership.change_roles(command.roles.clone())?;
+        membership.grant_role(command.role)?;
 
         self.repository
             .save(uow, request_context, &mut membership)
             .await?;
 
-        Ok(OrganizationMembershipRolesChangeOutput {})
+        Ok(OrganizationMembershipRoleGrantOutput {})
     }
 }

@@ -48,8 +48,10 @@ pub use organization_membership::{
     OrganizationMembershipCreateCommandHandlerError, OrganizationMembershipCreateOutput,
     OrganizationMembershipRemoveCommand, OrganizationMembershipRemoveCommandHandler,
     OrganizationMembershipRemoveCommandHandlerError, OrganizationMembershipRemoveOutput,
-    OrganizationMembershipRolesChangeCommand, OrganizationMembershipRolesChangeCommandHandler,
-    OrganizationMembershipRolesChangeCommandHandlerError, OrganizationMembershipRolesChangeOutput,
+    OrganizationMembershipRoleGrantCommand, OrganizationMembershipRoleGrantCommandHandler,
+    OrganizationMembershipRoleGrantCommandHandlerError, OrganizationMembershipRoleGrantOutput,
+    OrganizationMembershipRoleRevokeCommand, OrganizationMembershipRoleRevokeCommandHandler,
+    OrganizationMembershipRoleRevokeCommandHandlerError, OrganizationMembershipRoleRevokeOutput,
 };
 pub use user::{
     LogoutAllSessionsCommand, LogoutAllSessionsCommandHandler, LogoutAllSessionsOutput,

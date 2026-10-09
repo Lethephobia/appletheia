@@ -6,7 +6,7 @@ use banking_iam_domain::{
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum OrganizationMembershipRolesChangeCommandHandlerError {
+pub enum OrganizationMembershipRoleRevokeCommandHandlerError {
     #[error("organization repository failed")]
     OrganizationRepository(#[from] RepositoryError<Organization>),
 
@@ -20,7 +20,7 @@ pub enum OrganizationMembershipRolesChangeCommandHandlerError {
     OrganizationMembership(#[from] OrganizationMembershipError),
 }
 
-impl Retryability for OrganizationMembershipRolesChangeCommandHandlerError {
+impl Retryability for OrganizationMembershipRoleRevokeCommandHandlerError {
     fn is_retryable(&self) -> bool {
         match self {
             Self::OrganizationRepository(error) => error.is_retryable(),

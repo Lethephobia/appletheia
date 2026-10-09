@@ -139,7 +139,6 @@ where
         organization_invitation.issue(
             command.organization_id,
             command.invitee_id,
-            command.roles.clone(),
             command.issuer,
             command.expires_at,
             CurrentDateTime::new(),

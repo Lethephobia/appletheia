@@ -3,9 +3,8 @@ use appletheia::application::saga::SagaError;
 use appletheia::application::saga::{
     Saga, SagaDefinition, SagaDefinitionBuilder, SagaName, SagaRouteBuilder,
 };
-use banking_iam_domain::{
-    OrganizationJoinRequest, OrganizationJoinRequestEventPayload, OrganizationRoles,
-};
+use banking_iam_domain::{OrganizationJoinRequest, OrganizationJoinRequestEventPayload};
+use std::collections::BTreeSet;
 
 use super::{
     OrganizationJoinRequestSagaHandlerError, OrganizationJoinRequestSagaState,
@@ -42,7 +41,7 @@ impl Saga for OrganizationJoinRequestSaga {
                         ctx.append_command(&OrganizationMembershipCreateCommand {
                             organization_id: *organization_id,
                             user_id: *requester_id,
-                            roles: OrganizationRoles::default(),
+                            roles: BTreeSet::new(),
                         })?;
                     }
                     Ok(())
@@ -72,8 +71,9 @@ mod tests {
     use banking_iam_domain::{
         OrganizationId, OrganizationJoinRequest, OrganizationJoinRequestEventPayload,
         OrganizationJoinRequestId, OrganizationMembership, OrganizationMembershipEventPayload,
-        OrganizationMembershipId, OrganizationRoles, User, UserId,
+        OrganizationMembershipId, User, UserId,
     };
+    use std::collections::BTreeSet;
 
     use crate::command::OrganizationMembershipCreateCommand;
 
@@ -126,7 +126,6 @@ mod tests {
         let payload = OrganizationMembershipEventPayload::Created {
             organization_id: OrganizationId::new(),
             user_id: UserId::new(),
-            roles: OrganizationRoles::default(),
         };
 
         EventEnvelope {
@@ -221,7 +220,7 @@ mod tests {
             .expect("command should deserialize");
         assert_eq!(command.user_id, requester_id);
         assert_eq!(command.organization_id, organization_id);
-        assert_eq!(command.roles, OrganizationRoles::default());
+        assert_eq!(command.roles, BTreeSet::new());
     }
 
     #[test]

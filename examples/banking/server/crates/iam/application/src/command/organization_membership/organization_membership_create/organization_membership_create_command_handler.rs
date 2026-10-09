@@ -116,11 +116,10 @@ where
             return Err(OrganizationMembershipError::AlreadyMember.into());
         }
 
-        membership.create(
-            command.organization_id,
-            command.user_id,
-            command.roles.clone(),
-        )?;
+        membership.create(command.organization_id, command.user_id)?;
+        for role in &command.roles {
+            membership.grant_role(*role)?;
+        }
 
         self.repository
             .save(uow, request_context, &mut membership)
@@ -142,7 +141,8 @@ mod tests {
     use appletheia::application::request_context::RequestContext;
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::{Aggregate, AggregateVersion, UniqueKey, UniqueValue};
-    use banking_iam_domain::{Organization, OrganizationId, OrganizationRoles, UserId};
+    use banking_iam_domain::{Organization, OrganizationId, UserId};
+    use std::collections::BTreeSet;
 
     use super::{OrganizationMembershipCreateCommand, OrganizationMembershipCreateCommandHandler};
     use crate::authorization::OrganizationMemberAdderRelation;
@@ -209,7 +209,7 @@ mod tests {
         let command = OrganizationMembershipCreateCommand {
             organization_id,
             user_id: UserId::new(),
-            roles: OrganizationRoles::default(),
+            roles: BTreeSet::new(),
         };
 
         let plan = handler

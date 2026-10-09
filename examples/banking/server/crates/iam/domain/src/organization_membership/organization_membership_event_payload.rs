@@ -2,7 +2,7 @@ use appletheia::event_payload;
 
 use crate::{OrganizationId, UserId};
 
-use super::{OrganizationMembershipEventPayloadError, OrganizationRoles};
+use super::{OrganizationMembershipEventPayloadError, OrganizationRole};
 
 /// Represents the domain events emitted by an `OrganizationMembership` aggregate.
 #[event_payload(error = OrganizationMembershipEventPayloadError)]
@@ -10,12 +10,16 @@ pub enum OrganizationMembershipEventPayload {
     Created {
         organization_id: OrganizationId,
         user_id: UserId,
-        roles: OrganizationRoles,
     },
-    RolesChanged {
+    RoleGranted {
         organization_id: OrganizationId,
         user_id: UserId,
-        roles: OrganizationRoles,
+        role: OrganizationRole,
+    },
+    RoleRevoked {
+        organization_id: OrganizationId,
+        user_id: UserId,
+        role: OrganizationRole,
     },
     Removed {
         organization_id: OrganizationId,
@@ -27,7 +31,7 @@ pub enum OrganizationMembershipEventPayload {
 mod tests {
     use appletheia::domain::EventPayload;
 
-    use super::{OrganizationMembershipEventPayload, OrganizationRoles};
+    use super::OrganizationMembershipEventPayload;
     use crate::{OrganizationId, UserId};
 
     #[test]
@@ -37,8 +41,8 @@ mod tests {
             appletheia::domain::EventName::new("created")
         );
         assert_eq!(
-            OrganizationMembershipEventPayload::ROLES_CHANGED,
-            appletheia::domain::EventName::new("roles_changed")
+            OrganizationMembershipEventPayload::ROLE_GRANTED,
+            appletheia::domain::EventName::new("role_granted")
         );
         assert_eq!(
             OrganizationMembershipEventPayload::REMOVED,
@@ -51,7 +55,6 @@ mod tests {
         let payload = OrganizationMembershipEventPayload::Created {
             organization_id: OrganizationId::new(),
             user_id: UserId::new(),
-            roles: OrganizationRoles::default(),
         };
 
         assert_eq!(payload.name(), OrganizationMembershipEventPayload::CREATED);
@@ -72,7 +75,6 @@ mod tests {
         let payload = OrganizationMembershipEventPayload::Created {
             organization_id: OrganizationId::new(),
             user_id: UserId::new(),
-            roles: OrganizationRoles::default(),
         };
 
         let value = payload
