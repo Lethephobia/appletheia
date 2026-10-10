@@ -1,7 +1,5 @@
 mod account;
 mod currency;
-mod currency_registrar_invitation;
-mod currency_registrar_join_request;
 mod currency_registrar_membership;
 mod deposit;
 mod token_binding;
@@ -13,8 +11,6 @@ pub use banking_iam_application::authorization::UserOwnerRelation;
 
 pub use account::*;
 pub use currency::*;
-pub use currency_registrar_invitation::*;
-pub use currency_registrar_join_request::*;
 pub use currency_registrar_membership::*;
 pub use deposit::*;
 pub use token_binding::*;
@@ -220,6 +216,68 @@ mod tests {
                     .unwrap(),
                 is_member
             );
+        }
+    }
+
+    #[tokio::test]
+    async fn registrar_members_can_manage_only_their_registrar_while_active() {
+        use super::{
+            CurrencyRegistrarMemberRelation, CurrencyRegistrarMembershipManagerRelation,
+            CurrencyRegistrarMembershipRegistrarRelation,
+        };
+        use banking_ledger_domain::{
+            CurrencyRegistrar, CurrencyRegistrarId, CurrencyRegistrarMembership,
+        };
+
+        let registrar_id = CurrencyRegistrarId::new();
+        let member_id = UserId::new();
+        let other_member_id = UserId::new();
+        let stranger_id = UserId::new();
+        let mut membership = CurrencyRegistrarMembership::new();
+        membership.create(registrar_id, member_id).unwrap();
+        let mut target = CurrencyRegistrarMembership::new();
+        target.create(registrar_id, UserId::new()).unwrap();
+        let mut other_membership = CurrencyRegistrarMembership::new();
+        other_membership
+            .create(CurrencyRegistrarId::new(), other_member_id)
+            .unwrap();
+        let mut model = InMemoryAuthorizationModel::new();
+        model.define_relation(CurrencyRegistrarMemberRelation);
+        model.define_relation(CurrencyRegistrarMembershipManagerRelation);
+        model.define_relation(CurrencyRegistrarMembershipRegistrarRelation);
+        for removed in [false, true] {
+            if removed {
+                membership.remove().unwrap();
+            }
+            let mut relationships = model.derive(&membership).unwrap();
+            relationships.extend(model.derive(&target).unwrap());
+            relationships.extend(model.derive(&other_membership).unwrap());
+            let resolver = DefaultRelationshipResolver::new(
+                TestRelationshipStore(relationships),
+                model.clone(),
+                RelationshipResolverConfig::default(),
+            );
+            for user_id in [member_id, other_member_id, stranger_id] {
+                let subject = AggregateRef::from_id::<User>(user_id);
+                for requirement in [
+                    RelationshipRequirement::check::<CurrencyRegistrar>(
+                        registrar_id,
+                        CurrencyRegistrarMemberRelation::REF,
+                    ),
+                    RelationshipRequirement::check::<CurrencyRegistrarMembership>(
+                        target.aggregate_id(),
+                        CurrencyRegistrarMembershipManagerRelation::REF,
+                    ),
+                ] {
+                    assert_eq!(
+                        resolver
+                            .satisfies(&mut TestUow, &subject, &requirement)
+                            .await
+                            .unwrap(),
+                        user_id == member_id && !removed
+                    );
+                }
+            }
         }
     }
 }

@@ -1,4 +1,7 @@
-use appletheia::application::authorization::{AuthorizationPlan, PrincipalRequirement};
+use crate::authorization::CurrencyRegistrarMemberRelation;
+use appletheia::application::authorization::{
+    AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
+};
 use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
@@ -54,10 +57,16 @@ where
 
     fn authorization_plan(
         &self,
-        _command: &Self::Command,
+        command: &Self::Command,
     ) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
             PrincipalRequirement::System,
+            PrincipalRequirement::AuthenticatedWithRelationship(RelationshipRequirement::check::<
+                CurrencyRegistrar,
+            >(
+                command.currency_registrar_id,
+                CurrencyRegistrarMemberRelation::REF,
+            )),
         ]))
     }
 

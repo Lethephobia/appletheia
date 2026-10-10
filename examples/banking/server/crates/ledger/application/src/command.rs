@@ -1,8 +1,6 @@
 pub mod account;
 pub mod currency;
 pub mod currency_registrar;
-pub mod currency_registrar_invitation;
-pub mod currency_registrar_join_request;
 pub mod currency_registrar_membership;
 pub mod deposit;
 pub mod owned_account_closure;
@@ -45,31 +43,6 @@ pub use currency_registrar::{
     CurrencyRegistrarDisplayNameChangeOutput, CurrencyRegistrarHandleChangeCommand,
     CurrencyRegistrarHandleChangeCommandHandler, CurrencyRegistrarHandleChangeCommandHandlerError,
     CurrencyRegistrarHandleChangeOutput,
-};
-pub use currency_registrar_invitation::{
-    CurrencyRegistrarInvitationAcceptCommand, CurrencyRegistrarInvitationAcceptCommandHandler,
-    CurrencyRegistrarInvitationAcceptCommandHandlerError, CurrencyRegistrarInvitationAcceptOutput,
-    CurrencyRegistrarInvitationCancelCommand, CurrencyRegistrarInvitationCancelCommandHandler,
-    CurrencyRegistrarInvitationCancelCommandHandlerError, CurrencyRegistrarInvitationCancelOutput,
-    CurrencyRegistrarInvitationDeclineCommand, CurrencyRegistrarInvitationDeclineCommandHandler,
-    CurrencyRegistrarInvitationDeclineCommandHandlerError,
-    CurrencyRegistrarInvitationDeclineOutput, CurrencyRegistrarInvitationIssueCommand,
-    CurrencyRegistrarInvitationIssueCommandHandler,
-    CurrencyRegistrarInvitationIssueCommandHandlerError, CurrencyRegistrarInvitationIssueOutput,
-};
-pub use currency_registrar_join_request::{
-    CurrencyRegistrarJoinRequestApproveCommand, CurrencyRegistrarJoinRequestApproveCommandHandler,
-    CurrencyRegistrarJoinRequestApproveCommandHandlerError,
-    CurrencyRegistrarJoinRequestApproveOutput, CurrencyRegistrarJoinRequestCancelCommand,
-    CurrencyRegistrarJoinRequestCancelCommandHandler,
-    CurrencyRegistrarJoinRequestCancelCommandHandlerError,
-    CurrencyRegistrarJoinRequestCancelOutput, CurrencyRegistrarJoinRequestRejectCommand,
-    CurrencyRegistrarJoinRequestRejectCommandHandler,
-    CurrencyRegistrarJoinRequestRejectCommandHandlerError,
-    CurrencyRegistrarJoinRequestRejectOutput, CurrencyRegistrarJoinRequestSubmitCommand,
-    CurrencyRegistrarJoinRequestSubmitCommandHandler,
-    CurrencyRegistrarJoinRequestSubmitCommandHandlerError,
-    CurrencyRegistrarJoinRequestSubmitOutput,
 };
 pub use currency_registrar_membership::{
     CurrencyRegistrarMembershipCreateCommand, CurrencyRegistrarMembershipCreateCommandHandler,
