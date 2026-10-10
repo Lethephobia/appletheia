@@ -2,6 +2,7 @@ pub mod organization;
 pub mod organization_invitation;
 pub mod organization_join_request;
 pub mod organization_membership;
+pub mod team;
 pub mod user;
 pub use organization::{
     Organization, OrganizationDescription, OrganizationDescriptionError, OrganizationDisplayName,
@@ -27,6 +28,10 @@ pub use organization_membership::{
     OrganizationMembership, OrganizationMembershipError, OrganizationMembershipEventPayload,
     OrganizationMembershipEventPayloadError, OrganizationMembershipId, OrganizationMembershipState,
     OrganizationMembershipStateError, OrganizationMembershipStatus,
+};
+pub use team::{
+    Team, TeamDescription, TeamDescriptionError, TeamError, TeamEventPayload,
+    TeamEventPayloadError, TeamId, TeamName, TeamNameError, TeamState, TeamStateError, TeamStatus,
 };
 pub use user::{
     User, UserBio, UserBioError, UserDisplayName, UserDisplayNameError, UserError,
