@@ -28,6 +28,82 @@ mod tests {
         OrganizationOwnerRelation,
     };
 
+    use appletheia::application::aggregate::AggregateTypeOwned;
+    use appletheia::application::authorization::{
+        DefaultRelationshipResolver, RelationRefOwned, Relationship, RelationshipRequirement,
+        RelationshipResolver, RelationshipResolverConfig, RelationshipStore,
+        RelationshipStoreError,
+    };
+    use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
+
+    struct TestUow;
+
+    impl UnitOfWork for TestUow {
+        async fn commit(self) -> Result<(), UnitOfWorkError> {
+            Ok(())
+        }
+
+        async fn rollback(self) -> Result<(), UnitOfWorkError> {
+            Ok(())
+        }
+    }
+
+    struct TestRelationshipStore(Vec<Relationship>);
+
+    impl RelationshipStore for TestRelationshipStore {
+        type Uow = TestUow;
+
+        async fn replace(
+            &self,
+            _uow: &mut Self::Uow,
+            _source: &AggregateRef,
+            _relationships: &[Relationship],
+        ) -> Result<(), RelationshipStoreError> {
+            unreachable!("authorization checks do not replace relationships")
+        }
+
+        async fn read_targets_by_subject(
+            &self,
+            _uow: &mut Self::Uow,
+            subject: &RelationshipSubject,
+            relation: &RelationRefOwned,
+        ) -> Result<Vec<AggregateRef>, RelationshipStoreError> {
+            Ok(self
+                .0
+                .iter()
+                .filter(|entry| &entry.subject == subject && &entry.relation == relation)
+                .map(|entry| entry.target.clone())
+                .collect())
+        }
+
+        async fn read_subjects_by_target(
+            &self,
+            _uow: &mut Self::Uow,
+            target: &AggregateRef,
+            relation: &RelationRefOwned,
+            subject_aggregate_type: Option<&AggregateTypeOwned>,
+        ) -> Result<Vec<RelationshipSubject>, RelationshipStoreError> {
+            Ok(self
+                .0
+                .iter()
+                .filter(|entry| {
+                    &entry.target == target
+                        && &entry.relation == relation
+                        && subject_aggregate_type.is_none_or(|expected| match &entry.subject {
+                            RelationshipSubject::Aggregate(aggregate)
+                            | RelationshipSubject::AggregateSet { aggregate, .. } => {
+                                &aggregate.aggregate_type == expected
+                            }
+                            RelationshipSubject::Wildcard { aggregate_type } => {
+                                aggregate_type == expected
+                            }
+                        })
+                })
+                .map(|entry| entry.subject.clone())
+                .collect())
+        }
+    }
+
     fn membership() -> OrganizationMembership {
         let mut aggregate = OrganizationMembership::new();
         aggregate
@@ -347,5 +423,121 @@ mod tests {
         assert_eq!(restored_empty.aggregate_id(), empty.aggregate_id());
         assert_eq!(restored_empty.version(), empty.version());
         assert!(restored_empty.state().is_none());
+    }
+
+    #[tokio::test]
+    async fn admin_permissions_follow_membership_lifecycle_and_allow_admin_management() {
+        use super::{
+            OrganizationAdminRelation, OrganizationMembershipManagerRelation,
+            OrganizationOwnerRelation,
+        };
+        use banking_iam_domain::{OrganizationDisplayName, OrganizationHandle, OrganizationOwner};
+
+        let owner_id = UserId::new();
+        let admin_id = UserId::new();
+        let member_id = UserId::new();
+        let stranger_id = UserId::new();
+        let mut organization = Organization::new();
+        organization
+            .create(
+                OrganizationOwner::User(owner_id),
+                OrganizationHandle::try_from("admin-test").unwrap(),
+                OrganizationDisplayName::try_from("Admin Test").unwrap(),
+            )
+            .unwrap();
+        let mut admin = OrganizationMembership::new();
+        admin.create(organization.aggregate_id(), admin_id).unwrap();
+        admin.promote_to_admin().unwrap();
+        let mut member = OrganizationMembership::new();
+        member
+            .create(organization.aggregate_id(), member_id)
+            .unwrap();
+        let mut another_admin = OrganizationMembership::new();
+        another_admin
+            .create(organization.aggregate_id(), UserId::new())
+            .unwrap();
+        another_admin.promote_to_admin().unwrap();
+        let mut model = InMemoryAuthorizationModel::new();
+        model.define_relation(OrganizationOwnerRelation);
+        model.define_relation(OrganizationAdminRelation);
+        model.define_relation(OrganizationMembershipOrganizationRelation);
+        model.define_relation(OrganizationMembershipManagerRelation);
+
+        // Rebuild persisted relationships for each current aggregate state.
+        for phase in 0..4 {
+            if phase == 1 {
+                admin.demote_from_admin().unwrap();
+            } else if phase == 2 {
+                admin.promote_to_admin().unwrap();
+                admin.remove().unwrap();
+            } else if phase == 3 {
+                admin = OrganizationMembership::new();
+                admin.create(organization.aggregate_id(), admin_id).unwrap();
+            }
+            let mut relationships = model.derive(&organization).unwrap();
+            relationships.extend(model.derive(&admin).unwrap());
+            relationships.extend(model.derive(&member).unwrap());
+            relationships.extend(model.derive(&another_admin).unwrap());
+            let resolver = DefaultRelationshipResolver::new(
+                TestRelationshipStore(relationships),
+                model.clone(),
+                RelationshipResolverConfig::default(),
+            );
+            let mut uow = TestUow;
+            for (user_id, is_owner, is_admin) in [
+                (owner_id, true, true),
+                (admin_id, false, phase == 0),
+                (member_id, false, false),
+                (stranger_id, false, false),
+            ] {
+                let subject = AggregateRef::from_id::<User>(user_id);
+                for (requirement, expected) in [
+                    (
+                        RelationshipRequirement::check::<OrganizationMembership>(
+                            another_admin.aggregate_id(),
+                            OrganizationMembershipManagerRelation::REF,
+                        ),
+                        is_admin,
+                    ),
+                    (
+                        RelationshipRequirement::check::<Organization>(
+                            organization.aggregate_id(),
+                            OrganizationAdminRelation::REF,
+                        ),
+                        is_admin,
+                    ),
+                    (
+                        RelationshipRequirement::check::<Organization>(
+                            organization.aggregate_id(),
+                            OrganizationOwnerRelation::REF,
+                        ),
+                        is_owner,
+                    ),
+                    (
+                        RelationshipRequirement::check::<OrganizationMembership>(
+                            member.aggregate_id(),
+                            OrganizationMembershipManagerRelation::REF,
+                        ),
+                        is_admin,
+                    ),
+                    (
+                        RelationshipRequirement::check::<OrganizationMembership>(
+                            admin.aggregate_id(),
+                            OrganizationMembershipManagerRelation::REF,
+                        ),
+                        is_admin,
+                    ),
+                ] {
+                    assert_eq!(
+                        resolver
+                            .satisfies(&mut uow, &subject, &requirement)
+                            .await
+                            .unwrap(),
+                        expected,
+                        "phase={phase}, requirement={requirement:?}"
+                    );
+                }
+            }
+        }
     }
 }

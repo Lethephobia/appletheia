@@ -1,5 +1,3 @@
-use banking_iam_domain::OrganizationMembership;
-
 mod organization_membership_manager_relation;
 mod organization_membership_organization_derivation_handler_error;
 mod organization_membership_organization_relation;

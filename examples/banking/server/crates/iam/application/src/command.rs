@@ -46,8 +46,15 @@ pub use organization_join_request::{
 pub use organization_membership::{
     OrganizationMembershipCreateCommand, OrganizationMembershipCreateCommandHandler,
     OrganizationMembershipCreateCommandHandlerError, OrganizationMembershipCreateOutput,
-    OrganizationMembershipRemoveCommand, OrganizationMembershipRemoveCommandHandler,
-    OrganizationMembershipRemoveCommandHandlerError, OrganizationMembershipRemoveOutput,
+    OrganizationMembershipDemoteFromAdminCommand,
+    OrganizationMembershipDemoteFromAdminCommandHandler,
+    OrganizationMembershipDemoteFromAdminCommandHandlerError,
+    OrganizationMembershipDemoteFromAdminOutput, OrganizationMembershipPromoteToAdminCommand,
+    OrganizationMembershipPromoteToAdminCommandHandler,
+    OrganizationMembershipPromoteToAdminCommandHandlerError,
+    OrganizationMembershipPromoteToAdminOutput, OrganizationMembershipRemoveCommand,
+    OrganizationMembershipRemoveCommandHandler, OrganizationMembershipRemoveCommandHandlerError,
+    OrganizationMembershipRemoveOutput,
 };
 pub use user::{
     LogoutAllSessionsCommand, LogoutAllSessionsCommandHandler, LogoutAllSessionsOutput,

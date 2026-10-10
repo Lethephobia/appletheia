@@ -1,6 +1,4 @@
-use appletheia::application::authorization::{
-    AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
-};
+use appletheia::application::authorization::{AuthorizationPlan, PrincipalRequirement};
 use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
@@ -15,9 +13,7 @@ use super::{
     OrganizationMembershipCreateCommand, OrganizationMembershipCreateCommandHandlerError,
     OrganizationMembershipCreateOutput,
 };
-use crate::authorization::OrganizationOwnerRelation;
 
-///
 /// The handler reads `Organization` and `User` only to validate their current
 /// status; the single aggregate it mutates is `OrganizationMembership`.
 pub struct OrganizationMembershipCreateCommandHandler<R>
@@ -56,20 +52,13 @@ where
     type Error = OrganizationMembershipCreateCommandHandlerError;
     type Uow = R::Uow;
 
-    /// Accepts the invitation and join-request sagas as `System`, and
-    /// organization owners adding a member directly.
+    /// Accepts membership creation dispatched by the invitation and join-request sagas.
     fn authorization_plan(
         &self,
-        command: &Self::Command,
+        _command: &Self::Command,
     ) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
             PrincipalRequirement::System,
-            PrincipalRequirement::AuthenticatedWithRelationship(RelationshipRequirement::check::<
-                Organization,
-            >(
-                command.organization_id,
-                OrganizationOwnerRelation::REF,
-            )),
         ]))
     }
 
@@ -141,10 +130,9 @@ mod tests {
     use appletheia::application::request_context::RequestContext;
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::{Aggregate, AggregateVersion, UniqueKey, UniqueValue};
-    use banking_iam_domain::{Organization, OrganizationId, UserId};
+    use banking_iam_domain::{OrganizationId, UserId};
 
     use super::{OrganizationMembershipCreateCommand, OrganizationMembershipCreateCommandHandler};
-    use crate::authorization::OrganizationOwnerRelation;
 
     struct TestUow;
 
@@ -218,7 +206,7 @@ mod tests {
     }
 
     #[test]
-    fn authorization_plan_accepts_system_and_organization_owners() {
+    fn authorization_plan_accepts_only_system() {
         let handler: OrganizationMembershipCreateCommandHandler<TestRepository> =
             OrganizationMembershipCreateCommandHandler::new(TestRepository);
         let organization_id = OrganizationId::new();
@@ -233,15 +221,47 @@ mod tests {
 
         assert_eq!(
             plan,
-            AuthorizationPlan::OnlyPrincipals(vec![
-                PrincipalRequirement::System,
-                PrincipalRequirement::AuthenticatedWithRelationship(
-                    RelationshipRequirement::check::<Organization>(
-                        organization_id,
-                        OrganizationOwnerRelation::REF,
-                    )
-                ),
-            ])
+            AuthorizationPlan::OnlyPrincipals(vec![PrincipalRequirement::System])
+        );
+    }
+
+    #[test]
+    fn admin_promotion_and_demotion_require_membership_manager() {
+        use crate::authorization::OrganizationMembershipManagerRelation;
+        use crate::{
+            OrganizationMembershipDemoteFromAdminCommand,
+            OrganizationMembershipDemoteFromAdminCommandHandler,
+            OrganizationMembershipPromoteToAdminCommand,
+            OrganizationMembershipPromoteToAdminCommandHandler,
+        };
+        use banking_iam_domain::{OrganizationMembership, OrganizationMembershipId};
+
+        let organization_membership_id = OrganizationMembershipId::new();
+        let promote = OrganizationMembershipPromoteToAdminCommandHandler::new(TestRepository);
+        let demote = OrganizationMembershipDemoteFromAdminCommandHandler::new(TestRepository);
+        let expected = AuthorizationPlan::OnlyPrincipals(vec![
+            PrincipalRequirement::AuthenticatedWithRelationship(RelationshipRequirement::check::<
+                OrganizationMembership,
+            >(
+                organization_membership_id,
+                OrganizationMembershipManagerRelation::REF,
+            )),
+        ]);
+        assert_eq!(
+            promote
+                .authorization_plan(&OrganizationMembershipPromoteToAdminCommand {
+                    organization_membership_id
+                })
+                .unwrap(),
+            expected
+        );
+        assert_eq!(
+            demote
+                .authorization_plan(&OrganizationMembershipDemoteFromAdminCommand {
+                    organization_membership_id
+                })
+                .unwrap(),
+            expected
         );
     }
 }

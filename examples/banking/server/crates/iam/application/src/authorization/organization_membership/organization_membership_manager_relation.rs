@@ -1,10 +1,11 @@
 use appletheia::application::authorization::{Relation, RelationName, RelationRef, UsersetExpr};
 use appletheia::domain::Aggregate;
+use banking_iam_domain::OrganizationMembership;
 
-use super::{OrganizationMembership, OrganizationMembershipOrganizationRelation};
-use crate::OrganizationOwnerRelation;
+use super::OrganizationMembershipOrganizationRelation;
+use crate::OrganizationAdminRelation;
 
-/// Allows organization owners to manage memberships.
+/// Allows organization admins, including the owner, to manage memberships.
 pub struct OrganizationMembershipManagerRelation;
 
 impl Relation for OrganizationMembershipManagerRelation {
@@ -14,7 +15,7 @@ impl Relation for OrganizationMembershipManagerRelation {
     fn expr(&self) -> UsersetExpr {
         UsersetExpr::TupleToUserset {
             tupleset_relation: OrganizationMembershipOrganizationRelation::REF.into(),
-            computed_userset: OrganizationOwnerRelation::REF.into(),
+            computed_userset: OrganizationAdminRelation::REF.into(),
         }
     }
 }

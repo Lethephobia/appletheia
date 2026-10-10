@@ -2,9 +2,9 @@ use appletheia::application::authorization::{Relation, RelationName, RelationRef
 use appletheia::domain::Aggregate;
 
 use super::{OrganizationInvitation, OrganizationInvitationOrganizationRelation};
-use crate::OrganizationOwnerRelation;
+use crate::OrganizationAdminRelation;
 
-/// Allows organization owners to manage invitations.
+/// Allows organization admins to manage invitations.
 pub struct OrganizationInvitationManagerRelation;
 
 impl Relation for OrganizationInvitationManagerRelation {
@@ -14,7 +14,7 @@ impl Relation for OrganizationInvitationManagerRelation {
     fn expr(&self) -> UsersetExpr {
         UsersetExpr::TupleToUserset {
             tupleset_relation: OrganizationInvitationOrganizationRelation::REF.into(),
-            computed_userset: OrganizationOwnerRelation::REF.into(),
+            computed_userset: OrganizationAdminRelation::REF.into(),
         }
     }
 }
