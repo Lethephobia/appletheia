@@ -381,13 +381,11 @@ Banking changes a `UserPictureRef` as one value and an identity's email by provi
 identifiers must remain meaningful if the collection order changes; do not use a vector position as
 identity.
 
-A collection wrapper does not require whole-collection replacement. When elements represent
-independent grants, expose aggregate operations such as `grant_role` and `revoke_role`, and record
-`RoleGranted` / `RoleRevoked`. A plain `BTreeSet<OrganizationRole>` can store the roles: validate in the aggregate before
-appending the event, then insert or remove the element directly in `apply`.
-When a membership creation command accepts initial roles, create the membership with an empty
-set and call `grant_role` for each requested role in the command handler before saving once.
-Do not fold the grants into the aggregate's creation method or its `Created` event.
+A collection wrapper does not require whole-collection replacement. When elements have independent
+lifecycles, expose operations for the individual elements and record their changes separately.
+Validate in the aggregate before appending an event, then update the collection directly in `apply`.
+When a creation command accepts initial elements, call their individual aggregate methods from the
+command handler before saving once. Do not fold child entity creation into the parent's creation event.
 
 **Good**
 
@@ -405,15 +403,14 @@ IdentityEmailSet {
 ```
 
 ```rust
-membership.grant_role(OrganizationRole::Admin)?;
-membership.revoke_role(OrganizationRole::Treasurer)?;
+user.link_identity(provider, subject, email)?;
 ```
 
 **Bad**
 
 ```rust
-// Replacing every role obscures an operation intended only to grant one permission.
-membership.change_roles(roles_copied_from_an_old_screen)?;
+// Replacing every identity obscures an operation intended only to link one identity.
+user.replace_identities(identities_copied_from_an_old_screen)?;
 
 // A position does not identify the same child after reordering.
 IdentityEmailSet { index: usize, email: Option<Email> },

@@ -15,7 +15,7 @@ use super::{
     DepositSettlementPrepareCommand, DepositSettlementPrepareCommandHandlerError,
     DepositSettlementPrepareOutput,
 };
-use crate::authorization::AccountDepositRequesterRelation;
+use crate::authorization::AccountOwnerRelation;
 use crate::settlement::{DepositSettlementPrepareRequest, DepositSettlementPreparer};
 
 pub struct DepositSettlementPrepareCommandHandler<R, DSP>
@@ -59,7 +59,7 @@ where
                 Account,
             >(
                 command.account_id,
-                AccountDepositRequesterRelation::REF,
+                AccountOwnerRelation::REF,
             )),
         ]))
     }

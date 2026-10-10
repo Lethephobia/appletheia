@@ -7,7 +7,7 @@ use appletheia::application::request_context::RequestContext;
 use banking_ledger_domain::account::Account;
 
 use super::{AccountFreezeCommand, AccountFreezeCommandHandlerError, AccountFreezeOutput};
-use crate::authorization::AccountFreezerRelation;
+use crate::authorization::AccountOwnerRelation;
 
 pub struct AccountFreezeCommandHandler<R>
 where
@@ -43,7 +43,7 @@ where
                 Account,
             >(
                 command.account_id,
-                AccountFreezerRelation::REF,
+                AccountOwnerRelation::REF,
             )),
         ]))
     }

@@ -10,7 +10,7 @@ use super::{
     CurrencyDescriptionSetCommand, CurrencyDescriptionSetCommandHandlerError,
     CurrencyDescriptionSetOutput,
 };
-use crate::authorization::CurrencyDescriptionSetterRelation;
+use crate::authorization::CurrencyManagerRelation;
 
 pub struct CurrencyDescriptionSetCommandHandler<R>
 where
@@ -46,7 +46,7 @@ where
                 Currency,
             >(
                 command.currency_id,
-                CurrencyDescriptionSetterRelation::REF,
+                CurrencyManagerRelation::REF,
             )),
         ]))
     }

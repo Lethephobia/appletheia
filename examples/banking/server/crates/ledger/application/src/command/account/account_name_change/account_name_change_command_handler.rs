@@ -9,7 +9,7 @@ use banking_ledger_domain::account::Account;
 use super::{
     AccountNameChangeCommand, AccountNameChangeCommandHandlerError, AccountNameChangeOutput,
 };
-use crate::authorization::AccountNameChangerRelation;
+use crate::authorization::AccountOwnerRelation;
 
 pub struct AccountNameChangeCommandHandler<R>
 where
@@ -45,7 +45,7 @@ where
                 Account,
             >(
                 command.account_id,
-                AccountNameChangerRelation::REF,
+                AccountOwnerRelation::REF,
             )),
         ]))
     }
@@ -96,7 +96,7 @@ mod tests {
     use super::{
         AccountNameChangeCommand, AccountNameChangeCommandHandler, AccountNameChangeOutput,
     };
-    use crate::authorization::AccountNameChangerRelation;
+    use crate::authorization::AccountOwnerRelation;
 
     #[derive(Default)]
     struct TestUow;
@@ -271,7 +271,7 @@ mod tests {
                 PrincipalRequirement::AuthenticatedWithRelationship(
                     RelationshipRequirement::check::<Account>(
                         account_id,
-                        AccountNameChangerRelation::REF
+                        AccountOwnerRelation::REF
                     )
                 ),
             ])

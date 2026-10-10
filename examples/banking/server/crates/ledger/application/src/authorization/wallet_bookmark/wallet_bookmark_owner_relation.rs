@@ -1,13 +1,16 @@
-use super::WalletBookmarkOwnerDerivationHandlerError;
-
+use appletheia::application::aggregate::AggregateRef;
 use appletheia::application::authorization::{
-    Relation, RelationName, RelationRef, RelationshipEntries, UsersetExpr,
+    Relation, RelationName, RelationRef, RelationshipEntries, RelationshipEntry,
+    RelationshipSubject, UsersetExpr,
 };
 use appletheia::domain::Aggregate;
+use banking_iam_application::authorization::OrganizationOwnerRelation;
 use banking_iam_domain::{Organization, User};
 use banking_ledger_domain::wallet_bookmark::{WalletBookmark, WalletBookmarkOwner};
 
-/// Allows the owning subject itself.
+use super::WalletBookmarkOwnerDerivationHandlerError;
+
+/// Allows the owning user or the owner of the owning organization.
 pub struct WalletBookmarkOwnerRelation;
 
 impl Relation for WalletBookmarkOwnerRelation {
@@ -22,7 +25,13 @@ impl Relation for WalletBookmarkOwnerRelation {
                         entries.insert::<WalletBookmark, User>(aggregate.aggregate_id(), id)
                     }
                     WalletBookmarkOwner::Organization(id) => {
-                        entries.insert::<WalletBookmark, Organization>(aggregate.aggregate_id(), id)
+                        entries.insert_entry(RelationshipEntry::from_parts(
+                            AggregateRef::from_id::<WalletBookmark>(aggregate.aggregate_id()),
+                            RelationshipSubject::aggregate_set::<Organization>(
+                                id,
+                                OrganizationOwnerRelation::REF,
+                            ),
+                        ))
                     }
                 };
                 Ok(entries)

@@ -10,7 +10,7 @@ use super::{
     OrganizationMembershipRemoveCommand, OrganizationMembershipRemoveCommandHandlerError,
     OrganizationMembershipRemoveOutput,
 };
-use crate::authorization::OrganizationMembershipRemoverRelation;
+use crate::authorization::OrganizationMembershipManagerRelation;
 
 pub struct OrganizationMembershipRemoveCommandHandler<R>
 where
@@ -46,7 +46,7 @@ where
                 OrganizationMembership,
             >(
                 command.organization_membership_id,
-                OrganizationMembershipRemoverRelation::REF,
+                OrganizationMembershipManagerRelation::REF,
             )),
         ]))
     }

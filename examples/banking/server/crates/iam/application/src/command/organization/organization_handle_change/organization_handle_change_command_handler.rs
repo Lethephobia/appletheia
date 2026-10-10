@@ -12,7 +12,7 @@ use super::{
     OrganizationHandleChangeCommand, OrganizationHandleChangeCommandHandlerError,
     OrganizationHandleChangeOutput,
 };
-use crate::authorization::OrganizationHandleChangerRelation;
+use crate::authorization::OrganizationOwnerRelation;
 
 pub struct OrganizationHandleChangeCommandHandler<R>
 where
@@ -54,7 +54,7 @@ where
                 Organization,
             >(
                 command.organization_id,
-                OrganizationHandleChangerRelation::REF,
+                OrganizationOwnerRelation::REF,
             )),
         ]))
     }
@@ -122,7 +122,7 @@ mod tests {
         OrganizationHandleChangeCommand, OrganizationHandleChangeCommandHandler,
         OrganizationHandleChangeOutput,
     };
-    use crate::authorization::OrganizationHandleChangerRelation;
+    use crate::authorization::OrganizationOwnerRelation;
 
     #[derive(Default)]
     struct TestUow;
@@ -301,7 +301,7 @@ mod tests {
                 PrincipalRequirement::AuthenticatedWithRelationship(
                     RelationshipRequirement::check::<Organization>(
                         organization_id,
-                        OrganizationHandleChangerRelation::REF
+                        OrganizationOwnerRelation::REF
                     )
                 ),
             ])

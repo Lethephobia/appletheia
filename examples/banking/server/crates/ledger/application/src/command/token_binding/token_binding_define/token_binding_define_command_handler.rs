@@ -12,7 +12,7 @@ use banking_ledger_domain::token_binding::{TokenBinding, TokenBindingState};
 use super::{
     TokenBindingDefineCommand, TokenBindingDefineCommandHandlerError, TokenBindingDefineOutput,
 };
-use crate::authorization::CurrencyTokenBindingDefinerRelation;
+use crate::authorization::CurrencyManagerRelation;
 use crate::settlement::{TokenBindingSettlementValidationRequest, TokenBindingSettlementValidator};
 
 pub struct TokenBindingDefineCommandHandler<R, V>
@@ -56,7 +56,7 @@ where
                 Currency,
             >(
                 command.currency_id,
-                CurrencyTokenBindingDefinerRelation::REF,
+                CurrencyManagerRelation::REF,
             )),
         ]))
     }

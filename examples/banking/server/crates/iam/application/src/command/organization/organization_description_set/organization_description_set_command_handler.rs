@@ -10,7 +10,7 @@ use super::{
     OrganizationDescriptionSetCommand, OrganizationDescriptionSetCommandHandlerError,
     OrganizationDescriptionSetOutput,
 };
-use crate::authorization::OrganizationProfileEditorRelation;
+use crate::authorization::OrganizationOwnerRelation;
 
 pub struct OrganizationDescriptionSetCommandHandler<R>
 where
@@ -46,7 +46,7 @@ where
                 Organization,
             >(
                 command.organization_id,
-                OrganizationProfileEditorRelation::REF,
+                OrganizationOwnerRelation::REF,
             )),
         ]))
     }

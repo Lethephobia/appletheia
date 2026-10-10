@@ -10,7 +10,7 @@ use super::{
     WalletBookmarkRemoveCommand, WalletBookmarkRemoveCommandHandlerError,
     WalletBookmarkRemoveOutput,
 };
-use crate::authorization::WalletBookmarkRemoverRelation;
+use crate::authorization::WalletBookmarkOwnerRelation;
 
 pub struct WalletBookmarkRemoveCommandHandler<R>
 where
@@ -46,7 +46,7 @@ where
                 WalletBookmark,
             >(
                 command.wallet_bookmark_id,
-                WalletBookmarkRemoverRelation::REF,
+                WalletBookmarkOwnerRelation::REF,
             )),
         ]))
     }

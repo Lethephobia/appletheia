@@ -7,7 +7,7 @@ use appletheia::application::request_context::RequestContext;
 use banking_ledger_domain::deposit::Deposit;
 
 use super::{DepositNoteSetCommand, DepositNoteSetCommandHandlerError, DepositNoteSetOutput};
-use crate::authorization::DepositNoteSetterRelation;
+use crate::authorization::DepositAccountOwnerRelation;
 
 pub struct DepositNoteSetCommandHandler<R>
 where
@@ -43,7 +43,7 @@ where
                 Deposit,
             >(
                 command.deposit_id,
-                DepositNoteSetterRelation::REF,
+                DepositAccountOwnerRelation::REF,
             )),
         ]))
     }

@@ -1,17 +1,13 @@
 use banking_iam_domain::OrganizationJoinRequest;
 
-mod organization_join_request_approver_relation;
-mod organization_join_request_canceler_relation;
+mod organization_join_request_manager_relation;
 mod organization_join_request_organization_derivation_handler_error;
 mod organization_join_request_organization_relation;
-mod organization_join_request_rejecter_relation;
 mod organization_join_request_requester_derivation_handler_error;
 mod organization_join_request_requester_relation;
 
-pub use organization_join_request_approver_relation::*;
-pub use organization_join_request_canceler_relation::*;
+pub use organization_join_request_manager_relation::*;
 pub use organization_join_request_organization_derivation_handler_error::*;
 pub use organization_join_request_organization_relation::*;
-pub use organization_join_request_rejecter_relation::*;
 pub use organization_join_request_requester_derivation_handler_error::*;
 pub use organization_join_request_requester_relation::*;

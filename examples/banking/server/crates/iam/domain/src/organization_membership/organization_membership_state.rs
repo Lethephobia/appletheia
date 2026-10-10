@@ -6,8 +6,7 @@ use uuid::Uuid;
 
 use crate::{OrganizationId, UserId};
 
-use super::{OrganizationMembershipStateError, OrganizationMembershipStatus, OrganizationRole};
-use std::collections::BTreeSet;
+use super::{OrganizationMembershipStateError, OrganizationMembershipStatus};
 
 /// Stores the materialized state of an `OrganizationMembership` aggregate.
 #[aggregate_state(error = OrganizationMembershipStateError)]
@@ -19,7 +18,6 @@ use std::collections::BTreeSet;
 pub struct OrganizationMembershipState {
     pub(super) organization_id: OrganizationId,
     pub(super) user_id: UserId,
-    pub(super) roles: BTreeSet<OrganizationRole>,
     pub(super) status: OrganizationMembershipStatus,
 }
 

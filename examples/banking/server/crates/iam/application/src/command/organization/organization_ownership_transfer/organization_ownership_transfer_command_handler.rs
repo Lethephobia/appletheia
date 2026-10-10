@@ -10,7 +10,7 @@ use super::{
     OrganizationOwnershipTransferCommand, OrganizationOwnershipTransferCommandHandlerError,
     OrganizationOwnershipTransferOutput,
 };
-use crate::authorization::OrganizationOwnershipTransfererRelation;
+use crate::authorization::OrganizationOwnerRelation;
 
 pub struct OrganizationOwnershipTransferCommandHandler<R>
 where
@@ -46,7 +46,7 @@ where
                 Organization,
             >(
                 command.organization_id,
-                OrganizationOwnershipTransfererRelation::REF,
+                OrganizationOwnerRelation::REF,
             )),
         ]))
     }
@@ -100,7 +100,7 @@ mod tests {
         OrganizationOwnershipTransferCommand, OrganizationOwnershipTransferCommandHandler,
         OrganizationOwnershipTransferOutput,
     };
-    use crate::authorization::OrganizationOwnershipTransfererRelation;
+    use crate::authorization::OrganizationOwnerRelation;
 
     #[derive(Default)]
     struct TestUow;
@@ -274,7 +274,7 @@ mod tests {
                 PrincipalRequirement::AuthenticatedWithRelationship(
                     RelationshipRequirement::check::<Organization>(
                         organization_id,
-                        OrganizationOwnershipTransfererRelation::REF,
+                        OrganizationOwnerRelation::REF,
                     )
                 ),
             ])

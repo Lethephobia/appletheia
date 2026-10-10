@@ -6,7 +6,7 @@ use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_ledger_domain::account::Account;
 
-use crate::authorization::AccountDescriptionSetterRelation;
+use crate::authorization::AccountOwnerRelation;
 
 use super::{
     AccountDescriptionSetCommand, AccountDescriptionSetCommandHandlerError,
@@ -47,7 +47,7 @@ where
                 Account,
             >(
                 command.account_id,
-                AccountDescriptionSetterRelation::REF,
+                AccountOwnerRelation::REF,
             )),
         ]))
     }

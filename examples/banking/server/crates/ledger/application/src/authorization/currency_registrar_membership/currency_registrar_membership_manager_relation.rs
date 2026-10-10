@@ -4,13 +4,13 @@ use banking_ledger_domain::currency_registrar_membership::CurrencyRegistrarMembe
 
 use super::{CurrencyRegistrarMemberRelation, CurrencyRegistrarMembershipRegistrarRelation};
 
-/// Allows members of the same registrar to remove a membership.
-pub struct CurrencyRegistrarMembershipRemoverRelation;
+/// Allows registrar members to manage memberships.
+pub struct CurrencyRegistrarMembershipManagerRelation;
 
-impl Relation for CurrencyRegistrarMembershipRemoverRelation {
+impl Relation for CurrencyRegistrarMembershipManagerRelation {
     const REF: RelationRef = RelationRef::new(
         CurrencyRegistrarMembership::TYPE,
-        RelationName::new("remover"),
+        RelationName::new("manager"),
     );
 
     fn expr(&self) -> UsersetExpr {
@@ -26,14 +26,14 @@ mod tests {
     use appletheia::application::authorization::{Relation, UsersetExpr};
 
     use super::{
-        CurrencyRegistrarMemberRelation, CurrencyRegistrarMembershipRegistrarRelation,
-        CurrencyRegistrarMembershipRemoverRelation,
+        CurrencyRegistrarMemberRelation, CurrencyRegistrarMembershipManagerRelation,
+        CurrencyRegistrarMembershipRegistrarRelation,
     };
 
     #[test]
-    fn remover_traverses_from_membership_to_registrar_members() {
+    fn manager_traverses_from_membership_to_registrar_members() {
         assert!(
-            matches!(CurrencyRegistrarMembershipRemoverRelation.expr(), UsersetExpr::TupleToUserset { tupleset_relation, computed_userset } if tupleset_relation == CurrencyRegistrarMembershipRegistrarRelation::REF.into() && computed_userset == CurrencyRegistrarMemberRelation::REF.into())
+            matches!(CurrencyRegistrarMembershipManagerRelation.expr(), UsersetExpr::TupleToUserset { tupleset_relation, computed_userset } if tupleset_relation == CurrencyRegistrarMembershipRegistrarRelation::REF.into() && computed_userset == CurrencyRegistrarMemberRelation::REF.into())
         );
     }
 }

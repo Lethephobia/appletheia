@@ -4,13 +4,13 @@ use appletheia::domain::Aggregate;
 use super::{CurrencyRegistrarJoinRequest, CurrencyRegistrarJoinRequestRegistrarRelation};
 use crate::CurrencyRegistrarMemberRelation;
 
-/// Allows registrar administrators to approve join requests.
-pub struct CurrencyRegistrarJoinRequestApproverRelation;
+/// Allows registrar members to manage join requests.
+pub struct CurrencyRegistrarJoinRequestManagerRelation;
 
-impl Relation for CurrencyRegistrarJoinRequestApproverRelation {
+impl Relation for CurrencyRegistrarJoinRequestManagerRelation {
     const REF: RelationRef = RelationRef::new(
         CurrencyRegistrarJoinRequest::TYPE,
-        RelationName::new("approver"),
+        RelationName::new("manager"),
     );
 
     fn expr(&self) -> UsersetExpr {

@@ -5,9 +5,7 @@ use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use appletheia::domain::Aggregate;
-use banking_iam_application::authorization::{
-    OrganizationFinanceManagerRelation, UserOwnerRelation,
-};
+use banking_iam_application::authorization::{OrganizationOwnerRelation, UserOwnerRelation};
 use banking_iam_domain::{Organization, User};
 use banking_ledger_domain::wallet_bookmark::{WalletBookmark, WalletBookmarkOwner};
 
@@ -56,7 +54,7 @@ where
                     PrincipalRequirement::AuthenticatedWithRelationship(
                         RelationshipRequirement::check::<Organization>(
                             organization_id,
-                            OrganizationFinanceManagerRelation::REF,
+                            OrganizationOwnerRelation::REF,
                         ),
                     ),
                 ]))

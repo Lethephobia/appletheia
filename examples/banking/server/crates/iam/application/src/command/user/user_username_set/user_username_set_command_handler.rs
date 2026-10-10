@@ -10,7 +10,7 @@ use banking_iam_domain::UserError;
 use banking_iam_domain::{User, UserState, Username};
 
 use super::{UserUsernameSetCommand, UserUsernameSetCommandHandlerError, UserUsernameSetOutput};
-use crate::authorization::UserUsernameSetterRelation;
+use crate::authorization::UserOwnerRelation;
 
 pub struct UserUsernameSetCommandHandler<R>
 where
@@ -52,7 +52,7 @@ where
                 User,
             >(
                 command.user_id,
-                UserUsernameSetterRelation::REF,
+                UserOwnerRelation::REF,
             )),
         ]))
     }

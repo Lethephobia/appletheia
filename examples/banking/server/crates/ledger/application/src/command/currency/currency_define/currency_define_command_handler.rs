@@ -9,7 +9,7 @@ use banking_ledger_domain::currency::{Currency, CurrencyState};
 use banking_ledger_domain::currency_registrar::CurrencyRegistrar;
 
 use super::{CurrencyDefineCommand, CurrencyDefineCommandHandlerError, CurrencyDefineOutput};
-use crate::authorization::CurrencyRegistrarCurrencyDefinerRelation;
+use crate::authorization::CurrencyRegistrarMemberRelation;
 
 pub struct CurrencyDefineCommandHandler<R>
 where
@@ -45,7 +45,7 @@ where
                 CurrencyRegistrar,
             >(
                 command.currency_registrar_id,
-                CurrencyRegistrarCurrencyDefinerRelation::REF,
+                CurrencyRegistrarMemberRelation::REF,
             )),
         ]))
     }

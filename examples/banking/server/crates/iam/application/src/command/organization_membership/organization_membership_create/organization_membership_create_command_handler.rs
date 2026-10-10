@@ -15,7 +15,7 @@ use super::{
     OrganizationMembershipCreateCommand, OrganizationMembershipCreateCommandHandlerError,
     OrganizationMembershipCreateOutput,
 };
-use crate::authorization::OrganizationMemberAdderRelation;
+use crate::authorization::OrganizationOwnerRelation;
 
 ///
 /// The handler reads `Organization` and `User` only to validate their current
@@ -57,7 +57,7 @@ where
     type Uow = R::Uow;
 
     /// Accepts the invitation and join-request sagas as `System`, and
-    /// organization administrators adding a member directly.
+    /// organization owners adding a member directly.
     fn authorization_plan(
         &self,
         command: &Self::Command,
@@ -68,7 +68,7 @@ where
                 Organization,
             >(
                 command.organization_id,
-                OrganizationMemberAdderRelation::REF,
+                OrganizationOwnerRelation::REF,
             )),
         ]))
     }
@@ -120,9 +120,6 @@ where
         }
 
         membership.create(command.organization_id, command.user_id)?;
-        for role in &command.roles {
-            membership.grant_role(*role)?;
-        }
 
         self.repository
             .save(uow, request_context, &mut membership)
@@ -145,10 +142,9 @@ mod tests {
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::{Aggregate, AggregateVersion, UniqueKey, UniqueValue};
     use banking_iam_domain::{Organization, OrganizationId, UserId};
-    use std::collections::BTreeSet;
 
     use super::{OrganizationMembershipCreateCommand, OrganizationMembershipCreateCommandHandler};
-    use crate::authorization::OrganizationMemberAdderRelation;
+    use crate::authorization::OrganizationOwnerRelation;
 
     struct TestUow;
 
@@ -222,14 +218,13 @@ mod tests {
     }
 
     #[test]
-    fn authorization_plan_accepts_system_and_organization_admins() {
+    fn authorization_plan_accepts_system_and_organization_owners() {
         let handler: OrganizationMembershipCreateCommandHandler<TestRepository> =
             OrganizationMembershipCreateCommandHandler::new(TestRepository);
         let organization_id = OrganizationId::new();
         let command = OrganizationMembershipCreateCommand {
             organization_id,
             user_id: UserId::new(),
-            roles: BTreeSet::new(),
         };
 
         let plan = handler
@@ -243,7 +238,7 @@ mod tests {
                 PrincipalRequirement::AuthenticatedWithRelationship(
                     RelationshipRequirement::check::<Organization>(
                         organization_id,
-                        OrganizationMemberAdderRelation::REF,
+                        OrganizationOwnerRelation::REF,
                     )
                 ),
             ])

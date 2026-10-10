@@ -3,17 +3,18 @@ use appletheia::domain::Aggregate;
 use banking_ledger_domain::transfer::Transfer;
 
 use super::TransferFromAccountRelation;
-use crate::authorization::AccountTransferRequesterRelation;
+use crate::authorization::AccountOwnerRelation;
 
-pub struct TransferNoteSetterRelation;
+pub struct TransferFromAccountOwnerRelation;
 
-impl Relation for TransferNoteSetterRelation {
-    const REF: RelationRef = RelationRef::new(Transfer::TYPE, RelationName::new("note_setter"));
+impl Relation for TransferFromAccountOwnerRelation {
+    const REF: RelationRef =
+        RelationRef::new(Transfer::TYPE, RelationName::new("from_account_owner"));
 
     fn expr(&self) -> UsersetExpr {
         UsersetExpr::TupleToUserset {
             tupleset_relation: TransferFromAccountRelation::REF.into(),
-            computed_userset: AccountTransferRequesterRelation::REF.into(),
+            computed_userset: AccountOwnerRelation::REF.into(),
         }
     }
 }

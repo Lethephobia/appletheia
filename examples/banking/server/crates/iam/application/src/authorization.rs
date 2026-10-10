@@ -19,13 +19,13 @@ mod tests {
     };
     use appletheia::domain::Aggregate;
     use banking_iam_domain::{
-        Organization, OrganizationId, OrganizationMembership, OrganizationMembershipError,
-        OrganizationRole, User, UserId,
+        Organization, OrganizationId, OrganizationMembership, OrganizationMembershipError, User,
+        UserId,
     };
 
     use super::{
-        OrganizationAdminRelation, OrganizationMemberRelation,
-        OrganizationMembershipOrganizationRelation, OrganizationTreasurerRelation,
+        OrganizationMemberRelation, OrganizationMembershipOrganizationRelation,
+        OrganizationOwnerRelation,
     };
 
     fn membership() -> OrganizationMembership {
@@ -33,16 +33,13 @@ mod tests {
         aggregate
             .create(OrganizationId::new(), UserId::new())
             .unwrap();
-        aggregate.grant_role(OrganizationRole::Admin).unwrap();
         aggregate
     }
 
     #[test]
-    fn one_registration_derives_current_membership_roles_and_removal() {
+    fn one_registration_derives_membership_and_removal() {
         let mut model = InMemoryAuthorizationModel::new();
         model.define_relation(OrganizationMemberRelation);
-        model.define_relation(OrganizationAdminRelation);
-        model.define_relation(OrganizationTreasurerRelation);
         model.define_relation(OrganizationMembershipOrganizationRelation);
         let snapshot = model.clone();
         assert!(
@@ -53,7 +50,7 @@ mod tests {
         );
         let mut aggregate = membership();
         let created = snapshot.derive(&aggregate).unwrap();
-        assert_eq!(created.len(), 3);
+        assert_eq!(created.len(), 2);
         assert_eq!(created, snapshot.derive(&aggregate).unwrap());
         assert!(created.iter().any(|entry| entry.relation
             == OrganizationMemberRelation::REF.into()
@@ -61,24 +58,6 @@ mod tests {
                 == AggregateRef::from_id::<Organization>(*aggregate.organization_id().unwrap())
             && entry.subject
                 == RelationshipSubject::aggregate::<User>(*aggregate.user_id().unwrap())));
-        assert!(
-            created
-                .iter()
-                .any(|entry| entry.relation == OrganizationAdminRelation::REF.into())
-        );
-        aggregate.revoke_role(OrganizationRole::Admin).unwrap();
-        aggregate.grant_role(OrganizationRole::Treasurer).unwrap();
-        let changed = snapshot.derive(&aggregate).unwrap();
-        assert!(
-            !changed
-                .iter()
-                .any(|entry| entry.relation == OrganizationAdminRelation::REF.into())
-        );
-        assert!(
-            changed
-                .iter()
-                .any(|entry| entry.relation == OrganizationTreasurerRelation::REF.into())
-        );
         aggregate.remove().unwrap();
         let removed = snapshot.derive(&aggregate).unwrap();
         assert_eq!(removed.len(), 1);
@@ -96,17 +75,17 @@ mod tests {
         {
             use appletheia::application::authorization::RelationRef;
 
-            struct ComputedAdminRelation(UsersetExpr);
+            struct ComputedOwnerRelation(UsersetExpr);
 
-            impl Relation for ComputedAdminRelation {
-                const REF: RelationRef = OrganizationAdminRelation::REF;
+            impl Relation for ComputedOwnerRelation {
+                const REF: RelationRef = OrganizationOwnerRelation::REF;
 
                 fn expr(&self) -> UsersetExpr {
                     self.0.clone()
                 }
             }
 
-            model.define_relation(ComputedAdminRelation(UsersetExpr::ComputedUserset {
+            model.define_relation(ComputedOwnerRelation(UsersetExpr::ComputedUserset {
                 relation: OrganizationMemberRelation::REF.into(),
             }));
         }
@@ -116,7 +95,7 @@ mod tests {
             snapshot.derive(&aggregate).unwrap()
         );
         assert!(model.derive(&Organization::new()).unwrap().is_empty());
-        model.define_relation(OrganizationAdminRelation);
+        model.define_relation(OrganizationMembershipOrganizationRelation);
         assert_eq!(snapshot.derive(&aggregate).unwrap().len(), 1);
         assert_eq!(model.derive(&aggregate).unwrap().len(), 2);
     }
@@ -172,13 +151,13 @@ mod tests {
         assert_eq!(calls.load(Ordering::SeqCst), 1);
 
         model.define_relation(ReplacementMemberRelation(UsersetExpr::ComputedUserset {
-            relation: OrganizationAdminRelation::REF.into(),
+            relation: OrganizationOwnerRelation::REF.into(),
         }));
         assert!(model.derive(&aggregate).unwrap().is_empty());
         assert!(matches!(
             model.expr_for(&OrganizationMemberRelation::REF.into()).await.unwrap(),
             Some(UsersetExpr::ComputedUserset { relation })
-                if relation == OrganizationAdminRelation::REF.into()
+                if relation == OrganizationOwnerRelation::REF.into()
         ));
     }
 

@@ -13,7 +13,7 @@ use banking_iam_domain::{
 };
 use banking_shared_kernel_domain::timestamps::CurrentDateTime;
 
-use crate::authorization::{OrganizationInviterRelation, UserOwnerRelation};
+use crate::authorization::{OrganizationOwnerRelation, UserOwnerRelation};
 
 use super::{
     OrganizationInvitationIssueCommand, OrganizationInvitationIssueCommandHandlerError,
@@ -79,7 +79,7 @@ where
                         RelationshipRequirement::check::<User>(user_id, UserOwnerRelation::REF),
                         RelationshipRequirement::check::<Organization>(
                             command.organization_id,
-                            OrganizationInviterRelation::REF,
+                            OrganizationOwnerRelation::REF,
                         ),
                     ],
                 ))

@@ -7,7 +7,7 @@ use appletheia::application::request_context::RequestContext;
 use banking_iam_domain::User;
 
 use super::{UserDeactivateCommand, UserDeactivateCommandHandlerError, UserDeactivateOutput};
-use crate::authorization::UserDeactivatorRelation;
+use crate::authorization::UserOwnerRelation;
 
 pub struct UserDeactivateCommandHandler<R>
 where
@@ -43,7 +43,7 @@ where
                 User,
             >(
                 command.user_id,
-                UserDeactivatorRelation::REF,
+                UserOwnerRelation::REF,
             )),
         ]))
     }

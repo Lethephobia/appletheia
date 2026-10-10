@@ -2,19 +2,19 @@ use appletheia::application::authorization::{Relation, RelationName, RelationRef
 use appletheia::domain::Aggregate;
 
 use super::{OrganizationJoinRequest, OrganizationJoinRequestOrganizationRelation};
-use crate::OrganizationAdminRelation;
+use crate::OrganizationOwnerRelation;
 
-/// Allows organization administrators to reject join requests.
-pub struct OrganizationJoinRequestRejecterRelation;
+/// Allows organization owners to manage join requests.
+pub struct OrganizationJoinRequestManagerRelation;
 
-impl Relation for OrganizationJoinRequestRejecterRelation {
+impl Relation for OrganizationJoinRequestManagerRelation {
     const REF: RelationRef =
-        RelationRef::new(OrganizationJoinRequest::TYPE, RelationName::new("rejecter"));
+        RelationRef::new(OrganizationJoinRequest::TYPE, RelationName::new("manager"));
 
     fn expr(&self) -> UsersetExpr {
         UsersetExpr::TupleToUserset {
             tupleset_relation: OrganizationJoinRequestOrganizationRelation::REF.into(),
-            computed_userset: OrganizationAdminRelation::REF.into(),
+            computed_userset: OrganizationOwnerRelation::REF.into(),
         }
     }
 }

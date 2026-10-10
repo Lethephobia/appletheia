@@ -10,7 +10,7 @@ use super::{
     AccountOwnershipTransferCommand, AccountOwnershipTransferCommandHandlerError,
     AccountOwnershipTransferOutput,
 };
-use crate::authorization::AccountOwnershipTransfererRelation;
+use crate::authorization::AccountOwnerRelation;
 
 pub struct AccountOwnershipTransferCommandHandler<R>
 where
@@ -46,7 +46,7 @@ where
                 Account,
             >(
                 command.account_id,
-                AccountOwnershipTransfererRelation::REF,
+                AccountOwnerRelation::REF,
             )),
         ]))
     }

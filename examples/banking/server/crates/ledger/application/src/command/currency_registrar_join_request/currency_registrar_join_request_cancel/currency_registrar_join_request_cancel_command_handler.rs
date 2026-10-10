@@ -6,7 +6,7 @@ use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_ledger_domain::CurrencyRegistrarJoinRequest;
 
-use crate::authorization::CurrencyRegistrarJoinRequestCancelerRelation;
+use crate::authorization::CurrencyRegistrarJoinRequestRequesterRelation;
 
 use super::{
     CurrencyRegistrarJoinRequestCancelCommand,
@@ -48,7 +48,7 @@ where
                 CurrencyRegistrarJoinRequest,
             >(
                 command.currency_registrar_join_request_id,
-                CurrencyRegistrarJoinRequestCancelerRelation::REF,
+                CurrencyRegistrarJoinRequestRequesterRelation::REF,
             )),
         ]))
     }

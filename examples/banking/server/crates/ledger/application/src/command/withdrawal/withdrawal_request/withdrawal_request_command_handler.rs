@@ -13,7 +13,7 @@ use banking_ledger_domain::withdrawal::WithdrawalError;
 use super::{
     WithdrawalRequestCommand, WithdrawalRequestCommandHandlerError, WithdrawalRequestOutput,
 };
-use crate::authorization::AccountWithdrawalRequesterRelation;
+use crate::authorization::AccountOwnerRelation;
 
 pub struct WithdrawalRequestCommandHandler<R>
 where
@@ -49,7 +49,7 @@ where
                 Account,
             >(
                 command.account_id,
-                AccountWithdrawalRequesterRelation::REF,
+                AccountOwnerRelation::REF,
             )),
         ]))
     }

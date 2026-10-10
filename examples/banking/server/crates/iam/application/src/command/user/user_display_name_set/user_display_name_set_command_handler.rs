@@ -9,7 +9,7 @@ use banking_iam_domain::User;
 use super::{
     UserDisplayNameSetCommand, UserDisplayNameSetCommandHandlerError, UserDisplayNameSetOutput,
 };
-use crate::authorization::UserProfileEditorRelation;
+use crate::authorization::UserOwnerRelation;
 
 pub struct UserDisplayNameSetCommandHandler<R>
 where
@@ -45,7 +45,7 @@ where
                 User,
             >(
                 command.user_id,
-                UserProfileEditorRelation::REF,
+                UserOwnerRelation::REF,
             )),
         ]))
     }

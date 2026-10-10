@@ -7,7 +7,7 @@ use appletheia::application::request_context::RequestContext;
 use banking_ledger_domain::currency::Currency;
 
 use super::{CurrencyActivateCommand, CurrencyActivateCommandHandlerError, CurrencyActivateOutput};
-use crate::authorization::CurrencyActivatorRelation;
+use crate::authorization::CurrencyManagerRelation;
 
 pub struct CurrencyActivateCommandHandler<R>
 where
@@ -43,7 +43,7 @@ where
                 Currency,
             >(
                 command.currency_id,
-                CurrencyActivatorRelation::REF,
+                CurrencyManagerRelation::REF,
             )),
         ]))
     }

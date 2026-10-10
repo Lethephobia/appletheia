@@ -10,7 +10,7 @@ use super::{
     WalletBookmarkDescriptionSetCommand, WalletBookmarkDescriptionSetCommandHandlerError,
     WalletBookmarkDescriptionSetOutput,
 };
-use crate::authorization::WalletBookmarkUpdaterRelation;
+use crate::authorization::WalletBookmarkOwnerRelation;
 
 pub struct WalletBookmarkDescriptionSetCommandHandler<R>
 where
@@ -46,7 +46,7 @@ where
                 WalletBookmark,
             >(
                 command.wallet_bookmark_id,
-                WalletBookmarkUpdaterRelation::REF,
+                WalletBookmarkOwnerRelation::REF,
             )),
         ]))
     }

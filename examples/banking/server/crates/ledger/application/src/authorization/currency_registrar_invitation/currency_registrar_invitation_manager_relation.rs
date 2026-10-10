@@ -4,13 +4,13 @@ use appletheia::domain::Aggregate;
 use super::{CurrencyRegistrarInvitation, CurrencyRegistrarInvitationRegistrarRelation};
 use crate::CurrencyRegistrarMemberRelation;
 
-/// Allows registrar inviters to cancel invitations.
-pub struct CurrencyRegistrarInvitationCancelerRelation;
+/// Allows registrar members to manage invitations.
+pub struct CurrencyRegistrarInvitationManagerRelation;
 
-impl Relation for CurrencyRegistrarInvitationCancelerRelation {
+impl Relation for CurrencyRegistrarInvitationManagerRelation {
     const REF: RelationRef = RelationRef::new(
         CurrencyRegistrarInvitation::TYPE,
-        RelationName::new("canceler"),
+        RelationName::new("manager"),
     );
 
     fn expr(&self) -> UsersetExpr {

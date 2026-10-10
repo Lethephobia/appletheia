@@ -1,5 +1,3 @@
-use std::collections::BTreeSet;
-
 use crate::command::OrganizationMembershipCreateCommand;
 use appletheia::application::saga::SagaError;
 use appletheia::application::saga::{
@@ -42,7 +40,6 @@ impl Saga for OrganizationInvitationSaga {
                         ctx.append_command(&OrganizationMembershipCreateCommand {
                             organization_id: *organization_id,
                             user_id: *invitee_id,
-                            roles: BTreeSet::new(),
                         })?;
                     }
                     Ok(())
@@ -220,7 +217,6 @@ mod tests {
             .expect("command should deserialize");
         assert_eq!(command.user_id, invitee_id);
         assert_eq!(command.organization_id, organization_id);
-        assert!(command.roles.is_empty());
     }
 
     #[test]

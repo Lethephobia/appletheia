@@ -2,7 +2,7 @@ use appletheia::event_payload;
 
 use crate::{OrganizationId, UserId};
 
-use super::{OrganizationMembershipEventPayloadError, OrganizationRole};
+use super::OrganizationMembershipEventPayloadError;
 
 /// Represents the domain events emitted by an `OrganizationMembership` aggregate.
 #[event_payload(error = OrganizationMembershipEventPayloadError)]
@@ -10,16 +10,6 @@ pub enum OrganizationMembershipEventPayload {
     Created {
         organization_id: OrganizationId,
         user_id: UserId,
-    },
-    RoleGranted {
-        organization_id: OrganizationId,
-        user_id: UserId,
-        role: OrganizationRole,
-    },
-    RoleRevoked {
-        organization_id: OrganizationId,
-        user_id: UserId,
-        role: OrganizationRole,
     },
     Removed {
         organization_id: OrganizationId,
@@ -39,10 +29,6 @@ mod tests {
         assert_eq!(
             OrganizationMembershipEventPayload::CREATED,
             appletheia::domain::EventName::new("created")
-        );
-        assert_eq!(
-            OrganizationMembershipEventPayload::ROLE_GRANTED,
-            appletheia::domain::EventName::new("role_granted")
         );
         assert_eq!(
             OrganizationMembershipEventPayload::REMOVED,

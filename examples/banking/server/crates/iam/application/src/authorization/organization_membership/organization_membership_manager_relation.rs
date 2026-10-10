@@ -2,19 +2,19 @@ use appletheia::application::authorization::{Relation, RelationName, RelationRef
 use appletheia::domain::Aggregate;
 
 use super::{OrganizationMembership, OrganizationMembershipOrganizationRelation};
-use crate::OrganizationAdminRelation;
+use crate::OrganizationOwnerRelation;
 
-/// Allows organization administrators to remove a membership.
-pub struct OrganizationMembershipRemoverRelation;
+/// Allows organization owners to manage memberships.
+pub struct OrganizationMembershipManagerRelation;
 
-impl Relation for OrganizationMembershipRemoverRelation {
+impl Relation for OrganizationMembershipManagerRelation {
     const REF: RelationRef =
-        RelationRef::new(OrganizationMembership::TYPE, RelationName::new("remover"));
+        RelationRef::new(OrganizationMembership::TYPE, RelationName::new("manager"));
 
     fn expr(&self) -> UsersetExpr {
         UsersetExpr::TupleToUserset {
             tupleset_relation: OrganizationMembershipOrganizationRelation::REF.into(),
-            computed_userset: OrganizationAdminRelation::REF.into(),
+            computed_userset: OrganizationOwnerRelation::REF.into(),
         }
     }
 }

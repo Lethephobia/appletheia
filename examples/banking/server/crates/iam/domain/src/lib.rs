@@ -26,7 +26,7 @@ pub use organization_join_request::{
 pub use organization_membership::{
     OrganizationMembership, OrganizationMembershipError, OrganizationMembershipEventPayload,
     OrganizationMembershipEventPayloadError, OrganizationMembershipId, OrganizationMembershipState,
-    OrganizationMembershipStateError, OrganizationMembershipStatus, OrganizationRole,
+    OrganizationMembershipStateError, OrganizationMembershipStatus,
 };
 pub use user::{
     User, UserBio, UserBioError, UserDisplayName, UserDisplayNameError, UserError,

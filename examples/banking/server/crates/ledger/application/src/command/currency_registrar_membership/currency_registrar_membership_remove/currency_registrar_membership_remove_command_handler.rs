@@ -10,7 +10,7 @@ use super::{
     CurrencyRegistrarMembershipRemoveCommand, CurrencyRegistrarMembershipRemoveCommandHandlerError,
     CurrencyRegistrarMembershipRemoveOutput,
 };
-use crate::authorization::CurrencyRegistrarMembershipRemoverRelation;
+use crate::authorization::CurrencyRegistrarMembershipManagerRelation;
 
 pub struct CurrencyRegistrarMembershipRemoveCommandHandler<R>
 where
@@ -47,7 +47,7 @@ where
                 CurrencyRegistrarMembership,
             >(
                 command.currency_registrar_membership_id,
-                CurrencyRegistrarMembershipRemoverRelation::REF,
+                CurrencyRegistrarMembershipManagerRelation::REF,
             )),
         ]))
     }

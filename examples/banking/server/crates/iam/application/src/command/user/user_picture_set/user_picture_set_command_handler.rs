@@ -7,7 +7,7 @@ use appletheia::application::request_context::RequestContext;
 use banking_iam_domain::User;
 
 use super::{UserPictureSetCommand, UserPictureSetCommandHandlerError, UserPictureSetOutput};
-use crate::authorization::UserProfileEditorRelation;
+use crate::authorization::UserOwnerRelation;
 
 pub struct UserPictureSetCommandHandler<R>
 where
@@ -43,7 +43,7 @@ where
                 User,
             >(
                 command.user_id,
-                UserProfileEditorRelation::REF,
+                UserOwnerRelation::REF,
             )),
         ]))
     }

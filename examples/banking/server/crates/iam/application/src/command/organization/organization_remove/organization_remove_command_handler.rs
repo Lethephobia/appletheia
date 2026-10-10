@@ -9,7 +9,7 @@ use banking_iam_domain::Organization;
 use super::{
     OrganizationRemoveCommand, OrganizationRemoveCommandHandlerError, OrganizationRemoveOutput,
 };
-use crate::authorization::OrganizationRemoverRelation;
+use crate::authorization::OrganizationOwnerRelation;
 
 pub struct OrganizationRemoveCommandHandler<R>
 where
@@ -45,7 +45,7 @@ where
                 Organization,
             >(
                 command.organization_id,
-                OrganizationRemoverRelation::REF,
+                OrganizationOwnerRelation::REF,
             )),
         ]))
     }
@@ -98,7 +98,7 @@ mod tests {
     use super::{
         OrganizationRemoveCommand, OrganizationRemoveCommandHandler, OrganizationRemoveOutput,
     };
-    use crate::authorization::OrganizationRemoverRelation;
+    use crate::authorization::OrganizationOwnerRelation;
 
     #[derive(Default)]
     struct TestUow;
@@ -273,7 +273,7 @@ mod tests {
                 PrincipalRequirement::AuthenticatedWithRelationship(
                     RelationshipRequirement::check::<Organization>(
                         organization_id,
-                        OrganizationRemoverRelation::REF
+                        OrganizationOwnerRelation::REF
                     )
                 ),
             ])

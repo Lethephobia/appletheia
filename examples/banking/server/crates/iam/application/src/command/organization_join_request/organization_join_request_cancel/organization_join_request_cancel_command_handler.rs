@@ -7,7 +7,7 @@ use appletheia::application::request_context::RequestContext;
 use banking_iam_domain::OrganizationJoinRequestError;
 use banking_iam_domain::{Organization, OrganizationJoinRequest};
 
-use crate::authorization::OrganizationJoinRequestCancelerRelation;
+use crate::authorization::OrganizationJoinRequestRequesterRelation;
 
 use super::{
     OrganizationJoinRequestCancelCommand, OrganizationJoinRequestCancelCommandHandlerError,
@@ -48,7 +48,7 @@ where
                 OrganizationJoinRequest,
             >(
                 command.organization_join_request_id,
-                OrganizationJoinRequestCancelerRelation::REF,
+                OrganizationJoinRequestRequesterRelation::REF,
             )),
         ]))
     }

@@ -10,7 +10,7 @@ use super::{
     OrganizationWebsiteUrlSetCommand, OrganizationWebsiteUrlSetCommandHandlerError,
     OrganizationWebsiteUrlSetOutput,
 };
-use crate::authorization::OrganizationProfileEditorRelation;
+use crate::authorization::OrganizationOwnerRelation;
 
 pub struct OrganizationWebsiteUrlSetCommandHandler<R>
 where
@@ -46,7 +46,7 @@ where
                 Organization,
             >(
                 command.organization_id,
-                OrganizationProfileEditorRelation::REF,
+                OrganizationOwnerRelation::REF,
             )),
         ]))
     }

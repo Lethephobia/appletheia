@@ -7,7 +7,7 @@ use appletheia::application::request_context::RequestContext;
 use banking_ledger_domain::CurrencyRegistrarInvitation;
 use banking_shared_kernel_domain::timestamps::CurrentDateTime;
 
-use crate::authorization::CurrencyRegistrarInvitationCancelerRelation;
+use crate::authorization::CurrencyRegistrarInvitationManagerRelation;
 
 use super::{
     CurrencyRegistrarInvitationCancelCommand, CurrencyRegistrarInvitationCancelCommandHandlerError,
@@ -48,7 +48,7 @@ where
                 CurrencyRegistrarInvitation,
             >(
                 command.currency_registrar_invitation_id,
-                CurrencyRegistrarInvitationCancelerRelation::REF,
+                CurrencyRegistrarInvitationManagerRelation::REF,
             )),
         ]))
     }

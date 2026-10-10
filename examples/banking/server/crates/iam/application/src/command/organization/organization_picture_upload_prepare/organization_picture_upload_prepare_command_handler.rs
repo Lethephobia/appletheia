@@ -14,7 +14,7 @@ use super::{
     OrganizationPictureUploadPrepareCommand, OrganizationPictureUploadPrepareCommandHandlerConfig,
     OrganizationPictureUploadPrepareCommandHandlerError, OrganizationPictureUploadPrepareOutput,
 };
-use crate::authorization::OrganizationProfileEditorRelation;
+use crate::authorization::OrganizationOwnerRelation;
 
 pub struct OrganizationPictureUploadPrepareCommandHandler<R, OUS>
 where
@@ -63,7 +63,7 @@ where
                 Organization,
             >(
                 command.organization_id,
-                OrganizationProfileEditorRelation::REF,
+                OrganizationOwnerRelation::REF,
             )),
         ]))
     }
@@ -398,7 +398,7 @@ mod tests {
                 PrincipalRequirement::AuthenticatedWithRelationship(
                     RelationshipRequirement::check::<Organization>(
                         organization_id,
-                        crate::authorization::OrganizationProfileEditorRelation::REF,
+                        crate::authorization::OrganizationOwnerRelation::REF,
                     )
                 ),
             ])

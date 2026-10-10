@@ -14,7 +14,7 @@ use super::{
     UserPictureUploadPrepareCommand, UserPictureUploadPrepareCommandHandlerConfig,
     UserPictureUploadPrepareCommandHandlerError, UserPictureUploadPrepareOutput,
 };
-use crate::authorization::UserProfileEditorRelation;
+use crate::authorization::UserOwnerRelation;
 
 pub struct UserPictureUploadPrepareCommandHandler<R, OUS>
 where
@@ -63,7 +63,7 @@ where
                 User,
             >(
                 command.user_id,
-                UserProfileEditorRelation::REF,
+                UserOwnerRelation::REF,
             )),
         ]))
     }
@@ -393,7 +393,7 @@ mod tests {
                 PrincipalRequirement::AuthenticatedWithRelationship(
                     RelationshipRequirement::check::<User>(
                         user_id,
-                        crate::authorization::UserProfileEditorRelation::REF,
+                        crate::authorization::UserOwnerRelation::REF,
                     )
                 ),
             ])

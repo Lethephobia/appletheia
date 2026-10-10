@@ -7,7 +7,7 @@ use appletheia::application::request_context::RequestContext;
 use banking_ledger_domain::account::Account;
 
 use super::{AccountThawCommand, AccountThawCommandHandlerError, AccountThawOutput};
-use crate::authorization::AccountThawerRelation;
+use crate::authorization::AccountOwnerRelation;
 
 pub struct AccountThawCommandHandler<R>
 where
@@ -43,7 +43,7 @@ where
                 Account,
             >(
                 command.account_id,
-                AccountThawerRelation::REF,
+                AccountOwnerRelation::REF,
             )),
         ]))
     }

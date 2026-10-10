@@ -9,7 +9,7 @@ use banking_ledger_domain::withdrawal::Withdrawal;
 use super::{
     WithdrawalNoteSetCommand, WithdrawalNoteSetCommandHandlerError, WithdrawalNoteSetOutput,
 };
-use crate::authorization::WithdrawalNoteSetterRelation;
+use crate::authorization::WithdrawalAccountOwnerRelation;
 
 pub struct WithdrawalNoteSetCommandHandler<R>
 where
@@ -45,7 +45,7 @@ where
                 Withdrawal,
             >(
                 command.withdrawal_id,
-                WithdrawalNoteSetterRelation::REF,
+                WithdrawalAccountOwnerRelation::REF,
             )),
         ]))
     }
