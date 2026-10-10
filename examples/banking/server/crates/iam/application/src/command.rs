@@ -6,6 +6,8 @@ pub mod team;
 pub mod team_membership;
 pub mod user;
 
+pub mod team_membership_cleanup;
+
 pub use organization::{
     OrganizationCreateCommand, OrganizationCreateCommandHandler, OrganizationCreateOutput,
     OrganizationDescriptionSetCommand, OrganizationDescriptionSetCommandHandler,
@@ -90,4 +92,19 @@ pub use user::{
     UserPictureUploadPrepareCommandHandlerConfig, UserPictureUploadPrepareCommandHandlerError,
     UserPictureUploadPrepareOutput, UserRemoveCommand, UserRemoveCommandHandler, UserRemoveOutput,
     UserUsernameSetCommand, UserUsernameSetCommandHandler, UserUsernameSetOutput,
+};
+
+pub use team_membership_cleanup::{
+    TeamMembershipCleanupMembershipFailedRecordCommand,
+    TeamMembershipCleanupMembershipFailedRecordCommandHandler,
+    TeamMembershipCleanupMembershipFailedRecordCommandHandlerError,
+    TeamMembershipCleanupMembershipFailedRecordOutput,
+    TeamMembershipCleanupMembershipSucceededRecordCommand,
+    TeamMembershipCleanupMembershipSucceededRecordCommandHandler,
+    TeamMembershipCleanupMembershipSucceededRecordCommandHandlerError,
+    TeamMembershipCleanupMembershipSucceededRecordOutput, TeamMembershipCleanupScanCommand,
+    TeamMembershipCleanupScanCommandHandler, TeamMembershipCleanupScanCommandHandlerConfig,
+    TeamMembershipCleanupScanCommandHandlerError, TeamMembershipCleanupScanOutput,
+    TeamMembershipCleanupStartCommand, TeamMembershipCleanupStartCommandHandler,
+    TeamMembershipCleanupStartCommandHandlerError, TeamMembershipCleanupStartOutput,
 };

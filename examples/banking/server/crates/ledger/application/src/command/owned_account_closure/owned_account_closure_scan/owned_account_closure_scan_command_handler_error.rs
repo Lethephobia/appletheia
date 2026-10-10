@@ -1,10 +1,17 @@
 use appletheia::application::Retryability;
 use appletheia::application::repository::{ReferenceIndexLookupError, RepositoryError};
+use banking_ledger_domain::account::{Account, AccountError};
 use banking_ledger_domain::owned_account_closure::{OwnedAccountClosure, OwnedAccountClosureError};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum OwnedAccountClosureScanCommandHandlerError {
+    #[error(transparent)]
+    AccountRepository(#[from] RepositoryError<Account>),
+
+    #[error(transparent)]
+    Account(#[from] AccountError),
+
     #[error("owned account closure repository failed")]
     OwnedAccountClosureRepository(#[from] RepositoryError<OwnedAccountClosure>),
 
@@ -24,6 +31,8 @@ pub enum OwnedAccountClosureScanCommandHandlerError {
 impl Retryability for OwnedAccountClosureScanCommandHandlerError {
     fn is_retryable(&self) -> bool {
         match self {
+            Self::AccountRepository(error) => error.is_retryable(),
+            Self::Account(_) => false,
             Self::OwnedAccountClosureRepository(error) => error.is_retryable(),
             Self::ReferenceIndexLookup(error) => error.is_retryable(),
             Self::OwnedAccountClosure(_) | Self::AlreadyCompleted | Self::ScanAlreadyCompleted => {

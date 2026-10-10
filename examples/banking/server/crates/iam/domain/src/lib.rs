@@ -4,7 +4,9 @@ pub mod organization_join_request;
 pub mod organization_membership;
 pub mod team;
 pub mod team_membership;
+pub mod team_membership_cleanup;
 pub mod user;
+
 pub use organization::{
     Organization, OrganizationDescription, OrganizationDescriptionError, OrganizationDisplayName,
     OrganizationDisplayNameError, OrganizationError, OrganizationEventPayload,
@@ -45,4 +47,11 @@ pub use user::{
     UserIdentityProviderError, UserIdentitySubject, UserIdentitySubjectError,
     UserPictureObjectName, UserPictureObjectNameError, UserPictureRef, UserPictureUrl,
     UserPictureUrlError, UserState, UserStateError, UserStatus, Username, UsernameError,
+};
+
+pub use team_membership_cleanup::{
+    TeamMembershipCleanup, TeamMembershipCleanupCount, TeamMembershipCleanupCountError,
+    TeamMembershipCleanupError, TeamMembershipCleanupEventPayload,
+    TeamMembershipCleanupEventPayloadError, TeamMembershipCleanupId, TeamMembershipCleanupState,
+    TeamMembershipCleanupStateError, TeamMembershipCleanupStatus,
 };
