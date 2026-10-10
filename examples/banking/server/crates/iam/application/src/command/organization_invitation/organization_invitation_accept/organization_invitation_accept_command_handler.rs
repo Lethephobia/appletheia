@@ -67,7 +67,7 @@ where
 
         let organization = self
             .repository
-            .read::<Organization>(uow, *organization_invitation.organization_id()?)
+            .read_shared::<Organization>(uow, *organization_invitation.organization_id()?)
             .await?;
 
         if organization.is_removed()? {

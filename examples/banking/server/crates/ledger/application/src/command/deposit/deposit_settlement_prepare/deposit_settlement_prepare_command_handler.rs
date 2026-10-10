@@ -72,18 +72,18 @@ where
     ) -> Result<Self::Output, Self::Error> {
         let account = self
             .repository
-            .read::<Account>(uow, command.account_id)
+            .read_shared::<Account>(uow, command.account_id)
             .await?;
         let currency = self
             .repository
-            .read::<Currency>(uow, *account.currency_id()?)
+            .read_shared::<Currency>(uow, *account.currency_id()?)
             .await?;
 
         let mut deposit = Deposit::new();
         let deposit_id = deposit.aggregate_id();
         let binding = match self
             .repository
-            .read::<TokenBinding>(uow, command.token_binding_id)
+            .read_shared::<TokenBinding>(uow, command.token_binding_id)
             .await
         {
             Ok(binding)

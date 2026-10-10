@@ -68,15 +68,15 @@ where
             .await?;
         let account = self
             .repository
-            .read::<Account>(uow, *deposit.account_id()?)
+            .read_shared::<Account>(uow, *deposit.account_id()?)
             .await?;
         let currency = self
             .repository
-            .read::<Currency>(uow, *account.currency_id()?)
+            .read_shared::<Currency>(uow, *account.currency_id()?)
             .await?;
         let token_binding = match self
             .repository
-            .read::<TokenBinding>(uow, deposit.token_binding_id()?)
+            .read_shared::<TokenBinding>(uow, deposit.token_binding_id()?)
             .await
         {
             Ok(token_binding)

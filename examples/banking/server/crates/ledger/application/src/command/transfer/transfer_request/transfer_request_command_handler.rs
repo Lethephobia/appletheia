@@ -60,11 +60,11 @@ where
     ) -> Result<Self::Output, Self::Error> {
         let source_account = self
             .repository
-            .read::<Account>(uow, command.from_account_id)
+            .read_shared::<Account>(uow, command.from_account_id)
             .await?;
         let destination_account = self
             .repository
-            .read::<Account>(uow, command.to_account_id)
+            .read_shared::<Account>(uow, command.to_account_id)
             .await?;
 
         let mut transfer = Transfer::new();

@@ -64,11 +64,11 @@ where
         let withdrawal_id = withdrawal.aggregate_id();
         let account = self
             .repository
-            .read::<Account>(uow, command.account_id)
+            .read_shared::<Account>(uow, command.account_id)
             .await?;
         match self
             .repository
-            .read::<TokenBinding>(uow, command.token_binding_id)
+            .read_shared::<TokenBinding>(uow, command.token_binding_id)
             .await
         {
             Ok(token_binding)

@@ -80,7 +80,7 @@ where
         let currency_registrar_join_request_id = currency_registrar_join_request.aggregate_id();
 
         self.repository
-            .read::<CurrencyRegistrar>(uow, command.currency_registrar_id)
+            .read_shared::<CurrencyRegistrar>(uow, command.currency_registrar_id)
             .await?;
 
         let membership_unique_value = Self::registrar_requester_unique_value(
@@ -89,7 +89,7 @@ where
         )?;
         if self
             .repository
-            .find_by_unique_value::<CurrencyRegistrarMembership>(
+            .find_shared_by_unique_value::<CurrencyRegistrarMembership>(
                 uow,
                 CurrencyRegistrarMembershipState::REGISTRAR_USER_KEY,
                 &membership_unique_value,
@@ -106,7 +106,7 @@ where
         )?;
         if self
             .repository
-            .find_by_unique_value::<CurrencyRegistrarJoinRequest>(
+            .find_shared_by_unique_value::<CurrencyRegistrarJoinRequest>(
                 uow,
                 CurrencyRegistrarJoinRequestState::REGISTRAR_REQUESTER_KEY,
                 &unique_value,

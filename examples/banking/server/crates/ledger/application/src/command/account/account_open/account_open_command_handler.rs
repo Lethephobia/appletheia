@@ -67,9 +67,27 @@ where
         request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<Self::Output, Self::Error> {
+        match command.owner {
+            AccountOwner::User(user_id) => {
+                let user = self.repository.read_shared::<User>(uow, user_id).await?;
+                if !user.is_active()? {
+                    return Err(AccountOpenCommandHandlerError::UserInactive);
+                }
+            }
+            AccountOwner::Organization(organization_id) => {
+                let organization = self
+                    .repository
+                    .read_shared::<Organization>(uow, organization_id)
+                    .await?;
+                if !organization.is_active()? {
+                    return Err(AccountOpenCommandHandlerError::OrganizationInactive);
+                }
+            }
+        }
+
         let currency = self
             .repository
-            .read::<Currency>(uow, command.currency_id)
+            .read_shared::<Currency>(uow, command.currency_id)
             .await?;
         if !currency.is_active()? {
             return Err(AccountOpenCommandHandlerError::CurrencyInactive);

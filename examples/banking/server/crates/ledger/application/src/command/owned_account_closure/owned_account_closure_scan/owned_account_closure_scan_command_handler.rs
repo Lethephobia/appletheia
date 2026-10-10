@@ -198,6 +198,14 @@ mod tests {
             Ok(Self::copy_aggregate::<_, A>(&*self.closure.lock().unwrap()))
         }
 
+        async fn read_shared<A: Aggregate>(
+            &self,
+            _: &mut TestUow,
+            _: A::Id,
+        ) -> Result<A, RepositoryError<A>> {
+            Ok(Self::copy_aggregate::<_, A>(&*self.closure.lock().unwrap()))
+        }
+
         async fn read_at_version<A: Aggregate>(
             &self,
             _: &mut TestUow,
@@ -208,6 +216,15 @@ mod tests {
         }
 
         async fn find_by_unique_value<A: Aggregate>(
+            &self,
+            _: &mut TestUow,
+            _: UniqueKey,
+            _: &UniqueValue,
+        ) -> Result<Option<A>, RepositoryError<A>> {
+            unreachable!()
+        }
+
+        async fn find_shared_by_unique_value<A: Aggregate>(
             &self,
             _: &mut TestUow,
             _: UniqueKey,

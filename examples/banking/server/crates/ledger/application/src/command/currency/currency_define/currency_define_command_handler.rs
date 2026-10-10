@@ -59,7 +59,7 @@ where
         let unique_value = UniqueValue::from_strings([command.code.as_ref()])?;
         if self
             .repository
-            .find_by_unique_value::<Currency>(uow, CurrencyState::CODE_KEY, &unique_value)
+            .find_shared_by_unique_value::<Currency>(uow, CurrencyState::CODE_KEY, &unique_value)
             .await?
             .is_some()
         {

@@ -73,7 +73,11 @@ where
         let unique_value = Self::handle_unique_value(&command.handle)?;
         if self
             .repository
-            .find_by_unique_value::<Organization>(uow, OrganizationState::HANDLE_KEY, &unique_value)
+            .find_shared_by_unique_value::<Organization>(
+                uow,
+                OrganizationState::HANDLE_KEY,
+                &unique_value,
+            )
             .await?
             .is_some_and(|existing| existing.aggregate_id() != command.organization_id)
         {
@@ -187,6 +191,22 @@ mod tests {
                 })
         }
 
+        async fn read_shared<A: Aggregate>(
+            &self,
+            _uow: &mut Self::Uow,
+            id: A::Id,
+        ) -> Result<A, RepositoryError<A>> {
+            self.organization
+                .lock()
+                .expect("lock")
+                .as_ref()
+                .map(|stored| Self::copy_aggregate::<_, A>(stored))
+                .ok_or_else(|| RepositoryError::NotFound {
+                    aggregate_type: A::TYPE,
+                    aggregate_id: id,
+                })
+        }
+
         async fn read_at_version<A: Aggregate>(
             &self,
             _uow: &mut Self::Uow,
@@ -205,6 +225,15 @@ mod tests {
         }
 
         async fn find_by_unique_value<A: Aggregate>(
+            &self,
+            _uow: &mut Self::Uow,
+            _unique_key: appletheia::domain::UniqueKey,
+            _unique_value: &appletheia::domain::UniqueValue,
+        ) -> Result<Option<A>, RepositoryError<A>> {
+            Ok(None)
+        }
+
+        async fn find_shared_by_unique_value<A: Aggregate>(
             &self,
             _uow: &mut Self::Uow,
             _unique_key: appletheia::domain::UniqueKey,

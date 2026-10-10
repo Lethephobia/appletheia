@@ -68,7 +68,7 @@ where
         command: &Self::Command,
     ) -> Result<Self::Output, Self::Error> {
         self.repository
-            .read::<CurrencyRegistrar>(uow, command.currency_registrar_id)
+            .read_shared::<CurrencyRegistrar>(uow, command.currency_registrar_id)
             .await?;
 
         let unique_value =
@@ -77,7 +77,7 @@ where
         let currency_registrar_membership_id = membership.aggregate_id();
         if self
             .repository
-            .find_by_unique_value::<CurrencyRegistrarMembership>(
+            .find_shared_by_unique_value::<CurrencyRegistrarMembership>(
                 uow,
                 CurrencyRegistrarMembershipState::REGISTRAR_USER_KEY,
                 &unique_value,

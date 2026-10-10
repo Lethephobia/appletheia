@@ -102,7 +102,7 @@ where
 
         let organization = self
             .repository
-            .read::<Organization>(uow, command.organization_id)
+            .read_shared::<Organization>(uow, command.organization_id)
             .await?;
         if organization.is_removed()? {
             return Err(OrganizationInvitationError::OrganizationRemoved.into());
@@ -111,7 +111,7 @@ where
         let membership_unique_value = Self::organization_user_unique_value(command)?;
         if self
             .repository
-            .find_by_unique_value::<OrganizationMembership>(
+            .find_shared_by_unique_value::<OrganizationMembership>(
                 uow,
                 OrganizationMembershipState::ORGANIZATION_USER_KEY,
                 &membership_unique_value,
@@ -125,7 +125,7 @@ where
         let unique_value = Self::organization_invitee_unique_value(command)?;
         if self
             .repository
-            .find_by_unique_value::<OrganizationInvitation>(
+            .find_shared_by_unique_value::<OrganizationInvitation>(
                 uow,
                 OrganizationInvitationState::ORGANIZATION_INVITEE_KEY,
                 &unique_value,

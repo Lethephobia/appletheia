@@ -1,5 +1,6 @@
 /// Collects infrastructure dependencies used by the default repository implementation.
-pub struct DefaultRepositoryDependencies<ER, EW, EOE, SR, SW, UVOL, UKS, RIS, RS, RD> {
+pub struct DefaultRepositoryDependencies<AL, ER, EW, EOE, SR, SW, UVOL, UKS, RIS, RS, RD> {
+    pub aggregate_locker: AL,
     pub event_reader: ER,
     pub event_writer: EW,
     pub event_outbox_enqueuer: EOE,

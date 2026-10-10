@@ -84,13 +84,16 @@ where
 
         let organization = self
             .repository
-            .read::<Organization>(uow, command.organization_id)
+            .read_shared::<Organization>(uow, command.organization_id)
             .await?;
         if organization.is_removed()? {
             return Err(OrganizationMembershipError::OrganizationRemoved.into());
         }
 
-        let user = self.repository.read::<User>(uow, command.user_id).await?;
+        let user = self
+            .repository
+            .read_shared::<User>(uow, command.user_id)
+            .await?;
         if user.is_removed()? {
             return Err(OrganizationMembershipError::UserRemoved.into());
         }
@@ -105,7 +108,7 @@ where
             Self::organization_user_unique_value(command.organization_id, command.user_id)?;
         if self
             .repository
-            .find_by_unique_value::<OrganizationMembership>(
+            .find_shared_by_unique_value::<OrganizationMembership>(
                 uow,
                 OrganizationMembershipState::ORGANIZATION_USER_KEY,
                 &unique_value,
@@ -173,6 +176,14 @@ mod tests {
             panic!("repository is not exercised by this test")
         }
 
+        async fn read_shared<A: Aggregate>(
+            &self,
+            _uow: &mut Self::Uow,
+            _id: A::Id,
+        ) -> Result<A, RepositoryError<A>> {
+            panic!("repository is not exercised by this test")
+        }
+
         async fn read_at_version<A: Aggregate>(
             &self,
             _uow: &mut Self::Uow,
@@ -183,6 +194,15 @@ mod tests {
         }
 
         async fn find_by_unique_value<A: Aggregate>(
+            &self,
+            _uow: &mut Self::Uow,
+            _unique_key: UniqueKey,
+            _unique_value: &UniqueValue,
+        ) -> Result<Option<A>, RepositoryError<A>> {
+            panic!("repository is not exercised by this test")
+        }
+
+        async fn find_shared_by_unique_value<A: Aggregate>(
             &self,
             _uow: &mut Self::Uow,
             _unique_key: UniqueKey,

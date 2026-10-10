@@ -74,7 +74,10 @@ where
         _request_context: &RequestContext,
         command: &Self::Command,
     ) -> Result<Self::Output, Self::Error> {
-        let user = self.repository.read::<User>(uow, command.user_id).await?;
+        let user = self
+            .repository
+            .read_shared::<User>(uow, command.user_id)
+            .await?;
 
         if user.is_removed()? {
             return Err(UserPictureUploadPrepareCommandHandlerError::User(
@@ -221,6 +224,22 @@ mod tests {
                 })
         }
 
+        async fn read_shared<A: Aggregate>(
+            &self,
+            _uow: &mut Self::Uow,
+            id: A::Id,
+        ) -> Result<A, RepositoryError<A>> {
+            self.user
+                .lock()
+                .expect("lock")
+                .as_ref()
+                .map(|stored| Self::copy_aggregate::<_, A>(stored))
+                .ok_or_else(|| RepositoryError::NotFound {
+                    aggregate_type: A::TYPE,
+                    aggregate_id: id,
+                })
+        }
+
         async fn read_at_version<A: Aggregate>(
             &self,
             _uow: &mut Self::Uow,
@@ -239,6 +258,15 @@ mod tests {
         }
 
         async fn find_by_unique_value<A: Aggregate>(
+            &self,
+            _uow: &mut Self::Uow,
+            _unique_key: appletheia::domain::UniqueKey,
+            _unique_value: &appletheia::domain::UniqueValue,
+        ) -> Result<Option<A>, RepositoryError<A>> {
+            Ok(None)
+        }
+
+        async fn find_shared_by_unique_value<A: Aggregate>(
             &self,
             _uow: &mut Self::Uow,
             _unique_key: appletheia::domain::UniqueKey,
