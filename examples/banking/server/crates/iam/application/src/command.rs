@@ -2,6 +2,8 @@ pub mod organization;
 pub mod organization_invitation;
 pub mod organization_join_request;
 pub mod organization_membership;
+pub mod team;
+pub mod team_membership;
 pub mod user;
 
 pub use organization::{
@@ -55,6 +57,23 @@ pub use organization_membership::{
     OrganizationMembershipPromoteToAdminOutput, OrganizationMembershipRemoveCommand,
     OrganizationMembershipRemoveCommandHandler, OrganizationMembershipRemoveCommandHandlerError,
     OrganizationMembershipRemoveOutput,
+};
+pub use team::{
+    TeamCreateCommand, TeamCreateCommandHandler, TeamCreateCommandHandlerError, TeamCreateOutput,
+    TeamDescriptionSetCommand, TeamDescriptionSetCommandHandler,
+    TeamDescriptionSetCommandHandlerError, TeamDescriptionSetOutput, TeamNameChangeCommand,
+    TeamNameChangeCommandHandler, TeamNameChangeCommandHandlerError, TeamNameChangeOutput,
+    TeamRemoveCommand, TeamRemoveCommandHandler, TeamRemoveCommandHandlerError, TeamRemoveOutput,
+};
+pub use team_membership::{
+    TeamMembershipCreateCommand, TeamMembershipCreateCommandHandler,
+    TeamMembershipCreateCommandHandlerError, TeamMembershipCreateOutput,
+    TeamMembershipDemoteFromManagerCommand, TeamMembershipDemoteFromManagerCommandHandler,
+    TeamMembershipDemoteFromManagerCommandHandlerError, TeamMembershipDemoteFromManagerOutput,
+    TeamMembershipPromoteToManagerCommand, TeamMembershipPromoteToManagerCommandHandler,
+    TeamMembershipPromoteToManagerCommandHandlerError, TeamMembershipPromoteToManagerOutput,
+    TeamMembershipRemoveCommand, TeamMembershipRemoveCommandHandler,
+    TeamMembershipRemoveCommandHandlerError, TeamMembershipRemoveOutput,
 };
 pub use user::{
     LogoutAllSessionsCommand, LogoutAllSessionsCommandHandler, LogoutAllSessionsOutput,

@@ -5,3 +5,9 @@ mod organization_membership_organization_relation;
 pub use organization_membership_manager_relation::*;
 pub use organization_membership_organization_derivation_handler_error::*;
 pub use organization_membership_organization_relation::*;
+
+mod organization_membership_user_derivation_handler_error;
+mod organization_membership_user_relation;
+
+pub use organization_membership_user_derivation_handler_error::*;
+pub use organization_membership_user_relation::*;

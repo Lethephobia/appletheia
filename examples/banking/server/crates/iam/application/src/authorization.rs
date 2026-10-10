@@ -2,12 +2,16 @@ mod organization;
 mod organization_invitation;
 mod organization_join_request;
 mod organization_membership;
+mod team;
+mod team_membership;
 mod user;
 
 pub use organization::*;
 pub use organization_invitation::*;
 pub use organization_join_request::*;
 pub use organization_membership::*;
+pub use team::*;
+pub use team_membership::*;
 pub use user::*;
 
 #[cfg(test)]
@@ -535,6 +539,150 @@ mod tests {
                             .unwrap(),
                         expected,
                         "phase={phase}, requirement={requirement:?}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn team_permissions_follow_exact_membership_lifecycle() {
+        use super::{
+            OrganizationAdminRelation, OrganizationMembershipUserRelation, TeamManagerRelation,
+            TeamMemberRelation, TeamMembershipManagerRelation, TeamMembershipTeamRelation,
+            TeamOrganizationAdminRelation, TeamOrganizationRelation,
+        };
+        use banking_iam_domain::{
+            OrganizationDisplayName, OrganizationHandle, OrganizationOwner, Team, TeamMembership,
+            TeamName,
+        };
+
+        let owner_id = UserId::new();
+        let admin_id = UserId::new();
+        let manager_id = UserId::new();
+        let member_id = UserId::new();
+        let stranger_id = UserId::new();
+        let mut organization = Organization::new();
+        organization
+            .create(
+                OrganizationOwner::User(owner_id),
+                OrganizationHandle::try_from("team-test").unwrap(),
+                OrganizationDisplayName::try_from("Team Test").unwrap(),
+            )
+            .unwrap();
+        let mut admin = OrganizationMembership::new();
+        admin.create(organization.aggregate_id(), admin_id).unwrap();
+        admin.promote_to_admin().unwrap();
+        let mut manager = OrganizationMembership::new();
+        manager
+            .create(organization.aggregate_id(), manager_id)
+            .unwrap();
+        let mut member = OrganizationMembership::new();
+        member
+            .create(organization.aggregate_id(), member_id)
+            .unwrap();
+        let mut team = Team::new();
+        team.create(
+            organization.aggregate_id(),
+            TeamName::try_from("Operations").unwrap(),
+        )
+        .unwrap();
+        let mut manager_membership = TeamMembership::new();
+        manager_membership
+            .create(team.aggregate_id(), manager.aggregate_id())
+            .unwrap();
+        manager_membership.promote_to_manager().unwrap();
+        let mut member_membership = TeamMembership::new();
+        member_membership
+            .create(team.aggregate_id(), member.aggregate_id())
+            .unwrap();
+        let mut model = InMemoryAuthorizationModel::new();
+        model.define_relation(OrganizationOwnerRelation);
+        model.define_relation(OrganizationAdminRelation);
+        model.define_relation(OrganizationMemberRelation);
+        model.define_relation(OrganizationMembershipUserRelation);
+        model.define_relation(TeamOrganizationRelation);
+        model.define_relation(TeamOrganizationAdminRelation);
+        model.define_relation(TeamMemberRelation);
+        model.define_relation(TeamManagerRelation);
+        model.define_relation(TeamMembershipTeamRelation);
+        model.define_relation(TeamMembershipManagerRelation);
+
+        for phase in 0..5 {
+            if phase == 1 {
+                manager_membership.demote_from_manager().unwrap();
+            } else if phase == 2 {
+                manager_membership.promote_to_manager().unwrap();
+                manager.remove().unwrap();
+            } else if phase == 3 {
+                member_membership.remove().unwrap();
+            } else if phase == 4 {
+                team.remove().unwrap();
+            }
+            let mut relationships = model.derive(&organization).unwrap();
+            relationships.extend(model.derive(&admin).unwrap());
+            relationships.extend(model.derive(&manager).unwrap());
+            relationships.extend(model.derive(&member).unwrap());
+            relationships.extend(model.derive(&team).unwrap());
+            relationships.extend(model.derive(&manager_membership).unwrap());
+            relationships.extend(model.derive(&member_membership).unwrap());
+            if phase >= 3 {
+                let mut rejoined = OrganizationMembership::new();
+                rejoined
+                    .create(organization.aggregate_id(), manager_id)
+                    .unwrap();
+                relationships.extend(model.derive(&rejoined).unwrap());
+            }
+            let resolver = DefaultRelationshipResolver::new(
+                TestRelationshipStore(relationships),
+                model.clone(),
+                RelationshipResolverConfig::default(),
+            );
+            for (user_id, is_admin, is_manager, is_member) in [
+                (owner_id, true, true, false),
+                (admin_id, true, true, false),
+                (manager_id, false, phase == 0, phase < 2),
+                (member_id, false, false, phase < 3),
+                (stranger_id, false, false, false),
+            ] {
+                let subject = AggregateRef::from_id::<User>(user_id);
+                for (requirement, expected) in [
+                    (
+                        RelationshipRequirement::check::<Team>(
+                            team.aggregate_id(),
+                            TeamOrganizationAdminRelation::REF,
+                        ),
+                        is_admin,
+                    ),
+                    (
+                        RelationshipRequirement::check::<Team>(
+                            team.aggregate_id(),
+                            TeamManagerRelation::REF,
+                        ),
+                        is_manager,
+                    ),
+                    (
+                        RelationshipRequirement::check::<Team>(
+                            team.aggregate_id(),
+                            TeamMemberRelation::REF,
+                        ),
+                        is_member,
+                    ),
+                    (
+                        RelationshipRequirement::check::<TeamMembership>(
+                            member_membership.aggregate_id(),
+                            TeamMembershipManagerRelation::REF,
+                        ),
+                        is_manager,
+                    ),
+                ] {
+                    assert_eq!(
+                        resolver
+                            .satisfies(&mut TestUow, &subject, &requirement)
+                            .await
+                            .unwrap(),
+                        expected && phase < 4,
+                        "phase={phase}, user={user_id}, requirement={requirement:?}"
                     );
                 }
             }
