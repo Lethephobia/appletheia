@@ -37,10 +37,6 @@ impl TeamMembership {
         Ok(&self.state_required()?.organization_membership_id)
     }
 
-    pub fn is_manager(&self) -> Result<bool, TeamMembershipError> {
-        Ok(self.state_required()?.is_manager)
-    }
-
     pub fn status(&self) -> Result<TeamMembershipStatus, TeamMembershipError> {
         Ok(self.state_required()?.status)
     }
@@ -66,24 +62,6 @@ impl TeamMembership {
             team_id,
             organization_membership_id,
         })?;
-        Ok(())
-    }
-
-    pub fn promote_to_manager(&mut self) -> Result<(), TeamMembershipError> {
-        if self.state_required()?.status.is_removed() {
-            return Err(TeamMembershipError::Removed);
-        }
-
-        self.append_event(TeamMembershipEventPayload::PromotedToManager)?;
-        Ok(())
-    }
-
-    pub fn demote_from_manager(&mut self) -> Result<(), TeamMembershipError> {
-        if self.state_required()?.status.is_removed() {
-            return Err(TeamMembershipError::Removed);
-        }
-
-        self.append_event(TeamMembershipEventPayload::DemotedFromManager)?;
         Ok(())
     }
 
@@ -113,15 +91,8 @@ impl AggregateApply<TeamMembershipEventPayload, TeamMembershipError> for TeamMem
                 self.set_state(Some(TeamMembershipState {
                     team_id: *team_id,
                     organization_membership_id: *organization_membership_id,
-                    is_manager: false,
                     status: TeamMembershipStatus::Active,
                 }));
-            }
-            TeamMembershipEventPayload::PromotedToManager => {
-                self.state_required_mut()?.is_manager = true;
-            }
-            TeamMembershipEventPayload::DemotedFromManager => {
-                self.state_required_mut()?.is_manager = false;
             }
             TeamMembershipEventPayload::Removed { .. } => {
                 self.state_required_mut()?.status = TeamMembershipStatus::Removed;
@@ -218,82 +189,6 @@ mod tests {
 
         assert!(matches!(error, TeamMembershipError::Removed));
         assert_eq!(membership.uncommitted_events().len(), 2);
-    }
-
-    #[test]
-    fn manager_changes_replay_and_repeated_operations_emit_events() {
-        use appletheia::domain::AggregateApply;
-
-        let mut membership = created_membership();
-        assert!(!membership.is_manager().unwrap());
-        membership.promote_to_manager().unwrap();
-        assert!(membership.is_manager().unwrap());
-        membership.promote_to_manager().unwrap();
-        membership.demote_from_manager().unwrap();
-        assert!(!membership.is_manager().unwrap());
-        membership.demote_from_manager().unwrap();
-        assert_eq!(membership.uncommitted_events().len(), 5);
-        assert_eq!(
-            membership.uncommitted_events()[1].payload().name(),
-            TeamMembershipEventPayload::PROMOTED_TO_MANAGER
-        );
-        assert_eq!(
-            membership.uncommitted_events()[3].payload().name(),
-            TeamMembershipEventPayload::DEMOTED_FROM_MANAGER
-        );
-
-        let mut replayed = TeamMembership::new();
-        for event in membership.uncommitted_events() {
-            let encoded = serde_json::to_value(event.payload()).unwrap();
-            let decoded: TeamMembershipEventPayload = serde_json::from_value(encoded).unwrap();
-            replayed.apply(&decoded).unwrap();
-            if matches!(decoded, TeamMembershipEventPayload::PromotedToManager) {
-                assert!(replayed.is_manager().unwrap());
-            }
-        }
-        assert_eq!(replayed.state(), membership.state());
-    }
-
-    #[test]
-    fn removed_membership_rejects_manager_changes_and_rejoining_starts_without_manager() {
-        let mut membership = created_membership();
-        membership.promote_to_manager().unwrap();
-        membership.remove().unwrap();
-        assert!(matches!(
-            membership.promote_to_manager(),
-            Err(TeamMembershipError::Removed)
-        ));
-        assert!(matches!(
-            membership.demote_from_manager(),
-            Err(TeamMembershipError::Removed)
-        ));
-        assert_eq!(membership.uncommitted_events().len(), 3);
-
-        let mut rejoined = TeamMembership::new();
-        rejoined
-            .create(
-                *membership.team_id().unwrap(),
-                *membership.organization_membership_id().unwrap(),
-            )
-            .unwrap();
-        assert!(!rejoined.is_manager().unwrap());
-        assert!(rejoined.is_active().unwrap());
-        assert_ne!(rejoined.aggregate_id(), membership.aggregate_id());
-    }
-
-    #[test]
-    fn manager_changes_require_created_membership() {
-        let mut membership = TeamMembership::new();
-        assert!(matches!(
-            membership.promote_to_manager(),
-            Err(TeamMembershipError::Aggregate(_))
-        ));
-        assert!(matches!(
-            membership.demote_from_manager(),
-            Err(TeamMembershipError::Aggregate(_))
-        ));
-        assert!(membership.uncommitted_events().is_empty());
-        assert!(membership.state().is_none());
     }
 
     #[test]

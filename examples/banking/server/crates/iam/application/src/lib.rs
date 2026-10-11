@@ -33,17 +33,11 @@ pub use command::{
     OrganizationJoinRequestSubmitCommandHandlerError, OrganizationJoinRequestSubmitOutput,
     OrganizationMembershipCreateCommand, OrganizationMembershipCreateCommandHandler,
     OrganizationMembershipCreateCommandHandlerError, OrganizationMembershipCreateOutput,
-    OrganizationMembershipDemoteFromAdminCommand,
-    OrganizationMembershipDemoteFromAdminCommandHandler,
-    OrganizationMembershipDemoteFromAdminCommandHandlerError,
-    OrganizationMembershipDemoteFromAdminOutput, OrganizationMembershipPromoteToAdminCommand,
-    OrganizationMembershipPromoteToAdminCommandHandler,
-    OrganizationMembershipPromoteToAdminCommandHandlerError,
-    OrganizationMembershipPromoteToAdminOutput, OrganizationMembershipRemoveCommand,
-    OrganizationMembershipRemoveCommandHandler, OrganizationMembershipRemoveCommandHandlerError,
-    OrganizationMembershipRemoveOutput, OrganizationOwnershipTransferCommand,
-    OrganizationOwnershipTransferCommandHandler, OrganizationOwnershipTransferOutput,
-    OrganizationPictureObjectDeleteCommand, OrganizationPictureObjectDeleteCommandHandler,
+    OrganizationMembershipRemoveCommand, OrganizationMembershipRemoveCommandHandler,
+    OrganizationMembershipRemoveCommandHandlerError, OrganizationMembershipRemoveOutput,
+    OrganizationOwnershipTransferCommand, OrganizationOwnershipTransferCommandHandler,
+    OrganizationOwnershipTransferOutput, OrganizationPictureObjectDeleteCommand,
+    OrganizationPictureObjectDeleteCommandHandler,
     OrganizationPictureObjectDeleteCommandHandlerError, OrganizationPictureObjectDeleteOutput,
     OrganizationPictureSetCommand, OrganizationPictureSetCommandHandler,
     OrganizationPictureSetOutput, OrganizationPictureUploadPrepareCommand,
@@ -69,10 +63,6 @@ pub use command::{
     TeamMembershipCleanupStartCommandHandlerError, TeamMembershipCleanupStartOutput,
     TeamMembershipCreateCommand, TeamMembershipCreateCommandHandler,
     TeamMembershipCreateCommandHandlerError, TeamMembershipCreateOutput,
-    TeamMembershipDemoteFromManagerCommand, TeamMembershipDemoteFromManagerCommandHandler,
-    TeamMembershipDemoteFromManagerCommandHandlerError, TeamMembershipDemoteFromManagerOutput,
-    TeamMembershipPromoteToManagerCommand, TeamMembershipPromoteToManagerCommandHandler,
-    TeamMembershipPromoteToManagerCommandHandlerError, TeamMembershipPromoteToManagerOutput,
     TeamMembershipRemoveCommand, TeamMembershipRemoveCommandHandler,
     TeamMembershipRemoveCommandHandlerError, TeamMembershipRemoveOutput, TeamNameChangeCommand,
     TeamNameChangeCommandHandler, TeamNameChangeCommandHandlerError, TeamNameChangeOutput,
@@ -101,4 +91,18 @@ pub use saga::{
     TeamMembershipCleanupSagaHandlerError, TeamMembershipCleanupSagaState,
     TeamMembershipCleanupSagaStep, UserOldPictureObjectDeletionSaga,
     UserOldPictureObjectDeletionSagaHandlerError, UserOldPictureObjectDeletionSagaState,
+};
+
+pub use command::{
+    OrganizationRoleAssignmentAssignCommand, OrganizationRoleAssignmentAssignCommandHandler,
+    OrganizationRoleAssignmentAssignCommandHandlerError, OrganizationRoleAssignmentAssignOutput,
+    OrganizationRoleAssignmentRevokeCommand, OrganizationRoleAssignmentRevokeCommandHandler,
+    OrganizationRoleAssignmentRevokeCommandHandlerError, OrganizationRoleAssignmentRevokeOutput,
+};
+
+pub use command::{
+    TeamRoleAssignmentAssignCommand, TeamRoleAssignmentAssignCommandHandler,
+    TeamRoleAssignmentAssignCommandHandlerError, TeamRoleAssignmentAssignOutput,
+    TeamRoleAssignmentRevokeCommand, TeamRoleAssignmentRevokeCommandHandler,
+    TeamRoleAssignmentRevokeCommandHandlerError, TeamRoleAssignmentRevokeOutput,
 };

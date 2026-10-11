@@ -1,5 +1,5 @@
 use appletheia::application::aggregate::SerializedAggregateError;
-use banking_iam_domain::TeamMembershipError;
+use banking_iam_domain::TeamRoleAssignmentError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -8,5 +8,5 @@ pub enum TeamManagerDerivationHandlerError {
     SerializedAggregate(#[from] SerializedAggregateError),
 
     #[error(transparent)]
-    TeamMembership(#[from] TeamMembershipError),
+    TeamRoleAssignment(#[from] TeamRoleAssignmentError),
 }

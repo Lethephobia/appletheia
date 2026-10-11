@@ -18,7 +18,6 @@ use super::{OrganizationMembershipStateError, OrganizationMembershipStatus};
 pub struct OrganizationMembershipState {
     pub(super) organization_id: OrganizationId,
     pub(super) user_id: UserId,
-    pub(super) is_admin: bool,
     pub(super) status: OrganizationMembershipStatus,
 }
 

@@ -45,10 +45,6 @@ impl OrganizationMembership {
         Ok(&self.state_required()?.user_id)
     }
 
-    pub fn is_admin(&self) -> Result<bool, OrganizationMembershipError> {
-        Ok(self.state_required()?.is_admin)
-    }
-
     /// Returns the current membership status.
     pub fn status(&self) -> Result<OrganizationMembershipStatus, OrganizationMembershipError> {
         Ok(self.state_required()?.status)
@@ -78,24 +74,6 @@ impl OrganizationMembership {
             organization_id,
             user_id,
         })?;
-        Ok(())
-    }
-
-    pub fn promote_to_admin(&mut self) -> Result<(), OrganizationMembershipError> {
-        if self.state_required()?.status.is_removed() {
-            return Err(OrganizationMembershipError::Removed);
-        }
-
-        self.append_event(OrganizationMembershipEventPayload::PromotedToAdmin)?;
-        Ok(())
-    }
-
-    pub fn demote_from_admin(&mut self) -> Result<(), OrganizationMembershipError> {
-        if self.state_required()?.status.is_removed() {
-            return Err(OrganizationMembershipError::Removed);
-        }
-
-        self.append_event(OrganizationMembershipEventPayload::DemotedFromAdmin)?;
         Ok(())
     }
 
@@ -133,15 +111,8 @@ impl AggregateApply<OrganizationMembershipEventPayload, OrganizationMembershipEr
                 self.set_state(Some(OrganizationMembershipState {
                     organization_id: *organization_id,
                     user_id: *user_id,
-                    is_admin: false,
                     status: OrganizationMembershipStatus::Active,
                 }));
-            }
-            OrganizationMembershipEventPayload::PromotedToAdmin => {
-                self.state_required_mut()?.is_admin = true;
-            }
-            OrganizationMembershipEventPayload::DemotedFromAdmin => {
-                self.state_required_mut()?.is_admin = false;
             }
             OrganizationMembershipEventPayload::Removed { .. } => {
                 self.state_required_mut()?.status = OrganizationMembershipStatus::Removed;
@@ -242,82 +213,5 @@ mod tests {
 
         assert!(matches!(error, OrganizationMembershipError::Removed));
         assert_eq!(membership.uncommitted_events().len(), 2);
-    }
-
-    #[test]
-    fn admin_changes_replay_and_repeated_operations_emit_events() {
-        use appletheia::domain::AggregateApply;
-
-        let mut membership = created_membership();
-        assert!(!membership.is_admin().unwrap());
-        membership.promote_to_admin().unwrap();
-        assert!(membership.is_admin().unwrap());
-        membership.promote_to_admin().unwrap();
-        membership.demote_from_admin().unwrap();
-        assert!(!membership.is_admin().unwrap());
-        membership.demote_from_admin().unwrap();
-        assert_eq!(membership.uncommitted_events().len(), 5);
-        assert_eq!(
-            membership.uncommitted_events()[1].payload().name(),
-            OrganizationMembershipEventPayload::PROMOTED_TO_ADMIN
-        );
-        assert_eq!(
-            membership.uncommitted_events()[3].payload().name(),
-            OrganizationMembershipEventPayload::DEMOTED_FROM_ADMIN
-        );
-
-        let mut replayed = OrganizationMembership::new();
-        for event in membership.uncommitted_events() {
-            let encoded = serde_json::to_value(event.payload()).unwrap();
-            let decoded: OrganizationMembershipEventPayload =
-                serde_json::from_value(encoded).unwrap();
-            replayed.apply(&decoded).unwrap();
-            if matches!(decoded, OrganizationMembershipEventPayload::PromotedToAdmin) {
-                assert!(replayed.is_admin().unwrap());
-            }
-        }
-        assert_eq!(replayed.state(), membership.state());
-    }
-
-    #[test]
-    fn removed_membership_rejects_admin_changes_and_rejoining_starts_without_admin() {
-        let mut membership = created_membership();
-        membership.promote_to_admin().unwrap();
-        membership.remove().unwrap();
-        assert!(matches!(
-            membership.promote_to_admin(),
-            Err(OrganizationMembershipError::Removed)
-        ));
-        assert!(matches!(
-            membership.demote_from_admin(),
-            Err(OrganizationMembershipError::Removed)
-        ));
-        assert_eq!(membership.uncommitted_events().len(), 3);
-
-        let mut rejoined = OrganizationMembership::new();
-        rejoined
-            .create(
-                *membership.organization_id().unwrap(),
-                *membership.user_id().unwrap(),
-            )
-            .unwrap();
-        assert!(!rejoined.is_admin().unwrap());
-        assert!(rejoined.is_active().unwrap());
-        assert_ne!(rejoined.aggregate_id(), membership.aggregate_id());
-    }
-
-    #[test]
-    fn admin_changes_require_created_membership() {
-        let mut membership = OrganizationMembership::new();
-        assert!(matches!(
-            membership.promote_to_admin(),
-            Err(OrganizationMembershipError::Aggregate(_))
-        ));
-        assert!(matches!(
-            membership.demote_from_admin(),
-            Err(OrganizationMembershipError::Aggregate(_))
-        ));
-        assert!(membership.uncommitted_events().is_empty());
-        assert!(membership.state().is_none());
     }
 }

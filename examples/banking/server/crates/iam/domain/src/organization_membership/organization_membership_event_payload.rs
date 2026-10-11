@@ -11,8 +11,6 @@ pub enum OrganizationMembershipEventPayload {
         organization_id: OrganizationId,
         user_id: UserId,
     },
-    PromotedToAdmin,
-    DemotedFromAdmin,
     Removed {
         organization_id: OrganizationId,
         user_id: UserId,

@@ -2,9 +2,11 @@ pub mod organization;
 pub mod organization_invitation;
 pub mod organization_join_request;
 pub mod organization_membership;
+pub mod organization_role_assignment;
 pub mod team;
 pub mod team_membership;
 pub mod team_membership_cleanup;
+pub mod team_role_assignment;
 pub mod user;
 
 pub use organization::{
@@ -54,4 +56,18 @@ pub use team_membership_cleanup::{
     TeamMembershipCleanupError, TeamMembershipCleanupEventPayload,
     TeamMembershipCleanupEventPayloadError, TeamMembershipCleanupId, TeamMembershipCleanupState,
     TeamMembershipCleanupStateError, TeamMembershipCleanupStatus,
+};
+
+pub use organization_role_assignment::{
+    OrganizationRole, OrganizationRoleAssignee, OrganizationRoleAssigneeError,
+    OrganizationRoleAssignment, OrganizationRoleAssignmentError,
+    OrganizationRoleAssignmentEventPayload, OrganizationRoleAssignmentEventPayloadError,
+    OrganizationRoleAssignmentId, OrganizationRoleAssignmentState,
+    OrganizationRoleAssignmentStateError, OrganizationRoleAssignmentStatus,
+};
+
+pub use team_role_assignment::{
+    TeamRole, TeamRoleAssignee, TeamRoleAssigneeError, TeamRoleAssignment, TeamRoleAssignmentError,
+    TeamRoleAssignmentEventPayload, TeamRoleAssignmentEventPayloadError, TeamRoleAssignmentId,
+    TeamRoleAssignmentState, TeamRoleAssignmentStateError, TeamRoleAssignmentStatus,
 };

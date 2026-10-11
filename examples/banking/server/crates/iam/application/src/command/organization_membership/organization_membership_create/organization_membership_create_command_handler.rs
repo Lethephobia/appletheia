@@ -122,9 +122,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use appletheia::application::authorization::{
-        AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
-    };
+    use appletheia::application::authorization::{AuthorizationPlan, PrincipalRequirement};
     use appletheia::application::command::CommandHandler;
     use appletheia::application::repository::{Repository, RepositoryError};
     use appletheia::application::request_context::RequestContext;
@@ -222,46 +220,6 @@ mod tests {
         assert_eq!(
             plan,
             AuthorizationPlan::OnlyPrincipals(vec![PrincipalRequirement::System])
-        );
-    }
-
-    #[test]
-    fn admin_promotion_and_demotion_require_membership_manager() {
-        use crate::authorization::OrganizationMembershipManagerRelation;
-        use crate::{
-            OrganizationMembershipDemoteFromAdminCommand,
-            OrganizationMembershipDemoteFromAdminCommandHandler,
-            OrganizationMembershipPromoteToAdminCommand,
-            OrganizationMembershipPromoteToAdminCommandHandler,
-        };
-        use banking_iam_domain::{OrganizationMembership, OrganizationMembershipId};
-
-        let organization_membership_id = OrganizationMembershipId::new();
-        let promote = OrganizationMembershipPromoteToAdminCommandHandler::new(TestRepository);
-        let demote = OrganizationMembershipDemoteFromAdminCommandHandler::new(TestRepository);
-        let expected = AuthorizationPlan::OnlyPrincipals(vec![
-            PrincipalRequirement::AuthenticatedWithRelationship(RelationshipRequirement::check::<
-                OrganizationMembership,
-            >(
-                organization_membership_id,
-                OrganizationMembershipManagerRelation::REF,
-            )),
-        ]);
-        assert_eq!(
-            promote
-                .authorization_plan(&OrganizationMembershipPromoteToAdminCommand {
-                    organization_membership_id
-                })
-                .unwrap(),
-            expected
-        );
-        assert_eq!(
-            demote
-                .authorization_plan(&OrganizationMembershipDemoteFromAdminCommand {
-                    organization_membership_id
-                })
-                .unwrap(),
-            expected
         );
     }
 }

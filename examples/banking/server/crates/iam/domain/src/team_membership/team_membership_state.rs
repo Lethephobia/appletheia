@@ -17,7 +17,6 @@ use super::{TeamMembershipStateError, TeamMembershipStatus};
 pub struct TeamMembershipState {
     pub(super) team_id: TeamId,
     pub(super) organization_membership_id: OrganizationMembershipId,
-    pub(super) is_manager: bool,
     pub(super) status: TeamMembershipStatus,
 }
 

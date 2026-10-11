@@ -32,12 +32,16 @@ mod tests {
     };
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::Aggregate;
+    use banking_iam_application::authorization::OrganizationMembershipUserRelation;
     use banking_iam_application::authorization::{
         OrganizationAdminRelation, OrganizationMemberRelation, OrganizationOwnerRelation,
     };
     use banking_iam_domain::{
         Organization, OrganizationDisplayName, OrganizationHandle, OrganizationMembership,
         OrganizationOwner, User, UserId,
+    };
+    use banking_iam_domain::{
+        OrganizationRole, OrganizationRoleAssignee, OrganizationRoleAssignment,
     };
 
     use super::{
@@ -169,6 +173,7 @@ mod tests {
         model.define_relation(WalletBookmarkOwnerRelation);
         model.define_relation(WalletBookmarkManagerRelation);
         model.define_relation(OrganizationAdminRelation);
+        model.define_relation(OrganizationMembershipUserRelation);
         model.define_relation(OrganizationFinanceManagerRelation);
         let mut relationships = model.derive(&organization).unwrap();
         relationships.extend(model.derive(&membership).unwrap());
@@ -375,7 +380,14 @@ mod tests {
             .unwrap();
         let mut admin = OrganizationMembership::new();
         admin.create(organization.aggregate_id(), admin_id).unwrap();
-        admin.promote_to_admin().unwrap();
+        let mut admin_assignment = OrganizationRoleAssignment::new();
+        admin_assignment
+            .assign(
+                organization.aggregate_id(),
+                OrganizationRoleAssignee::OrganizationMembership(admin.aggregate_id()),
+                OrganizationRole::Admin,
+            )
+            .unwrap();
         let mut member = OrganizationMembership::new();
         member
             .create(organization.aggregate_id(), member_id)
@@ -425,6 +437,7 @@ mod tests {
         let mut model = InMemoryAuthorizationModel::new();
         model.define_relation(OrganizationOwnerRelation);
         model.define_relation(OrganizationAdminRelation);
+        model.define_relation(OrganizationMembershipUserRelation);
         model.define_relation(OrganizationMemberRelation);
         model.define_relation(OrganizationMembershipUserRelation);
         model.define_relation(TeamMemberRelation);
@@ -437,7 +450,7 @@ mod tests {
         for phase in 0..5 {
             if phase == 1 {
                 finance.revoke().unwrap();
-                admin.demote_from_admin().unwrap();
+                admin_assignment.revoke().unwrap();
             }
             if phase == 2 {
                 member.remove().unwrap();
@@ -448,6 +461,7 @@ mod tests {
             let mut relationships = model.derive(&organization).unwrap();
             relationships.extend(model.derive(&member).unwrap());
             relationships.extend(model.derive(&admin).unwrap());
+            relationships.extend(model.derive(&admin_assignment).unwrap());
             relationships.extend(model.derive(&team).unwrap());
             relationships.extend(model.derive(&team_member).unwrap());
             relationships.extend(model.derive(&finance).unwrap());
@@ -557,7 +571,14 @@ mod tests {
             .unwrap();
         let mut admin = OrganizationMembership::new();
         admin.create(organization.aggregate_id(), admin_id).unwrap();
-        admin.promote_to_admin().unwrap();
+        let mut admin_assignment = OrganizationRoleAssignment::new();
+        admin_assignment
+            .assign(
+                organization.aggregate_id(),
+                OrganizationRoleAssignee::OrganizationMembership(admin.aggregate_id()),
+                OrganizationRole::Admin,
+            )
+            .unwrap();
         let mut assignment = OrganizationLedgerRoleAssignment::new();
         assignment
             .assign(
@@ -569,14 +590,16 @@ mod tests {
         let mut model = InMemoryAuthorizationModel::new();
         model.define_relation(OrganizationOwnerRelation);
         model.define_relation(OrganizationAdminRelation);
+        model.define_relation(OrganizationMembershipUserRelation);
         model.define_relation(OrganizationLedgerRoleAssignmentOrganizationRelation);
         model.define_relation(OrganizationLedgerRoleAssignmentManagerRelation);
         for demoted in [false, true] {
             if demoted {
-                admin.demote_from_admin().unwrap();
+                admin_assignment.revoke().unwrap();
             }
             let mut relationships = model.derive(&organization).unwrap();
             relationships.extend(model.derive(&admin).unwrap());
+            relationships.extend(model.derive(&admin_assignment).unwrap());
             relationships.extend(model.derive(&assignment).unwrap());
             let resolver = DefaultRelationshipResolver::new(
                 TestRelationshipStore(relationships),

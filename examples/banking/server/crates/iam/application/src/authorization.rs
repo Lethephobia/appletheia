@@ -2,20 +2,30 @@ mod organization;
 mod organization_invitation;
 mod organization_join_request;
 mod organization_membership;
+mod organization_role_assignment;
 mod team;
 mod team_membership;
+mod team_role_assignment;
 mod user;
 
 pub use organization::*;
 pub use organization_invitation::*;
 pub use organization_join_request::*;
 pub use organization_membership::*;
+pub use organization_role_assignment::*;
 pub use team::*;
 pub use team_membership::*;
+pub use team_role_assignment::*;
 pub use user::*;
 
 #[cfg(test)]
 mod tests {
+    use super::{
+        OrganizationMembershipUserRelation, OrganizationRoleAssignmentManagerRelation,
+        OrganizationRoleAssignmentOrganizationRelation, TeamRoleAssignmentManagerRelation,
+        TeamRoleAssignmentTeamRelation,
+    };
+    use super::{TeamMembershipOrganizationMembershipRelation, TeamMembershipUserRelation};
     use appletheia::application::aggregate::{AggregateRef, SerializedAggregateError};
     use appletheia::application::authorization::{
         InMemoryAuthorizationModel, Relation, RelationshipDerivationError, RelationshipDeriver,
@@ -26,6 +36,10 @@ mod tests {
         Organization, OrganizationId, OrganizationMembership, OrganizationMembershipError, User,
         UserId,
     };
+    use banking_iam_domain::{
+        OrganizationRole, OrganizationRoleAssignee, OrganizationRoleAssignment,
+    };
+    use banking_iam_domain::{TeamRole, TeamRoleAssignee, TeamRoleAssignment};
 
     use super::{
         OrganizationMemberRelation, OrganizationMembershipOrganizationRelation,
@@ -451,7 +465,14 @@ mod tests {
             .unwrap();
         let mut admin = OrganizationMembership::new();
         admin.create(organization.aggregate_id(), admin_id).unwrap();
-        admin.promote_to_admin().unwrap();
+        let mut admin_assignment = OrganizationRoleAssignment::new();
+        admin_assignment
+            .assign(
+                organization.aggregate_id(),
+                OrganizationRoleAssignee::OrganizationMembership(admin.aggregate_id()),
+                OrganizationRole::Admin,
+            )
+            .unwrap();
         let mut member = OrganizationMembership::new();
         member
             .create(organization.aggregate_id(), member_id)
@@ -460,19 +481,36 @@ mod tests {
         another_admin
             .create(organization.aggregate_id(), UserId::new())
             .unwrap();
-        another_admin.promote_to_admin().unwrap();
+        let mut another_admin_assignment = OrganizationRoleAssignment::new();
+        another_admin_assignment
+            .assign(
+                organization.aggregate_id(),
+                OrganizationRoleAssignee::OrganizationMembership(another_admin.aggregate_id()),
+                OrganizationRole::Admin,
+            )
+            .unwrap();
         let mut model = InMemoryAuthorizationModel::new();
         model.define_relation(OrganizationOwnerRelation);
         model.define_relation(OrganizationAdminRelation);
+        model.define_relation(OrganizationMembershipUserRelation);
         model.define_relation(OrganizationMembershipOrganizationRelation);
         model.define_relation(OrganizationMembershipManagerRelation);
+        model.define_relation(OrganizationRoleAssignmentOrganizationRelation);
+        model.define_relation(OrganizationRoleAssignmentManagerRelation);
 
         // Rebuild persisted relationships for each current aggregate state.
         for phase in 0..4 {
             if phase == 1 {
-                admin.demote_from_admin().unwrap();
+                admin_assignment.revoke().unwrap();
             } else if phase == 2 {
-                admin.promote_to_admin().unwrap();
+                admin_assignment = OrganizationRoleAssignment::new();
+                admin_assignment
+                    .assign(
+                        organization.aggregate_id(),
+                        OrganizationRoleAssignee::OrganizationMembership(admin.aggregate_id()),
+                        OrganizationRole::Admin,
+                    )
+                    .unwrap();
                 admin.remove().unwrap();
             } else if phase == 3 {
                 admin = OrganizationMembership::new();
@@ -480,8 +518,10 @@ mod tests {
             }
             let mut relationships = model.derive(&organization).unwrap();
             relationships.extend(model.derive(&admin).unwrap());
+            relationships.extend(model.derive(&admin_assignment).unwrap());
             relationships.extend(model.derive(&member).unwrap());
             relationships.extend(model.derive(&another_admin).unwrap());
+            relationships.extend(model.derive(&another_admin_assignment).unwrap());
             let resolver = DefaultRelationshipResolver::new(
                 TestRelationshipStore(relationships),
                 model.clone(),
@@ -496,6 +536,13 @@ mod tests {
             ] {
                 let subject = AggregateRef::from_id::<User>(user_id);
                 for (requirement, expected) in [
+                    (
+                        RelationshipRequirement::check::<OrganizationRoleAssignment>(
+                            another_admin_assignment.aggregate_id(),
+                            OrganizationRoleAssignmentManagerRelation::REF,
+                        ),
+                        is_admin,
+                    ),
                     (
                         RelationshipRequirement::check::<OrganizationMembership>(
                             another_admin.aggregate_id(),
@@ -572,7 +619,14 @@ mod tests {
             .unwrap();
         let mut admin = OrganizationMembership::new();
         admin.create(organization.aggregate_id(), admin_id).unwrap();
-        admin.promote_to_admin().unwrap();
+        let mut admin_assignment = OrganizationRoleAssignment::new();
+        admin_assignment
+            .assign(
+                organization.aggregate_id(),
+                OrganizationRoleAssignee::OrganizationMembership(admin.aggregate_id()),
+                OrganizationRole::Admin,
+            )
+            .unwrap();
         let mut manager = OrganizationMembership::new();
         manager
             .create(organization.aggregate_id(), manager_id)
@@ -591,7 +645,14 @@ mod tests {
         manager_membership
             .create(team.aggregate_id(), manager.aggregate_id())
             .unwrap();
-        manager_membership.promote_to_manager().unwrap();
+        let mut manager_assignment = TeamRoleAssignment::new();
+        manager_assignment
+            .assign(
+                team.aggregate_id(),
+                TeamRoleAssignee::TeamMembership(manager_membership.aggregate_id()),
+                TeamRole::Manager,
+            )
+            .unwrap();
         let mut member_membership = TeamMembership::new();
         member_membership
             .create(team.aggregate_id(), member.aggregate_id())
@@ -599,34 +660,73 @@ mod tests {
         let mut model = InMemoryAuthorizationModel::new();
         model.define_relation(OrganizationOwnerRelation);
         model.define_relation(OrganizationAdminRelation);
+        model.define_relation(OrganizationMembershipUserRelation);
         model.define_relation(OrganizationMemberRelation);
         model.define_relation(OrganizationMembershipUserRelation);
         model.define_relation(TeamOrganizationRelation);
         model.define_relation(TeamOrganizationAdminRelation);
         model.define_relation(TeamMemberRelation);
         model.define_relation(TeamManagerRelation);
+        model.define_relation(TeamMembershipOrganizationMembershipRelation);
+        model.define_relation(TeamMembershipUserRelation);
         model.define_relation(TeamMembershipTeamRelation);
         model.define_relation(TeamMembershipManagerRelation);
+        model.define_relation(TeamRoleAssignmentTeamRelation);
+        model.define_relation(TeamRoleAssignmentManagerRelation);
 
-        for phase in 0..5 {
+        for phase in 0..7 {
             if phase == 1 {
-                manager_membership.demote_from_manager().unwrap();
+                manager_assignment.revoke().unwrap();
             } else if phase == 2 {
-                manager_membership.promote_to_manager().unwrap();
+                manager_assignment = TeamRoleAssignment::new();
+                manager_assignment
+                    .assign(
+                        team.aggregate_id(),
+                        TeamRoleAssignee::TeamMembership(manager_membership.aggregate_id()),
+                        TeamRole::Manager,
+                    )
+                    .unwrap();
                 manager.remove().unwrap();
             } else if phase == 3 {
                 member_membership.remove().unwrap();
             } else if phase == 4 {
+                manager = OrganizationMembership::new();
+                manager
+                    .create(organization.aggregate_id(), manager_id)
+                    .unwrap();
+                manager_membership = TeamMembership::new();
+                manager_membership
+                    .create(team.aggregate_id(), manager.aggregate_id())
+                    .unwrap();
+                manager_assignment = TeamRoleAssignment::new();
+                manager_assignment
+                    .assign(
+                        team.aggregate_id(),
+                        TeamRoleAssignee::TeamMembership(manager_membership.aggregate_id()),
+                        TeamRole::Manager,
+                    )
+                    .unwrap();
+                manager_membership.remove().unwrap();
+            } else if phase == 6 {
                 team.remove().unwrap();
             }
             let mut relationships = model.derive(&organization).unwrap();
             relationships.extend(model.derive(&admin).unwrap());
+            relationships.extend(model.derive(&admin_assignment).unwrap());
             relationships.extend(model.derive(&manager).unwrap());
             relationships.extend(model.derive(&member).unwrap());
             relationships.extend(model.derive(&team).unwrap());
             relationships.extend(model.derive(&manager_membership).unwrap());
+            relationships.extend(model.derive(&manager_assignment).unwrap());
             relationships.extend(model.derive(&member_membership).unwrap());
-            if phase >= 3 {
+            if phase == 5 {
+                let mut rejoined_team_membership = TeamMembership::new();
+                rejoined_team_membership
+                    .create(team.aggregate_id(), manager.aggregate_id())
+                    .unwrap();
+                relationships.extend(model.derive(&rejoined_team_membership).unwrap());
+            }
+            if phase == 3 {
                 let mut rejoined = OrganizationMembership::new();
                 rejoined
                     .create(organization.aggregate_id(), manager_id)
@@ -641,12 +741,19 @@ mod tests {
             for (user_id, is_admin, is_manager, is_member) in [
                 (owner_id, true, true, false),
                 (admin_id, true, true, false),
-                (manager_id, false, phase == 0, phase < 2),
+                (manager_id, false, phase == 0, phase < 2 || phase == 5),
                 (member_id, false, false, phase < 3),
                 (stranger_id, false, false, false),
             ] {
                 let subject = AggregateRef::from_id::<User>(user_id);
                 for (requirement, expected) in [
+                    (
+                        RelationshipRequirement::check::<TeamRoleAssignment>(
+                            manager_assignment.aggregate_id(),
+                            TeamRoleAssignmentManagerRelation::REF,
+                        ),
+                        is_manager,
+                    ),
                     (
                         RelationshipRequirement::check::<Team>(
                             team.aggregate_id(),
@@ -681,7 +788,7 @@ mod tests {
                             .satisfies(&mut TestUow, &subject, &requirement)
                             .await
                             .unwrap(),
-                        expected && phase < 4,
+                        expected && phase < 6,
                         "phase={phase}, user={user_id}, requirement={requirement:?}"
                     );
                 }

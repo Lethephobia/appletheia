@@ -332,7 +332,6 @@ mod tests {
                         *saved.organization_membership_id().unwrap(),
                         organization_membership.aggregate_id()
                     );
-                    assert!(!saved.is_manager().unwrap());
                 }
                 1 => assert!(matches!(
                     result,

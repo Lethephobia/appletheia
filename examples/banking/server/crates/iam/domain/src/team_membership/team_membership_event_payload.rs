@@ -10,8 +10,6 @@ pub enum TeamMembershipEventPayload {
         team_id: TeamId,
         organization_membership_id: OrganizationMembershipId,
     },
-    PromotedToManager,
-    DemotedFromManager,
     Removed {
         team_id: TeamId,
         organization_membership_id: OrganizationMembershipId,
