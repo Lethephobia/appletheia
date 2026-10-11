@@ -1,3 +1,4 @@
+use crate::authorization::TransferFromAccountTransactorRelation;
 use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
@@ -7,7 +8,6 @@ use appletheia::application::request_context::RequestContext;
 use banking_ledger_domain::transfer::Transfer;
 
 use super::{TransferNoteSetCommand, TransferNoteSetCommandHandlerError, TransferNoteSetOutput};
-use crate::authorization::TransferFromAccountOwnerRelation;
 
 pub struct TransferNoteSetCommandHandler<R>
 where
@@ -43,7 +43,7 @@ where
                 Transfer,
             >(
                 command.transfer_id,
-                TransferFromAccountOwnerRelation::REF,
+                TransferFromAccountTransactorRelation::REF,
             )),
         ]))
     }

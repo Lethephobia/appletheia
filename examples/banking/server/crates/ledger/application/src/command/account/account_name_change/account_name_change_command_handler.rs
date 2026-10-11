@@ -1,3 +1,4 @@
+use crate::authorization::AccountManagerRelation;
 use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
@@ -9,7 +10,6 @@ use banking_ledger_domain::account::Account;
 use super::{
     AccountNameChangeCommand, AccountNameChangeCommandHandlerError, AccountNameChangeOutput,
 };
-use crate::authorization::AccountOwnerRelation;
 
 pub struct AccountNameChangeCommandHandler<R>
 where
@@ -45,7 +45,7 @@ where
                 Account,
             >(
                 command.account_id,
-                AccountOwnerRelation::REF,
+                AccountManagerRelation::REF,
             )),
         ]))
     }
@@ -73,6 +73,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    use crate::authorization::AccountManagerRelation;
     use appletheia::application::aggregate::SerializedAggregate;
     use appletheia::domain::{AggregateId, Event};
     use std::sync::{Arc, Mutex};
@@ -96,7 +97,6 @@ mod tests {
     use super::{
         AccountNameChangeCommand, AccountNameChangeCommandHandler, AccountNameChangeOutput,
     };
-    use crate::authorization::AccountOwnerRelation;
 
     #[derive(Default)]
     struct TestUow;
@@ -254,7 +254,7 @@ mod tests {
     }
 
     #[test]
-    fn authorization_plan_requires_account_name_changer() {
+    fn authorization_plan_requires_account_manager() {
         let handler = AccountNameChangeCommandHandler::new(TestRepository::default());
         let account_id = AccountId::new();
 
@@ -271,7 +271,7 @@ mod tests {
                 PrincipalRequirement::AuthenticatedWithRelationship(
                     RelationshipRequirement::check::<Account>(
                         account_id,
-                        AccountOwnerRelation::REF
+                        AccountManagerRelation::REF
                     )
                 ),
             ])

@@ -5,13 +5,10 @@ use banking_ledger_domain::token_binding::TokenBinding;
 use super::TokenBindingCurrencyRelation;
 use crate::authorization::CurrencyManagerRelation;
 
-pub struct TokenBindingDepositEnabledChangerRelation;
+pub struct TokenBindingManagerRelation;
 
-impl Relation for TokenBindingDepositEnabledChangerRelation {
-    const REF: RelationRef = RelationRef::new(
-        TokenBinding::TYPE,
-        RelationName::new("deposit_enabled_changer"),
-    );
+impl Relation for TokenBindingManagerRelation {
+    const REF: RelationRef = RelationRef::new(TokenBinding::TYPE, RelationName::new("manager"));
 
     fn expr(&self) -> UsersetExpr {
         UsersetExpr::TupleToUserset {

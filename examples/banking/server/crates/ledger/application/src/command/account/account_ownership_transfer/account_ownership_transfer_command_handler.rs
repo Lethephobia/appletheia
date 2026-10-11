@@ -1,3 +1,4 @@
+use crate::authorization::AccountOwnershipManagerRelation;
 use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
@@ -10,7 +11,6 @@ use super::{
     AccountOwnershipTransferCommand, AccountOwnershipTransferCommandHandlerError,
     AccountOwnershipTransferOutput,
 };
-use crate::authorization::AccountOwnerRelation;
 
 pub struct AccountOwnershipTransferCommandHandler<R>
 where
@@ -46,7 +46,7 @@ where
                 Account,
             >(
                 command.account_id,
-                AccountOwnerRelation::REF,
+                AccountOwnershipManagerRelation::REF,
             )),
         ]))
     }

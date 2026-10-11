@@ -10,6 +10,17 @@ pub mod transfer;
 pub mod wallet_bookmark;
 pub mod withdrawal;
 
+pub mod organization_ledger_role_assignment;
+
 pub use banking_iam_domain::{User, UserId};
 pub use currency_registrar::{CurrencyRegistrar, CurrencyRegistrarError, CurrencyRegistrarId};
 pub use currency_registrar_membership::*;
+
+pub use organization_ledger_role_assignment::{
+    OrganizationLedgerRole, OrganizationLedgerRoleAssignee, OrganizationLedgerRoleAssigneeError,
+    OrganizationLedgerRoleAssignment, OrganizationLedgerRoleAssignmentError,
+    OrganizationLedgerRoleAssignmentEventPayload,
+    OrganizationLedgerRoleAssignmentEventPayloadError, OrganizationLedgerRoleAssignmentId,
+    OrganizationLedgerRoleAssignmentState, OrganizationLedgerRoleAssignmentStateError,
+    OrganizationLedgerRoleAssignmentStatus,
+};

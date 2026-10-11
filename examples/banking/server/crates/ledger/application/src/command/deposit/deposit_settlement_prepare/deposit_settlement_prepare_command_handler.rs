@@ -1,3 +1,4 @@
+use crate::authorization::AccountTransactorRelation;
 use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
@@ -15,7 +16,6 @@ use super::{
     DepositSettlementPrepareCommand, DepositSettlementPrepareCommandHandlerError,
     DepositSettlementPrepareOutput,
 };
-use crate::authorization::AccountOwnerRelation;
 use crate::settlement::{DepositSettlementPrepareRequest, DepositSettlementPreparer};
 
 pub struct DepositSettlementPrepareCommandHandler<R, DSP>
@@ -59,7 +59,7 @@ where
                 Account,
             >(
                 command.account_id,
-                AccountOwnerRelation::REF,
+                AccountTransactorRelation::REF,
             )),
         ]))
     }

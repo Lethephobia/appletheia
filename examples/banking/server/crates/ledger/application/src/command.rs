@@ -9,6 +9,8 @@ pub mod transfer;
 pub mod wallet_bookmark;
 pub mod withdrawal;
 
+pub mod organization_ledger_role_assignment;
+
 pub use account::{
     AccountCloseCommand, AccountCloseCommandHandler, AccountCloseOutput, AccountDepositCommand,
     AccountDepositCommandHandler, AccountDepositOutput, AccountDescriptionSetCommand,
@@ -107,4 +109,14 @@ pub use withdrawal::{
     WithdrawalRequestCommandHandler, WithdrawalRequestOutput, WithdrawalSettlementExecuteCommand,
     WithdrawalSettlementExecuteCommandHandler, WithdrawalSettlementExecuteOutput,
     WithdrawalSucceedCommand, WithdrawalSucceedCommandHandler, WithdrawalSucceedOutput,
+};
+
+pub use organization_ledger_role_assignment::{
+    OrganizationLedgerRoleAssignmentAssignCommand,
+    OrganizationLedgerRoleAssignmentAssignCommandHandler,
+    OrganizationLedgerRoleAssignmentAssignCommandHandlerError,
+    OrganizationLedgerRoleAssignmentAssignOutput, OrganizationLedgerRoleAssignmentRevokeCommand,
+    OrganizationLedgerRoleAssignmentRevokeCommandHandler,
+    OrganizationLedgerRoleAssignmentRevokeCommandHandlerError,
+    OrganizationLedgerRoleAssignmentRevokeOutput,
 };

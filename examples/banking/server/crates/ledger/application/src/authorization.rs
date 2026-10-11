@@ -2,6 +2,8 @@ mod account;
 mod currency;
 mod currency_registrar_membership;
 mod deposit;
+mod organization;
+mod organization_ledger_role_assignment;
 mod token_binding;
 mod transfer;
 mod wallet_bookmark;
@@ -13,6 +15,8 @@ pub use account::*;
 pub use currency::*;
 pub use currency_registrar_membership::*;
 pub use deposit::*;
+pub use organization::*;
+pub use organization_ledger_role_assignment::*;
 pub use token_binding::*;
 pub use transfer::*;
 pub use wallet_bookmark::*;
@@ -29,14 +33,17 @@ mod tests {
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::Aggregate;
     use banking_iam_application::authorization::{
-        OrganizationMemberRelation, OrganizationOwnerRelation,
+        OrganizationAdminRelation, OrganizationMemberRelation, OrganizationOwnerRelation,
     };
     use banking_iam_domain::{
         Organization, OrganizationDisplayName, OrganizationHandle, OrganizationMembership,
         OrganizationOwner, User, UserId,
     };
 
-    use super::{AccountOwnerRelation, WalletBookmarkOwnerRelation};
+    use super::{
+        AccountOwnerRelation, AccountOwnershipManagerRelation, OrganizationFinanceManagerRelation,
+        WalletBookmarkManagerRelation, WalletBookmarkOwnerRelation,
+    };
     use banking_ledger_domain::account::{Account, AccountName, AccountOwner};
     use banking_ledger_domain::core::{
         SolanaAccountAddress, SolanaTokenAccountOwnerAddress, TokenOwnerAddress,
@@ -158,7 +165,11 @@ mod tests {
         model.define_relation(OrganizationOwnerRelation);
         model.define_relation(OrganizationMemberRelation);
         model.define_relation(AccountOwnerRelation);
+        model.define_relation(AccountOwnershipManagerRelation);
         model.define_relation(WalletBookmarkOwnerRelation);
+        model.define_relation(WalletBookmarkManagerRelation);
+        model.define_relation(OrganizationAdminRelation);
+        model.define_relation(OrganizationFinanceManagerRelation);
         let mut relationships = model.derive(&organization).unwrap();
         relationships.extend(model.derive(&membership).unwrap());
         relationships.extend(model.derive(&account).unwrap());
@@ -170,6 +181,54 @@ mod tests {
             RelationshipResolverConfig::default(),
         );
         let mut uow = TestUow;
+        assert!(
+            resolver
+                .satisfies(
+                    &mut uow,
+                    &AggregateRef::from_id::<Organization>(organization.aggregate_id()),
+                    &RelationshipRequirement::check::<Account>(
+                        account.aggregate_id(),
+                        AccountOwnerRelation::REF
+                    )
+                )
+                .await
+                .unwrap()
+        );
+        assert!(
+            !resolver
+                .satisfies(
+                    &mut uow,
+                    &AggregateRef::from_id::<User>(owner),
+                    &RelationshipRequirement::check::<Account>(
+                        account.aggregate_id(),
+                        AccountOwnerRelation::REF
+                    )
+                )
+                .await
+                .unwrap()
+        );
+        for (subject, expected) in [
+            (
+                AggregateRef::from_id::<Organization>(organization.aggregate_id()),
+                true,
+            ),
+            (AggregateRef::from_id::<User>(owner), false),
+        ] {
+            assert_eq!(
+                resolver
+                    .satisfies(
+                        &mut uow,
+                        &subject,
+                        &RelationshipRequirement::check::<WalletBookmark>(
+                            bookmark.aggregate_id(),
+                            WalletBookmarkOwnerRelation::REF,
+                        ),
+                    )
+                    .await
+                    .unwrap(),
+                expected,
+            );
+        }
         for (user_id, is_owner, is_member) in [
             (owner, true, true),
             (member, false, true),
@@ -181,9 +240,13 @@ mod tests {
                     personal_account.aggregate_id(),
                     AccountOwnerRelation::REF,
                 ),
+                RelationshipRequirement::check::<Account>(
+                    personal_account.aggregate_id(),
+                    AccountOwnershipManagerRelation::REF,
+                ),
                 RelationshipRequirement::check::<WalletBookmark>(
                     bookmark.aggregate_id(),
-                    WalletBookmarkOwnerRelation::REF,
+                    WalletBookmarkManagerRelation::REF,
                 ),
                 RelationshipRequirement::check::<Organization>(
                     organization.aggregate_id(),
@@ -191,7 +254,7 @@ mod tests {
                 ),
                 RelationshipRequirement::check::<Account>(
                     account.aggregate_id(),
-                    AccountOwnerRelation::REF,
+                    AccountOwnershipManagerRelation::REF,
                 ),
             ] {
                 assert_eq!(
@@ -275,6 +338,272 @@ mod tests {
                             .await
                             .unwrap(),
                         user_id == member_id && !removed
+                    );
+                }
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn ledger_roles_are_scoped_and_follow_assignee_and_assignment_lifecycles() {
+        use super::{
+            AccountManagerRelation, AccountTransactorRelation, OrganizationFinanceManagerRelation,
+            OrganizationTreasurerRelation,
+        };
+        use banking_iam_application::authorization::{
+            OrganizationMembershipUserRelation, TeamMemberRelation, TeamOrganizationRelation,
+        };
+        use banking_iam_domain::{OrganizationId, Team, TeamMembership, TeamName};
+        use banking_ledger_domain::{
+            OrganizationLedgerRole, OrganizationLedgerRoleAssignee,
+            OrganizationLedgerRoleAssignment,
+        };
+
+        use banking_iam_application::authorization::OrganizationAdminRelation;
+
+        let admin_id = UserId::new();
+        let owner_id = UserId::new();
+        let member_id = UserId::new();
+        let outsider_id = UserId::new();
+        let mut organization = Organization::new();
+        organization
+            .create(
+                OrganizationOwner::User(owner_id),
+                OrganizationHandle::try_from("ledger-roles").unwrap(),
+                OrganizationDisplayName::try_from("Ledger Roles").unwrap(),
+            )
+            .unwrap();
+        let mut admin = OrganizationMembership::new();
+        admin.create(organization.aggregate_id(), admin_id).unwrap();
+        admin.promote_to_admin().unwrap();
+        let mut member = OrganizationMembership::new();
+        member
+            .create(organization.aggregate_id(), member_id)
+            .unwrap();
+        let mut team = Team::new();
+        team.create(
+            organization.aggregate_id(),
+            TeamName::try_from("Finance").unwrap(),
+        )
+        .unwrap();
+        let mut team_member = TeamMembership::new();
+        team_member
+            .create(team.aggregate_id(), member.aggregate_id())
+            .unwrap();
+        let mut finance = OrganizationLedgerRoleAssignment::new();
+        finance
+            .assign(
+                organization.aggregate_id(),
+                OrganizationLedgerRoleAssignee::OrganizationMembership(member.aggregate_id()),
+                OrganizationLedgerRole::FinanceManager,
+            )
+            .unwrap();
+        let mut treasury = OrganizationLedgerRoleAssignment::new();
+        treasury
+            .assign(
+                organization.aggregate_id(),
+                OrganizationLedgerRoleAssignee::Team(team.aggregate_id()),
+                OrganizationLedgerRole::Treasurer,
+            )
+            .unwrap();
+        let mut account = Account::new();
+        account
+            .open(
+                AccountOwner::Organization(organization.aggregate_id()),
+                AccountName::try_from("Shared").unwrap(),
+                CurrencyId::new(),
+            )
+            .unwrap();
+        let mut personal = Account::new();
+        personal
+            .open(
+                AccountOwner::User(member_id),
+                AccountName::try_from("Personal").unwrap(),
+                CurrencyId::new(),
+            )
+            .unwrap();
+        let mut model = InMemoryAuthorizationModel::new();
+        model.define_relation(OrganizationOwnerRelation);
+        model.define_relation(OrganizationAdminRelation);
+        model.define_relation(OrganizationMemberRelation);
+        model.define_relation(OrganizationMembershipUserRelation);
+        model.define_relation(TeamMemberRelation);
+        model.define_relation(TeamOrganizationRelation);
+        model.define_relation(OrganizationFinanceManagerRelation);
+        model.define_relation(OrganizationTreasurerRelation);
+        model.define_relation(AccountManagerRelation);
+        model.define_relation(AccountOwnerRelation);
+        model.define_relation(AccountTransactorRelation);
+        for phase in 0..5 {
+            if phase == 1 {
+                finance.revoke().unwrap();
+                admin.demote_from_admin().unwrap();
+            }
+            if phase == 2 {
+                member.remove().unwrap();
+            }
+            if phase == 4 {
+                team.remove().unwrap();
+            }
+            let mut relationships = model.derive(&organization).unwrap();
+            relationships.extend(model.derive(&member).unwrap());
+            relationships.extend(model.derive(&admin).unwrap());
+            relationships.extend(model.derive(&team).unwrap());
+            relationships.extend(model.derive(&team_member).unwrap());
+            relationships.extend(model.derive(&finance).unwrap());
+            relationships.extend(model.derive(&treasury).unwrap());
+            relationships.extend(model.derive(&account).unwrap());
+            relationships.extend(model.derive(&personal).unwrap());
+            if phase >= 3 {
+                let mut rejoined = OrganizationMembership::new();
+                rejoined
+                    .create(organization.aggregate_id(), member_id)
+                    .unwrap();
+                relationships.extend(model.derive(&rejoined).unwrap());
+            }
+            let resolver = DefaultRelationshipResolver::new(
+                TestRelationshipStore(relationships),
+                model.clone(),
+                RelationshipResolverConfig::default(),
+            );
+            for user_id in [owner_id, admin_id, member_id, outsider_id] {
+                for (index, (requirement, allowed)) in [
+                    (
+                        RelationshipRequirement::check::<Organization>(
+                            organization.aggregate_id(),
+                            OrganizationFinanceManagerRelation::REF,
+                        ),
+                        phase == 0,
+                    ),
+                    (
+                        RelationshipRequirement::check::<Organization>(
+                            organization.aggregate_id(),
+                            OrganizationTreasurerRelation::REF,
+                        ),
+                        phase < 2,
+                    ),
+                    (
+                        RelationshipRequirement::check::<Account>(
+                            account.aggregate_id(),
+                            AccountManagerRelation::REF,
+                        ),
+                        phase == 0,
+                    ),
+                    (
+                        RelationshipRequirement::check::<Account>(
+                            account.aggregate_id(),
+                            AccountTransactorRelation::REF,
+                        ),
+                        phase < 2,
+                    ),
+                    (
+                        RelationshipRequirement::check::<Account>(
+                            personal.aggregate_id(),
+                            AccountTransactorRelation::REF,
+                        ),
+                        true,
+                    ),
+                    (
+                        RelationshipRequirement::check::<Organization>(
+                            OrganizationId::new(),
+                            OrganizationTreasurerRelation::REF,
+                        ),
+                        false,
+                    ),
+                ]
+                .into_iter()
+                .enumerate()
+                {
+                    assert_eq!(
+                        resolver
+                            .satisfies(
+                                &mut TestUow,
+                                &AggregateRef::from_id::<User>(user_id),
+                                &requirement
+                            )
+                            .await
+                            .unwrap(),
+                        (index < 4 && (user_id == owner_id || (user_id == admin_id && phase == 0)))
+                            || (user_id == member_id && allowed),
+                        "phase={phase}, requirement={requirement:?}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn role_assignment_management_follows_organization_admin_rights() {
+        use super::{
+            OrganizationLedgerRoleAssignmentManagerRelation,
+            OrganizationLedgerRoleAssignmentOrganizationRelation,
+        };
+        use banking_iam_application::authorization::OrganizationAdminRelation;
+        use banking_ledger_domain::{
+            OrganizationLedgerRole, OrganizationLedgerRoleAssignee,
+            OrganizationLedgerRoleAssignment,
+        };
+
+        let owner_id = UserId::new();
+        let admin_id = UserId::new();
+        let stranger_id = UserId::new();
+        let mut organization = Organization::new();
+        organization
+            .create(
+                OrganizationOwner::User(owner_id),
+                OrganizationHandle::try_from("role-admin").unwrap(),
+                OrganizationDisplayName::try_from("Role Admin").unwrap(),
+            )
+            .unwrap();
+        let mut admin = OrganizationMembership::new();
+        admin.create(organization.aggregate_id(), admin_id).unwrap();
+        admin.promote_to_admin().unwrap();
+        let mut assignment = OrganizationLedgerRoleAssignment::new();
+        assignment
+            .assign(
+                organization.aggregate_id(),
+                OrganizationLedgerRoleAssignee::OrganizationMembership(admin.aggregate_id()),
+                OrganizationLedgerRole::Treasurer,
+            )
+            .unwrap();
+        let mut model = InMemoryAuthorizationModel::new();
+        model.define_relation(OrganizationOwnerRelation);
+        model.define_relation(OrganizationAdminRelation);
+        model.define_relation(OrganizationLedgerRoleAssignmentOrganizationRelation);
+        model.define_relation(OrganizationLedgerRoleAssignmentManagerRelation);
+        for demoted in [false, true] {
+            if demoted {
+                admin.demote_from_admin().unwrap();
+            }
+            let mut relationships = model.derive(&organization).unwrap();
+            relationships.extend(model.derive(&admin).unwrap());
+            relationships.extend(model.derive(&assignment).unwrap());
+            let resolver = DefaultRelationshipResolver::new(
+                TestRelationshipStore(relationships),
+                model.clone(),
+                RelationshipResolverConfig::default(),
+            );
+            for user_id in [owner_id, admin_id, stranger_id] {
+                for requirement in [
+                    RelationshipRequirement::check::<Organization>(
+                        organization.aggregate_id(),
+                        OrganizationAdminRelation::REF,
+                    ),
+                    RelationshipRequirement::check::<OrganizationLedgerRoleAssignment>(
+                        assignment.aggregate_id(),
+                        OrganizationLedgerRoleAssignmentManagerRelation::REF,
+                    ),
+                ] {
+                    assert_eq!(
+                        resolver
+                            .satisfies(
+                                &mut TestUow,
+                                &AggregateRef::from_id::<User>(user_id),
+                                &requirement
+                            )
+                            .await
+                            .unwrap(),
+                        user_id == owner_id || (user_id == admin_id && !demoted)
                     );
                 }
             }

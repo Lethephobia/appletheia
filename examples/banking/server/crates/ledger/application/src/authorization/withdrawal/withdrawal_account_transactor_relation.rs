@@ -3,17 +3,18 @@ use appletheia::domain::Aggregate;
 use banking_ledger_domain::withdrawal::Withdrawal;
 
 use super::WithdrawalAccountRelation;
-use crate::authorization::AccountOwnerRelation;
+use crate::authorization::AccountTransactorRelation;
 
-pub struct WithdrawalAccountOwnerRelation;
+pub struct WithdrawalAccountTransactorRelation;
 
-impl Relation for WithdrawalAccountOwnerRelation {
-    const REF: RelationRef = RelationRef::new(Withdrawal::TYPE, RelationName::new("account_owner"));
+impl Relation for WithdrawalAccountTransactorRelation {
+    const REF: RelationRef =
+        RelationRef::new(Withdrawal::TYPE, RelationName::new("account_transactor"));
 
     fn expr(&self) -> UsersetExpr {
         UsersetExpr::TupleToUserset {
             tupleset_relation: WithdrawalAccountRelation::REF.into(),
-            computed_userset: AccountOwnerRelation::REF.into(),
+            computed_userset: AccountTransactorRelation::REF.into(),
         }
     }
 }

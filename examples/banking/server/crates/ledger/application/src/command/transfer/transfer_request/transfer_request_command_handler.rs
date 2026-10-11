@@ -1,3 +1,4 @@
+use crate::authorization::AccountTransactorRelation;
 use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
@@ -8,8 +9,6 @@ use appletheia::domain::Aggregate;
 use banking_ledger_domain::account::Account;
 use banking_ledger_domain::transfer::Transfer;
 use banking_ledger_domain::transfer::TransferError;
-
-use crate::authorization::AccountOwnerRelation;
 
 use super::{TransferRequestCommand, TransferRequestCommandHandlerError, TransferRequestOutput};
 
@@ -47,7 +46,7 @@ where
                 Account,
             >(
                 command.from_account_id,
-                AccountOwnerRelation::REF,
+                AccountTransactorRelation::REF,
             )),
         ]))
     }

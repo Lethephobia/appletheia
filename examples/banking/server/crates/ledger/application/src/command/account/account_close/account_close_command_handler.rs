@@ -1,3 +1,4 @@
+use crate::authorization::AccountManagerRelation;
 use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
@@ -7,7 +8,6 @@ use appletheia::application::request_context::RequestContext;
 use banking_ledger_domain::account::Account;
 
 use super::{AccountCloseCommand, AccountCloseCommandHandlerError, AccountCloseOutput};
-use crate::authorization::AccountOwnerRelation;
 
 pub struct AccountCloseCommandHandler<R>
 where
@@ -44,7 +44,7 @@ where
                 Account,
             >(
                 command.account_id,
-                AccountOwnerRelation::REF,
+                AccountManagerRelation::REF,
             )),
         ]))
     }
