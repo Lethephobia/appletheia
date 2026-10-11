@@ -7,7 +7,7 @@ use appletheia::application::request_context::RequestContext;
 use banking_iam_domain::User;
 
 use super::{UserBioSetCommand, UserBioSetCommandHandlerError, UserBioSetOutput};
-use crate::authorization::UserProfileEditorRelation;
+use crate::authorization::UserOwnerRelation;
 
 pub struct UserBioSetCommandHandler<R>
 where
@@ -43,7 +43,7 @@ where
                 User,
             >(
                 command.user_id,
-                UserProfileEditorRelation::REF,
+                UserOwnerRelation::REF,
             )),
         ]))
     }

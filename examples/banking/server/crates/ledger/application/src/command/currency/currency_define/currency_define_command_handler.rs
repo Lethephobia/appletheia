@@ -9,7 +9,7 @@ use banking_ledger_domain::currency::{Currency, CurrencyState};
 use banking_ledger_domain::currency_registrar::CurrencyRegistrar;
 
 use super::{CurrencyDefineCommand, CurrencyDefineCommandHandlerError, CurrencyDefineOutput};
-use crate::authorization::CurrencyRegistrarCurrencyDefinerRelation;
+use crate::authorization::CurrencyRegistrarMemberRelation;
 
 pub struct CurrencyDefineCommandHandler<R>
 where
@@ -45,7 +45,7 @@ where
                 CurrencyRegistrar,
             >(
                 command.currency_registrar_id,
-                CurrencyRegistrarCurrencyDefinerRelation::REF,
+                CurrencyRegistrarMemberRelation::REF,
             )),
         ]))
     }
@@ -59,7 +59,7 @@ where
         let unique_value = UniqueValue::from_strings([command.code.as_ref()])?;
         if self
             .repository
-            .find_by_unique_value::<Currency>(uow, CurrencyState::CODE_KEY, &unique_value)
+            .find_shared_by_unique_value::<Currency>(uow, CurrencyState::CODE_KEY, &unique_value)
             .await?
             .is_some()
         {

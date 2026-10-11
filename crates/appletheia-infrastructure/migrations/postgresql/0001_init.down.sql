@@ -69,3 +69,6 @@ DROP TABLE IF EXISTS snapshots;
 
 -- events
 DROP TABLE IF EXISTS events;
+
+-- aggregate locks
+DROP TABLE IF EXISTS aggregate_locks;

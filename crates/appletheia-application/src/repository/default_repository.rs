@@ -11,13 +11,14 @@ use crate::snapshot::{SnapshotPolicy, SnapshotReader, SnapshotWriter};
 use crate::unit_of_work::UnitOfWork;
 
 use super::{
-    DefaultRepositoryDependencies, ReferenceIndexStore, Repository, RepositoryConfig,
-    RepositoryError, UniqueKeyReservationStore, UniqueValueOwnerLookup,
+    AggregateLockMode, AggregateLocker, DefaultRepositoryDependencies, ReferenceIndexStore,
+    Repository, RepositoryConfig, RepositoryError, UniqueKeyReservationStore,
+    UniqueValueOwnerLookup,
 };
 
-pub struct DefaultRepository<ER, EW, EOE, SR, SW, UVOL, UKS, RIS, RS, RD, Uow>
+pub struct DefaultRepository<AL, ER, EW, EOE, SR, SW, UVOL, UKS, RIS, RS, RD, Uow>
 where
-    Uow: UnitOfWork,
+    AL: AggregateLocker<Uow = Uow>,
     ER: EventReader<Uow = Uow>,
     EW: EventWriter<Uow = Uow>,
     EOE: EventOutboxEnqueuer<Uow = Uow>,
@@ -28,7 +29,9 @@ where
     RIS: ReferenceIndexStore<Uow = Uow>,
     RS: RelationshipStore<Uow = Uow>,
     RD: RelationshipDeriver,
+    Uow: UnitOfWork,
 {
+    aggregate_locker: AL,
     event_reader: ER,
     event_writer: EW,
     event_outbox_enqueuer: EOE,
@@ -42,10 +45,10 @@ where
     config: RepositoryConfig,
 }
 
-impl<ER, EW, EOE, SR, SW, UVOL, UKS, RIS, RS, RD, Uow>
-    DefaultRepository<ER, EW, EOE, SR, SW, UVOL, UKS, RIS, RS, RD, Uow>
+impl<AL, ER, EW, EOE, SR, SW, UVOL, UKS, RIS, RS, RD, Uow>
+    DefaultRepository<AL, ER, EW, EOE, SR, SW, UVOL, UKS, RIS, RS, RD, Uow>
 where
-    Uow: UnitOfWork,
+    AL: AggregateLocker<Uow = Uow>,
     ER: EventReader<Uow = Uow>,
     EW: EventWriter<Uow = Uow>,
     EOE: EventOutboxEnqueuer<Uow = Uow>,
@@ -56,12 +59,26 @@ where
     RIS: ReferenceIndexStore<Uow = Uow>,
     RS: RelationshipStore<Uow = Uow>,
     RD: RelationshipDeriver,
+    Uow: UnitOfWork,
 {
     pub fn new(
-        dependencies: DefaultRepositoryDependencies<ER, EW, EOE, SR, SW, UVOL, UKS, RIS, RS, RD>,
+        dependencies: DefaultRepositoryDependencies<
+            AL,
+            ER,
+            EW,
+            EOE,
+            SR,
+            SW,
+            UVOL,
+            UKS,
+            RIS,
+            RS,
+            RD,
+        >,
         config: RepositoryConfig,
     ) -> Self {
         Self {
+            aggregate_locker: dependencies.aggregate_locker,
             event_reader: dependencies.event_reader,
             event_writer: dependencies.event_writer,
             event_outbox_enqueuer: dependencies.event_outbox_enqueuer,
@@ -110,12 +127,44 @@ where
 
         Ok(aggregate)
     }
+
+    async fn find_by_unique_value_with_lock<A: Aggregate>(
+        &self,
+        uow: &mut Uow,
+        unique_key: appletheia_domain::UniqueKey,
+        unique_value: &appletheia_domain::UniqueValue,
+        lock_mode: AggregateLockMode,
+    ) -> Result<Option<A>, RepositoryError<A>> {
+        let aggregate_id = self
+            .unique_value_owner_lookup
+            .find_owner_id(uow, A::TYPE, unique_key, unique_value)
+            .await?;
+        let Some(aggregate_id) = aggregate_id else {
+            return Ok(None);
+        };
+
+        self.aggregate_locker
+            .lock(uow, &AggregateRef::from_id::<A>(aggregate_id), lock_mode)
+            .await?;
+        let confirmed_id = self
+            .unique_value_owner_lookup
+            .find_owner_id::<A::Id>(uow, A::TYPE, unique_key, unique_value)
+            .await?;
+        match confirmed_id {
+            None => return Ok(None),
+            Some(id) if id != aggregate_id => return Err(RepositoryError::UniqueKeyOwnerChanged),
+            Some(_) => {}
+        }
+        self.read_at_version_or_latest::<A>(uow, aggregate_id, None)
+            .await
+            .map(Some)
+    }
 }
 
-impl<ER, EW, EOE, SR, SW, UVOL, UKS, RIS, RS, RD, Uow> Repository
-    for DefaultRepository<ER, EW, EOE, SR, SW, UVOL, UKS, RIS, RS, RD, Uow>
+impl<AL, ER, EW, EOE, SR, SW, UVOL, UKS, RIS, RS, RD, Uow> Repository
+    for DefaultRepository<AL, ER, EW, EOE, SR, SW, UVOL, UKS, RIS, RS, RD, Uow>
 where
-    Uow: UnitOfWork,
+    AL: AggregateLocker<Uow = Uow>,
     ER: EventReader<Uow = Uow>,
     EW: EventWriter<Uow = Uow>,
     EOE: EventOutboxEnqueuer<Uow = Uow>,
@@ -126,6 +175,7 @@ where
     RIS: ReferenceIndexStore<Uow = Uow>,
     RS: RelationshipStore<Uow = Uow>,
     RD: RelationshipDeriver,
+    Uow: UnitOfWork,
 {
     type Uow = Uow;
 
@@ -134,6 +184,13 @@ where
         uow: &mut Self::Uow,
         id: A::Id,
     ) -> Result<A, RepositoryError<A>> {
+        self.aggregate_locker
+            .lock(
+                uow,
+                &AggregateRef::from_id::<A>(id),
+                AggregateLockMode::Exclusive,
+            )
+            .await?;
         self.read_at_version_or_latest::<A>(uow, id, None).await
     }
 
@@ -143,7 +200,29 @@ where
         id: A::Id,
         at: AggregateVersion,
     ) -> Result<A, RepositoryError<A>> {
+        self.aggregate_locker
+            .lock(
+                uow,
+                &AggregateRef::from_id::<A>(id),
+                AggregateLockMode::Shared,
+            )
+            .await?;
         self.read_at_version_or_latest::<A>(uow, id, Some(at)).await
+    }
+
+    async fn read_shared<A: Aggregate>(
+        &self,
+        uow: &mut Self::Uow,
+        id: A::Id,
+    ) -> Result<A, RepositoryError<A>> {
+        self.aggregate_locker
+            .lock(
+                uow,
+                &AggregateRef::from_id::<A>(id),
+                AggregateLockMode::Shared,
+            )
+            .await?;
+        self.read_at_version_or_latest::<A>(uow, id, None).await
     }
 
     async fn find_by_unique_value<A: Aggregate>(
@@ -152,17 +231,28 @@ where
         unique_key: appletheia_domain::UniqueKey,
         unique_value: &appletheia_domain::UniqueValue,
     ) -> Result<Option<A>, RepositoryError<A>> {
-        let aggregate_id = self
-            .unique_value_owner_lookup
-            .find_owner_id(uow, A::TYPE, unique_key, unique_value)
-            .await?;
-        let Some(aggregate_id) = aggregate_id else {
-            return Ok(None);
-        };
+        self.find_by_unique_value_with_lock::<A>(
+            uow,
+            unique_key,
+            unique_value,
+            AggregateLockMode::Exclusive,
+        )
+        .await
+    }
 
-        self.read_at_version_or_latest::<A>(uow, aggregate_id, None)
-            .await
-            .map(Some)
+    async fn find_shared_by_unique_value<A: Aggregate>(
+        &self,
+        uow: &mut Self::Uow,
+        unique_key: appletheia_domain::UniqueKey,
+        unique_value: &appletheia_domain::UniqueValue,
+    ) -> Result<Option<A>, RepositoryError<A>> {
+        self.find_by_unique_value_with_lock::<A>(
+            uow,
+            unique_key,
+            unique_value,
+            AggregateLockMode::Shared,
+        )
+        .await
     }
 
     async fn save<A: Aggregate>(
@@ -172,6 +262,10 @@ where
         aggregate: &mut A,
     ) -> Result<(), RepositoryError<A>> {
         let aggregate_id = aggregate.aggregate_id();
+        let aggregate_ref = AggregateRef::from_id::<A>(aggregate_id);
+        self.aggregate_locker
+            .create_if_not_exists(uow, &aggregate_ref)
+            .await?;
         let unique_entries = aggregate
             .unique_entries()
             .map_err(RepositoryError::Aggregate)?;
@@ -238,7 +332,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::DefaultRepository;
+    use super::{AggregateLockMode, AggregateLocker, AggregateRef, DefaultRepository};
     use crate::aggregate::{AggregateIdValue, AggregateTypeOwned};
     use crate::authorization::InMemoryAuthorizationModel;
     use crate::event::{
@@ -246,6 +340,7 @@ mod tests {
         EventWriterError, SerializedEventPayload,
     };
     use crate::outbox::event::{EventOutboxEnqueueError, EventOutboxEnqueuer};
+    use crate::repository::AggregateLockerError;
     use crate::repository::{
         DefaultRepositoryDependencies, ReferenceIndexStore, ReferenceIndexStoreError, Repository,
         RepositoryConfig, RepositoryError, UniqueKeyReservationStore,
@@ -317,7 +412,48 @@ mod tests {
     }
 
     #[derive(Debug, Default)]
-    struct TestUnitOfWork;
+    struct TestUnitOfWork {
+        locks: std::collections::HashMap<AggregateRef, AggregateLockMode>,
+        created_locks: Vec<AggregateRef>,
+    }
+
+    struct TestAggregateLocker;
+
+    impl AggregateLocker for TestAggregateLocker {
+        type Uow = TestUnitOfWork;
+
+        async fn lock(
+            &self,
+            uow: &mut Self::Uow,
+            aggregate: &AggregateRef,
+            mode: AggregateLockMode,
+        ) -> Result<(), AggregateLockerError> {
+            if let Some(held) = uow.locks.get(aggregate) {
+                if *held == AggregateLockMode::Shared && mode == AggregateLockMode::Exclusive {
+                    return Err(AggregateLockerError::SharedLockUpgrade {
+                        aggregate: aggregate.clone(),
+                    });
+                }
+            } else {
+                uow.locks.insert(aggregate.clone(), mode);
+            }
+            Ok(())
+        }
+
+        async fn create_if_not_exists(
+            &self,
+            uow: &mut Self::Uow,
+            aggregate: &AggregateRef,
+        ) -> Result<(), AggregateLockerError> {
+            let already_held = uow.locks.contains_key(aggregate);
+            self.lock(uow, aggregate, AggregateLockMode::Exclusive)
+                .await?;
+            if !already_held {
+                uow.created_locks.push(aggregate.clone());
+            }
+            Ok(())
+        }
+    }
 
     impl UnitOfWork for TestUnitOfWork {
         async fn commit(self) -> Result<(), UnitOfWorkError> {
@@ -880,6 +1016,7 @@ mod tests {
     }
 
     type TestRepository = DefaultRepository<
+        TestAggregateLocker,
         RecordingEventReader,
         RecordingEventWriter,
         RecordingEventOutboxEnqueuer,
@@ -896,6 +1033,7 @@ mod tests {
     fn repository(log: Arc<Mutex<Vec<String>>>, fail_with_conflict: bool) -> TestRepository {
         DefaultRepository::new(
             DefaultRepositoryDependencies {
+                aggregate_locker: TestAggregateLocker,
                 event_reader: RecordingEventReader,
                 event_writer: RecordingEventWriter {
                     log: Arc::clone(&log),
@@ -963,6 +1101,7 @@ mod tests {
     ) -> TestRepository {
         DefaultRepository::new(
             DefaultRepositoryDependencies {
+                aggregate_locker: TestAggregateLocker,
                 event_reader: RecordingEventReader,
                 event_writer: RecordingEventWriter {
                     log: Arc::clone(&log),
@@ -998,6 +1137,7 @@ mod tests {
     ) -> TestRepository {
         DefaultRepository::new(
             DefaultRepositoryDependencies {
+                aggregate_locker: TestAggregateLocker,
                 event_reader: RecordingEventReader,
                 event_writer: RecordingEventWriter {
                     log: Arc::clone(&log),
@@ -1029,6 +1169,73 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn save_ensures_lock_without_recreating_held_lock() {
+        let repository = repository(Arc::new(Mutex::new(Vec::new())), false);
+        let mut uow = TestUnitOfWork::default();
+        let mut aggregate = registered_counter(None);
+        repository
+            .save(&mut uow, &request_context(), &mut aggregate)
+            .await
+            .unwrap();
+        repository
+            .save(&mut uow, &request_context(), &mut aggregate)
+            .await
+            .unwrap();
+        assert_eq!(
+            uow.created_locks,
+            vec![AggregateRef::from_aggregate(&aggregate)]
+        );
+    }
+
+    #[tokio::test]
+    async fn shared_read_rejects_save_before_any_persistence() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let repository = repository(Arc::clone(&log), false);
+        let mut uow = TestUnitOfWork::default();
+        let mut aggregate = registered_counter(None);
+        let id = aggregate.aggregate_id();
+        let _ = repository.read_shared::<Counter>(&mut uow, id).await;
+
+        let error = repository
+            .save(&mut uow, &request_context(), &mut aggregate)
+            .await
+            .unwrap_err();
+
+        assert!(matches!(
+            error,
+            RepositoryError::AggregateLocker(AggregateLockerError::SharedLockUpgrade { .. })
+        ));
+        assert!(log.lock().unwrap().is_empty());
+        assert!(!aggregate.uncommitted_events().is_empty());
+    }
+
+    #[tokio::test]
+    async fn historical_read_prevents_upgrade_but_preserves_exclusive_lock() {
+        let repository = repository(Arc::new(Mutex::new(Vec::new())), false);
+        let id = registered_counter(None).aggregate_id();
+        let mut shared = TestUnitOfWork::default();
+        let _ = repository
+            .read_at_version::<Counter>(&mut shared, id, AggregateVersion::default())
+            .await;
+        assert!(matches!(
+            repository.read::<Counter>(&mut shared, id).await,
+            Err(RepositoryError::AggregateLocker(
+                AggregateLockerError::SharedLockUpgrade { .. }
+            ))
+        ));
+
+        let mut exclusive = TestUnitOfWork::default();
+        let _ = repository.read::<Counter>(&mut exclusive, id).await;
+        let _ = repository
+            .read_at_version::<Counter>(&mut exclusive, id, AggregateVersion::default())
+            .await;
+        assert_eq!(
+            exclusive.locks.get(&AggregateRef::from_id::<Counter>(id)),
+            Some(&AggregateLockMode::Exclusive)
+        );
+    }
+
+    #[tokio::test]
     async fn shared_repository_isolates_aggregate_types_in_events_and_snapshots() {
         let interval = SnapshotInterval::new(NonZeroU32::new(1).unwrap());
         for snapshot_policy in [
@@ -1042,6 +1249,7 @@ mod tests {
             let log = Arc::default();
             let shared_repository = DefaultRepository::new(
                 DefaultRepositoryDependencies {
+                    aggregate_locker: TestAggregateLocker,
                     event_reader: events.clone(),
                     event_writer: events.clone(),
                     event_outbox_enqueuer: RecordingEventOutboxEnqueuer {
@@ -1071,7 +1279,7 @@ mod tests {
             let id = CounterId::new();
             let mut counter = Counter::from_id(id);
             let mut alternate = AlternateCounter::from_id(id);
-            let mut uow = TestUnitOfWork;
+            let mut uow = TestUnitOfWork::default();
             let context = request_context();
             counter
                 .append_event(CounterEventPayload::Registered {
@@ -1148,7 +1356,7 @@ mod tests {
         let log = Arc::new(Mutex::new(Vec::new()));
         let repository = repository(Arc::clone(&log), false);
         let request_context = request_context();
-        let mut uow = TestUnitOfWork;
+        let mut uow = TestUnitOfWork::default();
         let mut aggregate = registered_counter(Some("foo@example.com"));
 
         repository
@@ -1177,7 +1385,11 @@ mod tests {
         aggregate.core_mut().clear_uncommitted_events();
 
         repository
-            .save(&mut TestUnitOfWork, &request_context(), &mut aggregate)
+            .save(
+                &mut TestUnitOfWork::default(),
+                &request_context(),
+                &mut aggregate,
+            )
             .await
             .expect("save without events should succeed");
 
@@ -1198,7 +1410,7 @@ mod tests {
         let log = Arc::new(Mutex::new(Vec::new()));
         let repository = repository(Arc::clone(&log), false);
         let request_context = request_context();
-        let mut uow = TestUnitOfWork;
+        let mut uow = TestUnitOfWork::default();
         let mut aggregate = registered_counter(None);
 
         repository
@@ -1223,7 +1435,7 @@ mod tests {
         let log = Arc::new(Mutex::new(Vec::new()));
         let repository = repository(Arc::clone(&log), false);
         let request_context = request_context();
-        let mut uow = TestUnitOfWork;
+        let mut uow = TestUnitOfWork::default();
         let mut aggregate = rejected_counter();
 
         repository
@@ -1257,7 +1469,7 @@ mod tests {
             },
         );
         let request_context = request_context();
-        let mut uow = TestUnitOfWork;
+        let mut uow = TestUnitOfWork::default();
         let mut aggregate = rejected_counter();
 
         repository
@@ -1283,7 +1495,7 @@ mod tests {
         let log = Arc::new(Mutex::new(Vec::new()));
         let repository = repository(Arc::clone(&log), true);
         let request_context = request_context();
-        let mut uow = TestUnitOfWork;
+        let mut uow = TestUnitOfWork::default();
         let mut aggregate = registered_counter(Some("foo@example.com"));
 
         let error = repository
@@ -1307,7 +1519,7 @@ mod tests {
     async fn read_returns_not_found_when_no_snapshot_or_events_exist() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let repository = repository(Arc::clone(&log), false);
-        let mut uow = TestUnitOfWork;
+        let mut uow = TestUnitOfWork::default();
         let aggregate_id =
             CounterId::try_from_uuid(Uuid::now_v7()).expect("valid uuid should be accepted");
 
@@ -1329,7 +1541,7 @@ mod tests {
     async fn find_by_unique_value_returns_none_when_lookup_misses() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let repository = repository_with_lookup(Arc::clone(&log), None, false);
-        let mut uow = TestUnitOfWork;
+        let mut uow = TestUnitOfWork::default();
         let unique_value = UniqueValue::new(vec![
             UniqueValuePart::try_from("foo@example.com").expect("unique part should be valid"),
         ])
@@ -1351,7 +1563,7 @@ mod tests {
     async fn find_by_unique_value_returns_lookup_errors() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let repository = repository_with_lookup(Arc::clone(&log), None, true);
-        let mut uow = TestUnitOfWork;
+        let mut uow = TestUnitOfWork::default();
         let unique_value = UniqueValue::new(vec![
             UniqueValuePart::try_from("foo@example.com").expect("unique part should be valid"),
         ])
@@ -1371,7 +1583,7 @@ mod tests {
         let aggregate_id =
             CounterId::try_from_uuid(Uuid::now_v7()).expect("valid uuid should be accepted");
         let repository = repository_with_lookup(Arc::clone(&log), Some(aggregate_id), false);
-        let mut uow = TestUnitOfWork;
+        let mut uow = TestUnitOfWork::default();
         let unique_value = UniqueValue::new(vec![
             UniqueValuePart::try_from("foo@example.com").expect("unique part should be valid"),
         ])
@@ -1391,7 +1603,10 @@ mod tests {
         ));
         assert_eq!(
             *log.lock().expect("log should be lockable"),
-            vec!["lookup:counter:email:15:foo@example.com".to_owned()]
+            vec![
+                "lookup:counter:email:15:foo@example.com".to_owned(),
+                "lookup:counter:email:15:foo@example.com".to_owned(),
+            ]
         );
     }
 }

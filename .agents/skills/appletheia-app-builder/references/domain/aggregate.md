@@ -200,6 +200,51 @@ AccountEventPayload::NameChanged { name } => {
 Apply an event -> fetch today's external profile -> reconstruct different state on each replay
 ```
 
+### DO model child entities as identity-bearing state
+
+Keep child entities as structs containing their identity and attributes, without constructors,
+getters, mutation methods, or business validation. Their identity may be a composite of value
+objects, such as a user identity's provider and subject. Validate operations in the aggregate
+before appending events; construct entities with struct literals and assign their fields directly
+in `apply`. Value objects still enforce their own value constraints.
+
+Expose only shared references to entities held by an aggregate. Public entity fields must not
+allow callers to mutate the aggregate's stored state outside event application.
+
+**Good**
+
+```rust
+pub struct UserIdentity {
+    pub provider: UserIdentityProvider,
+    pub subject: UserIdentitySubject,
+    pub email: Option<Email>,
+}
+
+// In User::apply, after the operation has been validated before event append:
+UserEventPayload::IdentityLinked { provider, subject, email } => {
+    self.state_required_mut()?.identities.push(UserIdentity {
+        provider: provider.clone(),
+        subject: subject.clone(),
+        email: email.clone(),
+    });
+}
+
+// Aggregate accessors return &UserIdentity or &[UserIdentity], never mutable references.
+```
+
+**Bad**
+
+```rust
+// Entity methods obscure state construction and updates during event application.
+let identity = UserIdentity::new(provider, subject, email)?;
+identity.set_email(new_email)?;
+
+// Exposing mutable aggregate-owned entities permits unrecorded changes.
+pub fn identities_mut(&mut self) -> &mut Vec<UserIdentity> {
+    &mut self.state.identities
+}
+```
+
 ### DO keep initial events focused on facts rather than copying State
 
 Include values decided by the creation operation. Initialize values implied by the event variant
@@ -336,6 +381,12 @@ Banking changes a `UserPictureRef` as one value and an identity's email by provi
 identifiers must remain meaningful if the collection order changes; do not use a vector position as
 identity.
 
+A collection wrapper does not require whole-collection replacement. When elements have independent
+lifecycles, expose operations for the individual elements and record their changes separately.
+Validate in the aggregate before appending an event, then update the collection directly in `apply`.
+When a creation command accepts initial elements, call their individual aggregate methods from the
+command handler before saving once. Do not fold child entity creation into the parent's creation event.
+
 **Good**
 
 ```rust
@@ -351,9 +402,16 @@ IdentityEmailSet {
 },
 ```
 
+```rust
+user.link_identity(provider, subject, email)?;
+```
+
 **Bad**
 
 ```rust
+// Replacing every identity obscures an operation intended only to link one identity.
+user.replace_identities(identities_copied_from_an_old_screen)?;
+
 // A position does not identify the same child after reordering.
 IdentityEmailSet { index: usize, email: Option<Email> },
 ```

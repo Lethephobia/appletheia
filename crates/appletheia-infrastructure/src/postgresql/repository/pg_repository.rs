@@ -5,12 +5,13 @@ use crate::postgresql::PgRelationshipStore;
 use crate::postgresql::event::{PgEventReader, PgEventWriter};
 use crate::postgresql::outbox::event::PgEventOutboxEnqueuer;
 use crate::postgresql::repository::{
-    PgReferenceIndexStore, PgUniqueKeyReservationStore, PgUniqueValueOwnerLookup,
+    PgAggregateLocker, PgReferenceIndexStore, PgUniqueKeyReservationStore, PgUniqueValueOwnerLookup,
 };
 use crate::postgresql::snapshot::{PgSnapshotReader, PgSnapshotWriter};
 use crate::postgresql::unit_of_work::PgUnitOfWork;
 
 pub type PgRepository<RD> = DefaultRepository<
+    PgAggregateLocker,
     PgEventReader,
     PgEventWriter,
     PgEventOutboxEnqueuer,

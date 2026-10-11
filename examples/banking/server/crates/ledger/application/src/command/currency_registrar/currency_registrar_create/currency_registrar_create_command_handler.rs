@@ -56,7 +56,7 @@ where
         let unique_value = UniqueValue::from_strings([command.handle.as_ref()])?;
         if self
             .repository
-            .find_by_unique_value::<CurrencyRegistrar>(
+            .find_shared_by_unique_value::<CurrencyRegistrar>(
                 uow,
                 CurrencyRegistrarState::HANDLE_KEY,
                 &unique_value,

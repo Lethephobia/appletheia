@@ -10,7 +10,7 @@ use super::{
     OrganizationPictureSetCommand, OrganizationPictureSetCommandHandlerError,
     OrganizationPictureSetOutput,
 };
-use crate::authorization::OrganizationProfileEditorRelation;
+use crate::authorization::OrganizationAdminRelation;
 
 pub struct OrganizationPictureSetCommandHandler<R>
 where
@@ -46,7 +46,7 @@ where
                 Organization,
             >(
                 command.organization_id,
-                OrganizationProfileEditorRelation::REF,
+                OrganizationAdminRelation::REF,
             )),
         ]))
     }

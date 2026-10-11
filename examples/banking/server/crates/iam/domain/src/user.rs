@@ -69,7 +69,7 @@ impl User {
             .state_required()?
             .identities
             .iter()
-            .find(|identity| identity.matches(provider, subject)))
+            .find(|identity| identity.provider == *provider && identity.subject == *subject))
     }
 
     /// Returns the current username.
@@ -143,7 +143,9 @@ impl User {
             .state_required()?
             .identities
             .iter()
-            .any(|current_identity| current_identity.matches(&provider, &subject))
+            .any(|current_identity| {
+                current_identity.provider == provider && current_identity.subject == subject
+            })
         {
             return Err(UserError::IdentityAlreadyLinked);
         }
@@ -181,7 +183,7 @@ impl User {
             .state_required()?
             .identities
             .iter()
-            .find(|identity| identity.matches(provider, subject))
+            .find(|identity| identity.provider == *provider && identity.subject == *subject)
         else {
             return Err(UserError::IdentityNotFound);
         };
@@ -310,13 +312,11 @@ impl AggregateApply<UserEventPayload, UserError> for User {
                 subject,
                 email,
             } => {
-                self.state_required_mut()?
-                    .identities
-                    .push(UserIdentity::new(
-                        provider.clone(),
-                        subject.clone(),
-                        email.clone(),
-                    ));
+                self.state_required_mut()?.identities.push(UserIdentity {
+                    provider: provider.clone(),
+                    subject: subject.clone(),
+                    email: email.clone(),
+                });
             }
             UserEventPayload::IdentityEmailSet {
                 provider,
@@ -327,9 +327,9 @@ impl AggregateApply<UserEventPayload, UserError> for User {
                     .state_required_mut()?
                     .identities
                     .iter_mut()
-                    .find(|identity| identity.matches(provider, subject))
+                    .find(|identity| identity.provider == *provider && identity.subject == *subject)
                     .ok_or(UserError::InvalidIdentityState)?;
-                identity.set_email(email.clone());
+                identity.email = email.clone();
             }
             UserEventPayload::UsernameSet { username } => {
                 self.state_required_mut()?.username = Some(username.clone());
@@ -435,8 +435,9 @@ mod tests {
 
         let identities = user.identities().expect("identities should exist");
         assert_eq!(identities.len(), 1);
-        assert!(identities[0].matches(&provider, &subject));
-        assert_eq!(identities[0].email(), email.as_ref());
+        assert_eq!(identities[0].provider, provider);
+        assert_eq!(identities[0].subject, subject);
+        assert_eq!(identities[0].email, email);
         assert_eq!(
             user.uncommitted_events()[0].payload().name(),
             UserEventPayload::REGISTERED

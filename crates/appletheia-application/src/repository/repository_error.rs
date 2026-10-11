@@ -11,11 +11,18 @@ use crate::outbox::event::EventOutboxEnqueueError;
 use crate::snapshot::{SnapshotReaderError, SnapshotWriterError};
 
 use super::{
-    ReferenceIndexStoreError, UniqueKeyReservationStoreError, UniqueValueOwnerLookupError,
+    AggregateLockerError, ReferenceIndexStoreError, UniqueKeyReservationStoreError,
+    UniqueValueOwnerLookupError,
 };
 
 #[derive(Debug, Error)]
 pub enum RepositoryError<A: Aggregate> {
+    #[error(transparent)]
+    AggregateLocker(#[from] AggregateLockerError),
+
+    #[error("unique key owner changed while acquiring the aggregate lock")]
+    UniqueKeyOwnerChanged,
+
     #[error("aggregate not found: {aggregate_type} {aggregate_id:?}")]
     NotFound {
         aggregate_type: AggregateType,
@@ -59,6 +66,8 @@ pub enum RepositoryError<A: Aggregate> {
 impl<A: Aggregate> Retryability for RepositoryError<A> {
     fn is_retryable(&self) -> bool {
         match self {
+            Self::AggregateLocker(error) => matches!(error, AggregateLockerError::Persistence(_)),
+            Self::UniqueKeyOwnerChanged => true,
             Self::NotFound { .. } | Self::Aggregate(_) => false,
             Self::UniqueKeyReservationStore(error) => match error {
                 UniqueKeyReservationStoreError::Conflict { .. }

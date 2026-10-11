@@ -1,3 +1,4 @@
+use crate::authorization::WithdrawalAccountTransactorRelation;
 use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
@@ -9,7 +10,6 @@ use banking_ledger_domain::withdrawal::Withdrawal;
 use super::{
     WithdrawalNoteSetCommand, WithdrawalNoteSetCommandHandlerError, WithdrawalNoteSetOutput,
 };
-use crate::authorization::WithdrawalNoteSetterRelation;
 
 pub struct WithdrawalNoteSetCommandHandler<R>
 where
@@ -45,7 +45,7 @@ where
                 Withdrawal,
             >(
                 command.withdrawal_id,
-                WithdrawalNoteSetterRelation::REF,
+                WithdrawalAccountTransactorRelation::REF,
             )),
         ]))
     }

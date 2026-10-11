@@ -10,7 +10,7 @@ use super::{
     TokenBindingDepositEnabledChangeCommand, TokenBindingDepositEnabledChangeCommandHandlerError,
     TokenBindingDepositEnabledChangeOutput,
 };
-use crate::authorization::TokenBindingDepositEnabledChangerRelation;
+use crate::authorization::TokenBindingManagerRelation;
 
 pub struct TokenBindingDepositEnabledChangeCommandHandler<R>
 where
@@ -46,7 +46,7 @@ where
                 TokenBinding,
             >(
                 command.token_binding_id,
-                TokenBindingDepositEnabledChangerRelation::REF,
+                TokenBindingManagerRelation::REF,
             )),
         ]))
     }

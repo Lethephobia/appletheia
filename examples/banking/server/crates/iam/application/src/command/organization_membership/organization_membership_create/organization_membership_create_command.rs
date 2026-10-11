@@ -1,5 +1,5 @@
 use appletheia::command;
-use banking_iam_domain::{OrganizationId, OrganizationRoles, UserId};
+use banking_iam_domain::{OrganizationId, UserId};
 use serde::{Deserialize, Serialize};
 
 /// Creates an organization membership for a user.
@@ -8,5 +8,4 @@ use serde::{Deserialize, Serialize};
 pub struct OrganizationMembershipCreateCommand {
     pub organization_id: OrganizationId,
     pub user_id: UserId,
-    pub roles: OrganizationRoles,
 }

@@ -7,7 +7,7 @@ use appletheia::application::request_context::RequestContext;
 use banking_iam_domain::User;
 
 use super::{UserRemoveCommand, UserRemoveCommandHandlerError, UserRemoveOutput};
-use crate::authorization::UserRemoverRelation;
+use crate::authorization::UserOwnerRelation;
 
 pub struct UserRemoveCommandHandler<R>
 where
@@ -43,7 +43,7 @@ where
                 User,
             >(
                 command.user_id,
-                UserRemoverRelation::REF,
+                UserOwnerRelation::REF,
             )),
         ]))
     }

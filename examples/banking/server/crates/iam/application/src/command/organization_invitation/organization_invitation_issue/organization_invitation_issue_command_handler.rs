@@ -13,7 +13,7 @@ use banking_iam_domain::{
 };
 use banking_shared_kernel_domain::timestamps::CurrentDateTime;
 
-use crate::authorization::{OrganizationInviterRelation, UserOwnerRelation};
+use crate::authorization::{OrganizationAdminRelation, UserOwnerRelation};
 
 use super::{
     OrganizationInvitationIssueCommand, OrganizationInvitationIssueCommandHandlerError,
@@ -79,7 +79,7 @@ where
                         RelationshipRequirement::check::<User>(user_id, UserOwnerRelation::REF),
                         RelationshipRequirement::check::<Organization>(
                             command.organization_id,
-                            OrganizationInviterRelation::REF,
+                            OrganizationAdminRelation::REF,
                         ),
                     ],
                 ))
@@ -102,7 +102,7 @@ where
 
         let organization = self
             .repository
-            .read::<Organization>(uow, command.organization_id)
+            .read_shared::<Organization>(uow, command.organization_id)
             .await?;
         if organization.is_removed()? {
             return Err(OrganizationInvitationError::OrganizationRemoved.into());
@@ -111,7 +111,7 @@ where
         let membership_unique_value = Self::organization_user_unique_value(command)?;
         if self
             .repository
-            .find_by_unique_value::<OrganizationMembership>(
+            .find_shared_by_unique_value::<OrganizationMembership>(
                 uow,
                 OrganizationMembershipState::ORGANIZATION_USER_KEY,
                 &membership_unique_value,
@@ -125,7 +125,7 @@ where
         let unique_value = Self::organization_invitee_unique_value(command)?;
         if self
             .repository
-            .find_by_unique_value::<OrganizationInvitation>(
+            .find_shared_by_unique_value::<OrganizationInvitation>(
                 uow,
                 OrganizationInvitationState::ORGANIZATION_INVITEE_KEY,
                 &unique_value,
@@ -139,7 +139,6 @@ where
         organization_invitation.issue(
             command.organization_id,
             command.invitee_id,
-            command.roles.clone(),
             command.issuer,
             command.expires_at,
             CurrentDateTime::new(),

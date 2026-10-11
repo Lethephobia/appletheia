@@ -1,3 +1,4 @@
+use crate::authorization::AccountManagerRelation;
 use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
@@ -5,8 +6,6 @@ use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use banking_ledger_domain::account::Account;
-
-use crate::authorization::AccountDescriptionSetterRelation;
 
 use super::{
     AccountDescriptionSetCommand, AccountDescriptionSetCommandHandlerError,
@@ -47,7 +46,7 @@ where
                 Account,
             >(
                 command.account_id,
-                AccountDescriptionSetterRelation::REF,
+                AccountManagerRelation::REF,
             )),
         ]))
     }

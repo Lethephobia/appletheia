@@ -5,8 +5,6 @@ mod organization_membership_id;
 mod organization_membership_state;
 mod organization_membership_state_error;
 mod organization_membership_status;
-mod organization_role;
-mod organization_roles;
 
 pub use organization_membership_error::OrganizationMembershipError;
 pub use organization_membership_event_payload::OrganizationMembershipEventPayload;
@@ -15,8 +13,6 @@ pub use organization_membership_id::OrganizationMembershipId;
 pub use organization_membership_state::OrganizationMembershipState;
 pub use organization_membership_state_error::OrganizationMembershipStateError;
 pub use organization_membership_status::OrganizationMembershipStatus;
-pub use organization_role::OrganizationRole;
-pub use organization_roles::OrganizationRoles;
 
 use appletheia::aggregate;
 use appletheia::domain::{Aggregate, AggregateApply, AggregateCore};
@@ -49,11 +45,6 @@ impl OrganizationMembership {
         Ok(&self.state_required()?.user_id)
     }
 
-    /// Returns the roles granted by the membership.
-    pub fn roles(&self) -> Result<&OrganizationRoles, OrganizationMembershipError> {
-        Ok(&self.state_required()?.roles)
-    }
-
     /// Returns the current membership status.
     pub fn status(&self) -> Result<OrganizationMembershipStatus, OrganizationMembershipError> {
         Ok(self.state_required()?.status)
@@ -74,7 +65,6 @@ impl OrganizationMembership {
         &mut self,
         organization_id: OrganizationId,
         user_id: UserId,
-        roles: OrganizationRoles,
     ) -> Result<(), OrganizationMembershipError> {
         if self.state().is_some() {
             return Err(OrganizationMembershipError::AlreadyCreated);
@@ -83,27 +73,6 @@ impl OrganizationMembership {
         self.append_event(OrganizationMembershipEventPayload::Created {
             organization_id,
             user_id,
-            roles,
-        })?;
-        Ok(())
-    }
-
-    /// Changes the roles granted by the membership.
-    pub fn change_roles(
-        &mut self,
-        roles: OrganizationRoles,
-    ) -> Result<(), OrganizationMembershipError> {
-        if self.state_required()?.status.is_removed() {
-            return Err(OrganizationMembershipError::Removed);
-        }
-
-        let state = self.state_required()?;
-        let organization_id = state.organization_id;
-        let user_id = state.user_id;
-        self.append_event(OrganizationMembershipEventPayload::RolesChanged {
-            organization_id,
-            user_id,
-            roles,
         })?;
         Ok(())
     }
@@ -138,17 +107,12 @@ impl AggregateApply<OrganizationMembershipEventPayload, OrganizationMembershipEr
             OrganizationMembershipEventPayload::Created {
                 organization_id,
                 user_id,
-                roles,
             } => {
                 self.set_state(Some(OrganizationMembershipState {
                     organization_id: *organization_id,
                     user_id: *user_id,
-                    roles: roles.clone(),
                     status: OrganizationMembershipStatus::Active,
                 }));
-            }
-            OrganizationMembershipEventPayload::RolesChanged { roles, .. } => {
-                self.state_required_mut()?.roles = roles.clone();
             }
             OrganizationMembershipEventPayload::Removed { .. } => {
                 self.state_required_mut()?.status = OrganizationMembershipStatus::Removed;
@@ -165,18 +129,14 @@ mod tests {
 
     use super::{
         OrganizationMembership, OrganizationMembershipError, OrganizationMembershipEventPayload,
-        OrganizationMembershipStatus, OrganizationRole, OrganizationRoles,
+        OrganizationMembershipStatus,
     };
     use crate::{OrganizationId, UserId};
 
     fn created_membership() -> OrganizationMembership {
         let mut membership = OrganizationMembership::new();
         membership
-            .create(
-                OrganizationId::new(),
-                UserId::new(),
-                OrganizationRoles::default(),
-            )
+            .create(OrganizationId::new(), UserId::new())
             .expect("create should succeed");
         membership
     }
@@ -188,7 +148,7 @@ mod tests {
         let mut membership = OrganizationMembership::new();
 
         membership
-            .create(organization_id, user_id, OrganizationRoles::default())
+            .create(organization_id, user_id)
             .expect("create should succeed");
 
         assert!(!membership.aggregate_id().value().is_nil());
@@ -218,34 +178,13 @@ mod tests {
         let mut membership = created_membership();
 
         let error = membership
-            .create(
-                OrganizationId::new(),
-                UserId::new(),
-                OrganizationRoles::default(),
-            )
+            .create(OrganizationId::new(), UserId::new())
             .expect_err("second create should fail");
 
         assert!(matches!(
             error,
             super::OrganizationMembershipError::AlreadyCreated
         ));
-    }
-
-    #[test]
-    fn changing_roles_updates_state_and_records_event() {
-        let mut membership = created_membership();
-        let roles = OrganizationRoles::new([OrganizationRole::Admin]);
-
-        membership
-            .change_roles(roles.clone())
-            .expect("roles change should succeed");
-
-        assert_eq!(membership.roles().expect("roles should exist"), &roles);
-        assert_eq!(membership.uncommitted_events().len(), 2);
-        assert_eq!(
-            membership.uncommitted_events()[1].payload().name(),
-            OrganizationMembershipEventPayload::ROLES_CHANGED
-        );
     }
 
     #[test]
@@ -271,19 +210,6 @@ mod tests {
         membership.remove().expect("remove should succeed");
 
         let error = membership.remove().expect_err("second remove should fail");
-
-        assert!(matches!(error, OrganizationMembershipError::Removed));
-        assert_eq!(membership.uncommitted_events().len(), 2);
-    }
-
-    #[test]
-    fn changing_roles_of_removed_membership_is_rejected() {
-        let mut membership = created_membership();
-        membership.remove().expect("remove should succeed");
-
-        let error = membership
-            .change_roles(OrganizationRoles::new([OrganizationRole::Admin]))
-            .expect_err("roles change should fail");
 
         assert!(matches!(error, OrganizationMembershipError::Removed));
         assert_eq!(membership.uncommitted_events().len(), 2);

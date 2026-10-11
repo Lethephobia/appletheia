@@ -1,3 +1,4 @@
+use crate::authorization::WalletBookmarkManagerRelation;
 use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
@@ -10,7 +11,6 @@ use super::{
     WalletBookmarkDisplayNameSetCommand, WalletBookmarkDisplayNameSetCommandHandlerError,
     WalletBookmarkDisplayNameSetOutput,
 };
-use crate::authorization::WalletBookmarkUpdaterRelation;
 
 pub struct WalletBookmarkDisplayNameSetCommandHandler<R>
 where
@@ -46,7 +46,7 @@ where
                 WalletBookmark,
             >(
                 command.wallet_bookmark_id,
-                WalletBookmarkUpdaterRelation::REF,
+                WalletBookmarkManagerRelation::REF,
             )),
         ]))
     }

@@ -6,7 +6,7 @@ use uuid::Uuid;
 
 use crate::{OrganizationId, UserId};
 
-use super::{OrganizationMembershipStateError, OrganizationMembershipStatus, OrganizationRoles};
+use super::{OrganizationMembershipStateError, OrganizationMembershipStatus};
 
 /// Stores the materialized state of an `OrganizationMembership` aggregate.
 #[aggregate_state(error = OrganizationMembershipStateError)]
@@ -18,7 +18,6 @@ use super::{OrganizationMembershipStateError, OrganizationMembershipStatus, Orga
 pub struct OrganizationMembershipState {
     pub(super) organization_id: OrganizationId,
     pub(super) user_id: UserId,
-    pub(super) roles: OrganizationRoles,
     pub(super) status: OrganizationMembershipStatus,
 }
 

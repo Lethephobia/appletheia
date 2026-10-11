@@ -3,6 +3,8 @@ mod organization_join_request;
 mod organization_old_picture_object_deletion;
 mod user_old_picture_object_deletion;
 
+mod team_membership_cleanup;
+
 pub use organization_invitation::{
     OrganizationInvitationSaga, OrganizationInvitationSagaHandlerError,
     OrganizationInvitationSagaState,
@@ -18,4 +20,9 @@ pub use organization_old_picture_object_deletion::{
 pub use user_old_picture_object_deletion::{
     UserOldPictureObjectDeletionSaga, UserOldPictureObjectDeletionSagaHandlerError,
     UserOldPictureObjectDeletionSagaState,
+};
+
+pub use team_membership_cleanup::{
+    TeamMembershipCleanupSaga, TeamMembershipCleanupSagaHandlerError,
+    TeamMembershipCleanupSagaState, TeamMembershipCleanupSagaStep,
 };

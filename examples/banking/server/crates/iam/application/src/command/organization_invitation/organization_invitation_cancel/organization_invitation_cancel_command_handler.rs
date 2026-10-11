@@ -8,7 +8,7 @@ use banking_iam_domain::OrganizationInvitationError;
 use banking_iam_domain::{Organization, OrganizationInvitation};
 use banking_shared_kernel_domain::timestamps::CurrentDateTime;
 
-use crate::authorization::OrganizationInvitationCancelerRelation;
+use crate::authorization::OrganizationInvitationManagerRelation;
 
 use super::{
     OrganizationInvitationCancelCommand, OrganizationInvitationCancelCommandHandlerError,
@@ -49,7 +49,7 @@ where
                 OrganizationInvitation,
             >(
                 command.organization_invitation_id,
-                OrganizationInvitationCancelerRelation::REF,
+                OrganizationInvitationManagerRelation::REF,
             )),
         ]))
     }
@@ -67,7 +67,7 @@ where
 
         let organization = self
             .repository
-            .read::<Organization>(uow, *organization_invitation.organization_id()?)
+            .read_shared::<Organization>(uow, *organization_invitation.organization_id()?)
             .await?;
 
         if organization.is_removed()? {

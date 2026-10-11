@@ -1,6 +1,4 @@
-use appletheia::application::authorization::{
-    AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
-};
+use appletheia::application::authorization::{AuthorizationPlan, PrincipalRequirement};
 use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
@@ -15,9 +13,7 @@ use super::{
     OrganizationMembershipCreateCommand, OrganizationMembershipCreateCommandHandlerError,
     OrganizationMembershipCreateOutput,
 };
-use crate::authorization::OrganizationMemberAdderRelation;
 
-///
 /// The handler reads `Organization` and `User` only to validate their current
 /// status; the single aggregate it mutates is `OrganizationMembership`.
 pub struct OrganizationMembershipCreateCommandHandler<R>
@@ -56,20 +52,13 @@ where
     type Error = OrganizationMembershipCreateCommandHandlerError;
     type Uow = R::Uow;
 
-    /// Accepts the invitation and join-request sagas as `System`, and
-    /// organization administrators adding a member directly.
+    /// Accepts membership creation dispatched by the invitation and join-request sagas.
     fn authorization_plan(
         &self,
-        command: &Self::Command,
+        _command: &Self::Command,
     ) -> Result<AuthorizationPlan, Self::Error> {
         Ok(AuthorizationPlan::OnlyPrincipals(vec![
             PrincipalRequirement::System,
-            PrincipalRequirement::AuthenticatedWithRelationship(RelationshipRequirement::check::<
-                Organization,
-            >(
-                command.organization_id,
-                OrganizationMemberAdderRelation::REF,
-            )),
         ]))
     }
 
@@ -84,13 +73,16 @@ where
 
         let organization = self
             .repository
-            .read::<Organization>(uow, command.organization_id)
+            .read_shared::<Organization>(uow, command.organization_id)
             .await?;
         if organization.is_removed()? {
             return Err(OrganizationMembershipError::OrganizationRemoved.into());
         }
 
-        let user = self.repository.read::<User>(uow, command.user_id).await?;
+        let user = self
+            .repository
+            .read_shared::<User>(uow, command.user_id)
+            .await?;
         if user.is_removed()? {
             return Err(OrganizationMembershipError::UserRemoved.into());
         }
@@ -105,7 +97,7 @@ where
             Self::organization_user_unique_value(command.organization_id, command.user_id)?;
         if self
             .repository
-            .find_by_unique_value::<OrganizationMembership>(
+            .find_shared_by_unique_value::<OrganizationMembership>(
                 uow,
                 OrganizationMembershipState::ORGANIZATION_USER_KEY,
                 &unique_value,
@@ -116,11 +108,7 @@ where
             return Err(OrganizationMembershipError::AlreadyMember.into());
         }
 
-        membership.create(
-            command.organization_id,
-            command.user_id,
-            command.roles.clone(),
-        )?;
+        membership.create(command.organization_id, command.user_id)?;
 
         self.repository
             .save(uow, request_context, &mut membership)
@@ -134,18 +122,15 @@ where
 
 #[cfg(test)]
 mod tests {
-    use appletheia::application::authorization::{
-        AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
-    };
+    use appletheia::application::authorization::{AuthorizationPlan, PrincipalRequirement};
     use appletheia::application::command::CommandHandler;
     use appletheia::application::repository::{Repository, RepositoryError};
     use appletheia::application::request_context::RequestContext;
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::{Aggregate, AggregateVersion, UniqueKey, UniqueValue};
-    use banking_iam_domain::{Organization, OrganizationId, OrganizationRoles, UserId};
+    use banking_iam_domain::{OrganizationId, UserId};
 
     use super::{OrganizationMembershipCreateCommand, OrganizationMembershipCreateCommandHandler};
-    use crate::authorization::OrganizationMemberAdderRelation;
 
     struct TestUow;
 
@@ -173,6 +158,14 @@ mod tests {
             panic!("repository is not exercised by this test")
         }
 
+        async fn read_shared<A: Aggregate>(
+            &self,
+            _uow: &mut Self::Uow,
+            _id: A::Id,
+        ) -> Result<A, RepositoryError<A>> {
+            panic!("repository is not exercised by this test")
+        }
+
         async fn read_at_version<A: Aggregate>(
             &self,
             _uow: &mut Self::Uow,
@@ -183,6 +176,15 @@ mod tests {
         }
 
         async fn find_by_unique_value<A: Aggregate>(
+            &self,
+            _uow: &mut Self::Uow,
+            _unique_key: UniqueKey,
+            _unique_value: &UniqueValue,
+        ) -> Result<Option<A>, RepositoryError<A>> {
+            panic!("repository is not exercised by this test")
+        }
+
+        async fn find_shared_by_unique_value<A: Aggregate>(
             &self,
             _uow: &mut Self::Uow,
             _unique_key: UniqueKey,
@@ -202,14 +204,13 @@ mod tests {
     }
 
     #[test]
-    fn authorization_plan_accepts_system_and_organization_admins() {
+    fn authorization_plan_accepts_only_system() {
         let handler: OrganizationMembershipCreateCommandHandler<TestRepository> =
             OrganizationMembershipCreateCommandHandler::new(TestRepository);
         let organization_id = OrganizationId::new();
         let command = OrganizationMembershipCreateCommand {
             organization_id,
             user_id: UserId::new(),
-            roles: OrganizationRoles::default(),
         };
 
         let plan = handler
@@ -218,15 +219,7 @@ mod tests {
 
         assert_eq!(
             plan,
-            AuthorizationPlan::OnlyPrincipals(vec![
-                PrincipalRequirement::System,
-                PrincipalRequirement::AuthenticatedWithRelationship(
-                    RelationshipRequirement::check::<Organization>(
-                        organization_id,
-                        OrganizationMemberAdderRelation::REF,
-                    )
-                ),
-            ])
+            AuthorizationPlan::OnlyPrincipals(vec![PrincipalRequirement::System])
         );
     }
 }

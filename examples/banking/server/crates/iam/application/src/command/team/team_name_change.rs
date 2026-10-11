@@ -1,0 +1,9 @@
+mod team_name_change_command;
+mod team_name_change_command_handler;
+mod team_name_change_command_handler_error;
+mod team_name_change_output;
+
+pub use team_name_change_command::TeamNameChangeCommand;
+pub use team_name_change_command_handler::TeamNameChangeCommandHandler;
+pub use team_name_change_command_handler_error::TeamNameChangeCommandHandlerError;
+pub use team_name_change_output::TeamNameChangeOutput;

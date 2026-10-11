@@ -12,7 +12,7 @@ use banking_ledger_domain::token_binding::{TokenBinding, TokenBindingState};
 use super::{
     TokenBindingDefineCommand, TokenBindingDefineCommandHandlerError, TokenBindingDefineOutput,
 };
-use crate::authorization::CurrencyTokenBindingDefinerRelation;
+use crate::authorization::CurrencyManagerRelation;
 use crate::settlement::{TokenBindingSettlementValidationRequest, TokenBindingSettlementValidator};
 
 pub struct TokenBindingDefineCommandHandler<R, V>
@@ -56,7 +56,7 @@ where
                 Currency,
             >(
                 command.currency_id,
-                CurrencyTokenBindingDefinerRelation::REF,
+                CurrencyManagerRelation::REF,
             )),
         ]))
     }
@@ -69,7 +69,7 @@ where
     ) -> Result<Self::Output, Self::Error> {
         let currency = self
             .repository
-            .read::<Currency>(uow, command.currency_id)
+            .read_shared::<Currency>(uow, command.currency_id)
             .await?;
         let mut token_binding = TokenBinding::new();
         let token_binding_id = token_binding.aggregate_id();
@@ -80,7 +80,11 @@ where
         ])?;
         if self
             .repository
-            .find_by_unique_value::<TokenBinding>(uow, TokenBindingState::TOKEN_KEY, &unique_value)
+            .find_shared_by_unique_value::<TokenBinding>(
+                uow,
+                TokenBindingState::TOKEN_KEY,
+                &unique_value,
+            )
             .await?
             .is_some()
         {

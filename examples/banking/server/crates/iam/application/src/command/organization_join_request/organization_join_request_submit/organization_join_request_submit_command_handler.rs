@@ -79,7 +79,7 @@ where
 
         let organization = self
             .repository
-            .read::<Organization>(uow, command.organization_id)
+            .read_shared::<Organization>(uow, command.organization_id)
             .await?;
         if organization.is_removed()? {
             return Err(OrganizationJoinRequestError::OrganizationRemoved.into());
@@ -91,7 +91,7 @@ where
         )?;
         if self
             .repository
-            .find_by_unique_value::<OrganizationMembership>(
+            .find_shared_by_unique_value::<OrganizationMembership>(
                 uow,
                 OrganizationMembershipState::ORGANIZATION_USER_KEY,
                 &membership_unique_value,
@@ -108,7 +108,7 @@ where
         )?;
         if self
             .repository
-            .find_by_unique_value::<OrganizationJoinRequest>(
+            .find_shared_by_unique_value::<OrganizationJoinRequest>(
                 uow,
                 OrganizationJoinRequestState::ORGANIZATION_REQUESTER_KEY,
                 &unique_value,

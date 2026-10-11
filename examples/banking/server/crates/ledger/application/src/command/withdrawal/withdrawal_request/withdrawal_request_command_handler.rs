@@ -1,3 +1,4 @@
+use crate::authorization::AccountTransactorRelation;
 use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
@@ -13,7 +14,6 @@ use banking_ledger_domain::withdrawal::WithdrawalError;
 use super::{
     WithdrawalRequestCommand, WithdrawalRequestCommandHandlerError, WithdrawalRequestOutput,
 };
-use crate::authorization::AccountWithdrawalRequesterRelation;
 
 pub struct WithdrawalRequestCommandHandler<R>
 where
@@ -49,7 +49,7 @@ where
                 Account,
             >(
                 command.account_id,
-                AccountWithdrawalRequesterRelation::REF,
+                AccountTransactorRelation::REF,
             )),
         ]))
     }
@@ -64,11 +64,11 @@ where
         let withdrawal_id = withdrawal.aggregate_id();
         let account = self
             .repository
-            .read::<Account>(uow, command.account_id)
+            .read_shared::<Account>(uow, command.account_id)
             .await?;
         match self
             .repository
-            .read::<TokenBinding>(uow, command.token_binding_id)
+            .read_shared::<TokenBinding>(uow, command.token_binding_id)
             .await
         {
             Ok(token_binding)

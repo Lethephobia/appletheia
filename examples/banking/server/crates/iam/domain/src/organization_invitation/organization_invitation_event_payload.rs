@@ -1,6 +1,6 @@
 use appletheia::event_payload;
 
-use crate::{OrganizationId, OrganizationRoles, UserId};
+use crate::{OrganizationId, UserId};
 
 use super::{
     OrganizationInvitationEventPayloadError, OrganizationInvitationExpiresAt,
@@ -13,14 +13,12 @@ pub enum OrganizationInvitationEventPayload {
     Issued {
         organization_id: OrganizationId,
         invitee_id: UserId,
-        roles: OrganizationRoles,
         issuer: OrganizationInvitationIssuer,
         expires_at: OrganizationInvitationExpiresAt,
     },
     Accepted {
         organization_id: OrganizationId,
         invitee_id: UserId,
-        roles: OrganizationRoles,
     },
     Declined {
         organization_id: OrganizationId,
@@ -38,7 +36,7 @@ mod tests {
     use chrono::{Duration, Utc};
 
     use super::{OrganizationInvitationEventPayload, OrganizationInvitationIssuer};
-    use crate::{OrganizationId, OrganizationRoles, UserId};
+    use crate::{OrganizationId, UserId};
 
     fn expires_at() -> super::OrganizationInvitationExpiresAt {
         super::OrganizationInvitationExpiresAt::from(Utc::now() + Duration::minutes(10))
@@ -69,7 +67,6 @@ mod tests {
         let payload = OrganizationInvitationEventPayload::Issued {
             organization_id: OrganizationId::new(),
             invitee_id: UserId::new(),
-            roles: OrganizationRoles::default(),
             issuer: OrganizationInvitationIssuer::User(UserId::new()),
             expires_at: expires_at(),
         };
@@ -82,7 +79,6 @@ mod tests {
         let payload = OrganizationInvitationEventPayload::Accepted {
             organization_id: OrganizationId::new(),
             invitee_id: UserId::new(),
-            roles: OrganizationRoles::default(),
         };
 
         assert_eq!(payload.name(), OrganizationInvitationEventPayload::ACCEPTED);
@@ -113,7 +109,6 @@ mod tests {
         let payload = OrganizationInvitationEventPayload::Issued {
             organization_id: OrganizationId::new(),
             invitee_id: UserId::new(),
-            roles: OrganizationRoles::default(),
             issuer: OrganizationInvitationIssuer::User(UserId::new()),
             expires_at: expires_at(),
         };

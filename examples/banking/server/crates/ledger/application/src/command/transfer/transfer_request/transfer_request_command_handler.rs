@@ -1,3 +1,4 @@
+use crate::authorization::AccountTransactorRelation;
 use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
@@ -8,8 +9,6 @@ use appletheia::domain::Aggregate;
 use banking_ledger_domain::account::Account;
 use banking_ledger_domain::transfer::Transfer;
 use banking_ledger_domain::transfer::TransferError;
-
-use crate::authorization::AccountTransferRequesterRelation;
 
 use super::{TransferRequestCommand, TransferRequestCommandHandlerError, TransferRequestOutput};
 
@@ -47,7 +46,7 @@ where
                 Account,
             >(
                 command.from_account_id,
-                AccountTransferRequesterRelation::REF,
+                AccountTransactorRelation::REF,
             )),
         ]))
     }
@@ -60,11 +59,11 @@ where
     ) -> Result<Self::Output, Self::Error> {
         let source_account = self
             .repository
-            .read::<Account>(uow, command.from_account_id)
+            .read_shared::<Account>(uow, command.from_account_id)
             .await?;
         let destination_account = self
             .repository
-            .read::<Account>(uow, command.to_account_id)
+            .read_shared::<Account>(uow, command.to_account_id)
             .await?;
 
         let mut transfer = Transfer::new();

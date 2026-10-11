@@ -9,7 +9,7 @@ use banking_ledger_domain::token_binding::TokenBinding;
 use super::{
     TokenBindingRemoveCommand, TokenBindingRemoveCommandHandlerError, TokenBindingRemoveOutput,
 };
-use crate::authorization::TokenBindingRemoverRelation;
+use crate::authorization::TokenBindingManagerRelation;
 
 pub struct TokenBindingRemoveCommandHandler<R>
 where
@@ -45,7 +45,7 @@ where
                 TokenBinding,
             >(
                 command.token_binding_id,
-                TokenBindingRemoverRelation::REF,
+                TokenBindingManagerRelation::REF,
             )),
         ]))
     }

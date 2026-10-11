@@ -76,7 +76,7 @@ where
         let unique_value = Self::handle_unique_value(&command.handle)?;
         if self
             .repository
-            .find_by_unique_value::<CurrencyRegistrar>(
+            .find_shared_by_unique_value::<CurrencyRegistrar>(
                 uow,
                 CurrencyRegistrarState::HANDLE_KEY,
                 &unique_value,

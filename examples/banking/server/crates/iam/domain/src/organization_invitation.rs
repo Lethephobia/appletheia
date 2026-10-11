@@ -22,7 +22,7 @@ use appletheia::aggregate;
 use appletheia::domain::{Aggregate, AggregateApply, AggregateCore};
 use banking_shared_kernel_domain::timestamps::CurrentDateTime;
 
-use crate::{OrganizationId, OrganizationRoles, UserId};
+use crate::{OrganizationId, UserId};
 
 /// Represents the `OrganizationInvitation` aggregate root.
 #[aggregate(type = "organization_invitation", error = OrganizationInvitationError)]
@@ -43,11 +43,6 @@ impl OrganizationInvitation {
     /// Returns the invited user.
     pub fn invitee_id(&self) -> Result<&UserId, OrganizationInvitationError> {
         Ok(&self.state_required()?.invitee_id)
-    }
-
-    /// Returns the membership roles granted by accepting the invitation.
-    pub fn roles(&self) -> Result<&OrganizationRoles, OrganizationInvitationError> {
-        Ok(&self.state_required()?.roles)
     }
 
     /// Returns who issued the invitation.
@@ -97,7 +92,6 @@ impl OrganizationInvitation {
         &mut self,
         organization_id: OrganizationId,
         invitee_id: UserId,
-        roles: OrganizationRoles,
         issuer: OrganizationInvitationIssuer,
         expires_at: OrganizationInvitationExpiresAt,
         now: CurrentDateTime,
@@ -113,7 +107,6 @@ impl OrganizationInvitation {
         self.append_event(OrganizationInvitationEventPayload::Issued {
             organization_id,
             invitee_id,
-            roles,
             issuer,
             expires_at,
         })?;
@@ -132,7 +125,6 @@ impl OrganizationInvitation {
         self.append_event(OrganizationInvitationEventPayload::Accepted {
             organization_id: state.organization_id,
             invitee_id: state.invitee_id,
-            roles: state.roles.clone(),
         })?;
         Ok(())
     }
@@ -181,14 +173,12 @@ impl AggregateApply<OrganizationInvitationEventPayload, OrganizationInvitationEr
             OrganizationInvitationEventPayload::Issued {
                 organization_id,
                 invitee_id,
-                roles,
                 issuer,
                 expires_at,
             } => {
                 self.set_state(Some(OrganizationInvitationState {
                     organization_id: *organization_id,
                     invitee_id: *invitee_id,
-                    roles: roles.clone(),
                     issuer: *issuer,
                     expires_at: *expires_at,
                     status: OrganizationInvitationStatus::Pending,
@@ -220,7 +210,7 @@ mod tests {
         OrganizationInvitationExpiresAt, OrganizationInvitationIssuer,
         OrganizationInvitationStatus,
     };
-    use crate::{OrganizationId, OrganizationRoles, UserId};
+    use crate::{OrganizationId, UserId};
     use banking_shared_kernel_domain::timestamps::CurrentDateTime;
 
     fn organization_id() -> OrganizationId {
@@ -229,10 +219,6 @@ mod tests {
 
     fn user_id() -> UserId {
         UserId::new()
-    }
-
-    fn roles() -> OrganizationRoles {
-        OrganizationRoles::default()
     }
 
     fn future_expires_at() -> OrganizationInvitationExpiresAt {
@@ -255,7 +241,6 @@ mod tests {
             .issue(
                 organization_id,
                 invitee_id,
-                roles(),
                 issuer,
                 expires_at,
                 CurrentDateTime::new(),
@@ -279,7 +264,6 @@ mod tests {
             invitation.expires_at().expect("expires at should exist"),
             &expires_at
         );
-        assert_eq!(invitation.roles().expect("roles should exist"), &roles());
         assert_eq!(
             invitation.status().expect("status should exist"),
             OrganizationInvitationStatus::Pending
@@ -302,7 +286,6 @@ mod tests {
             .issue(
                 organization_id,
                 invitee_id,
-                roles(),
                 issuer,
                 expires_at,
                 CurrentDateTime::new(),
@@ -335,7 +318,6 @@ mod tests {
             .issue(
                 organization_id,
                 invitee_id,
-                roles(),
                 issuer,
                 expires_at,
                 CurrentDateTime::new(),
@@ -368,7 +350,6 @@ mod tests {
             .issue(
                 organization_id,
                 invitee_id,
-                roles(),
                 issuer,
                 expires_at,
                 CurrentDateTime::new(),
@@ -398,7 +379,6 @@ mod tests {
             .issue(
                 organization_id(),
                 user_id(),
-                roles(),
                 OrganizationInvitationIssuer::User(user_id()),
                 past_expires_at(),
                 CurrentDateTime::new(),
@@ -420,7 +400,6 @@ mod tests {
             .append_event(OrganizationInvitationEventPayload::Issued {
                 organization_id,
                 invitee_id,
-                roles: roles(),
                 issuer,
                 expires_at,
             })
@@ -443,7 +422,6 @@ mod tests {
             .issue(
                 organization_id,
                 invitee_id,
-                roles(),
                 issuer,
                 expires_at,
                 CurrentDateTime::new(),

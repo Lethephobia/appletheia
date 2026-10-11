@@ -7,7 +7,7 @@ use appletheia::application::request_context::RequestContext;
 use banking_iam_domain::OrganizationJoinRequestError;
 use banking_iam_domain::{Organization, OrganizationJoinRequest};
 
-use crate::authorization::OrganizationJoinRequestRejecterRelation;
+use crate::authorization::OrganizationJoinRequestManagerRelation;
 
 use super::{
     OrganizationJoinRequestRejectCommand, OrganizationJoinRequestRejectCommandHandlerError,
@@ -48,7 +48,7 @@ where
                 OrganizationJoinRequest,
             >(
                 command.organization_join_request_id,
-                OrganizationJoinRequestRejecterRelation::REF,
+                OrganizationJoinRequestManagerRelation::REF,
             )),
         ]))
     }
@@ -66,7 +66,7 @@ where
 
         let organization = self
             .repository
-            .read::<Organization>(uow, *organization_join_request.organization_id()?)
+            .read_shared::<Organization>(uow, *organization_join_request.organization_id()?)
             .await?;
 
         if organization.is_removed()? {

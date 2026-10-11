@@ -106,7 +106,17 @@ where
             }
         };
 
-        owned_account_closure.record_scanned(page.source_ids, page.next_cursor)?;
+        let mut account_ids = Vec::new();
+        for account_id in page.source_ids {
+            let account = self
+                .repository
+                .read_shared::<Account>(uow, account_id)
+                .await?;
+            if !account.is_closed()? {
+                account_ids.push(account_id);
+            }
+        }
+        owned_account_closure.record_scanned(account_ids, page.next_cursor)?;
         if owned_account_closure.is_ready_to_complete()? {
             owned_account_closure.complete()?;
         }
@@ -160,6 +170,7 @@ mod tests {
     #[derive(Clone)]
     struct TestRepository {
         closure: Arc<Mutex<OwnedAccountClosure>>,
+        closed_ids: Vec<AccountId>,
         saved_batches: Arc<Mutex<Vec<Vec<OwnedAccountClosureEventPayload>>>>,
     }
 
@@ -198,6 +209,31 @@ mod tests {
             Ok(Self::copy_aggregate::<_, A>(&*self.closure.lock().unwrap()))
         }
 
+        async fn read_shared<A: Aggregate>(
+            &self,
+            _: &mut TestUow,
+            id: A::Id,
+        ) -> Result<A, RepositoryError<A>> {
+            use banking_ledger_domain::account::AccountName;
+            use banking_ledger_domain::currency::CurrencyId;
+            let mut account = Account::new();
+            account
+                .open(
+                    AccountOwner::User(UserId::new()),
+                    AccountName::try_from("Test").unwrap(),
+                    CurrencyId::new(),
+                )
+                .unwrap();
+            if self
+                .closed_ids
+                .iter()
+                .any(|closed| closed.value() == id.value())
+            {
+                account.close().unwrap();
+            }
+            Ok(Self::copy_aggregate::<_, A>(&account))
+        }
+
         async fn read_at_version<A: Aggregate>(
             &self,
             _: &mut TestUow,
@@ -208,6 +244,15 @@ mod tests {
         }
 
         async fn find_by_unique_value<A: Aggregate>(
+            &self,
+            _: &mut TestUow,
+            _: UniqueKey,
+            _: &UniqueValue,
+        ) -> Result<Option<A>, RepositoryError<A>> {
+            unreachable!()
+        }
+
+        async fn find_shared_by_unique_value<A: Aggregate>(
             &self,
             _: &mut TestUow,
             _: UniqueKey,
@@ -279,6 +324,7 @@ mod tests {
         closure.core_mut().clear_uncommitted_events();
         TestRepository {
             closure: Arc::new(Mutex::new(closure)),
+            closed_ids: vec![],
             saved_batches: Arc::new(Mutex::new(vec![])),
         }
     }
@@ -477,6 +523,50 @@ mod tests {
                 )),
             }
             assert!(repository.saved_batches.lock().unwrap().is_empty());
+        }
+    }
+
+    #[tokio::test]
+    async fn scan_filters_closed_accounts_without_losing_page_cursor() {
+        for all_closed in [false, true] {
+            let mut repository = repository();
+            let id = repository.closure.lock().unwrap().aggregate_id();
+            let first = AccountId::new();
+            let last = AccountId::new();
+            repository.closed_ids = if all_closed {
+                vec![first, last]
+            } else {
+                vec![last]
+            };
+            let handler = OwnedAccountClosureScanCommandHandler::new(
+                repository.clone(),
+                TestLookup {
+                    expected_cursor: None,
+                    account_ids: vec![first, last],
+                    next_cursor: Some(last),
+                },
+                OwnedAccountClosureScanCommandHandlerConfig {
+                    page_size: ReferenceIndexLookupPageSize::new(NonZeroU32::new(2).unwrap()),
+                },
+            );
+            handler
+                .handle(
+                    &mut TestUow,
+                    &request_context(),
+                    &OwnedAccountClosureScanCommand {
+                        owned_account_closure_id: id,
+                    },
+                )
+                .await
+                .unwrap();
+            let saved = repository.saved_batches.lock().unwrap();
+            let expected = if all_closed { vec![] } else { vec![first] };
+            assert!(
+                matches!(saved[0].as_slice(), [OwnedAccountClosureEventPayload::Scanned { account_ids, next_cursor }] if account_ids == &expected && *next_cursor == Some(last))
+            );
+            let closure = repository.closure.lock().unwrap();
+            assert!(!closure.is_scan_completed().unwrap());
+            assert!(!closure.is_ready_to_complete().unwrap());
         }
     }
 }

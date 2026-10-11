@@ -54,6 +54,11 @@ when only its API or sample code is obsolete. A shorter guide must not reverse a
   Use for command data and output shapes, application-level checks, transaction boundaries,
   replay-safe outputs, retryability, and worker configuration.
 
+- [Authorization](references/application/authorization.md)
+
+  Use for structural relationship traversal versus explicit AggregateSet grants, capability
+  relations, and membership-scoped permission lifecycles.
+
 - [Saga](references/application/saga.md)
 
   Use for staged routes, incoming and outgoing steps, side-effect-free definitions, context-based

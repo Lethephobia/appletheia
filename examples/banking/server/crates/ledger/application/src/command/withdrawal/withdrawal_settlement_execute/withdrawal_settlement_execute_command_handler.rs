@@ -66,16 +66,16 @@ where
             .await?;
         let account = self
             .repository
-            .read::<Account>(uow, *withdrawal.account_id()?)
+            .read_shared::<Account>(uow, *withdrawal.account_id()?)
             .await?;
         let currency = self
             .repository
-            .read::<Currency>(uow, *account.currency_id()?)
+            .read_shared::<Currency>(uow, *account.currency_id()?)
             .await?;
         let token_binding_id = withdrawal.token_binding_id()?;
         let token_binding = match self
             .repository
-            .read::<TokenBinding>(uow, token_binding_id)
+            .read_shared::<TokenBinding>(uow, token_binding_id)
             .await
         {
             Ok(token_binding)

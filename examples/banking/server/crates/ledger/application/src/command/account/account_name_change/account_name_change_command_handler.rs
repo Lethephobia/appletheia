@@ -1,3 +1,4 @@
+use crate::authorization::AccountManagerRelation;
 use appletheia::application::authorization::{
     AuthorizationPlan, PrincipalRequirement, Relation, RelationshipRequirement,
 };
@@ -9,7 +10,6 @@ use banking_ledger_domain::account::Account;
 use super::{
     AccountNameChangeCommand, AccountNameChangeCommandHandlerError, AccountNameChangeOutput,
 };
-use crate::authorization::AccountNameChangerRelation;
 
 pub struct AccountNameChangeCommandHandler<R>
 where
@@ -45,7 +45,7 @@ where
                 Account,
             >(
                 command.account_id,
-                AccountNameChangerRelation::REF,
+                AccountManagerRelation::REF,
             )),
         ]))
     }
@@ -73,6 +73,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    use crate::authorization::AccountManagerRelation;
     use appletheia::application::aggregate::SerializedAggregate;
     use appletheia::domain::{AggregateId, Event};
     use std::sync::{Arc, Mutex};
@@ -96,7 +97,6 @@ mod tests {
     use super::{
         AccountNameChangeCommand, AccountNameChangeCommandHandler, AccountNameChangeOutput,
     };
-    use crate::authorization::AccountNameChangerRelation;
 
     #[derive(Default)]
     struct TestUow;
@@ -165,6 +165,22 @@ mod tests {
                 })
         }
 
+        async fn read_shared<A: Aggregate>(
+            &self,
+            _uow: &mut Self::Uow,
+            id: A::Id,
+        ) -> Result<A, RepositoryError<A>> {
+            self.account
+                .lock()
+                .expect("lock")
+                .as_ref()
+                .map(|stored| Self::copy_aggregate::<_, A>(stored))
+                .ok_or_else(|| RepositoryError::NotFound {
+                    aggregate_type: A::TYPE,
+                    aggregate_id: id,
+                })
+        }
+
         async fn read_at_version<A: Aggregate>(
             &self,
             _uow: &mut Self::Uow,
@@ -183,6 +199,15 @@ mod tests {
         }
 
         async fn find_by_unique_value<A: Aggregate>(
+            &self,
+            _uow: &mut Self::Uow,
+            _unique_key: appletheia::domain::UniqueKey,
+            _unique_value: &appletheia::domain::UniqueValue,
+        ) -> Result<Option<A>, RepositoryError<A>> {
+            Ok(None)
+        }
+
+        async fn find_shared_by_unique_value<A: Aggregate>(
             &self,
             _uow: &mut Self::Uow,
             _unique_key: appletheia::domain::UniqueKey,
@@ -229,7 +254,7 @@ mod tests {
     }
 
     #[test]
-    fn authorization_plan_requires_account_name_changer() {
+    fn authorization_plan_requires_account_manager() {
         let handler = AccountNameChangeCommandHandler::new(TestRepository::default());
         let account_id = AccountId::new();
 
@@ -246,7 +271,7 @@ mod tests {
                 PrincipalRequirement::AuthenticatedWithRelationship(
                     RelationshipRequirement::check::<Account>(
                         account_id,
-                        AccountNameChangerRelation::REF
+                        AccountManagerRelation::REF
                     )
                 ),
             ])

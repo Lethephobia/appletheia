@@ -9,7 +9,7 @@ use banking_ledger_domain::currency::Currency;
 use super::{
     CurrencyDeactivateCommand, CurrencyDeactivateCommandHandlerError, CurrencyDeactivateOutput,
 };
-use crate::authorization::CurrencyDeactivatorRelation;
+use crate::authorization::CurrencyManagerRelation;
 
 pub struct CurrencyDeactivateCommandHandler<R>
 where
@@ -45,7 +45,7 @@ where
                 Currency,
             >(
                 command.currency_id,
-                CurrencyDeactivatorRelation::REF,
+                CurrencyManagerRelation::REF,
             )),
         ]))
     }

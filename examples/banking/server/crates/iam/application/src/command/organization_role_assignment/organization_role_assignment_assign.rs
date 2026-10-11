@@ -1,0 +1,9 @@
+mod organization_role_assignment_assign_command;
+mod organization_role_assignment_assign_command_handler;
+mod organization_role_assignment_assign_command_handler_error;
+mod organization_role_assignment_assign_output;
+
+pub use organization_role_assignment_assign_command::*;
+pub use organization_role_assignment_assign_command_handler::*;
+pub use organization_role_assignment_assign_command_handler_error::*;
+pub use organization_role_assignment_assign_output::*;

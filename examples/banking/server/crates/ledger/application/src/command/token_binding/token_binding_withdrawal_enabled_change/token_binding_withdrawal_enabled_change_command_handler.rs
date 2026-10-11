@@ -11,7 +11,7 @@ use super::{
     TokenBindingWithdrawalEnabledChangeCommandHandlerError,
     TokenBindingWithdrawalEnabledChangeOutput,
 };
-use crate::authorization::TokenBindingWithdrawalEnabledChangerRelation;
+use crate::authorization::TokenBindingManagerRelation;
 
 pub struct TokenBindingWithdrawalEnabledChangeCommandHandler<R>
 where
@@ -47,7 +47,7 @@ where
                 TokenBinding,
             >(
                 command.token_binding_id,
-                TokenBindingWithdrawalEnabledChangerRelation::REF,
+                TokenBindingManagerRelation::REF,
             )),
         ]))
     }

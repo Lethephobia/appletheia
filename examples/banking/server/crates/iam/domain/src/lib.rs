@@ -2,7 +2,13 @@ pub mod organization;
 pub mod organization_invitation;
 pub mod organization_join_request;
 pub mod organization_membership;
+pub mod organization_role_assignment;
+pub mod team;
+pub mod team_membership;
+pub mod team_membership_cleanup;
+pub mod team_role_assignment;
 pub mod user;
+
 pub use organization::{
     Organization, OrganizationDescription, OrganizationDescriptionError, OrganizationDisplayName,
     OrganizationDisplayNameError, OrganizationError, OrganizationEventPayload,
@@ -26,8 +32,16 @@ pub use organization_join_request::{
 pub use organization_membership::{
     OrganizationMembership, OrganizationMembershipError, OrganizationMembershipEventPayload,
     OrganizationMembershipEventPayloadError, OrganizationMembershipId, OrganizationMembershipState,
-    OrganizationMembershipStateError, OrganizationMembershipStatus, OrganizationRole,
-    OrganizationRoles,
+    OrganizationMembershipStateError, OrganizationMembershipStatus,
+};
+pub use team::{
+    Team, TeamDescription, TeamDescriptionError, TeamError, TeamEventPayload,
+    TeamEventPayloadError, TeamId, TeamName, TeamNameError, TeamState, TeamStateError, TeamStatus,
+};
+pub use team_membership::{
+    TeamMembership, TeamMembershipError, TeamMembershipEventPayload,
+    TeamMembershipEventPayloadError, TeamMembershipId, TeamMembershipState,
+    TeamMembershipStateError, TeamMembershipStatus,
 };
 pub use user::{
     User, UserBio, UserBioError, UserDisplayName, UserDisplayNameError, UserError,
@@ -35,4 +49,25 @@ pub use user::{
     UserIdentityProviderError, UserIdentitySubject, UserIdentitySubjectError,
     UserPictureObjectName, UserPictureObjectNameError, UserPictureRef, UserPictureUrl,
     UserPictureUrlError, UserState, UserStateError, UserStatus, Username, UsernameError,
+};
+
+pub use team_membership_cleanup::{
+    TeamMembershipCleanup, TeamMembershipCleanupCount, TeamMembershipCleanupCountError,
+    TeamMembershipCleanupError, TeamMembershipCleanupEventPayload,
+    TeamMembershipCleanupEventPayloadError, TeamMembershipCleanupId, TeamMembershipCleanupState,
+    TeamMembershipCleanupStateError, TeamMembershipCleanupStatus,
+};
+
+pub use organization_role_assignment::{
+    OrganizationRole, OrganizationRoleAssignee, OrganizationRoleAssigneeError,
+    OrganizationRoleAssignment, OrganizationRoleAssignmentError,
+    OrganizationRoleAssignmentEventPayload, OrganizationRoleAssignmentEventPayloadError,
+    OrganizationRoleAssignmentId, OrganizationRoleAssignmentState,
+    OrganizationRoleAssignmentStateError, OrganizationRoleAssignmentStatus,
+};
+
+pub use team_role_assignment::{
+    TeamRole, TeamRoleAssignee, TeamRoleAssigneeError, TeamRoleAssignment, TeamRoleAssignmentError,
+    TeamRoleAssignmentEventPayload, TeamRoleAssignmentEventPayloadError, TeamRoleAssignmentId,
+    TeamRoleAssignmentState, TeamRoleAssignmentStateError, TeamRoleAssignmentStatus,
 };
