@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.23.0](https://github.com/Lethephobia/appletheia/compare/appletheia-infrastructure-v0.22.0...appletheia-infrastructure-v0.23.0) - 2026-10-11
+
+### Added
+
+- *(repository)* [**breaking**] add shared and exclusive aggregate locking
+
 ## [0.22.0](https://github.com/Lethephobia/appletheia/compare/appletheia-infrastructure-v0.21.1...appletheia-infrastructure-v0.22.0) - 2026-10-08
 
 ### Other
