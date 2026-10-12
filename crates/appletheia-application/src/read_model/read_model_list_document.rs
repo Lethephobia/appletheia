@@ -1,5 +1,6 @@
 use super::{
     ReadModel, ReadModelIncluded, ReadModelListDocumentError, ReadModelResourceListDocument,
+    ReadModelView,
 };
 
 pub struct ReadModelListDocument<R, I>
@@ -7,7 +8,7 @@ where
     R: ReadModel,
     I: ReadModelIncluded,
 {
-    pub data: Vec<R>,
+    pub data: Vec<ReadModelView<R>>,
     pub included: Vec<I>,
 }
 
@@ -22,7 +23,7 @@ where
         let data = self
             .data
             .iter()
-            .map(ReadModel::try_to_resource)
+            .map(ReadModelView::try_to_resource)
             .collect::<Result<Vec<_>, _>>()?;
         let included = self
             .included

@@ -1,11 +1,11 @@
 use thiserror::Error;
 
-use super::{ReadModelError, ReadModelIncludedError};
+use super::{ReadModelIncludedError, ReadModelViewError};
 
 #[derive(Debug, Error)]
 pub enum ReadModelListDocumentError {
     #[error(transparent)]
-    ReadModel(#[from] ReadModelError),
+    ReadModelView(#[from] ReadModelViewError),
 
     #[error(transparent)]
     Included(#[from] ReadModelIncludedError),

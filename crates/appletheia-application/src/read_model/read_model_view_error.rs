@@ -6,7 +6,7 @@ use super::{
 };
 
 #[derive(Debug, Error)]
-pub enum ReadModelError {
+pub enum ReadModelViewError {
     #[error(transparent)]
     AttributeKey(#[from] ReadModelAttributeKeyError),
 

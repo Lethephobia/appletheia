@@ -1,11 +1,13 @@
-use super::{ReadModel, ReadModelDocumentError, ReadModelIncluded, ReadModelResourceDocument};
+use super::{
+    ReadModel, ReadModelDocumentError, ReadModelIncluded, ReadModelResourceDocument, ReadModelView,
+};
 
 pub struct ReadModelDocument<R, I>
 where
     R: ReadModel,
     I: ReadModelIncluded,
 {
-    pub data: Option<R>,
+    pub data: Option<ReadModelView<R>>,
     pub included: Vec<I>,
 }
 
@@ -20,7 +22,7 @@ where
         let data = self
             .data
             .as_ref()
-            .map(ReadModel::try_to_resource)
+            .map(ReadModelView::try_to_resource)
             .transpose()?;
         let included = self
             .included
