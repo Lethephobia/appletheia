@@ -72,15 +72,14 @@ where
         &mut self,
         projector: &PJ,
     ) -> Result<ProjectorRebuildReport, ProjectorRebuilderError> {
-        let projector_definition = projector.definition()?;
-        let selectors = projector_definition.event_selectors();
+        let selectors = PJ::EVENT_SELECTORS;
         if selectors.is_empty() {
             return Ok(ProjectorRebuildReport {
                 processed_event_count: ProcessedEventCount::zero(),
             });
         }
-        let subscription = Subscription::AnyOf(&selectors);
-        let projector_name = ProjectorNameOwned::from(projector_definition.name());
+        let subscription = Subscription::AnyOf(selectors);
+        let projector_name = ProjectorNameOwned::from(PJ::NAME);
         let mut processed_event_count = ProcessedEventCount::zero();
 
         while !self.is_stop_requested() {
@@ -121,9 +120,9 @@ where
                     break;
                 }
 
-                let Some(route) = projector_definition.find_event_route(&event) else {
+                if !subscription.matches(&event) {
                     continue;
-                };
+                }
                 let mut uow = self.uow_factory.begin().await?;
                 let inserted = match self
                     .processed_event_store
@@ -152,7 +151,7 @@ where
                     continue;
                 }
 
-                if let Err(source) = route.handler.handle(&mut uow, &event).await {
+                if let Err(source) = projector.project(&mut uow, &event).await {
                     let error = ProjectorRebuilderError::Projection(Box::new(source));
                     return Err(uow.rollback_with_operation_error(error).await?);
                 }

@@ -1,18 +1,17 @@
 use crate::event::EventEnvelope;
 use crate::unit_of_work::UnitOfWork;
-use std::error::Error;
 
-use super::{ProjectorDefinition, ProjectorRunReport, ProjectorRunnerError};
+use super::{Projector, ProjectorRunReport, ProjectorRunnerError};
 
 #[allow(async_fn_in_trait)]
 pub trait ProjectorRunner: Send + Sync {
     type Uow: UnitOfWork;
 
-    async fn project<E>(
+    async fn project<PJ>(
         &self,
-        projector_definition: &ProjectorDefinition<'_, Self::Uow, E>,
+        projector: &PJ,
         event: &EventEnvelope,
     ) -> Result<ProjectorRunReport, ProjectorRunnerError>
     where
-        E: Error + Send + Sync + 'static;
+        PJ: Projector<Uow = Self::Uow>;
 }

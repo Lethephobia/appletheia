@@ -1,10 +1,9 @@
-use std::error::Error;
-
 use crate::event::EventEnvelope;
+use crate::messaging::Subscription;
 use crate::unit_of_work::{UnitOfWork, UnitOfWorkFactory};
 
 use super::{
-    ProjectorDefinition, ProjectorNameOwned, ProjectorProcessedEventStore, ProjectorRunReport,
+    Projector, ProjectorNameOwned, ProjectorProcessedEventStore, ProjectorRunReport,
     ProjectorRunner, ProjectorRunnerError,
 };
 
@@ -30,35 +29,30 @@ where
         }
     }
 
-    async fn project_inner<E>(
+    async fn project_inner<PJ>(
         &self,
         uow: &mut P::Uow,
-        projector_definition: &ProjectorDefinition<'_, P::Uow, E>,
+        projector: &PJ,
         event: &EventEnvelope,
     ) -> Result<ProjectorRunReport, ProjectorRunnerError>
     where
-        E: Error + Send + Sync + 'static,
+        PJ: Projector<Uow = P::Uow>,
         P: ProjectorProcessedEventStore,
     {
-        let Some(route) = projector_definition.find_event_route(event) else {
+        if !Subscription::AnyOf(PJ::EVENT_SELECTORS).matches(event) {
             return Ok(ProjectorRunReport::SkippedNotSubscribed);
-        };
+        }
         let inserted = self
             .processed_event_store
-            .mark_processed(
-                uow,
-                ProjectorNameOwned::from(projector_definition.name()),
-                event.event_id,
-            )
+            .mark_processed(uow, ProjectorNameOwned::from(PJ::NAME), event.event_id)
             .await?;
 
         if !inserted {
             return Ok(ProjectorRunReport::SkippedAlreadyProcessed);
         }
 
-        route
-            .handler
-            .handle(uow, event)
+        projector
+            .project(uow, event)
             .await
             .map_err(|source| ProjectorRunnerError::Projection(Box::new(source)))?;
 
@@ -73,19 +67,16 @@ where
 {
     type Uow = P::Uow;
 
-    async fn project<E>(
+    async fn project<PJ>(
         &self,
-        projector_definition: &ProjectorDefinition<'_, P::Uow, E>,
+        projector: &PJ,
         event: &EventEnvelope,
     ) -> Result<ProjectorRunReport, ProjectorRunnerError>
     where
-        E: Error + Send + Sync + 'static,
+        PJ: Projector<Uow = P::Uow>,
     {
         let mut uow = self.uow_factory.begin().await?;
-        match self
-            .project_inner(&mut uow, projector_definition, event)
-            .await
-        {
+        match self.project_inner(&mut uow, projector, event).await {
             Ok(report) => {
                 uow.commit().await?;
                 Ok(report)

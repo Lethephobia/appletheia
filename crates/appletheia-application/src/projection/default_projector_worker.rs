@@ -57,14 +57,12 @@ where
     where
         PJ: Projector<Uow = Self::Uow>,
     {
-        let projector_definition = projector.definition()?;
-        let selectors = projector_definition.event_selectors();
+        let selectors = PJ::EVENT_SELECTORS;
         if selectors.is_empty() {
             return Ok(());
         }
-        let subscription = Subscription::AnyOf(&selectors);
-        let consumer_group =
-            ConsumerGroup::new(format!("projector_{}", projector_definition.name()))?;
+        let subscription = Subscription::AnyOf(selectors);
+        let consumer_group = ConsumerGroup::new(format!("projector_{}", PJ::NAME))?;
         let mut consumer = self
             .subscriber
             .subscribe(&consumer_group, subscription)
@@ -76,10 +74,7 @@ where
             if !subscription.matches(delivery.message()) {
                 delivery.ack().await?;
             } else {
-                let result = self
-                    .runner
-                    .project(&projector_definition, delivery.message())
-                    .await;
+                let result = self.runner.project(projector, delivery.message()).await;
 
                 match result {
                     Ok(_) => delivery.ack().await?,
