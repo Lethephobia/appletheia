@@ -7,7 +7,7 @@ use super::{RelationName, RelationNameOwnedError};
 
 /// Owns a validated relation name for runtime authorization data.
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
-#[serde(transparent)]
+#[serde(try_from = "String", into = "String")]
 pub struct RelationNameOwned(String);
 
 impl RelationNameOwned {
@@ -24,7 +24,6 @@ impl RelationNameOwned {
         if value.is_empty() {
             return Err(RelationNameOwnedError::Empty);
         }
-
         let len = value.len();
         if len > RelationName::MAX_LENGTH {
             return Err(RelationNameOwnedError::TooLong {
@@ -32,7 +31,6 @@ impl RelationNameOwned {
                 max: RelationName::MAX_LENGTH,
             });
         }
-
         let is_snake_ascii = value
             .bytes()
             .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_');
@@ -41,7 +39,6 @@ impl RelationNameOwned {
                 value: value.to_owned(),
             });
         }
-
         Ok(())
     }
 }
@@ -50,7 +47,8 @@ impl FromStr for RelationNameOwned {
     type Err = RelationNameOwnedError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Self::new(s.to_owned())
+        Self::validate(s)?;
+        Ok(Self(s.to_owned()))
     }
 }
 
@@ -94,6 +92,12 @@ impl Borrow<str> for RelationNameOwned {
     }
 }
 
+impl From<RelationNameOwned> for String {
+    fn from(value: RelationNameOwned) -> Self {
+        value.0
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::RelationNameOwned;
@@ -129,5 +133,34 @@ mod tests {
         let relation = RelationNameOwned::from(RelationName::new("editor"));
 
         assert_eq!(relation.value(), "editor");
+    }
+
+    #[test]
+    fn deserialization_enforces_name_constraints() {
+        for value in [
+            "_name".to_owned(),
+            "name__2".to_owned(),
+            "a".repeat(RelationName::MAX_LENGTH),
+        ] {
+            let json = serde_json::to_string(&value).unwrap();
+            let decoded: RelationNameOwned = serde_json::from_str(&json).unwrap();
+            assert_eq!(decoded, RelationNameOwned::new(value).unwrap());
+            assert_eq!(serde_json::to_string(&decoded).unwrap(), json);
+        }
+        for value in [
+            "".to_owned(),
+            "Name".to_owned(),
+            "name-part".to_owned(),
+            "name part".to_owned(),
+            "名前".to_owned(),
+            "a".repeat(RelationName::MAX_LENGTH + 1),
+        ] {
+            assert!(RelationNameOwned::new(value.clone()).is_err());
+            let json = serde_json::to_string(&value).unwrap();
+            assert!(
+                serde_json::from_str::<RelationNameOwned>(&json).is_err(),
+                "{value}"
+            );
+        }
     }
 }

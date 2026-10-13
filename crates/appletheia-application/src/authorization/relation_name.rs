@@ -6,7 +6,7 @@ use std::fmt::{self, Display};
 pub struct RelationName(&'static str);
 
 impl RelationName {
-    pub const MAX_LENGTH: usize = 50;
+    pub const MAX_LENGTH: usize = 100;
 
     /// Creates a relation name from a validated snake_case string literal.
     pub const fn new(value: &'static str) -> Self {
@@ -80,7 +80,8 @@ mod tests {
     #[test]
     #[should_panic(expected = "relation name is too long")]
     fn new_rejects_too_long_value() {
-        let _ = RelationName::new("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        let value = Box::leak("a".repeat(RelationName::MAX_LENGTH + 1).into_boxed_str());
+        let _ = RelationName::new(value);
     }
 
     #[test]

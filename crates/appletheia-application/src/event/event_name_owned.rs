@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use super::EventNameOwnedError;
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
-#[serde(transparent)]
+#[serde(try_from = "String", into = "String")]
 pub struct EventNameOwned(String);
 
 impl EventNameOwned {
@@ -23,15 +23,20 @@ impl EventNameOwned {
         if value.is_empty() {
             return Err(EventNameOwnedError::Empty);
         }
-        if value.len() > EventName::MAX_LENGTH {
-            return Err(EventNameOwnedError::TooLong);
+        let len = value.len();
+        if len > EventName::MAX_LENGTH {
+            return Err(EventNameOwnedError::TooLong {
+                len,
+                max: EventName::MAX_LENGTH,
+            });
         }
-        if !value
-            .as_bytes()
-            .iter()
-            .all(|&b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_')
-        {
-            return Err(EventNameOwnedError::InvalidFormat);
+        let is_snake_ascii = value
+            .bytes()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_');
+        if !is_snake_ascii {
+            return Err(EventNameOwnedError::InvalidFormat {
+                value: value.to_owned(),
+            });
         }
         Ok(())
     }
@@ -47,7 +52,8 @@ impl FromStr for EventNameOwned {
     type Err = EventNameOwnedError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Self::new(s.to_string())
+        Self::validate(s)?;
+        Ok(Self(s.to_owned()))
     }
 }
 
@@ -70,5 +76,45 @@ impl TryFrom<String> for EventNameOwned {
 impl From<EventName> for EventNameOwned {
     fn from(value: EventName) -> Self {
         Self(value.value().to_string())
+    }
+}
+
+impl From<EventNameOwned> for String {
+    fn from(value: EventNameOwned) -> Self {
+        value.0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn deserialization_enforces_name_constraints() {
+        for value in [
+            "_name".to_owned(),
+            "name__2".to_owned(),
+            "a".repeat(EventName::MAX_LENGTH),
+        ] {
+            let json = serde_json::to_string(&value).unwrap();
+            let decoded: EventNameOwned = serde_json::from_str(&json).unwrap();
+            assert_eq!(decoded, EventNameOwned::new(value).unwrap());
+            assert_eq!(serde_json::to_string(&decoded).unwrap(), json);
+        }
+        for value in [
+            "".to_owned(),
+            "Name".to_owned(),
+            "name-part".to_owned(),
+            "name part".to_owned(),
+            "名前".to_owned(),
+            "a".repeat(EventName::MAX_LENGTH + 1),
+        ] {
+            assert!(EventNameOwned::new(value.clone()).is_err());
+            let json = serde_json::to_string(&value).unwrap();
+            assert!(
+                serde_json::from_str::<EventNameOwned>(&json).is_err(),
+                "{value}"
+            );
+        }
     }
 }

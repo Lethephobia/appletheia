@@ -550,12 +550,12 @@ mod tests {
     }
 
     #[test]
-    fn read_model_types_follow_member_name_rules() {
+    fn read_model_types_use_ascii_snake_case() {
         assert_eq!(
-            serde_json::to_value(ReadModelType::new("user-identities")).unwrap(),
-            json!("user-identities")
+            serde_json::to_value(ReadModelType::new("user_identities")).unwrap(),
+            json!("user_identities")
         );
-        for name in ["", "_name", "name-", "a.b", "a:b", "a/b"] {
+        for name in ["", "User", "name-", "a.b", "a:b", "a/b"] {
             assert!(std::panic::catch_unwind(|| ReadModelType::new(name)).is_err());
         }
     }
