@@ -5,13 +5,13 @@ use crate::messaging::Subscription;
 use crate::unit_of_work::{UnitOfWork, UnitOfWorkFactory};
 
 use super::{
-    ProcessedEventCount, ProjectionCheckpointStore, Projector, ProjectorNameOwned,
-    ProjectorProcessedEventStore, ProjectorRebuildReport, ProjectorRebuilder,
-    ProjectorRebuilderConfig, ProjectorRebuilderError,
+    ProcessedEventCount, ProjectionCatchUp, ProjectionCatchUpConfig, ProjectionCatchUpError,
+    ProjectionCatchUpReport, ProjectionCheckpointStore, Projector, ProjectorNameOwned,
+    ProjectorProcessedEventStore,
 };
 
-/// Replays events into a projector while persisting its checkpoint.
-pub struct DefaultProjectorRebuilder<F, C, P, U>
+/// Catches a projection up to the event feed while persisting its checkpoint.
+pub struct DefaultProjectionCatchUp<F, C, P, U>
 where
     F: EventFeedReader,
     C: ProjectionCheckpointStore<Uow = F::Uow>,
@@ -22,11 +22,11 @@ where
     checkpoint_store: C,
     processed_event_store: P,
     uow_factory: U,
-    config: ProjectorRebuilderConfig,
+    config: ProjectionCatchUpConfig,
     stop_requested: AtomicBool,
 }
 
-impl<F, C, P, U> DefaultProjectorRebuilder<F, C, P, U>
+impl<F, C, P, U> DefaultProjectionCatchUp<F, C, P, U>
 where
     F: EventFeedReader,
     C: ProjectionCheckpointStore<Uow = F::Uow>,
@@ -38,7 +38,7 @@ where
         checkpoint_store: C,
         processed_event_store: P,
         uow_factory: U,
-        config: ProjectorRebuilderConfig,
+        config: ProjectionCatchUpConfig,
     ) -> Self {
         Self {
             feed_reader,
@@ -51,7 +51,7 @@ where
     }
 }
 
-impl<F, C, P, U> ProjectorRebuilder for DefaultProjectorRebuilder<F, C, P, U>
+impl<F, C, P, U> ProjectionCatchUp for DefaultProjectionCatchUp<F, C, P, U>
 where
     F: EventFeedReader,
     C: ProjectionCheckpointStore<Uow = F::Uow>,
@@ -71,10 +71,10 @@ where
     async fn run_until_idle<PJ: Projector<Uow = F::Uow>>(
         &mut self,
         projector: &PJ,
-    ) -> Result<ProjectorRebuildReport, ProjectorRebuilderError> {
+    ) -> Result<ProjectionCatchUpReport, ProjectionCatchUpError> {
         let selectors = PJ::EVENT_SELECTORS;
         if selectors.is_empty() {
-            return Ok(ProjectorRebuildReport {
+            return Ok(ProjectionCatchUpReport {
                 processed_event_count: ProcessedEventCount::zero(),
             });
         }
@@ -92,7 +92,7 @@ where
                 {
                     Ok(after) => after,
                     Err(source) => {
-                        let error = ProjectorRebuilderError::from(source);
+                        let error = ProjectionCatchUpError::from(source);
                         return Err(uow.rollback_with_operation_error(error).await?);
                     }
                 };
@@ -103,7 +103,7 @@ where
                 {
                     Ok(events) => events,
                     Err(source) => {
-                        let error = ProjectorRebuilderError::from(source);
+                        let error = ProjectionCatchUpError::from(source);
                         return Err(uow.rollback_with_operation_error(error).await?);
                     }
                 };
@@ -131,7 +131,7 @@ where
                 {
                     Ok(inserted) => inserted,
                     Err(source) => {
-                        let error = ProjectorRebuilderError::from(source);
+                        let error = ProjectionCatchUpError::from(source);
                         return Err(uow.rollback_with_operation_error(error).await?);
                     }
                 };
@@ -141,7 +141,7 @@ where
                     .save(&mut uow, projector_name.clone(), event.event_sequence)
                     .await
                 {
-                    let error = ProjectorRebuilderError::from(source);
+                    let error = ProjectionCatchUpError::from(source);
                     return Err(uow.rollback_with_operation_error(error).await?);
                 }
 
@@ -152,7 +152,7 @@ where
                 }
 
                 if let Err(source) = projector.project(&mut uow, &event).await {
-                    let error = ProjectorRebuilderError::Projection(Box::new(source));
+                    let error = ProjectionCatchUpError::Projection(Box::new(source));
                     return Err(uow.rollback_with_operation_error(error).await?);
                 }
 
@@ -161,7 +161,7 @@ where
             }
         }
 
-        Ok(ProjectorRebuildReport {
+        Ok(ProjectionCatchUpReport {
             processed_event_count,
         })
     }

@@ -583,7 +583,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn rebuild_advances_past_already_processed_events() {
+    async fn catch_up_advances_past_already_processed_events() {
         tokio::spawn(async move {
             let store = Store {
                 calls: AtomicUsize::new(0),
@@ -600,16 +600,16 @@ mod tests {
                 ProjectorNameOwned::from(ProjectorName::new("counter")),
                 first.event_id,
             ));
-            let mut rebuilder = DefaultProjectorRebuilder::new(
+            let mut catch_up = DefaultProjectionCatchUp::new(
                 Feed(vec![first, second.clone()]),
                 Checkpoints,
                 ProcessedStore,
                 factory.clone(),
-                ProjectorRebuilderConfig {
+                ProjectionCatchUpConfig {
                     batch_size: EventFeedBatchSize::new(NonZeroU32::new(10).unwrap()),
                 },
             );
-            rebuilder.run_until_idle(&projector).await.unwrap();
+            catch_up.run_until_idle(&projector).await.unwrap();
             let db = factory.0.lock().unwrap();
             assert_eq!(db.checkpoint, Some(second.event_sequence));
             assert_eq!(db.processed.len(), 2);
@@ -622,7 +622,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn rebuild_failure_rolls_back_checkpoint_and_processed_marker() {
+    async fn catch_up_failure_rolls_back_checkpoint_and_processed_marker() {
         let store = Store {
             calls: AtomicUsize::new(0),
         };
@@ -631,18 +631,18 @@ mod tests {
             reject: true,
         };
         let factory = Factory::default();
-        let mut rebuilder = DefaultProjectorRebuilder::new(
+        let mut catch_up = DefaultProjectionCatchUp::new(
             Feed(vec![event()]),
             Checkpoints,
             ProcessedStore,
             factory.clone(),
-            ProjectorRebuilderConfig {
+            ProjectionCatchUpConfig {
                 batch_size: EventFeedBatchSize::new(NonZeroU32::new(10).unwrap()),
             },
         );
         assert!(matches!(
-            rebuilder.run_until_idle(&projector).await,
-            Err(ProjectorRebuilderError::Projection(_))
+            catch_up.run_until_idle(&projector).await,
+            Err(ProjectionCatchUpError::Projection(_))
         ));
         let db = factory.0.lock().unwrap();
         assert_eq!(db.checkpoint, None);

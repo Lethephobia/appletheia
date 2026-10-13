@@ -6,7 +6,7 @@ use crate::unit_of_work::{UnitOfWorkError, UnitOfWorkFactoryError};
 use super::{ProjectionCheckpointStoreError, ProjectorProcessedEventStoreError};
 
 #[derive(Debug, Error)]
-pub enum ProjectorRebuilderError {
+pub enum ProjectionCatchUpError {
     #[error("event feed reader failed: {0}")]
     EventFeedReader(#[from] EventFeedReaderError),
 
