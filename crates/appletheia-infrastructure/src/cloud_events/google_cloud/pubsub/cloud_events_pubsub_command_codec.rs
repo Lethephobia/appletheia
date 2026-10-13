@@ -241,6 +241,8 @@ impl PubsubMessageCodec for CloudEventsPubsubCommandCodec {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use appletheia_application::CommandName;
+    use serde_json::json;
 
     #[test]
     fn id_and_type_conversions_preserve_values_and_reject_invalid_metadata() {
@@ -264,5 +266,46 @@ mod tests {
         }
         assert!(CloudEventsPubsubCommandCodec::decode_type("wrong.type", None).is_err());
         assert!(CloudEventsPubsubCommandCodec::decode_type("wrong.type", Some(&prefix)).is_err());
+    }
+
+    #[test]
+    fn binary_round_trip_preserves_mapping_and_rejects_inconsistent_origin() {
+        let id = Uuid::now_v7();
+        let origin = json!({"saga_name": "transfer", "saga_instance_id": id, "step": "debit"});
+        let source: CloudEventSource = "urn:banking".parse().unwrap();
+        let command: CommandEnvelope = serde_json::from_value(json!({
+            "command_name": "debit", "command": {"amount": 10}, "message_id": id,
+            "correlation_id": id, "causation_id": id, "saga_origin": origin
+        }))
+        .unwrap();
+        let command_codec = CloudEventsPubsubCommandCodec::new(
+            source.clone(),
+            Some("com.example".parse().unwrap()),
+        );
+        let command_wire = command_codec.encode(&command).unwrap();
+        assert_eq!(command_codec.decode(&command_wire).unwrap(), command);
+        assert_eq!(command_wire.attributes["ce-source"], "urn:banking");
+        assert_eq!(
+            command_wire.attributes["ce-datacontenttype"],
+            "application/json"
+        );
+        assert_eq!(
+            command_wire.attributes["ce-partitionkey"],
+            command_wire.ordering_key
+        );
+        assert_eq!(
+            command_codec
+                .encode_selector(&CommandSelector::new(CommandName::new("debit")))
+                .unwrap(),
+            format!(
+                "attributes.\"ce-type\" = \"{}\"",
+                command_wire.attributes["ce-type"]
+            )
+        );
+        let mut invalid_command = command_wire.clone();
+        invalid_command
+            .attributes
+            .insert("ce-saganame".to_owned(), "other".to_owned());
+        assert!(command_codec.decode(&invalid_command).is_err());
     }
 }

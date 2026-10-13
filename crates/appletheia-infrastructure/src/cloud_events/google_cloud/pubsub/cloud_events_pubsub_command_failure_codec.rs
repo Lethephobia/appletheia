@@ -340,8 +340,10 @@ mod tests {
     }
 
     #[test]
-    fn command_body_survives_wire_roundtrip_and_is_required() {
-        use appletheia_application::command::{CommandFailedAt, CommandTerminalReason};
+    fn binary_round_trip_preserves_mapping_and_rejects_invalid_command() {
+        use appletheia_application::command::{
+            CommandFailedAt, CommandName, CommandTerminalReason,
+        };
         use appletheia_application::saga::{
             SagaInstanceId, SagaName, SagaNameOwned, SerializedSagaStep,
         };
@@ -366,6 +368,23 @@ mod tests {
             CloudEventsPubsubCommandFailureCodec::new("urn:test:closure".parse().unwrap(), None);
         let message = codec.encode(&envelope).unwrap();
         assert_eq!(codec.decode(&message).unwrap(), envelope);
+        assert_eq!(message.attributes["ce-source"], "urn:test:closure");
+        assert_eq!(message.attributes["ce-datacontenttype"], "application/json");
+        assert_eq!(message.attributes["ce-partitionkey"], message.ordering_key);
+        assert_eq!(
+            codec
+                .encode_selector(&CommandFailureSelector::new(CommandName::new("close")))
+                .unwrap(),
+            format!(
+                "attributes.\"ce-type\" = \"{}\"",
+                message.attributes["ce-type"]
+            ),
+        );
+        let mut invalid = message.clone();
+        invalid
+            .attributes
+            .insert("ce-commandmessageid".to_owned(), Uuid::now_v7().to_string());
+        assert!(codec.decode(&invalid).is_err());
         let mut data: serde_json::Value = serde_json::from_slice(&message.data).unwrap();
         data.as_object_mut().unwrap().remove("command");
         let missing_body = message.clone().set_data(serde_json::to_vec(&data).unwrap());
