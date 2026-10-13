@@ -2,7 +2,8 @@ use std::collections::BTreeMap;
 
 use super::{
     ReadModel, ReadModelAttributeKey, ReadModelAttributeValue, ReadModelFieldFilter, ReadModelId,
-    ReadModelRelationship, ReadModelRelationshipKey, ReadModelResource, ReadModelViewError,
+    ReadModelRef, ReadModelRelationship, ReadModelRelationshipKey, ReadModelResource,
+    ReadModelViewError,
 };
 
 /// Pairs a read model with the field selection for one resource representation.
@@ -18,6 +19,13 @@ impl<R> ReadModelView<R>
 where
     R: ReadModel,
 {
+    pub fn read_model_ref(&self) -> ReadModelRef {
+        ReadModelRef {
+            read_model_type: R::TYPE.into(),
+            id: ReadModelId::new(self.read_model.id().to_string()),
+        }
+    }
+
     pub fn try_to_resource(&self) -> Result<ReadModelResource, ReadModelViewError> {
         let filter = &self.filter;
         let mut attributes = BTreeMap::new();

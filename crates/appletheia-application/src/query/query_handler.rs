@@ -1,6 +1,7 @@
 use std::error::Error;
 
 use crate::authorization::AuthorizationPlan;
+use crate::read_model::ReadModelDocument;
 use crate::request_context::RequestContext;
 use crate::unit_of_work::UnitOfWork;
 
@@ -9,7 +10,7 @@ use super::Query;
 #[allow(async_fn_in_trait)]
 pub trait QueryHandler: Send + Sync {
     type Query: Query;
-    type Output: serde::Serialize + Send + Sync + 'static;
+    type Output: ReadModelDocument + 'static;
     type Error: Error + Send + Sync + 'static;
     type Uow: UnitOfWork;
 

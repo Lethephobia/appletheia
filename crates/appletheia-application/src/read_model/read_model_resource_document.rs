@@ -1,10 +1,10 @@
 use serde::Serialize;
 
-use super::ReadModelResource;
+use super::{ReadModelResource, ReadModelResourceDocumentData};
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct ReadModelResourceDocument {
-    pub data: Option<ReadModelResource>,
+    pub data: ReadModelResourceDocumentData,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub included: Vec<ReadModelResource>,
 }

@@ -15,7 +15,6 @@ mod read_model_id;
 mod read_model_included;
 mod read_model_included_error;
 mod read_model_list_document;
-mod read_model_list_document_error;
 mod read_model_ref;
 mod read_model_relationship;
 mod read_model_relationship_data;
@@ -25,10 +24,11 @@ mod read_model_relationship_key_error;
 mod read_model_resource;
 mod read_model_resource_attribute_value;
 mod read_model_resource_document;
+mod read_model_resource_document_data;
 mod read_model_resource_key;
 mod read_model_resource_key_error;
-mod read_model_resource_list_document;
 mod read_model_resource_relationship;
+mod read_model_single_document;
 mod read_model_type;
 mod read_model_type_owned;
 mod read_model_type_owned_error;
@@ -52,7 +52,6 @@ pub use read_model_id::*;
 pub use read_model_included::*;
 pub use read_model_included_error::*;
 pub use read_model_list_document::*;
-pub use read_model_list_document_error::*;
 pub use read_model_ref::*;
 pub use read_model_relationship::*;
 pub use read_model_relationship_data::*;
@@ -62,10 +61,11 @@ pub use read_model_relationship_key_error::*;
 pub use read_model_resource::*;
 pub use read_model_resource_attribute_value::*;
 pub use read_model_resource_document::*;
+pub use read_model_resource_document_data::*;
 pub use read_model_resource_key::*;
 pub use read_model_resource_key_error::*;
-pub use read_model_resource_list_document::*;
 pub use read_model_resource_relationship::*;
+pub use read_model_single_document::*;
 pub use read_model_type::*;
 pub use read_model_type_owned::*;
 pub use read_model_type_owned_error::*;
@@ -449,6 +449,12 @@ mod tests {
     }
 
     impl ReadModelIncluded for ProfileIncluded {
+        fn read_model_ref(&self) -> ReadModelRef {
+            match self {
+                Self::Profile(profile) => profile.read_model_ref(),
+            }
+        }
+
         fn try_to_resource(&self) -> Result<ReadModelResource, ReadModelIncludedError> {
             match self {
                 Self::Profile(profile) => Ok(profile.try_to_resource()?),
@@ -458,7 +464,7 @@ mod tests {
 
     #[test]
     fn document_preserves_typed_data_and_each_resources_filter() {
-        let document = ReadModelDocument {
+        let document = ReadModelSingleDocument {
             data: Some(ReadModelView {
                 read_model: Profile {
                     id: Uuid::nil(),
@@ -483,6 +489,13 @@ mod tests {
                 },
             })],
         };
+        assert_eq!(
+            document.read_model_refs(),
+            vec![
+                ReadModelRef::new::<Profile>(Uuid::nil()),
+                ReadModelRef::new::<Profile>(Uuid::from_u128(42)),
+            ]
+        );
         let resource_document = document.try_to_resource_document().unwrap();
         assert_eq!(
             document.data.as_ref().unwrap().read_model.display_name,
@@ -505,8 +518,46 @@ mod tests {
     }
 
     #[test]
+    fn document_refs_deduplicate_resources_without_serializing_fields() {
+        let view = || ReadModelView {
+            read_model: Profile {
+                id: Uuid::nil(),
+                display_name: "Alice".to_owned(),
+                picture: None,
+                owner_id: Some(Uuid::from_u128(42)),
+                author_ids: vec![],
+            },
+            filter: ProfileFilter::Selected {
+                attributes: vec![ProfileAttributeKey::Reserved],
+                relationships: vec![],
+            },
+        };
+        let single = ReadModelSingleDocument {
+            data: Some(view()),
+            included: vec![ProfileIncluded::Profile(view())],
+        };
+        let list = ReadModelListDocument {
+            data: vec![view(), view()],
+            included: vec![ProfileIncluded::Profile(view())],
+        };
+        for document in [
+            &single as &dyn ReadModelDocument,
+            &list as &dyn ReadModelDocument,
+        ] {
+            assert_eq!(
+                document.read_model_refs(),
+                vec![ReadModelRef::new::<Profile>(Uuid::nil())]
+            );
+            assert!(matches!(
+                document.try_to_resource_document(),
+                Err(ReadModelDocumentError::ReadModelView(_))
+            ));
+        }
+    }
+
+    #[test]
     fn empty_documents_preserve_single_and_list_shapes() {
-        let single: ReadModelDocument<Profile, ProfileIncluded> = ReadModelDocument {
+        let single: ReadModelSingleDocument<Profile, ProfileIncluded> = ReadModelSingleDocument {
             data: None,
             included: vec![],
         };
@@ -514,6 +565,8 @@ mod tests {
             data: vec![],
             included: vec![],
         };
+        assert!(single.read_model_refs().is_empty());
+        assert!(list.read_model_refs().is_empty());
         assert_eq!(
             serde_json::to_value(single.try_to_resource_document().unwrap()).unwrap(),
             json!({"data": null})
@@ -554,6 +607,13 @@ mod tests {
             ],
             included: vec![],
         };
+        assert_eq!(
+            document.read_model_refs(),
+            vec![
+                ReadModelRef::new::<Profile>(Uuid::nil()),
+                ReadModelRef::new::<Profile>(Uuid::from_u128(42)),
+            ]
+        );
         let output = serde_json::to_value(document.try_to_resource_document().unwrap()).unwrap();
         assert_eq!(output["data"][0]["id"], Uuid::nil().to_string());
         assert_eq!(
