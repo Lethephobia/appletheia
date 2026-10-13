@@ -16,7 +16,7 @@ impl Relation for WithdrawalAccountRelation {
         UsersetExpr::this::<Withdrawal, _, WithdrawalAccountDerivationHandlerError>(|aggregate| {
             let mut entries = RelationshipEntries::new();
             entries
-                .insert::<Withdrawal, Account>(aggregate.aggregate_id(), *aggregate.account_id()?);
+                .insert::<Withdrawal, Account>(aggregate.aggregate_id(), aggregate.account_id()?);
             Ok(entries)
         })
     }

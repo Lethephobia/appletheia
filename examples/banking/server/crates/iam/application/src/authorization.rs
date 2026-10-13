@@ -149,9 +149,9 @@ mod tests {
         assert!(created.iter().any(|entry| entry.relation
             == OrganizationMemberRelation::REF.into()
             && entry.target
-                == AggregateRef::from_id::<Organization>(*aggregate.organization_id().unwrap())
+                == AggregateRef::from_id::<Organization>(aggregate.organization_id().unwrap())
             && entry.subject
-                == RelationshipSubject::aggregate::<User>(*aggregate.user_id().unwrap())));
+                == RelationshipSubject::aggregate::<User>(aggregate.user_id().unwrap())));
         aggregate.remove().unwrap();
         let removed = snapshot.derive(&aggregate).unwrap();
         assert_eq!(removed.len(), 1);
@@ -223,7 +223,7 @@ mod tests {
             handler_calls.fetch_add(1, Ordering::SeqCst);
             let mut entries = RelationshipEntries::new();
             entries
-                .insert::<Organization, User>(*aggregate.organization_id()?, *aggregate.user_id()?);
+                .insert::<Organization, User>(aggregate.organization_id()?, aggregate.user_id()?);
             Ok(entries)
         });
         let mut model = InMemoryAuthorizationModel::new();
@@ -286,7 +286,7 @@ mod tests {
                 InvalidMemberDerivationHandlerError,
             >(|aggregate| {
                 let mut entries = RelationshipEntries::new();
-                entries.insert::<User, User>(*aggregate.user_id()?, *aggregate.user_id()?);
+                entries.insert::<User, User>(aggregate.user_id()?, aggregate.user_id()?);
                 Ok(entries)
             })));
         }
@@ -370,8 +370,8 @@ mod tests {
                         let mut entries = RelationshipEntries::new();
                         if enabled && aggregate.is_active()? {
                             entries.insert::<Organization, User>(
-                                *aggregate.organization_id()?,
-                                *aggregate.user_id()?,
+                                aggregate.organization_id()?,
+                                aggregate.user_id()?,
                             );
                         }
                         Ok(entries)

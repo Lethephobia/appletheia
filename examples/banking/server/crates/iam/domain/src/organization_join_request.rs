@@ -31,13 +31,13 @@ pub struct OrganizationJoinRequest {
 
 impl OrganizationJoinRequest {
     /// Returns the organization that received the join request.
-    pub fn organization_id(&self) -> Result<&OrganizationId, OrganizationJoinRequestError> {
-        Ok(&self.state_required()?.organization_id)
+    pub fn organization_id(&self) -> Result<OrganizationId, OrganizationJoinRequestError> {
+        Ok(self.state_required()?.organization_id)
     }
 
     /// Returns the requesting user.
-    pub fn requester_id(&self) -> Result<&UserId, OrganizationJoinRequestError> {
-        Ok(&self.state_required()?.requester_id)
+    pub fn requester_id(&self) -> Result<UserId, OrganizationJoinRequestError> {
+        Ok(self.state_required()?.requester_id)
     }
 
     /// Returns the current join request status.
@@ -188,13 +188,13 @@ mod tests {
             join_request
                 .organization_id()
                 .expect("organization id should exist"),
-            &organization_id
+            organization_id
         );
         assert_eq!(
             join_request
                 .requester_id()
                 .expect("requester id should exist"),
-            &requester_id
+            requester_id
         );
         assert_eq!(
             join_request.status().expect("status should exist"),

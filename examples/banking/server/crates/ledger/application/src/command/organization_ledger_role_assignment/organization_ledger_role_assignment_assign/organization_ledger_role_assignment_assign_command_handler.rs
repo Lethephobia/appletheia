@@ -82,7 +82,7 @@ where
                         OrganizationLedgerRoleAssignmentAssignCommandHandlerError::AssigneeInactive,
                     );
                 }
-                if *membership.organization_id()? != command.organization_id {
+                if membership.organization_id()? != command.organization_id {
                     return Err(OrganizationLedgerRoleAssignmentAssignCommandHandlerError::OrganizationMismatch);
                 }
             }
@@ -93,7 +93,7 @@ where
                         OrganizationLedgerRoleAssignmentAssignCommandHandlerError::AssigneeInactive,
                     );
                 }
-                if *team.organization_id()? != command.organization_id {
+                if team.organization_id()? != command.organization_id {
                     return Err(OrganizationLedgerRoleAssignmentAssignCommandHandlerError::OrganizationMismatch);
                 }
             }

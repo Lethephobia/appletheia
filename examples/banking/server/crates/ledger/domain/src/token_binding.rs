@@ -35,8 +35,8 @@ impl TokenBinding {
         Ok(self.state_required()?.chain_network)
     }
 
-    pub fn token_address(&self) -> Result<&TokenAddress, TokenBindingError> {
-        Ok(&self.state_required()?.token_address)
+    pub fn token_address(&self) -> Result<TokenAddress, TokenBindingError> {
+        Ok(self.state_required()?.token_address)
     }
 
     pub fn is_deposit_enabled(&self) -> Result<bool, TokenBindingError> {

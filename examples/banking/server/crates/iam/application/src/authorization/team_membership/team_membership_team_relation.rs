@@ -14,10 +14,8 @@ impl Relation for TeamMembershipTeamRelation {
         UsersetExpr::this::<TeamMembership, _, TeamMembershipTeamDerivationHandlerError>(
             |aggregate| {
                 let mut entries = RelationshipEntries::new();
-                entries.insert::<TeamMembership, Team>(
-                    aggregate.aggregate_id(),
-                    *aggregate.team_id()?,
-                );
+                entries
+                    .insert::<TeamMembership, Team>(aggregate.aggregate_id(), aggregate.team_id()?);
                 Ok(entries)
             },
         )

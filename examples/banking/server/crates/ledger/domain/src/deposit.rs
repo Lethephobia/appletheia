@@ -35,8 +35,8 @@ pub struct Deposit {
 
 impl Deposit {
     /// Returns the destination account.
-    pub fn account_id(&self) -> Result<&AccountId, DepositError> {
-        Ok(&self.state_required()?.account_id)
+    pub fn account_id(&self) -> Result<AccountId, DepositError> {
+        Ok(self.state_required()?.account_id)
     }
 
     /// Returns the token binding selected for this deposit.
@@ -45,8 +45,8 @@ impl Deposit {
     }
 
     /// Returns the owner of the external tokens deposited on-chain.
-    pub fn token_owner_address(&self) -> Result<&TokenOwnerAddress, DepositError> {
-        Ok(&self.state_required()?.token_owner_address)
+    pub fn token_owner_address(&self) -> Result<TokenOwnerAddress, DepositError> {
+        Ok(self.state_required()?.token_owner_address)
     }
 
     /// Returns the deposit amount.
@@ -59,13 +59,13 @@ impl Deposit {
     }
 
     /// Returns the verified transaction identifier when settlement has succeeded.
-    pub fn transaction_id(&self) -> Result<Option<&OnchainTransactionId>, DepositError> {
-        Ok(self.state_required()?.transaction_id.as_ref())
+    pub fn transaction_id(&self) -> Result<Option<OnchainTransactionId>, DepositError> {
+        Ok(self.state_required()?.transaction_id)
     }
 
     /// Returns the current status.
-    pub fn status(&self) -> Result<&DepositStatus, DepositError> {
-        Ok(&self.state_required()?.status)
+    pub fn status(&self) -> Result<DepositStatus, DepositError> {
+        Ok(self.state_required()?.status)
     }
 
     /// Requests a deposit before its on-chain token settlement.
@@ -248,11 +248,11 @@ mod tests {
             deposit
                 .token_owner_address()
                 .expect("deposit state should exist"),
-            &token_owner_address
+            token_owner_address
         );
         assert_eq!(
             deposit.status().expect("deposit state should exist"),
-            &DepositStatus::SettlementVerified
+            DepositStatus::SettlementVerified
         );
         assert_eq!(
             deposit.uncommitted_events()[0].payload().name(),

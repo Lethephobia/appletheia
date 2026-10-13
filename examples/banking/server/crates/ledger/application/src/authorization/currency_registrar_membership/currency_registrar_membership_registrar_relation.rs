@@ -24,7 +24,7 @@ impl Relation for CurrencyRegistrarMembershipRegistrarRelation {
             let mut entries = RelationshipEntries::new();
             entries.insert::<CurrencyRegistrarMembership, CurrencyRegistrar>(
                 aggregate.aggregate_id(),
-                *aggregate.currency_registrar_id()?,
+                aggregate.currency_registrar_id()?,
             );
             Ok(entries)
         })

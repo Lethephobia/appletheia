@@ -35,8 +35,8 @@ pub struct Withdrawal {
 
 impl Withdrawal {
     /// Returns the source account.
-    pub fn account_id(&self) -> Result<&AccountId, WithdrawalError> {
-        Ok(&self.state_required()?.account_id)
+    pub fn account_id(&self) -> Result<AccountId, WithdrawalError> {
+        Ok(self.state_required()?.account_id)
     }
 
     /// Returns the token binding selected for this withdrawal.
@@ -45,8 +45,8 @@ impl Withdrawal {
     }
 
     /// Returns the destination token owner address.
-    pub fn token_owner_address(&self) -> Result<&TokenOwnerAddress, WithdrawalError> {
-        Ok(&self.state_required()?.token_owner_address)
+    pub fn token_owner_address(&self) -> Result<TokenOwnerAddress, WithdrawalError> {
+        Ok(self.state_required()?.token_owner_address)
     }
 
     /// Returns the withdrawal amount.
@@ -59,13 +59,13 @@ impl Withdrawal {
     }
 
     /// Returns the verified settlement transaction when available.
-    pub fn transaction_id(&self) -> Result<Option<&OnchainTransactionId>, WithdrawalError> {
-        Ok(self.state_required()?.transaction_id.as_ref())
+    pub fn transaction_id(&self) -> Result<Option<OnchainTransactionId>, WithdrawalError> {
+        Ok(self.state_required()?.transaction_id)
     }
 
     /// Returns the current status.
-    pub fn status(&self) -> Result<&WithdrawalStatus, WithdrawalError> {
-        Ok(&self.state_required()?.status)
+    pub fn status(&self) -> Result<WithdrawalStatus, WithdrawalError> {
+        Ok(self.state_required()?.status)
     }
 
     /// Requests a new withdrawal workflow.
@@ -247,7 +247,7 @@ mod tests {
 
         assert_eq!(
             withdrawal.status().expect("withdrawal state should exist"),
-            &WithdrawalStatus::SettlementExecuted
+            WithdrawalStatus::SettlementExecuted
         );
         assert_eq!(
             withdrawal.uncommitted_events()[0].payload().name(),

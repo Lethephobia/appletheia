@@ -191,7 +191,7 @@ impl EthereumDepositSettlementTransactionPreparer
         Ok(EthereumDepositSettlementTransactionPreparation::new(
             EvmTransactionRequest::new(
                 EvmChainId::new(chain_id),
-                *request.token_owner_address().address(),
+                request.token_owner_address().address(),
                 self.config.settlement_contract,
                 EvmCallData::from_bytes(call_data.to_vec()),
             ),

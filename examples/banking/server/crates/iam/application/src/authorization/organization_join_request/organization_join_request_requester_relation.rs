@@ -24,7 +24,7 @@ impl Relation for OrganizationJoinRequestRequesterRelation {
             let mut entries = RelationshipEntries::new();
             entries.insert::<OrganizationJoinRequest, User>(
                 aggregate.aggregate_id(),
-                *aggregate.requester_id()?,
+                aggregate.requester_id()?,
             );
             Ok(entries)
         })

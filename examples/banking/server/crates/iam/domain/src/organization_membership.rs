@@ -36,13 +36,13 @@ pub struct OrganizationMembership {
 
 impl OrganizationMembership {
     /// Returns the organization the membership belongs to.
-    pub fn organization_id(&self) -> Result<&OrganizationId, OrganizationMembershipError> {
-        Ok(&self.state_required()?.organization_id)
+    pub fn organization_id(&self) -> Result<OrganizationId, OrganizationMembershipError> {
+        Ok(self.state_required()?.organization_id)
     }
 
     /// Returns the member user.
-    pub fn user_id(&self) -> Result<&UserId, OrganizationMembershipError> {
-        Ok(&self.state_required()?.user_id)
+    pub fn user_id(&self) -> Result<UserId, OrganizationMembershipError> {
+        Ok(self.state_required()?.user_id)
     }
 
     /// Returns the current membership status.
@@ -156,12 +156,9 @@ mod tests {
             membership
                 .organization_id()
                 .expect("organization id should exist"),
-            &organization_id
+            organization_id
         );
-        assert_eq!(
-            membership.user_id().expect("user id should exist"),
-            &user_id
-        );
+        assert_eq!(membership.user_id().expect("user id should exist"), user_id);
         assert_eq!(
             membership.status().expect("status should exist"),
             OrganizationMembershipStatus::Active

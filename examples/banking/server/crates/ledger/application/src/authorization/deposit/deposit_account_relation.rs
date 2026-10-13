@@ -15,7 +15,7 @@ impl Relation for DepositAccountRelation {
     fn expr(&self) -> UsersetExpr {
         UsersetExpr::this::<Deposit, _, DepositAccountDerivationHandlerError>(|aggregate| {
             let mut entries = RelationshipEntries::new();
-            entries.insert::<Deposit, Account>(aggregate.aggregate_id(), *aggregate.account_id()?);
+            entries.insert::<Deposit, Account>(aggregate.aggregate_id(), aggregate.account_id()?);
             Ok(entries)
         })
     }

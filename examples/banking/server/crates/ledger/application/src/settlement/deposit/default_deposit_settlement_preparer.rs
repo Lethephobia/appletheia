@@ -46,8 +46,8 @@ where
     ) -> Result<DepositSettlementPreparation, DepositSettlementPreparerError> {
         let preparation = match (
             request.chain_network(),
-            *request.token_address(),
-            *request.token_owner_address(),
+            request.token_address(),
+            request.token_owner_address(),
         ) {
             (
                 ChainNetwork::Solana,
@@ -159,7 +159,7 @@ mod tests {
             Ok(EthereumDepositSettlementTransactionPreparation::new(
                 EvmTransactionRequest::new(
                     EvmChainId::new(11_155_111),
-                    *request.token_owner_address().address(),
+                    request.token_owner_address().address(),
                     EvmAddress::from_bytes([5; 20]),
                     EvmCallData::from_bytes(b"transaction".to_vec()),
                 ),

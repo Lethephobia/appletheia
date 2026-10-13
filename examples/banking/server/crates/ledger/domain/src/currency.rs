@@ -31,8 +31,8 @@ pub struct Currency {
 }
 
 impl Currency {
-    pub fn currency_registrar_id(&self) -> Result<&CurrencyRegistrarId, CurrencyError> {
-        Ok(&self.state_required()?.currency_registrar_id)
+    pub fn currency_registrar_id(&self) -> Result<CurrencyRegistrarId, CurrencyError> {
+        Ok(self.state_required()?.currency_registrar_id)
     }
 
     pub fn code(&self) -> Result<&CurrencyCode, CurrencyError> {

@@ -30,12 +30,12 @@ fn user_owner_ref_value(
     state: &WalletBookmarkState,
     _aggregate_id: Uuid,
 ) -> Result<Option<UserId>, WalletBookmarkStateError> {
-    Ok(state.owner.user_id().copied())
+    Ok(state.owner.user_id())
 }
 
 fn organization_owner_ref_value(
     state: &WalletBookmarkState,
     _aggregate_id: Uuid,
 ) -> Result<Option<OrganizationId>, WalletBookmarkStateError> {
-    Ok(state.owner.organization_id().copied())
+    Ok(state.owner.organization_id())
 }

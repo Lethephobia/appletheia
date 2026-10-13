@@ -66,11 +66,11 @@ where
             .await?;
         let account = self
             .repository
-            .read_shared::<Account>(uow, *withdrawal.account_id()?)
+            .read_shared::<Account>(uow, withdrawal.account_id()?)
             .await?;
         let currency = self
             .repository
-            .read_shared::<Currency>(uow, *account.currency_id()?)
+            .read_shared::<Currency>(uow, account.currency_id()?)
             .await?;
         let token_binding_id = withdrawal.token_binding_id()?;
         let token_binding = match self
@@ -88,7 +88,7 @@ where
             }
             Err(error) => return Err(error.into()),
         };
-        if token_binding.currency_id()? != *account.currency_id()? {
+        if token_binding.currency_id()? != account.currency_id()? {
             return Err(WithdrawalError::TokenBindingUnavailable.into());
         }
         let chain_network = token_binding.chain_network()?;
@@ -98,8 +98,8 @@ where
                 command.withdrawal_id,
                 currency.decimals()?,
                 chain_network,
-                *token_binding.token_address()?,
-                *withdrawal.token_owner_address()?,
+                token_binding.token_address()?,
+                withdrawal.token_owner_address()?,
                 withdrawal.amount()?,
             ))
             .await?;

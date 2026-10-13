@@ -17,7 +17,7 @@ impl Relation for TransferFromAccountRelation {
             let mut entries = RelationshipEntries::new();
             entries.insert::<Transfer, Account>(
                 aggregate.aggregate_id(),
-                *aggregate.from_account_id()?,
+                aggregate.from_account_id()?,
             );
             Ok(entries)
         })

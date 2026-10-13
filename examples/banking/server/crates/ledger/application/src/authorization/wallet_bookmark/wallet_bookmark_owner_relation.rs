@@ -15,7 +15,7 @@ impl Relation for WalletBookmarkOwnerRelation {
         UsersetExpr::this::<WalletBookmark, _, WalletBookmarkOwnerDerivationHandlerError>(
             |aggregate| {
                 let mut entries = RelationshipEntries::new();
-                match *aggregate.owner()? {
+                match aggregate.owner()? {
                     WalletBookmarkOwner::User(id) => {
                         entries.insert::<WalletBookmark, User>(aggregate.aggregate_id(), id);
                     }

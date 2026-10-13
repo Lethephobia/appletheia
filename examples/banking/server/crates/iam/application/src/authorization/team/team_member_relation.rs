@@ -21,9 +21,9 @@ impl Relation for TeamMemberRelation {
                 let mut entries = RelationshipEntries::new();
                 if aggregate.is_active()? {
                     entries.insert_entry(RelationshipEntry::from_parts(
-                        AggregateRef::from_id::<Team>(*aggregate.team_id()?),
+                        AggregateRef::from_id::<Team>(aggregate.team_id()?),
                         RelationshipSubject::aggregate_set::<OrganizationMembership>(
-                            *aggregate.organization_membership_id()?,
+                            aggregate.organization_membership_id()?,
                             OrganizationMembershipUserRelation::REF,
                         ),
                     ));

@@ -36,25 +36,25 @@ pub struct OrganizationInvitation {
 
 impl OrganizationInvitation {
     /// Returns the organization that issued the invitation.
-    pub fn organization_id(&self) -> Result<&OrganizationId, OrganizationInvitationError> {
-        Ok(&self.state_required()?.organization_id)
+    pub fn organization_id(&self) -> Result<OrganizationId, OrganizationInvitationError> {
+        Ok(self.state_required()?.organization_id)
     }
 
     /// Returns the invited user.
-    pub fn invitee_id(&self) -> Result<&UserId, OrganizationInvitationError> {
-        Ok(&self.state_required()?.invitee_id)
+    pub fn invitee_id(&self) -> Result<UserId, OrganizationInvitationError> {
+        Ok(self.state_required()?.invitee_id)
     }
 
     /// Returns who issued the invitation.
-    pub fn issuer(&self) -> Result<&OrganizationInvitationIssuer, OrganizationInvitationError> {
-        Ok(&self.state_required()?.issuer)
+    pub fn issuer(&self) -> Result<OrganizationInvitationIssuer, OrganizationInvitationError> {
+        Ok(self.state_required()?.issuer)
     }
 
     /// Returns the invitation expiration timestamp.
     pub fn expires_at(
         &self,
-    ) -> Result<&OrganizationInvitationExpiresAt, OrganizationInvitationError> {
-        Ok(&self.state_required()?.expires_at)
+    ) -> Result<OrganizationInvitationExpiresAt, OrganizationInvitationError> {
+        Ok(self.state_required()?.expires_at)
     }
 
     /// Returns the current invitation status.
@@ -253,16 +253,16 @@ mod tests {
             invitation
                 .organization_id()
                 .expect("organization id should exist"),
-            &organization_id
+            organization_id
         );
         assert_eq!(
             invitation.invitee_id().expect("invitee id should exist"),
-            &invitee_id
+            invitee_id
         );
-        assert_eq!(invitation.issuer().expect("issuer should exist"), &issuer);
+        assert_eq!(invitation.issuer().expect("issuer should exist"), issuer);
         assert_eq!(
             invitation.expires_at().expect("expires at should exist"),
-            &expires_at
+            expires_at
         );
         assert_eq!(
             invitation.status().expect("status should exist"),

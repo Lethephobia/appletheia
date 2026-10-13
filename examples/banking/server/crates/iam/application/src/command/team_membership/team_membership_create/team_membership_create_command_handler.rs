@@ -79,7 +79,7 @@ where
         }
         let organization = self
             .repository
-            .read_shared::<Organization>(uow, *team.organization_id()?)
+            .read_shared::<Organization>(uow, team.organization_id()?)
             .await?;
         if !organization.is_active()? {
             return Err(TeamMembershipCreateCommandHandlerError::OrganizationRemoved);
@@ -327,9 +327,9 @@ mod tests {
                     assert_eq!(uow.saved.len(), 1);
                     let saved = uow.saved[0].try_to_aggregate::<TeamMembership>().unwrap();
                     assert_eq!(saved.aggregate_id(), output.team_membership_id);
-                    assert_eq!(*saved.team_id().unwrap(), team.aggregate_id());
+                    assert_eq!(saved.team_id().unwrap(), team.aggregate_id());
                     assert_eq!(
-                        *saved.organization_membership_id().unwrap(),
+                        saved.organization_membership_id().unwrap(),
                         organization_membership.aggregate_id()
                     );
                 }

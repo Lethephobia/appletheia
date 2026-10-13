@@ -17,8 +17,8 @@ impl EvmTokenOwnerAddress {
     }
 
     /// Returns the common EVM address.
-    pub fn address(&self) -> &EvmAddress {
-        &self.0
+    pub fn address(&self) -> EvmAddress {
+        self.0
     }
 }
 

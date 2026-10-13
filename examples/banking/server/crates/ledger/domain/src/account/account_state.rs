@@ -31,14 +31,14 @@ fn owner_user_ref_value(
     state: &AccountState,
     _aggregate_id: Uuid,
 ) -> Result<Option<UserId>, AccountStateError> {
-    Ok(state.owner.user_id().copied())
+    Ok(state.owner.user_id())
 }
 
 fn owner_organization_ref_value(
     state: &AccountState,
     _aggregate_id: Uuid,
 ) -> Result<Option<OrganizationId>, AccountStateError> {
-    Ok(state.owner.organization_id().copied())
+    Ok(state.owner.organization_id())
 }
 
 fn currency_ref_value(
