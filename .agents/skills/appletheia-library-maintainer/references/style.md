@@ -272,6 +272,44 @@ pub struct AggregateCore { /* ... */ }
 pub struct EventEnvelope { /* ... */ }
 ```
 
+## Getters
+
+### PREFER returning small `Copy` values from getters
+
+Return small `Copy` attributes, such as IDs, numeric value objects, and enums, by value instead
+of borrowing them. Apply the same rule inside `Option` and `Result` so callers do not need
+unnecessary dereferencing or `.copied()` calls.
+
+Keep references for borrowing views such as `as_bytes()`, collection iterators, and contracts
+that require references. Large `Copy` values may also justify borrowing. Do not add `Copy`
+implementations or generic `Copy` bounds solely to follow this preference.
+
+The following getter excerpts assume `AccountId` implements `Copy`.
+
+**Good**
+
+```rust
+pub fn account_id(&self) -> AccountId {
+    self.account_id
+}
+
+pub fn destination_account_id(&self) -> Option<AccountId> {
+    self.destination_account_id
+}
+```
+
+**Bad**
+
+```rust
+pub fn account_id(&self) -> &AccountId {
+    &self.account_id
+}
+
+pub fn destination_account_id(&self) -> Option<&AccountId> {
+    self.destination_account_id.as_ref()
+}
+```
+
 ## Visibility
 
 ### PREFER `pub(super)` or `pub(crate)` for helpers and fields that do not belong in the public API
