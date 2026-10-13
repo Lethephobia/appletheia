@@ -1,6 +1,7 @@
 pub mod command;
 pub mod command_failure;
 pub mod event;
+pub mod read_model_change;
 
 mod default_outbox_relay;
 mod outbox_attempt_count;

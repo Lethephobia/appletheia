@@ -277,6 +277,45 @@ CREATE TABLE IF NOT EXISTS command_failure_dead_letters (
   dead_lettered_at          TIMESTAMPTZ NOT NULL
 );
 
+-- read model change outbox
+CREATE TABLE IF NOT EXISTS read_model_change_outbox (
+  id                           UUID        PRIMARY KEY,
+  change_id                    UUID        NOT NULL UNIQUE,
+  source_event_id              UUID        NOT NULL,
+  changed_at                   TIMESTAMPTZ NOT NULL,
+  read_model_type              TEXT        NOT NULL,
+  read_model_id                TEXT        NOT NULL,
+  published_at                 TIMESTAMPTZ,
+  attempt_count                BIGINT      NOT NULL DEFAULT 0,
+  next_attempt_after           TIMESTAMPTZ NOT NULL DEFAULT now(),
+  lease_owner                  TEXT,
+  lease_until                  TIMESTAMPTZ,
+  last_error                   JSONB
+);
+
+CREATE INDEX IF NOT EXISTS idx_read_model_change_outbox_pending
+  ON read_model_change_outbox (next_attempt_after, id) WHERE published_at IS NULL;
+
+-- read model change dead letters
+CREATE TABLE IF NOT EXISTS read_model_change_dead_letters (
+  read_model_change_outbox_id  UUID        PRIMARY KEY,
+  change_id                    UUID        NOT NULL UNIQUE,
+  source_event_id              UUID        NOT NULL,
+  changed_at                   TIMESTAMPTZ NOT NULL,
+  read_model_type              TEXT        NOT NULL,
+  read_model_id                TEXT        NOT NULL,
+  published_at                 TIMESTAMPTZ,
+  attempt_count                BIGINT      NOT NULL DEFAULT 0,
+  next_attempt_after           TIMESTAMPTZ NOT NULL DEFAULT now(),
+  lease_owner                  TEXT,
+  lease_until                  TIMESTAMPTZ,
+  last_error                   JSONB,
+  dead_lettered_at             TIMESTAMPTZ NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_read_model_change_dead_letters_time
+  ON read_model_change_dead_letters (dead_lettered_at, read_model_change_outbox_id);
+
 -- idempotency
 CREATE TABLE IF NOT EXISTS idempotency (
   id            UUID        PRIMARY KEY,

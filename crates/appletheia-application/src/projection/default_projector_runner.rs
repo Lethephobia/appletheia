@@ -1,5 +1,7 @@
 use crate::event::EventEnvelope;
 use crate::messaging::Subscription;
+use crate::outbox::read_model_change::ReadModelChangeOutboxEnqueuer;
+use crate::read_model::ReadModelChangeEnvelope;
 use crate::unit_of_work::{UnitOfWork, UnitOfWorkFactory};
 
 use super::{
@@ -8,23 +10,31 @@ use super::{
 };
 
 /// Persists projection updates and records processed events in one transaction.
-pub struct DefaultProjectorRunner<P, U>
+pub struct DefaultProjectorRunner<P, E, U>
 where
     P: ProjectorProcessedEventStore,
+    E: ReadModelChangeOutboxEnqueuer<Uow = P::Uow>,
     U: UnitOfWorkFactory<Uow = P::Uow>,
 {
     processed_event_store: P,
+    read_model_change_outbox_enqueuer: E,
     uow_factory: U,
 }
 
-impl<P, U> DefaultProjectorRunner<P, U>
+impl<P, E, U> DefaultProjectorRunner<P, E, U>
 where
     P: ProjectorProcessedEventStore,
+    E: ReadModelChangeOutboxEnqueuer<Uow = P::Uow>,
     U: UnitOfWorkFactory<Uow = P::Uow>,
 {
-    pub fn new(processed_event_store: P, uow_factory: U) -> Self {
+    pub fn new(
+        processed_event_store: P,
+        read_model_change_outbox_enqueuer: E,
+        uow_factory: U,
+    ) -> Self {
         Self {
             processed_event_store,
+            read_model_change_outbox_enqueuer,
             uow_factory,
         }
     }
@@ -51,18 +61,26 @@ where
             return Ok(ProjectorRunReport::SkippedAlreadyProcessed);
         }
 
-        projector
+        let changes = projector
             .project(uow, event)
             .await
             .map_err(|source| ProjectorRunnerError::Projection(Box::new(source)))?;
+
+        for change in changes {
+            let envelope = ReadModelChangeEnvelope::new(event.event_id, change);
+            self.read_model_change_outbox_enqueuer
+                .enqueue(uow, &envelope)
+                .await?;
+        }
 
         Ok(ProjectorRunReport::Applied)
     }
 }
 
-impl<P, U> ProjectorRunner for DefaultProjectorRunner<P, U>
+impl<P, E, U> ProjectorRunner for DefaultProjectorRunner<P, E, U>
 where
     P: ProjectorProcessedEventStore,
+    E: ReadModelChangeOutboxEnqueuer<Uow = P::Uow>,
     U: UnitOfWorkFactory<Uow = P::Uow>,
 {
     type Uow = P::Uow;

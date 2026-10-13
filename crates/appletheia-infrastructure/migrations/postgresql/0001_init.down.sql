@@ -38,6 +38,12 @@ DROP TABLE IF EXISTS saga_instances;
 -- idempotency
 DROP TABLE IF EXISTS idempotency;
 
+-- read model change dead letters
+DROP TABLE IF EXISTS read_model_change_dead_letters;
+
+-- read model change outbox
+DROP TABLE IF EXISTS read_model_change_outbox;
+
 -- command failure dead letters
 DROP TABLE IF EXISTS command_failure_dead_letters;
 

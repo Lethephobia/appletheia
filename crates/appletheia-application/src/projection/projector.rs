@@ -1,3 +1,4 @@
+use crate::read_model::ReadModelChange;
 use std::error::Error;
 
 use crate::event::{EventEnvelope, EventEnvelopeError, EventSelector};
@@ -14,7 +15,13 @@ pub trait Projector: Send + Sync {
     const NAME: ProjectorName;
     const EVENT_SELECTORS: &'static [EventSelector];
 
-    async fn project(&self, uow: &mut Self::Uow, event: &EventEnvelope) -> Result<(), Self::Error>;
+    /// Returns the resources that need to be queried again after these writes commit.
+    /// Return an empty collection when no watched resource changed.
+    async fn project(
+        &self,
+        uow: &mut Self::Uow,
+        event: &EventEnvelope,
+    ) -> Result<Vec<ReadModelChange>, Self::Error>;
 }
 
 #[cfg(test)]
@@ -176,6 +183,10 @@ mod tests {
         Consumer, ConsumerError, ConsumerGroup, Delivery, DeliveryError, Subscriber,
         SubscriberError,
     };
+    use crate::outbox::read_model_change::{
+        ReadModelChangeOutboxEnqueueError, ReadModelChangeOutboxEnqueuer,
+    };
+    use crate::read_model::{ReadModelChangeEnvelope, ReadModelRef};
     use crate::{
         aggregate::{AggregateIdValue, AggregateTypeOwned},
         event::{EventEnvelopeError, EventNameOwned, EventSequence, SerializedEventPayload},
@@ -208,6 +219,7 @@ mod tests {
         processed: HashSet<(ProjectorNameOwned, EventId)>,
         writes: usize,
         checkpoint: Option<EventSequence>,
+        changes: Vec<ReadModelChangeEnvelope>,
     }
 
     struct Transaction {
@@ -237,6 +249,28 @@ mod tests {
                 database: self.0.clone(),
                 pending: self.0.lock().unwrap().clone(),
             })
+        }
+    }
+
+    struct ChangeEnqueuer {
+        reject: bool,
+    }
+
+    impl ReadModelChangeOutboxEnqueuer for ChangeEnqueuer {
+        type Uow = Transaction;
+
+        async fn enqueue(
+            &self,
+            uow: &mut Transaction,
+            change: &ReadModelChangeEnvelope,
+        ) -> Result<(), ReadModelChangeOutboxEnqueueError> {
+            uow.pending.changes.push(change.clone());
+            if self.reject {
+                return Err(ReadModelChangeOutboxEnqueueError::Persistence(Box::new(
+                    std::io::Error::other("enqueue rejected"),
+                )));
+            }
+            Ok(())
         }
     }
 
@@ -313,14 +347,17 @@ mod tests {
             &self,
             uow: &mut Self::Uow,
             envelope: &EventEnvelope,
-        ) -> Result<(), Self::Error> {
+        ) -> Result<Vec<ReadModelChange>, Self::Error> {
             let event = envelope.try_to_domain_event::<Counter>()?;
             assert!(matches!(event.payload(), CounterEventPayload::Opened));
             self.store.write(uow).await;
             if self.reject {
                 return Err(HandlerError::Rejected);
             }
-            Ok(())
+            Ok(vec![ReadModelChange::new(ReadModelRef {
+                read_model_type: "counters".parse().unwrap(),
+                id: envelope.aggregate_id.to_string().into(),
+            })])
         }
     }
 
@@ -360,7 +397,11 @@ mod tests {
         );
         assert_eq!(store.calls.load(Ordering::SeqCst), 0);
         let factory = Factory::default();
-        let runner = DefaultProjectorRunner::new(ProcessedStore, factory.clone());
+        let runner = DefaultProjectorRunner::new(
+            ProcessedStore,
+            ChangeEnqueuer { reject: false },
+            factory.clone(),
+        );
         assert_eq!(
             runner.project(&projector, &input).await.unwrap(),
             ProjectorRunReport::Applied
@@ -376,6 +417,12 @@ mod tests {
             ProjectorRunReport::SkippedNotSubscribed
         );
         let db = factory.0.lock().unwrap();
+        assert_eq!(db.changes.len(), 1);
+        assert_eq!(db.changes[0].source_event_id, input.event_id);
+        assert_eq!(
+            db.changes[0].change.read_model_ref().id.value(),
+            input.aggregate_id.to_string()
+        );
         assert_eq!(db.writes, 1);
         assert_eq!(db.processed.len(), 1);
         assert_eq!(store.calls.load(Ordering::SeqCst), 1);
@@ -391,7 +438,11 @@ mod tests {
             reject: true,
         };
         let factory = Factory::default();
-        let runner = DefaultProjectorRunner::new(ProcessedStore, factory.clone());
+        let runner = DefaultProjectorRunner::new(
+            ProcessedStore,
+            ChangeEnqueuer { reject: false },
+            factory.clone(),
+        );
         assert!(matches!(
             runner.project(&projector, &event()).await,
             Err(ProjectorRunnerError::Projection(_))
@@ -408,9 +459,70 @@ mod tests {
             Some(HandlerError::EventEnvelope(_))
         ));
         let db = factory.0.lock().unwrap();
+        assert!(db.changes.is_empty());
         assert_eq!(db.writes, 0);
         assert!(db.processed.is_empty());
         assert_eq!(store.calls.load(Ordering::SeqCst), 1);
+    }
+
+    #[tokio::test]
+    async fn enqueue_failure_rolls_back_projection_and_processed_marker() {
+        let store = Store {
+            calls: AtomicUsize::new(0),
+        };
+        let projector = CounterProjector {
+            store: &store,
+            reject: false,
+        };
+        let factory = Factory::default();
+        let runner = DefaultProjectorRunner::new(
+            ProcessedStore,
+            ChangeEnqueuer { reject: true },
+            factory.clone(),
+        );
+        assert!(matches!(
+            runner.project(&projector, &event()).await,
+            Err(ProjectorRunnerError::ReadModelChangeOutboxEnqueue(_))
+        ));
+        let db = factory.0.lock().unwrap();
+        assert_eq!(db.writes, 0);
+        assert!(db.processed.is_empty());
+        assert!(db.changes.is_empty());
+    }
+
+    struct EmptyProjector;
+
+    impl Projector for EmptyProjector {
+        type Uow = Transaction;
+        type Error = HandlerError;
+
+        const NAME: ProjectorName = ProjectorName::new("empty");
+        const EVENT_SELECTORS: &'static [EventSelector] = CounterProjector::EVENT_SELECTORS;
+
+        async fn project(
+            &self,
+            _uow: &mut Transaction,
+            _event: &EventEnvelope,
+        ) -> Result<Vec<ReadModelChange>, HandlerError> {
+            Ok(Vec::new())
+        }
+    }
+
+    #[tokio::test]
+    async fn empty_changes_commit_without_calling_enqueuer() {
+        let factory = Factory::default();
+        let runner = DefaultProjectorRunner::new(
+            ProcessedStore,
+            ChangeEnqueuer { reject: true },
+            factory.clone(),
+        );
+        assert_eq!(
+            runner.project(&EmptyProjector, &event()).await.unwrap(),
+            ProjectorRunReport::Applied
+        );
+        let db = factory.0.lock().unwrap();
+        assert_eq!(db.processed.len(), 1);
+        assert!(db.changes.is_empty());
     }
 
     struct Feed(Vec<EventEnvelope>);
@@ -501,6 +613,7 @@ mod tests {
             let db = factory.0.lock().unwrap();
             assert_eq!(db.checkpoint, Some(second.event_sequence));
             assert_eq!(db.processed.len(), 2);
+            assert!(db.changes.is_empty());
             assert_eq!(db.writes, 1);
             assert_eq!(store.calls.load(Ordering::SeqCst), 1);
         })
@@ -533,6 +646,7 @@ mod tests {
         ));
         let db = factory.0.lock().unwrap();
         assert_eq!(db.checkpoint, None);
+        assert!(db.changes.is_empty());
         assert_eq!(db.writes, 0);
         assert!(db.processed.is_empty());
     }
@@ -622,7 +736,11 @@ mod tests {
             };
             let factory = Factory::default();
             let worker = DefaultProjectorWorker::new(
-                DefaultProjectorRunner::new(ProcessedStore, factory.clone()),
+                DefaultProjectorRunner::new(
+                    ProcessedStore,
+                    ChangeEnqueuer { reject: false },
+                    factory.clone(),
+                ),
                 subscriber,
             );
             assert!(matches!(

@@ -4,6 +4,8 @@ pub mod cloud_events_pubsub_command_failure_codec;
 pub mod cloud_events_pubsub_command_failure_codec_error;
 pub mod cloud_events_pubsub_event_codec;
 pub mod cloud_events_pubsub_event_codec_error;
+mod cloud_events_pubsub_read_model_change_codec;
+mod cloud_events_pubsub_read_model_change_codec_error;
 
 pub use cloud_events_pubsub_command_codec::*;
 pub use cloud_events_pubsub_command_codec_error::*;
@@ -11,6 +13,8 @@ pub use cloud_events_pubsub_command_failure_codec::*;
 pub use cloud_events_pubsub_command_failure_codec_error::*;
 pub use cloud_events_pubsub_event_codec::*;
 pub use cloud_events_pubsub_event_codec_error::*;
+pub use cloud_events_pubsub_read_model_change_codec::*;
+pub use cloud_events_pubsub_read_model_change_codec_error::*;
 
 #[cfg(test)]
 mod tests {
