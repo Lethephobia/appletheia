@@ -1,5 +1,3 @@
-pub mod watch;
-
 mod read_model_attribute_key;
 mod read_model_attribute_key_error;
 mod read_model_attribute_value;
