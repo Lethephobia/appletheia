@@ -11,6 +11,6 @@ pub use query_dispatcher_error::*;
 pub use query_handler::*;
 pub use query_name::*;
 
-pub trait Query: Send + 'static {
+pub trait Query: Clone + Send + 'static {
     const NAME: QueryName;
 }
