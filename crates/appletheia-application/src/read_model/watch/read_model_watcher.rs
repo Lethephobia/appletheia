@@ -7,18 +7,19 @@ use super::{ReadModelWatch, ReadModelWatcherError};
 #[allow(async_fn_in_trait)]
 pub trait ReadModelWatcher: Send + Sync {
     type Uow: UnitOfWork;
-    type Watch<H>: ReadModelWatch<Document = H::Output, HandlerError = H::Error>
+    type Watch<'a, H>: ReadModelWatch<Document = H::Output, HandlerError = H::Error>
     where
-        H: QueryHandler<Uow = Self::Uow>;
+        Self: 'a,
+        H: QueryHandler<Uow = Self::Uow> + 'a;
 
     /// Starts a query subscription whose first result and subsequent refreshed documents
     /// are received through `next`.
-    async fn watch<H>(
-        &self,
-        handler: &H,
-        request_context: &RequestContext,
+    async fn watch<'a, H>(
+        &'a self,
+        handler: &'a H,
+        request_context: &'a RequestContext,
         query: H::Query,
-    ) -> Result<Self::Watch<H>, ReadModelWatcherError>
+    ) -> Result<Self::Watch<'a, H>, ReadModelWatcherError>
     where
-        H: QueryHandler<Uow = Self::Uow>;
+        H: QueryHandler<Uow = Self::Uow> + 'a;
 }
