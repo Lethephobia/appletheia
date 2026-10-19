@@ -1,15 +1,21 @@
 use crate::read_model::ReadModelRef;
+use crate::unit_of_work::UnitOfWork;
 
 use super::{
     ReadModelWatchEndpointId, ReadModelWatchGeneration, ReadModelWatchId,
     ReadModelWatchLeaseExpiresAt, ReadModelWatchRegistryError,
 };
 
+/// Performs database operations within the caller-owned unit of work.
+/// The caller is responsible for committing or rolling back.
 #[allow(async_fn_in_trait)]
 pub trait ReadModelWatchRegistry: Send + Sync {
+    type Uow: UnitOfWork;
+
     /// Registers a new watch under an active endpoint. An existing watch ID is an error.
     async fn register_watch(
         &self,
+        uow: &mut Self::Uow,
         endpoint_id: ReadModelWatchEndpointId,
         watch_id: ReadModelWatchId,
         lease_until: ReadModelWatchLeaseExpiresAt,
@@ -19,6 +25,7 @@ pub trait ReadModelWatchRegistry: Send + Sync {
     /// and the watch belongs to the endpoint. Missing or expired registrations are errors.
     async fn extend_watch_lease(
         &self,
+        uow: &mut Self::Uow,
         endpoint_id: ReadModelWatchEndpointId,
         watch_id: ReadModelWatchId,
         lease_until: ReadModelWatchLeaseExpiresAt,
@@ -28,22 +35,26 @@ pub trait ReadModelWatchRegistry: Send + Sync {
     /// to another endpoint must not be removed and produces an error.
     async fn remove_watch(
         &self,
+        uow: &mut Self::Uow,
         endpoint_id: ReadModelWatchEndpointId,
         watch_id: ReadModelWatchId,
     ) -> Result<(), ReadModelWatchRegistryError>;
 
     /// Atomically advances the watch's generation and returns it. Previous targets remain
-    /// active until completion. Requires a matching endpoint and two active leases.
+    /// active until explicitly deleted. Requires a matching endpoint and two active leases.
     async fn begin_generation(
         &self,
+        uow: &mut Self::Uow,
         endpoint_id: ReadModelWatchEndpointId,
         watch_id: ReadModelWatchId,
     ) -> Result<ReadModelWatchGeneration, ReadModelWatchRegistryError>;
 
-    /// Adds targets idempotently to the latest, incomplete generation and commits before
-    /// returning. Rejects stale generations, mismatched endpoints, and inactive leases.
+    /// Adds targets idempotently to the latest generation within the supplied unit of work.
+    /// The caller commits before querying under the new coverage. Rejects stale generations,
+    /// mismatched endpoints, and inactive leases.
     async fn register_targets(
         &self,
+        uow: &mut Self::Uow,
         endpoint_id: ReadModelWatchEndpointId,
         watch_id: ReadModelWatchId,
         generation: ReadModelWatchGeneration,
@@ -54,17 +65,20 @@ pub trait ReadModelWatchRegistry: Send + Sync {
     /// Rejects stale generations, mismatched endpoints, and inactive leases even for empty targets.
     async fn contains_targets(
         &self,
+        uow: &mut Self::Uow,
         endpoint_id: ReadModelWatchEndpointId,
         watch_id: ReadModelWatchId,
         generation: ReadModelWatchGeneration,
         targets: &[ReadModelRef],
     ) -> Result<bool, ReadModelWatchRegistryError>;
 
-    /// Completes the latest generation and atomically removes all older targets. Repeated
-    /// completion of the same latest generation is allowed. Rejects stale generations,
-    /// mismatched endpoints, and inactive leases; failed operations preserve older targets.
-    async fn complete_generation(
+    /// Atomically deletes targets older than the specified latest generation, without
+    /// recording completion or preventing further registration in that generation.
+    /// Repeated calls are allowed. Rejects stale generations, mismatched endpoints,
+    /// and inactive leases; failed operations preserve older targets.
+    async fn delete_previous_generation_targets(
         &self,
+        uow: &mut Self::Uow,
         endpoint_id: ReadModelWatchEndpointId,
         watch_id: ReadModelWatchId,
         generation: ReadModelWatchGeneration,

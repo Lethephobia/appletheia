@@ -1,3 +1,4 @@
+mod default_read_model_watch_generation_registrar;
 mod read_model_watch;
 mod read_model_watch_endpoint;
 mod read_model_watch_endpoint_error;
@@ -29,6 +30,7 @@ mod read_model_watch_registry_error;
 mod read_model_watcher;
 mod read_model_watcher_error;
 
+pub use default_read_model_watch_generation_registrar::*;
 pub use read_model_watch::*;
 pub use read_model_watch_endpoint::*;
 pub use read_model_watch_endpoint_error::*;
