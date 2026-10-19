@@ -1,6 +1,8 @@
+use crate::read_model::ReadModelRef;
+
 use super::{
-    ReadModelWatchEndpointId, ReadModelWatchEndpointLeaseExpiresAt, ReadModelWatchId,
-    ReadModelWatchLeaseExpiresAt, ReadModelWatchRegistryError,
+    ReadModelWatchEndpointId, ReadModelWatchEndpointLeaseExpiresAt, ReadModelWatchGeneration,
+    ReadModelWatchId, ReadModelWatchLeaseExpiresAt, ReadModelWatchRegistryError,
 };
 
 #[allow(async_fn_in_trait)]
@@ -49,5 +51,43 @@ pub trait ReadModelWatchRegistry: Send + Sync {
         &self,
         endpoint_id: ReadModelWatchEndpointId,
         watch_id: ReadModelWatchId,
+    ) -> Result<(), ReadModelWatchRegistryError>;
+
+    /// Atomically advances the watch's generation and returns it. Previous targets remain
+    /// active until completion. Requires a matching endpoint and two active leases.
+    async fn begin_generation(
+        &self,
+        endpoint_id: ReadModelWatchEndpointId,
+        watch_id: ReadModelWatchId,
+    ) -> Result<ReadModelWatchGeneration, ReadModelWatchRegistryError>;
+
+    /// Adds targets idempotently to the latest, incomplete generation and commits before
+    /// returning. Rejects stale generations, mismatched endpoints, and inactive leases.
+    async fn register_targets(
+        &self,
+        endpoint_id: ReadModelWatchEndpointId,
+        watch_id: ReadModelWatchId,
+        generation: ReadModelWatchGeneration,
+        targets: &[ReadModelRef],
+    ) -> Result<(), ReadModelWatchRegistryError>;
+
+    /// Checks inclusion in the specified latest generation. Empty targets return true.
+    /// Rejects stale generations, mismatched endpoints, and inactive leases even for empty targets.
+    async fn contains_targets(
+        &self,
+        endpoint_id: ReadModelWatchEndpointId,
+        watch_id: ReadModelWatchId,
+        generation: ReadModelWatchGeneration,
+        targets: &[ReadModelRef],
+    ) -> Result<bool, ReadModelWatchRegistryError>;
+
+    /// Completes the latest generation and atomically removes all older targets. Repeated
+    /// completion of the same latest generation is allowed. Rejects stale generations,
+    /// mismatched endpoints, and inactive leases; failed operations preserve older targets.
+    async fn complete_generation(
+        &self,
+        endpoint_id: ReadModelWatchEndpointId,
+        watch_id: ReadModelWatchId,
+        generation: ReadModelWatchGeneration,
     ) -> Result<(), ReadModelWatchRegistryError>;
 }
