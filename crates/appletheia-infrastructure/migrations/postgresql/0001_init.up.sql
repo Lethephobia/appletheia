@@ -316,6 +316,40 @@ CREATE TABLE IF NOT EXISTS read_model_change_dead_letters (
 CREATE INDEX IF NOT EXISTS idx_read_model_change_dead_letters_time
   ON read_model_change_dead_letters (dead_lettered_at, read_model_change_outbox_id);
 
+-- read model watch endpoints
+CREATE TABLE IF NOT EXISTS read_model_watch_endpoints (
+  endpoint_id UUID PRIMARY KEY,
+  lease_until TIMESTAMPTZ NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_read_model_watch_endpoints_lease
+  ON read_model_watch_endpoints (lease_until);
+
+-- read model watches
+CREATE TABLE IF NOT EXISTS read_model_watches (
+  watch_id UUID PRIMARY KEY,
+  endpoint_id UUID NOT NULL REFERENCES read_model_watch_endpoints (endpoint_id) ON DELETE CASCADE,
+  lease_until TIMESTAMPTZ NOT NULL,
+  generation BIGINT NOT NULL DEFAULT 0 CHECK (generation >= 0)
+);
+
+CREATE INDEX IF NOT EXISTS idx_read_model_watches_endpoint
+  ON read_model_watches (endpoint_id, watch_id);
+CREATE INDEX IF NOT EXISTS idx_read_model_watches_lease
+  ON read_model_watches (lease_until);
+
+-- read model watch targets
+CREATE TABLE IF NOT EXISTS read_model_watch_targets (
+  watch_id UUID NOT NULL REFERENCES read_model_watches (watch_id) ON DELETE CASCADE,
+  generation BIGINT NOT NULL CHECK (generation >= 0),
+  read_model_type TEXT NOT NULL,
+  read_model_id TEXT NOT NULL,
+  PRIMARY KEY (watch_id, generation, read_model_type, read_model_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_read_model_watch_targets_resource
+  ON read_model_watch_targets (read_model_type, read_model_id, watch_id);
+
 -- idempotency
 CREATE TABLE IF NOT EXISTS idempotency (
   id            UUID        PRIMARY KEY,
