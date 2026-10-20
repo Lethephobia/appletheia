@@ -91,7 +91,7 @@ impl PgEventOutboxWriter {
                     .push_bind(outbox.state.published_at().map(DateTime::<Utc>::from))
                     .push_bind(outbox.state.attempt_count().value())
                     .push_bind(next_attempt_after_value)
-                    .push_bind(outbox.state.lease_owner().map(ToString::to_string))
+                    .push_bind(outbox.state.lease_owner().map(|owner| owner.value()))
                     .push_bind(outbox.state.lease_until().map(DateTime::<Utc>::from))
                     .push_bind(last_error_value)
                     .push(")");
@@ -183,7 +183,7 @@ impl PgEventOutboxWriter {
                     .push_bind(outbox.state.published_at().map(DateTime::<Utc>::from))
                     .push_bind(outbox.state.attempt_count().value())
                     .push_bind(outbox.state.next_attempt_after().map(DateTime::<Utc>::from))
-                    .push_bind(outbox.state.lease_owner().map(ToString::to_string))
+                    .push_bind(outbox.state.lease_owner().map(|owner| owner.value()))
                     .push_bind(outbox.state.lease_until().map(DateTime::<Utc>::from))
                     .push_bind(last_error_value)
                     .push_bind(dead_lettered_at_value)

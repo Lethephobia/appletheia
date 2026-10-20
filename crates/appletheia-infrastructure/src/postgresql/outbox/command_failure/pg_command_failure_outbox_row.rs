@@ -1,5 +1,4 @@
 use appletheia_application::command::SerializedCommand;
-use std::str::FromStr;
 
 use appletheia_application::command::{
     CommandAttemptCount, CommandFailureEnvelope, CommandFailureId, CommandNameOwned,
@@ -11,7 +10,7 @@ use appletheia_application::outbox::command_failure::{
 };
 use appletheia_application::outbox::{
     OutboxAttemptCount, OutboxLeaseExpiresAt, OutboxLifecycle, OutboxNextAttemptAt,
-    OutboxPublishedAt, OutboxRelayInstance, OutboxState,
+    OutboxPublishedAt, OutboxRelayId, OutboxState,
 };
 use appletheia_application::request_context::{CausationId, CorrelationId, MessageId};
 use appletheia_application::saga::{
@@ -43,7 +42,7 @@ pub struct PgCommandFailureOutboxRow {
     pub published_at: Option<DateTime<Utc>>,
     pub attempt_count: i64,
     pub next_attempt_after: DateTime<Utc>,
-    pub lease_owner: Option<String>,
+    pub lease_owner: Option<Uuid>,
     pub lease_until: Option<DateTime<Utc>>,
     pub last_error: Option<serde_json::Value>,
 }
@@ -84,10 +83,7 @@ impl PgCommandFailureOutboxRow {
 
         let attempt_count = OutboxAttemptCount::try_from(self.attempt_count)?;
         let next_attempt_after = OutboxNextAttemptAt::from(self.next_attempt_after);
-        let lease_owner = self
-            .lease_owner
-            .map(|value| OutboxRelayInstance::from_str(&value))
-            .transpose()?;
+        let lease_owner = self.lease_owner.map(OutboxRelayId::try_from).transpose()?;
         let lease_until = self.lease_until.map(OutboxLeaseExpiresAt::from);
         let published_at = self.published_at.map(OutboxPublishedAt::from);
         let last_error = self

@@ -1,6 +1,5 @@
 use super::{
-    OutboxAttemptCount, OutboxLeaseExpiresAt, OutboxNextAttemptAt, OutboxPublishedAt,
-    OutboxRelayInstance,
+    OutboxAttemptCount, OutboxLeaseExpiresAt, OutboxNextAttemptAt, OutboxPublishedAt, OutboxRelayId,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -12,7 +11,7 @@ pub enum OutboxState {
     Leased {
         attempt_count: OutboxAttemptCount,
         next_attempt_after: OutboxNextAttemptAt,
-        lease_owner: OutboxRelayInstance,
+        lease_owner: OutboxRelayId,
         lease_until: OutboxLeaseExpiresAt,
     },
     Published {
@@ -42,9 +41,9 @@ impl OutboxState {
         }
     }
 
-    pub fn lease_owner(&self) -> Option<&OutboxRelayInstance> {
+    pub fn lease_owner(&self) -> Option<OutboxRelayId> {
         match self {
-            OutboxState::Leased { lease_owner, .. } => Some(lease_owner),
+            OutboxState::Leased { lease_owner, .. } => Some(*lease_owner),
             OutboxState::Pending { .. } | OutboxState::Published { .. } => None,
         }
     }

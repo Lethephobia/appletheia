@@ -107,7 +107,7 @@ CREATE TABLE IF NOT EXISTS event_outbox (
   published_at         TIMESTAMPTZ,
   attempt_count        BIGINT      NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
   next_attempt_after   TIMESTAMPTZ NOT NULL DEFAULT now(),
-  lease_owner          TEXT,
+  lease_owner          UUID,
   lease_until          TIMESTAMPTZ,
   last_error           JSONB,
   CONSTRAINT event_outbox_uniq_aggregate_version
@@ -140,7 +140,7 @@ CREATE TABLE IF NOT EXISTS event_dead_letters (
   published_at        TIMESTAMPTZ,
   attempt_count       BIGINT      NOT NULL CHECK (attempt_count >= 0),
   next_attempt_after  TIMESTAMPTZ NOT NULL,
-  lease_owner         TEXT,
+  lease_owner         UUID,
   lease_until         TIMESTAMPTZ,
   last_error          JSONB,
   dead_lettered_at    TIMESTAMPTZ NOT NULL
@@ -161,7 +161,7 @@ CREATE TABLE IF NOT EXISTS command_outbox (
   published_at          TIMESTAMPTZ,
   attempt_count         BIGINT      NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
   next_attempt_after    TIMESTAMPTZ NOT NULL DEFAULT now(),
-  lease_owner           TEXT,
+  lease_owner           UUID,
   lease_until           TIMESTAMPTZ,
   last_error            JSONB,
   CONSTRAINT command_outbox_saga_origin_check CHECK (
@@ -194,7 +194,7 @@ CREATE TABLE IF NOT EXISTS command_dead_letters (
   published_at         TIMESTAMPTZ,
   attempt_count        BIGINT      NOT NULL CHECK (attempt_count >= 0),
   next_attempt_after   TIMESTAMPTZ NOT NULL,
-  lease_owner          TEXT,
+  lease_owner          UUID,
   lease_until          TIMESTAMPTZ,
   last_error           JSONB,
   dead_lettered_at     TIMESTAMPTZ NOT NULL,
@@ -241,7 +241,7 @@ CREATE TABLE IF NOT EXISTS command_failure_outbox (
   published_at          TIMESTAMPTZ,
   attempt_count         BIGINT      NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
   next_attempt_after    TIMESTAMPTZ NOT NULL DEFAULT now(),
-  lease_owner           TEXT,
+  lease_owner           UUID,
   lease_until           TIMESTAMPTZ,
   last_error            JSONB
 );
@@ -271,7 +271,7 @@ CREATE TABLE IF NOT EXISTS command_failure_dead_letters (
   published_at              TIMESTAMPTZ,
   attempt_count             BIGINT      NOT NULL CHECK (attempt_count >= 0),
   next_attempt_after        TIMESTAMPTZ NOT NULL,
-  lease_owner               TEXT,
+  lease_owner               UUID,
   lease_until               TIMESTAMPTZ,
   last_error                JSONB,
   dead_lettered_at          TIMESTAMPTZ NOT NULL
@@ -288,7 +288,7 @@ CREATE TABLE IF NOT EXISTS read_model_change_outbox (
   published_at                 TIMESTAMPTZ,
   attempt_count                BIGINT      NOT NULL DEFAULT 0,
   next_attempt_after           TIMESTAMPTZ NOT NULL DEFAULT now(),
-  lease_owner                  TEXT,
+  lease_owner                  UUID,
   lease_until                  TIMESTAMPTZ,
   last_error                   JSONB
 );
@@ -307,7 +307,7 @@ CREATE TABLE IF NOT EXISTS read_model_change_dead_letters (
   published_at                 TIMESTAMPTZ,
   attempt_count                BIGINT      NOT NULL DEFAULT 0,
   next_attempt_after           TIMESTAMPTZ NOT NULL DEFAULT now(),
-  lease_owner                  TEXT,
+  lease_owner                  UUID,
   lease_until                  TIMESTAMPTZ,
   last_error                   JSONB,
   dead_lettered_at             TIMESTAMPTZ NOT NULL

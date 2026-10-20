@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use chrono::{DateTime, Utc};
 use sqlx::FromRow;
 use uuid::Uuid;
@@ -8,7 +6,7 @@ use appletheia_application::command::{CommandEnvelope, CommandNameOwned, Seriali
 use appletheia_application::messaging::PublishDispatchError;
 use appletheia_application::outbox::{
     OutboxAttemptCount, OutboxLeaseExpiresAt, OutboxLifecycle, OutboxNextAttemptAt,
-    OutboxPublishedAt, OutboxRelayInstance, OutboxState,
+    OutboxPublishedAt, OutboxRelayId, OutboxState,
     command::{CommandOutbox, CommandOutboxId},
 };
 use appletheia_application::request_context::{CausationId, CorrelationId, MessageId};
@@ -33,7 +31,7 @@ pub struct PgCommandOutboxRow {
     pub published_at: Option<DateTime<Utc>>,
     pub attempt_count: i64,
     pub next_attempt_after: DateTime<Utc>,
-    pub lease_owner: Option<String>,
+    pub lease_owner: Option<Uuid>,
     pub lease_until: Option<DateTime<Utc>>,
     pub last_error: Option<serde_json::Value>,
 }
@@ -75,7 +73,7 @@ impl PgCommandOutboxRow {
         let next_attempt_after = OutboxNextAttemptAt::from(self.next_attempt_after);
 
         let lease_owner = match self.lease_owner {
-            Some(owner) => Some(OutboxRelayInstance::from_str(&owner)?),
+            Some(owner) => Some(OutboxRelayId::try_from(owner)?),
             None => None,
         };
         let lease_until = self.lease_until.map(OutboxLeaseExpiresAt::from);

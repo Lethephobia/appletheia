@@ -27,10 +27,8 @@ mod outbox_published_at;
 mod outbox_relay;
 mod outbox_relay_config;
 mod outbox_relay_error;
-mod outbox_relay_instance;
-mod outbox_relay_instance_error;
-mod outbox_relay_instance_id;
-mod outbox_relay_process_id;
+mod outbox_relay_id;
+mod outbox_relay_id_error;
 mod outbox_relay_run_report;
 mod outbox_retry_delay;
 mod outbox_retry_options;
@@ -63,10 +61,8 @@ pub use outbox_published_at::*;
 pub use outbox_relay::*;
 pub use outbox_relay_config::*;
 pub use outbox_relay_error::*;
-pub use outbox_relay_instance::*;
-pub use outbox_relay_instance_error::*;
-pub use outbox_relay_instance_id::*;
-pub use outbox_relay_process_id::*;
+pub use outbox_relay_id::*;
+pub use outbox_relay_id_error::*;
 pub use outbox_relay_run_report::*;
 pub use outbox_retry_delay::*;
 pub use outbox_retry_options::*;
@@ -176,7 +172,7 @@ pub trait Outbox {
 
     fn extend_lease(
         &mut self,
-        owner: &OutboxRelayInstance,
+        owner: OutboxRelayId,
         lease_for: OutboxLeaseDuration,
     ) -> Result<(), OutboxError> {
         if matches!(self.lifecycle(), OutboxLifecycle::DeadLettered { .. }) {
@@ -197,7 +193,7 @@ pub trait Outbox {
                 *self.state_mut() = OutboxState::Leased {
                     attempt_count,
                     next_attempt_after,
-                    lease_owner: owner.clone(),
+                    lease_owner: owner,
                     lease_until: lease_expires_at,
                 };
                 Ok(())
@@ -208,7 +204,7 @@ pub trait Outbox {
 
     fn acquire_lease(
         &mut self,
-        owner: &OutboxRelayInstance,
+        owner: OutboxRelayId,
         lease_for: OutboxLeaseDuration,
     ) -> Result<(), OutboxError> {
         if matches!(self.lifecycle(), OutboxLifecycle::DeadLettered { .. }) {
@@ -228,7 +224,7 @@ pub trait Outbox {
                 *self.state_mut() = OutboxState::Leased {
                     attempt_count,
                     next_attempt_after,
-                    lease_owner: owner.clone(),
+                    lease_owner: owner,
                     lease_until: lease_expires_at,
                 };
                 Ok(())

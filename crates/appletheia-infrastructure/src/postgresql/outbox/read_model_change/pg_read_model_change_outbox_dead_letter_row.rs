@@ -20,7 +20,7 @@ pub struct PgReadModelChangeOutboxDeadLetterRow {
     pub published_at: Option<DateTime<Utc>>,
     pub attempt_count: i64,
     pub next_attempt_after: DateTime<Utc>,
-    pub lease_owner: Option<String>,
+    pub lease_owner: Option<Uuid>,
     pub lease_until: Option<DateTime<Utc>>,
     pub last_error: Option<serde_json::Value>,
     pub dead_lettered_at: DateTime<Utc>,

@@ -2,7 +2,7 @@ use thiserror::Error;
 
 use appletheia_application::command::SerializedCommandError;
 use appletheia_application::outbox::{
-    OutboxAttemptCountError, OutboxRelayInstanceError, command::CommandOutboxIdError,
+    OutboxAttemptCountError, OutboxRelayIdError, command::CommandOutboxIdError,
 };
 use appletheia_application::saga::{
     SagaInstanceIdError, SagaNameOwnedError, SerializedSagaStepError,
@@ -23,7 +23,7 @@ pub enum PgCommandOutboxRowError {
     AttemptCount(#[from] OutboxAttemptCountError),
 
     #[error("lease owner error: {0}")]
-    LeaseOwner(#[from] OutboxRelayInstanceError),
+    LeaseOwner(#[from] OutboxRelayIdError),
 
     #[error("json deserialization error: {0}")]
     Json(#[from] serde_json::Error),

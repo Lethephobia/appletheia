@@ -1,6 +1,5 @@
 use appletheia_application::outbox::{
-    OutboxAttemptCountError, OutboxRelayInstanceError,
-    read_model_change::ReadModelChangeOutboxIdError,
+    OutboxAttemptCountError, OutboxRelayIdError, read_model_change::ReadModelChangeOutboxIdError,
 };
 use appletheia_application::read_model::{ReadModelChangeIdError, ReadModelTypeOwnedError};
 use appletheia_domain::EventIdError;
@@ -24,7 +23,7 @@ pub enum PgReadModelChangeOutboxRowError {
     AttemptCount(#[from] OutboxAttemptCountError),
 
     #[error(transparent)]
-    LeaseOwner(#[from] OutboxRelayInstanceError),
+    LeaseOwner(#[from] OutboxRelayIdError),
 
     #[error(transparent)]
     Json(#[from] serde_json::Error),

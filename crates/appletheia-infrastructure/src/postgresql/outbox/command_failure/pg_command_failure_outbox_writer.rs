@@ -84,7 +84,7 @@ impl PgCommandFailureOutboxWriter {
                         .unwrap_or_default()
                         .value(),
                 )
-                .push_bind(outbox.state.lease_owner().map(ToString::to_string))
+                .push_bind(outbox.state.lease_owner().map(|owner| owner.value()))
                 .push_bind(outbox.state.lease_until().map(DateTime::<Utc>::from))
                 .push_bind(last_error);
         });
@@ -166,7 +166,7 @@ impl PgCommandFailureOutboxWriter {
                             .unwrap_or_default()
                             .value(),
                     )
-                    .push_bind(outbox.state.lease_owner().map(ToString::to_string))
+                    .push_bind(outbox.state.lease_owner().map(|owner| owner.value()))
                     .push_bind(outbox.state.lease_until().map(DateTime::<Utc>::from))
                     .push_bind(last_error)
                     .push_bind(dead_lettered_at);

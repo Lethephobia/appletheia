@@ -80,7 +80,7 @@ impl PgReadModelChangeOutboxWriter {
                     .push_bind(outbox.state.published_at().map(DateTime::<Utc>::from))
                     .push_bind(outbox.state.attempt_count().value())
                     .push_bind(next_attempt_after_value)
-                    .push_bind(outbox.state.lease_owner().map(ToString::to_string))
+                    .push_bind(outbox.state.lease_owner().map(|owner| owner.value()))
                     .push_bind(outbox.state.lease_until().map(DateTime::<Utc>::from))
                     .push_bind(last_error_value)
                     .push_unseparated(")");
@@ -161,7 +161,7 @@ impl PgReadModelChangeOutboxWriter {
                     .push_bind(outbox.state.published_at().map(DateTime::<Utc>::from))
                     .push_bind(outbox.state.attempt_count().value())
                     .push_bind(outbox.state.next_attempt_after().map(DateTime::<Utc>::from))
-                    .push_bind(outbox.state.lease_owner().map(ToString::to_string))
+                    .push_bind(outbox.state.lease_owner().map(|owner| owner.value()))
                     .push_bind(outbox.state.lease_until().map(DateTime::<Utc>::from))
                     .push_bind(last_error_value)
                     .push_bind(dead_lettered_at_value)
@@ -288,11 +288,11 @@ impl OutboxWriter for PgReadModelChangeOutboxWriter {
 mod tests {
     use super::*;
     use crate::postgresql::outbox::read_model_change::{
-        PgReadModelChangeOutboxEnqueuer, PgReadModelChangeOutboxFetcher,
+        PgReadModelChangeOutboxEnqueuer, PgReadModelChangeOutboxFetcher, PgReadModelChangeOutboxRow,
     };
     use crate::postgresql::unit_of_work::PgUnitOfWorkFactory;
     use appletheia_application::outbox::{
-        Outbox, OutboxBatchSize, OutboxFetcher, OutboxLeaseDuration, OutboxRelayInstance,
+        Outbox, OutboxBatchSize, OutboxFetcher, OutboxLeaseDuration, OutboxRelayId,
         OutboxRetryOptions, read_model_change::ReadModelChangeOutboxEnqueuer,
     };
     use appletheia_application::read_model::{
@@ -348,11 +348,11 @@ mod tests {
             assert_eq!(&outbox.change, change);
             assert_ne!(outbox.id.value(), change.change_id.value());
         }
-        let owner: OutboxRelayInstance = "relay:1".parse().unwrap();
+        let owner = OutboxRelayId::new();
         for outbox in &mut pending {
             outbox
                 .acquire_lease(
-                    &owner,
+                    owner,
                     OutboxLeaseDuration::new(chrono::Duration::seconds(30)),
                 )
                 .unwrap();
@@ -368,6 +368,17 @@ mod tests {
                 .unwrap()
                 .is_empty()
         );
+        let leased_rows = sqlx::query_as::<_, PgReadModelChangeOutboxRow>(
+            "SELECT * FROM read_model_change_outbox",
+        )
+        .fetch_all(uow.transaction_mut().as_mut())
+        .await
+        .unwrap();
+        assert_eq!(leased_rows.len(), 2);
+        for row in leased_rows {
+            let restored = row.try_into_outbox().unwrap();
+            assert_eq!(restored.state.lease_owner(), Some(owner));
+        }
         let reason = PublishDispatchError::Permanent {
             code: "invalid".into(),
             message: "rejected".into(),
