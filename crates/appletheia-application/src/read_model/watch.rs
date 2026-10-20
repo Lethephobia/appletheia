@@ -1,4 +1,5 @@
 mod default_read_model_watch_generation_registrar;
+mod default_read_model_watch_receiver;
 mod read_model_watch;
 mod read_model_watch_endpoint;
 mod read_model_watch_endpoint_error;
@@ -27,10 +28,12 @@ mod read_model_watch_receiver;
 mod read_model_watch_receiver_error;
 mod read_model_watch_registry;
 mod read_model_watch_registry_error;
+mod read_model_watch_signal;
 mod read_model_watcher;
 mod read_model_watcher_error;
 
 pub use default_read_model_watch_generation_registrar::*;
+pub use default_read_model_watch_receiver::*;
 pub use read_model_watch::*;
 pub use read_model_watch_endpoint::*;
 pub use read_model_watch_endpoint_error::*;
@@ -59,5 +62,6 @@ pub use read_model_watch_receiver::*;
 pub use read_model_watch_receiver_error::*;
 pub use read_model_watch_registry::*;
 pub use read_model_watch_registry_error::*;
+pub use read_model_watch_signal::*;
 pub use read_model_watcher::*;
 pub use read_model_watcher_error::*;
