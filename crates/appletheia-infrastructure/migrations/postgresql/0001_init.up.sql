@@ -329,14 +329,11 @@ CREATE INDEX IF NOT EXISTS idx_read_model_watch_endpoints_lease
 CREATE TABLE IF NOT EXISTS read_model_watches (
   watch_id UUID PRIMARY KEY,
   endpoint_id UUID NOT NULL REFERENCES read_model_watch_endpoints (endpoint_id) ON DELETE CASCADE,
-  lease_until TIMESTAMPTZ NOT NULL,
   generation BIGINT NOT NULL DEFAULT 0 CHECK (generation >= 0)
 );
 
 CREATE INDEX IF NOT EXISTS idx_read_model_watches_endpoint
   ON read_model_watches (endpoint_id, watch_id);
-CREATE INDEX IF NOT EXISTS idx_read_model_watches_lease
-  ON read_model_watches (lease_until);
 
 -- read model watch targets
 CREATE TABLE IF NOT EXISTS read_model_watch_targets (

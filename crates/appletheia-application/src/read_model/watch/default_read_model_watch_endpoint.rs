@@ -21,7 +21,7 @@ use super::{
 
 /// Routes endpoint notifications to local watch receivers and maintains the endpoint lease.
 /// Run once per instance. If the run future fails or is cancelled, local receivers close;
-/// persisted registrations remain until their leases expire or they are explicitly removed.
+/// persisted registrations become inactive when the endpoint lease expires.
 pub struct DefaultReadModelWatchEndpoint<F, ER, L, S>
 where
     F: UnitOfWorkFactory,
@@ -167,13 +167,24 @@ where
                     .await?);
             }
             uow.commit().await?;
+        }
+        Ok(())
+    }
+
+    async fn remove_closed_watch_senders(&self) -> Result<(), ReadModelWatchEndpointError> {
+        let interval = self.config.endpoint_lease_refresh_interval().to_std();
+        loop {
+            tokio::select! {
+                biased;
+                _ = self.stop_token.cancelled() => return Ok(()),
+                _ = tokio::time::sleep(interval) => {}
+            }
             self.state
                 .lock()
                 .map_err(|_| ReadModelWatchEndpointError::StatePoisoned)?
                 .watch_senders
                 .retain(|_, sender| !sender.is_closed());
         }
-        Ok(())
     }
 }
 
@@ -288,7 +299,8 @@ where
             .send_replace(DefaultReadModelWatchEndpointStatus::Running);
         tokio::try_join!(
             self.receive_notifications(consumer),
-            self.refresh_endpoint_lease()
+            self.refresh_endpoint_lease(),
+            self.remove_closed_watch_senders()
         )?;
         Ok(())
     }
@@ -728,7 +740,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn dropped_receivers_are_removed_without_persisting_watch_changes() {
+    async fn dropped_receivers_only_remove_local_senders() {
         let config = ReadModelWatchEndpointConfig::new(
             Default::default(),
             Duration::milliseconds(10).try_into().unwrap(),
@@ -740,6 +752,7 @@ mod tests {
         let task = tokio::spawn(async move { running_endpoint.run_forever().await });
         let watch_id = ReadModelWatchId::new();
         let receiver = endpoint.register_watch(watch_id).await.unwrap();
+        backend.watches.lock().unwrap().insert(watch_id);
         drop(receiver);
         tokio::time::timeout(std::time::Duration::from_secs(2), async {
             loop {
@@ -757,14 +770,14 @@ mod tests {
         })
         .await
         .unwrap();
-        assert!(backend.watches.lock().unwrap().is_empty());
+        assert!(backend.watches.lock().unwrap().contains(&watch_id));
         assert!(backend.endpoint_refreshes.load(Ordering::SeqCst) > 0);
         task.abort();
         let _ = task.await;
     }
 
     #[tokio::test]
-    async fn local_registration_and_removal_do_not_persist_watches() {
+    async fn removal_only_closes_local_receiver() {
         let (endpoint, backend, _sender) = setup(Default::default());
         let running_endpoint = endpoint.clone();
         let task = tokio::spawn(async move { running_endpoint.run_forever().await });

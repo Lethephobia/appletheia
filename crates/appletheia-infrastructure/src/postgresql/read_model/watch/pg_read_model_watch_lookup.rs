@@ -45,8 +45,6 @@ impl ReadModelWatchLookup for PgReadModelWatchLookup {
             .push(" AND target.read_model_id = ")
             .push_bind(target.id.value())
             .push(" AND endpoint.lease_until > ")
-            .push_bind(now)
-            .push(" AND watch.lease_until > ")
             .push_bind(now);
 
         if let Some(cursor) = cursor {
@@ -98,8 +96,6 @@ impl ReadModelWatchLookup for PgReadModelWatchLookup {
             .push(" AND target.read_model_id = ")
             .push_bind(target.id.value())
             .push(" AND endpoint.lease_until > ")
-            .push_bind(now)
-            .push(" AND watch.lease_until > ")
             .push_bind(now);
 
         query_builder
@@ -187,23 +183,18 @@ mod tests {
         }
         for (index, watch) in watches.iter().enumerate() {
             let endpoint = match index {
-                0 | 1 | 4 => endpoints[0],
+                0 | 1 => endpoints[0],
                 2 => endpoints[1],
                 _ => endpoints[2],
             };
             sqlx::query(
                 r#"
-                INSERT INTO read_model_watches (watch_id, endpoint_id, lease_until, generation)
-                VALUES ($1, $2, $3, 2)
+                INSERT INTO read_model_watches (watch_id, endpoint_id, generation)
+                VALUES ($1, $2, 2)
                 "#,
             )
             .bind(watch.value())
             .bind(endpoint.value())
-            .bind(if index == 4 {
-                expired_until
-            } else {
-                active_until
-            })
             .execute(&pool)
             .await
             .unwrap();

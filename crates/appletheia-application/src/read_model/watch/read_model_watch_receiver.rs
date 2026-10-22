@@ -1,8 +1,8 @@
 use super::{ReadModelWatchReceiverError, ReadModelWatchSignal};
 
 /// Receives coalesced change notifications for one watch.
-/// Dropping the receiver stops renewal of the watch's lease; immediate registry removal
-/// requires an explicit call to the endpoint's `remove_watch` method.
+/// Dropping the receiver lets the endpoint reclaim its local sender.
+/// The persisted registration remains unless the watch explicitly closes it.
 #[allow(async_fn_in_trait)]
 pub trait ReadModelWatchReceiver: Send {
     /// Waits for an unconsumed change and returns `ReadModelWatchSignal::Changed`,

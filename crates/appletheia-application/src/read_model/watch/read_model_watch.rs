@@ -4,8 +4,7 @@ use crate::read_model::ReadModelDocument;
 
 use super::{ReadModelWatchError, ReadModelWatchId};
 
-/// Owns the persisted watch registration and its lease lifecycle.
-/// Lease renewal must remain independent of document polling.
+/// Owns a query watch and its persisted target registration.
 #[allow(async_fn_in_trait)]
 pub trait ReadModelWatch: Send {
     type Document: ReadModelDocument;

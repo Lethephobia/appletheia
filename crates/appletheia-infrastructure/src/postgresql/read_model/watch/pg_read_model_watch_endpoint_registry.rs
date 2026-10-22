@@ -110,7 +110,7 @@ mod tests {
     use appletheia_application::{
         read_model::{
             ReadModelId, ReadModelRef, ReadModelTypeOwned,
-            watch::{ReadModelWatchId, ReadModelWatchLeaseExpiresAt, ReadModelWatchRegistry},
+            watch::{ReadModelWatchId, ReadModelWatchRegistry},
         },
         unit_of_work::{UnitOfWork, UnitOfWorkFactory},
     };
@@ -139,12 +139,7 @@ mod tests {
         let watch_registry = PgReadModelWatchRegistry::new();
         let watch = ReadModelWatchId::new();
         watch_registry
-            .register_watch(
-                &mut registration,
-                endpoint,
-                watch,
-                ReadModelWatchLeaseExpiresAt::from(lease.value()),
-            )
+            .register_watch(&mut registration, endpoint, watch)
             .await
             .unwrap();
         let generation = watch_registry

@@ -2,8 +2,7 @@ use appletheia_application::read_model::{
     ReadModelRef,
     watch::{
         ReadModelWatchEndpointId, ReadModelWatchEndpointLeaseExpiresAt, ReadModelWatchGeneration,
-        ReadModelWatchId, ReadModelWatchLeaseExpiresAt, ReadModelWatchRegistry,
-        ReadModelWatchRegistryError,
+        ReadModelWatchId, ReadModelWatchRegistry, ReadModelWatchRegistryError,
     },
 };
 use chrono::Utc;
@@ -64,7 +63,7 @@ impl PgReadModelWatchRegistry {
         self.lock_endpoint_key_shared(uow, endpoint_id).await?;
         let row = sqlx::query_as::<_, PgReadModelWatchRow>(
             r#"
-            SELECT watch_id, endpoint_id, lease_until, generation
+            SELECT watch_id, endpoint_id, generation
             FROM read_model_watches
             WHERE watch_id = $1
             FOR UPDATE
@@ -73,7 +72,7 @@ impl PgReadModelWatchRegistry {
         .bind(watch_id.value())
         .fetch_optional(uow.transaction_mut().as_mut())
         .await?
-        .ok_or(PgReadModelWatchRegistryError::WatchInactive)?;
+        .ok_or(PgReadModelWatchRegistryError::WatchNotFound)?;
         if row.endpoint_id != endpoint_id.value() {
             return Err(PgReadModelWatchRegistryError::EndpointMismatch);
         }
@@ -92,9 +91,6 @@ impl PgReadModelWatchRegistry {
         if ReadModelWatchEndpointLeaseExpiresAt::from(endpoint.lease_until).is_expired_at(now) {
             return Err(PgReadModelWatchRegistryError::EndpointInactive);
         }
-        if ReadModelWatchLeaseExpiresAt::from(row.lease_until).is_expired_at(now) {
-            return Err(PgReadModelWatchRegistryError::WatchInactive);
-        }
         Ok(row)
     }
 }
@@ -107,45 +103,18 @@ impl ReadModelWatchRegistry for PgReadModelWatchRegistry {
         uow: &mut Self::Uow,
         endpoint_id: ReadModelWatchEndpointId,
         watch_id: ReadModelWatchId,
-        lease_until: ReadModelWatchLeaseExpiresAt,
     ) -> Result<(), ReadModelWatchRegistryError> {
         self.lock_endpoint_key_shared(uow, endpoint_id)
             .await
             .map_err(|source| ReadModelWatchRegistryError::Backend(Box::new(source)))?;
         sqlx::query(
             r#"
-            INSERT INTO read_model_watches (watch_id, endpoint_id, lease_until, generation)
-            VALUES ($1, $2, $3, 0)
+            INSERT INTO read_model_watches (watch_id, endpoint_id, generation)
+            VALUES ($1, $2, 0)
             "#,
         )
         .bind(watch_id.value())
         .bind(endpoint_id.value())
-        .bind(lease_until.value())
-        .execute(uow.transaction_mut().as_mut())
-        .await
-        .map_err(|source| ReadModelWatchRegistryError::Backend(Box::new(source)))?;
-        Ok(())
-    }
-
-    async fn extend_watch_lease(
-        &self,
-        uow: &mut Self::Uow,
-        endpoint_id: ReadModelWatchEndpointId,
-        watch_id: ReadModelWatchId,
-        lease_until: ReadModelWatchLeaseExpiresAt,
-    ) -> Result<(), ReadModelWatchRegistryError> {
-        self.read_watch_for_update(uow, endpoint_id, watch_id)
-            .await
-            .map_err(|source| ReadModelWatchRegistryError::Backend(Box::new(source)))?;
-        sqlx::query(
-            r#"
-            UPDATE read_model_watches
-            SET lease_until = GREATEST(lease_until, $2)
-            WHERE watch_id = $1
-            "#,
-        )
-        .bind(watch_id.value())
-        .bind(lease_until.value())
         .execute(uow.transaction_mut().as_mut())
         .await
         .map_err(|source| ReadModelWatchRegistryError::Backend(Box::new(source)))?;
@@ -160,7 +129,7 @@ impl ReadModelWatchRegistry for PgReadModelWatchRegistry {
     ) -> Result<(), ReadModelWatchRegistryError> {
         let row = sqlx::query_as::<_, PgReadModelWatchRow>(
             r#"
-            SELECT watch_id, endpoint_id, lease_until, generation
+            SELECT watch_id, endpoint_id, generation
             FROM read_model_watches
             WHERE watch_id = $1
             FOR UPDATE
@@ -346,7 +315,6 @@ mod tests {
         read_model::{ReadModelId, ReadModelTypeOwned},
         unit_of_work::{UnitOfWork, UnitOfWorkFactory},
     };
-    use chrono::{DateTime, Duration};
     use sqlx::PgPool;
     use std::slice;
 
@@ -366,12 +334,7 @@ mod tests {
         let factory = PgUnitOfWorkFactory::new(pool.clone());
         let mut uow = factory.begin().await.unwrap();
         PgReadModelWatchRegistry::new()
-            .register_watch(
-                &mut uow,
-                endpoint_id,
-                watch_id,
-                ReadModelWatchLeaseExpiresAt::from(Utc::now() + Duration::minutes(30)),
-            )
+            .register_watch(&mut uow, endpoint_id, watch_id)
             .await
             .unwrap();
         uow.commit().await.unwrap();
@@ -509,7 +472,7 @@ mod tests {
     #[ignore = "requires PostgreSQL"]
     async fn ownership_and_expiration_are_checked_even_for_empty_targets(pool: PgPool) {
         let (endpoint, watch) = register(&pool).await;
-        let (other_endpoint, _) = register(&pool).await;
+        let (other_endpoint, other_watch) = register(&pool).await;
         let factory = PgUnitOfWorkFactory::new(pool.clone());
         let registry = PgReadModelWatchRegistry::new();
         let mut uow = factory.begin().await.unwrap();
@@ -525,66 +488,20 @@ mod tests {
                 .await
                 .is_err()
         );
-        let before: DateTime<Utc> =
-            sqlx::query_scalar("SELECT lease_until FROM read_model_watches WHERE watch_id = $1")
-                .bind(watch.value())
-                .fetch_one(uow.transaction_mut().as_mut())
-                .await
-                .unwrap();
-        registry
-            .extend_watch_lease(
-                &mut uow,
-                endpoint,
-                watch,
-                ReadModelWatchLeaseExpiresAt::now(),
-            )
-            .await
-            .unwrap();
-        let after: DateTime<Utc> =
-            sqlx::query_scalar("SELECT lease_until FROM read_model_watches WHERE watch_id = $1")
-                .bind(watch.value())
-                .fetch_one(uow.transaction_mut().as_mut())
-                .await
-                .unwrap();
-        assert_eq!(before, after);
-        uow.commit().await.unwrap();
-
-        sqlx::query(
-            r#"
-            UPDATE read_model_watches
-            SET lease_until = clock_timestamp() - interval '1 second'
-            WHERE watch_id = $1
-            "#,
-        )
-        .bind(watch.value())
-        .execute(&pool)
-        .await
-        .unwrap();
-        let mut expired = factory.begin().await.unwrap();
         assert!(
             registry
                 .contains_targets(
-                    &mut expired,
+                    &mut uow,
                     endpoint,
                     watch,
                     ReadModelWatchGeneration::new(),
                     &[]
                 )
                 .await
-                .is_err()
+                .unwrap()
         );
-        assert!(
-            registry
-                .extend_watch_lease(
-                    &mut expired,
-                    endpoint,
-                    watch,
-                    ReadModelWatchLeaseExpiresAt::from(Utc::now() + Duration::hours(1))
-                )
-                .await
-                .is_err()
-        );
-        expired.rollback().await.unwrap();
+        uow.commit().await.unwrap();
+
         sqlx::query(
             r#"
             UPDATE read_model_watch_endpoints
@@ -599,11 +516,18 @@ mod tests {
         let mut inactive = factory.begin().await.unwrap();
         assert!(
             registry
-                .register_watch(
+                .register_watch(&mut inactive, other_endpoint, ReadModelWatchId::new(),)
+                .await
+                .is_err()
+        );
+        assert!(
+            registry
+                .contains_targets(
                     &mut inactive,
                     other_endpoint,
-                    ReadModelWatchId::new(),
-                    ReadModelWatchLeaseExpiresAt::from(Utc::now() + Duration::hours(1))
+                    other_watch,
+                    ReadModelWatchGeneration::new(),
+                    &[]
                 )
                 .await
                 .is_err()

@@ -8,8 +8,8 @@ pub enum PgReadModelWatchRegistryError {
     #[error("watch endpoint is missing or expired")]
     EndpointInactive,
 
-    #[error("watch is missing or expired")]
-    WatchInactive,
+    #[error("watch was not found")]
+    WatchNotFound,
 
     #[error("watch belongs to another endpoint")]
     EndpointMismatch,
