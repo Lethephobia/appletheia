@@ -1,4 +1,4 @@
-use std::sync::atomic::{AtomicBool, Ordering as AtomicOrdering};
+use tokio_util::sync::CancellationToken;
 
 use crate::event::EventFeedReader;
 use crate::messaging::Subscription;
@@ -23,7 +23,7 @@ where
     processed_event_store: P,
     uow_factory: U,
     config: ProjectionCatchUpConfig,
-    stop_requested: AtomicBool,
+    stop_token: CancellationToken,
 }
 
 impl<F, C, P, U> DefaultProjectionCatchUp<F, C, P, U>
@@ -46,7 +46,7 @@ where
             processed_event_store,
             uow_factory,
             config,
-            stop_requested: AtomicBool::new(false),
+            stop_token: CancellationToken::new(),
         }
     }
 }
@@ -61,11 +61,11 @@ where
     type Uow = F::Uow;
 
     fn is_stop_requested(&self) -> bool {
-        self.stop_requested.load(AtomicOrdering::SeqCst)
+        self.stop_token.is_cancelled()
     }
 
-    fn request_graceful_stop(&mut self) {
-        self.stop_requested.store(true, AtomicOrdering::SeqCst);
+    fn request_graceful_stop(&self) {
+        self.stop_token.cancel();
     }
 
     async fn run_until_idle<PJ: Projector<Uow = F::Uow>>(

@@ -1,9 +1,9 @@
 use std::marker::PhantomData;
-use std::sync::atomic::{AtomicBool, Ordering as AtomicOrdering};
 use std::time::Duration as StdDuration;
 
 use chrono::Duration;
 use tokio::time::sleep;
+use tokio_util::sync::CancellationToken;
 
 use crate::messaging::{PublishResult, Publisher};
 use crate::unit_of_work::UnitOfWork;
@@ -28,7 +28,7 @@ where
     fetcher: F,
     writer: W,
     uow_factory: UowFactory,
-    stop_requested: AtomicBool,
+    stop_token: CancellationToken,
     _marker: PhantomData<fn() -> O>,
 }
 
@@ -54,7 +54,7 @@ where
             fetcher,
             writer,
             uow_factory,
-            stop_requested: AtomicBool::new(false),
+            stop_token: CancellationToken::new(),
             _marker: PhantomData,
         }
     }
@@ -75,11 +75,11 @@ where
     }
 
     fn is_stop_requested(&self) -> bool {
-        self.stop_requested.load(AtomicOrdering::SeqCst)
+        self.stop_token.is_cancelled()
     }
 
-    fn request_graceful_stop(&mut self) {
-        self.stop_requested.store(true, AtomicOrdering::SeqCst);
+    fn request_graceful_stop(&self) {
+        self.stop_token.cancel();
     }
 
     async fn run_forever(&self) -> Result<(), OutboxRelayError> {
@@ -100,7 +100,11 @@ where
                         .unwrap_or_else(|_| StdDuration::from_secs(0));
 
                     if sleep_duration > StdDuration::from_secs(0) {
-                        sleep(sleep_duration).await;
+                        tokio::select! {
+                            biased;
+                            _ = self.stop_token.cancelled() => break,
+                            _ = sleep(sleep_duration) => {}
+                        }
                     }
 
                     poll_interval = poll_interval.next(

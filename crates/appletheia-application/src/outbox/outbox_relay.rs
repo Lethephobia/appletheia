@@ -8,7 +8,7 @@ pub trait OutboxRelay: Send + Sync {
 
     fn is_stop_requested(&self) -> bool;
 
-    fn request_graceful_stop(&mut self);
+    fn request_graceful_stop(&self);
 
     async fn run_forever(&self) -> Result<(), OutboxRelayError>;
 

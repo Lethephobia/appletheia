@@ -8,7 +8,7 @@ pub trait ProjectionCatchUp: Send {
 
     fn is_stop_requested(&self) -> bool;
 
-    fn request_graceful_stop(&mut self);
+    fn request_graceful_stop(&self);
 
     /// Applies matching events from the saved checkpoint until no events remain.
     ///
