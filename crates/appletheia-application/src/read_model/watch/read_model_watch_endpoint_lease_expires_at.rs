@@ -12,6 +12,10 @@ impl ReadModelWatchEndpointLeaseExpiresAt {
         Self(Utc::now())
     }
 
+    pub fn is_expired_at(&self, now: DateTime<Utc>) -> bool {
+        self.0 <= now
+    }
+
     pub fn value(&self) -> DateTime<Utc> {
         self.0
     }
@@ -42,5 +46,20 @@ impl From<ReadModelWatchEndpointLeaseExpiresAt> for DateTime<Utc> {
 impl Display for ReadModelWatchEndpointLeaseExpiresAt {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(formatter, "{}", self.value())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::Duration;
+
+    #[test]
+    fn expires_at_the_deadline() {
+        let now = Utc::now();
+        let expires_at = ReadModelWatchEndpointLeaseExpiresAt::from(now);
+        assert!(!expires_at.is_expired_at(now - Duration::nanoseconds(1)));
+        assert!(expires_at.is_expired_at(now));
+        assert!(expires_at.is_expired_at(now + Duration::nanoseconds(1)));
     }
 }

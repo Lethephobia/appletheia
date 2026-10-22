@@ -67,7 +67,7 @@ impl ReadModelWatchEndpointRegistry for PgReadModelWatchEndpointRegistry {
             ))
         })?;
         let now = Utc::now();
-        if endpoint.lease_until <= now {
+        if ReadModelWatchEndpointLeaseExpiresAt::from(endpoint.lease_until).is_expired_at(now) {
             return Err(ReadModelWatchEndpointRegistryError::Backend(Box::new(
                 PgReadModelWatchEndpointRegistryError::EndpointInactive,
             )));

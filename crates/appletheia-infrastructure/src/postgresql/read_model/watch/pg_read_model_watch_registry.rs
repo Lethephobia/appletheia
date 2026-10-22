@@ -1,8 +1,9 @@
 use appletheia_application::read_model::{
     ReadModelRef,
     watch::{
-        ReadModelWatchEndpointId, ReadModelWatchGeneration, ReadModelWatchId,
-        ReadModelWatchLeaseExpiresAt, ReadModelWatchRegistry, ReadModelWatchRegistryError,
+        ReadModelWatchEndpointId, ReadModelWatchEndpointLeaseExpiresAt, ReadModelWatchGeneration,
+        ReadModelWatchId, ReadModelWatchLeaseExpiresAt, ReadModelWatchRegistry,
+        ReadModelWatchRegistryError,
     },
 };
 use chrono::Utc;
@@ -48,7 +49,7 @@ impl PgReadModelWatchRegistry {
         .await?
         .ok_or(PgReadModelWatchRegistryError::EndpointInactive)?;
         let now = Utc::now();
-        if endpoint.lease_until <= now {
+        if ReadModelWatchEndpointLeaseExpiresAt::from(endpoint.lease_until).is_expired_at(now) {
             return Err(PgReadModelWatchRegistryError::EndpointInactive);
         }
         Ok(())
@@ -88,10 +89,10 @@ impl PgReadModelWatchRegistry {
         .await?
         .ok_or(PgReadModelWatchRegistryError::EndpointInactive)?;
         let now = Utc::now();
-        if endpoint.lease_until <= now {
+        if ReadModelWatchEndpointLeaseExpiresAt::from(endpoint.lease_until).is_expired_at(now) {
             return Err(PgReadModelWatchRegistryError::EndpointInactive);
         }
-        if row.lease_until <= now {
+        if ReadModelWatchLeaseExpiresAt::from(row.lease_until).is_expired_at(now) {
             return Err(PgReadModelWatchRegistryError::WatchInactive);
         }
         Ok(row)
