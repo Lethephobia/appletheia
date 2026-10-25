@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.24.0](https://github.com/Lethephobia/appletheia/compare/appletheia-infrastructure-v0.23.0...appletheia-infrastructure-v0.24.0) - 2026-10-25
+
+### Added
+
+- *(appletheia-infrastructure)* add watch notification Pub/Sub codec
+- *(read-model)* [**breaking**] implement watch endpoint notification routing
+- *(postgresql)* implement read model watch lookup
+- *(postgresql)* implement read model watch endpoint registry
+- *(postgresql)* implement read model watch registry
+- *(read-model)* [**breaking**] deliver projection changes through outbox
+
+### Other
+
+- *(read-model)* [**breaking**] remove per-watch leases
+- *(outbox)* [**breaking**] replace relay instances with generated relay IDs
+- *(google-cloud-pubsub)* move codec tests into individual modules
+
 ## [0.23.0](https://github.com/Lethephobia/appletheia/compare/appletheia-infrastructure-v0.22.0...appletheia-infrastructure-v0.23.0) - 2026-10-11
 
 ### Added

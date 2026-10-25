@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.1](https://github.com/Lethephobia/appletheia/compare/appletheia-v0.15.0...appletheia-v0.15.1) - 2026-10-25
+
+### Added
+
+- *(appletheia-application)* add read model watch notification worker
+- *(appletheia-application)* implement default read model watcher
+- *(appletheia-application)* [**breaking**] implement read model watch lifecycle
+- *(read-model)* add watch generation registrar factory
+- *(read-model)* [**breaking**] implement watch endpoint notification routing
+- *(application)* add read model watch notification contracts
+- *(application)* [**breaking**] implement read model watch receiver with explicit signals
+- *(application)* [**breaking**] implement watch generation registrar with caller-owned transactions
+- *(application)* [**breaking**] add read model watch generation contracts
+- *(application)* add read model watch endpoint and receiver contracts
+- *(application)* add read model watch registry contract and lease types
+- *(read-model)* [**breaking**] define watcher and watch contracts
+- *(read-model)* add watch registry with in-memory target indexing
+- *(read-model)* [**breaking**] deliver projection changes through outbox
+- *(appletheia-infrastructure)* add watch notification Pub/Sub codec
+- *(postgresql)* implement read model watch lookup
+- *(postgresql)* implement read model watch endpoint registry
+- *(postgresql)* implement read model watch registry
+
+### Fixed
+
+- *(appletheia-application)* [**breaking**] interrupt worker waits on graceful stop
+
+### Other
+
+- *(read-model)* [**breaking**] remove per-watch leases
+- *(outbox)* [**breaking**] replace relay instances with generated relay IDs
+- *(application)* [**breaking**] split watch registries and add paginated lookup
+- *(application)* [**breaking**] allow read model watches to borrow dependencies
+- *(read-model)* [**breaking**] remove preliminary watch registry
+- *(read-model)* [**breaking**] unify document contracts for query outputs
+- *(projection)* [**breaking**] rename projector rebuilder to projection catch-up
+- *(appletheia-application)* [**breaking**] align name value object validation
+- *(projection)* [**breaking**] replace route builders with async projectors
+- *(read-model)* [**breaking**] separate field filters into resource views
+- *(google-cloud-pubsub)* move codec tests into individual modules
+
 ## [0.15.0](https://github.com/Lethephobia/appletheia/compare/appletheia-v0.14.0...appletheia-v0.15.0) - 2026-10-11
 
 ### Added

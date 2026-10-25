@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0](https://github.com/Lethephobia/appletheia/compare/appletheia-macros-v0.4.8...appletheia-macros-v0.5.0) - 2026-10-25
+
+### Added
+
+- *(read-model)* [**breaking**] define watcher and watch contracts
+
 ## [0.4.8](https://github.com/Lethephobia/appletheia/compare/appletheia-macros-v0.4.7...appletheia-macros-v0.4.8) - 2026-10-11
 
 ### Other
