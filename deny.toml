@@ -4,7 +4,7 @@
 [advisories]
 # Fail on withdrawn releases as well as known vulnerabilities.
 yanked = "deny"
-# Only the maintenance advisories below are exempted; other advisories still fail.
+# Only the explicitly documented advisories below are exempted; others still fail.
 ignore = [
     # Anchor/Solana require bincode internally. Banking's own transaction
     # serialization already uses wincode. Remove when upstream migrates.
@@ -12,6 +12,12 @@ ignore = [
     # Alloy primitives and Solidity macros require paste unconditionally.
     # Remove when upstream replaces it; Appletheia does not depend on it directly.
     "RUSTSEC-2024-0436",
+    # Temporary acceptance for Alloy used by the Banking example (including signing).
+    # Alloy 2.5.0 still requires crypto-bigint 0.5 via elliptic-curve/k256.
+    # This does not establish safety; remove once upstream uses patched versions.
+    # Track removal: https://github.com/Lethephobia/appletheia/issues/164
+    # Upstream: https://github.com/alloy-rs/alloy/issues/4445
+    "RUSTSEC-2026-0387",
 ]
 
 [licenses]
