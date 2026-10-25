@@ -224,12 +224,18 @@ mod tests {
         targets: HashMap<ReadModelWatchGeneration, HashSet<ReadModelRef>>,
         operations: Vec<&'static str>,
         fail_remove: bool,
+        fail_begin: bool,
+        fail_register: bool,
+        fail_commit: bool,
+        fail_cleanup: bool,
+        fail_receiver: bool,
     }
 
     #[derive(Clone, Default)]
     struct Backend(Arc<Mutex<State>>);
 
     enum Operation {
+        Register,
         Generation(ReadModelWatchGeneration),
         Targets(ReadModelWatchGeneration, Vec<ReadModelRef>),
         Complete(ReadModelWatchGeneration),
@@ -244,8 +250,14 @@ mod tests {
     impl UnitOfWork for TestUow {
         async fn commit(self) -> Result<(), UnitOfWorkError> {
             let mut state = self.backend.0.lock().unwrap();
+            if state.fail_commit {
+                return Err(UnitOfWorkError::CommitFailed(Box::new(io::Error::other(
+                    "commit failed",
+                ))));
+            }
             for operation in self.operations {
                 match operation {
+                    Operation::Register => state.operations.push("register_db"),
                     Operation::Generation(generation) => {
                         state.generation = generation;
                         state.operations.push("begin");
@@ -277,6 +289,11 @@ mod tests {
         type Uow = TestUow;
 
         async fn begin(&self) -> Result<TestUow, UnitOfWorkFactoryError> {
+            if self.0.lock().unwrap().fail_begin {
+                return Err(UnitOfWorkFactoryError::BeginFailed(Box::new(
+                    io::Error::other("begin failed"),
+                )));
+            }
             Ok(TestUow {
                 backend: self.clone(),
                 operations: Vec::new(),
@@ -289,10 +306,17 @@ mod tests {
 
         async fn register_watch(
             &self,
-            _: &mut TestUow,
+            uow: &mut TestUow,
             _: ReadModelWatchEndpointId,
             _: ReadModelWatchId,
         ) -> Result<(), ReadModelWatchRegistryError> {
+            if self.0.lock().unwrap().fail_register {
+                return Err(ReadModelWatchRegistryError::Backend(Box::new(
+                    io::Error::other("register failed"),
+                )));
+            }
+            self.0.lock().unwrap().operations.push("stage_registration");
+            uow.operations.push(Operation::Register);
             Ok(())
         }
 
@@ -408,6 +432,15 @@ mod tests {
             &self,
             _: ReadModelWatchId,
         ) -> Result<Self::Receiver, ReadModelWatchEndpointError> {
+            self.backend
+                .0
+                .lock()
+                .unwrap()
+                .operations
+                .push("register_local");
+            if self.backend.0.lock().unwrap().fail_receiver {
+                return Err(ReadModelWatchEndpointError::Closed);
+            }
             Ok(DefaultReadModelWatchReceiver::new(self.sender.subscribe()))
         }
 
@@ -415,6 +448,9 @@ mod tests {
             &self,
             _: ReadModelWatchId,
         ) -> Result<(), ReadModelWatchEndpointError> {
+            if self.backend.0.lock().unwrap().fail_cleanup {
+                return Err(ReadModelWatchEndpointError::StatePoisoned);
+            }
             self.backend
                 .0
                 .lock()
@@ -660,5 +696,99 @@ mod tests {
             setup.backend.0.lock().unwrap().operations,
             ["rollback", "remove_db", "remove_local"]
         );
+    }
+
+    #[tokio::test]
+    async fn watcher_registers_before_returning_and_defers_query_until_next() {
+        use crate::read_model::watch::{DefaultReadModelWatcher, ReadModelWatcher};
+
+        let setup = Setup::new(vec![Response::Document(vec![]), Response::Document(vec![])]);
+        let watcher = DefaultReadModelWatcher::new(
+            setup.backend.clone(),
+            setup.backend.clone(),
+            setup.backend.clone(),
+            setup.endpoint,
+            setup.factory,
+        );
+        let mut first = watcher
+            .watch(&setup.handler, &setup.context, TestQuery)
+            .await
+            .unwrap();
+        let mut second = watcher
+            .watch(&setup.handler, &setup.context, TestQuery)
+            .await
+            .unwrap();
+        assert_ne!(first.watch_id(), second.watch_id());
+        assert_eq!(
+            setup.backend.0.lock().unwrap().operations,
+            [
+                "stage_registration",
+                "register_local",
+                "register_db",
+                "stage_registration",
+                "register_local",
+                "register_db"
+            ]
+        );
+        assert!(matches!(
+            first.next().await.unwrap(),
+            ReadModelWatchResult::Document(_)
+        ));
+        first.close().await.unwrap();
+        second.close().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn watcher_rolls_back_registration_or_cleans_up_after_commit_failure() {
+        use crate::read_model::watch::{
+            DefaultReadModelWatcher, ReadModelWatcher, ReadModelWatcherError,
+        };
+
+        for failure in ["begin", "register", "receiver", "commit", "cleanup"] {
+            let setup = Setup::new(vec![]);
+            {
+                let mut state = setup.backend.0.lock().unwrap();
+                state.fail_begin = failure == "begin";
+                state.fail_register = failure == "register";
+                state.fail_receiver = failure == "receiver";
+                state.fail_commit = failure == "commit" || failure == "cleanup";
+                state.fail_cleanup = failure == "cleanup";
+            }
+            let watcher = DefaultReadModelWatcher::new(
+                setup.backend.clone(),
+                setup.backend.clone(),
+                setup.backend.clone(),
+                setup.endpoint,
+                setup.factory,
+            );
+            let result = watcher
+                .watch(&setup.handler, &setup.context, TestQuery)
+                .await;
+            match failure {
+                "begin" => assert!(matches!(
+                    result,
+                    Err(ReadModelWatcherError::UnitOfWorkFactory(_))
+                )),
+                "register" => assert!(matches!(result, Err(ReadModelWatcherError::Registry(_)))),
+                "receiver" => assert!(matches!(result, Err(ReadModelWatcherError::Endpoint(_)))),
+                "commit" => assert!(matches!(result, Err(ReadModelWatcherError::UnitOfWork(_)))),
+                "cleanup" => assert!(matches!(
+                    result,
+                    Err(ReadModelWatcherError::OperationAndCleanupFailed { .. })
+                )),
+                _ => unreachable!(),
+            }
+            assert!(watcher.endpoint().sender.is_closed());
+            let state = setup.backend.0.lock().unwrap();
+            let expected: &[&str] = match failure {
+                "begin" => &[],
+                "register" => &["rollback"],
+                "receiver" => &["stage_registration", "register_local", "rollback"],
+                "commit" => &["stage_registration", "register_local", "remove_local"],
+                "cleanup" => &["stage_registration", "register_local"],
+                _ => unreachable!(),
+            };
+            assert_eq!(state.operations, expected);
+        }
     }
 }
