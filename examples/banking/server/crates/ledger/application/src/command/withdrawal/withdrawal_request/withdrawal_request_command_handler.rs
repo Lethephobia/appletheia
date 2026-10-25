@@ -74,7 +74,7 @@ where
             Ok(token_binding)
                 if token_binding.is_active()?
                     && token_binding.is_withdrawal_enabled()?
-                    && token_binding.currency_id()? == *account.currency_id()? => {}
+                    && token_binding.currency_id()? == account.currency_id()? => {}
             Ok(_) | Err(RepositoryError::NotFound { .. }) => {
                 return Err(WithdrawalError::TokenBindingUnavailable.into());
             }

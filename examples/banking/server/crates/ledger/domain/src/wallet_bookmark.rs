@@ -37,8 +37,8 @@ pub struct WalletBookmark {
 
 impl WalletBookmark {
     /// Returns the owner that registered this wallet bookmark.
-    pub fn owner(&self) -> Result<&WalletBookmarkOwner, WalletBookmarkError> {
-        Ok(&self.state_required()?.owner)
+    pub fn owner(&self) -> Result<WalletBookmarkOwner, WalletBookmarkError> {
+        Ok(self.state_required()?.owner)
     }
 
     /// Returns the user-facing display name.
@@ -52,13 +52,13 @@ impl WalletBookmark {
     }
 
     /// Returns the wallet bookmark token account owner address.
-    pub fn token_owner_address(&self) -> Result<&TokenOwnerAddress, WalletBookmarkError> {
-        Ok(&self.state_required()?.token_owner_address)
+    pub fn token_owner_address(&self) -> Result<TokenOwnerAddress, WalletBookmarkError> {
+        Ok(self.state_required()?.token_owner_address)
     }
 
     /// Returns the current status.
-    pub fn status(&self) -> Result<&WalletBookmarkStatus, WalletBookmarkError> {
-        Ok(&self.state_required()?.status)
+    pub fn status(&self) -> Result<WalletBookmarkStatus, WalletBookmarkError> {
+        Ok(self.state_required()?.status)
     }
 
     /// Registers a wallet bookmark.
@@ -194,7 +194,7 @@ mod tests {
             .register(owner, token_owner_address)
             .expect("register should succeed");
 
-        assert_eq!(wallet_bookmark.owner().expect("owner should exist"), &owner);
+        assert_eq!(wallet_bookmark.owner().expect("owner should exist"), owner);
         assert_eq!(
             wallet_bookmark
                 .display_name()
@@ -211,11 +211,11 @@ mod tests {
             wallet_bookmark
                 .token_owner_address()
                 .expect("address should exist"),
-            &token_owner_address
+            token_owner_address
         );
         assert_eq!(
             wallet_bookmark.status().expect("status should exist"),
-            &WalletBookmarkStatus::Active
+            WalletBookmarkStatus::Active
         );
 
         let events = wallet_bookmark.uncommitted_events();
@@ -240,7 +240,7 @@ mod tests {
 
         assert_eq!(
             wallet_bookmark.status().expect("status should exist"),
-            &WalletBookmarkStatus::Removed
+            WalletBookmarkStatus::Removed
         );
         let events = wallet_bookmark.uncommitted_events();
         assert_eq!(events.len(), 1);

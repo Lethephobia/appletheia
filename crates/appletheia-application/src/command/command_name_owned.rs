@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use super::{CommandName, CommandNameOwnedError};
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
-#[serde(transparent)]
+#[serde(try_from = "String", into = "String")]
 pub struct CommandNameOwned(String);
 
 impl CommandNameOwned {
@@ -22,16 +22,20 @@ impl CommandNameOwned {
         if value.is_empty() {
             return Err(CommandNameOwnedError::Empty);
         }
-        if value.len() > CommandName::MAX_LENGTH {
-            return Err(CommandNameOwnedError::TooLong);
+        let len = value.len();
+        if len > CommandName::MAX_LENGTH {
+            return Err(CommandNameOwnedError::TooLong {
+                len,
+                max: CommandName::MAX_LENGTH,
+            });
         }
-        if !value.as_bytes().iter().all(|&b| {
-            let is_lower = b.is_ascii_lowercase();
-            let is_digit = b.is_ascii_digit();
-            let is_underscore = b == b'_';
-            is_lower || is_digit || is_underscore
-        }) {
-            return Err(CommandNameOwnedError::InvalidFormat);
+        let is_snake_ascii = value
+            .bytes()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_');
+        if !is_snake_ascii {
+            return Err(CommandNameOwnedError::InvalidFormat {
+                value: value.to_owned(),
+            });
         }
         Ok(())
     }
@@ -47,7 +51,8 @@ impl FromStr for CommandNameOwned {
     type Err = CommandNameOwnedError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Self::new(s.to_string())
+        Self::validate(s)?;
+        Ok(Self(s.to_owned()))
     }
 }
 
@@ -59,8 +64,56 @@ impl TryFrom<&str> for CommandNameOwned {
     }
 }
 
+impl TryFrom<String> for CommandNameOwned {
+    type Error = CommandNameOwnedError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+
 impl From<CommandName> for CommandNameOwned {
     fn from(value: CommandName) -> Self {
         Self(value.value().to_string())
+    }
+}
+
+impl From<CommandNameOwned> for String {
+    fn from(value: CommandNameOwned) -> Self {
+        value.0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn deserialization_enforces_name_constraints() {
+        for value in [
+            "_name".to_owned(),
+            "name__2".to_owned(),
+            "a".repeat(CommandName::MAX_LENGTH),
+        ] {
+            let json = serde_json::to_string(&value).unwrap();
+            let decoded: CommandNameOwned = serde_json::from_str(&json).unwrap();
+            assert_eq!(decoded, CommandNameOwned::new(value).unwrap());
+            assert_eq!(serde_json::to_string(&decoded).unwrap(), json);
+        }
+        for value in [
+            "".to_owned(),
+            "Name".to_owned(),
+            "name-part".to_owned(),
+            "name part".to_owned(),
+            "名前".to_owned(),
+            "a".repeat(CommandName::MAX_LENGTH + 1),
+        ] {
+            assert!(CommandNameOwned::new(value.clone()).is_err());
+            let json = serde_json::to_string(&value).unwrap();
+            assert!(
+                serde_json::from_str::<CommandNameOwned>(&json).is_err(),
+                "{value}"
+            );
+        }
     }
 }

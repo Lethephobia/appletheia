@@ -7,6 +7,7 @@ use crate::json::CanonicalJson;
 use crate::request_context::CorrelationId;
 
 use super::OrderingKeyError;
+use crate::read_model::{ReadModelRef, watch::ReadModelWatchEndpointId};
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize)]
 pub struct OrderingKey(String);
@@ -67,6 +68,18 @@ impl From<CorrelationId> for OrderingKey {
 impl From<CanonicalJson> for OrderingKey {
     fn from(value: CanonicalJson) -> Self {
         Self(value.into_string())
+    }
+}
+
+impl From<&ReadModelRef> for OrderingKey {
+    fn from(value: &ReadModelRef) -> Self {
+        Self(format!("{}/{}", value.read_model_type, value.id))
+    }
+}
+
+impl From<ReadModelWatchEndpointId> for OrderingKey {
+    fn from(value: ReadModelWatchEndpointId) -> Self {
+        Self(value.to_string())
     }
 }
 

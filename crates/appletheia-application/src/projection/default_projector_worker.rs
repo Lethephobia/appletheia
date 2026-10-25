@@ -1,4 +1,4 @@
-use std::sync::atomic::{AtomicBool, Ordering as AtomicOrdering};
+use tokio_util::sync::CancellationToken;
 
 use crate::{
     Consumer, ConsumerGroup, Delivery, Subscriber, Subscription,
@@ -17,7 +17,7 @@ where
 {
     runner: R,
     subscriber: S,
-    stop_requested: AtomicBool,
+    stop_token: CancellationToken,
 }
 
 impl<S, R> DefaultProjectorWorker<S, R>
@@ -31,7 +31,7 @@ where
         Self {
             runner,
             subscriber,
-            stop_requested: AtomicBool::new(false),
+            stop_token: CancellationToken::new(),
         }
     }
 }
@@ -46,40 +46,39 @@ where
     type Uow = R::Uow;
 
     fn is_stop_requested(&self) -> bool {
-        self.stop_requested.load(AtomicOrdering::SeqCst)
+        self.stop_token.is_cancelled()
     }
 
     fn request_graceful_stop(&self) {
-        self.stop_requested.store(true, AtomicOrdering::SeqCst);
+        self.stop_token.cancel();
     }
 
     async fn run_forever<PJ>(&self, projector: &PJ) -> Result<(), ProjectorWorkerError>
     where
         PJ: Projector<Uow = Self::Uow>,
     {
-        let projector_definition = projector.definition()?;
-        let selectors = projector_definition.event_selectors();
+        let selectors = PJ::EVENT_SELECTORS;
         if selectors.is_empty() {
             return Ok(());
         }
-        let subscription = Subscription::AnyOf(&selectors);
-        let consumer_group =
-            ConsumerGroup::new(format!("projector_{}", projector_definition.name()))?;
+        let subscription = Subscription::AnyOf(selectors);
+        let consumer_group = ConsumerGroup::new(format!("projector_{}", PJ::NAME))?;
         let mut consumer = self
             .subscriber
             .subscribe(&consumer_group, subscription)
             .await?;
 
         while !self.is_stop_requested() {
-            let mut delivery = consumer.next().await?;
+            let mut delivery = tokio::select! {
+                biased;
+                _ = self.stop_token.cancelled() => break,
+                delivery = consumer.next() => delivery?,
+            };
 
             if !subscription.matches(delivery.message()) {
                 delivery.ack().await?;
             } else {
-                let result = self
-                    .runner
-                    .project(&projector_definition, delivery.message())
-                    .await;
+                let result = self.runner.project(projector, delivery.message()).await;
 
                 match result {
                     Ok(_) => delivery.ack().await?,

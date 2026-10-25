@@ -301,6 +301,8 @@ impl PubsubMessageCodec for CloudEventsPubsubEventCodec {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use appletheia_domain::{AggregateType, EventName};
+    use serde_json::json;
 
     #[test]
     fn id_round_trip_validates_domain_id() {
@@ -352,5 +354,104 @@ mod tests {
             )
             .is_err()
         );
+    }
+
+    #[test]
+    fn binary_round_trip_preserves_mapping_and_rejects_invalid_attributes() {
+        let id = Uuid::now_v7();
+        let context = json!({"correlation_id": id, "message_id": id, "actor": {"type": "system"}});
+        let source: CloudEventSource = "urn:banking".parse().unwrap();
+        let event: EventEnvelope = serde_json::from_value(json!({
+            "event_id": id, "event_sequence": 9223372036854775807_i64, "aggregate_type": "account", "aggregate_id": id,
+            "aggregate_version": 9223372036854775807_i64, "event_name": "debited", "payload": {"type": "debited", "data": {"amount": 10}},
+            "occurred_at": "2026-09-23T12:00:00Z", "correlation_id": id, "causation_id": id, "context": context
+        })).unwrap();
+        let event_codec =
+            CloudEventsPubsubEventCodec::new(source.clone(), Some("com.example".parse().unwrap()));
+        let event_wire = event_codec.encode(&event).unwrap();
+        assert_eq!(event_codec.decode(&event_wire).unwrap(), event);
+        assert_eq!(event_wire.attributes["ce-source"], "urn:banking");
+        assert_eq!(
+            event_wire.attributes["ce-datacontenttype"],
+            "application/json"
+        );
+        assert_eq!(
+            event_wire.attributes["ce-partitionkey"],
+            event_wire.ordering_key
+        );
+        assert_eq!(
+            serde_json::from_slice::<serde_json::Value>(&event_wire.data).unwrap(),
+            *event.payload.value()
+        );
+        assert_eq!(
+            event_codec
+                .encode_selector(&EventSelector::from_parts(
+                    AggregateType::new("account"),
+                    EventName::new("debited")
+                ))
+                .unwrap(),
+            format!(
+                "attributes.\"ce-type\" = \"{}\"",
+                event_wire.attributes["ce-type"]
+            )
+        );
+        let mut missing_id = event_wire.clone();
+        missing_id.attributes.remove("ce-id");
+        let PubsubMessageCodecError::Decode(decode_source) =
+            event_codec.decode(&missing_id).unwrap_err()
+        else {
+            panic!("expected a decode error");
+        };
+        assert!(matches!(
+            decode_source.downcast_ref::<CloudEventsPubsubEventCodecError>(),
+            Some(CloudEventsPubsubEventCodecError::MissingAttribute("ce-id"))
+        ));
+        for name in [
+            "ce-specversion",
+            "ce-id",
+            "ce-source",
+            "ce-type",
+            "ce-context",
+            "ce-partitionkey",
+            "ce-datacontenttype",
+        ] {
+            let mut invalid = event_wire.clone();
+            invalid.attributes.remove(name);
+            assert!(event_codec.decode(&invalid).is_err(), "{name}");
+        }
+        for (name, value) in [
+            ("ce-specversion", "2.0"),
+            ("ce-source", "%"),
+            ("ce-subject", "other/id"),
+            ("ce-eventsequence", "-1"),
+            ("ce-partitionkey", "wrong"),
+            ("ce-datacontenttype", "text/plain"),
+            ("ce-time", "invalid"),
+        ] {
+            let mut invalid = event_wire.clone();
+            invalid.attributes.insert(name.to_owned(), value.to_owned());
+            assert!(event_codec.decode(&invalid).is_err(), "{name}");
+        }
+        let mut extended_event = event_wire.clone();
+        extended_event
+            .attributes
+            .insert("ce-extra".to_owned(), "value".to_owned());
+        assert_eq!(event_codec.decode(&extended_event).unwrap(), event);
+        let escaped_prefix_codec = CloudEventsPubsubEventCodec::new(
+            source.clone(),
+            Some(r#"com.quoted"\value"#.parse().unwrap()),
+        );
+        assert_eq!(
+            escaped_prefix_codec
+                .encode_selector(&EventSelector::from_parts(
+                    AggregateType::new("account"),
+                    EventName::new("debited"),
+                ))
+                .unwrap(),
+            r#"attributes."ce-type" = "com.quoted\"\\value.account.debited""#,
+        );
+        let wrong_prefix =
+            CloudEventsPubsubEventCodec::new(source.clone(), Some("other".parse().unwrap()));
+        assert!(wrong_prefix.decode(&event_wire).is_err());
     }
 }

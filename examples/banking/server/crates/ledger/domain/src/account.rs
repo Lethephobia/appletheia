@@ -56,8 +56,8 @@ impl Account {
     }
 
     /// Returns the immutable account currency identity.
-    pub fn currency_id(&self) -> Result<&CurrencyId, AccountError> {
-        Ok(&self.state_required()?.currency_id)
+    pub fn currency_id(&self) -> Result<CurrencyId, AccountError> {
+        Ok(self.state_required()?.currency_id)
     }
 
     /// Returns the current balance.

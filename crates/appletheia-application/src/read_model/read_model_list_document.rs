@@ -1,5 +1,8 @@
+use std::collections::HashSet;
+
 use super::{
-    ReadModel, ReadModelIncluded, ReadModelListDocumentError, ReadModelResourceListDocument,
+    ReadModel, ReadModelDocument, ReadModelDocumentError, ReadModelIncluded, ReadModelRef,
+    ReadModelResourceDocument, ReadModelResourceDocumentData, ReadModelView,
 };
 
 pub struct ReadModelListDocument<R, I>
@@ -7,28 +10,41 @@ where
     R: ReadModel,
     I: ReadModelIncluded,
 {
-    pub data: Vec<R>,
+    pub data: Vec<ReadModelView<R>>,
     pub included: Vec<I>,
 }
 
-impl<R, I> ReadModelListDocument<R, I>
+impl<R, I> ReadModelDocument for ReadModelListDocument<R, I>
 where
     R: ReadModel,
     I: ReadModelIncluded,
 {
-    pub fn try_to_resource_document(
+    fn read_model_refs(&self) -> Vec<ReadModelRef> {
+        let mut seen = HashSet::new();
+        self.data
+            .iter()
+            .map(ReadModelView::read_model_ref)
+            .chain(self.included.iter().map(ReadModelIncluded::read_model_ref))
+            .filter(|reference| seen.insert(reference.clone()))
+            .collect()
+    }
+
+    fn try_to_resource_document(
         &self,
-    ) -> Result<ReadModelResourceListDocument, ReadModelListDocumentError> {
+    ) -> Result<ReadModelResourceDocument, ReadModelDocumentError> {
         let data = self
             .data
             .iter()
-            .map(ReadModel::try_to_resource)
+            .map(ReadModelView::try_to_resource)
             .collect::<Result<Vec<_>, _>>()?;
         let included = self
             .included
             .iter()
             .map(ReadModelIncluded::try_to_resource)
             .collect::<Result<Vec<_>, _>>()?;
-        Ok(ReadModelResourceListDocument { data, included })
+        Ok(ReadModelResourceDocument {
+            data: ReadModelResourceDocumentData::List(data),
+            included,
+        })
     }
 }

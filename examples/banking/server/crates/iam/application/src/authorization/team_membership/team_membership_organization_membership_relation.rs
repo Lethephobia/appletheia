@@ -23,7 +23,7 @@ impl Relation for TeamMembershipOrganizationMembershipRelation {
             if aggregate.is_active()? {
                 entries.insert::<TeamMembership, OrganizationMembership>(
                     aggregate.aggregate_id(),
-                    *aggregate.organization_membership_id()?,
+                    aggregate.organization_membership_id()?,
                 );
             }
             Ok(entries)

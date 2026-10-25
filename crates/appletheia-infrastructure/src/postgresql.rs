@@ -6,6 +6,7 @@ pub mod event;
 pub mod http;
 pub mod outbox;
 pub mod projection;
+pub mod read_model;
 pub mod saga;
 pub mod snapshot;
 

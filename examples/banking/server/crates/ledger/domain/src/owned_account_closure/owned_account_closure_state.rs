@@ -29,14 +29,14 @@ fn owner_user_ref_value(
     state: &OwnedAccountClosureState,
     _aggregate_id: Uuid,
 ) -> Result<Option<UserId>, OwnedAccountClosureStateError> {
-    Ok(state.owner.user_id().copied())
+    Ok(state.owner.user_id())
 }
 
 fn owner_organization_ref_value(
     state: &OwnedAccountClosureState,
     _aggregate_id: Uuid,
 ) -> Result<Option<OrganizationId>, OwnedAccountClosureStateError> {
-    Ok(state.owner.organization_id().copied())
+    Ok(state.owner.organization_id())
 }
 
 #[cfg(test)]

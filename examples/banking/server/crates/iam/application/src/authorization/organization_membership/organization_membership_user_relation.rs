@@ -21,7 +21,7 @@ impl Relation for OrganizationMembershipUserRelation {
             if aggregate.is_active()? {
                 entries.insert::<OrganizationMembership, User>(
                     aggregate.aggregate_id(),
-                    *aggregate.user_id()?,
+                    aggregate.user_id()?,
                 );
             }
             Ok(entries)

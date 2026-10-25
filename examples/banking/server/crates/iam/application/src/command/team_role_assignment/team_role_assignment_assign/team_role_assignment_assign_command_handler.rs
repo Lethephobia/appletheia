@@ -75,12 +75,12 @@ where
                 if !membership.is_active()? {
                     return Err(TeamRoleAssignmentAssignCommandHandlerError::AssigneeInactive);
                 }
-                if *membership.team_id()? != command.team_id {
+                if membership.team_id()? != command.team_id {
                     return Err(TeamRoleAssignmentAssignCommandHandlerError::TeamMismatch);
                 }
                 let organization = self
                     .repository
-                    .read_shared::<Organization>(uow, *team.organization_id()?)
+                    .read_shared::<Organization>(uow, team.organization_id()?)
                     .await?;
                 if !organization.is_active()? {
                     return Err(TeamRoleAssignmentAssignCommandHandlerError::OrganizationInactive);
@@ -89,7 +89,7 @@ where
                     .repository
                     .read_shared::<OrganizationMembership>(
                         uow,
-                        *membership.organization_membership_id()?,
+                        membership.organization_membership_id()?,
                     )
                     .await?;
                 if !organization_membership.is_active()? {

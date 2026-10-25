@@ -1,9 +1,9 @@
 use thiserror::Error;
 
-use super::ReadModelError;
+use super::ReadModelViewError;
 
 #[derive(Debug, Error)]
 pub enum ReadModelIncludedError {
     #[error(transparent)]
-    ReadModel(#[from] ReadModelError),
+    ReadModelView(#[from] ReadModelViewError),
 }

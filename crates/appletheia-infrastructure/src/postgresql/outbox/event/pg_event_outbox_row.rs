@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use chrono::{DateTime, Utc};
 use sqlx::FromRow;
 use uuid::Uuid;
@@ -11,7 +9,7 @@ use appletheia_application::event::{
 use appletheia_application::messaging::PublishDispatchError;
 use appletheia_application::outbox::{
     OutboxAttemptCount, OutboxLeaseExpiresAt, OutboxLifecycle, OutboxNextAttemptAt,
-    OutboxPublishedAt, OutboxRelayInstance, OutboxState,
+    OutboxPublishedAt, OutboxRelayId, OutboxState,
     event::{EventOutbox, EventOutboxId},
 };
 use appletheia_application::request_context::{
@@ -39,7 +37,7 @@ pub struct PgEventOutboxRow {
     pub published_at: Option<DateTime<Utc>>,
     pub attempt_count: i64,
     pub next_attempt_after: DateTime<Utc>,
-    pub lease_owner: Option<String>,
+    pub lease_owner: Option<Uuid>,
     pub lease_until: Option<DateTime<Utc>>,
     pub last_error: Option<serde_json::Value>,
 }
@@ -80,7 +78,7 @@ impl PgEventOutboxRow {
 
         let lease_owner = match self.lease_owner {
             Some(owner) => {
-                let parsed = OutboxRelayInstance::from_str(&owner)?;
+                let parsed = OutboxRelayId::try_from(owner)?;
                 Some(parsed)
             }
             None => None,

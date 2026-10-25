@@ -3,7 +3,7 @@ use appletheia_application::command::{
     CommandAttemptCountError, CommandFailureIdError, CommandNameOwnedError,
 };
 use appletheia_application::outbox::command_failure::CommandFailureOutboxIdError;
-use appletheia_application::outbox::{OutboxAttemptCountError, OutboxRelayInstanceError};
+use appletheia_application::outbox::{OutboxAttemptCountError, OutboxRelayIdError};
 use appletheia_application::saga::{
     SagaInstanceIdError, SagaNameOwnedError, SerializedSagaStepError,
 };
@@ -40,7 +40,7 @@ pub enum PgCommandFailureOutboxRowError {
     OutboxAttemptCount(#[from] OutboxAttemptCountError),
 
     #[error(transparent)]
-    LeaseOwner(#[from] OutboxRelayInstanceError),
+    LeaseOwner(#[from] OutboxRelayIdError),
 
     #[error(transparent)]
     Json(#[from] serde_json::Error),

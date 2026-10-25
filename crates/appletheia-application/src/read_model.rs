@@ -1,16 +1,22 @@
+pub mod watch;
+
 mod read_model_attribute_key;
 mod read_model_attribute_key_error;
 mod read_model_attribute_value;
 mod read_model_attribute_value_error;
+mod read_model_change;
+mod read_model_change_envelope;
+mod read_model_change_id;
+mod read_model_change_id_error;
+mod read_model_change_selector;
+mod read_model_changed_at;
 mod read_model_document;
 mod read_model_document_error;
-mod read_model_error;
 mod read_model_field_filter;
 mod read_model_id;
 mod read_model_included;
 mod read_model_included_error;
 mod read_model_list_document;
-mod read_model_list_document_error;
 mod read_model_ref;
 mod read_model_relationship;
 mod read_model_relationship_data;
@@ -20,25 +26,34 @@ mod read_model_relationship_key_error;
 mod read_model_resource;
 mod read_model_resource_attribute_value;
 mod read_model_resource_document;
+mod read_model_resource_document_data;
 mod read_model_resource_key;
 mod read_model_resource_key_error;
-mod read_model_resource_list_document;
 mod read_model_resource_relationship;
+mod read_model_single_document;
 mod read_model_type;
+mod read_model_type_owned;
+mod read_model_type_owned_error;
+mod read_model_view;
+mod read_model_view_error;
 
 pub use read_model_attribute_key::*;
 pub use read_model_attribute_key_error::*;
 pub use read_model_attribute_value::*;
 pub use read_model_attribute_value_error::*;
+pub use read_model_change::*;
+pub use read_model_change_envelope::*;
+pub use read_model_change_id::*;
+pub use read_model_change_id_error::*;
+pub use read_model_change_selector::*;
+pub use read_model_changed_at::*;
 pub use read_model_document::*;
 pub use read_model_document_error::*;
-pub use read_model_error::*;
 pub use read_model_field_filter::*;
 pub use read_model_id::*;
 pub use read_model_included::*;
 pub use read_model_included_error::*;
 pub use read_model_list_document::*;
-pub use read_model_list_document_error::*;
 pub use read_model_ref::*;
 pub use read_model_relationship::*;
 pub use read_model_relationship_data::*;
@@ -48,18 +63,23 @@ pub use read_model_relationship_key_error::*;
 pub use read_model_resource::*;
 pub use read_model_resource_attribute_value::*;
 pub use read_model_resource_document::*;
+pub use read_model_resource_document_data::*;
 pub use read_model_resource_key::*;
 pub use read_model_resource_key_error::*;
-pub use read_model_resource_list_document::*;
 pub use read_model_resource_relationship::*;
+pub use read_model_single_document::*;
 pub use read_model_type::*;
+pub use read_model_type_owned::*;
+pub use read_model_type_owned_error::*;
+pub use read_model_view::*;
+pub use read_model_view_error::*;
 
-use std::{collections::BTreeMap, fmt::Display};
+use std::fmt::Display;
 
 /// A reusable resource whose typed fields are selected by key at the output boundary.
 /// Implementations map each key to its corresponding value. Filters determine which
 /// keys are requested; read models do not need to enumerate all available keys.
-/// Each instance carries the filter selected by the query for its output.
+/// A ReadModelView pairs the data with the filter selected for its output.
 pub trait ReadModel: Send + Sync {
     const TYPE: ReadModelType;
 
@@ -78,38 +98,6 @@ pub trait ReadModel: Send + Sync {
     fn attribute(&self, key: Self::AttributeKey) -> Self::AttributeValue;
 
     fn relationship(&self, key: Self::RelationshipKey) -> Self::Relationship;
-
-    fn filter(&self) -> &Self::Filter;
-
-    fn try_to_resource(&self) -> Result<ReadModelResource, ReadModelError> {
-        let filter = self.filter();
-        let mut attributes = BTreeMap::new();
-        for key in filter.attribute_keys() {
-            let resource_key = key.try_to_resource_key()?;
-            if attributes.contains_key(&resource_key) {
-                return Err(ReadModelError::DuplicateField(resource_key));
-            }
-            let value = self.attribute(*key).try_to_resource_attribute_value()?;
-            attributes.insert(resource_key, value);
-        }
-
-        let mut relationships = BTreeMap::new();
-        for key in filter.relationship_keys() {
-            let resource_key = key.try_to_resource_key()?;
-            if attributes.contains_key(&resource_key) || relationships.contains_key(&resource_key) {
-                return Err(ReadModelError::DuplicateField(resource_key));
-            }
-            let relationship = self.relationship(*key).try_to_resource_relationship()?;
-            relationships.insert(resource_key, relationship);
-        }
-
-        Ok(ReadModelResource {
-            read_model_type: Self::TYPE,
-            id: ReadModelId::new(self.id().to_string()),
-            attributes,
-            relationships,
-        })
-    }
 }
 
 #[cfg(test)]
@@ -209,7 +197,6 @@ mod tests {
         picture: Option<String>,
         owner_id: Option<Uuid>,
         author_ids: Vec<Uuid>,
-        filter: ProfileFilter,
     }
 
     impl ReadModel for Profile {
@@ -249,10 +236,6 @@ mod tests {
                 }
             }
         }
-
-        fn filter(&self) -> &Self::Filter {
-            &self.filter
-        }
     }
 
     enum ProfileFilter {
@@ -284,12 +267,14 @@ mod tests {
 
     #[test]
     fn filters_select_typed_fields_without_enumerating_all_keys() {
-        let profile = Profile {
-            id: Uuid::nil(),
-            display_name: "Alice".to_owned(),
-            picture: None,
-            owner_id: Some(Uuid::from_u128(42)),
-            author_ids: vec![Uuid::from_u128(43)],
+        let profile = ReadModelView {
+            read_model: Profile {
+                id: Uuid::nil(),
+                display_name: "Alice".to_owned(),
+                picture: None,
+                owner_id: Some(Uuid::from_u128(42)),
+                author_ids: vec![Uuid::from_u128(43)],
+            },
             filter: ProfileFilter::Public,
         };
         let resource = profile.try_to_resource().unwrap();
@@ -306,6 +291,7 @@ mod tests {
         );
         assert_eq!(
             profile
+                .read_model
                 .attribute(ProfileAttributeKey::Picture)
                 .try_to_resource_attribute_value()
                 .unwrap()
@@ -315,6 +301,7 @@ mod tests {
         assert_eq!(
             serde_json::to_value(
                 profile
+                    .read_model
                     .relationship(ProfileRelationshipKey::Authors)
                     .try_to_resource_relationship()
                     .unwrap()
@@ -384,12 +371,14 @@ mod tests {
 
     #[test]
     fn resource_omits_unselected_fields_but_preserves_selected_null() {
-        let mut profile = Profile {
-            id: Uuid::nil(),
-            display_name: "Alice".to_owned(),
-            picture: None,
-            owner_id: None,
-            author_ids: vec![],
+        let mut profile = ReadModelView {
+            read_model: Profile {
+                id: Uuid::nil(),
+                display_name: "Alice".to_owned(),
+                picture: None,
+                owner_id: None,
+                author_ids: vec![],
+            },
             filter: ProfileFilter::Public,
         };
         profile.filter = ProfileFilter::Selected {
@@ -412,12 +401,14 @@ mod tests {
 
     #[test]
     fn resource_rejects_duplicate_output_names_and_propagates_invalid_keys() {
-        let mut profile = Profile {
-            id: Uuid::nil(),
-            display_name: "Alice".to_owned(),
-            picture: None,
-            owner_id: None,
-            author_ids: vec![],
+        let mut profile = ReadModelView {
+            read_model: Profile {
+                id: Uuid::nil(),
+                display_name: "Alice".to_owned(),
+                picture: None,
+                owner_id: None,
+                author_ids: vec![],
+            },
             filter: ProfileFilter::Public,
         };
         for filter in [
@@ -440,7 +431,7 @@ mod tests {
             profile.filter = filter;
             assert!(matches!(
                 profile.try_to_resource(),
-                Err(ReadModelError::DuplicateField(_))
+                Err(ReadModelViewError::DuplicateField(_))
             ));
         }
         profile.filter = ProfileFilter::Selected {
@@ -449,17 +440,23 @@ mod tests {
         };
         assert!(matches!(
             profile.try_to_resource(),
-            Err(ReadModelError::AttributeKey(
+            Err(ReadModelViewError::AttributeKey(
                 ReadModelAttributeKeyError::ResourceKey(ReadModelResourceKeyError::ReservedName(_))
             ))
         ));
     }
 
     enum ProfileIncluded {
-        Profile(Profile),
+        Profile(ReadModelView<Profile>),
     }
 
     impl ReadModelIncluded for ProfileIncluded {
+        fn read_model_ref(&self) -> ReadModelRef {
+            match self {
+                Self::Profile(profile) => profile.read_model_ref(),
+            }
+        }
+
         fn try_to_resource(&self) -> Result<ReadModelResource, ReadModelIncludedError> {
             match self {
                 Self::Profile(profile) => Ok(profile.try_to_resource()?),
@@ -469,29 +466,43 @@ mod tests {
 
     #[test]
     fn document_preserves_typed_data_and_each_resources_filter() {
-        let document = ReadModelDocument {
-            data: Some(Profile {
-                id: Uuid::nil(),
-                display_name: "Alice".to_owned(),
-                picture: None,
-                owner_id: Some(Uuid::from_u128(42)),
-                author_ids: vec![],
+        let document = ReadModelSingleDocument {
+            data: Some(ReadModelView {
+                read_model: Profile {
+                    id: Uuid::nil(),
+                    display_name: "Alice".to_owned(),
+                    picture: None,
+                    owner_id: Some(Uuid::from_u128(42)),
+                    author_ids: vec![],
+                },
                 filter: ProfileFilter::Public,
             }),
-            included: vec![ProfileIncluded::Profile(Profile {
-                id: Uuid::from_u128(42),
-                display_name: "Owner".to_owned(),
-                picture: None,
-                owner_id: None,
-                author_ids: vec![],
+            included: vec![ProfileIncluded::Profile(ReadModelView {
+                read_model: Profile {
+                    id: Uuid::from_u128(42),
+                    display_name: "Owner".to_owned(),
+                    picture: None,
+                    owner_id: None,
+                    author_ids: vec![],
+                },
                 filter: ProfileFilter::Selected {
                     attributes: vec![ProfileAttributeKey::Picture],
                     relationships: vec![],
                 },
             })],
         };
+        assert_eq!(
+            document.read_model_refs(),
+            vec![
+                ReadModelRef::new::<Profile>(Uuid::nil()),
+                ReadModelRef::new::<Profile>(Uuid::from_u128(42)),
+            ]
+        );
         let resource_document = document.try_to_resource_document().unwrap();
-        assert_eq!(document.data.as_ref().unwrap().display_name, "Alice");
+        assert_eq!(
+            document.data.as_ref().unwrap().read_model.display_name,
+            "Alice"
+        );
         assert_eq!(
             serde_json::to_value(resource_document).unwrap(),
             json!({
@@ -509,8 +520,46 @@ mod tests {
     }
 
     #[test]
+    fn document_refs_deduplicate_resources_without_serializing_fields() {
+        let view = || ReadModelView {
+            read_model: Profile {
+                id: Uuid::nil(),
+                display_name: "Alice".to_owned(),
+                picture: None,
+                owner_id: Some(Uuid::from_u128(42)),
+                author_ids: vec![],
+            },
+            filter: ProfileFilter::Selected {
+                attributes: vec![ProfileAttributeKey::Reserved],
+                relationships: vec![],
+            },
+        };
+        let single = ReadModelSingleDocument {
+            data: Some(view()),
+            included: vec![ProfileIncluded::Profile(view())],
+        };
+        let list = ReadModelListDocument {
+            data: vec![view(), view()],
+            included: vec![ProfileIncluded::Profile(view())],
+        };
+        for document in [
+            &single as &dyn ReadModelDocument,
+            &list as &dyn ReadModelDocument,
+        ] {
+            assert_eq!(
+                document.read_model_refs(),
+                vec![ReadModelRef::new::<Profile>(Uuid::nil())]
+            );
+            assert!(matches!(
+                document.try_to_resource_document(),
+                Err(ReadModelDocumentError::ReadModelView(_))
+            ));
+        }
+    }
+
+    #[test]
     fn empty_documents_preserve_single_and_list_shapes() {
-        let single: ReadModelDocument<Profile, ProfileIncluded> = ReadModelDocument {
+        let single: ReadModelSingleDocument<Profile, ProfileIncluded> = ReadModelSingleDocument {
             data: None,
             included: vec![],
         };
@@ -518,6 +567,8 @@ mod tests {
             data: vec![],
             included: vec![],
         };
+        assert!(single.read_model_refs().is_empty());
+        assert!(list.read_model_refs().is_empty());
         assert_eq!(
             serde_json::to_value(single.try_to_resource_document().unwrap()).unwrap(),
             json!({"data": null})
@@ -532,20 +583,24 @@ mod tests {
     fn list_document_preserves_order_and_per_item_filters() {
         let document: ReadModelListDocument<Profile, ProfileIncluded> = ReadModelListDocument {
             data: vec![
-                Profile {
-                    id: Uuid::nil(),
-                    display_name: "Alice".to_owned(),
-                    picture: None,
-                    owner_id: None,
-                    author_ids: vec![],
+                ReadModelView {
+                    read_model: Profile {
+                        id: Uuid::nil(),
+                        display_name: "Alice".to_owned(),
+                        picture: None,
+                        owner_id: None,
+                        author_ids: vec![],
+                    },
                     filter: ProfileFilter::Public,
                 },
-                Profile {
-                    id: Uuid::from_u128(42),
-                    display_name: "Bob".to_owned(),
-                    picture: None,
-                    owner_id: None,
-                    author_ids: vec![],
+                ReadModelView {
+                    read_model: Profile {
+                        id: Uuid::from_u128(42),
+                        display_name: "Bob".to_owned(),
+                        picture: None,
+                        owner_id: None,
+                        author_ids: vec![],
+                    },
                     filter: ProfileFilter::Selected {
                         attributes: vec![ProfileAttributeKey::Picture],
                         relationships: vec![],
@@ -554,6 +609,13 @@ mod tests {
             ],
             included: vec![],
         };
+        assert_eq!(
+            document.read_model_refs(),
+            vec![
+                ReadModelRef::new::<Profile>(Uuid::nil()),
+                ReadModelRef::new::<Profile>(Uuid::from_u128(42)),
+            ]
+        );
         let output = serde_json::to_value(document.try_to_resource_document().unwrap()).unwrap();
         assert_eq!(output["data"][0]["id"], Uuid::nil().to_string());
         assert_eq!(
@@ -566,12 +628,12 @@ mod tests {
     }
 
     #[test]
-    fn read_model_types_follow_member_name_rules() {
+    fn read_model_types_use_ascii_snake_case() {
         assert_eq!(
-            serde_json::to_value(ReadModelType::new("user-identities")).unwrap(),
-            json!("user-identities")
+            serde_json::to_value(ReadModelType::new("user_identities")).unwrap(),
+            json!("user_identities")
         );
-        for name in ["", "_name", "name-", "a.b", "a:b", "a/b"] {
+        for name in ["", "User", "name-", "a.b", "a:b", "a/b"] {
             assert!(std::panic::catch_unwind(|| ReadModelType::new(name)).is_err());
         }
     }

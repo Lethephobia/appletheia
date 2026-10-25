@@ -34,13 +34,13 @@ impl CurrencyRegistrarMembership {
     /// Returns the registrar this membership belongs to.
     pub fn currency_registrar_id(
         &self,
-    ) -> Result<&CurrencyRegistrarId, CurrencyRegistrarMembershipError> {
-        Ok(&self.state_required()?.currency_registrar_id)
+    ) -> Result<CurrencyRegistrarId, CurrencyRegistrarMembershipError> {
+        Ok(self.state_required()?.currency_registrar_id)
     }
 
     /// Returns the member user.
-    pub fn user_id(&self) -> Result<&UserId, CurrencyRegistrarMembershipError> {
-        Ok(&self.state_required()?.user_id)
+    pub fn user_id(&self) -> Result<UserId, CurrencyRegistrarMembershipError> {
+        Ok(self.state_required()?.user_id)
     }
 
     /// Returns the current membership status.

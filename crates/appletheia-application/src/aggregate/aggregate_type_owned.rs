@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use super::AggregateTypeOwnedError;
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
-#[serde(transparent)]
+#[serde(try_from = "String", into = "String")]
 pub struct AggregateTypeOwned(String);
 
 impl AggregateTypeOwned {
@@ -80,6 +80,12 @@ impl Display for AggregateTypeOwned {
     }
 }
 
+impl From<AggregateTypeOwned> for String {
+    fn from(value: AggregateTypeOwned) -> Self {
+        value.0
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -120,5 +126,34 @@ mod tests {
     fn display_formats_value() {
         let agg = AggregateTypeOwned::try_from("user_profile").unwrap();
         assert_eq!(agg.to_string(), "user_profile");
+    }
+
+    #[test]
+    fn deserialization_enforces_name_constraints() {
+        for value in [
+            "_name".to_owned(),
+            "name__2".to_owned(),
+            "a".repeat(AggregateType::MAX_LENGTH),
+        ] {
+            let json = serde_json::to_string(&value).unwrap();
+            let decoded: AggregateTypeOwned = serde_json::from_str(&json).unwrap();
+            assert_eq!(decoded, AggregateTypeOwned::new(value).unwrap());
+            assert_eq!(serde_json::to_string(&decoded).unwrap(), json);
+        }
+        for value in [
+            "".to_owned(),
+            "Name".to_owned(),
+            "name-part".to_owned(),
+            "name part".to_owned(),
+            "名前".to_owned(),
+            "a".repeat(AggregateType::MAX_LENGTH + 1),
+        ] {
+            assert!(AggregateTypeOwned::new(value.clone()).is_err());
+            let json = serde_json::to_string(&value).unwrap();
+            assert!(
+                serde_json::from_str::<AggregateTypeOwned>(&json).is_err(),
+                "{value}"
+            );
+        }
     }
 }

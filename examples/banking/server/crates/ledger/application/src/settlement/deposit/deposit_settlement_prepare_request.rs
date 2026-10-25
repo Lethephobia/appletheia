@@ -49,12 +49,12 @@ impl DepositSettlementPrepareRequest {
         self.chain_network
     }
 
-    pub fn token_address(&self) -> &TokenAddress {
-        &self.token_address
+    pub fn token_address(&self) -> TokenAddress {
+        self.token_address
     }
 
-    pub fn token_owner_address(&self) -> &TokenOwnerAddress {
-        &self.token_owner_address
+    pub fn token_owner_address(&self) -> TokenOwnerAddress {
+        self.token_owner_address
     }
 
     pub fn amount(&self) -> CurrencyAmount {

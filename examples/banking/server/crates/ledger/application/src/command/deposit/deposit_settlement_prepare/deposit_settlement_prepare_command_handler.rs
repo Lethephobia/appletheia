@@ -76,7 +76,7 @@ where
             .await?;
         let currency = self
             .repository
-            .read_shared::<Currency>(uow, *account.currency_id()?)
+            .read_shared::<Currency>(uow, account.currency_id()?)
             .await?;
 
         let mut deposit = Deposit::new();
@@ -89,7 +89,7 @@ where
             Ok(binding)
                 if binding.is_active()?
                     && binding.is_deposit_enabled()?
-                    && binding.currency_id()? == *account.currency_id()? =>
+                    && binding.currency_id()? == account.currency_id()? =>
             {
                 binding
             }
@@ -99,7 +99,7 @@ where
             Err(error) => return Err(error.into()),
         };
         let chain_network = binding.chain_network()?;
-        let token_address = *binding.token_address()?;
+        let token_address = binding.token_address()?;
         deposit.request(
             command.account_id,
             command.token_binding_id,
@@ -117,7 +117,7 @@ where
                 currency.decimals()?,
                 chain_network,
                 token_address,
-                *deposit.token_owner_address()?,
+                deposit.token_owner_address()?,
                 deposit.amount()?,
                 command.evm_authorization,
             ))

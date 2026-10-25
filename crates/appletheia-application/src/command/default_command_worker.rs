@@ -1,4 +1,4 @@
-use std::sync::atomic::{AtomicBool, Ordering as AtomicOrdering};
+use tokio_util::sync::CancellationToken;
 
 use crate::Retryability;
 use crate::command::{
@@ -32,7 +32,7 @@ where
     failure_outbox_enqueuer: FE,
     uow_factory: U,
     config: CommandWorkerConfig,
-    stop_requested: AtomicBool,
+    stop_token: CancellationToken,
 }
 
 impl<D, S, ES, FE, U> DefaultCommandWorker<D, S, ES, FE, U>
@@ -56,7 +56,7 @@ where
             failure_outbox_enqueuer: dependencies.failure_outbox_enqueuer,
             uow_factory: dependencies.uow_factory,
             config,
-            stop_requested: AtomicBool::new(false),
+            stop_token: CancellationToken::new(),
         }
     }
 }
@@ -74,11 +74,11 @@ where
     type Uow = D::Uow;
 
     fn is_stop_requested(&self) -> bool {
-        self.stop_requested.load(AtomicOrdering::SeqCst)
+        self.stop_token.is_cancelled()
     }
 
     fn request_graceful_stop(&self) {
-        self.stop_requested.store(true, AtomicOrdering::SeqCst);
+        self.stop_token.cancel();
     }
 
     async fn run_forever<H>(&self, handler: &H) -> Result<(), CommandWorkerError>
@@ -94,7 +94,11 @@ where
             .await?;
 
         while !self.is_stop_requested() {
-            let mut delivery = consumer.next().await?;
+            let mut delivery = tokio::select! {
+                biased;
+                _ = self.stop_token.cancelled() => break,
+                delivery = consumer.next() => delivery?,
+            };
 
             let decoded_command = match delivery.message().try_to_command::<H::Command>() {
                 Ok(command) => Some(command),
@@ -484,6 +488,8 @@ mod tests {
         acknowledgements: AtomicUsize,
         negative_acknowledgements: AtomicUsize,
         consumer_groups: Mutex<Vec<String>>,
+        receive_started: tokio::sync::Notify,
+        block_receive: std::sync::atomic::AtomicBool,
         events: Arc<Mutex<Vec<&'static str>>>,
     }
 
@@ -520,6 +526,12 @@ mod tests {
         type Delivery = TestDelivery;
 
         async fn next(&mut self) -> Result<Self::Delivery, ConsumerError> {
+            if let Some(delivery) = &self.delivery
+                && delivery.state.block_receive.load(Ordering::SeqCst)
+            {
+                delivery.state.receive_started.notify_one();
+                std::future::pending::<()>().await;
+            }
             self.delivery.take().ok_or_else(|| {
                 ConsumerError::Next(Box::new(std::io::Error::other("test consumer exhausted")))
             })
@@ -598,6 +610,29 @@ mod tests {
                 },
             },
         )
+    }
+
+    #[tokio::test]
+    async fn graceful_stop_interrupts_receive_without_dispatching() {
+        let state = Arc::new(DeliveryState::default());
+        state.block_receive.store(true, Ordering::SeqCst);
+        let worker = build_worker(NonZeroU32::new(3).unwrap(), state.clone());
+        let handler = TestHandler {
+            failure_retryability: None,
+        };
+        let stop = async {
+            state.receive_started.notified().await;
+            worker.request_graceful_stop();
+        };
+        let (result, ()) = tokio::time::timeout(std::time::Duration::from_secs(1), async {
+            tokio::join!(worker.run_forever(&handler), stop)
+        })
+        .await
+        .unwrap();
+        result.unwrap();
+        assert!(state.events.lock().unwrap().is_empty());
+        assert_eq!(state.acknowledgements.load(Ordering::SeqCst), 0);
+        assert_eq!(state.negative_acknowledgements.load(Ordering::SeqCst), 0);
     }
 
     #[tokio::test]

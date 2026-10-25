@@ -9,7 +9,7 @@ struct AccountListQuery {
     owner_id: Option<String>,
 }
 
-#[derive(Query)]
+#[derive(Clone, Query)]
 #[query_derive(name = "account_detail")]
 struct AccountDetailQuery {
     account_id: String,

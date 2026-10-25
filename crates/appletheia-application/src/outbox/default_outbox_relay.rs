@@ -1,17 +1,17 @@
 use std::marker::PhantomData;
-use std::sync::atomic::{AtomicBool, Ordering as AtomicOrdering};
 use std::time::Duration as StdDuration;
 
 use chrono::Duration;
 use tokio::time::sleep;
+use tokio_util::sync::CancellationToken;
 
 use crate::messaging::{PublishResult, Publisher};
 use crate::unit_of_work::UnitOfWork;
 use crate::unit_of_work::UnitOfWorkFactory;
 
 use super::{
-    Outbox, OutboxFetcher, OutboxRelay, OutboxRelayConfig, OutboxRelayError, OutboxRelayRunReport,
-    OutboxState, OutboxWriter, ProcessedOutboxCount,
+    Outbox, OutboxFetcher, OutboxRelay, OutboxRelayConfig, OutboxRelayError, OutboxRelayId,
+    OutboxRelayRunReport, OutboxState, OutboxWriter, ProcessedOutboxCount,
 };
 
 pub struct DefaultOutboxRelay<UowFactory, O, F, W, P>
@@ -23,11 +23,12 @@ where
     P: Publisher<Message = O::Message>,
 {
     config: OutboxRelayConfig,
+    relay_id: OutboxRelayId,
     publisher: P,
     fetcher: F,
     writer: W,
     uow_factory: UowFactory,
-    stop_requested: AtomicBool,
+    stop_token: CancellationToken,
     _marker: PhantomData<fn() -> O>,
 }
 
@@ -48,11 +49,12 @@ where
     ) -> Self {
         Self {
             config,
+            relay_id: OutboxRelayId::new(),
             publisher,
             fetcher,
             writer,
             uow_factory,
-            stop_requested: AtomicBool::new(false),
+            stop_token: CancellationToken::new(),
             _marker: PhantomData,
         }
     }
@@ -68,12 +70,16 @@ where
 {
     type Outbox = O;
 
-    fn is_stop_requested(&self) -> bool {
-        self.stop_requested.load(AtomicOrdering::SeqCst)
+    fn relay_id(&self) -> OutboxRelayId {
+        self.relay_id
     }
 
-    fn request_graceful_stop(&mut self) {
-        self.stop_requested.store(true, AtomicOrdering::SeqCst);
+    fn is_stop_requested(&self) -> bool {
+        self.stop_token.is_cancelled()
+    }
+
+    fn request_graceful_stop(&self) {
+        self.stop_token.cancel();
     }
 
     async fn run_forever(&self) -> Result<(), OutboxRelayError> {
@@ -94,7 +100,11 @@ where
                         .unwrap_or_else(|_| StdDuration::from_secs(0));
 
                     if sleep_duration > StdDuration::from_secs(0) {
-                        sleep(sleep_duration).await;
+                        tokio::select! {
+                            biased;
+                            _ = self.stop_token.cancelled() => break,
+                            _ = sleep(sleep_duration) => {}
+                        }
                     }
 
                     poll_interval = poll_interval.next(
@@ -110,7 +120,6 @@ where
     }
 
     async fn run_once(&self) -> Result<OutboxRelayRunReport, OutboxRelayError> {
-        let relay_instance = &self.config.instance;
         let lease_duration = self.config.lease_duration;
         let batch_size = self.config.batch_size;
         let retry_options = self.config.retry_options;
@@ -127,7 +136,7 @@ where
                 for outbox in &mut outboxes {
                     match outbox.state() {
                         OutboxState::Pending { .. } => {
-                            outbox.acquire_lease(relay_instance, lease_duration)?;
+                            outbox.acquire_lease(self.relay_id, lease_duration)?;
                         }
                         other => {
                             return Err(uow

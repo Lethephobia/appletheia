@@ -24,7 +24,7 @@ impl Relation for OrganizationInvitationOrganizationRelation {
             let mut entries = RelationshipEntries::new();
             entries.insert::<OrganizationInvitation, Organization>(
                 aggregate.aggregate_id(),
-                *aggregate.organization_id()?,
+                aggregate.organization_id()?,
             );
             Ok(entries)
         })

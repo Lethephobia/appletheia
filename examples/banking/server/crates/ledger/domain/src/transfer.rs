@@ -34,13 +34,13 @@ pub struct Transfer {
 
 impl Transfer {
     /// Returns the source account.
-    pub fn from_account_id(&self) -> Result<&AccountId, TransferError> {
-        Ok(&self.state_required()?.from_account_id)
+    pub fn from_account_id(&self) -> Result<AccountId, TransferError> {
+        Ok(self.state_required()?.from_account_id)
     }
 
     /// Returns the destination account.
-    pub fn to_account_id(&self) -> Result<&AccountId, TransferError> {
-        Ok(&self.state_required()?.to_account_id)
+    pub fn to_account_id(&self) -> Result<AccountId, TransferError> {
+        Ok(self.state_required()?.to_account_id)
     }
 
     /// Returns the transfer amount.
@@ -53,8 +53,8 @@ impl Transfer {
     }
 
     /// Returns the current transfer status.
-    pub fn status(&self) -> Result<&TransferStatus, TransferError> {
-        Ok(&self.state_required()?.status)
+    pub fn status(&self) -> Result<TransferStatus, TransferError> {
+        Ok(self.state_required()?.status)
     }
 
     /// Requests a new transfer.

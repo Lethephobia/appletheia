@@ -39,8 +39,8 @@ where
     ) -> Result<WithdrawalSettlementExecution, WithdrawalSettlementExecutorError> {
         let transaction_id = match (
             request.chain_network(),
-            *request.token_address(),
-            *request.token_owner_address(),
+            request.token_address(),
+            request.token_owner_address(),
         ) {
             (
                 ChainNetwork::Solana,

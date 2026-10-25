@@ -1,32 +1,9 @@
-use super::{ReadModel, ReadModelDocumentError, ReadModelIncluded, ReadModelResourceDocument};
+use super::{ReadModelDocumentError, ReadModelRef, ReadModelResourceDocument};
 
-pub struct ReadModelDocument<R, I>
-where
-    R: ReadModel,
-    I: ReadModelIncluded,
-{
-    pub data: Option<R>,
-    pub included: Vec<I>,
-}
+pub trait ReadModelDocument: Send + Sync {
+    /// Collects distinct primary and included resource references without serializing fields.
+    fn read_model_refs(&self) -> Vec<ReadModelRef>;
 
-impl<R, I> ReadModelDocument<R, I>
-where
-    R: ReadModel,
-    I: ReadModelIncluded,
-{
-    pub fn try_to_resource_document(
-        &self,
-    ) -> Result<ReadModelResourceDocument, ReadModelDocumentError> {
-        let data = self
-            .data
-            .as_ref()
-            .map(ReadModel::try_to_resource)
-            .transpose()?;
-        let included = self
-            .included
-            .iter()
-            .map(ReadModelIncluded::try_to_resource)
-            .collect::<Result<Vec<_>, _>>()?;
-        Ok(ReadModelResourceDocument { data, included })
-    }
+    fn try_to_resource_document(&self)
+    -> Result<ReadModelResourceDocument, ReadModelDocumentError>;
 }

@@ -1,3 +1,4 @@
+use crate::outbox::read_model_change::ReadModelChangeOutboxEnqueueError;
 use thiserror::Error;
 
 use crate::unit_of_work::{UnitOfWorkError, UnitOfWorkFactoryError};
@@ -6,6 +7,9 @@ use super::ProjectorProcessedEventStoreError;
 
 #[derive(Debug, Error)]
 pub enum ProjectorRunnerError {
+    #[error(transparent)]
+    ReadModelChangeOutboxEnqueue(#[from] ReadModelChangeOutboxEnqueueError),
+
     #[error("processed event store failed: {0}")]
     ProcessedEventStore(#[from] ProjectorProcessedEventStoreError),
 

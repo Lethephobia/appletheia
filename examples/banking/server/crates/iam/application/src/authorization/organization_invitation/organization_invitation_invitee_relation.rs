@@ -22,7 +22,7 @@ impl Relation for OrganizationInvitationInviteeRelation {
             let mut entries = RelationshipEntries::new();
             entries.insert::<OrganizationInvitation, User>(
                 aggregate.aggregate_id(),
-                *aggregate.invitee_id()?,
+                aggregate.invitee_id()?,
             );
             Ok(entries)
         })

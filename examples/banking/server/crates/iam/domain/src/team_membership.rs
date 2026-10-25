@@ -27,14 +27,14 @@ pub struct TeamMembership {
 }
 
 impl TeamMembership {
-    pub fn team_id(&self) -> Result<&TeamId, TeamMembershipError> {
-        Ok(&self.state_required()?.team_id)
+    pub fn team_id(&self) -> Result<TeamId, TeamMembershipError> {
+        Ok(self.state_required()?.team_id)
     }
 
     pub fn organization_membership_id(
         &self,
-    ) -> Result<&OrganizationMembershipId, TeamMembershipError> {
-        Ok(&self.state_required()?.organization_membership_id)
+    ) -> Result<OrganizationMembershipId, TeamMembershipError> {
+        Ok(self.state_required()?.organization_membership_id)
     }
 
     pub fn status(&self) -> Result<TeamMembershipStatus, TeamMembershipError> {
@@ -131,15 +131,12 @@ mod tests {
             .expect("create should succeed");
 
         assert!(!membership.aggregate_id().value().is_nil());
-        assert_eq!(
-            membership.team_id().expect("team id should exist"),
-            &team_id
-        );
+        assert_eq!(membership.team_id().expect("team id should exist"), team_id);
         assert_eq!(
             membership
                 .organization_membership_id()
                 .expect("organization membership id should exist"),
-            &organization_membership_id
+            organization_membership_id
         );
         assert_eq!(
             membership.status().expect("status should exist"),

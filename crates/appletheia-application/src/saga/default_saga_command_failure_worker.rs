@@ -1,4 +1,4 @@
-use std::sync::atomic::{AtomicBool, Ordering as AtomicOrdering};
+use tokio_util::sync::CancellationToken;
 
 use crate::command::{CommandFailureEnvelope, CommandFailureSelector};
 use crate::messaging::Subscription;
@@ -16,7 +16,7 @@ where
 {
     saga_runner: R,
     subscriber: S,
-    stop_requested: AtomicBool,
+    stop_token: CancellationToken,
 }
 
 impl<S, R> DefaultSagaCommandFailureWorker<S, R>
@@ -30,7 +30,7 @@ where
         Self {
             saga_runner,
             subscriber,
-            stop_requested: AtomicBool::new(false),
+            stop_token: CancellationToken::new(),
         }
     }
 }
@@ -43,11 +43,11 @@ where
     R: SagaRunner,
 {
     fn is_stop_requested(&self) -> bool {
-        self.stop_requested.load(AtomicOrdering::SeqCst)
+        self.stop_token.is_cancelled()
     }
 
     fn request_graceful_stop(&self) {
-        self.stop_requested.store(true, AtomicOrdering::SeqCst);
+        self.stop_token.cancel();
     }
 
     async fn run_forever<SG: Saga>(
@@ -67,7 +67,11 @@ where
             .await?;
 
         while !self.is_stop_requested() {
-            let mut delivery = consumer.next().await?;
+            let mut delivery = tokio::select! {
+                biased;
+                _ = self.stop_token.cancelled() => break,
+                delivery = consumer.next() => delivery?,
+            };
             if !Subscription::AnyOf(&selectors).matches(delivery.message()) {
                 delivery.ack().await?;
                 continue;

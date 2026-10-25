@@ -17,8 +17,8 @@ impl SolanaTokenAccountOwnerAddress {
     }
 
     /// Returns the common Solana account address.
-    pub fn address(&self) -> &SolanaAccountAddress {
-        &self.0
+    pub fn address(&self) -> SolanaAccountAddress {
+        self.0
     }
 }
 

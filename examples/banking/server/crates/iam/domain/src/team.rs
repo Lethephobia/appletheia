@@ -34,8 +34,8 @@ pub struct Team {
 }
 
 impl Team {
-    pub fn organization_id(&self) -> Result<&OrganizationId, TeamError> {
-        Ok(&self.state_required()?.organization_id)
+    pub fn organization_id(&self) -> Result<OrganizationId, TeamError> {
+        Ok(self.state_required()?.organization_id)
     }
 
     pub fn name(&self) -> Result<&TeamName, TeamError> {
@@ -147,7 +147,7 @@ mod tests {
             .unwrap();
         assert!(team.is_active().unwrap());
         assert!(team.description().unwrap().is_none());
-        assert_eq!(team.organization_id().unwrap(), &organization_id);
+        assert_eq!(team.organization_id().unwrap(), organization_id);
         assert_eq!(team.uncommitted_events().len(), 1);
         team.change_name(TeamName::try_from("Treasury").unwrap())
             .unwrap();
