@@ -92,8 +92,9 @@ where
                 {
                     Ok(after) => after,
                     Err(source) => {
-                        let error = ProjectionCatchUpError::from(source);
-                        return Err(uow.rollback_with_operation_error(error).await?);
+                        return Err(uow
+                            .rollback_with_operation_error(ProjectionCatchUpError::from(source))
+                            .await?);
                     }
                 };
                 let events = match self
@@ -103,8 +104,9 @@ where
                 {
                     Ok(events) => events,
                     Err(source) => {
-                        let error = ProjectionCatchUpError::from(source);
-                        return Err(uow.rollback_with_operation_error(error).await?);
+                        return Err(uow
+                            .rollback_with_operation_error(ProjectionCatchUpError::from(source))
+                            .await?);
                     }
                 };
                 uow.commit().await?;
@@ -131,8 +133,9 @@ where
                 {
                     Ok(inserted) => inserted,
                     Err(source) => {
-                        let error = ProjectionCatchUpError::from(source);
-                        return Err(uow.rollback_with_operation_error(error).await?);
+                        return Err(uow
+                            .rollback_with_operation_error(ProjectionCatchUpError::from(source))
+                            .await?);
                     }
                 };
 
@@ -141,8 +144,9 @@ where
                     .save(&mut uow, projector_name.clone(), event.event_sequence)
                     .await
                 {
-                    let error = ProjectionCatchUpError::from(source);
-                    return Err(uow.rollback_with_operation_error(error).await?);
+                    return Err(uow
+                        .rollback_with_operation_error(ProjectionCatchUpError::from(source))
+                        .await?);
                 }
 
                 if !inserted {
@@ -152,8 +156,11 @@ where
                 }
 
                 if let Err(source) = projector.project(&mut uow, &event).await {
-                    let error = ProjectionCatchUpError::Projection(Box::new(source));
-                    return Err(uow.rollback_with_operation_error(error).await?);
+                    return Err(uow
+                        .rollback_with_operation_error(ProjectionCatchUpError::Projection(
+                            Box::new(source),
+                        ))
+                        .await?);
                 }
 
                 uow.commit().await?;
