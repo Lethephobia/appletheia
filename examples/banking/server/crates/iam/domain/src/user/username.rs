@@ -40,8 +40,7 @@ impl Username {
 
     /// Creates a random username that satisfies the domain constraints.
     pub fn new_random() -> Self {
-        Self::new(Uuid::now_v7().simple().to_string())
-            .expect("generated username should satisfy constraints")
+        Self(Uuid::now_v7().simple().to_string())
     }
 }
 

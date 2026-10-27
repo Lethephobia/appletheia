@@ -15,8 +15,6 @@ impl OutboxMaxAttempts {
 
 impl Default for OutboxMaxAttempts {
     fn default() -> Self {
-        // Safety: 1_000_000 is non-zero by definition.
-        let value = NonZeroU32::new(1_000_000).expect("1_000_000 must be non-zero");
-        Self::new(value)
+        Self(NonZeroU32::MIN.saturating_add(999_999))
     }
 }

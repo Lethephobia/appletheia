@@ -35,8 +35,6 @@ impl OidcBirthdate {
 
     /// Creates a birthdate claim with full date precision.
     pub fn full(year: u16, month: u8, day: u8) -> Result<Self, OidcBirthdateError> {
-        let year = OidcBirthYear::new(year);
-        let month = OidcBirthMonth::new(month)?;
         let full = OidcBirthdateFull::new(year, month, day)?;
 
         Ok(Self::Full(full))
@@ -110,8 +108,12 @@ impl FromStr for OidcBirthdate {
                     return Err(OidcBirthdateError::InvalidFormat);
                 }
 
-                let year = Self::parse_year(year_part)?;
-                let month = Self::parse_month(month_part)?;
+                let year = year_part
+                    .parse()
+                    .map_err(|_| OidcBirthYearError::InvalidFormat)?;
+                let month = month_part
+                    .parse()
+                    .map_err(|_| OidcBirthdateError::InvalidFormat)?;
                 let day = day_part
                     .parse()
                     .map_err(|_| OidcBirthdateError::InvalidFormat)?;
@@ -152,10 +154,7 @@ mod tests {
 
         assert_eq!(
             birthdate,
-            OidcBirthdate::Full(
-                OidcBirthdateFull::new(OidcBirthYear::new(0), OidcBirthMonth::new(10).unwrap(), 11)
-                    .unwrap()
-            )
+            OidcBirthdate::Full(OidcBirthdateFull::new(0, 10, 11).unwrap())
         );
         assert_eq!(birthdate.to_string(), "0000-10-11");
     }
