@@ -1,5 +1,4 @@
-use std::error::Error;
-
+use crate::Retryability;
 use crate::read_model::ReadModelDocument;
 
 use super::{ReadModelWatchError, ReadModelWatchId, ReadModelWatchResult};
@@ -8,7 +7,7 @@ use super::{ReadModelWatchError, ReadModelWatchId, ReadModelWatchResult};
 #[allow(async_fn_in_trait)]
 pub trait ReadModelWatch: Send {
     type Document: ReadModelDocument;
-    type HandlerError: Error + Send + Sync + 'static;
+    type HandlerError: Retryability;
 
     fn watch_id(&self) -> ReadModelWatchId;
 

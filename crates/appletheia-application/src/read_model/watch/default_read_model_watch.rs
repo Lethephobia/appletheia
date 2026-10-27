@@ -492,12 +492,22 @@ mod tests {
         Block,
     }
 
+    #[derive(Debug, thiserror::Error)]
+    #[error("query failed")]
+    struct HandlerError;
+
+    impl crate::Retryability for HandlerError {
+        fn is_retryable(&self) -> bool {
+            true
+        }
+    }
+
     struct Handler(Mutex<VecDeque<Response>>);
 
     impl QueryHandler for Handler {
         type Query = TestQuery;
         type Output = Document;
-        type Error = io::Error;
+        type Error = HandlerError;
         type Uow = TestUow;
 
         async fn handle(
@@ -505,11 +515,11 @@ mod tests {
             _: &mut TestUow,
             _: &RequestContext,
             _: TestQuery,
-        ) -> Result<Document, io::Error> {
+        ) -> Result<Document, HandlerError> {
             let response = self.0.lock().unwrap().pop_front().expect("queued response");
             match response {
                 Response::Document(targets) => Ok(Document(targets)),
-                Response::Fail => Err(io::Error::other("query failed")),
+                Response::Fail => Err(HandlerError),
                 Response::Block => pending().await,
             }
         }

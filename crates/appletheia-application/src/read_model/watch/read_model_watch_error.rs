@@ -2,6 +2,7 @@ use std::error::Error as StdError;
 
 use thiserror::Error;
 
+use crate::Retryability;
 use crate::query::QueryDispatcherError;
 use crate::unit_of_work::{UnitOfWorkError, UnitOfWorkFactoryError};
 
@@ -14,7 +15,7 @@ use super::{
 #[derive(Debug, Error)]
 pub enum ReadModelWatchError<HE>
 where
-    HE: StdError + Send + Sync + 'static,
+    HE: Retryability,
 {
     #[error(transparent)]
     QueryDispatcher(#[from] QueryDispatcherError<HE>),

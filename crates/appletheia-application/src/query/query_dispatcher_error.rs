@@ -1,14 +1,13 @@
-use std::error::Error as StdError;
-
 use thiserror::Error;
 
+use crate::Retryability;
 use crate::authorization::AuthorizerError;
 use crate::unit_of_work::{UnitOfWorkError, UnitOfWorkFactoryError};
 
 #[derive(Debug, Error)]
 pub enum QueryDispatcherError<HE>
 where
-    HE: StdError + Send + Sync + 'static,
+    HE: Retryability,
 {
     #[error("unit of work factory error: {0}")]
     UnitOfWorkFactory(#[from] UnitOfWorkFactoryError),
