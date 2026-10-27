@@ -16,8 +16,8 @@ impl OutboxNextAttemptAt {
         self.0
     }
 
-    pub fn next(self, backoff: OutboxRetryDelay) -> Self {
-        Self(self.value() + backoff.value())
+    pub fn next(self, delay: OutboxRetryDelay) -> Self {
+        Self(self.value() + delay.value())
     }
 }
 
@@ -69,13 +69,13 @@ mod tests {
     }
 
     #[test]
-    fn next_applies_backoff_duration() {
+    fn next_applies_delay_duration() {
         let base = Utc::now();
         let next_attempt = OutboxNextAttemptAt::from(base);
-        let backoff = OutboxRetryDelay::from(Duration::seconds(30));
+        let delay = OutboxRetryDelay::from(Duration::seconds(30));
 
-        let advanced = next_attempt.next(backoff);
-        assert_eq!(advanced.value(), base + backoff.value());
+        let advanced = next_attempt.next(delay);
+        assert_eq!(advanced.value(), base + delay.value());
     }
 
     #[test]

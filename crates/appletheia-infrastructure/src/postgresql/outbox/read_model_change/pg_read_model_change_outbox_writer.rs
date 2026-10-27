@@ -384,7 +384,9 @@ mod tests {
             message: "rejected".into(),
         };
         let retries = OutboxRetryOptions {
-            backoff: chrono::Duration::zero().into(),
+            base_delay: chrono::Duration::zero().into(),
+            max_delay: chrono::Duration::seconds(30).into(),
+            multiplier: Default::default(),
             max_attempts: Default::default(),
         };
         for outbox in &mut pending {

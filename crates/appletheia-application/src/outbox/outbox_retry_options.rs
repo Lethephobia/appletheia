@@ -1,7 +1,9 @@
-use super::{OutboxMaxAttempts, OutboxRetryDelay};
+use super::{OutboxMaxAttempts, OutboxRetryBackoffMultiplier, OutboxRetryDelay};
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct OutboxRetryOptions {
-    pub backoff: OutboxRetryDelay,
     pub max_attempts: OutboxMaxAttempts,
+    pub base_delay: OutboxRetryDelay,
+    pub max_delay: OutboxRetryDelay,
+    pub multiplier: OutboxRetryBackoffMultiplier,
 }

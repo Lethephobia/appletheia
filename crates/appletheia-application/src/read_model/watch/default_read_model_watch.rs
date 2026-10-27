@@ -1,3 +1,5 @@
+use tokio::time::sleep;
+
 use crate::Retryability;
 use crate::query::{QueryDispatcher, QueryHandler};
 use crate::read_model::ReadModelDocument;
@@ -6,9 +8,10 @@ use crate::unit_of_work::{UnitOfWork, UnitOfWorkFactory};
 
 use super::default_read_model_watch_status::DefaultReadModelWatchStatus;
 use super::{
-    DefaultReadModelWatchDependencies, ReadModelWatch, ReadModelWatchEndpoint, ReadModelWatchError,
-    ReadModelWatchGenerationRegistrar, ReadModelWatchGenerationRegistrarFactory, ReadModelWatchId,
-    ReadModelWatchReceiver, ReadModelWatchRegistry, ReadModelWatchResult, ReadModelWatchSignal,
+    DefaultReadModelWatchDependencies, ReadModelWatch, ReadModelWatchConfig,
+    ReadModelWatchEndpoint, ReadModelWatchError, ReadModelWatchGenerationRegistrar,
+    ReadModelWatchGenerationRegistrarFactory, ReadModelWatchId, ReadModelWatchReceiver,
+    ReadModelWatchRegistry, ReadModelWatchResult, ReadModelWatchSignal,
 };
 
 pub struct DefaultReadModelWatch<'a, D, F, R, E, G, H>
@@ -20,6 +23,7 @@ where
     G: ReadModelWatchGenerationRegistrarFactory<Uow = D::Uow>,
     H: QueryHandler<Uow = D::Uow>,
 {
+    config: ReadModelWatchConfig,
     query_dispatcher: &'a D,
     uow_factory: &'a F,
     registry: &'a R,
@@ -45,6 +49,7 @@ where
     /// Creates a watch whose notification route and database registration already exist.
     /// The first call to `next` queries and establishes target coverage before returning data.
     pub fn new(
+        config: ReadModelWatchConfig,
         dependencies: DefaultReadModelWatchDependencies<'a, D, F, R, E, G>,
         handler: &'a H,
         request_context: &'a RequestContext,
@@ -53,6 +58,7 @@ where
         receiver: E::Receiver,
     ) -> Self {
         Self {
+            config,
             query_dispatcher: dependencies.query_dispatcher,
             uow_factory: dependencies.uow_factory,
             registry: dependencies.registry,
@@ -167,18 +173,29 @@ where
             },
             DefaultReadModelWatchStatus::RefreshRequired => {}
         }
-        let document = match self.refresh().await {
-            Ok(document) => document,
-            Err(ReadModelWatchError::QueryDispatcher(error)) if !error.is_retryable() => {
-                if let Err(cleanup_error) = self.close().await {
-                    return Err(ReadModelWatchError::OperationAndCleanupFailed {
-                        operation_error: error,
-                        cleanup_error: Box::new(cleanup_error),
-                    });
+        let retry_options = self.config.retry_options;
+        let mut attempt = 1;
+        let mut delay = retry_options.base_delay.min(retry_options.max_delay);
+        let document = loop {
+            match self.refresh().await {
+                Ok(document) => break document,
+                Err(ReadModelWatchError::QueryDispatcher(error)) => {
+                    if error.is_retryable() && attempt < retry_options.max_attempts.value().get() {
+                        sleep(delay.to_std()).await;
+                        attempt += 1;
+                        delay = delay.next(retry_options.multiplier, retry_options.max_delay);
+                        continue;
+                    }
+                    if let Err(cleanup_error) = self.close().await {
+                        return Err(ReadModelWatchError::OperationAndCleanupFailed {
+                            operation_error: error,
+                            cleanup_error: Box::new(cleanup_error),
+                        });
+                    }
+                    return Err(ReadModelWatchError::QueryDispatcher(error));
                 }
-                return Err(ReadModelWatchError::QueryDispatcher(error));
+                Err(error) => return Err(error),
             }
-            Err(error) => return Err(error),
         };
         self.status = DefaultReadModelWatchStatus::Waiting;
         Ok(ReadModelWatchResult::Document(document))
@@ -220,6 +237,7 @@ mod tests {
 
     use super::*;
     use crate::query::{Query, QueryDispatcherError, QueryName};
+    use crate::read_model::watch::ReadModelWatchMaxAttempts;
     use crate::read_model::watch::{
         DefaultReadModelWatchGenerationRegistrarFactory, DefaultReadModelWatchReceiver,
         ReadModelWatchEndpointError, ReadModelWatchEndpointId, ReadModelWatchGeneration,
@@ -230,6 +248,7 @@ mod tests {
     };
     use crate::request_context::{CorrelationId, MessageId, Principal};
     use crate::unit_of_work::{UnitOfWorkError, UnitOfWorkFactoryError};
+    use chrono::Duration as ChronoDuration;
 
     #[derive(Default)]
     struct State {
@@ -584,6 +603,7 @@ mod tests {
             Handler,
         > {
             DefaultReadModelWatch::new(
+                ReadModelWatchConfig::default(),
                 DefaultReadModelWatchDependencies {
                     query_dispatcher: &self.backend,
                     uow_factory: &self.backend,
@@ -605,6 +625,101 @@ mod tests {
             read_model_type: "user".try_into().unwrap(),
             id: ReadModelId::new(id.to_owned()),
         }
+    }
+
+    #[tokio::test]
+    async fn retryable_failures_are_retried_inside_next() {
+        let setup = Setup::new(vec![
+            Response::Fail,
+            Response::Document(vec![target("old")]),
+            Response::Fail,
+            Response::Document(vec![target("new")]),
+            Response::Document(vec![target("new")]),
+        ]);
+        let mut watch = setup.watch();
+        watch.config.retry_options.base_delay = ChronoDuration::milliseconds(1).try_into().unwrap();
+        let ReadModelWatchResult::Document(document) = watch.next().await.unwrap() else {
+            panic!("expected document");
+        };
+        assert_eq!(document.0, vec![target("new")]);
+        let state = setup.backend.0.lock().unwrap();
+        assert_eq!(
+            state
+                .operations
+                .iter()
+                .filter(|operation| **operation == "begin")
+                .count(),
+            3
+        );
+        assert!(!state.operations.contains(&"remove_db"));
+        assert_eq!(state.targets.len(), 1);
+        assert!(
+            state
+                .targets
+                .values()
+                .all(|targets| targets.contains(&target("new")))
+        );
+    }
+
+    #[tokio::test]
+    async fn retry_exhaustion_closes_watch_and_returns_last_error() {
+        for attempts in [1, 3] {
+            let setup = Setup::new((0..attempts).map(|_| Response::Fail).collect());
+            let mut watch = setup.watch();
+            watch.config.retry_options.max_attempts =
+                ReadModelWatchMaxAttempts::new(attempts.try_into().unwrap());
+            watch.config.retry_options.base_delay =
+                ChronoDuration::milliseconds(1).try_into().unwrap();
+            assert!(matches!(
+                watch.next().await,
+                Err(ReadModelWatchError::QueryDispatcher(
+                    QueryDispatcherError::Handler(HandlerError { retryable: true })
+                ))
+            ));
+            assert!(matches!(
+                watch.next().await.unwrap(),
+                ReadModelWatchResult::Closed
+            ));
+            let state = setup.backend.0.lock().unwrap();
+            assert_eq!(
+                state
+                    .operations
+                    .iter()
+                    .filter(|operation| **operation == "query")
+                    .count(),
+                attempts as usize
+            );
+            assert!(state.operations.ends_with(&["remove_db", "remove_local"]));
+        }
+    }
+
+    #[tokio::test]
+    async fn cancelling_backoff_stops_retry_and_allows_close() {
+        let setup = Setup::new(vec![Response::Fail]);
+        let mut watch = setup.watch();
+        watch.config.retry_options.base_delay = ChronoDuration::seconds(1).try_into().unwrap();
+        assert!(
+            timeout(Duration::from_millis(10), watch.next())
+                .await
+                .is_err()
+        );
+        watch.close().await.unwrap();
+        assert!(matches!(
+            watch.next().await.unwrap(),
+            ReadModelWatchResult::Closed
+        ));
+        assert_eq!(
+            setup
+                .backend
+                .0
+                .lock()
+                .unwrap()
+                .operations
+                .iter()
+                .filter(|operation| **operation == "query")
+                .count(),
+            1
+        );
     }
 
     #[tokio::test]
@@ -690,9 +805,8 @@ mod tests {
         let mut watch = setup.watch();
         watch.next().await.unwrap();
         setup.endpoint.sender.send_replace(());
-        assert!(watch.next().await.is_err());
         assert!(
-            timeout(Duration::from_millis(10), watch.next())
+            timeout(Duration::from_millis(150), watch.next())
                 .await
                 .is_err()
         );
@@ -781,6 +895,7 @@ mod tests {
 
         let setup = Setup::new(vec![Response::Document(vec![]), Response::Document(vec![])]);
         let watcher = DefaultReadModelWatcher::new(
+            ReadModelWatchConfig::default(),
             setup.backend.clone(),
             setup.backend.clone(),
             setup.backend.clone(),
@@ -832,6 +947,7 @@ mod tests {
                 state.fail_cleanup = failure == "cleanup";
             }
             let watcher = DefaultReadModelWatcher::new(
+                ReadModelWatchConfig::default(),
                 setup.backend.clone(),
                 setup.backend.clone(),
                 setup.backend.clone(),

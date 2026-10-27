@@ -30,6 +30,8 @@ mod outbox_relay_error;
 mod outbox_relay_id;
 mod outbox_relay_id_error;
 mod outbox_relay_run_report;
+mod outbox_retry_backoff_multiplier;
+mod outbox_retry_backoff_multiplier_error;
 mod outbox_retry_delay;
 mod outbox_retry_options;
 mod outbox_state;
@@ -64,6 +66,8 @@ pub use outbox_relay_error::*;
 pub use outbox_relay_id::*;
 pub use outbox_relay_id_error::*;
 pub use outbox_relay_run_report::*;
+pub use outbox_retry_backoff_multiplier::*;
+pub use outbox_retry_backoff_multiplier_error::*;
 pub use outbox_retry_delay::*;
 pub use outbox_retry_options::*;
 pub use outbox_state::*;
@@ -156,7 +160,12 @@ pub trait Outbox {
                     *self.lifecycle_mut() = OutboxLifecycle::DeadLettered { dead_lettered_at };
                 }
                 PublishDispatchError::Transient { .. } => {
-                    let next_attempt_at = OutboxNextAttemptAt::now().next(retry_options.backoff);
+                    let delay = retry_options.base_delay.for_attempt(
+                        next_attempt_count,
+                        retry_options.multiplier,
+                        retry_options.max_delay,
+                    );
+                    let next_attempt_at = OutboxNextAttemptAt::now().next(delay);
 
                     *self.state_mut() = OutboxState::Pending {
                         attempt_count: next_attempt_count,
