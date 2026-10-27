@@ -41,6 +41,13 @@ where
     #[error(transparent)]
     GenerationRegistrar(#[from] ReadModelWatchGenerationRegistrarError),
 
+    #[error("watch query failed: {operation_error}; cleanup failed: {cleanup_error}")]
+    OperationAndCleanupFailed {
+        #[source]
+        operation_error: QueryDispatcherError<HE>,
+        cleanup_error: Box<dyn StdError + Send + Sync + 'static>,
+    },
+
     #[error("read model watch subscription backend error: {0}")]
     Backend(#[source] Box<dyn StdError + Send + Sync + 'static>),
 }

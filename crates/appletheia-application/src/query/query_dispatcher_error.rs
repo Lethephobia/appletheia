@@ -21,3 +21,20 @@ where
     #[error("authorizer error: {0}")]
     Authorizer(#[from] AuthorizerError),
 }
+
+impl<HE> Retryability for QueryDispatcherError<HE>
+where
+    HE: Retryability,
+{
+    fn is_retryable(&self) -> bool {
+        match self {
+            Self::Handler(error) => error.is_retryable(),
+            Self::Authorizer(
+                AuthorizerError::PrincipalUnavailable | AuthorizerError::Forbidden,
+            ) => false,
+            Self::UnitOfWorkFactory(_)
+            | Self::UnitOfWork(_)
+            | Self::Authorizer(AuthorizerError::Backend(_)) => true,
+        }
+    }
+}

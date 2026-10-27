@@ -1,3 +1,4 @@
+use crate::Retryability;
 use crate::query::{QueryDispatcher, QueryHandler};
 use crate::read_model::ReadModelDocument;
 use crate::request_context::RequestContext;
@@ -166,7 +167,19 @@ where
             },
             DefaultReadModelWatchStatus::RefreshRequired => {}
         }
-        let document = self.refresh().await?;
+        let document = match self.refresh().await {
+            Ok(document) => document,
+            Err(ReadModelWatchError::QueryDispatcher(error)) if !error.is_retryable() => {
+                if let Err(cleanup_error) = self.close().await {
+                    return Err(ReadModelWatchError::OperationAndCleanupFailed {
+                        operation_error: error,
+                        cleanup_error: Box::new(cleanup_error),
+                    });
+                }
+                return Err(ReadModelWatchError::QueryDispatcher(error));
+            }
+            Err(error) => return Err(error),
+        };
         self.status = DefaultReadModelWatchStatus::Waiting;
         Ok(ReadModelWatchResult::Document(document))
     }
@@ -489,16 +502,19 @@ mod tests {
     enum Response {
         Document(Vec<ReadModelRef>),
         Fail,
+        NotFound,
         Block,
     }
 
     #[derive(Debug, thiserror::Error)]
     #[error("query failed")]
-    struct HandlerError;
+    struct HandlerError {
+        retryable: bool,
+    }
 
     impl crate::Retryability for HandlerError {
         fn is_retryable(&self) -> bool {
-            true
+            self.retryable
         }
     }
 
@@ -519,7 +535,8 @@ mod tests {
             let response = self.0.lock().unwrap().pop_front().expect("queued response");
             match response {
                 Response::Document(targets) => Ok(Document(targets)),
-                Response::Fail => Err(HandlerError),
+                Response::Fail => Err(HandlerError { retryable: true }),
+                Response::NotFound => Err(HandlerError { retryable: false }),
                 Response::Block => pending().await,
             }
         }
@@ -588,6 +605,56 @@ mod tests {
             read_model_type: "user".try_into().unwrap(),
             id: ReadModelId::new(id.to_owned()),
         }
+    }
+
+    #[tokio::test]
+    async fn non_retryable_query_error_closes_watch() {
+        for during_refresh in [false, true] {
+            let mut responses = Vec::new();
+            if during_refresh {
+                responses.push(Response::Document(vec![target("old")]));
+                responses.push(Response::Document(vec![target("old")]));
+            }
+            responses.push(Response::NotFound);
+            let setup = Setup::new(responses);
+            let mut watch = setup.watch();
+            if during_refresh {
+                watch.next().await.unwrap();
+                setup.endpoint.sender.send_replace(());
+            }
+            assert!(matches!(
+                watch.next().await,
+                Err(ReadModelWatchError::QueryDispatcher(
+                    QueryDispatcherError::Handler(HandlerError { retryable: false })
+                ))
+            ));
+            assert!(matches!(
+                watch.next().await.unwrap(),
+                ReadModelWatchResult::Closed
+            ));
+            let state = setup.backend.0.lock().unwrap();
+            assert!(state.targets.is_empty());
+            assert!(state.operations.ends_with(&["remove_db", "remove_local"]));
+        }
+    }
+
+    #[tokio::test]
+    async fn failed_cleanup_preserves_query_error_and_retries_closing() {
+        let setup = Setup::new(vec![Response::NotFound]);
+        setup.backend.0.lock().unwrap().fail_remove = true;
+        let mut watch = setup.watch();
+        assert!(matches!(
+            watch.next().await,
+            Err(ReadModelWatchError::OperationAndCleanupFailed {
+                operation_error: QueryDispatcherError::Handler(HandlerError { retryable: false }),
+                ..
+            })
+        ));
+        setup.backend.0.lock().unwrap().fail_remove = false;
+        assert!(matches!(
+            watch.next().await.unwrap(),
+            ReadModelWatchResult::Closed
+        ));
     }
 
     #[tokio::test]
