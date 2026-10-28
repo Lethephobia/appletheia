@@ -6,7 +6,7 @@ use appletheia::application::command::CommandHandler;
 use appletheia::application::repository::Repository;
 use appletheia::application::request_context::RequestContext;
 use appletheia::domain::Aggregate;
-use banking_iam_application::authorization::UserOwnerRelation;
+use banking_iam_application::user::authorization::UserOwnerRelation;
 use banking_iam_domain::{Organization, User};
 use banking_ledger_domain::wallet_bookmark::{WalletBookmark, WalletBookmarkOwner};
 

@@ -1,7 +1,7 @@
 use super::AccountOwnerRelation;
 use appletheia::application::authorization::{Relation, RelationName, RelationRef, UsersetExpr};
 use appletheia::domain::Aggregate;
-use banking_iam_application::authorization::OrganizationOwnerRelation;
+use banking_iam_application::organization::authorization::OrganizationOwnerRelation;
 use banking_ledger_domain::account::Account;
 
 pub struct AccountOwnershipManagerRelation;

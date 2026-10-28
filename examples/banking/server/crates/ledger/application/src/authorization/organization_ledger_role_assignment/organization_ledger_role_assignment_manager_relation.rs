@@ -1,7 +1,7 @@
 use super::OrganizationLedgerRoleAssignmentOrganizationRelation;
 use appletheia::application::authorization::{Relation, RelationName, RelationRef, UsersetExpr};
 use appletheia::domain::Aggregate;
-use banking_iam_application::authorization::OrganizationAdminRelation;
+use banking_iam_application::organization::authorization::OrganizationAdminRelation;
 use banking_ledger_domain::OrganizationLedgerRoleAssignment;
 
 pub struct OrganizationLedgerRoleAssignmentManagerRelation;

@@ -1,0 +1,19 @@
+pub mod user_activate;
+pub mod user_bio_set;
+pub mod user_deactivate;
+pub mod user_display_name_set;
+pub mod user_picture_object_delete;
+pub mod user_picture_set;
+pub mod user_picture_upload_prepare;
+pub mod user_remove;
+pub mod user_username_set;
+
+pub use user_activate::*;
+pub use user_bio_set::*;
+pub use user_deactivate::*;
+pub use user_display_name_set::*;
+pub use user_picture_object_delete::*;
+pub use user_picture_set::*;
+pub use user_picture_upload_prepare::*;
+pub use user_remove::*;
+pub use user_username_set::*;

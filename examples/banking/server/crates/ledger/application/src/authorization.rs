@@ -9,7 +9,7 @@ mod transfer;
 mod wallet_bookmark;
 mod withdrawal;
 
-pub use banking_iam_application::authorization::UserOwnerRelation;
+pub use banking_iam_application::user::authorization::UserOwnerRelation;
 
 pub use account::*;
 pub use currency::*;
@@ -32,8 +32,8 @@ mod tests {
     };
     use appletheia::application::unit_of_work::{UnitOfWork, UnitOfWorkError};
     use appletheia::domain::Aggregate;
-    use banking_iam_application::authorization::OrganizationMembershipUserRelation;
-    use banking_iam_application::authorization::{
+    use banking_iam_application::organization::authorization::OrganizationMembershipUserRelation;
+    use banking_iam_application::organization::authorization::{
         OrganizationAdminRelation, OrganizationMemberRelation, OrganizationOwnerRelation,
     };
     use banking_iam_domain::{
@@ -355,8 +355,9 @@ mod tests {
             AccountManagerRelation, AccountTransactorRelation, OrganizationFinanceManagerRelation,
             OrganizationTreasurerRelation,
         };
-        use banking_iam_application::authorization::{
-            OrganizationMembershipUserRelation, TeamMemberRelation, TeamOrganizationRelation,
+        use banking_iam_application::organization::authorization::OrganizationMembershipUserRelation;
+        use banking_iam_application::team::authorization::{
+            TeamMemberRelation, TeamOrganizationRelation,
         };
         use banking_iam_domain::{OrganizationId, Team, TeamMembership, TeamName};
         use banking_ledger_domain::{
@@ -364,7 +365,7 @@ mod tests {
             OrganizationLedgerRoleAssignment,
         };
 
-        use banking_iam_application::authorization::OrganizationAdminRelation;
+        use banking_iam_application::organization::authorization::OrganizationAdminRelation;
 
         let admin_id = UserId::new();
         let owner_id = UserId::new();
@@ -552,7 +553,7 @@ mod tests {
             OrganizationLedgerRoleAssignmentManagerRelation,
             OrganizationLedgerRoleAssignmentOrganizationRelation,
         };
-        use banking_iam_application::authorization::OrganizationAdminRelation;
+        use banking_iam_application::organization::authorization::OrganizationAdminRelation;
         use banking_ledger_domain::{
             OrganizationLedgerRole, OrganizationLedgerRoleAssignee,
             OrganizationLedgerRoleAssignment,

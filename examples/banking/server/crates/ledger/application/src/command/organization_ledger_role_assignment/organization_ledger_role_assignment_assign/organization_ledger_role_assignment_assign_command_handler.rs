@@ -10,7 +10,7 @@ use appletheia::application::{
     request_context::RequestContext,
 };
 use appletheia::domain::Aggregate;
-use banking_iam_application::authorization::OrganizationAdminRelation;
+use banking_iam_application::organization::authorization::OrganizationAdminRelation;
 use banking_iam_domain::{Organization, OrganizationMembership, Team};
 use banking_ledger_domain::OrganizationLedgerRoleAssignment;
 use banking_ledger_domain::{
