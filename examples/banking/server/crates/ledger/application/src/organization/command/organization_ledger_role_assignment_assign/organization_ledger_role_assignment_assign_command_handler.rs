@@ -274,11 +274,11 @@ mod tests {
                 )
                 .unwrap();
                 if case == 1 {
-                    membership.remove().unwrap();
-                    team.remove().unwrap();
+                    membership.delete().unwrap();
+                    team.delete().unwrap();
                 }
                 if case == 3 {
-                    organization.remove().unwrap();
+                    organization.delete().unwrap();
                 }
                 let assignee = if to_team {
                     OrganizationLedgerRoleAssignee::Team(team.aggregate_id())

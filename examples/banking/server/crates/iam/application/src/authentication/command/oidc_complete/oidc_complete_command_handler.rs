@@ -90,7 +90,7 @@ where
             }
             None => {
                 let mut user = User::new();
-                user.register()?;
+                user.create()?;
                 user.link_identity(provider.clone(), subject.clone(), email)?;
 
                 Ok(user)

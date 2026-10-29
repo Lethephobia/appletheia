@@ -2,9 +2,9 @@ mod currency_activate;
 mod currency_deactivate;
 mod currency_define;
 mod currency_description_set;
-mod token_binding_define;
+mod token_binding_bind;
 mod token_binding_deposit_enabled_change;
-mod token_binding_remove;
+mod token_binding_unbind;
 mod token_binding_withdrawal_enabled_change;
 
 pub use currency_activate::{
@@ -23,17 +23,17 @@ pub use currency_description_set::{
     CurrencyDescriptionSetCommand, CurrencyDescriptionSetCommandHandler,
     CurrencyDescriptionSetCommandHandlerError, CurrencyDescriptionSetOutput,
 };
-pub use token_binding_define::{
-    TokenBindingDefineCommand, TokenBindingDefineCommandHandler,
-    TokenBindingDefineCommandHandlerError, TokenBindingDefineOutput,
+pub use token_binding_bind::{
+    TokenBindingBindCommand, TokenBindingBindCommandHandler, TokenBindingBindCommandHandlerError,
+    TokenBindingBindOutput,
 };
 pub use token_binding_deposit_enabled_change::{
     TokenBindingDepositEnabledChangeCommand, TokenBindingDepositEnabledChangeCommandHandler,
     TokenBindingDepositEnabledChangeCommandHandlerError, TokenBindingDepositEnabledChangeOutput,
 };
-pub use token_binding_remove::{
-    TokenBindingRemoveCommand, TokenBindingRemoveCommandHandler,
-    TokenBindingRemoveCommandHandlerError, TokenBindingRemoveOutput,
+pub use token_binding_unbind::{
+    TokenBindingUnbindCommand, TokenBindingUnbindCommandHandler,
+    TokenBindingUnbindCommandHandlerError, TokenBindingUnbindOutput,
 };
 pub use token_binding_withdrawal_enabled_change::{
     TokenBindingWithdrawalEnabledChangeCommand, TokenBindingWithdrawalEnabledChangeCommandHandler,

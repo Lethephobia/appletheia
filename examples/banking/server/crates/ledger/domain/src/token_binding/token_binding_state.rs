@@ -24,7 +24,7 @@ fn token_unique_value(
     state: &TokenBindingState,
     _aggregate_id: Uuid,
 ) -> Result<Option<UniqueValue>, TokenBindingStateError> {
-    if state.status.is_removed() {
+    if state.status.is_unbound() {
         return Ok(None);
     }
     let token_address = state.token_address.to_string();

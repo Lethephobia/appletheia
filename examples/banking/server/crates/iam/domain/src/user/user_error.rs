@@ -12,8 +12,8 @@ pub enum UserError {
     #[error(transparent)]
     State(#[from] UserStateError),
 
-    #[error("user is already registered")]
-    AlreadyRegistered,
+    #[error("user is already created")]
+    AlreadyCreated,
 
     #[error("user identity state is invalid")]
     InvalidIdentityState,
@@ -21,8 +21,8 @@ pub enum UserError {
     #[error("user is inactive")]
     Inactive,
 
-    #[error("user has been removed")]
-    Removed,
+    #[error("user has been deleted")]
+    Deleted,
 
     #[error("username is already taken")]
     UsernameAlreadyTaken,

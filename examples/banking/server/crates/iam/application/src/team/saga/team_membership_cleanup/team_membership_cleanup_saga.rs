@@ -14,7 +14,7 @@ use super::{
 use crate::team::command::{
     TeamMembershipCleanupMembershipFailedRecordCommand,
     TeamMembershipCleanupMembershipSucceededRecordCommand, TeamMembershipCleanupScanCommand,
-    TeamMembershipCleanupStartCommand, TeamMembershipRemoveCommand,
+    TeamMembershipCleanupStartCommand, TeamMembershipDeleteCommand,
 };
 
 pub struct TeamMembershipCleanupSaga;
@@ -32,7 +32,7 @@ impl Saga for TeamMembershipCleanupSaga {
         ))
         .add_route(
             SagaRouteBuilder::new(TeamMembershipCleanupSagaStep::Start)
-                .on::<OrganizationMembership>(OrganizationMembershipEventPayload::REMOVED)
+                .on::<OrganizationMembership>(OrganizationMembershipEventPayload::DELETED)
                 .handle(|ctx, event| {
                     ctx.append_command(&TeamMembershipCleanupStartCommand {
                         organization_membership_id: event.aggregate_id(),
@@ -66,7 +66,7 @@ impl Saga for TeamMembershipCleanupSaga {
                     } = event.payload()
                     {
                         for team_membership_id in team_membership_ids {
-                            ctx.append_command(&TeamMembershipRemoveCommand {
+                            ctx.append_command(&TeamMembershipDeleteCommand {
                                 team_membership_id: *team_membership_id,
                             })?;
                         }
@@ -81,7 +81,7 @@ impl Saga for TeamMembershipCleanupSaga {
         )
         .add_route(
             SagaRouteBuilder::new(TeamMembershipCleanupSagaStep::RecordMembershipSucceeded)
-                .on::<TeamMembership>(TeamMembershipEventPayload::REMOVED)
+                .on::<TeamMembership>(TeamMembershipEventPayload::DELETED)
                 .caused_by(TeamMembershipCleanupSagaStep::ProcessPage)
                 .handle(|ctx, event| {
                     let state: &TeamMembershipCleanupSagaState = ctx.state_required()?;
@@ -95,7 +95,7 @@ impl Saga for TeamMembershipCleanupSaga {
         )
         .add_route(
             SagaRouteBuilder::new(TeamMembershipCleanupSagaStep::RecordMembershipFailed)
-                .on_command_failed::<TeamMembershipRemoveCommand>(
+                .on_command_failed::<TeamMembershipDeleteCommand>(
                     TeamMembershipCleanupSagaStep::ProcessPage,
                 )
                 .handle(|ctx, command| {
@@ -146,7 +146,7 @@ mod tests {
     use crate::team::command::{
         TeamMembershipCleanupMembershipFailedRecordCommand,
         TeamMembershipCleanupMembershipSucceededRecordCommand, TeamMembershipCleanupScanCommand,
-        TeamMembershipCleanupStartCommand, TeamMembershipRemoveCommand,
+        TeamMembershipCleanupStartCommand, TeamMembershipDeleteCommand,
     };
 
     fn request_context(correlation_id: CorrelationId) -> RequestContext {
@@ -246,7 +246,7 @@ mod tests {
     }
 
     #[test]
-    fn removed_membership_starts_cleanup_for_that_membership() {
+    fn deleted_membership_starts_cleanup_for_that_membership() {
         let correlation_id = CorrelationId::from(Uuid::now_v7());
         let membership_id = OrganizationMembershipId::new();
         let mut instance = saga_instance(correlation_id);
@@ -254,7 +254,7 @@ mod tests {
             correlation_id,
             OrganizationMembership::TYPE,
             membership_id,
-            OrganizationMembershipEventPayload::Removed {
+            OrganizationMembershipEventPayload::Deleted {
                 organization_id: OrganizationId::new(),
                 user_id: UserId::new(),
             },
@@ -303,7 +303,7 @@ mod tests {
     }
 
     #[test]
-    fn scanned_page_dispatches_all_removals_and_next_scan_without_waiting_for_results() {
+    fn scanned_page_dispatches_all_deletions_and_next_scan_without_waiting_for_results() {
         let correlation_id = CorrelationId::from(Uuid::now_v7());
         let cleanup_id = TeamMembershipCleanupId::new();
         let team_membership_id = TeamMembershipId::new();
@@ -333,7 +333,7 @@ mod tests {
         {
             assert_eq!(
                 command
-                    .try_to_command::<TeamMembershipRemoveCommand>()
+                    .try_to_command::<TeamMembershipDeleteCommand>()
                     .unwrap()
                     .team_membership_id,
                 expected_id
@@ -349,7 +349,7 @@ mod tests {
     }
 
     #[test]
-    fn removed_membership_dispatches_succeeded_record() {
+    fn deleted_membership_dispatches_succeeded_record() {
         use banking_iam_domain::{TeamId, TeamMembership, TeamMembershipEventPayload};
         let correlation_id = CorrelationId::from(Uuid::now_v7());
         let cleanup_id = TeamMembershipCleanupId::new();
@@ -365,7 +365,7 @@ mod tests {
                 correlation_id,
                 TeamMembership::TYPE,
                 team_membership_id,
-                TeamMembershipEventPayload::Removed {
+                TeamMembershipEventPayload::Deleted {
                     team_id: TeamId::new(),
                     organization_membership_id: OrganizationMembershipId::new(),
                 },
@@ -381,7 +381,7 @@ mod tests {
     }
 
     #[test]
-    fn terminal_remove_failure_records_the_membership_from_the_failed_command() {
+    fn terminal_delete_failure_records_the_membership_from_the_failed_command() {
         use appletheia::application::command::{
             CommandAttemptCount, CommandFailedAt, CommandFailureEnvelope, CommandTerminalReason,
         };

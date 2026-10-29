@@ -3,7 +3,7 @@ mod currency_registrar_description_set;
 mod currency_registrar_display_name_change;
 mod currency_registrar_handle_change;
 mod currency_registrar_membership_create;
-mod currency_registrar_membership_remove;
+mod currency_registrar_membership_delete;
 
 pub use currency_registrar_create::{
     CurrencyRegistrarCreateCommand, CurrencyRegistrarCreateCommandHandler,
@@ -26,7 +26,7 @@ pub use currency_registrar_membership_create::{
     CurrencyRegistrarMembershipCreateCommand, CurrencyRegistrarMembershipCreateCommandHandler,
     CurrencyRegistrarMembershipCreateCommandHandlerError, CurrencyRegistrarMembershipCreateOutput,
 };
-pub use currency_registrar_membership_remove::{
-    CurrencyRegistrarMembershipRemoveCommand, CurrencyRegistrarMembershipRemoveCommandHandler,
-    CurrencyRegistrarMembershipRemoveCommandHandlerError, CurrencyRegistrarMembershipRemoveOutput,
+pub use currency_registrar_membership_delete::{
+    CurrencyRegistrarMembershipDeleteCommand, CurrencyRegistrarMembershipDeleteCommandHandler,
+    CurrencyRegistrarMembershipDeleteCommandHandlerError, CurrencyRegistrarMembershipDeleteOutput,
 };

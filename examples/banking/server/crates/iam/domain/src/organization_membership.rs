@@ -55,9 +55,9 @@ impl OrganizationMembership {
         Ok(self.state_required()?.status.is_active())
     }
 
-    /// Returns whether the membership is removed.
-    pub fn is_removed(&self) -> Result<bool, OrganizationMembershipError> {
-        Ok(self.state_required()?.status.is_removed())
+    /// Returns whether the membership is deleted.
+    pub fn is_deleted(&self) -> Result<bool, OrganizationMembershipError> {
+        Ok(self.state_required()?.status.is_deleted())
     }
 
     /// Creates the membership.
@@ -77,18 +77,18 @@ impl OrganizationMembership {
         Ok(())
     }
 
-    /// Removes the membership.
+    /// Deletes the membership.
     ///
-    /// Removal is terminal. Rejoining creates a new membership aggregate.
-    pub fn remove(&mut self) -> Result<(), OrganizationMembershipError> {
-        if self.state_required()?.status.is_removed() {
-            return Err(OrganizationMembershipError::Removed);
+    /// Deletion is terminal. Rejoining creates a new membership aggregate.
+    pub fn delete(&mut self) -> Result<(), OrganizationMembershipError> {
+        if self.state_required()?.status.is_deleted() {
+            return Err(OrganizationMembershipError::Deleted);
         }
 
         let state = self.state_required()?;
         let organization_id = state.organization_id;
         let user_id = state.user_id;
-        self.append_event(OrganizationMembershipEventPayload::Removed {
+        self.append_event(OrganizationMembershipEventPayload::Deleted {
             organization_id,
             user_id,
         })?;
@@ -114,8 +114,8 @@ impl AggregateApply<OrganizationMembershipEventPayload, OrganizationMembershipEr
                     status: OrganizationMembershipStatus::Active,
                 }));
             }
-            OrganizationMembershipEventPayload::Removed { .. } => {
-                self.state_required_mut()?.status = OrganizationMembershipStatus::Removed;
+            OrganizationMembershipEventPayload::Deleted { .. } => {
+                self.state_required_mut()?.status = OrganizationMembershipStatus::Deleted;
             }
         }
 
@@ -188,27 +188,27 @@ mod tests {
     fn removing_membership_updates_status_and_records_event() {
         let mut membership = created_membership();
 
-        membership.remove().expect("remove should succeed");
+        membership.delete().expect("delete should succeed");
 
         assert_eq!(
             membership.status().expect("status should exist"),
-            OrganizationMembershipStatus::Removed
+            OrganizationMembershipStatus::Deleted
         );
         assert_eq!(membership.uncommitted_events().len(), 2);
         assert_eq!(
             membership.uncommitted_events()[1].payload().name(),
-            OrganizationMembershipEventPayload::REMOVED
+            OrganizationMembershipEventPayload::DELETED
         );
     }
 
     #[test]
     fn removing_twice_is_rejected() {
         let mut membership = created_membership();
-        membership.remove().expect("remove should succeed");
+        membership.delete().expect("delete should succeed");
 
-        let error = membership.remove().expect_err("second remove should fail");
+        let error = membership.delete().expect_err("second delete should fail");
 
-        assert!(matches!(error, OrganizationMembershipError::Removed));
+        assert!(matches!(error, OrganizationMembershipError::Deleted));
         assert_eq!(membership.uncommitted_events().len(), 2);
     }
 }

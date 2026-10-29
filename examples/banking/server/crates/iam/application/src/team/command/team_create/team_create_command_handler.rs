@@ -60,7 +60,7 @@ where
             .read_shared::<Organization>(uow, command.organization_id)
             .await?;
         if !organization.is_active()? {
-            return Err(TeamCreateCommandHandlerError::OrganizationRemoved);
+            return Err(TeamCreateCommandHandlerError::OrganizationDeleted);
         }
         let mut team = Team::new();
         team.create(command.organization_id, command.name.clone())?;

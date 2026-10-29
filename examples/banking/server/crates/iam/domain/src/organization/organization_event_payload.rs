@@ -32,7 +32,7 @@ pub enum OrganizationEventPayload {
         picture: Option<OrganizationPictureRef>,
         old_picture: Option<OrganizationPictureRef>,
     },
-    Removed,
+    Deleted,
 }
 
 #[cfg(test)]
@@ -78,8 +78,8 @@ mod tests {
             appletheia::domain::EventName::new("picture_set")
         );
         assert_eq!(
-            OrganizationEventPayload::REMOVED,
-            appletheia::domain::EventName::new("removed")
+            OrganizationEventPayload::DELETED,
+            appletheia::domain::EventName::new("deleted")
         );
     }
 

@@ -19,7 +19,7 @@ pub enum OrganizationJoinRequestError {
     NotPending,
 
     #[error("organization has been removed")]
-    OrganizationRemoved,
+    OrganizationDeleted,
 
     #[error("requester is already a member")]
     RequesterAlreadyMember,

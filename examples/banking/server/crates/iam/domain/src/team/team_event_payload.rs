@@ -15,5 +15,5 @@ pub enum TeamEventPayload {
     DescriptionSet {
         description: Option<TeamDescription>,
     },
-    Removed,
+    Deleted,
 }

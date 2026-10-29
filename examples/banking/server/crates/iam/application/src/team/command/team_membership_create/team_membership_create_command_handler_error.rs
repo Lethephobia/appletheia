@@ -39,17 +39,17 @@ pub enum TeamMembershipCreateCommandHandlerError {
     #[error(transparent)]
     UniqueValuePart(#[from] UniqueValuePartError),
 
-    #[error("team removed")]
-    TeamRemoved,
+    #[error("team deleted")]
+    TeamDeleted,
 
-    #[error("organization membership removed")]
-    OrganizationMembershipRemoved,
+    #[error("organization membership deleted")]
+    OrganizationMembershipDeleted,
 
     #[error("organization mismatch")]
     OrganizationMismatch,
 
-    #[error("organization removed")]
-    OrganizationRemoved,
+    #[error("organization deleted")]
+    OrganizationDeleted,
 
     #[error("already member")]
     AlreadyMember,
@@ -68,10 +68,10 @@ impl Retryability for TeamMembershipCreateCommandHandlerError {
             Self::TeamMembership(_) => false,
             Self::UniqueValue(_) => false,
             Self::UniqueValuePart(_) => false,
-            Self::TeamRemoved => false,
-            Self::OrganizationMembershipRemoved => false,
+            Self::TeamDeleted => false,
+            Self::OrganizationMembershipDeleted => false,
             Self::OrganizationMismatch => false,
-            Self::OrganizationRemoved => false,
+            Self::OrganizationDeleted => false,
             Self::AlreadyMember => false,
         }
     }

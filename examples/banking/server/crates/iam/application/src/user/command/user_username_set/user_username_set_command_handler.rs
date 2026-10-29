@@ -236,9 +236,9 @@ mod tests {
         .expect("request context should be valid")
     }
 
-    fn registered_user() -> User {
+    fn created_user() -> User {
         let mut user = User::new();
-        user.register().expect("user should register");
+        user.create().expect("user should be created");
         user.link_identity(
             UserIdentityProvider::try_from("https://accounts.example.com")
                 .expect("provider should be valid"),
@@ -251,7 +251,7 @@ mod tests {
 
     #[tokio::test]
     async fn handle_changes_username() {
-        let user = registered_user();
+        let user = created_user();
         let user_id = user.aggregate_id();
         let repository = TestRepository::new(user);
         let handler = UserUsernameSetCommandHandler::new(repository);

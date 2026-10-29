@@ -153,7 +153,7 @@ mod tests {
     #[derive(Clone)]
     struct TestRepository {
         cleanup: Arc<Mutex<TeamMembershipCleanup>>,
-        removed_ids: Vec<TeamMembershipId>,
+        deleted_ids: Vec<TeamMembershipId>,
         saved_batches: Arc<Mutex<Vec<Vec<TeamMembershipCleanupEventPayload>>>>,
     }
 
@@ -202,11 +202,11 @@ mod tests {
                 .create(TeamId::new(), OrganizationMembershipId::new())
                 .unwrap();
             if self
-                .removed_ids
+                .deleted_ids
                 .iter()
-                .any(|removed| removed.value() == id.value())
+                .any(|deleted| deleted.value() == id.value())
             {
-                membership.remove().unwrap();
+                membership.delete().unwrap();
             }
             Ok(Self::copy_aggregate::<_, A>(&membership))
         }
@@ -301,7 +301,7 @@ mod tests {
         cleanup.core_mut().clear_uncommitted_events();
         TestRepository {
             cleanup: Arc::new(Mutex::new(cleanup)),
-            removed_ids: vec![],
+            deleted_ids: vec![],
             saved_batches: Arc::new(Mutex::new(vec![])),
         }
     }
@@ -514,13 +514,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn scan_filters_removed_memberships_without_losing_page_cursor() {
-        for all_removed in [false, true] {
+    async fn scan_filters_deleted_memberships_without_losing_page_cursor() {
+        for all_deleted in [false, true] {
             let mut repository = repository();
             let id = repository.cleanup.lock().unwrap().aggregate_id();
             let first = TeamMembershipId::new();
             let last = TeamMembershipId::new();
-            repository.removed_ids = if all_removed {
+            repository.deleted_ids = if all_deleted {
                 vec![first, last]
             } else {
                 vec![last]
@@ -547,7 +547,7 @@ mod tests {
                 .await
                 .unwrap();
             let saved = repository.saved_batches.lock().unwrap();
-            let expected = if all_removed { vec![] } else { vec![first] };
+            let expected = if all_deleted { vec![] } else { vec![first] };
             assert!(
                 matches!(saved[0].as_slice(), [TeamMembershipCleanupEventPayload::Scanned { team_membership_ids, next_cursor }] if team_membership_ids == &expected && *next_cursor == Some(last))
             );

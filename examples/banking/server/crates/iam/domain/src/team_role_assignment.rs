@@ -71,11 +71,11 @@ impl TeamRoleAssignment {
         Ok(())
     }
 
-    pub fn revoke(&mut self) -> Result<(), TeamRoleAssignmentError> {
+    pub fn unassign(&mut self) -> Result<(), TeamRoleAssignmentError> {
         if !self.is_active()? {
-            return Err(TeamRoleAssignmentError::Revoked);
+            return Err(TeamRoleAssignmentError::Unassigned);
         }
-        self.append_event(TeamRoleAssignmentEventPayload::Revoked)?;
+        self.append_event(TeamRoleAssignmentEventPayload::Unassigned)?;
         Ok(())
     }
 }
@@ -98,8 +98,8 @@ impl AggregateApply<TeamRoleAssignmentEventPayload, TeamRoleAssignmentError>
                 role: *role,
                 status: TeamRoleAssignmentStatus::Active,
             })),
-            TeamRoleAssignmentEventPayload::Revoked => {
-                self.state_required_mut()?.status = TeamRoleAssignmentStatus::Revoked
+            TeamRoleAssignmentEventPayload::Unassigned => {
+                self.state_required_mut()?.status = TeamRoleAssignmentStatus::Unassigned
             }
         }
         Ok(())
@@ -124,11 +124,11 @@ mod tests {
             assignment.assign(scope_id, assignee, TeamRole::Manager),
             Err(TeamRoleAssignmentError::AlreadyAssigned)
         ));
-        assignment.revoke().unwrap();
+        assignment.unassign().unwrap();
         assert!(assignment.unique_entries().unwrap().is_empty());
         assert!(matches!(
-            assignment.revoke(),
-            Err(TeamRoleAssignmentError::Revoked)
+            assignment.unassign(),
+            Err(TeamRoleAssignmentError::Unassigned)
         ));
         assert!(matches!(
             assignment.assign(scope_id, assignee, TeamRole::Manager),

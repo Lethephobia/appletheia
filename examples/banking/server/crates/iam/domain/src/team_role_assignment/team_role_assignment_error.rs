@@ -13,6 +13,6 @@ pub enum TeamRoleAssignmentError {
     #[error("role assignment already exists")]
     AlreadyAssigned,
 
-    #[error("role assignment is revoked")]
-    Revoked,
+    #[error("role assignment is unassigned")]
+    Unassigned,
 }

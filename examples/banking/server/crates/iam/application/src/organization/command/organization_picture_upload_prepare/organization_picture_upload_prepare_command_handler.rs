@@ -79,10 +79,10 @@ where
             .read_shared::<Organization>(uow, command.organization_id)
             .await?;
 
-        if organization.is_removed()? {
+        if organization.is_deleted()? {
             return Err(
                 OrganizationPictureUploadPrepareCommandHandlerError::Organization(
-                    OrganizationError::Removed,
+                    OrganizationError::Deleted,
                 ),
             );
         }
@@ -475,9 +475,11 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn handle_rejects_removed_organization() {
+    async fn handle_rejects_deleted_organization() {
         let mut organization = organization();
-        organization.remove().expect("organization should remove");
+        organization
+            .delete()
+            .expect("organization should be deleted");
         let organization_id = organization.aggregate_id();
         let repository = TestRepository::new(organization);
         let expires_in =
@@ -506,12 +508,12 @@ mod tests {
                 },
             )
             .await
-            .expect_err("removed organization should be rejected");
+            .expect_err("deleted organization should be rejected");
 
         assert!(matches!(
             error,
             OrganizationPictureUploadPrepareCommandHandlerError::Organization(
-                OrganizationError::Removed
+                OrganizationError::Deleted
             )
         ));
     }

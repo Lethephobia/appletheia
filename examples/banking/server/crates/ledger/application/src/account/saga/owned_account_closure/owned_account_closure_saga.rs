@@ -16,7 +16,7 @@ use crate::account::command::{
     OwnedAccountClosureStartCommand,
 };
 
-/// Enumerates a removed owner's accounts without waiting for earlier close attempts to finish.
+/// Enumerates a deleted owner's accounts without waiting for earlier close attempts to finish.
 pub struct OwnedAccountClosureSaga;
 
 impl Saga for OwnedAccountClosureSaga {
@@ -32,7 +32,7 @@ impl Saga for OwnedAccountClosureSaga {
         ))
         .add_route(
             SagaRouteBuilder::new(OwnedAccountClosureSagaStep::Start)
-                .on::<User>(UserEventPayload::REMOVED)
+                .on::<User>(UserEventPayload::DELETED)
                 .handle(|ctx, event| {
                     ctx.append_command(&OwnedAccountClosureStartCommand {
                         owner: AccountOwner::User(event.aggregate_id()),
@@ -42,7 +42,7 @@ impl Saga for OwnedAccountClosureSaga {
         )
         .add_route(
             SagaRouteBuilder::new(OwnedAccountClosureSagaStep::Start)
-                .on::<Organization>(OrganizationEventPayload::REMOVED)
+                .on::<Organization>(OrganizationEventPayload::DELETED)
                 .handle(|ctx, event| {
                     ctx.append_command(&OwnedAccountClosureStartCommand {
                         owner: AccountOwner::Organization(event.aggregate_id()),
@@ -259,14 +259,14 @@ mod tests {
     }
 
     #[test]
-    fn removed_owner_starts_one_closure() {
+    fn deleted_owner_starts_one_closure() {
         let correlation_id = CorrelationId::from(Uuid::now_v7());
         let user_id = UserId::new();
         let mut instance = saga_instance(correlation_id);
         handle_event(
             &OwnedAccountClosureSaga,
             &mut instance,
-            &user_event_envelope(correlation_id, user_id, UserEventPayload::Removed),
+            &user_event_envelope(correlation_id, user_id, UserEventPayload::Deleted),
             None,
         )
         .unwrap();

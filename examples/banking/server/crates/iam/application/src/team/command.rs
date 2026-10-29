@@ -1,18 +1,21 @@
 pub mod team_create;
+pub mod team_delete;
 pub mod team_description_set;
 mod team_membership_cleanup_membership_failed_record;
 mod team_membership_cleanup_membership_succeeded_record;
 mod team_membership_cleanup_scan;
 mod team_membership_cleanup_start;
 pub mod team_membership_create;
-pub mod team_membership_remove;
+pub mod team_membership_delete;
 pub mod team_name_change;
-pub mod team_remove;
 mod team_role_assignment_assign;
-mod team_role_assignment_revoke;
+mod team_role_assignment_unassign;
 
 pub use team_create::{
     TeamCreateCommand, TeamCreateCommandHandler, TeamCreateCommandHandlerError, TeamCreateOutput,
+};
+pub use team_delete::{
+    TeamDeleteCommand, TeamDeleteCommandHandler, TeamDeleteCommandHandlerError, TeamDeleteOutput,
 };
 pub use team_description_set::{
     TeamDescriptionSetCommand, TeamDescriptionSetCommandHandler,
@@ -43,16 +46,13 @@ pub use team_membership_create::{
     TeamMembershipCreateCommand, TeamMembershipCreateCommandHandler,
     TeamMembershipCreateCommandHandlerError, TeamMembershipCreateOutput,
 };
-pub use team_membership_remove::{
-    TeamMembershipRemoveCommand, TeamMembershipRemoveCommandHandler,
-    TeamMembershipRemoveCommandHandlerError, TeamMembershipRemoveOutput,
+pub use team_membership_delete::{
+    TeamMembershipDeleteCommand, TeamMembershipDeleteCommandHandler,
+    TeamMembershipDeleteCommandHandlerError, TeamMembershipDeleteOutput,
 };
 pub use team_name_change::{
     TeamNameChangeCommand, TeamNameChangeCommandHandler, TeamNameChangeCommandHandlerError,
     TeamNameChangeOutput,
 };
-pub use team_remove::{
-    TeamRemoveCommand, TeamRemoveCommandHandler, TeamRemoveCommandHandlerError, TeamRemoveOutput,
-};
 pub use team_role_assignment_assign::*;
-pub use team_role_assignment_revoke::*;
+pub use team_role_assignment_unassign::*;

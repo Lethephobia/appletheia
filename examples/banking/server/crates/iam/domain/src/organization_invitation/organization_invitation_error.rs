@@ -22,7 +22,7 @@ pub enum OrganizationInvitationError {
     NotPending,
 
     #[error("organization has been removed")]
-    OrganizationRemoved,
+    OrganizationDeleted,
 
     #[error("invitee is already a member")]
     InviteeAlreadyMember,

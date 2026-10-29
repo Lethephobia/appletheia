@@ -11,7 +11,7 @@ pub enum CurrencyRegistrarMembershipEventPayload {
         currency_registrar_id: CurrencyRegistrarId,
         user_id: UserId,
     },
-    Removed {
+    Deleted {
         currency_registrar_id: CurrencyRegistrarId,
         user_id: UserId,
     },

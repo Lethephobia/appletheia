@@ -54,8 +54,8 @@ impl Team {
         Ok(self.state_required()?.status.is_active())
     }
 
-    pub fn is_removed(&self) -> Result<bool, TeamError> {
-        Ok(self.state_required()?.status.is_removed())
+    pub fn is_deleted(&self) -> Result<bool, TeamError> {
+        Ok(self.state_required()?.status.is_deleted())
     }
 
     pub fn create(
@@ -75,8 +75,8 @@ impl Team {
     }
 
     pub fn change_name(&mut self, name: TeamName) -> Result<(), TeamError> {
-        if self.state_required()?.status.is_removed() {
-            return Err(TeamError::Removed);
+        if self.state_required()?.status.is_deleted() {
+            return Err(TeamError::Deleted);
         }
 
         self.append_event(TeamEventPayload::NameChanged { name })?;
@@ -87,20 +87,20 @@ impl Team {
         &mut self,
         description: Option<TeamDescription>,
     ) -> Result<(), TeamError> {
-        if self.state_required()?.status.is_removed() {
-            return Err(TeamError::Removed);
+        if self.state_required()?.status.is_deleted() {
+            return Err(TeamError::Deleted);
         }
 
         self.append_event(TeamEventPayload::DescriptionSet { description })?;
         Ok(())
     }
 
-    pub fn remove(&mut self) -> Result<(), TeamError> {
-        if self.state_required()?.status.is_removed() {
-            return Err(TeamError::Removed);
+    pub fn delete(&mut self) -> Result<(), TeamError> {
+        if self.state_required()?.status.is_deleted() {
+            return Err(TeamError::Deleted);
         }
 
-        self.append_event(TeamEventPayload::Removed)?;
+        self.append_event(TeamEventPayload::Deleted)?;
         Ok(())
     }
 }
@@ -123,8 +123,8 @@ impl AggregateApply<TeamEventPayload, TeamError> for Team {
             TeamEventPayload::DescriptionSet { description } => {
                 self.state_required_mut()?.description = description.clone();
             }
-            TeamEventPayload::Removed => {
-                self.state_required_mut()?.status = TeamStatus::Removed;
+            TeamEventPayload::Deleted => {
+                self.state_required_mut()?.status = TeamStatus::Deleted;
             }
         }
 
@@ -162,8 +162,8 @@ mod tests {
         );
         team.set_description(None).unwrap();
         assert!(team.description().unwrap().is_none());
-        team.remove().unwrap();
-        assert!(team.is_removed().unwrap());
+        team.delete().unwrap();
+        assert!(team.is_deleted().unwrap());
 
         let mut replayed = Team::new();
         for event in team.uncommitted_events() {
@@ -182,7 +182,7 @@ mod tests {
                 TeamEventPayload::NAME_CHANGED,
                 TeamEventPayload::DESCRIPTION_SET,
                 TeamEventPayload::DESCRIPTION_SET,
-                TeamEventPayload::REMOVED,
+                TeamEventPayload::DELETED,
             ]
         );
         assert_eq!(
@@ -198,7 +198,7 @@ mod tests {
     }
 
     #[test]
-    fn duplicate_creation_and_operations_after_removal_do_not_append_events() {
+    fn duplicate_creation_and_operations_after_deletion_do_not_append_events() {
         let mut team = Team::new();
         let organization_id = OrganizationId::new();
         let name = TeamName::try_from("Finance").unwrap();
@@ -208,21 +208,21 @@ mod tests {
             Err(TeamError::AlreadyCreated)
         ));
         assert_eq!(team.uncommitted_events().len(), 1);
-        team.remove().unwrap();
+        team.delete().unwrap();
         for result in [
             team.change_name(name.clone()),
             team.set_description(Some(TeamDescription::try_from("Updated").unwrap())),
             team.set_description(None),
-            team.remove(),
+            team.delete(),
         ] {
-            assert!(matches!(result, Err(TeamError::Removed)));
+            assert!(matches!(result, Err(TeamError::Deleted)));
         }
         assert!(matches!(
             team.create(organization_id, name),
             Err(TeamError::AlreadyCreated)
         ));
         assert_eq!(team.uncommitted_events().len(), 2);
-        assert!(team.is_removed().unwrap());
+        assert!(team.is_deleted().unwrap());
     }
 
     #[test]
@@ -244,7 +244,7 @@ mod tests {
         for result in [
             team.change_name(TeamName::try_from("Finance").unwrap()),
             team.set_description(None),
-            team.remove(),
+            team.delete(),
         ] {
             assert!(matches!(result, Err(TeamError::Aggregate(_))));
         }

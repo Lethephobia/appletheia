@@ -1,4 +1,5 @@
 pub mod organization_create;
+pub mod organization_delete;
 pub mod organization_description_set;
 pub mod organization_display_name_change;
 pub mod organization_handle_change;
@@ -11,18 +12,20 @@ mod organization_join_request_cancel;
 mod organization_join_request_reject;
 mod organization_join_request_submit;
 pub mod organization_membership_create;
-pub mod organization_membership_remove;
+pub mod organization_membership_delete;
 pub mod organization_ownership_transfer;
 pub mod organization_picture_object_delete;
 pub mod organization_picture_set;
 pub mod organization_picture_upload_prepare;
-pub mod organization_remove;
 mod organization_role_assignment_assign;
-mod organization_role_assignment_revoke;
+mod organization_role_assignment_unassign;
 pub mod organization_website_url_set;
 
 pub use organization_create::{
     OrganizationCreateCommand, OrganizationCreateCommandHandler, OrganizationCreateOutput,
+};
+pub use organization_delete::{
+    OrganizationDeleteCommand, OrganizationDeleteCommandHandler, OrganizationDeleteOutput,
 };
 pub use organization_description_set::{
     OrganizationDescriptionSetCommand, OrganizationDescriptionSetCommandHandler,
@@ -72,9 +75,9 @@ pub use organization_membership_create::{
     OrganizationMembershipCreateCommand, OrganizationMembershipCreateCommandHandler,
     OrganizationMembershipCreateCommandHandlerError, OrganizationMembershipCreateOutput,
 };
-pub use organization_membership_remove::{
-    OrganizationMembershipRemoveCommand, OrganizationMembershipRemoveCommandHandler,
-    OrganizationMembershipRemoveCommandHandlerError, OrganizationMembershipRemoveOutput,
+pub use organization_membership_delete::{
+    OrganizationMembershipDeleteCommand, OrganizationMembershipDeleteCommandHandler,
+    OrganizationMembershipDeleteCommandHandlerError, OrganizationMembershipDeleteOutput,
 };
 pub use organization_ownership_transfer::{
     OrganizationOwnershipTransferCommand, OrganizationOwnershipTransferCommandHandler,
@@ -93,11 +96,8 @@ pub use organization_picture_upload_prepare::{
     OrganizationPictureUploadPrepareCommandHandlerConfig,
     OrganizationPictureUploadPrepareCommandHandlerError, OrganizationPictureUploadPrepareOutput,
 };
-pub use organization_remove::{
-    OrganizationRemoveCommand, OrganizationRemoveCommandHandler, OrganizationRemoveOutput,
-};
 pub use organization_role_assignment_assign::*;
-pub use organization_role_assignment_revoke::*;
+pub use organization_role_assignment_unassign::*;
 pub use organization_website_url_set::{
     OrganizationWebsiteUrlSetCommand, OrganizationWebsiteUrlSetCommandHandler,
     OrganizationWebsiteUrlSetOutput,

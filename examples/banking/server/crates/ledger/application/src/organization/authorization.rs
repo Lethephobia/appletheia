@@ -141,7 +141,7 @@ mod tests {
             .unwrap();
         let mut bookmark = WalletBookmark::new();
         bookmark
-            .register(
+            .add(
                 WalletBookmarkOwner::Organization(organization.aggregate_id()),
                 TokenOwnerAddress::Solana(SolanaTokenAccountOwnerAddress::new(
                     SolanaAccountAddress::from_bytes([2; 32]),
@@ -296,9 +296,9 @@ mod tests {
         model.define_relation(CurrencyRegistrarMemberRelation);
         model.define_relation(CurrencyRegistrarMembershipManagerRelation);
         model.define_relation(CurrencyRegistrarMembershipRegistrarRelation);
-        for removed in [false, true] {
-            if removed {
-                membership.remove().unwrap();
+        for deleted in [false, true] {
+            if deleted {
+                membership.delete().unwrap();
             }
             let mut relationships = model.derive(&membership).unwrap();
             relationships.extend(model.derive(&target).unwrap());
@@ -325,7 +325,7 @@ mod tests {
                             .satisfies(&mut TestUow, &subject, &requirement)
                             .await
                             .unwrap(),
-                        user_id == member_id && !removed
+                        user_id == member_id && !deleted
                     );
                 }
             }
@@ -431,14 +431,14 @@ mod tests {
         model.define_relation(AccountTransactorRelation);
         for phase in 0..5 {
             if phase == 1 {
-                finance.revoke().unwrap();
-                admin_assignment.revoke().unwrap();
+                finance.unassign().unwrap();
+                admin_assignment.unassign().unwrap();
             }
             if phase == 2 {
-                member.remove().unwrap();
+                member.delete().unwrap();
             }
             if phase == 4 {
-                team.remove().unwrap();
+                team.delete().unwrap();
             }
             let mut relationships = model.derive(&organization).unwrap();
             relationships.extend(model.derive(&member).unwrap());
@@ -577,7 +577,7 @@ mod tests {
         model.define_relation(OrganizationLedgerRoleAssignmentManagerRelation);
         for demoted in [false, true] {
             if demoted {
-                admin_assignment.revoke().unwrap();
+                admin_assignment.unassign().unwrap();
             }
             let mut relationships = model.derive(&organization).unwrap();
             relationships.extend(model.derive(&admin).unwrap());

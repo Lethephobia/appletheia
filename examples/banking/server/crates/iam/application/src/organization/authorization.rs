@@ -127,7 +127,7 @@ mod tests {
     }
 
     #[test]
-    fn one_registration_derives_membership_and_removal() {
+    fn one_registration_derives_membership_and_deletion() {
         let mut model = InMemoryAuthorizationModel::new();
         model.define_relation(OrganizationMemberRelation);
         model.define_relation(OrganizationMembershipOrganizationRelation);
@@ -148,11 +148,11 @@ mod tests {
                 == AggregateRef::from_id::<Organization>(aggregate.organization_id().unwrap())
             && entry.subject
                 == RelationshipSubject::aggregate::<User>(aggregate.user_id().unwrap())));
-        aggregate.remove().unwrap();
-        let removed = snapshot.derive(&aggregate).unwrap();
-        assert_eq!(removed.len(), 1);
+        aggregate.delete().unwrap();
+        let deleted = snapshot.derive(&aggregate).unwrap();
+        assert_eq!(deleted.len(), 1);
         assert_eq!(
-            removed[0].relation,
+            deleted[0].relation,
             OrganizationMembershipOrganizationRelation::REF.into()
         );
     }
@@ -229,7 +229,7 @@ mod tests {
         assert_eq!(model.derive(&aggregate).unwrap().len(), 1);
         assert_eq!(calls.load(Ordering::SeqCst), 1);
 
-        // Moving the source to another aggregate removes the previous source's handler.
+        // Moving the source to another aggregate deletes the previous source's handler.
         model.define_relation(ReplacementMemberRelation(UsersetExpr::this::<
             Organization,
             _,
@@ -497,7 +497,7 @@ mod tests {
         // Rebuild persisted relationships for each current aggregate state.
         for phase in 0..4 {
             if phase == 1 {
-                admin_assignment.revoke().unwrap();
+                admin_assignment.unassign().unwrap();
             } else if phase == 2 {
                 admin_assignment = OrganizationRoleAssignment::new();
                 admin_assignment
@@ -507,7 +507,7 @@ mod tests {
                         OrganizationRole::Admin,
                     )
                     .unwrap();
-                admin.remove().unwrap();
+                admin.delete().unwrap();
             } else if phase == 3 {
                 admin = OrganizationMembership::new();
                 admin.create(organization.aggregate_id(), admin_id).unwrap();
@@ -674,7 +674,7 @@ mod tests {
 
         for phase in 0..7 {
             if phase == 1 {
-                manager_assignment.revoke().unwrap();
+                manager_assignment.unassign().unwrap();
             } else if phase == 2 {
                 manager_assignment = TeamRoleAssignment::new();
                 manager_assignment
@@ -684,9 +684,9 @@ mod tests {
                         TeamRole::Manager,
                     )
                     .unwrap();
-                manager.remove().unwrap();
+                manager.delete().unwrap();
             } else if phase == 3 {
-                member_membership.remove().unwrap();
+                member_membership.delete().unwrap();
             } else if phase == 4 {
                 manager = OrganizationMembership::new();
                 manager
@@ -704,9 +704,9 @@ mod tests {
                         TeamRole::Manager,
                     )
                     .unwrap();
-                manager_membership.remove().unwrap();
+                manager_membership.delete().unwrap();
             } else if phase == 6 {
-                team.remove().unwrap();
+                team.delete().unwrap();
             }
             let mut relationships = model.derive(&organization).unwrap();
             relationships.extend(model.derive(&admin).unwrap());

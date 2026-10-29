@@ -107,18 +107,18 @@ impl User {
         Ok(self.state_required()?.status.is_inactive())
     }
 
-    /// Returns whether the user is removed.
-    pub fn is_removed(&self) -> Result<bool, UserError> {
-        Ok(self.state_required()?.status.is_removed())
+    /// Returns whether the user is deleted.
+    pub fn is_deleted(&self) -> Result<bool, UserError> {
+        Ok(self.state_required()?.status.is_deleted())
     }
 
-    /// Registers a new user.
-    pub fn register(&mut self) -> Result<(), UserError> {
+    /// Creates a new user.
+    pub fn create(&mut self) -> Result<(), UserError> {
         if self.state().is_some() {
-            return Err(UserError::AlreadyRegistered);
+            return Err(UserError::AlreadyCreated);
         }
 
-        self.append_event(UserEventPayload::Registered)?;
+        self.append_event(UserEventPayload::Created)?;
         Ok(())
     }
 
@@ -130,8 +130,8 @@ impl User {
         email: Option<Email>,
     ) -> Result<(), UserError> {
         match self.state_required()?.status {
-            UserStatus::Removed => {
-                return Err(UserError::Removed);
+            UserStatus::Deleted => {
+                return Err(UserError::Deleted);
             }
             UserStatus::Inactive => {
                 return Err(UserError::Inactive);
@@ -170,8 +170,8 @@ impl User {
         email: Option<Email>,
     ) -> Result<(), UserError> {
         match self.state_required()?.status {
-            UserStatus::Removed => {
-                return Err(UserError::Removed);
+            UserStatus::Deleted => {
+                return Err(UserError::Deleted);
             }
             UserStatus::Inactive => {
                 return Err(UserError::Inactive);
@@ -199,8 +199,8 @@ impl User {
     /// Sets the current username.
     pub fn set_username(&mut self, username: Username) -> Result<(), UserError> {
         match self.state_required()?.status {
-            UserStatus::Removed => {
-                return Err(UserError::Removed);
+            UserStatus::Deleted => {
+                return Err(UserError::Deleted);
             }
             UserStatus::Inactive => {
                 return Err(UserError::Inactive);
@@ -215,8 +215,8 @@ impl User {
     /// Sets the current display name.
     pub fn set_display_name(&mut self, display_name: UserDisplayName) -> Result<(), UserError> {
         match self.state_required()?.status {
-            UserStatus::Removed => {
-                return Err(UserError::Removed);
+            UserStatus::Deleted => {
+                return Err(UserError::Deleted);
             }
             UserStatus::Inactive => {
                 return Err(UserError::Inactive);
@@ -231,8 +231,8 @@ impl User {
     /// Sets the current bio.
     pub fn set_bio(&mut self, bio: Option<UserBio>) -> Result<(), UserError> {
         match self.state_required()?.status {
-            UserStatus::Removed => {
-                return Err(UserError::Removed);
+            UserStatus::Deleted => {
+                return Err(UserError::Deleted);
             }
             UserStatus::Inactive => {
                 return Err(UserError::Inactive);
@@ -247,8 +247,8 @@ impl User {
     /// Sets the current picture.
     pub fn set_picture(&mut self, picture: Option<UserPictureRef>) -> Result<(), UserError> {
         match self.state_required()?.status {
-            UserStatus::Removed => {
-                return Err(UserError::Removed);
+            UserStatus::Deleted => {
+                return Err(UserError::Deleted);
             }
             UserStatus::Inactive => {
                 return Err(UserError::Inactive);
@@ -267,8 +267,8 @@ impl User {
 
     /// Activates an inactive user.
     pub fn activate(&mut self) -> Result<(), UserError> {
-        if self.state_required()?.status.is_removed() {
-            return Err(UserError::Removed);
+        if self.state_required()?.status.is_deleted() {
+            return Err(UserError::Deleted);
         }
 
         self.append_event(UserEventPayload::Activated)?;
@@ -277,21 +277,21 @@ impl User {
 
     /// Deactivates an active user.
     pub fn deactivate(&mut self) -> Result<(), UserError> {
-        if self.state_required()?.status.is_removed() {
-            return Err(UserError::Removed);
+        if self.state_required()?.status.is_deleted() {
+            return Err(UserError::Deleted);
         }
 
         self.append_event(UserEventPayload::Deactivated)?;
         Ok(())
     }
 
-    /// Permanently removes a user.
-    pub fn remove(&mut self) -> Result<(), UserError> {
-        if self.state_required()?.status.is_removed() {
-            return Err(UserError::Removed);
+    /// Permanently deletes a user.
+    pub fn delete(&mut self) -> Result<(), UserError> {
+        if self.state_required()?.status.is_deleted() {
+            return Err(UserError::Deleted);
         }
 
-        self.append_event(UserEventPayload::Removed)?;
+        self.append_event(UserEventPayload::Deleted)?;
         Ok(())
     }
 }
@@ -299,7 +299,7 @@ impl User {
 impl AggregateApply<UserEventPayload, UserError> for User {
     fn apply(&mut self, payload: &UserEventPayload) -> Result<(), UserError> {
         match payload {
-            UserEventPayload::Registered => self.set_state(Some(UserState {
+            UserEventPayload::Created => self.set_state(Some(UserState {
                 identities: Vec::new(),
                 username: None,
                 display_name: None,
@@ -349,8 +349,8 @@ impl AggregateApply<UserEventPayload, UserError> for User {
             UserEventPayload::Deactivated => {
                 self.state_required_mut()?.status = UserStatus::Inactive;
             }
-            UserEventPayload::Removed => {
-                self.state_required_mut()?.status = UserStatus::Removed;
+            UserEventPayload::Deleted => {
+                self.state_required_mut()?.status = UserStatus::Deleted;
             }
         }
 
@@ -367,8 +367,8 @@ mod tests {
         UserIdentitySubject, UserPictureRef, UserPictureUrl, UserStatus, Username,
     };
 
-    fn register_user(user: &mut User) {
-        user.register().expect("user should register");
+    fn create_user(user: &mut User) {
+        user.create().expect("user should create");
     }
 
     fn display_name() -> UserDisplayName {
@@ -387,10 +387,10 @@ mod tests {
     }
 
     #[test]
-    fn register_initializes_state_and_records_event() {
+    fn create_initializes_state_and_records_event() {
         let mut user = User::new();
 
-        register_user(&mut user);
+        create_user(&mut user);
 
         assert_eq!(
             user.status().expect("status should exist"),
@@ -405,19 +405,19 @@ mod tests {
         assert_eq!(user.picture().expect("picture should exist"), None);
         assert_eq!(
             user.uncommitted_events()[0].payload().name(),
-            UserEventPayload::REGISTERED
+            UserEventPayload::CREATED
         );
     }
 
     #[test]
-    fn registration_and_identity_link_record_separate_events() {
+    fn creation_and_identity_link_record_separate_events() {
         let mut user = User::new();
         let provider = UserIdentityProvider::try_from("https://accounts.example.com")
             .expect("provider should be valid");
         let subject = UserIdentitySubject::try_from("user-123").expect("subject should be valid");
         let email = Some(Email::try_from("alice@example.com").expect("email should be valid"));
 
-        user.register().expect("user should register");
+        user.create().expect("user should create");
         assert!(
             user.identities()
                 .expect("identities should exist")
@@ -440,7 +440,7 @@ mod tests {
         assert_eq!(identities[0].email, email);
         assert_eq!(
             user.uncommitted_events()[0].payload().name(),
-            UserEventPayload::REGISTERED
+            UserEventPayload::CREATED
         );
 
         let mut replayed_user = User::from_id(user.aggregate_id());
@@ -458,7 +458,7 @@ mod tests {
     #[test]
     fn set_username_sets_username() {
         let mut user = User::new();
-        register_user(&mut user);
+        create_user(&mut user);
 
         user.set_username(Username::try_from("alice").expect("username should be valid"))
             .expect("username set should succeed");
@@ -473,7 +473,7 @@ mod tests {
     fn set_display_name_sets_display_name() {
         let mut user = User::new();
         let display_name = display_name();
-        register_user(&mut user);
+        create_user(&mut user);
 
         user.set_display_name(display_name.clone())
             .expect("display name set should succeed");
@@ -488,7 +488,7 @@ mod tests {
     fn identical_username_set_appends_success_event() {
         let mut user = User::new();
         let username = Username::try_from("alice").expect("username should be valid");
-        register_user(&mut user);
+        create_user(&mut user);
         user.set_username(username.clone())
             .expect("username set should succeed");
 
@@ -506,7 +506,7 @@ mod tests {
     fn identical_display_name_set_appends_success_event() {
         let mut user = User::new();
         let display_name = display_name();
-        register_user(&mut user);
+        create_user(&mut user);
         user.set_display_name(display_name.clone())
             .expect("display name set should succeed");
 
@@ -527,7 +527,7 @@ mod tests {
             .expect("provider should be valid");
         let subject = UserIdentitySubject::try_from("user-123").expect("subject should be valid");
         let email = Some(Email::try_from("alice@example.com").expect("email should be valid"));
-        register_user(&mut user);
+        create_user(&mut user);
         user.link_identity(provider.clone(), subject.clone(), email.clone())
             .expect("identity should link");
 
@@ -543,7 +543,7 @@ mod tests {
     #[test]
     fn repeated_activation_and_deactivation_append_success_events() {
         let mut user = User::new();
-        register_user(&mut user);
+        create_user(&mut user);
 
         user.activate().expect("activation should succeed");
         user.deactivate().expect("deactivation should succeed");
@@ -567,7 +567,7 @@ mod tests {
     #[test]
     fn bio_and_picture_sets_update_state() {
         let mut user = User::new();
-        register_user(&mut user);
+        create_user(&mut user);
 
         user.set_bio(Some(bio())).expect("bio set should succeed");
         user.set_picture(Some(picture()))
@@ -588,7 +588,7 @@ mod tests {
             UserPictureUrl::try_from("https://cdn.example.com/alice-updated.png")
                 .expect("picture URL should be valid"),
         );
-        register_user(&mut user);
+        create_user(&mut user);
         user.set_picture(Some(first_picture.clone()))
             .expect("picture set should succeed");
 
@@ -609,7 +609,7 @@ mod tests {
     #[test]
     fn display_name_and_username_sets_reject_inactive_user() {
         let mut user = User::new();
-        register_user(&mut user);
+        create_user(&mut user);
         user.deactivate().expect("user should deactivate");
 
         let username_error = user
@@ -626,7 +626,7 @@ mod tests {
     #[test]
     fn identity_email_set_rejects_unknown_identity() {
         let mut user = User::new();
-        register_user(&mut user);
+        create_user(&mut user);
 
         let error = user
             .set_identity_email(
@@ -643,7 +643,7 @@ mod tests {
     #[test]
     fn link_identity_rejects_identity_count_over_limit() {
         let mut user = User::new();
-        register_user(&mut user);
+        create_user(&mut user);
 
         for index in 0..User::MAX_IDENTITY_COUNT {
             user.link_identity(
@@ -674,7 +674,7 @@ mod tests {
         let provider = UserIdentityProvider::try_from("https://accounts.example.com")
             .expect("provider should be valid");
         let subject = UserIdentitySubject::try_from("user-123").expect("subject should be valid");
-        register_user(&mut user);
+        create_user(&mut user);
         user.link_identity(provider.clone(), subject.clone(), None)
             .expect("identity should link");
 
@@ -688,16 +688,16 @@ mod tests {
     }
 
     #[test]
-    fn remove_updates_status_to_removed() {
+    fn delete_updates_status_to_deleted() {
         let mut user = User::new();
-        register_user(&mut user);
+        create_user(&mut user);
 
-        user.remove().expect("remove should succeed");
+        user.delete().expect("delete should succeed");
 
-        assert!(user.is_removed().expect("removed status should exist"));
+        assert!(user.is_deleted().expect("deleted status should exist"));
         assert_eq!(
             user.uncommitted_events()[1].payload().name(),
-            UserEventPayload::REMOVED
+            UserEventPayload::DELETED
         );
     }
 }

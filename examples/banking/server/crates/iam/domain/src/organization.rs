@@ -95,9 +95,9 @@ impl Organization {
         Ok(self.state_required()?.status.is_active())
     }
 
-    /// Returns whether the organization is removed.
-    pub fn is_removed(&self) -> Result<bool, OrganizationError> {
-        Ok(self.state_required()?.status.is_removed())
+    /// Returns whether the organization is deleted.
+    pub fn is_deleted(&self) -> Result<bool, OrganizationError> {
+        Ok(self.state_required()?.status.is_deleted())
     }
 
     /// Creates a new organization.
@@ -125,8 +125,8 @@ impl Organization {
         &mut self,
         owner: OrganizationOwner,
     ) -> Result<(), OrganizationError> {
-        if self.state_required()?.status.is_removed() {
-            return Err(OrganizationError::Removed);
+        if self.state_required()?.status.is_deleted() {
+            return Err(OrganizationError::Deleted);
         }
 
         self.append_event(OrganizationEventPayload::OwnershipTransferred { owner })?;
@@ -135,8 +135,8 @@ impl Organization {
 
     /// Changes the current organization handle.
     pub fn change_handle(&mut self, handle: OrganizationHandle) -> Result<(), OrganizationError> {
-        if self.state_required()?.status.is_removed() {
-            return Err(OrganizationError::Removed);
+        if self.state_required()?.status.is_deleted() {
+            return Err(OrganizationError::Deleted);
         }
 
         self.append_event(OrganizationEventPayload::HandleChanged { handle })?;
@@ -148,8 +148,8 @@ impl Organization {
         &mut self,
         display_name: OrganizationDisplayName,
     ) -> Result<(), OrganizationError> {
-        if self.state_required()?.status.is_removed() {
-            return Err(OrganizationError::Removed);
+        if self.state_required()?.status.is_deleted() {
+            return Err(OrganizationError::Deleted);
         }
 
         self.append_event(OrganizationEventPayload::DisplayNameChanged { display_name })?;
@@ -160,8 +160,8 @@ impl Organization {
         &mut self,
         description: Option<OrganizationDescription>,
     ) -> Result<(), OrganizationError> {
-        if self.state_required()?.status.is_removed() {
-            return Err(OrganizationError::Removed);
+        if self.state_required()?.status.is_deleted() {
+            return Err(OrganizationError::Deleted);
         }
 
         self.append_event(OrganizationEventPayload::DescriptionSet { description })?;
@@ -172,8 +172,8 @@ impl Organization {
         &mut self,
         website_url: Option<OrganizationWebsiteUrl>,
     ) -> Result<(), OrganizationError> {
-        if self.state_required()?.status.is_removed() {
-            return Err(OrganizationError::Removed);
+        if self.state_required()?.status.is_deleted() {
+            return Err(OrganizationError::Deleted);
         }
 
         self.append_event(OrganizationEventPayload::WebsiteUrlSet { website_url })?;
@@ -184,8 +184,8 @@ impl Organization {
         &mut self,
         picture: Option<OrganizationPictureRef>,
     ) -> Result<(), OrganizationError> {
-        if self.state_required()?.status.is_removed() {
-            return Err(OrganizationError::Removed);
+        if self.state_required()?.status.is_deleted() {
+            return Err(OrganizationError::Deleted);
         }
 
         let old_picture = self.state_required()?.picture.clone();
@@ -197,13 +197,13 @@ impl Organization {
         Ok(())
     }
 
-    /// Permanently removes the organization.
-    pub fn remove(&mut self) -> Result<(), OrganizationError> {
-        if self.state_required()?.status.is_removed() {
-            return Err(OrganizationError::Removed);
+    /// Permanently deletes the organization.
+    pub fn delete(&mut self) -> Result<(), OrganizationError> {
+        if self.state_required()?.status.is_deleted() {
+            return Err(OrganizationError::Deleted);
         }
 
-        self.append_event(OrganizationEventPayload::Removed)?;
+        self.append_event(OrganizationEventPayload::Deleted)?;
         Ok(())
     }
 }
@@ -242,8 +242,8 @@ impl AggregateApply<OrganizationEventPayload, OrganizationError> for Organizatio
             OrganizationEventPayload::PictureSet { picture, .. } => {
                 self.state_required_mut()?.picture = picture.clone();
             }
-            OrganizationEventPayload::Removed => {
-                self.state_required_mut()?.status = OrganizationStatus::Removed;
+            OrganizationEventPayload::Deleted => {
+                self.state_required_mut()?.status = OrganizationStatus::Deleted;
             }
         }
 
@@ -433,15 +433,15 @@ mod tests {
     }
 
     #[test]
-    fn removed_organization_rejects_attribute_changes() {
+    fn deleted_organization_rejects_attribute_changes() {
         let mut organization = organization();
-        organization.remove().expect("remove should succeed");
+        organization.delete().expect("delete should succeed");
 
         let error = organization
             .set_description(Some(description()))
-            .expect_err("removed organization should reject changes");
+            .expect_err("deleted organization should reject changes");
 
-        assert!(matches!(error, OrganizationError::Removed));
+        assert!(matches!(error, OrganizationError::Deleted));
     }
     #[test]
     fn optional_fields_start_empty_and_set_events_replay() {
@@ -481,9 +481,9 @@ mod tests {
     }
 
     #[test]
-    fn removed_organization_rejects_all_optional_field_operations() {
+    fn deleted_organization_rejects_all_optional_field_operations() {
         let mut organization = organization();
-        organization.remove().unwrap();
+        organization.delete().unwrap();
         for result in [
             organization.set_description(Some(description())),
             organization.set_description(None),
@@ -492,7 +492,7 @@ mod tests {
             organization.set_picture(Some(picture())),
             organization.set_picture(None),
         ] {
-            assert!(matches!(result, Err(OrganizationError::Removed)));
+            assert!(matches!(result, Err(OrganizationError::Deleted)));
         }
         assert_eq!(organization.uncommitted_events().len(), 2);
     }

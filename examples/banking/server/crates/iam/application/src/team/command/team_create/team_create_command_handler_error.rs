@@ -17,8 +17,8 @@ pub enum TeamCreateCommandHandlerError {
     #[error(transparent)]
     Team(#[from] TeamError),
 
-    #[error("organization removed")]
-    OrganizationRemoved,
+    #[error("organization deleted")]
+    OrganizationDeleted,
 }
 
 impl Retryability for TeamCreateCommandHandlerError {
@@ -28,7 +28,7 @@ impl Retryability for TeamCreateCommandHandlerError {
             Self::TeamRepository(error) => error.is_retryable(),
             Self::Organization(_) => false,
             Self::Team(_) => false,
-            Self::OrganizationRemoved => false,
+            Self::OrganizationDeleted => false,
         }
     }
 }

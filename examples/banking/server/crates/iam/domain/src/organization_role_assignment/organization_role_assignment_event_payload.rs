@@ -11,5 +11,5 @@ pub enum OrganizationRoleAssignmentEventPayload {
         assignee: OrganizationRoleAssignee,
         role: OrganizationRole,
     },
-    Revoked,
+    Unassigned,
 }

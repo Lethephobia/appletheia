@@ -28,7 +28,7 @@ fn username_unique_value(
     state: &UserState,
     _aggregate_id: Uuid,
 ) -> Result<Option<UniqueValue>, UserStateError> {
-    if state.status.is_removed() {
+    if state.status.is_deleted() {
         return Ok(None);
     }
 
@@ -45,7 +45,7 @@ fn provider_subject_unique_values(
     state: &UserState,
     _aggregate_id: Uuid,
 ) -> Result<Option<UniqueValues>, UserStateError> {
-    if state.status.is_removed() || state.identities.is_empty() {
+    if state.status.is_deleted() || state.identities.is_empty() {
         return Ok(None);
     }
 
@@ -164,7 +164,7 @@ mod tests {
     }
 
     #[test]
-    fn removed_state_has_no_unique_entries() {
+    fn deleted_state_has_no_unique_entries() {
         let mut state = UserState {
             identities: Vec::new(),
             username: None,
@@ -175,7 +175,7 @@ mod tests {
         };
         state.identities.push(identity());
         state.username = Some(Username::try_from("alice").expect("username should be valid"));
-        state.status = UserStatus::Removed;
+        state.status = UserStatus::Deleted;
 
         let entries = state
             .unique_entries(Uuid::now_v7())

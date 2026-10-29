@@ -18,6 +18,6 @@ pub enum CurrencyRegistrarMembershipError {
     #[error("user is already a member")]
     AlreadyMember,
 
-    #[error("currency registrar membership has been removed")]
-    Removed,
+    #[error("currency registrar membership has been deleted")]
+    Deleted,
 }

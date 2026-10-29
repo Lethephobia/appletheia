@@ -75,11 +75,11 @@ impl OrganizationLedgerRoleAssignment {
         Ok(())
     }
 
-    pub fn revoke(&mut self) -> Result<(), OrganizationLedgerRoleAssignmentError> {
+    pub fn unassign(&mut self) -> Result<(), OrganizationLedgerRoleAssignmentError> {
         if !self.is_active()? {
-            return Err(OrganizationLedgerRoleAssignmentError::Revoked);
+            return Err(OrganizationLedgerRoleAssignmentError::Unassigned);
         }
-        self.append_event(OrganizationLedgerRoleAssignmentEventPayload::Revoked)?;
+        self.append_event(OrganizationLedgerRoleAssignmentEventPayload::Unassigned)?;
         Ok(())
     }
 }
@@ -105,8 +105,9 @@ impl
                 role: *role,
                 status: OrganizationLedgerRoleAssignmentStatus::Active,
             })),
-            OrganizationLedgerRoleAssignmentEventPayload::Revoked => {
-                self.state_required_mut()?.status = OrganizationLedgerRoleAssignmentStatus::Revoked
+            OrganizationLedgerRoleAssignmentEventPayload::Unassigned => {
+                self.state_required_mut()?.status =
+                    OrganizationLedgerRoleAssignmentStatus::Unassigned
             }
         }
         Ok(())
@@ -120,7 +121,7 @@ mod tests {
     use banking_iam_domain::{OrganizationMembershipId, TeamId};
 
     #[test]
-    fn revoke_releases_unique_assignment_and_cannot_be_reactivated() {
+    fn unassign_releases_unique_assignment_and_cannot_be_reactivated() {
         let organization_id = OrganizationId::new();
         let assignee =
             OrganizationLedgerRoleAssignee::OrganizationMembership(OrganizationMembershipId::new());
@@ -138,7 +139,7 @@ mod tests {
             .unique_entries(assignment.aggregate_id().value())
             .unwrap();
         assert!(!before.is_empty());
-        assignment.revoke().unwrap();
+        assignment.unassign().unwrap();
         assert!(!assignment.is_active().unwrap());
         assert!(
             assignment
@@ -149,8 +150,8 @@ mod tests {
                 .is_empty()
         );
         assert!(matches!(
-            assignment.revoke(),
-            Err(OrganizationLedgerRoleAssignmentError::Revoked)
+            assignment.unassign(),
+            Err(OrganizationLedgerRoleAssignmentError::Unassigned)
         ));
         assert!(matches!(
             assignment.assign(organization_id, assignee, OrganizationLedgerRole::Treasurer),
