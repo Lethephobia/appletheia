@@ -15,6 +15,7 @@ pub enum AccountEventPayload {
     },
     OwnershipTransferred {
         owner: AccountOwner,
+        old_owner: AccountOwner,
     },
     NameChanged {
         name: AccountName,

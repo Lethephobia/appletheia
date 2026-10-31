@@ -116,7 +116,8 @@ impl Account {
             return Err(AccountError::Closed);
         }
 
-        self.append_event(AccountEventPayload::OwnershipTransferred { owner })?;
+        let old_owner = self.state_required()?.owner;
+        self.append_event(AccountEventPayload::OwnershipTransferred { owner, old_owner })?;
         Ok(())
     }
 
@@ -299,7 +300,7 @@ impl AggregateApply<AccountEventPayload, AccountError> for Account {
                     status: AccountStatus::Active,
                 }));
             }
-            AccountEventPayload::OwnershipTransferred { owner } => {
+            AccountEventPayload::OwnershipTransferred { owner, .. } => {
                 self.state_required_mut()?.owner = *owner;
             }
             AccountEventPayload::NameChanged { name } => {
@@ -345,13 +346,49 @@ impl AggregateApply<AccountEventPayload, AccountError> for Account {
 
 #[cfg(test)]
 mod tests {
-    use appletheia::domain::{Aggregate, AggregateApply};
-    use banking_iam_domain::UserId;
+    use appletheia::domain::{Aggregate, AggregateApply, EventPayload};
+    use banking_iam_domain::{OrganizationId, UserId};
 
     use crate::core::CurrencyAmount;
     use crate::currency::CurrencyId;
 
     use super::{Account, AccountError, AccountEventPayload, AccountName, AccountOwner};
+
+    #[test]
+    fn ownership_transfer_records_the_previous_owner() {
+        let initial_owner = AccountOwner::from(UserId::new());
+        let next_owner = AccountOwner::Organization(OrganizationId::new());
+        let mut account = Account::new();
+        account
+            .open(
+                initial_owner,
+                AccountName::try_from("main").unwrap(),
+                CurrencyId::new(),
+            )
+            .unwrap();
+
+        for (old_owner, new_owner) in [(initial_owner, next_owner), (next_owner, next_owner)] {
+            let event_index = account.uncommitted_events().len();
+            account.transfer_ownership(new_owner).unwrap();
+
+            let payload = account.uncommitted_events()[event_index].payload();
+            assert!(matches!(
+                payload,
+                AccountEventPayload::OwnershipTransferred { owner, old_owner: previous }
+                    if *owner == new_owner && *previous == old_owner
+            ));
+            let serialized = payload.clone().try_into_json_value().unwrap();
+            assert_eq!(
+                serialized["data"]["owner"],
+                serde_json::to_value(new_owner).unwrap()
+            );
+            assert_eq!(
+                serialized["data"]["old_owner"],
+                serde_json::to_value(old_owner).unwrap()
+            );
+            assert_eq!(account.owner().unwrap(), new_owner);
+        }
+    }
 
     #[test]
     fn monetary_events_store_only_the_smallest_unit_amount() {

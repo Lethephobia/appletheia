@@ -15,6 +15,7 @@ pub enum OrganizationEventPayload {
     },
     OwnershipTransferred {
         owner: OrganizationOwner,
+        old_owner: OrganizationOwner,
     },
     HandleChanged {
         handle: OrganizationHandle,

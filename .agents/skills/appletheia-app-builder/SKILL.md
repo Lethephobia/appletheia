@@ -47,7 +47,8 @@ when only its API or sample code is obsolete. A shorter guide must not reverse a
 - [Aggregate](references/domain/aggregate.md)
 
   Use for aggregate invariants, operation failures, replayable state changes, persistence indexes,
-  identity metadata, value-object boundaries, and separate child-entity creation events.
+  identity metadata, value-object boundaries, previous references in change events, and separate
+  child-entity creation events.
 
 - [Command](references/application/command.md)
 

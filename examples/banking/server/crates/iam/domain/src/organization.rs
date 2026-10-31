@@ -129,7 +129,8 @@ impl Organization {
             return Err(OrganizationError::Deleted);
         }
 
-        self.append_event(OrganizationEventPayload::OwnershipTransferred { owner })?;
+        let old_owner = self.state_required()?.owner;
+        self.append_event(OrganizationEventPayload::OwnershipTransferred { owner, old_owner })?;
         Ok(())
     }
 
@@ -224,7 +225,7 @@ impl AggregateApply<OrganizationEventPayload, OrganizationError> for Organizatio
                 picture: None,
                 status: OrganizationStatus::Active,
             })),
-            OrganizationEventPayload::OwnershipTransferred { owner } => {
+            OrganizationEventPayload::OwnershipTransferred { owner, .. } => {
                 self.state_required_mut()?.owner = *owner;
             }
             OrganizationEventPayload::HandleChanged { handle } => {
@@ -297,6 +298,35 @@ mod tests {
             )
             .expect("creation should succeed");
         organization
+    }
+
+    #[test]
+    fn ownership_transfer_records_the_previous_owner() {
+        let mut organization = organization();
+        let initial_owner = organization.owner().unwrap();
+        let next_owner = owner();
+
+        for (old_owner, new_owner) in [(initial_owner, next_owner), (next_owner, next_owner)] {
+            let event_index = organization.uncommitted_events().len();
+            organization.transfer_ownership(new_owner).unwrap();
+
+            let payload = organization.uncommitted_events()[event_index].payload();
+            assert!(matches!(
+                payload,
+                OrganizationEventPayload::OwnershipTransferred { owner, old_owner: previous }
+                    if *owner == new_owner && *previous == old_owner
+            ));
+            let serialized = payload.clone().try_into_json_value().unwrap();
+            assert_eq!(
+                serialized["data"]["owner"],
+                serde_json::to_value(new_owner).unwrap()
+            );
+            assert_eq!(
+                serialized["data"]["old_owner"],
+                serde_json::to_value(old_owner).unwrap()
+            );
+            assert_eq!(organization.owner().unwrap(), new_owner);
+        }
     }
 
     #[test]

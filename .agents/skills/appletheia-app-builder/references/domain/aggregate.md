@@ -147,6 +147,47 @@ pub fn change_name(&mut self, name: AccountName) -> Result<(), AccountError> {
 }
 ```
 
+### DO include the previous reference when an event changes a reference
+
+When replacing or clearing a reference to another aggregate or stored object, include both the new
+reference and the previous reference in the event payload. Read the previous value from aggregate
+state before appending the event; do not require callers to supply it. Use domain IDs or reference
+value objects, not ReadModel references. This lets downstream processing identify both affected
+owners or clean up the previous object without reading the old projection first.
+
+Follow the existing `owner` / `old_owner` and `picture` / `old_picture` naming. Preserve `Option`
+when a reference may be absent, including initial assignment and clearing. This rule does not require
+previous values for ordinary scalar attributes or imply that every aggregate deletion event must
+contain all of its references.
+
+**Good**
+
+```rust
+pub fn transfer_ownership(&mut self, owner: AccountOwner) -> Result<(), AccountError> {
+    if self.state_required()?.status.is_closed() {
+        return Err(AccountError::Closed);
+    }
+
+    let old_owner = self.state_required()?.owner;
+    self.append_event(AccountEventPayload::OwnershipTransferred { owner, old_owner })?;
+    Ok(())
+}
+```
+
+**Bad**
+
+```rust
+pub fn transfer_ownership(&mut self, owner: AccountOwner) -> Result<(), AccountError> {
+    if self.state_required()?.status.is_closed() {
+        return Err(AccountError::Closed);
+    }
+
+    // The event cannot identify the previous owner after the projection is updated.
+    self.append_event(AccountEventPayload::OwnershipTransferred { owner })?;
+    Ok(())
+}
+```
+
 ### DO make event application the source of state changes
 
 Command methods validate and call `append_event`; `AggregateApply::apply` reflects the already
