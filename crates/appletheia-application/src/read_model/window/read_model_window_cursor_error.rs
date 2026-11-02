@@ -1,8 +1,10 @@
+use super::ReadModelResourceWindowCursorError;
+
 #[derive(Debug, thiserror::Error)]
 pub enum ReadModelWindowCursorError {
     #[error(transparent)]
-    Base64(#[from] base64::DecodeError),
+    Json(#[from] serde_json::Error),
 
     #[error(transparent)]
-    Json(#[from] serde_json::Error),
+    ResourceWindowCursor(#[from] ReadModelResourceWindowCursorError),
 }

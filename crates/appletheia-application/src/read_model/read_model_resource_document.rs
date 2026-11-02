@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-use super::{ReadModelListDocumentMeta, ReadModelResource};
+use super::{ReadModelResource, ReadModelResourceListDocumentMeta};
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(untagged)]
@@ -15,6 +15,6 @@ pub enum ReadModelResourceDocument {
         #[serde(skip_serializing_if = "Vec::is_empty")]
         included: Vec<ReadModelResource>,
         #[serde(skip_serializing_if = "Option::is_none")]
-        meta: Option<ReadModelListDocumentMeta>,
+        meta: Option<ReadModelResourceListDocumentMeta>,
     },
 }

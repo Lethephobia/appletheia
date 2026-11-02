@@ -1,9 +1,28 @@
-use serde::Serialize;
+use super::{
+    ReadModelListDocumentMetaError, ReadModelResourceListDocumentMeta, ReadModelWindow,
+    ReadModelWindowCursor,
+};
 
-use super::ReadModelWindow;
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ReadModelListDocumentMeta<C>
+where
+    C: ReadModelWindowCursor,
+{
+    pub window: Option<ReadModelWindow<C>>,
+}
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
-pub struct ReadModelListDocumentMeta {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub window: Option<ReadModelWindow>,
+impl<C> ReadModelListDocumentMeta<C>
+where
+    C: ReadModelWindowCursor,
+{
+    pub fn try_into_resource_list_document_meta(
+        self,
+    ) -> Result<ReadModelResourceListDocumentMeta, ReadModelListDocumentMetaError> {
+        Ok(ReadModelResourceListDocumentMeta {
+            window: self
+                .window
+                .map(ReadModelWindow::try_into_resource_window)
+                .transpose()?,
+        })
+    }
 }

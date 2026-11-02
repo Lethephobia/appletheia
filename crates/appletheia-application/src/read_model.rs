@@ -21,6 +21,7 @@ mod read_model_included;
 mod read_model_included_error;
 mod read_model_list_document;
 mod read_model_list_document_meta;
+mod read_model_list_document_meta_error;
 mod read_model_ref;
 mod read_model_relationship;
 mod read_model_relationship_data;
@@ -32,6 +33,7 @@ mod read_model_resource_attribute_value;
 mod read_model_resource_document;
 mod read_model_resource_key;
 mod read_model_resource_key_error;
+mod read_model_resource_list_document_meta;
 mod read_model_resource_relationship;
 mod read_model_single_document;
 mod read_model_type;
@@ -58,6 +60,7 @@ pub use read_model_included::*;
 pub use read_model_included_error::*;
 pub use read_model_list_document::*;
 pub use read_model_list_document_meta::*;
+pub use read_model_list_document_meta_error::*;
 pub use read_model_ref::*;
 pub use read_model_relationship::*;
 pub use read_model_relationship_data::*;
@@ -69,6 +72,7 @@ pub use read_model_resource_attribute_value::*;
 pub use read_model_resource_document::*;
 pub use read_model_resource_key::*;
 pub use read_model_resource_key_error::*;
+pub use read_model_resource_list_document_meta::*;
 pub use read_model_resource_relationship::*;
 pub use read_model_single_document::*;
 pub use read_model_type::*;
@@ -105,11 +109,32 @@ pub trait ReadModel: Send + Sync {
 
 #[cfg(test)]
 mod tests {
-    use serde::Serialize;
+    use std::collections::BTreeMap;
+
+    use serde::de::DeserializeOwned;
+    use serde::{Deserialize, Serialize};
     use serde_json::json;
     use uuid::Uuid;
 
     use super::*;
+
+    #[derive(Serialize, Deserialize)]
+    #[serde(transparent)]
+    struct TestCursor<T>(T);
+
+    impl<T> ReadModelWindowCursor for TestCursor<T>
+    where
+        T: Serialize + DeserializeOwned + Send + Sync,
+    {
+        type SortKey = ();
+
+        fn sort(&self) -> ReadModelWindowSort<Self::SortKey> {
+            ReadModelWindowSort {
+                key: (),
+                direction: ReadModelWindowSortDirection::Asc,
+            }
+        }
+    }
 
     #[derive(Clone, Copy, PartialEq, Eq)]
     enum ProfileAttributeKey {
@@ -534,11 +559,12 @@ mod tests {
             data: Some(view()),
             included: vec![ProfileIncluded::Profile(view())],
         };
-        let list = ReadModelListDocument {
-            meta: None,
-            data: vec![view(), view()],
-            included: vec![ProfileIncluded::Profile(view())],
-        };
+        let list: ReadModelListDocument<Profile, ProfileIncluded, TestCursor<String>> =
+            ReadModelListDocument {
+                meta: None,
+                data: vec![view(), view()],
+                included: vec![ProfileIncluded::Profile(view())],
+            };
         for document in [
             &single as &dyn ReadModelDocument,
             &list as &dyn ReadModelDocument,
@@ -565,11 +591,12 @@ mod tests {
             data: None,
             included: vec![],
         };
-        let list: ReadModelListDocument<Profile, ProfileIncluded> = ReadModelListDocument {
-            meta: None,
-            data: vec![],
-            included: vec![],
-        };
+        let list: ReadModelListDocument<Profile, ProfileIncluded, TestCursor<String>> =
+            ReadModelListDocument {
+                meta: None,
+                data: vec![],
+                included: vec![],
+            };
         assert!(single.read_model_refs().is_empty());
         assert!(list.read_model_refs().is_empty());
         assert_eq!(
@@ -584,42 +611,43 @@ mod tests {
 
     #[test]
     fn list_document_preserves_order_and_per_item_filters() {
-        let document: ReadModelListDocument<Profile, ProfileIncluded> = ReadModelListDocument {
-            meta: Some(ReadModelListDocumentMeta {
-                window: Some(ReadModelWindow {
-                    start_cursor: Some(ReadModelWindowCursor::from("before-alice")),
-                    end_cursor: Some(ReadModelWindowCursor::from("after-bob")),
-                    has_before: true,
-                    has_after: false,
+        let document: ReadModelListDocument<Profile, ProfileIncluded, TestCursor<String>> =
+            ReadModelListDocument {
+                meta: Some(ReadModelListDocumentMeta {
+                    window: Some(ReadModelWindow {
+                        start_cursor: Some(TestCursor("before-alice".to_owned())),
+                        end_cursor: Some(TestCursor("after-bob".to_owned())),
+                        has_before: true,
+                        has_after: false,
+                    }),
                 }),
-            }),
-            data: vec![
-                ReadModelView {
-                    read_model: Profile {
-                        id: Uuid::nil(),
-                        display_name: "Alice".to_owned(),
-                        picture: None,
-                        owner_id: None,
-                        author_ids: vec![],
+                data: vec![
+                    ReadModelView {
+                        read_model: Profile {
+                            id: Uuid::nil(),
+                            display_name: "Alice".to_owned(),
+                            picture: None,
+                            owner_id: None,
+                            author_ids: vec![],
+                        },
+                        filter: ProfileFilter::Public,
                     },
-                    filter: ProfileFilter::Public,
-                },
-                ReadModelView {
-                    read_model: Profile {
-                        id: Uuid::from_u128(42),
-                        display_name: "Bob".to_owned(),
-                        picture: None,
-                        owner_id: None,
-                        author_ids: vec![],
+                    ReadModelView {
+                        read_model: Profile {
+                            id: Uuid::from_u128(42),
+                            display_name: "Bob".to_owned(),
+                            picture: None,
+                            owner_id: None,
+                            author_ids: vec![],
+                        },
+                        filter: ProfileFilter::Selected {
+                            attributes: vec![ProfileAttributeKey::Picture],
+                            relationships: vec![],
+                        },
                     },
-                    filter: ProfileFilter::Selected {
-                        attributes: vec![ProfileAttributeKey::Picture],
-                        relationships: vec![],
-                    },
-                },
-            ],
-            included: vec![],
-        };
+                ],
+                included: vec![],
+            };
         assert_eq!(
             document.read_model_refs(),
             vec![
@@ -640,8 +668,8 @@ mod tests {
             output["meta"],
             json!({
                 "window": {
-                    "start_cursor": "before-alice",
-                    "end_cursor": "after-bob",
+                    "start_cursor": ReadModelResourceWindowCursor::try_from_json(json!("before-alice")).unwrap(),
+                    "end_cursor": ReadModelResourceWindowCursor::try_from_json(json!("after-bob")).unwrap(),
                     "has_before": true,
                     "has_after": false
                 }
@@ -650,19 +678,87 @@ mod tests {
     }
 
     #[test]
-    fn window_preserves_absent_boundaries_and_optional_metadata() {
-        let document: ReadModelListDocument<Profile, ProfileIncluded> = ReadModelListDocument {
+    fn list_document_serializes_typed_cursors_at_resource_conversion() {
+        #[derive(Serialize, Deserialize)]
+        struct Cursor {
+            position: u64,
+        }
+
+        let document: ReadModelListDocument<Profile, ProfileIncluded, TestCursor<Cursor>> =
+            ReadModelListDocument {
+                data: vec![],
+                included: vec![],
+                meta: Some(ReadModelListDocumentMeta {
+                    window: Some(ReadModelWindow {
+                        start_cursor: Some(TestCursor(Cursor { position: 1 })),
+                        end_cursor: Some(TestCursor(Cursor { position: 10 })),
+                        has_before: false,
+                        has_after: true,
+                    }),
+                }),
+            };
+        let ReadModelResourceDocument::List { meta, .. } =
+            document.try_into_resource_document().unwrap()
+        else {
+            panic!("expected list document");
+        };
+        let window = meta.unwrap().window.unwrap();
+        assert_eq!(
+            window.start_cursor.unwrap().try_into_json().unwrap(),
+            json!({"position":1})
+        );
+        assert_eq!(
+            window.end_cursor.unwrap().try_into_json().unwrap(),
+            json!({"position":10})
+        );
+        assert!(!window.has_before);
+        assert!(window.has_after);
+    }
+
+    #[test]
+    fn cursor_encoding_failure_propagates_through_document_conversion() {
+        let document: ReadModelListDocument<
+            Profile,
+            ProfileIncluded,
+            TestCursor<BTreeMap<Vec<u8>, u8>>,
+        > = ReadModelListDocument {
             data: vec![],
             included: vec![],
             meta: Some(ReadModelListDocumentMeta {
                 window: Some(ReadModelWindow {
-                    start_cursor: None,
+                    start_cursor: Some(TestCursor(BTreeMap::from([(vec![1], 1)]))),
                     end_cursor: None,
                     has_before: false,
                     has_after: false,
                 }),
             }),
         };
+        assert!(document.read_model_refs().is_empty());
+        assert!(matches!(
+            document.try_into_resource_document(),
+            Err(ReadModelDocumentError::ListDocumentMeta(
+                ReadModelListDocumentMetaError::Window(ReadModelWindowError::Cursor(
+                    ReadModelWindowCursorError::Json(_)
+                ))
+            ))
+        ));
+    }
+
+    #[test]
+    fn window_preserves_absent_boundaries_and_optional_metadata() {
+        let document: ReadModelListDocument<Profile, ProfileIncluded, TestCursor<String>> =
+            ReadModelListDocument {
+                data: vec![],
+                included: vec![],
+                meta: Some(ReadModelListDocumentMeta {
+                    window: Some(ReadModelWindow {
+                        start_cursor: None,
+                        end_cursor: None,
+                        has_before: false,
+                        has_after: false,
+                    }),
+                }),
+            };
         assert_eq!(
             serde_json::to_value(document.try_into_resource_document().unwrap()).unwrap(),
             json!({
@@ -678,7 +774,12 @@ mod tests {
             })
         );
         assert_eq!(
-            serde_json::to_value(ReadModelListDocumentMeta { window: None }).unwrap(),
+            serde_json::to_value(
+                ReadModelListDocumentMeta::<TestCursor<String>> { window: None }
+                    .try_into_resource_list_document_meta()
+                    .unwrap()
+            )
+            .unwrap(),
             json!({})
         );
     }

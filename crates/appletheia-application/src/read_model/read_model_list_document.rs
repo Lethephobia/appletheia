@@ -3,22 +3,25 @@ use std::collections::HashSet;
 use super::{
     ReadModel, ReadModelDocument, ReadModelDocumentError, ReadModelIncluded,
     ReadModelListDocumentMeta, ReadModelRef, ReadModelResourceDocument, ReadModelView,
+    ReadModelWindowCursor,
 };
 
-pub struct ReadModelListDocument<R, I>
+pub struct ReadModelListDocument<R, I, C>
 where
     R: ReadModel,
     I: ReadModelIncluded,
+    C: ReadModelWindowCursor,
 {
     pub data: Vec<ReadModelView<R>>,
     pub included: Vec<I>,
-    pub meta: Option<ReadModelListDocumentMeta>,
+    pub meta: Option<ReadModelListDocumentMeta<C>>,
 }
 
-impl<R, I> ReadModelDocument for ReadModelListDocument<R, I>
+impl<R, I, C> ReadModelDocument for ReadModelListDocument<R, I, C>
 where
     R: ReadModel,
     I: ReadModelIncluded,
+    C: ReadModelWindowCursor,
 {
     fn read_model_refs(&self) -> Vec<ReadModelRef> {
         let mut seen = HashSet::new();
@@ -46,7 +49,10 @@ where
         Ok(ReadModelResourceDocument::List {
             data,
             included,
-            meta: self.meta,
+            meta: self
+                .meta
+                .map(ReadModelListDocumentMeta::try_into_resource_list_document_meta)
+                .transpose()?,
         })
     }
 }
