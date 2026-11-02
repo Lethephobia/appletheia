@@ -5,5 +5,5 @@ use super::{ReadModelIncludedError, ReadModelRef, ReadModelResource};
 pub trait ReadModelIncluded: Send + Sync {
     fn read_model_ref(&self) -> ReadModelRef;
 
-    fn try_to_resource(&self) -> Result<ReadModelResource, ReadModelIncludedError>;
+    fn try_into_resource(self) -> Result<ReadModelResource, ReadModelIncludedError>;
 }

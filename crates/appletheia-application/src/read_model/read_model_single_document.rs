@@ -29,18 +29,17 @@ where
             .collect()
     }
 
-    fn try_to_resource_document(
-        &self,
+    fn try_into_resource_document(
+        self,
     ) -> Result<ReadModelResourceDocument, ReadModelDocumentError> {
         let data = self
             .data
-            .as_ref()
-            .map(ReadModelView::try_to_resource)
+            .map(ReadModelView::try_into_resource)
             .transpose()?;
         let included = self
             .included
-            .iter()
-            .map(ReadModelIncluded::try_to_resource)
+            .into_iter()
+            .map(ReadModelIncluded::try_into_resource)
             .collect::<Result<Vec<_>, _>>()?;
         Ok(ReadModelResourceDocument::Single { data, included })
     }

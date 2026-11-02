@@ -511,8 +511,8 @@ mod tests {
             self.0.clone()
         }
 
-        fn try_to_resource_document(
-            &self,
+        fn try_into_resource_document(
+            self,
         ) -> Result<ReadModelResourceDocument, ReadModelDocumentError> {
             panic!("watching must not serialize documents")
         }
