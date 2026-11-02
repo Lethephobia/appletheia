@@ -1,9 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-/// Direction used by query-side sorting.
+/// Direction used to order read model results.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum SortDirection {
+pub enum ReadModelWindowSortDirection {
     Asc,
     Desc,
 }

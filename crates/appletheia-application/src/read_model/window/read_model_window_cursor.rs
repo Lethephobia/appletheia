@@ -5,19 +5,19 @@ use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
-use super::ReadModelCursorError;
+use super::ReadModelWindowCursorError;
 
 /// An opaque pagination boundary encoded and interpreted by the query implementation.
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct ReadModelCursor(String);
+pub struct ReadModelWindowCursor(String);
 
-impl ReadModelCursor {
+impl ReadModelWindowCursor {
     pub fn new(value: String) -> Self {
         Self(value)
     }
 
-    pub fn try_from_serializable<T>(value: &T) -> Result<Self, ReadModelCursorError>
+    pub fn try_from_serializable<T>(value: &T) -> Result<Self, ReadModelWindowCursorError>
     where
         T: Serialize + ?Sized,
     {
@@ -25,7 +25,7 @@ impl ReadModelCursor {
         Ok(Self(URL_SAFE_NO_PAD.encode(json)))
     }
 
-    pub fn try_to_deserialized<T>(&self) -> Result<T, ReadModelCursorError>
+    pub fn try_to_deserialized<T>(&self) -> Result<T, ReadModelWindowCursorError>
     where
         T: DeserializeOwned,
     {
@@ -38,25 +38,25 @@ impl ReadModelCursor {
     }
 }
 
-impl From<String> for ReadModelCursor {
+impl From<String> for ReadModelWindowCursor {
     fn from(value: String) -> Self {
         Self(value)
     }
 }
 
-impl From<&str> for ReadModelCursor {
+impl From<&str> for ReadModelWindowCursor {
     fn from(value: &str) -> Self {
         Self(value.to_owned())
     }
 }
 
-impl AsRef<str> for ReadModelCursor {
+impl AsRef<str> for ReadModelWindowCursor {
     fn as_ref(&self) -> &str {
         self.value()
     }
 }
 
-impl Display for ReadModelCursor {
+impl Display for ReadModelWindowCursor {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self.value())
     }
@@ -80,7 +80,7 @@ mod tests {
             name: "東京 / + =".to_owned(),
             id: 42,
         };
-        let cursor = ReadModelCursor::try_from_serializable(&position).unwrap();
+        let cursor = ReadModelWindowCursor::try_from_serializable(&position).unwrap();
         assert!(
             cursor
                 .value()
@@ -90,7 +90,7 @@ mod tests {
         let json = URL_SAFE_NO_PAD.decode(cursor.value()).unwrap();
         assert_eq!(json, serde_json::to_vec(&position).unwrap());
         let serialized_cursor = serde_json::to_string(&cursor).unwrap();
-        let restored: ReadModelCursor = serde_json::from_str(&serialized_cursor).unwrap();
+        let restored: ReadModelWindowCursor = serde_json::from_str(&serialized_cursor).unwrap();
         assert_eq!(
             restored.try_to_deserialized::<Position>().unwrap(),
             position
@@ -100,18 +100,18 @@ mod tests {
     #[test]
     fn reports_invalid_encoding_json_and_target_types() {
         assert!(matches!(
-            ReadModelCursor::from("!").try_to_deserialized::<Position>(),
-            Err(ReadModelCursorError::Base64(_))
+            ReadModelWindowCursor::from("!").try_to_deserialized::<Position>(),
+            Err(ReadModelWindowCursorError::Base64(_))
         ));
-        let invalid_json = ReadModelCursor::new(URL_SAFE_NO_PAD.encode(b"not json"));
+        let invalid_json = ReadModelWindowCursor::new(URL_SAFE_NO_PAD.encode(b"not json"));
         assert!(matches!(
             invalid_json.try_to_deserialized::<Position>(),
-            Err(ReadModelCursorError::Json(_))
+            Err(ReadModelWindowCursorError::Json(_))
         ));
-        let incompatible = ReadModelCursor::try_from_serializable("not a position").unwrap();
+        let incompatible = ReadModelWindowCursor::try_from_serializable("not a position").unwrap();
         assert!(matches!(
             incompatible.try_to_deserialized::<Position>(),
-            Err(ReadModelCursorError::Json(_))
+            Err(ReadModelWindowCursorError::Json(_))
         ));
     }
 
@@ -119,8 +119,8 @@ mod tests {
     fn propagates_serialization_errors() {
         let value = BTreeMap::from([(vec![1, 2], 3)]);
         assert!(matches!(
-            ReadModelCursor::try_from_serializable(&value),
-            Err(ReadModelCursorError::Json(_))
+            ReadModelWindowCursor::try_from_serializable(&value),
+            Err(ReadModelWindowCursorError::Json(_))
         ));
     }
 }

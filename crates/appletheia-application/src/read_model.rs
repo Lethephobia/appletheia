@@ -1,4 +1,7 @@
 pub mod watch;
+pub mod window;
+
+pub use window::*;
 
 mod read_model_attribute_key;
 mod read_model_attribute_key_error;
@@ -10,8 +13,6 @@ mod read_model_change_id;
 mod read_model_change_id_error;
 mod read_model_change_selector;
 mod read_model_changed_at;
-mod read_model_cursor;
-mod read_model_cursor_error;
 mod read_model_document;
 mod read_model_document_error;
 mod read_model_field_filter;
@@ -20,7 +21,6 @@ mod read_model_included;
 mod read_model_included_error;
 mod read_model_list_document;
 mod read_model_list_document_meta;
-mod read_model_pagination;
 mod read_model_ref;
 mod read_model_relationship;
 mod read_model_relationship_data;
@@ -50,8 +50,6 @@ pub use read_model_change_id::*;
 pub use read_model_change_id_error::*;
 pub use read_model_change_selector::*;
 pub use read_model_changed_at::*;
-pub use read_model_cursor::*;
-pub use read_model_cursor_error::*;
 pub use read_model_document::*;
 pub use read_model_document_error::*;
 pub use read_model_field_filter::*;
@@ -60,7 +58,6 @@ pub use read_model_included::*;
 pub use read_model_included_error::*;
 pub use read_model_list_document::*;
 pub use read_model_list_document_meta::*;
-pub use read_model_pagination::*;
 pub use read_model_ref::*;
 pub use read_model_relationship::*;
 pub use read_model_relationship_data::*;
@@ -589,9 +586,9 @@ mod tests {
     fn list_document_preserves_order_and_per_item_filters() {
         let document: ReadModelListDocument<Profile, ProfileIncluded> = ReadModelListDocument {
             meta: Some(ReadModelListDocumentMeta {
-                pagination: Some(ReadModelPagination {
-                    start_cursor: Some(ReadModelCursor::from("before-alice")),
-                    end_cursor: Some(ReadModelCursor::from("after-bob")),
+                window: Some(ReadModelWindow {
+                    start_cursor: Some(ReadModelWindowCursor::from("before-alice")),
+                    end_cursor: Some(ReadModelWindowCursor::from("after-bob")),
                     has_before: true,
                     has_after: false,
                 }),
@@ -642,7 +639,7 @@ mod tests {
         assert_eq!(
             output["meta"],
             json!({
-                "pagination": {
+                "window": {
                     "start_cursor": "before-alice",
                     "end_cursor": "after-bob",
                     "has_before": true,
@@ -653,12 +650,12 @@ mod tests {
     }
 
     #[test]
-    fn pagination_preserves_absent_boundaries_and_optional_metadata() {
+    fn window_preserves_absent_boundaries_and_optional_metadata() {
         let document: ReadModelListDocument<Profile, ProfileIncluded> = ReadModelListDocument {
             data: vec![],
             included: vec![],
             meta: Some(ReadModelListDocumentMeta {
-                pagination: Some(ReadModelPagination {
+                window: Some(ReadModelWindow {
                     start_cursor: None,
                     end_cursor: None,
                     has_before: false,
@@ -671,7 +668,7 @@ mod tests {
             json!({
                 "data": [],
                 "meta": {
-                    "pagination": {
+                    "window": {
                         "start_cursor": null,
                         "end_cursor": null,
                         "has_before": false,
@@ -681,7 +678,7 @@ mod tests {
             })
         );
         assert_eq!(
-            serde_json::to_value(ReadModelListDocumentMeta { pagination: None }).unwrap(),
+            serde_json::to_value(ReadModelListDocumentMeta { window: None }).unwrap(),
             json!({})
         );
     }
