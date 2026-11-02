@@ -1,11 +1,11 @@
 mod currency_registrar_membership_create;
-mod currency_registrar_membership_remove;
+mod currency_registrar_membership_delete;
 
 pub use currency_registrar_membership_create::{
     CurrencyRegistrarMembershipCreateCommand, CurrencyRegistrarMembershipCreateCommandHandler,
     CurrencyRegistrarMembershipCreateCommandHandlerError, CurrencyRegistrarMembershipCreateOutput,
 };
-pub use currency_registrar_membership_remove::{
-    CurrencyRegistrarMembershipRemoveCommand, CurrencyRegistrarMembershipRemoveCommandHandler,
-    CurrencyRegistrarMembershipRemoveCommandHandlerError, CurrencyRegistrarMembershipRemoveOutput,
+pub use currency_registrar_membership_delete::{
+    CurrencyRegistrarMembershipDeleteCommand, CurrencyRegistrarMembershipDeleteCommandHandler,
+    CurrencyRegistrarMembershipDeleteCommandHandlerError, CurrencyRegistrarMembershipDeleteOutput,
 };

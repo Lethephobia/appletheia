@@ -11,14 +11,14 @@ pub enum TokenBindingError {
     #[error(transparent)]
     State(#[from] TokenBindingStateError),
 
-    #[error("token binding is already defined")]
-    AlreadyDefined,
+    #[error("token binding is already bound")]
+    AlreadyBound,
 
     #[error("token address does not match the selected chain")]
     ChainMismatch,
 
-    #[error("token binding has been removed")]
-    Removed,
+    #[error("token binding has been unbound")]
+    Unbound,
 
     #[error("token is already bound")]
     TokenAlreadyBound,

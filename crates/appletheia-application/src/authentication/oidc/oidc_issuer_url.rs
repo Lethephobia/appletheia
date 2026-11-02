@@ -4,7 +4,7 @@ use std::str::FromStr;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use super::OidcDiscoveryUrl;
+use super::{OidcDiscoveryUrl, OidcIssuerUrlError};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -20,17 +20,17 @@ impl OidcIssuerUrl {
         &self.0
     }
 
-    pub fn discovery_url(&self) -> OidcDiscoveryUrl {
+    pub fn try_to_discovery_url(&self) -> Result<OidcDiscoveryUrl, OidcIssuerUrlError> {
         let mut url = self.0.clone();
         {
             let mut segments = url
                 .path_segments_mut()
-                .expect("OidcIssuerUrl must be a base URL");
+                .map_err(|_| OidcIssuerUrlError::CannotBeABase)?;
             segments.pop_if_empty();
             segments.push(".well-known");
             segments.push("openid-configuration");
         }
-        OidcDiscoveryUrl::new(url)
+        Ok(OidcDiscoveryUrl::new(url))
     }
 
     fn normalize_trailing_slash(mut url: Url) -> Url {
@@ -63,5 +63,39 @@ impl TryFrom<String> for OidcIssuerUrl {
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
         Self::from_str(&value)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rejects_non_base_issuer_without_panicking() {
+        let issuer: OidcIssuerUrl = "mailto:issuer@example.com".parse().unwrap();
+        assert!(matches!(
+            issuer.try_to_discovery_url(),
+            Err(OidcIssuerUrlError::CannotBeABase)
+        ));
+    }
+
+    #[test]
+    fn appends_discovery_path_to_issuer_path() {
+        for (issuer, expected) in [
+            (
+                "https://example.com",
+                "https://example.com/.well-known/openid-configuration",
+            ),
+            (
+                "https://example.com/tenant/",
+                "https://example.com/tenant/.well-known/openid-configuration",
+            ),
+        ] {
+            let issuer: OidcIssuerUrl = issuer.parse().unwrap();
+            assert_eq!(
+                issuer.try_to_discovery_url().unwrap().value().as_str(),
+                expected
+            );
+        }
     }
 }

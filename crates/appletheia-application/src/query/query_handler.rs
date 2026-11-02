@@ -1,5 +1,4 @@
-use std::error::Error;
-
+use crate::Retryability;
 use crate::authorization::AuthorizationPlan;
 use crate::read_model::ReadModelDocument;
 use crate::request_context::RequestContext;
@@ -11,7 +10,7 @@ use super::Query;
 pub trait QueryHandler: Send + Sync {
     type Query: Query;
     type Output: ReadModelDocument + 'static;
-    type Error: Error + Send + Sync + 'static;
+    type Error: Retryability;
     type Uow: UnitOfWork;
 
     fn authorization_plan(&self, _query: &Self::Query) -> Result<AuthorizationPlan, Self::Error> {

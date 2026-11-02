@@ -9,7 +9,7 @@ use super::{
 /// Represents the domain events emitted by a `User` aggregate.
 #[event_payload(error = UserEventPayloadError)]
 pub enum UserEventPayload {
-    Registered,
+    Created,
     IdentityLinked {
         provider: UserIdentityProvider,
         subject: UserIdentitySubject,
@@ -35,7 +35,7 @@ pub enum UserEventPayload {
     },
     Activated,
     Deactivated,
-    Removed,
+    Deleted,
 }
 
 #[cfg(test)]
@@ -53,8 +53,8 @@ mod tests {
     #[test]
     fn returns_stable_event_names() {
         assert_eq!(
-            UserEventPayload::REGISTERED,
-            appletheia::domain::EventName::new("registered")
+            UserEventPayload::CREATED,
+            appletheia::domain::EventName::new("created")
         );
         assert_eq!(
             UserEventPayload::IDENTITY_LINKED,
@@ -89,8 +89,8 @@ mod tests {
             appletheia::domain::EventName::new("deactivated")
         );
         assert_eq!(
-            UserEventPayload::REMOVED,
-            appletheia::domain::EventName::new("removed")
+            UserEventPayload::DELETED,
+            appletheia::domain::EventName::new("deleted")
         );
     }
 
@@ -183,14 +183,14 @@ mod tests {
     }
 
     #[test]
-    fn serializes_registered_payload_to_json() {
-        let payload = UserEventPayload::Registered;
+    fn serializes_created_payload_to_json() {
+        let payload = UserEventPayload::Created;
 
         let value = payload
             .try_into_json_value()
             .expect("payload should serialize");
 
-        assert_eq!(value["type"], serde_json::json!("registered"));
+        assert_eq!(value["type"], serde_json::json!("created"));
         assert!(value.get("data").is_none());
     }
 }

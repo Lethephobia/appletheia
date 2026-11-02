@@ -69,8 +69,8 @@ where
             .read_shared::<Organization>(uow, organization_join_request.organization_id()?)
             .await?;
 
-        if organization.is_removed()? {
-            return Err(OrganizationJoinRequestError::OrganizationRemoved.into());
+        if organization.is_deleted()? {
+            return Err(OrganizationJoinRequestError::OrganizationDeleted.into());
         }
 
         organization_join_request.approve()?;

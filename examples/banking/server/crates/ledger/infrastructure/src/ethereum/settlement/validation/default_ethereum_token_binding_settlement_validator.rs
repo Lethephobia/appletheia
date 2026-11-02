@@ -1,7 +1,7 @@
 use alloy::contract::Error as ContractError;
 use alloy::primitives::Address;
 use alloy::providers::{DynProvider, Provider};
-use banking_ledger_application::{
+use banking_ledger_application::settlement::{
     EthereumTokenBindingSettlementValidationRequest, EthereumTokenBindingSettlementValidator,
     TokenBindingSettlementValidatorError,
 };
@@ -76,7 +76,7 @@ mod tests {
     use alloy::providers::{Provider, ProviderBuilder};
     use alloy::sol_types::SolValue;
     use alloy::transports::mock::Asserter;
-    use banking_ledger_application::{
+    use banking_ledger_application::settlement::{
         EthereumTokenBindingSettlementValidationRequest, EthereumTokenBindingSettlementValidator,
         TokenBindingSettlementValidatorError,
     };

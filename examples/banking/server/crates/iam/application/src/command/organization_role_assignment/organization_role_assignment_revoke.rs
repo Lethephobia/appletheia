@@ -1,9 +1,0 @@
-mod organization_role_assignment_revoke_command;
-mod organization_role_assignment_revoke_command_handler;
-mod organization_role_assignment_revoke_command_handler_error;
-mod organization_role_assignment_revoke_output;
-
-pub use organization_role_assignment_revoke_command::*;
-pub use organization_role_assignment_revoke_command_handler::*;
-pub use organization_role_assignment_revoke_command_handler_error::*;
-pub use organization_role_assignment_revoke_output::*;

@@ -1,7 +1,6 @@
 use super::TeamMemberDerivationHandlerError;
-use crate::authorization::{
-    OrganizationMemberRelation, OrganizationMembershipUserRelation, TeamOrganizationRelation,
-};
+use crate::authorization::TeamOrganizationRelation;
+use crate::authorization::{OrganizationMemberRelation, OrganizationMembershipUserRelation};
 use appletheia::application::aggregate::AggregateRef;
 use appletheia::application::authorization::{
     Relation, RelationName, RelationRef, RelationshipEntries, RelationshipEntry,

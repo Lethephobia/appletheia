@@ -36,7 +36,7 @@ pub struct WalletBookmark {
 }
 
 impl WalletBookmark {
-    /// Returns the owner that registered this wallet bookmark.
+    /// Returns the owner that added this wallet bookmark.
     pub fn owner(&self) -> Result<WalletBookmarkOwner, WalletBookmarkError> {
         Ok(self.state_required()?.owner)
     }
@@ -61,17 +61,17 @@ impl WalletBookmark {
         Ok(self.state_required()?.status)
     }
 
-    /// Registers a wallet bookmark.
-    pub fn register(
+    /// Adds a wallet bookmark.
+    pub fn add(
         &mut self,
         owner: WalletBookmarkOwner,
         token_owner_address: TokenOwnerAddress,
     ) -> Result<(), WalletBookmarkError> {
         if self.state().is_some() {
-            return Err(WalletBookmarkError::AlreadyRegistered);
+            return Err(WalletBookmarkError::AlreadyAdded);
         }
 
-        self.append_event(WalletBookmarkEventPayload::Registered {
+        self.append_event(WalletBookmarkEventPayload::Added {
             owner,
             token_owner_address,
         })?;
@@ -128,7 +128,7 @@ impl WalletBookmark {
 impl AggregateApply<WalletBookmarkEventPayload, WalletBookmarkError> for WalletBookmark {
     fn apply(&mut self, payload: &WalletBookmarkEventPayload) -> Result<(), WalletBookmarkError> {
         match payload {
-            WalletBookmarkEventPayload::Registered {
+            WalletBookmarkEventPayload::Added {
                 owner,
                 token_owner_address,
             } => self.set_state(Some(WalletBookmarkState {
@@ -185,14 +185,14 @@ mod tests {
     }
 
     #[test]
-    fn register_initializes_state_and_records_event() {
+    fn add_initializes_state_and_records_event() {
         let owner = wallet_bookmark_owner();
         let token_owner_address = token_owner_address();
         let mut wallet_bookmark = WalletBookmark::new();
 
         wallet_bookmark
-            .register(owner, token_owner_address)
-            .expect("register should succeed");
+            .add(owner, token_owner_address)
+            .expect("add should succeed");
 
         assert_eq!(wallet_bookmark.owner().expect("owner should exist"), owner);
         assert_eq!(
@@ -222,7 +222,7 @@ mod tests {
         assert_eq!(events.len(), 1);
         assert_eq!(
             events[0].payload().name(),
-            WalletBookmarkEventPayload::REGISTERED
+            WalletBookmarkEventPayload::ADDED
         );
     }
 
@@ -232,8 +232,8 @@ mod tests {
         let token_owner_address = token_owner_address();
         let mut wallet_bookmark = WalletBookmark::new();
         wallet_bookmark
-            .register(owner, token_owner_address)
-            .expect("register should succeed");
+            .add(owner, token_owner_address)
+            .expect("add should succeed");
         wallet_bookmark.core_mut().clear_uncommitted_events();
 
         wallet_bookmark.remove().expect("remove should succeed");
@@ -256,8 +256,8 @@ mod tests {
         let token_owner_address = token_owner_address();
         let mut wallet_bookmark = WalletBookmark::new();
         wallet_bookmark
-            .register(owner, token_owner_address)
-            .expect("register should succeed");
+            .add(owner, token_owner_address)
+            .expect("add should succeed");
         wallet_bookmark.core_mut().clear_uncommitted_events();
         wallet_bookmark
             .remove()
@@ -275,7 +275,7 @@ mod tests {
     fn optional_fields_are_set_separately_and_replayable() {
         let mut wallet_bookmark = WalletBookmark::new();
         wallet_bookmark
-            .register(wallet_bookmark_owner(), token_owner_address())
+            .add(wallet_bookmark_owner(), token_owner_address())
             .unwrap();
         assert_eq!(wallet_bookmark.uncommitted_events().len(), 1);
         assert_eq!(wallet_bookmark.display_name().unwrap(), None);

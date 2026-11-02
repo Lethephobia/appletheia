@@ -2,7 +2,7 @@ use alloy::primitives::{Address, B256, Bytes, FixedBytes, Signature, U256};
 use alloy::providers::{DynProvider, Provider};
 use alloy::signers::SignerSync;
 use appletheia::domain::AggregateId;
-use banking_ledger_application::{
+use banking_ledger_application::settlement::{
     EthereumDepositSettlementTransactionPreparation,
     EthereumDepositSettlementTransactionPrepareRequest,
     EthereumDepositSettlementTransactionPreparer,

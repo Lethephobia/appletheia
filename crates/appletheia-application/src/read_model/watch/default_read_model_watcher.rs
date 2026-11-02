@@ -3,9 +3,9 @@ use crate::request_context::RequestContext;
 use crate::unit_of_work::{UnitOfWork, UnitOfWorkFactory};
 
 use super::{
-    DefaultReadModelWatch, DefaultReadModelWatchDependencies, ReadModelWatchEndpoint,
-    ReadModelWatchGenerationRegistrarFactory, ReadModelWatchId, ReadModelWatchRegistry,
-    ReadModelWatcher, ReadModelWatcherError,
+    DefaultReadModelWatch, DefaultReadModelWatchDependencies, ReadModelWatchConfig,
+    ReadModelWatchEndpoint, ReadModelWatchGenerationRegistrarFactory, ReadModelWatchId,
+    ReadModelWatchRegistry, ReadModelWatcher, ReadModelWatcherError,
 };
 
 pub struct DefaultReadModelWatcher<D, F, R, E, G>
@@ -16,6 +16,7 @@ where
     E: ReadModelWatchEndpoint,
     G: ReadModelWatchGenerationRegistrarFactory<Uow = D::Uow>,
 {
+    config: ReadModelWatchConfig,
     query_dispatcher: D,
     uow_factory: F,
     registry: R,
@@ -37,6 +38,7 @@ where
     }
 
     pub fn new(
+        config: ReadModelWatchConfig,
         query_dispatcher: D,
         uow_factory: F,
         registry: R,
@@ -44,6 +46,7 @@ where
         generation_registrar_factory: G,
     ) -> Self {
         Self {
+            config,
             query_dispatcher,
             uow_factory,
             registry,
@@ -106,6 +109,7 @@ where
             return Err(ReadModelWatcherError::UnitOfWork(source));
         }
         Ok(DefaultReadModelWatch::new(
+            self.config,
             DefaultReadModelWatchDependencies {
                 query_dispatcher: &self.query_dispatcher,
                 uow_factory: &self.uow_factory,

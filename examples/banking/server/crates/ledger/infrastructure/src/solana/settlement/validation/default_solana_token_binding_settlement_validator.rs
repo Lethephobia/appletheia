@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use banking_ledger_application::{
+use banking_ledger_application::settlement::{
     SolanaTokenBindingSettlementValidationRequest, SolanaTokenBindingSettlementValidator,
     TokenBindingSettlementValidatorError,
 };

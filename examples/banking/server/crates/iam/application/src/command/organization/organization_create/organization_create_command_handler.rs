@@ -114,6 +114,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    use crate::authorization::UserOwnerRelation;
     use appletheia::application::aggregate::SerializedAggregate;
     use appletheia::domain::{AggregateId, Event};
     use std::sync::{Arc, Mutex};
@@ -319,10 +320,7 @@ mod tests {
             plan,
             AuthorizationPlan::OnlyPrincipals(vec![
                 PrincipalRequirement::AuthenticatedWithRelationship(
-                    RelationshipRequirement::check::<User>(
-                        owner,
-                        crate::authorization::UserOwnerRelation::REF,
-                    )
+                    RelationshipRequirement::check::<User>(owner, UserOwnerRelation::REF,)
                 ),
             ])
         );

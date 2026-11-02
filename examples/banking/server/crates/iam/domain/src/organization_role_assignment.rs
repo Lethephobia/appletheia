@@ -73,11 +73,11 @@ impl OrganizationRoleAssignment {
         Ok(())
     }
 
-    pub fn revoke(&mut self) -> Result<(), OrganizationRoleAssignmentError> {
+    pub fn unassign(&mut self) -> Result<(), OrganizationRoleAssignmentError> {
         if !self.is_active()? {
-            return Err(OrganizationRoleAssignmentError::Revoked);
+            return Err(OrganizationRoleAssignmentError::Unassigned);
         }
-        self.append_event(OrganizationRoleAssignmentEventPayload::Revoked)?;
+        self.append_event(OrganizationRoleAssignmentEventPayload::Unassigned)?;
         Ok(())
     }
 }
@@ -100,8 +100,8 @@ impl AggregateApply<OrganizationRoleAssignmentEventPayload, OrganizationRoleAssi
                 role: *role,
                 status: OrganizationRoleAssignmentStatus::Active,
             })),
-            OrganizationRoleAssignmentEventPayload::Revoked => {
-                self.state_required_mut()?.status = OrganizationRoleAssignmentStatus::Revoked
+            OrganizationRoleAssignmentEventPayload::Unassigned => {
+                self.state_required_mut()?.status = OrganizationRoleAssignmentStatus::Unassigned
             }
         }
         Ok(())
@@ -127,11 +127,11 @@ mod tests {
             assignment.assign(scope_id, assignee, OrganizationRole::Admin),
             Err(OrganizationRoleAssignmentError::AlreadyAssigned)
         ));
-        assignment.revoke().unwrap();
+        assignment.unassign().unwrap();
         assert!(assignment.unique_entries().unwrap().is_empty());
         assert!(matches!(
-            assignment.revoke(),
-            Err(OrganizationRoleAssignmentError::Revoked)
+            assignment.unassign(),
+            Err(OrganizationRoleAssignmentError::Unassigned)
         ));
         assert!(matches!(
             assignment.assign(scope_id, assignee, OrganizationRole::Admin),

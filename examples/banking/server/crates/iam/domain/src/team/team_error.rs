@@ -14,6 +14,6 @@ pub enum TeamError {
     #[error("team is already created")]
     AlreadyCreated,
 
-    #[error("team has been removed")]
-    Removed,
+    #[error("team has been deleted")]
+    Deleted,
 }

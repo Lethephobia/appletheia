@@ -23,7 +23,7 @@ pub struct OrganizationMembershipState {
 
 /// Reserves the organization/user pair for the currently effective membership only.
 ///
-/// A removed membership releases the pair so the same user can rejoin the
+/// A deleted membership releases the pair so the same user can rejoin the
 /// organization through a new membership aggregate.
 fn organization_user_unique_value(
     state: &OrganizationMembershipState,

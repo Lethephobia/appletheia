@@ -1,9 +1,9 @@
 use super::{TransferSagaHandlerError, TransferSagaState, TransferSagaStep};
 use crate::command::{
     AccountDepositCommand, AccountFundsReserveCommand, AccountReservedFundsCommitCommand,
-    AccountReservedFundsReleaseCommand, AccountWithdrawCommand, TransferFailCommand,
-    TransferSucceedCommand,
+    AccountReservedFundsReleaseCommand, AccountWithdrawCommand,
 };
+use crate::command::{TransferFailCommand, TransferSucceedCommand};
 use appletheia::application::saga::SagaError;
 use appletheia::application::saga::{
     Saga, SagaDefinition, SagaDefinitionBuilder, SagaName, SagaRouteBuilder,
@@ -230,9 +230,9 @@ mod tests {
     use super::{TransferSaga, TransferSagaState, TransferSagaStep};
     use crate::command::{
         AccountDepositCommand, AccountFundsReserveCommand, AccountReservedFundsCommitCommand,
-        AccountReservedFundsReleaseCommand, AccountWithdrawCommand, TransferFailCommand,
-        TransferSucceedCommand,
+        AccountReservedFundsReleaseCommand, AccountWithdrawCommand,
     };
+    use crate::command::{TransferFailCommand, TransferSucceedCommand};
 
     fn request_context(correlation_id: CorrelationId) -> RequestContext {
         let subject = AggregateRef::from_id::<User>(UserId::new());

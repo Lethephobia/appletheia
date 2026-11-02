@@ -9,5 +9,5 @@ pub enum TeamRoleAssignmentEventPayload {
         assignee: TeamRoleAssignee,
         role: TeamRole,
     },
-    Revoked,
+    Unassigned,
 }

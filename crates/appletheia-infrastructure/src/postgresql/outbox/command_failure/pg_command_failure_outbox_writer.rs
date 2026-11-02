@@ -331,7 +331,9 @@ mod tests {
                     message: "delivery failed".to_owned(),
                 },
                 &OutboxRetryOptions {
-                    backoff: OutboxRetryDelay::new(chrono::Duration::seconds(1)),
+                    base_delay: OutboxRetryDelay::new(chrono::Duration::seconds(1)),
+                    max_delay: OutboxRetryDelay::new(chrono::Duration::seconds(30)),
+                    multiplier: Default::default(),
                     max_attempts: OutboxMaxAttempts::default(),
                 },
             )

@@ -1,8 +1,9 @@
 use appletheia::application::authorization::{Relation, RelationName, RelationRef, UsersetExpr};
 use appletheia::domain::Aggregate;
 
-use super::{OrganizationInvitation, OrganizationInvitationOrganizationRelation};
-use crate::OrganizationAdminRelation;
+use super::OrganizationInvitationOrganizationRelation;
+use crate::authorization::OrganizationAdminRelation;
+use banking_iam_domain::OrganizationInvitation;
 
 /// Allows organization admins to manage invitations.
 pub struct OrganizationInvitationManagerRelation;

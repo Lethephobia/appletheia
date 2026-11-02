@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
-use solana_sdk::{pubkey::Pubkey, signature::Keypair};
+use solana_keypair::Keypair;
+use solana_sdk::pubkey::Pubkey;
 
 pub struct DefaultSolanaWithdrawalSettlementExecutorConfig {
     pub program_id: Pubkey,

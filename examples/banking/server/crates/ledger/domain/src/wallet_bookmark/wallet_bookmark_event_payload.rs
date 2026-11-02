@@ -10,7 +10,7 @@ use super::{
 /// Represents the domain events emitted by a `WalletBookmark` aggregate.
 #[event_payload(error = WalletBookmarkEventPayloadError)]
 pub enum WalletBookmarkEventPayload {
-    Registered {
+    Added {
         owner: WalletBookmarkOwner,
         token_owner_address: TokenOwnerAddress,
     },
@@ -35,8 +35,8 @@ mod tests {
     #[test]
     fn returns_stable_event_names() {
         assert_eq!(
-            WalletBookmarkEventPayload::REGISTERED,
-            appletheia::domain::EventName::new("registered")
+            WalletBookmarkEventPayload::ADDED,
+            appletheia::domain::EventName::new("added")
         );
         assert_eq!(
             WalletBookmarkEventPayload::DISPLAY_NAME_SET,
@@ -61,7 +61,7 @@ mod tests {
 
     #[test]
     fn serializes_payload_to_json() {
-        let payload = WalletBookmarkEventPayload::Registered {
+        let payload = WalletBookmarkEventPayload::Added {
             owner: WalletBookmarkOwner::User(UserId::new()),
             token_owner_address: TokenOwnerAddress::Solana(SolanaTokenAccountOwnerAddress::new(
                 SolanaAccountAddress::try_from("11111111111111111111111111111111")
@@ -73,6 +73,6 @@ mod tests {
             .try_into_json_value()
             .expect("payload should serialize");
 
-        assert_eq!(value["type"], serde_json::json!("registered"));
+        assert_eq!(value["type"], serde_json::json!("added"));
     }
 }

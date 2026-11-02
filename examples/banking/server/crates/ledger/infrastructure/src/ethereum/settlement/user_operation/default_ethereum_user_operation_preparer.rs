@@ -3,7 +3,7 @@ use alloy::providers::{DynProvider, Provider};
 use alloy::rpc::types::PackedUserOperation;
 use alloy::signers::SignerSync;
 use alloy::sol_types::SolValue;
-use banking_ledger_application::{
+use banking_ledger_application::settlement::{
     EthereumUserOperationPreparation, EthereumUserOperationPrepareRequest,
     EthereumUserOperationPreparer, EthereumUserOperationPreparerError, EvmCallData, EvmQuantity,
     EvmUserOperation, EvmUserOperationRequest,

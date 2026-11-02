@@ -1,7 +1,7 @@
 use alloy::primitives::{Address, FixedBytes, U256};
 use alloy::providers::DynProvider;
 use appletheia::domain::AggregateId;
-use banking_ledger_application::{
+use banking_ledger_application::settlement::{
     EthereumWithdrawalSettlementExecution, EthereumWithdrawalSettlementExecutor,
     EthereumWithdrawalSettlementRequest, WithdrawalSettlementExecutorError,
 };

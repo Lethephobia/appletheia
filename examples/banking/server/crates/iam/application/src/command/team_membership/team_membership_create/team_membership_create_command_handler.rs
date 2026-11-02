@@ -65,14 +65,14 @@ where
             .read_shared::<Team>(uow, command.team_id)
             .await?;
         if !team.is_active()? {
-            return Err(TeamMembershipCreateCommandHandlerError::TeamRemoved);
+            return Err(TeamMembershipCreateCommandHandlerError::TeamDeleted);
         }
         let organization_membership = self
             .repository
             .read_shared::<OrganizationMembership>(uow, command.organization_membership_id)
             .await?;
         if !organization_membership.is_active()? {
-            return Err(TeamMembershipCreateCommandHandlerError::OrganizationMembershipRemoved);
+            return Err(TeamMembershipCreateCommandHandlerError::OrganizationMembershipDeleted);
         }
         if team.organization_id()? != organization_membership.organization_id()? {
             return Err(TeamMembershipCreateCommandHandlerError::OrganizationMismatch);
@@ -82,7 +82,7 @@ where
             .read_shared::<Organization>(uow, team.organization_id()?)
             .await?;
         if !organization.is_active()? {
-            return Err(TeamMembershipCreateCommandHandlerError::OrganizationRemoved);
+            return Err(TeamMembershipCreateCommandHandlerError::OrganizationDeleted);
         }
         let team_id = command.team_id.to_string();
         let organization_membership_id = command.organization_membership_id.to_string();
@@ -252,13 +252,13 @@ mod tests {
                 .create(membership_organization_id, UserId::new())
                 .unwrap();
             if case == 1 {
-                team.remove().unwrap();
+                team.delete().unwrap();
             }
             if case == 2 {
-                organization_membership.remove().unwrap();
+                organization_membership.delete().unwrap();
             }
             if case == 4 {
-                organization.remove().unwrap();
+                organization.delete().unwrap();
             }
             let mut duplicate = TeamMembership::new();
             duplicate
@@ -335,11 +335,11 @@ mod tests {
                 }
                 1 => assert!(matches!(
                     result,
-                    Err(TeamMembershipCreateCommandHandlerError::TeamRemoved)
+                    Err(TeamMembershipCreateCommandHandlerError::TeamDeleted)
                 )),
                 2 => assert!(matches!(
                     result,
-                    Err(TeamMembershipCreateCommandHandlerError::OrganizationMembershipRemoved)
+                    Err(TeamMembershipCreateCommandHandlerError::OrganizationMembershipDeleted)
                 )),
                 3 => assert!(matches!(
                     result,
@@ -347,7 +347,7 @@ mod tests {
                 )),
                 4 => assert!(matches!(
                     result,
-                    Err(TeamMembershipCreateCommandHandlerError::OrganizationRemoved)
+                    Err(TeamMembershipCreateCommandHandlerError::OrganizationDeleted)
                 )),
                 5 => assert!(matches!(
                     result,

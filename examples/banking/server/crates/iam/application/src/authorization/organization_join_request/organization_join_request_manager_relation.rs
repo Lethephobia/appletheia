@@ -1,8 +1,9 @@
 use appletheia::application::authorization::{Relation, RelationName, RelationRef, UsersetExpr};
 use appletheia::domain::Aggregate;
 
-use super::{OrganizationJoinRequest, OrganizationJoinRequestOrganizationRelation};
-use crate::OrganizationAdminRelation;
+use super::OrganizationJoinRequestOrganizationRelation;
+use crate::authorization::OrganizationAdminRelation;
+use banking_iam_domain::OrganizationJoinRequest;
 
 /// Allows organization admins to manage join requests.
 pub struct OrganizationJoinRequestManagerRelation;

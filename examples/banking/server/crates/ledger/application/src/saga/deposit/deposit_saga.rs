@@ -6,7 +6,8 @@ use banking_ledger_domain::account::{Account, AccountEventPayload};
 use banking_ledger_domain::deposit::{Deposit, DepositEventPayload, DepositFailureReason};
 
 use super::{DepositSagaHandlerError, DepositSagaState, DepositSagaStep};
-use crate::command::{AccountDepositCommand, DepositFailCommand, DepositSucceedCommand};
+use crate::command::AccountDepositCommand;
+use crate::command::{DepositFailCommand, DepositSucceedCommand};
 
 /// Coordinates the deposit flow.
 pub struct DepositSaga;

@@ -3,7 +3,7 @@ use appletheia::domain::Aggregate;
 use banking_iam_domain::OrganizationMembership;
 
 use super::OrganizationMembershipOrganizationRelation;
-use crate::OrganizationAdminRelation;
+use crate::authorization::OrganizationAdminRelation;
 
 /// Allows organization admins, including the owner, to manage memberships.
 pub struct OrganizationMembershipManagerRelation;

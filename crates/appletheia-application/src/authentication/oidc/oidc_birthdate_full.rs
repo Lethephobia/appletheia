@@ -3,18 +3,14 @@ use std::fmt::{self, Display};
 use chrono::{Datelike, NaiveDate};
 use serde::{Deserialize, Serialize};
 
-use super::{OidcBirthMonth, OidcBirthYear, OidcBirthdateFullError};
+use super::OidcBirthdateFullError;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct OidcBirthdateFull(NaiveDate);
 
 impl OidcBirthdateFull {
-    pub fn new(
-        year: OidcBirthYear,
-        month: OidcBirthMonth,
-        day: u8,
-    ) -> Result<Self, OidcBirthdateFullError> {
-        let date = NaiveDate::from_ymd_opt(year.value().into(), month.value().into(), day.into())
+    pub fn new(year: u16, month: u8, day: u8) -> Result<Self, OidcBirthdateFullError> {
+        let date = NaiveDate::from_ymd_opt(year.into(), month.into(), day.into())
             .ok_or(OidcBirthdateFullError::InvalidDate)?;
 
         Ok(Self(date))
@@ -24,12 +20,12 @@ impl OidcBirthdateFull {
         self.0
     }
 
-    pub fn year(self) -> OidcBirthYear {
-        OidcBirthYear::new(self.0.year() as u16)
+    pub fn year(self) -> u16 {
+        self.0.year() as u16
     }
 
-    pub fn month(self) -> OidcBirthMonth {
-        OidcBirthMonth::new(self.0.month() as u8).expect("NaiveDate month should be valid")
+    pub fn month(self) -> u8 {
+        self.0.month() as u8
     }
 
     pub fn day(self) -> u8 {
@@ -46,5 +42,28 @@ impl Display for OidcBirthdateFull {
             self.0.month(),
             self.0.day()
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn validates_numeric_date_components_together() {
+        for (year, month, day) in [
+            (2023, 2, 29),
+            (2024, 0, 1),
+            (2024, 13, 1),
+            (2024, 1, 0),
+            (2024, 4, 31),
+        ] {
+            assert!(matches!(
+                OidcBirthdateFull::new(year, month, day),
+                Err(OidcBirthdateFullError::InvalidDate)
+            ));
+        }
+        let date = OidcBirthdateFull::new(2024, 2, 29).unwrap();
+        assert_eq!((date.year(), date.month(), date.day()), (2024, 2, 29));
     }
 }

@@ -1,5 +1,3 @@
-use banking_iam_domain::OrganizationInvitation;
-
 mod organization_invitation_invitee_derivation_handler_error;
 mod organization_invitation_invitee_relation;
 mod organization_invitation_manager_relation;

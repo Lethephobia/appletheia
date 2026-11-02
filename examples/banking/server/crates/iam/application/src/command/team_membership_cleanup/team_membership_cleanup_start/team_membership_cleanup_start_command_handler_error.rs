@@ -14,8 +14,8 @@ pub enum TeamMembershipCleanupStartCommandHandlerError {
     #[error(transparent)]
     OrganizationMembership(#[from] OrganizationMembershipError),
 
-    #[error("organization membership is not removed")]
-    OrganizationMembershipNotRemoved,
+    #[error("organization membership is not deleted")]
+    OrganizationMembershipNotDeleted,
 
     #[error("team membership cleanup repository failed")]
     TeamMembershipCleanupRepository(#[from] RepositoryError<TeamMembershipCleanup>),
@@ -28,7 +28,7 @@ impl Retryability for TeamMembershipCleanupStartCommandHandlerError {
     fn is_retryable(&self) -> bool {
         match self {
             Self::OrganizationMembershipRepository(error) => error.is_retryable(),
-            Self::OrganizationMembership(_) | Self::OrganizationMembershipNotRemoved => false,
+            Self::OrganizationMembership(_) | Self::OrganizationMembershipNotDeleted => false,
             Self::TeamMembershipCleanupRepository(error) => error.is_retryable(),
             Self::TeamMembershipCleanup(_) => false,
         }

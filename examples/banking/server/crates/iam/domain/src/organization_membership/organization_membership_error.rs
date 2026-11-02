@@ -15,14 +15,14 @@ pub enum OrganizationMembershipError {
     #[error("organization membership is already created")]
     AlreadyCreated,
 
-    #[error("organization membership has been removed")]
-    Removed,
+    #[error("organization membership has been deleted")]
+    Deleted,
 
-    #[error("organization has been removed")]
-    OrganizationRemoved,
+    #[error("organization has been deleted")]
+    OrganizationDeleted,
 
-    #[error("user has been removed")]
-    UserRemoved,
+    #[error("user has been deleted")]
+    UserDeleted,
 
     #[error("user is inactive")]
     UserInactive,

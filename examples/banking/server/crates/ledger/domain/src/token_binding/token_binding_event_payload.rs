@@ -7,7 +7,7 @@ use super::TokenBindingEventPayloadError;
 
 #[event_payload(error = TokenBindingEventPayloadError)]
 pub enum TokenBindingEventPayload {
-    Defined {
+    Bound {
         currency_id: CurrencyId,
         chain_network: ChainNetwork,
         token_address: TokenAddress,
@@ -20,5 +20,5 @@ pub enum TokenBindingEventPayload {
     WithdrawalEnabledChanged {
         enabled: bool,
     },
-    Removed,
+    Unbound,
 }

@@ -1,5 +1,3 @@
-use banking_iam_domain::OrganizationJoinRequest;
-
 mod organization_join_request_manager_relation;
 mod organization_join_request_organization_derivation_handler_error;
 mod organization_join_request_organization_relation;

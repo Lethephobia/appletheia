@@ -79,9 +79,9 @@ where
             .read_shared::<User>(uow, command.user_id)
             .await?;
 
-        if user.is_removed()? {
+        if user.is_deleted()? {
             return Err(UserPictureUploadPrepareCommandHandlerError::User(
-                UserError::Removed,
+                UserError::Deleted,
             ));
         }
 
@@ -124,6 +124,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    use crate::authorization::UserOwnerRelation;
     use appletheia::application::aggregate::SerializedAggregate;
     use appletheia::domain::{AggregateId, Event};
     use banking_iam_domain::UserError;
@@ -322,9 +323,9 @@ mod tests {
         .expect("request context should be valid")
     }
 
-    fn registered_user() -> User {
+    fn created_user() -> User {
         let mut user = User::new();
-        user.register().expect("user should register");
+        user.create().expect("user should be created");
         user.link_identity(
             UserIdentityProvider::try_from("https://accounts.example.com")
                 .expect("provider should be valid"),
@@ -363,7 +364,7 @@ mod tests {
 
     #[test]
     fn authorization_plan_requires_user_profile_editor_relationship() {
-        let repository = TestRepository::new(registered_user());
+        let repository = TestRepository::new(created_user());
         let expires_in =
             ObjectUploadExpiresIn::new(Duration::minutes(10)).expect("expiration should be valid");
         let handler = UserPictureUploadPrepareCommandHandler::new(
@@ -391,10 +392,7 @@ mod tests {
             plan,
             AuthorizationPlan::OnlyPrincipals(vec![
                 PrincipalRequirement::AuthenticatedWithRelationship(
-                    RelationshipRequirement::check::<User>(
-                        user_id,
-                        crate::authorization::UserOwnerRelation::REF,
-                    )
+                    RelationshipRequirement::check::<User>(user_id, UserOwnerRelation::REF,)
                 ),
             ])
         );
@@ -402,7 +400,7 @@ mod tests {
 
     #[tokio::test]
     async fn handle_returns_picture_ref_and_signed_upload() {
-        let user = registered_user();
+        let user = created_user();
         let user_id = user.aggregate_id();
         let repository = TestRepository::new(user);
         let expires_in =
@@ -470,7 +468,7 @@ mod tests {
 
     #[tokio::test]
     async fn handle_rejects_inactive_user() {
-        let mut user = registered_user();
+        let mut user = created_user();
         user.deactivate().expect("user should deactivate");
         let user_id = user.aggregate_id();
         let repository = TestRepository::new(user);
@@ -510,7 +508,7 @@ mod tests {
 
     #[tokio::test]
     async fn handle_rejects_content_length_over_maximum() {
-        let user = registered_user();
+        let user = created_user();
         let user_id = user.aggregate_id();
         let repository = TestRepository::new(user);
         let expires_in =
@@ -549,7 +547,7 @@ mod tests {
 
     #[tokio::test]
     async fn handle_rejects_disallowed_content_type() {
-        let user = registered_user();
+        let user = created_user();
         let user_id = user.aggregate_id();
         let repository = TestRepository::new(user);
         let expires_in =

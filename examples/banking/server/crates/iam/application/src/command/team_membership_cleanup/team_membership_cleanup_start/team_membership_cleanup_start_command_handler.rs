@@ -55,9 +55,9 @@ where
             .repository
             .read_shared::<OrganizationMembership>(uow, command.organization_membership_id)
             .await?;
-        if !membership.is_removed()? {
+        if !membership.is_deleted()? {
             return Err(
-                TeamMembershipCleanupStartCommandHandlerError::OrganizationMembershipNotRemoved,
+                TeamMembershipCleanupStartCommandHandlerError::OrganizationMembershipNotDeleted,
             );
         }
         let mut team_membership_cleanup = TeamMembershipCleanup::new();

@@ -282,16 +282,16 @@ mod tests {
                 )
                 .unwrap();
             if case == 1 {
-                team_membership.remove().unwrap();
+                team_membership.delete().unwrap();
             }
             if case == 3 {
-                team.remove().unwrap();
+                team.delete().unwrap();
             }
             if case == 5 {
-                membership.remove().unwrap();
+                membership.delete().unwrap();
             }
             if case == 6 {
-                organization.remove().unwrap();
+                organization.delete().unwrap();
             }
             let assignee = TeamRoleAssignee::TeamMembership(team_membership.aggregate_id());
             let role = TeamRole::Manager;

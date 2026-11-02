@@ -28,7 +28,7 @@ fn handle_unique_value(
     state: &OrganizationState,
     _aggregate_id: Uuid,
 ) -> Result<Option<UniqueValue>, OrganizationStateError> {
-    if state.status.is_removed() {
+    if state.status.is_deleted() {
         return Ok(None);
     }
 
@@ -131,7 +131,7 @@ mod tests {
     }
 
     #[test]
-    fn removed_state_has_no_handle_unique_entry() {
+    fn deleted_state_has_no_handle_unique_entry() {
         let mut state = OrganizationState {
             owner: OrganizationOwner::User(UserId::new()),
             handle: OrganizationHandle::try_from("acme-labs").expect("handle should be valid"),
@@ -141,7 +141,7 @@ mod tests {
             picture: None,
             status: OrganizationStatus::Active,
         };
-        state.status = OrganizationStatus::Removed;
+        state.status = OrganizationStatus::Deleted;
 
         let entries = state
             .unique_entries(Uuid::now_v7())

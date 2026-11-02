@@ -2,6 +2,7 @@ use std::error::Error as StdError;
 
 use thiserror::Error;
 
+use crate::Retryability;
 use crate::query::QueryDispatcherError;
 use crate::unit_of_work::{UnitOfWorkError, UnitOfWorkFactoryError};
 
@@ -14,7 +15,7 @@ use super::{
 #[derive(Debug, Error)]
 pub enum ReadModelWatchError<HE>
 where
-    HE: StdError + Send + Sync + 'static,
+    HE: Retryability,
 {
     #[error(transparent)]
     QueryDispatcher(#[from] QueryDispatcherError<HE>),
@@ -39,6 +40,13 @@ where
 
     #[error(transparent)]
     GenerationRegistrar(#[from] ReadModelWatchGenerationRegistrarError),
+
+    #[error("watch query failed: {operation_error}; cleanup failed: {cleanup_error}")]
+    OperationAndCleanupFailed {
+        #[source]
+        operation_error: QueryDispatcherError<HE>,
+        cleanup_error: Box<dyn StdError + Send + Sync + 'static>,
+    },
 
     #[error("read model watch subscription backend error: {0}")]
     Backend(#[source] Box<dyn StdError + Send + Sync + 'static>),

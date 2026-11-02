@@ -23,7 +23,7 @@ pub struct CurrencyRegistrarMembershipState {
 
 /// Reserves the registrar/user pair only while this membership is active.
 ///
-/// Removal terminates this aggregate lifecycle and releases the pair so a
+/// Deletion terminates this aggregate lifecycle and releases the pair so a
 /// later membership can use a new aggregate identity.
 fn registrar_user_unique_value(
     state: &CurrencyRegistrarMembershipState,
@@ -85,11 +85,11 @@ mod tests {
     }
 
     #[test]
-    fn removed_membership_releases_the_registrar_user_pair() {
+    fn deleted_membership_releases_the_registrar_user_pair() {
         let state = CurrencyRegistrarMembershipState {
             currency_registrar_id: CurrencyRegistrarId::new(),
             user_id: UserId::new(),
-            status: CurrencyRegistrarMembershipStatus::Removed,
+            status: CurrencyRegistrarMembershipStatus::Deleted,
         };
 
         let entries = state

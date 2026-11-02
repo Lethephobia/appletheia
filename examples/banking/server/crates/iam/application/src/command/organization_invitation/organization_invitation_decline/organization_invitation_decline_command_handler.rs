@@ -70,8 +70,8 @@ where
             .read_shared::<Organization>(uow, organization_invitation.organization_id()?)
             .await?;
 
-        if organization.is_removed()? {
-            return Err(OrganizationInvitationError::OrganizationRemoved.into());
+        if organization.is_deleted()? {
+            return Err(OrganizationInvitationError::OrganizationDeleted.into());
         }
 
         organization_invitation.decline(CurrentDateTime::new())?;

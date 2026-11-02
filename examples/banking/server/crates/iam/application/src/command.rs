@@ -11,6 +11,7 @@ pub mod user;
 
 pub use organization::{
     OrganizationCreateCommand, OrganizationCreateCommandHandler, OrganizationCreateOutput,
+    OrganizationDeleteCommand, OrganizationDeleteCommandHandler, OrganizationDeleteOutput,
     OrganizationDescriptionSetCommand, OrganizationDescriptionSetCommandHandler,
     OrganizationDescriptionSetOutput, OrganizationDisplayNameChangeCommand,
     OrganizationDisplayNameChangeCommandHandler, OrganizationDisplayNameChangeOutput,
@@ -24,7 +25,6 @@ pub use organization::{
     OrganizationPictureUploadPrepareCommandHandler,
     OrganizationPictureUploadPrepareCommandHandlerConfig,
     OrganizationPictureUploadPrepareCommandHandlerError, OrganizationPictureUploadPrepareOutput,
-    OrganizationRemoveCommand, OrganizationRemoveCommandHandler, OrganizationRemoveOutput,
     OrganizationWebsiteUrlSetCommand, OrganizationWebsiteUrlSetCommandHandler,
     OrganizationWebsiteUrlSetOutput,
 };
@@ -51,21 +51,21 @@ pub use organization_join_request::{
 pub use organization_membership::{
     OrganizationMembershipCreateCommand, OrganizationMembershipCreateCommandHandler,
     OrganizationMembershipCreateCommandHandlerError, OrganizationMembershipCreateOutput,
-    OrganizationMembershipRemoveCommand, OrganizationMembershipRemoveCommandHandler,
-    OrganizationMembershipRemoveCommandHandlerError, OrganizationMembershipRemoveOutput,
+    OrganizationMembershipDeleteCommand, OrganizationMembershipDeleteCommandHandler,
+    OrganizationMembershipDeleteCommandHandlerError, OrganizationMembershipDeleteOutput,
 };
 pub use team::{
     TeamCreateCommand, TeamCreateCommandHandler, TeamCreateCommandHandlerError, TeamCreateOutput,
+    TeamDeleteCommand, TeamDeleteCommandHandler, TeamDeleteCommandHandlerError, TeamDeleteOutput,
     TeamDescriptionSetCommand, TeamDescriptionSetCommandHandler,
     TeamDescriptionSetCommandHandlerError, TeamDescriptionSetOutput, TeamNameChangeCommand,
     TeamNameChangeCommandHandler, TeamNameChangeCommandHandlerError, TeamNameChangeOutput,
-    TeamRemoveCommand, TeamRemoveCommandHandler, TeamRemoveCommandHandlerError, TeamRemoveOutput,
 };
 pub use team_membership::{
     TeamMembershipCreateCommand, TeamMembershipCreateCommandHandler,
     TeamMembershipCreateCommandHandlerError, TeamMembershipCreateOutput,
-    TeamMembershipRemoveCommand, TeamMembershipRemoveCommandHandler,
-    TeamMembershipRemoveCommandHandlerError, TeamMembershipRemoveOutput,
+    TeamMembershipDeleteCommand, TeamMembershipDeleteCommandHandler,
+    TeamMembershipDeleteCommandHandlerError, TeamMembershipDeleteOutput,
 };
 pub use user::{
     LogoutAllSessionsCommand, LogoutAllSessionsCommandHandler, LogoutAllSessionsOutput,
@@ -74,14 +74,14 @@ pub use user::{
     OidcCompleteCommandHandler, OidcCompleteOutput, OidcCompleteReplayOutput, UserActivateCommand,
     UserActivateCommandHandler, UserActivateOutput, UserBioSetCommand, UserBioSetCommandHandler,
     UserBioSetOutput, UserDeactivateCommand, UserDeactivateCommandHandler, UserDeactivateOutput,
-    UserDisplayNameSetCommand, UserDisplayNameSetCommandHandler, UserDisplayNameSetOutput,
-    UserPictureObjectDeleteCommand, UserPictureObjectDeleteCommandHandler,
-    UserPictureObjectDeleteCommandHandlerError, UserPictureObjectDeleteOutput,
-    UserPictureSetCommand, UserPictureSetCommandHandler, UserPictureSetOutput,
-    UserPictureUploadPrepareCommand, UserPictureUploadPrepareCommandHandler,
+    UserDeleteCommand, UserDeleteCommandHandler, UserDeleteOutput, UserDisplayNameSetCommand,
+    UserDisplayNameSetCommandHandler, UserDisplayNameSetOutput, UserPictureObjectDeleteCommand,
+    UserPictureObjectDeleteCommandHandler, UserPictureObjectDeleteCommandHandlerError,
+    UserPictureObjectDeleteOutput, UserPictureSetCommand, UserPictureSetCommandHandler,
+    UserPictureSetOutput, UserPictureUploadPrepareCommand, UserPictureUploadPrepareCommandHandler,
     UserPictureUploadPrepareCommandHandlerConfig, UserPictureUploadPrepareCommandHandlerError,
-    UserPictureUploadPrepareOutput, UserRemoveCommand, UserRemoveCommandHandler, UserRemoveOutput,
-    UserUsernameSetCommand, UserUsernameSetCommandHandler, UserUsernameSetOutput,
+    UserPictureUploadPrepareOutput, UserUsernameSetCommand, UserUsernameSetCommandHandler,
+    UserUsernameSetOutput,
 };
 
 pub use team_membership_cleanup::{
@@ -102,13 +102,14 @@ pub use team_membership_cleanup::{
 pub use organization_role_assignment::{
     OrganizationRoleAssignmentAssignCommand, OrganizationRoleAssignmentAssignCommandHandler,
     OrganizationRoleAssignmentAssignCommandHandlerError, OrganizationRoleAssignmentAssignOutput,
-    OrganizationRoleAssignmentRevokeCommand, OrganizationRoleAssignmentRevokeCommandHandler,
-    OrganizationRoleAssignmentRevokeCommandHandlerError, OrganizationRoleAssignmentRevokeOutput,
+    OrganizationRoleAssignmentUnassignCommand, OrganizationRoleAssignmentUnassignCommandHandler,
+    OrganizationRoleAssignmentUnassignCommandHandlerError,
+    OrganizationRoleAssignmentUnassignOutput,
 };
 
 pub use team_role_assignment::{
     TeamRoleAssignmentAssignCommand, TeamRoleAssignmentAssignCommandHandler,
     TeamRoleAssignmentAssignCommandHandlerError, TeamRoleAssignmentAssignOutput,
-    TeamRoleAssignmentRevokeCommand, TeamRoleAssignmentRevokeCommandHandler,
-    TeamRoleAssignmentRevokeCommandHandlerError, TeamRoleAssignmentRevokeOutput,
+    TeamRoleAssignmentUnassignCommand, TeamRoleAssignmentUnassignCommandHandler,
+    TeamRoleAssignmentUnassignCommandHandlerError, TeamRoleAssignmentUnassignOutput,
 };

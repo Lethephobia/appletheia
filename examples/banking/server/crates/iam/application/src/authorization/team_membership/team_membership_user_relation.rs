@@ -1,6 +1,5 @@
-use crate::authorization::{
-    OrganizationMembershipUserRelation, TeamMembershipOrganizationMembershipRelation,
-};
+use crate::authorization::OrganizationMembershipUserRelation;
+use crate::authorization::TeamMembershipOrganizationMembershipRelation;
 use appletheia::application::authorization::{Relation, RelationName, RelationRef, UsersetExpr};
 use appletheia::domain::Aggregate;
 use banking_iam_domain::TeamMembership;

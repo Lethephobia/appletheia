@@ -253,10 +253,10 @@ mod tests {
                 )
                 .unwrap();
             if case == 1 {
-                membership.remove().unwrap();
+                membership.delete().unwrap();
             }
             if case == 3 {
-                organization.remove().unwrap();
+                organization.delete().unwrap();
             }
             let assignee =
                 OrganizationRoleAssignee::OrganizationMembership(membership.aggregate_id());

@@ -2,7 +2,7 @@ use alloy::primitives::{Address, B256, FixedBytes, U256, keccak256};
 use alloy::providers::{DynProvider, Provider};
 use alloy::sol_types::SolValue;
 use appletheia::domain::AggregateId;
-use banking_ledger_application::{
+use banking_ledger_application::settlement::{
     DepositSettlementVerifierError, EthereumDepositSettlementVerification,
     EthereumDepositSettlementVerifier, EthereumDepositSettlementVerifyRequest,
 };

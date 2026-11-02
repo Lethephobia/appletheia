@@ -1,6 +1,6 @@
 use anchor_lang::AccountDeserialize;
 use appletheia::domain::AggregateId;
-use banking_ledger_application::{
+use banking_ledger_application::settlement::{
     DepositSettlementVerifierError, SolanaDepositSettlementVerification,
     SolanaDepositSettlementVerifier, SolanaDepositSettlementVerifyRequest,
 };

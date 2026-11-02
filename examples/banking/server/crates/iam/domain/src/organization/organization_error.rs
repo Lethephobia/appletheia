@@ -18,6 +18,6 @@ pub enum OrganizationError {
     #[error("handle is already taken")]
     HandleAlreadyTaken,
 
-    #[error("organization has been removed")]
-    Removed,
+    #[error("organization has been deleted")]
+    Deleted,
 }

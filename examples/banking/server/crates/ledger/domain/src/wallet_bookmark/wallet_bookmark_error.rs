@@ -12,8 +12,8 @@ pub enum WalletBookmarkError {
     #[error(transparent)]
     State(#[from] WalletBookmarkStateError),
 
-    #[error("wallet bookmark has already been registered")]
-    AlreadyRegistered,
+    #[error("wallet bookmark has already been added")]
+    AlreadyAdded,
 
     #[error("token account owner address is invalid")]
     InvalidTokenAccountOwnerAddress,

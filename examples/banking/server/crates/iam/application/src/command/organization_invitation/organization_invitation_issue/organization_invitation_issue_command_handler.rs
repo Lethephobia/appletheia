@@ -13,7 +13,8 @@ use banking_iam_domain::{
 };
 use banking_shared_kernel_domain::timestamps::CurrentDateTime;
 
-use crate::authorization::{OrganizationAdminRelation, UserOwnerRelation};
+use crate::authorization::OrganizationAdminRelation;
+use crate::authorization::UserOwnerRelation;
 
 use super::{
     OrganizationInvitationIssueCommand, OrganizationInvitationIssueCommandHandlerError,
@@ -104,8 +105,8 @@ where
             .repository
             .read_shared::<Organization>(uow, command.organization_id)
             .await?;
-        if organization.is_removed()? {
-            return Err(OrganizationInvitationError::OrganizationRemoved.into());
+        if organization.is_deleted()? {
+            return Err(OrganizationInvitationError::OrganizationDeleted.into());
         }
 
         let membership_unique_value = Self::organization_user_unique_value(command)?;

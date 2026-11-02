@@ -1,0 +1,22 @@
+use appletheia::application::Retryability;
+use appletheia::application::repository::RepositoryError;
+use banking_iam_domain::{OrganizationMembership, OrganizationMembershipError};
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+pub enum OrganizationMembershipDeleteCommandHandlerError {
+    #[error("organization membership repository failed")]
+    OrganizationMembershipRepository(#[from] RepositoryError<OrganizationMembership>),
+
+    #[error("organization membership aggregate failed")]
+    OrganizationMembership(#[from] OrganizationMembershipError),
+}
+
+impl Retryability for OrganizationMembershipDeleteCommandHandlerError {
+    fn is_retryable(&self) -> bool {
+        match self {
+            Self::OrganizationMembershipRepository(error) => error.is_retryable(),
+            Self::OrganizationMembership(_) => false,
+        }
+    }
+}

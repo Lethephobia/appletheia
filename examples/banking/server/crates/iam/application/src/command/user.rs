@@ -5,11 +5,11 @@ pub mod oidc_complete;
 pub mod user_activate;
 pub mod user_bio_set;
 pub mod user_deactivate;
+pub mod user_delete;
 pub mod user_display_name_set;
 pub mod user_picture_object_delete;
 pub mod user_picture_set;
 pub mod user_picture_upload_prepare;
-pub mod user_remove;
 pub mod user_username_set;
 
 pub use logout::{LogoutCommand, LogoutCommandHandler, LogoutOutput};
@@ -27,6 +27,7 @@ pub use user_bio_set::{UserBioSetCommand, UserBioSetCommandHandler, UserBioSetOu
 pub use user_deactivate::{
     UserDeactivateCommand, UserDeactivateCommandHandler, UserDeactivateOutput,
 };
+pub use user_delete::{UserDeleteCommand, UserDeleteCommandHandler, UserDeleteOutput};
 pub use user_display_name_set::{
     UserDisplayNameSetCommand, UserDisplayNameSetCommandHandler, UserDisplayNameSetOutput,
 };
@@ -42,7 +43,6 @@ pub use user_picture_upload_prepare::{
     UserPictureUploadPrepareCommandHandlerConfig, UserPictureUploadPrepareCommandHandlerError,
     UserPictureUploadPrepareOutput,
 };
-pub use user_remove::{UserRemoveCommand, UserRemoveCommandHandler, UserRemoveOutput};
 pub use user_username_set::{
     UserUsernameSetCommand, UserUsernameSetCommandHandler, UserUsernameSetOutput,
 };

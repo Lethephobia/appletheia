@@ -11,7 +11,7 @@ pub enum OrganizationMembershipEventPayload {
         organization_id: OrganizationId,
         user_id: UserId,
     },
-    Removed {
+    Deleted {
         organization_id: OrganizationId,
         user_id: UserId,
     },
@@ -31,8 +31,8 @@ mod tests {
             appletheia::domain::EventName::new("created")
         );
         assert_eq!(
-            OrganizationMembershipEventPayload::REMOVED,
-            appletheia::domain::EventName::new("removed")
+            OrganizationMembershipEventPayload::DELETED,
+            appletheia::domain::EventName::new("deleted")
         );
     }
 
@@ -47,13 +47,13 @@ mod tests {
     }
 
     #[test]
-    fn removed_payload_name_matches_variant() {
-        let payload = OrganizationMembershipEventPayload::Removed {
+    fn deleted_payload_name_matches_variant() {
+        let payload = OrganizationMembershipEventPayload::Deleted {
             organization_id: OrganizationId::new(),
             user_id: UserId::new(),
         };
 
-        assert_eq!(payload.name(), OrganizationMembershipEventPayload::REMOVED);
+        assert_eq!(payload.name(), OrganizationMembershipEventPayload::DELETED);
     }
 
     #[test]

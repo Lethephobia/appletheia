@@ -1,0 +1,9 @@
+mod wallet_bookmark_add_command;
+mod wallet_bookmark_add_command_handler;
+mod wallet_bookmark_add_command_handler_error;
+mod wallet_bookmark_add_output;
+
+pub use wallet_bookmark_add_command::WalletBookmarkAddCommand;
+pub use wallet_bookmark_add_command_handler::WalletBookmarkAddCommandHandler;
+pub use wallet_bookmark_add_command_handler_error::WalletBookmarkAddCommandHandlerError;
+pub use wallet_bookmark_add_output::WalletBookmarkAddOutput;

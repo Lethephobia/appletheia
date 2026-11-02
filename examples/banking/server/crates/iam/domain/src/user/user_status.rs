@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 pub enum UserStatus {
     Active,
     Inactive,
-    Removed,
+    Deleted,
 }
 
 impl UserStatus {
@@ -20,9 +20,9 @@ impl UserStatus {
         matches!(self, Self::Inactive)
     }
 
-    /// Returns whether the user is removed.
-    pub fn is_removed(&self) -> bool {
-        matches!(self, Self::Removed)
+    /// Returns whether the user is deleted.
+    pub fn is_deleted(&self) -> bool {
+        matches!(self, Self::Deleted)
     }
 }
 
@@ -34,20 +34,20 @@ mod tests {
     fn active_status_is_active() {
         assert!(UserStatus::Active.is_active());
         assert!(!UserStatus::Active.is_inactive());
-        assert!(!UserStatus::Active.is_removed());
+        assert!(!UserStatus::Active.is_deleted());
     }
 
     #[test]
     fn inactive_status_is_inactive() {
         assert!(!UserStatus::Inactive.is_active());
         assert!(UserStatus::Inactive.is_inactive());
-        assert!(!UserStatus::Inactive.is_removed());
+        assert!(!UserStatus::Inactive.is_deleted());
     }
 
     #[test]
-    fn removed_status_is_removed() {
-        assert!(!UserStatus::Removed.is_active());
-        assert!(!UserStatus::Removed.is_inactive());
-        assert!(UserStatus::Removed.is_removed());
+    fn deleted_status_is_deleted() {
+        assert!(!UserStatus::Deleted.is_active());
+        assert!(!UserStatus::Deleted.is_inactive());
+        assert!(UserStatus::Deleted.is_deleted());
     }
 }

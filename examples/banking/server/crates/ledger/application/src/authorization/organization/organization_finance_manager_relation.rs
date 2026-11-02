@@ -6,9 +6,8 @@ use appletheia::application::authorization::{
 };
 use appletheia::domain::Aggregate;
 use banking_iam_application::authorization::OrganizationAdminRelation;
-use banking_iam_application::authorization::{
-    OrganizationMembershipUserRelation, TeamMemberRelation,
-};
+use banking_iam_application::authorization::OrganizationMembershipUserRelation;
+use banking_iam_application::authorization::TeamMemberRelation;
 use banking_iam_domain::{Organization, OrganizationMembership, Team};
 use banking_ledger_domain::{
     OrganizationLedgerRole, OrganizationLedgerRoleAssignee, OrganizationLedgerRoleAssignment,

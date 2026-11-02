@@ -20,12 +20,14 @@ pub use user::*;
 
 #[cfg(test)]
 mod tests {
-    use super::{
+    use crate::authorization::{
         OrganizationMembershipUserRelation, OrganizationRoleAssignmentManagerRelation,
-        OrganizationRoleAssignmentOrganizationRelation, TeamRoleAssignmentManagerRelation,
-        TeamRoleAssignmentTeamRelation,
+        OrganizationRoleAssignmentOrganizationRelation,
     };
-    use super::{TeamMembershipOrganizationMembershipRelation, TeamMembershipUserRelation};
+    use crate::authorization::{
+        TeamMembershipOrganizationMembershipRelation, TeamMembershipUserRelation,
+    };
+    use crate::authorization::{TeamRoleAssignmentManagerRelation, TeamRoleAssignmentTeamRelation};
     use appletheia::application::aggregate::{AggregateRef, SerializedAggregateError};
     use appletheia::application::authorization::{
         InMemoryAuthorizationModel, Relation, RelationshipDerivationError, RelationshipDeriver,
@@ -41,7 +43,7 @@ mod tests {
     };
     use banking_iam_domain::{TeamRole, TeamRoleAssignee, TeamRoleAssignment};
 
-    use super::{
+    use crate::authorization::{
         OrganizationMemberRelation, OrganizationMembershipOrganizationRelation,
         OrganizationOwnerRelation,
     };
@@ -131,7 +133,7 @@ mod tests {
     }
 
     #[test]
-    fn one_registration_derives_membership_and_removal() {
+    fn one_registration_derives_membership_and_deletion() {
         let mut model = InMemoryAuthorizationModel::new();
         model.define_relation(OrganizationMemberRelation);
         model.define_relation(OrganizationMembershipOrganizationRelation);
@@ -152,11 +154,11 @@ mod tests {
                 == AggregateRef::from_id::<Organization>(aggregate.organization_id().unwrap())
             && entry.subject
                 == RelationshipSubject::aggregate::<User>(aggregate.user_id().unwrap())));
-        aggregate.remove().unwrap();
-        let removed = snapshot.derive(&aggregate).unwrap();
-        assert_eq!(removed.len(), 1);
+        aggregate.delete().unwrap();
+        let deleted = snapshot.derive(&aggregate).unwrap();
+        assert_eq!(deleted.len(), 1);
         assert_eq!(
-            removed[0].relation,
+            deleted[0].relation,
             OrganizationMembershipOrganizationRelation::REF.into()
         );
     }
@@ -196,7 +198,7 @@ mod tests {
 
     #[tokio::test]
     async fn reregistering_a_relation_replaces_sources_and_authorization_expression() {
-        use super::OrganizationMemberDerivationHandlerError;
+        use crate::authorization::OrganizationMemberDerivationHandlerError;
         use appletheia::application::authorization::{AuthorizationModel, RelationRef};
         use std::sync::{
             Arc,
@@ -233,7 +235,7 @@ mod tests {
         assert_eq!(model.derive(&aggregate).unwrap().len(), 1);
         assert_eq!(calls.load(Ordering::SeqCst), 1);
 
-        // Moving the source to another aggregate removes the previous source's handler.
+        // Moving the source to another aggregate deletes the previous source's handler.
         model.define_relation(ReplacementMemberRelation(UsersetExpr::this::<
             Organization,
             _,
@@ -300,7 +302,7 @@ mod tests {
 
     #[test]
     fn ownership_transfer_derives_only_the_current_owner() {
-        use super::OrganizationOwnerRelation;
+        use crate::authorization::OrganizationOwnerRelation;
         use banking_iam_domain::{OrganizationDisplayName, OrganizationHandle, OrganizationOwner};
 
         let previous_owner = UserId::new();
@@ -445,7 +447,7 @@ mod tests {
 
     #[tokio::test]
     async fn admin_permissions_follow_membership_lifecycle_and_allow_admin_management() {
-        use super::{
+        use crate::authorization::{
             OrganizationAdminRelation, OrganizationMembershipManagerRelation,
             OrganizationOwnerRelation,
         };
@@ -501,7 +503,7 @@ mod tests {
         // Rebuild persisted relationships for each current aggregate state.
         for phase in 0..4 {
             if phase == 1 {
-                admin_assignment.revoke().unwrap();
+                admin_assignment.unassign().unwrap();
             } else if phase == 2 {
                 admin_assignment = OrganizationRoleAssignment::new();
                 admin_assignment
@@ -511,7 +513,7 @@ mod tests {
                         OrganizationRole::Admin,
                     )
                     .unwrap();
-                admin.remove().unwrap();
+                admin.delete().unwrap();
             } else if phase == 3 {
                 admin = OrganizationMembership::new();
                 admin.create(organization.aggregate_id(), admin_id).unwrap();
@@ -594,10 +596,10 @@ mod tests {
 
     #[tokio::test]
     async fn team_permissions_follow_exact_membership_lifecycle() {
-        use super::{
-            OrganizationAdminRelation, OrganizationMembershipUserRelation, TeamManagerRelation,
-            TeamMemberRelation, TeamMembershipManagerRelation, TeamMembershipTeamRelation,
-            TeamOrganizationAdminRelation, TeamOrganizationRelation,
+        use crate::authorization::{OrganizationAdminRelation, OrganizationMembershipUserRelation};
+        use crate::authorization::{
+            TeamManagerRelation, TeamMemberRelation, TeamMembershipManagerRelation,
+            TeamMembershipTeamRelation, TeamOrganizationAdminRelation, TeamOrganizationRelation,
         };
         use banking_iam_domain::{
             OrganizationDisplayName, OrganizationHandle, OrganizationOwner, Team, TeamMembership,
@@ -676,7 +678,7 @@ mod tests {
 
         for phase in 0..7 {
             if phase == 1 {
-                manager_assignment.revoke().unwrap();
+                manager_assignment.unassign().unwrap();
             } else if phase == 2 {
                 manager_assignment = TeamRoleAssignment::new();
                 manager_assignment
@@ -686,9 +688,9 @@ mod tests {
                         TeamRole::Manager,
                     )
                     .unwrap();
-                manager.remove().unwrap();
+                manager.delete().unwrap();
             } else if phase == 3 {
-                member_membership.remove().unwrap();
+                member_membership.delete().unwrap();
             } else if phase == 4 {
                 manager = OrganizationMembership::new();
                 manager
@@ -706,9 +708,9 @@ mod tests {
                         TeamRole::Manager,
                     )
                     .unwrap();
-                manager_membership.remove().unwrap();
+                manager_membership.delete().unwrap();
             } else if phase == 6 {
-                team.remove().unwrap();
+                team.delete().unwrap();
             }
             let mut relationships = model.derive(&organization).unwrap();
             relationships.extend(model.derive(&admin).unwrap());

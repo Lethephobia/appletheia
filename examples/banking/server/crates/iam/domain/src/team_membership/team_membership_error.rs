@@ -14,6 +14,6 @@ pub enum TeamMembershipError {
     #[error("team membership is already created")]
     AlreadyCreated,
 
-    #[error("team membership has been removed")]
-    Removed,
+    #[error("team membership has been deleted")]
+    Deleted,
 }

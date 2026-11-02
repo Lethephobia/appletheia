@@ -20,7 +20,7 @@ use appletheia::domain::{Aggregate, AggregateApply, AggregateCore};
 use crate::{OrganizationMembershipId, TeamId};
 
 /// Binds Team membership to one OrganizationMembership joining lifecycle.
-/// Removal is terminal; rejoining creates a new TeamMembership.
+/// Deletion is terminal; rejoining creates a new TeamMembership.
 #[aggregate(type = "team_membership", error = TeamMembershipError)]
 pub struct TeamMembership {
     core: AggregateCore<TeamMembershipId, TeamMembershipState, TeamMembershipEventPayload>,
@@ -45,8 +45,8 @@ impl TeamMembership {
         Ok(self.state_required()?.status.is_active())
     }
 
-    pub fn is_removed(&self) -> Result<bool, TeamMembershipError> {
-        Ok(self.state_required()?.status.is_removed())
+    pub fn is_deleted(&self) -> Result<bool, TeamMembershipError> {
+        Ok(self.state_required()?.status.is_deleted())
     }
 
     pub fn create(
@@ -65,15 +65,15 @@ impl TeamMembership {
         Ok(())
     }
 
-    pub fn remove(&mut self) -> Result<(), TeamMembershipError> {
-        if self.state_required()?.status.is_removed() {
-            return Err(TeamMembershipError::Removed);
+    pub fn delete(&mut self) -> Result<(), TeamMembershipError> {
+        if self.state_required()?.status.is_deleted() {
+            return Err(TeamMembershipError::Deleted);
         }
 
         let state = self.state_required()?;
         let team_id = state.team_id;
         let organization_membership_id = state.organization_membership_id;
-        self.append_event(TeamMembershipEventPayload::Removed {
+        self.append_event(TeamMembershipEventPayload::Deleted {
             team_id,
             organization_membership_id,
         })?;
@@ -94,8 +94,8 @@ impl AggregateApply<TeamMembershipEventPayload, TeamMembershipError> for TeamMem
                     status: TeamMembershipStatus::Active,
                 }));
             }
-            TeamMembershipEventPayload::Removed { .. } => {
-                self.state_required_mut()?.status = TeamMembershipStatus::Removed;
+            TeamMembershipEventPayload::Deleted { .. } => {
+                self.state_required_mut()?.status = TeamMembershipStatus::Deleted;
             }
         }
 
@@ -164,27 +164,27 @@ mod tests {
     fn removing_membership_updates_status_and_records_event() {
         let mut membership = created_membership();
 
-        membership.remove().expect("remove should succeed");
+        membership.delete().expect("delete should succeed");
 
         assert_eq!(
             membership.status().expect("status should exist"),
-            TeamMembershipStatus::Removed
+            TeamMembershipStatus::Deleted
         );
         assert_eq!(membership.uncommitted_events().len(), 2);
         assert_eq!(
             membership.uncommitted_events()[1].payload().name(),
-            TeamMembershipEventPayload::REMOVED
+            TeamMembershipEventPayload::DELETED
         );
     }
 
     #[test]
     fn removing_twice_is_rejected() {
         let mut membership = created_membership();
-        membership.remove().expect("remove should succeed");
+        membership.delete().expect("delete should succeed");
 
-        let error = membership.remove().expect_err("second remove should fail");
+        let error = membership.delete().expect_err("second delete should fail");
 
-        assert!(matches!(error, TeamMembershipError::Removed));
+        assert!(matches!(error, TeamMembershipError::Deleted));
         assert_eq!(membership.uncommitted_events().len(), 2);
     }
 
@@ -240,7 +240,7 @@ mod tests {
             membership.unique_entries().unwrap()
         );
 
-        membership.remove().unwrap();
+        membership.delete().unwrap();
         assert!(membership.unique_entries().unwrap().is_empty());
         assert_eq!(membership.reference_entries().unwrap(), references);
         let mut replayed = TeamMembership::new();

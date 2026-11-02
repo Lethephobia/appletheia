@@ -78,7 +78,7 @@ where
         &self,
         issuer_url: &OidcIssuerUrl,
     ) -> Result<OidcProviderMetadata, OidcProviderMetadataSourceError> {
-        let discovery_url = issuer_url.discovery_url();
+        let discovery_url = issuer_url.try_to_discovery_url()?;
         let cache_url = HttpResourceCacheUrl::new(discovery_url.value().clone());
 
         let cached = self

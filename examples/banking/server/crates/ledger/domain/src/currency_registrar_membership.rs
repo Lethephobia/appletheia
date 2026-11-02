@@ -72,17 +72,17 @@ impl CurrencyRegistrarMembership {
         Ok(())
     }
 
-    /// Removes the membership and terminates this aggregate lifecycle.
-    pub fn remove(&mut self) -> Result<(), CurrencyRegistrarMembershipError> {
+    /// Deletes the membership and terminates this aggregate lifecycle.
+    pub fn delete(&mut self) -> Result<(), CurrencyRegistrarMembershipError> {
         if !self.state_required()?.status.is_active() {
-            return Err(CurrencyRegistrarMembershipError::Removed);
+            return Err(CurrencyRegistrarMembershipError::Deleted);
         }
 
         let (currency_registrar_id, user_id) = {
             let state = self.state_required()?;
             (state.currency_registrar_id, state.user_id)
         };
-        self.append_event(CurrencyRegistrarMembershipEventPayload::Removed {
+        self.append_event(CurrencyRegistrarMembershipEventPayload::Deleted {
             currency_registrar_id,
             user_id,
         })?;
@@ -108,8 +108,8 @@ impl AggregateApply<CurrencyRegistrarMembershipEventPayload, CurrencyRegistrarMe
                     status: CurrencyRegistrarMembershipStatus::Active,
                 }));
             }
-            CurrencyRegistrarMembershipEventPayload::Removed { .. } => {
-                self.state_required_mut()?.status = CurrencyRegistrarMembershipStatus::Removed;
+            CurrencyRegistrarMembershipEventPayload::Deleted { .. } => {
+                self.state_required_mut()?.status = CurrencyRegistrarMembershipStatus::Deleted;
             }
         }
 
@@ -129,32 +129,34 @@ mod tests {
     use crate::currency_registrar::CurrencyRegistrarId;
 
     #[test]
-    fn removal_terminates_one_membership_and_releases_the_pair() {
+    fn deletion_terminates_one_membership_and_releases_the_pair() {
         let currency_registrar_id = CurrencyRegistrarId::new();
         let user_id = UserId::new();
-        let mut removed_membership = CurrencyRegistrarMembership::new();
-        let removed_membership_id = removed_membership.aggregate_id();
-        removed_membership
+        let mut deleted_membership = CurrencyRegistrarMembership::new();
+        let deleted_membership_id = deleted_membership.aggregate_id();
+        deleted_membership
             .create(currency_registrar_id, user_id)
             .expect("initial membership should be created");
-        removed_membership.remove().expect("removal should succeed");
+        deleted_membership
+            .delete()
+            .expect("deletion should succeed");
         assert!(
-            !removed_membership
+            !deleted_membership
                 .is_active()
-                .expect("removed membership state should exist")
+                .expect("deleted membership state should exist")
         );
         assert_eq!(
-            removed_membership
+            deleted_membership
                 .status()
-                .expect("removed membership state should exist"),
-            CurrencyRegistrarMembershipStatus::Removed
+                .expect("deleted membership state should exist"),
+            CurrencyRegistrarMembershipStatus::Deleted
         );
         assert_eq!(
-            removed_membership
+            deleted_membership
                 .state()
-                .expect("removed membership state should exist")
-                .unique_entries(removed_membership_id.value())
-                .expect("removed unique entries should build")
+                .expect("deleted membership state should exist")
+                .unique_entries(deleted_membership_id.value())
+                .expect("deleted unique entries should build")
                 .get(CurrencyRegistrarMembershipState::REGISTRAR_USER_KEY),
             None
         );
@@ -164,7 +166,7 @@ mod tests {
         new_membership
             .create(currency_registrar_id, user_id)
             .expect("a new membership should be created");
-        assert_ne!(new_membership_id, removed_membership_id);
+        assert_ne!(new_membership_id, deleted_membership_id);
         assert_eq!(
             new_membership
                 .state()
@@ -178,21 +180,21 @@ mod tests {
     }
 
     #[test]
-    fn repeated_removal_returns_error_without_appending_event() {
+    fn repeated_deletion_returns_error_without_appending_event() {
         let currency_registrar_id = CurrencyRegistrarId::new();
         let user_id = UserId::new();
         let mut membership = CurrencyRegistrarMembership::new();
         membership
             .create(currency_registrar_id, user_id)
             .expect("membership should be created");
-        membership.remove().expect("first removal should succeed");
+        membership.delete().expect("first deletion should succeed");
         let event_count = membership.uncommitted_events().len();
 
         assert!(matches!(
             membership
-                .remove()
-                .expect_err("repeated removal should fail"),
-            CurrencyRegistrarMembershipError::Removed
+                .delete()
+                .expect_err("repeated deletion should fail"),
+            CurrencyRegistrarMembershipError::Deleted
         ));
         assert_eq!(membership.uncommitted_events().len(), event_count);
     }

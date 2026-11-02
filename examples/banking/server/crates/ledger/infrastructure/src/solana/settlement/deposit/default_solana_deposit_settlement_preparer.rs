@@ -1,6 +1,6 @@
 use anchor_lang::{InstructionData, ToAccountMetas};
 use appletheia::domain::AggregateId;
-use banking_ledger_application::{
+use banking_ledger_application::settlement::{
     DepositSettlementPreparerError, SolanaDepositSettlementPreparation,
     SolanaDepositSettlementPrepareRequest, SolanaDepositSettlementPreparer,
     SolanaPreparedDepositTransaction,
@@ -10,16 +10,12 @@ use banking_settlement::{
     BankingSettlementConfig, DepositSettlementReceipt, PoolAuthority, accounts, instruction,
 };
 use solana_client::nonblocking::rpc_client::RpcClient;
-use solana_sdk::{
-    hash::Hash,
-    instruction::Instruction,
-    message::{
-        VersionedMessage,
-        v1::{Message, TransactionConfig},
-    },
-    pubkey::Pubkey,
-    signature::{NullSigner, Signer},
+use solana_message::{
+    VersionedMessage,
+    v1::{Message, TransactionConfig},
 };
+use solana_sdk::{hash::Hash, instruction::Instruction, pubkey::Pubkey};
+use solana_signer::{Signer, null_signer::NullSigner};
 use solana_system_interface::program as system_program;
 use solana_transaction::versioned::VersionedTransaction;
 use spl_associated_token_account_interface::address as associated_token_address;
@@ -165,7 +161,8 @@ impl SolanaDepositSettlementPreparer for DefaultSolanaDepositSettlementPreparer 
 mod tests {
     use std::sync::Arc;
 
-    use solana_sdk::{instruction::AccountMeta, signature::Keypair};
+    use solana_keypair::Keypair;
+    use solana_sdk::instruction::AccountMeta;
 
     use super::*;
 

@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 #[serde(tag = "type", content = "data", rename_all = "snake_case")]
 pub enum TeamStatus {
     Active,
-    Removed,
+    Deleted,
 }
 
 impl TeamStatus {
@@ -14,9 +14,9 @@ impl TeamStatus {
         matches!(self, Self::Active)
     }
 
-    /// Returns whether the team is removed.
-    pub fn is_removed(&self) -> bool {
-        matches!(self, Self::Removed)
+    /// Returns whether the team is deleted.
+    pub fn is_deleted(&self) -> bool {
+        matches!(self, Self::Deleted)
     }
 }
 
@@ -27,12 +27,12 @@ mod tests {
     #[test]
     fn active_status_is_active() {
         assert!(TeamStatus::Active.is_active());
-        assert!(!TeamStatus::Active.is_removed());
+        assert!(!TeamStatus::Active.is_deleted());
     }
 
     #[test]
-    fn removed_status_is_removed() {
-        assert!(!TeamStatus::Removed.is_active());
-        assert!(TeamStatus::Removed.is_removed());
+    fn deleted_status_is_deleted() {
+        assert!(!TeamStatus::Deleted.is_active());
+        assert!(TeamStatus::Deleted.is_deleted());
     }
 }

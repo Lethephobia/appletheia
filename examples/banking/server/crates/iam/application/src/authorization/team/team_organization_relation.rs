@@ -5,7 +5,7 @@ use appletheia::application::authorization::{
 use appletheia::domain::Aggregate;
 use banking_iam_domain::{Organization, Team};
 
-/// Links active teams to their organization so removal revokes inherited team access.
+/// Links active teams to their organization so deletion revokes inherited team access.
 pub struct TeamOrganizationRelation;
 
 impl Relation for TeamOrganizationRelation {

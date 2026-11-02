@@ -43,7 +43,8 @@ impl Retryability for OidcLoginFlowError {
                 OidcLoginAttemptStoreError::Backend(_) => true,
             },
             Self::ProviderMetadataSource(error) => match error {
-                OidcProviderMetadataSourceError::IssuerMismatch { .. } => false,
+                OidcProviderMetadataSourceError::IssuerMismatch { .. }
+                | OidcProviderMetadataSourceError::IssuerUrl(_) => false,
                 OidcProviderMetadataSourceError::Backend(_) => true,
             },
             Self::IdTokenVerifier(error) => match error {

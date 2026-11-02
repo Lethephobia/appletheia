@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "snake_case")]
 pub enum TokenBindingStatus {
     Active,
-    Removed,
+    Unbound,
 }
 
 impl TokenBindingStatus {
@@ -12,7 +12,7 @@ impl TokenBindingStatus {
         matches!(self, Self::Active)
     }
 
-    pub const fn is_removed(self) -> bool {
-        matches!(self, Self::Removed)
+    pub const fn is_unbound(self) -> bool {
+        matches!(self, Self::Unbound)
     }
 }

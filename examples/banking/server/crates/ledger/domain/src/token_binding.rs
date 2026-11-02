@@ -55,7 +55,7 @@ impl TokenBinding {
         Ok(self.state_required()?.status.is_active())
     }
 
-    pub fn define(
+    pub fn bind(
         &mut self,
         currency_id: CurrencyId,
         chain_network: ChainNetwork,
@@ -64,13 +64,13 @@ impl TokenBinding {
         withdrawal_enabled: bool,
     ) -> Result<(), TokenBindingError> {
         if self.state().is_some() {
-            return Err(TokenBindingError::AlreadyDefined);
+            return Err(TokenBindingError::AlreadyBound);
         }
         if !token_address.matches_network(chain_network) {
             return Err(TokenBindingError::ChainMismatch);
         }
 
-        self.append_event(TokenBindingEventPayload::Defined {
+        self.append_event(TokenBindingEventPayload::Bound {
             currency_id,
             chain_network,
             token_address,
@@ -82,8 +82,8 @@ impl TokenBinding {
 
     pub fn change_deposit_enabled(&mut self, enabled: bool) -> Result<(), TokenBindingError> {
         let state = self.state_required()?;
-        if state.status.is_removed() {
-            return Err(TokenBindingError::Removed);
+        if state.status.is_unbound() {
+            return Err(TokenBindingError::Unbound);
         }
         if state.deposit_enabled == enabled {
             return Err(if enabled {
@@ -99,8 +99,8 @@ impl TokenBinding {
 
     pub fn change_withdrawal_enabled(&mut self, enabled: bool) -> Result<(), TokenBindingError> {
         let state = self.state_required()?;
-        if state.status.is_removed() {
-            return Err(TokenBindingError::Removed);
+        if state.status.is_unbound() {
+            return Err(TokenBindingError::Unbound);
         }
         if state.withdrawal_enabled == enabled {
             return Err(if enabled {
@@ -114,12 +114,12 @@ impl TokenBinding {
         Ok(())
     }
 
-    pub fn remove(&mut self) -> Result<(), TokenBindingError> {
-        if self.state_required()?.status.is_removed() {
-            return Err(TokenBindingError::Removed);
+    pub fn unbind(&mut self) -> Result<(), TokenBindingError> {
+        if self.state_required()?.status.is_unbound() {
+            return Err(TokenBindingError::Unbound);
         }
 
-        self.append_event(TokenBindingEventPayload::Removed)?;
+        self.append_event(TokenBindingEventPayload::Unbound)?;
         Ok(())
     }
 }
@@ -127,7 +127,7 @@ impl TokenBinding {
 impl AggregateApply<TokenBindingEventPayload, TokenBindingError> for TokenBinding {
     fn apply(&mut self, payload: &TokenBindingEventPayload) -> Result<(), TokenBindingError> {
         match payload {
-            TokenBindingEventPayload::Defined {
+            TokenBindingEventPayload::Bound {
                 currency_id,
                 chain_network,
                 token_address,
@@ -147,8 +147,8 @@ impl AggregateApply<TokenBindingEventPayload, TokenBindingError> for TokenBindin
             TokenBindingEventPayload::WithdrawalEnabledChanged { enabled } => {
                 self.state_required_mut()?.withdrawal_enabled = *enabled;
             }
-            TokenBindingEventPayload::Removed => {
-                self.state_required_mut()?.status = TokenBindingStatus::Removed;
+            TokenBindingEventPayload::Unbound => {
+                self.state_required_mut()?.status = TokenBindingStatus::Unbound;
             }
         }
         Ok(())
@@ -174,19 +174,19 @@ mod tests {
     }
 
     #[test]
-    fn defines_one_binding_as_an_independent_aggregate() {
+    fn binds_one_binding_as_an_independent_aggregate() {
         let mut token_binding = TokenBinding::new();
         let currency_id = CurrencyId::new();
 
         token_binding
-            .define(
+            .bind(
                 currency_id,
                 ChainNetwork::Ethereum,
                 token_address(),
                 true,
                 false,
             )
-            .expect("token binding definition should succeed");
+            .expect("token binding binding should succeed");
 
         assert_eq!(
             token_binding.currency_id().expect("state should exist"),
@@ -209,29 +209,29 @@ mod tests {
     }
 
     #[test]
-    fn definition_rejects_already_defined_binding_without_recording_an_event() {
+    fn binding_rejects_already_bound_binding_without_recording_an_event() {
         let mut token_binding = TokenBinding::new();
         token_binding
-            .define(
+            .bind(
                 CurrencyId::new(),
                 ChainNetwork::Ethereum,
                 token_address(),
                 true,
                 false,
             )
-            .expect("binding should be defined");
+            .expect("binding should be bound");
 
         let error = token_binding
-            .define(
+            .bind(
                 CurrencyId::new(),
                 ChainNetwork::Ethereum,
                 token_address(),
                 true,
                 false,
             )
-            .expect_err("duplicate definition should fail");
+            .expect_err("duplicate binding should fail");
 
-        assert!(matches!(error, TokenBindingError::AlreadyDefined));
+        assert!(matches!(error, TokenBindingError::AlreadyBound));
         assert_eq!(token_binding.uncommitted_events().len(), 1);
     }
 
@@ -239,14 +239,14 @@ mod tests {
     fn changes_deposit_and_withdrawal_enablement_independently() {
         let mut token_binding = TokenBinding::new();
         token_binding
-            .define(
+            .bind(
                 CurrencyId::new(),
                 ChainNetwork::Ethereum,
                 token_address(),
                 true,
                 false,
             )
-            .expect("token binding definition should succeed");
+            .expect("token binding binding should succeed");
 
         token_binding
             .change_deposit_enabled(false)
@@ -270,14 +270,14 @@ mod tests {
     fn unchanged_enablement_returns_errors() {
         let mut token_binding = TokenBinding::new();
         token_binding
-            .define(
+            .bind(
                 CurrencyId::new(),
                 ChainNetwork::Ethereum,
                 token_address(),
                 true,
                 false,
             )
-            .expect("token binding definition should succeed");
+            .expect("token binding binding should succeed");
 
         token_binding
             .change_deposit_enabled(true)
@@ -288,46 +288,46 @@ mod tests {
     }
 
     #[test]
-    fn enablement_changes_after_removal_return_errors() {
+    fn enablement_changes_after_unbinding_return_errors() {
         let mut token_binding = TokenBinding::new();
         token_binding
-            .define(
+            .bind(
                 CurrencyId::new(),
                 ChainNetwork::Ethereum,
                 token_address(),
                 true,
                 false,
             )
-            .expect("token binding definition should succeed");
-        token_binding.remove().expect("removal should succeed");
+            .expect("token binding binding should succeed");
+        token_binding.unbind().expect("unbinding should succeed");
 
         token_binding
             .change_deposit_enabled(false)
-            .expect_err("removed binding should reject deposit enablement change");
+            .expect_err("unbound binding should reject deposit enablement change");
         token_binding
             .change_withdrawal_enabled(true)
-            .expect_err("removed binding should reject withdrawal enablement change");
+            .expect_err("unbound binding should reject withdrawal enablement change");
     }
 
     #[test]
-    fn repeated_removal_returns_error_without_appending_event() {
+    fn repeated_unbinding_returns_error_without_appending_event() {
         let mut token_binding = TokenBinding::new();
         token_binding
-            .define(
+            .bind(
                 CurrencyId::new(),
                 ChainNetwork::Ethereum,
                 token_address(),
                 true,
                 false,
             )
-            .expect("token binding definition should succeed");
+            .expect("token binding binding should succeed");
         token_binding
-            .remove()
-            .expect("first removal should succeed");
+            .unbind()
+            .expect("first unbinding should succeed");
 
         token_binding
-            .remove()
-            .expect_err("repeated removal should fail");
+            .unbind()
+            .expect_err("repeated unbinding should fail");
         assert_eq!(token_binding.uncommitted_events().len(), 2);
     }
 }

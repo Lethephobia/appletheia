@@ -49,8 +49,8 @@ pub use currency_registrar::{
 pub use currency_registrar_membership::{
     CurrencyRegistrarMembershipCreateCommand, CurrencyRegistrarMembershipCreateCommandHandler,
     CurrencyRegistrarMembershipCreateCommandHandlerError, CurrencyRegistrarMembershipCreateOutput,
-    CurrencyRegistrarMembershipRemoveCommand, CurrencyRegistrarMembershipRemoveCommandHandler,
-    CurrencyRegistrarMembershipRemoveCommandHandlerError, CurrencyRegistrarMembershipRemoveOutput,
+    CurrencyRegistrarMembershipDeleteCommand, CurrencyRegistrarMembershipDeleteCommandHandler,
+    CurrencyRegistrarMembershipDeleteCommandHandlerError, CurrencyRegistrarMembershipDeleteOutput,
 };
 pub use deposit::{
     DepositFailCommand, DepositFailCommandHandler, DepositFailCommandHandlerError,
@@ -76,12 +76,12 @@ pub use owned_account_closure::{
     OwnedAccountClosureStartCommandHandlerError, OwnedAccountClosureStartOutput,
 };
 pub use token_binding::{
-    TokenBindingDefineCommand, TokenBindingDefineCommandHandler,
-    TokenBindingDefineCommandHandlerError, TokenBindingDefineOutput,
-    TokenBindingDepositEnabledChangeCommand, TokenBindingDepositEnabledChangeCommandHandler,
+    TokenBindingBindCommand, TokenBindingBindCommandHandler, TokenBindingBindCommandHandlerError,
+    TokenBindingBindOutput, TokenBindingDepositEnabledChangeCommand,
+    TokenBindingDepositEnabledChangeCommandHandler,
     TokenBindingDepositEnabledChangeCommandHandlerError, TokenBindingDepositEnabledChangeOutput,
-    TokenBindingRemoveCommand, TokenBindingRemoveCommandHandler,
-    TokenBindingRemoveCommandHandlerError, TokenBindingRemoveOutput,
+    TokenBindingUnbindCommand, TokenBindingUnbindCommandHandler,
+    TokenBindingUnbindCommandHandlerError, TokenBindingUnbindOutput,
     TokenBindingWithdrawalEnabledChangeCommand, TokenBindingWithdrawalEnabledChangeCommandHandler,
     TokenBindingWithdrawalEnabledChangeCommandHandlerError,
     TokenBindingWithdrawalEnabledChangeOutput,
@@ -93,12 +93,12 @@ pub use transfer::{
     TransferSucceedCommand, TransferSucceedCommandHandler, TransferSucceedOutput,
 };
 pub use wallet_bookmark::{
+    WalletBookmarkAddCommand, WalletBookmarkAddCommandHandler,
+    WalletBookmarkAddCommandHandlerError, WalletBookmarkAddOutput,
     WalletBookmarkDescriptionSetCommand, WalletBookmarkDescriptionSetCommandHandler,
     WalletBookmarkDescriptionSetCommandHandlerError, WalletBookmarkDescriptionSetOutput,
     WalletBookmarkDisplayNameSetCommand, WalletBookmarkDisplayNameSetCommandHandler,
     WalletBookmarkDisplayNameSetCommandHandlerError, WalletBookmarkDisplayNameSetOutput,
-    WalletBookmarkRegisterCommand, WalletBookmarkRegisterCommandHandler,
-    WalletBookmarkRegisterCommandHandlerError, WalletBookmarkRegisterOutput,
     WalletBookmarkRemoveCommand, WalletBookmarkRemoveCommandHandler,
     WalletBookmarkRemoveCommandHandlerError, WalletBookmarkRemoveOutput,
 };
@@ -115,8 +115,8 @@ pub use organization_ledger_role_assignment::{
     OrganizationLedgerRoleAssignmentAssignCommand,
     OrganizationLedgerRoleAssignmentAssignCommandHandler,
     OrganizationLedgerRoleAssignmentAssignCommandHandlerError,
-    OrganizationLedgerRoleAssignmentAssignOutput, OrganizationLedgerRoleAssignmentRevokeCommand,
-    OrganizationLedgerRoleAssignmentRevokeCommandHandler,
-    OrganizationLedgerRoleAssignmentRevokeCommandHandlerError,
-    OrganizationLedgerRoleAssignmentRevokeOutput,
+    OrganizationLedgerRoleAssignmentAssignOutput, OrganizationLedgerRoleAssignmentUnassignCommand,
+    OrganizationLedgerRoleAssignmentUnassignCommandHandler,
+    OrganizationLedgerRoleAssignmentUnassignCommandHandlerError,
+    OrganizationLedgerRoleAssignmentUnassignOutput,
 };

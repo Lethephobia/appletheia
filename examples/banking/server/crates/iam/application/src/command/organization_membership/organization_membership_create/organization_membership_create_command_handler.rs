@@ -75,16 +75,16 @@ where
             .repository
             .read_shared::<Organization>(uow, command.organization_id)
             .await?;
-        if organization.is_removed()? {
-            return Err(OrganizationMembershipError::OrganizationRemoved.into());
+        if organization.is_deleted()? {
+            return Err(OrganizationMembershipError::OrganizationDeleted.into());
         }
 
         let user = self
             .repository
             .read_shared::<User>(uow, command.user_id)
             .await?;
-        if user.is_removed()? {
-            return Err(OrganizationMembershipError::UserRemoved.into());
+        if user.is_deleted()? {
+            return Err(OrganizationMembershipError::UserDeleted.into());
         }
         if !user.is_active()? {
             return Err(OrganizationMembershipError::UserInactive.into());
