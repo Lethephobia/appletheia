@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use super::{
     ReadModel, ReadModelDocument, ReadModelDocumentError, ReadModelIncluded, ReadModelRef,
-    ReadModelResourceDocument, ReadModelResourceDocumentData, ReadModelView,
+    ReadModelResourceDocument, ReadModelView,
 };
 
 pub struct ReadModelSingleDocument<R, I>
@@ -42,9 +42,6 @@ where
             .iter()
             .map(ReadModelIncluded::try_to_resource)
             .collect::<Result<Vec<_>, _>>()?;
-        Ok(ReadModelResourceDocument {
-            data: ReadModelResourceDocumentData::Single(data),
-            included,
-        })
+        Ok(ReadModelResourceDocument::Single { data, included })
     }
 }

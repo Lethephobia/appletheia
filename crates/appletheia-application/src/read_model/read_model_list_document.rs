@@ -1,8 +1,8 @@
 use std::collections::HashSet;
 
 use super::{
-    ReadModel, ReadModelDocument, ReadModelDocumentError, ReadModelIncluded, ReadModelRef,
-    ReadModelResourceDocument, ReadModelResourceDocumentData, ReadModelView,
+    ReadModel, ReadModelDocument, ReadModelDocumentError, ReadModelIncluded,
+    ReadModelListDocumentMeta, ReadModelRef, ReadModelResourceDocument, ReadModelView,
 };
 
 pub struct ReadModelListDocument<R, I>
@@ -12,6 +12,7 @@ where
 {
     pub data: Vec<ReadModelView<R>>,
     pub included: Vec<I>,
+    pub meta: Option<ReadModelListDocumentMeta>,
 }
 
 impl<R, I> ReadModelDocument for ReadModelListDocument<R, I>
@@ -42,9 +43,10 @@ where
             .iter()
             .map(ReadModelIncluded::try_to_resource)
             .collect::<Result<Vec<_>, _>>()?;
-        Ok(ReadModelResourceDocument {
-            data: ReadModelResourceDocumentData::List(data),
+        Ok(ReadModelResourceDocument::List {
+            data,
             included,
+            meta: self.meta.clone(),
         })
     }
 }

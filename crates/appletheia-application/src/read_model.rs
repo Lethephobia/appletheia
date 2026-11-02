@@ -10,6 +10,7 @@ mod read_model_change_id;
 mod read_model_change_id_error;
 mod read_model_change_selector;
 mod read_model_changed_at;
+mod read_model_cursor;
 mod read_model_document;
 mod read_model_document_error;
 mod read_model_field_filter;
@@ -17,6 +18,8 @@ mod read_model_id;
 mod read_model_included;
 mod read_model_included_error;
 mod read_model_list_document;
+mod read_model_list_document_meta;
+mod read_model_pagination;
 mod read_model_ref;
 mod read_model_relationship;
 mod read_model_relationship_data;
@@ -26,7 +29,6 @@ mod read_model_relationship_key_error;
 mod read_model_resource;
 mod read_model_resource_attribute_value;
 mod read_model_resource_document;
-mod read_model_resource_document_data;
 mod read_model_resource_key;
 mod read_model_resource_key_error;
 mod read_model_resource_relationship;
@@ -47,6 +49,7 @@ pub use read_model_change_id::*;
 pub use read_model_change_id_error::*;
 pub use read_model_change_selector::*;
 pub use read_model_changed_at::*;
+pub use read_model_cursor::*;
 pub use read_model_document::*;
 pub use read_model_document_error::*;
 pub use read_model_field_filter::*;
@@ -54,6 +57,8 @@ pub use read_model_id::*;
 pub use read_model_included::*;
 pub use read_model_included_error::*;
 pub use read_model_list_document::*;
+pub use read_model_list_document_meta::*;
+pub use read_model_pagination::*;
 pub use read_model_ref::*;
 pub use read_model_relationship::*;
 pub use read_model_relationship_data::*;
@@ -63,7 +68,6 @@ pub use read_model_relationship_key_error::*;
 pub use read_model_resource::*;
 pub use read_model_resource_attribute_value::*;
 pub use read_model_resource_document::*;
-pub use read_model_resource_document_data::*;
 pub use read_model_resource_key::*;
 pub use read_model_resource_key_error::*;
 pub use read_model_resource_relationship::*;
@@ -539,6 +543,7 @@ mod tests {
             included: vec![ProfileIncluded::Profile(view())],
         };
         let list = ReadModelListDocument {
+            meta: None,
             data: vec![view(), view()],
             included: vec![ProfileIncluded::Profile(view())],
         };
@@ -564,6 +569,7 @@ mod tests {
             included: vec![],
         };
         let list: ReadModelListDocument<Profile, ProfileIncluded> = ReadModelListDocument {
+            meta: None,
             data: vec![],
             included: vec![],
         };
@@ -582,6 +588,14 @@ mod tests {
     #[test]
     fn list_document_preserves_order_and_per_item_filters() {
         let document: ReadModelListDocument<Profile, ProfileIncluded> = ReadModelListDocument {
+            meta: Some(ReadModelListDocumentMeta {
+                pagination: Some(ReadModelPagination {
+                    start_cursor: Some(ReadModelCursor::from("before-alice")),
+                    end_cursor: Some(ReadModelCursor::from("after-bob")),
+                    has_before: true,
+                    has_after: false,
+                }),
+            }),
             data: vec![
                 ReadModelView {
                     read_model: Profile {
@@ -625,6 +639,51 @@ mod tests {
         assert_eq!(output["data"][1]["id"], Uuid::from_u128(42).to_string());
         assert_eq!(output["data"][1]["attributes"], json!({"picture": null}));
         assert!(output.get("included").is_none());
+        assert_eq!(
+            output["meta"],
+            json!({
+                "pagination": {
+                    "start_cursor": "before-alice",
+                    "end_cursor": "after-bob",
+                    "has_before": true,
+                    "has_after": false
+                }
+            })
+        );
+    }
+
+    #[test]
+    fn pagination_preserves_absent_boundaries_and_optional_metadata() {
+        let document: ReadModelListDocument<Profile, ProfileIncluded> = ReadModelListDocument {
+            data: vec![],
+            included: vec![],
+            meta: Some(ReadModelListDocumentMeta {
+                pagination: Some(ReadModelPagination {
+                    start_cursor: None,
+                    end_cursor: None,
+                    has_before: false,
+                    has_after: false,
+                }),
+            }),
+        };
+        assert_eq!(
+            serde_json::to_value(document.try_to_resource_document().unwrap()).unwrap(),
+            json!({
+                "data": [],
+                "meta": {
+                    "pagination": {
+                        "start_cursor": null,
+                        "end_cursor": null,
+                        "has_before": false,
+                        "has_after": false
+                    }
+                }
+            })
+        );
+        assert_eq!(
+            serde_json::to_value(ReadModelListDocumentMeta { pagination: None }).unwrap(),
+            json!({})
+        );
     }
 
     #[test]
