@@ -7,6 +7,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.0](https://github.com/Lethephobia/appletheia/compare/appletheia-application-v0.33.0...appletheia-application-v0.34.0) - 2026-11-03
+
+### Added
+
+- *(application)* [**breaking**] allow requesting read model watch refreshes
+- *(application)* [**breaking**] allow updating read model watch queries
+- *(application)* add typed read model cursor encoding
+- *(application)* [**breaking**] add list pagination metadata and document variants
+- *(application)* [**breaking**] add bounded watch retries and outbox backoff
+- *(appletheia-application)* add read model watch notification worker
+- *(appletheia-application)* implement default read model watcher
+- *(appletheia-application)* [**breaking**] implement read model watch lifecycle
+- *(read-model)* add watch generation registrar factory
+- *(read-model)* [**breaking**] implement watch endpoint notification routing
+- *(application)* add read model watch notification contracts
+- *(application)* [**breaking**] implement read model watch receiver with explicit signals
+- *(application)* [**breaking**] implement watch generation registrar with caller-owned transactions
+- *(application)* [**breaking**] add read model watch generation contracts
+- *(application)* add read model watch endpoint and receiver contracts
+- *(application)* add read model watch registry contract and lease types
+- *(read-model)* [**breaking**] define watcher and watch contracts
+- *(read-model)* add watch registry with in-memory target indexing
+- *(read-model)* [**breaking**] deliver projection changes through outbox
+
+### Fixed
+
+- *(application)* [**breaking**] remove non-test expect calls and simplify birthdate construction
+- *(read-model)* [**breaking**] close watches on non-retryable query errors
+- *(appletheia-application)* [**breaking**] interrupt worker waits on graceful stop
+
+### Other
+
+- *(application)* [**breaking**] use typed cursors for read model windows
+- *(application)* [**breaking**] replace query pagination with read model windows
+- *(application)* [**breaking**] consume read models during resource conversion
+- *(query)* [**breaking**] require retryability for query handler errors
+- *(read-model)* [**breaking**] remove per-watch leases
+- *(outbox)* [**breaking**] replace relay instances with generated relay IDs
+- *(application)* [**breaking**] split watch registries and add paginated lookup
+- *(application)* [**breaking**] allow read model watches to borrow dependencies
+- *(read-model)* [**breaking**] remove preliminary watch registry
+- *(read-model)* [**breaking**] unify document contracts for query outputs
+- *(projection)* [**breaking**] rename projector rebuilder to projection catch-up
+- *(appletheia-application)* [**breaking**] align name value object validation
+- *(projection)* [**breaking**] replace route builders with async projectors
+- *(read-model)* [**breaking**] separate field filters into resource views
+
 ## [0.33.0](https://github.com/Lethephobia/appletheia/compare/appletheia-application-v0.32.0...appletheia-application-v0.33.0) - 2026-10-11
 
 ### Added
