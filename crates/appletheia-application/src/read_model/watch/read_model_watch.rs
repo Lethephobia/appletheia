@@ -25,6 +25,10 @@ pub trait ReadModelWatch: Send {
         query: Self::Query,
     ) -> Result<(), ReadModelWatchError<Self::HandlerError>>;
 
+    /// Requests a refresh on the next call to next without changing the query.
+    /// Repeated requests coalesce. Closing or closed watches reject requests.
+    fn request_refresh(&mut self) -> Result<(), ReadModelWatchError<Self::HandlerError>>;
+
     /// Stops the subscription and removes its registration. Repeated calls are allowed.
     async fn close(&mut self) -> Result<(), ReadModelWatchError<Self::HandlerError>>;
 }

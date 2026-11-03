@@ -206,13 +206,18 @@ where
         &mut self,
         query: Self::Query,
     ) -> Result<(), ReadModelWatchError<Self::HandlerError>> {
+        self.request_refresh()?;
+        self.query = query;
+        Ok(())
+    }
+
+    fn request_refresh(&mut self) -> Result<(), ReadModelWatchError<Self::HandlerError>> {
         if matches!(
             self.status,
             DefaultReadModelWatchStatus::Closing | DefaultReadModelWatchStatus::Closed
         ) {
             return Err(ReadModelWatchError::Closed);
         }
-        self.query = query;
         self.status = DefaultReadModelWatchStatus::RefreshRequired;
         Ok(())
     }
@@ -700,6 +705,60 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn refresh_requests_coalesce_and_fetch_new_targets_without_notification() {
+        let setup = Setup::new(vec![
+            Response::Document(vec![target("one")]),
+            Response::Document(vec![target("one")]),
+            Response::Document(vec![target("one"), target("two")]),
+            Response::Document(vec![target("one"), target("two")]),
+        ]);
+        let mut watch = setup.watch();
+        let id = watch.watch_id();
+        watch.request_refresh().unwrap();
+        assert!(setup.backend.0.lock().unwrap().operations.is_empty());
+        watch.next().await.unwrap();
+        assert!(
+            timeout(Duration::from_millis(10), watch.next())
+                .await
+                .is_err()
+        );
+        let operations = setup.backend.0.lock().unwrap().operations.clone();
+        watch.request_refresh().unwrap();
+        watch.request_refresh().unwrap();
+        assert_eq!(setup.backend.0.lock().unwrap().operations, operations);
+        assert_eq!(watch.watch_id(), id);
+        let ReadModelWatchResult::Document(document) =
+            timeout(Duration::from_secs(1), watch.next())
+                .await
+                .unwrap()
+                .unwrap()
+        else {
+            panic!("expected document");
+        };
+        assert_eq!(document.0, vec![target("one"), target("two")]);
+        assert_eq!(
+            *setup.handler.1.lock().unwrap(),
+            ["old", "old", "old", "old"]
+        );
+        assert!(
+            setup
+                .backend
+                .0
+                .lock()
+                .unwrap()
+                .targets
+                .values()
+                .any(|targets| targets.contains(&target("two")))
+        );
+        // Both requests were consumed by one refresh; next waits for another notification.
+        assert!(
+            timeout(Duration::from_millis(10), watch.next())
+                .await
+                .is_err()
+        );
+    }
+
+    #[tokio::test]
     async fn repeated_updates_before_next_execute_only_the_latest_query() {
         let setup = Setup::new(vec![
             Response::Fail,
@@ -738,7 +797,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn closing_and_closed_watches_reject_query_updates() {
+    async fn closing_and_closed_watches_reject_updates_and_refresh_requests() {
         let setup = Setup::new(vec![]);
         let mut watch = setup.watch();
         setup.backend.0.lock().unwrap().fail_remove = true;
@@ -747,8 +806,16 @@ mod tests {
             watch.update_query(TestQuery("new")),
             Err(ReadModelWatchError::Closed)
         ));
+        assert!(matches!(
+            watch.request_refresh(),
+            Err(ReadModelWatchError::Closed)
+        ));
         setup.backend.0.lock().unwrap().fail_remove = false;
         watch.close().await.unwrap();
+        assert!(matches!(
+            watch.request_refresh(),
+            Err(ReadModelWatchError::Closed)
+        ));
         assert!(matches!(
             watch.update_query(TestQuery("new")),
             Err(ReadModelWatchError::Closed)
