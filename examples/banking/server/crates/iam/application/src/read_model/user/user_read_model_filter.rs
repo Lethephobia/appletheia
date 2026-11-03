@@ -5,6 +5,7 @@ use super::{UserReadModelAttributeKey, UserReadModelRelationshipKey};
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum UserReadModelFilter {
     Public,
+    Private,
 }
 
 impl ReadModelFieldFilter for UserReadModelFilter {
@@ -13,7 +14,7 @@ impl ReadModelFieldFilter for UserReadModelFilter {
 
     fn attribute_keys(&self) -> &[Self::AttributeKey] {
         match self {
-            Self::Public => &[
+            Self::Public | Self::Private => &[
                 UserReadModelAttributeKey::Username,
                 UserReadModelAttributeKey::DisplayName,
                 UserReadModelAttributeKey::Bio,
@@ -24,6 +25,7 @@ impl ReadModelFieldFilter for UserReadModelFilter {
     fn relationship_keys(&self) -> &[Self::RelationshipKey] {
         match self {
             Self::Public => &[],
+            Self::Private => &[UserReadModelRelationshipKey::Identities],
         }
     }
 }

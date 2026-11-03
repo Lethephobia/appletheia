@@ -10,7 +10,7 @@ banking-iam-application = { workspace = true }
 banking-iam-domain = { workspace = true }
 banking-ledger-domain = { workspace = true }
 banking-shared-kernel-domain = { workspace = true }
-base64 = "0.23.1"
+base64 = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 thiserror = { workspace = true }
 uuid = { workspace = true, features = ["v7"] }

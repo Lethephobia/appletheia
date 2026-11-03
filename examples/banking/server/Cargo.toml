@@ -20,6 +20,7 @@ banking-iam-infrastructure = { path = "crates/iam/infrastructure" }
 banking-ledger-domain = { path = "crates/ledger/domain" }
 banking-ledger-application = { path = "crates/ledger/application" }
 banking-ledger-infrastructure = { path = "crates/ledger/infrastructure" }
+base64 = "0.23.1"
 chrono = { version = "0.4.45" }
 serde = "1.0.229"
 serde_json = "1.0.151"

@@ -1,6 +1,8 @@
 use appletheia::application::read_model::{ReadModel, ReadModelType};
 use banking_iam_domain::{UserBio, UserDisplayName, UserId, Username};
 
+use crate::read_model::UserIdentityReadModelId;
+
 use super::{
     UserReadModelAttributeKey, UserReadModelAttributeValue, UserReadModelFilter,
     UserReadModelRelationship, UserReadModelRelationshipKey,
@@ -12,6 +14,7 @@ pub struct UserReadModel {
     pub username: Option<Username>,
     pub display_name: Option<UserDisplayName>,
     pub bio: Option<UserBio>,
+    pub identities: Vec<UserIdentityReadModelId>,
 }
 
 impl ReadModel for UserReadModel {
@@ -41,7 +44,11 @@ impl ReadModel for UserReadModel {
     }
 
     fn relationship(&self, key: Self::RelationshipKey) -> Self::Relationship {
-        match key {}
+        match key {
+            UserReadModelRelationshipKey::Identities => {
+                UserReadModelRelationship::Identities(self.identities.clone())
+            }
+        }
     }
 }
 
@@ -54,6 +61,89 @@ mod tests {
     use super::{UserReadModel, UserReadModelFilter};
 
     #[test]
+    fn identities_are_private_and_link_to_the_identity_resource() {
+        use crate::read_model::{
+            UserIdentityReadModel, UserIdentityReadModelFilter, UserIdentityReadModelId,
+        };
+        use banking_iam_domain::{UserIdentityProvider, UserIdentitySubject};
+
+        let provider = UserIdentityProvider::try_from("example").unwrap();
+        let subject = UserIdentitySubject::try_from("alice").unwrap();
+        let identity_id = UserIdentityReadModelId::new(&provider, &subject).unwrap();
+        let user = UserReadModel {
+            id: UserId::new(),
+            username: None,
+            display_name: None,
+            bio: None,
+            identities: vec![identity_id.clone()],
+        };
+        let public = ReadModelView {
+            read_model: user.clone(),
+            filter: UserReadModelFilter::Public,
+        }
+        .try_into_resource()
+        .unwrap();
+        let private = ReadModelView {
+            read_model: user,
+            filter: UserReadModelFilter::Private,
+        }
+        .try_into_resource()
+        .unwrap();
+        let identity = ReadModelView {
+            read_model: UserIdentityReadModel {
+                id: identity_id.clone(),
+                provider,
+                subject,
+                email: None,
+            },
+            filter: UserIdentityReadModelFilter::Private,
+        }
+        .try_into_resource()
+        .unwrap();
+
+        let public_json = serde_json::to_value(public).unwrap();
+        let private_json = serde_json::to_value(private).unwrap();
+        let identity_json = serde_json::to_value(identity).unwrap();
+        assert!(public_json.get("relationships").is_none());
+        assert_eq!(private_json["attributes"], public_json["attributes"]);
+        assert_eq!(
+            private_json["relationships"],
+            json!({
+                "identities": {"data": [{"type": "user_identity", "id": identity_id.to_string()}]}
+            })
+        );
+        assert_eq!(
+            identity_json,
+            json!({
+                "type": "user_identity",
+                "id": identity_id.to_string(),
+                "attributes": {"provider": "example", "subject": "alice", "email": null}
+            })
+        );
+    }
+
+    #[test]
+    fn private_resource_with_no_identities_has_empty_to_many_linkage() {
+        let resource = ReadModelView {
+            read_model: UserReadModel {
+                id: UserId::new(),
+                username: None,
+                display_name: None,
+                bio: None,
+                identities: vec![],
+            },
+            filter: UserReadModelFilter::Private,
+        }
+        .try_into_resource()
+        .unwrap();
+
+        assert_eq!(
+            serde_json::to_value(resource).unwrap()["relationships"],
+            json!({"identities": {"data": []}})
+        );
+    }
+
+    #[test]
     fn public_resource_contains_untagged_profile_attributes() {
         let id = UserId::new();
         let view = ReadModelView {
@@ -62,6 +152,7 @@ mod tests {
                 username: Some(Username::new("alice".to_owned()).unwrap()),
                 display_name: Some(UserDisplayName::new("Alice".to_owned()).unwrap()),
                 bio: Some(UserBio::new("Hello".to_owned()).unwrap()),
+                identities: vec![],
             },
             filter: UserReadModelFilter::Public,
         };
@@ -91,6 +182,7 @@ mod tests {
                 username: None,
                 display_name: None,
                 bio: None,
+                identities: vec![],
             },
             filter: UserReadModelFilter::Public,
         };
