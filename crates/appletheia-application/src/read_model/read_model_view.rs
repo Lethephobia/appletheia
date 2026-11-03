@@ -26,31 +26,31 @@ where
         }
     }
 
-    pub fn try_to_resource(&self) -> Result<ReadModelResource, ReadModelViewError> {
+    pub fn try_into_resource(self) -> Result<ReadModelResource, ReadModelViewError> {
         let filter = &self.filter;
         let mut attributes = BTreeMap::new();
         for key in filter.attribute_keys() {
-            let resource_key = key.try_to_resource_key()?;
+            let resource_key = key.try_into_resource_key()?;
             if attributes.contains_key(&resource_key) {
                 return Err(ReadModelViewError::DuplicateField(resource_key));
             }
             let value = self
                 .read_model
                 .attribute(*key)
-                .try_to_resource_attribute_value()?;
+                .try_into_resource_attribute_value()?;
             attributes.insert(resource_key, value);
         }
 
         let mut relationships = BTreeMap::new();
         for key in filter.relationship_keys() {
-            let resource_key = key.try_to_resource_key()?;
+            let resource_key = key.try_into_resource_key()?;
             if attributes.contains_key(&resource_key) || relationships.contains_key(&resource_key) {
                 return Err(ReadModelViewError::DuplicateField(resource_key));
             }
             let relationship = self
                 .read_model
                 .relationship(*key)
-                .try_to_resource_relationship()?;
+                .try_into_resource_relationship()?;
             relationships.insert(resource_key, relationship);
         }
 

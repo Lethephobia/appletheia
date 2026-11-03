@@ -17,6 +17,9 @@ pub enum ReadModelWatchError<HE>
 where
     HE: Retryability,
 {
+    #[error("read model watch is closing or closed")]
+    Closed,
+
     #[error(transparent)]
     QueryDispatcher(#[from] QueryDispatcherError<HE>),
 

@@ -1,4 +1,7 @@
 pub mod watch;
+pub mod window;
+
+pub use window::*;
 
 mod read_model_attribute_key;
 mod read_model_attribute_key_error;
@@ -17,6 +20,8 @@ mod read_model_id;
 mod read_model_included;
 mod read_model_included_error;
 mod read_model_list_document;
+mod read_model_list_document_meta;
+mod read_model_list_document_meta_error;
 mod read_model_ref;
 mod read_model_relationship;
 mod read_model_relationship_data;
@@ -26,9 +31,9 @@ mod read_model_relationship_key_error;
 mod read_model_resource;
 mod read_model_resource_attribute_value;
 mod read_model_resource_document;
-mod read_model_resource_document_data;
 mod read_model_resource_key;
 mod read_model_resource_key_error;
+mod read_model_resource_list_document_meta;
 mod read_model_resource_relationship;
 mod read_model_single_document;
 mod read_model_type;
@@ -54,6 +59,8 @@ pub use read_model_id::*;
 pub use read_model_included::*;
 pub use read_model_included_error::*;
 pub use read_model_list_document::*;
+pub use read_model_list_document_meta::*;
+pub use read_model_list_document_meta_error::*;
 pub use read_model_ref::*;
 pub use read_model_relationship::*;
 pub use read_model_relationship_data::*;
@@ -63,9 +70,9 @@ pub use read_model_relationship_key_error::*;
 pub use read_model_resource::*;
 pub use read_model_resource_attribute_value::*;
 pub use read_model_resource_document::*;
-pub use read_model_resource_document_data::*;
 pub use read_model_resource_key::*;
 pub use read_model_resource_key_error::*;
+pub use read_model_resource_list_document_meta::*;
 pub use read_model_resource_relationship::*;
 pub use read_model_single_document::*;
 pub use read_model_type::*;
@@ -102,11 +109,32 @@ pub trait ReadModel: Send + Sync {
 
 #[cfg(test)]
 mod tests {
-    use serde::Serialize;
+    use std::collections::BTreeMap;
+
+    use serde::de::DeserializeOwned;
+    use serde::{Deserialize, Serialize};
     use serde_json::json;
     use uuid::Uuid;
 
     use super::*;
+
+    #[derive(Serialize, Deserialize)]
+    #[serde(transparent)]
+    struct TestCursor<T>(T);
+
+    impl<T> ReadModelWindowCursor for TestCursor<T>
+    where
+        T: Serialize + DeserializeOwned + Send + Sync,
+    {
+        type SortKey = ();
+
+        fn sort(&self) -> ReadModelWindowSort<Self::SortKey> {
+            ReadModelWindowSort {
+                key: (),
+                direction: ReadModelWindowSortDirection::Asc,
+            }
+        }
+    }
 
     #[derive(Clone, Copy, PartialEq, Eq)]
     enum ProfileAttributeKey {
@@ -117,7 +145,7 @@ mod tests {
     }
 
     impl ReadModelAttributeKey for ProfileAttributeKey {
-        fn try_to_resource_key(&self) -> Result<ReadModelResourceKey, ReadModelAttributeKeyError> {
+        fn try_into_resource_key(self) -> Result<ReadModelResourceKey, ReadModelAttributeKeyError> {
             Ok(ReadModelResourceKey::new(
                 match self {
                     Self::DisplayName | Self::DisplayNameAlias => "display_name",
@@ -135,8 +163,8 @@ mod tests {
     }
 
     impl ReadModelAttributeValue for ProfileAttributeValue {
-        fn try_to_resource_attribute_value(
-            &self,
+        fn try_into_resource_attribute_value(
+            self,
         ) -> Result<ReadModelResourceAttributeValue, ReadModelAttributeValueError> {
             Ok(match self {
                 Self::DisplayName(value) => serde_json::to_value(value)?.into(),
@@ -153,8 +181,8 @@ mod tests {
     }
 
     impl ReadModelRelationshipKey for ProfileRelationshipKey {
-        fn try_to_resource_key(
-            &self,
+        fn try_into_resource_key(
+            self,
         ) -> Result<ReadModelResourceKey, ReadModelRelationshipKeyError> {
             Ok(ReadModelResourceKey::new(
                 match self {
@@ -173,8 +201,8 @@ mod tests {
     }
 
     impl ReadModelRelationship for ProfileRelationship {
-        fn try_to_resource_relationship(
-            &self,
+        fn try_into_resource_relationship(
+            self,
         ) -> Result<ReadModelResourceRelationship, ReadModelRelationshipError> {
             Ok(ReadModelResourceRelationship {
                 data: match self {
@@ -182,9 +210,7 @@ mod tests {
                         ReadModelRelationshipData::ToOne(id.map(ReadModelRef::new::<Profile>))
                     }
                     Self::Authors(ids) => ReadModelRelationshipData::ToMany(
-                        ids.iter()
-                            .map(|id| ReadModelRef::new::<Profile>(*id))
-                            .collect(),
+                        ids.into_iter().map(ReadModelRef::new::<Profile>).collect(),
                     ),
                 },
             })
@@ -277,7 +303,27 @@ mod tests {
             },
             filter: ProfileFilter::Public,
         };
-        let resource = profile.try_to_resource().unwrap();
+        assert_eq!(
+            profile
+                .read_model
+                .attribute(ProfileAttributeKey::Picture)
+                .try_into_resource_attribute_value()
+                .unwrap()
+                .value(),
+            &json!(null)
+        );
+        assert_eq!(
+            serde_json::to_value(
+                profile
+                    .read_model
+                    .relationship(ProfileRelationshipKey::Authors)
+                    .try_into_resource_relationship()
+                    .unwrap()
+            )
+            .unwrap(),
+            json!({"data": [{"type": "profiles", "id": Uuid::from_u128(43).to_string()}]})
+        );
+        let resource = profile.try_into_resource().unwrap();
         assert_eq!(
             serde_json::to_value(resource).unwrap(),
             json!({
@@ -289,26 +335,6 @@ mod tests {
                 }
             })
         );
-        assert_eq!(
-            profile
-                .read_model
-                .attribute(ProfileAttributeKey::Picture)
-                .try_to_resource_attribute_value()
-                .unwrap()
-                .value(),
-            &json!(null)
-        );
-        assert_eq!(
-            serde_json::to_value(
-                profile
-                    .read_model
-                    .relationship(ProfileRelationshipKey::Authors)
-                    .try_to_resource_relationship()
-                    .unwrap()
-            )
-            .unwrap(),
-            json!({"data": [{"type": "profiles", "id": Uuid::from_u128(43).to_string()}]})
-        );
     }
 
     #[test]
@@ -316,7 +342,7 @@ mod tests {
         assert_eq!(
             serde_json::to_value(
                 ProfileRelationship::Owner(None)
-                    .try_to_resource_relationship()
+                    .try_into_resource_relationship()
                     .unwrap()
             )
             .unwrap(),
@@ -325,7 +351,7 @@ mod tests {
         assert_eq!(
             serde_json::to_value(
                 ProfileRelationship::Authors(vec![])
-                    .try_to_resource_relationship()
+                    .try_into_resource_relationship()
                     .unwrap()
             )
             .unwrap(),
@@ -371,7 +397,7 @@ mod tests {
 
     #[test]
     fn resource_omits_unselected_fields_but_preserves_selected_null() {
-        let mut profile = ReadModelView {
+        let profile = |filter| ReadModelView {
             read_model: Profile {
                 id: Uuid::nil(),
                 display_name: "Alice".to_owned(),
@@ -379,29 +405,29 @@ mod tests {
                 owner_id: None,
                 author_ids: vec![],
             },
-            filter: ProfileFilter::Public,
+            filter,
         };
-        profile.filter = ProfileFilter::Selected {
+        let selected = ProfileFilter::Selected {
             attributes: vec![],
             relationships: vec![],
         };
         assert_eq!(
-            serde_json::to_value(profile.try_to_resource().unwrap()).unwrap(),
+            serde_json::to_value(profile(selected).try_into_resource().unwrap()).unwrap(),
             json!({"type": "profiles", "id": Uuid::nil().to_string()})
         );
-        profile.filter = ProfileFilter::Selected {
+        let with_picture = ProfileFilter::Selected {
             attributes: vec![ProfileAttributeKey::Picture],
             relationships: vec![],
         };
         assert_eq!(
-            serde_json::to_value(profile.try_to_resource().unwrap()).unwrap(),
+            serde_json::to_value(profile(with_picture).try_into_resource().unwrap()).unwrap(),
             json!({"type": "profiles", "id": Uuid::nil().to_string(), "attributes": {"picture": null}})
         );
     }
 
     #[test]
     fn resource_rejects_duplicate_output_names_and_propagates_invalid_keys() {
-        let mut profile = ReadModelView {
+        let profile = |filter| ReadModelView {
             read_model: Profile {
                 id: Uuid::nil(),
                 display_name: "Alice".to_owned(),
@@ -409,7 +435,7 @@ mod tests {
                 owner_id: None,
                 author_ids: vec![],
             },
-            filter: ProfileFilter::Public,
+            filter,
         };
         for filter in [
             ProfileFilter::Selected {
@@ -428,18 +454,17 @@ mod tests {
                 relationships: vec![ProfileRelationshipKey::Owner, ProfileRelationshipKey::Owner],
             },
         ] {
-            profile.filter = filter;
             assert!(matches!(
-                profile.try_to_resource(),
+                profile(filter).try_into_resource(),
                 Err(ReadModelViewError::DuplicateField(_))
             ));
         }
-        profile.filter = ProfileFilter::Selected {
+        let selected = ProfileFilter::Selected {
             attributes: vec![ProfileAttributeKey::Reserved],
             relationships: vec![],
         };
         assert!(matches!(
-            profile.try_to_resource(),
+            profile(selected).try_into_resource(),
             Err(ReadModelViewError::AttributeKey(
                 ReadModelAttributeKeyError::ResourceKey(ReadModelResourceKeyError::ReservedName(_))
             ))
@@ -457,9 +482,9 @@ mod tests {
             }
         }
 
-        fn try_to_resource(&self) -> Result<ReadModelResource, ReadModelIncludedError> {
+        fn try_into_resource(self) -> Result<ReadModelResource, ReadModelIncludedError> {
             match self {
-                Self::Profile(profile) => Ok(profile.try_to_resource()?),
+                Self::Profile(profile) => Ok(profile.try_into_resource()?),
             }
         }
     }
@@ -498,11 +523,7 @@ mod tests {
                 ReadModelRef::new::<Profile>(Uuid::from_u128(42)),
             ]
         );
-        let resource_document = document.try_to_resource_document().unwrap();
-        assert_eq!(
-            document.data.as_ref().unwrap().read_model.display_name,
-            "Alice"
-        );
+        let resource_document = document.try_into_resource_document().unwrap();
         assert_eq!(
             serde_json::to_value(resource_document).unwrap(),
             json!({
@@ -538,10 +559,12 @@ mod tests {
             data: Some(view()),
             included: vec![ProfileIncluded::Profile(view())],
         };
-        let list = ReadModelListDocument {
-            data: vec![view(), view()],
-            included: vec![ProfileIncluded::Profile(view())],
-        };
+        let list: ReadModelListDocument<Profile, ProfileIncluded, TestCursor<String>> =
+            ReadModelListDocument {
+                meta: None,
+                data: vec![view(), view()],
+                included: vec![ProfileIncluded::Profile(view())],
+            };
         for document in [
             &single as &dyn ReadModelDocument,
             &list as &dyn ReadModelDocument,
@@ -550,8 +573,13 @@ mod tests {
                 document.read_model_refs(),
                 vec![ReadModelRef::new::<Profile>(Uuid::nil())]
             );
+        }
+        for result in [
+            single.try_into_resource_document(),
+            list.try_into_resource_document(),
+        ] {
             assert!(matches!(
-                document.try_to_resource_document(),
+                result,
                 Err(ReadModelDocumentError::ReadModelView(_))
             ));
         }
@@ -563,52 +591,63 @@ mod tests {
             data: None,
             included: vec![],
         };
-        let list: ReadModelListDocument<Profile, ProfileIncluded> = ReadModelListDocument {
-            data: vec![],
-            included: vec![],
-        };
+        let list: ReadModelListDocument<Profile, ProfileIncluded, TestCursor<String>> =
+            ReadModelListDocument {
+                meta: None,
+                data: vec![],
+                included: vec![],
+            };
         assert!(single.read_model_refs().is_empty());
         assert!(list.read_model_refs().is_empty());
         assert_eq!(
-            serde_json::to_value(single.try_to_resource_document().unwrap()).unwrap(),
+            serde_json::to_value(single.try_into_resource_document().unwrap()).unwrap(),
             json!({"data": null})
         );
         assert_eq!(
-            serde_json::to_value(list.try_to_resource_document().unwrap()).unwrap(),
+            serde_json::to_value(list.try_into_resource_document().unwrap()).unwrap(),
             json!({"data": []})
         );
     }
 
     #[test]
     fn list_document_preserves_order_and_per_item_filters() {
-        let document: ReadModelListDocument<Profile, ProfileIncluded> = ReadModelListDocument {
-            data: vec![
-                ReadModelView {
-                    read_model: Profile {
-                        id: Uuid::nil(),
-                        display_name: "Alice".to_owned(),
-                        picture: None,
-                        owner_id: None,
-                        author_ids: vec![],
+        let document: ReadModelListDocument<Profile, ProfileIncluded, TestCursor<String>> =
+            ReadModelListDocument {
+                meta: Some(ReadModelListDocumentMeta {
+                    window: Some(ReadModelWindow {
+                        start_cursor: Some(TestCursor("before-alice".to_owned())),
+                        end_cursor: Some(TestCursor("after-bob".to_owned())),
+                        has_before: true,
+                        has_after: false,
+                    }),
+                }),
+                data: vec![
+                    ReadModelView {
+                        read_model: Profile {
+                            id: Uuid::nil(),
+                            display_name: "Alice".to_owned(),
+                            picture: None,
+                            owner_id: None,
+                            author_ids: vec![],
+                        },
+                        filter: ProfileFilter::Public,
                     },
-                    filter: ProfileFilter::Public,
-                },
-                ReadModelView {
-                    read_model: Profile {
-                        id: Uuid::from_u128(42),
-                        display_name: "Bob".to_owned(),
-                        picture: None,
-                        owner_id: None,
-                        author_ids: vec![],
+                    ReadModelView {
+                        read_model: Profile {
+                            id: Uuid::from_u128(42),
+                            display_name: "Bob".to_owned(),
+                            picture: None,
+                            owner_id: None,
+                            author_ids: vec![],
+                        },
+                        filter: ProfileFilter::Selected {
+                            attributes: vec![ProfileAttributeKey::Picture],
+                            relationships: vec![],
+                        },
                     },
-                    filter: ProfileFilter::Selected {
-                        attributes: vec![ProfileAttributeKey::Picture],
-                        relationships: vec![],
-                    },
-                },
-            ],
-            included: vec![],
-        };
+                ],
+                included: vec![],
+            };
         assert_eq!(
             document.read_model_refs(),
             vec![
@@ -616,7 +655,7 @@ mod tests {
                 ReadModelRef::new::<Profile>(Uuid::from_u128(42)),
             ]
         );
-        let output = serde_json::to_value(document.try_to_resource_document().unwrap()).unwrap();
+        let output = serde_json::to_value(document.try_into_resource_document().unwrap()).unwrap();
         assert_eq!(output["data"][0]["id"], Uuid::nil().to_string());
         assert_eq!(
             output["data"][0]["attributes"],
@@ -625,6 +664,124 @@ mod tests {
         assert_eq!(output["data"][1]["id"], Uuid::from_u128(42).to_string());
         assert_eq!(output["data"][1]["attributes"], json!({"picture": null}));
         assert!(output.get("included").is_none());
+        assert_eq!(
+            output["meta"],
+            json!({
+                "window": {
+                    "start_cursor": ReadModelResourceWindowCursor::try_from_json(json!("before-alice")).unwrap(),
+                    "end_cursor": ReadModelResourceWindowCursor::try_from_json(json!("after-bob")).unwrap(),
+                    "has_before": true,
+                    "has_after": false
+                }
+            })
+        );
+    }
+
+    #[test]
+    fn list_document_serializes_typed_cursors_at_resource_conversion() {
+        #[derive(Serialize, Deserialize)]
+        struct Cursor {
+            position: u64,
+        }
+
+        let document: ReadModelListDocument<Profile, ProfileIncluded, TestCursor<Cursor>> =
+            ReadModelListDocument {
+                data: vec![],
+                included: vec![],
+                meta: Some(ReadModelListDocumentMeta {
+                    window: Some(ReadModelWindow {
+                        start_cursor: Some(TestCursor(Cursor { position: 1 })),
+                        end_cursor: Some(TestCursor(Cursor { position: 10 })),
+                        has_before: false,
+                        has_after: true,
+                    }),
+                }),
+            };
+        let ReadModelResourceDocument::List { meta, .. } =
+            document.try_into_resource_document().unwrap()
+        else {
+            panic!("expected list document");
+        };
+        let window = meta.unwrap().window.unwrap();
+        assert_eq!(
+            window.start_cursor.unwrap().try_into_json().unwrap(),
+            json!({"position":1})
+        );
+        assert_eq!(
+            window.end_cursor.unwrap().try_into_json().unwrap(),
+            json!({"position":10})
+        );
+        assert!(!window.has_before);
+        assert!(window.has_after);
+    }
+
+    #[test]
+    fn cursor_encoding_failure_propagates_through_document_conversion() {
+        let document: ReadModelListDocument<
+            Profile,
+            ProfileIncluded,
+            TestCursor<BTreeMap<Vec<u8>, u8>>,
+        > = ReadModelListDocument {
+            data: vec![],
+            included: vec![],
+            meta: Some(ReadModelListDocumentMeta {
+                window: Some(ReadModelWindow {
+                    start_cursor: Some(TestCursor(BTreeMap::from([(vec![1], 1)]))),
+                    end_cursor: None,
+                    has_before: false,
+                    has_after: false,
+                }),
+            }),
+        };
+        assert!(document.read_model_refs().is_empty());
+        assert!(matches!(
+            document.try_into_resource_document(),
+            Err(ReadModelDocumentError::ListDocumentMeta(
+                ReadModelListDocumentMetaError::Window(ReadModelWindowError::Cursor(
+                    ReadModelWindowCursorError::Json(_)
+                ))
+            ))
+        ));
+    }
+
+    #[test]
+    fn window_preserves_absent_boundaries_and_optional_metadata() {
+        let document: ReadModelListDocument<Profile, ProfileIncluded, TestCursor<String>> =
+            ReadModelListDocument {
+                data: vec![],
+                included: vec![],
+                meta: Some(ReadModelListDocumentMeta {
+                    window: Some(ReadModelWindow {
+                        start_cursor: None,
+                        end_cursor: None,
+                        has_before: false,
+                        has_after: false,
+                    }),
+                }),
+            };
+        assert_eq!(
+            serde_json::to_value(document.try_into_resource_document().unwrap()).unwrap(),
+            json!({
+                "data": [],
+                "meta": {
+                    "window": {
+                        "start_cursor": null,
+                        "end_cursor": null,
+                        "has_before": false,
+                        "has_after": false
+                    }
+                }
+            })
+        );
+        assert_eq!(
+            serde_json::to_value(
+                ReadModelListDocumentMeta::<TestCursor<String>> { window: None }
+                    .try_into_resource_list_document_meta()
+                    .unwrap()
+            )
+            .unwrap(),
+            json!({})
+        );
     }
 
     #[test]

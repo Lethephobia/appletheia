@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-use super::{ReadModelIncludedError, ReadModelViewError};
+use super::{ReadModelIncludedError, ReadModelListDocumentMetaError, ReadModelViewError};
 
 #[derive(Debug, Error)]
 pub enum ReadModelDocumentError {
@@ -9,4 +9,7 @@ pub enum ReadModelDocumentError {
 
     #[error(transparent)]
     Included(#[from] ReadModelIncludedError),
+
+    #[error(transparent)]
+    ListDocumentMeta(#[from] ReadModelListDocumentMetaError),
 }

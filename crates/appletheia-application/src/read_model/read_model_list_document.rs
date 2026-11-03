@@ -1,23 +1,27 @@
 use std::collections::HashSet;
 
 use super::{
-    ReadModel, ReadModelDocument, ReadModelDocumentError, ReadModelIncluded, ReadModelRef,
-    ReadModelResourceDocument, ReadModelResourceDocumentData, ReadModelView,
+    ReadModel, ReadModelDocument, ReadModelDocumentError, ReadModelIncluded,
+    ReadModelListDocumentMeta, ReadModelRef, ReadModelResourceDocument, ReadModelView,
+    ReadModelWindowCursor,
 };
 
-pub struct ReadModelListDocument<R, I>
+pub struct ReadModelListDocument<R, I, C>
 where
     R: ReadModel,
     I: ReadModelIncluded,
+    C: ReadModelWindowCursor,
 {
     pub data: Vec<ReadModelView<R>>,
     pub included: Vec<I>,
+    pub meta: Option<ReadModelListDocumentMeta<C>>,
 }
 
-impl<R, I> ReadModelDocument for ReadModelListDocument<R, I>
+impl<R, I, C> ReadModelDocument for ReadModelListDocument<R, I, C>
 where
     R: ReadModel,
     I: ReadModelIncluded,
+    C: ReadModelWindowCursor,
 {
     fn read_model_refs(&self) -> Vec<ReadModelRef> {
         let mut seen = HashSet::new();
@@ -29,22 +33,26 @@ where
             .collect()
     }
 
-    fn try_to_resource_document(
-        &self,
+    fn try_into_resource_document(
+        self,
     ) -> Result<ReadModelResourceDocument, ReadModelDocumentError> {
         let data = self
             .data
-            .iter()
-            .map(ReadModelView::try_to_resource)
+            .into_iter()
+            .map(ReadModelView::try_into_resource)
             .collect::<Result<Vec<_>, _>>()?;
         let included = self
             .included
-            .iter()
-            .map(ReadModelIncluded::try_to_resource)
+            .into_iter()
+            .map(ReadModelIncluded::try_into_resource)
             .collect::<Result<Vec<_>, _>>()?;
-        Ok(ReadModelResourceDocument {
-            data: ReadModelResourceDocumentData::List(data),
+        Ok(ReadModelResourceDocument::List {
+            data,
             included,
+            meta: self
+                .meta
+                .map(ReadModelListDocumentMeta::try_into_resource_list_document_meta)
+                .transpose()?,
         })
     }
 }

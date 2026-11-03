@@ -7,7 +7,7 @@ use super::{ReadModelWatch, ReadModelWatcherError};
 #[allow(async_fn_in_trait)]
 pub trait ReadModelWatcher: Send + Sync {
     type Uow: UnitOfWork;
-    type Watch<'a, H>: ReadModelWatch<Document = H::Output, HandlerError = H::Error>
+    type Watch<'a, H>: ReadModelWatch<Query = H::Query, Document = H::Output, HandlerError = H::Error>
     where
         Self: 'a,
         H: QueryHandler<Uow = Self::Uow> + 'a;
