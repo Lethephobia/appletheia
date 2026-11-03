@@ -46,3 +46,7 @@ pub(crate) fn resolve_serde_root() -> Result<Path> {
 pub(crate) fn resolve_uuid_root() -> Result<Path> {
     resolve_crate_root("uuid")
 }
+
+pub(crate) fn resolve_serde_json_root() -> Result<Path> {
+    resolve_crate_root("serde_json")
+}

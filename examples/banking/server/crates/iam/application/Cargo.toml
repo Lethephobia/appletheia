@@ -10,11 +10,11 @@ banking-iam-domain = { workspace = true }
 banking-shared-kernel-domain = { workspace = true }
 chrono = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
 thiserror = { workspace = true }
 url = { workspace = true, features = ["serde"] }
 uuid = { workspace = true, features = ["v7"] }
 
 [dev-dependencies]
-serde_json = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt"] }
 uuid = { workspace = true, features = ["v7"] }

@@ -130,3 +130,48 @@ pub fn saga_step(attr: TokenStream, item: TokenStream) -> TokenStream {
         .unwrap_or_else(syn::Error::into_compile_error)
         .into()
 }
+
+#[proc_macro_derive(ReadModelAttributeKey)]
+pub fn read_model_attribute_key_derive(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    application::read_model_attribute_key_derive(input)
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
+}
+
+#[proc_macro_attribute]
+pub fn read_model_attribute_key(attr: TokenStream, item: TokenStream) -> TokenStream {
+    application::read_model_attribute_key_attribute(attr, item)
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
+}
+
+#[proc_macro_derive(ReadModelRelationshipKey)]
+pub fn read_model_relationship_key_derive(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    application::read_model_relationship_key_derive(input)
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
+}
+
+#[proc_macro_attribute]
+pub fn read_model_relationship_key(attr: TokenStream, item: TokenStream) -> TokenStream {
+    application::read_model_relationship_key_attribute(attr, item)
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
+}
+
+#[proc_macro_derive(ReadModelAttributeValue)]
+pub fn read_model_attribute_value_derive(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    application::read_model_attribute_value_derive(input)
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
+}
+
+#[proc_macro_attribute]
+pub fn read_model_attribute_value(attr: TokenStream, item: TokenStream) -> TokenStream {
+    application::read_model_attribute_value_attribute(attr, item)
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
+}

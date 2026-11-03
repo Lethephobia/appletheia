@@ -20,4 +20,8 @@ pub use appletheia_macros::{
 };
 
 #[cfg(feature = "macros-application")]
-pub use appletheia_macros::{Command, Query, SagaStep, command, query, saga_step};
+pub use appletheia_macros::{
+    Command, Query, ReadModelAttributeKey, ReadModelAttributeValue, ReadModelRelationshipKey,
+    SagaStep, command, query, read_model_attribute_key, read_model_attribute_value,
+    read_model_relationship_key, saga_step,
+};

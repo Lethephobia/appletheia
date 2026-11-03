@@ -1,6 +1,7 @@
 pub mod authorization;
 pub mod command;
 pub mod oidc;
+pub mod read_model;
 pub mod saga;
 
 pub use authorization::*;
@@ -83,6 +84,7 @@ pub use oidc::{
     OidcCompletionPurpose, OidcCompletionRedirectUri, OidcCompletionRedirectUris,
     OidcContinuationPayload, OidcReturnTo, OidcReturnToError,
 };
+pub use read_model::*;
 pub use saga::{
     OrganizationInvitationSaga, OrganizationInvitationSagaHandlerError,
     OrganizationInvitationSagaState, OrganizationJoinRequestSaga,
