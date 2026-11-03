@@ -146,6 +146,7 @@ where
     G: ReadModelWatchGenerationRegistrarFactory<Uow = D::Uow>,
     H: QueryHandler<Uow = D::Uow>,
 {
+    type Query = H::Query;
     type Document = H::Output;
     type HandlerError = H::Error;
 
@@ -199,6 +200,21 @@ where
         };
         self.status = DefaultReadModelWatchStatus::Waiting;
         Ok(ReadModelWatchResult::Document(document))
+    }
+
+    fn update_query(
+        &mut self,
+        query: Self::Query,
+    ) -> Result<(), ReadModelWatchError<Self::HandlerError>> {
+        if matches!(
+            self.status,
+            DefaultReadModelWatchStatus::Closing | DefaultReadModelWatchStatus::Closed
+        ) {
+            return Err(ReadModelWatchError::Closed);
+        }
+        self.query = query;
+        self.status = DefaultReadModelWatchStatus::RefreshRequired;
+        Ok(())
     }
 
     async fn close(&mut self) -> Result<(), ReadModelWatchError<Self::HandlerError>> {
@@ -498,7 +514,7 @@ mod tests {
     }
 
     #[derive(Clone)]
-    struct TestQuery;
+    struct TestQuery(&'static str);
 
     impl Query for TestQuery {
         const NAME: QueryName = QueryName::new("watch_test");
@@ -537,7 +553,7 @@ mod tests {
         }
     }
 
-    struct Handler(Mutex<VecDeque<Response>>);
+    struct Handler(Mutex<VecDeque<Response>>, Mutex<Vec<&'static str>>);
 
     impl QueryHandler for Handler {
         type Query = TestQuery;
@@ -549,8 +565,9 @@ mod tests {
             &self,
             _: &mut TestUow,
             _: &RequestContext,
-            _: TestQuery,
+            query: TestQuery,
         ) -> Result<Document, HandlerError> {
+            self.1.lock().unwrap().push(query.0);
             let response = self.0.lock().unwrap().pop_front().expect("queued response");
             match response {
                 Response::Document(targets) => Ok(Document(targets)),
@@ -581,7 +598,7 @@ mod tests {
                 },
                 factory: DefaultReadModelWatchGenerationRegistrarFactory::new(backend.clone()),
                 backend,
-                handler: Handler(Mutex::new(responses.into())),
+                handler: Handler(Mutex::new(responses.into()), Mutex::new(Vec::new())),
                 context: RequestContext::new(
                     CorrelationId::from(Uuid::now_v7()),
                     MessageId::new(),
@@ -613,7 +630,7 @@ mod tests {
                 },
                 &self.handler,
                 &self.context,
-                TestQuery,
+                TestQuery("old"),
                 ReadModelWatchId::new(),
                 DefaultReadModelWatchReceiver::new(self.endpoint.sender.subscribe()),
             )
@@ -625,6 +642,119 @@ mod tests {
             read_model_type: "user".try_into().unwrap(),
             id: ReadModelId::new(id.to_owned()),
         }
+    }
+
+    #[tokio::test]
+    async fn update_query_defers_work_to_next_and_replaces_targets() {
+        let setup = Setup::new(vec![
+            Response::Document(vec![target("old")]),
+            Response::Document(vec![target("old")]),
+            Response::Document(vec![target("new")]),
+            Response::Document(vec![target("new")]),
+        ]);
+        let mut watch = setup.watch();
+        let id = watch.watch_id();
+        watch.next().await.unwrap();
+        // Cancel a pending notification wait before updating the query.
+        assert!(
+            timeout(Duration::from_millis(10), watch.next())
+                .await
+                .is_err()
+        );
+        let operations = setup.backend.0.lock().unwrap().operations.clone();
+        watch.update_query(TestQuery("new")).unwrap();
+        assert_eq!(watch.watch_id(), id);
+        assert_eq!(watch.status, DefaultReadModelWatchStatus::RefreshRequired);
+        {
+            let state = setup.backend.0.lock().unwrap();
+            assert_eq!(state.operations, operations);
+            assert!(
+                state
+                    .targets
+                    .values()
+                    .any(|targets| targets.contains(&target("old")))
+            );
+        }
+        // No notification is needed for the replacement query.
+        let ReadModelWatchResult::Document(document) =
+            timeout(Duration::from_secs(1), watch.next())
+                .await
+                .unwrap()
+                .unwrap()
+        else {
+            panic!("expected document");
+        };
+        assert_eq!(document.0, vec![target("new")]);
+        assert_eq!(
+            *setup.handler.1.lock().unwrap(),
+            ["old", "old", "new", "new"]
+        );
+        let state = setup.backend.0.lock().unwrap();
+        assert_eq!(state.targets.len(), 1);
+        assert!(
+            !state
+                .targets
+                .values()
+                .any(|targets| targets.contains(&target("old")))
+        );
+    }
+
+    #[tokio::test]
+    async fn repeated_updates_before_next_execute_only_the_latest_query() {
+        let setup = Setup::new(vec![
+            Response::Fail,
+            Response::Document(vec![target("latest")]),
+            Response::Document(vec![target("latest")]),
+        ]);
+        let mut watch = setup.watch();
+        watch.config.retry_options.base_delay = ChronoDuration::milliseconds(1).try_into().unwrap();
+        watch.update_query(TestQuery("intermediate")).unwrap();
+        watch.update_query(TestQuery("latest")).unwrap();
+        assert!(setup.backend.0.lock().unwrap().operations.is_empty());
+        watch.next().await.unwrap();
+        assert_eq!(
+            *setup.handler.1.lock().unwrap(),
+            ["latest", "latest", "latest"]
+        );
+    }
+
+    #[tokio::test]
+    async fn replacement_query_failure_closes_watch_without_restoring_previous_query() {
+        let setup = Setup::new(vec![
+            Response::Document(vec![target("old")]),
+            Response::Document(vec![target("old")]),
+            Response::NotFound,
+        ]);
+        let mut watch = setup.watch();
+        watch.next().await.unwrap();
+        watch.update_query(TestQuery("new")).unwrap();
+        assert!(matches!(
+            watch.next().await,
+            Err(ReadModelWatchError::QueryDispatcher(_))
+        ));
+        assert_eq!(watch.query.0, "new");
+        assert_eq!(watch.status, DefaultReadModelWatchStatus::Closed);
+        assert!(setup.backend.0.lock().unwrap().targets.is_empty());
+    }
+
+    #[tokio::test]
+    async fn closing_and_closed_watches_reject_query_updates() {
+        let setup = Setup::new(vec![]);
+        let mut watch = setup.watch();
+        setup.backend.0.lock().unwrap().fail_remove = true;
+        assert!(watch.close().await.is_err());
+        assert!(matches!(
+            watch.update_query(TestQuery("new")),
+            Err(ReadModelWatchError::Closed)
+        ));
+        setup.backend.0.lock().unwrap().fail_remove = false;
+        watch.close().await.unwrap();
+        assert!(matches!(
+            watch.update_query(TestQuery("new")),
+            Err(ReadModelWatchError::Closed)
+        ));
+        assert_eq!(watch.query.0, "old");
+        assert!(setup.handler.1.lock().unwrap().is_empty());
     }
 
     #[tokio::test]
@@ -903,11 +1033,11 @@ mod tests {
             setup.factory,
         );
         let mut first = watcher
-            .watch(&setup.handler, &setup.context, TestQuery)
+            .watch(&setup.handler, &setup.context, TestQuery("old"))
             .await
             .unwrap();
         let mut second = watcher
-            .watch(&setup.handler, &setup.context, TestQuery)
+            .watch(&setup.handler, &setup.context, TestQuery("old"))
             .await
             .unwrap();
         assert_ne!(first.watch_id(), second.watch_id());
@@ -955,7 +1085,7 @@ mod tests {
                 setup.factory,
             );
             let result = watcher
-                .watch(&setup.handler, &setup.context, TestQuery)
+                .watch(&setup.handler, &setup.context, TestQuery("old"))
                 .await;
             match failure {
                 "begin" => assert!(matches!(
