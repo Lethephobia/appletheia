@@ -18,6 +18,7 @@ impl ReadModelFieldFilter for UserReadModelFilter {
                 UserReadModelAttributeKey::Username,
                 UserReadModelAttributeKey::DisplayName,
                 UserReadModelAttributeKey::Bio,
+                UserReadModelAttributeKey::Picture,
             ],
         }
     }

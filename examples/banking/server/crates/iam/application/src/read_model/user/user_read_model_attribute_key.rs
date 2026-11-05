@@ -5,4 +5,5 @@ pub enum UserReadModelAttributeKey {
     Username,
     DisplayName,
     Bio,
+    Picture,
 }

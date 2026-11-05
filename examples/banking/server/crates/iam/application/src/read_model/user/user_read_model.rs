@@ -1,5 +1,5 @@
 use appletheia::application::read_model::{ReadModel, ReadModelType};
-use banking_iam_domain::{UserBio, UserDisplayName, UserId, Username};
+use banking_iam_domain::{UserBio, UserDisplayName, UserId, UserPictureUrl, Username};
 
 use crate::read_model::UserIdentityReadModelId;
 
@@ -14,6 +14,7 @@ pub struct UserReadModel {
     pub username: Option<Username>,
     pub display_name: Option<UserDisplayName>,
     pub bio: Option<UserBio>,
+    pub picture: Option<UserPictureUrl>,
     pub identities: Vec<UserIdentityReadModelId>,
 }
 
@@ -40,6 +41,9 @@ impl ReadModel for UserReadModel {
                 UserReadModelAttributeValue::DisplayName(self.display_name.clone())
             }
             UserReadModelAttributeKey::Bio => UserReadModelAttributeValue::Bio(self.bio.clone()),
+            UserReadModelAttributeKey::Picture => {
+                UserReadModelAttributeValue::Picture(self.picture.clone())
+            }
         }
     }
 
@@ -55,7 +59,7 @@ impl ReadModel for UserReadModel {
 #[cfg(test)]
 mod tests {
     use appletheia::application::read_model::ReadModelView;
-    use banking_iam_domain::{UserBio, UserDisplayName, UserId, Username};
+    use banking_iam_domain::{UserBio, UserDisplayName, UserId, UserPictureUrl, Username};
     use serde_json::json;
 
     use super::{UserReadModel, UserReadModelFilter};
@@ -75,6 +79,7 @@ mod tests {
             username: None,
             display_name: None,
             bio: None,
+            picture: Some(UserPictureUrl::try_from("https://example.com/alice.png").unwrap()),
             identities: vec![identity_id.clone()],
         };
         let public = ReadModelView {
@@ -107,6 +112,10 @@ mod tests {
         assert!(public_json.get("relationships").is_none());
         assert_eq!(private_json["attributes"], public_json["attributes"]);
         assert_eq!(
+            public_json["attributes"]["picture"],
+            json!("https://example.com/alice.png")
+        );
+        assert_eq!(
             private_json["relationships"],
             json!({
                 "identities": {"data": [{"type": "user_identity", "id": identity_id.to_string()}]}
@@ -130,6 +139,7 @@ mod tests {
                 username: None,
                 display_name: None,
                 bio: None,
+                picture: None,
                 identities: vec![],
             },
             filter: UserReadModelFilter::Private,
@@ -152,6 +162,7 @@ mod tests {
                 username: Some(Username::new("alice".to_owned()).unwrap()),
                 display_name: Some(UserDisplayName::new("Alice".to_owned()).unwrap()),
                 bio: Some(UserBio::new("Hello".to_owned()).unwrap()),
+                picture: Some(UserPictureUrl::try_from("https://example.com/alice.png").unwrap()),
                 identities: vec![],
             },
             filter: UserReadModelFilter::Public,
@@ -167,7 +178,8 @@ mod tests {
                 "attributes": {
                     "username": "alice",
                     "display_name": "Alice",
-                    "bio": "Hello"
+                    "bio": "Hello",
+                    "picture": "https://example.com/alice.png"
                 }
             })
         );
@@ -182,6 +194,7 @@ mod tests {
                 username: None,
                 display_name: None,
                 bio: None,
+                picture: None,
                 identities: vec![],
             },
             filter: UserReadModelFilter::Public,
@@ -197,7 +210,8 @@ mod tests {
                 "attributes": {
                     "username": null,
                     "display_name": null,
-                    "bio": null
+                    "bio": null,
+                    "picture": null
                 }
             })
         );
